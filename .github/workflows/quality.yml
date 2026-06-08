@@ -1,0 +1,84 @@
+name: Quality Gate
+on:
+  pull_request:
+  push:
+    branches: [main, dev]
+
+jobs:
+  lint-typecheck-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -w typecheck
+      - run: pnpm -w lint
+      - run: pnpm -w test:unit
+      - run: pnpm -w build
+
+  # Garde-fou 3 TMS-Ready : anti-couplage MTS-1/Everest (deterministe, sans DB).
+  # Echec = reference directe a un transporteur hors packages/adapters/.
+  anti-coupling:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash scripts/check-coupling.sh
+
+  # Tests pgTAP : RLS (sous role 'authenticated', non negociable) + garde-fou 4
+  # TMS-Ready (outbox par mutation : supabase/tests/outbox_par_mutation.test.sql).
+  # `supabase test db` execute TOUS les *.test.sql via pg_prove → les deux sont
+  # couverts par ce job bloquant.
+  pgtap-rls-outbox:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+      - run: supabase start
+      - run: supabase db reset
+      - run: supabase test db   # pgTAP RLS (role 'authenticated') + outbox par mutation
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps
+      - run: pnpm -w test:e2e
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: gitleaks/gitleaks-action@v2
+      - uses: pnpm/action-setup@v4
+      - run: pnpm audit --audit-level=high || true
+
+  migrations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+      - run: supabase start
+      - run: supabase db reset --debug
+      - name: Garde anti-destructif
+        run: |
+          if git diff --name-only origin/main... -- 'supabase/migrations/**' \
+             | xargs -r grep -Eil 'drop +(table|column)|truncate' ; then
+            echo "::error::Migration destructive detectee -- revue humaine obligatoire"; exit 1
+          fi
+
+  bundle-budget:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec size-limit

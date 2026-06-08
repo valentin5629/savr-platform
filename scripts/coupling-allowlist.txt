@@ -1,0 +1,21 @@
+# =============================================================================
+# Allowlist du garde-fou 3 (anti-couplage TMS) — scripts/check-coupling.sh
+# =============================================================================
+# Un chemin liste ici est EXEMPTE du motif "mts1" / "everest" uniquement.
+# Le motif "customerOrders" n'est JAMAIS exempte, meme via ce fichier.
+#
+# Regles d'usage :
+#   - 1 glob de chemin par ligne (relatif a la racine du repo). `*` traverse `/`.
+#   - Toute ligne ajoutee ici est VISIBLE EN PR → l'erosion du garde-fou est
+#     revue, jamais silencieuse. Justifier chaque entree en commentaire.
+#   - N'exempter que des CONSTANTES legitimes (valeurs d'enum / seed), jamais
+#     de la LOGIQUE metier qui appelle un transporteur (celle-ci va en adapters).
+#
+# Cas anticipe : la valeur d'enum transporteurs.type_tms = 'mts1' | 'everest'
+# vit dans la migration qui cree le type + le seed du referentiel transporteurs.
+# Decommenter et ajuster le nom exact quand la migration sera ecrite :
+#
+#   supabase/migrations/*_plateforme_transporteurs*.sql
+#   supabase/seed.sql
+#
+# (Aucune exception active par defaut — repo squelette.)

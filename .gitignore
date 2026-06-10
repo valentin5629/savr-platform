@@ -9,3 +9,6 @@ dist/
 .DS_Store
 coverage/
 .env.local
+
+# Specs allégées : symlink local vers le Vault (machine-specific, jamais committé)
+_DEV-FACING

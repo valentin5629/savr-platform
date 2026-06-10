@@ -1,0 +1,23 @@
+node_modules
+dist
+.next
+.turbo
+coverage
+pnpm-lock.yaml
+
+# Symlink local vers le Vault (cf. .gitignore).
+_DEV-FACING
+
+# Docs regenerees hors du repo (Vault Obsidian / harnais qualite) — eviter
+# le churn permanent entre Prettier et la regeneration.
+CLAUDE.md
+BRANCH_PROTECTION.md
+CHECKLIST_CHECKPOINT.md
+DEFINITION_OF_DONE.md
+RUNBOOK_INCIDENT.md
+README.md
+.claude/agents/
+
+# Configs avec layout volontaire.
+.claude/settings.json
+.size-limit.json

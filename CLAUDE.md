@@ -36,7 +36,7 @@ Savr collecte les invendus d'événements traiteurs : **AG** (Anti-Gaspi, don à
 - La Plateforme **ne parle jamais directement** à MTS-1/Everest depuis le code métier → toujours via l'interface **`logistique_provider`** (impl. `adapter_mts1`, `adapter_everest`). `grep mts1|everest|customerOrders` hors `packages/adapters/` doit retourner 0.
 - **MTS-1 = polling** (cron 15 min : `GET /v3/customerOrders`, `GET /v3/tours/{id}`, download photos), auth client-credentials, Bearer en Vault. **Le contrat webhook S1-S11 du §08 n'est PAS implémenté en V1** — c'est la cible V2 (gelée, validable en isolation contre les JSON Schemas `08 - savr-api-contracts/`).
 - Sélection provider via `transporteurs.type_tms` (`mts1` | `everest`).
-- **Outbox obligatoire dès V1** : toute mutation métier émettant un event (E1 `collecte.creee`, E2 `collecte.modifiee`, E3 `collecte.annulee`, E5 `lieu.champ_critique_modifie`) écrit une ligne `outbox_events` **dans la même transaction**. L'adapter MTS-1 la consomme.
+- **Outbox obligatoire dès V1** : toute mutation métier émettant un event (E1 `collecte.creee`, E2 `collecte.modifiee`, E3 `collecte.annulee`, E5 `lieu.champ_critique_modifie`) écrit une ligne `outbox_events` **dans la même transaction**. L'adapter MTS-1 la consomme. **Consommation durcie (revue frère 2026-06-08, cf. `04 - Data Model` table `outbox_events`) :** `FOR UPDATE SKIP LOCKED` + `pg_try_advisory_lock` (worker unique), ordering par `seq` bigserial (jamais `created_at`), **head-of-line blocking par collecte** (event N+1 d'un agrégat consommé seulement si tous les `seq ≤ N` du même agrégat sont `consumed`), retry backoff, **DLQ → alerte Slack `#savr-alerts-critique`**. Idempotence `POST /v3/customerOrders` MTS-1 = QO à confirmer.
 
 ---
 
@@ -64,7 +64,7 @@ Savr collecte les invendus d'événements traiteurs : **AG** (Anti-Gaspi, don à
 
 > Source de vérité : `_DEV-FACING/01 - …/Frontière TMS-Ready V1.md`. Toute violation = refonte massive en V2. Vérifiés par `cdc-readiness-check` (DEV + PROD).
 
-1. **Data model V1 ⊂ data model archive** — uniquement des omissions, jamais une structure divergente qui sera renommée/migrée. Diff schéma bloquant.
+1. **Data model V1 ⊂ data model archive** — uniquement des omissions, jamais une structure divergente qui sera renommée/migrée. Diff schéma bloquant. **✅ Prérequis levé (2026-06-08) :** DDL cible V2 exécutable écrit et gelé → `_DDL-CIBLE-V2/schema_cible_v2.sql` (87 tables = 53 `plateforme.*` + 32 `tms.*` + 2 `shared.*`, 52 enums, 158 FK ; validé par le vrai parseur PostgreSQL libpg_query). Cf. `_DDL-CIBLE-V2/README.md` (périmètre = structure diffable sans RLS/triggers/vues ; 7 ambiguïtés `/* AMBIGU */` à confirmer par Val, dont A4 audit). **Fichier DÉRIVÉ : à régénérer après toute modif d'un Data Model.** Le diff des migrations V1 se fait désormais contre ce fichier (nom ⊆ cible ? type identique ? pas de champ renommable ?). **Repriorisation conservée :** câbler d'abord garde-fou 3 (grep anti-couplage) + garde-fou 4 (test outbox par mutation), le diff schéma vient ensuite.
 2. **Frontière V2 = data model interne, PAS le contrat wire** — adapter V1 et TMS V2 alimentent **les mêmes tables avec la même sémantique** (`collectes`, pesées, `statut_tms`, `tournees`, photos via `shared.fichiers`, `outbox_events`). Contrat §08 gelé comme cible V2.
 3. **Abstraction `logistique_provider` obligatoire** — 0 réf directe `mts1`/`everest` hors `packages/adapters/` (lint/grep custom).
 4. **Events outbox émis dès V1** — `outbox_events` peuplée par chaque mutation métier (E1/E2/E3/E5), test présent par mutation. Pattern transactional outbox.
@@ -81,6 +81,7 @@ Savr collecte les invendus d'événements traiteurs : **AG** (Anti-Gaspi, don à
 - **SI** collecte passe à `realisee` **ET** type=AG **ALORS** générer attestation don au batch J+1 6h, AVEC mention fiscale 2041-GE si `association.habilitee_fiscale=true` **SINON** sans mention.
 - **SI** `realisee_sans_collecte` (AG only) **ALORS** facture au tarif normal V1, pas d'attestation, badge + motif + photo + alerte Ops.
 - **SI** `pesee.poids_kg < seuil_min` **OU** `> seuil_max` (ZD only) **ALORS** alerte **in-app** Admin (pas d'email, pas de template).
+- **Multi-camions (V1/MTS-1)** : **SI** grosse collecte **ALORS** Ops fixe N (`collectes.nb_camions_demande`, même transporteur, volume global) **ET** l'adapter crée N customerOrders + N tournées (1 par camion, clé idempotence `reference-{rang}`, `external_ref_commande` stocké par tournée) **ET** agrège lui-même « tous les tours finis » → `realisee` (pas de webhook S5 en V1). **V2** : le TMS natif décide N et agrège (option a) — data model identique, garde-fou 2. L'outbox reste **par collecte** (`collecte.creee`), jamais par camion.
 - Registre réglementaire = collectes **`cloturee` seules + ZD only**.
 - Factures : numérotation séquentielle **gapless** (`sequences_facturation`), numéro conservé après échec 4xx. Avoir autorisé sur facture `payee`.
 - Emails : 16 templates seed V1, vouvoiement, FR, 0 emoji, signature « L'équipe Savr ». UI d'édition = V1.1.
@@ -96,7 +97,7 @@ Savr collecte les invendus d'événements traiteurs : **AG** (Anti-Gaspi, don à
 | `fichiers` | `shared` | Plateforme + adapters | Plateforme |
 | `lieux` | `plateforme` | Plateforme | Plateforme |
 | `collectes` | `plateforme` | Plateforme + adapter MTS-1 (statut/pesées) | Plateforme |
-| `collecte_tournees` (N↔N) | `plateforme` | Adapter MTS-1 (1 ordre = 1 course nominal) | Plateforme (calcul marge) |
+| `collecte_tournees` (N↔N) | `plateforme` | Adapter MTS-1 (1 collecte = N camions, N décidé par Ops `nb_camions_demande`, 1 camion = 1 customerOrder + 1 tournée) | Plateforme (calcul marge) |
 | `outbox_events` | `plateforme` | Plateforme (mutations) | Adapter MTS-1 (V1), TMS natif (V2) |
 | `tms.*` | `tms` | **— non créé en V1 —** | — |
 
@@ -112,9 +113,9 @@ Savr collecte les invendus d'événements traiteurs : **AG** (Anti-Gaspi, don à
 
 ## 7. Gates & questions ouvertes (NE PAS débloquer sans Val)
 
-- 🔒 **GATE Everest (BLOQUANT avant tout code Everest)** : Val a envoyé un mail au dev Everest le 2026-06-07 (TTL token, sécu webhooks, course vide, sandbox). **Attendre sa réponse** avant de coder l'adapter Everest / §08 App §3 V1 + Q1-Q4 M14.
+- 🔒 **GATE Everest — DÉCISION 2026-06-08 (revue frère, validée) : Everest hors périmètre go-live → V1.1.** Vélo cargo marginal + API fragile (token sans refresh, webhooks sans HMAC, pas de sandbox) + QO non résolues (re-fetch course par id, IP stables). **Ne PAS coder l'adapter Everest pour le go-live.** Au lancement, les AG IDF concernées basculent sur le fallback MTS-1 (Marathon). Code Everest = V1.1, **après** réponse dev Everest (mail 2026-06-07 : TTL token, sécu webhooks, course vide, sandbox/compte test — en attente) + compte test fourni. Pattern sécu retenu pour V1.1 : webhook = signal → re-fetch API = vérité + rate-limit + dédup + aucune action irréversible depuis le webhook. Cf. §08 App §3 V1 (gelé) + Q1-Q4 M14.
 - **DNS `gosavr.io`** : registrar + hébergeur DNS à identifier pour CNAME Supabase/Railway/Vercel (en attente ancien CTO). Bloque Phase 1 infra.
-- **Profils go-live** : quels rôles sont indispensables au go-live ? Everest bloquant ou activable en V1.1 ? — Val tranche plus tard (impacte ordre Phases 9-10).
+- **Profils go-live** : quels rôles sont indispensables au go-live ? — Val tranche plus tard (impacte ordre Phases 9-10). *(Everest : tranché 2026-06-08 = V1.1, hors go-live — cf. gate Everest ci-dessus.)*
 - **[Action Val — calendrier]** Date d'échéance licence MTS-1 = conditionne la date de cutover (go-live ≥ échéance − 1 mois double-run).
 - **[Action Val — juridique]** Validation juriste RSE/RGPD (base légale géoloc, notice, AIPD) avant go-live.
 
@@ -163,7 +164,13 @@ Pour toute zone d'ombre non tranchée ici : **stop et demander**.
 | Algo attribution AG | `01 - …/06 - …/09 - Flux algo attribution AG (Admin).md` |
 | Dashboards | `01 - …/11 - Dashboards.md` |
 | Reporting / exports | `01 - …/12 - Reporting et exports.md` |
-| Adapter MTS-1 (as-built) | `01 - …/Adapter MTS-1 (MyTroopers) — relevé as-built Bubble.md` (source brute Vault, hors export) |
+| **Design System (UI — toute interface)** | `01 - …/10 - Design System.md` |
+| **Sécurité / conformité (RGPD)** | `01 - …/15 - Sécurité et conformité.md` |
+| **CGU (flux onboarding / acceptation CGV)** | `01 - …/CGU Savr V1 - Draft.md` |
+| **Scalabilité / évolutivité** | `01 - …/14 - Scalabilité et évolutivité.md` |
+| Vision / objectifs (contexte) | `01 - …/01 - Vision et objectifs.md` |
+| Personas / cas d'usage (contexte + QA) | `01 - …/02 - Personas et cas d'usage.md` |
+| Adapter MTS-1 (as-built) | `01 - …/Adapter MTS-1 (MyTroopers) — relevé as-built Bubble.md` (exporté dans `_DEV-FACING/` — décision E2 2026-06-10) |
 | APIs / intégrations | `01 - …/08 - APIs et intégrations.md` |
 | Contrat API V2 (cible) | `02 - …/08 - Contrat API Plateforme-TMS.md` + `08 - savr-api-contracts/` |
 | Migration Bubble + MTS-1 | `04 - Migration/` (dans le Vault) |
@@ -179,7 +186,7 @@ Pour toute zone d'ombre non tranchée ici : **stop et demander**.
 | Organisation (traiteur/lieu) | Client B2B Savr | `plateforme.organisations` (type) |
 | Lieu | Lieu d'événement | `plateforme.lieux` |
 | Association | Bénéficiaire don AG | `plateforme.associations` |
-| Pack | Crédit collectes AG | `plateforme.packs_ag` |
+| Pack | Crédit collectes AG | `plateforme.packs_antgaspi` |
 | Événement | Réception organisée | `plateforme.evenements` |
 | Collecte | Récup des invendus | `plateforme.collectes` |
 | AG | Anti-Gaspi (don asso) | `collectes.type='ag'` |
@@ -229,7 +236,7 @@ Pour toute zone d'ombre non tranchée ici : **stop et demander**.
 > Stack : **Supabase Logs + Sentry + Better Uptime + Slack (3 canaux par sévérité)**. Pas de Datadog V1 (décision 9.1.3). OpenTelemetry léger instrumenté dès V1.
 > Arbitrages session : OBS-1 alertes → **Slack 3 canaux** (`#savr-alerts-critique`/`-eleve`/`-info`), SMS Better Uptime = filet uptime critique ; OBS-2 audit trail = **écritures sensibles seulement** ; OBS-3 `/health/full` = **DB + Auth seul**.
 > Réconciliations à respecter au build : pesée hors seuil ZD + collecte non transmise TMS + `realisee_sans_collecte` = **in-app / dashboard, jamais d'alerte Slack** (pas de doublon). Dashboards métier = `11 - Dashboards` fait foi ; `07 - Observabilité/04` n'ajoute que la couche ops `v_ops_*`. Audit trail = table `audit_log` `04 - Data Model` (ne pas redéfinir).
-> **À faire :** régénérer `_DEV-FACING/` (`cdc-devfacing-export`) pour propager ce dossier avant le handoff dev.
+> Propagé dans `_DEV-FACING/` (régé `cdc-devfacing-export` 2026-06-10).
 
 ---
 
@@ -254,4 +261,4 @@ Catalogue/volumétrie (`01`), couverture règles métier (`02`), timeline `seed_
 > **Optimisations autorisées sans Val** : index RLS + composites, pagination/cursor, cache LRU paramétrages, PDF + API tierces async, vues matérialisées dashboards, PgBouncer. **Interdites sans Val** : Redis/Memcached, CDN custom, sharding, read replicas.
 > **Monitoring perf** = extension `07 - Observabilité/` (aucun outil ajouté) : 6 alertes perf câblées dans les 3 canaux Slack existants. Anti-doublon : alertes fonctionnelles restent in-app, seules les alertes techniques vont sur Slack.
 > Position pipeline : skill exécutée tôt (post-handoff) pour figer les cibles que Claude Code respectera pendant le dev. Re-vérifiée par `cdc-readiness-check` mode PROD (les benchmarks S1+S4 doivent passer).
-> **À faire :** régénérer `_DEV-FACING/` (`cdc-devfacing-export`) pour propager ce dossier avant le handoff dev.
+> Propagé dans `_DEV-FACING/` (régé `cdc-devfacing-export` 2026-06-10).

@@ -13,6 +13,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20, cache: pnpm }
       - run: pnpm install --frozen-lockfile
+      - run: pnpm -w format:check
       - run: pnpm -w typecheck
       - run: pnpm -w lint
       - run: pnpm -w test:unit
@@ -30,17 +31,22 @@ jobs:
   # TMS-Ready (outbox par mutation : supabase/tests/outbox_par_mutation.test.sql).
   # `supabase test db` execute TOUS les *.test.sql via pg_prove → les deux sont
   # couverts par ce job bloquant.
+  # Skip 0.1 : aucune migration -> rien a tester. Reactive automatiquement des
+  # qu'un fichier apparait dans supabase/migrations/ (module 0.3).
   pgtap-rls-outbox:
     runs-on: ubuntu-latest
+    if: hashFiles('supabase/migrations/*.sql') != ''
     steps:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
       - run: supabase start
       - run: supabase db reset
-      - run: supabase test db   # pgTAP RLS (role 'authenticated') + outbox par mutation
+      - run: supabase test db # pgTAP RLS (role 'authenticated') + outbox par mutation
 
+  # Skip 0.1 : pas de Playwright config (verticales UI, modules > 0.1).
   e2e:
     runs-on: ubuntu-latest
+    if: hashFiles('playwright.config.*') != ''
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -59,8 +65,11 @@ jobs:
       - uses: pnpm/action-setup@v4
       - run: pnpm audit --audit-level=high || true
 
+  # Skip 0.1 : aucune migration -> rien a verifier. Reactive automatiquement
+  # des qu'un fichier apparait dans supabase/migrations/ (module 0.3).
   migrations:
     runs-on: ubuntu-latest
+    if: hashFiles('supabase/migrations/*.sql') != ''
     steps:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
@@ -73,8 +82,10 @@ jobs:
             echo "::error::Migration destructive detectee -- revue humaine obligatoire"; exit 1
           fi
 
+  # Skip 0.1 : pas de build Next.js (next.config.* arrive en module 0.4).
   bundle-budget:
     runs-on: ubuntu-latest
+    if: hashFiles('packages/plateforme/next.config.*') != ''
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

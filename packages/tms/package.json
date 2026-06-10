@@ -1,11 +1,11 @@
 {
-  "name": "@savr/shared",
+  "name": "@savr/tms",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "main": "src/index.ts",
   "scripts": {
-    "build": "echo 'shared: build no-op (paquet TS-only consommé via main)'",
+    "build": "echo 'tms: gabarit V2, build no-op en V1'",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   }
 }

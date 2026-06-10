@@ -5,6 +5,37 @@ on:
     branches: [main, dev]
 
 jobs:
+  # Detection des prerequis pour les jobs differes (modules 0.3 / 0.4).
+  # `hashFiles()` n'est pas autorise au niveau `jobs.<job_id>.if` — on passe
+  # par un job de detection + outputs reutilises via `needs`. Pattern propre,
+  # pas de continue-on-error : un job sans prerequis = simplement non execute.
+  detect-prereqs:
+    runs-on: ubuntu-latest
+    outputs:
+      has_migrations: ${{ steps.detect.outputs.has_migrations }}
+      has_playwright: ${{ steps.detect.outputs.has_playwright }}
+      has_next: ${{ steps.detect.outputs.has_next }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: detect
+        run: |
+          set -e
+          if compgen -G "supabase/migrations/*.sql" > /dev/null; then
+            echo "has_migrations=true"  >> "$GITHUB_OUTPUT"
+          else
+            echo "has_migrations=false" >> "$GITHUB_OUTPUT"
+          fi
+          if compgen -G "playwright.config.*" > /dev/null; then
+            echo "has_playwright=true"  >> "$GITHUB_OUTPUT"
+          else
+            echo "has_playwright=false" >> "$GITHUB_OUTPUT"
+          fi
+          if compgen -G "packages/plateforme/next.config.*" > /dev/null; then
+            echo "has_next=true"  >> "$GITHUB_OUTPUT"
+          else
+            echo "has_next=false" >> "$GITHUB_OUTPUT"
+          fi
+
   lint-typecheck-test:
     runs-on: ubuntu-latest
     steps:
@@ -34,8 +65,9 @@ jobs:
   # Skip 0.1 : aucune migration -> rien a tester. Reactive automatiquement des
   # qu'un fichier apparait dans supabase/migrations/ (module 0.3).
   pgtap-rls-outbox:
+    needs: detect-prereqs
+    if: needs.detect-prereqs.outputs.has_migrations == 'true'
     runs-on: ubuntu-latest
-    if: hashFiles('supabase/migrations/*.sql') != ''
     steps:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
@@ -45,8 +77,9 @@ jobs:
 
   # Skip 0.1 : pas de Playwright config (verticales UI, modules > 0.1).
   e2e:
+    needs: detect-prereqs
+    if: needs.detect-prereqs.outputs.has_playwright == 'true'
     runs-on: ubuntu-latest
-    if: hashFiles('playwright.config.*') != ''
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -68,8 +101,9 @@ jobs:
   # Skip 0.1 : aucune migration -> rien a verifier. Reactive automatiquement
   # des qu'un fichier apparait dans supabase/migrations/ (module 0.3).
   migrations:
+    needs: detect-prereqs
+    if: needs.detect-prereqs.outputs.has_migrations == 'true'
     runs-on: ubuntu-latest
-    if: hashFiles('supabase/migrations/*.sql') != ''
     steps:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
@@ -84,8 +118,9 @@ jobs:
 
   # Skip 0.1 : pas de build Next.js (next.config.* arrive en module 0.4).
   bundle-budget:
+    needs: detect-prereqs
+    if: needs.detect-prereqs.outputs.has_next == 'true'
     runs-on: ubuntu-latest
-    if: hashFiles('packages/plateforme/next.config.*') != ''
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

@@ -96,10 +96,10 @@ INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, da
 VALUES
   ('cccc0001-0000-0000-0000-000000000001'::uuid,
    '0e0e0001-0000-0000-0000-000000000001'::uuid,
-   'zd', 'programmee', 'non_envoye', current_date + 10, '08:00'),
+   'zero_dechet', 'programmee', 'non_envoye', current_date + 10, '08:00'),
   ('cccc0002-0000-0000-0000-000000000001'::uuid,
    '0e0e0002-0000-0000-0000-000000000001'::uuid,
-   'ag', 'programmee', 'non_envoye', current_date + 5, '09:00');
+   'anti_gaspi', 'programmee', 'non_envoye', current_date + 5, '09:00');
 
 -- Bordereau (pour tests fichiers)
 INSERT INTO plateforme.bordereaux_savr (id, collecte_id, statut)
@@ -385,7 +385,9 @@ SELECT results_eq(
 -- T32 : ops_admin_only_writes_denied — ops_savr ne peut pas écrire config_auto_accept_ag
 SELECT test_set_jwt('ops_savr', NULL);
 SELECT throws_ok(
-  $$INSERT INTO plateforme.config_auto_accept_ag (id, actif) VALUES (gen_random_uuid(), true)$$,
+  $$INSERT INTO plateforme.config_auto_accept_ag (id, organisation_id, auto_accept_actif)
+    VALUES (gen_random_uuid(), '11111111-0000-0000-0000-000000000001', true)$$,
+  '42501',
   'T32 ops_admin_only_config_auto_accept_denied'
 );
 

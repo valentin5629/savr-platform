@@ -30,7 +30,7 @@ if ! command -v rsync &>/dev/null; then
   echo "❌  rsync introuvable (brew install rsync)" >&2; exit 1
 fi
 
-EXCLUDE_OPTS="--exclude=.obsidian/ --exclude=.DS_Store --exclude=_ARCHIVE*"
+EXCLUDE_OPTS="--exclude=.obsidian/ --exclude=.DS_Store --exclude=_ARCHIVE* --exclude=.fuse_hidden*"
 
 echo "🔄  Sync specs/ ← Vault : ${VAULT}"
 echo

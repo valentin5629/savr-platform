@@ -687,7 +687,7 @@ SELECT is(count(*)::int, 0, 'T57 BLOQUANT factures_delete_denied_ops_zero_rows')
 -- Aucune policy UPDATE pour traiteur_manager → USING non satisfait → 0 lignes.
 SELECT test_as_superuser();
 INSERT INTO plateforme.rapports_rse (id, evenement_id, collecte_id, disponible_a)
-  VALUES ('rrr00001-0000-0000-0000-000000000001'::uuid,
+  VALUES ('a5e00001-0000-0000-0000-000000000001'::uuid,
     '0e0e0001-0000-0000-0000-000000000001'::uuid,
     'cccc0001-0000-0000-0000-000000000001'::uuid,
     now());

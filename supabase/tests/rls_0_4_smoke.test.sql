@@ -659,8 +659,8 @@ SELECT throws_ok(
 -- Même admin_savr ne peut pas écrire directement → 42501.
 SELECT test_set_jwt('admin_savr', NULL);
 SELECT throws_ok(
-  $$INSERT INTO plateforme.integrations_inbox (event_id, type, source, occurred_at, statut)
-    VALUES (gen_random_uuid(), 'test.event', 'tms', now(), 'traite')$$,
+  $$INSERT INTO plateforme.integrations_inbox (source, event_type, payload)
+    VALUES ('tms', 'test.event', '{}')$$,
   '42501', NULL, 'T56 BLOQUANT inbox_insert_denied_app'
 );
 
@@ -669,11 +669,11 @@ SELECT throws_ok(
 -- Prouve qu'une facture est immuable (jamais de hard-delete) pour les rôles applicatifs.
 SELECT test_as_superuser();
 INSERT INTO plateforme.factures (id, organisation_id, entite_facturation_id, numero_facture,
-    type, mode_facturation, montant_ht, montant_ttc, statut)
+    montant_ht, montant_ttc, statut)
   VALUES ('fac00001-0000-0000-0000-000000000001'::uuid,
     '11111111-0000-0000-0000-000000000001'::uuid,
     'eeff0001-0000-0000-0000-000000000001'::uuid,
-    'FAC-T57-001', 'zero_dechet', 'par_collecte', 100.00, 120.00, 'brouillon');
+    'FAC-T57-001', 100.00, 120.00, 'brouillon');
 
 SELECT test_set_jwt('ops_savr', NULL);
 WITH del AS (

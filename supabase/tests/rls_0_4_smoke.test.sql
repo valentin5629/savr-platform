@@ -28,6 +28,16 @@ BEGIN
   PERFORM set_config('role', 'authenticated', true);
 END $$;
 
+-- Repasse en superuser pour les setups de données entre deux tests (bypass RLS).
+-- Sans ça, un INSERT/UPDATE de setup s'exécute sous le rôle du test précédent et
+-- est bloqué par RLS (INSERT → 42501 fatal ; UPDATE → 0 ligne silencieuse).
+CREATE OR REPLACE FUNCTION test_as_superuser()
+RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  PERFORM set_config('role', 'postgres', true);
+  PERFORM set_config('request.jwt.claims', NULL, true);
+END $$;
+
 -- ---------------------------------------------------------------------------
 -- DONNÉES DE TEST (organisations, lieux, events, collectes)
 -- ---------------------------------------------------------------------------
@@ -254,7 +264,7 @@ SELECT test_set_jwt('traiteur_manager', '11111111-0000-0000-0000-000000000001'::
 SELECT throws_ok(
   $$INSERT INTO plateforme.packs_antgaspi (id, organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, nb_annulees, statut, date_achat)
     VALUES ('0d0d0003-0000-0000-0000-000000000001', '11111111-0000-0000-0000-000000000001', '0a0a0001-0000-0000-0000-000000000001', 5, 0, 0, 'actif', current_date)$$,
-  'packs_ag_write_client_denied'
+  '42501', NULL, 'T16 packs_ag_write_client_denied'
 );
 
 -- T17 : attributions_ag_client_orga_denied — client_organisateur ne voit PAS attributions (C-1)
@@ -310,14 +320,14 @@ SELECT results_eq(
 SELECT test_set_jwt('admin_savr', NULL);
 SELECT throws_ok(
   $$UPDATE plateforme.audit_log SET action = 'tampered' WHERE id IN (SELECT id FROM plateforme.audit_log LIMIT 1)$$,
-  'T22 BLOQUANT audit_log_update_denied_admin'
+  '42501', NULL, 'T22 BLOQUANT audit_log_update_denied_admin'
 );
 
 -- T23 : BLOQUANT — audit_log_delete_denied_admin (Bloc D + Q1)
 SELECT test_set_jwt('admin_savr', NULL);
 SELECT throws_ok(
   $$DELETE FROM plateforme.audit_log WHERE id IN (SELECT id FROM plateforme.audit_log LIMIT 1)$$,
-  'T23 BLOQUANT audit_log_delete_denied_admin'
+  '42501', NULL, 'T23 BLOQUANT audit_log_delete_denied_admin'
 );
 
 -- T24 : audit_log_select_client_denied
@@ -358,15 +368,17 @@ SELECT test_set_jwt('traiteur_manager', '11111111-0000-0000-0000-000000000001'::
 SELECT throws_ok(
   $$INSERT INTO plateforme.entites_facturation (id, organisation_id, raison_sociale, siret, adresse_facturation, code_postal, ville)
     VALUES ('eeff0003-0000-0000-0000-000000000001', '11111111-0000-0000-0000-000000000001', 'Test', '00000000000000', '3 rue test', '75003', 'Paris')$$,
-  'T28 entites_fact_write_client_denied'
+  '42501', NULL, 'T28 entites_fact_write_client_denied'
 );
 
 -- T29 : sequences_fact_write_denied_admin — même admin_savr ne peut pas écrire (gapless)
--- La PK est (serie, annee) — serie est un enum, on teste via UPDATE qui doit aussi échouer
+-- INSERT (et non UPDATE) : un INSERT bloqué par RLS lève 42501 de façon fiable,
+-- alors qu'un UPDATE bloqué affecte 0 ligne sans exception. Aucune policy write sur
+-- sequences_facturation (sf_admin_read = SELECT only) → 42501 même pour admin.
 SELECT test_set_jwt('admin_savr', NULL);
 SELECT throws_ok(
-  $$UPDATE plateforme.sequences_facturation SET dernier = 9999 WHERE annee = 2026$$,
-  'T29 sequences_fact_write_denied_admin'
+  $$INSERT INTO plateforme.sequences_facturation (serie, annee, dernier) VALUES ('ZD_COLLECTE', 2099, 1)$$,
+  '42501', NULL, 'T29 sequences_fact_write_denied_admin'
 );
 
 -- T30 : jobs_pdf_denied_clients — traiteur ne voit pas les jobs PDF
@@ -390,16 +402,17 @@ SELECT test_set_jwt('ops_savr', NULL);
 SELECT throws_ok(
   $$INSERT INTO plateforme.config_auto_accept_ag (id, organisation_id, auto_accept_actif)
     VALUES (gen_random_uuid(), '11111111-0000-0000-0000-000000000001', true)$$,
-  '42501',
-  'T32 ops_admin_only_config_auto_accept_denied'
+  '42501', NULL, 'T32 ops_admin_only_config_auto_accept_denied'
 );
 
 -- T33 : tarifs_zd_write_admin_only — ops_savr ne peut pas UPDATE tarifs_zero_dechet (Bloc D)
+-- Un UPDATE bloqué par RLS n'affecte aucune ligne SANS lever d'exception (≠ INSERT).
+-- On vérifie donc 0 ligne modifiée. tarifs_zero_dechet est seedé → test significatif
+-- (les lignes existent mais ops ne peut en toucher aucune : pas de policy UPDATE pour ops).
+-- Le CTE data-modifying (UPDATE) doit être au TOP level (interdit en sous-requête).
 SELECT test_set_jwt('ops_savr', NULL);
-SELECT throws_ok(
-  $$UPDATE plateforme.tarifs_zero_dechet SET montant_ht = 99 WHERE id IN (SELECT id FROM plateforme.tarifs_zero_dechet LIMIT 1)$$,
-  'T33 tarifs_zd_write_admin_only'
-);
+WITH u AS (UPDATE plateforme.tarifs_zero_dechet SET prix_base_ht = 99 RETURNING 1)
+SELECT is(count(*)::int, 0, 'T33 tarifs_zd_write_ops_denied_zero_rows') FROM u;
 
 -- T34 : tarifs lisibles par traiteur_commercial
 SELECT test_set_jwt('traiteur_commercial', '11111111-0000-0000-0000-000000000001'::uuid);
@@ -439,7 +452,8 @@ SELECT results_eq(
 );
 
 -- T38 : evenements_brouillon_tiers_denied — gestionnaire ne voit PAS un brouillon (date NULL) tiers
--- Créer un brouillon tiers sur le lieu du gestionnaire
+-- Créer un brouillon tiers sur le lieu du gestionnaire (setup en superuser)
+SELECT test_as_superuser();
 INSERT INTO plateforme.evenements (
   id, organisation_id, lieu_id, traiteur_operationnel_organisation_id,
   entite_facturation_id, created_by, type_evenement_id,
@@ -483,6 +497,7 @@ SELECT results_eq(
 -- T41 : evenements_update_manager_fenetre_denied — manager ne peut pas UPDATE un event sans collecte éditable
 -- L'event 0002 n'a PAS de collecte en brouillon/programmée/validée dans notre fixture
 -- (cccc0002 est 'programmee' — donc f_collecte_editable retourne TRUE, changeons le statut)
+SELECT test_as_superuser();
 UPDATE plateforme.collectes SET statut = 'cloturee' WHERE id = 'cccc0002-0000-0000-0000-000000000001'::uuid;
 
 SELECT test_set_jwt('traiteur_manager', '22222222-0000-0000-0000-000000000001'::uuid);
@@ -528,11 +543,19 @@ SELECT results_eq(
   'T44 fichiers_facture_cross_org_denied'
 );
 
--- T45 : history_update_denied_admin (Bloc D)
+-- T45 : history_write_denied_admin (Bloc D) — l'historique des paramètres est immuable
+-- même pour admin_savr (ptr_hist_staff_read = SELECT only, aucune policy write).
+-- INSERT (lève 42501 de façon fiable) avec FK valides via sous-requêtes sur la table
+-- parente seedée + user fixture, pour que le SEUL motif d'échec soit RLS.
 SELECT test_set_jwt('admin_savr', NULL);
 SELECT throws_ok(
-  $$UPDATE plateforme.parametres_taux_recyclage_history SET valeur_pct = 99 WHERE id IN (SELECT id FROM plateforme.parametres_taux_recyclage_history LIMIT 1)$$,
-  'T45 history_update_denied_admin'
+  $$INSERT INTO plateforme.parametres_taux_recyclage_history
+      (parametre_id, code_filiere, taux_captation_avant, taux_captation_apres, commentaire_modif, modifie_par)
+    VALUES (
+      (SELECT id FROM plateforme.parametres_taux_recyclage LIMIT 1),
+      (SELECT code_filiere FROM plateforme.parametres_taux_recyclage LIMIT 1),
+      0.5, 0.6, 'test immutabilite', '05e70001-0000-0000-0000-000000000001')$$,
+  '42501', NULL, 'T45 history_write_denied_admin'
 );
 
 -- T46 : ops_savr peut lire audit_log

@@ -116,6 +116,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
       - uses: supabase/setup-cli@v1
         with: { version: 2.105.0 }
       - run: supabase start

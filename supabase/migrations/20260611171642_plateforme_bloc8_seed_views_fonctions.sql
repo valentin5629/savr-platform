@@ -64,10 +64,12 @@ ON CONFLICT (code_flux) DO NOTHING;
 -- Somme part_pct = 100%
 -- ============================================================
 
--- Désactiver le trigger de validation sum=100% pendant le seed.
--- trg_validate_mix_emballages est BEFORE EACH ROW : il vérifierait sum ≠ 100
--- après chaque ligne insérée individuellement et bloquerait le seed.
+-- Désactiver les triggers mix emballages pendant le seed :
+-- 1) trg_validate_mix_emballages : BEFORE EACH ROW, bloquerait sur sum ≠ 100% après chaque ligne
+-- 2) trg_recompute_emballage_fe : AFTER EACH ROW, déclenche UPDATE parametres_facteurs_co2
+--    → audit trigger → INSERT history avec modifie_par=auth.uid()=NULL → NOT NULL violation
 ALTER TABLE plateforme.parametres_mix_emballages DISABLE TRIGGER trg_validate_mix_emballages;
+ALTER TABLE plateforme.parametres_mix_emballages DISABLE TRIGGER trg_recompute_emballage_fe;
 
 INSERT INTO plateforme.parametres_mix_emballages
   (code_materiau, nom_materiau, part_pct, fe_induit_kg_t, fe_evite_kg_t, source_donnee, actif)
@@ -81,6 +83,7 @@ VALUES
   ('autres',        'Autres matériaux',     20.0, 50.0,  200.0, 'Citeo 2024', true)
 ON CONFLICT (code_materiau) DO NOTHING;
 
+ALTER TABLE plateforme.parametres_mix_emballages ENABLE TRIGGER trg_recompute_emballage_fe;
 ALTER TABLE plateforme.parametres_mix_emballages ENABLE TRIGGER trg_validate_mix_emballages;
 
 -- ============================================================

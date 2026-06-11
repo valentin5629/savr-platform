@@ -527,6 +527,7 @@ SELECT results_eq(
     FROM pg_class c
     JOIN pg_namespace n ON n.oid = c.relnamespace
     WHERE c.relkind = 'r'
+      AND NOT c.relispartition  -- partitions : policy héritée du parent (cf. assertion 0.4c)
       AND n.nspname IN ('plateforme','shared')
       AND NOT EXISTS (SELECT 1 FROM pg_policy p WHERE p.polrelid = c.oid)$$,
   $$VALUES (0)$$,

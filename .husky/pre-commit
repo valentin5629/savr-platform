@@ -1,2 +1,3 @@
 pnpm exec lint-staged
 bash scripts/check-coupling.sh
+bash scripts/check-specs-freshness.sh

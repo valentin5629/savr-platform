@@ -1,0 +1,4 @@
+{
+  "module": "M0.0",
+  "scenarios": ["SMOKE-1 — scripts/sync-specs.sh est exécutable"]
+}

@@ -19,7 +19,9 @@
     "db:stop": "supabase stop",
     "db:status": "supabase status",
     "db:types": "supabase gen types typescript --project-id $SUPABASE_PROJECT_REF > packages/shared/src/database.types.ts",
-    "db:smoke": "bash scripts/smoke-test-db.sh"
+    "db:smoke": "bash scripts/smoke-test-db.sh",
+    "test:module": "tsx scripts/test-module.ts",
+    "check:coverage": "tsx scripts/check-coverage.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.14.0",
@@ -28,6 +30,7 @@
     "husky": "^9.1.6",
     "lint-staged": "^15.2.10",
     "prettier": "^3.3.3",
+    "tsx": "^4.22.4",
     "turbo": "^2.3.0",
     "typescript": "^5.6.3",
     "typescript-eslint": "^8.13.0",

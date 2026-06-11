@@ -313,7 +313,8 @@ LEFT JOIN shared.prestataires sp ON sp.id = c.prestataire_logistique_id
 LEFT JOIN plateforme.collecte_flux cf ON cf.collecte_id = c.id
 LEFT JOIN plateforme.flux_dechets fd ON fd.id = cf.flux_id
 WHERE c.statut = 'cloturee'
-  AND c.type = 'zero_dechet';
+  AND c.type = 'zero_dechet'
+  AND (auth.jwt()->>'role') IS DISTINCT FROM 'agence';
 
 COMMENT ON VIEW plateforme.v_registre_dechets IS
   'Registre réglementaire ZD — collectes cloturees uniquement. RLS filtres appliqués via policies.';
@@ -359,8 +360,7 @@ CREATE OR REPLACE VIEW plateforme.v_factures_client AS
 SELECT
   f.id,
   f.organisation_id,
-  f.numero_complet,
-  f.serie,
+  f.numero_facture,
   f.statut,
   f.date_emission,
   f.date_echeance,
@@ -368,8 +368,9 @@ SELECT
   f.montant_tva,
   f.montant_ttc,
   f.devise,
-  f.pdf_fichier_id,
-  f.avoir_de_facture_id,
+  f.pdf_url_savr,
+  f.pdf_url_pennylane,
+  f.facture_origine_id,
   f.created_at
 FROM plateforme.factures f
 WHERE f.statut NOT IN ('brouillon');

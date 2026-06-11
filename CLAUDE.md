@@ -3,6 +3,7 @@
 > Lu par Claude Code en priorité à chaque session. Décisions non-négociables, conventions, et pointeurs CDC par module.
 > **Périmètre = V1** : Plateforme Savr + couche logistique **MTS-1 (API V3, polling) + Everest**. Le **Savr TMS natif = V2** (non développé, schéma `tms.*` non créé en V1).
 > Source de vérité specs : export allégé `_DEV-FACING/` du Vault Obsidian (régénéré par `cdc-devfacing-export`). **Ne jamais lire les sources brutes `01 - …/` `02 - …/`** pendant le dev.
+> **Accès depuis le repo (2026-06-11)** : les specs sont versionnées dans **`specs/`** à la racine du repo — `specs/cdc/` (= `_DEV-FACING`), `specs/tests/` (scénarios Gherkin), `specs/ddl-cible/schema_cible_v2.sql`, `specs/fixtures/`, `specs/manifests/` (couverture par module). Tout pointeur `_DEV-FACING/X` de ce fichier se lit `specs/cdc/X`. `specs/` est **dérivé** (sync depuis le Vault, commit `specs: sync`) — ne jamais l'éditer à la main. Conventions d'exécution complètes (test:module, check:coverage, mocks, sous-lots) : `specs/cdc/… 12 - Conventions exécution Claude Code` (copie de `09 - Roadmap exécution/12`).
 
 ---
 
@@ -128,7 +129,7 @@ Pour toute zone d'ombre non tranchée ici : **stop et demander**.
 
 ## 8. Ordre de développement V1 (source : `09 - Roadmap exécution/`, skill `cdc-roadmap-execution` 2026-06-08)
 
-> **Roadmap d'exécution séquentielle = `09 - Roadmap exécution/`.** Structure 3 niveaux : **Niveau 0 Foundations → V1 ZD → V2 AG → V3 Espaces/dashboards → V4 Reporting/registre → V5 Migration**. Un module = 1 session Claude Code = 1 brief chirurgical (`03 - Modules par verticale/`) = 1 `/goal` (condition binaire) + checkpoint humain entre modules. Jamais de `/goal` global. Budget ≈ **31M tokens** (~138 € Sonnet / ~688 € Opus sans caching, moins avec caching). Tracker : `06 - Suivi exécution`.
+> **Roadmap d'exécution séquentielle = `09 - Roadmap exécution/`.** Structure 3 niveaux : **Niveau 0 Foundations → V1 ZD → V2 AG → V3 Espaces/dashboards → V4 Reporting/registre → V5 Migration**. Un module = 1 session Claude Code = 1 brief chirurgical (`03 - Modules par verticale/`) = 1 `/goal` (condition binaire `pnpm test:module` + `pnpm check:coverage`, jamais `pnpm test --filter`) + checkpoint humain entre modules ; modules XL (0.3, 0.4, M1.1, M1.5) = 1 sous-lot par session. Jamais de `/goal` global. Budget ≈ **32M tokens** (révisé 2026-06-11 : +0.11 mocks API tierces, M1.5 1,9M multi-camions/lease-claim, +M1.8 E2E). Ordre V1 : M1.1 → M1.3 → M1.2 → M1.4 → … → M1.8. Tracker : `06 - Suivi exécution`.
 > Arbitrages 2026-06-08 : **6 rôles livrés avant go-live** (V3 sur chemin critique, pas de décalage) ; transverse webhook HMAC (H) **différé V2** (V1 = polling MTS-1 + outbox) ; briefs détaillés N0 + V1 produits, V2-V5 en squelette généré juste-à-temps.
 > La liste 1-11 ci-dessous = vue linéaire historique (équivalente, mappée aux verticales dans `02 - Verticales`).
 

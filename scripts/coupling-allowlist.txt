@@ -24,3 +24,6 @@
 #   - last_everest_ping_at/status : colonne operationnelle prestataires (V1.1, pas logique adapter)
 supabase/migrations/20260611171637_plateforme_bloc3_parametres_associations_transporteurs.sql
 supabase/migrations/20260611171635_shared_plateforme_bloc1_orgs_users.sql
+# specs/ = miroir dérivé du Vault CDC (lecture seule, jamais de logique métier)
+# Les occurrences mts1/everest = valeurs d'enum dans le DDL cible V2 + scénarios QA
+specs/*

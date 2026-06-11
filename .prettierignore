@@ -10,6 +10,9 @@ _DEV-FACING
 
 # Docs regenerees hors du repo (Vault Obsidian / harnais qualite) — eviter
 # le churn permanent entre Prettier et la regeneration.
+# specs/ = miroir derive du Vault (commit "specs: sync"), jamais edite a la main :
+# le reformater divergerait de la source et serait ecrase au prochain sync.
+specs/
 CLAUDE.md
 BRANCH_PROTECTION.md
 CHECKLIST_CHECKPOINT.md

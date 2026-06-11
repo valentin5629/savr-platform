@@ -13,42 +13,33 @@ DO $$ BEGIN
   );
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-DO $$ BEGIN
-  CREATE TYPE plateforme.rapport_rse_statut_enum AS ENUM (
-    'brouillon', 'publie', 'archive'
-  );
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-
 -- ============================================================
 -- plateforme.rapports_rse
--- Rapport RSE / bilan carbone par organisation.
--- 1 rapport = 1 période (mois/trimestre/année).
+-- Document PDF par collecte ZD (rapport recyclage) ou AG sans excédent.
+-- 1 rapport = 1 collecte. Embargo H+24 via disponible_a.
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS plateforme.rapports_rse (
-  id               uuid                                PRIMARY KEY DEFAULT gen_random_uuid(),
-  organisation_id  uuid                                NOT NULL REFERENCES plateforme.organisations(id),
-  periode_debut    date                                NOT NULL,
-  periode_fin      date                                NOT NULL CHECK (periode_fin >= periode_debut),
-  nb_collectes     integer                             NOT NULL DEFAULT 0,
-  nb_collectes_zd  integer                             NOT NULL DEFAULT 0,
-  nb_collectes_ag  integer                             NOT NULL DEFAULT 0,
-  poids_total_kg   numeric(12,2)                       NOT NULL DEFAULT 0,
-  co2_evite_kg     numeric(12,2)                       NOT NULL DEFAULT 0,
-  co2_induit_kg    numeric(12,2)                       NOT NULL DEFAULT 0,
-  co2_net_kg       numeric(12,2)                       NOT NULL DEFAULT 0,
-  nb_repas_donnes  integer                             NOT NULL DEFAULT 0,
-  statut           plateforme.rapport_rse_statut_enum  NOT NULL DEFAULT 'brouillon',
-  pdf_fichier_id   uuid                                REFERENCES shared.fichiers(id),
-  genere_at        timestamptz,
-  created_at       timestamptz                         NOT NULL DEFAULT now(),
-  updated_at       timestamptz                         NOT NULL DEFAULT now()
+  id                    uuid         PRIMARY KEY DEFAULT gen_random_uuid(),
+  collecte_id           uuid         NOT NULL REFERENCES plateforme.collectes(id),
+  evenement_id          uuid         NOT NULL REFERENCES plateforme.evenements(id),
+  version               integer      NOT NULL DEFAULT 1,
+  pdf_url               text,
+  disponible_a          timestamptz  NOT NULL,
+  envoye_client         boolean      NOT NULL DEFAULT false,
+  envoye_at             timestamptz,
+  consulte_par_user_at  timestamptz,
+  filtres_benchmark     jsonb,
+  genere_at             timestamptz,
+  regenere_at           timestamptz,
+  regenere_par_user_id  uuid         REFERENCES plateforme.users(id),
+  created_at            timestamptz  NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_rapports_rse_organisation
-  ON plateforme.rapports_rse (organisation_id);
-CREATE INDEX IF NOT EXISTS idx_rapports_rse_periode
-  ON plateforme.rapports_rse (periode_debut, periode_fin);
+CREATE INDEX IF NOT EXISTS idx_rapports_rse_collecte
+  ON plateforme.rapports_rse (collecte_id, disponible_a);
+CREATE INDEX IF NOT EXISTS idx_rapports_rse_evenement
+  ON plateforme.rapports_rse (evenement_id);
 
 ALTER TABLE plateforme.rapports_rse ENABLE ROW LEVEL SECURITY;
 

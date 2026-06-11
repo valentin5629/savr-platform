@@ -64,17 +64,24 @@ ON CONFLICT (code_flux) DO NOTHING;
 -- Somme part_pct = 100%
 -- ============================================================
 
+-- Désactiver le trigger de validation sum=100% pendant le seed.
+-- trg_validate_mix_emballages est BEFORE EACH ROW : il vérifierait sum ≠ 100
+-- après chaque ligne insérée individuellement et bloquerait le seed.
+ALTER TABLE plateforme.parametres_mix_emballages DISABLE TRIGGER trg_validate_mix_emballages;
+
 INSERT INTO plateforme.parametres_mix_emballages
   (code_materiau, nom_materiau, part_pct, fe_induit_kg_t, fe_evite_kg_t, source_donnee, actif)
 VALUES
-  ('carton_papier', 'Carton / papier',  25.0, 25.0,  520.0, 'Citeo 2024', true),
-  ('pet',           'PET',              20.0, 80.0,  450.0, 'Citeo 2024', true),
-  ('pehd',          'PEHD',             15.0, 80.0,  380.0, 'Citeo 2024', true),
-  ('acier',         'Acier',             5.0, 35.0,  600.0, 'Citeo 2024', true),
-  ('alu',           'Aluminium',        10.0, 40.0,  900.0, 'Citeo 2024', true),
-  ('briques',       'Briques alimentaires', 5.0, 30.0, 400.0, 'Citeo 2024', true),
-  ('autres',        'Autres matériaux', 20.0, 50.0,  200.0, 'Citeo 2024', true)
+  ('carton_papier', 'Carton / papier',      25.0, 25.0,  520.0, 'Citeo 2024', true),
+  ('pet',           'PET',                  20.0, 80.0,  450.0, 'Citeo 2024', true),
+  ('pehd',          'PEHD',                 15.0, 80.0,  380.0, 'Citeo 2024', true),
+  ('acier',         'Acier',                 5.0, 35.0,  600.0, 'Citeo 2024', true),
+  ('alu',           'Aluminium',            10.0, 40.0,  900.0, 'Citeo 2024', true),
+  ('briques',       'Briques alimentaires',  5.0, 30.0,  400.0, 'Citeo 2024', true),
+  ('autres',        'Autres matériaux',     20.0, 50.0,  200.0, 'Citeo 2024', true)
 ON CONFLICT (code_materiau) DO NOTHING;
+
+ALTER TABLE plateforme.parametres_mix_emballages ENABLE TRIGGER trg_validate_mix_emballages;
 
 -- ============================================================
 -- SEED DATA — parametres_co2_divers (clés V1)

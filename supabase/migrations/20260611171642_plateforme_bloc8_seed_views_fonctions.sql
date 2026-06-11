@@ -28,86 +28,93 @@ ON CONFLICT (code) DO NOTHING;
 
 -- ============================================================
 -- SEED DATA — parametres_taux_recyclage (taux de base V1)
--- filiere : biodechet=85%, emballage=60%, carton=80%, verre=90%
+-- Colonnes réelles : code_filiere (enum), nom_filiere, taux_captation, prestataire, source_donnee, actif
 -- ============================================================
 
 INSERT INTO plateforme.parametres_taux_recyclage
-  (code_filiere, taux_captation, prestataire, valide_du, source_donnee, actif)
+  (code_filiere, nom_filiere, taux_captation, prestataire, source_donnee, actif)
 VALUES
-  ('biodechet', 0.85, 'Veolia',  '2026-01-01', 'ADEME 2024', true),
-  ('carton',    0.80, 'Paprec',  '2026-01-01', 'ADEME 2024', true),
-  ('verre',     0.90, 'Veolia',  '2026-01-01', 'ADEME 2024', true),
-  ('emballage', 0.60, 'Citeo',   '2026-01-01', 'Citeo 2024', true)
-ON CONFLICT DO NOTHING;
+  ('biodechet', 'Biodéchets',  0.8500, 'Veolia',  'ADEME 2024', true),
+  ('carton',    'Cartons',     0.8000, 'Paprec',  'ADEME 2024', true),
+  ('verre',     'Verre',       0.9000, 'Veolia',  'ADEME 2024', true),
+  ('emballage', 'Emballages',  0.6000, 'Citeo',   'Citeo 2024', true)
+ON CONFLICT (code_filiere) DO NOTHING;
 
 -- ============================================================
 -- SEED DATA — parametres_facteurs_co2 (FE initiaux V1)
+-- Colonnes réelles : code_flux (enum), nom_flux, fe_induit_kg_t, fe_evite_kg_t,
+--   energie_primaire_evitee_kwh_t, source_donnee, actif (valeurs en kgCO₂/tonne)
 -- ============================================================
 
 INSERT INTO plateforme.parametres_facteurs_co2
-  (code_flux, fe_induit_kg_co2_par_kg, fe_evite_kg_co2_par_kg, valide_du, source_donnee, actif)
+  (code_flux, nom_flux, fe_induit_kg_t, fe_evite_kg_t, energie_primaire_evitee_kwh_t, source_donnee, actif)
 VALUES
-  ('biodechet',         0.020, 0.250, '2026-01-01', 'ADEME Base Carbone 2024', true),
-  ('carton',            0.025, 0.520, '2026-01-01', 'ADEME Base Carbone 2024', true),
-  ('verre',             0.010, 0.300, '2026-01-01', 'ADEME Base Carbone 2024', true),
-  ('dechet_residuel',   0.500, 0.000, '2026-01-01', 'ADEME Base Carbone 2024', true),
+  ('biodechet',       'Biodéchets',       20.0,   250.0,  800.0,  'ADEME Base Carbone 2024', true),
+  ('carton',          'Cartons',          25.0,   520.0,  1800.0, 'ADEME Base Carbone 2024', true),
+  ('verre',           'Verre',            10.0,   300.0,  400.0,  'ADEME Base Carbone 2024', true),
+  ('dechet_residuel', 'Déchet résiduel',  500.0,  0.0,    0.0,    'ADEME Base Carbone 2024', true),
   -- emballage : calculé par trigger mix emballages (valeur initiale conservative)
-  ('emballage',         0.030, 0.400, '2026-01-01', 'Calculé mix emballages',  true)
-ON CONFLICT DO NOTHING;
+  ('emballage',       'Emballages',       30.0,   400.0,  1200.0, 'Calculé mix emballages',  true)
+ON CONFLICT (code_flux) DO NOTHING;
 
 -- ============================================================
 -- SEED DATA — parametres_mix_emballages (7 matériaux V1)
--- Somme des part_pct = 100%
+-- Colonnes réelles : code_materiau (enum), nom_materiau, part_pct, fe_induit_kg_t, fe_evite_kg_t
+-- Enum : carton_papier, pet, pehd, acier, alu, briques, autres
+-- Somme part_pct = 100%
 -- ============================================================
 
 INSERT INTO plateforme.parametres_mix_emballages
-  (code_materiau, libelle, part_pct, valide_du, actif)
+  (code_materiau, nom_materiau, part_pct, fe_induit_kg_t, fe_evite_kg_t, source_donnee, actif)
 VALUES
-  ('plastique_souple',    'Plastique souple',    30.0, '2026-01-01', true),
-  ('plastique_rigide',    'Plastique rigide',    20.0, '2026-01-01', true),
-  ('aluminium',           'Aluminium',           10.0, '2026-01-01', true),
-  ('acier',               'Acier',                5.0, '2026-01-01', true),
-  ('papier_carton_mixte', 'Papier/carton mixte', 20.0, '2026-01-01', true),
-  ('verre_emballage',     'Verre emballage',     10.0, '2026-01-01', true),
-  ('autres_materiaux',    'Autres matériaux',     5.0, '2026-01-01', true)
-ON CONFLICT DO NOTHING;
+  ('carton_papier', 'Carton / papier',  25.0, 25.0,  520.0, 'Citeo 2024', true),
+  ('pet',           'PET',              20.0, 80.0,  450.0, 'Citeo 2024', true),
+  ('pehd',          'PEHD',             15.0, 80.0,  380.0, 'Citeo 2024', true),
+  ('acier',         'Acier',             5.0, 35.0,  600.0, 'Citeo 2024', true),
+  ('alu',           'Aluminium',        10.0, 40.0,  900.0, 'Citeo 2024', true),
+  ('briques',       'Briques alimentaires', 5.0, 30.0, 400.0, 'Citeo 2024', true),
+  ('autres',        'Autres matériaux', 20.0, 50.0,  200.0, 'Citeo 2024', true)
+ON CONFLICT (code_materiau) DO NOTHING;
 
 -- ============================================================
 -- SEED DATA — parametres_co2_divers (clés V1)
+-- Colonnes réelles : cle, valeur (decimal), unite (NOT NULL), description (NOT NULL)
 -- ============================================================
 
-INSERT INTO plateforme.parametres_co2_divers (cle, valeur, description, valide_du) VALUES
-  ('fe_transport_km_co2_kg',      '0.00012',  'FE transport routier (kgCO₂/t.km)', '2026-01-01'),
-  ('fe_electricite_fr_co2_kwh',   '0.0385',   'FE électricité France (kgCO₂/kWh)', '2026-01-01'),
-  ('fe_gaz_naturel_co2_kwh',      '0.2045',   'FE gaz naturel (kgCO₂/kWh)',         '2026-01-01'),
-  ('facteur_conversion_bac_kg',   '12.0',     'Masse moyenne contenu 1 bac (kg)',   '2026-01-01'),
-  ('facteur_co2_biodechet_traite', '0.003',   'FE traitement compost (kgCO₂/kg)',   '2026-01-01')
+INSERT INTO plateforme.parametres_co2_divers (cle, valeur, unite, description) VALUES
+  ('fe_transport_km_co2_kg',       0.00012, 'kgCO₂/t.km', 'FE transport routier'),
+  ('fe_electricite_fr_co2_kwh',    0.0385,  'kgCO₂/kWh',  'FE électricité France'),
+  ('fe_gaz_naturel_co2_kwh',       0.2045,  'kgCO₂/kWh',  'FE gaz naturel'),
+  ('facteur_conversion_bac_kg',    12.0,    'kg/bac',      'Masse moyenne contenu 1 bac'),
+  ('facteur_co2_biodechet_traite', 0.003,   'kgCO₂/kg',   'FE traitement compost')
 ON CONFLICT (cle) DO NOTHING;
 
 -- ============================================================
 -- SEED DATA — parametres_facteurs_co2_ag (1 ligne V1)
+-- Colonnes réelles : cle (text UNIQUE), facteur_co2_evite_par_repas_kg, source_donnee, actif
 -- 2.5 kgCO₂e évité par repas (FAO)
 -- ============================================================
 
 INSERT INTO plateforme.parametres_facteurs_co2_ag
-  (fe_co2_par_repas_kg, source_donnee, valide_du, actif)
+  (cle, facteur_co2_evite_par_repas_kg, source_donnee, actif)
 VALUES
-  (2.5, 'FAO 2023 — Food loss and waste footprint', '2026-01-01', true)
-ON CONFLICT DO NOTHING;
+  ('fao_2023', 2.5, 'FAO 2023 — Food loss and waste footprint', true)
+ON CONFLICT (cle) DO NOTHING;
 
 -- ============================================================
 -- SEED DATA — parametres_algo (8 paramètres V1)
 -- ============================================================
 
+-- valeur est jsonb — les scalaires doivent être des valeurs JSON valides
 INSERT INTO plateforme.parametres_algo (cle, valeur, type_valeur, description) VALUES
-  ('algo_nb_candidats_top',        '3',    'int',     'Nb associations proposées par algo AG'),
-  ('algo_rayon_max_km',            '50',   'int',     'Rayon max (km) pour la sélection des transporteurs AG'),
-  ('algo_seuil_refus_pct',         '0.3',  'decimal', 'Part de refus déclenchant une révision transporteur'),
-  ('collecte_warning_moins_48h',   'true', 'bool',    'Warning si programmation < 48h avant collecte'),
-  ('pesee_seuil_min_kg',           '5',    'int',     'Seuil min pesée ZD en kg (alerte in-app)'),
-  ('pesee_seuil_max_kg',           '5000', 'int',     'Seuil max pesée ZD en kg (alerte in-app)'),
-  ('batch_pdf_heure',              '06:00','time',    'Heure batch génération PDF J+1'),
-  ('embargo_realisation_heures',   '24',   'int',     'Embargo H+24 avant génération PDF post-réalisation')
+  ('algo_nb_candidats_top',        '3'::jsonb,       'int',     'Nb associations proposées par algo AG'),
+  ('algo_rayon_max_km',            '50'::jsonb,      'int',     'Rayon max (km) pour la sélection des transporteurs AG'),
+  ('algo_seuil_refus_pct',         '0.3'::jsonb,     'decimal', 'Part de refus déclenchant une révision transporteur'),
+  ('collecte_warning_moins_48h',   'true'::jsonb,    'bool',    'Warning si programmation < 48h avant collecte'),
+  ('pesee_seuil_min_kg',           '5'::jsonb,       'int',     'Seuil min pesée ZD en kg (alerte in-app)'),
+  ('pesee_seuil_max_kg',           '5000'::jsonb,    'int',     'Seuil max pesée ZD en kg (alerte in-app)'),
+  ('batch_pdf_heure',              '"06:00"'::jsonb, 'time',    'Heure batch génération PDF J+1'),
+  ('embargo_realisation_heures',   '24'::jsonb,      'int',     'Embargo H+24 avant génération PDF post-réalisation')
 ON CONFLICT (cle) DO NOTHING;
 
 -- ============================================================

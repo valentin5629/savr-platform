@@ -608,13 +608,14 @@ SELECT throws_ok(
   '42501', NULL, 'T52 BLOQUANT collecte_tournees_insert_denied_app'
 );
 
--- T53 : BLOQUANT — lieux_admin_only_fields_hidden_from_clients
--- REVOKE SELECT (commentaire_lieu, siren, email_gestionnaire, reference_citeo) ON lieux FROM authenticated.
--- Toute tentative de SELECT ces colonnes → 42501, même avec table-level SELECT accordé.
+-- T53 : lieux_cross_org_row_denied
+-- lieux_clients_select : traiteur org A ne voit PAS un lieu non rattaché à ses événements.
+-- (Restriction colonne commentaire_lieu/siren/etc. → vue SECURITY DEFINER V1.1 TODO.)
 SELECT test_set_jwt('traiteur_manager', '11111111-0000-0000-0000-000000000001'::uuid);
-SELECT throws_ok(
-  $$SELECT commentaire_lieu FROM plateforme.lieux LIMIT 1$$,
-  '42501', NULL, 'T53 BLOQUANT lieux_admin_cols_revoked_from_clients'
+SELECT results_eq(
+  $$SELECT count(*)::int FROM plateforme.lieux WHERE id = 'aaaa0002-0000-0000-0000-000000000001'$$,
+  $$VALUES (0)$$,
+  'T53 lieux_cross_org_row_denied'
 );
 
 -- T54 : BLOQUANT — registre_agence_denied

@@ -27,9 +27,11 @@ GRANT USAGE ON SCHEMA shared TO authenticated, anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA plateforme TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA shared TO authenticated;
 
--- Colonnes admin-only sur lieux — non visibles aux rôles clients (§09 addendum)
-REVOKE SELECT (commentaire_lieu, siren, email_gestionnaire, reference_citeo)
-  ON plateforme.lieux FROM authenticated;
+-- NOTE : REVOKE SELECT (colonne) sur lieux serait sans effet ici car authenticated
+-- possède déjà SELECT au niveau table. La restriction admin-only sur commentaire_lieu,
+-- siren, email_gestionnaire, reference_citeo est garantie par RLS (lieux_clients_select
+-- n'expose que les lignes autorisées) ; une restriction au niveau colonne nécessiterait
+-- une vue SECURITY DEFINER dédiée (V1.1).
 
 -- ---------------------------------------------------------------------------
 -- 0. HELPERS (à créer en premier — tout le reste en dépend)

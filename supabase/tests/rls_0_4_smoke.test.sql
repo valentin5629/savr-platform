@@ -15,10 +15,13 @@ SELECT plan(50);
 CREATE OR REPLACE FUNCTION test_set_jwt(p_role text, p_org_id uuid DEFAULT NULL, p_user_id uuid DEFAULT gen_random_uuid())
 RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
+  -- organisation_id : p_org_id direct (NULL → JSON null → ->>'' = NULL → NULL::uuid OK).
+  -- JAMAIS '' : ''::uuid lève une erreur dans les prédicats RLS (un vrai JWT Supabase
+  -- met le claim absent/null pour un user sans org, jamais une chaîne vide).
   PERFORM set_config('request.jwt.claims', json_build_object(
     'sub', p_user_id,
     'role', p_role,
-    'organisation_id', COALESCE(p_org_id::text, ''),
+    'organisation_id', p_org_id,
     'app_domain', 'plateforme'
   )::text, true);
   -- Simule le rôle Supabase 'authenticated'

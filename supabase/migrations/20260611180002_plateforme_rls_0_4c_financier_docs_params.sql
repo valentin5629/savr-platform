@@ -457,6 +457,19 @@ CREATE POLICY tpa_admin ON plateforme.tarifs_packs_ag
   WITH CHECK (auth.jwt()->>'role' = 'admin_savr');
 
 -- ---------------------------------------------------------------------------
+-- 20bis. PARTITIONS — activer RLS sur les partitions existantes (V1 = 2026)
+-- relrowsecurity ne se propage PAS du parent partitionné (relkind 'p') vers
+-- ses partitions (relkind 'r'). Sans ce flag, un accès direct à la partition
+-- (plateforme.audit_log_2026) contournerait RLS. Les policies du parent
+-- (audit_log, integrations_logs) s'appliquent par héritage une fois le flag
+-- posé → accès direct à la partition = DENY/policies parent (défense en profondeur).
+-- Les futures partitions annuelles devront répliquer ce ENABLE.
+-- ---------------------------------------------------------------------------
+
+ALTER TABLE plateforme.audit_log_2026        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE plateforme.integrations_logs_2026 ENABLE ROW LEVEL SECURITY;
+
+-- ---------------------------------------------------------------------------
 -- 21. ASSERTION GLOBALE — toutes tables plateforme.* + shared.* ont RLS enabled
 --     ET au moins 1 policy (gate final module 0.4)
 -- ---------------------------------------------------------------------------
@@ -478,11 +491,16 @@ BEGIN
     RAISE EXCEPTION 'ASSERTION 0.4c FAILED (RLS disabled): % table(s) without RLS', v_no_rls;
   END IF;
 
-  -- Check 2 : chaque table a au moins 1 policy
+  -- Check 2 : chaque table NON-PARTITION a au moins 1 policy.
+  -- Les partitions (relispartition = true) héritent les policies de leur parent
+  -- partitionné : pas d'entrée pg_policy propre, mais protégées. On les exclut
+  -- du check « no policy » (mais PAS du check 1 RLS ci-dessus : elles DOIVENT
+  -- avoir relrowsecurity = true, garanti par le ENABLE 20bis).
   SELECT count(*) INTO v_no_policy
   FROM pg_class c
   JOIN pg_namespace n ON n.oid = c.relnamespace
   WHERE c.relkind = 'r'
+    AND NOT c.relispartition
     AND n.nspname IN ('plateforme','shared')
     AND NOT EXISTS (
       SELECT 1 FROM pg_policy p WHERE p.polrelid = c.oid

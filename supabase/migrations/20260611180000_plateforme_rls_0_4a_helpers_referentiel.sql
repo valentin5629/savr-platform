@@ -16,6 +16,18 @@ GRANT USAGE ON SCHEMA plateforme TO authenticated, anon;
 GRANT USAGE ON SCHEMA shared TO authenticated, anon;
 
 -- ---------------------------------------------------------------------------
+-- PREREQUIS : privilèges table-level pour le rôle applicatif `authenticated`.
+-- RLS filtre les LIGNES mais n'accorde pas l'accès à la table : sans ce GRANT,
+-- toute requête lève « permission denied for table » AVANT l'évaluation RLS.
+-- Pattern Supabase : GRANT large + RLS DENY ALL par défaut (les tables sans
+-- policy applicable restent inaccessibles malgré le GRANT). `anon` ne reçoit
+-- rien (aucune table publique en V1). Restrictions fines = REVOKE ciblés
+-- (ex. audit_log append-only en 0.4c, exécuté après ce GRANT).
+-- ---------------------------------------------------------------------------
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA plateforme TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA shared TO authenticated;
+
+-- ---------------------------------------------------------------------------
 -- 0. HELPERS (à créer en premier — tout le reste en dépend)
 -- ---------------------------------------------------------------------------
 

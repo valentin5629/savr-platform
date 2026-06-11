@@ -212,10 +212,7 @@ CREATE TABLE IF NOT EXISTS plateforme.factures (
   id                      uuid                              PRIMARY KEY DEFAULT gen_random_uuid(),
   entite_facturation_id   uuid                              NOT NULL REFERENCES plateforme.entites_facturation(id),
   organisation_id         uuid                              NOT NULL REFERENCES plateforme.organisations(id),
-  serie                   plateforme.serie_facturation_enum NOT NULL,
-  annee                   smallint                          NOT NULL,
-  numero                  integer                           NOT NULL,
-  numero_complet          text                              NOT NULL,
+  numero_facture          text                              NOT NULL UNIQUE,
   statut                  plateforme.facture_statut_enum    NOT NULL DEFAULT 'brouillon',
   date_emission           date,
   date_echeance           date,
@@ -224,20 +221,18 @@ CREATE TABLE IF NOT EXISTS plateforme.factures (
   montant_tva             numeric(12,2)                     NOT NULL DEFAULT 0,
   montant_ttc             numeric(12,2)                     NOT NULL DEFAULT 0,
   devise                  text                              NOT NULL DEFAULT 'EUR',
-  pennylane_invoice_id    text,
+  pennylane_id            text,
   pennylane_push_at       timestamptz,
   pennylane_statut        text,
-  avoir_de_facture_id     uuid                              REFERENCES plateforme.factures(id),
+  facture_origine_id      uuid                              REFERENCES plateforme.factures(id),
   motif_avoir             text,
-  pdf_fichier_id          uuid                              REFERENCES shared.fichiers(id),
+  pdf_url_savr            text,
+  pdf_url_pennylane       text,
   notes                   text,
   periode_debut           date,
   periode_fin             date,
   created_at              timestamptz                       NOT NULL DEFAULT now(),
-  updated_at              timestamptz                       NOT NULL DEFAULT now(),
-
-  -- Unicité numéro par série+année
-  CONSTRAINT uniq_numero_facture UNIQUE (serie, annee, numero)
+  updated_at              timestamptz                       NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_factures_organisation
@@ -260,10 +255,10 @@ ALTER TABLE plateforme.packs_antgaspi
 CREATE OR REPLACE FUNCTION plateforme.fn_check_avoir_facture_payee()
 RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
-  IF NEW.avoir_de_facture_id IS NOT NULL THEN
+  IF NEW.facture_origine_id IS NOT NULL THEN
     IF NOT EXISTS (
       SELECT 1 FROM plateforme.factures
-      WHERE id = NEW.avoir_de_facture_id AND statut = 'payee'
+      WHERE id = NEW.facture_origine_id AND statut = 'payee'
     ) THEN
       RAISE EXCEPTION 'Un avoir ne peut être créé que sur une facture au statut "payee"';
     END IF;
@@ -273,7 +268,7 @@ END;
 $$;
 
 CREATE TRIGGER trg_check_avoir_facture_payee
-  BEFORE INSERT OR UPDATE OF avoir_de_facture_id ON plateforme.factures
+  BEFORE INSERT OR UPDATE OF facture_origine_id ON plateforme.factures
   FOR EACH ROW EXECUTE FUNCTION plateforme.fn_check_avoir_facture_payee();
 
 -- ============================================================

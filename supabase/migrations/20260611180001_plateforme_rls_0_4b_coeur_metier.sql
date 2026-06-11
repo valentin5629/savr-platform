@@ -66,10 +66,11 @@ CREATE POLICY evt_commercial_select ON plateforme.evenements
     )
   );
 
--- INSERT commercial : pas de restriction sur organisation (true) — événement rattaché ensuite
 CREATE POLICY evt_commercial_insert ON plateforme.evenements
   FOR INSERT WITH CHECK (
     auth.jwt()->>'role' = 'traiteur_commercial'
+    AND organisation_id = (auth.jwt()->>'organisation_id')::uuid
+    AND created_by = auth.uid()
   );
 
 -- UPDATE commercial : ses propres créations + fenêtre d'édition (C2 sobriété)
@@ -251,8 +252,12 @@ CREATE POLICY col_delete_brouillon ON plateforme.collectes
 -- Écriture : SERVICE_ROLE (adapter MTS-1) + admin_savr
 -- ---------------------------------------------------------------------------
 
-CREATE POLICY ct_admin ON plateforme.collecte_tournees
-  FOR ALL USING (auth.jwt()->>'role' = 'admin_savr')
+-- Écriture réservée au SERVICE_ROLE (adapter MTS-1). admin_savr = lecture + update seulement.
+CREATE POLICY ct_admin_select ON plateforme.collecte_tournees
+  FOR SELECT USING (auth.jwt()->>'role' = 'admin_savr');
+
+CREATE POLICY ct_admin_update ON plateforme.collecte_tournees
+  FOR UPDATE USING (auth.jwt()->>'role' = 'admin_savr')
   WITH CHECK (auth.jwt()->>'role' = 'admin_savr');
 
 CREATE POLICY ct_ops_select ON plateforme.collecte_tournees

@@ -48,10 +48,7 @@ AS
     id,
     organisation_id,
     entite_facturation_id,
-    serie,
-    annee,
-    numero,
-    numero_complet,
+    numero_facture,
     statut,
     date_emission,
     montant_ht,
@@ -59,12 +56,13 @@ AS
     montant_tva,
     montant_ttc,
     devise,
-    pennylane_invoice_id,
+    pennylane_id,
     pennylane_push_at,
     pennylane_statut,
-    avoir_de_facture_id,
+    facture_origine_id,
     motif_avoir,
-    pdf_fichier_id,
+    pdf_url_savr,
+    pdf_url_pennylane,
     notes,
     periode_debut,
     periode_fin,
@@ -204,7 +202,11 @@ CREATE POLICY rr_admin ON plateforme.rapports_rse
 CREATE POLICY rr_select ON plateforme.rapports_rse
   FOR SELECT USING (
     plateforme.f_is_staff()
-    OR rapports_rse.organisation_id = (auth.jwt()->>'organisation_id')::uuid
+    OR EXISTS (
+      SELECT 1 FROM plateforme.evenements e
+      WHERE e.id = rapports_rse.evenement_id
+        AND e.organisation_id = (auth.jwt()->>'organisation_id')::uuid
+    )
   );
 
 -- Écriture : admin_savr (régénération) + SERVICE_ROLE (batch J+1)
@@ -473,6 +475,25 @@ ALTER TABLE plateforme.integrations_logs_2026 ENABLE ROW LEVEL SECURITY;
 -- 21. ASSERTION GLOBALE — toutes tables plateforme.* + shared.* ont RLS enabled
 --     ET au moins 1 policy (gate final module 0.4)
 -- ---------------------------------------------------------------------------
+
+-- ---------------------------------------------------------------------------
+-- 22. FORCE ROW LEVEL SECURITY — toutes tables plateforme.* et shared.*
+-- Empêche le rôle owner (postgres, bypassrls) de contourner RLS sans intention
+-- explicite. Défense en profondeur pour les fonctions SECURITY DEFINER futures.
+-- ---------------------------------------------------------------------------
+DO $$
+DECLARE t record;
+BEGIN
+  FOR t IN
+    SELECT schemaname, tablename
+    FROM pg_tables
+    WHERE schemaname IN ('plateforme', 'shared')
+      AND rowsecurity = true
+  LOOP
+    EXECUTE format('ALTER TABLE %I.%I FORCE ROW LEVEL SECURITY', t.schemaname, t.tablename);
+  END LOOP;
+END;
+$$;
 
 DO $$
 DECLARE

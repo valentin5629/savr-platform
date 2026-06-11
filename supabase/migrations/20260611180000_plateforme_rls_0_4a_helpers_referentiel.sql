@@ -27,6 +27,10 @@ GRANT USAGE ON SCHEMA shared TO authenticated, anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA plateforme TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA shared TO authenticated;
 
+-- Colonnes admin-only sur lieux — non visibles aux rôles clients (§09 addendum)
+REVOKE SELECT (commentaire_lieu, siren, email_gestionnaire, reference_citeo)
+  ON plateforme.lieux FROM authenticated;
+
 -- ---------------------------------------------------------------------------
 -- 0. HELPERS (à créer en premier — tout le reste en dépend)
 -- ---------------------------------------------------------------------------
@@ -124,8 +128,9 @@ $$
     WHEN 'plateforme.rapports_rse' THEN
       EXISTS (
         SELECT 1 FROM plateforme.rapports_rse r
+        JOIN plateforme.evenements e ON e.id = r.evenement_id
         WHERE r.id = p_entity_id
-          AND r.organisation_id = (auth.jwt()->>'organisation_id')::uuid
+          AND e.organisation_id = (auth.jwt()->>'organisation_id')::uuid
       )
 
     WHEN 'plateforme.organisations' THEN

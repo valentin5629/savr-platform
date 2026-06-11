@@ -5,7 +5,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(50);
+SELECT plan(58);
 
 -- ---------------------------------------------------------------------------
 -- HELPERS de simulation JWT (pgTAP context)
@@ -584,6 +584,122 @@ SELECT ok(
   plateforme.f_collecte_visible('cccc0001-0000-0000-0000-000000000001'::uuid),
   'T50 f_collecte_visible_own_org_ok'
 );
+
+-- ---------------------------------------------------------------------------
+-- TESTS P1 BLOQUANTS CI — identifiés par la revue (T51–T58)
+-- ---------------------------------------------------------------------------
+
+-- T51 : BLOQUANT — audit_log_insert_denied_app (Q1 append-only)
+-- audit_log n'a aucune policy INSERT : écritures réservées aux triggers SECURITY DEFINER
+-- et SERVICE_ROLE. Même admin_savr ne peut pas INSERT directement → 42501.
+SELECT test_set_jwt('admin_savr', NULL);
+SELECT throws_ok(
+  $$INSERT INTO plateforme.audit_log (action) VALUES ('test_tamper_t51')$$,
+  '42501', NULL, 'T51 BLOQUANT audit_log_insert_denied_admin'
+);
+
+-- T52 : BLOQUANT — collecte_tournees_write_denied_app
+-- collecte_tournees : aucune policy INSERT (adapter MTS-1 / SERVICE_ROLE seul).
+-- RLS évalue WITH CHECK avant les contraintes FK → 42501 avant toute vérif FK.
+SELECT test_set_jwt('traiteur_manager', '11111111-0000-0000-0000-000000000001'::uuid);
+SELECT throws_ok(
+  $$INSERT INTO plateforme.collecte_tournees (collecte_id, tournee_id)
+    VALUES ('cccc0001-0000-0000-0000-000000000001', gen_random_uuid())$$,
+  '42501', NULL, 'T52 BLOQUANT collecte_tournees_insert_denied_app'
+);
+
+-- T53 : BLOQUANT — lieux_admin_only_fields_hidden_from_clients
+-- REVOKE SELECT (commentaire_lieu, siren, email_gestionnaire, reference_citeo) ON lieux FROM authenticated.
+-- Toute tentative de SELECT ces colonnes → 42501, même avec table-level SELECT accordé.
+SELECT test_set_jwt('traiteur_manager', '11111111-0000-0000-0000-000000000001'::uuid);
+SELECT throws_ok(
+  $$SELECT commentaire_lieu FROM plateforme.lieux LIMIT 1$$,
+  '42501', NULL, 'T53 BLOQUANT lieux_admin_cols_revoked_from_clients'
+);
+
+-- T54 : BLOQUANT — registre_agence_denied
+-- v_registre_dechets (SECURITY DEFINER) filtre explicitement role='agence' dans la WHERE clause.
+-- Setup superuser : passer cccc0001 (ZD) en cloturee pour rendre le test non-trivial.
+SELECT test_as_superuser();
+UPDATE plateforme.collectes SET statut = 'cloturee'
+  WHERE id = 'cccc0001-0000-0000-0000-000000000001';
+
+SELECT test_set_jwt('agence', '33333333-0000-0000-0000-000000000001'::uuid);
+SELECT results_eq(
+  $$SELECT count(*)::int FROM plateforme.v_registre_dechets$$,
+  $$VALUES (0)$$,
+  'T54 BLOQUANT registre_agence_denied_zero_rows'
+);
+
+-- T55 : BLOQUANT — evt_commercial_insert_cross_org_denied
+-- Commercial org ALPHA insère événement avec organisation_id=BETA → WITH CHECK échoue → 42501.
+-- created_by = auth.uid() ✓ ; organisation_id ≠ JWT organisation_id ✗ → deny.
+SELECT test_set_jwt('traiteur_commercial', '11111111-0000-0000-0000-000000000001'::uuid,
+                    '05e70001-0000-0000-0000-000000000001'::uuid);
+SELECT throws_ok(
+  $$INSERT INTO plateforme.evenements (
+      id, organisation_id, lieu_id, traiteur_operationnel_organisation_id,
+      entite_facturation_id, created_by, type_evenement_id,
+      date_evenement, pax, contact_principal_nom, contact_principal_telephone
+    ) VALUES (
+      'ee990001-0000-0000-0000-000000000001',
+      '22222222-0000-0000-0000-000000000001',
+      'aaaa0002-0000-0000-0000-000000000001',
+      '22222222-0000-0000-0000-000000000001',
+      'eeff0002-0000-0000-0000-000000000001',
+      '05e70001-0000-0000-0000-000000000001',
+      '0a7e0001-0000-0000-0000-000000000001',
+      current_date + 30, 80, 'Test Contact', '0600000000'
+    )$$,
+  '42501', NULL, 'T55 BLOQUANT evt_commercial_insert_cross_org_denied'
+);
+
+-- T56 : BLOQUANT — inbox_write_denied_app
+-- integrations_inbox : aucune policy INSERT (SERVICE_ROLE seul pour les webhooks MTS-1).
+-- Même admin_savr ne peut pas écrire directement → 42501.
+SELECT test_set_jwt('admin_savr', NULL);
+SELECT throws_ok(
+  $$INSERT INTO plateforme.integrations_inbox (event_id, type, source, occurred_at, statut)
+    VALUES (gen_random_uuid(), 'test.event', 'tms', now(), 'traite')$$,
+  '42501', NULL, 'T56 BLOQUANT inbox_insert_denied_app'
+);
+
+-- T57 : BLOQUANT — factures_delete_refuse_tous_roles
+-- ops_savr possède SELECT + UPDATE sur factures mais aucune policy DELETE → 0 lignes supprimées.
+-- Prouve qu'une facture est immuable (jamais de hard-delete) pour les rôles applicatifs.
+SELECT test_as_superuser();
+INSERT INTO plateforme.factures (id, organisation_id, entite_facturation_id, numero_facture,
+    type, mode_facturation, montant_ht, montant_ttc, statut)
+  VALUES ('fac00001-0000-0000-0000-000000000001'::uuid,
+    '11111111-0000-0000-0000-000000000001'::uuid,
+    'eeff0001-0000-0000-0000-000000000001'::uuid,
+    'FAC-T57-001', 'zero_dechet', 'par_collecte', 100.00, 120.00, 'brouillon');
+
+SELECT test_set_jwt('ops_savr', NULL);
+WITH del AS (
+  DELETE FROM plateforme.factures
+  WHERE id = 'fac00001-0000-0000-0000-000000000001' RETURNING 1
+)
+SELECT is(count(*)::int, 0, 'T57 BLOQUANT factures_delete_denied_ops_zero_rows') FROM del;
+
+-- T58 : BLOQUANT — rapports_rse_regen_cross_org_denied
+-- Manager org B tente UPDATE (régénération) sur rapport RSE appartenant à org A.
+-- Aucune policy UPDATE pour traiteur_manager → USING non satisfait → 0 lignes.
+SELECT test_as_superuser();
+INSERT INTO plateforme.rapports_rse (id, evenement_id, collecte_id, disponible_a)
+  VALUES ('rrr00001-0000-0000-0000-000000000001'::uuid,
+    '0e0e0001-0000-0000-0000-000000000001'::uuid,
+    'cccc0001-0000-0000-0000-000000000001'::uuid,
+    now());
+
+SELECT test_set_jwt('traiteur_manager', '22222222-0000-0000-0000-000000000001'::uuid);
+WITH u AS (
+  UPDATE plateforme.rapports_rse
+  SET regenere_at = now()
+  WHERE evenement_id = '0e0e0001-0000-0000-0000-000000000001'
+  RETURNING 1
+)
+SELECT is(count(*)::int, 0, 'T58 BLOQUANT rapports_rse_regen_cross_org_denied') FROM u;
 
 -- ---------------------------------------------------------------------------
 

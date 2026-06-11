@@ -31,7 +31,7 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS plateforme.integrations_logs (
-  id             uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  id             uuid        NOT NULL DEFAULT gen_random_uuid(),
   integration    text        NOT NULL,
   direction      text        NOT NULL CHECK (direction IN ('entrant', 'sortant')),
   methode        text,
@@ -42,7 +42,9 @@ CREATE TABLE IF NOT EXISTS plateforme.integrations_logs (
   duree_ms       integer,
   correlation_id text,
   erreur         text,
-  created_at     timestamptz NOT NULL DEFAULT now()
+  -- created_at inclus dans la PK : obligatoire pour table partitionnée (PG contrainte)
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (id, created_at)
 ) PARTITION BY RANGE (created_at);
 
 -- Partition courante (V1 : une seule partition, ajout mensuel en production par ops)
@@ -209,8 +211,11 @@ ALTER TABLE plateforme.emails_envoyes ENABLE ROW LEVEL SECURITY;
 -- Conforme §15 Sécurité (RGPD, pas de stockage données sensibles brutes).
 -- ============================================================
 
+CREATE SEQUENCE IF NOT EXISTS plateforme.audit_log_id_seq;
+
 CREATE TABLE IF NOT EXISTS plateforme.audit_log (
-  id          bigserial   PRIMARY KEY,
+  -- bigserial sur table partitionnée : séquence externe + NOT NULL (PK doit inclure created_at)
+  id          bigint      NOT NULL DEFAULT nextval('plateforme.audit_log_id_seq'),
   user_id     uuid        REFERENCES plateforme.users(id),
   role        text,
   action      text        NOT NULL,
@@ -220,7 +225,9 @@ CREATE TABLE IF NOT EXISTS plateforme.audit_log (
   new_values  jsonb,
   ip_address  inet,
   user_agent  text,
-  created_at  timestamptz NOT NULL DEFAULT now()
+  -- created_at inclus dans la PK : obligatoire pour table partitionnée (PG contrainte)
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (id, created_at)
 ) PARTITION BY RANGE (created_at);
 
 -- Partition courante (V1 : une partition initiale)

@@ -71,6 +71,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
+        with: { version: 2.105.0 }
       - run: supabase start
       - run: supabase db reset
       - run: supabase test db # pgTAP RLS (role 'authenticated') + outbox par mutation
@@ -116,6 +117,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
+        with: { version: 2.105.0 }
       - run: supabase start
       - run: supabase db reset --debug
       - name: Garde anti-destructif

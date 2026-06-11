@@ -18,4 +18,9 @@
 #   supabase/migrations/*_plateforme_transporteurs*.sql
 #   supabase/seed.sql
 #
-# (Aucune exception active par defaut — repo squelette.)
+# Exceptions actives (module 0.3 — schema DB) :
+#   - type_tms_enum ('mts1','a_toutes','autre') : valeur d'enum §04 Data Model, pas logique metier
+#   - code_transporteur_mts1 / id_point_collecte_mts1 : colonnes V1-only liste fermee garde-fou 1
+#   - last_everest_ping_at/status : colonne operationnelle prestataires (V1.1, pas logique adapter)
+supabase/migrations/20260611171637_plateforme_bloc3_parametres_associations_transporteurs.sql
+supabase/migrations/20260611171635_shared_plateforme_bloc1_orgs_users.sql

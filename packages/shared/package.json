@@ -7,5 +7,8 @@
   "scripts": {
     "build": "echo 'shared: build no-op (paquet TS-only consommé via main)'",
     "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.108.1"
   }
 }

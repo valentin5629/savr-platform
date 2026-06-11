@@ -12,3 +12,6 @@ coverage/
 
 # Specs allégées : symlink local vers le Vault (machine-specific, jamais committé)
 _DEV-FACING
+
+# Supabase local temp files
+supabase/.temp/

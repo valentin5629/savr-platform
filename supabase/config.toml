@@ -1,0 +1,72 @@
+# Supabase local dev config — Savr Platform V1
+# Docs : https://supabase.com/docs/guides/cli/config
+#
+# Schémas exposés : plateforme + shared UNIQUEMENT.
+# Garde-fou 1 TMS-Ready : schéma tms.* jamais créé en V1.
+
+project_id = "savr-platform"
+
+[api]
+enabled = true
+port = 54321
+# Exposer plateforme + shared via PostgREST. Le schéma public n'est pas exposé
+# (toutes nos tables sont dans plateforme.* ou shared.*).
+schemas = ["plateforme", "shared", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[db.pooler]
+enabled = false
+port = 54329
+pool_mode = "transaction"
+default_pool_size = 20
+max_client_conn = 100
+
+[realtime]
+enabled = true
+
+[studio]
+enabled = true
+port = 54323
+api_url = "http://127.0.0.1"
+
+[inbucket]
+enabled = true
+port = 54324
+# smtp_port = 54325
+# pop3_port = 54326
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:3000"
+additional_redirect_urls = [
+  "http://localhost:3000",
+  "https://dev.app.gosavr.io",
+]
+# JWT expire après 1 heure ; refresh token rotation activée
+jwt_expiry = 3600
+enable_signup = true
+enable_anonymous_sign_ins = false
+minimum_password_length = 8
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+# Confirmations email obligatoires (production-like en local)
+enable_confirmations = true
+max_frequency = "1s"
+
+[edge_runtime]
+enabled = false
+
+[analytics]
+enabled = false

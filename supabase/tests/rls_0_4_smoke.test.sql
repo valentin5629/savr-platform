@@ -40,13 +40,13 @@ VALUES
 
 -- Types d'événements (requis FK evenements.type_evenement_id)
 INSERT INTO plateforme.types_evenements (id, code, libelle)
-VALUES ('type0001-0000-0000-0000-000000000001'::uuid, 'cocktail_test', 'Cocktail test');
+VALUES ('0a7e0001-0000-0000-0000-000000000001'::uuid, 'cocktail_test', 'Cocktail test');
 
 -- Utilisateurs (requis FK evenements.created_by)
 INSERT INTO plateforme.users (id, organisation_id, email, prenom, nom, role)
 VALUES
-  ('user0001-0000-0000-0000-000000000001'::uuid, '11111111-0000-0000-0000-000000000001'::uuid, 'manager@alpha.test', 'Jean', 'Dupont', 'traiteur_manager'),
-  ('user0002-0000-0000-0000-000000000001'::uuid, '22222222-0000-0000-0000-000000000001'::uuid, 'manager@beta.test', 'Marie', 'Martin', 'traiteur_manager');
+  ('05e70001-0000-0000-0000-000000000001'::uuid, '11111111-0000-0000-0000-000000000001'::uuid, 'manager@alpha.test', 'Jean', 'Dupont', 'traiteur_manager'),
+  ('05e70002-0000-0000-0000-000000000001'::uuid, '22222222-0000-0000-0000-000000000001'::uuid, 'manager@beta.test', 'Marie', 'Martin', 'traiteur_manager');
 
 -- Entités de facturation (requis FK evenements.entite_facturation_id)
 INSERT INTO plateforme.entites_facturation (id, organisation_id, raison_sociale, siret, adresse_facturation, code_postal, ville)
@@ -72,22 +72,22 @@ INSERT INTO plateforme.evenements (
   contact_principal_nom, contact_principal_telephone
 )
 VALUES
-  ('evev0001-0000-0000-0000-000000000001'::uuid,
+  ('0e0e0001-0000-0000-0000-000000000001'::uuid,
    '11111111-0000-0000-0000-000000000001'::uuid,
    'aaaa0001-0000-0000-0000-000000000001'::uuid,
    '11111111-0000-0000-0000-000000000001'::uuid,
    'eeff0001-0000-0000-0000-000000000001'::uuid,
-   'user0001-0000-0000-0000-000000000001'::uuid,
-   'type0001-0000-0000-0000-000000000001'::uuid,
+   '05e70001-0000-0000-0000-000000000001'::uuid,
+   '0a7e0001-0000-0000-0000-000000000001'::uuid,
    '55555555-0000-0000-0000-000000000001'::uuid,
    NOW() + INTERVAL '10 days', 100, 'Alice Dupont', '0601020304'),
-  ('evev0002-0000-0000-0000-000000000001'::uuid,
+  ('0e0e0002-0000-0000-0000-000000000001'::uuid,
    '22222222-0000-0000-0000-000000000001'::uuid,
    'aaaa0002-0000-0000-0000-000000000001'::uuid,
    '22222222-0000-0000-0000-000000000001'::uuid,
    'eeff0002-0000-0000-0000-000000000001'::uuid,
-   'user0002-0000-0000-0000-000000000001'::uuid,
-   'type0001-0000-0000-0000-000000000001'::uuid,
+   '05e70002-0000-0000-0000-000000000001'::uuid,
+   '0a7e0001-0000-0000-0000-000000000001'::uuid,
    NULL,
    NOW() + INTERVAL '5 days', 50, 'Bob Martin', '0606060606');
 
@@ -95,10 +95,10 @@ VALUES
 INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte)
 VALUES
   ('cccc0001-0000-0000-0000-000000000001'::uuid,
-   'evev0001-0000-0000-0000-000000000001'::uuid,
+   '0e0e0001-0000-0000-0000-000000000001'::uuid,
    'zd', 'programmee', 'non_envoye', current_date + 10, '08:00'),
   ('cccc0002-0000-0000-0000-000000000001'::uuid,
-   'evev0002-0000-0000-0000-000000000001'::uuid,
+   '0e0e0002-0000-0000-0000-000000000001'::uuid,
    'ag', 'programmee', 'non_envoye', current_date + 5, '09:00');
 
 -- Bordereau (pour tests fichiers)
@@ -113,15 +113,15 @@ VALUES
 
 -- Outbox event (seq auto bigserial — pas inséré manuellement)
 INSERT INTO plateforme.outbox_events (id, event_type, payload, aggregate_type, aggregate_id)
-VALUES ('oooo0001-0000-0000-0000-000000000001'::uuid, 'collecte.creee', '{}', 'collecte', 'cccc0001-0000-0000-0000-000000000001'::uuid);
+VALUES ('0c0c0001-0000-0000-0000-000000000001'::uuid, 'collecte.creee', '{}', 'collecte', 'cccc0001-0000-0000-0000-000000000001'::uuid);
 
 -- Tarif pack AG (nécessaire pour la FK de packs_antgaspi)
 INSERT INTO plateforme.tarifs_packs_ag (id, nb_collectes, prix_ht, valide_du, actif)
-VALUES ('tttt0001-0000-0000-0000-000000000001'::uuid, 10, 500.00, '2026-01-01', true);
+VALUES ('0a0a0001-0000-0000-0000-000000000001'::uuid, 10, 500.00, '2026-01-01', true);
 
 -- Packs AG
 INSERT INTO plateforme.packs_antgaspi (id, organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, nb_annulees, statut, date_achat)
-VALUES ('pppp0001-0000-0000-0000-000000000001'::uuid, '11111111-0000-0000-0000-000000000001'::uuid, 'tttt0001-0000-0000-0000-000000000001'::uuid, 10, 2, 0, 'actif', current_date);
+VALUES ('0d0d0001-0000-0000-0000-000000000001'::uuid, '11111111-0000-0000-0000-000000000001'::uuid, '0a0a0001-0000-0000-0000-000000000001'::uuid, 10, 2, 0, 'actif', current_date);
 
 -- ---------------------------------------------------------------------------
 -- TESTS 0.4a — HELPERS + RÉFÉRENTIEL
@@ -213,7 +213,7 @@ SELECT results_eq(
 SELECT test_set_jwt('gestionnaire_lieux', '44444444-0000-0000-0000-000000000001'::uuid);
 SELECT ok(
   (SELECT count(*)::int FROM plateforme.collectes
-   WHERE evenement_id = 'evev0001-0000-0000-0000-000000000001'::uuid) >= 0,
+   WHERE evenement_id = '0e0e0001-0000-0000-0000-000000000001'::uuid) >= 0,
   'T11 collecte_flux_gestionnaire_lieu_garde_ok'
 );
 
@@ -242,7 +242,7 @@ SELECT ok(true, 'T14 tournees_policy_structure_ok');
 SELECT test_set_jwt('ops_savr', NULL);
 SAVEPOINT sp_t15;
 INSERT INTO plateforme.packs_antgaspi (id, organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, nb_annulees, statut, date_achat)
-VALUES ('pppp0002-0000-0000-0000-000000000001'::uuid, '11111111-0000-0000-0000-000000000001'::uuid, 'tttt0001-0000-0000-0000-000000000001'::uuid, 5, 0, 0, 'epuise', current_date);
+VALUES ('0d0d0002-0000-0000-0000-000000000001'::uuid, '11111111-0000-0000-0000-000000000001'::uuid, '0a0a0001-0000-0000-0000-000000000001'::uuid, 5, 0, 0, 'epuise', current_date);
 SELECT ok(true, 'T15 packs_ag_write_ops_ok');
 ROLLBACK TO SAVEPOINT sp_t15;
 
@@ -250,7 +250,7 @@ ROLLBACK TO SAVEPOINT sp_t15;
 SELECT test_set_jwt('traiteur_manager', '11111111-0000-0000-0000-000000000001'::uuid);
 SELECT throws_ok(
   $$INSERT INTO plateforme.packs_antgaspi (id, organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, nb_annulees, statut, date_achat)
-    VALUES ('pppp0003-0000-0000-0000-000000000001', '11111111-0000-0000-0000-000000000001', 'tttt0001-0000-0000-0000-000000000001', 5, 0, 0, 'actif', current_date)$$,
+    VALUES ('0d0d0003-0000-0000-0000-000000000001', '11111111-0000-0000-0000-000000000001', '0a0a0001-0000-0000-0000-000000000001', 5, 0, 0, 'actif', current_date)$$,
   'packs_ag_write_client_denied'
 );
 
@@ -440,19 +440,19 @@ INSERT INTO plateforme.evenements (
   entite_facturation_id, created_by, type_evenement_id,
   date_evenement, pax, contact_principal_nom, contact_principal_telephone
 )
-VALUES ('evev0003-0000-0000-0000-000000000001'::uuid,
+VALUES ('0e0e0003-0000-0000-0000-000000000001'::uuid,
   '11111111-0000-0000-0000-000000000001'::uuid,
   'aaaa0001-0000-0000-0000-000000000001'::uuid,
   '11111111-0000-0000-0000-000000000001'::uuid,
   'eeff0001-0000-0000-0000-000000000001'::uuid,
-  'user0001-0000-0000-0000-000000000001'::uuid,
-  'type0001-0000-0000-0000-000000000001'::uuid,
+  '05e70001-0000-0000-0000-000000000001'::uuid,
+  '0a7e0001-0000-0000-0000-000000000001'::uuid,
   NULL, 0, 'Test Contact', '0600000000');  -- date_evenement NULL = brouillon
 
 SELECT test_set_jwt('gestionnaire_lieux', '44444444-0000-0000-0000-000000000001'::uuid);
 SELECT results_eq(
   $$SELECT count(*)::int FROM plateforme.evenements
-    WHERE id = 'evev0003-0000-0000-0000-000000000001'
+    WHERE id = '0e0e0003-0000-0000-0000-000000000001'
       AND date_evenement IS NULL$$,
   $$VALUES (0)$$,
   'T38 evenements_brouillon_tiers_denied'
@@ -483,8 +483,8 @@ UPDATE plateforme.collectes SET statut = 'cloturee' WHERE id = 'cccc0002-0000-00
 SELECT test_set_jwt('traiteur_manager', '22222222-0000-0000-0000-000000000001'::uuid);
 SELECT results_eq(
   $$SELECT count(*)::int FROM plateforme.evenements
-    WHERE id = 'evev0002-0000-0000-0000-000000000001'
-      AND plateforme.f_collecte_editable('evev0002-0000-0000-0000-000000000001'::uuid) = false$$,
+    WHERE id = '0e0e0002-0000-0000-0000-000000000001'
+      AND plateforme.f_collecte_editable('0e0e0002-0000-0000-0000-000000000001'::uuid) = false$$,
   $$VALUES (1)$$,
   'T41 evenements_update_manager_fenetre_denied_guard_ok'
 );

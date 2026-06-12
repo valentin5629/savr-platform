@@ -119,29 +119,34 @@ SELECT throws_ok(
 
 -- T23 : Traiteur tente UPDATE paramètres (staff-only) → UPDATE 0 lignes (USING denied)
 SELECT test_set_jwt('traiteur_manager', 'aaaaaaaa-0000-0000-0000-000000000001'::uuid);
-WITH u AS (
-  UPDATE plateforme.grilles_tarifaires_zd
-  SET actif = false
-  WHERE id = (SELECT id FROM plateforme.grilles_tarifaires_zd LIMIT 1)
-  RETURNING 1
-)
-SELECT is(count(*)::int, 0, 'T23 Erreur : traiteur UPDATE parametres retourne 0 lignes');
+SELECT results_eq(
+  $$WITH u AS (
+    UPDATE plateforme.grilles_tarifaires_zd
+    SET actif = false
+    WHERE id = (SELECT id FROM plateforme.grilles_tarifaires_zd LIMIT 1)
+    RETURNING 1
+  ) SELECT count(*)::int FROM u$$,
+  $$VALUES (0)$$,
+  'T23 Erreur : traiteur UPDATE parametres retourne 0 lignes'
+);
 
 -- T24 : Gestionnaire lieux tente UPDATE organisations_lieux autre gestionnaire → 0 lignes
-SELECT test_set_jwt('gestionnaire_lieux', 'dddddddd-0000-0000-0000-000000000001'::uuid);
 SELECT test_as_superuser();
 -- Crée une liaison d'un autre gestionnaire
 INSERT INTO plateforme.organisations_lieux (organisation_id, lieu_id)
 VALUES ('bbbbbbbb-0000-0000-0000-000000000001'::uuid, '10c00002-0000-0000-0000-000000000001'::uuid);
 SELECT test_set_jwt('gestionnaire_lieux', 'dddddddd-0000-0000-0000-000000000001'::uuid);
 -- Tente de modifier une liaison qui n'existe pas pour lui
-WITH u AS (
-  UPDATE plateforme.organisations_lieux
-  SET lieu_id = '10c00001-0000-0000-0000-000000000001'::uuid
-  WHERE lieu_id = '10c00002-0000-0000-0000-000000000001'::uuid
-  RETURNING 1
-)
-SELECT is(count(*)::int, 0, 'T24 Erreur : gestionnaire UPDATE organisations_lieux cross-org');
+SELECT results_eq(
+  $$WITH u AS (
+    UPDATE plateforme.organisations_lieux
+    SET lieu_id = '10c00001-0000-0000-0000-000000000001'::uuid
+    WHERE lieu_id = '10c00002-0000-0000-0000-000000000001'::uuid
+    RETURNING 1
+  ) SELECT count(*)::int FROM u$$,
+  $$VALUES (0)$$,
+  'T24 Erreur : gestionnaire UPDATE organisations_lieux cross-org'
+);
 
 -- T25 : Client tente INSERT bordereau (policy INSERT denied) → 42501
 SELECT test_as_superuser();
@@ -154,14 +159,17 @@ SELECT throws_ok(
   '42501', NULL, 'T25 Erreur : cross-org INSERT bordereau denied'
 );
 
--- T26 : Traiteur tente DELETE collecte (pas de policy DELETE) → 0 lignes
+-- T26 : Traiteur tente DELETE collecte en statut programmee (policy DELETE exige brouillon) → 0 lignes
 SELECT test_set_jwt('traiteur_manager', 'aaaaaaaa-0000-0000-0000-000000000001'::uuid);
-WITH d AS (
-  DELETE FROM plateforme.collectes
-  WHERE id = 'c01c0001-0000-0000-0000-000000000001'
-  RETURNING 1
-)
-SELECT is(count(*)::int, 0, 'T26 Erreur : traiteur DELETE collecte retourne 0 lignes');
+SELECT results_eq(
+  $$WITH d AS (
+    DELETE FROM plateforme.collectes
+    WHERE id = 'c01c0001-0000-0000-0000-000000000001'
+    RETURNING 1
+  ) SELECT count(*)::int FROM d$$,
+  $$VALUES (0)$$,
+  'T26 Erreur : traiteur DELETE collecte retourne 0 lignes'
+);
 
 -- T27 : Outbox write denied — aucun rôle app ne peut insérer outbox (SERVICE_ROLE seul)
 SELECT test_set_jwt('ops_savr', NULL);
@@ -179,15 +187,18 @@ SELECT throws_ok(
   '42501', NULL, 'T28 Erreur : cross-org INSERT shared.fichiers denied'
 );
 
--- T29 : Agence UPDATE evenement cross-org (USING denied) → 0 lignes
+-- T29 : Agence UPDATE evenement cross-org (USING denied, evt appartient à Kaspia ≠ Agence D) → 0 lignes
 SELECT test_set_jwt('agence', 'cccccccc-0000-0000-0000-000000000001'::uuid);
-WITH u AS (
-  UPDATE plateforme.evenements
-  SET pax = 200
-  WHERE id = 'e0e00001-0000-0000-0000-000000000001'
-  RETURNING 1
-)
-SELECT is(count(*)::int, 0, 'T29 Erreur : agence UPDATE evenement denied');
+SELECT results_eq(
+  $$WITH u AS (
+    UPDATE plateforme.evenements
+    SET pax = 200
+    WHERE id = 'e0e00001-0000-0000-0000-000000000001'
+    RETURNING 1
+  ) SELECT count(*)::int FROM u$$,
+  $$VALUES (0)$$,
+  'T29 Erreur : agence UPDATE evenement denied'
+);
 
 -- T30 : Attributions cross-org denied (client_organisateur can't see) → SELECT 0
 SELECT test_set_jwt('client_organisateur', gen_random_uuid());

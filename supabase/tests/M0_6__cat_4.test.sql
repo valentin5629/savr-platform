@@ -237,12 +237,11 @@ SELECT results_eq(
 );
 
 -- T42 : Collecte_flux cross-org denied
+-- Utilise un flux_dechets existant (seedé par la migration bloc8)
 SELECT test_as_superuser();
-INSERT INTO plateforme.flux_dechets (id, code, libelle)
-VALUES ('f10e0001-0000-0000-0000-000000000001'::uuid, 'test_flux', 'Test Flux');
-
 INSERT INTO plateforme.collecte_flux (collecte_id, flux_id, poids_kg)
-VALUES ('c01c0001-0000-0000-0000-000000000001'::uuid, 'f10e0001-0000-0000-0000-000000000001'::uuid, 50);
+SELECT 'c01c0001-0000-0000-0000-000000000001'::uuid, id, 50
+FROM plateforme.flux_dechets WHERE code = 'biodechet' LIMIT 1;
 
 SELECT test_set_jwt('traiteur_manager', '0a900002-0000-0000-0000-000000000001'::uuid);
 SELECT results_eq(

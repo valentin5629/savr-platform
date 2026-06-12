@@ -45,20 +45,19 @@ VALUES ('0b9e5700-0000-0000-0000-000000000001'::uuid, 'Test Org', 'traiteur', tr
 -- CATÉGORIE 5 — IDEMPOTENCE & ÉTATS (9 tests)
 -- =====================================================================
 
--- T45 : audit_log append-only — INSERT ok, UPDATE denied, DELETE denied
+-- T45 : audit_log append-only — UPDATE déclenche une erreur 42501 (REVOKE UPDATE FROM authenticated)
 SELECT test_as_superuser();
 INSERT INTO plateforme.audit_log (user_id, action, table_name, record_id, new_values)
 VALUES (NULL, 'INSERT', 'organisations', '0b9e5700-0000-0000-0000-000000000001'::uuid, '{}');
 
--- Tentative UPDATE (doit échouer car pas de policy UPDATE)
+-- Tentative UPDATE : lève une erreur 42501 car UPDATE est révoqué du rôle authenticated
 SELECT test_set_jwt('admin_savr', NULL);
-WITH u AS (
-  UPDATE plateforme.audit_log
-  SET new_values = '{}'
-  WHERE table_name = 'organisations'
-  RETURNING 1
-)
-SELECT is(count(*)::int, 0, 'T45 Idempotence : audit_log UPDATE retourne 0 (append-only)');
+SELECT throws_ok(
+  $$UPDATE plateforme.audit_log SET new_values = '{}' WHERE table_name = 'organisations'$$,
+  '42501',
+  NULL,
+  'T45 Idempotence : audit_log UPDATE déclenche 42501 (append-only via REVOKE)'
+);
 
 -- T46 : Outbox events write SERVICE_ROLE only — aucun rôle app ne peut insérer
 SELECT test_set_jwt('admin_savr', NULL);

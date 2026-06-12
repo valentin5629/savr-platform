@@ -7,7 +7,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(43);  -- 8 happy path + 11 limites + 3 structurelles + 21 assertions bloquantes
+SELECT plan(22);  -- 3 structurelles E3 + 8 happy path + 11 limites
 
 -- =====================================================================
 -- BLOC 1 — SETUP & HELPERS

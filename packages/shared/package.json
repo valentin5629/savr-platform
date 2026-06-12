@@ -4,6 +4,14 @@
   "private": true,
   "type": "module",
   "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./src/supabase-client.js": "./src/supabase-client.ts",
+    "./src/email-denylist.js": "./src/email-denylist.ts",
+    "./src/email/index.js": "./src/email/index.ts",
+    "./src/api/siret.js": "./src/api/siret.ts",
+    "./src/api/tva.js": "./src/api/tva.ts"
+  },
   "scripts": {
     "build": "echo 'shared: build no-op (paquet TS-only consommé via main)'",
     "typecheck": "tsc -p tsconfig.json --noEmit"

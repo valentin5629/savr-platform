@@ -8,6 +8,7 @@ import { test, expect } from '@playwright/test';
 
 const SIGNUP_URL = '/api/auth/signup';
 const LOGIN_URL = '/api/auth/login';
+const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3001';
 const LOGOUT_URL = '/api/auth/logout';
 
 const VALID_BODY = {
@@ -75,20 +76,25 @@ test('AUTH-E2E-4 — signup type_profil invalide retourne 422', async ({
 });
 
 // ── AUTH-E2E-5 : JSON malformé → 400 ────────────────────────────────────────
-test('AUTH-E2E-5 — signup JSON malformé retourne 400', async ({ request }) => {
-  const res = await request.post(SIGNUP_URL, {
-    data: 'not-json',
+// Utilise fetch natif : request.post({ data: string }) sérialise en JSON valide,
+// ce qui ne déclenche pas le catch de req.json(). Un corps réellement malformé
+// (accolade non fermée) est nécessaire pour tester le 400.
+test('AUTH-E2E-5 — signup JSON malformé retourne 400', async () => {
+  const res = await fetch(`${BASE_URL}${SIGNUP_URL}`, {
+    method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    body: '{broken',
   });
-  expect(res.status()).toBe(400);
+  expect(res.status).toBe(400);
 });
 
-test('AUTH-E2E-5b — login JSON malformé retourne 400', async ({ request }) => {
-  const res = await request.post(LOGIN_URL, {
-    data: 'not-json',
+test('AUTH-E2E-5b — login JSON malformé retourne 400', async () => {
+  const res = await fetch(`${BASE_URL}${LOGIN_URL}`, {
+    method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    body: '{broken',
   });
-  expect(res.status()).toBe(400);
+  expect(res.status).toBe(400);
 });
 
 // ── AUTH-E2E-6 : Login champs manquants → 422 ───────────────────────────────

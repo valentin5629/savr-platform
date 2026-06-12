@@ -242,7 +242,7 @@ SELECT results_eq(
 -- T08 : Helper f_collecte_visible fonction structure (test que la fonction n'errore pas)
 SELECT test_set_jwt('traiteur_manager', 'aaaaaaaa-0000-0000-0000-000000000001'::uuid);
 SELECT ok(
-  (SELECT f_collecte_visible('c01c0001-0000-0000-0000-000000000001'::uuid)),
+  (SELECT plateforme.f_collecte_visible('c01c0001-0000-0000-0000-000000000001'::uuid)),
   'T08 Happy path : f_collecte_visible retourne true pour collecte accessible'
 );
 
@@ -294,7 +294,7 @@ SELECT results_eq(
 -- T14 : Parametres accès client — traiteur_manager ne peut pas lire parametres (si table privée)
 SELECT test_set_jwt('traiteur_manager', 'aaaaaaaa-0000-0000-0000-000000000001'::uuid);
 SELECT results_eq(
-  $$SELECT count(*)::int FROM plateforme.parametres_tarifs_zd$$,
+  $$SELECT count(*)::int FROM plateforme.grilles_tarifaires_zd$$,
   $$VALUES (0)$$,
   'T14 Limites : traiteur ne voit pas tarifs_zd (staff only)'
 );

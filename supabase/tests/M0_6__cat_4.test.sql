@@ -168,10 +168,21 @@ SELECT results_eq(
 
 -- T38 : Tournées isolées par collecte (test structurel)
 SELECT test_as_superuser();
-INSERT INTO plateforme.tournees (id, collecte_id, statut_tms, num_tour, chauffeur_nom)
+-- Prestataire requis (prestataire_logistique_id NOT NULL dans tournees)
+INSERT INTO shared.prestataires (id, nom, code)
+VALUES ('0ea5ca04-0000-0000-0000-000000000001'::uuid, 'Presta Test Cat4', 'presta-cat4');
+
+-- Tournées avec vraies colonnes (pas de collecte_id direct — passe par collecte_tournees)
+INSERT INTO plateforme.tournees (id, reference_interne, date_tournee, creneau, prestataire_logistique_id, chauffeur_nom)
 VALUES
-  ('d00e0001-0000-0000-0000-000000000001'::uuid, 'c01c0001-0000-0000-0000-000000000001'::uuid, 'en_cours', 1, 'Chauffeur A'),
-  ('d00e0002-0000-0000-0000-000000000001'::uuid, 'c01c0002-0000-0000-0000-000000000001'::uuid, 'en_cours', 1, 'Chauffeur B');
+  ('d00e0001-0000-0000-0000-000000000001'::uuid, 'T-CAT4-A', current_date + 10, 'matin', '0ea5ca04-0000-0000-0000-000000000001'::uuid, 'Chauffeur A'),
+  ('d00e0002-0000-0000-0000-000000000001'::uuid, 'T-CAT4-B', current_date + 5, 'matin', '0ea5ca04-0000-0000-0000-000000000001'::uuid, 'Chauffeur B');
+
+-- Liaisons collecte ↔ tournée via table N-N
+INSERT INTO plateforme.collecte_tournees (collecte_id, tournee_id)
+VALUES
+  ('c01c0001-0000-0000-0000-000000000001'::uuid, 'd00e0001-0000-0000-0000-000000000001'::uuid),
+  ('c01c0002-0000-0000-0000-000000000001'::uuid, 'd00e0002-0000-0000-0000-000000000001'::uuid);
 
 SELECT test_set_jwt('traiteur_manager', '0a900002-0000-0000-0000-000000000001'::uuid);
 SELECT results_eq(

@@ -120,9 +120,9 @@ SELECT throws_ok(
 -- T23 : Traiteur tente UPDATE paramètres (staff-only) → UPDATE 0 lignes (USING denied)
 SELECT test_set_jwt('traiteur_manager', 'aaaaaaaa-0000-0000-0000-000000000001'::uuid);
 WITH u AS (
-  UPDATE plateforme.parametres_tarifs_zd
-  SET montant_base = 200.00
-  WHERE id = (SELECT id FROM plateforme.parametres_tarifs_zd LIMIT 1)
+  UPDATE plateforme.grilles_tarifaires_zd
+  SET actif = false
+  WHERE id = (SELECT id FROM plateforme.grilles_tarifaires_zd LIMIT 1)
   RETURNING 1
 )
 SELECT is(count(*)::int, 0, 'T23 Erreur : traiteur UPDATE parametres retourne 0 lignes');

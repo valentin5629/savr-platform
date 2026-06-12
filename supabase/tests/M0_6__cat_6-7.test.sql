@@ -42,8 +42,8 @@ SELECT test_as_superuser();
 INSERT INTO plateforme.organisations (id, nom, type, actif, est_shadow, siret, email_principal)
 VALUES ('09aca000-0000-0000-0000-000000000001'::uuid, 'Cross-app Org', 'traiteur', true, false, '11111111100001', 'ca@test.com');
 
-INSERT INTO shared.prestataires (id, nom, siren)
-VALUES ('0ea50001-0000-0000-0000-000000000001'::uuid, 'Test Presta', '123456789');
+INSERT INTO shared.prestataires (id, nom, code, siret)
+VALUES ('0ea50001-0000-0000-0000-000000000001'::uuid, 'Test Presta', 'test-presta-cat67', '12345678900001');
 
 -- =====================================================================
 -- CATÉGORIE 6 — SERVICE_ROLE & CROSS-SCHEMA (5 tests)
@@ -59,8 +59,8 @@ SELECT ok(true, 'T54 Cross-app : SERVICE_ROLE INSERT outbox_events OK');
 -- T55 : Cross-schema write denied — plateforme app role ne peut pas écrire shared.prestataires
 SELECT test_set_jwt('traiteur_manager', '09aca000-0000-0000-0000-000000000001'::uuid);
 SELECT throws_ok(
-  $$INSERT INTO shared.prestataires (id, nom, siren)
-    VALUES (gen_random_uuid(), 'Hacker Presta', '999999999')$$,
+  $$INSERT INTO shared.prestataires (id, nom, code, siret)
+    VALUES (gen_random_uuid(), 'Hacker Presta', 'hacker-presta', '99999999900001')$$,
   '42501', NULL, 'T55 Cross-app : cross-schema write denied'
 );
 

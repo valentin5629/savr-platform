@@ -47,15 +47,15 @@ VALUES ('0b9e5700-0000-0000-0000-000000000001'::uuid, 'Test Org', 'traiteur', tr
 
 -- T45 : audit_log append-only — INSERT ok, UPDATE denied, DELETE denied
 SELECT test_as_superuser();
-INSERT INTO plateforme.audit_log (user_id, action, entity_type, entity_id, details)
+INSERT INTO plateforme.audit_log (user_id, action, table_name, record_id, new_values)
 VALUES (gen_random_uuid(), 'INSERT', 'organisations', '0b9e5700-0000-0000-0000-000000000001'::uuid, '{}');
 
 -- Tentative UPDATE (doit échouer car pas de policy UPDATE)
 SELECT test_set_jwt('admin_savr', NULL);
 WITH u AS (
   UPDATE plateforme.audit_log
-  SET details = '{}'
-  WHERE entity_type = 'organisations'
+  SET new_values = '{}'
+  WHERE table_name = 'organisations'
   RETURNING 1
 )
 SELECT is(count(*)::int, 0, 'T45 Idempotence : audit_log UPDATE retourne 0 (append-only)');

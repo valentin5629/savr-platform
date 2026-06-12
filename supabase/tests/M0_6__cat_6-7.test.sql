@@ -40,10 +40,10 @@ END $$;
 SELECT test_as_superuser();
 
 INSERT INTO plateforme.organisations (id, nom, type, actif, est_shadow, siret, email_principal)
-VALUES ('org_ca-0000-0000-0000-000000000001'::uuid, 'Cross-app Org', 'traiteur', true, false, '11111111100001', 'ca@test.com');
+VALUES ('09aca000-0000-0000-0000-000000000001'::uuid, 'Cross-app Org', 'traiteur', true, false, '11111111100001', 'ca@test.com');
 
 INSERT INTO shared.prestataires (id, nom, siren)
-VALUES ('pres_0001-0000-0000-0000-000000000001'::uuid, 'Test Presta', '123456789');
+VALUES ('0ea50001-0000-0000-0000-000000000001'::uuid, 'Test Presta', '123456789');
 
 -- =====================================================================
 -- CATÉGORIE 6 — SERVICE_ROLE & CROSS-SCHEMA (5 tests)
@@ -57,7 +57,7 @@ VALUES (gen_random_uuid(), 'collecte.creee', '{}', 'collecte', gen_random_uuid()
 SELECT ok(true, 'T54 Cross-app : SERVICE_ROLE INSERT outbox_events OK');
 
 -- T55 : Cross-schema write denied — plateforme app role ne peut pas écrire shared.prestataires
-SELECT test_set_jwt('traiteur_manager', 'org_ca-0000-0000-0000-000000000001'::uuid);
+SELECT test_set_jwt('traiteur_manager', '09aca000-0000-0000-0000-000000000001'::uuid);
 SELECT throws_ok(
   $$INSERT INTO shared.prestataires (id, nom, siren)
     VALUES (gen_random_uuid(), 'Hacker Presta', '999999999')$$,
@@ -67,30 +67,30 @@ SELECT throws_ok(
 -- T56 : Shared.fichiers cross-schema bridge — la seule exception cross-schema
 SELECT test_as_superuser();
 INSERT INTO plateforme.types_evenements (id, code, libelle)
-VALUES ('evt_ca-0000-0000-0000-000000000001'::uuid, 'test', 'Test');
+VALUES ('e0c10000-0000-0000-0000-000000000001'::uuid, 'test', 'Test');
 
 INSERT INTO plateforme.lieux (id, nom, adresse_acces, code_postal, ville, type_vehicule_max)
-VALUES ('lieu_ca-0000-0000-0000-000000000001'::uuid, 'Lieu CA', '1 rue', '75001', 'Paris', 'fourgon');
+VALUES ('1e0ca000-0000-0000-0000-000000000001'::uuid, 'Lieu CA', '1 rue', '75001', 'Paris', 'fourgon');
 
 INSERT INTO plateforme.entites_facturation (id, organisation_id, raison_sociale, siret, adresse_facturation, code_postal, ville)
-VALUES ('ent_ca-0000-0000-0000-000000000001'::uuid, 'org_ca-0000-0000-0000-000000000001'::uuid, 'CA SARL', '11111111100001', '1 rue', '75001', 'Paris');
+VALUES ('e0eca000-0000-0000-0000-000000000001'::uuid, '09aca000-0000-0000-0000-000000000001'::uuid, 'CA SARL', '11111111100001', '1 rue', '75001', 'Paris');
 
 INSERT INTO plateforme.evenements (
   id, organisation_id, lieu_id, traiteur_operationnel_organisation_id,
   entite_facturation_id, created_by, type_evenement_id,
   date_evenement, pax, contact_principal_nom, contact_principal_telephone
 )
-VALUES ('evt_ca001-0000-0000-0000-000000000001'::uuid, 'org_ca-0000-0000-0000-000000000001'::uuid, 'lieu_ca-0000-0000-0000-000000000001'::uuid, 'org_ca-0000-0000-0000-000000000001'::uuid, 'ent_ca-0000-0000-0000-000000000001'::uuid, gen_random_uuid(), 'evt_ca-0000-0000-0000-000000000001'::uuid, NOW() + INTERVAL '10 days', 100, 'Contact', '0601010101');
+VALUES ('e0500c01-0000-0000-0000-000000000001'::uuid, '09aca000-0000-0000-0000-000000000001'::uuid, '1e0ca000-0000-0000-0000-000000000001'::uuid, '09aca000-0000-0000-0000-000000000001'::uuid, 'e0eca000-0000-0000-0000-000000000001'::uuid, gen_random_uuid(), 'e0c10000-0000-0000-0000-000000000001'::uuid, NOW() + INTERVAL '10 days', 100, 'Contact', '0601010101');
 
 INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte)
-VALUES ('col_ca001-0000-0000-0000-000000000001'::uuid, 'evt_ca001-0000-0000-0000-000000000001'::uuid, 'zero_dechet', 'programmee', 'non_envoye', current_date + 10, '08:00');
+VALUES ('c010ca01-0000-0000-0000-000000000001'::uuid, 'e0500c01-0000-0000-0000-000000000001'::uuid, 'zero_dechet', 'programmee', 'non_envoye', current_date + 10, '08:00');
 
 INSERT INTO shared.fichiers (id, storage_provider, bucket, key, size_bytes, content_type, entity_type, entity_id)
-VALUES ('fil_ca001-0000-0000-0000-000000000001'::uuid, 'r2', 'savr-docs', 'test.pdf', 1024, 'application/pdf', 'plateforme.collectes', 'col_ca001-0000-0000-0000-000000000001'::uuid);
+VALUES ('f110ca01-0000-0000-0000-000000000001'::uuid, 'r2', 'savr-docs', 'test.pdf', 1024, 'application/pdf', 'plateforme.collectes', 'c010ca01-0000-0000-0000-000000000001'::uuid);
 
-SELECT test_set_jwt('traiteur_manager', 'org_ca-0000-0000-0000-000000000001'::uuid);
+SELECT test_set_jwt('traiteur_manager', '09aca000-0000-0000-0000-000000000001'::uuid);
 SELECT results_eq(
-  $$SELECT count(*)::int FROM shared.fichiers WHERE id = 'fil_ca001-0000-0000-0000-000000000001'$$,
+  $$SELECT count(*)::int FROM shared.fichiers WHERE id = 'f110ca01-0000-0000-0000-000000000001'$$,
   $$VALUES (1)$$,
   'T56 Cross-app : shared.fichiers seul pont cross-schema OK'
 );
@@ -115,7 +115,7 @@ SELECT results_eq(
 -- =====================================================================
 
 -- T59 : app_domain claim — user avec app_domain='tms' serait bloqué par plateforme policies
-SELECT test_set_jwt('traiteur_manager', 'org_ca-0000-0000-0000-000000000001'::uuid, gen_random_uuid(), 'tms');
+SELECT test_set_jwt('traiteur_manager', '09aca000-0000-0000-0000-000000000001'::uuid, gen_random_uuid(), 'tms');
 SELECT results_eq(
   $$SELECT count(*)::int FROM plateforme.organisations$$,
   $$VALUES (0)$$,

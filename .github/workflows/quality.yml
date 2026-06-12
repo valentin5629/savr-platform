@@ -151,8 +151,11 @@ jobs:
           done
       - name: Garde anti-destructif
         run: |
-          if git diff --name-only origin/main... -- 'supabase/migrations/**' \
-             | xargs -r grep -Eil 'drop +(table|column)|truncate' ; then
+          FILES=$(git diff --name-only origin/main... -- 'supabase/migrations/**')
+          if [ -z "$FILES" ]; then
+            echo "Aucune migration nouvelle — garde anti-destructif skippé."; exit 0
+          fi
+          if echo "$FILES" | xargs grep -Eil 'drop +(table|column)|truncate' ; then
             echo "::error::Migration destructive detectee -- revue humaine obligatoire"; exit 1
           fi
 

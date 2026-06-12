@@ -94,27 +94,27 @@ VALUES ('11110001-0000-0000-0000-000000000001'::uuid, 'seminaire', 'Séminaire')
 -- Lieux
 INSERT INTO plateforme.lieux (id, nom, adresse_acces, code_postal, ville, type_vehicule_max)
 VALUES
-  ('loc00001-0000-0000-0000-000000000001'::uuid, 'Salle Kaspia', '1 rue Paris', '75001', 'Paris', 'fourgon'),
-  ('loc00002-0000-0000-0000-000000000001'::uuid, 'Salle Kardamome', '2 rue Lyon', '69001', 'Lyon', 'fourgon');
+  ('10c00001-0000-0000-0000-000000000001'::uuid, 'Salle Kaspia', '1 rue Paris', '75001', 'Paris', 'fourgon'),
+  ('10c00002-0000-0000-0000-000000000001'::uuid, 'Salle Kardamome', '2 rue Lyon', '69001', 'Lyon', 'fourgon');
 
 -- Lien gestionnaire_lieux → lieu 1 (pas lieu 2)
 INSERT INTO plateforme.organisations_lieux (organisation_id, lieu_id)
-VALUES ('dddddddd-0000-0000-0000-000000000001'::uuid, 'loc00001-0000-0000-0000-000000000001'::uuid);
+VALUES ('dddddddd-0000-0000-0000-000000000001'::uuid, '10c00001-0000-0000-0000-000000000001'::uuid);
 
 -- Utilisateurs (5 rôles: manager, commercial, gestionnaire, agence, client_orga)
 INSERT INTO plateforme.users (id, organisation_id, email, prenom, nom, role)
 VALUES
-  ('user0001-0000-0000-0000-000000000001'::uuid, 'aaaaaaaa-0000-0000-0000-000000000001'::uuid, 'manager@kaspia.test', 'Jean', 'Dupont', 'traiteur_manager'),
-  ('user0002-0000-0000-0000-000000000001'::uuid, 'aaaaaaaa-0000-0000-0000-000000000001'::uuid, 'commercial@kaspia.test', 'Marie', 'Martin', 'traiteur_commercial'),
-  ('user0003-0000-0000-0000-000000000001'::uuid, 'dddddddd-0000-0000-0000-000000000001'::uuid, 'gestionnaire@x.test', 'Bob', 'Lenoir', 'gestionnaire_lieux'),
-  ('user0004-0000-0000-0000-000000000001'::uuid, 'cccccccc-0000-0000-0000-000000000001'::uuid, 'agence@d.test', 'Alice', 'Dupuis', 'agence'),
-  ('user0005-0000-0000-0000-000000000001'::uuid, 'eeeeeeee-0000-0000-0000-000000000001'::uuid, 'client@z.test', 'Claire', 'Bonnet', 'client_organisateur');
+  ('05e70001-0000-0000-0000-000000000001'::uuid, 'aaaaaaaa-0000-0000-0000-000000000001'::uuid, 'manager@kaspia.test', 'Jean', 'Dupont', 'traiteur_manager'),
+  ('05e70002-0000-0000-0000-000000000001'::uuid, 'aaaaaaaa-0000-0000-0000-000000000001'::uuid, 'commercial@kaspia.test', 'Marie', 'Martin', 'traiteur_commercial'),
+  ('05e70003-0000-0000-0000-000000000001'::uuid, 'dddddddd-0000-0000-0000-000000000001'::uuid, 'gestionnaire@x.test', 'Bob', 'Lenoir', 'gestionnaire_lieux'),
+  ('05e70004-0000-0000-0000-000000000001'::uuid, 'cccccccc-0000-0000-0000-000000000001'::uuid, 'agence@d.test', 'Alice', 'Dupuis', 'agence'),
+  ('05e70005-0000-0000-0000-000000000001'::uuid, 'eeeeeeee-0000-0000-0000-000000000001'::uuid, 'client@z.test', 'Claire', 'Bonnet', 'client_organisateur');
 
 -- Entités de facturation (pour FK evenements)
 INSERT INTO plateforme.entites_facturation (id, organisation_id, raison_sociale, siret, adresse_facturation, code_postal, ville)
 VALUES
-  ('ent00001-0000-0000-0000-000000000001'::uuid, 'aaaaaaaa-0000-0000-0000-000000000001'::uuid, 'Kaspia SARL', '11111111100001', '1 rue Paris', '75001', 'Paris'),
-  ('ent00002-0000-0000-0000-000000000001'::uuid, 'eeeeeeee-0000-0000-0000-000000000001'::uuid, 'Client Z SAS', '55555555500001', '5 rue Client', '75005', 'Paris');
+  ('ee100001-0000-0000-0000-000000000001'::uuid, 'aaaaaaaa-0000-0000-0000-000000000001'::uuid, 'Kaspia SARL', '11111111100001', '1 rue Paris', '75001', 'Paris'),
+  ('ee100002-0000-0000-0000-000000000001'::uuid, 'eeeeeeee-0000-0000-0000-000000000001'::uuid, 'Client Z SAS', '55555555500001', '5 rue Client', '75005', 'Paris');
 
 -- Événements
 -- Evt1: programmateur=Kaspia, traiteur_operationnel=Kaspia, lieu=loc1, client=Client Z, date=futur (CONFIRMÉ)
@@ -125,12 +125,12 @@ INSERT INTO plateforme.evenements (
   contact_principal_nom, contact_principal_telephone
 )
 VALUES
-  ('evt00001-0000-0000-0000-000000000001'::uuid,
+  ('e0e00001-0000-0000-0000-000000000001'::uuid,
    'aaaaaaaa-0000-0000-0000-000000000001'::uuid,
-   'loc00001-0000-0000-0000-000000000001'::uuid,
+   '10c00001-0000-0000-0000-000000000001'::uuid,
    'aaaaaaaa-0000-0000-0000-000000000001'::uuid,
-   'ent00001-0000-0000-0000-000000000001'::uuid,
-   'user0001-0000-0000-0000-000000000001'::uuid,
+   'ee100001-0000-0000-0000-000000000001'::uuid,
+   '05e70001-0000-0000-0000-000000000001'::uuid,
    '11110001-0000-0000-0000-000000000001'::uuid,
    'eeeeeeee-0000-0000-0000-000000000001'::uuid,
    NOW() + INTERVAL '10 days', 100, 'Alice Dupont', '0601020304');
@@ -144,12 +144,12 @@ INSERT INTO plateforme.evenements (
   contact_principal_nom, contact_principal_telephone
 )
 VALUES
-  ('evt00002-0000-0000-0000-000000000001'::uuid,
+  ('e0e00002-0000-0000-0000-000000000001'::uuid,
    'bbbbbbbb-0000-0000-0000-000000000001'::uuid,
-   'loc00002-0000-0000-0000-000000000001'::uuid,
+   '10c00002-0000-0000-0000-000000000001'::uuid,
    'bbbbbbbb-0000-0000-0000-000000000001'::uuid,
-   'ent00002-0000-0000-0000-000000000001'::uuid,
-   'user0002-0000-0000-0000-000000000001'::uuid,
+   'ee100002-0000-0000-0000-000000000001'::uuid,
+   '05e70002-0000-0000-0000-000000000001'::uuid,
    '11110001-0000-0000-0000-000000000001'::uuid,
    'eeeeeeee-0000-0000-0000-000000000001'::uuid,
    NULL,  -- BROUILLON TIERS
@@ -158,26 +158,26 @@ VALUES
 -- Collectes
 INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte)
 VALUES
-  ('col00001-0000-0000-0000-000000000001'::uuid, 'evt00001-0000-0000-0000-000000000001'::uuid, 'zero_dechet', 'programmee', 'non_envoye', current_date + 10, '08:00'),
-  ('col00002-0000-0000-0000-000000000001'::uuid, 'evt00002-0000-0000-0000-000000000001'::uuid, 'anti_gaspi', 'programmee', 'non_envoye', current_date + 5, '09:00');
+  ('c01c0001-0000-0000-0000-000000000001'::uuid, 'e0e00001-0000-0000-0000-000000000001'::uuid, 'zero_dechet', 'programmee', 'non_envoye', current_date + 10, '08:00'),
+  ('c01c0002-0000-0000-0000-000000000001'::uuid, 'e0e00002-0000-0000-0000-000000000001'::uuid, 'anti_gaspi', 'programmee', 'non_envoye', current_date + 5, '09:00');
 
 -- Bordereaux
 INSERT INTO plateforme.bordereaux_savr (id, collecte_id, statut)
-VALUES ('bdr00001-0000-0000-0000-000000000001'::uuid, 'col00001-0000-0000-0000-000000000001'::uuid, 'en_attente');
+VALUES ('bd100001-0000-0000-0000-000000000001'::uuid, 'c01c0001-0000-0000-0000-000000000001'::uuid, 'en_attente');
 
 -- Fichiers
 INSERT INTO shared.fichiers (id, storage_provider, bucket, key, size_bytes, content_type, entity_type, entity_id)
 VALUES
-  ('fil00001-0000-0000-0000-000000000001'::uuid, 'r2', 'savr-docs', 'bdr/col1.pdf', 1024, 'application/pdf', 'plateforme.bordereaux_savr', 'bdr00001-0000-0000-0000-000000000001'::uuid),
-  ('fil00002-0000-0000-0000-000000000001'::uuid, 'r2', 'savr-docs', 'photos/col2.jpg', 2048, 'image/jpeg', 'plateforme.collectes', 'col00002-0000-0000-0000-000000000001'::uuid);
+  ('f1100001-0000-0000-0000-000000000001'::uuid, 'r2', 'savr-docs', 'bdr/col1.pdf', 1024, 'application/pdf', 'plateforme.bordereaux_savr', 'bd100001-0000-0000-0000-000000000001'::uuid),
+  ('f1100002-0000-0000-0000-000000000001'::uuid, 'r2', 'savr-docs', 'photos/col2.jpg', 2048, 'image/jpeg', 'plateforme.collectes', 'c01c0002-0000-0000-0000-000000000001'::uuid);
 
 -- Tarif pack AG
 INSERT INTO plateforme.tarifs_packs_ag (id, nb_collectes, prix_ht, valide_du, actif)
-VALUES ('tar00001-0000-0000-0000-000000000001'::uuid, 10, 500.00, '2026-01-01', true);
+VALUES ('da100001-0000-0000-0000-000000000001'::uuid, 10, 500.00, '2026-01-01', true);
 
 -- Packs AG
 INSERT INTO plateforme.packs_antgaspi (id, organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, nb_annulees, statut, date_achat)
-VALUES ('pack0001-0000-0000-0000-000000000001'::uuid, 'aaaaaaaa-0000-0000-0000-000000000001'::uuid, 'tar00001-0000-0000-0000-000000000001'::uuid, 10, 2, 0, 'actif', current_date);
+VALUES ('ac000001-0000-0000-0000-000000000001'::uuid, 'aaaaaaaa-0000-0000-0000-000000000001'::uuid, 'da100001-0000-0000-0000-000000000001'::uuid, 10, 2, 0, 'actif', current_date);
 
 -- =====================================================================
 -- CATÉGORIE 1 — HAPPY PATH (8 tests : 7 rôles + helper f_collecte_visible)
@@ -186,7 +186,7 @@ VALUES ('pack0001-0000-0000-0000-000000000001'::uuid, 'aaaaaaaa-0000-0000-0000-0
 -- T01 : Programmateur (Kaspia manager) voit sa collecte evt1
 SELECT test_set_jwt('traiteur_manager', 'aaaaaaaa-0000-0000-0000-000000000001'::uuid);
 SELECT results_eq(
-  $$SELECT count(*)::int FROM plateforme.collectes WHERE id = 'col00001-0000-0000-0000-000000000001'$$,
+  $$SELECT count(*)::int FROM plateforme.collectes WHERE id = 'c01c0001-0000-0000-0000-000000000001'$$,
   $$VALUES (1)$$,
   'T01 Happy path : programmateur voit SA collecte'
 );
@@ -194,7 +194,7 @@ SELECT results_eq(
 -- T02 : Traiteur opérationnel (même org Kaspia) voit collecte evt1
 SELECT test_set_jwt('traiteur_manager', 'aaaaaaaa-0000-0000-0000-000000000001'::uuid);
 SELECT results_eq(
-  $$SELECT count(*)::int FROM plateforme.collectes WHERE id = 'col00001-0000-0000-0000-000000000001'$$,
+  $$SELECT count(*)::int FROM plateforme.collectes WHERE id = 'c01c0001-0000-0000-0000-000000000001'$$,
   $$VALUES (1)$$,
   'T02 Happy path : traiteur_operationnel voit collecte'
 );
@@ -202,7 +202,7 @@ SELECT results_eq(
 -- T03 : Client organisateur (Client Z) voit collecte evt1 (est le client de l'évènement)
 SELECT test_set_jwt('client_organisateur', 'eeeeeeee-0000-0000-0000-000000000001'::uuid);
 SELECT results_eq(
-  $$SELECT count(*)::int FROM plateforme.collectes WHERE id = 'col00001-0000-0000-0000-000000000001'$$,
+  $$SELECT count(*)::int FROM plateforme.collectes WHERE id = 'c01c0001-0000-0000-0000-000000000001'$$,
   $$VALUES (1)$$,
   'T03 Happy path : client_organisateur voit SA collecte'
 );
@@ -210,7 +210,7 @@ SELECT results_eq(
 -- T04 : Gestionnaire lieux (Gestionnaire X) voit collecte evt1 (lieu lui appartient + evt confirmé)
 SELECT test_set_jwt('gestionnaire_lieux', 'dddddddd-0000-0000-0000-000000000001'::uuid);
 SELECT results_eq(
-  $$SELECT count(*)::int FROM plateforme.collectes WHERE id = 'col00001-0000-0000-0000-000000000001'$$,
+  $$SELECT count(*)::int FROM plateforme.collectes WHERE id = 'c01c0001-0000-0000-0000-000000000001'$$,
   $$VALUES (1)$$,
   'T04 Happy path : gestionnaire_lieux voit collecte sur SON lieu'
 );
@@ -218,7 +218,7 @@ SELECT results_eq(
 -- T05 : Agence (Agence D) ne voit pas collecte (pas programmateur, pas opérationnel, pas client, pas gestionnaire lieu)
 SELECT test_set_jwt('agence', 'cccccccc-0000-0000-0000-000000000001'::uuid);
 SELECT results_eq(
-  $$SELECT count(*)::int FROM plateforme.collectes WHERE id = 'col00001-0000-0000-0000-000000000001'$$,
+  $$SELECT count(*)::int FROM plateforme.collectes WHERE id = 'c01c0001-0000-0000-0000-000000000001'$$,
   $$VALUES (0)$$,
   'T05 Happy path : agence NE voit PAS collecte (hors périmètre 4 chemins)'
 );
@@ -242,7 +242,7 @@ SELECT results_eq(
 -- T08 : Helper f_collecte_visible fonction structure (test que la fonction n'errore pas)
 SELECT test_set_jwt('traiteur_manager', 'aaaaaaaa-0000-0000-0000-000000000001'::uuid);
 SELECT ok(
-  (SELECT f_collecte_visible('col00001-0000-0000-0000-000000000001'::uuid)),
+  (SELECT f_collecte_visible('c01c0001-0000-0000-0000-000000000001'::uuid)),
   'T08 Happy path : f_collecte_visible retourne true pour collecte accessible'
 );
 
@@ -254,7 +254,7 @@ SELECT ok(
 -- (même si loc2 avait été liée à Gestionnaire X, la garde date_evenement IS NOT NULL l'empêcherait)
 SELECT test_set_jwt('gestionnaire_lieux', 'dddddddd-0000-0000-0000-000000000001'::uuid);
 SELECT results_eq(
-  $$SELECT count(*)::int FROM plateforme.collectes WHERE id = 'col00002-0000-0000-0000-000000000001'$$,
+  $$SELECT count(*)::int FROM plateforme.collectes WHERE id = 'c01c0002-0000-0000-0000-000000000001'$$,
   $$VALUES (0)$$,
   'T09 Limites : brouillon tiers caché au gestionnaire (date_evenement IS NULL)'
 );
@@ -262,7 +262,7 @@ SELECT results_eq(
 -- T10 : Cross-org deny — Kardamome manager ne voit pas collecte Kaspia
 SELECT test_set_jwt('traiteur_manager', 'bbbbbbbb-0000-0000-0000-000000000001'::uuid);
 SELECT results_eq(
-  $$SELECT count(*)::int FROM plateforme.collectes WHERE id = 'col00001-0000-0000-0000-000000000001'$$,
+  $$SELECT count(*)::int FROM plateforme.collectes WHERE id = 'c01c0001-0000-0000-0000-000000000001'$$,
   $$VALUES (0)$$,
   'T10 Limites : cross-org deny collecte'
 );
@@ -270,7 +270,7 @@ SELECT results_eq(
 -- T11 : Fichier cross-org deny — Kaspia manager ne voit pas fichier de col2 (Kardamome)
 SELECT test_set_jwt('traiteur_manager', 'aaaaaaaa-0000-0000-0000-000000000001'::uuid);
 SELECT results_eq(
-  $$SELECT count(*)::int FROM shared.fichiers WHERE id = 'fil00002-0000-0000-0000-000000000001'$$,
+  $$SELECT count(*)::int FROM shared.fichiers WHERE id = 'f1100002-0000-0000-0000-000000000001'$$,
   $$VALUES (0)$$,
   'T11 Limites : shared.fichiers cross-org deny'
 );
@@ -278,7 +278,7 @@ SELECT results_eq(
 -- T12 : Fichier polymorphe visible — Kaspia manager voit fichier de col1 (son bordereau)
 SELECT test_set_jwt('traiteur_manager', 'aaaaaaaa-0000-0000-0000-000000000001'::uuid);
 SELECT results_eq(
-  $$SELECT count(*)::int FROM shared.fichiers WHERE id = 'fil00001-0000-0000-0000-000000000001'$$,
+  $$SELECT count(*)::int FROM shared.fichiers WHERE id = 'f1100001-0000-0000-0000-000000000001'$$,
   $$VALUES (1)$$,
   'T12 Limites : shared.fichiers polymorphe visible via FK collecte'
 );
@@ -286,7 +286,7 @@ SELECT results_eq(
 -- T13 : Pack AG — Kardamome manager ne voit pas pack Kaspia
 SELECT test_set_jwt('traiteur_manager', 'bbbbbbbb-0000-0000-0000-000000000001'::uuid);
 SELECT results_eq(
-  $$SELECT count(*)::int FROM plateforme.packs_antgaspi WHERE id = 'pack0001-0000-0000-0000-000000000001'$$,
+  $$SELECT count(*)::int FROM plateforme.packs_antgaspi WHERE id = 'ac000001-0000-0000-0000-000000000001'$$,
   $$VALUES (0)$$,
   'T13 Limites : packs_antgaspi cross-org deny'
 );
@@ -310,7 +310,7 @@ SELECT results_eq(
 -- T16 : Organisations_lieux cross — même gestionnaire ne voit pas liaison autre gestionnaire
 SELECT test_set_jwt('gestionnaire_lieux', 'dddddddd-0000-0000-0000-000000000001'::uuid);
 SELECT results_eq(
-  $$SELECT count(*)::int FROM plateforme.organisations_lieux WHERE lieu_id = 'loc00002-0000-0000-0000-000000000001'$$,
+  $$SELECT count(*)::int FROM plateforme.organisations_lieux WHERE lieu_id = '10c00002-0000-0000-0000-000000000001'$$,
   $$VALUES (0)$$,
   'T16 Limites : organisations_lieux cross-org deny (lieu pas lié à SA org)'
 );
@@ -333,7 +333,7 @@ SELECT ok(
 -- T19 : Bordereaux cross-org deny — Kardamome ne voit pas bordereau Kaspia
 SELECT test_set_jwt('traiteur_manager', 'bbbbbbbb-0000-0000-0000-000000000001'::uuid);
 SELECT results_eq(
-  $$SELECT count(*)::int FROM plateforme.bordereaux_savr WHERE id = 'bdr00001-0000-0000-0000-000000000001'$$,
+  $$SELECT count(*)::int FROM plateforme.bordereaux_savr WHERE id = 'bd100001-0000-0000-0000-000000000001'$$,
   $$VALUES (0)$$,
   'T19 Limites : bordereaux_savr cross-org deny'
 );

@@ -39,7 +39,7 @@ END $$;
 SELECT test_as_superuser();
 
 INSERT INTO plateforme.organisations (id, nom, type, actif, est_shadow, siret, email_principal)
-VALUES ('org_test-0000-0000-0000-000000000001'::uuid, 'Test Org', 'traiteur', true, false, '11111111100001', 'test@test.com');
+VALUES ('0b9e5700-0000-0000-0000-000000000001'::uuid, 'Test Org', 'traiteur', true, false, '11111111100001', 'test@test.com');
 
 -- =====================================================================
 -- CATÉGORIE 5 — IDEMPOTENCE & ÉTATS (9 tests)
@@ -48,7 +48,7 @@ VALUES ('org_test-0000-0000-0000-000000000001'::uuid, 'Test Org', 'traiteur', tr
 -- T45 : audit_log append-only — INSERT ok, UPDATE denied, DELETE denied
 SELECT test_as_superuser();
 INSERT INTO plateforme.audit_log (user_id, action, entity_type, entity_id, details)
-VALUES (gen_random_uuid(), 'INSERT', 'organisations', 'org_test-0000-0000-0000-000000000001'::uuid, '{}');
+VALUES (gen_random_uuid(), 'INSERT', 'organisations', '0b9e5700-0000-0000-0000-000000000001'::uuid, '{}');
 
 -- Tentative UPDATE (doit échouer car pas de policy UPDATE)
 SELECT test_set_jwt('admin_savr', NULL);
@@ -102,13 +102,13 @@ SELECT is(count(*)::int, 0, 'T48 Idempotence : sequences UPDATE direct = 0 ligne
 -- T49 : Soft-delete users — deleted_at SET = invisible
 SELECT test_as_superuser();
 INSERT INTO plateforme.users (id, organisation_id, email, prenom, nom, role)
-VALUES ('user_del-0000-0000-0000-000000000001'::uuid, 'org_test-0000-0000-0000-000000000001'::uuid, 'deleted@test.com', 'Del', 'User', 'traiteur_manager');
+VALUES ('05ede100-0000-0000-0000-000000000001'::uuid, '0b9e5700-0000-0000-0000-000000000001'::uuid, 'deleted@test.com', 'Del', 'User', 'traiteur_manager');
 
-UPDATE plateforme.users SET deleted_at = NOW() WHERE id = 'user_del-0000-0000-0000-000000000001'::uuid;
+UPDATE plateforme.users SET deleted_at = NOW() WHERE id = '05ede100-0000-0000-0000-000000000001'::uuid;
 
-SELECT test_set_jwt('traiteur_manager', 'org_test-0000-0000-0000-000000000001'::uuid);
+SELECT test_set_jwt('traiteur_manager', '0b9e5700-0000-0000-0000-000000000001'::uuid);
 SELECT results_eq(
-  $$SELECT count(*)::int FROM plateforme.users WHERE id = 'user_del-0000-0000-0000-000000000001'$$,
+  $$SELECT count(*)::int FROM plateforme.users WHERE id = '05ede100-0000-0000-0000-000000000001'$$,
   $$VALUES (0)$$,
   'T49 Idempotence : user soft-deleted invisible'
 );
@@ -116,13 +116,13 @@ SELECT results_eq(
 -- T50 : Soft-delete fichiers — f_fichier_visible considère deleted_at
 SELECT test_as_superuser();
 INSERT INTO shared.fichiers (id, storage_provider, bucket, key, size_bytes, content_type, entity_type, entity_id)
-VALUES ('fil_del-0000-0000-0000-000000000001'::uuid, 'r2', 'savr-docs', 'test.pdf', 1024, 'application/pdf', 'plateforme.collectes', gen_random_uuid());
+VALUES ('f11de100-0000-0000-0000-000000000001'::uuid, 'r2', 'savr-docs', 'test.pdf', 1024, 'application/pdf', 'plateforme.collectes', gen_random_uuid());
 
-UPDATE shared.fichiers SET deleted_at = NOW() WHERE id = 'fil_del-0000-0000-0000-000000000001'::uuid;
+UPDATE shared.fichiers SET deleted_at = NOW() WHERE id = 'f11de100-0000-0000-0000-000000000001'::uuid;
 
 SELECT test_set_jwt('admin_savr', NULL);
 SELECT results_eq(
-  $$SELECT count(*)::int FROM shared.fichiers WHERE id = 'fil_del-0000-0000-0000-000000000001'$$,
+  $$SELECT count(*)::int FROM shared.fichiers WHERE id = 'f11de100-0000-0000-0000-000000000001'$$,
   $$VALUES (0)$$,
   'T50 Idempotence : fichier soft-deleted invisible (f_fichier_visible check)'
 );
@@ -142,7 +142,7 @@ SELECT test_as_superuser();
 INSERT INTO plateforme.integrations_inbox (source, event_type, payload, processed_at)
 VALUES ('tms', 'tour.created', '{}', NULL);
 
-SELECT test_set_jwt('traiteur_manager', 'org_test-0000-0000-0000-000000000001'::uuid);
+SELECT test_set_jwt('traiteur_manager', '0b9e5700-0000-0000-0000-000000000001'::uuid);
 SELECT results_eq(
   $$SELECT count(*)::int FROM plateforme.integrations_inbox$$,
   $$VALUES (0)$$,
@@ -154,9 +154,9 @@ SELECT test_as_superuser();
 INSERT INTO plateforme.emails_envoyes (
   id, organisation_id, destinataire_email, template_id, statut, sent_at
 )
-VALUES (gen_random_uuid(), 'org_test-0000-0000-0000-000000000001'::uuid, 'secret@test.com', gen_random_uuid(), 'sent', NOW());
+VALUES (gen_random_uuid(), '0b9e5700-0000-0000-0000-000000000001'::uuid, 'secret@test.com', gen_random_uuid(), 'sent', NOW());
 
-SELECT test_set_jwt('traiteur_manager', 'org_test-0000-0000-0000-000000000001'::uuid);
+SELECT test_set_jwt('traiteur_manager', '0b9e5700-0000-0000-0000-000000000001'::uuid);
 SELECT results_eq(
   $$SELECT count(*)::int FROM plateforme.emails_envoyes$$,
   $$VALUES (0)$$,

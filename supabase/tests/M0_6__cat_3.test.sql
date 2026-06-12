@@ -50,19 +50,19 @@ VALUES ('11110001-0000-0000-0000-000000000001'::uuid, 'seminaire', 'Séminaire')
 
 INSERT INTO plateforme.lieux (id, nom, adresse_acces, code_postal, ville, type_vehicule_max)
 VALUES
-  ('loc00001-0000-0000-0000-000000000001'::uuid, 'Salle Kaspia', '1 rue Paris', '75001', 'Paris', 'fourgon'),
-  ('loc00002-0000-0000-0000-000000000001'::uuid, 'Salle Kardamome', '2 rue Lyon', '69001', 'Lyon', 'fourgon');
+  ('10c00001-0000-0000-0000-000000000001'::uuid, 'Salle Kaspia', '1 rue Paris', '75001', 'Paris', 'fourgon'),
+  ('10c00002-0000-0000-0000-000000000001'::uuid, 'Salle Kardamome', '2 rue Lyon', '69001', 'Lyon', 'fourgon');
 
 INSERT INTO plateforme.organisations_lieux (organisation_id, lieu_id)
-VALUES ('dddddddd-0000-0000-0000-000000000001'::uuid, 'loc00001-0000-0000-0000-000000000001'::uuid);
+VALUES ('dddddddd-0000-0000-0000-000000000001'::uuid, '10c00001-0000-0000-0000-000000000001'::uuid);
 
 INSERT INTO plateforme.users (id, organisation_id, email, prenom, nom, role)
 VALUES
-  ('user0001-0000-0000-0000-000000000001'::uuid, 'aaaaaaaa-0000-0000-0000-000000000001'::uuid, 'mgr@kaspia.test', 'Jean', 'D', 'traiteur_manager'),
-  ('user0003-0000-0000-0000-000000000001'::uuid, 'dddddddd-0000-0000-0000-000000000001'::uuid, 'gest@x.test', 'Bob', 'L', 'gestionnaire_lieux');
+  ('05e70001-0000-0000-0000-000000000001'::uuid, 'aaaaaaaa-0000-0000-0000-000000000001'::uuid, 'mgr@kaspia.test', 'Jean', 'D', 'traiteur_manager'),
+  ('05e70003-0000-0000-0000-000000000001'::uuid, 'dddddddd-0000-0000-0000-000000000001'::uuid, 'gest@x.test', 'Bob', 'L', 'gestionnaire_lieux');
 
 INSERT INTO plateforme.entites_facturation (id, organisation_id, raison_sociale, siret, adresse_facturation, code_postal, ville)
-VALUES ('ent00001-0000-0000-0000-000000000001'::uuid, 'aaaaaaaa-0000-0000-0000-000000000001'::uuid, 'Kaspia SARL', '11111111100001', '1 rue Paris', '75001', 'Paris');
+VALUES ('ee100001-0000-0000-0000-000000000001'::uuid, 'aaaaaaaa-0000-0000-0000-000000000001'::uuid, 'Kaspia SARL', '11111111100001', '1 rue Paris', '75001', 'Paris');
 
 INSERT INTO plateforme.evenements (
   id, organisation_id, lieu_id, traiteur_operationnel_organisation_id,
@@ -70,24 +70,24 @@ INSERT INTO plateforme.evenements (
   date_evenement, pax, contact_principal_nom, contact_principal_telephone
 )
 VALUES
-  ('evt00001-0000-0000-0000-000000000001'::uuid,
+  ('e0e00001-0000-0000-0000-000000000001'::uuid,
    'aaaaaaaa-0000-0000-0000-000000000001'::uuid,
-   'loc00001-0000-0000-0000-000000000001'::uuid,
+   '10c00001-0000-0000-0000-000000000001'::uuid,
    'aaaaaaaa-0000-0000-0000-000000000001'::uuid,
-   'ent00001-0000-0000-0000-000000000001'::uuid,
-   'user0001-0000-0000-0000-000000000001'::uuid,
+   'ee100001-0000-0000-0000-000000000001'::uuid,
+   '05e70001-0000-0000-0000-000000000001'::uuid,
    '11110001-0000-0000-0000-000000000001'::uuid,
    NOW() + INTERVAL '10 days', 100, 'Alice D', '0601020304');
 
 INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte)
-VALUES ('col00001-0000-0000-0000-000000000001'::uuid, 'evt00001-0000-0000-0000-000000000001'::uuid, 'zero_dechet', 'programmee', 'non_envoye', current_date + 10, '08:00');
+VALUES ('c01c0001-0000-0000-0000-000000000001'::uuid, 'e0e00001-0000-0000-0000-000000000001'::uuid, 'zero_dechet', 'programmee', 'non_envoye', current_date + 10, '08:00');
 
 -- Tarif + pack pour tests
 INSERT INTO plateforme.tarifs_packs_ag (id, nb_collectes, prix_ht, valide_du, actif)
-VALUES ('tar00001-0000-0000-0000-000000000001'::uuid, 10, 500.00, '2026-01-01', true);
+VALUES ('da100001-0000-0000-0000-000000000001'::uuid, 10, 500.00, '2026-01-01', true);
 
 INSERT INTO plateforme.packs_antgaspi (id, organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, nb_annulees, statut, date_achat)
-VALUES ('pack0001-0000-0000-0000-000000000001'::uuid, 'aaaaaaaa-0000-0000-0000-000000000001'::uuid, 'tar00001-0000-0000-0000-000000000001'::uuid, 10, 0, 0, 'actif', current_date);
+VALUES ('ac000001-0000-0000-0000-000000000001'::uuid, 'aaaaaaaa-0000-0000-0000-000000000001'::uuid, 'da100001-0000-0000-0000-000000000001'::uuid, 10, 0, 0, 'actif', current_date);
 
 -- =====================================================================
 -- CATÉGORIE 3 — CAS D'ERREUR (11 tests d'INSERT/UPDATE DENIED)
@@ -113,7 +113,7 @@ SELECT throws_ok(
 SELECT test_set_jwt('traiteur_manager', 'aaaaaaaa-0000-0000-0000-000000000001'::uuid);
 SELECT throws_ok(
   $$INSERT INTO plateforme.packs_antgaspi (id, organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, nb_annulees, statut, date_achat)
-    VALUES (gen_random_uuid(), 'aaaaaaaa-0000-0000-0000-000000000001', 'tar00001-0000-0000-0000-000000000001', 5, 0, 0, 'actif', current_date)$$,
+    VALUES (gen_random_uuid(), 'aaaaaaaa-0000-0000-0000-000000000001', 'da100001-0000-0000-0000-000000000001', 5, 0, 0, 'actif', current_date)$$,
   '42501', NULL, 'T22 Erreur : traiteur INSERT pack denied'
 );
 
@@ -132,13 +132,13 @@ SELECT test_set_jwt('gestionnaire_lieux', 'dddddddd-0000-0000-0000-000000000001'
 SELECT test_as_superuser();
 -- Crée une liaison d'un autre gestionnaire
 INSERT INTO plateforme.organisations_lieux (organisation_id, lieu_id)
-VALUES (gen_random_uuid(), 'loc00002-0000-0000-0000-000000000001'::uuid);
+VALUES (gen_random_uuid(), '10c00002-0000-0000-0000-000000000001'::uuid);
 SELECT test_set_jwt('gestionnaire_lieux', 'dddddddd-0000-0000-0000-000000000001'::uuid);
 -- Tente de modifier une liaison qui n'existe pas pour lui
 WITH u AS (
   UPDATE plateforme.organisations_lieux
-  SET lieu_id = 'loc00001-0000-0000-0000-000000000001'::uuid
-  WHERE lieu_id = 'loc00002-0000-0000-0000-000000000001'::uuid
+  SET lieu_id = '10c00001-0000-0000-0000-000000000001'::uuid
+  WHERE lieu_id = '10c00002-0000-0000-0000-000000000001'::uuid
   RETURNING 1
 )
 SELECT is(count(*)::int, 0, 'T24 Erreur : gestionnaire UPDATE organisations_lieux cross-org');
@@ -146,11 +146,11 @@ SELECT is(count(*)::int, 0, 'T24 Erreur : gestionnaire UPDATE organisations_lieu
 -- T25 : Client tente INSERT bordereau (policy INSERT denied) → 42501
 SELECT test_as_superuser();
 INSERT INTO plateforme.bordereaux_savr (id, collecte_id, statut)
-VALUES ('bdr00001-0000-0000-0000-000000000001'::uuid, 'col00001-0000-0000-0000-000000000001'::uuid, 'en_attente');
+VALUES ('bd100001-0000-0000-0000-000000000001'::uuid, 'c01c0001-0000-0000-0000-000000000001'::uuid, 'en_attente');
 SELECT test_set_jwt('traiteur_manager', 'bbbbbbbb-0000-0000-0000-000000000001'::uuid);
 SELECT throws_ok(
   $$INSERT INTO plateforme.bordereaux_savr (id, collecte_id, statut)
-    VALUES (gen_random_uuid(), 'col00001-0000-0000-0000-000000000001', 'en_attente')$$,
+    VALUES (gen_random_uuid(), 'c01c0001-0000-0000-0000-000000000001', 'en_attente')$$,
   '42501', NULL, 'T25 Erreur : cross-org INSERT bordereau denied'
 );
 
@@ -158,7 +158,7 @@ SELECT throws_ok(
 SELECT test_set_jwt('traiteur_manager', 'aaaaaaaa-0000-0000-0000-000000000001'::uuid);
 WITH d AS (
   DELETE FROM plateforme.collectes
-  WHERE id = 'col00001-0000-0000-0000-000000000001'
+  WHERE id = 'c01c0001-0000-0000-0000-000000000001'
   RETURNING 1
 )
 SELECT is(count(*)::int, 0, 'T26 Erreur : traiteur DELETE collecte retourne 0 lignes');
@@ -175,7 +175,7 @@ SELECT throws_ok(
 SELECT test_set_jwt('traiteur_manager', 'bbbbbbbb-0000-0000-0000-000000000001'::uuid);
 SELECT throws_ok(
   $$INSERT INTO shared.fichiers (id, storage_provider, bucket, key, size_bytes, content_type, entity_type, entity_id)
-    VALUES (gen_random_uuid(), 'r2', 'savr-docs', 'test.pdf', 1024, 'application/pdf', 'plateforme.collectes', 'col00001-0000-0000-0000-000000000001')$$,
+    VALUES (gen_random_uuid(), 'r2', 'savr-docs', 'test.pdf', 1024, 'application/pdf', 'plateforme.collectes', 'c01c0001-0000-0000-0000-000000000001')$$,
   '42501', NULL, 'T28 Erreur : cross-org INSERT shared.fichiers denied'
 );
 
@@ -184,7 +184,7 @@ SELECT test_set_jwt('agence', 'cccccccc-0000-0000-0000-000000000001'::uuid);
 WITH u AS (
   UPDATE plateforme.evenements
   SET pax = 200
-  WHERE id = 'evt00001-0000-0000-0000-000000000001'
+  WHERE id = 'e0e00001-0000-0000-0000-000000000001'
   RETURNING 1
 )
 SELECT is(count(*)::int, 0, 'T29 Erreur : agence UPDATE evenement denied');

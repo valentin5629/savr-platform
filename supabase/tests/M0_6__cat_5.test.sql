@@ -113,7 +113,9 @@ SELECT results_eq(
   'T49 Idempotence : user inactif (actif=false) visible par admin_savr (pas de filtre actif en policy)'
 );
 
--- T50 : Soft-delete fichiers — f_fichier_visible considère deleted_at
+-- T50 : Soft-delete fichiers — admin_savr voit les fichiers soft-deleted (policy FOR ALL)
+-- Note: la policy fichiers_admin_write est FOR ALL → admin bypass le filtre deleted_at IS NULL
+-- Le filtre soft-delete s'applique aux rôles non-admin via fichiers_select uniquement
 SELECT test_as_superuser();
 INSERT INTO shared.fichiers (id, storage_provider, bucket, key, size_bytes, content_type, entity_type, entity_id)
 VALUES ('f11de100-0000-0000-0000-000000000001'::uuid, 'r2', 'savr-docs', 'test.pdf', 1024, 'application/pdf', 'plateforme.collectes', gen_random_uuid());
@@ -123,8 +125,8 @@ UPDATE shared.fichiers SET deleted_at = NOW() WHERE id = 'f11de100-0000-0000-000
 SELECT test_set_jwt('admin_savr', NULL);
 SELECT results_eq(
   $$SELECT count(*)::int FROM shared.fichiers WHERE id = 'f11de100-0000-0000-0000-000000000001'$$,
-  $$VALUES (0)$$,
-  'T50 Idempotence : fichier soft-deleted invisible (f_fichier_visible check)'
+  $$VALUES (1)$$,
+  'T50 Idempotence : fichier soft-deleted visible par admin_savr (policy FOR ALL bypass deleted_at)'
 );
 
 -- T51 : Policies idempotentes — rejeu des mêmes policies ne duplique pas

@@ -1,0 +1,421 @@
+{
+  "module": "M0.6",
+  "title": "Tests pgTAP RLS exhaustive (100%)",
+  "description": "Suite de 62 tests pgTAP validant toutes les policies RLS des tables plateforme.* et shared.*",
+  "status": "in-progress",
+  "total_scenarios": 62,
+  "test_files": [
+    "supabase/tests/M0_6__cat_1-2.test.sql",
+    "supabase/tests/M0_6__cat_3.test.sql",
+    "supabase/tests/M0_6__cat_4.test.sql",
+    "supabase/tests/M0_6__cat_5.test.sql",
+    "supabase/tests/M0_6__cat_6-7.test.sql"
+  ],
+  "scenarios": [
+    {
+      "id": "E3-1",
+      "category": "0 — Assertion structurelle",
+      "title": "0 table sans RLS (E3 garde-fou)",
+      "file": "M0_6__cat_1-2.test.sql"
+    },
+    {
+      "id": "E3-2",
+      "category": "0 — Assertion structurelle",
+      "title": "plateforme.organisations RLS = ON",
+      "file": "M0_6__cat_1-2.test.sql"
+    },
+    {
+      "id": "E3-3",
+      "category": "0 — Assertion structurelle",
+      "title": "shared.fichiers RLS = ON",
+      "file": "M0_6__cat_1-2.test.sql"
+    },
+    {
+      "id": "T01",
+      "category": "1 — Happy path",
+      "title": "Programmateur voit SA collecte",
+      "file": "M0_6__cat_1-2.test.sql"
+    },
+    {
+      "id": "T02",
+      "category": "1 — Happy path",
+      "title": "Traiteur opérationnel voit collecte",
+      "file": "M0_6__cat_1-2.test.sql"
+    },
+    {
+      "id": "T03",
+      "category": "1 — Happy path",
+      "title": "Client organisateur voit SA collecte",
+      "file": "M0_6__cat_1-2.test.sql"
+    },
+    {
+      "id": "T04",
+      "category": "1 — Happy path",
+      "title": "Gestionnaire lieux voit collecte sur SON lieu",
+      "file": "M0_6__cat_1-2.test.sql"
+    },
+    {
+      "id": "T05",
+      "category": "1 — Happy path",
+      "title": "Agence ne voit PAS collecte (hors périmètre)",
+      "file": "M0_6__cat_1-2.test.sql"
+    },
+    {
+      "id": "T06",
+      "category": "1 — Happy path",
+      "title": "admin_savr voit TOUTES collectes",
+      "file": "M0_6__cat_1-2.test.sql"
+    },
+    {
+      "id": "T07",
+      "category": "1 — Happy path",
+      "title": "ops_savr voit TOUTES collectes",
+      "file": "M0_6__cat_1-2.test.sql"
+    },
+    {
+      "id": "T08",
+      "category": "1 — Happy path",
+      "title": "f_collecte_visible retourne true",
+      "file": "M0_6__cat_1-2.test.sql"
+    },
+    {
+      "id": "T09",
+      "category": "2 — Limites",
+      "title": "Brouillon tiers caché au gestionnaire",
+      "file": "M0_6__cat_1-2.test.sql"
+    },
+    {
+      "id": "T10",
+      "category": "2 — Limites",
+      "title": "Cross-org deny collecte",
+      "file": "M0_6__cat_1-2.test.sql"
+    },
+    {
+      "id": "T11",
+      "category": "2 — Limites",
+      "title": "shared.fichiers cross-org deny",
+      "file": "M0_6__cat_1-2.test.sql"
+    },
+    {
+      "id": "T12",
+      "category": "2 — Limites",
+      "title": "shared.fichiers polymorphe visible",
+      "file": "M0_6__cat_1-2.test.sql"
+    },
+    {
+      "id": "T13",
+      "category": "2 — Limites",
+      "title": "packs_antgaspi cross-org deny",
+      "file": "M0_6__cat_1-2.test.sql"
+    },
+    {
+      "id": "T14",
+      "category": "2 — Limites",
+      "title": "Traiteur ne voit pas tarifs_zd",
+      "file": "M0_6__cat_1-2.test.sql"
+    },
+    {
+      "id": "T15",
+      "category": "2 — Limites",
+      "title": "organisations_lieux gestionnaire 1 ligne",
+      "file": "M0_6__cat_1-2.test.sql"
+    },
+    {
+      "id": "T16",
+      "category": "2 — Limites",
+      "title": "organisations_lieux cross-org deny",
+      "file": "M0_6__cat_1-2.test.sql"
+    },
+    {
+      "id": "T17",
+      "category": "2 — Limites",
+      "title": "outbox_events DENY ALL app roles",
+      "file": "M0_6__cat_1-2.test.sql"
+    },
+    {
+      "id": "T18",
+      "category": "2 — Limites",
+      "title": "outbox_events admin_savr read",
+      "file": "M0_6__cat_1-2.test.sql"
+    },
+    {
+      "id": "T19",
+      "category": "2 — Limites",
+      "title": "bordereaux_savr cross-org deny",
+      "file": "M0_6__cat_1-2.test.sql"
+    },
+    {
+      "id": "T20",
+      "category": "3 — Cas d'erreur",
+      "title": "Agence INSERT organisation denied",
+      "file": "M0_6__cat_3.test.sql"
+    },
+    {
+      "id": "T21",
+      "category": "3 — Cas d'erreur",
+      "title": "Gestionnaire INSERT lieu denied",
+      "file": "M0_6__cat_3.test.sql"
+    },
+    {
+      "id": "T22",
+      "category": "3 — Cas d'erreur",
+      "title": "Traiteur INSERT pack denied",
+      "file": "M0_6__cat_3.test.sql"
+    },
+    {
+      "id": "T23",
+      "category": "3 — Cas d'erreur",
+      "title": "Traiteur UPDATE parametres 0 lignes",
+      "file": "M0_6__cat_3.test.sql"
+    },
+    {
+      "id": "T24",
+      "category": "3 — Cas d'erreur",
+      "title": "Gestionnaire UPDATE organisations_lieux cross-org",
+      "file": "M0_6__cat_3.test.sql"
+    },
+    {
+      "id": "T25",
+      "category": "3 — Cas d'erreur",
+      "title": "Cross-org INSERT bordereau denied",
+      "file": "M0_6__cat_3.test.sql"
+    },
+    {
+      "id": "T26",
+      "category": "3 — Cas d'erreur",
+      "title": "Traiteur DELETE collecte 0 lignes",
+      "file": "M0_6__cat_3.test.sql"
+    },
+    {
+      "id": "T27",
+      "category": "3 — Cas d'erreur",
+      "title": "ops INSERT outbox_events denied",
+      "file": "M0_6__cat_3.test.sql"
+    },
+    {
+      "id": "T28",
+      "category": "3 — Cas d'erreur",
+      "title": "Cross-org INSERT shared.fichiers denied",
+      "file": "M0_6__cat_3.test.sql"
+    },
+    {
+      "id": "T29",
+      "category": "3 — Cas d'erreur",
+      "title": "Agence UPDATE evenement 0 lignes",
+      "file": "M0_6__cat_3.test.sql"
+    },
+    {
+      "id": "T30",
+      "category": "3 — Cas d'erreur",
+      "title": "client_organisateur SELECT attributions 0",
+      "file": "M0_6__cat_3.test.sql"
+    },
+    {
+      "id": "T31",
+      "category": "4 — Isolation données",
+      "title": "Photo A invisible à user B",
+      "file": "M0_6__cat_4.test.sql"
+    },
+    {
+      "id": "T32",
+      "category": "4 — Isolation données",
+      "title": "Bordereau A invisible à user B",
+      "file": "M0_6__cat_4.test.sql"
+    },
+    {
+      "id": "T33",
+      "category": "4 — Isolation données",
+      "title": "Facture A invisible à user B",
+      "file": "M0_6__cat_4.test.sql"
+    },
+    {
+      "id": "T34",
+      "category": "4 — Isolation données",
+      "title": "Pack A invisible à user B",
+      "file": "M0_6__cat_4.test.sql"
+    },
+    {
+      "id": "T35",
+      "category": "4 — Isolation données",
+      "title": "Événement A invisible à user B",
+      "file": "M0_6__cat_4.test.sql"
+    },
+    {
+      "id": "T36",
+      "category": "4 — Isolation données",
+      "title": "Fichier soft-deleted invisible",
+      "file": "M0_6__cat_4.test.sql"
+    },
+    {
+      "id": "T37",
+      "category": "4 — Isolation données",
+      "title": "User A voit TOUS ses fichiers",
+      "file": "M0_6__cat_4.test.sql"
+    },
+    {
+      "id": "T38",
+      "category": "4 — Isolation données",
+      "title": "Tour A invisible à user B",
+      "file": "M0_6__cat_4.test.sql"
+    },
+    {
+      "id": "T39",
+      "category": "4 — Isolation données",
+      "title": "Attribution A invisible à user B",
+      "file": "M0_6__cat_4.test.sql"
+    },
+    {
+      "id": "T40",
+      "category": "4 — Isolation données",
+      "title": "Rapport RSE A invisible à user B",
+      "file": "M0_6__cat_4.test.sql"
+    },
+    {
+      "id": "T41",
+      "category": "4 — Isolation données",
+      "title": "Facture_collecte A invisible à user B",
+      "file": "M0_6__cat_4.test.sql"
+    },
+    {
+      "id": "T42",
+      "category": "4 — Isolation données",
+      "title": "Collecte_flux A invisible à user B",
+      "file": "M0_6__cat_4.test.sql"
+    },
+    {
+      "id": "T43",
+      "category": "4 — Isolation données",
+      "title": "User A invisible à user B",
+      "file": "M0_6__cat_4.test.sql"
+    },
+    {
+      "id": "T44",
+      "category": "4 — Isolation données",
+      "title": "Fichier polymorphe (bordereau A) invisible",
+      "file": "M0_6__cat_4.test.sql"
+    },
+    {
+      "id": "T45",
+      "category": "5 — Idempotence",
+      "title": "audit_log append-only UPDATE 0",
+      "file": "M0_6__cat_5.test.sql"
+    },
+    {
+      "id": "T46",
+      "category": "5 — Idempotence",
+      "title": "outbox admin_savr write denied",
+      "file": "M0_6__cat_5.test.sql"
+    },
+    {
+      "id": "T47",
+      "category": "5 — Idempotence",
+      "title": "outbox claimed_until > NOW()",
+      "file": "M0_6__cat_5.test.sql"
+    },
+    {
+      "id": "T48",
+      "category": "5 — Idempotence",
+      "title": "sequences UPDATE direct 0 lignes",
+      "file": "M0_6__cat_5.test.sql"
+    },
+    {
+      "id": "T49",
+      "category": "5 — Idempotence",
+      "title": "User soft-deleted invisible",
+      "file": "M0_6__cat_5.test.sql"
+    },
+    {
+      "id": "T50",
+      "category": "5 — Idempotence",
+      "title": "Fichier soft-deleted invisible",
+      "file": "M0_6__cat_5.test.sql"
+    },
+    {
+      "id": "T51",
+      "category": "5 — Idempotence",
+      "title": "Policies idempotentes (pas doublon)",
+      "file": "M0_6__cat_5.test.sql"
+    },
+    {
+      "id": "T52",
+      "category": "5 — Idempotence",
+      "title": "integrations_inbox app read denied",
+      "file": "M0_6__cat_5.test.sql"
+    },
+    {
+      "id": "T53",
+      "category": "5 — Idempotence",
+      "title": "emails_envoyes PII hidden (app denied)",
+      "file": "M0_6__cat_5.test.sql"
+    },
+    {
+      "id": "T54",
+      "category": "6 — Cross-app",
+      "title": "SERVICE_ROLE INSERT outbox OK",
+      "file": "M0_6__cat_6-7.test.sql"
+    },
+    {
+      "id": "T55",
+      "category": "6 — Cross-app",
+      "title": "Cross-schema write denied",
+      "file": "M0_6__cat_6-7.test.sql"
+    },
+    {
+      "id": "T56",
+      "category": "6 — Cross-app",
+      "title": "shared.fichiers cross-schema bridge",
+      "file": "M0_6__cat_6-7.test.sql"
+    },
+    {
+      "id": "T57",
+      "category": "6 — Cross-app",
+      "title": "shared.prestataires read-only",
+      "file": "M0_6__cat_6-7.test.sql"
+    },
+    {
+      "id": "T58",
+      "category": "6 — Cross-app",
+      "title": "integrations_inbox SERVICE_ROLE",
+      "file": "M0_6__cat_6-7.test.sql"
+    },
+    {
+      "id": "T59",
+      "category": "7 — Migration",
+      "title": "app_domain=tms bloqué",
+      "file": "M0_6__cat_6-7.test.sql"
+    },
+    {
+      "id": "T60",
+      "category": "7 — Migration",
+      "title": "JWT enrichissement org_id=NULL",
+      "file": "M0_6__cat_6-7.test.sql"
+    },
+    {
+      "id": "T61",
+      "category": "7 — Migration",
+      "title": "Policies idempotentes V1→V2",
+      "file": "M0_6__cat_6-7.test.sql"
+    },
+    {
+      "id": "T62",
+      "category": "7 — Migration",
+      "title": "Users structure ready V2",
+      "file": "M0_6__cat_6-7.test.sql"
+    }
+  ],
+  "coverage": {
+    "total_tests": 62,
+    "categories": {
+      "assertion_structurelle": 3,
+      "happy_path": 8,
+      "limites": 11,
+      "erreur": 11,
+      "isolation": 14,
+      "idempotence": 9,
+      "cross_app": 5,
+      "migration": 4
+    },
+    "status": "COMPLETE"
+  },
+  "notes": "Module M0.6 complet : 62 tests pgTAP couvrant 100% des tables plateforme.*/shared.*. Catégories 1-7 avec tous les scénarios P1+P2. Assertions E3 garde-fou TMS-Ready incluses."
+}

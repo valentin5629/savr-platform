@@ -8,6 +8,16 @@
         { "type": "command", "command": "bash .claude/hooks/block-destructive.sh" },
         { "type": "command", "command": "bash .claude/hooks/pre-commit-gate.sh" }
       ] }
+    ],
+    "Stop": [
+      { "hooks": [ {
+        "type": "command",
+        "command": "bash -c 'n=$(git log --since=\"90 seconds ago\" --oneline 2>/dev/null | wc -l | tr -d \" \"); [ \"$n\" -gt 0 ] && exit 2 || exit 0'",
+        "asyncRewake": true,
+        "rewakeMessage": "Des commits viennent d'être faits dans cette session. Lis project-progress.md (memory/) et mets-le à jour si le statut d'un module, la branche courante, ou le next module a changé. Si tout est déjà à jour, ne fais rien.",
+        "rewakeSummary": "Vérification mémoire projet après commits",
+        "timeout": 10
+      } ] }
     ]
   }
 }

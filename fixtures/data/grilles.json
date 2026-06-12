@@ -1,0 +1,181 @@
+{
+  "grilles_zd": [
+    {
+      "slug": "grille_zd_standard",
+      "nom": "Grille ZD Standard V1",
+      "version": 1,
+      "actif": true,
+      "date_debut": "2025-01-01",
+      "date_fin": null,
+      "lignes": [
+        { "pax_min": 0, "pax_max": 150, "prix_ht": 120.0 },
+        { "pax_min": 151, "pax_max": 300, "prix_ht": 180.0 },
+        { "pax_min": 301, "pax_max": 500, "prix_ht": 240.0 },
+        { "pax_min": 501, "pax_max": 800, "prix_ht": 310.0 },
+        { "pax_min": 801, "pax_max": 1200, "prix_ht": 390.0 },
+        { "pax_min": 1201, "pax_max": 99999, "prix_ht": 480.0 }
+      ]
+    }
+  ],
+  "tarifs_negocie": [
+    {
+      "slug": "tarif_negocie_kaspia",
+      "organisation_slug": "org_tr_kaspia",
+      "activite": "zd",
+      "scope": "organisation",
+      "remise_pourcentage": 15,
+      "commentaire": "Volume dominant ZD — tarif négocié annuel"
+    },
+    {
+      "slug": "tarif_negocie_potel",
+      "organisation_slug": "org_tr_potel",
+      "activite": "zd",
+      "scope": "organisation",
+      "remise_pourcentage": 8,
+      "commentaire": "Fidélité multi-entités"
+    }
+  ],
+  "tarifs_packs_ag": [
+    { "nb_collectes": 10, "prix_ht": 800.0, "prix_unitaire_ht": 80.0 },
+    { "nb_collectes": 20, "prix_ht": 1400.0, "prix_unitaire_ht": 70.0 },
+    { "nb_collectes": 30, "prix_ht": 1950.0, "prix_unitaire_ht": 65.0 },
+    { "nb_collectes": 50, "prix_ht": 3000.0, "prix_unitaire_ht": 60.0 }
+  ],
+  "grilles_prestataires": {
+    "prest_strike": [
+      {
+        "slug": "grille_strike_16m3",
+        "vehicule_type": "camion_16m3",
+        "formule": "vacations_paliers",
+        "version": 1,
+        "date_debut": "2025-01-01",
+        "date_fin": null,
+        "actif": true,
+        "vacation_duree_heures": 4,
+        "vacation_prix_ht": 240.0,
+        "depassement_prix_heure_ht": 60.0,
+        "equipage_double_supplement_heure_ht": 31.25,
+        "note": "Grille réelle Strike 16m3. Cas référence Val: 6h simple = 240 + 2*60 = 360€"
+      },
+      {
+        "slug": "grille_strike_20m3",
+        "vehicule_type": "camion_20m3",
+        "formule": "vacations_paliers",
+        "version": 1,
+        "date_debut": "2025-01-01",
+        "date_fin": null,
+        "actif": true,
+        "vacation_duree_heures": 4,
+        "vacation_prix_ht": 300.0,
+        "depassement_prix_heure_ht": 75.0,
+        "equipage_double_supplement_heure_ht": 31.25
+      }
+    ],
+    "prest_marathon": [
+      {
+        "slug": "grille_marathon_forfait",
+        "formule": "forfait_fixe",
+        "version": 1,
+        "date_debut": "2025-01-01",
+        "date_fin": null,
+        "actif": true,
+        "forfait_prix_ht": 100.0,
+        "note": "Grille réelle Marathon: 100€/tournée forfait, réparti proportionnellement si multi-collectes"
+      }
+    ],
+    "prest_atoutes": [
+      {
+        "slug": "grille_atoutes_velo",
+        "formule": "grille_matricielle_zone_type_course",
+        "version": 1,
+        "date_debut": "2025-01-01",
+        "date_fin": null,
+        "actif": true,
+        "tarif_sans_collecte_applicable": true,
+        "seuil_express_minutes": 90,
+        "cellules": [
+          {
+            "zone": "paris",
+            "type_course": "programme",
+            "complete": true,
+            "prix_ht": 55.0
+          },
+          {
+            "zone": "paris",
+            "type_course": "programme",
+            "complete": false,
+            "prix_ht": 27.5
+          },
+          {
+            "zone": "paris",
+            "type_course": "express",
+            "complete": true,
+            "prix_ht": 75.0
+          },
+          {
+            "zone": "paris",
+            "type_course": "express",
+            "complete": false,
+            "prix_ht": 37.5
+          },
+          {
+            "zone": "communes_limitrophes",
+            "type_course": "programme",
+            "complete": true,
+            "prix_ht": 38.0
+          },
+          {
+            "zone": "communes_limitrophes",
+            "type_course": "programme",
+            "complete": false,
+            "prix_ht": 19.0
+          },
+          {
+            "zone": "communes_limitrophes",
+            "type_course": "express",
+            "complete": true,
+            "prix_ht": 52.0
+          },
+          {
+            "zone": "communes_limitrophes",
+            "type_course": "express",
+            "complete": false,
+            "prix_ht": 26.0
+          }
+        ],
+        "note": "Grille réelle A Toutes! 8 cellules. incomplete = 50% du tarif complet"
+      }
+    ],
+    "prest_transnormandie": [
+      {
+        "slug": "grille_transnor_km",
+        "formule": "forfait_km",
+        "version": 1,
+        "date_debut": "2025-01-01",
+        "date_fin": null,
+        "actif": true,
+        "prix_km_ht": 2.8,
+        "forfait_base_ht": 45.0,
+        "note": "Synthétique (presta fictif province Rouen)"
+      },
+      {
+        "slug": "grille_transnor_fixe_expiree",
+        "formule": "forfait_fixe",
+        "version": 1,
+        "date_debut": "2024-01-01",
+        "date_fin": "2024-12-31",
+        "actif": false,
+        "forfait_prix_ht": 95.0,
+        "note": "Grille expirée — réactivation tolérée (M06 #2)"
+      }
+    ]
+  },
+  "reference_case_val": {
+    "description": "Cas de référence Val: tournée Strike 16m3 de 6h équipage simple",
+    "grille": "grille_strike_16m3",
+    "duree_heures": 6,
+    "equipage": "simple",
+    "calcul": "vacation(4h)=240 + depassement(2h entamées)=2*60=120",
+    "total_ht": 360.0
+  }
+}

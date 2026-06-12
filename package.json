@@ -11,6 +11,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test:unit": "vitest run",
+    "test:pgtap": "bash scripts/test-pgtap.sh",
     "build": "turbo run build",
     "prepare": "husky || true",
     "db:push": "supabase db push",

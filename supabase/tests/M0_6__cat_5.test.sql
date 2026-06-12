@@ -85,15 +85,15 @@ SELECT ok(
 
 -- T48 : Sequences_facturation — numérotation gapless, INSERT via RPC seul
 SELECT test_as_superuser();
-INSERT INTO plateforme.sequences_facturation (nom_sequence, valeur_courante)
-VALUES ('factures', 1);
+INSERT INTO plateforme.sequences_facturation (serie, annee, dernier)
+VALUES ('ZD_COLLECTE', 2026, 0);
 
 -- Tentative UPDATE direct (doit échouer ou faire 0 lignes)
 SELECT test_set_jwt('admin_savr', NULL);
 WITH u AS (
   UPDATE plateforme.sequences_facturation
-  SET valeur_courante = 100
-  WHERE nom_sequence = 'factures'
+  SET dernier = 100
+  WHERE serie = 'ZD_COLLECTE' AND annee = 2026
   RETURNING 1
 )
 SELECT is(count(*)::int, 0, 'T48 Idempotence : sequences UPDATE direct = 0 lignes (RPC seul)');

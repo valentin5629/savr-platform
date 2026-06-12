@@ -138,8 +138,8 @@ SELECT ok(
 
 -- T52 : Intégrations_inbox SERVICE_ROLE write, app read denied
 SELECT test_as_superuser();
-INSERT INTO plateforme.integrations_inbox (source, event_type, payload, processed_at)
-VALUES ('tms', 'tour.created', '{}', NULL);
+INSERT INTO plateforme.integrations_inbox (source, event_type, payload)
+VALUES ('tms', 'tour.created', '{}');
 
 SELECT test_set_jwt('traiteur_manager', '0b9e5700-0000-0000-0000-000000000001'::uuid);
 SELECT results_eq(

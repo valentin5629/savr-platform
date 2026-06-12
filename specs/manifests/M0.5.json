@@ -1,0 +1,58 @@
+{
+  "module": "M0.5",
+  "description": "Auth & Onboarding — migrations tables manquantes, hook JWT, helpers shared, routes API auth, middleware, E2E",
+  "migrations": [
+    "supabase/migrations/20260612000001_plateforme_auth_missing_tables.sql",
+    "supabase/migrations/20260612000002_plateforme_auth_jwt_hook.sql"
+  ],
+  "fichiers": [
+    "packages/shared/src/email-denylist.ts",
+    "packages/shared/src/email/index.ts",
+    "packages/shared/src/api/siret.ts",
+    "packages/shared/src/api/tva.ts",
+    "packages/shared/src/testing/mocks/insee-vies.ts",
+    "packages/shared/src/supabase-client.ts",
+    "packages/plateforme/package.json",
+    "packages/plateforme/tsconfig.json",
+    "packages/plateforme/next.config.ts",
+    "packages/plateforme/middleware.ts",
+    "packages/plateforme/src/app/403/page.tsx",
+    "packages/plateforme/src/app/api/auth/signup/route.ts",
+    "packages/plateforme/src/app/api/auth/login/route.ts",
+    "packages/plateforme/src/app/api/auth/logout/route.ts",
+    "packages/plateforme/src/app/api/auth/verify-email/route.ts",
+    "packages/plateforme/src/app/api/auth/reset-password/route.ts",
+    "playwright.config.ts",
+    "e2e/auth.m0-5.spec.ts",
+    "tsconfig.json"
+  ],
+  "tests_vitest": [
+    "packages/shared/src/email-denylist.m0-5.test.ts",
+    "packages/shared/src/api/siret.m0-5.test.ts",
+    "packages/shared/src/api/tva.m0-5.test.ts"
+  ],
+  "tests_playwright": ["e2e/auth.m0-5.spec.ts"],
+  "scenarios": [
+    "AUTH-1 — isDisposableEmail retourne true pour domaine jetable",
+    "AUTH-2 — isDisposableEmail retourne false pour domaine pro",
+    "AUTH-3 — verifySiret retourne 'verifie' via mock INSEE",
+    "AUTH-4 — verifySiret retourne 'down' si INSEE indisponible (inscription non bloquée)",
+    "AUTH-5 — verifyTva retourne 'non_applicable' si TVA vide",
+    "AUTH-6 — verifyTva retourne 'down' si VIES indisponible (jamais bloquant)",
+    "AUTH-7 — fn_custom_access_token injecte role/organisation_id/app_domain dans JWT",
+    "AUTH-8 — fn_custom_access_token retourne JWT intact si aucun profil users trouvé",
+    "AUTH-9 — sendEmail sink si RESEND_API_KEY='test' (pas d'envoi réel)",
+    "AUTH-E2E-1 — signup email jetable retourne 422",
+    "AUTH-E2E-2 — signup champ obligatoire manquant retourne 422",
+    "AUTH-E2E-3 — signup CGU non acceptée retourne 422",
+    "AUTH-E2E-4 — signup type_profil invalide retourne 422 (client_organisateur jamais self-service)",
+    "AUTH-E2E-5 — JSON malformé retourne 400 (signup + login)",
+    "AUTH-E2E-6 — login sans mot_de_passe retourne 422",
+    "AUTH-E2E-7 — logout sans session retourne 200 (idempotent)"
+  ],
+  "garde_fous": {
+    "G1_tables_dans_cible_V2": "DIVERGENCE M0.5_20260612.md — organisations_domaines_email + domaines_email_publics absentes du DDL cible V2 (omission, patch en attente Val)",
+    "G3_anti_couplage": "OK — 0 référence mts1/everest hors packages/adapters/",
+    "G4_outbox": "N/A — aucune mutation métier dans ce module"
+  }
+}

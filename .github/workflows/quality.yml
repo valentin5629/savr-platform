@@ -77,6 +77,8 @@ jobs:
       - run: supabase test db # pgTAP RLS (role 'authenticated') + outbox par mutation
 
   # Skip 0.1 : pas de Playwright config (verticales UI, modules > 0.1).
+  # Build + start en mode production pour eviter le timeout du webServer dev
+  # (Next.js 15 en mode dev depasse les 120s de compilation a froid sur le runner).
   e2e:
     needs: detect-prereqs
     if: needs.detect-prereqs.outputs.has_playwright == 'true'
@@ -87,8 +89,28 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20, cache: pnpm }
       - run: pnpm install --frozen-lockfile
+      - name: Build Next.js pour les tests E2E
+        run: pnpm --filter @savr/plateforme build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: placeholder-service-role-key
+      - name: Démarrer le serveur Next.js en arrière-plan
+        run: pnpm --filter @savr/plateforme start &
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: placeholder-service-role-key
       - run: pnpm exec playwright install --with-deps
+      - name: Attendre que le serveur soit prêt
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3001 > /dev/null 2>&1 && break
+            sleep 1
+          done
       - run: pnpm -w test:e2e
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:3001
 
   # Install du binaire gitleaks directement : `gitleaks-action@v2` exige une
   # licence (faux positif sur repos perso). Le CLI open source ne l'exige pas.

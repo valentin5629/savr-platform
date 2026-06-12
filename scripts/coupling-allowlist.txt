@@ -27,3 +27,6 @@ supabase/migrations/20260611171635_shared_plateforme_bloc1_orgs_users.sql
 # specs/ = miroir dérivé du Vault CDC (lecture seule, jamais de logique métier)
 # Les occurrences mts1/everest = valeurs d'enum dans le DDL cible V2 + scénarios QA
 specs/*
+# supabase/tests/M0_6__* = fixtures pgTAP — 'mts1' = valeur de l'enum type_tms_enum
+# dans un INSERT de transporteur de test (pas de logique adapter)
+supabase/tests/M0_6__cat_4.test.sql

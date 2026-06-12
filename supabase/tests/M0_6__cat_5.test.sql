@@ -48,7 +48,7 @@ VALUES ('0b9e5700-0000-0000-0000-000000000001'::uuid, 'Test Org', 'traiteur', tr
 -- T45 : audit_log append-only — INSERT ok, UPDATE denied, DELETE denied
 SELECT test_as_superuser();
 INSERT INTO plateforme.audit_log (user_id, action, table_name, record_id, new_values)
-VALUES (gen_random_uuid(), 'INSERT', 'organisations', '0b9e5700-0000-0000-0000-000000000001'::uuid, '{}');
+VALUES (NULL, 'INSERT', 'organisations', '0b9e5700-0000-0000-0000-000000000001'::uuid, '{}');
 
 -- Tentative UPDATE (doit échouer car pas de policy UPDATE)
 SELECT test_set_jwt('admin_savr', NULL);
@@ -72,15 +72,15 @@ SELECT throws_ok(
 SELECT test_as_superuser();
 INSERT INTO plateforme.outbox_events (
   id, event_type, payload, aggregate_type, aggregate_id,
-  status, claimed_by, claimed_until, attempts
+  statut, claimed_until, attempts
 )
 VALUES (gen_random_uuid(), 'test', '{}', 'test', gen_random_uuid(),
-  'processing', 'worker-1', NOW() + INTERVAL '5 minutes', 1);
+  'processing', NOW() + INTERVAL '5 minutes', 1);
 
 -- Vérifie que claimed_until est peuplé (idem pour txid)
 SELECT ok(
   (SELECT claimed_until FROM plateforme.outbox_events
-   WHERE status = 'processing' LIMIT 1) > NOW(),
+   WHERE statut = 'processing' LIMIT 1) > NOW(),
   'T47 Idempotence : outbox claimed_until > NOW() (lease pattern active)'
 );
 
@@ -152,9 +152,9 @@ SELECT results_eq(
 -- T53 : Email_envoyes PII hidden — traiteur ne voit pas email addresses
 SELECT test_as_superuser();
 INSERT INTO plateforme.emails_envoyes (
-  id, organisation_id, destinataire_email, template_id, statut, sent_at
+  id, template_code, destinataire, sujet, statut
 )
-VALUES (gen_random_uuid(), '0b9e5700-0000-0000-0000-000000000001'::uuid, 'secret@test.com', gen_random_uuid(), 'sent', NOW());
+VALUES (gen_random_uuid(), 'bienvenue_traiteur', 'secret@test.com', 'Test email pgTAP', 'sent');
 
 SELECT test_set_jwt('traiteur_manager', '0b9e5700-0000-0000-0000-000000000001'::uuid);
 SELECT results_eq(

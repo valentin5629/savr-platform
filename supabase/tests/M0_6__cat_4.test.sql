@@ -193,8 +193,17 @@ SELECT results_eq(
 
 -- T39 : Attributions AG cross-org denied
 SELECT test_as_superuser();
-INSERT INTO plateforme.attributions_antgaspi (id, collecte_id, association_id, montant_don_estime)
-VALUES ('add00001-0000-0000-0000-000000000001'::uuid, 'c01c0001-0000-0000-0000-000000000001'::uuid, gen_random_uuid(), 250.00);
+-- Association et transporteur requis par les FK NOT NULL de attributions_antgaspi
+INSERT INTO plateforme.associations (id, nom, adresse, region, ville, contact_email, description_rapport_impact)
+VALUES ('a5500001-0000-0000-0000-000000000001'::uuid, 'Asso Test Cat4', '1 rue', 'idf', 'Paris', 'asso@test.com', 'Association de test pour les tests pgTAP RLS.')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, ville, types_vehicules, type_tms, contact_nom, contact_email, contact_telephone)
+VALUES ('7a000001-0000-0000-0000-000000000001'::uuid, 'Transporteur Cat4', '123456789', '1 rue', '75001', 'Paris', ARRAY['fourgon'], 'mts1', 'Contact', 'transp@test.com', '0601010101')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO plateforme.attributions_antgaspi (id, collecte_id, association_id, transporteur_id, branche_attribution, mode_validation)
+VALUES ('add00001-0000-0000-0000-000000000001'::uuid, 'c01c0001-0000-0000-0000-000000000001'::uuid, 'a5500001-0000-0000-0000-000000000001'::uuid, '7a000001-0000-0000-0000-000000000001'::uuid, 'IDF', 'manuel_top1');
 
 SELECT test_set_jwt('traiteur_manager', '0a900002-0000-0000-0000-000000000001'::uuid);
 SELECT results_eq(

@@ -132,7 +132,7 @@ SELECT test_set_jwt('gestionnaire_lieux', 'dddddddd-0000-0000-0000-000000000001'
 SELECT test_as_superuser();
 -- Crée une liaison d'un autre gestionnaire
 INSERT INTO plateforme.organisations_lieux (organisation_id, lieu_id)
-VALUES (gen_random_uuid(), '10c00002-0000-0000-0000-000000000001'::uuid);
+VALUES ('bbbbbbbb-0000-0000-0000-000000000001'::uuid, '10c00002-0000-0000-0000-000000000001'::uuid);
 SELECT test_set_jwt('gestionnaire_lieux', 'dddddddd-0000-0000-0000-000000000001'::uuid);
 -- Tente de modifier une liaison qui n'existe pas pour lui
 WITH u AS (

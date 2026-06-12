@@ -42,6 +42,9 @@ SELECT test_as_superuser();
 INSERT INTO plateforme.organisations (id, nom, type, actif, est_shadow, siret, email_principal)
 VALUES ('09aca000-0000-0000-0000-000000000001'::uuid, 'Cross-app Org', 'traiteur', true, false, '11111111100001', 'ca@test.com');
 
+INSERT INTO plateforme.users (id, organisation_id, email, prenom, nom, role)
+VALUES ('05e7ca00-0000-0000-0000-000000000001'::uuid, '09aca000-0000-0000-0000-000000000001'::uuid, 'user@ca.test', 'User', 'CA', 'traiteur_manager');
+
 INSERT INTO shared.prestataires (id, nom, code, siret)
 VALUES ('0ea50001-0000-0000-0000-000000000001'::uuid, 'Test Presta', 'test-presta-cat67', '12345678900001');
 
@@ -80,7 +83,7 @@ INSERT INTO plateforme.evenements (
   entite_facturation_id, created_by, type_evenement_id,
   date_evenement, pax, contact_principal_nom, contact_principal_telephone
 )
-VALUES ('e0500c01-0000-0000-0000-000000000001'::uuid, '09aca000-0000-0000-0000-000000000001'::uuid, '1e0ca000-0000-0000-0000-000000000001'::uuid, '09aca000-0000-0000-0000-000000000001'::uuid, 'e0eca000-0000-0000-0000-000000000001'::uuid, gen_random_uuid(), 'e0c10000-0000-0000-0000-000000000001'::uuid, NOW() + INTERVAL '10 days', 100, 'Contact', '0601010101');
+VALUES ('e0500c01-0000-0000-0000-000000000001'::uuid, '09aca000-0000-0000-0000-000000000001'::uuid, '1e0ca000-0000-0000-0000-000000000001'::uuid, '09aca000-0000-0000-0000-000000000001'::uuid, 'e0eca000-0000-0000-0000-000000000001'::uuid, '05e7ca00-0000-0000-0000-000000000001'::uuid, 'e0c10000-0000-0000-0000-000000000001'::uuid, NOW() + INTERVAL '10 days', 100, 'Contact', '0601010101');
 
 INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte)
 VALUES ('c010ca01-0000-0000-0000-000000000001'::uuid, 'e0500c01-0000-0000-0000-000000000001'::uuid, 'zero_dechet', 'programmee', 'non_envoye', current_date + 10, '08:00');

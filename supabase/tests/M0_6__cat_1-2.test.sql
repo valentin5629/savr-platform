@@ -326,7 +326,7 @@ SELECT results_eq(
 -- T18 : Outbox_events admin_savr can read
 SELECT test_set_jwt('admin_savr', NULL);
 SELECT ok(
-  (SELECT count(*)::int FROM plateforme.outbox_events >= 0),
+  (SELECT count(*)::int FROM plateforme.outbox_events) >= 0,
   'T18 Limites : outbox_events admin_savr can read'
 );
 

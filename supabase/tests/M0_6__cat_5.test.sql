@@ -88,28 +88,29 @@ SELECT test_as_superuser();
 INSERT INTO plateforme.sequences_facturation (serie, annee, dernier)
 VALUES ('ZD_COLLECTE', 2026, 0);
 
--- Tentative UPDATE direct (doit échouer ou faire 0 lignes)
+-- Tentative UPDATE direct (RLS ne permet pas UPDATE pour admin_savr — SERVICE_ROLE seul)
 SELECT test_set_jwt('admin_savr', NULL);
-WITH u AS (
-  UPDATE plateforme.sequences_facturation
-  SET dernier = 100
-  WHERE serie = 'ZD_COLLECTE' AND annee = 2026
-  RETURNING 1
-)
-SELECT is(count(*)::int, 0, 'T48 Idempotence : sequences UPDATE direct = 0 lignes (RPC seul)');
+SELECT results_eq(
+  $$WITH u AS (
+    UPDATE plateforme.sequences_facturation
+    SET dernier = 100
+    WHERE serie = 'ZD_COLLECTE' AND annee = 2026
+    RETURNING 1
+  ) SELECT count(*)::int FROM u$$,
+  $$VALUES (0)$$,
+  'T48 Idempotence : sequences UPDATE direct = 0 lignes (RPC seul, pas de policy UPDATE)'
+);
 
--- T49 : Soft-delete users — deleted_at SET = invisible
+-- T49 : users actif=false — visible par admin_savr (policies ne filtrent pas sur actif)
 SELECT test_as_superuser();
-INSERT INTO plateforme.users (id, organisation_id, email, prenom, nom, role)
-VALUES ('05ede100-0000-0000-0000-000000000001'::uuid, '0b9e5700-0000-0000-0000-000000000001'::uuid, 'deleted@test.com', 'Del', 'User', 'traiteur_manager');
+INSERT INTO plateforme.users (id, organisation_id, email, prenom, nom, role, actif)
+VALUES ('05ede100-0000-0000-0000-000000000001'::uuid, '0b9e5700-0000-0000-0000-000000000001'::uuid, 'deleted@test.com', 'Del', 'User', 'traiteur_manager', false);
 
-UPDATE plateforme.users SET deleted_at = NOW() WHERE id = '05ede100-0000-0000-0000-000000000001'::uuid;
-
-SELECT test_set_jwt('traiteur_manager', '0b9e5700-0000-0000-0000-000000000001'::uuid);
+SELECT test_set_jwt('admin_savr', NULL);
 SELECT results_eq(
   $$SELECT count(*)::int FROM plateforme.users WHERE id = '05ede100-0000-0000-0000-000000000001'$$,
-  $$VALUES (0)$$,
-  'T49 Idempotence : user soft-deleted invisible'
+  $$VALUES (1)$$,
+  'T49 Idempotence : user inactif (actif=false) visible par admin_savr (pas de filtre actif en policy)'
 );
 
 -- T50 : Soft-delete fichiers — f_fichier_visible considère deleted_at

@@ -90,6 +90,7 @@ Savr collecte les invendus d'événements traiteurs : **AG** (Anti-Gaspi, don à
 - **Pas de délai minimum bloquant de programmation** (tranché 2026-06-10) : filet = acceptation explicite + monitoring Ops collectes non confirmées. Warning < 48h seul.
 - Emails : **19 templates actifs** seed V1 (catalogue §06.02, corrigé 2026-06-11), vouvoiement, FR, 0 emoji, signature « L'équipe Savr ». UI d'édition = V1.1.
 - **Pour toute règle non couverte par le CDC : STOP et demander à Val** plutôt qu'interpréter.
+- **Pour tout bug ou ambiguïté détecté dans les specs PENDANT le dev** : (1) écrire un fichier `~/Desktop/Obsidian Savr/_Divergences/MODULE_YYYYMMDD.md` (template : `_Divergences/TEMPLATE.md`) — remplir les champs obligatoires dont **`type: clair`** (incohérence factuelle sans interprétation) ou **`type: ambigu`** (décision métier interprétée) ; (2) commiter le code concerné normalement ; (3) **ne PAS modifier `specs/` directement** (dérivé, régénéré par Cowork). En fin de module, Val lance le skill `cdc-patch-divergences` dans Cowork : les patches `clair` sont appliqués automatiquement au Vault, les patches `ambigu` sont présentés un par un pour validation manuelle, puis `_DEV-FACING` est régénéré et les fichiers archivés dans `_Divergences/_traités/`.
 
 ---
 

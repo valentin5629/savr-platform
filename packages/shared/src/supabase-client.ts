@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createBrowserClient } from '@supabase/ssr';
 
 function getUrl(): string {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -6,12 +7,11 @@ function getUrl(): string {
   return url;
 }
 
-// Client navigateur — clé anon, respecte la RLS.
-// À remplacer par createBrowserClient() de @supabase/ssr en module 0.5 (auth SSR).
+// Client navigateur — clé anon, gestion cookies SSR via @supabase/ssr.
 export function createBrowserSupabaseClient(): SupabaseClient {
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!anonKey) throw new Error('NEXT_PUBLIC_SUPABASE_ANON_KEY manquant');
-  return createClient(getUrl(), anonKey);
+  return createBrowserClient(getUrl(), anonKey);
 }
 
 // Client serveur admin — clé service_role, bypass RLS.

@@ -15,3 +15,17 @@ _DEV-FACING
 
 # Supabase local temp files
 supabase/.temp/
+
+# Markers de gate (.claude/) — état de session local et éphémère.
+# NE JAMAIS committer : un marker présent dans le repo court-circuite le gate
+# correspondant sur un clone frais (gate considéré "passé" sans avoir tourné).
+.claude/brief-ack-*
+.claude/coherence-ok-*
+.claude/conformite-ok-*
+.claude/securite-ok-*
+.claude/divergences-clair
+.claude/divergences-ambigu
+
+# Artefacts de build / tests
+*.tsbuildinfo
+test-results/

@@ -1,0 +1,37 @@
+{
+  "module": "M0.10",
+  "title": "Audit trail — triggers DB + f_log_audit()",
+  "description": "Colonnes manquantes audit_log (impersonator_id, motif, details), fonction centrale f_log_audit() SECURITY DEFINER (service_role uniquement), 6 triggers DB SECURITY DEFINER sur les mutations sensibles V1.",
+  "fichiers": [
+    "supabase/migrations/20260613200000_plateforme_audit_trail_triggers.sql",
+    "supabase/tests/audit_trail.m0-10.test.sql"
+  ],
+  "tests_vitest": [],
+  "tests_pgtap": [
+    "supabase/tests/audit_trail.m0-10.test.sql"
+  ],
+  "scenarios": [
+    "M0.10-1 — audit_log a les colonnes impersonator_id, motif, details (migration ALTER TABLE)",
+    "M0.10-2 — f_log_audit() SECURITY DEFINER insère dans audit_log depuis service_role",
+    "M0.10-3 — f_log_audit() refusé pour INSERT direct authenticated (pas de policy INSERT)",
+    "M0.10-4 — trigger controle_acces_cascade_upgrade : UPDATE collectes.controle_acces_requis=true → ligne audit_log",
+    "M0.10-5 — trigger pack_debite_annulation_tardive : collecte AG annulee < 12h → ligne audit_log + nb_annulees++",
+    "M0.10-6 — trigger pack_recredite_annulation_collecte : collecte AG realisee → annulee → ligne audit_log + nb_utilisees--",
+    "M0.10-7 — trigger config_auto_accept_update : UPDATE config_auto_accept_ag → ligne audit_log",
+    "M0.10-8 — trigger parametres_algo_update : UPDATE parametres_algo → ligne audit_log avec old/new valeur",
+    "M0.10-9 — trigger parametres_co2_divers_update : UPDATE parametres_co2_divers → ligne audit_log",
+    "M0.10-10 — audit_log immuable : UPDATE refusé pour authenticated (REVOKE UPDATE déjà en place)",
+    "M0.10-11 — GUC savr.audit_motif snapshoté dans details.motif par trigger parametres_algo"
+  ],
+  "hors_scope": [
+    "Actions facture_emise, attestation_don_generee, user_role_modifie, user_desactive, etc. (câblées dans M1.x qui implémente les routes)",
+    "UI de consultation audit_log (aucune page Admin spécifiée V1)",
+    "Partition audit_log_2027 (à créer en décembre 2026)",
+    "tms.audit_logs (non créé V1)",
+    "Export CSV/PDF de l'audit_log (non spécifié V1)"
+  ],
+  "divergences": [
+    "_Divergences/M0.10_20260613.md — DIV-1 : nommage colonnes §04 vs DDL effectif (clair)",
+    "_Divergences/M0.10_20260613.md — DIV-2 : contradiction rétention §15 (1 an) vs §07/06 (5 ans) (clair)"
+  ]
+}

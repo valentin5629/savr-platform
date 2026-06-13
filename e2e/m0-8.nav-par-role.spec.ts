@@ -9,7 +9,7 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3001';
 type NavResponse = { role: string; items: { label: string; href: string }[] };
 
 const EXPECTED: Record<string, string[]> = {
-  admin_savr: ['Organisations', 'Utilisateurs', 'Collectes', 'Configuration'],
+  admin_savr: ['Clients', 'Paramètres', 'Collectes'],
   traiteur_manager: ['Événements', 'Collectes', 'Dashboard'],
   traiteur_commercial: ['Programmation', 'Mes collectes'],
   agence: ['Collectes', 'Lieux'],

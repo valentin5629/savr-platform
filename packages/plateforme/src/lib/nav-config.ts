@@ -2,7 +2,6 @@ import type { LucideIcon } from 'lucide-react';
 import {
   LayoutDashboard,
   Building2,
-  Users,
   MapPin,
   CalendarDays,
   Truck,
@@ -40,23 +39,19 @@ export const NAV_CONFIG: Record<Role, NavGroup[]> = {
   admin_savr: [
     {
       items: [
-        { label: 'Dashboard', href: '/admin', icon: LayoutDashboard },
+        { label: 'Dashboard Admin', href: '/admin', icon: LayoutDashboard },
         {
-          label: 'Organisations',
-          href: '/admin/organisations',
-          icon: Building2,
+          label: 'Dashboard Client',
+          href: '/admin/dashboard-client',
+          icon: BarChart3,
         },
-        { label: 'Utilisateurs', href: '/admin/utilisateurs', icon: Users },
-        { label: 'Lieux', href: '/admin/lieux', icon: MapPin },
         { label: 'Collectes', href: '/admin/collectes', icon: Truck },
-        { label: 'Factures', href: '/admin/factures', icon: Receipt },
+        { label: 'Facturation', href: '/admin/factures', icon: Receipt },
         { label: 'Associations', href: '/admin/associations', icon: Heart },
-        { label: 'Reporting', href: '/admin/reporting', icon: BarChart3 },
-        {
-          label: 'Configuration',
-          href: '/admin/configuration',
-          icon: Settings,
-        },
+        { label: 'Transporteurs', href: '/admin/transporteurs', icon: Truck },
+        { label: 'Lieux', href: '/admin/lieux', icon: MapPin },
+        { label: 'Clients', href: '/admin/clients', icon: Building2 },
+        { label: 'Paramètres', href: '/admin/settings/users', icon: Settings },
         {
           label: 'Santé système',
           href: '/admin/sante-systeme',

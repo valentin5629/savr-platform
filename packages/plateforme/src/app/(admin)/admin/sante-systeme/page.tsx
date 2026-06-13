@@ -1,7 +1,10 @@
+import { redirect } from 'next/navigation';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+
+const ALLOWED_ROLES = ['admin_savr', 'ops_savr'];
 
 interface OpsOutbox {
   nb_pending: number;
@@ -37,9 +40,19 @@ interface OpsFactureBloquee {
   heures_sans_retour: number;
 }
 
+function parseJwtClaims(token: string): Record<string, unknown> {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return {};
+    const decoded = Buffer.from(payload, 'base64url').toString('utf-8');
+    return JSON.parse(decoded) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
 async function fetchOpsData() {
   const cookieStore = await cookies();
-  // Client dédié schéma plateforme pour les vues ops
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -81,6 +94,33 @@ function StatusBadge({ ok, label }: { ok: boolean; label?: string }) {
 }
 
 export default async function SanteSystemePage() {
+  // Guard serveur : vérifier le rôle avant tout accès service_role
+  const cookieStore = await cookies();
+  const authClient = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll() {},
+      },
+    },
+  );
+
+  const {
+    data: { user },
+  } = await authClient.auth.getUser();
+  if (!user) redirect('/login');
+
+  const {
+    data: { session },
+  } = await authClient.auth.getSession();
+  const claims = parseJwtClaims(session?.access_token ?? '');
+  const role = claims['role'] as string | undefined;
+  if (!role || !ALLOWED_ROLES.includes(role)) redirect('/403');
+
   const data = await fetchOpsData();
 
   const outboxOk = (data.outbox?.nb_dlq ?? 0) === 0;

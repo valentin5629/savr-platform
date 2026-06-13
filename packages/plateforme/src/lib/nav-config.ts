@@ -59,7 +59,7 @@ export const NAV_CONFIG: Record<Role, NavGroup[]> = {
         },
         {
           label: 'Santé système',
-          href: '/sante-systeme',
+          href: '/admin/sante-systeme',
           icon: Activity,
         },
       ],

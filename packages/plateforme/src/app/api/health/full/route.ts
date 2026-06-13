@@ -4,6 +4,17 @@ import { cookies } from 'next/headers';
 
 const ALLOWED_ROLES = ['admin_savr', 'ops_savr'];
 
+function parseJwtClaims(token: string): Record<string, unknown> {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return {};
+    const decoded = Buffer.from(payload, 'base64url').toString('utf-8');
+    return JSON.parse(decoded) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
 export async function GET(req: NextRequest): Promise<NextResponse> {
   // Auth via token interne (CI/monitoring) ou session utilisateur
   const internalToken = req.headers.get('x-internal-token');
@@ -38,7 +49,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
     }
 
-    const role = user.app_metadata?.role as string | undefined;
+    // Le rôle est injecté comme claim top-level par le JWT hook (fn_custom_access_token),
+    // pas dans app_metadata — lire depuis le payload du access_token.
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const claims = parseJwtClaims(session?.access_token ?? '');
+    const role = claims['role'] as string | undefined;
     if (!role || !ALLOWED_ROLES.includes(role)) {
       return NextResponse.json({ error: 'Rôle insuffisant' }, { status: 403 });
     }

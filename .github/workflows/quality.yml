@@ -74,6 +74,8 @@ jobs:
         with: { version: 2.105.0 }
       - run: supabase start
       - run: supabase db reset
+        env:
+          SUPABASE_NO_ANALYTICS: 'true'
       - run: supabase test db # pgTAP RLS (role 'authenticated') + outbox par mutation
 
   # Skip 0.1 : pas de Playwright config (verticales UI, modules > 0.1).
@@ -144,6 +146,8 @@ jobs:
         with: { version: 2.105.0 }
       - run: supabase start
       - run: supabase db reset --debug
+        env:
+          SUPABASE_NO_ANALYTICS: 'true'
       - name: Attente stabilisation containers post-reset
         run: |
           for i in $(seq 1 10); do

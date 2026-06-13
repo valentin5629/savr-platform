@@ -13,6 +13,7 @@ import {
   ClipboardList,
   Heart,
   Receipt,
+  Activity,
 } from 'lucide-react';
 
 export type Role =
@@ -55,6 +56,11 @@ export const NAV_CONFIG: Record<Role, NavGroup[]> = {
           label: 'Configuration',
           href: '/admin/configuration',
           icon: Settings,
+        },
+        {
+          label: 'Santé système',
+          href: '/sante-systeme',
+          icon: Activity,
         },
       ],
     },

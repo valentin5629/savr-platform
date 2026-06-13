@@ -35,3 +35,8 @@ supabase/tests/M0_6__cat_4.test.sql
 # logs d'intégration (données fictives, jamais d'appel réel). Aucune logique
 # adapter ici (elle vit dans packages/adapters/). 'customerOrders' reste banni.
 packages/shared/src/seed/*
+# supabase/migrations/20260613000001_* = vue ops v_ops_integrations — 'mts1' = label
+# de ligne SQL (données statiques de la vue, liste des services surveillés).
+# Pas de logique adapter : la vue est lue par la page Santé système (Admin), jamais
+# par un adapter. 'customerOrders' reste banni.
+supabase/migrations/20260613000001_plateforme_health_views_ops.sql

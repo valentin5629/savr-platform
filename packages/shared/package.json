@@ -10,7 +10,10 @@
     "./src/email-denylist.js": "./src/email-denylist.ts",
     "./src/email/index.js": "./src/email/index.ts",
     "./src/api/siret.js": "./src/api/siret.ts",
-    "./src/api/tva.js": "./src/api/tva.ts"
+    "./src/api/tva.js": "./src/api/tva.ts",
+    "./src/logger/index.js": "./src/logger/index.ts",
+    "./src/alerting/sentry.js": "./src/alerting/sentry.ts",
+    "./src/alerting/slack.js": "./src/alerting/slack.ts"
   },
   "scripts": {
     "build": "echo 'shared: build no-op (paquet TS-only consommé via main)'",

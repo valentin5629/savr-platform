@@ -6,6 +6,21 @@ export interface SendEmailOptions {
   entityId?: string;
 }
 
+export interface CapturedEmail {
+  slug: string;
+  to: string;
+  variables: Record<string, string>;
+  options: SendEmailOptions;
+}
+
+export type EmailCaptureFn = (email: CapturedEmail) => void;
+
+let _captureFn: EmailCaptureFn | null = null;
+
+export function setEmailCaptureSink(fn: EmailCaptureFn | null): void {
+  _captureFn = fn;
+}
+
 function interpolate(
   template: string,
   variables: Record<string, string>,
@@ -19,6 +34,11 @@ export async function sendEmail(
   variables: Record<string, string>,
   options: SendEmailOptions = {},
 ): Promise<void> {
+  if (_captureFn) {
+    _captureFn({ slug, to, variables, options });
+    return;
+  }
+
   const supabase = createAdminSupabaseClient();
 
   const { data: tpl, error } = await supabase

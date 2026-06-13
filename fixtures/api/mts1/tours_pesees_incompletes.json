@@ -1,0 +1,31 @@
+{
+  "_description": "Tour DELIVERED avec pesées incomplètes : stops[] sans items flux (seulement volume_du_camion). Batch J+1 doit skipper. Escalade Admin si > 48h.",
+  "tour": {
+    "tourId": "MTS1-TOUR-INCOMPLETE-001",
+    "externalReference": "col_pesees_incompletes_001-1",
+    "status": "DELIVERED",
+    "startedAt": "2026-06-11T21:00:00Z",
+    "completedAt": "2026-06-12T01:00:00Z",
+    "stops": [
+      {
+        "stopId": "stop-inc-001",
+        "address": "3 Rue du Faubourg Saint-Antoine, 75011 Paris",
+        "completedAt": "2026-06-12T00:45:00Z",
+        "items": [
+          {
+            "stuff": "<volume_du_camion>",
+            "qty": 1,
+            "weight": null,
+            "_note": "Seul item présent — aucune pesée flux réelle"
+          }
+        ]
+      }
+    ]
+  },
+  "_assertions": [
+    "tour en état DELIVERED mais items[] ne contient aucun flux pesé (hors <volume_du_camion>)",
+    "batch J+1 skippe la collecte : jamais de bordereau avec 0 pesée",
+    "escalade saisie manuelle Admin si skip > 48h (R9)",
+    "poids_kg null sur tous les flux mappés = pesées incomplètes"
+  ]
+}

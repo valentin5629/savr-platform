@@ -1,0 +1,79 @@
+{
+  "_description": "Simulation multi-camions N=2 : deux customerOrders pour 1 collecte, états terminaux distincts (DELIVERED + PARTIAL). ≥1 OK/PARTIAL → realisee + alerte Ops.",
+  "customerOrders": [
+    {
+      "id": "MTS1-ORDER-MULTI-001",
+      "externalReference": "col_multi_camions_001-1",
+      "_rang": 1,
+      "status": "DELIVERED",
+      "pickupDate": "2026-06-10T22:00:00Z",
+      "deliveryDate": "2026-06-11T01:00:00Z",
+      "stops": [
+        {
+          "stopId": "stop-multi-001",
+          "address": "1 Place de la Porte de Versailles, 75015 Paris",
+          "status": "COMPLETED"
+        }
+      ]
+    },
+    {
+      "id": "MTS1-ORDER-MULTI-002",
+      "externalReference": "col_multi_camions_001-2",
+      "_rang": 2,
+      "status": "PARTIAL",
+      "pickupDate": "2026-06-10T22:00:00Z",
+      "deliveryDate": "2026-06-11T01:30:00Z",
+      "stops": [
+        {
+          "stopId": "stop-multi-002",
+          "address": "1 Place de la Porte de Versailles, 75015 Paris",
+          "status": "PARTIAL"
+        }
+      ]
+    }
+  ],
+  "tours": [
+    {
+      "tourId": "MTS1-TOUR-MULTI-001",
+      "externalReference": "col_multi_camions_001-1",
+      "status": "DELIVERED",
+      "startedAt": "2026-06-10T22:05:00Z",
+      "completedAt": "2026-06-11T01:00:00Z",
+      "stops": [
+        {
+          "stopId": "stop-multi-001",
+          "address": "1 Place de la Porte de Versailles, 75015 Paris",
+          "completedAt": "2026-06-11T00:45:00Z",
+          "items": [
+            { "stuff": "<volume_du_camion>", "qty": 1, "weight": null },
+            { "stuff": "Bio-déchets (en kg)", "qty": 1, "weight": 210.0 },
+            { "stuff": "Carton (en kg)", "qty": 1, "weight": 65.0 }
+          ]
+        }
+      ]
+    },
+    {
+      "tourId": "MTS1-TOUR-MULTI-002",
+      "externalReference": "col_multi_camions_001-2",
+      "status": "PARTIAL",
+      "startedAt": "2026-06-10T22:10:00Z",
+      "completedAt": "2026-06-11T01:30:00Z",
+      "stops": [
+        {
+          "stopId": "stop-multi-002",
+          "address": "1 Place de la Porte de Versailles, 75015 Paris",
+          "completedAt": "2026-06-11T01:20:00Z",
+          "items": [
+            { "stuff": "<volume_du_camion>", "qty": 1, "weight": null },
+            { "stuff": "Bio-déchets (en kg)", "qty": 1, "weight": 150.0 }
+          ]
+        }
+      ]
+    }
+  ],
+  "_assertions": [
+    "nb_camions_demande=2, les 2 rangs sont en état terminal (DELIVERED + PARTIAL)",
+    "≥1 tour OK/PARTIAL → collecte passe à realisee sur les pesées disponibles + alerte Ops in-app",
+    "agrégation concurrente-sûre : FOR UPDATE sur collectes + guard WHERE statut IN ('validee','en_cours')"
+  ]
+}

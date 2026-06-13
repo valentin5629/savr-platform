@@ -1,0 +1,21 @@
+{
+  "_description": "Webhook Resend svix — email bounced",
+  "type": "email.bounced",
+  "created_at": "2026-05-08T10:02:00Z",
+  "data": {
+    "email_id": "resend-bounced-001",
+    "from": "noreply@gosavr.io",
+    "to": ["compta-bounce@savr-test.local"],
+    "subject": "Facture Savr ZD-2026-0012",
+    "bounce_type": "hard",
+    "bounce_description": "550 Mailbox does not exist",
+    "tags": [
+      { "name": "email_envoye_id", "value": "email_fac_kaspia_bounced_01" }
+    ]
+  },
+  "_svix_headers": {
+    "svix-id": "msg_bounced_001",
+    "svix-timestamp": "1746698520",
+    "svix-signature": "v1,HMAC_SHA256_PLACEHOLDER"
+  }
+}

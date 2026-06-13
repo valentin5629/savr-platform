@@ -1,0 +1,55 @@
+{
+  "_description": "Réponse GET /v3/customerOrders — lot nominal de statuts de courses mappés sur les collectes seedées",
+  "customerOrders": [
+    {
+      "id": "MTS1-ORDER-COL-ZD-KASPIA-001",
+      "externalReference": "tour_strike_202605_01",
+      "status": "DELIVERED",
+      "pickupDate": "2026-05-06T22:00:00Z",
+      "deliveryDate": "2026-05-07T01:30:00Z",
+      "stops": [
+        {
+          "stopId": "stop-001",
+          "address": "1 Place de la Porte de Versailles, 75015 Paris",
+          "status": "COMPLETED"
+        }
+      ]
+    },
+    {
+      "id": "MTS1-ORDER-COL-AG-POTEL-001",
+      "externalReference": "tour_marathon_202605_01",
+      "status": "DELIVERED",
+      "pickupDate": "2026-05-09T21:00:00Z",
+      "deliveryDate": "2026-05-10T00:45:00Z",
+      "stops": [
+        {
+          "stopId": "stop-002",
+          "address": "2 Place de la Porte Maillot, 75017 Paris",
+          "status": "COMPLETED"
+        }
+      ]
+    },
+    {
+      "id": "MTS1-ORDER-COL-ZD-KASPIA-002",
+      "externalReference": "tour_strike_202605_02",
+      "status": "IN_PROGRESS",
+      "pickupDate": "2026-05-13T22:30:00Z",
+      "deliveryDate": null,
+      "stops": [
+        {
+          "stopId": "stop-003",
+          "address": "1 Place de la Porte de Versailles, 75015 Paris",
+          "status": "IN_PROGRESS"
+        },
+        {
+          "stopId": "stop-004",
+          "address": "Rue de la Convention, 75015 Paris",
+          "status": "PENDING"
+        }
+      ]
+    }
+  ],
+  "totalCount": 3,
+  "page": 1,
+  "pageSize": 50
+}

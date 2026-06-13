@@ -1,0 +1,41 @@
+{
+  "_description": "KO total : tous les customerOrders en état CANCELED ou KO → collecte passe à rejetee_par_prestataire",
+  "customerOrders": [
+    {
+      "id": "MTS1-ORDER-KO-001",
+      "externalReference": "col_ko_total_001-1",
+      "_rang": 1,
+      "status": "CANCELED",
+      "pickupDate": "2026-06-12T22:00:00Z",
+      "deliveryDate": null,
+      "stops": [
+        {
+          "stopId": "stop-ko-001",
+          "address": "5 Avenue de la Motte-Picquet, 75007 Paris",
+          "status": "CANCELED"
+        }
+      ]
+    },
+    {
+      "id": "MTS1-ORDER-KO-002",
+      "externalReference": "col_ko_total_001-2",
+      "_rang": 2,
+      "status": "KO",
+      "pickupDate": "2026-06-12T22:00:00Z",
+      "deliveryDate": null,
+      "stops": [
+        {
+          "stopId": "stop-ko-002",
+          "address": "5 Avenue de la Motte-Picquet, 75007 Paris",
+          "status": "KO"
+        }
+      ]
+    }
+  ],
+  "_assertions": [
+    "tous les tours en état terminal CANCELED ou KO",
+    "aucun tour OK/PARTIAL → collecte passe à rejetee_par_prestataire",
+    "alerte Ops in-app générée",
+    "états terminaux par tour : OK, PARTIAL, CANCELED, KO (jamais d'attente infinie)"
+  ]
+}

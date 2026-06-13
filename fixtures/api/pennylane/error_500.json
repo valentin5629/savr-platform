@@ -1,0 +1,7 @@
+{
+  "_description": "Réponse 500 Internal Server Error — retry avec paliers",
+  "status": 500,
+  "error": "INTERNAL_SERVER_ERROR",
+  "message": "An unexpected error occurred. Please try again later.",
+  "requestId": "pl-req-err-001"
+}

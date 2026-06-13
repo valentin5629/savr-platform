@@ -1,0 +1,19 @@
+{
+  "_description": "Webhook Resend svix — email livré",
+  "type": "email.delivered",
+  "created_at": "2026-05-07T09:15:00Z",
+  "data": {
+    "email_id": "resend-delivered-001",
+    "from": "noreply@gosavr.io",
+    "to": ["manager@savr-test.local"],
+    "subject": "Votre bordereau Savr — Collecte du 06/05/2026",
+    "tags": [
+      { "name": "email_envoye_id", "value": "email_bord_kaspia_202605_01" }
+    ]
+  },
+  "_svix_headers": {
+    "svix-id": "msg_delivered_001",
+    "svix-timestamp": "1746609300",
+    "svix-signature": "v1,HMAC_SHA256_PLACEHOLDER"
+  }
+}

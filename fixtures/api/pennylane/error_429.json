@@ -1,0 +1,13 @@
+{
+  "_description": "Réponse 429 Too Many Requests — backoff/retry",
+  "status": 429,
+  "error": "TOO_MANY_REQUESTS",
+  "message": "Rate limit exceeded. Retry after 60 seconds.",
+  "retry_after": 60,
+  "headers": {
+    "Retry-After": "60",
+    "X-RateLimit-Limit": "100",
+    "X-RateLimit-Remaining": "0",
+    "X-RateLimit-Reset": "1748985600"
+  }
+}

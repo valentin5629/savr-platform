@@ -1,0 +1,39 @@
+{
+  "_description": "GET /api/v2/customers?page=2 — page 2 de 2",
+  "customers": [
+    {
+      "id": "PL-CUST-LENOTRE-001",
+      "name": "Lenôtre",
+      "billing_email": "facturation@lenotre.fr",
+      "vat_number": "FR11111111111",
+      "siret": "11111111111111",
+      "payment_conditions": "30 days",
+      "source_id": "org_tr_lenotre"
+    },
+    {
+      "id": "PL-CUST-FLEUR-001",
+      "name": "Fleur de Mets",
+      "billing_email": "compta@fleurdemets.fr",
+      "vat_number": "FR22222222222",
+      "siret": "22222222222222",
+      "payment_conditions": "30 days",
+      "source_id": "org_tr_fleurdemets"
+    },
+    {
+      "id": "PL-CUST-BUTARD-001",
+      "name": "Butard Enescot",
+      "billing_email": "compta@butard.fr",
+      "vat_number": "FR33333333333",
+      "siret": "33333333333333",
+      "payment_conditions": "30 days",
+      "source_id": "org_tr_butard"
+    }
+  ],
+  "pagination": {
+    "current_page": 2,
+    "next_page": null,
+    "total_pages": 2,
+    "total_count": 6,
+    "per_page": 3
+  }
+}

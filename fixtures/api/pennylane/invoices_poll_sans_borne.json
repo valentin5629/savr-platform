@@ -1,0 +1,46 @@
+{
+  "_description": "GET /api/v2/customer_invoices — polling sans borne temporelle (F2 §08). Contient des factures anciennes re-présentées pour vérifier l'idempotence.",
+  "invoices": [
+    {
+      "id": "PL-INV-2025-001",
+      "number": "ZD-2025-0001",
+      "status": "paid",
+      "total_amount": "240.00",
+      "currency": "EUR",
+      "issued_at": "2025-06-10",
+      "due_at": "2025-07-10",
+      "customer_id": "PL-CUST-KASPIA-001",
+      "source_id": "fac_zd_kaspia_202506_01",
+      "_note": "Facture ancienne — déjà ingérée, idempotence requise"
+    },
+    {
+      "id": "PL-INV-2026-012",
+      "number": "ZD-2026-0012",
+      "status": "outstanding",
+      "total_amount": "390.00",
+      "currency": "EUR",
+      "issued_at": "2026-05-07",
+      "due_at": "2026-06-06",
+      "customer_id": "PL-CUST-KASPIA-001",
+      "source_id": "fac_zd_kaspia_202605_01",
+      "_note": "Facture récente non payée"
+    },
+    {
+      "id": "PL-INV-2026-013",
+      "number": "ZD-2026-0013",
+      "status": "outstanding",
+      "total_amount": "180.00",
+      "currency": "EUR",
+      "issued_at": "2026-05-10",
+      "due_at": "2026-06-09",
+      "customer_id": "PL-CUST-FLEUR-001",
+      "source_id": "fac_zd_fleurdemets_202605_01"
+    }
+  ],
+  "pagination": {
+    "current_page": 1,
+    "next_page": null,
+    "total_pages": 1,
+    "total_count": 3
+  }
+}

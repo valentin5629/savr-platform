@@ -1,0 +1,14 @@
+{
+  "_description": "Réponse 422 POST /v3/customerOrders — rejet validation (branch rejetee→E1 après correction). Vérifie que le numéro de facture est conservé après rejet.",
+  "status": 422,
+  "error": "VALIDATION_ERROR",
+  "message": "L'adresse de collecte est invalide ou hors zone de couverture.",
+  "fields": [
+    {
+      "field": "pickupAddress.postalCode",
+      "message": "Code postal 92300 hors zone de couverture Strike"
+    }
+  ],
+  "requestId": "req-reject-001",
+  "_assertion": "statut_tms reste non_envoye, alerte Ops créée, numéro facture conservé (F4 §06.08)"
+}

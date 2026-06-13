@@ -1,0 +1,91 @@
+{
+  "_description": "Réponse GET /v3/tours/{id} avec stops[] portant pesées par flux. Libellés exacts as-built MTS-1. Inclut variante stuff inconnu.",
+  "tour_nominal": {
+    "tourId": "MTS1-TOUR-ZD-001",
+    "externalReference": "tour_strike_202605_01",
+    "status": "DELIVERED",
+    "startedAt": "2026-05-06T22:00:00Z",
+    "completedAt": "2026-05-07T00:00:00Z",
+    "stops": [
+      {
+        "stopId": "stop-zd-001",
+        "address": "1 Place de la Porte de Versailles, 75015 Paris",
+        "completedAt": "2026-05-06T23:45:00Z",
+        "items": [
+          {
+            "stuff": "<volume_du_camion>",
+            "qty": 1,
+            "weight": null,
+            "_note": "À ignorer — volume du camion, pas une pesée"
+          },
+          {
+            "stuff": "Bio-déchets (en kg)",
+            "qty": 1,
+            "weight": 234.5
+          },
+          {
+            "stuff": "Carton (en kg)",
+            "qty": 1,
+            "weight": 87.2
+          },
+          {
+            "stuff": "D.I.B (en kg)",
+            "qty": 1,
+            "weight": 45.0
+          },
+          {
+            "stuff": "Film plastique (en kg)",
+            "qty": 1,
+            "weight": 12.8
+          },
+          {
+            "stuff": "Verre (en kg)",
+            "qty": 1,
+            "weight": 156.3
+          }
+        ]
+      }
+    ]
+  },
+  "tour_stuff_inconnu": {
+    "tourId": "MTS1-TOUR-ZD-002",
+    "externalReference": "tour_strike_202605_03",
+    "status": "DELIVERED",
+    "startedAt": "2026-05-20T22:00:00Z",
+    "completedAt": "2026-05-21T01:00:00Z",
+    "stops": [
+      {
+        "stopId": "stop-zd-002",
+        "address": "2 Rue de la Porte de Champerret, 75017 Paris",
+        "completedAt": "2026-05-21T00:30:00Z",
+        "items": [
+          {
+            "stuff": "<volume_du_camion>",
+            "qty": 1,
+            "weight": null
+          },
+          {
+            "stuff": "Bio-déchets (en kg)",
+            "qty": 1,
+            "weight": 178.0
+          },
+          {
+            "stuff": "Gravats (en kg)",
+            "qty": 1,
+            "weight": 320.0,
+            "_note": "Stuff inconnu → alerte Ops attendue, non mappé sur flux_dechets"
+          }
+        ]
+      }
+    ]
+  },
+  "_mapping_libelles": {
+    "Bio-déchets (en kg)": "biodechets",
+    "Carton (en kg)": "carton",
+    "D.I.B (en kg)": "dib",
+    "Film plastique (en kg)": "film_plastique",
+    "Verre (en kg)": "verre",
+    "<volume_du_camion>": "_ignore",
+    "Gravats (en kg)": "_inconnu_alerte_ops"
+  }
+}

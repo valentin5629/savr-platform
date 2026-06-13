@@ -1,0 +1,39 @@
+{
+  "_description": "GET /api/v2/customers?page=1 — page 1 de 2",
+  "customers": [
+    {
+      "id": "PL-CUST-KASPIA-001",
+      "name": "Kaspia",
+      "billing_email": "facturation@kaspia.fr",
+      "vat_number": "FR12345678901",
+      "siret": "12345678901234",
+      "payment_conditions": "30 days",
+      "source_id": "org_tr_kaspia"
+    },
+    {
+      "id": "PL-CUST-POTEL-001",
+      "name": "Potel et Chabot - Entité Principale",
+      "billing_email": "facturation@potel.fr",
+      "vat_number": "FR98765432109",
+      "siret": "98765432109876",
+      "payment_conditions": "45 days",
+      "source_id": "entite_potel_principale"
+    },
+    {
+      "id": "PL-CUST-POTEL-002",
+      "name": "Potel et Chabot - Entité Événements",
+      "billing_email": "evenements.facturation@potel.fr",
+      "vat_number": "FR98765432109",
+      "siret": "98765432109876",
+      "payment_conditions": "45 days",
+      "source_id": "entite_potel_evenements"
+    }
+  ],
+  "pagination": {
+    "current_page": 1,
+    "next_page": 2,
+    "total_pages": 2,
+    "total_count": 6,
+    "per_page": 3
+  }
+}

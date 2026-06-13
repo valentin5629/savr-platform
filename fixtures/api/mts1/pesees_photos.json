@@ -1,0 +1,25 @@
+{
+  "_description": "Métadonnées photos pesées AG — saisie Ops manuelle V1 (F1 §06.09). Photos uploadées via MTS-1 et téléchargées par polling.",
+  "photos": [
+    {
+      "tourId": "MTS1-TOUR-AG-001",
+      "stopId": "stop-ag-001",
+      "photoId": "photo-ag-001-a",
+      "url": "https://mts1-storage.example.com/photos/photo-ag-001-a.jpg",
+      "takenAt": "2026-05-06T23:15:00Z",
+      "type": "PESEE",
+      "weight_kg": null,
+      "note": "Photo saisie manuelle Ops — poids saisi côté Savr"
+    },
+    {
+      "tourId": "MTS1-TOUR-AG-001",
+      "stopId": "stop-ag-001",
+      "photoId": "photo-ag-001-b",
+      "url": "https://mts1-storage.example.com/photos/photo-ag-001-b.jpg",
+      "takenAt": "2026-05-06T23:20:00Z",
+      "type": "LIVRAISON",
+      "weight_kg": null
+    }
+  ],
+  "_assertion": "dédup (tourId, stopId, photoId) avant download. photo 404 = retentée au poll suivant, non bloquante."
+}

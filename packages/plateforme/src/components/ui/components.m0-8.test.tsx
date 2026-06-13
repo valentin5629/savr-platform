@@ -206,7 +206,7 @@ it('M0.8-15 — Sidebar affiche le fond primary-700/800 (levier #2)', () => {
 // ── Navigation par rôle (tests sur la config — §8 §9 Design System) ─────────
 
 const NAV_EXPECTATIONS: Record<Role, string[]> = {
-  admin_savr: ['Organisations', 'Utilisateurs', 'Collectes', 'Configuration'],
+  admin_savr: ['Clients', 'Paramètres', 'Collectes'],
   traiteur_manager: ['Événements', 'Collectes', 'Dashboard'],
   traiteur_commercial: ['Programmation', 'Mes collectes'],
   agence: ['Collectes', 'Lieux'],
@@ -214,7 +214,7 @@ const NAV_EXPECTATIONS: Record<Role, string[]> = {
   client_organisateur: ['Mes événements', 'Collectes'],
 };
 
-it('M0.8-16 — nav admin_savr affiche les entrées admin (Orgs, Users, Collectes, Config)', () => {
+it('M0.8-16 — nav admin_savr affiche les entrées admin (Clients, Paramètres, Collectes)', () => {
   const items = getNavItems('admin_savr').map((i) => i.label);
   for (const expected of NAV_EXPECTATIONS.admin_savr) {
     expect(items).toContain(expected);
@@ -257,17 +257,16 @@ it('M0.8-21 — nav client_organisateur affiche les entrées client organisateur
 });
 
 it('M0.8-22 — entrées non autorisées pour le rôle sont absentes de la navigation', () => {
-  // Un traiteur_commercial ne doit pas voir "Organisations" (admin only)
+  // Un traiteur_commercial ne doit pas voir "Clients" (admin only)
   const commercialItems = getNavItems('traiteur_commercial').map(
     (i) => i.label,
   );
-  expect(commercialItems).not.toContain('Organisations');
-  expect(commercialItems).not.toContain('Utilisateurs');
-  expect(commercialItems).not.toContain('Configuration');
+  expect(commercialItems).not.toContain('Clients');
+  expect(commercialItems).not.toContain('Paramètres');
 
   // Un client_organisateur ne doit pas voir les entrées admin
   const clientItems = getNavItems('client_organisateur').map((i) => i.label);
-  expect(clientItems).not.toContain('Organisations');
+  expect(clientItems).not.toContain('Clients');
   expect(clientItems).not.toContain('Reporting');
 });
 

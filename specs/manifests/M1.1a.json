@@ -1,0 +1,131 @@
+{
+  "module": "M1.1a",
+  "titre": "Back-office Admin — Référentiel orgas, users, packs AG, tarifs",
+  "description": "CRUD organisations + users (invitation/rôle/suspension/impersonation) + packs AG (création/ajustement/annulation, Idempotency-Key) + tarifs ZD/AG + remises + coefficients perte labo. Premier sous-lot de M1.1.",
+  "fichiers_produits": [
+    "packages/plateforme/src/lib/api-auth.ts",
+    "packages/plateforme/src/app/api/v1/admin/organisations/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/organisations/[id]/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/organisations/[id]/desactiver/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/users/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/users/[id]/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/users/[id]/impersoner/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/packs-antgaspi/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/packs-antgaspi/[id]/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/coefficients-perte-labo/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/coefficients-perte-labo/[id]/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/grilles-tarifaires-zd/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/tarifs-packs-ag/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/tarifs-negocie/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/tarifs-negocie/[id]/fermer/route.ts",
+    "packages/plateforme/src/app/(admin)/admin/clients/page.tsx",
+    "packages/plateforme/src/app/(admin)/admin/clients/[id]/page.tsx",
+    "packages/plateforme/src/app/(admin)/admin/settings/users/page.tsx",
+    "packages/plateforme/src/app/api/v1/admin/organisations/[id]/domaines-email/route.ts",
+    "packages/plateforme/tests/api/admin/organisations.m1-1a.test.ts",
+    "packages/plateforme/tests/api/admin/users.m1-1a.test.ts",
+    "packages/plateforme/tests/api/admin/packs.m1-1a.test.ts",
+    "packages/plateforme/tests/api/admin/tarifs.m1-1a.test.ts"
+  ],
+  "fichiers_modifies": [
+    "packages/plateforme/src/lib/nav-config.ts"
+  ],
+  "scenarios": [
+    {
+      "id": "M1.1a/orgas/liste",
+      "description": "GET /api/v1/admin/organisations retourne la liste avec colonnes (nom, type, SIREN, nb users, nb ZD 12m, nb AG 12m, actif)"
+    },
+    {
+      "id": "M1.1a/orgas/creation",
+      "description": "POST /api/v1/admin/organisations crée une organisation et retourne 201"
+    },
+    {
+      "id": "M1.1a/orgas/fiche",
+      "description": "GET /api/v1/admin/organisations/:id retourne la fiche complète"
+    },
+    {
+      "id": "M1.1a/orgas/modification",
+      "description": "PATCH /api/v1/admin/organisations/:id met à jour l'organisation"
+    },
+    {
+      "id": "M1.1a/orgas/desactivation",
+      "description": "POST /api/v1/admin/organisations/:id/desactiver bascule actif=false"
+    },
+    {
+      "id": "M1.1a/orgas/tarif-refacture-admin-only",
+      "description": "PATCH tarif_refacture_pax_zd par ops_savr → 403"
+    },
+    {
+      "id": "M1.1a/users/liste",
+      "description": "GET /api/v1/admin/users retourne la liste avec rôle, statut, dernière connexion"
+    },
+    {
+      "id": "M1.1a/users/invitation",
+      "description": "POST /api/v1/admin/users inviter envoie email bienvenue et crée le profil"
+    },
+    {
+      "id": "M1.1a/users/changement-role",
+      "description": "PATCH /api/v1/admin/users/:id change le rôle, ops ne peut pas promouvoir en admin_savr"
+    },
+    {
+      "id": "M1.1a/users/promotion-admin-bloquee-ops",
+      "description": "PATCH rôle=admin_savr par ops_savr → 403"
+    },
+    {
+      "id": "M1.1a/users/suspension",
+      "description": "PATCH /api/v1/admin/users/:id suspendu=true bascule actif=false avec délai 48h"
+    },
+    {
+      "id": "M1.1a/users/impersonation-admin-only",
+      "description": "POST /api/v1/admin/users/:id/impersoner par ops_savr → 403"
+    },
+    {
+      "id": "M1.1a/users/impersonation-ok",
+      "description": "POST /api/v1/admin/users/:id/impersoner par admin_savr retourne JWT impersonation"
+    },
+    {
+      "id": "M1.1a/packs/creation-ok",
+      "description": "POST /api/v1/admin/packs-antgaspi crée un pack (admin + ops) retourne 201"
+    },
+    {
+      "id": "M1.1a/packs/creation-doublon-bloque",
+      "description": "POST pack si org a déjà un pack actif → 409"
+    },
+    {
+      "id": "M1.1a/packs/idempotency-key",
+      "description": "POST pack avec même Idempotency-Key → retourne le pack existant (pas de doublon)"
+    },
+    {
+      "id": "M1.1a/packs/ajustement",
+      "description": "PATCH /api/v1/admin/packs-antgaspi/:id action=ajuster_credits met à jour credits_initiaux + audit_log"
+    },
+    {
+      "id": "M1.1a/packs/annulation",
+      "description": "PATCH /api/v1/admin/packs-antgaspi/:id action=annuler bascule statut=annule + audit_log"
+    },
+    {
+      "id": "M1.1a/packs/ops-peut-creer",
+      "description": "ops_savr peut créer un pack (F2 confirmé Val)"
+    },
+    {
+      "id": "M1.1a/coefficients/creation-admin-only",
+      "description": "POST /api/v1/admin/coefficients-perte-labo par ops_savr → 403"
+    },
+    {
+      "id": "M1.1a/coefficients/creation-ok",
+      "description": "POST coefficient par admin_savr insère en DB + audit_log"
+    },
+    {
+      "id": "M1.1a/tarifs/grilles-zd-lecture",
+      "description": "GET /api/v1/admin/grilles-tarifaires-zd retourne la liste"
+    },
+    {
+      "id": "M1.1a/tarifs/tarifs-packs-ag-lecture",
+      "description": "GET /api/v1/admin/tarifs-packs-ag retourne les tarifs actifs par type"
+    },
+    {
+      "id": "M1.1a/tarifs/negocie-creation",
+      "description": "POST /api/v1/admin/tarifs-negocie crée une remise % + audit_log"
+    }
+  ]
+}

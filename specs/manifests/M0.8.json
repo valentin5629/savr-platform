@@ -1,0 +1,55 @@
+{
+  "module": "M0.8",
+  "title": "Composants UI de base",
+  "description": "Setup shadcn/ui + tokens Design System Savr (§10), layouts, navigation conditionnée par rôle (6 rôles), composants communs, shell back-office Admin. Hors scope : écrans métier.",
+  "fichiers": [
+    "packages/plateforme/src/app/globals.css",
+    "packages/plateforme/tailwind.config.ts",
+    "packages/plateforme/src/components/ui/button.tsx",
+    "packages/plateforme/src/components/ui/card.tsx",
+    "packages/plateforme/src/components/ui/badge.tsx",
+    "packages/plateforme/src/components/ui/data-table.tsx",
+    "packages/plateforme/src/components/ui/stat-card.tsx",
+    "packages/plateforme/src/components/ui/empty-state.tsx",
+    "packages/plateforme/src/components/ui/skeleton.tsx",
+    "packages/plateforme/src/components/ui/status-collecte.tsx",
+    "packages/plateforme/src/components/ui/pack-ag-indicator.tsx",
+    "packages/plateforme/src/components/ui/impersonation-banner.tsx",
+    "packages/plateforme/src/components/layout/sidebar.tsx",
+    "packages/plateforme/src/components/layout/top-bar.tsx",
+    "packages/plateforme/src/components/layout/bottom-nav.tsx",
+    "packages/plateforme/src/components/layout/app-shell.tsx",
+    "packages/plateforme/src/app/(admin)/layout.tsx"
+  ],
+  "tests_vitest": [
+    "packages/plateforme/src/components/ui/components.m0-8.test.tsx"
+  ],
+  "tests_playwright": [
+    "e2e/m0-8.nav-par-role.spec.ts"
+  ],
+  "scenarios": [
+    "M0.8-1 — tokens CSS primary/accent/neutral sont définis dans globals.css",
+    "M0.8-2 — Button primary applique fond primary-700 et texte blanc",
+    "M0.8-3 — Button accent applique fond accent-500 et texte primary-950",
+    "M0.8-4 — Button focus-visible affiche un anneau primary-500 offset 2px (levier #4)",
+    "M0.8-5 — Card au repos a bordure neutral-200 et ombre none",
+    "M0.8-6 — Badge succès applique fond success-subtle et texte success-strong",
+    "M0.8-7 — Badge warning applique fond warning-subtle et texte warning-strong",
+    "M0.8-8 — Badge error applique fond error-subtle et texte error-strong",
+    "M0.8-9 — StatusCollecte affiche les 5 statuts valides (programmee, validee, en_cours, realisee, cloturee)",
+    "M0.8-10 — PackAGIndicator affiche une jauge et un compteur",
+    "M0.8-11 — ImpersonationBanner est visible avec fond accent-500",
+    "M0.8-12 — EmptyState affiche une illustration et un texte",
+    "M0.8-13 — Skeleton affiche un bloc animé neutral-100 (pas de spinner)",
+    "M0.8-14 — DataTable affiche les données en colonnes sur desktop",
+    "M0.8-15 — Sidebar affiche le fond primary-700/800 (levier #2)",
+    "M0.8-16 — nav admin_savr affiche les entrées admin (Orgs, Users, Collectes, Config)",
+    "M0.8-17 — nav traiteur_manager affiche les entrées traiteur (Événements, Collectes, Dashboard)",
+    "M0.8-18 — nav traiteur_commercial affiche les entrées commercial (Programmation, Collectes)",
+    "M0.8-19 — nav agence affiche les entrées agence",
+    "M0.8-20 — nav gestionnaire_lieux affiche les entrées gestionnaire de lieux",
+    "M0.8-21 — nav client_organisateur affiche les entrées client organisateur",
+    "M0.8-22 — entrées non autorisées pour le rôle sont absentes de la navigation",
+    "M0.8-23 — pnpm build passe sans erreur TypeScript"
+  ]
+}

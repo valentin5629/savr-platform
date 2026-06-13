@@ -1,0 +1,31 @@
+{
+  "module": "M0.7",
+  "title": "Seed minimal + demo",
+  "description": "Deux datasets déterministes injectables (seed_minimal < 30s, seed_demo 478 collectes) + 4 commandes pnpm (seed:minimal, seed:demo, seed:jwt, seed:check). Périmètre plateforme.* + shared.*.",
+  "fichiers": [
+    "packages/shared/src/seed/uuid.ts",
+    "packages/shared/src/seed/constants.ts",
+    "packages/shared/src/seed/db.ts",
+    "packages/shared/src/seed/reset.ts",
+    "packages/shared/src/seed/minimal.ts",
+    "packages/shared/src/seed/demo.ts",
+    "packages/shared/src/seed/index.ts",
+    "packages/shared/src/seed/jwt.ts",
+    "packages/shared/src/seed/check.ts"
+  ],
+  "tests_vitest": ["packages/shared/src/seed/seed.m0-7.test.ts"],
+  "scenarios": [
+    "M0.7-1 — seedUuid est déterministe (même slug → même UUID v5)",
+    "M0.7-2 — seedUuid respecte le format UUID v5 (version 5, variant RFC 4122)",
+    "M0.7-3 — seedUuid produit des UUID distincts pour des slugs distincts",
+    "M0.7-4 — fakePhone génère un numéro dans le range fictif +33 6 99 99",
+    "M0.7-5 — seedEmail génère une adresse @savr-test.local",
+    "M0.7-6 — assertDev rejette un SUPABASE_PROJECT_REF différent du projet dev",
+    "M0.7-7 — assertDev rejette NODE_ENV=production",
+    "M0.7-8 — assertDev accepte le projet dev",
+    "M0.7-9 — matrix_collectes.csv contient exactement 478 collectes",
+    "M0.7-10 — la somme des collectes par traiteur dans la matrice = 478",
+    "M0.7-11 — upsert construit un INSERT ... ON CONFLICT paramétré",
+    "M0.7-12 — upsert sérialise les colonnes jsonb avec un cast ::jsonb"
+  ]
+}

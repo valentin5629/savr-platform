@@ -1,0 +1,26 @@
+{
+  "_description": "Paire de payloads identiques hors occurred_at — vérifie clé dédup sans occurred_at (F1 §08). Les 2 payloads ont même contenu métier, seul le champ occurred_at diffère. L'ingestion doit produire 1 seule ligne integrations_inbox.",
+  "payload_a": {
+    "event_id": "mts1-dedup-test-001",
+    "occurred_at": "2026-05-06T22:01:00Z",
+    "type": "ORDER_STATUS_CHANGED",
+    "data": {
+      "orderId": "MTS1-ORDER-COL-ZD-KASPIA-001",
+      "externalReference": "tour_strike_202605_01",
+      "oldStatus": "ACCEPTED",
+      "newStatus": "DELIVERED"
+    }
+  },
+  "payload_b": {
+    "event_id": "mts1-dedup-test-001",
+    "occurred_at": "2026-05-06T22:15:00Z",
+    "type": "ORDER_STATUS_CHANGED",
+    "data": {
+      "orderId": "MTS1-ORDER-COL-ZD-KASPIA-001",
+      "externalReference": "tour_strike_202605_01",
+      "oldStatus": "ACCEPTED",
+      "newStatus": "DELIVERED"
+    }
+  },
+  "_assertion": "event_id identique → 1 seule ingestion (clé dédup = event_id sans occurred_at)"
+}

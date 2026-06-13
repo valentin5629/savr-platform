@@ -1,0 +1,21 @@
+{
+  "_description": "Webhook Resend svix — email failed (3 retries → statut echec). Correspond à email_echec_3retries du seed.",
+  "type": "email.delivery_delayed",
+  "created_at": "2026-05-09T11:30:00Z",
+  "data": {
+    "email_id": "resend-failed-001",
+    "from": "noreply@gosavr.io",
+    "to": ["manager-fail@savr-test.local"],
+    "subject": "Rapport RSE Savr — Avril 2026",
+    "attempt": 3,
+    "max_attempts": 3,
+    "next_attempt": null,
+    "tags": [{ "name": "email_envoye_id", "value": "email_echec_3retries" }]
+  },
+  "_svix_headers": {
+    "svix-id": "msg_failed_001",
+    "svix-timestamp": "1746789000",
+    "svix-signature": "v1,HMAC_SHA256_PLACEHOLDER"
+  },
+  "_assertion": "3 retries épuisés → statut email_envoyes = echec"
+}

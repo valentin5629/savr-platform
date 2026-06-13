@@ -1,0 +1,24 @@
+{
+  "_description": "Réponse 201 POST /v3/customerOrders — ordre créé avec succès (branch non_envoye→E1)",
+  "id": "MTS1-ORDER-NEW-001",
+  "externalReference": "col_dispatch_non_envoye-1",
+  "status": "PENDING",
+  "createdAt": "2026-05-20T09:00:00Z",
+  "estimatedPickupDate": "2026-06-05T22:00:00Z",
+  "pickupAddress": {
+    "street": "1 Place de la Porte de Versailles",
+    "city": "Paris",
+    "postalCode": "75015",
+    "country": "FR"
+  },
+  "deliveryAddress": {
+    "street": "12 Rue des Entrepôts Savr",
+    "city": "Paris",
+    "postalCode": "75019",
+    "country": "FR"
+  },
+  "contact": {
+    "name": "Ops Savr",
+    "phone": "+33 6 99 99 01 01"
+  }
+}

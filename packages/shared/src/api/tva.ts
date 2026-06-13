@@ -18,8 +18,8 @@ export async function verifyTva(
 ): Promise<TvaVerificationResult> {
   if (!tva || tva.trim() === '') return 'non_applicable';
 
-  if (process.env.NODE_ENV === 'test' && mockFn !== null) {
-    return mockFn(tva);
+  if (process.env.NODE_ENV === 'test') {
+    return mockFn ? mockFn(tva) : 'down';
   }
 
   // Numéro TVA intracom : 2 lettres pays + 2-13 chiffres

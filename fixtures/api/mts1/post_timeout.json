@@ -1,0 +1,35 @@
+{
+  "_description": "Simulation POST /v3/customerOrders timeout. MTS-1 présumé NON idempotent (Val 2026-06-11). Plan B : scan GET /v3/customerOrders?minDate=&maxDate= pour retrouver l'ordre créé côté MTS-1.",
+  "post_attempt": {
+    "externalReference": "col_timeout_001-1",
+    "note": "Le POST a timeouté — on ne sait pas si MTS-1 a créé l'ordre ou non"
+  },
+  "plan_b_scan": {
+    "endpoint": "GET /v3/customerOrders",
+    "params": {
+      "minDate": "2026-06-10T00:00:00Z",
+      "maxDate": "2026-06-11T00:00:00Z"
+    },
+    "response": {
+      "customerOrders": [
+        {
+          "id": "MTS1-ORDER-TIMEOUT-FOUND-001",
+          "externalReference": "col_timeout_001-1",
+          "status": "PENDING",
+          "pickupDate": "2026-06-10T22:00:00Z",
+          "deliveryDate": null,
+          "stops": []
+        }
+      ],
+      "totalCount": 1,
+      "page": 1,
+      "pageSize": 50
+    }
+  },
+  "_assertions": [
+    "POST timeout → requires_reconciliation=true sur outbox_events",
+    "plan B scan par minDate/maxDate permet de retrouver l'ordre via externalReference",
+    "re-POST autorisé uniquement si statut TRANSIENT (jamais si PENDING/ACCEPTED/etc.)",
+    "Q3bis-6 : retrouver le tour d'un customerOrder post-timeout"
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "_description": "Transitions emise→payee pour alimenter les créances de la timeline",
+  "events": [
+    {
+      "invoice_id": "PL-INV-2026-012",
+      "old_status": "outstanding",
+      "new_status": "paid",
+      "paid_at": "2026-06-06T14:23:00Z",
+      "payment_method": "wire_transfer",
+      "amount": "390.00",
+      "source_id": "fac_zd_kaspia_202605_01"
+    },
+    {
+      "invoice_id": "PL-INV-2025-001",
+      "old_status": "outstanding",
+      "new_status": "paid",
+      "paid_at": "2025-07-08T10:00:00Z",
+      "payment_method": "wire_transfer",
+      "amount": "240.00",
+      "source_id": "fac_zd_kaspia_202506_01"
+    }
+  ]
+}

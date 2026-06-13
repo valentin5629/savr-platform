@@ -23,10 +23,10 @@ FROM plateforme.outbox_events;
 -- v_ops_jobs_pdf : jobs PDF en attente ou en échec
 CREATE OR REPLACE VIEW plateforme.v_ops_jobs_pdf AS
 SELECT
-  COUNT(*) FILTER (WHERE statut = 'pending')  AS nb_pending,
+  COUNT(*) FILTER (WHERE statut = 'queued')   AS nb_pending,
   COUNT(*) FILTER (WHERE statut = 'failed')   AS nb_failed,
   MAX(nb_tentatives) FILTER (WHERE statut = 'failed') AS max_tentatives,
-  MIN(created_at) FILTER (WHERE statut IN ('pending', 'failed')) AS plus_ancien_at
+  MIN(created_at) FILTER (WHERE statut IN ('queued', 'retrying', 'failed')) AS plus_ancien_at
 FROM plateforme.jobs_pdf;
 
 -- v_ops_factures_bloquees : factures émises sans retour Pennylane depuis > 48h

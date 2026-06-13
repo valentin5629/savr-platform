@@ -163,6 +163,40 @@ jobs:
             echo "::error::Migration destructive detectee -- revue humaine obligatoire"; exit 1
           fi
 
+  # Vérifie les plans d'exécution des requêtes critiques (SLA §16 : p95 < 200ms listes).
+  # Détecte les Sequential Scans sur tables volumineuses avant qu'ils atteignent la prod.
+  # Skip tant qu'aucune migration n'existe. seed:minimal non lancé (guard project-ref dev) :
+  # EXPLAIN fonctionne sur tables vides — le plan révèle l'absence d'index.
+  perf-check:
+    needs: detect-prereqs
+    if: needs.detect-prereqs.outputs.has_migrations == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with: { version: 2.105.0 }
+      - run: supabase start
+        env:
+          SUPABASE_NO_ANALYTICS: 'true'
+      - run: supabase db reset
+        env:
+          SUPABASE_NO_ANALYTICS: 'true'
+      - name: Vérification plans requêtes critiques
+        run: bash scripts/check-query-perf.sh
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:54322/postgres
+
+  # Vérifie la conformité de la structure outbox_events et la présence des schémas
+  # JSON E1/E2/E3/E5 (garde-fou G2 TMS-Ready — payload V2 compatible).
+  outbox-contracts:
+    needs: detect-prereqs
+    if: needs.detect-prereqs.outputs.has_migrations == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Vérification contrats outbox V2
+        run: bash scripts/check-outbox-contracts.sh
+
   # Skip tant que next.config.* absent. Mesure le poids du bundle statique Next.js.
   # size-limit sera configuré quand le bundle sera non-trivial (modules UI).
   # Pour l'instant : build réussi + taille .next/static < 5 MB = seuil V1 minimal.

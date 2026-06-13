@@ -216,9 +216,10 @@ WHERE id = 'a09f000e-0000-0000-0000-000000000001'::uuid;
 SELECT results_eq(
   $$SELECT count(*)::int FROM plateforme.audit_log
     WHERE action = 'config_auto_accept_update'
-      AND record_id = 'a09f000e-0000-0000-0000-000000000001'::uuid$$,
+      AND record_id = 'a09f000e-0000-0000-0000-000000000001'::uuid
+      AND (new_values->>'auto_accept_actif')::boolean = true$$,
   $$VALUES (1)$$,
-  'T07 trigger config_auto_accept écrit dans audit_log'
+  'T07 trigger config_auto_accept écrit dans audit_log (UPDATE false→true)'
 );
 
 -- =====================================================================

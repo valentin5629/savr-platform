@@ -36,6 +36,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (chip === 'non_transmises') {
     query = query
       .eq('statut_tms', 'non_envoye')
+      .is('tms_reference', null)
       .in('statut', ['programmee', 'validee']);
   } else if (chip === 'attente_prestataire') {
     query = query.eq('statut_tms', 'attribuee_en_attente_acceptation');
@@ -96,68 +97,46 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const supabase = createAdminSupabaseClient();
 
-  // Calcul volume_estime_repas pour AG
-  let volume_estime_repas: number | null = null;
-  if (type === 'ag') {
-    const { data: evt } = await supabase
-      .from('evenements')
-      .select('pax')
-      .eq('id', evenement_id)
-      .single();
-    if (evt) {
-      volume_estime_repas = Math.round(0.1 * (evt as { pax: number }).pax);
-    }
+  // fn_creer_collecte : INSERT collecte + outbox E1 dans la même transaction (G4)
+  const { data: collecteId, error: rpcError } = await supabase.rpc(
+    'fn_creer_collecte',
+    {
+      p_evenement_id: evenement_id,
+      p_type: type,
+      p_date_collecte: date_collecte,
+      p_heure_collecte: heure_collecte,
+      p_nb_camions: body.nb_camions_demande ?? 1,
+      p_controle_acces: body.controle_acces_requis ?? false,
+      p_notes: body.notes_internes ?? null,
+      p_info_suppl: body.informations_supplementaires ?? null,
+    },
+  );
+
+  if (rpcError)
+    return NextResponse.json({ error: rpcError.message }, { status: 500 });
+
+  const newId = collecteId as string;
+
+  // Flux ZD auto-créés (hors transaction outbox — non critique pour G4)
+  if (type === 'zd') {
+    await supabase
+      .from('collecte_flux')
+      .insert(
+        ['biodechet', 'emballage', 'carton', 'verre', 'dechet_residuel'].map(
+          (code_flux) => ({ collecte_id: newId, code_flux, poids_kg: null }),
+        ),
+      );
   }
 
+  // Retourner la collecte créée
   const { data, error } = await supabase
     .from('collectes')
-    .insert({
-      evenement_id,
-      type,
-      date_collecte,
-      heure_collecte,
-      volume_estime_repas,
-      statut: 'programmee',
-      statut_tms: 'non_envoye',
-      nb_camions_demande: body.nb_camions_demande ?? 1,
-      controle_acces_requis: body.controle_acces_requis ?? false,
-      notes_internes: body.notes_internes ?? null,
-      informations_supplementaires: body.informations_supplementaires ?? null,
-    })
     .select()
+    .eq('id', newId)
     .single();
 
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
-
-  const collecteId = (data as { id: string }).id;
-
-  // Outbox E1 : collecte.creee (garde-fou G4)
-  await supabase.from('outbox_events').insert({
-    aggregate_type: 'collecte',
-    aggregate_id: collecteId,
-    event_type: 'collecte.creee',
-    payload: { collecte_id: collecteId, type, date_collecte },
-    consumer: 'adapter_mts1',
-  });
-
-  // Flux ZD auto-créés
-  if (type === 'zd') {
-    const flux = [
-      'biodechet',
-      'emballage',
-      'carton',
-      'verre',
-      'dechet_residuel',
-    ];
-    await supabase.from('collecte_flux').insert(
-      flux.map((code_flux) => ({
-        collecte_id: collecteId,
-        code_flux,
-        poids_kg: null,
-      })),
-    );
-  }
 
   return NextResponse.json(data, { status: 201 });
 }

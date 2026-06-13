@@ -25,12 +25,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       .select('id', { count: 'exact', head: true })
       .eq('type', 'zd')
       .eq('statut_tms', 'non_envoye')
+      .is('tms_reference', null)
       .in('statut', ['programmee', 'validee']),
     supabase
       .from('collectes')
       .select('id', { count: 'exact', head: true })
       .eq('type', 'ag')
       .eq('statut_tms', 'non_envoye')
+      .is('tms_reference', null)
       .in('statut', ['programmee', 'validee']),
     supabase
       .from('collectes')

@@ -98,7 +98,7 @@ BEGIN
   -- E5 — lieu.champ_critique_modifie : modif adresse (champ critique) → 1 event.
   v_lieu := tests.outbox_fixture_lieu();
   UPDATE plateforme.lieux
-     SET adresse = coalesce(adresse, '') || ' (modif test)'
+     SET adresse_acces = coalesce(adresse_acces, '') || ' (modif test)'
    WHERE id = v_lieu;
   RETURN NEXT is(
     (SELECT count(*) FROM plateforme.outbox_events
@@ -125,7 +125,7 @@ BEGIN
   v_before := (SELECT count(*) FROM plateforme.outbox_events);
   BEGIN
     UPDATE plateforme.lieux
-       SET adresse = coalesce(adresse, '') || ' (rb test)'
+       SET adresse_acces = coalesce(adresse_acces, '') || ' (rb test)'
      WHERE id = v_lieu;
     RAISE EXCEPTION 'rollback_probe';
   EXCEPTION WHEN OTHERS THEN

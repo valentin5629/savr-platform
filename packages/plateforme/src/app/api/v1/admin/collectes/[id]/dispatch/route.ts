@@ -82,49 +82,31 @@ export async function POST(
     }
   }
 
-  // Mise à jour collecte : reset dirty_tms + override si fourni
-  const updatePayload: Record<string, unknown> = {
-    dirty_tms: false,
-    updated_at: new Date().toISOString(),
-  };
-  if (prestataire_logistique_id) {
-    updatePayload.prestataire_logistique_id = prestataire_logistique_id;
-  }
-  if (motif_override_prestataire) {
-    updatePayload.motif_override_prestataire = motif_override_prestataire;
-  }
-
-  const { error: updateErr } = await supabase
-    .from('collectes')
-    .update(updatePayload)
-    .eq('id', id);
-
-  if (updateErr) {
-    return NextResponse.json({ error: updateErr.message }, { status: 500 });
-  }
-
-  // Outbox : E1 si premier envoi, E2 si renvoi (garde-fou G4)
-  const eventType = c.tms_reference ? 'collecte.modifiee' : 'collecte.creee';
-  await supabase.from('outbox_events').insert({
-    aggregate_type: 'collecte',
-    aggregate_id: id,
-    event_type: eventType,
-    payload: {
-      collecte_id: id,
-      type: c.type,
-      date_collecte: c.date_collecte,
-      dispatch_manuel: true,
-      ...(prestataire_logistique_id ? { prestataire_logistique_id } : {}),
+  // fn_dispatcher_collecte : UPDATE collecte + outbox E1/E2 dans la même transaction (G4)
+  const { data: eventType, error: rpcErr } = await supabase.rpc(
+    'fn_dispatcher_collecte',
+    {
+      p_id: id,
+      p_prestataire_logistique_id: prestataire_logistique_id ?? null,
+      p_motif_override: motif_override_prestataire ?? null,
     },
-    consumer: 'adapter_mts1',
-  });
+  );
+
+  if (rpcErr) {
+    return NextResponse.json({ error: rpcErr.message }, { status: 500 });
+  }
 
   await supabase.from('audit_log').insert({
     table_name: 'collectes',
     record_id: id,
     action: 'DISPATCH',
     user_id: auth.ctx.userId,
-    new_data: { event_type: eventType, ...updatePayload },
+    new_data: {
+      event_type: eventType,
+      dirty_tms: false,
+      prestataire_logistique_id,
+      motif_override_prestataire,
+    },
   });
 
   return NextResponse.json({ ok: true, event_type: eventType });

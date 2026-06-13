@@ -91,31 +91,20 @@ export async function PATCH(
     );
   }
 
-  const { data, error } = await supabase
-    .from('collectes')
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq('id', id)
-    .select()
-    .single();
+  // fn_modifier_collecte : UPDATE + outbox E2 conditionnel dans la même transaction (G4)
+  const { data: updatedJson, error } = await supabase.rpc(
+    'fn_modifier_collecte',
+    {
+      p_id: id,
+      p_updates: updates,
+      p_champs_modifies: Object.keys(updates),
+    },
+  );
 
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Outbox E2 : collecte.modifiee
-  const currentCollecte = before as {
-    tms_reference: string | null;
-    type: string;
-    date_collecte: string;
-  };
-  if (currentCollecte.tms_reference) {
-    await supabase.from('outbox_events').insert({
-      aggregate_type: 'collecte',
-      aggregate_id: id,
-      event_type: 'collecte.modifiee',
-      payload: { collecte_id: id, champs_modifies: Object.keys(updates) },
-      consumer: 'adapter_mts1',
-    });
-  }
+  const data = updatedJson as Record<string, unknown>;
 
   await supabase.from('audit_log').insert({
     table_name: 'collectes',

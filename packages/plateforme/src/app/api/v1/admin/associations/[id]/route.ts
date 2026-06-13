@@ -61,6 +61,7 @@ export async function PATCH(
     'habilitee_attestation_fiscale',
     'id_point_collecte_mts1',
     'actif',
+    'siren',
   ];
 
   const allowedFields =

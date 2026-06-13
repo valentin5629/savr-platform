@@ -1,6 +1,6 @@
 /**
- * M1.1b — Tests API /admin/collectes (liste, fiche, dispatch)
- * Scénarios P1 critiques : dispatch 409/403/422/idempotence, outbox G4.
+ * M1.1b — Tests API /admin/collectes (liste, fiche, dispatch, création)
+ * Scénarios P1 critiques : dispatch 409/403/422, outbox G4 via RPC atomique.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
@@ -12,6 +12,7 @@ const mockSupabaseChain = {
   insert: vi.fn(() => mockInsertChain),
   update: vi.fn().mockReturnThis(),
   eq: vi.fn().mockReturnThis(),
+  is: vi.fn().mockReturnThis(),
   not: vi.fn().mockReturnThis(),
   in: vi.fn().mockReturnThis(),
   gte: vi.fn().mockReturnThis(),
@@ -21,6 +22,7 @@ const mockSupabaseChain = {
   range: vi.fn().mockReturnThis(),
   single: vi.fn(),
   maybeSingle: vi.fn(),
+  rpc: vi.fn(),
 };
 
 vi.mock('@savr/shared/src/supabase-client.js', () => ({
@@ -187,14 +189,15 @@ describe('M1.1b / Dispatch / Permissions', () => {
 describe('M1.1b / Dispatch / Outbox G4', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('M1.1b/dispatch — émet E1 collecte.creee sur premier envoi', async () => {
+  it('M1.1b/dispatch — émet E1 collecte.creee sur premier envoi (via RPC atomique)', async () => {
     setupAuth('admin_savr');
+    // Validation : collecte non terminale, tms_reference null = premier envoi
     mockSupabaseChain.single.mockResolvedValueOnce({
       data: {
         id: 'col-1',
         statut: 'programmee',
         statut_tms: 'non_envoye',
-        tms_reference: null, // premier envoi
+        tms_reference: null,
         type: 'zd',
         date_collecte: '2026-07-01',
         dirty_tms: false,
@@ -202,44 +205,29 @@ describe('M1.1b / Dispatch / Outbox G4', () => {
       },
       error: null,
     });
-    mockSupabaseChain.update.mockReturnThis();
-    mockSupabaseChain.eq.mockReturnThis();
-
-    const insertedRows: unknown[] = [];
-    mockSupabaseChain.from.mockImplementation((table: string) => {
-      if (table === 'outbox_events') {
-        return {
-          insert: (row: unknown) => {
-            insertedRows.push(row);
-            return { error: null };
-          },
-        };
-      }
-      if (table === 'audit_log') {
-        return { insert: () => ({ error: null }) };
-      }
-      return mockSupabaseChain;
-    });
-
-    // update sans erreur
-    mockSupabaseChain.update.mockReturnValue({
-      eq: vi.fn().mockResolvedValue({ error: null }),
+    // RPC fn_dispatcher_collecte → retourne event_type
+    mockSupabaseChain.rpc.mockResolvedValueOnce({
+      data: 'collecte.creee',
+      error: null,
     });
 
     const { POST } =
       await import('@/app/api/v1/admin/collectes/[id]/dispatch/route.js');
     const res = await POST(
       makeReq('POST', '/api/v1/admin/collectes/col-1/dispatch', {}),
-      {
-        params: Promise.resolve({ id: 'col-1' }),
-      },
+      { params: Promise.resolve({ id: 'col-1' }) },
     );
     expect(res.status).toBe(200);
     const body = (await res.json()) as { event_type: string };
     expect(body.event_type).toBe('collecte.creee');
+    // G4 : RPC atomique appelé (pas deux appels séparés)
+    expect(mockSupabaseChain.rpc).toHaveBeenCalledWith(
+      'fn_dispatcher_collecte',
+      expect.objectContaining({ p_id: 'col-1' }),
+    );
   });
 
-  it('M1.1b/dispatch — émet E2 collecte.modifiee si tms_reference présente', async () => {
+  it('M1.1b/dispatch — émet E2 collecte.modifiee si tms_reference présente (via RPC atomique)', async () => {
     setupAuth('admin_savr');
     mockSupabaseChain.single.mockResolvedValueOnce({
       data: {
@@ -254,26 +242,16 @@ describe('M1.1b / Dispatch / Outbox G4', () => {
       },
       error: null,
     });
-    mockSupabaseChain.update.mockReturnValue({
-      eq: vi.fn().mockResolvedValue({ error: null }),
-    });
-    mockSupabaseChain.from.mockImplementation((table: string) => {
-      if (table === 'outbox_events') {
-        return { insert: () => ({ error: null }) };
-      }
-      if (table === 'audit_log') {
-        return { insert: () => ({ error: null }) };
-      }
-      return mockSupabaseChain;
+    mockSupabaseChain.rpc.mockResolvedValueOnce({
+      data: 'collecte.modifiee',
+      error: null,
     });
 
     const { POST } =
       await import('@/app/api/v1/admin/collectes/[id]/dispatch/route.js');
     const res = await POST(
       makeReq('POST', '/api/v1/admin/collectes/col-2/dispatch', {}),
-      {
-        params: Promise.resolve({ id: 'col-2' }),
-      },
+      { params: Promise.resolve({ id: 'col-2' }) },
     );
     expect(res.status).toBe(200);
     const body = (await res.json()) as { event_type: string };
@@ -290,9 +268,7 @@ describe('M1.1b / Dispatch / Outbox G4', () => {
       await import('@/app/api/v1/admin/collectes/[id]/dispatch/route.js');
     const res = await POST(
       makeReq('POST', '/api/v1/admin/collectes/bad-id/dispatch', {}),
-      {
-        params: Promise.resolve({ id: 'bad-id' }),
-      },
+      { params: Promise.resolve({ id: 'bad-id' }) },
     );
     expect(res.status).toBe(404);
   });
@@ -301,7 +277,7 @@ describe('M1.1b / Dispatch / Outbox G4', () => {
 describe('M1.1b / Collectes / Liste', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('M1.1b/collectes/liste — 200 avec chip non_transmises', async () => {
+  it('M1.1b/collectes/liste — 200 avec chip non_transmises (filtre tms_reference IS NULL)', async () => {
     setupAuth('admin_savr');
     mockSupabaseChain.range.mockResolvedValueOnce({
       data: [],
@@ -313,6 +289,8 @@ describe('M1.1b / Collectes / Liste', () => {
       makeReq('GET', '/api/v1/admin/collectes?chip=non_transmises'),
     );
     expect(res.status).toBe(200);
+    // Le filtre .is('tms_reference', null) doit être appelé
+    expect(mockSupabaseChain.is).toHaveBeenCalledWith('tms_reference', null);
   });
 });
 
@@ -328,42 +306,23 @@ describe('M1.1b / Collectes / Création', () => {
     expect(res.status).toBe(422);
   });
 
-  it('M1.1b/collectes/create — outbox E1 écrit à la création', async () => {
+  it('M1.1b/collectes/create — outbox E1 atomique via fn_creer_collecte', async () => {
     setupAuth('admin_savr');
 
-    const outboxInserts: unknown[] = [];
-    mockSupabaseChain.from.mockImplementation((table: string) => {
-      if (table === 'evenements') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi
-            .fn()
-            .mockResolvedValue({ data: { pax: 100 }, error: null }),
-        };
-      }
-      if (table === 'collectes') {
-        return {
-          insert: vi.fn().mockReturnThis(),
-          select: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: { id: 'col-new', type: 'zd', date_collecte: '2026-07-01' },
-            error: null,
-          }),
-        };
-      }
-      if (table === 'outbox_events') {
-        return {
-          insert: (row: unknown) => {
-            outboxInserts.push(row);
-            return { error: null };
-          },
-        };
-      }
-      if (table === 'collecte_flux') {
-        return { insert: vi.fn().mockResolvedValue({ error: null }) };
-      }
-      return mockSupabaseChain;
+    // RPC fn_creer_collecte → retourne collecte_id
+    mockSupabaseChain.rpc.mockResolvedValueOnce({
+      data: 'col-new',
+      error: null,
+    });
+    // SELECT collecte après création (retourne la fiche complète)
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: {
+        id: 'col-new',
+        type: 'zd',
+        date_collecte: '2026-07-01',
+        statut: 'programmee',
+      },
+      error: null,
     });
 
     const { POST } = await import('@/app/api/v1/admin/collectes/route.js');
@@ -376,10 +335,14 @@ describe('M1.1b / Collectes / Création', () => {
       }),
     );
     expect(res.status).toBe(201);
-    // G4 : outbox alimentée
-    expect(outboxInserts.length).toBeGreaterThan(0);
-    expect((outboxInserts[0] as { event_type: string }).event_type).toBe(
-      'collecte.creee',
+    // G4 : fn_creer_collecte appelée (INSERT + outbox E1 atomiques)
+    expect(mockSupabaseChain.rpc).toHaveBeenCalledWith(
+      'fn_creer_collecte',
+      expect.objectContaining({
+        p_evenement_id: 'evt-1',
+        p_type: 'zd',
+        p_date_collecte: '2026-07-01',
+      }),
     );
   });
 });

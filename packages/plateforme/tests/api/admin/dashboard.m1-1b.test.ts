@@ -10,6 +10,7 @@ const mockCountChain = {
   select: vi.fn().mockReturnThis(),
   eq: vi.fn().mockReturnThis(),
   in: vi.fn().mockReturnThis(),
+  is: vi.fn().mockReturnThis(),
   not: vi.fn().mockReturnThis(),
   gte: vi.fn().mockReturnThis(),
   lte: vi.fn().mockReturnThis(),

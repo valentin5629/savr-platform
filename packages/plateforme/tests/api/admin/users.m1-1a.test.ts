@@ -168,20 +168,49 @@ describe('M1.1a / Users / Invitation', () => {
 describe('M1.1a / Users / Changement de rôle', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('M1.1a/users/changement-role — ops_savr ne peut pas promouvoir en admin_savr', async () => {
+  it('M1.1a/users/changement-role — ops_savr ne peut pas modifier role', async () => {
     setupAuth('ops_savr');
     const { PATCH } = await import('@/app/api/v1/admin/users/[id]/route.js');
     const res = await PATCH(
       makeReq('PATCH', '/api/v1/admin/users/user-1', { role: 'admin_savr' }),
-      {
-        params: Promise.resolve({ id: 'user-1' }),
-      },
+      { params: Promise.resolve({ id: 'user-1' }) },
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it('M1.1a/users/changement-role — ops_savr ne peut pas modifier actif', async () => {
+    setupAuth('ops_savr');
+    const { PATCH } = await import('@/app/api/v1/admin/users/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/users/user-1', { actif: false }),
+      { params: Promise.resolve({ id: 'user-1' }) },
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it('M1.1a/users/protection-admin — ops_savr ne peut pas modifier un admin_savr', async () => {
+    setupAuth('ops_savr');
+    // SELECT target user : c'est un admin_savr
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: { id: 'admin-user', role: 'admin_savr' },
+      error: null,
+    });
+    const { PATCH } = await import('@/app/api/v1/admin/users/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/users/admin-user', { prenom: 'Hacker' }),
+      { params: Promise.resolve({ id: 'admin-user' }) },
     );
     expect(res.status).toBe(403);
   });
 
   it("M1.1a/users/changement-role — admin_savr peut changer n'importe quel rôle", async () => {
     setupAuth('admin_savr');
+    // SELECT target user (vérification protection admin)
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: { id: 'user-1', role: 'ops_savr' },
+      error: null,
+    });
+    // UPDATE result
     mockSupabaseChain.single.mockResolvedValueOnce({
       data: {
         id: 'user-1',
@@ -196,9 +225,7 @@ describe('M1.1a / Users / Changement de rôle', () => {
     const { PATCH } = await import('@/app/api/v1/admin/users/[id]/route.js');
     const res = await PATCH(
       makeReq('PATCH', '/api/v1/admin/users/user-1', { role: 'ops_savr' }),
-      {
-        params: Promise.resolve({ id: 'user-1' }),
-      },
+      { params: Promise.resolve({ id: 'user-1' }) },
     );
     expect(res.status).toBe(200);
   });

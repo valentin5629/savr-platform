@@ -4,17 +4,21 @@
       { "matcher": "Write|Edit", "hooks": [ { "type": "command", "command": "bash .claude/hooks/format-file.sh" } ] }
     ],
     "PreToolUse": [
+      { "matcher": "Write|Edit", "hooks": [
+        { "type": "command", "command": "bash .claude/hooks/gate-brief.sh" }
+      ] },
       { "matcher": "Bash", "hooks": [
         { "type": "command", "command": "bash .claude/hooks/block-destructive.sh" },
-        { "type": "command", "command": "bash .claude/hooks/pre-commit-gate.sh" }
+        { "type": "command", "command": "bash .claude/hooks/pre-commit-gate.sh" },
+        { "type": "command", "command": "bash .claude/hooks/gate-pr.sh" }
       ] }
     ],
     "Stop": [
       { "hooks": [ {
         "type": "command",
-        "command": "bash -c 'n=$(git log --since=\"90 seconds ago\" --oneline 2>/dev/null | wc -l | tr -d \" \"); [ \"$n\" -gt 0 ] && exit 2 || exit 0'",
+        "command": "bash -c 'last=$(git log -1 --format=\"%H\" 2>/dev/null); [ -z \"$last\" ] && exit 0; marker=\".git/.claude-last-commit-checked\"; [ -f \"$marker\" ] && [ \"$(cat $marker)\" = \"$last\" ] && exit 0; recent=$(git log --since=\"90 seconds ago\" --oneline 2>/dev/null | wc -l | tr -d \" \"); [ \"$recent\" -gt 0 ] && echo \"$last\" > \"$marker\" && exit 2 || exit 0'",
         "asyncRewake": true,
-        "rewakeMessage": "Des commits viennent d'être faits dans cette session. Lis project-progress.md (memory/) et mets-le à jour si le statut d'un module, la branche courante, ou le next module a changé. Si tout est déjà à jour, ne fais rien.",
+        "rewakeMessage": "Des commits viennent d'être faits dans cette session. Lis project-progress.md (memory/) et mets-le à jour si le statut d'un module, la branche courante, ou le next module a changé. Si tout est déjà à jour, ne fais rien. Ensuite, si la branche courante est feat/m* ET que la PR vient d'être mergée (git log -1 montre un merge), lance bash scripts/scan-divergences.sh et inclus le résultat dans ta notification à Val.",
         "rewakeSummary": "Vérification mémoire projet après commits",
         "timeout": 10
       } ] }

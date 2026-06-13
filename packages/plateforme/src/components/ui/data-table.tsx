@@ -21,6 +21,12 @@ interface DataTableProps<T> {
   sortKey?: string;
   sortDirection?: 'asc' | 'desc';
   className?: string;
+  pagination?: {
+    page: number;
+    total: number;
+    limit: number;
+    onPageChange: (page: number) => void;
+  };
 }
 
 function DataTable<T>({

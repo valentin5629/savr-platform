@@ -1,0 +1,146 @@
+{
+  "module": "M1.1b",
+  "titre": "Back-office Admin — Lieux, Événements, Collectes, Dashboard, Paramètres CO2/Recyclage",
+  "description": "Deuxième sous-lot de M1.1. CRUD lieux (normalisation, worklist modifs), associations, transporteurs (code MTS-1 obligatoire si type=mts1), événements, collectes (liste avec 6 chips, fiche 7 blocs, dispatch outbox G4), dashboard admin KPI + revenus, paramètres taux recyclage + CO2.",
+  "garde_fous_tms_ready": {
+    "G3": "0 référence mts1/everest hors packages/adapters/ — vérifié par check-coupling.sh",
+    "G4": "outbox_events alimentée par dispatch (E1 collecte.creee / E2 collecte.modifiee) — tests collectes.m1-1b.test.ts",
+    "G5": "Aucune FK vers tms.* — pas de tables tms.* créées"
+  },
+  "fichiers_produits": [
+    "packages/plateforme/src/app/api/v1/admin/lieux/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/lieux/[id]/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/lieux/[id]/normaliser/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/associations/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/associations/[id]/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/transporteurs/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/transporteurs/[id]/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/evenements/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/evenements/[id]/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/collectes/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/collectes/[id]/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/collectes/[id]/dispatch/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/dashboard/kpi/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/dashboard/revenus-organisations/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/parametres/taux-recyclage/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/parametres/taux-recyclage/[filiere_id]/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/parametres/facteurs-co2/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/parametres/mix-emballages/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/parametres/facteurs-co2-ag/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/parametres/co2-divers/route.ts",
+    "packages/plateforme/src/app/(admin)/admin/lieux/page.tsx",
+    "packages/plateforme/src/app/(admin)/admin/lieux/[id]/page.tsx",
+    "packages/plateforme/src/app/(admin)/admin/associations/page.tsx",
+    "packages/plateforme/src/app/(admin)/admin/associations/[id]/page.tsx",
+    "packages/plateforme/src/app/(admin)/admin/transporteurs/page.tsx",
+    "packages/plateforme/src/app/(admin)/admin/transporteurs/[id]/page.tsx",
+    "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx",
+    "packages/plateforme/src/app/(admin)/admin/collectes/[id]/page.tsx",
+    "packages/plateforme/src/app/(admin)/admin/dashboard/page.tsx",
+    "packages/plateforme/src/app/(admin)/admin/parametres/taux-recyclage/page.tsx",
+    "packages/plateforme/src/app/(admin)/admin/parametres/co2/page.tsx",
+    "packages/plateforme/tests/api/admin/lieux.m1-1b.test.ts",
+    "packages/plateforme/tests/api/admin/associations.m1-1b.test.ts",
+    "packages/plateforme/tests/api/admin/transporteurs.m1-1b.test.ts",
+    "packages/plateforme/tests/api/admin/collectes.m1-1b.test.ts",
+    "packages/plateforme/tests/api/admin/dashboard.m1-1b.test.ts",
+    "packages/plateforme/tests/api/admin/parametres-taux-recyclage.m1-1b.test.ts",
+    "e2e/m1-1b-lieu-collecte.spec.ts",
+    "specs/manifests/M1.1b.json",
+    ".claude/brief-ack-feat-m1.1-backoffice-admin"
+  ],
+  "scenarios": [
+    {
+      "id": "M1.1b/lieux/liste",
+      "description": "GET /api/v1/admin/lieux retourne liste paginée, filtrable par actif/ville/q"
+    },
+    {
+      "id": "M1.1b/lieux/worklist-modifs",
+      "description": "GET ?worklist=modifs retourne les lieux ayant des collectes avec lieu_overrides"
+    },
+    {
+      "id": "M1.1b/lieux/create",
+      "description": "POST crée un lieu (actif=false par défaut), audit_log, 422 si champs manquants"
+    },
+    {
+      "id": "M1.1b/lieux/normaliser",
+      "description": "POST /normaliser bascule actif=true + audit_log, 404 si introuvable"
+    },
+    {
+      "id": "M1.1b/associations/create",
+      "description": "POST 422 si description < 30 chars ou champs obligatoires manquants"
+    },
+    {
+      "id": "M1.1b/associations/ops-champs-proteges",
+      "description": "PATCH par ops_savr : 403 si tentative de modifier habilitee_attestation_fiscale ou actif"
+    },
+    {
+      "id": "M1.1b/transporteurs/create-mts1-sans-code",
+      "description": "POST type_tms=mts1 sans code_transporteur_mts1 → 422"
+    },
+    {
+      "id": "M1.1b/transporteurs/create-mts1-avec-code",
+      "description": "POST type_tms=mts1 avec code → 201"
+    },
+    {
+      "id": "M1.1b/dispatch/statuts-terminaux-409",
+      "description": "POST /dispatch sur collecte realisee/cloturee/annulee/realisee_sans_collecte → 409"
+    },
+    {
+      "id": "M1.1b/dispatch/ops-override-403",
+      "description": "POST /dispatch avec prestataire_logistique_id différent par ops_savr → 403"
+    },
+    {
+      "id": "M1.1b/dispatch/override-sans-motif-422",
+      "description": "POST /dispatch override prestataire sans motif ou motif < 5 chars → 422"
+    },
+    {
+      "id": "M1.1b/dispatch/e1-collecte-creee",
+      "description": "POST /dispatch premier envoi → outbox_events event_type=collecte.creee (G4)"
+    },
+    {
+      "id": "M1.1b/dispatch/e2-collecte-modifiee",
+      "description": "POST /dispatch renvoi (tms_reference présente) → outbox_events event_type=collecte.modifiee (G4)"
+    },
+    {
+      "id": "M1.1b/dispatch/404-inconnu",
+      "description": "POST /dispatch collecte inconnue → 404"
+    },
+    {
+      "id": "M1.1b/collectes/create-outbox-g4",
+      "description": "POST /collectes crée outbox E1 dans la même transaction (garde-fou G4)"
+    },
+    {
+      "id": "M1.1b/collectes/chips-filtres",
+      "description": "GET ?chip=non_transmises|attente_prestataire|dirty_tms|ag_attente_attribution|zd_48h|ag_48h filtre correctement"
+    },
+    {
+      "id": "M1.1b/dashboard/kpi-6-cartes",
+      "description": "GET /dashboard/kpi retourne les 6 cartes (non_transmises_zd, non_transmises_ag, attente_prestataire, dirty_tms, zd_48h, ag_48h)"
+    },
+    {
+      "id": "M1.1b/taux-recyclage/put-borne-0-1",
+      "description": "PUT taux_captation > 1 ou < 0 → 422"
+    },
+    {
+      "id": "M1.1b/taux-recyclage/put-commentaire-min5",
+      "description": "PUT commentaire_modif < 5 chars → 422"
+    },
+    {
+      "id": "M1.1b/taux-recyclage/admin-only",
+      "description": "PUT par ops_savr → 403 ; GET par ops_savr → 200"
+    },
+    {
+      "id": "M1.1b/mix-emballages/somme-100",
+      "description": "PUT mix dont somme ≠ 100 % → 422"
+    },
+    {
+      "id": "M1.1b/mix-emballages/admin-only",
+      "description": "PUT par ops_savr → 403"
+    },
+    {
+      "id": "M1.1b/e2e/endpoints-proteges",
+      "description": "Tous les endpoints /admin/* retournent 401 sans session (protection auth)"
+    }
+  ]
+}

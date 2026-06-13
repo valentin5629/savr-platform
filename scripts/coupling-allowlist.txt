@@ -40,3 +40,11 @@ packages/shared/src/seed/*
 # Pas de logique adapter : la vue est lue par la page Santé système (Admin), jamais
 # par un adapter. 'customerOrders' reste banni.
 supabase/migrations/20260613000001_plateforme_health_views_ops.sql
+# packages/plateforme/.../transporteurs/* (M1.1b) — 'mts1' = valeur de l'enum type_tms_enum
+# dans le CRUD référentiel transporteurs (UI + API route). Validation métier :
+# code_transporteur_mts1 obligatoire si type_tms='mts1' (§04 Data Model, colonne V1-only
+# liste fermée garde-fou 1). Aucun appel HTTP MTS-1 ici — la logique adapter est dans
+# packages/adapters/. 'customerOrders' reste banni.
+packages/plateforme/src/app/(admin)/admin/transporteurs/*
+packages/plateforme/src/app/api/v1/admin/transporteurs/*
+packages/plateforme/tests/api/admin/transporteurs.m1-1b.test.ts

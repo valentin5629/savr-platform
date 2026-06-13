@@ -25,6 +25,7 @@
     "@radix-ui/react-toast": "^1.2.5",
     "@radix-ui/react-tooltip": "^1.1.8",
     "@savr/shared": "workspace:*",
+    "@sentry/nextjs": "^10.57.0",
     "@supabase/ssr": "^0.12.0",
     "@tailwindcss/postcss": "^4.1.0",
     "class-variance-authority": "^0.7.0",

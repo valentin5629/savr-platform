@@ -44,23 +44,38 @@ export async function PATCH(
   }
 
   const { id } = await params;
+  const isAdmin = auth.ctx.role === 'admin_savr';
 
-  // Promotion admin_savr = admin-only
-  if (body.role === 'admin_savr' && auth.ctx.role !== 'admin_savr') {
+  const VALID_ROLES = [
+    'admin_savr',
+    'ops_savr',
+    'traiteur_manager',
+    'traiteur_commercial',
+    'agence',
+    'gestionnaire_lieux',
+    'client_organisateur',
+  ];
+
+  // role et actif = réservés admin_savr (empêche ops de rétrograder ou désactiver)
+  if (!isAdmin && ('role' in body || 'actif' in body)) {
     return NextResponse.json(
-      { error: 'Promotion admin_savr réservée à admin Savr' },
+      { error: 'Champs role/actif réservés à admin Savr' },
       { status: 403 },
     );
   }
 
-  // Hard delete = admin-only (géré via fn_anonymize_user, pas de route PATCH)
-  const allowedFields = [
-    'prenom',
-    'nom',
-    'telephone',
-    'role',
-    'actif',
-  ] as const;
+  // Validation de la valeur de rôle
+  if ('role' in body && !VALID_ROLES.includes(body.role as string)) {
+    return NextResponse.json(
+      { error: 'Valeur de rôle invalide' },
+      { status: 422 },
+    );
+  }
+
+  const allowedFields = isAdmin
+    ? ['prenom', 'nom', 'telephone', 'role', 'actif']
+    : ['prenom', 'nom', 'telephone'];
+
   const updatePayload: Record<string, unknown> = {};
   for (const field of allowedFields) {
     if (field in body) updatePayload[field] = body[field];
@@ -74,6 +89,27 @@ export async function PATCH(
   }
 
   const supabase = createAdminSupabaseClient();
+
+  // Fetch target user — seul admin_savr peut modifier un compte admin_savr
+  const { data: targetUser, error: fetchErr } = await supabase
+    .from('users')
+    .select('id, role')
+    .eq('id', id)
+    .single();
+
+  if (fetchErr?.code === 'PGRST116' || !targetUser) {
+    return NextResponse.json(
+      { error: 'Utilisateur non trouvé' },
+      { status: 404 },
+    );
+  }
+
+  if ((targetUser as { role: string }).role === 'admin_savr' && !isAdmin) {
+    return NextResponse.json(
+      { error: "Modification d'un admin Savr réservée à admin Savr" },
+      { status: 403 },
+    );
+  }
 
   const { data: user, error } = await supabase
     .from('users')

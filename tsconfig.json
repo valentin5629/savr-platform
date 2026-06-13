@@ -17,5 +17,11 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["packages/**/*.ts", "packages/**/*.tsx"]
+  "include": ["packages/**/*.ts", "packages/**/*.tsx"],
+  "exclude": [
+    "packages/plateforme/next.config.ts",
+    "packages/plateforme/sentry.client.config.ts",
+    "packages/plateforme/sentry.server.config.ts",
+    "packages/**/node_modules"
+  ]
 }

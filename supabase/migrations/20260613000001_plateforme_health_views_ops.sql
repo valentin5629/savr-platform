@@ -25,7 +25,7 @@ CREATE OR REPLACE VIEW plateforme.v_ops_jobs_pdf AS
 SELECT
   COUNT(*) FILTER (WHERE statut = 'queued')   AS nb_pending,
   COUNT(*) FILTER (WHERE statut = 'failed')   AS nb_failed,
-  MAX(nb_tentatives) FILTER (WHERE statut = 'failed') AS max_tentatives,
+  MAX(tentatives) FILTER (WHERE statut = 'failed') AS max_tentatives,
   MIN(created_at) FILTER (WHERE statut IN ('queued', 'retrying', 'failed')) AS plus_ancien_at
 FROM plateforme.jobs_pdf;
 

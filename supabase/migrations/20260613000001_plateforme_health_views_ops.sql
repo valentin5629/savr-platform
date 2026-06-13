@@ -39,7 +39,7 @@ SELECT
   f.created_at,
   EXTRACT(EPOCH FROM (NOW() - f.updated_at)) / 3600 AS heures_sans_retour
 FROM plateforme.factures f
-WHERE f.statut = 'emise'
+WHERE f.statut = 'envoyee'
   AND f.updated_at < NOW() - INTERVAL '48 hours'
 ORDER BY f.updated_at ASC;
 

@@ -34,7 +34,7 @@ CREATE OR REPLACE VIEW plateforme.v_ops_factures_bloquees AS
 SELECT
   f.id            AS facture_id,
   f.numero_facture,
-  f.org_id,
+  f.organisation_id,
   f.statut,
   f.created_at,
   EXTRACT(EPOCH FROM (NOW() - f.updated_at)) / 3600 AS heures_sans_retour

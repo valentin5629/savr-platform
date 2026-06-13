@@ -1,56 +1,37 @@
 {
   "module": "M0.9",
-  "titre": "Logging structuré + Sentry + Health checks",
-  "livrable": [
-    {
-      "id": "M0.9-1",
-      "description": "Logger structuré JSON stdout — schéma figé {ts, level, service, event, actor_id, actor_role, org_id, trace_id, payload}",
-      "fichier": "packages/shared/src/logger/index.ts",
-      "test": "packages/shared/src/logger/logger.m0-9.test.ts"
-    },
-    {
-      "id": "M0.9-2",
-      "description": "sanitizePayload RGPD — email tronqué, champs sensibles masqués",
-      "fichier": "packages/shared/src/logger/index.ts",
-      "test": "packages/shared/src/logger/logger.m0-9.test.ts"
-    },
-    {
-      "id": "M0.9-3",
-      "description": "Sentry sink injectable — captureException avec role + organisation_id, sans PII",
-      "fichier": "packages/shared/src/alerting/sentry.ts",
-      "test": "packages/shared/src/alerting/alerting.m0-9.test.ts"
-    },
-    {
-      "id": "M0.9-4",
-      "description": "Sentry Next.js intégration via sentry.client.config.ts + sentry.server.config.ts",
-      "fichier": "packages/plateforme/sentry.client.config.ts"
-    },
-    {
-      "id": "M0.9-5",
-      "description": "Slack sendAlert — 3 canaux (critique/eleve/info), sink injectable pour CI",
-      "fichier": "packages/shared/src/alerting/slack.ts",
-      "test": "packages/shared/src/alerting/alerting.m0-9.test.ts"
-    },
-    {
-      "id": "M0.9-6",
-      "description": "GET /health — liveness DB via REST, log KO→OK / OK→KO uniquement",
-      "fichier": "packages/plateforme/src/app/api/health/route.ts"
-    },
-    {
-      "id": "M0.9-7",
-      "description": "GET /health/full — readiness DB + Auth, auth admin_savr/ops_savr ou token interne",
-      "fichier": "packages/plateforme/src/app/api/health/full/route.ts"
-    },
-    {
-      "id": "M0.9-8",
-      "description": "Migration SQL — health_ping() + 5 vues ops (v_ops_outbox, v_ops_jobs_pdf, v_ops_factures_bloquees, v_ops_integrations, v_ops_batchs)",
-      "fichier": "supabase/migrations/20260613000001_plateforme_health_views_ops.sql"
-    },
-    {
-      "id": "M0.9-9",
-      "description": "Page Santé système dans le shell Admin — 5 vues ops, lien nav admin",
-      "fichier": "packages/plateforme/src/app/(admin)/sante-systeme/page.tsx"
-    }
+  "title": "Logging structuré + Sentry + Health checks",
+  "description": "Logger JSON stdout (schéma figé), sinks injectables Sentry + Slack 3 canaux, GET /health (liveness) + GET /health/full (readiness), 5 vues SQL ops, page Santé système Admin.",
+  "fichiers": [
+    "packages/shared/src/logger/index.ts",
+    "packages/shared/src/logger/types.ts",
+    "packages/shared/src/alerting/sentry.ts",
+    "packages/shared/src/alerting/slack.ts",
+    "packages/plateforme/sentry.client.config.ts",
+    "packages/plateforme/sentry.server.config.ts",
+    "packages/plateforme/src/app/api/health/route.ts",
+    "packages/plateforme/src/app/api/health/full/route.ts",
+    "packages/plateforme/src/app/(admin)/admin/sante-systeme/page.tsx",
+    "supabase/migrations/20260613000001_plateforme_health_views_ops.sql",
+    "supabase/migrations/20260613120000_plateforme_health_views_security_invoker.sql"
+  ],
+  "tests_vitest": [
+    "packages/shared/src/logger/logger.m0-9.test.ts",
+    "packages/shared/src/alerting/alerting.m0-9.test.ts"
+  ],
+  "tests_pgtap": [
+    "supabase/tests/health_ops_views.m0-9.test.sql"
+  ],
+  "scenarios": [
+    "M0.9-1 — logger JSON stdout — schéma figé {ts, level, service, event, actor_id, actor_role, org_id, trace_id, payload}",
+    "M0.9-2 — sanitizePayload masque email (tronqué) et champs sensibles ([REDACTED])",
+    "M0.9-3 — Sentry sink injectable — captureException avec role + organisation_id, no-op si sink non configuré",
+    "M0.9-4 — Sentry Next.js intégration via sentry.client.config.ts + sentry.server.config.ts",
+    "M0.9-5 — Slack sendAlert 3 canaux (critique/eleve/info), sink injectable, never throws",
+    "M0.9-6 — GET /health — liveness DB via REST, retourne 200 ok ou 503 ko",
+    "M0.9-7 — GET /health/full — readiness DB + Auth, auth admin_savr/ops_savr ou X-Internal-Token",
+    "M0.9-8 — Migration SQL health_ping() + 5 vues ops accessibles uniquement à service_role",
+    "M0.9-9 — Page /admin/sante-systeme — guard rôle admin_savr/ops_savr, affiche 5 cartes ops"
   ],
   "hors_scope": [
     "audit_log triggers (module 0.10)",

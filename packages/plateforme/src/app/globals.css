@@ -1,0 +1,151 @@
+@import 'tailwindcss';
+
+/* ─── Tokens Savr — Design System §10 ─────────────────────────────────────── */
+/* Exposés via @theme → génère classes bg-savr-*, text-savr-*, border-savr-* */
+
+@theme {
+  /* ── Primary — Navy Savr (base #223870) ──────────────────────────────────── */
+  --color-savr-primary-50: #eff2f9;
+  --color-savr-primary-100: #dee4f2;
+  --color-savr-primary-200: #bdc8e5;
+  --color-savr-primary-300: #92a3d2;
+  --color-savr-primary-400: #6379b6;
+  --color-savr-primary-500: #3f5599;
+  --color-savr-primary-600: #2e4080;
+  --color-savr-primary-700: #223870;
+  --color-savr-primary-800: #1b2c57;
+  --color-savr-primary-900: #15213f;
+  --color-savr-primary-950: #0d1428;
+
+  /* ── Accent — Orange Savr (base #FF9B00) ─────────────────────────────────── */
+  --color-savr-accent-50: #fff4e0;
+  --color-savr-accent-100: #ffe8c2;
+  --color-savr-accent-200: #ffd489;
+  --color-savr-accent-300: #ffb340;
+  --color-savr-accent-400: #ffa31a;
+  --color-savr-accent-500: #ff9b00;
+  --color-savr-accent-600: #d97f00;
+  --color-savr-accent-700: #b36400;
+  --color-savr-accent-800: #8c4d00;
+  --color-savr-accent-900: #663800;
+  --color-savr-accent-950: #3d2100;
+
+  /* ── Neutres tintés navy (levier #1 — jamais de gris pur) ───────────────── */
+  --color-savr-neutral-50: #f7f8fb;
+  --color-savr-neutral-100: #eef0f5;
+  --color-savr-neutral-200: #dde1eb;
+  --color-savr-neutral-300: #c3c9d9;
+  --color-savr-neutral-400: #9aa2b8;
+  --color-savr-neutral-500: #6e7790;
+  --color-savr-neutral-600: #515a72;
+  --color-savr-neutral-700: #3c4459;
+  --color-savr-neutral-800: #272d3d;
+  --color-savr-neutral-900: #161a26;
+  --color-savr-neutral-950: #0c0f18;
+  --color-savr-white: #ffffff;
+
+  /* ── Sémantique (indépendante du branding) ───────────────────────────────── */
+  --color-savr-success: #16a34a;
+  --color-savr-success-strong: #15803d;
+  --color-savr-success-subtle: #f0fdf4;
+  --color-savr-warning: #d97706;
+  --color-savr-warning-strong: #b45309;
+  --color-savr-warning-subtle: #fffbeb;
+  --color-savr-error: #dc2626;
+  --color-savr-error-strong: #b91c1c;
+  --color-savr-error-subtle: #fef2f2;
+  --color-savr-info: #2563eb;
+  --color-savr-info-strong: #1d4ed8;
+  --color-savr-info-subtle: #eff6ff;
+
+  /* ── Data-viz (ordre d'attribution des séries) ──────────────────────────── */
+  --color-savr-dataviz-1: #223870;
+  --color-savr-dataviz-2: #ff9b00;
+  --color-savr-dataviz-3: #3f5599;
+  --color-savr-dataviz-4: #16a34a;
+  --color-savr-dataviz-5: #6379b6;
+  --color-savr-dataviz-6: #d97f00;
+
+  /* ── Typographie : Nunito (levier #7) ────────────────────────────────────── */
+  --font-sans: var(--font-nunito), system-ui, sans-serif;
+
+  /* ── Spacing (grille 4px) ────────────────────────────────────────────────── */
+  --spacing-savr-1: 4px;
+  --spacing-savr-2: 8px;
+  --spacing-savr-3: 12px;
+  --spacing-savr-4: 16px;
+  --spacing-savr-6: 24px;
+  --spacing-savr-8: 32px;
+  --spacing-savr-12: 48px;
+  --spacing-savr-16: 64px;
+
+  /* ── Border radius (levier #6 — md=8px partout) ─────────────────────────── */
+  --radius-savr-sm: 4px;
+  --radius-savr-md: 8px;
+  --radius-savr-lg: 12px;
+  --radius-savr-full: 9999px;
+
+  /* ── Ombres sobres (levier #5 — teintées navy) ───────────────────────────── */
+  --shadow-savr-none: none;
+  --shadow-savr-sm: 0 1px 2px rgba(13, 20, 40, 0.04);
+  --shadow-savr-md: 0 4px 12px rgba(13, 20, 40, 0.08);
+  --shadow-savr-lg: 0 12px 28px rgba(13, 20, 40, 0.12);
+
+  /* ── Mouvement ──────────────────────────────────────────────────────────── */
+  --motion-savr-fast: 120ms ease-out;
+  --motion-savr-base: 200ms ease-out;
+  --motion-savr-slow: 320ms ease-out;
+
+  /* ── Conteneurs ─────────────────────────────────────────────────────────── */
+  --container-savr-content: 1200px;
+  --container-savr-wide: 1440px;
+  --container-savr-prose: 720px;
+}
+
+/* ─── Mappage shadcn/ui (variables attendues par les primitives Radix) ──────── */
+:root {
+  --background: var(--color-savr-neutral-50);
+  --foreground: var(--color-savr-neutral-900);
+  --primary: var(--color-savr-primary-700);
+  --primary-foreground: var(--color-savr-white);
+  --secondary: var(--color-savr-neutral-100);
+  --secondary-foreground: var(--color-savr-neutral-900);
+  --accent: var(--color-savr-accent-500);
+  --accent-foreground: var(--color-savr-primary-950);
+  --destructive: var(--color-savr-error);
+  --destructive-foreground: var(--color-savr-white);
+  --muted: var(--color-savr-neutral-100);
+  --muted-foreground: var(--color-savr-neutral-500);
+  --card: var(--color-savr-white);
+  --card-foreground: var(--color-savr-neutral-900);
+  --border: var(--color-savr-neutral-200);
+  --input: var(--color-savr-neutral-300);
+  --ring: var(--color-savr-primary-500);
+  --radius: var(--radius-savr-md);
+}
+
+/* ─── Base ──────────────────────────────────────────────────────────────────── */
+body {
+  background-color: var(--color-savr-neutral-50);
+  color: var(--color-savr-neutral-900);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Focus ring signature (levier #4 — anneau primary-500, tout élément) ── */
+*:focus-visible {
+  outline: 2px solid var(--color-savr-primary-500);
+  outline-offset: 2px;
+}
+
+/* ─── Reduced motion ─────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

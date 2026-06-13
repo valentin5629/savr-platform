@@ -55,8 +55,8 @@ const columns: Column<Organisation>[] = [
     ),
   },
   { key: 'nb_users', header: 'Users' },
-  { key: 'nb_collectes_zd_12m', header: 'ZD 12m' },
-  { key: 'nb_collectes_ag_12m', header: 'AG 12m' },
+  { key: 'nb_collectes_zd_12m', header: 'ZD 12m' }, // gitleaks:allow
+  { key: 'nb_collectes_ag_12m', header: 'AG 12m' }, // gitleaks:allow
   {
     key: 'actif',
     header: 'Statut',

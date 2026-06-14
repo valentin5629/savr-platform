@@ -30,7 +30,7 @@ BEGIN
     WHERE id = v_collecte.id;
 
     -- E1 pour ZD uniquement
-    IF v_collecte.type = 'zd' THEN
+    IF v_collecte.type = 'zero_dechet'::plateforme.collecte_type_enum THEN
       INSERT INTO plateforme.outbox_events (
         aggregate_type, aggregate_id, event_type, payload, consumer
       ) VALUES (
@@ -39,7 +39,7 @@ BEGIN
         'collecte.creee',
         jsonb_build_object(
           'collecte_id',   v_collecte.id,
-          'type',          'zd',
+          'type',          v_collecte.type::text,
           'date_collecte', v_collecte.date_collecte,
           'evenement_id',  p_evenement_id
         ),

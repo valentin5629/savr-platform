@@ -62,7 +62,7 @@ export default function DashboardAdminPage() {
       .slice(0, 10);
     fetch(`/api/v1/admin/dashboard/revenus-organisations?from=${from}`)
       .then((r) => r.json())
-      .then((d: { data: RevenusRow[] }) => setRevenus(d.data))
+      .then((d: { data?: RevenusRow[] }) => setRevenus(d.data ?? []))
       .finally(() => setLoadingRevenus(false));
   }, []);
 

@@ -7,8 +7,9 @@ set -euo pipefail
 SYNC_FILE="specs/SYNC.md"
 MAX_AGE_SECONDS=$((8 * 60 * 60))
 
-# Si aucun fichier specs/ n'est dans l'index, pas de vérification nécessaire
-STAGED_SPECS=$(git diff --cached --name-only | grep '^specs/' || true)
+# Bloquant seulement si des fichiers specs/cdc/** ou specs/tests/** sont stagés.
+# specs/manifests/ (suivi interne) est exclu : les manifests ne dépendent pas du sync Vault.
+STAGED_SPECS=$(git diff --cached --name-only | grep -E '^specs/(cdc|tests|ddl-cible|fixtures)/' || true)
 if [[ -z "$STAGED_SPECS" ]]; then
   exit 0
 fi

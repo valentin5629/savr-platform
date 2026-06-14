@@ -67,3 +67,6 @@ BEGIN
   RETURN v_collecte_id;
 END;
 $$;
+
+ALTER FUNCTION plateforme.fn_creer_collecte(uuid, text, date, time, smallint, boolean, text, text)
+  SET search_path = plateforme, public;

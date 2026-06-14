@@ -1,0 +1,15 @@
+{
+  "_description": "Réponse 201 POST /v3/tours — tour créé en DRAFT",
+  "tourId": "MTS1-TOUR-NEW-001",
+  "externalReference": "col_dispatch_non_envoye-1",
+  "status": "DRAFT",
+  "createdAt": "2026-05-20T09:00:00Z",
+  "customerOrderId": "MTS1-ORDER-NEW-001",
+  "_variants": {
+    "rang2": {
+      "tourId": "MTS1-TOUR-NEW-002",
+      "externalReference": "col_dispatch_non_envoye-2",
+      "customerOrderId": "MTS1-ORDER-NEW-002"
+    }
+  }
+}

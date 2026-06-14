@@ -96,11 +96,36 @@ export type Mts1PostResult = Mts1PostSuccess | Mts1PostError;
 
 // ─── Injectable handlers (consumed by adapter MTS-1 in M1.5) ─────────────────
 
+export interface Mts1CreatedTour {
+  tourId: string;
+  externalReference: string;
+  status: string;
+  createdAt: string;
+  customerOrderId: string;
+}
+
 export interface Mts1Handlers {
+  // M1.5b — entrant
   pollOrders: () => Promise<Mts1PollResult>;
   getTour: (tourId: string) => Promise<Mts1Tour>;
-  postOrder: (payload: Record<string, unknown>) => Promise<Mts1PostResult>;
   getPhotos?: (tourId: string) => Promise<Mts1Photo[]>;
+  // M1.5a — sortant
+  postOrder: (payload: Record<string, unknown>) => Promise<Mts1PostResult>;
+  createTour?: (payload: Record<string, unknown>) => Promise<Mts1CreatedTour>;
+  dispatchTour?: (
+    tourId: string,
+    carrierShareableCode: string,
+  ) => Promise<void>;
+  validateTour?: (tourId: string) => Promise<void>;
+  updateOrder?: (
+    orderId: string,
+    payload: Record<string, unknown>,
+  ) => Promise<void>;
+  deleteOrder?: (orderId: string) => Promise<void>;
+  scanOrdersByDateRange?: (
+    minDate: string,
+    maxDate: string,
+  ) => Promise<Mts1CustomerOrder[]>;
 }
 
 let _handlers: Mts1Handlers | null = null;

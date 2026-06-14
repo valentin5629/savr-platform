@@ -12,8 +12,8 @@ SELECT plan(16);
 -- ─── Fixtures ────────────────────────────────────────────────────────────────
 
 -- Organisation de test
-INSERT INTO plateforme.organisations (id, raison_sociale, type, actif)
-VALUES ('00000000-0000-0000-0000-000000000010'::uuid, 'Traiteur Test M1.2', 'traiteur', true)
+INSERT INTO plateforme.organisations (id, nom, raison_sociale, type, actif)
+VALUES ('00000000-0000-0000-0000-000000000010'::uuid, 'Traiteur Test M1.2', 'Traiteur Test M1.2', 'traiteur', true)
 ON CONFLICT (id) DO NOTHING;
 
 -- Entité de facturation vérifiée
@@ -342,8 +342,8 @@ VALUES ('00000000-0000-0000-0000-000000000030'::uuid, 'Lieu Hors Périmètre', '
 ON CONFLICT (id) DO NOTHING;
 
 -- Organisation gestionnaire distincte
-INSERT INTO plateforme.organisations (id, raison_sociale, type, actif)
-VALUES ('00000000-0000-0000-0000-000000000031'::uuid, 'Gestionnaire Org Test', 'gestionnaire_lieux', true)
+INSERT INTO plateforme.organisations (id, nom, raison_sociale, type, actif)
+VALUES ('00000000-0000-0000-0000-000000000031'::uuid, 'Gestionnaire Org Test', 'Gestionnaire Org Test', 'gestionnaire_lieux', true)
 ON CONFLICT (id) DO NOTHING;
 
 -- Pas d'entrée dans organisations_lieux pour ce lieu + org gestionnaire
@@ -363,8 +363,8 @@ RESET "request.jwt.claims";
 
 -- ─── Test 14 : isolation cross-org — traiteur org B ne voit pas les événements de org A ─
 
-INSERT INTO plateforme.organisations (id, raison_sociale, type, actif)
-VALUES ('00000000-0000-0000-0000-000000000040'::uuid, 'Org B Test M1.2', 'traiteur', true)
+INSERT INTO plateforme.organisations (id, nom, raison_sociale, type, actif)
+VALUES ('00000000-0000-0000-0000-000000000040'::uuid, 'Org B Test M1.2', 'Org B Test M1.2', 'traiteur', true)
 ON CONFLICT (id) DO NOTHING;
 
 SET LOCAL role = authenticated;

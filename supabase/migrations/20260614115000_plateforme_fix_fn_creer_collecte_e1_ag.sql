@@ -1,5 +1,6 @@
 -- =============================================================================
 -- Correction A2 : fn_creer_collecte ne doit émettre E1 que pour type='zd'
+-- Conserve la normalisation des alias de 20260614000004 (zd/ag → enum long).
 -- Divergence documentée dans _Divergences/M1.2_20260614.md
 -- =============================================================================
 
@@ -18,8 +19,17 @@ DECLARE
   v_collecte_id    uuid;
   v_pax            integer;
   v_volume_estime  integer := NULL;
+  v_type_enum      plateforme.collecte_type_enum;
 BEGIN
-  IF p_type = 'ag' THEN
+  -- Normalisation alias courts → valeurs de l'enum (conservée depuis 20260614000004)
+  v_type_enum := CASE p_type
+    WHEN 'zd'  THEN 'zero_dechet'::plateforme.collecte_type_enum
+    WHEN 'ag'  THEN 'anti_gaspi'::plateforme.collecte_type_enum
+    ELSE p_type::plateforme.collecte_type_enum
+  END;
+
+  -- Volume estimé repas pour AG (0,1 × pax de l'événement)
+  IF v_type_enum = 'anti_gaspi' THEN
     SELECT pax INTO v_pax
     FROM plateforme.evenements
     WHERE id = p_evenement_id;
@@ -35,7 +45,7 @@ BEGIN
     statut, statut_tms
   ) VALUES (
     p_evenement_id,
-    p_type::plateforme.collecte_type_enum,
+    v_type_enum,
     p_date_collecte,
     p_heure_collecte,
     p_nb_camions,
@@ -48,7 +58,7 @@ BEGIN
   ) RETURNING id INTO v_collecte_id;
 
   -- E1 uniquement pour ZD (AG reste non_envoye jusqu'à attribution Admin, module M1.4)
-  IF p_type = 'zd' THEN
+  IF v_type_enum = 'zero_dechet' THEN
     INSERT INTO plateforme.outbox_events (
       aggregate_type, aggregate_id, event_type, payload, consumer
     ) VALUES (
@@ -56,8 +66,8 @@ BEGIN
       v_collecte_id,
       'collecte.creee',
       jsonb_build_object(
-        'collecte_id', v_collecte_id,
-        'type',        p_type,
+        'collecte_id',   v_collecte_id,
+        'type',          v_type_enum::text,
         'date_collecte', p_date_collecte
       ),
       'adapter_mts1'

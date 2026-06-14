@@ -17,11 +17,15 @@ VALUES ('00000000-0000-0000-0000-000000000010'::uuid, 'Traiteur Test M1.2', 'Tra
 ON CONFLICT (id) DO NOTHING;
 
 -- Entité de facturation vérifiée
-INSERT INTO plateforme.entites_facturation (id, organisation_id, siret, siret_verification)
+INSERT INTO plateforme.entites_facturation (id, organisation_id, raison_sociale, siret, adresse_facturation, code_postal, ville, siret_verification)
 VALUES (
   '00000000-0000-0000-0000-000000000011'::uuid,
   '00000000-0000-0000-0000-000000000010'::uuid,
+  'Traiteur Test M1.2 SAS',
   '12345678901234',
+  '1 Rue du Test',
+  '75001',
+  'Paris',
   'verifie'
 )
 ON CONFLICT (id) DO NOTHING;

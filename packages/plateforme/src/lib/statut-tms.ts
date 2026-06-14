@@ -25,14 +25,15 @@ export type StatutTmsEnum =
   | 'rejetee_par_tms';
 
 export type CollecteStatutEnum =
+  | 'brouillon'
   | 'programmee'
   | 'validee'
   | 'en_cours'
   | 'realisee'
-  | 'cloturee'
-  | 'annulee'
   | 'realisee_sans_collecte'
-  | 'rejetee_par_prestataire';
+  | 'cloturee'
+  | 'annulation_demandee'
+  | 'annulee';
 
 /** Statuts MTS-1 terminaux — agrégation déclenchée quand TOUS les tours y sont. */
 export const MTS1_TERMINAL_STATUSES: ReadonlySet<Mts1OrderStatus> = new Set([

@@ -182,6 +182,10 @@ $$;
 
 GRANT EXECUTE ON FUNCTION plateforme.f_upsert_alerte_admin TO service_role;
 
+-- Droits objet (en complément de la policy RLS aa_admin) :
+-- Le GRANT blanket ON ALL TABLES (migration 0.4a) ne couvre pas les tables créées après.
+GRANT SELECT, INSERT, UPDATE, DELETE ON plateforme.alertes_admin TO authenticated;
+
 -- ============================================================
 -- 9. Index supplémentaires
 -- ============================================================

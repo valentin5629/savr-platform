@@ -71,7 +71,7 @@
       "packages/plateforme/tests/lib/facturation.m1-7.test.ts (23 tests)"
     ],
     "pgtap": [
-      "supabase/tests/m1_7_facturation.test.sql (32 assertions)"
+      "supabase/tests/m1_7_facturation.test.sql (36 assertions)"
     ]
   },
   "hors_scope": [

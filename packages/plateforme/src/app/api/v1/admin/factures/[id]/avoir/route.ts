@@ -4,14 +4,14 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
-import { requireStaff } from '@/lib/api-auth.js';
+import { requireAdmin } from '@/lib/api-auth.js';
 import { creerAvoir } from '@/lib/facturation/avoirs.js';
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
-  const auth = await requireStaff(req);
+  const auth = await requireAdmin(req);
   if (auth.error) return auth.error;
 
   const { id } = await params;

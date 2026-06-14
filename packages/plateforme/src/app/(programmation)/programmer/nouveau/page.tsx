@@ -163,22 +163,20 @@ export default function NouveauProgrammationPage() {
     if (lieu?.controle_acces_requis_default) setControleAcces(true);
   }, [lieu]);
 
-  const checkPackAg = useCallback(async () => {
+  const checkPackAg = useCallback(async (): Promise<boolean> => {
     const res = await fetch('/api/v1/programmation/pack-ag');
     const data = (await res.json()) as PackInfo;
     setPackAg(data);
-    if (!data.pack_actif || (data.credits_restants ?? 0) <= 0) {
-      setAgBloque(true);
-      setTypesCollecte((prev) => ({ ...prev, ag: false }));
-    } else {
-      setAgBloque(false);
-    }
+    const bloque = !data.pack_actif || (data.credits_restants ?? 0) <= 0;
+    setAgBloque(bloque);
+    if (bloque) setTypesCollecte((prev) => ({ ...prev, ag: false }));
+    return bloque;
   }, []);
 
   const handleAgCheck = async (checked: boolean) => {
     if (checked) {
-      await checkPackAg();
-      if (!agBloque) setTypesCollecte((prev) => ({ ...prev, ag: true }));
+      const bloque = await checkPackAg();
+      if (!bloque) setTypesCollecte((prev) => ({ ...prev, ag: true }));
     } else {
       setTypesCollecte((prev) => ({ ...prev, ag: false }));
     }

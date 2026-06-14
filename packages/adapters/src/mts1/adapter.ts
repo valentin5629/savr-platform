@@ -32,7 +32,7 @@ interface TourneeRow {
   rang: number;
 }
 
-// Suffixes flux ZD → libellés MTS-1 as-built
+// Suffixes flux ZD → libellés MTS-1 as-built (sortant)
 const FLUX_STUFFS_ZD = [
   'Bio-déchets (en kg)',
   'Carton (en kg)',
@@ -40,6 +40,28 @@ const FLUX_STUFFS_ZD = [
   'Film plastique (en kg)',
   'Verre (en kg)',
 ];
+
+// Mapping libellés MTS-1 → codes flux_dechets (entrant)
+// '_ignore' = volumétrie camion, jamais mappé sur un flux
+const STUFF_TO_FLUX: Record<string, string | '_ignore'> = {
+  'Bio-déchets (en kg)': 'biodechet',
+  'Carton (en kg)': 'carton',
+  'D.I.B (en kg)': 'dechet_residuel',
+  'Film plastique (en kg)': 'emballage',
+  'Verre (en kg)': 'verre',
+  '<volume_du_camion>': '_ignore',
+};
+
+// Mapping statuts MTS-1 → statut_tms (§08 §3bis.6)
+const MTS1_STATUS_TO_TMS: Record<string, string | null> = {
+  PENDING: 'attribuee_en_attente_acceptation',
+  ACCEPTED: 'acceptee',
+  IN_PROGRESS: null, // pas de changement statut_tms ; → collectes.statut='en_cours' direct
+  DELIVERED: null, // terminal géré par agrégation M1.5c
+  PARTIAL: null, // terminal géré par agrégation M1.5c
+  CANCELED: 'rejetee_par_prestataire',
+  KO: 'rejetee_par_prestataire',
+};
 
 export class AdapterMts1 implements LogistiqueProvider {
   private readonly client: Mts1Client;
@@ -220,10 +242,335 @@ export class AdapterMts1 implements LogistiqueProvider {
     }
   }
 
-  // ─── sync — stub M1.5b ───────────────────────────────────────────────────────
+  // ─── sync — polling entrant MTS-1 (M1.5b) ───────────────────────────────────
 
-  async sync(_fenetre: FenetreSync): Promise<void> {
-    // M1.5b
+  async sync(fenetre: FenetreSync): Promise<void> {
+    // Charge les codes flux une fois par run (référentiel stable)
+    const fluxById = await this.loadFluxCodes();
+
+    const orders = await this.client.scanOrdersByDateRange(
+      fenetre.depuis.toISOString(),
+      fenetre.jusqu_a.toISOString(),
+    );
+
+    for (const order of orders) {
+      try {
+        await this.processOrder(order, fluxById);
+      } catch (err) {
+        await this.logEntrantError(
+          'SYNC_ORDER_FAILED',
+          `order ${order.id}: ${String(err)}`,
+        );
+      }
+    }
+  }
+
+  private async processOrder(
+    order: import('./mock.js').Mts1CustomerOrder,
+    fluxById: Map<string, string>,
+  ): Promise<void> {
+    // 1. Claim atomique — dédup intra-run et inter-polls sur le même statut
+    const eventKey = `mts1:${order.id}:${order.status}`;
+    const { data: claimed } = await this.supabase
+      .from('integrations_inbox')
+      .insert({
+        source: 'mts1',
+        event_type: 'order_status',
+        event_id_externe: eventKey,
+        payload: { orderId: order.id, status: order.status },
+      })
+      .select('id')
+      .limit(1);
+
+    if (!claimed?.length) {
+      // Déjà traité (même statut vu lors d'un poll précédent ou run concurrent)
+      return;
+    }
+    const inboxId = claimed[0]!.id as string;
+
+    try {
+      // 2. Trouver la tournée liée à cet ordre
+      const tourneeInfo = await this.findTourneeByOrderId(order.id);
+      if (!tourneeInfo) {
+        // Commande MTS-1 sans tournée Savr associée → on l'ignore (pas dans notre système)
+        await this.markInboxDone(inboxId);
+        return;
+      }
+      const { collecteId, tourneeId, tmsReference, collecteStatut } =
+        tourneeInfo;
+
+      // 3. Mise à jour statut_tms
+      const nouveauStatutTms = MTS1_STATUS_TO_TMS[order.status] ?? null;
+      if (nouveauStatutTms) {
+        await this.supabase
+          .from('collectes')
+          .update({
+            statut_tms: nouveauStatutTms,
+            statut_tms_at: new Date().toISOString(),
+          })
+          .eq('id', collecteId);
+      }
+
+      // IN_PROGRESS → passage direct collectes.statut → 'en_cours'
+      if (
+        order.status === 'IN_PROGRESS' &&
+        ['programmee', 'validee'].includes(collecteStatut)
+      ) {
+        await this.supabase
+          .from('collectes')
+          .update({ statut: 'en_cours' })
+          .eq('id', collecteId)
+          .in('statut', ['programmee', 'validee']);
+      }
+
+      // 4. Récupérer les détails du tour si tms_reference connu
+      if (tmsReference) {
+        await this.processTourDetails(
+          tmsReference,
+          tourneeId,
+          collecteId,
+          collecteStatut,
+          fluxById,
+        );
+      }
+
+      await this.markInboxDone(inboxId);
+    } catch (err) {
+      await this.supabase
+        .from('integrations_inbox')
+        .update({ erreur: String(err) })
+        .eq('id', inboxId);
+      throw err;
+    }
+  }
+
+  private async processTourDetails(
+    tourId: string,
+    tourneeId: string,
+    collecteId: string,
+    collecteStatut: string,
+    fluxById: Map<string, string>,
+  ): Promise<void> {
+    const tour = await this.client.getTour(tourId);
+
+    for (const stop of tour.stops) {
+      if (!stop.items?.length) continue;
+
+      for (const item of stop.items) {
+        const fluxCode = STUFF_TO_FLUX[item.stuff];
+
+        // Volume du camion → ignorer silencieusement
+        if (fluxCode === '_ignore') continue;
+
+        // Stuff inconnu → alerte Ops in-app
+        if (fluxCode === undefined) {
+          await this.logEntrantError(
+            'STUFF_INCONNU',
+            `tournee=${tourneeId} stop=${stop.stopId} stuff="${item.stuff}"`,
+          );
+          continue;
+        }
+
+        const fluxId = fluxById.get(fluxCode);
+        if (!fluxId || item.weight === null) continue;
+
+        // Divergence post-clôture → aucune écriture
+        if (collecteStatut === 'cloturee') {
+          const { data: existante } = await this.supabase
+            .from('pesees_tournees')
+            .select('poids_kg')
+            .eq('tournee_id', tourneeId)
+            .eq('stop_id', stop.stopId)
+            .eq('flux_id', fluxId)
+            .maybeSingle();
+
+          if (
+            existante &&
+            Math.abs((existante.poids_kg as number) - item.weight) > 0.001
+          ) {
+            await this.logEntrantError(
+              'PESEE_DIVERGENCE_POST_CLOTURE',
+              `tournee=${tourneeId} stop=${stop.stopId} flux=${fluxCode} local=${String(existante.poids_kg)} distant=${item.weight}`,
+            );
+          }
+          continue; // jamais d'écriture sur collecte clôturée
+        }
+
+        // Upsert pesée (idempotent — écrasement si poids modifié)
+        await this.supabase.from('pesees_tournees').upsert(
+          {
+            tournee_id: tourneeId,
+            stop_id: stop.stopId,
+            flux_id: fluxId,
+            poids_kg: item.weight,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'tournee_id,stop_id,flux_id' },
+        );
+      }
+    }
+
+    // Téléchargement photos (non bloquant)
+    await this.processPhotos(tourId, collecteId);
+  }
+
+  private async processPhotos(
+    tourId: string,
+    collecteId: string,
+  ): Promise<void> {
+    let photos: import('./mock.js').Mts1Photo[];
+    try {
+      photos = await this.client.getPhotos(tourId);
+    } catch {
+      await this.logEntrantError('PHOTO_LIST_FAILED', `tourId=${tourId}`);
+      return;
+    }
+
+    for (const photo of photos) {
+      const storageKey = `photos/${collecteId}/${photo.tourId}/${photo.stopId}/${photo.photoId}.jpg`;
+
+      // Dédup : photo déjà uploadée ?
+      const { data: existante } = await this.supabase
+        .from('fichiers')
+        .select('id')
+        .eq('key', storageKey)
+        .maybeSingle();
+
+      if (existante) continue;
+
+      // Téléchargement binaire
+      let buffer: Buffer | null;
+      try {
+        buffer = await this.client.downloadPhoto(photo.url);
+      } catch {
+        await this.logEntrantError(
+          'PHOTO_DOWNLOAD_FAILED',
+          `tourId=${tourId} stopId=${photo.stopId} photoId=${photo.photoId}`,
+        );
+        continue;
+      }
+
+      if (buffer === null) {
+        // 404 → log non bloquant, retentée au prochain changement de statut
+        await this.logEntrantError(
+          'PHOTO_DOWNLOAD_FAILED',
+          `404 tourId=${tourId} stopId=${photo.stopId} photoId=${photo.photoId}`,
+        );
+        continue;
+      }
+
+      // Upload R2 (si credentials disponibles) — sinon enregistre le pointeur
+      await this.uploadPhotoToR2(storageKey, buffer);
+
+      // Enregistrement dans shared.fichiers
+      await this.supabase.from('fichiers').insert({
+        storage_provider: 'r2',
+        bucket: 'collectes',
+        key: storageKey,
+        content_type: 'image/jpeg',
+        size_bytes: buffer.length,
+        entity_type: 'collecte_photo',
+        entity_id: collecteId,
+      });
+    }
+  }
+
+  // Upload binaire vers R2 (S3-compatible). No-op si credentials absents (env dev/test).
+  private async uploadPhotoToR2(key: string, buffer: Buffer): Promise<void> {
+    const endpoint = process.env['R2_ENDPOINT'];
+    const bucket = process.env['R2_BUCKET_NAME'];
+    const accessKey = process.env['R2_ACCESS_KEY_ID'];
+    const secretKey = process.env['R2_SECRET_ACCESS_KEY'];
+
+    if (!endpoint || !bucket || !accessKey || !secretKey) {
+      // Credentials R2 absents — skip upload (dev/test), row shared.fichiers créée quand même
+      return;
+    }
+
+    // PUT direct vers R2 via S3-compatible API
+    // Auth : AWS Signature V4 (à implémenter avec @aws-sdk/signature-v4 avant go-live)
+    // TODO avant go-live : câbler la signature AWS Sig V4
+    await globalThis.fetch(`${endpoint}/${bucket}/${key}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'image/jpeg',
+        'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+        Authorization: `AWS ${accessKey}:${secretKey}`,
+      },
+      body: new Uint8Array(buffer),
+    });
+  }
+
+  // ─── Helpers polling entrant (M1.5b) ─────────────────────────────────────────
+
+  private async loadFluxCodes(): Promise<Map<string, string>> {
+    const { data } = await this.supabase
+      .from('flux_dechets')
+      .select('id, code')
+      .eq('actif', true);
+    const map = new Map<string, string>();
+    for (const row of data ?? []) {
+      map.set(row.code as string, row.id as string);
+    }
+    return map;
+  }
+
+  private async findTourneeByOrderId(customerOrderId: string): Promise<{
+    collecteId: string;
+    tourneeId: string;
+    tmsReference: string | null;
+    collecteStatut: string;
+  } | null> {
+    const { data } = await this.supabase
+      .from('tournees')
+      .select(
+        'id, tms_reference, collecte_tournees!inner(collecte_id, collectes!inner(id, statut))',
+      )
+      .eq('external_ref_commande', customerOrderId)
+      .maybeSingle();
+
+    if (!data) return null;
+
+    type Raw = {
+      id: string;
+      tms_reference: string | null;
+      collecte_tournees: Array<{
+        collecte_id: string;
+        collectes: Array<{ id: string; statut: string }>;
+      }>;
+    };
+    const raw = data as unknown as Raw;
+    const ct = raw.collecte_tournees[0];
+    if (!ct) return null;
+    const collecte = ct.collectes[0];
+    if (!collecte) return null;
+
+    return {
+      collecteId: collecte.id,
+      tourneeId: raw.id,
+      tmsReference: raw.tms_reference,
+      collecteStatut: collecte.statut,
+    };
+  }
+
+  private async markInboxDone(inboxId: string): Promise<void> {
+    await this.supabase
+      .from('integrations_inbox')
+      .update({ traite: true, traite_at: new Date().toISOString() })
+      .eq('id', inboxId);
+  }
+
+  private async logEntrantError(
+    erreurCode: string,
+    detail: string,
+  ): Promise<void> {
+    await this.supabase.from('integrations_logs').insert({
+      integration: 'mts1',
+      direction: 'entrant',
+      methode: 'POLL',
+      endpoint: '/v3/customerOrders',
+      erreur: `${erreurCode}: ${detail}`,
+    });
   }
 
   // ─── Helpers DB ──────────────────────────────────────────────────────────────

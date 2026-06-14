@@ -6,6 +6,7 @@
   "main": "src/index.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./src/index.js": "./src/index.ts",
     "./src/outbox-worker.js": "./src/outbox-worker.ts"
   },
   "scripts": {

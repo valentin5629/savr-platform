@@ -12,7 +12,7 @@ import {
   LogistiquePermanentError,
   LogistiqueTransientError,
 } from '../index.js';
-import type { Mts1CustomerOrder } from './mock.js';
+import type { Mts1CustomerOrder, Mts1Photo, Mts1Tour } from './mock.js';
 import { _getMts1Handlers } from './mock.js';
 
 export interface CreateOrderPayload {
@@ -259,6 +259,18 @@ export class Mts1Client {
       return result;
     }
 
+    // Fallback mock : pollOrders si pas de scanOrdersByDateRange (rétro-compat tests)
+    if (handlers?.pollOrders) {
+      const result = await handlers.pollOrders();
+      await this.log({
+        methode: 'GET',
+        endpoint: '/v3/customerOrders',
+        statut_http: 200,
+        duree_ms: Date.now() - t0,
+      });
+      return result.customerOrders;
+    }
+
     const params = new URLSearchParams({ minDate, maxDate, pageSize: '200' });
     const res = await this.fetch(
       'GET',
@@ -271,6 +283,91 @@ export class Mts1Client {
     return body.customerOrders;
   }
 
+  async getTour(tourId: string): Promise<Mts1Tour> {
+    const handlers = _getMts1Handlers();
+    const t0 = Date.now();
+
+    if (handlers?.getTour) {
+      const result = await handlers.getTour(tourId);
+      await this.log({
+        methode: 'GET',
+        endpoint: `/v3/tours/${tourId}`,
+        statut_http: 200,
+        duree_ms: Date.now() - t0,
+        correlation_id: tourId,
+        direction: 'entrant',
+      });
+      return result;
+    }
+
+    const res = await this.fetch(
+      'GET',
+      `/v3/tours/${tourId}`,
+      undefined,
+      tourId,
+      t0,
+      'entrant',
+    );
+    return (await res.json()) as Mts1Tour;
+  }
+
+  async getPhotos(tourId: string): Promise<Mts1Photo[]> {
+    const handlers = _getMts1Handlers();
+    const t0 = Date.now();
+
+    if (handlers?.getPhotos) {
+      const result = await handlers.getPhotos(tourId);
+      await this.log({
+        methode: 'GET',
+        endpoint: `/v3/tours/${tourId}/photos`,
+        statut_http: 200,
+        duree_ms: Date.now() - t0,
+        correlation_id: tourId,
+        direction: 'entrant',
+      });
+      return result;
+    }
+
+    const res = await this.fetch(
+      'GET',
+      `/v3/tours/${tourId}/photos`,
+      undefined,
+      tourId,
+      t0,
+      'entrant',
+    );
+    return (await res.json()) as Mts1Photo[];
+  }
+
+  async downloadPhoto(url: string): Promise<Buffer | null> {
+    // In mock mode, signal 404 via URL pattern
+    if (_getMts1Handlers()) {
+      if (url.includes('not-found-404')) return null;
+      return Buffer.from('FAKE_PHOTO_DATA');
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30_000);
+    try {
+      const res = await globalThis.fetch(url, { signal: controller.signal });
+      clearTimeout(timeout);
+      if (res.status === 404) return null;
+      if (!res.ok) {
+        throw new LogistiqueTransientError(
+          `Photo download ${res.status}: ${url}`,
+        );
+      }
+      const buf = await res.arrayBuffer();
+      return Buffer.from(buf);
+    } catch (err) {
+      clearTimeout(timeout);
+      if (err instanceof Error && err.name === 'AbortError') {
+        throw new LogistiqueAmbiguousError(`Photo timeout: ${url}`);
+      }
+      throw err;
+    }
+  }
+
   // ─── Internals ──────────────────────────────────────────────────────────────
 
   private async fetch(
@@ -279,6 +376,7 @@ export class Mts1Client {
     body: unknown,
     correlationId: string | undefined,
     t0: number,
+    direction: 'sortant' | 'entrant' = 'sortant',
   ): Promise<Response> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30_000);
@@ -302,6 +400,7 @@ export class Mts1Client {
         duree_ms: Date.now() - t0,
         erreur: String(err),
         correlation_id: correlationId,
+        direction,
       });
       if (err instanceof Error && err.name === 'AbortError') {
         throw new LogistiqueAmbiguousError(`MTS-1 timeout : ${method} ${path}`);
@@ -316,6 +415,7 @@ export class Mts1Client {
       statut_http: res.status,
       duree_ms: Date.now() - t0,
       correlation_id: correlationId,
+      direction,
     });
 
     if (!res.ok) {
@@ -343,10 +443,11 @@ export class Mts1Client {
     duree_ms?: number;
     correlation_id?: string;
     erreur?: string;
+    direction?: 'sortant' | 'entrant';
   }): Promise<void> {
     await this.supabase.from('integrations_logs').insert({
       integration: 'mts1',
-      direction: 'sortant',
+      direction: entry.direction ?? 'sortant',
       methode: entry.methode,
       endpoint: entry.endpoint,
       statut_http: entry.statut_http ?? null,

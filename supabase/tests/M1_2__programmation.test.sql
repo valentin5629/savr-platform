@@ -70,7 +70,7 @@ WITH evt AS (
     50, 'Contact Test', '0600000001'
   ) RETURNING id
 ),
-col AS (
+col AS MATERIALIZED (
   SELECT plateforme.fn_creer_collecte(
     p_evenement_id := (SELECT id FROM evt),
     p_type := 'zd',
@@ -106,7 +106,7 @@ WITH evt AS (
     40, 'Contact Test', '0600000002'
   ) RETURNING id
 ),
-col AS (
+col AS MATERIALIZED (
   SELECT plateforme.fn_creer_collecte(
     p_evenement_id := (SELECT id FROM evt),
     p_type := 'ag',
@@ -145,34 +145,35 @@ SELECT is(
 
 -- ─── Test 5 : date_evenement dérivée = MIN(date_collecte) ────────────────────
 
-WITH evt AS (
-  INSERT INTO plateforme.evenements (
-    id, organisation_id, traiteur_operationnel_organisation_id,
-    entite_facturation_id, lieu_id, created_by, type_evenement_id, pax,
-    contact_principal_nom, contact_principal_telephone
-  ) VALUES (
-    '00000000-0000-0000-0000-000000000022'::uuid,
-    '00000000-0000-0000-0000-000000000010'::uuid,
-    '00000000-0000-0000-0000-000000000010'::uuid,
-    '00000000-0000-0000-0000-000000000011'::uuid,
-    '00000000-0000-0000-0000-000000000012'::uuid,
-    '00000000-0000-0000-0000-000000000014'::uuid,
-    '00000000-0000-0000-0000-000000000013'::uuid,
-    30, 'Contact Test', '0600000003'
-  ) RETURNING id
-),
-c1 AS (
-  SELECT plateforme.fn_creer_collecte(
-    p_evenement_id := (SELECT id FROM evt), p_type := 'zd',
-    p_date_collecte := CURRENT_DATE + 10, p_heure_collecte := '08:00'
-  )
-),
-c2 AS (
-  SELECT plateforme.fn_creer_collecte(
-    p_evenement_id := (SELECT id FROM evt), p_type := 'ag',
-    p_date_collecte := CURRENT_DATE + 5, p_heure_collecte := '10:00'
-  )
-)
+INSERT INTO plateforme.evenements (
+  id, organisation_id, traiteur_operationnel_organisation_id,
+  entite_facturation_id, lieu_id, created_by, type_evenement_id, pax,
+  contact_principal_nom, contact_principal_telephone
+) VALUES (
+  '00000000-0000-0000-0000-000000000022'::uuid,
+  '00000000-0000-0000-0000-000000000010'::uuid,
+  '00000000-0000-0000-0000-000000000010'::uuid,
+  '00000000-0000-0000-0000-000000000011'::uuid,
+  '00000000-0000-0000-0000-000000000012'::uuid,
+  '00000000-0000-0000-0000-000000000014'::uuid,
+  '00000000-0000-0000-0000-000000000013'::uuid,
+  30, 'Contact Test', '0600000003'
+);
+
+SELECT plateforme.fn_creer_collecte(
+  p_evenement_id := '00000000-0000-0000-0000-000000000022'::uuid,
+  p_type := 'zd',
+  p_date_collecte := CURRENT_DATE + 10,
+  p_heure_collecte := '08:00'
+);
+
+SELECT plateforme.fn_creer_collecte(
+  p_evenement_id := '00000000-0000-0000-0000-000000000022'::uuid,
+  p_type := 'ag',
+  p_date_collecte := CURRENT_DATE + 5,
+  p_heure_collecte := '10:00'
+);
+
 SELECT is(
   (SELECT date_evenement FROM plateforme.evenements
    WHERE id = '00000000-0000-0000-0000-000000000022'::uuid),

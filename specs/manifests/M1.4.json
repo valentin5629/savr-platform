@@ -1,0 +1,45 @@
+{
+  "module": "M1.4",
+  "titre": "Machine à états collecte + Outbox events (E1/E2/E3/E5)",
+  "description": "Mapping TypeScript statut MTS-1 → statut_tms Savr (§08 §3bis.6) + miroir trigger fn_sync_statut_collecte_from_tms. Valide l'émission outbox atomique E1/E2/E3/E5 (migrations 20260614000001 + bloc4) et active le harnais pgTAP G4 via les helpers tests.outbox_fixture_collecte/lieu. Réutilisé par M1.5b (polling).",
+  "garde_fous_tms_ready": {
+    "G3": "0 référence mts1/everest hors packages/adapters/ — vérifié par check-coupling.sh",
+    "G4": "Harnais pgTAP dormant auto-activé : outbox_events + helpers fixture présents → 6 assertions bloquantes (E1/E2/E3/E5 + atomicité rollback collecte + atomicité rollback lieu)",
+    "G5": "Aucune FK vers tms.* — statut_tms reste dans plateforme.collectes"
+  },
+  "fichiers_produits": [
+    "packages/plateforme/src/lib/statut-tms.ts",
+    "packages/plateforme/tests/lib/statut-tms.m1-4.test.ts",
+    "specs/manifests/M1.4.json"
+  ],
+  "fichiers_db_valides": [
+    "supabase/migrations/20260611171638_plateforme_bloc4_operationnel.sql",
+    "supabase/migrations/20260614000001_plateforme_outbox_atomic_rpcs.sql",
+    "supabase/tests/outbox_par_mutation.test.sql"
+  ],
+  "scenarios": [
+    "M1.4/statut-tms — PLANNED sans dispatch accepté → attribuee_en_attente_acceptation",
+    "M1.4/statut-tms — VALIDATED sans dispatch accepté → attribuee_en_attente_acceptation",
+    "M1.4/statut-tms — PLANNED + dispatch ACCEPTED → acceptee (signal positif)",
+    "M1.4/statut-tms — VALIDATED + dispatch ACCEPTED → acceptee (signal positif)",
+    "M1.4/statut-tms — IN_PROGRESSION → acceptee (statut collecte = en_cours via M1.5c)",
+    "M1.4/statut-tms — OK → acceptee (agrégation M1.5c → realisee)",
+    "M1.4/statut-tms — PARTIAL → acceptee (agrégation M1.5c → realisee avec pesées partielles)",
+    "M1.4/statut-tms — CANCELED → rejetee_par_prestataire",
+    "M1.4/statut-tms — KO → rejetee_par_prestataire",
+    "M1.4/statut-tms — CANCELED avec dispatch accepté → rejetee_par_prestataire (refus prioritaire)",
+    "M1.4/statut-tms — acceptee + programmee → validee (validation acceptation)",
+    "M1.4/statut-tms — en_attente_execution + programmee → validee",
+    "M1.4/statut-tms — non_envoye + validee → programmee (reset)",
+    "M1.4/statut-tms — a_attribuer + validee → programmee",
+    "M1.4/statut-tms — attribuee_en_attente_acceptation + validee → programmee",
+    "M1.4/statut-tms — acceptee + validee → null (déjà validée, pas de doublon)",
+    "M1.4/statut-tms — acceptee + en_cours → null (en_cours géré par M1.5c)",
+    "M1.4/statut-tms — rejetee_par_prestataire + programmee → null (pas de transition trigger)",
+    "M1.4/statut-tms — non_envoye + programmee → null (déjà programmée)",
+    "M1.4/statut-tms — MTS1_TERMINAL_STATUSES : OK, PARTIAL, CANCELED, KO",
+    "M1.4/statut-tms — MTS1_SUCCESS_STATUSES ⊂ MTS1_TERMINAL_STATUSES",
+    "M1.4/statut-tms — MTS1_REJECTION_STATUSES ⊂ MTS1_TERMINAL_STATUSES",
+    "M1.4/statut-tms — SUCCESS et REJECTION sont disjoints"
+  ]
+}

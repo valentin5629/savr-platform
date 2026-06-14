@@ -146,13 +146,12 @@ DECLARE
   v_ef_id    uuid;
   v_fac_id   uuid;
 BEGIN
-  -- Insérer une organisation minimaliste
-  INSERT INTO plateforme.organisations (id, raison_sociale, type_organisation)
+  INSERT INTO plateforme.organisations (id, nom, type)
   VALUES (gen_random_uuid(), 'Test Org Avoir', 'traiteur')
   RETURNING id INTO v_org_id;
 
-  INSERT INTO plateforme.entites_facturation (id, organisation_id, raison_sociale, siret_verification, est_principale)
-  VALUES (gen_random_uuid(), v_org_id, 'Test EF', 'non_verifie', true)
+  INSERT INTO plateforme.entites_facturation (id, organisation_id, raison_sociale, siret, adresse_facturation, code_postal, ville)
+  VALUES (gen_random_uuid(), v_org_id, 'Test EF', '00000000000001', '1 rue test', '75001', 'Paris')
   RETURNING id INTO v_ef_id;
 
   -- Insérer une facture en statut 'emise'
@@ -184,12 +183,12 @@ DECLARE
   v_av_id    uuid;
   raised     boolean := false;
 BEGIN
-  INSERT INTO plateforme.organisations (id, raison_sociale, type_organisation)
+  INSERT INTO plateforme.organisations (id, nom, type)
   VALUES (gen_random_uuid(), 'Test Org Avoir Brouillon', 'traiteur')
   RETURNING id INTO v_org_id;
 
-  INSERT INTO plateforme.entites_facturation (id, organisation_id, raison_sociale, siret_verification, est_principale)
-  VALUES (gen_random_uuid(), v_org_id, 'Test EF2', 'non_verifie', true)
+  INSERT INTO plateforme.entites_facturation (id, organisation_id, raison_sociale, siret, adresse_facturation, code_postal, ville)
+  VALUES (gen_random_uuid(), v_org_id, 'Test EF2', '00000000000002', '2 rue test', '75002', 'Paris')
   RETURNING id INTO v_ef_id;
 
   INSERT INTO plateforme.factures (
@@ -250,12 +249,12 @@ DECLARE
   v_fac_id uuid;
   raised   boolean := false;
 BEGIN
-  INSERT INTO plateforme.organisations (id, raison_sociale, type_organisation)
+  INSERT INTO plateforme.organisations (id, nom, type)
   VALUES (gen_random_uuid(), 'Test Org CHECK', 'traiteur')
   RETURNING id INTO v_org_id;
 
-  INSERT INTO plateforme.entites_facturation (id, organisation_id, raison_sociale, siret_verification, est_principale)
-  VALUES (gen_random_uuid(), v_org_id, 'Test EF CHECK', 'non_verifie', true)
+  INSERT INTO plateforme.entites_facturation (id, organisation_id, raison_sociale, siret, adresse_facturation, code_postal, ville)
+  VALUES (gen_random_uuid(), v_org_id, 'Test EF CHECK', '00000000000003', '3 rue test', '75003', 'Paris')
   RETURNING id INTO v_ef_id;
 
   INSERT INTO plateforme.factures (id, organisation_id, entite_facturation_id, statut, montant_ht, taux_tva, montant_tva, montant_ttc, devise)
@@ -288,18 +287,18 @@ DECLARE
   v_org_b  uuid;
   v_uid_b  uuid := gen_random_uuid();
 BEGIN
-  INSERT INTO plateforme.organisations (id, raison_sociale, type_organisation)
+  INSERT INTO plateforme.organisations (id, nom, type)
   VALUES (gen_random_uuid(), 'Org A (cross-org test)', 'traiteur')
   RETURNING id INTO v_org_a;
 
-  INSERT INTO plateforme.entites_facturation (id, organisation_id, raison_sociale, siret_verification, est_principale)
-  VALUES (gen_random_uuid(), v_org_a, 'EF A', 'non_verifie', true)
+  INSERT INTO plateforme.entites_facturation (id, organisation_id, raison_sociale, siret, adresse_facturation, code_postal, ville)
+  VALUES (gen_random_uuid(), v_org_a, 'EF A', '00000000000004', '4 rue test', '75004', 'Paris')
   RETURNING id INTO v_ef_a;
 
   INSERT INTO plateforme.factures (id, organisation_id, entite_facturation_id, statut, montant_ht, taux_tva, montant_tva, montant_ttc, devise)
   VALUES (gen_random_uuid(), v_org_a, v_ef_a, 'emise', 590, 20, 118, 708, 'EUR');
 
-  INSERT INTO plateforme.organisations (id, raison_sociale, type_organisation)
+  INSERT INTO plateforme.organisations (id, nom, type)
   VALUES (gen_random_uuid(), 'Org B (cross-org reader)', 'traiteur')
   RETURNING id INTO v_org_b;
 
@@ -312,7 +311,7 @@ SELECT ok(
   'v_factures_client : org B ne voit pas les factures d''org A (isolation cross-org)'
 );
 
-PERFORM test_as_superuser();
+SELECT test_as_superuser();
 
 SELECT * FROM finish();
 ROLLBACK;

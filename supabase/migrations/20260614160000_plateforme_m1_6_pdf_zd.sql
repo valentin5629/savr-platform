@@ -14,12 +14,7 @@ DO $$ BEGIN
   CREATE TYPE plateforme.bordereau_statut AS ENUM ('brouillon','emis','corrige','annule');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
--- Ajout BSAV à la série de facturation (numérotation bordereaux)
-ALTER TYPE plateforme.serie_facturation_enum ADD VALUE IF NOT EXISTS 'BSAV';
-
--- Ajout pending/dead à job_statut_enum (alignement V2)
-ALTER TYPE plateforme.job_statut_enum ADD VALUE IF NOT EXISTS 'pending';
-ALTER TYPE plateforme.job_statut_enum ADD VALUE IF NOT EXISTS 'dead';
+-- (ADD VALUE déplacés dans 20260614155900 — doivent être dans une tx séparée)
 
 -- ============================================================
 -- 2. Aligner jobs_pdf avec V2

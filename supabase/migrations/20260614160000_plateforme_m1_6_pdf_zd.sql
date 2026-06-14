@@ -95,7 +95,9 @@ CREATE POLICY aa_admin ON plateforme.alertes_admin
 -- 6. Mettre à jour la vue ops jobs_pdf (colonnes renommées)
 -- ============================================================
 
-CREATE OR REPLACE VIEW plateforme.v_ops_jobs_pdf AS
+-- DROP nécessaire : CREATE OR REPLACE VIEW ne peut pas renommer les colonnes
+DROP VIEW IF EXISTS plateforme.v_ops_jobs_pdf;
+CREATE VIEW plateforme.v_ops_jobs_pdf AS
 SELECT
   COUNT(*) FILTER (WHERE statut IN ('pending','queued'))   AS nb_pending,
   COUNT(*) FILTER (WHERE statut = 'failed')                AS nb_failed,

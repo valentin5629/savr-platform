@@ -1,0 +1,50 @@
+{
+  "module": "M1.5a",
+  "titre": "Interface LogistiqueProvider + Adapter MTS-1 sortant + Worker outbox lease/claim",
+  "description": "Implémentation côté sortant de l'intégration MTS-1 : interface LogistiqueProvider typée (types réels DB), factory getLogistiqueProvider, AdapterMts1 avec pipeline dispatchCollecte 4 étapes (POST customerOrder → POST tour → dispatch → validate), curseur de reprise, réconciliation plan B scan minDate/maxDate, updateCollecte/cancelCollecte/updateLieu, ProviderManual no-op. Worker outbox lease/claim (fn_claim_outbox_batch + fn_result_outbox + fn_reap_outbox_claims), retry 3 paliers 5min/1h/24h, alertes DLQ + anticipée J-1. Route Vercel Cron /api/cron/outbox-worker. Polling entrant (sync) = M1.5b.",
+  "garde_fous_tms_ready": {
+    "G3": "0 référence mts1/everest hors packages/adapters/ — vérifié par check-coupling.sh",
+    "G4": "Outbox events E1/E2/E3/E5 consommés par adapter_mts1 via worker lease/claim",
+    "G5": "Aucune FK vers tms.* — external_ref_commande dans plateforme.tournees (neutre TMS-Ready)"
+  },
+  "fichiers_produits": [
+    "supabase/migrations/20260614150000_plateforme_m1_5a_outbox_worker.sql",
+    "packages/adapters/src/index.ts",
+    "packages/adapters/src/mts1/client.ts",
+    "packages/adapters/src/mts1/adapter.ts",
+    "packages/adapters/src/mts1/mock.ts",
+    "packages/adapters/src/manual/provider.ts",
+    "packages/adapters/src/outbox-worker.ts",
+    "packages/plateforme/src/app/api/cron/outbox-worker/route.ts",
+    "fixtures/api/mts1/create_tour_ok.json",
+    "packages/adapters/src/mts1/adapter.m1-5a.test.ts",
+    "specs/manifests/M1.5a.json"
+  ],
+  "fichiers_db_valides": [
+    "supabase/migrations/20260614150000_plateforme_m1_5a_outbox_worker.sql"
+  ],
+  "question_ouverte": {
+    "Q3bis-6": "Peut-on retrouver un tourId depuis un customerOrderId post-timeout étape 2 ? À valider avec MTS-1 en DEMO avant merge. Pattern actuel : curseur tms_reference IS NULL + requires_reconciliation=true signale la situation mais ne peut pas reprendre sans tourId."
+  },
+  "scenarios": [
+    "E1 dispatch ZD rang=1 nominal : POST order → create tour → dispatch → validate",
+    "E1 dispatch AG : orderCategories=['Alimentaire'], sans stuffs",
+    "E1 dispatch ZD : stuffs contient 5 flux + volume_du_camion",
+    "E1 multi-camions N=2 : 2 ordres créés rang 1 et rang 2",
+    "E1 idempotent : rang déjà en_cours → no-op sans appel HTTP",
+    "E1 reprise étape 2 : external_ref_commande présent + tms_reference absent → POST tour seulement",
+    "E1 POST 422 → LogistiquePermanentError (dead immédiat)",
+    "E1 réconciliation : requires_reconciliation=true + ordre trouvé → pas de re-POST",
+    "E1 réconciliation : ordre introuvable → re-POST autorisé",
+    "E2 sans external_ref_commande → no-op",
+    "E3 cancel 4xx → CancelWindowClosedError",
+    "provider_manual : toutes méthodes résolvent sans erreur",
+    "factory : mts1 → AdapterMts1, autre → ProviderManual, a_toutes → gate Everest",
+    "retry paliers : attempts=1 → 5min, attempts=4 → null (DLQ)"
+  ],
+  "tests": {
+    "fichier": "packages/adapters/src/mts1/adapter.m1-5a.test.ts",
+    "total": 18,
+    "passed": 18
+  }
+}

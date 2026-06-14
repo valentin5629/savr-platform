@@ -34,9 +34,26 @@ ALTER TABLE plateforme.jobs_pdf ADD COLUMN IF NOT EXISTS payload jsonb NOT NULL 
 -- ============================================================
 
 -- Conversion du statut : document_statut_enum → bordereau_statut
-ALTER TABLE plateforme.bordereaux_savr DROP COLUMN IF EXISTS statut;
+-- L'index partiel référençant 'en_attente' doit être recréé avec le nouveau type.
+DROP INDEX IF EXISTS plateforme.idx_bordereaux_eligible;
+
 ALTER TABLE plateforme.bordereaux_savr
-  ADD COLUMN statut plateforme.bordereau_statut NOT NULL DEFAULT 'brouillon';
+  ALTER COLUMN statut DROP DEFAULT,
+  ALTER COLUMN statut TYPE plateforme.bordereau_statut
+    USING CASE statut::text
+      WHEN 'en_attente' THEN 'brouillon'::plateforme.bordereau_statut
+      WHEN 'genere'     THEN 'emis'::plateforme.bordereau_statut
+      WHEN 'erreur'     THEN 'brouillon'::plateforme.bordereau_statut
+      WHEN 'expire'     THEN 'annule'::plateforme.bordereau_statut
+      ELSE                   'brouillon'::plateforme.bordereau_statut
+    END;
+
+ALTER TABLE plateforme.bordereaux_savr
+  ALTER COLUMN statut SET DEFAULT 'brouillon'::plateforme.bordereau_statut;
+
+-- Recréer l'index partiel avec la nouvelle valeur d'enum cible
+CREATE INDEX IF NOT EXISTS idx_bordereaux_eligible
+  ON plateforme.bordereaux_savr (eligible_at) WHERE statut = 'brouillon';
 
 -- Colonnes snapshot (nullable : toujours renseignées par le batch INSERT)
 ALTER TABLE plateforme.bordereaux_savr ADD COLUMN IF NOT EXISTS numero                          text UNIQUE;
@@ -111,7 +128,7 @@ FROM plateforme.jobs_pdf;
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION plateforme.f_next_numero_bordereau(
-  p_annee smallint DEFAULT EXTRACT(YEAR FROM now())::smallint
+  p_annee integer DEFAULT EXTRACT(YEAR FROM now())::integer
 )
 RETURNS text
 LANGUAGE plpgsql

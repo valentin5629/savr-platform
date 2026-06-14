@@ -163,7 +163,7 @@ VALUES
 
 -- Bordereaux
 INSERT INTO plateforme.bordereaux_savr (id, collecte_id, statut)
-VALUES ('bd100001-0000-0000-0000-000000000001'::uuid, 'c01c0001-0000-0000-0000-000000000001'::uuid, 'en_attente');
+VALUES ('bd100001-0000-0000-0000-000000000001'::uuid, 'c01c0001-0000-0000-0000-000000000001'::uuid, 'brouillon');
 
 -- Fichiers
 INSERT INTO shared.fichiers (id, storage_provider, bucket, key, size_bytes, content_type, entity_type, entity_id)

@@ -3,7 +3,7 @@
 --         f_attribuer_numero_facture gapless, trigger avoir, RLS factures.
 
 BEGIN;
-SELECT plan(36);
+SELECT plan(37);
 
 -- ── Helpers simulation JWT (identiques à rls_0_4_smoke.test.sql) ─────────────
 
@@ -163,8 +163,13 @@ BEGIN
   VALUES (gen_random_uuid(), v_org_id, v_ef_id, 'emise', 590, 20, 118, 708, 'EUR')
   RETURNING id INTO v_fac_id;
 
-  -- Créer un avoir dessus → doit réussir
-  PERFORM plateforme.factures FROM plateforme.factures WHERE id = v_fac_id AND statut = 'emise';
+  -- Créer un avoir dessus → doit réussir (trigger autorise avoir sur emise)
+  INSERT INTO plateforme.factures (
+    id, organisation_id, entite_facturation_id,
+    statut, montant_ht, taux_tva, montant_tva, montant_ttc, devise,
+    facture_origine_id
+  )
+  VALUES (gen_random_uuid(), v_org_id, v_ef_id, 'brouillon', -590, 20, -118, -708, 'EUR', v_fac_id);
 END;
 $$;
 
@@ -271,6 +276,43 @@ END;
 $$;
 
 SELECT ok(true, 'chk_fc_collecte_ou_designation : INSERT collecte_id=NULL + designation=NULL bloqué');
+
+-- ── 10. v_factures_client — isolation cross-org sous authenticated ────────────
+
+SET LOCAL ROLE postgres;
+
+DO $$
+DECLARE
+  v_org_a  uuid;
+  v_ef_a   uuid;
+  v_org_b  uuid;
+  v_uid_b  uuid := gen_random_uuid();
+BEGIN
+  INSERT INTO plateforme.organisations (id, raison_sociale, type_organisation)
+  VALUES (gen_random_uuid(), 'Org A (cross-org test)', 'traiteur')
+  RETURNING id INTO v_org_a;
+
+  INSERT INTO plateforme.entites_facturation (id, organisation_id, raison_sociale, siret_verification, est_principale)
+  VALUES (gen_random_uuid(), v_org_a, 'EF A', 'non_verifie', true)
+  RETURNING id INTO v_ef_a;
+
+  INSERT INTO plateforme.factures (id, organisation_id, entite_facturation_id, statut, montant_ht, taux_tva, montant_tva, montant_ttc, devise)
+  VALUES (gen_random_uuid(), v_org_a, v_ef_a, 'emise', 590, 20, 118, 708, 'EUR');
+
+  INSERT INTO plateforme.organisations (id, raison_sociale, type_organisation)
+  VALUES (gen_random_uuid(), 'Org B (cross-org reader)', 'traiteur')
+  RETURNING id INTO v_org_b;
+
+  PERFORM test_set_jwt('traiteur_manager', v_org_b, v_uid_b);
+END;
+$$;
+
+SELECT ok(
+  (SELECT count(*) FROM plateforme.v_factures_client) = 0,
+  'v_factures_client : org B ne voit pas les factures d''org A (isolation cross-org)'
+);
+
+PERFORM test_as_superuser();
 
 SELECT * FROM finish();
 ROLLBACK;

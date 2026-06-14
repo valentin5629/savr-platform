@@ -3,7 +3,26 @@
 --         f_attribuer_numero_facture gapless, trigger avoir, RLS factures.
 
 BEGIN;
-SELECT plan(32);
+SELECT plan(36);
+
+-- ── Helpers simulation JWT (identiques à rls_0_4_smoke.test.sql) ─────────────
+
+CREATE OR REPLACE FUNCTION test_set_jwt(p_role text, p_org_id uuid DEFAULT NULL, p_user_id uuid DEFAULT gen_random_uuid())
+RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  PERFORM set_config('request.jwt.claims', json_build_object(
+    'sub', p_user_id, 'role', p_role,
+    'organisation_id', p_org_id, 'app_domain', 'plateforme'
+  )::text, true);
+  PERFORM set_config('role', 'authenticated', true);
+END $$;
+
+CREATE OR REPLACE FUNCTION test_as_superuser()
+RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  PERFORM set_config('role', 'postgres', true);
+  PERFORM set_config('request.jwt.claims', NULL, true);
+END $$;
 
 -- ── 1. Enums M1.7 ─────────────────────────────────────────────────────────
 
@@ -82,7 +101,7 @@ SELECT hasnt_column('plateforme', 'sequences_facturation', 'dernier',
 -- ── 4b. Existence fonction et trigger M1.7 ──────────────────────────────
 
 SELECT has_function('plateforme', 'f_attribuer_numero_facture',
-  ARRAY['text','integer'],
+  ARRAY['plateforme.serie_facturation_enum','smallint'],
   'fonction f_attribuer_numero_facture(serie, annee) existe');
 
 SELECT has_trigger('plateforme', 'factures', 'trg_check_avoir_facture_valide',
@@ -194,6 +213,64 @@ END;
 $$;
 
 SELECT ok(true, 'trigger avoir bloque sur facture brouillon');
+
+-- ── 7. v_factures_client — colonnes sensibles exclues (D-B) ──────────────────
+
+SELECT hasnt_column('plateforme', 'v_factures_client', 'marge_logistique',
+  'marge_logistique masqué dans v_factures_client (non visible clients)');
+
+SELECT hasnt_column('plateforme', 'v_factures_client', 'erreur_synchro',
+  'erreur_synchro masqué dans v_factures_client (non visible clients)');
+
+-- ── 8. EXECUTE non accordé à PUBLIC sur fonctions numérotation (SEC-1) ───────
+
+SELECT ok(
+  (SELECT COUNT(*) = 0
+   FROM information_schema.role_routine_grants
+   WHERE routine_schema = 'plateforme'
+     AND routine_name = 'f_attribuer_numero_facture'
+     AND grantee = 'PUBLIC'
+     AND privilege_type = 'EXECUTE'),
+  'f_attribuer_numero_facture : EXECUTE non accordé à PUBLIC (protection séquence gapless)'
+);
+
+-- ── 9. CHECK chk_fc_collecte_ou_designation — ligne sans collecte ni désignation (D-C) ─
+
+SET LOCAL ROLE postgres;
+
+DO $$
+DECLARE
+  v_org_id uuid;
+  v_ef_id  uuid;
+  v_fac_id uuid;
+  raised   boolean := false;
+BEGIN
+  INSERT INTO plateforme.organisations (id, raison_sociale, type_organisation)
+  VALUES (gen_random_uuid(), 'Test Org CHECK', 'traiteur')
+  RETURNING id INTO v_org_id;
+
+  INSERT INTO plateforme.entites_facturation (id, organisation_id, raison_sociale, siret_verification, est_principale)
+  VALUES (gen_random_uuid(), v_org_id, 'Test EF CHECK', 'non_verifie', true)
+  RETURNING id INTO v_ef_id;
+
+  INSERT INTO plateforme.factures (id, organisation_id, entite_facturation_id, statut, montant_ht, taux_tva, montant_tva, montant_ttc, devise)
+  VALUES (gen_random_uuid(), v_org_id, v_ef_id, 'brouillon', 100, 20, 20, 120, 'EUR')
+  RETURNING id INTO v_fac_id;
+
+  BEGIN
+    -- collecte_id=NULL ET designation=NULL → doit lever check_violation
+    INSERT INTO plateforme.factures_collectes (facture_id, collecte_id, designation, montant_ht, montant_ligne_ht)
+    VALUES (v_fac_id, NULL, NULL, 100, 100);
+  EXCEPTION WHEN check_violation THEN
+    raised := true;
+  END;
+  IF NOT raised THEN
+    RAISE EXCEPTION 'CHECK chk_fc_collecte_ou_designation aurait dû bloquer';
+  END IF;
+END;
+$$;
+
+SELECT ok(true, 'chk_fc_collecte_ou_designation : INSERT collecte_id=NULL + designation=NULL bloqué');
 
 SELECT * FROM finish();
 ROLLBACK;

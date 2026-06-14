@@ -189,7 +189,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             entite_facturation_id: ef.id,
             pack_antgaspi_id: pack.id,
             type: 'achat_pack_antigaspi',
-            mode_facturation: 'globale_achat',
+            mode_facturation: 'globale_pack',
             statut: 'brouillon',
             montant_ht: montant_total_ht,
             taux_tva: 20,

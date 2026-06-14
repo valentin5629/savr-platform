@@ -145,20 +145,74 @@ export async function requireUser(
   };
 }
 
-const PROGRAMMATION_ROLES: ClientRole[] = [
+export const PROGRAMMATION_ROLES: ClientRole[] = [
   'traiteur_commercial',
   'traiteur_manager',
   'agence',
   'gestionnaire_lieux',
 ];
 
-// Shortcut : tous les rôles qui peuvent programmer une collecte.
+// Shortcut : tous les rôles clients qui peuvent programmer une collecte.
 export async function requireProgrammateur(
   req: NextRequest,
 ): Promise<
   { ctx: UserAuthContext; error?: never } | { ctx?: never; error: NextResponse }
 > {
   return requireUser(req, PROGRAMMATION_ROLES);
+}
+
+// Shortcut : programmation de support admin_savr (tous périmètres).
+// organisationId proviendra du body (champ organisation_id requis).
+export async function requireProgrammateurOuAdmin(
+  _req: NextRequest,
+): Promise<
+  | { ctx: UserAuthContext & { isAdmin: boolean }; error?: never }
+  | { ctx?: never; error: NextResponse }
+> {
+  const supabase = createSupabaseServerClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return {
+      error: NextResponse.json({ error: 'Non autorisé' }, { status: 401 }),
+    };
+  }
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const claims = parseJwtClaims(session?.access_token ?? '');
+  const role = claims['role'] as string | undefined;
+  const organisationId = claims['organisation_id'] as string | undefined;
+
+  const isAdmin = role === 'admin_savr' || role === 'ops_savr';
+  const isProgrammateur = PROGRAMMATION_ROLES.includes(role as ClientRole);
+
+  if (!isAdmin && !isProgrammateur) {
+    return {
+      error: NextResponse.json({ error: 'Rôle insuffisant' }, { status: 403 }),
+    };
+  }
+
+  if (!isAdmin && !organisationId) {
+    return {
+      error: NextResponse.json(
+        { error: 'Organisation manquante dans le JWT' },
+        { status: 403 },
+      ),
+    };
+  }
+
+  return {
+    ctx: {
+      userId: user.id,
+      role: role as AnyRole,
+      organisationId: organisationId ?? '', // admin: '' — sera remplacé par body.organisation_id dans la route
+      isAdmin,
+    },
+  };
 }
 
 // Variante réservée à admin_savr uniquement.

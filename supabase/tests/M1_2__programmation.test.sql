@@ -333,6 +333,7 @@ SELECT throws_ok(
       10, 'Contact', '0600000099'
     )$$,
   '42501',
+  NULL,
   'T12 : client_organisateur ne peut pas insérer d''événement (RLS DENY)'
 );
 
@@ -343,7 +344,7 @@ RESET "request.jwt.claims";
 
 -- Lieu appartenant à une autre organisation (hors organisations_lieux)
 INSERT INTO plateforme.lieux (id, nom, adresse_acces, code_postal, ville, type_vehicule_max, actif)
-VALUES ('00000000-0000-0000-0000-000000000030'::uuid, 'Lieu Hors Périmètre', 'Rue Inconnue 1', '75002', 'Paris', 'camion', true)
+VALUES ('00000000-0000-0000-0000-000000000030'::uuid, 'Lieu Hors Périmètre', 'Rue Inconnue 1', '75002', 'Paris', 'poids_lourd', true)
 ON CONFLICT (id) DO NOTHING;
 
 -- Organisation gestionnaire distincte
@@ -406,6 +407,7 @@ SELECT throws_ok(
       15, 'Contact Gest', '0600000097'
     )$$,
   '42501',
+  NULL,
   'T15 : gestionnaire_lieux ne peut pas INSERT événement sur lieu hors périmètre (RLS DB)'
 );
 

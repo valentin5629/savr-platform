@@ -22,7 +22,7 @@ import { creerAvoir } from '../../src/lib/facturation/avoirs.js';
 
 function makeSupabase(responses: Array<Record<string, unknown>>) {
   let idx = 0;
-  const next = () => ({
+  const next = (): Record<string, unknown> => ({
     data: null,
     error: null,
     count: null,
@@ -867,5 +867,131 @@ describe('M1.7 / creerAvoir / Succès sur facture payee', () => {
       .calls as Array<[Record<string, unknown>]>;
     const annuleeUpdate = updateCalls.find((c) => c[0].statut === 'annulee');
     expect(annuleeUpdate).toBeDefined();
+  });
+});
+
+describe('M1.7 / creerAvoir / Double annulation refusée', () => {
+  afterEach(() => vi.clearAllMocks());
+
+  it('R-AV4 : avoir sur facture annulee → erreur immédiate', async () => {
+    const factureAnnulee = { ...FACTURE_EMISE, statut: 'annulee' };
+    const sb = makeSupabase([{ data: factureAnnulee, error: null }]);
+    _setPennylaneHandlers(null);
+    const createSpy = vi.fn();
+    _setPennylaneHandlers({
+      createInvoice: createSpy,
+      finalizeInvoice: vi.fn(),
+      sendEmail: vi.fn(),
+      getInvoice: vi.fn(),
+      getCustomers: vi.fn(),
+      getInvoices: vi.fn(),
+      createDraft: vi.fn(),
+    });
+
+    const result = await creerAvoir(sb as never, 'fac-emise-001', 'Erreur');
+
+    expect(result.ok).toBe(false);
+    expect(result.erreur).toContain('annulee');
+    expect(createSpy).not.toHaveBeenCalled();
+    _setPennylaneHandlers(null);
+  });
+});
+
+// ─── Batch AG ─────────────────────────────────────────────────────────────────
+
+const COLLECTE_AG_CLOTUREE = {
+  id: 'col-ag-001',
+  type: 'anti_gaspi',
+  statut: 'cloturee',
+  annulee_cote_savr: false,
+  pack_antgaspi_id: null,
+  evenements: {
+    id: 'ev-ag-001',
+    organisation_id: 'org-ag-001',
+    nb_pax: 100,
+    date_evenement: '2026-06-10',
+    organisations: {
+      mode_facturation_zd: null,
+      grille_tarifaire_zd_id: null,
+      entites_facturation: [{ id: 'ef-ag-001', siret_verification: 'verifie' }],
+    },
+  },
+};
+
+describe('M1.7 / BatchBrouillons / AG hors pack', () => {
+  afterEach(() => vi.clearAllMocks());
+
+  it('R-BB7 : collecte AG cloturee hors pack → brouillon FAG créé (montant 590 HT)', async () => {
+    const sb = makeSupabase([
+      { data: [COLLECTE_AG_CLOTUREE], error: null }, // select collectes
+      { data: [], error: null }, // select dejaFactures
+      { data: { id: 'fac-ag-001' }, error: null }, // insert facture (single)
+      { data: null, error: null }, // insert facture_collecte
+    ]);
+    (sb._chain.single as ReturnType<typeof vi.fn>).mockResolvedValue({
+      data: { id: 'fac-ag-001' },
+      error: null,
+    });
+
+    const result = await runBatchBrouillonsJ1(sb as never);
+
+    expect(result.ag_par_collecte).toBe(1);
+    expect(result.errors).toHaveLength(0);
+
+    const insertCalls = (sb._chain.insert as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[Record<string, unknown>]>;
+    const insertFac = insertCalls.find(
+      (c) => c[0].type === 'collecte_antigaspi',
+    );
+    expect(insertFac).toBeDefined();
+    expect((insertFac![0] as { montant_ht: number }).montant_ht).toBe(590);
+  });
+});
+
+describe('M1.7 / BatchBrouillons / ZD mensuel — première création', () => {
+  afterEach(() => vi.clearAllMocks());
+
+  it('R-BB8 : aucun brouillon mensuel existant → nouveau brouillon mensuel créé avec ligne', async () => {
+    const sb = makeSupabase([
+      { data: [COLLECTE_ZD_MENSUELLE], error: null }, // [0] select collectes
+      { data: [], error: null }, // [1] select dejaFactures
+      // calculer_tarif_zd internals :
+      { data: null, error: null }, // [2] organisations.single()
+      { data: { id: 'grille-001' }, error: null }, // [3] grilles_tarifaires_zd.single()
+      {
+        data: { id: 'tar-1', prix_base_ht: 590, prix_par_couvert_ht: null },
+        error: null,
+      }, // [4] tarifs_zero_dechet.single()
+      { data: [], error: null }, // [5] tarifs_negocie (then path)
+      // creerOuAjouterBrouillonMensuel — aucun brouillon existant :
+      { data: { id: 'fac-mens-new' }, error: null }, // [6] insert facture (single)
+      { data: null, error: null }, // [7] insert factures_collectes
+    ]);
+    // maybeSingle retourne null → pas de brouillon existant
+    (sb._chain.maybeSingle as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      data: null,
+      error: null,
+    });
+    // single() pour insert facture
+    (sb._chain.single as ReturnType<typeof vi.fn>).mockResolvedValue({
+      data: { id: 'fac-mens-new' },
+      error: null,
+    });
+
+    const result = await runBatchBrouillonsJ1(sb as never);
+
+    expect(result.zd_mensuel).toBe(1);
+    expect(result.errors).toHaveLength(0);
+
+    const insertCalls = (sb._chain.insert as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[Record<string, unknown>]>;
+    const insertFac = insertCalls.find(
+      (c) =>
+        c[0].type === 'zero_dechet' && c[0].mode_facturation === 'mensuelle',
+    );
+    expect(insertFac).toBeDefined();
+    expect((insertFac![0] as { periode_debut: string }).periode_debut).toMatch(
+      /^\d{4}-\d{2}-01$/,
+    );
   });
 });

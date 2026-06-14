@@ -171,5 +171,51 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     /* audit failure non-bloquante */
   }
 
+  // Brouillon FPK pour achat global (mode_facturation=globale_achat)
+  if (mode_facturation === 'globale_achat' && montant_total_ht) {
+    try {
+      const { data: ef } = await supabase
+        .from('entites_facturation')
+        .select('id')
+        .eq('organisation_id', organisation_id)
+        .eq('est_principale', true)
+        .maybeSingle();
+
+      if (ef) {
+        const { data: facture } = await supabase
+          .from('factures')
+          .insert({
+            organisation_id,
+            entite_facturation_id: ef.id,
+            pack_antgaspi_id: pack.id,
+            type: 'achat_pack_antigaspi',
+            mode_facturation: 'globale_achat',
+            statut: 'brouillon',
+            montant_ht: montant_total_ht,
+            taux_tva: 20,
+            montant_tva: (montant_total_ht as number) * 0.2,
+            montant_ttc: (montant_total_ht as number) * 1.2,
+          })
+          .select('id')
+          .single();
+
+        if (facture) {
+          await supabase.from('factures_collectes').insert({
+            facture_id: facture.id,
+            collecte_id: null,
+            designation: `Pack AG ${type_pack} — ${credits_initiaux} crédits`,
+            quantite: 1,
+            taux_tva: 20,
+            tarif_applique_source: 'ag_unitaire',
+            montant_ligne_ht: montant_total_ht,
+            montant_ht: montant_total_ht,
+          });
+        }
+      }
+    } catch {
+      /* brouillon FPK non-bloquant — visible dès que l'entité de facturation est renseignée */
+    }
+  }
+
   return NextResponse.json(pack, { status: 201 });
 }

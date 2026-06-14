@@ -46,8 +46,9 @@ ON CONFLICT (id) DO NOTHING;
 -- User de test
 INSERT INTO auth.users (id, email) VALUES ('00000000-0000-0000-0000-000000000014'::uuid, 'test-m12@savr.io')
 ON CONFLICT (id) DO NOTHING;
-INSERT INTO plateforme.users (id, email, organisation_id, role)
+INSERT INTO plateforme.users (id, email, prenom, nom, organisation_id, role)
 VALUES ('00000000-0000-0000-0000-000000000014'::uuid, 'test-m12@savr.io',
+        'Test', 'M12',
         '00000000-0000-0000-0000-000000000010'::uuid, 'traiteur_commercial')
 ON CONFLICT (id) DO NOTHING;
 

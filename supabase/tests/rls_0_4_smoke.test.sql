@@ -116,7 +116,7 @@ VALUES
 
 -- Bordereau (pour tests fichiers)
 INSERT INTO plateforme.bordereaux_savr (id, collecte_id, statut)
-VALUES ('bbbb0001-0000-0000-0000-000000000001'::uuid, 'cccc0001-0000-0000-0000-000000000001'::uuid, 'en_attente');
+VALUES ('bbbb0001-0000-0000-0000-000000000001'::uuid, 'cccc0001-0000-0000-0000-000000000001'::uuid, 'brouillon');
 
 -- Fichier lié au bordereau org A
 INSERT INTO shared.fichiers (id, storage_provider, bucket, key, size_bytes, content_type, entity_type, entity_id)

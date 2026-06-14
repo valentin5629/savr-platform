@@ -151,11 +151,11 @@ SELECT results_eq(
 -- T25 : Client tente INSERT bordereau (policy INSERT denied) → 42501
 SELECT test_as_superuser();
 INSERT INTO plateforme.bordereaux_savr (id, collecte_id, statut)
-VALUES ('bd100001-0000-0000-0000-000000000001'::uuid, 'c01c0001-0000-0000-0000-000000000001'::uuid, 'en_attente');
+VALUES ('bd100001-0000-0000-0000-000000000001'::uuid, 'c01c0001-0000-0000-0000-000000000001'::uuid, 'brouillon');
 SELECT test_set_jwt('traiteur_manager', 'bbbbbbbb-0000-0000-0000-000000000001'::uuid);
 SELECT throws_ok(
   $$INSERT INTO plateforme.bordereaux_savr (id, collecte_id, statut)
-    VALUES (gen_random_uuid(), 'c01c0001-0000-0000-0000-000000000001', 'en_attente')$$,
+    VALUES (gen_random_uuid(), 'c01c0001-0000-0000-0000-000000000001', 'brouillon')$$,
   '42501', NULL, 'T25 Erreur : cross-org INSERT bordereau denied'
 );
 

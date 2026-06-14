@@ -1,0 +1,77 @@
+{
+  "module": "M1.6",
+  "titre": "Génération PDF ZD — bordereau de pesée + rapport de recyclage",
+  "description": "Moteur PDF Railway/Puppeteer (transverse A+B) + batch J+1 6h pour collectes ZD cloturees : bordereau de pesée (BSAV-YYYY-NNNNN) + rapport de recyclage multi-pages avec embargo H+24. Worker jobs_pdf (retry 15min/4h, dead → alerte Admin in-app). Escalade R9 si pesées manquantes > 48h. Endpoints Admin URL pré-signée R2 (15 min) avec contrôle embargo applicatif. Pas d'attestation AG (M2.4).",
+  "garde_fous_tms_ready": {
+    "G1": "Colonnes bordereaux_savr et rapports_rse alignées sur DDL cible V2 (numero, producteur_*, detail_flux, genere_par). jobs_pdf colonnes renommées : tentatives→attempts, prochaine_tentative_at→next_retry_at, resultat_fichier_id→fichier_id, erreur_detail→last_error.",
+    "G3": "0 référence mts1/everest hors packages/adapters/ — non concerné par M1.6",
+    "G4": "Non concerné — pas d'outbox métier dans M1.6 (batch PDF, pas mutation collecte)"
+  },
+  "fichiers_produits": [
+    "supabase/migrations/20260614160000_plateforme_m1_6_pdf_zd.sql",
+    "apps/pdf-renderer/package.json",
+    "apps/pdf-renderer/tsconfig.json",
+    "apps/pdf-renderer/Dockerfile",
+    "apps/pdf-renderer/src/server.ts",
+    "apps/pdf-renderer/src/templates/bordereau-zd.ts",
+    "apps/pdf-renderer/src/templates/rapport-recyclage-zd.ts",
+    "packages/plateforme/src/lib/pdf/railway-client.ts",
+    "packages/plateforme/src/lib/pdf/r2-client.ts",
+    "packages/plateforme/src/lib/pdf/pdf-worker.ts",
+    "packages/plateforme/src/lib/pdf/batch-pdf-j1.ts",
+    "packages/plateforme/src/app/api/cron/pdf-worker/route.ts",
+    "packages/plateforme/src/app/api/cron/batch-pdf-j1/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/bordereaux/[id]/download/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/rapports-rse/[id]/download/route.ts",
+    "packages/plateforme/tests/api/pdf-worker.m1-6.test.ts",
+    "packages/plateforme/tests/api/batch-pdf-j1.m1-6.test.ts",
+    "supabase/tests/m1_6_pdf_batch.test.sql",
+    "specs/manifests/M1.6.json"
+  ],
+  "variables_env_requises": [
+    "RAILWAY_PDF_URL",
+    "RAILWAY_PDF_SECRET",
+    "R2_ACCOUNT_ID",
+    "R2_ACCESS_KEY_ID",
+    "R2_SECRET_ACCESS_KEY"
+  ],
+  "tables_concernees": [
+    "plateforme.jobs_pdf (colonnes renommées + payload ajouté)",
+    "plateforme.bordereaux_savr (numero, producteur_*, transporteur_*, exutoire_*, detail_flux, version, bordereau_statut)",
+    "plateforme.rapports_rse (genere_par)",
+    "plateforme.alertes_admin (nouvelle table V1-only in-app)",
+    "plateforme.sequences_facturation (série BSAV)",
+    "shared.fichiers (INSERT par worker)",
+    "plateforme.collecte_flux (READ)",
+    "plateforme.collectes (READ)"
+  ],
+  "scenarios": [
+    "Collecte ZD cloturee avec flux → batch J+1 → 2 jobs enqueués (bordereau + rapport)",
+    "Collecte ZD sans pesées (0 ligne collecte_flux) → skip, aucun job",
+    "Collecte skippée depuis > 48h → alerte Admin in-app créée (R9)",
+    "Collecte déjà traitée (bordereau emis) → idempotent, aucun doublon",
+    "Worker job pending → Railway → R2 → done, fichier_id lié",
+    "Worker échec Railway → failed, next_retry_at +15min",
+    "Worker attempts ≥ 16 → dead + alerte Admin (pdf_job_dead)",
+    "Download bordereau Admin → URL pré-signée 15min",
+    "Download rapport Admin sous embargo → 425, disponible_a retourné",
+    "Download rapport Admin après embargo → URL pré-signée 15min",
+    "f_next_numero_bordereau gapless BSAV-YYYY-NNNNN",
+    "f_upsert_alerte_admin dédup : 1 seule alerte ouverte par (code, entity)"
+  ],
+  "tests": {
+    "vitest": [
+      "packages/plateforme/tests/api/pdf-worker.m1-6.test.ts (8 tests)",
+      "packages/plateforme/tests/api/batch-pdf-j1.m1-6.test.ts (5 tests)"
+    ],
+    "pgtap": [
+      "supabase/tests/m1_6_pdf_batch.test.sql (14 assertions)"
+    ]
+  },
+  "hors_scope": [
+    "Attestation don AG 2041-GE (M2.4)",
+    "Régénération manuelle UI traiteur (M3.1)",
+    "Export PDF registre réglementaire formaté (V1.1)",
+    "Dashboard Admin Bloc 3 Coûts (V1.1, déscopé)"
+  ]
+}

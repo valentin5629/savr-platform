@@ -375,8 +375,8 @@ async function main(): Promise<void> {
       )) === 1,
     );
     check(
-      'audit_log = 5',
-      (await scalar('select count(*) n from plateforme.audit_log')) === 5,
+      'audit_log = 6',
+      (await scalar('select count(*) n from plateforme.audit_log')) === 6,
     );
 
     // ── 2. Objets clés présents (lookup par slug) ───────────────────────────

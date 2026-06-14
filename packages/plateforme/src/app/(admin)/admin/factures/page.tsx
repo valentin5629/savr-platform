@@ -19,6 +19,7 @@ interface Facture {
   montant_ttc: number;
   devise: string;
   date_emission: string | null;
+  date_echeance: string | null;
   date_paiement: string | null;
   organisations: { raison_sociale: string } | null;
   entites_facturation: { raison_sociale: string; siret: string | null } | null;
@@ -88,7 +89,16 @@ const columns: Column<Facture>[] = [
         label: row.statut,
         variant: 'neutral' as BadgeVariant,
       };
-      return <Badge variant={s.variant}>{s.label}</Badge>;
+      const enRetard =
+        row.statut === 'emise' &&
+        row.date_echeance != null &&
+        new Date(row.date_echeance) < new Date();
+      return (
+        <span className="flex items-center gap-1.5">
+          <Badge variant={s.variant}>{s.label}</Badge>
+          {enRetard && <Badge variant="error">En retard</Badge>}
+        </span>
+      );
     },
   },
   {

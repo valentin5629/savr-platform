@@ -79,6 +79,15 @@ SELECT has_column('plateforme', 'sequences_facturation', 'dernier_numero',
 SELECT hasnt_column('plateforme', 'sequences_facturation', 'dernier',
   'ancienne colonne dernier supprimée');
 
+-- ── 4b. Existence fonction et trigger M1.7 ──────────────────────────────
+
+SELECT has_function('plateforme', 'f_attribuer_numero_facture',
+  ARRAY['text','integer'],
+  'fonction f_attribuer_numero_facture(serie, annee) existe');
+
+SELECT has_trigger('plateforme', 'factures', 'trg_check_avoir_facture_valide',
+  'trigger trg_check_avoir_facture_valide sur factures');
+
 -- ── 5. f_attribuer_numero_facture — séquence gapless ─────────────────────
 
 DELETE FROM plateforme.sequences_facturation WHERE serie IN ('FZD','FAG','FPK','AV') AND annee = 2099;

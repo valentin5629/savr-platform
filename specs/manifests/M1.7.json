@@ -68,7 +68,7 @@
   ],
   "tests": {
     "vitest": [
-      "packages/plateforme/tests/lib/facturation.m1-7.test.ts (17 tests)"
+      "packages/plateforme/tests/lib/facturation.m1-7.test.ts (23 tests)"
     ],
     "pgtap": [
       "supabase/tests/m1_7_facturation.test.sql (32 assertions)"

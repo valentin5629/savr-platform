@@ -11,7 +11,7 @@ type NavResponse = { role: string; items: { label: string; href: string }[] };
 const EXPECTED: Record<string, string[]> = {
   admin_savr: ['Clients', 'Paramètres', 'Collectes'],
   traiteur_manager: ['Événements', 'Collectes', 'Dashboard'],
-  traiteur_commercial: ['Programmation', 'Mes collectes'],
+  traiteur_commercial: ['Programmer une collecte', 'Mes collectes'],
   agence: ['Collectes', 'Lieux'],
   gestionnaire_lieux: ['Mes lieux', 'Collectes'],
   client_organisateur: ['Mes événements', 'Collectes'],

@@ -208,7 +208,7 @@ it('M0.8-15 — Sidebar affiche le fond primary-700/800 (levier #2)', () => {
 const NAV_EXPECTATIONS: Record<Role, string[]> = {
   admin_savr: ['Clients', 'Paramètres', 'Collectes'],
   traiteur_manager: ['Événements', 'Collectes', 'Dashboard'],
-  traiteur_commercial: ['Programmation', 'Mes collectes'],
+  traiteur_commercial: ['Programmer une collecte', 'Mes collectes'],
   agence: ['Collectes', 'Lieux'],
   gestionnaire_lieux: ['Mes lieux', 'Collectes'],
   client_organisateur: ['Mes événements', 'Collectes'],

@@ -7,6 +7,20 @@ const ROLE_PREFIXES: Record<string, string[]> = {
   '/agence': ['agence'],
   '/gestionnaire': ['gestionnaire_lieux'],
   '/client-organisateur': ['client_organisateur'],
+  '/programmer': [
+    'traiteur_commercial',
+    'traiteur_manager',
+    'agence',
+    'gestionnaire_lieux',
+    'admin_savr',
+  ],
+  '/brouillons': [
+    'traiteur_commercial',
+    'traiteur_manager',
+    'agence',
+    'gestionnaire_lieux',
+    'admin_savr',
+  ],
 };
 
 function getRolesForPath(pathname: string): string[] | null {

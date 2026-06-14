@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
-import { requireProgrammateur } from '@/lib/api-auth.js';
+import { requireProgrammateurOuAdmin } from '@/lib/api-auth.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const auth = await requireProgrammateur(req);
+  const auth = await requireProgrammateurOuAdmin(req);
   if (auth.error) return auth.error;
 
   const supabase = createAdminSupabaseClient();
@@ -58,6 +58,8 @@ interface ProgrammationBody {
   contact_secours_telephone?: string;
   // Rôles agence/gestionnaire uniquement
   traiteur_operationnel_organisation_id?: string;
+  // Admin support : organisation cible
+  organisation_id?: string;
   // Étape 3
   collectes: CollecteInput[];
   // Mode
@@ -65,10 +67,26 @@ interface ProgrammationBody {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const auth = await requireProgrammateur(req);
+  const auth = await requireProgrammateurOuAdmin(req);
   if (auth.error) return auth.error;
 
   const body = (await req.json()) as ProgrammationBody;
+
+  // admin_savr programme pour le compte d'une org : organisation_id requis dans le body
+  const effectiveOrgId =
+    auth.ctx.isAdmin && !auth.ctx.organisationId
+      ? (body.organisation_id as string | undefined)
+      : auth.ctx.organisationId;
+
+  if (!effectiveOrgId) {
+    return NextResponse.json(
+      {
+        error:
+          'Champ organisation_id requis pour la programmation de support admin',
+      },
+      { status: 422 },
+    );
+  }
 
   // Validation champs obligatoires
   if (
@@ -121,9 +139,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // Résolution traiteur opérationnel
   const traiteurOperationnelId =
-    auth.ctx.role === 'agence' || auth.ctx.role === 'gestionnaire_lieux'
-      ? body.traiteur_operationnel_organisation_id
-      : auth.ctx.organisationId;
+    auth.ctx.role === 'agence' ||
+    auth.ctx.role === 'gestionnaire_lieux' ||
+    auth.ctx.isAdmin
+      ? (body.traiteur_operationnel_organisation_id ?? effectiveOrgId)
+      : effectiveOrgId;
 
   if (!traiteurOperationnelId) {
     return NextResponse.json(
@@ -136,7 +156,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const { data: entite } = await supabase
     .from('entites_facturation')
     .select('id')
-    .eq('organisation_id', auth.ctx.organisationId)
+    .eq('organisation_id', effectiveOrgId)
     .eq('siret_verification', 'verifie')
     .maybeSingle();
 
@@ -156,7 +176,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const { data: pack } = await supabase
       .from('packs_antgaspi')
       .select('id, credits_restants')
-      .eq('organisation_id', auth.ctx.organisationId)
+      .eq('organisation_id', effectiveOrgId)
       .eq('statut', 'actif')
       .maybeSingle();
 
@@ -175,7 +195,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const { data: evt, error: evtErr } = await supabase
     .from('evenements')
     .insert({
-      organisation_id: auth.ctx.organisationId,
+      organisation_id: effectiveOrgId,
       traiteur_operationnel_organisation_id: traiteurOperationnelId,
       entite_facturation_id: entite.id,
       lieu_id: body.lieu_id,

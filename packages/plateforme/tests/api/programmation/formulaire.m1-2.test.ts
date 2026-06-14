@@ -343,15 +343,18 @@ describe('M1.2 / Validations bloquantes', () => {
     expect(json.error).toMatch(/SIRET|profil/i);
   });
 
-  it('programmation_non_autorisee_role_admin — 403 si admin_savr tente de programmer', async () => {
-    setupAuth('admin_savr');
+  it('programmation_admin_sans_org — 422 si admin_savr sans organisation_id dans le body', async () => {
+    setupAuth('admin_savr', ''); // admin_savr n'a pas d'organisation_id dans son JWT
 
     const { POST } =
       await import('@/app/api/v1/programmation/evenements/route.js');
+    // admin_savr autorisé mais doit fournir organisation_id dans le body (support programmation)
     const res = await POST(
       makeReq('POST', '/api/v1/programmation/evenements', BODY_ZD),
     );
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(422);
+    const json = (await res.json()) as { error: string };
+    expect(json.error).toMatch(/organisation_id/i);
   });
 });
 

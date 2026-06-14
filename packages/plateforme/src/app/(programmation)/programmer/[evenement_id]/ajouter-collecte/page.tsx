@@ -34,15 +34,15 @@ export default function AjouterCollectePage() {
   const valid = data.date_collecte !== '' && data.heure_collecte !== '';
 
   const handleSubmit = async () => {
-    // Vérification doublon AG : détecter si une collecte AG existe déjà
+    // Vérification doublon AG : détecter si CET événement a déjà une collecte AG
     if (type === 'ag' && !agDoublonConfirm) {
-      const check = await fetch(`/api/v1/programmation/evenements?statut=all`);
-      const evts = (await check.json()) as {
-        data: { collectes: { type: string }[] }[];
-      };
-      const hasAg = evts.data?.some((e) =>
-        e.collectes?.some((c) => c.type === 'ag'),
+      const check = await fetch(
+        `/api/v1/programmation/evenements/${evenement_id}`,
       );
+      const evt = (await check.json()) as {
+        collectes?: { type: string }[];
+      };
+      const hasAg = evt.collectes?.some((c) => c.type === 'ag');
       if (hasAg) {
         setAgDoublonWarning(true);
         return;

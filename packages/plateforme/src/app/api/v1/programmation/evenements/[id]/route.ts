@@ -2,6 +2,33 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireProgrammateur } from '@/lib/api-auth.js';
 
+// Détail d'un événement avec ses collectes (pour vérification doublon AG etc.)
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+): Promise<NextResponse> {
+  const auth = await requireProgrammateur(req);
+  if (auth.error) return auth.error;
+
+  const { id: evenementId } = await params;
+  const supabase = createAdminSupabaseClient();
+
+  const { data, error } = await supabase
+    .from('evenements')
+    .select('id, nom_evenement, collectes(id, type, statut, date_collecte)')
+    .eq('id', evenementId)
+    .eq('organisation_id', auth.ctx.organisationId)
+    .single();
+
+  if (error || !data)
+    return NextResponse.json(
+      { error: 'Événement introuvable ou accès refusé' },
+      { status: 404 },
+    );
+
+  return NextResponse.json(data);
+}
+
 // Suppression d'un événement brouillon (et ses collectes) par son propriétaire.
 export async function DELETE(
   req: NextRequest,

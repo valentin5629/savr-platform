@@ -1,0 +1,32 @@
+{
+  "module": "M1.3",
+  "titre": "Tarification ZD — calculer_tarif_zd()",
+  "description": "Fonction TypeScript calculer_tarif_zd(pax, organisationId, date, supabase) : grille versionnée, paliers Standard V1, remises multiplicatives. Seed correction grille Standard avec valeurs spec (paliers forfaitaires 450/600/800/1000/1€pax).",
+  "fichiers_produits": [
+    "packages/plateforme/src/lib/tarif-zd.ts",
+    "packages/plateforme/tests/lib/tarif-zd.m1-3.test.ts",
+    "supabase/migrations/20260614100000_plateforme_m1_3_correct_grille_standard.sql"
+  ],
+  "scenarios": [
+    "M1.3/tarif-zd — palier 1 : 1 pax (borne basse)",
+    "M1.3/tarif-zd — palier 1 : 100 pax (milieu)",
+    "M1.3/tarif-zd — palier 1 : 250 pax (borne haute)",
+    "M1.3/tarif-zd — palier 2 : 251 pax (borne basse)",
+    "M1.3/tarif-zd — palier 2 : 400 pax (milieu)",
+    "M1.3/tarif-zd — palier 2 : 500 pax (borne haute)",
+    "M1.3/tarif-zd — palier 3 : 501 pax (borne basse)",
+    "M1.3/tarif-zd — palier 3 : 750 pax (borne haute)",
+    "M1.3/tarif-zd — palier 4 : 751 pax (borne basse)",
+    "M1.3/tarif-zd — palier 4 : 1000 pax (borne haute)",
+    "M1.3/tarif-zd — palier 5 : 1001 pax (borne basse >1000)",
+    "M1.3/tarif-zd — palier 5 : 2000 pax (affine 1€/pax)",
+    "M1.3/tarif-zd — remise organisation : montant brut × (1 - remise_pct)",
+    "M1.3/tarif-zd — remise cumulative : Π(1 - remise_pct)",
+    "M1.3/tarif-zd — organisation NULL : utilise grille défaut",
+    "M1.3/tarif-zd — organisation sans grille assignée : utilise grille défaut",
+    "M1.3/tarif-zd — erreur PAX_INVALIDE : pax = 0",
+    "M1.3/tarif-zd — erreur PAX_INVALIDE : pax = -1",
+    "M1.3/tarif-zd — erreur PAX_INVALIDE : pax non entier (1.5)",
+    "M1.3/tarif-zd — erreur GRILLE_INTROUVABLE : aucune grille active"
+  ]
+}

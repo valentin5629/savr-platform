@@ -1,3 +1,10 @@
 title = "Savr gitleaks config"
+
 [extend]
 useDefault = true
+
+[allowlist]
+description = "Faux positifs — clés d'objets de colonnes de tableau (noms de champs SQL)"
+commits = [
+  "b4f20b7d33f3d19839a59f1edd5442e8d92722ae",
+]

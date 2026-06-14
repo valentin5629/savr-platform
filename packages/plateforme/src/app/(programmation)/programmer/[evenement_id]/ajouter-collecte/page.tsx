@@ -21,15 +21,34 @@ export default function AjouterCollectePage() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [agDoublonConfirm, setAgDoublonConfirm] = useState(false);
+  const [agDoublonWarning, setAgDoublonWarning] = useState(false);
 
   const handleTypeChange = (t: 'zd' | 'ag') => {
     setType(t);
     setData({ ...data, type: t });
+    setAgDoublonWarning(false);
+    setAgDoublonConfirm(false);
   };
 
   const valid = data.date_collecte !== '' && data.heure_collecte !== '';
 
   const handleSubmit = async () => {
+    // Vérification doublon AG : détecter si une collecte AG existe déjà
+    if (type === 'ag' && !agDoublonConfirm) {
+      const check = await fetch(`/api/v1/programmation/evenements?statut=all`);
+      const evts = (await check.json()) as {
+        data: { collectes: { type: string }[] }[];
+      };
+      const hasAg = evts.data?.some((e) =>
+        e.collectes?.some((c) => c.type === 'ag'),
+      );
+      if (hasAg) {
+        setAgDoublonWarning(true);
+        return;
+      }
+    }
+
     setSubmitting(true);
     setError(null);
     try {
@@ -90,6 +109,35 @@ export default function AjouterCollectePage() {
         onChange={(updated) => setData(updated)}
       />
 
+      {agDoublonWarning && (
+        <div className="rounded-savr-md border border-savr-warning bg-amber-50 px-4 py-3 space-y-3">
+          <p className="flex items-start gap-2 text-sm text-amber-800">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+            Cet événement a déjà une collecte Anti-Gaspi. Confirmer l&apos;ajout
+            d&apos;une seconde&nbsp;?
+          </p>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              onClick={() => {
+                setAgDoublonConfirm(true);
+                setAgDoublonWarning(false);
+                void handleSubmit();
+              }}
+            >
+              Confirmer quand même
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setAgDoublonWarning(false)}
+            >
+              Annuler
+            </Button>
+          </div>
+        </div>
+      )}
+
       {error && (
         <div className="flex items-center gap-2 rounded-savr-md bg-red-50 border border-savr-error px-3 py-2 text-sm text-savr-error">
           <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -103,7 +151,7 @@ export default function AjouterCollectePage() {
         </Button>
         <Button
           onClick={() => void handleSubmit()}
-          disabled={!valid || submitting}
+          disabled={!valid || submitting || agDoublonWarning}
         >
           <CheckCircle className="h-4 w-4" />
           Ajouter la collecte

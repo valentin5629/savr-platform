@@ -73,6 +73,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // Validation champs obligatoires
   if (
     !body.pax ||
+    body.pax < 1 ||
     !body.type_evenement_id ||
     !body.lieu_id ||
     !body.contact_principal_nom ||
@@ -82,8 +83,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       {
         error:
-          'Champs obligatoires : pax, type_evenement_id, lieu_id, contact_principal_nom, contact_principal_telephone, collectes',
+          'Champs obligatoires : pax (≥1), type_evenement_id, lieu_id, contact_principal_nom, contact_principal_telephone, collectes',
       },
+      { status: 422 },
+    );
+  }
+
+  // Nom client obligatoire à la confirmation (pas bloquant en brouillon)
+  if (body.confirmer && !body.nom_client_organisateur) {
+    return NextResponse.json(
+      { error: 'Nom du client obligatoire pour confirmer la programmation' },
       { status: 422 },
     );
   }

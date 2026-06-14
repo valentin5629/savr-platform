@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { PlusCircle, FileEdit, CalendarDays } from 'lucide-react';
+import { PlusCircle, FileEdit, CalendarDays, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -20,6 +20,7 @@ export default function BrouillonsPage() {
   const router = useRouter();
   const [rows, setRows] = useState<BrouillonRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   useEffect(() => {
     void fetch('/api/v1/programmation/evenements?statut=brouillon')
@@ -27,6 +28,15 @@ export default function BrouillonsPage() {
       .then((d) => setRows(d.data ?? []))
       .finally(() => setLoading(false));
   }, []);
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Supprimer ce brouillon ? Cette action est irréversible.'))
+      return;
+    setDeleting(id);
+    await fetch(`/api/v1/programmation/evenements/${id}`, { method: 'DELETE' });
+    setRows((prev) => prev.filter((r) => r.id !== id));
+    setDeleting(null);
+  };
 
   return (
     <div className="space-y-6">
@@ -90,6 +100,16 @@ export default function BrouillonsPage() {
                   <Link href={`/programmer/brouillon/${row.id}`}>
                     Reprendre
                   </Link>
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => void handleDelete(row.id)}
+                  disabled={deleting === row.id}
+                  className="text-savr-error hover:bg-red-50 hover:border-savr-error"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Supprimer
                 </Button>
               </div>
             </li>

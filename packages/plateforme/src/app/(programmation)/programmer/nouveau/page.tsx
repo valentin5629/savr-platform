@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { createBrowserSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import {
   AlertTriangle,
   ChevronLeft,
@@ -37,6 +38,13 @@ interface TypeEvenement {
   libelle: string;
 }
 
+interface TraiteurOption {
+  id: string;
+  raison_sociale: string;
+  nom_commercial: string | null;
+  ville: string | null;
+}
+
 interface PackInfo {
   pack_actif: boolean;
   nb_collectes?: number;
@@ -51,11 +59,30 @@ const emptyCollecte = (type: 'zd' | 'ag'): CollecteFormData => ({
   informations_supplementaires: '',
 });
 
+function parseJwt(token: string): Record<string, unknown> {
+  try {
+    return JSON.parse(
+      Buffer.from(token.split('.')[1] ?? '', 'base64url').toString('utf-8'),
+    ) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
 export default function NouveauProgrammationPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Rôle courant (nécessaire pour UI agence/gestionnaire)
+  const [role, setRole] = useState<string>('');
+  const needsTraiteurSelector =
+    role === 'agence' || role === 'gestionnaire_lieux';
+
+  // Traiteur opérant (agence / gestionnaire_lieux uniquement)
+  const [traiteurOperationnelId, setTraiteurOperationnelId] = useState('');
+  const [traiteurs, setTraiteurs] = useState<TraiteurOption[]>([]);
 
   // Étape 1
   const [nomClient, setNomClient] = useState('');
@@ -96,6 +123,25 @@ export default function NouveauProgrammationPage() {
     void fetch('/api/v1/programmation/types-evenements')
       .then((r) => r.json() as Promise<TypeEvenement[]>)
       .then(setTypesEvenements);
+  }, []);
+
+  // Lecture du rôle + chargement des traiteurs si agence/gestionnaire
+  useEffect(() => {
+    const supabase = createBrowserSupabaseClient();
+    void supabase.auth.getSession().then(({ data }) => {
+      const token = data.session?.access_token;
+      if (!token) return;
+      const claims = parseJwt(token);
+      const r = claims['role'] as string | undefined;
+      if (r) {
+        setRole(r);
+        if (r === 'agence' || r === 'gestionnaire_lieux') {
+          void fetch('/api/v1/programmation/organisations/traiteurs')
+            .then((res) => res.json() as Promise<TraiteurOption[]>)
+            .then(setTraiteurs);
+        }
+      }
+    });
   }, []);
 
   // Sync collectes array when type selection changes
@@ -142,7 +188,8 @@ export default function NouveauProgrammationPage() {
     nomClient.trim() !== '' &&
     parseInt(pax) > 0 &&
     typeEvenementId !== '' &&
-    (typesCollecte.zd || typesCollecte.ag);
+    (typesCollecte.zd || typesCollecte.ag) &&
+    (!needsTraiteurSelector || traiteurOperationnelId !== '');
 
   const step2Valid = lieu !== null && contactPrincipal !== null;
 
@@ -191,6 +238,9 @@ export default function NouveauProgrammationPage() {
             c.informations_supplementaires || undefined,
         })),
         confirmer,
+        ...(needsTraiteurSelector && traiteurOperationnelId
+          ? { traiteur_operationnel_organisation_id: traiteurOperationnelId }
+          : {}),
       };
 
       const res = await fetch('/api/v1/programmation/evenements', {
@@ -336,6 +386,27 @@ export default function NouveauProgrammationPage() {
               className="w-full rounded-savr-md border border-savr-neutral-300 px-3 py-2 text-sm focus:outline-2 focus:outline-savr-primary-500"
             />
           </div>
+
+          {needsTraiteurSelector && (
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-savr-neutral-700">
+                Traiteur opérant <span className="text-savr-error">*</span>
+              </label>
+              <select
+                value={traiteurOperationnelId}
+                onChange={(e) => setTraiteurOperationnelId(e.target.value)}
+                className="w-full rounded-savr-md border border-savr-neutral-300 px-3 py-2 text-sm focus:outline-2 focus:outline-savr-primary-500 bg-savr-white"
+              >
+                <option value="">Choisir un traiteur…</option>
+                {traiteurs.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.nom_commercial ?? t.raison_sociale}
+                    {t.ville ? ` — ${t.ville}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="flex justify-end">
             <Button onClick={() => setStep(1)} disabled={!step1Valid}>

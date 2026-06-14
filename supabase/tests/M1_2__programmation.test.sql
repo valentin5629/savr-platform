@@ -334,5 +334,32 @@ SELECT throws_ok(
 RESET role;
 RESET "request.jwt.claims";
 
+-- ─── Test 13 : gestionnaire_lieux ne peut pas lire un lieu hors périmètre ───
+
+-- Lieu appartenant à une autre organisation (hors organisations_lieux)
+INSERT INTO plateforme.lieux (id, nom, adresse_acces, code_postal, ville, type_vehicule_max, actif)
+VALUES ('00000000-0000-0000-0000-000000000030'::uuid, 'Lieu Hors Périmètre', 'Rue Inconnue 1', '75002', 'Paris', 'camion', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Organisation gestionnaire distincte
+INSERT INTO plateforme.organisations (id, raison_sociale, type, actif)
+VALUES ('00000000-0000-0000-0000-000000000031'::uuid, 'Gestionnaire Org Test', 'gestionnaire_lieux', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Pas d'entrée dans organisations_lieux pour ce lieu + org gestionnaire
+
+SET LOCAL role = authenticated;
+SET LOCAL "request.jwt.claims" = '{"role":"gestionnaire_lieux","organisation_id":"00000000-0000-0000-0000-000000000031"}';
+
+SELECT is(
+  (SELECT count(*)::int FROM plateforme.lieux
+   WHERE id = '00000000-0000-0000-0000-000000000030'::uuid),
+  0,
+  'T13 : gestionnaire_lieux ne voit pas un lieu hors organisations_lieux (RLS)'
+);
+
+RESET role;
+RESET "request.jwt.claims";
+
 SELECT * FROM finish();
 ROLLBACK;

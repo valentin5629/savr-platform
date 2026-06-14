@@ -1,0 +1,85 @@
+{
+  "module": "M1.7",
+  "titre": "Facturation Pennylane — brouillons J+1, validation Admin, retry, polling paiement, avoirs",
+  "description": "Intégration Pennylane API v2 complète : batch J+1 génération brouillons ZD (par collecte + mensuel groupé) et AG, validation Admin (numérotation gapless FZD/FAG/FPK/AV + push 3 appels create→finalize→send_email), gate SIRET, retry automatique 3 paliers (5min/1h/24h), polling paiement J+1 3h, avoir intégral sur facture emise/payee. Schema enrichi (facture_type, facture_mode, tarif_source, colonnes manquantes, rename dernier→dernier_numero). UI Admin : liste factures + detail avec actions valider/renvoyer/avoir.",
+  "garde_fous_tms_ready": {
+    "G1": "Colonnes factures/factures_collectes/sequences_facturation alignées sur DDL cible V2 (facture_type, facture_mode, tarif_source, marge_logistique NULL V1, dernier_numero). Pas de table tms.* créée.",
+    "G3": "0 référence mts1/everest hors packages/adapters/ — non concerné par M1.7",
+    "G4": "Non concerné — pas d'outbox métier dans M1.7 (facturation pure)"
+  },
+  "fichiers_produits": [
+    "supabase/migrations/20260615000000_plateforme_m1_7_enums.sql",
+    "supabase/migrations/20260615000100_plateforme_m1_7_factures.sql",
+    "fixtures/api/pennylane/create_invoice_success.json",
+    "fixtures/api/pennylane/create_invoice_4xx.json",
+    "fixtures/api/pennylane/finalize_success.json",
+    "fixtures/api/pennylane/send_email_success.json",
+    "fixtures/api/pennylane/get_invoice_outstanding.json",
+    "fixtures/api/pennylane/get_invoice_paid.json",
+    "fixtures/api/pennylane/credit_note_success.json",
+    "packages/plateforme/src/lib/pennylane/mock.ts",
+    "packages/plateforme/src/lib/pennylane/client.ts",
+    "packages/plateforme/src/lib/facturation/numerotation.ts",
+    "packages/plateforme/src/lib/facturation/batch-brouillons.ts",
+    "packages/plateforme/src/lib/facturation/validation-admin.ts",
+    "packages/plateforme/src/lib/facturation/avoirs.ts",
+    "packages/plateforme/src/lib/facturation/polling-paiement.ts",
+    "packages/plateforme/src/app/api/cron/batch-brouillons-j1/route.ts",
+    "packages/plateforme/src/app/api/cron/pennylane-retry/route.ts",
+    "packages/plateforme/src/app/api/cron/polling-pennylane/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/factures/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/factures/[id]/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/factures/[id]/valider/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/factures/[id]/renvoyer/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/factures/[id]/avoir/route.ts",
+    "packages/plateforme/src/app/(admin)/admin/factures/page.tsx",
+    "packages/plateforme/src/app/(admin)/admin/factures/[id]/page.tsx",
+    "packages/plateforme/tests/lib/facturation.m1-7.test.ts",
+    "supabase/tests/m1_7_facturation.test.sql",
+    "packages/plateforme/vercel.json",
+    "specs/manifests/M1.7.json"
+  ],
+  "variables_env_requises": [
+    "PENNYLANE_API_KEY"
+  ],
+  "tables_concernees": [
+    "plateforme.factures (type, mode_facturation, pack_antgaspi_id, erreur_synchro, erreur_synchro_at, derniere_tentative_pennylane_at, marge_logistique, date_paiement — numero_facture rendu nullable)",
+    "plateforme.factures_collectes (designation, quantite, taux_tva, tarif_applique_id, tarif_applique_source, tarif_detail, montant_ligne_ht, libelle_ligne)",
+    "plateforme.sequences_facturation (colonne dernier renommée dernier_numero, séries FZD/FAG/FPK/AV ajoutées)",
+    "plateforme.packs_antgaspi (READ — mode_facturation)",
+    "plateforme.entites_facturation (READ — siret_verification, pennylane_customer_id)"
+  ],
+  "scenarios": [
+    "Collecte ZD cloturee SIRET verifie → batch J+1 → brouillon FZD créé",
+    "Organisation mode_facturation_zd=mensuelle → brouillon regroupé sur le mois",
+    "Collecte AG cloturee hors pack globale_achat → brouillon FAG créé",
+    "SIRET non_verifie → collecte skippée (gate), aucune facture créée",
+    "Brouillon déjà présent pour la collecte → idempotent, aucun doublon",
+    "Admin valide brouillon → numéro FZD-YYYY-NNNNN gapless + 3 appels Pennylane → emise",
+    "Numéro déjà attribué (après 4xx) → pas de réattribution, numéro conservé",
+    "Pennylane 4xx → retour brouillon, erreur_synchro enregistrée, numéro conservé",
+    "Pennylane 5xx → en_attente_pennylane + pennylane_statut=retry_1",
+    "Finalize 5xx → en_attente_pennylane, pennylane_id déjà sauvegardé",
+    "Cron retry → 3 paliers 5min/1h/24h, DLQ → alerte Admin #savr-alerts-critique",
+    "Polling paiement → facture emise + Pennylane paid → payee + date_paiement",
+    "Avoir sur facture emise → AV-YYYY-NNNNN + facture origine annulee + push Pennylane credit_note",
+    "Avoir sur facture brouillon → refusé (trigger + route 422)",
+    "f_attribuer_numero_facture gapless : FZD-2026-00001, FZD-2026-00002…"
+  ],
+  "tests": {
+    "vitest": [
+      "packages/plateforme/tests/lib/facturation.m1-7.test.ts (17 tests)"
+    ],
+    "pgtap": [
+      "supabase/tests/m1_7_facturation.test.sql (32 assertions)"
+    ]
+  },
+  "hors_scope": [
+    "Polling webhook Pennylane paiement (V1.1 — contrat S1-S11 §08 non implémenté V1)",
+    "Avoir partiel (V1.1)",
+    "Relance email facture en retard (V1.1)",
+    "UI édition templates emails (V1.1)",
+    "Pennylane sandbox (dev) — clé configurée en Vault",
+    "Factures coût logistique (V2 — dépend tms.*)"
+  ]
+}

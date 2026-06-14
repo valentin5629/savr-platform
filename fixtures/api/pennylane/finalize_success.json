@@ -1,0 +1,10 @@
+{
+  "_description": "POST /api/external/v2/customer_invoices/:id/finalize — réponse 200 succès.",
+  "invoice": {
+    "id": "PL-INV-NEW-001",
+    "number": "FZD-2026-00042",
+    "status": "outstanding",
+    "file_url": "https://app.pennylane.com/invoices/PL-INV-NEW-001.pdf",
+    "source_id": "fac-uuid-00042"
+  }
+}

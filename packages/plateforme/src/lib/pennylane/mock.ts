@@ -1,8 +1,13 @@
+// Handler injectables Pennylane (pattern injectable mock, identique aux adapters logistiques).
+// Production : _handlers = null → appels HTTP réels dans client.ts.
+// Test : setupPennylaneMock(opts) injecte des handlers fixture-based.
+
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+// packages/plateforme/src/lib/pennylane/ → 5 niveaux → fixtures/
 const FIXTURES_DIR = resolve(
   __dirname,
   '../../../../../fixtures/api/pennylane',
@@ -58,16 +63,6 @@ export interface PennylaneInvoicePage {
   pagination: PennylanePagination;
 }
 
-export interface PennylanePaymentEvent {
-  invoice_id: string;
-  old_status: string;
-  new_status: string;
-  paid_at: string;
-  payment_method: string;
-  amount: string;
-  source_id: string;
-}
-
 export type PennylaneError = {
   ok: false;
   status: number;
@@ -90,28 +85,21 @@ export type PennylaneGetInvoiceResult =
   | { ok: true; invoice: PennylaneInvoice }
   | PennylaneError;
 
-// ─── Injectable handlers ──────────────────────────────────────────────────────
+// ─── Handler injection ────────────────────────────────────────────────────────
 
 export interface PennylaneHandlers {
-  /** M0.11 compat */
   getCustomers: (
     page: number,
   ) => Promise<PennylaneCustomerPage | PennylaneError>;
-  /** M0.11 compat — polling toutes factures emises */
   getInvoices: (
     page?: number,
   ) => Promise<PennylaneInvoicePage | PennylaneError>;
-  /** M1.7 — POST /customer_invoices */
   createInvoice: (
     payload: Record<string, unknown>,
   ) => Promise<PennylaneCreateResult>;
-  /** M1.7 — POST /customer_invoices/:id/finalize */
   finalizeInvoice: (pennylaneId: string) => Promise<PennylaneFinalizeResult>;
-  /** M1.7 — POST /customer_invoices/:id/send_email */
   sendEmail: (pennylaneId: string) => Promise<PennylaneSendEmailResult>;
-  /** M1.7 — GET /customer_invoices/:id (polling paiement) */
   getInvoice: (pennylaneId: string) => Promise<PennylaneGetInvoiceResult>;
-  /** M1.7 — alias compat M0.11 */
   createDraft: (
     payload: Record<string, unknown>,
   ) => Promise<{ ok: true; id: string } | PennylaneError>;
@@ -129,13 +117,8 @@ export function _getPennylaneHandlers(): PennylaneHandlers | null {
   return _handlers;
 }
 
-// ─── Scenario types ───────────────────────────────────────────────────────────
+// ─── Scenarios ───────────────────────────────────────────────────────────────
 
-export type PennylaneCustomerScenario = 'page1' | 'page2';
-export type PennylaneInvoiceScenario =
-  | 'poll_sans_borne'
-  | 'error_429'
-  | 'error_500';
 export type PennylaneCreateScenario =
   | 'success'
   | 'error_4xx'
@@ -151,68 +134,31 @@ interface Error429Fixture {
   message: string;
   retry_after: number;
 }
-
 interface Error500Fixture {
   status: number;
   error: string;
   message: string;
 }
-
 interface Error4xxFixture {
   status: number;
   error: string;
   message: string;
 }
 
-/**
- * Configure les handlers Pennylane avec des données fixture.
- * Retourne une fonction de teardown à appeler dans afterEach.
- */
 export function setupPennylaneMock(opts: {
-  customers?: PennylaneCustomerScenario;
-  invoices?: PennylaneInvoiceScenario;
   create?: PennylaneCreateScenario;
   finalize?: PennylaneFinalizeScenario;
   sendEmail?: PennylaneSendEmailScenario;
   getInvoice?: PennylaneGetInvoiceScenario;
 }): () => void {
   _setPennylaneHandlers({
-    getCustomers: async (page: number) => {
-      const scenario = opts.customers ?? 'page1';
-      if (scenario === 'page1' && page === 2) {
-        return loadFixture<PennylaneCustomerPage>('customers_page2.json');
-      }
-      if (scenario === 'page2') {
-        return loadFixture<PennylaneCustomerPage>('customers_page2.json');
-      }
-      return loadFixture<PennylaneCustomerPage>('customers_page1.json');
-    },
+    getCustomers: async (_page) =>
+      loadFixture<PennylaneCustomerPage>('customers_page1.json'),
 
-    getInvoices: async (_page?: number) => {
-      const scenario = opts.invoices ?? 'poll_sans_borne';
-      if (scenario === 'error_429') {
-        const f = loadFixture<Error429Fixture>('error_429.json');
-        return {
-          ok: false as const,
-          status: f.status,
-          error: f.error,
-          message: f.message,
-          retry_after: f.retry_after,
-        };
-      }
-      if (scenario === 'error_500') {
-        const f = loadFixture<Error500Fixture>('error_500.json');
-        return {
-          ok: false as const,
-          status: f.status,
-          error: f.error,
-          message: f.message,
-        };
-      }
-      return loadFixture<PennylaneInvoicePage>('invoices_poll_sans_borne.json');
-    },
+    getInvoices: async (_page) =>
+      loadFixture<PennylaneInvoicePage>('invoices_poll_sans_borne.json'),
 
-    createInvoice: async (_payload: Record<string, unknown>) => {
+    createInvoice: async (_payload) => {
       const scenario = opts.create ?? 'success';
       if (scenario === 'error_4xx') {
         const f = loadFixture<Error4xxFixture>('create_invoice_4xx.json');
@@ -248,7 +194,7 @@ export function setupPennylaneMock(opts: {
       return { ok: true as const, invoice: f.invoice };
     },
 
-    finalizeInvoice: async (_pennylaneId: string) => {
+    finalizeInvoice: async (_pennylaneId) => {
       const scenario = opts.finalize ?? 'success';
       if (scenario === 'error_500') {
         const f = loadFixture<Error500Fixture>('error_500.json');
@@ -265,7 +211,7 @@ export function setupPennylaneMock(opts: {
       return { ok: true as const, invoice: f.invoice };
     },
 
-    sendEmail: async (_pennylaneId: string) => {
+    sendEmail: async (_pennylaneId) => {
       const scenario = opts.sendEmail ?? 'success';
       if (scenario === 'error_500') {
         const f = loadFixture<Error500Fixture>('error_500.json');
@@ -279,7 +225,7 @@ export function setupPennylaneMock(opts: {
       return { ok: true as const };
     },
 
-    getInvoice: async (_pennylaneId: string) => {
+    getInvoice: async (_pennylaneId) => {
       const scenario = opts.getInvoice ?? 'outstanding';
       if (scenario === 'error_500') {
         const f = loadFixture<Error500Fixture>('error_500.json');
@@ -302,7 +248,7 @@ export function setupPennylaneMock(opts: {
       return { ok: true as const, invoice: f.invoice };
     },
 
-    createDraft: async (payload: Record<string, unknown>) => {
+    createDraft: async (payload) => {
       const r = await _handlers!.createInvoice(payload);
       if (!r.ok) return r;
       return { ok: true as const, id: r.invoice.id };
@@ -310,14 +256,4 @@ export function setupPennylaneMock(opts: {
   });
 
   return () => _setPennylaneHandlers(null);
-}
-
-/**
- * Charge les événements de paiement depuis la fixture invoice_payment_status.
- */
-export function loadPaymentEvents(): PennylanePaymentEvent[] {
-  const f = loadFixture<{ events: PennylanePaymentEvent[] }>(
-    'invoice_payment_status.json',
-  );
-  return f.events;
 }

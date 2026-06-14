@@ -1,0 +1,15 @@
+{
+  "_description": "POST /api/external/v2/customer_invoices — réponse 201 succès (création facture).",
+  "invoice": {
+    "id": "PL-INV-NEW-001",
+    "number": "FZD-2026-00042",
+    "status": "draft",
+    "total_amount": "390.00",
+    "currency": "EUR",
+    "issued_at": "2026-06-15",
+    "due_at": "2026-07-15",
+    "customer_id": "PL-CUST-KASPIA-001",
+    "file_url": null,
+    "source_id": "fac-uuid-00042"
+  }
+}

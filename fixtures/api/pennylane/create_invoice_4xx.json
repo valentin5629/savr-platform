@@ -1,0 +1,6 @@
+{
+  "_description": "POST /api/external/v2/customer_invoices — erreur 422 (données invalides, pas de retry).",
+  "status": 422,
+  "error": "unprocessable_entity",
+  "message": "Customer vat_number is invalid or missing for EU B2B invoice"
+}

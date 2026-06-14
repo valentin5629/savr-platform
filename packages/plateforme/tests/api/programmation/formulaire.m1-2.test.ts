@@ -459,6 +459,11 @@ describe('M1.2 / Confirmation brouillon', () => {
       return mockSupabaseChain;
     });
 
+    // Gate SIRET — entites_facturation (nouveau)
+    mockMaybeSingle.mockResolvedValueOnce({
+      data: { id: 'entite-1' },
+      error: null,
+    });
     mockRpc.mockResolvedValueOnce({ data: null, error: null }); // fn_confirmer_programmation_brouillon
 
     const { PATCH } =
@@ -470,6 +475,48 @@ describe('M1.2 / Confirmation brouillon', () => {
     expect(res.status).toBe(200);
     const json = (await res.json()) as { statut: string };
     expect(json.statut).toBe('programmee');
+  });
+
+  it('confirmer_brouillon_sans_siret — 422 si entite_facturation non vérifiée', async () => {
+    setupAuth('traiteur_commercial', 'org-traiteur-1');
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'evt-d',
+        organisation_id: 'org-traiteur-1',
+        nom_evenement: 'D',
+      },
+      error: null,
+    });
+    const collectesChain2 = {
+      select: () => collectesChain2,
+      eq: () => collectesChain2,
+      then: (
+        resolve: (v: {
+          data: { id: string; type: string; date_collecte: string }[];
+          error: null;
+        }) => void,
+      ) =>
+        Promise.resolve({
+          data: [{ id: 'c1', type: 'zd', date_collecte: '2030-01-15' }],
+          error: null,
+        }).then(resolve),
+    };
+    mockSupabaseChain.from.mockImplementation((table: string) => {
+      if (table === 'collectes') return collectesChain2;
+      return mockSupabaseChain;
+    });
+    // entites_facturation → non vérifiée
+    mockMaybeSingle.mockResolvedValueOnce({ data: null, error: null });
+
+    const { PATCH } =
+      await import('@/app/api/v1/programmation/evenements/[id]/confirmer/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/programmation/evenements/evt-d/confirmer'),
+      { params: Promise.resolve({ id: 'evt-d' }) },
+    );
+    expect(res.status).toBe(422);
+    const json = (await res.json()) as { error: string };
+    expect(json.error).toMatch(/SIRET|profil/i);
   });
 
   it('confirmer_brouillon_sans_collectes — 422 si aucun brouillon', async () => {
@@ -504,5 +551,72 @@ describe('M1.2 / Confirmation brouillon', () => {
       { params: Promise.resolve({ id: 'evt-c' }) },
     );
     expect(res.status).toBe(422);
+  });
+});
+
+describe('M1.2 / Sécurité isolation cross-org', () => {
+  beforeEach(resetChain);
+
+  it('gestionnaire_lieu_non_autorise — 403 si gestionnaire_lieux programme sur lieu hors périmètre', async () => {
+    setupAuth('gestionnaire_lieux', 'org-gest-1');
+    // Gap A : organisations_lieux check → null (lieu hors périmètre)
+    mockMaybeSingle.mockResolvedValueOnce({ data: null, error: null });
+
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/programmation/evenements', {
+        ...BODY_ZD,
+        traiteur_operationnel_organisation_id: 'traiteur-1',
+      }),
+    );
+    expect(res.status).toBe(403);
+    const json = (await res.json()) as { error: string };
+    expect(json.error).toMatch(/lieu/i);
+  });
+
+  it('agence_traiteur_non_autorise — 403 si agence spécifie un traiteur non shadow de son compte', async () => {
+    setupAuth('agence', 'org-agence-1');
+    // Gap B : organisations check → null (pas une shadow org de cette agence)
+    mockMaybeSingle.mockResolvedValueOnce({ data: null, error: null });
+
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/programmation/evenements', {
+        ...BODY_ZD,
+        traiteur_operationnel_organisation_id: 'traiteur-autre',
+      }),
+    );
+    expect(res.status).toBe(403);
+    const json = (await res.json()) as { error: string };
+    expect(json.error).toMatch(/traiteur/i);
+  });
+
+  it('ajout_collecte_ag_sans_pack_existant — 422 si AG ajouté sans pack actif', async () => {
+    setupAuth('traiteur_commercial', 'org-traiteur-1');
+    // Ownership check
+    mockSingle.mockResolvedValueOnce({
+      data: { id: 'evt-sec', organisation_id: 'org-traiteur-1' },
+      error: null,
+    });
+    // f_collecte_editable → true
+    mockRpc.mockResolvedValueOnce({ data: true, error: null });
+    // packs_antgaspi → null (pas de pack)
+    mockMaybeSingle.mockResolvedValueOnce({ data: null, error: null });
+
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/programmation/evenements/evt-sec/collectes', {
+        type: 'ag',
+        date_collecte: '2030-02-01',
+        heure_collecte: '10:00',
+      }),
+      { params: Promise.resolve({ id: 'evt-sec' }) },
+    );
+    expect(res.status).toBe(422);
+    const json = (await res.json()) as { error: string };
+    expect(json.error).toMatch(/pack|Anti-Gaspi/i);
   });
 });

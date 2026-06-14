@@ -7,7 +7,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(14);
+SELECT plan(16);
 
 -- ─── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -356,6 +356,52 @@ SELECT is(
    WHERE id = '00000000-0000-0000-0000-000000000030'::uuid),
   0,
   'T13 : gestionnaire_lieux ne voit pas un lieu hors organisations_lieux (RLS)'
+);
+
+RESET role;
+RESET "request.jwt.claims";
+
+-- ─── Test 14 : isolation cross-org — traiteur org B ne voit pas les événements de org A ─
+
+INSERT INTO plateforme.organisations (id, raison_sociale, type, actif)
+VALUES ('00000000-0000-0000-0000-000000000040'::uuid, 'Org B Test M1.2', 'traiteur', true)
+ON CONFLICT (id) DO NOTHING;
+
+SET LOCAL role = authenticated;
+SET LOCAL "request.jwt.claims" = '{"role":"traiteur_commercial","organisation_id":"00000000-0000-0000-0000-000000000040"}';
+
+SELECT is(
+  (SELECT count(*)::int FROM plateforme.evenements
+   WHERE organisation_id = '00000000-0000-0000-0000-000000000010'::uuid),
+  0,
+  'T14 : traiteur_commercial org B ne voit pas les événements de org A (cross-org RLS)'
+);
+
+RESET role;
+RESET "request.jwt.claims";
+
+-- ─── Test 15 : gestionnaire_lieux ne peut pas INSERT event sur lieu hors périmètre ──────
+
+-- org '..31' (Gestionnaire Org Test, créée en T13) n'a aucune entrée organisations_lieux
+SET LOCAL role = authenticated;
+SET LOCAL "request.jwt.claims" = '{"role":"gestionnaire_lieux","organisation_id":"00000000-0000-0000-0000-000000000031"}';
+
+SELECT throws_ok(
+  $$INSERT INTO plateforme.evenements (
+      organisation_id, traiteur_operationnel_organisation_id,
+      entite_facturation_id, lieu_id, created_by, type_evenement_id, pax,
+      contact_principal_nom, contact_principal_telephone
+    ) VALUES (
+      '00000000-0000-0000-0000-000000000031'::uuid,
+      '00000000-0000-0000-0000-000000000010'::uuid,
+      '00000000-0000-0000-0000-000000000011'::uuid,
+      '00000000-0000-0000-0000-000000000012'::uuid,
+      '00000000-0000-0000-0000-000000000014'::uuid,
+      '00000000-0000-0000-0000-000000000013'::uuid,
+      15, 'Contact Gest', '0600000097'
+    )$$,
+  '42501',
+  'T15 : gestionnaire_lieux ne peut pas INSERT événement sur lieu hors périmètre (RLS DB)'
 );
 
 RESET role;

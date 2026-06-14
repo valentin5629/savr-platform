@@ -9,7 +9,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const supabase = createAdminSupabaseClient();
   const { searchParams } = new URL(req.url);
   const q = searchParams.get('q') ?? '';
-  const orgId = searchParams.get('organisation_id') ?? auth.ctx.organisationId;
+  // Toujours filtrer sur l'org du caller — jamais de param cross-org (service_role bypasse RLS)
+  const orgId = auth.ctx.organisationId;
 
   let query = supabase
     .from('contacts_traiteurs')

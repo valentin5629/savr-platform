@@ -41,6 +41,41 @@ export async function PATCH(
     );
   }
 
+  // Gate facturation (R1) — vérifiée à la confirmation, même règle que le chemin direct
+  const { data: entite } = await supabase
+    .from('entites_facturation')
+    .select('id')
+    .eq('organisation_id', evt.organisation_id)
+    .eq('siret_verification', 'verifie')
+    .maybeSingle();
+
+  if (!entite) {
+    return NextResponse.json(
+      {
+        error:
+          'Complétez votre profil entreprise (SIRET vérifié requis pour confirmer la programmation)',
+      },
+      { status: 422 },
+    );
+  }
+
+  // Gate pack AG (R3) — si des collectes AG sont présentes dans ce brouillon
+  const hasAg = collectes.some((c) => c.type === 'ag');
+  if (hasAg) {
+    const { data: pack } = await supabase
+      .from('packs_antgaspi')
+      .select('id, credits_restants')
+      .eq('organisation_id', evt.organisation_id)
+      .eq('statut', 'actif')
+      .maybeSingle();
+    if (!pack || (pack.credits_restants ?? 0) <= 0) {
+      return NextResponse.json(
+        { error: 'Aucun pack Anti-Gaspi actif disponible pour confirmer' },
+        { status: 422 },
+      );
+    }
+  }
+
   // RPC atomique : brouillon → programmee + E1 pour ZD
   const { error: rpcErr } = await supabase.rpc(
     'fn_confirmer_programmation_brouillon',

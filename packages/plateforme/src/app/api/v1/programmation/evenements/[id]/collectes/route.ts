@@ -56,6 +56,25 @@ export async function POST(
     );
   }
 
+  // Vérification pack AG si type=ag (même gate que la programmation initiale, R3)
+  if (String(type) === 'ag') {
+    const { data: pack } = await supabase
+      .from('packs_antgaspi')
+      .select('id, credits_restants')
+      .eq('organisation_id', auth.ctx.organisationId)
+      .eq('statut', 'actif')
+      .maybeSingle();
+    if (!pack || (pack.credits_restants ?? 0) <= 0) {
+      return NextResponse.json(
+        {
+          error:
+            'Aucun pack Anti-Gaspi actif disponible pour cette organisation',
+        },
+        { status: 422 },
+      );
+    }
+  }
+
   // fn_ajouter_collecte_evenement : délègue à fn_creer_collecte (gère E1 pour ZD)
   const { data: collecteId, error: rpcErr } = await supabase.rpc(
     'fn_ajouter_collecte_evenement',

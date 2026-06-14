@@ -152,6 +152,42 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // Gap A : gestionnaire_lieux — valider que le lieu est dans son périmètre géré
+  if (auth.ctx.role === 'gestionnaire_lieux') {
+    const { data: lieuLink } = await supabase
+      .from('organisations_lieux')
+      .select('id')
+      .eq('organisation_id', effectiveOrgId)
+      .eq('lieu_id', body.lieu_id)
+      .maybeSingle();
+    if (!lieuLink) {
+      return NextResponse.json(
+        {
+          error:
+            'Lieu non autorisé : ce lieu ne fait pas partie de votre périmètre',
+        },
+        { status: 403 },
+      );
+    }
+  }
+
+  // Gap B : agence — valider que le traiteur opérationnel est une shadow org de cette agence
+  if (auth.ctx.role === 'agence' && traiteurOperationnelId !== effectiveOrgId) {
+    const { data: traiteurOk } = await supabase
+      .from('organisations')
+      .select('id')
+      .eq('id', traiteurOperationnelId)
+      .eq('est_shadow', true)
+      .eq('cree_par_organisation_id', effectiveOrgId)
+      .maybeSingle();
+    if (!traiteurOk) {
+      return NextResponse.json(
+        { error: 'Traiteur opérationnel non autorisé pour cette agence' },
+        { status: 403 },
+      );
+    }
+  }
+
   // Gating facturation (R1) — vérification entité de facturation active
   const { data: entite } = await supabase
     .from('entites_facturation')

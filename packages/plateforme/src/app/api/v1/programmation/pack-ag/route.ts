@@ -7,8 +7,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (auth.error) return auth.error;
 
   const supabase = createAdminSupabaseClient();
-  const { searchParams } = new URL(req.url);
-  const orgId = searchParams.get('organisation_id') ?? auth.ctx.organisationId;
+  // Toujours filtrer sur l'org du caller — jamais de param cross-org (service_role bypasse RLS)
+  const orgId = auth.ctx.organisationId;
 
   const { data, error } = await supabase
     .from('packs_antgaspi')

@@ -1,0 +1,41 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { requireProgrammateur } from '@/lib/api-auth.js';
+
+// Accessible uniquement aux rôles qui programment pour le compte d'un traiteur tiers
+export async function GET(req: NextRequest): Promise<NextResponse> {
+  const auth = await requireProgrammateur(req);
+  if (auth.error) return auth.error;
+
+  if (auth.ctx.role !== 'agence' && auth.ctx.role !== 'gestionnaire_lieux') {
+    return NextResponse.json(
+      { error: 'Réservé aux rôles agence et gestionnaire_lieux' },
+      { status: 403 },
+    );
+  }
+
+  const supabase = createAdminSupabaseClient();
+  const { searchParams } = new URL(req.url);
+  const q = searchParams.get('q') ?? '';
+
+  let query = supabase
+    .from('organisations')
+    .select('id, raison_sociale, nom_commercial, siret, ville')
+    .eq('type', 'traiteur')
+    .eq('est_shadow', false)
+    .eq('actif', true)
+    .order('raison_sociale')
+    .limit(20);
+
+  if (q) {
+    query = query.or(
+      `raison_sociale.ilike.%${q}%,nom_commercial.ilike.%${q}%,siret.ilike.%${q}%`,
+    );
+  }
+
+  const { data, error } = await query;
+  if (error)
+    return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json(data ?? []);
+}

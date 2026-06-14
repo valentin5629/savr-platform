@@ -82,10 +82,11 @@ export const NAV_CONFIG: Record<Role, NavGroup[]> = {
     {
       items: [
         {
-          label: 'Programmation',
-          href: '/traiteur/collectes/nouvelle',
+          label: 'Programmer une collecte',
+          href: '/programmer/nouveau',
           icon: PlusCircle,
         },
+        { label: 'Mes brouillons', href: '/brouillons', icon: ClipboardList },
         { label: 'Mes collectes', href: '/traiteur/collectes', icon: Truck },
         {
           label: 'Événements',
@@ -101,6 +102,12 @@ export const NAV_CONFIG: Record<Role, NavGroup[]> = {
     {
       items: [
         { label: 'Dashboard', href: '/agence', icon: LayoutDashboard },
+        {
+          label: 'Programmer une collecte',
+          href: '/programmer/nouveau',
+          icon: PlusCircle,
+        },
+        { label: 'Mes brouillons', href: '/brouillons', icon: ClipboardList },
         { label: 'Collectes', href: '/agence/collectes', icon: Truck },
         { label: 'Lieux', href: '/agence/lieux', icon: MapPin },
         { label: 'Reporting', href: '/agence/reporting', icon: BarChart3 },
@@ -112,6 +119,12 @@ export const NAV_CONFIG: Record<Role, NavGroup[]> = {
     {
       items: [
         { label: 'Mes lieux', href: '/lieux', icon: MapPin },
+        {
+          label: 'Programmer une collecte',
+          href: '/programmer/nouveau',
+          icon: PlusCircle,
+        },
+        { label: 'Mes brouillons', href: '/brouillons', icon: ClipboardList },
         { label: 'Collectes', href: '/lieux/collectes', icon: Truck },
         { label: 'Documents', href: '/lieux/documents', icon: FileText },
       ],

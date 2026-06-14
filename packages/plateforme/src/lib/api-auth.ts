@@ -3,11 +3,24 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
 export type StaffRole = 'admin_savr' | 'ops_savr';
+export type ClientRole =
+  | 'traiteur_commercial'
+  | 'traiteur_manager'
+  | 'agence'
+  | 'gestionnaire_lieux';
+
+export type AnyRole = StaffRole | ClientRole | 'client_organisateur';
 
 export interface AuthContext {
   userId: string;
   role: StaffRole;
   organisationId: string | null;
+}
+
+export interface UserAuthContext {
+  userId: string;
+  role: AnyRole;
+  organisationId: string;
 }
 
 function parseJwtClaims(token: string): Record<string, unknown> {
@@ -80,6 +93,72 @@ export async function requireStaff(
       organisationId: (claims['organisation_id'] as string) ?? null,
     },
   };
+}
+
+// Vérifie qu'un utilisateur client est authentifié avec l'un des rôles autorisés.
+// Toutes les routes /programmation/* utilisent cette fonction.
+export async function requireUser(
+  _req: NextRequest,
+  allowed: ClientRole[],
+): Promise<
+  { ctx: UserAuthContext; error?: never } | { ctx?: never; error: NextResponse }
+> {
+  const supabase = createSupabaseServerClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return {
+      error: NextResponse.json({ error: 'Non autorisé' }, { status: 401 }),
+    };
+  }
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const claims = parseJwtClaims(session?.access_token ?? '');
+  const role = claims['role'] as string | undefined;
+  const organisationId = claims['organisation_id'] as string | undefined;
+
+  if (!role || !allowed.includes(role as ClientRole)) {
+    return {
+      error: NextResponse.json({ error: 'Rôle insuffisant' }, { status: 403 }),
+    };
+  }
+
+  if (!organisationId) {
+    return {
+      error: NextResponse.json(
+        { error: 'Organisation manquante dans le JWT' },
+        { status: 403 },
+      ),
+    };
+  }
+
+  return {
+    ctx: {
+      userId: user.id,
+      role: role as AnyRole,
+      organisationId,
+    },
+  };
+}
+
+const PROGRAMMATION_ROLES: ClientRole[] = [
+  'traiteur_commercial',
+  'traiteur_manager',
+  'agence',
+  'gestionnaire_lieux',
+];
+
+// Shortcut : tous les rôles qui peuvent programmer une collecte.
+export async function requireProgrammateur(
+  req: NextRequest,
+): Promise<
+  { ctx: UserAuthContext; error?: never } | { ctx?: never; error: NextResponse }
+> {
+  return requireUser(req, PROGRAMMATION_ROLES);
 }
 
 // Variante réservée à admin_savr uniquement.

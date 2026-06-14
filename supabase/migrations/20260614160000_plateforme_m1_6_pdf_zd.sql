@@ -57,6 +57,7 @@ ALTER TABLE plateforme.bordereaux_savr ADD COLUMN IF NOT EXISTS exutoire_nom    
 ALTER TABLE plateforme.bordereaux_savr ADD COLUMN IF NOT EXISTS exutoire_adresse                text;
 ALTER TABLE plateforme.bordereaux_savr ADD COLUMN IF NOT EXISTS exutoire_siret                  text;
 ALTER TABLE plateforme.bordereaux_savr ADD COLUMN IF NOT EXISTS detail_flux                     jsonb;
+ALTER TABLE plateforme.bordereaux_savr ADD COLUMN IF NOT EXISTS poids_total_kg                  numeric(10,3);
 ALTER TABLE plateforme.bordereaux_savr ADD COLUMN IF NOT EXISTS version                         integer NOT NULL DEFAULT 1;
 
 -- ============================================================
@@ -181,3 +182,8 @@ CREATE INDEX IF NOT EXISTS idx_bordereaux_savr_collecte_statut
 
 CREATE INDEX IF NOT EXISTS idx_rapports_rse_collecte_disponible
   ON plateforme.rapports_rse (collecte_id, disponible_a);
+
+-- Anti-double-queue : un seul job actif par (entité, type_document)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_jobs_pdf_anti_dupe
+  ON plateforme.jobs_pdf (entity_type, entity_id, type_document)
+  WHERE statut IN ('pending', 'processing');

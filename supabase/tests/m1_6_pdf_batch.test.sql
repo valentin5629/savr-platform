@@ -1,9 +1,9 @@
 -- pgTAP M1.6 — Génération PDF ZD
 -- Tests : f_next_numero_bordereau gapless, f_upsert_alerte_admin dédup,
---         migration schema (enums, colonnes), RLS alertes_admin.
+--         migration schema (enums, colonnes, index), RLS alertes_admin.
 
 BEGIN;
-SELECT plan(14);
+SELECT plan(18);
 
 -- ── 1. Enums présents ─────────────────────────────────────────────────────
 
@@ -15,6 +15,7 @@ SELECT has_type('plateforme', 'bordereau_statut', 'enum bordereau_statut existe'
 SELECT has_column('plateforme', 'bordereaux_savr', 'numero',                   'col numero');
 SELECT has_column('plateforme', 'bordereaux_savr', 'producteur_raison_sociale','col producteur_raison_sociale');
 SELECT has_column('plateforme', 'bordereaux_savr', 'detail_flux',              'col detail_flux');
+SELECT has_column('plateforme', 'bordereaux_savr', 'poids_total_kg',           'col poids_total_kg');
 SELECT has_column('plateforme', 'rapports_rse',    'genere_par',               'col genere_par sur rapports_rse');
 
 -- ── 3. Table alertes_admin ────────────────────────────────────────────────
@@ -81,7 +82,7 @@ SELECT is(
 -- Nettoyage
 DELETE FROM plateforme.alertes_admin WHERE code = 'test_dedup';
 
--- ── 6. RLS alertes_admin — admin voit tout ───────────────────────────────
+-- ── 6. RLS alertes_admin — policy présente et cloisonnée ────────────────
 
 SELECT policies_are(
   'plateforme',
@@ -90,11 +91,27 @@ SELECT policies_are(
   'alertes_admin a la policy aa_admin'
 );
 
--- ── 7. jobs_pdf — colonnes renommées présentes ───────────────────────────
+-- RLS comportemental : un rôle authenticated sans claim admin_savr voit 0 ligne
+SET LOCAL role = authenticated;
+SELECT is(
+  (SELECT COUNT(*)::integer FROM plateforme.alertes_admin),
+  0,
+  'authenticated sans claim admin_savr : 0 alerte visible (RLS deny)'
+);
+RESET ROLE;
+
+-- ── 7. jobs_pdf — colonnes renommées et index anti-dupe ─────────────────
 
 SELECT has_column('plateforme', 'jobs_pdf', 'attempts',      'col attempts (ex tentatives)');
 SELECT has_column('plateforme', 'jobs_pdf', 'next_retry_at', 'col next_retry_at (ex prochaine_tentative_at)');
 SELECT has_column('plateforme', 'jobs_pdf', 'payload',       'col payload ajoutée');
+
+SELECT has_index(
+  'plateforme',
+  'jobs_pdf',
+  'idx_jobs_pdf_anti_dupe',
+  'index unique anti-double-queue présent'
+);
 
 SELECT * FROM finish();
 ROLLBACK;

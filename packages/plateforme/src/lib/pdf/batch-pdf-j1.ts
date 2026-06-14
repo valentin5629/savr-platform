@@ -36,7 +36,7 @@ interface CollecteRow {
       siret: string | null;
       adresse: string | null;
     } | null;
-    traiteur_operationnel?: {
+    traiteur_operationnel: {
       raison_sociale: string;
       siret: string | null;
       adresse: string | null;
@@ -81,6 +81,7 @@ export async function runBatchPdfJ1(
         organisation_id, traiteur_operationnel_organisation_id,
         contact_principal_email,
         organisations ( raison_sociale, siret, adresse ),
+        traiteur_operationnel:organisations!traiteur_operationnel_organisation_id ( raison_sociale, siret, adresse ),
         lieux ( nom, adresse_acces, code_postal, ville )
       ),
       collecte_tournees (
@@ -179,7 +180,8 @@ export async function runBatchPdfJ1(
 
       const ev = collecte.evenements!;
       const lieu = ev.lieux;
-      const organisationProd = ev.organisations;
+      // Producteur = traiteur opérationnel si désigné, sinon l'organisation programmante
+      const organisationProd = ev.traiteur_operationnel ?? ev.organisations;
       const adresseLieu = lieu
         ? [lieu.adresse_acces, lieu.code_postal, lieu.ville]
             .filter(Boolean)
@@ -255,6 +257,7 @@ export async function runBatchPdfJ1(
           transporteur_siret: transporteurSiret,
           exutoire_nom: 'Prestataire Savr',
           detail_flux: fluxDetails,
+          poids_total_kg: poidsTotalKg,
           statut: 'brouillon',
         })
         .select('id')

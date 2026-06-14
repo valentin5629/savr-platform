@@ -39,7 +39,7 @@ export async function runPdfWorker(
   const { data: jobs, error: claimErr } = await supabase
     .from('jobs_pdf')
     .select('id, type_document, entity_type, entity_id, payload, attempts')
-    .in('statut', ['pending', 'retrying'])
+    .in('statut', ['pending', 'failed', 'retrying'])
     .or(`next_retry_at.is.null,next_retry_at.lte.${new Date().toISOString()}`)
     .order('created_at', { ascending: true })
     .limit(5);
@@ -93,12 +93,13 @@ export async function runPdfWorker(
         })
         .eq('id', job.id);
 
-      // Mettre à jour l'entité cible avec le fichier_id
+      // Mettre à jour l'entité cible avec le fichier_id (et storageKey pour rapports_rse)
       await linkFichierToEntity(
         supabase,
         job.entity_type,
         job.entity_id,
         fichierRow?.id,
+        storageKey,
       );
 
       result.done++;
@@ -143,6 +144,7 @@ async function linkFichierToEntity(
   entityType: string,
   entityId: string,
   fichierId: string | undefined,
+  storageKey: string,
 ): Promise<void> {
   if (!fichierId) return;
 
@@ -156,9 +158,10 @@ async function linkFichierToEntity(
       })
       .eq('id', entityId);
   } else if (entityType === 'rapports_rse') {
+    // pdf_url stocke la clé R2 (bucket/key) pour génération d'URL pré-signée
     await supabase
       .from('rapports_rse')
-      .update({ pdf_url: fichierId, genere_at: new Date().toISOString() })
+      .update({ pdf_url: storageKey, genere_at: new Date().toISOString() })
       .eq('id', entityId);
   }
 }

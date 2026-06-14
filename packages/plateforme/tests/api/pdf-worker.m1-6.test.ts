@@ -158,23 +158,20 @@ describe('M1.6 / PdfWorker / Retry', () => {
 });
 
 describe('M1.6 / PdfWorker / rapport-recyclage-zd', () => {
-  it('R-PDF-W4 : type rapport → bucket rapports, linkage rapports_rse', async () => {
+  it('R-PDF-W4 : type rapport → bucket rapports, pdf_url = clé R2 (pas le fichier_id)', async () => {
+    const storageKey = 'rapports/rse-1/rapport-recyclage-zd-v1-123.pdf';
     const job = makePendingJob({
       type_document: 'rapport-recyclage-zd',
       entity_type: 'rapports_rse',
       entity_id: 'rse-1',
     });
     vi.mocked(generatePdf).mockResolvedValue({ pdfBuffer: Buffer.from('PDF') });
-    vi.mocked(uploadPdf).mockResolvedValue(
-      'rapports/rse-1/rapport-recyclage-zd-v1-123.pdf',
-    );
+    vi.mocked(uploadPdf).mockResolvedValue(storageKey);
 
+    // limit() consomme responses[0], single() consomme responses[1]
     const chain = buildChain([
-      { data: [job], error: null },
-      { data: null, error: null },
-      { data: { id: 'f-2' }, error: null },
-      { data: null, error: null },
-      { data: null, error: null }, // update rapports_rse
+      { data: [job], error: null }, // limit → select jobs
+      { data: { id: 'f-2' }, error: null }, // single → insert fichiers
     ]);
     mockFrom.mockReturnValue(chain);
 
@@ -185,5 +182,11 @@ describe('M1.6 / PdfWorker / rapport-recyclage-zd', () => {
       expect.any(String),
       expect.any(Buffer),
     );
+
+    // E2 : pdf_url doit recevoir la clé R2 (bucket/key), pas l'UUID fichier
+    const updateCalls = (chain.update as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[Record<string, unknown>]>;
+    const rseUpdate = updateCalls.find((c) => c[0].pdf_url !== undefined)?.[0];
+    expect(rseUpdate?.pdf_url).toBe(storageKey);
   });
 });

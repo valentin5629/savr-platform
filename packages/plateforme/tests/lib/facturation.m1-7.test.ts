@@ -724,3 +724,148 @@ describe('M1.7 / BatchBrouillons / Aucune collecte', () => {
     expect(result.errors).toHaveLength(0);
   });
 });
+
+describe('M1.7 / BatchBrouillons / Filtre annulee_cote_savr', () => {
+  afterEach(() => vi.clearAllMocks());
+
+  it('R-BB5 : requête collectes applique .eq(annulee_cote_savr, false)', async () => {
+    const sb = makeSupabase([{ data: [], error: null }]);
+
+    await runBatchBrouillonsJ1(sb as never);
+
+    const eqCalls = (sb._chain.eq as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[string, unknown]>;
+    expect(
+      eqCalls.some((c) => c[0] === 'annulee_cote_savr' && c[1] === false),
+    ).toBe(true);
+  });
+});
+
+const COLLECTE_ZD_MENSUELLE = {
+  id: 'col-zd-mensuel-001',
+  type: 'zero_dechet',
+  statut: 'cloturee',
+  annulee_cote_savr: false,
+  pack_antgaspi_id: null,
+  evenements: {
+    id: 'ev-mensuel-001',
+    organisation_id: 'org-mensuel-001',
+    nb_pax: 200,
+    date_evenement: '2026-06-05',
+    organisations: {
+      mode_facturation_zd: 'mensuelle',
+      grille_tarifaire_zd_id: 'grille-001',
+      entites_facturation: [{ id: 'ef-001', siret_verification: 'verifie' }],
+    },
+  },
+};
+
+describe('M1.7 / BatchBrouillons / ZD mensuel — brouillon existant ajout ligne', () => {
+  afterEach(() => vi.clearAllMocks());
+
+  it('R-BB6 : brouillon mensuel existant → ligne ajoutée, totaux recalculés, pas de nouvel INSERT facture', async () => {
+    const existingBrouillon = {
+      id: 'brouillon-mensuel-001',
+      montant_ht: 590,
+      montant_tva: 118,
+      montant_ttc: 708,
+    };
+
+    // calculer_tarif_zd consomme 4 calls :
+    //   single() × 3 (organisations, grilles_tarifaires_zd, tarifs_zero_dechet)
+    //   then() × 1 (tarifs_negocie — pas de .single())
+    // creerOuAjouterBrouillonMensuel :
+    //   maybySingle (overridden) + insert fc (then) + update (then)
+    const sb = makeSupabase([
+      { data: [COLLECTE_ZD_MENSUELLE], error: null }, // [0] select collectes
+      { data: [], error: null }, // [1] select dejaFactures
+      // calculer_tarif_zd internals :
+      { data: null, error: null }, // [2] organisations.single() → orgGrilleId=null
+      { data: { id: 'grille-001' }, error: null }, // [3] grilles_tarifaires_zd.single() (défaut)
+      {
+        data: { id: 'tar-1', prix_base_ht: 590, prix_par_couvert_ht: null },
+        error: null,
+      }, // [4] tarifs_zero_dechet.single()
+      { data: [], error: null }, // [5] tarifs_negocie select (then() path)
+      // mensuel :
+      { data: null, error: null }, // [6] insert factures_collectes
+      { data: null, error: null }, // [7] update factures totaux
+    ]);
+    // maybeSingle retourne le brouillon existant (ne consomme pas la queue)
+    (sb._chain.maybeSingle as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      data: existingBrouillon,
+      error: null,
+    });
+
+    const result = await runBatchBrouillonsJ1(sb as never);
+
+    expect(result.zd_mensuel).toBe(1);
+    expect(result.errors).toHaveLength(0);
+
+    const insertCalls = (sb._chain.insert as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[Record<string, unknown>]>;
+    // Aucun INSERT dans factures (brouillon existant réutilisé)
+    const insertFacture = insertCalls.find(
+      (c) =>
+        c[0].type === 'zero_dechet' && c[0].mode_facturation === 'mensuelle',
+    );
+    expect(insertFacture).toBeUndefined();
+    // Un INSERT dans factures_collectes
+    const insertLigne = insertCalls.find(
+      (c) => c[0].facture_id === 'brouillon-mensuel-001',
+    );
+    expect(insertLigne).toBeDefined();
+
+    // Update totaux appelé
+    const updateCalls = (sb._chain.update as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[Record<string, unknown>]>;
+    const updateTotaux = updateCalls.find((c) => c[0].montant_ht !== undefined);
+    expect(updateTotaux).toBeDefined();
+    expect((updateTotaux![0] as { montant_ht: number }).montant_ht).toBe(1180); // 590+590
+  });
+});
+
+describe('M1.7 / creerAvoir / Succès sur facture payee', () => {
+  let teardown: () => void;
+
+  beforeEach(() => {
+    teardown = setupPennylaneMock({
+      create: 'success',
+      finalize: 'success',
+      sendEmail: 'success',
+    });
+  });
+
+  afterEach(() => {
+    teardown();
+    vi.clearAllMocks();
+  });
+
+  it('R-AV3 : avoir sur facture payee → avoir créé, origine annulee, push Pennylane', async () => {
+    const facturePayee = { ...FACTURE_EMISE, statut: 'payee' };
+    const sb = makeSupabase([
+      { data: facturePayee, error: null }, // load facture
+      { data: { id: 'av-002' }, error: null }, // insert avoir (single)
+      { data: null, error: null }, // insert lignes avoir
+      { data: null, error: null }, // update facture origine annulee
+      { data: null, error: null }, // update en_attente_pennylane
+      { data: null, error: null }, // update pennylane_id
+      { data: null, error: null }, // update emise
+    ]);
+    sb._rpcSingle.mockResolvedValueOnce({ data: 'AV-2026-00002', error: null });
+
+    const result = await creerAvoir(
+      sb as never,
+      'fac-emise-001',
+      'Remboursement',
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.numero_avoir).toBe('AV-2026-00002');
+
+    const updateCalls = (sb._chain.update as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[Record<string, unknown>]>;
+    const annuleeUpdate = updateCalls.find((c) => c[0].statut === 'annulee');
+    expect(annuleeUpdate).toBeDefined();
+  });
+});

@@ -54,34 +54,36 @@ ON CONFLICT (id) DO NOTHING;
 
 -- ─── Test 1 : fn_creer_collecte ZD émet E1 outbox ────────────────────────────
 
-WITH evt AS (
-  INSERT INTO plateforme.evenements (
-    id, organisation_id, traiteur_operationnel_organisation_id,
-    entite_facturation_id, lieu_id, created_by, type_evenement_id, pax,
-    contact_principal_nom, contact_principal_telephone
-  ) VALUES (
-    '00000000-0000-0000-0000-000000000020'::uuid,
-    '00000000-0000-0000-0000-000000000010'::uuid,
-    '00000000-0000-0000-0000-000000000010'::uuid,
-    '00000000-0000-0000-0000-000000000011'::uuid,
-    '00000000-0000-0000-0000-000000000012'::uuid,
-    '00000000-0000-0000-0000-000000000014'::uuid,
-    '00000000-0000-0000-0000-000000000013'::uuid,
-    50, 'Contact Test', '0600000001'
-  ) RETURNING id
-),
-col AS MATERIALIZED (
-  SELECT plateforme.fn_creer_collecte(
-    p_evenement_id := (SELECT id FROM evt),
-    p_type := 'zd',
-    p_date_collecte := CURRENT_DATE + 7,
-    p_heure_collecte := '14:00'
-  ) AS collecte_id
-)
+INSERT INTO plateforme.evenements (
+  id, organisation_id, traiteur_operationnel_organisation_id,
+  entite_facturation_id, lieu_id, created_by, type_evenement_id, pax,
+  contact_principal_nom, contact_principal_telephone
+) VALUES (
+  '00000000-0000-0000-0000-000000000020'::uuid,
+  '00000000-0000-0000-0000-000000000010'::uuid,
+  '00000000-0000-0000-0000-000000000010'::uuid,
+  '00000000-0000-0000-0000-000000000011'::uuid,
+  '00000000-0000-0000-0000-000000000012'::uuid,
+  '00000000-0000-0000-0000-000000000014'::uuid,
+  '00000000-0000-0000-0000-000000000013'::uuid,
+  50, 'Contact Test', '0600000001'
+);
+
+SELECT plateforme.fn_creer_collecte(
+  p_evenement_id := '00000000-0000-0000-0000-000000000020'::uuid,
+  p_type := 'zd',
+  p_date_collecte := CURRENT_DATE + 7,
+  p_heure_collecte := '14:00'
+);
+
 SELECT ok(
   EXISTS(
     SELECT 1 FROM plateforme.outbox_events
-    WHERE aggregate_id = (SELECT collecte_id FROM col)
+    WHERE aggregate_id = (
+      SELECT id FROM plateforme.collectes
+      WHERE evenement_id = '00000000-0000-0000-0000-000000000020'::uuid
+        AND type = 'zero_dechet'::plateforme.collecte_type_enum
+    )
       AND event_type = 'collecte.creee'
       AND consumer = 'adapter_mts1'
   ),
@@ -90,34 +92,36 @@ SELECT ok(
 
 -- ─── Test 2 : fn_creer_collecte AG n'émet PAS E1 ─────────────────────────────
 
-WITH evt AS (
-  INSERT INTO plateforme.evenements (
-    id, organisation_id, traiteur_operationnel_organisation_id,
-    entite_facturation_id, lieu_id, created_by, type_evenement_id, pax,
-    contact_principal_nom, contact_principal_telephone
-  ) VALUES (
-    '00000000-0000-0000-0000-000000000021'::uuid,
-    '00000000-0000-0000-0000-000000000010'::uuid,
-    '00000000-0000-0000-0000-000000000010'::uuid,
-    '00000000-0000-0000-0000-000000000011'::uuid,
-    '00000000-0000-0000-0000-000000000012'::uuid,
-    '00000000-0000-0000-0000-000000000014'::uuid,
-    '00000000-0000-0000-0000-000000000013'::uuid,
-    40, 'Contact Test', '0600000002'
-  ) RETURNING id
-),
-col AS MATERIALIZED (
-  SELECT plateforme.fn_creer_collecte(
-    p_evenement_id := (SELECT id FROM evt),
-    p_type := 'ag',
-    p_date_collecte := CURRENT_DATE + 7,
-    p_heure_collecte := '15:00'
-  ) AS collecte_id
-)
+INSERT INTO plateforme.evenements (
+  id, organisation_id, traiteur_operationnel_organisation_id,
+  entite_facturation_id, lieu_id, created_by, type_evenement_id, pax,
+  contact_principal_nom, contact_principal_telephone
+) VALUES (
+  '00000000-0000-0000-0000-000000000021'::uuid,
+  '00000000-0000-0000-0000-000000000010'::uuid,
+  '00000000-0000-0000-0000-000000000010'::uuid,
+  '00000000-0000-0000-0000-000000000011'::uuid,
+  '00000000-0000-0000-0000-000000000012'::uuid,
+  '00000000-0000-0000-0000-000000000014'::uuid,
+  '00000000-0000-0000-0000-000000000013'::uuid,
+  40, 'Contact Test', '0600000002'
+);
+
+SELECT plateforme.fn_creer_collecte(
+  p_evenement_id := '00000000-0000-0000-0000-000000000021'::uuid,
+  p_type := 'ag',
+  p_date_collecte := CURRENT_DATE + 7,
+  p_heure_collecte := '15:00'
+);
+
 SELECT ok(
   NOT EXISTS(
     SELECT 1 FROM plateforme.outbox_events
-    WHERE aggregate_id = (SELECT collecte_id FROM col)
+    WHERE aggregate_id = (
+      SELECT id FROM plateforme.collectes
+      WHERE evenement_id = '00000000-0000-0000-0000-000000000021'::uuid
+        AND type = 'anti_gaspi'::plateforme.collecte_type_enum
+    )
       AND event_type = 'collecte.creee'
   ),
   'T2 : fn_creer_collecte AG n''émet PAS E1 outbox'

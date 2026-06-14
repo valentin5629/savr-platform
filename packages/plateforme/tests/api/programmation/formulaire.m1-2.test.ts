@@ -20,6 +20,8 @@ const mockSupabaseChain = {
   delete: vi.fn().mockReturnThis(),
   in: vi.fn().mockReturnThis(),
   eq: vi.fn().mockReturnThis(),
+  not: vi.fn().mockReturnThis(),
+  or: vi.fn().mockReturnThis(),
   order: vi.fn().mockReturnThis(),
   limit: vi.fn().mockReturnThis(),
   is: vi.fn().mockReturnThis(),
@@ -82,6 +84,8 @@ function resetChain() {
   mockSupabaseChain.delete.mockReturnThis();
   mockSupabaseChain.in.mockReturnThis();
   mockSupabaseChain.eq.mockReturnThis();
+  mockSupabaseChain.not.mockReturnThis();
+  mockSupabaseChain.or.mockReturnThis();
   mockSupabaseChain.order.mockReturnThis();
   mockSupabaseChain.limit.mockReturnThis();
   mockSupabaseChain.is.mockReturnThis();
@@ -618,5 +622,53 @@ describe('M1.2 / Sécurité isolation cross-org', () => {
     expect(res.status).toBe(422);
     const json = (await res.json()) as { error: string };
     expect(json.error).toMatch(/pack|Anti-Gaspi/i);
+  });
+
+  it('agence_traiteur_reel_autorise — 201 si agence spécifie un traiteur réel non-shadow', async () => {
+    setupAuth('agence', 'org-agence-1');
+    // Gap B : traiteur réel (est_shadow=false, type=traiteur)
+    mockMaybeSingle
+      .mockResolvedValueOnce({
+        data: {
+          id: 'traiteur-reel-1',
+          type: 'traiteur',
+          est_shadow: false,
+          cree_par_organisation_id: null,
+        },
+        error: null,
+      })
+      // SIRET gate
+      .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null });
+    mockSingle.mockResolvedValueOnce({
+      data: { id: 'evt-agence-1', nom_evenement: 'Gala Agence' },
+      error: null,
+    });
+    mockRpc.mockResolvedValueOnce({ data: 'collecte-agence-1', error: null });
+
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/programmation/evenements', {
+        ...BODY_ZD,
+        traiteur_operationnel_organisation_id: 'traiteur-reel-1',
+      }),
+    );
+    expect(res.status).toBe(201);
+  });
+});
+
+describe('M1.2 / Lieux scope org', () => {
+  beforeEach(resetChain);
+
+  it('lieux_traiteur_scope_vide — 200 [] si aucun lieu ni événement pour cette org', async () => {
+    setupAuth('traiteur_commercial', 'org-new');
+    // organisations_lieux → [] (chaîne retourne undefined, traité comme vide)
+    // evenements → [] idem
+
+    const { GET } = await import('@/app/api/v1/programmation/lieux/route.js');
+    const res = await GET(makeReq('GET', '/api/v1/programmation/lieux'));
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as unknown[];
+    expect(json).toEqual([]);
   });
 });

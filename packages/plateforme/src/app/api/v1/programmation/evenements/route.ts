@@ -171,16 +171,23 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // Gap B : agence — valider que le traiteur opérationnel est une shadow org de cette agence
+  // Gap B : agence — le traiteur opérationnel doit être soit un shadow de cette agence,
+  // soit un traiteur réel actif référencé sur la plateforme (non-shadow, type=traiteur)
   if (auth.ctx.role === 'agence' && traiteurOperationnelId !== effectiveOrgId) {
-    const { data: traiteurOk } = await supabase
+    const { data: traiteurInfo } = await supabase
       .from('organisations')
-      .select('id')
+      .select('id, type, est_shadow, cree_par_organisation_id')
       .eq('id', traiteurOperationnelId)
-      .eq('est_shadow', true)
-      .eq('cree_par_organisation_id', effectiveOrgId)
+      .eq('actif', true)
       .maybeSingle();
-    if (!traiteurOk) {
+
+    const isShadowPropre =
+      traiteurInfo?.est_shadow === true &&
+      traiteurInfo?.cree_par_organisation_id === effectiveOrgId;
+    const isTraiteurReel =
+      traiteurInfo?.est_shadow === false && traiteurInfo?.type === 'traiteur';
+
+    if (!traiteurInfo || (!isShadowPropre && !isTraiteurReel)) {
       return NextResponse.json(
         { error: 'Traiteur opérationnel non autorisé pour cette agence' },
         { status: 403 },

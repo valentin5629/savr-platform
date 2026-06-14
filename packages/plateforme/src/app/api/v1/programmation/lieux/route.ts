@@ -10,6 +10,33 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(req.url);
   const q = searchParams.get('q') ?? '';
 
+  // Scope org : correspond à la policy lieux_clients_select (module 0.4)
+  // Lieux via organisations_lieux OU via événements de l'organisation
+  // (Divergence M1_2_20260614 : nouveau traiteur sans lieux ni événements voit 0 résultats —
+  //  à clarifier avec Val : faut-il rendre tous les lieux actifs visibles en autocomplete ?)
+  const [{ data: orgLieux }, { data: evtLieux }] = await Promise.all([
+    supabase
+      .from('organisations_lieux')
+      .select('lieu_id')
+      .eq('organisation_id', auth.ctx.organisationId),
+    supabase
+      .from('evenements')
+      .select('lieu_id')
+      .eq('organisation_id', auth.ctx.organisationId)
+      .not('lieu_id', 'is', null),
+  ]);
+
+  const uniqueIds = [
+    ...new Set([
+      ...(orgLieux ?? []).map((r: { lieu_id: string }) => r.lieu_id),
+      ...(evtLieux ?? []).map(
+        (r: { lieu_id: string | null }) => r.lieu_id as string,
+      ),
+    ]),
+  ].filter(Boolean);
+
+  if (uniqueIds.length === 0) return NextResponse.json([]);
+
   let query = supabase
     .from('lieux')
     .select(
@@ -18,20 +45,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
        controle_acces_requis_default, contraintes_horaires`,
     )
     .eq('actif', true)
+    .in('id', uniqueIds)
     .order('nom')
     .limit(20);
-
-  // Gestionnaire : filtré sur ses lieux uniquement
-  if (auth.ctx.role === 'gestionnaire_lieux') {
-    const { data: orgLieux } = await supabase
-      .from('organisations_lieux')
-      .select('lieu_id')
-      .eq('organisation_id', auth.ctx.organisationId);
-
-    const ids = (orgLieux ?? []).map((r: { lieu_id: string }) => r.lieu_id);
-    if (ids.length === 0) return NextResponse.json([]);
-    query = query.in('id', ids);
-  }
 
   if (q) {
     query = query.or(

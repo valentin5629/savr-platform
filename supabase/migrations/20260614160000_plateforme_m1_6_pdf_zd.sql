@@ -90,16 +90,11 @@ CREATE INDEX IF NOT EXISTS idx_alertes_admin_ouverte
 
 ALTER TABLE plateforme.alertes_admin ENABLE ROW LEVEL SECURITY;
 
--- Admin voit tout, peut résoudre
+-- Admin voit tout, peut résoudre (JWT claim pour éviter le JOIN récursif sur users)
 CREATE POLICY aa_admin ON plateforme.alertes_admin
   FOR ALL TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM plateforme.users u
-      WHERE u.id = (SELECT auth.uid())
-        AND u.role = 'admin_savr'
-    )
-  );
+  USING ((auth.jwt() ->> 'role') = 'admin_savr')
+  WITH CHECK ((auth.jwt() ->> 'role') = 'admin_savr');
 
 -- ============================================================
 -- 6. Mettre à jour la vue ops jobs_pdf (colonnes renommées)

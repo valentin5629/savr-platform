@@ -3,7 +3,7 @@
 --         migration schema (enums, colonnes, index), RLS alertes_admin.
 
 BEGIN;
-SELECT plan(18);
+SELECT plan(19);
 
 -- ── 1. Enums présents ─────────────────────────────────────────────────────
 
@@ -24,7 +24,6 @@ SELECT has_table('plateforme', 'alertes_admin', 'table alertes_admin existe');
 
 -- ── 4. f_next_numero_bordereau — séquence gapless ────────────────────────
 
--- Nettoyer la séquence de test
 DELETE FROM plateforme.sequences_facturation WHERE serie = 'BSAV' AND annee = 2099;
 
 SELECT is(
@@ -45,17 +44,14 @@ SELECT is(
   'troisième numéro BSAV-2099-00003'
 );
 
--- Nettoyage
 DELETE FROM plateforme.sequences_facturation WHERE serie = 'BSAV' AND annee = 2099;
 
 -- ── 5. f_upsert_alerte_admin — déduplication ─────────────────────────────
 
--- Insérer deux fois la même alerte → une seule ligne ouverte
 SELECT plateforme.f_upsert_alerte_admin(
   'test_dedup', 'Titre test', 'Message', 'collectes', gen_random_uuid()
 );
 
--- Capturer l'entity_id utilisé
 DO $$
 DECLARE
   v_entity_id uuid;
@@ -66,7 +62,6 @@ BEGIN
   ORDER BY created_at DESC
   LIMIT 1;
 
-  -- Second appel avec le même entity_id → doit être ignoré
   PERFORM plateforme.f_upsert_alerte_admin(
     'test_dedup', 'Titre test', 'Message bis', 'collectes', v_entity_id
   );
@@ -79,10 +74,9 @@ SELECT is(
   'f_upsert_alerte_admin dédup : 1 seule alerte ouverte pour le même (code, entity)'
 );
 
--- Nettoyage
 DELETE FROM plateforme.alertes_admin WHERE code = 'test_dedup';
 
--- ── 6. RLS alertes_admin — policy présente et cloisonnée ────────────────
+-- ── 6. RLS alertes_admin — cloisonnement effectif ────────────────────────
 
 SELECT policies_are(
   'plateforme',
@@ -91,14 +85,31 @@ SELECT policies_are(
   'alertes_admin a la policy aa_admin'
 );
 
--- RLS comportemental : un rôle authenticated sans claim admin_savr voit 0 ligne
+-- Insérer une ligne (superuser/owner, bypass RLS) pour tester le deny réel
+INSERT INTO plateforme.alertes_admin (code, titre, entity_type, entity_id)
+VALUES ('test_rls_aa', 'Test RLS', 'collectes', gen_random_uuid());
+
+-- Non-admin : 0 lignes visibles malgré ligne présente
 SET LOCAL role = authenticated;
+SET LOCAL "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-000000000001","role":"traiteur_manager"}';
 SELECT is(
-  (SELECT COUNT(*)::integer FROM plateforme.alertes_admin),
+  (SELECT COUNT(*)::integer FROM plateforme.alertes_admin WHERE code = 'test_rls_aa'),
   0,
-  'authenticated sans claim admin_savr : 0 alerte visible (RLS deny)'
+  'traiteur_manager ne voit pas alertes_admin (deny effectif, ligne présente)'
 );
 RESET ROLE;
+
+-- Admin : 1 ligne visible
+SET LOCAL role = authenticated;
+SET LOCAL "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-000000000002","role":"admin_savr"}';
+SELECT is(
+  (SELECT COUNT(*)::integer FROM plateforme.alertes_admin WHERE code = 'test_rls_aa'),
+  1,
+  'admin_savr voit alertes_admin (allow effectif)'
+);
+RESET ROLE;
+
+DELETE FROM plateforme.alertes_admin WHERE code = 'test_rls_aa';
 
 -- ── 7. jobs_pdf — colonnes renommées et index anti-dupe ─────────────────
 

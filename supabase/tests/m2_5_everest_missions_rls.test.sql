@@ -83,23 +83,23 @@ VALUES (
 );
 
 INSERT INTO shared.prestataires (id, nom, code, mode_integration)
-VALUES ('p0250001-0000-0000-0000-000000000001'::uuid, 'A Toutes! test', 'a-toutes-m25', 'api');
+VALUES ('fa250001-0000-0000-0000-000000000001'::uuid, 'A Toutes! test', 'a-toutes-m25', 'api');
 
 INSERT INTO plateforme.tournees (id, reference_interne, date_tournee, creneau, type_vehicule, prestataire_logistique_id, statut)
 VALUES (
-  't0250001-0000-0000-0000-000000000001'::uuid,
+  'b0250001-0000-0000-0000-000000000001'::uuid,
   'EVR-c0250001-m25-001',
   current_date + 3,
   'soir', 'velo_cargo',
-  'p0250001-0000-0000-0000-000000000001'::uuid,
+  'fa250001-0000-0000-0000-000000000001'::uuid,
   'planifiee'
 );
 
 -- Mission en statut creation_failed (pas de everest_mission_id requis, pas de manual_acceptance_* requis)
 INSERT INTO plateforme.everest_missions (id, tournee_id, collecte_id, everest_service_id, statut_everest)
 VALUES (
-  'em250001-0000-0000-0000-000000000001'::uuid,
-  't0250001-0000-0000-0000-000000000001'::uuid,
+  'ed250001-0000-0000-0000-000000000001'::uuid,
+  'b0250001-0000-0000-0000-000000000001'::uuid,
   'c0250001-0000-0000-0000-000000000001'::uuid,
   71, 'creation_failed'
 );
@@ -138,11 +138,11 @@ SELECT is(
 SELECT test_as_superuser();
 INSERT INTO plateforme.tournees (id, reference_interne, date_tournee, creneau, type_vehicule, prestataire_logistique_id, statut)
 VALUES (
-  't0250002-0000-0000-0000-000000000001'::uuid,
+  'b0250002-0000-0000-0000-000000000001'::uuid,
   'EVR-c0250001-m25-002',
   current_date + 3,
   'soir', 'velo_cargo',
-  'p0250001-0000-0000-0000-000000000001'::uuid,
+  'fa250001-0000-0000-0000-000000000001'::uuid,
   'planifiee'
 );
 
@@ -155,7 +155,7 @@ SELECT test_set_jwt(
 SELECT lives_ok(
   $$INSERT INTO plateforme.everest_missions (tournee_id, collecte_id, everest_service_id, statut_everest)
     VALUES (
-      't0250002-0000-0000-0000-000000000001'::uuid,
+      'b0250002-0000-0000-0000-000000000001'::uuid,
       'c0250001-0000-0000-0000-000000000001'::uuid,
       71, 'creation_failed'
     )$$,
@@ -167,11 +167,11 @@ SELECT lives_ok(
 SELECT test_as_superuser();
 INSERT INTO plateforme.tournees (id, reference_interne, date_tournee, creneau, type_vehicule, prestataire_logistique_id, statut)
 VALUES (
-  't0250003-0000-0000-0000-000000000001'::uuid,
+  'b0250003-0000-0000-0000-000000000001'::uuid,
   'EVR-c0250001-m25-003',
   current_date + 3,
   'soir', 'velo_cargo',
-  'p0250001-0000-0000-0000-000000000001'::uuid,
+  'fa250001-0000-0000-0000-000000000001'::uuid,
   'planifiee'
 );
 
@@ -184,7 +184,7 @@ SELECT test_set_jwt(
 SELECT throws_ok(
   $$INSERT INTO plateforme.everest_missions (tournee_id, collecte_id, everest_service_id, statut_everest)
     VALUES (
-      't0250003-0000-0000-0000-000000000001'::uuid,
+      'b0250003-0000-0000-0000-000000000001'::uuid,
       'c0250001-0000-0000-0000-000000000001'::uuid,
       71, 'creation_failed'
     )$$,
@@ -204,7 +204,7 @@ SELECT test_set_jwt(
 SELECT lives_ok(
   $$UPDATE plateforme.everest_missions
     SET payload_latest_update = '{"ok":true}'::jsonb
-    WHERE id = 'em250001-0000-0000-0000-000000000001'::uuid$$,
+    WHERE id = 'ed250001-0000-0000-0000-000000000001'::uuid$$,
   'T5 admin_savr — UPDATE everest_missions OK (R5, USING admin_savr)'
 );
 
@@ -220,7 +220,7 @@ SELECT is(
   (WITH upd AS (
     UPDATE plateforme.everest_missions
     SET payload_latest_update = '{"hack":true}'::jsonb
-    WHERE id = 'em250001-0000-0000-0000-000000000001'::uuid
+    WHERE id = 'ed250001-0000-0000-0000-000000000001'::uuid
     RETURNING id
   ) SELECT count(*)::int FROM upd),
   0,
@@ -252,7 +252,7 @@ SELECT test_set_jwt(
 SELECT lives_ok(
   $$UPDATE plateforme.everest_missions
     SET payload_latest_update = '{"ops":true}'::jsonb
-    WHERE id = 'em250001-0000-0000-0000-000000000001'::uuid$$,
+    WHERE id = 'ed250001-0000-0000-0000-000000000001'::uuid$$,
   'T8 ops_savr — UPDATE everest_missions OK (R8, allow UPDATE)'
 );
 

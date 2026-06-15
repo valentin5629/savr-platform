@@ -34,51 +34,80 @@ END $$;
 
 DO $$ BEGIN
   -- organisations
-  INSERT INTO plateforme.organisations (id, nom, type, siret, actif) VALUES
-    ('a0000000-0000-0000-0000-000000000001'::uuid, 'Org A', 'traiteur', '11111111100001', true),
-    ('a0000000-0000-0000-0000-000000000002'::uuid, 'Org B', 'traiteur', '22222222200002', true);
+  INSERT INTO plateforme.organisations (id, nom, raison_sociale, type, siret, actif) VALUES
+    ('a0000000-0000-0000-0000-000000000001'::uuid, 'Org A', 'Org A SARL', 'traiteur', '11111111100001', true),
+    ('a0000000-0000-0000-0000-000000000002'::uuid, 'Org B', 'Org B SARL', 'traiteur', '22222222200002', true);
 
-  -- utilisateurs
-  INSERT INTO auth.users (id, email) VALUES
-    ('b0000000-0000-0000-0000-000000000001'::uuid, 'mgr-a@rls-test.local'),
-    ('b0000000-0000-0000-0000-000000000002'::uuid, 'mgr-b@rls-test.local'),
-    ('b0000000-0000-0000-0000-000000000003'::uuid, 'admin@rls-test.local'),
-    ('b0000000-0000-0000-0000-000000000004'::uuid, 'com-a@rls-test.local');
+  -- entités de facturation (FK requise pour evenements)
+  INSERT INTO plateforme.entites_facturation (id, organisation_id, raison_sociale, siret, adresse_facturation, code_postal, ville) VALUES
+    ('a1000000-0000-0000-0000-000000000001'::uuid,
+     'a0000000-0000-0000-0000-000000000001'::uuid,
+     'Org A SARL', '11111111100001', '1 Rue A', '75001', 'Paris'),
+    ('a1000000-0000-0000-0000-000000000002'::uuid,
+     'a0000000-0000-0000-0000-000000000002'::uuid,
+     'Org B SARL', '22222222200002', '2 Rue B', '75002', 'Paris');
 
-  INSERT INTO plateforme.profils (user_id, organisation_id, role) VALUES
-    ('b0000000-0000-0000-0000-000000000001'::uuid, 'a0000000-0000-0000-0000-000000000001'::uuid, 'traiteur_manager'),
-    ('b0000000-0000-0000-0000-000000000002'::uuid, 'a0000000-0000-0000-0000-000000000002'::uuid, 'traiteur_manager'),
-    ('b0000000-0000-0000-0000-000000000003'::uuid, NULL, 'admin_savr'),
-    ('b0000000-0000-0000-0000-000000000004'::uuid, 'a0000000-0000-0000-0000-000000000001'::uuid, 'traiteur_commercial');
+  -- utilisateurs (table plateforme.users — pas de profils, pas de auth.users en pgTAP)
+  INSERT INTO plateforme.users (id, organisation_id, email, prenom, nom, role) VALUES
+    ('b0000000-0000-0000-0000-000000000001'::uuid,
+     'a0000000-0000-0000-0000-000000000001'::uuid,
+     'mgr-a@rls-test.local', 'Mgr', 'A', 'traiteur_manager'),
+    ('b0000000-0000-0000-0000-000000000002'::uuid,
+     'a0000000-0000-0000-0000-000000000002'::uuid,
+     'mgr-b@rls-test.local', 'Mgr', 'B', 'traiteur_manager'),
+    ('b0000000-0000-0000-0000-000000000003'::uuid,
+     'a0000000-0000-0000-0000-000000000001'::uuid,
+     'admin@rls-test.local', 'Admin', 'Savr', 'admin_savr'),
+    ('b0000000-0000-0000-0000-000000000004'::uuid,
+     'a0000000-0000-0000-0000-000000000001'::uuid,
+     'com-a@rls-test.local', 'Com', 'A', 'traiteur_commercial');
 
-  -- lieu partagé
-  INSERT INTO plateforme.lieux (id, nom, organisation_id, adresse_acces, code_postal, ville, actif) VALUES
+  -- lieu partagé (pas d'organisation_id sur lieux — référentiel partagé)
+  INSERT INTO plateforme.lieux (id, nom, adresse_acces, code_postal, ville, type_vehicule_max, latitude, longitude, region) VALUES
     ('c0000000-0000-0000-0000-000000000001'::uuid, 'Salle A',
-     'a0000000-0000-0000-0000-000000000001'::uuid, '1 rue Test', '75001', 'Paris', true);
+     '1 rue Test', '75001', 'Paris', 'camionnette', 48.8566, 2.3522, 'idf');
 
-  -- événements
-  INSERT INTO plateforme.evenements (id, organisation_id, lieu_id, nom_evenement, date_evenement, nb_pax, statut) VALUES
+  -- type d'événement requis par la FK
+  INSERT INTO plateforme.types_evenements (id, code, libelle, ordre_affichage, actif) VALUES
+    ('c1000000-0000-0000-0000-000000000001'::uuid, 'GALA_M24', 'Gala M2.4 Test', 1, true);
+
+  -- événements (colonnes NOT NULL obligatoires)
+  INSERT INTO plateforme.evenements (
+    id, organisation_id, traiteur_operationnel_organisation_id,
+    entite_facturation_id, created_by, lieu_id, type_evenement_id,
+    nom_evenement, date_evenement, pax,
+    contact_principal_nom, contact_principal_telephone
+  ) VALUES
     ('d0000000-0000-0000-0000-000000000001'::uuid,
      'a0000000-0000-0000-0000-000000000001'::uuid,
-     'c0000000-0000-0000-0000-000000000001'::uuid, 'Gala A', '2026-06-01', 100, 'programme'),
+     'a0000000-0000-0000-0000-000000000001'::uuid,
+     'a1000000-0000-0000-0000-000000000001'::uuid,
+     'b0000000-0000-0000-0000-000000000001'::uuid,
+     'c0000000-0000-0000-0000-000000000001'::uuid,
+     'c1000000-0000-0000-0000-000000000001'::uuid,
+     'Gala A', '2026-06-01', 100, 'Contact A', '0600000001'),
     ('d0000000-0000-0000-0000-000000000002'::uuid,
      'a0000000-0000-0000-0000-000000000002'::uuid,
-     'c0000000-0000-0000-0000-000000000001'::uuid, 'Gala B', '2026-06-02', 80, 'programme');
+     'a0000000-0000-0000-0000-000000000002'::uuid,
+     'a1000000-0000-0000-0000-000000000002'::uuid,
+     'b0000000-0000-0000-0000-000000000002'::uuid,
+     'c0000000-0000-0000-0000-000000000001'::uuid,
+     'c1000000-0000-0000-0000-000000000001'::uuid,
+     'Gala B', '2026-06-02', 80, 'Contact B', '0600000002');
 
-  -- collectes
-  INSERT INTO plateforme.collectes (id, evenement_id, type, statut, realisee_at, cloturee_at, created_by) VALUES
+  -- collectes (date_collecte + heure_collecte NOT NULL ; pas de cloturee_at ni created_by)
+  INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, realisee_at) VALUES
     ('e0000000-0000-0000-0000-000000000001'::uuid,
      'd0000000-0000-0000-0000-000000000001'::uuid,
-     'anti_gaspi', 'cloturee', now() - interval '26h', now() - interval '25h',
-     'b0000000-0000-0000-0000-000000000001'::uuid),
+     'anti_gaspi', 'cloturee', 'non_envoye', '2026-06-01', '08:00', now() - interval '26h'),
     ('e0000000-0000-0000-0000-000000000002'::uuid,
      'd0000000-0000-0000-0000-000000000002'::uuid,
-     'anti_gaspi', 'cloturee', now() - interval '26h', now() - interval '25h',
-     'b0000000-0000-0000-0000-000000000002'::uuid);
+     'anti_gaspi', 'cloturee', 'non_envoye', '2026-06-02', '08:00', now() - interval '26h');
 
-  -- association
-  INSERT INTO plateforme.associations (id, nom, habilitee_attestation_fiscale, actif) VALUES
-    ('f0000000-0000-0000-0000-000000000001'::uuid, 'Asso Test', true, true);
+  -- association (colonnes NOT NULL : adresse, region, ville, contact_email)
+  INSERT INTO plateforme.associations (id, nom, adresse, region, ville, contact_email, habilitee_attestation_fiscale, actif) VALUES
+    ('f0000000-0000-0000-0000-000000000001'::uuid,
+     'Asso Test', '10 Rue Solidaire', 'idf', 'Paris', 'contact@asso-test.fr', true, true);
 
   -- attestations (une par org)
   INSERT INTO plateforme.attestations_don (
@@ -220,8 +249,17 @@ SELECT is(
 SELECT test_as_superuser();
 
 -- Fixtures trigger R9
-INSERT INTO plateforme.transporteurs (id, nom, type_tms, siret, actif) VALUES
-  ('g0000000-0000-0000-0000-000000000001'::uuid, 'Strike', 'mts1', '98765432100011', true);
+-- type_tms='autre' suffit pour ce test (le type n'est pas vérifié par le trigger)
+INSERT INTO plateforme.transporteurs (
+  id, nom, siren, adresse, code_postal, ville,
+  types_vehicules, type_tms,
+  contact_nom, contact_email, contact_telephone, actif
+) VALUES (
+  'g0000000-0000-0000-0000-000000000001'::uuid,
+  'Transp Test', '987654321', '1 Rue Logistique', '75001', 'Paris',
+  ARRAY['camionnette'], 'autre',
+  'Contact Test', 'contact@transp-test.fr', '0100000001', true
+);
 
 INSERT INTO plateforme.attributions_antgaspi (
   id, collecte_id, association_id, transporteur_id,

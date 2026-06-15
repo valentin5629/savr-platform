@@ -1,0 +1,103 @@
+{
+  "module": "M2.3",
+  "titre": "Algo attribution AG — moteur IDF/province, validation Admin, auto-accept, job outbox",
+  "description": "Moteur d'attribution Anti-Gaspi complet : algorithme SQL (Haversine associations + 4 branches IDF + province), RPC de validation avec réservation pack + emission outbox, triggers poids→volume et mode_validation immuable, API Admin complète, UI file d'attente et detail, paramètres algo, config auto-accept.",
+  "garde_fous_tms_ready": {
+    "G1": "Migration 20260615240000 n'introduit aucune table hors DDL cible V2 — seeds parametres_algo et email_templates, triggers sur attributions_antgaspi, fonctions SQL. Aucune colonne renommable ou divergente.",
+    "G3": "0 référence mts1/everest hors packages/adapters/ — M2.3 ne touche pas les adapters, la branche de transporteur (ex: ag_velo_programme) est une string opaque transmise à l'adapter.",
+    "G4": "outbox_events INSERT dans la même transaction que attributions_antgaspi (via rpc_valider_attribution_ag). Event type=attribution.validee, consumer=attribution_job. Testé : T21 pgTAP."
+  },
+  "fichiers_produits": [
+    "supabase/migrations/20260615240000_plateforme_m2_3_algo_attribution_ag.sql",
+    "supabase/tests/m2_3_algo_attribution_ag.test.sql",
+    "packages/plateforme/src/lib/attribution-ag/algo.ts",
+    "packages/plateforme/src/lib/attribution-ag/validation.ts",
+    "packages/plateforme/src/lib/attribution-ag/job.ts",
+    "packages/plateforme/src/app/api/v1/admin/attributions-ag/pending/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/recommandation/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/valider/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/poids/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/parametres-algo/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/config-auto-accept/route.ts",
+    "packages/plateforme/src/app/api/cron/process-attributions-ag/route.ts",
+    "packages/plateforme/src/app/(admin)/admin/attributions-ag/page.tsx",
+    "packages/plateforme/src/app/(admin)/admin/attributions-ag/[collecteId]/page.tsx",
+    "packages/plateforme/src/app/(admin)/admin/parametres/algo-ag/page.tsx",
+    "packages/plateforme/src/app/(admin)/admin/parametres/auto-accept/page.tsx",
+    "packages/plateforme/tests/api/admin/algo-attribution-ag.m2-3.test.ts",
+    "specs/manifests/M2.3.json"
+  ],
+  "tables_concernees": [
+    "plateforme.attributions_antgaspi (INSERT via RPC, UPDATE poids_repas_kg → trigger volume)",
+    "plateforme.parametres_algo (7 nouvelles clés AG seedées)",
+    "plateforme.email_templates (3 nouveaux templates AG)",
+    "plateforme.collectes (UPDATE pack_antgaspi_id par réservation FIFO dans RPC)",
+    "plateforme.packs_antgaspi (FOR UPDATE FIFO, réservation sans débit — débit à realisee via M2.1)",
+    "plateforme.outbox_events (INSERT attribution.validee dans même tx que validation)",
+    "plateforme.config_auto_accept_ag (CRUD Admin)",
+    "plateforme.audit_log (override + poids_repas_saisi_ops)"
+  ],
+  "fonctions_sql": [
+    "fn_calculer_algo_attribution_ag(uuid) RETURNS jsonb — moteur algo complet IDF/province",
+    "rpc_valider_attribution_ag(...) RETURNS jsonb — transaction synchrone validation + pack + outbox",
+    "fn_trg_calc_volume_repas_realise() — BEFORE UPDATE poids_repas_kg → ceil(poids/coef)",
+    "fn_trg_mode_validation_immutable() — BEFORE UPDATE mode_validation → ERRCODE P0021"
+  ],
+  "branches_idf": [
+    "ag_marathon_nuit — heure < 07:00 ou >= 20:00",
+    "ag_marathon_volume — nb_pax >= 600 (jour)",
+    "ag_velo_programme — nb_pax < 600, A Toutes! dispo, délai >= 90 min (service Everest 71)",
+    "ag_velo_express — nb_pax < 600, A Toutes! dispo, délai < 90 min (service Everest 74)",
+    "ag_velo_fallback_marathon — nb_pax < 600, A Toutes! indisponible",
+    "ag_marathon_volume_backup_camion — volume >= 600, Marathon absent, A Toutes! dispo",
+    "ag_everest_camion_express — volume >= 600, Marathon absent, A Toutes! dispo, délai < 90 min (service 77)",
+    "ag_province_proximite — province, tri distance + nb_collectes_6_mois_cache"
+  ],
+  "parametres_algo_ag": [
+    "regle_ag_plage_velo_debut: '07:00' (inclusive)",
+    "regle_ag_plage_velo_fin: '20:00' (exclusive, >= fin = nuit)",
+    "regle_ag_seuil_pax_velo: 600",
+    "regle_ag_seuil_h2_minutes: 90",
+    "poids_par_repas_kg: 0.45",
+    "a_toutes_indisponible: true (go-live flag — branches vélo → Marathon fallback)",
+    "everest_codes_postaux: ['75','92','93']"
+  ],
+  "scenarios": [
+    "heure nuit (22:00) → branche ag_marathon_nuit",
+    "600 pax exactement (seuil) → branche ag_marathon_volume",
+    "599 pax + A Toutes! dispo → branche vélo (programme ou express selon délai)",
+    "a_toutes_indisponible=true → branche ag_velo_fallback_marathon",
+    "heure 07:00 exactement = début plage = JOUR (pas nuit)",
+    "heure 20:00 exactement = fin plage = NUIT",
+    "capacite×2 = volume → association exclue (filtre strict >)",
+    "capacite×2 > volume → association incluse",
+    "volume énorme → no_asso=true",
+    "province → branche ag_province_proximite",
+    "poids 135 kg → volume ceil(135/0.45)=300",
+    "UPDATE mode_validation post-INSERT → exception P0021",
+    "rpc_valider_attribution_ag : OK + outbox emis (G4)",
+    "doublon → P0044",
+    "RLS : admin INSERT OK, traiteur_manager INSERT deny",
+    "RLS : manager voit sa propre attribution, deny cross-org",
+    "RLS : ops_savr lit parametres_algo, ne peut pas UPDATE"
+  ],
+  "tests": {
+    "pgtap": [
+      "supabase/tests/m2_3_algo_attribution_ag.test.sql (30 tests)"
+    ],
+    "vitest": [
+      "packages/plateforme/tests/api/admin/algo-attribution-ag.m2-3.test.ts (13 tests)"
+    ]
+  },
+  "divergences": [
+    "DIV-5 (clair) : scénario test v1_appel_direct_everest_velo_express_service_75 (specs/tests ligne 658) cite service 75 mais l'adapter M2.5 utilise service 74 pour ag_velo_express. Migration et adapter alignés sur 74.",
+    "DIV-6 (clair) : pack debit timing — brief module citait un débit dans la transaction de validation ; implémentation = réservation seule (set pack_antgaspi_id) à la validation, débit effectif (credits_consommes+1) délégué au trigger fn_trg_pack_debit_realisee existant (M2.1) au passage à realisee. Cohérent avec M2.1.",
+    "DIV-7 (clair) : config_auto_accept_ag — DDL cible V2 a type_evenement_id + actif ; DB réelle (migration M0.3) a organisation_id + transporteur_id + seuil_pax_min/max. Implémentation suit la DB réelle."
+  ],
+  "hors_scope": [
+    "Dispatch vers MTS-1 / Everest après attribution (géré par M2.5 adapter outbox consumer)",
+    "Auto-accept déclenchement automatique au cron (UI de configuration seule livrable M2.3)",
+    "Reporting attributions / KPIs (M3.x)",
+    "Webhook attribution vers traiteur (V1.1)"
+  ]
+}

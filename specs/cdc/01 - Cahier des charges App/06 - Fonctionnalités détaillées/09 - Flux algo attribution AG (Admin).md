@@ -1,5 +1,7 @@
 # 09 - Flux algo attribution AG (Admin)
 
+**Statut** : Validé V1
+**Dernière mise à jour** : 2026-04-21
 **Lié à** : [[05 - Règles métier]] §2 — Algorithme d'attribution Anti-Gaspi · [[04 - Data Model]] tables `attributions_antgaspi`, `associations`, `transporteurs`, `parametres_algo`
 
 ---
@@ -85,7 +87,9 @@ La sélection du transporteur AG suit **deux logiques distinctes selon la régio
 
 **Cas modification `nb_pax` post-attribution (refonte sobriété A2 2026-05-09)** : aucun workflow dédié V1. Si un Admin modifie `nb_pax` après validation et que la branche calculée diffère, la collecte n'est **pas re-routée automatiquement** ni notifiée par template dédié. Si l'Admin souhaite changer de transporteur, il rouvre l'écran d'attribution et applique un override standard (motif libre `autre`). Justification : edge case rare en pratique, l'audit cohérence + la file d'attente standard suffisent.
 
-**Cas `aucun_prestataire`** : la branche n'a pas trouvé de transporteur valide (Marathon exclu sans backup possible). L'écran affiche "Aucun prestataire éligible — traitement manuel". L'Admin doit sélectionner un transporteur via la recherche libre + motif obligatoire.
+**Cas `ag_everest_camion_express`** (branche 9, ajout 2026-06-15 DIV-8, tranché Val) : rescue grand volume urgent IDF. Se déclenche quand la branche initiale aurait retourné `aucun_prestataire` **ET** `nb_pax ≥ seuil_pax_velo (600)` **ET** `a_toutes_indisponible = false` **ET** `delai_minutes < seuil_h2_minutes (90)`. Dans ce cas, A Toutes! est sollicitée via le service Everest **77 (camion express)** au lieu de laisser la collecte en traitement manuel. L'écran affiche le bandeau "Branche AG Everest camion express — A Toutes!, délai urgent". L'Admin peut overrider avec motif.
+
+**Cas `aucun_prestataire`** : la branche n'a pas trouvé de transporteur valide (Marathon exclu sans backup possible **et** conditions `ag_everest_camion_express` non remplies). L'écran affiche "Aucun prestataire éligible — traitement manuel". L'Admin doit sélectionner un transporteur via la recherche libre + motif obligatoire.
 
 > **Go-live — branche backup camion morte (décision consciente Val 2026-06-10, challenge logistique)** : tant que la gate Everest est active (adapter Everest = V1.1, hors go-live), `parametres_algo.a_toutes_indisponible = true` est **seedé au go-live**. Conséquences : les branches vélo basculent `ag_velo_fallback_marathon` (Marathon/MTS-1, nominal prévu) **et la branche backup `ag_marathon_volume_backup_camion` (service Everest 91) est inopérante** → si Marathon est exclu sur un gros volume, la collecte tombe **directement en `aucun_prestataire`** = traitement manuel Ops ci-dessus. Cas rare, assumé. Réactivation automatique du backup à la livraison de l'adapter Everest V1.1 (repasser le flag à `false`). **Ne pas coder de fallback Strike camion** à la place (non validé opérationnellement).
 
@@ -261,7 +265,7 @@ Pilotables par l'Admin Savr sans redéploiement. **Source de vérité unique = P
 | `motif_override` | text | NULL si `mode_validation ∈ ('manuel_top1', 'auto_accept')` | Code preset (cf. §3 Override) ou texte libre si `autre`. Obligatoire si `mode_validation = 'manuel_override'`. |
 | `motif_override_libre` | text | NULL si motif preset | Texte saisi quand `motif_override = 'autre'` (min 10 car.) |
 | `poids_repas_kg` | decimal | | Poids brut saisi par le chauffeur via TMS (source de vérité). Conversion `volume_repas_realise` : formule + coefficient = **source unique §5** (dédup sobriété 2026-06-03 C1). |
-| `branche_attribution` | text | NOT NULL | Valeurs canoniques (audit cohérence A3 2026-05-09 — alignées TMS M12) : `ag_marathon_nuit`, `ag_marathon_volume`, `ag_marathon_volume_backup_camion`, `ag_velo_express`, `ag_velo_programme`, `ag_velo_fallback_marathon`, `ag_province_proximite` (= hors IDF, tri distance + secondaire `nb_collectes_6_mois`), `aucun_prestataire`. **+ `migration_bubble` (ajout 2026-06-07 Phase 10, tranché Val)** : posée exclusivement par le script de migration sur l'historique AG Bubble — jamais produite par l'algo |
+| `branche_attribution` | text | NOT NULL | Valeurs canoniques (audit cohérence A3 2026-05-09 — alignées TMS M12) : `ag_marathon_nuit`, `ag_marathon_volume`, `ag_marathon_volume_backup_camion`, `ag_velo_express`, `ag_velo_programme`, `ag_velo_fallback_marathon`, `ag_province_proximite` (= hors IDF, tri distance + secondaire `nb_collectes_6_mois`), `aucun_prestataire`, **`ag_everest_camion_express`** (ajout 2026-06-15, DIV-8, tranché Val) : branche rescue grand volume urgent IDF — service Everest 77 camion express, déclenchée quand `nb_pax ≥ seuil_pax_velo` ET `a_toutes_indisponible=false` ET `delai_minutes < seuil_h2_minutes (90)` — cas edge qui évite le `aucun_prestataire` sur gros volume urgent avec A Toutes! disponible. **+ `migration_bubble` (ajout 2026-06-07 Phase 10, tranché Val)** : posée exclusivement par le script de migration sur l'historique AG Bubble — jamais produite par l'algo |
 | `confirmation_transporteur` | jsonb | NULL avant retour prestataire | Réponse Everest/MTS-1 (V1) ou TMS (V2) : `{ statut, reference_externe, recu_at, brut }` |
 | `mode_validation` | enum | NOT NULL | **Refonte 2026-05-09 sobriété D2** : remplace ex-bool `recommandation_auto`. Valeurs : `manuel_top1` (Admin valide reco top 1), `manuel_override` (Admin choisit autre + motif), `auto_accept` (zéro humain, auto-accept activé). Plus lisible que combiner bool + `valide_par null`. |
 

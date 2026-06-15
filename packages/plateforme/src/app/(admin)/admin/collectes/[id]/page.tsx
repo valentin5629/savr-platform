@@ -14,7 +14,7 @@ import {
 
 interface CollecteDetail {
   id: string;
-  type: 'zd' | 'ag';
+  type: 'zero_dechet' | 'anti_gaspi';
   statut: string;
   statut_tms: string;
   dirty_tms: boolean;
@@ -28,6 +28,12 @@ interface CollecteDetail {
   informations_supplementaires: string | null;
   motif_override_prestataire: string | null;
   annulee_cote_savr: boolean;
+  pack_antgaspi_id: string | null;
+  packs_antgaspi: {
+    id: string;
+    type_pack: string;
+    credits_restants: number;
+  } | null;
   prestataire_logistique_id: string | null;
   evenements: {
     nom_evenement: string | null;
@@ -57,6 +63,12 @@ export default function CollecteDetailPage() {
   const [dispatching, setDispatching] = useState(false);
   const [dispatchError, setDispatchError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [annulerCreditModal, setAnnulerCreditModal] = useState(false);
+  const [annulerCreditMotif, setAnnulerCreditMotif] = useState('');
+  const [annulerCreditSubmitting, setAnnulerCreditSubmitting] = useState(false);
+  const [annulerCreditError, setAnnulerCreditError] = useState<string | null>(
+    null,
+  );
 
   const STATUTS_TERMINAUX = [
     'realisee',
@@ -72,6 +84,29 @@ export default function CollecteDetailPage() {
       .catch(() => setError('Erreur chargement'))
       .finally(() => setLoading(false));
   }, [params.id]);
+
+  const handleAnnulerCredit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAnnulerCreditSubmitting(true);
+    setAnnulerCreditError(null);
+    const res = await fetch(
+      `/api/v1/admin/collectes/${params.id}/annuler-credit`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ motif: annulerCreditMotif }),
+      },
+    );
+    if (res.ok) {
+      const updated = await fetch(`/api/v1/admin/collectes/${params.id}`);
+      if (updated.ok) setCollecte((await updated.json()) as CollecteDetail);
+      setAnnulerCreditModal(false);
+    } else {
+      const body = (await res.json()) as { error: string };
+      setAnnulerCreditError(body.error);
+    }
+    setAnnulerCreditSubmitting(false);
+  };
 
   const handleDispatch = async () => {
     setDispatching(true);
@@ -296,7 +331,7 @@ export default function CollecteDetailPage() {
       </div>
 
       {/* Bloc 3 — Pesées ZD */}
-      {collecte.type === 'zd' && collecte.collecte_flux.length > 0 && (
+      {collecte.type === 'zero_dechet' && collecte.collecte_flux.length > 0 && (
         <Card className="p-6 space-y-4">
           <h2 className="font-semibold text-savr-neutral-800">
             Bloc 3 — Pesées ZD
@@ -334,7 +369,7 @@ export default function CollecteDetailPage() {
       )}
 
       {/* Bloc 5 — AG Attribution (squelette) */}
-      {collecte.type === 'ag' && (
+      {collecte.type === 'anti_gaspi' && (
         <Card className="p-6 space-y-3">
           <h2 className="font-semibold text-savr-neutral-800">
             Bloc 5 — Attribution AG
@@ -376,15 +411,105 @@ export default function CollecteDetailPage() {
             ))}
           </div>
         )}
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button variant="secondary" size="sm" disabled>
             Valider & envoyer Pennylane
             <Badge variant="neutral" className="ml-2 text-xs">
               M1.7
             </Badge>
           </Button>
+          {collecte.statut === 'realisee' &&
+            collecte.type === 'anti_gaspi' &&
+            !collecte.annulee_cote_savr && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => {
+                  setAnnulerCreditMotif('');
+                  setAnnulerCreditError(null);
+                  setAnnulerCreditModal(true);
+                }}
+              >
+                Annuler le crédit AG
+              </Button>
+            )}
+          {collecte.annulee_cote_savr && (
+            <Badge variant="error" className="self-center">
+              Crédit annulé côté Savr
+            </Badge>
+          )}
         </div>
       </Card>
+
+      {/* Modale — Annuler le crédit AG */}
+      {annulerCreditModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+            <h2 className="text-lg font-semibold mb-4">Annuler le crédit AG</h2>
+            {annulerCreditError && (
+              <div className="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-2 text-sm">
+                {annulerCreditError}
+              </div>
+            )}
+            <form
+              onSubmit={(e) => void handleAnnulerCredit(e)}
+              className="space-y-4"
+            >
+              <p className="text-sm text-neutral-500">
+                Le crédit AG sera annulé côté Savr. La collecte reste à{' '}
+                <strong>réalisée</strong> — seul le décompte du pack est
+                rétabli.
+                {collecte.packs_antgaspi && (
+                  <>
+                    {' '}
+                    Pack : <strong>
+                      {collecte.packs_antgaspi.type_pack}
+                    </strong>{' '}
+                    — {collecte.packs_antgaspi.credits_restants} crédit
+                    {collecte.packs_antgaspi.credits_restants !== 1
+                      ? 's'
+                      : ''}{' '}
+                    restant
+                    {collecte.packs_antgaspi.credits_restants !== 1 ? 's' : ''}.
+                  </>
+                )}
+              </p>
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Motif (≥ 10 caractères)
+                </label>
+                <textarea
+                  value={annulerCreditMotif}
+                  onChange={(e) => setAnnulerCreditMotif(e.target.value)}
+                  rows={3}
+                  minLength={10}
+                  className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setAnnulerCreditModal(false)}
+                  disabled={annulerCreditSubmitting}
+                >
+                  Retour
+                </Button>
+                <Button
+                  type="submit"
+                  variant="destructive"
+                  disabled={annulerCreditSubmitting}
+                >
+                  {annulerCreditSubmitting
+                    ? 'Annulation…'
+                    : "Confirmer l'annulation"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

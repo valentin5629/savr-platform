@@ -10,7 +10,8 @@
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION plateforme.fn_trg_pack_debit_realisee()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER AS $$
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = plateforme, public AS $$
 DECLARE
   v_pack_id      uuid;
   v_organisation uuid;
@@ -88,7 +89,8 @@ CREATE TRIGGER trg_pack_debit_realisee
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION plateforme.fn_trg_pack_debit_annulation_tardive()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER AS $$
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = plateforme, public AS $$
 DECLARE
   v_pack_statut  plateforme.pack_statut_enum;
   v_delai_court  boolean;
@@ -185,7 +187,8 @@ CREATE TRIGGER trg_pack_debit_annulation_tardive
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION plateforme.fn_trg_pack_recredit()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER AS $$
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = plateforme, public AS $$
 DECLARE
   v_pack_id uuid;
 BEGIN
@@ -240,7 +243,8 @@ CREATE TRIGGER trg_pack_recredit
 CREATE OR REPLACE FUNCTION plateforme.rpc_annuler_credit_collecte(
   p_collecte_id uuid,
   p_motif text
-) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER AS $$
+) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = plateforme, public AS $$
 DECLARE
   v_collecte     record;
   v_pack_id      uuid;

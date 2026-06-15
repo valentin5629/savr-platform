@@ -222,7 +222,7 @@ SELECT throws_ok(
 
 -- ── 10. RLS : staff peut tout lire/écrire ────────────────────────────────
 
-PERFORM test_set_jwt('admin_savr');
+SELECT test_set_jwt('admin_savr');
 
 SELECT ok(
   EXISTS (
@@ -234,7 +234,7 @@ SELECT ok(
 
 -- ── 11. RLS : traiteur_manager voit uniquement son organisation ───────────
 
-PERFORM test_set_jwt('traiteur_manager', '00000000-0000-0000-0000-000000000001'::uuid);
+SELECT test_set_jwt('traiteur_manager', '00000000-0000-0000-0000-000000000001'::uuid);
 
 SELECT ok(
   EXISTS (
@@ -246,7 +246,7 @@ SELECT ok(
 
 -- ── 12. RLS : traiteur_manager ne voit pas pack d'une autre org ──────────
 
-PERFORM test_set_jwt('traiteur_manager', gen_random_uuid()); -- autre org
+SELECT test_set_jwt('traiteur_manager', gen_random_uuid()); -- autre org
 
 SELECT ok(
   NOT EXISTS (
@@ -258,7 +258,7 @@ SELECT ok(
 
 -- ── 13. RLS : traiteur_manager ne peut pas écrire directement ────────────
 
-PERFORM test_set_jwt('traiteur_manager', '00000000-0000-0000-0000-000000000001'::uuid);
+SELECT test_set_jwt('traiteur_manager', '00000000-0000-0000-0000-000000000001'::uuid);
 
 SELECT throws_ok(
   $$INSERT INTO plateforme.packs_antgaspi (
@@ -273,7 +273,7 @@ SELECT throws_ok(
 
 -- ── 14. Idempotency_key : unicité ────────────────────────────────────────
 
-PERFORM test_as_superuser();
+SELECT test_as_superuser();
 
 INSERT INTO plateforme.packs_antgaspi (
   organisation_id, type_pack, credits_initiaux, credits_consommes,

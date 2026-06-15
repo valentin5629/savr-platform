@@ -1,0 +1,49 @@
+{
+  "module": "M1.8",
+  "titre": "E2E cycle ZD — gate de sortie verticale ZD V1",
+  "description": "Gate de sortie de la verticale ZD : vérifie en test intégration que le cycle complet fonctionne de bout en bout (adapter sync MTS-1 → batch PDF J+1 → brouillon facturation → validation Admin). Comble également les deux gaps identifiés : check pesée hors seuil (M1.5b/adapter) et agrégation terminale multi-camions M1.5c (fn_agreger_terminal_collecte).",
+  "garde_fous_tms_ready": {
+    "G1": "Migration fn_agreger_terminal_collecte alignée sur DDL cible V2 (function plateforme, jamais tms.*). Colonnes outbox/tournees/collectes inchangées.",
+    "G3": "0 référence mts1/everest hors packages/adapters/ — adapter.m1-8.test.ts dans packages/adapters/ conforme.",
+    "G4": "Non concerné — pas de nouveau outbox métier dans M1.8 (gap-fill adapter + gate cycle)"
+  },
+  "fichiers_produits": [
+    "supabase/migrations/20260615100000_plateforme_m1_8_fn_agreger_terminal.sql",
+    "packages/adapters/src/mts1/adapter.ts (loadSeuils, terminal handling, seuil check)",
+    "packages/adapters/src/mts1/adapter.m1-8.test.ts",
+    "packages/plateforme/tests/e2e-cycle-zd.m1-8.test.ts",
+    "e2e/m1-8.cycle-zd.spec.ts",
+    "specs/manifests/M1.8.json"
+  ],
+  "tables_concernees": [
+    "plateforme.collectes (lecture statut + transition realisee via RPC fn_agreger_terminal_collecte)",
+    "plateforme.tournees (update statut terminee/annulee)",
+    "plateforme.pesees_tournees (upsert — déjà existant M1.5b)",
+    "plateforme.alertes_admin (via f_upsert_alerte_admin — pesee_hors_seuil, collecte_partiellement_servie)"
+  ],
+  "scenarios": [
+    "cycle nominal : collecte ZD cloturee → batch PDF 2 jobs + brouillon → valider → emise FZD-2026-00001",
+    "pesée < seuil_min → f_upsert_alerte_admin pesee_hors_seuil + upsert quand même",
+    "2 ordres DELIVERED+KO → fn_agreger_terminal_collecte realisee + alerte collecte_partiellement_servie",
+    "batch PDF collecte_flux vide >48h → skipped_no_flux=1 escalated_r9=1 alerte bordereau_pesees_manquantes_48h"
+  ],
+  "tests": {
+    "vitest": [
+      "packages/adapters/src/mts1/adapter.m1-8.test.ts (2 tests adapter)",
+      "packages/plateforme/tests/e2e-cycle-zd.m1-8.test.ts (2 tests cycle)"
+    ],
+    "playwright": [
+      "e2e/m1-8.cycle-zd.spec.ts (5 smoke tests protection endpoints)"
+    ]
+  },
+  "gaps_combles": [
+    "Gap 1 — loadSeuils() + check pesée hors seuil dans processTourDetails() : manquant en M1.5b",
+    "Gap 2 — M1.5c agrégation terminale multi-camions : fn_agreger_terminal_collecte + terminal handling dans processOrder()"
+  ],
+  "hors_scope": [
+    "Tests E2E avec vraie DB (Playwright avec Supabase réel = Phase infra)",
+    "Adapter Everest (gate V1.1 §7 CLAUDE.md)",
+    "Webhook HMAC Pennylane paiement (V1.1)",
+    "Dashboard Bloc 3 coûts logistiques (descopé V1.1)"
+  ]
+}

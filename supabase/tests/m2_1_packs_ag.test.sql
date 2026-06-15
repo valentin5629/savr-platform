@@ -86,9 +86,9 @@ INSERT INTO plateforme.evenements (
   CURRENT_DATE + INTERVAL '1 day', 200, 'Contact Test', '0600000001'
 );
 
--- Tarif AG test
-INSERT INTO plateforme.tarifs_packs_ag (id, type_pack, credits, prix_unitaire_ht, montant_total_ht, valide_du)
-VALUES ('00000000-0000-0000-0000-000000000004'::uuid, 'pack_10', 10, 130.00, 1300.00, '2026-01-01');
+-- Tarif AG test (inclure nb_collectes + prix_ht qui sont NOT NULL depuis M0.3)
+INSERT INTO plateforme.tarifs_packs_ag (id, nb_collectes, prix_ht, valide_du, type_pack, credits, prix_unitaire_ht, montant_total_ht)
+VALUES ('00000000-0000-0000-0000-000000000004'::uuid, 10, 130.00, '2026-01-01', 'pack_10', 10, 130.00, 1300.00);
 
 -- Pack AG actif (10 crédits, 0 consommés)
 INSERT INTO plateforme.packs_antgaspi (

@@ -690,7 +690,7 @@ INSERT INTO plateforme.evenements (
   entite_facturation_id, created_by, lieu_id, type_evenement_id,
   date_evenement, pax, contact_principal_nom, contact_principal_telephone
 ) VALUES (
-  'a0000000-0000-0000-0000-000000000062'::uuid,
+  'a0000000-0000-0000-0000-000000000065'::uuid,
   'a0000000-0000-0000-0000-000000000001'::uuid,
   'a0000000-0000-0000-0000-000000000001'::uuid,
   'a0000000-0000-0000-0000-000000000011'::uuid,
@@ -715,7 +715,7 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, volume_estime_repas)
 VALUES (
   'a0000000-0000-0000-0000-000000000079'::uuid,
-  'a0000000-0000-0000-0000-000000000062'::uuid,
+  'a0000000-0000-0000-0000-000000000065'::uuid,
   'anti_gaspi', 'programmee', 'non_envoye',
   CURRENT_DATE + 7, '10:00', 200
 );

@@ -79,3 +79,6 @@ packages/plateforme/src/app/(admin)/admin/parametres/algo-ag/page.tsx
 # packages/plateforme/tests/.../algo-attribution-ag* (M2.3) — 'mts1' = valeur enum dans
 # objet mock fixture transporteur (type_tms:'mts1'). Pas de logique adapter.
 packages/plateforme/tests/api/admin/algo-attribution-ag.m2-3.test.ts
+# supabase/tests/rls_attestations_don_m2_4* (M2.4) — 'mts1' = valeur de l'enum type_tms_enum
+# dans un INSERT de transporteur de test (fixture pgTAP, pas de logique adapter).
+supabase/tests/rls_attestations_don_m2_4.test.sql

@@ -48,7 +48,14 @@ ALTER TABLE plateforme.attestations_don
   ADD COLUMN IF NOT EXISTS pdf_url                         text;
 
 -- ============================================================
--- 4. Numérotation gapless ATT-DON-YYYY-NNNNN
+-- 4. Paramètre CO2 AG (seed)
+-- ============================================================
+INSERT INTO plateforme.parametres_algo (cle, valeur, type_valeur, description)
+VALUES ('co2_kg_par_repas_ag', '2.5'::jsonb, 'decimal', 'CO2 évité par repas AG (kgCO2e/repas) — source FAO, snapshot figé')
+ON CONFLICT (cle) DO NOTHING;
+
+-- ============================================================
+-- 5. Numérotation gapless ATT-DON-YYYY-NNNNN
 -- ============================================================
 CREATE OR REPLACE FUNCTION plateforme.f_next_numero_attestation(
   p_annee integer DEFAULT EXTRACT(YEAR FROM now())::integer
@@ -111,8 +118,8 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  -- Recalculer le CO2 avec le facteur courant
-  SELECT valeur::numeric
+  -- Recalculer le CO2 avec le facteur courant (valeur est jsonb, #>> '{}' extrait comme text)
+  SELECT (valeur#>>'{}')::numeric
   INTO v_facteur
   FROM plateforme.parametres_algo
   WHERE cle = 'co2_kg_par_repas_ag';

@@ -57,7 +57,6 @@ Environnement **dev uniquement** : les scripts refusent de s'exécuter si `SUPAB
 - **Bascule V1/V2** : si le schéma `tms` n'existe pas (dev V1 Plateforme), le bloc TMS est sauté proprement et `plateforme.tournees` est peuplée par le **miroir MTS-1 (60 tournées)**. Si le schéma `tms` existe (dev V2), le miroir MTS-1 n'est PAS injecté : `plateforme.tournees` est peuplée depuis le CSV tournées TMS (sémantique S3, `acceptee` → `planifiee`). Jamais les deux.
 
 `seed:check` étendu TMS :
-
 1. Count `collectes_tms` = count collectes App dispatchées + 2 manuelles + 1 orpheline.
 2. Σ tournées CSV = ~370, ratio 1,3 ±0,05 ; périodes `factures_prestataires` jointives sans chevauchement (R3.8).
 3. Payloads `fixtures/api/tms/` valides Ajv contre `savr-api-contracts` (21/21).

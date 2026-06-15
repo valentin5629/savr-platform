@@ -1,6 +1,6 @@
 # 06.02 - Templates emails V1
 
-_(historique 2026-06-03 ci-dessous)_ (**Revue de sobriété §06.02 (skill `cdc-review-sobriete`) — 6 items appliqués zéro dette** : **A1** UI Admin d'édition des templates + colonne `version` reportées V1.1 (templates en seed DB V1, éditables via SQL/migration sans redéploiement) · **A2** template 2 `completion_profil_requise` retiré V1 (gate déjà in-app, modal §05 §888) · **A3** template 8 `admin_orga_a_valider` retiré V1 (alerte purement informative, onboarding 100% auto sans gating → liste back-office) · **B1** templates 9 `admin_pack_ag_bas` + 14bis `admin_pack_epuise` fusionnés en `admin_pack_ag_etat` (variable `niveau` `bas`/`epuise`) · **C1** compteur corrigé (13 → **16 templates actifs**, dérive jamais recomptée depuis 2026-05-04) · **D1** colonne `email_templates.destinataire_type` supprimée (enum descriptif, adresse résolue au déclenchement, aucun comportement applicatif distinct). **C2 écarté** (faux positif : template 13 `admin_demande_ajout_lieu` cohérent avec le workflow « Normaliser un lieu » toujours actif §06.06). **3 fichiers App édités** : §06.02 + §05 (matrice notifications) + §03 + §00 Index. Cross-CDC : 0 divergence (templates internes Plateforme).)
+*(historique 2026-06-03 ci-dessous)* (**Revue de sobriété §06.02 (skill `cdc-review-sobriete`) — 6 items appliqués zéro dette** : **A1** UI Admin d'édition des templates + colonne `version` reportées V1.1 (templates en seed DB V1, éditables via SQL/migration sans redéploiement) · **A2** template 2 `completion_profil_requise` retiré V1 (gate déjà in-app, modal §05 §888) · **A3** template 8 `admin_orga_a_valider` retiré V1 (alerte purement informative, onboarding 100% auto sans gating → liste back-office) · **B1** templates 9 `admin_pack_ag_bas` + 14bis `admin_pack_epuise` fusionnés en `admin_pack_ag_etat` (variable `niveau` `bas`/`epuise`) · **C1** compteur corrigé (13 → **16 templates actifs**, dérive jamais recomptée depuis 2026-05-04) · **D1** colonne `email_templates.destinataire_type` supprimée (enum descriptif, adresse résolue au déclenchement, aucun comportement applicatif distinct). **C2 écarté** (faux positif : template 13 `admin_demande_ajout_lieu` cohérent avec le workflow « Normaliser un lieu » toujours actif §06.06). **3 fichiers App édités** : §06.02 + §05 (matrice notifications) + §03 + §00 Index. Cross-CDC : 0 divergence (templates internes Plateforme).)
 
 ---
 
@@ -9,7 +9,6 @@ _(historique 2026-06-03 ci-dessous)_ (**Revue de sobriété §06.02 (skill `cdc-
 Templates stockés en base (table `email_templates`) pour édition sans redéploiement. Variables interpolées via `{{variable}}`. Chaque template a un slug unique (ex: `collecte_programmee`).
 
 **Charte éditoriale** :
-
 - Vouvoiement systématique (adapté cible traiteurs/agences/grands comptes)
 - Ton direct et chaleureux, sans formule creuse
 - Signature : "L'équipe Savr"
@@ -125,7 +124,7 @@ Si cette annulation est une erreur, contactez-nous au plus vite en répondant à
 L'équipe Savr
 ```
 
-**Variables** : `prenom`, `date_collecte`, `lieu_nom`, `info_facturation` (adaptatif : "Aucune facturation ne sera émise." OU — ZD : "L'annulation intervenant à moins de 12h du créneau, le plein tarif sera facturé conformément aux CGV." OU — AG sous pack : "L'annulation intervenant à moins de 12h du créneau, un crédit de votre pack Anti-Gaspi est décompté conformément aux CGV." _(variante AG ajoutée 2026-06-07 — F2 test scenarios §06.01)_)
+**Variables** : `prenom`, `date_collecte`, `lieu_nom`, `info_facturation` (adaptatif : "Aucune facturation ne sera émise." OU — ZD : "L'annulation intervenant à moins de 12h du créneau, le plein tarif sera facturé conformément aux CGV." OU — AG sous pack : "L'annulation intervenant à moins de 12h du créneau, un crédit de votre pack Anti-Gaspi est décompté conformément aux CGV." *(variante AG ajoutée 2026-06-07 — F2 test scenarios §06.01)*)
 
 ---
 
@@ -153,13 +152,40 @@ Belle suite,
 L'équipe Savr
 ```
 
-**Variables** : `prenom`, `date_collecte`, `lieu_nom`, `poids_total`, `co2_evite`, `taux_recyclage` _(renommé 2026-05-06 — ex `taux_valorisation`. Lecture directe `collectes.taux_recyclage` formule à captation par filière)_, `lien_rapport`
+**Variables** : `prenom`, `date_collecte`, `lieu_nom`, `poids_total`, `co2_evite`, `taux_recyclage` *(renommé 2026-05-06 — ex `taux_valorisation`. Lecture directe `collectes.taux_recyclage` formule à captation par filière)*, `lien_rapport`
 
 ---
 
 ## 7. Email plaque d'immatriculation chauffeur **Retiré V1 (propagation Q10 M05 2026-04-24)**
 
 **Retiré V1 (propagation Q10 M05 2026-04-24)** — suppression totale de la notification client "plaque chauffeur T+3h". La plaque reste saisie côté TMS (bloquante checklist pré-départ M05 pour véhicules motorisés, non bloquante pour vélos cargo A Toutes!) pour traçabilité interne, registre transport, audit M08 rapprochement factures. Webhook S7 `tms/plaque-saisie` conservé côté contrat API pour log Plateforme + monitoring Admin, sans trigger Resend. Si le besoin client réapparaît, à reconsidérer V1.1 avec un template dédié et un opt-in par organisation (pas par collecte). Contenu historique préservé ci-dessous pour traçabilité.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ---
 
@@ -170,18 +196,17 @@ L'équipe Savr
 
 ---
 
-## 9. Email alerte Admin — État pack AG (bas / épuisé) _(fusion 2026-06-03, B1)_
+## 9. Email alerte Admin — État pack AG (bas / épuisé) *(fusion 2026-06-03, B1)*
 
 **Slug** : `admin_pack_ag_etat`
 **Destinataire** : tous les `admin_savr`
 **Déclencheurs** (un seul template, variable `niveau`) :
-
-- `niveau = bas` : **franchissement** du seuil 10 % — transition `> 10 %` → `≤ 10 %` des crédits initiaux restants. Pas de répétition à chaque décrément sous le seuil ; un recrédit qui repasse au-dessus de 10 % ré-arme le déclencheur _(F4 tranchée Val 2026-06-07)_
+- `niveau = bas` : **franchissement** du seuil 10 % — transition `> 10 %` → `≤ 10 %` des crédits initiaux restants. Pas de répétition à chaque décrément sous le seuil ; un recrédit qui repasse au-dessus de 10 % ré-arme le déclencheur *(F4 tranchée Val 2026-06-07)*
 - `niveau = epuise` : `packs_antgaspi.statut` passe à `epuise` (`credits_consommes = credits_initiaux`)
 
 > **Sobriété B1 2026-06-03** : fusion des ex-templates 9 (`admin_pack_ag_bas`) et 14bis (`admin_pack_epuise`) — même destinataire, même objet métier (consommation de pack), CTA identique. Le bloc « programmation bloquée » est conditionnel sur `niveau = epuise`.
 
-**Objet** : `[Admin] Pack AG {{etat_libelle}} — {{organisation_nom}}` _(`etat_libelle` = « bientôt épuisé » si `bas`, « épuisé » si `epuise`)_
+**Objet** : `[Admin] Pack AG {{etat_libelle}} — {{organisation_nom}}` *(`etat_libelle` = « bientôt épuisé » si `bas`, « épuisé » si `epuise`)*
 
 ```
 Le pack Anti-Gaspi de {{organisation_nom}} est {{etat_libelle}}.
@@ -414,13 +439,13 @@ L'équipe Savr
 
 ---
 
-## 18bis. Email Admin Savr — Recalcul branche AG IDF post-modif `nb_pax` _(supprimé audit sobriété 2026-05-09 A2)_
+## 18bis. Email Admin Savr — Recalcul branche AG IDF post-modif `nb_pax` *(supprimé audit sobriété 2026-05-09 A2)*
 
 > **Refonte audit sobriété 2026-05-09 A2** : ce template (`ag_recalcul_branche`) est supprimé. Le cas particulier "modification `nb_pax` post-attribution franchissant 600" était un edge case rare en pratique. Le workflow standard suffit : si l'Admin souhaite changer de transporteur après modif `nb_pax`, il rouvre l'écran d'attribution et applique un override (motif libre `autre`). Cf. [[09 - Flux algo attribution AG (Admin)#2.3. Règles d'attribution transporteur AG — Île-de-France|§09 §2.3]].
 
 ---
 
-## 18ter. Email Ops Savr — A Toutes! marqué indisponible _(ajout 2026-05-09)_
+## 18ter. Email Ops Savr — A Toutes! marqué indisponible *(ajout 2026-05-09)*
 
 **Slug** : `ag_a_toutes_indispo`
 **Destinataire** : Ops Savr (`ops@gosavr.io` ou alias configurable)
@@ -497,7 +522,7 @@ L'équipe Savr — alerte automatique
 
 ---
 
-## 20. Email traiteur opérationnel — Collecte programmée par un tiers _(ajout 2026-06-07, F2)_
+## 20. Email traiteur opérationnel — Collecte programmée par un tiers *(ajout 2026-06-07, F2)*
 
 **Slug** : `collecte_programmee_tiers`
 **Destinataire** : manager + commerciaux du traiteur opérationnel (`traiteur_operationnel_organisation_id`)
@@ -524,12 +549,12 @@ L'équipe Savr
 
 ---
 
-## 21. Email traiteur opérationnel — Collecte modifiée ou annulée par un tiers _(ajout 2026-06-07, F2)_
+## 21. Email traiteur opérationnel — Collecte modifiée ou annulée par un tiers *(ajout 2026-06-07, F2)*
 
 **Slug** : `collecte_modifiee_tiers`
 **Destinataire** : manager + commerciaux du traiteur opérationnel
 **Déclencheur** : modification OU annulation effectuée par un programmateur ≠ traiteur opérationnel (mêmes gardes que template 20 : tiers + non-shadow). Variable `type_changement` (`modification`/`annulation`) pilote l'objet et le bloc conditionnel.
-**Objet** : Collecte {{type_changement_libelle}} — {{date_collecte}} à {{lieu_nom}} _(`type_changement_libelle` = « modifiée » ou « annulée »)_
+**Objet** : Collecte {{type_changement_libelle}} — {{date_collecte}} à {{lieu_nom}} *(`type_changement_libelle` = « modifiée » ou « annulée »)*
 
 ```
 Bonjour {{prenom}},
@@ -555,7 +580,7 @@ L'équipe Savr
 
 ---
 
-## 22. Email Admin — Collecte annulée _(ajout 2026-06-07, F2)_
+## 22. Email Admin — Collecte annulée *(ajout 2026-06-07, F2)*
 
 **Slug** : `admin_collecte_annulee`
 **Destinataire** : tous les `admin_savr`
@@ -585,16 +610,16 @@ ATTENTION : annulation à moins de 12h du créneau — plein tarif applicable, v
 
 ## Structure DB de la table `email_templates`
 
-| Champ                      | Type        | Description                                    |
-| -------------------------- | ----------- | ---------------------------------------------- |
-| `id`                       | uuid        | PK                                             |
-| `slug`                     | text unique | Identifiant stable (ex: `collecte_programmee`) |
-| `objet`                    | text        | Sujet email (avec variables)                   |
-| `corps_html`               | text        | Corps HTML (avec variables)                    |
-| `corps_text`               | text        | Version texte fallback                         |
-| `variables`                | jsonb       | Liste des variables attendues (doc)            |
-| `actif`                    | boolean     | Activable/désactivable                         |
-| `created_at`, `updated_at` |             |                                                |
+| Champ | Type | Description |
+|-------|------|-------------|
+| `id` | uuid | PK |
+| `slug` | text unique | Identifiant stable (ex: `collecte_programmee`) |
+| `objet` | text | Sujet email (avec variables) |
+| `corps_html` | text | Corps HTML (avec variables) |
+| `corps_text` | text | Version texte fallback |
+| `variables` | jsonb | Liste des variables attendues (doc) |
+| `actif` | boolean | Activable/désactivable |
+| `created_at`, `updated_at` | | |
 
 > **Sobriété D1 2026-06-03** : colonne `destinataire_type` (`user_programmeur`/`admin_savr`/`user_specifique`) supprimée. `user_specifique` était un fourre-tout (associations, transporteurs, alias Ops, collaborateur invité…) ; l'adresse réelle est résolue au déclenchement de l'envoi, jamais depuis cet enum → aucun comportement applicatif distinct.
 
@@ -611,9 +636,9 @@ ATTENTION : annulation à moins de 12h du créneau — plein tarif applicable, v
 - **12 templates V1 (propagation Q10 M05 2026-04-24)** — retrait du template `plaque_chauffeur`. Les 12 templates V1 actifs sont numérotés 1→13 dans ce document avec le slot 7 biffé pour préserver l'historique.
 - **+1 template ajout 2026-05-04** : `admin_modification_collecte_traiteur` (n°19). Décision : variante "urgence" pilotée par flag, pas de slug séparé pour éviter duplication.
 - **Compteur corrigé 2026-06-03 (sobriété C1)** : l'ancien total « 13 templates actifs » était une dérive jamais recomptée depuis le 2026-05-04 (les templates 14bis, 16, 17, 18, 18ter, 19 ont été ajoutés ensuite). **Total V1 = 16 templates actifs** après la revue de sobriété 2026-06-03 :
-  1. `bienvenue` · 3. `collecte_programmee` · 4. `collecte_modifiee` · 5. `collecte_annulee` · 6. `rapport_disponible` · 9. `admin_pack_ag_etat` _(fusion bas+épuisé)_ · 10. `admin_incident_collecte` · 11. `reset_password` · 12. `verification_email` · 13. `admin_demande_ajout_lieu` · 14. `admin_demande_renouvellement_pack` · 16. `ag_attribution_association` · 17. `invitation_collaborateur` · 18. `ag_attribution_transporteur` · 18ter. `ag_a_toutes_indispo` · 19. `admin_modification_collecte_traiteur`.
+  1. `bienvenue` · 3. `collecte_programmee` · 4. `collecte_modifiee` · 5. `collecte_annulee` · 6. `rapport_disponible` · 9. `admin_pack_ag_etat` *(fusion bas+épuisé)* · 10. `admin_incident_collecte` · 11. `reset_password` · 12. `verification_email` · 13. `admin_demande_ajout_lieu` · 14. `admin_demande_renouvellement_pack` · 16. `ag_attribution_association` · 17. `invitation_collaborateur` · 18. `ag_attribution_transporteur` · 18ter. `ag_a_toutes_indispo` · 19. `admin_modification_collecte_traiteur`.
   - **Slots retirés** : 2 (`completion_profil_requise`, A2) · 7 (`plaque_chauffeur`) · 8 (`admin_orga_a_valider`, A3) · 14bis (`admin_pack_epuise`, fusionné → 9) · 15 (`facture_relance`) · 18bis (`ag_recalcul_branche`).
-- **+3 templates ajoutés 2026-06-07 (F2 tranchée Val, session test-scenarios)** : 20. `collecte_programmee_tiers` · 21. `collecte_modifiee_tiers` _(modification + annulation par tiers, variable `type_changement`)_ · 22. `admin_collecte_annulee`. Ils soldent l'écart matrice §05 §9 (règle 2026-05-07 tiers + destinataire Admin annulation) ↔ templates. **Total V1 = 19 templates actifs.**
+- **+3 templates ajoutés 2026-06-07 (F2 tranchée Val, session test-scenarios)** : 20. `collecte_programmee_tiers` · 21. `collecte_modifiee_tiers` *(modification + annulation par tiers, variable `type_changement`)* · 22. `admin_collecte_annulee`. Ils soldent l'écart matrice §05 §9 (règle 2026-05-07 tiers + destinataire Admin annulation) ↔ templates. **Total V1 = 19 templates actifs.**
 
 ## Questions ouvertes
 

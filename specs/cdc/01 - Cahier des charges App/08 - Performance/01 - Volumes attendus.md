@@ -14,21 +14,21 @@ Ce document fige les **ordres de grandeur** servant de base aux SLA ([[02 - SLA 
 
 ## 1. Table des volumes
 
-| Métrique                           | Aujourd'hui (Bubble) | **An 1 (cible dim.)** | An 3 (vision) | Hypothèse                                                               |
-| ---------------------------------- | -------------------- | --------------------- | ------------- | ----------------------------------------------------------------------- |
-| Organisations actives              | ~30-40               | **~80**               | ~250          | ×2 an 1, ×6 an 3 (déploiement multi-villes)                             |
-| Utilisateurs total                 | ~80                  | **~250**              | ~800          | ~3 users / orga active                                                  |
-| **Utilisateurs simultanés en pic** | ~10                  | **50**                | ~150          | Arbitrage Val 2026-06-08. Pic = lundi matin (saisie collectes week-end) |
-| Événements créés / mois            | ~120                 | **~350**              | ~900          | Aligné collectes ×~2,3                                                  |
-| Collectes réalisées / mois         | ~30                  | **~150**              | ~300          | §14 (T+18 = 150, T+36 = 300)                                            |
-| Pesées enregistrées / mois         | ~50                  | **~250**              | ~550          | ~1,7 pesée / collecte (ZD multi-flux)                                   |
-| Tournées logistiques / mois        | ~25                  | **~120**              | ~250          | ~0,8 tournée / collecte (mutualisation)                                 |
-| Factures émises / mois             | ~35                  | **~170**              | ~350          | 1 / collecte ZD + mensuelles groupées                                   |
-| Attestations fiscales / mois       | ~20                  | **~90**               | ~180          | AG habilitées fiscalement uniquement                                    |
-| Appels API tierces sortants / jour | ~30                  | **~120**              | ~300          | Pennylane + Everest + MTS-1 outbox                                      |
-| Polls MTS-1 entrants / jour        | ~96                  | **~96**               | ~96           | Cron 15 min = 96/j, indépendant du volume                               |
-| Taille DB                          | ~50 k lignes         | **~300 k lignes**     | ~900 k lignes | §14 (~50-100 lignes / collecte)                                         |
-| Storage fichiers (PDF + photos)    | ~1 Go                | **~10 Go**            | ~40 Go        | §14 (photos = poste dominant, ~37 Go à 3 ans)                           |
+| Métrique | Aujourd'hui (Bubble) | **An 1 (cible dim.)** | An 3 (vision) | Hypothèse |
+|---|---|---|---|---|
+| Organisations actives | ~30-40 | **~80** | ~250 | ×2 an 1, ×6 an 3 (déploiement multi-villes) |
+| Utilisateurs total | ~80 | **~250** | ~800 | ~3 users / orga active |
+| **Utilisateurs simultanés en pic** | ~10 | **50** | ~150 | Arbitrage Val 2026-06-08. Pic = lundi matin (saisie collectes week-end) |
+| Événements créés / mois | ~120 | **~350** | ~900 | Aligné collectes ×~2,3 |
+| Collectes réalisées / mois | ~30 | **~150** | ~300 | §14 (T+18 = 150, T+36 = 300) |
+| Pesées enregistrées / mois | ~50 | **~250** | ~550 | ~1,7 pesée / collecte (ZD multi-flux) |
+| Tournées logistiques / mois | ~25 | **~120** | ~250 | ~0,8 tournée / collecte (mutualisation) |
+| Factures émises / mois | ~35 | **~170** | ~350 | 1 / collecte ZD + mensuelles groupées |
+| Attestations fiscales / mois | ~20 | **~90** | ~180 | AG habilitées fiscalement uniquement |
+| Appels API tierces sortants / jour | ~30 | **~120** | ~300 | Pennylane + Everest + MTS-1 outbox |
+| Polls MTS-1 entrants / jour | ~96 | **~96** | ~96 | Cron 15 min = 96/j, indépendant du volume |
+| Taille DB | ~50 k lignes | **~300 k lignes** | ~900 k lignes | §14 (~50-100 lignes / collecte) |
+| Storage fichiers (PDF + photos) | ~1 Go | **~10 Go** | ~40 Go | §14 (photos = poste dominant, ~37 Go à 3 ans) |
 
 ---
 
@@ -45,12 +45,12 @@ Ce document fige les **ordres de grandeur** servant de base aux SLA ([[02 - SLA 
 
 Supabase Pro couvre la trajectoire An 1-An 3 **sans upgrade** :
 
-| Ressource                        | Quota Pro   | An 1            | An 3            | Tension       |
-| -------------------------------- | ----------- | --------------- | --------------- | ------------- |
-| DB storage                       | 8 Go        | ~250 Mo         | ~600 Mo         | Aucune        |
-| Storage fichiers                 | 100 Go      | ~10 Go          | ~40 Go          | Faible à An 3 |
-| Connexions DB pooled (PgBouncer) | 200         | <20 simultanées | <50 simultanées | Aucune        |
-| Bandwidth                        | 250 Go/mois | ~2 Go/mois      | ~5 Go/mois      | Aucune        |
+| Ressource | Quota Pro | An 1 | An 3 | Tension |
+|---|---|---|---|---|
+| DB storage | 8 Go | ~250 Mo | ~600 Mo | Aucune |
+| Storage fichiers | 100 Go | ~10 Go | ~40 Go | Faible à An 3 |
+| Connexions DB pooled (PgBouncer) | 200 | <20 simultanées | <50 simultanées | Aucune |
+| Bandwidth | 250 Go/mois | ~2 Go/mois | ~5 Go/mois | Aucune |
 
 **Conclusion** : le risque V1 n'est **pas la capacité** mais la **performance des requêtes** quand les tables grossissent sans index adéquats. D'où l'importance des index obligatoires (§14 §2, repris dans [[05 - Strategies optimisation]]) et des benchmarks ([[04 - Scenarios de charge]]).
 

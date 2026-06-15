@@ -2,8 +2,9 @@
 
 **Objectif** : spécifier l'authentification, la gestion des comptes, les rôles, le cumul de rôles, les policies RLS Supabase détaillées et la conformité RGPD sur le Savr TMS (tms.gosavr.io).
 
-**Sources croisées** :
+**Dernière mise à jour** : 2026-06-04 (**propagation Bloc 3 — workflow RGPD géoloc** — refonte A5 : base légale géoloc requalifiée intérêt légitime (ex-consentement Art. 7), écran d'information à l'inscription + trace `users_tms.consentements.geoloc_notice`, suppression révocation/notification manager in-app, table « Droits des personnes » requalifiée manuelle Admin TMS sans self-service (alignement §15.5.1), purge docs cron seule sans demande anticipée (3a), correction réf table géoloc `tournees.positions_gps` → `tms.chauffeurs_geolocalisation`) / 2026-04-25 (**propagation M13 Administration TMS** — addendum politique session 30j glissantes admin+ops device trusted **sans re-MFA actions sensibles** (R_M13.12, R_M13.13, D10 risque assumé), MFA TOTP admin 1ère fois device (D11), cap 3 devices trusted/user (D14 R_M13.11), RLS 4 nouvelles tables `users_tms_devices_trusted`/`alertes_codes_overrides`/`secrets_metadata`/`impersonation_sessions`, helper SQL `auth.is_impersonating()`, contraintes impersonation R_M13.9+R_M13.10) / 2026-04-25 propagation M10 Gestion exutoires Veolia — section 13 enrichie avec `recomptages_stocks_entrepot_log` append-only, 5 policies RLS + trigger BEFORE UPDATE/DELETE + 5 tests pgTAP bloquants / 2026-04-24 propagation M03 Portail prestataire — email+password manager+chauffeur, politique password unifiée 8 car min, magic link retournement chauffeur→password, Ops/Admin inchangés SSO Google+MFA TOTP
 
+**Sources croisées** :
 - [[04 - Data Model TMS]] — table `users_tms`, matrice RLS, fonctions helpers
 - [[03 - Périmètre fonctionnel TMS]] — M13 Admin TMS (gestion comptes)
 - [[15 - Sécurité et conformité TMS]] — RGPD, rétention, chiffrement
@@ -19,25 +20,23 @@ Issu de [[06 - Fonctionnalités détaillées TMS/M13 - Administration TMS]] V1 r
 
 **Décision** : session **30 jours glissantes** pour `admin_tms` et `ops_savr` après device trusted. **Pas de re-MFA pour actions sensibles** (R_M13.13, risque assumé conscient).
 
-| Aspect                   | admin_tms                                                                                               | ops_savr                                                                      |
-| ------------------------ | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Login initial            | SSO Google + MFA TOTP obligatoire                                                                       | SSO Google (pas de MFA V1)                                                    |
-| MFA TOTP                 | Obligatoire à la **1ère connexion sur un device** (D11)                                                 | Pas requis V1                                                                 |
-| Devices trusted          | Cap 3 actifs simultanés (R_M13.11, D14)                                                                 | Idem cap 3                                                                    |
-| Durée session            | 30j glissantes (R_M13.12, `parametres_tms.auth.session_duree_jours_par_role->>'admin_tms'`, default 30) | 30j glissantes (`auth.session_duree_jours_par_role->>'ops_savr'`, default 30) |
-| Inactivité               | 30j sans activité = expiration auto, re-login complet                                                   | Idem                                                                          |
-| Re-MFA actions sensibles | **Non** (R_M13.13, D10 explicit)                                                                        | n/a                                                                           |
-| Révocation device        | Self ou admin via M13 E3.b onglet Devices                                                               | Idem                                                                          |
+| Aspect | admin_tms | ops_savr |
+|--------|-----------|----------|
+| Login initial | SSO Google + MFA TOTP obligatoire | SSO Google (pas de MFA V1) |
+| MFA TOTP | Obligatoire à la **1ère connexion sur un device** (D11) | Pas requis V1 |
+| Devices trusted | Cap 3 actifs simultanés (R_M13.11, D14) | Idem cap 3 |
+| Durée session | 30j glissantes (R_M13.12, `parametres_tms.auth.session_duree_jours_par_role->>'admin_tms'`, default 30) | 30j glissantes (`auth.session_duree_jours_par_role->>'ops_savr'`, default 30) |
+| Inactivité | 30j sans activité = expiration auto, re-login complet | Idem |
+| Re-MFA actions sensibles | **Non** (R_M13.13, D10 explicit) | n/a |
+| Révocation device | Self ou admin via M13 E3.b onglet Devices | Idem |
 
 **Implémentation** :
-
 - Table `tms.users_tms_devices_trusted` (cf. §04 niveau 1 addendum 2026-04-25 M13).
 - À chaque login réussi (post-MFA pour admin), si device fingerprint inconnu pour le user : INSERT ligne `actif=true`. Si déjà 3 actifs → reject login avec message "Cap 3 devices, révoque-en un d'abord".
 - Supabase Auth session JWT avec `exp = now() + 30 days`, refresh token glissant à chaque activité.
 - Trigger BEFORE INSERT/UPDATE sur `users_tms_devices_trusted` enforcing cap 3 (paramètre `m13_device_trusted_max_per_user`).
 
 **Risque assumé documenté (D10/R_M13.13)** : laptop volé/compromis = jusqu'à 30j d'accès admin sans frein. Aucun re-challenge MFA même pour rotation secret, désactivation user, déverrouillage facturation, impersonation. Compensé uniquement par :
-
 - Audit-log exhaustif (toutes mutations admin tracées avec acteur + IP + user-agent)
 - Révocation device manuelle possible Admin (M13 E3.b onglet Devices)
 - Notification cible sur certaines actions (W4 reset MFA, W9 impersonation)
@@ -199,13 +198,11 @@ Issu de la rédaction de [[06 - Fonctionnalités détaillées TMS/M03 - Portail 
 ### 1. Politique password unifiée manager + chauffeur (D1 M03, scope Val 2026-04-24)
 
 **Décision** : email + password pour les rôles `manager_prestataire` (nouveau M03) **et** `chauffeur` (retournement M05). Justifications :
-
 - **Manager** : il gère des données business sensibles (assignation tournées, revenus) et doit pouvoir se reconnecter rapidement sans attendre un mail. Password standard + autocomplete navigateur = UX familière.
 - **Chauffeur** (retournement de D12 M05) : le magic link supposait un accès email systématique sur le terrain, ce qui n'est pas garanti (chauffeurs ponctuels, emails personnels mal maintenus, pas de réseau parfois). Password que le chauffeur peut noter sur papier = robustesse terrain.
 - **Unification stack** : un seul flow d'auth côté TMS (login form + password hash) au lieu de 2 (magic link + password). Moins de code, moins de bugs.
 
 **Politique password commune aux 2 rôles** :
-
 - Longueur **minimum 8 caractères, point**. Aucune contrainte de complexité (pas de règle maj/min/chiffre/symbole). Justification : règles de complexité dégradent l'UX sans apporter de sécurité mesurable (cf. NIST 800-63B depuis 2017 — recommande longueur + blacklist plutôt que complexité).
 - Hash **argon2id** via Supabase Auth natif (default Supabase). Paramètres : m=19456 KiB, t=2, p=1.
 - **Pas de blacklist mots de passe communs V1** (simplicité max). À ajouter V2 si nécessaire.
@@ -213,18 +210,17 @@ Issu de la rédaction de [[06 - Fonctionnalités détaillées TMS/M03 - Portail 
 
 **Scope périmètre auth** :
 
-| Rôle                  | Méthode auth                                  | MFA                                                                                                                                | Device binding                              |
-| --------------------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| `admin_savr`          | SSO Google + MFA TOTP                         | Oui (inchangé §09 V1)                                                                                                              | Non (desktop trusted)                       |
-| `ops_savr`            | SSO Google                                    | **Non V1** _(corrigé 2026-06-07 test-scenarios M13 F4 — addendum M13 2026-04-25 + D11 font foi ; ex-mention "MFA TOTP Oui" stale)_ | Non (desktop trusted)                       |
-| `admin_tms`           | SSO Google + MFA TOTP                         | Oui (inchangé §09 V1)                                                                                                              | Non (desktop trusted)                       |
-| `manager_prestataire` | **Email + password** (nouveau M03)            | Non V1                                                                                                                             | **Multi-device illimité** (portail browser) |
-| `chauffeur`           | **Email + password** (retournement M05 → M03) | Non V1                                                                                                                             | **1 device actif** (PWA — inchangé D12 M05) |
+| Rôle | Méthode auth | MFA | Device binding |
+|------|-------------|-----|----------------|
+| `admin_savr` | SSO Google + MFA TOTP | Oui (inchangé §09 V1) | Non (desktop trusted) |
+| `ops_savr` | SSO Google | **Non V1** *(corrigé 2026-06-07 test-scenarios M13 F4 — addendum M13 2026-04-25 + D11 font foi ; ex-mention "MFA TOTP Oui" stale)* | Non (desktop trusted) |
+| `admin_tms` | SSO Google + MFA TOTP | Oui (inchangé §09 V1) | Non (desktop trusted) |
+| `manager_prestataire` | **Email + password** (nouveau M03) | Non V1 | **Multi-device illimité** (portail browser) |
+| `chauffeur` | **Email + password** (retournement M05 → M03) | Non V1 | **1 device actif** (PWA — inchangé D12 M05) |
 
 ### 2. Reset password (magic link fallback uniquement)
 
 Le magic link ne disparaît pas totalement : il est **conservé uniquement pour le flow reset password** (M03 E02 "Mot de passe oublié"). Flow :
-
 1. User (manager OU chauffeur) saisit son email
 2. Supabase Auth émet magic link via Resend (template `password_reset`)
 3. Magic link TTL 30 min, usage unique
@@ -251,7 +247,6 @@ Paramètre `auth.session_glissante` boolean (default `true`) — flag global tou
 **Suppressions revue sobriété §05 2026-05-01 C2** : , , , . Toutes ces variantes étaient à 30 — fusion sans changement de comportement V1.
 
 Remplace la décision D13 M05 (spécifique chauffeur) par une règle commune :
-
 - **Durée session** : 30 jours glissants par défaut (paramètre `auth.session_duree_jours_par_role->>'<role>'`)
 - **JWT TTL court** : 30 minutes (refresh silencieux via cookie httpOnly sécurisé)
 - **Refresh token TTL** : 30 jours
@@ -260,17 +255,17 @@ Remplace la décision D13 M05 (spécifique chauffeur) par une règle commune :
 
 ### 5. Device binding — spécialisation par rôle (révision D12 M05)
 
-| Rôle                  | Règle device                          | Justification                                                                                                           |
-| --------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `manager_prestataire` | **Multi-device illimité**             | Le manager gère depuis bureau + téléphone + parfois tablette. Contrainte 1 device actif serait anti-UX.                 |
-| `chauffeur`           | **1 device actif** (INCHANGÉ D12 M05) | Éviter partage d'un même compte entre plusieurs chauffeurs (fraude identité, géoloc brouillée). Toast au device éjecté. |
+| Rôle | Règle device | Justification |
+|------|-------------|---------------|
+| `manager_prestataire` | **Multi-device illimité** | Le manager gère depuis bureau + téléphone + parfois tablette. Contrainte 1 device actif serait anti-UX. |
+| `chauffeur` | **1 device actif** (INCHANGÉ D12 M05) | Éviter partage d'un même compte entre plusieurs chauffeurs (fraude identité, géoloc brouillée). Toast au device éjecté. |
 
 **Impact table `auth_sessions_tms`** (§04 TMS) : la contrainte `UNIQUE (chauffeur_id) WHERE revoked_at IS NULL` reste valable **pour les chauffeurs uniquement**. Pour les managers prestataires, pas de contrainte unique — un `manager_id` peut avoir N sessions actives simultanées. Schéma révisé :
 
 ```sql
 -- Contrainte partielle : 1 device actif uniquement pour les chauffeurs
-CREATE UNIQUE INDEX auth_sessions_tms_chauffeur_single_active
-  ON tms.auth_sessions_tms (chauffeur_id)
+CREATE UNIQUE INDEX auth_sessions_tms_chauffeur_single_active 
+  ON tms.auth_sessions_tms (chauffeur_id) 
   WHERE chauffeur_id IS NOT NULL AND revoked_at IS NULL;
 
 -- Pas d'index équivalent sur manager_prestataire_id → multi-device illimité
@@ -284,7 +279,6 @@ CREATE UNIQUE INDEX auth_sessions_tms_chauffeur_single_active
 ### 7. Audit log auth
 
 Toutes les tentatives login (succès + échecs) loggées dans `audit_logs_tms` :
-
 - `action='login_success' | 'login_failed' | 'password_reset_requested' | 'password_reset_completed' | 'force_logout'`
 - Champs : `user_id`, `role`, `ip`, `user_agent`, `device_fingerprint` (si applicable), `timestamp`, `success boolean`, `failure_reason string|null`
 - Rétention : 1 an (paramètre `m15_auth_audit_retention_days = 365`)
@@ -302,7 +296,6 @@ Issu de la rédaction de [[06 - Fonctionnalités détaillées TMS/M05 - App mobi
 **Flux** : chauffeur saisit son email sur M05 E1 → Supabase Auth émet magic link via Resend (template `chauffeur_magic_link`) → chauffeur clique → session créée avec `device_fingerprint` stocké dans nouvelle table `auth_sessions_tms` (cf. §04 addendum M05).
 
 **Paramètres** :
-
 - Magic link TTL : 15 min (paramètre `m05_magic_link_ttl_min`)
 - Usage unique (`used_at` dans Supabase Auth)
 - Anti-énumération : toast neutre si email inconnu ("Si ton email est enregistré, tu recevras un lien")
@@ -329,20 +322,19 @@ Policies RLS à appliquer sur les tables suivantes pour le rôle `chauffeur` (is
 
 > ⚠ **Correctif audit RLS 2026-06-05** : les prédicats fondés sur l'identité du chauffeur utilisent **`auth.user_chauffeur_id()`** (helper qui lit le claim JWT `tms_chauffeur_id` = `chauffeurs.id`) et **non** `auth.uid()` (= `auth.users.id` = `users_tms.id`). `auth.uid()` ne matche **jamais** un `chauffeur_id`/`saisi_par_chauffeur_id`/`declarant_chauffeur_id`. Table alignée sur le SQL canonique A3. Table `chauffeurs` = **`tms.chauffeurs`** (schéma canonique §04, ex-réfs `shared.chauffeurs` corrigées).
 
-| Table                        | RLS SELECT                                                                                                                                                                            | RLS INSERT / UPDATE                                                                                                                                      |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tournees`                   | `(chauffeur_id = auth.user_chauffeur_id() OR equipier_id = auth.user_chauffeur_id()) AND statut IN ('planifiee', 'en_cours') AND heure_planifiee_debut >= now() - interval '30 days'` | UPDATE limité aux transitions statut explicites (trigger DB) — propagation 2026-04-29 (`creneau_debut` legacy → `heure_planifiee_debut` fenêtre tournée) |
-| `collectes_tms`              | via `collecte_tournees` → `tournees.chauffeur_id = auth.user_chauffeur_id()` _(multi-camions 2026-05-25, ex `collectes_tms.tournee_id`)_                                              | UPDATE `statut_operationnel` limité aux transitions M05 (W-table cycle de vie)                                                                           |
-| `pesees`                     | `saisi_par_chauffeur_id = auth.user_chauffeur_id()`                                                                                                                                   | INSERT si `tournee.statut=en_cours AND collecte_tms.statut_operationnel IN ('en_cours', 'arrivee')`                                                      |
-| `incidents`                  | `declarant_chauffeur_id = auth.user_chauffeur_id() OR tournee.chauffeur_id = auth.user_chauffeur_id()`                                                                                | INSERT si chauffeur de la tournée                                                                                                                        |
-| `auth_sessions_tms`          | `chauffeur_id = auth.user_chauffeur_id()`                                                                                                                                             | INSERT via flow magic link uniquement (pas direct)                                                                                                       |
-| `chauffeurs_geolocalisation` | `chauffeur_id = auth.user_chauffeur_id()`                                                                                                                                             | INSERT propres positions uniquement (cf. A3 §21)                                                                                                         |
-| `types_contenants`           | read-only public (tous authentifiés)                                                                                                                                                  | —                                                                                                                                                        |
-| `tms.chauffeurs`             | `id = auth.user_chauffeur_id()`                                                                                                                                                       | UPDATE `telephone` uniquement (self-service partiel, V1.1)                                                                                               |
-| `shared.prestataires`        | `id = (SELECT prestataire_id FROM tms.chauffeurs WHERE id = auth.user_chauffeur_id())`                                                                                                | — (lecture raison sociale + infos publiques uniquement)                                                                                                  |
+| Table | RLS SELECT | RLS INSERT / UPDATE |
+|-------|-----------|---------------------|
+| `tournees` | `(chauffeur_id = auth.user_chauffeur_id() OR equipier_id = auth.user_chauffeur_id()) AND statut IN ('planifiee', 'en_cours') AND heure_planifiee_debut >= now() - interval '30 days'` | UPDATE limité aux transitions statut explicites (trigger DB) — propagation 2026-04-29 (`creneau_debut` legacy → `heure_planifiee_debut` fenêtre tournée) |
+| `collectes_tms` | via `collecte_tournees` → `tournees.chauffeur_id = auth.user_chauffeur_id()` *(multi-camions 2026-05-25, ex `collectes_tms.tournee_id`)* | UPDATE `statut_operationnel` limité aux transitions M05 (W-table cycle de vie) |
+| `pesees` | `saisi_par_chauffeur_id = auth.user_chauffeur_id()` | INSERT si `tournee.statut=en_cours AND collecte_tms.statut_operationnel IN ('en_cours', 'arrivee')` |
+| `incidents` | `declarant_chauffeur_id = auth.user_chauffeur_id() OR tournee.chauffeur_id = auth.user_chauffeur_id()` | INSERT si chauffeur de la tournée |
+| `auth_sessions_tms` | `chauffeur_id = auth.user_chauffeur_id()` | INSERT via flow magic link uniquement (pas direct) |
+| `chauffeurs_geolocalisation` | `chauffeur_id = auth.user_chauffeur_id()` | INSERT propres positions uniquement (cf. A3 §21) |
+| `types_contenants` | read-only public (tous authentifiés) | — |
+| `tms.chauffeurs` | `id = auth.user_chauffeur_id()` | UPDATE `telephone` uniquement (self-service partiel, V1.1) |
+| `shared.prestataires` | `id = (SELECT prestataire_id FROM tms.chauffeurs WHERE id = auth.user_chauffeur_id())` | — (lecture raison sociale + infos publiques uniquement) |
 
 **Colonnes masquées chauffeur** :
-
 - `tournees.cout_calcule_ht`, `tournees.cout_detail`, `tournees.grille_tarifaire_id` → coûts invisibles (via vue filtrée ou policy colonne)
 - `grilles_tarifaires_prestataires.*` → pas d'accès
 - `factures_prestataires.*` → pas d'accès
@@ -357,11 +349,10 @@ Coordonnées GPS purgées au-delà de 30 jours (cf. §04 addendum M05 point 6, j
 ### 6. Déconnexion forcée par Admin TMS (C5 M05)
 
 Admin TMS peut invalider toutes les sessions d'un chauffeur via back-office M06 fiche chauffeur (bouton "Déconnecter tous les appareils") :
-
 ```sql
-UPDATE auth_sessions_tms
-SET revoked_at=now(),
-    revoked_reason='admin_force_logout',
+UPDATE auth_sessions_tms 
+SET revoked_at=now(), 
+    revoked_reason='admin_force_logout', 
     revoked_by_user_id=:admin_user_id
 WHERE chauffeur_id=:chauffeur_id AND revoked_at IS NULL;
 ```
@@ -509,7 +500,6 @@ CREATE POLICY lieux_write_logistics_cross_schema ON plateforme.lieux
 ```
 
 **Tests pgTAP bloquants CI** :
-
 - `lieux_cross_schema_tms_cannot_update_non_logistics_columns` — tentative UPDATE `nom`/`adresse`/`coordonnees_gps` depuis un user TMS → doit échouer avec erreur privilege.
 - `lieux_cross_schema_plateforme_can_update_anything` — user `admin_savr` peut UPDATE toutes les colonnes (comportement historique conservé).
 - `prestataires_cross_schema_read_both_domains` — user `ops_savr` côté Plateforme ET côté TMS peut lire `shared.prestataires`.
@@ -567,20 +557,19 @@ Toute mutation sur `users_tms` (création, modification de rôles, désactivatio
 
 ### Stack d'authentification
 
-| Couche              | Technologie                                                  | Rôle                                                                                                                                      |
-| ------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| Provider            | Supabase Auth (GoTrue)                                       | Gestion credentials, JWT, sessions                                                                                                        |
-| Méthodes V1         | Email + mot de passe, Magic link, **SSO Google (Ops/Admin)** | Primaire : SSO Google pour Ops Savr + Admin TMS. Password pour managers prestataires + chauffeurs. Magic link : récupération + onboarding |
-| MFA V1              | TOTP (Google Authenticator, Authy, 1Password)                | Obligatoire Admin TMS, optionnel autres rôles. SSO Google équivaut au MFA Workspace si déjà configuré côté Workspace                      |
-| MFA V2              | WebAuthn (passkeys)                                          | Hors scope V1, prévu V2                                                                                                                   |
-| SSO V2              | Microsoft (prestataires)                                     | Hors scope V1                                                                                                                             |
-| Sessions            | JWT access (1h) + refresh token (30j)                        | Rotation refresh token à chaque usage                                                                                                     |
-| Tokens API externes | HMAC + JWT service-to-service (§08)                          | Distinct de l'auth utilisateur                                                                                                            |
+| Couche | Technologie | Rôle |
+|--------|-------------|------|
+| Provider | Supabase Auth (GoTrue) | Gestion credentials, JWT, sessions |
+| Méthodes V1 | Email + mot de passe, Magic link, **SSO Google (Ops/Admin)** | Primaire : SSO Google pour Ops Savr + Admin TMS. Password pour managers prestataires + chauffeurs. Magic link : récupération + onboarding |
+| MFA V1 | TOTP (Google Authenticator, Authy, 1Password) | Obligatoire Admin TMS, optionnel autres rôles. SSO Google équivaut au MFA Workspace si déjà configuré côté Workspace |
+| MFA V2 | WebAuthn (passkeys) | Hors scope V1, prévu V2 |
+| SSO V2 | Microsoft (prestataires) | Hors scope V1 |
+| Sessions | JWT access (1h) + refresh token (30j) | Rotation refresh token à chaque usage |
+| Tokens API externes | HMAC + JWT service-to-service (§08) | Distinct de l'auth utilisateur |
 
 ### Flux de connexion type
 
 **Ops Savr / Admin TMS (SSO Google Workspace)** :
-
 1. Clic "Se connecter avec Google" sur `tms.gosavr.io/login`.
 2. Redirection OAuth Google, validation domaine `@gosavr.io` (whitelist côté Supabase Auth provider config).
 3. Supabase Auth crée/match `auth.users` via email Google, renvoie `access_token` + `refresh_token`.
@@ -588,7 +577,6 @@ Toute mutation sur `users_tms` (création, modification de rôles, désactivatio
 5. MFA délégué à Google Workspace (politique Workspace gère obligatoirement le MFA).
 
 **Managers prestataires / Chauffeurs (email + password)** :
-
 1. Saisit email + mot de passe.
 2. Supabase Auth valide contre `auth.users`, renvoie tokens.
 3. Si `users_tms.roles` contient `admin_tms` et MFA non vérifié → challenge TOTP obligatoire (cas rare si un Admin TMS ne passe pas par SSO).
@@ -614,6 +602,8 @@ On y ajoute des custom claims via un hook Supabase Auth (ou via `raw_app_meta_da
   "tms_statut": "actif"
 }
 ```
+
+**Mise à jour** : les claims sont rafraîchis à chaque login et à chaque refresh token. Toute modification de `users_tms.roles` par l'Admin TMS force un invalidate session (cf. A4).
 
 **Fallback** : pour les policies qui ne peuvent pas s'appuyer sur le JWT (cas complexes), on lit `users_tms` via une fonction `SECURITY DEFINER` cachée pendant la transaction.
 
@@ -693,7 +683,6 @@ $$;
 Voir aussi [[11 - Dashboards TMS]] §3.10 et [[07 - Architecture technique TMS]] section Routing.
 
 Gating en 2 couches :
-
 - **Backend (RLS Supabase)** : autorité finale (cf. policies par table ci-dessous).
 - **Frontend (middleware Next.js)** : sur chaque route protégée, vérifie le rôle via session JWT. Si non-autorisé : redirect `/403` + audit log `AUDIT_403_ACCESS`.
 
@@ -709,12 +698,12 @@ Gating en 2 couches :
 
 ### Les 4 rôles V1
 
-| Rôle                  | Cible                                                    | Portée                         | Exemples d'actions                                                                                                               |
-| --------------------- | -------------------------------------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| `ops_savr`            | Équipe Savr (Ops logistique, SAV)                        | Globale (toutes prestataires)  | Dispatch collectes, valider factures, lire tous les dashboards, corriger une pesée, déclarer un passage Veolia                   |
-| `admin_tms`           | Super-admin Savr (CTO + 1 backup)                        | Globale + configuration        | Créer/désactiver users, modifier `parametres_tms` sensibles, éditer `formules_catalogue`, reset MFA, modifier grilles tarifaires |
-| `manager_prestataire` | Dirigeant ou ops chez Strike/Marathon/A Toutes!/province | Limitée à `prestataire_id`     | Gérer chauffeurs/véhicules de son entreprise, consulter tournées, uploader factures, suivre acceptation collectes                |
-| `chauffeur`           | Chauffeur ou équipier                                    | Limitée à ses propres tournées | Accepter tournée, saisir pesées, photos, rolls, incidents via app mobile M05                                                     |
+| Rôle | Cible | Portée | Exemples d'actions |
+|------|-------|--------|--------------------|
+| `ops_savr` | Équipe Savr (Ops logistique, SAV) | Globale (toutes prestataires) | Dispatch collectes, valider factures, lire tous les dashboards, corriger une pesée, déclarer un passage Veolia |
+| `admin_tms` | Super-admin Savr (CTO + 1 backup) | Globale + configuration | Créer/désactiver users, modifier `parametres_tms` sensibles, éditer `formules_catalogue`, reset MFA, modifier grilles tarifaires |
+| `manager_prestataire` | Dirigeant ou ops chez Strike/Marathon/A Toutes!/province | Limitée à `prestataire_id` | Gérer chauffeurs/véhicules de son entreprise, consulter tournées, uploader factures, suivre acceptation collectes |
+| `chauffeur` | Chauffeur ou équipier | Limitée à ses propres tournées | Accepter tournée, saisir pesées, photos, rolls, incidents via app mobile M05 |
 
 ### Cumul de rôles
 
@@ -733,7 +722,6 @@ Gating en 2 couches :
 - **`manager_prestataire` + `ops_savr`** et **`manager_prestataire` + `admin_tms`** : **interdits V1**. Un user Savr ne peut pas porter simultanément un rôle prestataire. Validation côté M13 Admin TMS à la création/modification : blocage UI + vérification côté Edge Function `upsert_user_tms` (rejet 400 si combinaison détectée). Envisageable V2 si cas business réel (ex: dirigeant prestataire recruté chez Savr).
 
 **Règles d'unicité** :
-
 - Un `users_tms.email` est unique (contrainte DB).
 - Un `chauffeurs.id` peut être référencé par **au plus un** `users_tms.chauffeur_id` (FK UNIQUE déjà en §04).
 - Un `chauffeurs.prestataire_id` est fixe → cohérent avec `users_tms.prestataire_id` quand cumul chauffeur.
@@ -743,7 +731,6 @@ Gating en 2 couches :
 Quand un user cumule plusieurs rôles, les policies RLS sont **additives** (OR logique) → le user voit l'union des périmètres de ses rôles.
 
 **Exemple** : un user `roles = ['manager_prestataire', 'chauffeur']` chez Strike voit :
-
 - Toutes les tournées Strike (via `manager_prestataire`)
 - Plus spécifiquement **ses propres tournées** (via `chauffeur`, mais déjà incluses dans la vue Strike)
 
@@ -765,21 +752,21 @@ Rappel §04 : un équipier Strike est un `chauffeurs` avec `peut_conduire = fals
 
 ### Synthèse matrice rôles × grandes catégories d'actions
 
-| Action                                      | ops_savr                                    | admin_tms  | manager_prestataire | chauffeur          |
-| ------------------------------------------- | ------------------------------------------- | ---------- | ------------------- | ------------------ |
-| Dispatcher une collecte                     | Oui                                         | Oui        | Non                 | Non                |
-| Accepter / refuser une collecte prestataire | Oui (override)                              | Oui        | Oui                 | Non                |
-| Constituer / modifier tournée               | Oui                                         | Oui        | Oui (son scope)     | Non                |
-| Saisir pesée terrain                        | Oui (override)                              | Oui        | Non                 | Oui (ses tournées) |
-| Valider facture prestataire                 | Oui                                         | Oui        | Non (upload only)   | Non                |
-| Modifier grille tarifaire                   | Oui                                         | Oui        | Non                 | Non                |
-| Modifier `parametres_tms`                   | Oui (si `modifiable_par` inclut `ops_savr`) | Oui (tout) | Non                 | Non                |
-| Éditer `formules_catalogue`                 | Non                                         | Oui        | Non                 | Non                |
-| Créer / désactiver user                     | Non                                         | Oui        | Non                 | Non                |
-| Reset MFA d'un user                         | Non                                         | Oui        | Non                 | Non                |
-| Consulter `audit_logs`                      | Oui                                         | Oui        | Non                 | Non                |
-| Déclarer passage Veolia                     | Oui                                         | Oui        | Non                 | Non                |
-| Modifier `rolls_mouvements` historique      | Non                                         | Oui        | Non                 | Non (write-only)   |
+| Action | ops_savr | admin_tms | manager_prestataire | chauffeur |
+|--------|----------|-----------|---------------------|-----------|
+| Dispatcher une collecte | Oui | Oui | Non | Non |
+| Accepter / refuser une collecte prestataire | Oui (override) | Oui | Oui | Non |
+| Constituer / modifier tournée | Oui | Oui | Oui (son scope) | Non |
+| Saisir pesée terrain | Oui (override) | Oui | Non | Oui (ses tournées) |
+| Valider facture prestataire | Oui | Oui | Non (upload only) | Non |
+| Modifier grille tarifaire | Oui | Oui | Non | Non |
+| Modifier `parametres_tms` | Oui (si `modifiable_par` inclut `ops_savr`) | Oui (tout) | Non | Non |
+| Éditer `formules_catalogue` | Non | Oui | Non | Non |
+| Créer / désactiver user | Non | Oui | Non | Non |
+| Reset MFA d'un user | Non | Oui | Non | Non |
+| Consulter `audit_logs` | Oui | Oui | Non | Non |
+| Déclarer passage Veolia | Oui | Oui | Non | Non |
+| Modifier `rolls_mouvements` historique | Non | Oui | Non | Non (write-only) |
 
 ---
 
@@ -1014,7 +1001,7 @@ CREATE POLICY collectes_tms_chauffeur_read ON collectes_tms
   );
 ```
 
-### 6 bis. `collecte_tournees` _(nouvelle table — refonte multi-camions 2026-05-25)_
+### 6 bis. `collecte_tournees` *(nouvelle table — refonte multi-camions 2026-05-25)*
 
 ```sql
 CREATE POLICY collecte_tournees_staff_all ON collecte_tournees
@@ -1317,7 +1304,6 @@ Tests pgTAP dédiés (3 tests) : lecture Ops OK, lecture Manager refusée, UPDAT
 ### 12. `factures_prestataires` + `factures_prestataires_lignes` + `exports_pennylane_log`
 
 Refonte propagation M08 2026-04-24, simplifié revue sobriété 2026-04-30 (B1 + B2 + D1) + revue sobriété §04 2026-04-30 (A5) :
-
 - Statut initial INSERT = `en_attente` (refonte enum, plus `deposee`).
 - UPDATE `action_deverrouillage` / `motif_deverrouillage` réservé `admin_tms` uniquement (R_M08.5). retirée V1 (revue sobriété §04 2026-04-30 B1) — acteur tracé via `audit_logs.acteur_user_id` action `DEVERROUILLAGE_FACTURE`.
 - UPDATE statut `valide` → `regle` réservé staff (Ops + Admin).
@@ -1396,7 +1382,6 @@ CREATE POLICY factures_admin_deverrouillage ON factures_prestataires
 ```
 
 **Tests pgTAP bloquants M08 (propagation 2026-04-24, mis à jour revue sobriété 2026-04-30)** :
-
 - Manager ne peut pas voir factures d'un autre prestataire (RLS leak prevention)
 - Manager ne peut pas UPDATE une facture (immuabilité post-upload)
 - Ops (non-admin) qui modifie `action_deverrouillage`/`motif_deverrouillage`/`deverrouillee_at` → **RAISE EXCEPTION du trigger `trg_factures_deverrouillage_admin_only`** (arbitrage Val 2026-06-06 — l'enforcement W9-only est au trigger, PAS à la RLS qui est row-level ; le test cible le RAISE, pas un deny RLS)
@@ -1472,7 +1457,6 @@ CREATE TRIGGER trg_recomptages_log_append_only
 ```
 
 **Tests pgTAP bloquants CI** (propagation M10 2026-04-25) :
-
 - Manager prestataire / Chauffeur → 403 sur SELECT/INSERT `recomptages_stocks_entrepot_log` (deny RLS)
 - Ops Savr authentifié → INSERT autorisé avec `recompte_par_user_id = auth.uid()`
 - Ops Savr → INSERT refusé si `recompte_par_user_id <> auth.uid()` (anti-spoofing)
@@ -1480,7 +1464,6 @@ CREATE TRIGGER trg_recomptages_log_append_only
 - Cron `app.cron_purge=true` → DELETE > 3 ans autorisé
 
 **Tests pgTAP bloquants CI passages_veolia** (V3 sobre 2026-04-30) :
-
 - Chauffeur authentifié → 403 SELECT/UPDATE `passages_veolia` (deny RLS V3 — aucun accès chauffeur, suppression policies revue sobriété 2026-04-30 A1)
 - Manager prestataire → 403 SELECT/UPDATE `passages_veolia` (deny RLS)
 - Ops Savr → SELECT/INSERT/UPDATE autorisés via policy `passages_veolia_staff_full`
@@ -1547,7 +1530,7 @@ CREATE POLICY integrations_inbox_staff_read ON integrations_inbox
 
 ### 17bis. `suggestions_attribution_log` (propagation M12 2026-04-24, simplifié revue sobriété 2026-04-29)
 
-Table append-only, historique de toutes les exécutions M12. Pas d'UPDATE/DELETE autorisé depuis clients — uniquement write système (service*role) au moment de l'INSERT par le trigger M12 (T1/T2/T3). Pas d'enrichissement post-INSERT V1 (revue sobriété 2026-04-29 — RPC `tms.m12_enrich_override` + 3 colonnes override*\* supprimées).
+Table append-only, historique de toutes les exécutions M12. Pas d'UPDATE/DELETE autorisé depuis clients — uniquement write système (service_role) au moment de l'INSERT par le trigger M12 (T1/T2/T3). Pas d'enrichissement post-INSERT V1 (revue sobriété 2026-04-29 — RPC `tms.m12_enrich_override` + 3 colonnes override_* supprimées).
 
 ```sql
 -- Lecture : Ops Savr + Admin TMS (monitoring M13)
@@ -1565,6 +1548,8 @@ CREATE POLICY suggestions_log_staff_read ON suggestions_attribution_log
 ### 17ter. `everest_coverage_cache` — **Caduc (audit cohérence A4 2026-05-09, purge F3 2026-06-07)**
 
 > Table supprimée — couverture Everest = check local `parametres_algo.everest_codes_postaux`, aucune policy à créer. Bloc conservé pour historique uniquement.
+
+
 
 ```sql
 -- Lecture : Ops Savr + Admin TMS
@@ -1614,15 +1599,13 @@ La RLS `everest_missions` (section 18) couvre les 4 nouvelles colonnes `manual_a
 Les 6 API Routes M14 (5 internes `/api/internal/m14/*` + 1 publique `/api/webhooks/everest`) opèrent sous `service_role` (mutations système) ou rôle utilisateur (manual_accept = `ops_savr`, test_connection = `admin_tms`). Route `/api/internal/m14/missions/replay/:inbox_id` supprimée (sobriété 2026-04-30 A_M14_04 — Admin replay via SQL Studio si besoin, runbook §15). Cf. §07 section 18 Architecture API Routes M14.
 
 Le webhook public `/api/webhooks/everest` :
-
 - Validation token header `X-Webhook-Token` contre `secrets_metadata.everest_webhook_token` (Vault, accès via Edge Function `reveal_secret` côté worker `service_role`).
 - Pas de RLS table-level applicable (route publique). La sécurité est dans la validation du token et l'idempotence `integrations_inbox`.
 
 **Tests pgTAP ajoutés** (cf. §15) :
-
 - T_M14.1 : Manager Strike ne peut pas SELECT une `everest_missions` rattachée à A Toutes! (RLS `prestataire_id = auth.user_prestataire_id()`).
 - T_M14.2 : Chauffeur A Toutes! ne peut pas SELECT `everest_missions` (rôle `chauffeur` exclu de la policy).
-- T*M14.3 : Ops Savr peut UPDATE `manual_acceptance*\*`(route`manual_accept` autorisée).
+- T_M14.3 : Ops Savr peut UPDATE `manual_acceptance_*` (route `manual_accept` autorisée).
 - T_M14.4 : Trigger `trg_m14_cascade_cancel` ne s'enclenche pas si **aucune mission Everest active n'existe** dans `tms.everest_missions` pour la collecte ou sa tournée parente (no-op). Revue sobriété §04 2026-04-30 A6 — colonnes miroir `everest_mission_id` supprimées V1, lookup direct sur `everest_missions`.
 - T_M14.5 : CHECK constraint `((statut_everest = 'created_manually') = (manual_acceptance_at IS NOT NULL ...))` rejette mutation incohérente.
 
@@ -1785,7 +1768,6 @@ REVOKE UPDATE, DELETE ON tms.chauffeurs_geolocalisation FROM authenticated;
 ```
 
 **Tests pgTAP bloquants CI (ajout audit RLS 2026-06-05)** :
-
 - `test_geoloc_chauffeur_isolation` : chauffeur A ne lit pas les positions du chauffeur B → 0 ligne.
 - `test_geoloc_manager_scope` : manager Strike ne lit pas les positions d'un chauffeur Marathon → 0 ligne.
 - `test_geoloc_chauffeur_insert_self_only` : INSERT avec `chauffeur_id <> auth.user_chauffeur_id()` → rejet (anti-spoofing).
@@ -1801,7 +1783,7 @@ Suite SQL dédiée, exécutée à chaque déploiement :
 4. `test_ops_savr_cannot_read_audit_via_direct_insert` : login ops, tentative INSERT audit_logs → rejet policy (pas de policy INSERT pour authenticated).
 5. `test_suspended_prestataire_blocked_at_login` : marquer prestataire `statut = suspendu`, login manager → 0 session émise (via trigger login).
 6. `test_chauffeur_pesees_immutable_after_tournee_cloture` : clôturer tournée, tentative UPDATE pesée chauffeur → bloqué par policy.
-7. `test_chauffeur_predicate_uses_chauffeur_id_claim` _(non-régression audit RLS 2026-06-05)_ : un chauffeur dont `users_tms.id` ≠ `chauffeurs.id` (cas réel : ce sont des entités distinctes) lit bien **ses** tournées/pesées via le claim `tms_chauffeur_id` — vérifie qu'aucune policy chauffeur n'utilise `auth.uid()` à la place de `auth.user_chauffeur_id()` (sinon le chauffeur ne voit rien, ou matche une mauvaise ligne).
+7. `test_chauffeur_predicate_uses_chauffeur_id_claim` *(non-régression audit RLS 2026-06-05)* : un chauffeur dont `users_tms.id` ≠ `chauffeurs.id` (cas réel : ce sont des entités distinctes) lit bien **ses** tournées/pesées via le claim `tms_chauffeur_id` — vérifie qu'aucune policy chauffeur n'utilise `auth.uid()` à la place de `auth.user_chauffeur_id()` (sinon le chauffeur ne voit rien, ou matche une mauvaise ligne).
 
 Référence complète : §15 Sécurité et conformité TMS.
 
@@ -1812,7 +1794,6 @@ Référence complète : §15 Sécurité et conformité TMS.
 ### Création d'un compte
 
 **Acteurs autorisés** :
-
 - **Admin TMS** : peut créer n'importe quel rôle (ops_savr, admin_tms, manager_prestataire, chauffeur).
 - **Manager prestataire** : peut créer un chauffeur de son `prestataire_id` uniquement (policy RLS + trigger `prevent_self_privilege_escalation`).
 
@@ -1855,13 +1836,11 @@ Référence complète : §15 Sécurité et conformité TMS.
 ### Suspension et désactivation
 
 **Suspension temporaire** (`users_tms.statut = 'suspendu'`) :
-
 - Déclenchée par Admin TMS (ex: manager en congé prolongé, suspicion de fraude).
 - Effet immédiat : toutes les sessions révoquées, login refusé avec message "Compte suspendu, contactez Savr".
 - Réversible : `statut = 'actif'` → login redevient possible, mais MFA/password inchangés.
 
 **Désactivation définitive** (`users_tms.statut = 'archive'`) :
-
 - Workflow RGPD (cf. A5 Droit à l'effacement).
 - Conserve la ligne `users_tms` pour intégrité référentielle des `audit_logs`, `pesees.saisi_par_chauffeur_id`, `factures.uploade_par_user_id`, etc.
 - PII anonymisée : `email = 'archived-<uuid>@tms.gosavr.io'`, `telephone = NULL`, `nom = 'Archivé'`, `prenom = ''`.
@@ -1869,7 +1848,6 @@ Référence complète : §15 Sécurité et conformité TMS.
 - Trace `audit_logs.action = 'user_archived'` avec motif.
 
 **Cascade côté `chauffeurs`** :
-
 - Désactivation user ≠ suppression chauffeur. Le `chauffeurs` reste (audit tournées passées), `user_tms_id` passe à NULL, `statut = 'archive'`.
 - Documents permis / CI / visite médicale : rétention 3 ans après départ (obligation employeur), puis purge automatique (cron). Détail en A5.
 
@@ -1903,14 +1881,14 @@ Référence complète : §15 Sécurité et conformité TMS.
 
 ### Catégories de données personnelles traitées
 
-| Donnée                                       | Table                                                                                                                               | Base légale                                                                                                                                                                                     | Rétention                                     |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| Email, nom, prénom, téléphone                | `users_tms` + `auth.users`                                                                                                          | Exécution contrat (manager, ops) / intérêt légitime (chauffeur app mobile)                                                                                                                      | Durée relation + 3 ans                        |
-| Permis de conduire, CNI, visite médicale     | Storage (FK `chauffeurs.permis_url` etc.)                                                                                           | Obligation légale employeur transport                                                                                                                                                           | 3 ans après départ chauffeur, purge auto cron |
-| Géolocalisation chauffeur (tournée en cours) | `tms.chauffeurs_geolocalisation` (cf. §04 §8) _(corrigé Bloc 3 2026-06-04 — ex-`tournees.positions_gps jsonb`, table jamais créée)_ | **Intérêt légitime** (sécurité tournée + preuve de passage) — base unique, le consentement n'est pas la base retenue (position CNIL géoloc salariés). Information via notice inscription + CGU. | 30 jours, purge auto                          |
-| Coordonnées GPS collecte (lieu événement)    | `collectes_tms.adresse`                                                                                                             | Exécution contrat                                                                                                                                                                               | 5 ans (Registre transport)                    |
-| Logs de connexion (IP, user-agent)           | `audit_logs.acteur_meta`                                                                                                            | Sécurité, intérêt légitime                                                                                                                                                                      | 12 mois puis anonymisation IP                 |
-| Logs d'activité (mutations)                  | `audit_logs`                                                                                                                        | Obligation légale (traçabilité)                                                                                                                                                                 | 5 ans                                         |
+| Donnée | Table | Base légale | Rétention |
+|--------|-------|-------------|-----------|
+| Email, nom, prénom, téléphone | `users_tms` + `auth.users` | Exécution contrat (manager, ops) / intérêt légitime (chauffeur app mobile) | Durée relation + 3 ans |
+| Permis de conduire, CNI, visite médicale | Storage (FK `chauffeurs.permis_url` etc.) | Obligation légale employeur transport | 3 ans après départ chauffeur, purge auto cron |
+| Géolocalisation chauffeur (tournée en cours) | `tms.chauffeurs_geolocalisation` (cf. §04 §8) *(corrigé Bloc 3 2026-06-04 — ex-`tournees.positions_gps jsonb`, table jamais créée)* | **Intérêt légitime** (sécurité tournée + preuve de passage) — base unique, le consentement n'est pas la base retenue (position CNIL géoloc salariés). Information via notice inscription + CGU. | 30 jours, purge auto |
+| Coordonnées GPS collecte (lieu événement) | `collectes_tms.adresse` | Exécution contrat | 5 ans (Registre transport) |
+| Logs de connexion (IP, user-agent) | `audit_logs.acteur_meta` | Sécurité, intérêt légitime | 12 mois puis anonymisation IP |
+| Logs d'activité (mutations) | `audit_logs` | Obligation légale (traçabilité) | 5 ans |
 
 ### Information géoloc et acceptation de la notice (refondu Bloc 3 2026-06-04)
 
@@ -1945,14 +1923,14 @@ Gestion manuelle possible par Admin TMS pour anticiper (ex: incident de sécurit
 
 > **Réconciliation Bloc 3 2026-06-04** : §15.5.1 acte qu'il n'y a **pas de portail self-service d'exercice des droits V1** (risque CNIL assumé, arbitrage Val atelier 2026-04-23 + Bloc 3). La table ci-dessous est donc requalifiée : tous les droits sont **traités manuellement par l'Admin TMS sur demande** (canal email / manager prestataire), pas via des boutons in-app. L'ancienne version (bouton « Exporter mes données » in-app, opposition = révocation consentements géoloc) est retirée.
 
-| Droit                   | Traitement V1 (manuel, Admin TMS — pas de self-service in-app)                                                                                                                                                                                                                                                                                                                                                |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Accès (Art. 15)         | Sur demande → Admin TMS génère un export JSON consolidé (`users_tms`, `chauffeurs`, tournées rattachées, pesées saisies, incidents déclarés, audit_logs où acteur = self) via requête / Edge Function admin, transmis par lien signé. **reporté V1.1 (§15.5.1)**                                                                                                                                              |
-| Rectification (Art. 16) | Champs non-sensibles via profil ; rôles / prestataire / sensibles via Admin TMS                                                                                                                                                                                                                                                                                                                               |
-| Effacement (Art. 17)    | Workflow "archive" (A4) — anonymisation PII, conservation lignes pour intégrité référentielle. Documents permis/CI/visite purgés par cron après 3 ans (obligation employeur). **Pas de purge anticipée à la demande V1 (Bloc 3 3a)** — la rétention 3 ans est une obligation employeur, une suppression anticipée risquerait de détruire une pièce encore légalement requise. Reportée V1.1 si besoin terrain |
-| Limitation (Art. 18)    | `users_tms.statut = 'suspendu'` (action Admin TMS)                                                                                                                                                                                                                                                                                                                                                            |
-| Portabilité (Art. 20)   | Export JSON structuré idem droit d'accès (manuel Admin TMS)                                                                                                                                                                                                                                                                                                                                                   |
-| Opposition (Art. 21)    | Géoloc fondée sur l'intérêt légitime + indispensable au job → opposition traitée hors app par Admin TMS / manager prestataire (arbitrage au cas par cas, pas de bouton in-app). **retirée V1 (Bloc 3)**                                                                                                                                                                                                       |
+| Droit | Traitement V1 (manuel, Admin TMS — pas de self-service in-app) |
+|-------|-------------------|
+| Accès (Art. 15) | Sur demande → Admin TMS génère un export JSON consolidé (`users_tms`, `chauffeurs`, tournées rattachées, pesées saisies, incidents déclarés, audit_logs où acteur = self) via requête / Edge Function admin, transmis par lien signé. **reporté V1.1 (§15.5.1)** |
+| Rectification (Art. 16) | Champs non-sensibles via profil ; rôles / prestataire / sensibles via Admin TMS |
+| Effacement (Art. 17) | Workflow "archive" (A4) — anonymisation PII, conservation lignes pour intégrité référentielle. Documents permis/CI/visite purgés par cron après 3 ans (obligation employeur). **Pas de purge anticipée à la demande V1 (Bloc 3 3a)** — la rétention 3 ans est une obligation employeur, une suppression anticipée risquerait de détruire une pièce encore légalement requise. Reportée V1.1 si besoin terrain |
+| Limitation (Art. 18) | `users_tms.statut = 'suspendu'` (action Admin TMS) |
+| Portabilité (Art. 20) | Export JSON structuré idem droit d'accès (manuel Admin TMS) |
+| Opposition (Art. 21) | Géoloc fondée sur l'intérêt légitime + indispensable au job → opposition traitée hors app par Admin TMS / manager prestataire (arbitrage au cas par cas, pas de bouton in-app). **retirée V1 (Bloc 3)** |
 
 **Délai de réponse** : 1 mois (Art. 12.3 RGPD), traité par Admin TMS. Trace dans `audit_logs`. **Pas de processus automatisé sous 30j V1** (risque assumé §15.5.1).
 
@@ -2010,7 +1988,6 @@ Liste mise à jour dans §15 Sécurité TMS.
 ## Décisions structurantes
 
 ### Architecture Auth
-
 - **Supabase Auth natif** (GoTrue), cohérent stack Plateforme (2026-04-22).
 - **SSO Google Workspace V1 pour Ops Savr + Admin TMS** (whitelist domaine `@gosavr.io`). Managers prestataires et chauffeurs restent en email+password (2026-04-22).
 - **MFA TOTP obligatoire** pour `admin_tms` qui ne passe pas par SSO. SSO Google délègue MFA à Workspace (2026-04-22).
@@ -2021,7 +1998,6 @@ Liste mise à jour dans §15 Sécurité TMS.
 - **Fonctions helpers SQL** : `auth.user_is_staff()`, `auth.user_has_role()`, `auth.user_prestataire_id()`, `auth.user_chauffeur_id()` factorisent les policies (2026-04-22).
 
 ### Rôles
-
 - **4 rôles V1** : `ops_savr`, `admin_tms`, `manager_prestataire`, `chauffeur`. Cumul via `users_tms.roles text[]` (2026-04-22).
 - **Cumul `manager_prestataire` + (`ops_savr` OR `admin_tms`) interdit V1** (contrainte applicative côté M13 + Edge Function `upsert_user_tms`). Envisageable V2 si cas business réel (2026-04-22).
 - **Chauffeur multi-prestataires non supporté V1** (1 seul `prestataire_id`). V2 si fréquence réelle mesurée (2026-04-22).
@@ -2030,7 +2006,6 @@ Liste mise à jour dans §15 Sécurité TMS.
 - **Policies additives sur cumul** : union des périmètres, jamais plus large que chaque rôle pris séparément (2026-04-22).
 
 ### MFA et sessions
-
 - **MFA TOTP obligatoire pour `admin_tms`** hors SSO (SSO Google délègue MFA à Workspace) (2026-04-22).
 - **Access token 1h, refresh token 30j** avec rotation à chaque usage (anti-replay), inactivité 14j (2026-04-22).
 - **Session mobile chauffeur : 30j standard V1** (même config que web), pas de prolongation 90j (2026-04-22).
@@ -2038,20 +2013,17 @@ Liste mise à jour dans §15 Sécurité TMS.
 - **Politique mot de passe** : min 12 caractères, 1 majuscule, 1 minuscule, 1 chiffre, 1 symbole, zxcvbn score ≥ 3 (2026-04-22).
 
 ### Workflow comptes
-
 - **Invitation par magic link** TTL 7 jours, à usage unique (2026-04-22).
 - **Manager peut créer chauffeurs** de son prestataire (RLS + trigger anti-escalade) (2026-04-22).
 - **Trigger `prevent_self_privilege_escalation`** : un user ne peut jamais modifier ses propres rôles/prestataire/statut (2026-04-22).
 - **Désactivation = archive** : anonymisation PII, conservation ligne pour intégrité audit (2026-04-22).
 
 ### RLS
-
 - **Deny-by-default** + policies explicites par table/rôle (2026-04-22).
 - **service_role bypass RLS** réservé aux Edge Functions (jamais exposé front) (2026-04-22).
 - **Suite de tests RLS obligatoires** jouée en CI avant déploiement (2026-04-22).
 
 ### RGPD
-
 - **Rétention docs chauffeur** : 3 ans après départ, purge auto cron (obligation employeur transport) (2026-04-22).
 - **Géoloc chauffeur** : consentement explicite, révocable, rétention 30 jours (2026-04-22).
 - **Export données (droit d'accès)** automatisé via Edge Function, réponse < 48h, délai légal 1 mois (2026-04-22).

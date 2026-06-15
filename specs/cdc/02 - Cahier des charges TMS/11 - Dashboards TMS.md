@@ -1,5 +1,6 @@
 # 11 — Dashboards TMS
 
+**Statut** : V1 rédigée 2026-04-27.
 **Périmètre** : section transverse — index des dashboards déjà spécifiés dans les modules + patterns communs (routes, navigation cross-app, exports, refresh, responsive). **Ne re-spécifie pas** les écrans détaillés (voir modules sources).
 **Persona ciblé** : tous rôles TMS (Ops Savr, Admin TMS, Manager prestataire, Chauffeur).
 **Référence Plateforme** : [[01 - Cahier des charges App/00 - Index]] (cumul cross-app Ops).
@@ -24,33 +25,33 @@
 
 ### 2.1 Ops Savr (rôle principal du quotidien TMS)
 
-| #   | Nom                              | Module source                                                                       | Route normalisée                              | Refresh                                                | Description courte                                                                                                                     |
-| --- | -------------------------------- | ----------------------------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
-| D1  | Dashboard dispatch               | [[06 - Fonctionnalités détaillées TMS/M02 - Dispatch Ops Savr\|M02]] E1             | `/dispatch`                                   | Realtime + polling 30s (Z4 jauges)                     | Vue par défaut au login Ops. 4 zones : alertes, KPIs jour, prochaine action, jauges exutoires. **Page d'accueil par défaut Ops Savr.** |
-| D2  | Dashboard alertes                | [[06 - Fonctionnalités détaillées TMS/M11 - Alerting transverse\|M11]] E1           | `/alertes`                                    | Polling 30s                                            | Toutes alertes TMS (open / ack / résolues), filtres + bulk ack.                                                                        |
-| D3  | Dashboard pilotage financier     | [[06 - Fonctionnalités détaillées TMS/M07 - Pilotage financier logistique\|M07]] E1 | `/finance`                                    | Vue à la volée `v_m07_dashboard` (sobriété 2026-06-04) | 5 widgets coûts logistiques mois courant (W5 écart facture retiré sobriété A5).                                                        |
-| D4  | Dashboard trésorerie facturation | [[06 - Fonctionnalités détaillées TMS/M08 - Facturation prestataires\|M08]] E5      | `/facturation`                                | Vue matérialisée 5 min                                 | KPIs factures (à valider, en litige, DSO).                                                                                             |
-| D5  | Dashboard stocks matériel        | [[06 - Fonctionnalités détaillées TMS/M09 - Stock matériel Savr\|M09]] E1           | `/stocks`                                     | Realtime sur écritures + polling 60s                   | 4 KPI cards + grille traiteurs sous seuil.                                                                                             |
-| D6  | Page exutoires                   | [[06 - Fonctionnalités détaillées TMS/M10 - Gestion exutoires Veolia\|M10]] E1      | `/exutoires` (onglets `#stock` / `#passages`) | Realtime triggers + polling 30s                        | Vision saturation entrepôt + planning passages Veolia.                                                                                 |
-| D7  | Dashboard Everest                | [[06 - Fonctionnalités détaillées TMS/M14 - Intégration Everest\|M14]] E1           | `/everest`                                    | Polling 60s                                            | Supervision missions Everest, retry, latence.                                                                                          |
+| # | Nom | Module source | Route normalisée | Refresh | Description courte |
+|---|-----|---------------|------------------|---------|--------------------|
+| D1 | Dashboard dispatch | [[06 - Fonctionnalités détaillées TMS/M02 - Dispatch Ops Savr\|M02]] E1 | `/dispatch` | Realtime + polling 30s (Z4 jauges) | Vue par défaut au login Ops. 4 zones : alertes, KPIs jour, prochaine action, jauges exutoires. **Page d'accueil par défaut Ops Savr.** |
+| D2 | Dashboard alertes | [[06 - Fonctionnalités détaillées TMS/M11 - Alerting transverse\|M11]] E1 | `/alertes` | Polling 30s | Toutes alertes TMS (open / ack / résolues), filtres + bulk ack. |
+| D3 | Dashboard pilotage financier | [[06 - Fonctionnalités détaillées TMS/M07 - Pilotage financier logistique\|M07]] E1 | `/finance` | Vue à la volée `v_m07_dashboard` (sobriété 2026-06-04) | 5 widgets coûts logistiques mois courant (W5 écart facture retiré sobriété A5). |
+| D4 | Dashboard trésorerie facturation | [[06 - Fonctionnalités détaillées TMS/M08 - Facturation prestataires\|M08]] E5 | `/facturation` | Vue matérialisée 5 min | KPIs factures (à valider, en litige, DSO). |
+| D5 | Dashboard stocks matériel | [[06 - Fonctionnalités détaillées TMS/M09 - Stock matériel Savr\|M09]] E1 | `/stocks` | Realtime sur écritures + polling 60s | 4 KPI cards + grille traiteurs sous seuil. |
+| D6 | Page exutoires | [[06 - Fonctionnalités détaillées TMS/M10 - Gestion exutoires Veolia\|M10]] E1 | `/exutoires` (onglets `#stock` / `#passages`) | Realtime triggers + polling 30s | Vision saturation entrepôt + planning passages Veolia. |
+| D7 | Dashboard Everest | [[06 - Fonctionnalités détaillées TMS/M14 - Intégration Everest\|M14]] E1 | `/everest` | Polling 60s | Supervision missions Everest, retry, latence. |
 
 ### 2.2 Admin TMS (Val + Louis V1, futurs admins)
 
 L'Admin TMS a accès à **tous** les dashboards Ops + 4 dashboards exclusifs.
 
-| #   | Nom                        | Module source                                                                                     | Route normalisée                      | Refresh                         | Description courte                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| --- | -------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D8  | Dashboard admin (home)     | [[06 - Fonctionnalités détaillées TMS/M13 - Administration TMS\|M13]] E1                          | `/admin`                              | Polling 60s                     | Hub Admin : 4 cards résumé + liens rapides + activité récente. **Page d'accueil par défaut Admin TMS.**                                                                                                                                                                                                                                                                                                                                                                                                           |
-| D9  | Dashboard ingress          | [[06 - Fonctionnalités détaillées TMS/M01 - Réception ordres de collecte\|M01]] E1                | `/admin/ingress`                      | Polling 30s (refresh front-end) | Santé intégrations entrantes Plateforme→TMS, gap de synchronisation (alerte si last ack > 24h). **Allégé sobriété M01 A_M01_04 + A_M01_02 — 2026-04-30** : Zone 2 « Timeline graphique multi-courbes » retirée (volume V1 ~100 webhooks/jour ne le justifie pas), remplacée par 5 compteurs simples par type d'event + lien CSV export 7j. **Métrique « lag polling E6 » retirée — revue sobriété M01 2026-06-04 C3** (polling supprimé Bloc A A4) : remplacée par statut last ack Plateforme + alerte gap > 24h. |
-| D10 | Monitoring intégrations    | [[06 - Fonctionnalités détaillées TMS/M13 - Administration TMS\|M13]] E6                          | `/admin/integrations`                 | Vue matérialisée 60s            | Logs events, replay manuel, agrégats endpoints + tab Everest.                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| D11 | Monitoring M12 attribution | [[06 - Fonctionnalités détaillées TMS/M12 - Attribution transporteur\|M12]] §4.9 (rendu sous M13) | `/admin/integrations#m12-attribution` | Polling 60s                     | Volumétrie suggestions, qualité, cache Everest.                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| # | Nom | Module source | Route normalisée | Refresh | Description courte |
+|---|-----|---------------|------------------|---------|--------------------|
+| D8 | Dashboard admin (home) | [[06 - Fonctionnalités détaillées TMS/M13 - Administration TMS\|M13]] E1 | `/admin` | Polling 60s | Hub Admin : 4 cards résumé + liens rapides + activité récente. **Page d'accueil par défaut Admin TMS.** |
+| D9 | Dashboard ingress | [[06 - Fonctionnalités détaillées TMS/M01 - Réception ordres de collecte\|M01]] E1 | `/admin/ingress` | Polling 30s (refresh front-end) | Santé intégrations entrantes Plateforme→TMS, gap de synchronisation (alerte si last ack > 24h). **Allégé sobriété M01 A_M01_04 + A_M01_02 — 2026-04-30** : Zone 2 « Timeline graphique multi-courbes » retirée (volume V1 ~100 webhooks/jour ne le justifie pas), remplacée par 5 compteurs simples par type d'event + lien CSV export 7j. **Métrique « lag polling E6 » retirée — revue sobriété M01 2026-06-04 C3** (polling supprimé Bloc A A4) : remplacée par statut last ack Plateforme + alerte gap > 24h. |
+| D10 | Monitoring intégrations | [[06 - Fonctionnalités détaillées TMS/M13 - Administration TMS\|M13]] E6 | `/admin/integrations` | Vue matérialisée 60s | Logs events, replay manuel, agrégats endpoints + tab Everest. |
+| D11 | Monitoring M12 attribution | [[06 - Fonctionnalités détaillées TMS/M12 - Attribution transporteur\|M12]] §4.9 (rendu sous M13) | `/admin/integrations#m12-attribution` | Polling 60s | Volumétrie suggestions, qualité, cache Everest. |
 
 ### 2.3 Manager prestataire (Strike, Marathon, futurs)
 
-| #   | Nom               | Module source                                                                          | Route normalisée   | Refresh                    | Description courte                                                                                                                          |
-| --- | ----------------- | -------------------------------------------------------------------------------------- | ------------------ | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| D13 | Accueil portail   | [[06 - Fonctionnalités détaillées TMS/M03 - Portail prestataire self-service\|M03]] E1 | `/portail`         | Polling 60s                | Bloc actions en attente + tournées à assigner + KPI mois. **Page d'accueil par défaut Manager prestataire.** Bandeau alertes intégré (D15). |
-| D14 | Dashboard revenus | [[06 - Fonctionnalités détaillées TMS/M03 - Portail prestataire self-service\|M03]] E9 | `/portail/revenus` | À la demande (date picker) | KPIs revenus + tableau agrégé tournée + export CSV.                                                                                         |
+| # | Nom | Module source | Route normalisée | Refresh | Description courte |
+|---|-----|---------------|------------------|---------|--------------------|
+| D13 | Accueil portail | [[06 - Fonctionnalités détaillées TMS/M03 - Portail prestataire self-service\|M03]] E1 | `/portail` | Polling 60s | Bloc actions en attente + tournées à assigner + KPI mois. **Page d'accueil par défaut Manager prestataire.** Bandeau alertes intégré (D15). |
+| D14 | Dashboard revenus | [[06 - Fonctionnalités détaillées TMS/M03 - Portail prestataire self-service\|M03]] E9 | `/portail/revenus` | À la demande (date picker) | KPIs revenus + tableau agrégé tournée + export CSV. |
 
 ### 2.4 Chauffeur (PWA M05)
 
@@ -64,20 +65,20 @@ Aucun dashboard agrégé V1. Le chauffeur a une **vue tournée du jour** spécif
 
 **Décision D1** : convention `/{section}` ou `/{section}/{sous-section}`. Préfixe `/admin/*` pour les dashboards exclusifs Admin TMS. Pas de préfixe par rôle (Ops, Manager) pour limiter la verbosité.
 
-| Section                              | Route racine      | Sous-routes                                                                                                                                                       |
-| ------------------------------------ | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Dispatch (Ops)                       | `/dispatch`       | —                                                                                                                                                                 |
-| Alertes (Ops + Admin)                | `/alertes`        | `/alertes/:id` (drawer détail)                                                                                                                                    |
-| Pilotage financier (Ops + Admin)     | `/finance`        | `/finance/tournees/:id`                                                                                                                                           |
-| Trésorerie facturation (Ops + Admin) | `/facturation`    | `/facturation/:id`                                                                                                                                                |
-| Stocks matériel (Ops + Admin)        | `/stocks`         | `/stocks/traiteurs/:id`                                                                                                                                           |
-| Exutoires (Ops + Admin)              | `/exutoires`      | `/exutoires#stock`, `/exutoires#passages`                                                                                                                         |
-| Everest (Ops + Admin)                | `/everest`        | `/everest/missions/:id`                                                                                                                                           |
-| Tournées (Ops + Admin)               | `/tournees`       | `/tournees/:id` (cf. M04)                                                                                                                                         |
-| Collectes (Ops + Admin)              | `/collectes`      | `/collectes/:id` (cf. M01/M02)                                                                                                                                    |
-| Référentiels (Admin TMS)             | `/referentiels/*` | `/referentiels/prestataires`, `/referentiels/users`, `/referentiels/grilles-tarifaires`, `/referentiels/lieux-acces`                                              |
-| Admin (Admin TMS only)               | `/admin`          | `/admin/parametres`, `/admin/users`, `/admin/audit`, `/admin/secrets`, `/admin/integrations`, `/admin/onboarding`, `/admin/codes-alertes`, `/admin/impersonation` |
-| Portail prestataire                  | `/portail`        | `/portail/collectes/:id`, `/portail/tournees/:id`, `/portail/revenus`, `/portail/factures`, `/portail/profil`, `/portail/equipe`                                  |
+| Section | Route racine | Sous-routes |
+|---------|--------------|-------------|
+| Dispatch (Ops) | `/dispatch` | — |
+| Alertes (Ops + Admin) | `/alertes` | `/alertes/:id` (drawer détail) |
+| Pilotage financier (Ops + Admin) | `/finance` | `/finance/tournees/:id` |
+| Trésorerie facturation (Ops + Admin) | `/facturation` | `/facturation/:id` |
+| Stocks matériel (Ops + Admin) | `/stocks` | `/stocks/traiteurs/:id` |
+| Exutoires (Ops + Admin) | `/exutoires` | `/exutoires#stock`, `/exutoires#passages` |
+| Everest (Ops + Admin) | `/everest` | `/everest/missions/:id` |
+| Tournées (Ops + Admin) | `/tournees` | `/tournees/:id` (cf. M04) |
+| Collectes (Ops + Admin) | `/collectes` | `/collectes/:id` (cf. M01/M02) |
+| Référentiels (Admin TMS) | `/referentiels/*` | `/referentiels/prestataires`, `/referentiels/users`, `/referentiels/grilles-tarifaires`, `/referentiels/lieux-acces` |
+| Admin (Admin TMS only) | `/admin` | `/admin/parametres`, `/admin/users`, `/admin/audit`, `/admin/secrets`, `/admin/integrations`, `/admin/onboarding`, `/admin/codes-alertes`, `/admin/impersonation` |
+| Portail prestataire | `/portail` | `/portail/collectes/:id`, `/portail/tournees/:id`, `/portail/revenus`, `/portail/factures`, `/portail/profil`, `/portail/equipe` |
 
 **Route racine `/`** : redirection automatique selon rôle (cf. § 3.5 navigation).
 
@@ -85,13 +86,13 @@ Aucun dashboard agrégé V1. Le chauffeur a une **vue tournée du jour** spécif
 
 **Décision D2** : à la connexion (ou clic logo), redirection vers la home rôle.
 
-| Rôle                                | Home par défaut                                  |
-| ----------------------------------- | ------------------------------------------------ |
-| Ops Savr                            | `/dispatch`                                      |
-| Admin TMS (sans cumul Ops)          | `/admin`                                         |
+| Rôle | Home par défaut |
+|------|-----------------|
+| Ops Savr | `/dispatch` |
+| Admin TMS (sans cumul Ops) | `/admin` |
 | Admin TMS + Ops (cumul fréquent V1) | `/dispatch` (poste de commandement opérationnel) |
-| Manager prestataire                 | `/portail`                                       |
-| Chauffeur (PWA)                     | `/m/tournee` (cf. M05)                           |
+| Manager prestataire | `/portail` |
+| Chauffeur (PWA) | `/m/tournee` (cf. M05) |
 
 Si cumul de rôles (ex: Admin TMS + Ops Savr — cas de Val), la home par défaut est celle du rôle « le plus opérationnel » (Ops > Admin > Manager). L'utilisateur peut accéder à `/admin` via le menu sidebar.
 
@@ -107,7 +108,6 @@ Si cumul de rôles (ex: Admin TMS + Ops Savr — cas de Val), la home par défau
 - **Chauffeur** : pas de sidebar (PWA mobile, navigation bottom nav cf. M05)
 
 **Header** (toutes pages, sauf chauffeur PWA) :
-
 - Logo Savr (clic = home rôle)
 - Fil d'Ariane (breadcrumb) — section courante
 - Recherche globale (V1.1+, désactivée V1)
@@ -122,8 +122,7 @@ Si cumul de rôles (ex: Admin TMS + Ops Savr — cas de Val), la home par défau
 
 **Décision D3** : un Ops Savr peut avoir 2 profils (Plateforme + TMS) avec même email Google Workspace SSO. La navigation entre apps se fait par **liens permanents en sidebar** + SSO transparent.
 
-**Implémentation** _(simplifiée revue sobriété §08 Bloc A 2026-05-01 A1 — suppression endpoint has-profile)_ :
-
+**Implémentation** *(simplifiée revue sobriété §08 Bloc A 2026-05-01 A1 — suppression endpoint has-profile)* :
 - En bas de la sidebar TMS (au-dessus du logo Savr), bloc **« Switcher d'app »** avec 2 boutons : « → Plateforme » (bouton **toujours affiché**) et « TMS » (bouton actif/highlight courant).
 - Au clic « → Plateforme » : redirection cross-domain `https://app.gosavr.io/dashboard` (ou la home Plateforme du rôle). SSO Google Workspace gère la session transparente — pas de re-auth.
 - Symétrique côté Plateforme : même bloc avec boutons « Plateforme » + « → TMS ».
@@ -139,14 +138,14 @@ Si cumul de rôles (ex: Admin TMS + Ops Savr — cas de Val), la home par défau
 
 Pattern unifié selon criticité :
 
-| Mode                             | Usage                                                                                             | Implémentation                                                                                                                                                                |
-| -------------------------------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Realtime (Supabase Realtime)** | Données critiques temps réel : statuts collectes (D1), stocks (D5), exutoires (D6)                | Subscription Supabase channels, fallback polling 30s si déconnexion socket > 60s                                                                                              |
-| **Polling 30s**                  | Alertes (D2), KPIs jour (D1 Z2), suivi opérationnel actif                                         | `setInterval` côté React, pause si tab inactive (Page Visibility API)                                                                                                         |
-| **Polling 60s**                  | Dashboards stratégiques (D8 admin home), KPIs agrégés Everest (D7), monitoring intégrations (D10) | Idem polling 30s, pause si tab inactive                                                                                                                                       |
-| **Vue à la volée**               | Pilotage financier (D3)                                                                           | Vue `v_m07_dashboard` calculée à chaque chargement (sobriété 2026-06-04 — ex-vue matérialisée + cron 5 min supprimés ; volume ~300 tournées/mois, index composites suffisent) |
-| **Vue matérialisée 5 min**       | Dashboard financier lourd : trésorerie (D4)                                                       | `pg_cron` refresh `mat_view` toutes 5 min, requête frontend = lecture vue                                                                                                     |
-| **À la demande**                 | Dashboards avec date picker : revenus prestataire (D14), drill-downs                              | Requête au changement de filtre + bouton rafraîchir manuel                                                                                                                    |
+| Mode | Usage | Implémentation |
+|------|-------|----------------|
+| **Realtime (Supabase Realtime)** | Données critiques temps réel : statuts collectes (D1), stocks (D5), exutoires (D6) | Subscription Supabase channels, fallback polling 30s si déconnexion socket > 60s |
+| **Polling 30s** | Alertes (D2), KPIs jour (D1 Z2), suivi opérationnel actif | `setInterval` côté React, pause si tab inactive (Page Visibility API) |
+| **Polling 60s** | Dashboards stratégiques (D8 admin home), KPIs agrégés Everest (D7), monitoring intégrations (D10) | Idem polling 30s, pause si tab inactive |
+| **Vue à la volée** | Pilotage financier (D3) | Vue `v_m07_dashboard` calculée à chaque chargement (sobriété 2026-06-04 — ex-vue matérialisée + cron 5 min supprimés ; volume ~300 tournées/mois, index composites suffisent) |
+| **Vue matérialisée 5 min** | Dashboard financier lourd : trésorerie (D4) | `pg_cron` refresh `mat_view` toutes 5 min, requête frontend = lecture vue |
+| **À la demande** | Dashboards avec date picker : revenus prestataire (D14), drill-downs | Requête au changement de filtre + bouton rafraîchir manuel |
 
 **Décision D4** : pause systématique du polling sur tab inactive (réduit charge serveur de ~80% en moyenne, pattern Page Visibility API standard). Reprise immédiate au focus.
 
@@ -155,7 +154,6 @@ Pattern unifié selon criticité :
 **Décision D5** (arbitrage 7 = a) : **tous les dashboards** ont un bouton **« Exporter »** standardisé en haut à droite (entre filtres et avatar header). Composant React partagé `<DashboardExportButton />`.
 
 **Spec composant** :
-
 - Menu déroulant au clic : « Exporter en CSV » + « Exporter en PDF » (PDF = snapshot dashboard avec graphes inclus, généré côté serveur via Puppeteer Edge Function).
 - Convention nommage fichier : `tms_{dashboard_slug}_{YYYY-MM-DD}_{HHmm}.{ext}`. Ex : `tms_finance_2026-04-27_1430.csv`, `tms_alertes_2026-04-27_1430.pdf`.
 - Périmètre exporté : **filtres actifs respectés** (export = ce qui est affiché à l'écran, pas l'intégralité de la table sous-jacente).
@@ -165,7 +163,6 @@ Pattern unifié selon criticité :
 **Dashboards concernés V1** : D1, D2, D3, D4, D5, D6 (onglets séparés), D7, D8, D9, D10, D11, D13, D14. **Soit 13 dashboards × 2 formats = 26 exports possibles.**
 
 **Implémentation** :
-
 - Edge Function `dashboard_export` paramétrée `(dashboard_slug, format, filters_json)` + auth JWT + RLS appliqué (l'export voit ce que l'user voit).
 - Génération CSV : streaming `pg_dump_csv` via fonction SQL dédiée par dashboard.
 - Génération PDF : Puppeteer dans Edge Function lourde (timeout 30s), template HTML par dashboard.
@@ -177,32 +174,30 @@ Pattern unifié selon criticité :
 
 Composants React partagés (à packager dans `packages/ui-tms` du monorepo) :
 
-| Composant                                       | Usage                                                                                        | Modules consommateurs        |
-| ----------------------------------------------- | -------------------------------------------------------------------------------------------- | ---------------------------- |
-| `<DashboardHeader />`                           | Header dashboard : titre, breadcrumb, filtres rapides, export                                | Tous                         |
-| `<KPICard />`                                   | Carte KPI avec valeur, libellé, variation %, sparkline                                       | D1 Z2, D3, D4, D5, D7, D8    |
-| `<TuileJauge />`                                | Tuile saturation (jauge circulaire % + texte)                                                | D6, D1 Z4                    |
-| `<DataTable />`                                 | Table paginée 50 lignes, tri colonne, filtres header                                         | D2, D3, D4, D8, D9, D10, D14 |
-| `<AlerteBandeau />`                             | Bandeau alerte (info/warning/critical) ack/snooze inline                                     | D1 Z1, D2, D13               |
-| `<DateRangePicker />`                           | Picker plage dates avec presets (Aujourd'hui, 7j, 30j, mois courant, mois précédent, custom) | D3, D4, D7, D14              |
-| `<ChartBar />`, `<ChartLine />`, `<ChartPie />` | Wrappers Recharts customisés (palette Savr, accessibilité)                                   | D3 W2/W6, D7, D11            |
-| `<DashboardExportButton />`                     | Bouton export commun (cf. 3.6)                                                               | Tous                         |
-| `<EmptyState />`                                | État vide standardisé (illustration + message + CTA)                                         | Tous                         |
-| `<LoadingSkeleton />`                           | Squelette chargement par type (KPI, table, chart)                                            | Tous                         |
+| Composant | Usage | Modules consommateurs |
+|-----------|-------|------------------------|
+| `<DashboardHeader />` | Header dashboard : titre, breadcrumb, filtres rapides, export | Tous |
+| `<KPICard />` | Carte KPI avec valeur, libellé, variation %, sparkline | D1 Z2, D3, D4, D5, D7, D8 |
+| `<TuileJauge />` | Tuile saturation (jauge circulaire % + texte) | D6, D1 Z4 |
+| `<DataTable />` | Table paginée 50 lignes, tri colonne, filtres header | D2, D3, D4, D8, D9, D10, D14 |
+| `<AlerteBandeau />` | Bandeau alerte (info/warning/critical) ack/snooze inline | D1 Z1, D2, D13 |
+| `<DateRangePicker />` | Picker plage dates avec presets (Aujourd'hui, 7j, 30j, mois courant, mois précédent, custom) | D3, D4, D7, D14 |
+| `<ChartBar />`, `<ChartLine />`, `<ChartPie />` | Wrappers Recharts customisés (palette Savr, accessibilité) | D3 W2/W6, D7, D11 |
+| `<DashboardExportButton />` | Bouton export commun (cf. 3.6) | Tous |
+| `<EmptyState />` | État vide standardisé (illustration + message + CTA) | Tous |
+| `<LoadingSkeleton />` | Squelette chargement par type (KPI, table, chart) | Tous |
 
 **Palette couleurs** : définie dans [[10 - Design System TMS]] §2 (propagation §10 2026-04-28). Palette complète : vert primaire `#2D7A4B`, orange warning `#F59E0B`, rouge critical `#DC2626`, info `#3B82F6`, neutres `neutral-50` → `neutral-950`. Tokens Tailwind `savr-*` dans `tailwind.config.ts`.
 
 ### 3.8 Responsive et accessibilité
 
 **Responsive** :
-
 - **Desktop ≥ 1280px** : layout 2-3 colonnes, sidebar déployée, dashboards pleins (toutes zones).
 - **Laptop 1024-1279px** : sidebar repliée par défaut, layouts en accordéon (zones empilées).
 - **Tablette 768-1023px** : sidebar masquée (drawer ouvrable bouton hamburger), 1 colonne, KPIs en grille 2×N.
 - **Mobile < 768px** : non supporté V1 sauf PWA chauffeur M05 (mobile-first dédié). Si Ops/Admin/Manager accède en mobile, message « Optimisé pour desktop, certaines fonctions limitées ». Lecture seule autorisée, pas d'actions.
 
 **Accessibilité (WCAG 2.1 AA visé V1, pas certifié)** :
-
 - Contraste texte/fond ≥ 4.5:1 (couleurs Savr respectent).
 - Tous boutons + liens accessibles clavier (focus visible).
 - Labels ARIA sur composants custom (jauges, charts).
@@ -237,7 +232,6 @@ Cloche dans header affiche les **alertes M11 actives pour le rôle de l'user** (
 ### D7 — Widgets orphelins reportés V1.1+
 
 **Contexte** : 3 widgets identifiés dans les modules sans écran hôte défini :
-
 1. Widget « Arrivées sans géoloc » par chauffeur (M05/M11, seuil 15%).
 2. Widget « Taux Aucun repas / chauffeur » (§03 fenêtre 30/60/90j).
 3. Rapport « Taux clôture hors zone » mensuel par chauffeur (M04 question ouverte).
@@ -245,7 +239,6 @@ Cloche dans header affiche les **alertes M11 actives pour le rôle de l'user** (
 **Décision** (arbitrage 3 = c) : **pas de dashboard dédié V1**. Exposition via **exports CSV à la demande** depuis pages détail Tournées (M04) ou Collectes (M01/M02). Si besoin terrain remonté post go-live, créer dashboard « Qualité opérationnelle chauffeurs » V1.1.
 
 **Impact** :
-
 - Aucune nouvelle route V1.
 - Requêtes SQL ad-hoc pour Ops/Admin (templates dans `/admin/audit` ou via Supabase Studio).
 - À documenter dans [[16 - Roadmap et priorisation TMS]] comme « Dashboard qualité opérationnelle chauffeurs — V1.1 ».
@@ -288,21 +281,21 @@ Pas de machine à états dédiée §11 (les statuts sont propres à chaque entit
 
 Tous les dashboards respectent le gating RLS spécifié dans [[09 - Authentification et permissions TMS]]. Synthèse :
 
-| Dashboard                   | Rôles autorisés                                       | Note                                                |
-| --------------------------- | ----------------------------------------------------- | --------------------------------------------------- |
-| D1 Dispatch                 | Ops Savr (R), Admin TMS (R)                           | —                                                   |
-| D2 Alertes                  | Ops Savr (R+ack), Admin TMS (R+ack+résolution)        | Manager prestataire voit ses alertes scope dans D13 |
-| D3 Pilotage financier       | Ops Savr (R), Admin TMS (R+ajustement)                | —                                                   |
-| D4 Trésorerie               | Ops Savr (R), Admin TMS (R+rapprochement)             | —                                                   |
-| D5 Stocks                   | Ops Savr (R+correction), Admin TMS (R+correction)     | —                                                   |
-| D6 Exutoires                | Ops Savr (R+confirmation), Admin TMS (R+confirmation) | —                                                   |
-| D7 Everest                  | Ops Savr (R), Admin TMS (R+retry)                     | —                                                   |
-| D8 Admin home               | Admin TMS uniquement                                  | —                                                   |
-| D9 Ingress                  | Admin TMS uniquement                                  | —                                                   |
-| D10 Monitoring intégrations | Admin TMS uniquement                                  | —                                                   |
-| D11 Monitoring M12          | Admin TMS uniquement                                  | —                                                   |
-| D13 Portail home            | Manager prestataire (de cette org)                    | RLS scope `prestataire_id`                          |
-| D14 Revenus                 | Manager prestataire (de cette org)                    | RLS scope `prestataire_id`                          |
+| Dashboard | Rôles autorisés | Note |
+|-----------|----------------|------|
+| D1 Dispatch | Ops Savr (R), Admin TMS (R) | — |
+| D2 Alertes | Ops Savr (R+ack), Admin TMS (R+ack+résolution) | Manager prestataire voit ses alertes scope dans D13 |
+| D3 Pilotage financier | Ops Savr (R), Admin TMS (R+ajustement) | — |
+| D4 Trésorerie | Ops Savr (R), Admin TMS (R+rapprochement) | — |
+| D5 Stocks | Ops Savr (R+correction), Admin TMS (R+correction) | — |
+| D6 Exutoires | Ops Savr (R+confirmation), Admin TMS (R+confirmation) | — |
+| D7 Everest | Ops Savr (R), Admin TMS (R+retry) | — |
+| D8 Admin home | Admin TMS uniquement | — |
+| D9 Ingress | Admin TMS uniquement | — |
+| D10 Monitoring intégrations | Admin TMS uniquement | — |
+| D11 Monitoring M12 | Admin TMS uniquement | — |
+| D13 Portail home | Manager prestataire (de cette org) | RLS scope `prestataire_id` |
+| D14 Revenus | Manager prestataire (de cette org) | RLS scope `prestataire_id` |
 
 **Frontend gating** : routes inaccessibles → redirect `/403`. Sidebar masque les sections non autorisées (pas juste désactivation visuelle).
 
@@ -324,18 +317,18 @@ Cibles cohérentes avec [[14 - Scalabilité TMS]] (p95 M02 < 1.5s, PWA < 200Ko).
 
 ## 8. Décisions prises
 
-| #   | Décision                                                                                                                                                                                             | Justification                                                 | Date                        |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | --------------------------- |
-| D1  | Convention routes `/{section}` + préfixe `/admin/*`                                                                                                                                                  | Lisibilité, redirection rôle sur `/`                          | 2026-04-27                  |
-| D2  | Home par défaut Ops = `/dispatch`, Admin = `/admin`, Admin+Ops = `/dispatch`                                                                                                                         | Poste de commandement opérationnel prioritaire                | 2026-04-27                  |
-| D3  | Cumul cross-app via boutons sidebar « ← Plateforme / TMS → » + SSO transparent — **bouton toujours affiché** (revue sobriété §08 Bloc A 2026-05-01 A1, suppression endpoint has-profile + cookie 1h) | Simple, pas de re-auth, page d'accès refusé propre côté cible | 2026-04-27 / **2026-05-01** |
-| D4  | Pause polling sur tab inactive (Page Visibility API)                                                                                                                                                 | -80% charge serveur en moyenne                                | 2026-04-27                  |
-| D5  | Composant `<DashboardExportButton />` partagé, CSV + PDF, nommage standardisé                                                                                                                        | Cohérence UX, factorisation, audit log                        | 2026-04-27                  |
-| D6  | Pas d'écran notifications dédié manager prestataire                                                                                                                                                  | Volume faible, bandeau M03 E1 + cloche suffisent              | 2026-04-27                  |
-| D7  | Widgets orphelins (géoloc, aucun repas, hors zone) → exports SQL ad-hoc V1, dashboard dédié V1.1+                                                                                                    | Effort vs valeur, besoins terrain non confirmés               | 2026-04-27                  |
-| D8  | Drill-down événement M07 reporté V1.1+                                                                                                                                                               | Effort moyen jointure cross-schema, vue par tournée suffit V1 | 2026-04-27                  |
-| D9  | Pas de reports email scheduled V1                                                                                                                                                                    | Besoin non remonté, complexité cron + templates               | 2026-04-27                  |
-| D10 | Pas de vue carte M02 V1 ni V1.1, reporté V2                                                                                                                                                          | Nécessite intégration cartographique lourde                   | 2026-04-27                  |
+| # | Décision | Justification | Date |
+|---|----------|---------------|------|
+| D1 | Convention routes `/{section}` + préfixe `/admin/*` | Lisibilité, redirection rôle sur `/` | 2026-04-27 |
+| D2 | Home par défaut Ops = `/dispatch`, Admin = `/admin`, Admin+Ops = `/dispatch` | Poste de commandement opérationnel prioritaire | 2026-04-27 |
+| D3 | Cumul cross-app via boutons sidebar « ← Plateforme / TMS → » + SSO transparent — **bouton toujours affiché** (revue sobriété §08 Bloc A 2026-05-01 A1, suppression endpoint has-profile + cookie 1h) | Simple, pas de re-auth, page d'accès refusé propre côté cible | 2026-04-27 / **2026-05-01** |
+| D4 | Pause polling sur tab inactive (Page Visibility API) | -80% charge serveur en moyenne | 2026-04-27 |
+| D5 | Composant `<DashboardExportButton />` partagé, CSV + PDF, nommage standardisé | Cohérence UX, factorisation, audit log | 2026-04-27 |
+| D6 | Pas d'écran notifications dédié manager prestataire | Volume faible, bandeau M03 E1 + cloche suffisent | 2026-04-27 |
+| D7 | Widgets orphelins (géoloc, aucun repas, hors zone) → exports SQL ad-hoc V1, dashboard dédié V1.1+ | Effort vs valeur, besoins terrain non confirmés | 2026-04-27 |
+| D8 | Drill-down événement M07 reporté V1.1+ | Effort moyen jointure cross-schema, vue par tournée suffit V1 | 2026-04-27 |
+| D9 | Pas de reports email scheduled V1 | Besoin non remonté, complexité cron + templates | 2026-04-27 |
+| D10 | Pas de vue carte M02 V1 ni V1.1, reporté V2 | Nécessite intégration cartographique lourde | 2026-04-27 |
 
 ---
 

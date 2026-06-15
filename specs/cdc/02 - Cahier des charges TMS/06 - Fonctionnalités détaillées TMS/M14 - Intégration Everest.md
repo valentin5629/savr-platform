@@ -2,9 +2,9 @@
 
 **Persona principal** : Système (intégration) + Ops Savr (supervision + failover) + Admin TMS (replay manuel + monitoring système)
 **Contexte d'usage** : intégration backend permanente pendant exécution d'une journée logistique. UI réservée à la supervision Ops (page `/everest`) + tab système M13 E6 monitoring intégrations.
-**Précédente mise à jour** : 2026-05-29 (**généralisation multi-vélo AG V2** — granularité Everest reformulée « 1 mission = 1 tournée » : N vélos pour 1 collecte = N missions (même `collecte_tms_id`, `tournee_id` distinct), `client_ref`/idempotence keyés `tournee_id`, multi-facturation N courses A Toutes! ; acceptation = 1re mission `mission_dispatched` (idempotent) ; cascade-cancel W3/R*M14.7 itère sur les N missions actives + correction lookup `collectes_tms.tournee_id` retiré → jointure `collecte_tournees` ; helper `m14_lookup_mission_by_collecte` → SETOF. R_M14.2 + D3 + W1 étape 3 + W2 + W3 mis à jour) / 2026-05-01 (revue sobriété §05 A5 — W5 `notify_incomplete` reporté V1.1 (Q1 endpoint Everest non confirmé), R_M14.8 reportée, EC10 retiré, code alerte `m14_everest_incomplete_notify_failed` retiré du catalogue M11, transition `in_progress → completed_incomplete` jamais déclenchée V1, valeur enum conservée seedée mais inatteignable. V1 fallback : webhook S5 émis vers Plateforme + Ops appel manuel A Toutes! à la clôture `realisee_sans_collecte`. Workflows V1 : 7 (W1/W2/W3/W4/W6/W7/W8 — W5 retiré). Règles V1 : 7 (R_M14.1-R_M14.7). Edge cases V1 : 11 (EC10 retiré). Catalogue M11 M14 : 10 → 9 codes effectivement seedés (`m14_everest_incomplete_notify_failed` retiré).)
+**Précédente mise à jour** : 2026-05-29 (**généralisation multi-vélo AG V2** — granularité Everest reformulée « 1 mission = 1 tournée » : N vélos pour 1 collecte = N missions (même `collecte_tms_id`, `tournee_id` distinct), `client_ref`/idempotence keyés `tournee_id`, multi-facturation N courses A Toutes! ; acceptation = 1re mission `mission_dispatched` (idempotent) ; cascade-cancel W3/R_M14.7 itère sur les N missions actives + correction lookup `collectes_tms.tournee_id` retiré → jointure `collecte_tournees` ; helper `m14_lookup_mission_by_collecte` → SETOF. R_M14.2 + D3 + W1 étape 3 + W2 + W3 mis à jour) / 2026-05-01 (revue sobriété §05 A5 — W5 `notify_incomplete` reporté V1.1 (Q1 endpoint Everest non confirmé), R_M14.8 reportée, EC10 retiré, code alerte `m14_everest_incomplete_notify_failed` retiré du catalogue M11, transition `in_progress → completed_incomplete` jamais déclenchée V1, valeur enum conservée seedée mais inatteignable. V1 fallback : webhook S5 émis vers Plateforme + Ops appel manuel A Toutes! à la clôture `realisee_sans_collecte`. Workflows V1 : 7 (W1/W2/W3/W4/W6/W7/W8 — W5 retiré). Règles V1 : 7 (R_M14.1-R_M14.7). Edge cases V1 : 11 (EC10 retiré). Catalogue M11 M14 : 10 → 9 codes effectivement seedés (`m14_everest_incomplete_notify_failed` retiré).)
 **Précédente mise à jour** : 2026-04-30 (revue sobriété M14 — 13 simplifications appliquées : E3 absorbé dans M13 E6 tab Everest, W7 replay UI supprimé (SQL Admin direct), polling 60s E1 supprimé, zone 3 webhooks E1 supprimée, test connexion réduit à M06 + M13 E6, hit rate cache retiré E5, `m14_everest_mission_late` désactivée par défaut, cache token mémoire only V1, colonne `everest_service_id_target` posée par M12, bandeau E1 critical only, scope E1/E5 clarifié, comptage alertes corrigé 13→10, Q5 réf cdc-migration-data).
-**Précédente mise à jour** : 2026-04-25 (V1 rédigée — 10 décisions D1-D10, 5 écrans (E1-E4 propres + E5 sous-écran M13), 8 workflows W1-W8, 12 edge cases EC1-EC12, 8 règles R_M14.1-R_M14.8, 10 codes alertes catalogue M11 (1 existant `m14_everest_timeout` + 9 nouveaux après Bloc 3 sobriété A1 retrait 3 ex-info), 4 paramètres `m14*\*` + 1 secret webhook Vault.)
+**Précédente mise à jour** : 2026-04-25 (V1 rédigée — 10 décisions D1-D10, 5 écrans (E1-E4 propres + E5 sous-écran M13), 8 workflows W1-W8, 12 edge cases EC1-EC12, 8 règles R_M14.1-R_M14.8, 10 codes alertes catalogue M11 (1 existant `m14_everest_timeout` + 9 nouveaux après Bloc 3 sobriété A1 retrait 3 ex-info), 4 paramètres `m14_*` + 1 secret webhook Vault.)
 
 ---
 
@@ -76,19 +76,19 @@ M14 tourne en **continu** : appels sortants à Everest dès qu'une collecte AG e
 
 ### Écrans M14 (page `/everest` Ops + Admin)
 
-| Écran  | Type                         | Persona         | Rôle                                                                 |
-| ------ | ---------------------------- | --------------- | -------------------------------------------------------------------- |
-| **E1** | Dashboard `/everest`         | Ops + Admin TMS | Vue d'ensemble missions actives + alertes M14 critical + KPIs métier |
-| **E2** | Détail mission (drawer/page) | Ops + Admin TMS | Timeline events + payload latest + actions (cancel manuel)           |
-| **E4** | Modal "Acceptation manuelle" | Ops Savr        | Failover Everest down — saisie après appel téléphone A Toutes!       |
+| Écran | Type | Persona | Rôle |
+|-------|------|---------|------|
+| **E1** | Dashboard `/everest` | Ops + Admin TMS | Vue d'ensemble missions actives + alertes M14 critical + KPIs métier |
+| **E2** | Détail mission (drawer/page) | Ops + Admin TMS | Timeline events + payload latest + actions (cancel manuel) |
+| **E4** | Modal "Acceptation manuelle" | Ops Savr | Failover Everest down — saisie après appel téléphone A Toutes! |
 
 **Note sobriété 2026-04-30** : E3 "Logs webhooks reçus" supprimé en tant qu'écran indépendant (revue sobriété A_M14_05). La table "webhooks reçus 7j" lecture seule est absorbée dans M13 E6 tab Everest (cf. E5). Replay UI supprimé (A_M14_04) — Admin replay via SQL direct sur Supabase Studio (cf. runbook §15 Sécurité TMS).
 
 ### Sous-écran M13 (système)
 
-| Sous-écran | Type                                              | Persona   | Rôle                                                                                                                                    |
-| ---------- | ------------------------------------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| **E5**     | Tab "Everest" dans M13 E6 monitoring intégrations | Admin TMS | KPI système (latence, taux 4xx/5xx, taux retry) + table webhooks reçus 7j (absorbée de l'ex-E3) + taille cache + bouton invalider cache |
+| Sous-écran | Type | Persona | Rôle |
+|------------|------|---------|------|
+| **E5** | Tab "Everest" dans M13 E6 monitoring intégrations | Admin TMS | KPI système (latence, taux 4xx/5xx, taux retry) + table webhooks reçus 7j (absorbée de l'ex-E3) + taille cache + bouton invalider cache |
 
 ### Navigation
 
@@ -113,7 +113,7 @@ Le monitoring système (santé API, latence, taux 4xx/5xx) appartient à M13 E6 
 **Layout** :
 
 - **Header** : sélecteur date (default `aujourd'hui`), filtre statut (tous / actif / failed / cancelled), bouton "Rafraîchir" manuel (refresh KPIs + table). **Note sobriété 2026-04-30 A_M14_03** : bouton "Test connexion Everest" supprimé d'E1 (action rare, accessible depuis M06 fiche prestataire A Toutes! + M13 E6 tab Everest, 2 entrées suffisent).
-- **Bandeau alertes M14 critical** (zone haute) : liste des alertes M14 non-acquittées de criticité `critical` uniquement (sobriété 2026-04-30 B*M14_03 — les `warning` restent accessibles via la vue M11 dédiée, l'info n'existe plus depuis Bloc 3 A1). Cliquable → drilldown E2 mission concernée si applicable. Source : `tms.alertes` filtré par `code LIKE 'm14*%' AND criticite = 'critical' AND acquittee_at IS NULL`.
+- **Bandeau alertes M14 critical** (zone haute) : liste des alertes M14 non-acquittées de criticité `critical` uniquement (sobriété 2026-04-30 B_M14_03 — les `warning` restent accessibles via la vue M11 dédiée, l'info n'existe plus depuis Bloc 3 A1). Cliquable → drilldown E2 mission concernée si applicable. Source : `tms.alertes` filtré par `code LIKE 'm14_%' AND criticite = 'critical' AND acquittee_at IS NULL`.
 - **Zone 1 — KPIs jour métier** (4 tuiles, granularité **mission**, cf. clarification scope sobriété 2026-04-30 C_M14_01) :
   - Missions créées aujourd'hui (count `everest_missions` créées entre 00h-now)
   - Missions actives en cours (count `statut_everest IN ('created','assigned','in_progress')`)
@@ -194,6 +194,7 @@ ORDER BY occurred_at ASC;
 
 ### E3 — Logs webhooks Everest reçus (supprimé sobriété 2026-04-30)
 
+
 **Ce qui reste (transposé dans M13 E6 tab Everest)** :
 
 - Table lecture seule "Webhooks reçus 7j" : colonnes timestamp, event_type, signature, mission_id, client_ref, statut traitement, action TMS, retry count, dernière erreur. Tri timestamp DESC. Filtres minimaux event_type + statut signature.
@@ -232,10 +233,9 @@ ORDER BY occurred_at ASC;
 **Validation** : champ "Contact joint" obligatoire (≥ 3 caractères).
 
 **Effets** (W4) :
-
 - INSERT `everest_missions` (si pas existant) ou UPDATE `statut_everest = 'created_manually'`
 - INSERT audit_logs `acteur_user_id = $ops_user`, `acteur_type = 'user'`, `action = 'CREATE'`, `diff = { manuel: true, contact: ..., motif: ... }` (Bloc 3 sobriété 2026-04-25 A1 — alerte M11 `m14_everest_acceptee_manuellement` info retirée du catalogue, audit_logs reste source de vérité du failover manuel).
-- UPDATE `statut_dispatch = 'acceptee'` + émission webhook **S1 `collecte-acceptee`** vers la Plateforme (§08 déclencheur c). _(Corrigé test-scenarios 2026-06-07, floue #2 tranchée Val — l'ancienne mention « pas de transition `statut_dispatch` » contredisait W4 étape 4 et §08 S1 : la confirmation orale A Toutes! = acceptation, même logique que R_M14.1bis.)_
+- UPDATE `statut_dispatch = 'acceptee'` + émission webhook **S1 `collecte-acceptee`** vers la Plateforme (§08 déclencheur c). *(Corrigé test-scenarios 2026-06-07, floue #2 tranchée Val — l'ancienne mention « pas de transition `statut_dispatch` » contredisait W4 étape 4 et §08 S1 : la confirmation orale A Toutes! = acceptation, même logique que R_M14.1bis.)*
 
 ### E5 — Tab "Everest" dans M13 E6 (Admin TMS)
 
@@ -248,8 +248,8 @@ ORDER BY occurred_at ASC;
   - Bouton "Test connexion" (déclenche W8).
   - Bandeau "incident actif" si `m14_everest_auth_failed` ou `m14_everest_timeout` non-acquittés.
 - **Section latence** :
-- p50/p95/p99 calls outbound 7j (par endpoint : create, cancel, get, is-handled-address). retiré (W5 reporté V1.1 — revue sobriété §05 2026-05-01 A5).
-- Source : `integrations_logs.duration_ms` filtré `system='everest'` direction `outbound`.
+ - p50/p95/p99 calls outbound 7j (par endpoint : create, cancel, get, is-handled-address). retiré (W5 reporté V1.1 — revue sobriété §05 2026-05-01 A5).
+  - Source : `integrations_logs.duration_ms` filtré `system='everest'` direction `outbound`.
 - **Section taux d'erreurs** :
   - Taux 2xx/4xx/5xx par endpoint 7j.
   - Taux retry effectifs.
@@ -318,7 +318,7 @@ ORDER BY occurred_at ASC;
 10. Si HTTP 4xx (autre que 401) :
     - Pas de retry. INSERT `everest_missions` avec `statut_everest = 'creation_failed'` + alerte `m14_everest_mission_create_failed` (critical) avec détail erreur.
 
-**Idempotence** : la fonction worker check si `everest_missions` existe déjà pour `(tournee_id, service_id)` (= `client_ref`) avant de pousser. Si oui ET `statut_everest IN ('created','assigned','in_progress','completed','completed_incomplete')` → no-op + log info. Si `statut_everest IN ('creation_failed','cancelled')` → on retry (nouvelle tentative explicite). _(Clé `tournee_id` — généralisation 2026-05-29 : permet N missions par `collecte_tms_id` en multi-vélo, chaque tournée sœur étant une mission distincte ; chaque tournée n'a au plus qu'une mission active.)_
+**Idempotence** : la fonction worker check si `everest_missions` existe déjà pour `(tournee_id, service_id)` (= `client_ref`) avant de pousser. Si oui ET `statut_everest IN ('created','assigned','in_progress','completed','completed_incomplete')` → no-op + log info. Si `statut_everest IN ('creation_failed','cancelled')` → on retry (nouvelle tentative explicite). *(Clé `tournee_id` — généralisation 2026-05-29 : permet N missions par `collecte_tms_id` en multi-vélo, chaque tournée sœur étant une mission distincte ; chaque tournée n'a au plus qu'une mission active.)*
 
 **Performance cible** : p95 < 1.5s end-to-end (timeout 5s).
 
@@ -356,7 +356,7 @@ ORDER BY occurred_at ASC;
 
 ### W3 — Annulation cascade M12 → cancel mission Everest
 
-**Déclencheur** (auto) : trigger DB `trg_m14_cascade_cancel` AFTER UPDATE on `tms.collectes_tms` quand `statut_dispatch` change vers `rejetee_par_prestataire` OU `annulee_par_traiteur` ET **au moins une mission Everest active existante**. Lookup **toutes** les missions actives de la collecte _(correction multi-camions/multi-vélo 2026-05-29 : `collectes_tms.tournee_id` retiré V1 — la jointure passe désormais par `collecte_tournees`)_ :
+**Déclencheur** (auto) : trigger DB `trg_m14_cascade_cancel` AFTER UPDATE on `tms.collectes_tms` quand `statut_dispatch` change vers `rejetee_par_prestataire` OU `annulee_par_traiteur` ET **au moins une mission Everest active existante**. Lookup **toutes** les missions actives de la collecte *(correction multi-camions/multi-vélo 2026-05-29 : `collectes_tms.tournee_id` retiré V1 — la jointure passe désormais par `collecte_tournees`)* :
 
 ```sql
 SELECT em.* FROM tms.everest_missions em
@@ -375,8 +375,8 @@ AND em.statut_everest NOT IN ('cancelled','cancelled_externally','completed','co
 
 **Étapes** :
 
-1. Trigger DB enqueue **un job `m14_cancel_mission` par mission active** (worker Next.js) avec payload `{everest_mission_id, collecte_id, tournee_id, cause}` _(cascade auto : un job par mission retournée par le lookup ci-dessus — généralisation multi-vélo 2026-05-29, ex un seul job)_.
-2. Worker résout la mission ciblée par `everest_mission_id` du payload (lit `everest_missions.everest_mission_id` + `everest_client_id`). _(Le helper `tms.m14_lookup_mission_by_collecte(collecte_id)` retourne désormais **SETOF** — N missions possibles en multi-vélo — et sert au trigger pour énumérer les missions à annuler ; le worker, lui, traite une mission identifiée.)_
+1. Trigger DB enqueue **un job `m14_cancel_mission` par mission active** (worker Next.js) avec payload `{everest_mission_id, collecte_id, tournee_id, cause}` *(cascade auto : un job par mission retournée par le lookup ci-dessus — généralisation multi-vélo 2026-05-29, ex un seul job)*.
+2. Worker résout la mission ciblée par `everest_mission_id` du payload (lit `everest_missions.everest_mission_id` + `everest_client_id`). *(Le helper `tms.m14_lookup_mission_by_collecte(collecte_id)` retourne désormais **SETOF** — N missions possibles en multi-vélo — et sert au trigger pour énumérer les missions à annuler ; le worker, lui, traite une mission identifiée.)*
 3. Lazy refresh token si nécessaire (W6).
 4. Appel `POST /missions/cancel` avec Bearer.
 5. Si HTTP 200 :
@@ -414,7 +414,6 @@ AND em.statut_everest NOT IN ('cancelled','cancelled_externally','completed','co
 > **À réactiver V1.1** dès que Q1 (endpoint exact côté dev Everest) est fermée. Spec V1.1 ci-dessous conservée pour mémoire.
 
 **Conséquences propagées** :
-
 - Endpoint `/api/internal/m14/missions/notify_incomplete` retiré V1 (cf. §07 + §08 internal API).
 - EC10 retiré V1 (cf. §6 ci-dessous).
 - Code alerte `m14_everest_incomplete_notify_failed` retiré du catalogue M11 V1.
@@ -457,16 +456,15 @@ AND em.statut_everest NOT IN ('cancelled','cancelled_externally','completed','co
 
 ### W7 — Replay manuel events `echec_final` (supprimé sobriété 2026-04-30 A_M14_04)
 
+
 **Motif** : cas d'usage extrêmement rare (cible <1% des webhooks finissent en `echec_final`, soit <1 event/semaine V1). Ne justifie pas une UI dédiée + API route + workflow versionné.
 
 **Procédure manuelle Admin (runbook §15 Sécurité TMS)** : Admin authentifié SSO accède à Supabase Studio, identifie la ligne `tms.integrations_inbox.status = 'echec_final'` à rejouer, exécute :
-
 ```sql
 UPDATE tms.integrations_inbox
 SET status = 'pending', retry_count = 0
 WHERE id = '<inbox_id>';
 ```
-
 Puis ré-exécute le worker manuellement (Vercel CLI ou trigger NOTIFY selon impl). Trace via `audit_logs` Supabase Studio (acteur user_id Admin via SSO).
 
 **À reconsidérer V1.1** si volume `echec_final` dépasse 1 event/semaine post-go-live (instrumentation via M13 E6 tab Everest).
@@ -499,7 +497,7 @@ A Toutes! n'ayant pas de portail M03, l'acceptation nominale d'une collecte attr
 
 ### R_M14.2 — Granularité : 1 mission Everest = 1 tournée
 
-Règle générale unifiée _(reformulée multi-vélo 2026-05-29)_ : **une mission Everest correspond à une tournée**. Le `collecte_tms_id` n'est posé que sur le vélo (1 tournée vélo = 1 collecte, D8) ; il reste NULL sur le camion (1 tournée = N collectes).
+Règle générale unifiée *(reformulée multi-vélo 2026-05-29)* : **une mission Everest correspond à une tournée**. Le `collecte_tms_id` n'est posé que sur le vélo (1 tournée vélo = 1 collecte, D8) ; il reste NULL sur le camion (1 tournée = N collectes).
 
 - Vélo (service IDs 71/75) : 1 tournée vélo = 1 mission Everest. `everest_missions.collecte_tms_id = collecte.id` (l'unique collecte de la tournée), `tournee_id = tournee.id`. **Multi-vélo (généralisation 2026-05-29)** : une collecte servie par N vélos = N tournées sœurs = **N missions Everest** (même `collecte_tms_id`, `tournee_id` distinct, `client_ref = tournee_id`). N courses A Toutes! facturées (multi-facturation, arbitrage Val 5). D8 respecté (chaque vélo ne porte qu'1 collecte).
 - Camion (service ID 91) : 1 tournée = 1 mission Everest globale. `everest_missions.collecte_tms_id = NULL`, `tournee_id = tournee.id`. Si la tournée a N collectes, une seule mission Everest est créée pour l'ensemble.
@@ -509,7 +507,6 @@ Règle générale unifiée _(reformulée multi-vélo 2026-05-29)_ : **une missio
 ### R_M14.3 — Webhooks Everest = observabilité, M05 = source de vérité opérationnelle
 
 Les webhooks Everest ne mutent **jamais** `collectes_tms.statut_operationnel` ni `tournees.statut`. Ils mutent `everest_missions.statut_everest` + `payload_latest_update` uniquement. La vérité opérationnelle (en_route, arrivee, en_cours, realisee, realisee_sans_collecte) est posée par M05 chauffeur. Exceptions :
-
 - `mission_dispatched` → **mute exceptionnellement `collectes_tms.statut_dispatch` `attribuee_en_attente_acceptation` → `acceptee`** + émet S1 (arbitrage Val 2026-05-29). C'est l'acceptation nominale A Toutes! (pas de portail M03 pour A Toutes! ; l'assignation coursier Everest = acceptation). N'affecte que le statut **dispatch**, jamais le statut **opérationnel** (M05). Idempotent. Cf. W2 + R_M14.1bis.
 - `mission_failed` → alerte critique Ops (incident terrain à investiguer).
 - `mission_cancelled` non initié TMS → alerte critique Ops (annulation externe à investiguer).
@@ -529,7 +526,7 @@ Pour tout appel sortant (création, annulation, test connexion) : 1 retry après
 
 ### R_M14.7 — Annulation cascade M12 = trigger DB auto
 
-Quand `collectes_tms.statut_dispatch` transite vers `rejetee_par_prestataire` (M12 cascade) ou `annulee_par_traiteur` (M01 W4) avec **au moins une mission Everest active existante** → trigger DB enqueue **un job `m14_cancel_mission` par mission active**. Lookup _(corrigé multi-camions/multi-vélo 2026-05-29 : `collectes_tms.tournee_id` retiré V1 → jointure via `collecte_tournees`)_ : `everest_missions WHERE (collecte_tms_id = NEW.id OR tournee_id IN (SELECT tournee_id FROM collecte_tournees WHERE collecte_tms_id = NEW.id)) AND statut_everest` non terminal. **Multi-vélo (arbitrage Val 3, 2026-05-29) : annuler la collecte annule TOUTES ses missions vélo actives (les N courses A Toutes!).** Idempotent par mission (no-op si statut Everest déjà terminal). Cf. W3.
+Quand `collectes_tms.statut_dispatch` transite vers `rejetee_par_prestataire` (M12 cascade) ou `annulee_par_traiteur` (M01 W4) avec **au moins une mission Everest active existante** → trigger DB enqueue **un job `m14_cancel_mission` par mission active**. Lookup *(corrigé multi-camions/multi-vélo 2026-05-29 : `collectes_tms.tournee_id` retiré V1 → jointure via `collecte_tournees`)* : `everest_missions WHERE (collecte_tms_id = NEW.id OR tournee_id IN (SELECT tournee_id FROM collecte_tournees WHERE collecte_tms_id = NEW.id)) AND statut_everest` non terminal. **Multi-vélo (arbitrage Val 3, 2026-05-29) : annuler la collecte annule TOUTES ses missions vélo actives (les N courses A Toutes!).** Idempotent par mission (no-op si statut Everest déjà terminal). Cf. W3.
 
 ### R_M14.8 — **Reportée V1.1 (revue sobriété §05 2026-05-01 A5)**
 
@@ -539,19 +536,19 @@ Endpoint Everest exact non confirmé (Q1). Worker `m14_notify_incomplete` retir�
 
 ## 7. Edge cases
 
-| #    | Cas                                                                             | Comportement TMS                                                                                                                                                                                                                                                                                                                                                                                                          |
-| ---- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| EC1  | Token Bearer expiré (401 sur appel)                                             | W6 lazy re-auth + retry 1x. Si re-401 → alerte critical `m14_everest_auth_failed`                                                                                                                                                                                                                                                                                                                                         |
-| EC2  | Everest down création mission (timeout / 5xx)                                   | Retry 1x après 30s. Si échec → `statut_everest = 'creation_failed'` + alerte critical `m14_everest_mission_create_failed` → Ops failover E4 (W4)                                                                                                                                                                                                                                                                          |
-| EC3  | Everest down annulation mission (timeout / 5xx)                                 | Retry 1x. Si échec → alerte warning `m14_everest_mission_cancel_failed` → Ops appel manuel A Toutes! pour annuler chez eux                                                                                                                                                                                                                                                                                                |
-| EC4  | Webhook reçu pour `mission_id` inconnu (jamais créé côté TMS)                   | Alerte warning `m14_everest_webhook_unknown_mission` + statut inbox `failed_unknown_target` + 200 OK Everest                                                                                                                                                                                                                                                                                                              |
-| EC5  | Webhook signature/token invalide                                                | 401 retour Everest + alerte warning `m14_everest_webhook_signature_invalid` + log integrations_logs status `error`. Pas de traitement.                                                                                                                                                                                                                                                                                    |
-| EC6  | Webhook `event_type` inconnu (Everest a ajouté un type sans préavis)            | INSERT `integrations_logs` statut `error` + statut inbox `failed_unknown_event` + 200 OK (Bloc 3 sobriété 2026-04-25 A1 — alerte M11 info retirée). Admin investigue via M13 E6.                                                                                                                                                                                                                                          |
-| EC7  | `mission_cancelled` reçu mais non initié par TMS (annulation externe A Toutes!) | UPDATE `statut_everest = 'cancelled_externally'` + alerte critical `m14_everest_mission_cancelled_externally` → Ops contact A Toutes! pour comprendre                                                                                                                                                                                                                                                                     |
-| EC8  | `mission_failed` reçu (incident terrain)                                        | UPDATE `statut_everest = 'failed'` + alerte critical `m14_everest_mission_failed` → Ops investigue avec A Toutes! et chauffeur                                                                                                                                                                                                                                                                                            |
-| EC9  | `mission_late` reçu (retard chauffeur)                                          | UPDATE `payload_latest_update`. Alerte `m14_everest_mission_late` désactivée par défaut V1 (sobriété 2026-04-30 A_M14_07 — `alertes_catalogue.active = false`) car risque bruit (Q4 — seuil Everest non confirmé). Le retard reste visible dans M02 collecte si problématique terrain. À activer V1.1 si Q4 confirme un seuil utile.                                                                                      |
-| EC11 | Cascade M12 réattribution Marathon, mais `cancel` Everest échoue (W3)           | Alerte warning `m14_everest_mission_cancel_failed`. Risque double-dispatch (A Toutes! + Marathon) → Ops doit appeler A Toutes! pour annuler manuellement chez eux. Bandeau permanent sur la collecte M02 tant que `statut_everest IN ('created','assigned','in_progress')` ET `prestataire_id != A Toutes!`                                                                                                               |
-| EC12 | Test connexion Everest échoue depuis M06 fiche A Toutes! ou M13 E5              | INSERT `tms.integrations_logs(system='everest', type_event='m14_ping', http_status=4xx/5xx, statut='echec_final')` + toast UI rouge + alerte warning `m14_everest_timeout`. Admin investigue (creds, network, Everest down). **Affichage UI** : vue dérivée `tms.vue_prestataires_everest_status` (revue sobriété §04 2026-04-30 A3 — colonnes `last_everest_ping_*` supprimées V1, info dérivée de `integrations_logs`). |
+| # | Cas | Comportement TMS |
+|---|-----|------------------|
+| EC1 | Token Bearer expiré (401 sur appel) | W6 lazy re-auth + retry 1x. Si re-401 → alerte critical `m14_everest_auth_failed` |
+| EC2 | Everest down création mission (timeout / 5xx) | Retry 1x après 30s. Si échec → `statut_everest = 'creation_failed'` + alerte critical `m14_everest_mission_create_failed` → Ops failover E4 (W4) |
+| EC3 | Everest down annulation mission (timeout / 5xx) | Retry 1x. Si échec → alerte warning `m14_everest_mission_cancel_failed` → Ops appel manuel A Toutes! pour annuler chez eux |
+| EC4 | Webhook reçu pour `mission_id` inconnu (jamais créé côté TMS) | Alerte warning `m14_everest_webhook_unknown_mission` + statut inbox `failed_unknown_target` + 200 OK Everest |
+| EC5 | Webhook signature/token invalide | 401 retour Everest + alerte warning `m14_everest_webhook_signature_invalid` + log integrations_logs status `error`. Pas de traitement. |
+| EC6 | Webhook `event_type` inconnu (Everest a ajouté un type sans préavis) | INSERT `integrations_logs` statut `error` + statut inbox `failed_unknown_event` + 200 OK (Bloc 3 sobriété 2026-04-25 A1 — alerte M11 info retirée). Admin investigue via M13 E6. |
+| EC7 | `mission_cancelled` reçu mais non initié par TMS (annulation externe A Toutes!) | UPDATE `statut_everest = 'cancelled_externally'` + alerte critical `m14_everest_mission_cancelled_externally` → Ops contact A Toutes! pour comprendre |
+| EC8 | `mission_failed` reçu (incident terrain) | UPDATE `statut_everest = 'failed'` + alerte critical `m14_everest_mission_failed` → Ops investigue avec A Toutes! et chauffeur |
+| EC9 | `mission_late` reçu (retard chauffeur) | UPDATE `payload_latest_update`. Alerte `m14_everest_mission_late` désactivée par défaut V1 (sobriété 2026-04-30 A_M14_07 — `alertes_catalogue.active = false`) car risque bruit (Q4 — seuil Everest non confirmé). Le retard reste visible dans M02 collecte si problématique terrain. À activer V1.1 si Q4 confirme un seuil utile. |
+| EC11 | Cascade M12 réattribution Marathon, mais `cancel` Everest échoue (W3) | Alerte warning `m14_everest_mission_cancel_failed`. Risque double-dispatch (A Toutes! + Marathon) → Ops doit appeler A Toutes! pour annuler manuellement chez eux. Bandeau permanent sur la collecte M02 tant que `statut_everest IN ('created','assigned','in_progress')` ET `prestataire_id != A Toutes!` |
+| EC12 | Test connexion Everest échoue depuis M06 fiche A Toutes! ou M13 E5 | INSERT `tms.integrations_logs(system='everest', type_event='m14_ping', http_status=4xx/5xx, statut='echec_final')` + toast UI rouge + alerte warning `m14_everest_timeout`. Admin investigue (creds, network, Everest down). **Affichage UI** : vue dérivée `tms.vue_prestataires_everest_status` (revue sobriété §04 2026-04-30 A3 — colonnes `last_everest_ping_*` supprimées V1, info dérivée de `integrations_logs`). |
 
 ---
 
@@ -587,17 +584,17 @@ Endpoint Everest exact non confirmé (Q1). Worker `m14_notify_incomplete` retir�
 
 ### Transitions autorisées par rôle
 
-| Transition source → cible            | Trigger              | Acteur            |
-| ------------------------------------ | -------------------- | ----------------- |
-| `null → created`                     | W1 OK                | Système (worker)  |
-| `null → creation_failed`             | W1 échec             | Système           |
-| `creation_failed → created_manually` | W4                   | Ops Savr          |
-| `created → assigned`                 | W2 dispatched        | Système (webhook) |
-| `assigned → in_progress`             | W2 pickedup          | Système           |
-| `in_progress → completed`            | W2 finished/success  | Système           |
-| `in_progress → failed`               | W2 failed            | Système           |
-| `* → cancelled`                      | W3 TMS-initiated     | Système ou Admin  |
-| `* → cancelled_externally`           | W2 cancelled non-TMS | Système           |
+| Transition source → cible | Trigger | Acteur |
+|---|---|---|
+| `null → created` | W1 OK | Système (worker) |
+| `null → creation_failed` | W1 échec | Système |
+| `creation_failed → created_manually` | W4 | Ops Savr |
+| `created → assigned` | W2 dispatched | Système (webhook) |
+| `assigned → in_progress` | W2 pickedup | Système |
+| `in_progress → completed` | W2 finished/success | Système |
+| `in_progress → failed` | W2 failed | Système |
+| `* → cancelled` | W3 TMS-initiated | Système ou Admin |
+| `* → cancelled_externally` | W2 cancelled non-TMS | Système |
 
 ---
 
@@ -605,20 +602,19 @@ Endpoint Everest exact non confirmé (Q1). Worker `m14_notify_incomplete` retir�
 
 ### Alertes émises (catalogue M11) — 10 codes V1
 
-| Code                                       | Criticité | Destinataire V1 | Émetteur  | Quand                                                 | `active` V1                                                                                  |
-| ------------------------------------------ | --------- | --------------- | --------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `m14_everest_timeout` (existant)           | warning   | Ops             | M12 + M14 | Timeout `is-handled-address` ou autre call            | true                                                                                         |
-| `m14_everest_auth_failed`                  | critical  | Admin TMS       | M14 W6    | Re-auth échoue (creds invalides ou Everest down auth) | true                                                                                         |
-| `m14_everest_mission_create_failed`        | critical  | Ops + Admin     | M14 W1    | Création mission échec final post-retry               | true                                                                                         |
-| `m14_everest_mission_cancel_failed`        | warning   | Ops + Admin     | M14 W3    | Annulation mission échec final                        | true                                                                                         |
-| `m14_everest_webhook_signature_invalid`    | warning   | Admin TMS       | M14 W2    | Token webhook entrant invalide                        | true                                                                                         |
-| `m14_everest_webhook_unknown_mission`      | warning   | Admin TMS       | M14 W2    | Webhook reçu pour `mission_id` inconnu                | true                                                                                         |
-| `m14_everest_mission_failed`               | critical  | Ops             | M14 W2    | Webhook `mission_failed` reçu                         | true                                                                                         |
-| `m14_everest_mission_cancelled_externally` | critical  | Ops             | M14 W2    | `mission_cancelled` non initié TMS                    | true                                                                                         |
-| `m14_everest_mission_late`                 | warning   | Ops             | M14 W2    | `mission_late` reçu                                   | **false** (sobriété 2026-04-30 A_M14_07 — bruit potentiel Q4, à activer V1.1 si seuil utile) |
+| Code | Criticité | Destinataire V1 | Émetteur | Quand | `active` V1 |
+|------|-----------|-----------------|----------|-------|-------------|
+| `m14_everest_timeout` (existant) | warning | Ops | M12 + M14 | Timeout `is-handled-address` ou autre call | true |
+| `m14_everest_auth_failed` | critical | Admin TMS | M14 W6 | Re-auth échoue (creds invalides ou Everest down auth) | true |
+| `m14_everest_mission_create_failed` | critical | Ops + Admin | M14 W1 | Création mission échec final post-retry | true |
+| `m14_everest_mission_cancel_failed` | warning | Ops + Admin | M14 W3 | Annulation mission échec final | true |
+| `m14_everest_webhook_signature_invalid` | warning | Admin TMS | M14 W2 | Token webhook entrant invalide | true |
+| `m14_everest_webhook_unknown_mission` | warning | Admin TMS | M14 W2 | Webhook reçu pour `mission_id` inconnu | true |
+| `m14_everest_mission_failed` | critical | Ops | M14 W2 | Webhook `mission_failed` reçu | true |
+| `m14_everest_mission_cancelled_externally` | critical | Ops | M14 W2 | `mission_cancelled` non initié TMS | true |
+| `m14_everest_mission_late` | warning | Ops | M14 W2 | `mission_late` reçu | **false** (sobriété 2026-04-30 A_M14_07 — bruit potentiel Q4, à activer V1.1 si seuil utile) |
 
 **Codes ex-`info` retirés du catalogue M11 — Bloc 3 sobriété 2026-04-25 (A1)** :
-
 - `m14_everest_coverage_stale` → trace via `tms.integrations_logs` (Admin investigue cache coverage > 7j via M13 E6 monitoring intégrations Everest)
 - `m14_everest_webhook_event_unknown` → trace via `tms.integrations_logs` statut `error` + `tms.integrations_inbox.status = 'failed_unknown_event'` (W2 / EC6) — Admin investigue via M13 E6
 - `m14_everest_acceptee_manuellement` → trace via `tms.audit_logs` action `CREATE`/`UPDATE` (W4) — déjà obligatoire pour audit gouvernance
@@ -637,33 +633,33 @@ M14 est **interne TMS**. Les notifications client/traiteur transitent par les we
 
 ## 10. Performance cibles
 
-| Mesure                         | Cible V1                                                                                                                                | Source                                   |
-| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
-| Push mission Everest p95       | < 1.5s end-to-end                                                                                                                       | `integrations_logs.duration_ms` outbound |
-| Réception webhook Everest p95  | < 500ms                                                                                                                                 | `integrations_logs.duration_ms` inbound  |
-| Cancel mission Everest p95     | < 1s                                                                                                                                    | Idem outbound                            |
-| Notify_incomplete p95          | < 1s                                                                                                                                    | Idem outbound                            |
-| Lazy auth refresh p95          | < 500ms                                                                                                                                 | Sous-ensemble `POST /auth`               |
-| Test connexion Everest p95     | < 1s                                                                                                                                    | `POST /availabilities` minimal           |
-| Disponibilité E1 dashboard p95 | < 800ms                                                                                                                                 | Next.js API route + RLS                  |
-| Refresh E1                     | Bouton manuel + revalidation au focus tab (sobriété 2026-04-30 A_M14_01 — polling 60s + paramètre `m14_dashboard_polling_ms` supprimés) | UX pattern Tanstack Query                |
-| Volume webhooks/jour V1        | ~50-100 events (hypothèse 5-10 missions × 4-6 events)                                                                                   | Mesure post-go-live                      |
+| Mesure | Cible V1 | Source |
+|--------|----------|--------|
+| Push mission Everest p95 | < 1.5s end-to-end | `integrations_logs.duration_ms` outbound |
+| Réception webhook Everest p95 | < 500ms | `integrations_logs.duration_ms` inbound |
+| Cancel mission Everest p95 | < 1s | Idem outbound |
+| Notify_incomplete p95 | < 1s | Idem outbound |
+| Lazy auth refresh p95 | < 500ms | Sous-ensemble `POST /auth` |
+| Test connexion Everest p95 | < 1s | `POST /availabilities` minimal |
+| Disponibilité E1 dashboard p95 | < 800ms | Next.js API route + RLS |
+| Refresh E1 | Bouton manuel + revalidation au focus tab (sobriété 2026-04-30 A_M14_01 — polling 60s + paramètre `m14_dashboard_polling_ms` supprimés) | UX pattern Tanstack Query |
+| Volume webhooks/jour V1 | ~50-100 events (hypothèse 5-10 missions × 4-6 events) | Mesure post-go-live |
 
 ---
 
 ## 11. Décisions structurantes prises
 
-| #      | Décision                                                                                                                                                                                                                                                                                                                                                                                                                      | Alternatives écartées                                                                                                | Justification                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **D1** | Périmètre V1 = reprise contrat Bubble↔Everest + supervision Ops (M11/M13)                                                                                                                                                                                                                                                                                                                                                     | (a) reprise stricte sans supervision / (c) reprise + features (estimate/availabilities V1)                           | Le contrat est stable, l'ambition est l'observabilité (qui manquait à Bubble). `availabilities` déjà tranché V2 (cf. M12 D8).                                                                                                                                                                                                                                                                                                                                                                                    |
-| **D2** | Push mission Everest à transition `attribuee_en_attente_acceptation` (post-M12 attribution)                                                                                                                                                                                                                                                                                                                                   | Push à validation Ops M02 / Push à acceptation prestataire                                                           | Cohérent avec pattern Strike/Marathon (manager voit dans M03 dès `attribuee_en_attente_acceptation`). Si Ops réattribue après → cascade W3 annule auto.                                                                                                                                                                                                                                                                                                                                                          |
-| **D3** | **1 mission Everest = 1 tournée** (reformulé 2026-05-29) : camion → 1 mission/tournée (N collectes, `collecte_tms_id=NULL`) ; vélo → 1 mission/tournée vélo (`collecte_tms_id` posé, 1 collecte par vélo D8). `client_ref = tournee_id`, idempotence keyée `tournee_id`. **Multi-vélo (V2, 2026-05-29) : 1 collecte = N vélos = N missions** (même `collecte_tms_id`, `tournee_id` distinct) = N courses A Toutes! facturées. | N missions Everest pour camion (1/collecte) / keyer l'idempotence sur `collecte_id` (casserait le multi-vélo)        | Granularité Everest-friendly (model Everest = 1 mission = 1 trajet start/end). Keyer sur `tournee_id` permet N missions par collecte en multi-vélo. **Source de vérité unique : `tms.everest_missions(everest_mission_id UNIQUE, tournee_id, collecte_tms_id)`** — pas d'unicité sur `collecte_tms_id` seul (N missions possibles) ; colonnes miroir `tournees.everest_mission_id` et `collectes_tms.everest_mission_id` retirées V1 (revue sobriété §04 2026-04-30 A6). Lookup via JOIN sur `everest_missions`. |
-| **D4** | Webhooks Everest = observabilité pure (mutent `everest_missions` only). M05 chauffeur = source de vérité opérationnelle (`statut_operationnel`, `statut`)                                                                                                                                                                                                                                                                     | Mapping fin webhooks → enums TMS (chaque event mute statut métier) / Mapping a minima                                | Évite les conflits temporels (webhook `mission_pickedup` arrive après que chauffeur a clôturé via M05 = drift statut). Chauffeur A Toutes! utilise M05 (déjà §04 ligne 2568). Sauf 3 cas durs (`mission_failed`, `mission_cancelled` non-TMS, `mission_late`) qui émettent alertes Ops.                                                                                                                                                                                                                          |
-| **D5** | Auth Bearer lazy refresh sur 401 + cache token mémoire process Next.js **uniquement** V1 (sobriété 2026-04-30 B_M14_01)                                                                                                                                                                                                                                                                                                       | Refresh à chaque appel / Cache token Vault avec cron refresh / Persistance cross-process Vault `secrets_metadata` V1 | Simple, robuste, pas de cron à maintenir. V1 single instance Next.js, volume faible. À reconsidérer V1.1 si TTL Everest < 1h (Q3) ou scale multi-instance.                                                                                                                                                                                                                                                                                                                                                       |
-| **D6** | Sécurité webhook entrant = filet par défaut **token secret en header `X-Webhook-Token`** (Vault). À upgrader vers HMAC si Everest l'expose (à confirmer dev Everest pendant développement).                                                                                                                                                                                                                                   | HMAC dès V1 / IP whitelist / aucune sécurité                                                                         | Token en header = filet minimal, simple à upgrader. HMAC nécessite qu'Everest signe (à valider). IP whitelist fragile.                                                                                                                                                                                                                                                                                                                                                                                           |
-| **D7** | Idempotence webhooks via `tms.integrations_inbox` (pattern unifié avec M01 webhooks Plateforme)                                                                                                                                                                                                                                                                                                                               | Dédup local sur `everest_missions.payload_latest_update` (timestamp)                                                 | Une seule source de dédup = cohérence + zéro nouvelle infra. `event_id = mission_id + event_type + occurred_at`.                                                                                                                                                                                                                                                                                                                                                                                                 |
-| **D8** | Failover Everest down = 1 retry 30s + Ops manuel via E4 (acceptation manuelle après appel téléphone)                                                                                                                                                                                                                                                                                                                          | Retry long Plateforme-style (5min/30min/2h) / pas de retry / 3 retries                                               | Collecte AG part dans l'heure, pas le temps pour des retries longs. 1 retry court attrape les blips réseau, sinon humain prend le relais.                                                                                                                                                                                                                                                                                                                                                                        |
-| **D9** | Annulation cascade M12 / annulation traiteur = trigger DB auto AFTER UPDATE on `collectes_tms` qui appelle worker `m14_cancel_mission`                                                                                                                                                                                                                                                                                        | Annulation semi-auto (alerte Ops + bouton 1 clic) / Annulation manuelle Ops                                          | Automatisable, idempotent, traçable. Évite double-dispatch (A Toutes! + nouveau prestataire) qui serait catastrophique terrain. Si cancel Everest échoue → alerte warning (EC11).                                                                                                                                                                                                                                                                                                                                |
+| # | Décision | Alternatives écartées | Justification |
+|---|----------|------------------------|---------------|
+| **D1** | Périmètre V1 = reprise contrat Bubble↔Everest + supervision Ops (M11/M13) | (a) reprise stricte sans supervision / (c) reprise + features (estimate/availabilities V1) | Le contrat est stable, l'ambition est l'observabilité (qui manquait à Bubble). `availabilities` déjà tranché V2 (cf. M12 D8). |
+| **D2** | Push mission Everest à transition `attribuee_en_attente_acceptation` (post-M12 attribution) | Push à validation Ops M02 / Push à acceptation prestataire | Cohérent avec pattern Strike/Marathon (manager voit dans M03 dès `attribuee_en_attente_acceptation`). Si Ops réattribue après → cascade W3 annule auto. |
+| **D3** | **1 mission Everest = 1 tournée** (reformulé 2026-05-29) : camion → 1 mission/tournée (N collectes, `collecte_tms_id=NULL`) ; vélo → 1 mission/tournée vélo (`collecte_tms_id` posé, 1 collecte par vélo D8). `client_ref = tournee_id`, idempotence keyée `tournee_id`. **Multi-vélo (V2, 2026-05-29) : 1 collecte = N vélos = N missions** (même `collecte_tms_id`, `tournee_id` distinct) = N courses A Toutes! facturées. | N missions Everest pour camion (1/collecte) / keyer l'idempotence sur `collecte_id` (casserait le multi-vélo) | Granularité Everest-friendly (model Everest = 1 mission = 1 trajet start/end). Keyer sur `tournee_id` permet N missions par collecte en multi-vélo. **Source de vérité unique : `tms.everest_missions(everest_mission_id UNIQUE, tournee_id, collecte_tms_id)`** — pas d'unicité sur `collecte_tms_id` seul (N missions possibles) ; colonnes miroir `tournees.everest_mission_id` et `collectes_tms.everest_mission_id` retirées V1 (revue sobriété §04 2026-04-30 A6). Lookup via JOIN sur `everest_missions`. |
+| **D4** | Webhooks Everest = observabilité pure (mutent `everest_missions` only). M05 chauffeur = source de vérité opérationnelle (`statut_operationnel`, `statut`) | Mapping fin webhooks → enums TMS (chaque event mute statut métier) / Mapping a minima | Évite les conflits temporels (webhook `mission_pickedup` arrive après que chauffeur a clôturé via M05 = drift statut). Chauffeur A Toutes! utilise M05 (déjà §04 ligne 2568). Sauf 3 cas durs (`mission_failed`, `mission_cancelled` non-TMS, `mission_late`) qui émettent alertes Ops. |
+| **D5** | Auth Bearer lazy refresh sur 401 + cache token mémoire process Next.js **uniquement** V1 (sobriété 2026-04-30 B_M14_01) | Refresh à chaque appel / Cache token Vault avec cron refresh / Persistance cross-process Vault `secrets_metadata` V1 | Simple, robuste, pas de cron à maintenir. V1 single instance Next.js, volume faible. À reconsidérer V1.1 si TTL Everest < 1h (Q3) ou scale multi-instance. |
+| **D6** | Sécurité webhook entrant = filet par défaut **token secret en header `X-Webhook-Token`** (Vault). À upgrader vers HMAC si Everest l'expose (à confirmer dev Everest pendant développement). | HMAC dès V1 / IP whitelist / aucune sécurité | Token en header = filet minimal, simple à upgrader. HMAC nécessite qu'Everest signe (à valider). IP whitelist fragile. |
+| **D7** | Idempotence webhooks via `tms.integrations_inbox` (pattern unifié avec M01 webhooks Plateforme) | Dédup local sur `everest_missions.payload_latest_update` (timestamp) | Une seule source de dédup = cohérence + zéro nouvelle infra. `event_id = mission_id + event_type + occurred_at`. |
+| **D8** | Failover Everest down = 1 retry 30s + Ops manuel via E4 (acceptation manuelle après appel téléphone) | Retry long Plateforme-style (5min/30min/2h) / pas de retry / 3 retries | Collecte AG part dans l'heure, pas le temps pour des retries longs. 1 retry court attrape les blips réseau, sinon humain prend le relais. |
+| **D9** | Annulation cascade M12 / annulation traiteur = trigger DB auto AFTER UPDATE on `collectes_tms` qui appelle worker `m14_cancel_mission` | Annulation semi-auto (alerte Ops + bouton 1 clic) / Annulation manuelle Ops | Automatisable, idempotent, traçable. Évite double-dispatch (A Toutes! + nouveau prestataire) qui serait catastrophique terrain. Si cancel Everest échoue → alerte warning (EC11). |
 
 ---
 
@@ -683,7 +679,7 @@ M14 est **interne TMS**. Les notifications client/traiteur transitent par les we
 ### Au sein du CDC TMS
 
 - [[../03 - Périmètre fonctionnel TMS#M14 — Intégration Everest (A Toutes!)]] — vue macro
-- [[../04 - Data Model TMS]] — tables `everest_missions`, `everest_coverage_cache`, `integrations_inbox`, `integrations_logs`, `audit_logs`, colonnes `shared.prestataires.everest_*`, colonne `tms.collectes_tms.everest_service_id_target` (sobriété 2026-04-30 B*M14_02), paramètres `m14*\*`(4 paramètres après suppression`m14_dashboard_polling_ms` sobriété 2026-04-30 A_M14_01)
+- [[../04 - Data Model TMS]] — tables `everest_missions`, `everest_coverage_cache`, `integrations_inbox`, `integrations_logs`, `audit_logs`, colonnes `shared.prestataires.everest_*`, colonne `tms.collectes_tms.everest_service_id_target` (sobriété 2026-04-30 B_M14_02), paramètres `m14_*` (4 paramètres après suppression `m14_dashboard_polling_ms` sobriété 2026-04-30 A_M14_01)
 - [[../05 - Règles métier TMS]] — section R_M14 (propagation 2026-04-25)
 - [[../07 - Architecture technique TMS]] — section "API Routes M14" + trigger DB cascade (propagation 2026-04-25)
 - [[../09 - Authentification et permissions TMS]] — RLS `everest_missions` (cf. ligne 2606 + propagation 2026-04-25)

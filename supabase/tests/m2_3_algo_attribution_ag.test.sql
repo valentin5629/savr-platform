@@ -70,13 +70,13 @@ VALUES ('a0000000-0000-0000-0000-000000000021'::uuid, 'Lieu Province Rouen', '5 
 -- asso_proche : 4.2 km, capacite=500 (500×2=1000 > volume 200 ✓)
 INSERT INTO plateforme.associations (id, nom, adresse, ville, region, contact_email, capacite_max_beneficiaires, actif, description_rapport_impact, latitude, longitude)
 VALUES
-  ('a0000000-0000-0000-0000-000000000030'::uuid, 'Asso Proche IDF', '10 Rue Proche', 'Paris', 'idf', 'proche@asso.test', 500, true, 'Asso IDF proche test', 48.8606, 2.3933),
-  ('a0000000-0000-0000-0000-000000000031'::uuid, 'Asso Moyenne IDF', '20 Rue Milieu', 'Paris', 'idf', 'milieu@asso.test', 700, true, 'Asso IDF moyenne test', 48.8676, 2.4122),
-  ('a0000000-0000-0000-0000-000000000032'::uuid, 'Asso Loin IDF', '30 Rue Loin', 'Paris', 'idf', 'loin@asso.test', 900, true, 'Asso IDF lointaine test', 48.8346, 2.4522),
+  ('a0000000-0000-0000-0000-000000000030'::uuid, 'Asso Proche IDF', '10 Rue Proche', 'Paris', 'idf', 'proche@asso.test', 500, true, 'Association IDF proche, dessert le secteur Paris centre.', 48.8606, 2.3933),
+  ('a0000000-0000-0000-0000-000000000031'::uuid, 'Asso Moyenne IDF', '20 Rue Milieu', 'Paris', 'idf', 'milieu@asso.test', 700, true, 'Association IDF moyenne, couvre le grand Paris nord-est.', 48.8676, 2.4122),
+  ('a0000000-0000-0000-0000-000000000032'::uuid, 'Asso Loin IDF', '30 Rue Loin', 'Paris', 'idf', 'loin@asso.test', 900, true, 'Association IDF lointaine, dessert le grand Paris Est.', 48.8346, 2.4522),
   -- asso avec capacite exactement = volume/2 → exclue (500×2=1000 NOT > 1000)
-  ('a0000000-0000-0000-0000-000000000033'::uuid, 'Asso Capacite Limite IDF', '40 Rue Limite', 'Paris', 'idf', 'limite@asso.test', 500, true, 'Asso limite capacité test', 48.8416, 2.3022),
+  ('a0000000-0000-0000-0000-000000000033'::uuid, 'Asso Capacite Limite IDF', '40 Rue Limite', 'Paris', 'idf', 'limite@asso.test', 500, true, 'Association IDF, limite de capacité pour test filtre algo.', 48.8416, 2.3022),
   -- asso avec capacite 501 → incluse (501×2=1002 > 1000)
-  ('a0000000-0000-0000-0000-000000000034'::uuid, 'Asso Capacite 501 IDF', '50 Rue Ok', 'Paris', 'idf', 'ok@asso.test', 501, true, 'Asso capacité 501 test', 48.8456, 2.3122);
+  ('a0000000-0000-0000-0000-000000000034'::uuid, 'Asso Capacite 501 IDF', '50 Rue Ok', 'Paris', 'idf', 'ok@asso.test', 501, true, 'Association IDF capacité 501, incluse dans le top-3 algo.', 48.8456, 2.3122);
 
 -- Transporteur Marathon (MTS-1, IDF)
 INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, ville, type_tms, actif, contact_nom, contact_email, contact_telephone, types_vehicules, latitude, longitude)
@@ -655,7 +655,7 @@ INSERT INTO plateforme.evenements (
 
 -- Asso province
 INSERT INTO plateforme.associations (id, nom, adresse, ville, region, contact_email, capacite_max_beneficiaires, actif, description_rapport_impact, latitude, longitude)
-VALUES ('a0000000-0000-0000-0000-000000000035'::uuid, 'Asso Province Rouen', '1 Rue Province', 'Rouen', 'normandie', 'rouen@asso.test', 800, true, 'Asso province test', 49.4431, 1.0993);
+VALUES ('a0000000-0000-0000-0000-000000000035'::uuid, 'Asso Province Rouen', '1 Rue Province', 'Rouen', 'normandie', 'rouen@asso.test', 800, true, 'Association province Normandie, collectes invendus Rouen.', 49.4431, 1.0993);
 
 -- Transporteur province (pas a_toutes, actif)
 INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, ville, type_tms, actif, contact_nom, contact_email, contact_telephone, types_vehicules, latitude, longitude)

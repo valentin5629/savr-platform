@@ -1,11 +1,11 @@
 -- =============================================================================
 -- Tests pgTAP M2.5 — RLS plateforme.everest_missions
 -- =============================================================================
--- Périmètre : 6 tests RLS — admin_savr (allow) vs traiteur_manager (deny)
+-- Périmètre : 9 tests RLS — admin_savr/ops_savr (allow) vs autres rôles (deny)
 -- =============================================================================
 
 BEGIN;
-SELECT plan(6);
+SELECT plan(9);
 
 -- ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -39,12 +39,15 @@ SELECT test_as_superuser();
 INSERT INTO plateforme.organisations (id, nom, type, actif, est_shadow, siret, email_principal)
 VALUES
   ('0a250001-0000-0000-0000-000000000001'::uuid, 'Savr', 'gestionnaire_plateforme', true, false, '10000000000001', 'admin@savr.test'),
-  ('0a250002-0000-0000-0000-000000000001'::uuid, 'Kaspia', 'traiteur', true, false, '20000000000002', 'manager@kaspia.test');
+  ('0a250002-0000-0000-0000-000000000001'::uuid, 'Kaspia', 'traiteur', true, false, '20000000000002', 'manager@kaspia.test'),
+  ('0a250003-0000-0000-0000-000000000001'::uuid, 'VenueCo', 'gestionnaire_lieux', true, false, '30000000000003', 'venue@test.test');
 
 INSERT INTO plateforme.users (id, organisation_id, email, prenom, nom, role)
 VALUES
   ('05250001-0000-0000-0000-000000000001'::uuid, '0a250001-0000-0000-0000-000000000001'::uuid, 'admin@savr.test', 'Admin', 'Savr', 'admin_savr'),
-  ('05250002-0000-0000-0000-000000000001'::uuid, '0a250002-0000-0000-0000-000000000001'::uuid, 'mgr@kaspia.test', 'Manager', 'Kaspia', 'traiteur_manager');
+  ('05250002-0000-0000-0000-000000000001'::uuid, '0a250002-0000-0000-0000-000000000001'::uuid, 'mgr@kaspia.test', 'Manager', 'Kaspia', 'traiteur_manager'),
+  ('05250004-0000-0000-0000-000000000001'::uuid, '0a250001-0000-0000-0000-000000000001'::uuid, 'ops@savr.test', 'Ops', 'Savr', 'ops_savr'),
+  ('05250005-0000-0000-0000-000000000001'::uuid, '0a250003-0000-0000-0000-000000000001'::uuid, 'venue@test.test', 'Venue', 'Mgr', 'gestionnaire_lieux');
 
 INSERT INTO plateforme.types_evenements (id, code, libelle)
 VALUES ('e0250001-0000-0000-0000-000000000001'::uuid, 'ev_m25_test', 'Test M2.5');
@@ -222,6 +225,49 @@ SELECT is(
   ) SELECT count(*)::int FROM upd),
   0,
   'T6 traiteur_manager — UPDATE everest_missions 0 ligne modifiée (R6, deny via USING)'
+);
+
+-- ─── T7 : ops_savr peut SELECT ───────────────────────────────────────────────
+
+SELECT test_set_jwt(
+  'ops_savr',
+  '0a250001-0000-0000-0000-000000000001'::uuid,
+  '05250004-0000-0000-0000-000000000001'::uuid
+);
+
+SELECT is(
+  (SELECT count(*)::int FROM plateforme.everest_missions),
+  1,
+  'T7 ops_savr — SELECT everest_missions : voit la mission (R7, allow SELECT)'
+);
+
+-- ─── T8 : ops_savr peut UPDATE ───────────────────────────────────────────────
+
+SELECT test_set_jwt(
+  'ops_savr',
+  '0a250001-0000-0000-0000-000000000001'::uuid,
+  '05250004-0000-0000-0000-000000000001'::uuid
+);
+
+SELECT lives_ok(
+  $$UPDATE plateforme.everest_missions
+    SET payload_latest_update = '{"ops":true}'::jsonb
+    WHERE id = 'em250001-0000-0000-0000-000000000001'::uuid$$,
+  'T8 ops_savr — UPDATE everest_missions OK (R8, allow UPDATE)'
+);
+
+-- ─── T9 : gestionnaire_lieux ne peut PAS SELECT ──────────────────────────────
+
+SELECT test_set_jwt(
+  'gestionnaire_lieux',
+  '0a250003-0000-0000-0000-000000000001'::uuid,
+  '05250005-0000-0000-0000-000000000001'::uuid
+);
+
+SELECT is(
+  (SELECT count(*)::int FROM plateforme.everest_missions),
+  0,
+  'T9 gestionnaire_lieux — SELECT everest_missions : 0 ligne (R9, deny tous rôles non-staff)'
 );
 
 SELECT * FROM finish();

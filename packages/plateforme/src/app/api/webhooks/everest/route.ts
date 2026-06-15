@@ -28,6 +28,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     new URL(req.url).searchParams.get('token');
 
   const expectedToken = process.env['EVEREST_WEBHOOK_TOKEN'];
+  // Fail-closed en production : EVEREST_WEBHOOK_TOKEN doit être configuré.
+  if (!expectedToken && process.env['NODE_ENV'] === 'production') {
+    return NextResponse.json(
+      { error: 'Webhook non configuré' },
+      { status: 500 },
+    );
+  }
   if (expectedToken && webhookToken !== expectedToken) {
     await supabase.from('integrations_logs').insert({
       integration: 'everest',

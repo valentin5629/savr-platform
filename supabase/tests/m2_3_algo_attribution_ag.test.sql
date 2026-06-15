@@ -128,6 +128,40 @@ INSERT INTO plateforme.evenements (
   'Contact Evt Grand Volume', '0600000099'
 );
 
+-- Événement IDF capacité (pax=10000) — trigger → volume_estime_repas=ROUND(0.10*10000)=1000 — utilisé par T6/T6b/T7
+INSERT INTO plateforme.evenements (
+  id, organisation_id, traiteur_operationnel_organisation_id,
+  entite_facturation_id, created_by, lieu_id, type_evenement_id,
+  date_evenement, pax, contact_principal_nom, contact_principal_telephone
+) VALUES (
+  'a0000000-0000-0000-0000-000000000063'::uuid,
+  'a0000000-0000-0000-0000-000000000001'::uuid,
+  'a0000000-0000-0000-0000-000000000001'::uuid,
+  'a0000000-0000-0000-0000-000000000011'::uuid,
+  'a0000000-0000-0000-0000-000000000010'::uuid,
+  'a0000000-0000-0000-0000-000000000020'::uuid,
+  'a0000000-0000-0000-0000-000000000009'::uuid,
+  CURRENT_DATE + 7, 10000,
+  'Contact Evt Capacite', '0600000099'
+);
+
+-- Événement IDF no-asso (pax=20000) — trigger → volume_estime_repas=2000, exclut toutes les assos (cap max=900, 900×2=1800<2000) — utilisé par T24
+INSERT INTO plateforme.evenements (
+  id, organisation_id, traiteur_operationnel_organisation_id,
+  entite_facturation_id, created_by, lieu_id, type_evenement_id,
+  date_evenement, pax, contact_principal_nom, contact_principal_telephone
+) VALUES (
+  'a0000000-0000-0000-0000-000000000064'::uuid,
+  'a0000000-0000-0000-0000-000000000001'::uuid,
+  'a0000000-0000-0000-0000-000000000001'::uuid,
+  'a0000000-0000-0000-0000-000000000011'::uuid,
+  'a0000000-0000-0000-0000-000000000010'::uuid,
+  'a0000000-0000-0000-0000-000000000020'::uuid,
+  'a0000000-0000-0000-0000-000000000009'::uuid,
+  CURRENT_DATE + 7, 20000,
+  'Contact Evt No Asso', '0600000099'
+);
+
 -- Collecte AG IDF — heure 10:00, futur lointain (délai > 90 min)
 INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, volume_estime_repas)
 VALUES (
@@ -254,11 +288,11 @@ SELECT ok(
 
 -- ── T6 : Filtre capacité stricte — association exclue si cap×2 = volume ──
 
--- Test avec volume_estime_repas=1000, asso_limite a capacite=500 (500×2=1000 NOT > 1000)
+-- Test avec volume_estime_repas=1000 (trigger: ROUND(0.10*10000)=1000), asso cap=500 → 500×2=1000 NOT > 1000
 INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, volume_estime_repas)
 VALUES (
   'a0000000-0000-0000-0000-000000000076'::uuid,
-  'a0000000-0000-0000-0000-000000000060'::uuid,
+  'a0000000-0000-0000-0000-000000000063'::uuid,
   'anti_gaspi', 'programmee', 'non_envoye',
   CURRENT_DATE + 7, '10:00', 1000
 );
@@ -468,16 +502,14 @@ SELECT ok(
 
 -- ── T17 : RLS ops_savr DENY UPDATE parametres_algo ───────────────────────
 
-SELECT is(
-  (WITH u AS (
-    UPDATE plateforme.parametres_algo
-    SET valeur = 'false'::jsonb
-    WHERE cle = 'a_toutes_indisponible'
-    RETURNING 1
-  ) SELECT COUNT(*)::integer FROM u),
-  0,
-  'T17 : ops_savr UPDATE parametres_algo → 0 lignes (deny silencieux UPDATE)'
-);
+WITH u AS (
+  UPDATE plateforme.parametres_algo
+  SET valeur = 'false'::jsonb
+  WHERE cle = 'a_toutes_indisponible'
+  RETURNING 1
+)
+SELECT is(COUNT(*)::integer, 0, 'T17 : ops_savr UPDATE parametres_algo → 0 lignes (deny silencieux UPDATE)')
+FROM u;
 
 -- ── T18 : RLS manager_traiteur ne voit PAS parametres_algo ───────────────
 
@@ -502,16 +534,14 @@ VALUES ('a0000000-0000-0000-0000-000000000090'::uuid,
 SELECT test_set_jwt('ops_savr', 'a0000000-0000-0000-0000-000000000001'::uuid,
   'a0000000-0000-0000-0000-000000000013'::uuid);
 
-SELECT is(
-  (WITH u AS (
-    UPDATE plateforme.config_auto_accept_ag
-    SET auto_accept_actif = false
-    WHERE id = 'a0000000-0000-0000-0000-000000000090'::uuid
-    RETURNING 1
-  ) SELECT COUNT(*)::integer FROM u),
-  0,
-  'T19 : ops_savr UPDATE config_auto_accept_ag → 0 lignes (deny RLS)'
-);
+WITH u AS (
+  UPDATE plateforme.config_auto_accept_ag
+  SET auto_accept_actif = false
+  WHERE id = 'a0000000-0000-0000-0000-000000000090'::uuid
+  RETURNING 1
+)
+SELECT is(COUNT(*)::integer, 0, 'T19 : ops_savr UPDATE config_auto_accept_ag → 0 lignes (deny RLS)')
+FROM u;
 
 -- ── T20 : RPC rpc_valider_attribution_ag (superuser) ─────────────────────
 
@@ -589,11 +619,11 @@ SELECT is(
 
 -- ── T24 : algo retourne no_asso=true si aucune association éligible ───────
 
--- Créer collecte avec volume énorme (aucune asso ne peut l'accueillir)
+-- Créer collecte avec volume énorme (trigger: ROUND(0.10*20000)=2000, cap max=900 → 900×2=1800 < 2000 → toutes exclues)
 INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, volume_estime_repas)
 VALUES (
   'a0000000-0000-0000-0000-000000000078'::uuid,
-  'a0000000-0000-0000-0000-000000000060'::uuid,
+  'a0000000-0000-0000-0000-000000000064'::uuid,
   'anti_gaspi', 'programmee', 'non_envoye',
   CURRENT_DATE + 7, '10:00', 99999
 );

@@ -64,3 +64,18 @@ packages/plateforme/src/app/api/v1/admin/everest/missions/manual-accept/route.ts
 supabase/migrations/20260615210000_plateforme_m2_5_everest.sql
 supabase/migrations/20260615220000_plateforme_m2_5_everest_fix.sql
 supabase/migrations/20260615230000_plateforme_m2_5_everest_rls_v2.sql
+# supabase/migrations/*_m2_3_algo* (M2.3) — 'mts1' = valeur de type_tms_enum dans SELECT
+# de transporteur par type (recherche Marathon par type_tms='mts1' dans la DB). 'everest' =
+# dans les commentaires de code décrivant les services (71/74/77). Aucun appel HTTP MTS-1/Everest
+# ici — toute logique adapter vit dans packages/adapters/. 'customerOrders' reste banni.
+supabase/migrations/20260615240000_plateforme_m2_3_algo_attribution_ag.sql
+# supabase/tests/m2_3_algo* (M2.3) — 'mts1' = valeur enum dans INSERT fixtures pgTAP
+# (transporteurs.type_tms + prestataires.mode_integration). Pas de logique adapter.
+supabase/tests/m2_3_algo_attribution_ag.test.sql
+# packages/plateforme/.../parametres/algo-ag/* (M2.3) — 'Everest' = libellé UI de la clé
+# paramétre algo 'everest_codes_postaux' (données statiques, description de la table parametres_algo).
+# Aucun appel HTTP. 'customerOrders' reste banni.
+packages/plateforme/src/app/(admin)/admin/parametres/algo-ag/page.tsx
+# packages/plateforme/tests/.../algo-attribution-ag* (M2.3) — 'mts1' = valeur enum dans
+# objet mock fixture transporteur (type_tms:'mts1'). Pas de logique adapter.
+packages/plateforme/tests/api/admin/algo-attribution-ag.m2-3.test.ts

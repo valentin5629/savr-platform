@@ -10,11 +10,23 @@
     },
     {
       "path": "/api/cron/batch-pdf-j1",
-      "schedule": "0 5 * * *"
+      "schedule": "0 6 * * *"
     },
     {
       "path": "/api/cron/pdf-worker",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/batch-brouillons-j1",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/pennylane-retry",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/polling-pennylane",
+      "schedule": "0 3 * * *"
     }
   ]
 }

@@ -1,0 +1,4 @@
+{
+  "_description": "POST /api/external/v2/customer_invoices/:id/send_email — réponse 200 succès.",
+  "ok": true
+}

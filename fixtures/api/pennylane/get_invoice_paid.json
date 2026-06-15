@@ -1,0 +1,16 @@
+{
+  "_description": "GET /api/external/v2/customer_invoices/:id — facture payée (déclenche transition emise→payee).",
+  "invoice": {
+    "id": "PL-INV-NEW-001",
+    "number": "FZD-2026-00042",
+    "status": "paid",
+    "total_amount": "390.00",
+    "currency": "EUR",
+    "issued_at": "2026-06-15",
+    "due_at": "2026-07-15",
+    "paid_at": "2026-07-10T14:23:00Z",
+    "customer_id": "PL-CUST-KASPIA-001",
+    "file_url": "https://app.pennylane.com/invoices/PL-INV-NEW-001.pdf",
+    "source_id": "fac-uuid-00042"
+  }
+}

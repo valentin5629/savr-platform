@@ -377,7 +377,7 @@ SELECT throws_ok(
 -- sequences_facturation (sf_admin_read = SELECT only) → 42501 même pour admin.
 SELECT test_set_jwt('admin_savr', NULL);
 SELECT throws_ok(
-  $$INSERT INTO plateforme.sequences_facturation (serie, annee, dernier) VALUES ('ZD_COLLECTE', 2099, 1)$$,
+  $$INSERT INTO plateforme.sequences_facturation (serie, annee, dernier_numero) VALUES ('ZD_COLLECTE', 2099, 1)$$,
   '42501', NULL, 'T29 sequences_fact_write_denied_admin'
 );
 

@@ -2,7 +2,7 @@
 -- Tests : moteur algo IDF/province, trigger poids→volume, immutabilité mode_validation, RLS.
 
 BEGIN;
-SELECT plan(30);
+SELECT plan(32);
 
 -- ── Helpers JWT ──────────────────────────────────────────────────────────
 
@@ -59,12 +59,12 @@ INSERT INTO plateforme.types_evenements (id, code, libelle, ordre_affichage, act
 VALUES ('a0000000-0000-0000-0000-000000000009'::uuid, 'GALA_M23', 'Gala M2.3 Test', 1, true);
 
 -- Lieu IDF (75001, coord Paris centre)
-INSERT INTO plateforme.lieux (id, nom, adresse_acces, ville, code_postal, type_vehicule_max, latitude, longitude)
-VALUES ('a0000000-0000-0000-0000-000000000020'::uuid, 'Lieu IDF Paris', '1 Rue Rivoli', 'Paris', '75001', 'camionnette', 48.8566, 2.3522);
+INSERT INTO plateforme.lieux (id, nom, adresse_acces, ville, code_postal, type_vehicule_max, latitude, longitude, region)
+VALUES ('a0000000-0000-0000-0000-000000000020'::uuid, 'Lieu IDF Paris', '1 Rue Rivoli', 'Paris', '75001', 'camionnette', 48.8566, 2.3522, 'idf');
 
 -- Lieu province (Rouen)
-INSERT INTO plateforme.lieux (id, nom, adresse_acces, ville, code_postal, type_vehicule_max, latitude, longitude)
-VALUES ('a0000000-0000-0000-0000-000000000021'::uuid, 'Lieu Province Rouen', '5 Quai de Rouen', 'Rouen', '76000', 'camionnette', 49.4431, 1.0993);
+INSERT INTO plateforme.lieux (id, nom, adresse_acces, ville, code_postal, type_vehicule_max, latitude, longitude, region)
+VALUES ('a0000000-0000-0000-0000-000000000021'::uuid, 'Lieu Province Rouen', '5 Quai de Rouen', 'Rouen', '76000', 'camionnette', 49.4431, 1.0993, 'province');
 
 -- Associations IDF (top 3 à distances croissantes)
 -- asso_proche : 4.2 km, capacite=500 (500×2=1000 > volume 200 ✓)
@@ -111,6 +111,23 @@ INSERT INTO plateforme.evenements (
   'Contact Evt', '0600000099'
 );
 
+-- Événement IDF grand volume (600 pax exactement = seuil) — utilisé par T2
+INSERT INTO plateforme.evenements (
+  id, organisation_id, traiteur_operationnel_organisation_id,
+  entite_facturation_id, created_by, lieu_id, type_evenement_id,
+  date_evenement, pax, contact_principal_nom, contact_principal_telephone
+) VALUES (
+  'a0000000-0000-0000-0000-000000000062'::uuid,
+  'a0000000-0000-0000-0000-000000000001'::uuid,
+  'a0000000-0000-0000-0000-000000000001'::uuid,
+  'a0000000-0000-0000-0000-000000000011'::uuid,
+  'a0000000-0000-0000-0000-000000000010'::uuid,
+  'a0000000-0000-0000-0000-000000000020'::uuid,
+  'a0000000-0000-0000-0000-000000000009'::uuid,
+  CURRENT_DATE + 7, 600,
+  'Contact Evt Grand Volume', '0600000099'
+);
+
 -- Collecte AG IDF — heure 10:00, futur lointain (délai > 90 min)
 INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, volume_estime_repas)
 VALUES (
@@ -129,11 +146,11 @@ VALUES (
   CURRENT_DATE + 7, '22:00', 200
 );
 
--- Collecte AG IDF — grand volume (600 pax exactement, heure 12:00)
+-- Collecte AG IDF — grand volume (600 pax = seuil, heure 12:00) — liée à événement 0062 (pax=600)
 INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, volume_estime_repas)
 VALUES (
   'a0000000-0000-0000-0000-000000000072'::uuid,
-  'a0000000-0000-0000-0000-000000000060'::uuid,
+  'a0000000-0000-0000-0000-000000000062'::uuid,
   'anti_gaspi', 'programmee', 'non_envoye',
   CURRENT_DATE + 7, '12:00', 600
 );
@@ -351,7 +368,7 @@ SELECT throws_ok(
 
 -- ── T12 : RLS admin_savr INSERT attributions_antgaspi ────────────────────
 
-PERFORM test_set_jwt('admin_savr', 'a0000000-0000-0000-0000-000000000001'::uuid,
+SELECT test_set_jwt('admin_savr', 'a0000000-0000-0000-0000-000000000001'::uuid,
   'a0000000-0000-0000-0000-000000000010'::uuid);
 
 SELECT lives_ok(
@@ -370,7 +387,7 @@ SELECT lives_ok(
 
 -- ── T13 : RLS manager_traiteur DENY INSERT attributions_antgaspi ─────────
 
-PERFORM test_set_jwt('traiteur_manager', 'a0000000-0000-0000-0000-000000000001'::uuid,
+SELECT test_set_jwt('traiteur_manager', 'a0000000-0000-0000-0000-000000000001'::uuid,
   'a0000000-0000-0000-0000-000000000012'::uuid);
 
 SELECT throws_ok(
@@ -391,7 +408,7 @@ SELECT throws_ok(
 
 -- ── T14 : RLS manager_traiteur voit sa propre attribution ────────────────
 
-PERFORM test_as_superuser();
+SELECT test_as_superuser();
 -- Créer attribution pour org1 (collecte 0070)
 INSERT INTO plateforme.attributions_antgaspi (
   id, collecte_id, association_id, transporteur_id, branche_attribution, mode_validation
@@ -404,7 +421,7 @@ INSERT INTO plateforme.attributions_antgaspi (
   'manuel_top1'
 );
 
-PERFORM test_set_jwt('traiteur_manager', 'a0000000-0000-0000-0000-000000000001'::uuid,
+SELECT test_set_jwt('traiteur_manager', 'a0000000-0000-0000-0000-000000000001'::uuid,
   'a0000000-0000-0000-0000-000000000012'::uuid);
 
 SELECT is(
@@ -416,7 +433,7 @@ SELECT is(
 
 -- ── T15 : RLS manager_traiteur ne voit PAS attribution autre org ──────────
 
-PERFORM test_as_superuser();
+SELECT test_as_superuser();
 INSERT INTO plateforme.attributions_antgaspi (
   id, collecte_id, association_id, transporteur_id, branche_attribution, mode_validation
 ) VALUES (
@@ -428,7 +445,7 @@ INSERT INTO plateforme.attributions_antgaspi (
   'manuel_top1'
 );
 
-PERFORM test_set_jwt('traiteur_manager', 'a0000000-0000-0000-0000-000000000001'::uuid,
+SELECT test_set_jwt('traiteur_manager', 'a0000000-0000-0000-0000-000000000001'::uuid,
   'a0000000-0000-0000-0000-000000000012'::uuid);
 
 SELECT is(
@@ -440,7 +457,7 @@ SELECT is(
 
 -- ── T16 : RLS ops_savr peut lire parametres_algo ─────────────────────────
 
-PERFORM test_set_jwt('ops_savr', 'a0000000-0000-0000-0000-000000000001'::uuid,
+SELECT test_set_jwt('ops_savr', 'a0000000-0000-0000-0000-000000000001'::uuid,
   'a0000000-0000-0000-0000-000000000013'::uuid);
 
 SELECT ok(
@@ -464,7 +481,7 @@ SELECT is(
 
 -- ── T18 : RLS manager_traiteur ne voit PAS parametres_algo ───────────────
 
-PERFORM test_set_jwt('traiteur_manager', 'a0000000-0000-0000-0000-000000000001'::uuid,
+SELECT test_set_jwt('traiteur_manager', 'a0000000-0000-0000-0000-000000000001'::uuid,
   'a0000000-0000-0000-0000-000000000012'::uuid);
 
 SELECT is(
@@ -475,14 +492,14 @@ SELECT is(
 
 -- ── T19 : RLS ops_savr DENY UPDATE config_auto_accept_ag ─────────────────
 
-PERFORM test_as_superuser();
+SELECT test_as_superuser();
 INSERT INTO plateforme.config_auto_accept_ag (id, organisation_id, association_id, auto_accept_actif)
 VALUES ('a0000000-0000-0000-0000-000000000090'::uuid,
   'a0000000-0000-0000-0000-000000000001'::uuid,
   'a0000000-0000-0000-0000-000000000030'::uuid,
   true);
 
-PERFORM test_set_jwt('ops_savr', 'a0000000-0000-0000-0000-000000000001'::uuid,
+SELECT test_set_jwt('ops_savr', 'a0000000-0000-0000-0000-000000000001'::uuid,
   'a0000000-0000-0000-0000-000000000013'::uuid);
 
 SELECT is(
@@ -498,7 +515,7 @@ SELECT is(
 
 -- ── T20 : RPC rpc_valider_attribution_ag (superuser) ─────────────────────
 
-PERFORM test_as_superuser();
+SELECT test_as_superuser();
 
 -- Mettre à jour le seed parametres_algo avec la bonne valeur
 UPDATE plateforme.parametres_algo SET valeur = 'false'::jsonb WHERE cle = 'a_toutes_indisponible';
@@ -590,7 +607,7 @@ SELECT ok(
 
 -- ── T25 : parametres_algo contient bien les 7 clés AG ────────────────────
 
-PERFORM test_as_superuser();
+SELECT test_as_superuser();
 
 SELECT is(
   (SELECT COUNT(*)::integer FROM plateforme.parametres_algo
@@ -655,7 +672,7 @@ INSERT INTO plateforme.evenements (
 
 -- Asso province
 INSERT INTO plateforme.associations (id, nom, adresse, ville, region, contact_email, capacite_max_beneficiaires, actif, description_rapport_impact, latitude, longitude)
-VALUES ('a0000000-0000-0000-0000-000000000035'::uuid, 'Asso Province Rouen', '1 Rue Province', 'Rouen', 'normandie', 'rouen@asso.test', 800, true, 'Association province Normandie, collectes invendus Rouen.', 49.4431, 1.0993);
+VALUES ('a0000000-0000-0000-0000-000000000035'::uuid, 'Asso Province Rouen', '1 Rue Province', 'Rouen', 'province', 'rouen@asso.test', 800, true, 'Association province Normandie, collectes invendus Rouen.', 49.4431, 1.0993);
 
 -- Transporteur province (pas a_toutes, actif)
 INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, ville, type_tms, actif, contact_nom, contact_email, contact_telephone, types_vehicules, latitude, longitude)

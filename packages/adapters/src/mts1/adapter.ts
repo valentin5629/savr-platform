@@ -245,8 +245,9 @@ export class AdapterMts1 implements LogistiqueProvider {
   // ─── sync — polling entrant MTS-1 (M1.5b) ───────────────────────────────────
 
   async sync(fenetre: FenetreSync): Promise<void> {
-    // Charge les codes flux une fois par run (référentiel stable)
+    // Charge les codes flux et les seuils une fois par run (référentiel stable)
     const fluxById = await this.loadFluxCodes();
+    const seuils = await this.loadSeuils();
 
     const orders = await this.client.scanOrdersByDateRange(
       fenetre.depuis.toISOString(),
@@ -255,7 +256,7 @@ export class AdapterMts1 implements LogistiqueProvider {
 
     for (const order of orders) {
       try {
-        await this.processOrder(order, fluxById);
+        await this.processOrder(order, fluxById, seuils);
       } catch (err) {
         await this.logEntrantError(
           'SYNC_ORDER_FAILED',
@@ -268,6 +269,7 @@ export class AdapterMts1 implements LogistiqueProvider {
   private async processOrder(
     order: import('./mock.js').Mts1CustomerOrder,
     fluxById: Map<string, string>,
+    seuils: { min: number; max: number },
   ): Promise<void> {
     // 1. Claim atomique — dédup intra-run et inter-polls sur le même statut
     const eventKey = `mts1:${order.id}:${order.status}`;
@@ -331,7 +333,46 @@ export class AdapterMts1 implements LogistiqueProvider {
           collecteId,
           collecteStatut,
           fluxById,
+          seuils,
         );
+      }
+
+      // 5. Statuts terminaux MTS-1 → mise à jour tournée + agrégation (M1.8/M1.5c)
+      const MTS1_TERMINAUX = new Set([
+        'DELIVERED',
+        'PARTIAL',
+        'CANCELED',
+        'KO',
+      ]);
+      if (MTS1_TERMINAUX.has(order.status)) {
+        const nouveauStatutTournee =
+          order.status === 'CANCELED' || order.status === 'KO'
+            ? 'annulee'
+            : 'terminee';
+
+        await this.supabase
+          .from('tournees')
+          .update({ statut: nouveauStatutTournee })
+          .eq('id', tourneeId);
+
+        // Agrégation concurrente-sûre : RPC avec FOR UPDATE (R5/R6 CLAUDE.md §4)
+        const { data: agrResultat } = await this.supabase
+          .rpc('fn_agreger_terminal_collecte', { p_collecte_id: collecteId })
+          .single();
+
+        // KO partiel : ce tour était KO/CANCELED mais d'autres étaient OK → alerte in-app
+        if (
+          agrResultat === 'realisee' &&
+          (order.status === 'CANCELED' || order.status === 'KO')
+        ) {
+          await this.supabase.rpc('f_upsert_alerte_admin', {
+            p_code: 'collecte_partiellement_servie',
+            p_titre: 'Collecte partiellement servie',
+            p_message: `Un camion n'a pas pu collecter (statut MTS-1 ${order.status}).`,
+            p_entity_type: 'collectes',
+            p_entity_id: collecteId,
+          });
+        }
       }
 
       await this.markInboxDone(inboxId);
@@ -350,6 +391,7 @@ export class AdapterMts1 implements LogistiqueProvider {
     collecteId: string,
     collecteStatut: string,
     fluxById: Map<string, string>,
+    seuils: { min: number; max: number },
   ): Promise<void> {
     const tour = await this.client.getTour(tourId);
 
@@ -407,6 +449,17 @@ export class AdapterMts1 implements LogistiqueProvider {
           },
           { onConflict: 'tournee_id,stop_id,flux_id' },
         );
+
+        // Alerte in-app si pesée hors seuil (pas d'email, pas de Slack — §13 CLAUDE.md)
+        if (item.weight < seuils.min || item.weight > seuils.max) {
+          await this.supabase.rpc('f_upsert_alerte_admin', {
+            p_code: 'pesee_hors_seuil',
+            p_titre: 'Pesée hors seuil',
+            p_message: `Poids ${item.weight} kg hors seuil [${seuils.min}–${seuils.max}] — tournée ${tourneeId} stop ${stop.stopId}.`,
+            p_entity_type: 'collectes',
+            p_entity_id: collecteId,
+          });
+        }
       }
     }
 
@@ -513,6 +566,17 @@ export class AdapterMts1 implements LogistiqueProvider {
       map.set(row.code as string, row.id as string);
     }
     return map;
+  }
+
+  private async loadSeuils(): Promise<{ min: number; max: number }> {
+    const { data } = await this.supabase
+      .from('parametres_algo')
+      .select('pesee_seuil_min_kg, pesee_seuil_max_kg')
+      .maybeSingle();
+    return {
+      min: (data?.pesee_seuil_min_kg as number | null) ?? 5,
+      max: (data?.pesee_seuil_max_kg as number | null) ?? 5000,
+    };
   }
 
   private async findTourneeByOrderId(customerOrderId: string): Promise<{

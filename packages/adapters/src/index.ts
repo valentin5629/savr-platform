@@ -116,6 +116,7 @@ export interface LogistiqueProvider {
 // ---------------------------------------------------------------------------
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { AdapterEverest } from './everest/adapter.js';
 import { AdapterMts1 } from './mts1/adapter.js';
 import { ProviderManual } from './manual/provider.js';
 
@@ -127,10 +128,8 @@ export function getLogistiqueProvider(
     case 'mts1':
       return new AdapterMts1(transporteur, supabase);
     case 'a_toutes':
-      // Gate 2026-06-08 : Everest hors périmètre go-live (V1.1).
-      throw new LogistiquePermanentError(
-        'Everest non disponible — gate 2026-06-08, disponible V1.1',
-      );
+      // Gate levée 2026-06-15 (CLAUDE.md §7).
+      return new AdapterEverest(transporteur, supabase);
     case 'autre':
       return new ProviderManual(transporteur);
     default: {

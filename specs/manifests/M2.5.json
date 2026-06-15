@@ -1,0 +1,34 @@
+{
+  "module": "M2.5",
+  "titre": "Adapter Everest (A Toutes!)",
+  "gate_levee": "2026-06-15",
+  "fichiers": [
+    "supabase/migrations/20260615210000_plateforme_m2_5_everest.sql",
+    "packages/adapters/src/everest/mock.ts",
+    "packages/adapters/src/everest/client.ts",
+    "packages/adapters/src/everest/adapter.ts",
+    "packages/adapters/src/everest/adapter.m2-5.test.ts",
+    "packages/adapters/src/index.ts",
+    "packages/plateforme/src/app/api/webhooks/everest/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/everest/missions/manual-accept/route.ts",
+    "packages/plateforme/tests/api/webhooks/everest.m2-5.test.ts"
+  ],
+  "tables": [
+    "plateforme.everest_missions",
+    "plateforme.collectes (statut_tms)",
+    "plateforme.tournees",
+    "plateforme.collecte_tournees",
+    "plateforme.attributions_antgaspi",
+    "plateforme.integrations_inbox",
+    "plateforme.integrations_logs",
+    "plateforme.audit_log"
+  ],
+  "services_everest": {
+    "71": "ag_velo_programme",
+    "74": "ag_velo_express",
+    "91": "ag_marathon_volume_backup_camion"
+  },
+  "divergences": [
+    "M2.5_20260615.md"
+  ]
+}

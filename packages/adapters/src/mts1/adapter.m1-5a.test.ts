@@ -553,14 +553,16 @@ describe('M1.5a / factory getLogistiqueProvider', () => {
     expect(provider).toBeInstanceOf(ProviderManual);
   });
 
-  it('M1.5a / factory a_toutes → LogistiquePermanentError (gate Everest)', () => {
+  it('M1.5a / factory a_toutes → AdapterEverest (gate levée 2026-06-15)', async () => {
+    // Gate Everest levée le 2026-06-15 (CLAUDE.md §7). La factory retourne
+    // désormais AdapterEverest au lieu de lancer LogistiquePermanentError.
     const supabase = makeMockSupabase();
-    expect(() =>
-      getLogistiqueProvider(
-        { ...TRANSPORTEUR, type_tms: 'a_toutes' },
-        supabase,
-      ),
-    ).toThrow(LogistiquePermanentError);
+    const { AdapterEverest } = await import('../everest/adapter.js');
+    const provider = getLogistiqueProvider(
+      { ...TRANSPORTEUR, type_tms: 'a_toutes' },
+      supabase,
+    );
+    expect(provider).toBeInstanceOf(AdapterEverest);
   });
 });
 

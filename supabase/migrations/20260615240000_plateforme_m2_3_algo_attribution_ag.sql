@@ -329,7 +329,7 @@ BEGIN
     FROM plateforme.associations a
     WHERE a.actif = true
       -- Filtre région : normaliser IDF
-      AND LOWER(TRIM(a.region)) = LOWER(TRIM(v_region))
+      AND LOWER(TRIM(a.region::text)) = LOWER(TRIM(v_region))
       -- Filtre capacité strict : capacite_max * 2 > volume (NULL capacite = exclue)
       AND a.capacite_max_beneficiaires IS NOT NULL
       AND a.capacite_max_beneficiaires * 2 > COALESCE(v_collecte.volume_estime_repas, 0)

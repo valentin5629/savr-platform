@@ -48,3 +48,19 @@ supabase/migrations/20260613000001_plateforme_health_views_ops.sql
 packages/plateforme/src/app/(admin)/admin/transporteurs/*
 packages/plateforme/src/app/api/v1/admin/transporteurs/*
 packages/plateforme/tests/api/admin/transporteurs.m1-1b.test.ts
+# packages/plateforme/.../webhooks/everest/* (M2.5) — endpoint récepteur du webhook Everest.
+# "everest" = nom du transporteur dans les logs/champs `integration` de la table integrations_logs
+# et valeur métier de `source='everest'` dans integrations_inbox. Aucun appel HTTP Everest ici :
+# les appels sortants passent par packages/adapters/everest/. 'customerOrders' reste banni.
+packages/plateforme/src/app/api/webhooks/everest/route.ts
+packages/plateforme/tests/api/webhooks/everest.m2-5.test.ts
+# packages/plateforme/.../admin/everest/* (M2.5) — endpoint Admin de secours pour acceptation
+# manuelle (Everest down, Ops a appelé A Toutes! par téléphone). "everest" = nom de la table
+# `everest_missions` (schéma plateforme) + message d'erreur UI. Aucun appel HTTP. 'customerOrders' banni.
+packages/plateforme/src/app/api/v1/admin/everest/missions/manual-accept/route.ts
+# supabase/migrations/2026061521/22/23* = migrations M2.5 — 'everest' = nom de la table
+# `everest_missions` + de l'enum `statut_mission_everest` + colonnes + policies RLS.
+# Données de schéma uniquement, jamais de logique adapter. 'customerOrders' reste banni.
+supabase/migrations/20260615210000_plateforme_m2_5_everest.sql
+supabase/migrations/20260615220000_plateforme_m2_5_everest_fix.sql
+supabase/migrations/20260615230000_plateforme_m2_5_everest_rls_v2.sql

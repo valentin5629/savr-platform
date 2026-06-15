@@ -38,7 +38,7 @@ SELECT test_as_superuser();
 
 INSERT INTO plateforme.organisations (id, nom, type, actif, est_shadow, siret, email_principal)
 VALUES
-  ('0a250001-0000-0000-0000-000000000001'::uuid, 'Savr', 'gestionnaire_plateforme', true, false, '10000000000001', 'admin@savr.test'),
+  ('0a250001-0000-0000-0000-000000000001'::uuid, 'Savr', 'traiteur', true, false, '10000000000001', 'admin@savr.test'),
   ('0a250002-0000-0000-0000-000000000001'::uuid, 'Kaspia', 'traiteur', true, false, '20000000000002', 'manager@kaspia.test'),
   ('0a250003-0000-0000-0000-000000000001'::uuid, 'VenueCo', 'gestionnaire_lieux', true, false, '30000000000003', 'venue@test.test');
 

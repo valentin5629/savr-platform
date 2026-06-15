@@ -2,7 +2,7 @@
 -- Tests : moteur algo IDF/province, trigger poids→volume, immutabilité mode_validation, RLS.
 
 BEGIN;
-SELECT plan(33);
+SELECT plan(34);
 
 -- ── Helpers JWT ──────────────────────────────────────────────────────────
 
@@ -761,6 +761,31 @@ SELECT is(
   ))->>'branche',
   'ag_everest_camion_express',
   'T31 : grand volume IDF urgent, Marathon absent, A Toutes! dispo → ag_everest_camion_express'
+);
+
+UPDATE plateforme.transporteurs SET actif = true
+WHERE id = 'a0000000-0000-0000-0000-000000000040'::uuid;
+
+-- ── T32 : ag_marathon_volume_backup_camion — grand volume non-urgent IDF, Marathon absent ──
+-- Symétrique de T31 mais délai >= 90 min (J+7 → ~10 080 min >> seuil_h2=90)
+
+UPDATE plateforme.transporteurs SET actif = false
+WHERE id = 'a0000000-0000-0000-0000-000000000040'::uuid;
+
+INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, volume_estime_repas)
+VALUES (
+  'a0000000-0000-0000-0000-000000000092'::uuid,
+  'a0000000-0000-0000-0000-000000000062'::uuid,
+  'anti_gaspi', 'programmee', 'non_envoye',
+  CURRENT_DATE + 7, '12:00', 650
+);
+
+SELECT is(
+  (plateforme.fn_calculer_algo_attribution_ag(
+    'a0000000-0000-0000-0000-000000000092'::uuid
+  ))->>'branche',
+  'ag_marathon_volume_backup_camion',
+  'T32 : grand volume IDF non-urgent, Marathon absent, A Toutes! dispo → ag_marathon_volume_backup_camion'
 );
 
 UPDATE plateforme.transporteurs SET actif = true

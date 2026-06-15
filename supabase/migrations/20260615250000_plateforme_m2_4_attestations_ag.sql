@@ -48,6 +48,41 @@ ALTER TABLE plateforme.attestations_don
   ADD COLUMN IF NOT EXISTS pdf_url                         text;
 
 -- ============================================================
+-- 3bis. Versioning : remplacer l'unicité sur collecte_id par (collecte_id, version)
+-- La table de base (M0.3) déclare collecte_id NOT NULL UNIQUE, ce qui interdit
+-- plusieurs versions d'attestation par collecte. Le trigger R9 en crée pourtant
+-- une nouvelle (version+1) à chaque correction de volume. On bascule donc vers
+-- une clé naturelle (collecte_id, version) — chaque collecte garde au plus une
+-- attestation active grâce à l'idempotence batch + au statut 'corrigee'.
+-- ============================================================
+-- Supprimer toute contrainte UNIQUE portant uniquement sur collecte_id
+-- (nom auto-généré attestations_don_collecte_id_key, robuste si renommé).
+DO $$
+DECLARE
+  v_conname text;
+BEGIN
+  SELECT con.conname INTO v_conname
+  FROM pg_constraint con
+  JOIN pg_class rel ON rel.oid = con.conrelid
+  JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+  WHERE nsp.nspname = 'plateforme'
+    AND rel.relname = 'attestations_don'
+    AND con.contype = 'u'
+    AND con.conkey = ARRAY[
+      (SELECT attnum FROM pg_attribute
+       WHERE attrelid = rel.oid AND attname = 'collecte_id')
+    ]::smallint[];
+  IF v_conname IS NOT NULL THEN
+    EXECUTE format('ALTER TABLE plateforme.attestations_don DROP CONSTRAINT %I', v_conname);
+  END IF;
+END $$;
+
+ALTER TABLE plateforme.attestations_don
+  DROP CONSTRAINT IF EXISTS uniq_attestation_collecte_version;
+ALTER TABLE plateforme.attestations_don
+  ADD CONSTRAINT uniq_attestation_collecte_version UNIQUE (collecte_id, version);
+
+-- ============================================================
 -- 4. Paramètre CO2 AG (seed)
 -- ============================================================
 INSERT INTO plateforme.parametres_algo (cle, valeur, type_valeur, description)

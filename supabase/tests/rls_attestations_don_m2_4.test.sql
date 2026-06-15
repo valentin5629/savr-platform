@@ -104,10 +104,12 @@ DO $$ BEGIN
      'd0000000-0000-0000-0000-000000000002'::uuid,
      'anti_gaspi', 'cloturee', 'non_envoye', '2026-06-02', '08:00', now() - interval '26h');
 
-  -- association (colonnes NOT NULL : adresse, region, ville, contact_email)
-  INSERT INTO plateforme.associations (id, nom, adresse, region, ville, contact_email, habilitee_attestation_fiscale, actif) VALUES
+  -- association (colonnes NOT NULL : adresse, region, ville, contact_email ;
+  -- description_rapport_impact requiert >= 30 caractères, le DEFAULT n'y suffit pas)
+  INSERT INTO plateforme.associations (id, nom, adresse, region, ville, contact_email, description_rapport_impact, habilitee_attestation_fiscale, actif) VALUES
     ('f0000000-0000-0000-0000-000000000001'::uuid,
-     'Asso Test', '10 Rue Solidaire', 'idf', 'Paris', 'contact@asso-test.fr', true, true);
+     'Asso Test', '10 Rue Solidaire', 'idf', 'Paris', 'contact@asso-test.fr',
+     'Association de test pour les attestations de don M2.4.', true, true);
 
   -- attestations (une par org)
   INSERT INTO plateforme.attestations_don (
@@ -270,7 +272,7 @@ INSERT INTO plateforme.attributions_antgaspi (
   'e0000000-0000-0000-0000-000000000001'::uuid,
   'f0000000-0000-0000-0000-000000000001'::uuid,
   'g0000000-0000-0000-0000-000000000001'::uuid,
-  'ag_velo_idf', 'admin',
+  'ag_velo_idf', 'manuel_top1',
   120, 54.0
 );
 

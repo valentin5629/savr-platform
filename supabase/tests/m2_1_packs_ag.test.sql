@@ -52,16 +52,39 @@ SELECT ok(
 INSERT INTO plateforme.organisations (id, nom, raison_sociale, type, siret, actif)
 VALUES ('00000000-0000-0000-0000-000000000001'::uuid, 'TestOrg Packs AG', 'TestOrg Packs AG', 'traiteur', '12345678901234', true);
 
+-- Type événement test
+INSERT INTO plateforme.types_evenements (id, code, libelle, ordre_affichage, actif)
+VALUES ('00000000-0000-0000-0000-000000000009'::uuid, 'GALA_TEST', 'Gala Test', 1, true);
+
 -- Lieu test
 INSERT INTO plateforme.lieux (id, nom, adresse_acces, ville, code_postal, type_vehicule_max)
 VALUES ('00000000-0000-0000-0000-000000000002'::uuid, 'Salle Test', '1 rue Test', 'Paris', '75001', 'camionnette');
 
+-- User test (pour created_by)
+INSERT INTO plateforme.users (id, organisation_id, email, prenom, nom, role)
+VALUES ('00000000-0000-0000-0000-000000000010'::uuid, '00000000-0000-0000-0000-000000000001'::uuid,
+  'admin@test-packs.test', 'Admin', 'Test', 'admin_savr');
+
+-- Entité de facturation test
+INSERT INTO plateforme.entites_facturation (id, organisation_id, raison_sociale, siret, adresse_facturation, code_postal, ville)
+VALUES ('00000000-0000-0000-0000-000000000011'::uuid, '00000000-0000-0000-0000-000000000001'::uuid,
+  'TestOrg Packs AG SARL', '12345678901234', '1 rue Test', '75001', 'Paris');
+
 -- Événement test
-INSERT INTO plateforme.evenements (id, nom, organisation_id, lieu_id, date_evenement, nb_convives)
-VALUES ('00000000-0000-0000-0000-000000000003'::uuid, 'Gala Test',
+INSERT INTO plateforme.evenements (
+  id, organisation_id, traiteur_operationnel_organisation_id,
+  entite_facturation_id, created_by, lieu_id, type_evenement_id,
+  date_evenement, pax, contact_principal_nom, contact_principal_telephone
+) VALUES (
+  '00000000-0000-0000-0000-000000000003'::uuid,
   '00000000-0000-0000-0000-000000000001'::uuid,
+  '00000000-0000-0000-0000-000000000001'::uuid,
+  '00000000-0000-0000-0000-000000000011'::uuid,
+  '00000000-0000-0000-0000-000000000010'::uuid,
   '00000000-0000-0000-0000-000000000002'::uuid,
-  CURRENT_DATE + INTERVAL '1 day', 200);
+  '00000000-0000-0000-0000-000000000009'::uuid,
+  CURRENT_DATE + INTERVAL '1 day', 200, 'Contact Test', '0600000001'
+);
 
 -- Tarif AG test
 INSERT INTO plateforme.tarifs_packs_ag (id, type_pack, credits, prix_unitaire_ht, montant_total_ht, valide_du)

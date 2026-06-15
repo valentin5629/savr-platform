@@ -129,12 +129,12 @@ INSERT INTO plateforme.outbox_events (id, event_type, payload, aggregate_type, a
 VALUES ('0c0c0001-0000-0000-0000-000000000001'::uuid, 'collecte.creee', '{}', 'collecte', 'cccc0001-0000-0000-0000-000000000001'::uuid);
 
 -- Tarif pack AG (nécessaire pour la FK de packs_antgaspi)
-INSERT INTO plateforme.tarifs_packs_ag (id, nb_collectes, prix_ht, valide_du, actif)
-VALUES ('0a0a0001-0000-0000-0000-000000000001'::uuid, 10, 500.00, '2026-01-01', true);
+INSERT INTO plateforme.tarifs_packs_ag (id, nb_collectes, prix_ht, valide_du, actif, type_pack, credits, prix_unitaire_ht)
+VALUES ('0a0a0001-0000-0000-0000-000000000001'::uuid, 10, 500.00, '2026-01-01', true, 'pack_10', 10, 500.00);
 
 -- Packs AG
-INSERT INTO plateforme.packs_antgaspi (id, organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, nb_annulees, statut, date_achat)
-VALUES ('0d0d0001-0000-0000-0000-000000000001'::uuid, '11111111-0000-0000-0000-000000000001'::uuid, '0a0a0001-0000-0000-0000-000000000001'::uuid, 10, 2, 0, 'actif', current_date);
+INSERT INTO plateforme.packs_antgaspi (id, organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, nb_annulees, statut, date_achat, credits_initiaux, type_pack)
+VALUES ('0d0d0001-0000-0000-0000-000000000001'::uuid, '11111111-0000-0000-0000-000000000001'::uuid, '0a0a0001-0000-0000-0000-000000000001'::uuid, 10, 2, 0, 'actif', current_date, 10, 'personnalise');
 
 -- ---------------------------------------------------------------------------
 -- TESTS 0.4a — HELPERS + RÉFÉRENTIEL

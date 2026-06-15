@@ -49,8 +49,8 @@ SELECT ok(
 -- ── 3. Fixtures pour les triggers ────────────────────────────────────────
 
 -- Organisation test
-INSERT INTO plateforme.organisations (id, raison_sociale, type, siret, actif)
-VALUES ('00000000-0000-0000-0000-000000000001'::uuid, 'TestOrg Packs AG', 'traiteur', '12345678901234', true);
+INSERT INTO plateforme.organisations (id, nom, raison_sociale, type, siret, actif)
+VALUES ('00000000-0000-0000-0000-000000000001'::uuid, 'TestOrg Packs AG', 'TestOrg Packs AG', 'traiteur', '12345678901234', true);
 
 -- Lieu test
 INSERT INTO plateforme.lieux (id, nom, adresse, ville, code_postal, organisation_id)

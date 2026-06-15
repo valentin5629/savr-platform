@@ -172,12 +172,12 @@ VALUES
   ('f1100002-0000-0000-0000-000000000001'::uuid, 'r2', 'savr-docs', 'photos/col2.jpg', 2048, 'image/jpeg', 'plateforme.collectes', 'c01c0002-0000-0000-0000-000000000001'::uuid);
 
 -- Tarif pack AG
-INSERT INTO plateforme.tarifs_packs_ag (id, nb_collectes, prix_ht, valide_du, actif)
-VALUES ('da100001-0000-0000-0000-000000000001'::uuid, 10, 500.00, '2026-01-01', true);
+INSERT INTO plateforme.tarifs_packs_ag (id, nb_collectes, prix_ht, valide_du, actif, type_pack, credits, prix_unitaire_ht)
+VALUES ('da100001-0000-0000-0000-000000000001'::uuid, 10, 500.00, '2026-01-01', true, 'pack_10', 10, 500.00);
 
 -- Packs AG
-INSERT INTO plateforme.packs_antgaspi (id, organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, nb_annulees, statut, date_achat)
-VALUES ('ac000001-0000-0000-0000-000000000001'::uuid, 'aaaaaaaa-0000-0000-0000-000000000001'::uuid, 'da100001-0000-0000-0000-000000000001'::uuid, 10, 2, 0, 'actif', current_date);
+INSERT INTO plateforme.packs_antgaspi (id, organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, nb_annulees, statut, date_achat, credits_initiaux, type_pack)
+VALUES ('ac000001-0000-0000-0000-000000000001'::uuid, 'aaaaaaaa-0000-0000-0000-000000000001'::uuid, 'da100001-0000-0000-0000-000000000001'::uuid, 10, 2, 0, 'actif', current_date, 10, 'personnalise');
 
 -- =====================================================================
 -- CATÉGORIE 1 — HAPPY PATH (8 tests : 7 rôles + helper f_collecte_visible)

@@ -7,7 +7,7 @@
 -- 1. packs_antgaspi — nouveaux champs
 -- ============================================================
 
--- Drop d'abord la colonne GENERATED (bloque les ALTER)
+-- REVIEWED-DESTRUCTIVE: DROP COLUMN credits_restants — colonne GENERATED ALWAYS AS (nb_collectes - nb_utilisees), aucune donnée utilisateur. Recréée immédiatement ligne 54 avec la nouvelle formule (credits_initiaux - credits_consommes). PostgreSQL ne permet pas ALTER d'une expression GENERATED : drop+recreate obligatoire.
 ALTER TABLE plateforme.packs_antgaspi DROP COLUMN IF EXISTS credits_restants;
 
 -- Nouveaux champs (tous nullable temporairement pour migration des données)

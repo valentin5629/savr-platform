@@ -223,8 +223,9 @@ SELECT ok(
 SELECT is(
   (SELECT credits_consommes FROM plateforme.packs_antgaspi
    WHERE id = '00000000-0000-0000-0022-000000000007'::uuid),
-  1,
-  'T3b : credits_consommes inchangé (pack épuisé, aucun débit supplémentaire)'
+  (SELECT credits_initiaux FROM plateforme.packs_antgaspi
+   WHERE id = '00000000-0000-0000-0022-000000000007'::uuid),
+  'T3b : credits_consommes = credits_initiaux (aucun débit supplémentaire par le trigger)'
 );
 
 SELECT * FROM finish();

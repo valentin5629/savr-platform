@@ -204,4 +204,35 @@ describe('M2.2 / POST /api/v1/programmation/evenements/[id]/collectes — type A
     const json = (await res.json()) as { collecte_id: string };
     expect(json.collecte_id).toBe('collecte-ag-add-1');
   });
+
+  it('ajouter_collecte_ag_credits_zero — 422 si pack actif mais credits_restants=0', async () => {
+    setupAuth('traiteur_commercial', 'org-traiteur-1');
+    // Ownership check
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: { id: 'evt-no-credit', organisation_id: 'org-traiteur-1' },
+      error: null,
+    });
+    // f_collecte_editable → true
+    mockSupabaseChain.rpc.mockResolvedValueOnce({ data: true, error: null });
+    // packs_antgaspi → pack actif mais credits_restants=0 (défense en profondeur)
+    mockMaybeSingle.mockResolvedValueOnce({
+      data: { id: 'pack-empty', credits_restants: 0 },
+      error: null,
+    });
+
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
+    const res = await POST(
+      makeReq(
+        'POST',
+        '/api/v1/programmation/evenements/evt-no-credit/collectes',
+        { type: 'ag', date_collecte: '2030-03-15', heure_collecte: '10:00' },
+      ),
+      { params: Promise.resolve({ id: 'evt-no-credit' }) },
+    );
+
+    expect(res.status).toBe(422);
+    const json = (await res.json()) as { error: string };
+    expect(json.error).toMatch(/pack|Anti-Gaspi/i);
+  });
 });

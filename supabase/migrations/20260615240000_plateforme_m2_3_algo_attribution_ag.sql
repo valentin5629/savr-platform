@@ -309,7 +309,7 @@ BEGIN
             END
           ) IS NOT NULL
           AND v_heure_collecte >= (
-            a.horaires_ouverture->>(
+            a.horaires_ouverture->(
               CASE EXTRACT(DOW FROM v_date_collecte)
                 WHEN 1 THEN 'lun' WHEN 2 THEN 'mar' WHEN 3 THEN 'mer'
                 WHEN 4 THEN 'jeu' WHEN 5 THEN 'ven' WHEN 6 THEN 'sam' ELSE 'dim'
@@ -317,7 +317,7 @@ BEGIN
             )->>'debut'
           )::time
           AND v_heure_collecte < (
-            a.horaires_ouverture->>(
+            a.horaires_ouverture->(
               CASE EXTRACT(DOW FROM v_date_collecte)
                 WHEN 1 THEN 'lun' WHEN 2 THEN 'mar' WHEN 3 THEN 'mer'
                 WHEN 4 THEN 'jeu' WHEN 5 THEN 'ven' WHEN 6 THEN 'sam' ELSE 'dim'

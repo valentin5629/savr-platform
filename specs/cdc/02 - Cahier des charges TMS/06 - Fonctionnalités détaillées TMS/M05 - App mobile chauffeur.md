@@ -10,14 +10,12 @@
 Issu de la rédaction de [[M03 - Portail prestataire self-service]] (V1 rédigée 2026-04-24). **Retournement D12 (volet méthode uniquement)** : la méthode de login chauffeur passe de **magic link** à **email + password**.
 
 **Ce qui change** :
-
 - **E1 Connexion** : magic link → formulaire email + password (8 car min)
 - **D14 "Fallback magic link KO"** → reset password via magic link (inchangé fonctionnellement : clic sur "Mot de passe oublié" déclenche magic link 30 min qui redirige vers écran nouveau password)
 - **Paramètre `m05_magic_link_ttl_min` (15 min)** → fusionné avec `m03_password_reset_ttl_min = 30` (un seul paramètre global)
 - **POST `/auth/magic-link`** → `POST /auth/login` (email + password) + `POST /auth/password-reset-request` (magic link reset) + `POST /auth/password-reset-complete`
 
 **Ce qui reste inchangé (IMPORTANT — toujours valide V1)** :
-
 - **D12 device binding 1 device actif chauffeur** : inchangé. Le chauffeur peut être connecté sur 1 seul device. Login sur nouveau device → invalidation session précédente + toast.
 - **D13 session 30j rolling** : inchangé.
 - **Invalidation auto reinstall PWA (changement téléphone)** : inchangé (D12).
@@ -26,7 +24,6 @@ Issu de la rédaction de [[M03 - Portail prestataire self-service]] (V1 rédigé
 **Règle de cohérence** : lire cet addendum + [[../09 - Authentification et permissions TMS#Addendum 2026-04-24 (propagation M03)]] comme source de vérité. Les sections internes E1, D14 et paramètres plus bas sont corrigées en in-place mais le reste du texte M05 conserve sa logique (toast anti-énumération, device fingerprint, cas terrain).
 
 **Cohérence CDC** :
-
 - [[03 - Périmètre fonctionnel TMS#M05 — App mobile chauffeur (PWA)]] — scope haut niveau
 - [[01 - Vision et objectifs TMS#Persona 4 — Chauffeur prestataire]] — profil chauffeur, 8+8 statuts ZD/AG, équivalent repas 0,45 kg
 - [[04 - Data Model TMS#Table : `collectes_tms`]] — statut opérationnel, pesées
@@ -46,7 +43,6 @@ Issu de la rédaction de [[M03 - Portail prestataire self-service]] (V1 rédigé
 M05 est l'**interface terrain unique** du chauffeur prestataire. Elle pilote l'exécution d'une tournée M04 de bout en bout : prise de connaissance, checklist pré-départ, navigation entre collectes, pesées, signatures AG, signalements, clôture géolocalisée. Toute la donnée terrain (poids, photos, statuts, signatures, coordonnées GPS) transite via M05 et alimente la Plateforme via le contrat webhook TMS→Plateforme (S3, S5, S9).
 
 **Ce que M05 résout vs MTS-1** :
-
 - Offline-first natif (queue locale IndexedDB + sync différée) vs MTS-1 100% online ratant les sous-sols parkings
 - Auto-tare contenants paramétrable (Admin TMS) vs saisie tare manuelle erreur-prone
 - Signature AG tactile intégrée vs bon papier photographié
@@ -56,7 +52,6 @@ M05 est l'**interface terrain unique** du chauffeur prestataire. Elle pilote l'e
 - Push Web notifications (attribution, rappel H-30, alerte Ops) vs SMS payant + email ignoré
 
 **KPI cibles V1** :
-
 - < 5 min entre fin physique collecte et remontée événement Plateforme (objectif 6 Vision TMS)
 - < 1% des collectes avec pesée manquante (hors cas présumé non-pesé auto)
 - > 95% des collectes AG avec signature asso capturée
@@ -69,7 +64,6 @@ M05 est l'**interface terrain unique** du chauffeur prestataire. Elle pilote l'e
 ### Chauffeur prestataire (persona principal)
 
 **Profil type** :
-
 - Âge 25-55 ans
 - Smartphone personnel **Android 10+ Chrome 100+ ou iPhone iOS 16.4+ Safari** (alignement §12 D2 2026-04-27, parc 2026 ≥ 64 Go, ~95% du parc couvert + Web Push robuste). Note : Android 8-9 et iOS < 16.4 = message d'erreur au login + invitation à appeler Ops (Web Push absent ou fragile).
 - Digital-low à digital-medium : SMS quotidien, WhatsApp, Waze, pas de power user
@@ -78,7 +72,6 @@ M05 est l'**interface terrain unique** du chauffeur prestataire. Elle pilote l'e
 - Français courant (V1 FR uniquement, D15/bis Vision)
 
 **Contraintes terrain** :
-
 - Mains chargées (porte un bac, pousse un roll) → interactions 1 doigt / 1 main
 - Lumière soleil direct en extérieur / pénombre parking sous-sol → contraste max obligatoire (D17)
 - 4G saturée en zone dense (Paris intra-muros, grands événements) → offline-first impératif
@@ -104,23 +97,22 @@ M05 est l'**interface terrain unique** du chauffeur prestataire. Elle pilote l'e
 
 Dix écrans V1. PWA installable (add to home screen Android/iOS), icône Savr, splash screen.
 
-| #   | Écran                                           | Rôle                                                                                                   | Transition           |
-| --- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------ | -------------------- |
-| E1  | Connexion email + password                      | Saisie email + password → vérification hash argon2 → ouverture session                                 | Vers E2              |
-| E2  | Accueil (tournées du jour + J+1)                | Liste chronologique + statut + raccourcis                                                              | Vers E3 ou E4 ou E10 |
-| E3  | Checklist pré-départ (bloquante, ZD uniquement) | Tenue Savr, N rolls, film — _(camion AG motorisé + vélo cargo : E3 sauté, propagation M05 2026-06-04)_ | Vers E4              |
-| E4  | Liste collectes tournée active                  | Ordonnée, statut par collecte, navigation                                                              | Vers E5 ou E8        |
-| E5  | Détail collecte (ZD ou AG)                      | Fiche lieu, actions contextuelles                                                                      | Vers E6, E7, E9      |
-| E6  | Pesée (ZD principalement)                       | Balance, contenant auto-tare, photos                                                                   | Retour E5            |
-| E7  | Signature AG + équivalent repas                 | Signature tactile + kg→repas                                                                           | Retour E5            |
-| E8  | Terminer tournée (capture GPS)                  | Géoloc clôture + confirmation                                                                          | Retour E2            |
-| E9  | Signalement rapide                              | Liste incidents pré-catégorisés                                                                        | Retour E5            |
-| E10 | Historique (lecture seule)                      | 30 derniers jours (RGPD purge 30j)                                                                     | —                    |
+| # | Écran | Rôle | Transition |
+|---|-------|------|------------|
+| E1 | Connexion email + password | Saisie email + password → vérification hash argon2 → ouverture session | Vers E2 |
+| E2 | Accueil (tournées du jour + J+1) | Liste chronologique + statut + raccourcis | Vers E3 ou E4 ou E10 |
+| E3 | Checklist pré-départ (bloquante, ZD uniquement) | Tenue Savr, N rolls, film — *(camion AG motorisé + vélo cargo : E3 sauté, propagation M05 2026-06-04)* | Vers E4 |
+| E4 | Liste collectes tournée active | Ordonnée, statut par collecte, navigation | Vers E5 ou E8 |
+| E5 | Détail collecte (ZD ou AG) | Fiche lieu, actions contextuelles | Vers E6, E7, E9 |
+| E6 | Pesée (ZD principalement) | Balance, contenant auto-tare, photos | Retour E5 |
+| E7 | Signature AG + équivalent repas | Signature tactile + kg→repas | Retour E5 |
+| E8 | Terminer tournée (capture GPS) | Géoloc clôture + confirmation | Retour E2 |
+| E9 | Signalement rapide | Liste incidents pré-catégorisés | Retour E5 |
+| E10 | Historique (lecture seule) | 30 derniers jours (RGPD purge 30j) | — |
 
 **Navigation** : header fixe avec logo Savr + bouton retour contextuel + badge push. Pas de menu burger (réduit complexité, 10 écrans total). Bouton "Appeler" (D18) accessible depuis E5 + E9 en overlay permanent.
 
 **Principes UX M05** :
-
 - Mobile-first stricto sensu (jamais affichée en desktop — redirect vers portail si détection)
 - Contraste élevé permanent (D17), taille de police min 16 px, boutons min 48×48 px
 - Toutes actions critiques avec confirmation (touch slip fréquent en mouvement)
@@ -139,21 +131,20 @@ Rappel statuts opérationnels ZD et AG (cf. [[01 - Vision et objectifs TMS#Statu
 
 **Transitions déclenchées par M05** :
 
-| Transition                                                 | Déclencheur M05                                                                                                                                                                                                                                                       | Webhook émis                                                                                                                                                                              |
-| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `planifiee` → `en_route`                                   | Clic "Démarrer collecte" ou départ tournée (auto 1ère collecte)                                                                                                                                                                                                       | S3 `tournee-upsert` (statut tournée `en_cours`)                                                                                                                                           |
-| `en_route` → `arrivee`                                     | Geofence 300m franchi (D4) ou bouton manuel (D5 fallback GPS off)                                                                                                                                                                                                     | — (interne)                                                                                                                                                                               |
-| `arrivee` → `en_cours`                                     | Clic "Commencer collecte"                                                                                                                                                                                                                                             | — (interne)                                                                                                                                                                               |
-| `en_cours` → `realisee`                                    | Clic "Terminer collecte" (ZD avec ≥1 pesée, AG avec signature)                                                                                                                                                                                                        | S5 `collecte-terminee` (batch pesées agrégées)                                                                                                                                            |
-| `en_cours` → `realisee_sans_collecte`                      | AG : clic "Aucun repas à collecter" + motif                                                                                                                                                                                                                           | S5 `collecte-terminee` (poids 0 avec source `ag_sans_collecte`)                                                                                                                           |
-| `*` → `inchange` (ex-`incident`, fusion Bloc D D3)         | Clic "Signaler incident" + catégorie                                                                                                                                                                                                                                  | S9 `incident` (**enum 5 valeurs** post-décision 2026-06-06 : `acces_refuse`, `client_absent`, `probleme_tri`, `autre`, `client_annule_avant_arrivee` — `pas_excedents` retiré, cf. E5/E9) |
-| `planifiee` → `inchange` (ex-`incident`, fusion Bloc D D3) | Clic "Signaler incident" depuis E4 avant arrivée + motif unique `client_annule_avant_arrivee` _(revue sobriété §08 Bloc D 2026-05-01 D1+D2 : `vehicule_panne`/`accident_route`/`chauffeur_indisponible` retirés — gestion hors app via appel direct Ops bouton tel:)_ | S9 `incident` avec `geofence_status=avant_arrivee`                                                                                                                                        |
-| `arrivee` → `echec_acces`                                  | Clic "Accès refusé" ou "Lieu fermé"                                                                                                                                                                                                                                   | S9 `incident` avec `statut_collecte_apres=echec_acces`                                                                                                                                    |
+| Transition                            | Déclencheur M05                                                   | Webhook émis                                                    |
+| ------------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------- |
+| `planifiee` → `en_route`              | Clic "Démarrer collecte" ou départ tournée (auto 1ère collecte)   | S3 `tournee-upsert` (statut tournée `en_cours`)                 |
+| `en_route` → `arrivee`                | Geofence 300m franchi (D4) ou bouton manuel (D5 fallback GPS off) | — (interne)                                                     |
+| `arrivee` → `en_cours`                | Clic "Commencer collecte"                                         | — (interne)                                                     |
+| `en_cours` → `realisee`               | Clic "Terminer collecte" (ZD avec ≥1 pesée, AG avec signature)    | S5 `collecte-terminee` (batch pesées agrégées)                  |
+| `en_cours` → `realisee_sans_collecte` | AG : clic "Aucun repas à collecter" + motif                       | S5 `collecte-terminee` (poids 0 avec source `ag_sans_collecte`) |
+| `*` → `inchange` (ex-`incident`, fusion Bloc D D3) | Clic "Signaler incident" + catégorie | S9 `incident` (**enum 5 valeurs** post-décision 2026-06-06 : `acces_refuse`, `client_absent`, `probleme_tri`, `autre`, `client_annule_avant_arrivee` — `pas_excedents` retiré, cf. E5/E9) |
+| `planifiee` → `inchange` (ex-`incident`, fusion Bloc D D3) | Clic "Signaler incident" depuis E4 avant arrivée + motif unique `client_annule_avant_arrivee` *(revue sobriété §08 Bloc D 2026-05-01 D1+D2 : `vehicule_panne`/`accident_route`/`chauffeur_indisponible` retirés — gestion hors app via appel direct Ops bouton tel:)* | S9 `incident` avec `geofence_status=avant_arrivee` |
+| `arrivee` → `echec_acces`             | Clic "Accès refusé" ou "Lieu fermé"                               | S9 `incident` avec `statut_collecte_apres=echec_acces`          |
 
 **Transitions non-autorisées M05** :
-
 - `realisee` → `en_cours` (Ops uniquement via back-office)
-- `annulee` → \* (terminal)
+- `annulee` → * (terminal)
 - Saut `planifiee` → `en_cours` direct (passer par `arrivee` sauf override géoloc)
 
 **Clôture tournée** : cf. M04 W5. M05 déclenche le clic "Terminer tournée" → M04 applique R2 (calcul coût), recalcul de marge Plateforme via trigger DB `plateforme.fn_recalc_marge_tournee()` (ex-webhook S6 supprimé §08 A2), S3 (`tournee-upsert` statut `terminee`). Plus d'action pesée à la clôture tournée (R_M05.18 supprimée revue sobriété 2026-04-29 avec `flux_prevus`).
@@ -167,7 +158,6 @@ Rappel statuts opérationnels ZD et AG (cf. [[01 - Vision et objectifs TMS#Statu
 **Contexte** : première ouverture PWA ou session expirée (D13 : 30 jours rolling, device binding D12 inchangés).
 
 **Layout** :
-
 - Logo Savr centré
 - Titre : "Connexion chauffeur"
 - Champ email (auto-suggest clavier, type `email`)
@@ -177,14 +167,12 @@ Rappel statuts opérationnels ZD et AG (cf. [[01 - Vision et objectifs TMS#Statu
 - Lien discret "Besoin d'aide ?" → ouvre `tel:` Ops Savr (D14 fallback révisé)
 
 **Parcours** :
-
 1. Chauffeur saisit email (présent dans `tms.chauffeurs` M06) + password (min 8 car)
 2. Clic "Se connecter" → `POST /auth/login` → Supabase Auth verify hash argon2
 3. Session JWT créée + `device_fingerprint` stocké dans `auth_sessions_tms`
 4. Redirection E2
 
 **Règles** :
-
 - Message d'erreur unifié "Email ou mot de passe incorrect" (anti-énumération + timing constant bcrypt dummy compare)
 - Si device différent d'un device déjà actif (D12 inchangé) → invalidation session précédente + toast "Connecté sur un nouveau appareil. L'ancien appareil est déconnecté."
 - Rate limit 5 tentatives échouées / 15 min / IP → 429 + délai d'attente affiché
@@ -198,7 +186,6 @@ Rappel statuts opérationnels ZD et AG (cf. [[01 - Vision et objectifs TMS#Statu
 **Contexte** : écran home de la PWA, point d'entrée quotidien chauffeur. Affiche l'horizon glissant 7 jours pour anticiper les tournées à venir.
 
 **Layout** :
-
 - Header : nom chauffeur + logo prestataire + bouton déconnexion
 - Liste chronologique des tournées **validées** assignées au chauffeur (J → J+7), regroupées par jour
 - **Sticky header par jour** : ex "Aujourd'hui — Lundi 4 mai", "Mardi 5 mai", "Mercredi 6 mai" … (date relative pour J et J+1, date absolue ensuite)
@@ -207,7 +194,6 @@ Rappel statuts opérationnels ZD et AG (cf. [[01 - Vision et objectifs TMS#Statu
 - Footer : bouton "Historique" → E10
 
 **Format carte tournée — vue résumée (par défaut)** :
-
 - T# tournée + prestataire
 - Fenêtre tournée (`heure_planifiee_debut/fin`)
 - Nb collectes
@@ -216,7 +202,6 @@ Rappel statuts opérationnels ZD et AG (cf. [[01 - Vision et objectifs TMS#Statu
 
 **Format carte tournée — vue détaillée (au tap)** :
 La carte se déplie pour afficher :
-
 - Véhicule(s) assigné(s) (`tournees.vehicule_id` → plaque + type)
 - Équipier(s) (`tournees.equipiers_ids` → noms)
 - Liste des collectes : nom lieu + adresse accès + heure_collecte + pax + nom traiteur
@@ -224,25 +209,23 @@ La carte se déplie pour afficher :
 
 **Logique boutons contextuels par carte** :
 
-| Statut tournée                | Bouton principal    | Action      |
-| ----------------------------- | ------------------- | ----------- |
-| `planifiee` (J = aujourd'hui) | "Lancer la tournée" | → E3        |
-| `planifiee` (J+1 à J+7)       | "Voir détail"       | dépli carte |
-| `en_cours`                    | "Reprendre"         | → E4        |
-| `terminee`                    | Badge ✓ "Terminée"  | dépli carte |
+| Statut tournée                       | Bouton principal         | Action      |
+| ------------------------------------ | ------------------------ | ----------- |
+| `planifiee` (J = aujourd'hui)        | "Lancer la tournée"      | → E3        |
+| `planifiee` (J+1 à J+7)              | "Voir détail"            | dépli carte |
+| `en_cours`                           | "Reprendre"              | → E4        |
+| `terminee`                           | Badge ✓ "Terminée"       | dépli carte |
 
 **Règles** :
-
 - Tri : date croissante puis `heure_planifiee_debut` croissante intra-jour
 - Tournées `annulee` : masquées (pas visibles par le chauffeur, on évite la confusion)
 - Si aucune tournée sur 7j : message "Pas de tournée pour les 7 prochains jours. Bonne journée !" + photo sobre
 - Enchaînement 2 tournées même jour (D19) : les 2 visibles dans le sticky du jour, chauffeur peut alterner
 
 **Interactions push (D15, D16)** :
-
 - Badge rouge sur icône PWA à la réception d'une notif
 - Bandeau sticky "Nouvelle tournée attribuée" cliquable → carte concernée
-- **Push "Tournée modifiée"** : déclenchée si `tournees.updated_at` change après attribution (changement horaire, équipier, véhicule, collectes ajoutées/supprimées). _(Badge persistant "modifiée" + tracking `dernière_visualisation_chauffeur` retirés V1 — revue sobriété 2026-06-04 B2 : le push suffit comme signal, pas de tracking de dernière visualisation.)_
+- **Push "Tournée modifiée"** : déclenchée si `tournees.updated_at` change après attribution (changement horaire, équipier, véhicule, collectes ajoutées/supprimées). *(Badge persistant "modifiée" + tracking `dernière_visualisation_chauffeur` retirés V1 — revue sobriété 2026-06-04 B2 : le push suffit comme signal, pas de tracking de dernière visualisation.)*
 - Pas de bannière permanente (fatigue user)
 
 **Volume offline** : 7 jours × moyenne 2 tournées/jour × 5 collectes/tournée = ~70 collectes max en cache. IndexedDB tient sans difficulté (cf. §03 pre-spec).
@@ -253,10 +236,10 @@ La carte se déplie pour afficher :
 
 **Matrice par type véhicule × ZD/AG** :
 
-| Type véhicule         | ZD                                           | AG                             |
-| --------------------- | -------------------------------------------- | ------------------------------ |
-| Camion frigo motorisé | Tenue Savr + N rolls + Film plastique        | Skip écran E3 (E2 → E4 direct) |
-| Vélo cargo            | Aucune checklist (skip écran E3 → direct E4) | Aucune checklist (skip E3)     |
+| Type véhicule         | ZD                                             | AG                          |
+| --------------------- | ---------------------------------------------- | --------------------------- |
+| Camion frigo motorisé | Tenue Savr + N rolls + Film plastique          | Skip écran E3 (E2 → E4 direct) |
+| Vélo cargo            | Aucune checklist (skip écran E3 → direct E4)   | Aucune checklist (skip E3)  |
 
 > **Suppression saisie plaque terrain (propagation M05 2026-06-04, arbitrage Val)** : l'item « Plaque » de la checklist pré-départ est **retiré V1**. La plaque qui compte (contrôle d'accès site + registre transport réglementaire + affichage traiteur) est la **plaque pré-saisie par le manager prestataire** (`tournees.plaque_preassignee_manager`, émise via webhook S7 depuis M03 E4) — inchangée. La saisie chauffeur au démarrage faisait double emploi (arrivait trop tard pour un contrôle d'accès anticipé) et n'était pas propagée à la Plateforme (TMS-only). Conséquence : colonne `plaque_saisie_terrain` supprimée (§04), alertes de divergence terrain/référentiel supprimées (M11), écran E3 supprimé pour camion AG motorisé.
 
@@ -268,15 +251,12 @@ Section "Checklist pré-départ" (3 items, tous bloquants) :
 3. **[ ] Film plastique**
 
 **Layout camion AG (camion frigo AG)** :
-
 - Plus de checklist (l'unique item « Plaque » est retiré) : E2 → E4 direct (skip E3), comme le vélo cargo. **Retiré V1 (propagation M05 2026-06-04 — suppression saisie plaque terrain)**
 
 **Layout vélo cargo (A Toutes!)** :
-
 - Pas de checklist : E2 → E4 direct (skip E3)
 
 **Règles** :
-
 - Tous les items cochés = bouton "Démarrer tournée" activé (couleur primaire)
 - 1 item décroché = bouton grisé + tooltip "Complète la checklist"
 - Camion ZD = 3 items bloquants (Tenue, N rolls, Film). Camion AG motorisé + vélo cargo = E3 sauté, transition directe E2 → E4.
@@ -285,7 +265,6 @@ Section "Checklist pré-départ" (3 items, tous bloquants) :
 - À la validation "Démarrer tournée" → M04 W4 (UPDATE `tournees.statut=en_cours`, `heure_reelle_debut`, S3, audit — transition `acceptee` → `en_cours` ; le bouton "Démarrer" suppose la tournée `acceptee`, cf. cycle de vie M04 §4 2026-06-06). Plus d'écriture `plaque_saisie_terrain`, plus de webhook S7 côté chauffeur (S7 reste émis par le manager en M03 E4).
 
 **Suppressions vs version antérieure (revue sobriété 2026-04-29)** :
-
 - Section EPI détaillée (4 items) → regroupée en "Tenue Savr" 1 ligne
 - Section Véhicule (état, niveaux, feux, anomalies) → supprimée (responsabilité manager prestataire)
 - Section Photos (face avant, plaque) → supprimée (V1.1 si besoin litiges)
@@ -299,37 +278,33 @@ Section "Checklist pré-départ" (3 items, tous bloquants) :
 **Contexte** : vue principale pendant l'exécution.
 
 **Layout** :
-
 - Header : T# tournée (propagation revue sobriété M04 2026-04-29 — suppression "Nom tournée") + fenêtre tournée + compteur "2/5 collectes"
-- Liste ordonnée des collectes (`collecte_tournees.ordre_dans_tournee` _(multi-camions 2026-05-25 — colonne déplacée depuis `collectes_tms`)_ — initialisé au dispatch M04 W1, modifiable Ops via flèches E3 Section 2 tant que `tournees.statut = 'planifiee'`, propagation revue sobriété M04 2026-04-29)
+- Liste ordonnée des collectes (`collecte_tournees.ordre_dans_tournee` *(multi-camions 2026-05-25 — colonne déplacée depuis `collectes_tms`)* — initialisé au dispatch M04 W1, modifiable Ops via flèches E3 Section 2 tant que `tournees.statut = 'planifiee'`, propagation revue sobriété M04 2026-04-29)
 - Par collecte : numéro ordre, nom lieu, **adresse accès** (`lieux.adresse_acces`), `heure_collecte`, statut (badge couleur), parcours (ZD/AG) ou nb pax (AG), bouton action
 - Footer sticky : bouton "Terminer la tournée" (actif si toutes collectes terminales)
 - **Overlay sticky bas** : bouton "⚠ Signaler incident" accessible en permanence (cf. règles incident avant arrivée ci-dessous)
 
 **Boutons contextuels par collecte** :
 
-| Statut                                | Bouton      | Action                           |
-| ------------------------------------- | ----------- | -------------------------------- |
-| `planifiee`                           | "Démarrer"  | → transition `en_route` + E5     |
-| `en_route`                            | "J'arrive"  | (visible en E5 uniquement)       |
-| `arrivee`                             | "Commencer" | (visible en E5 uniquement)       |
-| `en_cours`                            | "Ouvrir"    | → E5 (reprise pesées, signature) |
-| `realisee` / `realisee_sans_collecte` | Badge ✓     | —                                |
-| `incident` / `echec_acces`            | Badge ⚠     | Détail dans E5                   |
+| Statut | Bouton | Action |
+|---|---|---|
+| `planifiee` | "Démarrer" | → transition `en_route` + E5 |
+| `en_route` | "J'arrive" | (visible en E5 uniquement) |
+| `arrivee` | "Commencer" | (visible en E5 uniquement) |
+| `en_cours` | "Ouvrir" | → E5 (reprise pesées, signature) |
+| `realisee` / `realisee_sans_collecte` | Badge ✓ | — |
+| `incident` / `echec_acces` | Badge ⚠ | Détail dans E5 |
 
 **Indicateurs GPS** :
-
 - Icône de position à côté de la collecte en cours (vert = dans geofence 300m, gris = pas encore arrivé)
 - Pas de carte de routing V1 (D2 M04 : pas d'optimisation routing). Chauffeur utilise Waze/Google Maps en externe.
 
 **Règles** :
-
 - Bouton "Terminer tournée" grisé tant qu'au moins une collecte est non-terminale (ni `realisee`, ni `realisee_sans_collecte`, ni `incident`, ni `annulee`)
 - Si toutes collectes terminales → bouton actif, clic → E8 capture GPS
 - Clôture auto possible (R_M04.4) si le chauffeur oublie : alerte M11 après 8h inactivité tournée
 
 **Incident avant arrivée (nouveau revue sobriété 2026-04-29)** :
-
 - Nouvelle transition autorisée : `planifiee` → `inchange` (signalement non bloquant, ex-`incident` fusionné Bloc D D3)
 - Cas d'usage : client annule en cours de route — évite déplacement inutile. **gérés hors app** (revue sobriété §08 Bloc D 2026-05-01 D1+D2 : appel direct Ops via bouton tel: dans E5/E9, pas de catégorie incident dédiée).
 - Accès : depuis E4 via overlay "Signaler incident", sélection collecte concernée, puis E9 avec **1 motif unique "avant arrivée"** :
@@ -342,7 +317,6 @@ Section "Checklist pré-départ" (3 items, tous bloquants) :
 **Contexte** : fiche lieu + actions de collecte. Varie ZD vs AG.
 
 **Layout commun** (Bloc 1 révisé revue sobriété 2026-04-29) :
-
 - Header : nom lieu + code postal + badge ZD/AG + statut
 - Bloc 1 "Infos lieu"
   - **Adresse accès** (`lieux.adresse_acces`, cliquable → Waze/Maps)
@@ -358,7 +332,6 @@ Section "Checklist pré-départ" (3 items, tous bloquants) :
 - **Overlay sticky bas (toujours visible)** : bouton "⚠ Signaler incident" (D18 : appel direct traiteur + Ops)
 
 **Suppressions Bloc 1 vs version antérieure (revue sobriété 2026-04-29)** :
-
 - Adresse grand public → supprimée (champ `lieux.adresse_grand_public` retiré du data model, fallback inutile)
 - Type véhicule max → supprimé (info dispatcher pas chauffeur sur place)
 - Bouton "Appeler Ops" Bloc 2 → supprimé (volonté Val : éviter sollicitations excessives ; Ops reste joignable via "Signaler incident" qui déclenche workflow alerte D18)
@@ -366,14 +339,12 @@ Section "Checklist pré-départ" (3 items, tous bloquants) :
 - Bouton "Signaler incident" Bloc 2 → bascule en overlay sticky permanent
 
 **Layout ZD spécifique** (Bloc 3) :
-
 - Bouton "Peser un flux" → E6
 - Pesées enregistrées (liste) : flux + poids net + contenant + photo(s)
 - Indicateur "N flux pesés"
 - Bouton "Terminer collecte" (actif si ≥1 pesée OU toutes pesées explicitement non applicables)
 
 **Layout AG spécifique** (Bloc 3) :
-
 - Nb pax prévus
 - Bouton "Capturer la collecte" → E7 (signature + kg→repas)
 - Bouton "Aucun repas à collecter" (AG-only, cf. mémoire feedback AG vs ZD) → statut `realisee_sans_collecte` avec motif obligatoire
@@ -381,7 +352,6 @@ Section "Checklist pré-départ" (3 items, tous bloquants) :
 - Bouton "Terminer collecte" (actif si signature capturée OU `aucun_repas` motivé)
 
 **Règles géofence (D4)** :
-
 - Geofence 300m autour `lieux.coords_gps` : entrée → transition auto `en_route` → `arrivee` + toast "Tu es arrivé à <lieu>"
 - Sortie du geofence avant clôture → pas de rollback (évite flapping)
 - GPS indisponible (D5) : bouton "J'arrive" disponible dès départ tournée, clic = transition manuelle `en_route` → `arrivee` (fallback immédiat, contrat de confiance, audit log `M05_ARRIVEE_GEOLOC_FALLBACK` seul — widget M11 supprimé revue sobriété §05 2026-05-01 A4)
@@ -391,7 +361,6 @@ Section "Checklist pré-départ" (3 items, tous bloquants) :
 **Contexte** : point chaud UX M05. Saisie rapide poids brut + contenant auto-tare (D7, D8, D9).
 
 **Layout** :
-
 - Header : "<Lieu> — Pesée <flux>" + retour E5
 - Champ 1 : **Flux** (dropdown) — 5 enums ZD alignés Plateforme (`biodechet`, `emballage`, `carton`, `verre`, `dechet_residuel`) + `don_alimentaire` si AG. Pas de présélection (revue sobriété 2026-04-29 : suppression `flux_prevus` → chauffeur choisit librement). Enum fermée V1 post-refonte 2026-05-02 — `dib` renommé `dechet_residuel`.
 - Champ 2 : **Contenant** (dropdown, D7/D8/D9)
@@ -420,7 +389,6 @@ Section "Checklist pré-départ" (3 items, tous bloquants) :
   - Webhook S5 `collecte-terminee` émis (dès réseau)
 
 **Règles** :
-
 - Si contenant = `sans_contenant` et poids brut = 0 : toast "Pesée à 0 kg enregistrée (sac vide). Continuer ?" + validation 2 clics
 - Alerte M11 si poids net < seuil min ou > seuil max (paramètre `m05_seuils_pesees_kg_min_max_par_flux`, ZD-only cf. mémoire AG vs ZD) — **alerte côté Ops uniquement, AUCUN affichage côté chauffeur** (revue sobriété M05 E6 2026-04-30 : ne pas perturber la saisie terrain, l'arbitrage qualité reste Ops via M11/M02)
 - Offline : pesée stockée IndexedDB avec `sync_status=pending`, `idempotency_key=uuid()`
@@ -433,7 +401,6 @@ Section "Checklist pré-départ" (3 items, tous bloquants) :
 > **Destination de livraison pré-remplie (ajout 2026-05-29, arbitrage Val)** : l'association bénéficiaire est attribuée + validée côté Plateforme (§06.09) et reçue par le TMS dans `collectes_tms.association_snapshot` (via E2). **Bloc destination affiché en tête d'E7** dès l'ouverture (avant signature) : nom association + adresse + bouton "Itinéraire" (GPS) + contact (nom/téléphone, appel direct) + horaires d'ouverture. Le chauffeur sait ainsi **où livrer** sans la chercher. Si `association_snapshot` est NULL (attribution non encore validée à l'heure de la collecte — cas rare), afficher "Destination non communiquée — contacter Ops" + alerte M11 warning Ops.
 
 **Layout** :
-
 - Header : "<Lieu> — Signature AG" + retour E5
 - **Bloc destination** (lecture, depuis `association_snapshot`) : nom + adresse + itinéraire GPS + contact + horaires.
 - Champ 1 : **Nom association** — **pré-rempli** depuis `association_snapshot.nom` (cas nominal). Reste éditable (autocomplete `associations` + saisie libre) pour couvrir une **réorientation terrain** (asso fermée/saturée le jour J → le chauffeur livre ailleurs et saisit l'association réelle). La valeur saisie (= association réellement livrée) est celle remontée via S5 et sert l'attestation de don Plateforme.
@@ -452,7 +419,6 @@ Section "Checklist pré-départ" (3 items, tous bloquants) :
 - Bouton "Enregistrer la signature"
 
 **Règles** :
-
 - Signature obligatoire sauf `aucun_repas` (alternative E5)
 - Pas de re-signature V1 (1 signature = 1 collecte AG) ; si erreur, "Effacer" avant validation
 - Signature = source de preuve asso habilitée → archivée 6 ans RGPD (cf. §15 Sécurité)
@@ -462,7 +428,6 @@ Section "Checklist pré-départ" (3 items, tous bloquants) :
 **Contexte** : clôture tournée côté chauffeur après toutes collectes terminales (R_M04.4 + D4).
 
 **Layout** :
-
 - Header : "Terminer la tournée"
 - Récap : T# tournée (propagation revue sobriété M04 2026-04-29 — suppression "Nom tournée") + nb collectes réalisées + durée
 - Champ **Position actuelle** (capture GPS auto au chargement écran)
@@ -475,7 +440,6 @@ Section "Checklist pré-départ" (3 items, tous bloquants) :
 - Redirection E2 + toast "Tournée terminée"
 
 **Règles** :
-
 - GPS indisponible (C8 M04) : clôture autorisée `cloture_gps=null`, pas d'alerte
 - Chauffeur peut réouvrir la tournée si erreur (Ops requis — M05 V1 pas de reset chauffeur)
 
@@ -484,7 +448,6 @@ Section "Checklist pré-départ" (3 items, tous bloquants) :
 **Contexte** : déclenchement 1-clic en cas de problème terrain (D18 + pre-spec §03).
 
 **Layout** :
-
 - Header : "Signaler un problème"
 - Catégories pré-définies (grosses tuiles) — **4 catégories (décision 2026-06-06 : `pas_excedents` retiré, cf. ci-dessous)** :
   - 🚫 **Accès refusé** (gardien, SAS fermé, code erroné, lieu fermé horaires différents/grève — fusion `lieu_ferme` 2026-04-30)
@@ -493,7 +456,6 @@ Section "Checklist pré-départ" (3 items, tous bloquants) :
   - ❗ **Autre** (texte libre obligatoire)
 
 > **Suppression `pas_excedents` E9 (décision 2026-06-06 — chemin unique)** : le cas AG « aucun repas / pas d'excédents » ne passe **plus** par un signalement incident E9 (S9). Il est traité exclusivement par le bouton de clôture **« Aucun repas à collecter » en E5** (AG-only) → statut `realisee_sans_collecte` → webhook **S5** `collecte-terminee` (poids 0, `source=ag_sans_collecte`). Sémantiquement, « aucun repas » est une clôture normale, pas un incident. Cela supprime le doublon (2 UX + 2 webhooks pour le même résultat) et le tarif « course incomplète » reste piloté côté M03/M07 par le statut `realisee_sans_collecte` (cf. §03). Enum `type_incident` S9 : 6 → 5 valeurs.
-
 - Photo(s) (optionnel mais recommandé)
 - Commentaire texte libre (optionnel)
 - Boutons :
@@ -502,10 +464,9 @@ Section "Checklist pré-départ" (3 items, tous bloquants) :
 - Bouton "Enregistrer le signalement"
 
 **Règles** :
-
 - Signalement `probleme_tri` / `autre` → statut collecte reste possiblement `realisee` (pas bloquant — Ops arbitre via M02)
 - Signalement `acces_refuse` / `client_absent` → statut collecte = `echec_acces` → webhook S9 `incident` émis avec `statut_collecte_apres=echec_acces`
-- _(Cas « pas d'excédents » AG : voir E5 bouton « Aucun repas à collecter » → S5, hors E9 depuis décision 2026-06-06.)_
+- *(Cas « pas d'excédents » AG : voir E5 bouton « Aucun repas à collecter » → S5, hors E9 depuis décision 2026-06-06.)*
 - Audit log `action=COLLECTE_SIGNALEMENT` avec catégorie + photos + commentaire
 - Appels téléphonés tracés (D18) : quand le chauffeur clique `tel:`, M05 logge `action=CALL_TRIGGER` avec destinataire et timestamp (pas de capture du contenu)
 - **Panne véhicule (gestion hors app — revue sobriété M05 E9 2026-04-30)** : pas de catégorie dédiée dans E9. Le chauffeur appelle directement Ops Savr via le bouton tel: ; gestion opérationnelle (remplacement véhicule) reste pilotée par M04 W6.
@@ -515,14 +476,12 @@ Section "Checklist pré-départ" (3 items, tous bloquants) :
 **Contexte** : consultation passé récent. RGPD purge 30j (pre-spec §03 + [[01 - Vision et objectifs TMS]]).
 
 **Layout** :
-
 - Header : "Historique"
 - Liste tournées 30 derniers jours, triées date décroissante
 - Tap carte tournée → détail read-only (collectes, pesées, signatures, photos thumbnails)
 - Pas de bouton action (consultation pure)
 
 **Règles** :
-
 - Purge auto J+30 (pg_cron Supabase) : coords GPS effacées, photos gardées côté Plateforme (si archivage M04), détails restent visibles TMS jusqu'à purge full tournée
 - Pas de recherche textuelle V1 (volume limité, scroll suffisant)
 
@@ -534,35 +493,33 @@ Douze workflows couvrent les parcours opérationnels M05. **W13 confirmation pas
 
 ### W1 — Onboarding chauffeur (première connexion + device binding)
 
-| Étape                               | Acteur                                 | Action                                                                                                                                                                                               | Système                                                                                                                                                                                                                                                                                                      |
-| ----------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1                                   | Manager prestataire (M03) ou Admin TMS | Crée chauffeur avec email **sans password initial** (refondu revue sobriété §05 2026-05-01 B1)                                                                                                       | INSERT `tms.chauffeurs` + INSERT `auth.users` Supabase avec `encrypted_password = NULL`                                                                                                                                                                                                                      |
-| 2                                   | Chauffeur                              | Reçoit email "Définir mon mot de passe" + magic link 30 min                                                                                                                                          | Template Resend `chauffeur_bienvenue` (reformaté V1 — magic link uniquement, plus de password en clair)                                                                                                                                                                                                      |
-| 3                                   | Chauffeur                              | Ouvre lien sur smartphone qu'il utilisera                                                                                                                                                            | Browser détecte PWA installable + redirection page set-password                                                                                                                                                                                                                                              |
-| 4                                   | Chauffeur                              | Installe PWA (add to home screen) + définit password (≥ 8 car)                                                                                                                                       | `POST /auth/password-reset-complete`                                                                                                                                                                                                                                                                         |
-| 5                                   | Chauffeur                              | Session créée automatiquement + device fingerprint capturé                                                                                                                                           | `auth_sessions_tms` avec `device_fingerprint`                                                                                                                                                                                                                                                                |
-| **5-bis (ajout Bloc 3 2026-06-04)** | Chauffeur                              | **Écran d'information géoloc bloquant** : notice (finalité, base légale intérêt légitime, rétention 30j, destinataires, droits + contact) + bouton « J'ai lu et compris » obligatoire pour continuer | `UPDATE users_tms SET consentements = jsonb_set(coalesce(consentements,'{}'), '{geoloc_notice}', '{"acknowledged_at": now, "version_notice": <v>, "ip": <ip>}')`. Si `consentements.geoloc_notice.version_notice` < version courante de la notice → ré-affichage bloquant (sinon skip). Cf. §12 D6 + §15.4.1 |
-| 6 (ex-7)                            | Chauffeur                              | Arrive sur E2 (accueil vide si pas de tournée)                                                                                                                                                       | —                                                                                                                                                                                                                                                                                                            |
-| 7 (ex-8)                            | Système                                | Audit log `action=CHAUFFEUR_FIRST_LOGIN` + `action=PASSWORD_SET_FIRST_LOGIN` + `action=GEOLOC_NOTICE_ACKNOWLEDGED` (Bloc 3)                                                                          |                                                                                                                                                                                                                                                                                                              |
+| Étape | Acteur | Action | Système |
+|---|---|---|---|
+| 1 | Manager prestataire (M03) ou Admin TMS | Crée chauffeur avec email **sans password initial** (refondu revue sobriété §05 2026-05-01 B1) | INSERT `tms.chauffeurs` + INSERT `auth.users` Supabase avec `encrypted_password = NULL` |
+| 2 | Chauffeur | Reçoit email "Définir mon mot de passe" + magic link 30 min | Template Resend `chauffeur_bienvenue` (reformaté V1 — magic link uniquement, plus de password en clair) |
+| 3 | Chauffeur | Ouvre lien sur smartphone qu'il utilisera | Browser détecte PWA installable + redirection page set-password |
+| 4 | Chauffeur | Installe PWA (add to home screen) + définit password (≥ 8 car) | `POST /auth/password-reset-complete` |
+| 5 | Chauffeur | Session créée automatiquement + device fingerprint capturé | `auth_sessions_tms` avec `device_fingerprint` |
+| **5-bis (ajout Bloc 3 2026-06-04)** | Chauffeur | **Écran d'information géoloc bloquant** : notice (finalité, base légale intérêt légitime, rétention 30j, destinataires, droits + contact) + bouton « J'ai lu et compris » obligatoire pour continuer | `UPDATE users_tms SET consentements = jsonb_set(coalesce(consentements,'{}'), '{geoloc_notice}', '{"acknowledged_at": now, "version_notice": <v>, "ip": <ip>}')`. Si `consentements.geoloc_notice.version_notice` < version courante de la notice → ré-affichage bloquant (sinon skip). Cf. §12 D6 + §15.4.1 |
+| 6 (ex-7) | Chauffeur | Arrive sur E2 (accueil vide si pas de tournée) | — |
+| 7 (ex-8) | Système | Audit log `action=CHAUFFEUR_FIRST_LOGIN` + `action=PASSWORD_SET_FIRST_LOGIN` + `action=GEOLOC_NOTICE_ACKNOWLEDGED` (Bloc 3) | |
 
 **Règles** :
-
 - Device fingerprint = hash(`user_agent + screen_resolution + timezone + installed_fonts`). Pas d'IP (varie 4G/WiFi).
 - Si chauffeur réinstalle PWA (changement téléphone) : D12 invalidation session précédente auto
 
 ### W2 — Ouverture PWA + sync tournée du jour
 
-| Étape | Acteur    | Action                                                                                                                                   | Système                |
-| ----- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
-| 1     | Chauffeur | Ouvre PWA (icône home)                                                                                                                   | Service worker démarre |
-| 2     | Système   | Vérifie session active (cookie + device fingerprint)                                                                                     |                        |
-| 3     | Système   | Si session valide → requête GET `/api/chauffeur/tournees?date=today&date=tomorrow`                                                       |                        |
-| 4     | Système   | Affiche E2 avec cache-first (optimistic UI) puis MAJ réseau                                                                              |                        |
-| 5     | Système   | Si version PWA obsolète + `force_update` non actif → bannière discrète "Nouvelle version dispo, redémarrage à la fin de la tournée" (D3) |                        |
-| 6     | Système   | Si `force_update=true` côté serveur → reload immédiat + toast                                                                            |                        |
+| Étape | Acteur | Action | Système |
+|---|---|---|---|
+| 1 | Chauffeur | Ouvre PWA (icône home) | Service worker démarre |
+| 2 | Système | Vérifie session active (cookie + device fingerprint) | |
+| 3 | Système | Si session valide → requête GET `/api/chauffeur/tournees?date=today&date=tomorrow` | |
+| 4 | Système | Affiche E2 avec cache-first (optimistic UI) puis MAJ réseau | |
+| 5 | Système | Si version PWA obsolète + `force_update` non actif → bannière discrète "Nouvelle version dispo, redémarrage à la fin de la tournée" (D3) | |
+| 6 | Système | Si `force_update=true` côté serveur → reload immédiat + toast | |
 
 **Règles** :
-
 - Sync silencieuse toutes les 2 min si PWA ouverte + connecté
 - Pull notifications push si nouvel événement (D15, D16) — server-push indépendant du polling
 - Cache SW : accueil + dernière tournée active + photos offline
@@ -572,75 +529,72 @@ Douze workflows couvrent les parcours opérationnels M05. **W13 confirmation pas
 
 > **Saisie plaque retirée V1 (propagation M05 2026-06-04, arbitrage Val)** : plus de saisie plaque par le chauffeur au démarrage. Plus d'écriture `plaque_saisie_terrain` (colonne supprimée §04), plus de webhook S7 côté chauffeur, plus d'alerte de divergence terrain/référentiel. La plaque pour contrôle d'accès / registre reste celle pré-saisie par le manager (M03 E4, webhook S7 émis depuis M03). Pour le **camion AG motorisé et le vélo cargo**, l'écran E3 est entièrement sauté (E2 → E4 direct) ; seul le camion ZD conserve E3 (tenue, rolls, film).
 
-| Étape | Acteur    | Action                                                                                                                                                   | Système                                       |
-| ----- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| 1     | Chauffeur | Clic "Commencer la checklist" depuis E2 carte tournée `acceptee` (camion ZD uniquement ; `acceptee` = tournée prête, cf. cycle de vie M04 §4 2026-06-06) | → E3                                          |
-| 2     | Chauffeur | Coche items checklist ZD (Tenue Savr, N rolls, Film)                                                                                                     | Stockage état local (pas persisté serveur V1) |
-| 3     | Chauffeur | Clic "Démarrer tournée"                                                                                                                                  | Validation complétude                         |
-| 4     | Système   | UPDATE `tournees.statut=en_cours`, `heure_reelle_debut=NOW()` (transition `acceptee` → `en_cours`)                                                       |                                               |
-| 5     | Système   | Re-émet S3 `tournee-upsert` (statut en_cours)                                                                                                            |                                               |
-| 6     | Système   | Transition UI → E4                                                                                                                                       |                                               |
-| 7     | Système   | Audit log `action=CHECKLIST_VALIDATED` + `action=TOURNEE_START`                                                                                          |                                               |
+| Étape | Acteur | Action | Système |
+|---|---|---|---|
+| 1 | Chauffeur | Clic "Commencer la checklist" depuis E2 carte tournée `acceptee` (camion ZD uniquement ; `acceptee` = tournée prête, cf. cycle de vie M04 §4 2026-06-06) | → E3 |
+| 2 | Chauffeur | Coche items checklist ZD (Tenue Savr, N rolls, Film) | Stockage état local (pas persisté serveur V1) |
+| 3 | Chauffeur | Clic "Démarrer tournée" | Validation complétude |
+| 4 | Système | UPDATE `tournees.statut=en_cours`, `heure_reelle_debut=NOW()` (transition `acceptee` → `en_cours`) | |
+| 5 | Système | Re-émet S3 `tournee-upsert` (statut en_cours) | |
+| 6 | Système | Transition UI → E4 | |
+| 7 | Système | Audit log `action=CHECKLIST_VALIDATED` + `action=TOURNEE_START` | |
 
-: saisie plaque chauffeur, UPDATE `plaque_saisie_terrain`, webhook S7 côté chauffeur (déjà strikethrough C3), alerte plaque ≠ référentiel. _(Étape 8-bis confirmation Veolia déjà supprimée revue sobriété 2026-04-30 A1.)_
+: saisie plaque chauffeur, UPDATE `plaque_saisie_terrain`, webhook S7 côté chauffeur (déjà strikethrough C3), alerte plaque ≠ référentiel. *(Étape 8-bis confirmation Veolia déjà supprimée revue sobriété 2026-04-30 A1.)*
 
 **Cas camion AG motorisé + vélo cargo (A Toutes!)** :
-
 - Skip total écran E3 : transition directe E2 → E4 au clic "Démarrer tournée" (UPDATE `statut=en_cours`, `heure_reelle_debut`, S3, audit — transition `acceptee` → `en_cours`)
 - Pas de checklist
 
 ### W4 — Départ collecte + géolocalisation arrivée
 
-| Étape | Acteur    | Action                                                                 | Système                               |
-| ----- | --------- | ---------------------------------------------------------------------- | ------------------------------------- |
-| 1     | Chauffeur | Clic "Démarrer" sur 1ère collecte de la tournée depuis E4              |                                       |
-| 2     | Système   | UPDATE `collectes_tms.statut_operationnel=en_route`                    |                                       |
-| 3     | Système   | Active geofence monitoring 300m autour `lieux.coords_gps`              | Via Background Sync API (D6)          |
-| 4     | Chauffeur | Conduit vers le lieu (Waze/Maps externe)                               | —                                     |
-| 5     | Système   | Détection entrée geofence (fréquence basse D6 + boost transitions)     |                                       |
-| 6     | Système   | Transition auto `en_route` → `arrivee` + toast "Tu es arrivé à <lieu>" |                                       |
-| 7     | Chauffeur | Ouvre E5 (auto push ou tap collecte)                                   |                                       |
-| 8     | Chauffeur | Clic "Commencer collecte"                                              | UPDATE `statut_operationnel=en_cours` |
+| Étape | Acteur | Action | Système |
+|---|---|---|---|
+| 1 | Chauffeur | Clic "Démarrer" sur 1ère collecte de la tournée depuis E4 | |
+| 2 | Système | UPDATE `collectes_tms.statut_operationnel=en_route` | |
+| 3 | Système | Active geofence monitoring 300m autour `lieux.coords_gps` | Via Background Sync API (D6) |
+| 4 | Chauffeur | Conduit vers le lieu (Waze/Maps externe) | — |
+| 5 | Système | Détection entrée geofence (fréquence basse D6 + boost transitions) | |
+| 6 | Système | Transition auto `en_route` → `arrivee` + toast "Tu es arrivé à <lieu>" | |
+| 7 | Chauffeur | Ouvre E5 (auto push ou tap collecte) | |
+| 8 | Chauffeur | Clic "Commencer collecte" | UPDATE `statut_operationnel=en_cours` |
 
 **Fallback GPS off/KO (D5)** :
-
 - Bouton "J'arrive" visible dès `en_route` (pas de délai 3 min override Val)
 - Clic → transition manuelle `arrivee` + audit log `geoloc_fallback=true`
 - Audit log `M05_ARRIVEE_GEOLOC_FALLBACK` seul pour détection abus a posteriori (SQL ad-hoc Admin TMS) — widget M11 supprimé revue sobriété §05 2026-05-01 A4
 
 ### W5 — Pesée ZD avec auto-tare contenant
 
-| Étape | Acteur                | Action                                                                                                                                 | Système                                          |
-| ----- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| 1     | Chauffeur             | Depuis E5 détail collecte ZD, clic "Peser un flux"                                                                                     | → E6                                             |
-| 2     | Chauffeur             | Sélectionne flux (aucune présélection — choix explicite, cf. E6 2026-04-30)                                                            |                                                  |
-| 3     | Chauffeur             | Sélectionne contenant (aucune présélection — choix explicite à chaque pesée, D7)                                                       | Tare auto depuis `types_contenants.tare_kg`      |
-| 4     | Chauffeur             | Saisit poids brut (clavier numérique)                                                                                                  | Calcul live : brut − tare = net                  |
-| 5     | (optionnel) Chauffeur | Toggle "Corriger la tare" + saisit motif + tare custom                                                                                 | UPDATE local, audit `action=PESEE_TARE_OVERRIDE` |
-| 6     | Chauffeur             | Prend ≥1 photo                                                                                                                         | Blob IndexedDB (offline-safe)                    |
-| 7     | Chauffeur             | Clic "Enregistrer la pesée"                                                                                                            |                                                  |
-| 8     | Système               | INSERT `pesees` local + sync queue `sync_status=pending`                                                                               | `idempotency_key=uuid()`                         |
-| 9     | Système               | Pas de webhook unitaire V1 — pesée conservée en local jusqu'à la clôture collecte (W8) où agrégation dans S5 `collecte-terminee` batch | Simplification V1 (cf. §08 ligne 840)            |
-| 10    | Système               | Si offline : stocké en queue, retry au retour réseau (W11)                                                                             |                                                  |
-| 11    | Système               | Retour E5 + toast "Pesée enregistrée" + mise à jour liste pesées                                                                       |                                                  |
+| Étape | Acteur | Action | Système |
+|---|---|---|---|
+| 1 | Chauffeur | Depuis E5 détail collecte ZD, clic "Peser un flux" | → E6 |
+| 2 | Chauffeur | Sélectionne flux (aucune présélection — choix explicite, cf. E6 2026-04-30) | |
+| 3 | Chauffeur | Sélectionne contenant (aucune présélection — choix explicite à chaque pesée, D7) | Tare auto depuis `types_contenants.tare_kg` |
+| 4 | Chauffeur | Saisit poids brut (clavier numérique) | Calcul live : brut − tare = net |
+| 5 | (optionnel) Chauffeur | Toggle "Corriger la tare" + saisit motif + tare custom | UPDATE local, audit `action=PESEE_TARE_OVERRIDE` |
+| 6 | Chauffeur | Prend ≥1 photo | Blob IndexedDB (offline-safe) |
+| 7 | Chauffeur | Clic "Enregistrer la pesée" | |
+| 8 | Système | INSERT `pesees` local + sync queue `sync_status=pending` | `idempotency_key=uuid()` |
+| 9 | Système | Pas de webhook unitaire V1 — pesée conservée en local jusqu'à la clôture collecte (W8) où agrégation dans S5 `collecte-terminee` batch | Simplification V1 (cf. §08 ligne 840) |
+| 10 | Système | Si offline : stocké en queue, retry au retour réseau (W11) | |
+| 11 | Système | Retour E5 + toast "Pesée enregistrée" + mise à jour liste pesées | |
 
 **Edge case** : contenant `sans_contenant` + poids brut 0 → confirmation UI 2 clics avant INSERT.
 
 ### W6 — Capture AG signature + équivalent repas
 
-| Étape | Acteur    | Action                                                                                                                                                                      | Système                 |
-| ----- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| 1     | Chauffeur | Depuis E5 détail collecte AG, clic "Capturer la collecte"                                                                                                                   | → E7                    |
-| 2     | Chauffeur | Saisit nom asso (auto-complete) + représentant                                                                                                                              |                         |
-| 3     | Système   | Affiche poids total (agrégé des pesées E6 si existantes, sinon saisie manuelle)                                                                                             |                         |
-| 4     | Système   | Calcule équivalent repas live : `poids / plateforme.parametres_algo.poids_par_repas_kg` (défaut 0,45 — audit sobriété 2026-05-09 B2, source unique Plateforme cross-schema) |                         |
-| 5     | Chauffeur | Signe (canvas tactile)                                                                                                                                                      | PNG compressé base64    |
-| 6     | Chauffeur | Clic "Enregistrer la signature"                                                                                                                                             |                         |
-| 7     | Système   | INSERT `collectes_tms.signature_url` (upload Storage Supabase)                                                                                                              | `bucket=tms-signatures` |
-| 8     | Système   | Retour E5 + toast "Signature enregistrée"                                                                                                                                   |                         |
+| Étape | Acteur | Action | Système |
+|---|---|---|---|
+| 1 | Chauffeur | Depuis E5 détail collecte AG, clic "Capturer la collecte" | → E7 |
+| 2 | Chauffeur | Saisit nom asso (auto-complete) + représentant | |
+| 3 | Système | Affiche poids total (agrégé des pesées E6 si existantes, sinon saisie manuelle) | |
+| 4 | Système | Calcule équivalent repas live : `poids / plateforme.parametres_algo.poids_par_repas_kg` (défaut 0,45 — audit sobriété 2026-05-09 B2, source unique Plateforme cross-schema) | |
+| 5 | Chauffeur | Signe (canvas tactile) | PNG compressé base64 |
+| 6 | Chauffeur | Clic "Enregistrer la signature" | |
+| 7 | Système | INSERT `collectes_tms.signature_url` (upload Storage Supabase) | `bucket=tms-signatures` |
+| 8 | Système | Retour E5 + toast "Signature enregistrée" | |
 
 **Cas "Aucun repas à collecter"** (AG-only, cf. mémoire feedback AG vs ZD) :
-
 - Chauffeur clique bouton dédié depuis E5 AG
 - Dialog : motif obligatoire (dropdown `client_annule`, `pas_de_surplus`, `autre`) + commentaire
 - UPDATE `collectes_tms.statut_operationnel=realisee_sans_collecte` + INSERT `pesees` avec `source=ag_sans_collecte` poids 0
@@ -650,40 +604,40 @@ Douze workflows couvrent les parcours opérationnels M05. **W13 confirmation pas
 
 ### W7 — Signalement incident / accès refusé
 
-| Étape | Acteur    | Action                                                                                                | Système                                                                                                                                                                                                                                                                                                                                     |
-| ----- | --------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1     | Chauffeur | Depuis E5, clic "Signaler incident"                                                                   | → E9                                                                                                                                                                                                                                                                                                                                        |
-| 2     | Chauffeur | Choisit catégorie (tuile)                                                                             |                                                                                                                                                                                                                                                                                                                                             |
-| 3     | Chauffeur | (optionnel) Photo + commentaire                                                                       |                                                                                                                                                                                                                                                                                                                                             |
-| 4     | Chauffeur | (optionnel) Clic "Appeler traiteur" ou "Appeler Ops"                                                  | `tel:` OS natif + audit `CALL_TRIGGER`                                                                                                                                                                                                                                                                                                      |
-| 5     | Chauffeur | Clic "Enregistrer le signalement"                                                                     |                                                                                                                                                                                                                                                                                                                                             |
-| 6     | Système   | UPDATE `collectes_tms.statut_operationnel` selon catégorie (cf. §cycle de vie)                        |                                                                                                                                                                                                                                                                                                                                             |
-| 7     | Système   | INSERT `incidents` (table §04, push Plateforme M11)                                                   | `type_incident`, `photos`, `description`                                                                                                                                                                                                                                                                                                    |
-| 8     | Système   | Webhook S9 `incident` émis (toute catégorie) avec `statut_collecte_apres` selon bloquant/non-bloquant | `echec_acces` si `acces_refuse` / `client_absent` ; `inchange` si `probleme_tri` / `autre` _(revue sobriété M05 E9 2026-04-30 — confirmée Bloc D D3 : `incident` fusionné dans `inchange`)_ ; `annulee` si `client_annule_avant_arrivee`. _(`pas_excedents`→`realisee_sans_collecte` retiré décision 2026-06-06 : ce cas passe par E5→S5.)_ |
-| 9     | Système   | Retour E4 + toast "Signalement enregistré"                                                            |                                                                                                                                                                                                                                                                                                                                             |
+| Étape | Acteur | Action | Système |
+|---|---|---|---|
+| 1 | Chauffeur | Depuis E5, clic "Signaler incident" | → E9 |
+| 2 | Chauffeur | Choisit catégorie (tuile) | |
+| 3 | Chauffeur | (optionnel) Photo + commentaire | |
+| 4 | Chauffeur | (optionnel) Clic "Appeler traiteur" ou "Appeler Ops" | `tel:` OS natif + audit `CALL_TRIGGER` |
+| 5 | Chauffeur | Clic "Enregistrer le signalement" | |
+| 6 | Système | UPDATE `collectes_tms.statut_operationnel` selon catégorie (cf. §cycle de vie) | |
+| 7 | Système | INSERT `incidents` (table §04, push Plateforme M11) | `type_incident`, `photos`, `description` |
+| 8 | Système | Webhook S9 `incident` émis (toute catégorie) avec `statut_collecte_apres` selon bloquant/non-bloquant | `echec_acces` si `acces_refuse` / `client_absent` ; `inchange` si `probleme_tri` / `autre` *(revue sobriété M05 E9 2026-04-30 — confirmée Bloc D D3 : `incident` fusionné dans `inchange`)* ; `annulee` si `client_annule_avant_arrivee`. *(`pas_excedents`→`realisee_sans_collecte` retiré décision 2026-06-06 : ce cas passe par E5→S5.)* |
+| 9 | Système | Retour E4 + toast "Signalement enregistré" | |
 
 ### W8 — Clôture collecte ZD (après pesées)
 
-| Étape | Acteur    | Action                                                                                         | Système                                                                           |
-| ----- | --------- | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| 1     | Chauffeur | Depuis E5, clic "Terminer collecte"                                                            | Validation : ≥1 pesée                                                             |
-| 2     | Système   | UPDATE `collectes_tms.statut_operationnel=realisee`, `heure_fin_reelle=NOW()`                  | (R_M05.18 présomption 0kg supprimée revue sobriété 2026-04-29 avec `flux_prevus`) |
-| 3     | Système   | POST webhook S5 `collecte-terminee` batch (pesees[] réelles uniquement) → Plateforme           | `idempotency_key` UUID par pesée, `source` enum 2 valeurs                         |
-| 4     | Système   | Si offline : queue IndexedDB, retry W11                                                        | Payload S5 complet persisté                                                       |
-| 5     | Système   | Retour E4 + toast "Collecte terminée"                                                          |                                                                                   |
-| 6     | Système   | Vérifie R_M04.4 : si toutes collectes terminales → suggère bouton "Terminer tournée" E4 sticky |                                                                                   |
-| 7     | Système   | Audit log `action=COLLECTE_REALISEE`                                                           |                                                                                   |
+| Étape | Acteur | Action | Système |
+|---|---|---|---|
+| 1 | Chauffeur | Depuis E5, clic "Terminer collecte" | Validation : ≥1 pesée |
+| 2 | Système | UPDATE `collectes_tms.statut_operationnel=realisee`, `heure_fin_reelle=NOW()` | (R_M05.18 présomption 0kg supprimée revue sobriété 2026-04-29 avec `flux_prevus`) |
+| 3 | Système | POST webhook S5 `collecte-terminee` batch (pesees[] réelles uniquement) → Plateforme | `idempotency_key` UUID par pesée, `source` enum 2 valeurs |
+| 4 | Système | Si offline : queue IndexedDB, retry W11 | Payload S5 complet persisté |
+| 5 | Système | Retour E4 + toast "Collecte terminée" | |
+| 6 | Système | Vérifie R_M04.4 : si toutes collectes terminales → suggère bouton "Terminer tournée" E4 sticky | |
+| 7 | Système | Audit log `action=COLLECTE_REALISEE` | |
 
 ### W9 — Clôture tournée
 
-| Étape | Acteur    | Action                                                                                                                                                        | Système                                                      |
-| ----- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| 1     | Chauffeur | Clic "Terminer la tournée" sticky E4                                                                                                                          | → E8                                                         |
-| 2     | Système   | Capture GPS (navigator.geolocation, high accuracy ponctuelle D6)                                                                                              |                                                              |
-| 3     | Chauffeur | Clic "Confirmer la fin de tournée"                                                                                                                            |                                                              |
-| 4     | Système   | Applique W5 étapes 2-5 de M04 (contrôle géoloc, UPDATE statut `terminee`)                                                                                     | Plus d'action pesée à ce stade                               |
-| 5     | Système   | Applique W5 étapes 6-9 de M04 (R2 calcul coût, recalcul marge Plateforme via trigger DB `fn_recalc_marge_tournee()` ex-S6, S3 tournee-upsert terminée, audit) | Plus d'émission pesée à ce stade (revue sobriété 2026-04-29) |
-| 6     | Système   | Retour E2 + toast "Tournée terminée"                                                                                                                          |                                                              |
+| Étape | Acteur | Action | Système |
+|---|---|---|---|
+| 1 | Chauffeur | Clic "Terminer la tournée" sticky E4 | → E8 |
+| 2 | Système | Capture GPS (navigator.geolocation, high accuracy ponctuelle D6) | |
+| 3 | Chauffeur | Clic "Confirmer la fin de tournée" | |
+| 4 | Système | Applique W5 étapes 2-5 de M04 (contrôle géoloc, UPDATE statut `terminee`) | Plus d'action pesée à ce stade |
+| 5 | Système | Applique W5 étapes 6-9 de M04 (R2 calcul coût, recalcul marge Plateforme via trigger DB `fn_recalc_marge_tournee()` ex-S6, S3 tournee-upsert terminée, audit) | Plus d'émission pesée à ce stade (revue sobriété 2026-04-29) |
+| 6 | Système | Retour E2 + toast "Tournée terminée" | |
 
 ### W10 — Déclaration stocks matériel (optionnelle, V1.1)
 
@@ -692,42 +646,37 @@ Reporté V1.1. Décrit dans M09 (hors périmètre M05 V1).
 ### W11 — Sync différée queue offline
 
 **Déclencheurs** :
-
 - Retour réseau (event `online`)
 - Ouverture PWA après coupure
 - Background Sync API (Chromium, Safari 16.4+ limité)
 
-| Étape | Acteur  | Action                                                                                                           | Système        |
-| ----- | ------- | ---------------------------------------------------------------------------------------------------------------- | -------------- |
-| 1     | Système | Détecte retour réseau                                                                                            | Event listener |
-| 2     | Système | Parcourt queue IndexedDB triée par `created_at`                                                                  |                |
-| 3     | Système | Pour chaque item `pending` : retry POST webhook avec `idempotency_key`                                           |                |
-| 4     | Système | Si succès → marque `sync_status=synced`, supprime de la queue                                                    |                |
-| 5     | Système | Si échec 5× consécutifs (HTTP 5xx) → `sync_status=dlq`, alerte M11                                               |                |
-| 6     | Système | Si conflit (ex : collecte déjà `realisee` côté serveur, D1 option b) → accepte/merge selon policy serveur ou DLQ |                |
-| 7     | Système | Affiche indicateur "Synchronisation en cours : N éléments" dans UI si queue > 0                                  |                |
+| Étape | Acteur | Action | Système |
+|---|---|---|---|
+| 1 | Système | Détecte retour réseau | Event listener |
+| 2 | Système | Parcourt queue IndexedDB triée par `created_at` | |
+| 3 | Système | Pour chaque item `pending` : retry POST webhook avec `idempotency_key` | |
+| 4 | Système | Si succès → marque `sync_status=synced`, supprime de la queue | |
+| 5 | Système | Si échec 5× consécutifs (HTTP 5xx) → `sync_status=dlq`, alerte M11 | |
+| 6 | Système | Si conflit (ex : collecte déjà `realisee` côté serveur, D1 option b) → accepte/merge selon policy serveur ou DLQ | |
+| 7 | Système | Affiche indicateur "Synchronisation en cours : N éléments" dans UI si queue > 0 | |
 
 **Règles** :
-
 - Cap queue = 3 tournées + 150 photos (~300 Mo) (D2)
 - Si cap atteint + nouveau item → refus stockage + toast "Queue pleine. Connecte-toi à un réseau." (cas extrême — documenté C7)
 
 ### W12 — Réception push notifications
 
 **Déclencheurs serveur** (D16 : tiercé a+c+d) :
-
 - Attribution tournée (chauffeur assigné par manager → push M03)
 - Rappel H-30 avant `tournees.heure_planifiee_debut` (pg_cron Supabase) — propagation 2026-04-29
 - Alerte Ops : retard, anomalie (déclenchée par M11)
 
 **Flow** :
-
 1. Service worker reçoit push event (Web Push API, VAPID keys)
 2. SW affiche notification native (titre + body + icône + action buttons si pertinent)
 3. Chauffeur tap → ouvre PWA sur E2 (ou écran contextuel si deep link)
 
 **Paramétrage** :
-
 - Inscription push au 1er onboarding (W1 étape 7) + toggle paramètres (V1.1)
 - Pas de notification spam : cap 1 push/collecte/heure
 
@@ -833,49 +782,40 @@ Section spécifique M05 — pattern non applicable aux autres modules.
 
 ### 8.4 Conflits fréquents et policy
 
-| Cas                                                                       | Policy                              |
-| ------------------------------------------------------------------------- | ----------------------------------- |
-| Pesée insérée offline, collecte passée `annulee` côté serveur entre-temps | DLQ + alerte Ops, arbitrage manuel  |
-| Statut collecte `realisee` local + `incident` serveur                     | DLQ — incompatible                  |
-| Signature AG insérée offline, collecte passée `annulee`                   | DLQ + alerte Ops                    |
-| Photo uploadée 2× (retry après timeout ambigu)                            | Idem key déduplique — 1 seul INSERT |
+| Cas | Policy |
+|---|---|
+| Pesée insérée offline, collecte passée `annulee` côté serveur entre-temps | DLQ + alerte Ops, arbitrage manuel |
+| Statut collecte `realisee` local + `incident` serveur | DLQ — incompatible |
+| Signature AG insérée offline, collecte passée `annulee` | DLQ + alerte Ops |
+| Photo uploadée 2× (retry après timeout ambigu) | Idem key déduplique — 1 seul INSERT |
 
 ---
 
 ## 9. Intégration cross-module
 
 ### M01 — Réception ordres de collecte
-
 Source des collectes (via M04 W1 constitution tournée). M05 n'interagit pas directement avec M01.
 
 ### M02 — Dispatch Ops Savr
-
 Les collectes dispatchées M02 sont lues en read-only par M05 pour afficher à l'accueil chauffeur.
 
 ### M03 — Portail prestataire self-service
-
 Le manager assigne chauffeur/véhicule sur la tournée via M03. M05 est notifié via push (D16) à l'attribution.
 
 ### M04 — Gestion des tournées
-
 M05 est l'**exécuteur** des tournées. Toutes les transitions `acceptee` → `en_cours` → `terminee` sont déclenchées via M05 (la tournée est `acceptee` = prête avant que le chauffeur la démarre, cf. cycle de vie M04 §4 2026-06-06). R_M04.4 (clôture auto tournée via collectes terminales) reste appliquée à la clôture tournée par M04. (Plus de présomption 0kg V1 — R_M05.18 supprimée revue sobriété 2026-04-29.)
 
 ### M06 — Référentiel prestataires
-
 Source des chauffeurs (auth), véhicules (auto-complete plaque), contenants (auto-tare table D9). M05 lit en read-only via RLS chauffeur (D12 : `chauffeur_id = current_user.id`).
 
 ### M08 — Facturation prestataires
-
 Alimenté via le recalcul de marge Plateforme déclenché par clôture M05 → M04 (trigger DB `plateforme.fn_recalc_marge_tournee()`, ex-webhook S6 supprimé §08 A2).
 
 ### M09 — Stock matériel Savr
-
 V1.1 : workflow déclaration stocks fin de tournée. V1 : hors M05.
 
 ### M11 — Alerting et monitoring ops
-
 M05 émet 5 alertes automatiques (revue sobriété M05 E9 2026-04-30 : suppression `panne_vehicule_signalee` ; revue sobriété §05 2026-05-01 A3 : suppression `pattern_pesee_zero_kg` ; revue sobriété §05 2026-05-01 A4 : suppression `arrivee_sans_geoloc` info/widget — audit_logs `M05_PESEE_ZERO_KG` + `M05_ARRIVEE_GEOLOC_FALLBACK` conservés seuls ; propagation M05 2026-06-04 : suppression `plaque_saisie_non_conforme` + `plaque_inconnue_prestataire`, suppression saisie plaque terrain) :
-
 - `pesee_anormale_hors_seuil` (warning) — alerte côté Ops uniquement, AUCUN affichage côté chauffeur (revue sobriété M05 E6 2026-04-30)
 - → **supprimée propagation M05 2026-06-04** (plus de saisie plaque chauffeur)
 - → **supprimée revue sobriété §05 2026-05-01 A4** (widget M11 retiré, criticité `info` déjà dégagée Bloc 3 sobriété 2026-04-25 A1 ; trace conservée via audit_log `M05_ARRIVEE_GEOLOC_FALLBACK` exploité SQL ad-hoc Admin TMS)
@@ -887,11 +827,9 @@ M05 émet 5 alertes automatiques (revue sobriété M05 E9 2026-04-30 : suppressi
 - → **supprimée propagation M05 2026-06-04** (plus de saisie plaque chauffeur)
 
 ### M13 — Administration TMS
-
 Paramètres M05 configurables par Admin TMS (cf. §11).
 
 ### M14 — Intégration Everest (A Toutes!)
-
 Les collectes AG vélo sont exécutées via M05 avec parcours allégé (checklist EPI vélo, pas de plaque). Everest missions synchronisées par M14.
 
 ---
@@ -900,11 +838,11 @@ Les collectes AG vélo sont exécutées via M05 avec parcours allégé (checklis
 
 Sortants TMS → Plateforme (déclenchés par M05, cf. [[08 - Contrat API Plateforme-TMS]]) :
 
-| ID  | Endpoint                               | Déclencheur M05                                                                                                                                                                                                                                  |
-| --- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| S3  | `POST /webhooks/tms/tournee-upsert`    | Transitions `en_cours`, `terminee` (via M04)                                                                                                                                                                                                     |
-| S5  | `POST /webhooks/tms/collecte-terminee` | Clôture collecte (W6/W8) — batch pesées agrégées (`pesees[]` avec `idempotency_key`, `source`, `contenant_code`, `tare_override_motif`, `photos`)                                                                                                |
-| S9  | `POST /webhooks/tms/incident`          | Signalement E9 (4 catégories : `acces_refuse`, `client_absent`, `probleme_tri`, `autre` — `pas_excedents` retiré décision 2026-06-06, passe par E5→S5) — `statut_collecte_apres=echec_acces` si `acces_refuse`/`client_absent`, `inchange` sinon |
+| ID | Endpoint | Déclencheur M05 |
+|---|---|---|
+| S3 | `POST /webhooks/tms/tournee-upsert` | Transitions `en_cours`, `terminee` (via M04) |
+| S5 | `POST /webhooks/tms/collecte-terminee` | Clôture collecte (W6/W8) — batch pesées agrégées (`pesees[]` avec `idempotency_key`, `source`, `contenant_code`, `tare_override_motif`, `photos`) |
+| S9 | `POST /webhooks/tms/incident` | Signalement E9 (4 catégories : `acces_refuse`, `client_absent`, `probleme_tri`, `autre` — `pas_excedents` retiré décision 2026-06-06, passe par E5→S5) — `statut_collecte_apres=echec_acces` si `acces_refuse`/`client_absent`, `inchange` sinon |
 
 > **Note S7 (propagation M05 2026-06-04)** : le webhook S7 `plaque-saisie` **n'est pas déclenché par M05**. Il est émis par le **manager prestataire** depuis M03 E4 (pré-saisie plaque + nom chauffeur pour contrôle d'accès). M05 ne produit plus aucune donnée de plaque depuis la suppression de la saisie chauffeur. (Lève l'ancienne mention erronée « S7 supprimé C3 / lecture cross-schema `plaque_saisie_terrain` » qui confondait les deux plaques.)
 
@@ -920,10 +858,10 @@ Sortants TMS → Plateforme (déclenchés par M05, cf. [[08 - Contrat API Platef
 
 Tournée ne peut pas passer en `en_cours` tant que tous les items obligatoires de la checklist E3 ne sont pas validés. **Matrice véhicule × ZD/AG** :
 
-| Type véhicule         | ZD                                    | AG                                   |
-| --------------------- | ------------------------------------- | ------------------------------------ |
-| Camion frigo motorisé | Tenue Savr + N rolls + Film plastique | Skip total écran E3 (E2 → E4 direct) |
-| Vélo cargo            | Skip total écran E3 (E2 → E4 direct)  | Skip total écran E3                  |
+| Type véhicule         | ZD                                             | AG                          |
+| --------------------- | ---------------------------------------------- | --------------------------- |
+| Camion frigo motorisé | Tenue Savr + N rolls + Film plastique          | Skip total écran E3 (E2 → E4 direct) |
+| Vélo cargo            | Skip total écran E3 (E2 → E4 direct)           | Skip total écran E3         |
 
 Conformité véhicule/EPI = responsabilité manager prestataire (M03). Suppressions : sections EPI 4 items, véhicule (état/niveaux/feux), photos, cas A/B plaque, audit `PLAQUE_OVERRIDE_CHAUFFEUR`, alerte M11 `m05_plaque_override_chauffeur`, **item Plaque (saisie chauffeur, propagation M05 2026-06-04) → seul item AG, son retrait supprime l'écran E3 pour le camion AG motorisé**. Détail spec : §05 R_M05.1 + E3 ci-dessus.
 
@@ -937,7 +875,7 @@ Tare par contenant stockée dans `types_contenants.tare_kg` (Admin TMS). Chauffe
 
 ### R_M05.4 — Override manuel tare avec motif obligatoire (D8)
 
-Si le chauffeur active le toggle "Corriger la tare" E6 et saisit une tare différente de la tare snapshot attendue, un motif texte libre ≥ 10 caractères est obligatoire. Audit log `action=PESEE_TARE_OVERRIDE` (before/after + motif), stocké `pesees.tare_override_motif`. _(Aligné §05 R_M05.4 ; ex-règle "Présélection contenant par pesée précédente" supprimée — propagation E6 2026-04-30, plus de présélection V1, fin du désalignement de numérotation avec §05.)_
+Si le chauffeur active le toggle "Corriger la tare" E6 et saisit une tare différente de la tare snapshot attendue, un motif texte libre ≥ 10 caractères est obligatoire. Audit log `action=PESEE_TARE_OVERRIDE` (before/after + motif), stocké `pesees.tare_override_motif`. *(Aligné §05 R_M05.4 ; ex-règle "Présélection contenant par pesée précédente" supprimée — propagation E6 2026-04-30, plus de présélection V1, fin du désalignement de numérotation avec §05.)*
 
 ### R_M05.5 — "Sans contenant" = pesée sac direct
 
@@ -988,7 +926,6 @@ Sauf kill switch `force_update=true` (rare), reload nouvelle version PWA attend 
 Règle retirée définitivement avec la suppression de `flux_prevus`. Le rapport recyclage Plateforme se base désormais uniquement sur les flux **réellement** pesés par le chauffeur. Plus d'auto-insertion à 0kg, plus de distinction "non pesé" vs "non concerné" côté Plateforme.
 
 Conséquences propagées :
-
 - Enum `pesees.source` 3→2 valeurs (`chauffeur`, `ag_sans_collecte`)
 - Webhook S5 : flag `presume_non_pese` retiré du payload
 - W8 simplifié : plus d'algo SQL pré-émission S5
@@ -999,23 +936,23 @@ Conséquences propagées :
 
 Tous dans `parametres_tms.parametres` (JSONB) :
 
-| Clé                                     | Défaut V1                    | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| --------------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `m05_geofence_rayon_metres`             | 300                          | Rayon geofence arrivée lieu (D4)                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `m05_queue_offline_max_tournees`        | 3                            | Cap nombre tournées queue                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| `m05_queue_offline_max_photos`          | 150                          | Cap nombre photos queue                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| `m05_queue_offline_max_size_mb`         | 300                          | Cap taille globale queue                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| → `m03_password_reset_ttl_min`          | → 30                         | **Retournée propagation M03 2026-04-24** : paramètre renommé + déplacé sur domaine M03 (politique password unifiée manager + chauffeur). Sert désormais au TTL du magic link de reset password uniquement (pas login).                                                                                                                                                                                                                                               |
-| `m03_login_rate_limit_per_15min`        | 5                            | **Nouveau M03** : rate limit login 5 tentatives échouées / 15 min / IP (brute force protection)                                                                                                                                                                                                                                                                                                                                                                      |
-| `m03_password_min_length`               | 8                            | **Nouveau M03** : longueur minimum password manager + chauffeur (politique unifiée)                                                                                                                                                                                                                                                                                                                                                                                  |
-| `m03_password_reset_max_per_day`        | 3                            | **Nouveau M03** : max reset password / email / 24h (anti-abus)                                                                                                                                                                                                                                                                                                                                                                                                       |
-| `m05_photo_qualite_jpeg`                | 80                           | Compression JPEG                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `m05_photo_max_par_pesee`               | 5                            | Limite photos par pesée                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| `m05_seuils_pesees_kg_min_max_par_flux` | JSONB enum flux → {min, max} | Seuils alerte pesée anormale (ZD-only) — **alerte côté Ops uniquement, AUCUN affichage côté chauffeur** (revue sobriété M05 E6 2026-04-30)                                                                                                                                                                                                                                                                                                                           |
-| `m05_push_cap_par_heure_par_collecte`   | 1                            | Cap notifs spam                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| `m05_tournee_inactivite_heures`         | 8                            | Seuil R_M04.4                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| `m05_ops_numero_telephone`              | (num Ops Savr)               | Numéro "Appeler Ops" E5/E9                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| `m05_force_update_mode`                 | `off`                        | **Kill switch reload PWA (enum 3 valeurs, revue sobriété 2026-06-04 B3 — fusion des ex-booléens `m05_force_update_active` + `m05_force_update_strict`)** : `off` = pas de forçage (défaut) ; `soft` = toast bannière non-bloquant + bouton "Recharger" + grace period 24h max (au-delà : escalade modal) ; `hard` = modal bloquant immédiat au boot PWA "Mise à jour requise" (urgence sécurité critique). Supprime l'état invalide ex-`active=false`+`strict=true`. |
+| Clé | Défaut V1 | Description |
+|---|---|---|
+| `m05_geofence_rayon_metres` | 300 | Rayon geofence arrivée lieu (D4) |
+| `m05_queue_offline_max_tournees` | 3 | Cap nombre tournées queue |
+| `m05_queue_offline_max_photos` | 150 | Cap nombre photos queue |
+| `m05_queue_offline_max_size_mb` | 300 | Cap taille globale queue |
+| → `m03_password_reset_ttl_min` | → 30 | **Retournée propagation M03 2026-04-24** : paramètre renommé + déplacé sur domaine M03 (politique password unifiée manager + chauffeur). Sert désormais au TTL du magic link de reset password uniquement (pas login). |
+| `m03_login_rate_limit_per_15min` | 5 | **Nouveau M03** : rate limit login 5 tentatives échouées / 15 min / IP (brute force protection) |
+| `m03_password_min_length` | 8 | **Nouveau M03** : longueur minimum password manager + chauffeur (politique unifiée) |
+| `m03_password_reset_max_per_day` | 3 | **Nouveau M03** : max reset password / email / 24h (anti-abus) |
+| `m05_photo_qualite_jpeg` | 80 | Compression JPEG |
+| `m05_photo_max_par_pesee` | 5 | Limite photos par pesée |
+| `m05_seuils_pesees_kg_min_max_par_flux` | JSONB enum flux → {min, max} | Seuils alerte pesée anormale (ZD-only) — **alerte côté Ops uniquement, AUCUN affichage côté chauffeur** (revue sobriété M05 E6 2026-04-30) |
+| `m05_push_cap_par_heure_par_collecte` | 1 | Cap notifs spam |
+| `m05_tournee_inactivite_heures` | 8 | Seuil R_M04.4 |
+| `m05_ops_numero_telephone` | (num Ops Savr) | Numéro "Appeler Ops" E5/E9 |
+| `m05_force_update_mode` | `off` | **Kill switch reload PWA (enum 3 valeurs, revue sobriété 2026-06-04 B3 — fusion des ex-booléens `m05_force_update_active` + `m05_force_update_strict`)** : `off` = pas de forçage (défaut) ; `soft` = toast bannière non-bloquant + bouton "Recharger" + grace period 24h max (au-delà : escalade modal) ; `hard` = modal bloquant immédiat au boot PWA "Mise à jour requise" (urgence sécurité critique). Supprime l'état invalide ex-`active=false`+`strict=true`. |
 
 Évolution V1.1 : (supprimée — cf. E6 2026-04-30), `m05_push_rappel_j_moins_1_active` (si retour terrain), `m05_mode_soleil_auto_active` (ambient light API).
 
@@ -1063,7 +1000,7 @@ Les 20 arbitrages tranchés session 2026-04-24.
 
 **Catégorie Plaque / Véhicule**
 
-14. **Décision annulée — saisie plaque chauffeur retirée V1 (propagation M05 2026-06-04, arbitrage Val).** La plaque pour contrôle d'accès / registre est la plaque pré-saisie manager (M03 E4, webhook S7). _(Propagation CDC Plateforme historique conservée : suppression email client T+3h V1, template `plaque_chauffeur` retiré, `collectes.recevoir_plaque_chauffeur` + `collectes.email_plaque_envoye_at` supprimés.)_
+14. **Décision annulée — saisie plaque chauffeur retirée V1 (propagation M05 2026-06-04, arbitrage Val).** La plaque pour contrôle d'accès / registre est la plaque pré-saisie manager (M03 E4, webhook S7). *(Propagation CDC Plateforme historique conservée : suppression email client T+3h V1, template `plaque_chauffeur` retiré, `collectes.recevoir_plaque_chauffeur` + `collectes.email_plaque_envoye_at` supprimés.)*
 
 15. **D11 — Changement véhicule in-flight** : V1.1 reporté (option b). Justif : cas rare (panne), implémenter complet = workflow lourd (re-checklist, re-plaque, re-photo, re-email), MVP = résolution manuelle Ops a posteriori via M04 W6.
 
@@ -1127,10 +1064,9 @@ Les 20 arbitrages tranchés session 2026-04-24.
    - Table `types_contenants` (Admin TMS paramétrable, **nom canonique §04** — décision 2026-06-06) : `id`, `code` (ex `roll`, `bac_240L`, `sans_contenant`), `libelle`, `categorie`, `tare_kg`, `statut`, `created_at`
    - Table `incidents` (**nom canonique §04**, table partagée chauffeur M05 + Ops M11 — décision 2026-06-06, ex-`incidents_terrain`) : `id`, `collecte_tms_id` FK, `type_incident` enum, `photos text[]`, `description`, `declarant_chauffeur_id`, `created_at`
    - Enrichir table `pesees` : `type_contenant_id` FK → `types_contenants` (**nom canonique §04**, décision 2026-06-06), `tare_override_motif` text null, `source` enum (`chauffeur`, `ag_sans_collecte` — enum 2 valeurs post-revue sobriété 2026-04-29), `idempotency_key` UUID, `signature_url` null (pour AG), `photos text[]` (champ unique — fusion ex-`photo_url`/`photos_urls`, décision 2026-06-06)
-
-- Enrichir table `tournees` : **supprimée (propagation M05 2026-06-04)**, `cloture_gps`, `heure_reelle_debut/fin` — rappel
-  - Nouvelle table `sync_queue_dlq` : pour items DLQ agrégés (alerte M11)
-  - Nouvelle table `auth_sessions_tms` : `chauffeur_id` FK, `device_fingerprint`, `created_at`, `last_seen`, `revoked_at`
+ - Enrichir table `tournees` : **supprimée (propagation M05 2026-06-04)**, `cloture_gps`, `heure_reelle_debut/fin` — rappel
+   - Nouvelle table `sync_queue_dlq` : pour items DLQ agrégés (alerte M11)
+   - Nouvelle table `auth_sessions_tms` : `chauffeur_id` FK, `device_fingerprint`, `created_at`, `last_seen`, `revoked_at`
 
 2. **§05 Règles métier TMS** :
    - Ajouter les règles R_M05.x ci-dessus (R_M05.1, 3, 4, 5–14, 19 ; R_M05.2 retirée 2026-06-04, R_M05.18 supprimée 2026-04-29)
@@ -1166,18 +1102,17 @@ Aucune nouvelle propagation Plateforme induite par M05 au-delà de Q10.
 
 > **Normatif (R_M11.1)** : tous les triggers M05 utilisent `tms.alerte_emit(code, ...)` avec codes canoniques catalogue. L'app chauffeur PWA peut émettre des toasts locaux (hors scope M11 serveur) mais toute alerte persistée DB passe par le catalogue.
 
-| Code canonique                            | Criticité | Trigger M05                                                                                                                                                                                                                                                                                                                                                                    |
-| ----------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `m05_geofence_anomalie`                   | warning   | Fallback "J'arrive" hors geofence 300m (D4/D5)                                                                                                                                                                                                                                                                                                                                 |
-| `m05_dlq_offline_conflict`                | warning   | Conflit sync offline non résolvable (cf. §8.4 conflits + edge cases C8/D1). **Criticité abaissée critical → warning (revue sobriété §05 2026-05-01 B2)** — un seul niveau de gravité V1, escalade humaine via traitement Ops standard.                                                                                                                                         |
-| `m05_queue_offline_saturee`               | warning   | Cap 3 tournées / 150 photos / 300 Mo atteint (R_M05.9)                                                                                                                                                                                                                                                                                                                         |
-| `m05_checklist_contournement_detecte`     | warning   | Contournement checklist pré-départ via exploit. **Criticité abaissée critical → warning (revue sobriété 2026-06-04 B1)** — depuis le retrait de la saisie plaque, E3 ne gate plus que tenue/rolls/film (qualité opérationnelle, zéro enjeu légal/sécurité) ; un réveil Ops `critical` est disproportionné. Code canonique conservé (cf. M11 B5bis, ex-`m04_checklist_bypass`). |
-| `m05_device_binding_tentative_secondaire` | warning   | Tentative login chauffeur sur device secondaire (R_M05.10)                                                                                                                                                                                                                                                                                                                     |
+| Code canonique | Criticité | Trigger M05 |
+|----------------|-----------|-------------|
+| `m05_geofence_anomalie` | warning | Fallback "J'arrive" hors geofence 300m (D4/D5) |
+| `m05_dlq_offline_conflict` | warning | Conflit sync offline non résolvable (cf. §8.4 conflits + edge cases C8/D1). **Criticité abaissée critical → warning (revue sobriété §05 2026-05-01 B2)** — un seul niveau de gravité V1, escalade humaine via traitement Ops standard. |
+| `m05_queue_offline_saturee` | warning | Cap 3 tournées / 150 photos / 300 Mo atteint (R_M05.9) |
+| `m05_checklist_contournement_detecte` | warning | Contournement checklist pré-départ via exploit. **Criticité abaissée critical → warning (revue sobriété 2026-06-04 B1)** — depuis le retrait de la saisie plaque, E3 ne gate plus que tenue/rolls/film (qualité opérationnelle, zéro enjeu légal/sécurité) ; un réveil Ops `critical` est disproportionné. Code canonique conservé (cf. M11 B5bis, ex-`m04_checklist_bypass`). |
+| `m05_device_binding_tentative_secondaire` | warning | Tentative login chauffeur sur device secondaire (R_M05.10) |
 
 **Résolution auto W7** : `m05_queue_offline_saturee` résolue auto dès que queue < 80 % capacité. `m05_dlq_offline_conflict` résolue auto quand entry DLQ retraitée avec succès (manuel Admin TMS).
 
 **Codes dégagés Bloc 3 sobriété 2026-04-25 (A1 criticité `info`)** :
-
 - `m05_realisee_sans_collecte` — l'event est déjà tracé via `collectes_tms.statut = 'realisee_sans_collecte'` (statut métier AG), pas d'alerte M11 nécessaire
 - `m05_force_logout_admin` — l'event est déjà tracé dans `tms.audit_logs` côté M13 (action admin). M05 n'émet plus d'alerte M11 mais l'audit log reste obligatoire (cf. M13 W2/W7)
 
@@ -1190,7 +1125,7 @@ Aucune nouvelle propagation Plateforme induite par M05 au-delà de Q10.
 - [[03 - Périmètre fonctionnel TMS]]
 - [[04 - Data Model TMS]] — `tournees`, `collectes_tms`, `pesees`, `types_contenants`, `incidents`, `auth_sessions_tms`
 - [[05 - Règles métier TMS]] — R_M05.x
-- [[08 - Contrat API Plateforme-TMS]] — S3, S5, S9 _(S7 plaque émis par M03, pas M05 — propagation 2026-06-04)_
+- [[08 - Contrat API Plateforme-TMS]] — S3, S5, S9 *(S7 plaque émis par M03, pas M05 — propagation 2026-06-04)*
 - [[09 - Authentification et permissions TMS]] — RLS chauffeur
 - [[M01 - Réception ordres de collecte]] — amont
 - [[M02 - Dispatch Ops Savr]] — amont

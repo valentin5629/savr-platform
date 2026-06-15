@@ -4,6 +4,8 @@
 
 > ⚠ **Addendum 2026-05-01 — Propagation revue sobriété §08 Bloc A** : les mentions "push webhook S6 `course-cout-calculee`" et "push webhook S8 `traiteur-stock-rolls-update`" dans les règles ci-dessous sont **obsolètes V1**. Remplacées par lecture cross-schema directe Plateforme via vues `plateforme.v_courses_logistiques` (ex-S6) + `plateforme.v_stocks_rolls` (ex-S8). R_M09.7 "TMS push obligatoire" supprimée. Voir [[08 - Contrat API Plateforme-TMS#Addendum 2026-05-01 — Revue sobriété §08 Bloc A]].
 
+**Dernière mise à jour** : 2026-06-04 (**propagation suppression saisie plaque terrain — arbitrage Val** — R_M05.2 retirée, matrice checklist R_M05.1 (item Plaque retiré, camion AG motorisé skip E3), cycle de vie `acceptee→en_cours` sans saisie plaque. R_M04.CONTROLE_ACCES + R_M03.4 (plaque pré-saisie manager pour contrôle d'accès) **inchangées**. `plaque_saisie_terrain` supprimée §04.) / 2026-05-03 (**propagation refonte formulaire §06.01 Plateforme** — R_M04.PLAQUE → R_M04.CONTROLE_ACCES (validation étendue à `chauffeur_id IS NOT NULL`), R_M03.4 renommée + étendue à plaque + nom chauffeur + cascade upgrade-only) / 2026-04-25 v2 (**Refonte M10 R5.4 v2 reset total + dual confirmation chauffeur/ops/auto J+7** — R5.4 réécrit reset TOTAL stock à confirmation effective via 3 sources, R5.4 bis 3 sources documentées, R5.7 v2 RAISE EXCEPTION anti-déconfirmation, R5.8 v2 création atomique a posteriori, R5.9 distinction déclaration vs confirmation, R5.10 cron escalade gradient J+1/J+3/J+7) / 2026-04-25 v1 (propagation M10 V1 — R5.1/R5.2 modernisées codes alertes M11, R5.3 seuil absolu par couple `flux × type_contenant`, R5.5/R5.6/R5.7/R5.8 ajoutées) / 2026-04-24 (propagation M03 Portail prestataire — 10 règles R_M03.x + 1 règle R_M04.PLAQUE + révision R_M05.10 volet méthode)
+
 ---
 
 ## Principes généraux
@@ -68,7 +70,6 @@ Couverture Everest = lieu.code_postal[:2] IN parametres_algo.everest_codes_posta
 ```
 
 **Valeurs seed V1** (modifiables Admin Plateforme via `parametres_algo`) :
-
 - `regle_ag_plage_velo_debut` = `07:00`
 - `regle_ag_plage_velo_fin` = `20:00` (couvre vélo cargo **et** camion — audit cohérence A2 2026-05-09)
 - `regle_ag_seuil_pax_velo` = 600
@@ -78,7 +79,6 @@ Couverture Everest = lieu.code_postal[:2] IN parametres_algo.everest_codes_posta
 - `poids_par_repas_kg` = `0.45` (audit sobriété 2026-05-09 B2 — coefficient conversion AG, source unique Plateforme)
 
 **Paramètres supprimés (audit cohérence + sobriété 2026-05-09)** :
-
 - `regle_ag_plage_camion_fin` (A2 — camion partage la plage vélo)
 - `a_toutes_indisponible_raison` / `_declaree_le` / `_declaree_par` (B1 audit sobriété — lecture `audit_log`)
 - `m05_equivalent_repas_kg` côté `parametres_tms` (B2 audit sobriété — V2 cross-schema lecture Plateforme)
@@ -146,7 +146,7 @@ Source : §03 M07 + `grilles_tarifaires_prestataires` + `formules_catalogue`.
 5. → **Obsolète V1 (revue sobriété §08 Bloc A 2026-05-01 A2)** : le coût est lu cross-schema par la Plateforme via la vue `plateforme.v_courses_logistiques` + trigger DB `plateforme.fn_recalc_marge_tournee()` (sur UPDATE `tms.tournees.cout_final_ht`). Aucun push HTTP TMS.
 ```
 
-### R2.2 — Formule `vacations_paliers` (Strike) _(grilles réelles intégrées 2026-06-07 — Marathon reclassé `forfait_fixe` → R2.5)_
+### R2.2 — Formule `vacations_paliers` (Strike) *(grilles réelles intégrées 2026-06-07 — Marathon reclassé `forfait_fixe` → R2.5)*
 
 Formule générique pilotée par le JSON `paliers` (entièrement configurable Admin TMS sans code).
 
@@ -168,12 +168,13 @@ si palier.prolongation :
 
 **Grilles Strike V1 réelles** (2026-06-07, seed — modifiables Admin TMS) : 2 grilles, une par type de véhicule.
 
-| Grille       | Vacation base 4 h | Dépassement / heure entamée | Supplément équipage double / heure entamée |
-| ------------ | ----------------: | --------------------------: | -----------------------------------------: |
-| Strike 16 m³ |    240 € (60 €/h) |                        60 € |                                   +31,25 € |
-| Strike 20 m³ |    300 € (75 €/h) |                        75 € |                                   +31,25 € |
+| Grille | Vacation base 4 h | Dépassement / heure entamée | Supplément équipage double / heure entamée |
+|---|---:|---:|---:|
+| Strike 16 m³ | 240 € (60 €/h) | 60 € | +31,25 € |
+| Strike 20 m³ | 300 € (75 €/h) | 75 € | +31,25 € |
 
 Paliers JSON : `[0h→4h : 1 vacation, sans prolongation]` + `[4h→∞ : 1 vacation, prolongation base 4h]`. Ex (grille réelle Val) : tournée 6 h équipage simple 16 m³ = 240 + 2 × 60 = **360 €**.
+
 
 **Marathon V1** : — **reclassé `forfait_fixe` 100 €/tournée (grille réelle 2026-06-07), cf. R2.5**.
 
@@ -203,12 +204,12 @@ Paliers JSON : `[0h→4h : 1 vacation, sans prolongation]` + `[4h→∞ : 1 vaca
 
 **Grille A Toutes! vélo (Vélo Frais) V1 réelle** (2026-06-07, seed) — 8 cellules, flag `tarif_sans_collecte_applicable = true` (R2.10, incomplète = 50 %) :
 
-| Mode            | Complétude |   Paris | Communes limitrophes |
-| --------------- | ---------- | ------: | -------------------: |
-| programme (H+2) | complete   |    38 € |                 51 € |
-| programme (H+2) | incomplete | 19,00 € |              25,50 € |
-| express (>1.5h) | complete   |    57 € |                 75 € |
-| express (>1.5h) | incomplete | 28,50 € |              37,50 € |
+| Mode | Complétude | Paris | Communes limitrophes |
+|---|---|---:|---:|
+| programme (H+2) | complete | 38 € | 51 € |
+| programme (H+2) | incomplete | 19,00 € | 25,50 € |
+| express (>1.5h) | complete | 57 € | 75 € |
+| express (>1.5h) | incomplete | 28,50 € | 37,50 € |
 
 ### R2.4 — Formule `grille_matricielle_zone` (A Toutes! camion ID 91) — **aucune grille V1**
 
@@ -269,13 +270,11 @@ Si un client annule une collecte (DELETE webhook E3 Plateforme) **alors que la t
 > **Règle authoritative pour tout le CDC TMS** — fusion de l'ancienne R2.8 (figement) + décision M07 E (anti-rétroactivité).
 
 **Figement coût tournée** :
-
 - Une fois la tournée `terminee` et `cout_calcule_ht` posé par trigger M07 W1, la valeur est **immuable**
 - Trigger DB BEFORE UPDATE sur `tournees` rejette toute modification de `cout_calcule_ht`
 - Toute correction post-clôture passe par le champ séparé `cout_ajuste_ht` (workflow ajustement manuel, cf. M07 W2)
 
 **Anti-rétroactivité grilles tarifaires** :
-
 - Toute nouvelle grille doit avoir `date_debut_validite > CURRENT_DATE` (CHECK SQL)
 - Modification rétroactive d'une grille active (`date_debut_validite <= CURRENT_DATE`) interdite
 - Renégo / nouveau tarif → publier nouvelle grille avec date future, l'ancienne reçoit automatiquement `date_fin_validite = nouvelle.date_debut_validite - 1 jour`
@@ -298,7 +297,6 @@ Flag booléen dans `grilles_tarifaires_prestataires.parametres_formule` (défaut
 **Nota** : `grille_matricielle_zone_type_course` (A Toutes! vélo) gère nativement via `type_course = incomplete` (tarif ~50% défini en grille). Pas de flag nécessaire.
 
 **Seed V1** :
-
 - Strike `vacations_paliers` : `false` (vacation facturée même si 0 kg collecté)
 - Marathon `vacations_paliers` : `false` (idem)
 - A Toutes! camion `grille_matricielle_zone` : `false` (vacation mobilisée)
@@ -351,6 +349,8 @@ sinon :
 
 **Refonte D1 revue sobriété §05 2026-05-01** : ancienne étape `rapproche_ok` (notification "validation requise" + Ops/Admin valide via W4) supprimée V1. Avec zéro tolérance R_M08.1, `montant_ht_prestataire = montant_ht_calcule_tms` → aucune valeur ajoutée à la validation Ops manuelle (juste un clic). Auto-validation directe + notification informative N1 = -1 étape workflow, -1 valeur enum, -1 workflow W4. La supervision Ops a posteriori reste possible via filtre E1 statut `valide` + colonne "Validée par : système" dans la liste. Réintroduction V1.1 si Val/Louis veulent ré-instaurer une revue humaine systématique.
 
+
+
 **Retiré V1 (propagation M08 2026-04-24, D4)** : zéro tolérance strict, pas de seuil, cohérence pratique comptable FR (avoir obligatoire sur écart). Paramètre d'alerte conservé : `m08.seuil_alerte_validation_manuelle_ht` (default 100€) = notification Admin si Ops valide un écart supérieur.
 
 ### R3.4 — Rapprochement ligne-à-ligne **Supprimée V1 revue sobriété 2026-04-30 B1 + table supprimée 2026-04-30 A5**
@@ -380,7 +380,6 @@ Pas de rectification in-place (édition montants) d'une facture existante. Un av
 ### R3.6 — Vérification cohérence finale + verrouillage tournées (simplifié revue sobriété 2026-04-30 B1)
 
 À la validation (`statut_rapprochement = 'valide'` via W4 ou W5) :
-
 - **Supprimé V1 (revue sobriété §04 2026-04-30 A5)** — table `factures_prestataires_lignes` retirée. La cohérence interne du PDF est garantie par le prestataire (le total imprimé fait foi). L'OCR `pdf_extraction_json` peut signaler informativement un écart constaté entre `lignes_total_ocr` et `montant_ht_prestataire` saisi (warning UI non bloquant).
 - Trigger DB `trg_m08_verrouiller` : UPDATE `tournees SET cout_final_verrouille = true, verrouillee_par_facture_id = facture.id` pour toutes les tournées rapprochées (**périmètre = agrégat période** uniquement post-revue B1, cf. R_M08.4).
 - INSERT audit_log (niveau 5) — capture `acteur_user_id` (revue sobriété §04 2026-04-30 B1 : la trace acteur passe désormais exclusivement par `audit_logs`, les colonnes `valide_par_user_id` / `regle_par_user_id` / `exporte_par_user_id` / `deverrouillee_par_user_id` retirées V1 sur `factures_prestataires`).
@@ -390,7 +389,6 @@ Pas de rectification in-place (édition montants) d'une facture existante. Un av
 > **Note arbitrage Val 2026-06-06** : le **déverrouillage des tournées** n'est plus exclusivement Admin — Ops peut le déclencher en contestant une facture `valide` (W6, cf. R3.5 + R_M08.5(a)). W9 reste le chemin Admin exclusif pour : (i) déverrouiller une facture `regle`, (ii) l'action `reouverte_pour_validation`, (iii) écrire les colonnes `action_deverrouillage`/`motif_deverrouillage`/`deverrouillee_at` (garde trigger `trg_factures_deverrouillage_admin_only`, RLS row-level ne pouvant pas cloisonner ces colonnes).
 
 Admin TMS uniquement. Workflow W9 M08 :
-
 - Motif obligatoire ≥ 30 car.
 - Action :
   - `rejetee_pour_correction` → `statut_rapprochement = 'conteste'` + `conteste_apres_validation = true` (revue sobriété 2026-04-30 D1, ex-statut dédié supprimé)
@@ -451,7 +449,7 @@ si stocks_rolls_traiteurs.quantite_actuelle
 
 Si `nouveau_stock < 0` → alerte M11 `m09_stock_negatif` `gravite = warning` (audit) + pas de blocage (chauffeur peut se tromper de sens). Ops régularise manuellement via E3 recompte (W2).
 
-> _Tranché Val 2026-06-07 (session test-scenarios M09, floue #1)_ : → **warning** — alignement sur M09 §9 post-sobriété (« M09 n'émet aucune alerte critical V1 »). M09 fait foi.
+> *Tranché Val 2026-06-07 (session test-scenarios M09, floue #1)* : → **warning** — alignement sur M09 §9 post-sobriété (« M09 n'émet aucune alerte critical V1 »). M09 fait foi.
 
 ### R4.4 — Calcul paliers rolls suggérés à la préparation tournée
 
@@ -466,7 +464,7 @@ paliers = parametres_tms.stock.palier_rolls_par_pax_seuils
 nb_rolls_suggeres = paliers.find(p => tournee.nb_pax_total <= p.pax_max).rolls
 ```
 
-> _Tranché Val 2026-06-07 (session test-scenarios M09, floue #4)_ : → **`palier_rolls_par_pax_seuils`** + seed M09 E5 (100/200/400/800/null). Pas de variante par flux V1. M09 fait foi.
+> *Tranché Val 2026-06-07 (session test-scenarios M09, floue #4)* : → **`palier_rolls_par_pax_seuils`** + seed M09 E5 (100/200/400/800/null). Pas de variante par flux V1. M09 fait foi.
 
 Affichage informatif pour Ops Savr (pas de blocage si le chauffeur emporte plus ou moins).
 
@@ -660,7 +658,6 @@ WHEN (INSERT : NEW.statut = 'realise' — cas a posteriori R5.8 v3 ; UPDATE : OL
 **Champ `nb_bacs_enleves`** : conservé pour audit + statistiques (reporting Veolia, comparaison déclaration vs estimation), mais **n'a pas d'effet métier** sur le stock V1 (R5.4 v3 reset total piloté par transition `statut`, pas par cette valeur). Réservé V2 pour facturation Veolia (D6 reporté V2).
 
 > **Suppressions revue sobriété 2026-04-30** :
->
 > - Ancienne **R5.4 v2** (reset à confirmation effective avec 3 sources) → remplacée par R5.4 v3
 > - Ancienne **R5.4 bis** (3 sources mutuellement exclusives — chauffeur_tournee / ops_manuel / auto_confirmee_j7 + lock optimiste) → supprimée (corollaire A1/A2/A3)
 > - Ancienne **R5.9** (distinction déclaration vs confirmation effective, deux étapes deux acteurs) → supprimée (corollaire A2)
@@ -802,7 +799,6 @@ en_cours  → realisee (clôture normale — pesées saisies, rolls déclarés)
 ```
 
 **Règles de transition** :
-
 - `en_cours → realisee` : requiert `pesees.count >= 1` pour ZD, ou `pesees.count >= 0` pour AG (0 kg possible = `realisee_sans_collecte`).
 - **Multi-véhicules — `realisee` dérivé (2026-05-25, arbitrage 6a ; couvre le multi-vélo AG 2026-05-29)** : une collecte servie par N tournées (via `collecte_tournees`) passe à `realisee` quand **toutes** ses tournées sont `terminee` (chacune clôturée par son chauffeur, qui a pesé sa portion). Le statut collecte est **dérivé** des statuts de tournées, pas posé directement par un chauffeur unique. Trigger DB `tms.fn_derive_statut_collecte_multi_tournees()` `AFTER UPDATE OF statut ON tms.tournees` : à chaque passage d'une tournée à `terminee`, pour chaque collecte de cette tournée, si **toutes** ses tournées liées sont `terminee` → collecte `realisee` (ZD : garde `SUM(pesees.poids_net) > 0` ; sinon alerte Ops). C'est cette transition qui émet le **S5 terminal unique** (pesées des N véhicules sommées par `(collecte_tms_id, flux)` pour le ZD, ou `don_alimentaire` total pour l'AG, cf. §08). **Multi-vélo AG (2026-05-29)** : mécanique identique — les N vélos A Toutes! d'une même collecte sont N tournées sœurs ; la collecte passe `realisee` quand les N sont clôturées. **Cas standard (1 tournée)** : la dérivation se réduit à "la tournée unique est `terminee` ⇒ collecte `realisee`" = comportement identique à avant.
 - `en_cours → realisee_sans_collecte` : AG uniquement, requiert `aucun_repas_motif IS NOT NULL AND aucun_repas_photo_url IS NOT NULL`.
@@ -811,7 +807,7 @@ en_cours  → realisee (clôture normale — pesées saisies, rolls déclarés)
   - `vehicule_panne`
   - `accident_route`
   - `chauffeur_indisponible`
-    Webhook S9 `incident` émis avec champ `geofence_status='avant_arrivee'`. Statut collecte après transition : `incident` (terminal, pas de pesée à attendre). Tournée passe à `terminee` automatiquement si toutes collectes restantes terminales (R6.2). Zéro coût M07 pour la collecte (pas de vacation honorée), mais coût tournée préservé si autres collectes réalisées.
+  Webhook S9 `incident` émis avec champ `geofence_status='avant_arrivee'`. Statut collecte après transition : `incident` (terminal, pas de pesée à attendre). Tournée passe à `terminee` automatiquement si toutes collectes restantes terminales (R6.2). Zéro coût M07 pour la collecte (pas de vacation honorée), mais coût tournée préservé si autres collectes réalisées.
 - Cas particulier `en_cours` + annulation client (DELETE E3 Plateforme) → `statut_dispatch='annulee_par_traiteur'` + `annulee_pendant_en_cours=true` (propagation A1 2026-04-25), mais `statut_operationnel` reste `en_cours` jusqu'à clôture chauffeur puis passe à `realisee` (saisie pesées justif vacation). Pas de notif client, vacation prestataire facturée (R2.7 bis).
 - Toute transition vers un statut terminal (`realisee`, `realisee_sans_collecte`, `incident`, `annulee_par_traiteur`) déclenche les effets suivants (refondu revue sobriété §05 2026-05-01 B4) :
   - Mise à jour du stock rolls (si applicable, cf. R4 — lecture cross-schema Plateforme via `plateforme.v_stocks_rolls`, plus de push S8 ; R_M09.7 supprimée revue sobriété §08 Bloc A 2026-05-01)
@@ -821,13 +817,11 @@ en_cours  → realisee (clôture normale — pesées saisies, rolls déclarés)
 > **Refonte B4** : ancienne formulation "déclenche [...] push webhook Plateforme" générique supprimée — induisait Claude Code à émettre des webhooks fantômes (notamment sur `annulee_par_traiteur`). Le mapping exact transition → webhook est unique source de vérité dans §08.
 
 **Addendum 2026-04-23 seconde salve M01 — Simplifications** :
-
 - Suppression de la branche "pré-affectation Plateforme" (ex-D10 M01 supprimée). Plus de transition `→ attribuee` à réception webhook E1. Toutes les collectes arrivent en `a_attribuer`.
 - → **Enum + colonne supprimés V1 (revue sobriété 2026-04-29 puis acté propagation M01 B_M01_04 + D_M01_03 — 2026-04-30)** : auto-relance M12 W3 supprimée, attribution toujours manuelle Ops, donc enum à 1 seule valeur = colonne inutile. Colonne retirée de `tms.collectes_tms` §04 niveau 2.
 - Nouveau statut terminal `rejetee_par_tms` possible côté Plateforme (via webhook S11 `collecte-rejetee`) — n'affecte pas le cycle TMS (qui reste en DLQ).
 
-**Addendum 2026-04-30 sobriété M01 — Règle R_M01.X heure_collecte unifiée** _(C_M01_02)_ :
-
+**Addendum 2026-04-30 sobriété M01 — Règle R_M01.X heure_collecte unifiée** *(C_M01_02)* :
 - `heure_collecte` rétrograde dans le passé est **invalide à la création (W1) ET à la modification (W3)**. Refus 422 + DLQ motif `validation_metier_echec`. Cohérence des deux endpoints (E1 POST + E2 PATCH) pour empêcher Plateforme de pousser une PATCH legacy avec ancienne heure non contrôlée. Règle unifiée propagée dans M01 §5 W1 étape 3 + W3 étape 4.
 
 ### R6.2 — Cycle de vie `tournees`
@@ -875,15 +869,13 @@ archive → [immuable via UI, historique conservé 5 ans]
 ```
 
 **Règles de transition** :
-
-- `actif → suspendu` : workflow M06 E8 (écran unique), **bloqué** si au moins 1 tournée en statut `planifiee/acceptee/en_cours` **OU** 1 collecte `statut_dispatch IN ('attribuee_en_attente_acceptation','acceptee')` rattachée au prestataire _(tranché Val 2026-06-07 test-scenarios M06 #1 — `a_attribuer` exclu : collecte non rattachée à un prestataire)_. Admin TMS doit d'abord réattribuer ou clôturer avant de continuer.
-- `suspendu → actif` : bouton "Réactiver" dans M06 E2 (Admin TMS). `date_fin_contrat = NULL`, `users_tms` associés réactivés. **Grille expirée pendant la suspension tolérée** _(tranché Val 2026-06-07 test-scenarios M06 #2)_ : `trg_prestataire_grille_obligatoire` ne porte que sur `en_onboarding → actif` — la réactivation passe sans grille active, bandeau warning E2, filet aval M07 coût non calculable → M08 `rapprochement_manuel_requis`.
+- `actif → suspendu` : workflow M06 E8 (écran unique), **bloqué** si au moins 1 tournée en statut `planifiee/acceptee/en_cours` **OU** 1 collecte `statut_dispatch IN ('attribuee_en_attente_acceptation','acceptee')` rattachée au prestataire *(tranché Val 2026-06-07 test-scenarios M06 #1 — `a_attribuer` exclu : collecte non rattachée à un prestataire)*. Admin TMS doit d'abord réattribuer ou clôturer avant de continuer.
+- `suspendu → actif` : bouton "Réactiver" dans M06 E2 (Admin TMS). `date_fin_contrat = NULL`, `users_tms` associés réactivés. **Grille expirée pendant la suspension tolérée** *(tranché Val 2026-06-07 test-scenarios M06 #2)* : `trg_prestataire_grille_obligatoire` ne porte que sur `en_onboarding → actif` — la réactivation passe sans grille active, bandeau warning E2, filet aval M07 coût non calculable → M08 `rapprochement_manuel_requis`.
 - `suspendu → archive` (auto) : trigger cron journalier (Edge Function scheduled) qui passe `statut = 'archive'` pour tous les prestataires `WHERE statut = 'suspendu' AND date_fin_contrat <= today`. Archive également les `users_tms` associés (soft delete).
 - `suspendu → archive` (manuel) : bouton "Archiver maintenant" disponible pendant la période de suspension si Admin TMS souhaite accélérer.
 - `archive → *` : interdit via UI. Intervention DB Admin requise si erreur.
 
 **Effets de l'archivage** :
-
 - Plus aucune nouvelle attribution possible (M12 exclut `statut != 'actif'`).
 - Tournées historiques conservées (FK vers `shared.prestataires.id` reste valide).
 - Managers + chauffeurs du prestataire perdent l'accès TMS (`users_tms.statut = 'archive'`, JWT invalidé au refresh).
@@ -913,7 +905,6 @@ archive → [immuable via UI, historique conservé 5 ans]
 **Détail authoritative** : R_M11.11 (transitions strictes + colonnes immuables + CHECK `alertes_ackee_coherence`). `resolue → *` impossible V1 (V2 RPC Admin motif ≥ 30 car).
 
 **Notes historiques** (déplacées vers R_M11.11 pour unicité de source de vérité) :
-
 - Bloc 3 sobriété 2026-04-25 A1+A7 : statut `[expiree]` retiré V1
 - Bloc 6 B2 sobriété 2026-04-28 : statut `ackee` retiré enum → metadata, enum `alerte_statut` 4 → 3 valeurs
 
@@ -929,15 +920,14 @@ Issu de la rédaction de [[06 - Fonctionnalités détaillées TMS/M05 - App mobi
 
 Une tournée ne peut pas passer en `statut=en_cours` tant que les items obligatoires de la checklist pré-départ ne sont pas validés par le chauffeur sur M05 E3. **Matrice introduite revue sobriété M05 2026-04-29** (responsabilité conformité véhicule/EPI bascule sur prestataire) :
 
-| Type véhicule         | ZD                                           | AG                             |
-| --------------------- | -------------------------------------------- | ------------------------------ |
-| Camion frigo motorisé | Tenue Savr + N rolls + Film plastique        | Skip écran E3 (E2 → E4 direct) |
-| Vélo cargo            | Aucune checklist (skip écran E3 → direct E4) | Aucune checklist (skip E3)     |
+| Type véhicule         | ZD                                             | AG                          |
+| --------------------- | ---------------------------------------------- | --------------------------- |
+| Camion frigo motorisé | Tenue Savr + N rolls + Film plastique          | Skip écran E3 (E2 → E4 direct) |
+| Vélo cargo            | Aucune checklist (skip écran E3 → direct E4)   | Aucune checklist (skip E3)  |
 
 > **Suppression item Plaque (propagation suppression saisie plaque terrain 2026-06-04, arbitrage Val)** : l'item Plaque de la checklist E3 est retiré. Camion ZD = 3 items (Tenue, N rolls, Film). Camion AG motorisé = plus aucun item → E3 entièrement sauté (E2 → E4 direct, comme le vélo cargo). La plaque pour contrôle d'accès reste pré-saisie manager (R_M04.CONTROLE_ACCES / R_M03.4, inchangées).
 
 **Items E3 ZD camion (3 items, tous bloquants)** :
-
 1. Tenue Savr (gants, gilet, pantalon, chaussures sécurité — checklist regroupée 1 item)
 2. N rolls chargés (affichage `tournees.nb_rolls_suggeres` M09)
 3. Film plastique
@@ -1003,7 +993,6 @@ Refresh silencieux (`last_seen_at` touché à chaque requête PWA authentifiée)
 ### R_M05.12 — Push notifications V1 : attribution + H-30 + alerte Ops (D16)
 
 3 types de push déclenchés côté serveur :
-
 1. Attribution tournée (chauffeur assigné par manager via M03)
 2. Rappel H-30 avant `tournees.heure_planifiee_debut` (pg_cron Supabase) — propagation 2026-04-29 (créneau tournée = fenêtre opérationnelle, conservée distincte de l'heure de collecte)
 3. Alerte Ops : retard, anomalie (M11)
@@ -1021,7 +1010,6 @@ Une nouvelle version PWA déployée n'est pas rechargée en cours de tournée ac
 ### R_M05.15 — Résolution conflits sync offline (D1)
 
 Au retour de connexion, la PWA rejoue la queue IndexedDB avec `idempotency_key` (W11 M05). Policy côté serveur :
-
 - Si item déjà présent (idem key match) → return 200 noop (déduplication retry)
 - Si statut cible compatible avec état serveur actuel → UPDATE / INSERT merge
 - Si incompatible (ex : pesée offline sur collecte `annulee` côté back-office) → `integrations_logs.statut='echec_final'`, type `pesee_dlq` / `signature_dlq` / `incident_dlq` + alerte M11 (R_M05.16) pour arbitrage Ops
@@ -1049,7 +1037,6 @@ Auth chauffeur identique à manager prestataire — voir **R_M03.1** (politique 
 Ancienne règle "Présomption 0kg auto à la clôture collecte" supprimée avec la suppression de `collectes_tms.flux_prevus`. Le rapport recyclage Plateforme se base désormais uniquement sur les flux **réellement** pesés par le chauffeur. Plus d'auto-insertion de lignes `pesees` à 0kg, plus de distinction "non pesé" vs "non concerné" côté Plateforme.
 
 Conséquences propagées :
-
 - Enum `pesees.source` 3→2 valeurs (`chauffeur`, `ag_sans_collecte` — `presume_non_pese` retiré)
 - Webhook S5 `collecte-terminee` : flag `presume_non_pese` retiré du payload
 - M04 : plus aucune logique présomption (W5/W6 nettoyés)
@@ -1062,7 +1049,6 @@ Ancienne règle "Présomption 0kg à la clôture tournée" — supprimée défin
 ### R_M04.CONTROLE_ACCES — Trigger DB blocage validation tournée si plaque OU nom chauffeur manquant (restauré 2026-05-01 — renommé + étendu 2026-05-03 refonte formulaire §06.01 Plateforme : ex R_M04.PLAQUE)
 
 Si au moins une des `collectes_tms` liées à une tournée a `controle_acces_requis=true` (ex `plaque_requise`), la tournée ne peut pas passer du statut `planifiee` à `acceptee` (workflow dispatch M03 W4 + validation manager M03 E4) tant que :
-
 - `tournees.plaque_preassignee_manager` est NULL **OU**
 - `tournees.chauffeur_id` est NULL (= nom chauffeur non communiqué)
 
@@ -1074,13 +1060,12 @@ Trigger Postgres `tms.fn_validate_tournee_controle_acces()` BEFORE UPDATE on `tm
 **Exception A Toutes! vélo cargo (UNIQUEMENT sur le critère plaque)** : si toutes les `collectes_tms` de la tournée ont `prestataire.integration_externe = 'everest'` ET `vehicule.type_vehicule_id` correspondant à `types_vehicules.categorie = 'velo_cargo'` → trigger autorise la validation tournée même si `plaque_preassignee_manager IS NULL`. Justification : pas de plaque attribuable côté flotte vélo cargo. **Le `chauffeur_id` reste obligatoire** dans tous les cas (le nom chauffeur est requis pour le contrôle d'accès même en vélo cargo). Le formulaire de programmation Plateforme affiche un message UX au traiteur ("Vélo cargo — pas de plaque possible") pour transparence.
 
 **Effets de bord** :
-
 - Émission webhook S7 `plaque-saisie` automatique post-saisie manager M03 E4 (payload enrichi 2026-05-03 : `plaque` + `chauffeur_nom` lus via JOIN `chauffeurs.nom_complet` sur `tournees.chauffeur_id`). Alimente Plateforme `tournees.plaque_immatriculation` + `tournees.chauffeur_nom`.
 - **Saisie chauffeur terrain supprimée V1 (propagation 2026-06-04)** — il n'existe plus qu'une seule plaque, celle pré-saisie par le manager (cette règle). La colonne `plaque_saisie_terrain` est supprimée (§04).
 
 **Référence trigger code SQL** : voir [[04 - Data Model TMS|§04 Data Model TMS]] table `tournees` section trigger `trg_validate_tournee_controle_acces`.
 
-### R_M04.COMPATIBILITE_VEHICULE_LIEU — Trigger DB blocage validation tournée si véhicule incompatible avec lieu(x) servi(s) _(ajout 2026-05-08)_
+### R_M04.COMPATIBILITE_VEHICULE_LIEU — Trigger DB blocage validation tournée si véhicule incompatible avec lieu(x) servi(s) *(ajout 2026-05-08)*
 
 **Objectif** : empêcher qu'une tournée TMS planifiée avec un véhicule trop gros pour un des lieux servis passe en validation (cas typique : poids lourd planifié sur lieu accessible vélo cargo / camionnette uniquement). Aligné sur la règle Plateforme [[../../01 - Cahier des charges App/05 - Règles métier#R_compatibilite_vehicule_lieu|R_compatibilite_vehicule_lieu]] (hiérarchie véhicule unifiée 5 valeurs).
 
@@ -1144,7 +1129,6 @@ CREATE TRIGGER trg_validate_tournee_compat_vehicule_lieu
 **Cas particulier `categorie_plateforme IS NULL`** : ne peut pas arriver (NOT NULL contrainte data model). Si donnée corrompue → trigger échoue (RAISE EXCEPTION explicite).
 
 **Tests pgTAP bloquants CI** :
-
 - `tournee_poids_lourd_sur_lieu_velo_cargo_blocked` : tournée poids_lourd sur lieu velo_cargo → UPDATE statut='acceptee' → doit échouer.
 - `tournee_velo_cargo_sur_lieu_poids_lourd_ok` : tournée velo_cargo sur lieu poids_lourd → OK (rang 1 ≤ rang 5).
 - `tournee_categorie_plateforme_null_blocked` : tournée avec véhicule pointant types_vehicules.categorie_plateforme=NULL (cas data corruption) → doit échouer.
@@ -1198,7 +1182,6 @@ Admin TMS reste autorisé à créer des chauffeurs côté back-office M06 (cumul
 Le manager prestataire peut créer un véhicule référentiel (M06) avec tous les champs obligatoires (plaque, type, frigorifique, hayon, capacité) + un nouveau **type de véhicule** si absent du référentiel (ex: "Camion 12m3 hayon rabattable"). Le type créé passe en `tms.types_vehicules` avec `valide_ops=false`, `actif=true`, `cree_par=manager_id` (cf. §04 addendum M03 types_vehicules). Champs obligatoires : libellé, volume, frigorifique, hayon (PTAC supprimé revue sobriété M03 passe 2). Type **utilisable immédiatement** par le manager (pas de blocage workflow). Email auto à Ops Savr pour revue manuelle.
 
 Ops Savr voit l'alerte M11 warning `m03_nouveau_type_vehicule_non_valide` et peut :
-
 - **Valider** le type tel quel (`valide_ops=true`)
 - **Merger** le type avec un existant via fonction SQL `tms.merger_type_vehicule(type_a_id, type_b_id)` (remap véhicules + grilles + archive du type mergé + audit log)
 - **Désactiver** (`actif=false`) si doublon avéré sans merge nécessaire
@@ -1210,7 +1193,6 @@ Ops Savr voit l'alerte M11 warning `m03_nouveau_type_vehicule_non_valide` et peu
 **Supervision V1 (Ops, manuelle)** : widget M08 E0 "Factures attendues mois en cours" liste les prestataires sans facture pour la période en cours. Badge `attente` jusqu'au 10 du mois suivant la période, badge `retard` à partir du 10. Ops contacte le prestataire en retard manuellement (téléphone ou email ad-hoc). Volume V1 ≈ 30 factures/mois → revue hebdomadaire suffisante.
 
 **Suppressions revue sobriété §05 2026-05-01 A1** :
-
 - Cron M08 W11 (rappel automatique J+5 + élévation criticité J+15) → supprimé V1
 - Code alerte M11 `m08_rappel_facture` (ex-unifié B5 2026-04-30, ex-`m08_rappel_facture_j5` + `m08_escalade_absence_j15`) → supprimé V1
 - Notification email N10 M08 (rappel manager J+5) → supprimée V1
@@ -1291,8 +1273,7 @@ Pour les alertes liées à une entité appartenant à un prestataire (`facture_p
 ### R_M11.10 — Rétention 3 ans + trace critical (refondu revue sobriété §05 2026-05-01 B3)
 
 Cron `m11_purger_archives` mensuel (1er du mois 4h) :
-
-1. **Étape 1 (dump pré-purge)** : INSERT INTO `tms.alertes_archive_critical` SELECT \* FROM `tms.alertes` WHERE `criticite = 'critical' AND statut = 'resolue' AND resolue_at < now() - interval '3 years'`. Table archive append-only (RLS admin_tms read-only, pas d'UPDATE/DELETE).
+1. **Étape 1 (dump pré-purge)** : INSERT INTO `tms.alertes_archive_critical` SELECT * FROM `tms.alertes` WHERE `criticite = 'critical' AND statut = 'resolue' AND resolue_at < now() - interval '3 years'`. Table archive append-only (RLS admin_tms read-only, pas d'UPDATE/DELETE).
 2. **Étape 2 (purge)** : DELETE FROM `tms.alertes` WHERE `statut = 'resolue' AND resolue_at < now() - interval '3 years'` (toutes criticités).
 
 → **Supprimé revue sobriété §05 2026-05-01 B3**. Trigger sur opération destructive = piège (perf sur purge bulk + complexité debug + couplage avec audit_logs alors que le contenu purgé est une alerte, pas une mutation métier). Remplacé par dump explicite dans table dédiée `tms.alertes_archive_critical` (séparation des préoccupations).
@@ -1302,7 +1283,6 @@ Cohérent avec rétention `ajustements_couts_log` M07. **Bloc 3 sobriété 2026-
 ### R_M11.11 — Colonnes immuables + transitions strictes
 
 Trigger BEFORE UPDATE `tms.alertes` bloque modification de `code, criticite, emise_at, entity_type, entity_id, dedup_key, occurrences` (sauf par W1 debounce et W7 auto-résolution via path explicite). Transitions de statut autorisées uniquement (Bloc 3 sobriété 2026-04-25 A7 : transition `→ expiree` retirée ; Bloc 6 B2 2026-04-28 : statut `ackee` retiré enum → metadata) :
-
 - `ouverte → snoozee | resolue` (l'ack = update colonnes metadata `ackee_par_user_id`/`ackee_at`, pas de changement statut)
 - (statut `ackee` retiré Bloc 6 B2)
 - `snoozee → ouverte | resolue`
@@ -1320,26 +1300,26 @@ Trigger vérifie aussi CHECK `alertes_ackee_coherence` : `(ackee_par_user_id IS 
 
 20 règles métier issues de la rédaction de [[06 - Fonctionnalités détaillées TMS/M13 - Administration TMS]] (D1-D15). Source de vérité : §M13 ne pas dupliquer. Ici = vue consolidée règles transverses.
 
-| Règle    | Description                                                                                                                                                                                                                                                                                                                                                                           | Source M13        |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| R_M13.1  | Toute édition de `parametres_tms` exige un commentaire ≥ 10 chars (`m13_param_edition_commentaire_min_chars`). Audit-log obligatoire via trigger DB.                                                                                                                                                                                                                                  | M13 W1            |
-| R_M13.2  | Désactivation user = soft delete uniquement V1 (`statut='desactive'`). Pas de pseudonymisation/hard delete V1 (D7).                                                                                                                                                                                                                                                                   | M13 W3, D7        |
-| R_M13.3  | Combinaisons rôles interdites (cf. §09 ligne 478) : `manager_prestataire+ops_savr`, `manager_prestataire+admin_tms`, `chauffeur+toute autre role`. Validation Edge Function `upsert_user_tms`.                                                                                                                                                                                        | M13 W2            |
-| R_M13.4  | Reset MFA TOTP exige commentaire ≥ 20 chars (`m13_mfa_reset_commentaire_min_chars`) + audit-log + notif email cible.                                                                                                                                                                                                                                                                  | M13 W4            |
-| R_M13.5  | Rotation secret exige test pré-validation (sauf "Forcer quand même" qui exige commentaire long ≥ 50 chars). Edge Function `rotate_secret`.                                                                                                                                                                                                                                            | M13 W5            |
-| R_M13.6  | Replay manuel d'event entrant passe obligatoirement par `integrations_inbox` pour respecter dédup `event_id` (anti-double-traitement).                                                                                                                                                                                                                                                | M13 W6, EC6       |
-| R_M13.7  | Wizard onboarding (M13 E7) peut s'interrompre entre étapes : prestataire reste `statut='en_onboarding'` jusqu'à étape 4 explicite. Cron quotidien alerte si `en_onboarding > 7j`.                                                                                                                                                                                                     | M13 W7, EC17      |
-| R_M13.9  | Impersonation interdite : (a) vers `admin_tms` cible, (b) vers user `desactive`, (c) cascadée (impersonator déjà en session impersonation). Edge Function `impersonation_start` rejette 400.                                                                                                                                                                                          | M13 W9, EC9, EC10 |
-| R_M13.10 | Mutations sous impersonation : `audit_logs.acteur_user_id` = impersonator réel + `acteur_meta.impersonation_target_id` = cible. **Jamais** acteur_user_id = cible. Helper SQL `auth.is_impersonating()`.                                                                                                                                                                              | M13 D15           |
-| R_M13.11 | Cap **3 devices trusted simultanés actifs** par user (paramètre `m13_device_trusted_max_per_user`). Trigger DB BEFORE INSERT/UPDATE sur `users_tms_devices_trusted`. Si cap atteint → connexion 4ème device refusée avec message dédié (EC11).                                                                                                                                        | M13 W10, D14      |
-| R_M13.12 | Session **30 jours glissantes** pour `admin_tms` et `ops_savr` après device trusted. **Paramétrage unifié revue sobriété §05 2026-05-01 C2** : durée pilotée par `parametres_tms.auth.session_duree_jours_par_role` (clés `admin_tms` et `ops_savr`). Flag `auth.session_glissante=true` (toutes rôles) reste sur namespace `auth`. supprimé V1 — source de vérité authoritative §09. | M13 D10           |
-| R_M13.13 | **Pas de re-MFA pour actions sensibles** (D10 explicit). Risque assumé : laptop compromis = 30j d'accès admin sans frein supplémentaire. Compensé par device trusted révocable + audit-log exhaustif. À reconsidérer V2 si incident sécu ou recrutement 3ème admin.                                                                                                                   | M13 D10           |
-| R_M13.15 | Secrets avec `secrets_metadata.expire_le` non null sont scannés quotidiennement (cron `m13_secrets_expiration_cron`) → alerte warning à J-7 `m13_secret_expiration_imminente`.                                                                                                                                                                                                        | M13 W12           |
-| R_M13.16 | Reveal secret = JWT 30s + audit-log obligatoire. Pas de copy auto, pas de cache front. Edge Function `reveal_secret` retourne valeur en clair via JWT scope reveal expirant.                                                                                                                                                                                                          | M13 E5, D4        |
-| R_M13.17 | Édition d'un paramètre `requires_redeploy=true` exige confirmation explicite "Je sais que ça nécessite un redéploiement" + commentaire dédié. Sinon UPDATE rejeté côté EF.                                                                                                                                                                                                            | M13 E2, D12       |
-| R_M13.18 | `audit_logs` strictement immutable : aucune UPDATE/DELETE même `admin_tms`. RLS deny + revoke GRANT. Seule exception : DROP de partition > 5 ans (DBA-level).                                                                                                                                                                                                                         | M13 E4, D5        |
-| R_M13.19 | Cache 60s côté Edge Function pour lectures `parametres_tms` côté apps clientes (D6). Param critique = `requires_redeploy=true` lu uniquement au démarrage app, jamais en runtime.                                                                                                                                                                                                     | M13 D6            |
-| R_M13.20 | Désactivation du seul `manager_prestataire` actif d'un prestataire émet alerte `m13_prestataire_sans_manager_actif` warning (résolution auto à création nouveau manager).                                                                                                                                                                                                             | M13 W3            |
+| Règle | Description | Source M13 |
+|-------|-------------|-----------|
+| R_M13.1 | Toute édition de `parametres_tms` exige un commentaire ≥ 10 chars (`m13_param_edition_commentaire_min_chars`). Audit-log obligatoire via trigger DB. | M13 W1 |
+| R_M13.2 | Désactivation user = soft delete uniquement V1 (`statut='desactive'`). Pas de pseudonymisation/hard delete V1 (D7). | M13 W3, D7 |
+| R_M13.3 | Combinaisons rôles interdites (cf. §09 ligne 478) : `manager_prestataire+ops_savr`, `manager_prestataire+admin_tms`, `chauffeur+toute autre role`. Validation Edge Function `upsert_user_tms`. | M13 W2 |
+| R_M13.4 | Reset MFA TOTP exige commentaire ≥ 20 chars (`m13_mfa_reset_commentaire_min_chars`) + audit-log + notif email cible. | M13 W4 |
+| R_M13.5 | Rotation secret exige test pré-validation (sauf "Forcer quand même" qui exige commentaire long ≥ 50 chars). Edge Function `rotate_secret`. | M13 W5 |
+| R_M13.6 | Replay manuel d'event entrant passe obligatoirement par `integrations_inbox` pour respecter dédup `event_id` (anti-double-traitement). | M13 W6, EC6 |
+| R_M13.7 | Wizard onboarding (M13 E7) peut s'interrompre entre étapes : prestataire reste `statut='en_onboarding'` jusqu'à étape 4 explicite. Cron quotidien alerte si `en_onboarding > 7j`. | M13 W7, EC17 |
+| R_M13.9 | Impersonation interdite : (a) vers `admin_tms` cible, (b) vers user `desactive`, (c) cascadée (impersonator déjà en session impersonation). Edge Function `impersonation_start` rejette 400. | M13 W9, EC9, EC10 |
+| R_M13.10 | Mutations sous impersonation : `audit_logs.acteur_user_id` = impersonator réel + `acteur_meta.impersonation_target_id` = cible. **Jamais** acteur_user_id = cible. Helper SQL `auth.is_impersonating()`. | M13 D15 |
+| R_M13.11 | Cap **3 devices trusted simultanés actifs** par user (paramètre `m13_device_trusted_max_per_user`). Trigger DB BEFORE INSERT/UPDATE sur `users_tms_devices_trusted`. Si cap atteint → connexion 4ème device refusée avec message dédié (EC11). | M13 W10, D14 |
+| R_M13.12 | Session **30 jours glissantes** pour `admin_tms` et `ops_savr` après device trusted. **Paramétrage unifié revue sobriété §05 2026-05-01 C2** : durée pilotée par `parametres_tms.auth.session_duree_jours_par_role` (clés `admin_tms` et `ops_savr`). Flag `auth.session_glissante=true` (toutes rôles) reste sur namespace `auth`. supprimé V1 — source de vérité authoritative §09. | M13 D10 |
+| R_M13.13 | **Pas de re-MFA pour actions sensibles** (D10 explicit). Risque assumé : laptop compromis = 30j d'accès admin sans frein supplémentaire. Compensé par device trusted révocable + audit-log exhaustif. À reconsidérer V2 si incident sécu ou recrutement 3ème admin. | M13 D10 |
+| R_M13.15 | Secrets avec `secrets_metadata.expire_le` non null sont scannés quotidiennement (cron `m13_secrets_expiration_cron`) → alerte warning à J-7 `m13_secret_expiration_imminente`. | M13 W12 |
+| R_M13.16 | Reveal secret = JWT 30s + audit-log obligatoire. Pas de copy auto, pas de cache front. Edge Function `reveal_secret` retourne valeur en clair via JWT scope reveal expirant. | M13 E5, D4 |
+| R_M13.17 | Édition d'un paramètre `requires_redeploy=true` exige confirmation explicite "Je sais que ça nécessite un redéploiement" + commentaire dédié. Sinon UPDATE rejeté côté EF. | M13 E2, D12 |
+| R_M13.18 | `audit_logs` strictement immutable : aucune UPDATE/DELETE même `admin_tms`. RLS deny + revoke GRANT. Seule exception : DROP de partition > 5 ans (DBA-level). | M13 E4, D5 |
+| R_M13.19 | Cache 60s côté Edge Function pour lectures `parametres_tms` côté apps clientes (D6). Param critique = `requires_redeploy=true` lu uniquement au démarrage app, jamais en runtime. | M13 D6 |
+| R_M13.20 | Désactivation du seul `manager_prestataire` actif d'un prestataire émet alerte `m13_prestataire_sans_manager_actif` warning (résolution auto à création nouveau manager). | M13 W3 |
 
 ---
 
@@ -1347,15 +1327,15 @@ Trigger vérifie aussi CHECK `alertes_ackee_coherence` : `(ackee_par_user_id IS 
 
 8 règles métier issues de la rédaction de [[06 - Fonctionnalités détaillées TMS/M14 - Intégration Everest]] (D1-D10). Source de vérité : §M14 ne pas dupliquer. Ici = vue consolidée règles transverses.
 
-| Règle   | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Source M14 |
-| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| R_M14.1 | Push mission Everest à transition `collectes_tms.statut_dispatch → attribuee_en_attente_acceptation` ET `prestataire.integration_externe = 'everest'`. Cohérent pattern Strike/Marathon (manager voit collecte M03 dès `attribuee_en_attente_acceptation`). Trigger DB enqueue worker Next.js `m14_create_mission` pour ne pas bloquer la transaction M02/M12.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | M14 W1, D2 |
-| R_M14.2 | Granularité Everest **1 mission = 1 tournée** _(reformulé multi-vélo 2026-05-29)_ : vélo (services 71/75) → 1 tournée vélo = 1 mission, `collecte_tms_id` renseigné (1 collecte/vélo, D8) + `tournee_id` renseigné. **Multi-vélo : 1 collecte = N vélos = N missions** (même `collecte_tms_id`, `tournee_id` distinct, `client_ref = tournee_id`, idempotence keyée `tournee_id`) = N courses A Toutes! facturées. Camion (service 91) → 1 tournée = 1 mission, `collecte_tms_id IS NULL`, `tournee_id` renseigné. **Source de vérité unique : `tms.everest_missions(everest_mission_id UNIQUE, tournee_id, collecte_tms_id)`** — `collecte_tms_id` **non-unique** (N missions/collecte en multi-vélo) ; colonnes miroir `tournees.everest_mission_id` et `collectes_tms.everest_mission_id` retirées V1 (revue sobriété §04 2026-04-30 A6). Lookup mission via JOIN sur `everest_missions` (index dédiés). | M14 D3     |
-| R_M14.3 | Webhooks Everest (6 events `mission_dispatched/pickedup/finished/success/failed/cancelled/late`) ne mutent **jamais** `collectes_tms.statut_operationnel` ni `tournees.statut`. Mutent `everest_missions.statut_everest` + `payload_latest_update` uniquement. M05 chauffeur reste source de vérité opérationnelle. Exceptions (alertes Ops sans mutation enums métier) : `mission_failed` (critical), `mission_cancelled` non-TMS-initiated (critical), `mission_late` (warning).                                                                                                                                                                                                                                                                                                                                                                                                                          | M14 W2, D4 |
-| R_M14.4 | Auth Bearer Everest : pas de cron de refresh proactif V1. Token cache mémoire process Next.js + retry sur 401 → re-auth via `POST /auth` → retry une fois → si re-401 alerte critical `m14_everest_auth_failed`. À reconsidérer V1.1 si TTL token Everest < 1h (Q3).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | M14 W6, D5 |
-| R_M14.5 | Idempotence webhooks Everest entrants via `tms.integrations_inbox` (pattern unifié M01 webhooks Plateforme). `event_id = mission_id + event_type + occurred_at`. Conflit unique → 200 OK silent (déjà reçu).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | M14 W2, D7 |
-| R_M14.6 | Failover Everest down (timeout / 5xx) : 1 retry après `m14_api_retry_delay_ms` (default 30s) puis statut `creation_failed` + alerte critical → Ops failover manuel via E4 (appel téléphone A Toutes! → bouton "Marquer accepté manuellement" → `created_manually` + `manual_acceptance_*` colonnes). Pas de retry boucle longue style Plateforme (5min/30min/2h) — collecte AG part dans l'heure.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | M14 W4, D8 |
-| R_M14.7 | Annulation cascade M12 / annulation traiteur : trigger DB `trg_m14_cascade_cancel` AFTER UPDATE on `collectes_tms` quand `statut_dispatch` transite vers `rejetee_par_prestataire` ou `annulee_par_traiteur` ET **mission Everest active existante** (lookup `everest_missions WHERE collecte_tms_id = NEW.id OR tournee_id = NEW.tournee_id` avec `statut_everest NOT IN ('cancelled','cancelled_externally','completed','completed_incomplete','failed','creation_failed')` — revue sobriété §04 2026-04-30 A6, colonnes miroir supprimées) → enqueue worker `m14_cancel_mission` qui appelle `POST /missions/cancel`. Idempotent (no-op si statut Everest déjà terminal). Si `cancel` échoue post-retry → alerte warning `m14_everest_mission_cancel_failed` → Ops appel manuel A Toutes! (anti double-dispatch).                                                                                        | M14 W3, D9 |
+| Règle | Description | Source M14 |
+|-------|-------------|-----------|
+| R_M14.1 | Push mission Everest à transition `collectes_tms.statut_dispatch → attribuee_en_attente_acceptation` ET `prestataire.integration_externe = 'everest'`. Cohérent pattern Strike/Marathon (manager voit collecte M03 dès `attribuee_en_attente_acceptation`). Trigger DB enqueue worker Next.js `m14_create_mission` pour ne pas bloquer la transaction M02/M12. | M14 W1, D2 |
+| R_M14.2 | Granularité Everest **1 mission = 1 tournée** *(reformulé multi-vélo 2026-05-29)* : vélo (services 71/75) → 1 tournée vélo = 1 mission, `collecte_tms_id` renseigné (1 collecte/vélo, D8) + `tournee_id` renseigné. **Multi-vélo : 1 collecte = N vélos = N missions** (même `collecte_tms_id`, `tournee_id` distinct, `client_ref = tournee_id`, idempotence keyée `tournee_id`) = N courses A Toutes! facturées. Camion (service 91) → 1 tournée = 1 mission, `collecte_tms_id IS NULL`, `tournee_id` renseigné. **Source de vérité unique : `tms.everest_missions(everest_mission_id UNIQUE, tournee_id, collecte_tms_id)`** — `collecte_tms_id` **non-unique** (N missions/collecte en multi-vélo) ; colonnes miroir `tournees.everest_mission_id` et `collectes_tms.everest_mission_id` retirées V1 (revue sobriété §04 2026-04-30 A6). Lookup mission via JOIN sur `everest_missions` (index dédiés). | M14 D3 |
+| R_M14.3 | Webhooks Everest (6 events `mission_dispatched/pickedup/finished/success/failed/cancelled/late`) ne mutent **jamais** `collectes_tms.statut_operationnel` ni `tournees.statut`. Mutent `everest_missions.statut_everest` + `payload_latest_update` uniquement. M05 chauffeur reste source de vérité opérationnelle. Exceptions (alertes Ops sans mutation enums métier) : `mission_failed` (critical), `mission_cancelled` non-TMS-initiated (critical), `mission_late` (warning). | M14 W2, D4 |
+| R_M14.4 | Auth Bearer Everest : pas de cron de refresh proactif V1. Token cache mémoire process Next.js + retry sur 401 → re-auth via `POST /auth` → retry une fois → si re-401 alerte critical `m14_everest_auth_failed`. À reconsidérer V1.1 si TTL token Everest < 1h (Q3). | M14 W6, D5 |
+| R_M14.5 | Idempotence webhooks Everest entrants via `tms.integrations_inbox` (pattern unifié M01 webhooks Plateforme). `event_id = mission_id + event_type + occurred_at`. Conflit unique → 200 OK silent (déjà reçu). | M14 W2, D7 |
+| R_M14.6 | Failover Everest down (timeout / 5xx) : 1 retry après `m14_api_retry_delay_ms` (default 30s) puis statut `creation_failed` + alerte critical → Ops failover manuel via E4 (appel téléphone A Toutes! → bouton "Marquer accepté manuellement" → `created_manually` + `manual_acceptance_*` colonnes). Pas de retry boucle longue style Plateforme (5min/30min/2h) — collecte AG part dans l'heure. | M14 W4, D8 |
+| R_M14.7 | Annulation cascade M12 / annulation traiteur : trigger DB `trg_m14_cascade_cancel` AFTER UPDATE on `collectes_tms` quand `statut_dispatch` transite vers `rejetee_par_prestataire` ou `annulee_par_traiteur` ET **mission Everest active existante** (lookup `everest_missions WHERE collecte_tms_id = NEW.id OR tournee_id = NEW.tournee_id` avec `statut_everest NOT IN ('cancelled','cancelled_externally','completed','completed_incomplete','failed','creation_failed')` — revue sobriété §04 2026-04-30 A6, colonnes miroir supprimées) → enqueue worker `m14_cancel_mission` qui appelle `POST /missions/cancel`. Idempotent (no-op si statut Everest déjà terminal). Si `cancel` échoue post-retry → alerte warning `m14_everest_mission_cancel_failed` → Ops appel manuel A Toutes! (anti double-dispatch). | M14 W3, D9 |
 
 ### Référence cross-rule
 
@@ -1367,19 +1347,19 @@ Trigger vérifie aussi CHECK `alertes_ackee_coherence` : `(ackee_par_user_id IS 
 
 ---
 
-## R\_§13 — Migration MTS-1 (propagation §13 V1 rédigée 2026-04-27)
+## R_§13 — Migration MTS-1 (propagation §13 V1 rédigée 2026-04-27)
 
-| Règle    | Énoncé                                                                                                                                                                                  | Trigger                                             | Implémentation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| R\_§13.1 | `migration_mode_active = true` durant la fenêtre W5 (J0 → J+30). Toute saisie côté TMS marquée `migration_test = true` (factures) et `contexte = 'migration_test'` (audit).             | App writes via M02/M05/M08                          | Trigger DB BEFORE INSERT `trg_factures_migration_flag` sur `factures_prestataires`. Helper SQL `tms.is_migration_active()` STABLE. Lecture du paramètre `parametres_tms.migration_mode_active`.                                                                                                                                                                                                                                                                                                     |
-| R\_§13.2 | Aucune facture `migration_test = true` exportée vers Pennylane.                                                                                                                         | M08 W11 export Pennylane CSV                        | Filtre `WHERE migration_test = false` dans la fonction `m08_exporter_pennylane`.                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| R\_§13.3 | Webhooks TMS → Plateforme (S1-S11) émis normalement durant W5. La Plateforme reçoit mais ne déclenche aucune facturation client (Plateforme côté client = encore Bubble en production). | S1-S11 émis                                         | Aucune modification TMS. Cohérence cross-CDC à documenter dans CDC App.                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| R\_§13.4 | Webhooks Plateforme → TMS (E1-E10) reçus normalement durant W5. TMS traite les ordres comme en production.                                                                              | E1-E10 reçus                                        | Aucune modification TMS.                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| R\_§13.5 | Si une collecte est saisie sur TMS uniquement (oubli côté Bubble), elle est invalide légalement. Prestataire ne sera pas payé.                                                          | Cross-check Val                                     | Aucune implémentation tech. R\_§13.5 = règle organisationnelle Val (cross-check hebdo Bubble vs nouvelle Plateforme).                                                                                                                                                                                                                                                                                                                                                                               |
-| R\_§13.6 | Si une collecte est saisie sur Bubble uniquement (oubli duplication Val), aucune action TMS. Continuité Bubble normale.                                                                 | N/A                                                 | Aucune implémentation tech.                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| R\_§13.7 | Aucune action de retrait/correction automatique entre les 2 écosystèmes pendant W5. Toute correction = manuelle.                                                                        | N/A                                                 | Aucune implémentation tech.                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| R\_§13.8 | Cron `m13_cleanup_legacy` à J+30 auto-résout les alertes M11 critical de la fenêtre migration.                                                                                          | Cron pg_cron quotidien (déjà existant via M13)      | `UPDATE alertes SET statut = 'resolue', resolue_at = NOW(), resolue_source = 'auto' WHERE contexte = 'migration_test' AND statut IN ('ouverte','snoozee') AND criticite = 'critical' AND emise_at < NOW() - INTERVAL '30 days'`. **Statut canonique `resolue`** (enum `alerte_statut` 3 valeurs `ouverte/snoozee/resolue`, R_M11.11) ; `resolue_auto`/`active` corrigés revue sobriété §05 2026-06-04, distinction « auto » portée par `resolue_source = 'auto'` (enum `alerte_resolution_source`). |
-| R\_§13.9 | Toggle `parametres_tms.migration_mode_active` réservée rôle `admin_tms`. Audit obligatoire `M13_MIGRATION_MODE_TOGGLE`.                                                                 | Update `parametres_tms` clé `migration_mode_active` | RLS existante `parametres_tms_admin_only` + audit fonction `tms.audit_param_update`.                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Règle | Énoncé | Trigger | Implémentation |
+|---|---|---|---|
+| R_§13.1 | `migration_mode_active = true` durant la fenêtre W5 (J0 → J+30). Toute saisie côté TMS marquée `migration_test = true` (factures) et `contexte = 'migration_test'` (audit). | App writes via M02/M05/M08 | Trigger DB BEFORE INSERT `trg_factures_migration_flag` sur `factures_prestataires`. Helper SQL `tms.is_migration_active()` STABLE. Lecture du paramètre `parametres_tms.migration_mode_active`. |
+| R_§13.2 | Aucune facture `migration_test = true` exportée vers Pennylane. | M08 W11 export Pennylane CSV | Filtre `WHERE migration_test = false` dans la fonction `m08_exporter_pennylane`. |
+| R_§13.3 | Webhooks TMS → Plateforme (S1-S11) émis normalement durant W5. La Plateforme reçoit mais ne déclenche aucune facturation client (Plateforme côté client = encore Bubble en production). | S1-S11 émis | Aucune modification TMS. Cohérence cross-CDC à documenter dans CDC App. |
+| R_§13.4 | Webhooks Plateforme → TMS (E1-E10) reçus normalement durant W5. TMS traite les ordres comme en production. | E1-E10 reçus | Aucune modification TMS. |
+| R_§13.5 | Si une collecte est saisie sur TMS uniquement (oubli côté Bubble), elle est invalide légalement. Prestataire ne sera pas payé. | Cross-check Val | Aucune implémentation tech. R_§13.5 = règle organisationnelle Val (cross-check hebdo Bubble vs nouvelle Plateforme). |
+| R_§13.6 | Si une collecte est saisie sur Bubble uniquement (oubli duplication Val), aucune action TMS. Continuité Bubble normale. | N/A | Aucune implémentation tech. |
+| R_§13.7 | Aucune action de retrait/correction automatique entre les 2 écosystèmes pendant W5. Toute correction = manuelle. | N/A | Aucune implémentation tech. |
+| R_§13.8 | Cron `m13_cleanup_legacy` à J+30 auto-résout les alertes M11 critical de la fenêtre migration. | Cron pg_cron quotidien (déjà existant via M13) | `UPDATE alertes SET statut = 'resolue', resolue_at = NOW(), resolue_source = 'auto' WHERE contexte = 'migration_test' AND statut IN ('ouverte','snoozee') AND criticite = 'critical' AND emise_at < NOW() - INTERVAL '30 days'`. **Statut canonique `resolue`** (enum `alerte_statut` 3 valeurs `ouverte/snoozee/resolue`, R_M11.11) ; `resolue_auto`/`active` corrigés revue sobriété §05 2026-06-04, distinction « auto » portée par `resolue_source = 'auto'` (enum `alerte_resolution_source`). |
+| R_§13.9 | Toggle `parametres_tms.migration_mode_active` réservée rôle `admin_tms`. Audit obligatoire `M13_MIGRATION_MODE_TOGGLE`. | Update `parametres_tms` clé `migration_mode_active` | RLS existante `parametres_tms_admin_only` + audit fonction `tms.audit_param_update`. |
 
 ---
 
@@ -1394,7 +1374,7 @@ Trigger vérifie aussi CHECK `alertes_ackee_coherence` : `(ackee_par_user_id IS 
 - **Annulation avant créneau = pas de facturation** : règle uniforme Strike, Marathon, A Toutes! (2026-04-22, cf. §03)
 - **Pas d'attribution auto V1** : Ops Savr suggère + valide manuellement. Attribution auto = V2 (trigger : volume dispatch > X/jour)
 - **Disponibilité A Toutes! non vérifiable V1** : indisponibilité déclarée manuellement par Ops si retour Everest
-- **Clôture tournée par le chauffeur** _(reframe multi-camions 2026-05-25, arbitrage 6a)_ : la tournée passe `terminee` quand le chauffeur la clôture (M05). Le statut de la collecte (`realisee`) est dérivé quand toutes ses tournées sont `terminee` (cf. R6.1/R6.2). Filet de sécurité : auto-clôture si toutes les collectes sont déjà terminales par incident/annulation. Pas d'action Ops requise dans le flux normal.
+- **Clôture tournée par le chauffeur** *(reframe multi-camions 2026-05-25, arbitrage 6a)* : la tournée passe `terminee` quand le chauffeur la clôture (M05). Le statut de la collecte (`realisee`) est dérivé quand toutes ses tournées sont `terminee` (cf. R6.1/R6.2). Filet de sécurité : auto-clôture si toutes les collectes sont déjà terminales par incident/annulation. Pas d'action Ops requise dans le flux normal.
 - **Rapprochement facture : zéro tolérance** (R3.3, D4 2026-04-24) : match exact au centime près = auto-validation, sinon `ecart_detecte`. **caduque** — plus aucun seuil de tolérance V1.
 - **Stocks : cache calculé, pas recalculé à la volée** : `stocks_rolls_traiteurs` est un cache mis à jour applicativement à chaque mouvement (pas de SUM live)
 

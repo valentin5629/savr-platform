@@ -1,5 +1,8 @@
 # 08 - Contrat API Plateforme ↔ TMS
 
+**Statut** : V1 — mise à jour architecturale 2026-04-23 (atelier tech avec frère) — propagation M03 2026-04-24 — **revue sobriété §08 COMPLÈTE 2026-05-01** : Bloc A (6 suppressions) + Bloc B (5 simplifications payload+auth) + Bloc C (2 duplications) + Bloc D (5 simplifications enums)
+**Dernière mise à jour** : 2026-06-04 (**propagation suppression saisie plaque terrain — arbitrage Val** — colonne `plaque_saisie_terrain` supprimée + exposition cross-schema retirée de `v_courses_logistiques` ; S7 `plaque-saisie` **inchangé** : reste émis par le manager M03 E4 pour le contrôle d'accès. Il ne reste qu'une seule plaque dans le système.) / 2026-05-03 (**propagation refonte formulaire §06.01 Plateforme** — payload E1 renommage `plaque_requise` → `controle_acces_requis`, payload S7 enrichi `chauffeur_nom`, sémantique étendue plaque + nom chauffeur) / 2026-05-01 (revue sobriété §08 Bloc D — suppression 7 valeurs `type_incident` S9, fusion `incident`/`inchange` dans `statut_collecte_apres`, suppression `stationnement.non_defini`, enum `motif_dlq` → text libre côté payload, suppression `recu` `integrations_inbox.statut`)
+
 **Rôle du document** : spécification contractuelle détaillée des échanges entre la Plateforme Savr (`app.gosavr.io`) et le Savr TMS (`tms.gosavr.io`). Ce fichier est le **pendant TMS** de [[01 - Cahier des charges App/08 - APIs et intégrations]] section 1 ("API Plateforme ↔ TMS Savr"). Les deux documents doivent rester strictement alignés — toute modification d'un payload ou endpoint doit être répercutée dans les deux.
 
 ---
@@ -9,12 +12,10 @@
 Formalisation des 12 endpoints en JSON Schema (résolution Q1). Livrable dans le sous-dossier [[08 - savr-api-contracts]] (`schemas/common.schema.json` + `schemas/entrants/` + `schemas/sortants/`). Choix d'authoring (arbitrages Val 2026-06-03) : **draft 2020-12**, **un `common.schema.json` partagé** (`$defs` enveloppe + enums + sous-objets `lieu`/`contacts`/`pesee`/... = source unique, zéro divergence), **`additionalProperties: false`** partout (strictness — attrape typos et champs périmés ; sans impact sur le dev Plateforme V1 qui parle à MTS-1, ce contrat ne s'active qu'au temps 2). Validés Ajv v8 : 21/21 cas (12 payloads valides + 9 invalides correctement rejetés).
 
 **Divergences trouvées et corrigées en propagant la prose §08 vers les schémas** :
-
 1. **Sous-objet `lieu` E1 — 3 enums périmés depuis la refonte App 2026-05-08, jamais propagés côté TMS** (corrigés ce jour) : `stationnement` (type d'emplacement 4 valeurs → difficulté d'accès `facile|difficile|tres_difficile`), `acces_office` (text libre → même enum), `type_vehicule_max` (`vl|camion_16m3|...` → enum véhicule unifié `velo_cargo|camionnette|fourgon|vul|poids_lourd`).
 2. **`gravite` S9** : l'exemple prose listait `info|warning|critical` ; la décision sobriété §04 2026-04-30 D1 (retrait `info`) fait foi → **2 valeurs `warning|critical`**.
 
 **Normalisations appliquées dans les schémas (à valider en `coherence-inter-cdc`, prose non encore réécrite des 2 côtés)** :
-
 - **`type` discriminant des sortants sans préfixe `tms.`** (`collecte.acceptee` et non `tms.collecte.acceptee`) — la prose ne préfixait que S1, incohérent avec le format commun, S11 et les entrants ; le champ `source` porte déjà la direction.
 - **S7 normalisé au format commun** (enveloppe + `data`) — la prose montrait un payload plat sans `data`/`source`/`type`.
 - **Plusieurs payloads sortants** (S2, S3, S4, S5, S9) ne montraient que `data` dans la prose ; l'enveloppe complète (`event_id`/`occurred_at`/`source`/`type`) leur est appliquée.
@@ -44,7 +45,7 @@ Issu de la revue de sobriété §08, après Blocs A+B+C. 5 simplifications enums
 
 Issu de la revue de sobriété §08, après Blocs A + B. 2 simplifications appliquées (C1 et C2 du rapport initial sont sans objet — résolus respectivement par A3 suppression `lieux_stocks_rolls` et A4+B1 suppression polling + retry 5→3) :
 
-1. **C3 ANNULÉ 2026-05-01 (audit cohérence inter-CDC)** — restauration S7 + colonnes Plateforme. Justification : besoin métier "commercial traiteur demande plaque pour contrôle d'accès anticipé → manager prestataire pré-saisit M03 E4 → blocage validation tournée si manquante" (R*M03.3) non couvert par lecture cross-schema seule (la plaque chauffeur terrain M05 E3 arrive trop tard). S7 restauré, déclenché à la saisie manager M03 E4 uniquement. **Saisie plaque chauffeur supprimée V1 (propagation 2026-06-04, arbitrage Val)** : il ne reste qu'une plaque (pré-saisie manager). Colonne `plaque_saisie_terrain` supprimée, exposition cross-schema retirée. La vue `v_courses_logistiques` ne porte plus que `heure_reelle*\*`.
+1. **C3 ANNULÉ 2026-05-01 (audit cohérence inter-CDC)** — restauration S7 + colonnes Plateforme. Justification : besoin métier "commercial traiteur demande plaque pour contrôle d'accès anticipé → manager prestataire pré-saisit M03 E4 → blocage validation tournée si manquante" (R_M03.3) non couvert par lecture cross-schema seule (la plaque chauffeur terrain M05 E3 arrive trop tard). S7 restauré, déclenché à la saisie manager M03 E4 uniquement. **Saisie plaque chauffeur supprimée V1 (propagation 2026-06-04, arbitrage Val)** : il ne reste qu'une plaque (pré-saisie manager). Colonne `plaque_saisie_terrain` supprimée, exposition cross-schema retirée. La vue `v_courses_logistiques` ne porte plus que `heure_reelle_*`.
 2. **Header `Idempotency-Key` supprimé** (C4) — duplication 1:1 avec `event_id` du payload (le header était explicitement défini comme = `event_id`). La dédup côté serveur lit `body.event_id` directement. Standard REST `Idempotency-Key` est utile quand le body change entre retries — pas notre cas (event_id stable, payload immuable). Réduction des headers HTTP requis = moins de risque erreur configuration émetteur.
 
 **Réduction nette Bloc C (post-restauration S7 2026-05-01)** : -1 header HTTP (`Idempotency-Key`) seulement. C3 annulé (S7 + colonnes Plateforme restaurés). 8 webhooks sortants actifs (S1, S2, S3, S4, S5, **S7**, S9, S11).
@@ -72,7 +73,7 @@ Issu de la revue de sobriété §08, après Bloc A. 5 simplifications appliquée
 Issu de la revue de sobriété §08. 6 suppressions appliquées :
 
 1. **Endpoint E10 `GET /me/has-profile` (SSO cross-app) supprimé** (A1) — confort UX pur (≤4 users cumul concernés). Bouton sidebar « → Plateforme/TMS » affiché inconditionnellement, page d'accès refusé propre côté cible si user sans profil. Symétrique `tms.gosavr.io/api/v1/me/has-profile` également supprimé. Voir [[10 - Design System TMS|§11 TMS]] et [[../01 - Cahier des charges App/09 - Authentification et permissions|§09 Plateforme]].
-2. **Webhook S6 `course-cout-calculee` supprimé** (A2) — remplacé par **vue cross-schema `plateforme.v_courses_logistiques`** qui SELECT depuis `tms.tournees` + `tms.collectes_tms`. Refresh sur trigger DB on UPDATE `tms.tournees.cout_final_ht` / `push_s6_version` _(noms corrigés audit cohérence 2026-05-26 A2 + 2026-06-04 — `version_paiement` est l'alias de vue de `push_s6_version`, pas une colonne de la table)_. La grille tarifaire reste privée TMS (vue n'expose que les colonnes autorisées). Suppression : retry policy spéciale 1h/24h, idempotency composite `(tournee_id, version)`, anti-replay applicatif, alerte M11 DLQ S6.
+2. **Webhook S6 `course-cout-calculee` supprimé** (A2) — remplacé par **vue cross-schema `plateforme.v_courses_logistiques`** qui SELECT depuis `tms.tournees` + `tms.collectes_tms`. Refresh sur trigger DB on UPDATE `tms.tournees.cout_final_ht` / `push_s6_version` *(noms corrigés audit cohérence 2026-05-26 A2 + 2026-06-04 — `version_paiement` est l'alias de vue de `push_s6_version`, pas une colonne de la table)*. La grille tarifaire reste privée TMS (vue n'expose que les colonnes autorisées). Suppression : retry policy spéciale 1h/24h, idempotency composite `(tournee_id, version)`, anti-replay applicatif, alerte M11 DLQ S6.
 3. **Webhook S8 `traiteur-stock-rolls-update` supprimé** (A3) — remplacé par **vue cross-schema `plateforme.v_stocks_rolls`** qui SELECT depuis `tms.stocks_rolls_traiteurs` + `tms.types_contenants` (filtre RLS par traiteur — les rolls sont attribués aux traiteurs uniquement, pas aux gestionnaires de lieux). Suppression : table miroir `plateforme.lieux_stocks_rolls`, alerte M11 `m09_webhook_s8_dlq`, R_M09.7 (TMS = source de vérité unique en lecture directe).
 4. **Endpoints fallback polling E6 + S10 (`GET /sync/poll`) supprimés** (A4) — retry policy 3 paliers (5 min / 1h / 24h, Bloc B B1) + dédup `integrations_inbox` couvrent 99.99% des pannes <24h. Au-delà → alerte critical + intervention manuelle (pas de cas nominal à automatiser). Suppression : 2 jobs cron Edge Function 60 min, pagination cursor, tests panne réseau simulée.
 5. **Alerting "latence p95 > 30s" supprimé** (A5) — métrique sans action métier (webhooks async, aucun client/prestataire impacté par latence p95). Conservation des 2 alertes critiques : 5 retries échoués + taux d'erreur >5% sur 1h.
@@ -116,12 +117,11 @@ Issu de la seconde salve M01 ([[06 - Fonctionnalités détaillées TMS/M01 - Ré
 
 ## Vue d'ensemble
 
-Architecture **2 fronts Next.js distincts partageant 1 projet Supabase** (schémas cloisonnés), communiquant en **event-driven** via webhooks HTTPS. **Pas de polling fallback V1** _(supprimé revue sobriété 2026-05-01 A4 — retry policy + dédup couvrent les pannes <24h, au-delà = intervention manuelle)_. Idempotence imposée sur toutes les routes. Retry policy uniforme **3 paliers : 5 min / 1h / 24h** _(simplifié revue sobriété Bloc B 2026-05-01 B1 — ex-5 paliers)_.
+Architecture **2 fronts Next.js distincts partageant 1 projet Supabase** (schémas cloisonnés), communiquant en **event-driven** via webhooks HTTPS. **Pas de polling fallback V1** *(supprimé revue sobriété 2026-05-01 A4 — retry policy + dédup couvrent les pannes <24h, au-delà = intervention manuelle)*. Idempotence imposée sur toutes les routes. Retry policy uniforme **3 paliers : 5 min / 1h / 24h** *(simplifié revue sobriété Bloc B 2026-05-01 B1 — ex-5 paliers)*.
 
 **Données accessibles en lecture directe cross-schema** (sans webhook V1) :
-
-- Coût tournée TMS + horaires réels via vue `plateforme.v_courses_logistiques` _(remplace ex-S6 Bloc A A2)_. **retiré (propagation suppression saisie plaque terrain 2026-06-04)** — la colonne `plaque_saisie_terrain` est supprimée ; la plaque pour contrôle d'accès est `plateforme.tournees.plaque_immatriculation`, alimentée par le webhook S7 émis par le manager (M03 E4), pas par lecture cross-schema.
-- Stocks rolls traiteurs TMS via vue `plateforme.v_stocks_rolls` _(remplace ex-S8 Bloc A A3)_.
+- Coût tournée TMS + horaires réels via vue `plateforme.v_courses_logistiques` *(remplace ex-S6 Bloc A A2)*. **retiré (propagation suppression saisie plaque terrain 2026-06-04)** — la colonne `plaque_saisie_terrain` est supprimée ; la plaque pour contrôle d'accès est `plateforme.tournees.plaque_immatriculation`, alimentée par le webhook S7 émis par le manager (M03 E4), pas par lecture cross-schema.
+- Stocks rolls traiteurs TMS via vue `plateforme.v_stocks_rolls` *(remplace ex-S8 Bloc A A3)*.
 
 Voir [[04 - Data Model TMS]] + [[../01 - Cahier des charges App/04 - Data Model]] pour le détail des vues.
 
@@ -155,20 +155,20 @@ Voir [[04 - Data Model TMS]] + [[../01 - Cahier des charges App/04 - Data Model]
 
 ### Inventaire des endpoints V1
 
-| #   | Sens             | Endpoint                               | Déclencheur métier                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| --- | ---------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| E1  | Plateforme → TMS | `POST /collectes`                      | Collecte **soumise au formulaire** côté Plateforme (statut `programmee`, `statut_tms` `non_envoye`→`a_attribuer`) — payload sans `prestataire_id_pre_affecte` (cf. seconde salve M01). _(Corrigé Sujet 2 2026-05-26 — ex « statut `validee` ».)_                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| E2  | Plateforme → TMS | `PATCH /collectes/:id`                 | Modification d'une collecte **déjà transmise au TMS** (`statut_tms ≠ non_envoye`) _(corrigé Sujet 2 2026-05-26 — ex « déjà validée »)_                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| E3  | Plateforme → TMS | `DELETE /collectes/:id`                | Annulation d'une collecte                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| E5  | Plateforme → TMS | `PATCH /lieux/:id`                     | **Allégé 2026-04-23 seconde salve** — notification seule de changement champ critique lieu, pas de rétroactivité                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| S1  | TMS → Plateforme | `POST /webhooks/tms/collecte-acceptee` | Prestataire accepte une collecte                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| S2  | TMS → Plateforme | `POST /webhooks/tms/collecte-refusee`  | Prestataire refuse → réattribution Ops                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| S3  | TMS → Plateforme | `POST /webhooks/tms/tournee-upsert`    | Création ou modification d'une tournée                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| S4  | TMS → Plateforme | `POST /webhooks/tms/collecte-en-cours` | Chauffeur démarre la collecte                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| S5  | TMS → Plateforme | `POST /webhooks/tms/collecte-terminee` | Clôture collecte (pesées + photos + signature OU aucun repas)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| S7  | TMS → Plateforme | `POST /webhooks/tms/plaque-saisie`     | **Restauré 2026-05-01 — payload enrichi 2026-05-03 (refonte formulaire §06.01 Plateforme : flag `controle_acces_requis` plaque + nom chauffeur)** — émis à la saisie manager prestataire en M03 E4 (saisie plaque OU affectation chauffeur sur tournée avec `controle_acces_requis=true`). Payload : `{plaque, chauffeur_nom}` (plaque nullable pour vélo cargo). Alimente `plateforme.tournees.plaque_immatriculation` + `tournees.chauffeur_nom` + `plaque_saisie_at`. Plaque chauffeur terrain M05 E3 reste TMS-only (Option B Val). **Émis pour vélo cargo A Toutes!** avec `plaque=null` + `chauffeur_nom` renseigné (le nom chauffeur reste requis même en vélo cargo pour le contrôle d'accès — correction audit cohérence Run 5 2026-05-03). |
-| S9  | TMS → Plateforme | `POST /webhooks/tms/incident`          | Incident terrain déclaré par chauffeur                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| S11 | TMS → Plateforme | `POST /webhooks/tms/collecte-rejetee`  | **Nouveau 2026-04-23 seconde salve** — Admin TMS rejette définitivement un event DLQ → Plateforme passe la collecte en `rejetee_par_tms`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| # | Sens | Endpoint | Déclencheur métier |
+|---|------|----------|---------------------|
+| E1 | Plateforme → TMS | `POST /collectes` | Collecte **soumise au formulaire** côté Plateforme (statut `programmee`, `statut_tms` `non_envoye`→`a_attribuer`) — payload sans `prestataire_id_pre_affecte` (cf. seconde salve M01). *(Corrigé Sujet 2 2026-05-26 — ex « statut `validee` ».)* |
+| E2 | Plateforme → TMS | `PATCH /collectes/:id` | Modification d'une collecte **déjà transmise au TMS** (`statut_tms ≠ non_envoye`) *(corrigé Sujet 2 2026-05-26 — ex « déjà validée »)* |
+| E3 | Plateforme → TMS | `DELETE /collectes/:id` | Annulation d'une collecte |
+| E5 | Plateforme → TMS | `PATCH /lieux/:id` | **Allégé 2026-04-23 seconde salve** — notification seule de changement champ critique lieu, pas de rétroactivité |
+| S1 | TMS → Plateforme | `POST /webhooks/tms/collecte-acceptee` | Prestataire accepte une collecte |
+| S2 | TMS → Plateforme | `POST /webhooks/tms/collecte-refusee` | Prestataire refuse → réattribution Ops |
+| S3 | TMS → Plateforme | `POST /webhooks/tms/tournee-upsert` | Création ou modification d'une tournée |
+| S4 | TMS → Plateforme | `POST /webhooks/tms/collecte-en-cours` | Chauffeur démarre la collecte |
+| S5 | TMS → Plateforme | `POST /webhooks/tms/collecte-terminee` | Clôture collecte (pesées + photos + signature OU aucun repas) |
+| S7 | TMS → Plateforme | `POST /webhooks/tms/plaque-saisie` | **Restauré 2026-05-01 — payload enrichi 2026-05-03 (refonte formulaire §06.01 Plateforme : flag `controle_acces_requis` plaque + nom chauffeur)** — émis à la saisie manager prestataire en M03 E4 (saisie plaque OU affectation chauffeur sur tournée avec `controle_acces_requis=true`). Payload : `{plaque, chauffeur_nom}` (plaque nullable pour vélo cargo). Alimente `plateforme.tournees.plaque_immatriculation` + `tournees.chauffeur_nom` + `plaque_saisie_at`. Plaque chauffeur terrain M05 E3 reste TMS-only (Option B Val). **Émis pour vélo cargo A Toutes!** avec `plaque=null` + `chauffeur_nom` renseigné (le nom chauffeur reste requis même en vélo cargo pour le contrôle d'accès — correction audit cohérence Run 5 2026-05-03). |
+| S9 | TMS → Plateforme | `POST /webhooks/tms/incident` | Incident terrain déclaré par chauffeur |
+| S11 | TMS → Plateforme | `POST /webhooks/tms/collecte-rejetee` | **Nouveau 2026-04-23 seconde salve** — Admin TMS rejette définitivement un event DLQ → Plateforme passe la collecte en `rejetee_par_tms` |
 
 > **Note numérotation (mise à jour 2026-05-01 revue sobriété Bloc A+C + restauration S7 audit cohérence inter-CDC)** : 4 endpoints entrants actifs (E1, E2, E3, E5) sur 6 slots historiques — E4 supprimé seconde salve 2026-04-23, E6 supprimé revue sobriété Bloc A 2026-05-01. **8 webhooks sortants actifs** (S1, S2, S3, S4, S5, **S7**, S9, S11) sur 11 slots historiques — S6 + S8 + S10 supprimés Bloc A 2026-05-01. **S7 restauré 2026-05-01** (annulation Bloc C C3, audit cohérence inter-CDC) pour couvrir le besoin métier R_M03.3 (manager prestataire pré-saisit plaque). Les slots supprimés sont conservés en strikethrough volontairement pour préserver les références historiques dans les modules M01/M06/M07/M08/M09 et éviter une renumérotation cascade.
 
@@ -179,16 +179,15 @@ Voir [[04 - Data Model TMS]] + [[../01 - Cahier des charges App/04 - Data Model]
 ### 1. Event-driven sans polling
 
 - **Canal unique** : webhook HTTPS push dès que l'événement métier se produit (latence < 5s)
-- Si le webhook échoue → retry policy uniforme **3 paliers : 5 min / 1h / 24h** _(simplifié Bloc B B1)_ + dédup `integrations_inbox`
+- Si le webhook échoue → retry policy uniforme **3 paliers : 5 min / 1h / 24h** *(simplifié Bloc B B1)* + dédup `integrations_inbox`
 - Échec final retry (>24h) → alerte critical M11 + bouton "Rejouer" manuel dashboard sync M13
-- **Pas de polling fallback V1** _(supprimé revue sobriété 2026-05-01 A4)_ — le retry 3 paliers (Bloc B B1) couvre 99.99% des pannes <24h, au-delà = intervention manuelle (pas un cas nominal à automatiser)
+- **Pas de polling fallback V1** *(supprimé revue sobriété 2026-05-01 A4)* — le retry 3 paliers (Bloc B B1) couvre 99.99% des pannes <24h, au-delà = intervention manuelle (pas un cas nominal à automatiser)
 
 ### 2. Idempotence stricte
 
 Chaque événement porte un `event_id` UUID unique. Le consommateur stocke les `event_id` traités (table `integrations_inbox`) et ignore les doublons. L'émetteur peut rejouer un même `event_id` sans provoquer de modification en double.
 
 **Clé métier secondaire** selon l'événement :
-
 - Collectes : `collecte_id`
 - Tournées : `tournee_id`
 - Prestataires : `prestataire_id`
@@ -197,7 +196,6 @@ Chaque événement porte un `event_id` UUID unique. Le consommateur stocke les `
 ### 3. Horodatage et ordre
 
 Chaque payload contient :
-
 - `event_id` (UUID v4)
 - `emis_le` (ISO 8601 UTC, précision milliseconde)
 - `occurred_at` (horodatage métier — quand l'événement est réellement survenu côté émetteur, peut différer de `emis_le` si retry)
@@ -209,8 +207,7 @@ Chaque payload contient :
 
 Si le consommateur retourne autre chose que 2xx :
 
-**Policy uniforme 3 paliers (S1, S2, S3, S4, S5, S7, S9, S11)** _(simplifiée revue sobriété Bloc B 2026-05-01 B1 — ex-5 paliers)_ :
-
+**Policy uniforme 3 paliers (S1, S2, S3, S4, S5, S7, S9, S11)** *(simplifiée revue sobriété Bloc B 2026-05-01 B1 — ex-5 paliers)* :
 - Retry 1 : **5 min**
 - Retry 2 : **1h**
 - Retry 3 : **24h**
@@ -238,8 +235,7 @@ Backoff exponentiel avec jitter aléatoire ± 10% pour éviter les rafales synch
 
 **Mutual HMAC-SHA256** sur tous les appels Plateforme ↔ TMS (bidirectionnel).
 
-**Header des requêtes** _(simplifiés revue sobriété Bloc C 2026-05-01 C4 — `Idempotency-Key` retiré)_ :
-
+**Header des requêtes** *(simplifiés revue sobriété Bloc C 2026-05-01 C4 — `Idempotency-Key` retiré)* :
 ```
 Authorization: Bearer <jwt>
 X-Savr-Signature: sha256=<hmac>
@@ -268,7 +264,6 @@ Content-Type: application/json
 ### Journalisation obligatoire
 
 Toute requête entrante et sortante est loggée dans `integrations_logs` (voir section Observabilité) avec :
-
 - `event_id`, `endpoint`, `direction`, `request_headers` (sans `Authorization`), `request_body`, `response_status`, `response_body`, `latence_ms`, `tentative_numero`, `erreur_si_echec`
 - **Aucun secret ni PII chauffeur dans les logs** — pièces d'identité, permis, photos sont référencés par URL signée, pas en contenu
 
@@ -295,23 +290,23 @@ Toute requête entrante et sortante est loggée dans `integrations_logs` (voir s
 
 Les enums **doivent être identiques** dans les deux apps. Liste de référence :
 
-| Enum                                                     | Valeurs autorisées                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `statut_tms` (Plateforme) / `statut_dispatch` (TMS)      | **8 valeurs miroir** (alignement audit cohérence inter-CDC 2026-04-25 A1+B2 + sweep 2026-04-29 B4) : `non_envoye`, `a_attribuer`, `attribuee_en_attente_acceptation`, `acceptee`, `en_attente_execution`, `rejetee_par_prestataire`, `annulee_par_traiteur`, `rejetee_par_tms`. Côté Plateforme : 8 valeurs. Côté TMS `statut_dispatch` : 6 valeurs (sans `non_envoye` initial Plateforme avant push E1, sans `rejetee_par_tms` qui est Plateforme-only après réception S11). Toute divergence est un bug.                                                                                                                                                                                                                                                                   |
-| `statut_final` (payload S5 collecte-terminee uniquement) | `realisee`, `realisee_sans_collecte`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `type_collecte`                                          | `zd`, `ag`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| `statut_tournee`                                         | `planifiee`, `en_cours`, `terminee`, `annulee` (**enum exposé Plateforme = 4 valeurs, aligné `plateforme.tournees.statut` — réaligné 2026-06-11**). **Mapping TMS → payload S3** (le statut tournée TMS interne a 5 valeurs `planifiee/acceptee/en_cours/terminee/annulee`, R6.2) : `planifiee`→`planifiee`, **`acceptee`→`planifiee`** (l'état « tournée prête » est interne TMS, non exposé — décision cycle de vie 2026-06-06 ; la Plateforme suit déjà l'acceptation au niveau **collecte** via S1), `en_cours`→`en_cours`, `terminee`→`terminee` _(1:1, ex-`realisee` — réaligné 2026-06-11 sur `plateforme.tournees.statut`, plus aucun renommage wire↔colonne)_, `annulee`→`annulee`. **L'enum exposé = la colonne App** : 4 valeurs, vocab identique des deux côtés. |
-| `type_flux_zd`                                           | **Enum fermée V1 (post-refonte 2026-05-02)** : `biodechet`, `verre`, `dechet_residuel`, `emballage`, `carton`. Renommage `dib`→`dechet_residuel`. Suppressions définitives : `dangereux`, `huiles`, `papier`, `deee`, `gravats`, `terre` (Savr ne collecte aucun de ces flux). Alignement §04 App `flux_dechets` + §04 TMS `pesees.flux`.                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| `type_flux_ag`                                           | `don_alimentaire`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| `devise`                                                 | `EUR` (V1 mono-devise)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| `type_incident`                                          | **5 valeurs** (décision 2026-06-06 — `pas_excedents` retiré, cf. décision chemin unique ci-dessous) : `acces_refuse`, `client_absent`, `probleme_tri`, `autre`, `client_annule_avant_arrivee`. Suppressions antérieures Bloc D : `vehicule_panne`/`accident_route`/`chauffeur_indisponible`/`retard_chauffeur`/`absence_contenant`/`materiel_casse`/`erreur_pesee`/`blessure`. `pas_excedents` (ex-6e valeur) retiré 2026-06-06 : le cas AG « aucun repas » passe par E5 → S5 `collecte-terminee` (`realisee_sans_collecte`), plus par S9.                                                                                                                                                                                                                                   |
-| `statut_collecte_apres` (payload S9 incident)            | **4 valeurs** (décision 2026-06-06 — `realisee_sans_collecte` retiré, plus atteignable via S9 depuis le retrait de `pas_excedents`) : `realisee`, `echec_acces`, `inchange`, `annulee`. fusionné dans `inchange` (Bloc D D3). _(`realisee_sans_collecte` reste émis par S5 `collecte-terminee` via `statut_final`, enum distinct.)_                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| `motif_dlq` (payload S11)                                | **Text libre** (post-Bloc D D5 — ex-enum 5 valeurs). Enum conservé en interne TMS pour catégorisation dashboards M11. Côté payload + Plateforme : text libre, info utile portée par `commentaire_admin` ≥10 chars.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| `stationnement` (sous-objet `lieu` E1)                   | **3 valeurs + nullable** (propagation refonte App 2026-05-08 → §08 TMS 2026-06-03) : `facile`, `difficile`, `tres_difficile`, ou `null`. Reframe "type d'emplacement" → "difficulté d'accès". périmés ; supprimé (Bloc D D4).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| `acces_office` (sous-objet `lieu` E1)                    | **3 valeurs + nullable** (propagation refonte App 2026-05-08 → §08 TMS 2026-06-03) : `facile`, `difficile`, `tres_difficile`, ou `null`. périmé (même enum que `stationnement`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `type_vehicule_max` (sous-objet `lieu` E1)               | **5 valeurs** (propagation refonte App 2026-05-08 → §08 TMS 2026-06-03) : `velo_cargo`, `camionnette`, `fourgon`, `vul`, `poids_lourd` (enum véhicule unifié, hiérarchie ordonnée). périmés. Identique à `type_vehicule_categorie_plateforme` (S3).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| `integrations_inbox.statut` (table dédup)                | **3 valeurs** (post-Bloc D D6) : `traite`, `ignore_doublon`, `ignore_out_of_order`. supprimé (insertion BDD APRÈS traitement réussi seulement, donc valeur jamais atteinte en pratique). Dédup garantie par PK `event_id`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| `imputable_a`                                            | `traiteur`, `chauffeur`, `savr`, `externe`, `indetermine`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Enum                                                     | Valeurs autorisées                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `statut_tms` (Plateforme) / `statut_dispatch` (TMS)      | **8 valeurs miroir** (alignement audit cohérence inter-CDC 2026-04-25 A1+B2 + sweep 2026-04-29 B4) : `non_envoye`, `a_attribuer`, `attribuee_en_attente_acceptation`, `acceptee`, `en_attente_execution`, `rejetee_par_prestataire`, `annulee_par_traiteur`, `rejetee_par_tms`. Côté Plateforme : 8 valeurs. Côté TMS `statut_dispatch` : 6 valeurs (sans `non_envoye` initial Plateforme avant push E1, sans `rejetee_par_tms` qui est Plateforme-only après réception S11). Toute divergence est un bug. |
+| `statut_final` (payload S5 collecte-terminee uniquement) | `realisee`, `realisee_sans_collecte`                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `type_collecte`                                          | `zd`, `ag`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `statut_tournee`                                         | `planifiee`, `en_cours`, `terminee`, `annulee` (**enum exposé Plateforme = 4 valeurs, aligné `plateforme.tournees.statut` — réaligné 2026-06-11**). **Mapping TMS → payload S3** (le statut tournée TMS interne a 5 valeurs `planifiee/acceptee/en_cours/terminee/annulee`, R6.2) : `planifiee`→`planifiee`, **`acceptee`→`planifiee`** (l'état « tournée prête » est interne TMS, non exposé — décision cycle de vie 2026-06-06 ; la Plateforme suit déjà l'acceptation au niveau **collecte** via S1), `en_cours`→`en_cours`, `terminee`→`terminee` *(1:1, ex-`realisee` — réaligné 2026-06-11 sur `plateforme.tournees.statut`, plus aucun renommage wire↔colonne)*, `annulee`→`annulee`. **L'enum exposé = la colonne App** : 4 valeurs, vocab identique des deux côtés.                                                                                                                                                                                                                                                                                                                                                            |
+| `type_flux_zd`                                           | **Enum fermée V1 (post-refonte 2026-05-02)** : `biodechet`, `verre`, `dechet_residuel`, `emballage`, `carton`. Renommage `dib`→`dechet_residuel`. Suppressions définitives : `dangereux`, `huiles`, `papier`, `deee`, `gravats`, `terre` (Savr ne collecte aucun de ces flux). Alignement §04 App `flux_dechets` + §04 TMS `pesees.flux`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `type_flux_ag`                                           | `don_alimentaire`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `devise`                                                 | `EUR` (V1 mono-devise)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `type_incident`                                          | **5 valeurs** (décision 2026-06-06 — `pas_excedents` retiré, cf. décision chemin unique ci-dessous) : `acces_refuse`, `client_absent`, `probleme_tri`, `autre`, `client_annule_avant_arrivee`. Suppressions antérieures Bloc D : `vehicule_panne`/`accident_route`/`chauffeur_indisponible`/`retard_chauffeur`/`absence_contenant`/`materiel_casse`/`erreur_pesee`/`blessure`. `pas_excedents` (ex-6e valeur) retiré 2026-06-06 : le cas AG « aucun repas » passe par E5 → S5 `collecte-terminee` (`realisee_sans_collecte`), plus par S9.                                                                                                                                                                                                                                                                                                                                              |
+| `statut_collecte_apres` (payload S9 incident) | **4 valeurs** (décision 2026-06-06 — `realisee_sans_collecte` retiré, plus atteignable via S9 depuis le retrait de `pas_excedents`) : `realisee`, `echec_acces`, `inchange`, `annulee`. fusionné dans `inchange` (Bloc D D3). *(`realisee_sans_collecte` reste émis par S5 `collecte-terminee` via `statut_final`, enum distinct.)* |
+| `motif_dlq` (payload S11)                                | **Text libre** (post-Bloc D D5 — ex-enum 5 valeurs). Enum conservé en interne TMS pour catégorisation dashboards M11. Côté payload + Plateforme : text libre, info utile portée par `commentaire_admin` ≥10 chars.                                                                                                                                                                                                                                                                                          |
+| `stationnement` (sous-objet `lieu` E1) | **3 valeurs + nullable** (propagation refonte App 2026-05-08 → §08 TMS 2026-06-03) : `facile`, `difficile`, `tres_difficile`, ou `null`. Reframe "type d'emplacement" → "difficulté d'accès". périmés ; supprimé (Bloc D D4). |
+| `acces_office` (sous-objet `lieu` E1) | **3 valeurs + nullable** (propagation refonte App 2026-05-08 → §08 TMS 2026-06-03) : `facile`, `difficile`, `tres_difficile`, ou `null`. périmé (même enum que `stationnement`). |
+| `type_vehicule_max` (sous-objet `lieu` E1) | **5 valeurs** (propagation refonte App 2026-05-08 → §08 TMS 2026-06-03) : `velo_cargo`, `camionnette`, `fourgon`, `vul`, `poids_lourd` (enum véhicule unifié, hiérarchie ordonnée). périmés. Identique à `type_vehicule_categorie_plateforme` (S3). |
+| `integrations_inbox.statut` (table dédup) | **3 valeurs** (post-Bloc D D6) : `traite`, `ignore_doublon`, `ignore_out_of_order`. supprimé (insertion BDD APRÈS traitement réussi seulement, donc valeur jamais atteinte en pratique). Dédup garantie par PK `event_id`. |
+| `imputable_a`                                            | `traiteur`, `chauffeur`, `savr`, `externe`, `indetermine`                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 
 ### Formats
 
@@ -324,19 +319,16 @@ Les enums **doivent être identiques** dans les deux apps. Liste de référence 
 ### Réponses
 
 **Succès** : 2xx avec body minimal
-
 ```json
 { "event_id": "uuid-v4", "received_at": "2026-04-22T14:30:00.500Z" }
 ```
 
 **Erreur** :
-
 ```json
 { "error": "code_machine", "message": "description humaine", "retryable": true|false }
 ```
 
 Codes d'erreur normalisés :
-
 - `400 invalid_payload` — schéma invalide (non retryable)
 - `401 unauthorized` — JWT ou HMAC invalide (non retryable)
 - `409 event_out_of_order` — event plus ancien que le dernier traité (non retryable, ignoré)
@@ -351,10 +343,9 @@ Codes d'erreur normalisés :
 
 ### E1 — `POST /collectes`
 
-**Déclencheur** : **soumission du formulaire de programmation** côté Plateforme — la collecte est créée au statut `programmee` et E1 part immédiatement (`statut_tms` `non_envoye`→`a_attribuer`). _(Corrigé Sujet 2 2026-05-26 — ex « collecte passée au statut `validee` (validation Admin…) » : il n'y a **pas** de validation Admin à la création, le cycle est 100 % automatisé côté Plateforme ; `validee` est un état postérieur dérivé de l'acceptation prestataire — cf. App §05 §4. Le TMS reste inchangé : il reçoit la collecte à la soumission, comme aujourd'hui.)_
+**Déclencheur** : **soumission du formulaire de programmation** côté Plateforme — la collecte est créée au statut `programmee` et E1 part immédiatement (`statut_tms` `non_envoye`→`a_attribuer`). *(Corrigé Sujet 2 2026-05-26 — ex « collecte passée au statut `validee` (validation Admin…) » : il n'y a **pas** de validation Admin à la création, le cycle est 100 % automatisé côté Plateforme ; `validee` est un état postérieur dérivé de l'acceptation prestataire — cf. App §05 §4. Le TMS reste inchangé : il reçoit la collecte à la soumission, comme aujourd'hui.)*
 
 **Payload** :
-
 ```json
 {
   "event_id": "uuid",
@@ -389,10 +380,10 @@ Codes d'erreur normalisés :
       "ville": "string",
       "coordonnees_gps": { "lat": 48.8566, "lng": 2.3522 },
       "acces_details": "string|null",
-      "acces_office": "facile|difficile|tres_difficile|null", // **propagation refonte App 2026-05-08 → §08 TMS 2026-06-03 (Bloc 2 JSON Schema)** : enum difficulté d'accès
-      "stationnement": "facile|difficile|tres_difficile|null", // **propagation refonte App 2026-05-08 → §08 TMS 2026-06-03** : reframe "type d'emplacement" → "difficulté d'accès"
+"acces_office": "facile|difficile|tres_difficile|null", // **propagation refonte App 2026-05-08 → §08 TMS 2026-06-03 (Bloc 2 JSON Schema)** : enum difficulté d'accès
+"stationnement": "facile|difficile|tres_difficile|null", // **propagation refonte App 2026-05-08 → §08 TMS 2026-06-03** : reframe "type d'emplacement" → "difficulté d'accès"
       "contraintes_horaires": "string|null",
-      "type_vehicule_max": "velo_cargo|camionnette|fourgon|vul|poids_lourd", // **propagation refonte App 2026-05-08 → §08 TMS 2026-06-03** : enum véhicule unifié (hiérarchie velo_cargo<camionnette<fourgon<vul<poids_lourd)
+"type_vehicule_max": "velo_cargo|camionnette|fourgon|vul|poids_lourd", // **propagation refonte App 2026-05-08 → §08 TMS 2026-06-03** : enum véhicule unifié (hiérarchie velo_cargo<camionnette<fourgon<vul<poids_lourd)
       "volume_max_bacs": 0
     },
     "contacts": {
@@ -405,7 +396,7 @@ Codes d'erreur normalisés :
       "fuseau": "Europe/Paris"
     },
     "type_collecte": "zd|ag",
-    "nb_pax": 250, // = evenements.pax (pax unique niveau événement). **`collectes.pax_collecte` retiré V1 le 2026-05-29** : plus d'override par collecte, le pax transmis est toujours celui de l'événement. Comportement TMS inchangé (reçoit la valeur résolue côté Plateforme). Multi-jours à pax variable reporté V2.
+"nb_pax": 250, // = evenements.pax (pax unique niveau événement). **`collectes.pax_collecte` retiré V1 le 2026-05-29** : plus d'override par collecte, le pax transmis est toujours celui de l'événement. Comportement TMS inchangé (reçoit la valeur résolue côté Plateforme). Multi-jours à pax variable reporté V2.
     "controle_acces_requis": false, // Booléen — propagation M03 2026-04-24 + restauré 2026-05-01 + **renommé 2026-05-03 (refonte formulaire §06.01 Plateforme : flag unique plaque + nom chauffeur, ex `plaque_requise`)**. Si true → manager prestataire doit pré-saisir la plaque ET affecter un chauffeur en M03 E4 → trigger validate_tournee_controle_acces bloque validation tournée si plaque OU chauffeur_id manquant (R_M03.4 + R_M04.CONTROLE_ACCES, sauf exception A Toutes! vélo cargo sur le critère plaque uniquement — chauffeur reste obligatoire).
     "informations_supplementaires": "string|null" // Texte libre max 1000 car. — ajout refonte 2026-05-06 (§06.01 §2.a Plateforme). Informations logistiques saisies par le programmeur (ex: "Sonner interphone B au RDC", "Quai N°2 fermé le lundi"). Source plateforme.collectes.informations_supplementaires, figé dans tms.collectes_tms.informations_supplementaires à la création TMS. Visible côté TMS : manager prestataire (M01 réception, M03 dispatch) + chauffeur app mobile (M05 tournée). **Remplace l'ancien champ `notes_commerciales` (orphelin, supprimé du payload 2026-05-06).**
   }
@@ -415,7 +406,6 @@ Codes d'erreur normalisés :
 **Note 2026-04-23 seconde salve** : le champ `prestataire_id_pre_affecte` a été **retiré du payload** (D10 supprimée). Toutes les collectes arrivent désormais en `statut_dispatch='a_attribuer'`. Les règles d'attribution forte (ex : "client X = toujours Strike") vivent dans M12 TMS (paramétrable). Voir [[../06 - Fonctionnalités détaillées TMS/M01 - Réception ordres de collecte#Addendum 2026-04-23 (seconde salve) — Arbitrages de simplification]].
 
 **Note 2026-04-28 audit cohérence A2** — restructuration `lieu` + `contacts` :
-
 - Sous-objet `lieu` : ajout `acces_details`, `acces_office`, `stationnement`, `contraintes_horaires`, `type_vehicule_max`, `volume_max_bacs`. Retrait `contraintes_acces` (legacy, fusionné dans `acces_details`).
 - Nouveau sous-objet racine `contacts` (sorti de `lieu` car contacts dépendent du couple lieu × traiteur, pas du lieu seul). Contient `principal` (obligatoire) et `secours` (optionnel — peut être absent ou avec champs vides si traiteur n'a pas saisi).
 - Source : `contacts.principal` ← `evenements.contact_principal_nom/telephone` ; `contacts.secours` ← `evenements.contact_secours_nom/telephone` (nullable). Les contacts sont figés dans `tms.collectes_tms.contact_principal_*` + `contact_secours_*` à la création TMS (pas dans `lieu_snapshot`).
@@ -426,17 +416,16 @@ Codes d'erreur normalisés :
 **Réponse TMS** : `201 Created` + `{ "collecte_id": "...", "statut_tms": "recue" }`
 
 **Validations TMS bloquantes** :
-
 - `collecte_id` absent ou non UUID → 400
 - Taille payload > 256 KB → 413 + DLQ `schema_invalide` (D22 seconde salve)
 - Coords GPS absentes si `type_collecte = ag` OU `lieu.code_postal` hors IDF → accept + flag `coords_manquantes=true` (D9 M01 — pas de rejet, Ops résout sur place)
 - `heure_collecte` dans le passé → 422 (propagation 2026-04-29 — anciennement "Créneau dans le passé")
 
-### E2 — `PATCH /collectes/:id` _(enrichi 2026-05-04 — refonte modification libre côté Plateforme)_
+### E2 — `PATCH /collectes/:id` *(enrichi 2026-05-04 — refonte modification libre côté Plateforme)*
 
-**Déclencheur** : modification d'une collecte déjà validée (changement `heure_collecte`, `date_collecte`, nb_pax, contacts, notes, `controle_acces_requis`, `informations_supplementaires`, type_evenement, taille). Voir [[../01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur#Édition d'une collecte à venir (refonte 2026-05-04 + sobriété 2026-05-04)]] _(alignement audit cohérence inter-CDC Run 6 2026-05-07 B1 — ancre cible alignée sur le titre réel §06.04 App)_ et [[../01 - Cahier des charges App/08 - APIs et intégrations#Modification collecte (refonte 2026-05-04)]].
+**Déclencheur** : modification d'une collecte déjà validée (changement `heure_collecte`, `date_collecte`, nb_pax, contacts, notes, `controle_acces_requis`, `informations_supplementaires`, type_evenement, taille). Voir [[../01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur#Édition d'une collecte à venir (refonte 2026-05-04 + sobriété 2026-05-04)]] *(alignement audit cohérence inter-CDC Run 6 2026-05-07 B1 — ancre cible alignée sur le titre réel §06.04 App)* et [[../01 - Cahier des charges App/08 - APIs et intégrations#Modification collecte (refonte 2026-05-04)]].
 
-**Payload** _(refonte 2026-05-04 + sobriété B5 2026-05-04 — `side_effects` retiré, le TMS calcule sa propre logique sur le diff)_ :
+**Payload** *(refonte 2026-05-04 + sobriété B5 2026-05-04 — `side_effects` retiré, le TMS calcule sa propre logique sur le diff)* :
 
 ```json
 {
@@ -474,13 +463,12 @@ Codes d'erreur normalisés :
 > **`association_attribuee` (AG uniquement — ajout 2026-05-29, arbitrage Val)** : destination de livraison des excédents AG. L'association est attribuée puis validée côté Plateforme (algo §06.09 + Admin) **après** la création de la collecte (E1 part à la soumission, l'association n'est pas encore connue). En V2, la cascade `attribution_validee` (App §06.09 §3) émet **E2** avec cet objet pour transmettre la destination au TMS. M01 W3 le fige dans `tms.collectes_tms.association_snapshot` → affiché au chauffeur en M05 E7 (pré-rempli). Ré-attribution association (refus asso Plateforme) → nouvel E2, snapshot écrasé. **Push silencieux** (pas de réacceptation : changer la destination de livraison n'affecte pas l'acceptation de la course par le transporteur). Champ jamais présent pour les collectes ZD.
 
 **Règles métier (refonte 2026-05-04)** :
-
-- Si `collectes_tms.statut_operationnel ∈ (en_cours, realisee, realisee_sans_collecte, incident)` → **refus 409 Conflict** (la collecte n'est plus modifiable, exécution démarrée ou terminée). Plateforme alerte Ops, ne réessaye pas. _(Alignement audit cohérence inter-CDC Run 6 2026-05-07 A3 : ex `statut_tms = realisee, en_cours, terminee, cloturee`, valeurs hors enum `statut_tms` 8 valeurs miroir + `cloturee` inexistant nulle part.)_
-- Si `statut_dispatch = attribuee_en_attente_acceptation` → diff appliqué silencieusement (pas de réacceptation : le prestataire n'a pas encore accepté). Notification standard manager prestataire en M03. _(Alignement audit cohérence inter-CDC Run 6 2026-05-07 A2 : ex `statut_tms = attribuee`, valeur inexistante dans l'enum miroir 8 valeurs.)_
+- Si `collectes_tms.statut_operationnel ∈ (en_cours, realisee, realisee_sans_collecte, incident)` → **refus 409 Conflict** (la collecte n'est plus modifiable, exécution démarrée ou terminée). Plateforme alerte Ops, ne réessaye pas. *(Alignement audit cohérence inter-CDC Run 6 2026-05-07 A3 : ex `statut_tms = realisee, en_cours, terminee, cloturee`, valeurs hors enum `statut_tms` 8 valeurs miroir + `cloturee` inexistant nulle part.)*
+- Si `statut_dispatch = attribuee_en_attente_acceptation` → diff appliqué silencieusement (pas de réacceptation : le prestataire n'a pas encore accepté). Notification standard manager prestataire en M03. *(Alignement audit cohérence inter-CDC Run 6 2026-05-07 A2 : ex `statut_tms = attribuee`, valeur inexistante dans l'enum miroir 8 valeurs.)*
 - Si `statut_dispatch = acceptee` :
   - Diff sur **date_collecte** ou **heure_collecte** : **réacceptation requise** → statut TMS repasse à `attribuee_en_attente_acceptation` (réutilisation enum existant, pas de 7e valeur), flag `flags_jsonb.re_confirmation_requise = true` sur `tms.collectes_tms` pour distinguer d'une 1ère acceptation côté UI portail M03 (cf. M04 W10). Push notification au prestataire (email + portail M03) pour re-confirmation.
   - Diff sur `controle_acces_requis` (passage à `true`) : **notification simple** au manager prestataire (« contrôle d'accès désormais requis — pré-saisir plaque + chauffeur en M03 E4 avant validation tournée »), **pas de réacceptation** (arbitrage Val 2026-06-05). MAJ donnée TMS.
-  - Diff sur autres champs (notes, contact secours, `nb_pax`, `informations_supplementaires`, `association_attribuee`, etc.) : push silencieux, MAJ donnée TMS, pas de réacceptation. _(`nb_pax` explicitement retiré des champs déclenchant une réacceptation — arbitrage Val 2026-06-05 ; il reste déclencheur du re-run M12 « suggestion d'attribution », purement interne Ops, sans réengagement prestataire.)_
+  - Diff sur autres champs (notes, contact secours, `nb_pax`, `informations_supplementaires`, `association_attribuee`, etc.) : push silencieux, MAJ donnée TMS, pas de réacceptation. *(`nb_pax` explicitement retiré des champs déclenchant une réacceptation — arbitrage Val 2026-06-05 ; il reste déclencheur du re-run M12 « suggestion d'attribution », purement interne Ops, sans réengagement prestataire.)*
   - Logique réacceptation déduite du diff par le TMS (sobriété B5 2026-05-04 : pas de flag `side_effects` dans le payload, le TMS source de vérité sur le workflow prestataire).
 - **Champs non modifiables au PATCH (sobriété A4 2026-05-04 — verrouillés UI Plateforme)** :
   - `collecte_id`, `evenement_id`, `traiteur_id` (immuables)
@@ -496,7 +484,6 @@ Codes d'erreur normalisés :
 **Déclencheur** : annulation d'une collecte.
 
 **Payload** :
-
 ```json
 {
   "event_id": "uuid",
@@ -511,9 +498,8 @@ Codes d'erreur normalisés :
 ```
 
 **Conséquences côté TMS** (voir décision annulation §03) :
-
 - Si `statut_tournee = planifiee` → tournée annulée, 0 € facturé prestataire
-- Si `statut_tournee = en_cours` → alerte Ops, coût vacation prestataire généré (Strike/Marathon). **Remplacé revue sobriété 2026-05-01 A2** : trigger DB cross-schema `plateforme.fn_recalc_marge_tournee()` invoqué par UPDATE `tms.tournees.cout_final_ht` _(nom corrigé audit 2026-05-26 A2)_ (lecture via vue `plateforme.v_courses_logistiques`).
+- Si `statut_tournee = en_cours` → alerte Ops, coût vacation prestataire généré (Strike/Marathon). **Remplacé revue sobriété 2026-05-01 A2** : trigger DB cross-schema `plateforme.fn_recalc_marge_tournee()` invoqué par UPDATE `tms.tournees.cout_final_ht` *(nom corrigé audit 2026-05-26 A2)* (lecture via vue `plateforme.v_courses_logistiques`).
 - Tournée associée dissoute si elle ne contenait que cette collecte
 
 ### E4 — `PATCH /prestataires/:id` (supprimé 2026-04-23 seconde salve)
@@ -525,7 +511,6 @@ Codes d'erreur normalisés :
 **Déclencheur** : notification par la Plateforme qu'un champ critique d'un lieu a changé (`adresse`, `coordonnees_gps`). Sert uniquement à alerter le TMS pour déclencher l'alerte M02 "snapshot divergent" sur les collectes futures non démarrées référençant ce lieu.
 
 **Payload** :
-
 ```json
 {
   "event_id": "uuid",
@@ -546,9 +531,8 @@ Codes d'erreur normalisés :
 ```
 
 **Propagation TMS** :
-
 - Le `lieu_snapshot` des collectes déjà reçues n'est **pas** mis à jour rétroactivement (cristallisé au moment de E1, cf. M01 D15).
-- M01 émet une alerte M02 `m02_lieu_snapshot_divergent` warning (bandeau E1 dispatch + bouton "Synchroniser snapshot pour cette collecte" — _override ponctuel par collecte, sobriété M01 A_M01_05 — 2026-04-30 : sync batch lieu→futures retiré_) sur chaque collecte future non démarrée référençant ce lieu.
+- M01 émet une alerte M02 `m02_lieu_snapshot_divergent` warning (bandeau E1 dispatch + bouton "Synchroniser snapshot pour cette collecte" — *override ponctuel par collecte, sobriété M01 A_M01_05 — 2026-04-30 : sync batch lieu→futures retiré*) sur chaque collecte future non démarrée référençant ce lieu.
 - Les colonnes logistiques partagées `acces_details`, `acces_office` (refonte 2026-04-28 audit cohérence A2) ne déclenchent **pas** E5 (elles sont écrites directement par le TMS via RLS cross-schema column-level, cf. §04 D16). Ex-4 colonnes addendum (`code_acces`, `parking`, `contact_ops_logistique`, `instructions_chauffeur`) supprimées et fusionnées sur l'existant.
 
 **Note sur les colonnes enrichies par le TMS** : les 2 colonnes logistiques partagées (`acces_details`, `acces_office`) du lieu sont modifiées directement en DB par le TMS (write via RLS cross-schema column-level `plateforme.lieux`). Aucun endpoint API dans les deux sens — la cohérence est assurée par les policies RLS (§09). **Refonte 2026-04-28** : ex-4 colonnes addendum supprimées (fusion mapping). Contacts retirés (`lieux.contact_*` supprimés, relogés sur `evenements.contact_principal_*` + `contact_secours_*`).
@@ -566,7 +550,6 @@ Codes d'erreur normalisés :
 **Déclencheur** : (a) manager prestataire **Strike/Marathon** accepte une collecte dans le portail M03 ; (b) **A Toutes!** (Everest, pas de portail M03) — réception du webhook Everest `mission_dispatched` qui mute `statut_dispatch → acceptee` (M14 W2 / R_M14.1bis, arbitrage Val 2026-05-29) ; (c) **A Toutes! Everest down** — failover acceptation manuelle Ops (M14 W4).
 
 **Payload** :
-
 ```json
 {
   "event_id": "uuid",
@@ -574,17 +557,9 @@ Codes d'erreur normalisés :
   "data": {
     "collecte_id": "uuid",
     "prestataire_id": "uuid",
-    "chauffeur": {
-      "chauffeur_id": "uuid|null",
-      "nom": "string",
-      "prenom": "string|null"
-    },
+    "chauffeur": { "chauffeur_id": "uuid|null", "nom": "string", "prenom": "string|null" },
     "equipier": { "equipier_id": "uuid|null", "nom": "string|null" },
-    "vehicule": {
-      "vehicule_id": "uuid|null",
-      "type": "camion_16m3|camion_20m3|velo_cargo|autre",
-      "plaque": "string|null"
-    },
+    "vehicule": { "vehicule_id": "uuid|null", "type": "camion_16m3|camion_20m3|velo_cargo|autre", "plaque": "string|null" },
     "acceptee_le": "2026-04-22T10:00:00Z"
   }
 }
@@ -601,7 +576,6 @@ Codes d'erreur normalisés :
 **Déclencheur** : manager prestataire refuse une collecte.
 
 **Payload** :
-
 ```json
 {
   "data": {
@@ -620,7 +594,6 @@ Codes d'erreur normalisés :
 **Déclencheur** : création ou modification d'une tournée (M04).
 
 **Payload** :
-
 ```json
 {
   "data": {
@@ -637,14 +610,13 @@ Codes d'erreur normalisés :
 }
 ```
 
-**Effet Plateforme** : upsert `tournees` + réconciliation des liaisons via `plateforme.collecte_tournees` à partir de `collecte_ids[]` _(refonte multi-camions 2026-05-25, ex `collectes.tournee_id` singulier)_ : l'App insère/supprime les lignes `(collecte_id, tournee_id)` pour ce `tournee_id`. Permet d'afficher que N collectes partagent un camion (mutualisation) **et** qu'une collecte est servie par N camions (multi-camions — la même `collecte_id` apparaît alors dans le `collecte_ids[]` de plusieurs tournées). **Refonte 2026-05-08** : ajout du champ `type_vehicule_categorie_plateforme` dérivé côté TMS (`vehicules.type_vehicule_id → types_vehicules.categorie_plateforme`). Alimente `plateforme.tournees.type_vehicule` (enum aligné). Évite à la Plateforme un lookup cross-schema à chaque lecture. Source unique de vérité reste `tms.types_vehicules.categorie_plateforme` — la Plateforme peut interroger la vue `v_tms_types_vehicules_categories` pour vérifier la cohérence ou récupérer le détail (`code`, `libelle`).
+**Effet Plateforme** : upsert `tournees` + réconciliation des liaisons via `plateforme.collecte_tournees` à partir de `collecte_ids[]` *(refonte multi-camions 2026-05-25, ex `collectes.tournee_id` singulier)* : l'App insère/supprime les lignes `(collecte_id, tournee_id)` pour ce `tournee_id`. Permet d'afficher que N collectes partagent un camion (mutualisation) **et** qu'une collecte est servie par N camions (multi-camions — la même `collecte_id` apparaît alors dans le `collecte_ids[]` de plusieurs tournées). **Refonte 2026-05-08** : ajout du champ `type_vehicule_categorie_plateforme` dérivé côté TMS (`vehicules.type_vehicule_id → types_vehicules.categorie_plateforme`). Alimente `plateforme.tournees.type_vehicule` (enum aligné). Évite à la Plateforme un lookup cross-schema à chaque lecture. Source unique de vérité reste `tms.types_vehicules.categorie_plateforme` — la Plateforme peut interroger la vue `v_tms_types_vehicules_categories` pour vérifier la cohérence ou récupérer le détail (`code`, `libelle`).
 
 ### S4 — `POST /webhooks/tms/collecte-en-cours`
 
 **Déclencheur** : chauffeur clique "Je commence la collecte" sur app mobile.
 
-**Payload** _(simplifié revue sobriété Bloc B 2026-05-01 B4 — champ `geoloc` retiré, la Plateforme n'utilise pas la géoloc chauffeur, retard traité côté TMS M11)_ :
-
+**Payload** *(simplifié revue sobriété Bloc B 2026-05-01 B4 — champ `geoloc` retiré, la Plateforme n'utilise pas la géoloc chauffeur, retard traité côté TMS M11)* :
 ```json
 {
   "data": {
@@ -661,15 +633,13 @@ Codes d'erreur normalisés :
 ### S5 — `POST /webhooks/tms/collecte-terminee`
 
 **Déclencheur** : clôture collecte côté TMS, que ce soit :
-
 - (a) collecte réalisée normalement (pesée effectuée + livraison asso si AG)
 - (b) collecte clôturée sans pesée via bouton "Aucun repas à collecter" (AG uniquement, voir §03 M05)
 - (c) correction de pesée post-clôture par Ops Savr → re-push avec `type = correction` (décision §05 R6 Q6 — 2026-04-22)
 
-> **Multi-véhicules — un seul S5 terminal par collecte (refonte 2026-05-25, arbitrage 4 + 6a ; couvre le multi-vélo AG 2026-05-29)** : pour une collecte servie par N tournées (N camions ZD **ou N vélos A Toutes! AG**), le TMS n'émet **qu'un seul** `collecte-terminee`, déclenché quand **toutes** ses tournées sont `terminee` (dérivation du statut collecte → `realisee`, trigger `fn_derive_statut_collecte_multi_tournees` §05 R6.1). Les `pesees[]` sont **agrégées sur les N véhicules** (`SUM ... GROUP BY collecte_tms_id, flux` — chaque véhicule a pesé sa portion sous le même `collecte_tms_id` avec son propre `tournee_id` ; AG : `don_alimentaire` total). Le champ `tournee_id` du payload est alors **informatif** (dernière tournée terminée) — la Plateforme clé sur `collecte_id`. **Cas standard (1 tournée)** : inchangé, un S5 à la clôture de l'unique tournée. _(La Plateforme ne voit jamais le nombre de véhicules : elle reçoit la collecte terminée + le coût logistique agrégé via `v_courses_logistiques`. Multi-vélo invisible côté Plateforme par design.)_
+> **Multi-véhicules — un seul S5 terminal par collecte (refonte 2026-05-25, arbitrage 4 + 6a ; couvre le multi-vélo AG 2026-05-29)** : pour une collecte servie par N tournées (N camions ZD **ou N vélos A Toutes! AG**), le TMS n'émet **qu'un seul** `collecte-terminee`, déclenché quand **toutes** ses tournées sont `terminee` (dérivation du statut collecte → `realisee`, trigger `fn_derive_statut_collecte_multi_tournees` §05 R6.1). Les `pesees[]` sont **agrégées sur les N véhicules** (`SUM ... GROUP BY collecte_tms_id, flux` — chaque véhicule a pesé sa portion sous le même `collecte_tms_id` avec son propre `tournee_id` ; AG : `don_alimentaire` total). Le champ `tournee_id` du payload est alors **informatif** (dernière tournée terminée) — la Plateforme clé sur `collecte_id`. **Cas standard (1 tournée)** : inchangé, un S5 à la clôture de l'unique tournée. *(La Plateforme ne voit jamais le nombre de véhicules : elle reçoit la collecte terminée + le coût logistique agrégé via `v_courses_logistiques`. Multi-vélo invisible côté Plateforme par design.)*
 
 **Payload** :
-
 ```json
 {
   "data": {
@@ -712,7 +682,6 @@ Codes d'erreur normalisés :
 ```
 
 **Règles de remplissage** :
-
 - Si `statut_final = realisee` : `pesees[]` obligatoire (≥ 1), `rolls` obligatoire pour ZD, `signature_asso` obligatoire pour AG, `aucun_repas` absent
 - Si `statut_final = realisee_sans_collecte` (AG uniquement) : `pesees[]` = `[]`, `rolls` absent, `signature_asso` absente, `aucun_repas` obligatoire (motif + photo)
 - **Retiré V1 (revue sobriété 2026-04-29)** — suppression `flux_prevus` et R_M05.18 corrélativement. Plateforme reçoit uniquement les pesées **réellement** effectuées par le chauffeur. Plus de ligne auto-insérée à 0kg. Plus de mention "Flux non pesé" dans le rapport traiteur — un flux non pesé est simplement absent du rapport.
@@ -720,10 +689,9 @@ Codes d'erreur normalisés :
 - **Champ `idempotency_key`** (propagation M05 2026-04-24) : UUID généré par PWA M05 avant stockage queue IndexedDB. Garantit déduplication serveur en cas de retry offline (W11 M05).
 - **Champ `contenant_code`** (propagation M05 2026-04-24) : slug du `types_contenants.code` utilisé pour la pesée (ex `bac_240L`, `sans_contenant`). Nullable si pesée historique (compat migration Bubble).
 - **Champ `tare_override_motif`** (propagation M05 2026-04-24) : non-null si le chauffeur a saisi une tare différente de la snapshot attendue (R_M05.4, D8 M05). Min 10 caractères, audit trail.
-- **Champ `photos`** _(simplifié revue sobriété Bloc B 2026-05-01 B2 — fusion `photo_url` singulier + `photos_urls` array → champ unique `photos: string[]`)_ : array URLs photos (max 5 par pesée, paramètre `m05_photo_max_par_pesee`). Toujours array même si 1 photo. Pas de migration progressive V1 (Bubble n'utilise pas ces webhooks, fausse compat).
+- **Champ `photos`** *(simplifié revue sobriété Bloc B 2026-05-01 B2 — fusion `photo_url` singulier + `photos_urls` array → champ unique `photos: string[]`)* : array URLs photos (max 5 par pesée, paramètre `m05_photo_max_par_pesee`). Toujours array même si 1 photo. Pas de migration progressive V1 (Bubble n'utilise pas ces webhooks, fausse compat).
 
 **Effet Plateforme** :
-
 - MAJ `collectes.statut`, stockage des pesées, téléchargement et ré-upload des photos
 - Si `statut_final = realisee_sans_collecte` : affichage badge "Aucun repas collecté" + motif + photo dans l'historique traiteur (tableau de bord) + alerte admin Ops Savr (voir §03 M05 et M11)
 - Si `type = correction` : mise à jour des pesées existantes + régénération bordereau/attestation si déjà générés (version incrémentée, ancienne version archivée). Alerte Ops Savr Plateforme "Correction pesée reçue depuis TMS".
@@ -767,12 +735,11 @@ WHERE t.statut IN ('realisee', 'annulee');
 
 > **Multi-camions (2026-05-25)** : la jointure passe désormais par `tms.collecte_tournees` (relation N↔N) au lieu de `collectes_tms.tournee_id` (retiré). Le `cout_reparti_centimes` est lu sur la **ligne de liaison** (1 part par couple collecte×tournée). Une collecte servie par N tournées produit N lignes dans la vue → côté Plateforme, le coût logistique de la collecte = **somme** des `cout_reparti_centimes` de ses lignes (cf. calcul marge [[../01 - Cahier des charges App/04 - Data Model#Vue : `v_courses_logistiques`]]). Une tournée mutualisée (N collectes) produit N lignes avec sa part répartie par collecte — comportement inchangé.
 
-**Trigger refresh marge Plateforme** : sur UPDATE de `tms.tournees.push_s6_version` ou `tms.tournees.cout_final_ht` _(noms corrigés audit 2026-05-26 A2 — ex `version_paiement`/`cout_total_centimes` inexistants sur la table)_, trigger DB cross-schema déclenche le recalcul `plateforme.factures.marge_logistique` pour **toutes les collectes liées à cette tournée via `tms.collecte_tournees`** (logique migrée depuis l'ex-effet S6 vers fonction Postgres `plateforme.fn_recalc_marge_tournee(tournee_id uuid)`).
+**Trigger refresh marge Plateforme** : sur UPDATE de `tms.tournees.push_s6_version` ou `tms.tournees.cout_final_ht` *(noms corrigés audit 2026-05-26 A2 — ex `version_paiement`/`cout_total_centimes` inexistants sur la table)*, trigger DB cross-schema déclenche le recalcul `plateforme.factures.marge_logistique` pour **toutes les collectes liées à cette tournée via `tms.collecte_tournees`** (logique migrée depuis l'ex-effet S6 vers fonction Postgres `plateforme.fn_recalc_marge_tournee(tournee_id uuid)`).
 
-**Sécurité grille tarifaire** : la vue ne SELECT **pas** les colonnes sensibles (`tms.formules_tarifaires.*`, `tms.grilles_tarifaires.*`, `tms.cellules_grille.*`, ni `tms.tournees.cout_detail` **brut**). `snapshot_cout_detail` est **construit par la vue** comme un sous-ensemble whitelisté de `cout_detail` (`formule_code`, `palier_applique`, `nb_vacations`, `nb_personnes_facturation`, `duree_reelle_minutes`, `raison`) qui **exclut `grille_snapshot`** _(audit 2026-05-26 A3 — `cout_detail` brut contient la grille)_. RLS schéma `tms.*` deny par défaut côté Plateforme, autorisations explicites colonne par colonne dans la vue.
+**Sécurité grille tarifaire** : la vue ne SELECT **pas** les colonnes sensibles (`tms.formules_tarifaires.*`, `tms.grilles_tarifaires.*`, `tms.cellules_grille.*`, ni `tms.tournees.cout_detail` **brut**). `snapshot_cout_detail` est **construit par la vue** comme un sous-ensemble whitelisté de `cout_detail` (`formule_code`, `palier_applique`, `nb_vacations`, `nb_personnes_facturation`, `duree_reelle_minutes`, `raison`) qui **exclut `grille_snapshot`** *(audit 2026-05-26 A3 — `cout_detail` brut contient la grille)*. RLS schéma `tms.*` deny par défaut côté Plateforme, autorisations explicites colonne par colonne dans la vue.
 
 **Cas spéciaux** (lus depuis `snapshot_cout_detail.raison` comme avant) :
-
 - `"annulation_hors_delai_facturation"` → `cout_final_ht = 0`, annulation ≥ 3h avant démarrage (R2.7)
 - `"realisee_sans_collecte_flag_applicable"` → `cout_final_ht = 0`, flag `tarif_sans_collecte_applicable = true`
 
@@ -787,7 +754,6 @@ WHERE t.statut IN ('realisee', 'annulee');
 **Déclencheur** : manager prestataire saisit la plaque en M03 E4 (`tms.tournees.plaque_preassignee_manager` renseignée) **OU** affecte un chauffeur (`tms.tournees.chauffeur_id` renseigné) sur une tournée dont au moins une collecte a `controle_acces_requis=true`. Trigger DB après UPDATE → push S7. **Saisie chauffeur terrain supprimée V1 (propagation 2026-06-04)** — il n'existe plus qu'une plaque, celle pré-saisie par le manager (ce webhook). **Pour les tournées vélo cargo A Toutes!** : émis avec `plaque=null` + `chauffeur_nom` renseigné (le nom chauffeur reste requis même en vélo cargo).
 
 **Payload** :
-
 ```json
 {
   "event_id": "uuid",
@@ -808,7 +774,6 @@ WHERE t.statut IN ('realisee', 'annulee');
 **Retry policy** : 3 paliers uniformes (5 min / 1h / 24h, Bloc B B1).
 
 **Sources Plateforme alimentées** :
-
 - Dashboard traiteur "plaque officielle reçue" (V1 visible, V2 email).
 - Registre transport M08 (Plateforme).
 - Monitoring Admin "délai acceptation tournée → saisie plaque manager".
@@ -840,10 +805,9 @@ FROM tms.stocks_rolls_traiteurs s
 LEFT JOIN tms.types_contenants tc ON tc.id = s.type_contenant_id;
 ```
 
-**Pas de joint `organisations_lieux`** _(décision Val 2026-05-01 — les rolls sont attribués aux traiteurs, pas aux gestionnaires de lieux ; suppression du dashboard "stocks rolls" côté gestionnaire de lieux)_.
+**Pas de joint `organisations_lieux`** *(décision Val 2026-05-01 — les rolls sont attribués aux traiteurs, pas aux gestionnaires de lieux ; suppression du dashboard "stocks rolls" côté gestionnaire de lieux)*.
 
 **Conséquences architecturales** :
-
 - Suppression de la table miroir `plateforme.lieux_stocks_rolls` (créée 2026-04-25, jamais déployée en prod).
 - Suppression de R_M09.7 "TMS push obligatoire" (TMS = source de vérité unique en lecture directe DB, plus besoin de push).
 - Suppression de la cardinalité 1:1 par type contenant (lecture directe = N rangs scannés en une requête).
@@ -860,7 +824,6 @@ LEFT JOIN tms.types_contenants tc ON tc.id = s.type_contenant_id;
 **Déclencheur** : chauffeur déclare un signalement via module M05 E9 (D18). Tout signalement terrain génère S9, indépendamment du statut opérationnel résultant côté collecte.
 
 **Payload (enrichi propagation M05 2026-04-24)** :
-
 ```json
 {
   "data": {
@@ -873,7 +836,7 @@ LEFT JOIN tms.types_contenants tc ON tc.id = s.type_contenant_id;
     "description": "string",
     "photos": ["https://...", "https://..."],
     "appels_effectues": [
-      { "destinataire": "traiteur|ops", "created_at": "2026-05-10T18:42:00Z" }
+      {"destinataire": "traiteur|ops", "created_at": "2026-05-10T18:42:00Z"}
     ],
     "imputable_a": "traiteur|chauffeur|savr|externe|indetermine",
     "declare_le": "2026-05-10T18:45:00Z",
@@ -886,14 +849,13 @@ LEFT JOIN tms.types_contenants tc ON tc.id = s.type_contenant_id;
 
 **Enum `type_incident` (décision 2026-06-06 — chemin unique « aucun repas »)** : enum simplifié à **5 valeurs** (ex-6 post-Bloc D ; avant : 14, ex-16) :
 
-- **M05 E9 (3 catégories signalement chauffeur sur place + générique)** : `acces_refuse` (couvre lieu fermé), `client_absent`, `probleme_tri`. _(`pas_excedents` retiré 2026-06-06 : le cas AG « aucun repas » passe par E5 → S5 `collecte-terminee`, pas par S9.)_
+- **M05 E9 (3 catégories signalement chauffeur sur place + générique)** : `acces_refuse` (couvre lieu fermé), `client_absent`, `probleme_tri`. *(`pas_excedents` retiré 2026-06-06 : le cas AG « aucun repas » passe par E5 → S5 `collecte-terminee`, pas par S9.)*
 - **M05 E4 (1 motif incident avant arrivée)** : `client_annule_avant_arrivee`.
 - **Catégorie générique** : `autre` (couvre tous les cas exceptionnels — `blessure`, `materiel_casse`, etc. tombent dans `autre` + description libre).
 
 **Suppressions Bloc D** (7 valeurs retirées 2026-05-01) : `vehicule_panne`, `accident_route`, `chauffeur_indisponible` (3 motifs avant arrivée fusionnés en gestion hors app — appel direct Ops via bouton tel:), `retard_chauffeur` / `absence_contenant` / `materiel_casse` / `erreur_pesee` / `blessure` (Hors-M05 Ops uniquement, fréquence quasi-nulle V1, `blessure` rentre dans `autre` si cas réel).
 
 > **Note historique (caduque post-Bloc D)** : revue sobriété M05 E9 2026-04-30 avait simplifié 16→14 valeurs. Bloc D 2026-05-01 va plus loin : 14→6.
-
 - **M05 E9 (5 catégories signalement chauffeur sur place)** : `acces_refuse` (couvre lieu fermé — fusion), `client_absent`, `probleme_tri` (renommé depuis `bacs_non_conformes`), `pas_excedents` (AG-only — nouveau), `autre`.
 - **M05 E4 (4 motifs incident avant arrivée — propagation 2026-04-29)** : `client_annule_avant_arrivee`, `vehicule_panne`, `accident_route`, `chauffeur_indisponible`.
 - **Hors-M05 (Ops uniquement, M02/M11)** : `retard_chauffeur`, `absence_contenant`, `materiel_casse`, `erreur_pesee`, `blessure`.
@@ -903,7 +865,6 @@ LEFT JOIN tms.types_contenants tc ON tc.id = s.type_contenant_id;
 Voir [[../05 - Règles métier TMS#R6.1 — Cycle de vie collectes_tms]] et [[../06 - Fonctionnalités détaillées TMS/M05 - App mobile chauffeur#E4 — Liste collectes tournée active]].
 
 **Nouveaux champs M05 (propagation 2026-04-24)** :
-
 - `idempotency_key` (UUID) : déduplication retry offline PWA (W11 M05)
 - **Fusion revue sobriété Bloc B 2026-05-01 B2** : un seul champ `photos: string[]` (array même si 1 photo). Suppression dualité legacy.
 - `appels_effectues` (array d'objets) : trace des clics `tel:` M05 E5/E9 (D18). Capturé M05, remonté pour audit Plateforme
@@ -925,7 +886,6 @@ Voir [[../05 - Règles métier TMS#R6.1 — Cycle de vie collectes_tms]] et [[..
 **Déclencheur** : Admin TMS rejette définitivement un event DLQ (cf. M01 W8, D20). Uniquement pour les events de type `collecte.*` (ex: `collecte.creee` DLQé et jamais traité avec succès). Les events d'autres types (anciens `prestataire.upsert` legacy par ex.) sont simplement archivés localement, sans émission S11.
 
 **Payload** :
-
 ```json
 {
   "event_id": "uuid",
@@ -943,12 +903,11 @@ Voir [[../05 - Règles métier TMS#R6.1 — Cycle de vie collectes_tms]] et [[..
 ```
 
 **Effet Plateforme** :
-
 - Passage de `plateforme.collectes.statut_tms` à `rejetee_par_tms`.
 - Alerte Admin Plateforme (email + bannière dashboard).
 - La collecte n'est plus planifiable par le TMS (pas de reprise automatique). Si la collecte reste à honorer, la Plateforme doit re-émettre un nouveau `collecte.creee` avec un `event_id` frais (pas d'annulation automatique côté Plateforme, laissée à l'arbitrage Ops).
 
-**Rotation retry** : policy standard 3 paliers 5 min / 1h / 24h _(simplifié Bloc B B1 — ex-5 paliers)_. Si échec final → DLQ côté TMS (circular, à traiter manuellement par Admin TMS + alerte `critical`).
+**Rotation retry** : policy standard 3 paliers 5 min / 1h / 24h *(simplifié Bloc B B1 — ex-5 paliers)*. Si échec final → DLQ côté TMS (circular, à traiter manuellement par Admin TMS + alerte `critical`).
 
 **Idempotence** : dédup par `event_id` classique (rejouer S11 avec même event_id = no-op côté Plateforme, 200 OK).
 
@@ -961,7 +920,6 @@ Voir [[../05 - Règles métier TMS#R6.1 — Cycle de vie collectes_tms]] et [[..
 > **Justification** : confort UX pur. Population concernée ≤ 4 users cumul (Val, Louis, Marwan, Anaïs). Si un user clique sur le bouton sidebar « → Plateforme/TMS » sans avoir de profil sur l'app cible → page d'accès refusé propre côté cible (pas de 403 brut). Coût opérationnel = 0.
 >
 > **Conséquences** :
->
 > - Bouton sidebar cross-app affiché **inconditionnellement** dans §11 TMS (D3) et §11 Plateforme (à propager).
 > - Suppression cookie httpOnly `savr.has_plateforme_profile` TTL 1h des deux côtés.
 > - Suppression CORS `Origin: https://tms.gosavr.io` + `credentials: include` côté Plateforme (et symétrique).
@@ -975,41 +933,40 @@ Voir [[../05 - Règles métier TMS#R6.1 — Cycle de vie collectes_tms]] et [[..
 
 Schéma aligné des deux côtés :
 
-| Colonne                | Type        | Notes                                        |
-| ---------------------- | ----------- | -------------------------------------------- |
-| `id`                   | uuid        | PK                                           |
-| `event_id`             | uuid        | Référence au payload                         |
-| `direction`            | enum        | `entrant` / `sortant`                        |
-| `endpoint`             | text        | ex: `POST /webhooks/tms/collecte-terminee`   |
-| `systeme_contrepartie` | enum        | `plateforme` / `tms`                         |
-| `request_headers`      | jsonb       | Sans `Authorization`                         |
-| `request_body`         | jsonb       | Sans URL signées complètes (tronquées)       |
-| `response_status`      | int         |                                              |
-| `response_body`        | jsonb       |                                              |
-| `latence_ms`           | int         |                                              |
-| `tentative_numero`     | int         | 1 à 5                                        |
-| `statut`               | enum        | `succes` / `echec_retryable` / `echec_final` |
-| `erreur_code`          | text        | Si échec                                     |
-| `created_at`           | timestamptz |                                              |
+| Colonne | Type | Notes |
+|---------|------|-------|
+| `id` | uuid | PK |
+| `event_id` | uuid | Référence au payload |
+| `direction` | enum | `entrant` / `sortant` |
+| `endpoint` | text | ex: `POST /webhooks/tms/collecte-terminee` |
+| `systeme_contrepartie` | enum | `plateforme` / `tms` |
+| `request_headers` | jsonb | Sans `Authorization` |
+| `request_body` | jsonb | Sans URL signées complètes (tronquées) |
+| `response_status` | int | |
+| `response_body` | jsonb | |
+| `latence_ms` | int | |
+| `tentative_numero` | int | 1 à 5 |
+| `statut` | enum | `succes` / `echec_retryable` / `echec_final` |
+| `erreur_code` | text | Si échec |
+| `created_at` | timestamptz | |
 
 **Rétention** : 2 ans (alignement avec audit RGPD).
 
 ### Table `integrations_inbox` (dédup idempotence)
 
-| Colonne     | Type                                                                                                                                                                                 |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `event_id`  | uuid (PK)                                                                                                                                                                            |
-| `type`      | text                                                                                                                                                                                 |
-| `recu_le`   | timestamptz                                                                                                                                                                          |
-| `traite_le` | timestamptz                                                                                                                                                                          |
-| `statut`    | enum **3 valeurs** (post-revue sobriété §08 Bloc D 2026-05-01 D6) : `traite` / `ignore_doublon` / `ignore_out_of_order`. supprimé (insertion BDD APRÈS traitement réussi seulement). |
+| Colonne | Type |
+|---------|------|
+| `event_id` | uuid (PK) |
+| `type` | text |
+| `recu_le` | timestamptz |
+| `traite_le` | timestamptz |
+| `statut` | enum **3 valeurs** (post-revue sobriété §08 Bloc D 2026-05-01 D6) : `traite` / `ignore_doublon` / `ignore_out_of_order`. supprimé (insertion BDD APRÈS traitement réussi seulement). |
 
-**Rétention** : **7 jours** _(simplifié revue sobriété Bloc B 2026-05-01 B5 — ex-30j post-sobriété M01 B_M01_01. Avec polling supprimé Bloc A A4, le retry max va à 24h donc pas de re-émission >7j possible. Logs 2 ans assurent l'audit forensic. M01 B_M01_01 obsolète)_.
+**Rétention** : **7 jours** *(simplifié revue sobriété Bloc B 2026-05-01 B5 — ex-30j post-sobriété M01 B_M01_01. Avec polling supprimé Bloc A A4, le retry max va à 24h donc pas de re-émission >7j possible. Logs 2 ans assurent l'audit forensic. M01 B_M01_01 obsolète)*.
 
 ### Alerting (M11 TMS)
 
 Alertes automatiques sur :
-
 - 5 retries consécutifs échoués → criticité **Critique** (Val + Louis email + dashboard)
 - Taux d'erreur > 5% sur 1h → criticité **Haute** (Ops Savr)
 
@@ -1018,7 +975,6 @@ Alertes automatiques sur :
 ### Dashboard synchronisation
 
 Vue dédiée dans Admin TMS (M13) :
-
 - Nb events reçus / émis par jour
 - Taux de succès 1er essai vs retry
 - Liste des events en `echec_final` avec bouton "Rejouer"
@@ -1059,12 +1015,12 @@ Fichier `CHANGELOG-API.md` co-maintenu dans les 2 apps, entrée par version et p
 
 ### Environnements
 
-| Environnement        | URL Plateforme           | URL TMS                  | Usage                       |
-| -------------------- | ------------------------ | ------------------------ | --------------------------- |
-| Dev                  | `dev.app.gosavr.io`      | `dev.tms.gosavr.io`      | Devs                        |
-| Preview (par branch) | `branch-x.app.gosavr.io` | `branch-x.tms.gosavr.io` | Revue PR                    |
-| Staging              | `staging.app.gosavr.io`  | `staging.tms.gosavr.io`  | Val/Louis qualif avant prod |
-| Prod                 | `app.gosavr.io`          | `tms.gosavr.io`          | Clients                     |
+| Environnement | URL Plateforme | URL TMS | Usage |
+|---------------|---------------|---------|-------|
+| Dev | `dev.app.gosavr.io` | `dev.tms.gosavr.io` | Devs |
+| Preview (par branch) | `branch-x.app.gosavr.io` | `branch-x.tms.gosavr.io` | Revue PR |
+| Staging | `staging.app.gosavr.io` | `staging.tms.gosavr.io` | Val/Louis qualif avant prod |
+| Prod | `app.gosavr.io` | `tms.gosavr.io` | Clients |
 
 **Règle absolue** : chaque environnement communique uniquement avec sa contrepartie (dev TMS ↔ dev Plateforme, etc.). Aucun cross-environnement.
 
@@ -1085,25 +1041,25 @@ Fichier `CHANGELOG-API.md` co-maintenu dans les 2 apps, entrée par version et p
 
 ## Décisions prises
 
-- **Architecture event-driven webhooks** — bidirectionnelle — 2026-04-21 _(polling 15 min → 60 min sobriété M01 B_M01_02 2026-04-30 puis polling **supprimé** revue sobriété A4 2026-05-01 — retry 3 paliers Bloc B B1 + dédup couvrent les pannes <24h)_
+- **Architecture event-driven webhooks** — bidirectionnelle — 2026-04-21 *(polling 15 min → 60 min sobriété M01 B_M01_02 2026-04-30 puis polling **supprimé** revue sobriété A4 2026-05-01 — retry 3 paliers Bloc B B1 + dédup couvrent les pannes <24h)*
 - **Auth Mutual HMAC + JWT** — rotation annuelle manuelle V1 (retournement addendum 2026-04-23 vs semestrielle initiale, sweep audit cohérence 2026-04-29 B3), auto V2 — 2026-04-22
-- **Idempotence par `event_id` UUID payload** avec dédup **7 jours** dans `integrations_inbox` — 2026-04-22 _(TTL 7j → 30j sobriété M01 B_M01_01 — 2026-04-30, puis **30j → 7j** revue sobriété Bloc B 2026-05-01 B5 ; suppression 2ème check sur `integrations_logs` 2 ans, conservés pour audit/forensic uniquement ; **header `Idempotency-Key` HTTP retiré** revue sobriété Bloc C 2026-05-01 C4 — duplication 1:1 avec `body.event_id`, dédup serveur lit directement le payload)_
+- **Idempotence par `event_id` UUID payload** avec dédup **7 jours** dans `integrations_inbox` — 2026-04-22 *(TTL 7j → 30j sobriété M01 B_M01_01 — 2026-04-30, puis **30j → 7j** revue sobriété Bloc B 2026-05-01 B5 ; suppression 2ème check sur `integrations_logs` 2 ans, conservés pour audit/forensic uniquement ; **header `Idempotency-Key` HTTP retiré** revue sobriété Bloc C 2026-05-01 C4 — duplication 1:1 avec `body.event_id`, dédup serveur lit directement le payload)*
 - **Ordre des événements via `occurred_at`** — out-of-order = ignoré (pas d'écrasement par ancien) — 2026-04-22
-- **Retry policy uniforme 3 paliers** : 5 min / 1h / 24h — 2026-05-01 _(simplifié revue sobriété Bloc B B1 — ex-5 paliers 5 min/30 min/2h/6h/24h : paliers intermédiaires sans ROI mesurable)_
+- **Retry policy uniforme 3 paliers** : 5 min / 1h / 24h — 2026-05-01 *(simplifié revue sobriété Bloc B B1 — ex-5 paliers 5 min/30 min/2h/6h/24h : paliers intermédiaires sans ROI mesurable)*
 - **Webhook `collecte-terminee` unique** (avec discriminant `statut_final` = `realisee` ou `realisee_sans_collecte`) — pas de webhook séparé pour le cas "Aucun repas" — 2026-04-22
 - **Pesées dans `collecte-terminee` (batch)** — pas d'event `pesee-brute-upsert` unitaire en V1 (simplification) — 2026-04-22
-- **Coût tournée sans détail tarifaire** — la Plateforme reçoit `cout_final_ht` _(audit 2026-05-26 A2)_ + `snapshot_cout_detail` (jsonb whitelisté, exclut `grille_snapshot` — A3), pas la grille — 2026-04-22 _(canal de transmission migré webhook S6 → vue cross-schema `plateforme.v_courses_logistiques` revue sobriété 2026-05-01 A2)_
+- **Coût tournée sans détail tarifaire** — la Plateforme reçoit `cout_final_ht` *(audit 2026-05-26 A2)* + `snapshot_cout_detail` (jsonb whitelisté, exclut `grille_snapshot` — A3), pas la grille — 2026-04-22 *(canal de transmission migré webhook S6 → vue cross-schema `plateforme.v_courses_logistiques` revue sobriété 2026-05-01 A2)*
 - **Stocks rolls traiteurs lus en direct cross-schema** — vue `plateforme.v_stocks_rolls` (pas de webhook) — 2026-05-01 (revue sobriété A3, ex-S8 supprimé)
 - **SSO cross-app sans endpoint utilitaire** — bouton sidebar affiché inconditionnellement, page d'accès refusé propre côté cible — 2026-05-01 (revue sobriété A1, ex-E10 supprimé)
-- **Versioning `YYYY.MM`** — breaking change interdit V1, procédure double publication V2 — 2026-04-22 _(header `X-API-Version` autoritatif unique — champ `version` payload supprimé revue sobriété Bloc B 2026-05-01 B3)_
-- **Photos en payload : champ unique `photos: string[]`** (array, même si 1 photo) — 2026-05-01 _(revue sobriété Bloc B B2 — fusion ex-`photo_url` singulier + `photos_urls` array, dualité legacy supprimée)_
-- **Pas de géoloc chauffeur dans payload S4** — la Plateforme n'utilise pas la géoloc, retard traité côté TMS M11 — 2026-05-01 _(revue sobriété Bloc B B4)_
+- **Versioning `YYYY.MM`** — breaking change interdit V1, procédure double publication V2 — 2026-04-22 *(header `X-API-Version` autoritatif unique — champ `version` payload supprimé revue sobriété Bloc B 2026-05-01 B3)*
+- **Photos en payload : champ unique `photos: string[]`** (array, même si 1 photo) — 2026-05-01 *(revue sobriété Bloc B B2 — fusion ex-`photo_url` singulier + `photos_urls` array, dualité legacy supprimée)*
+- **Pas de géoloc chauffeur dans payload S4** — la Plateforme n'utilise pas la géoloc, retard traité côté TMS M11 — 2026-05-01 *(revue sobriété Bloc B B4)*
 - **Plaque manager pré-saisie M03 E4 propagée Plateforme via S7** (restauré 2026-05-01 — annulation Bloc C C3, audit cohérence inter-CDC) — `tms.tournees.plaque_preassignee_manager` → webhook S7 → `plateforme.tournees.plaque_immatriculation`. **Plaque chauffeur terrain supprimée V1 (propagation 2026-06-04, arbitrage Val)** : il ne reste qu'une seule plaque (pré-saisie manager). Exception A Toutes! vélo cargo : pas de S7 émis (pas de plaque attribuable), trigger TMS autorise validation tournée.
-- **Enum `type_incident` 5 valeurs** : `acces_refuse`, `client_absent`, `probleme_tri`, `autre`, `client_annule_avant_arrivee` — décision 2026-06-06 _(`pas_excedents` retiré → cas AG « aucun repas » via E5→S5 ; ex-6 valeurs post-Bloc D D1+D2)_
-- **Enum `statut_collecte_apres` 4 valeurs** : `realisee`, `echec_acces`, `inchange`, `annulee` — décision 2026-06-06 _(`realisee_sans_collecte` retiré, plus atteignable via S9 ; `incident` déjà fusionné dans `inchange` Bloc D D3)_
-- **Stationnement nullable au lieu de `non_defini`** — 2026-05-01 _(revue sobriété Bloc D D4)_
-- **`motif_dlq` text libre côté payload S11** — enum interne TMS conservé pour dashboards, pas exposé dans le contrat — 2026-05-01 _(revue sobriété Bloc D D5)_
-- **`integrations_inbox.statut` 3 valeurs** — `recu` supprimé (insertion BDD APRÈS traitement réussi seulement) — 2026-05-01 _(revue sobriété Bloc D D6)_
+- **Enum `type_incident` 5 valeurs** : `acces_refuse`, `client_absent`, `probleme_tri`, `autre`, `client_annule_avant_arrivee` — décision 2026-06-06 *(`pas_excedents` retiré → cas AG « aucun repas » via E5→S5 ; ex-6 valeurs post-Bloc D D1+D2)*
+- **Enum `statut_collecte_apres` 4 valeurs** : `realisee`, `echec_acces`, `inchange`, `annulee` — décision 2026-06-06 *(`realisee_sans_collecte` retiré, plus atteignable via S9 ; `incident` déjà fusionné dans `inchange` Bloc D D3)*
+- **Stationnement nullable au lieu de `non_defini`** — 2026-05-01 *(revue sobriété Bloc D D4)*
+- **`motif_dlq` text libre côté payload S11** — enum interne TMS conservé pour dashboards, pas exposé dans le contrat — 2026-05-01 *(revue sobriété Bloc D D5)*
+- **`integrations_inbox.statut` 3 valeurs** — `recu` supprimé (insertion BDD APRÈS traitement réussi seulement) — 2026-05-01 *(revue sobriété Bloc D D6)*
 - **Environnements isolés** — pas de cross entre dev/staging/prod — 2026-04-22
 - **Photos par URL signée Supabase Storage (TTL 7 jours)** — consommateur télécharge et ré-uploade — 2026-04-22
 
@@ -1121,10 +1077,9 @@ Fichier `CHANGELOG-API.md` co-maintenu dans les 2 apps, entrée par version et p
 8. — **Résolu 2026-04-22**. CDC Plateforme §08 aligné :
    - Webhook `collecte-realisee` renommé `collecte-terminee` (discriminant `statut_final`) — propagé §05, §07, §12, §16
    - Champs `aucun_repas.motif_chauffeur` + `aucun_repas.photo_lieu_url` ajoutés dans payload + tableau de bord traiteur (§06-04)
-
-- supprimés revue sobriété 2026-05-01 A4
-  - Tables `integrations_logs` (enrichie) et `integrations_inbox` (nouvelle) ajoutées dans §04 Data Model Plateforme (Niveau 7)
-  - Enum `statut` de la table `collectes` étendu avec `realisee_sans_collecte`
+ - supprimés revue sobriété 2026-05-01 A4
+   - Tables `integrations_logs` (enrichie) et `integrations_inbox` (nouvelle) ajoutées dans §04 Data Model Plateforme (Niveau 7)
+   - Enum `statut` de la table `collectes` étendu avec `realisee_sans_collecte`
 
 ---
 

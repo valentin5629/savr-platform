@@ -6,15 +6,15 @@
 
 ## 1. Métriques perf à surveiller
 
-| Métrique                                             | Source                             | Référence                                          |
-| ---------------------------------------------------- | ---------------------------------- | -------------------------------------------------- |
-| p50 / p95 / p99 par endpoint critique                | Sentry Performance                 | [[02 - SLA par endpoint]]                          |
-| Slow queries Postgres (> 500 ms warn / > 2 s alerte) | Supabase Logs (pg_stat_statements) | [[03 - Cibles techniques transverses]] §2          |
-| Taux d'erreur global et par endpoint                 | Sentry                             | §3 cibles transverses                              |
-| Connexions DB en cours                               | Supabase dashboard                 | seuil < 160 (80 % pool)                            |
-| Taille des files de jobs (`jobs_pdf`, retry API)     | Vue ops `v_ops_*`                  | [[../07 - Observabilité/04 - Dashboards business]] |
-| Web Vitals (LCP / FID-INP / CLS)                     | Vercel Analytics                   | §1 cibles transverses                              |
-| Durée cycle de poll MTS-1                            | Logs adapter                       | < 2 min / cycle                                    |
+| Métrique | Source | Référence |
+|---|---|---|
+| p50 / p95 / p99 par endpoint critique | Sentry Performance | [[02 - SLA par endpoint]] |
+| Slow queries Postgres (> 500 ms warn / > 2 s alerte) | Supabase Logs (pg_stat_statements) | [[03 - Cibles techniques transverses]] §2 |
+| Taux d'erreur global et par endpoint | Sentry | §3 cibles transverses |
+| Connexions DB en cours | Supabase dashboard | seuil < 160 (80 % pool) |
+| Taille des files de jobs (`jobs_pdf`, retry API) | Vue ops `v_ops_*` | [[../07 - Observabilité/04 - Dashboards business]] |
+| Web Vitals (LCP / FID-INP / CLS) | Vercel Analytics | §1 cibles transverses |
+| Durée cycle de poll MTS-1 | Logs adapter | < 2 min / cycle |
 
 Instrumentation : OpenTelemetry léger (déjà décidé V1, cf. CLAUDE.md §13).
 
@@ -24,14 +24,14 @@ Instrumentation : OpenTelemetry léger (déjà décidé V1, cf. CLAUDE.md §13).
 
 S'ajoutent aux alertes fonctionnelles de [[../07 - Observabilité/03 - Alertes]]. Canaux Slack par sévérité (OBS-1).
 
-| Condition                                               | Sévérité | Canal                                         |
-| ------------------------------------------------------- | -------- | --------------------------------------------- |
-| p95 d'un endpoint critique > 2× sa cible pendant 10 min | Élevé    | `#savr-alerts-eleve`                          |
-| Taux d'erreur global > 1 % sur 5 min                    | Critique | `#savr-alerts-critique` (+ SMS Better Uptime) |
-| Pool connexions DB > 90 % (180/200)                     | Critique | `#savr-alerts-critique`                       |
-| Slow query > 2 s                                        | Élevé    | `#savr-alerts-eleve`                          |
-| Cycle de poll MTS-1 > 14 min (déborde sur le suivant)   | Élevé    | `#savr-alerts-eleve`                          |
-| Uptime mensuel sous 99,5 % (trajectoire)                | Info     | `#savr-alerts-info`                           |
+| Condition | Sévérité | Canal |
+|---|---|---|
+| p95 d'un endpoint critique > 2× sa cible pendant 10 min | Élevé | `#savr-alerts-eleve` |
+| Taux d'erreur global > 1 % sur 5 min | Critique | `#savr-alerts-critique` (+ SMS Better Uptime) |
+| Pool connexions DB > 90 % (180/200) | Critique | `#savr-alerts-critique` |
+| Slow query > 2 s | Élevé | `#savr-alerts-eleve` |
+| Cycle de poll MTS-1 > 14 min (déborde sur le suivant) | Élevé | `#savr-alerts-eleve` |
+| Uptime mensuel sous 99,5 % (trajectoire) | Info | `#savr-alerts-info` |
 
 > Rappel anti-doublon (cf. CLAUDE.md §13) : les alertes **fonctionnelles** (pesée hors seuil ZD, collecte non transmise TMS, `realisee_sans_collecte`) restent **in-app / dashboard**, jamais Slack. Ce fichier ne traite que la couche **perf/technique**.
 

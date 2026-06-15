@@ -1,5 +1,6 @@
 # CGU Savr V1 — Conditions Générales d'Utilisation
 
+**Statut** : Draft V1 (2026-04-28) — à valider avec un juriste avant mise en production
 **Périmètre** : Activités Zéro-Déchet (ZD) + Anti-Gaspi (AG)
 **Remplace** : CGU AG uniquement (version contrat bilatéral signé)
 
@@ -152,7 +153,6 @@ SAVR s'engage à :
 **6.3. Préparation des Excédents (AG).** Le Client s'engage à emballer et étiqueter ses Excédents conformément à la réglementation applicable aux dons alimentaires, et à garantir que leur DLC n'est pas dépassée. SAVR et/ou son Prestataire peuvent refuser de prendre possession d'Excédents non emballés ou non conformes ; dans cette hypothèse, la Collecte reste due et facturée au tarif applicable.
 
 **6.4. Annulation d'une Collecte.** Le Client peut annuler une Collecte depuis l'Espace Client selon les conditions suivantes :
-
 - Annulation reçue **≥ 12h avant le créneau** : aucune facturation.
 - Annulation reçue **< 12h avant le créneau** ou **après mandat du Prestataire** : facturation au tarif plein (ZD) ou débit d'un crédit Pack (AG), sans remboursement.
 
@@ -167,7 +167,6 @@ SAVR s'engage à :
 **Délai.** Le Client dispose d'un délai de **48 heures à compter de la réception du Rapport RSE** pour contester une pesée depuis son Espace Client. Passé ce délai, la pesée est réputée acceptée définitivement.
 
 **Procédure.** En cas de contestation dans le délai imparti :
-
 1. La collecte passe au statut « en réexamen ».
 2. L'Admin Savr instruit la contestation avec le Prestataire logistique.
 3. En cas de correction validée : le Bordereau est régénéré (version incrémentée, ancien PDF archivé), le Rapport RSE est mis à jour, et si une facture a déjà été émise, un avoir est émis suivi d'une nouvelle facture rectificative.
@@ -304,7 +303,6 @@ SAVR est seule titulaire des droits de propriété intellectuelle sur la Platefo
 **24.2. Instructions.** SAVR traite les données personnelles uniquement sur instruction documentée du Client, conformément aux présentes CGU et à l'Accord de Sous-Traitance (DPA) joint en Annexe 2. SAVR s'engage à ne pas traiter les données à d'autres fins que l'exécution des Services.
 
 **24.3. Données traitées.** Les données traitées dans le cadre du Contrat incluent notamment :
-
 - Données d'identification des utilisateurs (nom, prénom, email, fonction) ;
 - Données relatives aux événements (date, lieu, nombre de participants) ;
 - Données opérationnelles (poids des flux de déchets, quantités d'excédents, informations de contact des Maîtres d'Hôtel) ;
@@ -358,7 +356,6 @@ Pour l'exécution du Contrat, les Parties font élection de domicile en leurs si
 ## Notes pour révision juridique
 
 > Les points suivants sont à valider impérativement avec un juriste avant mise en production :
->
 > - Formulation de l'article 7 (contestation pesées) : vérifier l'opposabilité d'un délai de 48h en droit commercial français
 > - Article 15 (partage données gestionnaire) : vérifier la conformité RGPD du partage de données nominatives sans consentement explicite des personnes concernées (les utilisateurs du traiteur) — envisager un mécanisme d'information ou de consentement distinct
 > - Article 24 (DPA) : l'Annexe 2 DPA doit être rédigée de façon autonome conformément à l'article 28 RGPD

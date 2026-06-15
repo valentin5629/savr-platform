@@ -8,12 +8,12 @@
 
 ## 1. Implémentations et sélection
 
-| Implémentation      | `transporteurs.type_tms`           | Version                                                                                                                                                 |
-| ------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `adapter_mts1`      | `mts1` (Strike, Marathon)          | **V1**                                                                                                                                                  |
-| `adapter_everest`   | `a_toutes` (A Toutes!, vélo cargo) | **V1.1** (gate Everest 2026-06-08 — ne PAS coder pour le go-live)                                                                                       |
-| `provider_manual`   | `autre`                            | **V1** — no-op : aucune action API, l'event outbox est marqué `consumed` avec `consumer='manual'`, le dispatch réel = email/téléphone Ops (§08 §3bis.1) |
-| `adapter_tms_natif` | (cutover V2)                       | V2 — swap par factory, cf. esquisse cohabitation                                                                                                        |
+| Implémentation | `transporteurs.type_tms` | Version |
+|---|---|---|
+| `adapter_mts1` | `mts1` (Strike, Marathon) | **V1** |
+| `adapter_everest` | `a_toutes` (A Toutes!, vélo cargo) | **V1** (gate levée 2026-06-15 — Marathon ne couvre pas AG IDF vélo) |
+| `provider_manual` | `autre` | **V1** — no-op : aucune action API, l'event outbox est marqué `consumed` avec `consumer='manual'`, le dispatch réel = email/téléphone Ops (§08 §3bis.1) |
+| `adapter_tms_natif` | (cutover V2) | V2 — swap par factory, cf. esquisse cohabitation |
 
 **Factory** : `getLogistiqueProvider(transporteur)` → lit `type_tms`, retourne l'implémentation. Seul endroit (hors adapters) où les valeurs de l'enum apparaissent — allowlisté.
 
@@ -21,15 +21,14 @@
 
 Le worker outbox (**lease/claim — l'advisory lock est supprimé**, incompatible PgBouncer transaction mode + serverless ; cf. §04 `outbox_events`, refonte 2026-06-11 revue adversariale R2) claim les events éligibles et appelle le provider de la collecte/du lieu concerné. **Une méthode par event_type** :
 
-| Event outbox                     | Méthode                              | Effet attendu (postconditions Plateforme)                                                                                                                                                                                                                                |
-| -------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| E1 `collecte.creee`              | `dispatchCollecte(collecte, rang→N)` | Pour chaque camion `rang=1..nb_camions_demande` : commande créée chez le provider, ligne `tournees` créée (`external_ref_commande`, `tms_reference`, `type_vehicule`, plaque si résoluble) + ligne `collecte_tournees` ; `statut_tms = attribuee_en_attente_acceptation` |
-| E2 `collecte.modifiee`           | `updateCollecte(collecte)`           | Re-push des champs modifiés sur les commandes existantes (corrélation `external_ref_commande`) ; reset `dirty_tms = false` (fait par la RPC émettrice)                                                                                                                   |
-| E3 `collecte.annulee`            | `cancelCollecte(collecte)`           | Commandes/tournées annulées chez le provider (contrainte < 1h MTS-1 → erreur typée `CANCEL_WINDOW_CLOSED`, traitement Ops manuel)                                                                                                                                        |
-| E5 `lieu.champ_critique_modifie` | `updateLieu(lieu)`                   | Répercussion adresse/coords sur les commandes **futures** (lecture DB à la consommation — pas de re-push des commandes en vol sauf si E2 suit)                                                                                                                           |
+| Event outbox | Méthode | Effet attendu (postconditions Plateforme) |
+|---|---|---|
+| E1 `collecte.creee` | `dispatchCollecte(collecte, rang→N)` | Pour chaque camion `rang=1..nb_camions_demande` : commande créée chez le provider, ligne `tournees` créée (`external_ref_commande`, `tms_reference`, `type_vehicule`, plaque si résoluble) + ligne `collecte_tournees` ; `statut_tms = attribuee_en_attente_acceptation` |
+| E2 `collecte.modifiee` | `updateCollecte(collecte)` | Re-push des champs modifiés sur les commandes existantes (corrélation `external_ref_commande`) ; reset `dirty_tms = false` (fait par la RPC émettrice). **`adapter_everest` V1 : no-op + warning `#savr-alerts-info`** (endpoint de modification Everest non documenté — à confirmer avec Mathieu Lomazzi lors de l'envoi de l'URL webhook ; si endpoint confirmé → implémenter en M2.6, sinon no-op figé V1, DIV-4 2026-06-15) |
+| E3 `collecte.annulee` | `cancelCollecte(collecte)` | Commandes/tournées annulées chez le provider (contrainte < 1h MTS-1 → erreur typée `CANCEL_WINDOW_CLOSED`, traitement Ops manuel) |
+| E5 `lieu.champ_critique_modifie` | `updateLieu(lieu)` | Répercussion adresse/coords sur les commandes **futures** (lecture DB à la consommation — pas de re-push des commandes en vol sauf si E2 suit) |
 
-**Règles transverses sortantes** _(durcies 2026-06-11, revue adversariale R3/R4/R8/R11)_ :
-
+**Règles transverses sortantes** *(durcies 2026-06-11, revue adversariale R3/R4/R8/R11)* :
 - **Idempotence** : ne jamais créer si `external_ref_commande IS NOT NULL` pour ce rang (§08 §3bis.5/3bis.9 — MTS-1 présumé NON idempotent, tranché Val 2026-06-11). Retry géré par le worker (3 paliers 5 min/1h/24h), PAS par le provider — le provider est sans état et lève des erreurs typées.
 - **Commit par rang** : chaque création réussie persiste immédiatement sa ligne `tournees` (`external_ref_commande`) avant le rang/l'étape suivante — jamais de persistance groupée en fin d'event. Reprise au **curseur par rang** (§08 §3bis.5).
 - **Réconciliation avant re-POST** : event repris avec `requires_reconciliation=true` (crash/timeout ambigu) → vérification d'existence distante (§3bis.9) **obligatoire avant** toute création.
@@ -40,10 +39,10 @@ Le worker outbox (**lease/claim — l'advisory lock est supprimé**, incompatibl
 
 ## 3. Contrat — côté entrant (sync)
 
-| Méthode                | Déclencheur                    | Effet attendu                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| ---------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sync(fenetre)`        | Cron 15 min 24/7 (§08 §3bis.7) | Lit l'état distant et **écrit les tables cibles** : `statut_tms` (mapping interne au provider, ex. 3bis.6), pesées brutes → **`pesees_tournees`** (upsert clé `(tournee_id, stop_id, flux_id)` — table créée 2026-06-11, INC-0), photos → R2 + `shared.fichiers`, plaque/chauffeur → `tournees`, horodatages réels. Dédup via `integrations_inbox` en **claim atomique** `ON CONFLICT DO NOTHING RETURNING` (3bis.7, R10 — pas de verrou global de poll, traitement isolé par collecte). Poids divergent sur collecte `cloturee` → aucune écriture + alerte Ops (3bis.7, R7). |
-| (agrégation terminale) | Interne à `sync`               | Quand tous les tours `rang=1..N` d'une collecte sont terminaux : transaction `FOR UPDATE` sur `collectes`, relecture `collecte_tournees`+`nb_camions_demande` sous lock, agrégat `pesees_tournees` → `collecte_flux` (recalcul complet), transition **gardée** `WHERE statut IN ('validee','en_cours')` (no-op si déjà fait — §05 R_statut_collecte_multi_tournees, R5/R6)                                                                                                                                                                                                    |
+| Méthode | Déclencheur | Effet attendu |
+|---|---|---|
+| `sync(fenetre)` | Cron 15 min 24/7 (§08 §3bis.7) | Lit l'état distant et **écrit les tables cibles** : `statut_tms` (mapping interne au provider, ex. 3bis.6), pesées brutes → **`pesees_tournees`** (upsert clé `(tournee_id, stop_id, flux_id)` — table créée 2026-06-11, INC-0), photos → R2 + `shared.fichiers`, plaque/chauffeur → `tournees`, horodatages réels. Dédup via `integrations_inbox` en **claim atomique** `ON CONFLICT DO NOTHING RETURNING` (3bis.7, R10 — pas de verrou global de poll, traitement isolé par collecte). Poids divergent sur collecte `cloturee` → aucune écriture + alerte Ops (3bis.7, R7). |
+| (agrégation terminale) | Interne à `sync` | Quand tous les tours `rang=1..N` d'une collecte sont terminaux : transaction `FOR UPDATE` sur `collectes`, relecture `collecte_tournees`+`nb_camions_demande` sous lock, agrégat `pesees_tournees` → `collecte_flux` (recalcul complet), transition **gardée** `WHERE statut IN ('validee','en_cours')` (no-op si déjà fait — §05 R_statut_collecte_multi_tournees, R5/R6) |
 
 **Le mapping statuts externes → `statut_tms` est PRIVÉ au provider** (table 3bis.6 pour MTS-1). Le code métier ne voit que l'enum `statut_tms` à 8 valeurs.
 
@@ -59,5 +58,5 @@ Le worker outbox (**lease/claim — l'advisory lock est supprimé**, incompatibl
 
 - [[Frontière TMS-Ready V1]] (garde-fous 2, 3, 4)
 - [[04 - Data Model]] (`outbox_events`, `tournees`, `collecte_flux`, `pesees_tournees`)
-- [[08 - APIs et intégrations]] §3bis (flux MTS-1), §3 (Everest V1.1)
+- [[08 - APIs et intégrations]] §3bis (flux MTS-1), §3 (Everest V1)
 - `04 - Migration/08 - Esquisse cohabitation V1 vers V2.md` (swap V2)

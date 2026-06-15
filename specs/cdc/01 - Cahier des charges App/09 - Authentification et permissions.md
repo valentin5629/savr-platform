@@ -1,5 +1,8 @@
 # 09 - Authentification et permissions
 
+**Statut** : Draft V1 — mise à jour architecturale 2026-04-23 (atelier tech avec frère)
+**Dernière mise à jour** : 2026-06-11 (**Audit RLS V1 post-35 patchs (skill `cdc-audit-rls`), arbitrages Val** — §3quater ajouté : A-1 `audit_log` (policy SQL + append-only strict, y compris admin) · A-2 `entites_facturation` (lecture org-scoped clients, écriture staff — l'ex-classement « financière interne admin-only » rendait le sélecteur d'entité §06.01 mort) · A-3 `sequences_facturation` + `jobs_pdf` consolidées · A-4 `organisations`/`lieux` chemin `client_organisateur`. Corrections §3 : B-1 `packs_antgaspi` écriture **staff** (matrice étendue fait foi, conflit tranché Val) · B-3a `bordereaux_savr`/`attestations_don` SELECT `client_organisateur` ajouté (alignement `f_fichier_visible`) · B-4 résidu `prestataires_logistiques` retiré des référentiels ouverts · B-5 `tournees` SQL explicite · C-1 `aa_select` restreint staff+programmateur+traiteur opérationnel (client_organisateur et gestionnaire exclus, tranché Val) · B-2 garde brouillons tiers ajoutée à `f_collecte_visible` (chemin lieu). Bloc D : +12 pgTAP. / Antérieure : 2026-06-07 (test-scenarios §09 RLS transverse lot ⑪ — F1 policy UPDATE `collecte_flux` admin+ops (pesées) · F2 règle staff canonique + helper `f_is_staff()` · F3 `f_collecte_editable` étendue UPDATE manager+agence · F4 `users` SELECT org-wide traiteur_commercial · pgTAP Bloc D complété / Antérieure même jour : test-scenarios §06.05 lot ⑤ — F5 matrice `users` gestionnaire_lieux org-wide · F6 `factures` + `shared.fichiers` SELECT self gestionnaire · F3 prédicat `evenements` brouillons tiers exclus · F4 `f_collecte_editable` sur UPDATE gestionnaire · 5 tests pgTAP ajoutés Bloc D)
+
 ---
 
 ## ⚠ Addendum architectural 2026-04-23 — Users disjoints et RLS cross-schema
@@ -47,9 +50,9 @@ Le rôle `ops_savr` peut désormais exister **simultanément** côté Plateforme
 - **Lecture** : `app_domain() = 'tms'` + rôle `admin_tms` ou `ops_savr` → autorisée **sauf** sur les 4 colonnes admin/ops only Savr (`commentaire_lieu`, `siren`, `email_gestionnaire`, `reference_citeo` — ajout 2026-05-08, voir [[05 - Règles métier#R_lieux_admin_only_fields]]).
 - **Écriture cross-schema** : limitée aux 2 colonnes logistiques partagées (`acces_details`, `acces_office`) via `GRANT UPDATE` column-level Postgres. Toutes les autres colonnes restent write Plateforme uniquement (rôles `admin_savr`, `ops_savr` Plateforme). **Refonte 2026-04-28 (audit cohérence A2)** : ex-4 colonnes addendum (`code_acces`, `parking`, `contact_ops_logistique`, `instructions_chauffeur`) supprimées et fusionnées sur les colonnes existantes Plateforme. Suppression simultanée de `lieux.contact_*` (relogés sur `evenements.contact_principal_*` + `contact_secours_*`).
 - **Impact applicatif Plateforme** : `acces_details` + `acces_office` deviennent des colonnes RW partagées (Admin Savr UI commercial + Ops/Admin TMS UI terrain). Toute mise à jour est tracée dans `audit_log` standard pour distinguer l'auteur. Pas d'UI Plateforme à cacher (les colonnes existaient déjà côté Admin Savr — aucune régression).
-- **Champs admin/ops only Plateforme** _(ajout 2026-05-08)_ : 4 colonnes (`commentaire_lieu`, `siren`, `email_gestionnaire`, `reference_citeo`) **strictement réservées** à `admin_savr` + `ops_savr` Plateforme en lecture comme en écriture. `app_domain() = 'tms'` n'a **aucun accès** (ni SELECT ni UPDATE). Voir `R_lieux_admin_only_fields` §05 pour le détail des GRANT et la vue publique `v_lieux_public`.
+- **Champs admin/ops only Plateforme** *(ajout 2026-05-08)* : 4 colonnes (`commentaire_lieu`, `siren`, `email_gestionnaire`, `reference_citeo`) **strictement réservées** à `admin_savr` + `ops_savr` Plateforme en lecture comme en écriture. `app_domain() = 'tms'` n'a **aucun accès** (ni SELECT ni UPDATE). Voir `R_lieux_admin_only_fields` §05 pour le détail des GRANT et la vue publique `v_lieux_public`.
 
-### `plateforme.transporteurs` — policies _(ajout 2026-05-08 — révisé 2026-06-07 F3, tranché Val)_
+### `plateforme.transporteurs` — policies *(ajout 2026-05-08 — révisé 2026-06-07 F3, tranché Val)*
 
 - **Levé 2026-06-07 (F3)** : `transporteurs.siren` est en SELECT + UPDATE pour `admin_savr` **et** `ops_savr` (alignement sur la ligne matrice « Lieux / Transporteurs : lecture / écriture / désactivation : ops Oui », qui fait foi).
 - **Levé 2026-06-07 (F3)** : `ops_savr` peut désactiver un transporteur (`actif=false`). Aucun trigger/policy de restriction.
@@ -60,10 +63,10 @@ Le rôle `ops_savr` peut désormais exister **simultanément** côté Plateforme
 - `prestataires_read_ok_both_domains` : `admin_savr` ET `admin_tms` SELECT `shared.prestataires` → OK.
 - `lieux_tms_write_only_2_logistic_cols` : `admin_tms` UPDATE colonnes non logistiques de `plateforme.lieux` → doit échouer (privilege error). Liste autorisée : `acces_details`, `acces_office` uniquement.
 - `lieux_plateforme_full_write_preserved` : `admin_savr` UPDATE toutes colonnes `plateforme.lieux` → OK (comportement historique).
-- **`lieux_admin_only_fields_hidden_from_clients`** _(ajout 2026-05-08)_ : un user `traiteur_*` / `agence_*` / `gestionnaire_*` / `client_organisateur_*` SELECT `plateforme.lieux.commentaire_lieu` (ou `siren`/`email_gestionnaire`/`reference_citeo`) → doit échouer (privilege error column-level).
-- **`lieux_admin_only_fields_hidden_from_tms`** _(ajout 2026-05-08)_ : un user `admin_tms` ou `ops_savr` `app_domain='tms'` SELECT ces 4 colonnes → doit échouer.
-- _(retiré 2026-06-07 F3 — `ops_savr` peut éditer le SIREN transporteur)_
-- _(retiré 2026-06-07 F3 — `ops_savr` peut désactiver un transporteur)_
+- **`lieux_admin_only_fields_hidden_from_clients`** *(ajout 2026-05-08, révisé 2026-06-12)* : un user `traiteur_*` / `agence_*` / `gestionnaire_*` / `client_organisateur_*` SELECT `plateforme.lieux.commentaire_lieu` (ou `siren`/`email_gestionnaire`/`reference_citeo`) → doit échouer. **Implémentation V1 obligatoire (décision Val 2026-06-12 — restriction effective au go-live)** : vue `v_lieux_clients` SECURITY DEFINER exposant uniquement les colonnes non-sensibles ; `GRANT SELECT ON plateforme.lieux` aux rôles clients révoqué, remplacé par `GRANT SELECT ON plateforme.v_lieux_clients`. *(Contrainte PostgreSQL : `REVOKE SELECT (colonne)` sans effet si `GRANT SELECT` table-level déjà accordé — la vue est le seul mécanisme standard.)* **Test P1 bloquant CI.**
+- **`lieux_admin_only_fields_hidden_from_tms`** *(ajout 2026-05-08, révisé 2026-06-12)* : un user `admin_tms` ou `ops_savr` `app_domain='tms'` SELECT `commentaire_lieu`/`siren`/`email_gestionnaire`/`reference_citeo` → doit échouer. **V1 obligatoire — même vue `v_lieux_clients`.** **Test P1 bloquant CI.**
+- *(retiré 2026-06-07 F3 — `ops_savr` peut éditer le SIREN transporteur)*
+- *(retiré 2026-06-07 F3 — `ops_savr` peut désactiver un transporteur)*
 
 Ces tests pgTAP cross-schema sont dans le **périmètre critique V1 bloquant** (cf. couverture ciblée B2 ci-dessus, addendum §Users disjoints) — ils touchent `shared.prestataires` et `plateforme.lieux`. Couverture 100% des policies promue V1.1 (cf. §15 Sécurité).
 
@@ -102,15 +105,15 @@ Obligatoire à l'inscription. Un compte non vérifié ne peut pas programmer de 
 
 Enum `users.role` (stocké en DB, lu à chaque session) :
 
-| Rôle                                          | Description                                                                                                                                     | Périmètre data par défaut                                                                                                                                                                                                                                  |
-| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `admin_savr`                                  | Équipe Savr (Val, Louis — direction + tech)                                                                                                     | Tout + impersonation + écritures sensibles (Paramètres, fusion org, hard delete, override prestataire AG, édition tarif refacturé)                                                                                                                         |
-| `ops_savr` _(extension périmètre 2026-05-07)_ | Équipe Ops Savr (gestion opérationnelle quotidienne du back-office)                                                                             | Tout en lecture + actions opérationnelles ; **pas** d'écriture sur §9 Paramètres, **pas** d'impersonation, **pas** de fusion org/hard delete, **pas** d'override prestataire AG, **pas** d'édition tarif refacturé                                         |
-| `traiteur_manager`                            | Admin d'une organisation traiteur                                                                                                               | `organisation_id = user.organisation_id` (y compris collectes des commerciaux rattachés)                                                                                                                                                                   |
-| `traiteur_commercial`                         | Commercial d'une organisation traiteur                                                                                                          | **Lecture** : `organisation_id = user.organisation_id` (toute l'orga, comme le manager). **Écriture** : `created_by = user.id` (ses propres collectes uniquement). Pas de gestion des utilisateurs ni d'édition des paramètres org _(révision 2026-05-29)_ |
-| `agence`                                      | Agence événementielle organisatrice                                                                                                             | `organisation_id = user.organisation_id`                                                                                                                                                                                                                   |
+| Rôle                                          | Description                                                                       | Périmètre data par défaut                                                                                                                                                                                                                                  |
+| --------------------------------------------- | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `admin_savr`                                  | Équipe Savr (Val, Louis — direction + tech)                                       | Tout + impersonation + écritures sensibles (Paramètres, fusion org, hard delete, override prestataire AG, édition tarif refacturé)                                                                                                                         |
+| `ops_savr` *(extension périmètre 2026-05-07)* | Équipe Ops Savr (gestion opérationnelle quotidienne du back-office)               | Tout en lecture + actions opérationnelles ; **pas** d'écriture sur §9 Paramètres, **pas** d'impersonation, **pas** de fusion org/hard delete, **pas** d'override prestataire AG, **pas** d'édition tarif refacturé                                         |
+| `traiteur_manager`                            | Admin d'une organisation traiteur                                                 | `organisation_id = user.organisation_id` (y compris collectes des commerciaux rattachés)                                                                                                                                                                   |
+| `traiteur_commercial`                         | Commercial d'une organisation traiteur                                            | **Lecture** : `organisation_id = user.organisation_id` (toute l'orga, comme le manager). **Écriture** : `created_by = user.id` (ses propres collectes uniquement). Pas de gestion des utilisateurs ni d'édition des paramètres org *(révision 2026-05-29)* |
+| `agence`                                      | Agence événementielle organisatrice                                               | `organisation_id = user.organisation_id`                                                                                                                                                                                                                   |
 | `gestionnaire_lieux`                          | Gestionnaire de lieux (Sodexo, Compass, Viparis, etc. **+ lieux autonomes mono-site**, ex-`lieu_independant` fusionné — sobriété 2026-06-03 D1) | Lieux liés via `organisations_lieux` (un lieu autonome = un gestionnaire avec une seule ligne `organisations_lieux`)                                                                                                                                       |
-| `client_organisateur`                         | Client Organisateur (entreprise ou marque) rattachée à un ou plusieurs événements                                                               | Événements où `evenements.client_organisateur_organisation_id = user.organisation_id` — lecture seule                                                                                                                                                      |
+| `client_organisateur`                         | Client Organisateur (entreprise ou marque) rattachée à un ou plusieurs événements | Événements où `evenements.client_organisateur_organisation_id = user.organisation_id` — lecture seule                                                                                                                                                      |
 
 Rôle retiré : `gestionnaire_lieux_commandeur` (besoin métier initial couvert par la table `tarifs_negocie`, ex `tarifs_zd_par_gestionnaire`, cf. `04 - Data Model`). **Mise à jour 2026-05-07** : le rôle `gestionnaire_lieux` standard peut désormais programmer en V1 (sur ses propres lieux, avec un traiteur du référentiel). Pas de nouveau rôle créé — extension du périmètre du rôle existant. Idem pour `agence` (extension transactionnelle complète : programmation + facturation + pack AG + workflow shadow traiteur).
 
@@ -120,7 +123,7 @@ Rôle retiré : `gestionnaire_lieux_commandeur` (besoin métier initial couvert 
   - Domaine reconnu (orga existante) → rôle par défaut selon `organisations.type` : `traiteur_commercial` / `agence` / `gestionnaire_lieux`
   - Domaine non reconnu → création de sa propre orga, rôle manager selon `type_profil` : `traiteur_manager` / `agence` / `gestionnaire_lieux`
 - Passage `traiteur_commercial` → `traiteur_manager` : demande adressée à l'Admin Savr (pas de self-upgrade)
-- **`client_organisateur` : jamais self-service** (absent de l'enum `type_profil`) — création par l'**Admin Savr uniquement** via le back-office §06.06 (CRUD users/orgas), email de bienvenue standard à la création du compte. _(Précisé 2026-06-10, challenge onboarding.)_
+- **`client_organisateur` : jamais self-service** (absent de l'enum `type_profil`) — création par l'**Admin Savr uniquement** via le back-office §06.06 (CRUD users/orgas), email de bienvenue standard à la création du compte. *(Précisé 2026-06-10, challenge onboarding.)*
 - **`admin_savr`** : création manuelle (seed + Admin existant), jamais self-service.
 
 > **Invariant V1 — 1 user = 1 organisation (tranché Val 2026-06-10)** : `users.organisation_id` est singulier, le claim JWT aussi ; **aucune table N-N `users ↔ organisations`** (ne pas en créer). Multi-orga = email distinct par orga. Cf. [[04 - Data Model#Table : `users`]].
@@ -144,14 +147,14 @@ Principe : chaque table sensible a une policy qui filtre les lignes visibles sel
 
 ### Table `organisations`
 
-| Rôle                                                                                                                  | SELECT                                                                                                                                                                                           | INSERT                                                                                                                                                                                                 | UPDATE                                                                                                             | DELETE |
-| --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ | ------ |
-| admin_savr                                                                                                            | ALL                                                                                                                                                                                              | ALL                                                                                                                                                                                                    | ALL                                                                                                                | ALL    |
-| traiteur_manager                                                                                                      | `id = auth.jwt()->>'organisation_id'`                                                                                                                                                            | —                                                                                                                                                                                                      | `id = auth.jwt()->>'organisation_id'`                                                                              | —      |
-| traiteur_commercial                                                                                                   | `id = auth.jwt()->>'organisation_id'`                                                                                                                                                            | —                                                                                                                                                                                                      | —                                                                                                                  | —      |
-| agence                                                                                                                | `id = auth.jwt()->>'organisation_id' OR (est_shadow=true AND cree_par_organisation_id = auth.jwt()->>'organisation_id')` _(extension 2026-05-07 — visibilité fiches shadow créées par l'agence)_ | `est_shadow=true AND type='traiteur' AND cree_par_organisation_id = auth.jwt()->>'organisation_id'` _(création de fiches shadow uniquement, jamais de création d'organisation non-shadow par un user)_ | `id = auth.jwt()->>'organisation_id'` (pas de droit sur les fiches shadow créées — l'Admin gère leur cycle de vie) | —      |
-| gestionnaire_lieux                                                                                                    | `id = auth.jwt()->>'organisation_id'`                                                                                                                                                            | —                                                                                                                                                                                                      | `id = auth.jwt()->>'organisation_id'`                                                                              | —      |
-| **client_organisateur** _(ajout 2026-06-11, audit RLS A-4 — seul rôle absent de la matrice : page profil/orga morte)_ | `id = auth.jwt()->>'organisation_id'` (lecture seule)                                                                                                                                            | —                                                                                                                                                                                                      | —                                                                                                                  | —      |
+| Rôle | SELECT | INSERT | UPDATE | DELETE |
+|------|--------|--------|--------|--------|
+| admin_savr | ALL | ALL | ALL | ALL |
+| traiteur_manager | `id = auth.jwt()->>'organisation_id'` | — | `id = auth.jwt()->>'organisation_id'` | — |
+| traiteur_commercial | `id = auth.jwt()->>'organisation_id'` | — | — | — |
+| agence | `id = auth.jwt()->>'organisation_id' OR (est_shadow=true AND cree_par_organisation_id = auth.jwt()->>'organisation_id')` *(extension 2026-05-07 — visibilité fiches shadow créées par l'agence)* | `est_shadow=true AND type='traiteur' AND cree_par_organisation_id = auth.jwt()->>'organisation_id'` *(création de fiches shadow uniquement, jamais de création d'organisation non-shadow par un user)* | `id = auth.jwt()->>'organisation_id'` (pas de droit sur les fiches shadow créées — l'Admin gère leur cycle de vie) | — |
+| gestionnaire_lieux | `id = auth.jwt()->>'organisation_id'` | — | `id = auth.jwt()->>'organisation_id'` | — |
+| **client_organisateur** *(ajout 2026-06-11, audit RLS A-4 — seul rôle absent de la matrice : page profil/orga morte)* | `id = auth.jwt()->>'organisation_id'` (lecture seule) | — | — | — |
 
 > **Note 2026-05-07** : SELECT limité au référentiel "actif" (filtre `est_shadow=false` côté UI/queries) pour les autocompletes de programmation. La fiche shadow n'est visible que par son créateur (agence) et l'Admin. Promotion shadow → client réel par Admin Savr (`UPDATE organisations SET est_shadow=false, cree_par_organisation_id=NULL WHERE id=...`).
 >
@@ -161,29 +164,29 @@ Principe : chaque table sensible a une policy qui filtre les lignes visibles sel
 
 ### Table `users`
 
-| Rôle                                                                                          | SELECT                                                                                                                                                                                                                                                          | INSERT                                                                                             | UPDATE                                                                                                             | DELETE     |
-| --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ---------- |
-| admin_savr                                                                                    | ALL                                                                                                                                                                                                                                                             | ALL                                                                                                | ALL                                                                                                                | ALL (soft) |
-| traiteur_manager                                                                              | `organisation_id = auth.jwt()->>'organisation_id'`                                                                                                                                                                                                              | `organisation_id = auth.jwt()->>'organisation_id'` (invitation commerciaux)                        | `organisation_id = auth.jwt()->>'organisation_id'`                                                                 | —          |
-| **gestionnaire_lieux** _(décision F5 test-scenarios §06.05 2026-06-07 — BLOQUANT soldé)_      | `organisation_id = auth.jwt()->>'organisation_id'`                                                                                                                                                                                                              | `organisation_id = auth.jwt()->>'organisation_id'` (invitation collègues — §06.05 §6, template 17) | `organisation_id = auth.jwt()->>'organisation_id'` (désactivation collègues ; garde UI : pas d'auto-désactivation) | —          |
-| **traiteur_commercial** _(décision F4 test-scenarios §09 lot ⑪ 2026-06-07, tranché Val)_      | `organisation_id = auth.jwt()->>'organisation_id'` (lecture org-wide — sert le Bloc 7 Top 5 commerciaux §11 ; exposition email/téléphone des collègues assumée)                                                                                                 | —                                                                                                  | `id = auth.uid()` (son propre profil uniquement)                                                                   | —          |
-| **agence** _(décision F1 test-scenarios §06.11 lot ⑨ 2026-06-07, tranché Val — inverse reco)_ | `id = auth.uid()` (self only — **pas** d'alignement manager : Bloc 7 Top 5 commerciaux et bloc « Mon organisation > Utilisateurs » retirés V1 côté agence, cf. §06.11 différence forcée #8 ; gestion users agence = Admin only ; ne pas re-proposer l'org-wide) | —                                                                                                  | `id = auth.uid()` (son propre profil)                                                                              | —          |
-| autres                                                                                        | `id = auth.uid()`                                                                                                                                                                                                                                               | —                                                                                                  | `id = auth.uid()` (son propre profil)                                                                              | —          |
+| Rôle | SELECT | INSERT | UPDATE | DELETE |
+|------|--------|--------|--------|--------|
+| admin_savr | ALL | ALL | ALL | ALL (soft) |
+| traiteur_manager | `organisation_id = auth.jwt()->>'organisation_id'` | `organisation_id = auth.jwt()->>'organisation_id'` (invitation commerciaux) | `organisation_id = auth.jwt()->>'organisation_id'` | — |
+| **gestionnaire_lieux** *(décision F5 test-scenarios §06.05 2026-06-07 — BLOQUANT soldé)* | `organisation_id = auth.jwt()->>'organisation_id'` | `organisation_id = auth.jwt()->>'organisation_id'` (invitation collègues — §06.05 §6, template 17) | `organisation_id = auth.jwt()->>'organisation_id'` (désactivation collègues ; garde UI : pas d'auto-désactivation) | — |
+| **traiteur_commercial** *(décision F4 test-scenarios §09 lot ⑪ 2026-06-07, tranché Val)* | `organisation_id = auth.jwt()->>'organisation_id'` (lecture org-wide — sert le Bloc 7 Top 5 commerciaux §11 ; exposition email/téléphone des collègues assumée) | — | `id = auth.uid()` (son propre profil uniquement) | — |
+| **agence** *(décision F1 test-scenarios §06.11 lot ⑨ 2026-06-07, tranché Val — inverse reco)* | `id = auth.uid()` (self only — **pas** d'alignement manager : Bloc 7 Top 5 commerciaux et bloc « Mon organisation > Utilisateurs » retirés V1 côté agence, cf. §06.11 différence forcée #8 ; gestion users agence = Admin only ; ne pas re-proposer l'org-wide) | — | `id = auth.uid()` (son propre profil) | — |
+| autres | `id = auth.uid()` | — | `id = auth.uid()` (son propre profil) | — |
 
 > **Note F5 (2026-06-07)** : gestionnaire_lieux était classé « autres » (self only) alors que §06.05 §6 Bloc Utilisateurs promet invitation + désactivation à tout user gestionnaire (pas de distinction manager V1) — les deux actions étaient mortes au niveau RLS. Aligné sur traiteur_manager. pgTAP : `users_gestionnaire_org_wide_ok` / `users_gestionnaire_cross_org_denied`.
 
 ### Table `evenements`
 
-| Rôle                                                                             | SELECT                                                                                                                                                                                                                                                                                                                                                                                                                                  | INSERT                                                                                                                                                                                                                                                                                                                                                                                  | UPDATE                                                                                                                                                                                                                                                                                                                                                                                                                                                         | DELETE                                                    |
-| -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| admin_savr                                                                       | ALL                                                                                                                                                                                                                                                                                                                                                                                                                                     | ALL                                                                                                                                                                                                                                                                                                                                                                                     | ALL                                                                                                                                                                                                                                                                                                                                                                                                                                                            | ALL                                                       |
-| traiteur_manager                                                                 | `organisation_id = auth.jwt()->>'organisation_id'`                                                                                                                                                                                                                                                                                                                                                                                      | `organisation_id = auth.jwt()->>'organisation_id'`                                                                                                                                                                                                                                                                                                                                      | `organisation_id = auth.jwt()->>'organisation_id' AND f_collecte_editable(evenements.id)` (y compris collectes créées par commerciaux de l'orga ; garde fenêtre d'édition ajoutée — décision F3 test-scenarios §09 lot ⑪ 2026-06-07, cohérence 4 rôles clients, le forçage post-réalisation reste staff via back-office)                                                                                                                                       | `organisation_id = auth.jwt()->>'organisation_id'` (soft) |
-| traiteur_commercial                                                              | `organisation_id = auth.jwt()->>'organisation_id'` _(révision 2026-05-29 — lecture org-wide alignée manager, ex `created_by = auth.uid()`)_                                                                                                                                                                                                                                                                                             | `true`                                                                                                                                                                                                                                                                                                                                                                                  | `created_by = auth.uid() AND f_collecte_editable(evenements.id)` _(écriture limitée à ses propres créations. Fenêtre d'édition = fonction canonique unique `f_collecte_editable`, définie [[05 - Règles métier#Modification d'une collecte à venir (refonte 2026-05-04)]] — sobriété 2026-06-03 C2, ex-`EXISTS … statut IN (…)` inliné. Corrigé Sujet 2 2026-05-26 : `evenements.statut` supprimé (D2 2026-05-25) + `validee_pre_prestation` valeur fantôme.)_ | —                                                         |
-| agence                                                                           | `organisation_id = auth.jwt()->>'organisation_id'`                                                                                                                                                                                                                                                                                                                                                                                      | `organisation_id = auth.jwt()->>'organisation_id'` (programmation libre, périmètre lieu + traiteur ouvert)                                                                                                                                                                                                                                                                              | `organisation_id = auth.jwt()->>'organisation_id' AND f_collecte_editable(evenements.id)` _(garde fenêtre d'édition ajoutée — décision F3 test-scenarios §09 lot ⑪ 2026-06-07)_                                                                                                                                                                                                                                                                                | —                                                         |
-| gestionnaire_lieux                                                               | `(lieu_id IN (SELECT lieu_id FROM organisations_lieux WHERE organisation_id = auth.jwt()->>'organisation_id') AND date_evenement IS NOT NULL) OR organisation_id = auth.jwt()->>'organisation_id'` _(décision F3 test-scenarios §06.05 2026-06-07 — les brouillons tiers, `date_evenement` NULL depuis lot ① F1, sont exclus de la visibilité par lieu : anti-fuite d'intention commerciale ; ses propres brouillons restent visibles)_ | `organisation_id = auth.jwt()->>'organisation_id' AND lieu_id IN (SELECT lieu_id FROM organisations_lieux WHERE organisation_id = auth.jwt()->>'organisation_id') AND traiteur_operationnel_organisation_id IN (SELECT id FROM organisations WHERE type='traiteur' AND est_shadow=false)` (programmation restreinte à ses lieux + traiteur référencé non-shadow — extension 2026-05-07) | `organisation_id = auth.jwt()->>'organisation_id' AND f_collecte_editable(evenements.id)` _(décision F4 test-scenarios §06.05 2026-06-07 — fenêtre d'édition canonique ajoutée, §06.05 « workflow d'édition identique au traiteur » ; sur ses propres événements programmés uniquement, pas sur ceux des traiteurs intervenants)_                                                                                                                              | —                                                         |
-| **traiteur_manager** _(extension 2026-05-07 — visibilité traiteur opérationnel)_ | OU `traiteur_operationnel_organisation_id = auth.jwt()->>'organisation_id'` (collectes programmées par tiers chez ce traiteur)                                                                                                                                                                                                                                                                                                          | —                                                                                                                                                                                                                                                                                                                                                                                       | UPDATE limité aux événements `organisation_id = self` (modification des propres programmations seulement, pas de droit sur les programmations tierces)                                                                                                                                                                                                                                                                                                         | —                                                         |
-| **traiteur_commercial** _(extension 2026-05-07, élargie 2026-05-29)_             | SELECT déjà org-wide (`organisation_id = self`) + OU `traiteur_operationnel_organisation_id = auth.jwt()->>'organisation_id'` (collectes programmées par tiers chez son traiteur opérationnel)                                                                                                                                                                                                                                          | —                                                                                                                                                                                                                                                                                                                                                                                       | —                                                                                                                                                                                                                                                                                                                                                                                                                                                              | —                                                         |
-| client_organisateur                                                              | `client_organisateur_organisation_id = auth.jwt()->>'organisation_id'`                                                                                                                                                                                                                                                                                                                                                                  | —                                                                                                                                                                                                                                                                                                                                                                                       | —                                                                                                                                                                                                                                                                                                                                                                                                                                                              | —                                                         |
+| Rôle | SELECT | INSERT | UPDATE | DELETE |
+|------|--------|--------|--------|--------|
+| admin_savr | ALL | ALL | ALL | ALL |
+| traiteur_manager | `organisation_id = auth.jwt()->>'organisation_id'` | `organisation_id = auth.jwt()->>'organisation_id'` | `organisation_id = auth.jwt()->>'organisation_id' AND f_collecte_editable(evenements.id)` (y compris collectes créées par commerciaux de l'orga ; garde fenêtre d'édition ajoutée — décision F3 test-scenarios §09 lot ⑪ 2026-06-07, cohérence 4 rôles clients, le forçage post-réalisation reste staff via back-office) | `organisation_id = auth.jwt()->>'organisation_id'` (soft) |
+| traiteur_commercial | `organisation_id = auth.jwt()->>'organisation_id'` *(révision 2026-05-29 — lecture org-wide alignée manager, ex `created_by = auth.uid()`)* | `true` | `created_by = auth.uid() AND f_collecte_editable(evenements.id)` *(écriture limitée à ses propres créations. Fenêtre d'édition = fonction canonique unique `f_collecte_editable`, définie [[05 - Règles métier#Modification d'une collecte à venir (refonte 2026-05-04)]] — sobriété 2026-06-03 C2, ex-`EXISTS … statut IN (…)` inliné. Corrigé Sujet 2 2026-05-26 : `evenements.statut` supprimé (D2 2026-05-25) + `validee_pre_prestation` valeur fantôme.)* | — |
+| agence | `organisation_id = auth.jwt()->>'organisation_id'` | `organisation_id = auth.jwt()->>'organisation_id'` (programmation libre, périmètre lieu + traiteur ouvert) | `organisation_id = auth.jwt()->>'organisation_id' AND f_collecte_editable(evenements.id)` *(garde fenêtre d'édition ajoutée — décision F3 test-scenarios §09 lot ⑪ 2026-06-07)* | — |
+| gestionnaire_lieux | `(lieu_id IN (SELECT lieu_id FROM organisations_lieux WHERE organisation_id = auth.jwt()->>'organisation_id') AND date_evenement IS NOT NULL) OR organisation_id = auth.jwt()->>'organisation_id'` *(décision F3 test-scenarios §06.05 2026-06-07 — les brouillons tiers, `date_evenement` NULL depuis lot ① F1, sont exclus de la visibilité par lieu : anti-fuite d'intention commerciale ; ses propres brouillons restent visibles)* | `organisation_id = auth.jwt()->>'organisation_id' AND lieu_id IN (SELECT lieu_id FROM organisations_lieux WHERE organisation_id = auth.jwt()->>'organisation_id') AND traiteur_operationnel_organisation_id IN (SELECT id FROM organisations WHERE type='traiteur' AND est_shadow=false)` (programmation restreinte à ses lieux + traiteur référencé non-shadow — extension 2026-05-07) | `organisation_id = auth.jwt()->>'organisation_id' AND f_collecte_editable(evenements.id)` *(décision F4 test-scenarios §06.05 2026-06-07 — fenêtre d'édition canonique ajoutée, §06.05 « workflow d'édition identique au traiteur » ; sur ses propres événements programmés uniquement, pas sur ceux des traiteurs intervenants)* | — |
+| **traiteur_manager** *(extension 2026-05-07 — visibilité traiteur opérationnel)* | OU `traiteur_operationnel_organisation_id = auth.jwt()->>'organisation_id'` (collectes programmées par tiers chez ce traiteur) | — | UPDATE limité aux événements `organisation_id = self` (modification des propres programmations seulement, pas de droit sur les programmations tierces) | — |
+| **traiteur_commercial** *(extension 2026-05-07, élargie 2026-05-29)* | SELECT déjà org-wide (`organisation_id = self`) + OU `traiteur_operationnel_organisation_id = auth.jwt()->>'organisation_id'` (collectes programmées par tiers chez son traiteur opérationnel) | — | — | — |
+| client_organisateur | `client_organisateur_organisation_id = auth.jwt()->>'organisation_id'` | — | — | — |
 
 ### Table `collectes`
 
@@ -193,27 +196,27 @@ Policy héritée de `evenements` via `evenement_id`. Même logique de filtrage. 
 
 ### Table `factures`
 
-| Rôle                | SELECT                                                                                                                                                                                                                                                                                                                                                                                                   | INSERT | UPDATE | DELETE                                    |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------ | ----------------------------------------- |
-| admin_savr          | ALL                                                                                                                                                                                                                                                                                                                                                                                                      | ALL    | ALL    | — (pas de suppression, uniquement avoirs) |
-| traiteur_manager    | `organisation_id = auth.jwt()->>'organisation_id'`                                                                                                                                                                                                                                                                                                                                                       | —      | —      | —                                         |
-| traiteur_commercial | `organisation_id = auth.jwt()->>'organisation_id'` (toutes les factures de l'orga, lecture seule) _(révision 2026-05-29 — lecture alignée manager ; option C levée : vue liste Mon organisation > Facturation accessible en lecture seule au commercial, + bouton "Télécharger la facture" sur fiche collecte)_                                                                                          | —      | —      | —                                         |
-| agence              | `organisation_id = auth.jwt()->>'organisation_id'`                                                                                                                                                                                                                                                                                                                                                       | —      | —      | —                                         |
-| gestionnaire_lieux  | `organisation_id = auth.jwt()->>'organisation_id'` _(décision F6 test-scenarios §06.05 2026-06-07 — BLOQUANT soldé : la matrice était restée au deny pré-extension transactionnelle 2026-05-07, rendant la section « Mon organisation > Facturation » §06.05 morte. Ses propres factures Savr uniquement ; les factures des traiteurs restent invisibles même si la collecte s'est tenue sur ses lieux)_ | —      | —      | —                                         |
-| client_organisateur | — (pas d'accès factures V1)                                                                                                                                                                                                                                                                                                                                                                              | —      | —      | —                                         |
+| Rôle | SELECT | INSERT | UPDATE | DELETE |
+|------|--------|--------|--------|--------|
+| admin_savr | ALL | ALL | ALL | — (pas de suppression, uniquement avoirs) |
+| traiteur_manager | `organisation_id = auth.jwt()->>'organisation_id'` | — | — | — |
+| traiteur_commercial | `organisation_id = auth.jwt()->>'organisation_id'` (toutes les factures de l'orga, lecture seule) *(révision 2026-05-29 — lecture alignée manager ; option C levée : vue liste Mon organisation > Facturation accessible en lecture seule au commercial, + bouton "Télécharger la facture" sur fiche collecte)* | — | — | — |
+| agence | `organisation_id = auth.jwt()->>'organisation_id'` | — | — | — |
+| gestionnaire_lieux | `organisation_id = auth.jwt()->>'organisation_id'` *(décision F6 test-scenarios §06.05 2026-06-07 — BLOQUANT soldé : la matrice était restée au deny pré-extension transactionnelle 2026-05-07, rendant la section « Mon organisation > Facturation » §06.05 morte. Ses propres factures Savr uniquement ; les factures des traiteurs restent invisibles même si la collecte s'est tenue sur ses lieux)* | — | — | — |
+| client_organisateur | — (pas d'accès factures V1) | — | — | — |
 
 > **Masquage colonnes sensibles (décision F5 test-scenarios §06.08 2026-06-07)** : `factures.marge_logistique` (marge Savr, écrite par le trigger cross-schema `fn_recalc_marge_tournee`) + `erreur_synchro*` ne doivent **jamais** être lisibles par les rôles clients — la RLS row-level ne masquant pas une colonne, les rôles clients (manager, commercial, agence, gestionnaire_lieux) lisent via la **vue whitelist `v_factures_client`** (`security_invoker`, mêmes prédicats org-scoped que la matrice ci-dessus) ; le SELECT direct sur `plateforme.factures` est limité staff (`admin_savr`/`ops_savr`). pgTAP : `test_factures_marge_invisible_clients` (deny SELECT table direct manager + vue sans colonne) — P1 bloquant CI. Cf. [[04 - Data Model#Table : `factures`]].
 
 ### Table `bordereaux_savr`
 
-| Rôle                                                                                | SELECT                                                                                                               | INSERT     | UPDATE             | DELETE |
-| ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------ | ------ |
-| admin_savr                                                                          | ALL                                                                                                                  | ALL (auto) | ALL (régénération) | —      |
-| traiteur_manager                                                                    | via FK collecte → evenement → organisation                                                                           | —          | —                  | —      |
-| traiteur_commercial                                                                 | via FK collecte → evenement → organisation _(révision 2026-05-29 — lecture org-wide, ex `created_by`)_               | —          | —                  | —      |
-| agence                                                                              | via FK collecte → evenement → organisation                                                                           | —          | —                  | —      |
-| gestionnaire_lieux                                                                  | via FK collecte → evenement → lieu → organisations_lieux                                                             | —          | —                  | —      |
-| **client_organisateur** _(ajout 2026-06-11, audit RLS B-3 — option a tranchée Val)_ | via FK collecte → evenement → `client_organisateur_organisation_id = auth.jwt()->>'organisation_id'` (lecture seule) | —          | —                  | —      |
+| Rôle | SELECT | INSERT | UPDATE | DELETE |
+|------|--------|--------|--------|--------|
+| admin_savr | ALL | ALL (auto) | ALL (régénération) | — |
+| traiteur_manager | via FK collecte → evenement → organisation | — | — | — |
+| traiteur_commercial | via FK collecte → evenement → organisation *(révision 2026-05-29 — lecture org-wide, ex `created_by`)* | — | — | — |
+| agence | via FK collecte → evenement → organisation | — | — | — |
+| gestionnaire_lieux | via FK collecte → evenement → lieu → organisations_lieux | — | — | — |
+| **client_organisateur** *(ajout 2026-06-11, audit RLS B-3 — option a tranchée Val)* | via FK collecte → evenement → `client_organisateur_organisation_id = auth.jwt()->>'organisation_id'` (lecture seule) | — | — | — |
 
 > **Note B-3 (2026-06-11)** : avant cet ajout, la ligne était deny pour `client_organisateur` alors que `f_fichier_visible` (§3ter C1) lui donnait déjà le **PDF** via `f_collecte_visible` — incohérence ligne/fichier. Tranché Val (option a) : le client organisateur lit la ligne ET le fichier de ses événements. `f_fichier_visible` inchangée. pgTAP : `bordereaux_client_orga_own_event_ok` / `attestations_client_orga_cross_org_denied`.
 
@@ -221,16 +224,16 @@ Policy héritée de `evenements` via `evenement_id`. Même logique de filtrage. 
 
 Même logique que `bordereaux_savr` (y compris la ligne `client_organisateur`, B-3a 2026-06-11).
 
-### Table `packs_antgaspi` _(extension 2026-05-07)_
+### Table `packs_antgaspi` *(extension 2026-05-07)*
 
-| Rôle                                                                                     | SELECT                                             | INSERT | UPDATE | DELETE |
-| ---------------------------------------------------------------------------------------- | -------------------------------------------------- | ------ | ------ | ------ |
-| admin_savr                                                                               | ALL                                                | ALL    | ALL    | —      |
-| **ops_savr** _(conflit tranché Val 2026-06-11, audit RLS — la matrice étendue fait foi)_ | ALL                                                | ALL    | ALL    | —      |
-| traiteur_manager                                                                         | `organisation_id = auth.jwt()->>'organisation_id'` | —      | —      | —      |
-| **agence** _(2026-05-07)_                                                                | `organisation_id = auth.jwt()->>'organisation_id'` | —      | —      | —      |
-| **gestionnaire_lieux** _(2026-05-07)_                                                    | `organisation_id = auth.jwt()->>'organisation_id'` | —      | —      | —      |
-| autres                                                                                   | —                                                  | —      | —      | —      |
+| Rôle | SELECT | INSERT | UPDATE | DELETE |
+|------|--------|--------|--------|--------|
+| admin_savr | ALL | ALL | ALL | — |
+| **ops_savr** *(conflit tranché Val 2026-06-11, audit RLS — la matrice étendue fait foi)* | ALL | ALL | ALL | — |
+| traiteur_manager | `organisation_id = auth.jwt()->>'organisation_id'` | — | — | — |
+| **agence** *(2026-05-07)* | `organisation_id = auth.jwt()->>'organisation_id'` | — | — | — |
+| **gestionnaire_lieux** *(2026-05-07)* | `organisation_id = auth.jwt()->>'organisation_id'` | — | — | — |
+| autres | — | — | — | — |
 
 > **Note 2026-05-07, révisée 2026-06-11 (audit RLS, tranché Val)** : l'écriture pack (créer / ajuster crédits / annuler, motif obligatoire) est **staff** (`admin_savr` + `ops_savr`) — alignement sur la matrice étendue ops_savr (« Packs AG : Oui », confirmée F2 2026-06-07), qui fait foi pour les écritures. L'ancienne mention « admin only » de cette note était le conflit B-1 de l'audit RLS 2026-06-11. Lecture étendue aux 3 types programmateurs car le pack actif détermine la possibilité de programmer une AG. pgTAP : `packs_ag_write_ops_ok` / `packs_ag_write_client_denied`.
 
@@ -245,18 +248,18 @@ Même logique que `bordereaux_savr` (y compris la ligne `client_organisateur`, B
 
 > ⚠ **`prestataires_logistiques` retirée de cette ligne (audit RLS 2026-06-11, B-4)** : la table est migrée vers `shared.prestataires` (2026-04-23) dont le SELECT est **`admin_savr`/`ops_savr` uniquement** (addendum cross-schema en tête de ce document). L'ancienne mention ici ouvrait par erreur la lecture du réseau logistique Savr à tous les rôles clients. pgTAP : `prestataires_client_roles_denied`.
 
-| Rôle                                   | SELECT                                                                                              | INSERT                                        | UPDATE                                        | DELETE             |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------- | --------------------------------------------- | ------------------ |
-| admin_savr                             | ALL                                                                                                 | ALL                                           | ALL                                           | ALL                |
+| Rôle | SELECT | INSERT | UPDATE | DELETE |
+|------|--------|--------|--------|--------|
+| admin_savr | ALL | ALL | ALL | ALL |
 | traiteur_manager / traiteur_commercial | ALL référentiels + `contacts_traiteurs` limité à `organisation_id = auth.jwt()->>'organisation_id'` | `contacts_traiteurs` (organisation_id = sien) | `contacts_traiteurs` (organisation_id = sien) | — (soft seulement) |
-| autres                                 | ALL référentiels (lecture)                                                                          | —                                             | —                                             | —                  |
+| autres | ALL référentiels (lecture) | — | — | — |
 
 ### Table `tournees`
 
-| Rôle       | SELECT                                                                                                                                                                                                                                                                                          | INSERT | UPDATE | DELETE     |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------ | ---------- |
-| admin_savr | ALL                                                                                                                                                                                                                                                                                             | ALL    | ALL    | ALL (soft) |
-| autres     | lecture via jointure `collecte_tournees` → `tournees` filtrée par leur périmètre _(refonte multi-camions 2026-05-25, ex `collectes.tournee_id`)_ (ex: un traiteur voit les tournées de ses collectes — N tournées possibles en multi-camions — mais pas les autres collectes qui les composent) | —      | —      | —          |
+| Rôle | SELECT | INSERT | UPDATE | DELETE |
+|------|--------|--------|--------|--------|
+| admin_savr | ALL | ALL | ALL | ALL (soft) |
+| autres | lecture via jointure `collecte_tournees` → `tournees` filtrée par leur périmètre *(refonte multi-camions 2026-05-25, ex `collectes.tournee_id`)* (ex: un traiteur voit les tournées de ses collectes — N tournées possibles en multi-camions — mais pas les autres collectes qui les composent) | — | — | — |
 
 **SQL explicite (audit RLS 2026-06-11, B-5 — la formulation narrative n'était pas transposable sans interprétation)** :
 
@@ -274,22 +277,22 @@ CREATE POLICY t_select ON plateforme.tournees FOR SELECT
 
 **Nouvelle table V1 (refonte multi-camions 2026-05-25)** — table de liaison N↔N collectes/tournées.
 
-| Rôle       | SELECT                                                                                                                                                              | INSERT | UPDATE | DELETE     |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------ | ---------- |
-| admin_savr | ALL                                                                                                                                                                 | ALL    | ALL    | ALL (soft) |
-| autres     | lecture des lignes dont la `collecte_id` est dans leur périmètre (RLS dérivée de `collectes` : un traiteur/gestionnaire voit les liaisons de ses propres collectes) | —      | —      | —          |
+| Rôle | SELECT | INSERT | UPDATE | DELETE |
+|------|--------|--------|--------|--------|
+| admin_savr | ALL | ALL | ALL | ALL (soft) |
+| autres | lecture des lignes dont la `collecte_id` est dans leur périmètre (RLS dérivée de `collectes` : un traiteur/gestionnaire voit les liaisons de ses propres collectes) | — | — | — |
 
 Écriture réservée au système (webhook `tournee-upsert` via service role). Aucun rôle applicatif n'insère/modifie directement.
 
-### Table `tarifs_negocie` _(renommée 2026-04-28, ex `tarifs_zd_par_gestionnaire` ; refonte tarification 2026-05-26 — ne porte plus que des remises %)_
+### Table `tarifs_negocie` *(renommée 2026-04-28, ex `tarifs_zd_par_gestionnaire` ; refonte tarification 2026-05-26 — ne porte plus que des remises %)*
 
 > **Refonte 2026-05-26** : `tarifs_negocie` ne contient plus de prix absolu — uniquement des **remises %** (`remise_pct`) cumulables sur la base (catalogue `grilles_tarifaires_zd`). Scope `organisation` (bénéficiaire) ou `gestionnaire` (négociateur, ex Viparis). Saisie Admin contrôlée. Le prix résolu (`base × Π(1 − remise_pct)`) est calculé en backend, non affiché au formulaire (Sujet 5), restitué sur la facture. **RLS de la base `grilles_tarifaires_zd` + `tarifs_zero_dechet` + `tarifs_packs_ag` : traitée audit RLS V1 2026-06-05 → §3ter A5** (lecture authentifiée, écriture admin only).
 
-| Rôle               | SELECT                                                                                                                                   | INSERT | UPDATE | DELETE |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------ | ------ |
-| admin_savr         | ALL                                                                                                                                      | ALL    | ALL    | ALL    |
-| gestionnaire_lieux | `scope = 'gestionnaire' AND gestionnaire_organisation_id = auth.jwt()->>'organisation_id'` (lecture seule des remises qu'il a négociées) | —      | —      | —      |
-| autres             | —                                                                                                                                        | —      | —      | —      |
+| Rôle | SELECT | INSERT | UPDATE | DELETE |
+|------|--------|--------|--------|--------|
+| admin_savr | ALL | ALL | ALL | ALL |
+| gestionnaire_lieux | `scope = 'gestionnaire' AND gestionnaire_organisation_id = auth.jwt()->>'organisation_id'` (lecture seule des remises qu'il a négociées) | — | — | — |
+| autres | — | — | — | — |
 
 **Lecture indirecte (bénéficiaire)** : les organisations bénéficiaires (`scope = 'organisation'`, traiteur/agence/gestionnaire programmateur) n'accèdent pas directement à la table — la remise leur est restituée via le détail de facture (`factures_collectes.tarif_detail` jsonb, figé). Cohérent avec le tarif non affiché au formulaire.
 
@@ -297,65 +300,65 @@ CREATE POLICY t_select ON plateforme.tournees FOR SELECT
 
 > **Section vidée (audit RLS 2026-06-11)** : `courses_logistiques` = vue `v_courses_logistiques` **V2 non créée V1** (cf. §04) ; `entites_facturation` n'est **pas** une table interne Savr — elle porte les entités de facturation de **toutes** les organisations clientes, le deny total rendait le sélecteur d'entité §06.01 et « Mon organisation » morts. **Policy corrigée → [[#Q2 — `entites_facturation`|§3quater Q2]]** (lecture org-scoped clients, écriture staff).
 
-### Table `parametres_taux_recyclage` _(ajout 2026-05-06)_
+### Table `parametres_taux_recyclage` *(ajout 2026-05-06)*
 
-| Rôle       | SELECT | INSERT | UPDATE | DELETE                                                  |
-| ---------- | ------ | ------ | ------ | ------------------------------------------------------- |
-| admin_savr | ALL    | ALL    | ALL    | — (suppression interdite V1, bascule via `actif=false`) |
-| ops_savr   | ALL    | —      | —      | —                                                       |
-| autres     | —      | —      | —      | —                                                       |
+| Rôle | SELECT | INSERT | UPDATE | DELETE |
+|------|--------|--------|--------|--------|
+| admin_savr | ALL | ALL | ALL | — (suppression interdite V1, bascule via `actif=false`) |
+| ops_savr | ALL | — | — | — |
+| autres | — | — | — | — |
 
 **Justification écriture admin_savr only** : impact direct sur le calcul du Taux de recyclage figé sur les futures collectes clôturées + audit réglementaire requis. Restreint Val + Louis.
 
 **Lecture indirecte** : tous les rôles lecteurs de `collectes` accèdent au snapshot via `collectes.caps_appliques jsonb` (figé à la clôture, jamais réécrit).
 
-### Table `parametres_taux_recyclage_history` _(ajout 2026-05-06 — audit trail)_
+### Table `parametres_taux_recyclage_history` *(ajout 2026-05-06 — audit trail)*
 
-| Rôle       | SELECT | INSERT                                    | UPDATE | DELETE |
-| ---------- | ------ | ----------------------------------------- | ------ | ------ |
-| admin_savr | ALL    | — _(insertion via trigger DB uniquement)_ | —      | —      |
-| ops_savr   | ALL    | —                                         | —      | —      |
-| autres     | —      | —                                         | —      | —      |
+| Rôle | SELECT | INSERT | UPDATE | DELETE |
+|------|--------|--------|--------|--------|
+| admin_savr | ALL | — *(insertion via trigger DB uniquement)* | — | — |
+| ops_savr | ALL | — | — | — |
+| autres | — | — | — | — |
 
 **Insertion** : interdite à tous via API. Le trigger DB `AFTER UPDATE` sur `parametres_taux_recyclage` insère automatiquement avec `modifie_par = auth.uid()`. Pas de modification a posteriori (immuable).
 
-### Tables Facteurs CO₂ _(ajout 2026-06-04, Sujet 3)_
+### Tables Facteurs CO₂ *(ajout 2026-06-04, Sujet 3)*
 
 Même politique que `parametres_taux_recyclage` (écriture `admin_savr`, lecture `ops_savr`, lecture indirecte des autres rôles via le snapshot `collectes.co2_facteurs_snapshot` figé à la clôture).
 
-`parametres_facteurs_co2`, `parametres_mix_emballages` et `parametres_facteurs_co2_ag` _(AG, ajout 2026-06-04 bis)_ :
+`parametres_facteurs_co2`, `parametres_mix_emballages` et `parametres_facteurs_co2_ag` *(AG, ajout 2026-06-04 bis)* :
 
-| Rôle       | SELECT | INSERT | UPDATE | DELETE                        |
-| ---------- | ------ | ------ | ------ | ----------------------------- |
-| admin_savr | ALL    | ALL    | ALL    | — (bascule via `actif=false`) |
-| ops_savr   | ALL    | —      | —      | —                             |
-| autres     | —      | —      | —      | —                             |
+| Rôle | SELECT | INSERT | UPDATE | DELETE |
+|------|--------|--------|--------|--------|
+| admin_savr | ALL | ALL | ALL | — (bascule via `actif=false`) |
+| ops_savr | ALL | — | — | — |
+| autres | — | — | — | — |
 
 `parametres_facteurs_co2_history`, `parametres_mix_emballages_history` et `parametres_facteurs_co2_ag_history` :
 
-| Rôle       | SELECT | INSERT                      | UPDATE | DELETE |
-| ---------- | ------ | --------------------------- | ------ | ------ |
-| admin_savr | ALL    | — _(trigger DB uniquement)_ | —      | —      |
-| ops_savr   | ALL    | —                           | —      | —      |
-| autres     | —      | —                           | —      | —      |
+| Rôle | SELECT | INSERT | UPDATE | DELETE |
+|------|--------|--------|--------|--------|
+| admin_savr | ALL | — *(trigger DB uniquement)* | — | — |
+| ops_savr | ALL | — | — | — |
+| autres | — | — | — | — |
 
 `parametres_co2_divers` (forfait collecte + équivalences) :
 
-| Rôle       | SELECT | INSERT | UPDATE | DELETE |
-| ---------- | ------ | ------ | ------ | ------ |
-| admin_savr | ALL    | ALL    | ALL    | —      |
-| ops_savr   | ALL    | —      | —      | —      |
-| autres     | —      | —      | —      | —      |
+| Rôle | SELECT | INSERT | UPDATE | DELETE |
+|------|--------|--------|--------|--------|
+| admin_savr | ALL | ALL | ALL | — |
+| ops_savr | ALL | — | — | — |
+| autres | — | — | — | — |
 
 **Notes** : (1) la ligne `emballage` de `parametres_facteurs_co2` est maintenue par le trigger `fn_recompute_emballage_fe` — l'API rejette l'écriture directe de ses `fe_induit`/`fe_evite` (cf. §08 9ter.1). (2) `parametres_co2_divers` est audité via `audit_log` (pas de table history dédiée). (3) Lecture indirecte tous rôles : grandeurs CO₂ figées sur `collectes` (`co2_*`, `energie_primaire_evitee_kwh`, `co2_facteurs_snapshot`) selon RLS habituelle `collectes`, sans accès aux tables de référence.
 
-### Table `coefficients_perte_labo` _(ajout 2026-05-22)_
+### Table `coefficients_perte_labo` *(ajout 2026-05-22)*
 
-| Rôle                                    | SELECT | INSERT | UPDATE | DELETE                                           |
-| --------------------------------------- | ------ | ------ | ------ | ------------------------------------------------ |
-| admin_savr                              | ALL    | ALL    | ALL    | — (pas de hard delete V1, correction via UPDATE) |
-| ops_savr                                | ALL    | —      | —      | —                                                |
-| autres (`gestionnaire_lieux`, traiteur) | —      | —      | —      | —                                                |
+| Rôle | SELECT | INSERT | UPDATE | DELETE |
+|------|--------|--------|--------|--------|
+| admin_savr | ALL | ALL | ALL | — (pas de hard delete V1, correction via UPDATE) |
+| ops_savr | ALL | — | — | — |
+| autres (`gestionnaire_lieux`, traiteur) | — | — | — | — |
 
 **Justification écriture admin_savr only** : le coefficient est communiqué par le traiteur puis saisi par Savr ; il alimente une estimation affichée au gestionnaire de lieux. Saisie réservée Admin (§06.06). `ops_savr` lecture seule.
 
@@ -365,55 +368,53 @@ Même politique que `parametres_taux_recyclage` (écriture `admin_savr`, lecture
 
 Admin Savr uniquement.
 
-### Matrice étendue `ops_savr` — back-office Plateforme _(ajout 2026-05-07)_
+### Matrice étendue `ops_savr` — back-office Plateforme *(ajout 2026-05-07)*
 
 > **Source de vérité unique des permissions `ops_savr` (sobriété 2026-06-03 C1).** Cette matrice fait foi. Les mentions `ops_savr` dispersées dans [[06 - Fonctionnalités détaillées/06 - Back-office Admin Savr]] (Oui/Non par écran) ne sont que des rappels de contexte UI — **en cas d'écart, c'est cette matrice qui prévaut**. Toute évolution des droits `ops_savr` se fait ici en premier, puis se reflète côté §06.06. Ne jamais redéfinir un droit `ops_savr` ailleurs sans le porter ici.
 
 Synthèse des permissions Ops Savr appliquées au back-office (détail écran par écran : [[06 - Fonctionnalités détaillées/06 - Back-office Admin Savr]] §Principe + §Permissions par section — subordonné à cette matrice).
 
 **Principe général** :
-
 - `ops_savr` a la même surface de **lecture** que `admin_savr` (toutes tables back-office).
 - `ops_savr` peut effectuer la majorité des **écritures opérationnelles** (modifier collectes, valider factures, normaliser lieux, gérer users hors hard delete, modifier associations hors SIREN/habilitation).
 - `ops_savr` est **bloqué** sur les écritures structurelles ou sensibles (cf. tableau ci-dessous).
 
-| Domaine                   | Action                                                                                                                                 | `admin_savr`   | `ops_savr`                                                                                                    |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------- |
-| **Collectes**             | Lecture                                                                                                                                | Oui            | Oui                                                                                                           |
-|                           | Modifier infos / pesées / photos                                                                                                       | Oui            | Oui                                                                                                           |
-|                           | Renvoyer S7 (sans override prestataire)                                                                                                | Oui            | Oui                                                                                                           |
-|                           | Override prestataire AG avec motif                                                                                                     | **Oui**        | **Non** (403)                                                                                                 |
-|                           | Annuler crédit collecte AG                                                                                                             | Oui            | Oui                                                                                                           |
-|                           | Forcer changement statut                                                                                                               | Oui            | Oui                                                                                                           |
-| **Factures**              | Lecture                                                                                                                                | Oui            | Oui                                                                                                           |
-|                           | Valider + envoyer Pennylane                                                                                                            | Oui            | Oui                                                                                                           |
-|                           | _(purgé 2026-06-07 — résidu : pas de relance côté Savr V1, relances Pennylane, décision 2026-04-28, cf. §06.06 §4)_                    | —              | —                                                                                                             |
-|                           | Éditer ligne / montant                                                                                                                 | **Oui**        | **Non**                                                                                                       |
-|                           | Annuler / Générer avoir                                                                                                                | **Oui**        | **Non**                                                                                                       |
-| **Associations**          | Lecture                                                                                                                                | Oui            | Oui                                                                                                           |
-|                           | Modifier contacts / horaires / capacité / description                                                                                  | Oui            | Oui                                                                                                           |
-|                           | Modifier SIREN                                                                                                                         | **Oui**        | **Non**                                                                                                       |
-|                           | Modifier habilitation 2041-GE                                                                                                          | **Oui**        | **Non**                                                                                                       |
-|                           | Désactiver (`actif=false`)                                                                                                             | **Oui**        | **Non**                                                                                                       |
-| **Lieux / Transporteurs** | Lecture / écriture / désactivation                                                                                                     | Oui            | Oui (V1, à raffiner V2)                                                                                       |
-| **Organisations**         | Lecture                                                                                                                                | Oui            | Oui                                                                                                           |
-|                           | Modifier infos générales (logo, contacts)                                                                                              | Oui            | Oui                                                                                                           |
-|                           | Modifier `tarif_refacture_pax_zd`                                                                                                      | **Oui**        | **Non**                                                                                                       |
-|                           | _(retiré V1 — F6 2026-06-07, fusion = script SQL hors UI, cf. §06.06 §8)_                                                              | —              | —                                                                                                             |
-| **Users**                 | Créer / inviter / suspendre                                                                                                            | Oui            | Oui                                                                                                           |
-|                           | Changer rôle (sauf promotion `admin_savr`)                                                                                             | Oui            | Oui                                                                                                           |
-|                           | Promouvoir un user en `admin_savr`                                                                                                     | **Oui**        | **Non**                                                                                                       |
-|                           | Hard delete                                                                                                                            | **Oui**        | **Non**                                                                                                       |
-|                           | Impersonation                                                                                                                          | **Oui**        | **Non**                                                                                                       |
-| **Packs AG**              | Lecture                                                                                                                                | Oui            | Oui                                                                                                           |
-|                           | Créer / ajuster crédits / annuler le pack (motif obligatoire)                                                                          | Oui            | Oui _(confirmé Val 2026-06-07 F2 — cette matrice fait foi, §06.06 §8 aligné ; « annuler le pack » explicité)_ |
-| **Paramètres §9**         | Lecture (vue read-only avec bandeau)                                                                                                   | Oui            | Oui                                                                                                           |
-|                           | Toute écriture (tarifs, algo, intégrations, taux recyclage, users Savr, facteurs ADEME, templates emails, référentiels, configuration) | **Oui**        | **Non**                                                                                                       |
-| **Audit log**             | Lecture                                                                                                                                | Oui            | Oui                                                                                                           |
-|                           | Écriture                                                                                                                               | — (trigger DB) | —                                                                                                             |
+| Domaine | Action | `admin_savr` | `ops_savr` |
+|---------|--------|--------------|------------|
+| **Collectes** | Lecture | Oui | Oui |
+| | Modifier infos / pesées / photos | Oui | Oui |
+| | Renvoyer S7 (sans override prestataire) | Oui | Oui |
+| | Override prestataire AG avec motif | **Oui** | **Non** (403) |
+| | Annuler crédit collecte AG | Oui | Oui |
+| | Forcer changement statut | Oui | Oui |
+| **Factures** | Lecture | Oui | Oui |
+| | Valider + envoyer Pennylane | Oui | Oui |
+| | *(purgé 2026-06-07 — résidu : pas de relance côté Savr V1, relances Pennylane, décision 2026-04-28, cf. §06.06 §4)* | — | — |
+| | Éditer ligne / montant | **Oui** | **Non** |
+| | Annuler / Générer avoir | **Oui** | **Non** |
+| **Associations** | Lecture | Oui | Oui |
+| | Modifier contacts / horaires / capacité / description | Oui | Oui |
+| | Modifier SIREN | **Oui** | **Non** |
+| | Modifier habilitation 2041-GE | **Oui** | **Non** |
+| | Désactiver (`actif=false`) | **Oui** | **Non** |
+| **Lieux / Transporteurs** | Lecture / écriture / désactivation | Oui | Oui (V1, à raffiner V2) |
+| **Organisations** | Lecture | Oui | Oui |
+| | Modifier infos générales (logo, contacts) | Oui | Oui |
+| | Modifier `tarif_refacture_pax_zd` | **Oui** | **Non** |
+| | *(retiré V1 — F6 2026-06-07, fusion = script SQL hors UI, cf. §06.06 §8)* | — | — |
+| **Users** | Créer / inviter / suspendre | Oui | Oui |
+| | Changer rôle (sauf promotion `admin_savr`) | Oui | Oui |
+| | Promouvoir un user en `admin_savr` | **Oui** | **Non** |
+| | Hard delete | **Oui** | **Non** |
+| | Impersonation | **Oui** | **Non** |
+| **Packs AG** | Lecture | Oui | Oui |
+| | Créer / ajuster crédits / annuler le pack (motif obligatoire) | Oui | Oui *(confirmé Val 2026-06-07 F2 — cette matrice fait foi, §06.06 §8 aligné ; « annuler le pack » explicité)* |
+| **Paramètres §9** | Lecture (vue read-only avec bandeau) | Oui | Oui |
+| | Toute écriture (tarifs, algo, intégrations, taux recyclage, users Savr, facteurs ADEME, templates emails, référentiels, configuration) | **Oui** | **Non** |
+| **Audit log** | Lecture | Oui | Oui |
+| | Écriture | — (trigger DB) | — |
 
 **Implémentation** :
-
 - Middleware `requireRole(['admin_savr', 'ops_savr'])` sur les routes back-office généralistes.
 - Middleware `requireRole(['admin_savr'])` sur les routes/champs sensibles listés ci-dessus (override AG, tarif refacturé, fusion, impersonation, paramètres, hard delete).
 - Côté UI : les composants admin-only sont masqués pour `ops_savr` (toggle, bouton, champ) ou affichés en grisé avec tooltip "Action réservée admin Savr".
@@ -481,7 +482,7 @@ CREATE POLICY outbox_admin_read ON plateforme.outbox_events
   FOR SELECT USING (auth.jwt()->>'role' = 'admin_savr');
 ```
 
-### A2bis — `email_templates` + `emails_envoyes` _(ajout 2026-06-07 — F1 session test-scenarios §06.02)_
+### A2bis — `email_templates` + `emails_envoyes` *(ajout 2026-06-07 — F1 session test-scenarios §06.02)*
 
 Tables du pipeline email Resend (§08 §4), spécifiées §06.02/§08 mais absentes de l'audit du 2026-06-05. `emails_envoyes` contient des **PII** (`destinataire_email`). Même patron que `outbox_events` : écriture `SERVICE_ROLE` seule (Edge Function `send-email`, webhook `/webhooks/resend/events`, seed/migrations), lecture Admin debug, deny tout autre rôle.
 
@@ -613,7 +614,7 @@ CREATE POLICY rr_write_admin ON plateforme.rapports_rse FOR ALL
   USING (auth.jwt()->>'role' = 'admin_savr') WITH CHECK (auth.jwt()->>'role' = 'admin_savr');
 ```
 
-### A9 — `parametres_algo` _(RLS déjà spécifiée §04 — report ici pour consolidation)_
+### A9 — `parametres_algo` *(RLS déjà spécifiée §04 — report ici pour consolidation)*
 
 La policy existe inline au [[04 - Data Model]] (table `parametres_algo`, admin W / ops R) mais manquait à la matrice §09. Reportée pour source unique :
 
@@ -625,7 +626,7 @@ CREATE POLICY pa_write ON plateforme.parametres_algo FOR ALL
   USING (auth.jwt()->>'role' = 'admin_savr') WITH CHECK (auth.jwt()->>'role' = 'admin_savr');
 ```
 
-### A9bis — `config_auto_accept_ag` _(nouvelle — F1 test-scenarios §06.09, tranché Val 2026-06-07)_
+### A9bis — `config_auto_accept_ag` *(nouvelle — F1 test-scenarios §06.09, tranché Val 2026-06-07)*
 
 Table de configuration auto-accept AG. Lecture et écriture `admin_savr` uniquement — les règles auto-accept sont une décision d'exploitation sensible, pas exposée aux rôles Ops.
 
@@ -709,9 +710,9 @@ CREATE POLICY fichiers_select ON shared.fichiers FOR SELECT
 -- INSERT/UPDATE/DELETE : SERVICE_ROLE (generate-pdf.ts, uploads) + admin_savr.
 ```
 
-> ✅ **Liste exhaustive validée Val 2026-06-05** : **9 `entity_type` Plateforme V1** = `collectes` (photos + photo « aucun repas »), `bordereaux_savr`, `attestations_don`, `rapports_rse`, `organisations` (logos), `lieux` (photos), `evenements` (logo client organisateur), `factures` (copie PDF Savr `pdf_url_savr`, **scope strict = RLS table `factures`** : admin/ops + traiteur/agence/gestionnaire org-scoped _(gestionnaire ajouté décision F6 2026-06-07 — ses propres factures Savr)_, **jamais** client organisateur), `documents_generaux_savr` (CGV/méthodo/politique conf. = **public** `actif=true`). Tout `entity_type` non listé → `false` (deny par défaut, fail-safe). Exclus V1 : `briefs_evenement` (Module 19 non créé V1) + `tms.*` (`tms.pesees`/`tms.chauffeurs` inexistants V1). Fondement : §07 « toute référence de fichier est enregistrée dans `shared.fichiers` » → tous les `pdf_url`/`logo_url`/`photos_urls` ont une ligne.
+> ✅ **Liste exhaustive validée Val 2026-06-05** : **9 `entity_type` Plateforme V1** = `collectes` (photos + photo « aucun repas »), `bordereaux_savr`, `attestations_don`, `rapports_rse`, `organisations` (logos), `lieux` (photos), `evenements` (logo client organisateur), `factures` (copie PDF Savr `pdf_url_savr`, **scope strict = RLS table `factures`** : admin/ops + traiteur/agence/gestionnaire org-scoped *(gestionnaire ajouté décision F6 2026-06-07 — ses propres factures Savr)*, **jamais** client organisateur), `documents_generaux_savr` (CGV/méthodo/politique conf. = **public** `actif=true`). Tout `entity_type` non listé → `false` (deny par défaut, fail-safe). Exclus V1 : `briefs_evenement` (Module 19 non créé V1) + `tms.*` (`tms.pesees`/`tms.chauffeurs` inexistants V1). Fondement : §07 « toute référence de fichier est enregistrée dans `shared.fichiers` » → tous les `pdf_url`/`logo_url`/`photos_urls` ont une ligne.
 
-### B1 — `collectes` : SQL INSERT explicite _(levée d'ambiguïté)_
+### B1 — `collectes` : SQL INSERT explicite *(levée d'ambiguïté)*
 
 La policy `collectes` est « héritée de `evenements` via `evenement_id` » (§3) — non transposable telle quelle en SQL. Préciser pour le dev, en particulier le `WITH CHECK` INSERT commercial :
 
@@ -731,7 +732,7 @@ CREATE POLICY collectes_insert ON plateforme.collectes FOR INSERT
 
 > **Origine** : audit RLS skill `cdc-audit-rls` re-passé après les 35 patchs data model du 11/06 (dont dissolution `shared.audit_logs`) et les tables intégrées au §04 après l'audit du 05/06 (`audit_log`, `sequences_facturation`, `jobs_pdf`). Arbitrages Val 2026-06-11.
 
-### Q1 — `plateforme.audit_log` _(BLOQUANT — zone n°1 de l'audit : table issue de la dissolution `shared.audit_logs`)_
+### Q1 — `plateforme.audit_log` *(BLOQUANT — zone n°1 de l'audit : table issue de la dissolution `shared.audit_logs`)*
 
 Le §04 décrivait la RLS en texte ; aucune policy SQL n'existait au §09 (table intégrée le 07/06, postérieure à l'audit du 05/06). **Append-only strict : UPDATE et DELETE bloqués pour TOUS les rôles, y compris `admin_savr`.**
 
@@ -747,7 +748,7 @@ REVOKE UPDATE, DELETE ON plateforme.audit_log FROM authenticated, anon;
 
 > La vue `v_audit_global` (UNION `plateforme.audit_log` + `tms.audit_logs`, §6) = **V2 uniquement** — `tms.audit_logs` n'existe pas en V1, **ne pas créer la vue en V1**.
 
-### Q2 — `entites_facturation` _(BLOQUANT — l'ex-classement §3 « Tables financières internes, admin only » était un résidu pré-extension transactionnelle)_
+### Q2 — `entites_facturation` *(BLOQUANT — l'ex-classement §3 « Tables financières internes, admin only » était un résidu pré-extension transactionnelle)*
 
 Contradiction avec §04 : chaque organisation porte ses entités (créées à l'onboarding), sélectionnées au formulaire de programmation (§06.01) et affichées dans « Mon organisation ». Le deny total rendait ces features mortes pour tous les rôles clients. La ligne « entites_facturation Savr » du §3 est **remplacée** par :
 
@@ -764,7 +765,7 @@ CREATE POLICY ef_select_own_org ON plateforme.entites_facturation
 -- pennylane_customer_id) : écrites par SERVICE_ROLE seul (job INSEE/VIES, synchro Pennylane).
 ```
 
-### Q3 — `sequences_facturation` + `jobs_pdf` _(consolidation — RLS spécifiées §04, absentes du §09)_
+### Q3 — `sequences_facturation` + `jobs_pdf` *(consolidation — RLS spécifiées §04, absentes du §09)*
 
 ```sql
 ALTER TABLE plateforme.sequences_facturation ENABLE ROW LEVEL SECURITY;
@@ -779,7 +780,7 @@ CREATE POLICY jp_admin_read ON plateforme.jobs_pdf
 -- Écriture : SERVICE_ROLE seul (worker Railway + batchs J+1 + régénération manuelle via Edge Function).
 ```
 
-### Q4 — `lieux` : chemin `client_organisateur` _(complément A-4)_
+### Q4 — `lieux` : chemin `client_organisateur` *(complément A-4)*
 
 La policy « autres » du §3 passe par `evenements.organisation_id` — le `client_organisateur` (rattaché via `client_organisateur_organisation_id`) ne résolvait pas le lieu de son propre événement. Ajout au prédicat SELECT « autres » :
 
@@ -789,7 +790,7 @@ OR id IN (SELECT lieu_id FROM plateforme.evenements
             AND date_evenement IS NOT NULL)
 ```
 
-### Bloc D — Tests pgTAP à ajouter _(périmètre critique V1)_
+### Bloc D — Tests pgTAP à ajouter *(périmètre critique V1)*
 
 S'ajoutent aux tests cross-schema de l'addendum 2026-04-28/05-08. Les deux premiers sont **bloquants go-live** (impact cross-org / RGPD direct) :
 
@@ -881,10 +882,9 @@ En complément du RLS (qui protège la DB), le frontend et les Edge Functions ap
 
 ## 6. Audit trail
 
-**Routage (tranché Val 2026-06-09)** : l'audit suit le **schéma de la table écrite**, pas l'acteur. Le back-office App écrit dans `plateforme.audit_log` **uniquement** ; `tms.audit_logs` est le journal logistique/cross-domaine (TMS V2 + migration), jamais écrit par l'App. _(`shared.audit_logs` n'existe pas — audit canonique 2026-06-11 = 2 journaux séparés.)_ Les écritures TMS sur des tables `plateforme.*` (ex. `lieux.acces_details`/`acces_office`) sont auditées dans `plateforme.audit_log` par le trigger plateforme (acteur snapshotté). Timeline globale App+TMS si besoin = vue lecture `v_audit_global` (`UNION`), pas un point d'écriture commun — **V2 uniquement, ne pas créer en V1** (`tms.audit_logs` inexistante V1 ; audit RLS 2026-06-11).
+**Routage (tranché Val 2026-06-09)** : l'audit suit le **schéma de la table écrite**, pas l'acteur. Le back-office App écrit dans `plateforme.audit_log` **uniquement** ; `tms.audit_logs` est le journal logistique/cross-domaine (TMS V2 + migration), jamais écrit par l'App. *(`shared.audit_logs` n'existe pas — audit canonique 2026-06-11 = 2 journaux séparés.)* Les écritures TMS sur des tables `plateforme.*` (ex. `lieux.acces_details`/`acces_office`) sont auditées dans `plateforme.audit_log` par le trigger plateforme (acteur snapshotté). Timeline globale App+TMS si besoin = vue lecture `v_audit_global` (`UNION`), pas un point d'écriture commun — **V2 uniquement, ne pas créer en V1** (`tms.audit_logs` inexistante V1 ; audit RLS 2026-06-11).
 
 Chaque table critique (`collectes`, `factures`, `bordereaux_savr`, `users`, `organisations`, `tournees`) a des colonnes :
-
 - `created_at`, `created_by`
 - `updated_at`, `updated_by`
 - `deleted_at`, `deleted_by` (pour soft-delete)
@@ -896,7 +896,6 @@ Tables sensibles (factures, bordereaux, attestations) : log complet des modifica
 ## 7. Impersonation Admin Savr
 
 Un Admin Savr peut "se mettre à la place" d'un utilisateur pour debug ou support :
-
 - Bouton "Impersonate" sur le profil user dans le back-office
 - Génère un JWT signé avec `role = user.role` + `organisation_id = user.organisation_id` + `impersonator_id = admin.id`
 - Un bandeau rouge permanent signale la session impersonation dans l'UI
@@ -910,14 +909,12 @@ Un Admin Savr peut "se mettre à la place" d'un utilisateur pour debug ou suppor
 Deux niveaux possibles, dans cet ordre :
 
 **Niveau 1 — Soft delete (défaut)** :
-
 - Demande user via paramètres compte **OU** déclenchée par Admin Savr depuis back-office
 - Validation Admin Savr sous 48h (délai de grâce)
 - `deleted_at` renseigné, user bloqué login, données conservées
 - Factures / bordereaux / événements conservés (obligations comptables 10 ans, réglementaires 3 ans)
 
 **Niveau 2 — Hard delete / anonymisation PII (RGPD)** :
-
 - Possible sur demande explicite user (droit à l'oubli RGPD) **OU** décision Admin Savr
 - Anonymisation : email remplacé par `anonymized+{{user_id}}@gosavr.io`, nom/prénom/téléphone remplacés par `Anonymisé`, photo supprimée
 - Données business conservées (événements, collectes, factures) mais FK user conservée sur l'enregistrement anonymisé
@@ -930,7 +927,7 @@ Deux niveaux possibles, dans cet ordre :
 
 - **Supabase Auth** pour V1 (email + password). 2FA reportée V2.
 - **Session JWT 1h** confirmée (pas de session plus courte pour Admin en V1), refresh 30j
-- **6 rôles V1** _(sobriété 2026-06-03 D1 — `lieu_independant` fusionné dans `gestionnaire_lieux`)_ : admin_savr, traiteur_manager, traiteur_commercial, agence, gestionnaire_lieux (inclut les lieux autonomes mono-site), **client_organisateur** (nouveau)
+- **6 rôles V1** *(sobriété 2026-06-03 D1 — `lieu_independant` fusionné dans `gestionnaire_lieux`)* : admin_savr, traiteur_manager, traiteur_commercial, agence, gestionnaire_lieux (inclut les lieux autonomes mono-site), **client_organisateur** (nouveau)
 - **Rôle `gestionnaire_lieux_commandeur` retiré** (remplacé par table `tarifs_negocie`, ex `tarifs_zd_par_gestionnaire`)
 - **Rôle `lieu_independant` retiré — fusionné dans `gestionnaire_lieux` (sobriété 2026-06-03 D1)** : le §04 Data Model ne le portait déjà pas (`organisations.type` et `users.role` sans `lieu_independant`) ; le rôle n'avait aucun comportement RLS distinct (toujours rangé dans « autres ») et son dashboard §11 §6 était « identique au gestionnaire, scopé à 1 lieu ». Un lieu autonome mono-site = un `gestionnaire_lieux` avec une seule ligne `organisations_lieux`. Incohérence levée (son dashboard offrait « Programmer » sans policy INSERT). Migration Bubble : toute org typée « lieu indépendant » → `gestionnaire_lieux`. Propagé : §11, §16, §06.03, §06.06, §08, §05, §00 Index.
 - **traiteur_commercial — lecture alignée Manager (révision 2026-05-29)** : SELECT org-wide sur `evenements`, `collectes`, `factures`, `bordereaux_savr` (`organisation_id = self`) + dashboards/benchmarks + Bloc 7 Top 5 commerciaux. **Écriture** restreinte à ses propres créations (`created_by = auth.uid()`). **Pas** de gestion des utilisateurs ( **révisé F4 lot ⑪ 2026-06-07 : SELECT `users` org-wide en lecture, UPDATE reste self only — aucune invitation/désactivation**) ni d'édition des paramètres org (UPDATE `organisations` reste manager only). Option C (factures fiche-only) levée. Propagé : [[02 - Personas et cas d'usage]], [[11 - Dashboards]], [[06 - Fonctionnalités détaillées/04 - Espace client traiteur]]

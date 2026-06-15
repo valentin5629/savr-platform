@@ -1,5 +1,8 @@
 # 03 - Périmètre fonctionnel global
 
+**Statut** : ✅ Complété
+**Dernière mise à jour** : 2026-04-27 (propagation §11 TMS Dashboards — sous-section « Cumul cross-app Plateforme ↔ TMS » Module 9)
+
 ---
 
 ## Résumé
@@ -121,10 +124,10 @@ Dashboard de pilotage des revenus et coûts, visible uniquement par Admin Savr.
 Vues analytiques par profil (détaillées dans [[11 - Dashboards]], règles en [[05 - Règles métier#11. Dashboards Gestionnaires de lieux (Module dédié)]]).
 
 - **Split systématique AG / ZD** sur tous les dashboards de collecte (onglets)
-- **Traiteur-Manager** : KPIs par onglet (AG : repas détournés, packs / ZD : tonnes, taux de recyclage _(formule à captation par filière, indicateur unique — "Taux de recyclage" sur AG retiré 2026-05-06 car métrique ZD-only ; "Taux de valorisation" supprimé 2026-05-06)_), benchmarks anonymisés vs. traiteurs similaires (seuil 3 minimum), graph événements par type
+- **Traiteur-Manager** : KPIs par onglet (AG : repas détournés, packs / ZD : tonnes, taux de recyclage *(formule à captation par filière, indicateur unique — "Taux de recyclage" sur AG retiré 2026-05-06 car métrique ZD-only ; "Taux de valorisation" supprimé 2026-05-06)*), benchmarks anonymisés vs. traiteurs similaires (seuil 3 minimum), graph événements par type
 - **Traiteur-Commercial** : ses collectes (AG/ZD) + accès lecture factures de ses propres événements
-- **Agence** : impact événements organisés (AG/ZD), **bouton "Programmer une collecte"**, **filtres traiteurs ouverts** (5 dimensions benchmark Bloc 3 ZD vs 4 côté traiteur), **bloc "Mon pack AG"** si applicable, **branding agence prioritaire** sur PDF rapport RSE _(2026-05-07)_
-- **Gestionnaire de lieux** : vue multi-lieux (AG/ZD), carte interactive, comparaison inter-lieux, tarifs préférentiels négociés en lecture, **bouton "Programmer une collecte"** _(extension 2026-05-07 — sur ses propres lieux, traiteur référencé only)_, **bloc "Mon pack AG"** si applicable
+- **Agence** : impact événements organisés (AG/ZD), **bouton "Programmer une collecte"**, **filtres traiteurs ouverts** (5 dimensions benchmark Bloc 3 ZD vs 4 côté traiteur), **bloc "Mon pack AG"** si applicable, **branding agence prioritaire** sur PDF rapport RSE *(2026-05-07)*
+- **Gestionnaire de lieux** : vue multi-lieux (AG/ZD), carte interactive, comparaison inter-lieux, tarifs préférentiels négociés en lecture, **bouton "Programmer une collecte"** *(extension 2026-05-07 — sur ses propres lieux, traiteur référencé only)*, **bloc "Mon pack AG"** si applicable
 - **Client Organisateur** (nouveau) : synthèse RSE YTD, export PDF Rapport d'impact Savr
 - **Admin Savr** : vue consolidée tous clients + statut TMS acceptance + tournées + picto plaque
 
@@ -139,9 +142,9 @@ Vues analytiques par profil (détaillées dans [[11 - Dashboards]], règles en [
 
 Système de notifications transactionnelles. V1 = email uniquement. Règles exactes en [[05 - Règles métier#9. Notifications V1]].
 
-- **Clients (programmeur de la collecte)** : récap programmation, récap modification, confirmation annulation, rapport disponible, email de bienvenue _(rappel completion profil entreprise retiré V1 — gate in-app, sobriété §06.02 A2 2026-06-03)_
+- **Clients (programmeur de la collecte)** : récap programmation, récap modification, confirmation annulation, rapport disponible, email de bienvenue *(rappel completion profil entreprise retiré V1 — gate in-app, sobriété §06.02 A2 2026-06-03)*
 - **Associations / Transporteurs (hors scope V1 notifications auto depuis la plateforme)** : gérés manuellement par Admin Savr en V1
-- **Admin Savr** : alerte pack AG bas/épuisé, alerte incident collecte (pesée contestée, prestataire manqué) _(alerte « nouvelle orga à valider » retirée V1 — vérification a posteriori via liste back-office, sobriété §06.02 A3 2026-06-03)_
+- **Admin Savr** : alerte pack AG bas/épuisé, alerte incident collecte (pesée contestée, prestataire manqué) *(alerte « nouvelle orga à valider » retirée V1 — vérification a posteriori via liste back-office, sobriété §06.02 A3 2026-06-03)*
 - **Templates** : stockés en base, éditables sans redéploiement (variables interpolées)
 
 **Hors scope V1** : notifications in-app, SMS, digest, préférences utilisateur, envoi auto des factures.
@@ -173,7 +176,6 @@ Voir aussi [[02 - Cahier des charges TMS/11 - Dashboards TMS]] §3.4.
 Un user Ops Savr peut avoir 2 profils (Plateforme + TMS) avec même email Google Workspace SSO. La navigation entre les 2 apps est gérée par boutons sidebar permanents + SSO transparent.
 
 **Côté Plateforme** :
-
 - Bloc « Switcher d'app » en bas de sidebar : « Plateforme » (highlight courant) + « → TMS » (**toujours affiché**).
 - Au clic « → TMS » : redirect cross-domain `https://tms.gosavr.io/` (qui redirige selon le rôle TMS de l'user, ou affiche page d'accès refusé propre si pas de profil).
 - **Supprimé revue sobriété §08 A1 2026-05-01** (confort UX pur, ≤4 users cumul concernés).
@@ -269,7 +271,6 @@ Registre chronologique interne Savr des déchets collectés pour chaque organisa
 **Conformité ciblée** : article R. 541-43 du Code de l'environnement (tenue d'un registre chronologique des déchets). Registre interne Savr uniquement — pas d'intégration Trackdéchets en MVP. En cas d'audit, renvoi vers l'exutoire Veolia pour les BSD officiels.
 
 **Contenu accessible côté espace client** :
-
 - **Registre chronologique** : liste de toutes les collectes réalisées associées à l'organisation de l'utilisateur — date, lieu, événement, flux collectés, poids par flux, exutoire, transporteur, filière de valorisation
 - **Filtres** : période, lieu, flux, type (ZD / AG), statut
 - **Export** : Excel et PDF sur la période sélectionnée
@@ -288,7 +289,6 @@ Registre chronologique interne Savr des déchets collectés pour chaque organisa
 **Dépendances** : [[04 - Data Model]] (tables justificatifs + bordereaux + attestations), Module 4 (rapports RSE), module génération PDF.
 
 **Évolution V2** :
-
 - Intégration API Trackdéchets (BSD dématérialisés officiels)
 - Méthodologie dynamique par événement (couplé Module 19 Impact enrichi)
 - Upload de certificats de valorisation annuels Veolia (si Veolia les fournit)
@@ -300,7 +300,6 @@ Registre chronologique interne Savr des déchets collectés pour chaque organisa
 Extension du reporting au-delà du bilan déchets : mesure de l'impact environnemental complet d'un événement (alimentation, emballage, décor, mobilier, transport convives, énergie du lieu).
 
 **Principe fonctionnel** :
-
 - Le traiteur importe son brief (PDF, Excel, Word, format libre) dans la Plateforme Savr — le document qu'il produit déjà pour son client organisateur (BC, fiche de prod, etc.)
 - Parsing automatique (IA) du document : extraction structurée des éléments (nombre de pax, menus servis, emballages utilisés, verres consignés ou jetables, etc.)
 - Chaque item extrait est mappé vers le **référentiel d'impact propriétaire Savr** (facteurs d'émission CO2, recyclabilité, source ADEME ou partenaire, date de validité)
@@ -310,20 +309,17 @@ Extension du reporting au-delà du bilan déchets : mesure de l'impact environne
 **Extension V2.1+** : élargissement du périmètre au-delà de l'alimentation/emballage — décor, mobilier, transport convives (avion/train/voiture), consommation d'énergie du lieu. Nécessite formulaires ou briefs additionnels, et enrichissement du référentiel.
 
 **Livrable business** :
-
 - Différenciateur fort vs concurrence pure collecte
 - Réponse à l'obligation CSRD des clients finaux (LVMH, Kering, etc.)
 - Justification d'une prime de prix sur la collecte ZD
 - Data product enrichi (benchmarks sectoriels d'impact, pas seulement déchets)
 
 **Prérequis V2** :
-
 - Construction du référentiel d'impact propriétaire Savr (chantier structurel de 3-6 mois) — partenariat (Greenly, Sami, Carbone 4) ou recrutement (chargé projet environnemental)
 - Choix du stack IA pour parsing de documents hétérogènes (OCR + NER + mapping)
 - Co-construction avec 5-10 traiteurs pilotes pour cadrer les formats de briefs acceptés
 
-**Anticipation data model — NON créée V1** _(révisé audit sobriété §04 2026-05-25, A1)_ :
-
+**Anticipation data model — NON créée V1** *(révisé audit sobriété §04 2026-05-25, A1)* :
 - Les 6 tables Module 19 et les 3 champs anticipés (`evenements.statut_brief`, `evenements.template_brief_id`, `rapports_rse.type_rapport`) **ne sont pas créés en V1**. Ajout en V2 par migration (triviale sous Supabase). Spec conservée en référence dans [[04 - Data Model]] Niveau 6.
 - Pas d'interface exposée en V1.
 
@@ -346,11 +342,11 @@ Plan de sortie de la dépendance Everest si A Toutes! change de TMS.
 
 ## Vue synthétique des priorités
 
-| Priorité | Modules                                                                                                                                                                                                                       |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **MVP**  | 1 Événements, 2 Référentiel, 3 Algo Anti-Gaspi, 4 Rapports RSE, 5 Facturation/Packs, 6 Pilotage financier, 7 Dashboards, 8 Emailing, 9 Intégration TMS, 10 Intégration A Toutes!, 11 Onboarding, 20 Traçabilité réglementaire |
-| **V2**   | 12 Benchmarks clients, 13 Citeo, 14 App mobile, 15 Multi-langues, 16 Signature élec., 19 Import brief + Impact enrichi                                                                                                        |
-| **V3**   | 17 Marketplace assocs, 18 Fallback Everest                                                                                                                                                                                    |
+| Priorité | Modules |
+|----------|---------|
+| **MVP** | 1 Événements, 2 Référentiel, 3 Algo Anti-Gaspi, 4 Rapports RSE, 5 Facturation/Packs, 6 Pilotage financier, 7 Dashboards, 8 Emailing, 9 Intégration TMS, 10 Intégration A Toutes!, 11 Onboarding, 20 Traçabilité réglementaire |
+| **V2** | 12 Benchmarks clients, 13 Citeo, 14 App mobile, 15 Multi-langues, 16 Signature élec., 19 Import brief + Impact enrichi |
+| **V3** | 17 Marketplace assocs, 18 Fallback Everest |
 
 ---
 

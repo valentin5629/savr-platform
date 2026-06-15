@@ -1,5 +1,8 @@
 # 16 - Roadmap et priorisation
 
+**Statut** : Validé V1
+**Dernière mise à jour** : 2026-04-20
+
 ---
 
 ## Principe directeur
@@ -66,7 +69,7 @@ Le use case central de la plateforme — ce que fait le traiteur commercial au q
 - Formulaire 3 étapes : événement (nom client, logo, date, pax, type) → lieu/contacts → récap
 - Autocomplétion lieux (référentiel) + saisie manuelle si hors référentiel
 - Autocomplétion contacts traiteurs
-- Gestion collecte ZD + AG sur le même événement (**formulaire unique événement-centré** — choix ☐ZD ☐AG en étape 1, rattachement explicite `evenement_id`, refonte 2026-05-21) + date événement distincte de date collecte _(multi-camions retiré du périmètre App 2026-05-25 — devenu interne TMS, Sujet 1 option A)_
+- Gestion collecte ZD + AG sur le même événement (**formulaire unique événement-centré** — choix ☐ZD ☐AG en étape 1, rattachement explicite `evenement_id`, refonte 2026-05-21) + date événement distincte de date collecte *(multi-camions retiré du périmètre App 2026-05-25 — devenu interne TMS, Sujet 1 option A)*
 - Calcul automatique tarif ZD selon pax + tarifs préférentiels gestionnaire
 - Vérification pack AG disponible (blocage si épuisé)
 - Email de confirmation programmation
@@ -123,7 +126,7 @@ Sans cette phase, les collectes restent bloquées au statut `programmee` pour to
 
 Les dashboards traiteur_manager et traiteur_commercial.
 
-- Dashboard manager : KPIs AG/ZD, calendrier collectes, liste événements, taux de recyclage _(ZD uniquement, formule à captation par filière cf. [[05 - Règles métier#R_taux_recyclage]])_
+- Dashboard manager : KPIs AG/ZD, calendrier collectes, liste événements, taux de recyclage *(ZD uniquement, formule à captation par filière cf. [[05 - Règles métier#R_taux_recyclage]])*
 - Dashboard commercial : mes collectes, accès lecture factures
 - Accès PDFs (bordereaux, rapports, attestations) + régénération manuelle
 - Picto ⟳ si rapport régénéré
@@ -173,20 +176,20 @@ Les dashboards traiteur_manager et traiteur_commercial.
 
 ## Estimation globale
 
-| Phase                              | Durée estimée      |
-| ---------------------------------- | ------------------ |
-| Phase 1 — Fondations               | ~1 semaine         |
-| Phase 2 — Auth + onboarding        | ~3-5 jours         |
-| Phase 3 — Back-office Admin        | ~1 semaine         |
-| Phase 4 — Formulaire programmation | ~3-5 jours         |
-| Phase 5 — Intégrations TMS         | ~1 semaine         |
-| Phase 6 — Génération PDF           | ~3-5 jours         |
-| Phase 7 — Pennylane                | ~3-5 jours         |
-| Phase 8 — Espace client traiteur   | ~1 semaine         |
-| Phase 9 — Profils secondaires      | ~1 semaine         |
-| Phase 10 — Everest + algo AG       | ~3-5 jours         |
-| Phase 11 — Migration + go-live     | ~1-2 semaines      |
-| **Total**                          | **~8-11 semaines** |
+| Phase | Durée estimée |
+|---|---|
+| Phase 1 — Fondations | ~1 semaine |
+| Phase 2 — Auth + onboarding | ~3-5 jours |
+| Phase 3 — Back-office Admin | ~1 semaine |
+| Phase 4 — Formulaire programmation | ~3-5 jours |
+| Phase 5 — Intégrations TMS | ~1 semaine |
+| Phase 6 — Génération PDF | ~3-5 jours |
+| Phase 7 — Pennylane | ~3-5 jours |
+| Phase 8 — Espace client traiteur | ~1 semaine |
+| Phase 9 — Profils secondaires | ~1 semaine |
+| Phase 10 — Everest + algo AG | ~3-5 jours |
+| Phase 11 — Migration + go-live | ~1-2 semaines |
+| **Total** | **~8-11 semaines** |
 
 L'estimation dépend du rythme de validation de Val entre chaque sprint. En sprints intensifs sans délai de validation, le bas de la fourchette (8 semaines) est atteignable.
 
@@ -259,13 +262,13 @@ Tout le reste peut attendre ou être écarté.
 
 ## Décisions prises
 
-| Décision                                                | Raison                                                                                   |
-| ------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| Go-live rapide (semaines) sans attendre Viparis         | Viparis = montée progressive janvier 2027. L'app peut être déployée et stabilisée avant. |
-| Sprints intensifs jusqu'à V1, puis itérations continues | Rythme choisi par Val. Permet une V1 en 8-11 semaines.                                   |
-| Phases 9-10 potentiellement décalées post go-live       | Accélère le go-live si seuls les profils traiteur sont nécessaires au lancement.         |
-| Historique complet Bubble obligatoire avant go-live     | Décision actée section 13. Pas de go-live sans migration intégrale.                      |
-| Pas d'app mobile native                                 | Responsive classique suffisant pour les usages identifiés.                               |
+| Décision | Raison |
+|---|---|
+| Go-live rapide (semaines) sans attendre Viparis | Viparis = montée progressive janvier 2027. L'app peut être déployée et stabilisée avant. |
+| Sprints intensifs jusqu'à V1, puis itérations continues | Rythme choisi par Val. Permet une V1 en 8-11 semaines. |
+| Phases 9-10 potentiellement décalées post go-live | Accélère le go-live si seuls les profils traiteur sont nécessaires au lancement. |
+| Historique complet Bubble obligatoire avant go-live | Décision actée section 13. Pas de go-live sans migration intégrale. |
+| Pas d'app mobile native | Responsive classique suffisant pour les usages identifiés. |
 
 ## Questions ouvertes
 

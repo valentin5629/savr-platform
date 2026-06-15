@@ -85,7 +85,7 @@ SELECT ok(
 
 -- T48 : Sequences_facturation — numérotation gapless, INSERT via RPC seul
 SELECT test_as_superuser();
-INSERT INTO plateforme.sequences_facturation (serie, annee, dernier)
+INSERT INTO plateforme.sequences_facturation (serie, annee, dernier_numero)
 VALUES ('ZD_COLLECTE', 2026, 0);
 
 -- Tentative UPDATE direct (RLS ne permet pas UPDATE pour admin_savr — SERVICE_ROLE seul)
@@ -93,7 +93,7 @@ SELECT test_set_jwt('admin_savr', NULL);
 SELECT results_eq(
   $$WITH u AS (
     UPDATE plateforme.sequences_facturation
-    SET dernier = 100
+    SET dernier_numero = 100
     WHERE serie = 'ZD_COLLECTE' AND annee = 2026
     RETURNING 1
   ) SELECT count(*)::int FROM u$$,

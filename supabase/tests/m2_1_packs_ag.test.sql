@@ -237,11 +237,24 @@ SELECT is(
 );
 
 -- ── 9. CHECK constraint credits_consommes >= 0 ───────────────────────────
+-- Testé via INSERT (pas UPDATE) pour éviter tout effet de bord de l'état
+-- de la ligne pack 005 après les tests de triggers précédents.
+
+SELECT test_as_superuser();
 
 SELECT throws_ok(
-  $$UPDATE plateforme.packs_antgaspi
-    SET credits_consommes = -1
-    WHERE id = '00000000-0000-0000-0000-000000000005'::uuid$$,
+  $$INSERT INTO plateforme.packs_antgaspi (
+      organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, nb_annulees,
+      type_pack, credits_initiaux, credits_consommes,
+      montant_total_ht, mode_facturation, statut, date_achat
+    ) VALUES (
+      '00000000-0000-0000-0000-000000000001'::uuid,
+      '00000000-0000-0000-0000-000000000004'::uuid, 1, 0, 0,
+      'unitaire', 5, -1,
+      130.00, 'par_collecte', 'annule', CURRENT_DATE
+    )$$,
+  '23514',
+  NULL,
   'chk_pack_credits_consommes_positifs bloque credits_consommes < 0'
 );
 
@@ -282,6 +295,8 @@ SELECT ok(
 );
 
 -- ── 13. RLS : traiteur_manager ne peut pas écrire directement ────────────
+-- statut='annule' pour éviter un conflit avec l'index uniq_pack_actif_par_org
+-- (pack 005 est actif) — on teste ici UNIQUEMENT la policy RLS INSERT.
 
 SELECT test_set_jwt('traiteur_manager', '00000000-0000-0000-0000-000000000001'::uuid);
 
@@ -293,8 +308,10 @@ SELECT throws_ok(
     ) VALUES (
       '00000000-0000-0000-0000-000000000001'::uuid,
       '00000000-0000-0000-0000-000000000004'::uuid, 1, 0, 0,
-      'unitaire', 1, 0, 130.00, 'par_collecte', 'actif', CURRENT_DATE
+      'unitaire', 1, 0, 130.00, 'par_collecte', 'annule', CURRENT_DATE
     )$$,
+  '42501',
+  NULL,
   'traiteur_manager ne peut pas insérer un pack (RLS staff seul)'
 );
 
@@ -326,6 +343,8 @@ SELECT throws_ok(
       'unitaire', 1, 0, 130.00, 'par_collecte', 'annule', CURRENT_DATE,
       'test-idem-key-123'
     )$$,
+  '23505',
+  NULL,
   'idempotency_key doit être unique (index partiel)'
 );
 

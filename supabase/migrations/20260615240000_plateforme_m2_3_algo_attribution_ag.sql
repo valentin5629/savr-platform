@@ -19,7 +19,7 @@ INSERT INTO plateforme.parametres_algo (cle, valeur, type_valeur, description) V
   ('regle_ag_seuil_h2_minutes', '90'::jsonb,      'int',     'Seuil délai (min) avant collecte : vélo express (<seuil) vs programmé (>=seuil)'),
   ('poids_par_repas_kg',        '0.45'::jsonb,    'decimal', 'Poids moyen par repas (kg) — formule volume_repas_realise = ceil(poids/coef)'),
   ('a_toutes_indisponible',     'true'::jsonb,    'bool',    'Flag opérationnel go-live : A Toutes! indisponible, branches vélo → Marathon fallback'),
-  ('everest_codes_postaux',     '["75","92","93"]'::jsonb, 'json', 'Codes postaux (2 premiers chiffres) couverts par Everest (A Toutes!)')
+  ('everest_codes_postaux',     '["75","92","93"]'::jsonb, 'text[]', 'Codes postaux (2 premiers chiffres) couverts par Everest (A Toutes!)')
 ON CONFLICT (cle) DO NOTHING;
 
 -- ============================================================

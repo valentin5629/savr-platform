@@ -405,8 +405,12 @@ BEGIN
       ELSIF NOT v_a_toutes_indispo
         AND v_transp_a_toutes.id IS NOT NULL
         AND v_cp_dep2 = ANY(v_everest_cps) THEN
-        -- Backup camion Everest (Branche 4 embedded in Branche 2 backup)
-        v_branche           := 'ag_marathon_volume_backup_camion';
+        -- Backup A Toutes! : urgent (<90 min) = camion express 77, sinon = backup 91
+        IF v_delai_minutes < v_seuil_h2 THEN
+          v_branche := 'ag_everest_camion_express';   -- service Everest 77
+        ELSE
+          v_branche := 'ag_marathon_volume_backup_camion'; -- service Everest 91
+        END IF;
         v_transporteur_id   := v_transp_a_toutes.id;
         v_transporteur_nom  := v_transp_a_toutes.nom;
         v_transporteur_type := v_transp_a_toutes.type_tms;
@@ -439,21 +443,6 @@ BEGIN
         v_branche   := 'aucun_prestataire';
         v_no_prest  := true;
       END IF;
-    END IF;
-
-    -- Branche 4 : CAMION EXPRESS (nb_pax >= seuil, Marathon exclu, A Toutes! dispo, délai < 90min)
-    -- Note : ce bloc est évalué UNIQUEMENT si Marathon est exclu (résultat 'aucun_prestataire' en Branche 2)
-    IF v_branche = 'aucun_prestataire'
-      AND v_nb_pax >= v_seuil_pax
-      AND NOT v_a_toutes_indispo
-      AND v_transp_a_toutes.id IS NOT NULL
-      AND v_cp_dep2 = ANY(v_everest_cps)
-      AND v_delai_minutes < v_seuil_h2 THEN
-      v_branche           := 'ag_everest_camion_express'; -- service Everest 77
-      v_transporteur_id   := v_transp_a_toutes.id;
-      v_transporteur_nom  := v_transp_a_toutes.nom;
-      v_transporteur_type := v_transp_a_toutes.type_tms;
-      v_no_prest          := false;
     END IF;
 
   ELSE

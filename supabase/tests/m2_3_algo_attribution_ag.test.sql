@@ -2,7 +2,7 @@
 -- Tests : moteur algo IDF/province, trigger poids→volume, immutabilité mode_validation, RLS.
 
 BEGIN;
-SELECT plan(32);
+SELECT plan(33);
 
 -- ── Helpers JWT ──────────────────────────────────────────────────────────
 
@@ -739,6 +739,32 @@ SELECT ok(
   ),
   'T30 : audit_log contient entrée poids_repas_saisi_ops après UPDATE poids'
 );
+
+-- ── T31 : ag_everest_camion_express — grand volume urgent IDF, Marathon absent ──
+-- Conditions : pax=600 >= seuil, Marathon inactif → pas ag_marathon_volume,
+--              A Toutes! dispo + IDF + délai négatif (passé) < 90 min → ag_everest_camion_express
+
+UPDATE plateforme.transporteurs SET actif = false
+WHERE id = 'a0000000-0000-0000-0000-000000000040'::uuid;
+
+INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, volume_estime_repas)
+VALUES (
+  'a0000000-0000-0000-0000-000000000091'::uuid,
+  'a0000000-0000-0000-0000-000000000062'::uuid,
+  'anti_gaspi', 'programmee', 'non_envoye',
+  CURRENT_DATE - 1, '12:00', 650
+);
+
+SELECT is(
+  (plateforme.fn_calculer_algo_attribution_ag(
+    'a0000000-0000-0000-0000-000000000091'::uuid
+  ))->>'branche',
+  'ag_everest_camion_express',
+  'T31 : grand volume IDF urgent, Marathon absent, A Toutes! dispo → ag_everest_camion_express'
+);
+
+UPDATE plateforme.transporteurs SET actif = true
+WHERE id = 'a0000000-0000-0000-0000-000000000040'::uuid;
 
 SELECT * FROM finish();
 ROLLBACK;

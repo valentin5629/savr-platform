@@ -59,7 +59,8 @@ export async function runPdfWorker(
     try {
       const pdfType = job.type_document as
         | 'bordereau-zd'
-        | 'rapport-recyclage-zd';
+        | 'rapport-recyclage-zd'
+        | 'attestation-don';
       const { pdfBuffer } = await generatePdf(pdfType, job.payload);
 
       const bucket: R2Bucket =
@@ -158,10 +159,18 @@ async function linkFichierToEntity(
       })
       .eq('id', entityId);
   } else if (entityType === 'rapports_rse') {
-    // pdf_url stocke la clé R2 (bucket/key) pour génération d'URL pré-signée
     await supabase
       .from('rapports_rse')
       .update({ pdf_url: storageKey, genere_at: new Date().toISOString() })
+      .eq('id', entityId);
+  } else if (entityType === 'attestations_don') {
+    await supabase
+      .from('attestations_don')
+      .update({
+        pdf_url: storageKey,
+        statut: 'emise',
+        genere_at: new Date().toISOString(),
+      })
       .eq('id', entityId);
   }
 }

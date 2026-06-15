@@ -1,12 +1,12 @@
-// Cron Vercel — batch J+1 6h génération PDF ZD (M1.6).
+// Cron Vercel — batch J+1 6h génération PDF ZD (M1.6) + AG (M2.4).
 // Déclenché quotidiennement à 6h00 (vercel.json).
-// Sélectionne collectes ZD cloturees sans bordereau → enqueue jobs_pdf.
 
 import { NextResponse } from 'next/server';
 
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 
 import { runBatchPdfJ1 } from '../../../../lib/pdf/batch-pdf-j1.js';
+import { runBatchPdfJ1Ag } from '../../../../lib/pdf/batch-pdf-j1-ag.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -22,7 +22,10 @@ export async function POST(request: Request): Promise<NextResponse> {
   const supabase = createAdminSupabaseClient();
 
   try {
-    const result = await runBatchPdfJ1(supabase);
+    const [zdResult, agResult] = await Promise.all([
+      runBatchPdfJ1(supabase),
+      runBatchPdfJ1Ag(supabase),
+    ]);
     console.info(
       JSON.stringify({
         ts: new Date().toISOString(),
@@ -33,10 +36,10 @@ export async function POST(request: Request): Promise<NextResponse> {
         actor_role: null,
         org_id: null,
         trace_id: null,
-        payload: result,
+        payload: { zd: zdResult, ag: agResult },
       }),
     );
-    return NextResponse.json({ ok: true, ...result });
+    return NextResponse.json({ ok: true, zd: zdResult, ag: agResult });
   } catch (err) {
     console.error(
       JSON.stringify({

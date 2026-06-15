@@ -6,7 +6,7 @@ export interface PdfGenerateResult {
 }
 
 export async function generatePdf(
-  type: 'bordereau-zd' | 'rapport-recyclage-zd',
+  type: 'bordereau-zd' | 'rapport-recyclage-zd' | 'attestation-don',
   data: Record<string, unknown>,
 ): Promise<PdfGenerateResult> {
   const baseUrl = process.env['RAILWAY_PDF_URL'];

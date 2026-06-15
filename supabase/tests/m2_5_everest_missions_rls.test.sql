@@ -82,8 +82,8 @@ VALUES (
   current_date + 3, '22:00'
 );
 
-INSERT INTO shared.prestataires (id, nom, type, mode_integration)
-VALUES ('p0250001-0000-0000-0000-000000000001'::uuid, 'A Toutes! test', 'transporteur', 'api');
+INSERT INTO shared.prestataires (id, nom, code, mode_integration)
+VALUES ('p0250001-0000-0000-0000-000000000001'::uuid, 'A Toutes! test', 'a-toutes-m25', 'api');
 
 INSERT INTO plateforme.tournees (id, reference_interne, date_tournee, creneau, type_vehicule, prestataire_logistique_id, statut)
 VALUES (

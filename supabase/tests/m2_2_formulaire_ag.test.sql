@@ -11,21 +11,6 @@
 BEGIN;
 SELECT plan(5);
 
--- ── Helpers JWT ──────────────────────────────────────────────────────────────
-
-CREATE OR REPLACE FUNCTION test_set_jwt_m22(
-  p_role text,
-  p_org_id uuid DEFAULT NULL,
-  p_user_id uuid DEFAULT gen_random_uuid()
-) RETURNS void LANGUAGE plpgsql AS $$
-BEGIN
-  PERFORM set_config('request.jwt.claims', json_build_object(
-    'sub', p_user_id, 'role', p_role,
-    'organisation_id', p_org_id, 'app_domain', 'plateforme'
-  )::text, true);
-  PERFORM set_config('role', 'authenticated', true);
-END $$;
-
 -- ── Fixtures partagées M2.2 ──────────────────────────────────────────────────
 
 INSERT INTO plateforme.organisations (id, nom, raison_sociale, type, siret, actif)

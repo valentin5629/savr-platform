@@ -33,7 +33,8 @@ export type CollecteStatutEnum =
   | 'realisee_sans_collecte'
   | 'cloturee'
   | 'annulation_demandee'
-  | 'annulee';
+  | 'annulee'
+  | 'rejetee_par_prestataire';
 
 /** Statuts MTS-1 terminaux — agrégation déclenchée quand TOUS les tours y sont. */
 export const MTS1_TERMINAL_STATUSES: ReadonlySet<Mts1OrderStatus> = new Set([

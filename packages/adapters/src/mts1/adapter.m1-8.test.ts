@@ -55,9 +55,7 @@ const ORDER_KO_M18: Mts1CustomerOrder = {
   pickupDate: '2026-07-15T22:00:00Z',
 };
 
-// ─── Mock Supabase étendu (M1.8 — support rpc) ────────────────────────────────
-// Note : loadSeuils() est désormais synchrone (constantes figées, §04 Data Model)
-// — pas de mock parametres_algo nécessaire.
+// ─── Mock Supabase étendu (M1.8 — support parametres_algo clé-valeur + rpc) ───
 
 type TableCall = {
   table: string;
@@ -74,6 +72,7 @@ function makeSyncSupabaseM18(opts: {
     tmsReference: string | null;
     collecteStatut: string;
   } | null;
+  seuils?: { min: number; max: number };
   inboxClaimRetourneRien?: boolean;
   agregerTerminalResult?: string;
 }) {
@@ -90,6 +89,7 @@ function makeSyncSupabaseM18(opts: {
           collecteStatut: 'validee',
         };
 
+  const seuils = opts.seuils ?? { min: 5, max: 5000 };
   const agregerResult = opts.agregerTerminalResult ?? 'pending';
 
   function makeQuery(table: string) {
@@ -169,12 +169,24 @@ function makeSyncSupabaseM18(opts: {
     { id: 'flux-carton', code: 'carton' },
   ];
 
+  const seuilRows = [
+    { cle: 'pesee_seuil_min_kg', valeur: seuils.min },
+    { cle: 'pesee_seuil_max_kg', valeur: seuils.max },
+  ];
+
   const supabase = {
     from: vi.fn((table: string) => {
       if (table === 'flux_dechets') {
         return {
           select: vi.fn(() => ({
             eq: vi.fn(() => Promise.resolve({ data: fluxRows, error: null })),
+          })),
+        };
+      }
+      if (table === 'parametres_algo') {
+        return {
+          select: vi.fn(() => ({
+            in: vi.fn(() => Promise.resolve({ data: seuilRows, error: null })),
           })),
         };
       }
@@ -315,6 +327,64 @@ describe('M1.8 / E2E / variante-multi-camions-ko-partiel', () => {
     expect(alerteCall).toBeDefined();
 
     // Tournée mise à 'annulee' (ordre KO)
+    const tourneeUpdate = supabase._calls.find(
+      (c) =>
+        c.table === 'tournees' &&
+        c.op === 'update' &&
+        (c.data as Record<string, unknown>)['statut'] === 'annulee',
+    );
+    expect(tourneeUpdate).toBeDefined();
+  });
+});
+
+// ─── Test A2 : tous tours annulés → rejetee_par_prestataire ──────────────────
+
+describe('M1.8 / E2E / variante-tous-annules-rejetee', () => {
+  afterEach(() => _setMts1Handlers(null));
+
+  it('tous camions KO → fn_agreger_terminal_collecte rejetee_par_prestataire, pas alerte partielle', async () => {
+    _setMts1Handlers({
+      pollOrders: vi.fn().mockResolvedValue({
+        customerOrders: [ORDER_KO_M18],
+        totalCount: 1,
+        page: 1,
+        pageSize: 50,
+      }),
+      getTour: vi.fn().mockResolvedValue(TOUR_NORMAL),
+      getPhotos: vi.fn().mockResolvedValue([]),
+      postOrder: vi.fn(),
+    });
+
+    // fn_agreger_terminal_collecte retourne 'rejetee_par_prestataire' — tous les tours sont KO
+    const supabase = makeSyncSupabaseM18({
+      agregerTerminalResult: 'rejetee_par_prestataire',
+      tourneeInfo: {
+        collecteId: 'col-m18-ko-total',
+        tourneeId: 'tournee-m18-ko-total',
+        tmsReference: null,
+        collecteStatut: 'en_cours',
+      },
+    });
+
+    const adapter = new AdapterMts1(ADAPTER_OPTS, supabase);
+    await adapter.sync(FENETRE);
+
+    // fn_agreger_terminal_collecte appelé
+    const agregerCall = supabase._rpcCalls.find(
+      (c) => c.name === 'fn_agreger_terminal_collecte',
+    );
+    expect(agregerCall).toBeDefined();
+
+    // Pas d'alerte 'collecte_partiellement_servie' (tous KO, pas de partiel)
+    const alertePartielle = supabase._rpcCalls.find(
+      (c) =>
+        c.name === 'f_upsert_alerte_admin' &&
+        (c.args as Record<string, unknown>)['p_code'] ===
+          'collecte_partiellement_servie',
+    );
+    expect(alertePartielle).toBeUndefined();
+
+    // Tournée mise à 'annulee'
     const tourneeUpdate = supabase._calls.find(
       (c) =>
         c.table === 'tournees' &&

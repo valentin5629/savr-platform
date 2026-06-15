@@ -54,6 +54,7 @@ interface AttributionRow {
 
 export class AdapterEverest implements LogistiqueProvider {
   private readonly client: EverestClient;
+  private readonly clientId: string;
 
   constructor(
     private readonly transporteur: Transporteur,
@@ -65,6 +66,7 @@ export class AdapterEverest implements LogistiqueProvider {
       process.env['EVEREST_CLIENT_ID'] ?? 'everest-client-id-missing';
     const clientSecret =
       process.env['EVEREST_CLIENT_SECRET'] ?? 'everest-client-secret-missing';
+    this.clientId = clientId;
     this.client = new EverestClient(clientId, clientSecret, supabase);
   }
 
@@ -96,7 +98,9 @@ export class AdapterEverest implements LogistiqueProvider {
     // POST /missions/create
     let missionId: string | null = null;
     try {
-      const payload = this.buildMissionPayload(collecte, serviceId);
+      // client_ref = tournee.id (M14 W1 R_M14.2 / idempotence multi-camion V2)
+      const payload = this.buildMissionPayload(collecte, tournee.id, serviceId);
+      const pushAt = new Date().toISOString();
       const created = await this.client.createMission(payload, collecte.id);
       missionId = created.mission_id;
 
@@ -111,6 +115,9 @@ export class AdapterEverest implements LogistiqueProvider {
         everest_mission_id: missionId,
         everest_service_id: serviceId,
         statut_everest: 'created',
+        everest_client_id: this.clientId,
+        payload_create: payload,
+        push_create_at: pushAt,
       });
     } catch (err) {
       // Enregistrer l'échec même si la mission n'a pas été créée côté Everest
@@ -250,6 +257,7 @@ export class AdapterEverest implements LogistiqueProvider {
 
   private buildMissionPayload(
     collecte: Collecte,
+    tourneeId: string,
     serviceId: number,
   ): CreateMissionPayload {
     const slotMinutes = SERVICE_SLOT_MINUTES[serviceId] ?? 30;
@@ -266,7 +274,7 @@ export class AdapterEverest implements LogistiqueProvider {
 
     return {
       service_id: serviceId,
-      client_ref: collecte.id,
+      client_ref: tourneeId,
       pickup: {
         address: `${collecte.lieu.adresse_acces}, ${collecte.lieu.code_postal} ${collecte.lieu.ville}`,
         contact: {
@@ -392,19 +400,29 @@ export class AdapterEverest implements LogistiqueProvider {
       everest_mission_id: string | null;
       everest_service_id: number;
       statut_everest: string;
+      everest_client_id?: string;
+      payload_create?: unknown;
+      push_create_at?: string;
     },
   ): Promise<void> {
-    await this.supabase.from('everest_missions').upsert(
-      {
-        tournee_id: tourneeId,
-        collecte_id: collecteId,
-        everest_mission_id: fields.everest_mission_id,
-        everest_service_id: fields.everest_service_id,
-        statut_everest: fields.statut_everest,
-        derniere_sync_at: new Date().toISOString(),
-      },
-      { onConflict: 'tournee_id' },
-    );
+    const row: Record<string, unknown> = {
+      tournee_id: tourneeId,
+      collecte_id: collecteId,
+      everest_mission_id: fields.everest_mission_id,
+      everest_service_id: fields.everest_service_id,
+      statut_everest: fields.statut_everest,
+      derniere_sync_at: new Date().toISOString(),
+    };
+    if (fields.everest_client_id !== undefined)
+      row['everest_client_id'] = fields.everest_client_id;
+    if (fields.payload_create !== undefined)
+      row['payload_create'] = fields.payload_create;
+    if (fields.push_create_at !== undefined)
+      row['push_create_at'] = fields.push_create_at;
+
+    await this.supabase
+      .from('everest_missions')
+      .upsert(row, { onConflict: 'tournee_id' });
   }
 
   private async updateStatutTms(

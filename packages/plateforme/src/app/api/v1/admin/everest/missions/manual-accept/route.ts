@@ -38,13 +38,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     everest_service_id: number;
   };
 
-  const manualPayload = {
-    manual: true,
-    contact_joint: contact_joint ?? null,
-    heure_appel: heure_appel ?? null,
-    commentaire: commentaire ?? null,
-    ops_user_id: auth.ctx.userId,
-  };
+  const now = new Date().toISOString();
+  const contactJoint = typeof contact_joint === 'string' ? contact_joint : null;
+  const commentaireStr = typeof commentaire === 'string' ? commentaire : null;
 
   if (mission) {
     const m = mission as unknown as MissionRow;
@@ -52,8 +48,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .from('everest_missions')
       .update({
         statut_everest: 'created_manually',
-        payload_latest_update: manualPayload,
-        derniere_sync_at: new Date().toISOString(),
+        manual_acceptance_at: now,
+        manual_acceptance_by_user_id: auth.ctx.userId,
+        manual_acceptance_contact: contactJoint,
+        manual_acceptance_commentaire: commentaireStr,
+        payload_latest_update: {
+          manual: true,
+          heure_appel: typeof heure_appel === 'string' ? heure_appel : null,
+          ops_user_id: auth.ctx.userId,
+        },
+        derniere_sync_at: now,
       })
       .eq('id', m.id);
 
@@ -66,7 +70,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       record_id: m.id,
       new_values: {
         statut_everest: 'created_manually',
-        ...manualPayload,
+        manual_acceptance_contact: contactJoint,
+        manual_acceptance_commentaire: commentaireStr,
       },
     });
   } else {
@@ -92,8 +97,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       collecte_id,
       everest_service_id: 71, // service par défaut si inconnu
       statut_everest: 'created_manually',
-      payload_latest_update: manualPayload,
-      derniere_sync_at: new Date().toISOString(),
+      manual_acceptance_at: now,
+      manual_acceptance_by_user_id: auth.ctx.userId,
+      manual_acceptance_contact: contactJoint,
+      manual_acceptance_commentaire: commentaireStr,
+      payload_latest_update: {
+        manual: true,
+        heure_appel: typeof heure_appel === 'string' ? heure_appel : null,
+        ops_user_id: auth.ctx.userId,
+      },
+      derniere_sync_at: now,
     });
 
     await supabase.from('audit_log').insert({
@@ -101,7 +114,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       role: auth.ctx.role,
       action: 'CREATE',
       table_name: 'everest_missions',
-      new_values: { statut_everest: 'created_manually', ...manualPayload },
+      new_values: {
+        statut_everest: 'created_manually',
+        manual_acceptance_contact: contactJoint,
+        manual_acceptance_commentaire: commentaireStr,
+      },
     });
   }
 

@@ -249,7 +249,8 @@ describe('M2.5 / AdapterEverest — dispatchCollecte', () => {
     expect(missions.size).toBe(1);
     const mission = [...missions.values()][0]!;
     expect(mission.service_id).toBe(71);
-    expect(mission.client_ref).toBe(COLLECTE_AG.id);
+    // client_ref = tournee.id (M14 W1 R_M14.2), pas collecte.id
+    expect(mission.client_ref).toBe('tournee-everest-new-001');
   });
 
   it('dispatch vélo express — createMission appelé avec service_id=74 (ag_velo_express)', async () => {
@@ -288,7 +289,8 @@ describe('M2.5 / AdapterEverest — dispatchCollecte', () => {
     await adapter.dispatchCollecte(COLLECTE_AG, 1);
 
     // Le payload brut envoyé à createMission contient le timeslot
-    const payload = payloads.get(COLLECTE_AG.id) as {
+    // client_ref = tournee.id → la clé du Map est 'tournee-everest-new-001'
+    const payload = payloads.get('tournee-everest-new-001') as {
       timeslot?: { start: string; end: string };
     };
     expect(payload?.timeslot?.start).toBe('22:00');

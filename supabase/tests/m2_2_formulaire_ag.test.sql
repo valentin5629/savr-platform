@@ -58,7 +58,7 @@ INSERT INTO plateforme.tarifs_packs_ag (
   type_pack, credits, prix_unitaire_ht, montant_total_ht
 ) VALUES (
   '00000000-0000-0000-0022-000000000006'::uuid,
-  1, 130.00, '2026-01-01', 'pack_1', 1, 130.00, 130.00
+  1, 130.00, '2026-01-01', 'unitaire', 1, 130.00, 130.00
 ) ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO plateforme.packs_antgaspi (
@@ -69,7 +69,7 @@ INSERT INTO plateforme.packs_antgaspi (
   '00000000-0000-0000-0022-000000000007'::uuid,
   '00000000-0000-0000-0022-000000000001'::uuid,
   '00000000-0000-0000-0022-000000000006'::uuid,
-  1, 0, 0, 'pack_1', 1, 0,
+  1, 0, 0, 'unitaire', 1, 0,
   130.00, 'par_collecte', 'actif', CURRENT_DATE
 ) ON CONFLICT (id) DO NOTHING;
 

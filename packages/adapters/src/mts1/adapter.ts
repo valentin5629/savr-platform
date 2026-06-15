@@ -245,9 +245,9 @@ export class AdapterMts1 implements LogistiqueProvider {
   // ─── sync — polling entrant MTS-1 (M1.5b) ───────────────────────────────────
 
   async sync(fenetre: FenetreSync): Promise<void> {
-    // Charge les codes flux et les seuils une fois par run (référentiel stable)
+    // Charge les codes flux une fois par run (référentiel stable)
     const fluxById = await this.loadFluxCodes();
-    const seuils = await this.loadSeuils();
+    const seuils = this.loadSeuils();
 
     const orders = await this.client.scanOrdersByDateRange(
       fenetre.depuis.toISOString(),
@@ -568,15 +568,11 @@ export class AdapterMts1 implements LogistiqueProvider {
     return map;
   }
 
-  private async loadSeuils(): Promise<{ min: number; max: number }> {
-    const { data } = await this.supabase
-      .from('parametres_algo')
-      .select('pesee_seuil_min_kg, pesee_seuil_max_kg')
-      .maybeSingle();
-    return {
-      min: (data?.pesee_seuil_min_kg as number | null) ?? 5,
-      max: (data?.pesee_seuil_max_kg as number | null) ?? 5000,
-    };
+  private loadSeuils(): { min: number; max: number } {
+    // parametres_algo est clé-valeur JSONB (§04 Data Model) — aucune colonne plate.
+    // Les seuils pesée ne sont pas dans les 8 paramètres seedés V1 (divergence M1.8_20260615).
+    // Valeurs figées V1 en attendant décision Val sur le stockage de ces seuils.
+    return { min: 5, max: 5000 };
   }
 
   private async findTourneeByOrderId(customerOrderId: string): Promise<{

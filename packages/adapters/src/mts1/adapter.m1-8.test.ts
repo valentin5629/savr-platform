@@ -55,7 +55,9 @@ const ORDER_KO_M18: Mts1CustomerOrder = {
   pickupDate: '2026-07-15T22:00:00Z',
 };
 
-// ─── Mock Supabase étendu (M1.8 — support parametres_algo + rpc) ──────────────
+// ─── Mock Supabase étendu (M1.8 — support rpc) ────────────────────────────────
+// Note : loadSeuils() est désormais synchrone (constantes figées, §04 Data Model)
+// — pas de mock parametres_algo nécessaire.
 
 type TableCall = {
   table: string;
@@ -72,7 +74,6 @@ function makeSyncSupabaseM18(opts: {
     tmsReference: string | null;
     collecteStatut: string;
   } | null;
-  seuils?: { min: number; max: number };
   inboxClaimRetourneRien?: boolean;
   agregerTerminalResult?: string;
 }) {
@@ -89,7 +90,6 @@ function makeSyncSupabaseM18(opts: {
           collecteStatut: 'validee',
         };
 
-  const seuils = opts.seuils ?? { min: 5, max: 5000 };
   const agregerResult = opts.agregerTerminalResult ?? 'pending';
 
   function makeQuery(table: string) {
@@ -158,15 +158,6 @@ function makeSyncSupabaseM18(opts: {
         if (table === 'fichiers') {
           return Promise.resolve({ data: null, error: null });
         }
-        if (table === 'parametres_algo') {
-          return Promise.resolve({
-            data: {
-              pesee_seuil_min_kg: seuils.min,
-              pesee_seuil_max_kg: seuils.max,
-            },
-            error: null,
-          });
-        }
         return Promise.resolve({ data: null, error: null });
       }),
     };
@@ -184,21 +175,6 @@ function makeSyncSupabaseM18(opts: {
         return {
           select: vi.fn(() => ({
             eq: vi.fn(() => Promise.resolve({ data: fluxRows, error: null })),
-          })),
-        };
-      }
-      if (table === 'parametres_algo') {
-        return {
-          select: vi.fn(() => ({
-            maybeSingle: vi.fn(() =>
-              Promise.resolve({
-                data: {
-                  pesee_seuil_min_kg: seuils.min,
-                  pesee_seuil_max_kg: seuils.max,
-                },
-                error: null,
-              }),
-            ),
           })),
         };
       }
@@ -258,7 +234,6 @@ describe('M1.8 / E2E / variante-pesee-hors-seuil', () => {
     });
 
     const supabase = makeSyncSupabaseM18({
-      seuils: { min: 5, max: 5000 },
       tourneeInfo: {
         collecteId: 'col-m18-001',
         tourneeId: 'tournee-m18-001',

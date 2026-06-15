@@ -49,13 +49,11 @@ BEGIN
     RETURN 'realisee';
   END IF;
 
-  -- Tous annulés → rejetee_par_prestataire
-  UPDATE plateforme.collectes
-  SET statut = 'rejetee_par_prestataire'
-  WHERE id   = p_collecte_id
-    AND statut NOT IN ('realisee', 'cloturee', 'rejetee_par_prestataire',
-                       'realisee_sans_collecte');
-
+  -- Tous annulés → signal 'rejetee_par_prestataire' renvoyé au caller.
+  -- On NE touche PAS collectes.statut : 'rejetee_par_prestataire' est absent de
+  -- collecte_statut_enum V1 (c'est une valeur de statut_tms_enum).
+  -- Le statut_tms a déjà été positionné par processOrder() via MTS1_STATUS_TO_TMS.
+  -- (divergence M1.8_20260615 — à trancher avec Val pour V2)
   RETURN 'rejetee_par_prestataire';
 END;
 $$;

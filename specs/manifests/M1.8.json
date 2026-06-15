@@ -16,10 +16,9 @@
     "specs/manifests/M1.8.json"
   ],
   "tables_concernees": [
-    "plateforme.collectes (lecture statut + transition realisee/rejetee_par_prestataire via RPC)",
+    "plateforme.collectes (lecture statut + transition realisee via RPC fn_agreger_terminal_collecte)",
     "plateforme.tournees (update statut terminee/annulee)",
     "plateforme.pesees_tournees (upsert — déjà existant M1.5b)",
-    "plateforme.parametres_algo (READ pesee_seuil_min_kg / pesee_seuil_max_kg)",
     "plateforme.alertes_admin (via f_upsert_alerte_admin — pesee_hors_seuil, collecte_partiellement_servie)"
   ],
   "scenarios": [

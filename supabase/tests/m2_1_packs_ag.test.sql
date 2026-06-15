@@ -53,9 +53,8 @@ INSERT INTO plateforme.organisations (id, nom, raison_sociale, type, siret, acti
 VALUES ('00000000-0000-0000-0000-000000000001'::uuid, 'TestOrg Packs AG', 'TestOrg Packs AG', 'traiteur', '12345678901234', true);
 
 -- Lieu test
-INSERT INTO plateforme.lieux (id, nom, adresse, ville, code_postal, organisation_id)
-VALUES ('00000000-0000-0000-0000-000000000002'::uuid, 'Salle Test', '1 rue Test', 'Paris', '75001',
-  '00000000-0000-0000-0000-000000000001'::uuid);
+INSERT INTO plateforme.lieux (id, nom, adresse_acces, ville, code_postal, type_vehicule_max)
+VALUES ('00000000-0000-0000-0000-000000000002'::uuid, 'Salle Test', '1 rue Test', 'Paris', '75001', 'camionnette');
 
 -- Événement test
 INSERT INTO plateforme.evenements (id, nom, organisation_id, lieu_id, date_evenement, nb_convives)

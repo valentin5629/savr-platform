@@ -163,9 +163,9 @@ jobs:
           if [ -z "$DESTRUCTIVE" ]; then exit 0; fi
           FAIL=false
           for f in $DESTRUCTIVE; do
-            if grep -qi '-- REVIEWED-DESTRUCTIVE:' "$f"; then
+            if grep -qi -- '-- REVIEWED-DESTRUCTIVE:' "$f"; then
               echo "✅ $f — revue documentée :"
-              grep -i '-- REVIEWED-DESTRUCTIVE:' "$f"
+              grep -i -- '-- REVIEWED-DESTRUCTIVE:' "$f"
             else
               echo "::error::Migration destructive sans marqueur -- REVIEWED-DESTRUCTIVE: dans $f"
               FAIL=true

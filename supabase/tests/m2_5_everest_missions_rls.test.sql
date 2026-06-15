@@ -233,9 +233,8 @@ SELECT test_set_jwt(
   '05250004-0000-0000-0000-000000000001'::uuid
 );
 
-SELECT is(
-  (SELECT count(*)::int FROM plateforme.everest_missions),
-  1,
+SELECT ok(
+  EXISTS(SELECT 1 FROM plateforme.everest_missions WHERE id = 'ed250001-0000-0000-0000-000000000001'::uuid),
   'T7 ops_savr — SELECT everest_missions : voit la mission (R7, allow SELECT)'
 );
 

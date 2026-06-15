@@ -102,12 +102,12 @@ AS $$
 DECLARE
   v_next integer;
 BEGIN
-  INSERT INTO plateforme.sequences_facturation (serie, annee, dernier)
+  INSERT INTO plateforme.sequences_facturation (serie, annee, dernier_numero)
   VALUES ('ATTDON', p_annee, 1)
   ON CONFLICT (serie, annee) DO UPDATE
-    SET dernier    = plateforme.sequences_facturation.dernier + 1,
+    SET dernier_numero = plateforme.sequences_facturation.dernier_numero + 1,
         updated_at = now()
-  RETURNING dernier INTO v_next;
+  RETURNING dernier_numero INTO v_next;
 
   RETURN 'ATT-DON-' || p_annee::text || '-' || LPAD(v_next::text, 5, '0');
 END;

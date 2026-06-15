@@ -216,16 +216,14 @@ SELECT test_set_jwt(
   '05250002-0000-0000-0000-000000000001'::uuid
 );
 
-SELECT is(
-  (WITH upd AS (
-    UPDATE plateforme.everest_missions
-    SET payload_latest_update = '{"hack":true}'::jsonb
-    WHERE id = 'ed250001-0000-0000-0000-000000000001'::uuid
-    RETURNING id
-  ) SELECT count(*)::int FROM upd),
-  0,
-  'T6 traiteur_manager — UPDATE everest_missions 0 ligne modifiée (R6, deny via USING)'
-);
+WITH upd AS (
+  UPDATE plateforme.everest_missions
+  SET payload_latest_update = '{"hack":true}'::jsonb
+  WHERE id = 'ed250001-0000-0000-0000-000000000001'::uuid
+  RETURNING id
+)
+SELECT is(count(*)::int, 0, 'T6 traiteur_manager — UPDATE everest_missions 0 ligne modifiée (R6, deny via USING)')
+FROM upd;
 
 -- ─── T7 : ops_savr peut SELECT ───────────────────────────────────────────────
 

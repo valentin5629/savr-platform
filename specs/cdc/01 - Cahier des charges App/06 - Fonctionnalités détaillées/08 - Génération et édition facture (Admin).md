@@ -27,7 +27,6 @@ Toute facture émise par Savr transite obligatoirement par un **workflow de vali
 **Dépendance critique** : Pennylane est l'acteur qui porte la conformité Factur-X et la transmission PPF/PDP. Savr pousse les données brutes via **API Pennylane v2** ; Pennylane produit la facture légale au format conforme et la transmet.
 
 **Conséquence** :
-
 - Le PDF généré par Savr (via Puppeteer/Railway) est une **copie visuelle de travail** uniquement (affichage client, archivage interne)
 - La **facture légale** est celle retournée par Pennylane après émission
 - Savr stocke dans `factures.pennylane_id` + `factures.pdf_url_pennylane` la référence de la facture légale
@@ -36,15 +35,15 @@ Toute facture émise par Savr transite obligatoirement par un **workflow de vali
 
 Pour que Pennylane produise une Factur-X valide, la plateforme Savr doit transmettre :
 
-| Catégorie     | Champs                                                                                                                                         |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Émetteur Savr | SIREN, adresse complète, n° TVA intracommunautaire                                                                                             |
-| Client        | SIREN, adresse complète, n° TVA intracommunautaire, nom légal                                                                                  |
-| Facture       | Numéro unique séquentiel, date d'émission, date d'échéance, devise                                                                             |
-| Lignes        | Désignation, quantité, PU HT, taux TVA, montant HT, montant TVA, montant TTC                                                                   |
-| Totaux        | Total HT, total TVA par taux, total TTC                                                                                                        |
-| Mentions      | Conditions de paiement, pénalités de retard, escompte, mention "TVA non applicable art. 293 B CGI" si applicable                               |
-| Référence     | `evenements.reference_affaire` si renseigné (ex: numéro d'affaire Potel & Chabot) ; sinon bon de commande / contrat si disponible (facultatif) |
+| Catégorie | Champs |
+|-----------|--------|
+| Émetteur Savr | SIREN, adresse complète, n° TVA intracommunautaire |
+| Client | SIREN, adresse complète, n° TVA intracommunautaire, nom légal |
+| Facture | Numéro unique séquentiel, date d'émission, date d'échéance, devise |
+| Lignes | Désignation, quantité, PU HT, taux TVA, montant HT, montant TVA, montant TTC |
+| Totaux | Total HT, total TVA par taux, total TTC |
+| Mentions | Conditions de paiement, pénalités de retard, escompte, mention "TVA non applicable art. 293 B CGI" si applicable |
+| Référence | `evenements.reference_affaire` si renseigné (ex: numéro d'affaire Potel & Chabot) ; sinon bon de commande / contrat si disponible (facultatif) |
 
 ### Timing réglementaire — décision actée (2026-04-28)
 
@@ -77,17 +76,15 @@ Tout le flux d'envoi vers Pennylane est décrit ici. Il n'y a **qu'une seule pol
 ### 2.2 Erreurs et retry
 
 **Erreur 4xx (données invalides — champ obligatoire manquant, TVA invalide, etc.)** :
-
 - Statut bascule en `brouillon` (revient à l'étape précédente)
 - **Le `numero_facture` déjà attribué est conservé** (décision F4 test-scenarios 2026-06-07) : la re-validation réutilise le même numéro, pas de réattribution — garantit la séquence fiscale sans trou
 - Message d'erreur Pennylane affiché à l'Admin sur la fiche facture
 - Pas de retry (les données sont à corriger manuellement)
 
 **Erreur 5xx ou timeout** :
-
 - Statut reste `en_attente_pennylane`
 - **Retry automatique 3 phases : 5 min → 1h → 24h**
-- Si les 3 tentatives échouent → notification Admin urgente (email + bandeau orange sur fiche facture)
+- Si les 3 tentatives échouent → alerte in-app Admin (bandeau orange sur fiche facture, type `pennylane_echec_final`) + alerte Slack `#savr-alerts-eleve`. Pas d'email dédié V1 (aucun template alloué dans §06.02).
 - Bouton "Renvoyer vers Pennylane" disponible sur la fiche facture pour retry manuel
 
 ### 2.3 UI
@@ -111,18 +108,15 @@ Pas d'automatisation V1 (pas de batch de rattrapage, pas de flag fallback) — l
 La facture brouillon est générée **automatiquement à la clôture de la collecte** (`collectes.statut = cloturee`), au batch J+1 à 6h du matin.
 
 ### ZD
-
 - 1 facture brouillon par collecte (mode défaut `par_collecte`)
 - Si l'organisation a le mode `mensuelle` activé : la collecte est ajoutée à un brouillon en cours pour le mois en cours (agrégation `factures_collectes`)
 
 ### AG
-
 - Pas de facture générée au niveau de la collecte (le débit du pack tient lieu de comptabilisation)
 - La **facture d'achat de pack** est générée au moment de la création du pack (mode `globale_achat`) → voir [[06 - Back-office Admin Savr#Onglet Packs AG sous-section dédiée — fusionnée 2026-05-07 étoffée 2026-05-08]]
 - Cas particulier : collecte AG hors pack ou pack `par_collecte` → facture brouillon générée à la clôture
 
 ### Cas "Info incomplète" et "Annulée côté Savr"
-
 - Si `collectes.annulee_cote_savr = true` : **aucune facture** n'est générée (pas de brouillon, pas de ligne ajoutée à un brouillon mensuel existant)
 - `informations_completes` n'impacte pas la facturation (la donnée manquante concerne les contacts, pas les données de facturation)
 
@@ -136,10 +130,10 @@ Accessible via Back-office Admin → Facturation → Brouillons à valider.
 
 Tableau :
 
-| Numéro prévu   | Organisation | Type | Montant HT | Lignes      | Créée le    | Statut               |
-| -------------- | ------------ | ---- | ---------- | ----------- | ----------- | -------------------- |
-| FZD-2026-00124 | Kaspia       | ZD   | 860,00 €   | 2 collectes | 20 avr 2026 | brouillon            |
-| FAG-2026-00045 | GL Events    | AG   | 590,00 €   | 1 collecte  | 20 avr 2026 | en_attente_pennylane |
+| Numéro prévu | Organisation | Type | Montant HT | Lignes | Créée le | Statut |
+|-------------|--------------|------|-----------|--------|---------|--------|
+| FZD-2026-00124 | Kaspia | ZD | 860,00 € | 2 collectes | 20 avr 2026 | brouillon |
+| FAG-2026-00045 | GL Events | AG | 590,00 € | 1 collecte | 20 avr 2026 | en_attente_pennylane |
 
 - Filtres : statut (`brouillon` / `en_attente_pennylane`), organisation, type, période
 - Pastille orange dans la colonne Statut si `en_attente_pennylane` depuis > 2h
@@ -152,19 +146,18 @@ L'Admin ne peut pas valider "en un clic" depuis la liste. Tout brouillon doit tr
 **Structure de l'écran** :
 
 **Bloc 1 — En-tête facture**
-
 - Numéro (généré à la validation, affiché en brouillon avec mention "À attribuer")
 - Date d'émission (modifiable, défaut = aujourd'hui)
-- Date d'échéance (modifiable, défaut = émission + `entites_facturation.conditions_paiement_jours` de l'entité sélectionnée — _Reco A test-scenarios 2026-06-07, ex-30j fixe qui rendait la colonne morte_)
+- Date d'échéance (modifiable, défaut = émission + `entites_facturation.conditions_paiement_jours` de l'entité sélectionnée — *Reco A test-scenarios 2026-06-07, ex-30j fixe qui rendait la colonne morte*)
 - Organisation cliente + adresse de facturation (tirée de `entites_facturation`)
 - Si multi-SIRET : sélecteur de l'entité de facturation à utiliser
 
 **Bloc 2 — Lignes**
 Tableau ligne par ligne :
 
-| Collecte                | Désignation                                   | Quantité | PU HT    | TVA  | Montant HT |
-| ----------------------- | --------------------------------------------- | -------- | -------- | ---- | ---------- |
-| COL-12345 · 12 avr 2026 | Collecte Zéro-Déchet — Soirée de gala L'Oréal | 1        | 430,00 € | 20 % | 430,00 €   |
+| Collecte | Désignation | Quantité | PU HT | TVA | Montant HT |
+|----------|-------------|---------|-------|-----|-----------|
+| COL-12345 · 12 avr 2026 | Collecte Zéro-Déchet — Soirée de gala L'Oréal | 1 | 430,00 € | 20 % | 430,00 € |
 
 - Désignation **modifiable** (texte libre)
 - Quantité **modifiable** (V1 : toujours 1 pour ZD et AG)
@@ -174,25 +167,21 @@ Tableau ligne par ligne :
 
 **Bloc 3 — Ajout de lignes**
 Bouton "Ajouter une ligne" → ouvre un sélecteur :
-
 - "Collecte existante" (voir §6 Sélection manuelle de collectes)
 - "Ligne libre" (pour frais divers, remises ponctuelles, etc.)
 
 **Bloc 4 — Totaux**
-
 - Total HT
 - TVA par taux (20 %, 10 %, 5,5 %, 0 %)
 - Total TTC
 
 **Bloc 5 — Référence et conditions**
-
 - **Référence client** : pré-rempli depuis `evenements.reference_affaire` si renseigné (ex: numéro d'affaire Potel & Chabot). Champ modifiable par Admin. Transmis à Pennylane (champ "Référence") et affiché sur l'aperçu PDF brouillon.
 - Conditions de paiement (texte libre, template par défaut configurable dans Paramètres)
 - Mention pénalités de retard
 - Mention escompte (optionnelle)
 
 **Bloc 6 — Actions**
-
 - **Sauvegarder le brouillon** (reste en `brouillon`, pas d'envoi Pennylane)
 - **Valider et envoyer à Pennylane** (déclenche le flux décrit en §2)
 - **Annuler la facture** (passe en `annulee`, les collectes redeviennent non facturées — voir §7)
@@ -203,24 +192,19 @@ Bouton "Ajouter une ligne" → ouvre un sélecteur :
 
 **Règle V1** : le système pré-remplit le PU HT de chaque ligne selon les règles de tarification, mais l'Admin peut modifier librement.
 
-### ZD _(refonte 2026-05-26 — base de grille + remises)_
-
+### ZD *(refonte 2026-05-26 — base de grille + remises)*
 Pré-rempli = **base × remises** (cf. [[05 - Règles métier#Tarifs et remises — résolution du prix]]) :
-
 - **Base** : grille du catalogue affectée à l'organisation (`organisations.grille_tarifaire_zd_id`, NULL = grille défaut), ligne couvrant le pax → `montant_fixe_ht + montant_par_pax_ht × pax`.
 - **Remises** éligibles (`tarifs_negocie`, scope organisation et/ou gestionnaire du lieu) cumulées multiplicativement.
 - Exemple : Butard (grille « Forfait + variable » 200 € + 1 €/pax), 300 pax chez Viparis (−5 %) → 500 × 0,95 = **475 € HT**.
 
 ### AG (par collecte)
-
 Pré-rempli selon le pack actif de l'organisation (prix unitaire du pack).
-
 - Exemple : Kaspia a un Pack 30 actif → PU HT = 460 €
 - Si pack `personnalise` : PU HT issu de `packs_antgaspi.montant_total_ht / credits_initiaux`
 - Si aucun pack : PU HT = 590 € (tarif unitaire), **moins les remises AG éligibles** (`tarifs_negocie` activite=ag) — la remise AG ne s'applique qu'aux collectes facturées à l'unité.
 
 ### Override manuel
-
 - L'Admin peut modifier le PU HT librement
 - Le calcul appliqué est **figé à l'émission** dans `factures_collectes.tarif_detail` (jsonb : base + remises), `tarif_applique_id` + `tarif_applique_source` (la base) et `montant_ligne_ht` (valeur finale)
 - Le log audit (qui / quand / ancien montant / nouveau montant) tient lieu de traçabilité — pas de champ "motif" dédié
@@ -245,7 +229,6 @@ Depuis l'écran d'édition d'une facture, le bouton "Ajouter une ligne → Colle
 - Bouton "Ajouter N collectes" → ajoute autant de lignes dans la facture en cours
 
 Utile pour :
-
 - Grouper manuellement sans activer le mode `mensuelle`
 - Récupérer une collecte clôturée en retard après émission d'une facture initiale
 
@@ -255,12 +238,12 @@ Utile pour :
 
 ### Format V1 — séries de numérotation
 
-| Type                      | Format           | Exemple        |
-| ------------------------- | ---------------- | -------------- |
-| Facture ZD                | `FZD-YYYY-NNNNN` | FZD-2026-00124 |
-| Facture AG                | `FAG-YYYY-NNNNN` | FAG-2026-00045 |
-| Facture achat pack AG     | `FPK-YYYY-NNNNN` | FPK-2026-00008 |
-| Avoir (toutes typologies) | `AV-YYYY-NNNNN`  | AV-2026-00012  |
+| Type | Format | Exemple |
+|------|--------|---------|
+| Facture ZD | `FZD-YYYY-NNNNN` | FZD-2026-00124 |
+| Facture AG | `FAG-YYYY-NNNNN` | FAG-2026-00045 |
+| Facture achat pack AG | `FPK-YYYY-NNNNN` | FPK-2026-00008 |
+| Avoir (toutes typologies) | `AV-YYYY-NNNNN` | AV-2026-00012 |
 
 **Séquences indépendantes** par série. Remise à zéro de `NNNNN` au 1er janvier de chaque année.
 
@@ -274,7 +257,7 @@ Utile pour :
 
 V1 supporte uniquement l'**avoir intégral** (annulation totale d'une facture).
 
-- Déclenché par "Annuler la facture" depuis la fiche facture (si `statut = emise` **ou `payee`** — _décision F1 test-scenarios 2026-06-07, arbitrage Val : §05 §5 Avoirs fait foi, cas trop-perçu/remboursement couvert ; l'ex-règle « Annulation impossible si payee » est supprimée_)
+- Déclenché par "Annuler la facture" depuis la fiche facture (si `statut = emise` **ou `payee`** — *décision F1 test-scenarios 2026-06-07, arbitrage Val : §05 §5 Avoirs fait foi, cas trop-perçu/remboursement couvert ; l'ex-règle « Annulation impossible si payee » est supprimée*)
 - Création automatique d'une facture d'avoir avec montant total négatif (push Pennylane type `credit_note`)
 - Numérotation `AV-YYYY-NNNNN`
 - Envoi automatique à Pennylane (via le flux §2)
@@ -288,7 +271,6 @@ L'avoir partiel (annulation d'une ou plusieurs lignes d'une facture mensuelle gr
 V1 fallback : annuler la facture entière (avoir intégral) puis refacturer les bonnes collectes.
 
 ### Lien facture ↔ avoir
-
 - `factures.avoir_de_facture_id` (FK self-ref) : si la facture est un avoir, référence la facture d'origine
 - `factures.type` enum : `standard | avoir`
 
@@ -297,9 +279,7 @@ V1 fallback : annuler la facture entière (avoir intégral) puis refacturer les 
 ## 8. Suivi des factures émises
 
 ### Section "Factures émises" (Back-office)
-
 Tableau filtrable sur toutes les factures émises :
-
 - Par statut : `emise` / `payee` / `annulee` (le statut "en retard" est un calcul en lecture, pas un statut stocké — voir §10)
 - Par organisation
 - Par période
@@ -317,16 +297,16 @@ Aucun bouton "Envoyer une relance", aucun template `facture_relance`, aucun comp
 
 Champs sur la table `factures` :
 
-| Champ                             | Type        | Contrainte                  | Description                                                                                                                                                                                                                                                                                                                                                                                           |
-| --------------------------------- | ----------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `type`                            | enum        | NOT NULL, défaut `standard` | `standard` \| `avoir`                                                                                                                                                                                                                                                                                                                                                                                 |
-| `avoir_de_facture_id`             | uuid        | FK self-ref → factures      | Si type `avoir`, réfère la facture d'origine                                                                                                                                                                                                                                                                                                                                                          |
-| `pdf_url_pennylane`               | text        |                             | PDF Factur-X émis par Pennylane (source de vérité légale)                                                                                                                                                                                                                                                                                                                                             |
-| `pdf_url_savr`                    | text        |                             | PDF copie de travail généré par Savr (affichage client)                                                                                                                                                                                                                                                                                                                                               |
-| `erreur_synchro`                  | text        |                             | Message d'erreur Pennylane si échec synchro (4xx ou retry épuisé)                                                                                                                                                                                                                                                                                                                                     |
-| `erreur_synchro_at`               | timestamptz |                             | Horodatage de la dernière erreur                                                                                                                                                                                                                                                                                                                                                                      |
-| `derniere_tentative_pennylane_at` | timestamptz |                             | Horodatage du dernier push Pennylane (utilisé pour calcul "il y a Xmin" sur le bandeau)                                                                                                                                                                                                                                                                                                               |
-| `marge_logistique`                | decimal     |                             | **Ajout F5 test-scenarios 2026-06-07 (ex-colonne fantôme)** — marge Savr au grain facture (`montant_ht − Σ cout_reparti_ht` des collectes liées), écrite par le trigger cross-schema `fn_recalc_marge_tournee`. **Jamais exposée aux clients** : rôles clients lisent la vue whitelist `v_factures_client` (sans `marge_logistique` ni `erreur_synchro*`), SELECT table direct = staff only (cf. §09) |
+| Champ | Type | Contrainte | Description |
+|-------|------|-----------|-------------|
+| `type` | enum | NOT NULL, défaut `standard` | `standard` \| `avoir` |
+| `avoir_de_facture_id` | uuid | FK self-ref → factures | Si type `avoir`, réfère la facture d'origine |
+| `pdf_url_pennylane` | text | | PDF Factur-X émis par Pennylane (source de vérité légale) |
+| `pdf_url_savr` | text | | PDF copie de travail généré par Savr (affichage client) |
+| `erreur_synchro` | text | | Message d'erreur Pennylane si échec synchro (4xx ou retry épuisé) |
+| `erreur_synchro_at` | timestamptz | | Horodatage de la dernière erreur |
+| `derniere_tentative_pennylane_at` | timestamptz | | Horodatage du dernier push Pennylane (utilisé pour calcul "il y a Xmin" sur le bandeau) |
+| `marge_logistique` | decimal | | **Ajout F5 test-scenarios 2026-06-07 (ex-colonne fantôme)** — marge Savr au grain facture (`montant_ht − Σ cout_reparti_ht` des collectes liées), écrite par le trigger cross-schema `fn_recalc_marge_tournee`. **Jamais exposée aux clients** : rôles clients lisent la vue whitelist `v_factures_client` (sans `marge_logistique` ni `erreur_synchro*`), SELECT table direct = staff only (cf. §09) |
 
 Champs **supprimés V1** vs spec antérieure : `derniere_relance_at`, `nb_relances`, `motif_modification_montant`.
 
@@ -341,9 +321,8 @@ Enum `factures.statut` : `brouillon` | `en_attente_pennylane` | `emise` | `payee
 Le caractère "en retard" d'une facture est dérivé en lecture, pas matérialisé dans `factures.statut`. Aucune transition d'état, aucun cron, aucun trigger.
 
 **Calcul** :
-
 ```sql
-CASE
+CASE 
   WHEN statut = 'emise' AND date_echeance < CURRENT_DATE THEN 'en_retard'
   ELSE statut::text
 END
@@ -357,20 +336,20 @@ Bénéfice : aucune logique de transition, pas de fenêtre de désynchronisation
 
 ## Décisions prises
 
-| Décision                                                 | Alternative écartée                           | Raison                                                                                          |
-| -------------------------------------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Écran d'édition obligatoire avant validation             | Validation en 1 clic depuis la liste          | Le passage systématique par l'édition évite les erreurs et garantit la vérification Admin       |
-| Conformité Factur-X portée par Pennylane                 | Génération Factur-X côté Savr                 | Mutualisation de la conformité réglementaire. Dépendance critique assumée                       |
-| PDF Savr = copie de travail, pas la facture légale       | PDF Savr = facture légale                     | Évite le double statut juridique. La source de vérité est Pennylane                             |
-| Numérotation FZD / FAG / FPK + série avoir unique `AV-`  | Séries `AZD-`/`AAG-` distinctes               | Réduction du nombre de séquences sans perte d'information (avoir_de_facture_id porte l'origine) |
-| Numéro attribué à la validation uniquement               | Numéro en brouillon                           | Évite les trous dans la séquence fiscale (obligation légale)                                    |
-| Avoir intégral seul V1 (avoir partiel V1.1)              | Avoir partiel V1                              | Cas d'usage <1×/mois — fallback "avoir intégral + refacturation" acceptable                     |
-| Groupement mensuel = config par organisation             | Groupement auto tous clients                  | Respect des préférences client                                                                  |
-| Sélection manuelle multi-collectes                       | Groupement 100% auto                          | L'Admin peut regrouper ponctuellement sans modifier la config                                   |
-| Relances déléguées à Pennylane                           | Relances pilotées côté Savr                   | Décision 2026-04-28 — Pennylane gère nativement la relance                                      |
-| Statut "en retard" calculé, pas stocké                   | Transition d'état + cron                      | Pas de logique applicative distincte = pas de stockage. Toujours juste.                         |
-| Retry Pennylane unifié 3 phases (5 min/1h/24h)           | 5 phases ou retry exponentiel court           | Une seule policy claire, suffisante pour la fréquence d'échec attendue                          |
-| Pas de flag fallback Pennylane + pas de batch rattrapage | Bascule UI flagged + Edge Function rattrapage | Fréquence attendue <1×/an — édition manuelle dans Pennylane sans automatisation V1              |
+| Décision | Alternative écartée | Raison |
+|----------|-------------------|--------|
+| Écran d'édition obligatoire avant validation | Validation en 1 clic depuis la liste | Le passage systématique par l'édition évite les erreurs et garantit la vérification Admin |
+| Conformité Factur-X portée par Pennylane | Génération Factur-X côté Savr | Mutualisation de la conformité réglementaire. Dépendance critique assumée |
+| PDF Savr = copie de travail, pas la facture légale | PDF Savr = facture légale | Évite le double statut juridique. La source de vérité est Pennylane |
+| Numérotation FZD / FAG / FPK + série avoir unique `AV-` | Séries `AZD-`/`AAG-` distinctes | Réduction du nombre de séquences sans perte d'information (avoir_de_facture_id porte l'origine) |
+| Numéro attribué à la validation uniquement | Numéro en brouillon | Évite les trous dans la séquence fiscale (obligation légale) |
+| Avoir intégral seul V1 (avoir partiel V1.1) | Avoir partiel V1 | Cas d'usage <1×/mois — fallback "avoir intégral + refacturation" acceptable |
+| Groupement mensuel = config par organisation | Groupement auto tous clients | Respect des préférences client |
+| Sélection manuelle multi-collectes | Groupement 100% auto | L'Admin peut regrouper ponctuellement sans modifier la config |
+| Relances déléguées à Pennylane | Relances pilotées côté Savr | Décision 2026-04-28 — Pennylane gère nativement la relance |
+| Statut "en retard" calculé, pas stocké | Transition d'état + cron | Pas de logique applicative distincte = pas de stockage. Toujours juste. |
+| Retry Pennylane unifié 3 phases (5 min/1h/24h) | 5 phases ou retry exponentiel court | Une seule policy claire, suffisante pour la fréquence d'échec attendue |
+| Pas de flag fallback Pennylane + pas de batch rattrapage | Bascule UI flagged + Edge Function rattrapage | Fréquence attendue <1×/an — édition manuelle dans Pennylane sans automatisation V1 |
 
 ---
 

@@ -15,8 +15,8 @@ Ce sont les optimisations attendues par défaut — leur absence est un défaut,
 - **Cache mémoire LRU** sur les paramétrages globaux peu mutables (`shared.parametres_globaux`, tarifs ZD versionnés, templates emails).
 - **Génération PDF en async** via la file `jobs_pdf` (Railway) — jamais synchrone dans la requête HTTP.
 - **Appels API tierces en async** (Pennylane, Everest, POST MTS-1) hors transaction métier + retry 3 paliers. La réponse UI n'attend jamais l'appel externe.
-- **Vues matérialisées Postgres** pour les dashboards agrégés (Admin global, `v_ops_*`), refresh toutes les 5 min via `pg_cron` en **`REFRESH MATERIALIZED VIEW CONCURRENTLY`** (impose un index unique sur chaque vue) — jamais de refresh on-trigger ni de refresh non-concurrent, qui verrouille la vue en lecture pendant le rebuild _(validé revue dev senior (frère) 2026-06-08)_.
-- **Pooler Supabase en mode `transaction` (port 6543)** dès V1 pour toutes les connexions serverless Vercel — jamais le port session `5432` côté routes API. Conséquence à respecter : **prepared statements nommés désactivés** côté client (`prepare: false` / `?pgbouncer=true`), sinon erreurs intermittentes sous le pooler transaction _(validé revue dev senior (frère) 2026-06-08)_.
+- **Vues matérialisées Postgres** pour les dashboards agrégés (Admin global, `v_ops_*`), refresh toutes les 5 min via `pg_cron` en **`REFRESH MATERIALIZED VIEW CONCURRENTLY`** (impose un index unique sur chaque vue) — jamais de refresh on-trigger ni de refresh non-concurrent, qui verrouille la vue en lecture pendant le rebuild *(validé revue dev senior (frère) 2026-06-08)*.
+- **Pooler Supabase en mode `transaction` (port 6543)** dès V1 pour toutes les connexions serverless Vercel — jamais le port session `5432` côté routes API. Conséquence à respecter : **prepared statements nommés désactivés** côté client (`prepare: false` / `?pgbouncer=true`), sinon erreurs intermittentes sous le pooler transaction *(validé revue dev senior (frère) 2026-06-08)*.
 - **`EXPLAIN ANALYZE`** systématique sur toute requête > 500 ms en dev avant merge.
 
 ---

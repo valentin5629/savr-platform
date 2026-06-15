@@ -1,5 +1,8 @@
 # 01 - Vision et objectifs
 
+**Statut** : ✅ Complété
+**Dernière mise à jour** : 2026-04-20
+
 ---
 
 ## Résumé exécutif
@@ -75,7 +78,7 @@ Savr passe d'un back-office Bubble artisanal à un **système d'information év�
 
 Les deux apps communiquent par API. **La licence MTS-1 est terminée** : plus de fallback système. En cas d'indisponibilité TMS Savr > 30 min, bascule manuelle par Admin Savr (commandes directes aux prestataires par email/PDF).
 
-**Ambition data** : data product dès le départ — benchmarks sectoriels anonymisés (taux de recyclage _(ZD uniquement, formule à captation par filière, méthode UE 2019/1004 — cf. [[05 - Règles métier#R_taux_recyclage]])_ par type d'événement, comparatifs traiteurs/lieux), pas seulement reporting individuel.
+**Ambition data** : data product dès le départ — benchmarks sectoriels anonymisés (taux de recyclage *(ZD uniquement, formule à captation par filière, méthode UE 2019/1004 — cf. [[05 - Règles métier#R_taux_recyclage]])* par type d'événement, comparatifs traiteurs/lieux), pas seulement reporting individuel.
 
 **Ambition V2 — Plateforme de mesure d'impact événementiel complet** : au-delà du bilan déchets (collecte ZD + AG), Savr vise à devenir le système de mesure d'impact environnemental sur l'ensemble de l'événement — alimentation, emballages, décor, mobilier, transport des convives, énergie du lieu. Le traiteur importe son brief (document existant), l'information est parsée automatiquement, croisée avec un référentiel propriétaire de facteurs d'émission (CO2, recyclabilité, etc.) et restituée au client final sous forme d'un rapport d'impact complet. Cible : obligations CSRD des clients finaux (LVMH, Kering, etc.), justification d'une prime de prix, et data product enrichi. **Non-inclus au MVP**, mais structure data anticipée dès V1 pour éviter toute migration.
 
@@ -90,14 +93,12 @@ Les deux apps communiquent par API. **La licence MTS-1 est terminée** : plus de
 **Pourquoi** : MTS-1 était sous-utilisé, mal adapté aux besoins Savr (attribution courses, saisie poids, communication chauffeurs), coûtait 200 €/mois. Construire sur mesure crée de la valeur. L'architecture découplée limite le risque : si le TMS a des bugs en prod, la Plateforme continue de fonctionner (commandes manuelles).
 
 **Implications techniques** :
-
 - Il faut définir le "contrat API" entre les deux apps dès maintenant : quelles données circulent, dans quel sens, à quelle fréquence → à documenter dans [[08 - APIs et intégrations]]
 - La Plateforme Savr sera probablement la source de vérité pour les événements et collectes planifiées ; le TMS sera la source de vérité pour les pesées réalisées et les informations chauffeurs
 - Le data model des deux apps doit être conçu ensemble pour que les agrégations futures soient cohérentes
 - Ce CDC couvre uniquement la **Plateforme Savr**. Un CDC dédié sera à créer pour le TMS.
 
 **Alternatives écartées** :
-
 - Tout intégrer dans une seule app → trop risqué, trop long, bloque le MVP
 - Garder MTS-1 seul → écarté car sous-utilisation forte + coût + frictions données
 
@@ -108,7 +109,6 @@ Les deux apps communiquent par API. **La licence MTS-1 est terminée** : plus de
 **Implication** : le data model est unique et partagé. La couche présentation (dashboards, vues) varie par profil utilisateur via Row Level Security Supabase + BI personnalisée. Plusieurs dashboards à concevoir, priorisés dans cet ordre : ops Savr → traiteur commercial → traiteur manager → lieu → gestionnaire de lieux → agence.
 
 **Implications techniques** :
-
 - Architecture multi-tenant avec isolation stricte des données par organisation → [[09 - Authentification et permissions]]
 - Un même "événement" peut être visible par le traiteur, le lieu, le gestionnaire de lieu ET les ops Savr — avec des niveaux de détail différents
 - Prévoir dès maintenant les champs nécessaires pour les vues gestionnaires de lieux (multi-traiteurs, multi-sites) même si la vue n'est pas développée en v1
@@ -120,7 +120,6 @@ Les deux apps communiquent par API. **La licence MTS-1 est terminée** : plus de
 **Pourquoi c'est structurant** : si on ne l'anticipe pas maintenant, on devra tout refaire dans 18 mois. Le coût de cette décision est faible à la conception, prohibitif en rétrofit.
 
 **Ce que ça implique concrètement** :
-
 - Toutes les entités clés (collecte, flux, pesée, événement, lieu, traiteur) doivent avoir des champs permettant l'agrégation et la comparaison anonymisée
 - Horodatage systématique de toutes les données (created_at, updated_at, realized_at)
 - Schéma versionné : si une règle métier change (tarification, nature d'un flux), les anciennes données restent cohérentes avec leurs règles de l'époque
@@ -129,7 +128,6 @@ Les deux apps communiquent par API. **La licence MTS-1 est terminée** : plus de
 Volume réel Savr : ~150 collectes/mois max → ~630k lignes de pesées sur 5 ans même en x10. Postgres/Supabase gère nativement les requêtes analytiques complexes (percentiles, window functions, GROUP BY multi-dimensions) à ce volume sans outil tiers. Option valide à vie pour ces volumes. Réévaluer si Savr dépasse 2 000 collectes/mois.
 
 **Alternatives écartées** :
-
 - Niveau 1 seul (reporting individuel) → écarté car objectif stratégique est de devenir une infrastructure data RSE de référence
 - Option B (Metabase) et Option C (ClickHouse/BigQuery) → inutiles au regard des volumes Savr
 
@@ -151,14 +149,14 @@ Volume réel Savr : ~150 collectes/mois max → ~630k lignes de pesées sur 5 an
 
 KPIs opérationnels dès la mise en production :
 
-| KPI                                                    | Cible                                  | Source de mesure                  |
-| ------------------------------------------------------ | -------------------------------------- | --------------------------------- |
-| Collectes manquées pour cause d'erreur app             | 0                                      | Dashboard ops                     |
-| Erreurs de rapports RSE envoyés aux clients            | 0                                      | Logs génération + feedback client |
-| Tracking financier (revenus + coûts logistiques)       | Disponible en temps réel               | Dashboard finance                 |
-| Coût outillage mensuel (Bubble + MTS-1 remplacés)      | 0 € (vs. 320 €/mois actuel)            | Comptabilité                      |
-| Collectes avec facture Pennylane auto générée          | 100% des clients ayant demandé ce mode | Pennylane                         |
-| Erreurs de facturation prestataires (Strike, Marathon) | 0                                      | Rapprochement factures TMS        |
+| KPI | Cible | Source de mesure |
+|-----|-------|-----------------|
+| Collectes manquées pour cause d'erreur app | 0 | Dashboard ops |
+| Erreurs de rapports RSE envoyés aux clients | 0 | Logs génération + feedback client |
+| Tracking financier (revenus + coûts logistiques) | Disponible en temps réel | Dashboard finance |
+| Coût outillage mensuel (Bubble + MTS-1 remplacés) | 0 € (vs. 320 €/mois actuel) | Comptabilité |
+| Collectes avec facture Pennylane auto générée | 100% des clients ayant demandé ce mode | Pennylane |
+| Erreurs de facturation prestataires (Strike, Marathon) | 0 | Rapprochement factures TMS |
 
 **Timeline cible** : aucune pression. Bascule vers la nouvelle app quand elle atteint 90% de son potentiel. Bubble continue de faire tourner le business en attendant. L'objectif est la robustesse et l'évolutivité, pas la vitesse de lancement. CDC construit intégralement avant le début du développement.
 
@@ -166,26 +164,26 @@ KPIs opérationnels dès la mise en production :
 
 ## Hors-périmètre explicite de la V1
 
-| Fonctionnalité                                          | Statut            | Note                                                                                                                                                                                                                                                                    |
-| ------------------------------------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| App mobile native (traiteurs/ops Savr)                  | **V2**            | TMS aura interface mobile chauffeurs en V1                                                                                                                                                                                                                              |
-| Module CRM                                              | **Hors-scope**    | Géré dans Notion                                                                                                                                                                                                                                                        |
-| Benchmarks visibles clients                             | **V1**            | Data model anticipe dès V1. Vigilance : segmenter par type d'événement (cocktail apéritif, cocktail repas complet, repas assis, autre — format de service) ET par taille (bracket pax). Question ouverte : données historiques Savr seules ou données marché externes ? |
-| Multi-langues                                           | **V2**            | Anglais pour Sodexo Live management. Anticiper dans le data model (champs traduisibles)                                                                                                                                                                                 |
-| Marketplace associations (portail self-service)         | **Hors-scope V1** | Gestion assocs en back-office admin Savr                                                                                                                                                                                                                                |
-| Intégration comptable hors Pennylane                    | **Hors-scope**    | Pennylane suffit                                                                                                                                                                                                                                                        |
-| Signature électronique                                  | **V2**            |                                                                                                                                                                                                                                                                         |
-| Chat / messagerie interne                               | **Hors-scope V1** |                                                                                                                                                                                                                                                                         |
-| Reporting REP/Citeo automatisé                          | **V2**            | Export Excel manuel pour l'instant. À revoir si Citeo impose un format API                                                                                                                                                                                              |
-| Import brief traiteur + analyse impact complet          | **V2**            | Parsing IA du brief, mapping vers référentiel d'impact propriétaire Savr, rapport d'impact élargi. Structure data anticipée en V1. Orientation retenue : **recrutement interne** (chargé projet environnemental) pour construire le référentiel                         |
-| Intégration Trackdéchets (BSD officiels dématérialisés) | **V2**            | En MVP, registre interne Savr uniquement. Renvoi vers Veolia en cas d'audit. Trackdéchets intégré en V2 si demande client émerge                                                                                                                                        |
-| Méthodologie dynamique par événement                    | **V2**            | PDF statique en MVP. Dynamique en V2 (couplé Module 19)                                                                                                                                                                                                                 |
+| Fonctionnalité | Statut | Note |
+|---|---|---|
+| App mobile native (traiteurs/ops Savr) | **V2** | TMS aura interface mobile chauffeurs en V1 |
+| Module CRM | **Hors-scope** | Géré dans Notion |
+| Benchmarks visibles clients | **V1** | Data model anticipe dès V1. Vigilance : segmenter par type d'événement (cocktail apéritif, cocktail repas complet, repas assis, autre — format de service) ET par taille (bracket pax). Question ouverte : données historiques Savr seules ou données marché externes ? |
+| Multi-langues | **V2** | Anglais pour Sodexo Live management. Anticiper dans le data model (champs traduisibles) |
+| Marketplace associations (portail self-service) | **Hors-scope V1** | Gestion assocs en back-office admin Savr |
+| Intégration comptable hors Pennylane | **Hors-scope** | Pennylane suffit |
+| Signature électronique | **V2** | |
+| Chat / messagerie interne | **Hors-scope V1** | |
+| Reporting REP/Citeo automatisé | **V2** | Export Excel manuel pour l'instant. À revoir si Citeo impose un format API |
+| Import brief traiteur + analyse impact complet | **V2** | Parsing IA du brief, mapping vers référentiel d'impact propriétaire Savr, rapport d'impact élargi. Structure data anticipée en V1. Orientation retenue : **recrutement interne** (chargé projet environnemental) pour construire le référentiel |
+| Intégration Trackdéchets (BSD officiels dématérialisés) | **V2** | En MVP, registre interne Savr uniquement. Renvoi vers Veolia en cas d'audit. Trackdéchets intégré en V2 si demande client émerge |
+| Méthodologie dynamique par événement | **V2** | PDF statique en MVP. Dynamique en V2 (couplé Module 19) |
 
 ## Périmètre confirmé V1
 
 - **Savr TMS inclus dans V1** : la Plateforme dépend du TMS pour envoyer les ordres aux prestataires logistiques. Deux interfaces : app mobile chauffeurs (saisie poids sur terrain) + interface web Manager (programmation collectes, suivi volumes).
 - **Province inclus en V1** : 100% des associations et transporteurs, IDF + province.
-- **Référentiel Savr associations + transporteurs** : Savr tient le référentiel (données propriétaires), pas d'intégration web externe. Onboarding manuel de chaque assoc/transporteur.
+- **Référentiel Savr associations + transporteurs** : Savr tient le référentiel (données propriétaires), pas d'intégration web externe. Onboarding manuel de chaque assoc/transporteur. 
 - **Algorithme d'attribution Anti-Gaspi** : recommandation automatique (lieu, type d'événement, capacité assoc/transporteur, horaires) + validation humaine ops Savr obligatoire avant envoi. Notification email automatique à l'assoc/transporteur une fois sélectionnés.
 - **A Toutes! prestataire anti-gaspi en V1** : prestataire IDF journée. Les ordres de collecte sont envoyés par la Plateforme au Savr TMS, qui gère la communication avec Everest (système propriétaire A Toutes!) et pilote l'exécution terrain. Les chauffeurs A Toutes! utilisent l'app mobile Savr TMS pour la saisie terrain (poids, photos). Voir [[02 - Cahier des charges TMS/01 - Vision et objectifs TMS]] pour les détails de l'intégration Everest.
 - **Suivi packs Anti-Gaspi par client** : comptabilité précise (solde, consommation, historique) dès V1.
@@ -201,7 +199,6 @@ KPIs opérationnels dès la mise en production :
 **Décision** : créer deux CDC distincts (ce CDC couvre Plateforme Savr, un CDC TMS dédié à créer après). Les deux apps communiquent via API documentée.
 
 **Implications** :
-
 - API contrat clair dès maintenant entre Plateforme et TMS → anticipé dans [[08 - APIs et intégrations]]
 - Pendant dev CDC Plateforme : identifier les dépendances TMS, laisser des hooks pour l'API
 - Quand CDC TMS est construit : mise à jour du CDC Plateforme si nouvelles dépendances découvertes

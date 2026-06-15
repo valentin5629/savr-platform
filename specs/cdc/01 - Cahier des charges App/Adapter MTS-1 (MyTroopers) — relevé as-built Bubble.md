@@ -10,7 +10,7 @@
 
 ## 1. Authentification
 
-- **Endpoint** : `POST https://gateway.pre.mytroopers.com/v2/auth/token` _(env `pre` = préprod ; URL prod à confirmer)_
+- **Endpoint** : `POST https://gateway.pre.mytroopers.com/v2/auth/token` *(env `pre` = préprod ; URL prod à confirmer)*
 - **Body / params** : `{ client_secret, grantType: "credentials" }` (OAuth client-credentials)
 - **Retour** : token Bearer, utilisé ensuite sur les appels data.
 - **Stockage V1** : secret/token → **Supabase Vault**, jamais en clair.
@@ -18,24 +18,23 @@
 
 ## 2. Environnements / URLs
 
-| Usage                          | Base URL (relevée, DEMO/PRE)                            |
-| ------------------------------ | ------------------------------------------------------- |
-| Auth                           | `https://gateway.pre.mytroopers.com/v2`                 |
+| Usage | Base URL (relevée, DEMO/PRE) |
+|---|---|
+| Auth | `https://gateway.pre.mytroopers.com/v2` |
 | Data (customer orders / tours) | `https://demo-connector-customer.prod.mytroopers.io/v3` |
 
 → URLs **prod** à récupérer (remplacer `demo-connector` / `pre`).
 
 ## 3. Remontée (ENTRANT) — par polling
 
-| Appel              | Endpoint                                   | Rôle / champs clés                                                                                                                                                |
-| ------------------ | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Liste commandes    | `GET /v3/customerOrders?minDate&maxDate`   | Boucle de polling sur fenêtre de dates.                                                                                                                           |
-| Détail commande    | `GET /v3/customerOrders/{customerOrderId}` | `customerOrderStatus` (DRAFT…), `stuffs[]` (`name`, `task: PICKUP`, `measurement{height,length,width,weight}`), `contact`, `place`, `orderNumber`, `trackingUrl`. |
-| **Détail tournée** | `GET /v3/tours/{tourId}`                   | **Porte les pesées réelles.** Voir détail ci-dessous.                                                                                                             |
-| Photo              | `GET {photo_URL}` (type Text)              | MTS-1 fournit des **URLs de photos** dans le payload ; Bubble les télécharge une par une.                                                                         |
+| Appel | Endpoint | Rôle / champs clés |
+|---|---|---|
+| Liste commandes | `GET /v3/customerOrders?minDate&maxDate` | Boucle de polling sur fenêtre de dates. |
+| Détail commande | `GET /v3/customerOrders/{customerOrderId}` | `customerOrderStatus` (DRAFT…), `stuffs[]` (`name`, `task: PICKUP`, `measurement{height,length,width,weight}`), `contact`, `place`, `orderNumber`, `trackingUrl`. |
+| **Détail tournée** | `GET /v3/tours/{tourId}` | **Porte les pesées réelles.** Voir détail ci-dessous. |
+| Photo | `GET {photo_URL}` (type Text) | MTS-1 fournit des **URLs de photos** dans le payload ; Bubble les télécharge une par une. |
 
 ### `GET /v3/tours/{tourId}` — structure
-
 - `tourId`, `tourNumber`, `status { dispatch, payment, validation }` (ex : `ACCEPTED` / `VALIDATED` / `DRAFT`)
 - `tourDate`
 - `stops[]` :
@@ -47,7 +46,6 @@
 - `dispatch { carrierShareableCode, transporterUserShareableCode, vehicleShareableCode }`
 
 ### Mapping remontée → Plateforme V1
-
 - **Pesées** : `tours.stops[].weight` (+ `quantityAfterPickup/Delivery`) → `collectes` / lignes de flux (pesées ZD).
 - **Statut collecte** : `customerOrderStatus` / `customerOrderProgressionStatus` + `status{dispatch,payment,validation}` → `collectes.statut_tms` → trigger `fn_sync_statut_collecte_from_tms`.
 - **Photos** : URLs du payload → téléchargées (`GET {photo_URL}`) → ré-upload Storage Savr (persistance légale).
@@ -55,32 +53,28 @@
 
 ## 4. Sortant (création + cycle de tournée)
 
-| Appel                            | Endpoint                  | Corps clé                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| -------------------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Create customer order            | `POST /v3/customerOrders` | `orderDate, timezone, serviceTime, transportersNeededCount, orderCategories (["Alimentaire"] ou ["Déchets"]), orderNumber = collecte_id, place{address.addressSingleLine}, timeslots[{start,end}]`, contacts.                                                                                                                                                                                                                                                    |
+| Appel | Endpoint | Corps clé |
+|---|---|---|
+| Create customer order | `POST /v3/customerOrders` | `orderDate, timezone, serviceTime, transportersNeededCount, orderCategories (["Alimentaire"] ou ["Déchets"]), orderNumber = collecte_id, place{address.addressSingleLine}, timeslots[{start,end}]`, contacts. |
 | Create customer order **dechet** | `POST /v3/customerOrders` | Variante ZD : `orderCategories: ["Déchets"]`. **Stuffs relevés (lecture éditeur 2026-06-10, QO pesées par flux SOLDÉE)** : 1 stuff par flux, `task: PICKUP`, `relatedAddress.placeId = <MTS_1_delivery_place_id>` (exutoire), `quantity: 0` — libellés exacts : `<volume_du_camion>` (qty 1, stuff camion), `Bio-déchets (en kg)`, `Carton (en kg)`, `D.I.B (en kg)`, `Film plastique (en kg)`, `Verre (en kg)`. Mapping → `flux_dechets` figé dans §08 §3bis.7. |
-| Create tour **dechet** _(DRAFT)_ | POST                      | Crée la tournée ZD ; ajoute **`volume_du_camion` (ex 9m3)** + **`MTS_1_delivery_place` (exutoire, ex BlueSpaceIvry)**.                                                                                                                                                                                                                                                                                                                                           |
-| Create tour alimentaire          | POST                      | Idem pour AG.                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| Dispatch tour                    | POST `…/tours/…/dispatch` | Body `{ carrierShareableCode }` (= `transporteurs.code_transporteur_mts1`, ex `CA_49TWSU`) → assigne Strike/Marathon.                                                                                                                                                                                                                                                                                                                                            |
-| Validate tour                    | PUT                       | Body vide → passe `status.validation` à `VALIDATED`.                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Create tour **dechet** *(DRAFT)* | POST | Crée la tournée ZD ; ajoute **`volume_du_camion` (ex 9m3)** + **`MTS_1_delivery_place` (exutoire, ex BlueSpaceIvry)**. |
+| Create tour alimentaire | POST | Idem pour AG. |
+| Dispatch tour | POST `…/tours/…/dispatch` | Body `{ carrierShareableCode }` (= `transporteurs.code_transporteur_mts1`, ex `CA_49TWSU`) → assigne Strike/Marathon. |
+| Validate tour | PUT | Body vide → passe `status.validation` à `VALIDATED`. |
 
 **Clé de corrélation** : `orderNumber = collecte.reference` (`#1601…`) — sert à rapprocher commandes/tournées MTS-1 ↔ collectes Plateforme.
 
 ## 5. Everest (A Toutes! / AG vélo cargo) — hors pilote Kaspia ZD
-
 - `POST Create mission` + `GET Get mission` (même pattern create + poll). À détailler quand l'AG entre dans le périmètre.
 
 ## 6. Résolution véhicule / plaque d'immatriculation — RÉSOLU (doc MTS-1 V3, 2026-06-05)
 
 La plaque **n'est pas** sur le tour/la commande. Elle est sur l'objet véhicule de **`GET /v3/carrier`** :
-
 ```
 carriers[] : { carrierShareableCode, name, vehicles[], transporters[] }
 vehicles[] : { name, numberPlate, vehicleShareableCode }   // ex numberPlate = "12ABC23"
 ```
-
 **Algo adapter** :
-
 - **Plaque** : lire `dispatch.vehicleShareableCode` (tour) → matcher `vehicles[].vehicleShareableCode` → `numberPlate`.
 - **Chauffeur (nom/prénom)** : lire `dispatch.transporterUserShareableCode` (tour) → matcher `transporters[].transporterShareableCode` → `firstname` + `lastname`. Objet transporteur = `{ firstname, lastname, transporterShareableCode }`.
 - `GET /v3/carrier` se met en cache (référentiel quasi statique).
@@ -101,7 +95,6 @@ vehicles[] : { name, numberPlate, vehicleShareableCode }   // ex numberPlate = "
 ## 8. Webhooks push — alternative recommandée au polling
 
 MTS-1 appelle des endpoints **que l'adapter expose** (à implémenter côté Plateforme) :
-
 - `POST /v3/webhook/stop/progress` (photos + signatures + statuts stop)
 - `POST /v3/webhook/customerOrder/progress` (+ `customerOrderStatus`)
 - `POST /v3/webhook/customerOrder/update` (CANCELED/UPDATED)

@@ -18,7 +18,6 @@ M13 est la **tour de contrôle Admin TMS**. Il centralise tout ce qui n'a pas tr
 - **Édition criticité codes alertes M11** (override seed → runtime) sans redéploiement
 
 **Ce que M13 remplace** :
-
 - Les `INSERT` SQL manuels pour créer/désactiver un user
 - Les `UPDATE parametres_tms SET valeur = ...` faits à la main par Val
 - Les secrets stockés en clair dans `parametres_tms` ( Slack dégagé V1 — revue sobriété 2026-04-25 A6)
@@ -26,7 +25,6 @@ M13 est la **tour de contrôle Admin TMS**. Il centralise tout ce qui n'a pas tr
 - Le manque de wizard d'onboarding prestataire (chaque création = process artisanal en 5+ étapes manuelles)
 
 **Ce que M13 ne couvre pas V1** :
-
 - **CRUD prestataires** : reste dans M06 (M13 propose seulement le wizard d'onboarding qui appelle M06)
 - **CRUD grilles tarifaires** : reste dans M07 (M13 navigue vers M07)
 - **Dashboard alerting** : reste dans M11 (M13 navigue vers M11)
@@ -36,7 +34,6 @@ M13 est la **tour de contrôle Admin TMS**. Il centralise tout ce qui n'a pas tr
 - **Pseudonymisation users RGPD** : V1 = soft delete uniquement, pseudonymisation différée → V1.1 (D7)
 
 **KPI cibles V1** :
-
 - **0** modification SQL manuelle hors M13 sur `parametres_tms`, `users_tms`, secrets
 - **100%** des onboardings prestataires passent par le wizard E7
 - **< 5 min** délai détection → action Admin sur un event Plateforme en `echec_final`
@@ -51,7 +48,7 @@ M13 est la **tour de contrôle Admin TMS**. Il centralise tout ce qui n'a pas tr
 - **Identité** : 2 personnes V1 (Val CEO/CTO + Louis backup). Pas de granularité interne (D7 §03).
 - **Rôle système** : `admin_tms` (cf. §09 Auth). MFA TOTP obligatoire à la **1ère connexion sur un device** (D11). Sessions 30j glissantes après device trusted (D10).
 - **Auth** : SSO Google `@gosavr.io` + MFA TOTP au 1er login device. Devices trusted (max 3 par user, D14).
-- **Accès** : web `tms.gosavr.io/admin/*` (sous-route mono-domaine, gating middleware Next.js + RLS Supabase, désactivable IP-restrict V1.1 si besoin sur le path `/admin/*`). _(propagation §11 2026-04-27 — alignement sous-route, conflit 1 tranché option a Val)_
+- **Accès** : web `tms.gosavr.io/admin/*` (sous-route mono-domaine, gating middleware Next.js + RLS Supabase, désactivable IP-restrict V1.1 si besoin sur le path `/admin/*`). *(propagation §11 2026-04-27 — alignement sous-route, conflit 1 tranché option a Val)*
 - **Périmètre RLS** : tous schémas `tms.*`, `shared.*`. Lecture/écriture totale sauf `audit_logs` (read-only, immutable D5).
 - **Usage** :
   - **Hebdomadaire** : ajustement paramètres `m0X_*`, revue `integrations_logs`, créa/désa users
@@ -116,18 +113,15 @@ Hors périmètre M13 (navigation vers modules existants) :
 **Layout** : 4 cards résumé en haut, 2 sections en bas.
 
 **Cards résumé** (lecture seule, refresh 60s) :
-
 - **Paramètres modifiés 7j** : compteur édits `parametres_tms` last 7d. Click → E4 audit filtré `table_name=parametres_tms` derniers 7j.
 - **Events échec final 24h** : compteur `integrations_logs WHERE statut='echec_final' AND created_at >= now()-1d`. Click → E6 filtré.
 - **Users actifs / total** : `count(*) FILTER (WHERE statut='actif')` / `count(*)` sur `users_tms`. Click → E3.
 - **Devices trusted total** : `count(*) FROM users_tms_devices_trusted WHERE actif=true`. Click → E3 sous-onglet devices.
 
 **Section "Liens rapides modules métier"** :
-
 - Cartes navigantes : M06 Référentiel prestataires, M07 Pilotage financier, M08 Facturation, M11 Alerting.
 
-**Lien "Activité Admin récente →"** _(sobriété M13 B3 2026-04-30)_ :
-
+**Lien "Activité Admin récente →"** *(sobriété M13 B3 2026-04-30)* :
 - Bouton unique "Voir activité Admin récente →" → ouvre E4 Audit log préfiltré `acteur=admin_tms, range=7j`. E4 gère le rendu complet.
 - Le stream embarqué 20 dernières actions est dégagé : composant custom supprimé, query `JOIN users_tms` sur `audit_logs` supprimée de E1.
 
@@ -148,29 +142,24 @@ Hors périmètre M13 (navigation vers modules existants) :
 **Note paramètre racine `migration_mode_active` (propagation §13 2026-04-27)** : paramètre boolean racine (hors namespace) destiné à activer/désactiver le mode migration MTS-1 → TMS Savr (J0 → J+30). Édition réservée `admin_tms` (Val), audit obligatoire `M13_MIGRATION_MODE_TOGGLE` enrichi (raison libre obligatoire pour désactivation). Friction UI sur désactivation : modale confirmation + saisie texte `DESACTIVER MIGRATION` requise (EC11 §13). Cf. [[13 - Migration MTS-1#13.4 Mode migration (paramètre + filtre + bandeau)]].
 
 **Filtres haut de page** :
-
 - Namespace (dropdown) : `facturation`, `attribution`, `zones`, `stock`, `alertes`, `mobile`, `auth`, `intégrations`, `m03_*`, `m04_*`, `m05_*`, `m07_*`, `m08_*`, `m10_*`, `m11_*`, `m13_*`.
 
 > **Note namespace `attribution` (audit cohérence A1 2026-05-09)** : ce namespace ne contient plus que **1 paramètre** modifiable TMS (`province_tri_secondaire_code`). Les 9 autres paramètres (`regle_ag_*`, `a_toutes_indisponible*`, `everest_codes_postaux`) ont migré côté Plateforme dans `parametres_algo` (source de vérité unique V1, V2 à reétudier). M13 affiche ces paramètres en **lecture seule** dans une sous-section dédiée "Paramètres attribution AG IDF (source Plateforme)" avec bouton "Modifier dans Back-office Plateforme" (lien externe app.gosavr.io). Pas d'édition possible côté TMS.
-
 - Recherche texte sur `cle` ou `libelle`.
 - Toggle "Modifiables par moi uniquement" (filtre `current_user.role IN modifiable_par[]`).
 
 **Colonnes tableau** :
-
 - Namespace · Clé · Libellé · Valeur actuelle · Unité · Type · Modifiable par · Dernière maj (date + user) · Actions.
 - **Badge `[hot reload]`** si `requires_redeploy = false` (cf. D6/D12).
 - **Badge `[redéploiement requis]`** rouge si `requires_redeploy = true` → édition possible mais alerte explicite avant save.
 
 **Action "Modifier valeur"** (admin_tms uniquement, ou ops_savr si `'ops_savr' = ANY(modifiable_par)`) :
-
 - Modale : libellé + description + champ valeur typé (`number`/`integer` = input numérique avec `valeur_min`/`valeur_max` enforced ; `boolean` = toggle ; `string` = textarea ; `json` = éditeur JSON avec validation schema ; `date` = datepicker).
 - Champ commentaire **obligatoire** (motif édition, audité).
 - Bouton "Enregistrer" → trigger DB met à jour `parametres_tms.valeur` + `derniere_maj_par_user_id` + `updated_at` + INSERT `audit_logs`.
-- Si `requires_redeploy = true` → message d'alerte explicite : _"Ce paramètre nécessite un redéploiement de l'app pour être pris en compte par les clients déjà connectés. Confirmes-tu ?"_
+- Si `requires_redeploy = true` → message d'alerte explicite : *"Ce paramètre nécessite un redéploiement de l'app pour être pris en compte par les clients déjà connectés. Confirmes-tu ?"*
 
 **Action "Voir historique valeurs"** (lien sur ligne) :
-
 - Sous-modale : timeline lecture seule depuis `audit_logs WHERE table_name='parametres_tms' AND row_id=<param_id> ORDER BY created_at DESC`.
 - Affichage : date · acteur · before/after `diff` · commentaire.
 
@@ -187,14 +176,12 @@ Hors périmètre M13 (navigation vers modules existants) :
 **Layout** : tableau + filtres + bouton "+ Créer user".
 
 **Filtres** :
-
 - Statut : `actif` / `desactive` / `tous`.
 - Rôles : checkboxes multi (`admin_tms`, `ops_savr`, `manager_prestataire`, `chauffeur`).
 - Prestataire (dropdown, si rôle prestataire ou chauffeur).
 - Recherche texte sur nom/email.
 
 **Colonnes** :
-
 - Nom · Email · Rôles (badges) · Prestataire (si applicable) · Statut · MFA actif · Dernière connexion · Devices trusted count · Actions (Voir détail · Désactiver/Réactiver).
 
 **Pagination** : 50 lignes/page.
@@ -206,13 +193,11 @@ Hors périmètre M13 (navigation vers modules existants) :
 **Layout** : header user + 4 onglets (Identité, Rôles & accès, Devices, Audit).
 
 **Onglet Identité** :
-
 - Champs lecture seule : email (créé via Edge Function, jamais éditable), date création, dernière connexion.
 - Champs éditables : nom, prénom, téléphone (si renseigné), prestataire_id (si rôle prestataire).
 - Bouton "Modifier" → modale édition + commentaire obligatoire → audité.
 
 **Onglet Rôles & accès** :
-
 - Liste rôles cochés/décochés (validation server-side : combinaisons interdites refusées, cf. §09 ligne 478).
 - Statut : Actif / Désactivé (toggle + raison obligatoire si désactivation).
 - Bouton "Reset MFA TOTP" (admin_tms uniquement, si user porte un rôle MFA-required) → confirmation forte → INSERT `audit_logs` `acteur_meta = {action:'reset_mfa', target_user_id}` → user concerné est forcé à reconfigurer MFA au prochain login.
@@ -220,23 +205,20 @@ Hors périmètre M13 (navigation vers modules existants) :
 - **Pas de bouton "Supprimer définitivement"** V1 (D7 : soft delete uniquement).
 
 **Onglet Devices trusted** :
-
 - Liste devices : User-agent · IP de 1ère reconnaissance · Date 1ère reconnaissance · Dernière activité · Actif (oui/non).
 - Bouton "Révoquer ce device" (admin_tms ou self) → device sort de la liste trusted, prochaine connexion = MDP + MFA (si admin_tms cible).
 - Bouton "Révoquer tous mes devices" (self) → logout sur tous les devices.
-- Cap V1 = 3 devices trusted simultanés par user (D14). Si tentative d'ajout d'un 4ème → message _"Tu as atteint la limite de 3 devices. Révoque-en un avant de te connecter sur un nouveau."_.
+- Cap V1 = 3 devices trusted simultanés par user (D14). Si tentative d'ajout d'un 4ème → message *"Tu as atteint la limite de 3 devices. Révoque-en un avant de te connecter sur un nouveau."*.
 
-**Onglet Audit** _(sobriété M13 C1 2026-04-30)_ :
-
+**Onglet Audit** *(sobriété M13 C1 2026-04-30)* :
 - Bouton "Voir logs de cet user →" → ouvre E4 préfiltré `acteur=<user_id> OR row_id=<user_id>`. Pas de composant audit embarqué dans E3.b.
-  > **Motif** : duplication partielle de E4. Économise 1 composant UI + 1 query embarquée. Accès en 1 clic depuis E3.b.
+> **Motif** : duplication partielle de E4. Économise 1 composant UI + 1 query embarquée. Accès en 1 clic depuis E3.b.
 
 **RLS** : `admin_tms` uniquement (sauf onglet Devices accessible en self pour `ops_savr` également).
 
 #### E3.c — Création user (modale)
 
 **Champs** :
-
 - Type d'user (radio) : `Staff Savr (Admin TMS / Ops Savr)` / `Manager prestataire` / `Chauffeur`.
 - Email (obligatoire, validation format + unicité).
 - Nom + prénom.
@@ -246,7 +228,6 @@ Hors périmètre M13 (navigation vers modules existants) :
 - Bouton "Créer + envoyer magic link initial".
 
 **Workflow back** (simplifié revue sobriété §05 2026-05-01 B1) :
-
 1. Edge Function `upsert_user_tms` : valide combinaisons rôles (rejet 400 si interdit, cf. §09 ligne 478), valide prestataire_id si applicable, INSERT `users_tms` avec `statut='en_attente_premiere_connexion'` ( supprimé V1, colonne supprimée). INSERT `auth.users` Supabase **sans password initial**.
 2. Génère magic link via Supabase Auth (TTL 30 min) **pour tous les rôles V1** (manager, chauffeur, ops, admin) — uniformisé B1, plus de chemin "password initial fourni Admin".
 3. Envoie email d'activation via template (template_key `user_first_login`, géré dans M11 templates) — message "Définir mon mot de passe" + lien magic link, **aucun password en clair transmis**.
@@ -263,7 +244,6 @@ Hors périmètre M13 (navigation vers modules existants) :
 **Layout** : tableau paginé + filtres + export CSV.
 
 **Filtres** :
-
 - Période (date range, default 7 derniers jours, max range V1 = 90 jours pour perf, au-delà = export CSV).
 - Acteur (multi-select users_tms ou type `webhook`/`cron`/`migration`/`systeme`). Filtre additionnel "Source webhook" (`plateforme`/`everest`/...) lit `acteur_meta.source` jsonb (revue sobriété §04 2026-04-30 D2 — fusion `webhook_plateforme` + `webhook_everest` → `webhook`, détail dans `acteur_meta.source`).
 - Table (multi-select : `tournees`, `pesees`, `parametres_tms`, `users_tms`, `factures_prestataires`, etc.).
@@ -272,19 +252,16 @@ Hors périmètre M13 (navigation vers modules existants) :
 - Recherche par `row_id` (UUID copy-pasted).
 
 **Colonnes** :
-
 - Date · Acteur (user ou système) · Table · Action · Row ID (lien) · Commentaire (tronqué) · Actions (Voir diff).
 
 **Action "Voir diff"** :
-
 - Modale plein écran : before / after en split JSON syntaxisé. Champs modifiés highlightés. Champs inchangés masqués.
 - Bouton "Voir contexte" : si `request_id` non null → liste des autres `audit_logs` partageant le même `request_id` (mutations groupées) + `integrations_logs` correspondant.
 - Bouton "Voir ressource actuelle" → ouvre l'écran métier de la ressource (M02 collecte, M04 tournée, etc.).
 
 **Export CSV** :
-
 - Bouton "Exporter résultats filtrés".
-- Limite V1 : 10 000 lignes par export. Au-delà → message _"Affine les filtres ou contacte un dev pour export Postgres direct"_.
+- Limite V1 : 10 000 lignes par export. Au-delà → message *"Affine les filtres ou contacte un dev pour export Postgres direct"*.
 - Format CSV : `created_at, acteur, table, action, row_id, commentaire, diff_json` (diff sérialisé en string).
 
 **RLS** : `admin_tms` lecture tout · `ops_savr` lecture tout · pas d'écriture (immutable D5).
@@ -298,7 +275,6 @@ Hors périmètre M13 (navigation vers modules existants) :
 **Layout** : tableau read + actions, pas d'édition inline.
 
 **Colonnes** :
-
 - Nom secret (ex: `pennylane_api_token`, `everest_client_secret`, `strike_webhook_signing_key`, `marathon_webhook_signing_key`, `bridge_api_token`)
 - Service (badge : Pennylane / Everest / Strike / Marathon / Bridge)
 - Type (token / webhook URL / signing key)
@@ -308,20 +284,17 @@ Hors périmètre M13 (navigation vers modules existants) :
 - Actions : Voir (révéler 30s) · Rotater · Tester
 
 **Action "Voir" (reveal 30s)** :
-
-- Confirmation modale : _"Le secret va être révélé en clair pendant 30 secondes. Cette action est auditée."_
+- Confirmation modale : *"Le secret va être révélé en clair pendant 30 secondes. Cette action est auditée."*
 - Edge Function `reveal_secret(secret_id)` : retourne valeur en clair, JWT 30s, INSERT `audit_logs` `acteur_meta = {action:'secret_reveal', secret_name}`.
 - Reveal V1 = simple display (pas de copy auto). Au bout de 30s, masquage UI.
 
 **Action "Rotater"** :
-
 - Modale : champ "Nouvelle valeur" (paste depuis Pennylane/Everest UI).
 - Bouton "Tester avant validation" → Edge Function tente une requête de test (ex. `GET /me` Pennylane, `POST /availabilities` Everest, ping Bridge).
 - Si test OK → bouton "Valider rotation" → Edge Function `rotate_secret` : UPDATE Vault + INSERT `audit_logs` action `SECRET_ROTATED` (Bloc 3 sobriété 2026-04-25 A1 — alerte M11 `m13_secret_rotated` info retirée du catalogue, audit_logs reste source de vérité).
 - Si test KO → warning, bouton "Forcer rotation quand même" (audité).
 
 **Action "Tester"** :
-
 - Lance le test sans rotation (vérification connectivité).
 
 **Secrets V1 listés** :
@@ -335,7 +308,6 @@ Hors périmètre M13 (navigation vers modules existants) :
 | `bridge_api_token` | Bridge | Bearer token | 90j | `.env` |
 
 **Architecture technique** :
-
 - Stockage : **Supabase Vault** (table `vault.secrets` chiffrée). 1 ligne par secret avec `name`, `secret` (chiffré), `description`, `created_at`, `updated_at`.
 - Accès en clair : **uniquement** via Edge Function authentifiée + role `admin_tms` (vérifié par `auth.user_has_role('admin_tms')` côté EF). Front ne reçoit jamais le secret en clair sauf via le reveal 30s.
 - Métadonnées (dernière rotation, expire le, dernière utilisation) : table parallèle `tms.secrets_metadata` (lisible RLS, jointure par `secret_name`).
@@ -352,7 +324,6 @@ Hors périmètre M13 (navigation vers modules existants) :
 **Layout** : tableau paginé + filtres + actions bulk.
 
 **Filtres** :
-
 - Période (default 24h).
 - System : `plateforme` / `everest` / `autre` / tous.
 - Direction : `entrant` / `sortant` / tous.
@@ -362,11 +333,9 @@ Hors périmètre M13 (navigation vers modules existants) :
 - Recherche par `ressource_id` (UUID, ex. tournée concernée).
 
 **Colonnes** :
-
 - Date · System · Direction · Type · Statut (badge couleur) · Tentative # · Code HTTP · Ressource (lien vers écran métier) · Latence ms · Actions.
 
 **Compteurs en haut** :
-
 - Total events 24h
 - Échecs finaux 24h (rouge si > 0)
 - Latence p95 24h
@@ -375,7 +344,7 @@ Hors périmètre M13 (navigation vers modules existants) :
 **Propagation M14 (2026-04-25 + sobriété 2026-04-30)** : tab Everest dans E6 (granularité **call API**, vs `/everest` métier qui compte des **missions**, cf. clarification scope sobriété 2026-04-30 C_M14_01) :
 
 - **Section santé API** : lit la **vue dérivée `tms.vue_prestataires_everest_status`** (revue sobriété §04 2026-04-30 A3 — colonnes `last_everest_ping_at/status` supprimées V1, info dérivée de `integrations_logs(system='everest', type_event='m14_ping')`) du prestataire A Toutes! + bouton "Test connexion Everest" (déclenche M14 W8). Bandeau "incident actif" si `m14_everest_auth_failed` ou `m14_everest_timeout` non-acquittés.
-- **Section latence** _(sobriété M13 B2 2026-04-30)_ : **p95 global 24h** sur tous les appels Everest (`PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY duration_ms)` sur `integrations_logs WHERE system='everest' AND direction='outbound' AND created_at >= now()-1d`). Les p50/p99 et la ventilation par endpoint sont dégagés V1 — disponibles via Supabase Studio si investigation fine nécessaire.
+- **Section latence** *(sobriété M13 B2 2026-04-30)* : **p95 global 24h** sur tous les appels Everest (`PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY duration_ms)` sur `integrations_logs WHERE system='everest' AND direction='outbound' AND created_at >= now()-1d`). Les p50/p99 et la ventilation par endpoint sont dégagés V1 — disponibles via Supabase Studio si investigation fine nécessaire.
 - **Section taux d'erreurs** : taux 2xx/4xx/5xx par endpoint 7j + taux retry effectifs + taux échec final (post-retry).
 - **Section audit webhooks 7j** (absorbé ex-M14 E3, sobriété 2026-04-30 A_M14_05) : table lecture seule des webhooks Everest reçus 7j (timestamp, event_type, signature OK/KO, mission_id, client_ref, statut traitement, action TMS, retry count, dernière erreur). Filtres event_type + statut signature. Action "Voir payload" (modal JSON). KPIs synthétiques : total webhooks reçus 7j, taux signature invalide, taux event_type inconnu. **Pas de bouton "Replay"** (sobriété 2026-04-30 A_M14_04 — Admin replay via SQL direct sur Supabase Studio si cas exceptionnel).
 - **Section cache `everest_coverage_cache`** : taille cache + bouton "Invalider cache complet" (Admin). **Hit rate cache 7j retiré** (sobriété 2026-04-30 A_M14_06 — métrique de tuning sans valeur opérationnelle V1, à reconsidérer V1.1).
@@ -388,23 +357,20 @@ Page métier `/everest` (M14 E1, E2, E4) accessible Ops + Admin pour le drilldow
 **Layout** : modale ou page dédiée.
 
 **Sections** :
-
 - **Identification** : event_id, type, system, direction, statut, occurred_at, tentative_num.
 - **Requête** : URL, http_method, payload (JSON syntaxisé, PII masqués selon règles §04).
 - **Réponse** : http_status, reponse (JSON), duree_ms.
-- **Tentatives précédentes** : si `tentative_num > 1`, liste des lignes `integrations_logs` partageant `event_id` _(clé d'idempotence = `body.event_id`, ex-mention "idempotency-key" corrigée 2026-06-07 F2 — header supprimé du contrat)_.
+- **Tentatives précédentes** : si `tentative_num > 1`, liste des lignes `integrations_logs` partageant `event_id` *(clé d'idempotence = `body.event_id`, ex-mention "idempotency-key" corrigée 2026-06-07 F2 — header supprimé du contrat)*.
 - **Audit corrélé** : si `request_id` non null, liens vers `audit_logs WHERE request_id = <X>`.
 
 **Action "Replay manuel"** (uniquement si `statut='echec_final'`) :
-
-- Confirmation modale : _"Cet event sera retraité comme s'il venait d'arriver. Si l'event est entrant et déjà partiellement traité, des effets duplicata sont possibles. La table inbox protège contre ça via event_id, mais le replay réinjecte le payload complet. Confirme."_
+- Confirmation modale : *"Cet event sera retraité comme s'il venait d'arriver. Si l'event est entrant et déjà partiellement traité, des effets duplicata sont possibles. La table inbox protège contre ça via event_id, mais le replay réinjecte le payload complet. Confirme."*
 - Edge Function `replay_event(event_id)` :
   - Si direction `entrant` : récupère payload depuis `integrations_logs`, repush vers handler interne (passe par `integrations_inbox` qui dédup si déjà traité).
-  - Si direction `sortant` : repush vers URL externe (Plateforme/Everest) avec **`body.event_id` original conservé** (la dédup inbox destinataire protège du double traitement), nouvelle ligne `integrations_logs` **`tentative_num = 1`** (nouvelle chaîne de tentatives) + `acteur_meta = {action:'manual_replay', original_log_id}` _(tranché Val 2026-06-07 test-scenarios F2 — ex-"tentative_num incrémenté" corrigé, aligné W6.c)_.
+  - Si direction `sortant` : repush vers URL externe (Plateforme/Everest) avec **`body.event_id` original conservé** (la dédup inbox destinataire protège du double traitement), nouvelle ligne `integrations_logs` **`tentative_num = 1`** (nouvelle chaîne de tentatives) + `acteur_meta = {action:'manual_replay', original_log_id}` *(tranché Val 2026-06-07 test-scenarios F2 — ex-"tentative_num incrémenté" corrigé, aligné W6.c)*.
 - INSERT `audit_logs` action `EVENT_MANUAL_REPLAY` (Bloc 3 sobriété 2026-04-25 A1 — alerte M11 `m13_event_manual_replay` info retirée du catalogue, audit_logs reste source de vérité).
 
 **Action "Marquer comme résolu manuellement"** (sans replay, si Admin a corrigé hors-bande) :
-
 - Update `integrations_logs.statut` → `succes_manuel`.
 - Audit-log obligatoire avec commentaire.
 
@@ -421,12 +387,10 @@ Page métier `/everest` (M14 E1, E2, E4) accessible Ops + Admin pour le drilldow
 **Layout** : liste dédiée (onglet de E6 ou écran propre).
 
 **Contenu** :
-
 - Liste des `collectes_tms WHERE origine='manuelle_tms' AND plateforme_collecte_id IS NULL` (orphelines en attente).
 - Pour chaque orpheline, **suggestion auto de match** avec les collectes reçues par webhook E1 non encore appariées : critère `(plateforme_lieu_id identique, heure_collecte ±30 min, plateforme_traiteur_id identique, nb_pax ±10%)`.
 
 **Actions Admin TMS** :
-
 - **Fusionner** : la collecte manuelle adopte `plateforme_collecte_id` / `plateforme_evenement_id` / `plateforme_programmateur_id` de la collecte webhook ; la ligne webhook en doublon est marquée rejetée (event DLQ `succes_manuel`, pas de seconde collecte active). Le dispatch déjà fait sur la collecte manuelle est préservé. Audit log obligatoire.
 - **Garder manuelle (ignorer)** : si aucun match (collecte réellement hors Plateforme), l'orpheline reste telle quelle ; sortie de la liste après acquittement.
 
@@ -439,7 +403,6 @@ Page métier `/everest` (M14 E1, E2, E4) accessible Ops + Admin pour le drilldow
 ### E7 — Wizard onboarding prestataire
 
 **Pourquoi un wizard** : créer un prestataire actif end-to-end (Strike, Marathon, A Toutes!) demande :
-
 1. Création `shared.prestataires` (M06)
 2. Création first user `manager_prestataire` (M03)
 3. Activation portail self-service (flag `prestataire.portail_actif = true`)
@@ -452,7 +415,6 @@ Sans wizard, ces étapes sont éclatées sur 2 modules → risque d'oubli (manag
 #### E7.1 — Étape 1 : Identité prestataire
 
 **Champs** (alignés M06) :
-
 - Nom · SIRET · Code Strike/Marathon/Everest si applicable · Email contact · Téléphone · Adresse · Coords GPS entrepôt · Type de prestation (collecte / transport / les deux) · Rayon d'intervention km.
 - Bouton "Suivant" → INSERT `shared.prestataires` `statut='en_onboarding'` + `audit_logs`.
 
@@ -461,7 +423,6 @@ Sans wizard, ces étapes sont éclatées sur 2 modules → risque d'oubli (manag
 **Refondu D2** : étape **bloquante** non skippable. L'activation prestataire (E7.4) refuse la transition `en_onboarding → actif` tant qu'aucune grille active n'est publiée pour ce prestataire (trigger DB `trg_prestataire_grille_obligatoire`).
 
 **Champs** : INSERT `tms.grilles_tarifaires_prestataires` :
-
 - `formule_id` (sélection parmi les 5 formules `vacations_paliers`, `grille_matricielle_zone_type_course`, `grille_matricielle_zone`, `forfait_km`, `forfait_fixe`)
 - `type_vehicule_id` (NULL = grille générique tous véhicules, ou sélection spécifique)
 - `date_debut_validite` (default = `today + 1 jour`, anti-rétroactivité R2.8)
@@ -472,18 +433,16 @@ Sans wizard, ces étapes sont éclatées sur 2 modules → risque d'oubli (manag
 
 **Cas particulier "grille à formaliser plus tard"** : Admin peut créer une grille minimale avec `forfait_fixe = 0€` + `date_debut_validite` = today + 1, marquage interne `placeholder = true` (à formaliser ultérieurement avant la première tournée). Ne casse pas le workflow d'attribution M12 ni le calcul M07.
 
-#### E7.3 — Étape 3 : First manager + magic link _(ex-E7.2 ; renuméroté revue sobriété §05 2026-05-01 D2)_
+#### E7.3 — Étape 3 : First manager + magic link *(ex-E7.2 ; renuméroté revue sobriété §05 2026-05-01 D2)*
 
 **Champs** :
-
 - Nom + prénom manager · Email · Téléphone · Activation portail self-service (toggle, default ON pour Strike/Marathon/A Toutes!, OFF pour province).
 - Si toggle OFF → étape skipped, prestataire géré uniquement via Ops Savr (M02, pas de portail).
 - Si toggle ON → INSERT `users_tms` rôle `manager_prestataire` `statut='en_attente_premiere_connexion'`, génère magic link, envoie email (template `manager_first_login` M11).
 
-#### E7.4 — Étape 4 : Récap + activation _(ex-E7.3 ; renuméroté revue sobriété §05 2026-05-01 D2)_
+#### E7.4 — Étape 4 : Récap + activation *(ex-E7.3 ; renuméroté revue sobriété §05 2026-05-01 D2)*
 
 **Affichage** :
-
 - Récap des 3 étapes précédentes.
 - Liste check-list :
   - [✓] Prestataire créé (`shared.prestataires.id`)
@@ -492,7 +451,6 @@ Sans wizard, ces étapes sont éclatées sur 2 modules → risque d'oubli (manag
 - Bouton "Activer le prestataire" → UPDATE `shared.prestataires.statut` `en_onboarding` → `actif` + INSERT `audit_logs` action `prestataire_activation`. **Trigger DB `trg_prestataire_grille_obligatoire`** vérifie présence grille active : RAISE EXCEPTION si absente. → **Supprimée V1 (revue sobriété §05 2026-05-01 D2)**, cas impossible par construction.
 
 **Workflow technique global E7** :
-
 - Toutes les opérations sont wrappées dans une **transaction** côté Edge Function `wizard_onboarding_prestataire`.
 - Si une étape échoue (ex. SMTP down sur magic link) → rollback complet ou ré-essai possible avec état persisté en `wizard_onboarding_prestataire_state` (table temporaire scope V1 = simple, V1 = pas d'état persisté, on demande à Admin de recommencer si crash).
 
@@ -507,8 +465,16 @@ Sans wizard, ces étapes sont éclatées sur 2 modules → risque d'oubli (manag
 **Layout** : tableau lecture seule.
 
 **Colonnes** :
-
 - Code canonique · Module source (M01-M12) · Libellé · **Criticité** (seed uniquement) · Scope (admin / ops / manager) · Auto-résolvable · Activé.
+
+
+
+
+
+
+
+
+
 
 **RLS** : lecture `alertes_catalogue` = tous staff (policy existante M11).
 
@@ -521,27 +487,23 @@ Sans wizard, ces étapes sont éclatées sur 2 modules → risque d'oubli (manag
 **Pourquoi** : support utilisateur. Val/Louis veulent "voir l'app comme la voit un manager Strike" pour debug rapide.
 
 **Déclenchement** :
-
 - Depuis E3.b détail user → bouton "Se connecter en tant que cet user" (admin_tms uniquement, target user `actif` uniquement).
 
 **Workflow** :
-
-1. Modale confirmation : _"Tu vas démarrer une session impersonation en tant que [nom user]. Toutes tes actions seront tracées sous ton user réel + flag impersonation. Sortie possible via bandeau supérieur. Confirmer ?"_ + champ commentaire obligatoire (motif support).
+1. Modale confirmation : *"Tu vas démarrer une session impersonation en tant que [nom user]. Toutes tes actions seront tracées sous ton user réel + flag impersonation. Sortie possible via bandeau supérieur. Confirmer ?"* + champ commentaire obligatoire (motif support).
 2. Edge Function `impersonation_start(target_user_id, motif)` :
    - Génère JWT spécial avec claims `impersonator_user_id = current_user.id`, `effective_user_id = target_user_id`, `roles = target_user.roles`, `prestataire_id = target_user.prestataire_id`, `exp = now() + 60 min`.
    - INSERT `audit_logs` `acteur_user_id = current_user.id`, `acteur_meta = {action:'impersonation_start', target_user_id, motif}`. (Bloc 3 sobriété 2026-04-25 A1 — alerte M11 `m13_impersonation_started` info retirée du catalogue, audit_logs reste source de vérité.)
-   - Notif self-service au target user via email + push s'il a une session active : _"Un Admin a démarré une session de support sur ton compte. Motif : [motif]."_ (notif directe Resend, plus passée par M11).
-3. Front change l'état "session impersonation active", affiche **bandeau orange persistant** en haut : _"⚠ Session impersonation : tu es connecté comme [target nom]. [Sortir]"_. Bandeau visible sur toutes les pages M03/M05/M11/etc. (D13).
+   - Notif self-service au target user via email + push s'il a une session active : *"Un Admin a démarré une session de support sur ton compte. Motif : [motif]."* (notif directe Resend, plus passée par M11).
+3. Front change l'état "session impersonation active", affiche **bandeau orange persistant** en haut : *"⚠ Session impersonation : tu es connecté comme [target nom]. [Sortir]"*. Bandeau visible sur toutes les pages M03/M05/M11/etc. (D13).
 4. **Toutes les mutations** faites pendant la session sont tracées avec `audit_logs.acteur_user_id = impersonator (Val)` ET `audit_logs.acteur_meta.impersonation_target_id = target user` (D15). Permet la traçabilité réelle "qui a fait quoi" même en impersonation.
 
 **Sortie impersonation** :
-
 - Bouton "Sortir" du bandeau ou expiration JWT 60 min auto.
 - Edge Function `impersonation_stop` : invalide JWT, INSERT `audit_logs` action `impersonation_stop` + durée session.
-- Notif au target user _"La session de support sur ton compte est terminée."_.
+- Notif au target user *"La session de support sur ton compte est terminée."*.
 
 **Garde-fous** :
-
 - Pas d'impersonation possible vers un autre `admin_tms` (rejet 400).
 - Pas d'impersonation vers un user `desactive`.
 - Pas d'impersonation cascadée (Val impersonate manager X → manager X ne peut pas relancer une impersonation depuis sa session).
@@ -589,7 +551,6 @@ Sans wizard, ces étapes sont éclatées sur 2 modules → risque d'oubli (manag
 ```
 
 **Alertes émises** :
-
 - Aucune en cas de succès.
 - `m13_parametre_edition_validation_echec` warning si validation server-side échoue (ex. valeur hors min/max).
 
@@ -613,7 +574,6 @@ Sans wizard, ces étapes sont éclatées sur 2 modules → risque d'oubli (manag
 **État user après W2** : `en_attente_premiere_connexion`.
 
 **Premier login user** :
-
 - Click magic link email → Auth Supabase callback → user créé dans Auth → si role admin_tms → flow MFA setup obligatoire (D11) → user crée TOTP → device marqué trusted → statut → `actif`.
 
 ### W3 — Désactivation user
@@ -630,7 +590,6 @@ Sans wizard, ces étapes sont éclatées sur 2 modules → risque d'oubli (manag
 ```
 
 **Effets cascade** :
-
 - User ne peut plus se logger.
 - Si manager_prestataire et seul manager du prestataire → alerte `m13_prestataire_sans_manager_actif` warning vers Ops + Admin.
 - FK conservées intactes (audit_logs, tournees.created_by, etc.) — D7 soft delete.
@@ -711,6 +670,11 @@ Sans wizard, ces étapes sont éclatées sur 2 modules → risque d'oubli (manag
 
 > **Dégagée Bloc 6 C3 (revue sobriété 2026-04-28)** — table `alertes_codes_overrides` supprimée, Edge Function `upsert_alerte_code_override` retirée. E8 = lecture seule V1.
 
+
+
+
+
+
 ### W9 — Impersonation start/stop
 
 Cf. E9 ci-dessus.
@@ -718,14 +682,12 @@ Cf. E9 ci-dessus.
 ### W10 — Devices trusted : ajout, listing, révocation
 
 **Ajout (auto, pas via M13)** :
-
 - À la 1ère connexion réussie sur un device (device_fingerprint = hash(user-agent + IP class C + device cookie persistent), validation MFA pour admin_tms) → INSERT `users_tms_devices_trusted`.
 - Si user a déjà 3 devices actifs → connexion bloquée avec message dédié.
 
 **Listing (E3.b onglet Devices)** : tous les devices trusted du user, actif/inactif.
 
 **Révocation** :
-
 - Self : E3.b onglet Devices → "Révoquer ce device" ou "Révoquer tous mes devices".
 - Admin sur autre user : E3.b user cible → onglet Devices → "Révoquer ce device".
 - Effet : UPDATE `users_tms_devices_trusted.actif=false`. Prochaine connexion sur ce device = re-MFA (si admin_tms) ou re-MDP simple (si ops_savr).
@@ -737,7 +699,6 @@ Cf. E9 ci-dessus.
 ### W12 — Cron rotation secrets approchant expiration
 
 **Cron quotidien** : `m13_secrets_expiration_cron`
-
 - Scanne `tms.secrets_metadata` où `expire_le < now() + interval '7 days'`.
 - Émet alerte warning `m13_secret_expiration_imminente` (scope admin) avec lien E5 ligne concernée.
 
@@ -745,49 +706,49 @@ Cf. E9 ci-dessus.
 
 ## 6. Règles métier appliquées
 
-| Règle    | Source      | Description                                                                                                                                                                                           |
-| -------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| R_M13.1  | M13 W1      | Toute édition de `parametres_tms` exige un commentaire ≥ 10 chars. Audit-log obligatoire.                                                                                                             |
-| R_M13.2  | M13 W2/W3   | Désactivation user = soft delete uniquement V1 (`statut='desactive'`). Pas de pseudonymisation/hard delete V1.                                                                                        |
-| R_M13.3  | M13 W2      | Combinaisons rôles interdites (cf. §09 ligne 478) : `manager_prestataire+ops_savr`, `manager_prestataire+admin_tms`, `chauffeur+toute autre role`. Validation Edge Function `upsert_user_tms`.        |
-| R_M13.4  | M13 W4      | Reset MFA TOTP exige commentaire ≥ 20 chars + audit-log + notif email cible.                                                                                                                          |
-| R_M13.5  | M13 W5      | Rotation secret exige test pré-validation (sauf "Forcer quand même" qui exige commentaire long).                                                                                                      |
-| R_M13.6  | M13 W6      | Replay manuel d'event entrant passe obligatoirement par `integrations_inbox` pour respecter dédup `event_id`.                                                                                         |
-| R_M13.7  | M13 W7      | Wizard onboarding peut s'interrompre entre étapes : prestataire reste `en_onboarding` jusqu'à étape 4 explicite.                                                                                      |
-| R_M13.9  | M13 W9      | Impersonation interdite vers `admin_tms` cible et vers user `desactive`. Pas d'impersonation cascadée.                                                                                                |
-| R_M13.10 | M13 W9/D15  | Mutations sous impersonation = `audit_logs.acteur_user_id` = impersonator réel + `acteur_meta.impersonation_target_id` = cible. **Jamais** acteur_user_id = cible.                                    |
-| R_M13.11 | M13 W10/D14 | Cap 3 devices trusted simultanés actifs par user. Révocation manuelle pour ajouter un 4ème.                                                                                                           |
-| R_M13.12 | M13 D10     | Session 30j glissantes pour `admin_tms` et `ops_savr`. Glissante = renouvelée à chaque activité, expire après 30j d'inactivité.                                                                       |
-| R_M13.13 | M13 D10     | **Pas de re-MFA pour actions sensibles** (D10 explicit). Risque assumé : laptop compromis = 30j d'accès admin sans frein supplémentaire. Compensé par device trusted révocable + audit-log exhaustif. |
-| R_M13.15 | M13 W12     | Secrets avec `expire_le` non null sont scannés quotidiennement, alerte warning à J-7.                                                                                                                 |
-| R_M13.16 | E5          | Reveal secret = JWT 30s + audit obligatoire. Pas de copy auto, pas de cache front.                                                                                                                    |
-| R_M13.17 | E2          | Édition d'un paramètre `requires_redeploy=true` exige confirmation explicite "Je sais que ça nécessite un redéploiement".                                                                             |
-| R_M13.18 | E4          | `audit_logs` strictement immutable : aucune UPDATE/DELETE même `admin_tms`. Seule exception : DROP de partition > 5 ans (DBA-level).                                                                  |
-| R_M13.19 | E2/D6       | Cache 60s côté Edge Function pour lectures `parametres_tms` côté apps clientes. Param critique = `requires_redeploy=true` lu uniquement au démarrage app.                                             |
-| R_M13.20 | M13 W3      | Désactivation du seul `manager_prestataire` actif d'un prestataire émet alerte `m13_prestataire_sans_manager_actif` warning.                                                                          |
+| Règle | Source | Description |
+|-------|--------|-------------|
+| R_M13.1 | M13 W1 | Toute édition de `parametres_tms` exige un commentaire ≥ 10 chars. Audit-log obligatoire. |
+| R_M13.2 | M13 W2/W3 | Désactivation user = soft delete uniquement V1 (`statut='desactive'`). Pas de pseudonymisation/hard delete V1. |
+| R_M13.3 | M13 W2 | Combinaisons rôles interdites (cf. §09 ligne 478) : `manager_prestataire+ops_savr`, `manager_prestataire+admin_tms`, `chauffeur+toute autre role`. Validation Edge Function `upsert_user_tms`. |
+| R_M13.4 | M13 W4 | Reset MFA TOTP exige commentaire ≥ 20 chars + audit-log + notif email cible. |
+| R_M13.5 | M13 W5 | Rotation secret exige test pré-validation (sauf "Forcer quand même" qui exige commentaire long). |
+| R_M13.6 | M13 W6 | Replay manuel d'event entrant passe obligatoirement par `integrations_inbox` pour respecter dédup `event_id`. |
+| R_M13.7 | M13 W7 | Wizard onboarding peut s'interrompre entre étapes : prestataire reste `en_onboarding` jusqu'à étape 4 explicite. |
+| R_M13.9 | M13 W9 | Impersonation interdite vers `admin_tms` cible et vers user `desactive`. Pas d'impersonation cascadée. |
+| R_M13.10 | M13 W9/D15 | Mutations sous impersonation = `audit_logs.acteur_user_id` = impersonator réel + `acteur_meta.impersonation_target_id` = cible. **Jamais** acteur_user_id = cible. |
+| R_M13.11 | M13 W10/D14 | Cap 3 devices trusted simultanés actifs par user. Révocation manuelle pour ajouter un 4ème. |
+| R_M13.12 | M13 D10 | Session 30j glissantes pour `admin_tms` et `ops_savr`. Glissante = renouvelée à chaque activité, expire après 30j d'inactivité. |
+| R_M13.13 | M13 D10 | **Pas de re-MFA pour actions sensibles** (D10 explicit). Risque assumé : laptop compromis = 30j d'accès admin sans frein supplémentaire. Compensé par device trusted révocable + audit-log exhaustif. |
+| R_M13.15 | M13 W12 | Secrets avec `expire_le` non null sont scannés quotidiennement, alerte warning à J-7. |
+| R_M13.16 | E5 | Reveal secret = JWT 30s + audit obligatoire. Pas de copy auto, pas de cache front. |
+| R_M13.17 | E2 | Édition d'un paramètre `requires_redeploy=true` exige confirmation explicite "Je sais que ça nécessite un redéploiement". |
+| R_M13.18 | E4 | `audit_logs` strictement immutable : aucune UPDATE/DELETE même `admin_tms`. Seule exception : DROP de partition > 5 ans (DBA-level). |
+| R_M13.19 | E2/D6 | Cache 60s côté Edge Function pour lectures `parametres_tms` côté apps clientes. Param critique = `requires_redeploy=true` lu uniquement au démarrage app. |
+| R_M13.20 | M13 W3 | Désactivation du seul `manager_prestataire` actif d'un prestataire émet alerte `m13_prestataire_sans_manager_actif` warning. |
 
 ---
 
 ## 7. Edge cases
 
-| EC   | Scénario                                                                               | Comportement attendu                                                                                                                                                                                                                                                                 |
-| ---- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| EC1  | Admin tente d'éditer un paramètre dont son rôle n'est pas dans `modifiable_par[]`      | EF retourne 403 avant UPDATE. Toast "Tu n'as pas les droits sur ce paramètre."                                                                                                                                                                                                       |
-| EC2  | Admin crée un user avec email déjà existant dans `users_tms` (statut désactivé)        | EF rejette 409 "Email déjà utilisé. Réactive l'user existant ou utilise un autre email." Pas de réactivation auto par création (D7 V1).                                                                                                                                              |
-| EC3  | Admin tente de créer un user avec combinaison rôles interdite                          | EF retourne 400 "Combinaison de rôles non autorisée : [détail]."                                                                                                                                                                                                                     |
-|      |                                                                                        | **Dégagé sobriété M13 A2 (2026-04-30)** — 2 admins V1, collision quasi-impossible. Last-write-wins assumé (cohérent M02 sobriété 2026-04-29). Audit-log permet de voir qui a écrasé quoi si collision hypothétique.                                                                  |
-| EC5  | Magic link envoyé étape 3 wizard mais SMTP fail                                        | Alerte warning `m13_user_creation_email_failed`. Wizard affiche bouton "Copier le magic link manuellement" (link valide 24h). Admin envoie hors-bande.                                                                                                                               |
-| EC6  | Replay event entrant déjà traité (event_id présent dans inbox `traite`)                | EF retourne 200 OK sans effet (dédup natif inbox). Toast "Cet event a déjà été traité avec succès. Aucune action effectuée."                                                                                                                                                         |
-| EC7  | Replay event sortant vers Plateforme/Everest mais service down                         | Nouvelle ligne `integrations_logs` avec `statut='echec_retry'`, retry policy canonique **3 paliers (5 min / 1h / 24h, §08 Bloc B B1)** _(corrigé 2026-06-07 test-scenarios F3 — ex-"5min/30min/2h/6h/24h" stale)_. Admin notifié si nouveau `echec_final`.                           |
-| EC8  | Reveal secret expire (30s écoulées)                                                    | Front masque automatiquement, message "Reveal expiré, ré-active si besoin (audité)".                                                                                                                                                                                                 |
-| EC9  | Admin tente impersonation vers admin_tms                                               | EF retourne 400 "Impersonation interdite vers un autre Admin TMS." (R_M13.9)                                                                                                                                                                                                         |
-| EC10 | Admin tente impersonation pendant qu'une session impersonation est déjà active         | EF retourne 409 "Tu as déjà une session d'impersonation active. Sors-en avant d'en démarrer une nouvelle."                                                                                                                                                                           |
-| EC11 | User fait sa 4ème connexion sur un device tandis qu'il a déjà 3 devices trusted actifs | Login refusé avec message dédié + lien E3.b self → "Révoque un device pour te connecter sur celui-ci."                                                                                                                                                                               |
-| EC13 | Admin désactive un user qui est actuellement en session impersonation comme target     | Sessions impersonation forcées en `end_reason='forced_logout'`. Admin impersonator notifié.                                                                                                                                                                                          |
-| EC14 | Edition `parametres_tms` entry où `valeur_min`/`valeur_max` violés                     | Validation client + server. Server retourne 400. UI montre erreur sous le champ.                                                                                                                                                                                                     |
-| EC16 | Cron `m13_secrets_expiration_cron` ne tourne pas 24h                                   | Pas d'alerte sur l'absence de cron lui-même V1 (monitoring infra hors scope M13). À traiter dans observabilité globale §07/V1.1.                                                                                                                                                     |
-| EC17 | Wizard onboarding crash entre étapes                                                   | Prestataire en `statut='en_onboarding'` reste visible dans M06 avec badge "Onboarding en cours". Admin reprend manuellement (pas de reprise automatique wizard V1). Cleanup cron quotidien : prestataires `en_onboarding` depuis > 7j → alerte warning `m13_onboarding_inacheve_7j`. |
-| EC18 | User révoque tous ses devices trusted alors qu'il est connecté sur l'un d'eux          | Sa session courante reste valide (pas de logout immédiat). Mais sa prochaine reconnexion sur ce device = re-MFA. UX cohérente "déconnexion complète sur prochain login".                                                                                                             |
+| EC | Scénario | Comportement attendu |
+|----|----------|----------------------|
+| EC1 | Admin tente d'éditer un paramètre dont son rôle n'est pas dans `modifiable_par[]` | EF retourne 403 avant UPDATE. Toast "Tu n'as pas les droits sur ce paramètre." |
+| EC2 | Admin crée un user avec email déjà existant dans `users_tms` (statut désactivé) | EF rejette 409 "Email déjà utilisé. Réactive l'user existant ou utilise un autre email." Pas de réactivation auto par création (D7 V1). |
+| EC3 | Admin tente de créer un user avec combinaison rôles interdite | EF retourne 400 "Combinaison de rôles non autorisée : [détail]." |
+| | | **Dégagé sobriété M13 A2 (2026-04-30)** — 2 admins V1, collision quasi-impossible. Last-write-wins assumé (cohérent M02 sobriété 2026-04-29). Audit-log permet de voir qui a écrasé quoi si collision hypothétique. |
+| EC5 | Magic link envoyé étape 3 wizard mais SMTP fail | Alerte warning `m13_user_creation_email_failed`. Wizard affiche bouton "Copier le magic link manuellement" (link valide 24h). Admin envoie hors-bande. |
+| EC6 | Replay event entrant déjà traité (event_id présent dans inbox `traite`) | EF retourne 200 OK sans effet (dédup natif inbox). Toast "Cet event a déjà été traité avec succès. Aucune action effectuée." |
+| EC7 | Replay event sortant vers Plateforme/Everest mais service down | Nouvelle ligne `integrations_logs` avec `statut='echec_retry'`, retry policy canonique **3 paliers (5 min / 1h / 24h, §08 Bloc B B1)** *(corrigé 2026-06-07 test-scenarios F3 — ex-"5min/30min/2h/6h/24h" stale)*. Admin notifié si nouveau `echec_final`. |
+| EC8 | Reveal secret expire (30s écoulées) | Front masque automatiquement, message "Reveal expiré, ré-active si besoin (audité)". |
+| EC9 | Admin tente impersonation vers admin_tms | EF retourne 400 "Impersonation interdite vers un autre Admin TMS." (R_M13.9) |
+| EC10 | Admin tente impersonation pendant qu'une session impersonation est déjà active | EF retourne 409 "Tu as déjà une session d'impersonation active. Sors-en avant d'en démarrer une nouvelle." |
+| EC11 | User fait sa 4ème connexion sur un device tandis qu'il a déjà 3 devices trusted actifs | Login refusé avec message dédié + lien E3.b self → "Révoque un device pour te connecter sur celui-ci." |
+| EC13 | Admin désactive un user qui est actuellement en session impersonation comme target | Sessions impersonation forcées en `end_reason='forced_logout'`. Admin impersonator notifié. |
+| EC14 | Edition `parametres_tms` entry où `valeur_min`/`valeur_max` violés | Validation client + server. Server retourne 400. UI montre erreur sous le champ. |
+| EC16 | Cron `m13_secrets_expiration_cron` ne tourne pas 24h | Pas d'alerte sur l'absence de cron lui-même V1 (monitoring infra hors scope M13). À traiter dans observabilité globale §07/V1.1. |
+| EC17 | Wizard onboarding crash entre étapes | Prestataire en `statut='en_onboarding'` reste visible dans M06 avec badge "Onboarding en cours". Admin reprend manuellement (pas de reprise automatique wizard V1). Cleanup cron quotidien : prestataires `en_onboarding` depuis > 7j → alerte warning `m13_onboarding_inacheve_7j`. |
+| EC18 | User révoque tous ses devices trusted alors qu'il est connecté sur l'un d'eux | Sa session courante reste valide (pas de logout immédiat). Mais sa prochaine reconnexion sur ce device = re-MFA. UX cohérente "déconnexion complète sur prochain login". |
 
 ---
 
@@ -833,16 +794,16 @@ forced_logout : Target user a été désactivé pendant la session
 
 ## 9. Notifications
 
-| Notification                | Acteur                                                                                                                                               | Canal                          | Trigger               | Template                 |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ | --------------------- | ------------------------ |
-| User staff créé             | Admin → user staff                                                                                                                                   | Email                          | W2 magic link         | `staff_first_login`      |
-| User manager créé           | Admin → manager                                                                                                                                      | Email                          | W7 étape 3 magic link | `manager_first_login`    |
-| Reset MFA effectué          | Admin → user cible                                                                                                                                   | Email                          | W4                    | `mfa_reset_notification` |
-| Impersonation démarrée      | Admin → user cible                                                                                                                                   | Email + push si session active | W9 start              | `impersonation_started`  |
-| Impersonation terminée      | Admin → user cible                                                                                                                                   | Email + push                   | W9 stop               | `impersonation_ended`    |
-| User désactivé              | Admin → user cible                                                                                                                                   | Email                          | W3                    | `user_deactivated`       |
-| Secret rotation             | Aucune notif user (Bloc 3 sobriété 2026-04-25 A1 — alerte M11 `m13_secret_rotated` info dégagée, trace via `tms.audit_logs` action `SECRET_ROTATED`) | audit_logs                     | W5                    | n/a                      |
-| Secret expiration imminente | Aucune notif user                                                                                                                                    | Alerte M11 warning admin       | W12 cron              | n/a                      |
+| Notification | Acteur | Canal | Trigger | Template |
+|--------------|--------|-------|---------|----------|
+| User staff créé | Admin → user staff | Email | W2 magic link | `staff_first_login` |
+| User manager créé | Admin → manager | Email | W7 étape 3 magic link | `manager_first_login` |
+| Reset MFA effectué | Admin → user cible | Email | W4 | `mfa_reset_notification` |
+| Impersonation démarrée | Admin → user cible | Email + push si session active | W9 start | `impersonation_started` |
+| Impersonation terminée | Admin → user cible | Email + push | W9 stop | `impersonation_ended` |
+| User désactivé | Admin → user cible | Email | W3 | `user_deactivated` |
+| Secret rotation | Aucune notif user (Bloc 3 sobriété 2026-04-25 A1 — alerte M11 `m13_secret_rotated` info dégagée, trace via `tms.audit_logs` action `SECRET_ROTATED`) | audit_logs | W5 | n/a |
+| Secret expiration imminente | Aucune notif user | Alerte M11 warning admin | W12 cron | n/a |
 
 **Pas de SMS V1** (canaux email + push + alertes M11 dashboard suffisants pour le scope admin).
 
@@ -861,7 +822,6 @@ forced_logout : Target user a été désactivé pendant la session
 - **E9 impersonation start** : < 1s (génération JWT + insert audit + envoi email).
 
 **Cache stratégie** :
-
 - Cache 60s côté Edge Function pour `parametres_tms` lectures par les apps clientes (D6).
 - Pas de cache front M13 lui-même (Admin veut voir l'état réel).
 - Materialized view rafraîchie 60s pour agrégats E6 dashboard.
@@ -870,54 +830,52 @@ forced_logout : Target user a été désactivé pendant la session
 
 ## 11. Décisions structurantes prises
 
-| #   | Décision                                                                                                                                                                                                                                                                                                                                                                                         | Alternatives écartées                                                                                                                                | Implications                                                                                                                                                                                                             |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| D1  | M13 = hub navigation pour CRUD métier (M06/M07/M08/M11) + écrans propres pour transverse (params, users, audit, secrets, monitoring intégrations, codes alertes, wizard onboarding, impersonation).                                                                                                                                                                                              | a) Hub pure (limite valeur Admin) ; b) Écrans propres dupliqués (duplication coûteuse).                                                              | Cohérence DRY avec modules métier. M13 reste lean. Wizard E7 = la valeur ajoutée d'orchestration.                                                                                                                        |
-| D3  | CRUD complet users + impersonation V1 avec bandeau persistant + JWT 60min + audit double acteur.                                                                                                                                                                                                                                                                                                 | a) CRUD seul sans impersonation (lacune support) ; b) Création + désactivation seulement (incohérent avec besoin reset MFA).                         | Fournit support 1ère ligne sans toucher Supabase Auth direct. Risque maîtrisé via R_M13.10 + R_M13.9.                                                                                                                    |
-| D4  | Secrets API dans **Supabase Vault**, accès via Edge Function `reveal_secret` / `rotate_secret` / `test_secret`. Métadonnées (rotation, expire) dans `tms.secrets_metadata`. Reveal = JWT 30s.                                                                                                                                                                                                    | b) `parametres_tms.is_secret=true` (RLS-only protection, fuite client-side possible) ; c) Hybride (complexité inutile).                              | Sécurité native Vault + audit explicit + pas de fuite vers PostgREST. (Slack dégagé V1 — revue sobriété 2026-04-25 A6).                                                                                                  |
-| D5  | `audit_logs` strictement read-only/immutable. Pas d'annotation post-hoc V1. Champ `commentaire` renseigné à la mutation source uniquement.                                                                                                                                                                                                                                                       | b) Annotations table séparée (complexité pour valeur incertaine).                                                                                    | Cohérent avec §04 partition mensuelle et obligation 5 ans. Annotations = V1.1 si besoin métier émerge.                                                                                                                   |
-| D6  | Cache 60s côté Edge Function pour `parametres_tms` lus par apps clientes. Param critical = `requires_redeploy=true`, lu uniquement au démarrage app.                                                                                                                                                                                                                                             | a) Hot reload total (perf) ; c) Realtime push (overengineering V1).                                                                                  | Compromis perf/cohérence acceptable sur 100% des params identifiés.                                                                                                                                                      |
-| D7  | Soft delete user V1 (`statut='desactive'`). Pas de pseudonymisation différée V1. Pas de hard delete V1.                                                                                                                                                                                                                                                                                          | b) Pseudonymisation J+30 (V1.1) ; c) Hard delete + user système (perte traçabilité).                                                                 | Audit log légal 5 ans préservé. RGPD compliance via process manuel V1 (rare).                                                                                                                                            |
-| D8  | **Révisé revue sobriété §05 2026-05-01 D2 (réaligné tranché Val 2026-06-07 F1)** : Wizard onboarding prestataire E7 = **4 étapes** (identité, **grille tarifaire bloquante non skippable**, manager, activation). Trigger DB `trg_prestataire_grille_obligatoire` refuse l'activation sans grille active. Manager skippable si province no portail. supprimée (cas impossible par construction). | b) Pas de wizard, manuel séquentiel (oubli garanti) ; .                                                                                              | Garantit cohérence onboarding (~1/trim). Atomicité non-transactionnelle V1, reprise manuelle si crash.                                                                                                                   |
-| D9  | Monitoring intégrations E6 = liste paginée + filtres + replay manuel events `echec_final`. Replay = `admin_tms` only.                                                                                                                                                                                                                                                                            | a) Liste sans replay (ops bloqués sur events perdus) ; c) Dashboard agrégé (V1.1).                                                                   | Replay = besoin opérationnel récurrent. Dashboard agrégé en haut (compteurs simples) suffit V1.                                                                                                                          |
-| D10 | Session 30j glissantes pour `admin_tms` et `ops_savr` après device trusted. **Pas de re-MFA pour actions sensibles**.                                                                                                                                                                                                                                                                            | a) Session 8h absolue (friction quotidienne) ; b) 8h glissantes (toujours friction) ; c) 24h + re-MFA actions sensibles (alternative reco initiale). | **Risque assumé conscient** : laptop compromis = 30j d'accès admin sans frein supplémentaire. Compensé par device trusted révocable + audit-log exhaustif. À reconsidérer V2 si incident sécu ou recrutement 3ème admin. |
-| D11 | MFA TOTP obligatoire à la 1ère connexion sur un device pour `admin_tms`. Devices trusted ensuite (cap 3, R_M13.11). Pas de MFA pour `ops_savr` V1 (cohérent §09 V1).                                                                                                                                                                                                                             | a) MFA à chaque login admin (UX dégradée) ; b) Pas de MFA admin (sécu insuffisante).                                                                 | Standard SaaS. Reset MFA par autre admin via W4.                                                                                                                                                                         |
-| D12 | Paramètres `parametres_tms` portent un flag `requires_redeploy` (boolean, default false). Param critique = pris en compte uniquement au démarrage app.                                                                                                                                                                                                                                           | Pas de flag (impose hot reload partout, irréaliste pour certains params).                                                                            | Souplesse cas par cas. Liste à seeder en propagation (params d'auth, structure DB-related, etc.).                                                                                                                        |
-| D13 | Bandeau orange persistant en haut de toutes les pages M03/M05/etc. quand session impersonation active. Visible jusqu'à sortie.                                                                                                                                                                                                                                                                   | Pas de bandeau (risque oubli session admin → confusion).                                                                                             | UX standard (cf. Stripe, Linear, Notion).                                                                                                                                                                                |
-| D14 | Cap 3 devices trusted simultanés actifs par user. Révocation manuelle pour ajouter un 4ème (R_M13.11).                                                                                                                                                                                                                                                                                           | a) Cap 1 (friction smartphone+laptop+backup) ; b) Cap illimité (accumulation devices abandonnés = surface attaque).                                  | Compromis raisonnable. Révocation E3.b.                                                                                                                                                                                  |
-| D15 | Mutations sous impersonation = `audit_logs.acteur_user_id` = impersonator réel (Val/Louis) + `acteur_meta.impersonation_target_id` = cible. Jamais l'inverse.                                                                                                                                                                                                                                    | acteur=cible (perte traçabilité réelle).                                                                                                             | Conformité auditable + responsabilité claire. R_M13.10.                                                                                                                                                                  |
+| # | Décision | Alternatives écartées | Implications |
+|---|----------|------------------------|--------------|
+| D1 | M13 = hub navigation pour CRUD métier (M06/M07/M08/M11) + écrans propres pour transverse (params, users, audit, secrets, monitoring intégrations, codes alertes, wizard onboarding, impersonation). | a) Hub pure (limite valeur Admin) ; b) Écrans propres dupliqués (duplication coûteuse). | Cohérence DRY avec modules métier. M13 reste lean. Wizard E7 = la valeur ajoutée d'orchestration. |
+| D3 | CRUD complet users + impersonation V1 avec bandeau persistant + JWT 60min + audit double acteur. | a) CRUD seul sans impersonation (lacune support) ; b) Création + désactivation seulement (incohérent avec besoin reset MFA). | Fournit support 1ère ligne sans toucher Supabase Auth direct. Risque maîtrisé via R_M13.10 + R_M13.9. |
+| D4 | Secrets API dans **Supabase Vault**, accès via Edge Function `reveal_secret` / `rotate_secret` / `test_secret`. Métadonnées (rotation, expire) dans `tms.secrets_metadata`. Reveal = JWT 30s. | b) `parametres_tms.is_secret=true` (RLS-only protection, fuite client-side possible) ; c) Hybride (complexité inutile). | Sécurité native Vault + audit explicit + pas de fuite vers PostgREST. (Slack dégagé V1 — revue sobriété 2026-04-25 A6). |
+| D5 | `audit_logs` strictement read-only/immutable. Pas d'annotation post-hoc V1. Champ `commentaire` renseigné à la mutation source uniquement. | b) Annotations table séparée (complexité pour valeur incertaine). | Cohérent avec §04 partition mensuelle et obligation 5 ans. Annotations = V1.1 si besoin métier émerge. |
+| D6 | Cache 60s côté Edge Function pour `parametres_tms` lus par apps clientes. Param critical = `requires_redeploy=true`, lu uniquement au démarrage app. | a) Hot reload total (perf) ; c) Realtime push (overengineering V1). | Compromis perf/cohérence acceptable sur 100% des params identifiés. |
+| D7 | Soft delete user V1 (`statut='desactive'`). Pas de pseudonymisation différée V1. Pas de hard delete V1. | b) Pseudonymisation J+30 (V1.1) ; c) Hard delete + user système (perte traçabilité). | Audit log légal 5 ans préservé. RGPD compliance via process manuel V1 (rare). |
+| D8 | **Révisé revue sobriété §05 2026-05-01 D2 (réaligné tranché Val 2026-06-07 F1)** : Wizard onboarding prestataire E7 = **4 étapes** (identité, **grille tarifaire bloquante non skippable**, manager, activation). Trigger DB `trg_prestataire_grille_obligatoire` refuse l'activation sans grille active. Manager skippable si province no portail. supprimée (cas impossible par construction). | b) Pas de wizard, manuel séquentiel (oubli garanti) ; . | Garantit cohérence onboarding (~1/trim). Atomicité non-transactionnelle V1, reprise manuelle si crash. |
+| D9 | Monitoring intégrations E6 = liste paginée + filtres + replay manuel events `echec_final`. Replay = `admin_tms` only. | a) Liste sans replay (ops bloqués sur events perdus) ; c) Dashboard agrégé (V1.1). | Replay = besoin opérationnel récurrent. Dashboard agrégé en haut (compteurs simples) suffit V1. |
+| D10 | Session 30j glissantes pour `admin_tms` et `ops_savr` après device trusted. **Pas de re-MFA pour actions sensibles**. | a) Session 8h absolue (friction quotidienne) ; b) 8h glissantes (toujours friction) ; c) 24h + re-MFA actions sensibles (alternative reco initiale). | **Risque assumé conscient** : laptop compromis = 30j d'accès admin sans frein supplémentaire. Compensé par device trusted révocable + audit-log exhaustif. À reconsidérer V2 si incident sécu ou recrutement 3ème admin. |
+| D11 | MFA TOTP obligatoire à la 1ère connexion sur un device pour `admin_tms`. Devices trusted ensuite (cap 3, R_M13.11). Pas de MFA pour `ops_savr` V1 (cohérent §09 V1). | a) MFA à chaque login admin (UX dégradée) ; b) Pas de MFA admin (sécu insuffisante). | Standard SaaS. Reset MFA par autre admin via W4. |
+| D12 | Paramètres `parametres_tms` portent un flag `requires_redeploy` (boolean, default false). Param critique = pris en compte uniquement au démarrage app. | Pas de flag (impose hot reload partout, irréaliste pour certains params). | Souplesse cas par cas. Liste à seeder en propagation (params d'auth, structure DB-related, etc.). |
+| D13 | Bandeau orange persistant en haut de toutes les pages M03/M05/etc. quand session impersonation active. Visible jusqu'à sortie. | Pas de bandeau (risque oubli session admin → confusion). | UX standard (cf. Stripe, Linear, Notion). |
+| D14 | Cap 3 devices trusted simultanés actifs par user. Révocation manuelle pour ajouter un 4ème (R_M13.11). | a) Cap 1 (friction smartphone+laptop+backup) ; b) Cap illimité (accumulation devices abandonnés = surface attaque). | Compromis raisonnable. Révocation E3.b. |
+| D15 | Mutations sous impersonation = `audit_logs.acteur_user_id` = impersonator réel (Val/Louis) + `acteur_meta.impersonation_target_id` = cible. Jamais l'inverse. | acteur=cible (perte traçabilité réelle). | Conformité auditable + responsabilité claire. R_M13.10. |
 
 ---
 
 ## 12. Questions ouvertes
 
-| QO  | Question                                                                                                                                                                                                                                                                          | Responsable                                                                         | Échéance                                                             |
-| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| QO1 | Faut-il ajouter en V1 une vue "compte de rôles utilisés" (combien de users avec rôle X) en E1 dashboard pour anticiper recrutement ?                                                                                                                                              | Val                                                                                 | Avant handoff                                                        |
-| QO2 | Liste exhaustive des paramètres à marquer `requires_redeploy=true` (D12). Proposition initiale : `m05_geofence_rayon_metres`, `m05_queue_offline_max_size_mb`, `auth.session_duree_jours_par_role` (ex-`m05_session_duree_jours` — revue sobriété §05 2026-05-01 C2) — à valider. | Val + frère                                                                         | Pré-handoff                                                          |
-|     |                                                                                                                                                                                                                                                                                   | **Clôturée sobriété M13 A1 2026-04-30** : W11 dégagée V1. Réactiver V1.1 si besoin. | —                                                                    |
-| QO4 | Templates email M11 à créer : `staff_first_login`, `manager_first_login`, `mfa_reset_notification`, `impersonation_started`, `impersonation_ended`, `user_deactivated`. Inclure dans seed M11.                                                                                    | Frère                                                                               | Phase dev                                                            |
-| QO5 | Politique IP-restrict `tms.gosavr.io/admin/*` V1 ou V1.1 ? (allowlist IP fixe Val/Louis vs accès libre auth-only — gating sur path `/admin/*` via middleware Next.js, pas sous-domaine)                                                                                           | Val                                                                                 | Décision sécu _(propagation §11 2026-04-27 — alignement sous-route)_ |
-| QO6 | Notif email obligatoire sur reveal secret (en plus de l'audit-log) ? Pour double accusé de réception.                                                                                                                                                                             | Val                                                                                 | Décision sécu                                                        |
-| QO7 | Faut-il versionner `parametres_tms.valeur` dans une table dédiée pour rollback rapide V1 (pas seulement audit-log) ?                                                                                                                                                              | Val                                                                                 | V1.1 si pas V1                                                       |
-| QO8 | Wizard E7 : ajouter étape optionnelle "configuration types_véhicules" pour Strike/Marathon (pré-seed flotte) ou laisser dans M06 manuel post-onboarding ?                                                                                                                         | Val + Louis                                                                         | Pré-handoff                                                          |
+| QO | Question | Responsable | Échéance |
+|----|----------|-------------|----------|
+| QO1 | Faut-il ajouter en V1 une vue "compte de rôles utilisés" (combien de users avec rôle X) en E1 dashboard pour anticiper recrutement ? | Val | Avant handoff |
+| QO2 | Liste exhaustive des paramètres à marquer `requires_redeploy=true` (D12). Proposition initiale : `m05_geofence_rayon_metres`, `m05_queue_offline_max_size_mb`, `auth.session_duree_jours_par_role` (ex-`m05_session_duree_jours` — revue sobriété §05 2026-05-01 C2) — à valider. | Val + frère | Pré-handoff |
+| | | **Clôturée sobriété M13 A1 2026-04-30** : W11 dégagée V1. Réactiver V1.1 si besoin. | — |
+| QO4 | Templates email M11 à créer : `staff_first_login`, `manager_first_login`, `mfa_reset_notification`, `impersonation_started`, `impersonation_ended`, `user_deactivated`. Inclure dans seed M11. | Frère | Phase dev |
+| QO5 | Politique IP-restrict `tms.gosavr.io/admin/*` V1 ou V1.1 ? (allowlist IP fixe Val/Louis vs accès libre auth-only — gating sur path `/admin/*` via middleware Next.js, pas sous-domaine) | Val | Décision sécu *(propagation §11 2026-04-27 — alignement sous-route)* |
+| QO6 | Notif email obligatoire sur reveal secret (en plus de l'audit-log) ? Pour double accusé de réception. | Val | Décision sécu |
+| QO7 | Faut-il versionner `parametres_tms.valeur` dans une table dédiée pour rollback rapide V1 (pas seulement audit-log) ? | Val | V1.1 si pas V1 |
+| QO8 | Wizard E7 : ajouter étape optionnelle "configuration types_véhicules" pour Strike/Marathon (pré-seed flotte) ou laisser dans M06 manuel post-onboarding ? | Val + Louis | Pré-handoff |
 
 ---
 
 ## 13. Paramètres `m13_*` créés
 
-**Paramètres seedés dans `parametres_tms`** _(sobriété B1 2026-04-30 — 17 → 3)_ :
+**Paramètres seedés dans `parametres_tms`** *(sobriété B1 2026-04-30 — 17 → 3)* :
 
 > Seuls les paramètres susceptibles d'être modifiés en prod sans redéploiement sont seedés dans `parametres_tms`. Les valeurs fixes de sécurité et les seuils UI invariants sont hardcodés comme constantes dans le code (EF ou composant) — ils ne doivent pas être éditables via E2 (risque de modifier un paramètre de sécurité par accident).
 
-_Namespace `auth`_ (seedés `parametres_tms`) :
-
+*Namespace `auth`* (seedés `parametres_tms`) :
 - → **Supprimé revue sobriété §05 2026-05-01 C2** — fusionné dans `parametres_tms.auth.session_duree_jours_par_role` JSONB, clés `admin_tms` + `ops_savr`. Source de vérité §09.
 - → **Renommé `auth.session_glissante` revue sobriété §05 2026-05-01 C2** (boolean global toutes rôles V1, default true). Namespace migré `m13_*` → `auth.*`.
 - `m13_device_trusted_max_per_user` : 3 (R_M13.11, D14)
 
-_Retirés du seed — hardcodés comme constantes code :_
-
+*Retirés du seed — hardcodés comme constantes code :*
 - : `true` → constante §09 (`admin_tms` = MFA toujours, D11)
 - : `false` → constante §09 (D11, V1 cohérent §09)
 - : retiré — W11 dégagée A1 2026-04-30
@@ -943,17 +901,16 @@ _Retirés du seed — hardcodés comme constantes code :_
 
 > **Normatif (R_M11.1)** : tous les triggers M13 utilisent `tms.alerte_emit(code, ...)` avec codes canoniques catalogue.
 
-| Code canonique                           | Criticité | Trigger M13                                  | Scope            | Auto-résolution                          |
-| ---------------------------------------- | --------- | -------------------------------------------- | ---------------- | ---------------------------------------- |
-| `m13_user_creation_email_failed`         | warning   | EC5/W2 SMTP fail                             | admin            | Non (email envoyé hors-bande)            |
-| `m13_prestataire_sans_manager_actif`     | warning   | W3 désactivation seul manager (R_M13.20)     | ops + admin      | Auto à création nouveau manager          |
-| `m13_secret_expiration_imminente`        | warning   | W12 cron J-7                                 | admin uniquement | Auto à rotation                          |
-| `m13_onboarding_inacheve_7j`             | warning   | EC17 cron quotidien                          | admin            | Auto à activation prestataire ou archive |
-| `m13_impersonation_session_longue`       | warning   | Cron : session impersonation > 30 min active | admin            | Auto à stop                              |
-| `m13_parametre_edition_validation_echec` | warning   | W1 validation server-side échoue (rare)      | admin            | Aucune (one-shot)                        |
+| Code canonique | Criticité | Trigger M13 | Scope | Auto-résolution |
+|----------------|-----------|-------------|-------|------------------|
+| `m13_user_creation_email_failed` | warning | EC5/W2 SMTP fail | admin | Non (email envoyé hors-bande) |
+| `m13_prestataire_sans_manager_actif` | warning | W3 désactivation seul manager (R_M13.20) | ops + admin | Auto à création nouveau manager |
+| `m13_secret_expiration_imminente` | warning | W12 cron J-7 | admin uniquement | Auto à rotation |
+| `m13_onboarding_inacheve_7j` | warning | EC17 cron quotidien | admin | Auto à activation prestataire ou archive |
+| `m13_impersonation_session_longue` | warning | Cron : session impersonation > 30 min active | admin | Auto à stop |
+| `m13_parametre_edition_validation_echec` | warning | W1 validation server-side échoue (rare) | admin | Aucune (one-shot) |
 
 **Codes ex-`info` retirés du catalogue M11 — Bloc 3 sobriété 2026-04-25 (A1)** :
-
 - `m13_secret_rotated` → trace via `tms.audit_logs` action `SECRET_ROTATED` (W5 step 6c)
 - `m13_event_manual_replay` → trace via `tms.audit_logs` action `EVENT_MANUAL_REPLAY` (W6 step 6d)
 - `m13_impersonation_started` → trace via `tms.audit_logs` action `impersonation_start` (W9 step 2) — déjà obligatoire pour audit gouvernance
@@ -970,18 +927,18 @@ _Retirés du seed — hardcodés comme constantes code :_
 
 Tracking des devices reconnus par user pour skip MFA admin (D11/D14).
 
-| Colonne                      | Type        | Contraintes                     | Description                                               |
-| ---------------------------- | ----------- | ------------------------------- | --------------------------------------------------------- |
-| `id`                         | uuid        | PK, default `gen_random_uuid()` |                                                           |
-| `user_id`                    | uuid        | FK `users_tms(id)`, NOT NULL    |                                                           |
-| `device_fingerprint`         | text        | NOT NULL                        | Hash SHA-256(user-agent + IP class C + cookie persistent) |
-| `user_agent`                 | text        | NOT NULL                        | Affichage E3.b                                            |
-| `ip_premiere_reconnaissance` | inet        | NOT NULL                        |                                                           |
-| `created_at`                 | timestamptz | NOT NULL, default `now()`       | 1ère reconnaissance (post-MFA pour admin)                 |
-| `derniere_activite_at`       | timestamptz | NOT NULL                        | Maj à chaque login                                        |
-| `actif`                      | boolean     | NOT NULL, default true          | Révocation = false                                        |
-| `revoque_at`                 | timestamptz |                                 | NULL si actif                                             |
-| `revoque_par_user_id`        | uuid        | FK `users_tms(id)`              | self ou admin                                             |
+| Colonne | Type | Contraintes | Description |
+|---------|------|-------------|-------------|
+| `id` | uuid | PK, default `gen_random_uuid()` | |
+| `user_id` | uuid | FK `users_tms(id)`, NOT NULL | |
+| `device_fingerprint` | text | NOT NULL | Hash SHA-256(user-agent + IP class C + cookie persistent) |
+| `user_agent` | text | NOT NULL | Affichage E3.b |
+| `ip_premiere_reconnaissance` | inet | NOT NULL | |
+| `created_at` | timestamptz | NOT NULL, default `now()` | 1ère reconnaissance (post-MFA pour admin) |
+| `derniere_activite_at` | timestamptz | NOT NULL | Maj à chaque login |
+| `actif` | boolean | NOT NULL, default true | Révocation = false |
+| `revoque_at` | timestamptz | | NULL si actif |
+| `revoque_par_user_id` | uuid | FK `users_tms(id)` | self ou admin |
 
 **Index** : `(user_id, actif)`, `(device_fingerprint)`, `(user_id, derniere_activite_at DESC)`.
 
@@ -993,22 +950,24 @@ Tracking des devices reconnus par user pour skip MFA admin (D11/D14).
 
 > **Dégagée Bloc 6 C3 (revue sobriété 2026-04-28)** — table supprimée V1. Voir D2 ci-dessus. Policies RLS retirées (§09 mis à jour). `alerte_emit` ne consulte plus cette table.
 
+
+
 #### `tms.secrets_metadata`
 
 Métadonnées des secrets stockés dans Vault (D4).
 
-| Colonne                         | Type        | Contraintes               | Description                                                                                            |
-| ------------------------------- | ----------- | ------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `secret_name`                   | text        | PK                        | Cohérent avec `vault.secrets.name`                                                                     |
-| `service`                       | text        | NOT NULL                  | Enum `pennylane`/`everest`/`strike`/`marathon`/`bridge`/`autre` ( dégagé revue sobriété 2026-04-25 A6) |
-| `type_secret`                   | text        | NOT NULL                  | Enum `bearer_token`/`webhook_url`/`signing_key`/`client_id`/`client_secret`                            |
-| `description`                   | text        |                           | UI affichage E5                                                                                        |
-| `expire_le`                     | timestamptz |                           | NULL si no expiration. Sinon scan W12.                                                                 |
-| `derniere_rotation_at`          | timestamptz |                           |                                                                                                        |
-| `derniere_rotation_par_user_id` | uuid        | FK `users_tms(id)`        |                                                                                                        |
-| `derniere_utilisation_at`       | timestamptz |                           | Maj par EF lors d'usage (best-effort, non bloquant)                                                    |
-| `created_at`                    | timestamptz | NOT NULL, default `now()` |                                                                                                        |
-| `updated_at`                    | timestamptz | NOT NULL, default `now()` |                                                                                                        |
+| Colonne | Type | Contraintes | Description |
+|---------|------|-------------|-------------|
+| `secret_name` | text | PK | Cohérent avec `vault.secrets.name` |
+| `service` | text | NOT NULL | Enum `pennylane`/`everest`/`strike`/`marathon`/`bridge`/`autre` ( dégagé revue sobriété 2026-04-25 A6) |
+| `type_secret` | text | NOT NULL | Enum `bearer_token`/`webhook_url`/`signing_key`/`client_id`/`client_secret` |
+| `description` | text | | UI affichage E5 |
+| `expire_le` | timestamptz | | NULL si no expiration. Sinon scan W12. |
+| `derniere_rotation_at` | timestamptz | | |
+| `derniere_rotation_par_user_id` | uuid | FK `users_tms(id)` | |
+| `derniere_utilisation_at` | timestamptz | | Maj par EF lors d'usage (best-effort, non bloquant) |
+| `created_at` | timestamptz | NOT NULL, default `now()` | |
+| `updated_at` | timestamptz | NOT NULL, default `now()` | |
 
 **RLS** : `admin_tms` uniquement (read+write).
 
@@ -1023,14 +982,12 @@ Tracking sessions impersonation (D15, E9).
 #### `tms.parametres_tms` (existante §04 niveau 5)
 
 Ajout colonne :
-
 - `requires_redeploy` boolean NOT NULL default false (D12)
 - `deprecated` boolean NOT NULL default false (EC15 — utilité conservée pour futurs paramètres legacy ; ex usage `m11_slack_webhook_url` dégagé revue sobriété 2026-04-25 A6)
 
 #### `tms.users_tms` (existante §04 niveau 1)
 
 Ajout colonnes :
-
 - `desactivee_at` timestamptz nullable
 - `desactivee_par_user_id` uuid FK `users_tms(id)` nullable
 - `raison_desactivation` text nullable (R_M13.20 trigger source)
@@ -1072,26 +1029,25 @@ Pas de modification structure. (Table override retirée Bloc 6 C3 — criticité
 
 ### Principe 0 — Propagation interne CDC TMS
 
-| Fichier                        | Modification                                                                                                                                                   |
-| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| §04 niveau 5 `parametres_tms`  | Ajouter colonnes `requires_redeploy`, `deprecated`. (Slack dégagé V1 — revue sobriété 2026-04-25 A6).                                                          |
-| §04 niveau 5 nouvelles tables  | INSÉRER specs `users_tms_devices_trusted`, (retirée Bloc 6 C3), `secrets_metadata`, `impersonation_sessions`.                                                  |
-| §04 niveau 1 `users_tms`       | Ajouter colonnes `desactivee_at`, `desactivee_par_user_id`, `raison_desactivation`, `mfa_active`.                                                              |
-| §04 niveau 5 `audit_logs`      | Mention explicite : tables `users_tms_devices_trusted`, (retirée Bloc 6 C3), `secrets_metadata`, `impersonation_sessions` ajoutées à liste tables surveillées. |
-| §05 Règles métier TMS          | Ajouter R_M13.1 à R_M13.20.                                                                                                                                    |
-| §03 Périmètre fonctionnel TMS  | M13 : statut "À démarrer" → "V1 rédigée 2026-04-25". Compléter contenu (E1-E9 + Vault secrets + impersonation + wizard E7).                                    |
-| §07 Architecture technique TMS | Ajouter section "Edge Functions M13" (12 EF listées en §16 liens).                                                                                             |
-| §09 Auth et permissions TMS    | Addendum M13 : RLS 4 nouvelles tables + politique session 30j glissantes + device trusted policy + helper SQL `auth.is_impersonating()` returning boolean.     |
-| §15 Sécurité et conformité     | Addendum M13 : Vault secrets, impersonation tracing, MFA admin policy, devices trusted cap 3.                                                                  |
-| §00 Index TMS                  | Marquer §06 M13 V1 rédigée 2026-04-25. Ajouter section "Propagations 2026-04-25 (M13)".                                                                        |
-| Dossier 06 `00 - Index.md`     | Corriger statut M03 (V1 rédigée 2026-04-24, bug détecté avant cette session). Ajouter M13 V1 rédigée 2026-04-25. Mettre à jour entête.                         |
-| M11 § alertes seed             | Ajouter 10 codes alertes `m13_*` au catalogue seed.                                                                                                            |
-| M11 §05 R_M11.X                | Mention scope `manager_prestataire_scope='admin'` pour codes secrets/impersonation/replay (visibilité admin only).                                             |
+| Fichier | Modification |
+|---------|--------------|
+| §04 niveau 5 `parametres_tms` | Ajouter colonnes `requires_redeploy`, `deprecated`. (Slack dégagé V1 — revue sobriété 2026-04-25 A6). |
+| §04 niveau 5 nouvelles tables | INSÉRER specs `users_tms_devices_trusted`, (retirée Bloc 6 C3), `secrets_metadata`, `impersonation_sessions`. |
+| §04 niveau 1 `users_tms` | Ajouter colonnes `desactivee_at`, `desactivee_par_user_id`, `raison_desactivation`, `mfa_active`. |
+| §04 niveau 5 `audit_logs` | Mention explicite : tables `users_tms_devices_trusted`, (retirée Bloc 6 C3), `secrets_metadata`, `impersonation_sessions` ajoutées à liste tables surveillées. |
+| §05 Règles métier TMS | Ajouter R_M13.1 à R_M13.20. |
+| §03 Périmètre fonctionnel TMS | M13 : statut "À démarrer" → "V1 rédigée 2026-04-25". Compléter contenu (E1-E9 + Vault secrets + impersonation + wizard E7). |
+| §07 Architecture technique TMS | Ajouter section "Edge Functions M13" (12 EF listées en §16 liens). |
+| §09 Auth et permissions TMS | Addendum M13 : RLS 4 nouvelles tables + politique session 30j glissantes + device trusted policy + helper SQL `auth.is_impersonating()` returning boolean. |
+| §15 Sécurité et conformité | Addendum M13 : Vault secrets, impersonation tracing, MFA admin policy, devices trusted cap 3. |
+| §00 Index TMS | Marquer §06 M13 V1 rédigée 2026-04-25. Ajouter section "Propagations 2026-04-25 (M13)". |
+| Dossier 06 `00 - Index.md` | Corriger statut M03 (V1 rédigée 2026-04-24, bug détecté avant cette session). Ajouter M13 V1 rédigée 2026-04-25. Mettre à jour entête. |
+| M11 § alertes seed | Ajouter 10 codes alertes `m13_*` au catalogue seed. |
+| M11 §05 R_M11.X | Mention scope `manager_prestataire_scope='admin'` pour codes secrets/impersonation/replay (visibilité admin only). |
 
 ### Principe 0 bis — Cross-CDC vers Plateforme
 
 Entités cross-CDC potentiellement impactées par M13 :
-
 - `users` Plateforme vs `users_tms` TMS : rien d'impacté V1, M13 ne crée pas de users Plateforme. **Aligné.**
 - `audit_logs` : la Plateforme a sa propre table audit_logs §04 Plateforme. Pas de fusion V1. **Aligné** (écart conscient documenté §04 Plateforme + §04 TMS).
 - Secrets API Pennylane : la Plateforme utilise aussi Pennylane (export factures clients). Question : où vit `pennylane_api_token` ? Probablement 2 tokens distincts (Plateforme = gestion clients, TMS = gestion fournisseurs). **À vérifier en propagation cross-CDC** — alignement nécessaire si même token.

@@ -27,15 +27,15 @@ Tableau principal + barre de filtres en haut + bouton d'export à droite.
 
 ### Colonnes du tableau (ordre par défaut)
 
-| Colonne          | Source                                                                                                                                                                                                                         | Tri             |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------- |
-| Date événement   | `evenements.date_evenement`                                                                                                                                                                                                    | Desc par défaut |
-| Lieu             | `lieux.nom`                                                                                                                                                                                                                    | Oui             |
+| Colonne          | Source                                                                  | Tri             |
+| ---------------- | ----------------------------------------------------------------------- | --------------- |
+| Date événement   | `evenements.date_evenement`                                             | Desc par défaut |
+| Lieu             | `lieux.nom`                                                             | Oui             |
 | Traiteur         | **Traiteur opérationnel** (`evenements.traiteur_operationnel_organisation_id` → `organisations.raison_sociale`) — producteur juridique du déchet, cohérent snapshot bordereau (tranché F4 2026-06-07). Fiches shadow incluses. | Oui             |
-| Flux             | Badges 5 flux V1 : biodéchets, emballages, carton, verre, déchet résiduel                                                                                                                                                      | Filtre multi    |
-| Poids total (kg) | `SUM(collecte_flux.poids_reel_kg)`                                                                                                                                                                                             | Oui             |
-| Exutoire         | `exutoire.nom`                                                                                                                                                                                                                 | Oui             |
-| Bordereau        | Lien PDF téléchargeable                                                                                                                                                                                                        | —               |
+| Flux             | Badges 5 flux V1 : biodéchets, emballages, carton, verre, déchet résiduel | Filtre multi    |
+| Poids total (kg) | `SUM(collecte_flux.poids_reel_kg)`                                      | Oui             |
+| Exutoire         | `exutoire.nom`                                                          | Oui             |
+| Bordereau        | Lien PDF téléchargeable                                                 | —               |
 
 ### Barre de filtres
 

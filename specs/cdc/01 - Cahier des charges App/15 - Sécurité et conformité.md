@@ -1,5 +1,8 @@
 # 15 - Sécurité et conformité
 
+**Statut** : Validé V1
+**Dernière mise à jour** : 2026-04-20
+
 ---
 
 ## 1. Hébergement et localisation des données
@@ -10,11 +13,11 @@
 
 ### Autres services
 
-| Service  | Hébergement                           | Conformité                       |
-| -------- | ------------------------------------- | -------------------------------- |
-| Supabase | AWS `eu-west-3` (Paris)               | ✓ EU                             |
-| Railway  | AWS / GCP (région EU configurable)    | ✓ EU à configurer au déploiement |
-| Resend   | Cloudflare (global, données EU en EU) | ✓ EU                             |
+| Service | Hébergement | Conformité |
+|---|---|---|
+| Supabase | AWS `eu-west-3` (Paris) | ✓ EU |
+| Railway | AWS / GCP (région EU configurable) | ✓ EU à configurer au déploiement |
+| Resend | Cloudflare (global, données EU en EU) | ✓ EU |
 
 **Action à la mise en production** : vérifier que Railway est configuré en région EU avant le premier déploiement prod.
 
@@ -66,8 +69,8 @@ L'onboarding étant 100% automatisé en V1, les contrôles suivants limitent les
 - **Détection de doublons** : si un SIRET ou un domaine email est déjà rattaché à une organisation existante, l'inscription est bloquée avec message explicite
 - **Rate limiting** sur le formulaire d'inscription : max 5 tentatives/IP/heure
 - **Admin Savr peut désactiver** tout compte a posteriori si comportement anormal détecté
-- **Domaines email publics/jetables non rattachables** _(validé revue dev senior (frère) 2026-06-08)_ : un domaine **public** (gmail, outlook, hotmail, yahoo, free, orange, etc.) ou **jetable** (**source figée 2026-06-10, challenge onboarding** : package npm **`disposable-email-domains`** vendorisé dans le repo — pas de fetch runtime — MAJ de la liste à chaque release ; liste des domaines publics maintenue en **seed DB** éditable Admin) n'est **jamais** utilisé comme clé de rattachement automatique à une organisation existante (cf. règle §09 « domaine reconnu → `traiteur_commercial` »). Un inscrit sur un domaine public crée toujours une organisation isolée et n'hérite d'aucun accès à une orga préexistante partageant ce domaine ; un domaine jetable est refusé à l'inscription. Sans ce garde-fou, deux entités sans lien partageant `gmail.com` seraient fusionnées par rattachement automatique (usurpation d'accès).
-- **Dégradation gracieuse si INSEE/VIES indisponible** _(validé revue dev senior (frère) 2026-06-08)_ : si l'API INSEE/Sirene ou VIES est injoignable (timeout > 3 s, 5xx) au moment de l'inscription, celle-ci **n'est pas bloquée** — le compte est créé avec un marqueur de vérification `en_attente` — **matérialisé 2026-06-10 (challenge onboarding)** : colonnes `entites_facturation.siret_verification` (`en_attente`/`verifie`/`echec`) + `siret_verifie_le` + `tva_verification` (`en_attente`/`verifie`/`echec`/`non_applicable`) + `tva_verifiee_le` (cf. [[04 - Data Model#Table : `entites_facturation`]]) — un job asynchrone re-tente la validation (3 paliers : 15 min / 1 h / 24 h) et l'Admin voit le flag dans le filtre « nouvelles organisations » du back-office. **Gating tranché (Val 2026-06-10)** : la **facturation est conditionnée au seul `siret_verification = 'verifie'`** (cf. [[05 - Règles métier]] §8 étape 3) ; la TVA VIES **n'est pas bloquante** (`en_attente`/`echec` = alerte Admin in-app seule — VIES trop instable pour conditionner du cash). Distinction des cas : INSEE **répond** « SIRET inexistant/inactif » = erreur bloquante de saisie côté formulaire (l'utilisateur corrige) ; INSEE **injoignable** = passage `en_attente` sans blocage. Ne jamais hard-bloquer l'inscription sur une API tierce down.
+- **Domaines email publics/jetables non rattachables** *(validé revue dev senior (frère) 2026-06-08)* : un domaine **public** (gmail, outlook, hotmail, yahoo, free, orange, etc.) ou **jetable** (**source figée 2026-06-10, challenge onboarding** : package npm **`disposable-email-domains`** vendorisé dans le repo — pas de fetch runtime — MAJ de la liste à chaque release ; liste des domaines publics maintenue en **seed DB** éditable Admin) n'est **jamais** utilisé comme clé de rattachement automatique à une organisation existante (cf. règle §09 « domaine reconnu → `traiteur_commercial` »). Un inscrit sur un domaine public crée toujours une organisation isolée et n'hérite d'aucun accès à une orga préexistante partageant ce domaine ; un domaine jetable est refusé à l'inscription. Sans ce garde-fou, deux entités sans lien partageant `gmail.com` seraient fusionnées par rattachement automatique (usurpation d'accès).
+- **Dégradation gracieuse si INSEE/VIES indisponible** *(validé revue dev senior (frère) 2026-06-08)* : si l'API INSEE/Sirene ou VIES est injoignable (timeout > 3 s, 5xx) au moment de l'inscription, celle-ci **n'est pas bloquée** — le compte est créé avec un marqueur de vérification `en_attente` — **matérialisé 2026-06-10 (challenge onboarding)** : colonnes `entites_facturation.siret_verification` (`en_attente`/`verifie`/`echec`) + `siret_verifie_le` + `tva_verification` (`en_attente`/`verifie`/`echec`/`non_applicable`) + `tva_verifiee_le` (cf. [[04 - Data Model#Table : `entites_facturation`]]) — un job asynchrone re-tente la validation (3 paliers : 15 min / 1 h / 24 h) et l'Admin voit le flag dans le filtre « nouvelles organisations » du back-office. **Gating tranché (Val 2026-06-10)** : la **facturation est conditionnée au seul `siret_verification = 'verifie'`** (cf. [[05 - Règles métier]] §8 étape 3) ; la TVA VIES **n'est pas bloquante** (`en_attente`/`echec` = alerte Admin in-app seule — VIES trop instable pour conditionner du cash). Distinction des cas : INSEE **répond** « SIRET inexistant/inactif » = erreur bloquante de saisie côté formulaire (l'utilisateur corrige) ; INSEE **injoignable** = passage `en_attente` sans blocage. Ne jamais hard-bloquer l'inscription sur une API tierce down.
 
 ---
 
@@ -83,28 +86,27 @@ Savr traite des données personnelles (noms, emails, téléphones des contacts t
 
 ### 3.2 Données collectées et leur usage
 
-| Catégorie              | Données                                           | Base légale                 | Rétention                                       |
-| ---------------------- | ------------------------------------------------- | --------------------------- | ----------------------------------------------- |
-| Compte utilisateur     | Nom, prénom, email, téléphone, mot de passe hashé | Contrat                     | Durée du compte + 3 ans                         |
-| Organisation           | Raison sociale, SIRET, TVA, adresse facturation   | Contrat                     | Durée relation commerciale + 10 ans (comptable) |
-| Événements & collectes | Date, lieu, pax, pesées, photos                   | Contrat + Obligation légale | 10 ans (bordereaux) / 5 ans (registre déchets)  |
-| Contacts événementiels | Nom, téléphone (contact sur site)                 | Intérêt légitime            | Durée de l'événement + 1 an                     |
-| Logs d'audit           | Actions utilisateur, impersonations               | Intérêt légitime (sécurité) | 1 an glissant                                   |
+| Catégorie | Données | Base légale | Rétention |
+|---|---|---|---|
+| Compte utilisateur | Nom, prénom, email, téléphone, mot de passe hashé | Contrat | Durée du compte + 3 ans |
+| Organisation | Raison sociale, SIRET, TVA, adresse facturation | Contrat | Durée relation commerciale + 10 ans (comptable) |
+| Événements & collectes | Date, lieu, pax, pesées, photos | Contrat + Obligation légale | 10 ans (bordereaux) / 5 ans (registre déchets) |
+| Contacts événementiels | Nom, téléphone (contact sur site) | Intérêt légitime | Durée de l'événement + 1 an |
+| Logs d'audit | Actions utilisateur, impersonations | Intérêt légitime (sécurité) | 5 ans (obligation comptable, cf. §07/06 §4) |
 
 ### 3.3 Droits des utilisateurs
 
 Tous les droits RGPD sont exercés via :
-
 - **Interface self-service** : modification des données personnelles depuis l'espace compte
 - **Demande de suppression** : formulaire dans l'espace compte → validation Admin Savr sous 48h ouvrées
 
-| Droit         | Implémentation V1                                                                     |
-| ------------- | ------------------------------------------------------------------------------------- |
-| Accès         | Export des données personnelles disponible depuis l'espace compte (JSON)              |
-| Rectification | Modification directe depuis le profil utilisateur                                     |
-| Suppression   | Soft delete (défaut) ou hard delete / anonymisation PII sur demande RGPD explicite    |
-| Opposition    | Désactivation des emails non transactionnels (hors scope V1 — pas d'emails marketing) |
-| Portabilité   | Export JSON des données personnelles                                                  |
+| Droit | Implémentation V1 |
+|---|---|
+| Accès | Export des données personnelles disponible depuis l'espace compte (JSON) |
+| Rectification | Modification directe depuis le profil utilisateur |
+| Suppression | Soft delete (défaut) ou hard delete / anonymisation PII sur demande RGPD explicite |
+| Opposition | Désactivation des emails non transactionnels (hors scope V1 — pas d'emails marketing) |
+| Portabilité | Export JSON des données personnelles |
 
 **Contrainte légale sur la suppression** : les données comptables (factures, bordereaux) et les registres réglementaires ne peuvent pas être supprimés avant l'échéance légale, même sur demande RGPD. Seules les données personnelles identifiantes (nom, email, téléphone) sont anonymisées.
 
@@ -126,11 +128,11 @@ Supabase, Railway et Resend traitent des données personnelles pour le compte de
 
 ### DPAs à signer avant go-live
 
-| Fournisseur | DPA disponible                                        | Procédure                               |
-| ----------- | ----------------------------------------------------- | --------------------------------------- |
-| Supabase    | Oui — disponible dans le dashboard (Settings → Legal) | Acceptation en ligne, ~5 min            |
-| Railway     | Oui — disponible sur demande via railway.app/legal    | Email à legal@railway.app ou formulaire |
-| Resend      | Oui — inclus dans les CGU Enterprise ou sur demande   | Formulaire sur resend.com/legal         |
+| Fournisseur | DPA disponible | Procédure |
+|---|---|---|
+| Supabase | Oui — disponible dans le dashboard (Settings → Legal) | Acceptation en ligne, ~5 min |
+| Railway | Oui — disponible sur demande via railway.app/legal | Email à legal@railway.app ou formulaire |
+| Resend | Oui — inclus dans les CGU Enterprise ou sur demande | Formulaire sur resend.com/legal |
 
 **Prérequis go-live** : les 3 DPAs doivent être signés et archivés avant la mise en production avec des clients réels.
 
@@ -154,7 +156,6 @@ Les PDFs sont stockés dans Supabase Storage avec accès RLS. Un PDF de borderea
 ### Audit log
 
 Toutes les actions sensibles sont tracées dans `audit_log` :
-
 - Connexions et déconnexions
 - Impersonations (avec `impersonator_id`)
 - Régénérations de documents
@@ -163,7 +164,7 @@ Toutes les actions sensibles sont tracées dans `audit_log` :
 - Suppressions ou désactivations de comptes
 - Envois vers Pennylane
 
-Rétention : 1 an glissant. Non modifiable par les utilisateurs, y compris Admin Savr.
+Rétention : 5 ans (obligation comptable, cf. §07/06 §4). Non modifiable par les utilisateurs, y compris Admin Savr.
 
 ---
 
@@ -227,15 +228,15 @@ Actions obligatoires avant mise en production avec clients réels :
 
 ## Décisions prises
 
-| Décision                              | Alternative écartée                      | Raison                                                                                                        |
-| ------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Supabase région Paris (`eu-west-3`)   | Frankfurt, autres régions EU             | Même tarif, hébergement France, conformité RGPD maximale                                                      |
-| DPAs à signer avant go-live           | Couverture par CGU fournisseurs          | Non-conformité formelle RGPD sans DPA. Risque aggravé en cas d'incident. Procédure simple (30 min max).       |
-| `DENY ALL` par défaut sur RLS         | Permissions larges restreintes au besoin | Toute permission non documentée = accès refusé. Principe de moindre privilège.                                |
-| Audit log non modifiable              | Modifiable par Admin                     | Intégrité de la traçabilité — un Admin ne doit pas pouvoir effacer ses propres actions                        |
-| 2FA hors scope V1                     | 2FA V1                                   | Supabase Auth le supporte nativement — activable V1.1 en 1 ligne de config                                    |
-| Soft delete par défaut                | Hard delete immédiat                     | Permet de corriger une erreur de suppression dans les 48h. Hard delete sur demande RGPD explicite uniquement  |
-| Registre déchets sans Trackdéchets V1 | Intégration Trackdéchets V1              | Complexité disproportionnée en V1. Renvoi Veolia en cas d'audit. Trackdéchets V2 si requis réglementairement. |
+| Décision | Alternative écartée | Raison |
+|---|---|---|
+| Supabase région Paris (`eu-west-3`) | Frankfurt, autres régions EU | Même tarif, hébergement France, conformité RGPD maximale |
+| DPAs à signer avant go-live | Couverture par CGU fournisseurs | Non-conformité formelle RGPD sans DPA. Risque aggravé en cas d'incident. Procédure simple (30 min max). |
+| `DENY ALL` par défaut sur RLS | Permissions larges restreintes au besoin | Toute permission non documentée = accès refusé. Principe de moindre privilège. |
+| Audit log non modifiable | Modifiable par Admin | Intégrité de la traçabilité — un Admin ne doit pas pouvoir effacer ses propres actions |
+| 2FA hors scope V1 | 2FA V1 | Supabase Auth le supporte nativement — activable V1.1 en 1 ligne de config |
+| Soft delete par défaut | Hard delete immédiat | Permet de corriger une erreur de suppression dans les 48h. Hard delete sur demande RGPD explicite uniquement |
+| Registre déchets sans Trackdéchets V1 | Intégration Trackdéchets V1 | Complexité disproportionnée en V1. Renvoi Veolia en cas d'audit. Trackdéchets V2 si requis réglementairement. |
 
 ## Questions ouvertes
 

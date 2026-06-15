@@ -113,7 +113,7 @@ CREATE TYPE plateforme.type_valeur AS ENUM ('int','time','bool','decimal','strin
 CREATE TYPE plateforme.collecte_type AS ENUM ('zero_dechet','anti_gaspi');
 CREATE TYPE plateforme.collecte_statut AS ENUM (
   'brouillon','programmee','validee','en_cours','realisee','realisee_sans_collecte',
-  'cloturee','annulation_demandee','annulee');                      -- 9 valeurs (ex-11)
+  'cloturee','annulation_demandee','annulee','rejetee_par_prestataire'); -- 10 valeurs (M1.8 A2 2026-06-15 — migration 20260615115900)
 CREATE TYPE plateforme.collecte_statut_tms AS ENUM (
   'non_envoye','a_attribuer','attribuee_en_attente_acceptation','acceptee',
   'en_attente_execution','rejetee_par_prestataire','annulee_par_traiteur','rejetee_par_tms'); -- 8 valeurs
@@ -281,6 +281,20 @@ CREATE TABLE plateforme.organisations_lieux (
   created_at      timestamptz NOT NULL DEFAULT now(),
   created_by      uuid,
   UNIQUE (organisation_id, lieu_id)
+);
+
+CREATE TABLE IF NOT EXISTS plateforme.organisations_domaines_email (
+  id              uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  organisation_id uuid        NOT NULL REFERENCES plateforme.organisations(id) ON DELETE CASCADE,
+  domaine         text        NOT NULL,
+  verifie_at      timestamptz,
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT uniq_domaine_email UNIQUE (domaine)
+);
+
+CREATE TABLE IF NOT EXISTS plateforme.domaines_email_publics (
+  domaine    text PRIMARY KEY,
+  created_at timestamptz NOT NULL DEFAULT now()
 );
 
 -- ---------------------------------------------------------------------
@@ -707,20 +721,20 @@ CREATE TABLE plateforme.grilles_tarifaires_zd (
   mode            plateforme.mode_grille_zd NOT NULL,
   est_defaut      boolean NOT NULL DEFAULT false,
   valide_du       date NOT NULL,
-  valide_jusqu_au date,
+  valide_jusqu    date,
   commentaires    text,
   created_at      timestamptz NOT NULL DEFAULT now(),
   updated_at      timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE plateforme.tarifs_zero_dechet (
-  id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  grille_id          uuid NOT NULL,
-  pax_min            integer NOT NULL,
-  pax_max            integer,
-  montant_fixe_ht    numeric(12,2) NOT NULL DEFAULT 0,
-  montant_par_pax_ht numeric(12,2) NOT NULL DEFAULT 0,
-  created_at         timestamptz NOT NULL DEFAULT now()
+  id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  grille_id           uuid NOT NULL,
+  pax_min             integer NOT NULL,
+  pax_max             integer,
+  prix_base_ht        numeric(12,2) NOT NULL DEFAULT 0,
+  prix_par_couvert_ht numeric(12,2) NOT NULL DEFAULT 0,
+  created_at          timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE plateforme.tarifs_packs_ag (
@@ -750,6 +764,9 @@ CREATE TABLE plateforme.packs_antgaspi (
   facture_achat_id  uuid,                                  -- FK -> factures
   statut            plateforme.pack_statut NOT NULL,
   commentaires      text,
+  prix_unitaire_ht  numeric(12,2),                           -- snapshot prix/collecte à la création (Option A, M2.1b 2026-06-15)
+  idempotency_key   text UNIQUE,                             -- dédup POST API création pack (Option A, M2.1b 2026-06-15)
+  cree_par_user_id  uuid,                                    -- FK -> shared.users — traçabilité Admin créateur (Option A, M2.1b 2026-06-15)
   created_at        timestamptz NOT NULL DEFAULT now(),
   updated_at        timestamptz NOT NULL DEFAULT now()
 );
@@ -768,16 +785,8 @@ CREATE TABLE plateforme.factures (
   montant_ttc           numeric(12,2) NOT NULL,
   statut                plateforme.facture_statut NOT NULL,
   pennylane_id          text,
-  pennylane_push_at     timestamptz,
-  pennylane_statut      text,
   pdf_url_pennylane     text,
   pdf_url_savr          text,
-  motif_avoir           text,
-  montant_tva           numeric(12,2),
-  devise                text NOT NULL DEFAULT 'EUR',
-  notes                 text,
-  periode_debut         date,
-  periode_fin           date,
   date_emission         date,
   date_echeance         date,
   date_paiement         date,
@@ -817,7 +826,7 @@ CREATE TABLE plateforme.sequences_facturation (
 CREATE TABLE plateforme.rapports_rse (
   id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   evenement_id          uuid NOT NULL,
-  collecte_id           uuid NOT NULL,
+  collecte_id           uuid,
   version               integer NOT NULL DEFAULT 1,
   pdf_url               text,
   genere_at             timestamptz,
@@ -870,7 +879,6 @@ CREATE TABLE plateforme.attestations_don (
   association_nom               text NOT NULL,
   association_numero_rup        text,
   association_habilitation      text NOT NULL,
-  mention_fiscale_2041ge        boolean NOT NULL DEFAULT false,
   volume_repas                  integer,
   poids_kg                      numeric(10,3),
   valeur_estimee_ht             numeric(12,2),
@@ -1126,13 +1134,16 @@ CREATE TABLE plateforme.audit_log (
 );
 
 CREATE TABLE plateforme.config_auto_accept_ag (
-  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  association_id    uuid NOT NULL,
-  type_evenement_id uuid NOT NULL,
-  actif             boolean NOT NULL DEFAULT false,
-  modifie_par       uuid,
-  modifie_le        timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (association_id, type_evenement_id)
+  id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organisation_id     uuid NOT NULL,
+  association_id      uuid,
+  transporteur_id     uuid,
+  auto_accept_actif   boolean NOT NULL DEFAULT false,
+  seuil_pax_min       integer,
+  seuil_pax_max       integer,
+  notes               text,
+  modifie_par         uuid,
+  modifie_le          timestamptz NOT NULL DEFAULT now()
 );
 
 -- ---------------------------------------------------------------------
@@ -1911,8 +1922,9 @@ ALTER TABLE plateforme.impact_synthese_evenement ADD FOREIGN KEY (evenement_id) 
 ALTER TABLE plateforme.emails_envoyes           ADD FOREIGN KEY (destinataire_user_id)     REFERENCES plateforme.users(id);
 ALTER TABLE plateforme.audit_log                ADD FOREIGN KEY (user_id)                  REFERENCES plateforme.users(id);
 ALTER TABLE plateforme.audit_log                ADD FOREIGN KEY (impersonator_id)          REFERENCES plateforme.users(id);
+ALTER TABLE plateforme.config_auto_accept_ag    ADD FOREIGN KEY (organisation_id)          REFERENCES plateforme.organisations(id);
 ALTER TABLE plateforme.config_auto_accept_ag    ADD FOREIGN KEY (association_id)           REFERENCES plateforme.associations(id);
-ALTER TABLE plateforme.config_auto_accept_ag    ADD FOREIGN KEY (type_evenement_id)        REFERENCES plateforme.types_evenements(id);
+ALTER TABLE plateforme.config_auto_accept_ag    ADD FOREIGN KEY (transporteur_id)          REFERENCES plateforme.transporteurs(id);
 ALTER TABLE plateforme.config_auto_accept_ag    ADD FOREIGN KEY (modifie_par)              REFERENCES plateforme.users(id);
 
 -- 5b. tms.* (intra-schéma + vers shared.prestataires uniquement)

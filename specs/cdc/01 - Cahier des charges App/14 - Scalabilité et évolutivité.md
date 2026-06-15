@@ -1,5 +1,8 @@
 # 14 - Scalabilité et évolutivité
 
+**Statut** : Validé V1
+**Dernière mise à jour** : 2026-04-20
+
 ---
 
 ## Principe directeur
@@ -15,24 +18,24 @@ La scalabilité de la Plateforme Savr repose sur deux axes distincts :
 
 ### Trajectoire retenue
 
-| Horizon     | Collectes/mois | Base événements cumulés | PDFs cumulés | Lignes DB estimées |
-| ----------- | -------------- | ----------------------- | ------------ | ------------------ |
-| Aujourd'hui | ~30            | ~400                    | ~1 000       | ~50 000            |
-| T+18 mois   | 150            | ~3 000                  | ~8 000       | ~400 000           |
-| T+36 mois   | ~300           | ~7 000                  | ~18 000      | ~900 000           |
+| Horizon | Collectes/mois | Base événements cumulés | PDFs cumulés | Lignes DB estimées |
+|---|---|---|---|---|
+| Aujourd'hui | ~30 | ~400 | ~1 000 | ~50 000 |
+| T+18 mois | 150 | ~3 000 | ~8 000 | ~400 000 |
+| T+36 mois | ~300 | ~7 000 | ~18 000 | ~900 000 |
 
-_Hypothèse : 1 collecte = ~50-100 lignes de données (événement, pesées par flux, facture, PDF, logs, audit). PDFs à ~100 Ko/unité._
+*Hypothèse : 1 collecte = ~50-100 lignes de données (événement, pesées par flux, facture, PDF, logs, audit). PDFs à ~100 Ko/unité.*
 
 ### Impact sur l'infrastructure
 
-| Ressource                                    | Capacité Supabase Pro | T+18 mois       | T+36 mois       | Tension                         |
-| -------------------------------------------- | --------------------- | --------------- | --------------- | ------------------------------- |
-| DB storage                                   | 8 GB                  | ~200 MB         | ~500 MB         | Aucune                          |
-| Storage PDFs                                 | 100 GB                | ~800 MB         | ~1,8 GB         | Aucune                          |
-| Storage photos (2/collecte, ~2 Mo compressé) | 100 GB                | ~7 GB cumulé    | ~37 GB cumulé   | Faible — 37% du Pro à T+36 mois |
-| Bandwidth                                    | 250 GB/mois           | ~2 GB/mois      | ~5 GB/mois      | Aucune                          |
-| Edge Function invocations                    | 2M/mois               | ~10 000/mois    | ~25 000/mois    | Aucune                          |
-| Connexions DB (PgBouncer)                    | 200 pooled            | <20 simultanées | <50 simultanées | Aucune                          |
+| Ressource | Capacité Supabase Pro | T+18 mois | T+36 mois | Tension |
+|---|---|---|---|---|
+| DB storage | 8 GB | ~200 MB | ~500 MB | Aucune |
+| Storage PDFs | 100 GB | ~800 MB | ~1,8 GB | Aucune |
+| Storage photos (2/collecte, ~2 Mo compressé) | 100 GB | ~7 GB cumulé | ~37 GB cumulé | Faible — 37% du Pro à T+36 mois |
+| Bandwidth | 250 GB/mois | ~2 GB/mois | ~5 GB/mois | Aucune |
+| Edge Function invocations | 2M/mois | ~10 000/mois | ~25 000/mois | Aucune |
+| Connexions DB (PgBouncer) | 200 pooled | <20 simultanées | <50 simultanées | Aucune |
 
 **Conclusion** : Supabase Pro couvre largement la trajectoire 18-36 mois sans upgrade. Le vrai risque à surveiller n'est pas la capacité mais la **performance des requêtes** à mesure que les tables grossissent.
 
@@ -50,22 +53,21 @@ PostgreSQL devient lent non pas à cause du volume de données brut, mais à cau
 
 À créer dès le déploiement initial — pas à ajouter a posteriori.
 
-| Table              | Colonne(s) indexée(s)                          | Raison                       |
-| ------------------ | ---------------------------------------------- | ---------------------------- |
-| `collectes`        | `organisation_id`, `statut`, `created_at`      | Filtres dashboard, batch J+1 |
-| `collectes`        | `evenement_id`                                 | Jointures fréquentes         |
-| `evenements`       | `organisation_id`, `lieu_id`, `date_evenement` | Filtres principaux           |
-| `pesees`           | `collecte_id`                                  | Jointure pesées → collecte   |
-| `factures`         | `organisation_id`, `statut`, `created_at`      | Dashboard facturation        |
-| `rapports_rse`     | `collecte_id`, `disponible_a`                  | Embargo H+24 + lookup        |
-| `bordereaux_savr`  | `collecte_id`                                  | Lookup bordereau             |
-| `attestations_don` | `collecte_id`                                  | Lookup attestation           |
-| `packs_antgaspi`   | `organisation_id`, `statut`                    | Vérification blocage AG      |
-| `audit_log`        | `user_id`, `created_at`                        | Recherche logs par user      |
-| `organisations`    | `type`, `actif`                                | Filtres back-office          |
+| Table | Colonne(s) indexée(s) | Raison |
+|---|---|---|
+| `collectes` | `organisation_id`, `statut`, `created_at` | Filtres dashboard, batch J+1 |
+| `collectes` | `evenement_id` | Jointures fréquentes |
+| `evenements` | `organisation_id`, `lieu_id`, `date_evenement` | Filtres principaux |
+| `pesees` | `collecte_id` | Jointure pesées → collecte |
+| `factures` | `organisation_id`, `statut`, `created_at` | Dashboard facturation |
+| `rapports_rse` | `collecte_id`, `disponible_a` | Embargo H+24 + lookup |
+| `bordereaux_savr` | `collecte_id` | Lookup bordereau |
+| `attestations_don` | `collecte_id` | Lookup attestation |
+| `packs_antgaspi` | `organisation_id`, `statut` | Vérification blocage AG |
+| `audit_log` | `user_id`, `created_at` | Recherche logs par user |
+| `organisations` | `type`, `actif` | Filtres back-office |
 
 **Index composites** à créer sur les patterns de requêtes RLS les plus fréquents :
-
 - `collectes (organisation_id, statut, created_at)` — vue liste dashboard traiteur
 - `evenements (organisation_id, date_evenement DESC)` — timeline événements
 
@@ -117,7 +119,6 @@ Toutes les données restent en base active. À 900 000 lignes sur 3 ans, Postgre
 ### V2 : politique d'archivage (à définir post-lancement)
 
 Déclencher une réflexion sur l'archivage si l'une de ces conditions est atteinte :
-
 - DB storage > 4 GB (50% du Pro)
 - Requêtes dashboard > 1s en moyenne
 - Données > 5 ans (obligation légale atteinte pour certains documents)
@@ -133,7 +134,6 @@ Stratégie probable V2 : archivage des collectes > 3 ans dans une table `collect
 **Impact anticipé** : si Viparis impose Savr à ses 50 sites + traiteurs référencés, le volume peut tripler en quelques semaines. Ce n'est pas une montée progressive.
 
 **Ce que ça change architecturalement** :
-
 - Rien sur l'architecture de base (RLS, Supabase, Railway)
 - Le référentiel lieux devra être pré-chargé pour tous les sites Viparis (migration batch depuis leur liste de sites)
 - Les remises préférentielles Viparis devront être saisies dans `tarifs_negocie` (ex `tarifs_zd_par_gestionnaire`) avant le go-live
@@ -144,7 +144,6 @@ Stratégie probable V2 : archivage des collectes > 3 ans dans une table `collect
 ### 6.2 Nouvelles régions
 
 Aujourd'hui : Paris + première couronne. Si Savr s'étend en province (Lyon, Bordeaux, Marseille) :
-
 - **Données** : aucun impact architectural — `lieux` et `organisations` sont déjà géographiquement agnostiques
 - **Logistique** : nouveaux prestataires à référencer dans le TMS, nouvelles associations AG à intégrer
 - **RLS** : aucun changement — le filtrage est par `organisation_id`, pas par région
@@ -153,7 +152,6 @@ Aujourd'hui : Paris + première couronne. Si Savr s'étend en province (Lyon, Bo
 ### 6.3 Nouveaux types de clients
 
 Si Savr ajoute un type de client non prévu en V1 (ex: organisateurs d'événements en direct, collectivités, hôtels) :
-
 - La table `organisations.type` est un enum extensible — ajouter un type = 1 migration
 - Les politiques RLS devront être étendues pour le nouveau type
 - Le formulaire d'onboarding devra proposer ce nouveau type
@@ -162,7 +160,6 @@ Si Savr ajoute un type de client non prévu en V1 (ex: organisateurs d'événeme
 ### 6.4 Nouveaux modules
 
 Le data model a anticipé les évolutions V2 sans les construire :
-
 - **Module 19 — Impact enrichi** : 6 tables + 3 champs déjà structurés en V1. Activation = construire l'UI et les calculs, pas migrer le schéma.
 - **Module Benchmark sectoriel** : données déjà collectées (pesées, KPIs). Activation = construire la vue agrégée anonymisée.
 - **SSO SAML** : architecture JWT déjà compatible. Activation = configurer le provider SAML dans Supabase Auth.
@@ -172,14 +169,14 @@ Le data model a anticipé les évolutions V2 sans les construire :
 
 ## 7. Seuils de décision — Quand upgrader
 
-| Indicateur                      | Seuil d'alerte                      | Action recommandée                               |
-| ------------------------------- | ----------------------------------- | ------------------------------------------------ |
-| DB storage > 4 GB               | ~2 000+ collectes/mois pendant 1 an | Envisager archivage V2                           |
-| Requêtes dashboard > 1s         | Dès détection                       | Analyser index manquants via pg_stat_statements  |
-| Batch PDF > 100 collectes/nuit  | ~500 collectes/mois                 | Ajouter worker Railway ($10/mois supplémentaire) |
-| DB connexions simultanées > 150 | Pic inhabituel                      | Vérifier PgBouncer, investiguer requêtes longues |
-| Supabase Pro DB > 6 GB          | Croissance continue                 | Upgrade Supabase Team ($599/mois) ou archivage   |
-| Erreurs Sentry > 100/jour       | Dégradation qualité                 | Sprint de stabilisation obligatoire              |
+| Indicateur | Seuil d'alerte | Action recommandée |
+|---|---|---|
+| DB storage > 4 GB | ~2 000+ collectes/mois pendant 1 an | Envisager archivage V2 |
+| Requêtes dashboard > 1s | Dès détection | Analyser index manquants via pg_stat_statements |
+| Batch PDF > 100 collectes/nuit | ~500 collectes/mois | Ajouter worker Railway ($10/mois supplémentaire) |
+| DB connexions simultanées > 150 | Pic inhabituel | Vérifier PgBouncer, investiguer requêtes longues |
+| Supabase Pro DB > 6 GB | Croissance continue | Upgrade Supabase Team ($599/mois) ou archivage |
+| Erreurs Sentry > 100/jour | Dégradation qualité | Sprint de stabilisation obligatoire |
 
 **Upgrade Supabase Team** ($599/mois) : non anticipé avant 3-4 ans au rythme actuel. À reconsidérer si Viparis génère un pic brutal ou si un second grand compte s'ajoute.
 
@@ -187,14 +184,14 @@ Le data model a anticipé les évolutions V2 sans les construire :
 
 ## Décisions prises
 
-| Décision                                 | Alternative écartée          | Raison                                                                                                             |
-| ---------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Indexation complète dès V1               | Ajouter les index si ça rame | Beaucoup plus coûteux de corriger les performances en prod avec des données réelles                                |
-| PgBouncer activé dès V1                  | Connexions directes          | Prévient les saturations sur les pics d'Edge Functions                                                             |
-| File PDF séquentielle (5 simultanés max) | Parallélisation totale       | Évite de saturer Railway sur les grosses nuits. Délai batch < 2 min à T+18 mois                                    |
-| Pas d'archivage automatique V1           | Archivage dès V1             | Inutile sur les volumes projetés. Complexité disproportionnée. Revisiter à T+3 ans                                 |
-| Upgrade Supabase Team non planifié V1    | Pro → Team dès le lancement  | Pro couvre largement la trajectoire 36 mois. Team = ×24 le coût mensuel pour des besoins qui n'existent pas encore |
-| Test de charge Viparis 3 mois avant      | Tester au moment du go-live  | Anticiper les problèmes sans pression opérationnelle                                                               |
+| Décision | Alternative écartée | Raison |
+|---|---|---|
+| Indexation complète dès V1 | Ajouter les index si ça rame | Beaucoup plus coûteux de corriger les performances en prod avec des données réelles |
+| PgBouncer activé dès V1 | Connexions directes | Prévient les saturations sur les pics d'Edge Functions |
+| File PDF séquentielle (5 simultanés max) | Parallélisation totale | Évite de saturer Railway sur les grosses nuits. Délai batch < 2 min à T+18 mois |
+| Pas d'archivage automatique V1 | Archivage dès V1 | Inutile sur les volumes projetés. Complexité disproportionnée. Revisiter à T+3 ans |
+| Upgrade Supabase Team non planifié V1 | Pro → Team dès le lancement | Pro couvre largement la trajectoire 36 mois. Team = ×24 le coût mensuel pour des besoins qui n'existent pas encore |
+| Test de charge Viparis 3 mois avant | Tester au moment du go-live | Anticiper les problèmes sans pression opérationnelle |
 
 ## Questions ouvertes
 

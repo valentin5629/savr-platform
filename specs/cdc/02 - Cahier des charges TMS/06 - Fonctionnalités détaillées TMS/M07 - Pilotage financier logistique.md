@@ -1,5 +1,6 @@
 # M07 — Pilotage financier logistique
 
+
 ---
 
 ## ⚠ Addendum 2026-05-01 — Propagation revue sobriété §08 Bloc A (A2)
@@ -9,7 +10,7 @@
 Conséquences sur M07 :
 
 1. **Plus de push S6** — la Plateforme lit directement `tms.tournees` + `tms.collectes_tms` via la vue (cf. §08 TMS section S6 strikethrough). Toutes les mentions "push S6", "webhook S6", "DLQ S6" ci-dessous sont **obsolètes V1** (conservées en strikethrough pour traçabilité historique).
-2. **Trigger DB cross-schema remplace le push** — sur UPDATE de `tms.tournees.cout_final_ht` ou `tms.tournees.push_s6_version` _(noms corrigés audit 2026-05-26 A2)_, la fonction Postgres `plateforme.fn_recalc_marge_tournee(tournee_id uuid)` recalcule `plateforme.factures.marge_logistique` automatiquement. Pas de réseau, pas de retry, pas de DLQ.
+2. **Trigger DB cross-schema remplace le push** — sur UPDATE de `tms.tournees.cout_final_ht` ou `tms.tournees.push_s6_version` *(noms corrigés audit 2026-05-26 A2)*, la fonction Postgres `plateforme.fn_recalc_marge_tournee(tournee_id uuid)` recalcule `plateforme.factures.marge_logistique` automatiquement. Pas de réseau, pas de retry, pas de DLQ.
 3. **Code alerte `m07_push_s6_dlq` supprimé** — sans objet (pas de webhook, donc pas de DLQ webhook).
 4. **EC10 + EC15 sans objet** — les cas d'erreur push S6 disparaissent.
 5. **D13 ajusté** — "trigger DB synchrone pour calcul, push S6 async" → **"trigger DB synchrone pour calcul + trigger cross-schema synchrone pour recalc marge"**.
@@ -25,10 +26,9 @@ Voir [[../08 - Contrat API Plateforme-TMS#Addendum 2026-05-01 — Revue sobriét
 
 ## 1. Objectif métier
 
-Calculer automatiquement le coût HT de chaque tournée à la clôture, en appliquant la grille tarifaire négociée (Strike, Marathon, A Toutes!, prestataires province). Répartir ce coût par collecte. **Exposer en lecture cross-schema** vers la Plateforme via vue `plateforme.v_courses_logistiques` _(remplace ex-webhook S6, revue sobriété 2026-05-01 A2)_ pour calcul marge événement. Permettre ajustements manuels Ops (cas litige négocié) et pilotage mensuel (dashboard + export CSV).
+Calculer automatiquement le coût HT de chaque tournée à la clôture, en appliquant la grille tarifaire négociée (Strike, Marathon, A Toutes!, prestataires province). Répartir ce coût par collecte. **Exposer en lecture cross-schema** vers la Plateforme via vue `plateforme.v_courses_logistiques` *(remplace ex-webhook S6, revue sobriété 2026-05-01 A2)* pour calcul marge événement. Permettre ajustements manuels Ops (cas litige négocié) et pilotage mensuel (dashboard + export CSV).
 
 **Frontière claire** :
-
 - **M07 calcule** : coût théorique TMS à la clôture tournée (source de vérité interne).
 - **M08 rapproche** : coût M07 vs facture prestataire reçue (détection écart).
 - **Plateforme calcule marge** : facture client − coût logistique (lu via vue cross-schema `plateforme.v_courses_logistiques`, ex-webhook S6 supprimé revue sobriété 2026-05-01 A2).
@@ -36,7 +36,6 @@ Calculer automatiquement le coût HT de chaque tournée à la clôture, en appli
 - **M07 ne paye pas les prestataires** (c'est M08 + Pennylane).
 
 **Fréquence d'usage** :
-
 - Calcul auto : à chaque clôture de tournée (~300 tournées/mois V1, pic 30/jour)
 - Consultation dashboard : quotidien (Ops Savr) + hebdo (Val + Louis)
 - Ajustement manuel : exceptionnel (~5-10/mois estimé)
@@ -86,15 +85,15 @@ Calculer automatiquement le coût HT de chaque tournée à la clôture, en appli
 
 ## 3. Architecture des écrans
 
-| #   | Écran                                         | Route                                                         | Persona                      | RLS                                          |
-| --- | --------------------------------------------- | ------------------------------------------------------------- | ---------------------------- | -------------------------------------------- |
-| E1  | Dashboard pilotage financier                  | `/tms/finance/dashboard`                                      | Ops Savr + Admin TMS         | staff_read                                   |
-| E2  | Liste tournées + coûts calculés               | `/tms/finance/tournees`                                       | Ops Savr + Admin TMS         | staff_read                                   |
-| E3  | Détail coût tournée                           | `/tms/finance/tournees/:id`                                   | Ops Savr + Admin TMS         | staff_read                                   |
-| E4  | Formulaire ajustement manuel                  | `/tms/finance/tournees/:id/ajuster`                           | Ops Savr + Admin TMS         | grilles_staff_read + tournees ajust write    |
-| E5  | Liste grilles tarifaires                      | `/tms/finance/grilles`                                        | Admin TMS (RW), Ops Savr (R) | grilles_admin_tms_write / grilles_staff_read |
-| E6  | Éditeur grille tarifaire (création + édition) | `/tms/finance/grilles/:id` ou `/tms/finance/grilles/nouvelle` | Admin TMS                    | grilles_admin_tms_write                      |
-| E9  | Export CSV                                    | action `/tms/finance/export`                                  | Admin TMS + Ops Savr         | staff_read                                   |
+| # | Écran | Route | Persona | RLS |
+|---|-------|-------|---------|-----|
+| E1 | Dashboard pilotage financier | `/tms/finance/dashboard` | Ops Savr + Admin TMS | staff_read |
+| E2 | Liste tournées + coûts calculés | `/tms/finance/tournees` | Ops Savr + Admin TMS | staff_read |
+| E3 | Détail coût tournée | `/tms/finance/tournees/:id` | Ops Savr + Admin TMS | staff_read |
+| E4 | Formulaire ajustement manuel | `/tms/finance/tournees/:id/ajuster` | Ops Savr + Admin TMS | grilles_staff_read + tournees ajust write |
+| E5 | Liste grilles tarifaires | `/tms/finance/grilles` | Admin TMS (RW), Ops Savr (R) | grilles_admin_tms_write / grilles_staff_read |
+| E6 | Éditeur grille tarifaire (création + édition) | `/tms/finance/grilles/:id` ou `/tms/finance/grilles/nouvelle` | Admin TMS | grilles_admin_tms_write |
+| E9 | Export CSV | action `/tms/finance/export` | Admin TMS + Ops Savr | staff_read |
 
 **Navigation** : entrée unique dans le menu latéral TMS "Finance" (visible seulement si rôle `ops_savr` ou `admin_tms`). Sous-menu : Dashboard / Tournées / Grilles / Export.
 
@@ -109,30 +108,26 @@ Calculer automatiquement le coût HT de chaque tournée à la clôture, en appli
 **Layout** : 5 widgets en grille 2×3 (W1 + W2 + W3 + W4 + W6, dernier slot = export). W5 retiré V1 (sobriété A5 2026-04-30).
 
 **Widget W1 — Coût total logistique**
-
 - Mois en cours (cumul à date) + mois N-1 (référence) + variation %
 - Clic → E2 filtrée sur période
 - Source : `SUM(cout_final_ht) WHERE DATE_TRUNC('month', heure_reelle_fin) = DATE_TRUNC('month', CURRENT_DATE)`
 - Calculé à la volée à chaque chargement (vue `v_m07_dashboard`)
 
 **Widget W2 — Coût moyen par tournée × prestataire**
-
 - Bar chart horizontal, une barre par prestataire actif
 - Valeur = `AVG(cout_final_ht) GROUP BY prestataire_id` sur 30 derniers jours glissants
 - Tri décroissant
 - Clic barre → E2 filtrée prestataire
 
 **Widget W3 — Coût par collecte (AG/ZD séparés)**
-
 - Table 2 lignes :
   - Coût moyen/collecte AG (m€/collecte)
   - Coût moyen/collecte ZD (m€/collecte)
 - 30 jours glissants
-- Source : `AVG(collecte_tournees.cout_reparti_centimes / 100) GROUP BY collectes_tms.parcours` _(corrigé audit 2026-05-26 B2 — `cout_reparti_centimes` est déjà la quote-part PAR collecte, plus de division par `nb_collectes_tournee` qui double-comptait ; nom de vue `courses_logistiques` obsolète, lecture directe liaison)_
+- Source : `AVG(collecte_tournees.cout_reparti_centimes / 100) GROUP BY collectes_tms.parcours` *(corrigé audit 2026-05-26 B2 — `cout_reparti_centimes` est déjà la quote-part PAR collecte, plus de division par `nb_collectes_tournee` qui double-comptait ; nom de vue `courses_logistiques` obsolète, lecture directe liaison)*
 - **Retiré V1** : (décision D 2026-04-24, reporté V2)
 
 **Widget W4 — Top 10 tournées les plus coûteuses**
-
 - Table triée `cout_final_ht DESC`, 10 lignes
 - Colonnes : date, prestataire, événement, durée réelle, coût HT, badge "ajusté" si applicable
 - Clic ligne → E3
@@ -143,7 +138,6 @@ Calculer automatiquement le coût HT de chaque tournée à la clôture, en appli
 > Information consultable directement dans M08 quand le module sera livré. Pas de placeholder dans le dashboard V1.
 
 **Widget W6 — Répartition coûts par prestataire (pie chart)**
-
 - Pie chart part de chaque prestataire sur coût total mois en cours
 - Max 6 parts (top 5 + "Autres")
 - Légende avec valeur HT et %
@@ -159,7 +153,6 @@ Calculer automatiquement le coût HT de chaque tournée à la clôture, en appli
 **Layout** : tableau paginé 50 lignes/page, filtres en header, tri par colonne.
 
 **Colonnes** :
-
 - Date clôture (`heure_reelle_fin`)
 - Prestataire
 - Événement (via collecte_tms → evenement_id Plateforme, snapshot)
@@ -173,7 +166,6 @@ Calculer automatiquement le coût HT de chaque tournée à la clôture, en appli
 - Actions : voir détail (→ E3), ajuster (→ E4 si droits + `cout_final_verrouille = false`)
 
 **Filtres** :
-
 - Période (date range)
 - Prestataire (multi)
 - Type (AG/ZD)
@@ -193,14 +185,12 @@ Calculer automatiquement le coût HT de chaque tournée à la clôture, en appli
 **Layout** : 4 blocs verticaux.
 
 **Bloc B1 — Identité tournée**
-
 - ID, lien vers M04 détail
 - Prestataire (logo si présent M06), chauffeur (nom), véhicule (plaque réelle si saisie, sinon "—")
 - Événement : nom, traiteur, lieu (snapshot lieu), date + `heure_collecte`
 - Collectes rattachées : liste avec type (AG/ZD), statut opérationnel terminal, poids net total (ZD) ou statut `realisee`/`realisee_sans_collecte` (AG)
 
 **Bloc B2 — Calcul appliqué**
-
 - Grille tarifaire utilisée : nom + lien E6 + `date_debut_validite`
 - Formule : nom (`vacations_paliers`, etc.) + lien doc
 - Durée réelle : hh:mm (heure_reelle_fin − heure_reelle_debut)
@@ -212,20 +202,17 @@ Calculer automatiquement le coût HT de chaque tournée à la clôture, en appli
 - `cout_calcule_ht` en gras
 
 **Bloc B3 — Ajustement (si applicable)**
-
 - Affiché uniquement si `cout_ajuste_ht IS NOT NULL`
 - Montant ajusté, écart (% vs `cout_calcule_ht`), motif
 - Auteur ajustement (Ops Savr ou Admin TMS), date
 - Tous les ajustements sont auto-poussés Plateforme (pas de workflow validation V1 — sobriété A3 2026-04-30). Audit log complet dans `ajustements_couts_log`.
 
 **Bloc B4 — Exposition Plateforme (lecture cross-schema)**
-
 - `cout_final_ht` exposé à la Plateforme via vue `plateforme.v_courses_logistiques` (lecture directe, pas de push réseau — ex-webhook S6 supprimé revue sobriété 2026-05-01 A2)
 - `push_s6_version` : compteur de recalculs (incrémenté à chaque calcul/ajustement, déclenche le trigger cross-schema `plateforme.fn_recalc_marge_tournee`)
 - Read-only : aucun bouton de relance (pas de DLQ, pas de retry — le recalcul marge est synchrone en DB)
 
 **Actions header** :
-
 - "Ajuster" (→ E4) — masqué si tournée rapprochée à une facture validée M08
 - "Voir tournée" (→ M04 détail)
 - "Voir historique audit" (modal audit log)
@@ -237,7 +224,6 @@ Calculer automatiquement le coût HT de chaque tournée à la clôture, en appli
 **Layout** : modale ou page dédiée avec preview côté droit.
 
 **Formulaire** :
-
 - `cout_calcule_ht` (read-only, référence)
 - `cout_ajuste_ht` (numeric input, EUR HT)
 - **Écart calculé en temps réel** : montant + % (indicateur visuel : vert <5%, orange 5-15%, rouge ≥15% — purement informationnel, pas de blocage)
@@ -248,19 +234,16 @@ Calculer automatiquement le coût HT de chaque tournée à la clôture, en appli
 **Note sobriété (A3 2026-04-30)** : suppression du workflow validation Admin TMS pour ajustements ≥ 15%. Tous les ajustements (Ops Savr ou Admin TMS) sont auto-poussés Plateforme immédiatement. Supervision a posteriori par Admin TMS via digest quotidien (cf. §9 N3 simplifiée). Si dérive observée → réintroduire seuil V1.1 paramétrable.
 
 **Validation UI** :
-
 - `cout_ajuste_ht > 0` (pas de négatif)
 - `cout_ajuste_ht != cout_calcule_ht` (sinon pas d'ajustement)
 - Motif rempli
 
 **Validation backend (trigger DB)** :
-
 - Check rôle : `ops_savr` ou `admin_tms` uniquement
 - Check statut tournée : `statut = 'terminee'` ET `statut_financier IN ('calcule','ajuste')` (pas `cout_manquant`)
 - Check rapprochement M08 : bloqué si `cout_final_verrouille = true` (rapprochée à une facture validée) — alerte UI "Cette tournée est rapprochée à une facture validée, déverrouillage nécessaire via M08"
 
 **Effet** :
-
 - INSERT audit log `ajustements_couts_log` (trace complète : ancienne valeur, nouvelle valeur, écart %, motif, auteur, timestamp)
 - UPDATE `tournees` : `cout_ajuste_ht`, `motif_ajustement`, `ajuste_par_user_id`, `ajuste_at`, `statut_financier = 'ajuste'`, `cout_final_ht = cout_ajuste_ht`, incrément `push_s6_version`
 - Recalcul marge Plateforme immédiat via trigger cross-schema synchrone (pas de workflow différé, pas de réseau)
@@ -273,7 +256,6 @@ Calculer automatiquement le coût HT de chaque tournée à la clôture, en appli
 **Layout** : tableau + filtre prestataire + bouton "Nouvelle grille" (Admin TMS uniquement).
 
 **Colonnes** :
-
 - Prestataire
 - Libellé grille
 - Type véhicule (ou "Tous")
@@ -284,7 +266,6 @@ Calculer automatiquement le coût HT de chaque tournée à la clôture, en appli
 - Actions : voir (→ E6), archiver (Admin TMS, si pas d'autre active postérieure), dupliquer pour renégo
 
 **Filtres** :
-
 - Prestataire (multi)
 - Statut (actif / archive / tous)
 - Formule
@@ -301,7 +282,6 @@ Calculer automatiquement le coût HT de chaque tournée à la clôture, en appli
 **Layout** : formulaire à 2 colonnes (champs | preview).
 
 **Champs header** :
-
 - Prestataire (FK, figé si édition)
 - Libellé (texte libre, obligatoire)
 - Type véhicule (FK `types_vehicules`, nullable — "Tous")
@@ -312,7 +292,6 @@ Calculer automatiquement le coût HT de chaque tournée à la clôture, en appli
 - PDF contractuel (upload Supabase Storage, optionnel)
 
 **Champs formule** :
-
 - Formule (select depuis `formules_catalogue` où `statut='actif'`)
 - À la sélection, génération dynamique du formulaire basé sur `formules_catalogue.schema_parametres` (JSON Schema)
 - Bouton "Remplir l'exemple" (charge `exemple_parametres`)
@@ -320,7 +299,6 @@ Calculer automatiquement le coût HT de chaque tournée à la clôture, en appli
 - Validation temps réel contre le JSON Schema + affichage erreurs inline
 
 **Champs spécifiques par formule** :
-
 - `vacations_paliers` : inputs pour tarif base HT, coût horaire supplémentaire HT, équipier supplément vacation HT, paliers (table éditable add/remove ligne), flag `tarif_sans_collecte_applicable` (boolean, défaut false)
 - `grille_matricielle_zone_type_course` : table 2D éditable (zone × type_course), règle zone multi-site
 - `grille_matricielle_zone` : table 1D éditable (zone), flag `tarif_sans_collecte_applicable` (défaut false)
@@ -328,13 +306,11 @@ Calculer automatiquement le coût HT de chaque tournée à la clôture, en appli
 - `forfait_fixe` : input forfait HT
 
 **Contraintes métier UI** :
-
 - Anti-rétroactivité : CHECK SQL `date_debut_validite > CURRENT_DATE` en mode création. Règle authoritative §05 R2.8. → **Supprimée revue sobriété §05 2026-05-01 D2** (cas EC1 lui-même supprimé V1, plus de bypass rétroactif). Migration MTS-1 : SQL Admin direct sur Supabase Studio.
 - Unicité : contrainte `EXCLUDE USING gist` sur `(prestataire_id, type_vehicule_id, daterange(date_debut_validite, COALESCE(date_fin_validite, 'infinity')))` WHERE `statut = 'actif'` (sobriété B2 2026-04-30 — remplace trigger custom). Erreur SQL native interceptée côté API.
 - UI préremplit `date_debut_validite = CURRENT_DATE + 1`
 
 **Actions** :
-
 - "Enregistrer brouillon" (statut `actif` mais non publié — pas encore utilisé par calcul car `date_debut_validite > today`)
 - "Publier" = confirmer et verrouiller : le trigger `date_fin_validite` ancienne grille = `nouvelle.date_debut_validite - 1` s'exécute automatiquement
 - "Annuler" (retour E5 sans sauver)
@@ -370,7 +346,6 @@ valide_par_admin;heure_reelle_fin
 ```
 
 **Paramètres** :
-
 - Période (range obligatoire)
 - Prestataires (multi, défaut tous)
 - Statut financier (`all`, `calcule`, `ajuste`)
@@ -399,7 +374,6 @@ valide_par_admin;heure_reelle_fin
    - `grille_tarifaire_id IS NOT NULL` sinon → step 3 (lookup forcé) + **exception SQL bloquante** si échec (revue sobriété §05 2026-05-01 D2 — ex-`cout_manquant`)
 
 3. **Lookup grille (fallback si non dérivée au dispatch)** :
-
    ```sql
    SELECT * FROM grilles_tarifaires_prestataires
    WHERE prestataire_id = tournee.prestataire_id
@@ -410,8 +384,7 @@ valide_par_admin;heure_reelle_fin
    ORDER BY type_vehicule_id NULLS LAST, date_debut_validite DESC
    LIMIT 1;
    ```
-
-   Si 0 résultat → **RAISE EXCEPTION `INVARIANT_VIOLATION`** (revue sobriété §05 2026-05-01 D2 — cas impossible par construction grâce à R*M06.X grille obligatoire à création prestataire + trigger DB anti-expiration sans successeur). Idem si formule code présent en `formules_catalogue` mais sans implémentation `tms.m07_compute*<code>` → **RAISE EXCEPTION** (mismatch DB seed vs code = bug déploiement à corriger immédiatement, pas un état métier).
+   Si 0 résultat → **RAISE EXCEPTION `INVARIANT_VIOLATION`** (revue sobriété §05 2026-05-01 D2 — cas impossible par construction grâce à R_M06.X grille obligatoire à création prestataire + trigger DB anti-expiration sans successeur). Idem si formule code présent en `formules_catalogue` mais sans implémentation `tms.m07_compute_<code>` → **RAISE EXCEPTION** (mismatch DB seed vs code = bug déploiement à corriger immédiatement, pas un état métier).
 
 4. **Exécution formule** : fonction SQL `tms.m07_compute(grille_id, tournee_id) RETURNS (cout_ht numeric, detail jsonb)` qui dispatch sur `formules_catalogue.code` :
    - `vacations_paliers` → logique paliers R2.2
@@ -427,7 +400,7 @@ valide_par_admin;heure_reelle_fin
 6. **Stockage** :
    - UPDATE `tournees` : `cout_calcule_ht`, `cout_detail`, `nb_unites_strike` (si `vacations_paliers`), `cout_calculated_at`, `cout_final_ht = cout_calcule_ht`, `statut_financier = 'calcule'` (sobriété B5 2026-04-30 : `cout_final_ht` mis à jour par trigger explicite, pas colonne GENERATED).
 
-7. **Répartition par collecte** _(refonte multi-camions 2026-05-25 : écriture sur `collecte_tournees`, ex `collectes_tms.cout_reparti_centimes`)_ :
+7. **Répartition par collecte** *(refonte multi-camions 2026-05-25 : écriture sur `collecte_tournees`, ex `collectes_tms.cout_reparti_centimes`)* :
    - `collecte_tournees.cout_reparti_centimes = FLOOR(cout_calcule_ht * 100 / nb_collectes_tournee)` pour les `nb_collectes_tournee − 1` premières lignes de liaison de **cette** tournée (répartition égale — décision §03 M07 ; **arbitrage Val 2026-06-06 floue #4 : FLOOR, le trigger §04 fait foi, ex-`ROUND` en prose corrigé pour valeur attendue unique en test**). `nb_collectes_tournee` = nombre de collectes de la tournée (lignes `collecte_tournees WHERE tournee_id = ...`).
    - Dernière collecte de la tournée reçoit le reste pour éviter rounding errors
    - Cas `nb_collectes_tournee = 0` (edge) : impossible car contrainte M04 (1 collecte min par tournée)
@@ -479,7 +452,6 @@ valide_par_admin;heure_reelle_fin
 6. Retour E6 consultation
 
 **Effet sur tournées** :
-
 - Tournées clôturées avant `nouvelle.date_debut_validite` : figées, coût inchangé (décision E)
 - Tournées planifiées après `nouvelle.date_debut_validite` : utiliseront automatiquement la nouvelle grille via lookup W1-step3
 
@@ -490,7 +462,6 @@ valide_par_admin;heure_reelle_fin
 **Contrainte** : interdit UI. Bouton "Modifier" désactivé si `date_debut_validite <= CURRENT_DATE`. Tooltip : "Grille en vigueur — créer une nouvelle grille pour toute modification tarifaire (anti-rétroactivité)".
 
 **Seuls champs éditables sur grille active** :
-
 - `libelle` (informatif)
 - `notes_negociation`
 - `pdf_contractuel_url`
@@ -512,7 +483,7 @@ valide_par_admin;heure_reelle_fin
 
 1. User clic "Exporter" sur E1/E2/E3
 2. Modal : période + filtres + statut financier
-3. Front check : SELECT COUNT(\*) avec filtres → si > 5000 → bloque avec message "Restreignez la période (max 5000 lignes par export)"
+3. Front check : SELECT COUNT(*) avec filtres → si > 5000 → bloque avec message "Restreignez la période (max 5000 lignes par export)"
 4. POST `/api/m07/export` → génération sync stream HTTP (pas de queue, pas de worker, pas d'email)
 5. Réponse : `Content-Type: text/csv; charset=utf-8`, header BOM UTF-8, séparateur `;`
 6. Performance cible p95 < 10s pour 5000 lignes (cf. §10)
@@ -536,7 +507,7 @@ Renvois explicites vers `[[../05 - Règles métier TMS|§05]]` (pas de duplicati
 
 - **R2.8 Figement post-clôture + anti-rétroactivité grilles** — règle authoritative `[[../05 - Règles métier TMS|§05 R2.8]]` (sobriété C4 2026-04-30, formulation centralisée) :
   - `cout_calcule_ht` immuable une fois la tournée `terminee`. Correction = ajustement manuel tracé (`cout_ajuste_ht`)
-- Modification rétroactive de grille interdite. → **Supprimée revue sobriété §05 2026-05-01 D2** (cas EC1 lui-même supprimé V1)
+ - Modification rétroactive de grille interdite. → **Supprimée revue sobriété §05 2026-05-01 D2** (cas EC1 lui-même supprimé V1)
 
 - ** Seuil validation ajustement — supprimée (sobriété A3 2026-04-30)** : workflow validation Admin TMS retiré V1. Tous les ajustements (peu importe l'écart) suivent W2. Supervision a posteriori via digest quotidien N3.
 
@@ -550,20 +521,20 @@ Renvois explicites vers `[[../05 - Règles métier TMS|§05]]` (pas de duplicati
 
 ## 7. Edge cases
 
-| #    | Cas                                                                                                               | Comportement V1                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| ---- | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| EC2  | `duree_reelle_minutes = 0` (erreur saisie chauffeur ou `heure_reelle_debut = heure_reelle_fin`)                   | `cout_calcule_ht = 0` + alerte M11 `m07_duree_nulle` (warning) "Durée nulle — vérifier saisie chauffeur". Ops Savr corrige via ajustement manuel.                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| EC3  | `heure_reelle_fin IS NULL` (tournée pas encore terminée alors que `statut = terminee`)                            | Impossible (contrainte DB sur transition statut). Trigger bloque.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| EC5  | Double clôture tournée (UPDATE idempotent)                                                                        | **No-op strict** (arbitrage Val 2026-06-06 floue #2) : si `cout_calcule_ht IS NOT NULL` → skip calcul, pas de réincrément `push_s6_version`, quelle que soit la grille. retiré — inatteignable et contraire au figement R2.8 (`cout_calcule_ht` immuable post-clôture, grille figée à la date tournée). La correction d'un coût erroné passe exclusivement par l'ajustement manuel `cout_ajuste_ht` (W2).                                                                                                                                                                                                        |
-| EC6  | Annulation **collecte** par le client pendant que la tournée est `en_cours`                                       | **Reformulé (arbitrage Val 2026-06-06 floue #3)** : la tournée `en_cours` **ne transite jamais** vers `annulee` au niveau `tournees.statut` (cf. §05 R2.7bis authoritative). C'est la collecte qui passe `annulee_par_traiteur` ; la tournée finit toujours (clôture chauffeur) → **vacation facturée intégralement** (M07 calcule normalement sur durée réelle, coût ≠ 0). L'annulation **avant** démarrage tournée relève de R2.7 (≥ 3h = 0€, < 3h = facturée), pas d'EC6.                                                                                                                                     |
-| EC7  | Chevauchement grilles actives (bug insertion)                                                                     | Contrainte `EXCLUDE USING gist` bloque INSERT/UPDATE (sobriété B2 2026-04-30 — remplace trigger custom `tg_grilles_unicite`). Défensif : query W1 LIMIT 1 avec ORDER BY prend la plus récente. Erreur SQL native interceptée côté API.                                                                                                                                                                                                                                                                                                                                                                           |
-|      |                                                                                                                   | **Reformulé** (sobriété A3 2026-04-30) : tous les ajustements sont auto-validés, l'écart M08 sera calculé sur `cout_final_ht` (= `cout_ajuste_ht`). Pas de cas spécifique au seuil 15%.                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| EC9  | Ops tente d'ajuster une tournée verrouillée par facture M08                                                       | UI bloquée (bouton désactivé sur `cout_final_verrouille = true`). Backend refuse avec message "Tournée verrouillée par facture M08 `numero_facture`. Déverrouillage nécessaire via M08 W9 (Admin TMS uniquement, motif ≥ 30 caractères) ou cycle avoir + nouvelle facture (M08 W6)."                                                                                                                                                                                                                                                                                                                             |
-| EC11 | Modification rétroactive grille tentée par Admin TMS (bug ou erreur humaine)                                      | CHECK SQL bloque + message "Rétroactivité interdite — créer nouvelle grille avec `date_debut_validite` future". Règle authoritative §05 R2.8. → **Exception EC1 supprimée revue sobriété §05 2026-05-01 D2** (cas EC1 lui-même refondu, plus de bypass rétroactif). Si rétroactivité ponctuelle nécessaire (migration MTS-1) → SQL Admin direct sur Supabase Studio + audit_log manuel.                                                                                                                                                                                                                          |
-| EC12 | Grille expirée naturellement sans remplacement                                                                    | **Refondu revue sobriété §05 2026-05-01 D2** : cas impossible par construction grâce au **trigger DB anti-expiration sans successeur** sur `grilles_tarifaires_prestataires` (BEFORE UPDATE) qui RAISE EXCEPTION si tentative `UPDATE date_fin_validite NOT NULL` ou `UPDATE statut = 'archive'` sur la dernière grille active du couple `(prestataire_id, type_vehicule_id)` sans qu'une grille successeur active soit publiée. Force Admin TMS à publier grille suivante AVANT d'expirer la précédente. Si déclenché côté UI → message UX "Une grille successeur active est requise avant d'expirer celle-ci." |
-| EC13 | Tournée `realisee_sans_collecte` AG avec `tarif_sans_collecte_applicable = false` (Strike backup AG)              | Vacation normale facturée (décision C). Flag appliqué uniquement si `type_collecte = ag`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| EC14 | Ajustement sur tournée déjà ajustée (correction de correction)                                                    | Autorisé. Nouvelle valeur `cout_ajuste_ht` remplace l'ancienne, audit log append-only conserve historique complet. Nouveau calcul écart % contre `cout_calcule_ht` original (pas contre l'ajustement précédent).                                                                                                                                                                                                                                                                                                                                                                                                 |
-| EC15 | Recalcul marge après ajustement mais Plateforme a déjà comptabilisé la version précédente dans clôture financière | Le trigger cross-schema `fn_recalc_marge_tournee` est idempotent (recalcule depuis `cout_final_ht` courant). Si la clôture compta côté Plateforme est figée, l'écart apparaîtra comme revue compta — communication humaine.                                                                                                                                                                                                                                                                                                                                                                                      |
+| # | Cas | Comportement V1 |
+|---|-----|-----------------|
+| EC2 | `duree_reelle_minutes = 0` (erreur saisie chauffeur ou `heure_reelle_debut = heure_reelle_fin`) | `cout_calcule_ht = 0` + alerte M11 `m07_duree_nulle` (warning) "Durée nulle — vérifier saisie chauffeur". Ops Savr corrige via ajustement manuel. |
+| EC3 | `heure_reelle_fin IS NULL` (tournée pas encore terminée alors que `statut = terminee`) | Impossible (contrainte DB sur transition statut). Trigger bloque. |
+| EC5 | Double clôture tournée (UPDATE idempotent) | **No-op strict** (arbitrage Val 2026-06-06 floue #2) : si `cout_calcule_ht IS NOT NULL` → skip calcul, pas de réincrément `push_s6_version`, quelle que soit la grille. retiré — inatteignable et contraire au figement R2.8 (`cout_calcule_ht` immuable post-clôture, grille figée à la date tournée). La correction d'un coût erroné passe exclusivement par l'ajustement manuel `cout_ajuste_ht` (W2). |
+| EC6 | Annulation **collecte** par le client pendant que la tournée est `en_cours` | **Reformulé (arbitrage Val 2026-06-06 floue #3)** : la tournée `en_cours` **ne transite jamais** vers `annulee` au niveau `tournees.statut` (cf. §05 R2.7bis authoritative). C'est la collecte qui passe `annulee_par_traiteur` ; la tournée finit toujours (clôture chauffeur) → **vacation facturée intégralement** (M07 calcule normalement sur durée réelle, coût ≠ 0). L'annulation **avant** démarrage tournée relève de R2.7 (≥ 3h = 0€, < 3h = facturée), pas d'EC6. |
+| EC7 | Chevauchement grilles actives (bug insertion) | Contrainte `EXCLUDE USING gist` bloque INSERT/UPDATE (sobriété B2 2026-04-30 — remplace trigger custom `tg_grilles_unicite`). Défensif : query W1 LIMIT 1 avec ORDER BY prend la plus récente. Erreur SQL native interceptée côté API. |
+| | | **Reformulé** (sobriété A3 2026-04-30) : tous les ajustements sont auto-validés, l'écart M08 sera calculé sur `cout_final_ht` (= `cout_ajuste_ht`). Pas de cas spécifique au seuil 15%. |
+| EC9 | Ops tente d'ajuster une tournée verrouillée par facture M08 | UI bloquée (bouton désactivé sur `cout_final_verrouille = true`). Backend refuse avec message "Tournée verrouillée par facture M08 `numero_facture`. Déverrouillage nécessaire via M08 W9 (Admin TMS uniquement, motif ≥ 30 caractères) ou cycle avoir + nouvelle facture (M08 W6)." |
+| EC11 | Modification rétroactive grille tentée par Admin TMS (bug ou erreur humaine) | CHECK SQL bloque + message "Rétroactivité interdite — créer nouvelle grille avec `date_debut_validite` future". Règle authoritative §05 R2.8. → **Exception EC1 supprimée revue sobriété §05 2026-05-01 D2** (cas EC1 lui-même refondu, plus de bypass rétroactif). Si rétroactivité ponctuelle nécessaire (migration MTS-1) → SQL Admin direct sur Supabase Studio + audit_log manuel. |
+| EC12 | Grille expirée naturellement sans remplacement | **Refondu revue sobriété §05 2026-05-01 D2** : cas impossible par construction grâce au **trigger DB anti-expiration sans successeur** sur `grilles_tarifaires_prestataires` (BEFORE UPDATE) qui RAISE EXCEPTION si tentative `UPDATE date_fin_validite NOT NULL` ou `UPDATE statut = 'archive'` sur la dernière grille active du couple `(prestataire_id, type_vehicule_id)` sans qu'une grille successeur active soit publiée. Force Admin TMS à publier grille suivante AVANT d'expirer la précédente. Si déclenché côté UI → message UX "Une grille successeur active est requise avant d'expirer celle-ci." |
+| EC13 | Tournée `realisee_sans_collecte` AG avec `tarif_sans_collecte_applicable = false` (Strike backup AG) | Vacation normale facturée (décision C). Flag appliqué uniquement si `type_collecte = ag`. |
+| EC14 | Ajustement sur tournée déjà ajustée (correction de correction) | Autorisé. Nouvelle valeur `cout_ajuste_ht` remplace l'ancienne, audit log append-only conserve historique complet. Nouveau calcul écart % contre `cout_calcule_ht` original (pas contre l'ajustement précédent). |
+| EC15 | Recalcul marge après ajustement mais Plateforme a déjà comptabilisé la version précédente dans clôture financière | Le trigger cross-schema `fn_recalc_marge_tournee` est idempotent (recalcule depuis `cout_final_ht` courant). Si la clôture compta côté Plateforme est figée, l'écart apparaîtra comme revue compta — communication humaine. |
 
 ---
 
@@ -580,7 +551,6 @@ Renvois explicites vers `[[../05 - Règles métier TMS|§05]]` (pas de duplicati
 **Verrouillage M08** : flag boolean orthogonal `cout_final_verrouille` (sobriété C2 2026-04-30 — fusionné, plus de statut `verrouille_facture`). Quand `cout_final_verrouille = true` : E4 bloque les ajustements, déverrouillage via M08 W9.
 
 **États supprimés** (sobriété 2026-04-30 + revue sobriété §05 2026-05-01 D2) :
-
 - — trigger sync <500ms, état jamais persisté observable (D1)
 - — workflow validation supprimé, fusionnés en `ajuste` (A3)
 - — comportement métier identique à `cout_manquant`, fusionné (A6 2026-04-30)
@@ -592,7 +562,6 @@ Renvois explicites vers `[[../05 - Règles métier TMS|§05]]` (pas de duplicati
 Colonne persistée : `actif` ou `archive`. **L'état temporel (future / en vigueur / expirée) n'est PAS persisté** — il est dérivé à la demande via vue SQL `vue_grilles_etat_courant` qui calcule `etat_courant = CASE WHEN date_debut_validite > CURRENT_DATE THEN 'future' WHEN date_fin_validite IS NOT NULL AND date_fin_validite < CURRENT_DATE THEN 'expiree' ELSE 'en_vigueur' END`.
 
 Transitions autorisées :
-
 - `actif` → `archive` : manuel Admin TMS (si pas de FK actives dans tournées en cours)
 - Pas de transition automatique cron quotidien (sobriété D2 — la dérivation par vue suffit)
 
@@ -600,14 +569,13 @@ Transitions autorisées :
 
 ## 9. Notifications
 
-| #   | Déclencheur                  | Cible     | Canal           | Template                                                                                                                                                                                            |
-| --- | ---------------------------- | --------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|     |                              | —         | —               | **Fusionnée dans N1** (sobriété A6 2026-04-30)                                                                                                                                                      |
-| N3  | Digest ajustements quotidien | Admin TMS | Email digest 8h | "N ajustements effectués hier — récap (Ops auteur, tournée, écart %, motif)". Envoi seulement si N>0. **Supervision a posteriori** (sobriété A3 2026-04-30 — ex-N3 "validation requise" supprimée). |
-| N7  | Durée réelle nulle (EC2)     | Ops Savr  | In-app          | "Tournée [ID] : durée réelle = 0. À vérifier."                                                                                                                                                      |
+| # | Déclencheur | Cible | Canal | Template |
+|---|-------------|-------|-------|----------|
+| | | — | — | **Fusionnée dans N1** (sobriété A6 2026-04-30) |
+| N3 | Digest ajustements quotidien | Admin TMS | Email digest 8h | "N ajustements effectués hier — récap (Ops auteur, tournée, écart %, motif)". Envoi seulement si N>0. **Supervision a posteriori** (sobriété A3 2026-04-30 — ex-N3 "validation requise" supprimée). |
+| N7 | Durée réelle nulle (EC2) | Ops Savr | In-app | "Tournée [ID] : durée réelle = 0. À vérifier." |
 
 **Pas de notification** :
-
 - Calcul auto réussi (silencieux)
 - Ajustement (silencieux ; trace audit + digest N3)
 - Recalcul marge cross-schema réussi (silencieux, synchrone en DB)
@@ -616,18 +584,17 @@ Transitions autorisées :
 
 ## 10. Performance cibles
 
-| Action                                                                                     | Cible p95 | Cible p99 |
-| ------------------------------------------------------------------------------------------ | --------- | --------- |
-| Trigger DB W1 calcul auto + recalc marge cross-schema (formule simple `vacations_paliers`) | 50ms      | 150ms     |
-| Trigger DB W1 formule complexe (matricielle + lookup zone CP)                              | 150ms     | 400ms     |
-| Chargement E1 dashboard (vue `v_m07_dashboard` à la volée)                                 | 2s        | 5s        |
-| Chargement E2 liste tournées (50 lignes + pagination)                                      | 800ms     | 2s        |
-| Chargement E3 détail tournée                                                               | 600ms     | 1.5s      |
-| POST ajustement E4                                                                         | 300ms     | 800ms     |
-| Export CSV sync (≤ 5000 lignes)                                                            | 5s        | 10s       |
+| Action | Cible p95 | Cible p99 |
+|--------|-----------|-----------|
+| Trigger DB W1 calcul auto + recalc marge cross-schema (formule simple `vacations_paliers`) | 50ms | 150ms |
+| Trigger DB W1 formule complexe (matricielle + lookup zone CP) | 150ms | 400ms |
+| Chargement E1 dashboard (vue `v_m07_dashboard` à la volée) | 2s | 5s |
+| Chargement E2 liste tournées (50 lignes + pagination) | 800ms | 2s |
+| Chargement E3 détail tournée | 600ms | 1.5s |
+| POST ajustement E4 | 300ms | 800ms |
+| Export CSV sync (≤ 5000 lignes) | 5s | 10s |
 
 **Stratégies** :
-
 - Vue `v_m07_dashboard` calculée **à la volée** (sobriété 2026-06-04 — ex-vue matérialisée + cron 5min supprimés ; volume ~300 tournées/mois)
 - Index composites sur `tournees (prestataire_id, heure_reelle_fin DESC)` et `(statut_financier)` pour filtres E2 + agrégats dashboard
 - JSONB index GIN sur `cout_detail` pour recherche audit (rare usage)
@@ -636,21 +603,21 @@ Transitions autorisées :
 
 ## 11. Décisions structurantes prises
 
-| #       | Décision                                                                                                                                                                            | Alternatives écartées                                                                               | Raison                                                                                                                                                                           |
-| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D1 (A)  | **Coût calculé figé post-clôture**                                                                                                                                                  | Recalcul auto à chaque modif grille                                                                 | Cohérence M08 + exports compta + audit. Toute correction = ajustement manuel tracé.                                                                                              |
-| D2 (B)  | **Ajustement manuel = champ séparé `cout_ajuste_ht`** (pas override)                                                                                                                | Override direct `cout_calcule_ht`                                                                   | Traçabilité audit, séparation calculé/humain, recalcul marge idempotent versionné (`push_s6_version`).                                                                           |
-| D4 (C)  | **Flag `tarif_sans_collecte_applicable`** par grille (défaut false)                                                                                                                 | Règle hardcodée par type prestataire                                                                | Paramétrage Admin TMS sans code, cohérent avec philosophie JSON paliers.                                                                                                         |
-| D5 (C)  | **Annulation < 3h avant démarrage = facturée, ≥ 3h = non facturée** (tous prestataires) — sobriété C3 2026-04-30 (ex-1h)                                                            | Seuil 1h initial / Ancienne R2.7 "avant/après début créneau" / règles différenciées par prestataire | Seuil élargi à 3h pour mieux couvrir les délais de mobilisation chauffeur. Règle uniforme simple et équitable. Authoritative §05 R2.7.                                           |
-| D6 (D)  | **Dashboard V1 = 5 widgets** (coût total, coût moyen prestataire, coût/collecte AG/ZD, top 10, pie prestataires) — sobriété A5 2026-04-30 (ex-6 widgets, W5 écart facture supprimé) | Widget coût/kg collecté / W5 écart TMS vs facturé                                                   | Simplicité V1, coût/kg reporté V2. W5 supprimé — info consultable directement dans M08 quand livré.                                                                              |
-| D7 (E)  | **Zéro rétroactivité sur grilles** (trigger DB bloque `date_debut_validite <= CURRENT_DATE`)                                                                                        | Autoriser modification rétroactive avec recalcul batch manuel                                       | Simplicité, intégrité financière absolue. Cohérent avec D1 (figement). Renégos traitées par nouvelle grille future. → **Supprimée revue sobriété §05 2026-05-01 D2**.            |
-| D9 (F)  | **Pas de pré-calcul coût estimatif au dispatch V1**                                                                                                                                 | Afficher coût estimé M02                                                                            | Complexité (gestion formules en mode "prévisionnel"), pas prioritaire marge V1. Report V1.1 pour M12 scoring.                                                                    |
-| D10 (G) | **`nb_personnes_facturation` saisi par Ops Savr au dispatch (source de vérité)**                                                                                                    | Override Manager à l'acceptation, correction chauffeur en fin de tournée                            | Ops = qui négocie avec prestataire, connaissance besoin événement. Divergence réelle équipier indispo = ajustement facturation M08 (pas refactoring `nb_personnes_facturation`). |
-| D11 (H) | **Export CSV M07 pour contrôle manuel**, push Pennylane côté Plateforme (hors TMS)                                                                                                  | Auto-push TMS → Pennylane                                                                           | Séparation concerns : TMS = calcul coût logistique, Plateforme = intégration compta globale (marge incluse).                                                                     |
-| D12     | **Répartition coût par collecte = égale V1** (décision §03 M07)                                                                                                                     | Répartition au poids / temps / distance                                                             | Simplicité V1, pilotage marge suffisant. Affinement V2 possible si besoin précision.                                                                                             |
-| D13     | **Trigger DB synchrone pour calcul + trigger cross-schema synchrone pour recalc marge** (ajusté addendum 2026-05-01 A2, ex-"push S6 async")                                         | Push réseau async / webhook                                                                         | Tout en DB (même instance Supabase) : intégrité immédiate M08 + marge Plateforme recalculée sans réseau, sans retry, sans DLQ.                                                   |
-| D14     | **Formule = code + schema JSON (pas de DSL)** (décision §04)                                                                                                                        | DSL custom paramétrable par Admin                                                                   | Trop complexe V1, risque bugs. Couplage DB↔code assumé (ajout formule = migration + code).                                                                                       |
-| D15     | **Table `ajustements_couts_log` append-only** (audit)                                                                                                                               | Trace inline sur `tournees`                                                                         | Traçabilité sans limite, historique complet, conforme RGPD 3 ans.                                                                                                                |
+| # | Décision | Alternatives écartées | Raison |
+|---|----------|----------------------|--------|
+| D1 (A) | **Coût calculé figé post-clôture** | Recalcul auto à chaque modif grille | Cohérence M08 + exports compta + audit. Toute correction = ajustement manuel tracé. |
+| D2 (B) | **Ajustement manuel = champ séparé `cout_ajuste_ht`** (pas override) | Override direct `cout_calcule_ht` | Traçabilité audit, séparation calculé/humain, recalcul marge idempotent versionné (`push_s6_version`). |
+| D4 (C) | **Flag `tarif_sans_collecte_applicable`** par grille (défaut false) | Règle hardcodée par type prestataire | Paramétrage Admin TMS sans code, cohérent avec philosophie JSON paliers. |
+| D5 (C) | **Annulation < 3h avant démarrage = facturée, ≥ 3h = non facturée** (tous prestataires) — sobriété C3 2026-04-30 (ex-1h) | Seuil 1h initial / Ancienne R2.7 "avant/après début créneau" / règles différenciées par prestataire | Seuil élargi à 3h pour mieux couvrir les délais de mobilisation chauffeur. Règle uniforme simple et équitable. Authoritative §05 R2.7. |
+| D6 (D) | **Dashboard V1 = 5 widgets** (coût total, coût moyen prestataire, coût/collecte AG/ZD, top 10, pie prestataires) — sobriété A5 2026-04-30 (ex-6 widgets, W5 écart facture supprimé) | Widget coût/kg collecté / W5 écart TMS vs facturé | Simplicité V1, coût/kg reporté V2. W5 supprimé — info consultable directement dans M08 quand livré. |
+| D7 (E) | **Zéro rétroactivité sur grilles** (trigger DB bloque `date_debut_validite <= CURRENT_DATE`) | Autoriser modification rétroactive avec recalcul batch manuel | Simplicité, intégrité financière absolue. Cohérent avec D1 (figement). Renégos traitées par nouvelle grille future. → **Supprimée revue sobriété §05 2026-05-01 D2**. |
+| D9 (F) | **Pas de pré-calcul coût estimatif au dispatch V1** | Afficher coût estimé M02 | Complexité (gestion formules en mode "prévisionnel"), pas prioritaire marge V1. Report V1.1 pour M12 scoring. |
+| D10 (G) | **`nb_personnes_facturation` saisi par Ops Savr au dispatch (source de vérité)** | Override Manager à l'acceptation, correction chauffeur en fin de tournée | Ops = qui négocie avec prestataire, connaissance besoin événement. Divergence réelle équipier indispo = ajustement facturation M08 (pas refactoring `nb_personnes_facturation`). |
+| D11 (H) | **Export CSV M07 pour contrôle manuel**, push Pennylane côté Plateforme (hors TMS) | Auto-push TMS → Pennylane | Séparation concerns : TMS = calcul coût logistique, Plateforme = intégration compta globale (marge incluse). |
+| D12 | **Répartition coût par collecte = égale V1** (décision §03 M07) | Répartition au poids / temps / distance | Simplicité V1, pilotage marge suffisant. Affinement V2 possible si besoin précision. |
+| D13 | **Trigger DB synchrone pour calcul + trigger cross-schema synchrone pour recalc marge** (ajusté addendum 2026-05-01 A2, ex-"push S6 async") | Push réseau async / webhook | Tout en DB (même instance Supabase) : intégrité immédiate M08 + marge Plateforme recalculée sans réseau, sans retry, sans DLQ. |
+| D14 | **Formule = code + schema JSON (pas de DSL)** (décision §04) | DSL custom paramétrable par Admin | Trop complexe V1, risque bugs. Couplage DB↔code assumé (ajout formule = migration + code). |
+| D15 | **Table `ajustements_couts_log` append-only** (audit) | Trace inline sur `tournees` | Traçabilité sans limite, historique complet, conforme RGPD 3 ans. |
 
 ---
 
@@ -670,14 +637,13 @@ Transitions autorisées :
 
 > **Normatif (R_M11.1)** : tous les triggers M07 utilisent `tms.alerte_emit(code, ...)` avec codes canoniques catalogue.
 
-| Code canonique                       | Criticité | Trigger M07                                                                                                       |
-| ------------------------------------ | --------- | ----------------------------------------------------------------------------------------------------------------- |
-| `m07_horaires_manquants`             | critical  | Tournée passée à `terminee` sans `heure_reelle_debut` ou `heure_reelle_fin` (précheck `trg_m07_calc_cost` step 2) |
-| `m07_duree_nulle`                    | warning   | Durée réelle tournée = 0 (erreur saisie)                                                                          |
-| `m07_ajustement_pendant_facturation` | critical  | Tentative ajustement sur tournée verrouillée par facture (`cout_final_verrouille = true`, EC9)                    |
+| Code canonique | Criticité | Trigger M07 |
+|----------------|-----------|-------------|
+| `m07_horaires_manquants` | critical | Tournée passée à `terminee` sans `heure_reelle_debut` ou `heure_reelle_fin` (précheck `trg_m07_calc_cost` step 2) |
+| `m07_duree_nulle` | warning | Durée réelle tournée = 0 (erreur saisie) |
+| `m07_ajustement_pendant_facturation` | critical | Tentative ajustement sur tournée verrouillée par facture (`cout_final_verrouille = true`, EC9) |
 
 **Résolution auto W7** :
-
 - → **N/A revue sobriété §05 2026-05-01 D2** (code supprimé V1)
 - → **N/A revue sobriété 2026-05-01 A2 / propagation 2026-06-04** (code supprimé, S6 remplacé par recalcul cross-schema)
 
@@ -688,7 +654,6 @@ Transitions autorisées :
 ## 13. Liens
 
 ### Intra-CDC TMS
-
 - [[../03 - Périmètre fonctionnel TMS|§03 M07]] — spec macro (annulation seuil 3h, ajustements auto-validés, dashboard 5 widgets, pas de pré-calcul V1, pas de wizard, statut financier 3 valeurs)
 - [[../04 - Data Model TMS|§04]] — tables `formules_catalogue`, `grilles_tarifaires_prestataires` (contrainte `EXCLUDE USING gist`, vue `vue_grilles_etat_courant`), `tournees` (enum `statut_financier` 3 valeurs, `cout_final_verrouille` boolean unique, `cout_final_ht` non GENERATED, suppression `validation_admin_requise`), `ajustements_couts_log`, `parametres_tms` namespace `m07` (suppression `seuil_validation_ajustement_pourcent` + `alerte_expiration_grille_jours`)
 - [[../05 - Règles métier TMS|§05 R2]] — R2.1 à R2.6 + R2.7 (seuil 3h authoritative) + R2.8 (anti-rétroactivité authoritative) + R2.10 (R2.9 supprimée)
@@ -703,13 +668,11 @@ Transitions autorisées :
 - [[M14 - Intégration Everest (A Toutes!)]] — `everest_missions.cout_everest_ht` comparatif audit
 
 ### Cross-CDC (Plateforme)
-
-- [[01 - Cahier des charges App/04 - Data Model|§04 Plateforme]] — vue `v_courses_logistiques` _(ex-table `courses_logistiques` migrée en vue cross-schema 2026-05-01 A2)_ (colonnes exposées : `cout_final_ht`, `cout_reparti_ht`, `cout_ajuste`, `version_paiement` = alias de `push_s6_version`, `snapshot_cout_detail`)
+- [[01 - Cahier des charges App/04 - Data Model|§04 Plateforme]] — vue `v_courses_logistiques` *(ex-table `courses_logistiques` migrée en vue cross-schema 2026-05-01 A2)* (colonnes exposées : `cout_final_ht`, `cout_reparti_ht`, `cout_ajuste`, `version_paiement` = alias de `push_s6_version`, `snapshot_cout_detail`)
 - [[01 - Cahier des charges App/08 - APIs et intégrations|§08 Plateforme]] — lecture marge cross-schema (ex-S6 reception side supprimé) + intégration Pennylane
 - [[01 - Cahier des charges App/03 - Périmètre fonctionnel global|§03 Plateforme]] — Module 9 TMS + pilotage financier admin
 
 ### Décisions historiques
-
 - [[03 - Ateliers/Atelier tech avec frère - 2026-04-23]] — architecture schéma `tms.*`, RLS cross-schema
 - Décisions 2026-04-22 (§04) : table unifiée grilles, catalogue formules DB, paramétrable sans code
 - Décisions 2026-04-24 (ce fichier) : D1-D15 ci-dessus

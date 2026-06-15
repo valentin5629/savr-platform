@@ -1,16 +1,17 @@
 # 13 - Migration depuis Bubble
 
+**Statut** : Cadrage — le plan d'exécution détaillé vit dans `04 - Migration/` du Vault ([[../04 - Migration/01 - Inventaire source Bubble|01 - Inventaire source Bubble]], Phase 10 `cdc-migration-data` 2026-06-07)
+**Dernière mise à jour** : 2026-06-07 (amendements post-Phase 10 : factures = Pennylane, bordereaux/attestations = archive cold, volumes réels, source référentiel lieux)
+
 ---
 
 ## Coordination cross-CDC avec §13 TMS Migration MTS-1 (propagation 2026-04-27)
 
 Les deux migrations sont **simultanées** sur la même fenêtre temporelle :
-
 - **Côté Plateforme** (ce document) : Bubble → nouvelle Plateforme Savr (utilisateurs, packs AG, lieux, historique collectes, factures)
 - **Côté TMS** ([[../02 - Cahier des charges TMS/13 - Migration MTS-1]]) : MTS-1 → nouvelle TMS Savr (référentiel prestataires, double-run total 1 mois)
 
 **Alignements clés à acter en V1 finale** :
-
 - **Durée double-run** : 1 mois (cf. §13 TMS — aligner Phase 2 ci-dessous "2 à 4 semaines" sur 1 mois fixe)
 - **Communications** : clients (Plateforme) vs prestataires/chauffeurs (TMS) → audiences distinctes, à coordonner pour éviter doublons emails sur dirigeants prestataires qui seraient aussi clients
 - **Source légale fenêtre migration** : Bubble + MTS-1 (production) ; Plateforme nouvelle + TMS Savr = shadow + tests
@@ -22,15 +23,15 @@ Les deux migrations sont **simultanées** sur la même fenêtre temporelle :
 
 ## Volumes actuels (source Bubble)
 
-| Entité                      | Volume _(réels exports 2026-06-07 — inventaire Phase 10)_        |
-| --------------------------- | ---------------------------------------------------------------- |
-| Collectes alimentaires (AG) | **1 755** (2021→2026)                                            |
-| Collectes déchets (ZD)      | **222**                                                          |
-| Utilisateurs                | **306** lignes (~30-36 éligibles après filtre activité 12 mois)  |
-| Organisations traiteurs     | **133** (avant fusion doublons) + 157 agences                    |
-| Lieux                       | **773** lignes `Lieu événementiels` (avant dédup par adresse)    |
-| Packs AG                    | **24** + 22 abonnements historiques                              |
-| Factures émises             | n/a — **Pennylane = source de vérité** (décision Val 2026-06-07) |
+| Entité | Volume *(réels exports 2026-06-07 — inventaire Phase 10)* |
+|--------|--------|
+| Collectes alimentaires (AG) | **1 755** (2021→2026) |
+| Collectes déchets (ZD) | **222** |
+| Utilisateurs | **306** lignes (~30-36 éligibles après filtre activité 12 mois) |
+| Organisations traiteurs | **133** (avant fusion doublons) + 157 agences |
+| Lieux | **773** lignes `Lieu événementiels` (avant dédup par adresse) |
+| Packs AG | **24** + 22 abonnements historiques |
+| Factures émises | n/a — **Pennylane = source de vérité** (décision Val 2026-06-07) |
 
 **État général** : données peu structurées côté Bubble, difficilement accessibles. Migration 1:1 impossible, nécessite retravail manuel.
 
@@ -52,7 +53,6 @@ Les deux migrations sont **simultanées** sur la même fenêtre temporelle :
 ### Traitement manuel des cas manquants
 
 Si une collecte historique Bubble est incomplète (pas d'exutoire, pas de pesée, association manquante) :
-
 - Listing généré par le script de migration
 - Admin Savr complète manuellement via back-office **avant go-live** ou marque la collecte via le flag `collectes.historique_partiel = true` (visible dans le registre avec badge « Historique partiel » — **précisé 2026-06-07, F3 session test-scenarios §06.03** : flag boolean dédié, le statut reste `cloturee`, pas de 10e valeur d'enum)
 

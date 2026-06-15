@@ -83,7 +83,7 @@
   ],
   "tests": {
     "pgtap": [
-      "supabase/tests/m2_3_algo_attribution_ag.test.sql (30 tests)"
+      "supabase/tests/m2_3_algo_attribution_ag.test.sql (34 tests)"
     ],
     "vitest": [
       "packages/plateforme/tests/api/admin/algo-attribution-ag.m2-3.test.ts (13 tests)"

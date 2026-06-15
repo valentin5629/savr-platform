@@ -1,5 +1,8 @@
 # 12 - Reporting et exports
 
+**Statut** : Validé V1
+**Dernière mise à jour** : 2026-06-07 (**Session test-scenarios lot ⑫ — 5 floues tranchées Val** : **F1** persistance rapport « sans excédent » §1.3-bis = **ligne `rapports_rse` standard** (pas de colonne type, `disponible_a = genere_at` — pas d'embargo, `entity_type` `shared.fichiers` = `rapports_rse` existant) ; **F2** alerte pesées anormales §1.5 = **alerte in-app back-office seule** (email immédiat retiré — pas de 20e template §06.02) ; **F3** régénération manuelle traiteur_manager §1.2 = **Edge Function SERVICE_ROLE** avec contrôle applicatif du périmètre org (policy A8 §09 inchangée + test P1 anti-régénération cross-org) ; **F4** inclusion synthèse §1.6 = prédicat explicite `statut = cloturee AND realisee_at + 24h ≤ now()` ; **F5** histogramme Revenus §11 = statuts `emise|payee`, avoirs en négatif. Scénarios : `tests/11-12-dashboards-reporting-scenarios.md`.) / Antérieure : 2026-06-03 (**Revue de sobriété §12 Reporting et exports (skill `cdc-review-sobriete`) — 4 items appliqués zéro dette.** A1 : lien de partage public horodaté 90j **reporté V1.1** (aligné QR code) → V1 le `traiteur_manager` télécharge + transmet par email (propagé §05 + §15 + §16). A2 (PDF « sans excédent ») et B1 (graphes synthèse §1.6) **gardés V1** (refusés Val). **B2 ANNULÉE le 2026-06-03 (arbitrage Val, session sobriété §06.04)** : snapshot des filtres benchmark **rétabli** (PDF reproductible), colonne `rapports_rse.filtres_benchmark` **rétablie** + **légende des filtres ajoutée sous le graphe benchmark** du PDF (propagé §04 + §06.04 + §06.11) ; taux de recyclage reste figé (`collectes.taux_recyclage`). C1 : embargo H+24 = **énoncé canonique unique** en Vue d'ensemble (départ = `collectes.realisee_at`, fenêtre `rapports_rse.disponible_a`), §1.2/§1.3 y renvoient. C2 : notice CSRD = **une version canonique** (courte), longue conservée comme matériau post-dev. **6 fichiers App édités** (§12 + §05 + §15 + §16 + §04 + §06.04 + §06.11). **Cross-CDC : 0 divergence** (reporting Plateforme-only). Précédent : 2026-05-12 (note "À INTÉGRER LORS DE LA FINALISATION" §1.2 : notice méthodologique CSRD / ESRS E5 / AGEC, versions longue + courte + recommandations placement + QR code preuve d'audit, à finaliser au moment du rendu graphique PDF Rapport de recyclage). Précédent : 2026-05-06 (introduction Taux de recyclage indicateur unique ZD-only, suppression notion "Taux de valorisation". PDF Rapport RSE §1.2 et synthèse §1.6 alignés. Exports CSV ZD enrichis colonne `taux_recyclage`.)
+
 ---
 
 ## Vue d'ensemble
@@ -24,7 +27,6 @@ Deux types de sorties documentaires dans la Plateforme Savr :
 **Déclenchement** : batch automatique J+1 à 6h (le lendemain matin de la collecte).
 
 **Contenu** :
-
 - En-tête : nom événement, **date de l'événement** (référence client), **date de collecte** (mention "intervention le {{date_collecte}}" si ≠ date événement — vérité réglementaire du bordereau), lieu, traiteur, nombre de pax
 - Tableau des pesées par flux (5 flux ZD V1 : biodéchets, emballages, carton, verre, déchet résiduel)
 - Poids en kg + équivalent en nombre de bacs/rolls
@@ -45,7 +47,6 @@ Deux types de sorties documentaires dans la Plateforme Savr :
 **Règle embargo** : voir l'énoncé canonique H+24 en Vue d'ensemble (départ = `collectes.realisee_at`, fenêtre `rapports_rse.disponible_a`).
 
 **Logo client organisateur dans le rapport** : le rapport de recyclage inclut le logo du client organisateur en en-tête. Logique de priorité :
-
 1. Si `client_organisateur_organisation_id` est renseigné ET `organisations.logo_url` existe → logo du compte Savr
 2. Sinon, si `evenements.logo_client_organisateur_url` est renseigné → logo uploadé par le traiteur au moment de la programmation
 3. Sinon → pas de logo client (en-tête Savr seul)
@@ -75,7 +76,6 @@ Le PDF dit "rapport RSE" est désormais un document unique multi-pages qui agrè
 - **Page 3 (si collecte AG avec don)** — Attestation de don intégrée : reproduit intégralement le contenu du §1.3 Attestation AG (en-tête, association bénéficiaire, repas + estimation poids, mention 2041-GE si applicable).
 
 **Cohérence cross-section** :
-
 - Côté `traiteur` (§06.04) : la fiche collecte expose **uniquement** ce PDF unique (suppression UI bordereau/attestation/photos séparés).
 - Côté `gestionnaire_lieux` (§06.05) : le bloc Documents conserve l'**accès séparé** au bordereau ZD et à l'attestation AG (lecture indirecte des PDF unitaires §1.1 et §1.3 — pour conserver l'UX consultation détaillée par justificatif). Asymétrie assumée Val 2026-05-04.
 - Côté `Registre réglementaire` (§06.03) : les bordereaux ZD restent listés et téléchargeables séparément (justificatif réglementaire R541-45, accès indépendant du PDF agrégé).
@@ -86,7 +86,6 @@ Le PDF dit "rapport RSE" est désormais un document unique multi-pages qui agrè
 **Accessibilité** : Admin Savr + traiteur_manager + traiteur_commercial + client_organisateur (si rattaché à l'événement) + **agence + gestionnaire_lieux** (si l'organisation est programmatrice de la collecte — extension 2026-05-07). RLS par `organisation_id` (programmateur) + `traiteur_operationnel_organisation_id` (traiteur sur place) + `client_organisateur_organisation_id` (client final).
 
 **Branding (extension 2026-05-07)** : le logo affiché en couverture suit la priorité :
-
 1. Si la collecte est programmée par une agence → logo agence (`organisations.logo_url` du programmateur) prime
 2. Sinon, logique standard ci-dessus (logo client organisateur si renseigné, sinon logo traiteur opérationnel, sinon logo Savr seul)
 
@@ -131,14 +130,12 @@ Justification : l'agence partage ce rapport avec son client final, son branding 
 > Données mesurées. Pesée individuelle par flux, bordereaux horodatés, exutoires référencés (Veolia, Paprec). Niveau de qualité conforme à la norme ESRS E5 (`mesurée` — niveau primaire le plus élevé). Rapport utilisable comme pièce justificative pour reporting CSRD (limited et reasonable assurance), conformité AGEC, et sécurisation des communications environnementales contre le risque de greenwashing.
 
 **Recommandations d'intégration (à arbitrer)** :
-
 - Version courte → encart première page (signal de sérieux immédiat).
 - Version longue → dernière page, sous forme de "Notice méthodologique".
 - Pied de page de chaque page : "Rapport établi sur la base de données mesurées — conforme ESRS E5 / AGEC".
 - **Killer feature à challenger techniquement** : QR code dernière page renvoyant vers une page web Savr listant les bordereaux Strike/Veolia consultables par le client (preuve d'audit). Lève la barrière auditeur CSRD. Reportable V1.1 si trop lourd à industrialiser V1 — à intégrer dans la liste des features V1.1 / V2 si arbitrage défavorable V1.
 
 **Dépendances à valider avant intégration** :
-
 - Confirmation exutoires nominatifs (Veolia, Paprec) — ne mentionner que ceux réellement contractualisés au moment du go-live, sinon formulation générique "filières référencées".
 - Référence durée d'archivage (R541-43) à valider avec Cyril / juridique avant publication.
 - Mentions normes (ESRS E5, AGEC, Green Claims, art. L121-2) à faire relire pour éviter erreurs de cadrage.
@@ -153,7 +150,6 @@ Justification : l'agence partage ce rapport avec son client final, son branding 
 **Règle embargo** : même règle H+24 que le rapport de recyclage (énoncé canonique en Vue d'ensemble).
 
 **Contenu** :
-
 - En-tête événement — **date affichée = `evenements.date_evenement`** (date client). Date de collecte en mention secondaire si ≠ date événement.
 - Nom et adresse de l'association bénéficiaire
 - Quantité de repas donnés + estimation poids
@@ -193,7 +189,6 @@ Justification : l'agence partage ce rapport avec son client final, son branding 
 **Pas de photos dans le PDF** : la photo lieu prise par le chauffeur (preuve présence) reste stockée côté TMS (`tms.collectes_tms.photos[]`) et accessible uniquement à l'Admin Savr / Ops via le back-office. Décision Val 2026-05-04 : justificatif texte suffisant côté traiteur.
 
 **Accessibilité** : Admin Savr + traiteur_manager + traiteur_commercial. RLS par `organisation_id`. Téléchargeable depuis :
-
 - Picto rapport sur la ligne de la collecte (vue liste Collectes §06.04)
 - Picto rapport sur la fiche collecte (action "Télécharger le rapport")
 - Section Rapports RSE de l'espace traiteur
@@ -230,15 +225,15 @@ Le cas multi-camions ne produit **plus de faux positifs** : le TMS agrège les p
 
 **Seuils V1 (seed initial)** :
 
-| Flux            | Min (g/pax) | Max (g/pax) |
-| --------------- | ----------- | ----------- |
-| Biodéchets      | 15          | 150         |
-| Carton          | 2           | 20          |
-| Déchet résiduel | 40          | 400         |
-| Verre           | 20          | 200         |
-| Emballage       | 20          | 200         |
+| Flux | Min (g/pax) | Max (g/pax) |
+|---|---|---|
+| Biodéchets | 15 | 150 |
+| Carton | 2 | 20 |
+| Déchet résiduel | 40 | 400 |
+| Verre | 20 | 200 |
+| Emballage | 20 | 200 |
 
-_Min = 10% du max dans tous les cas. Logique : en dessous du min = données probablement manquantes ou saisie erreur TMS ; au-dessus du max = valeur aberrante._
+*Min = 10% du max dans tous les cas. Logique : en dessous du min = données probablement manquantes ou saisie erreur TMS ; au-dessus du max = valeur aberrante.*
 
 **Seuils stockés** dans `parametres_algo`, modifiables par Admin Savr sans redéploiement. Toute modification loggée dans `audit_log`.
 
@@ -251,10 +246,9 @@ _Min = 10% du max dans tous les cas. Logique : en dessous du min = données prob
 Rapport multi-collectes à destination des **traiteurs, agences et gestionnaires de lieux** (extension 2026-05-07 — initialement traiteurs + gestionnaires uniquement). **Génération à la demande uniquement** (refonte 2026-05-05 : suppression mode automatique récurrent + suppression archivage). Distinct des rapports de recyclage ZD (§1.2) qui sont unitaires par collecte/événement.
 
 **Périmètre par rôle** :
-
 - `traiteur_manager` / `traiteur_commercial` : agrégation des collectes où `traiteur_operationnel_organisation_id = current_org` (peu importe le programmateur)
 - `gestionnaire_lieux` : agrégation des collectes sur ses lieux (`evenements.lieu_id IN organisations_lieux`) ET de celles qu'il a programmées (`evenements.organisation_id = current_org`)
-- `agence` _(2026-05-07)_ : agrégation des collectes qu'elle a programmées (`evenements.organisation_id = current_org`), branding agence prioritaire en couverture
+- `agence` *(2026-05-07)* : agrégation des collectes qu'elle a programmées (`evenements.organisation_id = current_org`), branding agence prioritaire en couverture
 
 **Stockage** : aucun. Le PDF est généré, téléchargé directement par l'utilisateur, et **non persisté côté DB** (table `rapports_synthese` supprimée — voir [[04 - Data Model]]).
 
@@ -267,7 +261,6 @@ Rapport multi-collectes à destination des **traiteurs, agences et gestionnaires
 Déclenché par un user depuis son **dashboard** (bouton "Exporter une synthèse PDF" — refonte 2026-05-05, ex-formulaire dédié §5 Rapports RSE supprimé). Modal s'ouvre avec les filtres dashboard pré-remplis, ajustables avant génération.
 
 **Formulaire de génération (modal)** :
-
 1. Période : soit présélection (7j / 30j / Trimestre en cours / 12 derniers mois / Année civile / Personnalisée du X au Y), soit intervalle personnalisé (date_debut ≤ date_fin, pas de borne dans le futur)
 2. Filtres optionnels cumulables (pré-remplis depuis le dashboard) :
    - Lieux (multi-select) — scopé par périmètre utilisateur
@@ -284,7 +277,6 @@ Déclenché par un user depuis son **dashboard** (bouton "Exporter une synthèse
 #### Contenu du PDF (template unique)
 
 **Page de garde** :
-
 - Logo Savr + logo de l'organisation cible (si `organisations.logo_url` existe)
 - Titre : "Rapport de synthèse [périmètre] — [période]"
 - Sous-titre : filtres appliqués en clair si ≠ aucun (ex: "Lieux : Palais des Congrès, Carrousel du Louvre · Types : Zéro-Déchet")
@@ -292,7 +284,6 @@ Déclenché par un user depuis son **dashboard** (bouton "Exporter une synthèse
 - Nombre de collectes agrégées
 
 **Section 1 — Chiffres clés** :
-
 - Nombre de collectes sur la période
 - Tonnage total collecté (ventilé ZD / AG)
 - **Taux de recyclage moyen pondéré (ZD)** — moyenne pondérée par tonnage : `Σ (taux_recyclage × tonnage_collecte) / Σ tonnage_collecte`. Lecture directe depuis `collectes.taux_recyclage` (déjà figé à la clôture, formule à captation cf. [[05 - Règles métier#R_taux_recyclage]]). Cas `taux_recyclage IS NULL` (total pesées = 0) → exclu de la pondération.
@@ -300,33 +291,27 @@ Déclenché par un user depuis son **dashboard** (bouton "Exporter une synthèse
 - **Impact carbone agrégé (ZD, refonte 2026-06-04, Sujet 3)** : somme des `collectes.co2_evite_kg` (chiffre principal) + `co2_induit_kg` + `co2_net_kg` (lignes distinctes, règle ABC) + `energie_primaire_evitee_kwh` sur le périmètre, avec équivalences pédagogiques. Cf. [[05 - Règles métier#R_co2_calcul]].
 
 **Section 2 — Ventilation par flux (ZD uniquement)** :
-
 - Tableau poids par flux (5 flux ZD V1 : biodéchets, emballages, carton, verre, déchet résiduel)
 - Camembert associé
-- _(Pas de "taux de recyclage par flux" — supprimé 2026-05-06 : la métrique unique est le taux de recyclage global, calculé sur l'ensemble des 5 flux avec captation par filière.)_
+- *(Pas de "taux de recyclage par flux" — supprimé 2026-05-06 : la métrique unique est le taux de recyclage global, calculé sur l'ensemble des 5 flux avec captation par filière.)*
 
 **Section 3 — Ventilation Anti-Gaspi** :
-
 - Tableau : association bénéficiaire · nombre de collectes · repas donnés · poids
 - Top 3 associations bénéficiaires
 
 **Section 4 — Ventilation géographique** :
-
 - Tableau : lieu · nombre de collectes · tonnage
 - Affichée uniquement si le périmètre comporte ≥ 2 lieux
 
 **Section 5 — Évolution mensuelle** :
-
 - Graphique barres : tonnage mois par mois sur la période
 - Courbe associée du taux de recyclage moyen pondéré (ZD) — pondération par tonnage de collecte, formule à captation par filière (cf. [[05 - Règles métier#R_taux_recyclage]])
 
 **Section 6 — Détail des collectes** :
-
-- Tableau paginé : **date de l'événement** (`date_evenement`) · événement · lieu · type · tonnage · taux recyclage _(ZD uniquement, vide pour AG — métrique non applicable)_ · repas donnés. _(Grain : 1 ligne par événement ; le tonnage et le taux ZD sont ceux de la collecte ZD de l'événement — un éventuel multi-camions est déjà agrégé sous cette collecte côté TMS, révisé 2026-05-25 Sujet 1.)_
+- Tableau paginé : **date de l'événement** (`date_evenement`) · événement · lieu · type · tonnage · taux recyclage *(ZD uniquement, vide pour AG — métrique non applicable)* · repas donnés. *(Grain : 1 ligne par événement ; le tonnage et le taux ZD sont ceux de la collecte ZD de l'événement — un éventuel multi-camions est déjà agrégé sous cette collecte côté TMS, révisé 2026-05-25 Sujet 1.)*
 - Tri chronologique antéchronologique (sur `date_evenement`)
 
 **Annexes** :
-
 - Méthodologie de calcul des équivalents CO₂ — formules induit/évité/net + énergie (cf. [[05 - Règles métier#R_co2_calcul]]), règle ABC (évitées en ligne séparée), incertitude ADEME ±50 %, biodéchet = méthanisation, mix emballages appliqué.
 - Référentiel des facteurs utilisé (**version figée** depuis `collectes.co2_facteurs_snapshot`) : facteurs par flux + mix emballages + équivalences + forfait collecte + horodatage des paramètres. Garantit le quadruplet auditeur RSE (facteur + source + version + date).
 - Mentions légales Savr
@@ -335,16 +320,16 @@ Déclenché par un user depuis son **dashboard** (bouton "Exporter une synthèse
 
 #### Différence avec les rapports de recyclage unitaires
 
-| Aspect                  | Rapport recyclage (§1.2)                                                | Rapport synthèse agrégé (§1.6)                                                                                                                                                               |
-| ----------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Portée                  | 1 collecte ou 1 événement                                               | Multi-collectes sur période                                                                                                                                                                  |
-| Déclenchement auto      | J+1 6h                                                                  | **Aucun (refonte 2026-05-05 — supprimé)**                                                                                                                                                    |
-| Génération à la demande | Régénération manager                                                    | Bouton "Exporter une synthèse PDF" dashboard                                                                                                                                                 |
-| Embargo                 | H+24 après collecte                                                     | Aucun sur la génération — **prédicat d'inclusion des collectes (tranché 2026-06-07, F4 lot ⑫)** : `statut = 'cloturee' AND realisee_at + interval '24h' <= now()` (aligné embargo canonique) |
-| Filtres utilisateur     | Non                                                                     | Oui (lieux, traiteurs, types, clients organisateurs, commerciaux)                                                                                                                            |
-| Stockage                | DB (`rapports_rse`)                                                     | **Aucun (refonte 2026-05-05 — table `rapports_synthese` supprimée)**                                                                                                                         |
-| Envoi email             | Oui                                                                     | Non (téléchargement direct par l'utilisateur)                                                                                                                                                |
-| Destinataire possible   | Client Organisateur (download manager + envoi email ; lien public V1.1) | Interne organisation (l'utilisateur partage le PDF lui-même)                                                                                                                                 |
+| Aspect | Rapport recyclage (§1.2) | Rapport synthèse agrégé (§1.6) |
+|---|---|---|
+| Portée | 1 collecte ou 1 événement | Multi-collectes sur période |
+| Déclenchement auto | J+1 6h | **Aucun (refonte 2026-05-05 — supprimé)** |
+| Génération à la demande | Régénération manager | Bouton "Exporter une synthèse PDF" dashboard |
+| Embargo | H+24 après collecte | Aucun sur la génération — **prédicat d'inclusion des collectes (tranché 2026-06-07, F4 lot ⑫)** : `statut = 'cloturee' AND realisee_at + interval '24h' <= now()` (aligné embargo canonique) |
+| Filtres utilisateur | Non | Oui (lieux, traiteurs, types, clients organisateurs, commerciaux) |
+| Stockage | DB (`rapports_rse`) | **Aucun (refonte 2026-05-05 — table `rapports_synthese` supprimée)** |
+| Envoi email | Oui | Non (téléchargement direct par l'utilisateur) |
+| Destinataire possible | Client Organisateur (download manager + envoi email ; lien public V1.1) | Interne organisation (l'utilisateur partage le PDF lui-même) |
 
 #### RLS (refonte 2026-05-05)
 
@@ -364,20 +349,20 @@ Disponibles pour tous les profils, filtrés automatiquement par RLS — chaque u
 
 ### Exports disponibles par profil
 
-| Export                             | Admin Savr | Traiteur Manager | Traiteur Commercial |                               Agence                               |                                    Gestionnaire Lieux                                    | Client Final |
-| ---------------------------------- | :--------: | :--------------: | :-----------------: | :----------------------------------------------------------------: | :--------------------------------------------------------------------------------------: | :----------: |
-| Collectes (toutes / son périmètre) |     ✓      |        ✓         |          ✓          |                                 ✓                                  | ✓ _(extension 2026-05-07 — sur ses propres collectes programmées + via grain événement)_ |      ✓       |
-| Événements                         |     ✓      |        ✓         |          ✓          |                                 ✓                                  |                                  ✓ _(grain événement)_                                   |      ✓       |
-| Pesées par flux                    |     ✓      |        ✓         |          —          | ✓ _(extension 2026-05-07 — sur ses propres collectes programmées)_ |                               — _(via PDF synthèse §1.6)_                                |      ✓       |
-| Facturation (brouillons + envoyés) |     ✓      |        ✓         | ✓ (ses événements)  |                     ✓ _(extension 2026-05-07)_                     |                                ✓ _(extension 2026-05-07)_                                |      —       |
-| Packs AG (mouvements)              |     ✓      |        ✓         |          —          |                     ✓ _(extension 2026-05-07)_                     |                                ✓ _(extension 2026-05-07)_                                |      —       |
-| Associations bénéficiaires AG      |     ✓      |        ✓         |          —          |                                 —                                  |                                            —                                             |      —       |
-| Impact RSE consolidé               |     ✓      |        ✓         |          —          |                     ✓ _(extension 2026-05-07)_                     |                                            ✓                                             |      ✓       |
-| Courses logistiques                |     ✓      |        —         |          —          |                                 —                                  |                                            —                                             |      —       |
+| Export | Admin Savr | Traiteur Manager | Traiteur Commercial | Agence | Gestionnaire Lieux | Client Final |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| Collectes (toutes / son périmètre) | ✓ | ✓ | ✓ | ✓ | ✓ *(extension 2026-05-07 — sur ses propres collectes programmées + via grain événement)* | ✓ |
+| Événements | ✓ | ✓ | ✓ | ✓ | ✓ *(grain événement)* | ✓ |
+| Pesées par flux | ✓ | ✓ | — | ✓ *(extension 2026-05-07 — sur ses propres collectes programmées)* | — *(via PDF synthèse §1.6)* | ✓ |
+| Facturation (brouillons + envoyés) | ✓ | ✓ | ✓ (ses événements) | ✓ *(extension 2026-05-07)* | ✓ *(extension 2026-05-07)* | — |
+| Packs AG (mouvements) | ✓ | ✓ | — | ✓ *(extension 2026-05-07)* | ✓ *(extension 2026-05-07)* | — |
+| Associations bénéficiaires AG | ✓ | ✓ | — | — | — | — |
+| Impact RSE consolidé | ✓ | ✓ | — | ✓ *(extension 2026-05-07)* | ✓ | ✓ |
+| Courses logistiques | ✓ | — | — | — | — | — |
 
 **Précision gestionnaire de lieux V1 (refonte 2026-05-03)** : la page Collectes côté gestionnaire a été supprimée → l'export tabulaire CSV gestionnaire vit désormais sur la liste **Événements** uniquement, avec un **grain événement** (1 ligne CSV = 1 événement, données agrégées). Pour le détail collecte par collecte (pesées par flux, repas, bordereaux, attestations), le gestionnaire passe par les rapports de synthèse PDF (§1.6) ou par une demande au support. Décision Val (option C1).
 
-**Colonnes export Événements gestionnaire** : `date_evenement`, `nom_evenement`, `lieu`, `traiteur`, `type_evenement`, `taille_bracket`, `pax`, `nb_collectes_zd`, `nb_collectes_ag`, `tonnage_zd_kg`, `taux_recyclage_pct` _(renommé 2026-05-06 — ex `taux_tri_pct`. Moyenne pondérée par tonnage des `collectes.taux_recyclage` ZD de l'événement, formule à captation cf. [[05 - Règles métier#R_taux_recyclage]])_, `repas_ag`, `statut_consolide`, `date_premiere_collecte`, `date_derniere_collecte`.
+**Colonnes export Événements gestionnaire** : `date_evenement`, `nom_evenement`, `lieu`, `traiteur`, `type_evenement`, `taille_bracket`, `pax`, `nb_collectes_zd`, `nb_collectes_ag`, `tonnage_zd_kg`, `taux_recyclage_pct` *(renommé 2026-05-06 — ex `taux_tri_pct`. Moyenne pondérée par tonnage des `collectes.taux_recyclage` ZD de l'événement, formule à captation cf. [[05 - Règles métier#R_taux_recyclage]])*, `repas_ag`, `statut_consolide`, `date_premiere_collecte`, `date_derniere_collecte`.
 
 ### Format
 
@@ -399,7 +384,6 @@ L'export respecte les filtres actifs dans l'interface au moment du clic. Exemple
 **Périmètre** : déclenché après validation officielle du référencement Citeo (attendue début mai 2026).
 
 **Contenu de l'export** :
-
 - Par collecte : date, lieu, traiteur, volumes d'emballages collectés par flux **en équivalent roll** (nombre de rolls × volume unitaire roll)
 - Conversion automatique kg → équivalent roll sur la base du référentiel Savr (ratio par flux)
 - Format conforme aux exigences de déclaration REP Emballages
@@ -410,31 +394,31 @@ L'export respecte les filtres actifs dans l'interface au moment du clic. Exemple
 
 ## Décisions prises
 
-| Décision                                                                                                                                             | Alternative écartée                                                                   | Raison                                                                                                                                                                                                                                                                                                         |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Embargo 24h sur tous les rapports                                                                                                                    | Génération immédiate post-collecte                                                    | Laisse le temps à l'Admin de corriger les pesées TMS avant première émission                                                                                                                                                                                                                                   |
-| Exports CSV pour tous les profils                                                                                                                    | Admin uniquement                                                                      | Coût nul, valeur pour tous. RLS garantit que chaque profil ne voit que ses données                                                                                                                                                                                                                             |
-| Alerte pesées anormales **in-app back-office** Admin _(F2 lot ⑫ 2026-06-07)_                                                                         | Blocage automatique / email immédiat                                                  | L'alerte informe sans bloquer — l'Admin décide de corriger ou de valider. Email retiré (pas de template §06.02, le back-office est l'outil de travail quotidien Ops)                                                                                                                                           |
-| Régénération manuelle par traiteur_manager                                                                                                           | Admin uniquement                                                                      | Autonomie traiteur, réduit les sollicitations Admin Savr                                                                                                                                                                                                                                                       |
-| Picto + mention PDF si régénération                                                                                                                  | Pas de signalement                                                                    | Traçabilité et confiance client — le rapport reflète les données les plus récentes                                                                                                                                                                                                                             |
-| Export Citeo V1.1                                                                                                                                    | V1                                                                                    | Validation Citeo non encore obtenue. Données déjà collectées en V1, export = requête SQL                                                                                                                                                                                                                       |
-| CSV séparateur `;`                                                                                                                                   | Séparateur `,`                                                                        | Compatible Excel FR sans manipulation supplémentaire                                                                                                                                                                                                                                                           |
-| Rapports de synthèse agrégés sans email auto                                                                                                         | Envoi email à chaque génération                                                       | Volume emails trop important, faible valeur — l'utilisateur récupère à la demande                                                                                                                                                                                                                              |
-| Périodes civiles + intervalle personnalisé pour synthèse à la demande                                                                                | Périodes civiles uniquement                                                           | Flexibilité nécessaire pour les besoins RFP, bilans clients, reporting interne non aligné calendrier civil                                                                                                                                                                                                     |
-| Filtres multi-dimensions (lieux + traiteurs + types + commerciaux)                                                                                   | Filtre unique ou aucun                                                                | Un seul template, plusieurs angles d'analyse — évite de multiplier les templates PDF spécifiques                                                                                                                                                                                                               |
-| Pas d'idempotence sur rapports à la demande                                                                                                          | Unicité `(org, période, filtres)`                                                     | Un même rapport peut légitimement être régénéré après correction de pesée ou nouvelle collecte                                                                                                                                                                                                                 |
-| **Refonte 2026-05-05** — Suppression batchs auto synthèses (mensuel/trimestriel/annuel) + suppression table `rapports_synthese` + suppression bucket | Conservation batchs + archivage                                                       | Sobriété V1 max. Volume usage non démontré, complexité batch + stockage non justifiée. Réactivation possible V1.1.                                                                                                                                                                                             |
-| **Refonte 2026-05-05** — Bloc benchmark kg/pax intégré au rapport RSE collecte ZD (§1.2 page 1)                                                      | Bloc absent du PDF                                                                    | Le traiteur génère le PDF pour son client → support visuel comparatif valorise la performance.                                                                                                                                                                                                                 |
-| **ANNULÉE 2026-06-03 (arbitrage Val, session sobriété §06.04)**                                                                                      | Snapshot persisté pour PDF reproductible                                              | Décision B2 **revenue** le jour même : Val veut conserver le snapshot des filtres benchmark (PDF reproductible) + **ajout d'une légende sous le graphe** précisant les filtres appliqués. Colonne `rapports_rse.filtres_benchmark` **rétablie** (cf. [[04 - Data Model]]). Le calcul à la volée est abandonné. |
-| **Refonte 2026-05-05** — Génération synthèse à la demande via modal depuis le dashboard, plus de section dédiée Rapports RSE                         | Section dédiée Rapports RSE                                                           | Un seul point d'entrée (dashboard), filtres pré-remplis depuis le contexte courant, pas de navigation supplémentaire                                                                                                                                                                                           |
-| **Refonte 2026-05-06** — Taux de recyclage indicateur unique ZD-only, formule à captation par filière (méthode UE 2019/1004)                         | Coexistence "Taux de détournement" + "Taux de recyclage net" + "Taux de valorisation" | Cohérence vocabulaire client + alignement standard UE + simplicité explication. Suppression "Taux de valorisation" du modèle. PDF Rapport RSE §1.2 et synthèse §1.6 alignés. Export CSV ZD enrichi colonne `taux_recyclage_pct` (ex `taux_tri_pct`).                                                           |
-| **Refonte 2026-05-21 (D2)** — Date de référence client = `date_evenement` sur tous les documents/exports client                                      | Affichage `date_collecte` (date logistique) en tête                                   | Le client reconnaît la date de son événement, pas la date d'intervention (qui peut être la nuit/le lendemain). Date de collecte reléguée en mention "intervention le …" + conservée comme référence des documents réglementaires (bordereau) / logistiques (constat chauffeur).                                |
-| **Révisé 2026-05-25 (Sujet 1, option A)**                                                                                                            | Rapport par collecte                                                                  | Révision : multi-camions interne au TMS (1 collecte ZD → N tournées), rapport au **niveau de la collecte ZD** (pesées des N camions agrégées sous la collecte par S5).                                                                                                                                         |
-| **Révisé 2026-05-25 (Sujet 1, option A)**                                                                                                            | Contrôle g/pax par collecte                                                           | Le contrôle revient **par collecte** : le TMS agrège les N camions sous la collecte ZD, donc le volume complet est rapporté au `nb_pax` complet — plus de faux positifs, plus d'attente "toutes collectes ZD realisee".                                                                                        |
+| Décision | Alternative écartée | Raison |
+|---|---|---|
+| Embargo 24h sur tous les rapports | Génération immédiate post-collecte | Laisse le temps à l'Admin de corriger les pesées TMS avant première émission |
+| Exports CSV pour tous les profils | Admin uniquement | Coût nul, valeur pour tous. RLS garantit que chaque profil ne voit que ses données |
+| Alerte pesées anormales **in-app back-office** Admin *(F2 lot ⑫ 2026-06-07)* | Blocage automatique / email immédiat | L'alerte informe sans bloquer — l'Admin décide de corriger ou de valider. Email retiré (pas de template §06.02, le back-office est l'outil de travail quotidien Ops) |
+| Régénération manuelle par traiteur_manager | Admin uniquement | Autonomie traiteur, réduit les sollicitations Admin Savr |
+| Picto + mention PDF si régénération | Pas de signalement | Traçabilité et confiance client — le rapport reflète les données les plus récentes |
+| Export Citeo V1.1 | V1 | Validation Citeo non encore obtenue. Données déjà collectées en V1, export = requête SQL |
+| CSV séparateur `;` | Séparateur `,` | Compatible Excel FR sans manipulation supplémentaire |
+| Rapports de synthèse agrégés sans email auto | Envoi email à chaque génération | Volume emails trop important, faible valeur — l'utilisateur récupère à la demande |
+| Périodes civiles + intervalle personnalisé pour synthèse à la demande | Périodes civiles uniquement | Flexibilité nécessaire pour les besoins RFP, bilans clients, reporting interne non aligné calendrier civil |
+| Filtres multi-dimensions (lieux + traiteurs + types + commerciaux) | Filtre unique ou aucun | Un seul template, plusieurs angles d'analyse — évite de multiplier les templates PDF spécifiques |
+| Pas d'idempotence sur rapports à la demande | Unicité `(org, période, filtres)` | Un même rapport peut légitimement être régénéré après correction de pesée ou nouvelle collecte |
+| **Refonte 2026-05-05** — Suppression batchs auto synthèses (mensuel/trimestriel/annuel) + suppression table `rapports_synthese` + suppression bucket | Conservation batchs + archivage | Sobriété V1 max. Volume usage non démontré, complexité batch + stockage non justifiée. Réactivation possible V1.1. |
+| **Refonte 2026-05-05** — Bloc benchmark kg/pax intégré au rapport RSE collecte ZD (§1.2 page 1) | Bloc absent du PDF | Le traiteur génère le PDF pour son client → support visuel comparatif valorise la performance. |
+| **ANNULÉE 2026-06-03 (arbitrage Val, session sobriété §06.04)** | Snapshot persisté pour PDF reproductible | Décision B2 **revenue** le jour même : Val veut conserver le snapshot des filtres benchmark (PDF reproductible) + **ajout d'une légende sous le graphe** précisant les filtres appliqués. Colonne `rapports_rse.filtres_benchmark` **rétablie** (cf. [[04 - Data Model]]). Le calcul à la volée est abandonné. |
+| **Refonte 2026-05-05** — Génération synthèse à la demande via modal depuis le dashboard, plus de section dédiée Rapports RSE | Section dédiée Rapports RSE | Un seul point d'entrée (dashboard), filtres pré-remplis depuis le contexte courant, pas de navigation supplémentaire |
+| **Refonte 2026-05-06** — Taux de recyclage indicateur unique ZD-only, formule à captation par filière (méthode UE 2019/1004) | Coexistence "Taux de détournement" + "Taux de recyclage net" + "Taux de valorisation" | Cohérence vocabulaire client + alignement standard UE + simplicité explication. Suppression "Taux de valorisation" du modèle. PDF Rapport RSE §1.2 et synthèse §1.6 alignés. Export CSV ZD enrichi colonne `taux_recyclage_pct` (ex `taux_tri_pct`). |
+| **Refonte 2026-05-21 (D2)** — Date de référence client = `date_evenement` sur tous les documents/exports client | Affichage `date_collecte` (date logistique) en tête | Le client reconnaît la date de son événement, pas la date d'intervention (qui peut être la nuit/le lendemain). Date de collecte reléguée en mention "intervention le …" + conservée comme référence des documents réglementaires (bordereau) / logistiques (constat chauffeur). |
+| **Révisé 2026-05-25 (Sujet 1, option A)** | Rapport par collecte | Révision : multi-camions interne au TMS (1 collecte ZD → N tournées), rapport au **niveau de la collecte ZD** (pesées des N camions agrégées sous la collecte par S5). |
+| **Révisé 2026-05-25 (Sujet 1, option A)** | Contrôle g/pax par collecte | Le contrôle revient **par collecte** : le TMS agrège les N camions sous la collecte ZD, donc le volume complet est rapporté au `nb_pax` complet — plus de faux positifs, plus d'attente "toutes collectes ZD realisee". |
 
 ## Questions ouvertes
 
-_Aucune pour cette section._
+*Aucune pour cette section.*
 
 ## Liens
 

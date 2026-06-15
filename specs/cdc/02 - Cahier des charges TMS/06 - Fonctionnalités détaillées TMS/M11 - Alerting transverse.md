@@ -12,7 +12,6 @@ Centraliser dans un point unique toutes les alertes opérationnelles émises par
 **Problème résolu** : sans M11, chaque module émet ses alertes dans son coin, Ops Savr surveille 8 endroits différents, rate des signaux critiques ou subit la fatigue d'alertes redondantes. M11 = chef d'orchestre + single source of truth.
 
 **Non-objectifs V1** :
-
 - Monitoring infrastructure / APM (Sentry/Datadog) — orthogonal, à brancher en parallèle par le frère en atelier tech
 - Page d'incident publique — pas de statut page V1
 - Intégration PagerDuty / astreinte formalisée — reporté V2
@@ -22,13 +21,13 @@ Centraliser dans un point unique toutes les alertes opérationnelles émises par
 
 ## 2. Personas
 
-| Persona                    | Rôle M11                                                                                                                                                                                         |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Ops Savr**               | Consomme 90 % des alertes. Dashboard principal. Ack + résolution. Utilise snooze pour temporiser. Aucune alerte `critical` ne doit lui échapper.                                                 |
-| **Admin TMS** (Val, Louis) | Destinataire des alertes `critical` (email). Configure le catalogue d'alertes (criticité, destinataires, canaux) via M13. Accède au dashboard avec vue exhaustive.                               |
-| **Admin Savr**             | Reçoit les alertes `critical` cross-domaine qui ont un impact Plateforme (ex : webhook Plateforme↔TMS DLQ). Peut ack/résoudre comme tout staff (**tranché 2026-06-07 F1**). Intervient rarement. |
-| **Manager prestataire**    | Ne voit **pas** le dashboard M11. Reçoit uniquement les alertes métier qui le concernent via M03 (rappel facture J+5, relance acceptation collecte) — routées par M11 mais UX dans M03.          |
-| **Chauffeur**              | Non concerné. Les notifications chauffeur (attribution tournée, rappel H-30) passent par M05 PWA push, hors périmètre M11.                                                                       |
+| Persona | Rôle M11 |
+|---------|---------|
+| **Ops Savr** | Consomme 90 % des alertes. Dashboard principal. Ack + résolution. Utilise snooze pour temporiser. Aucune alerte `critical` ne doit lui échapper. |
+| **Admin TMS** (Val, Louis) | Destinataire des alertes `critical` (email). Configure le catalogue d'alertes (criticité, destinataires, canaux) via M13. Accède au dashboard avec vue exhaustive. |
+| **Admin Savr** | Reçoit les alertes `critical` cross-domaine qui ont un impact Plateforme (ex : webhook Plateforme↔TMS DLQ). Peut ack/résoudre comme tout staff (**tranché 2026-06-07 F1**). Intervient rarement. |
+| **Manager prestataire** | Ne voit **pas** le dashboard M11. Reçoit uniquement les alertes métier qui le concernent via M03 (rappel facture J+5, relance acceptation collecte) — routées par M11 mais UX dans M03. |
+| **Chauffeur** | Non concerné. Les notifications chauffeur (attribution tournée, rappel H-30) passent par M05 PWA push, hors périmètre M11. |
 
 ---
 
@@ -41,7 +40,6 @@ Centraliser dans un point unique toutes les alertes opérationnelles émises par
 **Accès** : `ops_savr`, `admin_tms`, `admin_savr` — les 3 rôles staff peuvent ack/snoozer/résoudre (**tranché Val 2026-06-07 F1** : ex-mention « lecture seule pour admin_savr » retirée, contradiction avec W4/EC13 levée en faveur du droit d'agir)
 
 **Layout** :
-
 - **Header KPI** (4 tuiles compteurs, rafraîchissement 30s via polling simple, pas de realtime V1) :
   - `Ouvertes` — count alertes `statut = 'ouverte'` toutes criticités (inclut les ackées — `ackee_at IS NOT NULL`)
   - `Critical non ackées` — count `criticite='critical' AND statut='ouverte' AND ackee_at IS NULL` (highlight rouge si > 0)
@@ -62,7 +60,6 @@ Centraliser dans un point unique toutes les alertes opérationnelles émises par
   - Row click → drawer détail (E2)
 
 **États vides** :
-
 - Aucune alerte ouverte : illustration calme + message "Tout est sous contrôle. Dernière alerte résolue il y a X min."
 - Filtres trop restrictifs : bouton "Réinitialiser filtres"
 
@@ -71,7 +68,6 @@ Centraliser dans un point unique toutes les alertes opérationnelles émises par
 **Déclenchement** : click row E1 ou deeplink `/alertes/:id`
 
 **Contenu** :
-
 - Titre + criticité (pastille + libellé)
 - Code canonique (monospace, copiable)
 - Entity liée : card clickable `{entity_type}:{entity_id}` → navigation vers la fiche (tournée, facture, collecte, prestataire)
@@ -91,18 +87,15 @@ Centraliser dans un point unique toutes les alertes opérationnelles émises par
 **Accès** : `admin_tms` uniquement (lecture+écriture), `ops_savr` lecture seule
 
 **Layout** :
-
 - Table de tous les codes (`alertes_catalogue` — cf. §11)
 - Colonnes : Code | Titre | Description | Criticité par défaut | Destinataires par défaut | Active (bool) | Dernière émission
 - Actions : `Éditer` | `Désactiver` (bascule `active=false` → plus aucune émission)
 
 **Bloc 4 sobriété 2026-04-25** :
-
 - A11 colonne `Canaux` retirée (matrice canal/criticité figée hardcodée V1 : `warning` → in-app, `critical` → in-app + email Resend)
 - A5 bouton `Tester` retiré (RPC `m11_emit_test` + cron + rate limit dégagés V1, cf. )
 
 **Édition** (modal ou page dédiée) :
-
 - Modifier criticité par défaut (peut être override par code appelant)
 - Modifier destinataires (rôles + user IDs + manager prestataire scope)
 - Activer / désactiver le code sans redéploiement
@@ -210,7 +203,6 @@ $$;
 ```
 
 **Contrat** :
-
 - Idempotent sur la fenêtre de debounce : 2 appels identiques en < 5 min → 1 alerte + counter incrémenté
 - Jamais bloquant : échec notif → log `integrations_logs` + alerte continue son cycle
 - Appelable depuis SECURITY DEFINER (les triggers DB et les services Node passent tous par cette fonction)
@@ -220,7 +212,6 @@ $$;
 **Fonction helper** : `tms.m11_resoudre_destinataires(catalogue_row, extras uuid[])`
 
 Logique :
-
 1. Start avec `catalogue_row.destinataires_par_defaut` (JSONB `{"roles": ["ops_savr"], "users": ["..."], "manager_prestataire_scope": "entity"|"none"}`)
 2. Résoudre `roles` → liste des `user_ids` ayant le rôle dans `users_tms` actif non archivé
 3. Ajouter `users` (user_ids explicites)
@@ -243,7 +234,6 @@ Logique :
 **Note revue de sobriété 2026-04-25 (A6)** : canal Slack dégagé V1 (infra dormante, route entrante boutons, format Block Kit, paramètres `m11_slack_*` retirés). Si réactivation décidée ultérieurement, recoder à partir de zéro (estimation 1 jour dev).
 
 **V2 (post-feedback terrain)** :
-
 - D7 V2 activera digest matinal 7h (cron + template)
 
 ### W4 — Ack (user prend en charge)
@@ -253,13 +243,11 @@ Logique :
 **RPC** : `tms.m11_ack(alerte_id uuid)`
 
 **Effet** (Bloc 6 sobriété 2026-04-28 B2 + C1) :
-
 - UPDATE `ackee_par_user_id=auth.uid(), ackee_at=now()` — **statut reste `'ouverte'`** (ack = metadata, plus un état enum)
 - INSERT `tms.audit_logs` (`entity_type='alerte', row_id=alerte_id, action='M11_ACK', acteur_user_id=auth.uid()`, `contexte JSONB {ackee_at}`)
 - Pas de notif re-déclenchée (ack = interne user)
 
 **Contraintes** :
-
 - Alerte doit avoir `statut = 'ouverte'` et `resolue_at IS NULL` (ack sur alerte snoozée ou résolue rejeté)
 - User doit avoir rôle staff `ops_savr / admin_tms / admin_savr` (**tranché 2026-06-07 F5** : un manager prestataire destinataire est lecture seule — aligné §13.4 SELECT only + bandeau M03 sans action ; ack manager = V1.1 si un code scope entity apparaît)
 - Double ack idempotent : si `ackee_at IS NOT NULL`, retour silencieux (pas d'erreur)
@@ -271,14 +259,12 @@ Logique :
 **RPC** : `tms.m11_snooze(alerte_id uuid, duree_heures integer, motif text DEFAULT NULL)`
 
 **Effet** :
-
 - UPDATE `statut='snoozee', snoozee_jusqu_a=now() + (duree_heures * interval '1 hour'), snoozee_par_user_id, snoozee_motif`
 - INSERT `tms.audit_logs` (`entity_type='alerte', row_id=alerte_id, action='M11_SNOOZE', acteur_user_id, contexte {duree_heures, motif, jusqu_a}`) — Bloc 6 sobriété 2026-04-28 C1
 - L'alerte est filtrée par défaut dans E1 (réapparaît après `snoozee_jusqu_a`)
 - Cron `m11_unsnoozer` (toutes les 5 min) repasse `statut='ouverte'` si `snoozee_jusqu_a < now()` ET statut encore `snoozee`
 
 **Contraintes** :
-
 - Durée acceptée : 1h, 4h, 24h uniquement — **hardcodée dans la RPC** (paramètre `m11.snooze_durees_autorisees` supprimé 2026-06-07 F4, source unique, pas de picker libre)
 - Motif obligatoire pour `criticite='critical'` (≥ 10 caractères), optionnel sinon
 - Snooze réservé au staff `ops_savr / admin_tms / admin_savr` (**tranché 2026-06-07 F5** : manager prestataire destinataire = lecture seule)
@@ -290,7 +276,6 @@ Logique :
 **RPC** : `tms.m11_resoudre_manuel(alerte_id uuid, motif text DEFAULT NULL)`
 
 **Effet** :
-
 - UPDATE `statut='resolue', resolue_par_user_id, resolue_at, resolue_motif, resolue_source='manuel'`
 - INSERT `tms.audit_logs` (`entity_type='alerte', row_id=alerte_id, action='M11_RESOLVE_MANUEL', acteur_user_id, contexte {motif}`) — Bloc 6 sobriété 2026-04-28 C1
 
@@ -301,7 +286,6 @@ Logique :
 **Principe** (D5 option d combinée auto-résolution) : quand la condition qui a déclenché l'alerte n'est plus vraie, le module émetteur appelle `tms.alerte_resoudre_auto(code, entity_type, entity_id, raison)`.
 
 **Exemples** :
-
 - Facture `m08_facture_ecart_detecte` → manager upload avoir + nouvelle facture → M08 W6 appelle `alerte_resoudre_auto('m08_facture_ecart_detecte', 'facture_prestataire', id_ancienne, 'remplacee_par_avoir')`
 - → **Code supprimé revue sobriété §05 2026-05-01 A1** (W11 cron supprimé V1, supervision via widget M08 E0 manuelle).
 - → **N/A revue sobriété §05 2026-05-01 D2** (code supprimé V1, cas impossible par construction)
@@ -310,7 +294,6 @@ Logique :
 **RPC** : `tms.alerte_resoudre_auto(code, entity_type, entity_id, raison text)`
 
 **Effet** :
-
 - UPDATE toutes les alertes `code + entity_type + entity_id + statut IN ('ouverte','snoozee')` → `statut='resolue', resolue_source='auto', resolue_raison=raison, resolue_at=now()` — **Bloc 6 sobriété 2026-04-28 B2** : `ackee` retiré (ackée = metadata sur `ouverte`, résolvable sans changement d'état préalable)
 - INSERT `tms.audit_logs` par alerte résolue (`action='M11_RESOLVE_AUTO', entity_type='alerte', row_id=alerte_id, contexte {raison}`) — Bloc 6 C1
 - Pas de notif (résolution silencieuse, user verra l'alerte disparaître du dashboard)
@@ -324,7 +307,6 @@ Logique :
 **Déclenchement** : Admin TMS dans E4, bouton "Désactiver"
 
 **Effet** :
-
 - UPDATE `alertes_catalogue SET active=false, desactive_par_user_id, desactive_at, desactive_motif`
 - À partir de T, tout appel `alerte_emit(code='X', ...)` avec X désactivé renvoie `NULL` sans INSERT
 - Les alertes historiques de ce code restent dans `tms.alertes` (trace)
@@ -342,17 +324,16 @@ Logique :
 
 ### 5.1 Matrice V1 canaux/criticités
 
-| Criticité  | In-app | Email        | SMS V1 | Push PWA |
-| ---------- | ------ | ------------ | ------ | -------- |
-| `warning`  | Oui    | Non          | Non    | Non      |
-| `critical` | Oui    | Oui (Resend) | Non    | Non      |
+| Criticité | In-app | Email | SMS V1 | Push PWA |
+|-----------|--------|-------|--------|----------|
+| `warning` | Oui    | Non   | Non | Non |
+| `critical`| Oui    | Oui (Resend) | Non | Non |
 
 **Note Bloc 3 sobriété 2026-04-25 (A1)** : criticité `info` dégagée V1. Les events précédemment émis en `info` (audit only, sans notif) sont désormais tracés directement dans `tms.audit_logs` ou `integrations_logs` selon le module émetteur — voir propagation §13.
 
 ### 5.2 Email `alerte_critical_v1`
 
 Template Resend, variables :
-
 - `{{titre}}` — ex : "Grille tarifaire manquante — Tournée T#12345"
 - `{{criticite_badge}}` — HTML badge rouge
 - `{{code}}` — ex : `m07_cout_manquant`
@@ -377,25 +358,25 @@ Objet : `[Savr TMS / Critical] {{titre}}`
 
 ## 6. Edge cases
 
-| #    | Cas                                                                            | Comportement V1                                                                                                                                                                                                                                                                                                                                                                            |
-| ---- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| EC1  | Code appelé inconnu (typo dev)                                                 | `alerte_emit` lève exception `ALERT001`. Le trigger appelant DB rollback la transaction underlying. **Strict** pour forcer la discipline catalogue.                                                                                                                                                                                                                                        |
-| EC2  | Code désactivé par Admin                                                       | `alerte_emit` renvoie `NULL` silencieusement. Pas d'exception. Aucune alerte créée.                                                                                                                                                                                                                                                                                                        |
-| EC3  | Code supprimé (soft delete)                                                    | `alerte_emit` lève exception `ALERT002`. Le code doit être réactivé via Admin catalogue ou remplacé dans le code émetteur.                                                                                                                                                                                                                                                                 |
-| EC4  | Destinataire user archivé au moment du dispatch notif                          | Filtré par service notif (pas par W2). L'alerte reste visible dans E1 pour les autres destinataires. Si aucun destinataire valide après filtre : alerte reste en `statut=ouverte` (pas d'auto-résolution), cas à investiguer par Admin (signal catalogue mal configuré).                                                                                                                   |
-| EC5  | Ack sur alerte déjà résolue                                                    | UI : bouton Ack désactivé. Backend : RPC retourne erreur `alerte_non_ackable` + current_status.                                                                                                                                                                                                                                                                                            |
-| EC6  | Snooze dépassant 24h demandé                                                   | Rejet avec message "Snooze max 24h". Force Ops à re-évaluer régulièrement (D11).                                                                                                                                                                                                                                                                                                           |
-| EC7  | Même code émis 1000 fois en 1h (bug module émetteur)                           | Debounce 5 min → ~12 alertes distinctes en 1h au max. Chaque alerte a `occurrences` incrémenté (counter agrégé à l'intérieur de la fenêtre). Dashboard affiche `titre (x250)` si `occurrences > 10`. **Pas d'alerte méta automatique V1 (R_M11.9 dégagée — revue sobriété 2026-04-25 A8)** : Admin TMS détecte les flood en consultant le compteur `occurrences` sur les alertes ouvertes. |
-| EC8  | Email Resend down                                                              | Fallback : pas de fallback V1 (single provider). Alerte `m11_notification_email_failed` émise `critical` vers Admin TMS (sans email elle-même pour éviter boucle infinie — uniquement in-app). Ops voit directement l'alerte originale dans le dashboard (in-app indépendant).                                                                                                             |
-| EC9  | Alerte émise pendant transaction DB puis rollback                              | `alerte_emit` est appelée DANS la transaction underlying. Si la transaction rollback, l'INSERT dans `alertes` rollback aussi → pas d'alerte orpheline. Comportement voulu.                                                                                                                                                                                                                 |
-| EC10 | Deux ops ack simultanément la même alerte                                      | **Double ack idempotent** (W4 Bloc 6 B2) : le premier écrit `ackee_par_user_id/ackee_at`, le second retourne silencieux — pas d'erreur, pas d'écrasement (premier ack conservé), pas de second audit_log. _(Réécrit 2026-06-07 F2 — la version pré-Bloc 6 décrivait une erreur `alerte_non_ackable` via row lock sur `statut='ouverte'`, devenue fausse depuis ackee→metadata.)_           |
-| EC11 | Résolution auto alors que user snoozait l'alerte                               | Auto-résolution W7 prioritaire : passe en `resolue` même si `snoozee`. Motif log `snoozee_avant_resolution_auto=true`.                                                                                                                                                                                                                                                                     |
-| EC12 | Catalogue modifié (criticité changée) alors que des alertes ouvertes existent  | Les alertes existantes conservent leur criticité au moment de l'émission. Seules les futures émissions héritent de la nouvelle config. Pas de rétroactivité.                                                                                                                                                                                                                               |
-| EC13 | User tente d'ack une alerte dont il n'est pas destinataire                     | RPC rejette si rôle user ≠ `ops_savr/admin_tms/admin_savr`. Les ops peuvent acker pour les autres (ex : ack au nom de l'équipe).                                                                                                                                                                                                                                                           |
-| EC14 | Entity liée supprimée (tournée hard-delete)                                    | FK `entity_id` pas contrainte (text + uuid polymorphe). L'alerte reste avec entity dangling. UI affiche "Entité introuvable" avec le type+id en readonly.                                                                                                                                                                                                                                  |
-| EC15 | Alerte critical pendant weekend / nuit sans SLA V1                             | Aucune escalade auto V1 (D10). Val+Louis reçoivent email Resend dès émission (asynchrone < 60s). Charge à eux de monitorer leur email. V2 activera SLA 2h + escalade.                                                                                                                                                                                                                      |
-| EC17 | Frère déploie nouveau service qui émet alerte mais catalogue pas encore peuplé | Migration SQL + seed catalogue doivent être dans le même PR que le code émetteur. pgTAP test : check que tous les codes utilisés dans `alerte_emit(code='xxx', ...)` existent dans `alertes_catalogue`.                                                                                                                                                                                    |
-| EC18 | Alerte sur événement cross-CDC (Plateforme échec sync)                         | M11 gère uniquement les alertes générées côté TMS. Si la Plateforme échoue à ingérer un webhook TMS, c'est M01/M04 qui détecte le DLQ et appelle M11 via `m01_push_plateforme_dlq`. La Plateforme a son propre système de supervision en parallèle (hors scope).                                                                                                                           |
+| # | Cas | Comportement V1 |
+|---|-----|------------------|
+| EC1 | Code appelé inconnu (typo dev) | `alerte_emit` lève exception `ALERT001`. Le trigger appelant DB rollback la transaction underlying. **Strict** pour forcer la discipline catalogue. |
+| EC2 | Code désactivé par Admin | `alerte_emit` renvoie `NULL` silencieusement. Pas d'exception. Aucune alerte créée. |
+| EC3 | Code supprimé (soft delete) | `alerte_emit` lève exception `ALERT002`. Le code doit être réactivé via Admin catalogue ou remplacé dans le code émetteur. |
+| EC4 | Destinataire user archivé au moment du dispatch notif | Filtré par service notif (pas par W2). L'alerte reste visible dans E1 pour les autres destinataires. Si aucun destinataire valide après filtre : alerte reste en `statut=ouverte` (pas d'auto-résolution), cas à investiguer par Admin (signal catalogue mal configuré). |
+| EC5 | Ack sur alerte déjà résolue | UI : bouton Ack désactivé. Backend : RPC retourne erreur `alerte_non_ackable` + current_status. |
+| EC6 | Snooze dépassant 24h demandé | Rejet avec message "Snooze max 24h". Force Ops à re-évaluer régulièrement (D11). |
+| EC7 | Même code émis 1000 fois en 1h (bug module émetteur) | Debounce 5 min → ~12 alertes distinctes en 1h au max. Chaque alerte a `occurrences` incrémenté (counter agrégé à l'intérieur de la fenêtre). Dashboard affiche `titre (x250)` si `occurrences > 10`. **Pas d'alerte méta automatique V1 (R_M11.9 dégagée — revue sobriété 2026-04-25 A8)** : Admin TMS détecte les flood en consultant le compteur `occurrences` sur les alertes ouvertes. |
+| EC8 | Email Resend down | Fallback : pas de fallback V1 (single provider). Alerte `m11_notification_email_failed` émise `critical` vers Admin TMS (sans email elle-même pour éviter boucle infinie — uniquement in-app). Ops voit directement l'alerte originale dans le dashboard (in-app indépendant). |
+| EC9 | Alerte émise pendant transaction DB puis rollback | `alerte_emit` est appelée DANS la transaction underlying. Si la transaction rollback, l'INSERT dans `alertes` rollback aussi → pas d'alerte orpheline. Comportement voulu. |
+| EC10 | Deux ops ack simultanément la même alerte | **Double ack idempotent** (W4 Bloc 6 B2) : le premier écrit `ackee_par_user_id/ackee_at`, le second retourne silencieux — pas d'erreur, pas d'écrasement (premier ack conservé), pas de second audit_log. *(Réécrit 2026-06-07 F2 — la version pré-Bloc 6 décrivait une erreur `alerte_non_ackable` via row lock sur `statut='ouverte'`, devenue fausse depuis ackee→metadata.)* |
+| EC11 | Résolution auto alors que user snoozait l'alerte | Auto-résolution W7 prioritaire : passe en `resolue` même si `snoozee`. Motif log `snoozee_avant_resolution_auto=true`. |
+| EC12 | Catalogue modifié (criticité changée) alors que des alertes ouvertes existent | Les alertes existantes conservent leur criticité au moment de l'émission. Seules les futures émissions héritent de la nouvelle config. Pas de rétroactivité. |
+| EC13 | User tente d'ack une alerte dont il n'est pas destinataire | RPC rejette si rôle user ≠ `ops_savr/admin_tms/admin_savr`. Les ops peuvent acker pour les autres (ex : ack au nom de l'équipe). |
+| EC14 | Entity liée supprimée (tournée hard-delete) | FK `entity_id` pas contrainte (text + uuid polymorphe). L'alerte reste avec entity dangling. UI affiche "Entité introuvable" avec le type+id en readonly. |
+| EC15 | Alerte critical pendant weekend / nuit sans SLA V1 | Aucune escalade auto V1 (D10). Val+Louis reçoivent email Resend dès émission (asynchrone < 60s). Charge à eux de monitorer leur email. V2 activera SLA 2h + escalade. |
+| EC17 | Frère déploie nouveau service qui émet alerte mais catalogue pas encore peuplé | Migration SQL + seed catalogue doivent être dans le même PR que le code émetteur. pgTAP test : check que tous les codes utilisés dans `alerte_emit(code='xxx', ...)` existent dans `alertes_catalogue`. |
+| EC18 | Alerte sur événement cross-CDC (Plateforme échec sync) | M11 gère uniquement les alertes générées côté TMS. Si la Plateforme échoue à ingérer un webhook TMS, c'est M01/M04 qui détecte le DLQ et appelle M11 via `m01_push_plateforme_dlq`. La Plateforme a son propre système de supervision en parallèle (hors scope). |
 
 ---
 
@@ -423,7 +404,6 @@ Objet : `[Savr TMS / Critical] {{titre}}`
 **Note Bloc 3 sobriété 2026-04-25 (A1+A7)** : statut `[expiree]` retiré V1 (criticité `info` dégagée → plus aucune source de transition vers `expiree`). Cron `m11_expirer_info` supprimé. W8 supprimée du diagramme.
 
 **Règles de transition** :
-
 - `ouverte → ouverte (ackée)` : W4 metadata update — staff uniquement (**F5 2026-06-07** : manager destinataire = lecture seule)
 - `ouverte → snoozee` : staff uniquement (idem F5)
 - `snoozee → ouverte` : automatique cron `m11_unsnoozer` (unsnooze remet `ackee_at` à NULL — l'alerte revient non ackée pour re-traitement)
@@ -450,11 +430,10 @@ Objet : `[Savr TMS / Critical] {{titre}}`
 
 **R_M11.8 — Escalade manager prestataire scope** : pour les alertes liées à une entité appartenant à un prestataire (`facture_prestataire`, `collecte_tms`, `tournee`), le catalogue peut inclure `manager_prestataire_scope='entity'` → le(s) manager(s) du prestataire sont automatiquement ajoutés aux destinataires (W2).
 
-\***\* : **Dégagée V1 (revue sobriété 2026-04-25 A8)\*\*. Volume V1 ne justifie pas un cron 2 min de scan flood. Le compteur `occurrences` sur `tms.alertes` reste consultable pour debug manuel.
+**** : **Dégagée V1 (revue sobriété 2026-04-25 A8)**. Volume V1 ne justifie pas un cron 2 min de scan flood. Le compteur `occurrences` sur `tms.alertes` reste consultable pour debug manuel.
 
 **R_M11.10 — Rétention 3 ans + dump pré-purge** (D8, refondu revue sobriété §05 2026-05-01 B3) : cron `m11_purger_archives` mensuel (1er du mois 4h) en 2 étapes :
-
-1. **Dump pré-purge** : INSERT INTO `tms.alertes_archive_critical` SELECT \* FROM `tms.alertes` WHERE `criticite = 'critical' AND statut = 'resolue' AND resolue_at < now() - interval '3 years'` (table archive append-only dédiée, RLS admin_tms read-only).
+1. **Dump pré-purge** : INSERT INTO `tms.alertes_archive_critical` SELECT * FROM `tms.alertes` WHERE `criticite = 'critical' AND statut = 'resolue' AND resolue_at < now() - interval '3 years'` (table archive append-only dédiée, RLS admin_tms read-only).
 2. **Purge** : DELETE FROM `tms.alertes` WHERE `statut = 'resolue' AND resolue_at < now() - interval '3 years'` (toutes criticités).
 
 → **Supprimé revue sobriété §05 2026-05-01 B3**. Trigger sur opération destructive = piège (perf bulk DELETE + complexité debug + couplage audit_logs/alertes incorrect). Remplacé par dump explicite dans table dédiée `tms.alertes_archive_critical` (séparation des préoccupations).
@@ -463,18 +442,18 @@ Objet : `[Savr TMS / Critical] {{titre}}`
 
 **R_M11.11 — Pas d'UPDATE sur colonnes immuables** : trigger BEFORE UPDATE bloque modification de `code, criticite, emise_at, entity_type, entity_id, dedup_key, occurrences` (sauf par W7 auto-résolution et debounce W1). Règles UPDATE stricte : seules transitions de statut + ack/snooze/résolution autorisées.
 
-\***\* : **Dégagée Bloc 4 sobriété 2026-04-25 (A5)\*\*. RPC `m11_emit_test`, cron `m11_nettoyer_tests`, paramètres + Vercel KV rate limit + filtre `entity_type != 'test'` partout — tous supprimés V1. Validation routing/delivery couverte par pgTAP CI. Tests ad-hoc Admin via Supabase Studio si besoin.
+**** : **Dégagée Bloc 4 sobriété 2026-04-25 (A5)**. RPC `m11_emit_test`, cron `m11_nettoyer_tests`, paramètres + Vercel KV rate limit + filtre `entity_type != 'test'` partout — tous supprimés V1. Validation routing/delivery couverte par pgTAP CI. Tests ad-hoc Admin via Supabase Studio si besoin.
 
 ---
 
 ## 9. Paramètres `parametres_tms.m11_*`
 
-| Clé                                     | Valeur défaut | Description                                          |
-| --------------------------------------- | ------------- | ---------------------------------------------------- |
-| `m11.debounce_seconds`                  | 300           | Fenêtre glissante dédup dans `alerte_emit` (R_M11.3) |
-| `m11.retention_annees`                  | 3             | Rétention avant purge (R_M11.10)                     |
-| `m11.snooze_motif_min_car_critical`     | 10            | Longueur min motif snooze pour critical (W5)         |
-| `m11.email_batch_latence_cible_seconds` | 60            | Latence cible worker queue email (SLA soft)          |
+| Clé | Valeur défaut | Description |
+|-----|---------------|-------------|
+| `m11.debounce_seconds` | 300 | Fenêtre glissante dédup dans `alerte_emit` (R_M11.3) |
+| `m11.retention_annees` | 3 | Rétention avant purge (R_M11.10) |
+| `m11.snooze_motif_min_car_critical` | 10 | Longueur min motif snooze pour critical (W5) |
+| `m11.email_batch_latence_cible_seconds` | 60 | Latence cible worker queue email (SLA soft) |
 
 **Paramètres dégagés revue sobriété 2026-04-25** : `m11.flood_seuil_occurrences` (A8), `m11_slack_active` / `m11_slack_webhook_url` / `m11_slack_criticite_min` (A6), `m11.expiration_info_jours` (Bloc 3 A1+A7), `m11.test_nettoyage_minutes` + `m11.rate_limit_test_par_heure` (Bloc 4 A5 — RPC test + cron + dépendance Vercel KV supprimés).
 
@@ -680,15 +659,14 @@ CREATE INDEX idx_alertes_code_date ON tms.alertes(code, emise_at DESC);
 
 ### 11.6 Crons pg_cron
 
-| Nom                                         | Fréquence                | Action                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| ------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `m11_unsnoozer`                             | toutes les 5 min         | `UPDATE alertes SET statut='ouverte' WHERE statut='snoozee' AND snoozee_jusqu_a < now()`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `m11_purger_archives`                       | mensuel (1er du mois 4h) | **Étape 1 (refondu B3 2026-05-01)** : INSERT INTO `tms.alertes_archive_critical` SELECT \* FROM `tms.alertes` WHERE `criticite='critical' AND statut='resolue' AND resolue_at < now() - interval '3 years'` (dump pré-purge dans table dédiée append-only). **Étape 2** : DELETE FROM `tms.alertes` WHERE `statut='resolue' AND resolue_at < now() - interval '3 years'`. supprimé V1 (trigger sur destructive = piège, dump explicite plus propre).                                                                                                                                 |
-| `cron_m04_alerte_inactivite_tournee`        | toutes les 15 min        | **(ajout 2026-06-06 — résolution spec floue M04 « détection oubli 8h »)** Scan des tournées `statut='en_cours'` dont `heure_reelle_debut < now() - (m04_seuil_inactivite_tournee_heures \|\| ' hours')::interval` (défaut 8h) sans alerte `m04_tournee_oubliee_cloture_auto` ouverte → `tms.alerte_emit('m04_tournee_oubliee_cloture_auto', warning, 'tournee', tournee_id)`. Un trigger DB est **impossible** (condition sur temps écoulé, aucun event déclencheur) → scan périodique pg_cron, miroir de `cron_m02_alerte_acceptation`. Auto-résolution à la clôture de la tournée. |
-| `cron_m04_alerte_tournee_sans_chauffeur_j1` | 1×/h                     | **(ajout 2026-06-06)** Si heure courante ≥ `m04_delai_assignation_chauffeur_alerte_heures` (défaut 17h) à J-1 : scan des tournées `statut IN ('planifiee','acceptee')` planifiées J+0 sans `chauffeur_id` → `tms.alerte_emit('m04_tournee_sans_chauffeur_j1', warning, 'tournee', tournee_id)`. Auto-résolution à l'affectation chauffeur (M04 §14bis). Même justification : condition temporelle → cron, pas de trigger.                                                                                                                                                            |
+| Nom | Fréquence | Action |
+|-----|-----------|--------|
+| `m11_unsnoozer` | toutes les 5 min | `UPDATE alertes SET statut='ouverte' WHERE statut='snoozee' AND snoozee_jusqu_a < now()` |
+| `m11_purger_archives` | mensuel (1er du mois 4h) | **Étape 1 (refondu B3 2026-05-01)** : INSERT INTO `tms.alertes_archive_critical` SELECT * FROM `tms.alertes` WHERE `criticite='critical' AND statut='resolue' AND resolue_at < now() - interval '3 years'` (dump pré-purge dans table dédiée append-only). **Étape 2** : DELETE FROM `tms.alertes` WHERE `statut='resolue' AND resolue_at < now() - interval '3 years'`. supprimé V1 (trigger sur destructive = piège, dump explicite plus propre). |
+| `cron_m04_alerte_inactivite_tournee` | toutes les 15 min | **(ajout 2026-06-06 — résolution spec floue M04 « détection oubli 8h »)** Scan des tournées `statut='en_cours'` dont `heure_reelle_debut < now() - (m04_seuil_inactivite_tournee_heures \|\| ' hours')::interval` (défaut 8h) sans alerte `m04_tournee_oubliee_cloture_auto` ouverte → `tms.alerte_emit('m04_tournee_oubliee_cloture_auto', warning, 'tournee', tournee_id)`. Un trigger DB est **impossible** (condition sur temps écoulé, aucun event déclencheur) → scan périodique pg_cron, miroir de `cron_m02_alerte_acceptation`. Auto-résolution à la clôture de la tournée. |
+| `cron_m04_alerte_tournee_sans_chauffeur_j1` | 1×/h | **(ajout 2026-06-06)** Si heure courante ≥ `m04_delai_assignation_chauffeur_alerte_heures` (défaut 17h) à J-1 : scan des tournées `statut IN ('planifiee','acceptee')` planifiées J+0 sans `chauffeur_id` → `tms.alerte_emit('m04_tournee_sans_chauffeur_j1', warning, 'tournee', tournee_id)`. Auto-résolution à l'affectation chauffeur (M04 §14bis). Même justification : condition temporelle → cron, pas de trigger. |
 
 **Crons dégagés revue sobriété 2026-04-25** :
-
 - `m11_flood_watcher` (A8) — était : scan alertes `occurrences > 100` non signalées → émet méta `m11_flood_suspect`
 - `m11_expirer_info` (Bloc 3 A1+A7) — était : `UPDATE alertes SET statut='expiree' WHERE statut='ouverte' AND criticite='info' AND emise_at < now() - interval '30 days'`. Plus de criticité `info` ni de statut `expiree` V1.
 - `m11_nettoyer_tests` (Bloc 4 A5) — était : auto-résolution alertes `entity_type='test'` âgées > 15 min. RPC `m11_emit_test` + cron + dépendance Vercel KV rate limit dégagés V1, validation par pgTAP CI.
@@ -697,49 +675,48 @@ CREATE INDEX idx_alertes_code_date ON tms.alertes(code, emise_at DESC);
 
 Codes regroupés par module (liste extractable exhaustive à partir des modules rédigés M01-M08 + M12, complétée par les transverses) :
 
-| Code                                      | Criticité défaut                                           | Module | Libellé                                                                                                                                                                                                                                                                                                                                            |
-| ----------------------------------------- | ---------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `m01_webhook_gap_critical`                | critical                                                   | M01    | Gap webhook Plateforme > 72h détecté                                                                                                                                                                                                                                                                                                               |
-| `m01_dlq_event_rejected`                  | critical                                                   | M01    | Event Plateforme en DLQ après 5 retries                                                                                                                                                                                                                                                                                                            |
-| `m01_push_plateforme_dlq`                 | critical                                                   | M01    | Webhook sortant TMS → Plateforme DLQ                                                                                                                                                                                                                                                                                                               |
-| `m01_hmac_invalide`                       | critical                                                   | M01    | Signature HMAC invalide sur endpoint ingress (tentative intrusion possible) — propagation §12bis M01                                                                                                                                                                                                                                               |
-| `m01_payload_rejete`                      | warning                                                    | M01    | Payload webhook invalide (schéma JSON) — émission S11 `collecte-rejetee` — propagation §12bis M01                                                                                                                                                                                                                                                  |
-| `m02_lieu_snapshot_divergent`             | warning                                                    | M02    | Lieu modifié côté Plateforme après dispatch                                                                                                                                                                                                                                                                                                        |
-| `m03_prestataire_refus_consecutifs`       | warning                                                    | M03    | 2 refus consécutifs prestataire en 7j                                                                                                                                                                                                                                                                                                              |
-| `m03_plaque_manquante_dispatch`           | critical                                                   | M03    | Plaque requise + non pré-saisie au dispatch                                                                                                                                                                                                                                                                                                        |
-| `m03_type_vehicule_a_valider`             | warning                                                    | M03    | Nouveau type véhicule manager à valider Ops                                                                                                                                                                                                                                                                                                        |
-| `m04_ecart_cout_dispatch`                 | warning                                                    | M04    | Delta coût tournée > 20% au dispatch                                                                                                                                                                                                                                                                                                               |
-| `m04_cloture_manuelle_forcee`             | warning                                                    | M04    | Tournée clôturée manuellement par Ops                                                                                                                                                                                                                                                                                                              |
-| `m04_tournee_vide`                        | warning                                                    | M04    | Tournée `planifiee` sans collecte                                                                                                                                                                                                                                                                                                                  |
-| `m04_evenement_dlq`                       | critical                                                   | M04    | Event dispatch en DLQ                                                                                                                                                                                                                                                                                                                              |
-| `m04_tournee_sans_chauffeur_j1`           | warning                                                    | M04    | Tournée J+0 sans chauffeur à J-1 17h                                                                                                                                                                                                                                                                                                               |
-| `m04_tournee_oubliee_cloture_auto`        | warning                                                    | M04    | Tournée inactive > 8h, clôture forcée possible Ops (R_M04.4 — propagation A5 2026-04-25)                                                                                                                                                                                                                                                           |
-| `m04_cloture_hors_zone`                   | warning                                                    | M04    | Clôture GPS > 300m du lieu théorique (M04 W5 étape 3 — propagation A5 2026-04-25)                                                                                                                                                                                                                                                                  |
-| `m05_geofence_anomalie`                   | warning                                                    | M05    | Fallback "J'arrive" hors geofence 300m                                                                                                                                                                                                                                                                                                             |
-| `m05_dlq_offline_conflict`                | warning                                                    | M05    | Conflit sync offline non résolvable (R_M05.16). **Criticité abaissée critical → warning (revue sobriété §05 2026-05-01 B2)** — un seul niveau de gravité V1, escalade humaine via traitement Ops standard.                                                                                                                                         |
-| `m05_queue_offline_saturee`               | warning                                                    | M05    | Cap 3 tournées / 150 photos / 300 Mo atteint (R_M05.9 — propagation A5 2026-04-25)                                                                                                                                                                                                                                                                 |
-| `m05_device_binding_tentative_secondaire` | warning                                                    | M05    | Tentative login chauffeur sur device secondaire (R_M05.10 — propagation A5 2026-04-25)                                                                                                                                                                                                                                                             |
-| `m05_signalement_incident`                | warning                                                    | M05    | Signalement chauffeur catégorie incident (4 catégories E9 — décision 2026-06-06 : `acces_refuse` / `client_absent` / `probleme_tri` / `autre` ; `pas_excedents` retiré → cas AG « aucun repas » via E5→S5, hors signalement incident). Criticité override possible via paramètre alerte si catégorie bloquante (`acces_refuse` / `client_absent`). |
-| `m05_pesee_anormale_hors_seuil`           | warning                                                    | M05    | Poids pesé hors seuils ZD-only `m05_seuils_pesees_kg_min_max_par_flux` (revue sobriété M05 E6 2026-04-30 : alerte côté Ops uniquement, AUCUN affichage côté chauffeur — n'interrompt pas la saisie terrain)                                                                                                                                        |
-| `m07_duree_nulle`                         | warning                                                    | M07    | Durée réelle tournée = 0 (erreur saisie)                                                                                                                                                                                                                                                                                                           |
-| `m07_horaires_manquants`                  | critical                                                   | M07    | Tournée passée à `terminee` sans `heure_reelle_debut` ou `heure_reelle_fin` (précheck `trg_m07_calc_cost` step 2 — propagation A6 2026-04-25)                                                                                                                                                                                                      |
-| `m07_ajustement_pendant_facturation`      | critical                                                   | M07    | Tentative ajustement sur tournée verrouillée par facture M08 (`cout_final_verrouille = true`, EC9 M07)                                                                                                                                                                                                                                             |
-| `m08_facture_ecart_detecte`               | warning                                                    | M08    | Facture prestataire ne match pas (zéro tolérance)                                                                                                                                                                                                                                                                                                  |
-| `m08_rapprochement_manuel_requis`         | warning                                                    | M08    | Tournée période facture sans `cout_final_ht`                                                                                                                                                                                                                                                                                                       |
-| `m08_export_pennylane_erreur`             | warning                                                    | M08    | Erreur génération CSV Pennylane                                                                                                                                                                                                                                                                                                                    |
-| `m09_stock_bas`                           | warning                                                    | M09    | Stock rolls traiteur < `seuil_alerte_stock_roll_pct` × cible (default 50%) — W1/W2 (R4.2). **Corrigé V1.1 → V1** propagation arbitrage 3 audit cohérence inter-CDC 2026-04-25 + propagation M09 V1 rédigée                                                                                                                                         |
-| `m09_stock_negatif`                       | warning (audit)                                            | M09    | `stocks_rolls_traiteurs.quantite_actuelle < 0` après W1 — propagation M09 V1 2026-04-25. Auto-résolu via E3 recompte Ops (W2)                                                                                                                                                                                                                      |
-| `m09_tare_manquante`                      | warning                                                    | M09    | Pesée avec `types_contenants.tare_kg = 0` ET `slug != 'sans_contenant'` (EC7) — propagation M09 V1 2026-04-25. Auto-résolu à paramétrage tare via E4 (W4)                                                                                                                                                                                          |
-| `m10_bac_satur`                           | dynamic (warning ≥85%, critical au-delà du seuil ou ≥100%) | M10    | Saturation entrepôt — fusion B3 V3 sobre 2026-04-30 (ancien `m10_bac_remplissage_85` fusionné). Email Resend si critical.                                                                                                                                                                                                                          |
-| `m10_passage_non_confirme`                | dynamic (warning J-1/J+1, critical si > 1j de retard)      | M10    | Passage Veolia `planifie` non déclaré — fusion C1 V3 sobre 2026-04-30 (anciens `_j1`/`_j3` fusionnés sur cron horaire unique). Email Resend si critical.                                                                                                                                                                                           |
-| `m10_passage_reporte`                     | warning (escalade critical si saturation)                  | M10    | Passage Veolia reporté (`statut = 'annule'` AND `motif_annulation = 'report'`) — risque débordement                                                                                                                                                                                                                                                |
-| `m10_passage_annule`                      | warning                                                    | M10    | Passage Veolia annulé (`motif_annulation IN ('annulation','autre')`)                                                                                                                                                                                                                                                                               |
-| `m10_bacs_vides_sous_seuil`               | warning                                                    | M10    | `quantite_vide_disponible < quantite_vide_cible`                                                                                                                                                                                                                                                                                                   |
-| `m10_capacite_max_diminuee_satur`         | warning                                                    | M10    | Capacité max diminuée par Admin met le stock en dépassement                                                                                                                                                                                                                                                                                        |
-| `m10_stock_incoherence`                   | warning                                                    | M10    | Décrément W1 aurait rendu vides_disponible négatif → clamp à 0 + alerte (EC14 redéfini arbitrage 2026-06-07 F4 — chauffeur retourne plus que sortis)                                                                                                                                                                                               |
+| Code | Criticité défaut | Module | Libellé |
+|------|------------------|--------|---------|
+| `m01_webhook_gap_critical` | critical | M01 | Gap webhook Plateforme > 72h détecté |
+| `m01_dlq_event_rejected` | critical | M01 | Event Plateforme en DLQ après 5 retries |
+| `m01_push_plateforme_dlq` | critical | M01 | Webhook sortant TMS → Plateforme DLQ |
+| `m01_hmac_invalide` | critical | M01 | Signature HMAC invalide sur endpoint ingress (tentative intrusion possible) — propagation §12bis M01 |
+| `m01_payload_rejete` | warning | M01 | Payload webhook invalide (schéma JSON) — émission S11 `collecte-rejetee` — propagation §12bis M01 |
+| `m02_lieu_snapshot_divergent` | warning | M02 | Lieu modifié côté Plateforme après dispatch |
+| `m03_prestataire_refus_consecutifs` | warning | M03 | 2 refus consécutifs prestataire en 7j |
+| `m03_plaque_manquante_dispatch` | critical | M03 | Plaque requise + non pré-saisie au dispatch |
+| `m03_type_vehicule_a_valider` | warning | M03 | Nouveau type véhicule manager à valider Ops |
+| `m04_ecart_cout_dispatch` | warning | M04 | Delta coût tournée > 20% au dispatch |
+| `m04_cloture_manuelle_forcee` | warning | M04 | Tournée clôturée manuellement par Ops |
+| `m04_tournee_vide` | warning | M04 | Tournée `planifiee` sans collecte |
+| `m04_evenement_dlq` | critical | M04 | Event dispatch en DLQ |
+| `m04_tournee_sans_chauffeur_j1` | warning | M04 | Tournée J+0 sans chauffeur à J-1 17h |
+| `m04_tournee_oubliee_cloture_auto` | warning | M04 | Tournée inactive > 8h, clôture forcée possible Ops (R_M04.4 — propagation A5 2026-04-25) |
+| `m04_cloture_hors_zone` | warning | M04 | Clôture GPS > 300m du lieu théorique (M04 W5 étape 3 — propagation A5 2026-04-25) |
+| `m05_geofence_anomalie` | warning | M05 | Fallback "J'arrive" hors geofence 300m |
+| `m05_dlq_offline_conflict` | warning | M05 | Conflit sync offline non résolvable (R_M05.16). **Criticité abaissée critical → warning (revue sobriété §05 2026-05-01 B2)** — un seul niveau de gravité V1, escalade humaine via traitement Ops standard. |
+| `m05_queue_offline_saturee` | warning | M05 | Cap 3 tournées / 150 photos / 300 Mo atteint (R_M05.9 — propagation A5 2026-04-25) |
+| `m05_device_binding_tentative_secondaire` | warning | M05 | Tentative login chauffeur sur device secondaire (R_M05.10 — propagation A5 2026-04-25) |
+| `m05_signalement_incident` | warning | M05 | Signalement chauffeur catégorie incident (4 catégories E9 — décision 2026-06-06 : `acces_refuse` / `client_absent` / `probleme_tri` / `autre` ; `pas_excedents` retiré → cas AG « aucun repas » via E5→S5, hors signalement incident). Criticité override possible via paramètre alerte si catégorie bloquante (`acces_refuse` / `client_absent`). |
+| `m05_pesee_anormale_hors_seuil` | warning | M05 | Poids pesé hors seuils ZD-only `m05_seuils_pesees_kg_min_max_par_flux` (revue sobriété M05 E6 2026-04-30 : alerte côté Ops uniquement, AUCUN affichage côté chauffeur — n'interrompt pas la saisie terrain) |
+| `m07_duree_nulle` | warning | M07 | Durée réelle tournée = 0 (erreur saisie) |
+| `m07_horaires_manquants` | critical | M07 | Tournée passée à `terminee` sans `heure_reelle_debut` ou `heure_reelle_fin` (précheck `trg_m07_calc_cost` step 2 — propagation A6 2026-04-25) |
+| `m07_ajustement_pendant_facturation` | critical | M07 | Tentative ajustement sur tournée verrouillée par facture M08 (`cout_final_verrouille = true`, EC9 M07) |
+| `m08_facture_ecart_detecte` | warning | M08 | Facture prestataire ne match pas (zéro tolérance) |
+| `m08_rapprochement_manuel_requis` | warning | M08 | Tournée période facture sans `cout_final_ht` |
+| `m08_export_pennylane_erreur` | warning | M08 | Erreur génération CSV Pennylane |
+| `m09_stock_bas` | warning | M09 | Stock rolls traiteur < `seuil_alerte_stock_roll_pct` × cible (default 50%) — W1/W2 (R4.2). **Corrigé V1.1 → V1** propagation arbitrage 3 audit cohérence inter-CDC 2026-04-25 + propagation M09 V1 rédigée |
+| `m09_stock_negatif` | warning (audit) | M09 | `stocks_rolls_traiteurs.quantite_actuelle < 0` après W1 — propagation M09 V1 2026-04-25. Auto-résolu via E3 recompte Ops (W2) |
+| `m09_tare_manquante` | warning | M09 | Pesée avec `types_contenants.tare_kg = 0` ET `slug != 'sans_contenant'` (EC7) — propagation M09 V1 2026-04-25. Auto-résolu à paramétrage tare via E4 (W4) |
+| `m10_bac_satur` | dynamic (warning ≥85%, critical au-delà du seuil ou ≥100%) | M10 | Saturation entrepôt — fusion B3 V3 sobre 2026-04-30 (ancien `m10_bac_remplissage_85` fusionné). Email Resend si critical. |
+| `m10_passage_non_confirme` | dynamic (warning J-1/J+1, critical si > 1j de retard) | M10 | Passage Veolia `planifie` non déclaré — fusion C1 V3 sobre 2026-04-30 (anciens `_j1`/`_j3` fusionnés sur cron horaire unique). Email Resend si critical. |
+| `m10_passage_reporte` | warning (escalade critical si saturation) | M10 | Passage Veolia reporté (`statut = 'annule'` AND `motif_annulation = 'report'`) — risque débordement |
+| `m10_passage_annule` | warning | M10 | Passage Veolia annulé (`motif_annulation IN ('annulation','autre')`) |
+| `m10_bacs_vides_sous_seuil` | warning | M10 | `quantite_vide_disponible < quantite_vide_cible` |
+| `m10_capacite_max_diminuee_satur` | warning | M10 | Capacité max diminuée par Admin met le stock en dépassement |
+| `m10_stock_incoherence` | warning | M10 | Décrément W1 aurait rendu vides_disponible négatif → clamp à 0 + alerte (EC14 redéfini arbitrage 2026-06-07 F4 — chauffeur retourne plus que sortis) |
 
 > **Suppressions revue sobriété 2026-04-30 (5 codes M10)** :
->
 > - `m10_bac_remplissage_85` (fusion B3 dans `m10_bac_satur` criticité dynamique)
 > - `m10_passage_realise_non_confirme_j1` (corollaire A2/A4 — dualité `realise`/`confirme_at` supprimée)
 > - `m10_passage_realise_non_confirme_j3` (corollaire A2/A4)
@@ -747,40 +724,39 @@ Codes regroupés par module (liste extractable exhaustive à partir des modules 
 > - `m10_chauffeur_signale_bacs_pleins` (corollaire A1 — confirmation chauffeur M05 supprimée)
 >
 > Catalogue M10 : 12 codes → 7 codes.
-> | `m12_aucun_prestataire` | critical | M12 | 0 prestataire couvre la zone de collecte |
-> | `m13_user_creation_email_failed` | warning | M13 | Magic link email user staff/manager non envoyé (SMTP fail M13 W2/W7 EC5) |
-> | `m13_prestataire_sans_manager_actif` | warning | M13 | Désactivation seul manager actif d'un prestataire (R*M13.20) — auto-résolu à création nouveau manager |
-> | `m13_secret_expiration_imminente` | warning | M13 | Secret avec `expire_le` < J+7 (cron W12 quotidien) — admin scope only |
-> | `m13_onboarding_inacheve_7j` | warning | M13 | Prestataire `statut='en_onboarding'` depuis > 7j (cron quotidien EC17) — auto-résolu à activation ou archive |
-> | `m13_impersonation_session_longue` | warning | M13 | Session impersonation > 30 min active (cron) — admin scope only |
-> | `m13_parametre_edition_validation_echec` | warning | M13 | Validation server-side `parametres_tms` échouée (W1 rare) |
-> | `m13_migration_mode_actif_long` | warning | M13 | `migration_mode_active = true` depuis > 35 jours (cron quotidien, propagation §13 2026-04-27) — protection contre oubli désactivation. Admin scope only. |
-> | `m13_migration_cleanup_failed` | critical | M13 | Cron `m13_cleanup_legacy` échec à J+30 lors de l'auto-résolution alertes critical migration (R*§13.8, propagation §13 2026-04-27) — admin scope only, action manuelle requise via M13 E2 |
-> | `m14_everest_timeout` | warning | M14 | Timeout API Everest (M12 `is-handled-address` ou autre call) |
-> | `m14_everest_auth_failed` | critical | M14 | Re-auth Bearer Everest échoue (W6 lazy refresh — creds invalides ou Everest down auth) — propagation M14 2026-04-25 |
-> | `m14_everest_mission_create_failed` | critical | M14 | Création mission Everest échec final post-retry W1 — collecte en `creation_failed`, Ops failover E4 — propagation M14 2026-04-25 |
-> | `m14_everest_mission_cancel_failed` | warning | M14 | Annulation mission Everest échec final W3 — risque double-dispatch, Ops appel manuel — propagation M14 2026-04-25 |
-> | `m14_everest_webhook_signature_invalid` | warning | M14 | Token webhook entrant invalide (filet sécurité M14 D6) W2 — surveillance attaque potentielle — propagation M14 2026-04-25 |
-> | `m14_everest_webhook_unknown_mission` | warning | M14 | Webhook reçu pour `mission_id` inconnu en DB W2 — propagation M14 2026-04-25 |
-> | `m14_everest_mission_failed` | critical | M14 | Webhook `mission_failed` reçu W2 — incident terrain à investiguer avec A Toutes! et chauffeur — propagation M14 2026-04-25 |
-> | `m14_everest_mission_cancelled_externally` | critical | M14 | Webhook `mission_cancelled` non initié par TMS W2 — A Toutes! a annulé chez eux, Ops contact urgent — propagation M14 2026-04-25 |
-> | `m14_everest_mission_late` | warning | M14 | Webhook `mission_late` reçu W2 — retard chauffeur A Toutes! signalé Ops — propagation M14 2026-04-25. **Seedé `active = false` V1** (sobriété M14 2026-04-30 A_M14_07 — risque bruit, seuil Everest non confirmé Q4. À activer V1.1 si seuil utile). |
-> | `integration_ocr_mistral_down` | warning | transverse | OCR Mistral indisponible |
-> | `integration_resend_email_failed` | critical | transverse | Email Resend échec (fallback in-app) |
-> | `integration_pennylane_down` | warning | transverse | API Pennylane indisponible — **seedé `active = false` V1** (intégration Pennylane = V2, code ne peut pas se déclencher en V1 ; activer V1.1+ à la mise en place Pennylane TMS) |
-> | `m11_notification_email_failed` | critical | M11 | Échec notif email pour alerte critical |
+| `m12_aucun_prestataire` | critical | M12 | 0 prestataire couvre la zone de collecte |
+| `m13_user_creation_email_failed` | warning | M13 | Magic link email user staff/manager non envoyé (SMTP fail M13 W2/W7 EC5) |
+| `m13_prestataire_sans_manager_actif` | warning | M13 | Désactivation seul manager actif d'un prestataire (R_M13.20) — auto-résolu à création nouveau manager |
+| `m13_secret_expiration_imminente` | warning | M13 | Secret avec `expire_le` < J+7 (cron W12 quotidien) — admin scope only |
+| `m13_onboarding_inacheve_7j` | warning | M13 | Prestataire `statut='en_onboarding'` depuis > 7j (cron quotidien EC17) — auto-résolu à activation ou archive |
+| `m13_impersonation_session_longue` | warning | M13 | Session impersonation > 30 min active (cron) — admin scope only |
+| `m13_parametre_edition_validation_echec` | warning | M13 | Validation server-side `parametres_tms` échouée (W1 rare) |
+| `m13_migration_mode_actif_long` | warning | M13 | `migration_mode_active = true` depuis > 35 jours (cron quotidien, propagation §13 2026-04-27) — protection contre oubli désactivation. Admin scope only. |
+| `m13_migration_cleanup_failed` | critical | M13 | Cron `m13_cleanup_legacy` échec à J+30 lors de l'auto-résolution alertes critical migration (R_§13.8, propagation §13 2026-04-27) — admin scope only, action manuelle requise via M13 E2 |
+| `m14_everest_timeout` | warning | M14 | Timeout API Everest (M12 `is-handled-address` ou autre call) |
+| `m14_everest_auth_failed` | critical | M14 | Re-auth Bearer Everest échoue (W6 lazy refresh — creds invalides ou Everest down auth) — propagation M14 2026-04-25 |
+| `m14_everest_mission_create_failed` | critical | M14 | Création mission Everest échec final post-retry W1 — collecte en `creation_failed`, Ops failover E4 — propagation M14 2026-04-25 |
+| `m14_everest_mission_cancel_failed` | warning | M14 | Annulation mission Everest échec final W3 — risque double-dispatch, Ops appel manuel — propagation M14 2026-04-25 |
+| `m14_everest_webhook_signature_invalid` | warning | M14 | Token webhook entrant invalide (filet sécurité M14 D6) W2 — surveillance attaque potentielle — propagation M14 2026-04-25 |
+| `m14_everest_webhook_unknown_mission` | warning | M14 | Webhook reçu pour `mission_id` inconnu en DB W2 — propagation M14 2026-04-25 |
+| `m14_everest_mission_failed` | critical | M14 | Webhook `mission_failed` reçu W2 — incident terrain à investiguer avec A Toutes! et chauffeur — propagation M14 2026-04-25 |
+| `m14_everest_mission_cancelled_externally` | critical | M14 | Webhook `mission_cancelled` non initié par TMS W2 — A Toutes! a annulé chez eux, Ops contact urgent — propagation M14 2026-04-25 |
+| `m14_everest_mission_late` | warning | M14 | Webhook `mission_late` reçu W2 — retard chauffeur A Toutes! signalé Ops — propagation M14 2026-04-25. **Seedé `active = false` V1** (sobriété M14 2026-04-30 A_M14_07 — risque bruit, seuil Everest non confirmé Q4. À activer V1.1 si seuil utile). |
+| `integration_ocr_mistral_down` | warning | transverse | OCR Mistral indisponible |
+| `integration_resend_email_failed` | critical | transverse | Email Resend échec (fallback in-app) |
+| `integration_pennylane_down` | warning | transverse | API Pennylane indisponible — **seedé `active = false` V1** (intégration Pennylane = V2, code ne peut pas se déclencher en V1 ; activer V1.1+ à la mise en place Pennylane TMS) |
+| `m11_notification_email_failed` | critical | M11 | Échec notif email pour alerte critical |
 
 > **SOLDE CATALOGUE V1 — décompte autoritaire (revue sobriété M11 2026-06-04)**
 > **60 lignes seedées** dans le catalogue ci-dessus (entrées non barrées), dont **2 seedées `active = false` V1** (`m14_everest_mission_late` — seuil Everest non confirmé Q4 ; `integration_pennylane_down` — intégration Pennylane = V2) → **58 codes effectivement émettables V1**.
 > Ce solde intègre toutes les passes antérieures (Blocs 1-6 + revues §05/§08 par module) **et** le retrait des 2 codes plaque (`m04_plaque_mismatch_warning`, `m04_plaque_inconnue`) du 2026-06-04 (suppression saisie plaque terrain). Les narrations historiques de décompte ci-dessous (« 56 codes », « 61→58 codes » §13.11) sont **périmées** — ce solde fait foi.
 
 **Codes dégagés revue sobriété 2026-04-25** :
-
 - A8 `m11_flood_suspect` (était : flood alerte détecté, lié à R_M11.9 dégagée)
 - Bloc 3 A1 (criticité `info` retirée V1) — 12 codes ex-`info` retirés du seed et tracés désormais dans `tms.audit_logs` ou `integrations_logs` selon module : `m05_realisee_sans_collecte` (statut `collectes_tms`), `m05_force_logout_admin` (audit_logs M13), `m09_recompte_ecart_rolls` (table `rolls_mouvements` source `recompte_ops`), `m09_tare_modifiee` (audit_logs `TYPE_CONTENANT_TARE_UPDATE`), `m09_stock_initial_inconnu` (audit_logs M09 fallback), `m10_recomptage_ecart` (table `recomptages_stocks_entrepot_log`), `m13_secret_rotated` (audit_logs M13 W5), `m13_event_manual_replay` (audit_logs M13 W6), `m13_impersonation_started` (audit_logs M13 W9), `m14_everest_coverage_stale` (integrations_logs M12), `m14_everest_webhook_event_unknown` (integrations_logs M14 + statut inbox `failed_unknown_event`), `m14_everest_acceptee_manuellement` (audit_logs M14 W4)
 - Bloc 3 A1 reclassement — `m08_rappel_facture_j5` passé `info` → `warning` (rappel actionnable manager, scope `manager_prestataire`, pas Ops). **Renommé `m08_rappel_facture` revue sobriété 2026-04-30 B5 — fusion J+5/J+15 dans même alerte avec UPDATE criticité. Puis code entièrement supprimé revue sobriété §05 2026-05-01 A1 (W11 cron supprimé V1, supervision via widget M08 E0).**
 
-_(Historique de décompte — périmé, voir SOLDE CATALOGUE V1 autoritaire ci-dessus.)_ 70+ codes seed V1 → **57 codes après Bloc 3 sobriété 2026-04-25 (12 retirés, 1 reclassé)**. **M10 propagé 2026-04-25 : 9 codes seedés. Propagation A5 2026-04-25 : +9 codes (2 m04*\*, 7 m05**) précédemment référencés sans seed → R*M11.1 désormais respectée pour M04/M05. Propagation A6 2026-04-25 : +1 code (`m07_horaires_manquants` critical) pour précheck `trg_m07_calc_cost`. Propagation M13 2026-04-25 : +10 codes `m13**` pour M13 Administration TMS (workflows W1-W12, E5 secrets, E6 monitoring, E7 wizard, E9 impersonation). Codes admin scope (`m13*secret**`, `m13*impersonation**`) filtrés par `manager*prestataire_scope='admin'`selon R_M11.8. Propagation M14 2026-04-25 : +11 codes`m14**`(les 2 codes pré-existants`m14*everest_timeout`/`m14_everest_coverage_stale`conservés, redocumentés pour V1 puisque M14 est désormais V1 rédigée). Total catalogue M14 : 13 codes. Propagation §13 2026-04-27 : +4 codes`m13_migration**` (mode migration MTS-1 — toggle activation/désactivation, garde-fou durée prolongée >35j, échec cleanup J+30). Total catalogue après §13 : 61 codes. **Revue sobriété §05 2026-05-01 A1 : -1 code (`m08_rappel_facture` supprimé) → 60 codes.\*\* **Revue sobriété §05 2026-05-01 A5 : -1 code (`m14_everest_incomplete_notify_failed` supprimé, W5 reporté V1.1) → 59 codes. Catalogue M14 : 10 → 9 codes effectivement seedés.** **Revue sobriété §05 2026-05-01 D2 : -3 codes (`m07_cout_manquant` + `m13_prestataire_sans_grille_post_onboarding` + `m12_presta_sans_grille` supprimés, cas impossibles par construction grâce à R_M06.X grille obligatoire création prestataire) → 56 codes. Catalogue M07 : 4 → 3 codes. Catalogue M12 : 3 → 2 codes.**
+*(Historique de décompte — périmé, voir SOLDE CATALOGUE V1 autoritaire ci-dessus.)* 70+ codes seed V1 → **57 codes après Bloc 3 sobriété 2026-04-25 (12 retirés, 1 reclassé)**. **M10 propagé 2026-04-25 : 9 codes seedés. Propagation A5 2026-04-25 : +9 codes (2 m04_*, 7 m05_*) précédemment référencés sans seed → R_M11.1 désormais respectée pour M04/M05. Propagation A6 2026-04-25 : +1 code (`m07_horaires_manquants` critical) pour précheck `trg_m07_calc_cost`. Propagation M13 2026-04-25 : +10 codes `m13_*` pour M13 Administration TMS (workflows W1-W12, E5 secrets, E6 monitoring, E7 wizard, E9 impersonation). Codes admin scope (`m13_secret_*`, `m13_impersonation_*`) filtrés par `manager_prestataire_scope='admin'` selon R_M11.8. Propagation M14 2026-04-25 : +11 codes `m14_*` (les 2 codes pré-existants `m14_everest_timeout`/`m14_everest_coverage_stale` conservés, redocumentés pour V1 puisque M14 est désormais V1 rédigée). Total catalogue M14 : 13 codes. Propagation §13 2026-04-27 : +4 codes `m13_migration_*` (mode migration MTS-1 — toggle activation/désactivation, garde-fou durée prolongée >35j, échec cleanup J+30). Total catalogue après §13 : 61 codes. **Revue sobriété §05 2026-05-01 A1 : -1 code (`m08_rappel_facture` supprimé) → 60 codes.** **Revue sobriété §05 2026-05-01 A5 : -1 code (`m14_everest_incomplete_notify_failed` supprimé, W5 reporté V1.1) → 59 codes. Catalogue M14 : 10 → 9 codes effectivement seedés.** **Revue sobriété §05 2026-05-01 D2 : -3 codes (`m07_cout_manquant` + `m13_prestataire_sans_grille_post_onboarding` + `m12_presta_sans_grille` supprimés, cas impossibles par construction grâce à R_M06.X grille obligatoire création prestataire) → 56 codes. Catalogue M07 : 4 → 3 codes. Catalogue M12 : 3 → 2 codes.**
 
 > **Résolu Bloc 6 B5bis 2026-04-28** : `m04_checklist_bypass` retiré du catalogue (barré ci-dessus), `m05_checklist_contournement_detecte` est le code canonique unique (convention émetteur M05). Propagation M04 faite.
 
@@ -814,7 +790,6 @@ Voir aussi [[11 - Dashboards TMS]] §3.9.
 **Composant** : `<HeaderBellNotifications />` (factorisé `packages/ui-tms`).
 
 **Spécifications** :
-
 - Présent dans le header de toutes les pages (sauf PWA chauffeur M05).
 - Lit `tms.alertes WHERE auth.uid() = ANY(destinataires_user_ids) AND statut IN ('ouverte','snoozee') AND ackee_at IS NULL` (count non ackées). **Bloc 6 sobriété 2026-04-28 C2** : `notifications_inbox_tms` supprimée, lecture directe `tms.alertes`.
 - Badge nombre = count alertes `statut='ouverte' AND ackee_at IS NULL` (non ackées uniquement — indique le travail réel restant).
@@ -865,7 +840,7 @@ Voir aussi [[11 - Dashboards TMS]] §3.9.
   - `test_m11_resolue_auto_idempotent`
   - `test_m11_manager_prestataire_scope_rls`
   - `test_m11_catalogue_admin_only_write`
-- — **retiré Bloc 6 C1** (table supprimée)
+ - — **retiré Bloc 6 C1** (table supprimée)
 
 ### 13.5 §15 Sécurité et conformité TMS
 
@@ -877,7 +852,6 @@ Voir aussi [[11 - Dashboards TMS]] §3.9.
 **Action post-rédaction M11** : audit de chaque module rédigé et remplacement des libellés ad-hoc par le code canonique du catalogue.
 
 Exemples :
-
 - → **Caduc revue sobriété §05 2026-05-01 D2** (EC1 refondu en exception SQL bloquante, code alerte supprimé du catalogue)
 - M02 `dispatch_lieu_snapshot_divergent` → renommer `m02_lieu_snapshot_divergent` (convention `mXX_*`)
 - **Caduc (propagation suppression saisie plaque terrain 2026-06-04)** — D4 caduque, alertes retirées
@@ -896,7 +870,6 @@ Traité dans le task audit propagations cross-CDC.
 **A13 (W7 résolution auto + RPC `alerte_resoudre_auto` + R_M11.7)** : conservé V1.
 
 **Périmètre concerné** : 11 codes auto-résolus sur 57 (~19% du catalogue), répartis sur 6 modules :
-
 - M03 (2) : `m03_type_vehicule_a_valider`, `m03_plaque_manquante_dispatch` (revue sobriété 2026-04-29 — `m03_sla_acceptation_expire` retiré)
 - M04 (2) : `m04_evenement_dlq`, `m04_tournee_sans_chauffeur_j1`
 - M07 (0 post-propagation S6 2026-06-04) : retiré V1 (webhook S6 supprimé A2 2026-05-01, recalcul marge cross-schema sans DLQ) ; `m07_cout_manquant` retiré §05 D2. M07 ne contribue plus aucun code auto-résolu.
@@ -905,7 +878,6 @@ Traité dans le task audit propagations cross-CDC.
 - M10 (2) : `m10_bac_satur` (criticité dynamique fusion B3), `m10_passage_non_confirme` (criticité dynamique fusion C1)
 
 **Justification rejet** :
-
 - Charge ops évitée si conservé : ~30-50 résolutions manuelles/jour évitées (volume réparti M03 plaque + M09 stock bas + M10 bacs + M08 J5/J15/écart)
 - Coût technique faible : 1 RPC SQL ~20 lignes, idempotente (R_M11.7), pas de cron, pas de side-effect réseau (notif silencieuse)
 - Risque inverse non maîtrisable : alert fatigue + perte confiance Ops + dashboard pollué d'alertes mortes (vraies alertes noyées dans le bruit)
@@ -918,7 +890,6 @@ Traité dans le task audit propagations cross-CDC.
 **A5 (W10 test alerte) + A10 (`remplace_par_code` + EC16) + A11 (colonne `canaux` JSONB)** dégagés V1. **A9 (cron `m11_purger_archives`)** rejeté → conservé V1.
 
 Modifications transverses appliquées dans la session courante :
-
 - §04 Data Model TMS — DDL `alertes_catalogue` : colonnes `canaux` (A11) + `remplace_par_code` (A10) retirées ; paramètres `m11.test_nettoyage_minutes` + `m11.rate_limit_test_par_heure` retirés (A5) ; cron `m11_nettoyer_tests` retiré (A5) ; fonction SQL `tms.m11_emit_test` retirée (A5)
 - §05 Règles métier TMS — R_M11.5 reformulée (mention `remplace_par_code` retirée), R_M11.12 supprimée
 - §15 Sécurité — ligne "Tests d'alerte Admin" supprimée (référence RPC `m11_emit_test` + Vercel KV + R_M11.12)
@@ -942,7 +913,6 @@ Modifications transverses appliquées dans la session courante :
 **Décisions Val** : B2a (ackee→metadata), C1a (evt_log→audit_logs), C2a (notif_inbox supprimée), C3a (codes_overrides supprimé), D2 (enum 4→3), P0 bug (m13_migration_mode_active/inactive→audit_logs), B5bis (m04_checklist_bypass→retiré). B5 cron unsnoozer conservé.
 
 **Modifications dans ce fichier M11** :
-
 - Statut header enrichi (Bloc 6)
 - E1 KPI "Ouvertes" : `IN ('ouverte', 'ackee')` → `= 'ouverte'` ; "Critical non ackées" : `AND ackee_at IS NULL`
 - E2 timeline : `alertes_evenements_log` → `tms.audit_logs`
@@ -961,21 +931,21 @@ Modifications transverses appliquées dans la session courante :
 - §13.4 §09 : 3 tables de policies supprimées, test `evt_log_append_only` retiré, `test_ack_idempotent` ajouté
 - §11.7 catalogue : 2 codes `m13_migration_mode_active/inactive` retirés (P0 → audit_logs), `m04_checklist_bypass` retiré (B5bis → `m05_checklist_contournement_detecte`)
 
-**Total M11 Bloc 6** : -3 tables (`alertes_evenements_log`, `notifications_inbox_tms`, `alertes_codes_overrides`), -1 valeur enum, -2 codes catalogue invalides (P0), -1 code doublon (B5bis). _(Décompte intermédiaire 2026-04-28 périmé — voir SOLDE CATALOGUE V1 autoritaire en §11.7 : 60 lignes seedées dont 2 `active=false` → 58 émettables V1, après retrait des 2 codes plaque 2026-06-04.)_
+**Total M11 Bloc 6** : -3 tables (`alertes_evenements_log`, `notifications_inbox_tms`, `alertes_codes_overrides`), -1 valeur enum, -2 codes catalogue invalides (P0), -1 code doublon (B5bis). *(Décompte intermédiaire 2026-04-28 périmé — voir SOLDE CATALOGUE V1 autoritaire en §11.7 : 60 lignes seedées dont 2 `active=false` → 58 émettables V1, après retrait des 2 codes plaque 2026-06-04.)*
 
 **Propagations requises** (autres fichiers) — voir §13.12 ci-dessous.
 
 ### 13.12 Propagations Bloc 6 vers autres fichiers (2026-04-28)
 
-| Fichier                    | Modification                                                                                                                                                                                                     |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **§04 Data Model TMS**     | Enum `alerte_statut` : retirer `ackee`. Index `tms.alertes` : mettre à jour WHERE. Retirer table `alertes_evenements_log` (strikethrough). Retirer table `alertes_codes_overrides` addendum M13 (strikethrough). |
-| **§09 Auth TMS**           | Retirer policies RLS `alertes_evenements_log`. Retirer policies `alertes_codes_overrides`. Retirer pgTAP `test_m11_evenements_log_append_only`. Retirer pgTAP `test_alertes_codes_overrides_*`.                  |
-| **§05 Règles métier TMS**  | R_M11.11 : retirer mention contrainte `alertes_statut_ack`, documenter `alertes_ackee_coherence`.                                                                                                                |
-| **M13 Administration TMS** | D2 `alertes_codes_overrides` → dégagée Bloc 6 C3. Retirer E8 codes alertes override, W2 upsert_alerte_code_override, table architecture, Edge Function `upsert_alerte_code_override`.                            |
-| **§15 Sécurité TMS**       | §15.4.5 : retirer référence `alertes_evenements_log` dans ligne "Timeline append-only".                                                                                                                          |
-| **M04 Gestion tournées**   | Retirer/strikethrough `m04_checklist_bypass` → `m05_checklist_contournement_detecte` (B5bis — convention émetteur).                                                                                              |
-| **§00 Index TMS**          | Propagation Bloc 6 M11 + solde catalogue 61→58 codes.                                                                                                                                                            |
+| Fichier | Modification |
+|---------|--------------|
+| **§04 Data Model TMS** | Enum `alerte_statut` : retirer `ackee`. Index `tms.alertes` : mettre à jour WHERE. Retirer table `alertes_evenements_log` (strikethrough). Retirer table `alertes_codes_overrides` addendum M13 (strikethrough). |
+| **§09 Auth TMS** | Retirer policies RLS `alertes_evenements_log`. Retirer policies `alertes_codes_overrides`. Retirer pgTAP `test_m11_evenements_log_append_only`. Retirer pgTAP `test_alertes_codes_overrides_*`. |
+| **§05 Règles métier TMS** | R_M11.11 : retirer mention contrainte `alertes_statut_ack`, documenter `alertes_ackee_coherence`. |
+| **M13 Administration TMS** | D2 `alertes_codes_overrides` → dégagée Bloc 6 C3. Retirer E8 codes alertes override, W2 upsert_alerte_code_override, table architecture, Edge Function `upsert_alerte_code_override`. |
+| **§15 Sécurité TMS** | §15.4.5 : retirer référence `alertes_evenements_log` dans ligne "Timeline append-only". |
+| **M04 Gestion tournées** | Retirer/strikethrough `m04_checklist_bypass` → `m05_checklist_contournement_detecte` (B5bis — convention émetteur). |
+| **§00 Index TMS** | Propagation Bloc 6 M11 + solde catalogue 61→58 codes. |
 
 ---
 

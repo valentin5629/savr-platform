@@ -6,27 +6,26 @@
 
 > **Instructions Claude Code** : ces scénarios sont la source de vérité pour les tests du module M01.
 > Pour chaque scénario :
->
 > - Couche `db` → écrire un test pgTAP dans `supabase/tests/`
 > - Couche `api` → écrire un test Vitest dans `packages/tms/tests/api/` (Edge Function webhook)
 > - Couche `ui` → écrire un test Playwright dans `packages/tms/tests/e2e/`
->   Les tests P1-critique sont bloquants CI. Les tests P2 et P3 sont non-bloquants V1.
->   Ne pas démarrer le développement du module sans avoir écrit les tests P1 d'abord.
+> Les tests P1-critique sont bloquants CI. Les tests P2 et P3 sont non-bloquants V1.
+> Ne pas démarrer le développement du module sans avoir écrit les tests P1 d'abord.
 
 ---
 
 ## Résumé de couverture
 
-| Catégorie         | Nb scénarios | Couverture estimée                                                                                                                               |
-| ----------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Happy path        | 4            | W1 (E1), W3 (E2), W4 (E3), notif M02                                                                                                             |
-| Cas limites       | 7            | nb_pax=0, coords ZD-IDF/AG, payload 256 KB, heure_collecte borne, cap retries 5                                                                  |
-| Cas d'erreur      | 10           | HMAC, JSON, schema_version, heure passée, UUID, champ requis absent, 404, modif tardive, heure rétrograde, champ non modifiable, DELETE terminée |
-| Isolation RLS     | 5            | manager_prestataire, chauffeur (deny) ; ops_savr, admin_tms (allow) ; write authenticated (deny)                                                 |
-| Idempotence/états | 5            | dedup event_id, retry 500, out-of-order, ON CONFLICT inbox, rejet DLQ terminal                                                                   |
-| Cross-app         | 7            | S11, association AG, re-confirmation (heure), nb_pax sans re-confirm, controle_acces notif, gap cold-start >24h / ≤24h                           |
-| Migration         | 0            | Hors scope V1 (voir section dédiée)                                                                                                              |
-| **TOTAL**         | **38**       |                                                                                                                                                  |
+| Catégorie | Nb scénarios | Couverture estimée |
+|-----------|-------------|-------------------|
+| Happy path | 4 | W1 (E1), W3 (E2), W4 (E3), notif M02 |
+| Cas limites | 7 | nb_pax=0, coords ZD-IDF/AG, payload 256 KB, heure_collecte borne, cap retries 5 |
+| Cas d'erreur | 10 | HMAC, JSON, schema_version, heure passée, UUID, champ requis absent, 404, modif tardive, heure rétrograde, champ non modifiable, DELETE terminée |
+| Isolation RLS | 5 | manager_prestataire, chauffeur (deny) ; ops_savr, admin_tms (allow) ; write authenticated (deny) |
+| Idempotence/états | 5 | dedup event_id, retry 500, out-of-order, ON CONFLICT inbox, rejet DLQ terminal |
+| Cross-app | 7 | S11, association AG, re-confirmation (heure), nb_pax sans re-confirm, controle_acces notif, gap cold-start >24h / ≤24h |
+| Migration | 0 | Hors scope V1 (voir section dédiée) |
+| **TOTAL** | **38** | |
 
 **Enum de référence `statut_dispatch` (6 valeurs, R6.1)** : `a_attribuer`, `attribuee_en_attente_acceptation`, `acceptee`, `en_attente_execution`, `rejetee_par_prestataire`, `annulee_par_traiteur`.
 **Motifs DLQ (`dlq_motif`)** : `schema_invalide`, `validation_metier_echec`, `schema_version_divergence`, `ref_plateforme_manquante`, `erreur_technique`.

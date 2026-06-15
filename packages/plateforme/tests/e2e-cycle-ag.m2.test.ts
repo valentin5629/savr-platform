@@ -174,7 +174,7 @@ describe('E2E / AG / scenario-nominal-habilite', () => {
     expect(attInsert!.volume_repas).toBe(120);
     expect(attInsert!.numero).toBe('ATT-DON-2026-00001');
     expect(attInsert!.version).toBe(1);
-    expect(attInsert!.statut).toBe('en_attente');
+    expect(attInsert!.statut).toBe('brouillon');
   });
 });
 

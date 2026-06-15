@@ -195,6 +195,7 @@ SELECT throws_ok(
       10, 1, 'en_attente'
     )$$,
   '42501',
+  NULL,
   'T3 : INSERT attestations_don par traiteur_manager → deny RLS'
 );
 
@@ -257,7 +258,7 @@ INSERT INTO plateforme.transporteurs (
   types_vehicules, type_tms,
   contact_nom, contact_email, contact_telephone, actif
 ) VALUES (
-  'g0000000-0000-0000-0000-000000000001'::uuid,
+  '90000000-0000-0000-0000-000000000001'::uuid,
   'Transp Test', '987654321', '1 Rue Logistique', '75001', 'Paris',
   ARRAY['camionnette'], 'autre',
   'Contact Test', 'contact@transp-test.fr', '0100000001', true
@@ -268,17 +269,17 @@ INSERT INTO plateforme.attributions_antgaspi (
   branche_attribution, mode_validation,
   volume_repas_realise, poids_repas_kg
 ) VALUES (
-  'h0000000-0000-0000-0000-000000000001'::uuid,
+  '80000000-0000-0000-0000-000000000001'::uuid,
   'e0000000-0000-0000-0000-000000000001'::uuid,
   'f0000000-0000-0000-0000-000000000001'::uuid,
-  'g0000000-0000-0000-0000-000000000001'::uuid,
+  '90000000-0000-0000-0000-000000000001'::uuid,
   'ag_velo_idf', 'manuel_top1',
   120, 54.0
 );
 
 -- Relier attestation existante à cette attribution
 UPDATE plateforme.attestations_don
-SET attribution_antgaspi_id = 'h0000000-0000-0000-0000-000000000001'::uuid
+SET attribution_antgaspi_id = '80000000-0000-0000-0000-000000000001'::uuid
 WHERE id = 'f0000000-0000-0000-0001-000000000001'::uuid;
 
 -- Seed paramètre CO2 (INSERT ou no-op si déjà présent via migration)
@@ -289,7 +290,7 @@ ON CONFLICT (cle) DO UPDATE SET valeur = '2.5'::jsonb;
 -- Déclencher le trigger : correction volume 120 → 100
 UPDATE plateforme.attributions_antgaspi
 SET volume_repas_realise = 100
-WHERE id = 'h0000000-0000-0000-0000-000000000001'::uuid;
+WHERE id = '80000000-0000-0000-0000-000000000001'::uuid;
 
 -- T7 : ancienne attestation marquée corrigee
 SELECT is(
@@ -302,7 +303,7 @@ SELECT is(
 -- T8 : nouvelle attestation version=2 créée
 SELECT is(
   (SELECT count(*)::int FROM plateforme.attestations_don
-   WHERE attribution_antgaspi_id = 'h0000000-0000-0000-0000-000000000001'::uuid
+   WHERE attribution_antgaspi_id = '80000000-0000-0000-0000-000000000001'::uuid
      AND version = 2),
   1,
   'T8 (R9) : attestation version=2 créée'
@@ -311,7 +312,7 @@ SELECT is(
 -- T9 : volume_repas = 100 dans la version 2
 SELECT is(
   (SELECT volume_repas FROM plateforme.attestations_don
-   WHERE attribution_antgaspi_id = 'h0000000-0000-0000-0000-000000000001'::uuid
+   WHERE attribution_antgaspi_id = '80000000-0000-0000-0000-000000000001'::uuid
      AND version = 2),
   100,
   'T9 (R9) : volume_repas = 100 dans la nouvelle version'
@@ -320,7 +321,7 @@ SELECT is(
 -- T10 : co2_evite_kg = 250 (100 × 2.5)
 SELECT is(
   (SELECT co2_evite_kg FROM plateforme.attestations_don
-   WHERE attribution_antgaspi_id = 'h0000000-0000-0000-0000-000000000001'::uuid
+   WHERE attribution_antgaspi_id = '80000000-0000-0000-0000-000000000001'::uuid
      AND version = 2),
   250.0::numeric(10,3),
   'T10 (R9) : co2_evite_kg = 250 (100 × 2.5 kgCO2e)'
@@ -333,7 +334,7 @@ SELECT is(
    JOIN plateforme.attestations_don a ON a.id = j.entity_id
    WHERE j.type_document = 'attestation-don'
      AND a.version = 2
-     AND a.attribution_antgaspi_id = 'h0000000-0000-0000-0000-000000000001'::uuid),
+     AND a.attribution_antgaspi_id = '80000000-0000-0000-0000-000000000001'::uuid),
   1,
   'T11 (R9) : 1 job PDF attestation-don enqueué pour version 2'
 );
@@ -345,7 +346,7 @@ SELECT is(
    JOIN plateforme.attestations_don a ON a.id = j.entity_id
    WHERE j.type_document = 'attestation-don'
      AND a.version = 2
-     AND a.attribution_antgaspi_id = 'h0000000-0000-0000-0000-000000000001'::uuid
+     AND a.attribution_antgaspi_id = '80000000-0000-0000-0000-000000000001'::uuid
    LIMIT 1),
   'pending',
   'T12 (R9) : job en statut pending'
@@ -354,11 +355,11 @@ SELECT is(
 -- T13 : idempotence — trigger no-op si aucune attestation emise (version 2 est en_attente)
 UPDATE plateforme.attributions_antgaspi
 SET volume_repas_realise = 90
-WHERE id = 'h0000000-0000-0000-0000-000000000001'::uuid;
+WHERE id = '80000000-0000-0000-0000-000000000001'::uuid;
 
 SELECT is(
   (SELECT count(*)::int FROM plateforme.attestations_don
-   WHERE attribution_antgaspi_id = 'h0000000-0000-0000-0000-000000000001'::uuid),
+   WHERE attribution_antgaspi_id = '80000000-0000-0000-0000-000000000001'::uuid),
   2,
   'T13 (R9 idempotence) : trigger no-op si aucune attestation emise (2 versions au total)'
 );
@@ -366,7 +367,7 @@ SELECT is(
 -- T14 : nouveau numéro distinct de l'original
 SELECT isnt(
   (SELECT numero FROM plateforme.attestations_don
-   WHERE attribution_antgaspi_id = 'h0000000-0000-0000-0000-000000000001'::uuid
+   WHERE attribution_antgaspi_id = '80000000-0000-0000-0000-000000000001'::uuid
      AND version = 2),
   'ATT-DON-2026-00101',
   'T14 (R9) : nouvelle attestation reçoit un numéro distinct'

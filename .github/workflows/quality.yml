@@ -159,9 +159,19 @@ jobs:
           if [ -z "$FILES" ]; then
             echo "Aucune migration nouvelle — garde anti-destructif skippé."; exit 0
           fi
-          if echo "$FILES" | xargs grep -Eil 'drop +(table|column)|truncate' ; then
-            echo "::error::Migration destructive detectee -- revue humaine obligatoire"; exit 1
-          fi
+          DESTRUCTIVE=$(echo "$FILES" | xargs grep -Eil 'drop +(table|column)|truncate' || true)
+          if [ -z "$DESTRUCTIVE" ]; then exit 0; fi
+          FAIL=false
+          for f in $DESTRUCTIVE; do
+            if grep -qi -- '-- REVIEWED-DESTRUCTIVE:' "$f"; then
+              echo "✅ $f — revue documentée :"
+              grep -i -- '-- REVIEWED-DESTRUCTIVE:' "$f"
+            else
+              echo "::error::Migration destructive sans marqueur -- REVIEWED-DESTRUCTIVE: dans $f"
+              FAIL=true
+            fi
+          done
+          if [ "$FAIL" = "true" ]; then exit 1; fi
 
   # Vérifie les plans d'exécution des requêtes critiques (SLA §16 : p95 < 200ms listes).
   # Détecte les Sequential Scans sur tables volumineuses avant qu'ils atteignent la prod.

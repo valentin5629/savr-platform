@@ -96,13 +96,13 @@ VALUES
   ('fac00002-0000-0000-0000-000000000001'::uuid, '0a900002-0000-0000-0000-000000000001'::uuid, 'ee100002-0000-0000-0000-000000000001'::uuid, 'FAC-002', 150.00, 180.00, 'brouillon');
 
 -- Packs AG A et B
-INSERT INTO plateforme.tarifs_packs_ag (id, nb_collectes, prix_ht, valide_du, actif)
-VALUES ('da100001-0000-0000-0000-000000000001'::uuid, 10, 500.00, '2026-01-01', true);
+INSERT INTO plateforme.tarifs_packs_ag (id, nb_collectes, prix_ht, valide_du, actif, type_pack, credits, prix_unitaire_ht)
+VALUES ('da100001-0000-0000-0000-000000000001'::uuid, 10, 500.00, '2026-01-01', true, 'pack_10', 10, 500.00);
 
-INSERT INTO plateforme.packs_antgaspi (id, organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, nb_annulees, statut, date_achat)
+INSERT INTO plateforme.packs_antgaspi (id, organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, nb_annulees, statut, date_achat, credits_initiaux, type_pack)
 VALUES
-  ('ace00001-0000-0000-0000-000000000001'::uuid, '0a900001-0000-0000-0000-000000000001'::uuid, 'da100001-0000-0000-0000-000000000001'::uuid, 10, 0, 0, 'actif', current_date),
-  ('ace00002-0000-0000-0000-000000000001'::uuid, '0a900002-0000-0000-0000-000000000001'::uuid, 'da100001-0000-0000-0000-000000000001'::uuid, 5, 0, 0, 'actif', current_date);
+  ('ace00001-0000-0000-0000-000000000001'::uuid, '0a900001-0000-0000-0000-000000000001'::uuid, 'da100001-0000-0000-0000-000000000001'::uuid, 10, 0, 0, 'actif', current_date, 10, 'personnalise'),
+  ('ace00002-0000-0000-0000-000000000001'::uuid, '0a900002-0000-0000-0000-000000000001'::uuid, 'da100001-0000-0000-0000-000000000001'::uuid, 5, 0, 0, 'actif', current_date, 5, 'personnalise');
 
 -- =====================================================================
 -- CATÉGORIE 4 — ISOLATION DONNÉES (14 tests cross-org, soft-delete, etc.)

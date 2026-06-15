@@ -1,0 +1,58 @@
+{
+  "module": "M2.1",
+  "titre": "Packs AG — schéma, triggers, UI Admin",
+  "description": "Alignement schéma packs_antgaspi/tarifs_packs_ag sur DDL cible V2, triggers débit/recrédit, RPC annulation crédit, UI Admin (onglet packs client, paramètres tarifs AG, Bloc 6 collecte AG).",
+  "garde_fous_tms_ready": {
+    "G1": "Migration 20260615200000 aligne packs_antgaspi et tarifs_packs_ag sur DDL cible V2 sans rename destructif — anciennes colonnes conservées pour rétro-compatibilité, nouvelles colonnes ajoutées et migrées.",
+    "G3": "0 référence mts1/everest hors packages/adapters/ — M2.1 ne touche pas les adapters.",
+    "G4": "Non concerné — M2.1 n'introduit pas de nouveaux events outbox (les triggers pack sont internes à plateforme.*). Les mutations E1/E2/E3 existantes déclenchent déjà les triggers."
+  },
+  "fichiers_produits": [
+    "supabase/migrations/20260615200000_plateforme_m2_1_packs_schema_align.sql",
+    "supabase/migrations/20260615200100_plateforme_m2_1_packs_triggers.sql",
+    "supabase/tests/m2_1_packs_ag.test.sql",
+    "packages/plateforme/src/app/api/v1/admin/collectes/[id]/annuler-credit/route.ts",
+    "packages/plateforme/src/app/(admin)/admin/clients/[id]/page.tsx (onglet packs — boutons + modales)",
+    "packages/plateforme/src/app/(admin)/admin/collectes/[id]/page.tsx (Bloc 6 — annuler crédit AG)",
+    "packages/plateforme/src/app/(admin)/admin/parametres/tarifs-ag/page.tsx",
+    "packages/plateforme/tests/api/admin/packs-ag.m2-1.test.ts",
+    "specs/manifests/M2.1.json"
+  ],
+  "tables_concernees": [
+    "plateforme.packs_antgaspi (schéma aligné V2 : credits_initiaux, credits_consommes, type_pack, montant_total_ht, idempotency_key)",
+    "plateforme.tarifs_packs_ag (schéma aligné V2 : credits, prix_unitaire_ht, type_pack, mensualisable, nb_mensualites, valide_jusqu_au)",
+    "plateforme.collectes (pack_antgaspi_id rattaché par trigger BEFORE, annulee_cote_savr via RPC)",
+    "plateforme.audit_log (traces triggers + RPC)"
+  ],
+  "triggers": [
+    "trg_pack_debit_realisee (BEFORE UPDATE statut → realisee AG) — fn_trg_pack_debit_realisee",
+    "trg_pack_debit_annulation_tardive (BEFORE UPDATE statut → annulee, OLD != realisee) — fn_trg_pack_debit_annulation_tardive",
+    "trg_pack_recredit (BEFORE UPDATE statut realisee → annulee) — fn_trg_pack_recredit",
+    "rpc_annuler_credit_collecte (SECURITY DEFINER, GRANT TO service_role)"
+  ],
+  "scenarios": [
+    "collecte AG passe à realisee → credits_consommes+1, pack_antgaspi_id rattaché",
+    "dernier crédit consommé → pack bascule epuise + alerte Admin",
+    "collecte annulee depuis realisee → recrédit GREATEST(0, consommes-1), pack réactivé si était epuise",
+    "annulation < 12h ou prestataire mandaté → débit tardif pack",
+    "RPC annuler-credit : collecte reste realisee, pack décrémenté, audit_log",
+    "tarif versioning : POST ferme ligne active, ouvre nouvelle ligne"
+  ],
+  "tests": {
+    "pgtap": [
+      "supabase/tests/m2_1_packs_ag.test.sql (32 tests)"
+    ],
+    "vitest": [
+      "packages/plateforme/tests/api/admin/packs-ag.m2-1.test.ts (9 tests API)"
+    ]
+  },
+  "divergences": [
+    "M2.1_20260615.md — schéma clair : M0.3 utilisait nb_collectes/nb_utilisees, DDL cible V2 = credits_initiaux/credits_consommes"
+  ],
+  "hors_scope": [
+    "Espace traiteur : dashboard packs AG (M2.3)",
+    "Attestation don (M2.4)",
+    "Everest adapter (M2.5 — NON-GO cohérence §08, session cdc-app-savr requise)",
+    "Algo attribution AG top-3 (M2.2)"
+  ]
+}

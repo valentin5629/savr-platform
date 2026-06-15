@@ -129,12 +129,12 @@ INSERT INTO plateforme.outbox_events (id, event_type, payload, aggregate_type, a
 VALUES ('0c0c0001-0000-0000-0000-000000000001'::uuid, 'collecte.creee', '{}', 'collecte', 'cccc0001-0000-0000-0000-000000000001'::uuid);
 
 -- Tarif pack AG (nécessaire pour la FK de packs_antgaspi)
-INSERT INTO plateforme.tarifs_packs_ag (id, nb_collectes, prix_ht, valide_du, actif)
-VALUES ('0a0a0001-0000-0000-0000-000000000001'::uuid, 10, 500.00, '2026-01-01', true);
+INSERT INTO plateforme.tarifs_packs_ag (id, nb_collectes, prix_ht, valide_du, actif, type_pack, credits, prix_unitaire_ht)
+VALUES ('0a0a0001-0000-0000-0000-000000000001'::uuid, 10, 500.00, '2026-01-01', true, 'pack_10', 10, 500.00);
 
 -- Packs AG
-INSERT INTO plateforme.packs_antgaspi (id, organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, nb_annulees, statut, date_achat)
-VALUES ('0d0d0001-0000-0000-0000-000000000001'::uuid, '11111111-0000-0000-0000-000000000001'::uuid, '0a0a0001-0000-0000-0000-000000000001'::uuid, 10, 2, 0, 'actif', current_date);
+INSERT INTO plateforme.packs_antgaspi (id, organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, nb_annulees, statut, date_achat, credits_initiaux, type_pack)
+VALUES ('0d0d0001-0000-0000-0000-000000000001'::uuid, '11111111-0000-0000-0000-000000000001'::uuid, '0a0a0001-0000-0000-0000-000000000001'::uuid, 10, 2, 0, 'actif', current_date, 10, 'personnalise');
 
 -- ---------------------------------------------------------------------------
 -- TESTS 0.4a — HELPERS + RÉFÉRENTIEL
@@ -254,16 +254,16 @@ SELECT ok(true, 'T14 tournees_policy_structure_ok');
 -- T15 : packs_ag_write_ops_ok — ops_savr peut insérer un pack
 SELECT test_set_jwt('ops_savr', NULL);
 SAVEPOINT sp_t15;
-INSERT INTO plateforme.packs_antgaspi (id, organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, nb_annulees, statut, date_achat)
-VALUES ('0d0d0002-0000-0000-0000-000000000001'::uuid, '11111111-0000-0000-0000-000000000001'::uuid, '0a0a0001-0000-0000-0000-000000000001'::uuid, 5, 0, 0, 'epuise', current_date);
+INSERT INTO plateforme.packs_antgaspi (id, organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, nb_annulees, statut, date_achat, credits_initiaux, type_pack)
+VALUES ('0d0d0002-0000-0000-0000-000000000001'::uuid, '11111111-0000-0000-0000-000000000001'::uuid, '0a0a0001-0000-0000-0000-000000000001'::uuid, 5, 0, 0, 'epuise', current_date, 5, 'personnalise');
 SELECT ok(true, 'T15 packs_ag_write_ops_ok');
 ROLLBACK TO SAVEPOINT sp_t15;
 
 -- T16 : packs_ag_write_client_denied — traiteur_manager ne peut PAS insérer un pack
 SELECT test_set_jwt('traiteur_manager', '11111111-0000-0000-0000-000000000001'::uuid);
 SELECT throws_ok(
-  $$INSERT INTO plateforme.packs_antgaspi (id, organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, nb_annulees, statut, date_achat)
-    VALUES ('0d0d0003-0000-0000-0000-000000000001', '11111111-0000-0000-0000-000000000001', '0a0a0001-0000-0000-0000-000000000001', 5, 0, 0, 'actif', current_date)$$,
+  $$INSERT INTO plateforme.packs_antgaspi (id, organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, nb_annulees, statut, date_achat, credits_initiaux, type_pack)
+    VALUES ('0d0d0003-0000-0000-0000-000000000001', '11111111-0000-0000-0000-000000000001', '0a0a0001-0000-0000-0000-000000000001', 5, 0, 0, 'actif', current_date, 5, 'personnalise')$$,
   '42501', NULL, 'T16 packs_ag_write_client_denied'
 );
 

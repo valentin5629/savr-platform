@@ -13,11 +13,13 @@ import {
   Percent,
   DollarSign,
   FlaskConical,
+  X,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Button } from '@/components/ui/button';
 
 interface OrgDetail {
   id: string;
@@ -90,6 +92,16 @@ const SIRET_BADGE: Record<string, 'success' | 'warning' | 'error'> = {
   echec: 'error',
 };
 
+type ModalType = 'creer' | 'ajuster' | 'annuler' | null;
+
+const TYPES_PACK = [
+  { value: 'unitaire', label: '1 collecte (Unitaire)' },
+  { value: 'pack_10', label: '10 collectes' },
+  { value: 'pack_30', label: '30 collectes' },
+  { value: 'pack_60', label: '60 collectes' },
+  { value: 'personnalise', label: 'Personnalisé' },
+] as const;
+
 export default function ClientFichePage({
   params,
 }: {
@@ -99,6 +111,23 @@ export default function ClientFichePage({
   const [org, setOrg] = useState<OrgDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [onglet, setOnglet] = useState<OngletKey>('informations');
+  const [modal, setModal] = useState<ModalType>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  // Formulaire créer pack
+  const [fTypePack, setFTypePack] = useState('pack_10');
+  const [fCredits, setFCredits] = useState(10);
+  const [fMontant, setFMontant] = useState('');
+  const [fModeFacturation, setFModeFacturation] = useState('par_collecte');
+  const [fCommentaires, setFCommentaires] = useState('');
+
+  // Formulaire ajuster
+  const [fAjusterCredits, setFAjusterCredits] = useState(0);
+  const [fAjusterMotif, setFAjusterMotif] = useState('');
+
+  // Formulaire annuler
+  const [fAnnulerMotif, setFAnnulerMotif] = useState('');
 
   useEffect(() => {
     fetch(`/api/v1/admin/organisations/${id}`)
@@ -142,6 +171,93 @@ export default function ClientFichePage({
   const creditsRestants = packActif
     ? packActif.credits_initiaux - packActif.credits_consommes
     : 0;
+
+  async function refreshOrg() {
+    const r = await fetch(`/api/v1/admin/organisations/${id}`);
+    setOrg((await r.json()) as OrgDetail);
+  }
+
+  async function submitCreerPack(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      const r = await fetch('/api/v1/admin/packs-antgaspi', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': crypto.randomUUID(),
+        },
+        body: JSON.stringify({
+          organisation_id: id,
+          type_pack: fTypePack,
+          credits_initiaux: fCredits,
+          montant_total_ht: fMontant ? parseFloat(fMontant) : undefined,
+          mode_facturation: fModeFacturation,
+          commentaires: fCommentaires || undefined,
+        }),
+      });
+      const data = (await r.json()) as { error?: string };
+      if (!r.ok) {
+        setFormError(data.error ?? 'Erreur');
+        return;
+      }
+      setModal(null);
+      await refreshOrg();
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function submitAjuster(e: React.FormEvent) {
+    e.preventDefault();
+    if (!packActif) return;
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      const r = await fetch(`/api/v1/admin/packs-antgaspi/${packActif.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'ajuster_credits',
+          credits_initiaux: fAjusterCredits,
+          motif: fAjusterMotif,
+        }),
+      });
+      const data = (await r.json()) as { error?: string };
+      if (!r.ok) {
+        setFormError(data.error ?? 'Erreur');
+        return;
+      }
+      setModal(null);
+      await refreshOrg();
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function submitAnnuler(e: React.FormEvent) {
+    e.preventDefault();
+    if (!packActif) return;
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      const r = await fetch(`/api/v1/admin/packs-antgaspi/${packActif.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'annuler', motif: fAnnulerMotif }),
+      });
+      const data = (await r.json()) as { error?: string };
+      if (!r.ok) {
+        setFormError(data.error ?? 'Erreur');
+        return;
+      }
+      setModal(null);
+      await refreshOrg();
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -319,6 +435,23 @@ export default function ClientFichePage({
 
         {onglet === 'packs' && (
           <div className="space-y-4">
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                onClick={() => {
+                  setFTypePack('pack_10');
+                  setFCredits(10);
+                  setFMontant('');
+                  setFModeFacturation('par_collecte');
+                  setFCommentaires('');
+                  setFormError(null);
+                  setModal('creer');
+                }}
+              >
+                Créer un pack
+              </Button>
+            </div>
+
             {/* Bandeau alerte crédits faibles */}
             {packActif && creditsRestants < 5 && (
               <div className="bg-warning-subtle border border-warning-300 text-warning-strong rounded-lg px-4 py-3 text-sm">
@@ -334,7 +467,32 @@ export default function ClientFichePage({
               <Card className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-medium">Pack actif</h3>
-                  <Badge variant="success">{packActif.type_pack}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="success">{packActif.type_pack}</Badge>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        setFAjusterCredits(packActif.credits_initiaux);
+                        setFAjusterMotif('');
+                        setFormError(null);
+                        setModal('ajuster');
+                      }}
+                    >
+                      Ajuster crédits
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => {
+                        setFAnnulerMotif('');
+                        setFormError(null);
+                        setModal('annuler');
+                      }}
+                    >
+                      Annuler le pack
+                    </Button>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
@@ -458,6 +616,242 @@ export default function ClientFichePage({
           </Card>
         )}
       </div>
+
+      {/* ── Modales ──────────────────────────────────────────────────── */}
+      {modal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">
+                {modal === 'creer' && 'Créer un pack AG'}
+                {modal === 'ajuster' && 'Ajuster les crédits'}
+                {modal === 'annuler' && 'Annuler le pack'}
+              </h2>
+              <button
+                onClick={() => setModal(null)}
+                className="text-neutral-400 hover:text-neutral-900"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {formError && (
+              <div className="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-2 text-sm">
+                {formError}
+              </div>
+            )}
+
+            {/* Modale : Créer un pack */}
+            {modal === 'creer' && (
+              <form
+                onSubmit={(e) => void submitCreerPack(e)}
+                className="space-y-4"
+              >
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Type de pack
+                  </label>
+                  <select
+                    value={fTypePack}
+                    onChange={(e) => {
+                      const t = e.target.value;
+                      setFTypePack(t);
+                      const preset: Record<string, number> = {
+                        unitaire: 1,
+                        pack_10: 10,
+                        pack_30: 30,
+                        pack_60: 60,
+                      };
+                      if (preset[t]) setFCredits(preset[t]);
+                    }}
+                    className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
+                  >
+                    {TYPES_PACK.map((t) => (
+                      <option key={t.value} value={t.value}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Crédits initiaux
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={fCredits}
+                    onChange={(e) => setFCredits(parseInt(e.target.value) || 1)}
+                    className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Montant total HT (€)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={fMontant}
+                    onChange={(e) => setFMontant(e.target.value)}
+                    className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
+                    placeholder="Optionnel"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Mode de facturation
+                  </label>
+                  <select
+                    value={fModeFacturation}
+                    onChange={(e) => setFModeFacturation(e.target.value)}
+                    className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
+                  >
+                    <option value="par_collecte">Par collecte</option>
+                    <option value="globale_achat">
+                      Globale (achat forfait)
+                    </option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Commentaires
+                  </label>
+                  <textarea
+                    value={fCommentaires}
+                    onChange={(e) => setFCommentaires(e.target.value)}
+                    rows={2}
+                    className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
+                    placeholder="Optionnel"
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setModal(null)}
+                    disabled={submitting}
+                  >
+                    Annuler
+                  </Button>
+                  <Button type="submit" disabled={submitting}>
+                    {submitting ? 'Création…' : 'Créer le pack'}
+                  </Button>
+                </div>
+              </form>
+            )}
+
+            {/* Modale : Ajuster crédits */}
+            {modal === 'ajuster' && packActif && (
+              <form
+                onSubmit={(e) => void submitAjuster(e)}
+                className="space-y-4"
+              >
+                <p className="text-sm text-neutral-500">
+                  Pack actif : <strong>{packActif.type_pack}</strong> —{' '}
+                  {packActif.credits_consommes} crédits consommés sur{' '}
+                  {packActif.credits_initiaux}.
+                </p>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Nouveau total de crédits initiaux
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={fAjusterCredits}
+                    onChange={(e) =>
+                      setFAjusterCredits(parseInt(e.target.value) || 0)
+                    }
+                    className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
+                    required
+                  />
+                  {fAjusterCredits < packActif.credits_consommes && (
+                    <p className="text-xs text-warning-600 mt-1">
+                      Valeur inférieure aux crédits consommés — le pack passera
+                      en épuisé.
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Motif (≥ 10 caractères)
+                  </label>
+                  <textarea
+                    value={fAjusterMotif}
+                    onChange={(e) => setFAjusterMotif(e.target.value)}
+                    rows={2}
+                    minLength={10}
+                    className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
+                    required
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setModal(null)}
+                    disabled={submitting}
+                  >
+                    Annuler
+                  </Button>
+                  <Button type="submit" disabled={submitting}>
+                    {submitting ? 'Enregistrement…' : 'Ajuster'}
+                  </Button>
+                </div>
+              </form>
+            )}
+
+            {/* Modale : Annuler le pack */}
+            {modal === 'annuler' && packActif && (
+              <form
+                onSubmit={(e) => void submitAnnuler(e)}
+                className="space-y-4"
+              >
+                <p className="text-sm text-neutral-500">
+                  Le pack <strong>{packActif.type_pack}</strong> (
+                  {creditsRestants} crédit{creditsRestants !== 1 ? 's' : ''}{' '}
+                  restant
+                  {creditsRestants !== 1 ? 's' : ''}) sera annulé
+                  définitivement. Les crédits non consommés seront perdus.
+                </p>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Motif (≥ 10 caractères)
+                  </label>
+                  <textarea
+                    value={fAnnulerMotif}
+                    onChange={(e) => setFAnnulerMotif(e.target.value)}
+                    rows={3}
+                    minLength={10}
+                    className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
+                    required
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setModal(null)}
+                    disabled={submitting}
+                  >
+                    Retour
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="destructive"
+                    disabled={submitting}
+                  >
+                    {submitting ? 'Annulation…' : "Confirmer l'annulation"}
+                  </Button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

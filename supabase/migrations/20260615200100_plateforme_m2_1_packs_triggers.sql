@@ -101,9 +101,6 @@ BEGIN
   IF NEW.type != 'anti_gaspi' THEN
     RETURN NEW;
   END IF;
-  IF OLD.pack_antgaspi_id IS NULL THEN
-    RETURN NEW;
-  END IF;
 
   -- Condition 1 : < 12h avant la collecte
   v_delai_court := (
@@ -120,6 +117,18 @@ BEGIN
 
   IF NOT (v_delai_court OR v_mandat_actif) THEN
     RETURN NEW; -- pas de débit si annulation en avance sans mandat
+  END IF;
+
+  -- Condition tardive remplie mais aucun pack attaché → alerte Admin (§05 §3 F3)
+  IF OLD.pack_antgaspi_id IS NULL THEN
+    PERFORM plateforme.f_upsert_alerte_admin(
+      'ag_annulee_tardive_sans_pack_actif',
+      'Annulation tardive AG sans pack attaché',
+      'La collecte ' || NEW.id::text || ' a été annulée tardivement sans pack AG attaché. Vérifier et imputer manuellement si nécessaire.',
+      'collecte',
+      NEW.id
+    );
+    RETURN NEW;
   END IF;
 
   -- Débit

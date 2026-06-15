@@ -2,7 +2,7 @@
 -- Tests : schéma, triggers (débit réalisation, débit tardif, recrédit), RLS.
 
 BEGIN;
-SELECT plan(32);
+SELECT plan(24);
 
 -- ── Helpers JWT (identiques aux autres fichiers de test) ──────────────────
 
@@ -185,32 +185,30 @@ INSERT INTO plateforme.collectes (
   '00000000-0000-0000-0000-000000000005'::uuid
 );
 
-DECLARE
-  v_consommes_avant integer;
-BEGIN
-  SELECT credits_consommes INTO v_consommes_avant
-  FROM plateforme.packs_antgaspi
-  WHERE id = '00000000-0000-0000-0000-000000000005'::uuid;
+-- Avant annulation : credits_consommes = 9 (après recrédit test 6)
+-- Annuler collecte 8 (validee → annulee, date CURRENT_DATE 08h = < 12h) → débit tardif → 10
+UPDATE plateforme.collectes SET statut = 'annulee'
+WHERE id = '00000000-0000-0000-0000-000000000008'::uuid;
 
-  -- Annuler avec date dans le passé immédiat (< 12h)
-  UPDATE plateforme.collectes SET statut = 'annulee'
-  WHERE id = '00000000-0000-0000-0000-000000000008'::uuid;
-
-  PERFORM ok(
-    (SELECT credits_consommes FROM plateforme.packs_antgaspi
-     WHERE id = '00000000-0000-0000-0000-000000000005'::uuid) > v_consommes_avant,
-    'credits_consommes incrémenté lors annulation tardive (< 12h)'
-  );
-END;
-
--- ── 8. Protection : triggers 2 et 3 mutuellement exclusifs ───────────────
--- Annuler collecte 7 depuis realisee → trigger 3 (recrédit), pas trigger 2
 SELECT is(
   (SELECT credits_consommes FROM plateforme.packs_antgaspi
    WHERE id = '00000000-0000-0000-0000-000000000005'::uuid),
+  10,
+  'credits_consommes = 10 après annulation tardive (< 12h, validee→annulee)'
+);
+
+-- ── 8. Protection : triggers 2 et 3 mutuellement exclusifs ───────────────
+-- Avant : credits_consommes = 10 (après débit tardif test 7)
+-- Annuler collecte 7 (realisee → annulee) : trigger 3 seul se déclenche → recrédit → 9
+-- Trigger 2 ne se déclenche PAS car OLD.statut = 'realisee' (condition exclue)
+UPDATE plateforme.collectes SET statut = 'annulee'
+WHERE id = '00000000-0000-0000-0000-000000000007'::uuid;
+
+SELECT is(
   (SELECT credits_consommes FROM plateforme.packs_antgaspi
    WHERE id = '00000000-0000-0000-0000-000000000005'::uuid),
-  'pas de double mouvement entre trigger 2 et 3'
+  9,
+  'exclusion mutuelle trigger 2/3 : credits_consommes=9 (trigger 3 seul, pas de double mouvement)'
 );
 
 -- ── 9. CHECK constraint credits_consommes >= 0 ───────────────────────────

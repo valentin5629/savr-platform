@@ -30,7 +30,7 @@ echo "🔍 check-query-perf : analyse des plans de requêtes critiques..." >&2
 # ── Requêtes critiques à analyser ────────────────────────────────────────────
 # Format : "description|SQL"
 declare -a QUERIES=(
-  "Liste collectes par org|SELECT c.* FROM plateforme.collectes c WHERE c.organisation_id = '00000000-0000-0000-0000-000000000001'::uuid ORDER BY c.created_at DESC LIMIT 50"
+  "Liste collectes par org|SELECT c.* FROM plateforme.collectes c JOIN plateforme.evenements e ON e.id = c.evenement_id WHERE e.organisation_id = '00000000-0000-0000-0000-000000000001'::uuid ORDER BY c.created_at DESC LIMIT 50"
   "Collectes par statut|SELECT c.* FROM plateforme.collectes c WHERE c.statut = 'programmee' ORDER BY c.created_at DESC LIMIT 100"
   "Outbox pending|SELECT * FROM plateforme.outbox_events WHERE status = 'pending' ORDER BY seq LIMIT 20"
   "Evénements par org|SELECT * FROM plateforme.evenements WHERE organisation_id = '00000000-0000-0000-0000-000000000001'::uuid ORDER BY date_evenement DESC LIMIT 50"

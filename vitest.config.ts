@@ -16,6 +16,7 @@ export default defineConfig({
       '**/dist/**',
       '**/.next/**',
       '_DEV-FACING/**',
+      '**/e2e/**',
     ],
     globals: true,
     setupFiles: ['./vitest.setup.ts'],

@@ -131,15 +131,47 @@ DO $$ BEGIN
      'zero_dechet', 'cloturee',
      '2026-05-18', '08:00', 75.00, 6.00, 4.00, -2.00);
 
+  -- Association + transporteur (requis pour attribution AG)
+  INSERT INTO plateforme.associations (
+    id, nom, adresse, region, ville, contact_email, description_rapport_impact
+  ) VALUES (
+    'da000000-0000-0000-0000-000000000001'::uuid,
+    'Asso KPI', '1 Rue Asso', 'idf', 'Paris',
+    'asso@kpi-test.local',
+    'Association test pour les scénarios KPI M3.5 — fixtures pgTAP'
+  );
+
+  INSERT INTO plateforme.transporteurs (
+    id, nom, siren, adresse, code_postal, ville,
+    types_vehicules, type_tms,
+    contact_nom, contact_email, contact_telephone
+  ) VALUES (
+    'db000000-0000-0000-0000-000000000001'::uuid,
+    'Trans KPI', '123123123', '1 Rue Trans', '75001', 'Paris',
+    ARRAY['camionnette'], 'autre',
+    'Contact Trans', 'trans@kpi-test.local', '0600000099'
+  );
+
   -- Collecte AG cloturee pour Kardamome
   INSERT INTO plateforme.collectes (
     id, evenement_id, type, statut,
-    date_collecte, heure_collecte, volume_repas_realise, co2_evite_kg
+    date_collecte, heure_collecte, co2_evite_kg
   ) VALUES
     ('d7000000-0000-0000-0000-000000000005'::uuid,
      'd5000000-0000-0000-0000-000000000001'::uuid,
      'anti_gaspi', 'cloturee',
-     '2026-05-22', '08:00', 80, 200.00);
+     '2026-05-22', '08:00', 200.00);
+
+  -- Attribution AG (volume_repas_realise vit ici, pas dans collectes)
+  INSERT INTO plateforme.attributions_antgaspi (
+    collecte_id, association_id, transporteur_id,
+    branche_attribution, mode_validation, volume_repas_realise
+  ) VALUES (
+    'd7000000-0000-0000-0000-000000000005'::uuid,
+    'da000000-0000-0000-0000-000000000001'::uuid,
+    'db000000-0000-0000-0000-000000000001'::uuid,
+    'branche_1', 'manuel_top1', 80
+  );
 
   -- Poids réels ZD (collecte_flux)
   INSERT INTO plateforme.collecte_flux (collecte_id, flux_id, poids_reel_kg) VALUES
@@ -170,7 +202,7 @@ END $$;
 
 -- ─── T1-T9 : Basculer en authenticated (Kardamome traiteur_manager) ────────
 -- security_invoker sur les vues = RLS des tables sources appliquée au caller
-PERFORM test_set_jwt('traiteur_manager', 'd0000000-0000-0000-0000-000000000001'::uuid);
+SELECT test_set_jwt('traiteur_manager', 'd0000000-0000-0000-0000-000000000001'::uuid);
 
 -- ─── T1 : Taux recyclage pondéré (collectes A=80%/100kg, B=60%/50kg, C=NULL) ─
 
@@ -241,7 +273,7 @@ SELECT is(
 -- ─── T6 : v_kpi_client_organisateur — scoping par client_organisateur_organisation_id
 
 -- Sous superuser pour tester la logique de filtrage de la vue (pas la RLS)
-PERFORM test_as_superuser();
+SELECT test_as_superuser();
 
 SELECT is(
   (SELECT nb_evenements
@@ -262,7 +294,7 @@ SELECT ok(
 );
 
 -- Basculer en Kardamome authenticated pour T8/T9
-PERFORM test_set_jwt('traiteur_manager', 'd0000000-0000-0000-0000-000000000001'::uuid);
+SELECT test_set_jwt('traiteur_manager', 'd0000000-0000-0000-0000-000000000001'::uuid);
 
 SELECT is(
   (SELECT COUNT(*)::integer
@@ -282,7 +314,7 @@ SELECT ok(
 
 -- ─── T10 : mv_benchmark_kg_pax_zd_base — SELECT direct refusé authenticated ─
 
-PERFORM test_set_jwt('traiteur_manager', 'd0000000-0000-0000-0000-000000000001'::uuid);
+SELECT test_set_jwt('traiteur_manager', 'd0000000-0000-0000-0000-000000000001'::uuid);
 
 SELECT throws_ok(
   $q$SELECT COUNT(*) FROM plateforme.mv_benchmark_kg_pax_zd_base$q$,

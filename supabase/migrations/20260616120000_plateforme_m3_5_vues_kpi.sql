@@ -237,7 +237,11 @@ avoirs AS (
   WHERE f.statut IN ('emise', 'payee')
     AND f.date_emission IS NOT NULL
     AND f.serie = 'AVOIR'
-  GROUP BY date_trunc('month', f.date_emission), type_collecte
+  GROUP BY date_trunc('month', f.date_emission),
+           CASE
+             WHEN f_orig.serie IN ('ZD_COLLECTE', 'ZD_MENSUEL') THEN 'zero_dechet'
+             WHEN f_orig.serie = 'AG_MENSUEL'                    THEN 'anti_gaspi'
+           END
 ),
 -- Fusion revenus directs + avoirs par (mois, type)
 revenus_agg AS (

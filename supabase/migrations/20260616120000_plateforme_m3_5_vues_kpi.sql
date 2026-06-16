@@ -17,14 +17,14 @@ CREATE INDEX IF NOT EXISTS idx_evenements_client_org
 
 CREATE INDEX IF NOT EXISTS idx_factures_statut_date_emission
   ON plateforme.factures (statut, date_emission)
-  WHERE statut IN ('emise', 'payee', 'en_retard');
+  WHERE statut IN ('emise', 'payee');
 
 CREATE INDEX IF NOT EXISTS idx_factures_collectes_facture
   ON plateforme.factures_collectes (facture_id);
 
 -- ─── VIEW : v_kpi_traiteur ──────────────────────────────────────────────────
 -- Agrégats par (organisation_id, mois, type_collecte) — collectes cloturees.
--- Marge ZD = tarif_refacture_pax_zd × pax distincts par événement − Σ factures HT emises/payees/en_retard.
+-- Marge ZD = tarif_refacture_pax_zd × pax distincts par événement − Σ factures HT emises/payees.
 
 DROP VIEW IF EXISTS plateforme.v_kpi_traiteur;
 
@@ -66,7 +66,7 @@ pax_zd AS (
   ) x
   GROUP BY organisation_id, mois
 ),
--- Factures ZD emises/payees/en_retard liées aux collectes cloturees
+-- Factures ZD emises/payees liées aux collectes cloturees
 factures_zd AS (
   SELECT
     e.organisation_id,
@@ -78,7 +78,7 @@ factures_zd AS (
   JOIN plateforme.factures f ON f.id = fc.facture_id
   WHERE c.type = 'zero_dechet'
     AND c.statut = 'cloturee'
-    AND f.statut IN ('emise', 'payee', 'en_retard')
+    AND f.statut IN ('emise', 'payee')
   GROUP BY e.organisation_id, date_trunc('month', c.date_collecte)
 ),
 agg AS (
@@ -200,38 +200,56 @@ WITH collectes_agg AS (
   WHERE c.statut NOT IN ('annulee', 'brouillon')
   GROUP BY date_trunc('month', c.date_collecte), c.type
 ),
--- Revenus par mois/type — imputés au programmateur (evenements.organisation_id)
--- Avoirs (serie='AVOIR') comptés en négatif sur leur mois d'émission
-revenus_agg AS (
+-- Revenus ZD/AG (hors avoirs) par mois/type
+revenus_directs AS (
   SELECT
     date_trunc('month', f.date_emission)::date AS mois,
     CASE
       WHEN f.serie IN ('ZD_COLLECTE', 'ZD_MENSUEL') THEN 'zero_dechet'
-      WHEN f.serie IN ('AG_MENSUEL')                 THEN 'anti_gaspi'
-      WHEN f.serie = 'AVOIR'                         THEN 'avoir'
+      WHEN f.serie = 'AG_MENSUEL'                    THEN 'anti_gaspi'
     END AS type_collecte,
-    SUM(CASE WHEN f.serie = 'AVOIR' THEN -f.montant_ht ELSE f.montant_ht END) AS montant_ht
+    SUM(f.montant_ht) AS montant_ht
   FROM plateforme.factures f
-  WHERE f.statut IN ('emise', 'payee', 'en_retard')
+  WHERE f.statut IN ('emise', 'payee')
     AND f.date_emission IS NOT NULL
+    AND f.serie != 'AVOIR'
   GROUP BY date_trunc('month', f.date_emission), f.serie
+),
+-- Avoirs comptés négatifs, rattachés au type de la facture d'origine (§11 §1.1 F5)
+avoirs AS (
+  SELECT
+    date_trunc('month', f.date_emission)::date AS mois,
+    CASE
+      WHEN f_orig.serie IN ('ZD_COLLECTE', 'ZD_MENSUEL') THEN 'zero_dechet'
+      WHEN f_orig.serie = 'AG_MENSUEL'                    THEN 'anti_gaspi'
+    END AS type_collecte,
+    SUM(-f.montant_ht) AS montant_ht
+  FROM plateforme.factures f
+  JOIN plateforme.factures f_orig ON f_orig.id = f.facture_origine_id
+  WHERE f.statut IN ('emise', 'payee')
+    AND f.date_emission IS NOT NULL
+    AND f.serie = 'AVOIR'
+  GROUP BY date_trunc('month', f.date_emission), type_collecte
+),
+-- Fusion revenus directs + avoirs par (mois, type)
+revenus_agg AS (
+  SELECT mois, type_collecte, SUM(montant_ht) AS montant_ht
+  FROM (
+    SELECT mois, type_collecte, montant_ht FROM revenus_directs
+    UNION ALL
+    SELECT mois, type_collecte, montant_ht FROM avoirs WHERE type_collecte IS NOT NULL
+  ) combined
+  GROUP BY mois, type_collecte
 )
 SELECT
   COALESCE(ca.mois, ra.mois)             AS mois,
-  COALESCE(ca.type_collecte,
-    CASE WHEN ra.type_collecte = 'avoir' THEN 'zero_dechet' ELSE ra.type_collecte END
-  )                                       AS type_collecte,
+  COALESCE(ca.type_collecte, ra.type_collecte) AS type_collecte,
   COALESCE(ca.nb_collectes, 0)           AS nb_collectes,
   COALESCE(ca.nb_cloturees, 0)           AS nb_cloturees,
   COALESCE(ra.montant_ht, 0)             AS montant_factures_ht
 FROM collectes_agg ca
 FULL OUTER JOIN revenus_agg ra
-  ON ra.mois = ca.mois
-  AND (
-    (ra.type_collecte = ca.type_collecte)
-    OR (ra.type_collecte = 'avoir'
-        AND ca.type_collecte IN ('zero_dechet', 'anti_gaspi'))
-  );
+  ON ra.mois = ca.mois AND ra.type_collecte = ca.type_collecte;
 
 GRANT SELECT ON plateforme.v_kpi_admin TO authenticated;
 

@@ -28,6 +28,7 @@ interface CollecteAgRow {
   id: string;
   evenement_id: string;
   realisee_at: string;
+  date_collecte: string;
   co2_evite_kg: number | null;
   co2_facteurs_snapshot: Record<string, unknown> | null;
   evenements: {
@@ -60,7 +61,7 @@ export async function runBatchPdfJ1Ag(
     .from('collectes')
     .select(
       `
-      id, evenement_id, realisee_at,
+      id, evenement_id, realisee_at, date_collecte,
       co2_evite_kg, co2_facteurs_snapshot,
       evenements ( nom_evenement, date_evenement, organisation_id ),
       attributions_antgaspi (
@@ -165,7 +166,7 @@ export async function runBatchPdfJ1Ag(
           nb_repas: attr.volume_repas_realise,
           numero,
           date_emission: today,
-          date_collecte: today,
+          date_collecte: collecte.date_collecte,
           donateur_entite_facturation_id: entite?.id ?? null,
           donateur_raison_sociale: entite?.raison_sociale ?? '',
           donateur_siret: entite?.siret ?? '',
@@ -194,7 +195,9 @@ export async function runBatchPdfJ1Ag(
       const attestationPayload = {
         numero,
         date_emission: new Date().toLocaleDateString('fr-FR'),
-        date_collecte: new Date().toLocaleDateString('fr-FR'),
+        date_collecte: new Date(collecte.date_collecte).toLocaleDateString(
+          'fr-FR',
+        ),
         nom_evenement: ev.nom_evenement,
         date_evenement: dateEvenementStr,
         donateur_raison_sociale: entite?.raison_sociale ?? '',

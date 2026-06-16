@@ -7,9 +7,10 @@ export type ClientRole =
   | 'traiteur_commercial'
   | 'traiteur_manager'
   | 'agence'
-  | 'gestionnaire_lieux';
+  | 'gestionnaire_lieux'
+  | 'client_organisateur';
 
-export type AnyRole = StaffRole | ClientRole | 'client_organisateur';
+export type AnyRole = StaffRole | ClientRole;
 
 export interface AuthContext {
   userId: string;

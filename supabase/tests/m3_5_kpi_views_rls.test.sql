@@ -185,13 +185,13 @@ DO $$ BEGIN
   ON CONFLICT DO NOTHING;
 
   INSERT INTO plateforme.factures (
-    id, organisation_id, entite_facturation_id, serie,
+    id, organisation_id, entite_facturation_id, numero_facture, type,
     statut, date_emission, montant_ht, montant_tva, montant_ttc
   ) VALUES
     ('d9000000-0000-0000-0000-000000000001'::uuid,
      'd0000000-0000-0000-0000-000000000001'::uuid,
      'd1000000-0000-0000-0000-000000000001'::uuid,
-     'ZD_COLLECTE', 'emise',
+     'FZD-2026-00001', 'zero_dechet', 'emise',
      '2026-05-16', 150.00, 30.00, 180.00);
 
   INSERT INTO plateforme.factures_collectes (facture_id, collecte_id, montant_ht) VALUES

@@ -209,38 +209,40 @@ WITH collectes_agg AS (
   GROUP BY date_trunc('month', c.date_collecte), c.type
 ),
 -- Revenus ZD/AG (hors avoirs) par mois/type
+-- f.type : 'zero_dechet' | 'collecte_antigaspi' | 'achat_pack_antigaspi' | 'avoir'
+-- (plateforme.facture_type — colonne ajoutée en M1.7 ; f.serie n'existe PAS sur factures)
 revenus_directs AS (
   SELECT
     date_trunc('month', f.date_emission)::date AS mois,
     CASE
-      WHEN f.serie IN ('ZD_COLLECTE', 'ZD_MENSUEL') THEN 'zero_dechet'
-      WHEN f.serie = 'AG_MENSUEL'                    THEN 'anti_gaspi'
+      WHEN f.type = 'zero_dechet'                                  THEN 'zero_dechet'
+      WHEN f.type IN ('collecte_antigaspi', 'achat_pack_antigaspi') THEN 'anti_gaspi'
     END AS type_collecte,
     SUM(f.montant_ht) AS montant_ht
   FROM plateforme.factures f
   WHERE f.statut IN ('emise', 'payee')
     AND f.date_emission IS NOT NULL
-    AND f.serie != 'AVOIR'
-  GROUP BY date_trunc('month', f.date_emission), f.serie
+    AND f.type != 'avoir'
+  GROUP BY date_trunc('month', f.date_emission), f.type
 ),
 -- Avoirs comptés négatifs, rattachés au type de la facture d'origine (§11 §1.1 F5)
 avoirs AS (
   SELECT
     date_trunc('month', f.date_emission)::date AS mois,
     CASE
-      WHEN f_orig.serie IN ('ZD_COLLECTE', 'ZD_MENSUEL') THEN 'zero_dechet'
-      WHEN f_orig.serie = 'AG_MENSUEL'                    THEN 'anti_gaspi'
+      WHEN f_orig.type = 'zero_dechet'                                  THEN 'zero_dechet'
+      WHEN f_orig.type IN ('collecte_antigaspi', 'achat_pack_antigaspi') THEN 'anti_gaspi'
     END AS type_collecte,
     SUM(-f.montant_ht) AS montant_ht
   FROM plateforme.factures f
   JOIN plateforme.factures f_orig ON f_orig.id = f.facture_origine_id
   WHERE f.statut IN ('emise', 'payee')
     AND f.date_emission IS NOT NULL
-    AND f.serie = 'AVOIR'
+    AND f.type = 'avoir'
   GROUP BY date_trunc('month', f.date_emission),
            CASE
-             WHEN f_orig.serie IN ('ZD_COLLECTE', 'ZD_MENSUEL') THEN 'zero_dechet'
-             WHEN f_orig.serie = 'AG_MENSUEL'                    THEN 'anti_gaspi'
+             WHEN f_orig.type = 'zero_dechet'                                  THEN 'zero_dechet'
+             WHEN f_orig.type IN ('collecte_antigaspi', 'achat_pack_antigaspi') THEN 'anti_gaspi'
            END
 ),
 -- Fusion revenus directs + avoirs par (mois, type)

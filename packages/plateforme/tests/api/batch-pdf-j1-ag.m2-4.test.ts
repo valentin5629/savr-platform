@@ -133,7 +133,7 @@ describe('M2.4 / BatchPdfJ1Ag / Happy path', () => {
     expect(attInsert!.co2_evite_kg).toBe(300.0);
     expect(attInsert!.numero).toBe('ATT-DON-2026-00001');
     expect(attInsert!.version).toBe(1);
-    expect(attInsert!.statut).toBe('en_attente');
+    expect(attInsert!.statut).toBe('brouillon');
 
     // Vérifier type_document du job PDF
     const jobInsert = insertCalls.find(

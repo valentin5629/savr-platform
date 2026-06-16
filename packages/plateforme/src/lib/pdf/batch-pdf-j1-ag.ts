@@ -178,7 +178,7 @@ export async function runBatchPdfJ1Ag(
           co2_evite_kg: collecte.co2_evite_kg,
           co2_facteurs_snapshot: co2Snapshot,
           version: 1,
-          statut: 'en_attente',
+          statut: 'brouillon',
           eligible_at: disponibleA.toISOString(),
         })
         .select('id')

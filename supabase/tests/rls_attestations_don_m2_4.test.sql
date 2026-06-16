@@ -192,7 +192,7 @@ SELECT throws_ok(
       'f0000000-0000-0000-0000-000000000001'::uuid, false,
       'ATT-DON-2026-99999', '2026-06-15', '2026-06-14',
       'Hack', '00000000000000', 'Asso X', 'non_habilitee',
-      10, 1, 'en_attente'
+      10, 1, 'brouillon'
     )$$,
   '42501',
   NULL,
@@ -282,10 +282,10 @@ UPDATE plateforme.attestations_don
 SET attribution_antgaspi_id = '80000000-0000-0000-0000-000000000001'::uuid
 WHERE id = 'f0000000-0000-0000-0001-000000000001'::uuid;
 
--- Seed paramètre CO2 (INSERT ou no-op si déjà présent via migration)
-INSERT INTO plateforme.parametres_algo (cle, valeur, type_valeur, description)
-VALUES ('co2_kg_par_repas_ag', '2.5'::jsonb, 'decimal', 'CO2 évité par repas AG (kgCO2e)')
-ON CONFLICT (cle) DO UPDATE SET valeur = '2.5'::jsonb;
+-- Seed facteur CO2 AG (ECR-2 : source = parametres_facteurs_co2_ag)
+INSERT INTO plateforme.parametres_facteurs_co2_ag (cle, facteur_co2_evite_par_repas_kg, source_donnee, actif)
+VALUES ('co2_ag_ademe_v1', 2.5, 'FAO ADEME figé V1', true)
+ON CONFLICT (cle) DO UPDATE SET facteur_co2_evite_par_repas_kg = 2.5;
 
 -- Déclencher le trigger : correction volume 120 → 100
 UPDATE plateforme.attributions_antgaspi
@@ -352,7 +352,7 @@ SELECT is(
   'T12 (R9) : job en statut pending'
 );
 
--- T13 : idempotence — trigger no-op si aucune attestation emise (version 2 est en_attente)
+-- T13 : idempotence — trigger no-op si aucune attestation emise (version 2 est brouillon)
 UPDATE plateforme.attributions_antgaspi
 SET volume_repas_realise = 90
 WHERE id = '80000000-0000-0000-0000-000000000001'::uuid;

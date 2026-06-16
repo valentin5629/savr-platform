@@ -30,7 +30,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const to = searchParams.get('to');
   const type = searchParams.get('type');
 
-  let query = supabase.from('v_kpi_client_organisateur').select('*');
+  // Défense en profondeur : scoper côté serveur en plus de la RLS vue security_invoker
+  let query = supabase
+    .from('v_kpi_client_organisateur')
+    .select('*')
+    .eq('organisation_id', auth.ctx.organisationId);
 
   if (from) query = query.gte('mois', from);
   if (to) query = query.lte('mois', to);

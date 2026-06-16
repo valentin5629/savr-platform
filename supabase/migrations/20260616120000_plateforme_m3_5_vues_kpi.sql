@@ -28,7 +28,9 @@ CREATE INDEX IF NOT EXISTS idx_factures_collectes_facture
 
 DROP VIEW IF EXISTS plateforme.v_kpi_traiteur;
 
-CREATE VIEW plateforme.v_kpi_traiteur AS
+CREATE VIEW plateforme.v_kpi_traiteur
+  WITH (security_invoker = true)
+AS
 WITH tpc AS (
   -- Tonnage total par collecte
   SELECT collecte_id, SUM(COALESCE(poids_reel_kg, 0)) AS tonnage_kg
@@ -136,7 +138,9 @@ GRANT SELECT ON plateforme.v_kpi_traiteur TO authenticated;
 
 DROP VIEW IF EXISTS plateforme.v_kpi_lieu;
 
-CREATE VIEW plateforme.v_kpi_lieu AS
+CREATE VIEW plateforme.v_kpi_lieu
+  WITH (security_invoker = true)
+AS
 WITH tpc AS (
   SELECT collecte_id, SUM(COALESCE(poids_reel_kg, 0)) AS tonnage_kg
   FROM plateforme.collecte_flux
@@ -188,7 +192,9 @@ GRANT SELECT ON plateforme.v_kpi_lieu TO authenticated;
 
 DROP VIEW IF EXISTS plateforme.v_kpi_admin;
 
-CREATE VIEW plateforme.v_kpi_admin AS
+CREATE VIEW plateforme.v_kpi_admin
+  WITH (security_invoker = true)
+AS
 -- Agrégats collectes par mois/type
 WITH collectes_agg AS (
   SELECT
@@ -251,7 +257,8 @@ FROM collectes_agg ca
 FULL OUTER JOIN revenus_agg ra
   ON ra.mois = ca.mois AND ra.type_collecte = ca.type_collecte;
 
-GRANT SELECT ON plateforme.v_kpi_admin TO authenticated;
+-- v_kpi_admin accessible via service_role uniquement (createAdminSupabaseClient) — pas d'accès authenticated direct
+GRANT SELECT ON plateforme.v_kpi_admin TO service_role;
 
 -- ─── VIEW : v_kpi_client_organisateur ───────────────────────────────────────
 -- Agrégats par (client_organisateur_organisation_id, mois, type_collecte).
@@ -259,7 +266,9 @@ GRANT SELECT ON plateforme.v_kpi_admin TO authenticated;
 
 DROP VIEW IF EXISTS plateforme.v_kpi_client_organisateur;
 
-CREATE VIEW plateforme.v_kpi_client_organisateur AS
+CREATE VIEW plateforme.v_kpi_client_organisateur
+  WITH (security_invoker = true)
+AS
 WITH tpc AS (
   SELECT collecte_id, SUM(COALESCE(poids_reel_kg, 0)) AS tonnage_kg
   FROM plateforme.collecte_flux

@@ -168,6 +168,10 @@ DO $$ BEGIN
      150.00);
 END $$;
 
+-- ─── T1-T9 : Basculer en authenticated (Kardamome traiteur_manager) ────────
+-- security_invoker sur les vues = RLS des tables sources appliquée au caller
+PERFORM test_set_jwt('traiteur_manager', 'd0000000-0000-0000-0000-000000000001'::uuid);
+
 -- ─── T1 : Taux recyclage pondéré (collectes A=80%/100kg, B=60%/50kg, C=NULL) ─
 
 SELECT is(
@@ -222,18 +226,22 @@ SELECT is(
   'T4 : nb_repas_donnes AG = volume_repas_realise = 80'
 );
 
--- ─── T5 : v_kpi_lieu — regroupement par lieu ─────────────────────────────
+-- ─── T5 : v_kpi_lieu — sous Kardamome JWT, RLS exclut Kaspia (3 ZD, pas 4) ─
 
-SELECT ok(
-  (SELECT nb_collectes >= 4
+SELECT is(
+  (SELECT nb_collectes
    FROM plateforme.v_kpi_lieu
    WHERE lieu_id = 'd3000000-0000-0000-0000-000000000001'::uuid
      AND type_collecte = 'zero_dechet'
      AND mois = '2026-05-01'::date),
-  'T5 : v_kpi_lieu agrège toutes orgs du lieu (Kardamome + Kaspia ZD)'
+  3::bigint,
+  'T5 : v_kpi_lieu security_invoker — Kardamome voit ses 3 ZD, pas la ZD Kaspia'
 );
 
--- ─── T6 : v_kpi_client_organisateur — ne voit que ses événements ─────────
+-- ─── T6 : v_kpi_client_organisateur — scoping par client_organisateur_organisation_id
+
+-- Sous superuser pour tester la logique de filtrage de la vue (pas la RLS)
+PERFORM test_as_superuser();
 
 SELECT is(
   (SELECT nb_evenements
@@ -242,20 +250,18 @@ SELECT is(
      AND type_collecte = 'zero_dechet'
      AND mois = '2026-05-01'::date),
   1::bigint,
-  'T6 : client_org voit uniquement E1 (le seul avec son organisation_id)'
+  'T6 : v_kpi_client_organisateur filtre par client_organisateur_organisation_id (1 événement E1)'
 );
 
--- ─── T7 : RLS cross-org — Kardamome ne voit pas Kaspia ───────────────────
-
-SELECT is(
-  (SELECT COUNT(*)
+-- ─── T7 : Setup check — données Kaspia existent bien (superuser)
+SELECT ok(
+  (SELECT COUNT(*) > 0
    FROM plateforme.v_kpi_traiteur
    WHERE organisation_id = 'd0000000-0000-0000-0000-000000000002'::uuid),
-  0::bigint,
-  'T7 setup : sous superuser, on a des données Kaspia (cross-org present)'
+  'T7 setup : données Kaspia visibles sous superuser (RLS bypass confirmé)'
 );
 
--- Maintenant vérifier en tant que traiteur_manager Kardamome
+-- Basculer en Kardamome authenticated pour T8/T9
 PERFORM test_set_jwt('traiteur_manager', 'd0000000-0000-0000-0000-000000000001'::uuid);
 
 SELECT is(

@@ -51,10 +51,11 @@ base AS (
     c.co2_evite_kg,
     c.co2_net_kg,
     c.energie_primaire_evitee_kwh,
-    COALESCE(c.volume_repas_realise, 0)         AS volume_repas_realise
+    COALESCE(aa.volume_repas_realise, 0)        AS volume_repas_realise
   FROM plateforme.collectes c
   JOIN plateforme.evenements e ON e.id = c.evenement_id
   LEFT JOIN tpc ON tpc.collecte_id = c.id
+  LEFT JOIN plateforme.attributions_antgaspi aa ON aa.collecte_id = c.id
   WHERE c.statut = 'cloturee'
 ),
 -- PAX distincts par événement ZD (pour calcul marge)
@@ -158,10 +159,11 @@ base AS (
     c.taux_recyclage,
     c.co2_evite_kg,
     c.co2_net_kg,
-    COALESCE(c.volume_repas_realise, 0)         AS volume_repas_realise
+    COALESCE(aa.volume_repas_realise, 0)        AS volume_repas_realise
   FROM plateforme.collectes c
   JOIN plateforme.evenements e ON e.id = c.evenement_id
   LEFT JOIN tpc ON tpc.collecte_id = c.id
+  LEFT JOIN plateforme.attributions_antgaspi aa ON aa.collecte_id = c.id
   WHERE c.statut = 'cloturee'
 )
 SELECT
@@ -285,10 +287,11 @@ base AS (
     c.taux_recyclage,
     c.co2_evite_kg,
     c.co2_net_kg,
-    COALESCE(c.volume_repas_realise, 0)          AS volume_repas_realise
+    COALESCE(aa.volume_repas_realise, 0)         AS volume_repas_realise
   FROM plateforme.collectes c
   JOIN plateforme.evenements e ON e.id = c.evenement_id
   LEFT JOIN tpc ON tpc.collecte_id = c.id
+  LEFT JOIN plateforme.attributions_antgaspi aa ON aa.collecte_id = c.id
   WHERE c.statut = 'cloturee'
     AND e.client_organisateur_organisation_id IS NOT NULL
 )

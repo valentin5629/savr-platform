@@ -36,7 +36,7 @@ DO $$ BEGIN
   INSERT INTO plateforme.organisations (id, nom, raison_sociale, type, siret, actif, tarif_refacture_pax_zd) VALUES
     ('d0000000-0000-0000-0000-000000000001'::uuid, 'Kardamome', 'Kardamome SAS', 'traiteur', '12312312312301', true, 1.50),
     ('d0000000-0000-0000-0000-000000000002'::uuid, 'Kaspia',    'Kaspia SARL',   'traiteur', '12312312312302', true, 2.00),
-    ('d0000000-0000-0000-0000-000000000003'::uuid, 'ClientOrg', 'ClientOrg SA',  'lieu',     '12312312312303', true, 0.00);
+    ('d0000000-0000-0000-0000-000000000003'::uuid, 'ClientOrg', 'ClientOrg SA',  'client_organisateur', '12312312312303', true, 0.00);
 
   -- Entités de facturation
   INSERT INTO plateforme.entites_facturation (id, organisation_id, raison_sociale, siret, adresse_facturation, code_postal, ville) VALUES
@@ -95,10 +95,7 @@ DO $$ BEGIN
      'Gala KPI E3 Kaspia', 150, 'Contact E3', '0600000003',
      NULL);
 
-  -- Flux déchets (pour collecte_flux)
-  INSERT INTO plateforme.flux_dechets (id, code, nom, filiere_valorisation, actif) VALUES
-    ('d6000000-0000-0000-0000-000000000001'::uuid, 'COMPOST', 'Compostage', 'compostage', true)
-  ON CONFLICT (code) DO NOTHING;
+  -- Flux déchets : réutilise le flux seedé 'biodechet' (codes flux = liste fermée + ids non déterministes)
 
   -- Collectes ZD cloturees pour Kardamome (mois 2026-05)
   -- C1 : E1, taux_recyclage=80%, tonnage=100kg (via collecte_flux)
@@ -173,17 +170,13 @@ DO $$ BEGIN
     'branche_1', 'manuel_top1', 80
   );
 
-  -- Poids réels ZD (collecte_flux)
+  -- Poids réels ZD (collecte_flux) — flux seedé 'biodechet'
   INSERT INTO plateforme.collecte_flux (collecte_id, flux_id, poids_reel_kg) VALUES
-    ('d7000000-0000-0000-0000-000000000001'::uuid, 'd6000000-0000-0000-0000-000000000001'::uuid, 100.00),
-    ('d7000000-0000-0000-0000-000000000002'::uuid, 'd6000000-0000-0000-0000-000000000001'::uuid, 50.00);
+    ('d7000000-0000-0000-0000-000000000001'::uuid, (SELECT id FROM plateforme.flux_dechets WHERE code = 'biodechet'), 100.00),
+    ('d7000000-0000-0000-0000-000000000002'::uuid, (SELECT id FROM plateforme.flux_dechets WHERE code = 'biodechet'), 50.00);
   -- C3 n'a pas de collecte_flux (pesées = 0)
 
   -- Facture ZD Kardamome liée à C1 (pour test marge)
-  INSERT INTO plateforme.sequences_facturation (id, organisation_id, serie, dernier_numero) VALUES
-    ('d8000000-0000-0000-0000-000000000001'::uuid, 'd0000000-0000-0000-0000-000000000001'::uuid, 'ZD_COLLECTE', 0)
-  ON CONFLICT DO NOTHING;
-
   INSERT INTO plateforme.factures (
     id, organisation_id, entite_facturation_id, numero_facture, type,
     statut, date_emission, montant_ht, montant_tva, montant_ttc

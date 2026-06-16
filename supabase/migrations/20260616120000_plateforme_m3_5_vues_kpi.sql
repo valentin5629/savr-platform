@@ -201,7 +201,7 @@ AS
 WITH collectes_agg AS (
   SELECT
     date_trunc('month', c.date_collecte)::date AS mois,
-    c.type                                      AS type_collecte,
+    c.type::text                                AS type_collecte,
     COUNT(c.id)                                 AS nb_collectes,
     COUNT(CASE WHEN c.statut = 'cloturee' THEN 1 END) AS nb_cloturees
   FROM plateforme.collectes c
@@ -338,3 +338,21 @@ END $$;
 
 REVOKE EXECUTE ON FUNCTION plateforme.refresh_mv_benchmark() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION plateforme.refresh_mv_benchmark() TO service_role;
+
+-- SELECT direct sur la mv refusé à authenticated/anon (le blanket grant 0.4a l'avait
+-- exposée par erreur) : l'accès benchmark passe uniquement par f_benchmark_kg_pax_zd()
+-- (SECURITY DEFINER, k-anonymat). Cf. test M3.5 T10.
+REVOKE ALL ON plateforme.mv_benchmark_kg_pax_zd_base FROM authenticated, anon;
+
+-- ─── RLS factures : lecture client org-scopée (corrige dette 0.4c) ───────────
+-- La vue v_factures_client (0.4c, SECURITY INVOKER) suppose explicitement que
+-- « les prédicats org-scoped s'appliquent via les policies de la table factures »,
+-- mais aucune policy SELECT client n'avait été créée → v_factures_client renvoie 0
+-- ligne pour les clients ET la marge de v_kpi_traiteur (SECURITY INVOKER) ne peut
+-- pas soustraire les factures. Policy org-scopée alignée sur le WHERE de
+-- v_factures_client (mêmes rôles, même périmètre organisation).
+CREATE POLICY fac_client_select ON plateforme.factures
+  FOR SELECT USING (
+    auth.jwt()->>'role' IN ('traiteur_manager', 'traiteur_commercial', 'agence', 'gestionnaire_lieux')
+    AND organisation_id = (auth.jwt()->>'organisation_id')::uuid
+  );

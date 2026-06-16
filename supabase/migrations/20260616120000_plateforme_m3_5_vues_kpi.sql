@@ -344,6 +344,14 @@ GRANT EXECUTE ON FUNCTION plateforme.refresh_mv_benchmark() TO service_role;
 -- (SECURITY DEFINER, k-anonymat). Cf. test M3.5 T10.
 REVOKE ALL ON plateforme.mv_benchmark_kg_pax_zd_base FROM authenticated, anon;
 
+-- Durcissement SECURITY DEFINER (§12) : le REVOKE ci-dessus reporte toute la
+-- sécurité benchmark sur f_benchmark_kg_pax_zd(). Cette fonction (créée bloc8,
+-- SECURITY DEFINER) n'avait pas de search_path figé → risque de résolution
+-- d'objet non qualifié vers un schéma attaquant. On le fige ici (la fonction
+-- est déjà appliquée en base, sa migration d'origine est immuable).
+ALTER FUNCTION plateforme.f_benchmark_kg_pax_zd(text, text)
+  SET search_path = plateforme, pg_catalog;
+
 -- ─── RLS factures : lecture client org-scopée (corrige dette 0.4c) ───────────
 -- La vue v_factures_client (0.4c, SECURITY INVOKER) suppose explicitement que
 -- « les prédicats org-scoped s'appliquent via les policies de la table factures »,
@@ -356,3 +364,51 @@ CREATE POLICY fac_client_select ON plateforme.factures
     auth.jwt()->>'role' IN ('traiteur_manager', 'traiteur_commercial', 'agence', 'gestionnaire_lieux')
     AND organisation_id = (auth.jwt()->>'organisation_id')::uuid
   );
+
+-- ⚠ Masquage F5 (§09 §3) — RESTRICTION AU NIVEAU COLONNE (privilège).
+-- La RLS filtre les LIGNES, jamais les colonnes : sans cette restriction, la
+-- policy fac_client_select ci-dessus + le blanket GRANT 0.4a (SELECT table-level)
+-- laisseraient un rôle client lire en SELECT direct la marge interne Savr et les
+-- détails de synchro Pennylane sur sa propre org (contournement de
+-- v_factures_client, qui exclut ces colonnes).
+--
+-- ⚠ Un simple `REVOKE SELECT (colonnes)` est INOPÉRANT tant que le privilège
+-- SELECT *table-level* subsiste (PostgreSQL : le grant table couvre toutes les
+-- colonnes et prime sur un revoke colonne). On retire donc d'abord le SELECT
+-- table-level hérité du blanket grant 0.4a, PUIS on re-GRANT le SELECT sur la
+-- liste blanche exacte des colonnes non sensibles — strictement les 26 colonnes
+-- exposées par v_factures_client (cf. 20260615000100 M1.7 lignes 152-178).
+-- Les colonnes sensibles (marge_logistique, erreur_synchro, erreur_synchro_at,
+-- derniere_tentative_pennylane_at, pennylane_statut, pennylane_push_at) restent
+-- ainsi illisibles au rôle authenticated. Le staff (admin/ops) lit factures via
+-- service_role (createAdminSupabaseClient) → privilèges séparés, non impactés.
+-- Test : T11 (deny SELECT marge_logistique direct) + T12 (claim org absent).
+REVOKE SELECT ON plateforme.factures FROM authenticated;
+GRANT SELECT (
+  id,
+  organisation_id,
+  entite_facturation_id,
+  numero_facture,
+  facture_origine_id,
+  type,
+  mode_facturation,
+  pack_antgaspi_id,
+  statut,
+  montant_ht,
+  taux_tva,
+  montant_tva,
+  montant_ttc,
+  devise,
+  pennylane_id,
+  pdf_url_pennylane,
+  pdf_url_savr,
+  motif_avoir,
+  notes,
+  periode_debut,
+  periode_fin,
+  date_emission,
+  date_echeance,
+  date_paiement,
+  created_at,
+  updated_at
+) ON plateforme.factures TO authenticated;

@@ -5,7 +5,7 @@
 
 BEGIN;
 
-SELECT plan(10);
+SELECT plan(12);
 
 -- ─── Helpers JWT ─────────────────────────────────────────────────────────────
 
@@ -314,6 +314,33 @@ SELECT throws_ok(
   '42501',
   NULL,
   'T10 : SELECT direct mv_benchmark_kg_pax_zd_base refusé (SECURITY DEFINER via f_benchmark seulement)'
+);
+
+-- ─── T11 : Masquage F5 colonne — marge_logistique invisible en SELECT direct ─
+-- La policy fac_client_select ouvre le SELECT *ligne* sur factures (org-scopé).
+-- La restriction colonne (REVOKE SELECT table-level + GRANT whitelist) doit
+-- empêcher un rôle client de lire la marge interne Savr en SELECT direct, même
+-- sur sa propre organisation. Régression bloquante : avant le fix ECR-1, la
+-- colonne sensible restait lisible (le grant table-level primait).
+SELECT test_set_jwt('traiteur_manager', 'd0000000-0000-0000-0000-000000000001'::uuid);
+
+SELECT throws_ok(
+  $q$SELECT marge_logistique FROM plateforme.factures
+       WHERE organisation_id = 'd0000000-0000-0000-0000-000000000001'::uuid$q$,
+  '42501',
+  NULL,
+  'T11 : F5 — SELECT direct marge_logistique refusé au client (colonne hors whitelist), même sur sa propre org'
+);
+
+-- ─── T12 : Scoping org robuste — claim organisation_id absent → 0 ligne ──────
+-- Si le JWT n''a pas de organisation_id, le prédicat de fac_client_select
+-- (organisation_id = NULL → NULL, jamais true) ne doit renvoyer aucune ligne.
+SELECT test_set_jwt('traiteur_manager', NULL);
+
+SELECT is(
+  (SELECT COUNT(*)::integer FROM plateforme.factures),
+  0,
+  'T12 : claim organisation_id absent → aucune facture visible (pas de fuite par claim manquant)'
 );
 
 SELECT * FROM finish();

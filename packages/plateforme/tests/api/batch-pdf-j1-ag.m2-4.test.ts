@@ -18,6 +18,7 @@ function makeCollecteAg(overrides: Record<string, unknown> = {}) {
     id: 'col-ag-1',
     evenement_id: 'ev-1',
     realisee_at: new Date(Date.now() - 26 * 3600 * 1000).toISOString(),
+    date_collecte: '2026-06-01',
     co2_evite_kg: 300.0,
     co2_facteurs_snapshot: { version: 'ADEME 2024', co2_kg_par_repas_ag: 2.5 },
     evenements: {
@@ -134,6 +135,8 @@ describe('M2.4 / BatchPdfJ1Ag / Happy path', () => {
     expect(attInsert!.numero).toBe('ATT-DON-2026-00001');
     expect(attInsert!.version).toBe(1);
     expect(attInsert!.statut).toBe('brouillon');
+    // ECR-4 : date_collecte = vraie date de collecte, pas today
+    expect(attInsert!.date_collecte).toBe('2026-06-01');
 
     // Vérifier type_document du job PDF
     const jobInsert = insertCalls.find(
@@ -145,6 +148,10 @@ describe('M2.4 / BatchPdfJ1Ag / Happy path', () => {
     expect(
       (jobInsert!.payload as Record<string, unknown>).mention_fiscale_2041ge,
     ).toBe(true);
+    // ECR-4 : date_collecte dans le payload PDF ≠ today
+    expect((jobInsert!.payload as Record<string, unknown>).date_collecte).toBe(
+      new Date('2026-06-01').toLocaleDateString('fr-FR'),
+    );
   });
 });
 

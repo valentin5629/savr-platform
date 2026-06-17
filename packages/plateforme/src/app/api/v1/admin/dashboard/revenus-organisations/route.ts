@@ -16,10 +16,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   // Revenus = sum montant_ht des factures emises/payees, imputées à l'organisation
   // programmatrice (evenements.organisation_id), filtrées par date_collecte
+  // Le statut est porté par `factures` (pas `factures_collectes`). Revenu =
+  // lignes des factures émises (envoyee/payee/en_retard), càd hors brouillon
+  // et hors annulee.
   let query = supabase
     .from('factures_collectes')
     .select(
-      `montant_ht, statut,
+      `montant_ht,
+       factures!inner(statut),
        collectes!inner(
          date_collecte,
          evenements!inner(
@@ -29,7 +33,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
        )`,
       { count: 'exact' },
     )
-    .in('statut', ['emise', 'payee'])
+    .in('factures.statut', ['envoyee', 'payee', 'en_retard'])
     .range(offset, offset + limit - 1);
 
   if (from) query = query.gte('collectes.date_collecte', from);

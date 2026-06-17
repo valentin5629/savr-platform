@@ -220,20 +220,23 @@ function makeSyncSupabase(opts: {
     { id: 'flux-verre', code: 'verre' },
   ];
 
+  const fromFn = vi.fn((table: string) => {
+    const q = makeQuery(table);
+    if (table === 'flux_dechets') {
+      // Résout directement pour loadFluxCodes
+      const mockQ = {
+        select: vi.fn(() => ({
+          eq: vi.fn(() => Promise.resolve({ data: fluxRows, error: null })),
+        })),
+      };
+      return mockQ;
+    }
+    return q;
+  });
+
   const supabase = {
-    from: vi.fn((table: string) => {
-      const q = makeQuery(table);
-      if (table === 'flux_dechets') {
-        // Résout directement pour loadFluxCodes
-        const mockQ = {
-          select: vi.fn(() => ({
-            eq: vi.fn(() => Promise.resolve({ data: fluxRows, error: null })),
-          })),
-        };
-        return mockQ;
-      }
-      return q;
-    }),
+    from: fromFn,
+    schema: vi.fn((_s: string) => ({ from: fromFn })),
     _calls: calls,
   };
 

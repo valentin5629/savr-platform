@@ -19,6 +19,7 @@
     "M3.4/auth_guard_non_authentifie_401",
     "M3.4/collectes_liste_scope_organisateur",
     "M3.4/collectes_filtre_type_ag",
+    "M3.4/collectes_ag_traiteur_et_repas",
     "M3.4/collectes_aucune_donnee_financiere",
     "M3.4/dashboard_kpi_co2_abc_expose",
     "M3.4/documents_liste_rapports_bordereaux_attestations",

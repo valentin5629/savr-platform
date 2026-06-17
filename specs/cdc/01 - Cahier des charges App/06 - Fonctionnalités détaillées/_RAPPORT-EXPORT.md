@@ -1,13 +1,11 @@
 # Rapport export dev-facing
 
-Mode : SUR (T1 seul, T2 detecte)
-**Total : 36773 -> 36342 octets (-431, -1.2%)**
+Mode : AGGRESSIVE (T1+T2)
+**Total : 18904 -> 16377 octets (-2527, -13.4%)**
 
 
-## 09 - Flux algo attribution AG (Admin).md
-- octets : 36773 -> 36342 (-431, -1.2%)
-- tokens estimes : ~9193 -> ~9085
-- tombstones supprimes : 0 | fragments barres retires : 3 | en-tetes debarres : 1
-- 🕓 blocs historiques T2 detectes (non supprimes ; relancer --aggressive apres revue) :
-    L3 [meta-changelog]: **Statut** : Validé V1
-    L4 [meta-changelog]: **Dernière mise à jour** : 2026-04-21
+## 11 - Espace client agence.md
+- octets : 18904 -> 16377 (-2527, -13.4%)
+- tokens estimes : ~4726 -> ~4094
+- tombstones supprimes : 0 | fragments barres retires : 1 | en-tetes debarres : 0
+- lignes historiques T2 supprimees : 2

@@ -49,13 +49,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
     }
 
-    // Le rôle est injecté comme claim top-level par le JWT hook (fn_custom_access_token),
-    // pas dans app_metadata — lire depuis le payload du access_token.
+    // Le rôle métier est injecté dans le claim `user_role` par le JWT hook
+    // (fn_custom_access_token) — le claim réservé `role` reste `authenticated`.
     const {
       data: { session },
     } = await supabase.auth.getSession();
     const claims = parseJwtClaims(session?.access_token ?? '');
-    const role = claims['role'] as string | undefined;
+    const role = claims['user_role'] as string | undefined;
     if (!role || !ALLOWED_ROLES.includes(role)) {
       return NextResponse.json({ error: 'Rôle insuffisant' }, { status: 403 });
     }

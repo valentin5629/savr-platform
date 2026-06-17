@@ -92,7 +92,10 @@ function setupAuth(role: string, organisationId = 'org-1', userId = 'user-1') {
   mockGetSession.mockResolvedValue({
     data: {
       session: {
-        access_token: makeJwt({ role, organisation_id: organisationId }),
+        access_token: makeJwt({
+          user_role: role,
+          organisation_id: organisationId,
+        }),
       },
     },
     error: null,

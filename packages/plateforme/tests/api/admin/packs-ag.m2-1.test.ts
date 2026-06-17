@@ -48,7 +48,7 @@ function setupAuth(role: string) {
     error: null,
   });
   mockGetSession.mockResolvedValue({
-    data: { session: { access_token: makeJwt({ role }) } },
+    data: { session: { access_token: makeJwt({ user_role: role }) } },
     error: null,
   });
 }
@@ -147,7 +147,7 @@ describe('M2.1 / annuler-credit collecte AG', () => {
     mockGetSession.mockResolvedValue({
       data: {
         session: {
-          access_token: makeJwt({ role: 'traiteur_manager' }),
+          access_token: makeJwt({ user_role: 'traiteur_manager' }),
         },
       },
       error: null,

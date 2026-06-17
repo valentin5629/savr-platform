@@ -132,7 +132,7 @@ export default function NouveauProgrammationPage() {
       const token = data.session?.access_token;
       if (!token) return;
       const claims = parseJwt(token);
-      const r = claims['role'] as string | undefined;
+      const r = claims['user_role'] as string | undefined;
       if (r) {
         setRole(r);
         if (r === 'agence' || r === 'gestionnaire_lieux') {

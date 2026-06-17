@@ -321,7 +321,7 @@ SELECT is(
 -- ─── Test 12 : client_organisateur ne peut pas insérer d'événement ───────────
 
 SET LOCAL role = authenticated;
-SET LOCAL "request.jwt.claims" = '{"role":"client_organisateur","organisation_id":"00000000-0000-0000-0000-000000000010"}';
+SET LOCAL "request.jwt.claims" = '{"user_role":"client_organisateur","organisation_id":"00000000-0000-0000-0000-000000000010"}';
 
 SELECT throws_ok(
   $$INSERT INTO plateforme.evenements (
@@ -360,7 +360,7 @@ ON CONFLICT (id) DO NOTHING;
 -- Pas d'entrée dans organisations_lieux pour ce lieu + org gestionnaire
 
 SET LOCAL role = authenticated;
-SET LOCAL "request.jwt.claims" = '{"role":"gestionnaire_lieux","organisation_id":"00000000-0000-0000-0000-000000000031"}';
+SET LOCAL "request.jwt.claims" = '{"user_role":"gestionnaire_lieux","organisation_id":"00000000-0000-0000-0000-000000000031"}';
 
 SELECT is(
   (SELECT count(*)::int FROM plateforme.lieux
@@ -379,7 +379,7 @@ VALUES ('00000000-0000-0000-0000-000000000040'::uuid, 'Org B Test M1.2', 'Org B 
 ON CONFLICT (id) DO NOTHING;
 
 SET LOCAL role = authenticated;
-SET LOCAL "request.jwt.claims" = '{"role":"traiteur_commercial","organisation_id":"00000000-0000-0000-0000-000000000040"}';
+SET LOCAL "request.jwt.claims" = '{"user_role":"traiteur_commercial","organisation_id":"00000000-0000-0000-0000-000000000040"}';
 
 SELECT is(
   (SELECT count(*)::int FROM plateforme.evenements
@@ -395,7 +395,7 @@ RESET "request.jwt.claims";
 
 -- org '..31' (Gestionnaire Org Test, créée en T13) n'a aucune entrée organisations_lieux
 SET LOCAL role = authenticated;
-SET LOCAL "request.jwt.claims" = '{"role":"gestionnaire_lieux","organisation_id":"00000000-0000-0000-0000-000000000031"}';
+SET LOCAL "request.jwt.claims" = '{"user_role":"gestionnaire_lieux","organisation_id":"00000000-0000-0000-0000-000000000031"}';
 
 SELECT throws_ok(
   $$INSERT INTO plateforme.evenements (

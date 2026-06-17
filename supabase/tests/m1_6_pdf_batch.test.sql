@@ -91,7 +91,7 @@ VALUES ('test_rls_aa', 'Test RLS', 'collectes', gen_random_uuid());
 
 -- Non-admin : 0 lignes visibles malgré ligne présente
 SET LOCAL role = authenticated;
-SET LOCAL "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-000000000001","role":"traiteur_manager"}';
+SET LOCAL "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-000000000001","user_role":"traiteur_manager"}';
 SELECT is(
   (SELECT COUNT(*)::integer FROM plateforme.alertes_admin WHERE code = 'test_rls_aa'),
   0,
@@ -101,7 +101,7 @@ RESET ROLE;
 
 -- Admin : 1 ligne visible
 SET LOCAL role = authenticated;
-SET LOCAL "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-000000000002","role":"admin_savr"}';
+SET LOCAL "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-000000000002","user_role":"admin_savr"}';
 SELECT is(
   (SELECT COUNT(*)::integer FROM plateforme.alertes_admin WHERE code = 'test_rls_aa'),
   1,

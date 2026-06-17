@@ -52,7 +52,7 @@ export async function requirePageSession(
     data: { session },
   } = await supabase.auth.getSession();
   const claims = parseJwtClaims(session?.access_token ?? '');
-  const role = claims['role'] as Role | undefined;
+  const role = claims['user_role'] as Role | undefined;
   const organisationId = claims['organisation_id'] as string | undefined;
 
   if (!role || !allowedRoles.includes(role)) redirect('/403');

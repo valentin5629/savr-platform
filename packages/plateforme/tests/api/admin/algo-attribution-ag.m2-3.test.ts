@@ -51,7 +51,9 @@ function setupAuth(role: string, userId = 'user-admin-1') {
     error: null,
   });
   mockGetSession.mockResolvedValue({
-    data: { session: { access_token: makeJwt({ role, sub: userId }) } },
+    data: {
+      session: { access_token: makeJwt({ user_role: role, sub: userId }) },
+    },
     error: null,
   });
 }

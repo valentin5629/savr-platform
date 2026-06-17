@@ -62,7 +62,7 @@ function setupAuth(role: string) {
     error: null,
   });
   mockGetSession.mockResolvedValue({
-    data: { session: { access_token: makeJwt({ role }) } },
+    data: { session: { access_token: makeJwt({ user_role: role }) } },
     error: null,
   });
 }

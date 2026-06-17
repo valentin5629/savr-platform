@@ -41,7 +41,7 @@ DO $$ BEGIN
   ) THEN
     PERFORM set_config('role', 'authenticated', true);
     PERFORM set_config('request.jwt.claims',
-      '{"sub":"00000000-0000-0000-0000-000000000001","role":"traiteur_manager","organisation_id":"00000000-0000-0000-0000-000000000099"}',
+      '{"sub":"00000000-0000-0000-0000-000000000001","user_role":"traiteur_manager","organisation_id":"00000000-0000-0000-0000-000000000099"}',
       true);
   END IF;
 END $$;
@@ -71,7 +71,7 @@ SELECT set_config('role', 'postgres', true);
 DO $$ BEGIN
   PERFORM set_config('role', 'authenticated', true);
   PERFORM set_config('request.jwt.claims',
-    '{"sub":"00000000-0000-0000-0000-000000000001","role":"traiteur_manager","organisation_id":"00000000-0000-0000-0000-000000000099"}',
+    '{"sub":"00000000-0000-0000-0000-000000000001","user_role":"traiteur_manager","organisation_id":"00000000-0000-0000-0000-000000000099"}',
     true);
 END $$;
 

@@ -88,8 +88,10 @@ async function main(): Promise<void> {
         {
           sub: id,
           aud: 'authenticated',
-          // claim métier lu par la RLS (auth.jwt()->>'role'), comme le hook
-          role: role,
+          // `role` reste le rôle Postgres (PostgREST SET ROLE) ; le rôle métier
+          // lu par la RLS va dans `user_role` (auth.jwt()->>'user_role'), comme le hook.
+          role: 'authenticated',
+          user_role: role,
           organisation_id,
           organisation_type: otype,
           app_domain: 'plateforme',

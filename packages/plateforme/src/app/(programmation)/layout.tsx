@@ -28,7 +28,7 @@ export default function ProgrammationLayout({
       const token = data.session?.access_token;
       if (token) {
         const claims = parseJwt(token);
-        const r = claims['role'] as Role | undefined;
+        const r = claims['user_role'] as Role | undefined;
         if (r) setRole(r);
       }
     });

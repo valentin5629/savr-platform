@@ -65,7 +65,9 @@ function setupAuth(role: string, orgId = 'org-1') {
   });
   mockGetSession.mockResolvedValue({
     data: {
-      session: { access_token: makeJwt({ role, organisation_id: orgId }) },
+      session: {
+        access_token: makeJwt({ user_role: role, organisation_id: orgId }),
+      },
     },
     error: null,
   });

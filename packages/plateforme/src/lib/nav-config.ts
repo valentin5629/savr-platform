@@ -8,7 +8,6 @@ import {
   FileText,
   Settings,
   BarChart3,
-  PlusCircle,
   ClipboardList,
   Heart,
   Receipt,
@@ -96,19 +95,20 @@ export const NAV_CONFIG: Record<Role, NavGroup[]> = {
     },
   ],
 
+  // §06.11 Navigation — réplique stricte §06.04 §1 : 4 entrées V1.
+  // Pas de Registre (non productrice, diff #5), pas de section Événements/Lieux/
+  // Reporting dédiée (export RSE via Bloc 8 dashboard, pack AG via onglet AG).
   agence: [
     {
       items: [
         { label: 'Dashboard', href: '/agence', icon: LayoutDashboard },
-        {
-          label: 'Programmer une collecte',
-          href: '/programmer/nouveau',
-          icon: PlusCircle,
-        },
-        { label: 'Mes brouillons', href: '/brouillons', icon: ClipboardList },
         { label: 'Collectes', href: '/agence/collectes', icon: Truck },
-        { label: 'Lieux', href: '/agence/lieux', icon: MapPin },
-        { label: 'Reporting', href: '/agence/reporting', icon: BarChart3 },
+        {
+          label: 'Mon organisation',
+          href: '/agence/mon-organisation',
+          icon: Building2,
+        },
+        { label: 'Mon profil', href: '/agence/mon-profil', icon: Settings },
       ],
     },
   ],

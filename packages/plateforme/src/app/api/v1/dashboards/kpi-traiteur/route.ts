@@ -54,8 +54,20 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // §06.11 diff #7 — l'agence n'a pas de KPI « Marge générée » (4 cartes ZD).
+  // marge_zd_ht est retiré de la réponse côté serveur (pas un masquage CSS) :
+  // aucune donnée de marge ne transite pour le rôle agence.
+  const rows =
+    auth.ctx.role === 'agence'
+      ? (data ?? []).map((r) => {
+          const { marge_zd_ht: _omit, ...rest } = r as Record<string, unknown>;
+          void _omit;
+          return rest;
+        })
+      : data;
+
   return NextResponse.json(
-    { data },
+    { data: rows },
     { headers: { 'Cache-Control': 'private, max-age=60' } },
   );
 }

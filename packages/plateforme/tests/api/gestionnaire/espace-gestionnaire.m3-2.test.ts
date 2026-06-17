@@ -441,7 +441,7 @@ describe('M3.2 / lieux', () => {
 
   it('M3.2/lieux_detail_404_inconnu — not found', async () => {
     setupAuth('gestionnaire_lieux');
-    rls.push({ data: null, error: null }); // v_lieux_public maybeSingle → null
+    rls.push({ data: null, error: null }); // v_lieux_clients maybeSingle → null
     const { GET } =
       await import('@/app/api/v1/gestionnaire/lieux/[id]/route.js');
     const res = await GET(

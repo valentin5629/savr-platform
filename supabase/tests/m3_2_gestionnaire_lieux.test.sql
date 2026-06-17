@@ -278,29 +278,30 @@ SELECT is(
 );
 
 -- ════════════════════════════════════════════════════════════════════════════
--- T11–T13 : lieux_champs_admin_only_masques / v_lieux_public (Catégorie 4)
+-- T11–T13 : lieux_champs_admin_only_masques / v_lieux_clients (Catégorie 4)
+-- v_lieux_public renommée en v_lieux_clients (fix P1 20260617170000, spec §09).
 -- ════════════════════════════════════════════════════════════════════════════
 
--- T11 : v_lieux_public visible et retourne le lieu de Viparis
+-- T11 : v_lieux_clients visible et retourne le lieu de Viparis
 SELECT is(
-  (SELECT COUNT(*)::int FROM plateforme.v_lieux_public
+  (SELECT COUNT(*)::int FROM plateforme.v_lieux_clients
    WHERE id = 'cc000000-0000-0000-0000-000000000b01'::uuid),
   1,
-  'T11 : v_lieux_public retourne le lieu de Viparis'
+  'T11 : v_lieux_clients retourne le lieu de Viparis'
 );
 
--- T12 : commentaire_lieu absent de v_lieux_public
+-- T12 : commentaire_lieu absent de v_lieux_clients
 SELECT throws_ok(
-  $$ SELECT commentaire_lieu FROM plateforme.v_lieux_public LIMIT 1 $$,
+  $$ SELECT commentaire_lieu FROM plateforme.v_lieux_clients LIMIT 1 $$,
   '42703', NULL,
-  'T12 : commentaire_lieu absent de v_lieux_public'
+  'T12 : commentaire_lieu absent de v_lieux_clients'
 );
 
--- T13 : siren absent de v_lieux_public
+-- T13 : siren absent de v_lieux_clients
 SELECT throws_ok(
-  $$ SELECT siren FROM plateforme.v_lieux_public LIMIT 1 $$,
+  $$ SELECT siren FROM plateforme.v_lieux_clients LIMIT 1 $$,
   '42703', NULL,
-  'T13 : siren absent de v_lieux_public'
+  'T13 : siren absent de v_lieux_clients'
 );
 
 -- ════════════════════════════════════════════════════════════════════════════

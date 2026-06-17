@@ -8,7 +8,7 @@ import {
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
 // GET /api/v1/gestionnaire/lieux/[id]
-// Fiche lieu via v_lieux_public (masque commentaire_lieu, siren, email_gestionnaire, reference_citeo).
+// Fiche lieu via v_lieux_clients (masque commentaire_lieu, siren, email_gestionnaire, reference_citeo, commentaires_internes).
 // Historique collectes + Top traiteurs 12 mois.
 export async function GET(
   req: NextRequest,
@@ -22,7 +22,7 @@ export async function GET(
   const supabase = createSupabaseServerClient();
 
   const { data: lieu, error } = await supabase
-    .from('v_lieux_public')
+    .from('v_lieux_clients')
     .select(
       `id, nom, nom_alternatif, adresse_acces, code_postal, ville, region,
        latitude, longitude, type_vehicule_max, acces_office, stationnement,

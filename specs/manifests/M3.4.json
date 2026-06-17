@@ -1,0 +1,30 @@
+{
+  "module": "M3.4",
+  "titre": "Espace client organisateur (RSE, impact, rapports)",
+  "description": "Dernier module V3. Espace lecture seule du rôle client_organisateur (§11 §7 + §12) : dashboard impact RSE (bandeau synthèse annuelle YTD + onglets AG/ZD, CO₂ évité en headline ZD avec détail règle ABC induit/net/énergie primaire repliable, aucune donnée financière, aucun benchmark), liste collectes scopée client_organisateur_organisation_id, accès lecture + download des PDF (rapports RSE / bordereaux ZD / attestations AG) avec embargo H+24 applicatif sur les rapports. DB : comble la dette 0.4c — rr_select (rapports_rse) + branche rapports_rse de f_fichier_visible élargies à f_collecte_visible(collecte_id) (chemin client_organisateur) ; helper SECURITY DEFINER f_volume_repas_realise (impact AG repas détournés sans fuite C-1) ; v_kpi_client_organisateur recréée (repas via helper + colonnes co2_induit_kg / energie_primaire_evitee_kwh pour la règle ABC). Le reste du socle RLS organisateur (evenements/collectes/bordereaux/attestations/organisations self/lieux Q4/attributions deny C-1) + la route KPI sont déjà en place (Niveau 0 + M3.5).",
+  "fichiers_produits": [
+    "supabase/migrations/20260617150000_plateforme_m3_4_organisateur.sql",
+    "supabase/tests/m3_4_client_organisateur.test.sql",
+    "packages/plateforme/src/app/(client-organisateur)/layout.tsx",
+    "packages/plateforme/src/app/(client-organisateur)/organisateur/page.tsx",
+    "packages/plateforme/src/app/(client-organisateur)/organisateur/collectes/page.tsx",
+    "packages/plateforme/src/app/(client-organisateur)/organisateur/documents/page.tsx",
+    "packages/plateforme/src/app/api/v1/organisateur/collectes/route.ts",
+    "packages/plateforme/src/app/api/v1/organisateur/documents/route.ts",
+    "packages/plateforme/src/app/api/v1/organisateur/documents/[type]/[id]/download/route.ts",
+    "packages/plateforme/tests/api/organisateur/espace-organisateur.m3-4.test.ts"
+  ],
+  "scenarios": [
+    "M3.4/auth_guard_non_organisateur_403",
+    "M3.4/auth_guard_non_authentifie_401",
+    "M3.4/collectes_liste_scope_organisateur",
+    "M3.4/collectes_filtre_type_ag",
+    "M3.4/collectes_aucune_donnee_financiere",
+    "M3.4/dashboard_kpi_co2_abc_expose",
+    "M3.4/documents_liste_rapports_bordereaux_attestations",
+    "M3.4/document_download_rapport_ok",
+    "M3.4/document_embargo_h24_refuse",
+    "M3.4/document_cross_org_404",
+    "M3.4/document_type_inconnu_400"
+  ]
+}

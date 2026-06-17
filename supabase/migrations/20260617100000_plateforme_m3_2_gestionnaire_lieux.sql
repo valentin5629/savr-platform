@@ -113,20 +113,36 @@ CREATE INDEX IF NOT EXISTS idx_organisations_lieux_organisation
 CREATE INDEX IF NOT EXISTS idx_organisations_lieux_lieu
   ON plateforme.organisations_lieux (lieu_id);
 
+-- ─── SECURITY DEFINER helper — brise la récursion RLS 42P17 ─────────────────
+-- org_gestionnaire_traiteur_select doit lire evenements pour savoir si le
+-- traiteur y a une présence confirmée. Or evt_gestionnaire_insert (M0.4b)
+-- lit organisations (WHERE type='traiteur'), déclenchant cette même policy →
+-- boucle infinie. SECURITY DEFINER (owner=postgres) lit evenements en
+-- contournant RLS, brisant le cycle. auth.jwt() reste lisible car c'est un
+-- setting de session, pas un privilège.
+CREATE OR REPLACE FUNCTION plateforme.f_traiteur_intervenu_lieux_gestionnaire(p_traiteur_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = plateforme, public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM plateforme.evenements e
+    JOIN plateforme.organisations_lieux ol ON ol.lieu_id = e.lieu_id
+    WHERE e.traiteur_operationnel_organisation_id = p_traiteur_id
+      AND ol.organisation_id = (auth.jwt()->>'organisation_id')::uuid
+      AND e.date_evenement IS NOT NULL
+  )
+$$;
+
+GRANT EXECUTE ON FUNCTION plateforme.f_traiteur_intervenu_lieux_gestionnaire(uuid) TO authenticated;
+
 -- ─── RLS : gestionnaire_lieux peut voir les organisations de type 'traiteur' ──
--- Restreint aux traiteurs ayant des événements sur les lieux du gestionnaire (24m fenêtre).
--- Exclut les champs commerciaux (email/SIRET/téléphone) via la route — pas de colonne-level policy.
--- EXISTS borné par organisations_lieux(organisation_id) → pas de scan global.
+-- Restreint aux traiteurs ayant des événements confirmés sur les lieux du gestionnaire.
+-- Délègue la lecture d'evenements à f_traiteur_intervenu_lieux_gestionnaire
+-- (SECURITY DEFINER) pour éviter la récursion 42P17.
 CREATE POLICY org_gestionnaire_traiteur_select ON plateforme.organisations
   FOR SELECT USING (
     auth.jwt()->>'role' = 'gestionnaire_lieux'
     AND type = 'traiteur'
-    AND EXISTS (
-      SELECT 1
-      FROM plateforme.evenements e
-      JOIN plateforme.organisations_lieux ol ON ol.lieu_id = e.lieu_id
-      WHERE e.traiteur_operationnel_organisation_id = organisations.id
-        AND ol.organisation_id = (auth.jwt()->>'organisation_id')::uuid
-        AND e.date_evenement IS NOT NULL
-    )
+    AND plateforme.f_traiteur_intervenu_lieux_gestionnaire(organisations.id)
   );

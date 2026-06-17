@@ -8,7 +8,7 @@
 -- Catégorie 3 : programmation lieu hors périmètre.
 
 BEGIN;
-SELECT plan(35);
+SELECT plan(37);
 
 -- ── Helpers JWT ─────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION test_set_jwt(p_role text, p_org_id uuid DEFAULT NULL, p_user_id uuid DEFAULT gen_random_uuid())
@@ -466,6 +466,31 @@ SELECT throws_ok(
      ) $$,
   '42501', NULL,
   'T28 : INSERT evenements sur lieu hors périmètre refusé (organisations_lieux check)'
+);
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- T36–T37 : org_gestionnaire_traiteur_select (Catégorie 4)
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- T36 : Viparis voit Kaspia (E1 confirmé sur son lieu b01)
+-- JWT Viparis déjà actif (positionné ligne 185)
+SELECT is(
+  (SELECT COUNT(*)::int FROM plateforme.organisations
+   WHERE id = 'cc000000-0000-0000-0000-00000000000c'::uuid
+   AND type = 'traiteur'),
+  1,
+  'T36 : org_gestionnaire_traiteur_select — Kaspia visible Viparis (E1 confirmé sur lieu b01)'
+);
+
+-- T37 : GL Events ne voit PAS Kaspia (aucun événement confirmé sur GL Arena)
+SELECT test_set_jwt('gestionnaire_lieux', 'cc000000-0000-0000-0000-00000000000b'::uuid,
+                    'cc000000-0000-0000-0000-000000000b01'::uuid);
+SELECT is(
+  (SELECT COUNT(*)::int FROM plateforme.organisations
+   WHERE id = 'cc000000-0000-0000-0000-00000000000c'::uuid
+   AND type = 'traiteur'),
+  0,
+  'T37 : org_gestionnaire_traiteur_select — Kaspia invisible GL Events (lieu b03 ≠ lieux Kaspia)'
 );
 
 -- ════════════════════════════════════════════════════════════════════════════

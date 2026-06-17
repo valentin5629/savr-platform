@@ -17,12 +17,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const supabase = createSupabaseServerClient();
 
   // Pack actif (FIFO strict — 1 pack actif max par organisation)
+  // Colonnes M2.1 : credits_initiaux (total), credits_consommes (utilisés), credits_restants (GENERATED)
   const { data: packActif, error: packErr } = await supabase
     .from('packs_antgaspi')
     .select(
-      `id, reference, nb_collectes_total, nb_collectes_utilises,
-       nb_collectes_restantes, date_debut, date_fin, statut,
-       prix_ht, devise`,
+      `id, reference, credits_initiaux, credits_consommes, credits_restants,
+       date_debut, date_fin, statut, prix_ht, devise`,
     )
     .eq('statut', 'actif')
     .order('created_at', { ascending: true })
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const { data: historique } = await supabase
     .from('packs_antgaspi')
     .select(
-      `id, reference, nb_collectes_total, nb_collectes_utilises,
+      `id, reference, credits_initiaux, credits_consommes,
        date_debut, date_fin, statut`,
     )
     .order('created_at', { ascending: false })

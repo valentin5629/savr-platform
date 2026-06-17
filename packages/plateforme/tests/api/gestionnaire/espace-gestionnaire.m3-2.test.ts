@@ -217,8 +217,8 @@ describe('M3.2 / dashboard', () => {
     rls.push({
       data: {
         id: 'p1',
-        nb_collectes_total: 10,
-        nb_collectes_restantes: 3,
+        credits_initiaux: 10,
+        credits_restants: 3,
         statut: 'actif',
       },
       error: null,
@@ -241,8 +241,8 @@ describe('M3.2 / dashboard', () => {
     rls.push({
       data: {
         id: 'p1',
-        nb_collectes_total: 20,
-        nb_collectes_restantes: 2,
+        credits_initiaux: 20,
+        credits_restants: 2,
         statut: 'actif',
       },
       error: null,
@@ -253,9 +253,9 @@ describe('M3.2 / dashboard', () => {
       makeReq('GET', '/api/v1/gestionnaire/dashboard?type=anti_gaspi'),
     );
     const json = (await res.json()) as {
-      data: { pack: { nb_collectes_restantes: number } | null };
+      data: { pack: { credits_restants: number } | null };
     };
-    expect(json.data.pack?.nb_collectes_restantes).toBe(2);
+    expect(json.data.pack?.credits_restants).toBe(2);
   });
 });
 
@@ -529,9 +529,9 @@ describe('M3.2 / pack AG', () => {
       data: {
         id: 'p1',
         reference: 'PACK-2026-001',
-        nb_collectes_total: 20,
-        nb_collectes_utilises: 8,
-        nb_collectes_restantes: 12,
+        credits_initiaux: 20,
+        credits_consommes: 8,
+        credits_restants: 12,
         statut: 'actif',
       },
       error: null,
@@ -541,9 +541,9 @@ describe('M3.2 / pack AG', () => {
     const { GET } = await import('@/app/api/v1/gestionnaire/pack-ag/route.js');
     const res = await GET(makeReq('GET', '/api/v1/gestionnaire/pack-ag'));
     const json = (await res.json()) as {
-      data: { pack_actif: { nb_collectes_restantes: number } | null };
+      data: { pack_actif: { credits_restants: number } | null };
     };
-    expect(json.data.pack_actif?.nb_collectes_restantes).toBe(12);
+    expect(json.data.pack_actif?.credits_restants).toBe(12);
   });
 
   it('M3.2/pack_ag_aucun_actif_null — retour pack_actif null', async () => {

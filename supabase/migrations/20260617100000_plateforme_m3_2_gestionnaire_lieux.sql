@@ -127,5 +127,6 @@ CREATE POLICY org_gestionnaire_traiteur_select ON plateforme.organisations
       JOIN plateforme.organisations_lieux ol ON ol.lieu_id = e.lieu_id
       WHERE e.traiteur_operationnel_organisation_id = organisations.id
         AND ol.organisation_id = (auth.jwt()->>'organisation_id')::uuid
+        AND e.date_evenement IS NOT NULL
     )
   );

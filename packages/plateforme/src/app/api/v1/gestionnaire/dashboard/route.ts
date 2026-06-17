@@ -154,7 +154,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // Pack AG (conditionnel — navigation)
   const { data: pack } = await supabase
     .from('packs_antgaspi')
-    .select('id, nb_collectes_total, nb_collectes_utilises, statut')
+    .select('id, credits_initiaux, credits_consommes, credits_restants, statut')
     .eq('statut', 'actif')
     .maybeSingle();
 

@@ -8,7 +8,7 @@ import {
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
 // GET /api/v1/gestionnaire/lieux
-// Liste des lieux de l'organisation via v_lieux_public (masque 4 champs admin-only).
+// Liste des lieux de l'organisation via v_lieux_clients (masque les champs admin-only).
 // Colonnes : id, nom, adresse_acces, ville, type_vehicule_max + indicateurs 12 mois.
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(req, ROLES);
@@ -17,9 +17,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const supabase = createSupabaseServerClient();
 
-  // Lieux via v_lieux_public (SECURITY INVOKER — RLS filtre sur organisations_lieux)
+  // Lieux via v_lieux_clients (SECURITY INVOKER — RLS filtre sur organisations_lieux)
   const { data: lieux, error } = await supabase
-    .from('v_lieux_public')
+    .from('v_lieux_clients')
     .select(
       'id, nom, adresse_acces, code_postal, ville, region, type_vehicule_max, actif',
     )

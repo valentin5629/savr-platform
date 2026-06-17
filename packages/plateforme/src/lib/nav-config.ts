@@ -13,6 +13,7 @@ import {
   Heart,
   Receipt,
   Activity,
+  Package,
 } from 'lucide-react';
 
 export type Role =
@@ -112,18 +113,34 @@ export const NAV_CONFIG: Record<Role, NavGroup[]> = {
     },
   ],
 
+  // §06.05 §Navigation — 7 sections (refonte sobriété 2026-05-30).
+  // "Mon pack AG" affiché conditionnellement côté layout si packs_antgaspi existe.
   gestionnaire_lieux: [
     {
       items: [
-        { label: 'Mes lieux', href: '/lieux', icon: MapPin },
+        { label: 'Dashboard', href: '/gestionnaire', icon: LayoutDashboard },
         {
-          label: 'Programmer une collecte',
-          href: '/programmer/nouveau',
-          icon: PlusCircle,
+          label: 'Événements',
+          href: '/gestionnaire/evenements',
+          icon: CalendarDays,
         },
-        { label: 'Mes brouillons', href: '/brouillons', icon: ClipboardList },
-        { label: 'Collectes', href: '/lieux/collectes', icon: Truck },
-        { label: 'Documents', href: '/lieux/documents', icon: FileText },
+        { label: 'Lieux', href: '/gestionnaire/lieux', icon: MapPin },
+        { label: 'Traiteurs', href: '/gestionnaire/traiteurs', icon: Truck },
+        {
+          label: 'Mon pack AG',
+          href: '/gestionnaire/mon-pack-ag',
+          icon: Package,
+        },
+        {
+          label: 'Mon organisation',
+          href: '/gestionnaire/mon-organisation',
+          icon: Building2,
+        },
+        {
+          label: 'Paramètres',
+          href: '/gestionnaire/parametres',
+          icon: Settings,
+        },
       ],
     },
   ],

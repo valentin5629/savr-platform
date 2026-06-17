@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "plateforme (Next.js)",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@savr/plateforme", "exec", "next", "dev"],
+      "port": 3001,
+      "autoPort": true
+    }
+  ]
+}

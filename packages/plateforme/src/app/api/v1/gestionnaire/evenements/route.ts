@@ -83,7 +83,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: error.message }, { status: 500 });
 
   const orgId = auth.ctx.organisationId;
-  const rows = (evts ?? [])
+  const filteredRows = (evts ?? [])
     .map((e) => {
       const collectes = (Array.isArray(e.collectes) ? e.collectes : []) as {
         id: string;
@@ -139,7 +139,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       const nbAg = agCollectes.length;
 
       return {
-        id: e.id,
+        id: e.id as string,
         nom_evenement: e.nom_evenement,
         date_evenement: e.date_evenement,
         pax,
@@ -155,7 +155,37 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         programmee_par_moi: e.organisation_id === orgId,
       };
     })
-    .filter(Boolean);
+    .filter(Boolean) as Array<{
+    id: string;
+    nom_evenement: unknown;
+    date_evenement: unknown;
+    pax: number;
+    taille_bracket: string;
+    lieu: unknown;
+    traiteur: unknown;
+    type_evenement: unknown;
+    nb_collectes_zd: number;
+    nb_collectes_ag: number;
+    tonnage_zd_kg: number;
+    repas_donnes: number;
+    statut_consolide: string;
+    programmee_par_moi: boolean;
+  }>;
+
+  // dechets_labo_kg via SECURITY DEFINER (coefficient jamais exposé) — parallèle
+  const dechetsCalls = await Promise.all(
+    filteredRows.map(async (row) => {
+      const { data } = await supabase.rpc('f_dechets_labo_estimes', {
+        p_evenement_id: row.id,
+      });
+      return data as number | null;
+    }),
+  );
+
+  const rows = filteredRows.map((row, i) => ({
+    ...row,
+    dechets_labo_kg: dechetsCalls[i] ?? null,
+  }));
 
   return NextResponse.json({ data: rows, total: rows.length });
 }

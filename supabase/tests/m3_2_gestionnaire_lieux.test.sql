@@ -165,17 +165,19 @@ VALUES
    2025, 0.1500, 'cc000000-0000-0000-0000-000000000c01'::uuid);
 
 -- Tarif pack AG (requis par FK packs_antgaspi.tarif_pack_id)
-INSERT INTO plateforme.tarifs_packs_ag (id, nb_collectes, prix_ht, valide_du)
-VALUES ('cc000000-0000-0000-0000-000000000f0a'::uuid, 10, 1500.00, '2026-01-01');
+-- M2.1 aligne: credits, prix_unitaire_ht, type_pack sont NOT NULL
+INSERT INTO plateforme.tarifs_packs_ag (id, nb_collectes, prix_ht, valide_du, credits, prix_unitaire_ht, type_pack)
+VALUES ('cc000000-0000-0000-0000-000000000f0a'::uuid, 10, 1500.00, '2026-01-01', 10, 150.00, 'pack_10');
 
 -- Pack AG Viparis
+-- M2.1 aligne: credits_initiaux, type_pack sont NOT NULL
 INSERT INTO plateforme.packs_antgaspi
-  (id, organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, statut, date_achat)
+  (id, organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, credits_initiaux, type_pack, statut, date_achat)
 VALUES
   ('cc000000-0000-0000-0000-000000000ba0'::uuid,
    'cc000000-0000-0000-0000-00000000000a'::uuid,
    'cc000000-0000-0000-0000-000000000f0a'::uuid,
-   10, 2, 'actif', '2026-01-01');
+   10, 2, 10, 'pack_10', 'actif', '2026-01-01');
 
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -415,9 +417,10 @@ SELECT is(
 );
 
 -- T26 : INSERT pack refusé pour gestionnaire (admin only)
+-- M2.1 aligne: inclure credits_initiaux, type_pack pour éviter NOT NULL côté PG (RLS 42501 doit tirer en premier)
 SELECT throws_ok(
-  $$ INSERT INTO plateforme.packs_antgaspi (organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, statut, date_achat)
-     VALUES ('cc000000-0000-0000-0000-00000000000a'::uuid, gen_random_uuid(), 5, 0, 'actif', '2026-01-01') $$,
+  $$ INSERT INTO plateforme.packs_antgaspi (organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, credits_initiaux, type_pack, statut, date_achat)
+     VALUES ('cc000000-0000-0000-0000-00000000000a'::uuid, gen_random_uuid(), 5, 0, 5, 'pack_10', 'actif', '2026-01-01') $$,
   '42501', NULL,
   'T26 : INSERT packs_antgaspi refusé pour gestionnaire_lieux (réservé Admin)'
 );

@@ -114,12 +114,18 @@ CREATE INDEX IF NOT EXISTS idx_organisations_lieux_lieu
   ON plateforme.organisations_lieux (lieu_id);
 
 -- ─── RLS : gestionnaire_lieux peut voir les organisations de type 'traiteur' ──
--- Nécessaire pour la fiche traiteur (§06.05) : nom, logo, ville, description.
--- La politique existante org_gestionnaire_select n'autorise que self (id = propre org).
--- Cette politique complémentaire ouvre uniquement les champs non-commerciaux
--- (la route filtre les colonnes — le gestionnaire ne voit jamais email/SIRET/téléphone).
+-- Restreint aux traiteurs ayant des événements sur les lieux du gestionnaire (24m fenêtre).
+-- Exclut les champs commerciaux (email/SIRET/téléphone) via la route — pas de colonne-level policy.
+-- EXISTS borné par organisations_lieux(organisation_id) → pas de scan global.
 CREATE POLICY org_gestionnaire_traiteur_select ON plateforme.organisations
   FOR SELECT USING (
     auth.jwt()->>'role' = 'gestionnaire_lieux'
     AND type = 'traiteur'
+    AND EXISTS (
+      SELECT 1
+      FROM plateforme.evenements e
+      JOIN plateforme.organisations_lieux ol ON ol.lieu_id = e.lieu_id
+      WHERE e.traiteur_operationnel_organisation_id = organisations.id
+        AND ol.organisation_id = (auth.jwt()->>'organisation_id')::uuid
+    )
   );

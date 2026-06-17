@@ -296,6 +296,7 @@ describe('M3.2 / statut consolidé F2', () => {
       ],
       error: null,
     });
+    rls.push({ data: null, error: null }); // dechets_labo_kg rpc (1 event)
     const { GET } =
       await import('@/app/api/v1/gestionnaire/evenements/route.js');
     const res = await GET(makeReq('GET', '/api/v1/gestionnaire/evenements'));
@@ -340,6 +341,7 @@ describe('M3.2 / statut consolidé F2', () => {
       ],
       error: null,
     });
+    rls.push({ data: null, error: null }); // dechets_labo_kg rpc (1 event)
     const { GET } =
       await import('@/app/api/v1/gestionnaire/evenements/route.js');
     const res = await GET(makeReq('GET', '/api/v1/gestionnaire/evenements'));
@@ -377,6 +379,7 @@ describe('M3.2 / statut consolidé F2', () => {
       ],
       error: null,
     });
+    rls.push({ data: null, error: null }); // dechets_labo_kg rpc (1 event)
     const { GET } =
       await import('@/app/api/v1/gestionnaire/evenements/route.js');
     const res = await GET(makeReq('GET', '/api/v1/gestionnaire/evenements'));

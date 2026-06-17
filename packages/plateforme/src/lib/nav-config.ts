@@ -125,6 +125,11 @@ export const NAV_CONFIG: Record<Role, NavGroup[]> = {
           icon: CalendarDays,
         },
         { label: 'Mes lieux', href: '/gestionnaire/lieux', icon: MapPin },
+        {
+          label: 'Collectes',
+          href: '/gestionnaire/collectes',
+          icon: ClipboardList,
+        },
         { label: 'Traiteurs', href: '/gestionnaire/traiteurs', icon: Truck },
         {
           label: 'Mon pack AG',

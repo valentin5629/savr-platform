@@ -484,6 +484,7 @@ export class AdapterMts1 implements LogistiqueProvider {
 
       // Dédup : photo déjà uploadée ?
       const { data: existante } = await this.supabase
+        .schema('shared')
         .from('fichiers')
         .select('id')
         .eq('key', storageKey)
@@ -516,7 +517,7 @@ export class AdapterMts1 implements LogistiqueProvider {
       await this.uploadPhotoToR2(storageKey, buffer);
 
       // Enregistrement dans shared.fichiers
-      await this.supabase.from('fichiers').insert({
+      await this.supabase.schema('shared').from('fichiers').insert({
         storage_provider: 'r2',
         bucket: 'collectes',
         key: storageKey,

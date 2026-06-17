@@ -21,7 +21,11 @@ import { runPdfWorker } from '../../src/lib/pdf/pdf-worker.js';
 
 const mockFrom = vi.fn();
 const mockRpc = vi.fn();
-const supabase = { from: mockFrom, rpc: mockRpc } as never;
+const supabase = {
+  from: mockFrom,
+  rpc: mockRpc,
+  schema: vi.fn(() => ({ from: mockFrom })),
+} as never;
 
 function makePendingJob(overrides: Record<string, unknown> = {}) {
   return {

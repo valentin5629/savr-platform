@@ -70,6 +70,7 @@ export async function runPdfWorker(
 
       // Insérer dans shared.fichiers
       const { data: fichierRow } = await supabase
+        .schema('shared')
         .from('fichiers')
         .insert({
           entity_type: `plateforme.${job.entity_type}`,

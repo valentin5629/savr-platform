@@ -672,10 +672,10 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER AS $$
            (SELECT collecte_id FROM plateforme.bordereaux_savr WHERE id = p_entity_id))
     WHEN 'plateforme.attestations_don' THEN plateforme.f_collecte_visible(
            (SELECT collecte_id FROM plateforme.attestations_don WHERE id = p_entity_id))
-    WHEN 'plateforme.rapports_rse'    THEN EXISTS (
-           SELECT 1 FROM plateforme.rapports_rse r
-           WHERE r.id = p_entity_id /* visibilité déléguée à la policy rapports_rse via jointure event */
-             AND EXISTS (SELECT 1 FROM plateforme.evenements e WHERE e.id = r.evenement_id
+    WHEN 'plateforme.rapports_rse'    THEN plateforme.f_collecte_visible(
+           (SELECT collecte_id FROM plateforme.rapports_rse WHERE id = p_entity_id))
+           /* M3.4 2026-06-17 — aligné f_collecte_visible (même pattern que bordereaux_savr/attestations_don).
+              Closes dette 0.4c : ajoute chemin gestionnaire-via-lieu (B-2) + client_organisateur.
                          AND (e.organisation_id = auth.jwt()->>'organisation_id'
                            OR e.traiteur_operationnel_organisation_id = auth.jwt()->>'organisation_id'
                            OR e.client_organisateur_organisation_id = auth.jwt()->>'organisation_id')))

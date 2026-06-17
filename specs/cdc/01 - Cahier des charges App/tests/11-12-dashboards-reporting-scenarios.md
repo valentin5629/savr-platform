@@ -454,6 +454,19 @@ Scénario : rapports_rse_quatre_chemins_select_ok (paramétré × 4)
 ```
 
 ```gherkin
+# Source : §09 C1 f_fichier_visible branche rapports_rse (aligné f_collecte_visible — M3.4 2026-06-17)
+# Couche : db
+# Priorité : P1-critique
+
+Scénario : f_fichier_visible_rapport_rse_quatre_chemins (paramétré × 4)
+  Étant donné un fichier shared.fichiers (entity_type='plateforme.rapports_rse') lié à un rapport RSE
+  Et un événement avec organisation programmatrice A, traiteur opérationnel B, client organisateur C, lieu rattaché au gestionnaire D
+  Quand f_fichier_visible est évaluée pour un user de A, B, C ou D
+  Alors les 4 évaluations retournent true (pgTAP : fichier_rapport_rse_client_orga_ok / fichier_rapport_rse_gestionnaire_lieu_ok)
+  Et f_fichier_visible pour un user org E (hors événement) retourne false (pgTAP : fichier_rapport_rse_cross_org_denied)
+```
+
+```gherkin
 # Source : §09 A8 rr_write_admin
 # Couche : db
 # Priorité : P1-critique

@@ -1,0 +1,42 @@
+{
+  "module": "M3.1",
+  "titre": "Espace client traiteur (dashboards manager/commercial)",
+  "description": "Espace traiteur complet : nav 4 entrées (§06.04), dashboard 2 onglets ZD/AG (KPIs dont Marge + badge attente facturation F3, jauges benchmark, pack AG), liste + fiche collecte (édition gate statut, champs verrouillés, annulation directe/demandée), Mon organisation (équipe manager-only, factures lecture seule), Mon profil. Migration : restriction colonne tarif_refacture_pax_zd (écriture Admin only), benchmark grain single_collecte fail-fast, exposition pax_total sur v_kpi_traiteur, templates emails admin. Tests db (pgTAP) : tarif_refacture, benchmark single_collecte, delete brouillon-only.",
+  "fichiers_produits": [
+    "supabase/migrations/20260616130000_plateforme_m3_1_espace_traiteur.sql",
+    "supabase/tests/m3_1_espace_traiteur.test.sql",
+    "packages/plateforme/src/lib/page-auth.ts",
+    "packages/plateforme/src/app/(traiteur)/layout.tsx",
+    "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx",
+    "packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx",
+    "packages/plateforme/src/app/(traiteur)/traiteur/collectes/[id]/page.tsx",
+    "packages/plateforme/src/app/(traiteur)/traiteur/mon-organisation/page.tsx",
+    "packages/plateforme/src/app/(traiteur)/traiteur/mon-profil/page.tsx",
+    "packages/plateforme/src/app/api/v1/traiteur/collectes/route.ts",
+    "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts",
+    "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/annulation/route.ts",
+    "packages/plateforme/src/app/api/v1/traiteur/marge-attente-facturation/route.ts",
+    "packages/plateforme/src/app/api/v1/traiteur/pack-ag/renouvellement/route.ts",
+    "packages/plateforme/src/app/api/v1/traiteur/equipe/invitation/route.ts",
+    "packages/plateforme/src/app/api/v1/traiteur/factures/route.ts",
+    "packages/plateforme/tests/api/traiteur/espace-traiteur.m3-1.test.ts"
+  ],
+  "scenarios": [
+    "M3.1/marge_badge_attente_facturation_partielle",
+    "M3.1/marge_badge_zero_quand_tout_facture",
+    "M3.1/liste_collectes_filtre_type_et_tiers",
+    "M3.1/champs_verrouilles_type_lieu_traiteur",
+    "M3.1/edition_refusee_statut_en_cours",
+    "M3.1/edition_champ_non_impactant_push_silencieux",
+    "M3.1/edition_commercial_autre_collecte_deny",
+    "M3.1/annulation_directe_collecte_programmee",
+    "M3.1/demande_annulation_collecte_validee",
+    "M3.1/annulation_depuis_cloturee_impossible",
+    "M3.1/invitation_collaborateur_flux_complet",
+    "M3.1/invitation_email_deja_membre_refusee",
+    "M3.1/invitation_commercial_interdite",
+    "M3.1/demande_renouvellement_pack",
+    "M3.1/factures_commercial_lecture_seule",
+    "M3.1/benchmark_filtre_traiteur_ids_rejete_cote_serveur"
+  ]
+}

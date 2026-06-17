@@ -1,0 +1,116 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { sendEmail } from '@savr/shared/src/email/index.js';
+import {
+  requireUser,
+  createSupabaseServerClient,
+  type ClientRole,
+} from '@/lib/api-auth.js';
+
+const TRAITEUR_ROLES: ClientRole[] = [
+  'traiteur_manager',
+  'traiteur_commercial',
+];
+
+// POST /api/v1/traiteur/collectes/:id/annulation — §06.04 §Annulation (F1)
+// Deux chemins selon le statut (§05 fait foi) :
+//  - brouillon / programmee : annulation directe → 'annulee' (trigger E3 si poussée TMS)
+//  - validee : demande d'annulation → 'annulation_demandee' (validation Admin)
+// Statuts terminaux (realisee*, cloturee, annulee, annulation_demandee) → refus.
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+): Promise<NextResponse> {
+  const auth = await requireUser(req, TRAITEUR_ROLES);
+  if (auth.error) return auth.error;
+  const { id } = await params;
+  const body = (await req.json().catch(() => ({}))) as { motif?: string };
+  const motif = body.motif ?? '';
+
+  // Lecture RLS-scopée + autorisation acteur
+  const rls = createSupabaseServerClient();
+  const { data: c } = await rls
+    .from('collectes')
+    .select(
+      `id, statut, statut_tms, date_collecte, tms_reference,
+       evenement:evenements!inner(created_by, organisation_id, nom_evenement,
+         organisation:organisations!organisation_id(nom))`,
+    )
+    .eq('id', id)
+    .maybeSingle();
+  if (!c)
+    return NextResponse.json(
+      { error: 'Collecte introuvable' },
+      { status: 404 },
+    );
+
+  const evt = (Array.isArray(c.evenement) ? c.evenement[0] : c.evenement) as {
+    created_by: string;
+    organisation_id: string;
+    nom_evenement: string | null;
+    organisation: { nom: string } | { nom: string }[] | null;
+  };
+  const autorise =
+    auth.ctx.role === 'traiteur_manager'
+      ? evt.organisation_id === auth.ctx.organisationId
+      : evt.created_by === auth.ctx.userId;
+  if (!autorise)
+    return NextResponse.json(
+      { error: 'Annulation non autorisée' },
+      {
+        status: 403,
+      },
+    );
+
+  const orgNom = Array.isArray(evt.organisation)
+    ? evt.organisation[0]?.nom
+    : evt.organisation?.nom;
+  const admin = createAdminSupabaseClient();
+
+  if (c.statut === 'brouillon' || c.statut === 'programmee') {
+    // Annulation directe → 'annulee' (trigger _fn_trg_outbox_collecte_annulee
+    // émet E3 DELETE si tms_reference / statut_tms != non_envoye)
+    const { error } = await admin.rpc('fn_modifier_collecte', {
+      p_id: id,
+      p_updates: { statut: 'annulee', annulee_cote_savr_motif: motif },
+      p_champs_modifies: ['statut'],
+    });
+    if (error)
+      return NextResponse.json({ error: error.message }, { status: 500 });
+
+    await sendEmail('annulation_collecte', 'hello@gosavr.io', {
+      organisation_nom: orgNom ?? '',
+      collecte_ref: id,
+      motif,
+    });
+    return NextResponse.json({ data: { statut: 'annulee' } });
+  }
+
+  if (c.statut === 'validee') {
+    // Demande d'annulation (validation Admin) → 'annulation_demandee'
+    const { error } = await admin.rpc('fn_modifier_collecte', {
+      p_id: id,
+      p_updates: {
+        statut: 'annulation_demandee',
+        annulee_cote_savr_motif: motif,
+      },
+      p_champs_modifies: ['statut'],
+    });
+    if (error)
+      return NextResponse.json({ error: error.message }, { status: 500 });
+
+    await sendEmail('admin_demande_annulation', 'hello@gosavr.io', {
+      organisation_nom: orgNom ?? '',
+      demandeur_nom: auth.ctx.userId,
+      collecte_ref: id,
+      date_collecte: c.date_collecte ?? '',
+      motif,
+    });
+    return NextResponse.json({ data: { statut: 'annulation_demandee' } });
+  }
+
+  return NextResponse.json(
+    { error: `Annulation impossible au statut ${c.statut}` },
+    { status: 422 },
+  );
+}

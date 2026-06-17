@@ -26,6 +26,7 @@
     "test:e2e": "playwright test",
     "seed:minimal": "tsx packages/shared/src/seed/index.ts minimal",
     "seed:demo": "tsx packages/shared/src/seed/index.ts demo",
+    "seed:auth": "tsx packages/shared/src/seed/auth.ts",
     "seed:jwt": "tsx packages/shared/src/seed/jwt.ts",
     "seed:check": "tsx packages/shared/src/seed/check.ts"
   },

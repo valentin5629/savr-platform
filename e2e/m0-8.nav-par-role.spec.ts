@@ -10,8 +10,19 @@ type NavResponse = { role: string; items: { label: string; href: string }[] };
 
 const EXPECTED: Record<string, string[]> = {
   admin_savr: ['Clients', 'Paramètres', 'Collectes'],
-  traiteur_manager: ['Événements', 'Collectes', 'Dashboard'],
-  traiteur_commercial: ['Programmer une collecte', 'Mes collectes'],
+  // Nav réalignée sur §06.04 §1 (4 entrées V1) en M3.1.
+  traiteur_manager: [
+    'Dashboard',
+    'Collectes',
+    'Mon organisation',
+    'Mon profil',
+  ],
+  traiteur_commercial: [
+    'Dashboard',
+    'Collectes',
+    'Mon organisation',
+    'Mon profil',
+  ],
   agence: ['Collectes', 'Lieux'],
   gestionnaire_lieux: ['Mes lieux', 'Collectes'],
   client_organisateur: ['Mes événements', 'Collectes'],

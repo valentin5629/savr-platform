@@ -31,12 +31,14 @@ END $$;
 -- ── Fixtures ─────────────────────────────────────────────────────────────────
 SELECT test_as_superuser();
 
--- Organisations : Viparis (gestionnaire_lieux) + GL Events (gestionnaire_lieux) + Kaspia (traiteur)
+-- Organisations : Viparis (gestionnaire_lieux) + GL Events (gestionnaire_lieux) + Kaspia (traiteur) + Externe (traiteur sans événement)
 INSERT INTO plateforme.organisations (id, nom, raison_sociale, type, siret, actif, tarif_refacture_pax_zd)
 VALUES
-  ('cc000000-0000-0000-0000-00000000000a'::uuid, 'Viparis',    'Viparis SA',       'gestionnaire_lieux', '33333333300001', true, 0),
-  ('cc000000-0000-0000-0000-00000000000b'::uuid, 'GL Events',  'GL Events SAS',    'gestionnaire_lieux', '44444444400001', true, 0),
-  ('cc000000-0000-0000-0000-00000000000c'::uuid, 'Kaspia',     'Kaspia SARL',      'traiteur',           '55555555500001', true, 1.50);
+  ('cc000000-0000-0000-0000-00000000000a'::uuid, 'Viparis',          'Viparis SA',          'gestionnaire_lieux', '33333333300001', true, 0),
+  ('cc000000-0000-0000-0000-00000000000b'::uuid, 'GL Events',        'GL Events SAS',       'gestionnaire_lieux', '44444444400001', true, 0),
+  ('cc000000-0000-0000-0000-00000000000c'::uuid, 'Kaspia',           'Kaspia SARL',         'traiteur',           '55555555500001', true, 1.50),
+  -- T37 : traiteur sans aucun événement → doit être INVISIBLE à tout gestionnaire
+  ('cc000000-0000-0000-0000-00000000000d'::uuid, 'Traiteur Externe', 'Externe SARL',        'traiteur',           '77777777700001', true, 0);
 
 -- Users
 INSERT INTO plateforme.users (id, organisation_id, email, prenom, nom, role, actif)
@@ -482,15 +484,14 @@ SELECT is(
   'T36 : org_gestionnaire_traiteur_select — Kaspia visible Viparis (E1 confirmé sur lieu b01)'
 );
 
--- T37 : GL Events ne voit PAS Kaspia (aucun événement confirmé sur GL Arena)
-SELECT test_set_jwt('gestionnaire_lieux', 'cc000000-0000-0000-0000-00000000000b'::uuid,
-                    'cc000000-0000-0000-0000-000000000b01'::uuid);
+-- T37 : Viparis ne voit PAS Traiteur Externe (aucun événement sur ses lieux)
+-- JWT Viparis toujours actif (pas de switch nécessaire)
 SELECT is(
   (SELECT COUNT(*)::int FROM plateforme.organisations
-   WHERE id = 'cc000000-0000-0000-0000-00000000000c'::uuid
+   WHERE id = 'cc000000-0000-0000-0000-00000000000d'::uuid
    AND type = 'traiteur'),
   0,
-  'T37 : org_gestionnaire_traiteur_select — Kaspia invisible GL Events (lieu b03 ≠ lieux Kaspia)'
+  'T37 : org_gestionnaire_traiteur_select — Traiteur Externe invisible (aucun événement confirmé sur lieux Viparis)'
 );
 
 -- ════════════════════════════════════════════════════════════════════════════

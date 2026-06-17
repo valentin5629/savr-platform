@@ -13,7 +13,6 @@ const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(req, ROLES);
   if (auth.error) return auth.error;
-  void auth;
 
   const supabase = createSupabaseServerClient();
   const sp = new URL(req.url).searchParams;

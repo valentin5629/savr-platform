@@ -220,7 +220,7 @@ const NAV_EXPECTATIONS: Record<Role, string[]> = {
     'Mon organisation',
     'Mon profil',
   ],
-  agence: ['Collectes', 'Lieux'],
+  agence: ['Dashboard', 'Collectes', 'Mon organisation', 'Mon profil'],
   gestionnaire_lieux: ['Dashboard', 'Mes lieux', 'Collectes', 'Événements'],
   client_organisateur: ['Mes événements', 'Collectes'],
 };

@@ -1,0 +1,43 @@
+{
+  "module": "M3.3",
+  "titre": "Espace client agence",
+  "description": "Espace agence = réplique stricte du §06.04 (parité absolue) sur le périmètre donneur d'ordre (evenements.organisation_id), avec les 8 différences forcées. DB : RPC f_completer_siret_shadow (F2, SECURITY DEFINER, 5 gardes, alerte in-app F3), trigger trg_cerfa_debloque_siret (F4, finalisation auto des bordereaux brouillon au remplissage SIRET), gate trg_bordereau_gate_shadow_siret (Cerfa non finalisable tant que SIRET producteur shadow absent, diff #4). API v1/agence/* : collectes (liste/fiche+traiteur opérationnel résolu via v_referentiel_traiteurs F5/shadow, édition gate statut, annulation), factures lecture seule, complétion SIRET shadow. Dashboard : strip server-side de marge_zd_ht pour le rôle agence (diff #7, 4 cartes ZD). Création shadow (M1.2) rendue F3-compliant (alerte in-app via f_upsert_alerte_admin, plus d'email) + correctif colonnes réelles (nom au lieu de nom_commercial inexistant). Nav agence ramenée à 4 entrées (Dashboard/Collectes/Mon organisation/Mon profil, sans Registre — diff #5/#8). RLS agence, contraintes shadow, vues whitelist/registre déjà en place (Niveau 0).",
+  "fichiers_produits": [
+    "supabase/migrations/20260617130000_plateforme_m3_3_espace_agence.sql",
+    "supabase/tests/m3_3_espace_agence.test.sql",
+    "packages/plateforme/src/app/(agence)/layout.tsx",
+    "packages/plateforme/src/app/(agence)/agence/page.tsx",
+    "packages/plateforme/src/app/(agence)/agence/collectes/page.tsx",
+    "packages/plateforme/src/app/(agence)/agence/collectes/[id]/page.tsx",
+    "packages/plateforme/src/app/(agence)/agence/mon-organisation/page.tsx",
+    "packages/plateforme/src/app/(agence)/agence/mon-profil/page.tsx",
+    "packages/plateforme/src/app/api/v1/agence/collectes/route.ts",
+    "packages/plateforme/src/app/api/v1/agence/collectes/[id]/route.ts",
+    "packages/plateforme/src/app/api/v1/agence/collectes/[id]/annulation/route.ts",
+    "packages/plateforme/src/app/api/v1/agence/factures/route.ts",
+    "packages/plateforme/src/app/api/v1/agence/shadow/[id]/siret/route.ts",
+    "packages/plateforme/src/app/api/v1/dashboards/kpi-traiteur/route.ts",
+    "packages/plateforme/src/app/api/v1/programmation/organisations/shadow/route.ts",
+    "packages/plateforme/src/lib/nav-config.ts",
+    "packages/plateforme/tests/api/agence/espace-agence.m3-3.test.ts"
+  ],
+  "scenarios": [
+    "M3.3/auth_guard_non_agence_403",
+    "M3.3/auth_guard_non_authentifie_401",
+    "M3.3/dashboard_agence_4_cartes_zd_sans_marge",
+    "M3.3/dashboard_marge_conservee_pour_traiteur",
+    "M3.3/collectes_liste_perimetre_agence",
+    "M3.3/fiche_collecte_traiteur_operationnel_referentiel",
+    "M3.3/fiche_collecte_traiteur_shadow_badge",
+    "M3.3/edition_champs_verrouilles_422",
+    "M3.3/edition_refusee_hors_fenetre_422",
+    "M3.3/annulation_directe_programmee",
+    "M3.3/annulation_demande_validee",
+    "M3.3/siret_completion_appelle_rpc",
+    "M3.3/siret_format_invalide_422",
+    "M3.3/siret_rpc_erreur_remontee_422",
+    "M3.3/factures_lecture_seule_agence",
+    "M3.3/shadow_creation_in_app_aucun_email",
+    "M3.3/shadow_creation_role_non_agence_403"
+  ]
+}

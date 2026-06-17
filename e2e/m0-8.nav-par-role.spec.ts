@@ -23,7 +23,7 @@ const EXPECTED: Record<string, string[]> = {
     'Mon organisation',
     'Mon profil',
   ],
-  agence: ['Collectes', 'Lieux'],
+  agence: ['Dashboard', 'Collectes', 'Mon organisation', 'Mon profil'],
   gestionnaire_lieux: ['Mes lieux', 'Collectes'],
   client_organisateur: ['Mes événements', 'Collectes'],
 };

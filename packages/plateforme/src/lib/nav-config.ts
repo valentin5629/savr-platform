@@ -124,7 +124,7 @@ export const NAV_CONFIG: Record<Role, NavGroup[]> = {
           href: '/gestionnaire/evenements',
           icon: CalendarDays,
         },
-        { label: 'Lieux', href: '/gestionnaire/lieux', icon: MapPin },
+        { label: 'Mes lieux', href: '/gestionnaire/lieux', icon: MapPin },
         { label: 'Traiteurs', href: '/gestionnaire/traiteurs', icon: Truck },
         {
           label: 'Mon pack AG',

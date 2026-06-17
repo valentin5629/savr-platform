@@ -61,19 +61,21 @@ export const NAV_CONFIG: Record<Role, NavGroup[]> = {
     },
   ],
 
+  // §06.04 §1 — nav traiteur = 4 entrées V1 (refonte 2026-05-05) :
+  // Dashboard / Collectes / Mon organisation / Mon profil.
+  // Identique manager et commercial (le contrôle d'accès intra-page masque
+  // l'édition + la sous-section Équipe au commercial — révision 2026-05-29).
   traiteur_manager: [
     {
       items: [
         { label: 'Dashboard', href: '/traiteur', icon: LayoutDashboard },
-        {
-          label: 'Événements',
-          href: '/traiteur/evenements',
-          icon: CalendarDays,
-        },
         { label: 'Collectes', href: '/traiteur/collectes', icon: Truck },
-        { label: 'Lieux', href: '/traiteur/lieux', icon: MapPin },
-        { label: 'Documents', href: '/traiteur/documents', icon: FileText },
-        { label: 'Reporting', href: '/traiteur/reporting', icon: BarChart3 },
+        {
+          label: 'Mon organisation',
+          href: '/traiteur/mon-organisation',
+          icon: Building2,
+        },
+        { label: 'Mon profil', href: '/traiteur/mon-profil', icon: Settings },
       ],
     },
   ],
@@ -81,19 +83,14 @@ export const NAV_CONFIG: Record<Role, NavGroup[]> = {
   traiteur_commercial: [
     {
       items: [
+        { label: 'Dashboard', href: '/traiteur', icon: LayoutDashboard },
+        { label: 'Collectes', href: '/traiteur/collectes', icon: Truck },
         {
-          label: 'Programmer une collecte',
-          href: '/programmer/nouveau',
-          icon: PlusCircle,
+          label: 'Mon organisation',
+          href: '/traiteur/mon-organisation',
+          icon: Building2,
         },
-        { label: 'Mes brouillons', href: '/brouillons', icon: ClipboardList },
-        { label: 'Mes collectes', href: '/traiteur/collectes', icon: Truck },
-        {
-          label: 'Événements',
-          href: '/traiteur/evenements',
-          icon: CalendarDays,
-        },
-        { label: 'Documents', href: '/traiteur/documents', icon: FileText },
+        { label: 'Mon profil', href: '/traiteur/mon-profil', icon: Settings },
       ],
     },
   ],

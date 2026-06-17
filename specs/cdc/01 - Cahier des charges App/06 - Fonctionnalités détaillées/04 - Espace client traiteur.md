@@ -693,7 +693,7 @@ Toutes les factures de l'organisation sont visibles (factures par collecte, fact
 
 1. Clic "Inviter un collaborateur" → modal
 2. Champs : email, prénom, nom, rôle (sélecteur `traiteur_commercial`)
-3. Envoi d'un email d'invitation au collaborateur (template `invitation_collaborateur` — à ajouter à [[02 - Templates emails V1]])
+3. Envoi d'un email d'invitation au collaborateur (template `invitation_utilisateur`, déjà présent au catalogue §06.02)
 4. Le collaborateur clique sur le lien → création de compte en auto-service
 5. Rattachement automatique à l'organisation de l'invitant
 6. Statut initial : `actif`
@@ -907,4 +907,4 @@ La clause `OR EXISTS (collecte_partages …)` est retirée de la policy V1 (réa
 - [[11 - Dashboards]] — nav traiteur 6→4 entrées (refonte 2026-05-05) + KPIs traiteur ZD 4→5 (ajout Marge — refonte 2026-05-07)
 - [[06 - Fonctionnalités détaillées/06 - Back-office Admin Savr]] — édition `tarif_refacture_pax_zd` par Admin Savr (refonte 2026-05-07)
 - [[12 - Reporting et exports]] — bordereau ZD intégré au rapport RSE PDF + template "Événement sans excédent alimentaire" + bloc benchmark dans rapport RSE par collecte (refonte 2026-05-05) + suppression batchs auto synthèses (refonte 2026-05-05)
-- [[02 - Templates emails V1]] — templates `invitation_collaborateur` + `admin_modification_collecte_traiteur` (à ajouter)
+- [[02 - Templates emails V1]] — template `invitation_utilisateur` (existant) ; `admin_modification_collecte_traiteur` (à ajouter) ; `admin_demande_renouvellement_pack` + `admin_demande_annulation` (ajoutés en M3.1, voir §06.02 — catalogue à mettre à jour 19→21 templates)

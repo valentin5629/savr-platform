@@ -394,7 +394,7 @@ L'équipe Savr
 
 ## 17. Email invitation collaborateur
 
-**Slug** : `invitation_collaborateur`
+**Slug** : `invitation_utilisateur` *(corrigé M3.1 2026-06-17)*
 **Destinataire** : collaborateur invité par un manager
 **Déclencheur** : action "Inviter un collaborateur" depuis l'espace "Mon organisation"
 **Objet** : {{inviteur_prenom}} vous invite à rejoindre {{organisation_nom}} sur Savr
@@ -641,7 +641,7 @@ ATTENTION : annulation à moins de 12h du créneau — plein tarif applicable, v
 - **12 templates V1 (propagation Q10 M05 2026-04-24)** — retrait du template `plaque_chauffeur`. Les 12 templates V1 actifs sont numérotés 1→13 dans ce document avec le slot 7 biffé pour préserver l'historique.
 - **+1 template ajout 2026-05-04** : `admin_modification_collecte_traiteur` (n°19). Décision : variante "urgence" pilotée par flag, pas de slug séparé pour éviter duplication.
 - **Compteur corrigé 2026-06-03 (sobriété C1)** : l'ancien total « 13 templates actifs » était une dérive jamais recomptée depuis le 2026-05-04 (les templates 14bis, 16, 17, 18, 18ter, 19 ont été ajoutés ensuite). **Total V1 = 16 templates actifs** après la revue de sobriété 2026-06-03 :
-  1. `bienvenue` · 3. `collecte_programmee` · 4. `collecte_modifiee` · 5. `collecte_annulee` · 6. `rapport_disponible` · 9. `admin_pack_ag_etat` *(fusion bas+épuisé)* · 10. `admin_incident_collecte` · 11. `reset_password` · 12. `verification_email` · 13. `admin_demande_ajout_lieu` · 14. `admin_demande_renouvellement_pack` · 16. `ag_attribution_association` · 17. `invitation_collaborateur` · 18. `ag_attribution_transporteur` · 18ter. `ag_a_toutes_indispo` · 19. `admin_modification_collecte_traiteur`.
+  1. `bienvenue` · 3. `collecte_programmee` · 4. `collecte_modifiee` · 5. `collecte_annulee` · 6. `rapport_disponible` · 9. `admin_pack_ag_etat` *(fusion bas+épuisé)* · 10. `admin_incident_collecte` · 11. `reset_password` · 12. `verification_email` · 13. `admin_demande_ajout_lieu` · 14. `admin_demande_renouvellement_pack` · 16. `ag_attribution_association` · 17. `invitation_utilisateur` · 18. `ag_attribution_transporteur` · 18ter. `ag_a_toutes_indispo` · 19. `admin_modification_collecte_traiteur` · 20. `admin_demande_annulation` *(ajouté M3.1 2026-06-17)*. **Total réel = 20 slugs actifs** (vérifier SELECT count(*) WHERE actif=true en dev).
   - **Slots retirés** : 2 (`completion_profil_requise`, A2) · 7 (`plaque_chauffeur`) · 8 (`admin_orga_a_valider`, A3) · 14bis (`admin_pack_epuise`, fusionné → 9) · 15 (`facture_relance`) · 18bis (`ag_recalcul_branche`).
 - **+3 templates ajoutés 2026-06-07 (F2 tranchée Val, session test-scenarios)** : 20. `collecte_programmee_tiers` · 21. `collecte_modifiee_tiers` *(modification + annulation par tiers, variable `type_changement`)* · 22. `admin_collecte_annulee`. Ils soldent l'écart matrice §05 §9 (règle 2026-05-07 tiers + destinataire Admin annulation) ↔ templates. **Total V1 = 19 templates actifs.**
 

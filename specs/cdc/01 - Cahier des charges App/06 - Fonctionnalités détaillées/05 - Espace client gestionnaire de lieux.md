@@ -460,7 +460,7 @@ Liste des utilisateurs de l'organisation (rôle `gestionnaire_lieux`). Colonnes 
 **Invitation d'un nouveau collègue** :
 - Bouton "Inviter un collègue"
 - Champs : prénom, nom, email
-- Envoi email `invitation_collaborateur` (voir [[02 - Templates emails V1]] template 17) avec lien d'activation (validité 7 jours)
+- Envoi email `invitation_utilisateur` (voir [[02 - Templates emails V1]] template 17) avec lien d'activation (validité 7 jours)
 - Le collaborateur invité devient `gestionnaire_lieux` de la même organisation
 
 **Désactivation** : bouton "Désactiver" sur chaque ligne utilisateur. `users.actif = false`. L'utilisateur ne peut plus se connecter mais son historique (qui a généré quoi) est conservé.
@@ -626,4 +626,4 @@ Implémentation : fonction PostgreSQL `taille_evenement_bracket(pax integer) RET
 - [[12 - Reporting et exports]] §1.6
 - [[04 - Espace client traiteur]]
 - [[06 - Back-office Admin Savr]] — action "Rattachement lieu"
-- [[02 - Templates emails V1]] — template 17 `invitation_collaborateur`
+- [[02 - Templates emails V1]] — template 17 `invitation_utilisateur`

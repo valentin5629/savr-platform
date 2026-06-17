@@ -143,6 +143,14 @@ Scénario : v_factures_client_sans_marge_logistique (test_factures_marge_invisib
   Alors la facture est visible et la vue n'expose ni `marge_logistique` ni `erreur_synchro*`
   Et le SELECT direct sur `plateforme.factures` par `manager_kaspia` retourne 0 ligne (table = staff only)
 
+Scénario : v_factures_client_non_vide_manager (test_factures_vue_client_non_vide_manager — F5-corr M3.5 2026-06-16)
+  # Prérequis : policy fac_client_select sur plateforme.factures — SANS elle, SECURITY INVOKER + DENY ALL → 0 ligne
+  Étant donné une facture Kaspia émise (organisation_id = org_kaspia)
+  Et `manager_kaspia` authentifié (rôle traiteur_manager, organisation_id = org_kaspia)
+  Quand `manager_kaspia` interroge `v_factures_client`
+  Alors ≥ 1 ligne retournée et aucune erreur RLS
+  Et une facture d'organisation B est absente (org-scoping actif via fac_client_select)
+
 Scénario : lieu_visible_par_double_chemin
   Étant donné un lieu L3 sans lien organisations_lieux avec Kaspia mais référencé par un événement Kaspia
   Quand `manager_kaspia` exécute SELECT sur `lieux`

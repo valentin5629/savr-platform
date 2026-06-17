@@ -41,6 +41,10 @@ function makeChain() {
   }
   chain.maybeSingle = () => Promise.resolve(next());
   chain.single = () => Promise.resolve(next());
+  chain.rpc = (...args: unknown[]) => {
+    record('rpc', args);
+    return Promise.resolve(next());
+  };
   chain.then = (resolve: (r: Result) => unknown) => resolve(next());
   return chain as Record<string, unknown> & {
     push(r: Result): unknown;
@@ -57,6 +61,7 @@ vi.mock('@supabase/ssr', () => ({
   createServerClient: () => ({
     auth: { getUser: mockGetUser, getSession: mockGetSession },
     from: (...a: unknown[]) => (rls.from as (...x: unknown[]) => unknown)(...a),
+    rpc: (...a: unknown[]) => (rls.rpc as (...x: unknown[]) => unknown)(...a),
   }),
 }));
 vi.mock('next/headers', () => ({
@@ -152,6 +157,45 @@ describe('M3.4 / collectes', () => {
     expect(eqArgs.some((a) => a[0] === 'type' && a[1] === 'anti_gaspi')).toBe(
       true,
     );
+  });
+
+  it('M3.4/collectes_ag_traiteur_et_repas — colonnes §11 §7 (traiteur via whitelist, repas via helper)', async () => {
+    setupAuth('client_organisateur', 'org-a');
+    // 1) collectes AG  2) v_referentiel_traiteurs  3) rpc f_volume_repas_realise
+    rls.push({
+      data: [
+        {
+          id: 'c-ag',
+          type: 'anti_gaspi',
+          statut: 'cloturee',
+          evenements: {
+            id: 'ev1',
+            traiteur_operationnel_organisation_id: 'tr-1',
+            nom_evenement: 'Gala',
+          },
+        },
+      ],
+      error: null,
+    });
+    rls.push({
+      data: [
+        { id: 'tr-1', nom: 'Traiteur T', raison_sociale: 'Traiteur T SAS' },
+      ],
+      error: null,
+    });
+    rls.push({ data: 80, error: null });
+    const { GET } =
+      await import('@/app/api/v1/organisateur/collectes/route.js');
+    const res = await GET(
+      makeReq('/api/v1/organisateur/collectes?type=anti_gaspi'),
+    );
+    const json = (await res.json()) as {
+      data: Array<{ traiteur_nom: string | null; repas_donnes: number | null }>;
+    };
+    expect(json.data[0]?.traiteur_nom).toBe('Traiteur T SAS');
+    expect(json.data[0]?.repas_donnes).toBe(80);
+    const rpcArgs = rls.__calls.rpc ?? [];
+    expect(rpcArgs.some((a) => a[0] === 'f_volume_repas_realise')).toBe(true);
   });
 
   it('M3.4/collectes_aucune_donnee_financiere — réponse sans marge ni montant', async () => {

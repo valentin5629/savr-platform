@@ -26,6 +26,8 @@ interface CollecteRow {
   heure_collecte: string | null;
   taux_recyclage: number | null;
   co2_evite_kg: number | null;
+  traiteur_nom: string | null;
+  repas_donnes: number | null;
   evenements: Evenement | Evenement[] | null;
 }
 
@@ -89,11 +91,10 @@ function CollectesContent() {
                 <th className="px-3 py-2">Date</th>
                 <th className="px-3 py-2">Événement</th>
                 <th className="px-3 py-2">Lieu</th>
+                <th className="px-3 py-2">Traiteur</th>
                 <th className="px-3 py-2">Pax</th>
+                <th className="px-3 py-2">{isZd ? 'Recyclage' : 'Repas'}</th>
                 <th className="px-3 py-2">Statut</th>
-                <th className="px-3 py-2">
-                  {isZd ? 'Recyclage' : 'CO₂e évité'}
-                </th>
               </tr>
             </thead>
             <tbody>
@@ -117,22 +118,21 @@ function CollectesContent() {
                           .join(' ')}
                       </div>
                     </td>
+                    <td className="px-3 py-2">{c.traiteur_nom ?? '—'}</td>
                     <td className="px-3 py-2">{evt?.pax ?? '—'}</td>
+                    <td className="px-3 py-2">
+                      {isZd
+                        ? c.taux_recyclage != null
+                          ? `${c.taux_recyclage.toFixed(1)} %`
+                          : '—'
+                        : (c.repas_donnes ?? '—')}
+                    </td>
                     <td className="px-3 py-2">
                       <Badge variant="neutral">
                         {c.statut === 'realisee_sans_collecte'
                           ? 'Aucun repas collecté'
                           : c.statut}
                       </Badge>
-                    </td>
-                    <td className="px-3 py-2">
-                      {isZd
-                        ? c.taux_recyclage != null
-                          ? `${c.taux_recyclage.toFixed(1)} %`
-                          : '—'
-                        : c.co2_evite_kg != null
-                          ? `${Math.round(c.co2_evite_kg)} kg`
-                          : '—'}
                     </td>
                   </tr>
                 );

@@ -41,6 +41,9 @@ export function createSupabaseServerClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      // Schéma métier par défaut (sinon supabase-js cible `public` → PGRST205).
+      // Pour les tables shared.*, utiliser .schema('shared') explicitement.
+      db: { schema: 'plateforme' },
       cookies: {
         async getAll() {
           const cookieStore = await cookies();

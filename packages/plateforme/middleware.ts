@@ -43,6 +43,9 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
     pathname === '/verify-email' ||
     pathname === '/reset-password' ||
     pathname === '/403' ||
+    // Pages de smoke-test de composants (dev-only, présentationnel, sans donnée
+    // sensible) — délibérément hors du gating /admin/* réservé admin_savr/ops_savr.
+    pathname.startsWith('/dev/') ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon')
   ) {

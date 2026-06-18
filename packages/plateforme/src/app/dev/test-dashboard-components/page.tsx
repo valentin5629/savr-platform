@@ -2,7 +2,8 @@
 
 /**
  * Page de test uniquement — monte les composants dashboard communs pour les smoke tests Playwright M3.5.
- * Non liée à la navigation, accessible uniquement en dev.
+ * Non liée à la navigation. Sous /dev/* (route publique, hors gating /admin/*) :
+ * composants purement présentationnels avec props codées en dur, aucune donnée sensible.
  */
 
 import { useState } from 'react';

@@ -149,6 +149,80 @@ export async function requireUser(
   };
 }
 
+export interface AnyUserAuthContext {
+  userId: string;
+  role: AnyRole;
+  /** Organisation métier (null pour le staff admin/ops, périmètre global). */
+  organisationId: string | null;
+  isStaff: boolean;
+}
+
+// Authentifie un utilisateur quel que soit son rôle (staff OU client) et renvoie
+// son rôle métier. Utilisé par l'endpoint d'export unifié, qui applique ensuite
+// sa propre matrice d'autorisation par entité. Un client sans organisation_id
+// dans le JWT est refusé (403) ; le staff n'a pas cette contrainte.
+export async function requireAnyUser(
+  _req: NextRequest,
+): Promise<
+  | { ctx: AnyUserAuthContext; error?: never }
+  | { ctx?: never; error: NextResponse }
+> {
+  const supabase = createSupabaseServerClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return {
+      error: NextResponse.json({ error: 'Non autorisé' }, { status: 401 }),
+    };
+  }
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const claims = parseJwtClaims(session?.access_token ?? '');
+  const role = claims['user_role'] as string | undefined;
+  const organisationId = claims['organisation_id'] as string | undefined;
+
+  const isStaff = role === 'admin_savr' || role === 'ops_savr';
+  const isClient =
+    role != null &&
+    (
+      [
+        'traiteur_commercial',
+        'traiteur_manager',
+        'agence',
+        'gestionnaire_lieux',
+        'client_organisateur',
+      ] as string[]
+    ).includes(role);
+
+  if (!isStaff && !isClient) {
+    return {
+      error: NextResponse.json({ error: 'Rôle insuffisant' }, { status: 403 }),
+    };
+  }
+
+  if (!isStaff && !organisationId) {
+    return {
+      error: NextResponse.json(
+        { error: 'Organisation manquante dans le JWT' },
+        { status: 403 },
+      ),
+    };
+  }
+
+  return {
+    ctx: {
+      userId: user.id,
+      role: role as AnyRole,
+      organisationId: organisationId ?? null,
+      isStaff,
+    },
+  };
+}
+
 export const PROGRAMMATION_ROLES: ClientRole[] = [
   'traiteur_commercial',
   'traiteur_manager',

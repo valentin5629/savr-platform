@@ -70,15 +70,29 @@ function CollectesContent() {
     router.replace(`/agence/collectes?${usp}`);
   }
 
+  function exportCsv() {
+    const qs = new URLSearchParams({ type: tab });
+    const from = params.get('from');
+    const to = params.get('to');
+    if (from) qs.set('from', from);
+    if (to) qs.set('to', to);
+    window.open(`/api/v1/exports/collectes?${qs}`);
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-savr-primary-800">Collectes</h1>
-        <Button asChild>
-          <a href={`/programmer/nouveau?type=${tab}`}>
-            Programmer un événement
-          </a>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" onClick={exportCsv}>
+            Exporter CSV
+          </Button>
+          <Button asChild>
+            <a href={`/programmer/nouveau?type=${tab}`}>
+              Programmer un événement
+            </a>
+          </Button>
+        </div>
       </div>
 
       <CollecteTypeTabs value={tab} onChange={changeTab} />

@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   CollecteTypeTabs,
   type CollecteType,
@@ -69,11 +70,25 @@ function CollectesContent() {
 
   const isZd = tab === 'zero_dechet';
 
+  function exportCsv() {
+    const qs = new URLSearchParams({ type: tab });
+    const from = params.get('from');
+    const to = params.get('to');
+    if (from) qs.set('from', from);
+    if (to) qs.set('to', to);
+    window.open(`/api/v1/exports/collectes?${qs}`);
+  }
+
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold text-savr-primary-800">
-        Mes collectes
-      </h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-savr-primary-800">
+          Mes collectes
+        </h1>
+        <Button variant="ghost" onClick={exportCsv}>
+          Exporter CSV
+        </Button>
+      </div>
 
       <CollecteTypeTabs value={tab} onChange={changeTab} />
 

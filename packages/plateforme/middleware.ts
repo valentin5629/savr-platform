@@ -6,7 +6,7 @@ const ROLE_PREFIXES: Record<string, string[]> = {
   '/traiteur': ['traiteur_manager', 'traiteur_commercial'],
   '/agence': ['agence'],
   '/gestionnaire': ['gestionnaire_lieux'],
-  '/client-organisateur': ['client_organisateur'],
+  '/organisateur': ['client_organisateur'],
   '/programmer': [
     'traiteur_commercial',
     'traiteur_manager',

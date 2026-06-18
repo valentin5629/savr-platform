@@ -52,8 +52,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // « Toutes les organisations » = pas de filtre. Sinon périmètre sélectionné.
   if (orgIds.length > 0) q = q.in('evenements.organisation_id', orgIds);
 
-  if (from) q = q.gte('realisee_at', from);
-  if (to) q = q.lte('realisee_at', to);
+  // Filtre de période sur date_collecte (NOT NULL), cohérent avec les vues KPI
+  // M3.5 et la règle revenus §06.06 §1 — parité avec le dashboard gestionnaire
+  // (§06.05). realisee_at (nullable) excluait à tort des collectes cloturées.
+  if (from) q = q.gte('date_collecte', from);
+  if (to) q = q.lte('date_collecte', to);
   if (lieuIds.length > 0) q = q.in('evenements.lieu_id', lieuIds);
   if (traiteurIds.length > 0)
     q = q.in('evenements.traiteur_operationnel_organisation_id', traiteurIds);

@@ -54,8 +54,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .eq('type', type)
     .in('evenements.lieu_id', lieuFilter);
 
-  if (from) q = q.gte('realisee_at', from);
-  if (to) q = q.lte('realisee_at', to);
+  // Filtre de période sur date_collecte (NOT NULL), cohérent avec les vues KPI
+  // M3.5 (date_trunc month sur date_collecte) et la règle revenus §06.06 §1.
+  // realisee_at (nullable) excluait à tort des collectes cloturées sans realisee_at.
+  if (from) q = q.gte('date_collecte', from);
+  if (to) q = q.lte('date_collecte', to);
   if (traiteurIds.length > 0)
     q = q.in('evenements.traiteur_operationnel_organisation_id', traiteurIds);
   if (typeEvtIds.length > 0)

@@ -237,6 +237,32 @@ describe('M3.2 / dashboard', () => {
     expect(json.data.kpis.nb_repas_donnes).toBe(120);
   });
 
+  it('M3.2/dashboard_filtre_periode_date_collecte — from/to ciblent date_collecte (pas realisee_at)', async () => {
+    setupAuth('gestionnaire_lieux');
+    rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null }); // organisations_lieux
+    rls.push({ data: [], error: null }); // collectes
+    rls.push({ data: null, error: null }); // pack AG
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/dashboard/route.js');
+    const res = await GET(
+      makeReq(
+        'GET',
+        '/api/v1/gestionnaire/dashboard?type=zero_dechet&from=2025-06-01&to=2026-04-30',
+      ),
+    );
+    expect(res.status).toBe(200);
+    // Parité avec les vues KPI M3.5 + règle revenus §06.06 §1 : la période se
+    // filtre sur date_collecte (NOT NULL), jamais sur realisee_at (nullable).
+    const gteCalls = rls.__calls.gte ?? [];
+    const lteCalls = rls.__calls.lte ?? [];
+    expect(gteCalls.map((c) => c[0])).toContain('date_collecte');
+    expect(lteCalls.map((c) => c[0])).toContain('date_collecte');
+    expect(gteCalls.map((c) => c[0])).not.toContain('realisee_at');
+    expect(lteCalls.map((c) => c[0])).not.toContain('realisee_at');
+    expect(gteCalls).toContainEqual(['date_collecte', '2025-06-01']);
+    expect(lteCalls).toContainEqual(['date_collecte', '2026-04-30']);
+  });
+
   it('M3.2/dashboard_pack_ag_inclus_dans_reponse — champ pack présent', async () => {
     setupAuth('gestionnaire_lieux');
     rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null });

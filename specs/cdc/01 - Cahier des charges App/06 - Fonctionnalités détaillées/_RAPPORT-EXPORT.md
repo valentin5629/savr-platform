@@ -1,11 +1,19 @@
 # Rapport export dev-facing
 
-Mode : AGGRESSIVE (T1+T2)
-**Total : 18904 -> 16377 octets (-2527, -13.4%)**
+Mode : SUR (T1 seul, T2 detecte)
+**Total : 84089 -> 82364 octets (-1725, -2.1%)**
 
 
-## 11 - Espace client agence.md
-- octets : 18904 -> 16377 (-2527, -13.4%)
-- tokens estimes : ~4726 -> ~4094
-- tombstones supprimes : 0 | fragments barres retires : 1 | en-tetes debarres : 0
-- lignes historiques T2 supprimees : 2
+## 06 - Back-office Admin Savr.md
+- octets : 84089 -> 82364 (-1725, -2.1%)
+- tokens estimes : ~21022 -> ~20591
+- tombstones supprimes : 6 | fragments barres retires : 12 | en-tetes debarres : 1
+- ⚠ tombstones en prose a revoir a la main :
+    L407: - — supprimé 2026-05-07 (unification libellé)
+    L411: - — **supprimé V1 (revue sobriété 2026-05-30 A1)** : jamais utilisé (ni facturation, ni al
+    L460: - — supprimé, info logistique reportée dans `commentaires_internes`
+    L985: - **Fermée 2026-06-07 (F6, tranché Val)** : bouton retiré V1, fusion = script SQL assisté 
+- 🕓 blocs historiques T2 detectes (non supprimes ; relancer --aggressive apres revue) :
+    L3 [meta-changelog]: **Statut** : Validé V1
+    L4 [meta-changelog]: **Dernière mise à jour** : 2026-06-07 (**Session `cdc-test-scenarios` lot ⑥ — 6 
+    L537 [tracabilite]: > Contenu historique conservé pour traçabilité :

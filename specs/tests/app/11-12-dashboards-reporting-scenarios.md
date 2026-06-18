@@ -849,6 +849,31 @@ Histogramme Revenus §11 Bloc 2 = mêmes statuts que R_revenus_imputation_organi
 
 ---
 
+## Scénarios filtre période dashboards (DASHBOARDS_20260618)
+
+```gherkin
+# Source : DASHBOARDS_20260618 — filtre période dashboard = date_collecte (PR #62, 2026-06-18)
+# Couche : api
+# Priorité : P1-critique
+
+Scénario : dashboard_filtre_periode_date_collecte (M3.2 gestionnaire)
+  Étant donné une collecte C1 avec date_collecte=2026-05-15 et realisee_at=NULL
+  Et une collecte C2 avec date_collecte=2026-03-01 et realisee_at=2026-05-10
+  Quand `gest_viparis` appelle GET /api/v1/gestionnaire/dashboard?from=2026-05-01&to=2026-05-31
+  Alors C1 est dans le périmètre (date_collecte ∈ [from, to])
+  Et C2 est hors périmètre (date_collecte=2026-03-01 < from)
+  Et le dashboard n'est pas vide (realisee_at NULL n'exclut pas C1)
+  # Régression PR #62 : avant le fix, realisee_at NULL excluait silencieusement C1
+
+Scénario : kpi_filtre_periode_date_collecte (M3.6 dashboard client admin)
+  Étant donné les mêmes collectes C1 et C2
+  Quand `admin_savr` appelle GET /api/v1/admin/dashboard-client?from=2026-05-01&to=2026-05-31&organisation_id=<org>
+  Alors C1 est dans le périmètre et C2 hors périmètre (parité M3.2)
+  Et le filtre porte sur `date_collecte`, jamais sur `realisee_at`
+```
+
+---
+
 ## Scénarios hors scope (V1.1 / V2)
 
 - **QR code vérification + lien de partage public 90j** : reportés V1.1 (§12 A1 sobriété 2026-06-03) — aucun scénario.

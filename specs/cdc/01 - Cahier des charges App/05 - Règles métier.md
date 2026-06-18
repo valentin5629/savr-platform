@@ -832,7 +832,7 @@ $$ LANGUAGE SQL STABLE;
 > Les colonnes `lieux.commentaire_lieu`, `lieux.siren`, `lieux.email_gestionnaire`, `lieux.reference_citeo` sont **strictement réservées aux profils `admin_savr` et `ops_savr`** en lecture comme en écriture.
 >
 > Tout autre profil (traiteur_*, agence_*, gestionnaire_*, client_organisateur_*) **ne doit jamais voir ces colonnes** :
-> - Pas exposées dans les SELECT publics (`v_lieux_public` masque ces colonnes)
+> - Pas exposées dans les SELECT publics (`v_lieux_clients` masque ces colonnes)
 > - Pas exposées dans le payload S7 Plateforme→TMS (cf. [[08 - APIs et intégrations]])
 > - Pas exposées dans les exports CSV/Excel client (cf. [[12 - Reporting et exports]])
 > - Pas exposées dans les rapports RSE/PDF clients
@@ -863,7 +863,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE
 **Vue publique** :
 
 ```sql
-CREATE VIEW plateforme.v_lieux_public AS
+CREATE VIEW plateforme.v_lieux_clients WITH (security_invoker = true) AS
 SELECT id, nom, nom_alternatif, adresse_acces, code_postal, ville,
        latitude, longitude, region, acces_details, acces_office,
        stationnement, type_vehicule_max, contraintes_horaires,

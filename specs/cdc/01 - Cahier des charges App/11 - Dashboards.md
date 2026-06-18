@@ -199,6 +199,8 @@ Pour servir les dashboards, créer des **vues SQL non matérialisées** (calcul 
 
 Les dashboards lisent ces vues, pas les tables sources. Seul le benchmark Bloc 3 ZD reste matérialisé (`mv_benchmark_kg_pax_zd_base`, refresh quotidien, cf. [[04 - Data Model]]).
 
+> **Colonne de filtre de période (2026-06-18)** : le filtre `from`/`to` des dashboards live porte sur **`collectes.date_collecte`** (NOT NULL), cohérent avec les vues M3.5 (agrégation par `date_trunc('month', date_collecte)`) et la règle revenus §06.06 §1. `realisee_at` (nullable) n'est **jamais** le champ de filtre de période des dashboards.
+
 ---
 
 ## Décisions prises

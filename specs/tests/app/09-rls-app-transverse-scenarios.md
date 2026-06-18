@@ -132,10 +132,11 @@ Scénario : commercial_update_sa_collecte_dans_fenetre
   Alors la mise à jour réussit (created_by = self ET f_collecte_editable)
 
 Scénario : lieux_colonnes_admin_only_invisibles_clients (lieux_admin_only_fields_hidden_from_clients)
-  Étant donné le lieu L1 avec `commentaire_lieu`, `siren`, `email_gestionnaire`, `reference_citeo` renseignés
-  Quand `manager_kaspia` puis `gest_viparis` exécutent SELECT de ces 4 colonnes sur `plateforme.lieux`
+  Étant donné le lieu L1 avec `commentaire_lieu`, `siren`, `email_gestionnaire`, `reference_citeo`, `commentaires_internes` renseignés
+  Quand `manager_kaspia` puis `gest_viparis` exécutent SELECT de ces 5 colonnes sur `plateforme.lieux`
   Alors chaque requête échoue en erreur de privilège column-level
-  # Couche : db | Priorité : P1-critique (GRANT column-level, pas RLS row)
+  Et `v_lieux_clients` (SECURITY INVOKER) retourne le lieu sans ces 5 colonnes (masquage via REVOKE/GRANT whitelist)
+  # Couche : db | Priorité : P1-critique (REVOKE table-level + GRANT SELECT whitelist, pattern F5 factures)
 
 Scénario : v_factures_client_sans_marge_logistique (test_factures_marge_invisible_clients — F5 lot ⑦)
   Étant donné une facture Kaspia avec marge_logistique renseignée

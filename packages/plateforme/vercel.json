@@ -1,12 +1,36 @@
 {
   "crons": [
     {
+      "path": "/api/cron/outbox-worker",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/polling-mts1",
+      "schedule": "*/15 * * * *"
+    },
+    {
       "path": "/api/cron/batch-pdf-j1",
       "schedule": "0 6 * * *"
     },
     {
+      "path": "/api/cron/pdf-worker",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/batch-brouillons-j1",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/pennylane-retry",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/polling-pennylane",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/refresh-benchmark",
+      "schedule": "0 2 * * *"
     }
   ]
 }

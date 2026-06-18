@@ -1,0 +1,31 @@
+{
+  "module": "M3.6",
+  "titre": "Back-office Admin — Dashboard Client (réplique lecture seule des dashboards clients)",
+  "description": "Page Admin /admin/dashboard-client (§06.06 §2) : vue LECTURE SEULE répliquant le dashboard gestionnaire (§06.05) avec un sélecteur d'organisations. « Toutes les organisations » (défaut) agrège la totalité des collectes Savr sans filtre RLS gestionnaire (service-role) ; une sélection filtre par evenements.organisation_id. Persistance de la sélection via localStorage. Accès admin_savr + ops_savr uniquement. Aucune écriture. Dépend de la couche KPI commune (M3.5) et des dashboards clients (M3.1→M3.5). Impersonation (§09 §7) HORS SCOPE de cette page.",
+  "depend_de": ["M3.5", "M3.2"],
+  "fichiers_produits": [
+    "packages/plateforme/src/lib/dashboard-kpi.ts",
+    "packages/plateforme/src/lib/page-auth.ts",
+    "packages/plateforme/src/app/api/v1/admin/dashboard-client/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/dashboard-client/organisations/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/dashboard-client/benchmark/route.ts",
+    "packages/plateforme/src/app/(admin)/admin/dashboard-client/page.tsx",
+    "packages/plateforme/src/app/(admin)/admin/dashboard-client/DashboardClientView.tsx",
+    "packages/plateforme/src/app/(admin)/admin/dashboard-client/OrganisationSelector.tsx",
+    "packages/plateforme/src/components/dashboards/BenchmarkGauge.tsx",
+    "packages/plateforme/tests/api/admin/dashboard-client.m3-6.test.ts",
+    "packages/plateforme/tests/ui/dashboard-client.m3-6.test.tsx",
+    "specs/manifests/M3.6.json"
+  ],
+  "scenarios": [
+    "M3.6/auth_guard_non_authentifie_401",
+    "M3.6/auth_guard_non_staff_403",
+    "M3.6/kpi_toutes_organisations_sans_filtre_org",
+    "M3.6/kpi_organisations_selectionnees_filtre_in",
+    "M3.6/kpi_zd_4_indicateurs_pondere",
+    "M3.6/kpi_ag_repas_donnes",
+    "M3.6/organisations_liste_pour_selecteur",
+    "M3.6/benchmark_staff_service_role",
+    "M3.6/dashboard_client_toutes_organisations_lecture_seule"
+  ]
+}

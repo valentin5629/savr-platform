@@ -14,6 +14,8 @@ interface BenchmarkGaugeProps {
   fluxCode?: string;
   /** kg/pax de l'utilisateur pour ce bracket/flux (null = pas de collecte) */
   myKgPax?: number | null;
+  /** Endpoint benchmark (défaut = route client ; route staff côté Admin). */
+  endpoint?: string;
   className?: string;
 }
 
@@ -25,6 +27,7 @@ export function BenchmarkGauge({
   bracket,
   fluxCode,
   myKgPax,
+  endpoint = '/api/v1/dashboards/benchmark',
   className,
 }: BenchmarkGaugeProps) {
   const [data, setData] = useState<BenchmarkRow | null>(null);
@@ -36,7 +39,7 @@ export function BenchmarkGauge({
     const params = new URLSearchParams({ bracket });
     if (fluxCode) params.set('flux_code', fluxCode);
 
-    fetch(`/api/v1/dashboards/benchmark?${params}`)
+    fetch(`${endpoint}?${params}`)
       .then((r) => r.json())
       .then((json: { data?: BenchmarkRow[]; error?: string }) => {
         if (json.error) {
@@ -51,7 +54,7 @@ export function BenchmarkGauge({
       })
       .catch(() => setError('Erreur réseau'))
       .finally(() => setLoading(false));
-  }, [bracket, fluxCode]);
+  }, [bracket, fluxCode, endpoint]);
 
   if (loading) {
     return (

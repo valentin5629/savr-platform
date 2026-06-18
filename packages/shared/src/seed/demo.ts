@@ -843,7 +843,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
         mention_fiscale_2041ge: habilitee,
         nb_repas: Math.round(0.1 * r.pax),
         valeur_don_estimee_ht: Math.round(0.1 * r.pax * 5),
-        statut: 'genere',
+        statut: 'emise', // attestation_statut (M2.4) : brouillon|emise|corrigee|annulee
         genere_at: tsAt(r.date, 6),
         eligible_at: tsAt(r.date, 6),
       };
@@ -1125,9 +1125,9 @@ async function seedFactures(
     client,
     'plateforme.sequences_facturation',
     [
-      { serie: 'ZD_MENSUEL', annee: 2026, dernier: counters.ZD_MENSUEL },
-      { serie: 'AG_MENSUEL', annee: 2026, dernier: counters.AG_MENSUEL },
-      { serie: 'AVOIR', annee: 2026, dernier: counters.AVOIR },
+      { serie: 'ZD_MENSUEL', annee: 2026, dernier_numero: counters.ZD_MENSUEL },
+      { serie: 'AG_MENSUEL', annee: 2026, dernier_numero: counters.AG_MENSUEL },
+      { serie: 'AVOIR', annee: 2026, dernier_numero: counters.AVOIR },
     ],
     ['serie', 'annee'],
   );
@@ -1307,9 +1307,20 @@ function pack(
     id: U(slug),
     organisation_id: U(orgSlug),
     tarif_pack_id: tarifId,
+    // type_pack + credits_* ajoutés en M2.1 (migration 20260615200000) — NOT NULL.
+    type_pack:
+      nb === 10
+        ? 'pack_10'
+        : nb === 30
+          ? 'pack_30'
+          : nb === 60
+            ? 'pack_60'
+            : 'personnalise',
     nb_collectes: nb,
     nb_utilisees: utilisees,
     nb_annulees: annulees,
+    credits_initiaux: nb,
+    credits_consommes: utilisees,
     statut,
     date_achat: dateAchat,
   };
@@ -1353,7 +1364,7 @@ function bordereau(slug: string, colSlug: string, date: string): Row {
   return {
     id: U(slug),
     collecte_id: U(colSlug),
-    statut: 'genere',
+    statut: 'emis', // bordereau_statut (M1.6) : brouillon|emis|corrige|annule
     genere_at: tsAt(date, 6),
     eligible_at: tsAt(date, 6),
   };
@@ -1396,6 +1407,8 @@ function fcol(
     collecte_id: colSlug ? U(colSlug) : null,
     montant_ht: ht,
     description: desc,
+    // CHECK chk_fc_collecte_ou_designation (M1.7) : ligne sans collecte → designation requise.
+    designation: colSlug ? null : desc,
   };
 }
 function email(

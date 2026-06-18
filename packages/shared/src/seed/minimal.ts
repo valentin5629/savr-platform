@@ -1631,9 +1631,20 @@ function pack(
     id: U(slug),
     organisation_id: U(orgSlug),
     tarif_pack_id: tarifId,
+    // type_pack + credits_* ajoutés en M2.1 (migration 20260615200000) — NOT NULL.
+    type_pack:
+      nb === 10
+        ? 'pack_10'
+        : nb === 30
+          ? 'pack_30'
+          : nb === 60
+            ? 'pack_60'
+            : 'personnalise',
     nb_collectes: nb,
     nb_utilisees: utilisees,
     nb_annulees: annulees,
+    credits_initiaux: nb,
+    credits_consommes: utilisees,
     statut,
     date_achat: dateAchat,
   };

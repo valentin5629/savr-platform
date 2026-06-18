@@ -145,14 +145,55 @@ jobs:
       - uses: supabase/setup-cli@v1
         with: { version: 2.105.0 }
       - run: supabase start
-      - run: supabase db reset --debug
+      # `supabase start` rend la main avant que Postgres soit pleinement stable.
+      # On attend que pg_isready réponde 3x d'affilée AVANT le reset : sans ce
+      # filet, le conteneur chute parfois au passage migrate→seed (faux positif
+      # infra récurrent, ≠ erreur SQL — cf. PR #62 run 27772196968).
+      - name: Attente Postgres prêt et stable (avant reset)
+        run: |
+          ok=0
+          for i in $(seq 1 30); do
+            if pg_isready -h 127.0.0.1 -p 54322 -U postgres -q; then
+              ok=$((ok + 1))
+              if [ "$ok" -ge 3 ]; then
+                echo "Postgres stable ($ok checks consécutifs)."
+                exit 0
+              fi
+            else
+              ok=0
+            fi
+            sleep 2
+          done
+          echo "::warning::Postgres pas confirmé stable après 60s — reset tenté (avec retry)."
+      # Retry sur la chute de conteneur infra : le reset recrée la base à zéro,
+      # donc re-tenter est idempotent. On redémarre le stack entre tentatives
+      # pour repartir d'un conteneur sain. --debug seulement à la dernière
+      # tentative (diagnostic), sinon firehose de logs qui charge le runner.
+      - name: Run supabase db reset (retry sur chute conteneur infra)
+        run: |
+          set -uo pipefail
+          for attempt in 1 2 3; do
+            flags=""
+            [ "$attempt" -eq 3 ] && flags="--debug"
+            echo "::group::supabase db reset — tentative $attempt/3"
+            if supabase db reset $flags; then
+              echo "::endgroup::"
+              echo "db reset OK (tentative $attempt/3)."
+              exit 0
+            fi
+            echo "::endgroup::"
+            echo "::warning::db reset KO (tentative $attempt/3) — redémarrage du stack puis nouvelle tentative."
+            supabase stop --no-backup || true
+            supabase start
+            for i in $(seq 1 30); do
+              pg_isready -h 127.0.0.1 -p 54322 -U postgres -q && break
+              sleep 2
+            done
+          done
+          echo "::error::supabase db reset a échoué après 3 tentatives (chute conteneur persistante)."
+          exit 1
         env:
           SUPABASE_NO_ANALYTICS: 'true'
-      - name: Attente stabilisation containers post-reset
-        run: |
-          for i in $(seq 1 10); do
-            supabase status && break || sleep 3
-          done
       - name: Garde anti-destructif
         run: |
           FILES=$(git diff --name-only origin/main... -- 'supabase/migrations/**')

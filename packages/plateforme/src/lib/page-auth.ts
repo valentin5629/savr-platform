@@ -65,3 +65,53 @@ export async function requirePageSession(
     email: user.email ?? '',
   };
 }
+
+export type StaffRole = 'admin_savr' | 'ops_savr';
+
+export interface StaffPageSession {
+  userId: string;
+  role: StaffRole;
+  email: string;
+}
+
+/**
+ * Garde serveur pour les pages staff (back-office Admin).
+ * Autorise `admin_savr` + `ops_savr` (le type Role de nav-config n'inclut pas
+ * `ops_savr`, et le staff n'a pas toujours d'organisation_id → requirePageSession
+ * ne convient pas). Le middleware garde déjà /admin/* ; ceci est la défense en
+ * profondeur côté Server Component. Redirige /login si non connecté, /403 sinon.
+ */
+export async function requireStaffPage(): Promise<StaffPageSession> {
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll() {},
+      },
+    },
+  );
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const claims = parseJwtClaims(session?.access_token ?? '');
+  const role = claims['user_role'] as string | undefined;
+
+  if (role !== 'admin_savr' && role !== 'ops_savr') redirect('/403');
+
+  return {
+    userId: user.id,
+    role: role as StaffRole,
+    email: user.email ?? '',
+  };
+}

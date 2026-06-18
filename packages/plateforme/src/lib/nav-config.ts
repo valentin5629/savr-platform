@@ -39,7 +39,11 @@ export const NAV_CONFIG: Record<Role, NavGroup[]> = {
   admin_savr: [
     {
       items: [
-        { label: 'Dashboard Admin', href: '/admin', icon: LayoutDashboard },
+        {
+          label: 'Dashboard Admin',
+          href: '/admin/dashboard',
+          icon: LayoutDashboard,
+        },
         {
           label: 'Dashboard Client',
           href: '/admin/dashboard-client',

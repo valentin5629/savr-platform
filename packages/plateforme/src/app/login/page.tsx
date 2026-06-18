@@ -6,7 +6,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get('next') ?? '/admin/dashboard';
+  // Pas de `next` (login direct) → `/` qui redirige vers l'espace du rôle
+  // (page.tsx / HOME_BY_ROLE). Surtout pas `/admin/dashboard` en dur, sinon
+  // tous les rôles atterrissent sur le back-office Admin.
+  const next = searchParams.get('next') ?? '/';
 
   const [email, setEmail] = useState('');
   const [motDePasse, setMotDePasse] = useState('');

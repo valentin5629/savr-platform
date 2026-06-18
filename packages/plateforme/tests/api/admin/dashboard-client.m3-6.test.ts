@@ -70,6 +70,14 @@ function inCalls(): unknown[][] {
   return (adminClient.in as ReturnType<typeof vi.fn>).mock.calls;
 }
 
+function gteCalls(): unknown[][] {
+  return (adminClient.gte as ReturnType<typeof vi.fn>).mock.calls;
+}
+
+function lteCalls(): unknown[][] {
+  return (adminClient.lte as ReturnType<typeof vi.fn>).mock.calls;
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   queryResult = { data: [], error: null };
@@ -142,6 +150,33 @@ describe('M3.6 / Dashboard Client / périmètre', () => {
     );
     expect(orgFilter).toBeDefined();
     expect(orgFilter?.[1]).toEqual(['org-1', 'org-2']);
+  });
+});
+
+// ─── Filtre de période ─────────────────────────────────────────────────────────
+
+describe('M3.6 / Dashboard Client / filtre période', () => {
+  it('M3.6/kpi_filtre_periode_date_collecte — from/to ciblent date_collecte (pas realisee_at)', async () => {
+    setupAuth('admin_savr');
+    queryResult = { data: [], error: null };
+    const { GET } =
+      await import('@/app/api/v1/admin/dashboard-client/route.js');
+    const res = await GET(
+      makeReq(
+        '/api/v1/admin/dashboard-client?type=zero_dechet&from=2025-06-01&to=2026-04-30',
+      ),
+    );
+    expect(res.status).toBe(200);
+    // Parité avec les vues KPI M3.5 + règle revenus §06.06 §1 : la période se
+    // filtre sur date_collecte (NOT NULL), jamais sur realisee_at (nullable).
+    const gteCol = gteCalls().map((c) => c[0]);
+    const lteCol = lteCalls().map((c) => c[0]);
+    expect(gteCol).toContain('date_collecte');
+    expect(lteCol).toContain('date_collecte');
+    expect(gteCol).not.toContain('realisee_at');
+    expect(lteCol).not.toContain('realisee_at');
+    expect(gteCalls()).toContainEqual(['date_collecte', '2025-06-01']);
+    expect(lteCalls()).toContainEqual(['date_collecte', '2026-04-30']);
   });
 });
 

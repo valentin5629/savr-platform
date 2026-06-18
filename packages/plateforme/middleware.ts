@@ -96,7 +96,7 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
       : {};
 
   const appDomain = (claims['app_domain'] as string | undefined) ?? null;
-  const role = (claims['role'] as string | undefined) ?? null;
+  const role = (claims['user_role'] as string | undefined) ?? null;
 
   // app_domain != 'plateforme' → 403
   if (appDomain !== null && appDomain !== 'plateforme') {

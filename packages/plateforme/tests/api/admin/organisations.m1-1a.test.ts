@@ -50,7 +50,7 @@ vi.mock('next/headers', () => ({
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function setupAuth(role: string) {
-  const token = makeJwt({ role, organisation_id: null });
+  const token = makeJwt({ user_role: role, organisation_id: null });
   mockGetUser.mockResolvedValue({
     data: { user: { id: 'user-admin-1' } },
     error: null,

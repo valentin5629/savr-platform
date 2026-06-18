@@ -79,7 +79,7 @@ export async function requireStaff(
     data: { session },
   } = await supabase.auth.getSession();
   const claims = parseJwtClaims(session?.access_token ?? '');
-  const role = claims['role'] as string | undefined;
+  const role = claims['user_role'] as string | undefined;
 
   if (role !== 'admin_savr' && role !== 'ops_savr') {
     return {
@@ -119,7 +119,7 @@ export async function requireUser(
     data: { session },
   } = await supabase.auth.getSession();
   const claims = parseJwtClaims(session?.access_token ?? '');
-  const role = claims['role'] as string | undefined;
+  const role = claims['user_role'] as string | undefined;
   const organisationId = claims['organisation_id'] as string | undefined;
 
   if (!role || !allowed.includes(role as ClientRole)) {
@@ -185,7 +185,7 @@ export async function requireProgrammateurOuAdmin(
     data: { session },
   } = await supabase.auth.getSession();
   const claims = parseJwtClaims(session?.access_token ?? '');
-  const role = claims['role'] as string | undefined;
+  const role = claims['user_role'] as string | undefined;
   const organisationId = claims['organisation_id'] as string | undefined;
 
   const isAdmin = role === 'admin_savr' || role === 'ops_savr';

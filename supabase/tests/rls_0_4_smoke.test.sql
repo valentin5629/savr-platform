@@ -20,7 +20,7 @@ BEGIN
   -- met le claim absent/null pour un user sans org, jamais une chaîne vide).
   PERFORM set_config('request.jwt.claims', json_build_object(
     'sub', p_user_id,
-    'role', p_role,
+    'user_role', p_role,
     'organisation_id', p_org_id,
     'app_domain', 'plateforme'
   )::text, true);

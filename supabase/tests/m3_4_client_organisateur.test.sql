@@ -13,7 +13,7 @@ CREATE OR REPLACE FUNCTION test_set_jwt(p_role text, p_org_id uuid DEFAULT NULL,
 RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
   PERFORM set_config('request.jwt.claims', json_build_object(
-    'sub', p_user_id, 'role', p_role,
+    'sub', p_user_id, 'user_role', p_role,
     'organisation_id', p_org_id, 'app_domain', 'plateforme'
   )::text, true);
   PERFORM set_config('role', 'authenticated', true);

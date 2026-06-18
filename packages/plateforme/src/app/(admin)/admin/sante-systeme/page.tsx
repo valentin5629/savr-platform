@@ -118,7 +118,7 @@ export default async function SanteSystemePage() {
     data: { session },
   } = await authClient.auth.getSession();
   const claims = parseJwtClaims(session?.access_token ?? '');
-  const role = claims['role'] as string | undefined;
+  const role = claims['user_role'] as string | undefined;
   if (!role || !ALLOWED_ROLES.includes(role)) redirect('/403');
 
   const data = await fetchOpsData();

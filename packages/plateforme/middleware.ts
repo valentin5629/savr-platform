@@ -103,12 +103,17 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
     return NextResponse.redirect(new URL('/403', req.url));
   }
 
-  // Vérification du rôle requis pour le préfixe de route
+  // Vérification du rôle requis pour le préfixe de route (fail-closed) :
+  // si la route exige un rôle, l'accès est refusé tant que le claim n'est PAS
+  // un rôle autorisé — y compris quand `role` est absent du JWT. Auparavant le
+  // contrôle était sauté si `role === null` (fail-open), laissant passer un
+  // token sans claim. /403 est une route publique → pas de boucle.
   const requiredRoles = getRolesForPath(pathname);
-  if (requiredRoles !== null && role !== null) {
-    if (!requiredRoles.includes(role)) {
-      return NextResponse.redirect(new URL('/403', req.url));
-    }
+  if (
+    requiredRoles !== null &&
+    (role === null || !requiredRoles.includes(role))
+  ) {
+    return NextResponse.redirect(new URL('/403', req.url));
   }
 
   return response;

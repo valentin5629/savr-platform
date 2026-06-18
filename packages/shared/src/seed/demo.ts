@@ -664,7 +664,10 @@ export async function seedDemo(client: pg.Client): Promise<void> {
     } else {
       extra.taux_recyclage = 70 + (i % 20);
     }
-    if (realisee) extra.realisee_at = tsAt(r.date, 23);
+    // Toute collecte de cette matrice est realisee OU cloturee = collecte réalisée :
+    // realisee_at doit TOUJOURS être posé (une cloturee est passée par realisee).
+    // Les dashboards (gestionnaire + admin/dashboard-client) filtrent la période sur realisee_at.
+    extra.realisee_at = tsAt(r.date, 23);
     colRows.push({
       id: U(r.slug),
       evenement_id: evId,

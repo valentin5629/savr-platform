@@ -1658,6 +1658,13 @@ function col(
   prestId: string | null,
   extra: Row,
 ): ColSpec {
+  // Collecte réalisée (realisee/cloturee/realisee_sans_collecte) = passée par realisee
+  // → realisee_at posé par défaut (date de collecte à 23h). Les dashboards filtrent la
+  // période sur realisee_at. `extra` peut surcharger.
+  const realized =
+    statut === 'realisee' ||
+    statut === 'cloturee' ||
+    statut === 'realisee_sans_collecte';
   return {
     slug,
     ev,
@@ -1668,6 +1675,7 @@ function col(
     date_collecte: d(off),
     heure_collecte: '22:00:00',
     prestataire_logistique_id: prestId,
+    ...(realized ? { realisee_at: ts(off, 23) } : {}),
     ...extra,
   };
 }

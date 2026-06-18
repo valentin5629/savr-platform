@@ -18,18 +18,26 @@
 ## Auth JWT Hook — Activation manuelle (module 0.5)
 
 La fonction `plateforme.fn_custom_access_token` enrichit le JWT avec les claims
-`role`, `organisation_id`, `organisation_type`, `app_domain='plateforme'`.
+`user_role` (rôle métier), `organisation_id`, `organisation_type`,
+`app_domain='plateforme'`. ⚠ Le claim réservé `role` n'est PAS touché (reste
+`authenticated`) : PostgREST l'utilise pour `SET ROLE` avant la RLS, et la RLS lit
+le rôle métier via `plateforme.f_app_role()` = `auth.jwt()->>'user_role'`
+(cf. migration `20260617180000`). Mettre le rôle métier dans `role` casse tout
+accès client (erreur 22023 « role does not exist » → 401).
 
 **Activation dans le Dashboard Supabase :**
 
 1. Ouvrir le projet Supabase (dev ou prod)
-2. Settings → Auth → Hooks
-3. Section "Custom Access Token" → activer
-4. Sélectionner la fonction `plateforme.fn_custom_access_token`
+2. Authentication → Hooks (anciennement Settings → Auth → Hooks)
+3. « Custom Access Token (JWT) » → Add / Enable, type **Postgres**
+4. Schéma `plateforme`, fonction `fn_custom_access_token`
 5. Sauvegarder
+   (prérequis : la migration créant/corrigeant la fonction est appliquée — le
+   `GRANT EXECUTE … TO supabase_auth_admin` est inclus dans la migration)
 
-**Vérification :** après connexion, décoder le JWT (jwt.io) et vérifier la présence
-des claims `role`, `organisation_id`, `app_domain`.
+**Vérification :** après (re)connexion, décoder le JWT (jwt.io) et vérifier
+`role` = `authenticated`, `user_role` = rôle métier, `organisation_id`,
+`app_domain` = `plateforme`.
 
 **Rollback hook :** Settings → Auth → Hooks → désactiver "Custom Access Token".
 Les JWT suivants seront émis sans claims custom (middleware renverra 401 si

@@ -18,6 +18,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      // Les vues KPI vivent dans le schéma `plateforme` (cf. api-auth.ts) : sans
+      // cette option supabase-js cible `public.*` (Accept-Profile: public) →
+      // PGRST205 « table not found » → 500 → dashboard vide.
+      db: { schema: 'plateforme' },
       cookies: {
         getAll() {
           return cookieStore.getAll();

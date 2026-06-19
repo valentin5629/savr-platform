@@ -1,0 +1,31 @@
+{
+  "module": "M4.1",
+  "titre": "Exports CSV (transverse D, tous profils)",
+  "description": "Première implémentation du transverse D (exports tabulaires CSV, §12 §2). Helper CSV partagé dans @savr/shared/src/csv (format canonique Savr : BOM UTF-8, séparateur ;, CRLF, échappement RFC 4180, en-têtes FR, dates DD/MM/YYYY HH:MM Europe/Paris, poids/nombres en virgule décimale). Endpoint unifié /api/v1/exports/[entity] avec matrice d'autorisation par rôle (§12 §2) : cloisonnement par la RLS du JWT pour les clients, service_role (pattern back-office) pour le staff — jamais de service_role pour un rôle client. Entités : collectes, evenements (grain événement, colonnes figées), pesees (par flux ZD), factures (whitelist client-safe sans marge, brouillons exclus côté client), packs-ag, associations-ag (référentiel staff / bénéficiaires traiteur), impact-rse (CO₂ induit/évité/net + énergie + tonnage). Courses logistiques HORS V1 (tms.* inexistant). Résolution RLS-safe des noms de traiteur via v_referentiel_traiteurs et des repas AG via f_volume_repas_realise. Refactor de la route gestionnaire evenements/export-csv sur le helper partagé (corrige l'échappement naïf, formate dates/poids, nom de fichier daté). Boutons Exporter CSV sur les vues liste existantes (collectes traiteur/agence/organisateur/admin, factures admin, événements gestionnaire). Aucune migration SQL (aucune table créée ; pas de traçage exports_registre pour les CSV génériques — décision Val 2026-06-19).",
+  "fichiers_produits": [
+    "packages/shared/src/csv/index.ts",
+    "packages/shared/src/csv/csv.m4-1.test.ts",
+    "packages/plateforme/src/lib/csv.ts",
+    "packages/plateforme/src/lib/exports/shared.ts",
+    "packages/plateforme/src/lib/exports/evenements.ts",
+    "packages/plateforme/src/lib/exports/builders.ts",
+    "packages/plateforme/src/lib/exports/index.ts",
+    "packages/plateforme/src/app/api/v1/exports/[entity]/route.ts",
+    "packages/plateforme/src/app/api/v1/gestionnaire/evenements/export-csv/route.ts",
+    "packages/plateforme/tests/api/exports/exports.m4-1.test.ts"
+  ],
+  "scenarios": [
+    "M4.1 / escapeCsvField (RFC 4180)",
+    "M4.1 / toCsv",
+    "M4.1 / formatDateFr",
+    "M4.1 / formatNombreFr / formatPoidsKg",
+    "M4.1 / csvFilename",
+    "M4.1/non_authentifie_401",
+    "M4.1/entite_inconnue_404",
+    "matrice_exports_csv_par_profil",
+    "cloisonnement",
+    "export_csv_format_fr_et_filtres_actifs",
+    "factures whitelist",
+    "M4.1 / evenements"
+  ]
+}

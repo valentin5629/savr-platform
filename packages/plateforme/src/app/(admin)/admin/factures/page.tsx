@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { FileText } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -146,6 +147,11 @@ export default function FacturesPage() {
     load();
   }, [load]);
 
+  function exportCsv() {
+    const qs = filtre ? `?statut=${filtre}` : '';
+    window.open(`/api/v1/exports/factures${qs}`);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -153,6 +159,9 @@ export default function FacturesPage() {
           <FileText className="h-6 w-6 text-primary-600" />
           <h1 className="text-2xl font-semibold">Factures</h1>
         </div>
+        <Button variant="ghost" onClick={exportCsv}>
+          Exporter CSV
+        </Button>
       </div>
 
       <div className="flex gap-2 flex-wrap">

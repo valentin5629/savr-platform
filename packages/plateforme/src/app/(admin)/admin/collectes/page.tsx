@@ -124,6 +124,13 @@ export default function CollectesPage() {
     void fetchCollectes();
   }, [fetchCollectes]);
 
+  function exportCsv() {
+    const params = new URLSearchParams();
+    if (!chip && type) params.set('type', type);
+    if (!chip && statut) params.set('statut', statut);
+    window.open(`/api/v1/exports/collectes?${params}`);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -133,12 +140,17 @@ export default function CollectesPage() {
             Collectes
           </h1>
         </div>
-        <Link href="/admin/collectes/nouvelle">
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Nouvelle collecte
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" onClick={exportCsv}>
+            Exporter CSV
           </Button>
-        </Link>
+          <Link href="/admin/collectes/nouvelle">
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Nouvelle collecte
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Chips filtres prédéfinis */}

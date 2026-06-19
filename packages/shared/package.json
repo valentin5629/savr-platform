@@ -6,6 +6,7 @@
   "main": "src/index.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./src/csv/index.js": "./src/csv/index.ts",
     "./src/supabase-client.js": "./src/supabase-client.ts",
     "./src/email-denylist.js": "./src/email-denylist.ts",
     "./src/email/index.js": "./src/email/index.ts",

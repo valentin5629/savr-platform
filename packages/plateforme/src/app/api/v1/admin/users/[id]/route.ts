@@ -15,7 +15,7 @@ export async function GET(
   const { data: user, error } = await supabase
     .from('users')
     .select(
-      'id, prenom, nom, email, role, actif, telephone, organisation_id, organisations(raison_sociale, type), derniere_connexion_le, created_at',
+      'id, prenom, nom, email, role, actif, organisation_id, organisations(raison_sociale, type), derniere_connexion, created_at',
     )
     .eq('id', id)
     .single();
@@ -73,8 +73,8 @@ export async function PATCH(
   }
 
   const allowedFields = isAdmin
-    ? ['prenom', 'nom', 'telephone', 'role', 'actif']
-    : ['prenom', 'nom', 'telephone'];
+    ? ['prenom', 'nom', 'role', 'actif']
+    : ['prenom', 'nom'];
 
   const updatePayload: Record<string, unknown> = {};
   for (const field of allowedFields) {

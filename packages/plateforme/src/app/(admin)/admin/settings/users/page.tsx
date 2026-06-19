@@ -15,7 +15,7 @@ interface StaffUser {
   email: string;
   role: string;
   actif: boolean;
-  derniere_connexion_le: string | null;
+  derniere_connexion: string | null;
 }
 
 const columns: Column<StaffUser>[] = [
@@ -45,11 +45,11 @@ const columns: Column<StaffUser>[] = [
       ),
   },
   {
-    key: 'derniere_connexion_le',
+    key: 'derniere_connexion',
     header: 'Dernière connexion',
     render: (row) =>
-      row.derniere_connexion_le
-        ? new Date(row.derniere_connexion_le).toLocaleDateString('fr-FR')
+      row.derniere_connexion
+        ? new Date(row.derniere_connexion).toLocaleDateString('fr-FR')
         : '—',
   },
 ];

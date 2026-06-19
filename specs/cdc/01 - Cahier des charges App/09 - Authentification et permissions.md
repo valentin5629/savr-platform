@@ -1,7 +1,5 @@
 # 09 - Authentification et permissions
 
-**Statut** : Draft V1 — mise à jour architecturale 2026-04-23 (atelier tech avec frère)
-**Dernière mise à jour** : 2026-06-11 (**Audit RLS V1 post-35 patchs (skill `cdc-audit-rls`), arbitrages Val** — §3quater ajouté : A-1 `audit_log` (policy SQL + append-only strict, y compris admin) · A-2 `entites_facturation` (lecture org-scoped clients, écriture staff — l'ex-classement « financière interne admin-only » rendait le sélecteur d'entité §06.01 mort) · A-3 `sequences_facturation` + `jobs_pdf` consolidées · A-4 `organisations`/`lieux` chemin `client_organisateur`. Corrections §3 : B-1 `packs_antgaspi` écriture **staff** (matrice étendue fait foi, conflit tranché Val) · B-3a `bordereaux_savr`/`attestations_don` SELECT `client_organisateur` ajouté (alignement `f_fichier_visible`) · B-4 résidu `prestataires_logistiques` retiré des référentiels ouverts · B-5 `tournees` SQL explicite · C-1 `aa_select` restreint staff+programmateur+traiteur opérationnel (client_organisateur et gestionnaire exclus, tranché Val) · B-2 garde brouillons tiers ajoutée à `f_collecte_visible` (chemin lieu). Bloc D : +12 pgTAP. / Antérieure : 2026-06-07 (test-scenarios §09 RLS transverse lot ⑪ — F1 policy UPDATE `collecte_flux` admin+ops (pesées) · F2 règle staff canonique + helper `f_is_staff()` · F3 `f_collecte_editable` étendue UPDATE manager+agence · F4 `users` SELECT org-wide traiteur_commercial · pgTAP Bloc D complété / Antérieure même jour : test-scenarios §06.05 lot ⑤ — F5 matrice `users` gestionnaire_lieux org-wide · F6 `factures` + `shared.fichiers` SELECT self gestionnaire · F3 prédicat `evenements` brouillons tiers exclus · F4 `f_collecte_editable` sur UPDATE gestionnaire · 5 tests pgTAP ajoutés Bloc D)
 
 ---
 
@@ -219,6 +217,8 @@ Policy héritée de `evenements` via `evenement_id`. Même logique de filtrage. 
 | **client_organisateur** *(ajout 2026-06-11, audit RLS B-3 — option a tranchée Val)* | via FK collecte → evenement → `client_organisateur_organisation_id = auth.jwt()->>'organisation_id'` (lecture seule) | — | — | — |
 
 > **Note B-3 (2026-06-11)** : avant cet ajout, la ligne était deny pour `client_organisateur` alors que `f_fichier_visible` (§3ter C1) lui donnait déjà le **PDF** via `f_collecte_visible` — incohérence ligne/fichier. Tranché Val (option a) : le client organisateur lit la ligne ET le fichier de ses événements. `f_fichier_visible` inchangée. pgTAP : `bordereaux_client_orga_own_event_ok` / `attestations_client_orga_cross_org_denied`.
+
+> **Note M4.2 (correction policy 2026-06-19, divergence M4.2/D3)** : la policy `bord_admin` implémentée (`FOR ALL`) incluait le DELETE pour `admin_savr`, contredisant la matrice ci-dessus (DELETE = **—**) et le scénario P1 `delete_bordereau_emis_deny_tous_roles` (aucune policy DELETE = registre auditable, R541-43). Corrigé en migration M4.2 : `bord_admin FOR ALL` scindée en `bord_admin_select` / `bord_admin_insert` / `bord_admin_update`. Tests pgTAP ajoutés : `delete_bordereau_emis_deny_admin` + `delete_bordereau_emis_deny_manager`. **À vérifier lors du module AG-registre V2** : `attestations_don` a probablement la même dérive (`att_admin FOR ALL`).
 
 ### Table `attestations_don`
 

@@ -59,3 +59,16 @@ export async function getPresignedUrl(
     { expiresIn: expiresInSeconds },
   );
 }
+
+/** Télécharge les octets d'un objet R2 ("bucket/key") — utilisé pour le ZIP. */
+export async function getObjectBytes(storageKey: string): Promise<Buffer> {
+  const [bucket, ...keyParts] = storageKey.split('/');
+  const key = keyParts.join('/');
+
+  const client = getS3Client();
+  const res = await client.send(
+    new GetObjectCommand({ Bucket: bucket, Key: key }),
+  );
+  const bytes = await res.Body!.transformToByteArray();
+  return Buffer.from(bytes);
+}

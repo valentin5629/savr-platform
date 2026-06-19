@@ -19,6 +19,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      // La fonction RPC f_benchmark_kg_pax_zd vit dans le schéma `plateforme`
+      // (cf. api-auth.ts) : sans cette option supabase-js cible `public.*`
+      // (Accept-Profile: public) → fonction introuvable → 500.
+      db: { schema: 'plateforme' },
       cookies: {
         getAll() {
           return cookieStore.getAll();

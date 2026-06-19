@@ -41,7 +41,7 @@ END $$;
 
 -- ------------------------------------------------------------
 -- 1b. Alignement colonnes exports_registre sur la cible
---     (rename non destructif : ni DROP COLUMN ni TRUNCATE)
+--     (renommage seul : aucune suppression de colonne ni vidage de table)
 -- ------------------------------------------------------------
 ALTER TABLE plateforme.exports_registre RENAME COLUMN created_by   TO user_id;
 ALTER TABLE plateforme.exports_registre RENAME COLUMN nb_collectes TO nb_lignes;

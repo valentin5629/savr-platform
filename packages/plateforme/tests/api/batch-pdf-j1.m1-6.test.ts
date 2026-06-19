@@ -17,26 +17,25 @@ function makeCollecte(overrides: Record<string, unknown> = {}) {
     id: 'col-1',
     evenement_id: 'ev-1',
     realisee_at: new Date(Date.now() - 26 * 3600 * 1000).toISOString(),
-    cloturee_at: new Date(Date.now() - 25 * 3600 * 1000).toISOString(),
     taux_recyclage: 72.5,
     co2_evite_kg: 45.2,
     co2_induit_kg: 3.1,
     co2_net_kg: 42.1,
-    co2_net_kwh: 120,
-    co2_facteurs_snapshot: { version: 'ADEME 2024' },
+    energie_primaire_evitee_kwh: 120,
+    co2_facteurs_snapshot: { version_parametres_at: 'ADEME 2024' },
     nb_camions_demande: 1,
     evenements: {
       id: 'ev-1',
       nom_evenement: 'Gala Kaspia',
       date_evenement: '2026-06-13',
-      nb_pax: 250,
+      pax: 250,
       organisation_id: 'org-1',
       traiteur_operationnel_organisation_id: null,
-      contact_principal_email: 'contact@kaspia.fr',
       organisations: {
         raison_sociale: 'Kaspia SAS',
         siret: '12345678900001',
         adresse: '12 rue de la Paix, 75001 Paris',
+        email_principal: 'contact@kaspia.fr',
       },
       lieux: {
         nom: 'Grand Palais',
@@ -45,14 +44,7 @@ function makeCollecte(overrides: Record<string, unknown> = {}) {
         ville: 'Paris',
       },
     },
-    collecte_tournees: [
-      {
-        tournees: {
-          transporteur_id: 'trans-1',
-          transporteurs: { nom: 'Strike Transport', siret: '98765432100011' },
-        },
-      },
-    ],
+    prestataire_logistique_id: 'presta-1',
     ...overrides,
   };
 }
@@ -63,6 +55,7 @@ function makeCollecte(overrides: Record<string, unknown> = {}) {
  *  - await from().select().eq()…  → then() → next()
  *  - from().insert().select().single() → single() → next()
  *  - rpc(…).single() → next()
+ *  - schema('shared').from('prestataires')…single() → single() → next()
  */
 function makeSupabase(responses: Array<Record<string, unknown>>) {
   let idx = 0;
@@ -102,7 +95,13 @@ function makeSupabase(responses: Array<Record<string, unknown>>) {
   const rpcResult = { single: vi.fn(() => Promise.resolve(next())) };
   const rpc = vi.fn(() => rpcResult);
 
-  return { from: vi.fn(() => chain), rpc, _chain: chain };
+  return {
+    from: vi.fn(() => chain),
+    rpc,
+    _chain: chain,
+    // .schema('shared').from('prestataires') consomme la même séquence responses[].
+    schema: vi.fn(() => ({ from: vi.fn(() => chain) })),
+  };
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -116,8 +115,15 @@ describe('M1.6 / BatchPdfJ1 / Nominal', () => {
       { data: [collecte], error: null }, // select collectes
       { data: [], error: null }, // select bordereaux existants
       { count: 3, error: null }, // count collecte_flux
-      { data: [{ flux_id: 'f1', poids_kg: 12, flux: { nom: 'Biodéchets' } }] }, // select flux
+      {
+        data: [
+          { flux_id: 'f1', poids_reel_kg: 12, flux: { nom: 'Biodéchets' } },
+        ],
+      }, // select flux
       { data: 'BSAV-2026-00001', error: null }, // rpc numero
+      {
+        data: { nom: 'Strike Transport', siret: '98765432100011' },
+      }, // shared.prestataires (transporteur)
       { data: { id: 'bord-new' }, error: null }, // insert bordereaux_savr
       { data: { id: 'rse-new' }, error: null }, // insert rapports_rse
       { data: null, error: null }, // insert job bordereau
@@ -143,7 +149,7 @@ describe('M1.6 / BatchPdfJ1 / Nominal', () => {
 describe('M1.6 / BatchPdfJ1 / Skip pesées vides', () => {
   it('R-PDF3 : 0 ligne collecte_flux → skip, aucun job créé', async () => {
     const collecte = makeCollecte({
-      cloturee_at: new Date(Date.now() - 10 * 3600 * 1000).toISOString(),
+      realisee_at: new Date(Date.now() - 10 * 3600 * 1000).toISOString(),
     });
     const sb = makeSupabase([
       { data: [collecte], error: null },
@@ -161,7 +167,7 @@ describe('M1.6 / BatchPdfJ1 / Skip pesées vides', () => {
 describe('M1.6 / BatchPdfJ1 / Escalade R9', () => {
   it('R-PDF4 : collecte skippée depuis > 48h → alerte Admin créée', async () => {
     const collecte = makeCollecte({
-      cloturee_at: new Date(Date.now() - 50 * 3600 * 1000).toISOString(),
+      realisee_at: new Date(Date.now() - 50 * 3600 * 1000).toISOString(),
     });
     const sb = makeSupabase([
       { data: [collecte], error: null },
@@ -205,8 +211,15 @@ describe('M1.6 / BatchPdfJ1 / Embargo', () => {
       { data: [collecte], error: null },
       { data: [], error: null },
       { count: 2, error: null },
-      { data: [{ flux_id: 'f1', poids_kg: 10, flux: { nom: 'Biodéchets' } }] },
+      {
+        data: [
+          { flux_id: 'f1', poids_reel_kg: 10, flux: { nom: 'Biodéchets' } },
+        ],
+      },
       { data: 'BSAV-2026-00002', error: null },
+      {
+        data: { nom: 'Strike Transport', siret: '98765432100011' },
+      }, // shared.prestataires (transporteur)
       { data: { id: 'bord-x' }, error: null },
       { data: { id: 'rse-x' }, error: null },
       { data: null, error: null },

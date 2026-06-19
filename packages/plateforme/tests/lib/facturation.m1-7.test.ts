@@ -615,7 +615,7 @@ const COLLECTE_ZD_CLOTUREE = {
   evenements: {
     id: 'ev-001',
     organisation_id: 'org-001',
-    nb_pax: 250,
+    pax: 250,
     date_evenement: '2026-06-10',
     organisations: {
       mode_facturation_zd: 'par_collecte',
@@ -750,7 +750,7 @@ const COLLECTE_ZD_MENSUELLE = {
   evenements: {
     id: 'ev-mensuel-001',
     organisation_id: 'org-mensuel-001',
-    nb_pax: 200,
+    pax: 200,
     date_evenement: '2026-06-05',
     organisations: {
       mode_facturation_zd: 'mensuelle',
@@ -908,7 +908,7 @@ const COLLECTE_AG_CLOTUREE = {
   evenements: {
     id: 'ev-ag-001',
     organisation_id: 'org-ag-001',
-    nb_pax: 100,
+    pax: 100,
     date_evenement: '2026-06-10',
     organisations: {
       mode_facturation_zd: null,

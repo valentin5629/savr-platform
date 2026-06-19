@@ -16,25 +16,29 @@ interface CollecteRow {
   id: string;
   evenement_id: string;
   realisee_at: string;
-  cloturee_at: string | null;
   taux_recyclage: number | null;
   co2_evite_kg: number | null;
   co2_induit_kg: number | null;
   co2_net_kg: number | null;
-  co2_net_kwh: number | null;
+  energie_primaire_evitee_kwh: number | null;
   co2_facteurs_snapshot: Record<string, unknown> | null;
   nb_camions_demande: number;
+  // Transporteur = prestataire logistique de la collecte (shared.prestataires).
+  // tournees n'a pas de transporteur_id ; la FK est prestataire_logistique_id → shared.prestataires.
+  prestataire_logistique_id: string | null;
   evenements: {
     id: string;
     nom_evenement: string;
     date_evenement: string;
-    nb_pax: number | null;
+    pax: number | null;
     organisation_id: string;
     traiteur_operationnel_organisation_id: string | null;
     organisations: {
       raison_sociale: string;
       siret: string | null;
       adresse: string | null;
+      // Destinataire email rapport_disponible = programmeur de la collecte (§06.02).
+      email_principal: string | null;
     } | null;
     traiteur_operationnel: {
       raison_sociale: string;
@@ -47,14 +51,7 @@ interface CollecteRow {
       code_postal: string | null;
       ville: string | null;
     } | null;
-    contact_principal_email: string | null;
   } | null;
-  collecte_tournees: {
-    tournees: {
-      transporteur_id: string | null;
-      transporteurs: { nom: string; siret: string | null } | null;
-    } | null;
-  }[];
 }
 
 export async function runBatchPdfJ1(
@@ -73,22 +70,15 @@ export async function runBatchPdfJ1(
     .from('collectes')
     .select(
       `
-      id, evenement_id, realisee_at, cloturee_at,
-      taux_recyclage, co2_evite_kg, co2_induit_kg, co2_net_kg, co2_net_kwh,
-      co2_facteurs_snapshot, nb_camions_demande,
+      id, evenement_id, realisee_at,
+      taux_recyclage, co2_evite_kg, co2_induit_kg, co2_net_kg, energie_primaire_evitee_kwh,
+      co2_facteurs_snapshot, nb_camions_demande, prestataire_logistique_id,
       evenements (
-        id, nom_evenement, date_evenement, nb_pax,
+        id, nom_evenement, date_evenement, pax,
         organisation_id, traiteur_operationnel_organisation_id,
-        contact_principal_email,
-        organisations ( raison_sociale, siret, adresse ),
+        organisations ( raison_sociale, siret, adresse, email_principal ),
         traiteur_operationnel:organisations!traiteur_operationnel_organisation_id ( raison_sociale, siret, adresse ),
         lieux ( nom, adresse_acces, code_postal, ville )
-      ),
-      collecte_tournees (
-        tournees (
-          transporteur_id,
-          transporteurs ( nom, siret )
-        )
       )
     `,
     )
@@ -136,18 +126,18 @@ export async function runBatchPdfJ1(
         // R-PDF3 : skip
         result.skipped_no_flux++;
 
-        // R-PDF4 / R9 : escalade si skip > 48h
-        const clotureAt = collecte.cloturee_at
-          ? new Date(collecte.cloturee_at)
+        // R-PDF4 / R9 : escalade si skip > 48h (base realisee_at, alignée embargo H+24)
+        const realiseeAt = collecte.realisee_at
+          ? new Date(collecte.realisee_at)
           : null;
         if (
-          clotureAt &&
-          now.getTime() - clotureAt.getTime() > 48 * 3600 * 1000
+          realiseeAt &&
+          now.getTime() - realiseeAt.getTime() > 48 * 3600 * 1000
         ) {
           await supabase.rpc('f_upsert_alerte_admin', {
             p_code: 'bordereau_pesees_manquantes_48h',
             p_titre: 'Saisie manuelle requise — pesées incomplètes',
-            p_message: `Collecte ${collecte.id} clôturée depuis > 48h sans pesées. Vérifier la remontée MTS-1 ou saisir manuellement.`,
+            p_message: `Collecte ${collecte.id} réalisée depuis > 48h sans pesées. Vérifier la remontée MTS-1 ou saisir manuellement.`,
             p_entity_type: 'collectes',
             p_entity_id: collecte.id,
           });
@@ -159,12 +149,12 @@ export async function runBatchPdfJ1(
       // 4. Charger les flux pour le payload
       const { data: flux } = await supabase
         .from('collecte_flux')
-        .select('flux_id, poids_kg, flux:flux_id ( nom )')
+        .select('flux_id, poids_reel_kg, flux:flux_id ( nom )')
         .eq('collecte_id', collecte.id);
 
       const fluxDetails = (flux ?? []).map((f: Record<string, unknown>) => ({
         nom: (f.flux as { nom: string } | null)?.nom ?? String(f.flux_id),
-        poids_kg: Number(f.poids_kg),
+        poids_kg: Number(f.poids_reel_kg),
       }));
       const poidsTotalKg = fluxDetails.reduce(
         (s: number, f: { poids_kg: number }) => s + f.poids_kg,
@@ -188,10 +178,23 @@ export async function runBatchPdfJ1(
             .join(' ')
         : '';
 
-      // Prendre le premier transporteur de la première tournée
-      const tournee = collecte.collecte_tournees?.[0]?.tournees;
-      const transporteurNom = tournee?.transporteurs?.nom ?? 'Non renseigné';
-      const transporteurSiret = tournee?.transporteurs?.siret ?? null;
+      // Transporteur = prestataire logistique de la collecte (snapshot bordereau).
+      // Source : shared.prestataires via collectes.prestataire_logistique_id (cf. v_registre_dechets).
+      let transporteurNom = 'Non renseigné';
+      let transporteurSiret: string | null = null;
+      if (collecte.prestataire_logistique_id) {
+        const { data: prestataire } = await supabase
+          .schema('shared')
+          .from('prestataires')
+          .select('nom, siret')
+          .eq('id', collecte.prestataire_logistique_id)
+          .single();
+        const p = prestataire as { nom: string; siret: string | null } | null;
+        if (p) {
+          transporteurNom = p.nom ?? 'Non renseigné';
+          transporteurSiret = p.siret ?? null;
+        }
+      }
 
       const dateCollecteStr = new Date().toLocaleDateString('fr-FR');
       const dateEvenementStr = new Date(ev.date_evenement).toLocaleDateString(
@@ -212,7 +215,7 @@ export async function runBatchPdfJ1(
         producteur_adresse: organisationProd?.adresse ?? '',
         transporteur_nom: transporteurNom,
         exutoire_nom: 'Prestataire Savr',
-        nb_pax: ev.nb_pax,
+        nb_pax: ev.pax,
         flux: fluxDetails,
         poids_total_kg: poidsTotalKg,
       };
@@ -227,7 +230,7 @@ export async function runBatchPdfJ1(
         date_collecte: dateCollecteStr,
         lieu_nom: lieu?.nom ?? '',
         lieu_adresse: adresseLieu,
-        nb_pax: ev.nb_pax,
+        nb_pax: ev.pax,
         traiteur_nom: organisationProd?.raison_sociale ?? '',
         taux_recyclage: collecte.taux_recyclage,
         flux: fluxDetails,
@@ -235,10 +238,10 @@ export async function runBatchPdfJ1(
         co2_evite_kg: collecte.co2_evite_kg,
         co2_induit_kg: collecte.co2_induit_kg,
         co2_net_kg: collecte.co2_net_kg,
-        energie_primaire_evitee_kwh: collecte.co2_net_kwh,
+        energie_primaire_evitee_kwh: collecte.energie_primaire_evitee_kwh,
         co2_facteurs_version: (
           collecte.co2_facteurs_snapshot as Record<string, unknown> | null
-        )?.version as string | undefined,
+        )?.version_parametres_at as string | undefined,
         bordereau: bordereauPayload,
       };
 
@@ -305,12 +308,15 @@ export async function runBatchPdfJ1(
         attempts: 0,
       });
 
-      // 10. Email rapport_disponible au traiteur (async, non bloquant)
-      if (ev.contact_principal_email) {
+      // 10. Email rapport_disponible au programmeur de la collecte (async, non bloquant).
+      // Destinataire = email_principal de l'organisation programmante (§06.02 ; pas de
+      // contact_principal_email sur evenements en V1 — différé V1.1, cf. §04 Data Model).
+      const emailDestinataire = ev.organisations?.email_principal;
+      if (emailDestinataire) {
         const { sendEmail } = await import('@savr/shared/src/email/index.js');
         void sendEmail(
           'rapport_disponible',
-          ev.contact_principal_email,
+          emailDestinataire,
           {
             nom_evenement: ev.nom_evenement,
             date_evenement: dateEvenementStr,

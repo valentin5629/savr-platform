@@ -62,6 +62,8 @@ function makeSupabase(responses: Array<Record<string, unknown>>) {
     rpc,
     _chain: chain,
     _rpcSingle: rpcSingle,
+    // .schema('shared').from('prestataires') consomme la même séquence responses[].
+    schema: vi.fn(() => ({ from: vi.fn(() => chain) })),
   };
 }
 
@@ -72,26 +74,25 @@ function makeCollectePdf(overrides: Record<string, unknown> = {}) {
     id: 'col-m18-zd-001',
     evenement_id: 'ev-m18-001',
     realisee_at: new Date(Date.now() - 26 * 3600 * 1000).toISOString(),
-    cloturee_at: new Date(Date.now() - 25 * 3600 * 1000).toISOString(),
     taux_recyclage: 72.5,
     co2_evite_kg: 45.2,
     co2_induit_kg: 3.1,
     co2_net_kg: 42.1,
-    co2_net_kwh: 120,
-    co2_facteurs_snapshot: { version: 'ADEME 2024' },
+    energie_primaire_evitee_kwh: 120,
+    co2_facteurs_snapshot: { version_parametres_at: 'ADEME 2024' },
     nb_camions_demande: 1,
     evenements: {
       id: 'ev-m18-001',
       nom_evenement: 'Gala M1.8 Test',
       date_evenement: '2026-07-15',
-      nb_pax: 250,
+      pax: 250,
       organisation_id: 'org-m18-001',
       traiteur_operationnel_organisation_id: null,
-      contact_principal_email: 'contact@test-m18.fr',
       organisations: {
         raison_sociale: 'Kaspia SAS',
         siret: '12345678900001',
         adresse: '12 rue de la Paix, 75001 Paris',
+        email_principal: 'contact@test-m18.fr',
       },
       traiteur_operationnel: null,
       lieux: {
@@ -101,14 +102,7 @@ function makeCollectePdf(overrides: Record<string, unknown> = {}) {
         ville: 'Paris',
       },
     },
-    collecte_tournees: [
-      {
-        tournees: {
-          transporteur_id: 'trans-001',
-          transporteurs: { nom: 'Strike Transport', siret: '98765432100011' },
-        },
-      },
-    ],
+    prestataire_logistique_id: 'presta-m18-001',
     ...overrides,
   };
 }
@@ -122,7 +116,7 @@ const COLLECTE_ZD_CLOTUREE_BROUILLON = {
   evenements: {
     id: 'ev-m18-001',
     organisation_id: 'org-m18-001',
-    nb_pax: 250,
+    pax: 250,
     date_evenement: '2026-07-15',
     organisations: {
       mode_facturation_zd: 'par_collecte',
@@ -202,8 +196,15 @@ describe('M1.8 / E2E / scenario-nominal', () => {
       { data: [makeCollectePdf()], error: null }, // select collectes
       { data: [], error: null }, // select bordereaux existants
       { count: 1, error: null }, // count collecte_flux (> 0)
-      { data: [{ flux_id: 'f1', poids_kg: 100, flux: { nom: 'Biodéchets' } }] }, // flux details
+      {
+        data: [
+          { flux_id: 'f1', poids_reel_kg: 100, flux: { nom: 'Biodéchets' } },
+        ],
+      }, // flux details
       { data: 'BSAV-2026-00001', error: null }, // rpc f_next_numero_bordereau (single)
+      {
+        data: { nom: 'Strike Transport', siret: '98765432100011' },
+      }, // shared.prestataires (transporteur, single)
       { data: { id: 'bord-new' }, error: null }, // insert bordereaux_savr (single)
       { data: { id: 'rse-new' }, error: null }, // insert rapports_rse (single)
       { data: null, error: null }, // insert job bordereau (then)
@@ -268,7 +269,7 @@ describe('M1.8 / E2E / variante-pesees-incompletes-skip-batch', () => {
 
   it('batch PDF collecte_flux vide >48h → skipped_no_flux=1 escalated_r9=1 alerte bordereau_pesees_manquantes_48h', async () => {
     const collecte = makeCollectePdf({
-      cloturee_at: new Date(Date.now() - 50 * 3600 * 1000).toISOString(),
+      realisee_at: new Date(Date.now() - 50 * 3600 * 1000).toISOString(),
     });
     const sb = makeSupabase([
       { data: [collecte], error: null }, // select collectes

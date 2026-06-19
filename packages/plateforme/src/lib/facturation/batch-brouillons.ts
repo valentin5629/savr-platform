@@ -22,7 +22,7 @@ interface CollecteAFacturer {
   evenements: {
     id: string;
     organisation_id: string;
-    nb_pax: number | null;
+    pax: number | null;
     date_evenement: string;
     organisations: {
       mode_facturation_zd: string | null;
@@ -47,7 +47,7 @@ async function entiteFacturationPrincipale(
     .from('entites_facturation')
     .select('id, siret_verification')
     .eq('organisation_id', organisationId)
-    .eq('est_principale', true)
+    .eq('entite_par_defaut', true)
     .single();
   return data as { id: string; siret_verification: string } | null;
 }
@@ -69,7 +69,7 @@ export async function runBatchBrouillonsJ1(
     .select(
       `id, type, statut, annulee_cote_savr, pack_antgaspi_id,
        evenements!inner (
-         id, organisation_id, nb_pax, date_evenement,
+         id, organisation_id, pax, date_evenement,
          organisations!organisation_id (
            mode_facturation_zd, grille_tarifaire_zd_id,
            entites_facturation ( id, siret_verification )
@@ -153,7 +153,7 @@ async function traiterCollecteZd(
   moisCourant: string,
   result: BatchBrouillonsResult,
 ): Promise<void> {
-  const pax = ev.nb_pax ?? 0;
+  const pax = ev.pax ?? 0;
   const dateFacturation = new Date(ev.date_evenement);
   const tarifResult = await calculer_tarif_zd(
     pax,

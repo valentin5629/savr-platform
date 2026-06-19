@@ -1,0 +1,40 @@
+{
+  "module": "M4.2",
+  "titre": "Registre réglementaire ZD",
+  "description": "Registre réglementaire ZD (§06.03) : vue chronologique des collectes cloturee + zero_dechet, ZD-only (volet AG = V2). Reconstruction de la vue v_registre_dechets au grain COLLECTE (poids_total agrégé multi-pesées, flux_codes[], colonnes bordereau/exutoire/traiteur opérationnel/historique_partiel) AVEC cloisonnement interne f_collecte_visible + exclusion agence (F6) — la vue précédente, SECURITY DEFINER sans prédicat d'organisation, fuyait cross-org. Alignement de exports_registre sur le DDL cible V2 (rename created_by→user_id, nb_collectes→nb_lignes, created_at→genere_at ; ajout type_export/format/filtres_appliques + enums) — garde-fou TMS-Ready #1. bordereaux_savr rendu append-only (suppression du DELETE admin via bord_admin FOR ALL → SELECT/INSERT/UPDATE, §09 matrice DELETE=—, registre auditable). API v1/registre : liste (filtres période/lieu/traiteur/flux/statut bordereau, tri mono-colonne, pagination 25/50/100), détail 8 blocs (snapshot, plaque/chauffeur non exposés), export CSV tracé (exports_registre), export ZIP bordereaux (plafond 50, vide → 422 ; encodeur ZIP store sans dépendance), téléchargement bordereau (URL pré-signée R2, RLS). UI espace client (page partagée /registre + détail + notice méthodologique in-app) ; entrée de menu 'Registre réglementaire' pour les 4 rôles clients (agence exclue). Tous les rôles utilisent le client JWT/RLS (jamais service_role : la vue scope par claim).",
+  "fichiers_produits": [
+    "supabase/migrations/20260619120000_plateforme_m4_2_registre.sql",
+    "supabase/tests/m4_2_registre.test.sql",
+    "packages/plateforme/src/lib/registre/registre.ts",
+    "packages/plateforme/src/lib/registre/csv.ts",
+    "packages/plateforme/src/lib/registre/zip.ts",
+    "packages/plateforme/src/lib/registre/trace.ts",
+    "packages/plateforme/src/lib/registre/guard.ts",
+    "packages/plateforme/src/lib/pdf/r2-client.ts",
+    "packages/plateforme/src/lib/nav-config.ts",
+    "packages/plateforme/src/app/api/v1/registre/route.ts",
+    "packages/plateforme/src/app/api/v1/registre/[id]/route.ts",
+    "packages/plateforme/src/app/api/v1/registre/export-csv/route.ts",
+    "packages/plateforme/src/app/api/v1/registre/export-zip/route.ts",
+    "packages/plateforme/src/app/api/v1/registre/bordereaux/[id]/download/route.ts",
+    "packages/plateforme/src/app/(registre)/layout.tsx",
+    "packages/plateforme/src/app/(registre)/registre/page.tsx",
+    "packages/plateforme/src/app/(registre)/registre/[id]/page.tsx",
+    "packages/plateforme/src/app/(registre)/registre/methodologie/page.tsx",
+    "packages/plateforme/tests/api/registre/registre.m4-2.test.ts",
+    "e2e/m4-2.registre.spec.ts"
+  ],
+  "scenarios": [
+    "acces_registre_non_authentifie_401",
+    "registre_agence_denied",
+    "liste_registre_200",
+    "export_csv_registre_filtre_trace",
+    "export_csv_zero_ligne_entetes_seules",
+    "export_zip_bordereaux_periode",
+    "zip_exactement_50_bordereaux_ok",
+    "zip_51_bordereaux_refuse",
+    "zip_zero_bordereau_refuse_message",
+    "telechargement_pdf_bordereau_depuis_liste",
+    "url_directe_bordereau_hors_perimetre_deny"
+  ]
+}

@@ -539,12 +539,14 @@ Scénario : documents_generaux_public_actif_seulement
 # Source : §12 §2 matrice exports par profil
 # Couche : api
 # Priorité : P1-critique
+# Mise à jour 2026-06-19 (M4.1/D1) : "Courses logistiques" hors scope V1 (tms.* inexistant) → remplacé par cas gestionnaire_lieux/Associations + cas 404 entité inconnue
 
-Scénario : matrice_exports_csv_par_profil (paramétré × 3)
-  Étant donné la matrice §12 §2
+Scénario : matrice_exports_csv_par_profil (paramétré × 4)
+  Étant donné la matrice §12 §2 (7 entités V1 — "Courses logistiques" hors scope V1)
   Quand un traiteur_commercial demande l'export "Pesées par flux" → refusé (—)
-  Et quand un gestionnaire_lieux demande l'export "Courses logistiques" → refusé (admin_savr seul)
+  Et quand un gestionnaire_lieux demande l'export "Associations bénéficiaires AG" → refusé (—)
   Et quand une agence demande l'export "Associations bénéficiaires AG" → refusé (—)
+  Et quand admin_savr demande l'export "courses-logistiques" → refusé 404 (entité non supportée V1 — EXPORT_MATRIX ne la connaît pas)
 ```
 
 ```gherkin

@@ -539,12 +539,14 @@ Scénario : documents_generaux_public_actif_seulement
 # Source : §12 §2 matrice exports par profil
 # Couche : api
 # Priorité : P1-critique
+# Mise à jour 2026-06-19 (M4.1/D1) : "Courses logistiques" hors scope V1 (tms.* inexistant) → remplacé par cas gestionnaire_lieux/Associations + cas 404 entité inconnue
 
-Scénario : matrice_exports_csv_par_profil (paramétré × 3)
-  Étant donné la matrice §12 §2
+Scénario : matrice_exports_csv_par_profil (paramétré × 4)
+  Étant donné la matrice §12 §2 (7 entités V1 — "Courses logistiques" hors scope V1)
   Quand un traiteur_commercial demande l'export "Pesées par flux" → refusé (—)
-  Et quand un gestionnaire_lieux demande l'export "Courses logistiques" → refusé (admin_savr seul)
+  Et quand un gestionnaire_lieux demande l'export "Associations bénéficiaires AG" → refusé (—)
   Et quand une agence demande l'export "Associations bénéficiaires AG" → refusé (—)
+  Et quand admin_savr demande l'export "courses-logistiques" → refusé 404 (entité non supportée V1 — EXPORT_MATRIX ne la connaît pas)
 ```
 
 ```gherkin
@@ -846,6 +848,31 @@ Histogramme Revenus §11 Bloc 2 = mêmes statuts que R_revenus_imputation_organi
 
 ### Note non bloquante — CO₂/taux des collectes migrées (À CONFIRMER)
 §13 ne dit pas si les collectes Bubble migrées reçoivent un calcul rétroactif taux/CO₂ ou restent NULL. Le scénario `historique_partiel_sans_crash_agregats` assume **NULL sans recalcul rétroactif** (snapshot « facteurs du moment » non reconstituable). À confirmer en session migration, sinon simple note d'implémentation.
+
+---
+
+## Scénarios filtre période dashboards (DASHBOARDS_20260618)
+
+```gherkin
+# Source : DASHBOARDS_20260618 — filtre période dashboard = date_collecte (PR #62, 2026-06-18)
+# Couche : api
+# Priorité : P1-critique
+
+Scénario : dashboard_filtre_periode_date_collecte (M3.2 gestionnaire)
+  Étant donné une collecte C1 avec date_collecte=2026-05-15 et realisee_at=NULL
+  Et une collecte C2 avec date_collecte=2026-03-01 et realisee_at=2026-05-10
+  Quand `gest_viparis` appelle GET /api/v1/gestionnaire/dashboard?from=2026-05-01&to=2026-05-31
+  Alors C1 est dans le périmètre (date_collecte ∈ [from, to])
+  Et C2 est hors périmètre (date_collecte=2026-03-01 < from)
+  Et le dashboard n'est pas vide (realisee_at NULL n'exclut pas C1)
+  # Régression PR #62 : avant le fix, realisee_at NULL excluait silencieusement C1
+
+Scénario : kpi_filtre_periode_date_collecte (M3.6 dashboard client admin)
+  Étant donné les mêmes collectes C1 et C2
+  Quand `admin_savr` appelle GET /api/v1/admin/dashboard-client?from=2026-05-01&to=2026-05-31&organisation_id=<org>
+  Alors C1 est dans le périmètre et C2 hors périmètre (parité M3.2)
+  Et le filtre porte sur `date_collecte`, jamais sur `realisee_at`
+```
 
 ---
 

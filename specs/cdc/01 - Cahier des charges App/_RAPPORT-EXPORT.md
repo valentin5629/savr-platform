@@ -1,15 +1,16 @@
 # Rapport export dev-facing
 
-Mode : SUR (T1 seul, T2 detecte)
-**Total : 25113 -> 24801 octets (-312, -1.2%)**
+Mode : AGGRESSIVE (T1+T2)
+**Total : 286099 -> 270937 octets (-15162, -5.3%)**
 
 
-## 11 - Dashboards.md
-- octets : 25113 -> 24801 (-312, -1.2%)
-- tokens estimes : ~6278 -> ~6200
-- tombstones supprimes : 0 | fragments barres retires : 4 | en-tetes debarres : 0
+## 04 - Data Model.md
+- octets : 286099 -> 270937 (-15162, -5.3%)
+- tokens estimes : ~71524 -> ~67734
+- tombstones supprimes : 30 | fragments barres retires : 35 | en-tetes debarres : 7
+- lignes historiques T2 supprimees : 3
 - ⚠ tombstones en prose a revoir a la main :
-    L80: - : **supprimé refonte 2026-05-05** ; **refonte 2026-05-10** : nouveau Bloc 8 ZD/AG = bout
-- 🕓 blocs historiques T2 detectes (non supprimes ; relancer --aggressive apres revue) :
-    L3 [meta-changelog]: **Statut** : Validé
-    L4 [meta-changelog]: **Dernière mise à jour** : 2026-06-07 (**Session test-scenarios lot ⑫ — F5 tranc
+    L57: - → supprimé, contacts relogés sur `evenements.contact_principal_*` + `contact_secours_*` 
+    L62: - → supprimé (non utilisé en pratique, le téléphone seul suffit le jour J — si besoin V1.1
+    L77: → **Colonne `attribuee_source` SUPPRIMÉE V1** *(sobriété M01 B_M01_04 + D_M01_03 — 2026-04
+    L1704: **Renommé `montant_fixe_ht` (refonte 2026-05-26)**, puis **renommé `prix_base_ht` (M1.3)**

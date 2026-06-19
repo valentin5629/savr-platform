@@ -178,7 +178,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         .from('entites_facturation')
         .select('id')
         .eq('organisation_id', organisation_id)
-        .eq('est_principale', true)
+        .eq('entite_par_defaut', true)
         .maybeSingle();
 
       if (ef) {

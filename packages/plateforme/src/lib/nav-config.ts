@@ -75,6 +75,11 @@ export const NAV_CONFIG: Record<Role, NavGroup[]> = {
         { label: 'Dashboard', href: '/traiteur', icon: LayoutDashboard },
         { label: 'Collectes', href: '/traiteur/collectes', icon: Truck },
         {
+          label: 'Registre réglementaire',
+          href: '/registre',
+          icon: ClipboardList,
+        },
+        {
           label: 'Mon organisation',
           href: '/traiteur/mon-organisation',
           icon: Building2,
@@ -89,6 +94,11 @@ export const NAV_CONFIG: Record<Role, NavGroup[]> = {
       items: [
         { label: 'Dashboard', href: '/traiteur', icon: LayoutDashboard },
         { label: 'Collectes', href: '/traiteur/collectes', icon: Truck },
+        {
+          label: 'Registre réglementaire',
+          href: '/registre',
+          icon: ClipboardList,
+        },
         {
           label: 'Mon organisation',
           href: '/traiteur/mon-organisation',
@@ -134,6 +144,11 @@ export const NAV_CONFIG: Record<Role, NavGroup[]> = {
           href: '/gestionnaire/collectes',
           icon: ClipboardList,
         },
+        {
+          label: 'Registre réglementaire',
+          href: '/registre',
+          icon: FileText,
+        },
         { label: 'Traiteurs', href: '/gestionnaire/traiteurs', icon: Truck },
         {
           label: 'Mon pack AG',
@@ -164,6 +179,11 @@ export const NAV_CONFIG: Record<Role, NavGroup[]> = {
           icon: ClipboardList,
         },
         { label: 'Documents', href: '/organisateur/documents', icon: FileText },
+        {
+          label: 'Registre réglementaire',
+          href: '/registre',
+          icon: ClipboardList,
+        },
       ],
     },
   ],

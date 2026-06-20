@@ -83,8 +83,13 @@ export class AdapterMts1 implements LogistiqueProvider {
     // Curseur : lire la tournee existante pour ce rang
     let tournee = await this.findTournee(collecte.id, rang);
 
-    // Déjà entièrement dispatchée → idempotent no-op
-    if (tournee?.tms_reference && tournee.statut === 'en_cours') {
+    // Pipeline déjà mené à terme → idempotent no-op.
+    // statut n'est posé à 'en_cours' qu'APRÈS validate (étape 4) : tant que la
+    // tournée est 'planifiee', dispatch/validate DOIVENT être (re)joués — sinon un
+    // échec transient en étape 3/4 laisserait le camion non commandé (bug C2).
+    // Un statut terminal ('terminee'/'annulee', posé par le polling) sort aussi en
+    // no-op : on ne re-dispatch jamais un tour déjà clos.
+    if (tournee?.tms_reference && tournee.statut !== 'planifiee') {
       return;
     }
 
@@ -134,6 +139,17 @@ export class AdapterMts1 implements LogistiqueProvider {
 
     // ── Étape 4 : validate ──────────────────────────────────────────────────────
     await this.client.validateTour(tourId, orderNumber);
+
+    // Curseur de complétion : dispatch + validate confirmés → 'en_cours'.
+    // Posé ICI (et non à l'étape 2) pour que la garde de reprise ne court-circuite
+    // dispatch/validate qu'une fois ceux-ci réellement réussis (bug C2). Le
+    // .eq('statut','planifiee') évite d'écraser un statut terminal qu'un poll
+    // concurrent aurait déjà posé.
+    await this.supabase
+      .from('tournees')
+      .update({ statut: 'en_cours' })
+      .eq('id', tournee!.id)
+      .eq('statut', 'planifiee');
 
     // Mise à jour statut_tms (trigger dérive collectes.statut)
     await this.updateStatutTms(collecte.id, 'attribuee_en_attente_acceptation');
@@ -723,13 +739,16 @@ export class AdapterMts1 implements LogistiqueProvider {
     return { ...tournee, rang } as TourneeRow;
   }
 
+  // Commit du curseur étape 2 : NE pose PAS statut='en_cours' (réservé au succès de
+  // validate, étape 4). Sinon la garde de reprise (dispatchCollecte) sortirait en
+  // no-op avant que dispatch+validate aient été joués → camion non commandé (bug C2).
   private async updateTourneeRef(
     tourneeId: string,
     tourId: string,
   ): Promise<void> {
     await this.supabase
       .from('tournees')
-      .update({ tms_reference: tourId, statut: 'en_cours' })
+      .update({ tms_reference: tourId })
       .eq('id', tourneeId);
   }
 

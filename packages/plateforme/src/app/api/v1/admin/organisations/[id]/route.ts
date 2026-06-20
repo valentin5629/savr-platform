@@ -21,7 +21,7 @@ export async function GET(
       cree_par_organisation_id, created_at, updated_at,
       entites_facturation(id, raison_sociale, siret, siret_verification, tva_intracom, tva_verification, entite_par_defaut),
       organisations_domaines_email(domaine),
-      users(id, prenom, nom, email, role, actif, derniere_connexion_le),
+      users(id, prenom, nom, email, role, actif, derniere_connexion),
       packs_antgaspi(id, type_pack, credits_initiaux, credits_consommes, statut, mode_facturation, commentaires, created_at),
       tarifs_negocie(id, type_remise, remise_pct, valide_du, valide_jusqu_au, scope)
     `,

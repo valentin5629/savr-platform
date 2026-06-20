@@ -107,7 +107,10 @@ function makeMockSupabase(
       error: overrides.upsertError ? { message: 'db error' } : null,
     }),
     upsert: vi.fn().mockReturnThis(),
-    update: vi.fn().mockReturnThis(),
+    update: vi.fn((payload: Record<string, unknown>) => {
+      updated.push(payload);
+      return mockQuery;
+    }),
     insert: vi.fn().mockReturnThis(),
     not: vi.fn().mockReturnThis(),
     gte: vi.fn().mockReturnThis(),
@@ -361,6 +364,85 @@ describe('M1.5a / AdapterMts1 — curseur de reprise', () => {
       'MTS1-TOUR-REPRISE',
       'STRIKE-IDF',
     );
+  });
+
+  it('M1.5a / reprise étapes 3-4 — tms_reference présent + statut planifiee → dispatch+validate rejoués, order/tour NON recréés', async () => {
+    const postOrder = vi.fn();
+    const createTour = vi.fn();
+    const dispatchTour = vi.fn().mockResolvedValue(undefined);
+    const validateTour = vi.fn().mockResolvedValue(undefined);
+    _setMts1Handlers({
+      pollOrders: vi.fn(),
+      getTour: vi.fn(),
+      postOrder,
+      createTour,
+      dispatchTour,
+      validateTour,
+    });
+
+    // Étapes 1+2 déjà committées (curseurs présents) mais dispatch/validate ont
+    // échoué au run précédent → tournée encore 'planifiee'.
+    const supabase = makeMockSupabase({
+      tourneeExistante: {
+        id: 'tournee-existing',
+        external_ref_commande: 'MTS1-ORDER-EXISTING',
+        tms_reference: 'MTS1-TOUR-EXISTING',
+        statut: 'planifiee',
+      },
+    });
+
+    await new AdapterMts1(TRANSPORTEUR, supabase).dispatchCollecte(
+      COLLECTE_ZD,
+      1,
+    );
+
+    expect(postOrder).not.toHaveBeenCalled();
+    expect(createTour).not.toHaveBeenCalled();
+    expect(dispatchTour).toHaveBeenCalledWith(
+      'MTS1-TOUR-EXISTING',
+      'STRIKE-IDF',
+    );
+    expect(validateTour).toHaveBeenCalledWith('MTS1-TOUR-EXISTING');
+  });
+
+  it("M1.5a / curseur C2 — statut 'en_cours' jamais posé avant un validate réussi (régression)", async () => {
+    // dispatch échoue (transient) → aucune écriture statut='en_cours' ne doit avoir
+    // eu lieu : sinon la garde de reprise court-circuiterait dispatch/validate au
+    // retry et le camion ne serait jamais commandé (bug C2).
+    const dispatchTour = vi
+      .fn()
+      .mockRejectedValue(new LogistiqueTransientError('5xx dispatch'));
+    _setMts1Handlers({
+      pollOrders: vi.fn(),
+      getTour: vi.fn(),
+      postOrder: vi.fn().mockResolvedValue({
+        ok: true,
+        id: 'O1',
+        externalReference: 'col-zd-001-1',
+        status: 'PENDING',
+        createdAt: '',
+      }),
+      createTour: vi.fn().mockResolvedValue({
+        tourId: 'T1',
+        externalReference: 'col-zd-001-1',
+        status: 'DRAFT',
+        createdAt: '',
+        customerOrderId: 'O1',
+      } satisfies Mts1CreatedTour),
+      dispatchTour,
+      validateTour: vi.fn(),
+    });
+
+    const supabase = makeMockSupabase({ tourneeExistante: null });
+
+    await expect(
+      new AdapterMts1(TRANSPORTEUR, supabase).dispatchCollecte(COLLECTE_ZD, 1),
+    ).rejects.toThrow();
+
+    const updates = (
+      supabase as unknown as { _updated: Record<string, unknown>[] }
+    )._updated;
+    expect(updates.some((u) => u['statut'] === 'en_cours')).toBe(false);
   });
 });
 

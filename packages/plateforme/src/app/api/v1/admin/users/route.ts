@@ -29,7 +29,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   let query = supabase
     .from('users')
     .select(
-      'id, prenom, nom, email, role, actif, organisation_id, organisations(raison_sociale, type), derniere_connexion_le, created_at',
+      'id, prenom, nom, email, role, actif, organisation_id, organisations(raison_sociale, type), derniere_connexion, created_at',
       { count: 'exact' },
     )
     .order('nom')
@@ -62,13 +62,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Corps JSON invalide' }, { status: 400 });
   }
 
-  const { email, prenom, nom, role, organisation_id, telephone } = body as {
+  const { email, prenom, nom, role, organisation_id } = body as {
     email?: string;
     prenom?: string;
     nom?: string;
     role?: string;
     organisation_id?: string;
-    telephone?: string;
   };
 
   if (!email || !prenom || !nom || !role || !organisation_id) {
@@ -122,7 +121,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       prenom,
       nom,
       role,
-      telephone,
     })
     .select('id, email, prenom, nom, role')
     .single();

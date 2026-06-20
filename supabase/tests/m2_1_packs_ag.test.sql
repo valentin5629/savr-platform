@@ -2,7 +2,7 @@
 -- Tests : schéma, triggers (débit réalisation, débit tardif, recrédit), RLS.
 
 BEGIN;
-SELECT plan(24);
+SELECT plan(26);
 
 -- ── Helpers JWT (identiques aux autres fichiers de test) ──────────────────
 
@@ -234,6 +234,80 @@ SELECT is(
    WHERE id = '00000000-0000-0000-0000-000000000005'::uuid),
   9,
   'exclusion mutuelle trigger 2/3 : credits_consommes=9 (trigger 3 seul, pas de double mouvement)'
+);
+
+-- ── 8bis. Seuil 12h ancré Europe/Paris (fix E2) ──────────────────────────
+-- Bornes déterministes quel que soit le fuseau de la session de test : on
+-- construit date_collecte/heure_collecte comme l'heure murale de Paris à
+-- now()+11h59 (doit débiter, < 12h) puis now()+12h01 (ne doit pas débiter,
+-- ≥ 12h). Avant le fix (cast naïf interprété en UTC) le seuil était décalé de
+-- 1-2h et ces deux cas tombaient du mauvais côté de la frontière.
+SELECT test_as_superuser();
+
+-- Org + pack frais (évite le conflit uniq_pack_actif_par_org avec le pack 005)
+INSERT INTO plateforme.organisations (id, nom, raison_sociale, type, siret, actif)
+VALUES ('00000000-0000-0000-0000-000000000031'::uuid, 'Org E2 TZ', 'Org E2 TZ', 'traiteur', '99999999900099', true);
+
+INSERT INTO plateforme.packs_antgaspi (
+  id, organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, nb_annulees,
+  type_pack, credits_initiaux, credits_consommes,
+  montant_total_ht, mode_facturation, statut, date_achat
+) VALUES (
+  '00000000-0000-0000-0000-000000000030'::uuid,
+  '00000000-0000-0000-0000-000000000031'::uuid,
+  '00000000-0000-0000-0000-000000000004'::uuid, 10, 0, 0,
+  'pack_10', 10, 0,
+  1300.00, 'par_collecte', 'actif', CURRENT_DATE
+);
+
+-- Collecte A : heure murale Paris = now() + 11h59 → < 12h → DOIT débiter.
+-- statut_tms='non_envoye' neutralise la condition « mandat prestataire » → on
+-- isole strictement la condition de délai.
+INSERT INTO plateforme.collectes (
+  id, evenement_id, type, statut, date_collecte, heure_collecte,
+  nb_camions_demande, statut_tms, pack_antgaspi_id
+) VALUES (
+  '00000000-0000-0000-0000-000000000040'::uuid,
+  '00000000-0000-0000-0000-000000000003'::uuid,
+  'anti_gaspi', 'validee',
+  ((now() AT TIME ZONE 'Europe/Paris') + INTERVAL '11 hours 59 minutes')::date,
+  ((now() AT TIME ZONE 'Europe/Paris') + INTERVAL '11 hours 59 minutes')::time,
+  1, 'non_envoye',
+  '00000000-0000-0000-0000-000000000030'::uuid
+);
+
+UPDATE plateforme.collectes SET statut = 'annulee'
+WHERE id = '00000000-0000-0000-0000-000000000040'::uuid;
+
+SELECT is(
+  (SELECT credits_consommes FROM plateforme.packs_antgaspi
+   WHERE id = '00000000-0000-0000-0000-000000000030'::uuid),
+  1,
+  'E2 : annulation à H-11h59 (heure de Paris) < 12h → débit (credits_consommes=1)'
+);
+
+-- Collecte B : heure murale Paris = now() + 12h01 → ≥ 12h → NE DOIT PAS débiter.
+INSERT INTO plateforme.collectes (
+  id, evenement_id, type, statut, date_collecte, heure_collecte,
+  nb_camions_demande, statut_tms, pack_antgaspi_id
+) VALUES (
+  '00000000-0000-0000-0000-000000000041'::uuid,
+  '00000000-0000-0000-0000-000000000003'::uuid,
+  'anti_gaspi', 'validee',
+  ((now() AT TIME ZONE 'Europe/Paris') + INTERVAL '12 hours 1 minute')::date,
+  ((now() AT TIME ZONE 'Europe/Paris') + INTERVAL '12 hours 1 minute')::time,
+  1, 'non_envoye',
+  '00000000-0000-0000-0000-000000000030'::uuid
+);
+
+UPDATE plateforme.collectes SET statut = 'annulee'
+WHERE id = '00000000-0000-0000-0000-000000000041'::uuid;
+
+SELECT is(
+  (SELECT credits_consommes FROM plateforme.packs_antgaspi
+   WHERE id = '00000000-0000-0000-0000-000000000030'::uuid),
+  1,
+  'E2 : annulation à H-12h01 (heure de Paris) ≥ 12h → pas de débit (credits_consommes reste 1)'
 );
 
 -- ── 9. CHECK constraint credits_consommes >= 0 ───────────────────────────

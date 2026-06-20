@@ -69,6 +69,11 @@ supabase/migrations/20260615230000_plateforme_m2_5_everest_rls_v2.sql
 # dans les commentaires de code décrivant les services (71/74/77). Aucun appel HTTP MTS-1/Everest
 # ici — toute logique adapter vit dans packages/adapters/. 'customerOrders' reste banni.
 supabase/migrations/20260615240000_plateforme_m2_3_algo_attribution_ag.sql
+# supabase/migrations/20260620100000_* (fix E2 timezone) — CREATE OR REPLACE de
+# fn_calculer_algo_attribution_ag : corps copié VERBATIM de la source M2.3 ci-dessus
+# (seule la ligne de calcul du délai change), donc mêmes 'mts1' (enum type_tms) +
+# commentaires services Everest 71/74/77/91. Aucune logique adapter. 'customerOrders' reste banni.
+supabase/migrations/20260620100000_plateforme_fix_tz_seuil_12h_ag.sql
 # supabase/tests/m2_3_algo* (M2.3) — 'mts1' = valeur enum dans INSERT fixtures pgTAP
 # (transporteurs.type_tms + prestataires.mode_integration). Pas de logique adapter.
 supabase/tests/m2_3_algo_attribution_ag.test.sql

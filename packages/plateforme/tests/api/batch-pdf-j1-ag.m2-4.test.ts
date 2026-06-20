@@ -72,6 +72,8 @@ function makeSupabase(responses: Array<Record<string, unknown>>) {
     'not',
     'is',
     'or',
+    'lte',
+    'gte',
     'order',
     'limit',
     'range',
@@ -325,6 +327,25 @@ describe('M2.4 / BatchPdfJ1Ag / Sélection vide', () => {
 
     expect(result.enqueued).toBe(0);
     expect(result.errors).toHaveLength(0);
+  });
+
+  it("E1 : l'attestation est gatée par realisee_at + 24h <= now() (filtre .lte sur la sélection)", async () => {
+    // Collecte AG encore sous embargo → exclue par le filtre → aucune attestation figée.
+    const sb = makeSupabase([{ data: [], error: null }]);
+
+    const before = Date.now();
+    const result = await runBatchPdfJ1Ag(sb as never);
+    const after = Date.now();
+
+    expect(result.enqueued).toBe(0);
+
+    const lteCalls = (sb._chain.lte as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[string, string]>;
+    const embargoFilter = lteCalls.find((c) => c[0] === 'realisee_at');
+    expect(embargoFilter).toBeDefined();
+    const seuil = new Date(embargoFilter![1]).getTime();
+    expect(seuil).toBeGreaterThanOrEqual(before - 24 * 3600 * 1000 - 1000);
+    expect(seuil).toBeLessThanOrEqual(after - 24 * 3600 * 1000 + 1000);
   });
 
   it('erreur DB à la sélection → erreur remontée', async () => {

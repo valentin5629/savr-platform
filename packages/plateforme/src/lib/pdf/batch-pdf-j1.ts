@@ -84,6 +84,12 @@ export async function runBatchPdfJ1(
     )
     .eq('type', 'zero_dechet')
     .eq('statut', 'cloturee')
+    // Embargo H+24 (§12 énoncé canonique : « ni généré ni accessible avant
+    // realisee_at + 24h »). Le document figé (bordereau + rapport) ne doit pas
+    // être généré avant la fin de la fenêtre de correction de pesée. Le client
+    // Supabase ne sait pas exprimer now()-interval côté SQL → seuil calculé en JS
+    // (realisee_at = timestamptz). Prédicat canonique : realisee_at + 24h <= now().
+    .lte('realisee_at', new Date(Date.now() - 24 * 3600 * 1000).toISOString())
     .not('evenement_id', 'is', null);
 
   if (selErr) {

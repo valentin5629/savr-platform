@@ -72,6 +72,11 @@ export async function runBatchPdfJ1Ag(
     )
     .eq('type', 'anti_gaspi')
     .eq('statut', 'cloturee')
+    // Embargo H+24 (§12 énoncé canonique + §05 SLAs : s'applique à l'attestation
+    // de don au même titre que bordereau/rapport). L'attestation (snapshot juridique
+    // 2041-GE) ne doit pas être figée avant realisee_at + 24h. realisee_sans_collecte
+    // reste exclu par .eq('statut','cloturee') (exempté d'embargo, cf. §12).
+    .lte('realisee_at', new Date(Date.now() - 24 * 3600 * 1000).toISOString())
     .not('evenement_id', 'is', null);
 
   if (selErr) {

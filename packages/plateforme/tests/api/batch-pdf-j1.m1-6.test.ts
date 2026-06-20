@@ -85,6 +85,8 @@ function makeSupabase(responses: Array<Record<string, unknown>>) {
     'not',
     'is',
     'or',
+    'lte',
+    'gte',
     'order',
     'limit',
     'range',
@@ -240,5 +242,26 @@ describe('M1.6 / BatchPdfJ1 / Embargo', () => {
     expect(Math.abs(disponibleA.getTime() - expected.getTime())).toBeLessThan(
       5000,
     );
+  });
+
+  it('E1 : la génération est gatée par realisee_at + 24h <= now() (filtre .lte sur la sélection)', async () => {
+    // La requête renvoie [] (collecte encore sous embargo → exclue par le filtre) :
+    // aucun document figé, aucun job. Le filtre embargo doit être posé côté requête.
+    const sb = makeSupabase([{ data: [], error: null }]);
+
+    const before = Date.now();
+    const result = await runBatchPdfJ1(sb as never);
+    const after = Date.now();
+
+    expect(result.enqueued).toBe(0);
+
+    const lteCalls = (sb._chain.lte as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[string, string]>;
+    const embargoFilter = lteCalls.find((c) => c[0] === 'realisee_at');
+    expect(embargoFilter).toBeDefined();
+    // Seuil ≈ now() - 24h (à la fenêtre d'exécution près).
+    const seuil = new Date(embargoFilter![1]).getTime();
+    expect(seuil).toBeGreaterThanOrEqual(before - 24 * 3600 * 1000 - 1000);
+    expect(seuil).toBeLessThanOrEqual(after - 24 * 3600 * 1000 + 1000);
   });
 });

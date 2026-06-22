@@ -2405,6 +2405,8 @@ Historique des envois Resend. Contient des PII (`destinataire_email`).
 **Index** : `(template_slug, created_at DESC)`, `(destinataire_user_id)`, `(resend_id)`.
 **RLS** : écriture `SERVICE_ROLE` uniquement (Edge Function `send-email` + webhook `/webhooks/resend/events`) ; `SELECT` `admin_savr` ; deny tout autre rôle (PII). Cf. [[09 - Authentification et permissions]] (bloc ajouté 2026-06-07).
 
+**⚠ Divergence V1 assumée (enum `statut`)** — en V1, la table `emails_envoyes` conserve l'axe **cycle d'envoi** (`queued/sent/delivered/bounced/failed`, DEFAULT `queued`), pas l'axe engagement listé ci-dessus. L'enum cible (`envoye/ouvert/clique/bounce/echec`) est livré en **V1.1**, en lockstep avec le tracking ouverture/clic (webhooks Resend `email.opened`/`email.clicked`, hors scope V1). Mapping de transition V1→V1.1 : `queued/sent/delivered → envoye`, `bounced → bounce`, `failed → echec`, puis `ouvert`/`clique` alimentés par les webhooks. Seule divergence enum cluster B assumée en V1 (Frontière G1, V1-only). Décision Val 2026-06-22.
+
 ---
 
 ### Table : `audit_log` *(intégrée §04 le 2026-06-07 — F1 session test-scenarios §06.06, tranché Val)*

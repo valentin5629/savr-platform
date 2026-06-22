@@ -14,15 +14,15 @@
 
 ## Statut d'exécution
 
-| Cluster    | Enum                                                      | Action                                       | Statut                                                                                     |
-| ---------- | --------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| **A**      | `serie_facturation_enum`                                  | → `text`                                     | ✅ **EXÉCUTÉ** (migration `20260623110000`)                                                |
-| **A**      | `job_statut_enum`                                         | → `text` + CHECK                             | ✅ **EXÉCUTÉ** (migration `20260623110000`)                                                |
-| **B.1**    | `pack_statut_enum`                                        | retirer `expire` (→ `epuise`)                | ✅ **EXÉCUTÉ** (migration `20260623120000`) — GO Val 2026-06-22                            |
-| **B.2**    | `facture_statut_enum`                                     | retirer `envoyee`,`en_retard` (→ `emise`)    | ✅ **EXÉCUTÉ** (migration `20260623130000` + PR front) — GO Val 2026-06-22                 |
-| **B.3**    | `email_statut_enum`                                       | valeurs disjointes (re-modélisation)         | ⏸ **DIFFÉRÉ V1.1** (décision Val 2026-06-22) — divergence assumée, fichier `_Divergences/` |
-| **C**      | `document_statut_enum` (`documents_generaux_savr.statut`) | colonne absente du cible                     | ⏸ **DÉCISION VAL REQUISE** — non codé                                                      |
-| **Outbox** | `outbox_statut_enum` (`outbox_events.statut`)             | rename colonne `statut→status` + `enum→text` | ⏸ **SOUS-LOT DÉDIÉ** — décision Val, plan ci-dessous, non codé                             |
+| Cluster    | Enum                                                      | Action                                       | Statut                                                                                      |
+| ---------- | --------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| **A**      | `serie_facturation_enum`                                  | → `text`                                     | ✅ **EXÉCUTÉ** (migration `20260623110000`)                                                 |
+| **A**      | `job_statut_enum`                                         | → `text` + CHECK                             | ✅ **EXÉCUTÉ** (migration `20260623110000`)                                                 |
+| **B.1**    | `pack_statut_enum`                                        | retirer `expire` (→ `epuise`)                | ✅ **EXÉCUTÉ** (migration `20260623120000`) — GO Val 2026-06-22                             |
+| **B.2**    | `facture_statut_enum`                                     | retirer `envoyee`,`en_retard` (→ `emise`)    | ✅ **EXÉCUTÉ** (migration `20260623130000` + PR front) — GO Val 2026-06-22                  |
+| **B.3**    | `email_statut_enum`                                       | valeurs disjointes (re-modélisation)         | ⏸ **DIFFÉRÉ V1.1** (décision Val 2026-06-22) — divergence assumée, fichier `_Divergences/`  |
+| **C**      | `document_statut_enum` (`documents_generaux_savr.statut`) | RENAME → `document_general_statut`           | ✅ **EXÉCUTÉ** (migration `20260623150000`) — GO Val 2026-06-22 (option 1, colonne V1-only) |
+| **Outbox** | `outbox_statut_enum` (`outbox_events.statut`)             | rename colonne `statut→status` + `enum→text` | ⏸ **SOUS-LOT DÉDIÉ** — décision Val, plan ci-dessous, non codé                              |
 
 Carte des dépendances confirmée par introspection live (chaque enum = **une seule** colonne porteuse) :
 
@@ -218,7 +218,7 @@ ORDER BY 1, 2;
 
 ---
 
-## CLUSTER C — divergence STRUCTURELLE (⏸ DÉCISION VAL REQUISE — non codé)
+## CLUSTER C — divergence STRUCTURELLE (✅ EXÉCUTÉ — option 1, GO Val 2026-06-22)
 
 ### C.1 — `documents_generaux_savr.statut` (`document_statut_enum`)
 
@@ -226,21 +226,27 @@ ORDER BY 1, 2;
 - **Cible** : la table `documents_generaux_savr` **n'a pas de colonne `statut`** (seulement `type`,
   `titre`, `version`, `pdf_url`, `effective_from/to`, `uploaded_by`, `actif`, `created_at`).
 - **Constat** : la colonne **est utilisée** — index dédié `idx_docs_generaux_statut ON (statut)` +
-  références RLS/queries `WHERE d.statut='genere'` (helpers `0_4a`, financier `0_4c`). Ce n'est pas une
-  colonne morte.
-- **❓ DÉCISION VAL (3 options)** :
-  1. **Garder en V1-only assumé** : ajouter `documents_generaux_savr.statut` à la **liste fermée des
-     colonnes V1-only** (Frontière G1, cf. `nb_camions_demande`, `pesees_tournees`, …) et écrire un
-     fichier `_Divergences/` (type `ambigu`). Convergence : juste **renommer le type**
-     `document_statut_enum` → un nom sans suffixe `_enum` (le cible n'en a aucun → choisir un nom, ex.
-     `document_general_statut`). **Recommandé** : la colonne sert une vraie logique (cycle de vie du doc).
-  2. **Dropper la colonne** : seulement si le cycle de vie `genere`/`erreur` est porté ailleurs
-     (`actif` booléen ?). Casse l'index + les RLS qui lisent `statut='genere'` → refonte requise. Risqué.
-  3. **Patcher le cible** : ajouter `statut` à `documents_generaux_savr` dans le Data Model source
-     (Vault, **pas** `specs/`) puis régénérer le DDL cible. Si la colonne est légitime V1+V2.
-- **`specs/` est DÉRIVÉ : ne pas l'éditer.** Une fois Val tranché (option 1 ou 3), écrire le fichier
-  `_Divergences/MODULE_YYYYMMDD.md` (type `ambigu`) ; le Vault sera patché par `cdc-patch-divergences`.
-- **Ne pas coder avant tranche.**
+  RLS `dg_read` (`WHERE statut='genere' OR f_is_staff()`) + `shared.f_fichier_visible` (`WHERE d.statut='genere'`).
+  Ce n'est pas une colonne morte.
+- **✅ DÉCISION VAL 2026-06-22 = OPTION 1 (garder en V1-only assumé + rename de type)**. La colonne reste
+  en V1 (la visibilité en dépend) ; convergence = renommer le type vers la convention cible (sans suffixe
+  `_enum`) : `ALTER TYPE document_statut_enum RENAME TO document_general_statut`. Nom sibling cohérent de
+  l'enum cible de la colonne `type` (`document_general_type`). **Aucun retrait de valeur, aucune altération
+  de donnée** → un RENAME ne touche pas la donnée, ne peut pas échouer sur une valeur prod.
+- **✅ AS-BUILT (introspection live 2026-06-22)** : dépendances du type = colonne (DEFAULT `en_attente`)
+  - index simple `idx_docs_generaux_statut` + policy RLS `dg_read` (qual castant le type) — **toutes
+    suivent par OID** ; **0 vue, 0 trigger, 0 CHECK, 0 colonne générée** ; `shared.f_fichier_visible` compare
+    `statut='genere'` **sans cast** → rien à recréer ; **0 corps PL/pgSQL** ne cite `document_statut_enum`
+    (`prosrc`=0) → aucun `CREATE OR REPLACE` ; **0 pgTAP** ne référence l'ancien nom (pas le piège CI vécu en
+    cluster B). Dry-run transactionnel confirmé (colonne/DEFAULT/qual `dg_read` passent en `document_general_statut`,
+    `f_fichier_visible` reste appelable). Migration `20260623150000` ; pgTAP `g1_cluster_c_document_statut.test.sql` (10).
+- **Comptes prod** (informatifs, non bloquants — rename) à exécuter par Val avant déploiement manuel :
+  `SELECT statut::text, count(*) FROM plateforme.documents_generaux_savr GROUP BY 1 ORDER BY 1;`
+- **Divergence actée** : `~/Desktop/Obsidian Savr/_Divergences/CLUSTER-C_20260622.md` (type `ambigu`,
+  ajoute `documents_generaux_savr.statut` à la liste fermée V1-only de la Frontière G1). `specs/` non édité.
+- **Hors scope (signalé dans le `_Divergences`)** : la table diverge aussi structurellement au-delà de
+  `statut` (`type_document`/`entity_*`/`genere_at` V1 vs `type`/`titre`/`version`/`pdf_url`/… cible) — à
+  arbitrer séparément, non traité par ce lot G1 « enums ».
 
 ---
 

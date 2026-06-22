@@ -3,12 +3,26 @@
 // Sécurisé par X-Webhook-Token (secret en Vault, non devinable — M14 D6).
 // Pattern W2 (M14) adapté V1 Plateforme (tables plateforme.* au lieu de tms.*).
 
+import { timingSafeEqual } from 'node:crypto';
+
 import { NextRequest, NextResponse } from 'next/server';
 
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+// C7 : comparaison du token webhook en temps constant (anti timing attack).
+// timingSafeEqual exige des buffers de même longueur → on court-circuite si les
+// longueurs diffèrent (la longueur du secret n'est pas sensible).
+function tokenMatches(provided: string | null, expected: string): boolean {
+  if (provided == null) return false;
+  const a = Buffer.from(provided, 'utf8');
+  const b = Buffer.from(expected, 'utf8');
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
 
 // Statuts terminaux Everest : un webhook tardif ne rétrograde jamais le statut.
 const TERMINAL_STATUTS = new Set([
@@ -35,7 +49,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { status: 500 },
     );
   }
-  if (expectedToken && webhookToken !== expectedToken) {
+  if (expectedToken && !tokenMatches(webhookToken, expectedToken)) {
     await supabase.from('integrations_logs').insert({
       integration: 'everest',
       direction: 'entrant',
@@ -75,7 +89,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (inboxErr.code === '23505') {
       return NextResponse.json({ ok: true, deduplicated: true });
     }
-    return NextResponse.json({ error: inboxErr.message }, { status: 500 });
+    return serverError(inboxErr, 'webhooks.everest.inbox_insert');
   }
 
   const inboxId = (inboxRow as { id: string }).id;

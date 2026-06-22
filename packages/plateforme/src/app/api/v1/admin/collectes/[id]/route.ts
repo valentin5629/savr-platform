@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import { readJsonBody, serverError } from '@/lib/api-helpers.js';
 
 export async function GET(
   req: NextRequest,
@@ -36,8 +37,7 @@ export async function GET(
       { status: 404 },
     );
   }
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'admin.collectes.get');
 
   return NextResponse.json(data);
 }
@@ -50,7 +50,9 @@ export async function PATCH(
   if (auth.error) return auth.error;
 
   const { id } = await params;
-  const body = (await req.json()) as Record<string, unknown>;
+  const parsed = await readJsonBody(req);
+  if ('error' in parsed) return parsed.error;
+  const body = parsed.data;
 
   const ALLOWED_FIELDS = [
     'date_collecte',
@@ -101,8 +103,7 @@ export async function PATCH(
     },
   );
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'admin.collectes.update');
 
   const data = updatedJson as Record<string, unknown>;
 

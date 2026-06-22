@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import { serverError, writeError } from '@/lib/api-helpers.js';
 
 const ROLES_VALIDES = [
   'admin_savr',
@@ -40,8 +41,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (actif !== null) query = query.eq('actif', actif === 'true');
 
   const { data, error, count } = await query;
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'admin.users.list');
 
   return NextResponse.json({
     data: data ?? [],
@@ -128,7 +128,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (userError) {
     // Rollback auth user (best-effort)
     await supabase.auth.admin.deleteUser(userId).catch(() => null);
-    return NextResponse.json({ error: userError.message }, { status: 422 });
+    return writeError(userError, 'admin.users.create');
   }
 
   // Générer lien de réinitialisation de mot de passe et envoyer email bienvenue

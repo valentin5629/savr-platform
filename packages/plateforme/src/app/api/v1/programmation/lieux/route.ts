@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireProgrammateur } from '@/lib/api-auth.js';
+import { sanitizeOrTerm } from '@/lib/api-helpers.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireProgrammateur(req);
@@ -8,7 +9,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const supabase = createAdminSupabaseClient();
   const { searchParams } = new URL(req.url);
-  const q = searchParams.get('q') ?? '';
+  const q = sanitizeOrTerm(searchParams.get('q') ?? ''); // C2 : neutralise l'injection .or
 
   // Scope org : correspond à la policy lieux_clients_select (module 0.4)
   // Lieux via organisations_lieux OU via événements de l'organisation

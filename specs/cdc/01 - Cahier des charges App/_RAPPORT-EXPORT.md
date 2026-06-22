@@ -1,16 +1,15 @@
 # Rapport export dev-facing
 
 Mode : AGGRESSIVE (T1+T2)
-**Total : 286107 -> 270945 octets (-15162, -5.3%)**
+**Total : 89435 -> 87265 octets (-2170, -2.4%)**
 
 
-## 04 - Data Model.md
-- octets : 286107 -> 270945 (-15162, -5.3%)
-- tokens estimes : ~71526 -> ~67736
-- tombstones supprimes : 30 | fragments barres retires : 35 | en-tetes debarres : 7
-- lignes historiques T2 supprimees : 3
+## 09 - Authentification et permissions.md
+- octets : 89435 -> 87265 (-2170, -2.4%)
+- tokens estimes : ~22358 -> ~21816
+- tombstones supprimes : 0 | fragments barres retires : 10 | en-tetes debarres : 1
+- lignes historiques T2 supprimees : 2
 - ⚠ tombstones en prose a revoir a la main :
-    L57: - → supprimé, contacts relogés sur `evenements.contact_principal_*` + `contact_secours_*` 
-    L62: - → supprimé (non utilisé en pratique, le téléphone seul suffit le jour J — si besoin V1.1
-    L77: → **Colonne `attribuee_source` SUPPRIMÉE V1** *(sobriété M01 B_M01_04 + D_M01_03 — 2026-04
-    L1704: **Renommé `montant_fixe_ht` (refonte 2026-05-26)**, puis **renommé `prix_base_ht` (M1.3)**
+    L68: - *(retiré 2026-06-07 F3 — `ops_savr` peut éditer le SIREN transporteur)*
+    L69: - *(retiré 2026-06-07 F3 — `ops_savr` peut désactiver un transporteur)*
+    L408: | | *(retiré V1 — F6 2026-06-07, fusion = script SQL hors UI, cf. §06.06 §8)* | — | — |

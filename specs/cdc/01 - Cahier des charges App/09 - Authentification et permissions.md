@@ -1,7 +1,5 @@
 # 09 - Authentification et permissions
 
-**Statut** : Draft V1 — mise à jour architecturale 2026-04-23 (atelier tech avec frère)
-**Dernière mise à jour** : 2026-06-11 (**Audit RLS V1 post-35 patchs (skill `cdc-audit-rls`), arbitrages Val** — §3quater ajouté : A-1 `audit_log` (policy SQL + append-only strict, y compris admin) · A-2 `entites_facturation` (lecture org-scoped clients, écriture staff — l'ex-classement « financière interne admin-only » rendait le sélecteur d'entité §06.01 mort) · A-3 `sequences_facturation` + `jobs_pdf` consolidées · A-4 `organisations`/`lieux` chemin `client_organisateur`. Corrections §3 : B-1 `packs_antgaspi` écriture **staff** (matrice étendue fait foi, conflit tranché Val) · B-3a `bordereaux_savr`/`attestations_don` SELECT `client_organisateur` ajouté (alignement `f_fichier_visible`) · B-4 résidu `prestataires_logistiques` retiré des référentiels ouverts · B-5 `tournees` SQL explicite · C-1 `aa_select` restreint staff+programmateur+traiteur opérationnel (client_organisateur et gestionnaire exclus, tranché Val) · B-2 garde brouillons tiers ajoutée à `f_collecte_visible` (chemin lieu). Bloc D : +12 pgTAP. / Antérieure : 2026-06-07 (test-scenarios §09 RLS transverse lot ⑪ — F1 policy UPDATE `collecte_flux` admin+ops (pesées) · F2 règle staff canonique + helper `f_is_staff()` · F3 `f_collecte_editable` étendue UPDATE manager+agence · F4 `users` SELECT org-wide traiteur_commercial · pgTAP Bloc D complété / Antérieure même jour : test-scenarios §06.05 lot ⑤ — F5 matrice `users` gestionnaire_lieux org-wide · F6 `factures` + `shared.fichiers` SELECT self gestionnaire · F3 prédicat `evenements` brouillons tiers exclus · F4 `f_collecte_editable` sur UPDATE gestionnaire · 5 tests pgTAP ajoutés Bloc D)
 
 ---
 
@@ -246,7 +244,9 @@ Même logique que `bordereaux_savr` (y compris la ligne `client_organisateur`, B
 | admin_savr | ALL                                                                                                                                                                                                         | ALL    | ALL    | ALL    |
 | autres     | `id IN (SELECT lieu_id FROM organisations_lieux WHERE organisation_id = auth.jwt()->>'organisation_id')` OR `id IN (SELECT lieu_id FROM evenements WHERE organisation_id = auth.jwt()->>'organisation_id')` | —      | —      | —      |
 
-### Tables référentiel (`associations`, `transporteurs`, `flux_dechets`, `types_evenements`, `contacts_traiteurs`)
+### Tables référentiel (`associations`, `transporteurs`, `flux_dechets`, `types_evenements`)
+
+> ⚠ **`contacts_traiteurs` n'est PAS un référentiel public (divergence M0.6, 2026-06-22)** : la table est **org-scopée** (`organisation_id NOT NULL`) et porte des **PII** (`prenom`, `nom`, `telephone`, `email`). Lecture réservée à `admin_savr`, `ops_savr` et aux `traiteur_manager`/`traiteur_commercial` de l'organisation propriétaire (scopé `organisation_id`). La policy littérale `ct_read` (`auth.role() = 'authenticated'`) ouvrait par erreur la lecture cross-organisation → fuite PII (viole §09 cloisonnement + §15 RGPD). Corrigée par migration `20260622150000` (DROP `ct_read`, retour DENY ALL). pgTAP : DENY cross-org `M0_6__cat_4.test.sql` T63/T64.
 
 > ⚠ **`prestataires_logistiques` retirée de cette ligne (audit RLS 2026-06-11, B-4)** : la table est migrée vers `shared.prestataires` (2026-04-23) dont le SELECT est **`admin_savr`/`ops_savr` uniquement** (addendum cross-schema en tête de ce document). L'ancienne mention ici ouvrait par erreur la lecture du réseau logistique Savr à tous les rôles clients. pgTAP : `prestataires_client_roles_denied`.
 
@@ -254,7 +254,7 @@ Même logique que `bordereaux_savr` (y compris la ligne `client_organisateur`, B
 |------|--------|--------|--------|--------|
 | admin_savr | ALL | ALL | ALL | ALL |
 | traiteur_manager / traiteur_commercial | ALL référentiels + `contacts_traiteurs` limité à `organisation_id = auth.jwt()->>'organisation_id'` | `contacts_traiteurs` (organisation_id = sien) | `contacts_traiteurs` (organisation_id = sien) | — (soft seulement) |
-| autres | ALL référentiels (lecture) | — | — | — |
+| autres | **Référentiels globaux uniquement** (`associations`, `transporteurs`, `flux_dechets`, `types_evenements`) en lecture. **Aucun accès à `contacts_traiteurs`** (org-scopé, PII — lecture réservée à `admin_savr`, `ops_savr` et aux traiteurs de l'organisation propriétaire). | — | — | — |
 
 ### Table `tournees`
 

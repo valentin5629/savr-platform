@@ -22,10 +22,18 @@ const VALID_BODY = {
   acceptation_cgu: true,
 };
 
+// Le signup est rate-limité (5/IP/heure, §15 §2.6). Chaque test = un client
+// distinct → IP dédiée (x-forwarded-for, IPs de doc RFC 5737) pour rester
+// indépendant du quota partagé du worker Playwright.
+function signupHeaders(ip: string): Record<string, string> {
+  return { 'x-forwarded-for': ip };
+}
+
 // ── AUTH-E2E-1 : Email jetable → 422 ────────────────────────────────────────
 test('AUTH-E2E-1 — signup email jetable retourne 422', async ({ request }) => {
   const res = await request.post(SIGNUP_URL, {
     data: { ...VALID_BODY, email: 'test@mailinator.com' },
+    headers: signupHeaders('198.51.100.1'),
   });
   expect(res.status()).toBe(422);
   const body = await res.json();
@@ -37,7 +45,10 @@ test('AUTH-E2E-2 — signup sans prenom retourne 422', async ({ request }) => {
   const body = Object.fromEntries(
     Object.entries(VALID_BODY).filter(([k]) => k !== 'prenom'),
   );
-  const res = await request.post(SIGNUP_URL, { data: body });
+  const res = await request.post(SIGNUP_URL, {
+    data: body,
+    headers: signupHeaders('198.51.100.2'),
+  });
   expect(res.status()).toBe(422);
 });
 
@@ -47,7 +58,10 @@ test('AUTH-E2E-2b — signup sans raison_sociale retourne 422', async ({
   const body = Object.fromEntries(
     Object.entries(VALID_BODY).filter(([k]) => k !== 'raison_sociale'),
   );
-  const res = await request.post(SIGNUP_URL, { data: body });
+  const res = await request.post(SIGNUP_URL, {
+    data: body,
+    headers: signupHeaders('198.51.100.3'),
+  });
   expect(res.status()).toBe(422);
 });
 
@@ -57,6 +71,7 @@ test('AUTH-E2E-3 — signup sans acceptation CGU retourne 422', async ({
 }) => {
   const res = await request.post(SIGNUP_URL, {
     data: { ...VALID_BODY, acceptation_cgu: false },
+    headers: signupHeaders('198.51.100.4'),
   });
   expect(res.status()).toBe(422);
   const body = await res.json();
@@ -69,6 +84,7 @@ test('AUTH-E2E-4 — signup type_profil invalide retourne 422', async ({
 }) => {
   const res = await request.post(SIGNUP_URL, {
     data: { ...VALID_BODY, type_profil: 'client_organisateur' },
+    headers: signupHeaders('198.51.100.5'),
   });
   expect(res.status()).toBe(422);
   const body = await res.json();
@@ -82,7 +98,10 @@ test('AUTH-E2E-4 — signup type_profil invalide retourne 422', async ({
 test('AUTH-E2E-5 — signup JSON malformé retourne 400', async () => {
   const res = await fetch(`${BASE_URL}${SIGNUP_URL}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...signupHeaders('198.51.100.6'),
+    },
     body: '{broken',
   });
   expect(res.status).toBe(400);

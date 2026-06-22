@@ -35,11 +35,11 @@ export async function runPdfWorker(
     errors: [],
   };
 
-  // Claim jusqu'à 5 jobs pending/retrying dont la prochaine tentative est passée
+  // Claim jusqu'à 5 jobs pending/failed dont la prochaine tentative est passée
   const { data: jobs, error: claimErr } = await supabase
     .from('jobs_pdf')
     .select('id, type_document, entity_type, entity_id, payload, attempts')
-    .in('statut', ['pending', 'failed', 'retrying'])
+    .in('statut', ['pending', 'failed'])
     .or(`next_retry_at.is.null,next_retry_at.lte.${new Date().toISOString()}`)
     .order('created_at', { ascending: true })
     .limit(5);
@@ -51,13 +51,13 @@ export async function runPdfWorker(
     // un opérateur scalaire PostgREST → matchait 0 ligne, mais le code poursuivait
     // sans vérifier → deux crons chevauchants généraient 2× le même PDF (doc
     // fiscal en double, 2 uploads R2, 2 lignes shared.fichiers). On transitionne
-    // pending/failed/retrying → processing et on ne traite QUE si une ligne a été
+    // pending/failed → processing et on ne traite QUE si une ligne a été
     // réellement verrouillée (RETURNING). Sinon, un run concurrent l'a déjà prise.
     const { data: claimed } = await supabase
       .from('jobs_pdf')
       .update({ statut: 'processing', updated_at: new Date().toISOString() })
       .eq('id', job.id)
-      .in('statut', ['pending', 'failed', 'retrying'])
+      .in('statut', ['pending', 'failed'])
       .select('id');
 
     if (!claimed?.length) continue; // déjà claimé par un run concurrent → skip

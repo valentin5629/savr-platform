@@ -8,8 +8,8 @@
 `schema_cible_v2.sql` — DDL PostgreSQL **exécutable**, représentation **structurelle** du data model complet **V1+V2** (Plateforme + TMS natif + shared).
 
 - **88 tables** : 54 `plateforme.*` (48 V1 + 6 Module 19 V2), 32 `tms.*` (dont `tms.audit_logs`, ex-`shared.audit_logs` rapatriée 2026-06-11), 2 `shared.*` (`fichiers`, `prestataires`). *(+1 table 2026-06-10 : `plateforme.jobs_pdf` — challenge Frontière G1, file PDF manquante.)*
-- **55 types** ENUM + 158 foreign keys (section dédiée, ordre-indépendant ; `tms.audit_logs.acteur_user_id` sans FK — snapshot append-only). *(+2 enums 2026-06-10 : `statut_verification_siret`/`statut_verification_tva` + 4 colonnes `entites_facturation` — challenge onboarding ; +1 enum `type_document_pdf` + FK `jobs_pdf.fichier_id → shared.fichiers` — challenge Frontière.)*
-- Validé par le **vrai parseur PostgreSQL** (libpg_query / pglast v7.14) : grammaire OK (308 statements), tous les types définis (55 enums), toutes les FK (158) pointent vers une table+colonne existante, cloisonnement cross-schema respecté (seules les FK vers `shared.*` traversent les schémas). Dernière revalidation : 2026-06-11.
+- **56 types** ENUM + 158 foreign keys (section dédiée, ordre-indépendant ; `tms.audit_logs.acteur_user_id` sans FK — snapshot append-only). *(+2 enums 2026-06-10 : `statut_verification_siret`/`statut_verification_tva` + 4 colonnes `entites_facturation` — challenge onboarding ; +1 enum `type_document_pdf` + FK `jobs_pdf.fichier_id → shared.fichiers` — challenge Frontière. +1 enum 2026-06-19 : `mode_facturation_zd_enum` patch M1.7.)*
+- Validé par le **vrai parseur PostgreSQL** (libpg_query / pglast v7.14) : grammaire OK (309 statements), tous les types définis (56 enums), toutes les FK (158) pointent vers une table+colonne existante, cloisonnement cross-schema respecté (seules les FK vers `shared.*` traversent les schémas). Dernière revalidation : 2026-06-11 (revalidation pglast à rejouer après ce patch).
 
 ## Périmètre (décision Val 2026-06-08)
 
@@ -63,5 +63,7 @@ Gelé le **2026-06-08**. **Regelé le 2026-06-10** (challenge Frontière : + `pl
 - PK composite **`(id, created_at)`** sur `tms.audit_logs` + `tms.integrations_logs` (partitionnement).
 
 Revalidé libpg_query/pglast v7.14 : **308 statements OK, 88 tables (54+32+2), 55 enums, 158 FK, cloisonnement cross-schema respecté.** Comptes inchangés (la table audit a changé de schéma, pas le total).
+
+**Regelé le 2026-06-19 (patch M1.7 facturation)** : `plateforme.mode_facturation_zd_enum` ajouté (enum `par_collecte | mensuelle`, colonne `organisations.mode_facturation_zd NOT NULL DEFAULT 'par_collecte'`). Décision Val 2026-06-14, manquait du DDL cible. Comptes : **88 tables, 56 enums (+1), 158 FK, 309 statements (+1 CREATE TYPE).** Revalidation pglast à rejouer.
 
 **Regelé le 2026-06-11 (bis — re-validation garde-fou 1 post audit RLS)** : les §04 avaient été modifiés après le regel du matin (§04 TMS 09:53, §04 App 12:27 audit RLS). Diff complet rejoué — **un seul delta structurel** : `tms.pesees.flux` passe de CHECK applicatif à **CHECK DB sur les 6 valeurs d'écriture** (`biodechet`,`emballage`,`carton`,`verre`,`dechet_residuel`,`don_alimentaire` — §04 TMS « Compat flux » durci 2026-06-11). Les modifs audit RLS du §04 App (Q2 `entites_facturation`, B-6 `v_registre_dechets` SECURITY DEFINER) sont hors périmètre DDL (policies/vues). Comptes inchangés : 88 tables, 55 enums, 158 FK.

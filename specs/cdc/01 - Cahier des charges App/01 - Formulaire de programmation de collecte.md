@@ -264,12 +264,11 @@ Le sélecteur "Traiteur opérant" apparaît à l'étape 1 (bloc choix des types 
 
 | Champ (saisie shadow) | Obligatoire | Règle |
 |----------------------|-------------|-------|
-| Nom commercial | Oui | Texte libre, 2 caractères min |
+| Nom commercial | Oui | Texte libre, 2 caractères min — persisté sur **`organisations.nom`** (pas de colonne `nom_commercial` sur `organisations`) |
 | Raison sociale | Oui | Texte libre |
 | SIRET | **Fortement recommandé** (non bloquant) | 14 chiffres, validation API INSEE/Sirene si saisi. **Alerte UX rouge si vide** : "Sans SIRET, le bordereau réglementaire ne pourra pas être généré et le traiteur opérationnel ne sera pas conforme aux obligations de traçabilité déchets." |
-| Ville | Non | Texte libre (siège social) |
 
-À validation : création d'une row `organisations` avec `type='traiteur'`, `est_shadow=true`, `cree_par_organisation_id = agence.organisation_id`. Pas de `users`, pas d'`entites_facturation`. Notification Admin Savr → revue manuelle.
+À validation : création d'une row `organisations` avec `type='traiteur'`, `est_shadow=true`, `cree_par_organisation_id = agence.organisation_id`. Pas de `users`, pas d'`entites_facturation`. **Notification Admin Savr = in-app uniquement** (code `shadow_traiteur_cree`, via `f_upsert_alerte_admin`, dédupliquée) — **aucun email** (décision F3 2026-06-07). Source de vérité adresse/SIRET = `entites_facturation` (non créée à ce stade) — pas de colonne `nom_commercial` ni `ville` sur `organisations`. *(correctif D2 2026-06-17)*
 
 **Conséquences aval** : événement créé sur la fiche shadow ; bordereau ZD snapshote le shadow comme producteur (bloqué en `brouillon` si SIRET manquant) ; attestation de don AG snapshote l'**agence** comme donateur fiscal (programmateur=facturé) ; pack AG décompté = celui de l'agence.
 

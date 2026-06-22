@@ -1,12 +1,12 @@
 # Rapport export dev-facing
 
 Mode : AGGRESSIVE (T1+T2)
-**Total : 286099 -> 270937 octets (-15162, -5.3%)**
+**Total : 286107 -> 270945 octets (-15162, -5.3%)**
 
 
 ## 04 - Data Model.md
-- octets : 286099 -> 270937 (-15162, -5.3%)
-- tokens estimes : ~71524 -> ~67734
+- octets : 286107 -> 270945 (-15162, -5.3%)
+- tokens estimes : ~71526 -> ~67736
 - tombstones supprimes : 30 | fragments barres retires : 35 | en-tetes debarres : 7
 - lignes historiques T2 supprimees : 3
 - ⚠ tombstones en prose a revoir a la main :

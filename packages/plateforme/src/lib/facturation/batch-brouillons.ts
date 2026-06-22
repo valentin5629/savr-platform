@@ -85,13 +85,20 @@ export async function runBatchBrouillonsJ1(
   }
   if (!collectes?.length) return result;
 
-  // Exclure celles déjà facturées (brouillon actif)
+  // Exclure celles DÉJÀ FACTURÉES — définition « non facturée » (§06.08 Reco B,
+  // miroir du trigger fn_trg_fc_collecte_non_facturee) = aucune ligne sur une
+  // facture statut≠annulee ET type≠avoir. M4 : filtrer auparavant sur la seule
+  // présence d'une ligne (facture_id NOT NULL) gardait en exclusion les collectes
+  // dont l'unique facture avait été annulée par un avoir → jamais re-facturées
+  // (perte de CA). On joint donc `factures` et on n'exclut que les collectes
+  // rattachées à une facture ACTIVE (non annulée, non avoir).
   const collecteIds = collectes.map((c: { id: string }) => c.id);
   const { data: dejasFC } = await supabase
     .from('factures_collectes')
-    .select('collecte_id')
+    .select('collecte_id, factures!inner(statut, type)')
     .in('collecte_id', collecteIds)
-    .not('facture_id', 'is', null);
+    .neq('factures.statut', 'annulee')
+    .neq('factures.type', 'avoir');
 
   type FCRow = { collecte_id: string };
   const dejaIds = new Set(

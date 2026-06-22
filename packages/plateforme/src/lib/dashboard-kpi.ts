@@ -35,6 +35,7 @@ interface AttrRow {
   volume_repas_realise?: number | null;
 }
 interface EvtRow {
+  id?: string | null;
   pax?: number | null;
 }
 
@@ -62,6 +63,30 @@ function evtOf(row: DashboardCollecteRow): EvtRow | undefined {
 
 export function paxOf(row: DashboardCollecteRow): number {
   return evtOf(row)?.pax ?? 0;
+}
+
+/**
+ * Σ pax sur les ÉVÉNEMENTS DISTINCTS (M3).
+ * Un événement à 2+ collectes ne compte son pax qu'une seule fois — réplique la
+ * vue de référence v_kpi_traiteur (SUM sur DISTINCT ON (…, evenement_id) pax).
+ * Sommer paxOf par ligne collecte gonflait le pax → kg/pax & repas/pax faux.
+ * Repli : une ligne sans evenement_id garde l'ancien comportement (comptée seule).
+ */
+export function paxTotalEvenementsDistincts(
+  rows: DashboardCollecteRow[],
+): number {
+  const parEvenement = new Map<string, number>();
+  let sansId = 0;
+  for (const r of rows) {
+    const e = evtOf(r);
+    const pax = e?.pax ?? 0;
+    const id = e?.id ?? null;
+    if (id == null) sansId += pax;
+    else if (!parEvenement.has(id)) parEvenement.set(id, pax);
+  }
+  let total = sansId;
+  for (const p of parEvenement.values()) total += p;
+  return total;
 }
 
 function tonnageOf(row: DashboardCollecteRow): number {
@@ -100,7 +125,8 @@ export function computeDashboardKpi(
 ): DashboardKpi {
   if (rows.length === 0) return emptyKpi(type);
 
-  const paxTotal = rows.reduce((s, r) => s + paxOf(r), 0);
+  // M3 : dédup par événement (pas par ligne collecte).
+  const paxTotal = paxTotalEvenementsDistincts(rows);
 
   if (type === 'zero_dechet') {
     const tonnage = rows.reduce((s, r) => s + tonnageOf(r), 0);

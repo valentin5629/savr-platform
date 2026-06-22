@@ -92,10 +92,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         )
       );
     }, 0);
-    const paxTotal = rows.reduce((s, c) => {
-      const evt = Array.isArray(c.evenements) ? c.evenements[0] : c.evenements;
-      return s + ((evt as { pax?: number })?.pax ?? 0);
-    }, 0);
+    const paxTotal = paxTotalDistinct(rows);
     // Taux pondéré excluant NULL
     const { tauxNum, tauxDen } = rows.reduce(
       (acc, c) => {
@@ -141,10 +138,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         )
       );
     }, 0);
-    const paxTotal = rows.reduce((s, c) => {
-      const evt = Array.isArray(c.evenements) ? c.evenements[0] : c.evenements;
-      return s + ((evt as { pax?: number })?.pax ?? 0);
-    }, 0);
+    const paxTotal = paxTotalDistinct(rows);
     const repasParPax = paxTotal > 0 ? repasTotal / paxTotal : null;
     kpis = {
       nb_collectes: nbCollectes,
@@ -162,6 +156,30 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .maybeSingle();
 
   return NextResponse.json({ data: { kpis, pack: pack ?? null } });
+}
+
+// M3 : Σ pax sur les ÉVÉNEMENTS DISTINCTS — un événement à 2+ collectes ne
+// compte son pax qu'une fois (réplique v_kpi_traiteur). Sommer evt.pax par ligne
+// collecte gonflait le pax → kg/pax & repas/pax faux.
+type RowAvecEvt = {
+  evenements:
+    | { id?: string | null; pax?: number | null }
+    | Array<{ id?: string | null; pax?: number | null }>
+    | null;
+};
+function paxTotalDistinct(rows: RowAvecEvt[]): number {
+  const parEvenement = new Map<string, number>();
+  let sansId = 0;
+  for (const c of rows) {
+    const evt = Array.isArray(c.evenements) ? c.evenements[0] : c.evenements;
+    const pax = evt?.pax ?? 0;
+    const id = evt?.id ?? null;
+    if (id == null) sansId += pax;
+    else if (!parEvenement.has(id)) parEvenement.set(id, pax);
+  }
+  let total = sansId;
+  for (const p of parEvenement.values()) total += p;
+  return total;
 }
 
 function nullKpis(type: string): Record<string, null> {

@@ -83,8 +83,10 @@ export async function creerAvoir(
     };
   }
 
-  // 2. Attribuer numéro AV
-  const numeroAvoir = await attribuerNumeroFacture(supabase, 'AV');
+  // 2. (M9) Le numéro AV n'est PAS attribué ici. Il l'est au plus tard, juste
+  // avant le push Pennylane (cf. étape 5) — sinon un INSERT d'avoir en échec
+  // laisserait un trou dans la séquence gapless. L'avoir est créé en brouillon
+  // sans numéro.
   const now = new Date();
   const dateStr = now.toISOString().split('T')[0]!;
 
@@ -98,7 +100,6 @@ export async function creerAvoir(
       type: 'avoir',
       mode_facturation: 'par_collecte',
       statut: 'brouillon',
-      numero_facture: numeroAvoir,
       montant_ht: -origine.montant_ht,
       taux_tva: origine.taux_tva,
       montant_tva: -origine.montant_tva,
@@ -134,11 +135,14 @@ export async function creerAvoir(
 
   await supabase.from('factures_collectes').insert(lignes);
 
-  // 5. Passer la facture d'origine en 'annulee'
-  await supabase
-    .from('factures')
-    .update({ statut: 'annulee', updated_at: now.toISOString() })
-    .eq('id', factureId);
+  // 5. (M9) Attribuer le numéro AV au plus tard : l'INSERT de l'avoir + des
+  // lignes a réussi, consommer un numéro est désormais sûr (pas de trou si
+  // l'INSERT avait échoué). Le numéro est conservé sur le brouillon en cas
+  // d'échec du push → la reprise (renvoyerFacture) le réutilise, gapless.
+  // NB : l'origine N'EST PLUS annulée ici — c'est le trigger
+  // trg_avoir_annule_origine qui le fait quand l'avoir atteint 'emise' (succès
+  // du push), ce qui couvre aussi la reprise via le worker retry.
+  const numeroAvoir = await attribuerNumeroFacture(supabase, 'AV');
 
   // 6. Push Pennylane credit_note (même flux que facture normale)
   const ef = origine.entites_facturation;
@@ -163,11 +167,12 @@ export async function creerAvoir(
     })),
   };
 
-  // Marquer en_attente_pennylane
+  // Marquer en_attente_pennylane + enregistrer le numéro (conservé si échec)
   await supabase
     .from('factures')
     .update({
       statut: 'en_attente_pennylane',
+      numero_facture: numeroAvoir,
       pennylane_statut: 'processing',
       derniere_tentative_pennylane_at: now.toISOString(),
       updated_at: now.toISOString(),

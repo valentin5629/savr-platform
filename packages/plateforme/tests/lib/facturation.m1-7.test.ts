@@ -546,13 +546,16 @@ describe('M1.7 / creerAvoir / Succès sur facture emise', () => {
     vi.clearAllMocks();
   });
 
-  it('R-AV1 : avoir sur facture emise → avoir créé, facture origine annulee, push Pennylane', async () => {
+  it('R-AV1 : avoir sur facture emise → avoir créé + passé à emise, push Pennylane', async () => {
+    // M9 : l'origine n'est plus annulée par le code de creerAvoir mais par le
+    // trigger trg_avoir_annule_origine quand l'avoir atteint 'emise' (couvre
+    // aussi la reprise). L'annulation de l'origine est vérifiée en pgTAP
+    // (avoir_annule_origine.test.sql) ; ici on prouve le chemin de succès.
     const sb = makeSupabase([
       { data: FACTURE_EMISE, error: null }, // load facture
       { data: { id: 'av-001' }, error: null }, // insert avoir (single)
       { data: null, error: null }, // insert lignes avoir
-      { data: null, error: null }, // update facture origine annulee
-      { data: null, error: null }, // update en_attente_pennylane
+      { data: null, error: null }, // update en_attente_pennylane (numéro tardif)
       { data: null, error: null }, // update pennylane_id
       { data: null, error: null }, // update emise
     ]);
@@ -568,11 +571,16 @@ describe('M1.7 / creerAvoir / Succès sur facture emise', () => {
     expect(result.numero_avoir).toBe('AV-2026-00001');
     expect(result.avoir_id).toBeDefined();
 
-    // Facture origine passée en annulee
+    // L'avoir atteint 'emise' (déclencheur de l'annulation d'origine côté DB).
     const updateCalls = (sb._chain.update as ReturnType<typeof vi.fn>).mock
       .calls as Array<[Record<string, unknown>]>;
-    const annuleeUpdate = updateCalls.find((c) => c[0].statut === 'annulee');
-    expect(annuleeUpdate).toBeDefined();
+    const emiseUpdate = updateCalls.find((c) => c[0].statut === 'emise');
+    expect(emiseUpdate).toBeDefined();
+    // Le numéro est attribué et persisté (au plus tard, avant le push).
+    const numeroUpdate = updateCalls.find(
+      (c) => c[0].numero_facture === 'AV-2026-00001',
+    );
+    expect(numeroUpdate).toBeDefined();
   });
 });
 
@@ -664,6 +672,49 @@ describe('M1.7 / BatchBrouillons / ZD par_collecte', () => {
 
     expect(result.errors).toHaveLength(0);
     expect(result.skipped_siret).toBe(0);
+  });
+});
+
+describe('Lot B / M4 — exclusion "déjà facturée" ignore annulee + avoir', () => {
+  afterEach(() => vi.clearAllMocks());
+
+  it('R-BB-M4 : la requête "déjà facturées" filtre statut≠annulee ET type≠avoir', async () => {
+    const sb = makeSupabase([
+      { data: [COLLECTE_ZD_CLOTUREE], error: null }, // select collectes
+      { data: [], error: null }, // dejasFC : aucune facture ACTIVE → re-facturable
+      {
+        data: {
+          montant_ht: 590,
+          montant_brut_ht: 590,
+          tarif_id: 'tar-1',
+          remise_pct_cumulee: 0,
+        },
+        error: null,
+      },
+      { data: { id: 'fac-new' }, error: null },
+      { data: null, error: null },
+    ]);
+    sb._rpcSingle.mockResolvedValue({
+      data: {
+        montant_ht: 590,
+        montant_brut_ht: 590,
+        tarif_id: 'tar-1',
+        remise_pct_cumulee: 0,
+      },
+      error: null,
+    });
+    (sb._chain.single as ReturnType<typeof vi.fn>).mockResolvedValue({
+      data: { id: 'fac-new' },
+      error: null,
+    });
+
+    await runBatchBrouillonsJ1(sb as never);
+
+    // Garde anti-régression : sans ces filtres, une collecte dont la facture a été
+    // annulée par un avoir resterait exclue (ancien `.not('facture_id','is',null)`).
+    const neqCalls = (sb._chain.neq as ReturnType<typeof vi.fn>).mock.calls;
+    expect(neqCalls).toContainEqual(['factures.statut', 'annulee']);
+    expect(neqCalls).toContainEqual(['factures.type', 'avoir']);
   });
 });
 
@@ -841,14 +892,13 @@ describe('M1.7 / creerAvoir / Succès sur facture payee', () => {
     vi.clearAllMocks();
   });
 
-  it('R-AV3 : avoir sur facture payee → avoir créé, origine annulee, push Pennylane', async () => {
+  it('R-AV3 : avoir sur facture payee → avoir créé + passé à emise, push Pennylane', async () => {
     const facturePayee = { ...FACTURE_EMISE, statut: 'payee' };
     const sb = makeSupabase([
       { data: facturePayee, error: null }, // load facture
       { data: { id: 'av-002' }, error: null }, // insert avoir (single)
       { data: null, error: null }, // insert lignes avoir
-      { data: null, error: null }, // update facture origine annulee
-      { data: null, error: null }, // update en_attente_pennylane
+      { data: null, error: null }, // update en_attente_pennylane (numéro tardif)
       { data: null, error: null }, // update pennylane_id
       { data: null, error: null }, // update emise
     ]);
@@ -863,10 +913,11 @@ describe('M1.7 / creerAvoir / Succès sur facture payee', () => {
     expect(result.ok).toBe(true);
     expect(result.numero_avoir).toBe('AV-2026-00002');
 
+    // M9 : avoir passé à 'emise' (l'origine est annulée par trigger côté DB).
     const updateCalls = (sb._chain.update as ReturnType<typeof vi.fn>).mock
       .calls as Array<[Record<string, unknown>]>;
-    const annuleeUpdate = updateCalls.find((c) => c[0].statut === 'annulee');
-    expect(annuleeUpdate).toBeDefined();
+    const emiseUpdate = updateCalls.find((c) => c[0].statut === 'emise');
+    expect(emiseUpdate).toBeDefined();
   });
 });
 

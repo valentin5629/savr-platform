@@ -47,14 +47,22 @@ export async function runPdfWorker(
   if (claimErr || !jobs?.length) return result;
 
   for (const job of jobs as JobRow[]) {
-    result.processed++;
-
-    // Marquer processing
-    await supabase
+    // M5 : claim ATOMIQUE. L'ancien `.eq('statut', [array])` passait un tableau à
+    // un opérateur scalaire PostgREST → matchait 0 ligne, mais le code poursuivait
+    // sans vérifier → deux crons chevauchants généraient 2× le même PDF (doc
+    // fiscal en double, 2 uploads R2, 2 lignes shared.fichiers). On transitionne
+    // pending/failed/retrying → processing et on ne traite QUE si une ligne a été
+    // réellement verrouillée (RETURNING). Sinon, un run concurrent l'a déjà prise.
+    const { data: claimed } = await supabase
       .from('jobs_pdf')
       .update({ statut: 'processing', updated_at: new Date().toISOString() })
       .eq('id', job.id)
-      .eq('statut', ['pending', 'retrying'] as unknown as string); // optimistic
+      .in('statut', ['pending', 'failed', 'retrying'])
+      .select('id');
+
+    if (!claimed?.length) continue; // déjà claimé par un run concurrent → skip
+
+    result.processed++;
 
     try {
       const pdfType = job.type_document as

@@ -122,4 +122,68 @@ describe('M0.9 — sanitizePayload (RGPD)', () => {
     expect(result.collecte_id).toBe('abc');
     expect(result.poids_kg).toBe(42);
   });
+
+  it('masque un email niché dans un objet imbriqué', () => {
+    const result = sanitizePayload({
+      user: { prenom: 'Val', email: 'valentin@gosavr.io' },
+    });
+    const user = result.user as Record<string, unknown>;
+    expect(user.email).not.toBe('valentin@gosavr.io');
+    expect(user.email).toContain('***');
+    // La clé voisine non sensible reste intacte.
+    expect(user.prenom).toBe('Val');
+  });
+
+  it('masque les emails dans un tableau d’objets imbriqués', () => {
+    const result = sanitizePayload({
+      items: [
+        { id: 1, email: 'a@b.io' },
+        { id: 2, email: 'c@d.io' },
+      ],
+    });
+    const items = result.items as Array<Record<string, unknown>>;
+    expect(items[0]!.email).toContain('***');
+    expect(items[0]!.email).not.toBe('a@b.io');
+    expect(items[1]!.email).toContain('***');
+    expect(items[0]!.id).toBe(1);
+  });
+
+  it('masque toute clé contenant « email » (pas seulement === email)', () => {
+    const result = sanitizePayload({ contact_email: 'jean@traiteur.fr' });
+    expect(result.contact_email).not.toBe('jean@traiteur.fr');
+    expect(result.contact_email).toContain('***');
+  });
+
+  it('masque telephone, phone et siret ([REDACTED])', () => {
+    const result = sanitizePayload({
+      telephone: '0601020304',
+      phone: '+33601020304',
+      siret: '12345678900011',
+    });
+    expect(result.telephone).toBe('[REDACTED]');
+    expect(result.phone).toBe('[REDACTED]');
+    expect(result.siret).toBe('[REDACTED]');
+  });
+
+  it('masque telephone/siret nichés en profondeur', () => {
+    const result = sanitizePayload({
+      org: { contact: { telephone: '0601020304', siret: '12345678900011' } },
+    });
+    const contact = (result.org as Record<string, unknown>).contact as Record<
+      string,
+      unknown
+    >;
+    expect(contact.telephone).toBe('[REDACTED]');
+    expect(contact.siret).toBe('[REDACTED]');
+  });
+
+  it('ne sur-masque PAS un email déjà haché ni le montant de facture', () => {
+    // §07/01 : actor_email_hash doit rester lisible pour corrélation (pas d'@).
+    const result = sanitizePayload({
+      actor_email_hash: 'a1b2c3d4e5',
+      montant_ttc: 1234.56,
+    });
+    expect(result.actor_email_hash).toBe('a1b2c3d4e5');
+    expect(result.montant_ttc).toBe(1234.56);
+  });
 });

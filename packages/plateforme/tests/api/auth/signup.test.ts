@@ -9,6 +9,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
+import { _resetSignupRateLimit } from '@/lib/signup-rate-limit.js';
 
 type Resp = { data?: unknown; error?: unknown };
 
@@ -93,11 +94,15 @@ vi.mock('@savr/shared/src/api/tva.js', () => ({
   verifyTva: vi.fn().mockResolvedValue('valide'),
 }));
 
-function makeReq(body: unknown): NextRequest {
+function makeReq(body: unknown, ip?: string): NextRequest {
+  const headers: Record<string, string> = {
+    'content-type': 'application/json',
+  };
+  if (ip) headers['x-forwarded-for'] = ip;
   return new NextRequest('http://localhost/api/auth/signup', {
     method: 'POST',
     body: JSON.stringify(body),
-    headers: { 'content-type': 'application/json' },
+    headers,
   });
 }
 
@@ -114,6 +119,7 @@ const VALID_BODY = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  _resetSignupRateLimit();
   lastTable = '';
   insertCalls = [];
   deleteCalls = [];
@@ -170,5 +176,31 @@ describe('signup / nouvelle organisation (BUG 1)', () => {
     void telephone;
     const res = await POST(makeReq(sansTel));
     expect(res.status).toBe(422);
+  });
+});
+
+describe('signup / rate-limiting (§15 §2.6 — max 5/IP/heure)', () => {
+  it('429 + Retry-After à la 6e tentative sur la même IP', async () => {
+    const { POST } = await import('@/app/api/auth/signup/route.js');
+    const IP = '203.0.113.7';
+
+    // Les 5 premières passent (ne sont pas bloquées par le limiteur).
+    for (let i = 0; i < 5; i++) {
+      const res = await POST(makeReq(VALID_BODY, IP));
+      expect(res.status).not.toBe(429);
+    }
+
+    // La 6e est refusée AVANT tout travail DB.
+    const sixth = await POST(makeReq(VALID_BODY, IP));
+    expect(sixth.status).toBe(429);
+    expect(sixth.headers.get('Retry-After')).toBeTruthy();
+  });
+
+  it('une autre IP n’est pas affectée par le quota d’une IP saturée', async () => {
+    const { POST } = await import('@/app/api/auth/signup/route.js');
+    for (let i = 0; i < 6; i++) await POST(makeReq(VALID_BODY, '203.0.113.7'));
+
+    const autre = await POST(makeReq(VALID_BODY, '198.51.100.9'));
+    expect(autre.status).not.toBe(429);
   });
 });

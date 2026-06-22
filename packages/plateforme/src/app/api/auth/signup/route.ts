@@ -4,6 +4,10 @@ import { isDisposableEmail } from '@savr/shared/src/email-denylist.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
 import { verifySiret } from '@savr/shared/src/api/siret.js';
 import { verifyTva } from '@savr/shared/src/api/tva.js';
+import {
+  checkSignupRateLimit,
+  extractClientIp,
+} from '@/lib/signup-rate-limit.js';
 
 const TYPE_PROFIL = ['traiteur', 'agence', 'gestionnaire_lieux'] as const;
 type TypeProfil = (typeof TYPE_PROFIL)[number];
@@ -19,6 +23,18 @@ function rolePourDomaineConu(orgType: string): string {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  // Rate-limit best-effort en amont de tout travail DB (§15 §2.6 : max 5/IP/heure).
+  const rl = checkSignupRateLimit(extractClientIp(req));
+  if (rl.limited) {
+    return NextResponse.json(
+      { error: 'Trop de tentatives. Réessayez plus tard.' },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(rl.retryAfterSeconds) },
+      },
+    );
+  }
+
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;

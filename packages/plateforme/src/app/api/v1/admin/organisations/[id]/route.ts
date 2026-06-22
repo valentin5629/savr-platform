@@ -70,14 +70,38 @@ export async function PATCH(
     );
   }
 
-  // Champs non modifiables directement
-  const { tarif_refacture_pax_zd, grille_tarifaire_zd_id, ...rest } = body;
+  // M8 : ALLOWLIST explicite des colonnes éditables. Avant, `...rest` recopiait
+  // n'importe quelle clé du body dans l'UPDATE service_role (RLS off) → un staff
+  // ops_savr pouvait écrire des colonnes système/sensibles (est_shadow,
+  // cree_par_organisation_id, id, created_at…). On ne recopie que des champs
+  // métier connus. tarif_refacture_pax_zd / grille_tarifaire_zd_id restent
+  // admin-only (gérés séparément ci-dessous).
+  // Colonnes réelles de plateforme.organisations éditables en back-office.
+  // Exclues : id, est_shadow, cree_par_organisation_id, created_at, updated_at
+  // (système) + tarif_refacture_pax_zd, grille_tarifaire_zd_id (admin-only,
+  // gérés ci-dessous). NB : code_postal/ville n'existent PAS sur organisations.
+  const EDITABLE_FIELDS = [
+    'nom',
+    'raison_sociale',
+    'type',
+    'siret',
+    'email_principal',
+    'telephone',
+    'adresse',
+    'logo_url',
+    'notes_internes',
+    'actif',
+    'mode_facturation_zd',
+  ];
 
-  const updatePayload: Record<string, unknown> = { ...rest };
+  const updatePayload: Record<string, unknown> = {};
+  for (const field of EDITABLE_FIELDS) {
+    if (field in body) updatePayload[field] = body[field];
+  }
 
   if (auth.ctx.role === 'admin_savr') {
-    if (tarif_refacture_pax_zd !== undefined) {
-      const val = Number(tarif_refacture_pax_zd);
+    if (body.tarif_refacture_pax_zd !== undefined) {
+      const val = Number(body.tarif_refacture_pax_zd);
       if (isNaN(val) || val < 0) {
         return NextResponse.json(
           { error: 'tarif_refacture_pax_zd invalide (>= 0 requis)' },
@@ -86,15 +110,17 @@ export async function PATCH(
       }
       updatePayload.tarif_refacture_pax_zd = Math.round(val * 100) / 100;
     }
-    if (grille_tarifaire_zd_id !== undefined) {
-      updatePayload.grille_tarifaire_zd_id = grille_tarifaire_zd_id;
+    if (body.grille_tarifaire_zd_id !== undefined) {
+      updatePayload.grille_tarifaire_zd_id = body.grille_tarifaire_zd_id;
     }
   }
 
-  // Retirer les champs non éditables
-  delete updatePayload.id;
-  delete updatePayload.created_at;
-  delete updatePayload.est_shadow;
+  if (Object.keys(updatePayload).length === 0) {
+    return NextResponse.json(
+      { error: 'Aucun champ modifiable fourni' },
+      { status: 422 },
+    );
+  }
 
   const supabase = createAdminSupabaseClient();
   const { data: org, error } = await supabase

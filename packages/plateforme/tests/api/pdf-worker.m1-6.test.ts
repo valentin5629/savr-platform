@@ -62,6 +62,9 @@ function buildChain(responses: unknown[]) {
       return chain;
     });
   });
+  // Rend la chaîne thenable : un terminal `.select()`/`.eq()` awaité (ex. le claim
+  // atomique M5 `.update().eq().in().select('id')`) résout la prochaine réponse.
+  chain.then = (resolve: (v: unknown) => void) => resolve(next());
   return chain;
 }
 
@@ -81,6 +84,27 @@ describe('M1.6 / PdfWorker / Aucun job pending', () => {
   });
 });
 
+describe('Lot B / M5 — claim atomique', () => {
+  it('claim renvoie 0 ligne (déjà pris par un run concurrent) → job NON traité', async () => {
+    const job = makePendingJob();
+    vi.mocked(generatePdf).mockResolvedValue({ pdfBuffer: Buffer.from('PDF') });
+    vi.mocked(uploadPdf).mockResolvedValue('x');
+
+    const chain = buildChain([
+      { data: [job], error: null }, // select jobs
+      { data: [], error: null }, // claim → 0 ligne verrouillée (concurrent)
+    ]);
+    mockFrom.mockReturnValue(chain);
+
+    const result = await runPdfWorker(supabase);
+    // Aucune génération : le job a été sauté faute de claim.
+    expect(result.processed).toBe(0);
+    expect(result.done).toBe(0);
+    expect(generatePdf).not.toHaveBeenCalled();
+    expect(uploadPdf).not.toHaveBeenCalled();
+  });
+});
+
 describe('M1.6 / PdfWorker / Job nominal', () => {
   it('R-PDF-W1 : job pending → done après génération et upload R2', async () => {
     const job = makePendingJob();
@@ -92,7 +116,7 @@ describe('M1.6 / PdfWorker / Job nominal', () => {
 
     const chain = buildChain([
       { data: [job], error: null }, // select jobs
-      { data: null, error: null }, // update processing
+      { data: [{ id: 'job-1' }], error: null }, // M5 claim atomique → 1 ligne verrouillée
       { data: { id: 'fichier-1' }, error: null }, // insert fichiers
       { data: null, error: null }, // update jobs done
       { data: null, error: null }, // update bordereaux_savr
@@ -118,7 +142,7 @@ describe('M1.6 / PdfWorker / Retry', () => {
 
     const chain = buildChain([
       { data: [job], error: null },
-      { data: null, error: null }, // update processing
+      { data: [{ id: 'job-1' }], error: null }, // M5 claim atomique
       { data: null, error: null }, // update failed
     ]);
     mockFrom.mockReturnValue(chain);
@@ -142,7 +166,7 @@ describe('M1.6 / PdfWorker / Retry', () => {
 
     const chain = buildChain([
       { data: [job], error: null },
-      { data: null, error: null }, // update processing
+      { data: [{ id: 'job-1' }], error: null }, // M5 claim atomique
       { data: null, error: null }, // update dead
     ]);
     mockFrom.mockReturnValue(chain);
@@ -172,9 +196,10 @@ describe('M1.6 / PdfWorker / rapport-recyclage-zd', () => {
     vi.mocked(generatePdf).mockResolvedValue({ pdfBuffer: Buffer.from('PDF') });
     vi.mocked(uploadPdf).mockResolvedValue(storageKey);
 
-    // limit() consomme responses[0], single() consomme responses[1]
+    // limit → jobs ; then(claim) → ligne verrouillée ; single → insert fichiers
     const chain = buildChain([
       { data: [job], error: null }, // limit → select jobs
+      { data: [{ id: 'job-1' }], error: null }, // M5 claim atomique
       { data: { id: 'f-2' }, error: null }, // single → insert fichiers
     ]);
     mockFrom.mockReturnValue(chain);

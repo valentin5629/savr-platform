@@ -107,9 +107,9 @@ export const STATUT_COLLECTE_LIBELLE: Record<string, string> = {
 
 export const STATUT_FACTURE_LIBELLE: Record<string, string> = {
   brouillon: 'Brouillon',
-  envoyee: 'Envoyée',
+  en_attente_pennylane: 'En attente Pennylane',
+  emise: 'Émise',
   payee: 'Payée',
-  en_retard: 'En retard',
   annulee: 'Annulée',
 };
 
@@ -123,7 +123,6 @@ export const TYPE_FACTURE_LIBELLE: Record<string, string> = {
 export const STATUT_PACK_LIBELLE: Record<string, string> = {
   actif: 'Actif',
   epuise: 'Épuisé',
-  expire: 'Expiré',
   annule: 'Annulé',
 };
 

@@ -2,10 +2,13 @@
  * Régression — /admin/dashboard/revenus-organisations.
  * Verrouille le fix : le statut de facturation est porté par `factures`
  * (jointure `factures!inner(statut)`), JAMAIS par `factures_collectes`
- * (qui n'a pas de colonne `statut`) ; et le revenu = statuts envoyee/payee/en_retard
- * (jamais `emise`, valeur legacy hors flux Pennylane actif).
- * Auparavant la route filtrait `.in('statut', ['emise','payee'])` sur
- * factures_collectes → 500 silencieux, bloc « Revenus par organisation » vide.
+ * (qui n'a pas de colonne `statut`) ; et le revenu = statuts emise/payee.
+ * G1 cluster B.2 (convergence enum) : les ex-statuts envoyee/en_retard ont convergé
+ * vers `emise` (le « retard » est dérivé de date_echeance). Le filtre cible est donc
+ * `['emise','payee']` — ce qui corrige aussi un filtre legacy qui visait envoyee/en_retard,
+ * statuts jamais produits par le pipeline facturation (bloc « Revenus » resté vide).
+ * (Le filtre porte sur `factures.statut` via la jointure inner, jamais sur
+ * factures_collectes qui n'a pas de colonne statut → sinon 500 silencieux.)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
@@ -110,7 +113,7 @@ describe('admin/revenus-organisations', () => {
     expect(inArgs.some((a) => a[0] === 'statut')).toBe(false);
   });
 
-  it('revenus/statuts_revenu_envoyee_payee_en_retard — jamais emise/brouillon', async () => {
+  it('revenus/statuts_revenu_emise_payee — jamais brouillon/annulee', async () => {
     setupAuth('admin_savr');
     const { GET } =
       await import('@/app/api/v1/admin/dashboard/revenus-organisations/route.js');
@@ -118,9 +121,10 @@ describe('admin/revenus-organisations', () => {
     const statutFilter = (admin.__calls.in ?? []).find(
       (a) => a[0] === 'factures.statut',
     )?.[1] as string[] | undefined;
-    expect(statutFilter).toEqual(['envoyee', 'payee', 'en_retard']);
-    expect(statutFilter).not.toContain('emise');
+    // G1 cluster B.2 : envoyee/en_retard convergés -> emise ; revenu = emise + payee.
+    expect(statutFilter).toEqual(['emise', 'payee']);
     expect(statutFilter).not.toContain('brouillon');
+    expect(statutFilter).not.toContain('annulee');
   });
 
   it('revenus/agregation_par_organisation — somme montant_ht groupée + triée', async () => {

@@ -14,15 +14,15 @@
 
 ## Statut d'exécution
 
-| Cluster    | Enum                                                      | Action                                       | Statut                                                         |
-| ---------- | --------------------------------------------------------- | -------------------------------------------- | -------------------------------------------------------------- |
-| **A**      | `serie_facturation_enum`                                  | → `text`                                     | ✅ **EXÉCUTÉ** (migration `20260623110000`)                    |
-| **A**      | `job_statut_enum`                                         | → `text` + CHECK                             | ✅ **EXÉCUTÉ** (migration `20260623110000`)                    |
-| **B**      | `pack_statut_enum`                                        | retirer `expire`                             | ⏸ **DÉCISION VAL REQUISE** — non codé                          |
-| **B**      | `facture_statut_enum`                                     | retirer `envoyee`,`en_retard`                | ⏸ **DÉCISION VAL REQUISE** — non codé                          |
-| **B**      | `email_statut_enum`                                       | valeurs disjointes (re-modélisation)         | ⏸ **DÉCISION PRODUIT VAL REQUISE** — non codé                  |
-| **C**      | `document_statut_enum` (`documents_generaux_savr.statut`) | colonne absente du cible                     | ⏸ **DÉCISION VAL REQUISE** — non codé                          |
-| **Outbox** | `outbox_statut_enum` (`outbox_events.statut`)             | rename colonne `statut→status` + `enum→text` | ⏸ **SOUS-LOT DÉDIÉ** — décision Val, plan ci-dessous, non codé |
+| Cluster    | Enum                                                      | Action                                       | Statut                                                                                     |
+| ---------- | --------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| **A**      | `serie_facturation_enum`                                  | → `text`                                     | ✅ **EXÉCUTÉ** (migration `20260623110000`)                                                |
+| **A**      | `job_statut_enum`                                         | → `text` + CHECK                             | ✅ **EXÉCUTÉ** (migration `20260623110000`)                                                |
+| **B.1**    | `pack_statut_enum`                                        | retirer `expire` (→ `epuise`)                | ✅ **EXÉCUTÉ** (migration `20260623120000`) — GO Val 2026-06-22                            |
+| **B.2**    | `facture_statut_enum`                                     | retirer `envoyee`,`en_retard` (→ `emise`)    | ✅ **EXÉCUTÉ** (migration `20260623130000` + PR front) — GO Val 2026-06-22                 |
+| **B.3**    | `email_statut_enum`                                       | valeurs disjointes (re-modélisation)         | ⏸ **DIFFÉRÉ V1.1** (décision Val 2026-06-22) — divergence assumée, fichier `_Divergences/` |
+| **C**      | `document_statut_enum` (`documents_generaux_savr.statut`) | colonne absente du cible                     | ⏸ **DÉCISION VAL REQUISE** — non codé                                                      |
+| **Outbox** | `outbox_statut_enum` (`outbox_events.statut`)             | rename colonne `statut→status` + `enum→text` | ⏸ **SOUS-LOT DÉDIÉ** — décision Val, plan ci-dessous, non codé                             |
 
 Carte des dépendances confirmée par introspection live (chaque enum = **une seule** colonne porteuse) :
 
@@ -119,11 +119,25 @@ ORDER BY 1, 2;
 
 ---
 
-## CLUSTER B — réconciliation de VALEURS (⏸ DÉCISION VAL REQUISE — non codé)
+## CLUSTER B — réconciliation de VALEURS (✅ B.1/B.2 EXÉCUTÉS, B.3 différé)
 
 > Retirer une valeur d'un enum impose de **recréer le type** (Postgres ne sait pas `DROP VALUE`) :
 > créer le type cible, `ALTER COLUMN … TYPE … USING <mapping>`, `DROP TYPE` ancien, recréer
 > index/vues/fonctions dépendants. **Échoue si des lignes portent la valeur retirée** → mapping data requis.
+
+> ### ✅ Décisions Val (2026-06-22) — branche `fix/converge-enums-valeurs-b-cible-g1`
+>
+> - **B.1 pack** : GO, mapping `expire → epuise`. Migration `20260623120000`.
+> - **B.2 facture** : GO, mapping `envoyee → emise`, `en_retard → emise` (le « retard » devient dérivé
+>   de `date_echeance`, plus un statut stocké). Migration `20260623130000` + PR front lockstep.
+> - **B.3 email** : **différé V1.1** (valeurs disjointes, `ouvert`/`clique` exigent les webhooks Resend
+>   non branchés). Divergence V1 assumée → `~/Desktop/Obsidian Savr/_Divergences/G1_EMAIL_STATUT_20260622.md`
+>   (type `ambigu`). **Aucun code DB.** `email_statut_enum` reste l'unique enum cluster B divergent en V1.
+>
+> ⚠️ **Comptes prod (`pack`/`facture` GROUP BY statut) NON encore collectés** (accès prod interdit depuis
+> dev, CLAUDE.md §11). Les 2 migrations sont **mapping-based** (`USING CASE` total) → correctes quel que
+> soit le compte (no-op si 0 ligne portant la valeur retirée, mapping sinon). **Val à exécuter avant le
+> déploiement prod manuel** pour mesurer le volume réécrit (les requêtes sont en tête de ce fichier).
 
 ### B.1 — `pack_statut_enum` : retirer `expire`
 
@@ -142,7 +156,13 @@ ORDER BY 1, 2;
 - **Code** : recréer `pack_statut` `('actif','epuise','annule')`, `ALTER COLUMN statut` avec
   `USING (CASE WHEN statut='expire' THEN '<mapping>' ELSE statut::text END)::plateforme.pack_statut`,
   drop default → re-set `'actif'`, recréer l'index partiel `WHERE statut='actif'`, recréer les 4
-  triggers/RPC qui castent `::pack_statut_enum`. **Ne pas coder avant tranche.**
+  triggers/RPC qui castent `::pack_statut_enum`.
+- **✅ AS-BUILT (introspection live 2026-06-22)** : dépendances = colonne (DEFAULT `actif`) + index
+  partiel `uniq_pack_actif_par_org` + **4 fonctions** castant `::pack_statut_enum`
+  (`fn_trg_pack_debit_realisee`, `fn_trg_pack_debit_annulation_tardive`, `fn_trg_pack_recredit`,
+  `rpc_annuler_credit_collecte`) — **correction du mémo : `rpc_valider_attribution_ag` ne cast PAS
+  le type** (`pg_proc.prosrc` = 4, pas 5) ; `idx_packs_statut` (plain) reconstruit automatiquement ;
+  0 vue, 0 trigger-def, 0 policy. Mapping `expire → epuise`. pgTAP `g1_cluster_b_pack_statut.test.sql` (13).
 
 ### B.2 — `facture_statut_enum` : retirer `envoyee`, `en_retard`
 
@@ -160,7 +180,22 @@ ORDER BY 1, 2;
     une **date d'échéance** (`emise` + délai dépassé), pas via le statut. Refonte UI/exports requise.
 - **Code (après tranche)** : recréer `facture_statut`, `ALTER COLUMN … USING (CASE …)`, recréer
   index/fonctions de facturation castant `::facture_statut_enum`, **+ PR front** alignant
-  `revenus-organisations`, `exports/shared.ts`, les tests et les seeds. **Ne pas coder avant tranche.**
+  `revenus-organisations`, `exports/shared.ts`, les tests et les seeds.
+- **✅ AS-BUILT (introspection live 2026-06-22)** : dépendances **plus larges que le mémo** —
+  colonne (DEFAULT `brouillon`) + **3 index partiels** (`idx_factures_emises_polling`,
+  `idx_factures_attente_pennylane`, `idx_factures_statut_date_emission`, tous cible-valides) +
+  **4 vues** dépendant de la colonne (`v_factures_client`, `v_ops_factures_bloquees`, **`v_kpi_admin`,
+  `v_kpi_traiteur`** — ces 2 castent `emise`/`payee::facture_statut_enum` dans leur corps) +
+  **1 trigger** `trg_avoir_annule_origine` (`AFTER UPDATE OF statut`, droppé/recréé ; sa fonction ne
+  cast pas le type). **0 fonction castant le type**, `idx_factures_statut` (plain) auto-reconstruit.
+- **`v_ops_factures_bloquees`** : filtrait `statut='envoyee'` (vue **morte** : aucun code n'écrit
+  `envoyee`). Recréée sur `statut='en_attente_pennylane'` — **choix intentionnel** préservant l'intention
+  « factures sans retour Pennylane > 48h » (et NON `emise` = Pennylane déjà confirmé, qui ferait
+  des faux positifs). Flaggé en revue.
+- **Bug latent corrigé** : `revenus-organisations` filtrait `['envoyee','payee','en_retard']` —
+  statuts **jamais produits** par le pipeline (tout écrit `emise`/`payee`) → bloc « Revenus » resté vide.
+  Convergé en `['emise','payee']` (corrige le bloc). Front : `exports/shared.ts` (libellés facture cible
+  - retrait `expire` du libellé pack), test régression, seed `fac_zd_fleur` + audit_log. pgTAP `g1_cluster_b_facture_statut.test.sql` (13).
 
 ### B.3 — `email_statut_enum` : valeurs **disjointes** (re-modélisation produit)
 
@@ -176,6 +211,10 @@ ORDER BY 1, 2;
     ouverture/clic est branché → dans ce cas, **acter `email_statut_enum` comme divergence V1 assumée**
     (fichier `_Divergences/`, type `ambigu`) plutôt que forcer un mapping qui perd de l'information.
 - **Ne pas deviner. Ne pas coder avant tranche.** Références : `packages/shared/src/testing/mocks/resend.ts`, seeds.
+- **✅ TRANCHÉ Val 2026-06-22 : DIFFÉRÉ V1.1** (option « alternative » ci-dessus). `email_statut_enum`
+  reste en V1 avec les valeurs `('queued','sent','delivered','bounced','failed')` ; convergence quand
+  le tracking ouverture/clic (webhooks Resend) sera branché. Divergence assumée actée dans
+  `~/Desktop/Obsidian Savr/_Divergences/G1_EMAIL_STATUT_20260622.md` (type `ambigu`). **Aucun code DB.**
 
 ---
 

@@ -13,7 +13,9 @@
 
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SET search_path = plateforme, public;
+-- NB : ne PAS poser `SET search_path` ici — pgTAP (plan/is/ok/finish) est installé
+-- dans le schéma `extensions` en CI (supabase test db), pas dans `plateforme`/`public`.
+-- Tous les objets métier sont qualifiés `plateforme.*` ci-dessous.
 
 SELECT plan(4);
 

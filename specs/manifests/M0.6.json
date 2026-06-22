@@ -429,5 +429,5 @@
     },
     "status": "COMPLETE"
   },
-  "notes": "Module M0.6 complet : 64 tests pgTAP couvrant 100% des tables plateforme.*/shared.*. Catégories 1-7 avec tous les scénarios P1+P2. Assertions E3 garde-fou TMS-Ready incluses. T63/T64 ajoutés 2026-06-22 (fix fuite PII cross-org ct_read sur contacts_traiteurs, migration 20260622120000)."
+  "notes": "Module M0.6 complet : 64 tests pgTAP couvrant 100% des tables plateforme.*/shared.*. Catégories 1-7 avec tous les scénarios P1+P2. Assertions E3 garde-fou TMS-Ready incluses. T63/T64 ajoutés 2026-06-22 (fix fuite PII cross-org ct_read sur contacts_traiteurs, migration 20260622150000)."
 }

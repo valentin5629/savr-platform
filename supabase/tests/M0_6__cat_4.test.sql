@@ -292,7 +292,7 @@ SELECT results_eq(
 -- T63/T64 : contacts_traiteurs — fuite PII cross-org (régression ct_read PERMISSIVE)
 -- contacts_traiteurs porte organisation_id NOT NULL + PII (prenom/nom/telephone/email).
 -- ct_read (auth.role()='authenticated', migration 20260611180000) ouvrait la lecture à
--- TOUS les rôles authentifiés → fuite cross-org. Fix = DROP ct_read (20260622120000).
+-- TOUS les rôles authentifiés → fuite cross-org. Fix = DROP ct_read (20260622150000).
 -- Accès légitime restant : admin_savr / ops_savr / traiteurs de l'org propriétaire.
 SELECT test_as_superuser();
 INSERT INTO plateforme.contacts_traiteurs (id, organisation_id, prenom, nom, telephone, email)

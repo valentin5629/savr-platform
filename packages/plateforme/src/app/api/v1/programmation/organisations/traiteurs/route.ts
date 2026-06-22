@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireProgrammateur } from '@/lib/api-auth.js';
+import { sanitizeOrTerm } from '@/lib/api-helpers.js';
 
 // Accessible uniquement aux rôles qui programment pour le compte d'un traiteur tiers
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const supabase = createAdminSupabaseClient();
   const { searchParams } = new URL(req.url);
-  const q = searchParams.get('q') ?? '';
+  const q = sanitizeOrTerm(searchParams.get('q') ?? ''); // C2 : neutralise l'injection .or
 
   let query = supabase
     .from('organisations')

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import { serverError, writeError } from '@/lib/api-helpers.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const { data: orgs, error, count } = await query;
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error, 'admin.organisations.list');
   }
 
   // Nb collectes ZD/AG 12 derniers mois via requête séparée pour performance
@@ -156,7 +157,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 422 });
+    return writeError(error, 'admin.organisations.create');
   }
 
   return NextResponse.json(org, { status: 201 });

@@ -33,7 +33,13 @@ export interface CsvColumn<T> {
  */
 function neutraliserFormule(s: string): string {
   if (!/^[=+\-@\t\r]/.test(s)) return s;
-  if (!Number.isNaN(Number(s.replace(',', '.')))) return s; // nombre légitime
+  // Exception : UNIQUEMENT un nombre canonique — entier ou décimal (virgule FR
+  // OU point d'un Number JS stringifié), éventuellement négatif (ex. « -5,2 »,
+  // « -5.2 », « 300 »). C6 : l'ancien test `Number(s.replace(',','.'))` acceptait
+  // « +33612345678 » (téléphone) ou « +1 » comme « nombres » → la cellule passait
+  // brute et Excel évaluait le `+` initial comme une formule. Un nombre canonique
+  // ne commence JAMAIS par + (ni = @), donc on ne dé-préfixe que ce motif strict.
+  if (/^-?\d+([.,]\d+)?$/.test(s)) return s;
   return `'${s}`;
 }
 

@@ -46,6 +46,13 @@ describe('M4.1 / escapeCsvField injection de formule', () => {
     expect(escapeCsvField('125,5')).toBe('125,5');
     expect(escapeCsvField(-5.2)).toBe('-5.2');
   });
+  it('C6 : préfixe un + initial même quand la valeur est numérique (téléphone, formule)', () => {
+    // Avant le fix, Number('+33612345678') étant valide, la cellule passait brute
+    // → Excel évaluait le + initial comme une formule.
+    expect(escapeCsvField('+33612345678')).toBe("'+33612345678");
+    expect(escapeCsvField('+1')).toBe("'+1");
+    expect(escapeCsvField('+1,5')).toBe("'+1,5");
+  });
 });
 
 describe('M4.1 / toCsv', () => {

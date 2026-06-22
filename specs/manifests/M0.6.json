@@ -1,9 +1,9 @@
 {
   "module": "M0.6",
   "title": "Tests pgTAP RLS exhaustive (100%)",
-  "description": "Suite de 62 tests pgTAP validant toutes les policies RLS des tables plateforme.* et shared.*",
+  "description": "Suite de 64 tests pgTAP validant toutes les policies RLS des tables plateforme.* et shared.*",
   "status": "in-progress",
-  "total_scenarios": 62,
+  "total_scenarios": 64,
   "test_files": [
     "supabase/tests/M0_6__cat_1-2.test.sql",
     "supabase/tests/M0_6__cat_3.test.sql",
@@ -295,6 +295,18 @@
       "file": "M0_6__cat_4.test.sql"
     },
     {
+      "id": "T63",
+      "category": "4 — Isolation données",
+      "title": "contacts_traiteurs : traiteur org A voit uniquement SES contacts",
+      "file": "M0_6__cat_4.test.sql"
+    },
+    {
+      "id": "T64",
+      "category": "4 — Isolation données",
+      "title": "contacts_traiteurs : PII de org A invisibles à un rôle non-staff d'une autre org (fix ct_read leak)",
+      "file": "M0_6__cat_4.test.sql"
+    },
+    {
       "id": "T45",
       "category": "5 — Idempotence",
       "title": "audit_log append-only UPDATE 0",
@@ -404,18 +416,18 @@
     }
   ],
   "coverage": {
-    "total_tests": 62,
+    "total_tests": 64,
     "categories": {
       "assertion_structurelle": 3,
       "happy_path": 8,
       "limites": 11,
       "erreur": 11,
-      "isolation": 14,
+      "isolation": 16,
       "idempotence": 9,
       "cross_app": 5,
       "migration": 4
     },
     "status": "COMPLETE"
   },
-  "notes": "Module M0.6 complet : 62 tests pgTAP couvrant 100% des tables plateforme.*/shared.*. Catégories 1-7 avec tous les scénarios P1+P2. Assertions E3 garde-fou TMS-Ready incluses."
+  "notes": "Module M0.6 complet : 64 tests pgTAP couvrant 100% des tables plateforme.*/shared.*. Catégories 1-7 avec tous les scénarios P1+P2. Assertions E3 garde-fou TMS-Ready incluses. T63/T64 ajoutés 2026-06-22 (fix fuite PII cross-org ct_read sur contacts_traiteurs, migration 20260622150000)."
 }

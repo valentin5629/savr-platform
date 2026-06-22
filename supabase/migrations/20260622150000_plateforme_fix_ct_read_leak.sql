@@ -1,0 +1,35 @@
+-- Fix RLS — fuite PII cross-organisation sur plateforme.contacts_traiteurs
+--
+-- Cause racine : la policy `ct_read` (migration 20260611180000) est PERMISSIVE et
+-- ouvre la lecture à `auth.role() = 'authenticated'`. Les policies PERMISSIVE
+-- étant OR'ées, elle annule complètement le cloisonnement org-scopé
+-- (ct_traiteur_select) : n'importe quel utilisateur authentifié — agence,
+-- gestionnaire_lieux, client_organisateur d'une AUTRE organisation — pouvait lire
+-- les PII (prenom, nom, telephone, email) des contacts de TOUTES les
+-- organisations. Viole §09 (cloisonnement multi-organisation) + §15 (RGPD).
+--
+-- contacts_traiteurs porte `organisation_id NOT NULL` = donnée org-scopée, PAS un
+-- référentiel public. Elle diffère des vrais référentiels globaux
+-- (associations, transporteurs, flux_dechets, types_evenements) qui n'ont ni
+-- organisation_id ni PII et restent légitimement en lecture authentifiée.
+--
+-- §09 §3 (tableau référentiel) : la lecture de contacts_traiteurs n'est légitime
+-- que pour admin_savr (ct_admin), ops_savr (ct_ops_select) et les traiteurs de
+-- l'organisation propriétaire (ct_traiteur_select, org-scopé). Aucun autre rôle
+-- n'a d'accès légitime. Le simple DROP de ct_read rétablit le DENY ALL par défaut
+-- sans retirer aucun accès légitime (couvert par les policies ci-dessus).
+--
+-- La migration de fix 20260617180000 avait régénéré ct_admin / ct_ops_select /
+-- ct_traiteur_select / ct_traiteur_write au style post-fix (f_app_role()), mais
+-- a omis de supprimer ct_read → la fuite est restée active.
+--
+-- ⚠ Ambiguïté spec consignée en divergence (type: ambigu, M0.6, 2026-06-22) :
+--   le tableau §09 liste contacts_traiteurs parmi les « tables référentiel » et
+--   accorde aux « autres » rôles « ALL référentiels (lecture) » — formulation qui
+--   a induit la policy ct_read fautive. Interprétation retenue ici (forcée par
+--   RGPD/cloisonnement) : contacts_traiteurs est org-scopé et exclu de ce blanket.
+--   À confirmer par Val (cf. _Divergences/M0.6_20260622.md).
+--
+-- Migration FORWARD-ONLY et IMMUABLE : ne modifie aucune migration antérieure.
+
+DROP POLICY IF EXISTS ct_read ON plateforme.contacts_traiteurs;

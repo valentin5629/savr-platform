@@ -1,12 +1,12 @@
 -- =============================================================================
 -- Tests pgTAP M0.6 — RLS exhaustive — Catégorie 4 (Isolation données)
 -- =============================================================================
--- Périmètre : 14 tests RLS pures — cross-org, soft-delete, polymorphe, PII
+-- Périmètre : 16 tests RLS pures — cross-org, soft-delete, polymorphe, PII
 -- Validation de la cloisonnement complet entre organisations
 -- =============================================================================
 
 BEGIN;
-SELECT plan(14);
+SELECT plan(16);
 
 -- Helpers
 CREATE OR REPLACE FUNCTION test_set_jwt(
@@ -30,6 +30,29 @@ RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
   PERFORM set_config('role', 'postgres', true);
   PERFORM set_config('request.jwt.claims', NULL, true);
+END $$;
+
+-- JWT au format PRODUCTION (post-fix 20260617180000) : claim réservé `role` =
+-- 'authenticated' (lu par PostgREST + auth.role()) ET claim métier `user_role`
+-- (lu par la RLS via f_app_role()). test_set_jwt ci-dessus OMET `role`, ce qui
+-- rend inertes les policies lisant auth.role()/auth.jwt()->>'role' sous le harnais
+-- (c'est précisément ce qui a masqué la fuite ct_read). Ce helper reproduit
+-- fidèlement le JWT prod pour exercer ces policies.
+CREATE OR REPLACE FUNCTION test_set_jwt_prod(
+  p_role text,
+  p_org_id uuid DEFAULT NULL,
+  p_user_id uuid DEFAULT gen_random_uuid()
+)
+RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  PERFORM set_config('request.jwt.claims', json_build_object(
+    'sub', p_user_id,
+    'role', 'authenticated',
+    'user_role', p_role,
+    'organisation_id', p_org_id,
+    'app_domain', 'plateforme'
+  )::text, true);
+  PERFORM set_config('role', 'authenticated', true);
 END $$;
 
 -- =====================================================================
@@ -105,7 +128,7 @@ VALUES
   ('ace00002-0000-0000-0000-000000000001'::uuid, '0a900002-0000-0000-0000-000000000001'::uuid, 'da100001-0000-0000-0000-000000000001'::uuid, 5, 0, 0, 'actif', current_date, 5, 'personnalise');
 
 -- =====================================================================
--- CATÉGORIE 4 — ISOLATION DONNÉES (14 tests cross-org, soft-delete, etc.)
+-- CATÉGORIE 4 — ISOLATION DONNÉES (16 tests cross-org, soft-delete, etc.)
 -- =====================================================================
 
 -- T31 : Photo A invisible à user B
@@ -264,6 +287,37 @@ SELECT results_eq(
   $$SELECT count(*)::int FROM shared.fichiers WHERE entity_id = 'bd100001-0000-0000-0000-000000000001'$$,
   $$VALUES (0)$$,
   'T44 Isolation : fichier polymorphe (bordereau A) invisible à user B'
+);
+
+-- T63/T64 : contacts_traiteurs — fuite PII cross-org (régression ct_read PERMISSIVE)
+-- contacts_traiteurs porte organisation_id NOT NULL + PII (prenom/nom/telephone/email).
+-- ct_read (auth.role()='authenticated', migration 20260611180000) ouvrait la lecture à
+-- TOUS les rôles authentifiés → fuite cross-org. Fix = DROP ct_read (20260622150000).
+-- Accès légitime restant : admin_savr / ops_savr / traiteurs de l'org propriétaire.
+SELECT test_as_superuser();
+INSERT INTO plateforme.contacts_traiteurs (id, organisation_id, prenom, nom, telephone, email)
+VALUES
+  ('c0a70001-0000-0000-0000-000000000001'::uuid, '0a900001-0000-0000-0000-000000000001'::uuid, 'Alice', 'Martin', '0611111111', 'alice@a.test'),
+  ('c0a70002-0000-0000-0000-000000000001'::uuid, '0a900002-0000-0000-0000-000000000001'::uuid, 'Bob', 'Durand', '0622222222', 'bob@b.test');
+
+-- T63 : traiteur org A ne voit QUE ses propres contacts (org-scopé, pas les contacts de B)
+-- JWT prod (role=authenticated + user_role) → exerce ct_read : AVANT le fix la fuite
+-- ferait voir les 2 contacts (count=2), APRÈS le DROP seul ct_traiteur_select → 1.
+SELECT test_set_jwt_prod('traiteur_manager', '0a900001-0000-0000-0000-000000000001'::uuid);
+SELECT results_eq(
+  $$SELECT count(*)::int FROM plateforme.contacts_traiteurs$$,
+  $$VALUES (1)$$,
+  'T63 Isolation : traiteur org A voit uniquement SES contacts (org-scopé)'
+);
+
+-- T64 : rôle non-staff d'une AUTRE organisation ne voit AUCUN contact de org A (DENY PII cross-org)
+-- JWT prod (role=authenticated) → AVANT le fix ct_read fuiterait le contact de org A (count=1),
+-- APRÈS le DROP aucune policy ne couvre client_organisateur → 0.
+SELECT test_set_jwt_prod('client_organisateur', '0a900003-0000-0000-0000-000000000001'::uuid);
+SELECT results_eq(
+  $$SELECT count(*)::int FROM plateforme.contacts_traiteurs WHERE organisation_id = '0a900001-0000-0000-0000-000000000001'$$,
+  $$VALUES (0)$$,
+  'T64 Isolation : contacts (PII) de org A invisibles à un rôle non-staff d''une autre org'
 );
 
 -- =====================================================================

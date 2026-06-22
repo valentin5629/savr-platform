@@ -82,7 +82,7 @@ SELECT ok(
     WHERE aggregate_id = (
       SELECT id FROM plateforme.collectes
       WHERE evenement_id = '00000000-0000-0000-0000-000000000020'::uuid
-        AND type = 'zero_dechet'::plateforme.collecte_type_enum
+        AND type = 'zero_dechet'::plateforme.collecte_type
     )
       AND event_type = 'collecte.creee'
       AND consumer = 'adapter_mts1'
@@ -120,7 +120,7 @@ SELECT ok(
     WHERE aggregate_id = (
       SELECT id FROM plateforme.collectes
       WHERE evenement_id = '00000000-0000-0000-0000-000000000021'::uuid
-        AND type = 'anti_gaspi'::plateforme.collecte_type_enum
+        AND type = 'anti_gaspi'::plateforme.collecte_type
     )
       AND event_type = 'collecte.creee'
   ),
@@ -132,8 +132,8 @@ SELECT ok(
 SELECT is(
   (SELECT statut_tms FROM plateforme.collectes
    WHERE evenement_id = '00000000-0000-0000-0000-000000000021'::uuid
-     AND type = 'anti_gaspi'::plateforme.collecte_type_enum),
-  'non_envoye'::plateforme.statut_tms_enum,
+     AND type = 'anti_gaspi'::plateforme.collecte_type),
+  'non_envoye'::plateforme.collecte_statut_tms,
   'T3 : collecte AG créée avec statut_tms=non_envoye'
 );
 
@@ -142,7 +142,7 @@ SELECT is(
 SELECT is(
   (SELECT volume_estime_repas FROM plateforme.collectes
    WHERE evenement_id = '00000000-0000-0000-0000-000000000021'::uuid
-     AND type = 'anti_gaspi'::plateforme.collecte_type_enum),
+     AND type = 'anti_gaspi'::plateforme.collecte_type),
   4,  -- round(0.1 × 40) = 4
   'T4 : volume_estime_repas AG = round(0.1 × pax)'
 );
@@ -207,7 +207,7 @@ col AS (
   INSERT INTO plateforme.collectes (
     evenement_id, type, date_collecte, heure_collecte, statut, statut_tms, nb_camions_demande
   ) VALUES (
-    (SELECT id FROM evt), 'zero_dechet'::plateforme.collecte_type_enum, CURRENT_DATE + 3, '09:00', 'brouillon', 'non_envoye', 1
+    (SELECT id FROM evt), 'zero_dechet'::plateforme.collecte_type, CURRENT_DATE + 3, '09:00', 'brouillon', 'non_envoye', 1
   ) RETURNING id
 )
 SELECT ok(
@@ -239,7 +239,7 @@ SELECT ok(
 SELECT is(
   (SELECT statut FROM plateforme.collectes
    WHERE evenement_id = '00000000-0000-0000-0000-000000000023'::uuid),
-  'programmee'::plateforme.collecte_statut_enum,
+  'programmee'::plateforme.collecte_statut,
   'T8 : fn_confirmer_programmation_brouillon → statut=programmee'
 );
 
@@ -298,7 +298,7 @@ col AS (
   INSERT INTO plateforme.collectes (
     evenement_id, type, date_collecte, heure_collecte, statut, statut_tms, nb_camions_demande
   ) VALUES (
-    (SELECT id FROM evt), 'zero_dechet'::plateforme.collecte_type_enum, CURRENT_DATE - 1, '08:00', 'cloturee', 'non_envoye', 1
+    (SELECT id FROM evt), 'zero_dechet'::plateforme.collecte_type, CURRENT_DATE - 1, '08:00', 'cloturee', 'non_envoye', 1
   ) RETURNING evenement_id
 )
 SELECT is(

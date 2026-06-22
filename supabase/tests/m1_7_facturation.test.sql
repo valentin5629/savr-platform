@@ -101,7 +101,7 @@ SELECT hasnt_column('plateforme', 'sequences_facturation', 'dernier',
 -- ── 4b. Existence fonction et trigger M1.7 ──────────────────────────────
 
 SELECT has_function('plateforme', 'f_attribuer_numero_facture',
-  ARRAY['plateforme.serie_facturation_enum','smallint'],
+  ARRAY['text','smallint'],
   'fonction f_attribuer_numero_facture(serie, annee) existe');
 
 SELECT has_trigger('plateforme', 'factures', 'trg_check_avoir_facture_valide',
@@ -112,25 +112,25 @@ SELECT has_trigger('plateforme', 'factures', 'trg_check_avoir_facture_valide',
 DELETE FROM plateforme.sequences_facturation WHERE serie IN ('FZD','FAG','FPK','AV') AND annee = 2099;
 
 SELECT is(
-  plateforme.f_attribuer_numero_facture('FZD'::plateforme.serie_facturation_enum, 2099::smallint),
+  plateforme.f_attribuer_numero_facture('FZD'::text, 2099::smallint),
   'FZD-2099-00001',
   'premier numéro FZD-2099-00001'
 );
 
 SELECT is(
-  plateforme.f_attribuer_numero_facture('FZD'::plateforme.serie_facturation_enum, 2099::smallint),
+  plateforme.f_attribuer_numero_facture('FZD'::text, 2099::smallint),
   'FZD-2099-00002',
   'deuxième FZD-2099-00002 gapless'
 );
 
 SELECT is(
-  plateforme.f_attribuer_numero_facture('AV'::plateforme.serie_facturation_enum, 2099::smallint),
+  plateforme.f_attribuer_numero_facture('AV'::text, 2099::smallint),
   'AV-2099-00001',
   'premier numéro avoir AV-2099-00001'
 );
 
 SELECT is(
-  plateforme.f_attribuer_numero_facture('FAG'::plateforme.serie_facturation_enum, 2099::smallint),
+  plateforme.f_attribuer_numero_facture('FAG'::text, 2099::smallint),
   'FAG-2099-00001',
   'premier numéro AG FAG-2099-00001'
 );

@@ -68,7 +68,7 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
     record_id: String(body.id),
     action: 'UPDATE',
     user_id: auth.ctx.userId,
-    new_data: updates,
+    new_values: updates,
   });
 
   return NextResponse.json({ data });

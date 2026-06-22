@@ -99,6 +99,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   let organisationId: string;
   let userRole: string;
+  let orgCreee = false; // true si l'organisation a été créée dans cette requête
 
   if (!isPublicDomain) {
     // Chercher une org avec ce domaine email reconnu
@@ -125,9 +126,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         raison_sociale,
         type_profil as TypeProfil,
         domain,
+        telephone,
       );
       organisationId = id;
       userRole = role;
+      orgCreee = true;
     }
   } else {
     // Domaine public → orga isolée sans rattachement
@@ -136,9 +139,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       raison_sociale,
       type_profil as TypeProfil,
       null,
+      telephone,
     );
     organisationId = id;
     userRole = role;
+    orgCreee = true;
   }
 
   // Créer le compte Supabase Auth
@@ -152,6 +157,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   if (authError || !authData.user) {
     // Rollback organisation si nouvellement créée (best-effort)
+    if (orgCreee) await rollbackOrganisation(supabase, organisationId);
     return NextResponse.json(
       { error: authError?.message ?? 'Erreur création compte' },
       { status: 422 },
@@ -161,7 +167,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const userId = authData.user.id;
 
   // Créer le profil plateforme.users
-  await supabase.from('users').insert({
+  const { error: userError } = await supabase.from('users').insert({
     id: userId,
     organisation_id: organisationId,
     email,
@@ -169,6 +175,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     nom,
     role: userRole,
   });
+
+  if (userError) {
+    // Rollback : compte Auth + organisation nouvellement créée (best-effort)
+    await supabase.auth.admin.deleteUser(userId).catch(() => null);
+    if (orgCreee) await rollbackOrganisation(supabase, organisationId);
+    return NextResponse.json({ error: userError.message }, { status: 422 });
+  }
 
   // Générer le lien de vérification et envoyer via Resend
   const { data: linkData } = await supabase.auth.admin.generateLink({
@@ -202,10 +215,18 @@ async function creerNouvelleOrga(
   raisonSociale: string,
   typeProfil: TypeProfil,
   domain: string | null,
+  telephone: string,
 ): Promise<{ organisationId: string; role: string }> {
   const { data: org, error } = await supabase
     .from('organisations')
-    .insert({ raison_sociale: raisonSociale, type: typeProfil })
+    .insert({
+      // `nom` = nom usuel (NOT NULL sans default). À l'inscription on ne collecte
+      // que la raison sociale → nom = raison_sociale (fallback documenté §04).
+      nom: raisonSociale,
+      raison_sociale: raisonSociale,
+      type: typeProfil,
+      telephone,
+    })
     .select('id')
     .single();
 
@@ -239,6 +260,27 @@ async function creerNouvelleOrga(
     organisationId: org.id,
     role: rolePourDomainePropriete(typeProfil),
   };
+}
+
+async function rollbackOrganisation(
+  supabase: ReturnType<typeof createAdminSupabaseClient>,
+  organisationId: string,
+): Promise<void> {
+  // Best-effort : supprimer les lignes filles AVANT l'organisation
+  // (FK sans ON DELETE CASCADE → l'ordre compte). Erreurs ignorées.
+  try {
+    await supabase
+      .from('organisations_domaines_email')
+      .delete()
+      .eq('organisation_id', organisationId);
+    await supabase
+      .from('entites_facturation')
+      .delete()
+      .eq('organisation_id', organisationId);
+    await supabase.from('organisations').delete().eq('id', organisationId);
+  } catch {
+    // ignore : rollback best-effort
+  }
 }
 
 async function lancerVerificationInsee(

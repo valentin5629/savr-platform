@@ -37,7 +37,7 @@ export async function POST(
     record_id: id,
     action: 'NORMALISE',
     user_id: auth.ctx.userId,
-    new_data: { actif: true },
+    new_values: { actif: true },
   });
 
   return NextResponse.json(data);

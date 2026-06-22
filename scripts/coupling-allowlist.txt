@@ -84,3 +84,9 @@ packages/plateforme/src/app/(admin)/admin/parametres/algo-ag/page.tsx
 # packages/plateforme/tests/.../algo-attribution-ag* (M2.3) — 'mts1' = valeur enum dans
 # objet mock fixture transporteur (type_tms:'mts1'). Pas de logique adapter.
 packages/plateforme/tests/api/admin/algo-attribution-ag.m2-3.test.ts
+# packages/plateforme/tests/api/cron/cron-auth.test.ts (fix audit BUG 3) — 'mts1' = segment
+# du chemin de la route cron testée (@/app/api/cron/polling-mts1/route.js) + libellés de test.
+# Le test vérifie UNIQUEMENT la garde d'auth fail-closed (401) de l'endpoint cron ; il importe
+# la route via son chemin et mocke l'adapter. Aucune logique adapter ni appel HTTP MTS-1 ici
+# (elle vit dans packages/adapters/). 'customerOrders' reste banni.
+packages/plateforme/tests/api/cron/cron-auth.test.ts

@@ -136,7 +136,7 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
       ok: true,
       id: 'MTS1-ORDER-001',
       externalReference: 'col-zd-001-1',
-      status: 'PENDING',
+      status: 'PLANNED',
       createdAt: '',
     });
     const createTour = vi.fn().mockResolvedValue({
@@ -177,7 +177,7 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
       ok: true,
       id: 'MTS1-ORDER-AG-001',
       externalReference: 'col-ag-001-1',
-      status: 'PENDING',
+      status: 'PLANNED',
       createdAt: '',
     });
     const createTour = vi.fn().mockResolvedValue({
@@ -212,7 +212,7 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
       ok: true,
       id: 'O1',
       externalReference: 'col-zd-001-1',
-      status: 'PENDING',
+      status: 'PLANNED',
       createdAt: '',
     });
     const createTour = vi.fn().mockResolvedValue({
@@ -256,7 +256,7 @@ describe('M1.5a / AdapterMts1 — multi-camions', () => {
         ok: true,
         id: `MTS1-ORDER-00${callCount}`,
         externalReference: `col-multi-001-${callCount}`,
-        status: 'PENDING',
+        status: 'PLANNED',
         createdAt: '',
       });
     });
@@ -419,7 +419,7 @@ describe('M1.5a / AdapterMts1 — curseur de reprise', () => {
         ok: true,
         id: 'O1',
         externalReference: 'col-zd-001-1',
-        status: 'PENDING',
+        status: 'PLANNED',
         createdAt: '',
       }),
       createTour: vi.fn().mockResolvedValue({
@@ -465,7 +465,7 @@ describe('M1.5a / AdapterMts1 — erreurs et réconciliation', () => {
       {
         id: 'MTS1-ORDER-FOUND',
         externalReference: 'col-zd-001-1',
-        status: 'PENDING',
+        status: 'PLANNED',
       },
     ]);
     const createTour = vi.fn().mockResolvedValue({
@@ -505,7 +505,7 @@ describe('M1.5a / AdapterMts1 — erreurs et réconciliation', () => {
       ok: true,
       id: 'MTS1-ORDER-NEW',
       externalReference: 'col-zd-001-1',
-      status: 'PENDING',
+      status: 'PLANNED',
       createdAt: '',
     });
     const createTour = vi.fn().mockResolvedValue({

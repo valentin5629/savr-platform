@@ -52,13 +52,22 @@ const STUFF_TO_FLUX: Record<string, string | '_ignore'> = {
   '<volume_du_camion>': '_ignore',
 };
 
-// Mapping statuts MTS-1 → statut_tms (§08 §3bis.6)
+// Mapping customerOrderStatus MTS-1 → statut_tms (§08 §3bis.6).
+// A7 : les libellés sont les ENUMS OFFICIELS de l'as-built §7 (QUOTE, DRAFT,
+// PLANNED, VALIDATED, IN_PROGRESSION, OK, PARTIAL, ARCHIVED, KO, CANCELED).
+// L'ancien jeu (PENDING/ACCEPTED/IN_PROGRESS/DELIVERED) n'est JAMAIS renvoyé par
+// MTS-1 : un succès réel arrive en 'OK' (et non 'DELIVERED'), donc l'agrégation
+// terminale — gardée sur un set sans 'OK' — ne se déclenchait jamais en prod
+// (collecte jamais realisee → ni batch J+1, ni bordereau/attestation).
 const MTS1_STATUS_TO_TMS: Record<string, string | null> = {
-  PENDING: 'attribuee_en_attente_acceptation',
-  ACCEPTED: 'acceptee',
-  IN_PROGRESS: null, // pas de changement statut_tms ; → collectes.statut='en_cours' direct
-  DELIVERED: null, // terminal géré par agrégation M1.5c
+  QUOTE: 'attribuee_en_attente_acceptation',
+  DRAFT: 'attribuee_en_attente_acceptation',
+  PLANNED: 'attribuee_en_attente_acceptation',
+  VALIDATED: 'acceptee',
+  IN_PROGRESSION: null, // pas de changement statut_tms ; → collectes.statut='en_cours' direct
+  OK: null, // terminal géré par agrégation M1.5c
   PARTIAL: null, // terminal géré par agrégation M1.5c
+  ARCHIVED: null,
   CANCELED: 'rejetee_par_prestataire',
   KO: 'rejetee_par_prestataire',
 };
@@ -157,7 +166,10 @@ export class AdapterMts1 implements LogistiqueProvider {
 
   // ─── E2 collecte.modifiee ────────────────────────────────────────────────────
 
-  async updateCollecte(collecte: Collecte): Promise<void> {
+  async updateCollecte(
+    collecte: Collecte,
+    opts?: { requiresReconciliation?: boolean },
+  ): Promise<void> {
     const tournees = await this.findTournees(collecte.id);
     const avecRef = tournees.filter((t) => t.external_ref_commande);
 
@@ -168,6 +180,14 @@ export class AdapterMts1 implements LogistiqueProvider {
 
     const updatePayload = this.buildUpdatePayload(collecte);
     for (const t of avecRef) {
+      // A4 : sur reprise après timeout (requiresReconciliation), confirmer que
+      // l'ordre existe encore côté MTS-1 avant le PUT. Un ordre disparu (annulé
+      // entre-temps) ne doit pas être ré-adressé (le PUT n'est de toute façon
+      // sûr/idempotent que sur un ordre vivant).
+      if (opts?.requiresReconciliation) {
+        const stillExists = await this.reconcileOrder(collecte, t.rang);
+        if (!stillExists) continue;
+      }
       await this.client.updateOrder(
         t.external_ref_commande!,
         updatePayload,
@@ -178,7 +198,10 @@ export class AdapterMts1 implements LogistiqueProvider {
 
   // ─── E3 collecte.annulee ─────────────────────────────────────────────────────
 
-  async cancelCollecte(collecte: Collecte): Promise<void> {
+  async cancelCollecte(
+    collecte: Collecte,
+    opts?: { requiresReconciliation?: boolean },
+  ): Promise<void> {
     const tournees = await this.findTournees(collecte.id);
     const avecRef = tournees.filter((t) => t.external_ref_commande);
 
@@ -188,6 +211,14 @@ export class AdapterMts1 implements LogistiqueProvider {
     }
 
     for (const t of avecRef) {
+      // A4 : sur reprise après timeout (requiresReconciliation), le 1er DELETE a
+      // pu aboutir côté MTS-1. On vérifie d'abord l'existence distante : ordre
+      // absent = annulation déjà effective → court-circuit (succès idempotent),
+      // jamais de faux « fenêtre fermée ».
+      if (opts?.requiresReconciliation) {
+        const stillExists = await this.reconcileOrder(collecte, t.rang);
+        if (!stillExists) continue;
+      }
       try {
         await this.client.deleteOrder(
           t.external_ref_commande!,
@@ -196,9 +227,18 @@ export class AdapterMts1 implements LogistiqueProvider {
       } catch (err) {
         if (
           err instanceof LogistiquePermanentError &&
+          err.message.includes('MTS-1 404')
+        ) {
+          // A4 : 404 = ordre déjà supprimé (DELETE idempotent) → annulation
+          // RÉUSSIE. Surtout PAS « fenêtre fermée » : on continue sans erreur.
+          // (À tester avant le test 4xx générique : 'MTS-1 404'.includes('MTS-1 4').)
+          continue;
+        }
+        if (
+          err instanceof LogistiquePermanentError &&
           err.message.includes('MTS-1 4')
         ) {
-          // 4xx MTS-1 sur annulation = fenêtre fermée (< 1h)
+          // Autre 4xx (409/422…) sur annulation = fenêtre fermée (< 1h) → bascule Ops.
           throw new CancelWindowClosedError(
             `Annulation bloquée MTS-1 pour tournée ${t.id} : ${err.message}`,
           );
@@ -287,7 +327,7 @@ export class AdapterMts1 implements LogistiqueProvider {
     fluxById: Map<string, string>,
     seuils: { min: number; max: number },
   ): Promise<void> {
-    // 1. Claim atomique — dédup intra-run et inter-polls sur le même statut
+    // 1. Claim — dédup intra-run et inter-polls sur le même statut
     const eventKey = `mts1:${order.id}:${order.status}`;
     const { data: claimed } = await this.supabase
       .from('integrations_inbox')
@@ -300,11 +340,29 @@ export class AdapterMts1 implements LogistiqueProvider {
       .select('id')
       .limit(1);
 
-    if (!claimed?.length) {
-      // Déjà traité (même statut vu lors d'un poll précédent ou run concurrent)
-      return;
+    let inboxId: string;
+    if (claimed?.length) {
+      inboxId = claimed[0]!.id as string;
+    } else {
+      // A4-A2 : la clé existe déjà (ON CONFLICT). On NE skippe QUE si l'event a
+      // été ENTIÈREMENT traité (traite=true). Sinon — crash d'un run précédent
+      // entre l'upsert des pesées et markInboxDone — la simple présence de la clé
+      // faisait skipper à jamais : la collecte ne passait jamais realisee (ni batch
+      // J+1, ni bordereau). On REJOUE tant que traite=false : tous les effets sont
+      // idempotents (update statut par id, upsert pesées par clé, agrégation
+      // FOR UPDATE), donc le rejeu est sûr et finit par confirmer le traitement.
+      const { data: existing } = await this.supabase
+        .from('integrations_inbox')
+        .select('id, traite')
+        .eq('source', 'mts1')
+        .eq('event_id_externe', eventKey)
+        .maybeSingle();
+
+      if (!existing || existing.traite === true) {
+        return; // déjà entièrement traité (ou ligne absente)
+      }
+      inboxId = existing.id as string;
     }
-    const inboxId = claimed[0]!.id as string;
 
     try {
       // 2. Trouver la tournée liée à cet ordre
@@ -329,9 +387,9 @@ export class AdapterMts1 implements LogistiqueProvider {
           .eq('id', collecteId);
       }
 
-      // IN_PROGRESS → passage direct collectes.statut → 'en_cours'
+      // IN_PROGRESSION → passage direct collectes.statut → 'en_cours'
       if (
-        order.status === 'IN_PROGRESS' &&
+        order.status === 'IN_PROGRESSION' &&
         ['programmee', 'validee'].includes(collecteStatut)
       ) {
         await this.supabase
@@ -354,12 +412,8 @@ export class AdapterMts1 implements LogistiqueProvider {
       }
 
       // 5. Statuts terminaux MTS-1 → mise à jour tournée + agrégation (M1.8/M1.5c)
-      const MTS1_TERMINAUX = new Set([
-        'DELIVERED',
-        'PARTIAL',
-        'CANCELED',
-        'KO',
-      ]);
+      // A7 : 'OK' = succès terminal réel (as-built §7), pas 'DELIVERED'.
+      const MTS1_TERMINAUX = new Set(['OK', 'PARTIAL', 'CANCELED', 'KO']);
       if (MTS1_TERMINAUX.has(order.status)) {
         const nouveauStatutTournee =
           order.status === 'CANCELED' || order.status === 'KO'

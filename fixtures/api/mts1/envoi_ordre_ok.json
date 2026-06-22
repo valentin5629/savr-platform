@@ -2,7 +2,7 @@
   "_description": "Réponse 201 POST /v3/customerOrders — ordre créé avec succès (branch non_envoye→E1)",
   "id": "MTS1-ORDER-NEW-001",
   "externalReference": "col_dispatch_non_envoye-1",
-  "status": "PENDING",
+  "status": "DRAFT",
   "createdAt": "2026-05-20T09:00:00Z",
   "estimatedPickupDate": "2026-06-05T22:00:00Z",
   "pickupAddress": {

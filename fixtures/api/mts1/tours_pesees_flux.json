@@ -3,7 +3,7 @@
   "tour_nominal": {
     "tourId": "MTS1-TOUR-ZD-001",
     "externalReference": "tour_strike_202605_01",
-    "status": "DELIVERED",
+    "status": "OK",
     "startedAt": "2026-05-06T22:00:00Z",
     "completedAt": "2026-05-07T00:00:00Z",
     "stops": [
@@ -50,7 +50,7 @@
   "tour_stuff_inconnu": {
     "tourId": "MTS1-TOUR-ZD-002",
     "externalReference": "tour_strike_202605_03",
-    "status": "DELIVERED",
+    "status": "OK",
     "startedAt": "2026-05-20T22:00:00Z",
     "completedAt": "2026-05-21T01:00:00Z",
     "stops": [

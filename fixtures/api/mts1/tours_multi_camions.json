@@ -1,11 +1,11 @@
 {
-  "_description": "Simulation multi-camions N=2 : deux customerOrders pour 1 collecte, états terminaux distincts (DELIVERED + PARTIAL). ≥1 OK/PARTIAL → realisee + alerte Ops.",
+  "_description": "Simulation multi-camions N=2 : deux customerOrders pour 1 collecte, états terminaux distincts (OK + PARTIAL). ≥1 OK/PARTIAL → realisee + alerte Ops.",
   "customerOrders": [
     {
       "id": "MTS1-ORDER-MULTI-001",
       "externalReference": "col_multi_camions_001-1",
       "_rang": 1,
-      "status": "DELIVERED",
+      "status": "OK",
       "pickupDate": "2026-06-10T22:00:00Z",
       "deliveryDate": "2026-06-11T01:00:00Z",
       "stops": [
@@ -36,7 +36,7 @@
     {
       "tourId": "MTS1-TOUR-MULTI-001",
       "externalReference": "col_multi_camions_001-1",
-      "status": "DELIVERED",
+      "status": "OK",
       "startedAt": "2026-06-10T22:05:00Z",
       "completedAt": "2026-06-11T01:00:00Z",
       "stops": [
@@ -72,7 +72,7 @@
     }
   ],
   "_assertions": [
-    "nb_camions_demande=2, les 2 rangs sont en état terminal (DELIVERED + PARTIAL)",
+    "nb_camions_demande=2, les 2 rangs sont en état terminal (OK + PARTIAL)",
     "≥1 tour OK/PARTIAL → collecte passe à realisee sur les pesées disponibles + alerte Ops in-app",
     "agrégation concurrente-sûre : FOR UPDATE sur collectes + guard WHERE statut IN ('validee','en_cours')"
   ]

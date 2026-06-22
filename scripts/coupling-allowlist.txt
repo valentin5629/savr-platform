@@ -19,7 +19,7 @@
 #   supabase/seed.sql
 #
 # Exceptions actives (module 0.3 — schema DB) :
-#   - type_tms_enum ('mts1','a_toutes','autre') : valeur d'enum §04 Data Model, pas logique metier
+#   - type_tms ('mts1','a_toutes','autre') : valeur d'enum §04 Data Model, pas logique metier
 #   - code_transporteur_mts1 / id_point_collecte_mts1 : colonnes V1-only liste fermee garde-fou 1
 #   - last_everest_ping_at/status : colonne operationnelle prestataires (V1.1, pas logique adapter)
 supabase/migrations/20260611171637_plateforme_bloc3_parametres_associations_transporteurs.sql
@@ -27,7 +27,7 @@ supabase/migrations/20260611171635_shared_plateforme_bloc1_orgs_users.sql
 # specs/ = miroir dérivé du Vault CDC (lecture seule, jamais de logique métier)
 # Les occurrences mts1/everest = valeurs d'enum dans le DDL cible V2 + scénarios QA
 specs/*
-# supabase/tests/M0_6__* = fixtures pgTAP — 'mts1' = valeur de l'enum type_tms_enum
+# supabase/tests/M0_6__* = fixtures pgTAP — 'mts1' = valeur de l'enum type_tms
 # dans un INSERT de transporteur de test (pas de logique adapter)
 supabase/tests/M0_6__cat_4.test.sql
 # packages/shared/src/seed/* = scripts de seed (M0.7) — 'mts1' = valeur d'enum
@@ -40,7 +40,7 @@ packages/shared/src/seed/*
 # Pas de logique adapter : la vue est lue par la page Santé système (Admin), jamais
 # par un adapter. 'customerOrders' reste banni.
 supabase/migrations/20260613000001_plateforme_health_views_ops.sql
-# packages/plateforme/.../transporteurs/* (M1.1b) — 'mts1' = valeur de l'enum type_tms_enum
+# packages/plateforme/.../transporteurs/* (M1.1b) — 'mts1' = valeur de l'enum type_tms
 # dans le CRUD référentiel transporteurs (UI + API route). Validation métier :
 # code_transporteur_mts1 obligatoire si type_tms='mts1' (§04 Data Model, colonne V1-only
 # liste fermée garde-fou 1). Aucun appel HTTP MTS-1 ici — la logique adapter est dans
@@ -64,7 +64,7 @@ packages/plateforme/src/app/api/v1/admin/everest/missions/manual-accept/route.ts
 supabase/migrations/20260615210000_plateforme_m2_5_everest.sql
 supabase/migrations/20260615220000_plateforme_m2_5_everest_fix.sql
 supabase/migrations/20260615230000_plateforme_m2_5_everest_rls_v2.sql
-# supabase/migrations/*_m2_3_algo* (M2.3) — 'mts1' = valeur de type_tms_enum dans SELECT
+# supabase/migrations/*_m2_3_algo* (M2.3) — 'mts1' = valeur de type_tms dans SELECT
 # de transporteur par type (recherche Marathon par type_tms='mts1' dans la DB). 'everest' =
 # dans les commentaires de code décrivant les services (71/74/77). Aucun appel HTTP MTS-1/Everest
 # ici — toute logique adapter vit dans packages/adapters/. 'customerOrders' reste banni.

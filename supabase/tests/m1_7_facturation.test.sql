@@ -37,10 +37,10 @@ SELECT ok(
     JOIN pg_type t ON t.oid = e.enumtypid
     JOIN pg_namespace n ON n.oid = t.typnamespace
     WHERE n.nspname = 'plateforme'
-      AND t.typname = 'facture_statut_enum'
+      AND t.typname = 'facture_statut'
       AND e.enumlabel = 'en_attente_pennylane'
   ),
-  'facture_statut_enum contient en_attente_pennylane'
+  'facture_statut contient en_attente_pennylane'
 );
 
 SELECT ok(
@@ -49,10 +49,10 @@ SELECT ok(
     JOIN pg_type t ON t.oid = e.enumtypid
     JOIN pg_namespace n ON n.oid = t.typnamespace
     WHERE n.nspname = 'plateforme'
-      AND t.typname = 'facture_statut_enum'
+      AND t.typname = 'facture_statut'
       AND e.enumlabel = 'emise'
   ),
-  'facture_statut_enum contient emise'
+  'facture_statut contient emise'
 );
 
 -- ── 2. Colonnes factures M1.7 ─────────────────────────────────────────────

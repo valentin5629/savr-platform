@@ -1082,7 +1082,7 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
         'entite_fleurdemets',
         'org_tr_fleurdemets',
         'ZD-2025-0003',
-        'envoyee',
+        'emise',
         -60,
         250,
         { date_echeance: d(-30) },
@@ -1412,7 +1412,7 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
        ($1,'ops_savr','UPDATE','packs_antgaspi',$2,'{"notes":null}','{"notes":"ajustement Ops"}',$8),
        ($3,'admin_savr','UPDATE','users',$4,'{"actif":true}','{"actif":false}',$8),
        ($5,'gestionnaire_lieux','UPDATE','lieux',$6,'{}','{"contraintes_horaires":"20h-6h"}',$8),
-       ($1,'ops_savr','UPDATE','factures',$7,'{"statut":"brouillon"}','{"statut":"envoyee"}',$8),
+       ($1,'ops_savr','UPDATE','factures',$7,'{"statut":"brouillon"}','{"statut":"emise"}',$8),
        (NULL,'system','INSERT','attributions_antgaspi',$9,'{}','{"mode":"auto_accept"}',$8)`,
     [
       U('user_ops1'),

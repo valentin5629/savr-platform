@@ -17,8 +17,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // Revenus = sum montant_ht des factures emises/payees, imputées à l'organisation
   // programmatrice (evenements.organisation_id), filtrées par date_collecte
   // Le statut est porté par `factures` (pas `factures_collectes`). Revenu =
-  // lignes des factures émises (envoyee/payee/en_retard), càd hors brouillon
-  // et hors annulee.
+  // factures emises + payees, càd hors brouillon/en_attente_pennylane et hors annulee.
+  // G1 cluster B.2 : les ex-statuts envoyee/en_retard ont convergé vers `emise`
+  // (le « retard » est désormais dérivé de date_echeance, plus un statut stocké).
   let query = supabase
     .from('factures_collectes')
     .select(
@@ -33,7 +34,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
        )`,
       { count: 'exact' },
     )
-    .in('factures.statut', ['envoyee', 'payee', 'en_retard'])
+    .in('factures.statut', ['emise', 'payee'])
     .range(offset, offset + limit - 1);
 
   if (from) query = query.gte('collectes.date_collecte', from);

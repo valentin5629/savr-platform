@@ -1,0 +1,42 @@
+-- Convergence G1 (Frontière TMS-Ready, CLAUDE.md §3bis) — CLUSTER C : NOM du type
+-- document_statut_enum → document_general_statut. Dernier résidu G1 hors outbox (sous-lot dédié).
+-- Suite des lots #83 (renommage noms, 20260623100000), cluster A (#84, 20260623110000) et
+-- cluster B (#85, pack/facture 20260623120000/20260623130000). #83 avait EXPLICITEMENT différé
+-- document_statut_enum (sa liste « différés »), parce que la table porteuse diverge en STRUCTURE
+-- du cible, pas seulement par le nom du type.
+--
+-- LA DIVERGENCE (décision Val 2026-06-22, option 1) :
+--   • V1 : plateforme.documents_generaux_savr.statut document_statut_enum NOT NULL DEFAULT 'en_attente',
+--     valeurs (en_attente, genere, erreur, expire). La colonne est VIVANTE : elle porte le cycle de
+--     vie du document et est lue par l'index idx_docs_generaux_statut, la policy RLS dg_read
+--     (WHERE statut='genere') et shared.f_fichier_visible (visibilité des PDF généraux).
+--   • Cible (specs/ddl-cible/schema_cible_v2.sql L894) : documents_generaux_savr N'A PAS de colonne
+--     statut, et aucun enum de ce nom. La cible nomme l'enum sibling de la colonne `type`
+--     `plateforme.document_general_type` → le nom cohérent pour le statut est `document_general_statut`.
+--   • Décision Val : GARDER la colonne en V1-only assumé (cf. nb_camions_demande, pesees_tournees…),
+--     l'ajouter à la liste fermée V1-only (Frontière G1) et acter la divergence (_Divergences,
+--     type ambigu). La convergence se réduit donc à un RENAME de type — AUCUN retrait de valeur,
+--     AUCUNE altération de donnée. Les 4 valeurs restent identiques.
+--
+-- ⚠ PROD LIVE : un RENAME de type ne touche AUCUNE donnée et ne peut PAS échouer sur une valeur
+--   (contrairement à un retrait de valeur / un CHECK des clusters A/B). Les comptes prod
+--   (documents_generaux_savr GROUP BY statut) sont INFORMATIFS ici (inscrits dans le _Divergences),
+--   PAS un garde-fou de correction.
+--
+-- Dépendances live du type (introspection pg_depend / pg_attribute / pg_policy, 2026-06-22) :
+--   • colonne documents_generaux_savr.statut (DEFAULT 'en_attente')   → suit par OID
+--   • index idx_docs_generaux_statut (btree simple sur statut)        → suit par OID
+--   • policy RLS dg_read : statut = 'genere'::document_statut_enum     → suit par OID (node tree)
+--   • 0 vue, 0 trigger, 0 CHECK, 0 colonne générée sur cette colonne
+--   • shared.f_fichier_visible : corps `d.statut = 'genere'` SANS cast → rien à recréer
+--
+-- ⚠ PIÈGE corps PL/pgSQL (mémoire reference-alter-type-rename-plpgsql-bodies, vécu #83) : un RENAME
+--   ne se propage PAS dans le TEXTE des corps PL/pgSQL (re-parsé au runtime). Vérifié AVANT :
+--   `SELECT count(*) FROM pg_proc WHERE prosrc LIKE '%document_statut_enum%'` = 0 → AUCUN
+--   CREATE OR REPLACE nécessaire (la comparaison de f_fichier_visible est implicite, sans cast).
+--   Verrouillé par le pgTAP g1_cluster_c_document_statut.test.sql.
+--
+-- Dry-run transactionnel (BEGIN…ROLLBACK) confirmé : après le RENAME, la colonne, le DEFAULT,
+-- la qual de dg_read passent en document_general_statut ; f_fichier_visible reste appelable.
+
+ALTER TYPE plateforme.document_statut_enum RENAME TO document_general_statut;

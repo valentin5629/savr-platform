@@ -394,7 +394,7 @@ L'équipe Savr
 
 ## 17. Email invitation collaborateur
 
-**Slug** : `invitation_utilisateur` *(corrigé M3.1 2026-06-17)*
+**Slug** : `invitation_utilisateur` *(corrigé M3.1 2026-06-17 — le slug seedé est `invitation_utilisateur`, pas `invitation_collaborateur`)*
 **Destinataire** : collaborateur invité par un manager
 **Déclencheur** : action "Inviter un collaborateur" depuis l'espace "Mon organisation"
 **Objet** : {{inviteur_prenom}} vous invite à rejoindre {{organisation_nom}} sur Savr

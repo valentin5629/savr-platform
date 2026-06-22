@@ -102,7 +102,7 @@ Chaque onglet affiche son propre jeu de blocs adaptés au métier (les flux ZD s
 
 | Filtre             | Type                           | Valeurs                                                                                                                      |
 | ------------------ | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| Période            | Date range picker + raccourcis | 7j / 30j / Trimestre en cours / 12 derniers mois (défaut) / Année civile / Personnalisé                                      |
+| Période            | Date range picker + raccourcis | 7j / 30j / Trimestre en cours / 12 derniers mois (défaut) / Année civile / Personnalisé — **filtre sur `collectes.date_collecte`** (NOT NULL, cohérent avec les vues KPI M3.5) |
 | Lieux              | Multi-select                   | Liste des lieux rattachés à l'organisation (`organisations_lieux`) — défaut "Tous"                                           |
 | Traiteurs          | Multi-select                   | Traiteurs intervenus sur au moins une collecte sur les lieux de l'organisation sur les 24 derniers mois                      |
 | Type d'événement   | Multi-select                   | `types_evenements.libelle` (4 catégories de format de service : Cocktail apéritif, Cocktail repas complet, Repas assis, Autre) — référentiel extensible Admin par ajout direct de ligne |

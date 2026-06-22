@@ -126,6 +126,7 @@ CREATE TYPE plateforme.mode_validation AS ENUM ('manuel_top1','manuel_override',
 CREATE TYPE plateforme.mode_grille_zd AS ENUM ('paliers','fixe_variable');
 CREATE TYPE plateforme.type_pack_tarif AS ENUM ('unitaire','pack_10','pack_30','pack_60');
 CREATE TYPE plateforme.type_pack AS ENUM ('unitaire','pack_10','pack_30','pack_60','personnalise');
+CREATE TYPE plateforme.mode_facturation_zd_enum AS ENUM ('par_collecte', 'mensuelle'); -- ajout 2026-06-19 (patch M1.7) : préférence facturation ZD par org, lue par batch J+1
 CREATE TYPE plateforme.mode_facturation_pack AS ENUM ('globale_achat','par_collecte');
 CREATE TYPE plateforme.pack_statut AS ENUM ('actif','epuise','annule');
 
@@ -228,6 +229,7 @@ CREATE TABLE plateforme.organisations (
   actif                     boolean NOT NULL DEFAULT true,
   est_shadow                boolean NOT NULL DEFAULT false,
   cree_par_organisation_id  uuid,                          -- FK self (section 7)
+  mode_facturation_zd       plateforme.mode_facturation_zd_enum NOT NULL DEFAULT 'par_collecte', -- ajout 2026-06-19 (patch M1.7, décision Val 2026-06-14) : par_collecte=1 brouillon/collecte cloturée | mensuelle=agrégé mensuel par traiteur
   tarif_refacture_pax_zd    numeric(10,2) NOT NULL DEFAULT 1.50 CHECK (tarif_refacture_pax_zd >= 0),
   grille_tarifaire_zd_id    uuid,                          -- FK -> grilles_tarifaires_zd (section 7)
   created_at                timestamptz NOT NULL DEFAULT now(),

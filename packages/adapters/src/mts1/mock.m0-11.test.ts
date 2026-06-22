@@ -48,12 +48,12 @@ describe('M0.11 / MTS-1 — poll nominal', () => {
     restore();
   });
 
-  it('M0.11 / MTS-1 — poll nominal contient un ordre DELIVERED', async () => {
+  it('M0.11 / MTS-1 — poll nominal contient un ordre OK', async () => {
     const restore = setupMts1Mock({ poll: 'nominal' });
     const handlers = _getMts1Handlers()!;
     const result = await handlers.pollOrders();
 
-    expect(result.customerOrders.map((o) => o.status)).toContain('DELIVERED');
+    expect(result.customerOrders.map((o) => o.status)).toContain('OK');
     restore();
   });
 });
@@ -121,7 +121,7 @@ describe('M0.11 / MTS-1 — POST order', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.id).toMatch(/^MTS1-ORDER/);
-      expect(result.status).toBe('PENDING');
+      expect(result.status).toBe('DRAFT');
     }
     restore();
   });
@@ -160,7 +160,7 @@ describe('M0.11 / MTS-1 — scénarios multi-camions et KO', () => {
     const restore = setupMts1Mock({ poll: 'multi_camions' });
     const handlers = _getMts1Handlers()!;
     const result = await handlers.pollOrders();
-    const TERMINAUX = new Set(['DELIVERED', 'PARTIAL', 'CANCELED', 'KO']);
+    const TERMINAUX = new Set(['OK', 'PARTIAL', 'CANCELED', 'KO']);
 
     expect(result.customerOrders).toHaveLength(2);
     for (const order of result.customerOrders) {
@@ -174,7 +174,7 @@ describe('M0.11 / MTS-1 — scénarios multi-camions et KO', () => {
     const handlers = _getMts1Handlers()!;
     const result = await handlers.pollOrders();
     const hasOkOrPartial = result.customerOrders.some(
-      (o) => o.status === 'DELIVERED' || o.status === 'PARTIAL',
+      (o) => o.status === 'OK' || o.status === 'PARTIAL',
     );
 
     expect(hasOkOrPartial).toBe(true);
@@ -196,12 +196,12 @@ describe('M0.11 / MTS-1 — scénarios multi-camions et KO', () => {
 });
 
 describe('M0.11 / MTS-1 — pesées incomplètes', () => {
-  it('M0.11 / MTS-1 — pesées incomplètes : tour DELIVERED sans items flux (batch J+1 skip attendu)', async () => {
+  it('M0.11 / MTS-1 — pesées incomplètes : tour OK sans items flux (batch J+1 skip attendu)', async () => {
     const restore = setupMts1Mock({ tour: 'pesees_incompletes' });
     const handlers = _getMts1Handlers()!;
     const tour = await handlers.getTour('MTS1-TOUR-INCOMPLETE-001');
 
-    expect(tour.status).toBe('DELIVERED');
+    expect(tour.status).toBe('OK');
     const fluxItems = tour.stops
       .flatMap((s) => s.items ?? [])
       .filter((i) => i.stuff !== '<volume_du_camion>');

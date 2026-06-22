@@ -9,7 +9,7 @@ import { _setMts1Handlers } from './mock.js';
 const TOUR_NOMINAL: Mts1Tour = {
   tourId: 'MTS1-TOUR-ZD-001',
   externalReference: 'tour_strike_001',
-  status: 'DELIVERED',
+  status: 'OK',
   startedAt: '2026-07-15T22:00:00Z',
   completedAt: '2026-07-16T00:00:00Z',
   stops: [
@@ -69,21 +69,21 @@ const PHOTOS_404: Mts1Photo[] = [
   },
 ];
 
-const ORDER_ACCEPTED: Mts1CustomerOrder = {
+const ORDER_VALIDATED: Mts1CustomerOrder = {
   id: 'MTS1-ORDER-001',
   externalReference: 'col-zd-001-1',
-  status: 'ACCEPTED',
+  status: 'VALIDATED',
   pickupDate: '2026-07-15T22:00:00Z',
 };
 
-const ORDER_IN_PROGRESS: Mts1CustomerOrder = {
-  ...ORDER_ACCEPTED,
-  status: 'IN_PROGRESS',
+const ORDER_IN_PROGRESSION: Mts1CustomerOrder = {
+  ...ORDER_VALIDATED,
+  status: 'IN_PROGRESSION',
 };
 
-const ORDER_DELIVERED: Mts1CustomerOrder = {
-  ...ORDER_ACCEPTED,
-  status: 'DELIVERED',
+const ORDER_OK: Mts1CustomerOrder = {
+  ...ORDER_VALIDATED,
+  status: 'OK',
 };
 
 // ─── Mock Supabase ────────────────────────────────────────────────────────────
@@ -250,10 +250,10 @@ function makeSyncSupabase(opts: {
 describe('M1.5b / AdapterMts1.sync — nominal', () => {
   afterEach(() => _setMts1Handlers(null));
 
-  it('M1.5b-1 / poll nominal ACCEPTED → statut_tms="acceptee", pesées upsertées, photo uploadée', async () => {
+  it('M1.5b-1 / poll nominal VALIDATED → statut_tms="acceptee", pesées upsertées, photo uploadée', async () => {
     _setMts1Handlers({
       pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_ACCEPTED],
+        customerOrders: [ORDER_VALIDATED],
         totalCount: 1,
         page: 1,
         pageSize: 50,
@@ -316,7 +316,7 @@ describe('M1.5b / AdapterMts1.sync — dédup statut', () => {
   it('M1.5b-2 / même ordre même statut → claim inbox retourne rien → skip complet', async () => {
     _setMts1Handlers({
       pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_ACCEPTED],
+        customerOrders: [ORDER_VALIDATED],
         totalCount: 1,
         page: 1,
         pageSize: 50,
@@ -358,13 +358,13 @@ describe('M1.5b / AdapterMts1.sync — dédup statut', () => {
   });
 });
 
-describe('M1.5b / AdapterMts1.sync — IN_PROGRESS', () => {
+describe('M1.5b / AdapterMts1.sync — IN_PROGRESSION', () => {
   afterEach(() => _setMts1Handlers(null));
 
-  it('M1.5b-3 / IN_PROGRESS → collectes.statut mis à en_cours (pas de changement statut_tms)', async () => {
+  it('M1.5b-3 / IN_PROGRESSION → collectes.statut mis à en_cours (pas de changement statut_tms)', async () => {
     _setMts1Handlers({
       pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_IN_PROGRESS],
+        customerOrders: [ORDER_IN_PROGRESSION],
         totalCount: 1,
         page: 1,
         pageSize: 50,
@@ -399,7 +399,7 @@ describe('M1.5b / AdapterMts1.sync — IN_PROGRESS', () => {
 
     const calls = (supabase as unknown as { _calls: TableCall[] })._calls;
 
-    // Pas de changement statut_tms (null pour IN_PROGRESS)
+    // Pas de changement statut_tms (null pour IN_PROGRESSION)
     const tmsUpdate = calls.find(
       (c) =>
         c.table === 'collectes' &&
@@ -425,7 +425,7 @@ describe('M1.5b / AdapterMts1.sync — stuff inconnu', () => {
   it('M1.5b-4 / stuff inconnu → integrations_logs STUFF_INCONNU, pesées connues upsertées quand même', async () => {
     _setMts1Handlers({
       pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_DELIVERED],
+        customerOrders: [ORDER_OK],
         totalCount: 1,
         page: 1,
         pageSize: 50,
@@ -485,7 +485,7 @@ describe('M1.5b / AdapterMts1.sync — divergence post-clôture', () => {
   it('M1.5b-5 / collecte cloturee + poids différent → aucune écriture + log PESEE_DIVERGENCE_POST_CLOTURE', async () => {
     _setMts1Handlers({
       pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_DELIVERED],
+        customerOrders: [ORDER_OK],
         totalCount: 1,
         page: 1,
         pageSize: 50,
@@ -548,7 +548,7 @@ describe('M1.5b / AdapterMts1.sync — dédup photo', () => {
     const downloadPhoto = vi.fn().mockResolvedValue(Buffer.from('DATA'));
     _setMts1Handlers({
       pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_DELIVERED],
+        customerOrders: [ORDER_OK],
         totalCount: 1,
         page: 1,
         pageSize: 50,
@@ -594,7 +594,7 @@ describe('M1.5b / AdapterMts1.sync — photo 404', () => {
   it("M1.5b-7 / photo 404 → log PHOTO_DOWNLOAD_FAILED, poll continue (pas d'exception)", async () => {
     _setMts1Handlers({
       pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_DELIVERED],
+        customerOrders: [ORDER_OK],
         totalCount: 1,
         page: 1,
         pageSize: 50,
@@ -650,7 +650,7 @@ describe('M1.5b / AdapterMts1.sync — ordre sans tournée Savr', () => {
   it('M1.5b-8 / ordre MTS-1 sans tournée dans notre système → ignoré sans erreur', async () => {
     _setMts1Handlers({
       pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_ACCEPTED],
+        customerOrders: [ORDER_VALIDATED],
         totalCount: 1,
         page: 1,
         pageSize: 50,
@@ -695,12 +695,12 @@ describe('M1.5b / AdapterMts1.sync — isolation par collecte', () => {
     const ORDER_OK: Mts1CustomerOrder = {
       id: 'MTS1-ORDER-OK',
       externalReference: 'col-ok-1',
-      status: 'ACCEPTED',
+      status: 'VALIDATED',
     };
     const ORDER_KO: Mts1CustomerOrder = {
       id: 'MTS1-ORDER-KO',
       externalReference: 'col-ko-1',
-      status: 'ACCEPTED',
+      status: 'VALIDATED',
     };
 
     let getTourCallCount = 0;
@@ -753,7 +753,7 @@ describe('M1.5b / AdapterMts1.sync — CANCELED', () => {
 
   it('M1.5b-10 / CANCELED → statut_tms="rejetee_par_prestataire"', async () => {
     const ORDER_CANCELED: Mts1CustomerOrder = {
-      ...ORDER_ACCEPTED,
+      ...ORDER_VALIDATED,
       id: 'MTS1-ORDER-CANCELED',
       status: 'CANCELED',
     };

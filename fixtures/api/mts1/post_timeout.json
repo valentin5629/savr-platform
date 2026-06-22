@@ -15,7 +15,7 @@
         {
           "id": "MTS1-ORDER-TIMEOUT-FOUND-001",
           "externalReference": "col_timeout_001-1",
-          "status": "PENDING",
+          "status": "PLANNED",
           "pickupDate": "2026-06-10T22:00:00Z",
           "deliveryDate": null,
           "stops": []
@@ -29,7 +29,7 @@
   "_assertions": [
     "POST timeout → requires_reconciliation=true sur outbox_events",
     "plan B scan par minDate/maxDate permet de retrouver l'ordre via externalReference",
-    "re-POST autorisé uniquement si statut TRANSIENT (jamais si PENDING/ACCEPTED/etc.)",
+    "re-POST autorisé uniquement si statut TRANSIENT (jamais si PLANNED/VALIDATED/etc.)",
     "Q3bis-6 : retrouver le tour d'un customerOrder post-timeout"
   ]
 }

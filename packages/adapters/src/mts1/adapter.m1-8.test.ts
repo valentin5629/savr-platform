@@ -9,7 +9,7 @@ import { _setMts1Handlers } from './mock.js';
 const TOUR_POIDS_BAS: Mts1Tour = {
   tourId: 'MTS1-TOUR-M18-001',
   externalReference: 'tour_m18_001',
-  status: 'DELIVERED',
+  status: 'OK',
   startedAt: '2026-07-15T22:00:00Z',
   completedAt: '2026-07-16T00:00:00Z',
   stops: [
@@ -28,7 +28,7 @@ const TOUR_POIDS_BAS: Mts1Tour = {
 const TOUR_NORMAL: Mts1Tour = {
   tourId: 'MTS1-TOUR-M18-002',
   externalReference: 'tour_m18_002',
-  status: 'DELIVERED',
+  status: 'OK',
   startedAt: '2026-07-15T22:00:00Z',
   completedAt: '2026-07-16T00:00:00Z',
   stops: [
@@ -41,10 +41,10 @@ const TOUR_NORMAL: Mts1Tour = {
   ],
 };
 
-const ORDER_ACCEPTED_M18: Mts1CustomerOrder = {
-  id: 'MTS1-ORDER-M18-ACCEPTED',
+const ORDER_VALIDATED_M18: Mts1CustomerOrder = {
+  id: 'MTS1-ORDER-M18-VALIDATED',
   externalReference: 'col-m18-1',
-  status: 'ACCEPTED',
+  status: 'VALIDATED',
   pickupDate: '2026-07-15T22:00:00Z',
 };
 
@@ -235,7 +235,7 @@ describe('M1.8 / E2E / variante-pesee-hors-seuil', () => {
   it('pesée < seuil_min → f_upsert_alerte_admin pesee_hors_seuil + upsert quand même', async () => {
     _setMts1Handlers({
       pollOrders: vi.fn().mockResolvedValue({
-        customerOrders: [ORDER_ACCEPTED_M18],
+        customerOrders: [ORDER_VALIDATED_M18],
         totalCount: 1,
         page: 1,
         pageSize: 50,
@@ -281,7 +281,7 @@ describe('M1.8 / E2E / variante-pesee-hors-seuil', () => {
 describe('M1.8 / E2E / variante-multi-camions-ko-partiel', () => {
   afterEach(() => _setMts1Handlers(null));
 
-  it('2 ordres DELIVERED+KO → fn_agreger_terminal_collecte realisee + alerte collecte_partiellement_servie', async () => {
+  it('2 ordres OK+KO → fn_agreger_terminal_collecte realisee + alerte collecte_partiellement_servie', async () => {
     _setMts1Handlers({
       pollOrders: vi.fn().mockResolvedValue({
         customerOrders: [ORDER_KO_M18],
@@ -294,7 +294,7 @@ describe('M1.8 / E2E / variante-multi-camions-ko-partiel', () => {
       postOrder: vi.fn(),
     });
 
-    // fn_agreger_terminal_collecte retourne 'realisee' — le DELIVERED est déjà terminal
+    // fn_agreger_terminal_collecte retourne 'realisee' — le OK est déjà terminal
     const supabase = makeSyncSupabaseM18({
       agregerTerminalResult: 'realisee',
       tourneeInfo: {

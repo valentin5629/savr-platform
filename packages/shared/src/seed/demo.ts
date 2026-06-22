@@ -977,7 +977,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
       source: 'mts1',
       event_type: 'tour.status',
       event_id_externe: `evt-demo-${i}`,
-      payload: jsonb({ tourId: 'T' + i, status: 'DELIVERED' }),
+      payload: jsonb({ tourId: 'T' + i, status: 'OK' }),
       traite: i % 3 !== 0,
     })),
     ['id'],

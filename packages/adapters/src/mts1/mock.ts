@@ -13,12 +13,17 @@ function loadFixture<T>(filename: string): T {
 
 // ─── Types as-built MTS-1 ────────────────────────────────────────────────────
 
+// A7 : enums officiels customerOrderStatus MTS-1 (as-built §7). L'ancien jeu
+// (PENDING/ACCEPTED/IN_PROGRESS/DELIVERED) ne correspondait pas au contrat réel.
 export type Mts1OrderStatus =
-  | 'PENDING'
-  | 'ACCEPTED'
-  | 'IN_PROGRESS'
-  | 'DELIVERED'
+  | 'QUOTE'
+  | 'DRAFT'
+  | 'PLANNED'
+  | 'VALIDATED'
+  | 'IN_PROGRESSION'
+  | 'OK'
   | 'PARTIAL'
+  | 'ARCHIVED'
   | 'CANCELED'
   | 'KO';
 
@@ -167,7 +172,7 @@ const POLL_SCENARIOS: Record<Mts1PollScenario, () => Mts1PollResult> = {
         {
           id: 'MTS1-DEDUP-001',
           externalReference: f.payload_a?.event_id ?? 'dedup-ref',
-          status: 'DELIVERED',
+          status: 'OK',
         },
       ],
       totalCount: 1,
@@ -202,7 +207,7 @@ const POLL_SCENARIOS: Record<Mts1PollScenario, () => Mts1PollResult> = {
         {
           id: f.tour.tourId,
           externalReference: f.tour.externalReference,
-          status: 'DELIVERED',
+          status: 'OK',
         },
       ],
       totalCount: 1,

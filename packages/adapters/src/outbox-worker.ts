@@ -9,6 +9,18 @@
 // Alertes Slack :
 //   - DLQ (attempts ≥ 4 → dead) → #savr-alerts-critique
 //   - Anticipée (attempts ≥ 2 ET date_collecte < now+24h) → #savr-alerts-critique
+//
+// Sémantique `attempts` (§04 l.2328, gelé 2026-06-11 R2) : incrémenté AU CLAIM,
+// AVANT tout HTTP (claim-before-POST : un crash laisse une trace, jamais de
+// re-POST silencieux à attempts inchangé). La valeur lue au claim compte donc la
+// tentative courante → palier = getNextRetryAt(attempts).
+//
+// A3 (concurrence claim/reaper) : aucune double-exécution concurrente possible
+// dans ce déploiement — le lease (120 s) dépasse maxDuration de la route cron
+// (60 s, cf. api/cron/outbox-worker/route.ts) et les invocations Vercel Cron ne se
+// chevauchent pas (intervalle 15 min). Le reaper ne re-queue qu'un claim EXPIRÉ,
+// donc tenu par un run mort. Si maxDuration venait à dépasser le lease, il faudrait
+// un heartbeat de lease ou 1 event/run — invariant à préserver.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -165,12 +177,21 @@ async function processEvent(
     }
 
     if (event_type === 'collecte.modifiee') {
-      await provider.updateCollecte(collecte);
+      // A4 : propage requires_reconciliation (E2). Le PUT MTS-1 est idempotent ;
+      // l'adapter s'en sert seulement pour confirmer que l'ordre existe encore
+      // avant de ré-adresser sur reprise après timeout.
+      await (provider as AdapterMts1).updateCollecte(collecte, {
+        requiresReconciliation: event.requires_reconciliation,
+      });
       return;
     }
 
     if (event_type === 'collecte.annulee') {
-      await provider.cancelCollecte(collecte);
+      // A4 : propage requires_reconciliation (E3) — évite le faux « fenêtre
+      // fermée » quand un DELETE timeout a en réalité abouti (404 idempotent).
+      await (provider as AdapterMts1).cancelCollecte(collecte, {
+        requiresReconciliation: event.requires_reconciliation,
+      });
       return;
     }
   }
@@ -218,6 +239,8 @@ async function handleError(
   event: ClaimedEvent,
   err: unknown,
 ): Promise<'failed' | 'dead'> {
+  // `attempts` est incrémenté au claim (§04 l.2328) : il compte déjà la tentative
+  // courante → le palier de retry se lit directement getNextRetryAt(attempts).
   const attempts = event.attempts;
 
   if (err instanceof CancelWindowClosedError) {
@@ -303,6 +326,8 @@ async function maybeAlertEarlyCollecte(
   supabase: SupabaseClient,
   event: ClaimedEvent,
 ): Promise<void> {
+  // Seuil §04 l.2337 : alerte anticipée dès attempts ≥ 2 (attempts compte la
+  // tentative au claim — cf. §04 l.2328).
   if (event.attempts < 2) return;
   if (event.aggregate_type !== 'collecte') return;
 

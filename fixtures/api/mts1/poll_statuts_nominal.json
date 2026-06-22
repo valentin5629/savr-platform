@@ -4,7 +4,7 @@
     {
       "id": "MTS1-ORDER-COL-ZD-KASPIA-001",
       "externalReference": "tour_strike_202605_01",
-      "status": "DELIVERED",
+      "status": "OK",
       "pickupDate": "2026-05-06T22:00:00Z",
       "deliveryDate": "2026-05-07T01:30:00Z",
       "stops": [
@@ -18,7 +18,7 @@
     {
       "id": "MTS1-ORDER-COL-AG-POTEL-001",
       "externalReference": "tour_marathon_202605_01",
-      "status": "DELIVERED",
+      "status": "OK",
       "pickupDate": "2026-05-09T21:00:00Z",
       "deliveryDate": "2026-05-10T00:45:00Z",
       "stops": [
@@ -32,7 +32,7 @@
     {
       "id": "MTS1-ORDER-COL-ZD-KASPIA-002",
       "externalReference": "tour_strike_202605_02",
-      "status": "IN_PROGRESS",
+      "status": "IN_PROGRESSION",
       "pickupDate": "2026-05-13T22:30:00Z",
       "deliveryDate": null,
       "stops": [

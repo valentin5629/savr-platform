@@ -1,9 +1,9 @@
 {
-  "_description": "Tour DELIVERED avec pesées incomplètes : stops[] sans items flux (seulement volume_du_camion). Batch J+1 doit skipper. Escalade Admin si > 48h.",
+  "_description": "Tour OK avec pesées incomplètes : stops[] sans items flux (seulement volume_du_camion). Batch J+1 doit skipper. Escalade Admin si > 48h.",
   "tour": {
     "tourId": "MTS1-TOUR-INCOMPLETE-001",
     "externalReference": "col_pesees_incompletes_001-1",
-    "status": "DELIVERED",
+    "status": "OK",
     "startedAt": "2026-06-11T21:00:00Z",
     "completedAt": "2026-06-12T01:00:00Z",
     "stops": [
@@ -23,7 +23,7 @@
     ]
   },
   "_assertions": [
-    "tour en état DELIVERED mais items[] ne contient aucun flux pesé (hors <volume_du_camion>)",
+    "tour en état OK mais items[] ne contient aucun flux pesé (hors <volume_du_camion>)",
     "batch J+1 skippe la collecte : jamais de bordereau avec 0 pesée",
     "escalade saisie manuelle Admin si skip > 48h (R9)",
     "poids_kg null sur tous les flux mappés = pesées incomplètes"

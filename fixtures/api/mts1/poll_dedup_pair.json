@@ -7,8 +7,8 @@
     "data": {
       "orderId": "MTS1-ORDER-COL-ZD-KASPIA-001",
       "externalReference": "tour_strike_202605_01",
-      "oldStatus": "ACCEPTED",
-      "newStatus": "DELIVERED"
+      "oldStatus": "VALIDATED",
+      "newStatus": "OK"
     }
   },
   "payload_b": {
@@ -18,8 +18,8 @@
     "data": {
       "orderId": "MTS1-ORDER-COL-ZD-KASPIA-001",
       "externalReference": "tour_strike_202605_01",
-      "oldStatus": "ACCEPTED",
-      "newStatus": "DELIVERED"
+      "oldStatus": "VALIDATED",
+      "newStatus": "OK"
     }
   },
   "_assertion": "event_id identique → 1 seule ingestion (clé dédup = event_id sans occurred_at)"

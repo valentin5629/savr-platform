@@ -109,7 +109,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     record_id: (data as { id: string }).id,
     action: 'INSERT',
     user_id: auth.ctx.userId,
-    new_data: data,
+    new_values: data,
   });
 
   return NextResponse.json(data, { status: 201 });

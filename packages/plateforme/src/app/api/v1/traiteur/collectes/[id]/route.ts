@@ -200,8 +200,8 @@ export async function PATCH(
     record_id: id,
     action: 'UPDATE',
     user_id: auth.ctx.userId,
-    old_data: before ?? {},
-    new_data: { updates, cascade_tms, priorite_urgence },
+    old_values: before ?? {},
+    new_values: { updates, cascade_tms, priorite_urgence },
   });
 
   return NextResponse.json({

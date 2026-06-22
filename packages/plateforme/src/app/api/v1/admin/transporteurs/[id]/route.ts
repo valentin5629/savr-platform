@@ -119,8 +119,8 @@ export async function PATCH(
     record_id: id,
     action: 'UPDATE',
     user_id: auth.ctx.userId,
-    old_data: before,
-    new_data: data,
+    old_values: before,
+    new_values: data,
   });
 
   return NextResponse.json(data);

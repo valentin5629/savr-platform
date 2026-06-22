@@ -101,7 +101,7 @@ export async function POST(
     record_id: id,
     action: 'DISPATCH',
     user_id: auth.ctx.userId,
-    new_data: {
+    new_values: {
       event_type: eventType,
       dirty_tms: false,
       prestataire_logistique_id,

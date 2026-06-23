@@ -8,6 +8,10 @@ export default tseslint.config(
       '**/.next/**',
       '**/node_modules/**',
       '**/next-env.d.ts',
+      // Tooling d'audit hors runtime applicatif : workflows (globals injectés
+      // agent/pipeline/log/args) + scripts de recompte de registres (Node CLI).
+      'docs/audit/**',
+      '.claude/workflows/**',
     ],
   },
   js.configs.recommended,

@@ -1,0 +1,516 @@
+{
+  "verdictCounts": {
+    "confirmed_gap": 24,
+    "false_positive": 10,
+    "intentional_descope": 1
+  },
+  "bySectionVerdict": {
+    "arch-outbox-leaseclaim": {
+      "confirmed_gap": 11,
+      "false_positive": 6
+    },
+    "arch-interface-provider": {
+      "confirmed_gap": 4
+    },
+    "arch-multicamions-terminal": {
+      "confirmed_gap": 9,
+      "false_positive": 4,
+      "intentional_descope": 1
+    }
+  },
+  "confirmedDedup": [
+    {
+      "section_id": "arch-outbox-leaseclaim",
+      "deliverable_id": "outbox-col-dead-at",
+      "verdict": "confirmed_gap",
+      "severity": "moyen",
+      "justification": "La colonne dediee `dead_at` est reellement absente de plateforme.outbox_events. Verifie dans la migration createur 20260611171641_plateforme_bloc7_integrations.sql L100-118 : la table a `processed_at timestamptz` (L117) mais aucune colonne `dead_at`. Aucune autre migration n'ajoute `dead_at` (grep exhaustif sur supabase/migrations/ = 0 hit pour dead_at ; seules les valeurs d'enum 'dead' et les vues comptant statut='dead' existent). Le CDC l'exige explicitement comme colonne distincte : specs/cdc/01 - .../04 - Data Model.md L2308 (`dead_at | timestamptz | NULL | Horodatage de passage en DLQ -> declenche l'alerte`) et la logique DLQ L2336 lit `status='dead' + dead_at=now()`. C'est aussi dans le DDL cible GELE (garde-fou 1 Frontiere TMS-Ready) : specs/ddl-cible/schema_cible_v2.sql:1061 `dead_at timestamptz`. Donc V1 n'est pas un sous-ensemble du DDL cible sur cette colonne. Non un faux positif : `processed_at` est surcharge pour 'done' ET 'dead' (20260614150000 L126 : WHEN p_statut IN ('done','dead') THEN now()), on ne peut pas distinguer dead-at de done-at sur la seule colonne. Pas un descope : aucun marqueur V1.1/V2 sur la ligne L2308 du CDC, et les divergences outbox traitees (_Divergences/_traites/2026-06/OUTBOX-TXID, OUTBOX-ATTEMPTS) portent sur txid et attempts, jamais sur dead_at. Module livre (delivered), pas pending. Severite moyen et non eleve : l'etat DLQ reste trace via statut='dead' et l'alerte Slack est bien declenchee cote TS sur statut='dead' (pas de perte de donnee silencieuse ni d'alerte cassee) ; l'impact reel est une non-convergence de schema + impossibilite de distinguer l'horodatage DLQ de l'horodatage de succes (observabilite/audit), ce qui correspond au rating Moyen deja porte par le gap-register existant (gap #75).",
+      "descope_ref": "04 - Data Model.md L2308 + schema_cible_v2.sql:1061 (colonne exigee, aucun descope)"
+    },
+    {
+      "section_id": "arch-outbox-leaseclaim",
+      "deliverable_id": "outbox-col-consumed-at",
+      "verdict": "confirmed_gap",
+      "severity": "faible",
+      "justification": "La colonne attendue par le CDC s'appelle `consumed_at` (04 - Data Model.md L2302 : timestamptz, NULL=en attente, renseignée lors de la consommation par l'adapter). L'implémentation porte une colonne `processed_at` à la place (supabase/migrations/20260611171641_plateforme_bloc7_integrations.sql:117, renseignée now() WHEN statut IN ('done','dead') dans 20260614150000_..._outbox_worker.sql:125-128). VÉRIFICATIONS: (1) Pas de faux positif — `grep consumed_at` sur supabase/ et packages/ = 0 occurrence; aucune colonne `consumed_at` n'existe nulle part. La colonne réelle est `processed_at`. (2) Pas de descope documenté — aucun fichier _Divergences/ (ni ouverts ni _traités, y compris OUTBOX-ATTEMPTS et OUTBOX-TXID) ne mentionne ce renommage consumed_at→processed_at; le CDC continue de référencer `consumed_at` dans tout le corps (L2302 + worker L2323/L2330/L2338/L2340 + index L2313). (3) Module livré (delivered), pas pending. C'est donc un écart réel, mais purement de NAMING: la sémantique est strictement équivalente (NULL=en attente, renseignée=consommée/morte), aucune perte de donnée, aucun impact sécurité/conformité/facturation/cloisonnement. L'index CDC `(consumed_at) WHERE consumed_at IS NULL` est remplacé fonctionnellement par idx_outbox_pending sur (seq) WHERE statut IN ('pending','failed'). Seul impact concret: le diff schéma vs DDL cible (garde-fou 1 G1 — clusters de convergence enum/naming en cours) verra un nom divergent à converger. Severity faible (cosmétique structurel, comportement préservé)."
+    },
+    {
+      "section_id": "arch-outbox-leaseclaim",
+      "deliverable_id": "outbox-reaper-requeue-expired",
+      "verdict": "confirmed_gap",
+      "severity": "eleve",
+      "justification": "Le reaper EST implémenté et câblé : plateforme.fn_reap_outbox_claims (migration 20260614150000_plateforme_m1_5a_outbox_worker.sql:137-154) fait bien UPDATE statut='pending', claimed_until=NULL, requires_reconciliation=true WHERE statut='processing' AND claimed_until < now(), et le worker réel l'appelle en début de chaque run (packages/adapters/src/outbox-worker.ts:111). Le code de la règle SI/ALORS est donc présent et correct — ce n'est pas un livrable absent ni un faux positif.\n\nLe gap, confirmé après recherche exhaustive, est l'absence totale de test exerçant le vrai chemin du reaper. Aucun test (SQL ou TS) n'appelle fn_reap_outbox_claims (grep sur supabase/tests/ + packages/adapters/src/ ne trouve la fonction QUE dans la migration et le worker, jamais dans un .test). Les deux seuls tests qui touchent les colonnes concernées ne couvrent PAS le reaper : (1) supabase/tests/M0_6__cat_5.test.sql:74-83 (T47) insère un event 'processing' avec claimed_until = NOW()+5min (NON expiré) et vérifie seulement claimed_until > NOW() — il ne teste jamais la transition processing→pending ; (2) supabase/tests/outbox_reconciliation_sticky_txid.test.sql teste fn_result_outbox (flag sticky A1-1/A1-2) et fn_claim_outbox_batch (garde txid A3b), pas le reaper. Aucun test ne pose un claim EXPIRÉ (claimed_until < now()) puis n'assure statut='pending' + requires_reconciliation=true.\n\nPas de descope : aucun marqueur dans le CDC ni dans /Users/valentinleblan/Desktop/Obsidian Savr/_Divergences (CLUSTER-C, ADAPTER, M1.8, OUTBOX-TXID, OUTBOX-ATTEMPTS — aucun ne descope ce test). Module delivered (non pending). Réf CDC 04 - Data Model L2331 fait de cette règle SI/ALORS une exigence critique.\n\nSeverity eleve (pas critique) : le code runtime est présent et correct aujourd'hui (pas de défaut actif, pas de perte de donnée réelle en l'état), mais le chemin non testé garde une barrière d'intégrité métier essentielle — la réconciliation post-crash worker qui empêche un double POST customerOrder vers MTS-1. Une régression silencieuse de fn_reap_outbox_claims (prédicat erroné ou perte du flag requires_reconciliation) ne serait détectée par aucun test, exposant à une ré-émission non réconciliée.",
+      "found_at": "supabase/migrations/20260614150000_plateforme_m1_5a_outbox_worker.sql:137-154 (fonction implémentée), packages/adapters/src/outbox-worker.ts:111 (câblage worker) — mais aucun test couvrant le chemin re-queue",
+      "descope_ref": ""
+    },
+    {
+      "section_id": "arch-outbox-leaseclaim",
+      "deliverable_id": "outbox-head-of-line-par-agregat",
+      "verdict": "confirmed_gap",
+      "severity": "eleve",
+      "justification": "RÉFUTATION ÉCHOUÉE — l'écart partiel tient, mais pas pour la raison principale invoquée (le manque de test): un VRAI bug de conformité subsiste sur la sémantique 'dead'.\n\nCe qui est BON (donc pas un manque total): la garde head-of-line par agrégat EST présente et câblée. supabase/migrations/20260622100000_...:60-67 — le claim exclut un event si NOT EXISTS un event antérieur du même aggregate_id (e2.seq < e.seq) encore non consommé ; ORDER BY seq + FOR UPDATE SKIP LOCKED. Le worker l'appelle via fn_claim_outbox_batch (packages/adapters/src/outbox-worker.ts:115). Les autres collectes/lieux continuent (clé = aggregate_id). Donc PAS un false_positive, PAS un confirmed_gap « absent ».\n\nPOURQUOI confirmed_gap quand même — DIVERGENCE SÉMANTIQUE 'dead' vs CDC: la garde est `e2.statut NOT IN ('done','dead')`. Elle traite donc un event 'dead' comme NON bloquant. Or le CDC §04 est explicite en sens INVERSE:\n - L2334: « tant qu'un event d'une collecte est `failed`/`dead` (non consommé), bloquer tous les events suivants ».\n - L2338: « le head-of-line fait qu'un event `dead` bloque PERMANENTEMENT tous les events suivants de son agrégat » — c'est précisément la raison d'être de la procédure admin DLQ (issues a/b/c) qui débloque l'agrégat.\nConséquence concrète du bug: si E1 collecte.creee passe 'dead', l'implémentation laisse passer E2 collecte.modifiee / E3 collecte.annulee vers le claim → POST MTS-1 sur une collecte dont la création n'est jamais arrivée (exactement le scénario que L2334 dit empêcher). Le filet no-op (L2340, consumer='noop_no_remote' si aucune external_ref_commande) atténue le cas « aucun remote » mais ne couvre PAS la promesse CDC d'un blocage permanent gardé par déblocage admin.\n\nNI descope NI pending: module delivered. Les 2 seuls fichiers de divergence outbox (_Divergences/_traités/2026-06/OUTBOX-ATTEMPTS_20260622.md = timing attempts ; OUTBOX-TXID_20260622.md = garde txid bigint) NE mentionnent PAS le choix 'dead'-non-bloquant. Aucun marqueur DESCOPÉ/V1.1/V2 dans le CDC sur ce point. Le choix `NOT IN ('done','dead')` n'est donc ni documenté ni assumé.\n\nMANQUE (c) confirmé: aucun test n'exerce le vrai chemin HOL. outbox_reconciliation_sticky_txid.test.sql utilise un aggregate_id distinct par event (a1/a2/a3) → ne crée jamais 2 events même agrégat avec un antérieur non consommé. outbox_par_mutation.test.sql ne teste que l'émission. Aucun test TS adapter (mock). Donc régression silencieuse possible.\n\nSeverity eleve: viole une règle métier/logistique (ordering des events vers MTS-1) avec risque de mauvais dispatch (E3/E2 poussés sur agrégat dont E1 dead), borné par le no-op mais pas conforme à l'intention « dead bloque permanent » du CDC. Correctif: remplacer NOT IN ('done','dead') par != 'done' (ou NOT IN ('done')) + test pgTAP créant 2 events même aggregate_id (E1 failed/dead, E2 derrière) asserant que E2 n'est pas claimé tant que E1 non 'done'.",
+      "descope_ref": "04 - Data Model.md L2334 + L2338 (intention « dead bloque PERMANENTEMENT »); implémentation divergente non documentée — supabase/migrations/20260622100000_plateforme_outbox_reconciliation_sticky_txid_fix.sql:66"
+    },
+    {
+      "section_id": "arch-outbox-leaseclaim",
+      "deliverable_id": "outbox-dlq-alerte-slack-critique",
+      "verdict": "confirmed_gap",
+      "severity": "moyen",
+      "justification": "Réfutation tentée mais le manque tient sur un point précis : la couverture de test du chemin worker → DLQ → alerte. L'IMPLÉMENTATION est complète et correctement câblée — packages/adapters/src/outbox-worker.ts:130-132 (if status==='dead' → result.dead++ + alertDlq) et :316-323 (alertDlq → sendAlert({canal:'critique', titre:'[DLQ] Outbox event mort'})). Le primitif d'alerte est testé en isolation : packages/shared/src/alerting/alerting.m0-9.test.ts:92-106 vérifie qu'un payload DLQ ('Outbox DLQ') route bien vers canal 'critique'. DONC le « jamais d'échec silencieux » est implémenté et le dernier maillon vers Slack est prouvé.\n\nMAIS le chemin déclencheur côté worker n'est exercé par AUCUN test réel : grep exhaustif → runOutboxWorker n'est référencé que dans packages/plateforme/tests/api/cron/cron-auth.test.ts:20-21 où il est entièrement mocké (vi.fn()). Aucun test (Vitest ou pgTAP) ne fait passer un event à 4 tentatives → handleError retourne 'dead' → alertDlq est appelé. handleError/processEvent ne sont jamais testés directement ; supabase/tests/outbox_*.test.sql ne contiennent ni 'dead' ni 'dlq' ni 'alert'.\n\nPas de faux positif (rien câblé ailleurs sous autre nom). Pas de descope : la divergence OUTBOX-ATTEMPTS_20260622.md porte sur la logique d'incrément de attempts, pas sur la couverture de test de l'alerte DLQ ; aucun marqueur V1.1/V2 sur ce livrable. Module delivered (pas pending). Statut 'partial' confirmé : manque (c) test du vrai chemin status==='dead' → alertDlq.\n\nSévérité 'moyen' et non 'critique' : le comportement critique (alerte sur camion absent) EST implémenté et reviewable, et le primitif sendAlert→critique EST testé. Le risque résiduel est uniquement la non-détection d'une régression future sur la branche dead du worker, pas une perte de données silencieuse en l'état actuel du code."
+    },
+    {
+      "section_id": "arch-outbox-leaseclaim",
+      "deliverable_id": "outbox-alerte-anticipee-imminente",
+      "verdict": "confirmed_gap",
+      "severity": "eleve",
+      "justification": "La garde alerte anticipée est bien implémentée et câblée dans runOutboxWorker : packages/adapters/src/outbox-worker.ts:135 (appel maybeAlertEarlyCollecte sur échec non-dead) et :325-355 (conditions exactes du CDC §04 L2337 : attempts >= 2 ET date_collecte <= now+24h → sendAlert canal:'critique', titre \"Collecte J-1 en échec d'envoi MTS-1\"). Le code n'est donc PAS un faux positif et la logique est correcte par inspection. MAIS le gap (c) test du vrai chemin est confirmé : AUCUN test n'exerce maybeAlertEarlyCollecte ni runOutboxWorker. (1) packages/plateforme/tests/api/cron/cron-auth.test.ts:20-21 mocke entièrement runOutboxWorker (vi.mock → {processed:0}). (2) packages/adapters/src/mts1/adapter.m1-5a.test.ts:651-673 (\"worker outbox — retry paliers\") ne teste PAS le worker réel : il RÉ-IMPLÉMENTE getNextRetryAt inline comme une copie et assert sur la copie, avec le commentaire explicite \"logique interne testée indirectement\" — la branche alerte n'est jamais touchée. (3) packages/shared/src/alerting/alerting.m0-9.test.ts ne valide que la plomberie générique de sendAlert (module Slack), pas le gating de seuil (attempts>=2, fenêtre 24h). Donc aucune des trois conditions critiques de l'alerte (seuil attempts, fenêtre temporelle, canal critique) n'a de couverture directe. Aucun marqueur de descope (pas de V1.1/V2/différé sur cet item dans le CDC ni dans _Divergences ; au contraire CLAUDE.md §2 le mentionne comme exigence ferme \"alerte anticipée si attempts >= 2 ET date_collecte < now()+24h\"). Module livré (delivered), donc pas pending. Severity eleve et non critique : le comportement est de fait implémenté et correct, le risque réel est une régression non détectée (violation DoD : alerte ops critique sans test) plutôt qu'une non-fonction actuelle.",
+      "found_at": "packages/adapters/src/outbox-worker.ts:325-355 (implémenté mais non testé)",
+      "descope_ref": ""
+    },
+    {
+      "section_id": "arch-outbox-leaseclaim",
+      "deliverable_id": "outbox-deblocage-dlq-requeue",
+      "verdict": "confirmed_gap",
+      "severity": "eleve",
+      "justification": "Écart confirmé après réfutation. Le CDC (specs/cdc/01 - .../04 - Data Model.md, section « Déblocage DLQ V1 (ajout 2026-06-10) ») exige explicitement en V1 une procédure admin SQL SERVICE_ROLE tracée audit_log, avec 3 issues exclusives, dont (a) re-queue : status='pending', next_retry_at=now(), attempts=0, seq conservé. Seul le replay outillé UI M13 est V2.\n\nFAUX POSITIF écarté : les seules fonctions outbox sont fn_claim_outbox_batch, fn_result_outbox et fn_reap_outbox_claims (migration 20260614150000_plateforme_m1_5a_outbox_worker.sql). Le reaper (L137-154) re-queue uniquement les claims EXPIRÉS (statut='processing' AND claimed_until < now() → 'pending' + requires_reconciliation=true) : c'est la reprise d'un worker crashé (R2/R3), PAS le déblocage manuel d'un event 'dead'. Il ne touche jamais statut='dead', ne remet pas attempts=0, et n'est pas une procédure admin tracée audit_log. Aucune fonction/migration n'effectue de transition 'dead'→'pending', ni le skip motivé (admin_skip), ni la résolution manuelle MTS-1. Toutes les occurrences de 'dead' dans les migrations sont des agrégations read-only (COUNT pour vues santé/observabilité). Aucune route API admin/ops ne manipule les events DLQ. Les issues (b) et (c) du même livrable sont également absentes.\n\nDESCOPE écarté : aucun marqueur de descope dans le CDC (section marquée V1) ni dans les fichiers _Divergences (les divergences outbox traitées concernent la sémantique de attempts, pas le déblocage DLQ).\n\nPENDING écarté : section livrée (statut delivered), worker M1.5a construit et mergé.\n\nLe CDC impose aussi de recopier la procédure dans RUNBOOK_INCIDENT.md (section « DLQ outbox ») — absente du repo.\n\nImpact (eleve) : avec le head-of-line blocking par agrégat, un event 'dead' bloque PERMANENTEMENT tous les events suivants de sa collecte (ex. E1 dead → E3 annulation jamais poussée → camion envoyé sur collecte annulée). Sans procédure de re-queue/skip, aucun moyen de débloquer l'agrégat → règle métier/opérationnelle logistique violée. Pas de perte de donnée silencieuse (les events restent en base, alerte DLQ Slack présente) donc pas critique."
+    },
+    {
+      "section_id": "arch-outbox-leaseclaim",
+      "deliverable_id": "outbox-deblocage-dlq-skip",
+      "verdict": "confirmed_gap",
+      "severity": "eleve",
+      "justification": "La procédure admin de déblocage DLQ issue (b) skip motivé est absente du code exécutable. Vérifications : (1) grep 'admin_skip' sur *.sql/*.ts → 0 occurrence exécutable ; la chaîne n'apparaît jamais comme valeur écrite, seulement dans CLAUDE.md (spec) et la spec elle-même. (2) Les seules fonctions outbox existantes sont plateforme.fn_claim_outbox_batch, fn_result_outbox, fn_reap_outbox_claims (supabase/migrations/20260614150000_plateforme_m1_5a_outbox_worker.sql + 20260622100000) — elles gèrent le cycle worker normal (claim/result/reaper), AUCUNE n'implémente la procédure admin SERVICE_ROLE de déblocage manuel (issues a re-queue / b skip motivé / c résolution manuelle MTS-1) décrite au CDC. (3) RUNBOOK_INCIDENT.md ne contient aucune section 'DLQ outbox' alors que la spec exige explicitement d'y recopier la procédure. La spec 'specs/cdc/01 - Cahier des charges App/04 - Data Model.md' L2338 est explicite et NON descopée (seul le replay outillé UI M13 est marqué V2 ; le skip motivé issue b est V1). Le head-of-line blocking PAR AGRÉGAT est bien implémenté (L2334, fn_claim_outbox_batch ligne 71 : e2.statut NOT IN done,dead) — donc un event 'dead' bloque PERMANENTEMENT tous les events suivants de sa collecte, exactement le scénario que la procédure skip doit résoudre. Sans elle, un Admin ne peut pas débloquer un agrégat coincé (ex. E1 dead → E3 annulation jamais poussée → camion envoyé sur collecte annulée). Ni faux positif (rien sous un autre nom), ni descope, ni pending (section delivered). Gap confirmé. Note : le consumer 'noop_no_remote' (L2340, livrable distinct) n'est lui-même présent qu'en commentaire d'exemple dans fn_result_outbox, non câblé non plus. Severity eleve : mécanisme de récupération métier/logistique manquant (risque camion envoyé sur collecte annulée), mais pas de perte de donnée silencieuse ni faille de cloisonnement."
+    },
+    {
+      "section_id": "arch-outbox-leaseclaim",
+      "deliverable_id": "outbox-deblocage-dlq-resolution-manuelle",
+      "verdict": "confirmed_gap",
+      "severity": "eleve",
+      "justification": "Aucune procédure de déblocage DLQ issue (c) « résolution manuelle MTS-1 » n'est implémentée. Réf CDC : specs/cdc/01 - Cahier des charges App/04 - Data Model.md L2338, qui spécifie explicitement, en scope V1, une procédure admin SQL SERVICE_ROLE tracée audit_log marquant l'event `consumed` ET renseignant `external_ref_commande` sur la tournée pour réaligner la corrélation (seul le replay outillé UI M13 est V2). Vérifications : (1) Faux positif écarté — `external_ref_commande` n'est posé QUE par le flux normal commit-par-rang de l'adapter (packages/adapters/src/mts1/adapter.ts), aucune fonction SQL ne marque un event consumed en renseignant `external_ref_commande` sur une tournée ; le `noop_no_remote` (CDC L2340 / R8) du worker est l'auto-no-op des E2/E3 sans remote, un mécanisme distinct de l'issue (c). Aucune des 3 procédures de déblocage DLQ (a re-queue / b skip motivé / c résolution manuelle) n'existe sous forme de RPC/SQL admin. (2) Descope écarté — la ligne L2338 met (a/b/c) en V1 ; aucune divergence ne les descope (OUTBOX-ATTEMPTS_20260622.md ne concerne que le comptage d'`attempts`). (3) Section livrée (delivered), pas pending. (4) Le CDC exige aussi la recopie dans RUNBOOK_INCIDENT.md section « DLQ outbox » : le fichier existe (/Users/valentinleblan/Code/savr-platform/RUNBOOK_INCIDENT.md) mais ne contient aucune section DLQ. Impact réel : avec le head-of-line blocking par agrégat, un event `dead` bloque définitivement tous les events suivants de la collecte ; sans l'issue (c), quand Ops a créé la commande à la main côté MTS-1, la corrélation `external_ref_commande` n'est jamais réalignée → agrégat outbox bloqué en permanence et désync Plateforme↔MTS-1 sur le dispatch logistique. Règle métier sur le chemin dispatch (camion/collecte), criticité eleve."
+    },
+    {
+      "section_id": "arch-outbox-leaseclaim",
+      "deliverable_id": "outbox-deblocage-dlq-runbook",
+      "verdict": "confirmed_gap",
+      "severity": "moyen",
+      "justification": "Le livrable est une procédure de déblocage DLQ outbox à RECOPIER dans RUNBOOK_INCIDENT.md (section « DLQ outbox »), explicitement mandatée par le CDC : specs/cdc/01 - Cahier des charges App/04 - Data Model.md L2338 (« Cette procédure est à recopier dans RUNBOOK_INCIDENT.md du repo (section « DLQ outbox ») ») détaillant 3 issues admin exclusives (a) re-queue, (b) skip motivé, (c) résolution manuelle MTS-1, tracées audit_log. Or /Users/valentinleblan/Code/savr-platform/RUNBOOK_INCIDENT.md (45 lignes) ne contient QUE les sections Détection, Décision, Action de rollback localisé, Auth JWT Hook, Trace — AUCUNE section « DLQ outbox », aucune procédure a/b/c. grep -i 'DLQ|outbox|admin_skip|re-queue|déblocage' sur le fichier = 0 résultat. Réfutation des échappatoires : (1) FAUX POSITIF écarté — la procédure n'existe nulle part ailleurs dans le repo (DEFINITION_OF_DONE.md, CHECKLIST_CHECKPOINT.md, docs/ : 0 résultat). Le code lease/claim/reaper/noop_no_remote est bien implémenté (migration 20260614150000_plateforme_m1_5a_outbox_worker.sql, packages/adapters/src/outbox-worker.ts) mais ce sont les mécaniques runtime, PAS la procédure admin DOCUMENTÉE demandée dans le runbook — livrable distinct (type pdf_doc). (2) DESCOPE écarté — aucun fichier dans _Divergences (ouverts ni _traités) ne descope ce point ; la seule mention V2 inline du CDC concerne le « replay outillé (UI M13) », sous-item différent explicitement séparé. (3) PENDING écarté — la section arch-outbox-leaseclaim est livrée (delivered), module M1.5 mergé (commit f79e1e8), donc le gap doc est réel et non attendu. Impact réel : opérationnel — sans cette procédure documentée, un incident de head-of-line blocking (ex. E1 dead bloquant définitivement E3 annulation → camion envoyé sur collecte annulée) n'a pas de runbook de récupération manuelle ; pas de perte de donnée silencieuse ni faille sécurité → severity moyen."
+    },
+    {
+      "section_id": "arch-outbox-leaseclaim",
+      "deliverable_id": "outbox-noop-no-remote",
+      "verdict": "confirmed_gap",
+      "severity": "moyen",
+      "justification": "Écart partiel confirmé. La sémantique fonctionnelle no-op est bien implémentée et testée : updateCollecte (packages/adapters/src/mts1/adapter.ts:177-179) et cancelCollecte (:209-211) retournent en succès quand avecRef.length===0, sans erreur ni retry — conforme à R8 (jamais d'erreur/retry sur agrégat sans existence distante). MAIS le marquage consumer='noop_no_remote' exigé par le CDC en 3 endroits (CLAUDE.md L40 ; 04 - Data Model.md L2340 R8 « consumed_at=now(), consumer='noop_no_remote', log info » ; Interface logistique_provider V1.md L36) n'est JAMAIS posé. Le worker traite le retour void de l'adapter comme un succès générique : runOutboxWorker → markDone(supabase, event.id) (outbox-worker.ts:126,230-235) appelle fn_result_outbox(p_id, p_statut='done') SANS p_consumer. Or fn_result_outbox fait consumer = COALESCE(p_consumer, consumer) (migration 20260622100000 L108), donc le consumer garde sa valeur antérieure (posée au claim, ex. adapter_mts1) — le no-op devient indistinguable d'une vraie livraison MTS-1 dans la ligne outbox. Idem pour les 2 autres branches no-op (pas de prestataire_logistique_id outbox-worker.ts:156-159 ; event_type inconnu :225). Le mécanisme existe pourtant : p_consumer est défini et documenté « ex: 'noop_no_remote' » (migration 20260614150000 L99) mais n'est jamais câblé. Recherche exhaustive : 'noop_no_remote' n'apparaît dans AUCUN fichier .ts de packages/adapters/src/ (uniquement commentaire migration + CDC). Pas de faux positif (aucune impl alternative), pas de descope (divergence CLUSTER-C_20260622.md porte sur un sujet enum sans rapport), module delivered. Severity moyen et non eleve : le comportement métier est correct (pas de retry parasite, pas d'erreur, pas d'appel MTS-1 indu, aucune perte de donnée ni impact facturation/sécurité) ; seul manque le marqueur d'audit/observabilité distinguant un no-op d'une consommation réelle — impact data/traçabilité."
+    },
+    {
+      "section_id": "arch-interface-provider",
+      "deliverable_id": "sync-agregation-terminale",
+      "verdict": "confirmed_gap",
+      "severity": "critique",
+      "justification": "Gap de câblage confirmé après tentative de réfutation exhaustive. Le CDC (Interface logistique_provider V1.md §3 l.45) exige, dans l'agrégation terminale : \"agrégat pesees_tournees → collecte_flux (recalcul complet)\". Cette dérivation est ABSENTE du code.\n\nPREUVES (réfutation échouée) :\n1. fn_agreger_terminal_collecte (supabase/migrations/20260615100000_plateforme_m1_8_fn_agreger_terminal.sql) implémente bien la transition de statut concurrente-sûre (FOR UPDATE l.20, recount sous lock l.25-31, transition gardée l.47, realisee_at=COALESCE l.45) MAIS n'écrit JAMAIS collecte_flux. Appelée depuis adapter.ts:429-431 sur statut terminal.\n2. Aucun writer dérivé de pesees_tournees vers collecte_flux nulle part : grep insert/update/upsert/trigger/function sur collecte_flux dans toutes les migrations + tout packages/ = 0. Le seul writer collecte_flux est admin/collectes/route.ts:122-129 qui insère des lignes vides poids_kg=null à la création. Le seul code touchant les poids pesees_tournees est l'adapter.ts:512 qui écrit DEDANS (upsert), jamais en lecture-agrégation.\n3. Le commentaire migration bloc2 (20260611171636_plateforme_bloc2_referentiel.sql:247) \"collecte_flux (dérivée par UPSERT)\" est une promesse jamais codée (pattern #6).\n\nPAS UN DESCOPE : aucun marqueur V1.1/V2/hors-scope. Le fichier de divergence M1.8_20260615.md (Gap 2) documente l'implémentation M1.8 de l'agrégation terminale en exactement 2 étapes (fonction PG de statut + wiring processOrder : \"update tournée → RPC → alerte partiel\") et OMET silencieusement le volet collecte_flux exigé par le CDC — c'est une omission non détectée, pas un descope assumé.\n\nIMPACT PROD (silent data loss) : tous les consommateurs aval lisent collecte_flux.poids_reel_kg jamais peuplé → registre réglementaire ZD (registre/csv.ts:41-57), bordereaux + rapports batch PDF J+1 (pdf/batch-pdf-j1.ts:127,157-163), dashboards gestionnaire/traiteur, exports CSV, CO2 ZD (m4_3) → tous à 0 kg alors que les pesées réelles existent dans pesees_tournees. Le test m1-8 mocke à la fois le retour de fn_agreger ET les comptes collecte_flux → ne détecte pas l'absence de dérivation.\n\nNote mineure annexe (non bloquante) : la garde de statut ajoute 'programmee' au WHERE alors que le CDC dit IN ('validee','en_cours') — divergence conservatrice sans impact."
+    },
+    {
+      "section_id": "arch-interface-provider",
+      "deliverable_id": "regle-transverse-noop-succes-noop-no-remote",
+      "verdict": "confirmed_gap",
+      "severity": "moyen",
+      "justification": "Gap de câblage confirmé. Le CDC l'exige explicitement à DEUX endroits : Interface logistique_provider V1.md §2 l.36 (\"No-op succès : updateCollecte/cancelCollecte sur une collecte sans aucune external_ref_commande = consumed consumer='noop_no_remote', log info — symétrique provider_manual\") et Data Model §04 l.2340 (R8, 2026-06-11, mêmes termes). Implémentation réelle : (1) packages/adapters/src/mts1/adapter.ts:177 (updateCollecte) et :209 (cancelCollecte) font un early `return` silencieux quand avecRef.length===0, sans signaler le no-op. (2) Le worker est packages/adapters/src/outbox-worker.ts (et non mts1/outbox-worker.ts comme indiqué — imprécision de chemin sans incidence) : markDone (l.230-235) appelle fn_result_outbox avec seulement p_id + p_statut:'done', jamais p_consumer ; processEvent retourne void de manière indistincte pour succès HTTP, no-op sans prestataire, et no-op sans external_ref. (3) fn_result_outbox SUPPORTE p_consumer (migration 20260614150000, DEFAULT NULL + COALESCE) mais 'noop_no_remote' n'apparaît qu'UNE fois dans tout le repo — un commentaire de cette migration — jamais en TypeScript. Preuve que le pattern existe et fonctionne : manual/provider.ts pose bien consumer:'manual' sur ses no-op (4 occurrences) ; la colonne est opérationnelle, seul le cas symétrique noop_no_remote n'a pas été câblé. Pas de faux positif (rien trouvé ailleurs), pas de descope (la seule divergence liée, _traités/M2.5 DIV-4, concerne l'endpoint updateCollecte d'Everest, pas ce marqueur ; section statut delivered). Aucun test. Le comportement fonctionnel (pas d'erreur, pas de retry) est correct ; seul le marqueur de traçabilité exigé manque, d'où severity moyen (observabilité/traçabilité non observable en base, ni sécurité ni facturation)."
+    },
+    {
+      "section_id": "arch-interface-provider",
+      "deliverable_id": "everest-e2-noop-warning-alerts-info",
+      "verdict": "confirmed_gap",
+      "severity": "moyen",
+      "justification": "Gap partiel confirmé. Le no-op E2 Everest est implémenté (packages/adapters/src/everest/adapter.ts:138-150) mais le warning part uniquement en console.warn JSON (event everest.update_collecte.noop) — il n'atteint jamais Slack. Le mécanisme requis existe et est câblé ailleurs : sendAlert({canal:'info'}) dans packages/shared/src/alerting/slack.ts (route via SLACK_WEBHOOK_INFO = #savr-alerts-info), importé et utilisé par packages/adapters/src/outbox-worker.ts:27,317,348. Or everest/adapter.ts n'importe ni n'appelle sendAlert (0 match), et le worker (outbox-worker.ts:179-186) appelle simplement updateCollecte puis return — aucune alerte info sur le chemin E2 Everest. Le CDC (specs/cdc/01 - Cahier des charges App/Interface logistique_provider V1.md §2 l.27) exige explicitement « adapter_everest V1 : no-op + warning #savr-alerts-info ». PAS un descope : la divergence traitée _Divergences/_traités/M2.5_20260615.md DIV-4 ne descope QUE l'endpoint de modification Everest (« faut-il contacter le dev Everest ») ; le warning #savr-alerts-info reste une exigence V1 affirmée — précisément pour donner de la visibilité Ops sur une modification silencieusement non répercutée. Severity moyen : gap d'observabilité/visibilité Ops (une collecte AG modifiée n'est pas re-poussée à Everest sans signal Slack), pas de perte de données silencieuse en base, cas rare per DIV-4, event outbox toujours consommé.",
+      "descope_ref": "DIV-4 (M2.5_20260615.md) descope l'endpoint de modification, PAS le warning #savr-alerts-info — exigence CDC l.27 maintenue"
+    },
+    {
+      "section_id": "arch-interface-provider",
+      "deliverable_id": "provider-manual-noop-consumer-manual",
+      "verdict": "confirmed_gap",
+      "severity": "moyen",
+      "justification": "Gap confirmé après tentative de réfutation. Le CDC `Interface logistique_provider V1.md` §1 tableau l.15 exige explicitement que l'event outbox traité par provider_manual soit « marqué consumed avec consumer='manual' ». Or aucun chemin du code n'écrit cette valeur en base. Vérifications : (1) ProviderManual (packages/adapters/src/manual/provider.ts:18/30/42/54) ne fait que console.info avec un champ JSON consumer:'manual' — ce n'est PAS une écriture DB. (2) Le worker route bien type_tms='autre' → ProviderManual (packages/adapters/src/index.ts:133-134), puis appelle markDone(event.id) qui invoque fn_result_outbox avec seulement p_id et p_statut='done' (outbox-worker.ts:126,230-235) — p_consumer jamais passé. (3) fn_result_outbox fait consumer = COALESCE(p_consumer, consumer) (migrations 20260614150000:119 et 20260622100000:96) : p_consumer NULL → la colonne conserve sa valeur. (4) La colonne consumer est `text` sans DEFAULT (20260611171641:108) → NULL. Donc après traitement manual, consumer reste NULL, jamais 'manual'. grep exhaustif : aucune occurrence de p_consumer ni de \"manual\"/\"noop_no_remote\" passée à fn_result_outbox dans packages/adapters/src ni packages/plateforme (la valeur n'apparaît que dans les logs console et un commentaire de migration). Aucun marqueur de descope dans le CDC (pas de V1.1/V2/différé sur cette ligne), aucun fichier dans _Divergences/ (Vault ni repo). Module livré (delivered), pas pending. Severity moyen : l'event est correctement marqué statut='done' (consommé, pas de blocage du pipeline ni de perte de donnée métier) ; seule l'attribution d'observabilité/audit (quel consumer a traité l'event) est absente en base — donnée de traçabilité, pas une règle métier/facturation ni un enjeu de sécurité."
+    },
+    {
+      "section_id": "arch-multicamions-terminal",
+      "deliverable_id": "mc-au-moins-un-ok-realisee-sur-pesees-dispo",
+      "verdict": "confirmed_gap",
+      "severity": "eleve",
+      "justification": "Écart confirmé (partiel, mais réel). La transition SI/ALORS est bien codée et atteignable : fn_agreger_terminal_collecte (migration 20260615120000 L39-48) pose statut='realisee' dès v_nb_terminee>0 (≥1 tour OK/PARTIAL), sous SELECT ... FOR UPDATE + UPDATE gardé WHERE statut IN ('programmee','validee','en_cours') (idempotent, realisee_at non écrasé). L'adapter l'appelle (adapter.ts L429-431) et lève bien l'alerte collecte_partiellement_servie quand un tour est CANCELED/KO (L434-445). CETTE moitié du livrable est OK.\n\nMAIS la clause centrale du CDC L266 « la collecte passe realisee SUR L'AGRÉGAT DES PESÉES DES SEULS TOURS OK/PARTIAL » n'est PAS effective. fn_agreger_terminal_collecte ne touche jamais collecte_flux : elle ne fait que basculer le statut. L'adapter écrit les pesées dans pesees_tournees (adapter.ts L512 upsert) mais AUCUN code/trigger/fonction ne dérive collecte_flux depuis pesees_tournees. grep exhaustif : 0 INSERT/UPSERT vers collecte_flux hors seed (le seul hit en migration est le COMMENTAIRE 20260611171636 L247 « dérivée par UPSERT » — aspirational, jamais implémenté). collecte_flux n'est peuplée que par le seed et n'est que LUE par PDF batch J+1 (batch-pdf-j1.ts L127, skip si 0 ligne R-PDF3), registre, dashboards, exports.\n\nConséquence concrète : toute collecte multi-camions passée realisee via le chemin partiel a ses poids (tours OK/PARTIAL) bloqués dans pesees_tournees et jamais reportés dans collecte_flux → bordereau ZD / rapport recyclage / registre réglementaire produits sans tonnage (ou skippés) = perte silencieuse de la donnée de pesée alimentant des justificatifs réglementaires. Le même défaut de dérivation s'applique au cas N=1.\n\nVérifs négatives : pas de faux positif (aucun chemin alternatif FR/EN ne dérive collecte_flux ; adapter.ts ne contient aucune réf collecte_flux). Pas de descope (CDC L266 = exigence V1 active, section multi-camions = statut 'delivered', aucun marqueur V1.1/V2/différé sur cette règle ; rien dans _Divergences). Pas de pending. Test gap aggravant : adapter.m1-8.test.ts mocke agregerTerminalResult (L297-299), n'exerce jamais le vrai SQL (FOR UPDATE + comptage réel) ; aucun pgTAP sur fn_agreger_terminal_collecte ni sur la dérivation pesées→flux. Severity eleve (et non critique) car la transition d'état elle-même est correcte ; l'impact est une perte de donnée de pesée alimentant un justificatif réglementaire ZD, partagé avec le livrable frère mc-collecte-flux-derivee-recalcul."
+    },
+    {
+      "section_id": "arch-multicamions-terminal",
+      "deliverable_id": "mc-notif-admin-rejetee",
+      "verdict": "confirmed_gap",
+      "severity": "eleve",
+      "justification": "Écart confirmé après tentative de réfutation. Le CDC l'exige de façon redondante et non ambiguë : \"Tous les tours CANCELED/KO → logique refus existante au niveau collecte : statut_tms = 'rejetee_par_prestataire' + notif Admin + retour file\" (05 - Règles métier.md L267 ; répété en 08 - APIs et intégrations.md L259, L278, L419, L425). Code réel : (1) fn_agreger_terminal_collecte — migration supabase/migrations/20260615120000_plateforme_m1_8_fix_a1_a2.sql:50-58 — pose statut='rejetee_par_prestataire' puis RETURN, sans appel f_upsert_alerte_admin ni remise en file d'attribution. (2) packages/adapters/src/mts1/adapter.ts:433-445 — f_upsert_alerte_admin n'est invoquée QUE dans la branche partielle (agrResultat==='realisee' avec un tour CANCELED/KO) ; la valeur de retour 'rejetee_par_prestataire' n'est traitée nulle part. (3) Aucun trigger sur la transition collectes.statut → rejetee_par_prestataire (audit/bloc4 ne contiennent que la définition d'enum). (4) Le test dédié packages/adapters/src/mts1/adapter.m1-8.test.ts:340-396 (cas tous KO) n'assertit QUE l'absence de l'alerte partielle et la mise à 'annulee' de la tournée — il n'assertit aucune notif Admin ni retour file, confirmant que ces deux comportements ne sont pas câblés. (5) grep exhaustif retour file / reattribution / file d'attribution lié au refus = 0 résultat. Pas de faux positif (la fonction f_upsert_alerte_admin existe bien et est utilisée ailleurs, mais jamais sur ce chemin), pas de descope (_Divergences vide sur ce point, CDC parle de \"logique refus existante\" donc attendu en V1), section livrée (non pending). Severity eleve : règle métier opérationnelle — une collecte programmée par le traiteur, totalement rejetée par le transporteur, atterrit silencieusement en rejetee_par_prestataire sans qu'aucun Admin soit alerté ni que la collecte soit ré-attribuée ; ce n'est ni perte de données silencieuse ni faille de cloisonnement (donc pas critique), mais un manquement à une règle métier de gestion d'incident logistique.",
+      "found_at": "",
+      "descope_ref": ""
+    },
+    {
+      "section_id": "arch-multicamions-terminal",
+      "deliverable_id": "mc-rpc-set-n-for-update",
+      "verdict": "confirmed_gap",
+      "severity": "eleve",
+      "justification": "Gap confirmé après réfutation. (1) PAS de faux positif : il n'existe aucune RPC dédiée de modification de N. La seule voie de modification de nb_camions_demande est le PATCH générique /admin/collectes/[id] (packages/plateforme/src/app/api/v1/admin/collectes/[id]/route.ts:57-104, nb_camions_demande dans ALLOWED_FIELDS L60) → fn_modifier_collecte. Cette RPC prend bien SELECT … FOR UPDATE (migration 20260623100000_plateforme_converge_enums_noms_cible.sql:190-193) MAIS met à jour nb_camions_demande inconditionnellement (L205-206, CASE WHEN p_updates ? 'nb_camions_demande') sans aucune garde de statut. Le route layer ne filtre que les champs autorisés, aucun contrôle de statut. Aucun CHECK ni trigger ne bloque non plus : les 2 triggers sur collectes (trg_set_collectes_dirty_tms BEFORE UPDATE, trg_sync_statut_collecte_from_tms AFTER UPDATE OF statut_tms) ne gardent pas nb_camions contre les états terminaux. À noter : la garde existe correctement côté agrégation (fn_agreger_terminal_collecte, migration 20260615120000 L40-45, WHERE statut IN programmee/validee/en_cours) mais PAS sur le chemin inverse de modification manuelle de N. (2) PAS de descope : l'exigence est spécifiée DEUX fois dans le CDC V1 vivant — specs/cdc/01.../05 - Règles métier.md L271-273 « Changement de N gaté : la RPC Ops … prend le même lock collectes et exige statut IN (programmee,validee,en_cours) — interdit dès realisee : jamais de régression d'un état terminal » ; specs/cdc/01.../04 - Data Model.md L1424 « Gate de modification (R5) : la RPC de changement de N prend SELECT … FOR UPDATE … et exige statut IN (programmee,validee,en_cours) — interdit dès realisee ». Aucun fichier _Divergences (M1.5b, M1.8, CLUSTER-C) ne descope ce gate. (3) Module delivered (statut section = delivered, migrations multi-camions présentes). Impact : un Ops (staff) modifiant N sur une collecte realisee/cloturee régresse un état terminal, casse la réconciliation par rang (création/DELETE de customerOrders MTS-1 sortants erronés), et peut altérer silencieusement l'embargo H+24 / la facturation déjà calculée. Severity eleve (règle métier + intégrité donnée avec effets sortants, mais pas de brèche RLS/cross-tenant, accès staff-only, et l'idempotence de l'agrégation elle-même reste protégée par sa propre garde de statut)."
+    },
+    {
+      "section_id": "arch-multicamions-terminal",
+      "deliverable_id": "mc-augmentation-n-rangs-manquants",
+      "verdict": "confirmed_gap",
+      "severity": "eleve",
+      "justification": "Gap confirmé après tentative de réfutation. La règle CDC (04 - Data Model.md L1424 : « augmentation (N→N+k) : création des seuls rangs manquants ») n'est câblée nulle part.\n\nChaîne vérifiée : (1) Quand Ops modifie nb_camions_demande, le seul chemin est le PATCH /admin/collectes/[id] → fn_modifier_collecte. (2) fn_modifier_collecte (migration 20260623100000 L200-246) ne fait qu'UPDATE le scalaire nb_camions_demande et émet un event générique 'collecte.modifiee' (E2) — aucune logique de création de rang, aucun event/RPC dédié au changement de N. (3) Dans outbox-worker.ts, E2 ('collecte.modifiee') route vers updateCollecte (L179-187), tandis que la boucle de dispatch des rangs `for rang=1..nb_camions_demande → dispatchCollecte` existe UNIQUEMENT dans la branche 'collecte.creee' (E1, L169-177). (4) updateCollecte (adapter.ts L169-197) filtre `avecRef = tournees.filter(t => t.external_ref_commande)` et ne fait qu'un PUT updateOrder sur les tournées EXISTANTES — la boucle ne peut structurellement pas créer les rangs N+1..N+k (qui n'ont pas encore de tournée).\n\nConséquence : N→N+k laisse les k camions ajoutés SANS customerOrder ni tournée MTS-1 ; ces camions ne sont jamais commandés (sous-approvisionnement silencieux d'une grosse collecte). L'idempotence reference-{rang} protégerait bien les rangs existants, mais le déclencheur de création des nouveaux rangs n'est jamais appelé.\n\nNON faux positif : aucune autre route/RPC/abstraction ne crée les rangs manquants (grep nb_camions/augment/rang manquant sur migrations + adapters = rien ; aucun test ne couvre ce cas). NON descope : la règle est explicitement V1-only/MTS-1 dans le CDC (L1424, « N modifiable à chaud par Ops, arbitrage Val 2026-06-10 ») et CLAUDE.md §4 ; aucun marqueur DESCOPÉ/V1.1/V2 ni divergence traitée sur ce point (la divergence M1.8_20260615 ne couvre que l'agrégation terminale, déjà corrigée — comportement distinct). NON pending : la section est livrée (statut delivered, M1.5/M1.8 mergés).\n\nSeverity 'eleve' : règle métier/opérationnelle (camion ajouté jamais commandé → collecte incomplète terrain), pas une atteinte sécurité/cloisonnement ni une corruption silencieuse de données existantes."
+    },
+    {
+      "section_id": "arch-multicamions-terminal",
+      "deliverable_id": "mc-reduction-n-delete-rangs",
+      "verdict": "confirmed_gap",
+      "severity": "eleve",
+      "justification": "GAP CONFIRMÉ. Le CDC (specs/cdc/01 - Cahier des charges App/04 - Data Model.md L1424) exige explicitement : N modifiable à chaud par Ops → réduction (N→N−k) = `DELETE /v3/customerOrders` des rangs retirés (FK pesees_tournees ON DELETE CASCADE, L1494), augmentation = créer les seuls rangs manquants.\n\nLe code ne câble NI l'un NI l'autre :\n- packages/plateforme/src/app/api/v1/admin/collectes/[id]/route.ts:60,98 autorise la modif de `nb_camions_demande` et appelle `fn_modifier_collecte`.\n- supabase/migrations/20260623100000_...:205-206 fn_modifier_collecte ne fait qu'UPDATE le scalaire `nb_camions_demande` puis émet `collecte.modifiee` (E2) — aucun DELETE/INSERT de rang.\n- packages/adapters/src/outbox-worker.ts:179-186 route E2 → `updateCollecte` (jamais de delete sélectif par rang).\n- packages/adapters/src/mts1/adapter.ts:169-197 `updateCollecte` itère uniquement sur les tournées EXISTANTES (`findTournees` filtré sur external_ref_commande) et fait `updateOrder` (PUT). Elle n'a aucune notion de N cible vs rangs courants : ne crée pas les rangs manquants, ne supprime pas les rangs retirés.\n- Le seul `deleteOrder` (adapter.ts:223) est dans `cancelCollecte` (E3, annulation TOTALE), pas réduction.\n- Les seuls `reconcileOrder` (adapter.ts:110,188,219) sont des vérifications d'existence A4 post-timeout, pas une réconciliation pilotée par le changement de N.\n\nAucun marqueur de descope : recherche dans specs/cdc/ (V1.1/V2/hors scope) et _Divergences/ (CLUSTER-C = enums document_statut ; M1.5b = mapping flux ; M1.8 = agrégation terminale) — aucun ne descope la réduction de N. Modules M1.5/M1.8 livrés (delivered), pas pending.\n\nImpact : sur réduction de N, les customerOrders/tournées des rangs retirés restent orphelins côté MTS-1 (camion dispatché pour rien, friction transporteur) ET en DB (le CASCADE pesees_tournees ne se déclenche jamais car aucun DELETE n'est émis), créant un écart `nb_camions_demande` (réduit) vs nombre réel de tournées qui peut fausser/bloquer l'agrégation terminale et le recalcul collecte_flux. Severity eleve (règle métier logistique + incohérence donnée, récupérable via le fallback Ops documenté) plutôt que critique : pas de perte silencieuse de données client, pas de faille sécurité/cloisonnement."
+    },
+    {
+      "section_id": "arch-multicamions-terminal",
+      "deliverable_id": "mc-reduction-n-bloquee-moins-1h",
+      "verdict": "confirmed_gap",
+      "severity": "eleve",
+      "justification": "Écart confirmé après tentative de réfutation. Le CDC (specs/cdc/01 - Cahier des charges App/04 - Data Model.md L1424) impose : réduction de N (N→N−k) = DELETE /v3/customerOrders des rangs retirés, soumis à la règle MTS-1 « bloqué < 1h avant mission » → alerte Ops + contact transporteur direct. L'erreur typée CANCEL_WINDOW_CLOSED est définie pour ce cas (Interface logistique_provider V1.md L28).\n\nRéfutation échouée — le flux n'est pas câblé, à plusieurs niveaux :\n1) packages/adapters/src/mts1/adapter.ts:169-197 — updateCollecte (handler E2 collecte.modifiee) itère UNIQUEMENT sur les tournées existantes (avecRef) et fait un PUT updateOrder. Il ne crée jamais les rangs manquants (augmentation) ni ne DELETE les rangs retirés (réduction). Le DELETE-par-rang-retiré n'existe pas.\n2) packages/adapters/src/mts1/adapter.ts:237-245 — CancelWindowClosedError n'est levé QUE depuis cancelCollecte (E3 annulation totale), jamais depuis un contexte de réduction de N. Le chemin d'appel réduction→DELETE→CANCEL_WINDOW_CLOSED est mort.\n3) supabase/migrations/20260614000001_plateforme_outbox_atomic_rpcs.sql:142-209 — fn_modifier_collecte met à jour nb_camions_demande librement (CASE WHEN) et émet un E2 générique, sans aucun traitement spécifique du changement de N, et SANS la garde R5 (statut IN programmee/validee/en_cours, interdit dès realisee) pourtant exigée par le CDC L1424.\n\nAucune implémentation alternative trouvée (grep réduction/nb_camions/DELETE-rang sur packages/ + supabase/ : pas de RPC fn_ajuster_camions ni de logique de DELETE par rang retiré). Aucun marqueur de descope : le CDC qualifie explicitement la règle de V1/MTS-1 et la garde a même été renforcée le 2026-06-11 (revue adversariale R5). Aucune divergence ouverte/traitée ne descope ce point (vérifié dans _Divergences/ incl. M1.5b et ADAPTER). Section livrée (statut delivered), donc pas pending_module.\n\nImpact (severity eleve) : défaillance silencieuse opérationnelle/logistique. Si Ops réduit N après envoi, l'adapter ne supprime aucun customerOrder/tournée surnuméraire → camion fantôme dispatché chez MTS-1, AUCUNE alerte Ops ni a fortiori gestion du cas < 1h. Surcoût logistique + risque terrain (camion qui se présente inutilement) mais pas de corruption de données/sécurité/facturation → règle métier = eleve, pas critique.",
+      "found_at": "packages/adapters/src/mts1/adapter.ts:169-197 (updateCollecte ne gère pas le DELETE des rangs retirés)"
+    },
+    {
+      "section_id": "arch-multicamions-terminal",
+      "deliverable_id": "mc-collecte-flux-derivee-recalcul",
+      "verdict": "confirmed_gap",
+      "severity": "critique",
+      "justification": "Tentative de réfutation échouée — le gap est réel et critique.\n\n1) FAUX POSITIF écarté. Recherche exhaustive : `grep collecte_flux` dans packages/adapters/src/mts1/adapter.ts = 0 hit. La seule fonction d'agrégation terminale, plateforme.fn_agreger_terminal_collecte (migration 20260615100000_plateforme_m1_8_fn_agreger_terminal.sql), ne fait QUE poser collectes.statut (lignes 42-50 : SET statut='realisee') — elle ne lit jamais pesees_tournees ni n'écrit collecte_flux. Aucune autre migration/trigger/code ne dérive collecte_flux.poids_reel_kg depuis pesees_tournees (grep dans supabase/migrations/ = uniquement CREATE TABLE + RLS + index pour pesees_tournees). Les seuls INSERT collecte_flux sont : (a) admin/collectes/route.ts:124 à la création avec poids_kg:null ; (b) seed/fixtures de test. L'adapter n'écrit que pesees_tournees (adapter.ts:512, upsert ON CONFLICT tournee_id,stop_id,flux_id) — jamais l'agrégat collecte_flux.\n\n2) DESCOPE écarté. Divergences traitées lues intégralement : _Divergences/_traités/M1.8_20260615.md « Gap 2 — Agrégation terminale » documente l'implémentation livrée et la scope explicitement à : update tournee.statut → RPC (statut seulement) → alerte KO partiel. Aucune mention du recalcul collecte_flux. ADAPTER_20260615.md ne supprime que l'alerte pesée hors seuil. Aucun marqueur DESCOPÉ/V1.1/V2 sur la dérivation collecte_flux. Le CDC l'exige sans ambiguïté : 04 - Data Model.md L1483 « l'adapter ne fait jamais d'incrément — à chaque agrégation terminale il recalcule l'agrégat complet par flux depuis pesees_tournees (somme des poids des rangs 1..N) et écrit par UPSERT ON CONFLICT (collecte_id, flux_id) DO UPDATE ».\n\n3) PENDING écarté. Section delivered ; M1.5/M1.8 mergés ; adapter + fn + table existent — seule l'étape de dérivation manque.\n\n4) CASCADE confirmée et silencieuse. collecte_flux.poids_reel_kg reste NULL pour toute collecte ZD alimentée par MTS-1 → (a) trigger taux_recyclage (L1448, lit collecte_flux.poids_reel_kg) → NULL ; (b) CO2 ZD (L372, trigger clôture) → faux/NULL ; (c) batch-pdf-j1.ts:126-152 skip systématique (fluxCount=0) → bordereau + rapport recyclage jamais générés ; (d) escalade R9 « bordereau_pesees_manquantes_48h » déclenchée à tort ; (e) facture ZD vide. Impact conformité réglementaire (registre/bordereau ZD), facturation et perte de donnée silencieuse → critique. Le test e2e M1.8 (e2e-cycle-zd.m1-8.test.ts:198) masque le gap en mockant collecte_flux déjà peuplé (count:1, poids_reel_kg:100) au lieu de tester la dérivation depuis pesees_tournees. La promesse n'existe qu'en commentaire (bloc2 ~l.247).",
+      "found_at": "",
+      "descope_ref": ""
+    },
+    {
+      "section_id": "arch-multicamions-terminal",
+      "deliverable_id": "mc-poids-divergent-cloturee-no-write",
+      "verdict": "confirmed_gap",
+      "severity": "moyen",
+      "justification": "La garde no-write est correcte et testée (adapter.ts:489-509 : si collecteStatut==='cloturee', SELECT pesée existante, divergence > 0.001 → aucun upsert pesees_tournees ni collecte_flux ; test M1.5b-5 adapter.m1-5b.test.ts:485-541 le couvre). MAIS le livrable exige aussi une ALERTE OPS et le code ne l'émet pas correctement. Le CDC de contrôle (§08 §3bis.7, 08 - APIs et intégrations.md:444) impose DEUX sorties explicitement : « n'écrit rien mais lève une alerte Ops in-app « divergence pesée post-clôture » + trace integrations_logs (erreur_code='PESEE_DIVERGENCE_POST_CLOTURE') ». Repris à 04 - Data Model.md:1500 et Interface logistique_provider V1.md:44 (R7) avec le terme « alerte Ops ». Le code (adapter.ts:503-507) appelle uniquement logEntrantError → INSERT integrations_logs (adapter.ts:703-713), soit la trace technique #2, mais N'appelle JAMAIS f_upsert_alerte_admin pour l'alerte Ops in-app #1. Preuve que integrations_logs n'est PAS le canal d'alerte Ops in-app dans ce module : la branche voisine « pesée hors seuil » (adapter.ts:524-531) et l'agrégation terminale multi-camions utilisent f_upsert_alerte_admin (alertes_admin, dashboard Ops) pour les alertes Ops, tandis que integrations_logs sert aux traces techniques (PHOTO_LIST_FAILED, STUFF_INCONNU). La spec demande les deux ; l'implémentation n'en livre qu'un. Pas de faux positif (grep packages/ : aucun autre émetteur d'alerte in-app pour cette divergence). Pas de descope (règle R7 ajoutée 2026-06-11 en revue adversariale, explicitement in-scope V1 pour protéger la vérité du bordereau réglementaire ; aucun marqueur V1.1/V2, aucun fichier _Divergences). Module delivered (non pending). Severity moyen et non eleve : l'intégrité donnée critique (pas d'écrasement silencieux d'une collecte cloturee) est respectée ET tracée dans integrations_logs ; ce qui manque est la visibilité Ops in-app — l'Admin ne voit pas la divergence sur son dashboard et ne déclenche pas le flux de correction (édition + avoir), donc le bordereau peut diverger de la vérité MTS-1 jusqu'à ce que quelqu'un lise la table technique. Note : l'affirmation de l'agent preuve « aucun test n'exerce ce chemin » est inexacte (test M1.5b-5 existe) mais ce test n'asserte que le no-write + le log, jamais l'alerte in-app — il ne couvre donc pas le manque."
+    },
+    {
+      "section_id": "arch-multicamions-terminal",
+      "deliverable_id": "mc-pesees-tournees-rls-service-role",
+      "verdict": "confirmed_gap",
+      "severity": "moyen",
+      "justification": "Le coeur du livrable EST implementé et la frontière de sécurité tient : RLS activée (migration 20260611171636 L267), écriture exclusivement par SERVICE_ROLE via l'adapter (createAdminSupabaseClient, adapter.ts:512, bypass RLS), aucun rôle client en écriture (DENY ALL par défaut, seules policies = staff). L'absence de policy \"TO service_role\" N'EST PAS un gap : c'est la convention codebase-wide confirmée (~20 tables : factures, outbox_events, integrations_inbox, emails, audit_log… écrivent toutes en service_role qui bypass RLS by design ; commentaires migrations explicites \"service_role qui bypass RLS\"). \n\nDIVERGENCE RÉELLE et NON documentée : le CDC (specs/cdc/01.../04 - Data Model.md L1502) impose \"admin_savr SELECT (debug)\" — read-only. Or la policy pt_admin est \"FOR ALL\" (20260617180000 L806-808 ET 20260611180001 L296-298), donc admin_savr peut INSERT/UPDATE/DELETE directement les pesées brutes. Cela contourne le chemin d'édition prévu sur collecte_flux (policy cf_update_staff, motif obligatoire + audit_log, L1506). Aucun marqueur de descope (grep _Divergences = 0 sur cette déviation ; les mentions pesees_tournees portent sur l'adapter, pas la posture RLS admin). Pas un faux positif : la contrainte SELECT-only du spec n'est factuellement pas respectée. Pas pending (section delivered).\n\nSeverity = moyen et non eleve : aucune exposition cross-org ni cliente, aucune perte de donnée silencieuse (table dérivée recalculée par UPSERT depuis l'agrégat, admin = rôle interne de confiance, écritures traçables) ; impact réel = sur-permission d'un rôle staff sur une table debug, vs la facturation/le cloisonnement qui restent intacts. Correctif trivial : pt_admin FOR SELECT au lieu de FOR ALL. À noter aussi (hors périmètre strict du livrable RLS-policy) : 0 test pgTAP exerce ces policies sous rôle réel (grep tests = 0 sur pesees_tournees/pt_admin), donc la régression FOR ALL n'est captée par aucun gate.",
+      "found_at": "supabase/migrations/20260617180000_plateforme_fix_role_claim.sql:806 (pt_admin FOR ALL au lieu de FOR SELECT)"
+    }
+  ],
+  "sevCount": {
+    "critique": 2,
+    "eleve": 12,
+    "moyen": 9,
+    "faible": 1
+  },
+  "perSecSev": {
+    "arch-outbox-leaseclaim": {
+      "moyen": 4,
+      "faible": 1,
+      "eleve": 6
+    },
+    "arch-interface-provider": {
+      "critique": 1,
+      "moyen": 3
+    },
+    "arch-multicamions-terminal": {
+      "eleve": 6,
+      "critique": 1,
+      "moyen": 2
+    }
+  },
+  "gapsDedup": [
+    {
+      "deliverable_id": "sync-agregation-terminale",
+      "section_id": "arch-interface-provider",
+      "module": "M1.4/M2.5",
+      "type": "derivation_donnees",
+      "severity": "critique",
+      "expected": "L'agrégation terminale doit dériver collecte_flux depuis pesees_tournees par recalcul complet (Interface logistique_provider V1.md §3 l.45 : 'agrégat pesees_tournees -> collecte_flux (recalcul complet)').",
+      "why_gap": "fn_agreger_terminal_collecte (supabase/migrations/20260615100000_plateforme_m1_8_fn_agreger_terminal.sql) ne fait que basculer le statut et n'écrit jamais collecte_flux. Aucun writer/trigger/fonction ne dérive collecte_flux depuis pesees_tournees (grep = 0). Tout l'aval (registre ZD, bordereaux/rapports PDF J+1, dashboards, exports CSV, CO2 ZD) lit collecte_flux.poids_reel_kg toujours NULL -> 0 kg alors que les pesées réelles existent dans pesees_tournees. Perte de donnée silencieuse. Le commentaire migration bloc2 L247 'dérivée par UPSERT' est une promesse jamais codée. Aucun marqueur de descope ; M1.8_20260615.md omet silencieusement ce volet.",
+      "remediation": "1) Manifeste M1.8 : ajouter la ligne livrable 'dérivation collecte_flux depuis pesees_tournees (recalcul complet UPSERT)' avec réf CDC Interface logistique_provider V1.md l.45 + Data Model L1483, distincte de la transition de statut. 2) Gherkin : scénario 'Given une collecte multi-camions avec pesées dans pesees_tournees, When l'agrégation terminale s'exécute, Then collecte_flux.poids_reel_kg = somme des poids par flux des tours OK/PARTIAL' + scénario aval 'Then le bordereau J+1 contient le tonnage'. 3) Implémentation : dans fn_agreger_terminal_collecte (ou fonction dédiée appelée dans la même tx, fichier supabase/migrations/20260615100000_plateforme_m1_8_fn_agreger_terminal.sql), après la transition realisee, recalculer par flux SELECT sum(poids) FROM pesees_tournees GROUP BY flux_id et INSERT ... ON CONFLICT (collecte_id, flux_id) DO UPDATE SET poids_reel_kg ; ajouter pgTAP exerçant le vrai chemin (pas de mock du retour RPC)."
+    },
+    {
+      "deliverable_id": "mc-collecte-flux-derivee-recalcul",
+      "section_id": "arch-multicamions-terminal",
+      "module": "M1.5/M2.5",
+      "type": "derivation_donnees",
+      "severity": "critique",
+      "expected": "À chaque agrégation terminale, recalcul complet de l'agrégat par flux depuis pesees_tournees (somme des poids rangs 1..N) écrit par UPSERT ON CONFLICT (collecte_id, flux_id) DO UPDATE — jamais d'incrément (Data Model L1483).",
+      "why_gap": "Aucun code/migration/trigger ne dérive collecte_flux.poids_reel_kg depuis pesees_tournees. fn_agreger_terminal_collecte ne pose que collectes.statut. L'adapter (packages/adapters/src/mts1/adapter.ts:512) n'écrit que pesees_tournees (upsert). collecte_flux n'est peuplée qu'à la création (poids null, admin/collectes/route.ts:124) et par le seed. Cascade silencieuse : trigger taux_recyclage NULL, CO2 ZD faux/NULL, batch PDF J+1 skip systématique (bordereau + rapport recyclage jamais générés), escalade R9 déclenchée à tort, facture ZD vide. Impact conformité réglementaire + facturation. Aucun descope. Le test e2e M1.8 mocke collecte_flux déjà peuplé.",
+      "remediation": "1) Manifeste M1.5/M1.8 : livrable explicite 'recalcul UPSERT collecte_flux depuis pesees_tournees' avec réf Data Model L1483 ; lier au même gap critique que sync-agregation-terminale. 2) Gherkin : 'Given 3 rangs avec pesées dans pesees_tournees, When agrégation terminale, Then collecte_flux par flux = somme rangs 1..N' + 'Given recalcul après nouvelle pesée, Then écrasement complet (pas d'incrément)'. 3) Implémentation : fonction de recalcul appelée dans la tx terminale faisant un UPSERT ON CONFLICT (collecte_id, flux_id) à partir d'un GROUP BY flux_id sur pesees_tournees ; remplacer le mock du test e2e (packages/.../e2e-cycle-zd.m1-8.test.ts) par un test qui peuple pesees_tournees et assert collecte_flux dérivé ; pgTAP sur la fonction."
+    },
+    {
+      "deliverable_id": "outbox-reaper-requeue-expired",
+      "section_id": "arch-outbox-leaseclaim",
+      "module": "M1.4/M1.5",
+      "type": "test_absent",
+      "severity": "eleve",
+      "expected": "Le reaper re-queue les claims expirés : UPDATE statut='pending', claimed_until=NULL, requires_reconciliation=true WHERE statut='processing' AND claimed_until < now() (Data Model L2331), avec test du chemin.",
+      "why_gap": "fn_reap_outbox_claims (supabase/migrations/20260614150000_plateforme_m1_5a_outbox_worker.sql:137-154) est implémentée, câblée (packages/adapters/src/outbox-worker.ts:111) et correcte, mais AUCUN test (SQL ou TS) n'appelle fn_reap_outbox_claims ni ne pose un claim expiré pour vérifier la transition processing->pending + requires_reconciliation=true. Les 2 tests existants utilisent un claim NON expiré (T47) ou testent d'autres fonctions. Une régression silencieuse du prédicat ou la perte du flag requires_reconciliation ne serait détectée par aucun test, exposant à une ré-émission non réconciliée (double POST customerOrder MTS-1). Aucun descope, module delivered.",
+      "remediation": "1) Manifeste M1.5 : ajouter la couverture de test explicite du reaper comme critère de done. 2) Gherkin : 'Given un event outbox en processing avec claimed_until dans le passé, When le reaper s'exécute, Then statut=pending ET requires_reconciliation=true ET claimed_until=NULL ; And la réconciliation est obligatoire avant tout re-POST'. 3) Implémentation : ajouter un pgTAP (supabase/tests/) qui INSERT un event processing claimed_until=now()-1min, appelle fn_reap_outbox_claims, assert les 3 colonnes ; ne pas mocker."
+    },
+    {
+      "deliverable_id": "outbox-head-of-line-par-agregat",
+      "section_id": "arch-outbox-leaseclaim",
+      "module": "M1.4/M1.5",
+      "type": "divergence_semantique",
+      "severity": "eleve",
+      "expected": "Head-of-line par agrégat : tant qu'un event d'une collecte est failed/dead (non consommé), bloquer tous les events suivants ; un event dead bloque PERMANENTEMENT son agrégat jusqu'au déblocage admin (Data Model L2334/L2338).",
+      "why_gap": "La garde de claim est `e2.statut NOT IN ('done','dead')` (supabase/migrations/20260622100000_plateforme_outbox_reconciliation_sticky_txid_fix.sql:66), donc un event 'dead' est traité comme NON bloquant — à l'inverse exact du CDC. Conséquence : si E1 collecte.creee passe dead, l'implémentation laisse passer E2/E3 vers le claim -> POST MTS-1 sur une collecte dont la création n'est jamais arrivée. Le filet no-op atténue le cas sans remote mais ne couvre pas la promesse de blocage permanent gardé par déblocage admin. Choix non documenté (les 2 divergences outbox traitées portent sur attempts et txid). Aucun test ne crée 2 events même aggregate_id avec antérieur non consommé.",
+      "remediation": "1) Manifeste M1.5 : noter la sémantique exacte head-of-line incluant 'dead bloque permanent' avec réf L2334/L2338. 2) Gherkin : 'Given E1(collecte X) en dead et E2(collecte X) derrière, When claim, Then E2 n'est pas claimé tant que E1 non done ; And seul le déblocage admin libère l'agrégat'. 3) Implémentation : remplacer `NOT IN ('done','dead')` par `<> 'done'` (ou NOT IN ('done')) dans la garde de claim (supabase/migrations/20260622100000...:66) ; pgTAP avec 2 events même aggregate_id (E1 failed/dead, E2 derrière) asserant E2 non claimé."
+    },
+    {
+      "deliverable_id": "outbox-alerte-anticipee-imminente",
+      "section_id": "arch-outbox-leaseclaim",
+      "module": "M1.4/M1.5",
+      "type": "test_absent",
+      "severity": "eleve",
+      "expected": "Alerte anticipée si attempts>=2 ET date_collecte < now()+24h : sendAlert canal critique 'Collecte J-1 en échec d'envoi MTS-1' (Data Model L2337, CLAUDE.md §2), avec test.",
+      "why_gap": "maybeAlertEarlyCollecte est implémentée et câblée (packages/adapters/src/outbox-worker.ts:135, 325-355) avec les conditions exactes, mais AUCUN test ne l'exerce : runOutboxWorker est entièrement mocké (cron-auth.test.ts), le test 'retry paliers' ré-implémente getNextRetryAt inline sans toucher la branche alerte, et le test alerting ne valide que la plomberie générique sendAlert (pas le gating seuil attempts>=2 ni la fenêtre 24h ni le canal). Aucune des 3 conditions critiques n'a de couverture directe. Violation DoD (alerte ops critique sans test) ; régression non détectée possible. Exigence ferme, aucun descope.",
+      "remediation": "1) Manifeste M1.5 : ajouter le test de l'alerte anticipée (seuil + fenêtre + canal) comme critère done. 2) Gherkin : 'Given un event en échec avec attempts=2 et date_collecte dans 12h, When le worker traite l'échec non-dead, Then une alerte canal critique J-1 est émise' + cas négatifs (attempts=1 ; date_collecte dans 48h -> pas d'alerte). 3) Implémentation : exporter maybeAlertEarlyCollecte/getNextRetryAt (packages/adapters/src/outbox-worker.ts), écrire un test Vitest qui appelle le vrai handleError avec un event fixture remplissant les conditions et vérifie l'appel sendAlert({canal:'critique'})."
+    },
+    {
+      "deliverable_id": "outbox-deblocage-dlq-requeue",
+      "section_id": "arch-outbox-leaseclaim",
+      "module": "M1.4/M1.5",
+      "type": "absent",
+      "severity": "eleve",
+      "expected": "Procédure admin SQL SERVICE_ROLE tracée audit_log, issue (a) re-queue : status='pending', next_retry_at=now(), attempts=0, seq conservé (Data Model section 'Déblocage DLQ V1', scope V1).",
+      "why_gap": "Les seules fonctions outbox (claim/result/reaper) gèrent le cycle worker normal. Le reaper ne re-queue QUE les claims expirés (processing) avec requires_reconciliation=true — ce n'est pas le déblocage manuel d'un event 'dead', ne remet pas attempts=0, n'est pas une procédure admin tracée audit_log. Aucune transition dead->pending nulle part ; aucune route API admin/ops ne manipule la DLQ. Avec le head-of-line par agrégat, un event dead bloque permanemment tous les suivants (E1 dead -> E3 annulation jamais poussée -> camion envoyé sur collecte annulée). Pas de descope (section marquée V1, seul le replay UI M13 est V2).",
+      "remediation": "1) Manifeste M1.5 : ajouter livrable 'procédure admin déblocage DLQ issue (a) re-queue' réf Data Model section Déblocage DLQ V1. 2) Gherkin : 'Given un event dead bloquant son agrégat, When l'admin lance la procédure re-queue, Then status=pending, attempts=0, next_retry_at=now(), seq conservé, audit_log tracé ; And l'agrégat est de nouveau traité'. 3) Implémentation : RPC SECURITY DEFINER / SERVICE_ROLE fn_admin_requeue_outbox(p_id) avec INSERT audit_log (nouvelle migration supabase/migrations/) ; pgTAP de la transition ; recopier dans RUNBOOK_INCIDENT.md section DLQ outbox."
+    },
+    {
+      "deliverable_id": "outbox-deblocage-dlq-skip",
+      "section_id": "arch-outbox-leaseclaim",
+      "module": "M1.4/M1.5",
+      "type": "absent",
+      "severity": "eleve",
+      "expected": "Procédure admin déblocage DLQ issue (b) skip motivé (consumer='admin_skip'), SERVICE_ROLE tracée audit_log (Data Model L2338, scope V1).",
+      "why_gap": "'admin_skip' n'apparaît dans aucun code exécutable (0 occurrence écrite). Aucune des fonctions outbox n'implémente la procédure admin de skip motivé. RUNBOOK_INCIDENT.md ne contient aucune section DLQ outbox. Le head-of-line par agrégat rend un event dead bloquant permanent ; sans skip, un Admin ne peut pas débloquer un agrégat coincé (E1 dead -> E3 annulation jamais poussée -> camion envoyé sur collecte annulée). Ni faux positif, ni descope (seul le replay UI M13 est V2), section delivered.",
+      "remediation": "1) Manifeste M1.5 : livrable 'procédure admin DLQ issue (b) skip motivé' réf L2338. 2) Gherkin : 'Given un event dead, When l'admin le skippe avec motif, Then consumer=admin_skip, status=consumed, audit_log contient le motif, l'agrégat se débloque'. 3) Implémentation : RPC fn_admin_skip_outbox(p_id, p_motif) SERVICE_ROLE posant consumer='admin_skip' + statut consommé via fn_result_outbox(p_consumer=...) + INSERT audit_log ; pgTAP ; section RUNBOOK_INCIDENT.md."
+    },
+    {
+      "deliverable_id": "outbox-deblocage-dlq-resolution-manuelle",
+      "section_id": "arch-outbox-leaseclaim",
+      "module": "M1.4/M1.5",
+      "type": "absent",
+      "severity": "eleve",
+      "expected": "Procédure admin déblocage DLQ issue (c) résolution manuelle MTS-1 : marquer event consumed ET renseigner external_ref_commande sur la tournée pour réaligner la corrélation, SERVICE_ROLE tracée audit_log (Data Model L2338, scope V1).",
+      "why_gap": "external_ref_commande n'est posé que par le flux normal commit-par-rang de l'adapter ; aucune fonction SQL admin ne marque un event consumed en renseignant external_ref_commande sur une tournée. Le noop_no_remote est un mécanisme distinct (auto-no-op E2/E3 sans remote). Aucune des 3 procédures DLQ n'existe. Impact : quand Ops crée la commande à la main côté MTS-1, la corrélation n'est jamais réalignée -> agrégat outbox bloqué en permanence + désync Plateforme<->MTS-1 sur le dispatch. RUNBOOK_INCIDENT.md sans section DLQ. Pas de descope (L2338 = V1).",
+      "remediation": "1) Manifeste M1.5 : livrable 'procédure admin DLQ issue (c) résolution manuelle MTS-1' réf L2338. 2) Gherkin : 'Given un event dead et une commande créée manuellement côté MTS-1, When l'admin renseigne l'external_ref, Then la tournée porte external_ref_commande, l'event passe consumed, audit_log tracé, l'agrégat se débloque'. 3) Implémentation : RPC fn_admin_resolve_outbox(p_id, p_tournee_id, p_external_ref) SERVICE_ROLE qui UPDATE tournees.external_ref_commande + fn_result_outbox(consumed) + audit_log ; pgTAP ; section RUNBOOK_INCIDENT.md."
+    },
+    {
+      "deliverable_id": "mc-au-moins-un-ok-realisee-sur-pesees-dispo",
+      "section_id": "arch-multicamions-terminal",
+      "module": "M1.5/M2.5",
+      "type": "derivation_donnees",
+      "severity": "eleve",
+      "expected": "≥1 tour OK/PARTIAL -> collecte passe realisee SUR L'AGRÉGAT DES PESÉES DES SEULS TOURS OK/PARTIAL + alerte Ops (Règles métier L266).",
+      "why_gap": "La transition de statut est correcte et atteignable (fn_agreger_terminal_collecte, supabase/migrations/20260615120000_plateforme_m1_8_fix_a1_a2.sql:39-48), mais la clause centrale 'sur l'agrégat des pesées des seuls tours OK/PARTIAL' n'est pas effective : la fonction ne touche jamais collecte_flux, et aucun code ne dérive collecte_flux depuis pesees_tournees. Les poids des tours OK/PARTIAL restent bloqués dans pesees_tournees -> bordereau ZD / rapport recyclage / registre produits sans tonnage (ou skippés) = perte silencieuse de donnée de pesée alimentant des justificatifs réglementaires. Partagé avec mc-collecte-flux-derivee-recalcul. Le test mocke agregerTerminalResult.",
+      "remediation": "1) Manifeste M1.5 : préciser que le livrable inclut la dérivation des pesées des tours OK/PARTIAL vers collecte_flux, pas seulement la transition. 2) Gherkin : 'Given 3 tours dont 1 KO et 2 OK avec pesées, When agrégation terminale, Then statut=realisee ET collecte_flux = somme des pesées des seuls tours OK/PARTIAL ET alerte Ops partielle'. 3) Implémentation : voir mc-collecte-flux-derivee-recalcul (recalcul filtré sur tours non-KO/CANCELED dans fn_agreger_terminal_collecte) ; pgTAP exerçant le vrai SQL (FOR UPDATE + comptage réel) au lieu du mock."
+    },
+    {
+      "deliverable_id": "mc-notif-admin-rejetee",
+      "section_id": "arch-multicamions-terminal",
+      "module": "M1.5/M2.5",
+      "type": "regle_metier",
+      "severity": "eleve",
+      "expected": "Tous tours CANCELED/KO -> statut_tms='rejetee_par_prestataire' + notif Admin + retour file d'attribution (Règles métier L267, APIs L259/L278/L419/L425).",
+      "why_gap": "fn_agreger_terminal_collecte (supabase/migrations/20260615120000_plateforme_m1_8_fix_a1_a2.sql:50-58) pose statut='rejetee_par_prestataire' puis RETURN, sans appel f_upsert_alerte_admin ni remise en file. L'adapter (packages/adapters/src/mts1/adapter.ts:433-445) n'invoque f_upsert_alerte_admin QUE dans la branche partielle ; la valeur de retour 'rejetee_par_prestataire' n'est traitée nulle part. Aucun trigger sur cette transition. grep retour file/reattribution = 0. Une collecte totalement rejetée par le transporteur atterrit silencieusement en rejetee_par_prestataire sans alerte Admin ni ré-attribution. Pas de descope, section livrée.",
+      "remediation": "1) Manifeste M1.5 : ajouter les 2 effets manquants (notif Admin + retour file) au livrable rejet. 2) Gherkin : 'Given tous les tours CANCELED/KO, When agrégation terminale, Then statut_tms=rejetee_par_prestataire ET une alerte Admin est créée ET la collecte retourne en file d'attribution'. 3) Implémentation : dans le chemin de retour 'rejetee_par_prestataire' (fn_agreger_terminal_collecte ou adapter), appeler f_upsert_alerte_admin + déclencher le retour file (reset attribution) ; étendre packages/adapters/src/mts1/adapter.m1-8.test.ts (cas tous KO) pour asserter ces deux comportements."
+    },
+    {
+      "deliverable_id": "mc-rpc-set-n-for-update",
+      "section_id": "arch-multicamions-terminal",
+      "module": "M1.5/M2.5",
+      "type": "regle_metier",
+      "severity": "eleve",
+      "expected": "La RPC de changement de N prend SELECT ... FOR UPDATE sur collectes ET exige statut IN (programmee,validee,en_cours) — interdit dès realisee (Règles métier L271-273, Data Model L1424 R5).",
+      "why_gap": "Le seul chemin de modif de nb_camions_demande est le PATCH générique /admin/collectes/[id] (packages/plateforme/src/app/api/v1/admin/collectes/[id]/route.ts:57-104) -> fn_modifier_collecte (supabase/migrations/20260623100000_plateforme_converge_enums_noms_cible.sql:190-206), qui prend bien FOR UPDATE mais met à jour nb_camions_demande inconditionnellement, sans aucune garde de statut. Le route layer ne filtre que les champs autorisés. Aucun CHECK ni trigger ne bloque. La garde existe côté agrégation mais PAS sur le chemin inverse de modif manuelle. Un Ops modifiant N sur une collecte realisee/cloturee régresse un état terminal, casse la réconciliation par rang (customerOrders MTS-1 erronés) et peut altérer l'embargo H+24 / la facturation. Pas de descope (exigence renforcée 2026-06-11 R5).",
+      "remediation": "1) Manifeste M1.5 : ajouter le gate de statut R5 comme critère du livrable changement de N. 2) Gherkin : 'Given une collecte realisee, When Ops tente de modifier nb_camions_demande, Then l'opération est refusée' + 'Given une collecte validee, Then la modification est acceptée'. 3) Implémentation : ajouter dans fn_modifier_collecte (ou une RPC dédiée fn_ajuster_camions) une garde IF statut NOT IN ('programmee','validee','en_cours') THEN RAISE, sous le FOR UPDATE déjà pris ; pgTAP des deux cas."
+    },
+    {
+      "deliverable_id": "mc-augmentation-n-rangs-manquants",
+      "section_id": "arch-multicamions-terminal",
+      "module": "M1.5/M2.5",
+      "type": "regle_metier",
+      "severity": "eleve",
+      "expected": "Augmentation N->N+k : création des seuls rangs manquants (k nouveaux customerOrders + tournées, clé idempotence reference-{rang}) (Data Model L1424, CLAUDE.md §4).",
+      "why_gap": "fn_modifier_collecte ne fait qu'UPDATE le scalaire nb_camions_demande et émet un E2 'collecte.modifiee' générique — aucune logique de création de rang. La boucle de dispatch des rangs n'existe QUE dans la branche E1 'collecte.creee' (packages/adapters/src/outbox-worker.ts:169-177). updateCollecte (packages/adapters/src/mts1/adapter.ts:169-197) filtre sur les tournées existantes (external_ref_commande) et ne peut structurellement pas créer les rangs N+1..N+k. Conséquence : N->N+k laisse k camions SANS customerOrder ni tournée MTS-1 -> jamais commandés (sous-approvisionnement silencieux). Pas de descope (règle V1-only MTS-1).",
+      "remediation": "1) Manifeste M1.5 : ajouter livrable 'augmentation de N -> création des rangs manquants'. 2) Gherkin : 'Given une collecte avec N=2 dispatchée, When Ops passe N à 4, Then 2 nouveaux customerOrders/tournées (rangs 3 et 4) sont créés avec reference-{rang}, les rangs 1-2 inchangés'. 3) Implémentation : sur changement de N (event dédié ou détection delta dans le handler outbox-worker.ts), appeler la boucle dispatchCollecte uniquement pour les rangs courants+1..N cible ; réutiliser l'idempotence reference-{rang} ; test adapter couvrant le delta."
+    },
+    {
+      "deliverable_id": "mc-reduction-n-delete-rangs",
+      "section_id": "arch-multicamions-terminal",
+      "module": "M1.5/M2.5",
+      "type": "regle_metier",
+      "severity": "eleve",
+      "expected": "Réduction N->N-k : DELETE /v3/customerOrders des rangs retirés (FK pesees_tournees ON DELETE CASCADE) (Data Model L1424/L1494).",
+      "why_gap": "fn_modifier_collecte ne fait qu'UPDATE le scalaire puis émet E2 — aucun DELETE/INSERT de rang. updateCollecte (packages/adapters/src/mts1/adapter.ts:169-197) itère uniquement sur les tournées existantes (updateOrder PUT), sans notion de N cible vs rangs courants. Le seul deleteOrder est dans cancelCollecte (annulation totale E3), pas réduction. Conséquence : sur réduction, les customerOrders/tournées des rangs retirés restent orphelins côté MTS-1 (camion dispatché pour rien) ET en DB (CASCADE jamais déclenché), créant un écart nb_camions_demande vs tournées réelles pouvant fausser/bloquer l'agrégation terminale. Pas de descope.",
+      "remediation": "1) Manifeste M1.5 : ajouter livrable 'réduction de N -> DELETE des rangs retirés'. 2) Gherkin : 'Given une collecte N=4 dispatchée, When Ops passe N à 2, Then les customerOrders des rangs 3 et 4 sont supprimés côté MTS-1 et les tournées correspondantes DELETE (CASCADE pesees_tournees)'. 3) Implémentation : sur réduction détectée (outbox-worker.ts + adapter.ts), identifier les rangs > N cible, appeler deleteOrder par rang + DELETE tournees ; test adapter du delete sélectif."
+    },
+    {
+      "deliverable_id": "mc-reduction-n-bloquee-moins-1h",
+      "section_id": "arch-multicamions-terminal",
+      "module": "M1.5/M2.5",
+      "type": "regle_metier",
+      "severity": "eleve",
+      "expected": "Réduction de N bloquée < 1h avant mission -> erreur CANCEL_WINDOW_CLOSED + alerte Ops + contact transporteur direct (Data Model L1424, Interface logistique_provider V1.md L28).",
+      "why_gap": "Le DELETE-par-rang-retiré n'existe pas (updateCollecte ne fait que des PUT sur tournées existantes, packages/adapters/src/mts1/adapter.ts:169-197). CancelWindowClosedError n'est levé QUE depuis cancelCollecte (E3 annulation totale, adapter.ts:237-245), jamais depuis un contexte de réduction de N -> chemin réduction->DELETE->CANCEL_WINDOW_CLOSED mort. fn_modifier_collecte met à jour N librement sans traitement spécifique ni garde R5. Impact : si Ops réduit N après envoi, aucun customerOrder surnuméraire supprimé -> camion fantôme dispatché chez MTS-1, aucune alerte Ops ni gestion du cas <1h. Pas de descope (règle V1 renforcée R5 2026-06-11).",
+      "remediation": "1) Manifeste M1.5 : lier au livrable réduction de N la règle de fenêtre <1h. 2) Gherkin : 'Given une collecte dont la mission est dans 30 min, When Ops réduit N, Then CANCEL_WINDOW_CLOSED est levé, une alerte Ops est émise, aucun DELETE auto'. 3) Implémentation : dans le chemin de réduction (cf mc-reduction-n-delete-rangs), vérifier la fenêtre avant deleteOrder et lever CancelWindowClosedError + f_upsert_alerte_admin si <1h ; test adapter du cas bloqué."
+    },
+    {
+      "deliverable_id": "outbox-col-dead-at",
+      "section_id": "arch-outbox-leaseclaim",
+      "module": "M1.4/M1.5",
+      "type": "convergence_schema",
+      "severity": "moyen",
+      "expected": "Colonne dédiée dead_at timestamptz (horodatage de passage en DLQ -> déclenche l'alerte) sur plateforme.outbox_events (Data Model L2308, DDL cible L1061).",
+      "why_gap": "dead_at est absente de la table (grep = 0). La table (supabase/migrations/20260611171641_plateforme_bloc7_integrations.sql:100-118) a processed_at, surchargée pour 'done' ET 'dead' (now() WHEN statut IN ('done','dead')) -> impossible de distinguer l'horodatage DLQ de l'horodatage de succès. V1 n'est donc pas un sous-ensemble du DDL cible gelé sur cette colonne (garde-fou 1 Frontière TMS-Ready). Aucun descope (pas de marqueur V1.1/V2 sur L2308 ; les divergences outbox traitées portent sur txid et attempts). Impact observabilité/audit + non-convergence schéma (l'alerte Slack reste déclenchée sur statut='dead').",
+      "remediation": "1) Manifeste M1.5 : noter dead_at comme colonne à converger (G1) avec réf Data Model L2308 + DDL cible L1061. 2) Gherkin : 'Given un event passant en DLQ, When fn_result_outbox(statut=dead), Then dead_at=now() distinct de processed_at'. 3) Implémentation : ADD COLUMN dead_at timestamptz nullable (migration backward-compatible) ; fn_result_outbox pose dead_at=now() pour statut='dead' ; aligner le diff schéma vs DDL cible."
+    },
+    {
+      "deliverable_id": "outbox-col-consumed-at",
+      "section_id": "arch-outbox-leaseclaim",
+      "module": "M1.4/M1.5",
+      "type": "convergence_schema",
+      "severity": "moyen",
+      "expected": "Colonne consumed_at timestamptz (NULL=en attente, renseignée à la consommation par l'adapter) sur outbox_events (Data Model L2302).",
+      "why_gap": "L'implémentation porte processed_at à la place de consumed_at (supabase/migrations/20260611171641_plateforme_bloc7_integrations.sql:117 ; grep consumed_at = 0). Sémantique strictement équivalente (NULL=en attente, renseignée=consommée/morte), aucune perte de donnée. Mais le CDC référence consumed_at dans tout le corps (L2302/L2313/L2323/L2330/L2338/L2340) et aucun fichier _Divergences ne documente le renommage. Le diff schéma vs DDL cible (garde-fou 1 G1) verra un nom divergent à converger.",
+      "remediation": "1) Manifeste M1.5 : documenter le renommage consumed_at->processed_at comme divergence assumée OU planifier la convergence de nom (G1). 2) Gherkin : non requis (naming pur, comportement préservé) — couvert par le test de consommation existant. 3) Implémentation : ouvrir un fichier _Divergences/OUTBOX-NAMING pour tracer le choix, OU rename consumed_at en 2 PRs (convention rename) si convergence retenue ; aligner le diff DDL cible."
+    },
+    {
+      "deliverable_id": "outbox-dlq-alerte-slack-critique",
+      "section_id": "arch-outbox-leaseclaim",
+      "module": "M1.4/M1.5",
+      "type": "test_absent",
+      "severity": "moyen",
+      "expected": "Passage en DLQ -> alerte Slack #savr-alerts-critique '[DLQ] Outbox event mort' ('jamais d'échec silencieux'), avec test du chemin worker (Data Model + observabilité §03).",
+      "why_gap": "Implémentation complète et câblée (packages/adapters/src/outbox-worker.ts:130-132 + 316-323) ; le primitif sendAlert->critique est testé isolément (alerting.m0-9.test.ts). MAIS le chemin déclencheur worker n'est exercé par aucun test réel : runOutboxWorker est entièrement mocké (cron-auth.test.ts), aucun test ne fait passer un event à 4 tentatives -> handleError='dead' -> alertDlq. Risque : non-détection d'une régression future sur la branche dead du worker. Pas de descope, section delivered.",
+      "remediation": "1) Manifeste M1.5 : ajouter le test du chemin status=dead -> alertDlq. 2) Gherkin : 'Given un event ayant épuisé ses 3 retries, When le worker le traite, Then statut=dead ET une alerte canal critique [DLQ] est émise'. 3) Implémentation : exporter handleError/processEvent (packages/adapters/src/outbox-worker.ts), test Vitest exerçant un event jusqu'à dead et asserant l'appel alertDlq -> sendAlert({canal:'critique'})."
+    },
+    {
+      "deliverable_id": "outbox-deblocage-dlq-runbook",
+      "section_id": "arch-outbox-leaseclaim",
+      "module": "M1.4/M1.5",
+      "type": "doc_absente",
+      "severity": "moyen",
+      "expected": "Procédure de déblocage DLQ outbox (issues a re-queue / b skip motivé / c résolution manuelle, tracées audit_log) recopiée dans RUNBOOK_INCIDENT.md section 'DLQ outbox' (Data Model L2338).",
+      "why_gap": "/Users/valentinleblan/Code/savr-platform/RUNBOOK_INCIDENT.md (45 lignes) ne contient QUE Détection/Décision/Action rollback/Auth JWT Hook/Trace — aucune section 'DLQ outbox', aucune procédure a/b/c (grep DLQ|outbox|admin_skip|déblocage = 0). La procédure n'existe nulle part ailleurs dans le repo. Sans ce runbook, un incident de head-of-line blocking (E1 dead bloquant E3 annulation -> camion envoyé sur collecte annulée) n'a pas de procédure de récupération manuelle documentée. Pas de descope (seul le replay UI M13 est V2), module mergé.",
+      "remediation": "1) Manifeste M1.5 : ajouter le livrable doc 'section DLQ outbox du runbook' (type pdf_doc) réf L2338. 2) Gherkin : non applicable (livrable documentaire) — vérifié par gate doc. 3) Implémentation : rédiger dans /Users/valentinleblan/Code/savr-platform/RUNBOOK_INCIDENT.md une section 'DLQ outbox' décrivant les 3 issues (re-queue, skip motivé, résolution manuelle MTS-1) avec les RPC associées et la trace audit_log ; ajouter à la DoD un check 'procédure CDC -> runbook'."
+    },
+    {
+      "deliverable_id": "outbox-noop-no-remote",
+      "section_id": "arch-outbox-leaseclaim",
+      "module": "M1.4/M1.5",
+      "type": "tracabilite",
+      "severity": "moyen",
+      "expected": "updateCollecte/cancelCollecte sur collecte sans aucune external_ref_commande = consommé avec consumer='noop_no_remote' + log info (CLAUDE.md §4, Data Model L2340 R8).",
+      "why_gap": "La sémantique no-op fonctionnelle est correcte et testée (early return succès sans erreur/retry, packages/adapters/src/mts1/adapter.ts:177-179, 209-211), mais consumer='noop_no_remote' n'est JAMAIS posé. markDone (outbox-worker.ts:230-235) appelle fn_result_outbox sans p_consumer ; fn_result_outbox fait consumer=COALESCE(p_consumer, consumer) donc la valeur antérieure (ex. adapter_mts1) est conservée -> le no-op devient indistinguable d'une vraie livraison MTS-1 dans la ligne outbox. Le mécanisme p_consumer existe mais n'est pas câblé. 'noop_no_remote' n'apparaît dans aucun .ts de packages/adapters/src. Pas de descope, module delivered.",
+      "remediation": "1) Manifeste M1.5 : ajouter le marqueur de traçabilité noop_no_remote comme critère done. 2) Gherkin : 'Given une collecte sans external_ref_commande, When updateCollecte/cancelCollecte, Then l'event est consommé avec consumer=noop_no_remote et un log info'. 3) Implémentation : faire remonter le cas no-op-no-remote de l'adapter au worker (retour typé) et passer p_consumer='noop_no_remote' à fn_result_outbox dans markDone (packages/adapters/src/outbox-worker.ts) ; test asserant la valeur consumer en base."
+    },
+    {
+      "deliverable_id": "regle-transverse-noop-succes-noop-no-remote",
+      "section_id": "arch-interface-provider",
+      "module": "M1.4/M2.5",
+      "type": "tracabilite",
+      "severity": "moyen",
+      "expected": "No-op succès symétrique provider_manual : updateCollecte/cancelCollecte sans external_ref_commande = consumed consumer='noop_no_remote' + log info (Interface logistique_provider V1.md §2 l.36, Data Model L2340 R8).",
+      "why_gap": "Même racine que outbox-noop-no-remote : early return silencieux côté adapter (packages/adapters/src/mts1/adapter.ts:177, 209), markDone appelle fn_result_outbox sans p_consumer, COALESCE conserve la valeur antérieure -> 'noop_no_remote' jamais écrit. La colonne et le pattern fonctionnent (manual/provider.ts pose bien consumer:'manual' sur ses no-op), seul le cas symétrique noop_no_remote n'a pas été câblé. 'noop_no_remote' n'apparaît qu'en commentaire de migration. Aucun test. Comportement fonctionnel correct (pas d'erreur/retry), seule la traçabilité manque (non observable en base).",
+      "remediation": "1) Manifeste provider : ajouter le marqueur noop_no_remote comme critère de l'interface. 2) Gherkin : 'Given un event E2/E3 sur collecte sans remote, When le provider le traite, Then consumed avec consumer=noop_no_remote'. 3) Implémentation : identique à outbox-noop-no-remote (propager p_consumer depuis le retour adapter jusqu'à fn_result_outbox) ; mutualiser avec provider_manual qui démontre le pattern."
+    },
+    {
+      "deliverable_id": "everest-e2-noop-warning-alerts-info",
+      "section_id": "arch-interface-provider",
+      "module": "M1.4/M2.5",
+      "type": "observabilite",
+      "severity": "moyen",
+      "expected": "adapter_everest V1 : no-op E2 + warning #savr-alerts-info (Interface logistique_provider V1.md §2 l.27).",
+      "why_gap": "Le no-op E2 Everest est implémenté (packages/adapters/src/everest/adapter.ts:138-150) mais le warning part uniquement en console.warn JSON (event everest.update_collecte.noop), il n'atteint jamais Slack. everest/adapter.ts n'importe ni n'appelle sendAlert ; le worker appelle updateCollecte puis return sans alerte info. Une collecte AG modifiée n'est pas re-poussée à Everest sans aucun signal Slack -> perte de visibilité Ops. Pas un descope : DIV-4 (M2.5_20260615.md) ne descope QUE l'endpoint de modification Everest, le warning #savr-alerts-info reste exigé (l.27).",
+      "remediation": "1) Manifeste M2.5 : ajouter le warning #savr-alerts-info au livrable no-op E2 Everest (distinct du descope DIV-4 sur l'endpoint). 2) Gherkin : 'Given une collecte AG Everest modifiée (E2), When l'adapter Everest la traite, Then no-op ET une alerte canal info est émise'. 3) Implémentation : importer sendAlert dans packages/adapters/src/everest/adapter.ts (ou dans le worker sur le chemin E2 Everest) et émettre sendAlert({canal:'info'}) en plus du console.warn ; test du déclenchement de l'alerte."
+    },
+    {
+      "deliverable_id": "provider-manual-noop-consumer-manual",
+      "section_id": "arch-interface-provider",
+      "module": "M1.4/M2.5",
+      "type": "tracabilite",
+      "severity": "moyen",
+      "expected": "L'event outbox traité par provider_manual marqué consumed avec consumer='manual' (Interface logistique_provider V1.md §1 tableau l.15).",
+      "why_gap": "ProviderManual (packages/adapters/src/manual/provider.ts) ne fait que console.info avec un champ JSON consumer:'manual' — ce n'est pas une écriture DB. Le worker route type_tms='autre' -> ProviderManual puis markDone(event.id) sans p_consumer (outbox-worker.ts:126, 230-235) ; fn_result_outbox fait COALESCE(p_consumer, consumer) avec p_consumer NULL et la colonne consumer (text sans DEFAULT) reste NULL. Donc après traitement manual, consumer reste NULL, jamais 'manual'. Aucun descope, aucun test. L'event est bien marqué statut='done' (pas de blocage ni perte métier) ; seule l'attribution d'observabilité manque.",
+      "remediation": "1) Manifeste M2.5 : ajouter le marqueur consumer='manual' comme critère du provider_manual. 2) Gherkin : 'Given une collecte transporteur type_tms=autre, When le worker la traite, Then l'event est consommé avec consumer=manual en base'. 3) Implémentation : faire que le retour de ProviderManual porte le consumer et que markDone passe p_consumer='manual' à fn_result_outbox (packages/adapters/src/outbox-worker.ts) ; test asserant la colonne consumer."
+    },
+    {
+      "deliverable_id": "mc-poids-divergent-cloturee-no-write",
+      "section_id": "arch-multicamions-terminal",
+      "module": "M1.5/M2.5",
+      "type": "observabilite",
+      "severity": "moyen",
+      "expected": "Poids divergent sur collecte cloturee = aucune écriture MAIS alerte Ops in-app 'divergence pesée post-clôture' + trace integrations_logs (erreur_code='PESEE_DIVERGENCE_POST_CLOTURE') — deux sorties (APIs §3bis.7 L444, Data Model L1500, Interface l.44 R7).",
+      "why_gap": "La garde no-write est correcte et testée (packages/adapters/src/mts1/adapter.ts:489-509 : no upsert si cloturee + divergence>0.001). Mais le code n'émet QUE logEntrantError -> INSERT integrations_logs (trace technique #2), il n'appelle JAMAIS f_upsert_alerte_admin pour l'alerte Ops in-app #1. La spec demande les deux. Les branches voisines (pesée hors seuil, agrégation terminale) utilisent bien f_upsert_alerte_admin pour les alertes Ops, integrations_logs servant aux traces techniques. L'Admin ne voit pas la divergence sur son dashboard et ne déclenche pas le flux de correction -> le bordereau peut diverger de la vérité MTS-1. Pas de descope (R7 in-scope V1). Le test M1.5b-5 n'asserte que no-write + log, jamais l'alerte in-app.",
+      "remediation": "1) Manifeste M1.5 : ajouter l'alerte Ops in-app comme 2e sortie du livrable (en plus de la trace). 2) Gherkin : 'Given une collecte cloturee et une pesée entrante divergente, When l'adapter la reçoit, Then aucune écriture ET une alerte Admin in-app divergence post-clôture ET une trace integrations_logs PESEE_DIVERGENCE_POST_CLOTURE'. 3) Implémentation : ajouter l'appel f_upsert_alerte_admin dans la branche cloturee de l'adapter (packages/adapters/src/mts1/adapter.ts:503-507) en plus de logEntrantError ; étendre le test M1.5b-5 pour asserter l'alerte in-app."
+    },
+    {
+      "deliverable_id": "mc-pesees-tournees-rls-service-role",
+      "section_id": "arch-multicamions-terminal",
+      "module": "M1.5/M2.5",
+      "type": "rls_sur_permission",
+      "severity": "moyen",
+      "expected": "RLS pesees_tournees : écriture SERVICE_ROLE uniquement, admin_savr SELECT (debug) en read-only (Data Model L1502).",
+      "why_gap": "Le cœur du livrable tient (RLS activée, écriture exclusive SERVICE_ROLE via adapter, DENY ALL par défaut). MAIS la policy pt_admin est FOR ALL au lieu de FOR SELECT exigé (supabase/migrations/20260617180000_plateforme_fix_role_claim.sql:806) : admin_savr peut INSERT/UPDATE/DELETE les pesées brutes, contournant le chemin d'édition tracé prévu sur collecte_flux (motif + audit_log). Divergence réelle non documentée (grep _Divergences = 0). Aucune exposition cross-org/cliente (admin = rôle interne), donc moyen et non élevé. Aggravant : 0 test pgTAP n'exerce ces policies sous rôle réel -> la régression FOR ALL n'est captée par aucun gate.",
+      "remediation": "1) Manifeste M1.5 : préciser pt_admin = FOR SELECT (debug) et ajouter le test RLS sous rôle réel. 2) Gherkin/pgTAP : 'Given le rôle admin_savr, When il tente INSERT/UPDATE/DELETE sur pesees_tournees, Then refusé ; When SELECT, Then autorisé'. 3) Implémentation : migration corrigeant pt_admin de FOR ALL en FOR SELECT (correctif trivial) ; ajouter pgTAP des policies pesees_tournees sous rôle authenticated/admin_savr (bloquant CI)."
+    }
+  ],
+  "registerSummary": {
+    "total_deliverables": 109,
+    "implemented": 74,
+    "partial": 26,
+    "confirmed_gaps": 24,
+    "false_positives": 14,
+    "intentional_descopes": 1,
+    "pending": 0
+  },
+  "critic": {
+    "thin_sections": [
+      {
+        "section_id": "arch-interface-provider",
+        "reason": "30 livrables extraits, profil 26 implemented / 4 partial / 0 MISSING. Le scope (AUDIT_SCOPE_phase3_rerun_arch.json) cible précisément cette section comme suspecte : 'le run précédent a trouvé 0 gap sur 28 livrables = exactement la signature déclaré-mais-non-câblé'. Ce re-run, censé appliquer l'evidence_rule durci (prouver pour CHAQUE méthode qu'elle est implémentée dans les 3 adapters ET appelée par le worker [file:line] ; pour CHAQUE erreur typée qu'elle est levée par l'adapter ET catchée/routée par le worker ; R11 état relu à la consommation), retombe sur quasi le même profil (28→0 missing devient 30, 0 missing, +4 partial). Sur une interface aux 62 lignes très denses portant 4 méthodes sortantes + sync + agrégation terminale + 4 classes d'erreurs (PERMANENT/TRANSIENT/AMBIGUOUS/CANCEL_WINDOW_CLOSED) + 6 règles transverses + no-op Everest E2 + noop_no_remote + anti-staleness R11 + test d'implémentabilité V2, un verdict 0-missing sur le code le plus concurrent de la V1 est le tell de false-negative que le run devait débusquer. Le compte (30) est au plancher attendu (~18-20 atomiques + impls/factory) ET la distribution est trop propre : l'evidence pass s'est probablement arrêtée aux signatures/types plutôt qu'aux chemins d'appel atteignables (catch/route des erreurs typées par le worker, relecture DB à la consommation). Re-run ciblé avec verify per_finding et exigence stricte du triptyque (code de la garde + chemin d'appel + test du vrai chemin) recommandé."
+      }
+    ],
+    "recommend_rerun": true,
+    "note": "Les 3 sections sont toutes 'critique', re-run au grain branche avec verify per_finding. Par le COMPTE seul, aucune n'est grossièrement sous-extraite : chacune dépasse le plancher de livrables atomiques impliqué par la checklist explicite du scope (arch-outbox-leaseclaim 49 ≥ plancher ~25-35, la def la plus dense du CDC ; arch-multicamions-terminal 30 ≥ plancher ~19 ; arch-interface-provider 30 ≥ plancher ~18-20). Deux sections présentent un taux partial+missing sain confirmant qu'elles ont vraiment cherché les écarts : arch-outbox 35% (13 partial/4 missing), arch-multicamions 47% (9 partial/5 missing, re-confirme les gaps connus mc-rpc-set-n-for-update et mc-collecte-flux-derivee-recalcul). La SEULE section suspecte est arch-interface-provider : non pas par manque de livrables mais par sa distribution de verdicts (0 missing, 4 partial) qui reproduit la signature 'déclaré mais non câblé' que le scope ciblait nommément. Le risque résiduel y est un evidence pass indulgent (signature plutôt que chemin d'appel), pas une sous-extraction de surface. D'où recommend_rerun=true sur cette section critique avec evidence_rule durci strictement appliqué.\"}"
+  },
+  "totalDeliverables": 109,
+  "statusCountsPerSection": [
+    {
+      "section_id": "arch-outbox-leaseclaim",
+      "deliverables_count": 49,
+      "status_counts": {
+        "implemented": 32,
+        "partial": 13,
+        "missing": 4
+      }
+    },
+    {
+      "section_id": "arch-interface-provider",
+      "deliverables_count": 30,
+      "status_counts": {
+        "implemented": 26,
+        "partial": 4
+      }
+    },
+    {
+      "section_id": "arch-multicamions-terminal",
+      "deliverables_count": 30,
+      "status_counts": {
+        "implemented": 16,
+        "partial": 9,
+        "missing": 5
+      }
+    }
+  ]
+}

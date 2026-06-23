@@ -90,3 +90,9 @@ packages/plateforme/tests/api/admin/algo-attribution-ag.m2-3.test.ts
 # la route via son chemin et mocke l'adapter. Aucune logique adapter ni appel HTTP MTS-1 ici
 # (elle vit dans packages/adapters/). 'customerOrders' reste banni.
 packages/plateforme/tests/api/cron/cron-auth.test.ts
+# docs/audit/*.mjs = scripts de recompte/reconstruction des registres d'audit conformité
+# CDC→code (build_rerun_*.mjs, reconcile_*.mjs). 'everest'/'mts1' y apparaissent uniquement
+# en PROSE des registres générés (ex. « warning Everest #savr-alerts-info »), jamais comme
+# logique métier ni appel HTTP — ce sont des outils de documentation hors runtime applicatif.
+# 'customerOrders' reste banni (jamais présent dans ces scripts).
+docs/audit/*.mjs

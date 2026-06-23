@@ -1,0 +1,181 @@
+{
+  "$comment": "3e passage Phase 4 — re-run GRAIN MODAL sur les 2 SEULES tranches que le critic du re-run grain-fin (wf_efb0148d-ba6) flague encore comme sous-extraites : boa-parametres-algo (densité 3,72 ; 14 sous-écrans admin) et boa-dashboard-admin (densité 3,28, plus bas outlier). Levier : re-découper chacune en SOUS-ÉCRANS, 1 agent Extract par sous-écran, à grain MODALE/CHAMP/VALIDATION-422/PERMISSION/TRIGGER-AUDIT. evidence_rule DURCI (contrôle câblé atteignable + cohérence colonne-DB exigés, pas la signature). verify_mode per_finding (1 sceptique adverse par écart) sur des sections critiques. Objectif = complétude totale sur les paramètres algo + dashboard Admin. migration-bubble hors périmètre. Détection seule, aucun code corrigé. NB : registre toujours reconstruit depuis sections[].verdicts (la synthèse peut re-planter au plafond 64k — non bloquant).",
+  "options": {
+    "repo_root": "/Users/valentinleblan/Code/savr-platform",
+    "cdc_root": "specs/cdc/01 - Cahier des charges App",
+    "divergences_dir": "/Users/valentinleblan/Desktop/Obsidian Savr/_Divergences",
+    "divergences_note": "Avant de confirmer un écart, l'agent Verify DOIT vérifier (1) les marqueurs de descope INLINE dans le CDC (DESCOPÉ, V1.1, V2, 'hors scope V1', 'reporté'), (2) les fichiers de _Divergences (traités + ouverts). Un livrable absent mais documenté comme descope assumé = verdict 'intentional_descope', PAS un gap.",
+    "delivery_status_legend": {
+      "delivered": "module livré et mergé -> un livrable manquant = GAP actionnable",
+      "partial": "module partiellement livré -> distinguer gap vs sous-lot restant",
+      "pending": "module non encore construit (V4/V5) -> un livrable manquant = PENDING attendu, pas un gap"
+    },
+    "high_value_latent_patterns": [
+      "CLASSE PRINCIPALE — Modale/contrôle/champ déclaré dans le JSX mais jamais monté ni atteignable depuis la page rendue (onglet stub 'À venir', EmptyState, route orpheline non consommée) -> 'partial' ou 'missing', jamais 'implemented'.",
+      "Écriture/lecture sur une colonne DB INEXISTANTE (ex. facteur_co2_kg_par_kg / modifie_par / modifie_le sur parametres_facteurs_co2) -> échec silencieux PostgREST en prod + affichage undefined. Vérifier chaque colonne lue/écrite par une route contre le schéma de migration.",
+      "Règle de VALIDATION serveur (422, bornes, unicité défaut, somme=100%) promise par le CDC mais absente du handler -> écriture invalide acceptée silencieusement.",
+      "Split de permission admin_savr vs ops_savr à moitié câblé : gating API présent mais PAS le rendu read-only + bandeau 'Lecture seule — édition réservée admin' ; OU gating plus restrictif/laxiste que la matrice §09 (source de vérité).",
+      "Trigger / écriture audit_log ABSENT sur une mutation sensible spécifiée (modification de paramètre, tarif, facteur) -> perte de traçabilité avant/après/auteur/motif.",
+      "Modale d'HISTORIQUE (avant/après, versions) spécifiée mais endpoint GET history non rendu, ou aucun INSERT d'historique à la modification.",
+      "Règle de VERSIONNEMENT NON-RÉTROACTIF (tarifs ZD/AG, grilles ZD) non enforced -> modification rétroactive silencieuse des collectes passées.",
+      "KPI/compteur filtrant sur une MAUVAISE valeur d'enum (type='zd'/'ag' vs réel 'zero_dechet'/'anti_gaspi') -> toujours 0, masque l'information (cf. carte non-transmises-TMS).",
+      "Clé d'IDEMPOTENCE spécifiée pour une modale de modification mais absente -> double-application possible.",
+      "Composant histogramme/tableau DÉFINI mais jamais monté (orphelin), ou colonne de tableau spécifiée mais non rendue."
+    ],
+    "evidence_rule": "DURCI GRAIN MODAL. Preuve = contrôle UI / règle CÂBLÉ et ATTEIGNABLE à l'exécution depuis une page rendue ou un handler réel — PAS la simple existence d'un fichier/route/page/colonne nommé. Pour CHAQUE livrable atomique (champ de modale, bouton, règle de validation 422 serveur, split de permission admin_savr vs ops_savr, trigger/écriture audit_log, side-effect, clé d'idempotence, règle de versionnement non-rétroactif, modale d'historique avant/après, colonne de tableau, carte KPI avec sa source SQL et sa cible de redirection) exiger : (a) le code du contrôle/règle [file:line] ; (b) le chemin qui le monte/l'exerce depuis une page rendue ou un handler réel [file:line] ; (c) quand applicable un test exerçant le vrai chemin. Si l'un des trois manque -> 'partial' ; si absent -> 'missing'. Vérifier SYSTÉMATIQUEMENT la cohérence colonne-DB : toute colonne lue/écrite par une route DOIT exister au schéma de migration (classe de bug facteur_co2_kg_par_kg). Ne JAMAIS conclure 'implemented' sur la seule présence d'une page/route/colonne, ni d'un onglet stub 'À venir'.",
+    "verify_mode": "per_finding",
+    "verify_batch_size": 10,
+    "verify_mode_note": "per_finding sur les 8 sous-tranches (toutes critiques) : 1 sceptique adverse par écart, combiné à l'evidence_rule durci grain modal. Coût assumé (complétude totale demandée par Val)."
+  },
+  "sections": [
+    {
+      "id": "param-tarifs-zd-ag",
+      "title": "Paramètres — Tarifs ZD publics + Tarifs AG publics (grille tranches, modale historique versions, versionnement non-rétroactif)",
+      "canonical_files": [
+        "06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/(admin)/admin/parametres/",
+        "packages/plateforme/src/app/api/v1/admin/parametres/",
+        "supabase/migrations/"
+      ],
+      "test_roots": ["supabase/tests/", "packages/plateforme/tests/"],
+      "delivered_modules": ["M0.6", "M1.x", "M2.x"],
+      "delivery_status": "delivered",
+      "criticality": "critique",
+      "notes": "GRAIN MODAL. N'EXTRAIRE QUE les 2 écrans Tarifs ZD publics + Tarifs AG publics. 1 LIVRABLE PAR : chaque tranche/champ de la grille de tarifs (pax, prix), chaque champ éditable, la règle de versionnement NON-RÉTROACTIF (tarifs versionnés, jamais modifiés rétroactivement — vérifier l'enforcement), la modale Historique des versions (GET history rendu ? INSERT history à la modif ?), la validation 422 serveur (bornes, cohérence), le split permission admin_savr (écriture) vs ops_savr (read-only + bandeau). IGNORER tout le reste (grilles, remises, CO2, seuils, taux, algo AG, templates, référentiels, intégrations, config, dashboard). Exiger pour chaque : contrôle câblé + chemin atteignable + cohérence colonne-DB. Onglet stub 'À venir' = missing."
+    },
+    {
+      "id": "param-grilles-remises",
+      "title": "Paramètres — Grilles tarifaires ZD (catalogue + modale création paliers/fixe-variable, unicité défaut) + Remises négociées (tableau global, modale, règles cumul, filtres)",
+      "canonical_files": [
+        "06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/(admin)/admin/parametres/",
+        "packages/plateforme/src/app/api/v1/admin/parametres/",
+        "supabase/migrations/"
+      ],
+      "test_roots": ["supabase/tests/", "packages/plateforme/tests/"],
+      "delivered_modules": ["M0.6", "M1.x", "M2.x"],
+      "delivery_status": "delivered",
+      "criticality": "critique",
+      "notes": "GRAIN MODAL. N'EXTRAIRE QUE Grilles tarifaires ZD + Remises négociées. 1 LIVRABLE PAR : table catalogue grilles (colonnes), modale de création grille (chaque champ : paliers, fixe/variable, défaut), règle d'unicité de la grille par défaut, modification non-rétroactive, validation 422 ; tableau global remises négociées (colonnes, filtres), modale création/fermeture remise (chaque champ), règles de cumul des remises, page admin montée ou route orpheline non consommée. IGNORER le reste (tarifs publics, CO2, seuils, taux, algo AG, templates, référentiels, intégrations, config, dashboard). Exiger contrôle câblé + chemin atteignable + cohérence colonne-DB."
+    },
+    {
+      "id": "param-co2-4-ecrans",
+      "title": "Paramètres — les 4 écrans CO2 (facteurs par flux + mix emballages 100% live + paramètres divers + facteur AG, chacun avec modale commentaire/historique)",
+      "canonical_files": [
+        "06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/(admin)/admin/parametres/",
+        "packages/plateforme/src/app/api/v1/admin/parametres/facteurs-co2/",
+        "packages/plateforme/src/app/api/v1/admin/parametres/facteurs-co2-ag/",
+        "supabase/migrations/"
+      ],
+      "test_roots": [
+        "supabase/tests/m4_3_co2_zd.test.sql",
+        "supabase/tests/trg_co2_ag_cloture_m2_4.test.sql",
+        "supabase/tests/",
+        "packages/plateforme/tests/"
+      ],
+      "delivered_modules": ["M0.6", "M1.x", "M2.x", "M2.4", "M4.3"],
+      "delivery_status": "delivered",
+      "criticality": "critique",
+      "notes": "GRAIN MODAL — sous-écran le plus dense et le plus survolé. N'EXTRAIRE QUE les 4 écrans CO2 : (1) Facteurs CO2 par flux (table éditable fe_induit_kg_t / fe_evite_kg_t / energie_primaire_evitee_kwh_t / source_donnee + modale commentaire obligatoire + historique avant/après) ; (2) Mix emballages (table + vérification live somme = 100% + recalcul de l'agrégat CO2 induit) ; (3) Paramètres CO2 divers (forfait km, équivalences) ; (4) Facteur CO2 AG (table + modale Historique). 1 LIVRABLE PAR champ/règle/modale/validation. VÉRIFIER IMPÉRATIVEMENT LA COHÉRENCE COLONNE-DB : le PUT écrit-il des colonnes existantes ? (bug connu facteur_co2_kg_par_kg / modifie_par / modifie_le inexistantes sur parametres_facteurs_co2 → échec silencieux à re-confirmer au grain champ). IGNORER le reste (tarifs, grilles, remises, seuils, taux, algo AG, templates, référentiels, intégrations, config, dashboard). Exiger contrôle câblé + chemin atteignable + cohérence colonne-DB + commentaire/historique."
+    },
+    {
+      "id": "param-seuils-taux-recyclage",
+      "title": "Paramètres — Seuils pesées par flux + Taux de recyclage (vue + modale Modifier 4 champs + idempotence + validation 422 + side-effects + historique + règle no-delete)",
+      "canonical_files": [
+        "06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/(admin)/admin/parametres/",
+        "packages/plateforme/src/app/api/v1/admin/parametres/",
+        "supabase/migrations/"
+      ],
+      "test_roots": ["supabase/tests/", "packages/plateforme/tests/"],
+      "delivered_modules": ["M0.6", "M1.x", "M2.x"],
+      "delivery_status": "delivered",
+      "criticality": "critique",
+      "notes": "GRAIN MODAL. N'EXTRAIRE QUE Seuils pesées (min/max par flux, g/pax) + Taux de recyclage. 1 LIVRABLE PAR : chaque seuil min/max par flux (page montée ? confusion avec seuils algo AG ?), table taux de recyclage, modale Modifier (chacun des 4 champs), clé d'IDEMPOTENCE de la modale, validation 422 serveur, side-effects de la modification, modale Historique (avant/après), règle NO-DELETE (suppression interdite). IGNORER le reste (tarifs, grilles, remises, CO2, algo AG, templates, référentiels, intégrations, config, dashboard). Exiger contrôle câblé + chemin atteignable + cohérence colonne-DB."
+    },
+    {
+      "id": "param-algo-ag-autoaccept",
+      "title": "Paramètres — algo attribution AG (seuils/pondérations) + configuration auto-accept",
+      "canonical_files": [
+        "06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/(admin)/admin/parametres/",
+        "packages/plateforme/src/app/api/v1/admin/parametres/",
+        "packages/plateforme/src/app/api/v1/admin/attributions-ag/",
+        "supabase/migrations/"
+      ],
+      "test_roots": [
+        "supabase/tests/m2_3_algo_attribution_ag.test.sql",
+        "supabase/tests/",
+        "packages/plateforme/tests/"
+      ],
+      "delivered_modules": ["M0.6", "M1.x", "M2.x", "M2.3"],
+      "delivery_status": "delivered",
+      "criticality": "critique",
+      "notes": "GRAIN MODAL. N'EXTRAIRE QUE les paramètres de l'algo AG + config auto-accept DÉCRITS DANS CE FICHIER (06 - Back-office Admin), pas l'algo lui-même (§09, autre section déjà auditée). 1 LIVRABLE PAR : chaque paramètre éditable de l'algo (seuils, pondérations top 3), config_auto_accept_ag (chaque champ : activation, délai, conditions), validation 422, split permission admin/ops, trigger audit_log (parametres_algo / config_auto_accept_ag sont déjà couverts par triggers — vérifier). IGNORER le reste (tarifs, grilles, remises, CO2, seuils, taux, templates, référentiels, intégrations, config générale, dashboard). Exiger contrôle câblé + chemin atteignable."
+    },
+    {
+      "id": "param-refs-integrations-config",
+      "title": "Paramètres — Templates emails (liste/édition/preview) + Référentiels (flux/types/prestataires/exutoires) + Intégrations externes (Pennylane/Everest/HMAC/Resend + Ping) + Config générale (domaines/JWT/rétention) + read-only ops",
+      "canonical_files": [
+        "06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/(admin)/admin/parametres/",
+        "packages/plateforme/src/app/api/v1/admin/parametres/",
+        "packages/plateforme/src/lib/email/",
+        "supabase/migrations/"
+      ],
+      "test_roots": ["supabase/tests/", "packages/plateforme/tests/"],
+      "delivered_modules": ["M0.6", "M1.x", "M2.x"],
+      "delivery_status": "delivered",
+      "criticality": "critique",
+      "notes": "GRAIN MODAL. N'EXTRAIRE QUE Templates emails + Référentiels + Intégrations externes + Config générale + le rendu read-only ops vs écriture admin. 1 LIVRABLE PAR : liste des ~19 templates (administrable ? édition/preview rendus ? table seedée non éditable ?), chaque référentiel (flux / types événements / prestataires / exutoires : page CRUD montée ?), chaque intégration (Pennylane, Everest, HMAC, Resend : config + bouton Ping), chaque champ config générale (domaines email, session JWT, rétention RGPD), bandeau 'Lecture seule — édition réservée admin' pour ops. IGNORER le reste (tarifs, grilles, remises, CO2, seuils, taux, algo AG, dashboard). Exiger contrôle câblé + chemin atteignable + (templates) seed vérifié."
+    },
+    {
+      "id": "dash-admin-bloc1-cartes",
+      "title": "Dashboard Admin — Bloc 1 : les 5 cartes KPI (source SQL + cible filtre-redirect + clic), dont carte non-transmises-TMS (bug enum à re-confirmer au grain)",
+      "canonical_files": [
+        "06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/(admin)/admin/dashboard/",
+        "packages/plateforme/src/app/api/v1/admin/dashboard/",
+        "supabase/migrations/"
+      ],
+      "test_roots": ["supabase/tests/", "packages/plateforme/tests/"],
+      "delivered_modules": ["M0.6", "M1.x", "M2.x"],
+      "delivery_status": "delivered",
+      "criticality": "critique",
+      "notes": "GRAIN MODAL. N'EXTRAIRE QUE le Bloc 1 du dashboard Admin (5 cartes-actions). 1 LIVRABLE PAR carte : sa source SQL/KPI exacte, son chiffre, sa cible de redirection (Collectes filtré) au clic, et la correction enum (carte 'non transmises TMS' : filtre type='zd'/'ag' vs enum réel zero_dechet/anti_gaspi → toujours 0 ; route correcte kpi-admin non branchée — re-confirmer au grain). Distinguer la spec 'UNE carte à deux chiffres' vs le rendu '2 StatCard'. IGNORER le Bloc 2 (autre sous-tranche), et tout le reste du fichier. Exiger : carte montée + clic câblé + source SQL exacte + cohérence enum."
+    },
+    {
+      "id": "dash-admin-bloc2-revenus",
+      "title": "Dashboard Admin — Bloc 2 : histogramme 12 mois + tableau Revenus par organisation (6 colonnes split ZD/AG) + sélecteur période + tri défaut + pagination + export CSV + règle d'imputation",
+      "canonical_files": [
+        "06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/(admin)/admin/dashboard/",
+        "packages/plateforme/src/app/api/v1/admin/dashboard/",
+        "packages/plateforme/src/components/dashboards/",
+        "supabase/migrations/"
+      ],
+      "test_roots": ["supabase/tests/", "packages/plateforme/tests/"],
+      "delivered_modules": ["M0.6", "M1.x", "M2.x"],
+      "delivery_status": "delivered",
+      "criticality": "critique",
+      "notes": "GRAIN MODAL. N'EXTRAIRE QUE le Bloc 2 du dashboard Admin. 1 LIVRABLE PAR : histogramme 12 mois (axes, tooltip, source SQL, barres empilées ZD/AG, composant monté ou orphelin) ; tableau Revenus par organisation = CHACUNE des 6 colonnes (Type org, Nb ZD, Montant ZD, Nb AG, Montant AG — split ZD/AG) ; sélecteur de période from/to (défaut mois en cours) ; tri par défaut (montant décroissant) ; pagination 50/page ; export CSV (bouton + handler + endpoint) ; règle d'imputation des revenus. IGNORER le Bloc 1 et le reste du fichier. Exiger : chaque contrôle câblé + composant monté + source SQL + chemin atteignable. Histogramme défini mais non monté = partial."
+    }
+  ]
+}

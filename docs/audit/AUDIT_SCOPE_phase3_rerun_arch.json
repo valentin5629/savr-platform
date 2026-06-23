@@ -1,0 +1,92 @@
+{
+  "$comment": "Scope du 3e passage ciblé Phase 3 — re-run RÉSIDUEL sur les 3 tranches architecture (arch-outbox-leaseclaim, arch-interface-provider, arch-multicamions-terminal). Recommandé par le critic du re-run wf_f1160365-4ae : 0 gap sur arch-interface-provider et 44 livrables/1 missing sur arch-outbox = signature 'déclaré mais non câblé' / Evidence indulgente. Objectif : débusquer les FALSE-NEGATIVES sur le code le plus concurrent de la V1. Levier principal = evidence_rule DURCI (chemin d'appel atteignable exigé, pas la signature) + extraction au GRAIN BRANCHE + verify per_finding. Passé tel quel en args au workflow .claude/workflows/cdc-conformity-audit.mjs. Détection seule, ne corrige aucun code.",
+  "options": {
+    "repo_root": "/Users/valentinleblan/Code/savr-platform",
+    "cdc_root": "specs/cdc/01 - Cahier des charges App",
+    "divergences_dir": "/Users/valentinleblan/Desktop/Obsidian Savr/_Divergences",
+    "divergences_note": "Avant de confirmer un écart, l'agent Verify DOIT vérifier (1) les marqueurs de descope INLINE dans le CDC (DESCOPÉ, V1.1, V2, 'hors scope V1', 'reporté'), (2) les fichiers de _Divergences (traités + ouverts). Un livrable absent mais documenté comme descope assumé = verdict 'intentional_descope', PAS un gap.",
+    "delivery_status_legend": {
+      "delivered": "module livré et mergé -> un livrable manquant = GAP actionnable",
+      "partial": "module partiellement livré -> distinguer gap vs sous-lot restant",
+      "pending": "module non encore construit (V4/V5) -> un livrable manquant = PENDING attendu, pas un gap"
+    },
+    "high_value_latent_patterns": [
+      "CLASSE PRINCIPALE DE CE RUN — Garde/méthode/branche DÉCLARÉE (signature, colonne DB, fonction nommée, commentaire) mais JAMAIS CÂBLÉE depuis un point d'entrée réel (cron/route/worker/adapter consommé) -> 'partial' ou 'missing', JAMAIS 'implemented'. Réflexe de la classe v_factures_client / RevenusHistogramme : déclaré non monté.",
+      "Garde de concurrence à moitié câblée : le verrou/FOR UPDATE est pris mais la clause de garde (statut, txid, visibilité, expiration de claim) manque dans le WHERE/IF -> écriture sur état terminal, régression, double-traitement.",
+      "Branche SI/SINON d'une règle énumérée à moitié implémentée (le SI codé, le SINON ou une issue de procédure a/b/c oubliée).",
+      "Fonction de réconciliation / reaper / alerte anticipée définie mais jamais invoquée par le worker réel (chemin d'appel mort).",
+      "Erreur typée déclarée dans l'interface mais jamais levée NI catchée/routée de façon atteignable par le consommateur.",
+      "Promesse en COMMENTAIRE de migration (UPSERT, dérivation, recalcul) jamais codée -> perte silencieuse de donnée en prod.",
+      "Test qui assert la présence (colonne/ligne/INSERT) mais jamais le VRAI chemin d'exécution (ex. persistance binaire, transition concurrente) -> CI verte sur un mécanisme cassé."
+    ],
+    "evidence_rule": "DURCI POUR CE RUN. Preuve = code CÂBLÉ et ATTEIGNABLE à l'exécution depuis un point d'entrée réel (cron route /api/cron/*, API route, worker, adapter effectivement consommé) — PAS la simple présence d'une fonction/colonne/signature/commentaire nommé. Pour CHAQUE garde de concurrence ou branche (lock + clause de garde, garde de statut, garde de visibilité txid, reaper/re-queue, palier de retry, DLQ, alerte anticipée, no-op, dérivation de donnée, erreur typée) exiger les TROIS : (a) le code de la garde/branche [file:line], (b) le CHEMIN D'APPEL atteignable qui l'exerce depuis un point d'entrée réel [file:line], (c) un test qui exerce le VRAI chemin (pas seulement la présence). Si l'un des trois manque -> 'partial' ; si la garde/branche est absente -> 'missing'. Ne JAMAIS conclure 'implemented' sur la seule existence d'une signature, d'une colonne, d'une fonction non appelée, ou d'un commentaire. Méfie-toi activement de la classe 'déclaré mais non câblé'.",
+    "verify_mode": "per_finding",
+    "verify_batch_size": 10,
+    "verify_mode_note": "per_finding sur les 3 tranches (toutes critiques) : un sceptique adverse par écart. Combiné à l'evidence_rule durci, c'est ce qui fait remonter les false-negatives que le run chunked précédent a manqués."
+  },
+  "sections": [
+    {
+      "id": "arch-outbox-leaseclaim",
+      "verify_mode": "per_finding",
+      "title": "Outbox transactionnelle + lease/claim (GRAIN BRANCHE) — émission par mutation, claim hors-HTTP, reaper, ordering seq, garde txid, retry 3 paliers, DLQ a/b/c, no-op, RLS service-role",
+      "canonical_files": [
+        "04 - Data Model.md",
+        "07 - Architecture technique.md",
+        "Interface logistique_provider V1.md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/api/cron/outbox-worker/",
+        "packages/adapters/src/outbox-worker.ts",
+        "packages/adapters/src/index.ts",
+        "supabase/migrations/"
+      ],
+      "test_roots": [
+        "supabase/tests/outbox_par_mutation.test.sql",
+        "supabase/tests/outbox_reconciliation_sticky_txid.test.sql",
+        "packages/adapters/"
+      ],
+      "delivered_modules": ["M1.4", "M1.5"],
+      "delivery_status": "delivered",
+      "criticality": "critique",
+      "notes": "RE-EXTRACTION AU GRAIN BRANCHE — INTERDICTION de fusionner un paragraphe multi-règles en un seul livrable. Source : 04 - Data Model.md table 'outbox_events' (def la plus dense du CDC : ~16 colonnes sémantiques + index + chemins d'émission) + 07 - Architecture technique + Interface logistique_provider V1 + CLAUDE.md §2/§3bis. 1 LIVRABLE ATOMIQUE PAR : (1) émission outbox dans la MÊME tx que la mutation, pour CHACUN des 3 chemins d'émission distincts (RPC E1/E2/E3 ; trigger dirty_tms ; trigger E5 lieu.champ_critique_modifie) ; (2) row lock de l'agrégat (UPDATE collectes) AVANT l'INSERT outbox ; (3) claim = Tx COURTE status='processing'+claimed_until+attempts++ AVANT tout HTTP ; (4) appels MTS-1 HORS transaction ; (5) Tx de résultat séparée ; (6) PAS d'advisory lock NI FOR UPDATE tenu pendant le HTTP ; (7) reaper re-queue les claims EXPIRÉS (claimed_until dépassé) avec requires_reconciliation=true ; (8) réconciliation OBLIGATOIRE avant tout re-POST quand requires_reconciliation ; (9) ordering par seq bigserial ; (10) garde de visibilité txid < txid_snapshot_xmin(txid_current_snapshot()) ; (11) head-of-line blocking PAR collecte/agrégat ; (12) retry 3 paliers 5min/1h/24h (4 tentatives) — CHAQUE palier = vérifier le calcul de next_attempt ; (13) DLQ -> alerte Slack #savr-alerts-critique ; (14) alerte ANTICIPÉE si attempts>=2 ET date_collecte<now()+24h ; (15) procédure de déblocage DLQ à 3 ISSUES EXCLUSIVES = (a) re-queue / (b) skip motivé / (c) résolution manuelle MTS-1 — CHAQUE issue = 1 livrable ; (16) sémantique no-op : E2/E3 sans external_ref_commande = succès consumer='noop_no_remote' ; (17) RLS outbox_events = service-role-only (aucun accès authenticated). EVIDENCE STRICTE : pour chacune, ne PAS conclure 'implemented' sans (a) code de la garde, (b) chemin d'appel atteignable depuis le cron outbox-worker réel, (c) test exerçant le vrai chemin. La présence d'une colonne (claimed_until, requires_reconciliation, txid) ou d'une fonction non appelée NE PROUVE RIEN."
+    },
+    {
+      "id": "arch-interface-provider",
+      "verify_mode": "per_finding",
+      "title": "Interface logistique_provider V1 (EVIDENCE CÂBLAGE RÉEL) — méthodes, 4 classes d'erreurs typées, no-op Everest E2, anti-staleness R11, sélection adapter",
+      "canonical_files": ["Interface logistique_provider V1.md"],
+      "code_roots": [
+        "packages/adapters/src/index.ts",
+        "packages/adapters/src/mts1/adapter.ts",
+        "packages/adapters/src/everest/adapter.ts",
+        "packages/adapters/src/manual/provider.ts",
+        "packages/plateforme/src/app/api/cron/outbox-worker/"
+      ],
+      "test_roots": ["packages/adapters/"],
+      "delivered_modules": ["M1.4", "M2.5"],
+      "delivery_status": "delivered",
+      "criticality": "critique",
+      "notes": "ATTENTION : le run précédent a trouvé 0 gap sur 28 livrables ici = exactement la signature 'déclaré mais non câblé' que l'audit doit débusquer. RE-VÉRIFIER EN MODE CÂBLAGE RÉEL. Lire INTÉGRALEMENT Interface logistique_provider V1.md (62 lignes très denses). 1 LIVRABLE PAR : chaque MÉTHODE de l'interface (dispatchCollecte/createCollecte, updateCollecte, cancelCollecte, updateLieu, sync/poll — chaque signature) ; CHACUNE des 4 classes d'erreurs typées (PERMANENT, TRANSIENT, AMBIGUOUS, CANCEL_WINDOW_CLOSED) ; chacune des 6 règles transverses sortantes ; le cas E2 Everest = no-op + warning #savr-alerts-info ; noop_no_remote ; l'anti-staleness R11 (lecture de l'état DB À LA CONSOMMATION, pas au moment de l'enqueue) ; le test d'implémentabilité V2. EVIDENCE STRICTE OBLIGATOIRE : pour CHAQUE méthode, prouver qu'elle est réellement IMPLÉMENTÉE dans les 3 adapters ET APPELÉE par le worker (chemin d'appel [file:line]) — pas seulement déclarée dans un type/interface. Pour CHAQUE erreur typée, prouver qu'elle est LEVÉE par l'adapter ET CATCHÉE/ROUTÉE par le worker de façon atteignable (sinon 'partial'). Pour R11, prouver que l'état est relu à la consommation (sinon risque d'envoi de données périmées). 'Déclaré dans la signature' != 'implemented'."
+    },
+    {
+      "id": "arch-multicamions-terminal",
+      "verify_mode": "per_finding",
+      "title": "Multi-camions & agrégation terminale (GRAIN BRANCHE) — N customerOrders, Tour KO partiel {OK,PARTIAL,CANCELED,KO}, réconciliation N à chaud, recalcul collecte_flux",
+      "canonical_files": [
+        "Interface logistique_provider V1.md",
+        "05 - Règles métier.md",
+        "Adapter MTS-1 (MyTroopers) — relevé as-built Bubble.md"
+      ],
+      "code_roots": [
+        "packages/adapters/src/mts1/adapter.ts",
+        "packages/plateforme/src/app/api/v1/admin/collectes/",
+        "supabase/migrations/"
+      ],
+      "test_roots": ["supabase/tests/", "packages/adapters/src/mts1/"],
+      "delivered_modules": ["M1.5", "M2.5"],
+      "delivery_status": "delivered",
+      "criticality": "critique",
+      "notes": "RE-EXTRACTION AU GRAIN BRANCHE (CLAUDE.md §4 + Interface provider + 05 - Règles métier). 1 LIVRABLE PAR BRANCHE : (1) Ops fixe N (collectes.nb_camions_demande, même transporteur) ; (2) adapter crée N customerOrders + N tournées (1/camion) ; (3) clé idempotence reference-{rang} ; (4) external_ref_commande stocké PAR tournée ; (5) agrégation 'tous tours terminaux' -> realisee (PAS de webhook S5 en V1) ; (6) états terminaux PAR TOUR = {OK, PARTIAL, CANCELED, KO} — CHAQUE état = 1 livrable ; (7) >=1 tour OK/PARTIAL -> realisee sur pesées dispo + alerte Ops in-app ; (8) tous CANCELED/KO -> rejetee_par_prestataire ; (9) RPC N prend FOR UPDATE sur collectes + exige statut IN (programmee,validee,en_cours), INTERDIT dès realisee [GAP CONNU du run précédent : mc-rpc-set-n-for-update = garde de statut ABSENTE — re-confirmer] ; (10) augmentation N = créer SEULS les rangs manquants ; (11) réduction N = DELETE des rangs retirés (bloqué <1h avant mission -> alerte Ops) ; (12) agrégation terminale concurrente-sûre : tx FOR UPDATE + relecture collecte_tournees ET nb_camions_demande SOUS lock + transition gardée WHERE statut IN ('validee','en_cours') (no-op si déjà fait, realisee_at jamais écrasé) ; (13) pesées brutes PAR TOUR = pesees_tournees clé (tournee_id,stop_id,flux_id) ; (14) collecte_flux DÉRIVÉE de pesees_tournees PAR RECALCUL COMPLET à l'état terminal [GAP CONNU : mc-collecte-flux-derivee-recalcul = jamais codé, poids_reel_kg NULL — re-confirmer] ; (15) poids divergent sur cloturee = AUCUNE écriture + alerte Ops 'divergence post-clôture' ; (16) collecte skippée batch >48h = escalade saisie manuelle Admin. EVIDENCE STRICTE : pour chaque garde de concurrence (9, 12), exiger code + chemin d'appel atteignable + test du vrai chemin concurrent."
+    }
+  ]
+}

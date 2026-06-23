@@ -1,0 +1,46 @@
+{
+  "options": {
+    "repo_root": "/Users/valentinleblan/Code/savr-platform",
+    "cdc_root": "specs/cdc/01 - Cahier des charges App",
+    "divergences_dir": "/Users/valentinleblan/Desktop/Obsidian Savr/_Divergences",
+    "divergences_note": "Avant de confirmer un écart, l'agent Verify DOIT vérifier (1) les marqueurs de descope INLINE dans le CDC (DESCOPÉ, V1.1, V2, 'hors scope V1', 'reporté'), (2) les fichiers de _Divergences (traités + ouverts). Un livrable absent mais documenté comme descope assumé = verdict 'intentional_descope', PAS un gap.",
+    "delivery_status_legend": {
+      "delivered": "module livré et mergé -> un livrable manquant = GAP actionnable",
+      "partial": "module partiellement livré -> distinguer gap vs sous-lot restant",
+      "pending": "module non encore construit (V4/V5) -> un livrable manquant = PENDING attendu, pas un gap"
+    },
+    "high_value_latent_patterns": [
+      "Vue SECURITY INVOKER exposée à 'authenticated' qui suppose une policy RLS sous-jacente NON créée -> renvoie 0 ligne silencieusement (cf. divergence M3.5_20260616, bug v_factures_client). Vérifier la policy backing + un test pgTAP exerçant la vue sous le rôle client RÉEL.",
+      "Table sans policy RLS explicite après le DENY ALL par défaut -> table inaccessible ou trou de cloisonnement.",
+      "Composant/vue/route DÉFINI mais jamais MONTÉ/câblé (cf. RevenusHistogramme, importé nulle part) -> 'partial', pas 'implemented'.",
+      "Template email référencé par une route/règle mais absent du seed email_templates -> envoi qui échoue à l'exécution.",
+      "Branche SI/ALORS d'une règle métier partiellement implémentée (le SI codé, le SINON oublié, ou une condition fiscale/embargo manquante).",
+      "Dimension de filtre / colonne exposée par la spec mais absente de l'API ou de la vue.",
+      "Job cron spécifié mais sans route /api/cron correspondante ni planification.",
+      "Alerte Ops / Slack spécifiée mais jamais émise dans le code."
+    ],
+    "evidence_rule": "Preuve = élément CÂBLÉ et atteignable à l'exécution, pas seulement un fichier qui existe. Pour une UI: composant monté dans une page rendue. Pour une règle: code chemin + test. Pour une RLS: policy + test pgTAP sous le rôle réel. Pour un endpoint: handler présent ET référencé. Citer file:line.",
+    "verify_mode": "chunked",
+    "verify_batch_size": 10,
+    "verify_mode_note": "Pilote 2026-06-22 : 1 section dense (dashboards, 98 livrables, ~50 écarts) en mode per_finding = 54 agents / 3,6M tokens / 25 min. Le mode 'chunked' (1 agent adverse par lot de verify_batch_size écarts) divise le nb d'agents de vérif par ~10 sans perdre le raisonnement adverse par item. Override possible par section via 'verify_mode'. 'per_finding' réservé aux sections critiques (cloisonnement/facturation/sécurité) ; 'batched' = un seul agent pour toute la section (le moins cher, le moins rigoureux)."
+  },
+  "sections": [
+    {
+      "id": "auth-permissions-rls",
+      "verify_mode": "chunked",
+      "title": "Authentification & permissions (6 rôles, RLS deny-all, cross-schema, claim user_role)",
+      "canonical_files": ["09 - Authentification et permissions.md"],
+      "code_roots": [
+        "packages/plateforme/src/app/api/v1/auth/",
+        "packages/plateforme/src/lib/page-auth.ts",
+        "packages/plateforme/src/middleware.ts",
+        "supabase/migrations/"
+      ],
+      "test_roots": ["supabase/tests/", "packages/plateforme/tests/"],
+      "delivered_modules": ["M0.4", "M0.5", "M1.1", "transverse"],
+      "delivery_status": "delivered",
+      "criticality": "critique",
+      "notes": "RE-RUN À LA GRANULARITÉ POLICY. Émets UN livrable atomique distinct par cellule (table × rôle × opération CRUD) de la matrice de permissions du §09 : les ~37 tables plateforme/shared × 6 rôles (admin_savr, ops_savr/agence selon matrice, traiteur_manager, traiteur_commercial, gestionnaire_lieux, client_organisateur) × {SELECT, INSERT, UPDATE, DELETE}. Pour CHAQUE table : un livrable par (rôle, opération) AUTORISÉE (policy attendue) ET un livrable de garantie de DENY pour les combinaisons interdites (cloisonnement). Inclure explicitement : (a) cloisonnement par organisation_id sur chaque table multi-orga ; (b) cross-schema deny (aucune lecture/FK cross-schema hors shared.prestataires + shared.fichiers) ; (c) chaque vue exposée à 'authenticated' = policy SELECT backing vérifiée sous le rôle client RÉEL (pattern v_factures_client) ; (d) claim JWT user_role (PAS role) comme discriminant testé. NE PAS regrouper plusieurs rôles ou opérations dans un seul livrable. Marque automatable=true pour tout ce qui est testable en pgTAP sous rôle authenticated."
+    }
+  ]
+}

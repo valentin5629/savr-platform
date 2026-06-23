@@ -1,0 +1,258 @@
+{
+  "$comment": "RE-RUN CIBLÉ Phase 4 — re-extraction au GRAIN FIN de back-office-admin + espace-traiteur, les 2 plus gros fichiers du CDC (997 + 910 lignes). Motif : le critic du run initial (wf_507832d8-607) les a jugés SOUS-EXTRAITS (densité d'extraction la plus faible : 10,0 et 10,3 livr/1000 mots → queue du document survolée ; les 69 et 66 gaps confirmés sont un plancher). Levier = DÉCOUPER chaque fichier en tranches : 1 tranche = 1 entrée 'section' qui pointe le MÊME fichier canonique mais avec un notes qui la scope à une portion précise → chaque tranche reçoit son propre agent Extract (corrige exactement ce qui avait corrigé apis/arch en Phase 3). 'options' repris TEL QUEL de AUDIT_SCOPE.json. migration-bubble EXCLUE = NON-AUDITABLE (la source dans specs/ '13 - Migration depuis Bubble.md' est un stub de cadrage ; le plan détaillé '04 - Migration/' vit dans le Vault, hors specs/). Passé tel quel en args au workflow .claude/workflows/cdc-conformity-audit.mjs. Détection seule, aucun code corrigé.",
+  "options": {
+    "repo_root": "/Users/valentinleblan/Code/savr-platform",
+    "cdc_root": "specs/cdc/01 - Cahier des charges App",
+    "divergences_dir": "/Users/valentinleblan/Desktop/Obsidian Savr/_Divergences",
+    "divergences_note": "Avant de confirmer un écart, l'agent Verify DOIT vérifier (1) les marqueurs de descope INLINE dans le CDC (DESCOPÉ, V1.1, V2, 'hors scope V1', 'reporté'), (2) les fichiers de _Divergences (traités + ouverts). Un livrable absent mais documenté comme descope assumé = verdict 'intentional_descope', PAS un gap.",
+    "delivery_status_legend": {
+      "delivered": "module livré et mergé -> un livrable manquant = GAP actionnable",
+      "partial": "module partiellement livré -> distinguer gap vs sous-lot restant",
+      "pending": "module non encore construit (V4/V5) -> un livrable manquant = PENDING attendu, pas un gap"
+    },
+    "high_value_latent_patterns": [
+      "Vue SECURITY INVOKER exposée à 'authenticated' qui suppose une policy RLS sous-jacente NON créée -> renvoie 0 ligne silencieusement (cf. divergence M3.5_20260616, bug v_factures_client). Vérifier la policy backing + un test pgTAP exerçant la vue sous le rôle client RÉEL.",
+      "Table sans policy RLS explicite après le DENY ALL par défaut -> table inaccessible ou trou de cloisonnement.",
+      "Composant/vue/route DÉFINI mais jamais MONTÉ/câblé (cf. RevenusHistogramme, importé nulle part) -> 'partial', pas 'implemented'.",
+      "Template email référencé par une route/règle mais absent du seed email_templates -> envoi qui échoue à l'exécution.",
+      "Branche SI/ALORS d'une règle métier partiellement implémentée (le SI codé, le SINON oublié, ou une condition fiscale/embargo manquante).",
+      "Dimension de filtre / colonne exposée par la spec mais absente de l'API ou de la vue.",
+      "Job cron spécifié mais sans route /api/cron correspondante ni planification.",
+      "Alerte Ops / Slack spécifiée mais jamais émise dans le code."
+    ],
+    "evidence_rule": "Preuve = élément CÂBLÉ et atteignable à l'exécution, pas seulement un fichier qui existe. Pour une UI: composant monté dans une page rendue. Pour une règle: code chemin + test. Pour une RLS: policy + test pgTAP sous le rôle réel. Pour un endpoint: handler présent ET référencé. Citer file:line.",
+    "verify_mode": "chunked",
+    "verify_batch_size": 10,
+    "verify_mode_note": "Pilote 2026-06-22 : 1 section dense (dashboards, 98 livrables, ~50 écarts) en mode per_finding = 54 agents / 3,6M tokens / 25 min. Le mode 'chunked' (1 agent adverse par lot de verify_batch_size écarts) divise le nb d'agents de vérif par ~10 sans perdre le raisonnement adverse par item. Override possible par section via 'verify_mode'. 'per_finding' réservé aux sections critiques (cloisonnement/facturation/sécurité) ; 'batched' = un seul agent pour toute la section (le moins cher, le moins rigoureux)."
+  },
+  "sections": [
+    {
+      "id": "boa-orgas-users",
+      "title": "Back-office Admin — CRUD organisations + users + rôles + suspension/soft+hard delete + bandeau ops read-only",
+      "canonical_files": [
+        "06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/(admin)/",
+        "packages/plateforme/src/app/api/v1/admin/"
+      ],
+      "test_roots": ["supabase/tests/", "packages/plateforme/tests/"],
+      "delivered_modules": ["M0.6", "M1.x", "M2.x"],
+      "delivery_status": "delivered",
+      "criticality": "critique",
+      "notes": "N'EXTRAIRE QUE la portion CRUD organisations + users du fichier : création/édition/liste/fiche organisations (traiteurs, lieux, agences, clients), gestion des users (créer/inviter/suspendre/réactiver/changer de rôle), soft delete 48h vs hard delete admin-only, fusion de doublons, onglets de la fiche client, bandeau 'Lecture seule — édition réservée admin' pour ops_savr, gating ADMIN_FIELDS. IGNORER le reste du fichier (lieux, assos/transporteurs, collectes, factures, packs, paramètres, dashboard — couverts par les autres tranches). GRAIN FIN : chaque colonne de liste, chaque onglet de fiche, chaque action (bouton + backend + permission), chaque branche SI/ALORS (ex. soft vs hard delete, admin vs ops) = 1 livrable distinct."
+    },
+    {
+      "id": "boa-lieux",
+      "title": "Back-office Admin — CRUD lieux + action Normaliser + worklist signalements + demande d'ajout",
+      "canonical_files": [
+        "06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/(admin)/",
+        "packages/plateforme/src/app/api/v1/admin/"
+      ],
+      "test_roots": ["supabase/tests/", "packages/plateforme/tests/"],
+      "delivered_modules": ["M0.6", "M1.x", "M2.x"],
+      "delivery_status": "delivered",
+      "criticality": "critique",
+      "notes": "N'EXTRAIRE QUE la portion écran Lieux du fichier : liste lieux (colonnes/filtres), fiche lieu, formulaire création/édition (champs accès office, stationnement enum, type véhicule max, traiteurs opérant), action 'Normaliser' (complète + valide + actif=true + email admin), worklist des signalements de modification (diff par champ + action 'Appliquer au lieu'), bouton + email 'Demande d'ajout de lieu'. IGNORER le reste (orgas/users, assos/transporteurs, collectes, factures, packs, paramètres, dashboard). GRAIN FIN : chaque colonne de liste, chaque champ de formulaire, chaque action, chaque branche SI/ALORS, chaque template email déclenché = 1 livrable distinct."
+    },
+    {
+      "id": "boa-assos-transporteurs",
+      "title": "Back-office Admin — référentiels associations + transporteurs (formulaires création/édition, horaires)",
+      "canonical_files": [
+        "06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/(admin)/",
+        "packages/plateforme/src/app/api/v1/admin/"
+      ],
+      "test_roots": ["supabase/tests/", "packages/plateforme/tests/"],
+      "delivered_modules": ["M0.6", "M1.x", "M2.x"],
+      "delivery_status": "delivered",
+      "criticality": "critique",
+      "notes": "N'EXTRAIRE QUE les référentiels Associations et Transporteurs du fichier : liste + fiche association (habilitation fiscale 2041-GE, point de collecte, horaires), liste + fiche transporteur (type_tms mts1/a_toutes/autre, code_transporteur_mts1), formulaires de création/édition pour les deux, éditeur d'horaires 7 lignes, permissions ops vs admin + défense en profondeur RLS column-level. IGNORER le reste (orgas/users, lieux, collectes, factures, packs, paramètres, dashboard). GRAIN FIN : chaque colonne, chaque champ de formulaire, chaque action, chaque branche de permission = 1 livrable distinct."
+    },
+    {
+      "id": "boa-collectes",
+      "title": "Back-office Admin — écran collectes : liste (colonnes/filtres/indicateurs) + détail Blocs 0→7 + toutes les actions",
+      "canonical_files": [
+        "06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/(admin)/",
+        "packages/plateforme/src/app/api/v1/admin/"
+      ],
+      "test_roots": ["supabase/tests/", "packages/plateforme/tests/"],
+      "delivered_modules": ["M0.6", "M1.x", "M2.x"],
+      "delivery_status": "delivered",
+      "criticality": "critique",
+      "notes": "N'EXTRAIRE QUE l'écran Collectes Admin du fichier : liste (toutes les colonnes Pax/Adresse/Client orga/Contrôle accès/Indicateurs/format date), tous les filtres (autocomplete traiteur/lieu, dates, info incomplète, anomalie, Type, Statut), tous les indicateurs/badges (Rapport Absent/Disponible/Consulté, poids+taux+anomalie ZD, repas AG, badge info incomplète, badge statut 9 valeurs d'enum), le détail collecte Bloc 0 à Bloc 7 (Bloc 0 dispatch 2 boutons fork V1 + override AG ; Bloc 1-4 pesées éditables/Documents/Pack AG badge recrédit ; Bloc 5 attribution AG Top 3 ; Bloc 6 générer avoir ; Bloc 7 historique/audit), et TOUTES les actions (forcer statut + motif, modifier pesées, importer photos, etc.). IGNORER le reste (orgas/users, lieux, assos/transporteurs, factures, packs, paramètres, dashboard). GRAIN FIN : chaque colonne, chaque filtre, chaque indicateur, chaque bloc de détail, chaque action, chaque valeur d'enum de badge, chaque branche SI/ALORS = 1 livrable distinct."
+    },
+    {
+      "id": "boa-factures",
+      "title": "Back-office Admin — écran factures : liste/filtres + blocs SLA/retard/avoirs/KPIs + actions fiche + permissions ops",
+      "canonical_files": [
+        "06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/(admin)/",
+        "packages/plateforme/src/app/api/v1/admin/"
+      ],
+      "test_roots": ["supabase/tests/", "packages/plateforme/tests/"],
+      "delivered_modules": ["M0.6", "M1.x", "M2.x"],
+      "delivery_status": "delivered",
+      "criticality": "critique",
+      "notes": "N'EXTRAIRE QUE l'écran Factures Admin du fichier (la portion back-office, pas la génération facture du §08 qui est une autre section) : liste + filtres (Type/Organisation/Période + chip annulee), colonnes (Montant HT, pastille >2h, date échéance, erreur_synchro_at push Pennylane bloqués), bloc brouillons SLA >24h + 'Valider et envoyer' par ligne, bloc Factures en retard (tri par retard), bloc Avoirs à émettre (collectes annulées sans avoir), bloc KPIs rapides (CA émis/encaissé, retard, DSO), actions fiche (Éditer lignes, Annuler facture, Voir collectes, Générer avoir, Renvoyer, Valider...), permissions ops vs admin (test de la frontière). IGNORER le reste (orgas/users, lieux, assos/transporteurs, collectes, packs, paramètres, dashboard). GRAIN FIN : chaque filtre, chaque colonne, chaque bloc, chaque KPI, chaque action fiche, chaque branche de permission = 1 livrable distinct."
+    },
+    {
+      "id": "boa-packs-ag",
+      "title": "Back-office Admin — packs AG : liste, modal création (mensualisation/remise), historique, recrédit",
+      "canonical_files": [
+        "06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/(admin)/",
+        "packages/plateforme/src/app/api/v1/admin/"
+      ],
+      "test_roots": ["supabase/tests/", "packages/plateforme/tests/"],
+      "delivered_modules": ["M0.6", "M1.x", "M2.x"],
+      "delivery_status": "delivered",
+      "criticality": "critique",
+      "notes": "N'EXTRAIRE QUE la portion Packs AG du fichier : liste des packs (colonnes Date clôture/Actions/filtres locaux), modal de création de pack (checkbox mensualiser, récap dynamique, remise/surcharge négociée), historique des packs, recrédit de crédits (FIFO created_at, débit annulation tardive <12h, recrédit le {{date}}), action 'Voir collectes' liée au pack. IGNORER le reste (orgas/users, lieux, assos/transporteurs, collectes, factures, paramètres, dashboard). GRAIN FIN : chaque colonne, chaque élément de la modal, chaque action, chaque branche métier (FIFO, débit, recrédit) = 1 livrable distinct."
+    },
+    {
+      "id": "boa-parametres-algo",
+      "title": "Back-office Admin — TOUS les paramètres algo : tarifs ZD/AG, grilles, remises, CO2, taux recyclage, seuils pesées, templates emails, référentiels, intégrations, config générale",
+      "canonical_files": [
+        "06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/(admin)/",
+        "packages/plateforme/src/app/api/v1/admin/"
+      ],
+      "test_roots": ["supabase/tests/", "packages/plateforme/tests/"],
+      "delivered_modules": ["M0.6", "M1.x", "M2.x"],
+      "delivery_status": "delivered",
+      "criticality": "critique",
+      "notes": "N'EXTRAIRE QUE la section Paramètres / configuration de l'algo du fichier (la portion la plus dense et la plus survolée du run initial) : Tarifs ZD publics (tranches pax+prix, versionné), Tarifs AG (+ modale Historique versions), grilles tarifaires ZD (catalogue, modal création, unicité défaut), remises négociées (tableau global, filtres, modal, règles de cumul), facteurs CO2 par flux (+ history + commentaire obligatoire) ET facteur CO2 AG, taux de recyclage (+ modale Historique), seuils min/max pesées par flux, paramètres CO2 divers (forfait km, équivalences), templates emails (liste 19 + édition/preview), référentiels (flux/types/prestataires/exutoires), intégrations externes (Pennylane/Everest/HMAC/Resend + Ping), config générale (domaines email, session JWT, rétention RGPD), rendu read-only ops vs écriture admin-only. IGNORER le reste (orgas/users, lieux, assos/transporteurs, collectes, factures, packs, dashboard). GRAIN FIN : chaque écran de paramètre, chaque champ éditable, chaque modale d'historique, chaque référentiel, chaque intégration, chaque branche admin/ops = 1 livrable distinct. Traquer les écritures sur colonnes inexistantes (facteur_co2_kg_par_kg / _par_repas)."
+    },
+    {
+      "id": "boa-dashboard-admin",
+      "title": "Back-office Admin — dashboard Admin : Bloc 1 cartes, Bloc 2 histogramme/tableau revenus/sélecteur période/export CSV/pagination/tri",
+      "canonical_files": [
+        "06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/(admin)/",
+        "packages/plateforme/src/app/api/v1/admin/"
+      ],
+      "test_roots": ["supabase/tests/", "packages/plateforme/tests/"],
+      "delivered_modules": ["M0.6", "M1.x", "M2.x"],
+      "delivery_status": "delivered",
+      "criticality": "critique",
+      "notes": "N'EXTRAIRE QUE le dashboard Admin décrit DANS CE FICHIER (pas le §11 Dashboards déjà audité au pilote) : Bloc 1 = 5 cartes-actions cliquables redirigeant vers Collectes filtré ; Bloc 2 = histogramme 12 mois barres empilées ZD/AG, tableau revenus par organisation (6 colonnes Type org / Nb+Montant ZD / Nb+Montant AG split), sélecteur de période from/to (défaut mois en cours), export CSV revenus, pagination 50/page, tri montant décroissant. IGNORER le reste (orgas/users, lieux, assos/transporteurs, collectes, factures, packs, paramètres). GRAIN FIN : chaque carte, chaque colonne de tableau, le sélecteur, l'export, la pagination, le tri, le composant histogramme (monté ou orphelin) = 1 livrable distinct. Traquer le composant défini mais jamais monté."
+    },
+    {
+      "id": "trait-dashboard-zd",
+      "title": "Espace traiteur — dashboard onglet ZD : Blocs 1→8, KPI cards clickables, jauges kg/pax, encart filtres benchmark, donut, barres empilées, export PDF",
+      "canonical_files": [
+        "06 - Fonctionnalités détaillées/04 - Espace client traiteur.md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/(traiteur)/",
+        "packages/plateforme/src/app/api/v1/traiteur/",
+        "packages/plateforme/src/components/dashboards/"
+      ],
+      "test_roots": [
+        "supabase/tests/m3_1_espace_traiteur.test.sql",
+        "packages/plateforme/tests/api/traiteur/"
+      ],
+      "delivered_modules": ["M3.1"],
+      "delivery_status": "delivered",
+      "criticality": "eleve",
+      "notes": "N'EXTRAIRE QUE l'onglet ZD du dashboard traiteur du fichier : barre de filtres globaux (Période/Lieux/Client/Type/Taille + reset + persistance query string), Bloc 1 KPI cards cliquables (chaque carte renvoie liste filtrée), Bloc 2 barres empilées 5 flux + courbe, Bloc 3 = 5 jauges kg flux/pax vs benchmark + encart filtres benchmark dédié (Période/Lieux/Type/Taille) + point rouge moyenne parc + légende couleurs + avertissement lieux, Bloc 4 donut, Bloc 5/6/7, Bloc 8 export synthèse PDF (modal async URL pré-signée 1h). IGNORER l'onglet AG, l'écran Collectes, Mon organisation, Mon profil/nav (autres tranches). GRAIN FIN : chaque filtre, chaque carte KPI, chaque bloc, chaque jauge, chaque sous-élément (point rouge, légende, tooltip marge) = 1 livrable distinct. GAP CONNU à retrouver : myKgPax=tonnage/pax/5 (ratio non significatif), bracket figé 'M', blocs graphiques §11 orphelins."
+    },
+    {
+      "id": "trait-dashboard-ag",
+      "title": "Espace traiteur — dashboard onglet AG : KPI, pack, courbe mensuelle, top asso, formulaire renouvellement, blocs 5/6/7",
+      "canonical_files": [
+        "06 - Fonctionnalités détaillées/04 - Espace client traiteur.md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/(traiteur)/",
+        "packages/plateforme/src/app/api/v1/traiteur/",
+        "packages/plateforme/src/components/dashboards/"
+      ],
+      "test_roots": [
+        "supabase/tests/m3_1_espace_traiteur.test.sql",
+        "packages/plateforme/tests/api/traiteur/"
+      ],
+      "delivered_modules": ["M3.1"],
+      "delivery_status": "delivered",
+      "criticality": "eleve",
+      "notes": "N'EXTRAIRE QUE l'onglet AG du dashboard traiteur du fichier : KPI cards AG (repas donnés, marge générée €, CO2 évité), Bloc 'Mon pack' (crédits restants/consommés, badge), courbe d'évolution mensuelle AG (repas / ratio), Bloc 3 top associations, Bloc 4 formulaire de renouvellement de pack, Blocs 5/6/7 AG, pré-coche du type d'onglet depuis un bouton dashboard. IGNORER l'onglet ZD, l'écran Collectes, Mon organisation, Mon profil/nav. GRAIN FIN : chaque KPI, chaque bloc, la courbe (lib charting présente ou non), le formulaire de renouvellement, le top asso = 1 livrable distinct. GAP CONNU à retrouver : onglet AG = KPI+pack seuls, aucune lib charting, formulaire de renouvellement vide."
+    },
+    {
+      "id": "trait-collectes",
+      "title": "Espace traiteur — liste collectes + fiche collecte (Bloc 3 jauges, download, realisee_sans_collecte, contrôle accès) + édition",
+      "canonical_files": [
+        "06 - Fonctionnalités détaillées/04 - Espace client traiteur.md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/(traiteur)/",
+        "packages/plateforme/src/app/api/v1/traiteur/",
+        "packages/plateforme/src/components/dashboards/"
+      ],
+      "test_roots": [
+        "supabase/tests/m3_1_espace_traiteur.test.sql",
+        "packages/plateforme/tests/api/traiteur/"
+      ],
+      "delivered_modules": ["M3.1"],
+      "delivery_status": "delivered",
+      "criticality": "eleve",
+      "notes": "N'EXTRAIRE QUE l'écran Collectes du traiteur du fichier : liste (toutes colonnes dont Type, Poids ZD/Repas AG, badge sans-collecte + tooltip motif), filtres liste (statut, période, programmée-par), fiche collecte (entête complète + badge 'programmée par', sous-titre id court, Bloc 2bis taux, Bloc 3 = 5 jauges benchmark sur fiche ZD via f_benchmark_single_collecte, download facture (emise+, manager+commercial) + download rapport (picto actif si dispo), section realisee_sans_collecte = horodatage + mention 2041-GE + lien PDF, contrôle d'accès états attente/communiqué/multi-camions/vélo-cargo A Toutes!, grisage collectes d'un autre commercial selon created_by, bandeau infos incomplètes → édition → complétion), édition collecte (bouton Éditer + modal de confirmation avec avertissements réacceptation/urgence <12h + email Ops), annulation (modal + mention AG), export ZIP groupé rapports recyclage (plafond 50). IGNORER les 2 onglets dashboard, Mon organisation, Mon profil/nav. GRAIN FIN : chaque colonne, chaque filtre, chaque bloc de fiche, chaque bouton download, chaque branche de contrôle d'accès, chaque branche SI/ALORS (sans-collecte, urgence, commercial vs manager, vélo cargo) = 1 livrable distinct."
+    },
+    {
+      "id": "trait-mon-orga",
+      "title": "Espace traiteur — Mon organisation : infos légales, équipe (4 actions), invitation, facturation/params, transfert, fiche facture, badge retard, préférences",
+      "canonical_files": [
+        "06 - Fonctionnalités détaillées/04 - Espace client traiteur.md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/(traiteur)/",
+        "packages/plateforme/src/app/api/v1/traiteur/",
+        "packages/plateforme/src/components/dashboards/"
+      ],
+      "test_roots": [
+        "supabase/tests/m3_1_espace_traiteur.test.sql",
+        "packages/plateforme/tests/api/traiteur/"
+      ],
+      "delivered_modules": ["M3.1"],
+      "delivery_status": "delivered",
+      "criticality": "eleve",
+      "notes": "N'EXTRAIRE QUE la section 'Mon organisation' du traiteur du fichier : infos légales (raison sociale, SIRET, multi-SIRET / entités de facturation), équipe (table + 4 actions manager : changer rôle / suspendre / transférer propriété / inviter), flux d'invitation collaborateur (bouton + modal, template email), facturation & paramètres (adresse, préférences), transfert de propriété, fiche facture (liste + détail), badge 'en retard' de paiement, bloc Préférences (langue FR). IGNORER les 2 onglets dashboard, l'écran Collectes, Mon profil/nav. GRAIN FIN : chaque bloc d'info, chaque action d'équipe (UI + backend + permission), le flux d'invitation, la fiche facture, le badge retard, les préférences = 1 livrable distinct. GAP CONNU à retrouver : table équipe en lecture seule (3 actions sur 4 sans UI ni backend), invitation backend complet mais aucune entrée UI."
+    },
+    {
+      "id": "trait-mon-profil-nav",
+      "title": "Espace traiteur — Mon profil + navigation (4 entrées strictes, bottom-nav mobile) + responsive",
+      "canonical_files": [
+        "06 - Fonctionnalités détaillées/04 - Espace client traiteur.md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/(traiteur)/",
+        "packages/plateforme/src/app/api/v1/traiteur/",
+        "packages/plateforme/src/components/dashboards/"
+      ],
+      "test_roots": [
+        "supabase/tests/m3_1_espace_traiteur.test.sql",
+        "packages/plateforme/tests/api/traiteur/"
+      ],
+      "delivered_modules": ["M3.1"],
+      "delivery_status": "delivered",
+      "criticality": "eleve",
+      "notes": "N'EXTRAIRE QUE la section 'Mon profil' + la navigation/structure transverse du traiteur du fichier : Mon profil (prénom/nom/téléphone éditables, changement de mot de passe, suppression de compte), navigation stricte à 4 entrées (SANS Registre — le Registre ne doit pas être injecté), bottom-nav mobile (ne doit pas couper 'Mon profil'), responsive de TOUS les écrans (détail non thin). IGNORER les 2 onglets dashboard, l'écran Collectes, Mon organisation. GRAIN FIN : chaque champ de profil, chaque action (mdp, suppression), chaque entrée de nav (présence/absence stricte), le comportement bottom-nav mobile, le responsive par écran = 1 livrable distinct. GAP CONNU à retrouver : nav à 5 entrées (Registre injecté), bottom-nav coupe 'Mon profil', profil minimal partiellement non câblé."
+    }
+  ]
+}

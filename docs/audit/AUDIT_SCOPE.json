@@ -1,0 +1,503 @@
+{
+  "$comment": "Base de scope de l'audit de conformité CDC -> code. SOURCE DE VÉRITÉ = specs/cdc (le CDC), JAMAIS les manifestes (qui sont la transcription à perte responsable des écarts). Chaque section pointe ses fichiers CDC canoniques + les racines de code où chercher la preuve d'implémentation. Régénérer/éditer à la main. Passé tel quel en `args` au workflow cdc-conformity-audit. Les chemins CDC sont relatifs à la racine repo. On NE liste QUE les fichiers canoniques : les doublons aplatis à la racine de specs/cdc/01... (ex. un '04 - Espace client traiteur.md' à la racine ET dans '06 - Fonctionnalités détaillées/') sont volontairement exclus pour ne pas double-compter.",
+  "options": {
+    "repo_root": "/Users/valentinleblan/Code/savr-platform",
+    "cdc_root": "specs/cdc/01 - Cahier des charges App",
+    "divergences_dir": "/Users/valentinleblan/Desktop/Obsidian Savr/_Divergences",
+    "divergences_note": "Avant de confirmer un écart, l'agent Verify DOIT vérifier (1) les marqueurs de descope INLINE dans le CDC (DESCOPÉ, V1.1, V2, 'hors scope V1', 'reporté'), (2) les fichiers de _Divergences (traités + ouverts). Un livrable absent mais documenté comme descope assumé = verdict 'intentional_descope', PAS un gap.",
+    "delivery_status_legend": {
+      "delivered": "module livré et mergé -> un livrable manquant = GAP actionnable",
+      "partial": "module partiellement livré -> distinguer gap vs sous-lot restant",
+      "pending": "module non encore construit (V4/V5) -> un livrable manquant = PENDING attendu, pas un gap"
+    },
+    "high_value_latent_patterns": [
+      "Vue SECURITY INVOKER exposée à 'authenticated' qui suppose une policy RLS sous-jacente NON créée -> renvoie 0 ligne silencieusement (cf. divergence M3.5_20260616, bug v_factures_client). Vérifier la policy backing + un test pgTAP exerçant la vue sous le rôle client RÉEL.",
+      "Table sans policy RLS explicite après le DENY ALL par défaut -> table inaccessible ou trou de cloisonnement.",
+      "Composant/vue/route DÉFINI mais jamais MONTÉ/câblé (cf. RevenusHistogramme, importé nulle part) -> 'partial', pas 'implemented'.",
+      "Template email référencé par une route/règle mais absent du seed email_templates -> envoi qui échoue à l'exécution.",
+      "Branche SI/ALORS d'une règle métier partiellement implémentée (le SI codé, le SINON oublié, ou une condition fiscale/embargo manquante).",
+      "Dimension de filtre / colonne exposée par la spec mais absente de l'API ou de la vue.",
+      "Job cron spécifié mais sans route /api/cron correspondante ni planification.",
+      "Alerte Ops / Slack spécifiée mais jamais émise dans le code."
+    ],
+    "evidence_rule": "Preuve = élément CÂBLÉ et atteignable à l'exécution, pas seulement un fichier qui existe. Pour une UI: composant monté dans une page rendue. Pour une règle: code chemin + test. Pour une RLS: policy + test pgTAP sous le rôle réel. Pour un endpoint: handler présent ET référencé. Citer file:line.",
+    "verify_mode": "chunked",
+    "verify_batch_size": 10,
+    "verify_mode_note": "Pilote 2026-06-22 : 1 section dense (dashboards, 98 livrables, ~50 écarts) en mode per_finding = 54 agents / 3,6M tokens / 25 min. Le mode 'chunked' (1 agent adverse par lot de verify_batch_size écarts) divise le nb d'agents de vérif par ~10 sans perdre le raisonnement adverse par item. Override possible par section via 'verify_mode'. 'per_finding' réservé aux sections critiques (cloisonnement/facturation/sécurité) ; 'batched' = un seul agent pour toute la section (le moins cher, le moins rigoureux)."
+  },
+  "phases": {
+    "$comment": "Découpage de l'audit en 4 phases pour que chaque run reste raisonnable. La section 'dashboards' est DÉJÀ auditée (pilote 2026-06-22, registre gap-register-pilote-dashboards-2026-06-22.md) -> exclue des phases. Pour lancer une phase : filtrer 'sections' aux ids listés ci-dessous, garder 'options', passer le tout en args. Ordre = priorité décroissante (socle critique d'abord).",
+    "phase_1_socle_securite_donnees": {
+      "titre": "Socle : sécurité, accès, données, transverse technique",
+      "section_ids": [
+        "auth-permissions-rls",
+        "data-model",
+        "securite-conformite",
+        "observabilite",
+        "design-system"
+      ],
+      "rationale": "Le socle non négociable. Si le cloisonnement RLS / le schéma / la sécu sont faux, tout ce qui est au-dessus l'est aussi. À auditer en premier, et à hotfixer immédiatement si un écart critique de fuite inter-organisation apparaît."
+    },
+    "phase_2_coeur_metier_regles": {
+      "titre": "Cœur métier : règles & flux amont",
+      "section_ids": [
+        "regles-metier",
+        "formulaire-programmation",
+        "onboarding-cgu",
+        "algo-attribution-ag",
+        "co2-ademe"
+      ],
+      "rationale": "Le moteur de décision : règles SI/ALORS, création de collecte, onboarding, attribution AG, calcul CO2."
+    },
+    "phase_3_argent_logistique_integrations": {
+      "titre": "Argent & systèmes externes : facturation, logistique, intégrations, emails",
+      "section_ids": [
+        "facturation",
+        "architecture-adapters-outbox",
+        "apis-integrations",
+        "templates-emails",
+        "registre-reglementaire"
+      ],
+      "rationale": "Là où une erreur coûte de l'argent ou casse un échange externe : numérotation gapless, outbox/adapters, Pennylane/INSEE, templates, bordereaux/registre."
+    },
+    "phase_4_surface_lecture": {
+      "titre": "Surface lecture : back-office, espaces clients, reporting",
+      "section_ids": [
+        "back-office-admin",
+        "espace-traiteur",
+        "espace-gestionnaire-lieux",
+        "espace-agence",
+        "espace-client-organisateur",
+        "reporting-exports",
+        "migration-bubble"
+      ],
+      "rationale": "La surface UI/lecture (la classe d'écart la plus visible, donc la moins risquée). Les 4 espaces clients se ressemblent -> les auditer ensemble permet de vérifier la parité inter-rôles. 'migration-bubble' = pending V5 (mostly PENDING, à passer en dernier ou à sauter)."
+    }
+  },
+  "sections": [
+    {
+      "id": "data-model",
+      "title": "Data Model (tables, colonnes, vues, enums, FK, index)",
+      "canonical_files": ["04 - Data Model.md"],
+      "code_roots": ["supabase/migrations/"],
+      "test_roots": ["supabase/tests/"],
+      "delivered_modules": ["M0.3", "M0.4", "M0.6", "transverse"],
+      "delivery_status": "delivered",
+      "criticality": "critique",
+      "notes": "Comparer chaque table/colonne/vue/enum du Data Model au schéma effectif des migrations. Vérifier aussi le DDL cible specs/cdc/... schema_cible (V1 sous-ensemble). Pattern latent: vues SECURITY INVOKER sans policy backing."
+    },
+    {
+      "id": "regles-metier",
+      "title": "Règles métier (SI/ALORS, FIFO pack, embargo, tarifs versionnés, gating facturation)",
+      "canonical_files": ["05 - Règles métier.md"],
+      "code_roots": [
+        "packages/plateforme/src/lib/",
+        "supabase/migrations/",
+        "packages/plateforme/src/app/api/"
+      ],
+      "test_roots": ["supabase/tests/", "packages/plateforme/tests/"],
+      "delivered_modules": ["M1.x", "M2.x", "transverse"],
+      "delivery_status": "delivered",
+      "criticality": "critique",
+      "notes": "Chaque règle SI/ALORS = 1 livrable. Vérifier les DEUX branches (SI et SINON). Cas sensibles: débit crédit pack annulation <12h (trg_pack_debit_annulation_tardive), mention fiscale 2041-GE conditionnelle, FIFO created_at, realisee_sans_collecte, multi-camions, gating siret_verification='verifie'."
+    },
+    {
+      "id": "auth-permissions-rls",
+      "verify_mode": "per_finding",
+      "title": "Authentification & permissions (6 rôles, RLS deny-all, cross-schema, claim user_role)",
+      "canonical_files": ["09 - Authentification et permissions.md"],
+      "code_roots": [
+        "packages/plateforme/src/app/api/v1/auth/",
+        "packages/plateforme/src/lib/page-auth.ts",
+        "packages/plateforme/src/middleware.ts",
+        "supabase/migrations/"
+      ],
+      "test_roots": ["supabase/tests/", "packages/plateforme/tests/"],
+      "delivered_modules": ["M0.4", "M0.5", "M1.1", "transverse"],
+      "delivery_status": "delivered",
+      "criticality": "critique",
+      "notes": "CRITIQUE. Chaque table doit avoir des policies explicites par rôle/opération. Vérifier le cloisonnement organisation. Pattern latent M3.5: vue INVOKER cliente sans policy SELECT backing. Vérifier pgTAP sous rôle 'authenticated' + claim user_role (PAS role)."
+    },
+    {
+      "id": "formulaire-programmation",
+      "title": "Formulaire de programmation de collecte (3 étapes, ZD+AG, tarif, vérif pack)",
+      "canonical_files": [
+        "06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/(programmation)/",
+        "packages/plateforme/src/app/api/v1/programmation/",
+        "packages/plateforme/src/components/programmation/"
+      ],
+      "test_roots": [
+        "packages/plateforme/tests/",
+        "supabase/tests/m1_2__programmation.test.sql",
+        "supabase/tests/m2_2_formulaire_ag.test.sql"
+      ],
+      "delivered_modules": ["M1.2", "M2.2"],
+      "delivery_status": "delivered",
+      "criticality": "eleve"
+    },
+    {
+      "id": "templates-emails",
+      "title": "Templates emails V1 (catalogue ~19-21 actifs, vouvoiement, FR)",
+      "canonical_files": [
+        "06 - Fonctionnalités détaillées/02 - Templates emails V1.md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/lib/email/",
+        "supabase/migrations/",
+        "packages/plateforme/src/app/api/"
+      ],
+      "test_roots": ["packages/plateforme/tests/", "supabase/tests/"],
+      "delivered_modules": ["M0.x", "transverse"],
+      "delivery_status": "delivered",
+      "criticality": "eleve",
+      "notes": "Chaque template du catalogue = 1 livrable. Vérifier qu'il est SEEDÉ en DB (email_templates) ET référencé par le bon déclencheur. Pattern latent: template référencé par une route mais absent du seed (cf. divergence M3.1 invitation_collaborateur)."
+    },
+    {
+      "id": "registre-reglementaire",
+      "title": "Registre réglementaire ZD-only (cloturee seules, UX, export)",
+      "canonical_files": [
+        "06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/(registre)/",
+        "packages/plateforme/src/app/api/"
+      ],
+      "test_roots": [
+        "supabase/tests/m4_2_registre.test.sql",
+        "packages/plateforme/tests/"
+      ],
+      "delivered_modules": ["M4.2"],
+      "delivery_status": "delivered",
+      "criticality": "eleve"
+    },
+    {
+      "id": "espace-traiteur",
+      "title": "Espace client traiteur (dashboard, collectes, mon orga, profil)",
+      "canonical_files": [
+        "06 - Fonctionnalités détaillées/04 - Espace client traiteur.md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/(traiteur)/",
+        "packages/plateforme/src/app/api/v1/traiteur/",
+        "packages/plateforme/src/components/dashboards/"
+      ],
+      "test_roots": [
+        "supabase/tests/m3_1_espace_traiteur.test.sql",
+        "packages/plateforme/tests/api/traiteur/"
+      ],
+      "delivered_modules": ["M3.1"],
+      "delivery_status": "delivered",
+      "criticality": "eleve",
+      "notes": "GAP CONNU servant de calibration: blocs graphiques §11 (Bloc 2 barres empilées, Bloc 4 donut, courbe AG, top 5 lieux/commerciaux) non implémentés. L'audit doit les retrouver."
+    },
+    {
+      "id": "espace-gestionnaire-lieux",
+      "title": "Espace client gestionnaire de lieux",
+      "canonical_files": [
+        "06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/(gestionnaire)/",
+        "packages/plateforme/src/app/api/v1/gestionnaire/",
+        "packages/plateforme/src/components/dashboards/"
+      ],
+      "test_roots": [
+        "supabase/tests/m3_2_gestionnaire_lieux.test.sql",
+        "packages/plateforme/tests/"
+      ],
+      "delivered_modules": ["M3.2"],
+      "delivery_status": "delivered",
+      "criticality": "eleve",
+      "notes": "Réplique §06.04 -> mêmes blocs graphiques probablement manquants."
+    },
+    {
+      "id": "espace-agence",
+      "title": "Espace client agence",
+      "canonical_files": [
+        "06 - Fonctionnalités détaillées/11 - Espace client agence.md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/(agence)/",
+        "packages/plateforme/src/app/api/v1/agence/",
+        "packages/plateforme/src/components/dashboards/"
+      ],
+      "test_roots": [
+        "supabase/tests/m3_3_espace_agence.test.sql",
+        "packages/plateforme/tests/"
+      ],
+      "delivered_modules": ["M3.3"],
+      "delivery_status": "delivered",
+      "criticality": "eleve",
+      "notes": "Réplique §06.04 avec différences forcées (Bloc 7 retiré). Vérifier les différences ET les blocs graphiques."
+    },
+    {
+      "id": "espace-client-organisateur",
+      "title": "Espace client organisateur (dashboard RSE + documents)",
+      "canonical_files": [
+        "06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/(client-organisateur)/",
+        "packages/plateforme/src/app/api/v1/dashboards/kpi-client-organisateur/"
+      ],
+      "test_roots": [
+        "supabase/tests/m3_4_client_organisateur.test.sql",
+        "packages/plateforme/tests/"
+      ],
+      "delivered_modules": ["M3.4"],
+      "delivery_status": "delivered",
+      "criticality": "moyen",
+      "notes": "Spec dispersée; chercher la section client_organisateur dans §06 et §11."
+    },
+    {
+      "id": "back-office-admin",
+      "title": "Back-office Admin Savr (CRUD orgas/users/lieux/événements/collectes, packs, params algo)",
+      "canonical_files": [
+        "06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/(admin)/",
+        "packages/plateforme/src/app/api/v1/admin/"
+      ],
+      "test_roots": ["supabase/tests/", "packages/plateforme/tests/"],
+      "delivered_modules": ["M0.6", "M1.x", "M2.x"],
+      "delivery_status": "delivered",
+      "criticality": "critique",
+      "notes": "Section dense. Chaque écran CRUD, chaque paramètre algo (co2, taux recyclage, tarifs, auto-accept), chaque dashboard bloc = livrables distincts."
+    },
+    {
+      "id": "facturation",
+      "verify_mode": "per_finding",
+      "title": "Génération et édition facture (Admin) (numérotation gapless, avoirs, gating SIRET)",
+      "canonical_files": [
+        "06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/api/v1/admin/factures/",
+        "packages/plateforme/src/app/(admin)/admin/factures/",
+        "packages/plateforme/src/lib/"
+      ],
+      "test_roots": [
+        "supabase/tests/m1_7_facturation.test.sql",
+        "supabase/tests/lot_b_packs_facturation.test.sql",
+        "packages/plateforme/tests/"
+      ],
+      "delivered_modules": ["M1.7"],
+      "delivery_status": "delivered",
+      "criticality": "critique",
+      "notes": "Numérotation séquentielle gapless (sequences_facturation), numéro conservé après échec 4xx, avoir sur facture payee, gating siret_verification. Pattern latent M3.5: v_factures_client + policy."
+    },
+    {
+      "id": "algo-attribution-ag",
+      "title": "Flux algo attribution AG (Admin) (top 3 asso/transporteurs, validation, auto-accept)",
+      "canonical_files": [
+        "06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/api/v1/admin/attributions-ag/",
+        "packages/plateforme/src/app/(admin)/admin/attributions-ag/",
+        "packages/plateforme/src/app/api/v1/cron/process-attributions-ag/",
+        "packages/plateforme/src/lib/"
+      ],
+      "test_roots": [
+        "supabase/tests/m2_3_algo_attribution_ag.test.sql",
+        "packages/plateforme/tests/"
+      ],
+      "delivered_modules": ["M2.3"],
+      "delivery_status": "delivered",
+      "criticality": "eleve"
+    },
+    {
+      "id": "dashboards",
+      "title": "Dashboards par rôle (§11 — blocs 1-8 par onglet ZD/AG, benchmark, histogrammes, donut)",
+      "canonical_files": ["11 - Dashboards.md"],
+      "code_roots": [
+        "packages/plateforme/src/components/dashboards/",
+        "packages/plateforme/src/app/api/v1/dashboards/",
+        "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx",
+        "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx",
+        "packages/plateforme/src/app/(agence)/agence/page.tsx",
+        "packages/plateforme/src/app/(admin)/admin/dashboard/",
+        "packages/plateforme/src/app/(client-organisateur)/organisateur/page.tsx"
+      ],
+      "test_roots": [
+        "supabase/tests/m3_5_kpi_views_rls.test.sql",
+        "packages/plateforme/tests/"
+      ],
+      "delivered_modules": ["M3.1", "M3.2", "M3.3", "M3.4", "M3.5", "M3.6"],
+      "delivery_status": "delivered",
+      "criticality": "eleve",
+      "notes": "Section où le gap initial a été trouvé. Auditer CHAQUE bloc de CHAQUE dashboard de rôle. Un composant défini mais non monté (RevenusHistogramme) = partial."
+    },
+    {
+      "id": "reporting-exports",
+      "title": "Reporting et exports (CSV, synthèses PDF)",
+      "canonical_files": ["12 - Reporting et exports.md"],
+      "code_roots": [
+        "packages/plateforme/src/app/api/",
+        "packages/plateforme/src/lib/"
+      ],
+      "test_roots": ["packages/plateforme/tests/"],
+      "delivered_modules": ["M4.1", "M4.2"],
+      "delivery_status": "partial",
+      "criticality": "moyen",
+      "notes": "V4 partiellement livré. Export synthèse PDF marqué V4 dans le code (bouton désactivé). Distinguer gap vs sous-lot V4 restant."
+    },
+    {
+      "id": "architecture-adapters-outbox",
+      "title": "Architecture technique : adapters logistiques, outbox lease/claim, interface provider",
+      "canonical_files": [
+        "07 - Architecture technique.md",
+        "Interface logistique_provider V1.md",
+        "Adapter MTS-1 (MyTroopers) — relevé as-built Bubble.md"
+      ],
+      "code_roots": [
+        "packages/adapters/src/",
+        "packages/plateforme/src/app/api/v1/cron/outbox-worker/",
+        "packages/plateforme/src/app/api/v1/cron/polling-mts1/",
+        "supabase/migrations/"
+      ],
+      "test_roots": [
+        "supabase/tests/outbox_par_mutation.test.sql",
+        "supabase/tests/outbox_reconciliation_sticky_txid.test.sql",
+        "packages/adapters/",
+        "packages/plateforme/tests/"
+      ],
+      "delivered_modules": ["M1.4", "M1.5", "M2.5"],
+      "delivery_status": "delivered",
+      "criticality": "critique",
+      "notes": "Garde-fous TMS-Ready 3/4/5. Outbox émise par mutation E1/E2/E3/E5. Pattern lease/claim (pas d'advisory lock pendant HTTP). Idempotence multi-camions. Interface logistique_provider (méthodes, erreurs typées)."
+    },
+    {
+      "id": "apis-integrations",
+      "title": "APIs & intégrations (Pennylane v2 polling, INSEE/VIES, Resend, R2, MTS-1, Everest)",
+      "canonical_files": ["08 - APIs et intégrations.md"],
+      "code_roots": [
+        "packages/plateforme/src/app/api/v1/cron/polling-pennylane/",
+        "packages/plateforme/src/app/api/v1/cron/pennylane-retry/",
+        "packages/adapters/src/",
+        "packages/plateforme/src/lib/",
+        "packages/plateforme/src/app/api/v1/auth/signup/"
+      ],
+      "test_roots": [
+        "packages/plateforme/tests/",
+        "supabase/tests/m2_5_everest_missions_rls.test.sql"
+      ],
+      "delivered_modules": ["M1.4", "M1.7", "M2.5"],
+      "delivery_status": "delivered",
+      "criticality": "eleve",
+      "notes": "Pennylane = polling J+1 (webhook = V1.1, PENDING attendu). INSEE gating facturation, VIES non bloquant. Vérifier dégradation gracieuse si API tierce down."
+    },
+    {
+      "id": "onboarding-cgu",
+      "title": "Onboarding self-service & CGU (SIRET INSEE, TVA VIES, rattachement domaine email, denylist, acceptation CGV)",
+      "canonical_files": [
+        "CGU Savr V1 - Draft.md",
+        "09 - Authentification et permissions.md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/api/v1/auth/signup/",
+        "packages/plateforme/src/app/api/v1/auth/verify-email/",
+        "packages/plateforme/src/lib/"
+      ],
+      "test_roots": [
+        "packages/plateforme/tests/",
+        "supabase/tests/signup_organisations_colonnes_guard.test.sql"
+      ],
+      "delivered_modules": ["M1.1"],
+      "delivery_status": "delivered",
+      "criticality": "eleve",
+      "notes": "1 user = 1 organisation. client_organisateur jamais self-service. Denylist jetables (disposable-email-domains vendorisé). Acceptation CGV obligatoire."
+    },
+    {
+      "id": "securite-conformite",
+      "title": "Sécurité & conformité RGPD (PII logs, rate-limit, search_path, base légale géoloc)",
+      "canonical_files": ["15 - Sécurité et conformité.md"],
+      "code_roots": [
+        "packages/plateforme/src/lib/",
+        "packages/plateforme/src/middleware.ts",
+        "supabase/migrations/"
+      ],
+      "test_roots": ["packages/plateforme/tests/", "supabase/tests/"],
+      "delivered_modules": ["M0", "transverse"],
+      "delivery_status": "partial",
+      "criticality": "critique",
+      "notes": "Durcissement M0 récent (#87): PII logs, rate-limit signup, search_path. Vérifier ce qui est codé vs ce qui reste. Certains items (AIPD, notice juridique) = action Val hors code."
+    },
+    {
+      "id": "observabilite",
+      "title": "Observabilité (logs business/techniques, alertes Slack 3 canaux, health checks, audit trail)",
+      "canonical_files": [
+        "07 - Observabilité/00 - Stack retenue.md",
+        "07 - Observabilité/01 - Logs business.md",
+        "07 - Observabilité/02 - Logs techniques.md",
+        "07 - Observabilité/03 - Alertes.md",
+        "07 - Observabilité/04 - Dashboards business.md",
+        "07 - Observabilité/05 - Health checks.md",
+        "07 - Observabilité/06 - Audit trail.md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/api/health/",
+        "packages/plateforme/src/lib/",
+        "supabase/migrations/"
+      ],
+      "test_roots": [
+        "supabase/tests/audit_trail.m0-10.test.sql",
+        "supabase/tests/health_ops_views.m0-9.test.sql",
+        "packages/plateforme/tests/"
+      ],
+      "delivered_modules": ["M0.9", "M0.10", "transverse"],
+      "delivery_status": "partial",
+      "criticality": "moyen",
+      "notes": "Health /full = DB + Auth seul (OBS-3). Audit trail = écritures sensibles. Alertes Slack par sévérité. Vérifier chaque alerte spécifiée est bien émise."
+    },
+    {
+      "id": "design-system",
+      "title": "Design System (tokens, composants UI, responsive PWA)",
+      "canonical_files": ["10 - Design System.md"],
+      "code_roots": [
+        "packages/plateforme/src/components/ui/",
+        "packages/plateforme/tailwind.config.ts",
+        "packages/plateforme/src/app/globals.css"
+      ],
+      "test_roots": ["packages/plateforme/tests/"],
+      "delivered_modules": ["transverse"],
+      "delivery_status": "delivered",
+      "criticality": "faible",
+      "notes": "Priorité faible mais spec'é. Vérifier tokens couleurs (savr-*), composants de base, responsive."
+    },
+    {
+      "id": "co2-ademe",
+      "title": "CO2 ADEME (ZD induit/évité/net, AG 2,5 kgCO2e/repas, snapshot figé)",
+      "canonical_files": ["05 - Règles métier.md", "11 - Dashboards.md"],
+      "code_roots": [
+        "packages/plateforme/src/app/api/v1/admin/parametres/facteurs-co2/",
+        "packages/plateforme/src/app/api/v1/admin/parametres/facteurs-co2-ag/",
+        "packages/plateforme/src/lib/",
+        "supabase/migrations/"
+      ],
+      "test_roots": [
+        "supabase/tests/m4_3_co2_zd.test.sql",
+        "supabase/tests/trg_co2_ag_cloture_m2_4.test.sql"
+      ],
+      "delivered_modules": ["M2.4", "M4.3"],
+      "delivery_status": "delivered",
+      "criticality": "moyen",
+      "notes": "Snapshot figé au moment de la clôture. Vérifier les formules ADEME et le figement."
+    },
+    {
+      "id": "migration-bubble",
+      "title": "Migration depuis Bubble (~1500 AG + ~175 ZD + lieux + orgas + users)",
+      "canonical_files": ["13 - Migration depuis Bubble.md"],
+      "code_roots": ["scripts/", "packages/shared/src/"],
+      "test_roots": [],
+      "delivered_modules": ["V5"],
+      "delivery_status": "pending",
+      "criticality": "eleve",
+      "notes": "V5 NON LIVRÉ. Tout livrable absent ici = PENDING attendu, PAS un gap. L'audit le note comme baseline pour le module V5 à venir."
+    }
+  ]
+}

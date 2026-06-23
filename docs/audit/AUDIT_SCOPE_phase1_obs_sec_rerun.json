@@ -1,0 +1,78 @@
+{
+  "$comment": "Re-run ciblé RÉSIDUEL Phase 1 — re-tranchage 'missing vs deferred-V1.1 vs cross-cutting' sur les 2 SEULES sections observabilite + securite-conformite. Recommandé par le critic du run Phase 1 (registre gap-register-phase1-2026-06-23.md §8) : observabilité 69% non-confirmé (deferred V1.1 non distingué d'absent réel) + sécurité 57% non-implémenté sur source mince dont les obligations RGPD/sécu sont CROSS-CUTTING (implémentées ailleurs : auth, RLS, migrations, CI, Vault). Objectif INVERSE du run arch strict : ici le risque dominant est le FAUX POSITIF (missing gonflé), pas le faux négatif. Le levier = evidence_rule durci ANTI-FAUX-POSITIF (tracer le cross-cutting dans TOUT le repo + honorer les marqueurs descope V1.1) TOUT EN gardant la leçon logger (primitive livrée mais jamais câblée = partial, pas implemented). Passé tel quel en args au workflow .claude/workflows/cdc-conformity-audit.mjs. Détection seule, ne corrige aucun code.",
+  "options": {
+    "repo_root": "/Users/valentinleblan/Code/savr-platform",
+    "cdc_root": "specs/cdc/01 - Cahier des charges App",
+    "divergences_dir": "/Users/valentinleblan/Desktop/Obsidian Savr/_Divergences",
+    "divergences_note": "Avant de confirmer un écart, l'agent Verify DOIT vérifier (1) les marqueurs de descope INLINE dans le CDC (DESCOPÉ, V1.1, V2, 'hors scope V1', 'reporté', 'différé'), (2) CLAUDE.md §13 (Observabilité) + §3 (hors-scope V1) + §7 (actions Val juridiques), (3) les fichiers de _Divergences (traités + ouverts). Un livrable absent mais documenté comme descope assumé = verdict 'intentional_descope', PAS un gap.",
+    "delivery_status_legend": {
+      "delivered": "module livré et mergé -> un livrable manquant = GAP actionnable",
+      "partial": "module partiellement livré -> distinguer gap réel vs sous-lot restant vs deferred V1.1 vs cross-cutting implémenté ailleurs",
+      "pending": "module non encore construit (V4/V5) -> un livrable manquant = PENDING attendu, pas un gap"
+    },
+    "high_value_latent_patterns": [
+      "CLASSE PRINCIPALE DE CE RUN (anti-faux-positif) — Obligation CROSS-CUTTING déclarée dans cette section mince mais PHYSIQUEMENT implémentée AILLEURS (auth routes, RLS policies dans supabase/migrations, CI .github/workflows/quality.yml gitleaks/pgTAP/secret-scan, config.toml, Vault Vercel/Supabase, middleware, data model) -> chercher dans TOUT le repo avant de conclure 'missing'. Si trouvé câblé -> false_positive + found_at.",
+      "2e CLASSE DE CE RUN — Event/alerte/dashboard/audit explicitement DEFERRED V1.1 ou V2 (CLAUDE.md §13 : notifs in-app/SMS V1.1, dashboards v_ops_* couche ops, alertes fonctionnelles in-app vs Slack technique ; §3 hors-scope) compté à tort comme 'missing' au 1er run -> intentional_descope + descope_ref, PAS un gap.",
+      "3e CLASSE — Obligation NON-CODE = action Val (AIPD, notice juridique RGPD, validation juriste base légale géoloc — CLAUDE.md §7) -> intentional_descope (ce n'est pas un livrable de code), JAMAIS confirmed_gap.",
+      "LEÇON LOGGER (à NE PAS relâcher) — Primitive livrée et testée (logger shared packages/shared/src/logger, sendAlert, audit_log) mais JAMAIS importée/appelée au call-site énuméré (grep import = 0 en prod) -> 'partial', PAS 'implemented' et PAS 'missing'. Distinguer rigoureusement 'primitive livrée' de 'primitive câblée aux N call-sites'.",
+      "Vue v_ops_* / health check / audit_log déclaré mais policy/écriture jamais câblée au vrai chemin -> partial.",
+      "Alerte Slack par canal (#savr-alerts-critique/-eleve/-info) spécifiée mais sa SOURCE (l'event qui la déclenche) jamais émise -> l'alerte n'a pas de source = partial sur la chaîne, à tracer jusqu'au call-site.",
+      "Branche d'une obligation RGPD énumérée (consentement / minimisation / rétention / droit à l'oubli / portabilité) partiellement couverte (le SI codé, le SINON ou la purge programmée oubliée)."
+    ],
+    "evidence_rule": "DURCI ANTI-FAUX-POSITIF POUR CE RUN. Avant de conclure 'missing' sur une obligation de CETTE section (sécurité/RGPD/observabilité = transverses par nature), l'agent DOIT tracer où l'obligation VIVRAIT réellement et chercher dans TOUT le repo (pas seulement les code_roots étroits de la section) : RLS policies + tests pgTAP (supabase/migrations + supabase/tests), durcissement M0 #87 (PII logs, rate-limit signup, search_path), CI (.github/workflows/quality.yml : gitleaks, secret-scan, pgtap-rls-outbox, anti-coupling, dry-run migration anti-destructif), config.toml (politique MDP / auth), secrets Vault (jamais dans le repo), middleware, audit_log, sendAlert, logger shared, crons /api/cron/*. (1) Si l'obligation est câblée ailleurs -> false_positive + found_at [file:line]. (2) Si elle est explicitement V1.1/V2/deferred (CLAUDE.md §13/§3/§7 ou marqueur CDC inline) -> intentional_descope + descope_ref. (3) Si c'est une action Val hors-code (juridique) -> intentional_descope. (4) Une primitive existante mais NON câblée à son call-site énuméré = 'partial' (leçon logger), jamais 'implemented'. (5) Seulement si NI trouvée ailleurs, NI descopée, NI action-Val, ET dans le périmètre code V1 -> 'missing'/'confirmed_gap'. Ne JAMAIS conclure 'missing' sur la seule absence dans le fichier étroit de la section. Citer file:line systématiquement.",
+    "verify_mode": "chunked",
+    "verify_batch_size": 8,
+    "verify_mode_note": "Re-tranchage = reclassification per-item (missing -> descope/false_positive/partial/gap). securite-conformite en per_finding (critique, ~30-40 suspects, 1 sceptique adverse par item, recherche cross-cutting profonde). observabilite en chunked batch 8 (moyen, ~70-80 suspects, volume) — bumpable en per_finding si Val veut la rigueur maximale. Le verifyPrompt du workflow est déjà biaisé anti-faux-positif ('méfie-toi du faux positif', vérifie found_at + descope), ce qui sert exactement ce re-tranchage."
+  },
+  "sections": [
+    {
+      "id": "securite-conformite",
+      "verify_mode": "per_finding",
+      "title": "Sécurité & conformité RGPD (RE-TRANCHAGE missing vs cross-cutting vs action-Val) — PII logs, rate-limit, search_path, politique MDP, droit à l'oubli/anonymisation, base légale géoloc",
+      "canonical_files": ["15 - Sécurité et conformité.md"],
+      "code_roots": [
+        "packages/plateforme/src/app/api/v1/auth/",
+        "packages/plateforme/src/lib/",
+        "packages/plateforme/src/middleware.ts",
+        "supabase/migrations/",
+        "supabase/config.toml",
+        ".github/workflows/quality.yml"
+      ],
+      "test_roots": ["packages/plateforme/tests/", "supabase/tests/"],
+      "delivered_modules": ["M0", "transverse"],
+      "delivery_status": "partial",
+      "criticality": "critique",
+      "notes": "RE-TRANCHAGE 'missing vs cross-cutting vs action-Val-hors-code'. Le 1er run Phase 1 a sorti 63 livrables dont 18 missing + 14 partial + 4 indeterminate = 57% non-implémenté sur une source MINCE (254 lignes) dont les obligations RGPD/sécu sont CROSS-CUTTING et physiquement implémentées AILLEURS — donc 'missing' probablement GONFLÉ. Pour CHAQUE livrable missing/indeterminate/partial : (a) tracer où l'obligation vivrait RÉELLEMENT avant de conclure absente — RLS policy (supabase/migrations + pgTAP), durcissement M0 #87 (PII logs, rate-limit signup, search_path), CI .github/workflows/quality.yml (gitleaks, secret-scan, dry-run migration anti-destructif, pgtap-rls-outbox), config.toml (politique MDP), secrets Vault (jamais dans le repo), middleware ; si trouvé câblé -> false_positive + found_at. (b) Items NON-CODE = action Val (AIPD, notice juridique RGPD, validation juriste base légale géoloc — CLAUDE.md §7 'Action Val juridique') -> intentional_descope + descope_ref. (c) Réellement absent en V1, périmètre code, non descopé -> confirmed_gap. ⚠ COHÉRENCE INTER-RUNS OBLIGATOIRE : le re-run auth-rls (gap-register-phase1-auth-rls-rerun-2026-06-23.md) a DÉJÀ confirmé comme gaps RGPD le soft-delete deleted_at + fn_anonymize_user jamais codés ; le re-run onboarding-cgu (gap-register-phase2-onboarding-cgu-rerun-2026-06-23.md) a DÉJÀ confirmé la politique MDP affaiblie (config.toml min 8 sans complexité). NE PAS contredire ces verdicts ; les re-confirmer en les SIGNALANT comme déjà comptés ailleurs (éviter le double-comptage dans le total consolidé). ⚠ SÉVÉRITÉS À ALIGNER sur l'arbitrage en cours (cf. index 00 §rappels) : mdp 1er run critique -> moyen ; anonymisation/droit à l'oubli RGPD 1er run critique -> élevé."
+    },
+    {
+      "id": "observabilite",
+      "verify_mode": "chunked",
+      "title": "Observabilité (RE-TRANCHAGE missing vs deferred-V1.1 vs primitive-non-câblée) — logs business/techniques, alertes Slack 3 canaux, health checks, audit trail",
+      "canonical_files": [
+        "07 - Observabilité/00 - Stack retenue.md",
+        "07 - Observabilité/01 - Logs business.md",
+        "07 - Observabilité/02 - Logs techniques.md",
+        "07 - Observabilité/03 - Alertes.md",
+        "07 - Observabilité/04 - Dashboards business.md",
+        "07 - Observabilité/05 - Health checks.md",
+        "07 - Observabilité/06 - Audit trail.md"
+      ],
+      "code_roots": [
+        "packages/plateforme/src/app/api/",
+        "packages/plateforme/src/lib/",
+        "packages/shared/src/logger/",
+        "packages/adapters/src/",
+        "supabase/migrations/"
+      ],
+      "test_roots": [
+        "supabase/tests/audit_trail.m0-10.test.sql",
+        "supabase/tests/health_ops_views.m0-9.test.sql",
+        "packages/plateforme/tests/"
+      ],
+      "delivered_modules": ["M0.9", "M0.10", "transverse"],
+      "delivery_status": "partial",
+      "criticality": "moyen",
+      "notes": "RE-TRANCHAGE 'missing vs deferred-V1.1 vs primitive-livrée-non-câblée'. Le 1er run Phase 1 a sorti ~115 livrables dont 69 missing + 10 indeterminate = 69% non-confirmé = vérification SUPERFICIELLE (deferred V1.1 non distingué d'absent réel). Source de vérité descope = CLAUDE.md §13 (Observabilité : Supabase Logs + Sentry + Better Uptime + Slack 3 canaux ; OBS-2 audit trail = écritures sensibles SEULEMENT ; OBS-3 /health/full = DB + Auth seul ; alertes fonctionnelles restent IN-APP, seules les alertes techniques vont sur Slack ; dashboards métier = 11-Dashboards, 07/04 n'ajoute que la couche ops v_ops_*) + §3 (hors-scope V1 : notifs in-app/SMS = V1.1). Pour CHAQUE livrable : (a) si l'event/alerte/dashboard est explicitement V1.1/V2/deferred ou hors-périmètre Slack (alerte fonctionnelle in-app) -> intentional_descope + descope_ref ; (b) si la PRIMITIVE existe (logger shared packages/shared/src/logger, sendAlert, audit_log, Better Uptime) mais N'EST PAS câblée au call-site énuméré (grep import/appel = 0 en prod) -> partial (PAS implemented, PAS missing) — C'EST LE PATTERN CENTRAL du 1er run : le logger est livré et testé mais importé NULLE PART en prod -> ~57 events business/techniques jamais émis (outbox.*, facture.emise, auth.login_failed, rls.policy.deny, api.external.failed) et les alertes Slack qui en dépendent sans source ; (c) réellement absent en V1 et non descopé -> confirmed_gap ; (d) implémenté ailleurs (cross-cutting) -> false_positive + found_at. Chercher les call-sites dans TOUT le repo (routes API /api/*, RPC SQL supabase/migrations, workers packages/adapters, crons /api/cron/*), pas seulement packages/plateforme/src/lib/. OBJECTIF : produire un chiffre FIABLE distinguant le vrai gap V1 (la primitive orpheline = partial à câbler) du bruit deferred/cross-cutting que le 1er run a compté en missing."
+    }
+  ]
+}

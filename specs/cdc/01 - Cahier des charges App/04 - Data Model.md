@@ -1,5 +1,7 @@
 # 04 - Data Model
 
+**Statut** : Validé — mise à jour architecturale 2026-04-23 (atelier tech avec frère)
+**Dernière mise à jour** : 2026-06-15 — **M2.1 alignement DB→CDC (divergence M2.1_20260615)** : migration `20260615200000_plateforme_m2_1_packs_schema_align.sql` a aligné la DB sur le CDC — le CDC avait déjà les bons noms (`credits_initiaux`/`credits_consommes`/`credits_restants` sur `packs_antgaspi`, `credits`/`prix_unitaire_ht`/`valide_jusqu_au` sur `tarifs_packs_ag`) ; c'est la migration M0.3 qui avait créé de vieux noms (`nb_collectes`/`nb_utilisees`/`nb_annulees`). Colonnes additionnelles (`prix_unitaire_ht`, `idempotency_key`, `cree_par_user_id` sur `packs_antgaspi`) : décision Val pending (M2.1b). / Antérieure 2026-06-07 — **Session test-scenarios lot ⑦ (§06.08 Facturation, arbitrages Val)** : F3 `factures_collectes` étendue lignes de facture (`collecte_id` nullable + CHECK, `designation`/`quantite`/`taux_tva`) ; F4 nouvelle table `sequences_facturation` (gapless, verrou ligne) ; F5 colonne fantôme `factures.marge_logistique` résolue (ajoutée + vue whitelist `v_factures_client`, masquage clients) ; Reco B trigger `trg_fc_collecte_non_facturee` (anti-double-facturation + prédicat « non facturée »). / Antérieure 2026-06-04 — **Propagation suppression saisie plaque terrain (TMS, arbitrage Val)** : côté Plateforme, aucune colonne supprimée — `tournees.plaque_immatriculation` + `plaque_saisie_at` (plaque manager via S7) **inchangées**. Suppression côté TMS de `tms.tournees.plaque_saisie_terrain` (saisie chauffeur M05 E3) : descriptions `plaque_immatriculation` + règle webhook S7 mises à jour pour acter qu'il n'existe plus qu'une seule plaque (manager). La vue `v_courses_logistiques` n'exposait pas `plaque_saisie_terrain` — non impactée. / 2026-05-25 — **Audit de sobriété §04 (skill `cdc-review-sobriete`)** : A1 Module 19 non créé V1 (6 tables + 3 champs anticipés retirés du schéma, spec conservée V2) ; A2 `exports_registre.fichier_url` retiré ; A3 `packs_antgaspi.prix_unitaire_reference_ht` retiré ; A4 `collecte_partages` reporté V1.1 (RLS collectes simplifiée) ; B1 `lieux_modifications_en_attente` supprimée → override `collectes.lieu_overrides` + signalement Admin léger ; B3 `packs_antgaspi.credits_restants` → GENERATED ; **C1 4 colonnes fantômes résolues** (`collectes.pack_antgaspi_id` + `collectes.lieu_overrides` ajoutées, `collectes.date_debut`→`date_collecte`, `collectes.fin_at`→nouvelle `collectes.realisee_at` pour l'embargo) ; C2 `organisations.pennylane_customer_id` supprimé (déplacé sur `entites_facturation`) + `organisations.siret` requalifié shadow-only ; C3 vues `v_stocks_rolls` + `v_courses_logistiques` nettoyées (plus de sémantique table physique) ; D1 enum `collectes.statut` 11→9 (`manquee`+`en_reexamen` retirés) ; D2 `evenements.statut` supprimé (l'événement n'a pas de cycle de vie propre). D3 (`type_prestation=mixte`) + D4 (`mode_integration=manuel`, `tournees.statut.confirmee_prestataire`) déférés à la revue §04 TMS (enums sur `shared.prestataires` / risque cascade). Mise à jour antérieure 2026-05-06 (introduction Taux de recyclage avec captation par filière — table `parametres_taux_recyclage` 4 lignes seed + audit `parametres_taux_recyclage_history` + colonnes `collectes.taux_recyclage` + `collectes.caps_appliques jsonb` snapshot. Indicateur unique ZD-only, suppression notion "Taux de valorisation" du modèle.)
 
 ---
 
@@ -82,6 +84,7 @@ M01 seconde salve ajoute 2 colonnes sur `tms.collectes_tms` pour matérialiser l
 
 ## ⚠ Addendum 2026-04-24 (propagation M03 TMS) — Plaque requise par traiteur — **RESTAURÉ 2026-05-01 — RENOMMÉ + ÉTENDU 2026-05-03**
 
+> **NOTE 2026-05-03 (refonte formulaire §06.01)** : addendum **renommé** `plaque_requise` → `controle_acces_requis` (flag unique couvrant plaque ET nom chauffeur). La sémantique est étendue : si `controle_acces_requis=true`, le manager prestataire doit pré-saisir **plaque + nom chauffeur** en M03 E4 (blocage validation tournée si l'un manque). Voir [[#⚠ Addendum 2026-05-03 (refonte formulaire §06.01) — Renommage controle_acces + cascade lieu + table lieux_modifications_en_attente + type_evenement_libre]] pour les détails complets. Le contenu ci-dessous est conservé pour traçabilité historique mais doit être lu en remplaçant `plaque_requise` par `controle_acces_requis` partout.
 
 > **NOTE 2026-05-01** : addendum **restauré V1** suite à l'audit cohérence inter-CDC pré-handoff (annulation revue sobriété M05 2026-04-29 + Bloc C C3). La chaîne complète `plaque_requise` est réactivée cross-CDC : `lieux.plaque_requise_default` + `collectes.plaque_requise` (Plateforme) + `tms.collectes_tms.plaque_requise` + `tms.tournees.plaque_preassignee_manager` + trigger DB `validate_tournee_plaque_requise` (R_M04.PLAQUE) + R_M03.4 (§05 TMS) + workflow M03 E4 + payload E1 enrichi + webhook S7 `plaque-saisie` (Option B Val : émis à la saisie manager M03 E4 uniquement, plaque chauffeur terrain M05 reste TMS-only). **Exception A Toutes! vélo cargo** : trigger TMS autorise validation tournée même si `plaque_requise=true` (pas de plaque attribuable), message UX inline formulaire programmation Plateforme alerte le traiteur ("Vélo cargo — pas de plaque possible"). Note 2026-04-29 antérieure (suppression V1) annulée.
 
@@ -1963,6 +1966,8 @@ Documents statiques Savr accessibles depuis l'espace client (méthodologie, CGV,
 
 **Usage** : 1 seul document par `type` actif à la fois (contrainte métier). Méthodologie V2 dynamique (Module 19) viendra compléter sans remplacer.
 
+> ⚠ **Divergence V1 assumée (colonne `statut`)** *(cluster C, décision Val 2026-06-22)* : la table V1 live porte une colonne `statut` (enum `document_general_statut` : `en_attente`/`genere`/`erreur`/`expire`) qui **n'existe pas dans le DDL cible V2**. Elle n'est **pas morte** — elle porte le cycle de vie du document généré et est lue par l'index `idx_docs_generaux_statut`, la RLS `dg_read` (`USING (statut = 'genere' OR f_is_staff())`) et `shared.f_fichier_visible` (gating visibilité PDF). Conservée en **V1-only assumé** (cf. liste fermée Frontière TMS-Ready garde-fou 1). Le type a été renommé `document_statut_enum → document_general_statut` (convergence de nommage, **valeurs inchangées, aucune donnée altérée**). En V2 la visibilité sera dérivée autrement. Cf. `_Divergences/CLUSTER-C_20260622.md`.
+
 **RLS (audit RLS V1 2026-06-05)** : documents statiques publics — lecture **tous authentifiés** sur `actif = true`, écriture `admin_savr`. Cf. [[09 - Authentification et permissions#A10 — `exports_registre` + `documents_generaux_savr`]].
 
 ---
@@ -2242,6 +2247,8 @@ Tables techniques support des intégrations externes (TMS Savr, Pennylane, Resen
 
 Journal de toutes les requêtes HTTP entrantes et sortantes avec les systèmes externes. Rétention 2 ans (alignement audit RGPD).
 
+> ⚠ **V1 diverge structurellement du DDL cible (Bloc 7, divergence assumée — A6, 2026-06-24)** : la migration V1 live (`20260611171641_plateforme_bloc7_integrations.sql`) s'écarte de cette spec/cible — `integration` (text) au lieu de `event_id` (uuid), `system` text au lieu d'enum, renames (`statut_http`→`response_status`, `duree_ms`→`latence_ms`), colonnes absentes (`tentative_numero`, `erreur_code`), ad-hoc en trop (`methode`, `payload_in/out`, `correlation_id`), **PK partitionnée `(id, created_at)` vs PK cible `(id)`**. Convergence reportée **V2** (2-step + suppression de partition). Cf. `_Divergences/BLOC7_20260624.md`.
+
 | Colonne | Type | Contraintes | Notes |
 |---------|------|-------------|-------|
 | `id` | uuid | PK | |
@@ -2264,6 +2271,8 @@ Journal de toutes les requêtes HTTP entrantes et sortantes avec les systèmes e
 ### Table : `integrations_inbox`
 
 Dédup des events reçus côté Plateforme pour garantir l'idempotence. Fenêtre courte (**7 jours**) suffisante pour couvrir les **3 retries** *(simplifié revue sobriété §08 Bloc B 2026-05-01 B1 — ex-5 retries)*. Aligné avec `tms.integrations_inbox` côté TMS (Bloc B B5).
+
+> ⚠ **V1 diverge structurellement du DDL cible (Bloc 7, divergence assumée — A6, 2026-06-24)** : la migration V1 live porte **PK `id` (uuid)** au lieu de `event_id`, `event_type` au lieu de `type`, `source` text au lieu d'enum, colonnes absentes (`occurred_at`, `recu_le`), `traite`(bool)+`traite_at` au lieu de `statut`(enum)+`traite_le`, en trop (`event_id_externe`, `payload`, `erreur`). ⚠ Conséquence fonctionnelle : sans `occurred_at`, le rejet **out-of-order** entrant est impossible en V1. Convergence reportée **V2** (changement de PK = backfill `event_id`). Cf. `_Divergences/BLOC7_20260624.md`.
 
 | Colonne | Type | Contraintes | Notes |
 |---------|------|-------------|-------|
@@ -2290,6 +2299,8 @@ Dédup des events reçus côté Plateforme pour garantir l'idempotence. Fenêtre
 ### Table : `outbox_events` *(nouvelle V1 — garde-fou 4 TMS-Ready, ajout 2026-06-05)*
 
 Pattern **transactional outbox** : tous les events métier sortants que le TMS V2 consommera (Plateforme → TMS) sont persistés ici **dans la même transaction** que la mutation métier (zéro perte). En V1, l'adapter MTS-1 lit ce stream et POST vers MTS-1 V3 ; en V2, l'adapter TMS natif lira le **même** stream (swap d'adapter, garde-fou 3). Table absente de l'archive V1+V2 → **ajout neutre forward-compatible** (garde-fou 1 : omission/ajout neutre, jamais divergence).
+
+> ⚠ **V1 diverge structurellement du DDL cible (Bloc 7, divergence assumée — A6, 2026-06-24)** : la migration V1 live porte `statut` (enum, valeur `done`) au lieu de `status` (text, sans `done`), rename `processed_at`→`consumed_at`, colonnes absentes (`dead_at` — horodatage DLQ surchargé sur `processed_at` —, `next_retry_at`), en trop (`aggregate_type`). *(Les colonnes `txid`/`claimed_until`/`requires_reconciliation` sont conformes — ajoutées au DDL cible le 2026-06-11.)* Convergence reportée **V2**. Cf. `_Divergences/BLOC7_20260624.md`.
 
 | Champ | Type | Contrainte | Description |
 |-------|------|-----------|-------------|
@@ -2387,6 +2398,8 @@ Templates emails transactionnels. Définition fonctionnelle complète : [[06 - F
 ### Table : `emails_envoyes` *(intégrée §04 le 2026-06-07 — F1, table déjà spécifiée §08 §4)*
 
 Historique des envois Resend. Contient des PII (`destinataire_email`).
+
+> ⚠ **V1 diverge structurellement du DDL cible (Bloc 7, divergence assumée — A6, 2026-06-24)** : la migration V1 live applique des renames (`template_code`→`template_slug`, `sujet`→`objet`, `envoye_at`→`delivered_at`), un **split** `destinataire` (text) → `destinataire_user_id` (uuid) + `destinataire_email` (text), des colonnes absentes (`variables_jsonb`, `tentative_numero`), en trop (`entity_type`, `entity_id`, `erreur`), et `resend_id` **sans contrainte UNIQUE**. *(La divergence d'enum `email_statut` est tracée séparément.)* Convergence reportée **V2**. Cf. `_Divergences/BLOC7_20260624.md`.
 
 | Colonne | Type | Contraintes | Notes |
 |---------|------|-------------|-------|

@@ -72,8 +72,8 @@
       "bytes": 3410
     },
     "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": {
-      "sha256": "1927d604cdf28b9514aa7612ddfada6dbb51ea0a58e0ffefbf96adf47e7f6f82",
-      "bytes": 279219
+      "sha256": "c30b3c2d1df25e6477210569b63de9a92f808fd01c0ae8f7601901d7bf26e413",
+      "bytes": 286678
     },
     "specs/cdc/01 - Cahier des charges App/04 - Espace client traiteur.md": {
       "sha256": "05bb568a11fd0baac5b10c4a8a84281f1d953857fd92efba513a8e925616737c",
@@ -324,8 +324,8 @@
       "bytes": 28866
     },
     "specs/cdc/01 - Cahier des charges App/Frontière TMS-Ready V1.md": {
-      "sha256": "cce31130555f8576da37337ae69d572c38c01628bc4c0cfbd1d5c78b1e598edc",
-      "bytes": 10570
+      "sha256": "e7d894a3fe70026c333a74fa2e4d049c356ae78ec9208b1123c19edd95067ceb",
+      "bytes": 11972
     },
     "specs/cdc/01 - Cahier des charges App/Interface logistique_provider V1.md": {
       "sha256": "4be718d5d7e2ba42d7522bddbad8add381ceaa636527565f1fd521bd98fc155d",
@@ -336,8 +336,8 @@
       "bytes": 5111
     },
     "specs/cdc/01 - Cahier des charges App/_RAPPORT-EXPORT.md": {
-      "sha256": "a30cad1cc3a2a07d9ffa3c7c8afc5de29269e17d01e58d8ed10b7797b3926b7c",
-      "bytes": 804
+      "sha256": "f3230079c31038abc2a708df4677f539fa2ec3a2f7d6b1e4b710c6a23662eff3",
+      "bytes": 2162
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.01-formulaire-programmation-scenarios.md": {
       "sha256": "eeef70254cf5cc4e306ee40ab56be7c41e102aa19b5a6fd8459b75c0a5a1db29",

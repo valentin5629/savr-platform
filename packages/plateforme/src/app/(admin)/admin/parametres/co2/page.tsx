@@ -9,19 +9,24 @@ import { Skeleton } from '@/components/ui/skeleton';
 interface FacteurCo2 {
   id: string;
   code_flux: string;
-  facteur_co2_kg_par_kg: number;
+  fe_induit_kg_t: number;
+  fe_evite_kg_t: number;
+  energie_primaire_evitee_kwh_t: number;
 }
 
 interface MixEmballage {
   id: string;
-  materiau: string;
+  code_materiau: string;
+  nom_materiau?: string;
   part_pct: number;
 }
 
 interface FacteurAg {
   id: string;
-  facteur_co2_kg_par_repas: number;
+  facteur_co2_evite_par_repas_kg: number;
 }
+
+const MIN_COMMENT = 5;
 
 export default function ParametresCo2Page() {
   const [facteurAg, setFacteurAg] = useState<FacteurAg | null>(null);
@@ -30,7 +35,14 @@ export default function ParametresCo2Page() {
   const [mixError, setMixError] = useState<string | null>(null);
   const [savingMix, setSavingMix] = useState(false);
   const [savingFacteurs, setSavingFacteurs] = useState(false);
+  const [savingAg, setSavingAg] = useState(false);
   const [facteursDraft, setFacteursDraft] = useState<FacteurCo2[]>([]);
+  const [agDraft, setAgDraft] = useState<number>(0);
+
+  // Commentaire obligatoire par section (CDC §R_co2_snapshot_fige : commentaire obligatoire).
+  const [commentFacteurs, setCommentFacteurs] = useState('');
+  const [commentMix, setCommentMix] = useState('');
+  const [commentAg, setCommentAg] = useState('');
 
   useEffect(() => {
     Promise.all([
@@ -47,16 +59,17 @@ export default function ParametresCo2Page() {
           setFacteursDraft(fc.data.map((f) => ({ ...f })));
           setMixDraft(mx.data.map((m) => ({ ...m })));
           setFacteurAg(ag.data);
+          setAgDraft(ag.data?.facteur_co2_evite_par_repas_kg ?? 0);
         },
       )
       .finally(() => setLoading(false));
   }, []);
 
   const mixTotal = mixDraft.reduce((acc, m) => acc + Number(m.part_pct), 0);
-  const mixValid = Math.abs(mixTotal - 100) < 0.01;
+  const mixValid = Math.abs(mixTotal - 100) < 0.05;
 
   const handleSaveMix = async () => {
-    if (!mixValid) return;
+    if (!mixValid || commentMix.trim().length < MIN_COMMENT) return;
     setSavingMix(true);
     setMixError(null);
     const res = await fetch('/api/v1/admin/parametres/mix-emballages', {
@@ -64,11 +77,13 @@ export default function ParametresCo2Page() {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         mix: mixDraft.map((m) => ({ id: m.id, part_pct: Number(m.part_pct) })),
+        commentaire_modif: commentMix.trim(),
       }),
     });
     if (res.ok) {
       const updated = (await res.json()) as { data: MixEmballage[] };
       setMixDraft(updated.data.map((m) => ({ ...m })));
+      setCommentMix('');
     } else {
       const body = (await res.json()) as { error: string };
       setMixError(body.error);
@@ -77,22 +92,53 @@ export default function ParametresCo2Page() {
   };
 
   const handleSaveFacteurs = async () => {
+    if (commentFacteurs.trim().length < MIN_COMMENT) return;
     setSavingFacteurs(true);
     const res = await fetch('/api/v1/admin/parametres/facteurs-co2', {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        facteurs: facteursDraft.map((f) => ({
-          id: f.id,
-          facteur_co2_kg_par_kg: Number(f.facteur_co2_kg_par_kg),
-        })),
+        // La ligne « emballage » est dérivée du mix → non envoyée.
+        facteurs: facteursDraft
+          .filter((f) => f.code_flux !== 'emballage')
+          .map((f) => ({
+            id: f.id,
+            fe_induit_kg_t: Number(f.fe_induit_kg_t),
+            fe_evite_kg_t: Number(f.fe_evite_kg_t),
+            energie_primaire_evitee_kwh_t: Number(
+              f.energie_primaire_evitee_kwh_t,
+            ),
+          })),
+        commentaire_modif: commentFacteurs.trim(),
       }),
     });
     if (res.ok) {
       const updated = (await res.json()) as { data: FacteurCo2[] };
       setFacteursDraft(updated.data.map((f) => ({ ...f })));
+      setCommentFacteurs('');
     }
     setSavingFacteurs(false);
+  };
+
+  const handleSaveAg = async () => {
+    if (!facteurAg || commentAg.trim().length < MIN_COMMENT) return;
+    setSavingAg(true);
+    const res = await fetch('/api/v1/admin/parametres/facteurs-co2-ag', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        id: facteurAg.id,
+        facteur_co2_evite_par_repas_kg: Number(agDraft),
+        commentaire_modif: commentAg.trim(),
+      }),
+    });
+    if (res.ok) {
+      const updated = (await res.json()) as { data: FacteurAg };
+      setFacteurAg(updated.data);
+      setAgDraft(updated.data.facteur_co2_evite_par_repas_kg);
+      setCommentAg('');
+    }
+    setSavingAg(false);
   };
 
   if (loading) {
@@ -118,12 +164,14 @@ export default function ParametresCo2Page() {
       <Card className="p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-savr-neutral-800">
-            Facteurs CO₂ par flux (kg CO₂ / kg déchet)
+            Facteurs CO₂ par flux (kg CO₂e / tonne)
           </h2>
           <Button
             size="sm"
             onClick={() => void handleSaveFacteurs()}
-            disabled={savingFacteurs}
+            disabled={
+              savingFacteurs || commentFacteurs.trim().length < MIN_COMMENT
+            }
           >
             <Save className="h-4 w-4 mr-2" />
             {savingFacteurs ? 'Enregistrement…' : 'Enregistrer'}
@@ -133,37 +181,93 @@ export default function ParametresCo2Page() {
           La ligne &ldquo;emballage&rdquo; est dérivée automatiquement du mix
           emballages ci-dessous.
         </p>
-        <div className="space-y-2">
-          {facteursDraft.map((f, i) => (
-            <div key={f.id} className="flex items-center gap-4">
-              <span className="w-40 text-sm font-medium text-savr-neutral-700">
-                {f.code_flux}
-              </span>
-              {f.code_flux === 'emballage' ? (
-                <span className="text-sm text-savr-neutral-400 italic">
-                  {f.facteur_co2_kg_par_kg} (calculé)
-                </span>
-              ) : (
-                <input
-                  type="number"
-                  step="0.001"
-                  min="0"
-                  className="w-32 border border-savr-neutral-200 rounded px-2 py-1 text-sm"
-                  value={f.facteur_co2_kg_par_kg}
-                  onChange={(e) => {
-                    const next = [...facteursDraft];
-                    next[i] = {
-                      ...f,
-                      facteur_co2_kg_par_kg: parseFloat(e.target.value) || 0,
-                    };
-                    setFacteursDraft(next);
-                  }}
-                />
-              )}
-              <span className="text-xs text-savr-neutral-400">kg CO₂ / kg</span>
-            </div>
-          ))}
+        <div className="grid grid-cols-[10rem_repeat(3,8rem)] items-center gap-2 text-xs font-medium text-savr-neutral-400">
+          <span>Flux</span>
+          <span>FE induit</span>
+          <span>FE évité</span>
+          <span>Énergie évitée</span>
         </div>
+        <div className="space-y-2">
+          {facteursDraft.map((f, i) => {
+            const derive = f.code_flux === 'emballage';
+            return (
+              <div
+                key={f.id}
+                className="grid grid-cols-[10rem_repeat(3,8rem)] items-center gap-2"
+              >
+                <span className="text-sm font-medium text-savr-neutral-700">
+                  {f.code_flux}
+                </span>
+                {derive ? (
+                  <>
+                    <span className="text-sm text-savr-neutral-400 italic">
+                      {f.fe_induit_kg_t} (calculé)
+                    </span>
+                    <span className="text-sm text-savr-neutral-400 italic">
+                      {f.fe_evite_kg_t} (calculé)
+                    </span>
+                    <span className="text-sm text-savr-neutral-400 italic">
+                      {f.energie_primaire_evitee_kwh_t}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      className="w-28 border border-savr-neutral-200 rounded px-2 py-1 text-sm"
+                      value={f.fe_induit_kg_t}
+                      onChange={(e) => {
+                        const next = [...facteursDraft];
+                        next[i] = {
+                          ...f,
+                          fe_induit_kg_t: parseFloat(e.target.value) || 0,
+                        };
+                        setFacteursDraft(next);
+                      }}
+                    />
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      className="w-28 border border-savr-neutral-200 rounded px-2 py-1 text-sm"
+                      value={f.fe_evite_kg_t}
+                      onChange={(e) => {
+                        const next = [...facteursDraft];
+                        next[i] = {
+                          ...f,
+                          fe_evite_kg_t: parseFloat(e.target.value) || 0,
+                        };
+                        setFacteursDraft(next);
+                      }}
+                    />
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      className="w-28 border border-savr-neutral-200 rounded px-2 py-1 text-sm"
+                      value={f.energie_primaire_evitee_kwh_t}
+                      onChange={(e) => {
+                        const next = [...facteursDraft];
+                        next[i] = {
+                          ...f,
+                          energie_primaire_evitee_kwh_t:
+                            parseFloat(e.target.value) || 0,
+                        };
+                        setFacteursDraft(next);
+                      }}
+                    />
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <CommentaireInput
+          value={commentFacteurs}
+          onChange={setCommentFacteurs}
+        />
       </Card>
 
       {/* Mix emballages */}
@@ -175,7 +279,9 @@ export default function ParametresCo2Page() {
           <Button
             size="sm"
             onClick={() => void handleSaveMix()}
-            disabled={savingMix || !mixValid}
+            disabled={
+              savingMix || !mixValid || commentMix.trim().length < MIN_COMMENT
+            }
           >
             <Save className="h-4 w-4 mr-2" />
             {savingMix ? 'Enregistrement…' : 'Enregistrer'}
@@ -197,7 +303,7 @@ export default function ParametresCo2Page() {
           {mixDraft.map((m, i) => (
             <div key={m.id} className="flex items-center gap-4">
               <span className="w-40 text-sm font-medium text-savr-neutral-700">
-                {m.materiau}
+                {m.nom_materiau ?? m.code_materiau}
               </span>
               <input
                 type="number"
@@ -216,44 +322,67 @@ export default function ParametresCo2Page() {
             </div>
           ))}
         </div>
+        <CommentaireInput value={commentMix} onChange={setCommentMix} />
       </Card>
 
       {/* Facteur AG */}
       {facteurAg && (
         <Card className="p-6 space-y-4">
-          <h2 className="font-semibold text-savr-neutral-800">
-            Facteur CO₂ évité AG (kg CO₂ / repas)
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-savr-neutral-800">
+              Facteur CO₂ évité AG (kg CO₂ / repas)
+            </h2>
+            <Button
+              size="sm"
+              onClick={() => void handleSaveAg()}
+              disabled={savingAg || commentAg.trim().length < MIN_COMMENT}
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {savingAg ? 'Enregistrement…' : 'Enregistrer'}
+            </Button>
+          </div>
           <div className="flex items-center gap-4">
             <input
               type="number"
               step="0.01"
               min="0"
               className="w-32 border border-savr-neutral-200 rounded px-2 py-1 text-sm"
-              defaultValue={facteurAg.facteur_co2_kg_par_repas}
-              onBlur={async (e) => {
-                const val = parseFloat(e.target.value);
-                if (!isNaN(val)) {
-                  await fetch('/api/v1/admin/parametres/facteurs-co2-ag', {
-                    method: 'PUT',
-                    headers: { 'content-type': 'application/json' },
-                    body: JSON.stringify({
-                      id: facteurAg.id,
-                      facteur_co2_kg_par_repas: val,
-                    }),
-                  });
-                }
-              }}
+              value={agDraft}
+              onChange={(e) => setAgDraft(parseFloat(e.target.value) || 0)}
             />
             <span className="text-sm text-savr-neutral-500">
               kg CO₂ / repas
             </span>
-            <span className="text-xs text-savr-neutral-400">
-              (source ADEME)
-            </span>
+            <span className="text-xs text-savr-neutral-400">(source FAO)</span>
           </div>
+          <CommentaireInput value={commentAg} onChange={setCommentAg} />
         </Card>
       )}
+    </div>
+  );
+}
+
+// Champ commentaire de modification — obligatoire (≥ 5 caractères) avant tout
+// enregistrement de paramètre CO₂ (CDC §R_co2_snapshot_fige).
+function CommentaireInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="space-y-1">
+      <label className="text-xs font-medium text-savr-neutral-600">
+        Commentaire de modification (obligatoire)
+      </label>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Motif / source de la mise à jour"
+        className="w-full border border-savr-neutral-200 rounded px-2 py-1 text-sm"
+      />
     </div>
   );
 }

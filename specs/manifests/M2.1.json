@@ -54,5 +54,55 @@
     "Attestation don (M2.4)",
     "Everest adapter (M2.5 — NON-GO cohérence §08, session cdc-app-savr requise)",
     "Algo attribution AG top-3 (M2.2)"
+  ],
+  "deliverables": [
+    {
+      "id": "M2.1-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md",
+      "artefact": "supabase/migrations/20260615200000_plateforme_m2_1_packs_schema_align.sql",
+      "test": "collecte AG passe à realisee → credits_consommes+1, pack_antgaspi_id rattaché",
+      "statut": "implemented",
+      "libelle": "collecte AG passe à realisee → credits_consommes+1, pack_antgaspi_id rattaché"
+    },
+    {
+      "id": "M2.1-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md",
+      "artefact": "supabase/migrations/20260615200000_plateforme_m2_1_packs_schema_align.sql",
+      "test": "dernier crédit consommé → pack bascule epuise + alerte Admin",
+      "statut": "implemented",
+      "libelle": "dernier crédit consommé → pack bascule epuise + alerte Admin"
+    },
+    {
+      "id": "M2.1-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md",
+      "artefact": "supabase/migrations/20260615200000_plateforme_m2_1_packs_schema_align.sql",
+      "test": "collecte annulee depuis realisee → recrédit GREATEST(0, consommes-1), pack réactivé si était epuise",
+      "statut": "implemented",
+      "libelle": "collecte annulee depuis realisee → recrédit GREATEST(0, consommes-1), pack réactivé si était epuise"
+    },
+    {
+      "id": "M2.1-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md",
+      "artefact": "supabase/migrations/20260615200000_plateforme_m2_1_packs_schema_align.sql",
+      "test": "annulation < 12h ou prestataire mandaté → débit tardif pack",
+      "statut": "implemented",
+      "libelle": "annulation < 12h ou prestataire mandaté → débit tardif pack"
+    },
+    {
+      "id": "M2.1-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md",
+      "artefact": "supabase/migrations/20260615200000_plateforme_m2_1_packs_schema_align.sql",
+      "test": "RPC annuler-credit : collecte reste realisee, pack décrémenté, audit_log",
+      "statut": "implemented",
+      "libelle": "RPC annuler-credit : collecte reste realisee, pack décrémenté, audit_log"
+    },
+    {
+      "id": "M2.1-06",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md",
+      "artefact": "supabase/migrations/20260615200000_plateforme_m2_1_packs_schema_align.sql",
+      "test": "tarif versioning : POST ferme ligne active, ouvre nouvelle ligne",
+      "statut": "implemented",
+      "libelle": "tarif versioning : POST ferme ligne active, ouvre nouvelle ligne"
+    }
   ]
 }

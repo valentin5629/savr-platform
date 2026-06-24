@@ -1,4 +1,16 @@
 {
   "module": "M0.0",
-  "scenarios": ["SMOKE-1 — scripts/sync-specs.sh est exécutable"]
+  "scenarios": [
+    "SMOKE-1 — scripts/sync-specs.sh est exécutable"
+  ],
+  "deliverables": [
+    {
+      "id": "M0.0-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Architecture technique.md",
+      "artefact": null,
+      "test": "SMOKE-1 — scripts/sync-specs.sh est exécutable",
+      "statut": "implemented",
+      "libelle": "SMOKE-1 — scripts/sync-specs.sh est exécutable"
+    }
+  ]
 }

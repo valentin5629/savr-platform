@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "savr/specs/manifests/_schema.json",
+  "title": "Manifeste de couverture par module — grain LIVRABLE (G2)",
+  "description": "Schéma des manifestes specs/manifests/M*.json. Lot 0 / R0b ferme la cause racine de l'audit (gates code-vs-manifeste au grain SCÉNARIO → livrable CDC non transcrit invisible) en exigeant un tableau deliverables[] au grain LIVRABLE à côté de scenarios[] (conservé pour check-coverage). check-manifest-grain.ts valide chaque manifeste contre ce schéma et REJETTE le grain scénario-seul (manifeste sans deliverables[]).",
+  "type": "object",
+  "required": ["module", "deliverables"],
+  "additionalProperties": true,
+  "properties": {
+    "module": {
+      "type": "string",
+      "description": "Identifiant module (ex. M1.5a, M3.5).",
+      "pattern": "^M[0-9]+(\\.[0-9]+[a-z]?)?$"
+    },
+    "titre": { "type": "string" },
+    "description": { "type": "string" },
+    "scenarios": {
+      "type": "array",
+      "description": "Scénarios Gherkin → tests. CONSERVÉ : check-coverage.ts continue de l'utiliser. G1/G2 AJOUTENT deliverables[] à côté, ne le remplacent pas. Deux conventions historiques tolérées : chaîne (titre exact) OU objet { id, title/description, … }.",
+      "items": { "type": ["string", "object"] }
+    },
+    "deliverables": {
+      "type": "array",
+      "description": "Livrables ATOMIQUES du CDC couverts par ce module, au grain livrable (1 entrée = 1 policy / colonne / event / bloc UI / action audit / endpoint / règle). Un manifeste SANS deliverables[] = grain scénario-seul = REJETÉ par check-manifest-grain.",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/deliverable" }
+    }
+  },
+  "definitions": {
+    "deliverable": {
+      "type": "object",
+      "required": ["id", "ref_cdc", "artefact", "test", "statut", "libelle"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Clé stable. = id du ticket backlog (BL-P0-01…) quand le livrable en a un (traçabilité audit↔manifeste↔index G1) ; sinon <module>-<slug-kebab>.",
+          "pattern": "^(BL-P[0-3]-[A-Z0-9-]+|M[0-9]+(\\.[0-9]+[a-z]?)?-[a-z0-9-]+)$"
+        },
+        "ref_cdc": {
+          "type": "string",
+          "description": "Source de vérité dans le CDC, au format 'specs/cdc/<fichier>.md:<ligne>' (ligne précise attendue) OU 'specs/cdc/<fichier>.md' (grain grossier toléré au seed, à préciser par le lot de fix).",
+          "pattern": "^specs/cdc/.+\\.md(:[0-9]+(-[0-9]+)?)?$"
+        },
+        "artefact": {
+          "type": ["string", "null"],
+          "description": "Chemin du code qui réalise le livrable (route, migration, composant, fonction SQL). null = pas encore implémenté (statut partial/à-vérifier)."
+        },
+        "test": {
+          "type": ["string", "null"],
+          "description": "id ou titre EXACT du test qui prouve le livrable (réutilisable par check-coverage). null autorisé pour statut 'à-vérifier' (preuve visuelle) ou 'partial' (test à écrire par le lot de fix)."
+        },
+        "statut": {
+          "type": "string",
+          "enum": ["implemented", "partial", "descoped", "à-vérifier"],
+          "description": "implemented = livrable réalisé + testé. partial = déclaré au manifeste mais implémentation incomplète / en attente d'un lot de fix R* (ferme la cause racine : le livrable est TRANSCRIT donc visible). descoped = hors scope V1, exige ref_divergence. à-vérifier = livrable PRÉSENTATIONNEL non testable-auto (badge, timeline audit_log, tokens DS, watermark) → mappe la discipline GO-VISUAL du reviewer conformité-spec : preuve visuelle (screenshot/Loom) exigée en PR, jamais GO implicite."
+        },
+        "ref_divergence": {
+          "type": "string",
+          "description": "Requis SSI statut='descoped'. Nom du fichier _Divergences/ (ou décision Val tracée) justifiant le report V1.1/V2."
+        },
+        "libelle": {
+          "type": "string",
+          "description": "Libellé court humain du livrable.",
+          "minLength": 3
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "statut": { "const": "descoped" } } },
+          "then": { "required": ["ref_divergence"] }
+        }
+      ]
+    }
+  }
+}

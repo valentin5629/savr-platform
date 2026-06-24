@@ -22,6 +22,8 @@
     "db:types": "supabase gen types typescript --project-id $SUPABASE_PROJECT_REF --schema plateforme --schema shared --schema public > packages/shared/src/database.types.ts",
     "db:types:local": "supabase gen types typescript --local --schema plateforme --schema shared --schema public > packages/shared/src/database.types.ts",
     "check:column-db": "tsx scripts/check-column-db.ts",
+    "check:manifest-grain": "tsx scripts/check-manifest-grain.ts",
+    "check:spec-deliverables": "tsx scripts/check-spec-deliverables.ts",
     "db:smoke": "bash scripts/smoke-test-db.sh",
     "test:module": "tsx scripts/test-module.ts",
     "check:coverage": "tsx scripts/check-coverage.ts",

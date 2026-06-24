@@ -127,5 +127,199 @@
       "id": "M1.1a/tarifs/negocie-creation",
       "description": "POST /api/v1/admin/tarifs-negocie crée une remise % + audit_log"
     }
+  ],
+  "deliverables": [
+    {
+      "id": "M1.1a-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/lib/api-auth.ts",
+      "test": "M1.1a/orgas/liste",
+      "statut": "implemented",
+      "libelle": "GET /api/v1/admin/organisations retourne la liste avec colonnes (nom, type, SIREN, nb users, nb ZD 12m, nb AG 12m, actif"
+    },
+    {
+      "id": "M1.1a-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/lib/api-auth.ts",
+      "test": "M1.1a/orgas/creation",
+      "statut": "implemented",
+      "libelle": "POST /api/v1/admin/organisations crée une organisation et retourne 201"
+    },
+    {
+      "id": "M1.1a-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/lib/api-auth.ts",
+      "test": "M1.1a/orgas/fiche",
+      "statut": "implemented",
+      "libelle": "GET /api/v1/admin/organisations/:id retourne la fiche complète"
+    },
+    {
+      "id": "M1.1a-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/lib/api-auth.ts",
+      "test": "M1.1a/orgas/modification",
+      "statut": "implemented",
+      "libelle": "PATCH /api/v1/admin/organisations/:id met à jour l'organisation"
+    },
+    {
+      "id": "M1.1a-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/lib/api-auth.ts",
+      "test": "M1.1a/orgas/desactivation",
+      "statut": "implemented",
+      "libelle": "POST /api/v1/admin/organisations/:id/desactiver bascule actif=false"
+    },
+    {
+      "id": "M1.1a-06",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/lib/api-auth.ts",
+      "test": "M1.1a/orgas/tarif-refacture-admin-only",
+      "statut": "implemented",
+      "libelle": "PATCH tarif_refacture_pax_zd par ops_savr → 403"
+    },
+    {
+      "id": "M1.1a-07",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/lib/api-auth.ts",
+      "test": "M1.1a/users/liste",
+      "statut": "implemented",
+      "libelle": "GET /api/v1/admin/users retourne la liste avec rôle, statut, dernière connexion"
+    },
+    {
+      "id": "M1.1a-08",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/lib/api-auth.ts",
+      "test": "M1.1a/users/invitation",
+      "statut": "implemented",
+      "libelle": "POST /api/v1/admin/users inviter envoie email bienvenue et crée le profil"
+    },
+    {
+      "id": "M1.1a-09",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/lib/api-auth.ts",
+      "test": "M1.1a/users/changement-role",
+      "statut": "implemented",
+      "libelle": "PATCH /api/v1/admin/users/:id change le rôle, ops ne peut pas promouvoir en admin_savr"
+    },
+    {
+      "id": "M1.1a-10",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/lib/api-auth.ts",
+      "test": "M1.1a/users/promotion-admin-bloquee-ops",
+      "statut": "implemented",
+      "libelle": "PATCH rôle=admin_savr par ops_savr → 403"
+    },
+    {
+      "id": "M1.1a-11",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/lib/api-auth.ts",
+      "test": "M1.1a/users/suspension",
+      "statut": "implemented",
+      "libelle": "PATCH /api/v1/admin/users/:id suspendu=true bascule actif=false avec délai 48h"
+    },
+    {
+      "id": "M1.1a-12",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/lib/api-auth.ts",
+      "test": "M1.1a/users/impersonation-admin-only",
+      "statut": "implemented",
+      "libelle": "POST /api/v1/admin/users/:id/impersoner par ops_savr → 403"
+    },
+    {
+      "id": "M1.1a-13",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/lib/api-auth.ts",
+      "test": "M1.1a/users/impersonation-ok",
+      "statut": "implemented",
+      "libelle": "POST /api/v1/admin/users/:id/impersoner par admin_savr retourne JWT impersonation"
+    },
+    {
+      "id": "M1.1a-14",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/lib/api-auth.ts",
+      "test": "M1.1a/packs/creation-ok",
+      "statut": "implemented",
+      "libelle": "POST /api/v1/admin/packs-antgaspi crée un pack (admin + ops) retourne 201"
+    },
+    {
+      "id": "M1.1a-15",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/lib/api-auth.ts",
+      "test": "M1.1a/packs/creation-doublon-bloque",
+      "statut": "implemented",
+      "libelle": "POST pack si org a déjà un pack actif → 409"
+    },
+    {
+      "id": "M1.1a-16",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/lib/api-auth.ts",
+      "test": "M1.1a/packs/idempotency-key",
+      "statut": "implemented",
+      "libelle": "POST pack avec même Idempotency-Key → retourne le pack existant (pas de doublon)"
+    },
+    {
+      "id": "M1.1a-17",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/lib/api-auth.ts",
+      "test": "M1.1a/packs/ajustement",
+      "statut": "implemented",
+      "libelle": "PATCH /api/v1/admin/packs-antgaspi/:id action=ajuster_credits met à jour credits_initiaux + audit_log"
+    },
+    {
+      "id": "M1.1a-18",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/lib/api-auth.ts",
+      "test": "M1.1a/packs/annulation",
+      "statut": "implemented",
+      "libelle": "PATCH /api/v1/admin/packs-antgaspi/:id action=annuler bascule statut=annule + audit_log"
+    },
+    {
+      "id": "M1.1a-19",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/lib/api-auth.ts",
+      "test": "M1.1a/packs/ops-peut-creer",
+      "statut": "implemented",
+      "libelle": "ops_savr peut créer un pack (F2 confirmé Val)"
+    },
+    {
+      "id": "M1.1a-20",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/lib/api-auth.ts",
+      "test": "M1.1a/coefficients/creation-admin-only",
+      "statut": "implemented",
+      "libelle": "POST /api/v1/admin/coefficients-perte-labo par ops_savr → 403"
+    },
+    {
+      "id": "M1.1a-21",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/lib/api-auth.ts",
+      "test": "M1.1a/coefficients/creation-ok",
+      "statut": "implemented",
+      "libelle": "POST coefficient par admin_savr insère en DB + audit_log"
+    },
+    {
+      "id": "M1.1a-22",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/lib/api-auth.ts",
+      "test": "M1.1a/tarifs/grilles-zd-lecture",
+      "statut": "implemented",
+      "libelle": "GET /api/v1/admin/grilles-tarifaires-zd retourne la liste"
+    },
+    {
+      "id": "M1.1a-23",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/lib/api-auth.ts",
+      "test": "M1.1a/tarifs/tarifs-packs-ag-lecture",
+      "statut": "implemented",
+      "libelle": "GET /api/v1/admin/tarifs-packs-ag retourne les tarifs actifs par type"
+    },
+    {
+      "id": "M1.1a-24",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/lib/api-auth.ts",
+      "test": "M1.1a/tarifs/negocie-creation",
+      "statut": "implemented",
+      "libelle": "POST /api/v1/admin/tarifs-negocie crée une remise % + audit_log"
+    }
   ]
 }

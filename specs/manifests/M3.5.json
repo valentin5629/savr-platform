@@ -1,0 +1,57 @@
+{
+  "module": "M3.5",
+  "titre": "Dashboard Admin (KPI Bloc 1 + blocs §11 + parité) — souche (manifeste manquant, livrables P0)",
+  "description": "Souche créée en R0b : le dashboard Admin (cartes KPI, blocs graphiques §11, parité 3 rôles) n'avait pas de manifeste alors qu'il porte un P0 (BL-P0-05 KPI à 0 sur enum). deliverables[] transcrit les livrables CDC ; scenarios[]/tests câblés par les lots R4/R20.",
+  "_souche": true,
+  "scenarios": [],
+  "deliverables": [
+    {
+      "id": "BL-P0-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "cartes KPI Bloc 1 sur enum réel (zero_dechet/anti_gaspi, pas 'zd'/'ag')"
+    },
+    {
+      "id": "BL-P1-PARITE-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md",
+      "artefact": null,
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Blocs §11 manquants — cluster parité 3 rôles"
+    },
+    {
+      "id": "BL-P1-PARITE-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md",
+      "artefact": null,
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Export PDF synthèse (stub « V4 » non descopé)"
+    },
+    {
+      "id": "BL-P2-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md",
+      "artefact": null,
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Dashboard Admin Bloc 2 Revenus"
+    },
+    {
+      "id": "BL-P2-11",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md",
+      "artefact": null,
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Dashboards : filtres globaux + cartes cliquables (3 rôles)"
+    },
+    {
+      "id": "BL-P2-43",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Pré-cochage type collecte depuis dashboard"
+    }
+  ]
+}

@@ -99,5 +99,231 @@
     "Auto-accept déclenchement automatique au cron (UI de configuration seule livrable M2.3)",
     "Reporting attributions / KPIs (M3.x)",
     "Webhook attribution vers traiteur (V1.1)"
+  ],
+  "deliverables": [
+    {
+      "id": "M2.3-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "artefact": "supabase/migrations/20260615240000_plateforme_m2_3_algo_attribution_ag.sql",
+      "test": "heure nuit (22:00) → branche ag_marathon_nuit",
+      "statut": "implemented",
+      "libelle": "heure nuit (22:00) → branche ag_marathon_nuit"
+    },
+    {
+      "id": "M2.3-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "artefact": "supabase/migrations/20260615240000_plateforme_m2_3_algo_attribution_ag.sql",
+      "test": "600 pax exactement (seuil) → branche ag_marathon_volume",
+      "statut": "implemented",
+      "libelle": "600 pax exactement (seuil) → branche ag_marathon_volume"
+    },
+    {
+      "id": "M2.3-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "artefact": "supabase/migrations/20260615240000_plateforme_m2_3_algo_attribution_ag.sql",
+      "test": "599 pax + A Toutes! dispo → branche vélo (programme ou express selon délai)",
+      "statut": "implemented",
+      "libelle": "599 pax + A Toutes! dispo → branche vélo (programme ou express selon délai)"
+    },
+    {
+      "id": "M2.3-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "artefact": "supabase/migrations/20260615240000_plateforme_m2_3_algo_attribution_ag.sql",
+      "test": "a_toutes_indisponible=true → branche ag_velo_fallback_marathon",
+      "statut": "implemented",
+      "libelle": "a_toutes_indisponible=true → branche ag_velo_fallback_marathon"
+    },
+    {
+      "id": "M2.3-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "artefact": "supabase/migrations/20260615240000_plateforme_m2_3_algo_attribution_ag.sql",
+      "test": "heure 07:00 exactement = début plage = JOUR (pas nuit)",
+      "statut": "implemented",
+      "libelle": "heure 07:00 exactement = début plage = JOUR (pas nuit)"
+    },
+    {
+      "id": "M2.3-06",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "artefact": "supabase/migrations/20260615240000_plateforme_m2_3_algo_attribution_ag.sql",
+      "test": "heure 20:00 exactement = fin plage = NUIT",
+      "statut": "implemented",
+      "libelle": "heure 20:00 exactement = fin plage = NUIT"
+    },
+    {
+      "id": "M2.3-07",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "artefact": "supabase/migrations/20260615240000_plateforme_m2_3_algo_attribution_ag.sql",
+      "test": "capacite×2 = volume → association exclue (filtre strict >)",
+      "statut": "implemented",
+      "libelle": "capacite×2 = volume → association exclue (filtre strict >)"
+    },
+    {
+      "id": "M2.3-08",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "artefact": "supabase/migrations/20260615240000_plateforme_m2_3_algo_attribution_ag.sql",
+      "test": "capacite×2 > volume → association incluse",
+      "statut": "implemented",
+      "libelle": "capacite×2 > volume → association incluse"
+    },
+    {
+      "id": "M2.3-09",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "artefact": "supabase/migrations/20260615240000_plateforme_m2_3_algo_attribution_ag.sql",
+      "test": "volume énorme → no_asso=true",
+      "statut": "implemented",
+      "libelle": "volume énorme → no_asso=true"
+    },
+    {
+      "id": "M2.3-10",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "artefact": "supabase/migrations/20260615240000_plateforme_m2_3_algo_attribution_ag.sql",
+      "test": "province → branche ag_province_proximite",
+      "statut": "implemented",
+      "libelle": "province → branche ag_province_proximite"
+    },
+    {
+      "id": "M2.3-11",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "artefact": "supabase/migrations/20260615240000_plateforme_m2_3_algo_attribution_ag.sql",
+      "test": "poids 135 kg → volume ceil(135/0.45)=300",
+      "statut": "implemented",
+      "libelle": "poids 135 kg → volume ceil(135/0.45)=300"
+    },
+    {
+      "id": "M2.3-12",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "artefact": "supabase/migrations/20260615240000_plateforme_m2_3_algo_attribution_ag.sql",
+      "test": "UPDATE mode_validation post-INSERT → exception P0021",
+      "statut": "implemented",
+      "libelle": "UPDATE mode_validation post-INSERT → exception P0021"
+    },
+    {
+      "id": "M2.3-13",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "artefact": "supabase/migrations/20260615240000_plateforme_m2_3_algo_attribution_ag.sql",
+      "test": "rpc_valider_attribution_ag : OK + outbox emis (G4)",
+      "statut": "implemented",
+      "libelle": "rpc_valider_attribution_ag : OK + outbox emis (G4)"
+    },
+    {
+      "id": "M2.3-14",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "artefact": "supabase/migrations/20260615240000_plateforme_m2_3_algo_attribution_ag.sql",
+      "test": "doublon → P0044",
+      "statut": "implemented",
+      "libelle": "doublon → P0044"
+    },
+    {
+      "id": "M2.3-15",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "artefact": "supabase/migrations/20260615240000_plateforme_m2_3_algo_attribution_ag.sql",
+      "test": "RLS : admin INSERT OK, traiteur_manager INSERT deny",
+      "statut": "implemented",
+      "libelle": "RLS : admin INSERT OK, traiteur_manager INSERT deny"
+    },
+    {
+      "id": "M2.3-16",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "artefact": "supabase/migrations/20260615240000_plateforme_m2_3_algo_attribution_ag.sql",
+      "test": "RLS : manager voit sa propre attribution, deny cross-org",
+      "statut": "implemented",
+      "libelle": "RLS : manager voit sa propre attribution, deny cross-org"
+    },
+    {
+      "id": "M2.3-17",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "artefact": "supabase/migrations/20260615240000_plateforme_m2_3_algo_attribution_ag.sql",
+      "test": "RLS : ops_savr lit parametres_algo, ne peut pas UPDATE",
+      "statut": "implemented",
+      "libelle": "RLS : ops_savr lit parametres_algo, ne peut pas UPDATE"
+    },
+    {
+      "id": "BL-P0-08",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "dispatch AG post-attribution + statut_tms='a_attribuer' + routage par type_tms"
+    },
+    {
+      "id": "BL-P1-ALGO-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Top 3 transporteurs province"
+    },
+    {
+      "id": "BL-P1-ALGO-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "artefact": null,
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Criticité <48h / badge URGENT / pré-tri"
+    },
+    {
+      "id": "BL-P1-ALGO-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Recherche libre asso + audit aucune-reco"
+    },
+    {
+      "id": "BL-P1-ALGO-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Recherche libre transporteur (impasse)"
+    },
+    {
+      "id": "BL-P1-ALGO-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Cron `attribution.validee` + 3 actions async"
+    },
+    {
+      "id": "BL-P1-ALGO-06",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Auto-accept déclenchement/non-déclenchement"
+    },
+    {
+      "id": "BL-P1-ALGO-07",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "statut_tms AG (attente/acceptee/rejet)"
+    },
+    {
+      "id": "BL-P2-29",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Alerte perte habilitation association"
+    },
+    {
+      "id": "BL-P2-40",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Vue AG attente attribution (intégration)"
+    },
+    {
+      "id": "BL-P2-41",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Fonction `f_volume_estime_ag` nommée"
+    }
   ]
 }

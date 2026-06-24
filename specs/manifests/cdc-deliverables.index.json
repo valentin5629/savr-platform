@@ -1,0 +1,1848 @@
+{
+  "_meta": {
+    "titre": "Index des livrables atomiques du CDC (seed G1 — check:spec-deliverables)",
+    "description": "Énumération des livrables CDC OWED, seedée depuis l'audit conformité CDC→code (le backlog EST le 1er diff CDC↔manifeste fait à la main). check-spec-deliverables.ts diffe cet index ↔ l'union des deliverables[] des manifestes : un id absent des manifestes (et non descopé) = livrable CDC non transcrit = SIGNALÉ. La couverture est déterminée par la PRÉSENCE dans un manifeste, pas par un statut porté ici.",
+    "provenance": "30. Review Code/Backlog final priorisé/{Backlog final priorisé - 2026-06-23.md, 00 - Backlog priorisé.md}",
+    "ref_cdc_note": "ref_cdc = fichier CDC du module (grain grossier au seed) ; la LIGNE précise est renseignée par le lot de fix quand il re-graine le manifeste du module.",
+    "module_note": "'module' = manifeste primaire pour le regroupement du rapport. La COUVERTURE G1 est calculée sur l'UNION des deliverables[] de tous les manifestes (robuste à l'affectation primaire).",
+    "scope": "Copie parfaite V1 (Val 2026-06-24) — aucun report V1.1. Descopes V2 explicites = watermark PDF + alerte/seuils pesées (marqués descoped).",
+    "total": 147,
+    "descoped": 3
+  },
+  "deliverables": [
+    {
+      "id": "BL-P0-01",
+      "severite": "P0",
+      "lot": "R1",
+      "module": "M1.8",
+      "modules": [
+        "M1.5",
+        "M1.8"
+      ],
+      "libelle": "dérivation collecte_flux (recalcul UPSERT depuis pesees_tournees) + saisie manuelle Admin pesées ZD",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P0-02",
+      "severite": "P0",
+      "lot": "R2",
+      "module": "M1.5",
+      "modules": [
+        "M1.5"
+      ],
+      "libelle": "upload photo MTS-1 → R2 + lien shared.fichiers (échec INSERT si upload KO)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P0-03",
+      "severite": "P0",
+      "lot": "R2",
+      "module": "M2.4",
+      "modules": [
+        "M1.6",
+        "M2.4"
+      ],
+      "libelle": "template attestation 2041-GE + branche renderer (union des types enqueués)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P0-04",
+      "severite": "P0",
+      "lot": "R6",
+      "module": "M1.1a",
+      "modules": [
+        "M1.1"
+      ],
+      "libelle": "persistance acceptation CGU (horodatage cgu_accepte_le + cgu_version)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/CGU Savr V1 - Draft.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P0-05",
+      "severite": "P0",
+      "lot": "R4",
+      "module": "M3.5",
+      "modules": [
+        "M3.5"
+      ],
+      "libelle": "cartes KPI Bloc 1 sur enum réel (zero_dechet/anti_gaspi, pas 'zd'/'ag')",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P0-06",
+      "severite": "P0",
+      "lot": "R3",
+      "module": "M2.4",
+      "modules": [
+        "M0.6",
+        "M2.4"
+      ],
+      "libelle": "4 écrans CO2 alignés sur colonnes réelles (fe_induit_kg_t, fe_evite_kg_t, …) + history + audit",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P0-07",
+      "severite": "P0",
+      "lot": "R5",
+      "module": "M2.5",
+      "modules": [
+        "M2.5"
+      ],
+      "libelle": "re-fetch Everest sur signal webhook (cost/preuve écrits depuis l'API, pas le payload)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P0-08",
+      "severite": "P0",
+      "lot": "R5",
+      "module": "M2.3",
+      "modules": [
+        "M2.3",
+        "M2.5"
+      ],
+      "libelle": "dispatch AG post-attribution + statut_tms='a_attribuer' + routage par type_tms",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P0-09",
+      "severite": "P0",
+      "lot": "R7",
+      "module": "M0.4",
+      "modules": [
+        "M0.4",
+        "M1.1"
+      ],
+      "libelle": "effacement RGPD : fn_anonymize_user + soft-delete deleted_at + workflow suppression 48h",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-FACT-01",
+      "severite": "P1",
+      "lot": "R8",
+      "module": "M1.7",
+      "modules": [
+        "M1.7",
+        "M2.1"
+      ],
+      "libelle": "Écran édition facture Bloc 1-6 jamais construit",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-FACT-02",
+      "severite": "P1",
+      "lot": "R8",
+      "module": "M1.7",
+      "modules": [
+        "M1.7",
+        "M2.1"
+      ],
+      "libelle": "Surfacturation AG pack",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-FACT-03",
+      "severite": "P1",
+      "lot": "R8",
+      "module": "M1.7",
+      "modules": [
+        "M1.7",
+        "M2.1"
+      ],
+      "libelle": "Surfacturation AG hors pack",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-FACT-04",
+      "severite": "P1",
+      "lot": "R8",
+      "module": "M1.7",
+      "modules": [
+        "M1.7",
+        "M2.1"
+      ],
+      "libelle": "Seed `tarifs_packs_ag` faux",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-FACT-05",
+      "severite": "P1",
+      "lot": "R8",
+      "module": "M1.7",
+      "modules": [
+        "M1.7",
+        "M2.1"
+      ],
+      "libelle": "Override manuel PU + audit",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-FACT-06",
+      "severite": "P1",
+      "lot": "R8",
+      "module": "M1.7",
+      "modules": [
+        "M1.7",
+        "M2.1"
+      ],
+      "libelle": "Factur-X Pennylane incomplet",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-FACT-07",
+      "severite": "P1",
+      "lot": "R8",
+      "module": "M1.7",
+      "modules": [
+        "M1.7",
+        "M2.1"
+      ],
+      "libelle": "Alerte Slack échec Pennylane absente",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-FACT-08",
+      "severite": "P1",
+      "lot": "R8",
+      "module": "M1.7",
+      "modules": [
+        "M1.7",
+        "M2.1"
+      ],
+      "libelle": "Avoir Pennylane payload + bouton",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-RM-01",
+      "severite": "P1",
+      "lot": "R16",
+      "module": "M1.5",
+      "modules": [
+        "M1.5"
+      ],
+      "libelle": "Transition `realisee→cloturee` jamais écrite",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-RM-02",
+      "severite": "P1",
+      "lot": "R16",
+      "module": "M1.5",
+      "modules": [
+        "M1.5"
+      ],
+      "libelle": "Gate statut sur modif `nb_camions_demande`",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-RM-03",
+      "severite": "P1",
+      "lot": "R16",
+      "module": "M1.5",
+      "modules": [
+        "M1.5"
+      ],
+      "libelle": "Multi-camions augmentation N",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-RM-04",
+      "severite": "P1",
+      "lot": "R16",
+      "module": "M1.5",
+      "modules": [
+        "M1.5"
+      ],
+      "libelle": "Multi-camions réduction N",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-RM-05",
+      "severite": "P1",
+      "lot": "R16",
+      "module": "M1.5",
+      "modules": [
+        "M1.5"
+      ],
+      "libelle": "Réduction N bloquée <1h",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-RM-06",
+      "severite": "P1",
+      "lot": "R1",
+      "module": "M1.8",
+      "modules": [
+        "M1.5",
+        "M1.8"
+      ],
+      "libelle": "≥1 tour OK → realisee sur pesées dispo",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-RM-07",
+      "severite": "P1",
+      "lot": "R16",
+      "module": "M1.5",
+      "modules": [
+        "M1.5"
+      ],
+      "libelle": "Rejet total transporteur silencieux",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-RM-08",
+      "severite": "P1",
+      "lot": "R16",
+      "module": "M1.5",
+      "modules": [
+        "M1.5"
+      ],
+      "libelle": "Forcer statut sans motif",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-RM-09",
+      "severite": "P1",
+      "lot": "R16",
+      "module": "M1.5",
+      "modules": [
+        "M1.5"
+      ],
+      "libelle": "Flux incident prestataire",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-RM-10",
+      "severite": "P1",
+      "lot": "R16",
+      "module": "M1.5",
+      "modules": [
+        "M1.5"
+      ],
+      "libelle": "Correction volume aberrant AG",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-OUTBOX-01",
+      "severite": "P1",
+      "lot": "R9",
+      "module": "M1.4",
+      "modules": [
+        "M1.4",
+        "M1.5"
+      ],
+      "libelle": "Procédure déblocage DLQ a/b/c absente",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-OUTBOX-02",
+      "severite": "P1",
+      "lot": "R9",
+      "module": "M1.4",
+      "modules": [
+        "M1.4",
+        "M1.5"
+      ],
+      "libelle": "Head-of-line traite `dead` comme non bloquant",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-OUTBOX-03",
+      "severite": "P1",
+      "lot": "R9",
+      "module": "M1.4",
+      "modules": [
+        "M1.4",
+        "M1.5"
+      ],
+      "libelle": "Reaper / alerte anticipée / DLQ Slack — vrai chemin non testé",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-OUTBOX-04",
+      "severite": "P1",
+      "lot": "R9",
+      "module": "M1.4",
+      "modules": [
+        "M1.4",
+        "M1.5"
+      ],
+      "libelle": "Claim entrant MTS-1 check-then-act",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-API-01",
+      "severite": "P1",
+      "lot": "R10",
+      "module": "M1.4",
+      "modules": [
+        "M1.4",
+        "M1.5",
+        "M2.5",
+        "M0.6"
+      ],
+      "libelle": "RLS ops column-level (sécu profondeur)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-API-02",
+      "severite": "P1",
+      "lot": "R10",
+      "module": "M1.4",
+      "modules": [
+        "M1.4",
+        "M1.5",
+        "M2.5",
+        "M0.6"
+      ],
+      "libelle": "MTS-1 favoriteplaces (lieu de dépôt)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-API-03",
+      "severite": "P1",
+      "lot": "R10",
+      "module": "M1.4",
+      "modules": [
+        "M1.4",
+        "M1.5",
+        "M2.5",
+        "M0.6"
+      ],
+      "libelle": "MTS-1 résolution plaque/chauffeur",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-API-04",
+      "severite": "P1",
+      "lot": "R10",
+      "module": "M1.4",
+      "modules": [
+        "M1.4",
+        "M1.5",
+        "M2.5",
+        "M0.6"
+      ],
+      "libelle": "Everest service 77 + rejet + course sans marchandise",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-API-05",
+      "severite": "P1",
+      "lot": "R10",
+      "module": "M1.4",
+      "modules": [
+        "M1.4",
+        "M1.5",
+        "M2.5",
+        "M0.6"
+      ],
+      "libelle": "Resend retry + variable manquante (règle inversée)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-API-06",
+      "severite": "P1",
+      "lot": "R10",
+      "module": "M1.4",
+      "modules": [
+        "M1.4",
+        "M1.5",
+        "M2.5",
+        "M0.6"
+      ],
+      "libelle": "Convergence schéma vs DDL cible (garde-fou 1)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-API-07",
+      "severite": "P1",
+      "lot": "R2",
+      "module": "M1.5",
+      "modules": [
+        "M1.5",
+        "M1.6",
+        "M2.4"
+      ],
+      "libelle": "PDF versioning template_version",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-API-08",
+      "severite": "P1",
+      "lot": "R10",
+      "module": "M1.4",
+      "modules": [
+        "M1.4",
+        "M1.5",
+        "M2.5",
+        "M0.6"
+      ],
+      "libelle": "Pennylane intégrations_logs jamais écrit",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-ALGO-01",
+      "severite": "P1",
+      "lot": "R11",
+      "module": "M2.3",
+      "modules": [
+        "M2.3"
+      ],
+      "libelle": "Top 3 transporteurs province",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-ALGO-02",
+      "severite": "P1",
+      "lot": "R11",
+      "module": "M2.3",
+      "modules": [
+        "M2.3"
+      ],
+      "libelle": "Criticité <48h / badge URGENT / pré-tri",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-ALGO-03",
+      "severite": "P1",
+      "lot": "R11",
+      "module": "M2.3",
+      "modules": [
+        "M2.3"
+      ],
+      "libelle": "Recherche libre asso + audit aucune-reco",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-ALGO-04",
+      "severite": "P1",
+      "lot": "R11",
+      "module": "M2.3",
+      "modules": [
+        "M2.3"
+      ],
+      "libelle": "Recherche libre transporteur (impasse)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-ALGO-05",
+      "severite": "P1",
+      "lot": "R11",
+      "module": "M2.3",
+      "modules": [
+        "M2.3"
+      ],
+      "libelle": "Cron `attribution.validee` + 3 actions async",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-ALGO-06",
+      "severite": "P1",
+      "lot": "R11",
+      "module": "M2.3",
+      "modules": [
+        "M2.3"
+      ],
+      "libelle": "Auto-accept déclenchement/non-déclenchement",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-ALGO-07",
+      "severite": "P1",
+      "lot": "R5",
+      "module": "M2.3",
+      "modules": [
+        "M2.3",
+        "M2.5"
+      ],
+      "libelle": "statut_tms AG (attente/acceptee/rejet)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-PROG-01",
+      "severite": "P1",
+      "lot": "R12",
+      "module": "M1.2",
+      "modules": [
+        "M1.2"
+      ],
+      "libelle": "Lieu existant préfill + override",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-PROG-02",
+      "severite": "P1",
+      "lot": "R12",
+      "module": "M1.2",
+      "modules": [
+        "M1.2"
+      ],
+      "libelle": "Agence : traiteur hors référentiel + shadow",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-PROG-03",
+      "severite": "P1",
+      "lot": "R12",
+      "module": "M1.2",
+      "modules": [
+        "M1.2"
+      ],
+      "libelle": "E1 payload incomplet",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-PROG-04",
+      "severite": "P1",
+      "lot": "R12",
+      "module": "M1.2",
+      "modules": [
+        "M1.2"
+      ],
+      "libelle": "Email récap programmation",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-PROG-05",
+      "severite": "P1",
+      "lot": "R12",
+      "module": "M1.2",
+      "modules": [
+        "M1.2"
+      ],
+      "libelle": "Algo AG auto-déclenché à la confirmation",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-ONB-01",
+      "severite": "P1",
+      "lot": "R13",
+      "module": "M1.1a",
+      "modules": [
+        "M1.1"
+      ],
+      "libelle": "SIRET jamais collecté au signup",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-ONB-02",
+      "severite": "P1",
+      "lot": "R13",
+      "module": "M1.1a",
+      "modules": [
+        "M1.1"
+      ],
+      "libelle": "Job async revalidation SIRET 3 paliers",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-ONB-03",
+      "severite": "P1",
+      "lot": "R13",
+      "module": "M1.1a",
+      "modules": [
+        "M1.1"
+      ],
+      "libelle": "Doublon SIRET/domaine non détecté",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-ONB-04",
+      "severite": "P1",
+      "lot": "R13",
+      "module": "M1.1a",
+      "modules": [
+        "M1.1"
+      ],
+      "libelle": "Email bienvenue/invitation cassé",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-ONB-05",
+      "severite": "P1",
+      "lot": "R13",
+      "module": "M1.1a",
+      "modules": [
+        "M1.1"
+      ],
+      "libelle": "Middlewares onboarding nommés",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-AUTH-01",
+      "severite": "P1",
+      "lot": "R14",
+      "module": "M0.4",
+      "modules": [
+        "M0.4",
+        "M0.6"
+      ],
+      "libelle": "Cluster impersonation (chaîne rompue)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-AUTH-02",
+      "severite": "P1",
+      "lot": "R14",
+      "module": "M0.4",
+      "modules": [
+        "M0.4",
+        "M0.6"
+      ],
+      "libelle": "`attestations_don` DELETE policy",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-AUTH-03",
+      "severite": "P1",
+      "lot": "R14",
+      "module": "M0.4",
+      "modules": [
+        "M0.4",
+        "M0.6"
+      ],
+      "libelle": "Gating ops `users` trop restrictif (divergence §09)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-AUTH-04",
+      "severite": "P1",
+      "lot": "R14",
+      "module": "M0.4",
+      "modules": [
+        "M0.4",
+        "M0.6"
+      ],
+      "libelle": "2 tests pgTAP nommés absents",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-OBS-01",
+      "severite": "P1",
+      "lot": "R15",
+      "module": "M0.9",
+      "modules": [
+        "M0.9"
+      ],
+      "libelle": "Logger jamais câblé en prod",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Observabilité/01 - Logs business.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-OBS-02",
+      "severite": "P1",
+      "lot": "R15",
+      "module": "M0.9",
+      "modules": [
+        "M0.9"
+      ],
+      "libelle": "Chaînes event→alerte Slack rompues",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Observabilité/01 - Logs business.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-OBS-03",
+      "severite": "P1",
+      "lot": "R15",
+      "module": "M0.9",
+      "modules": [
+        "M0.9"
+      ],
+      "libelle": "audit_log actions sensibles manquantes",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Observabilité/01 - Logs business.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-OBS-04",
+      "severite": "P1",
+      "lot": "R7",
+      "module": "M0.4",
+      "modules": [
+        "M0.4",
+        "M1.1"
+      ],
+      "libelle": "RGPD export JSON (droit d'accès)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-BOA-01",
+      "severite": "P1",
+      "lot": "R17",
+      "module": "M0.6",
+      "modules": [
+        "M0.6"
+      ],
+      "libelle": "Formulaire création/édition association",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-BOA-02",
+      "severite": "P1",
+      "lot": "R17",
+      "module": "M0.6",
+      "modules": [
+        "M0.6"
+      ],
+      "libelle": "Formulaire création/édition transporteur",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-BOA-03",
+      "severite": "P1",
+      "lot": "R17",
+      "module": "M0.6",
+      "modules": [
+        "M0.6"
+      ],
+      "libelle": "Formulaire CRUD lieu Admin + quick-add",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-BOA-04",
+      "severite": "P1",
+      "lot": "R17",
+      "module": "M0.6",
+      "modules": [
+        "M0.6"
+      ],
+      "libelle": "Badge statut 9 valeurs (crash)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-BOA-05",
+      "severite": "P1",
+      "lot": "R17",
+      "module": "M0.6",
+      "modules": [
+        "M0.6"
+      ],
+      "libelle": "Liste collectes Admin : colonnes/indicateurs/filtres",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-BOA-06",
+      "severite": "P1",
+      "lot": "R17",
+      "module": "M0.6",
+      "modules": [
+        "M0.6"
+      ],
+      "libelle": "Fiche collecte Admin : Bloc 0 dispatch",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-BOA-07",
+      "severite": "P1",
+      "lot": "R17",
+      "module": "M0.6",
+      "modules": [
+        "M0.6"
+      ],
+      "libelle": "Fiche collecte Admin : Blocs 1/3/4/5/7",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-BOA-08",
+      "severite": "P1",
+      "lot": "R17",
+      "module": "M0.6",
+      "modules": [
+        "M0.6"
+      ],
+      "libelle": "Fiche orga : onglets « À venir »",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-BOA-09",
+      "severite": "P1",
+      "lot": "R17",
+      "module": "M0.6",
+      "modules": [
+        "M0.6"
+      ],
+      "libelle": "Fiche orga : invitation + impersonation UI",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-TRAIT-01",
+      "severite": "P1",
+      "lot": "R19",
+      "module": "M3.1",
+      "modules": [
+        "M3.1"
+      ],
+      "libelle": "Mon organisation 100% read-only",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-TRAIT-02",
+      "severite": "P1",
+      "lot": "R19",
+      "module": "M3.1",
+      "modules": [
+        "M3.1"
+      ],
+      "libelle": "Mon profil = coquille",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-TRAIT-03",
+      "severite": "P1",
+      "lot": "R19",
+      "module": "M3.1",
+      "modules": [
+        "M3.1"
+      ],
+      "libelle": "Fiche collecte traiteur : édition + contrôle accès + downloads",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-TRAIT-04",
+      "severite": "P1",
+      "lot": "R19",
+      "module": "M3.1",
+      "modules": [
+        "M3.1"
+      ],
+      "libelle": "Cascade édition collecte (re-confirmation TMS)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-TRAIT-05",
+      "severite": "P1",
+      "lot": "R19",
+      "module": "M3.1",
+      "modules": [
+        "M3.1"
+      ],
+      "libelle": "Nav traiteur 5 entrées (Registre injecté)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-GEST-01",
+      "severite": "P1",
+      "lot": "R19",
+      "module": "M3.2",
+      "modules": [
+        "M3.2"
+      ],
+      "libelle": "Bouton « Programmer un événement » absent",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-GEST-02",
+      "severite": "P1",
+      "lot": "R19",
+      "module": "M3.2",
+      "modules": [
+        "M3.2"
+      ],
+      "libelle": "Formulaire programmation gestionnaire",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-GEST-03",
+      "severite": "P1",
+      "lot": "R19",
+      "module": "M3.2",
+      "modules": [
+        "M3.2"
+      ],
+      "libelle": "KPI gestionnaire jamais affichés (bug kpi/kpis)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-GEST-04",
+      "severite": "P1",
+      "lot": "R19",
+      "module": "M3.2",
+      "modules": [
+        "M3.2"
+      ],
+      "libelle": "Benchmark gestionnaire : fonction 2 params vs 7 + point rouge médiane",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-AGENCE-01",
+      "severite": "P1",
+      "lot": "R19",
+      "module": "M3.3",
+      "modules": [
+        "M3.3"
+      ],
+      "libelle": "Pack AG renouvellement (agence exclue)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-PARITE-01",
+      "severite": "P1",
+      "lot": "R20",
+      "module": "M3.5",
+      "modules": [
+        "M3.1",
+        "M3.2",
+        "M3.3",
+        "M3.5"
+      ],
+      "libelle": "Blocs §11 manquants — cluster parité 3 rôles",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-PARITE-02",
+      "severite": "P1",
+      "lot": "R20",
+      "module": "M3.5",
+      "modules": [
+        "M3.1",
+        "M3.2",
+        "M3.3",
+        "M3.5"
+      ],
+      "libelle": "Export PDF synthèse (stub « V4 » non descopé)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-RPT-01",
+      "severite": "P1",
+      "lot": "R21",
+      "module": "M4.1",
+      "modules": [
+        "M4.1",
+        "M4.2"
+      ],
+      "libelle": "Rapport recyclage : bloc benchmark jamais calculé",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-RPT-02",
+      "severite": "P1",
+      "lot": "R21",
+      "module": "M4.1",
+      "modules": [
+        "M4.1",
+        "M4.2"
+      ],
+      "libelle": "Rapport « sans excédent » jamais généré",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P1-RPT-03",
+      "severite": "P1",
+      "lot": "R21",
+      "module": "M4.1",
+      "modules": [
+        "M4.1",
+        "M4.2"
+      ],
+      "libelle": "Alerte pesées anormales = règle fausse",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "descoped": true,
+      "ref_divergence": "00 - Backlog priorisé.md (décision Val 2026-06-24)",
+      "descope_motif": "alerte pesées anormales (détection + seuils g/pax) reportée V2"
+    },
+    {
+      "id": "BL-P1-RPT-04",
+      "severite": "P1",
+      "lot": "R21",
+      "module": "M4.1",
+      "modules": [
+        "M4.1",
+        "M4.2"
+      ],
+      "libelle": "Régénération manuelle rapport/bordereau",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-01",
+      "severite": "P2",
+      "lot": "R22",
+      "module": "M1.7",
+      "modules": [
+        "M1.7"
+      ],
+      "libelle": "Facture : colonne PDF Savr + bandeau attente Pennylane + pastille >2h",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-02",
+      "severite": "P2",
+      "lot": "R22",
+      "module": "M1.7",
+      "modules": [
+        "M1.7"
+      ],
+      "libelle": "Facture : listes/filtres/colonnes/mention TVA 293B",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-03",
+      "severite": "P2",
+      "lot": "R20",
+      "module": "M3.5",
+      "modules": [
+        "M3.5"
+      ],
+      "libelle": "Dashboard Admin Bloc 2 Revenus",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-04",
+      "severite": "P2",
+      "lot": "R18",
+      "module": "M0.6",
+      "modules": [
+        "M0.6"
+      ],
+      "libelle": "Grilles tarifaires ZD : catalogue + colonne-DB + versionnement",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-05",
+      "severite": "P2",
+      "lot": "R18",
+      "module": "M0.6",
+      "modules": [
+        "M0.6"
+      ],
+      "libelle": "Remises négociées : colonne-DB + validation /100 + UI",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-06",
+      "severite": "P2",
+      "lot": "R18",
+      "module": "M0.6",
+      "modules": [
+        "M0.6"
+      ],
+      "libelle": "Taux recyclage : modale colonne-DB + audit + history",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-07",
+      "severite": "P2",
+      "lot": "R18",
+      "module": "M0.6",
+      "modules": [
+        "M0.6"
+      ],
+      "libelle": "Paramètres : référentiels / intégrations / config / templates / tarifs AG history",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-08",
+      "severite": "P2",
+      "lot": "R22",
+      "module": "M0.6",
+      "modules": [
+        "M0.6"
+      ],
+      "libelle": "RPC `count_collectes_par_org` inexistante",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-09",
+      "severite": "P2",
+      "lot": "R22",
+      "module": "M0.6",
+      "modules": [
+        "M0.6"
+      ],
+      "libelle": "Packs AG : historique / modale création / actions",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-10",
+      "severite": "P2",
+      "lot": "R22",
+      "module": "M1.4",
+      "modules": [
+        "M1.4"
+      ],
+      "libelle": "Trigger `dirty_tms` incomplet (contacts/pax)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-11",
+      "severite": "P2",
+      "lot": "R20",
+      "module": "M3.5",
+      "modules": [
+        "M3.5"
+      ],
+      "libelle": "Dashboards : filtres globaux + cartes cliquables (3 rôles)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-12",
+      "severite": "P2",
+      "lot": "R19",
+      "module": "M3.2",
+      "modules": [
+        "M3.2"
+      ],
+      "libelle": "Listes événements/collectes/lieux/traiteurs : colonnes + filtres (gestionnaire)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-13",
+      "severite": "P2",
+      "lot": "R19",
+      "module": "M3.2",
+      "modules": [
+        "M3.2"
+      ],
+      "libelle": "Nav gestionnaire 9 entrées dont Collectes interdite",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-14",
+      "severite": "P2",
+      "lot": "R19",
+      "module": "M3.1",
+      "modules": [
+        "M3.1",
+        "M3.3"
+      ],
+      "libelle": "Liste collectes traiteur/agence : colonnes + filtres + picto download",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-15",
+      "severite": "P2",
+      "lot": "R19",
+      "module": "M3.1",
+      "modules": [
+        "M3.1"
+      ],
+      "libelle": "Mon organisation traiteur : facturation (PDF/fiche/badge retard)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-16",
+      "severite": "P2",
+      "lot": "R21",
+      "module": "M4.1",
+      "modules": [
+        "M4.1",
+        "M4.2"
+      ],
+      "libelle": "Bordereau ZD : équivalent bacs/rolls non transmis",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-17",
+      "severite": "P2",
+      "lot": "R21",
+      "module": "M4.1",
+      "modules": [
+        "M4.1",
+        "M4.2"
+      ],
+      "libelle": "Attestation don : nom+adresse association (Cerfa)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-18",
+      "severite": "P2",
+      "lot": "R21",
+      "module": "M4.1",
+      "modules": [
+        "M4.1",
+        "M4.2"
+      ],
+      "libelle": "Rapport recyclage : contenu incomplet",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-19",
+      "severite": "P2",
+      "lot": "R21",
+      "module": "M3.4",
+      "modules": [
+        "M3.4"
+      ],
+      "libelle": "Logo client dans rapports (priorité)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-20",
+      "severite": "P2",
+      "lot": "R21",
+      "module": "M4.1",
+      "modules": [
+        "M4.1",
+        "M4.2"
+      ],
+      "libelle": "Régénération : picto + audit_log",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-21",
+      "severite": "P2",
+      "lot": "R21",
+      "module": "M4.1",
+      "modules": [
+        "M4.1",
+        "M4.2"
+      ],
+      "libelle": "Download rapport traiteur (canal partage V1)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-22",
+      "severite": "P2",
+      "lot": "R22",
+      "module": "M0.7",
+      "modules": [
+        "M0.7"
+      ],
+      "libelle": "Templates emails tiers / conditionnels",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-23",
+      "severite": "P2",
+      "lot": "R21",
+      "module": "M4.2",
+      "modules": [
+        "M4.2"
+      ],
+      "libelle": "Registre réglementaire : code déchet européen + exutoire",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-24",
+      "severite": "P2",
+      "lot": "R21",
+      "module": "M4.2",
+      "modules": [
+        "M4.2"
+      ],
+      "libelle": "Registre : Bloc 8 historique vide (RLS)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-25",
+      "severite": "P2",
+      "lot": "R21",
+      "module": "M4.2",
+      "modules": [
+        "M4.2"
+      ],
+      "libelle": "Seuils pesées par flux (g/pax)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "descoped": true,
+      "ref_divergence": "00 - Backlog priorisé.md (décision Val 2026-06-24)",
+      "descope_motif": "seuils pesées par flux (g/pax) reportés V2"
+    },
+    {
+      "id": "BL-P2-26",
+      "severite": "P2",
+      "lot": "R3",
+      "module": "M2.4",
+      "modules": [
+        "M2.4"
+      ],
+      "libelle": "CO2 ZD seed OMR `fe_evite=0`",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-27",
+      "severite": "P2",
+      "lot": "R7",
+      "module": "M1.1a",
+      "modules": [
+        "M1.1"
+      ],
+      "libelle": "RGPD rectification self-service profil",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-28",
+      "severite": "P2",
+      "lot": "R23",
+      "module": "M4.1",
+      "modules": [
+        "M4.1"
+      ],
+      "libelle": "PDF watermark « Document officiel Savr »",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "descoped": true,
+      "ref_divergence": "00 - Backlog priorisé.md (décision Val 2026-06-24)",
+      "descope_motif": "watermark PDF reporté V2"
+    },
+    {
+      "id": "BL-P2-29",
+      "severite": "P2",
+      "lot": "R22",
+      "module": "M2.3",
+      "modules": [
+        "M2.3"
+      ],
+      "libelle": "Alerte perte habilitation association",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-30",
+      "severite": "P2",
+      "lot": "R22",
+      "module": "M0.3",
+      "modules": [
+        "M0.3"
+      ],
+      "libelle": "Schéma seed prestataires + alertes Admin AG manquantes",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-31",
+      "severite": "P2",
+      "lot": "R22",
+      "module": "M0.6",
+      "modules": [
+        "M0.6"
+      ],
+      "libelle": "Idempotency + erreurs typées endpoints Admin",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-32",
+      "severite": "P2",
+      "lot": "R22",
+      "module": "M0.6",
+      "modules": [
+        "M0.6"
+      ],
+      "libelle": "Coef perte labo : route + validation type",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-33",
+      "severite": "P2",
+      "lot": "R22",
+      "module": "M1.4",
+      "modules": [
+        "M1.4"
+      ],
+      "libelle": "Rate-limit + logs tiers (Pennylane/Resend/MTS-1)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-34",
+      "severite": "P2",
+      "lot": "R9",
+      "module": "M1.4",
+      "modules": [
+        "M1.4",
+        "M2.5"
+      ],
+      "libelle": "no-op outbox traçabilité (`noop_no_remote`/`manual`)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-35",
+      "severite": "P2",
+      "lot": "R9",
+      "module": "M1.5",
+      "modules": [
+        "M1.5"
+      ],
+      "libelle": "`pesees_tournees` RLS `pt_admin FOR ALL`",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-36",
+      "severite": "P2",
+      "lot": "R9",
+      "module": "M1.4",
+      "modules": [
+        "M1.4"
+      ],
+      "libelle": "E3 annulation émis par trigger (pattern interdit)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-37",
+      "severite": "P2",
+      "lot": "R9",
+      "module": "M1.5",
+      "modules": [
+        "M1.5"
+      ],
+      "libelle": "Divergence pesée post-clôture : alerte Ops manquante",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-38",
+      "severite": "P2",
+      "lot": "R22",
+      "module": "M0.6",
+      "modules": [
+        "M0.6"
+      ],
+      "libelle": "Logo orga upload (R2)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-39",
+      "severite": "P2",
+      "lot": "R22",
+      "module": "M0.6",
+      "modules": [
+        "M0.6"
+      ],
+      "libelle": "Worklist lieux : action « Appliquer » + colonnes diff",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-40",
+      "severite": "P2",
+      "lot": "R22",
+      "module": "M2.3",
+      "modules": [
+        "M2.3"
+      ],
+      "libelle": "Vue AG attente attribution (intégration)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-41",
+      "severite": "P2",
+      "lot": "R22",
+      "module": "M2.3",
+      "modules": [
+        "M2.3"
+      ],
+      "libelle": "Fonction `f_volume_estime_ag` nommée",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-42",
+      "severite": "P2",
+      "lot": "R18",
+      "module": "M0.6",
+      "modules": [
+        "M0.6"
+      ],
+      "libelle": "Onglet coefficients perte labo (UI)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-43",
+      "severite": "P2",
+      "lot": "R22",
+      "module": "M3.5",
+      "modules": [
+        "M3.5"
+      ],
+      "libelle": "Pré-cochage type collecte depuis dashboard",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P2-44",
+      "severite": "P2",
+      "lot": "R22",
+      "module": "M0.9",
+      "modules": [
+        "M0.9"
+      ],
+      "libelle": "OTel léger + `trace_id` propagé",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Observabilité/01 - Logs business.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P3-01",
+      "severite": "P3",
+      "lot": "R23",
+      "module": "M0.8",
+      "modules": [
+        "M0.8"
+      ],
+      "libelle": "Design System — composants/tokens/états",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P3-02",
+      "severite": "P3",
+      "lot": "R23",
+      "module": "M0.8",
+      "modules": [
+        "M0.8"
+      ],
+      "libelle": "Dashboards : raccourcis période/reset/compteur/tooltips",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P3-03",
+      "severite": "P3",
+      "lot": "R23",
+      "module": "M0.8",
+      "modules": [
+        "M0.8"
+      ],
+      "libelle": "Fiche collecte traiteur : sous-titre id court, tooltip UE, vélo cargo",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P3-04",
+      "severite": "P3",
+      "lot": "R23",
+      "module": "M0.8",
+      "modules": [
+        "M0.8"
+      ],
+      "libelle": "Annulation traiteur : modale + mention AG crédit préservé",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P3-05",
+      "severite": "P3",
+      "lot": "R23",
+      "module": "M0.8",
+      "modules": [
+        "M0.8"
+      ],
+      "libelle": "Branding PDF agence (logo couverture)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P3-06",
+      "severite": "P3",
+      "lot": "R23",
+      "module": "M0.8",
+      "modules": [
+        "M0.8"
+      ],
+      "libelle": "ZIP groupé rapports recyclage traiteur",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P3-07",
+      "severite": "P3",
+      "lot": "R23",
+      "module": "M0.8",
+      "modules": [
+        "M0.8"
+      ],
+      "libelle": "Tri colonnes + pagination DataTable admin",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P3-08",
+      "severite": "P3",
+      "lot": "R23",
+      "module": "M0.8",
+      "modules": [
+        "M0.8"
+      ],
+      "libelle": "Préférences (langue FR)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P3-09",
+      "severite": "P3",
+      "lot": "R23",
+      "module": "M0.8",
+      "modules": [
+        "M0.8"
+      ],
+      "libelle": "Config auth params explicites",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P3-10",
+      "severite": "P3",
+      "lot": "R23",
+      "module": "M0.8",
+      "modules": [
+        "M0.8"
+      ],
+      "libelle": "Registre : preset « 30 derniers jours »",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P3-11",
+      "severite": "P3",
+      "lot": "R23",
+      "module": "M0.8",
+      "modules": [
+        "M0.8"
+      ],
+      "libelle": "Reset password slug",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P3-12",
+      "severite": "P3",
+      "lot": "R23",
+      "module": "M0.8",
+      "modules": [
+        "M0.8"
+      ],
+      "libelle": "Picto plaque TMS dashboard admin",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P3-13",
+      "severite": "P3",
+      "lot": "R23",
+      "module": "M0.8",
+      "modules": [
+        "M0.8"
+      ],
+      "libelle": "Page « Sécurité du compte » (historique accès)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "descoped": false
+    },
+    {
+      "id": "BL-P3-14",
+      "severite": "P3",
+      "lot": "R23",
+      "module": "M0.8",
+      "modules": [
+        "M0.8"
+      ],
+      "libelle": "CO2 mix : seuil 100% (tolérance)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "descoped": false
+    }
+  ]
+}

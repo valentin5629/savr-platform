@@ -33,5 +33,95 @@
   "divergences": [
     "_Divergences/M0.10_20260613.md — DIV-1 : nommage colonnes §04 vs DDL effectif (clair)",
     "_Divergences/M0.10_20260613.md — DIV-2 : contradiction rétention §15 (1 an) vs §07/06 (5 ans) (clair)"
+  ],
+  "deliverables": [
+    {
+      "id": "M0.10-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Architecture technique.md",
+      "artefact": null,
+      "test": "M0.10-1 — audit_log a les colonnes impersonator_id, motif, details (migration ALTER TABLE)",
+      "statut": "implemented",
+      "libelle": "M0.10-1 — audit_log a les colonnes impersonator_id, motif, details (migration ALTER TABLE)"
+    },
+    {
+      "id": "M0.10-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Architecture technique.md",
+      "artefact": null,
+      "test": "M0.10-2 — f_log_audit() SECURITY DEFINER insère dans audit_log depuis service_role",
+      "statut": "implemented",
+      "libelle": "M0.10-2 — f_log_audit() SECURITY DEFINER insère dans audit_log depuis service_role"
+    },
+    {
+      "id": "M0.10-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Architecture technique.md",
+      "artefact": null,
+      "test": "M0.10-3 — f_log_audit() refusé pour INSERT direct authenticated (pas de policy INSERT)",
+      "statut": "implemented",
+      "libelle": "M0.10-3 — f_log_audit() refusé pour INSERT direct authenticated (pas de policy INSERT)"
+    },
+    {
+      "id": "M0.10-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Architecture technique.md",
+      "artefact": null,
+      "test": "M0.10-4 — trigger controle_acces_cascade_upgrade : UPDATE collectes.controle_acces_requis=true → ligne audit_log",
+      "statut": "implemented",
+      "libelle": "M0.10-4 — trigger controle_acces_cascade_upgrade : UPDATE collectes.controle_acces_requis=true → ligne audit_log"
+    },
+    {
+      "id": "M0.10-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Architecture technique.md",
+      "artefact": null,
+      "test": "M0.10-5 — trigger pack_debite_annulation_tardive : collecte AG annulee < 12h → ligne audit_log + nb_annulees++",
+      "statut": "implemented",
+      "libelle": "M0.10-5 — trigger pack_debite_annulation_tardive : collecte AG annulee < 12h → ligne audit_log + nb_annulees++"
+    },
+    {
+      "id": "M0.10-06",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Architecture technique.md",
+      "artefact": null,
+      "test": "M0.10-6 — trigger pack_recredite_annulation_collecte : collecte AG realisee → annulee → ligne audit_log + nb_utilisees--",
+      "statut": "implemented",
+      "libelle": "M0.10-6 — trigger pack_recredite_annulation_collecte : collecte AG realisee → annulee → ligne audit_log + nb_utilisees--"
+    },
+    {
+      "id": "M0.10-07",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Architecture technique.md",
+      "artefact": null,
+      "test": "M0.10-7 — trigger config_auto_accept_update : UPDATE config_auto_accept_ag → ligne audit_log",
+      "statut": "implemented",
+      "libelle": "M0.10-7 — trigger config_auto_accept_update : UPDATE config_auto_accept_ag → ligne audit_log"
+    },
+    {
+      "id": "M0.10-08",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Architecture technique.md",
+      "artefact": null,
+      "test": "M0.10-8 — trigger parametres_algo_update : UPDATE parametres_algo → ligne audit_log avec old/new valeur",
+      "statut": "implemented",
+      "libelle": "M0.10-8 — trigger parametres_algo_update : UPDATE parametres_algo → ligne audit_log avec old/new valeur"
+    },
+    {
+      "id": "M0.10-09",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Architecture technique.md",
+      "artefact": null,
+      "test": "M0.10-9 — trigger parametres_co2_divers_update : UPDATE parametres_co2_divers → ligne audit_log",
+      "statut": "implemented",
+      "libelle": "M0.10-9 — trigger parametres_co2_divers_update : UPDATE parametres_co2_divers → ligne audit_log"
+    },
+    {
+      "id": "M0.10-10",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Architecture technique.md",
+      "artefact": null,
+      "test": "M0.10-10 — audit_log immuable : UPDATE refusé pour authenticated (REVOKE UPDATE déjà en place)",
+      "statut": "implemented",
+      "libelle": "M0.10-10 — audit_log immuable : UPDATE refusé pour authenticated (REVOKE UPDATE déjà en place)"
+    },
+    {
+      "id": "M0.10-11",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Architecture technique.md",
+      "artefact": null,
+      "test": "M0.10-11 — GUC savr.audit_motif snapshoté dans details.motif par trigger parametres_algo",
+      "statut": "implemented",
+      "libelle": "M0.10-11 — GUC savr.audit_motif snapshoté dans details.motif par trigger parametres_algo"
+    }
   ]
 }

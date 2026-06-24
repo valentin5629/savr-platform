@@ -313,3 +313,39 @@ jobs:
       - uses: actions/checkout@v4
       - name: G8 — rapport primitives orphelines
         run: bash scripts/check-primitive-orpheline.sh
+
+  # G2 — Manifeste au grain LIVRABLE (R0b). Valide chaque specs/manifests/M*.json
+  # contre specs/manifests/_schema.json (validateur de sous-ensemble JSON Schema
+  # embarqué, sans dépendance) et SIGNALE le grain scénario-seul (= deliverables[]
+  # absent → livrable CDC non transcrit invisible, cause racine de l'audit). Pur
+  # Node (tsx), sans DB. Flip bloquant (T1) quand tous les manifestes portent un
+  # deliverables[] valide (durcissement par cliquet).
+  manifest-grain:
+    runs-on: ubuntu-latest
+    continue-on-error: true # MODE RAPPORT — ne rougit jamais le workflow en T0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: G2 — rapport grain livrable
+        run: pnpm check:manifest-grain
+
+  # G1 — check:spec-deliverables (R0b). Diff livrables CDC (index seedé depuis
+  # l'audit : specs/manifests/cdc-deliverables.index.json) ↔ union des
+  # deliverables[] des manifestes. Un livrable CDC absent de tous les manifestes
+  # (et non descopé) = non transcrit → SIGNALÉ. Ferme la cause racine (gates
+  # code-vs-manifeste, jamais code-vs-CDC). Pur Node (tsx), sans DB. Flip bloquant
+  # (T1) PAR MODULE dès que son manifeste est re-grainé et à jour.
+  spec-deliverables:
+    runs-on: ubuntu-latest
+    continue-on-error: true # MODE RAPPORT — ne rougit jamais le workflow en T0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: G1 — rapport couverture livrables CDC
+        run: pnpm check:spec-deliverables

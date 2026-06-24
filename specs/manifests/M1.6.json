@@ -73,5 +73,103 @@
     "Régénération manuelle UI traiteur (M3.1)",
     "Export PDF registre réglementaire formaté (V1.1)",
     "Dashboard Admin Bloc 3 Coûts (V1.1, déscopé)"
+  ],
+  "deliverables": [
+    {
+      "id": "M1.6-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "supabase/migrations/20260614160000_plateforme_m1_6_pdf_zd.sql",
+      "test": "Collecte ZD cloturee avec flux → batch J+1 → 2 jobs enqueués (bordereau + rapport)",
+      "statut": "implemented",
+      "libelle": "Collecte ZD cloturee avec flux → batch J+1 → 2 jobs enqueués (bordereau + rapport)"
+    },
+    {
+      "id": "M1.6-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "supabase/migrations/20260614160000_plateforme_m1_6_pdf_zd.sql",
+      "test": "Collecte ZD sans pesées (0 ligne collecte_flux) → skip, aucun job",
+      "statut": "implemented",
+      "libelle": "Collecte ZD sans pesées (0 ligne collecte_flux) → skip, aucun job"
+    },
+    {
+      "id": "M1.6-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "supabase/migrations/20260614160000_plateforme_m1_6_pdf_zd.sql",
+      "test": "Collecte skippée depuis > 48h → alerte Admin in-app créée (R9)",
+      "statut": "implemented",
+      "libelle": "Collecte skippée depuis > 48h → alerte Admin in-app créée (R9)"
+    },
+    {
+      "id": "M1.6-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "supabase/migrations/20260614160000_plateforme_m1_6_pdf_zd.sql",
+      "test": "Collecte déjà traitée (bordereau emis) → idempotent, aucun doublon",
+      "statut": "implemented",
+      "libelle": "Collecte déjà traitée (bordereau emis) → idempotent, aucun doublon"
+    },
+    {
+      "id": "M1.6-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "supabase/migrations/20260614160000_plateforme_m1_6_pdf_zd.sql",
+      "test": "Worker job pending → Railway → R2 → done, fichier_id lié",
+      "statut": "implemented",
+      "libelle": "Worker job pending → Railway → R2 → done, fichier_id lié"
+    },
+    {
+      "id": "M1.6-06",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "supabase/migrations/20260614160000_plateforme_m1_6_pdf_zd.sql",
+      "test": "Worker échec Railway → failed, next_retry_at +15min",
+      "statut": "implemented",
+      "libelle": "Worker échec Railway → failed, next_retry_at +15min"
+    },
+    {
+      "id": "M1.6-07",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "supabase/migrations/20260614160000_plateforme_m1_6_pdf_zd.sql",
+      "test": "Worker attempts ≥ 16 → dead + alerte Admin (pdf_job_dead)",
+      "statut": "implemented",
+      "libelle": "Worker attempts ≥ 16 → dead + alerte Admin (pdf_job_dead)"
+    },
+    {
+      "id": "M1.6-08",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "supabase/migrations/20260614160000_plateforme_m1_6_pdf_zd.sql",
+      "test": "Download bordereau Admin → URL pré-signée 15min",
+      "statut": "implemented",
+      "libelle": "Download bordereau Admin → URL pré-signée 15min"
+    },
+    {
+      "id": "M1.6-09",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "supabase/migrations/20260614160000_plateforme_m1_6_pdf_zd.sql",
+      "test": "Download rapport Admin sous embargo → 425, disponible_a retourné",
+      "statut": "implemented",
+      "libelle": "Download rapport Admin sous embargo → 425, disponible_a retourné"
+    },
+    {
+      "id": "M1.6-10",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "supabase/migrations/20260614160000_plateforme_m1_6_pdf_zd.sql",
+      "test": "Download rapport Admin après embargo → URL pré-signée 15min",
+      "statut": "implemented",
+      "libelle": "Download rapport Admin après embargo → URL pré-signée 15min"
+    },
+    {
+      "id": "M1.6-11",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "supabase/migrations/20260614160000_plateforme_m1_6_pdf_zd.sql",
+      "test": "f_next_numero_bordereau gapless BSAV-YYYY-NNNNN",
+      "statut": "implemented",
+      "libelle": "f_next_numero_bordereau gapless BSAV-YYYY-NNNNN"
+    },
+    {
+      "id": "M1.6-12",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "supabase/migrations/20260614160000_plateforme_m1_6_pdf_zd.sql",
+      "test": "f_upsert_alerte_admin dédup : 1 seule alerte ouverte par (code, entity)",
+      "statut": "implemented",
+      "libelle": "f_upsert_alerte_admin dédup : 1 seule alerte ouverte par (code, entity)"
+    }
   ]
 }

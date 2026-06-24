@@ -56,5 +56,199 @@
     "M3.2/F5_desactivation_membre_actif",
     "M3.2/F5_auto_desactivation_interdite",
     "M3.2/F6_factures_self_uniquement"
+  ],
+  "deliverables": [
+    {
+      "id": "M3.2-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "artefact": "supabase/migrations/20260617100000_plateforme_m3_2_gestionnaire_lieux.sql",
+      "test": "M3.2/auth_guard_non_gestionnaire_401",
+      "statut": "implemented",
+      "libelle": "M3.2/auth_guard_non_gestionnaire_401"
+    },
+    {
+      "id": "M3.2-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "artefact": "supabase/migrations/20260617100000_plateforme_m3_2_gestionnaire_lieux.sql",
+      "test": "M3.2/auth_guard_non_authentifie_401",
+      "statut": "implemented",
+      "libelle": "M3.2/auth_guard_non_authentifie_401"
+    },
+    {
+      "id": "M3.2-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "artefact": "supabase/migrations/20260617100000_plateforme_m3_2_gestionnaire_lieux.sql",
+      "test": "M3.2/dashboard_kpi_zd_4_indicateurs",
+      "statut": "implemented",
+      "libelle": "M3.2/dashboard_kpi_zd_4_indicateurs"
+    },
+    {
+      "id": "M3.2-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "artefact": "supabase/migrations/20260617100000_plateforme_m3_2_gestionnaire_lieux.sql",
+      "test": "M3.2/dashboard_kpi_ag_repas_donnes",
+      "statut": "implemented",
+      "libelle": "M3.2/dashboard_kpi_ag_repas_donnes"
+    },
+    {
+      "id": "M3.2-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "artefact": "supabase/migrations/20260617100000_plateforme_m3_2_gestionnaire_lieux.sql",
+      "test": "M3.2/dashboard_pack_ag_inclus_dans_reponse",
+      "statut": "implemented",
+      "libelle": "M3.2/dashboard_pack_ag_inclus_dans_reponse"
+    },
+    {
+      "id": "M3.2-06",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "artefact": "supabase/migrations/20260617100000_plateforme_m3_2_gestionnaire_lieux.sql",
+      "test": "M3.2/F2_tous_annulee_consolide_annule",
+      "statut": "implemented",
+      "libelle": "M3.2/F2_tous_annulee_consolide_annule"
+    },
+    {
+      "id": "M3.2-07",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "artefact": "supabase/migrations/20260617100000_plateforme_m3_2_gestionnaire_lieux.sql",
+      "test": "M3.2/F2_au_moins_une_realisee_consolide_termine",
+      "statut": "implemented",
+      "libelle": "M3.2/F2_au_moins_une_realisee_consolide_termine"
+    },
+    {
+      "id": "M3.2-08",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "artefact": "supabase/migrations/20260617100000_plateforme_m3_2_gestionnaire_lieux.sql",
+      "test": "M3.2/F2_au_moins_une_en_cours_consolide_en_cours",
+      "statut": "implemented",
+      "libelle": "M3.2/F2_au_moins_une_en_cours_consolide_en_cours"
+    },
+    {
+      "id": "M3.2-09",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "artefact": "supabase/migrations/20260617100000_plateforme_m3_2_gestionnaire_lieux.sql",
+      "test": "M3.2/lieux_liste_perimetre_org",
+      "statut": "implemented",
+      "libelle": "M3.2/lieux_liste_perimetre_org"
+    },
+    {
+      "id": "M3.2-10",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "artefact": "supabase/migrations/20260617100000_plateforme_m3_2_gestionnaire_lieux.sql",
+      "test": "M3.2/lieux_liste_vide_si_aucun_perimetre",
+      "statut": "implemented",
+      "libelle": "M3.2/lieux_liste_vide_si_aucun_perimetre"
+    },
+    {
+      "id": "M3.2-11",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "artefact": "supabase/migrations/20260617100000_plateforme_m3_2_gestionnaire_lieux.sql",
+      "test": "M3.2/lieux_detail_404_inconnu",
+      "statut": "implemented",
+      "libelle": "M3.2/lieux_detail_404_inconnu"
+    },
+    {
+      "id": "M3.2-12",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "artefact": "supabase/migrations/20260617100000_plateforme_m3_2_gestionnaire_lieux.sql",
+      "test": "M3.2/traiteurs_fenetre_24m_exclusive",
+      "statut": "implemented",
+      "libelle": "M3.2/traiteurs_fenetre_24m_exclusive"
+    },
+    {
+      "id": "M3.2-13",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "artefact": "supabase/migrations/20260617100000_plateforme_m3_2_gestionnaire_lieux.sql",
+      "test": "M3.2/traiteur_fiche_nom_logo_uniquement",
+      "statut": "implemented",
+      "libelle": "M3.2/traiteur_fiche_nom_logo_uniquement"
+    },
+    {
+      "id": "M3.2-14",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "artefact": "supabase/migrations/20260617100000_plateforme_m3_2_gestionnaire_lieux.sql",
+      "test": "M3.2/pack_ag_actif_retourne_restants",
+      "statut": "implemented",
+      "libelle": "M3.2/pack_ag_actif_retourne_restants"
+    },
+    {
+      "id": "M3.2-15",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "artefact": "supabase/migrations/20260617100000_plateforme_m3_2_gestionnaire_lieux.sql",
+      "test": "M3.2/pack_ag_aucun_actif_null",
+      "statut": "implemented",
+      "libelle": "M3.2/pack_ag_aucun_actif_null"
+    },
+    {
+      "id": "M3.2-16",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "artefact": "supabase/migrations/20260617100000_plateforme_m3_2_gestionnaire_lieux.sql",
+      "test": "M3.2/profil_get_retourne_organisation",
+      "statut": "implemented",
+      "libelle": "M3.2/profil_get_retourne_organisation"
+    },
+    {
+      "id": "M3.2-17",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "artefact": "supabase/migrations/20260617100000_plateforme_m3_2_gestionnaire_lieux.sql",
+      "test": "M3.2/profil_patch_champ_protege_ignore",
+      "statut": "implemented",
+      "libelle": "M3.2/profil_patch_champ_protege_ignore"
+    },
+    {
+      "id": "M3.2-18",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "artefact": "supabase/migrations/20260617100000_plateforme_m3_2_gestionnaire_lieux.sql",
+      "test": "M3.2/profil_patch_aucun_champ_editable_400",
+      "statut": "implemented",
+      "libelle": "M3.2/profil_patch_aucun_champ_editable_400"
+    },
+    {
+      "id": "M3.2-19",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "artefact": "supabase/migrations/20260617100000_plateforme_m3_2_gestionnaire_lieux.sql",
+      "test": "M3.2/F5_invitation_utilisateur_201_email_envoye",
+      "statut": "implemented",
+      "libelle": "M3.2/F5_invitation_utilisateur_201_email_envoye"
+    },
+    {
+      "id": "M3.2-20",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "artefact": "supabase/migrations/20260617100000_plateforme_m3_2_gestionnaire_lieux.sql",
+      "test": "M3.2/F5_invitation_email_doublon_409",
+      "statut": "implemented",
+      "libelle": "M3.2/F5_invitation_email_doublon_409"
+    },
+    {
+      "id": "M3.2-21",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "artefact": "supabase/migrations/20260617100000_plateforme_m3_2_gestionnaire_lieux.sql",
+      "test": "M3.2/F5_invitation_role_escalade_interdit",
+      "statut": "implemented",
+      "libelle": "M3.2/F5_invitation_role_escalade_interdit"
+    },
+    {
+      "id": "M3.2-22",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "artefact": "supabase/migrations/20260617100000_plateforme_m3_2_gestionnaire_lieux.sql",
+      "test": "M3.2/F5_desactivation_membre_actif",
+      "statut": "implemented",
+      "libelle": "M3.2/F5_desactivation_membre_actif"
+    },
+    {
+      "id": "M3.2-23",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "artefact": "supabase/migrations/20260617100000_plateforme_m3_2_gestionnaire_lieux.sql",
+      "test": "M3.2/F5_auto_desactivation_interdite",
+      "statut": "implemented",
+      "libelle": "M3.2/F5_auto_desactivation_interdite"
+    },
+    {
+      "id": "M3.2-24",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "artefact": "supabase/migrations/20260617100000_plateforme_m3_2_gestionnaire_lieux.sql",
+      "test": "M3.2/F6_factures_self_uniquement",
+      "statut": "implemented",
+      "libelle": "M3.2/F6_factures_self_uniquement"
+    }
   ]
 }

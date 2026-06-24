@@ -1,0 +1,113 @@
+{
+  "module": "M0.4",
+  "titre": "Auth / Onboarding / RGPD — souche (manifeste manquant, livrables P0)",
+  "description": "Souche créée en R0b : le module auth/onboarding/RGPD (signup, CGU, impersonation, anonymisation RGPD, soft-delete, export JSON) n'avait pas de manifeste alors qu'il porte des P0 (BL-P0-04 CGU, BL-P0-09 effacement). deliverables[] transcrit les livrables CDC ; scenarios[]/tests câblés par les lots R6/R7/R13/R14.",
+  "_souche": true,
+  "scenarios": [],
+  "deliverables": [
+    {
+      "id": "BL-P0-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/CGU Savr V1 - Draft.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "persistance acceptation CGU (horodatage cgu_accepte_le + cgu_version)"
+    },
+    {
+      "id": "BL-P0-09",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "effacement RGPD : fn_anonymize_user + soft-delete deleted_at + workflow suppression 48h"
+    },
+    {
+      "id": "BL-P1-ONB-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "SIRET jamais collecté au signup"
+    },
+    {
+      "id": "BL-P1-ONB-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Job async revalidation SIRET 3 paliers"
+    },
+    {
+      "id": "BL-P1-ONB-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Doublon SIRET/domaine non détecté"
+    },
+    {
+      "id": "BL-P1-ONB-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Email bienvenue/invitation cassé"
+    },
+    {
+      "id": "BL-P1-ONB-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Middlewares onboarding nommés"
+    },
+    {
+      "id": "BL-P1-AUTH-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Cluster impersonation (chaîne rompue)"
+    },
+    {
+      "id": "BL-P1-AUTH-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "`attestations_don` DELETE policy"
+    },
+    {
+      "id": "BL-P1-AUTH-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Gating ops `users` trop restrictif (divergence §09)"
+    },
+    {
+      "id": "BL-P1-AUTH-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "2 tests pgTAP nommés absents"
+    },
+    {
+      "id": "BL-P1-OBS-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "RGPD export JSON (droit d'accès)"
+    },
+    {
+      "id": "BL-P2-27",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "RGPD rectification self-service profil"
+    }
+  ]
+}

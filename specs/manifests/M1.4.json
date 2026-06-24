@@ -41,5 +41,263 @@
     "M1.4/statut-tms — MTS1_SUCCESS_STATUSES ⊂ MTS1_TERMINAL_STATUSES",
     "M1.4/statut-tms — MTS1_REJECTION_STATUSES ⊂ MTS1_TERMINAL_STATUSES",
     "M1.4/statut-tms — SUCCESS et REJECTION sont disjoints"
+  ],
+  "deliverables": [
+    {
+      "id": "M1.4-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/statut-tms.ts",
+      "test": "M1.4/statut-tms — PLANNED sans dispatch accepté → attribuee_en_attente_acceptation",
+      "statut": "implemented",
+      "libelle": "M1.4/statut-tms — PLANNED sans dispatch accepté → attribuee_en_attente_acceptation"
+    },
+    {
+      "id": "M1.4-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/statut-tms.ts",
+      "test": "M1.4/statut-tms — VALIDATED sans dispatch accepté → attribuee_en_attente_acceptation",
+      "statut": "implemented",
+      "libelle": "M1.4/statut-tms — VALIDATED sans dispatch accepté → attribuee_en_attente_acceptation"
+    },
+    {
+      "id": "M1.4-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/statut-tms.ts",
+      "test": "M1.4/statut-tms — PLANNED + dispatch ACCEPTED → acceptee (signal positif)",
+      "statut": "implemented",
+      "libelle": "M1.4/statut-tms — PLANNED + dispatch ACCEPTED → acceptee (signal positif)"
+    },
+    {
+      "id": "M1.4-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/statut-tms.ts",
+      "test": "M1.4/statut-tms — VALIDATED + dispatch ACCEPTED → acceptee (signal positif)",
+      "statut": "implemented",
+      "libelle": "M1.4/statut-tms — VALIDATED + dispatch ACCEPTED → acceptee (signal positif)"
+    },
+    {
+      "id": "M1.4-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/statut-tms.ts",
+      "test": "M1.4/statut-tms — IN_PROGRESSION → acceptee (statut collecte = en_cours via M1.5c)",
+      "statut": "implemented",
+      "libelle": "M1.4/statut-tms — IN_PROGRESSION → acceptee (statut collecte = en_cours via M1.5c)"
+    },
+    {
+      "id": "M1.4-06",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/statut-tms.ts",
+      "test": "M1.4/statut-tms — OK → acceptee (agrégation M1.5c → realisee)",
+      "statut": "implemented",
+      "libelle": "M1.4/statut-tms — OK → acceptee (agrégation M1.5c → realisee)"
+    },
+    {
+      "id": "M1.4-07",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/statut-tms.ts",
+      "test": "M1.4/statut-tms — PARTIAL → acceptee (agrégation M1.5c → realisee avec pesées partielles)",
+      "statut": "implemented",
+      "libelle": "M1.4/statut-tms — PARTIAL → acceptee (agrégation M1.5c → realisee avec pesées partielles)"
+    },
+    {
+      "id": "M1.4-08",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/statut-tms.ts",
+      "test": "M1.4/statut-tms — CANCELED → rejetee_par_prestataire",
+      "statut": "implemented",
+      "libelle": "M1.4/statut-tms — CANCELED → rejetee_par_prestataire"
+    },
+    {
+      "id": "M1.4-09",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/statut-tms.ts",
+      "test": "M1.4/statut-tms — KO → rejetee_par_prestataire",
+      "statut": "implemented",
+      "libelle": "M1.4/statut-tms — KO → rejetee_par_prestataire"
+    },
+    {
+      "id": "M1.4-10",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/statut-tms.ts",
+      "test": "M1.4/statut-tms — CANCELED avec dispatch accepté → rejetee_par_prestataire (refus prioritaire)",
+      "statut": "implemented",
+      "libelle": "M1.4/statut-tms — CANCELED avec dispatch accepté → rejetee_par_prestataire (refus prioritaire)"
+    },
+    {
+      "id": "M1.4-11",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/statut-tms.ts",
+      "test": "M1.4/statut-tms — acceptee + programmee → validee (validation acceptation)",
+      "statut": "implemented",
+      "libelle": "M1.4/statut-tms — acceptee + programmee → validee (validation acceptation)"
+    },
+    {
+      "id": "M1.4-12",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/statut-tms.ts",
+      "test": "M1.4/statut-tms — en_attente_execution + programmee → validee",
+      "statut": "implemented",
+      "libelle": "M1.4/statut-tms — en_attente_execution + programmee → validee"
+    },
+    {
+      "id": "M1.4-13",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/statut-tms.ts",
+      "test": "M1.4/statut-tms — non_envoye + validee → programmee (reset)",
+      "statut": "implemented",
+      "libelle": "M1.4/statut-tms — non_envoye + validee → programmee (reset)"
+    },
+    {
+      "id": "M1.4-14",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/statut-tms.ts",
+      "test": "M1.4/statut-tms — a_attribuer + validee → programmee",
+      "statut": "implemented",
+      "libelle": "M1.4/statut-tms — a_attribuer + validee → programmee"
+    },
+    {
+      "id": "M1.4-15",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/statut-tms.ts",
+      "test": "M1.4/statut-tms — attribuee_en_attente_acceptation + validee → programmee",
+      "statut": "implemented",
+      "libelle": "M1.4/statut-tms — attribuee_en_attente_acceptation + validee → programmee"
+    },
+    {
+      "id": "M1.4-16",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/statut-tms.ts",
+      "test": "M1.4/statut-tms — acceptee + validee → null (déjà validée, pas de doublon)",
+      "statut": "implemented",
+      "libelle": "M1.4/statut-tms — acceptee + validee → null (déjà validée, pas de doublon)"
+    },
+    {
+      "id": "M1.4-17",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/statut-tms.ts",
+      "test": "M1.4/statut-tms — acceptee + en_cours → null (en_cours géré par M1.5c)",
+      "statut": "implemented",
+      "libelle": "M1.4/statut-tms — acceptee + en_cours → null (en_cours géré par M1.5c)"
+    },
+    {
+      "id": "M1.4-18",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/statut-tms.ts",
+      "test": "M1.4/statut-tms — rejetee_par_prestataire + programmee → null (pas de transition trigger)",
+      "statut": "implemented",
+      "libelle": "M1.4/statut-tms — rejetee_par_prestataire + programmee → null (pas de transition trigger)"
+    },
+    {
+      "id": "M1.4-19",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/statut-tms.ts",
+      "test": "M1.4/statut-tms — non_envoye + programmee → null (déjà programmée)",
+      "statut": "implemented",
+      "libelle": "M1.4/statut-tms — non_envoye + programmee → null (déjà programmée)"
+    },
+    {
+      "id": "M1.4-20",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/statut-tms.ts",
+      "test": "M1.4/statut-tms — MTS1_TERMINAL_STATUSES : OK, PARTIAL, CANCELED, KO",
+      "statut": "implemented",
+      "libelle": "M1.4/statut-tms — MTS1_TERMINAL_STATUSES : OK, PARTIAL, CANCELED, KO"
+    },
+    {
+      "id": "M1.4-21",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/statut-tms.ts",
+      "test": "M1.4/statut-tms — MTS1_SUCCESS_STATUSES ⊂ MTS1_TERMINAL_STATUSES",
+      "statut": "implemented",
+      "libelle": "M1.4/statut-tms — MTS1_SUCCESS_STATUSES ⊂ MTS1_TERMINAL_STATUSES"
+    },
+    {
+      "id": "M1.4-22",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/statut-tms.ts",
+      "test": "M1.4/statut-tms — MTS1_REJECTION_STATUSES ⊂ MTS1_TERMINAL_STATUSES",
+      "statut": "implemented",
+      "libelle": "M1.4/statut-tms — MTS1_REJECTION_STATUSES ⊂ MTS1_TERMINAL_STATUSES"
+    },
+    {
+      "id": "M1.4-23",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/statut-tms.ts",
+      "test": "M1.4/statut-tms — SUCCESS et REJECTION sont disjoints",
+      "statut": "implemented",
+      "libelle": "M1.4/statut-tms — SUCCESS et REJECTION sont disjoints"
+    },
+    {
+      "id": "BL-P1-RM-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Transition `realisee→cloturee` jamais écrite"
+    },
+    {
+      "id": "BL-P1-RM-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Gate statut sur modif `nb_camions_demande`"
+    },
+    {
+      "id": "BL-P1-RM-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Multi-camions augmentation N"
+    },
+    {
+      "id": "BL-P1-RM-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Multi-camions réduction N"
+    },
+    {
+      "id": "BL-P1-RM-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Réduction N bloquée <1h"
+    },
+    {
+      "id": "BL-P1-RM-07",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Rejet total transporteur silencieux"
+    },
+    {
+      "id": "BL-P1-RM-08",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Forcer statut sans motif"
+    },
+    {
+      "id": "BL-P1-RM-09",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Flux incident prestataire"
+    },
+    {
+      "id": "BL-P1-RM-10",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Correction volume aberrant AG"
+    }
   ]
 }

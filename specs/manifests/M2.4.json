@@ -1,0 +1,33 @@
+{
+  "module": "M2.4",
+  "titre": "PDF AG (attestation 2041-GE) + Paramètres CO2 — souche (manifeste manquant, livrables P0)",
+  "description": "Souche créée en R0b : attestation don AG (template 2041-GE + renderer) et les 4 écrans paramètres CO2 n'avaient pas de manifeste alors qu'ils portent des P0 (BL-P0-03, BL-P0-06). deliverables[] transcrit les livrables CDC ; scenarios[]/tests câblés par les lots R2/R3.",
+  "_souche": true,
+  "scenarios": [],
+  "deliverables": [
+    {
+      "id": "BL-P0-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "template attestation 2041-GE + branche renderer (union des types enqueués)"
+    },
+    {
+      "id": "BL-P0-06",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "4 écrans CO2 alignés sur colonnes réelles (fe_induit_kg_t, fe_evite_kg_t, …) + history + audit"
+    },
+    {
+      "id": "BL-P2-26",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "CO2 ZD seed OMR `fe_evite=0`"
+    }
+  ]
+}

@@ -1,3 +1,7 @@
+// Version figée du gabarit — doit rester égale à TEMPLATE_VERSIONS['bordereau-zd']
+// du contrat partagé (@savr/shared). Vérifié par check:integration-contracts.
+export const TEMPLATE_VERSION = 'bordereau-zd@1';
+
 export interface FluxDetail {
   nom: string;
   poids_kg: number;

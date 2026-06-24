@@ -130,6 +130,7 @@ export type Database = {
       }
       attestations_don: {
         Row: {
+          template_version: string | null
           association_habilitation: string | null
           association_id: string
           association_nom: string | null
@@ -161,6 +162,7 @@ export type Database = {
           volume_repas: number | null
         }
         Insert: {
+          template_version?: string | null
           association_habilitation?: string | null
           association_id: string
           association_nom?: string | null
@@ -192,6 +194,7 @@ export type Database = {
           volume_repas?: number | null
         }
         Update: {
+          template_version?: string | null
           association_habilitation?: string | null
           association_id?: string
           association_nom?: string | null
@@ -480,6 +483,7 @@ export type Database = {
       }
       bordereaux_savr: {
         Row: {
+          template_version: string | null
           collecte_id: string
           created_at: string
           date_collecte: string | null
@@ -506,6 +510,7 @@ export type Database = {
           version: number
         }
         Insert: {
+          template_version?: string | null
           collecte_id: string
           created_at?: string
           date_collecte?: string | null
@@ -532,6 +537,7 @@ export type Database = {
           version?: number
         }
         Update: {
+          template_version?: string | null
           collecte_id?: string
           created_at?: string
           date_collecte?: string | null
@@ -3179,6 +3185,7 @@ export type Database = {
       }
       rapports_rse: {
         Row: {
+          template_version: string | null
           collecte_id: string
           consulte_par_user_at: string | null
           created_at: string
@@ -3196,6 +3203,7 @@ export type Database = {
           version: number
         }
         Insert: {
+          template_version?: string | null
           collecte_id: string
           consulte_par_user_at?: string | null
           created_at?: string
@@ -3213,6 +3221,7 @@ export type Database = {
           version?: number
         }
         Update: {
+          template_version?: string | null
           collecte_id?: string
           consulte_par_user_at?: string | null
           created_at?: string

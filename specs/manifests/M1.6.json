@@ -45,19 +45,20 @@
     "plateforme.collecte_flux (READ)",
     "plateforme.collectes (READ)"
   ],
+    "_comment_scenarios": "scenarios[] = sous-ensemble VITEST-matchable (substring d'un titre de test vitest réel). La couverture exhaustive au grain livrable (y compris pgTAP f_next_numero_bordereau/f_upsert_alerte_admin et téléchargements M3.4) vit dans deliverables[]. R2 a réaligné ces chaînes sur les titres réels (l'ancienne formulation legacy ne matchait aucun test → check:coverage M1.6 rouge depuis l'origine).",
   "scenarios": [
-    "Collecte ZD cloturee avec flux → batch J+1 → 2 jobs enqueués (bordereau + rapport)",
-    "Collecte ZD sans pesées (0 ligne collecte_flux) → skip, aucun job",
-    "Collecte skippée depuis > 48h → alerte Admin in-app créée (R9)",
-    "Collecte déjà traitée (bordereau emis) → idempotent, aucun doublon",
-    "Worker job pending → Railway → R2 → done, fichier_id lié",
-    "Worker échec Railway → failed, next_retry_at +15min",
-    "Worker attempts ≥ 16 → dead + alerte Admin (pdf_job_dead)",
-    "Download bordereau Admin → URL pré-signée 15min",
-    "Download rapport Admin sous embargo → 425, disponible_a retourné",
-    "Download rapport Admin après embargo → URL pré-signée 15min",
-    "f_next_numero_bordereau gapless BSAV-YYYY-NNNNN",
-    "f_upsert_alerte_admin dédup : 1 seule alerte ouverte par (code, entity)"
+    "2 jobs enqueués (bordereau + rapport)",
+    "0 ligne collecte_flux → skip, aucun job créé",
+    "collecte skippée depuis > 48h → alerte Admin créée",
+    "collecte déjà traitée (bordereau emis)",
+    "job pending → done après génération et upload R2",
+    "échec Railway → statut failed, next_retry_at dans 15 min",
+    "attempts ≥ 16 → statut dead + alerte Admin",
+    "type rapport → bucket rapports, pdf_url = clé R2",
+    "les 3 type_document du contrat rendent un HTML non vide (plus de 400)",
+    "type inconnu → UnknownDocumentTypeError mappé en 400",
+    "shared.fichiers inséré avec colonnes réelles (storage_provider/bucket/key/size_bytes/content_type)",
+    "template_version persisté sur l'entité (re-rendu iso)"
   ],
   "tests": {
     "vitest": [
@@ -170,9 +171,34 @@
       "test": "f_upsert_alerte_admin dédup : 1 seule alerte ouverte par (code, entity)",
       "statut": "implemented",
       "libelle": "f_upsert_alerte_admin dédup : 1 seule alerte ouverte par (code, entity)"
+    },
+    {
+      "id": "M1.6-13",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "apps/pdf-renderer/src/render.ts",
+      "test": "les 3 type_document du contrat rendent un HTML non vide (plus de 400)",
+      "statut": "implemented",
+      "libelle": "renderer aligné sur l'union des type_document enqueués (contrat partagé @savr/shared + gate check:pdf-contract) — plus de 400 sur attestation-don"
+    },
+    {
+      "id": "M1.6-14",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/plateforme/src/lib/pdf/pdf-worker.ts",
+      "test": "shared.fichiers inséré avec colonnes réelles (storage_provider/bucket/key/size_bytes/content_type)",
+      "statut": "implemented",
+      "libelle": "INSERT shared.fichiers aligné sur les colonnes réelles (storage_provider/bucket/key/size_bytes/content_type) — PDF réellement lié à l'entité (column-db)"
+    },
+    {
+      "id": "BL-P1-API-07",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "supabase/migrations/20260624140000_plateforme_r2_template_version.sql",
+      "test": "template_version persisté sur l'entité (re-rendu iso)",
+      "statut": "implemented",
+      "libelle": "PDF versioning template_version (TEMPLATE_VERSIONS persisté par le worker → re-rendu iso traçable)"
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "8604cfe90e04318af438fec76daa28f8f9fb74cf51a22f7c7b6b366d41780680"
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "8604cfe90e04318af438fec76daa28f8f9fb74cf51a22f7c7b6b366d41780680",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "05201a783f3927f59797184160a16b04906e3998c0dc73010e3fceb20d036892"
   }
 }

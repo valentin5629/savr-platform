@@ -5,14 +5,7 @@ import express, {
 } from 'express';
 import puppeteer from 'puppeteer-core';
 import chromium from '@sparticuz/chromium';
-import {
-  renderBordereauZd,
-  type BordereauZdData,
-} from './templates/bordereau-zd.js';
-import {
-  renderRapportRecyclageZd,
-  type RapportRecyclageZdData,
-} from './templates/rapport-recyclage-zd.js';
+import { renderByType, UnknownDocumentTypeError } from './render.js';
 
 const app = express();
 app.use(express.json({ limit: '2mb' }));
@@ -38,15 +31,12 @@ app.post('/generate-pdf', async (req: Request, res: Response) => {
 
   let html: string;
   try {
-    if (type === 'bordereau-zd') {
-      html = renderBordereauZd(data as BordereauZdData);
-    } else if (type === 'rapport-recyclage-zd') {
-      html = renderRapportRecyclageZd(data as RapportRecyclageZdData);
-    } else {
-      res.status(400).json({ error: `Type inconnu : ${type}` });
+    html = renderByType(type, data);
+  } catch (err) {
+    if (err instanceof UnknownDocumentTypeError) {
+      res.status(400).json({ error: err.message });
       return;
     }
-  } catch (err) {
     res.status(422).json({ error: `Erreur template : ${String(err)}` });
     return;
   }

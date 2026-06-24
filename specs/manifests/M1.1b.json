@@ -20,6 +20,8 @@
     "packages/plateforme/src/app/api/v1/admin/collectes/route.ts",
     "packages/plateforme/src/app/api/v1/admin/collectes/[id]/route.ts",
     "packages/plateforme/src/app/api/v1/admin/collectes/[id]/dispatch/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/collectes/[id]/flux/route.ts",
+    "packages/plateforme/tests/api/admin/collectes-flux.m1-1b.test.ts",
     "packages/plateforme/src/app/api/v1/admin/dashboard/kpi/route.ts",
     "packages/plateforme/src/app/api/v1/admin/dashboard/revenus-organisations/route.ts",
     "packages/plateforme/src/app/api/v1/admin/parametres/taux-recyclage/route.ts",
@@ -50,98 +52,55 @@
     ".claude/brief-ack-feat-m1.1-backoffice-admin"
   ],
   "scenarios": [
-    {
-      "id": "M1.1b/lieux/liste",
-      "description": "GET /api/v1/admin/lieux retourne liste paginée, filtrable par actif/ville/q"
-    },
-    {
-      "id": "M1.1b/lieux/worklist-modifs",
-      "description": "GET ?worklist=modifs retourne les lieux ayant des collectes avec lieu_overrides"
-    },
-    {
-      "id": "M1.1b/lieux/create",
-      "description": "POST crée un lieu (actif=false par défaut), audit_log, 422 si champs manquants"
-    },
-    {
-      "id": "M1.1b/lieux/normaliser",
-      "description": "POST /normaliser bascule actif=true + audit_log, 404 si introuvable"
-    },
-    {
-      "id": "M1.1b/associations/create",
-      "description": "POST 422 si description < 30 chars ou champs obligatoires manquants"
-    },
-    {
-      "id": "M1.1b/associations/ops-champs-proteges",
-      "description": "PATCH par ops_savr : 403 si tentative de modifier habilitee_attestation_fiscale ou actif"
-    },
-    {
-      "id": "M1.1b/transporteurs/create-mts1-sans-code",
-      "description": "POST type_tms=mts1 sans code_transporteur_mts1 → 422"
-    },
-    {
-      "id": "M1.1b/transporteurs/create-mts1-avec-code",
-      "description": "POST type_tms=mts1 avec code → 201"
-    },
-    {
-      "id": "M1.1b/dispatch/statuts-terminaux-409",
-      "description": "POST /dispatch sur collecte realisee/cloturee/annulee/realisee_sans_collecte → 409"
-    },
-    {
-      "id": "M1.1b/dispatch/ops-override-403",
-      "description": "POST /dispatch avec prestataire_logistique_id différent par ops_savr → 403"
-    },
-    {
-      "id": "M1.1b/dispatch/override-sans-motif-422",
-      "description": "POST /dispatch override prestataire sans motif ou motif < 5 chars → 422"
-    },
-    {
-      "id": "M1.1b/dispatch/e1-collecte-creee",
-      "description": "POST /dispatch premier envoi → outbox_events event_type=collecte.creee (G4)"
-    },
-    {
-      "id": "M1.1b/dispatch/e2-collecte-modifiee",
-      "description": "POST /dispatch renvoi (tms_reference présente) → outbox_events event_type=collecte.modifiee (G4)"
-    },
-    {
-      "id": "M1.1b/dispatch/404-inconnu",
-      "description": "POST /dispatch collecte inconnue → 404"
-    },
-    {
-      "id": "M1.1b/collectes/create-outbox-g4",
-      "description": "POST /collectes crée outbox E1 dans la même transaction (garde-fou G4)"
-    },
-    {
-      "id": "M1.1b/collectes/chips-filtres",
-      "description": "GET ?chip=non_transmises|attente_prestataire|dirty_tms|ag_attente_attribution|zd_48h|ag_48h filtre correctement"
-    },
-    {
-      "id": "M1.1b/dashboard/kpi-6-cartes",
-      "description": "GET /dashboard/kpi retourne les 6 cartes (non_transmises_zd, non_transmises_ag, attente_prestataire, dirty_tms, zd_48h, ag_48h)"
-    },
-    {
-      "id": "M1.1b/taux-recyclage/put-borne-0-1",
-      "description": "PUT taux_captation > 1 ou < 0 → 422"
-    },
-    {
-      "id": "M1.1b/taux-recyclage/put-commentaire-min5",
-      "description": "PUT commentaire_modif < 5 chars → 422"
-    },
-    {
-      "id": "M1.1b/taux-recyclage/admin-only",
-      "description": "PUT par ops_savr → 403 ; GET par ops_savr → 200"
-    },
-    {
-      "id": "M1.1b/mix-emballages/somme-100",
-      "description": "PUT mix dont somme ≠ 100 % → 422"
-    },
-    {
-      "id": "M1.1b/mix-emballages/admin-only",
-      "description": "PUT par ops_savr → 403"
-    },
-    {
-      "id": "M1.1b/e2e/endpoints-proteges",
-      "description": "Tous les endpoints /admin/* retournent 401 sans session (protection auth)"
-    }
+    "M1.1b/lieux/liste — 200 avec data pour admin_savr",
+    "M1.1b/lieux/liste — 200 pour ops_savr",
+    "M1.1b/lieux/liste — 401 si non authentifié",
+    "M1.1b/lieux/liste — 403 si rôle traiteur_manager",
+    "M1.1b/lieux/create — 201 avec tous les champs",
+    "M1.1b/lieux/create — 422 si champs obligatoires manquants",
+    "M1.1b/lieux/normaliser — 200 : actif passe à true",
+    "M1.1b/lieux/normaliser — 404 si lieu inexistant",
+    "M1.1b/associations/create — 201 si description ≥ 30 chars",
+    "M1.1b/associations/create — 422 si description < 30 chars",
+    "M1.1b/associations/create — 422 si champs obligatoires manquants",
+    "M1.1b/associations/patch — 200 si ops modifie contact_nom (champ autorisé)",
+    "M1.1b/associations/patch — 403 si ops tente modifier actif",
+    "M1.1b/associations/patch — 403 si ops tente modifier habilitee_attestation_fiscale",
+    "M1.1b/associations/patch — 422 si description modifiée < 30 chars",
+    "M1.1b/transporteurs/create — 201 si type_tms=autre sans code",
+    "M1.1b/transporteurs/create — 201 si type_tms=mts1 avec code",
+    "M1.1b/transporteurs/create — 403 si rôle client",
+    "M1.1b/transporteurs/create — 422 si type_tms=mts1 sans code",
+    "M1.1b/transporteurs/patch — 422 si changement type_tms=mts1 sans code existant",
+    "M1.1b/dispatch — 403 si ops tente override prestataire",
+    "M1.1b/dispatch — 404 si collecte inconnue",
+    "M1.1b/dispatch — 422 si override sans motif du tout",
+    "M1.1b/dispatch — 422 si override sans motif suffisant",
+    "M1.1b/dispatch — émet E1 collecte.creee sur premier envoi (via RPC atomique)",
+    "M1.1b/dispatch — émet E2 collecte.modifiee si tms_reference présente (via RPC atomique)",
+    "M1.1b/collectes/create — 422 si champs obligatoires manquants",
+    "M1.1b/collectes/create — outbox E1 atomique via fn_creer_collecte",
+    "M1.1b/collectes/liste — 200 avec chip non_transmises (filtre tms_reference IS NULL)",
+    "M1.1b/dashboard/kpi — 200 avec 6 cartes correctement structurées",
+    "M1.1b/dashboard/kpi — 401 si non authentifié",
+    "M1.1b/dashboard/kpi — 403 si rôle traiteur",
+    "M1.1b/taux-recyclage/get — 200 liste pour ops_savr (lecture OK)",
+    "M1.1b/taux-recyclage/put — 200 avec valeurs valides",
+    "M1.1b/taux-recyclage/put — 403 si ops_savr tente modification",
+    "M1.1b/taux-recyclage/put — 422 si commentaire < 5 chars",
+    "M1.1b/taux-recyclage/put — 422 si taux < 0",
+    "M1.1b/taux-recyclage/put — 422 si taux > 1",
+    "M1.1b/mix-emballages/put — 403 si ops_savr",
+    "M1.1b/mix-emballages/put — 422 si somme ≠ 100",
+    "M1.1b/flux/manuel — 200 : UPSERT poids_reel_kg + audit_log avec motif",
+    "M1.1b/flux/manuel — 401 sans session",
+    "M1.1b/flux/manuel — 404 si collecte inconnue",
+    "M1.1b/flux/manuel — 409 si collecte cloturee (correction via avoir)",
+    "M1.1b/flux/manuel — 422 si flux_code inconnu",
+    "M1.1b/flux/manuel — 422 si motif < 5 caractères",
+    "M1.1b/flux/manuel — 422 si poids négatif",
+    "M1.1b/flux/manuel — 403 si rôle client (traiteur_manager)",
+    "M1.1b/flux/manuel — 200 pour ops_savr (2e rôle staff autorisé)"
   ],
   "deliverables": [
     {
@@ -327,6 +286,22 @@
       "test": "M1.1b/e2e/endpoints-proteges",
       "statut": "implemented",
       "libelle": "Tous les endpoints /admin/* retournent 401 sans session (protection auth)"
+    },
+    {
+      "id": "M1.1b-24",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:245",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/collectes/[id]/flux/route.ts, packages/plateforme/src/app/(admin)/admin/collectes/[id]/page.tsx",
+      "test": "M1.1b/flux/manuel — 200 : UPSERT poids_reel_kg + audit_log avec motif",
+      "statut": "implemented",
+      "libelle": "Saisie/édition manuelle des pesées ZD par flux (admin_savr + ops_savr, motif obligatoire + audit_log, UPSERT par (collecte_id, flux_id), 409 si cloturee) — Bloc 3 éditable"
+    },
+    {
+      "id": "M1.1b-25",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:305",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/collectes/route.ts",
+      "test": "M1.1b/collectes/create — outbox E1 atomique via fn_creer_collecte",
+      "statut": "implemented",
+      "libelle": "POST /collectes ZD : suppression de l'INSERT collecte_flux à colonnes fantômes (code_flux/poids_kg inexistantes) — les pesées sont dérivées de pesees_tournees ou saisies manuellement, jamais de pré-création de lignes NULL (gate batch PDF)"
     }
   ],
   "cdc_source_hash": {

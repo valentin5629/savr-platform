@@ -12,19 +12,23 @@
     "packages/adapters/src/mts1/adapter.ts (loadSeuils, terminal handling, seuil check)",
     "packages/adapters/src/mts1/adapter.m1-8.test.ts",
     "packages/plateforme/tests/e2e-cycle-zd.m1-8.test.ts",
+    "supabase/migrations/20260624130000_plateforme_r1_collecte_flux_derive.sql (R1 — dérivation collecte_flux)",
+    "supabase/tests/m1_8_collecte_flux_derive.test.sql (R1 — pgTAP dérivation S1/S2/S3)",
     "e2e/m1-8.cycle-zd.spec.ts",
     "specs/manifests/M1.8.json"
   ],
   "tables_concernees": [
     "plateforme.collectes (lecture statut + transition realisee via RPC fn_agreger_terminal_collecte)",
     "plateforme.tournees (update statut terminee/annulee)",
-    "plateforme.pesees_tournees (upsert — déjà existant M1.5b)",
+    "plateforme.pesees_tournees (upsert — déjà existant M1.5b ; source de l'agrégat R1)",
+    "plateforme.collecte_flux (DÉRIVÉE par recalcul UPSERT depuis pesees_tournees — R1 BL-P0-01)",
     "plateforme.alertes_admin (via f_upsert_alerte_admin — pesee_hors_seuil, collecte_partiellement_servie)"
   ],
   "scenarios": [
     "cycle nominal : collecte ZD cloturee → batch PDF 2 jobs + brouillon → valider → emise FZD-2026-00001",
     "pesée < seuil_min → f_upsert_alerte_admin pesee_hors_seuil + upsert quand même",
-    "2 ordres DELIVERED+KO → fn_agreger_terminal_collecte realisee + alerte collecte_partiellement_servie",
+    "2 ordres OK+KO → fn_agreger_terminal_collecte realisee + alerte collecte_partiellement_servie",
+    "tous camions KO → fn_agreger_terminal_collecte rejetee_par_prestataire, pas alerte partielle",
     "batch PDF collecte_flux vide >48h → skipped_no_flux=1 escalated_r9=1 alerte bordereau_pesees_manquantes_48h"
   ],
   "tests": {
@@ -67,9 +71,9 @@
       "id": "M1.8-03",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
       "artefact": "supabase/migrations/20260615100000_plateforme_m1_8_fn_agreger_terminal.sql",
-      "test": "2 ordres DELIVERED+KO → fn_agreger_terminal_collecte realisee + alerte collecte_partiellement_servie",
+      "test": "2 ordres OK+KO → fn_agreger_terminal_collecte realisee + alerte collecte_partiellement_servie",
       "statut": "implemented",
-      "libelle": "2 ordres DELIVERED+KO → fn_agreger_terminal_collecte realisee + alerte collecte_partiellement_servie"
+      "libelle": "2 ordres OK+KO → fn_agreger_terminal_collecte realisee + alerte collecte_partiellement_servie"
     },
     {
       "id": "M1.8-04",
@@ -80,20 +84,28 @@
       "libelle": "batch PDF collecte_flux vide >48h → skipped_no_flux=1 escalated_r9=1 alerte bordereau_pesees_manquantes_48h"
     },
     {
+      "id": "M1.8-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1486",
+      "artefact": "supabase/migrations/20260624130000_plateforme_r1_collecte_flux_derive.sql",
+      "test": "supabase/tests/m1_8_collecte_flux_derive.test.sql (S1 : 3 tours → SUM par flux ; idempotence)",
+      "statut": "implemented",
+      "libelle": "dérivation collecte_flux : recalcul complet UPSERT par flux depuis pesees_tournees à l'agrégation terminale (distinct de la transition de statut)"
+    },
+    {
       "id": "BL-P0-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "dérivation collecte_flux (recalcul UPSERT depuis pesees_tournees) + saisie manuelle Admin pesées ZD"
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1486",
+      "artefact": "supabase/migrations/20260624130000_plateforme_r1_collecte_flux_derive.sql, packages/plateforme/src/app/api/v1/admin/collectes/[id]/flux/route.ts",
+      "test": "supabase/tests/m1_8_collecte_flux_derive.test.sql ; M1.1b/flux/manuel — 200 : UPSERT poids_reel_kg + audit_log avec motif",
+      "statut": "implemented",
+      "libelle": "collecte_flux dérivée de pesees_tournees (recalcul UPSERT) + saisie manuelle Admin des pesées ZD (motif + audit_log) — poids_reel_kg n'est plus NULL"
     },
     {
       "id": "BL-P1-RM-06",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "≥1 tour OK → realisee sur pesées dispo"
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:266",
+      "artefact": "supabase/migrations/20260624130000_plateforme_r1_collecte_flux_derive.sql",
+      "test": "supabase/tests/m1_8_collecte_flux_derive.test.sql (S2 : 2 OK + 1 KO → SUM des 2 OK, pesée du KO exclue) ; 2 ordres OK+KO → fn_agreger_terminal_collecte realisee + alerte collecte_partiellement_servie",
+      "statut": "implemented",
+      "libelle": "≥1 tour OK/PARTIAL → realisee sur la somme des seules pesées des tours non-KO (CANCELED/KO exclus) + alerte Ops"
     }
   ],
   "cdc_source_hash": {

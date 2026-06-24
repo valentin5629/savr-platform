@@ -12,6 +12,9 @@ export default tseslint.config(
       // agent/pipeline/log/args) + scripts de recompte de registres (Node CLI).
       'docs/audit/**',
       '.claude/workflows/**',
+      // Types DB générés (G7) : artefact dérivé du schéma (régénéré par
+      // `pnpm db:types:local`) — jamais édité à la main, ne pas lint-churner.
+      'packages/shared/src/database.types.ts',
     ],
   },
   js.configs.recommended,

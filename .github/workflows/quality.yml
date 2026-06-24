@@ -273,3 +273,43 @@ jobs:
           if [ "${SIZE}" -gt 5242880 ]; then
             echo "::error::Bundle trop lourd (${SIZE} bytes > 5 MB)" ; exit 1
           fi
+
+  # ===========================================================================
+  # Lot 0 (remédiation post-audit) — GARDE-FOUS EN MODE RAPPORT (T0)
+  # ===========================================================================
+  # Les ~118 écarts de l'audit code-vs-CDC rendraient ces gates rouges en
+  # permanence s'ils bloquaient d'emblée. On les câble donc en mode RAPPORT :
+  # `continue-on-error: true` (le workflow reste vert), résumé dans
+  # $GITHUB_STEP_SUMMARY + compteur de burn-down. Flip bloquant (T1) = retrait
+  # de `continue-on-error` par périmètre, derrière le lot de fix correspondant
+  # (cliquet). Cf. `30. Review Code/Backlog final priorisé/Lot 0 …`.
+
+  # G7 — Cohérence colonne-DB par route. Recompile l'app avec le client Supabase
+  # TYPÉ contre le schéma réel (`packages/shared/src/database.types.ts`, snapshot
+  # HEAD régénérable via `pnpm db:types:local`). Toute colonne/RPC inexistante
+  # ciblée par .eq/.select/.insert/.update/.rpc devient une erreur compilée →
+  # comptée par le runner. NB : sans DB (snapshot committé) ; la détection de
+  # drift snapshot↔migrations est le rôle de G11 (futur, cf. Lot 0).
+  column-db:
+    runs-on: ubuntu-latest
+    continue-on-error: true # MODE RAPPORT — ne rougit jamais le workflow en T0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: G7 — rapport colonne-DB
+        run: pnpm check:column-db
+
+  # G8 (volet léger) — Primitives orphelines : logger/sendAlert/captureException
+  # exportés de @savr/shared mais sans call-site de production (chaînes
+  # event→log/alerte muettes). Pur grep, sans DB. Le volet process de G8 =
+  # mandat du reviewer `reviewer-conformite-spec` (item-par-item, GO-VISUAL).
+  primitive-orpheline:
+    runs-on: ubuntu-latest
+    continue-on-error: true # MODE RAPPORT — informatif, non bloquant en T0
+    steps:
+      - uses: actions/checkout@v4
+      - name: G8 — rapport primitives orphelines
+        run: bash scripts/check-primitive-orpheline.sh

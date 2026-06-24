@@ -19,6 +19,7 @@ interface AttributionRow {
   association_id: string;
   associations: {
     nom: string;
+    adresse: string | null;
     numero_rup: string | null;
     habilitee_attestation_fiscale: boolean;
   } | null;
@@ -66,7 +67,7 @@ export async function runBatchPdfJ1Ag(
       evenements ( nom_evenement, date_evenement, organisation_id ),
       attributions_antgaspi (
         id, volume_repas_realise, poids_repas_kg, association_id,
-        associations ( nom, numero_rup, habilitee_attestation_fiscale )
+        associations ( nom, adresse, numero_rup, habilitee_attestation_fiscale )
       )
     `,
     )
@@ -154,6 +155,13 @@ export async function runBatchPdfJ1Ag(
       const co2Snapshot = collecte.co2_facteurs_snapshot ?? {};
       const co2FacteursVersion = (co2Snapshot as Record<string, unknown>)
         ?.version as string | undefined;
+      // Équivalence pédagogique km voiture, figée dans le snapshot AG
+      // (trigger trg_co2_ag : equivalences.km_voiture, entier en km) — §12 §1.3.
+      const co2KmVoiture = (
+        (co2Snapshot as Record<string, unknown>)?.equivalences as
+          | Record<string, unknown>
+          | undefined
+      )?.km_voiture as number | undefined;
 
       const disponibleA = new Date(
         new Date(collecte.realisee_at).getTime() + 24 * 3600 * 1000,
@@ -208,11 +216,13 @@ export async function runBatchPdfJ1Ag(
         donateur_raison_sociale: entite?.raison_sociale ?? '',
         donateur_siret: entite?.siret ?? '',
         association_nom: asso?.nom ?? '',
+        association_adresse: asso?.adresse ?? null,
         association_numero_rup: asso?.numero_rup ?? null,
         mention_fiscale_2041ge: mentionFiscale,
         volume_repas: attr.volume_repas_realise,
         poids_kg: attr.poids_repas_kg,
         co2_evite_kg: collecte.co2_evite_kg,
+        co2_km_voiture: co2KmVoiture ?? null,
         co2_facteurs_version: co2FacteursVersion,
       };
 

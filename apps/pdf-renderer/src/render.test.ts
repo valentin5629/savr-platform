@@ -79,11 +79,13 @@ function attestationData(
     donateur_raison_sociale: 'Traiteur SA',
     donateur_siret: '12345678900012',
     association_nom: 'Restos du Cœur',
+    association_adresse: '12 rue de la Solidarité, 75011 Paris',
     association_numero_rup: 'RUP-001',
     mention_fiscale_2041ge: true,
     volume_repas: 120,
     poids_kg: 48,
     co2_evite_kg: 300,
+    co2_km_voiture: 1376,
     co2_facteurs_version: 'FAO-2.5',
     ...overrides,
   };
@@ -139,5 +141,16 @@ describe('M2.4 / attestation de don 2041-GE — mention fiscale conditionnelle',
     );
     expect(html).not.toContain('238 bis');
     expect(html).toContain('aucun avantage fiscal');
+  });
+
+  it('contenu §12 §1.3 : adresse association + équivalence km voiture + méthodo FAO', () => {
+    const html = renderByType('attestation-don', attestationData());
+    // Nom ET adresse de l'association bénéficiaire (CDC §12 l.154).
+    expect(html).toContain('12 rue de la Solidarité, 75011 Paris');
+    // CO₂e évité + équivalence km voiture + mention méthodo FAO (CDC §12 l.156).
+    expect(html).toContain('1376 km en voiture');
+    expect(html).toContain(
+      'Estimation FAO — 2,5 kgCO₂e par repas sauvé du gaspillage',
+    );
   });
 });

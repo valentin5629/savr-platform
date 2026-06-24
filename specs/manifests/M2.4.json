@@ -4,16 +4,17 @@
   "description": "Attestation de don AG : template PDF (mention fiscale 2041-GE conditionnée par associations.habilitee_attestation_fiscale) + branche renderer alignée sur l'union des type_document enqueués. Les 4 écrans paramètres CO2 (BL-P0-06) et le seed OMR (BL-P2-26) restent partial (lot R3). BL-P0-03 implémenté en R2 (feat/r2-pdf-preuves).",
   "scenarios": [
     "association habilitée → mention fiscale article 238 bis CGI présente",
-    "association non habilitée → mention neutre, aucune mention 238 bis"
+    "association non habilitée → mention neutre, aucune mention 238 bis",
+    "contenu §12 §1.3 : adresse association + équivalence km voiture + méthodo FAO"
   ],
   "deliverables": [
     {
       "id": "BL-P0-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:154",
       "artefact": "apps/pdf-renderer/src/templates/attestation-don.ts",
       "test": "association habilitée → mention fiscale article 238 bis CGI présente",
       "statut": "implemented",
-      "libelle": "template attestation 2041-GE + branche renderer (mention fiscale conditionnelle habilitee_attestation_fiscale)"
+      "libelle": "template attestation 2041-GE + branche renderer : contenu §12 §1.3 (donateur, nom+adresse association, repas+poids, CO₂ évité + km voiture + méthodo FAO) + mention fiscale conditionnelle (habilitee_attestation_fiscale)"
     },
     {
       "id": "BL-P0-06",
@@ -34,6 +35,7 @@
   ],
   "cdc_source_hash": {
     "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "28b88baa849c7a1bbfd5179ba47c49a70bf6af18945b50fa73fdd67cd2269cb5",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "a3d8cd45fde4b0489ffa5101a595460278442217a51cb3523fbce9e69a7dc000"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "a3d8cd45fde4b0489ffa5101a595460278442217a51cb3523fbce9e69a7dc000",
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "8604cfe90e04318af438fec76daa28f8f9fb74cf51a22f7c7b6b366d41780680"
   }
 }

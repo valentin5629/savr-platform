@@ -22,12 +22,15 @@ export interface AttestationDonData {
   donateur_raison_sociale: string;
   donateur_siret: string;
   association_nom: string;
+  association_adresse?: string | null;
   association_numero_rup?: string | null;
   /** Snapshot associations.habilitee_attestation_fiscale au moment du rendu. */
   mention_fiscale_2041ge: boolean;
   volume_repas: number;
   poids_kg?: number | null;
   co2_evite_kg?: number | null;
+  /** Équivalence pédagogique en km voiture (snapshot equivalences.km_voiture). */
+  co2_km_voiture?: number | null;
   co2_facteurs_version?: string | null;
 }
 
@@ -39,11 +42,16 @@ export function renderAttestationDon(data: AttestationDonData): string {
           .replace('.', ',')} kg</td></tr>`
       : '';
 
+  // CO₂e évité + équivalence pédagogique km voiture (§12 §1.3).
+  const equivKmVoiture =
+    data.co2_km_voiture != null
+      ? ` <span class="equiv">≈ ${data.co2_km_voiture} km en voiture</span>`
+      : '';
   const co2Ligne =
     data.co2_evite_kg != null
-      ? `<tr><td>CO₂e évité (méthodologie FAO — 2,5 kgCO₂e/repas)</td><td class="num">${data.co2_evite_kg
+      ? `<tr><td>CO₂e évité<div class="methodo">Estimation FAO — 2,5 kgCO₂e par repas sauvé du gaspillage</div></td><td class="num">${data.co2_evite_kg
           .toFixed(1)
-          .replace('.', ',')} kgCO₂e</td></tr>`
+          .replace('.', ',')} kgCO₂e${equivKmVoiture}</td></tr>`
       : '';
 
   // Bloc mention fiscale — conditionnel (CDC §05).
@@ -95,6 +103,8 @@ export function renderAttestationDon(data: AttestationDonData): string {
   tbody tr:nth-child(even) { background: #f9fafb; }
   tbody td { padding: 7px 10px; border-bottom: 1px solid #e5e7eb; }
   td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .methodo { font-size: 9px; color: #9ca3af; font-weight: 400; margin-top: 2px; }
+  .equiv { color: #6b7280; font-weight: 400; }
   .fiscal { border-radius: 6px; padding: 12px 14px; margin-bottom: 18px; }
   .fiscal h2 { font-size: 11px; font-weight: 700; margin-bottom: 6px; }
   .fiscal p { font-size: 10.5px; line-height: 1.5; }
@@ -138,6 +148,7 @@ export function renderAttestationDon(data: AttestationDonData): string {
     <div class="section">
       <h2>Association bénéficiaire</h2>
       <p><strong>${esc(data.association_nom)}</strong></p>
+      ${data.association_adresse ? `<p>${esc(data.association_adresse)}</p>` : ''}
       ${data.association_numero_rup ? `<p>RUP ${esc(data.association_numero_rup)}</p>` : ''}
     </div>
   </div>

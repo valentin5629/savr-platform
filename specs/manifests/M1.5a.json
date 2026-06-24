@@ -161,22 +161,6 @@
       "libelle": "retry paliers : attempts=1 → 5min, attempts=4 → null (DLQ)"
     },
     {
-      "id": "BL-P0-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "upload photo MTS-1 → R2 + lien shared.fichiers (échec INSERT si upload KO)"
-    },
-    {
-      "id": "BL-P1-API-07",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "PDF versioning template_version"
-    },
-    {
       "id": "BL-P2-35",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
       "artefact": null,

@@ -29,6 +29,7 @@
     "check:cdc-drift": "tsx scripts/check-cdc-drift.ts",
     "check:semantic-oracle": "bash scripts/run-report-pgtap.sh supabase/tests-report/g9_semantic_oracle.test.sql 'G9 — Oracles sémantiques'",
     "check:integration-contracts": "bash scripts/run-report-pgtap.sh supabase/tests-report/integration_contracts.test.sql 'integration-contracts — postconditions DB'",
+    "check:pdf-contract": "tsx scripts/check-pdf-contract.ts",
     "check:preuve-visuelle": "tsx scripts/check-preuve-visuelle.ts",
     "check:ratchet": "tsx scripts/check-ratchet.ts",
     "gen:cdc-metadata": "tsx scripts/gen-cdc-metadata.ts",

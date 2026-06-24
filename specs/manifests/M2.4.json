@@ -1,17 +1,19 @@
 {
   "module": "M2.4",
-  "titre": "PDF AG (attestation 2041-GE) + Paramètres CO2 — souche (manifeste manquant, livrables P0)",
-  "description": "Souche créée en R0b : attestation don AG (template 2041-GE + renderer) et les 4 écrans paramètres CO2 n'avaient pas de manifeste alors qu'ils portent des P0 (BL-P0-03, BL-P0-06). deliverables[] transcrit les livrables CDC ; scenarios[]/tests câblés par les lots R2/R3.",
-  "_souche": true,
-  "scenarios": [],
+  "titre": "PDF AG (attestation 2041-GE) + Paramètres CO2",
+  "description": "Attestation de don AG : template PDF (mention fiscale 2041-GE conditionnée par associations.habilitee_attestation_fiscale) + branche renderer alignée sur l'union des type_document enqueués. Les 4 écrans paramètres CO2 (BL-P0-06) et le seed OMR (BL-P2-26) restent partial (lot R3). BL-P0-03 implémenté en R2 (feat/r2-pdf-preuves).",
+  "scenarios": [
+    "association habilitée → mention fiscale article 238 bis CGI présente",
+    "association non habilitée → mention neutre, aucune mention 238 bis"
+  ],
   "deliverables": [
     {
       "id": "BL-P0-03",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "template attestation 2041-GE + branche renderer (union des types enqueués)"
+      "artefact": "apps/pdf-renderer/src/templates/attestation-don.ts",
+      "test": "association habilitée → mention fiscale article 238 bis CGI présente",
+      "statut": "implemented",
+      "libelle": "template attestation 2041-GE + branche renderer (mention fiscale conditionnelle habilitee_attestation_fiscale)"
     },
     {
       "id": "BL-P0-06",

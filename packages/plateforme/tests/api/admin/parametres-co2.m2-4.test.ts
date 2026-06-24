@@ -271,4 +271,27 @@ describe('M2.4 / Paramètres CO₂ / co2-divers', () => {
     );
     expect(res.status).toBe(422);
   });
+
+  it('M2.4 / co2-divers / GET → 200 liste clé-valeur (écran §9.3 monté)', async () => {
+    setupAuth('ops_savr');
+    mockSupabaseChain.order.mockResolvedValueOnce({
+      data: [
+        {
+          id: 'd-1',
+          cle: 'fe_camion_benne_kg_km',
+          valeur: 0.9,
+          unite: 'kgCO2e/km',
+        },
+      ],
+      error: null,
+    });
+    const { GET } =
+      await import('@/app/api/v1/admin/parametres/co2-divers/route.js');
+    const res = await GET(
+      makeReq('GET', '/api/v1/admin/parametres/co2-divers'),
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: unknown[] };
+    expect(Array.isArray(body.data)).toBe(true);
+  });
 });

@@ -22,7 +22,7 @@
       "artefact": "packages/plateforme/src/app/api/v1/admin/parametres/facteurs-co2/route.ts",
       "test": "M2.4 / facteurs-co2 / PUT → rpc_maj_facteurs_co2 avec colonnes réelles",
       "statut": "implemented",
-      "libelle": "Écran facteurs CO₂ par flux ZD aligné sur fe_induit_kg_t / fe_evite_kg_t / energie_primaire_evitee_kwh_t (emballage dérivé exclu) ; PUT via rpc_maj_facteurs_co2 (commentaire obligatoire, history tracé)"
+      "libelle": "Écran facteurs CO₂ par flux ZD aligné sur fe_induit_kg_t / fe_evite_kg_t / energie_primaire_evitee_kwh_t ; emballage : FE induit/évité lecture seule (dérivés du mix) mais énergie primaire éditable (CDC §9.1) ; PUT via rpc_maj_facteurs_co2 (commentaire obligatoire, history tracé)"
     },
     {
       "id": "M2.4-co2-facteur-ag",
@@ -38,15 +38,15 @@
       "artefact": "packages/plateforme/src/app/api/v1/admin/parametres/mix-emballages/route.ts",
       "test": "M2.4 / mix-emballages / PUT → rpc_maj_mix_emballages (part_pct)",
       "statut": "implemented",
-      "libelle": "Écran mix emballages aligné sur code_materiau / part_pct ; PUT via rpc_maj_mix_emballages (batch Σ=100 + recompute FE emballage + history mix dédiée ajoutée)"
+      "libelle": "Écran mix emballages aligné sur code_materiau / part_pct + FE matériau éditables (CDC §9.2) ; PUT via rpc_maj_mix_emballages (batch Σ=100 + recompute FE emballage + history mix dédiée ajoutée)"
     },
     {
       "id": "M2.4-co2-divers",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:577",
-      "artefact": "packages/plateforme/src/app/api/v1/admin/parametres/co2-divers/route.ts",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/parametres/co2/page.tsx",
       "test": "M2.4 / co2-divers / PUT → rpc_maj_co2_divers (key-value cle/valeur)",
       "statut": "implemented",
-      "libelle": "Écran CO₂ divers en clé-valeur (cle/valeur) — fin de l'écriture « wide » fantôme ; PUT via rpc_maj_co2_divers (audit_log auteur + motif)"
+      "libelle": "Écran CO₂ divers (forfait collecte + équivalences) en clé-valeur (cle/valeur) — fin de l'écriture « wide » fantôme ; carte montée dans co2/page.tsx (4e écran §9.3) ; PUT via rpc_maj_co2_divers (audit_log auteur + motif)"
     },
     {
       "id": "M2.4-taux-recyclage",

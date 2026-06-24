@@ -307,16 +307,19 @@ BEGIN
   PERFORM plateforme.f_assert_audit_context(p_auteur, p_commentaire);
 
   FOR v_item IN SELECT * FROM jsonb_array_elements(p_facteurs) LOOP
+    -- Ligne 'emballage' : FE induit/évité DÉRIVÉS du mix (lecture seule), mais
+    -- l'énergie primaire reste éditée à la main (CDC §06.06 §9.1 + R_co2_emballage_mix).
     UPDATE plateforme.parametres_facteurs_co2 SET
-      fe_induit_kg_t = COALESCE((v_item->>'fe_induit_kg_t')::decimal, fe_induit_kg_t),
-      fe_evite_kg_t  = COALESCE((v_item->>'fe_evite_kg_t')::decimal, fe_evite_kg_t),
+      fe_induit_kg_t = CASE WHEN code_flux = 'emballage' THEN fe_induit_kg_t
+                            ELSE COALESCE((v_item->>'fe_induit_kg_t')::decimal, fe_induit_kg_t) END,
+      fe_evite_kg_t  = CASE WHEN code_flux = 'emballage' THEN fe_evite_kg_t
+                            ELSE COALESCE((v_item->>'fe_evite_kg_t')::decimal, fe_evite_kg_t) END,
       energie_primaire_evitee_kwh_t =
         COALESCE((v_item->>'energie_primaire_evitee_kwh_t')::decimal, energie_primaire_evitee_kwh_t),
       source_donnee  = COALESCE(v_item->>'source_donnee', source_donnee),
       date_maj       = now(),
       updated_at     = now()
-    WHERE id = (v_item->>'id')::uuid
-      AND code_flux <> 'emballage';  -- emballage dérivé du mix (R_co2_emballage_mix)
+    WHERE id = (v_item->>'id')::uuid;
   END LOOP;
 
   RETURN (SELECT jsonb_agg(to_jsonb(t) ORDER BY t.code_flux)
@@ -353,10 +356,13 @@ BEGIN
   PERFORM set_config('savr.mix_batch', '1', true);
 
   FOR v_item IN SELECT * FROM jsonb_array_elements(p_mix) LOOP
+    -- part_pct par matériau + FE matériau éditables (CDC §06.06 §9.2).
     UPDATE plateforme.parametres_mix_emballages SET
-      part_pct   = (v_item->>'part_pct')::decimal,
-      date_maj   = now(),
-      updated_at = now()
+      part_pct       = COALESCE((v_item->>'part_pct')::decimal, part_pct),
+      fe_induit_kg_t = COALESCE((v_item->>'fe_induit_kg_t')::decimal, fe_induit_kg_t),
+      fe_evite_kg_t  = COALESCE((v_item->>'fe_evite_kg_t')::decimal, fe_evite_kg_t),
+      date_maj       = now(),
+      updated_at     = now()
     WHERE id = (v_item->>'id')::uuid;
   END LOOP;
 

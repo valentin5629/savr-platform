@@ -9,7 +9,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(14);
+SELECT plan(19);
 
 -- Auteur admin (le trigger résout modifie_par via le GUC savr.audit_user posé par la RPC).
 INSERT INTO plateforme.organisations (id, nom, type, actif, est_shadow, tarif_refacture_pax_zd, mode_facturation_zd)
@@ -118,6 +118,45 @@ SELECT is(
      WHERE modifie_par='11111111-1111-1111-1111-111111111111'
        AND commentaire_modif='Maj taux ADEME 2026'),
   1, 'taux_recyclage : 1 ligne d''historique tracée');
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 6. emballage : énergie primaire éditable, FE induit/évité protégés (dérivés)
+--    CDC §06.06 §9.1 + R_co2_emballage_mix.
+-- ─────────────────────────────────────────────────────────────────────────────
+SELECT lives_ok(
+  $$ SELECT plateforme.rpc_maj_facteurs_co2(
+       '11111111-1111-1111-1111-111111111111', 'Energie emballage 2026',
+       jsonb_build_array(jsonb_build_object(
+         'id', (SELECT id FROM plateforme.parametres_facteurs_co2 WHERE code_flux='emballage'),
+         'fe_induit_kg_t', 999, 'fe_evite_kg_t', 999,
+         'energie_primaire_evitee_kwh_t', 1234)) ) $$,
+  'emballage : RPC accepte la maj de l''énergie primaire');
+
+SELECT is(
+  (SELECT energie_primaire_evitee_kwh_t FROM plateforme.parametres_facteurs_co2 WHERE code_flux='emballage'),
+  1234::decimal, 'emballage : énergie primaire éditée à la main (CDC §9.1)');
+
+SELECT isnt(
+  (SELECT fe_induit_kg_t FROM plateforme.parametres_facteurs_co2 WHERE code_flux='emballage'),
+  999::decimal, 'emballage : FE induit RESTE dérivé du mix (999 ignoré)');
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 7. mix : FE matériau éditable (part_pct + FE matériau) — CDC §06.06 §9.2
+-- ─────────────────────────────────────────────────────────────────────────────
+SELECT is(
+  (WITH r AS (
+     SELECT plateforme.rpc_maj_mix_emballages(
+       '11111111-1111-1111-1111-111111111111', 'FE materiau carton 2026',
+       jsonb_build_array(jsonb_build_object(
+         'id', (SELECT id FROM plateforme.parametres_mix_emballages WHERE code_materiau='carton_papier'),
+         'part_pct', (SELECT part_pct FROM plateforme.parametres_mix_emballages WHERE code_materiau='carton_papier'),
+         'fe_induit_kg_t', 77)))
+   ) SELECT 1 FROM r),
+  1, 'mix : RPC accepte la maj du FE matériau');
+
+SELECT is(
+  (SELECT fe_induit_kg_t FROM plateforme.parametres_mix_emballages WHERE code_materiau='carton_papier'),
+  77::decimal, 'mix : FE induit matériau carton édité à la main (CDC §9.2)');
 
 SELECT finish();
 ROLLBACK;

@@ -28,7 +28,12 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
   if (auth.error) return auth.error;
 
   const body = (await req.json()) as {
-    mix?: { id: string; part_pct: number }[];
+    mix?: {
+      id: string;
+      part_pct: number;
+      fe_induit_kg_t?: number;
+      fe_evite_kg_t?: number;
+    }[];
     commentaire_modif?: string;
   };
 

@@ -123,5 +123,8 @@
       "statut": "implemented",
       "libelle": "M0.10-11 — GUC savr.audit_motif snapshoté dans details.motif par trigger parametres_algo"
     }
-  ]
+  ],
+  "cdc_source_hash": {
+    "specs/cdc/01 - Cahier des charges App/07 - Architecture technique.md": "d4e8f433fecae5d9a24e1646a7ca27015d3ed28e26e094f08a7db422c4fe470b"
+  }
 }

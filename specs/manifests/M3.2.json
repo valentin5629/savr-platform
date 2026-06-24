@@ -250,5 +250,8 @@
       "statut": "implemented",
       "libelle": "M3.2/F6_factures_self_uniquement"
     }
-  ]
+  ],
+  "cdc_source_hash": {
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "cf69f909039e59a7257162491ae2fa9781ebb06357f4ddf875ccef4e4f404081"
+  }
 }

@@ -21,6 +21,7 @@ Un module n'est "fini" que si TOUS les items applicables sont cochés.
 - [ ] États vide / chargement / erreur implémentés
 - [ ] Permissions par rôle respectées (le bon rôle voit/édite le bon périmètre)
 - [ ] Vocabulaire FR du glossaire respecté
+- [ ] **Preuve visuelle (R0c / L5)** : pour TOUT livrable présentationnel (badge statut, timeline `audit_log`, watermark/contenu PDF, e-mail rendu, tokens Design System, alerte in-app), **screenshot ou Loom < 10 s joint en commentaire de PR**. Aucun script ne « voit » un rendu → un livrable `statut='à-vérifier'` au manifeste reste **À VÉRIFIER MANUELLEMENT** (jamais GO implicite) tant que la preuve n'est pas jointe. Catalogue auto : `pnpm check:preuve-visuelle`. Discipline GO-VISUAL du reviewer `reviewer-conformite-spec`. **Non mergeable sans.**
 
 ## Batch / cron
 - [ ] Idempotent (rejouable sans double effet)

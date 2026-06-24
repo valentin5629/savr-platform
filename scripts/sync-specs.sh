@@ -78,6 +78,16 @@ if [[ ! -f specs/manifests/README.md ]]; then
     > specs/manifests/README.md
 fi
 
+# ── .cdc-metadata.json (G10/G11 — hash par fichier CDC) ──────────────────────
+# DÉRIVÉ de specs/cdc/ (régénéré à chaque sync). Référence de complétude (G10)
+# et de détection de drift (G11). N'altère PAS le cdc_source_hash figé des
+# manifestes (lui n'est ré-aligné qu'au re-brief d'un module — sinon G11 inutile).
+if command -v pnpm &>/dev/null; then
+  pnpm -s gen:cdc-metadata || echo "⚠️   gen:cdc-metadata a échoué (non bloquant pour le sync)"
+else
+  echo "⚠️   pnpm absent — .cdc-metadata.json non régénéré"
+fi
+
 # ── specs/SYNC.md ────────────────────────────────────────────────────────────
 TIMESTAMP="$(date '+%Y-%m-%d %H:%M:%S %Z')"
 cat > specs/SYNC.md <<EOF

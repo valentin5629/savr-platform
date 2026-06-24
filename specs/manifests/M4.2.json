@@ -126,5 +126,8 @@
       "statut": "implemented",
       "libelle": "url_directe_bordereau_hors_perimetre_deny"
     }
-  ]
+  ],
+  "cdc_source_hash": {
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md": "8fb0a03f0d066fee65cd5dd65f60a77ce0d5e4e6c75f79cdf0370dece4d7b1f5"
+  }
 }

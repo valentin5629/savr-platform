@@ -1,3 +1,10 @@
 pnpm exec lint-staged
 bash scripts/check-coupling.sh
 bash scripts/check-specs-freshness.sh
+
+# G11 (R0c) — drift CDC ↔ manifeste, en AVERTISSEMENT (mode rapport T0). Scopé :
+# ne tourne que si le commit touche specs/cdc/ ou specs/manifests/. Non bloquant
+# (le script sort 0). Flip bloquant (T1) = retirer le `|| true` + exit 2.
+if git diff --cached --name-only | grep -qE '^specs/(cdc|manifests)/'; then
+  pnpm -s check:cdc-drift || true
+fi

@@ -95,5 +95,9 @@
       "statut": "partial",
       "libelle": "≥1 tour OK → realisee sur pesées dispo"
     }
-  ]
+  ],
+  "cdc_source_hash": {
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "1927d604cdf28b9514aa7612ddfada6dbb51ea0a58e0ffefbf96adf47e7f6f82",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "28b88baa849c7a1bbfd5179ba47c49a70bf6af18945b50fa73fdd67cd2269cb5"
+  }
 }

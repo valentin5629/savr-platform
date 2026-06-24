@@ -24,6 +24,11 @@
       "description": "Livrables ATOMIQUES du CDC couverts par ce module, au grain livrable (1 entrée = 1 policy / colonne / event / bloc UI / action audit / endpoint / règle). Un manifeste SANS deliverables[] = grain scénario-seul = REJETÉ par check-manifest-grain.",
       "minItems": 1,
       "items": { "$ref": "#/definitions/deliverable" }
+    },
+    "cdc_source_hash": {
+      "type": "object",
+      "description": "Chaînon CDC↔manifeste (R0c / G10-G11). Carte { '<fichier specs/cdc/...md>': '<sha256 au moment du brief>' } des fichiers CDC dont ce manifeste dérive. Posé par scripts/seed-manifest-cdc-hash.ts au brief/re-brief, FIGÉ ensuite. G10 vérifie sa présence ; G11 le compare à .cdc-metadata.json (généré par sync) → un specs/cdc/** modifié sans réalignement = manifeste périmé (relancer le brief).",
+      "additionalProperties": { "type": "string" }
     }
   },
   "definitions": {

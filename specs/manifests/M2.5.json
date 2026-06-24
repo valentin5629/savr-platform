@@ -40,5 +40,8 @@
       "statut": "partial",
       "libelle": "re-fetch Everest sur signal webhook (cost/preuve écrits depuis l'API, pas le payload)"
     }
-  ]
+  ],
+  "cdc_source_hash": {
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "05201a783f3927f59797184160a16b04906e3998c0dc73010e3fceb20d036892"
+  }
 }

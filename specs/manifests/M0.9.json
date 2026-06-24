@@ -112,5 +112,8 @@
       "statut": "implemented",
       "libelle": "M0.9-9 — Page /admin/sante-systeme — guard rôle admin_savr/ops_savr, affiche 5 cartes ops"
     }
-  ]
+  ],
+  "cdc_source_hash": {
+    "specs/cdc/01 - Cahier des charges App/07 - Observabilité/01 - Logs business.md": "bda4490df59ea574a7cd48a66dc6136f1864543cd18a624f6a43493da0b42287"
+  }
 }

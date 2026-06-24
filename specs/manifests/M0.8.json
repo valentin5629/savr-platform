@@ -237,5 +237,8 @@
       "statut": "implemented",
       "libelle": "M0.8-23 — pnpm build passe sans erreur TypeScript"
     }
-  ]
+  ],
+  "cdc_source_hash": {
+    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "eab82db6cf092db9228c3a24dd859827d76acce45c0235e48c70bf282fe83f02"
+  }
 }

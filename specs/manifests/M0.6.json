@@ -1127,5 +1127,8 @@
       "statut": "à-vérifier",
       "libelle": "Onglet coefficients perte labo (UI)"
     }
-  ]
+  ],
+  "cdc_source_hash": {
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "eb0e48808a912a81d2c5353378885be4c852123ec20bc8995d698f0727cf643c"
+  }
 }

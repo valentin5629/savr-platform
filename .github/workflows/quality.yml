@@ -349,3 +349,145 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: G1 — rapport couverture livrables CDC
         run: pnpm check:spec-deliverables
+
+  # ===========================================================================
+  # Lot 0 / R0c — Garde-fous de 2e ordre (red-team), MODE RAPPORT (T0)
+  # ===========================================================================
+  # Ferment les fuites résiduelles que G1-G8 laissent : L1 sémantique fausse,
+  # L2 index incomplet, L3 drift CDC, L4 test complaisant, L5 jugement humain.
+  # Tous `continue-on-error: true` (le workflow reste vert) + $GITHUB_STEP_SUMMARY.
+
+  # G6 — Schéma V1 (migrations réelles, après db reset) vs DDL cible V2
+  # (specs/ddl-cible/schema_cible_v2.sql chargé dans une base scratch). Diff via
+  # pg_catalog (décision Val 2026-06-24 : zéro dépendance npm). Garde-fou 1
+  # TMS-Ready : anti-renommage/migration silencieuse en V2. Distinct de G7
+  # (qui compare au schéma RÉEL V1). Hors allowlist v1-divergences-allowlist.txt
+  # = signalé. Skip tant qu'aucune migration n'existe.
+  schema-vs-cible:
+    needs: detect-prereqs
+    if: needs.detect-prereqs.outputs.has_migrations == 'true'
+    runs-on: ubuntu-latest
+    continue-on-error: true # MODE RAPPORT — ne rougit jamais le workflow en T0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - uses: supabase/setup-cli@v1
+        with: { version: 2.105.0 }
+      - run: supabase start
+        env:
+          SUPABASE_NO_ANALYTICS: 'true'
+      - run: supabase db reset
+        env:
+          SUPABASE_NO_ANALYTICS: 'true'
+      - name: Charger le DDL cible V2 dans une base scratch
+        run: |
+          V1_URL='postgresql://postgres:postgres@localhost:54322/postgres'
+          psql "$V1_URL" -v ON_ERROR_STOP=1 -c "DROP DATABASE IF EXISTS cible_v2;"
+          psql "$V1_URL" -v ON_ERROR_STOP=1 -c "CREATE DATABASE cible_v2;"
+          # Le DDL cible est self-contained (CREATE EXTENSION/SCHEMA/TYPE/TABLE/FK).
+          # En mode rapport : on log l'échec de chargement sans rougir le job.
+          psql 'postgresql://postgres:postgres@localhost:54322/cible_v2' \
+            -v ON_ERROR_STOP=1 -f specs/ddl-cible/schema_cible_v2.sql \
+            || echo "::warning::Chargement DDL cible partiel — diff sur ce qui a chargé."
+      - name: G6 — rapport schéma vs cible
+        run: pnpm check:schema-vs-cible
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:54322/postgres
+          CIBLE_DATABASE_URL: postgresql://postgres:postgres@localhost:54322/cible_v2
+
+  # G9 — Oracles sémantiques (L1 : règle métier fausse malgré test vert). Exécute
+  # supabase/tests-report/g9_semantic_oracle.test.sql (HORS supabase/tests/ pour
+  # ne pas être ramassé par le job bloquant pgtap-rls-outbox) : oracles fn_est_*
+  # comparés au comportement RÉEL aux cas-limites. Skip tant qu'aucune migration.
+  semantic-oracle:
+    needs: detect-prereqs
+    if: needs.detect-prereqs.outputs.has_migrations == 'true'
+    runs-on: ubuntu-latest
+    continue-on-error: true # MODE RAPPORT — ne rougit jamais le workflow en T0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with: { version: 2.105.0 }
+      - run: supabase start
+        env:
+          SUPABASE_NO_ANALYTICS: 'true'
+      - run: supabase db reset
+        env:
+          SUPABASE_NO_ANALYTICS: 'true'
+      - name: G9 — rapport oracles sémantiques
+        run: bash scripts/run-report-pgtap.sh supabase/tests-report/g9_semantic_oracle.test.sql "G9 — Oracles sémantiques"
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:54322/postgres
+
+  # integration-contracts — Postconditions sur VRAIE DB (L4 : test complaisant).
+  # n° facture gapless + ligne alerte réellement écrite. R2/Storage reporté preprod
+  # (skip tracé). Exécute supabase/tests-report/integration_contracts.test.sql.
+  integration-contracts:
+    needs: detect-prereqs
+    if: needs.detect-prereqs.outputs.has_migrations == 'true'
+    runs-on: ubuntu-latest
+    continue-on-error: true # MODE RAPPORT — ne rougit jamais le workflow en T0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with: { version: 2.105.0 }
+      - run: supabase start
+        env:
+          SUPABASE_NO_ANALYTICS: 'true'
+      - run: supabase db reset
+        env:
+          SUPABASE_NO_ANALYTICS: 'true'
+      - name: integration-contracts — rapport postconditions DB réelles
+        run: bash scripts/run-report-pgtap.sh supabase/tests-report/integration_contracts.test.sql "integration-contracts — postconditions DB"
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:54322/postgres
+
+  # G10 — Complétude inverse des manifestes (L2 : index incomplet). Chaque module
+  # roadmap V1 a-t-il un manifeste ? Chaque manifeste porte-t-il cdc_source_hash ?
+  # Pur Node (tsx), sans DB.
+  manifest-completeness:
+    runs-on: ubuntu-latest
+    continue-on-error: true # MODE RAPPORT — ne rougit jamais le workflow en T0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: G10 — rapport complétude manifestes
+        run: pnpm check:manifest-completeness
+
+  # G11 — Drift CDC (L3 : CDC patché, manifeste figé). Compare cdc_source_hash
+  # figé ↔ .cdc-metadata.json courant ; annote les fichiers modifiés dans la PR.
+  # fetch-depth: 0 pour le git diff vs origin/main. Pur Node (tsx), sans DB.
+  cdc-drift:
+    runs-on: ubuntu-latest
+    continue-on-error: true # MODE RAPPORT — ne rougit jamais le workflow en T0
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: G11 — rapport drift CDC ↔ manifeste
+        run: pnpm check:cdc-drift
+
+  # preuve-visuelle (L5) — catalogue des livrables présentationnels (à-vérifier)
+  # exigeant une preuve screenshot/Loom en PR + vérif backstop go-live
+  # (docs/audit/AUDIT_SCOPE.json). Discipline humaine ; ce job rend le catalogue
+  # non-contournable (compté). Pur Node (tsx), sans DB.
+  preuve-visuelle:
+    runs-on: ubuntu-latest
+    continue-on-error: true # MODE RAPPORT — ne rougit jamais le workflow en T0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: L5 — rapport catalogue preuve-visuelle
+        run: pnpm check:preuve-visuelle

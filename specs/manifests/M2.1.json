@@ -104,5 +104,8 @@
       "statut": "implemented",
       "libelle": "tarif versioning : POST ferme ligne active, ouvre nouvelle ligne"
     }
-  ]
+  ],
+  "cdc_source_hash": {
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "1927d604cdf28b9514aa7612ddfada6dbb51ea0a58e0ffefbf96adf47e7f6f82"
+  }
 }

@@ -136,6 +136,7 @@ function main(): void {
   console.log(
     `[cdc-drift] ${headline.length} drift(s)${prFiles ? ' (PR)' : ''} · ${drifts.length} total — MODE RAPPORT (exit 0).`,
   );
+  console.log(`RATCHET_COUNT=${drifts.length}`); // lu par check-ratchet (C1)
   process.exit(0);
 }
 

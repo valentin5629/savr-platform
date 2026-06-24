@@ -30,6 +30,7 @@
     "check:semantic-oracle": "bash scripts/run-report-pgtap.sh supabase/tests-report/g9_semantic_oracle.test.sql 'G9 — Oracles sémantiques'",
     "check:integration-contracts": "bash scripts/run-report-pgtap.sh supabase/tests-report/integration_contracts.test.sql 'integration-contracts — postconditions DB'",
     "check:preuve-visuelle": "tsx scripts/check-preuve-visuelle.ts",
+    "check:ratchet": "tsx scripts/check-ratchet.ts",
     "gen:cdc-metadata": "tsx scripts/gen-cdc-metadata.ts",
     "db:smoke": "bash scripts/smoke-test-db.sh",
     "test:module": "tsx scripts/test-module.ts",

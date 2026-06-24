@@ -215,6 +215,7 @@ function main(): void {
     `[column-db] Compteur burn-down (colonne-DB haute confiance) : ` +
       `${colonne.length} call-site(s) sur ${colonneRoutes} route(s).`,
   );
+  console.log(`RATCHET_COUNT=${colonne.length}`); // lu par check-ratchet (C1)
   console.log('[column-db] Mode RAPPORT — non bloquant (exit 0).');
   process.exit(0);
 }

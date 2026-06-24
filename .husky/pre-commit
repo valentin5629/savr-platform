@@ -1,6 +1,7 @@
 pnpm exec lint-staged
 bash scripts/check-coupling.sh
 bash scripts/check-specs-freshness.sh
+bash scripts/check-migration-timestamp.sh
 
 # G11 (R0c) — drift CDC ↔ manifeste, en AVERTISSEMENT (mode rapport T0). Scopé :
 # ne tourne que si le commit touche specs/cdc/ ou specs/manifests/. Non bloquant

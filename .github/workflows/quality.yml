@@ -473,6 +473,9 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20, cache: pnpm }
       - run: pnpm install --frozen-lockfile
+      # Régénère .cdc-metadata.json depuis specs/cdc AVANT le diff : sinon G11
+      # compare contre un metadata commité potentiellement périmé (R0d finding #10).
+      - run: pnpm gen:cdc-metadata
       - name: G11 — rapport drift CDC ↔ manifeste
         run: pnpm check:cdc-drift
 
@@ -491,3 +494,24 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: L5 — rapport catalogue preuve-visuelle
         run: pnpm check:preuve-visuelle
+
+  # ===========================================================================
+  # R0d — MÉTA-CLIQUET anti-régression. SEUL gate Lot 0 BLOQUANT (continue-on-error
+  # absent). Les gates G1/G2/G7/G10/G11 restent en mode rapport (ils observent le
+  # backlog), MAIS ce job échoue si l'un de leurs compteurs DÉPASSE sa baseline
+  # versionnée (docs/audit/gate-baseline.json) → toute NOUVELLE divergence rougit,
+  # sans avoir à flipper chaque gate. Un lot qui corrige fait baisser la baseline
+  # (pnpm check:ratchet --update). Pas de DB requise (snapshot db.types committé).
+  gate-ratchet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Régénère .cdc-metadata.json (cohérence G11 dans le cliquet)
+        run: pnpm gen:cdc-metadata
+      - name: Méta-cliquet — aucun compteur de gate au-dessus de sa baseline
+        run: pnpm check:ratchet

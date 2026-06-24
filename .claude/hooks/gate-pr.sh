@@ -13,6 +13,37 @@ fi
 BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
 MARKER_CONFORMITE=".claude/conformite-ok-$(printf '%s' "$BRANCH" | tr '/' '-')"
 MARKER_SECURITE=".claude/securite-ok-$(printf '%s' "$BRANCH" | tr '/' '-')"
+HEAD_SHA="$(git rev-parse HEAD 2>/dev/null || echo nohead)"
+
+# R0d — un marker reviewer doit CONTENIR 'GO' + le SHA HEAD courant. Un fichier
+# vide (touch) ou périmé (créé sur un commit antérieur) est rejeté → revue réelle,
+# ré-attestée après chaque nouveau commit.
+check_marker() {
+  marker="$1"; label="$2"; agent="$3"
+  if [ ! -f "$marker" ]; then
+    echo "" >&2
+    echo "❌ REVIEWER $label MANQUANT — PR bloquée." >&2
+    echo "   Après Agent(subagent_type='$agent') si GO : echo \"GO $HEAD_SHA\" > '$marker'" >&2
+    echo "" >&2
+    exit 2
+  fi
+  # Ancré : 'GO ' en début de ligne — évite le faux positif de la sous-chaîne
+  # « NON-GO » (un marker 'NON-GO <sha>' ne doit PAS passer).
+  if ! grep -qE '^GO ' "$marker"; then
+    echo "" >&2
+    echo "❌ MARKER $label sans verdict 'GO' en tête (vide ou NON-GO ?) — PR bloquée." >&2
+    echo "" >&2
+    exit 2
+  fi
+  if ! grep -q "$HEAD_SHA" "$marker"; then
+    echo "" >&2
+    echo "❌ MARKER $label périmé (ne référence pas HEAD $HEAD_SHA) — re-revue requise après tes derniers commits." >&2
+    echo "   Recrée : echo \"GO $HEAD_SHA\" > '$marker'" >&2
+    echo "" >&2
+    exit 2
+  fi
+  echo "  ✅ $label GO (marker à jour)" >&2
+}
 
 echo "" >&2
 echo "🔒 GATE PR — vérification avant création PR ($BRANCH)" >&2
@@ -57,31 +88,11 @@ if ! bash scripts/check-outbox-contracts.sh >&2 2>&1; then
 fi
 echo "  ✅ outbox contracts OK" >&2
 
-# 4. Reviewer conformite-spec
-if [ ! -f "$MARKER_CONFORMITE" ]; then
-  echo "" >&2
-  echo "❌ REVIEWER CONFORMITE-SPEC MANQUANT — PR bloquée." >&2
-  echo "" >&2
-  echo "  1. Lance le reviewer : Agent(subagent_type='reviewer-conformite-spec')" >&2
-  echo "  2. Si GO : crée le fichier '$MARKER_CONFORMITE'" >&2
-  echo "  3. Si NON-GO : corrige les écarts, re-lance le reviewer, puis crée le fichier" >&2
-  echo "" >&2
-  exit 2
-fi
-echo "  ✅ conformite-spec GO" >&2
+# 4. Reviewer conformite-spec — existence + 'GO' + SHA HEAD (R0d).
+check_marker "$MARKER_CONFORMITE" "CONFORMITE-SPEC" "reviewer-conformite-spec"
 
-# 5. Reviewer rls-securite
-if [ ! -f "$MARKER_SECURITE" ]; then
-  echo "" >&2
-  echo "❌ REVIEWER RLS-SECURITE MANQUANT — PR bloquée." >&2
-  echo "" >&2
-  echo "  1. Lance le reviewer : Agent(subagent_type='reviewer-rls-securite')" >&2
-  echo "  2. Si GO : crée le fichier '$MARKER_SECURITE'" >&2
-  echo "  3. Si NON-GO : corrige les écarts, re-lance le reviewer, puis crée le fichier" >&2
-  echo "" >&2
-  exit 2
-fi
-echo "  ✅ rls-securite GO" >&2
+# 5. Reviewer rls-securite — existence + 'GO' + SHA HEAD (R0d).
+check_marker "$MARKER_SECURITE" "RLS-SECURITE" "reviewer-rls-securite"
 
 echo "" >&2
 echo "✅ GATE PR OK — création autorisée." >&2

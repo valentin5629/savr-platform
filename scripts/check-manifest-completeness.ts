@@ -162,6 +162,7 @@ function main(): void {
     `[manifest-completeness] Burn-down : ${missingManifest.length} module(s) sans manifeste · ` +
       `${noHash.length} sans cdc_source_hash.`,
   );
+  console.log(`RATCHET_COUNT=${missingManifest.length + noHash.length}`); // C1
   console.log('[manifest-completeness] Mode RAPPORT — non bloquant (exit 0).');
   process.exit(0);
 }

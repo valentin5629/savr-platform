@@ -75,7 +75,7 @@ Savr collecte les invendus d'événements traiteurs : **AG** (Anti-Gaspi, don à
 
 ## 4. Règles métier critiques — NE PAS réinterpréter (SI/ALORS)
 
-- **SI** pack AG attribué **ALORS** FIFO strict sur `created_at` du pack — jamais LIFO.
+- **SI** débit de crédit pack AG **ALORS** sur le **pack actif unique** de l'organisation — au plus 1 pack `statut='actif'` à un instant T (invariant DB `uniq_pack_actif_par_org`). **PAS de FIFO multi-packs en V1** (refonte CDC §05 « Pack unique actif » 2026-05-08 ; le FIFO `created_at` est supprimé, ne pas le ré-introduire).
 - **SI** annulation AG < 12h avant collecte **ALORS** débit du crédit pack (trigger `trg_pack_debit_annulation_tardive`). **SINON** crédit non débité.
 - **SI** programmation AG **ET** aucun pack actif **ALORS** alerte seule (pas de blocage hors-pack — supprimé).
 - Tarifs ZD : **versionnés**, jamais modifiés rétroactivement.

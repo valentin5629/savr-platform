@@ -1,24 +1,32 @@
 #!/usr/bin/env node
 /**
  * scripts/test-module.ts
- * Lance vitest en filtrant par préfixe de module (ex: "M0.3", "M1.1 ZD").
+ * Lance vitest en filtrant par préfixe(s) de module.
+ * R0d : VARIADIQUE — un lot de remédiation touche souvent PLUSIEURS modules
+ * (R1=M1.5+M1.8, R2=M1.6+M2.4+M1.5…). Un seul préfixe laissait les autres
+ * modules du lot jamais exécutés alors que /goal passait au vert.
+ *
  * Usage : pnpm test:module M0.3
+ *         pnpm test:module M1.5 M1.8
  *         pnpm test:module "M1.1 ZD"
  */
 import { execSync } from 'node:child_process';
 
-const pattern = process.argv[2];
-if (!pattern) {
-  console.error('Usage: pnpm test:module <MODULE_PREFIX>');
-  console.error('  ex: pnpm test:module M0.3');
+const patterns = process.argv.slice(2);
+if (patterns.length === 0) {
+  console.error('Usage: pnpm test:module <MODULE_PREFIX> [MODULE_PREFIX...]');
+  console.error('  ex: pnpm test:module M1.5 M1.8');
   process.exit(1);
 }
 
-// On filtre par le titre du test via --reporter=verbose + --testNamePattern
-const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const cmd = `vitest run --reporter=verbose --testNamePattern="^${escaped}"`;
+// Échappe chaque préfixe puis assemble une alternance ancrée au début du titre.
+const escaped = patterns
+  .map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  .join('|');
+const namePattern = `^(${escaped})`;
+const cmd = `vitest run --reporter=verbose --testNamePattern="${namePattern}"`;
 
-console.log(`▶  vitest run --testNamePattern="^${escaped}"`);
+console.log(`▶  vitest run --testNamePattern="${namePattern}"`);
 try {
   execSync(cmd, { stdio: 'inherit' });
 } catch {

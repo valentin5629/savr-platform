@@ -151,6 +151,7 @@ function main(): void {
     `[spec-deliverables] Burn-down : ${uncovered.length} non transcrit(s) · ` +
       `${coveredCount} transcrit(s) · ${descopedCount} descopé(s) / ${index.deliverables.length} indexés.`,
   );
+  console.log(`RATCHET_COUNT=${uncovered.length}`); // lu par check-ratchet (C1)
   console.log('[spec-deliverables] Mode RAPPORT — non bloquant (exit 0).');
   process.exit(0);
 }

@@ -29,6 +29,11 @@ function loadManifests(): string[] {
     const f = join(MANIFESTS_DIR, `${arg}.json`);
     if (!existsSync(f)) {
       console.error(`❌  Manifest absent : ${f}`);
+      console.error(
+        `    Le module ${arg} n'a pas de manifeste. CRÉE le manifeste au grain LIVRABLE ` +
+          `(deliverables[], cf. specs/manifests/_schema.json) AVANT de coder — ` +
+          `ne PAS lancer le lot sans manifeste (R0d, finding #6).`,
+      );
       process.exit(1);
     }
     return [f];
@@ -56,34 +61,89 @@ function getVitestTitles(): Set<string> {
   }
 }
 
+// Mode STRICT (R0d) : actif uniquement quand un module précis est demandé
+// (l'usage /goal d'un lot). Vérifie alors AUSSI les deliverables[] — c'est ce qui
+// ferme la cause racine : /goal ne regardait que scenarios[], jamais deliverables[].
+// Le mode tous-manifestes (sans arg) garde le comportement scénario-seul (sanity).
+const strict = Boolean(arg);
+
 const files = loadManifests();
 const vitestTitles = getVitestTitles();
 
+type Scenario = string | { id?: string; title?: string; description?: string };
+interface Deliverable {
+  id?: string;
+  statut?: string;
+  test?: string | null;
+  libelle?: string;
+}
+
+function scenarioTitle(s: Scenario): string {
+  if (typeof s === 'string') return s;
+  return s.title ?? s.description ?? s.id ?? '';
+}
+
 let missing = 0;
+let deliverableIssues = 0;
 for (const f of files) {
   const manifest = JSON.parse(readFileSync(f, 'utf8')) as {
     module: string;
-    scenarios?: string[];
+    scenarios?: Scenario[];
+    deliverables?: Deliverable[];
   };
+  const scenarios = manifest.scenarios ?? [];
+  const deliverables = manifest.deliverables ?? [];
   console.log(`\n📋  ${manifest.module} (${f})`);
-  // Garde : certains manifestes n'ont pas de scenarios[] (ex. M2.5, souches R0b) —
-  // ne couvrir que ce qui existe, ne jamais crasher en mode tous-manifestes.
-  for (const scenario of manifest.scenarios ?? []) {
-    const found = [...vitestTitles].some((t) => t.includes(scenario));
-    if (found) {
-      console.log(`  ✅  ${scenario}`);
-    } else {
-      console.log(`  ❌  MANQUANT : ${scenario}`);
+
+  // Scénarios → titres vitest (comportement historique conservé).
+  for (const sc of scenarios) {
+    const title = scenarioTitle(sc);
+    if (!title) continue;
+    const found = [...vitestTitles].some((t) => t.includes(title));
+    if (found) console.log(`  ✅  ${title}`);
+    else {
+      console.log(`  ❌  MANQUANT : ${title}`);
       missing++;
+    }
+  }
+
+  if (!strict) continue;
+
+  // ── Mode lot (arg) : vérifie les deliverables[] ──
+  // Vacuité : un module demandé explicitement sans AUCUNE couverture = échec
+  // (sinon /goal vert à vide — findings #6/#7).
+  if (scenarios.length === 0 && deliverables.length === 0) {
+    console.log(
+      `  ⛔  ${manifest.module} n'a NI scenarios[] NI deliverables[] — couverture vide interdite pour un module demandé.`,
+    );
+    deliverableIssues++;
+    continue;
+  }
+
+  // Tout deliverable 'implemented' DOIT nommer sa preuve (test non-null). On
+  // tolère les preuves pgTAP/SQL (présence du champ suffit, pas de matching
+  // fragile sur les titres vitest) : ce qui est interdit, c'est un livrable
+  // déclaré réalisé sans aucune preuve nommée — le 3e temps escamoté.
+  for (const d of deliverables) {
+    if (d.statut === 'implemented') {
+      const t = (d.test ?? '').toString().trim();
+      if (t === '') {
+        console.log(
+          `  ⛔  deliverable « ${d.id ?? d.libelle ?? '?'} » statut=implemented SANS test — nomme sa preuve (3e temps).`,
+        );
+        deliverableIssues++;
+      } else {
+        console.log(`  ✅  livrable ${d.id} → ${t}`);
+      }
     }
   }
 }
 
-if (missing > 0) {
+if (missing > 0 || deliverableIssues > 0) {
   console.error(
-    `\n⛔  ${missing} scénario(s) sans test — ajoutez-les dans vitest.`,
+    `\n⛔  ${missing} scénario(s) sans test + ${deliverableIssues} problème(s) de livrable — /goal NON satisfait.`,
   );
   process.exit(1);
 } else {
-  console.log('\n✅  Couverture complète.');
+  console.log('\n✅  Couverture complète (scénarios + livrables).');
 }

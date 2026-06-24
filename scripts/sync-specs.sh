@@ -112,15 +112,18 @@ echo "    specs/fixtures  : ${n_fix} fichiers"
 
 # ── Mode --auto : commit si working tree propre ───────────────────────────────
 if [[ "$AUTO" == "true" ]]; then
-  OTHER_CHANGES=$(git status --porcelain | grep -Ev '^.. (specs/|CLAUDE\.md)' || true)
+  # .cdc-metadata.json est DÉRIVÉ de specs/cdc (régénéré ci-dessus) mais vit à la
+  # RACINE du repo, hors de specs/ → il faut l'inclure explicitement, sinon le
+  # fichier commité se périme et G11 (cdc-drift) lit un hash mort (R0d, finding #10).
+  OTHER_CHANGES=$(git status --porcelain | grep -Ev '^.. (specs/|CLAUDE\.md|\.cdc-metadata\.json)' || true)
   if [[ -n "$OTHER_CHANGES" ]]; then
     echo
     echo "⚠️  --auto : working tree non propre (fichiers hors specs/ modifiés) — commit ignoré."
   else
-    if [[ -z "$(git status --porcelain specs/ CLAUDE.md 2>/dev/null)" ]]; then
-      echo "⚠️  --auto : aucun changement dans specs/ ni CLAUDE.md — rien à commiter."
+    if [[ -z "$(git status --porcelain specs/ CLAUDE.md .cdc-metadata.json 2>/dev/null)" ]]; then
+      echo "⚠️  --auto : aucun changement dans specs/, CLAUDE.md ni .cdc-metadata.json — rien à commiter."
     else
-      git add specs/ CLAUDE.md
+      git add specs/ CLAUDE.md .cdc-metadata.json
       git commit -m "specs: sync (auto) — ${TIMESTAMP}"
       echo "🎉  Commit automatique posé : specs: sync (auto)"
     fi

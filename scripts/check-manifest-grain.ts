@@ -296,6 +296,7 @@ function main(): void {
     `[manifest-grain] Burn-down : ${grainScenario.length} grain scénario-seul · ` +
       `${structIssues.length} écart(s) structurel(s) · ${ok.length}/${reports.length} valides.`,
   );
+  console.log(`RATCHET_COUNT=${grainScenario.length + structIssues.length}`); // C1
   console.log('[manifest-grain] Mode RAPPORT — non bloquant (exit 0).');
   process.exit(0);
 }

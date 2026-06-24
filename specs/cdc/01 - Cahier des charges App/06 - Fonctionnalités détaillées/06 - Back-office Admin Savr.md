@@ -302,7 +302,7 @@ Toutes les actions sont loguées dans `audit_log`.
 
 **Suppression 2026-05-07 — flux ZD souhaités et volume estimé AG ne sont plus des champs de saisie utilisateur** :
 
-- **Flux ZD** : à la création d'une collecte ZD, les **5 flux V1 par défaut** sont auto-créés (`biodechet`, `emballage`, `carton`, `verre`, `dechet_residuel`). Pas de saisie traiteur. Le prestataire peut ne rien collecter sur un flux donné (poids = 0 saisi en pesée). Voir [[05 - Règles métier#R_flux_par_defaut_zd]].
+- **Flux ZD** : à la création d'une collecte ZD, les **5 flux V1 par défaut sont le référentiel d'affichage** (`biodechet`, `emballage`, `carton`, `verre`, `dechet_residuel`) ; **aucune ligne `collecte_flux` n'est pré-créée** (les lignes sont _dérivées_ de `pesees_tournees` à l'agrégation terminale — cf. §04 — ou saisies manuellement par l'Admin). Pas de saisie traiteur. Un flux non collecté = pas de ligne (implicitement 0) ; l'UI affiche les 5 flux en « En attente ». Ceci garantit le gate batch R-PDF3 (`0 ligne → skip`, jamais de bordereau vide). Voir [[05 - Règles métier#R_flux_par_defaut_zd]].
 - **Volume estimé AG** : **calculé en backend** par formule auto (`volume_estime_repas = round(0.10 × evenements.pax)`, V1). Sert uniquement à l'algo d'attribution association (R_capacite_min_50pct). **Non saisi, non visible côté traiteur.** Le traiteur ne voit que le `volume_repas_realise` post-collecte. Voir [[05 - Règles métier#R_volume_estime_ag_calcule]].
 
 **Affichage back-office** : badge "Info incomplète" sur la liste + bloc dédié sur la fiche collecte listant les champs manquants + bouton "Envoyer un rappel au traiteur" (manuel V1).

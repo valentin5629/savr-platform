@@ -132,8 +132,8 @@
       "bytes": 49896
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": {
-      "sha256": "eb0e48808a912a81d2c5353378885be4c852123ec20bc8995d698f0727cf643c",
-      "bytes": 84913
+      "sha256": "a3d8cd45fde4b0489ffa5101a595460278442217a51cb3523fbce9e69a7dc000",
+      "bytes": 85214
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md": {
       "sha256": "4fe5e1d6da20c6c1b4b87329f5ea823f451dd6a3812b103b400108f9b5617915",
@@ -148,7 +148,7 @@
       "bytes": 16912
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/_RAPPORT-EXPORT.md": {
-      "sha256": "207c8667aba80c3e42ab3b22e2596e11cae37d139e69350fd53670b8ed2ef98e",
+      "sha256": "ef0bd6cc5ec3ea83b6022cbaeb087d4246f91aee587e627651f2c75b2f6d163a",
       "bytes": 1036
     },
     "specs/cdc/01 - Cahier des charges App/06 - Monitoring perf prod.md": {

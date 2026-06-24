@@ -1,12 +1,12 @@
 # Rapport export dev-facing
 
 Mode : SUR (T1 seul, T2 detecte)
-**Total : 84089 -> 82364 octets (-1725, -2.1%)**
+**Total : 84375 -> 82650 octets (-1725, -2.0%)**
 
 
 ## 06 - Back-office Admin Savr.md
-- octets : 84089 -> 82364 (-1725, -2.1%)
-- tokens estimes : ~21022 -> ~20591
+- octets : 84375 -> 82650 (-1725, -2.0%)
+- tokens estimes : ~21093 -> ~20662
 - tombstones supprimes : 6 | fragments barres retires : 12 | en-tetes debarres : 1
 - ⚠ tombstones en prose a revoir a la main :
     L407: - — supprimé 2026-05-07 (unification libellé)

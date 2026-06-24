@@ -42,7 +42,11 @@ interface CollecteDetail {
     lieux: { nom: string; ville: string; adresse_acces: string };
     types_evenements: { nom: string };
   };
-  collecte_flux: { code_flux: string; poids_kg: number | null }[];
+  collecte_flux: {
+    flux_id: string;
+    poids_reel_kg: number | null;
+    flux_dechets: { code: string; nom: string } | null;
+  }[];
   collecte_tournees: {
     rang: number;
     tournees: {
@@ -54,6 +58,17 @@ interface CollecteDetail {
   }[];
   factures_collectes: { id: string; montant_ht: number; statut: string }[];
 }
+
+// Référentiel des 5 flux ZD V1 (figé — seed flux_dechets). Sert à afficher tous
+// les flux dans Bloc 3 même quand collecte_flux n'a pas encore de ligne (pesées
+// dérivées de pesees_tournees à l'agrégation, ou saisie manuelle Admin).
+const ZD_FLUX = [
+  { code: 'biodechet', nom: 'Biodéchets' },
+  { code: 'emballage', nom: 'Emballages' },
+  { code: 'carton', nom: 'Cartons' },
+  { code: 'verre', nom: 'Verre' },
+  { code: 'dechet_residuel', nom: 'Déchet résiduel' },
+] as const;
 
 export default function CollecteDetailPage() {
   const params = useParams<{ id: string }>();
@@ -69,6 +84,12 @@ export default function CollecteDetailPage() {
   const [annulerCreditError, setAnnulerCreditError] = useState<string | null>(
     null,
   );
+  // Édition manuelle des pesées ZD (Bloc 3)
+  const [editPesees, setEditPesees] = useState(false);
+  const [peseesInput, setPeseesInput] = useState<Record<string, string>>({});
+  const [peseesMotif, setPeseesMotif] = useState('');
+  const [peseesSaving, setPeseesSaving] = useState(false);
+  const [peseesError, setPeseesError] = useState<string | null>(null);
 
   const STATUTS_TERMINAUX = [
     'realisee',
@@ -124,6 +145,48 @@ export default function CollecteDetailPage() {
       setDispatchError(body.error);
     }
     setDispatching(false);
+  };
+
+  const openEditPesees = () => {
+    if (!collecte) return;
+    const prefill: Record<string, string> = {};
+    for (const flux of ZD_FLUX) {
+      const ligne = collecte.collecte_flux.find(
+        (f) => f.flux_dechets?.code === flux.code,
+      );
+      prefill[flux.code] =
+        ligne?.poids_reel_kg != null ? String(ligne.poids_reel_kg) : '';
+    }
+    setPeseesInput(prefill);
+    setPeseesMotif('');
+    setPeseesError(null);
+    setEditPesees(true);
+  };
+
+  const handleSavePesees = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPeseesSaving(true);
+    setPeseesError(null);
+    const pesees = ZD_FLUX.filter(
+      (flux) => peseesInput[flux.code]?.trim() !== '',
+    ).map((flux) => ({
+      flux_code: flux.code,
+      poids_reel_kg: Number(peseesInput[flux.code]),
+    }));
+    const res = await fetch(`/api/v1/admin/collectes/${params.id}/flux`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ pesees, motif: peseesMotif }),
+    });
+    if (res.ok) {
+      const updated = await fetch(`/api/v1/admin/collectes/${params.id}`);
+      if (updated.ok) setCollecte((await updated.json()) as CollecteDetail);
+      setEditPesees(false);
+    } else {
+      const body = (await res.json()) as { error: string };
+      setPeseesError(body.error);
+    }
+    setPeseesSaving(false);
   };
 
   if (loading) {
@@ -330,41 +393,129 @@ export default function CollecteDetailPage() {
         </Card>
       </div>
 
-      {/* Bloc 3 — Pesées ZD */}
-      {collecte.type === 'zero_dechet' && collecte.collecte_flux.length > 0 && (
+      {/* Bloc 3 — Pesées ZD (dérivées des pesées MTS-1 ou saisie manuelle Admin) */}
+      {collecte.type === 'zero_dechet' && (
         <Card className="p-6 space-y-4">
-          <h2 className="font-semibold text-savr-neutral-800">
-            Bloc 3 — Pesées ZD
-          </h2>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-savr-neutral-200">
-                <th className="text-left py-2 text-savr-neutral-500 font-medium">
-                  Flux
-                </th>
-                <th className="text-right py-2 text-savr-neutral-500 font-medium">
-                  Poids (kg)
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {collecte.collecte_flux.map((f) => (
-                <tr
-                  key={f.code_flux}
-                  className="border-b border-savr-neutral-100"
-                >
-                  <td className="py-2 font-medium">{f.code_flux}</td>
-                  <td className="py-2 text-right">
-                    {f.poids_kg !== null ? (
-                      <span className="font-medium">{f.poids_kg} kg</span>
-                    ) : (
-                      <span className="text-savr-neutral-400">En attente</span>
-                    )}
-                  </td>
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-savr-neutral-800">
+              Bloc 3 — Pesées ZD
+            </h2>
+            {!editPesees && (
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={collecte.statut === 'cloturee'}
+                onClick={openEditPesees}
+              >
+                {collecte.statut === 'cloturee'
+                  ? 'Clôturée — édition via avoir'
+                  : 'Éditer les pesées'}
+              </Button>
+            )}
+          </div>
+
+          {!editPesees ? (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-savr-neutral-200">
+                  <th className="text-left py-2 text-savr-neutral-500 font-medium">
+                    Flux
+                  </th>
+                  <th className="text-right py-2 text-savr-neutral-500 font-medium">
+                    Poids (kg)
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {ZD_FLUX.map((flux) => {
+                  const ligne = collecte.collecte_flux.find(
+                    (f) => f.flux_dechets?.code === flux.code,
+                  );
+                  const poids = ligne?.poids_reel_kg ?? null;
+                  return (
+                    <tr
+                      key={flux.code}
+                      className="border-b border-savr-neutral-100"
+                    >
+                      <td className="py-2 font-medium">{flux.nom}</td>
+                      <td className="py-2 text-right">
+                        {poids !== null ? (
+                          <span className="font-medium">{poids} kg</span>
+                        ) : (
+                          <span className="text-savr-neutral-400">
+                            En attente
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : (
+            <form
+              onSubmit={(e) => void handleSavePesees(e)}
+              className="space-y-3"
+            >
+              <table className="w-full text-sm">
+                <tbody>
+                  {ZD_FLUX.map((flux) => (
+                    <tr
+                      key={flux.code}
+                      className="border-b border-savr-neutral-100"
+                    >
+                      <td className="py-2 font-medium">{flux.nom}</td>
+                      <td className="py-2 text-right">
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={peseesInput[flux.code] ?? ''}
+                          onChange={(e) =>
+                            setPeseesInput((prev) => ({
+                              ...prev,
+                              [flux.code]: e.target.value,
+                            }))
+                          }
+                          className="w-28 border border-neutral-300 rounded-lg px-2 py-1 text-sm text-right"
+                          placeholder="kg"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Motif (obligatoire, ≥ 5 caractères)
+                </label>
+                <textarea
+                  value={peseesMotif}
+                  onChange={(e) => setPeseesMotif(e.target.value)}
+                  rows={2}
+                  minLength={5}
+                  className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
+                  required
+                />
+              </div>
+              {peseesError && (
+                <p className="text-savr-error-600 text-sm">{peseesError}</p>
+              )}
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setEditPesees(false)}
+                  disabled={peseesSaving}
+                >
+                  Annuler
+                </Button>
+                <Button type="submit" disabled={peseesSaving}>
+                  {peseesSaving ? 'Enregistrement…' : 'Enregistrer'}
+                </Button>
+              </div>
+            </form>
+          )}
         </Card>
       )}
 

@@ -344,5 +344,9 @@ describe('M1.1b / Collectes / Création', () => {
         p_date_collecte: '2026-07-01',
       }),
     );
+    // BL-P0-01 : plus de pré-création de lignes collecte_flux (colonnes fantômes
+    // code_flux/poids_kg supprimées) — les pesées sont dérivées de pesees_tournees
+    // ou saisies via PATCH /flux. Pré-créer 5 lignes NULL casserait le gate batch.
+    expect(mockSupabaseChain.from).not.toHaveBeenCalledWith('collecte_flux');
   });
 });

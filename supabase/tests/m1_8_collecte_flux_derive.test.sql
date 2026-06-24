@@ -71,11 +71,11 @@ VALUES
   ('caf1d002-0000-0000-0000-000000000001'::uuid, 'T-R1-2', current_date + 10, 'matin', 'caf10007-0000-0000-0000-000000000001'::uuid, 'Ch2', 'terminee'),
   ('caf1d003-0000-0000-0000-000000000001'::uuid, 'T-R1-3', current_date + 10, 'matin', 'caf10007-0000-0000-0000-000000000001'::uuid, 'Ch3', 'terminee');
 
-INSERT INTO plateforme.collecte_tournees (collecte_id, tournee_id)
+INSERT INTO plateforme.collecte_tournees (collecte_id, tournee_id, rang)
 VALUES
-  ('caf1c001-0000-0000-0000-000000000001'::uuid, 'caf1d001-0000-0000-0000-000000000001'::uuid),
-  ('caf1c001-0000-0000-0000-000000000001'::uuid, 'caf1d002-0000-0000-0000-000000000001'::uuid),
-  ('caf1c001-0000-0000-0000-000000000001'::uuid, 'caf1d003-0000-0000-0000-000000000001'::uuid);
+  ('caf1c001-0000-0000-0000-000000000001'::uuid, 'caf1d001-0000-0000-0000-000000000001'::uuid, 1),
+  ('caf1c001-0000-0000-0000-000000000001'::uuid, 'caf1d002-0000-0000-0000-000000000001'::uuid, 2),
+  ('caf1c001-0000-0000-0000-000000000001'::uuid, 'caf1d003-0000-0000-0000-000000000001'::uuid, 3);
 
 -- Pesées : biodechet = 100 (T1) + 30 (T2) = 130 ; carton = 50 (T1) + 20 (T3) = 70 ; verre = 10 (T3)
 INSERT INTO plateforme.pesees_tournees (tournee_id, stop_id, flux_id, poids_kg)
@@ -141,11 +141,11 @@ VALUES
   ('caf1d005-0000-0000-0000-000000000001'::uuid, 'T-R1-5', current_date + 10, 'matin', 'caf10007-0000-0000-0000-000000000001'::uuid, 'Ch5', 'terminee'),
   ('caf1d006-0000-0000-0000-000000000001'::uuid, 'T-R1-6', current_date + 10, 'matin', 'caf10007-0000-0000-0000-000000000001'::uuid, 'Ch6', 'annulee');
 
-INSERT INTO plateforme.collecte_tournees (collecte_id, tournee_id)
+INSERT INTO plateforme.collecte_tournees (collecte_id, tournee_id, rang)
 VALUES
-  ('caf1c002-0000-0000-0000-000000000001'::uuid, 'caf1d004-0000-0000-0000-000000000001'::uuid),
-  ('caf1c002-0000-0000-0000-000000000001'::uuid, 'caf1d005-0000-0000-0000-000000000001'::uuid),
-  ('caf1c002-0000-0000-0000-000000000001'::uuid, 'caf1d006-0000-0000-0000-000000000001'::uuid);
+  ('caf1c002-0000-0000-0000-000000000001'::uuid, 'caf1d004-0000-0000-0000-000000000001'::uuid, 1),
+  ('caf1c002-0000-0000-0000-000000000001'::uuid, 'caf1d005-0000-0000-0000-000000000001'::uuid, 2),
+  ('caf1c002-0000-0000-0000-000000000001'::uuid, 'caf1d006-0000-0000-0000-000000000001'::uuid, 3);
 
 -- biodechet : 100 (T4 OK) + 50 (T5 OK) = 150 ; le tour KO (T6) porte 999 → DOIT être exclu.
 INSERT INTO plateforme.pesees_tournees (tournee_id, stop_id, flux_id, poids_kg)
@@ -181,8 +181,8 @@ VALUES ('caf1c003-0000-0000-0000-000000000001'::uuid, (SELECT id FROM plateforme
 INSERT INTO plateforme.tournees (id, reference_interne, date_tournee, creneau, prestataire_logistique_id, chauffeur_nom, statut)
 VALUES ('caf1d007-0000-0000-0000-000000000001'::uuid, 'T-R1-7', current_date - 2, 'matin', 'caf10007-0000-0000-0000-000000000001'::uuid, 'Ch7', 'terminee');
 
-INSERT INTO plateforme.collecte_tournees (collecte_id, tournee_id)
-VALUES ('caf1c003-0000-0000-0000-000000000001'::uuid, 'caf1d007-0000-0000-0000-000000000001'::uuid);
+INSERT INTO plateforme.collecte_tournees (collecte_id, tournee_id, rang)
+VALUES ('caf1c003-0000-0000-0000-000000000001'::uuid, 'caf1d007-0000-0000-0000-000000000001'::uuid, 1);
 
 -- Une pesée tardive distante (100) ne doit PAS écraser la valeur figée (42).
 INSERT INTO plateforme.pesees_tournees (tournee_id, stop_id, flux_id, poids_kg)

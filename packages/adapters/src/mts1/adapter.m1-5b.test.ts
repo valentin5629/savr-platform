@@ -1,4 +1,12 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// L'upload R2 (signature Sig V4) vit dans @savr/shared (uploadObject) — mocké ici
+// pour piloter succès/échec sans appel R2 réel (BL-P0-02). Par défaut : résout.
+vi.mock('@savr/shared/src/r2/upload.js', () => ({
+  uploadObject: vi.fn(),
+}));
+
+import { uploadObject } from '@savr/shared/src/r2/upload.js';
 
 import { AdapterMts1 } from './adapter.js';
 import type { Mts1CustomerOrder, Mts1Photo, Mts1Tour } from './mock.js';
@@ -803,5 +811,93 @@ describe('M1.5b / AdapterMts1.sync — CANCELED', () => {
           'rejetee_par_prestataire',
     );
     expect(tmsUpdate).toBeDefined();
+  });
+});
+
+describe('M1.5b / AdapterMts1.sync — photo → R2 (BL-P0-02)', () => {
+  afterEach(() => _setMts1Handlers(null));
+  beforeEach(() => {
+    // État par défaut : upload R2 réussit (résout).
+    vi.mocked(uploadObject).mockReset();
+    vi.mocked(uploadObject).mockResolvedValue('collectes/x');
+  });
+
+  function setNominalHandlers() {
+    _setMts1Handlers({
+      pollOrders: vi.fn().mockResolvedValue({
+        customerOrders: [ORDER_VALIDATED],
+        totalCount: 1,
+        page: 1,
+        pageSize: 50,
+      }),
+      getTour: vi.fn().mockResolvedValue(TOUR_NOMINAL),
+      getPhotos: vi.fn().mockResolvedValue(PHOTOS_NOMINAL),
+      postOrder: vi.fn(),
+    });
+  }
+
+  const TRANSPORTEUR = {
+    id: 'presta-001',
+    type_tms: 'mts1',
+    code_transporteur_mts1: 'STRIKE',
+    prestataire_logistique_id: 'presta-001',
+  } as const;
+
+  it('photo téléchargée → upload R2 + ligne shared.fichiers (bucket collectes)', async () => {
+    setNominalHandlers();
+    const supabase = makeSyncSupabase({});
+    await new AdapterMts1(TRANSPORTEUR, supabase).sync({
+      depuis: new Date('2026-07-15T00:00:00Z'),
+      jusqu_a: new Date('2026-07-17T00:00:00Z'),
+    });
+
+    // uploadObject appelé AVANT l'insert, sur le bucket 'collectes' + clé photos/…
+    expect(uploadObject).toHaveBeenCalledTimes(1);
+    expect(uploadObject).toHaveBeenCalledWith(
+      'collectes',
+      'photos/col-001/MTS1-TOUR-ZD-001/stop-001/photo-001-a.jpg',
+      expect.any(Buffer),
+      'image/jpeg',
+    );
+
+    const calls = (supabase as unknown as { _calls: TableCall[] })._calls;
+    const fichierInsert = calls.find(
+      (c) => c.table === 'fichiers' && c.op === 'insert',
+    );
+    expect(fichierInsert).toBeDefined();
+    expect(fichierInsert!.data).toMatchObject({
+      storage_provider: 'r2',
+      bucket: 'collectes',
+      key: 'photos/col-001/MTS1-TOUR-ZD-001/stop-001/photo-001-a.jpg',
+      content_type: 'image/jpeg',
+      entity_type: 'collecte_photo',
+      entity_id: 'col-001',
+    });
+  });
+
+  it("upload R2 KO → aucune ligne shared.fichiers (pas d'orpheline)", async () => {
+    setNominalHandlers();
+    // L'upload R2 échoue (ex. 403) → JAMAIS de pointeur shared.fichiers.
+    vi.mocked(uploadObject).mockRejectedValueOnce(new Error('R2 403'));
+
+    const supabase = makeSyncSupabase({});
+    await new AdapterMts1(TRANSPORTEUR, supabase).sync({
+      depuis: new Date('2026-07-15T00:00:00Z'),
+      jusqu_a: new Date('2026-07-17T00:00:00Z'),
+    });
+
+    expect(uploadObject).toHaveBeenCalledTimes(1);
+
+    const calls = (supabase as unknown as { _calls: TableCall[] })._calls;
+    const fichierInsert = calls.find(
+      (c) => c.table === 'fichiers' && c.op === 'insert',
+    );
+    expect(fichierInsert).toBeUndefined(); // pas d'orpheline
+
+    // Le poll n'est pas interrompu : la collecte est tout de même mise à jour.
+    const collecteUpdate = calls.find(
+      (c) => c.table === 'collectes' && c.op === 'update',
+    );
+    expect(collecteUpdate).toBeDefined();
   });
 });

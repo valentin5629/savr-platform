@@ -1,30 +1,13 @@
 // Client R2 (S3-compatible) pour upload et URL pré-signées.
 // Les clés stockées = "bucket/key", jamais d'URL signée en DB.
+//
+// La signature AWS Sig V4 + l'upload binaire vivent dans @savr/shared/src/r2/upload
+// (source unique réutilisée par la Plateforme ET l'adapter MTS-1). Ce module ne
+// garde que ce qui est spécifique PDF (presign de download, lecture d'objet).
 
-import {
-  S3Client,
-  PutObjectCommand,
-  GetObjectCommand,
-} from '@aws-sdk/client-s3';
+import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-
-function getS3Client(): S3Client {
-  const accountId = process.env['R2_ACCOUNT_ID'];
-  const accessKeyId = process.env['R2_ACCESS_KEY_ID'];
-  const secretAccessKey = process.env['R2_SECRET_ACCESS_KEY'];
-
-  if (!accountId || !accessKeyId || !secretAccessKey) {
-    throw new Error(
-      'Variables R2 manquantes (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY)',
-    );
-  }
-
-  return new S3Client({
-    region: 'auto',
-    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
-    credentials: { accessKeyId, secretAccessKey },
-  });
-}
+import { getS3Client, uploadObject } from '@savr/shared/src/r2/upload.js';
 
 export type R2Bucket = 'bordereaux' | 'rapports';
 
@@ -33,16 +16,7 @@ export async function uploadPdf(
   key: string,
   pdfBuffer: Buffer,
 ): Promise<string> {
-  const client = getS3Client();
-  await client.send(
-    new PutObjectCommand({
-      Bucket: bucket,
-      Key: key,
-      Body: pdfBuffer,
-      ContentType: 'application/pdf',
-    }),
-  );
-  return `${bucket}/${key}`;
+  return uploadObject(bucket, key, pdfBuffer, 'application/pdf');
 }
 
 export async function getPresignedUrl(

@@ -1,6 +1,11 @@
 import type { FluxDetail, BordereauZdData } from './bordereau-zd.js';
 import { renderBordereauZd } from './bordereau-zd.js';
 
+// Version figée du gabarit — doit rester égale à
+// TEMPLATE_VERSIONS['rapport-recyclage-zd'] du contrat partagé (@savr/shared).
+// Vérifié par check:integration-contracts.
+export const TEMPLATE_VERSION = 'rapport-recyclage-zd@1';
+
 export interface RapportRecyclageZdData {
   // En-tête événement
   nom_evenement: string;

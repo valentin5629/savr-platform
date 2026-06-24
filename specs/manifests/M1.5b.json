@@ -1,0 +1,108 @@
+{
+  "module": "M1.5b",
+  "titre": "Adapter MTS-1 — polling entrant (sync) : statut_tms, pesées, photos → R2",
+  "description": "Côté entrant de l'intégration MTS-1 (cron 15 min) : AdapterMts1.sync lit GET /v3/customerOrders + GET /v3/tours/{id} + photos, mappe customerOrderStatus → statut_tms, upserte les pesées (pesees_tournees clé (tournee_id, stop_id, flux_id)), télécharge les photos et les pousse sur R2 + shared.fichiers. Dédup via integrations_inbox (claim ON CONFLICT). BL-P0-02 (photo → R2, échec INSERT si upload KO) implémenté en R2 (feat/r2-pdf-preuves) — fin du stub Sig V4 forgé.",
+  "garde_fous_tms_ready": {
+    "G3": "0 référence mts1/everest hors packages/adapters/ ; la logique R2/AWS-SDK vit dans @savr/shared (uploadObject), pas dans l'adapter — vérifié par check-coupling.sh",
+    "G4": "Polling entrant ne produit pas d'outbox (sens entrant) ; idempotence via integrations_inbox",
+    "G5": "Aucune FK vers tms.* — tournees.external_ref_commande / tms_reference (neutre TMS-Ready)"
+  },
+  "scenarios": [
+    "photo téléchargée → upload R2 + ligne shared.fichiers (bucket collectes)",
+    "upload R2 KO → aucune ligne shared.fichiers (pas d'orpheline)"
+  ],
+  "deliverables": [
+    {
+      "id": "BL-P0-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/adapter.ts",
+      "test": "upload R2 KO → aucune ligne shared.fichiers (pas d'orpheline)",
+      "statut": "implemented",
+      "libelle": "upload photo MTS-1 → R2 (uploadObject @savr/shared, fin du stub Sig V4) + ligne shared.fichiers ; INSERT échoue si upload KO (jamais d'orpheline)"
+    },
+    {
+      "id": "M1.5b-sync-nominal",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/adapter.ts",
+      "test": "M1.5b-1 / poll nominal VALIDATED → statut_tms=\"acceptee\", pesées upsertées, photo uploadée",
+      "statut": "implemented",
+      "libelle": "sync nominal : customerOrderStatus → statut_tms + upsert pesées (pesees_tournees) + photos"
+    },
+    {
+      "id": "M1.5b-dedup-inbox",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/adapter.ts",
+      "test": "M1.5b-2 / même ordre même statut → claim inbox retourne rien → skip complet",
+      "statut": "implemented",
+      "libelle": "idempotence entrante : dédup via integrations_inbox (claim ON CONFLICT DO NOTHING)"
+    },
+    {
+      "id": "M1.5b-en-cours",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/adapter.ts",
+      "test": "M1.5b-3 / IN_PROGRESSION → collectes.statut mis à en_cours (pas de changement statut_tms)",
+      "statut": "implemented",
+      "libelle": "IN_PROGRESSION → collectes.statut='en_cours' (sans changer statut_tms)"
+    },
+    {
+      "id": "M1.5b-stuff-inconnu",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/adapter.ts",
+      "test": "M1.5b-4 / stuff inconnu → integrations_logs STUFF_INCONNU, pesées connues upsertées quand même",
+      "statut": "implemented",
+      "libelle": "flux MTS-1 inconnu → log STUFF_INCONNU non bloquant, pesées connues upsertées"
+    },
+    {
+      "id": "M1.5b-divergence-cloture",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/adapters/src/mts1/adapter.ts",
+      "test": "M1.5b-5 / collecte cloturee + poids différent → aucune écriture + log PESEE_DIVERGENCE_POST_CLOTURE",
+      "statut": "implemented",
+      "libelle": "divergence poids sur collecte cloturee (R7) → aucune écriture + log + alerte Ops"
+    },
+    {
+      "id": "M1.5b-dedup-photo",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/adapter.ts",
+      "test": "M1.5b-6 / photo déjà dans shared.fichiers → skip download",
+      "statut": "implemented",
+      "libelle": "dédup photo : présente dans shared.fichiers (key) → skip download/upload"
+    },
+    {
+      "id": "M1.5b-photo-404",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/adapter.ts",
+      "test": "M1.5b-7 / photo 404 → log PHOTO_DOWNLOAD_FAILED, poll continue (pas d'exception)",
+      "statut": "implemented",
+      "libelle": "photo 404 → log non bloquant, retentée au poll suivant (pas d'orpheline)"
+    },
+    {
+      "id": "M1.5b-ordre-sans-tournee",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/adapter.ts",
+      "test": "M1.5b-8 / ordre MTS-1 sans tournée dans notre système → ignoré sans erreur",
+      "statut": "implemented",
+      "libelle": "ordre MTS-1 sans tournée Savr → ignoré sans erreur"
+    },
+    {
+      "id": "M1.5b-isolation-collecte",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/adapter.ts",
+      "test": "M1.5b-9 / échec d'une collecte → les autres collectes du run passent quand même",
+      "statut": "implemented",
+      "libelle": "isolation par collecte : l'échec d'une collecte n'interrompt pas le run"
+    },
+    {
+      "id": "M1.5b-canceled",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/adapter.ts",
+      "test": "M1.5b-10 / CANCELED → statut_tms=\"rejetee_par_prestataire\"",
+      "statut": "implemented",
+      "libelle": "CANCELED/KO → statut_tms='rejetee_par_prestataire'"
+    }
+  ],
+  "cdc_source_hash": {
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "28b88baa849c7a1bbfd5179ba47c49a70bf6af18945b50fa73fdd67cd2269cb5",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "05201a783f3927f59797184160a16b04906e3998c0dc73010e3fceb20d036892"
+  }
+}

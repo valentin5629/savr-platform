@@ -9,5 +9,7 @@
     "skipLibCheck": true,
     "esModuleInterop": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  "//": "Les *.test.ts (renderer unit tests) sont exclus du build Docker (tsc) : ils importent vitest + @savr/shared, absents du contexte de build auto-suffisant du service. Ils ne sont exécutés que par le vitest racine (workspace complet).",
+  "exclude": ["src/**/*.test.ts", "src/**/*.spec.ts"]
 }

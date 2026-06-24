@@ -10,7 +10,12 @@ export default defineConfig({
     },
   },
   test: {
-    include: ['packages/**/*.{test,spec}.{ts,tsx}'],
+    include: [
+      'packages/**/*.{test,spec}.{ts,tsx}',
+      // Renderer PDF (apps/pdf-renderer) : tests unitaires de templates/dispatch.
+      // Titrés « M1.6 / … » et « M2.4 / … » → routés par test:module comme les packages.
+      'apps/**/*.{test,spec}.{ts,tsx}',
+    ],
     exclude: [
       '**/node_modules/**',
       '**/dist/**',

@@ -12,6 +12,7 @@
 // Réconciliation : si requires_reconciliation=true → scan minDate/maxDate avant re-POST.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { uploadObject } from '@savr/shared/src/r2/upload.js';
 
 import type {
   Collecte,
@@ -31,6 +32,10 @@ interface TourneeRow {
   statut: string;
   rang: number;
 }
+
+// Bucket R2 des photos de collecte (shared.fichiers.bucket). La clé porte le préfixe
+// `photos/<collecteId>/…` — cf. processPhotos.
+const PHOTO_BUCKET = 'collectes';
 
 // Suffixes flux ZD → libellés MTS-1 as-built (sortant)
 const FLUX_STUFFS_ZD = [
@@ -583,13 +588,24 @@ export class AdapterMts1 implements LogistiqueProvider {
         continue;
       }
 
-      // Upload R2 (si credentials disponibles) — sinon enregistre le pointeur
-      await this.uploadPhotoToR2(storageKey, buffer);
+      // Upload R2 D'ABORD, pointeur shared.fichiers ENSUITE : si l'upload échoue
+      // (credentials absents, rejet R2), on log + on saute sans INSERT → JAMAIS de
+      // ligne shared.fichiers orpheline pointant un objet inexistant (BL-P0-02).
+      // Non bloquant pour le poll : la photo est retentée au prochain passage.
+      try {
+        await this.uploadPhotoToR2(storageKey, buffer);
+      } catch {
+        await this.logEntrantError(
+          'PHOTO_UPLOAD_FAILED',
+          `tourId=${tourId} stopId=${photo.stopId} photoId=${photo.photoId}`,
+        );
+        continue;
+      }
 
-      // Enregistrement dans shared.fichiers
+      // Enregistrement dans shared.fichiers (objet désormais réellement présent sur R2)
       await this.supabase.schema('shared').from('fichiers').insert({
         storage_provider: 'r2',
-        bucket: 'collectes',
+        bucket: PHOTO_BUCKET,
         key: storageKey,
         content_type: 'image/jpeg',
         size_bytes: buffer.length,
@@ -599,30 +615,12 @@ export class AdapterMts1 implements LogistiqueProvider {
     }
   }
 
-  // Upload binaire vers R2 (S3-compatible). No-op si credentials absents (env dev/test).
+  // Upload binaire vers R2 (S3-compatible) via la signature AWS Sig V4 partagée
+  // (@savr/shared/src/r2/upload). La logique R2/AWS-SDK vit hors packages/adapters/
+  // (garde-fou 3). `uploadObject` LÈVE en cas d'échec → l'appelant ne persiste pas
+  // de pointeur orphelin.
   private async uploadPhotoToR2(key: string, buffer: Buffer): Promise<void> {
-    const endpoint = process.env['R2_ENDPOINT'];
-    const bucket = process.env['R2_BUCKET_NAME'];
-    const accessKey = process.env['R2_ACCESS_KEY_ID'];
-    const secretKey = process.env['R2_SECRET_ACCESS_KEY'];
-
-    if (!endpoint || !bucket || !accessKey || !secretKey) {
-      // Credentials R2 absents — skip upload (dev/test), row shared.fichiers créée quand même
-      return;
-    }
-
-    // PUT direct vers R2 via S3-compatible API
-    // Auth : AWS Signature V4 (à implémenter avec @aws-sdk/signature-v4 avant go-live)
-    // TODO avant go-live : câbler la signature AWS Sig V4
-    await globalThis.fetch(`${endpoint}/${bucket}/${key}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'image/jpeg',
-        'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
-        Authorization: `AWS ${accessKey}:${secretKey}`,
-      },
-      body: new Uint8Array(buffer),
-    });
+    await uploadObject(PHOTO_BUCKET, key, buffer, 'image/jpeg');
   }
 
   // ─── Helpers polling entrant (M1.5b) ─────────────────────────────────────────

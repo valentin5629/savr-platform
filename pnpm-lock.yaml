@@ -209,6 +209,9 @@ importers:
 
   packages/shared:
     dependencies:
+      '@aws-sdk/client-s3':
+        specifier: ^3.1068.0
+        version: 3.1068.0
       '@supabase/supabase-js':
         specifier: ^2.108.1
         version: 2.108.1

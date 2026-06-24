@@ -1,12 +1,14 @@
 // Client HTTP vers le service Railway PDF.
 // Auth : header X-Internal-Token (secret RAILWAY_PDF_SECRET).
 
+import type { PdfDocumentType } from '@savr/shared/src/pdf/document-types.js';
+
 export interface PdfGenerateResult {
   pdfBuffer: Buffer;
 }
 
 export async function generatePdf(
-  type: 'bordereau-zd' | 'rapport-recyclage-zd' | 'attestation-don',
+  type: PdfDocumentType,
   data: Record<string, unknown>,
 ): Promise<PdfGenerateResult> {
   const baseUrl = process.env['RAILWAY_PDF_URL'];

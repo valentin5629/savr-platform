@@ -21,7 +21,7 @@ export async function GET(
          *, organisations!organisation_id(raison_sociale, siret),
          lieux!lieu_id(*), types_evenements!type_evenement_id(nom)
        ),
-       collecte_flux(*),
+       collecte_flux(flux_id, poids_reel_kg, equivalent_roll, nb_bacs, flux_dechets!flux_id(code, nom)),
        collecte_tournees(
          *, tournees(id, statut_tms, tms_reference, external_ref_commande)
        ),

@@ -197,10 +197,15 @@ describe('M1.8 / E2E / scenario-nominal', () => {
       { data: [], error: null }, // select bordereaux existants
       { count: 1, error: null }, // count collecte_flux (> 0)
       {
+        // flux details : poids_reel_kg ici est DÉRIVÉ de pesees_tournees par
+        // fn_agreger_terminal_collecte (BL-P0-01). Ce test mocke la couche batch
+        // PDF (qui LIT collecte_flux déjà dérivée) ; la dérivation elle-même
+        // (SUM par flux, exclusion tours KO, no-écrasement clôture) est prouvée
+        // sur vraie DB par supabase/tests/m1_8_collecte_flux_derive.test.sql.
         data: [
           { flux_id: 'f1', poids_reel_kg: 100, flux: { nom: 'Biodéchets' } },
         ],
-      }, // flux details
+      }, // flux details (dérivés — cf. pgTAP m1_8_collecte_flux_derive)
       { data: 'BSAV-2026-00001', error: null }, // rpc f_next_numero_bordereau (single)
       {
         data: { nom: 'Strike Transport', siret: '98765432100011' },

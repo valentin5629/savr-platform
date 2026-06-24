@@ -118,16 +118,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const newId = collecteId as string;
 
-  // Flux ZD auto-créés (hors transaction outbox — non critique pour G4)
-  if (type === 'zd') {
-    await supabase
-      .from('collecte_flux')
-      .insert(
-        ['biodechet', 'emballage', 'carton', 'verre', 'dechet_residuel'].map(
-          (code_flux) => ({ collecte_id: newId, code_flux, poids_kg: null }),
-        ),
-      );
-  }
+  // NB : pas de pré-création de lignes collecte_flux ici. Les pesées ZD sont
+  // DÉRIVÉES de pesees_tournees par fn_agreger_terminal_collecte à l'agrégation
+  // terminale (UPSERT par flux — §04 Data Model « collecte_flux dérivée »), ou
+  // saisies manuellement par l'Admin via PATCH /admin/collectes/[id]/flux (UPSERT).
+  // Pré-créer 5 lignes à poids NULL ferait passer le gate batch PDF « 0 ligne →
+  // skip » (R-PDF3/R9, batch-pdf-j1.ts) et produirait des bordereaux vides.
 
   // Retourner la collecte créée
   const { data, error } = await supabase

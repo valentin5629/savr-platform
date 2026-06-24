@@ -840,6 +840,7 @@ CREATE TABLE plateforme.rapports_rse (
   envoye_at             timestamptz,
   consulte_par_user_at  timestamptz,
   filtres_benchmark     jsonb,
+  template_version      text,
   created_at            timestamptz NOT NULL DEFAULT now()
 );
 
@@ -863,6 +864,7 @@ CREATE TABLE plateforme.bordereaux_savr (
   pdf_url                         text NOT NULL,
   statut                          plateforme.bordereau_statut NOT NULL,
   version                         integer NOT NULL DEFAULT 1,
+  template_version                text,
   created_at                      timestamptz NOT NULL DEFAULT now(),
   updated_at                      timestamptz NOT NULL DEFAULT now()
 );
@@ -887,6 +889,7 @@ CREATE TABLE plateforme.attestations_don (
   pdf_url                       text NOT NULL,
   statut                        plateforme.attestation_statut NOT NULL,
   version                       integer NOT NULL DEFAULT 1,
+  template_version              text,
   created_at                    timestamptz NOT NULL DEFAULT now(),
   updated_at                    timestamptz NOT NULL DEFAULT now()
 );

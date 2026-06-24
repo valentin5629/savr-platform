@@ -47,6 +47,17 @@ if [ -f ".claude/divergences-clair" ]; then
   exit 2
 fi
 
+# ── Worktree-aware (cf. lib-worktree.sh) ─────────────────────────────────────
+# Les divergences ci-dessus sont des flags REPO-GLOBAUX (créés dans le clone
+# principal par le sync) → évaluées dans le cwd courant, AVANT le cd (correct).
+# Le brief-ack / la cohérence ci-dessous sont SPÉCIFIQUES À LA BRANCHE → on se
+# place dans le worktree du fichier édité pour lire SA branche + SES markers
+# (sinon, dans le clone principal sur `main`, ce gate s'auto-exitait → brief-ack
+# jamais exigé pour un lot worktree).
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-worktree.sh"
+cd_worktree_for "$FILE"
+BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+
 # ── Lots de dev structurés (module neuf OU remédiation) ──
 IS_MODULE=0
 IS_REMED=0

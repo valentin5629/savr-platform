@@ -10,6 +10,18 @@ if ! printf '%s' "$CMD" | grep -q "gh pr create"; then
   exit 0
 fi
 
+# Worktree-aware (cf. lib-worktree.sh) : ce hook tourne dans le clone principal
+# (souvent `main`). On se place dans le worktree de la branche RÉELLEMENT PR'd
+# (--head, sinon la cible d'un `cd … &&`) pour évaluer SES markers/tests/branche.
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-worktree.sh"
+HEAD_BRANCH="$(printf '%s' "$CMD" | sed -nE "s/.*--head[= ]+([^ \"']+).*/\1/p" | head -1)"
+if [ -n "$HEAD_BRANCH" ]; then
+  cd_worktree_for "$HEAD_BRANCH"
+else
+  CD_DIR="$(printf '%s' "$CMD" | sed -nE 's/^[[:space:]]*cd[[:space:]]+([^&;|]+).*/\1/p' | head -1 | xargs 2>/dev/null || true)"
+  cd_worktree_for "$CD_DIR"
+fi
+
 BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
 MARKER_CONFORMITE=".claude/conformite-ok-$(printf '%s' "$BRANCH" | tr '/' '-')"
 MARKER_SECURITE=".claude/securite-ok-$(printf '%s' "$BRANCH" | tr '/' '-')"

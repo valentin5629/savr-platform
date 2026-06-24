@@ -63,10 +63,12 @@ let missing = 0;
 for (const f of files) {
   const manifest = JSON.parse(readFileSync(f, 'utf8')) as {
     module: string;
-    scenarios: string[];
+    scenarios?: string[];
   };
   console.log(`\n📋  ${manifest.module} (${f})`);
-  for (const scenario of manifest.scenarios) {
+  // Garde : certains manifestes n'ont pas de scenarios[] (ex. M2.5, souches R0b) —
+  // ne couvrir que ce qui existe, ne jamais crasher en mode tous-manifestes.
+  for (const scenario of manifest.scenarios ?? []) {
     const found = [...vitestTitles].some((t) => t.includes(scenario));
     if (found) {
       console.log(`  ✅  ${scenario}`);

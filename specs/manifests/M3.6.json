@@ -104,5 +104,8 @@
       "statut": "implemented",
       "libelle": "M3.6/dashboard_client_toutes_organisations_lecture_seule"
     }
-  ]
+  ],
+  "cdc_source_hash": {
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "da6231ce34f4c3841b48bcb9dc8f064f034fa4133b749089b343ded293e7006c"
+  }
 }

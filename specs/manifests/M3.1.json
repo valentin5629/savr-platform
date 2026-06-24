@@ -168,5 +168,8 @@
       "statut": "implemented",
       "libelle": "M3.1/benchmark_filtre_traiteur_ids_rejete_cote_serveur"
     }
-  ]
+  ],
+  "cdc_source_hash": {
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "01f34ca023138ede59e9af64166872ca18fdd96756f62de45413d5956e241a35"
+  }
 }

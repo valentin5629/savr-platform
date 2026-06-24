@@ -1,0 +1,40 @@
+# =============================================================================
+# Allowlist des divergences V1 ASSUMÉES vs DDL cible V2 (garde-fou 1 / G6).
+# =============================================================================
+# Lue par scripts/check-schema-vs-cible.ts. Toute table/colonne du schéma V1
+# réel ABSENTE du DDL cible (`specs/ddl-cible/schema_cible_v2.sql`) OU de type
+# divergent est SIGNALÉE par G6 — SAUF si elle figure ici.
+#
+# Le garde-fou 1 (CLAUDE.md §3bis-1 / Frontière TMS-Ready) interdit une structure
+# divergente *non tracée* qui serait renommée/migrée en silence en V2. Cette
+# liste = la liste FERMÉE des divergences explicitement tracées + leur plan V2.
+#
+# Format (1 entrée par ligne, # = commentaire) :
+#   schema.table              → toute la table est V1-only / divergente assumée
+#   schema.table.colonne      → seule cette colonne est V1-only / divergente assumée
+#
+# NE PAS élargir sans arbitrage Val + trace _Divergences/. Toute nouvelle entrée
+# doit pointer une décision (colonne V1-only listée Frontière G1, ou _Divergences/).
+# =============================================================================
+
+# --- Colonnes V1-only assumées (liste fermée — Frontière TMS-Ready G1) --------
+# Cantonnées + neutralisées au cutover V2 (cf. CLAUDE.md §3bis garde-fou 5).
+plateforme.collectes.nb_camions_demande
+plateforme.transporteurs.code_transporteur_mts1
+plateforme.associations.id_point_collecte_mts1
+
+# --- Table V1-only assumée (revue adversariale INC-0, 2026-06-11) -------------
+# Pesées brutes par tour (clé (tournee_id, stop_id, flux_id)) ; collecte_flux
+# dérivée par recalcul. Présente AUSSI dans le DDL cible (ajout 2026-06-11) —
+# allowlistée par prudence si un écart de type/précision subsistait.
+plateforme.pesees_tournees
+
+# --- Bloc 7 (intégrations) — divergence structurelle A6 assumée ---------------
+# Les 4 tables divergent STRUCTURELLEMENT du DDL cible (renames / PK / partition)
+# au-delà de simples omissions. Convergence reportée V2 (migration 2-step +
+# redeploy adapter). Trace : _Divergences/BLOC7_20260624.md (type ambigu,
+# pré-validé Val A6 — 2026-06-24). Tables allowlistées ENTIÈRES.
+plateforme.integrations_logs
+plateforme.integrations_inbox
+plateforme.outbox_events
+plateforme.emails_envoyes

@@ -177,5 +177,8 @@
       "statut": "implemented",
       "libelle": "M3.3/shadow_creation_role_non_agence_403"
     }
-  ]
+  ],
+  "cdc_source_hash": {
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md": "18ccbee7e8f974811cc9b4839f0dcdc9d4c2cb1c1bbf1a296c4f05af0b98477b"
+  }
 }

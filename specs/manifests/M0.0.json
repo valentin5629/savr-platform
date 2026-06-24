@@ -12,5 +12,8 @@
       "statut": "implemented",
       "libelle": "SMOKE-1 — scripts/sync-specs.sh est exécutable"
     }
-  ]
+  ],
+  "cdc_source_hash": {
+    "specs/cdc/01 - Cahier des charges App/07 - Architecture technique.md": "d4e8f433fecae5d9a24e1646a7ca27015d3ed28e26e094f08a7db422c4fe470b"
+  }
 }

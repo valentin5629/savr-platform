@@ -127,5 +127,8 @@
       "statut": "implemented",
       "libelle": "M0.7-12 — upsert sérialise les colonnes jsonb avec un cast ::jsonb"
     }
-  ]
+  ],
+  "cdc_source_hash": {
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "2d21b0d3825d0adcc60b85cf96b954dcc60f9c8165da3b1dd0fc6e86fa9abc40"
+  }
 }

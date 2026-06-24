@@ -35,26 +35,28 @@ export async function PUT(
     );
   }
 
+  // R3 / divergence M2.4 : passe par la RPC SECURITY DEFINER (auteur + motif en
+  // contexte d'audit). La table principale n'a PAS de colonnes modifie_par/
+  // modifie_le/commentaire_modif — l'historique va dans parametres_taux_recyclage_history
+  // via le trigger fn_audit_taux_recyclage.
   const supabase = createAdminSupabaseClient();
-  const { data, error } = await supabase
-    .from('parametres_taux_recyclage')
-    .update({
-      taux_captation: taux,
-      commentaire_modif: String(commentaire_modif),
-      modifie_par: auth.ctx.userId,
-      modifie_le: new Date().toISOString(),
-    })
-    .eq('id', filiere_id)
-    .select()
-    .single();
+  const { data, error } = await supabase.rpc('rpc_maj_taux_recyclage', {
+    p_auteur: auth.ctx.userId,
+    p_commentaire: String(commentaire_modif),
+    p_id: filiere_id,
+    p_taux: taux,
+  });
 
-  if (error?.code === 'PGRST116') {
-    return NextResponse.json({ error: 'Filière introuvable' }, { status: 404 });
-  }
-  if (error)
+  if (error) {
+    if ((error.message ?? '').includes('introuvable')) {
+      return NextResponse.json(
+        { error: 'Filière introuvable' },
+        { status: 404 },
+      );
+    }
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
-  // History insérée par trigger DB (trg_history_taux_recyclage)
   void idempotencyKey; // utilisé pour dédup côté client si besoin
   return NextResponse.json(data);
 }

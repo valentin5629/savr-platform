@@ -5,6 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
+const mockRpc = vi.fn();
 const mockSupabaseChain = {
   from: vi.fn().mockReturnThis(),
   select: vi.fn().mockReturnThis(),
@@ -12,6 +13,8 @@ const mockSupabaseChain = {
   eq: vi.fn().mockReturnThis(),
   order: vi.fn().mockReturnThis(),
   single: vi.fn(),
+  // R3 : les routes taux/mix passent désormais par une RPC SECURITY DEFINER.
+  rpc: mockRpc,
 };
 
 vi.mock('@savr/shared/src/supabase-client.js', () => ({
@@ -112,7 +115,7 @@ describe('M1.1b / Taux recyclage / Validation', () => {
 
   it('M1.1b/taux-recyclage/put — 200 avec valeurs valides', async () => {
     setupAuth('admin_savr');
-    mockSupabaseChain.single.mockResolvedValueOnce({
+    mockRpc.mockResolvedValueOnce({
       data: { id: 'fil-1', taux_captation: 0.75, code_filiere: 'biodechet' },
       error: null,
     });
@@ -171,6 +174,7 @@ describe('M1.1b / Mix emballages / Validation somme 100', () => {
           { id: 'm-2', part_pct: 50 },
           // total = 80, pas 100
         ],
+        commentaire_modif: 'Maj mix test',
       }),
     );
     expect(res.status).toBe(422);

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff, requireAdmin } from '@/lib/api-auth.js';
 
+// GET — paramètres CO₂ divers (clé-valeur : forfait collecte + équivalences)
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
   if (auth.error) return auth.error;
@@ -9,67 +10,48 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const supabase = createAdminSupabaseClient();
   const { data, error } = await supabase
     .from('parametres_co2_divers')
-    .select('*')
-    .limit(1)
-    .single();
+    .select('id, cle, valeur, unite, description, source_donnee')
+    .order('cle');
 
-  if (error?.code === 'PGRST116') {
-    return NextResponse.json({ data: null });
-  }
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ data });
+  return NextResponse.json({ data: data ?? [] });
 }
 
+// PUT — mise à jour des valeurs clé-valeur (admin uniquement, commentaire obligatoire).
+// Audit via audit_log (auteur + motif) écrit par le trigger fn_audit_parametres_co2_divers.
 export async function PUT(req: NextRequest): Promise<NextResponse> {
   const auth = await requireAdmin(req);
   if (auth.error) return auth.error;
 
-  const body = (await req.json()) as Record<string, unknown>;
-  if (!body.id) {
-    return NextResponse.json({ error: 'id est obligatoire' }, { status: 422 });
-  }
+  const body = (await req.json()) as {
+    divers?: { id: string; valeur: number }[];
+    commentaire_modif?: string;
+  };
 
-  const ALLOWED_FIELDS = [
-    'co2_kg_par_km_camion',
-    'co2_kg_par_km_velo',
-    'equivalent_arbre_kg_co2',
-    'equivalent_douche_kg_co2',
-  ];
-  const updates = Object.fromEntries(
-    Object.entries(body).filter(([k]) => ALLOWED_FIELDS.includes(k)),
-  );
-
-  if (Object.keys(updates).length === 0) {
+  if (!Array.isArray(body.divers) || body.divers.length === 0) {
     return NextResponse.json(
-      { error: 'Aucun champ modifiable fourni' },
+      { error: 'divers est obligatoire (tableau non vide {id, valeur})' },
+      { status: 422 },
+    );
+  }
+  if (!body.commentaire_modif || body.commentaire_modif.trim().length < 5) {
+    return NextResponse.json(
+      { error: 'commentaire_modif est obligatoire (≥ 5 caractères)' },
       { status: 422 },
     );
   }
 
   const supabase = createAdminSupabaseClient();
-  const { data, error } = await supabase
-    .from('parametres_co2_divers')
-    .update({
-      ...updates,
-      modifie_par: auth.ctx.userId,
-      modifie_le: new Date().toISOString(),
-    })
-    .eq('id', body.id)
-    .select()
-    .single();
+  const { data, error } = await supabase.rpc('rpc_maj_co2_divers', {
+    p_auteur: auth.ctx.userId,
+    p_commentaire: body.commentaire_modif,
+    p_divers: body.divers,
+  });
 
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
-
-  await supabase.from('audit_log').insert({
-    table_name: 'parametres_co2_divers',
-    record_id: String(body.id),
-    action: 'UPDATE',
-    user_id: auth.ctx.userId,
-    new_values: updates,
-  });
 
   return NextResponse.json({ data });
 }

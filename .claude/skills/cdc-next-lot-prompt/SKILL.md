@@ -76,6 +76,22 @@ Pour chaque cible du ticket BL-\* (fonctions/RPC, colonnes, fichiers, routes) :
 
 ### 5. Assembler le prompt
 
+Le prompt généré DOIT s'ouvrir par le **bloc SETUP worktree**, PUIS le préambule, PUIS le bloc de lot.
+
+- **SETUP — working tree DÉDIÉ (en TÊTE du prompt généré, OBLIGATOIRE)** : chaque session de lot tourne dans
+  SON propre worktree git — JAMAIS le clone partagé d'une autre session (deux sessions sur un même working tree
+  = collision HEAD/index : l'une déplace le HEAD de l'autre et tire son WIP sur la mauvaise branche — incident
+  vécu R1, 2026-06-24). Calculer :
+  - `<repo>` = racine du clone principal (`git rev-parse --show-toplevel`),
+  - `<slug>` = id du lot en minuscules (ex. `r2-pdf-preuves`), `<branche>` = `feat/<slug>`, `<wt>` = `../savr-<slug>` (dossier frère du clone),
+  - existence de la branche : `git branch --list <branche>`.
+    Émettre dans le prompt la bonne commande de setup :
+  - branche absente : `git -C <repo> worktree add -b <branche> <wt> origin/main` (ordre canonique : `-b` avant le chemin)
+  - branche déjà existante : `git -C <repo> worktree add <wt> <branche>`
+    suivie de `cd <wt> && pnpm install --frozen-lockfile && git branch --show-current` (TOUT chaîné : le
+    `show-current` doit s'exécuter DANS `<wt>` et afficher `<branche>` — sinon il montre la branche du clone principal).
+    Mentionner : « toute la session se déroule dans `<wt>` » et « en fin de lot (après merge), depuis le clone
+    principal : `git worktree remove <wt>` ». ⚠️ Ne JAMAIS ouvrir deux sessions Claude sur le même clone.
 - **Préambule** : copier VERBATIM le `[PRÉAMBULE COMMUN]` actuel de `PROMPTS DEV` (il évolue — ne pas le
   réécrire de mémoire). Y substituer le nom de branche du lot dans les exemples de marker.
 - **Bloc de lot** : suivre la « Convention d'un bloc de lot (R0d) » de `PROMPTS DEV` :
@@ -87,8 +103,9 @@ Pour chaque cible du ticket BL-\* (fonctions/RPC, colonnes, fichiers, routes) :
 
 ### 6. Sortie
 
-1. **Pré-flight** (court, AVANT le prompt) : lot retenu · dépendances OK ? · bloqueurs (divergences/manifeste)
-   · drift détecté (symboles déplacés vs backlog) · verdict « prêt à lancer » ou « à débloquer d'abord ».
+1. **Pré-flight** (court, AVANT le prompt) : lot retenu · worktree dédié à créer (`../savr-<slug>` sur `feat/<slug>`)
+   · dépendances OK ? · bloqueurs (divergences/manifeste) · drift détecté (symboles déplacés vs backlog) ·
+   verdict « prêt à lancer » ou « à débloquer d'abord ».
 2. **Le prompt complet** dans un seul bloc copiable (préambule + bloc de lot).
 3. Proposer de **persister** le bloc de lot ré-ancré dans `PROMPTS DEV - lots R0-R23.md` (remplacer l'ancien
    bloc du lot) pour que le doc reste à jour — le faire si Val acquiesce, ou directement si l'écart est mineur.
@@ -101,8 +118,11 @@ Pour chaque cible du ticket BL-\* (fonctions/RPC, colonnes, fichiers, routes) :
 - ✅ Bloqueurs (divergences en attente, manifeste manquant) en tête, AVANT le prompt — pas découverts en vol.
 - ✅ 3-temps explicite (code + deliverables[] manifeste + Gherkin) et `/goal` exact par module.
 - ✅ Scope rappelé (copie parfaite V1, circuit-breaker, \_Divergences si ambiguïté).
+- ✅ Le prompt impose en PREMIÈRE étape un **worktree DÉDIÉ** (`git worktree add ../savr-<slug>`) — jamais deux
+  sessions sur le même clone (anti-collision HEAD/index).
 - ❌ Jamais : recopier un `fichier:ligne` du backlog sans l'avoir re-vérifié ; inventer un symbole ; omettre un
-  bloqueur connu ; générer le prompt d'un lot dont une dépendance n'est pas mergée.
+  bloqueur connu ; générer le prompt d'un lot dont une dépendance n'est pas mergée ; faire travailler la session
+  suivante dans le clone partagé.
 
 ## Ne PAS faire
 

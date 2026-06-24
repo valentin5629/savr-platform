@@ -24,3 +24,7 @@ README.md
 # Configs avec layout volontaire.
 .claude/settings.json
 .size-limit.json
+
+# Types DB generes (G7) : artefact derive du schema (regenere par
+# `pnpm db:types:local`), jamais edite a la main — ne pas reformater.
+packages/shared/src/database.types.ts

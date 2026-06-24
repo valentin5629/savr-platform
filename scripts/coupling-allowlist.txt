@@ -96,3 +96,11 @@ packages/plateforme/tests/api/cron/cron-auth.test.ts
 # logique métier ni appel HTTP — ce sont des outils de documentation hors runtime applicatif.
 # 'customerOrders' reste banni (jamais présent dans ces scripts).
 docs/audit/*.mjs
+# packages/shared/src/database.types.ts (G7, lot R0a) — types DB GENERES par
+# `supabase gen types` (jamais edites a la main). 'mts1'/'everest' y apparaissent
+# uniquement comme NOMS DE SCHEMA reels et legitimes : table `everest_missions`,
+# colonnes V1-only `code_transporteur_mts1` / `id_point_collecte_mts1`, valeur
+# d'enum `transporteurs.type_tms = 'mts1'`. Aucune logique adapter ni appel HTTP
+# (un fichier de types ne contient que des declarations). 'customerOrders' reste
+# banni (verifie : 0 occurrence).
+packages/shared/src/database.types.ts

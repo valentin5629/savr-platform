@@ -1,0 +1,30 @@
+{
+  // ===========================================================================
+  // G7 (colonne-DB par route) — OVERLAY report-only.
+  // ===========================================================================
+  // Recompile l'app exactement comme `tsconfig.json`, MAIS remappe l'import du
+  // client Supabase vers le shim typé `supabase-client.typed.ts`. Du coup les
+  // factories retournent `SupabaseClient<Database>` et toute colonne inexistante
+  // ciblée par `.eq/.select/.insert/.update` devient une erreur de compilation.
+  //
+  // Jamais lancé par `pnpm typecheck` (qui doit rester vert en T0). Lancé
+  // uniquement par `scripts/check-column-db.ts` (job CI `column-db`, mode
+  // rapport, continue-on-error). `extends` REMPLACE `compilerOptions.paths` —
+  // on re-déclare donc `@/*` en plus du remap du client.
+  // ===========================================================================
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["packages/plateforme/src/*"],
+      "@savr/shared/src/supabase-client.js": [
+        "packages/shared/src/supabase-client.typed.ts"
+      ]
+    }
+  },
+  "exclude": [
+    "packages/plateforme/next.config.ts",
+    "packages/plateforme/sentry.client.config.ts",
+    "packages/plateforme/sentry.server.config.ts",
+    "packages/**/node_modules"
+  ]
+}

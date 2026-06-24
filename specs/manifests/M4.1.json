@@ -27,5 +27,103 @@
     "export_csv_format_fr_et_filtres_actifs",
     "factures whitelist",
     "M4.1 / evenements"
+  ],
+  "deliverables": [
+    {
+      "id": "M4.1-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "packages/shared/src/csv/index.ts",
+      "test": "M4.1 / escapeCsvField (RFC 4180)",
+      "statut": "implemented",
+      "libelle": "M4.1 / escapeCsvField (RFC 4180)"
+    },
+    {
+      "id": "M4.1-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "packages/shared/src/csv/index.ts",
+      "test": "M4.1 / toCsv",
+      "statut": "implemented",
+      "libelle": "M4.1 / toCsv"
+    },
+    {
+      "id": "M4.1-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "packages/shared/src/csv/index.ts",
+      "test": "M4.1 / formatDateFr",
+      "statut": "implemented",
+      "libelle": "M4.1 / formatDateFr"
+    },
+    {
+      "id": "M4.1-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "packages/shared/src/csv/index.ts",
+      "test": "M4.1 / formatNombreFr / formatPoidsKg",
+      "statut": "implemented",
+      "libelle": "M4.1 / formatNombreFr / formatPoidsKg"
+    },
+    {
+      "id": "M4.1-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "packages/shared/src/csv/index.ts",
+      "test": "M4.1 / csvFilename",
+      "statut": "implemented",
+      "libelle": "M4.1 / csvFilename"
+    },
+    {
+      "id": "M4.1-06",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "packages/shared/src/csv/index.ts",
+      "test": "M4.1/non_authentifie_401",
+      "statut": "implemented",
+      "libelle": "M4.1/non_authentifie_401"
+    },
+    {
+      "id": "M4.1-07",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "packages/shared/src/csv/index.ts",
+      "test": "M4.1/entite_inconnue_404",
+      "statut": "implemented",
+      "libelle": "M4.1/entite_inconnue_404"
+    },
+    {
+      "id": "M4.1-08",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "packages/shared/src/csv/index.ts",
+      "test": "matrice_exports_csv_par_profil",
+      "statut": "implemented",
+      "libelle": "matrice_exports_csv_par_profil"
+    },
+    {
+      "id": "M4.1-09",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "packages/shared/src/csv/index.ts",
+      "test": "cloisonnement",
+      "statut": "implemented",
+      "libelle": "cloisonnement"
+    },
+    {
+      "id": "M4.1-10",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "packages/shared/src/csv/index.ts",
+      "test": "export_csv_format_fr_et_filtres_actifs",
+      "statut": "implemented",
+      "libelle": "export_csv_format_fr_et_filtres_actifs"
+    },
+    {
+      "id": "M4.1-11",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "packages/shared/src/csv/index.ts",
+      "test": "factures whitelist",
+      "statut": "implemented",
+      "libelle": "factures whitelist"
+    },
+    {
+      "id": "M4.1-12",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "packages/shared/src/csv/index.ts",
+      "test": "M4.1 / evenements",
+      "statut": "implemented",
+      "libelle": "M4.1 / evenements"
+    }
   ]
 }

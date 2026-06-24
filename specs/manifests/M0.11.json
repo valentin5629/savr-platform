@@ -216,5 +216,399 @@
       "id": "M0.11/INSEE-VIES/clear-les-deux",
       "description": "clearInseViesMocks() réinitialise les deux mocks simultanément"
     }
+  ],
+  "deliverables": [
+    {
+      "id": "M0.11-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/MTS1/infra/injectable",
+      "statut": "implemented",
+      "libelle": "_setMts1Handlers / _getMts1Handlers injectable"
+    },
+    {
+      "id": "M0.11-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/MTS1/poll/nominal-3-commandes",
+      "statut": "implemented",
+      "libelle": "poll nominal retourne 3 commandes"
+    },
+    {
+      "id": "M0.11-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/MTS1/poll/nominal-delivered",
+      "statut": "implemented",
+      "libelle": "poll nominal contient un ordre DELIVERED"
+    },
+    {
+      "id": "M0.11-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/MTS1/dedup/event-id-identique",
+      "statut": "implemented",
+      "libelle": "fixture dedup : payload_a et payload_b ont le même event_id"
+    },
+    {
+      "id": "M0.11-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/MTS1/tour/libelles-as-built",
+      "statut": "implemented",
+      "libelle": "tour nominal contient les 5 libellés flux as-built exacts"
+    },
+    {
+      "id": "M0.11-06",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/MTS1/tour/mapping-libelles",
+      "statut": "implemented",
+      "libelle": "mapping libellés flux : 6 entrées dont _ignore pour volume_du_camion"
+    },
+    {
+      "id": "M0.11-07",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/MTS1/tour/stuff-inconnu",
+      "statut": "implemented",
+      "libelle": "stuff inconnu présent dans fixture stuff_inconnu (alerte Ops attendue)"
+    },
+    {
+      "id": "M0.11-08",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/MTS1/post/201-success",
+      "statut": "implemented",
+      "libelle": "POST 201 crée un customerOrder (ok: true)"
+    },
+    {
+      "id": "M0.11-09",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/MTS1/post/422-rejet",
+      "statut": "implemented",
+      "libelle": "POST 422 rejet validation (ok: false, status 422)"
+    },
+    {
+      "id": "M0.11-10",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/MTS1/post/timeout-plan-b",
+      "statut": "implemented",
+      "libelle": "POST timeout → plan B scan minDate/maxDate retrouve l'ordre"
+    },
+    {
+      "id": "M0.11-11",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/MTS1/multi-camions/etats-terminaux",
+      "statut": "implemented",
+      "libelle": "multi-camions N=2 : les deux ordres sont en état terminal"
+    },
+    {
+      "id": "M0.11-12",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/MTS1/multi-camions/ok-partial-present",
+      "statut": "implemented",
+      "libelle": "multi-camions N=2 : ≥1 OK/PARTIAL présent (déclenchement realisee attendu)"
+    },
+    {
+      "id": "M0.11-13",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/MTS1/ko-total/rejetee",
+      "statut": "implemented",
+      "libelle": "KO total tous CANCELED/KO → rejetee_par_prestataire attendu"
+    },
+    {
+      "id": "M0.11-14",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/MTS1/pesees-incompletes/batch-skip",
+      "statut": "implemented",
+      "libelle": "pesées incomplètes : tour DELIVERED sans items flux (batch J+1 skip attendu)"
+    },
+    {
+      "id": "M0.11-15",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/MTS1/photos/404-non-bloquant",
+      "statut": "implemented",
+      "libelle": "photo 404 non bloquante : getPhotos retourne sans erreur même avec URL 404"
+    },
+    {
+      "id": "M0.11-16",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/MTS1/photos/dedup-cle",
+      "statut": "implemented",
+      "libelle": "photos nominales : clé dédup (tourId, stopId, photoId) unique par photo"
+    },
+    {
+      "id": "M0.11-17",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/Pennylane/infra/injectable",
+      "statut": "implemented",
+      "libelle": "_setPennylaneHandlers / _getPennylaneHandlers injectable"
+    },
+    {
+      "id": "M0.11-18",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/Pennylane/customers/page1",
+      "statut": "implemented",
+      "libelle": "page 1 retourne 3 customers avec pagination.next_page=2"
+    },
+    {
+      "id": "M0.11-19",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/Pennylane/customers/page2",
+      "statut": "implemented",
+      "libelle": "page 2 retourne les customers restants avec next_page=null"
+    },
+    {
+      "id": "M0.11-20",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/Pennylane/customers/source-id",
+      "statut": "implemented",
+      "libelle": "customers page1 portent un source_id (lien Savr→Pennylane)"
+    },
+    {
+      "id": "M0.11-21",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/Pennylane/invoices/poll-sans-borne-idempotent",
+      "statut": "implemented",
+      "libelle": "polling sans borne retourne des factures dont une ancienne (idempotence requise)"
+    },
+    {
+      "id": "M0.11-22",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/Pennylane/invoices/source-id",
+      "statut": "implemented",
+      "libelle": "toutes les factures poll_sans_borne portent un source_id"
+    },
+    {
+      "id": "M0.11-23",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/Pennylane/paiement/events-emise-payee",
+      "statut": "implemented",
+      "libelle": "loadPaymentEvents retourne 2 événements emise→payee"
+    },
+    {
+      "id": "M0.11-24",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/Pennylane/paiement/amount-paid-at",
+      "statut": "implemented",
+      "libelle": "événement paiement porte amount et paid_at"
+    },
+    {
+      "id": "M0.11-25",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/Pennylane/erreurs/429-retry-after",
+      "statut": "implemented",
+      "libelle": "429 porte ok: false, status 429 et retry_after de 60s"
+    },
+    {
+      "id": "M0.11-26",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/Pennylane/erreurs/500-retry",
+      "statut": "implemented",
+      "libelle": "500 porte ok: false et status 500 (retry attendu)"
+    },
+    {
+      "id": "M0.11-27",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/Pennylane/erreurs/create-429",
+      "statut": "implemented",
+      "libelle": "createDraft 429 porte retry_after"
+    },
+    {
+      "id": "M0.11-28",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/Pennylane/create/success",
+      "statut": "implemented",
+      "libelle": "createDraft success retourne ok: true et un id"
+    },
+    {
+      "id": "M0.11-29",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/Resend/capture/slug-destinataire-variables",
+      "statut": "implemented",
+      "libelle": "captureEmails() intercepte slug + destinataire + variables"
+    },
+    {
+      "id": "M0.11-30",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/Resend/capture/options-entity",
+      "statut": "implemented",
+      "libelle": "captureEmails() propage les options (entityType, entityId)"
+    },
+    {
+      "id": "M0.11-31",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/Resend/capture/accumule",
+      "statut": "implemented",
+      "libelle": "captureEmails() accumule plusieurs envois"
+    },
+    {
+      "id": "M0.11-32",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/Resend/capture/restore",
+      "statut": "implemented",
+      "libelle": "restore() vide la capture"
+    },
+    {
+      "id": "M0.11-33",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/Resend/webhook/delivered-structure",
+      "statut": "implemented",
+      "libelle": "webhook delivered : type + data.email_id + tags présents"
+    },
+    {
+      "id": "M0.11-34",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/Resend/webhook/bounced-hard",
+      "statut": "implemented",
+      "libelle": "webhook bounced : bounce_type hard présent"
+    },
+    {
+      "id": "M0.11-35",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/Resend/webhook/failed-3-retries",
+      "statut": "implemented",
+      "libelle": "webhook failed (3 retries épuisés) : attempt=3, next_attempt=null"
+    },
+    {
+      "id": "M0.11-36",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/Resend/webhook/signature-invalide-rejete",
+      "statut": "implemented",
+      "libelle": "webhook signature invalide → rejeté par validateResendWebhookForTest()"
+    },
+    {
+      "id": "M0.11-37",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/Resend/webhook/valides-passent",
+      "statut": "implemented",
+      "libelle": "webhooks valides passent la validation svix (delivered, bounced, failed)"
+    },
+    {
+      "id": "M0.11-38",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/Resend/webhook/tag-email-envoye-id",
+      "statut": "implemented",
+      "libelle": "webhook delivered porte un tag email_envoye_id pour lier l'email DB"
+    },
+    {
+      "id": "M0.11-39",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/INSEE/verifie",
+      "statut": "implemented",
+      "libelle": "état verifie retourne verifie"
+    },
+    {
+      "id": "M0.11-40",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/INSEE/echec",
+      "statut": "implemented",
+      "libelle": "état echec retourne echec"
+    },
+    {
+      "id": "M0.11-41",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/INSEE/down-non-bloquant",
+      "statut": "implemented",
+      "libelle": "état down = inscription non bloquée (retourne down, pas d'exception)"
+    },
+    {
+      "id": "M0.11-42",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/INSEE/fallback-down",
+      "statut": "implemented",
+      "libelle": "SIRET non configuré dans le mock retourne down (fallback)"
+    },
+    {
+      "id": "M0.11-43",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/VIES/verifie",
+      "statut": "implemented",
+      "libelle": "état verifie retourne verifie"
+    },
+    {
+      "id": "M0.11-44",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/VIES/echec",
+      "statut": "implemented",
+      "libelle": "état echec retourne echec"
+    },
+    {
+      "id": "M0.11-45",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/VIES/down-non-bloquant",
+      "statut": "implemented",
+      "libelle": "état down = flux non bloqué (VIES jamais bloquant)"
+    },
+    {
+      "id": "M0.11-46",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/VIES/null-non-applicable",
+      "statut": "implemented",
+      "libelle": "TVA nulle retourne non_applicable"
+    },
+    {
+      "id": "M0.11-47",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/VIES/fallback-down",
+      "statut": "implemented",
+      "libelle": "TVA non configurée dans le mock retourne down (fallback)"
+    },
+    {
+      "id": "M0.11-48",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/INSEE-VIES/restore-individuel",
+      "statut": "implemented",
+      "libelle": "restore() individuel réinitialise le mock INSEE"
+    },
+    {
+      "id": "M0.11-49",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/mts1/mock.ts",
+      "test": "M0.11/INSEE-VIES/clear-les-deux",
+      "statut": "implemented",
+      "libelle": "clearInseViesMocks() réinitialise les deux mocks simultanément"
+    }
   ]
 }

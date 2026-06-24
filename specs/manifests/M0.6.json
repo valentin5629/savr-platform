@@ -429,5 +429,703 @@
     },
     "status": "COMPLETE"
   },
-  "notes": "Module M0.6 complet : 64 tests pgTAP couvrant 100% des tables plateforme.*/shared.*. Catégories 1-7 avec tous les scénarios P1+P2. Assertions E3 garde-fou TMS-Ready incluses. T63/T64 ajoutés 2026-06-22 (fix fuite PII cross-org ct_read sur contacts_traiteurs, migration 20260622150000)."
+  "notes": "Module M0.6 complet : 64 tests pgTAP couvrant 100% des tables plateforme.*/shared.*. Catégories 1-7 avec tous les scénarios P1+P2. Assertions E3 garde-fou TMS-Ready incluses. T63/T64 ajoutés 2026-06-22 (fix fuite PII cross-org ct_read sur contacts_traiteurs, migration 20260622150000).",
+  "deliverables": [
+    {
+      "id": "M0.6-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "E3-1",
+      "statut": "implemented",
+      "libelle": "0 table sans RLS (E3 garde-fou)"
+    },
+    {
+      "id": "M0.6-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "E3-2",
+      "statut": "implemented",
+      "libelle": "plateforme.organisations RLS = ON"
+    },
+    {
+      "id": "M0.6-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "E3-3",
+      "statut": "implemented",
+      "libelle": "shared.fichiers RLS = ON"
+    },
+    {
+      "id": "M0.6-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T01",
+      "statut": "implemented",
+      "libelle": "Programmateur voit SA collecte"
+    },
+    {
+      "id": "M0.6-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T02",
+      "statut": "implemented",
+      "libelle": "Traiteur opérationnel voit collecte"
+    },
+    {
+      "id": "M0.6-06",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T03",
+      "statut": "implemented",
+      "libelle": "Client organisateur voit SA collecte"
+    },
+    {
+      "id": "M0.6-07",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T04",
+      "statut": "implemented",
+      "libelle": "Gestionnaire lieux voit collecte sur SON lieu"
+    },
+    {
+      "id": "M0.6-08",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T05",
+      "statut": "implemented",
+      "libelle": "Agence ne voit PAS collecte (hors périmètre)"
+    },
+    {
+      "id": "M0.6-09",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T06",
+      "statut": "implemented",
+      "libelle": "admin_savr voit TOUTES collectes"
+    },
+    {
+      "id": "M0.6-10",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T07",
+      "statut": "implemented",
+      "libelle": "ops_savr voit TOUTES collectes"
+    },
+    {
+      "id": "M0.6-11",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T08",
+      "statut": "implemented",
+      "libelle": "f_collecte_visible retourne true"
+    },
+    {
+      "id": "M0.6-12",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T09",
+      "statut": "implemented",
+      "libelle": "Brouillon tiers caché au gestionnaire"
+    },
+    {
+      "id": "M0.6-13",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T10",
+      "statut": "implemented",
+      "libelle": "Cross-org deny collecte"
+    },
+    {
+      "id": "M0.6-14",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T11",
+      "statut": "implemented",
+      "libelle": "shared.fichiers cross-org deny"
+    },
+    {
+      "id": "M0.6-15",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T12",
+      "statut": "implemented",
+      "libelle": "shared.fichiers polymorphe visible"
+    },
+    {
+      "id": "M0.6-16",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T13",
+      "statut": "implemented",
+      "libelle": "packs_antgaspi cross-org deny"
+    },
+    {
+      "id": "M0.6-17",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T14",
+      "statut": "implemented",
+      "libelle": "Traiteur ne voit pas tarifs_zd"
+    },
+    {
+      "id": "M0.6-18",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T15",
+      "statut": "implemented",
+      "libelle": "organisations_lieux gestionnaire 1 ligne"
+    },
+    {
+      "id": "M0.6-19",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T16",
+      "statut": "implemented",
+      "libelle": "organisations_lieux cross-org deny"
+    },
+    {
+      "id": "M0.6-20",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T17",
+      "statut": "implemented",
+      "libelle": "outbox_events DENY ALL app roles"
+    },
+    {
+      "id": "M0.6-21",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T18",
+      "statut": "implemented",
+      "libelle": "outbox_events admin_savr read"
+    },
+    {
+      "id": "M0.6-22",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T19",
+      "statut": "implemented",
+      "libelle": "bordereaux_savr cross-org deny"
+    },
+    {
+      "id": "M0.6-23",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T20",
+      "statut": "implemented",
+      "libelle": "Agence INSERT organisation denied"
+    },
+    {
+      "id": "M0.6-24",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T21",
+      "statut": "implemented",
+      "libelle": "Gestionnaire INSERT lieu denied"
+    },
+    {
+      "id": "M0.6-25",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T22",
+      "statut": "implemented",
+      "libelle": "Traiteur INSERT pack denied"
+    },
+    {
+      "id": "M0.6-26",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T23",
+      "statut": "implemented",
+      "libelle": "Traiteur UPDATE parametres 0 lignes"
+    },
+    {
+      "id": "M0.6-27",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T24",
+      "statut": "implemented",
+      "libelle": "Gestionnaire UPDATE organisations_lieux cross-org"
+    },
+    {
+      "id": "M0.6-28",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T25",
+      "statut": "implemented",
+      "libelle": "Cross-org INSERT bordereau denied"
+    },
+    {
+      "id": "M0.6-29",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T26",
+      "statut": "implemented",
+      "libelle": "Traiteur DELETE collecte 0 lignes"
+    },
+    {
+      "id": "M0.6-30",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T27",
+      "statut": "implemented",
+      "libelle": "ops INSERT outbox_events denied"
+    },
+    {
+      "id": "M0.6-31",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T28",
+      "statut": "implemented",
+      "libelle": "Cross-org INSERT shared.fichiers denied"
+    },
+    {
+      "id": "M0.6-32",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T29",
+      "statut": "implemented",
+      "libelle": "Agence UPDATE evenement 0 lignes"
+    },
+    {
+      "id": "M0.6-33",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T30",
+      "statut": "implemented",
+      "libelle": "client_organisateur SELECT attributions 0"
+    },
+    {
+      "id": "M0.6-34",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T31",
+      "statut": "implemented",
+      "libelle": "Photo A invisible à user B"
+    },
+    {
+      "id": "M0.6-35",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T32",
+      "statut": "implemented",
+      "libelle": "Bordereau A invisible à user B"
+    },
+    {
+      "id": "M0.6-36",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T33",
+      "statut": "implemented",
+      "libelle": "Facture A invisible à user B"
+    },
+    {
+      "id": "M0.6-37",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T34",
+      "statut": "implemented",
+      "libelle": "Pack A invisible à user B"
+    },
+    {
+      "id": "M0.6-38",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T35",
+      "statut": "implemented",
+      "libelle": "Événement A invisible à user B"
+    },
+    {
+      "id": "M0.6-39",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T36",
+      "statut": "implemented",
+      "libelle": "Fichier soft-deleted invisible"
+    },
+    {
+      "id": "M0.6-40",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T37",
+      "statut": "implemented",
+      "libelle": "User A voit TOUS ses fichiers"
+    },
+    {
+      "id": "M0.6-41",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T38",
+      "statut": "implemented",
+      "libelle": "Tour A invisible à user B"
+    },
+    {
+      "id": "M0.6-42",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T39",
+      "statut": "implemented",
+      "libelle": "Attribution A invisible à user B"
+    },
+    {
+      "id": "M0.6-43",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T40",
+      "statut": "implemented",
+      "libelle": "Rapport RSE A invisible à user B"
+    },
+    {
+      "id": "M0.6-44",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T41",
+      "statut": "implemented",
+      "libelle": "Facture_collecte A invisible à user B"
+    },
+    {
+      "id": "M0.6-45",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T42",
+      "statut": "implemented",
+      "libelle": "Collecte_flux A invisible à user B"
+    },
+    {
+      "id": "M0.6-46",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T43",
+      "statut": "implemented",
+      "libelle": "User A invisible à user B"
+    },
+    {
+      "id": "M0.6-47",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T44",
+      "statut": "implemented",
+      "libelle": "Fichier polymorphe (bordereau A) invisible"
+    },
+    {
+      "id": "M0.6-48",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T63",
+      "statut": "implemented",
+      "libelle": "contacts_traiteurs : traiteur org A voit uniquement SES contacts"
+    },
+    {
+      "id": "M0.6-49",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T64",
+      "statut": "implemented",
+      "libelle": "contacts_traiteurs : PII de org A invisibles à un rôle non-staff d'une autre org (fix ct_read leak)"
+    },
+    {
+      "id": "M0.6-50",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T45",
+      "statut": "implemented",
+      "libelle": "audit_log append-only UPDATE 0"
+    },
+    {
+      "id": "M0.6-51",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T46",
+      "statut": "implemented",
+      "libelle": "outbox admin_savr write denied"
+    },
+    {
+      "id": "M0.6-52",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T47",
+      "statut": "implemented",
+      "libelle": "outbox claimed_until > NOW()"
+    },
+    {
+      "id": "M0.6-53",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T48",
+      "statut": "implemented",
+      "libelle": "sequences UPDATE direct 0 lignes"
+    },
+    {
+      "id": "M0.6-54",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T49",
+      "statut": "implemented",
+      "libelle": "User soft-deleted invisible"
+    },
+    {
+      "id": "M0.6-55",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T50",
+      "statut": "implemented",
+      "libelle": "Fichier soft-deleted invisible"
+    },
+    {
+      "id": "M0.6-56",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T51",
+      "statut": "implemented",
+      "libelle": "Policies idempotentes (pas doublon)"
+    },
+    {
+      "id": "M0.6-57",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T52",
+      "statut": "implemented",
+      "libelle": "integrations_inbox app read denied"
+    },
+    {
+      "id": "M0.6-58",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T53",
+      "statut": "implemented",
+      "libelle": "emails_envoyes PII hidden (app denied)"
+    },
+    {
+      "id": "M0.6-59",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T54",
+      "statut": "implemented",
+      "libelle": "SERVICE_ROLE INSERT outbox OK"
+    },
+    {
+      "id": "M0.6-60",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T55",
+      "statut": "implemented",
+      "libelle": "Cross-schema write denied"
+    },
+    {
+      "id": "M0.6-61",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T56",
+      "statut": "implemented",
+      "libelle": "shared.fichiers cross-schema bridge"
+    },
+    {
+      "id": "M0.6-62",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T57",
+      "statut": "implemented",
+      "libelle": "shared.prestataires read-only"
+    },
+    {
+      "id": "M0.6-63",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T58",
+      "statut": "implemented",
+      "libelle": "integrations_inbox SERVICE_ROLE"
+    },
+    {
+      "id": "M0.6-64",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T59",
+      "statut": "implemented",
+      "libelle": "app_domain=tms bloqué"
+    },
+    {
+      "id": "M0.6-65",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T60",
+      "statut": "implemented",
+      "libelle": "JWT enrichissement org_id=NULL"
+    },
+    {
+      "id": "M0.6-66",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T61",
+      "statut": "implemented",
+      "libelle": "Policies idempotentes V1→V2"
+    },
+    {
+      "id": "M0.6-67",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": "T62",
+      "statut": "implemented",
+      "libelle": "Users structure ready V2"
+    },
+    {
+      "id": "BL-P1-BOA-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Formulaire création/édition association"
+    },
+    {
+      "id": "BL-P1-BOA-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Formulaire création/édition transporteur"
+    },
+    {
+      "id": "BL-P1-BOA-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Formulaire CRUD lieu Admin + quick-add"
+    },
+    {
+      "id": "BL-P1-BOA-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Badge statut 9 valeurs (crash)"
+    },
+    {
+      "id": "BL-P1-BOA-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Liste collectes Admin : colonnes/indicateurs/filtres"
+    },
+    {
+      "id": "BL-P1-BOA-06",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Fiche collecte Admin : Bloc 0 dispatch"
+    },
+    {
+      "id": "BL-P1-BOA-07",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Fiche collecte Admin : Blocs 1/3/4/5/7"
+    },
+    {
+      "id": "BL-P1-BOA-08",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Fiche orga : onglets « À venir »"
+    },
+    {
+      "id": "BL-P1-BOA-09",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Fiche orga : invitation + impersonation UI"
+    },
+    {
+      "id": "BL-P2-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Grilles tarifaires ZD : catalogue + colonne-DB + versionnement"
+    },
+    {
+      "id": "BL-P2-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Remises négociées : colonne-DB + validation /100 + UI"
+    },
+    {
+      "id": "BL-P2-06",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Taux recyclage : modale colonne-DB + audit + history"
+    },
+    {
+      "id": "BL-P2-07",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Paramètres : référentiels / intégrations / config / templates / tarifs AG history"
+    },
+    {
+      "id": "BL-P2-08",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "RPC `count_collectes_par_org` inexistante"
+    },
+    {
+      "id": "BL-P2-09",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Packs AG : historique / modale création / actions"
+    },
+    {
+      "id": "BL-P2-31",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Idempotency + erreurs typées endpoints Admin"
+    },
+    {
+      "id": "BL-P2-32",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Coef perte labo : route + validation type"
+    },
+    {
+      "id": "BL-P2-38",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Logo orga upload (R2)"
+    },
+    {
+      "id": "BL-P2-39",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Worklist lieux : action « Appliquer » + colonnes diff"
+    },
+    {
+      "id": "BL-P2-42",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": null,
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Onglet coefficients perte labo (UI)"
+    }
+  ]
 }

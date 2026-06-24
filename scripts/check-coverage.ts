@@ -16,6 +16,9 @@ import { join } from 'node:path';
 
 const MANIFESTS_DIR = 'specs/manifests';
 const arg = process.argv[2];
+// Fichiers du dossier qui NE SONT PAS des manifestes de module (ajoutés en R0b :
+// JSON Schema + index des livrables CDC) — sans scenarios[], à ignorer ici.
+const NON_MANIFEST = new Set(['_schema.json', 'cdc-deliverables.index.json']);
 
 function loadManifests(): string[] {
   if (!existsSync(MANIFESTS_DIR)) {
@@ -31,7 +34,7 @@ function loadManifests(): string[] {
     return [f];
   }
   return readdirSync(MANIFESTS_DIR)
-    .filter((f) => f.endsWith('.json'))
+    .filter((f) => f.endsWith('.json') && !NON_MANIFEST.has(f))
     .map((f) => join(MANIFESTS_DIR, f));
 }
 

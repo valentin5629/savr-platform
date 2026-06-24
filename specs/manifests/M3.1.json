@@ -38,5 +38,135 @@
     "M3.1/demande_renouvellement_pack",
     "M3.1/factures_commercial_lecture_seule",
     "M3.1/benchmark_filtre_traiteur_ids_rejete_cote_serveur"
+  ],
+  "deliverables": [
+    {
+      "id": "M3.1-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md",
+      "artefact": "supabase/migrations/20260616130000_plateforme_m3_1_espace_traiteur.sql",
+      "test": "M3.1/marge_badge_attente_facturation_partielle",
+      "statut": "implemented",
+      "libelle": "M3.1/marge_badge_attente_facturation_partielle"
+    },
+    {
+      "id": "M3.1-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md",
+      "artefact": "supabase/migrations/20260616130000_plateforme_m3_1_espace_traiteur.sql",
+      "test": "M3.1/marge_badge_zero_quand_tout_facture",
+      "statut": "implemented",
+      "libelle": "M3.1/marge_badge_zero_quand_tout_facture"
+    },
+    {
+      "id": "M3.1-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md",
+      "artefact": "supabase/migrations/20260616130000_plateforme_m3_1_espace_traiteur.sql",
+      "test": "M3.1/liste_collectes_filtre_type_et_tiers",
+      "statut": "implemented",
+      "libelle": "M3.1/liste_collectes_filtre_type_et_tiers"
+    },
+    {
+      "id": "M3.1-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md",
+      "artefact": "supabase/migrations/20260616130000_plateforme_m3_1_espace_traiteur.sql",
+      "test": "M3.1/champs_verrouilles_type_lieu_traiteur",
+      "statut": "implemented",
+      "libelle": "M3.1/champs_verrouilles_type_lieu_traiteur"
+    },
+    {
+      "id": "M3.1-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md",
+      "artefact": "supabase/migrations/20260616130000_plateforme_m3_1_espace_traiteur.sql",
+      "test": "M3.1/edition_refusee_statut_en_cours",
+      "statut": "implemented",
+      "libelle": "M3.1/edition_refusee_statut_en_cours"
+    },
+    {
+      "id": "M3.1-06",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md",
+      "artefact": "supabase/migrations/20260616130000_plateforme_m3_1_espace_traiteur.sql",
+      "test": "M3.1/edition_champ_non_impactant_push_silencieux",
+      "statut": "implemented",
+      "libelle": "M3.1/edition_champ_non_impactant_push_silencieux"
+    },
+    {
+      "id": "M3.1-07",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md",
+      "artefact": "supabase/migrations/20260616130000_plateforme_m3_1_espace_traiteur.sql",
+      "test": "M3.1/edition_commercial_autre_collecte_deny",
+      "statut": "implemented",
+      "libelle": "M3.1/edition_commercial_autre_collecte_deny"
+    },
+    {
+      "id": "M3.1-08",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md",
+      "artefact": "supabase/migrations/20260616130000_plateforme_m3_1_espace_traiteur.sql",
+      "test": "M3.1/annulation_directe_collecte_programmee",
+      "statut": "implemented",
+      "libelle": "M3.1/annulation_directe_collecte_programmee"
+    },
+    {
+      "id": "M3.1-09",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md",
+      "artefact": "supabase/migrations/20260616130000_plateforme_m3_1_espace_traiteur.sql",
+      "test": "M3.1/demande_annulation_collecte_validee",
+      "statut": "implemented",
+      "libelle": "M3.1/demande_annulation_collecte_validee"
+    },
+    {
+      "id": "M3.1-10",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md",
+      "artefact": "supabase/migrations/20260616130000_plateforme_m3_1_espace_traiteur.sql",
+      "test": "M3.1/annulation_depuis_cloturee_impossible",
+      "statut": "implemented",
+      "libelle": "M3.1/annulation_depuis_cloturee_impossible"
+    },
+    {
+      "id": "M3.1-11",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md",
+      "artefact": "supabase/migrations/20260616130000_plateforme_m3_1_espace_traiteur.sql",
+      "test": "M3.1/invitation_collaborateur_flux_complet",
+      "statut": "implemented",
+      "libelle": "M3.1/invitation_collaborateur_flux_complet"
+    },
+    {
+      "id": "M3.1-12",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md",
+      "artefact": "supabase/migrations/20260616130000_plateforme_m3_1_espace_traiteur.sql",
+      "test": "M3.1/invitation_email_deja_membre_refusee",
+      "statut": "implemented",
+      "libelle": "M3.1/invitation_email_deja_membre_refusee"
+    },
+    {
+      "id": "M3.1-13",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md",
+      "artefact": "supabase/migrations/20260616130000_plateforme_m3_1_espace_traiteur.sql",
+      "test": "M3.1/invitation_commercial_interdite",
+      "statut": "implemented",
+      "libelle": "M3.1/invitation_commercial_interdite"
+    },
+    {
+      "id": "M3.1-14",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md",
+      "artefact": "supabase/migrations/20260616130000_plateforme_m3_1_espace_traiteur.sql",
+      "test": "M3.1/demande_renouvellement_pack",
+      "statut": "implemented",
+      "libelle": "M3.1/demande_renouvellement_pack"
+    },
+    {
+      "id": "M3.1-15",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md",
+      "artefact": "supabase/migrations/20260616130000_plateforme_m3_1_espace_traiteur.sql",
+      "test": "M3.1/factures_commercial_lecture_seule",
+      "statut": "implemented",
+      "libelle": "M3.1/factures_commercial_lecture_seule"
+    },
+    {
+      "id": "M3.1-16",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md",
+      "artefact": "supabase/migrations/20260616130000_plateforme_m3_1_espace_traiteur.sql",
+      "test": "M3.1/benchmark_filtre_traiteur_ids_rejete_cote_serveur",
+      "statut": "implemented",
+      "libelle": "M3.1/benchmark_filtre_traiteur_ids_rejete_cote_serveur"
+    }
   ]
 }

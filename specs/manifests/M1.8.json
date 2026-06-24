@@ -45,5 +45,55 @@
     "Adapter Everest (gate V1.1 §7 CLAUDE.md)",
     "Webhook HMAC Pennylane paiement (V1.1)",
     "Dashboard Bloc 3 coûts logistiques (descopé V1.1)"
+  ],
+  "deliverables": [
+    {
+      "id": "M1.8-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "supabase/migrations/20260615100000_plateforme_m1_8_fn_agreger_terminal.sql",
+      "test": "cycle nominal : collecte ZD cloturee → batch PDF 2 jobs + brouillon → valider → emise FZD-2026-00001",
+      "statut": "implemented",
+      "libelle": "cycle nominal : collecte ZD cloturee → batch PDF 2 jobs + brouillon → valider → emise FZD-2026-00001"
+    },
+    {
+      "id": "M1.8-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "supabase/migrations/20260615100000_plateforme_m1_8_fn_agreger_terminal.sql",
+      "test": "pesée < seuil_min → f_upsert_alerte_admin pesee_hors_seuil + upsert quand même",
+      "statut": "implemented",
+      "libelle": "pesée < seuil_min → f_upsert_alerte_admin pesee_hors_seuil + upsert quand même"
+    },
+    {
+      "id": "M1.8-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "supabase/migrations/20260615100000_plateforme_m1_8_fn_agreger_terminal.sql",
+      "test": "2 ordres DELIVERED+KO → fn_agreger_terminal_collecte realisee + alerte collecte_partiellement_servie",
+      "statut": "implemented",
+      "libelle": "2 ordres DELIVERED+KO → fn_agreger_terminal_collecte realisee + alerte collecte_partiellement_servie"
+    },
+    {
+      "id": "M1.8-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "supabase/migrations/20260615100000_plateforme_m1_8_fn_agreger_terminal.sql",
+      "test": "batch PDF collecte_flux vide >48h → skipped_no_flux=1 escalated_r9=1 alerte bordereau_pesees_manquantes_48h",
+      "statut": "implemented",
+      "libelle": "batch PDF collecte_flux vide >48h → skipped_no_flux=1 escalated_r9=1 alerte bordereau_pesees_manquantes_48h"
+    },
+    {
+      "id": "BL-P0-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "dérivation collecte_flux (recalcul UPSERT depuis pesees_tournees) + saisie manuelle Admin pesées ZD"
+    },
+    {
+      "id": "BL-P1-RM-06",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "≥1 tour OK → realisee sur pesées dispo"
+    }
   ]
 }

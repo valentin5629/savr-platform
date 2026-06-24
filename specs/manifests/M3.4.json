@@ -27,5 +27,103 @@
     "M3.4/document_embargo_h24_refuse",
     "M3.4/document_cross_org_404",
     "M3.4/document_type_inconnu_400"
+  ],
+  "deliverables": [
+    {
+      "id": "M3.4-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "supabase/migrations/20260617150000_plateforme_m3_4_organisateur.sql",
+      "test": "M3.4/auth_guard_non_organisateur_403",
+      "statut": "implemented",
+      "libelle": "M3.4/auth_guard_non_organisateur_403"
+    },
+    {
+      "id": "M3.4-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "supabase/migrations/20260617150000_plateforme_m3_4_organisateur.sql",
+      "test": "M3.4/auth_guard_non_authentifie_401",
+      "statut": "implemented",
+      "libelle": "M3.4/auth_guard_non_authentifie_401"
+    },
+    {
+      "id": "M3.4-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "supabase/migrations/20260617150000_plateforme_m3_4_organisateur.sql",
+      "test": "M3.4/collectes_liste_scope_organisateur",
+      "statut": "implemented",
+      "libelle": "M3.4/collectes_liste_scope_organisateur"
+    },
+    {
+      "id": "M3.4-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "supabase/migrations/20260617150000_plateforme_m3_4_organisateur.sql",
+      "test": "M3.4/collectes_filtre_type_ag",
+      "statut": "implemented",
+      "libelle": "M3.4/collectes_filtre_type_ag"
+    },
+    {
+      "id": "M3.4-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "supabase/migrations/20260617150000_plateforme_m3_4_organisateur.sql",
+      "test": "M3.4/collectes_ag_traiteur_et_repas",
+      "statut": "implemented",
+      "libelle": "M3.4/collectes_ag_traiteur_et_repas"
+    },
+    {
+      "id": "M3.4-06",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "supabase/migrations/20260617150000_plateforme_m3_4_organisateur.sql",
+      "test": "M3.4/collectes_aucune_donnee_financiere",
+      "statut": "implemented",
+      "libelle": "M3.4/collectes_aucune_donnee_financiere"
+    },
+    {
+      "id": "M3.4-07",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "supabase/migrations/20260617150000_plateforme_m3_4_organisateur.sql",
+      "test": "M3.4/dashboard_kpi_co2_abc_expose",
+      "statut": "implemented",
+      "libelle": "M3.4/dashboard_kpi_co2_abc_expose"
+    },
+    {
+      "id": "M3.4-08",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "supabase/migrations/20260617150000_plateforme_m3_4_organisateur.sql",
+      "test": "M3.4/documents_liste_rapports_bordereaux_attestations",
+      "statut": "implemented",
+      "libelle": "M3.4/documents_liste_rapports_bordereaux_attestations"
+    },
+    {
+      "id": "M3.4-09",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "supabase/migrations/20260617150000_plateforme_m3_4_organisateur.sql",
+      "test": "M3.4/document_download_rapport_ok",
+      "statut": "implemented",
+      "libelle": "M3.4/document_download_rapport_ok"
+    },
+    {
+      "id": "M3.4-10",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "supabase/migrations/20260617150000_plateforme_m3_4_organisateur.sql",
+      "test": "M3.4/document_embargo_h24_refuse",
+      "statut": "implemented",
+      "libelle": "M3.4/document_embargo_h24_refuse"
+    },
+    {
+      "id": "M3.4-11",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "supabase/migrations/20260617150000_plateforme_m3_4_organisateur.sql",
+      "test": "M3.4/document_cross_org_404",
+      "statut": "implemented",
+      "libelle": "M3.4/document_cross_org_404"
+    },
+    {
+      "id": "M3.4-12",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
+      "artefact": "supabase/migrations/20260617150000_plateforme_m3_4_organisateur.sql",
+      "test": "M3.4/document_type_inconnu_400",
+      "statut": "implemented",
+      "libelle": "M3.4/document_type_inconnu_400"
+    }
   ]
 }

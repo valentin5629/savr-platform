@@ -13,7 +13,9 @@
     "packages/shared/src/seed/jwt.ts",
     "packages/shared/src/seed/check.ts"
   ],
-  "tests_vitest": ["packages/shared/src/seed/seed.m0-7.test.ts"],
+  "tests_vitest": [
+    "packages/shared/src/seed/seed.m0-7.test.ts"
+  ],
   "scenarios": [
     "M0.7-1 — seedUuid est déterministe (même slug → même UUID v5)",
     "M0.7-2 — seedUuid respecte le format UUID v5 (version 5, variant RFC 4122)",
@@ -27,5 +29,103 @@
     "M0.7-10 — la somme des collectes par traiteur dans la matrice = 478",
     "M0.7-11 — upsert construit un INSERT ... ON CONFLICT paramétré",
     "M0.7-12 — upsert sérialise les colonnes jsonb avec un cast ::jsonb"
+  ],
+  "deliverables": [
+    {
+      "id": "M0.7-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md",
+      "artefact": null,
+      "test": "M0.7-1 — seedUuid est déterministe (même slug → même UUID v5)",
+      "statut": "implemented",
+      "libelle": "M0.7-1 — seedUuid est déterministe (même slug → même UUID v5)"
+    },
+    {
+      "id": "M0.7-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md",
+      "artefact": null,
+      "test": "M0.7-2 — seedUuid respecte le format UUID v5 (version 5, variant RFC 4122)",
+      "statut": "implemented",
+      "libelle": "M0.7-2 — seedUuid respecte le format UUID v5 (version 5, variant RFC 4122)"
+    },
+    {
+      "id": "M0.7-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md",
+      "artefact": null,
+      "test": "M0.7-3 — seedUuid produit des UUID distincts pour des slugs distincts",
+      "statut": "implemented",
+      "libelle": "M0.7-3 — seedUuid produit des UUID distincts pour des slugs distincts"
+    },
+    {
+      "id": "M0.7-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md",
+      "artefact": null,
+      "test": "M0.7-4 — fakePhone génère un numéro dans le range fictif +33 6 99 99",
+      "statut": "implemented",
+      "libelle": "M0.7-4 — fakePhone génère un numéro dans le range fictif +33 6 99 99"
+    },
+    {
+      "id": "M0.7-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md",
+      "artefact": null,
+      "test": "M0.7-5 — seedEmail génère une adresse @savr-test.local",
+      "statut": "implemented",
+      "libelle": "M0.7-5 — seedEmail génère une adresse @savr-test.local"
+    },
+    {
+      "id": "M0.7-06",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md",
+      "artefact": null,
+      "test": "M0.7-6 — assertDev rejette un SUPABASE_PROJECT_REF différent du projet dev",
+      "statut": "implemented",
+      "libelle": "M0.7-6 — assertDev rejette un SUPABASE_PROJECT_REF différent du projet dev"
+    },
+    {
+      "id": "M0.7-07",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md",
+      "artefact": null,
+      "test": "M0.7-7 — assertDev rejette NODE_ENV=production",
+      "statut": "implemented",
+      "libelle": "M0.7-7 — assertDev rejette NODE_ENV=production"
+    },
+    {
+      "id": "M0.7-08",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md",
+      "artefact": null,
+      "test": "M0.7-8 — assertDev accepte le projet dev",
+      "statut": "implemented",
+      "libelle": "M0.7-8 — assertDev accepte le projet dev"
+    },
+    {
+      "id": "M0.7-09",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md",
+      "artefact": null,
+      "test": "M0.7-9 — matrix_collectes.csv contient exactement 478 collectes",
+      "statut": "implemented",
+      "libelle": "M0.7-9 — matrix_collectes.csv contient exactement 478 collectes"
+    },
+    {
+      "id": "M0.7-10",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md",
+      "artefact": null,
+      "test": "M0.7-10 — la somme des collectes par traiteur dans la matrice = 478",
+      "statut": "implemented",
+      "libelle": "M0.7-10 — la somme des collectes par traiteur dans la matrice = 478"
+    },
+    {
+      "id": "M0.7-11",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md",
+      "artefact": null,
+      "test": "M0.7-11 — upsert construit un INSERT ... ON CONFLICT paramétré",
+      "statut": "implemented",
+      "libelle": "M0.7-11 — upsert construit un INSERT ... ON CONFLICT paramétré"
+    },
+    {
+      "id": "M0.7-12",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md",
+      "artefact": null,
+      "test": "M0.7-12 — upsert sérialise les colonnes jsonb avec un cast ::jsonb",
+      "statut": "implemented",
+      "libelle": "M0.7-12 — upsert sérialise les colonnes jsonb avec un cast ::jsonb"
+    }
   ]
 }

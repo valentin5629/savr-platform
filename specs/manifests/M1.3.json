@@ -28,5 +28,167 @@
     "M1.3/tarif-zd — erreur PAX_INVALIDE : pax = -1",
     "M1.3/tarif-zd — erreur PAX_INVALIDE : pax non entier (1.5)",
     "M1.3/tarif-zd — erreur GRILLE_INTROUVABLE : aucune grille active"
+  ],
+  "deliverables": [
+    {
+      "id": "M1.3-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/tarif-zd.ts",
+      "test": "M1.3/tarif-zd — palier 1 : 1 pax (borne basse)",
+      "statut": "implemented",
+      "libelle": "M1.3/tarif-zd — palier 1 : 1 pax (borne basse)"
+    },
+    {
+      "id": "M1.3-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/tarif-zd.ts",
+      "test": "M1.3/tarif-zd — palier 1 : 100 pax (milieu)",
+      "statut": "implemented",
+      "libelle": "M1.3/tarif-zd — palier 1 : 100 pax (milieu)"
+    },
+    {
+      "id": "M1.3-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/tarif-zd.ts",
+      "test": "M1.3/tarif-zd — palier 1 : 250 pax (borne haute)",
+      "statut": "implemented",
+      "libelle": "M1.3/tarif-zd — palier 1 : 250 pax (borne haute)"
+    },
+    {
+      "id": "M1.3-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/tarif-zd.ts",
+      "test": "M1.3/tarif-zd — palier 2 : 251 pax (borne basse)",
+      "statut": "implemented",
+      "libelle": "M1.3/tarif-zd — palier 2 : 251 pax (borne basse)"
+    },
+    {
+      "id": "M1.3-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/tarif-zd.ts",
+      "test": "M1.3/tarif-zd — palier 2 : 400 pax (milieu)",
+      "statut": "implemented",
+      "libelle": "M1.3/tarif-zd — palier 2 : 400 pax (milieu)"
+    },
+    {
+      "id": "M1.3-06",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/tarif-zd.ts",
+      "test": "M1.3/tarif-zd — palier 2 : 500 pax (borne haute)",
+      "statut": "implemented",
+      "libelle": "M1.3/tarif-zd — palier 2 : 500 pax (borne haute)"
+    },
+    {
+      "id": "M1.3-07",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/tarif-zd.ts",
+      "test": "M1.3/tarif-zd — palier 3 : 501 pax (borne basse)",
+      "statut": "implemented",
+      "libelle": "M1.3/tarif-zd — palier 3 : 501 pax (borne basse)"
+    },
+    {
+      "id": "M1.3-08",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/tarif-zd.ts",
+      "test": "M1.3/tarif-zd — palier 3 : 750 pax (borne haute)",
+      "statut": "implemented",
+      "libelle": "M1.3/tarif-zd — palier 3 : 750 pax (borne haute)"
+    },
+    {
+      "id": "M1.3-09",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/tarif-zd.ts",
+      "test": "M1.3/tarif-zd — palier 4 : 751 pax (borne basse)",
+      "statut": "implemented",
+      "libelle": "M1.3/tarif-zd — palier 4 : 751 pax (borne basse)"
+    },
+    {
+      "id": "M1.3-10",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/tarif-zd.ts",
+      "test": "M1.3/tarif-zd — palier 4 : 1000 pax (borne haute)",
+      "statut": "implemented",
+      "libelle": "M1.3/tarif-zd — palier 4 : 1000 pax (borne haute)"
+    },
+    {
+      "id": "M1.3-11",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/tarif-zd.ts",
+      "test": "M1.3/tarif-zd — palier 5 : 1001 pax (borne basse >1000)",
+      "statut": "implemented",
+      "libelle": "M1.3/tarif-zd — palier 5 : 1001 pax (borne basse >1000)"
+    },
+    {
+      "id": "M1.3-12",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/tarif-zd.ts",
+      "test": "M1.3/tarif-zd — palier 5 : 2000 pax (affine 1€/pax)",
+      "statut": "implemented",
+      "libelle": "M1.3/tarif-zd — palier 5 : 2000 pax (affine 1€/pax)"
+    },
+    {
+      "id": "M1.3-13",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/tarif-zd.ts",
+      "test": "M1.3/tarif-zd — remise organisation : montant brut × (1 - remise_pct)",
+      "statut": "implemented",
+      "libelle": "M1.3/tarif-zd — remise organisation : montant brut × (1 - remise_pct)"
+    },
+    {
+      "id": "M1.3-14",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/tarif-zd.ts",
+      "test": "M1.3/tarif-zd — remise cumulative : Π(1 - remise_pct)",
+      "statut": "implemented",
+      "libelle": "M1.3/tarif-zd — remise cumulative : Π(1 - remise_pct)"
+    },
+    {
+      "id": "M1.3-15",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/tarif-zd.ts",
+      "test": "M1.3/tarif-zd — organisation NULL : utilise grille défaut",
+      "statut": "implemented",
+      "libelle": "M1.3/tarif-zd — organisation NULL : utilise grille défaut"
+    },
+    {
+      "id": "M1.3-16",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/tarif-zd.ts",
+      "test": "M1.3/tarif-zd — organisation sans grille assignée : utilise grille défaut",
+      "statut": "implemented",
+      "libelle": "M1.3/tarif-zd — organisation sans grille assignée : utilise grille défaut"
+    },
+    {
+      "id": "M1.3-17",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/tarif-zd.ts",
+      "test": "M1.3/tarif-zd — erreur PAX_INVALIDE : pax = 0",
+      "statut": "implemented",
+      "libelle": "M1.3/tarif-zd — erreur PAX_INVALIDE : pax = 0"
+    },
+    {
+      "id": "M1.3-18",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/tarif-zd.ts",
+      "test": "M1.3/tarif-zd — erreur PAX_INVALIDE : pax = -1",
+      "statut": "implemented",
+      "libelle": "M1.3/tarif-zd — erreur PAX_INVALIDE : pax = -1"
+    },
+    {
+      "id": "M1.3-19",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/tarif-zd.ts",
+      "test": "M1.3/tarif-zd — erreur PAX_INVALIDE : pax non entier (1.5)",
+      "statut": "implemented",
+      "libelle": "M1.3/tarif-zd — erreur PAX_INVALIDE : pax non entier (1.5)"
+    },
+    {
+      "id": "M1.3-20",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": "packages/plateforme/src/lib/tarif-zd.ts",
+      "test": "M1.3/tarif-zd — erreur GRILLE_INTROUVABLE : aucune grille active",
+      "statut": "implemented",
+      "libelle": "M1.3/tarif-zd — erreur GRILLE_INTROUVABLE : aucune grille active"
+    }
   ]
 }

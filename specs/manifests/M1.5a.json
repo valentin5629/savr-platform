@@ -46,5 +46,151 @@
     "fichier": "packages/adapters/src/mts1/adapter.m1-5a.test.ts",
     "total": 18,
     "passed": 18
-  }
+  },
+  "deliverables": [
+    {
+      "id": "M1.5a-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "supabase/migrations/20260614150000_plateforme_m1_5a_outbox_worker.sql",
+      "test": "E1 dispatch ZD rang=1 nominal : POST order → create tour → dispatch → validate",
+      "statut": "implemented",
+      "libelle": "E1 dispatch ZD rang=1 nominal : POST order → create tour → dispatch → validate"
+    },
+    {
+      "id": "M1.5a-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "supabase/migrations/20260614150000_plateforme_m1_5a_outbox_worker.sql",
+      "test": "E1 dispatch AG : orderCategories=['Alimentaire'], sans stuffs",
+      "statut": "implemented",
+      "libelle": "E1 dispatch AG : orderCategories=['Alimentaire'], sans stuffs"
+    },
+    {
+      "id": "M1.5a-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "supabase/migrations/20260614150000_plateforme_m1_5a_outbox_worker.sql",
+      "test": "E1 dispatch ZD : stuffs contient 5 flux + volume_du_camion",
+      "statut": "implemented",
+      "libelle": "E1 dispatch ZD : stuffs contient 5 flux + volume_du_camion"
+    },
+    {
+      "id": "M1.5a-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "supabase/migrations/20260614150000_plateforme_m1_5a_outbox_worker.sql",
+      "test": "E1 multi-camions N=2 : 2 ordres créés rang 1 et rang 2",
+      "statut": "implemented",
+      "libelle": "E1 multi-camions N=2 : 2 ordres créés rang 1 et rang 2"
+    },
+    {
+      "id": "M1.5a-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "supabase/migrations/20260614150000_plateforme_m1_5a_outbox_worker.sql",
+      "test": "E1 idempotent : rang déjà en_cours → no-op sans appel HTTP",
+      "statut": "implemented",
+      "libelle": "E1 idempotent : rang déjà en_cours → no-op sans appel HTTP"
+    },
+    {
+      "id": "M1.5a-06",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "supabase/migrations/20260614150000_plateforme_m1_5a_outbox_worker.sql",
+      "test": "E1 reprise étape 2 : external_ref_commande présent + tms_reference absent → POST tour seulement",
+      "statut": "implemented",
+      "libelle": "E1 reprise étape 2 : external_ref_commande présent + tms_reference absent → POST tour seulement"
+    },
+    {
+      "id": "M1.5a-07",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "supabase/migrations/20260614150000_plateforme_m1_5a_outbox_worker.sql",
+      "test": "E1 POST 422 → LogistiquePermanentError (dead immédiat)",
+      "statut": "implemented",
+      "libelle": "E1 POST 422 → LogistiquePermanentError (dead immédiat)"
+    },
+    {
+      "id": "M1.5a-08",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "supabase/migrations/20260614150000_plateforme_m1_5a_outbox_worker.sql",
+      "test": "E1 réconciliation : requires_reconciliation=true + ordre trouvé → pas de re-POST",
+      "statut": "implemented",
+      "libelle": "E1 réconciliation : requires_reconciliation=true + ordre trouvé → pas de re-POST"
+    },
+    {
+      "id": "M1.5a-09",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "supabase/migrations/20260614150000_plateforme_m1_5a_outbox_worker.sql",
+      "test": "E1 réconciliation : ordre introuvable → re-POST autorisé",
+      "statut": "implemented",
+      "libelle": "E1 réconciliation : ordre introuvable → re-POST autorisé"
+    },
+    {
+      "id": "M1.5a-10",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "supabase/migrations/20260614150000_plateforme_m1_5a_outbox_worker.sql",
+      "test": "E2 sans external_ref_commande → no-op",
+      "statut": "implemented",
+      "libelle": "E2 sans external_ref_commande → no-op"
+    },
+    {
+      "id": "M1.5a-11",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "supabase/migrations/20260614150000_plateforme_m1_5a_outbox_worker.sql",
+      "test": "E3 cancel 4xx → CancelWindowClosedError",
+      "statut": "implemented",
+      "libelle": "E3 cancel 4xx → CancelWindowClosedError"
+    },
+    {
+      "id": "M1.5a-12",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "supabase/migrations/20260614150000_plateforme_m1_5a_outbox_worker.sql",
+      "test": "provider_manual : toutes méthodes résolvent sans erreur",
+      "statut": "implemented",
+      "libelle": "provider_manual : toutes méthodes résolvent sans erreur"
+    },
+    {
+      "id": "M1.5a-13",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "supabase/migrations/20260614150000_plateforme_m1_5a_outbox_worker.sql",
+      "test": "factory : mts1 → AdapterMts1, autre → ProviderManual, a_toutes → gate Everest",
+      "statut": "implemented",
+      "libelle": "factory : mts1 → AdapterMts1, autre → ProviderManual, a_toutes → gate Everest"
+    },
+    {
+      "id": "M1.5a-14",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "supabase/migrations/20260614150000_plateforme_m1_5a_outbox_worker.sql",
+      "test": "retry paliers : attempts=1 → 5min, attempts=4 → null (DLQ)",
+      "statut": "implemented",
+      "libelle": "retry paliers : attempts=1 → 5min, attempts=4 → null (DLQ)"
+    },
+    {
+      "id": "BL-P0-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "upload photo MTS-1 → R2 + lien shared.fichiers (échec INSERT si upload KO)"
+    },
+    {
+      "id": "BL-P1-API-07",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "PDF versioning template_version"
+    },
+    {
+      "id": "BL-P2-35",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "`pesees_tournees` RLS `pt_admin FOR ALL`"
+    },
+    {
+      "id": "BL-P2-37",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "Divergence pesée post-clôture : alerte Ops manquante"
+    }
+  ]
 }

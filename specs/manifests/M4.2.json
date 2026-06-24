@@ -36,5 +36,95 @@
     "zip_zero_bordereau_refuse_message",
     "telechargement_pdf_bordereau_depuis_liste",
     "url_directe_bordereau_hors_perimetre_deny"
+  ],
+  "deliverables": [
+    {
+      "id": "M4.2-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md",
+      "artefact": "supabase/migrations/20260619120000_plateforme_m4_2_registre.sql",
+      "test": "acces_registre_non_authentifie_401",
+      "statut": "implemented",
+      "libelle": "acces_registre_non_authentifie_401"
+    },
+    {
+      "id": "M4.2-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md",
+      "artefact": "supabase/migrations/20260619120000_plateforme_m4_2_registre.sql",
+      "test": "registre_agence_denied",
+      "statut": "implemented",
+      "libelle": "registre_agence_denied"
+    },
+    {
+      "id": "M4.2-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md",
+      "artefact": "supabase/migrations/20260619120000_plateforme_m4_2_registre.sql",
+      "test": "liste_registre_200",
+      "statut": "implemented",
+      "libelle": "liste_registre_200"
+    },
+    {
+      "id": "M4.2-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md",
+      "artefact": "supabase/migrations/20260619120000_plateforme_m4_2_registre.sql",
+      "test": "export_csv_registre_filtre_trace",
+      "statut": "implemented",
+      "libelle": "export_csv_registre_filtre_trace"
+    },
+    {
+      "id": "M4.2-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md",
+      "artefact": "supabase/migrations/20260619120000_plateforme_m4_2_registre.sql",
+      "test": "export_csv_zero_ligne_entetes_seules",
+      "statut": "implemented",
+      "libelle": "export_csv_zero_ligne_entetes_seules"
+    },
+    {
+      "id": "M4.2-06",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md",
+      "artefact": "supabase/migrations/20260619120000_plateforme_m4_2_registre.sql",
+      "test": "export_zip_bordereaux_periode",
+      "statut": "implemented",
+      "libelle": "export_zip_bordereaux_periode"
+    },
+    {
+      "id": "M4.2-07",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md",
+      "artefact": "supabase/migrations/20260619120000_plateforme_m4_2_registre.sql",
+      "test": "zip_exactement_50_bordereaux_ok",
+      "statut": "implemented",
+      "libelle": "zip_exactement_50_bordereaux_ok"
+    },
+    {
+      "id": "M4.2-08",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md",
+      "artefact": "supabase/migrations/20260619120000_plateforme_m4_2_registre.sql",
+      "test": "zip_51_bordereaux_refuse",
+      "statut": "implemented",
+      "libelle": "zip_51_bordereaux_refuse"
+    },
+    {
+      "id": "M4.2-09",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md",
+      "artefact": "supabase/migrations/20260619120000_plateforme_m4_2_registre.sql",
+      "test": "zip_zero_bordereau_refuse_message",
+      "statut": "implemented",
+      "libelle": "zip_zero_bordereau_refuse_message"
+    },
+    {
+      "id": "M4.2-10",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md",
+      "artefact": "supabase/migrations/20260619120000_plateforme_m4_2_registre.sql",
+      "test": "telechargement_pdf_bordereau_depuis_liste",
+      "statut": "implemented",
+      "libelle": "telechargement_pdf_bordereau_depuis_liste"
+    },
+    {
+      "id": "M4.2-11",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md",
+      "artefact": "supabase/migrations/20260619120000_plateforme_m4_2_registre.sql",
+      "test": "url_directe_bordereau_hors_perimetre_deny",
+      "statut": "implemented",
+      "libelle": "url_directe_bordereau_hors_perimetre_deny"
+    }
   ]
 }

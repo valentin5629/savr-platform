@@ -51,5 +51,191 @@
     "M0.8-21 — nav client_organisateur affiche les entrées client organisateur",
     "M0.8-22 — entrées non autorisées pour le rôle sont absentes de la navigation",
     "M0.8-23 — pnpm build passe sans erreur TypeScript"
+  ],
+  "deliverables": [
+    {
+      "id": "M0.8-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "artefact": null,
+      "test": "M0.8-1 — tokens CSS primary/accent/neutral sont définis dans globals.css",
+      "statut": "implemented",
+      "libelle": "M0.8-1 — tokens CSS primary/accent/neutral sont définis dans globals.css"
+    },
+    {
+      "id": "M0.8-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "artefact": null,
+      "test": "M0.8-2 — Button primary applique fond primary-700 et texte blanc",
+      "statut": "implemented",
+      "libelle": "M0.8-2 — Button primary applique fond primary-700 et texte blanc"
+    },
+    {
+      "id": "M0.8-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "artefact": null,
+      "test": "M0.8-3 — Button accent applique fond accent-500 et texte primary-950",
+      "statut": "implemented",
+      "libelle": "M0.8-3 — Button accent applique fond accent-500 et texte primary-950"
+    },
+    {
+      "id": "M0.8-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "artefact": null,
+      "test": "M0.8-4 — Button focus-visible affiche un anneau primary-500 offset 2px (levier #4)",
+      "statut": "implemented",
+      "libelle": "M0.8-4 — Button focus-visible affiche un anneau primary-500 offset 2px (levier #4)"
+    },
+    {
+      "id": "M0.8-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "artefact": null,
+      "test": "M0.8-5 — Card au repos a bordure neutral-200 et ombre none",
+      "statut": "implemented",
+      "libelle": "M0.8-5 — Card au repos a bordure neutral-200 et ombre none"
+    },
+    {
+      "id": "M0.8-06",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "artefact": null,
+      "test": "M0.8-6 — Badge succès applique fond success-subtle et texte success-strong",
+      "statut": "implemented",
+      "libelle": "M0.8-6 — Badge succès applique fond success-subtle et texte success-strong"
+    },
+    {
+      "id": "M0.8-07",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "artefact": null,
+      "test": "M0.8-7 — Badge warning applique fond warning-subtle et texte warning-strong",
+      "statut": "implemented",
+      "libelle": "M0.8-7 — Badge warning applique fond warning-subtle et texte warning-strong"
+    },
+    {
+      "id": "M0.8-08",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "artefact": null,
+      "test": "M0.8-8 — Badge error applique fond error-subtle et texte error-strong",
+      "statut": "implemented",
+      "libelle": "M0.8-8 — Badge error applique fond error-subtle et texte error-strong"
+    },
+    {
+      "id": "M0.8-09",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "artefact": null,
+      "test": "M0.8-9 — StatusCollecte affiche les 5 statuts valides (programmee, validee, en_cours, realisee, cloturee)",
+      "statut": "implemented",
+      "libelle": "M0.8-9 — StatusCollecte affiche les 5 statuts valides (programmee, validee, en_cours, realisee, cloturee)"
+    },
+    {
+      "id": "M0.8-10",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "artefact": null,
+      "test": "M0.8-10 — PackAGIndicator affiche une jauge et un compteur",
+      "statut": "implemented",
+      "libelle": "M0.8-10 — PackAGIndicator affiche une jauge et un compteur"
+    },
+    {
+      "id": "M0.8-11",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "artefact": null,
+      "test": "M0.8-11 — ImpersonationBanner est visible avec fond accent-500",
+      "statut": "implemented",
+      "libelle": "M0.8-11 — ImpersonationBanner est visible avec fond accent-500"
+    },
+    {
+      "id": "M0.8-12",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "artefact": null,
+      "test": "M0.8-12 — EmptyState affiche une illustration et un texte",
+      "statut": "implemented",
+      "libelle": "M0.8-12 — EmptyState affiche une illustration et un texte"
+    },
+    {
+      "id": "M0.8-13",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "artefact": null,
+      "test": "M0.8-13 — Skeleton affiche un bloc animé neutral-100 (pas de spinner)",
+      "statut": "implemented",
+      "libelle": "M0.8-13 — Skeleton affiche un bloc animé neutral-100 (pas de spinner)"
+    },
+    {
+      "id": "M0.8-14",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "artefact": null,
+      "test": "M0.8-14 — DataTable affiche les données en colonnes sur desktop",
+      "statut": "implemented",
+      "libelle": "M0.8-14 — DataTable affiche les données en colonnes sur desktop"
+    },
+    {
+      "id": "M0.8-15",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "artefact": null,
+      "test": "M0.8-15 — Sidebar affiche le fond primary-700/800 (levier #2)",
+      "statut": "implemented",
+      "libelle": "M0.8-15 — Sidebar affiche le fond primary-700/800 (levier #2)"
+    },
+    {
+      "id": "M0.8-16",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "artefact": null,
+      "test": "M0.8-16 — nav admin_savr affiche les entrées admin (Orgs, Users, Collectes, Config)",
+      "statut": "implemented",
+      "libelle": "M0.8-16 — nav admin_savr affiche les entrées admin (Orgs, Users, Collectes, Config)"
+    },
+    {
+      "id": "M0.8-17",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "artefact": null,
+      "test": "M0.8-17 — nav traiteur_manager affiche les entrées traiteur (Événements, Collectes, Dashboard)",
+      "statut": "implemented",
+      "libelle": "M0.8-17 — nav traiteur_manager affiche les entrées traiteur (Événements, Collectes, Dashboard)"
+    },
+    {
+      "id": "M0.8-18",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "artefact": null,
+      "test": "M0.8-18 — nav traiteur_commercial affiche les entrées commercial (Programmation, Collectes)",
+      "statut": "implemented",
+      "libelle": "M0.8-18 — nav traiteur_commercial affiche les entrées commercial (Programmation, Collectes)"
+    },
+    {
+      "id": "M0.8-19",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "artefact": null,
+      "test": "M0.8-19 — nav agence affiche les entrées agence",
+      "statut": "implemented",
+      "libelle": "M0.8-19 — nav agence affiche les entrées agence"
+    },
+    {
+      "id": "M0.8-20",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "artefact": null,
+      "test": "M0.8-20 — nav gestionnaire_lieux affiche les entrées gestionnaire de lieux",
+      "statut": "implemented",
+      "libelle": "M0.8-20 — nav gestionnaire_lieux affiche les entrées gestionnaire de lieux"
+    },
+    {
+      "id": "M0.8-21",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "artefact": null,
+      "test": "M0.8-21 — nav client_organisateur affiche les entrées client organisateur",
+      "statut": "implemented",
+      "libelle": "M0.8-21 — nav client_organisateur affiche les entrées client organisateur"
+    },
+    {
+      "id": "M0.8-22",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "artefact": null,
+      "test": "M0.8-22 — entrées non autorisées pour le rôle sont absentes de la navigation",
+      "statut": "implemented",
+      "libelle": "M0.8-22 — entrées non autorisées pour le rôle sont absentes de la navigation"
+    },
+    {
+      "id": "M0.8-23",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
+      "artefact": null,
+      "test": "M0.8-23 — pnpm build passe sans erreur TypeScript",
+      "statut": "implemented",
+      "libelle": "M0.8-23 — pnpm build passe sans erreur TypeScript"
+    }
   ]
 }

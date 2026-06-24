@@ -142,5 +142,191 @@
       "id": "M1.1b/e2e/endpoints-proteges",
       "description": "Tous les endpoints /admin/* retournent 401 sans session (protection auth)"
     }
+  ],
+  "deliverables": [
+    {
+      "id": "M1.1b-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/lieux/route.ts",
+      "test": "M1.1b/lieux/liste",
+      "statut": "implemented",
+      "libelle": "GET /api/v1/admin/lieux retourne liste paginée, filtrable par actif/ville/q"
+    },
+    {
+      "id": "M1.1b-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/lieux/route.ts",
+      "test": "M1.1b/lieux/worklist-modifs",
+      "statut": "implemented",
+      "libelle": "GET ?worklist=modifs retourne les lieux ayant des collectes avec lieu_overrides"
+    },
+    {
+      "id": "M1.1b-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/lieux/route.ts",
+      "test": "M1.1b/lieux/create",
+      "statut": "implemented",
+      "libelle": "POST crée un lieu (actif=false par défaut), audit_log, 422 si champs manquants"
+    },
+    {
+      "id": "M1.1b-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/lieux/route.ts",
+      "test": "M1.1b/lieux/normaliser",
+      "statut": "implemented",
+      "libelle": "POST /normaliser bascule actif=true + audit_log, 404 si introuvable"
+    },
+    {
+      "id": "M1.1b-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/lieux/route.ts",
+      "test": "M1.1b/associations/create",
+      "statut": "implemented",
+      "libelle": "POST 422 si description < 30 chars ou champs obligatoires manquants"
+    },
+    {
+      "id": "M1.1b-06",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/lieux/route.ts",
+      "test": "M1.1b/associations/ops-champs-proteges",
+      "statut": "implemented",
+      "libelle": "PATCH par ops_savr : 403 si tentative de modifier habilitee_attestation_fiscale ou actif"
+    },
+    {
+      "id": "M1.1b-07",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/lieux/route.ts",
+      "test": "M1.1b/transporteurs/create-mts1-sans-code",
+      "statut": "implemented",
+      "libelle": "POST type_tms=mts1 sans code_transporteur_mts1 → 422"
+    },
+    {
+      "id": "M1.1b-08",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/lieux/route.ts",
+      "test": "M1.1b/transporteurs/create-mts1-avec-code",
+      "statut": "implemented",
+      "libelle": "POST type_tms=mts1 avec code → 201"
+    },
+    {
+      "id": "M1.1b-09",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/lieux/route.ts",
+      "test": "M1.1b/dispatch/statuts-terminaux-409",
+      "statut": "implemented",
+      "libelle": "POST /dispatch sur collecte realisee/cloturee/annulee/realisee_sans_collecte → 409"
+    },
+    {
+      "id": "M1.1b-10",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/lieux/route.ts",
+      "test": "M1.1b/dispatch/ops-override-403",
+      "statut": "implemented",
+      "libelle": "POST /dispatch avec prestataire_logistique_id différent par ops_savr → 403"
+    },
+    {
+      "id": "M1.1b-11",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/lieux/route.ts",
+      "test": "M1.1b/dispatch/override-sans-motif-422",
+      "statut": "implemented",
+      "libelle": "POST /dispatch override prestataire sans motif ou motif < 5 chars → 422"
+    },
+    {
+      "id": "M1.1b-12",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/lieux/route.ts",
+      "test": "M1.1b/dispatch/e1-collecte-creee",
+      "statut": "implemented",
+      "libelle": "POST /dispatch premier envoi → outbox_events event_type=collecte.creee (G4)"
+    },
+    {
+      "id": "M1.1b-13",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/lieux/route.ts",
+      "test": "M1.1b/dispatch/e2-collecte-modifiee",
+      "statut": "implemented",
+      "libelle": "POST /dispatch renvoi (tms_reference présente) → outbox_events event_type=collecte.modifiee (G4)"
+    },
+    {
+      "id": "M1.1b-14",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/lieux/route.ts",
+      "test": "M1.1b/dispatch/404-inconnu",
+      "statut": "implemented",
+      "libelle": "POST /dispatch collecte inconnue → 404"
+    },
+    {
+      "id": "M1.1b-15",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/lieux/route.ts",
+      "test": "M1.1b/collectes/create-outbox-g4",
+      "statut": "implemented",
+      "libelle": "POST /collectes crée outbox E1 dans la même transaction (garde-fou G4)"
+    },
+    {
+      "id": "M1.1b-16",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/lieux/route.ts",
+      "test": "M1.1b/collectes/chips-filtres",
+      "statut": "implemented",
+      "libelle": "GET ?chip=non_transmises|attente_prestataire|dirty_tms|ag_attente_attribution|zd_48h|ag_48h filtre correctement"
+    },
+    {
+      "id": "M1.1b-17",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/lieux/route.ts",
+      "test": "M1.1b/dashboard/kpi-6-cartes",
+      "statut": "implemented",
+      "libelle": "GET /dashboard/kpi retourne les 6 cartes (non_transmises_zd, non_transmises_ag, attente_prestataire, dirty_tms, zd_48h, "
+    },
+    {
+      "id": "M1.1b-18",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/lieux/route.ts",
+      "test": "M1.1b/taux-recyclage/put-borne-0-1",
+      "statut": "implemented",
+      "libelle": "PUT taux_captation > 1 ou < 0 → 422"
+    },
+    {
+      "id": "M1.1b-19",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/lieux/route.ts",
+      "test": "M1.1b/taux-recyclage/put-commentaire-min5",
+      "statut": "implemented",
+      "libelle": "PUT commentaire_modif < 5 chars → 422"
+    },
+    {
+      "id": "M1.1b-20",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/lieux/route.ts",
+      "test": "M1.1b/taux-recyclage/admin-only",
+      "statut": "implemented",
+      "libelle": "PUT par ops_savr → 403 ; GET par ops_savr → 200"
+    },
+    {
+      "id": "M1.1b-21",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/lieux/route.ts",
+      "test": "M1.1b/mix-emballages/somme-100",
+      "statut": "implemented",
+      "libelle": "PUT mix dont somme ≠ 100 % → 422"
+    },
+    {
+      "id": "M1.1b-22",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/lieux/route.ts",
+      "test": "M1.1b/mix-emballages/admin-only",
+      "statut": "implemented",
+      "libelle": "PUT par ops_savr → 403"
+    },
+    {
+      "id": "M1.1b-23",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/lieux/route.ts",
+      "test": "M1.1b/e2e/endpoints-proteges",
+      "statut": "implemented",
+      "libelle": "Tous les endpoints /admin/* retournent 401 sans session (protection auth)"
+    }
   ]
 }

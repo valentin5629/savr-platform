@@ -39,5 +39,143 @@
     "M3.3/factures_lecture_seule_agence",
     "M3.3/shadow_creation_in_app_aucun_email",
     "M3.3/shadow_creation_role_non_agence_403"
+  ],
+  "deliverables": [
+    {
+      "id": "M3.3-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md",
+      "artefact": "supabase/migrations/20260617130000_plateforme_m3_3_espace_agence.sql",
+      "test": "M3.3/auth_guard_non_agence_403",
+      "statut": "implemented",
+      "libelle": "M3.3/auth_guard_non_agence_403"
+    },
+    {
+      "id": "M3.3-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md",
+      "artefact": "supabase/migrations/20260617130000_plateforme_m3_3_espace_agence.sql",
+      "test": "M3.3/auth_guard_non_authentifie_401",
+      "statut": "implemented",
+      "libelle": "M3.3/auth_guard_non_authentifie_401"
+    },
+    {
+      "id": "M3.3-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md",
+      "artefact": "supabase/migrations/20260617130000_plateforme_m3_3_espace_agence.sql",
+      "test": "M3.3/dashboard_agence_4_cartes_zd_sans_marge",
+      "statut": "implemented",
+      "libelle": "M3.3/dashboard_agence_4_cartes_zd_sans_marge"
+    },
+    {
+      "id": "M3.3-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md",
+      "artefact": "supabase/migrations/20260617130000_plateforme_m3_3_espace_agence.sql",
+      "test": "M3.3/dashboard_marge_conservee_pour_traiteur",
+      "statut": "implemented",
+      "libelle": "M3.3/dashboard_marge_conservee_pour_traiteur"
+    },
+    {
+      "id": "M3.3-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md",
+      "artefact": "supabase/migrations/20260617130000_plateforme_m3_3_espace_agence.sql",
+      "test": "M3.3/collectes_liste_perimetre_agence",
+      "statut": "implemented",
+      "libelle": "M3.3/collectes_liste_perimetre_agence"
+    },
+    {
+      "id": "M3.3-06",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md",
+      "artefact": "supabase/migrations/20260617130000_plateforme_m3_3_espace_agence.sql",
+      "test": "M3.3/fiche_collecte_traiteur_operationnel_referentiel",
+      "statut": "implemented",
+      "libelle": "M3.3/fiche_collecte_traiteur_operationnel_referentiel"
+    },
+    {
+      "id": "M3.3-07",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md",
+      "artefact": "supabase/migrations/20260617130000_plateforme_m3_3_espace_agence.sql",
+      "test": "M3.3/fiche_collecte_traiteur_shadow_badge",
+      "statut": "implemented",
+      "libelle": "M3.3/fiche_collecte_traiteur_shadow_badge"
+    },
+    {
+      "id": "M3.3-08",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md",
+      "artefact": "supabase/migrations/20260617130000_plateforme_m3_3_espace_agence.sql",
+      "test": "M3.3/edition_champs_verrouilles_422",
+      "statut": "implemented",
+      "libelle": "M3.3/edition_champs_verrouilles_422"
+    },
+    {
+      "id": "M3.3-09",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md",
+      "artefact": "supabase/migrations/20260617130000_plateforme_m3_3_espace_agence.sql",
+      "test": "M3.3/edition_refusee_hors_fenetre_422",
+      "statut": "implemented",
+      "libelle": "M3.3/edition_refusee_hors_fenetre_422"
+    },
+    {
+      "id": "M3.3-10",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md",
+      "artefact": "supabase/migrations/20260617130000_plateforme_m3_3_espace_agence.sql",
+      "test": "M3.3/annulation_directe_programmee",
+      "statut": "implemented",
+      "libelle": "M3.3/annulation_directe_programmee"
+    },
+    {
+      "id": "M3.3-11",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md",
+      "artefact": "supabase/migrations/20260617130000_plateforme_m3_3_espace_agence.sql",
+      "test": "M3.3/annulation_demande_validee",
+      "statut": "implemented",
+      "libelle": "M3.3/annulation_demande_validee"
+    },
+    {
+      "id": "M3.3-12",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md",
+      "artefact": "supabase/migrations/20260617130000_plateforme_m3_3_espace_agence.sql",
+      "test": "M3.3/siret_completion_appelle_rpc",
+      "statut": "implemented",
+      "libelle": "M3.3/siret_completion_appelle_rpc"
+    },
+    {
+      "id": "M3.3-13",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md",
+      "artefact": "supabase/migrations/20260617130000_plateforme_m3_3_espace_agence.sql",
+      "test": "M3.3/siret_format_invalide_422",
+      "statut": "implemented",
+      "libelle": "M3.3/siret_format_invalide_422"
+    },
+    {
+      "id": "M3.3-14",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md",
+      "artefact": "supabase/migrations/20260617130000_plateforme_m3_3_espace_agence.sql",
+      "test": "M3.3/siret_rpc_erreur_remontee_422",
+      "statut": "implemented",
+      "libelle": "M3.3/siret_rpc_erreur_remontee_422"
+    },
+    {
+      "id": "M3.3-15",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md",
+      "artefact": "supabase/migrations/20260617130000_plateforme_m3_3_espace_agence.sql",
+      "test": "M3.3/factures_lecture_seule_agence",
+      "statut": "implemented",
+      "libelle": "M3.3/factures_lecture_seule_agence"
+    },
+    {
+      "id": "M3.3-16",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md",
+      "artefact": "supabase/migrations/20260617130000_plateforme_m3_3_espace_agence.sql",
+      "test": "M3.3/shadow_creation_in_app_aucun_email",
+      "statut": "implemented",
+      "libelle": "M3.3/shadow_creation_in_app_aucun_email"
+    },
+    {
+      "id": "M3.3-17",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md",
+      "artefact": "supabase/migrations/20260617130000_plateforme_m3_3_espace_agence.sql",
+      "test": "M3.3/shadow_creation_role_non_agence_403",
+      "statut": "implemented",
+      "libelle": "M3.3/shadow_creation_role_non_agence_403"
+    }
   ]
 }

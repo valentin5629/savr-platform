@@ -2,7 +2,10 @@
   "module": "M3.6",
   "titre": "Back-office Admin — Dashboard Client (réplique lecture seule des dashboards clients)",
   "description": "Page Admin /admin/dashboard-client (§06.06 §2) : vue LECTURE SEULE répliquant le dashboard gestionnaire (§06.05) avec un sélecteur d'organisations. « Toutes les organisations » (défaut) agrège la totalité des collectes Savr sans filtre RLS gestionnaire (service-role) ; une sélection filtre par evenements.organisation_id. Persistance de la sélection via localStorage. Accès admin_savr + ops_savr uniquement. Aucune écriture. Dépend de la couche KPI commune (M3.5) et des dashboards clients (M3.1→M3.5). Impersonation (§09 §7) HORS SCOPE de cette page.",
-  "depend_de": ["M3.5", "M3.2"],
+  "depend_de": [
+    "M3.5",
+    "M3.2"
+  ],
   "fichiers_produits": [
     "packages/plateforme/src/lib/dashboard-kpi.ts",
     "packages/plateforme/src/lib/page-auth.ts",
@@ -27,5 +30,79 @@
     "M3.6/organisations_liste_pour_selecteur",
     "M3.6/benchmark_staff_service_role",
     "M3.6/dashboard_client_toutes_organisations_lecture_seule"
+  ],
+  "deliverables": [
+    {
+      "id": "M3.6-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md",
+      "artefact": "packages/plateforme/src/lib/dashboard-kpi.ts",
+      "test": "M3.6/auth_guard_non_authentifie_401",
+      "statut": "implemented",
+      "libelle": "M3.6/auth_guard_non_authentifie_401"
+    },
+    {
+      "id": "M3.6-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md",
+      "artefact": "packages/plateforme/src/lib/dashboard-kpi.ts",
+      "test": "M3.6/auth_guard_non_staff_403",
+      "statut": "implemented",
+      "libelle": "M3.6/auth_guard_non_staff_403"
+    },
+    {
+      "id": "M3.6-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md",
+      "artefact": "packages/plateforme/src/lib/dashboard-kpi.ts",
+      "test": "M3.6/kpi_toutes_organisations_sans_filtre_org",
+      "statut": "implemented",
+      "libelle": "M3.6/kpi_toutes_organisations_sans_filtre_org"
+    },
+    {
+      "id": "M3.6-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md",
+      "artefact": "packages/plateforme/src/lib/dashboard-kpi.ts",
+      "test": "M3.6/kpi_organisations_selectionnees_filtre_in",
+      "statut": "implemented",
+      "libelle": "M3.6/kpi_organisations_selectionnees_filtre_in"
+    },
+    {
+      "id": "M3.6-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md",
+      "artefact": "packages/plateforme/src/lib/dashboard-kpi.ts",
+      "test": "M3.6/kpi_zd_4_indicateurs_pondere",
+      "statut": "implemented",
+      "libelle": "M3.6/kpi_zd_4_indicateurs_pondere"
+    },
+    {
+      "id": "M3.6-06",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md",
+      "artefact": "packages/plateforme/src/lib/dashboard-kpi.ts",
+      "test": "M3.6/kpi_ag_repas_donnes",
+      "statut": "implemented",
+      "libelle": "M3.6/kpi_ag_repas_donnes"
+    },
+    {
+      "id": "M3.6-07",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md",
+      "artefact": "packages/plateforme/src/lib/dashboard-kpi.ts",
+      "test": "M3.6/organisations_liste_pour_selecteur",
+      "statut": "implemented",
+      "libelle": "M3.6/organisations_liste_pour_selecteur"
+    },
+    {
+      "id": "M3.6-08",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md",
+      "artefact": "packages/plateforme/src/lib/dashboard-kpi.ts",
+      "test": "M3.6/benchmark_staff_service_role",
+      "statut": "implemented",
+      "libelle": "M3.6/benchmark_staff_service_role"
+    },
+    {
+      "id": "M3.6-09",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md",
+      "artefact": "packages/plateforme/src/lib/dashboard-kpi.ts",
+      "test": "M3.6/dashboard_client_toutes_organisations_lecture_seule",
+      "statut": "implemented",
+      "libelle": "M3.6/dashboard_client_toutes_organisations_lecture_seule"
+    }
   ]
 }

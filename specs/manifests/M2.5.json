@@ -30,5 +30,15 @@
   },
   "divergences": [
     "M2.5_20260615.md"
+  ],
+  "deliverables": [
+    {
+      "id": "BL-P0-07",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "re-fetch Everest sur signal webhook (cost/preuve écrits depuis l'API, pas le payload)"
+    }
   ]
 }

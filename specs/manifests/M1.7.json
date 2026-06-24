@@ -81,5 +81,127 @@
     "UI édition templates emails (V1.1)",
     "Pennylane sandbox (dev) — clé configurée en Vault",
     "Factures coût logistique (V2 — dépend tms.*)"
+  ],
+  "deliverables": [
+    {
+      "id": "M1.7-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md",
+      "artefact": "supabase/migrations/20260615000000_plateforme_m1_7_enums.sql",
+      "test": "Collecte ZD cloturee SIRET verifie → batch J+1 → brouillon FZD créé",
+      "statut": "implemented",
+      "libelle": "Collecte ZD cloturee SIRET verifie → batch J+1 → brouillon FZD créé"
+    },
+    {
+      "id": "M1.7-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md",
+      "artefact": "supabase/migrations/20260615000000_plateforme_m1_7_enums.sql",
+      "test": "Organisation mode_facturation_zd=mensuelle → brouillon regroupé sur le mois",
+      "statut": "implemented",
+      "libelle": "Organisation mode_facturation_zd=mensuelle → brouillon regroupé sur le mois"
+    },
+    {
+      "id": "M1.7-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md",
+      "artefact": "supabase/migrations/20260615000000_plateforme_m1_7_enums.sql",
+      "test": "Collecte AG cloturee hors pack globale_achat → brouillon FAG créé",
+      "statut": "implemented",
+      "libelle": "Collecte AG cloturee hors pack globale_achat → brouillon FAG créé"
+    },
+    {
+      "id": "M1.7-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md",
+      "artefact": "supabase/migrations/20260615000000_plateforme_m1_7_enums.sql",
+      "test": "SIRET non_verifie → collecte skippée (gate), aucune facture créée",
+      "statut": "implemented",
+      "libelle": "SIRET non_verifie → collecte skippée (gate), aucune facture créée"
+    },
+    {
+      "id": "M1.7-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md",
+      "artefact": "supabase/migrations/20260615000000_plateforme_m1_7_enums.sql",
+      "test": "Brouillon déjà présent pour la collecte → idempotent, aucun doublon",
+      "statut": "implemented",
+      "libelle": "Brouillon déjà présent pour la collecte → idempotent, aucun doublon"
+    },
+    {
+      "id": "M1.7-06",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md",
+      "artefact": "supabase/migrations/20260615000000_plateforme_m1_7_enums.sql",
+      "test": "Admin valide brouillon → numéro FZD-YYYY-NNNNN gapless + 3 appels Pennylane → emise",
+      "statut": "implemented",
+      "libelle": "Admin valide brouillon → numéro FZD-YYYY-NNNNN gapless + 3 appels Pennylane → emise"
+    },
+    {
+      "id": "M1.7-07",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md",
+      "artefact": "supabase/migrations/20260615000000_plateforme_m1_7_enums.sql",
+      "test": "Numéro déjà attribué (après 4xx) → pas de réattribution, numéro conservé",
+      "statut": "implemented",
+      "libelle": "Numéro déjà attribué (après 4xx) → pas de réattribution, numéro conservé"
+    },
+    {
+      "id": "M1.7-08",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md",
+      "artefact": "supabase/migrations/20260615000000_plateforme_m1_7_enums.sql",
+      "test": "Pennylane 4xx → retour brouillon, erreur_synchro enregistrée, numéro conservé",
+      "statut": "implemented",
+      "libelle": "Pennylane 4xx → retour brouillon, erreur_synchro enregistrée, numéro conservé"
+    },
+    {
+      "id": "M1.7-09",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md",
+      "artefact": "supabase/migrations/20260615000000_plateforme_m1_7_enums.sql",
+      "test": "Pennylane 5xx → en_attente_pennylane + pennylane_statut=retry_1",
+      "statut": "implemented",
+      "libelle": "Pennylane 5xx → en_attente_pennylane + pennylane_statut=retry_1"
+    },
+    {
+      "id": "M1.7-10",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md",
+      "artefact": "supabase/migrations/20260615000000_plateforme_m1_7_enums.sql",
+      "test": "Finalize 5xx → en_attente_pennylane, pennylane_id déjà sauvegardé",
+      "statut": "implemented",
+      "libelle": "Finalize 5xx → en_attente_pennylane, pennylane_id déjà sauvegardé"
+    },
+    {
+      "id": "M1.7-11",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md",
+      "artefact": "supabase/migrations/20260615000000_plateforme_m1_7_enums.sql",
+      "test": "Cron retry → 3 paliers 5min/1h/24h, DLQ → alerte Admin #savr-alerts-critique",
+      "statut": "implemented",
+      "libelle": "Cron retry → 3 paliers 5min/1h/24h, DLQ → alerte Admin #savr-alerts-critique"
+    },
+    {
+      "id": "M1.7-12",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md",
+      "artefact": "supabase/migrations/20260615000000_plateforme_m1_7_enums.sql",
+      "test": "Polling paiement → facture emise + Pennylane paid → payee + date_paiement",
+      "statut": "implemented",
+      "libelle": "Polling paiement → facture emise + Pennylane paid → payee + date_paiement"
+    },
+    {
+      "id": "M1.7-13",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md",
+      "artefact": "supabase/migrations/20260615000000_plateforme_m1_7_enums.sql",
+      "test": "Avoir sur facture emise → AV-YYYY-NNNNN + facture origine annulee + push Pennylane credit_note",
+      "statut": "implemented",
+      "libelle": "Avoir sur facture emise → AV-YYYY-NNNNN + facture origine annulee + push Pennylane credit_note"
+    },
+    {
+      "id": "M1.7-14",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md",
+      "artefact": "supabase/migrations/20260615000000_plateforme_m1_7_enums.sql",
+      "test": "Avoir sur facture brouillon → refusé (trigger + route 422)",
+      "statut": "implemented",
+      "libelle": "Avoir sur facture brouillon → refusé (trigger + route 422)"
+    },
+    {
+      "id": "M1.7-15",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md",
+      "artefact": "supabase/migrations/20260615000000_plateforme_m1_7_enums.sql",
+      "test": "f_attribuer_numero_facture gapless : FZD-2026-00001, FZD-2026-00002…",
+      "statut": "implemented",
+      "libelle": "f_attribuer_numero_facture gapless : FZD-2026-00001, FZD-2026-00002…"
+    }
   ]
 }

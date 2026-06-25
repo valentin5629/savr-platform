@@ -3652,6 +3652,8 @@ export type Database = {
       users: {
         Row: {
           actif: boolean
+          cgu_accepte_le: string | null
+          cgu_version: string | null
           created_at: string
           derniere_connexion: string | null
           email: string
@@ -3663,6 +3665,8 @@ export type Database = {
         }
         Insert: {
           actif?: boolean
+          cgu_accepte_le?: string | null
+          cgu_version?: string | null
           created_at?: string
           derniere_connexion?: string | null
           email: string
@@ -3674,6 +3678,8 @@ export type Database = {
         }
         Update: {
           actif?: boolean
+          cgu_accepte_le?: string | null
+          cgu_version?: string | null
           created_at?: string
           derniere_connexion?: string | null
           email?: string

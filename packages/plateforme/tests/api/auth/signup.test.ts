@@ -10,6 +10,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { _resetSignupRateLimit } from '@/lib/signup-rate-limit.js';
+import { CGU_VERSION_COURANTE } from '@/lib/cgu.js';
 
 type Resp = { data?: unknown; error?: unknown };
 
@@ -202,5 +203,47 @@ describe('signup / rate-limiting (§15 §2.6 — max 5/IP/heure)', () => {
 
     const autre = await POST(makeReq(VALID_BODY, '198.51.100.9'));
     expect(autre.status).not.toBe(429);
+  });
+});
+
+describe('M0.4 — persistance acceptation CGU (BL-P0-04, preuve opposable)', () => {
+  it('la création de compte persiste cgu_accepte_le (horodatage) + cgu_version', async () => {
+    const { POST } = await import('@/app/api/auth/signup/route.js');
+    const res = await POST(makeReq(VALID_BODY));
+
+    expect(res.status).toBe(201);
+
+    // L'INSERT users porte désormais la trace d'acceptation des CGU — un code qui
+    // se contente de jeter le booléen `acceptation_cgu` ferait rougir ces asserts.
+    const userInsert = insertCalls.find((c) => c.table === 'users');
+    expect(userInsert).toBeDefined();
+
+    // Version du texte CGU acceptée = constante courante (preuve : quelle version).
+    expect(userInsert!.payload.cgu_version).toBe(CGU_VERSION_COURANTE);
+
+    // Horodatage = instant d'acceptation, ISO 8601 non NULL (preuve : quand).
+    const accepteLe = userInsert!.payload.cgu_accepte_le;
+    expect(accepteLe).toBeTruthy();
+    expect(typeof accepteLe).toBe('string');
+    expect(Number.isNaN(Date.parse(accepteLe as string))).toBe(false);
+  });
+
+  it('422 si acceptation_cgu absente ou false (garde CGU préservée)', async () => {
+    const { POST } = await import('@/app/api/auth/signup/route.js');
+
+    // acceptation_cgu = false → refus AVANT tout travail DB (aucun user créé).
+    const resFalse = await POST(
+      makeReq({ ...VALID_BODY, acceptation_cgu: false }),
+    );
+    expect(resFalse.status).toBe(422);
+
+    // acceptation_cgu absente du payload → même refus.
+    const { acceptation_cgu, ...sansCgu } = VALID_BODY;
+    void acceptation_cgu;
+    const resAbsent = await POST(makeReq(sansCgu));
+    expect(resAbsent.status).toBe(422);
+
+    // Aucune création de compte : pas d'INSERT users sur le chemin refusé.
+    expect(insertCalls.some((c) => c.table === 'users')).toBe(false);
   });
 });

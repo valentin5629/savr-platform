@@ -1,6 +1,7 @@
 import { requirePageSession } from '@/lib/page-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { RgpdComptePanel } from '@/components/compte/rgpd-compte-panel';
 
 const TRAITEUR_ROLES = ['traiteur_manager', 'traiteur_commercial'] as const;
 
@@ -13,7 +14,7 @@ export default async function MonProfilPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Informations personnelles</CardTitle>
+          <CardTitle>Compte</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           <div>
@@ -38,18 +39,7 @@ export default async function MonProfilPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Compte</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Button variant="ghost">Demander la suppression de mon compte</Button>
-          <p className="mt-1 text-xs text-savr-neutral-500">
-            Soft delete 48h puis anonymisation (cf. politique de
-            confidentialité).
-          </p>
-        </CardContent>
-      </Card>
+      <RgpdComptePanel />
     </div>
   );
 }

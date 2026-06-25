@@ -8,8 +8,10 @@ import {
   type PennylaneFinalizeResult,
   type PennylaneSendEmailResult,
   type PennylaneGetInvoiceResult,
+  type PennylaneCreateCustomerResult,
   type PennylaneError,
   type PennylaneInvoice,
+  type PennylaneCustomer,
   type PennylaneInvoicePage,
 } from './mock.js';
 
@@ -77,6 +79,36 @@ async function pennylaneRequest<T>(
 }
 
 // ─── Opérations ──────────────────────────────────────────────────────────────
+
+export async function createCustomer(
+  payload: Record<string, unknown>,
+): Promise<PennylaneCreateCustomerResult> {
+  const handlers = _getPennylaneHandlers();
+  if (handlers) {
+    if (handlers.createCustomer) return handlers.createCustomer(payload);
+    // Mock partiel sans createCustomer (tests antérieurs FACT-06) : succès neutre.
+    return {
+      ok: true as const,
+      customer: {
+        id: 'PL-CUST-MOCK',
+        name: '',
+        billing_email: '',
+        vat_number: '',
+        siret: '',
+        payment_conditions: '',
+        source_id: '',
+      } satisfies PennylaneCustomer,
+    };
+  }
+
+  const r = await pennylaneRequest<{ customer: PennylaneCustomer }>(
+    'POST',
+    '/customers',
+    payload,
+  );
+  if (!r.ok) return r;
+  return { ok: true, customer: r.data.customer };
+}
 
 export async function createInvoice(
   payload: Record<string, unknown>,

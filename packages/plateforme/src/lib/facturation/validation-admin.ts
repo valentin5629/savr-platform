@@ -3,7 +3,9 @@
 // 5xx → en_attente_pennylane + pennylane_statut='retry_1', cron retry.
 
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { sendAlert } from '@savr/shared/src/alerting/slack.js';
 import {
+  createCustomer,
   createInvoice,
   finalizeInvoice,
   sendInvoiceEmail,
@@ -74,11 +76,29 @@ function serieFor(type: string): SerieFacturation {
   return 'FAG';
 }
 
+type EntiteFacturation = NonNullable<FactureRow['entites_facturation']>;
+
+// FACT-06 — Client Pennylane (Factur-X) : adresse complète obligatoire. Le payload
+// `POST /customers` porte l'identité légale + l'adresse postale de l'entité.
+function buildCustomerPayload(ef: EntiteFacturation): Record<string, unknown> {
+  return {
+    name: ef.raison_sociale,
+    vat_number: ef.tva_intracom ?? undefined,
+    reg_no: ef.siret ?? undefined,
+    address: ef.adresse_facturation ?? undefined,
+    postal_code: ef.code_postal ?? undefined,
+    city: ef.ville ?? undefined,
+    country_alpha2: ef.pays ?? undefined,
+    source_id: ef.id,
+  };
+}
+
 function buildPennylanePayload(
   facture: FactureRow,
   numeroFacture: string,
   dateEmission: string,
   dateEcheance: string,
+  customerId: string | null,
 ): Record<string, unknown> {
   const ef = facture.entites_facturation;
   const lignes = facture.factures_collectes.map((fc) => ({
@@ -96,11 +116,16 @@ function buildPennylanePayload(
 
   return {
     customer: {
-      id: ef?.pennylane_customer_id ?? undefined,
+      id: customerId ?? undefined,
       name: ef?.raison_sociale,
       billing_email: null,
       vat_number: ef?.tva_intracom ?? undefined,
       siret: ef?.siret ?? undefined,
+      // Adresse complète poussée pour Factur-X (était chargée puis ignorée).
+      address: ef?.adresse_facturation ?? undefined,
+      postal_code: ef?.code_postal ?? undefined,
+      city: ef?.ville ?? undefined,
+      country_alpha2: ef?.pays ?? undefined,
     },
     invoice_number: numeroFacture,
     date: dateEmission,
@@ -188,12 +213,47 @@ export async function validerFacture(
     })
     .eq('id', factureId);
 
+  // 2bis. FACT-06 — garantir le client Pennylane (Factur-X exige l'adresse
+  // complète). Si l'entité n'a pas encore de pennylane_customer_id, créer le
+  // client puis persister l'id (idempotent : un retry après échec invoice ne
+  // recrée pas le client).
+  let customerId = ef.pennylane_customer_id;
+  if (!customerId) {
+    const custRes = await createCustomer(buildCustomerPayload(ef));
+    if (!custRes.ok) {
+      const is4 = is4xx(custRes);
+      await supabase
+        .from('factures')
+        .update({
+          statut: is4 ? 'brouillon' : 'en_attente_pennylane',
+          pennylane_statut: is4 ? 'echec_4xx' : 'retry_1',
+          erreur_synchro: custRes.message,
+          erreur_synchro_at: new Date().toISOString(),
+          derniere_tentative_pennylane_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', factureId);
+      return {
+        ok: false,
+        statut: is4 ? 'brouillon' : 'en_attente_pennylane',
+        numero_facture: numeroFacture,
+        erreur: custRes.message,
+      };
+    }
+    customerId = custRes.customer.id;
+    await supabase
+      .from('entites_facturation')
+      .update({ pennylane_customer_id: customerId })
+      .eq('id', ef.id);
+  }
+
   // 3. Appel Pennylane — create
   const payload = buildPennylanePayload(
     f,
     numeroFacture,
     dateEmission,
     dateEcheance,
+    customerId,
   );
   const createRes = await createInvoice(payload, factureId);
 
@@ -388,6 +448,14 @@ export async function runPennylaneRetryWorker(
             p_message: `Facture ${row.id} : 3 tentatives Pennylane épuisées. Renvoyer manuellement.`,
             p_entity_type: 'factures',
             p_entity_id: row.id,
+          });
+          // FACT-07 — alerte Slack #savr-alerts-eleve après les 3 paliers épuisés
+          // (l'alerte in-app seule était insuffisante, cf. §06.08 §2.2).
+          await sendAlert({
+            canal: 'eleve',
+            titre: 'Échec envoi Pennylane — 3 tentatives épuisées',
+            message: `Facture ${row.id} : push Pennylane en échec après les 3 paliers (5 min / 1h / 24h). Renvoyer manuellement depuis la fiche facture.`,
+            metadata: { facture_id: row.id, source: 'pennylane-retry' },
           });
         } else {
           result.requeue++;

@@ -17,6 +17,10 @@ import {
   runPennylaneRetryWorker,
 } from '../../src/lib/facturation/validation-admin.js';
 import { creerAvoir } from '../../src/lib/facturation/avoirs.js';
+import {
+  setSlackSink,
+  type SlackPayload,
+} from '@savr/shared/src/alerting/slack.js';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -973,16 +977,16 @@ describe('M1.7 / BatchBrouillons / AG hors pack', () => {
   afterEach(() => vi.clearAllMocks());
 
   it('R-BB7 : collecte AG cloturee hors pack → brouillon FAG créé (montant 590 HT)', async () => {
+    // BL-P1-FACT-03 : le montant vient désormais du référentiel (tarif unitaire
+    // tarifs_packs_ag = 590) − remises AG, plus de 590 en dur. Mock séquencé :
     const sb = makeSupabase([
-      { data: [COLLECTE_AG_CLOTUREE], error: null }, // select collectes
-      { data: [], error: null }, // select dejaFactures
-      { data: { id: 'fac-ag-001' }, error: null }, // insert facture (single)
-      { data: null, error: null }, // insert facture_collecte
+      { data: [COLLECTE_AG_CLOTUREE], error: null }, // [0] select collectes (then)
+      { data: [], error: null }, // [1] select dejaFactures (then)
+      { data: { id: 'tarif-u', prix_unitaire_ht: 590 }, error: null }, // [2] tarifs_packs_ag.single()
+      { data: [], error: null }, // [3] tarifs_negocie (then) — aucune remise
+      { data: { id: 'fac-ag-001' }, error: null }, // [4] insert facture (single)
+      { data: null, error: null }, // [5] insert facture_collecte (then)
     ]);
-    (sb._chain.single as ReturnType<typeof vi.fn>).mockResolvedValue({
-      data: { id: 'fac-ag-001' },
-      error: null,
-    });
 
     const result = await runBatchBrouillonsJ1(sb as never);
 
@@ -996,6 +1000,38 @@ describe('M1.7 / BatchBrouillons / AG hors pack', () => {
     );
     expect(insertFac).toBeDefined();
     expect((insertFac![0] as { montant_ht: number }).montant_ht).toBe(590);
+    // tarif_applique_source vient du résolveur (plus de littéral 'ag_unitaire')
+    const insertFc = insertCalls.find(
+      (c) => c[0].tarif_applique_source === 'ag_unitaire',
+    );
+    expect(insertFc).toBeDefined();
+  });
+
+  it('R-BB7b : AG realisee_sans_collecte (hors pack) → facturée au tarif normal + statut inclus dans le batch (§05 §4)', async () => {
+    const collecteSansCollecte = {
+      ...COLLECTE_AG_CLOTUREE,
+      id: 'col-ag-rsc',
+      statut: 'realisee_sans_collecte',
+    };
+    const sb = makeSupabase([
+      { data: [collecteSansCollecte], error: null }, // [0] select collectes
+      { data: [], error: null }, // [1] dejaFactures
+      { data: { id: 'tarif-u', prix_unitaire_ht: 590 }, error: null }, // [2] tarifs_packs_ag
+      { data: [], error: null }, // [3] tarifs_negocie
+      { data: { id: 'fac-ag-rsc' }, error: null }, // [4] insert facture
+      { data: null, error: null }, // [5] insert facture_collecte
+    ]);
+
+    const result = await runBatchBrouillonsJ1(sb as never);
+
+    expect(result.ag_par_collecte).toBe(1);
+    expect(result.errors).toHaveLength(0);
+    // Le filtre de statut du batch inclut bien realisee_sans_collecte.
+    const inCalls = (sb._chain.in as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[string, string[]]>;
+    const statutFilter = inCalls.find((c) => c[0] === 'statut');
+    expect(statutFilter?.[1]).toContain('realisee_sans_collecte');
+    expect(statutFilter?.[1]).toContain('cloturee');
   });
 });
 
@@ -1044,5 +1080,197 @@ describe('M1.7 / BatchBrouillons / ZD mensuel — première création', () => {
     expect((insertFac![0] as { periode_debut: string }).periode_debut).toMatch(
       /^\d{4}-\d{2}-01$/,
     );
+  });
+});
+
+// ─── FACT-06 / FACT-07 / FACT-08 (R8) ──────────────────────────────────────────
+
+const PL_INVOICE = {
+  id: 'PL-INV-1',
+  number: 'FZD-2026-00001',
+  status: 'outstanding' as const,
+  total_amount: '590.00',
+  currency: 'EUR',
+  issued_at: '2026-06-25',
+  due_at: '2026-07-25',
+  customer_id: 'PL-CUST-NEW',
+  source_id: 'fac-001',
+  file_url: 'https://pennylane/pdf',
+};
+
+describe('M1.7 / validerFacture / FACT-06 — client Pennylane Factur-X', () => {
+  afterEach(() => {
+    _setPennylaneHandlers(null);
+    vi.clearAllMocks();
+  });
+
+  it('M1.7 FACT-06 : entité sans pennylane_customer_id → createCustomer (adresse complète) + id persisté + facture référence le client', async () => {
+    const factureSansClient = {
+      ...FACTURE_BROUILLON,
+      entites_facturation: {
+        ...FACTURE_BROUILLON.entites_facturation,
+        pennylane_customer_id: null,
+      },
+    };
+    const captured: {
+      customer?: Record<string, unknown>;
+      invoice?: Record<string, unknown>;
+    } = {};
+    _setPennylaneHandlers({
+      createCustomer: vi.fn(async (p: Record<string, unknown>) => {
+        captured.customer = p;
+        return {
+          ok: true as const,
+          customer: {
+            id: 'PL-CUST-NEW',
+            name: 'Kaspia SAS',
+            billing_email: '',
+            vat_number: '',
+            siret: '',
+            payment_conditions: '',
+            source_id: 'ef-001',
+          },
+        };
+      }),
+      createInvoice: vi.fn(async (p: Record<string, unknown>) => {
+        captured.invoice = p;
+        return {
+          ok: true as const,
+          invoice: { ...PL_INVOICE, status: 'draft' as const },
+        };
+      }),
+      finalizeInvoice: vi.fn(async () => ({
+        ok: true as const,
+        invoice: PL_INVOICE,
+      })),
+      sendEmail: vi.fn(async () => ({ ok: true as const })),
+      getInvoice: vi.fn(),
+      getCustomers: vi.fn(),
+      getInvoices: vi.fn(),
+      createDraft: vi.fn(),
+    });
+    const sb = makeSupabase([
+      { data: factureSansClient, error: null }, // [0] load facture
+      { data: null, error: null }, // [1] update en_attente
+      { data: null, error: null }, // [2] update entites_facturation (pennylane_customer_id)
+      { data: null, error: null }, // [3] update pennylane_id
+      { data: null, error: null }, // [4] update emise
+    ]);
+    sb._rpcSingle.mockResolvedValueOnce({
+      data: 'FZD-2026-00001',
+      error: null,
+    });
+
+    const result = await validerFacture(sb as never, 'fac-001');
+
+    expect(result.ok).toBe(true);
+    // Le client est créé avec l'adresse complète (Factur-X).
+    expect(captured.customer).toBeDefined();
+    expect(captured.customer!.address).toBe('12 rue de la Paix');
+    expect(captured.customer!.postal_code).toBe('75001');
+    expect(captured.customer!.city).toBe('Paris');
+    // L'id retourné est persisté sur l'entité de facturation.
+    const updateCalls = (sb._chain.update as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[Record<string, unknown>]>;
+    expect(
+      updateCalls.find((c) => c[0].pennylane_customer_id === 'PL-CUST-NEW'),
+    ).toBeDefined();
+    // Le payload facture référence le client + porte l'adresse.
+    const cust = captured.invoice!.customer as Record<string, unknown>;
+    expect(cust.id).toBe('PL-CUST-NEW');
+    expect(cust.address).toBe('12 rue de la Paix');
+  });
+});
+
+describe('M1.7 / RetryWorker / FACT-07 — alerte Slack échec final', () => {
+  let teardown: () => void;
+  let slackCalls: SlackPayload[];
+
+  beforeEach(() => {
+    teardown = setupPennylaneMock({ create: 'error_500' });
+    slackCalls = [];
+    setSlackSink(async (p) => {
+      slackCalls.push(p);
+    });
+  });
+
+  afterEach(() => {
+    teardown();
+    setSlackSink(async () => {});
+    vi.clearAllMocks();
+  });
+
+  it('M1.7 FACT-07 : 3 paliers Pennylane épuisés → alerte Slack #savr-alerts-eleve', async () => {
+    const facture = {
+      ...FACTURE_ATTENTE,
+      pennylane_statut: 'retry_3',
+      derniere_tentative_pennylane_at: new Date(
+        Date.now() - 25 * 3600 * 1000,
+      ).toISOString(),
+    };
+    const sb = makeSupabase([
+      { data: [facture], error: null }, // select factures retry
+      { data: null, error: null }, // update brouillon (renvoyerFacture)
+      { data: FACTURE_BROUILLON, error: null }, // load facture
+      { data: null, error: null }, // update en_attente
+      { data: null, error: null }, // update retry
+      { data: null, error: null }, // update echec_final
+      { data: null, error: null }, // rpc f_upsert_alerte_admin
+    ]);
+    sb._rpcSingle
+      .mockResolvedValueOnce({ data: 'FZD-2026-00001', error: null }) // numero
+      .mockResolvedValueOnce({ data: null, error: null }); // alerte in-app
+
+    const result = await runPennylaneRetryWorker(sb as never);
+
+    expect(result.dlq).toBe(1);
+    expect(slackCalls).toHaveLength(1);
+    expect(slackCalls[0]!.canal).toBe('eleve');
+    expect(slackCalls[0]!.message).toContain(facture.id);
+  });
+});
+
+describe('M1.7 / creerAvoir / FACT-08 — payload Pennylane credit_note', () => {
+  afterEach(() => {
+    _setPennylaneHandlers(null);
+    vi.clearAllMocks();
+  });
+
+  it('M1.7 FACT-08 : payload avoir = type credit_note (jamais is_credit_note)', async () => {
+    const captured: { avoir?: Record<string, unknown> } = {};
+    _setPennylaneHandlers({
+      createInvoice: vi.fn(async (p: Record<string, unknown>) => {
+        captured.avoir = p;
+        return {
+          ok: true as const,
+          invoice: { ...PL_INVOICE, source_id: 'av-001' },
+        };
+      }),
+      finalizeInvoice: vi.fn(async () => ({
+        ok: true as const,
+        invoice: { ...PL_INVOICE, source_id: 'av-001' },
+      })),
+      sendEmail: vi.fn(async () => ({ ok: true as const })),
+      getInvoice: vi.fn(),
+      getCustomers: vi.fn(),
+      getInvoices: vi.fn(),
+      createDraft: vi.fn(),
+    });
+    const sb = makeSupabase([
+      { data: FACTURE_EMISE, error: null }, // load facture
+      { data: { id: 'av-001' }, error: null }, // insert avoir (single)
+      { data: null, error: null }, // insert lignes avoir
+      { data: null, error: null }, // update en_attente_pennylane
+      { data: null, error: null }, // update pennylane_id
+      { data: null, error: null }, // update emise
+    ]);
+    sb._rpcSingle.mockResolvedValueOnce({ data: 'AV-2026-00001', error: null });
+
+    const result = await creerAvoir(sb as never, 'fac-emise-001', 'Annulation');
+
+    expect(result.ok).toBe(true);
+    expect(captured.avoir).toBeDefined();
+    expect(captured.avoir!.type).toBe('credit_note');
+    expect(captured.avoir!.is_credit_note).toBeUndefined();
   });
 });

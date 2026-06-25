@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
-import { requireStaff } from '@/lib/api-auth.js';
+import { requireStaff, requireAdmin } from '@/lib/api-auth.js';
+import {
+  patchFactureHeader,
+  type FactureHeaderPatch,
+} from '@/lib/facturation/edition-facture.js';
 
 export async function GET(
   req: NextRequest,
@@ -42,4 +46,31 @@ export async function GET(
   }
 
   return NextResponse.json({ data });
+}
+
+// PATCH — édition de l'en-tête facture (Blocs 1 & 5, brouillon uniquement).
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+): Promise<NextResponse> {
+  const auth = await requireAdmin(req);
+  if (auth.error) return auth.error;
+
+  const { id } = await params;
+  let body: FactureHeaderPatch;
+  try {
+    body = (await req.json()) as FactureHeaderPatch;
+  } catch {
+    return NextResponse.json({ error: 'Corps JSON invalide' }, { status: 400 });
+  }
+
+  const supabase = createAdminSupabaseClient();
+  const result = await patchFactureHeader(supabase, id, body);
+  if (!result.ok) {
+    return NextResponse.json(
+      { error: result.erreur },
+      { status: result.statut ?? 422 },
+    );
+  }
+  return NextResponse.json({ ok: true });
 }

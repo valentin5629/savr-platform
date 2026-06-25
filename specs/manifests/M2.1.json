@@ -103,6 +103,22 @@
       "test": "tarif versioning : POST ferme ligne active, ouvre nouvelle ligne",
       "statut": "implemented",
       "libelle": "tarif versioning : POST ferme ligne active, ouvre nouvelle ligne"
+    },
+    {
+      "id": "BL-P1-FACT-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1728",
+      "artefact": "supabase/migrations/20260625000003_plateforme_reseed_tarifs_packs_ag.sql",
+      "test": "supabase/tests/r8_reseed_tarifs_packs_ag.test.sql (pgTAP : 4 credits 1/10/30/60 + 4 PU 590/500/460/390)",
+      "statut": "implemented",
+      "libelle": "Référentiel tarifs_packs_ag aux valeurs canoniques CDC (type_pack/credits/prix_unitaire_ht/montant_total_ht)"
+    },
+    {
+      "id": "BL-P1-FACT-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1764",
+      "artefact": "packages/plateforme/src/lib/facturation/tarif-ag.ts",
+      "test": "M1.7 FACT-02 : collecte Pack 30 par_collecte → PU = prix unitaire du pack (460 €, pas 590)",
+      "statut": "implemented",
+      "libelle": "PU AG pack par_collecte lu depuis packs_antgaspi.prix_unitaire_ht (snapshot à l'achat)"
     }
   ],
   "cdc_source_hash": {

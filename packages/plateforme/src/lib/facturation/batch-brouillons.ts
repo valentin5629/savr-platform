@@ -4,6 +4,11 @@
 
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { calculer_tarif_zd } from '../tarif-zd.js';
+import { calculer_tarif_ag } from './tarif-ag.js';
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
 
 export interface BatchBrouillonsResult {
   zd_par_collecte: number;
@@ -33,10 +38,6 @@ interface CollecteAFacturer {
       }> | null;
     } | null;
   } | null;
-}
-
-interface PackRow {
-  mode_facturation: string;
 }
 
 async function entiteFacturationPrincipale(
@@ -332,21 +333,17 @@ async function traiterCollecteAg(
   entite: { id: string; siret_verification: string },
   result: BatchBrouillonsResult,
 ): Promise<void> {
-  // AG hors pack ou pack par_collecte → brouillon FAG
-  // AG pack globale_achat → pas de facture par collecte (facture au pack)
-  if (collecte.pack_antgaspi_id) {
-    const { data: pack } = await supabase
-      .from('packs_antgaspi')
-      .select('mode_facturation')
-      .eq('id', collecte.pack_antgaspi_id)
-      .single();
+  // Tarif AG résolu depuis le référentiel (06.08 §5) — plus aucun 590 en dur :
+  //   pack par_collecte → PU du pack ; hors pack → unitaire (590) − remises AG ;
+  //   pack globale_achat → skip (facturé au pack FPK).
+  const tarif = await calculer_tarif_ag(supabase, {
+    packAntgaspiId: collecte.pack_antgaspi_id,
+    organisationId: ev.organisation_id,
+    date: new Date(ev.date_evenement),
+  });
+  if (tarif.skip) return; // pack globale_achat : brouillon FPK déjà créé au pack
 
-    const p = pack as PackRow | null;
-    if (p?.mode_facturation === 'globale_achat') return; // brouillon FPK déjà créé au pack
-  }
-
-  // Montant AG : tarif unitaire standard ou libre (défaut = 590 HT)
-  const montant_ht = 590;
+  const montant_ht = tarif.montant_ht;
 
   const { data: facture, error: fErr } = await supabase
     .from('factures')
@@ -359,8 +356,8 @@ async function traiterCollecteAg(
       pack_antgaspi_id: collecte.pack_antgaspi_id,
       montant_ht,
       taux_tva: 20,
-      montant_tva: montant_ht * 0.2,
-      montant_ttc: montant_ht * 1.2,
+      montant_tva: round2(montant_ht * 0.2),
+      montant_ttc: round2(montant_ht * 1.2),
     })
     .select('id')
     .single();
@@ -372,7 +369,9 @@ async function traiterCollecteAg(
     collecte_id: collecte.id,
     quantite: 1,
     taux_tva: 20,
-    tarif_applique_source: 'ag_unitaire',
+    tarif_applique_id: tarif.tarif_applique_id,
+    tarif_applique_source: tarif.tarif_applique_source,
+    tarif_detail: tarif.tarif_detail,
     montant_ligne_ht: montant_ht,
     montant_ht,
   });

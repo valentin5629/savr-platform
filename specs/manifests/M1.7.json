@@ -165,11 +165,11 @@
     },
     {
       "id": "M1.7-11",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md",
-      "artefact": "supabase/migrations/20260615000000_plateforme_m1_7_enums.sql",
-      "test": "Cron retry → 3 paliers 5min/1h/24h, DLQ → alerte Admin #savr-alerts-critique",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md:87",
+      "artefact": "packages/plateforme/src/lib/facturation/validation-admin.ts (runPennylaneRetryWorker)",
+      "test": "M1.7 FACT-07 : 3 paliers Pennylane épuisés → alerte Slack #savr-alerts-eleve",
       "statut": "implemented",
-      "libelle": "Cron retry → 3 paliers 5min/1h/24h, DLQ → alerte Admin #savr-alerts-critique"
+      "libelle": "Cron retry → 3 paliers 5min/1h/24h, échec final → alerte in-app + Slack #savr-alerts-eleve (CDC §2.2)"
     },
     {
       "id": "M1.7-12",
@@ -202,6 +202,70 @@
       "test": "f_attribuer_numero_facture gapless : FZD-2026-00001, FZD-2026-00002…",
       "statut": "implemented",
       "libelle": "f_attribuer_numero_facture gapless : FZD-2026-00001, FZD-2026-00002…"
+    },
+    {
+      "id": "BL-P1-FACT-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md:142",
+      "artefact": "packages/plateforme/src/lib/facturation/edition-facture.ts ; packages/plateforme/src/app/api/v1/admin/factures/[id]/lignes/route.ts ; packages/plateforme/src/app/(admin)/admin/factures/[id]/page.tsx",
+      "test": "M1.7 FACT-01 : ajout d’une ligne libre valide → insérée + totaux recalculés",
+      "statut": "implemented",
+      "libelle": "Écran d'édition « passage obligé » Blocs 1-6 + routes PATCH facture / POST+DELETE lignes (brouillon only)"
+    },
+    {
+      "id": "BL-P1-FACT-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md:202",
+      "artefact": "packages/plateforme/src/lib/facturation/tarif-ag.ts ; packages/plateforme/src/lib/facturation/batch-brouillons.ts",
+      "test": "M1.7 FACT-02 : collecte Pack 30 par_collecte → PU = prix unitaire du pack (460 €, pas 590)",
+      "statut": "implemented",
+      "libelle": "PU AG pack par_collecte = prix unitaire du pack (packs_antgaspi.prix_unitaire_ht), plus de 590 en dur"
+    },
+    {
+      "id": "BL-P1-FACT-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md:205",
+      "artefact": "packages/plateforme/src/lib/facturation/tarif-ag.ts",
+      "test": "M1.7 FACT-03 : AG hors pack avec remise négociée 10 % → PU réduit à 531 €",
+      "statut": "implemented",
+      "libelle": "PU AG hors pack = tarif unitaire (590) − remises AG (tarifs_negocie activite=ag, cumul multiplicatif)"
+    },
+    {
+      "id": "BL-P1-FACT-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:159",
+      "artefact": "supabase/migrations/20260625000003_plateforme_reseed_tarifs_packs_ag.sql",
+      "test": "supabase/tests/r8_reseed_tarifs_packs_ag.test.sql (pgTAP : 4 credits 1/10/30/60 + 4 PU 590/500/460/390 + montants)",
+      "statut": "implemented",
+      "libelle": "Re-seed tarifs_packs_ag aux valeurs canoniques CDC (placeholders 5/10/20/50 & 700/1300/2400/5500 corrigés)"
+    },
+    {
+      "id": "BL-P1-FACT-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md:207",
+      "artefact": "packages/plateforme/src/lib/facturation/edition-facture.ts (modifierLigne)",
+      "test": "M1.7 FACT-05 : override PU d’une ligne brouillon → montant figé + audit_log + totaux recalculés",
+      "statut": "implemented",
+      "libelle": "Override manuel PU HT + figement (brouillon only) + trace audit_log (qui/quand/ancien/nouveau)"
+    },
+    {
+      "id": "BL-P1-FACT-06",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md:41",
+      "artefact": "packages/plateforme/src/lib/facturation/validation-admin.ts ; packages/plateforme/src/lib/pennylane/client.ts (createCustomer)",
+      "test": "M1.7 FACT-06 : entité sans pennylane_customer_id → createCustomer (adresse complète) + id persisté + facture référence le client",
+      "statut": "implemented",
+      "libelle": "Factur-X : adresse complète + POST /customers quand pennylane_customer_id NULL + persistance de l'id"
+    },
+    {
+      "id": "BL-P1-FACT-07",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md:87",
+      "artefact": "packages/plateforme/src/lib/facturation/validation-admin.ts (runPennylaneRetryWorker)",
+      "test": "M1.7 FACT-07 : 3 paliers Pennylane épuisés → alerte Slack #savr-alerts-eleve",
+      "statut": "implemented",
+      "libelle": "Alerte Slack #savr-alerts-eleve après échec final des 3 paliers Pennylane (en plus de l'alerte in-app)"
+    },
+    {
+      "id": "BL-P1-FACT-08",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md:261",
+      "artefact": "packages/plateforme/src/lib/facturation/avoirs.ts ; packages/plateforme/src/app/(admin)/admin/factures/[id]/page.tsx",
+      "test": "M1.7 FACT-08 : payload avoir = type credit_note (jamais is_credit_note)",
+      "statut": "implemented",
+      "libelle": "Payload avoir Pennylane v2 conforme (type=credit_note) + bouton « Générer un avoir » Bloc 6 (emise/payee)"
     }
   ],
   "cdc_source_hash": {

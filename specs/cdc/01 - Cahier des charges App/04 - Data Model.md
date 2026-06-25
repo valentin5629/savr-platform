@@ -648,10 +648,39 @@ Tous les utilisateurs de la plateforme.
 | `created_at`         | timestamptz | NOT NULL                     |                                                                                                 |
 | `cgu_accepte_le`     | timestamptz | NULL                         | Horodatage de l'acceptation des CGU (= création du compte, CGU Art. 11/22, preuve opposable). NULL pour les comptes migrés Bubble sans trace (pas de rétro-remplissage). **Colonne PERMANENTE → converge V1=V2 (garde-fou G1/G6), n'est PAS V1-only.** |
 | `cgu_version`        | text        | NULL                         | Version du texte CGU acceptée (constante applicative `CGU_VERSION_COURANTE`, `'v1'`). NULL pour les comptes migrés. V1 = une seule acceptation à la création (pas de table d'historique multi-versions). **Colonne PERMANENTE → converge V1=V2.** |
+| `deleted_at`         | timestamptz | NULL                         | **Ajout 2026-06-25 (divergence M0.4 R7 — matérialise §15 §3.3 effacement RGPD)** — Soft-delete RGPD. NULL = compte vivant. Renseigné par `fn_anonymize_user` lors d'une suppression RGPD validée (anonymisation PII, pas de hard-delete Auth — préservation des pièces comptables, cf. [[15 - Sécurité et conformité]] §3.3). Index partiel `WHERE deleted_at IS NULL`. Toutes les policies de lecture `users` sont gatées `deleted_at IS NULL` (sauf `usr_admin`). **Colonne PERMANENTE → converge V1=V2.** |
 
 **Note RLS** : le champ `role` + `organisation_id` détermine exactement ce que voit l'utilisateur. La politique RLS Supabase est définie sur cette combinaison.
 
 **Invariant V1 (tranché 2026-06-10, challenge logistique+onboarding — ex-question ouverte)** : **1 user = 1 organisation**. `organisation_id` est singulier, le claim JWT `organisation_id` aussi, et il n'existe **aucune table N-N `users ↔ organisations`** — ne pas en créer. Un consultant multi-traiteurs utilise un email distinct par organisation. Seule exception documentée : double profil `ops_savr` Plateforme/TMS (§09, sans objet V1). Multi-orga = à revoir V2.
+
+---
+
+### Table : `demandes_suppression`
+
+**Ajout 2026-06-25 (divergence M0.4 R7 — matérialise §15 §3.3 : workflow de demande de suppression RGPD validée par l'Admin sous 48h).** Trace les demandes d'effacement RGPD émises par un utilisateur et leur traitement par l'Admin Savr.
+
+| Champ            | Type        | Contrainte                                                  | Description                                                                                                  |
+| ---------------- | ----------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `id`             | uuid        | PK                                                          |                                                                                                            |
+| `user_id`        | uuid        | FK → users, NOT NULL                                        | Utilisateur dont l'effacement est demandé.                                                                  |
+| `statut`         | enum        | NOT NULL, défaut `en_attente`                              | `en_attente` \| `validee` \| `refusee`. SLA cible Admin 48h (§15 §3.3).                                     |
+| `justification`  | text        | NULL                                                        | Motif de la demande (saisi par le demandeur) et/ou de la décision Admin.                                    |
+| `demande_le`     | timestamptz | NOT NULL, défaut `now()`                                    | Horodatage de la demande.                                                                                   |
+| `traitee_le`     | timestamptz | NULL                                                        | Horodatage de la décision Admin (NULL tant que `en_attente`).                                               |
+| `traitee_par`    | uuid        | FK → users (admin_savr), NULL                               | Admin Savr ayant statué.                                                                                    |
+
+**RLS** : self `INSERT` + self `SELECT` (le demandeur voit ses propres demandes) ; `admin_savr` `ALL`. Pas d'écriture cliente après création (le statut est piloté par l'Admin / SERVICE_ROLE).
+
+**Notification de demande = file in-app Admin** (pas d'email — catalogue gelé 19 templates, §15 n'en mandate pas ; décision Val 2026-06-25). La validation déclenche `fn_anonymize_user(user_id, justification, acteur, id)`.
+
+**Fonction d'effacement RGPD — `plateforme.fn_anonymize_user(p_user_id uuid, p_justification text, p_acteur uuid, p_demande_id uuid)`** (ajout 2026-06-25, divergence M0.4 R7) : `SECURITY DEFINER`, réservée `service_role`. Matérialise la suppression RGPD V1 = **anonymisation, pas de hard-delete Auth** (les factures / bordereaux / registres doivent rester rattachables — contrainte légale §15 §3.3 l.111).
+
+- Périmètre PII anonymisé = `users.{prenom, nom, email}` (le `téléphone` de §15 l.111 n'existe pas sur `users` ; il est porté par `organisations` = entité légale, hors périmètre RGPD individuel).
+- Renseigne `users.deleted_at = now()` + `users.actif = false`.
+- Trace l'opération dans `audit_log` (acteur, justification, demande source).
+- Idempotente sur un compte déjà anonymisé (no-op si `deleted_at IS NOT NULL`).
+- Toutes les policies de lecture `users` sont gatées `deleted_at IS NULL` (sauf `usr_admin`) → un compte anonymisé disparaît des vues clientes sans casser les FK comptables.
 
 ---
 

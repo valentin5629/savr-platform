@@ -45,7 +45,7 @@
     "plateforme.collecte_flux (READ)",
     "plateforme.collectes (READ)"
   ],
-    "_comment_scenarios": "scenarios[] = sous-ensemble VITEST-matchable (substring d'un titre de test vitest réel). La couverture exhaustive au grain livrable (y compris pgTAP f_next_numero_bordereau/f_upsert_alerte_admin et téléchargements M3.4) vit dans deliverables[]. R2 a réaligné ces chaînes sur les titres réels (l'ancienne formulation legacy ne matchait aucun test → check:coverage M1.6 rouge depuis l'origine).",
+  "_comment_scenarios": "scenarios[] = sous-ensemble VITEST-matchable (substring d'un titre de test vitest réel). La couverture exhaustive au grain livrable (y compris pgTAP f_next_numero_bordereau/f_upsert_alerte_admin et téléchargements M3.4) vit dans deliverables[]. R2 a réaligné ces chaînes sur les titres réels (l'ancienne formulation legacy ne matchait aucun test → check:coverage M1.6 rouge depuis l'origine).",
   "scenarios": [
     "2 jobs enqueués (bordereau + rapport)",
     "0 ligne collecte_flux → skip, aucun job créé",
@@ -198,7 +198,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "8604cfe90e04318af438fec76daa28f8f9fb74cf51a22f7c7b6b366d41780680",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "05201a783f3927f59797184160a16b04906e3998c0dc73010e3fceb20d036892"
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "f8c67963952f410d986c6d996b5bd1459c22517cd3d267263b4914c3838ce86e",
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "8604cfe90e04318af438fec76daa28f8f9fb74cf51a22f7c7b6b366d41780680"
   }
 }

@@ -3,14 +3,16 @@
   "titre": "Auth / Onboarding / RGPD — souche (manifeste manquant, livrables P0)",
   "description": "Souche créée en R0b : le module auth/onboarding/RGPD (signup, CGU, impersonation, anonymisation RGPD, soft-delete, export JSON) n'avait pas de manifeste alors qu'il porte des P0 (BL-P0-04 CGU, BL-P0-09 effacement). deliverables[] transcrit les livrables CDC ; scenarios[]/tests câblés par les lots R6/R7/R13/R14.",
   "_souche": true,
-  "scenarios": [],
+  "scenarios": [
+    "la création de compte persiste cgu_accepte_le (horodatage) + cgu_version"
+  ],
   "deliverables": [
     {
       "id": "BL-P0-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/CGU Savr V1 - Draft.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/CGU Savr V1 - Draft.md:203",
+      "artefact": "supabase/migrations/20260625000001_plateforme_r6_cgu_persistance.sql + packages/plateforme/src/app/api/auth/signup/route.ts (INSERT users : cgu_accepte_le + cgu_version) + packages/plateforme/src/lib/cgu.ts (CGU_VERSION_COURANTE)",
+      "test": "packages/plateforme/tests/api/auth/signup.test.ts « M0.4 — persistance acceptation CGU (BL-P0-04…) » + supabase/tests/signup_users_cgu_colonnes_guard.test.sql",
+      "statut": "implemented",
       "libelle": "persistance acceptation CGU (horodatage cgu_accepte_le + cgu_version)"
     },
     {

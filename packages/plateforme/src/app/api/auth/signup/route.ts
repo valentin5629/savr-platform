@@ -8,6 +8,7 @@ import {
   checkSignupRateLimit,
   extractClientIp,
 } from '@/lib/signup-rate-limit.js';
+import { CGU_VERSION_COURANTE } from '@/lib/cgu.js';
 
 const TYPE_PROFIL = ['traiteur', 'agence', 'gestionnaire_lieux'] as const;
 type TypeProfil = (typeof TYPE_PROFIL)[number];
@@ -183,6 +184,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const userId = authData.user.id;
 
   // Créer le profil plateforme.users
+  // L'acceptation des CGU (garde plus haut) est PERSISTÉE comme preuve opposable :
+  // horodatage (= création du compte, CGU Art. 11/22) + version du texte acceptée
+  // (BL-P0-04). Le booléen `acceptation_cgu` n'est plus simplement jeté.
   const { error: userError } = await supabase.from('users').insert({
     id: userId,
     organisation_id: organisationId,
@@ -190,6 +194,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     prenom,
     nom,
     role: userRole,
+    cgu_accepte_le: new Date().toISOString(),
+    cgu_version: CGU_VERSION_COURANTE,
   });
 
   if (userError) {

@@ -3649,12 +3649,58 @@ export type Database = {
         }
         Relationships: []
       }
+      demandes_suppression: {
+        Row: {
+          demande_le: string
+          id: string
+          justification: string | null
+          statut: "en_attente" | "validee" | "refusee"
+          traitee_le: string | null
+          traitee_par: string | null
+          user_id: string
+        }
+        Insert: {
+          demande_le?: string
+          id?: string
+          justification?: string | null
+          statut?: "en_attente" | "validee" | "refusee"
+          traitee_le?: string | null
+          traitee_par?: string | null
+          user_id: string
+        }
+        Update: {
+          demande_le?: string
+          id?: string
+          justification?: string | null
+          statut?: "en_attente" | "validee" | "refusee"
+          traitee_le?: string | null
+          traitee_par?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demandes_suppression_traitee_par_fkey"
+            columns: ["traitee_par"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demandes_suppression_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           actif: boolean
           cgu_accepte_le: string | null
           cgu_version: string | null
           created_at: string
+          deleted_at: string | null
           derniere_connexion: string | null
           email: string
           id: string
@@ -3668,6 +3714,7 @@ export type Database = {
           cgu_accepte_le?: string | null
           cgu_version?: string | null
           created_at?: string
+          deleted_at?: string | null
           derniere_connexion?: string | null
           email: string
           id: string
@@ -3681,6 +3728,7 @@ export type Database = {
           cgu_accepte_le?: string | null
           cgu_version?: string | null
           created_at?: string
+          deleted_at?: string | null
           derniere_connexion?: string | null
           email?: string
           id?: string
@@ -4461,6 +4509,15 @@ export type Database = {
       fn_calculer_algo_attribution_ag: {
         Args: { p_collecte_id: string }
         Returns: Json
+      }
+      fn_anonymize_user: {
+        Args: {
+          p_acteur: string
+          p_demande_id?: string
+          p_justification: string
+          p_user_id: string
+        }
+        Returns: undefined
       }
       fn_claim_outbox_batch: {
         Args: { p_lease_duration?: string; p_limit?: number }

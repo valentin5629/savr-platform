@@ -4,7 +4,10 @@
   "description": "Souche créée en R0b : le module auth/onboarding/RGPD (signup, CGU, impersonation, anonymisation RGPD, soft-delete, export JSON) n'avait pas de manifeste alors qu'il porte des P0 (BL-P0-04 CGU, BL-P0-09 effacement). deliverables[] transcrit les livrables CDC ; scenarios[]/tests câblés par les lots R6/R7/R13/R14.",
   "_souche": true,
   "scenarios": [
-    "la création de compte persiste cgu_accepte_le (horodatage) + cgu_version"
+    "la création de compte persiste cgu_accepte_le (horodatage) + cgu_version",
+    "POST demande-suppression crée une demande en_attente sans anonymisation immédiate",
+    "GET export-rgpd renvoie les PII de l'utilisateur (self)",
+    "PATCH profil rectifie prenom/nom et rejette les champs hors allowlist"
   ],
   "deliverables": [
     {
@@ -17,10 +20,10 @@
     },
     {
       "id": "BL-P0-09",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:101",
+      "artefact": "supabase/migrations/20260625000002_plateforme_r7_rgpd_effacement.sql (deleted_at + table demandes_suppression + fn_anonymize_user SECURITY DEFINER + RLS lectures users deleted_at IS NULL) + packages/plateforme/src/app/api/me/demande-suppression/route.ts (POST self) + packages/plateforme/src/app/api/v1/admin/demandes-suppression/[id]/route.ts (PATCH valider→fn_anonymize_user / refuser) + composant RgpdComptePanel (bouton câblé) ; remplace le bouton inerte (traiteur+agence/mon-profil)",
+      "test": "supabase/tests/r7_rgpd_effacement.test.sql « fn_anonymize_user anonymise PII + préserve factures/bordereaux + rejet non-admin + user soft-deleted invisible » + packages/plateforme/tests/api/me/rgpd.test.ts « M0.4 — RGPD … POST demande-suppression crée une demande en_attente sans anonymisation immédiate »",
+      "statut": "implemented",
       "libelle": "effacement RGPD : fn_anonymize_user + soft-delete deleted_at + workflow suppression 48h"
     },
     {
@@ -97,18 +100,18 @@
     },
     {
       "id": "BL-P1-OBS-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:105",
+      "artefact": "packages/plateforme/src/app/api/me/export-rgpd/route.ts (GET self, RLS, téléchargement JSON Art.15/20) + composant RgpdComptePanel (bouton Exporter)",
+      "test": "packages/plateforme/tests/api/me/rgpd.test.ts « M0.4 — RGPD … GET export-rgpd renvoie les PII de l'utilisateur (self) »",
+      "statut": "implemented",
       "libelle": "RGPD export JSON (droit d'accès)"
     },
     {
       "id": "BL-P2-27",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:106",
+      "artefact": "packages/plateforme/src/app/api/me/profil/route.ts (GET + PATCH self, allowlist {prenom,nom} Art.16) + composant RgpdComptePanel (formulaire édition, transverse tous rôles) ; câblé traiteur+agence/mon-profil",
+      "test": "packages/plateforme/tests/api/me/rgpd.test.ts « M0.4 — RGPD … PATCH profil rectifie prenom/nom et rejette les champs hors allowlist »",
+      "statut": "implemented",
       "libelle": "RGPD rectification self-service profil"
     }
   ],

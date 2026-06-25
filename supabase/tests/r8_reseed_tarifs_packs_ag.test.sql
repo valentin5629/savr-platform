@@ -7,7 +7,7 @@
 -- ============================================================================
 
 BEGIN;
-SELECT plan(16);
+SELECT plan(18);
 
 -- ── credits (nombre de collectes par pack) ──────────────────────────────────
 SELECT is(
@@ -61,6 +61,12 @@ SELECT is(
 SELECT is(
   (SELECT mensualisable FROM plateforme.tarifs_packs_ag WHERE type_pack='unitaire' AND valide_jusqu_au IS NULL),
   false, 'unitaire : non mensualisable');
+SELECT is(
+  (SELECT mensualisable FROM plateforme.tarifs_packs_ag WHERE type_pack='pack_60' AND valide_jusqu_au IS NULL),
+  true, 'pack_60 : mensualisable');
+SELECT is(
+  (SELECT nb_mensualites FROM plateforme.tarifs_packs_ag WHERE type_pack='pack_60' AND valide_jusqu_au IS NULL),
+  6, 'pack_60 : 6 mensualités');
 
 -- ── legacy V1 (NOT NULL) maintenu cohérent ──────────────────────────────────
 SELECT is(

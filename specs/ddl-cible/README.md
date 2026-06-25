@@ -36,7 +36,7 @@ Diff des migrations V1 (`supabase/migrations/`) contre ce fichier : chaque table
 
 Source machine : `v1-divergences-allowlist.txt`. Toute entrée = divergence **tracée** (énoncé garde-fou 1 assoupli 2026-06-24 : « omissions OU divergences explicitement tracées dans `_Divergences/` avec plan de convergence V2 » — cf. CLAUDE.md §3bis-1).
 
-- **Colonnes V1-only** (Frontière TMS-Ready G1, neutralisées au cutover V2) : `plateforme.collectes.nb_camions_demande`, `plateforme.transporteurs.code_transporteur_mts1`, `plateforme.associations.id_point_collecte_mts1`.
+- **Colonnes V1-only** (Frontière TMS-Ready G1, neutralisées au cutover V2) : `plateforme.collectes.nb_camions_demande`, `plateforme.transporteurs.code_transporteur_mts1`, `plateforme.associations.id_point_collecte_mts1`, `plateforme.transporteurs.prestataire_logistique_id` *(pont dispatch AG V1, option B Val 2026-06-25, R5/BL-P0-08 — **absent de ce DDL cible** : le TMS natif V2 résout transporteur→prestataire lui-même, garde-fou 2 ; trace `_Divergences/_traités/2026-06/M2.3_20260625.md`)*.
 - **Table V1-only** : `plateforme.pesees_tournees` (pesées brutes par tour, INC-0 2026-06-11 — présente aussi dans le DDL cible).
 - **Bloc 7 (intégrations) — 4 tables, divergence structurelle A6 assumée** : `integrations_logs`, `integrations_inbox`, `outbox_events`, `emails_envoyes` divergent du DDL cible au-delà de simples omissions (renames / changement de PK / partition). Convergence **reportée V2** (migration 2-step Supabase + redeploy adapter, couverte par l'esquisse cohabitation `04 - Migration/08`). Trace complète : `_Divergences/BLOC7_20260624.md` (type *ambigu*, pré-validé Val A6 — 2026-06-24). Ces 4 tables sont allowlistées **entières** : G6 ne les compte pas comme violations bloquantes.
 

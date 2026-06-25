@@ -34,10 +34,10 @@
   "deliverables": [
     {
       "id": "BL-P0-07",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:241-279",
+      "artefact": "packages/adapters/src/everest/client.ts (EverestClient.getMission + fetchEverestMissionDetails) ; packages/adapters/src/everest/mock.ts (handler getMission) ; packages/plateforme/src/app/api/webhooks/everest/route.ts (mission_finished/success : cout/preuve/statut depuis l'API re-fetchée, jamais le payload)",
+      "test": "M2.5 / webhook Everest — re-fetch API (BL-P0-07) (packages/plateforme/tests/api/webhooks/everest.m2-5.test.ts) — payload.cost ≠ API.cost prouve la valeur API persistée",
+      "statut": "implemented",
       "libelle": "re-fetch Everest sur signal webhook (cost/preuve écrits depuis l'API, pas le payload)"
     }
   ],

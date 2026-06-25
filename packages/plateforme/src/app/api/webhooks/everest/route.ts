@@ -7,8 +7,29 @@ import { timingSafeEqual } from 'node:crypto';
 
 import { NextRequest, NextResponse } from 'next/server';
 
+import { fetchEverestMissionDetails } from '@savr/adapters/src/index.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { serverError } from '@/lib/api-helpers.js';
+
+// Statuts Everest API → enum plateforme.statut_mission_everest (BL-P0-07).
+// Le re-fetch est la vérité ; on borne la valeur au domaine de l'enum, sinon on
+// retombe sur le statut opérationnel attendu du signal (completed).
+const EVEREST_STATUS_ENUM = new Set([
+  'created',
+  'assigned',
+  'in_progress',
+  'completed',
+  'completed_incomplete',
+  'creation_failed',
+  'failed',
+  'cancelled',
+  'cancelled_externally',
+  'created_manually',
+]);
+
+function mapEverestStatut(apiStatus: string, fallback: string): string {
+  return EVEREST_STATUS_ENUM.has(apiStatus) ? apiStatus : fallback;
+}
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -148,7 +169,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   // ── 5. Switch event_type ──────────────────────────────────────────────────
-  await handleEventType(supabase, m, eventType, params, payload);
+  await handleEventType(supabase, m, missionId, eventType, params, payload);
 
   // ── 6. Marquer inbox traité ───────────────────────────────────────────────
   await supabase
@@ -167,6 +188,7 @@ async function handleEventType(
     collecte_id: string;
     statut_everest: string;
   },
+  missionId: string,
   eventType: string,
   params: URLSearchParams,
   payload: Record<string, string>,
@@ -230,15 +252,49 @@ async function handleEventType(
 
     case 'mission_finished':
     case 'mission_success': {
+      // BL-P0-07 : webhook = SIGNAL. Le coût + la preuve + le statut sont la
+      // vérité de l'API Everest, re-fetchée par id — JAMAIS lus du payload non
+      // signé (CDC 08 - APIs §3 l.241/279 « ne jamais faire confiance au payload »).
+      let detail: Awaited<
+        ReturnType<typeof fetchEverestMissionDetails>
+      > | null = null;
+      try {
+        detail = await fetchEverestMissionDetails(
+          missionId,
+          supabase,
+          missionId,
+        );
+      } catch (err) {
+        // Re-fetch indisponible (API down/timeout) : on ne persiste AUCUNE valeur
+        // du payload. On enregistre le statut opérationnel du signal sans coût ni
+        // preuve, et on lève une trace Ops pour réconciliation manuelle.
+        await supabase.from('integrations_logs').insert({
+          integration: 'everest',
+          direction: 'sortant',
+          methode: 'GET',
+          endpoint: `/missions/${missionId}`,
+          erreur: `refetch_failed: ${err instanceof Error ? err.message : String(err)}`,
+          correlation_id: missionId,
+        });
+        await supabase
+          .from('everest_missions')
+          .update({
+            statut_everest: 'completed',
+            derniere_sync_at: now,
+            payload_latest_update: payload,
+          })
+          .eq('id', mission.id);
+        break;
+      }
+
       const updates: Record<string, unknown> = {
-        statut_everest: 'completed',
+        statut_everest: mapEverestStatut(detail.status, 'completed'),
         derniere_sync_at: now,
         payload_latest_update: payload,
       };
-      const cout = params.get('cost') ?? params.get('cout_ht');
-      const preuveUrl = params.get('proof_url') ?? params.get('preuve_url');
-      if (cout) updates['cout_everest_ht'] = parseFloat(cout);
-      if (preuveUrl) updates['preuve_course_url'] = preuveUrl;
+      if (detail.cout_ht !== null) updates['cout_everest_ht'] = detail.cout_ht;
+      if (detail.preuve_url !== null)
+        updates['preuve_course_url'] = detail.preuve_url;
       await supabase
         .from('everest_missions')
         .update(updates)

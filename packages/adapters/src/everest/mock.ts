@@ -21,6 +21,19 @@ export interface EverestAuthResponse {
   access_token: string;
 }
 
+// Détail mission re-fetché par GET /missions/{id} (BL-P0-07).
+// Source de vérité du coût + de la preuve : webhook = signal, API = vérité
+// (CDC 08 - APIs §3 l.241/279 « ne jamais faire confiance au payload »).
+export interface EverestMissionDetail {
+  mission_id: string;
+  status: string;
+  cout_ht: number | null;
+  preuve_url: string | null;
+  coursier_nom: string | null;
+  coursier_telephone: string | null;
+  vehicule_type: string | null;
+}
+
 export type EverestPostSuccess<T> = { ok: true; data: T };
 export type EverestPostError = { ok: false; status: number; error: string };
 export type EverestResult<T> = EverestPostSuccess<T> | EverestPostError;
@@ -37,6 +50,9 @@ export interface EverestHandlers {
   cancelMission: (
     payload: Record<string, unknown>,
   ) => Promise<EverestResult<EverestCancelResponse>>;
+  getMission: (
+    missionId: string,
+  ) => Promise<EverestResult<EverestMissionDetail>>;
 }
 
 let _handlers: EverestHandlers | null = null;
@@ -56,6 +72,8 @@ export interface MockMissionState {
   /** Payload brut envoyé à createMission, keyed par client_ref */
   payloads: Map<string, Record<string, unknown>>;
   cancelledIds: Set<string>;
+  /** Détails re-fetchés par GET /missions/{id}, keyed par mission_id (BL-P0-07) */
+  details: Map<string, EverestMissionDetail>;
 }
 
 export function setupEverestMock(
@@ -64,12 +82,15 @@ export function setupEverestMock(
     createFails?: boolean;
     createFailsStatus?: number;
     cancelFails?: boolean;
+    getMissionFails?: boolean;
+    getMissionFailsStatus?: number;
   } = {},
 ): MockMissionState {
   const state: MockMissionState = {
     missions: new Map(),
     payloads: new Map(),
     cancelledIds: new Set(),
+    details: new Map(),
   };
 
   let missionCounter = 0;
@@ -119,6 +140,26 @@ export function setupEverestMock(
           cancelled_at: new Date().toISOString(),
         },
       };
+    },
+
+    getMission: async (missionId) => {
+      if (opts.getMissionFails) {
+        return {
+          ok: false,
+          status: opts.getMissionFailsStatus ?? 500,
+          error: 'Everest getMission error',
+        };
+      }
+      const detail = state.details.get(missionId) ?? {
+        mission_id: missionId,
+        status: 'completed',
+        cout_ht: null,
+        preuve_url: null,
+        coursier_nom: null,
+        coursier_telephone: null,
+        vehicule_type: null,
+      };
+      return { ok: true, data: detail };
     },
   });
 

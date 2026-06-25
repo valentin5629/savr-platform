@@ -16,6 +16,7 @@ import type {
   EverestAuthResponse,
   EverestCancelResponse,
   EverestCreatedMission,
+  EverestMissionDetail,
 } from './mock.js';
 import { _getEverestHandlers } from './mock.js';
 
@@ -290,6 +291,94 @@ export class EverestClient {
     return (await resp.json()) as EverestCancelResponse;
   }
 
+  // ─── GET mission (re-fetch — BL-P0-07) ─────────────────────────────────────
+  // Webhook Everest = simple signal ; la vérité (coût, preuve, statut) est lue
+  // ici par re-fetch API, jamais depuis le payload non signé (CDC 08 - APIs §3
+  // l.241/279 « ne jamais faire confiance au payload »).
+
+  async getMission(
+    missionId: string,
+    correlationId: string,
+  ): Promise<EverestMissionDetail> {
+    const handlers = _getEverestHandlers();
+    const t0 = Date.now();
+
+    if (handlers) {
+      const result = await handlers.getMission(missionId);
+      if (!result.ok) {
+        if (result.status >= 500) {
+          throw new LogistiqueTransientError(
+            `Everest getMission ${result.status} : ${result.error}`,
+          );
+        }
+        throw new LogistiquePermanentError(
+          `Everest getMission ${result.status} : ${result.error}`,
+        );
+      }
+      return result.data;
+    }
+
+    const path = `/missions/${encodeURIComponent(missionId)}`;
+    const token = await this.getToken();
+    let resp = await this.getJson(path, token).catch((err: unknown) => {
+      throw new LogistiqueAmbiguousError(
+        `Everest getMission timeout : ${String(err)}`,
+      );
+    });
+
+    // Lazy refresh sur 401
+    if (resp.status === 401) {
+      this.invalidateToken();
+      const newToken = await this.getToken();
+      resp = await this.getJson(path, newToken).catch((err: unknown) => {
+        throw new LogistiqueAmbiguousError(
+          `Everest getMission timeout (retry) : ${String(err)}`,
+        );
+      });
+    }
+
+    await this.log({
+      methode: 'GET',
+      endpoint: path,
+      statut_http: resp.status,
+      duree_ms: Date.now() - t0,
+      correlation_id: correlationId,
+    });
+
+    if (resp.status >= 500) {
+      throw new LogistiqueTransientError(`Everest getMission ${resp.status}`);
+    }
+    if (!resp.ok) {
+      throw new LogistiquePermanentError(`Everest getMission ${resp.status}`);
+    }
+
+    // Mapping réponse API → EverestMissionDetail. Noms de champs provisoires
+    // (endpoint gelé tant que dev Everest n'a pas répondu — CDC §3 l.241) ;
+    // jamais exercé en test (mock handlers). On reste tolérant aux variantes.
+    const raw = (await resp.json()) as Record<string, unknown>;
+    return {
+      mission_id: String(raw['mission_id'] ?? raw['id'] ?? missionId),
+      status: String(raw['status'] ?? raw['mission_status'] ?? ''),
+      cout_ht: toNumberOrNull(raw['cost'] ?? raw['cout_ht']),
+      preuve_url:
+        (raw['proof_url'] as string | undefined) ??
+        (raw['preuve_url'] as string | undefined) ??
+        null,
+      coursier_nom:
+        (raw['driver_name'] as string | undefined) ??
+        (raw['coursier_nom'] as string | undefined) ??
+        null,
+      coursier_telephone:
+        (raw['driver_phone'] as string | undefined) ??
+        (raw['coursier_telephone'] as string | undefined) ??
+        null,
+      vehicule_type:
+        (raw['vehicle_type'] as string | undefined) ??
+        (raw['vehicule_type'] as string | undefined) ??
+        null,
+    };
+  }
+
   // ─── Primitives HTTP ───────────────────────────────────────────────────────
 
   private async postJson(
@@ -304,6 +393,14 @@ export class EverestClient {
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(30_000),
+    });
+  }
+
+  private async getJson(path: string, token: string): Promise<Response> {
+    return fetch(`${this.baseUrl}${path}`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}` },
       signal: AbortSignal.timeout(30_000),
     });
   }
@@ -329,6 +426,29 @@ export class EverestClient {
       erreur: entry.erreur,
     });
   }
+}
+
+function toNumberOrNull(v: unknown): number | null {
+  if (v === null || v === undefined || v === '') return null;
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+// ─── Point d'entrée re-fetch pour le code métier (BL-P0-07) ────────────────────
+// Le webhook (packages/plateforme) ne parle JAMAIS directement à Everest
+// (garde-fou 3) : il appelle ce helper exporté par @savr/adapters, qui construit
+// le client depuis l'env (alimenté par Vault en prod) et re-fetch la mission.
+export async function fetchEverestMissionDetails(
+  missionId: string,
+  supabase: SupabaseClient,
+  correlationId: string,
+): Promise<EverestMissionDetail> {
+  const clientId =
+    process.env['EVEREST_CLIENT_ID'] ?? 'everest-client-id-missing';
+  const clientSecret =
+    process.env['EVEREST_CLIENT_SECRET'] ?? 'everest-client-secret-missing';
+  const client = new EverestClient(clientId, clientSecret, supabase);
+  return client.getMission(missionId, correlationId);
 }
 
 // Exposé pour les tests uniquement — invalide le cache d'un client_id donné.

@@ -1,8 +1,17 @@
 // Tests webhook Everest entrant — M2.5.
 // Vérifie : dédup, token validation, event_type switch, statuts terminaux.
 
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
+
+// Mock EverestClient réutilisé (BL-P0-07) — même specifier que la route
+// (@savr/adapters/src/index.js) → singleton de handlers partagé : le re-fetch
+// getMission de la route passe par CE mock, jamais par une vraie API Everest.
+import {
+  setupEverestMock,
+  _setEverestHandlers,
+  type EverestMissionDetail,
+} from '@savr/adapters/src/index.js';
 
 // ─── Mock Supabase ────────────────────────────────────────────────────────────
 
@@ -298,5 +307,104 @@ describe('M2.5 / webhook Everest — mission inconnue', () => {
     expect(resp.status).toBe(200);
     const body = (await resp.json()) as { skipped?: string };
     expect(body.skipped).toBe('mission_inconnue');
+  });
+});
+
+describe('M2.5 / webhook Everest — re-fetch API (BL-P0-07)', () => {
+  let mockState: ReturnType<typeof setupEverestMock>;
+
+  beforeEach(() => {
+    Object.keys(insertedRows).forEach((k) => delete insertedRows[k]);
+    Object.keys(updatedRows).forEach((k) => delete updatedRows[k]);
+    insertedLogs.length = 0;
+    Object.keys(mockTables).forEach((k) => delete mockTables[k]);
+    mockInboxInsertResult = { data: { id: 'inbox-001' }, error: null };
+    mockCollecteRow = null;
+    mockAuditRow = null;
+    vi.stubEnv('EVEREST_WEBHOOK_TOKEN', '');
+    // Mission active (non terminale) → l'event est traité.
+    mockMissionRow = {
+      id: 'em-refetch',
+      tournee_id: 'tour-refetch',
+      collecte_id: 'col-refetch',
+      statut_everest: 'in_progress',
+    };
+    mockState = setupEverestMock();
+  });
+
+  afterEach(() => {
+    _setEverestHandlers(null);
+  });
+
+  it('mission_finished : coût + preuve persistés depuis l’API re-fetchée, JAMAIS depuis le payload', async () => {
+    // L'API (vérité) renvoie un coût/preuve DIFFÉRENTS du payload non signé.
+    const apiDetail: EverestMissionDetail = {
+      mission_id: 'EVR-RF-1',
+      status: 'completed',
+      cout_ht: 42.5,
+      preuve_url: 'https://everest.example/proof/API.pdf',
+      coursier_nom: null,
+      coursier_telephone: null,
+      vehicule_type: null,
+    };
+    mockState.details.set('EVR-RF-1', apiDetail);
+
+    const req = makeWebhookRequest({
+      mission_id: 'EVR-RF-1',
+      event_type: 'mission_finished',
+      occurred_at: '2026-07-20T23:30:00Z',
+      // Valeurs FRAUDULEUSES du payload — ne doivent JAMAIS être persistées.
+      cost: '99.99',
+      proof_url: 'https://attacker.example/PAYLOAD.pdf',
+    });
+    const resp = await POST(req);
+    expect(resp.status).toBe(200);
+
+    const missionUpdates = (updatedRows['everest_missions'] ?? []) as Array<
+      Record<string, unknown>
+    >;
+    const withCout = missionUpdates.find((u) => 'cout_everest_ht' in u);
+    expect(withCout).toBeDefined();
+    // La valeur API est persistée…
+    expect(withCout!['cout_everest_ht']).toBe(42.5);
+    expect(withCout!['preuve_course_url']).toBe(
+      'https://everest.example/proof/API.pdf',
+    );
+    // …et JAMAIS la valeur du payload (un code qui lit le payload rougit ici).
+    expect(withCout!['cout_everest_ht']).not.toBe(99.99);
+    expect(withCout!['preuve_course_url']).not.toBe(
+      'https://attacker.example/PAYLOAD.pdf',
+    );
+  });
+
+  it('mission_finished : re-fetch en échec → aucune valeur payload écrite + trace Ops', async () => {
+    _setEverestHandlers(null);
+    setupEverestMock({ getMissionFails: true });
+
+    const req = makeWebhookRequest({
+      mission_id: 'EVR-RF-2',
+      event_type: 'mission_success',
+      occurred_at: '2026-07-20T23:45:00Z',
+      cost: '77.77',
+      proof_url: 'https://attacker.example/PAYLOAD2.pdf',
+    });
+    const resp = await POST(req);
+    expect(resp.status).toBe(200);
+
+    const missionUpdates = (updatedRows['everest_missions'] ?? []) as Array<
+      Record<string, unknown>
+    >;
+    // Statut opérationnel maj depuis le signal, mais AUCUN coût/preuve écrit.
+    expect(missionUpdates.length).toBeGreaterThan(0);
+    expect(missionUpdates.some((u) => 'cout_everest_ht' in u)).toBe(false);
+    expect(missionUpdates.some((u) => 'preuve_course_url' in u)).toBe(false);
+    // Trace Ops pour réconciliation manuelle.
+    expect(
+      insertedLogs.some((l) =>
+        String((l as { erreur?: string }).erreur ?? '').includes(
+          'refetch_failed',
+        ),
+      ),
+    ).toBe(true);
   });
 });

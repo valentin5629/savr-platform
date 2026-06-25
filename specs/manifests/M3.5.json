@@ -7,11 +7,19 @@
   "deliverables": [
     {
       "id": "BL-P0-05",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "cartes KPI Bloc 1 sur enum réel (zero_dechet/anti_gaspi, pas 'zd'/'ag')"
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:24",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/dashboard/kpi/route.ts",
+      "test": "M3.5 / Bloc 1 — N collectes zero_dechet → carte ZD = N (oracle BL-P0-05, pas 0)",
+      "statut": "implemented",
+      "libelle": "6 compteurs des cartes-actions Bloc 1 filtrent collectes.type sur l'enum réel (zero_dechet/anti_gaspi, plus jamais 'zd'/'ag')"
+    },
+    {
+      "id": "M3.5-chips-collectes-enum",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:24",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/collectes/route.ts",
+      "test": "M3.5 / chip zd_48h → filtre type=zero_dechet (count 7, pas 0)",
+      "statut": "implemented",
+      "libelle": "chips prédéfinis de la liste collectes (cibles de clic des cartes Bloc 1) filtrent collectes.type sur l'enum réel (zd_48h/ag_48h/ag_attente_attribution)"
     },
     {
       "id": "BL-P1-PARITE-01",

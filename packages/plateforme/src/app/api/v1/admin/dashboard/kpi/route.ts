@@ -23,14 +23,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     supabase
       .from('collectes')
       .select('id', { count: 'exact', head: true })
-      .eq('type', 'zd')
+      .eq('type', 'zero_dechet')
       .eq('statut_tms', 'non_envoye')
       .is('tms_reference', null)
       .in('statut', ['programmee', 'validee']),
     supabase
       .from('collectes')
       .select('id', { count: 'exact', head: true })
-      .eq('type', 'ag')
+      .eq('type', 'anti_gaspi')
       .eq('statut_tms', 'non_envoye')
       .is('tms_reference', null)
       .in('statut', ['programmee', 'validee']),
@@ -38,24 +38,24 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       .from('collectes')
       .select('id', { count: 'exact', head: true })
       .eq('statut_tms', 'attribuee_en_attente_acceptation')
-      .in('type', ['zd', 'ag']),
+      .in('type', ['zero_dechet', 'anti_gaspi']),
     supabase
       .from('collectes')
       .select('id', { count: 'exact', head: true })
       .eq('dirty_tms', true)
       .not('tms_reference', 'is', null)
-      .in('type', ['zd', 'ag']),
+      .in('type', ['zero_dechet', 'anti_gaspi']),
     supabase
       .from('collectes')
       .select('id', { count: 'exact', head: true })
-      .eq('type', 'zd')
+      .eq('type', 'zero_dechet')
       .gte('date_collecte', nowStr)
       .lte('date_collecte', in48hStr)
       .in('statut', ['programmee', 'validee']),
     supabase
       .from('collectes')
       .select('id', { count: 'exact', head: true })
-      .eq('type', 'ag')
+      .eq('type', 'anti_gaspi')
       .gte('date_collecte', nowStr)
       .lte('date_collecte', in48hStr)
       .in('statut', ['programmee', 'validee']),

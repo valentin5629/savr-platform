@@ -13,7 +13,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(18);
+SELECT plan(19);
 
 -- ─── Helpers (mêmes que m2_5) ───────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION test_set_jwt(
@@ -137,6 +137,16 @@ SELECT test_set_jwt('admin_savr', NULL, '07050001-0000-0000-0000-000000000001'::
 SELECT is(
   (SELECT count(*)::int FROM plateforme.users WHERE id='07050003-0000-0000-0000-000000000001'::uuid),
   1, 'RLS : victime anonymisée VISIBLE à l''admin (audit RGPD conservé)');
+
+-- immutabilité : la victime (soft-deleted) ne peut plus rectifier son profil.
+SELECT test_set_jwt('traiteur_commercial', '07000002-0000-0000-0000-000000000001'::uuid,
+                    '07050003-0000-0000-0000-000000000001'::uuid);
+UPDATE plateforme.users SET prenom='dé-anonymisé'
+  WHERE id='07050003-0000-0000-0000-000000000001'::uuid;  -- RLS USING → 0 ligne
+SELECT test_as_superuser();
+SELECT is(
+  (SELECT prenom FROM plateforme.users WHERE id='07050003-0000-0000-0000-000000000001'::uuid),
+  '(anonymisé)', 'RLS : victime anonymisée NE PEUT PLUS éditer son profil (usr_self_update gaté)');
 
 -- ─── 5. RLS demandes_suppression : self vs cross-user vs admin ──────────────────
 -- self insert : la victime ne peut créer une demande que pour elle-même.

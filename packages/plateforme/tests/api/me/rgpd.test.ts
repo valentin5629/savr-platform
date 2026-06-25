@@ -107,6 +107,22 @@ describe('M0.4 — RGPD self-service (BL-P0-09 / OBS-04 / P2-27)', () => {
     expect(calls.some((c) => c.op === 'update')).toBe(false);
   });
 
+  it('POST demande-suppression idempotent : demande en_attente existante → 200 sans doublon', async () => {
+    results['select:demandes_suppression'] = {
+      data: { id: 'd-existante' },
+      error: null,
+    };
+
+    const { POST } = await import('@/app/api/me/demande-suppression/route.js');
+    const res = await POST(makeReq('POST'));
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.deja_en_attente).toBe(true);
+    // pas de second INSERT
+    expect(calls.some((c) => c.op === 'insert')).toBe(false);
+  });
+
   it("GET export-rgpd renvoie les PII de l'utilisateur (self)", async () => {
     results['select:users'] = {
       data: {

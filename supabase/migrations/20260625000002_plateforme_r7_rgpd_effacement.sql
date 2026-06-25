@@ -208,3 +208,56 @@ CREATE POLICY usr_ops_select ON plateforme.users
   FOR SELECT TO public
   USING (plateforme.f_app_role() = 'ops_savr'
     AND deleted_at IS NULL);
+
+-- ---------------------------------------------------------------------------
+-- 5. Écritures users gatées « deleted_at IS NULL » (immutabilité non-admin)
+--    Symétrie des lectures : un user anonymisé ne peut plus être édité par un
+--    non-admin (y compris lui-même tant que son JWT n'a pas expiré → il ne peut
+--    pas « dé-anonymiser » son profil). usr_admin (FOR ALL) NON modifié.
+-- ---------------------------------------------------------------------------
+DROP POLICY IF EXISTS usr_self_update ON plateforme.users;
+CREATE POLICY usr_self_update ON plateforme.users
+  FOR UPDATE TO public
+  USING (id = auth.uid() AND deleted_at IS NULL)
+  WITH CHECK (id = auth.uid());
+
+DROP POLICY IF EXISTS usr_agence_update_self ON plateforme.users;
+CREATE POLICY usr_agence_update_self ON plateforme.users
+  FOR UPDATE TO public
+  USING (plateforme.f_app_role() = 'agence'
+    AND id = auth.uid()
+    AND deleted_at IS NULL)
+  WITH CHECK (plateforme.f_app_role() = 'agence' AND id = auth.uid());
+
+DROP POLICY IF EXISTS usr_commercial_update_self ON plateforme.users;
+CREATE POLICY usr_commercial_update_self ON plateforme.users
+  FOR UPDATE TO public
+  USING (plateforme.f_app_role() = 'traiteur_commercial'
+    AND id = auth.uid()
+    AND deleted_at IS NULL)
+  WITH CHECK (plateforme.f_app_role() = 'traiteur_commercial' AND id = auth.uid());
+
+DROP POLICY IF EXISTS usr_manager_update ON plateforme.users;
+CREATE POLICY usr_manager_update ON plateforme.users
+  FOR UPDATE TO public
+  USING (plateforme.f_app_role() = 'traiteur_manager'
+    AND organisation_id = ((auth.jwt() ->> 'organisation_id'))::uuid
+    AND deleted_at IS NULL)
+  WITH CHECK (plateforme.f_app_role() = 'traiteur_manager'
+    AND organisation_id = ((auth.jwt() ->> 'organisation_id'))::uuid);
+
+DROP POLICY IF EXISTS usr_gestionnaire_update ON plateforme.users;
+CREATE POLICY usr_gestionnaire_update ON plateforme.users
+  FOR UPDATE TO public
+  USING (plateforme.f_app_role() = 'gestionnaire_lieux'
+    AND organisation_id = ((auth.jwt() ->> 'organisation_id'))::uuid
+    AND deleted_at IS NULL)
+  WITH CHECK (plateforme.f_app_role() = 'gestionnaire_lieux'
+    AND organisation_id = ((auth.jwt() ->> 'organisation_id'))::uuid);
+
+DROP POLICY IF EXISTS usr_ops_write ON plateforme.users;
+CREATE POLICY usr_ops_write ON plateforme.users
+  FOR UPDATE TO public
+  USING (plateforme.f_app_role() = 'ops_savr'
+    AND deleted_at IS NULL)
+  WITH CHECK (plateforme.f_app_role() = 'ops_savr');

@@ -359,6 +359,48 @@ describe('M2.5 / AdapterEverest — dispatchCollecte', () => {
       LogistiquePermanentError,
     );
   });
+
+  it('Everest 422 (rejet permanent) → statut_tms = rejetee_par_prestataire (BL-P1-ALGO-07)', async () => {
+    setupEverestMock({ createFails: true, createFailsStatus: 422 });
+    const supabase = makeMockSupabase({
+      brancheAttribution: 'ag_velo_programme',
+    });
+    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+
+    await expect(adapter.dispatchCollecte(COLLECTE_AG, 1)).rejects.toThrow(
+      LogistiquePermanentError,
+    );
+
+    const collecteUpdates = supabase._updated['collectes'] ?? [];
+    expect(
+      collecteUpdates.some(
+        (u) =>
+          (u as { statut_tms?: string }).statut_tms ===
+          'rejetee_par_prestataire',
+      ),
+    ).toBe(true);
+  });
+
+  it('Everest 5xx (transient) → PAS de rejet statut_tms (le worker retente)', async () => {
+    setupEverestMock({ createFails: true, createFailsStatus: 500 });
+    const supabase = makeMockSupabase({
+      brancheAttribution: 'ag_velo_programme',
+    });
+    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+
+    await expect(adapter.dispatchCollecte(COLLECTE_AG, 1)).rejects.toThrow(
+      LogistiqueTransientError,
+    );
+
+    const collecteUpdates = supabase._updated['collectes'] ?? [];
+    expect(
+      collecteUpdates.some(
+        (u) =>
+          (u as { statut_tms?: string }).statut_tms ===
+          'rejetee_par_prestataire',
+      ),
+    ).toBe(false);
+  });
 });
 
 // ─── Tests cancelCollecte ─────────────────────────────────────────────────────

@@ -69,6 +69,12 @@ supabase/migrations/20260615230000_plateforme_m2_5_everest_rls_v2.sql
 # dans les commentaires de code décrivant les services (71/74/77). Aucun appel HTTP MTS-1/Everest
 # ici — toute logique adapter vit dans packages/adapters/. 'customerOrders' reste banni.
 supabase/migrations/20260615240000_plateforme_m2_3_algo_attribution_ag.sql
+# supabase/migrations/20260625000000_* (R5/BL-P0-08) — 'mts1'/'a_toutes' = valeurs de
+# l'enum type_tms dans le CASE qui DÉRIVE le consumer outbox (mts1→adapter_mts1,
+# a_toutes→adapter_everest, autre→provider_manual) ; 'Everest' en commentaire. AUCUN
+# appel HTTP : la fonction émet seulement un event outbox, l'adapter (packages/adapters/)
+# le consomme. 'customerOrders' reste banni.
+supabase/migrations/20260625000000_plateforme_r5_dispatch_ag_bridge.sql
 # supabase/migrations/20260620100000_* (fix E2 timezone) — CREATE OR REPLACE de
 # fn_calculer_algo_attribution_ag : corps copié VERBATIM de la source M2.3 ci-dessus
 # (seule la ligne de calcul du délai change), donc mêmes 'mts1' (enum type_tms) +

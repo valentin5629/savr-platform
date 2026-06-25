@@ -22,6 +22,11 @@
 plateforme.collectes.nb_camions_demande
 plateforme.transporteurs.code_transporteur_mts1
 plateforme.associations.id_point_collecte_mts1
+# prestataire_logistique_id : pont transporteur → shared.prestataires, V1-only.
+# Décision Val 2026-06-25 (option B). Sans lui, le dispatch AG ne peut poser
+# tournees.prestataire_logistique_id (FK NOT NULL). ABSENT du DDL cible (le TMS
+# natif résout ce lien en V2) → neutralisé au cutover. Trace : _Divergences/M2.3_20260625.md.
+plateforme.transporteurs.prestataire_logistique_id
 
 # --- Table V1-only assumée (revue adversariale INC-0, 2026-06-11) -------------
 # Pesées brutes par tour (clé (tournee_id, stop_id, flux_id)) ; collecte_flux

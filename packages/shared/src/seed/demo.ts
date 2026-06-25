@@ -494,6 +494,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
         ['poids_lourd'],
         'mts1',
         'STRIKE-MTS1',
+        'prest_strike',
       ),
       transp(
         'transp_marathon',
@@ -505,6 +506,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
         ['fourgon', 'poids_lourd'],
         'mts1',
         'MARATHON-MTS1',
+        'prest_marathon',
       ),
       transp(
         'transp_transnor',
@@ -516,6 +518,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
         ['fourgon'],
         'mts1',
         'TRANSNOR-MTS1',
+        'prest_transnormandie',
       ),
       transp(
         'transp_a_toutes',
@@ -527,6 +530,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
         ['velo_cargo'],
         'a_toutes',
         null,
+        'prest_a_toutes',
       ),
       transp(
         'transp_sans_code',
@@ -538,7 +542,8 @@ export async function seedDemo(client: pg.Client): Promise<void> {
         ['fourgon'],
         'mts1',
         null,
-      ), // R_code_mts1 négatif
+        null,
+      ), // R_code_mts1 négatif + pont prestataire absent (fixture négative)
     ],
     ['id'],
   );
@@ -1279,6 +1284,7 @@ function transp(
   vehicules: string[],
   typeTms: string,
   codeMts1: string | null,
+  prestataireSlug: string | null,
 ): Row {
   return {
     id: U(slug),
@@ -1290,6 +1296,9 @@ function transp(
     types_vehicules: vehicules,
     type_tms: typeTms,
     code_transporteur_mts1: codeMts1,
+    // Pont V1-only transporteur → shared.prestataires (R5/BL-P0-08) : permet au
+    // dispatch AG de poser tournees.prestataire_logistique_id (FK NOT NULL).
+    prestataire_logistique_id: prestataireSlug ? U(prestataireSlug) : null,
     contact_nom: 'Ops ' + nom,
     contact_email: seedEmail('ops.' + slug),
     contact_telephone: fakePhone(200),

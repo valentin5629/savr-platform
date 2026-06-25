@@ -269,6 +269,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md": "4fe5e1d6da20c6c1b4b87329f5ea823f451dd6a3812b103b400108f9b5617915"
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "87452a3eb00aa12747ffba6e5ccec41c6e9ec3546def394db41f2a69cee604c9",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md": "7292c799fdb5c5598dcd979245740850df9851ffb0b475fb08e9fd76e44b41e4"
   }
 }

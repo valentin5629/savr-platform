@@ -2,7 +2,7 @@
 -- Tests : moteur algo IDF/province, trigger poids→volume, immutabilité mode_validation, RLS.
 
 BEGIN;
-SELECT plan(34);
+SELECT plan(39);
 
 -- ── Helpers JWT ──────────────────────────────────────────────────────────
 
@@ -88,6 +88,17 @@ VALUES
 INSERT INTO shared.prestataires (id, nom, code, type_prestation, mode_integration, siret, statut)
 VALUES ('a0000000-0000-0000-0000-000000000050'::uuid, 'Marathon Test', 'MARATHON_TEST', ARRAY['ag'], 'mts1', '123456789012345', 'actif')
 ON CONFLICT (id) DO NOTHING;
+
+-- R5/BL-P0-08 : pont transporteur → shared.prestataires (V1-only). Permet au
+-- dispatch AG de poser collectes/tournees.prestataire_logistique_id.
+UPDATE plateforme.transporteurs
+  SET prestataire_logistique_id = 'a0000000-0000-0000-0000-000000000050'::uuid
+  WHERE id IN ('a0000000-0000-0000-0000-000000000040'::uuid,
+               'a0000000-0000-0000-0000-000000000041'::uuid);
+
+-- Transporteur type_tms=autre (route provider_manual) avec pont prestataire
+INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, ville, type_tms, actif, contact_nom, contact_email, contact_telephone, types_vehicules, latitude, longitude, prestataire_logistique_id)
+VALUES ('a0000000-0000-0000-0000-000000000043'::uuid, 'Manuel Test', '555555555', '9 Rue Manuel', '75009', 'Paris', 'autre', true, 'Contact Manuel', 'manuel@test.test', '0600000003', ARRAY['fourgon'], 48.8716, 2.3322, 'a0000000-0000-0000-0000-000000000050'::uuid);
 
 -- Mettre les params algo en mode A Toutes disponible pour certains tests
 -- (on les restaurera après)
@@ -581,6 +592,85 @@ SELECT ok(
       AND consumer = 'attribution_job'
   ),
   'T21 : outbox_events contient event attribution.validee (G4 garde-fou)'
+);
+
+-- ── T21b/c/d : cascade dispatch AG (BL-P0-08) — collecte ...075 = transporteur ...040 (mts1)
+-- L'event de dispatch collecte.creee est émis avec consumer DÉRIVÉ du type_tms.
+
+SELECT is(
+  (SELECT consumer FROM plateforme.outbox_events
+   WHERE aggregate_id = 'a0000000-0000-0000-0000-000000000075'::uuid
+     AND event_type = 'collecte.creee'),
+  'adapter_mts1',
+  'T21b : dispatch AG (type_tms=mts1) → outbox collecte.creee consumer=adapter_mts1'
+);
+
+SELECT is(
+  (SELECT prestataire_logistique_id FROM plateforme.collectes
+   WHERE id = 'a0000000-0000-0000-0000-000000000075'::uuid),
+  'a0000000-0000-0000-0000-000000000050'::uuid,
+  'T21c : collectes.prestataire_logistique_id posé = prestataire du transporteur choisi'
+);
+
+SELECT is(
+  (SELECT statut_tms::text FROM plateforme.collectes
+   WHERE id = 'a0000000-0000-0000-0000-000000000075'::uuid),
+  'non_envoye',
+  'T21d : statut_tms reste non_envoye à la validation (CDC §3 : on saute a_attribuer)'
+);
+
+-- ── T21e : dispatch AG type_tms=a_toutes → consumer=adapter_everest ───────
+
+INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, volume_estime_repas)
+VALUES (
+  'a0000000-0000-0000-0000-00000000007b'::uuid,
+  'a0000000-0000-0000-0000-000000000060'::uuid,
+  'anti_gaspi', 'programmee', 'non_envoye',
+  CURRENT_DATE + 7, '10:00', 200
+);
+
+SELECT plateforme.rpc_valider_attribution_ag(
+  'a0000000-0000-0000-0000-00000000007b'::uuid,
+  'a0000000-0000-0000-0000-000000000030'::uuid,
+  'a0000000-0000-0000-0000-000000000041'::uuid,
+  'ag_velo_programme',
+  'manuel_top1',
+  'a0000000-0000-0000-0000-000000000010'::uuid
+);
+
+SELECT is(
+  (SELECT consumer FROM plateforme.outbox_events
+   WHERE aggregate_id = 'a0000000-0000-0000-0000-00000000007b'::uuid
+     AND event_type = 'collecte.creee'),
+  'adapter_everest',
+  'T21e : dispatch AG (type_tms=a_toutes) → consumer=adapter_everest (jamais adapter_mts1 en dur)'
+);
+
+-- ── T21f : dispatch AG type_tms=autre → consumer=provider_manual ──────────
+
+INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, volume_estime_repas)
+VALUES (
+  'a0000000-0000-0000-0000-00000000007a'::uuid,
+  'a0000000-0000-0000-0000-000000000060'::uuid,
+  'anti_gaspi', 'programmee', 'non_envoye',
+  CURRENT_DATE + 7, '10:00', 200
+);
+
+SELECT plateforme.rpc_valider_attribution_ag(
+  'a0000000-0000-0000-0000-00000000007a'::uuid,
+  'a0000000-0000-0000-0000-000000000030'::uuid,
+  'a0000000-0000-0000-0000-000000000043'::uuid,
+  'ag_province_proximite',
+  'manuel_top1',
+  'a0000000-0000-0000-0000-000000000010'::uuid
+);
+
+SELECT is(
+  (SELECT consumer FROM plateforme.outbox_events
+   WHERE aggregate_id = 'a0000000-0000-0000-0000-00000000007a'::uuid
+     AND event_type = 'collecte.creee'),
+  'provider_manual',
+  'T21f : dispatch AG (type_tms=autre) → consumer=provider_manual'
 );
 
 -- ── T22 : RPC refuse doublon (UNIQUE collecte_id) ────────────────────────

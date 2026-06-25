@@ -126,6 +126,14 @@ export class AdapterEverest implements LogistiqueProvider {
         everest_service_id: serviceId,
         statut_everest: 'creation_failed',
       });
+      // BL-P1-ALGO-07 : rejet SYNCHRONE PERMANENT (4xx = refus prestataire) →
+      // statut_tms = rejetee_par_prestataire (CDC 09 - Flux algo attribution AG
+      // §3 « HTTP error sync »). Le trigger fn_sync ne dérive rien sur ce statut
+      // → la collecte reste programmee (retour file d'attente + monitoring Ops).
+      // Un TRANSIENT (5xx/timeout) ne rejette PAS : le worker retente (paliers).
+      if (err instanceof LogistiquePermanentError) {
+        await this.updateStatutTms(collecte.id, 'rejetee_par_prestataire');
+      }
       throw err;
     }
 

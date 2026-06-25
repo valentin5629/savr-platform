@@ -3566,6 +3566,7 @@ export type Database = {
           latitude: number | null
           longitude: number | null
           nom: string
+          prestataire_logistique_id: string | null
           siren: string
           tarif_par_course: number | null
           type_tms: Database["plateforme"]["Enums"]["type_tms"]
@@ -3587,6 +3588,7 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           nom: string
+          prestataire_logistique_id?: string | null
           siren: string
           tarif_par_course?: number | null
           type_tms: Database["plateforme"]["Enums"]["type_tms"]
@@ -3608,6 +3610,7 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           nom?: string
+          prestataire_logistique_id?: string | null
           siren?: string
           tarif_par_course?: number | null
           type_tms?: Database["plateforme"]["Enums"]["type_tms"]

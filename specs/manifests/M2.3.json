@@ -239,11 +239,11 @@
     },
     {
       "id": "BL-P0-08",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "dispatch AG post-attribution + statut_tms='a_attribuer' + routage par type_tms"
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:110-115",
+      "artefact": "supabase/migrations/20260625000000_plateforme_r5_dispatch_ag_bridge.sql (transporteurs.prestataire_logistique_id + rpc_valider_attribution_ag : pose prestataire + émet collecte.creee avec consumer dérivé du type_tms) ; packages/adapters/src/outbox-worker.ts (route via getLogistiqueProvider par type_tms) ; packages/shared/src/seed/demo.ts (pont transp→prest)",
+      "test": "T21b/T21c/T21d/T21e/T21f (supabase/tests/m2_3_algo_attribution_ag.test.sql) — a_toutes→adapter_everest, mts1→adapter_mts1, autre→provider_manual + prestataire posé + statut_tms non_envoye ; M2.3 / worker outbox — routing dispatch AG par type_tms (packages/adapters/src/outbox-worker.m2-3.test.ts)",
+      "statut": "implemented",
+      "libelle": "dispatch AG post-attribution + routage par type_tms (consumer dérivé) ; statut_tms reste non_envoye (CDC §3 : on saute a_attribuer, l'adapter pose attribuee_en_attente_acceptation)"
     },
     {
       "id": "BL-P1-ALGO-01",
@@ -295,11 +295,11 @@
     },
     {
       "id": "BL-P1-ALGO-07",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "statut_tms AG (attente/acceptee/rejet)"
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:115-122",
+      "artefact": "packages/adapters/src/everest/adapter.ts (dispatch → statut_tms attribuee_en_attente_acceptation ; rejet permanent 4xx → rejetee_par_prestataire) ; packages/plateforme/src/app/api/webhooks/everest/route.ts (acceptee sur mission_dispatched)",
+      "test": "Everest 422 (rejet permanent) → statut_tms = rejetee_par_prestataire + Everest 5xx (transient) → PAS de rejet (packages/adapters/src/everest/adapter.m2-5.test.ts) ; mission_dispatched → statut_tms=acceptee (webhooks/everest.m2-5.test.ts)",
+      "statut": "implemented",
+      "libelle": "statut_tms AG (attente=attribuee_en_attente_acceptation à l'envoi, acceptee à l'acceptation, rejetee_par_prestataire au refus sync permanent)"
     },
     {
       "id": "BL-P2-29",

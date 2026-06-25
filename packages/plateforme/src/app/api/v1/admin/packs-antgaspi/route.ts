@@ -146,6 +146,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       commentaires,
       idempotency_key: idempotencyKey,
       cree_par_user_id: auth.ctx.userId,
+      // Colonnes legacy V1 encore NOT NULL (jamais droppées, cf. bloc5) :
+      //  - nb_collectes = taille du pack = credits_initiaux (tenue cohérente) ;
+      //  - date_achat = date de création du pack (pas de colonne convergée) ;
+      //  - tarif_pack_id : rendue nullable (migration 20260625000004) car un pack
+      //    `personnalise` n'a aucune ligne tarifs_packs_ag à référencer → omise.
+      nb_collectes: credits_initiaux,
+      date_achat: new Date().toISOString().slice(0, 10),
     })
     .select('*')
     .single();

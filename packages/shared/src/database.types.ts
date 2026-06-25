@@ -2505,7 +2505,7 @@ export type Database = {
           organisation_id: string
           prix_unitaire_ht: number | null
           statut: Database["plateforme"]["Enums"]["pack_statut"]
-          tarif_pack_id: string
+          tarif_pack_id: string | null
           type_pack: string
           updated_at: string
         }
@@ -2531,7 +2531,7 @@ export type Database = {
           organisation_id: string
           prix_unitaire_ht?: number | null
           statut?: Database["plateforme"]["Enums"]["pack_statut"]
-          tarif_pack_id: string
+          tarif_pack_id?: string | null
           type_pack: string
           updated_at?: string
         }
@@ -2557,7 +2557,7 @@ export type Database = {
           organisation_id?: string
           prix_unitaire_ht?: number | null
           statut?: Database["plateforme"]["Enums"]["pack_statut"]
-          tarif_pack_id?: string
+          tarif_pack_id?: string | null
           type_pack?: string
           updated_at?: string
         }

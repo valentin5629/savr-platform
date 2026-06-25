@@ -165,11 +165,11 @@
     },
     {
       "id": "M1.7-11",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md",
-      "artefact": "supabase/migrations/20260615000000_plateforme_m1_7_enums.sql",
-      "test": "Cron retry → 3 paliers 5min/1h/24h, DLQ → alerte Admin #savr-alerts-critique",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md:87",
+      "artefact": "packages/plateforme/src/lib/facturation/validation-admin.ts (runPennylaneRetryWorker)",
+      "test": "M1.7 FACT-07 : 3 paliers Pennylane épuisés → alerte Slack #savr-alerts-eleve",
       "statut": "implemented",
-      "libelle": "Cron retry → 3 paliers 5min/1h/24h, DLQ → alerte Admin #savr-alerts-critique"
+      "libelle": "Cron retry → 3 paliers 5min/1h/24h, échec final → alerte in-app + Slack #savr-alerts-eleve (CDC §2.2)"
     },
     {
       "id": "M1.7-12",

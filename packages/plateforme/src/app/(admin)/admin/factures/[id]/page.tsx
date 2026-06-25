@@ -228,6 +228,10 @@ export default function FactureDetailPage() {
   });
   const inputCls =
     'rounded-md border border-neutral-300 px-2 py-1 text-sm disabled:bg-neutral-50 disabled:text-neutral-500';
+  const factureReference =
+    facture.factures_collectes.find(
+      (fc) => fc.collectes?.evenements?.reference_affaire,
+    )?.collectes?.evenements?.reference_affaire ?? null;
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -397,6 +401,14 @@ export default function FactureDetailPage() {
         <h2 className="text-sm font-semibold text-neutral-700">
           Bloc 5 — Référence et conditions
         </h2>
+        {/* Référence client = evenements.reference_affaire (transmise à Pennylane).
+            Affichage seul en V1 : aucune colonne facture-level pour un override
+            (ni schéma V1 ni DDL cible) — l'override serait une divergence à
+            arbitrer avec Val. */}
+        <div className="text-sm">
+          <span className="text-neutral-500">Référence client : </span>
+          <span className="font-medium">{factureReference ?? '—'}</span>
+        </div>
         <textarea
           className={`${inputCls} w-full`}
           rows={3}

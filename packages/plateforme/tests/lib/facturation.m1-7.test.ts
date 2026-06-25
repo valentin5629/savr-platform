@@ -1006,6 +1006,33 @@ describe('M1.7 / BatchBrouillons / AG hors pack', () => {
     );
     expect(insertFc).toBeDefined();
   });
+
+  it('R-BB7b : AG realisee_sans_collecte (hors pack) → facturée au tarif normal + statut inclus dans le batch (§05 §4)', async () => {
+    const collecteSansCollecte = {
+      ...COLLECTE_AG_CLOTUREE,
+      id: 'col-ag-rsc',
+      statut: 'realisee_sans_collecte',
+    };
+    const sb = makeSupabase([
+      { data: [collecteSansCollecte], error: null }, // [0] select collectes
+      { data: [], error: null }, // [1] dejaFactures
+      { data: { id: 'tarif-u', prix_unitaire_ht: 590 }, error: null }, // [2] tarifs_packs_ag
+      { data: [], error: null }, // [3] tarifs_negocie
+      { data: { id: 'fac-ag-rsc' }, error: null }, // [4] insert facture
+      { data: null, error: null }, // [5] insert facture_collecte
+    ]);
+
+    const result = await runBatchBrouillonsJ1(sb as never);
+
+    expect(result.ag_par_collecte).toBe(1);
+    expect(result.errors).toHaveLength(0);
+    // Le filtre de statut du batch inclut bien realisee_sans_collecte.
+    const inCalls = (sb._chain.in as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[string, string[]]>;
+    const statutFilter = inCalls.find((c) => c[0] === 'statut');
+    expect(statutFilter?.[1]).toContain('realisee_sans_collecte');
+    expect(statutFilter?.[1]).toContain('cloturee');
+  });
 });
 
 describe('M1.7 / BatchBrouillons / ZD mensuel — première création', () => {

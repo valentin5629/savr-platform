@@ -120,6 +120,15 @@ import { AdapterEverest } from './everest/adapter.js';
 import { AdapterMts1 } from './mts1/adapter.js';
 import { ProviderManual } from './manual/provider.js';
 
+// Re-fetch mission Everest (BL-P0-07) — seul point d'entrée autorisé pour le
+// code métier (webhook), qui ne parle jamais directement à Everest (garde-fou 3).
+export { fetchEverestMissionDetails, EverestClient } from './everest/client.js';
+export type { EverestMissionDetail } from './everest/mock.js';
+// Mock injectable (test-only, no-op en prod tant qu'aucun handler n'est posé) —
+// ré-exporté ici pour que les tests cross-package (webhook) partagent le MÊME
+// singleton de handlers que fetchEverestMissionDetails (même specifier).
+export { setupEverestMock, _setEverestHandlers } from './everest/mock.js';
+
 export function getLogistiqueProvider(
   transporteur: Transporteur,
   supabase: SupabaseClient,

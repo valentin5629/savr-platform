@@ -156,7 +156,10 @@ export async function creerAvoir(
     deadline: dateStr,
     currency: origine.devise,
     source_id: avoir_id,
-    is_credit_note: true,
+    // FACT-08 — contrat Pennylane v2 réel : un avoir est un customer_invoice de
+    // `type: 'credit_note'` (§08 « Créer avoir : POST /customer_invoices type=credit_note »).
+    // L'ancien `is_credit_note: true` n'existe pas dans l'API v2 → échec au 1er prod.
+    type: 'credit_note',
     credit_note_origin_id: origine.pennylane_id ?? undefined,
     line_items: origine.factures_collectes.map((fc) => ({
       label: fc.libelle_ligne ?? fc.designation ?? 'Avoir Savr',

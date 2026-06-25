@@ -85,6 +85,10 @@ export type PennylaneGetInvoiceResult =
   | { ok: true; invoice: PennylaneInvoice }
   | PennylaneError;
 
+export type PennylaneCreateCustomerResult =
+  | { ok: true; customer: PennylaneCustomer }
+  | PennylaneError;
+
 // ─── Handler injection ────────────────────────────────────────────────────────
 
 export interface PennylaneHandlers {
@@ -103,6 +107,11 @@ export interface PennylaneHandlers {
   createDraft: (
     payload: Record<string, unknown>,
   ) => Promise<{ ok: true; id: string } | PennylaneError>;
+  // Optionnel : les mocks partiels antérieurs (FACT-06) ne le fournissent pas →
+  // client.ts retombe sur un succès neutre déterministe en test.
+  createCustomer?: (
+    payload: Record<string, unknown>,
+  ) => Promise<PennylaneCreateCustomerResult>;
 }
 
 let _handlers: PennylaneHandlers | null = null;
@@ -252,6 +261,11 @@ export function setupPennylaneMock(opts: {
       const r = await _handlers!.createInvoice(payload);
       if (!r.ok) return r;
       return { ok: true as const, id: r.invoice.id };
+    },
+
+    createCustomer: async (_payload) => {
+      const f = loadFixture<PennylaneCustomerPage>('customers_page1.json');
+      return { ok: true as const, customer: f.customers[0]! };
     },
   });
 

@@ -1,6 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
-import { requireProgrammateur } from '@/lib/api-auth.js';
+import {
+  requireProgrammateur,
+  createSupabaseServerClient,
+} from '@/lib/api-auth.js';
+
+// Champs métier ÉVÉNEMENT éditables par les rôles programmateurs (§06.04 l.444,
+// §05 l.307). lieu_id et type_collecte = verrouillés (§05 l.314 / §06.04 l.459) :
+// changer le lieu = annuler + reprogrammer. organisation_id / traiteur_operationnel
+// / entite_facturation = immuables par construction → jamais exposés.
+const EVENT_EDITABLE_FIELDS = [
+  'nom_evenement',
+  'pax',
+  'type_evenement_id',
+  'contact_principal_nom',
+  'contact_principal_telephone',
+  'contact_secours_nom',
+  'contact_secours_telephone',
+  'nom_client_organisateur',
+  'logo_client_organisateur_url',
+  'reference_affaire',
+  'notes_internes',
+];
+// Verrouillés pour les programmateurs (refus 422). lieu_id / type / organisation =
+// immuables (§05 l.314). client_organisateur_organisation_id = RATTACHEMENT d'une
+// org cliente (donne accès en lecture via evt_client_orga_select) → réservé Admin
+// back-office (§06.06), jamais un programmateur (surface de divulgation, revue RLS
+// 2026-06-26). nom/logo client = libellés libres, restent éditables.
+const EVENT_LOCKED_FIELDS = [
+  'lieu_id',
+  'organisation_id',
+  'traiteur_operationnel_organisation_id',
+  'entite_facturation_id',
+  'client_organisateur_organisation_id',
+];
 
 // Détail d'un événement avec ses collectes (pour vérification doublon AG etc.)
 export async function GET(
@@ -27,6 +60,114 @@ export async function GET(
     );
 
   return NextResponse.json(data);
+}
+
+// Édition des champs métier de l'événement par un rôle programmateur (4 rôles).
+// Décision produit Val 2026-06-26 : édition événement + collecte depuis la fiche
+// collecte, fenêtre brouillon/programmee/validee, verrou dès en_cours (§06.04 l.444,
+// §05 §4). E2 par collecte déjà dispatchée émis par fn_modifier_evenement.
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+): Promise<NextResponse> {
+  const auth = await requireProgrammateur(req);
+  if (auth.error) return auth.error;
+
+  const { id } = await params;
+  const body = (await req.json()) as Record<string, unknown>;
+
+  // Champs verrouillés (§05 l.314 / §06.04 l.459) — refus explicite.
+  const lockedAttempt = EVENT_LOCKED_FIELDS.filter((f) => f in body);
+  if (lockedAttempt.length > 0) {
+    return NextResponse.json(
+      {
+        error:
+          'Pour changer le lieu, annulez la ou les collectes et reprogrammez. Les autres champs structurants sont immuables.',
+        champs_verrouilles: lockedAttempt,
+      },
+      { status: 422 },
+    );
+  }
+
+  const updates = Object.fromEntries(
+    Object.entries(body).filter(([k]) => EVENT_EDITABLE_FIELDS.includes(k)),
+  );
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json(
+      { error: 'Aucun champ modifiable fourni' },
+      { status: 422 },
+    );
+  }
+
+  // Lecture RLS-scopée (cloisonnement org : si invisible → 404).
+  const rls = createSupabaseServerClient();
+  const { data: evt } = await rls
+    .from('evenements')
+    .select('id, organisation_id, created_by')
+    .eq('id', id)
+    .maybeSingle();
+  if (!evt) {
+    return NextResponse.json(
+      { error: 'Événement introuvable ou accès refusé' },
+      { status: 404 },
+    );
+  }
+
+  // Périmètre d'ÉCRITURE — miroir des policies evt_*_update (§09) :
+  // commercial = ses propres créations ; manager/agence/gestionnaire = son orga.
+  const autorise =
+    auth.ctx.role === 'traiteur_commercial'
+      ? evt.created_by === auth.ctx.userId
+      : evt.organisation_id === auth.ctx.organisationId;
+  if (!autorise) {
+    return NextResponse.json(
+      { error: 'Modification non autorisée' },
+      { status: 403 },
+    );
+  }
+
+  // Fenêtre d'édition niveau événement (§05 l.304) : f_collecte_editable.
+  const { data: editable } = await rls.rpc('f_collecte_editable', {
+    p_evenement_id: id,
+  });
+  if (!editable) {
+    return NextResponse.json(
+      {
+        error:
+          'Cet événement ne peut plus être modifié (collecte en cours ou terminée).',
+      },
+      { status: 422 },
+    );
+  }
+
+  // Écriture via RPC service-role : UPDATE événement + recalcul volume si pax +
+  // émission E2 par collecte dispatchée (atomique, row lock avant outbox — G4).
+  const admin = createAdminSupabaseClient();
+  const { data: before } = await admin
+    .from('evenements')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  const { data: updated, error } = await admin.rpc('fn_modifier_evenement', {
+    p_id: id,
+    p_updates: updates,
+    p_champs_modifies: Object.keys(updates),
+  });
+  if (error)
+    return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Audit (§05 l.330 audit_log global — accessible Admin only).
+  await admin.from('audit_log').insert({
+    table_name: 'evenements',
+    record_id: id,
+    action: 'UPDATE',
+    user_id: auth.ctx.userId,
+    old_values: before ?? {},
+    new_values: { updates },
+  });
+
+  return NextResponse.json({ data: updated });
 }
 
 // Suppression d'un événement brouillon (et ses collectes) par son propriétaire.

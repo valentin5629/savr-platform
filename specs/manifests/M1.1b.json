@@ -302,6 +302,14 @@
       "test": "M1.1b/collectes/create — outbox E1 atomique via fn_creer_collecte",
       "statut": "implemented",
       "libelle": "POST /collectes ZD : suppression de l'INSERT collecte_flux à colonnes fantômes (code_flux/poids_kg inexistantes) — les pesées sont dérivées de pesees_tournees ou saisies manuellement, jamais de pré-création de lignes NULL (gate batch PDF)"
+    },
+    {
+      "id": "M1.1b-26",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/evenements/[id]/route.ts",
+      "test": "M1.1b/admin_evenement_edit_emet_e2 — PATCH passe par fn_modifier_evenement",
+      "statut": "implemented",
+      "libelle": "PATCH /admin/evenements via fn_modifier_evenement (émet E2 par collecte dispatchée — fix trou Admin, ex .update() silencieux)"
     }
   ],
   "cdc_source_hash": {

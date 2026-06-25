@@ -53,7 +53,7 @@ export default function GestionnaireCollectesPage() {
                 <tr
                   key={c.id}
                   className="cursor-pointer border-t border-savr-neutral-100 hover:bg-savr-neutral-50"
-                  onClick={() => router.push(`/gestionnaire/evenements`)}
+                  onClick={() => router.push(`/gestionnaire/collectes/${c.id}`)}
                 >
                   <td className="px-3 py-2">
                     {c.date_collecte

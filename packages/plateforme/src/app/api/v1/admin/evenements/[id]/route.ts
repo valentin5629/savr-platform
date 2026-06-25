@@ -71,15 +71,17 @@ export async function PATCH(
     );
   }
 
+  // Écriture via fn_modifier_evenement : émet E2 (collecte.modifiee) par collecte
+  // dispatchée + recalcule volume_estime_repas si pax change (fix trou Admin —
+  // l'ancien .update() direct n'émettait aucun event TMS). M1.1b / M1.5a.
   const supabase = createAdminSupabaseClient();
-  const { data, error } = await supabase
-    .from('evenements')
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq('id', id)
-    .select()
-    .single();
+  const { data, error } = await supabase.rpc('fn_modifier_evenement', {
+    p_id: id,
+    p_updates: updates,
+    p_champs_modifies: Object.keys(updates),
+  });
 
-  if (error?.code === 'PGRST116') {
+  if (error?.code === 'P0002') {
     return NextResponse.json(
       { error: 'Événement introuvable' },
       { status: 404 },

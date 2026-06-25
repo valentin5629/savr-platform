@@ -360,16 +360,22 @@ async function fetchCollecte(
   supabase: SupabaseClient,
   collecteId: string,
 ): Promise<CollecteRow> {
+  // Contacts + lieu sont portés par l'ÉVÉNEMENT parent (§06.04 l.375 « Pas de
+  // duplication côté collectes » ; §08 l.411 contacts ← evenements.contact_*).
+  // On les lit donc via la jointure evenements → un re-dispatch E2 propage bien
+  // les champs événement édités (requirement B1, fix M1.5a 2026-06-26).
   const { data, error } = await supabase
     .from('collectes')
     .select(
       `
       id, type, date_collecte, heure_collecte, nb_camions_demande,
       statut_tms, controle_acces_requis, informations_supplementaires, notes_internes,
-      contact_principal_nom, contact_principal_telephone,
-      contact_secours_nom, contact_secours_telephone,
       prestataire_logistique_id,
-      lieux!inner(id, nom, adresse_acces, code_postal, ville, latitude, longitude, acces_details, type_vehicule_max, contraintes_horaires)
+      evenement:evenements!inner(
+        contact_principal_nom, contact_principal_telephone,
+        contact_secours_nom, contact_secours_telephone,
+        lieux:lieux!lieu_id(id, nom, adresse_acces, code_postal, ville, latitude, longitude, acces_details, type_vehicule_max, contraintes_horaires)
+      )
     `,
     )
     .eq('id', collecteId)
@@ -378,11 +384,44 @@ async function fetchCollecte(
   if (error || !data) {
     throw new LogistiquePermanentError(`collecte introuvable : ${collecteId}`);
   }
-  // Supabase renvoie lieux!inner comme tableau — on prend [0]
-  const raw = data as unknown as Omit<CollecteRow, 'lieux'> & {
-    lieux: CollecteRow['lieux'][];
+
+  // Supabase renvoie les relations !inner comme tableau — on prend [0].
+  type EvenementJoin = {
+    contact_principal_nom: string;
+    contact_principal_telephone: string;
+    contact_secours_nom: string | null;
+    contact_secours_telephone: string | null;
+    lieux: CollecteRow['lieux'] | CollecteRow['lieux'][];
   };
-  return { ...raw, lieux: raw.lieux[0]! } as CollecteRow;
+  const raw = data as unknown as Omit<
+    CollecteRow,
+    | 'lieux'
+    | 'contact_principal_nom'
+    | 'contact_principal_telephone'
+    | 'contact_secours_nom'
+    | 'contact_secours_telephone'
+  > & { evenement: EvenementJoin | EvenementJoin[] };
+
+  const evt = Array.isArray(raw.evenement) ? raw.evenement[0]! : raw.evenement;
+  const lieu = Array.isArray(evt.lieux) ? evt.lieux[0]! : evt.lieux;
+
+  return {
+    id: raw.id,
+    type: raw.type,
+    date_collecte: raw.date_collecte,
+    heure_collecte: raw.heure_collecte,
+    nb_camions_demande: raw.nb_camions_demande,
+    statut_tms: raw.statut_tms,
+    controle_acces_requis: raw.controle_acces_requis,
+    informations_supplementaires: raw.informations_supplementaires,
+    notes_internes: raw.notes_internes,
+    prestataire_logistique_id: raw.prestataire_logistique_id,
+    contact_principal_nom: evt.contact_principal_nom,
+    contact_principal_telephone: evt.contact_principal_telephone,
+    contact_secours_nom: evt.contact_secours_nom,
+    contact_secours_telephone: evt.contact_secours_telephone,
+    lieux: lieu,
+  };
 }
 
 async function fetchTransporteur(

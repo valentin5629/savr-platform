@@ -257,18 +257,20 @@ export class AdapterMts1 implements LogistiqueProvider {
 
   async updateLieu(lieu: Lieu): Promise<void> {
     // Collectes futures non terminales pour ce lieu
+    // Le lieu est porté par l'événement parent (collectes n'a pas de lieu_id) →
+    // filtre via la jointure evenements.lieu_id (fix M1.5a 2026-06-26). Les contacts
+    // ne servent pas ici (le payload updateOrder ne pousse que l'adresse).
     const { data: collectes } = await this.supabase
       .from('collectes')
       .select(
         `
         id, nb_camions_demande, date_collecte, heure_collecte, type,
         controle_acces_requis, informations_supplementaires,
-        contact_principal_nom, contact_principal_telephone,
-        contact_secours_nom, contact_secours_telephone,
+        evenements!inner(lieu_id),
         collecte_tournees!inner(tournee_id, rang, tournees!inner(id, external_ref_commande, tms_reference, statut))
       `,
       )
-      .eq('lieu_id', lieu.id)
+      .eq('evenements.lieu_id', lieu.id)
       .gte('date_collecte', new Date().toISOString().split('T')[0])
       .not(
         'statut',

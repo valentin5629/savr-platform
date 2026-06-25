@@ -4587,6 +4587,10 @@ export type Database = {
         Args: { p_champs_modifies: string[]; p_id: string; p_updates: Json }
         Returns: Json
       }
+      fn_modifier_evenement: {
+        Args: { p_champs_modifies: string[]; p_id: string; p_updates: Json }
+        Returns: Json
+      }
       fn_reap_outbox_claims: { Args: never; Returns: number }
       fn_result_outbox: {
         Args: {

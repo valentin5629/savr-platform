@@ -1,9 +1,9 @@
 'use client';
 
 import { use, useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { EditerCollecteForm } from '@/components/collecte/editer-collecte-form';
 
 interface Lieu {
@@ -30,15 +30,12 @@ interface Collecte {
   id: string;
   type: string;
   statut: string;
-  statut_tms: string;
   date_collecte: string;
   heure_collecte: string | null;
   controle_acces_requis: boolean;
   informations_completes: boolean;
   informations_supplementaires: string | null;
   notes_internes: string | null;
-  taux_recyclage: number | null;
-  aucun_repas_motif: string | null;
   evenement: Evenement | Evenement[] | null;
 }
 
@@ -48,9 +45,8 @@ function one<T>(v: T | T[] | null): T | null {
 }
 
 const STATUTS_EDITABLES = ['programmee', 'validee'];
-const STATUTS_ANNULABLES = ['brouillon', 'programmee', 'validee'];
 
-export default function FicheCollectePage({
+export default function FicheCollecteGestionnairePage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -61,7 +57,7 @@ export default function FicheCollectePage({
   const [editing, setEditing] = useState(false);
 
   function reload() {
-    fetch(`/api/v1/traiteur/collectes/${id}`)
+    fetch(`/api/v1/gestionnaire/collectes/${id}`)
       .then((r) => r.json())
       .then((j) => setC(j.data ?? null))
       .finally(() => setLoading(false));
@@ -81,24 +77,13 @@ export default function FicheCollectePage({
     .filter(Boolean)
     .join(' - ');
 
-  const controleAccesVisible =
-    c.controle_acces_requis &&
-    ['programmee', 'validee', 'en_cours'].includes(c.statut);
-
   return (
     <div className="space-y-6">
-      {!c.informations_completes && (
-        <div className="rounded-savr-md bg-savr-warning-subtle px-4 py-2 text-sm text-savr-warning-strong">
-          Informations incomplètes — merci de compléter avant la collecte.
-        </div>
-      )}
-
       <div>
         <h1 className="text-2xl font-bold text-savr-primary-800">{titre}</h1>
         <p className="text-xs text-savr-neutral-400">Réf. {c.id}</p>
       </div>
 
-      {/* Entête infos pilotantes */}
       <Card>
         <CardContent className="grid grid-cols-1 gap-2 pt-6 text-sm md:grid-cols-2">
           <div>
@@ -116,12 +101,6 @@ export default function FicheCollectePage({
             {evt?.contact_principal_nom ?? '—'}{' '}
             {evt?.contact_principal_telephone ?? ''}
           </div>
-          {evt?.contact_secours_nom && (
-            <div>
-              <span className="text-savr-neutral-500">Contact secours : </span>
-              {evt.contact_secours_nom} {evt.contact_secours_telephone ?? ''}
-            </div>
-          )}
           <div>
             <span className="text-savr-neutral-500">Statut : </span>
             <Badge variant="neutral">{c.statut}</Badge>
@@ -129,7 +108,6 @@ export default function FicheCollectePage({
         </CardContent>
       </Card>
 
-      {/* Formulaire d'édition (événement + collecte) */}
       {editing && evt && (
         <EditerCollecteForm
           collecte={{
@@ -156,7 +134,7 @@ export default function FicheCollectePage({
               notes_internes: evt.notes_internes,
             },
           }}
-          collecteEndpoint={`/api/v1/traiteur/collectes/${c.id}`}
+          collecteEndpoint={`/api/v1/gestionnaire/collectes/${c.id}`}
           onSaved={() => {
             setEditing(false);
             reload();
@@ -165,7 +143,6 @@ export default function FicheCollectePage({
         />
       )}
 
-      {/* Actions */}
       <div className="flex flex-wrap gap-2">
         <Button
           variant="secondary"
@@ -179,61 +156,7 @@ export default function FicheCollectePage({
         >
           {editing ? 'Fermer l’édition' : 'Éditer la collecte'}
         </Button>
-        <Button
-          variant="ghost"
-          disabled={!STATUTS_ANNULABLES.includes(c.statut)}
-          onClick={() =>
-            fetch(`/api/v1/traiteur/collectes/${id}/annulation`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ motif: '' }),
-            }).then(() => location.reload())
-          }
-        >
-          {c.statut === 'validee'
-            ? "Demander l'annulation"
-            : 'Annuler la collecte'}
-        </Button>
       </div>
-
-      {/* Cas realisee_sans_collecte (AG) */}
-      {c.statut === 'realisee_sans_collecte' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Aucun repas collecté</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm">
-            {c.aucun_repas_motif ?? 'Aucun excédent alimentaire sur place.'}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Bloc 2bis ZD — taux de recyclage (collecte cloturee) */}
-      {c.type === 'zero_dechet' && c.statut === 'cloturee' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Taux de recyclage</CardTitle>
-          </CardHeader>
-          <CardContent className="text-2xl font-bold">
-            {c.taux_recyclage != null
-              ? `${c.taux_recyclage.toFixed(1)} %`
-              : '—'}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Bloc Contrôle d'accès */}
-      {controleAccesVisible && (
-        <Card data-testid="bloc-controle-acces">
-          <CardHeader>
-            <CardTitle>Contrôle d&apos;accès</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-savr-neutral-500">
-            Le prestataire n&apos;a pas encore communiqué la plaque + le nom du
-            chauffeur.
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

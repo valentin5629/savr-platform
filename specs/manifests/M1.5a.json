@@ -27,20 +27,21 @@
     "Q3bis-6": "Peut-on retrouver un tourId depuis un customerOrderId post-timeout étape 2 ? À valider avec MTS-1 en DEMO avant merge. Pattern actuel : curseur tms_reference IS NULL + requires_reconciliation=true signale la situation mais ne peut pas reprendre sans tourId."
   },
   "scenarios": [
-    "E1 dispatch ZD rang=1 nominal : POST order → create tour → dispatch → validate",
-    "E1 dispatch AG : orderCategories=['Alimentaire'], sans stuffs",
-    "E1 dispatch ZD : stuffs contient 5 flux + volume_du_camion",
-    "E1 multi-camions N=2 : 2 ordres créés rang 1 et rang 2",
-    "E1 idempotent : rang déjà en_cours → no-op sans appel HTTP",
-    "E1 reprise étape 2 : external_ref_commande présent + tms_reference absent → POST tour seulement",
-    "E1 POST 422 → LogistiquePermanentError (dead immédiat)",
-    "E1 réconciliation : requires_reconciliation=true + ordre trouvé → pas de re-POST",
-    "E1 réconciliation : ordre introuvable → re-POST autorisé",
-    "E2 sans external_ref_commande → no-op",
-    "E3 cancel 4xx → CancelWindowClosedError",
-    "provider_manual : toutes méthodes résolvent sans erreur",
-    "factory : mts1 → AdapterMts1, autre → ProviderManual, a_toutes → gate Everest",
-    "retry paliers : attempts=1 → 5min, attempts=4 → null (DLQ)"
+    "M1.5a / dispatch ZD rang=1 — POST order + create tour + dispatch + validate",
+    "M1.5a / dispatch AG — orderCategories = Alimentaire",
+    "M1.5a / dispatch ZD — stuffs contient les 5 flux + volume_du_camion",
+    "M1.5a / dispatch multi-camions N=2 — 2 ordres créés avec rang différent",
+    "M1.5a / dispatch idempotent — rang déjà dispatchée (tms_reference + statut en_cours) = no-op",
+    "M1.5a / dispatch reprise étape 2 — external_ref_commande présent, tms_reference absent",
+    "M1.5a / POST 422 → LogistiquePermanentError",
+    "M1.5a / réconciliation requires_reconciliation=true — scan minDate/maxDate retrouve l'ordre",
+    "M1.5a / réconciliation — ordre introuvable → re-POST autorisé",
+    "M1.5a / updateCollecte sans external_ref_commande → no-op",
+    "M1.5a / cancelCollecte 4xx → CancelWindowClosedError",
+    "M1.5a / ProviderManual — toutes les méthodes résolvent sans erreur",
+    "M1.5a / factory mts1 → AdapterMts1",
+    "M1.5a / retry palier 1 → next_retry_at dans ~5 min",
+    "type_tms=a_toutes → AdapterEverest.dispatchCollecte (pas MTS-1)"
   ],
   "tests": {
     "fichier": "packages/adapters/src/mts1/adapter.m1-5a.test.ts",
@@ -175,6 +176,14 @@
       "test": null,
       "statut": "partial",
       "libelle": "Divergence pesée post-clôture : alerte Ops manquante"
+    },
+    {
+      "id": "M1.5a-15",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/outbox-worker.ts",
+      "test": "type_tms=a_toutes → AdapterEverest.dispatchCollecte (pas MTS-1)",
+      "statut": "implemented",
+      "libelle": "fetchCollecte / updateLieu lisent contacts + lieu via la jointure événement (§06.04 l.375, §08 l.411) — l'édition des champs ÉVÉNEMENT se propage réellement au TMS sur E2 (fix B1)"
     }
   ],
   "cdc_source_hash": {

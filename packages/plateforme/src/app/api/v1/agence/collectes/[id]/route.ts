@@ -81,7 +81,7 @@ export async function GET(
        notes_internes, taux_recyclage, realisee_at, aucun_repas_motif,
        evenement:evenements!inner(
          id, organisation_id, traiteur_operationnel_organisation_id,
-         nom_evenement, pax, type_evenement_id,
+         nom_evenement, pax, type_evenement_id, reference_affaire, notes_internes,
          nom_client_organisateur, contact_principal_nom, contact_principal_telephone,
          contact_secours_nom, contact_secours_telephone,
          lieu:lieux!lieu_id(id, nom, adresse_acces, code_postal, ville)

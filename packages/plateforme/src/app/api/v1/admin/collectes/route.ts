@@ -45,14 +45,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     query = query.eq('dirty_tms', true).not('tms_reference', 'is', null);
   } else if (chip === 'ag_attente_attribution') {
     query = query
-      .eq('type', 'ag')
+      .eq('type', 'anti_gaspi')
       .eq('statut_tms', 'non_envoye')
       .in('statut', ['programmee', 'validee']);
   } else if (chip === 'zd_48h') {
     const now = new Date();
     const in48h = new Date(now.getTime() + 48 * 60 * 60 * 1000);
     query = query
-      .eq('type', 'zd')
+      .eq('type', 'zero_dechet')
       .gte('date_collecte', now.toISOString().slice(0, 10))
       .lte('date_collecte', in48h.toISOString().slice(0, 10))
       .in('statut', ['programmee', 'validee']);
@@ -60,7 +60,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const now = new Date();
     const in48h = new Date(now.getTime() + 48 * 60 * 60 * 1000);
     query = query
-      .eq('type', 'ag')
+      .eq('type', 'anti_gaspi')
       .gte('date_collecte', now.toISOString().slice(0, 10))
       .lte('date_collecte', in48h.toISOString().slice(0, 10))
       .in('statut', ['programmee', 'validee']);

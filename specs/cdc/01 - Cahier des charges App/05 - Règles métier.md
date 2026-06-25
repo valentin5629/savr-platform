@@ -1,7 +1,5 @@
 # 05 - Règles métier
 
-**Statut** : Validé
-**Dernière mise à jour** : 2026-04-20
 
 ---
 
@@ -534,7 +532,7 @@ Où :
 - Couleur : aucun seuil d'alerte V1 (l'utilisateur compare au benchmark via le Bloc 3 ZD jauges, pas au taux de recyclage seul).
 - Tooltip standard : "Taux de recyclage net (méthode UE 2019/1004) — calculé avec les taux de captation par filière. Cliquez sur Méthodologie pour le détail."
 
-**Modification des taux de captation** : `admin_savr` uniquement via [[06 - Fonctionnalités détaillées/06 - Back-office Admin Savr#9. Paramètres > Taux de recyclage par filière]]. Endpoint `PUT /api/v1/admin/parametres/taux-recyclage/{filiere_id}` avec `Idempotency-Key` + commentaire obligatoire (≥ 5 caractères). Audit trail automatique via trigger DB → `parametres_taux_recyclage_history`.
+**Modification des taux de captation** : `admin_savr` uniquement via [[06 - Fonctionnalités détaillées/06 - Back-office Admin Savr#9. Paramètres > Taux de recyclage par filière]]. Endpoint `PUT /api/v1/admin/parametres/taux-recyclage/{filiere_id}` avec `Idempotency-Key` + commentaire obligatoire (≥ 5 caractères). Audit trail automatique via trigger DB → `parametres_taux_recyclage_history`. Écriture via RPC `SECURITY DEFINER` `rpc_maj_taux_recyclage` (même mécanisme audit-write que les facteurs CO₂, cf. [[#R_co2_snapshot_fige — Reproductibilité (snapshot figé à la clôture)]]).
 
 **Pas de cascade TMS** : le calcul est 100 % côté Plateforme. Le TMS push les pesées brutes via webhook S5 `collecte-terminee` (inchangé). Les paramètres de captation ne sont jamais répliqués vers `tms.*`.
 
@@ -575,6 +573,8 @@ Le flux `emballage` n'a pas de FE saisi : `fe_induit_emballage = Σ(part_pct_m/1
 ### R_co2_snapshot_fige — Reproductibilité (snapshot figé à la clôture) *(ajout 2026-06-04, Sujet 3)*
 
 À l'écriture des grandeurs CO₂, le trigger DB écrit `collectes.co2_facteurs_snapshot jsonb` (facteurs par flux + mix emballages + équivalences + forfait collecte + horodatage). Garantit qu'une modification ultérieure d'un facteur n'affecte ni les collectes figées ni les PDF déjà générés. **Recalcul a posteriori** (`realisee → cloturee` après correction pesée) = facteurs **du moment du recalcul** (cohérent R_taux_recyclage + recalcul facture). **Modification des facteurs** : `admin_savr` uniquement, commentaire obligatoire, audit trail (`parametres_facteurs_co2_history` / `parametres_mix_emballages_history` ; `parametres_co2_divers` via `audit_log`). Cf. [[08 - APIs et intégrations]] endpoints + [[09 - Authentification et permissions]] RLS.
+
+**Mécanisme d'écriture des paramètres CO₂/recyclage (admin)** *(précision 2026-06-25, divergence M2.4)* : les API Routes admin appellent une **RPC `SECURITY DEFINER` par famille** (`rpc_maj_facteurs_co2`, `rpc_maj_mix_emballages`, `rpc_maj_facteur_co2_ag`, `rpc_maj_co2_divers`, `rpc_maj_taux_recyclage`) — jamais d'`UPDATE` direct via le client service-role. Chaque RPC, dans une transaction unique : (1) pose le **commentaire obligatoire** dans `savr.audit_motif` et l'identité de l'auteur via `SET LOCAL` ; (2) exécute l'UPDATE → les triggers d'audit (rendus **`SECURITY DEFINER`**) écrivent l'historique avec `modifie_par` = auteur courant. Un trigger d'historisation alimente `parametres_mix_emballages_history` (absent jusque-là). **Raison** : sous client service-role `auth.uid()` = NULL (viole `modifie_par NOT NULL`) ; sous client user-scoped les triggers non-DEFINER échouent sur la policy SELECT-only des tables `_history`. Ce mécanisme est le **modèle de référence** pour toute route admin écrivant une table auditée par trigger. `parametres_taux_recyclage` suit le même pattern (mêmes colonnes réelles, même RPC `SECURITY DEFINER`).
 
 ### R_co2_ag — Calcul de l'impact carbone CO₂ AG (repas détournés) *(ajout 2026-06-04 bis)*
 
@@ -1122,7 +1122,6 @@ Issu de la refonte du formulaire de programmation §06.01. Les règles ci-dessou
 
 > **Retirée V1 (Sujet 4, 2026-05-26)** : le mécanisme « Autre + texte libre + normalisation Admin » est supprimé. `types_evenements` est figé à 4 catégories de format de service (`cocktail_aperitif`, `cocktail_repas_complet`, `repas_assis`, `autre`), `autre` étant un fourre-tout sélectionnable **sans saisie**. Plus de colonne `type_evenement_libre`, plus de file de normalisation back-office. Les événements `autre` sont comptés comme un bucket benchmark normal. Extension du référentiel = ajout direct d'une ligne dans `types_evenements` (Supabase), sans UI. Cf. [[04 - Data Model]] table `types_evenements` + [[06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte]].
 >
-> Contenu historique conservé pour traçabilité :
 >
 
 ### R_lieu_modif_pending *(simplifié 2026-05-25 — audit sobriété §04 B1)*

@@ -92,8 +92,8 @@
       "bytes": 2699
     },
     "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": {
-      "sha256": "28b88baa849c7a1bbfd5179ba47c49a70bf6af18945b50fa73fdd67cd2269cb5",
-      "bytes": 115711
+      "sha256": "87452a3eb00aa12747ffba6e5ccec41c6e9ec3546def394db41f2a69cee604c9",
+      "bytes": 116971
     },
     "specs/cdc/01 - Cahier des charges App/05 - Strategies optimisation.md": {
       "sha256": "d5b5913a7b2b1f0390ab243a2c15a038e76279b0e187461707a9b2ab308a77e2",
@@ -228,8 +228,8 @@
       "bytes": 1615
     },
     "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": {
-      "sha256": "05201a783f3927f59797184160a16b04906e3998c0dc73010e3fceb20d036892",
-      "bytes": 110439
+      "sha256": "f8c67963952f410d986c6d996b5bd1459c22517cd3d267263b4914c3838ce86e",
+      "bytes": 110308
     },
     "specs/cdc/01 - Cahier des charges App/08 - Génération et édition facture (Admin).md": {
       "sha256": "68ef59d3ff154349f027e6f6c964c2c486a0f500515af89211c7230fd4c7c66e",
@@ -336,8 +336,8 @@
       "bytes": 5111
     },
     "specs/cdc/01 - Cahier des charges App/_RAPPORT-EXPORT.md": {
-      "sha256": "f3230079c31038abc2a708df4677f539fa2ec3a2f7d6b1e4b710c6a23662eff3",
-      "bytes": 2162
+      "sha256": "56624d4aae9b6b1009b7bc04bf367d78f057beef11b5eff9c93a3ecec853b4e6",
+      "bytes": 1029
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.01-formulaire-programmation-scenarios.md": {
       "sha256": "eeef70254cf5cc4e306ee40ab56be7c41e102aa19b5a6fd8459b75c0a5a1db29",

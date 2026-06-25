@@ -176,7 +176,7 @@ Bouton "Ajouter une ligne" → ouvre un sélecteur :
 - Total TTC
 
 **Bloc 5 — Référence et conditions**
-- **Référence client** : pré-rempli depuis `evenements.reference_affaire` si renseigné (ex: numéro d'affaire Potel & Chabot). Champ modifiable par Admin. Transmis à Pennylane (champ "Référence") et affiché sur l'aperçu PDF brouillon.
+- **Référence client** : dérivée de `evenements.reference_affaire` (affichage seul sur l'écran facture, transmise à Pennylane et affichée sur l'aperçu PDF). La référence se modifie au niveau de l'événement (pas d'override per-facture en V1 — aucune colonne facture-level dans le data model ni le DDL cible).
 - Conditions de paiement (texte libre, template par défaut configurable dans Paramètres)
 - Mention pénalités de retard
 - Mention escompte (optionnelle)

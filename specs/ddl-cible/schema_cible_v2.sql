@@ -247,7 +247,9 @@ CREATE TABLE plateforme.users (
   role               plateforme.user_role NOT NULL,
   actif              boolean NOT NULL DEFAULT true,
   derniere_connexion timestamptz,
-  created_at         timestamptz NOT NULL DEFAULT now()
+  created_at         timestamptz NOT NULL DEFAULT now(),
+  cgu_accepte_le     timestamptz,                          -- acceptation CGU = création compte (Art. 11/22, preuve opposable) ; NULL = compte migré sans trace
+  cgu_version        text                                  -- version CGU acceptée (CGU_VERSION_COURANTE) ; NULL = compte migré
 );
 
 CREATE TABLE plateforme.entites_facturation (

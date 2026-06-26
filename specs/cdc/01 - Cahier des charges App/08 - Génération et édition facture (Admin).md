@@ -1,7 +1,5 @@
 # 08 - Génération et édition facture (Admin)
 
-**Statut** : Validé V1
-**Dernière mise à jour** : 2026-06-07 (session test-scenarios lot ⑦ — 5 floues tranchées Val + 2 recos : F1 avoir sur `payee` autorisé, F2 mensuelle = agrégation auto J+1 confirmée, F3 lignes libres → `factures_collectes` étendue, F4 numéro conservé après 4xx + table `sequences_facturation`, F5 `factures.marge_logistique` + vue `v_factures_client`, Reco A échéance = `conditions_paiement_jours`, Reco B trigger anti-double-facturation) / 2026-05-08 (revue de sobriété appliquée)
 **Lié à** : [[05 - Règles métier]] §4 — Facturation · [[04 - Data Model]] tables `factures`, `factures_collectes`, `tarifs_zero_dechet` · [[08 - APIs et intégrations]] (Pennylane v2)
 
 ---
@@ -178,7 +176,7 @@ Bouton "Ajouter une ligne" → ouvre un sélecteur :
 - Total TTC
 
 **Bloc 5 — Référence et conditions**
-- **Référence client** : pré-rempli depuis `evenements.reference_affaire` si renseigné (ex: numéro d'affaire Potel & Chabot). Champ modifiable par Admin. Transmis à Pennylane (champ "Référence") et affiché sur l'aperçu PDF brouillon.
+- **Référence client** : dérivée de `evenements.reference_affaire` (affichage seul sur l'écran facture, transmise à Pennylane et affichée sur l'aperçu PDF). La référence se modifie au niveau de l'événement (pas d'override per-facture en V1 — aucune colonne facture-level dans le data model ni le DDL cible).
 - Conditions de paiement (texte libre, template par défaut configurable dans Paramètres)
 - Mention pénalités de retard
 - Mention escompte (optionnelle)

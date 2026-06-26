@@ -6,13 +6,10 @@ import {
   type ClientRole,
 } from '@/lib/api-auth.js';
 
-const TRAITEUR_ROLES: ClientRole[] = [
-  'traiteur_manager',
-  'traiteur_commercial',
-];
+const GESTIONNAIRE_ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
-// Champs métier éditables côté traiteur (§06.04 §Édition). type_collecte, lieu_id
-// et traiteur sont verrouillés (sobriété A4) → rejetés explicitement.
+// Champs métier collecte éditables (parité §06.04 §Édition / §05 l.307). type/lieu
+// verrouillés (§05 l.314) → rejetés explicitement.
 const EDITABLE_FIELDS = [
   'date_collecte',
   'heure_collecte',
@@ -28,17 +25,17 @@ interface CollecteRow {
   statut_tms: string;
   date_collecte: string;
   heure_collecte: string | null;
-  evenement: { created_by: string; organisation_id: string } | null;
+  evenement: { organisation_id: string } | null;
 }
 
 async function loadCollecteForUser(id: string): Promise<CollecteRow | null> {
-  // Lecture RLS-scopée : si la collecte n'est pas visible (cross-org), null.
+  // Lecture RLS-scopée : si la collecte n'est pas visible (hors périmètre), null.
   const supabase = createSupabaseServerClient();
   const { data } = await supabase
     .from('collectes')
     .select(
       `id, statut, statut_tms, date_collecte, heure_collecte,
-       evenement:evenements!inner(created_by, organisation_id)`,
+       evenement:evenements!inner(organisation_id)`,
     )
     .eq('id', id)
     .maybeSingle();
@@ -49,23 +46,11 @@ async function loadCollecteForUser(id: string): Promise<CollecteRow | null> {
   return { ...data, evenement: evt } as CollecteRow;
 }
 
-function canWrite(
-  c: CollecteRow,
-  role: string,
-  userId: string,
-  orgId: string,
-): boolean {
-  if (role === 'traiteur_manager')
-    return c.evenement?.organisation_id === orgId;
-  // commercial : seulement ses propres collectes
-  return c.evenement?.created_by === userId;
-}
-
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
-  const auth = await requireUser(req, TRAITEUR_ROLES);
+  const auth = await requireUser(req, GESTIONNAIRE_ROLES);
   if (auth.error) return auth.error;
   const { id } = await params;
 
@@ -101,12 +86,12 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
-  const auth = await requireUser(req, TRAITEUR_ROLES);
+  const auth = await requireUser(req, GESTIONNAIRE_ROLES);
   if (auth.error) return auth.error;
   const { id } = await params;
   const body = (await req.json()) as Record<string, unknown>;
 
-  // Champs verrouillés (§Édition sobriété A4) — refus explicite
+  // Champs verrouillés (§05 l.314) — refus explicite.
   const lockedAttempt = LOCKED_FIELDS.filter((f) => f in body);
   if (lockedAttempt.length > 0) {
     return NextResponse.json(
@@ -136,37 +121,29 @@ export async function PATCH(
       { status: 404 },
     );
 
-  // Gate statut (§05 §4) : édition autorisée uniquement programmee / validee
+  // Gate statut (§05 l.305) : édition autorisée uniquement programmee / validee.
   if (!['programmee', 'validee'].includes(collecte.statut)) {
     return NextResponse.json(
       { error: `Édition impossible au statut ${collecte.statut}` },
       { status: 422 },
     );
   }
-  // Autorisation acteur
-  if (
-    !canWrite(collecte, auth.ctx.role, auth.ctx.userId, auth.ctx.organisationId)
-  ) {
+
+  // Périmètre d'écriture gestionnaire (miroir col_update_client §09) : ses propres
+  // programmations (organisation_id = son orga). La lecture peut être plus large
+  // (collectes à ses lieux programmées par d'autres) → 403 sur celles-là.
+  if (collecte.evenement?.organisation_id !== auth.ctx.organisationId) {
     return NextResponse.json(
       { error: 'Modification non autorisée' },
-      {
-        status: 403,
-      },
+      { status: 403 },
     );
   }
 
-  // Flags modal/audit (§06.04 modal unique + cut-off 12h)
-  const creneau = new Date(
-    `${collecte.date_collecte}T${collecte.heure_collecte ?? '00:00:00'}`,
-  );
-  const priorite_urgence = creneau.getTime() - Date.now() < 12 * 3600 * 1000;
+  // Réacceptation prestataire si le créneau change (§05 l.323).
   const dateHeureModifiee =
     'date_collecte' in updates || 'heure_collecte' in updates;
   const reacceptation_requise =
     dateHeureModifiee && collecte.statut_tms === 'acceptee';
-
-  // Réacceptation : la modif de créneau invalide l'acceptation prestataire →
-  // statut métier revient à programmee, statut_tms repasse en attente (E2 informe le TMS).
   if (reacceptation_requise) {
     (updates as Record<string, unknown>).statut = 'programmee';
   }
@@ -193,7 +170,6 @@ export async function PATCH(
       .eq('id', id);
   }
 
-  // Audit (§05 audit_log global — cascade_tms si déjà poussée, priorite_urgence)
   const cascade_tms = collecte.statut_tms !== 'non_envoye';
   await admin.from('audit_log').insert({
     table_name: 'collectes',
@@ -201,11 +177,11 @@ export async function PATCH(
     action: 'UPDATE',
     user_id: auth.ctx.userId,
     old_values: before ?? {},
-    new_values: { updates, cascade_tms, priorite_urgence },
+    new_values: { updates, cascade_tms, reacceptation_requise },
   });
 
   return NextResponse.json({
     data: updated,
-    flags: { priorite_urgence, reacceptation_requise, cascade_tms },
+    flags: { reacceptation_requise, cascade_tms },
   });
 }

@@ -4,6 +4,7 @@ import { use, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { EditerCollecteForm } from '@/components/collecte/editer-collecte-form';
 
 interface Lieu {
   nom: string;
@@ -12,11 +13,17 @@ interface Lieu {
   ville: string | null;
 }
 interface Evenement {
+  id: string;
   nom_evenement: string | null;
   pax: number | null;
+  type_evenement_id: string | null;
   nom_client_organisateur: string | null;
+  reference_affaire: string | null;
+  notes_internes: string | null;
   contact_principal_nom: string | null;
   contact_principal_telephone: string | null;
+  contact_secours_nom: string | null;
+  contact_secours_telephone: string | null;
   lieu: Lieu | Lieu[] | null;
 }
 interface TraiteurOperationnel {
@@ -33,6 +40,8 @@ interface Collecte {
   heure_collecte: string | null;
   controle_acces_requis: boolean;
   informations_completes: boolean;
+  informations_supplementaires: string | null;
+  notes_internes: string | null;
   taux_recyclage: number | null;
   aucun_repas_motif: string | null;
   evenement: Evenement | Evenement[] | null;
@@ -56,6 +65,7 @@ export default function FicheCollecteAgencePage({
   const [c, setC] = useState<Collecte | null>(null);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [siret, setSiret] = useState('');
   const [siretError, setSiretError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -156,6 +166,41 @@ export default function FicheCollecteAgencePage({
         </CardContent>
       </Card>
 
+      {editing && evt && (
+        <EditerCollecteForm
+          collecte={{
+            id: c.id,
+            type: c.type,
+            statut: c.statut,
+            date_collecte: c.date_collecte,
+            heure_collecte: c.heure_collecte,
+            controle_acces_requis: c.controle_acces_requis,
+            informations_supplementaires: c.informations_supplementaires,
+            notes_internes: c.notes_internes,
+            lieu_nom: lieu?.nom ?? null,
+            evenement: {
+              id: evt.id,
+              nom_evenement: evt.nom_evenement,
+              pax: evt.pax,
+              type_evenement_id: evt.type_evenement_id,
+              nom_client_organisateur: evt.nom_client_organisateur,
+              reference_affaire: evt.reference_affaire,
+              contact_principal_nom: evt.contact_principal_nom,
+              contact_principal_telephone: evt.contact_principal_telephone,
+              contact_secours_nom: evt.contact_secours_nom,
+              contact_secours_telephone: evt.contact_secours_telephone,
+              notes_internes: evt.notes_internes,
+            },
+          }}
+          collecteEndpoint={`/api/v1/agence/collectes/${c.id}`}
+          onSaved={() => {
+            setEditing(false);
+            load();
+          }}
+          onCancel={() => setEditing(false)}
+        />
+      )}
+
       <div className="flex flex-wrap gap-2">
         <Button
           variant="secondary"
@@ -165,8 +210,9 @@ export default function FicheCollecteAgencePage({
               ? ''
               : 'Édition impossible à ce statut'
           }
+          onClick={() => setEditing((v) => !v)}
         >
-          Éditer la collecte
+          {editing ? 'Fermer l’édition' : 'Éditer la collecte'}
         </Button>
         <Button
           variant="ghost"

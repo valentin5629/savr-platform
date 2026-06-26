@@ -40,6 +40,8 @@ function makeWorkerSupabase(opts: WorkerMockOpts) {
     requires_reconciliation: false,
   };
 
+  // Contacts + lieu portés par l'événement parent (fetchCollecte les lit via la
+  // jointure evenements!inner — fix M1.5a 2026-06-26 ; §06.04 l.375 / §08 l.411).
   const collecteRow = {
     id: COLLECTE_ID,
     type: 'anti_gaspi',
@@ -50,23 +52,27 @@ function makeWorkerSupabase(opts: WorkerMockOpts) {
     controle_acces_requis: false,
     informations_supplementaires: null,
     notes_internes: null,
-    contact_principal_nom: 'Alice',
-    contact_principal_telephone: '+33600000001',
-    contact_secours_nom: null,
-    contact_secours_telephone: null,
     prestataire_logistique_id: opts.prestataireLogistiqueId,
-    lieux: [
+    evenement: [
       {
-        id: 'lieu-001',
-        nom: 'Lieu',
-        adresse_acces: '1 rue Test',
-        code_postal: '75001',
-        ville: 'Paris',
-        latitude: null,
-        longitude: null,
-        acces_details: null,
-        type_vehicule_max: 'velo_cargo',
-        contraintes_horaires: null,
+        contact_principal_nom: 'Alice',
+        contact_principal_telephone: '+33600000001',
+        contact_secours_nom: null,
+        contact_secours_telephone: null,
+        lieux: [
+          {
+            id: 'lieu-001',
+            nom: 'Lieu',
+            adresse_acces: '1 rue Test',
+            code_postal: '75001',
+            ville: 'Paris',
+            latitude: null,
+            longitude: null,
+            acces_details: null,
+            type_vehicule_max: 'velo_cargo',
+            contraintes_horaires: null,
+          },
+        ],
       },
     ],
   };

@@ -249,38 +249,52 @@ export function EditerCollecteForm({
               onChange={(ev) => setRefAffaire(ev.target.value)}
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className={LABEL_CLS}>Contact principal — nom</label>
-              <input
-                className={INPUT_CLS}
-                value={cpNom}
-                onChange={(ev) => setCpNom(ev.target.value)}
-              />
+          {/* Contact principal (sous-bloc) */}
+          <div className="space-y-3 rounded-savr-md border border-savr-neutral-200 p-3">
+            <p className="text-sm font-semibold text-savr-neutral-800">
+              Contact principal
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className={LABEL_CLS}>Prénom et nom</label>
+                <input
+                  className={INPUT_CLS}
+                  value={cpNom}
+                  onChange={(ev) => setCpNom(ev.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className={LABEL_CLS}>Numéro de téléphone</label>
+                <input
+                  className={INPUT_CLS}
+                  value={cpTel}
+                  onChange={(ev) => setCpTel(ev.target.value)}
+                />
+              </div>
             </div>
-            <div className="space-y-1">
-              <label className={LABEL_CLS}>Contact principal — téléphone</label>
-              <input
-                className={INPUT_CLS}
-                value={cpTel}
-                onChange={(ev) => setCpTel(ev.target.value)}
-              />
-            </div>
-            <div className="space-y-1">
-              <label className={LABEL_CLS}>Contact secours — nom</label>
-              <input
-                className={INPUT_CLS}
-                value={csNom}
-                onChange={(ev) => setCsNom(ev.target.value)}
-              />
-            </div>
-            <div className="space-y-1">
-              <label className={LABEL_CLS}>Contact secours — téléphone</label>
-              <input
-                className={INPUT_CLS}
-                value={csTel}
-                onChange={(ev) => setCsTel(ev.target.value)}
-              />
+          </div>
+          {/* Contact de secours (sous-bloc) */}
+          <div className="space-y-3 rounded-savr-md border border-savr-neutral-200 p-3">
+            <p className="text-sm font-semibold text-savr-neutral-800">
+              Contact de secours
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className={LABEL_CLS}>Prénom et nom</label>
+                <input
+                  className={INPUT_CLS}
+                  value={csNom}
+                  onChange={(ev) => setCsNom(ev.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className={LABEL_CLS}>Numéro de téléphone</label>
+                <input
+                  className={INPUT_CLS}
+                  value={csTel}
+                  onChange={(ev) => setCsTel(ev.target.value)}
+                />
+              </div>
             </div>
           </div>
         </section>

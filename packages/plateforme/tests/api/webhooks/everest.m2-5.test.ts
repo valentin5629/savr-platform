@@ -26,6 +26,7 @@ let mockAuditRow: unknown = null;
 const insertedRows: Record<string, unknown[]> = {};
 const updatedRows: Record<string, unknown[]> = {};
 const insertedLogs: unknown[] = [];
+const rpcCalls: Array<{ name: string; args: unknown }> = [];
 
 const makeQuery = (table: string) => {
   const q: Record<string, unknown> = {};
@@ -75,6 +76,10 @@ const mockSupabase = {
   from: vi.fn((table: string) => {
     if (!mockTables[table]) mockTables[table] = makeQuery(table);
     return mockTables[table];
+  }),
+  rpc: vi.fn(async (name: string, args?: unknown) => {
+    rpcCalls.push({ name, args });
+    return { data: null, error: null };
   }),
 };
 
@@ -406,5 +411,227 @@ describe('M2.5 / webhook Everest — re-fetch API (BL-P0-07)', () => {
         ),
       ),
     ).toBe(true);
+  });
+});
+
+// ─── BL-P1-API-04 (d) course sans marchandise + (c) rejet ────────────────────────
+
+describe('M2.5 / webhook Everest — course sans marchandise (BL-P1-API-04 d)', () => {
+  let mockState: ReturnType<typeof setupEverestMock>;
+
+  beforeEach(() => {
+    Object.keys(insertedRows).forEach((k) => delete insertedRows[k]);
+    Object.keys(updatedRows).forEach((k) => delete updatedRows[k]);
+    insertedLogs.length = 0;
+    rpcCalls.length = 0;
+    Object.keys(mockTables).forEach((k) => delete mockTables[k]);
+    mockInboxInsertResult = { data: { id: 'inbox-001' }, error: null };
+    mockAuditRow = null;
+    vi.stubEnv('EVEREST_WEBHOOK_TOKEN', '');
+    mockMissionRow = {
+      id: 'em-cv',
+      tournee_id: 'tour-cv',
+      collecte_id: 'col-cv',
+      statut_everest: 'in_progress',
+    };
+    mockState = setupEverestMock();
+  });
+
+  afterEach(() => {
+    _setEverestHandlers(null);
+  });
+
+  it('mission_status="Pas de commande" + collecte AG → realisee_sans_collecte + alerte Ops', async () => {
+    mockCollecteRow = {
+      type: 'anti_gaspi',
+      statut: 'en_cours',
+      statut_tms: 'acceptee',
+    };
+    mockState.details.set('EVR-CV-1', {
+      mission_id: 'EVR-CV-1',
+      status: 'Pas de commande',
+      cout_ht: 18.0,
+      preuve_url: null,
+      coursier_nom: null,
+      coursier_telephone: null,
+      vehicule_type: null,
+    });
+
+    const req = makeWebhookRequest({
+      mission_id: 'EVR-CV-1',
+      event_type: 'mission_finished',
+      occurred_at: '2026-07-20T23:30:00Z',
+    });
+    const resp = await POST(req);
+    expect(resp.status).toBe(200);
+
+    const collecteUpdates = (updatedRows['collectes'] ?? []) as Array<
+      Record<string, unknown>
+    >;
+    const rsc = collecteUpdates.find(
+      (u) => u['statut'] === 'realisee_sans_collecte',
+    );
+    expect(rsc).toBeDefined();
+    // Motif chauffeur = libellé mission_status ; photo NULL (Everest n'en fournit pas).
+    expect(rsc!['aucun_repas_motif']).toBe('Pas de commande');
+    expect(rsc!['aucun_repas_photo_url']).toBeNull();
+
+    // Alerte Ops in-app type=collecte_aucun_repas (Gherkin §08 l.332).
+    const alerte = rpcCalls.find(
+      (c) =>
+        c.name === 'f_upsert_alerte_admin' &&
+        (c.args as { p_code?: string }).p_code === 'collecte_aucun_repas',
+    );
+    expect(alerte).toBeDefined();
+  });
+
+  it('mission_status="Client absent / Marchandise refusée" + collecte ZD → PAS de transition (AG only)', async () => {
+    mockCollecteRow = {
+      type: 'zero_dechet',
+      statut: 'en_cours',
+      statut_tms: 'acceptee',
+    };
+    mockState.details.set('EVR-CV-2', {
+      mission_id: 'EVR-CV-2',
+      status: 'Client absent / Marchandise refusée',
+      cout_ht: null,
+      preuve_url: null,
+      coursier_nom: null,
+      coursier_telephone: null,
+      vehicule_type: null,
+    });
+
+    const req = makeWebhookRequest({
+      mission_id: 'EVR-CV-2',
+      event_type: 'mission_success',
+      occurred_at: '2026-07-20T23:35:00Z',
+    });
+    await POST(req);
+
+    const collecteUpdates = (updatedRows['collectes'] ?? []) as Array<
+      Record<string, unknown>
+    >;
+    expect(
+      collecteUpdates.some((u) => u['statut'] === 'realisee_sans_collecte'),
+    ).toBe(false);
+    // Trace technique de l'ignore non-AG.
+    expect(
+      insertedLogs.some((l) =>
+        String((l as { erreur?: string }).erreur ?? '').includes(
+          'course_vide_non_ag_ignoree',
+        ),
+      ),
+    ).toBe(true);
+  });
+
+  it('collecte AG déjà cloturee → realisee_sans_collecte non régressé', async () => {
+    mockCollecteRow = {
+      type: 'anti_gaspi',
+      statut: 'cloturee',
+      statut_tms: 'acceptee',
+    };
+    mockState.details.set('EVR-CV-3', {
+      mission_id: 'EVR-CV-3',
+      status: 'Pas de commande',
+      cout_ht: null,
+      preuve_url: null,
+      coursier_nom: null,
+      coursier_telephone: null,
+      vehicule_type: null,
+    });
+
+    const req = makeWebhookRequest({
+      mission_id: 'EVR-CV-3',
+      event_type: 'mission_finished',
+      occurred_at: '2026-07-20T23:40:00Z',
+    });
+    await POST(req);
+
+    const collecteUpdates = (updatedRows['collectes'] ?? []) as Array<
+      Record<string, unknown>
+    >;
+    expect(
+      collecteUpdates.some((u) => u['statut'] === 'realisee_sans_collecte'),
+    ).toBe(false);
+  });
+});
+
+describe('M2.5 / webhook Everest — rejet async avant acceptation (BL-P1-API-04 c)', () => {
+  beforeEach(() => {
+    Object.keys(insertedRows).forEach((k) => delete insertedRows[k]);
+    Object.keys(updatedRows).forEach((k) => delete updatedRows[k]);
+    insertedLogs.length = 0;
+    rpcCalls.length = 0;
+    Object.keys(mockTables).forEach((k) => delete mockTables[k]);
+    mockInboxInsertResult = { data: { id: 'inbox-001' }, error: null };
+    mockAuditRow = null;
+    vi.stubEnv('EVEREST_WEBHOOK_TOKEN', '');
+    mockMissionRow = {
+      id: 'em-rej',
+      tournee_id: 'tour-rej',
+      collecte_id: 'col-rej',
+      statut_everest: 'created',
+    };
+    setupEverestMock(); // getMission par défaut → status='completed' (≠ course vide)
+  });
+
+  afterEach(() => {
+    _setEverestHandlers(null);
+  });
+
+  it('mission_failed + statut_tms=attribuee_en_attente_acceptation → rejetee_par_prestataire + retour file', async () => {
+    mockCollecteRow = {
+      type: 'anti_gaspi',
+      statut: 'programmee',
+      statut_tms: 'attribuee_en_attente_acceptation',
+    };
+
+    const req = makeWebhookRequest({
+      mission_id: 'EVR-REJ-1',
+      event_type: 'mission_failed',
+      occurred_at: '2026-07-20T22:30:00Z',
+    });
+    const resp = await POST(req);
+    expect(resp.status).toBe(200);
+
+    const collecteUpdates = (updatedRows['collectes'] ?? []) as Array<
+      Record<string, unknown>
+    >;
+    expect(
+      collecteUpdates.some(
+        (u) => u['statut_tms'] === 'rejetee_par_prestataire',
+      ),
+    ).toBe(true);
+    const alerte = rpcCalls.find(
+      (c) =>
+        c.name === 'f_upsert_alerte_admin' &&
+        (c.args as { p_code?: string }).p_code ===
+          'collecte_rejetee_prestataire',
+    );
+    expect(alerte).toBeDefined();
+  });
+
+  it('mission_failed + déjà acceptee → PAS de rejet (incident, pas un refus)', async () => {
+    mockCollecteRow = {
+      type: 'anti_gaspi',
+      statut: 'en_cours',
+      statut_tms: 'acceptee',
+    };
+
+    const req = makeWebhookRequest({
+      mission_id: 'EVR-REJ-2',
+      event_type: 'mission_failed',
+      occurred_at: '2026-07-20T22:35:00Z',
+    });
+    await POST(req);
+
+    const collecteUpdates = (updatedRows['collectes'] ?? []) as Array<
+      Record<string, unknown>
+    >;
+    expect(
+      collecteUpdates.some(
+        (u) => u['statut_tms'] === 'rejetee_par_prestataire',
+      ),
+    ).toBe(false);
   });
 });

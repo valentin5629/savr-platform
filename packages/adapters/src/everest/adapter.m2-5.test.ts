@@ -284,6 +284,27 @@ describe('M2.5 / AdapterEverest — dispatchCollecte', () => {
     expect(mission.service_id).toBe(91);
   });
 
+  // BL-P1-API-04 (a) — camion express last-minute. L'algo M2.3 produit déjà la
+  // branche `ag_everest_camion_express` ; sans ce mapping le dispatch échouait.
+  it('dispatch camion express — createMission appelé avec service_id=77 (ag_everest_camion_express)', async () => {
+    const { missions, payloads } = setupEverestMock();
+    const supabase = makeMockSupabase({
+      brancheAttribution: 'ag_everest_camion_express',
+    });
+    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+
+    await adapter.dispatchCollecte(COLLECTE_AG, 1);
+
+    const mission = [...missions.values()][0]!;
+    expect(mission.service_id).toBe(77);
+    // service 77 = créneau 1h (SERVICE_SLOT_MINUTES[77]=60)
+    const payload = payloads.get('tournee-everest-new-001') as {
+      timeslot?: { start: string; end: string };
+    };
+    expect(payload?.timeslot?.start).toBe('22:00');
+    expect(payload?.timeslot?.end).toBe('23:00');
+  });
+
   it('dispatch timeslot — start=22:00, end=22:30 (30 min service 71)', async () => {
     const { payloads } = setupEverestMock();
     const supabase = makeMockSupabase({

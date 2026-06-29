@@ -182,7 +182,7 @@ export async function creerAvoir(
     })
     .eq('id', avoir_id);
 
-  const createRes = await createInvoice(pennylanePayload, avoir_id);
+  const createRes = await createInvoice(supabase, pennylanePayload, avoir_id);
 
   if (!createRes.ok) {
     await supabase
@@ -210,7 +210,7 @@ export async function creerAvoir(
     .update({ pennylane_id: plId })
     .eq('id', avoir_id);
 
-  const finalizeRes = await finalizeInvoice(plId);
+  const finalizeRes = await finalizeInvoice(supabase, plId);
   if (!finalizeRes.ok) {
     await supabase
       .from('factures')
@@ -229,7 +229,7 @@ export async function creerAvoir(
     };
   }
 
-  await sendInvoiceEmail(plId); // non bloquant si fail — la facture est déjà finalisée
+  await sendInvoiceEmail(supabase, plId); // non bloquant si fail — la facture est déjà finalisée
 
   await supabase
     .from('factures')

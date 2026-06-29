@@ -107,6 +107,14 @@
       "test": "claim entrant atomique : conflit concurrent → skip (upsert ignoreDuplicates) ; erreur ≠23505 propagée [adapter.m1-5b.test.ts]",
       "statut": "implemented",
       "libelle": "claim integrations_inbox via upsert ON CONFLICT (source,event_id_externe) DO NOTHING (ignoreDuplicates) + propagation des erreurs ≠23505 — plus de check-then-act .insert() ni de 23505 avalée masquant un échec"
+    },
+    {
+      "id": "BL-P1-API-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:307",
+      "artefact": "packages/adapters/src/mts1/client.ts, packages/adapters/src/mts1/adapter.ts",
+      "test": "M1.5b-carrier / dispatch.{vehicle,transporter}ShareableCode → tournees.plaque_immatriculation + chauffeur_nom [adapter.m1-5b.test.ts]",
+      "statut": "implemented",
+      "libelle": "MTS-1 résolution plaque/chauffeur (as-built §6) : getCarrier() (GET /v3/carrier, cache instance) + processTourDetails matche vehicleShareableCode→numberPlate et transporterUserShareableCode→firstname+lastname → peuple tournees.plaque_immatriculation/chauffeur_nom/plaque_saisie_at (idempotent ; téléphone non exposé par l'API → NULL)."
     }
   ],
   "cdc_source_hash": {

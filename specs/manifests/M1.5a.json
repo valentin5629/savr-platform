@@ -216,6 +216,23 @@
       "test": "consumer propagé : no prestataire → noop_no_remote ; manual → manual [outbox-worker.r9.test.ts] + Everest updateCollecte → noop_no_remote + alerte info [adapter.m2-5.test.ts]",
       "statut": "implemented",
       "libelle": "worker propage le consumer effectif à fn_result_outbox (noop_no_remote / manual / adapter_mts1 / adapter_everest) ; Everest updateCollecte no-op → sendAlert(canal:info) au lieu de console.warn"
+    },
+    {
+      "id": "BL-P1-API-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:353",
+      "artefact": "packages/adapters/src/mts1/adapter.ts",
+      "test": "M1.5a / dispatch AG — deliveryPlace.placeId = id_point_collecte_mts1 de l'association [adapter.m1-5a.test.ts]",
+      "statut": "implemented",
+      "libelle": "MTS-1 favoritePlaces : buildTourPayload pose deliveryPlace.placeId (= associations.id_point_collecte_mts1, AG) ; outbox-worker.fetchCollecte résout l'id via la dernière attributions_antgaspi → associations. Sans ce champ MTS-1 ignorait où déposer les excédents AG."
+    },
+    {
+      "id": "BL-P1-API-06",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md",
+      "artefact": "specs/ddl-cible/v1-divergences-allowlist.txt",
+      "test": "n/a — convergence reportée V2 (garde-fou 1 amendé, CLAUDE.md §3bis ; scan-divergences clean)",
+      "statut": "descoped",
+      "ref_divergence": "_Divergences/BLOC7_20260624.md",
+      "libelle": "Convergence schéma Bloc 7 (integrations_logs/inbox, outbox_events, emails_envoyes) vs DDL cible : divergence structurelle tracée + allowlistée G6, convergence V2 (arbitrage A6 2026-06-24). Aucune migration V1."
     }
   ],
   "cdc_source_hash": {

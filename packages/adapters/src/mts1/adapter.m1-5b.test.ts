@@ -9,7 +9,12 @@ vi.mock('@savr/shared/src/r2/upload.js', () => ({
 import { uploadObject } from '@savr/shared/src/r2/upload.js';
 
 import { AdapterMts1 } from './adapter.js';
-import type { Mts1CustomerOrder, Mts1Photo, Mts1Tour } from './mock.js';
+import type {
+  Mts1Carrier,
+  Mts1CustomerOrder,
+  Mts1Photo,
+  Mts1Tour,
+} from './mock.js';
 import { _setMts1Handlers } from './mock.js';
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -345,6 +350,137 @@ describe('M1.5b / AdapterMts1.sync — nominal', () => {
       (c) => c.table === 'fichiers' && c.op === 'insert',
     );
     expect(fichierInsert).toBeDefined();
+  });
+});
+
+// ─── BL-P1-API-03 : résolution plaque + chauffeur (GET /v3/carrier) ──────────────
+
+const CARRIER_FIXTURE: Mts1Carrier[] = [
+  {
+    carrierShareableCode: 'CA_STRIKE',
+    name: 'Strike',
+    vehicles: [
+      {
+        name: 'Camion 20m3',
+        numberPlate: '12ABC23',
+        vehicleShareableCode: 'VE_001',
+      },
+    ],
+    transporters: [
+      {
+        firstname: 'Jean',
+        lastname: 'Dupont',
+        transporterShareableCode: 'TR_001',
+      },
+    ],
+  },
+];
+
+// Tour avec bloc dispatch (codes opaques → résolus via carrier).
+const TOUR_WITH_DISPATCH: Mts1Tour = {
+  ...TOUR_NOMINAL,
+  dispatch: {
+    carrierShareableCode: 'CA_STRIKE',
+    vehicleShareableCode: 'VE_001',
+    transporterUserShareableCode: 'TR_001',
+  },
+};
+
+describe('M1.5b / résolution plaque + chauffeur (BL-P1-API-03)', () => {
+  afterEach(() => _setMts1Handlers(null));
+
+  it('M1.5b-carrier / dispatch.{vehicle,transporter}ShareableCode → tournees.plaque + chauffeur_nom', async () => {
+    const getCarrier = vi.fn().mockResolvedValue(CARRIER_FIXTURE);
+    _setMts1Handlers({
+      pollOrders: vi.fn().mockResolvedValue({
+        customerOrders: [ORDER_VALIDATED],
+        totalCount: 1,
+        page: 1,
+        pageSize: 50,
+      }),
+      getTour: vi.fn().mockResolvedValue(TOUR_WITH_DISPATCH),
+      getPhotos: vi.fn().mockResolvedValue([]),
+      getCarrier,
+      postOrder: vi.fn(),
+    });
+
+    const supabase = makeSyncSupabase({});
+    const adapter = new AdapterMts1(
+      {
+        id: 'presta-001',
+        type_tms: 'mts1',
+        code_transporteur_mts1: 'CA_STRIKE',
+        prestataire_logistique_id: 'presta-001',
+      },
+      supabase,
+    );
+
+    await adapter.sync({
+      depuis: new Date('2026-07-15T00:00:00Z'),
+      jusqu_a: new Date('2026-07-17T00:00:00Z'),
+    });
+
+    expect(getCarrier).toHaveBeenCalled();
+
+    const calls = (supabase as unknown as { _calls: TableCall[] })._calls;
+    const tourneeUpdate = calls.find(
+      (c) =>
+        c.table === 'tournees' &&
+        c.op === 'update' &&
+        typeof c.data === 'object' &&
+        c.data !== null &&
+        'plaque_immatriculation' in (c.data as Record<string, unknown>),
+    );
+    expect(tourneeUpdate).toBeDefined();
+    const data = tourneeUpdate!.data as Record<string, unknown>;
+    expect(data['plaque_immatriculation']).toBe('12ABC23');
+    expect(data['chauffeur_nom']).toBe('Jean Dupont');
+    // 1re résolution → plaque_saisie_at posé.
+    expect(data['plaque_saisie_at']).toBeDefined();
+  });
+
+  it('M1.5b-carrier / tour sans dispatch → aucun appel carrier, aucune écriture plaque', async () => {
+    const getCarrier = vi.fn().mockResolvedValue(CARRIER_FIXTURE);
+    _setMts1Handlers({
+      pollOrders: vi.fn().mockResolvedValue({
+        customerOrders: [ORDER_VALIDATED],
+        totalCount: 1,
+        page: 1,
+        pageSize: 50,
+      }),
+      getTour: vi.fn().mockResolvedValue(TOUR_NOMINAL), // pas de dispatch
+      getPhotos: vi.fn().mockResolvedValue([]),
+      getCarrier,
+      postOrder: vi.fn(),
+    });
+
+    const supabase = makeSyncSupabase({});
+    const adapter = new AdapterMts1(
+      {
+        id: 'presta-001',
+        type_tms: 'mts1',
+        code_transporteur_mts1: 'CA_STRIKE',
+        prestataire_logistique_id: 'presta-001',
+      },
+      supabase,
+    );
+
+    await adapter.sync({
+      depuis: new Date('2026-07-15T00:00:00Z'),
+      jusqu_a: new Date('2026-07-17T00:00:00Z'),
+    });
+
+    expect(getCarrier).not.toHaveBeenCalled();
+    const calls = (supabase as unknown as { _calls: TableCall[] })._calls;
+    const plaqueWrite = calls.find(
+      (c) =>
+        c.table === 'tournees' &&
+        c.op === 'update' &&
+        typeof c.data === 'object' &&
+        c.data !== null &&
+        'plaque_immatriculation' in (c.data as Record<string, unknown>),
+    );
+    expect(plaqueWrite).toBeUndefined();
   });
 });
 

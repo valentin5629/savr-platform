@@ -266,6 +266,14 @@
       "test": "M1.7 FACT-08 : payload avoir = type credit_note (jamais is_credit_note)",
       "statut": "implemented",
       "libelle": "Payload avoir Pennylane v2 conforme (type=credit_note) + bouton « Générer un avoir » Bloc 6 (emise/payee)"
+    },
+    {
+      "id": "BL-P1-API-08",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/plateforme/src/lib/pennylane/client.ts",
+      "test": "M1.7 Pennylane integrations_logs : createInvoice succès/4xx + finalize + getInvoice + listInvoices → log pennylane [pennylane/client.m1-7.test.ts]",
+      "statut": "implemented",
+      "libelle": "Observabilité Pennylane : wrapper log() (modèle mts1/client.ts) — chaque opération (createCustomer/createInvoice/finalizeInvoice/sendInvoiceEmail/getInvoice/listInvoices) trace integrations_logs (integration='pennylane', direction=sortant, endpoint, statut_http, erreur, correlation_id). supabase threadé depuis validation-admin/avoirs/polling-paiement."
     }
   ],
   "cdc_source_hash": {

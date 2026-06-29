@@ -1126,6 +1126,14 @@
       "test": null,
       "statut": "à-vérifier",
       "libelle": "Onglet coefficients perte labo (UI)"
+    },
+    {
+      "id": "BL-P1-API-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:386",
+      "artefact": "supabase/migrations/20260629120000_plateforme_r10b_rls_ops_column_level.sql",
+      "test": "ops_savr NE PEUT PAS s'auto-promouvoir admin_savr (escalade refusée)",
+      "statut": "implemented",
+      "libelle": "RLS ops column-level : anti-escalade users.role→admin_savr + colonnes/actions admin-only (factures montant + annulation, associations habilitation/désactivation, organisations tarif_refacture_pax_zd)"
     }
   ],
   "cdc_source_hash": {

@@ -13,8 +13,11 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { sendAlert } from '@savr/shared/src/alerting/slack.js';
+
 import type {
   Collecte,
+  ConsumerTag,
   FenetreSync,
   Lieu,
   LogistiqueProvider,
@@ -72,7 +75,10 @@ export class AdapterEverest implements LogistiqueProvider {
 
   // ─── E1 collecte.creee ───────────────────────────────────────────────────────
 
-  async dispatchCollecte(collecte: Collecte, rang: number): Promise<void> {
+  async dispatchCollecte(
+    collecte: Collecte,
+    rang: number,
+  ): Promise<ConsumerTag> {
     // V1 : 1 collecte AG = 1 mission Everest (rang toujours 1)
     const tourneeExistante = await this.findTournee(collecte.id, rang);
 
@@ -85,7 +91,7 @@ export class AdapterEverest implements LogistiqueProvider {
           mission.statut_everest as string,
         )
       ) {
-        return;
+        return 'adapter_everest';
       }
     }
 
@@ -139,33 +145,38 @@ export class AdapterEverest implements LogistiqueProvider {
 
     // Mise à jour statut_tms (trigger fn_sync_statut_collecte_from_tms dérive collectes.statut)
     await this.updateStatutTms(collecte.id, 'attribuee_en_attente_acceptation');
+    return 'adapter_everest';
   }
 
   // ─── E2 collecte.modifiee ────────────────────────────────────────────────────
 
-  async updateCollecte(_collecte: Collecte): Promise<void> {
+  async updateCollecte(collecte: Collecte): Promise<ConsumerTag> {
     // Endpoint de modification non spécifié côté Everest V1.
     // Divergence enregistrée dans _Divergences/M2.5_20260615.md (type: ambigu).
-    console.warn(
-      JSON.stringify({
-        level: 'warn',
-        service: 'adapters',
+    // BL-P2-34 : alerte Ops in-app (canal info), pas un console.warn perdu — une
+    // modification d'une collecte AG déjà dispatchée Everest doit être traitée
+    // manuellement (re-création mission), donc visible.
+    await sendAlert({
+      canal: 'info',
+      titre: 'Modification collecte Everest non propagée',
+      message: `updateCollecte Everest non implémenté V1 (endpoint non spécifié) — collecte ${collecte.id} : reporter la modification manuellement auprès d'A Toutes!.`,
+      metadata: {
+        collecte_id: collecte.id,
         event: 'everest.update_collecte.noop',
-        message:
-          'updateCollecte Everest non implémenté V1 — endpoint non spécifié',
-      }),
-    );
+      },
+    });
+    return 'noop_no_remote';
   }
 
   // ─── E3 collecte.annulee ─────────────────────────────────────────────────────
 
-  async cancelCollecte(collecte: Collecte): Promise<void> {
+  async cancelCollecte(collecte: Collecte): Promise<ConsumerTag> {
     const tournees = await this.findTournees(collecte.id);
     const avecRef = tournees.filter((t) => t.external_ref_commande);
 
     if (avecRef.length === 0) {
-      // Jamais envoyé à Everest → no-op succès
-      return;
+      // Jamais envoyé à Everest → no-op succès (consumer noop_no_remote)
+      return 'noop_no_remote';
     }
 
     for (const t of avecRef) {
@@ -218,6 +229,7 @@ export class AdapterEverest implements LogistiqueProvider {
         },
       });
     }
+    return 'adapter_everest';
   }
 
   // ─── E5 lieu.champ_critique_modifie ──────────────────────────────────────────

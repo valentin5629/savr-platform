@@ -99,6 +99,14 @@
       "test": "M1.5b-10 / CANCELED → statut_tms=\"rejetee_par_prestataire\"",
       "statut": "implemented",
       "libelle": "CANCELED/KO → statut_tms='rejetee_par_prestataire'"
+    },
+    {
+      "id": "BL-P1-OUTBOX-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:438",
+      "artefact": "packages/adapters/src/mts1/adapter.ts",
+      "test": "claim entrant atomique : conflit concurrent → skip (upsert ignoreDuplicates) ; erreur ≠23505 propagée [adapter.m1-5b.test.ts]",
+      "statut": "implemented",
+      "libelle": "claim integrations_inbox via upsert ON CONFLICT (source,event_id_externe) DO NOTHING (ignoreDuplicates) + propagation des erreurs ≠23505 — plus de check-then-act .insert() ni de 23505 avalée masquant un échec"
     }
   ],
   "cdc_source_hash": {

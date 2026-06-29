@@ -85,15 +85,19 @@ BEGIN
     1::bigint,
     'E2 collecte.modifiee : 1 event ecrit a la modif d''un champ critique');
 
-  -- E3 — collecte.annulee : passage en statut annulee propage 1 event.
-  UPDATE plateforme.collectes
-     SET statut = 'annulee'
-   WHERE id = v_coll;
+  -- E3 — collecte.annulee : l'annulation passe par la RPC metier fn_modifier_collecte
+  -- (BL-P2-36 : event collecte emis INLINE par la RPC, plus par un trigger AFTER
+  -- UPDATE — pattern interdit). Conforme a l'en-tete de ce fichier (E1/E2/E3 emis
+  -- par les RPC metier). Un UPDATE brut ne doit PLUS emettre E3.
+  PERFORM plateforme.fn_modifier_collecte(
+    v_coll,
+    jsonb_build_object('statut', 'annulee'),
+    ARRAY['statut']);
   RETURN NEXT is(
     (SELECT count(*) FROM plateforme.outbox_events
        WHERE aggregate_id = v_coll AND event_type = 'collecte.annulee')::bigint,
     1::bigint,
-    'E3 collecte.annulee : 1 event ecrit a l''annulation');
+    'E3 collecte.annulee : 1 event ecrit a l''annulation (RPC fn_modifier_collecte, pas trigger)');
 
   -- E5 — lieu.champ_critique_modifie : modif adresse (champ critique) → 1 event.
   v_lieu := tests.outbox_fixture_lieu();

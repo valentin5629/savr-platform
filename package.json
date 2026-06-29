@@ -27,6 +27,7 @@
     "check:schema-vs-cible": "tsx scripts/check-schema-vs-cible.ts",
     "check:manifest-completeness": "tsx scripts/check-manifest-completeness.ts",
     "check:cdc-drift": "tsx scripts/check-cdc-drift.ts",
+    "check:test-mocks": "tsx scripts/check-test-mocks.ts",
     "check:semantic-oracle": "bash scripts/run-report-pgtap.sh supabase/tests-report/g9_semantic_oracle.test.sql 'G9 — Oracles sémantiques'",
     "check:integration-contracts": "bash scripts/run-report-pgtap.sh supabase/tests-report/integration_contracts.test.sql 'integration-contracts — postconditions DB'",
     "check:pdf-contract": "tsx scripts/check-pdf-contract.ts",

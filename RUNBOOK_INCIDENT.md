@@ -38,6 +38,49 @@ de la route protégée avant rollback hook).
 
 ---
 
+## Déblocage DLQ outbox (events `dead`) — R9
+
+Un event outbox en statut `dead` **bloque son agrégat** (head-of-line par collecte :
+seul un event `done` libère). Sans déblocage, un E1 mort empêche à jamais E2/E3 de
+la même collecte de partir (ex. E1 mort → E3 annulation jamais poussée → camion sur
+une collecte annulée). Symptôme : alerte Slack `#savr-alerts-critique` `[DLQ]`, et
+collecte bloquée en `non_envoye`/`dirty_tms`.
+
+**Qui :** `admin_savr` uniquement (les RPC valident via `f_assert_audit_context` :
+auteur `admin_savr` actif + **motif ≥ 5 caractères**). Toute action est tracée dans
+`audit_log` (`action = outbox_requeue|outbox_skip|outbox_resolve`, `motif`).
+
+**Identifier l'event mort :**
+```sql
+SELECT id, aggregate_id, event_type, attempts, last_error, processed_at
+FROM plateforme.outbox_events
+WHERE statut = 'dead' ORDER BY seq;
+```
+
+**3 actions (toutes en service-role, `p_auteur` = id de l'admin, `p_motif` obligatoire) :**
+
+1. **Re-queue** — redonner une chance au worker (MTS-1 rétabli). Remet `pending`,
+   `attempts = 0`, **`requires_reconciliation = true`** (réconciliation OBLIGATOIRE
+   avant tout re-POST, §08 §3bis.9 — jamais de doublon MTS-1) :
+   ```sql
+   SELECT plateforme.fn_admin_requeue_outbox('<event_id>', '<admin_id>', 'MTS-1 rétabli, nouvelle tentative');
+   ```
+2. **Skip motivé** — abandonner l'event devenu sans objet (ex. collecte annulée
+   depuis). Passe `done` → **débloque l'agrégat** sans rien pousser :
+   ```sql
+   SELECT plateforme.fn_admin_skip_outbox('<event_id>', '<admin_id>', 'Collecte annulée entre-temps, E1 sans objet');
+   ```
+3. **Resolve manuel** — l'effet a été réalisé manuellement côté MTS-1 (commande
+   créée/annulée par téléphone). Passe `done` + `consumer = 'manual'` :
+   ```sql
+   SELECT plateforme.fn_admin_resolve_outbox('<event_id>', '<admin_id>', 'Commande créée manuellement côté MTS-1');
+   ```
+
+Garde-fous : ces RPC n'agissent que sur un event **`dead`** (sinon erreur `22023`) ;
+un motif < 5 caractères → `22023` ; un auteur non `admin_savr` → `42501`.
+
+---
+
 ## Trace
 | Date | Module | Symptôme | Cause racine | Correctif | Temps résolution |
 |------|--------|----------|--------------|-----------|------------------|

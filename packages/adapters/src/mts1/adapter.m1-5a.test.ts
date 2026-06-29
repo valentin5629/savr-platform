@@ -608,13 +608,14 @@ describe('M1.5a / AdapterMts1 — cancelCollecte E3', () => {
 });
 
 describe('M1.5a / provider_manual', () => {
-  it('M1.5a / ProviderManual — toutes les méthodes résolvent sans erreur', async () => {
+  it('M1.5a / ProviderManual — méthodes sortantes renvoient le consumer "manual" (BL-P2-34)', async () => {
     const provider = new ProviderManual(TRANSPORTEUR_AUTRE);
-    await expect(
-      provider.dispatchCollecte(COLLECTE_ZD, 1),
-    ).resolves.toBeUndefined();
-    await expect(provider.updateCollecte(COLLECTE_ZD)).resolves.toBeUndefined();
-    await expect(provider.cancelCollecte(COLLECTE_ZD)).resolves.toBeUndefined();
+    await expect(provider.dispatchCollecte(COLLECTE_ZD, 1)).resolves.toBe(
+      'manual',
+    );
+    await expect(provider.updateCollecte(COLLECTE_ZD)).resolves.toBe('manual');
+    await expect(provider.cancelCollecte(COLLECTE_ZD)).resolves.toBe('manual');
+    // updateLieu / sync restent void (no-op)
     await expect(provider.updateLieu(LIEU_FIXTURE)).resolves.toBeUndefined();
     await expect(
       provider.sync({ depuis: new Date(), jusqu_a: new Date() }),

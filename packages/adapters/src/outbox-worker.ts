@@ -32,7 +32,7 @@ import {
   LogistiquePermanentError,
   getLogistiqueProvider,
 } from './index.js';
-import type { Collecte, Lieu, Transporteur } from './index.js';
+import type { Collecte, ConsumerTag, Lieu, Transporteur } from './index.js';
 import type { AdapterMts1 } from './mts1/adapter.js';
 
 interface ClaimedEvent {
@@ -122,8 +122,8 @@ export async function runOutboxWorker(
   // ── 3. Traitement séquentiel ─────────────────────────────────────────────────
   for (const event of claimed) {
     try {
-      await processEvent(supabase, event);
-      await markDone(supabase, event.id);
+      const consumer = await processEvent(supabase, event);
+      await markDone(supabase, event.id, consumer);
       result.done++;
     } catch (err) {
       const status = await handleError(supabase, event, err);
@@ -145,7 +145,7 @@ export async function runOutboxWorker(
 async function processEvent(
   supabase: SupabaseClient,
   event: ClaimedEvent,
-): Promise<void> {
+): Promise<ConsumerTag> {
   const { event_type, aggregate_id, aggregate_type } = event;
 
   if (aggregate_type === 'collecte') {
@@ -154,8 +154,8 @@ async function processEvent(
     const collecteRow = await fetchCollecte(supabase, collecteId);
 
     if (!collecteRow.prestataire_logistique_id) {
-      // Pas de prestataire logistique → no-op succès
-      return;
+      // Pas de prestataire logistique → no-op succès (consumer noop_no_remote)
+      return 'noop_no_remote';
     }
 
     const transporteurRow = await fetchTransporteur(
@@ -167,33 +167,38 @@ async function processEvent(
     const provider = getLogistiqueProvider(transporteur, supabase);
 
     if (event_type === 'collecte.creee') {
-      // E1 : dispatch rang 1..N
+      // E1 : dispatch rang 1..N. Tous les rangs partagent le même consumer
+      // (même transporteur) → on retient le dernier (BL-P2-34).
+      let consumer: ConsumerTag = 'noop_no_remote';
       for (let rang = 1; rang <= collecte.nb_camions_demande; rang++) {
-        await (provider as AdapterMts1).dispatchCollecte(collecte, rang, {
-          requiresReconciliation: event.requires_reconciliation,
-        });
+        consumer = await (provider as AdapterMts1).dispatchCollecte(
+          collecte,
+          rang,
+          { requiresReconciliation: event.requires_reconciliation },
+        );
       }
-      return;
+      return consumer;
     }
 
     if (event_type === 'collecte.modifiee') {
       // A4 : propage requires_reconciliation (E2). Le PUT MTS-1 est idempotent ;
       // l'adapter s'en sert seulement pour confirmer que l'ordre existe encore
       // avant de ré-adresser sur reprise après timeout.
-      await (provider as AdapterMts1).updateCollecte(collecte, {
+      return await (provider as AdapterMts1).updateCollecte(collecte, {
         requiresReconciliation: event.requires_reconciliation,
       });
-      return;
     }
 
     if (event_type === 'collecte.annulee') {
       // A4 : propage requires_reconciliation (E3) — évite le faux « fenêtre
       // fermée » quand un DELETE timeout a en réalité abouti (404 idempotent).
-      await (provider as AdapterMts1).cancelCollecte(collecte, {
+      return await (provider as AdapterMts1).cancelCollecte(collecte, {
         requiresReconciliation: event.requires_reconciliation,
       });
-      return;
     }
+
+    // event_type collecte inconnu → no-op
+    return 'noop_no_remote';
   }
 
   if (
@@ -218,19 +223,29 @@ async function processEvent(
         supabase,
       );
       await provider.updateLieu(lieu);
+      return 'adapter_mts1';
     }
-    return;
+    return 'noop_no_remote';
   }
 
   // event_type inconnu → no-op sans erreur
+  return 'noop_no_remote';
 }
 
 // ─── Résultat TX ─────────────────────────────────────────────────────────────
 
-async function markDone(supabase: SupabaseClient, id: string): Promise<void> {
+// BL-P2-34 : on propage TOUJOURS le consumer effectif — sinon le COALESCE de
+// fn_result_outbox conserve le 'adapter_mts1' posé à l'INSERT (no-op indistinguable
+// d'un dispatch réel ; collecte AG routée Everest taguée mts1).
+async function markDone(
+  supabase: SupabaseClient,
+  id: string,
+  consumer: ConsumerTag,
+): Promise<void> {
   await supabase.rpc('fn_result_outbox', {
     p_id: id,
     p_statut: 'done',
+    p_consumer: consumer,
   });
 }
 

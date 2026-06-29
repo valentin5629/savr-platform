@@ -16,6 +16,7 @@ import { uploadObject } from '@savr/shared/src/r2/upload.js';
 
 import type {
   Collecte,
+  ConsumerTag,
   FenetreSync,
   Lieu,
   LogistiqueProvider,
@@ -93,7 +94,7 @@ export class AdapterMts1 implements LogistiqueProvider {
     collecte: Collecte,
     rang: number,
     opts?: { requiresReconciliation?: boolean },
-  ): Promise<void> {
+  ): Promise<ConsumerTag> {
     // Curseur : lire la tournee existante pour ce rang
     let tournee = await this.findTournee(collecte.id, rang);
 
@@ -104,7 +105,7 @@ export class AdapterMts1 implements LogistiqueProvider {
     // Un statut terminal ('terminee'/'annulee', posé par le polling) sort aussi en
     // no-op : on ne re-dispatch jamais un tour déjà clos.
     if (tournee?.tms_reference && tournee.statut !== 'planifiee') {
-      return;
+      return 'adapter_mts1';
     }
 
     // ── Étape 1 : POST /v3/customerOrders ──────────────────────────────────────
@@ -167,6 +168,7 @@ export class AdapterMts1 implements LogistiqueProvider {
 
     // Mise à jour statut_tms (trigger dérive collectes.statut)
     await this.updateStatutTms(collecte.id, 'attribuee_en_attente_acceptation');
+    return 'adapter_mts1';
   }
 
   // ─── E2 collecte.modifiee ────────────────────────────────────────────────────
@@ -174,13 +176,13 @@ export class AdapterMts1 implements LogistiqueProvider {
   async updateCollecte(
     collecte: Collecte,
     opts?: { requiresReconciliation?: boolean },
-  ): Promise<void> {
+  ): Promise<ConsumerTag> {
     const tournees = await this.findTournees(collecte.id);
     const avecRef = tournees.filter((t) => t.external_ref_commande);
 
-    // Pas encore envoyé à MTS-1 → no-op succès
+    // Pas encore envoyé à MTS-1 → no-op succès (consumer noop_no_remote)
     if (avecRef.length === 0) {
-      return;
+      return 'noop_no_remote';
     }
 
     const updatePayload = this.buildUpdatePayload(collecte);
@@ -199,6 +201,7 @@ export class AdapterMts1 implements LogistiqueProvider {
         this.orderNumber(collecte, t.rang),
       );
     }
+    return 'adapter_mts1';
   }
 
   // ─── E3 collecte.annulee ─────────────────────────────────────────────────────
@@ -206,13 +209,13 @@ export class AdapterMts1 implements LogistiqueProvider {
   async cancelCollecte(
     collecte: Collecte,
     opts?: { requiresReconciliation?: boolean },
-  ): Promise<void> {
+  ): Promise<ConsumerTag> {
     const tournees = await this.findTournees(collecte.id);
     const avecRef = tournees.filter((t) => t.external_ref_commande);
 
-    // Pas encore envoyé à MTS-1 → no-op succès
+    // Pas encore envoyé à MTS-1 → no-op succès (consumer noop_no_remote)
     if (avecRef.length === 0) {
-      return;
+      return 'noop_no_remote';
     }
 
     for (const t of avecRef) {
@@ -251,6 +254,7 @@ export class AdapterMts1 implements LogistiqueProvider {
         throw err;
       }
     }
+    return 'adapter_mts1';
   }
 
   // ─── E5 lieu.champ_critique_modifie ──────────────────────────────────────────
@@ -334,18 +338,32 @@ export class AdapterMts1 implements LogistiqueProvider {
     fluxById: Map<string, string>,
     seuils: { min: number; max: number },
   ): Promise<void> {
-    // 1. Claim — dédup intra-run et inter-polls sur le même statut
+    // 1. Claim — dédup intra-run et inter-polls sur le même statut.
+    // OUTBOX-04 : claim ATOMIQUE via upsert ON CONFLICT DO NOTHING (UNIQUE
+    // (source, event_id_externe)). Un run concurrent qui a déjà pris la clé →
+    // 0 ligne retournée (PAS une 23505 avalée). Toute AUTRE erreur (réseau,
+    // contrainte tierce) DOIT remonter — sinon elle serait confondue avec
+    // « déjà traité » → perte silencieuse d'event (§08 §3bis.7, R10).
     const eventKey = `mts1:${order.id}:${order.status}`;
-    const { data: claimed } = await this.supabase
+    const { data: claimed, error: claimError } = await this.supabase
       .from('integrations_inbox')
-      .insert({
-        source: 'mts1',
-        event_type: 'order_status',
-        event_id_externe: eventKey,
-        payload: { orderId: order.id, status: order.status },
-      })
+      .upsert(
+        {
+          source: 'mts1',
+          event_type: 'order_status',
+          event_id_externe: eventKey,
+          payload: { orderId: order.id, status: order.status },
+        },
+        { onConflict: 'source,event_id_externe', ignoreDuplicates: true },
+      )
       .select('id')
       .limit(1);
+
+    if (claimError && claimError.code !== '23505') {
+      throw new Error(
+        `integrations_inbox claim échoué (${claimError.code ?? '?'}): ${claimError.message}`,
+      );
+    }
 
     let inboxId: string;
     if (claimed?.length) {
@@ -507,10 +525,20 @@ export class AdapterMts1 implements LogistiqueProvider {
             existante &&
             Math.abs((existante.poids_kg as number) - item.weight) > 0.001
           ) {
+            // BL-P2-37 : 2 sorties attendues (§08 §3bis.7 l.442) — trace technique
+            // integrations_logs ET alerte Ops in-app (sans ce signal, la vérité
+            // MTS-1 diverge silencieusement du bordereau réglementaire).
             await this.logEntrantError(
               'PESEE_DIVERGENCE_POST_CLOTURE',
               `tournee=${tourneeId} stop=${stop.stopId} flux=${fluxCode} local=${String(existante.poids_kg)} distant=${item.weight}`,
             );
+            await this.supabase.rpc('f_upsert_alerte_admin', {
+              p_code: 'pesee_divergence_post_cloture',
+              p_titre: 'Divergence pesée post-clôture',
+              p_message: `Poids MTS-1 (${item.weight} kg) ≠ poids local (${String(existante.poids_kg)} kg) sur une collecte clôturée — tournée ${tourneeId} stop ${stop.stopId} flux ${fluxCode}. Correction = édition + recalcul + avoir (§05).`,
+              p_entity_type: 'collectes',
+              p_entity_id: collecteId,
+            });
           }
           continue; // jamais d'écriture sur collecte clôturée
         }

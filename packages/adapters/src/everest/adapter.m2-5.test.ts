@@ -5,6 +5,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  setSlackSink,
+  type SlackPayload,
+} from '@savr/shared/src/alerting/slack.js';
+
+import {
   LogistiquePermanentError,
   LogistiqueTransientError,
   getLogistiqueProvider,
@@ -476,12 +481,25 @@ describe('M2.5 / AdapterEverest — sync + updateLieu', () => {
     await expect(adapter.updateLieu(LIEU_FIXTURE)).resolves.toBeUndefined();
   });
 
-  it('updateCollecte() est un no-op (endpoint non spécifié V1)', async () => {
+  it('updateCollecte() = no-op tracé : consumer "noop_no_remote" + alerte Ops info (BL-P2-34)', async () => {
     setupEverestMock();
     const supabase = makeMockSupabase();
     const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
 
-    await expect(adapter.updateCollecte(COLLECTE_AG)).resolves.toBeUndefined();
+    const alerts: SlackPayload[] = [];
+    setSlackSink(async (p) => {
+      alerts.push(p);
+    });
+
+    // Renvoie noop_no_remote (pas de propagation MTS-1/Everest) ...
+    await expect(adapter.updateCollecte(COLLECTE_AG)).resolves.toBe(
+      'noop_no_remote',
+    );
+    // ... ET émet une alerte Ops canal info (plus de console.warn perdu).
+    const info = alerts.filter((a) => a.canal === 'info');
+    expect(info.length).toBe(1);
+
+    setSlackSink(async () => {});
   });
 });
 

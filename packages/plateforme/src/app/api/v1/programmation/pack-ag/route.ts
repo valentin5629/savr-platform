@@ -13,7 +13,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const { data, error } = await supabase
     .from('packs_antgaspi')
     .select(
-      'id, nb_collectes, nb_utilisees, nb_annulees, credits_restants, date_expiration, statut',
+      'id, credits_initiaux, credits_consommes, credits_restants, date_expiration, statut',
     )
     .eq('organisation_id', orgId)
     .eq('statut', 'actif')
@@ -27,8 +27,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   return NextResponse.json({
     pack_actif: true,
     pack_id: data.id,
-    nb_collectes: data.nb_collectes,
-    nb_utilisees: data.nb_utilisees,
+    credits_initiaux: data.credits_initiaux,
+    credits_consommes: data.credits_consommes,
     credits_restants: data.credits_restants,
     date_expiration: data.date_expiration,
   });

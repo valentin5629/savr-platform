@@ -102,11 +102,6 @@ export async function seedDemo(client: pg.Client): Promise<void> {
   );
   if (!grille.get('Grille standard V1'))
     throw new Error('Référentiel manquant');
-  const packTarif = await lookupMap(
-    client,
-    'select nb_collectes::text k, id from plateforme.tarifs_packs_ag',
-    'k',
-  );
   const flux = await lookupMap(
     client,
     'select code, id from plateforme.flux_dechets',
@@ -593,41 +588,21 @@ export async function seedDemo(client: pg.Client): Promise<void> {
     if (t === 'nomad') continue; // compte vide
     const used = t === 'butard' ? 18 : 6; // Butard = bas ≤ 10% (18/20)
     packs.push(
-      pack(
-        `pack_${t}`,
-        `org_tr_${t}`,
-        packTarif.get('20')!,
-        20,
-        used,
-        0,
-        'actif',
-        '2025-09-01',
-      ),
+      pack(`pack_${t}`, `org_tr_${t}`, 20, used, 'actif', '2025-09-01'),
     );
   }
   packs.push(
     pack(
       'pack_lenotre_epuise',
       'org_tr_lenotre',
-      packTarif.get('10')!,
       10,
       10,
-      0,
       'epuise',
       '2025-02-01',
     ),
   );
   packs.push(
-    pack(
-      'pack_potel_epuise',
-      'org_tr_potel',
-      packTarif.get('10')!,
-      10,
-      10,
-      0,
-      'epuise',
-      '2025-03-01',
-    ),
+    pack('pack_potel_epuise', 'org_tr_potel', 10, 10, 'epuise', '2025-03-01'),
   );
   await upsert(client, 'plateforme.packs_antgaspi', packs, ['id']);
 
@@ -1308,18 +1283,14 @@ function transp(
 function pack(
   slug: string,
   orgSlug: string,
-  tarifId: string,
   nb: number,
   utilisees: number,
-  annulees: number,
   statut: string,
   dateAchat: string,
 ): Row {
   return {
     id: U(slug),
     organisation_id: U(orgSlug),
-    tarif_pack_id: tarifId,
-    // type_pack + credits_* ajoutés en M2.1 (migration 20260615200000) — NOT NULL.
     type_pack:
       nb === 10
         ? 'pack_10'
@@ -1328,9 +1299,6 @@ function pack(
           : nb === 60
             ? 'pack_60'
             : 'personnalise',
-    nb_collectes: nb,
-    nb_utilisees: utilisees,
-    nb_annulees: annulees,
     credits_initiaux: nb,
     credits_consommes: utilisees,
     statut,

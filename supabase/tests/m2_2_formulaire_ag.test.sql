@@ -54,22 +54,21 @@ VALUES (
 
 -- Pack AG actif pour T2 et T3 (1 seul crédit restant pour T2)
 INSERT INTO plateforme.tarifs_packs_ag (
-  id, nb_collectes, prix_ht, valide_du,
+  id, valide_du,
   type_pack, credits, prix_unitaire_ht, montant_total_ht
 ) VALUES (
   '00000000-0000-0000-0022-000000000006'::uuid,
-  1, 130.00, '2026-01-01', 'unitaire', 1, 130.00, 130.00
+  '2026-01-01', 'unitaire', 1, 130.00, 130.00
 ) ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO plateforme.packs_antgaspi (
-  id, organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, nb_annulees,
+  id, organisation_id,
   type_pack, credits_initiaux, credits_consommes,
   montant_total_ht, mode_facturation, statut, date_achat
 ) VALUES (
   '00000000-0000-0000-0022-000000000007'::uuid,
   '00000000-0000-0000-0022-000000000001'::uuid,
-  '00000000-0000-0000-0022-000000000006'::uuid,
-  1, 0, 0, 'unitaire', 1, 0,
+  'unitaire', 1, 0,
   130.00, 'par_collecte', 'actif', CURRENT_DATE
 ) ON CONFLICT (id) DO NOTHING;
 

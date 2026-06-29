@@ -103,10 +103,10 @@ INSERT INTO plateforme.factures (id, entite_facturation_id, organisation_id, num
   ('a3000000-0000-0000-0000-0000000000a5'::uuid, 'a3000000-0000-0000-0000-0000000000e1'::uuid, 'a3000000-0000-0000-0000-0000000000a1'::uuid, 'FAC-M33-0001', 'emise');
 
 -- Pack AG WPM (agence pré-achète du volume — décompte sur le pack agence)
-INSERT INTO plateforme.tarifs_packs_ag (id, type_pack, nb_collectes, credits, prix_ht, prix_unitaire_ht, valide_du, actif)
-VALUES ('a3000000-0000-0000-0000-0000000000a7'::uuid, 'pack_10', 10, 10, 1000, 100, CURRENT_DATE, true);
-INSERT INTO plateforme.packs_antgaspi (id, organisation_id, tarif_pack_id, type_pack, nb_collectes, credits_initiaux, date_achat)
-VALUES ('a3000000-0000-0000-0000-0000000000a8'::uuid, 'a3000000-0000-0000-0000-0000000000a1'::uuid, 'a3000000-0000-0000-0000-0000000000a7'::uuid, 'pack_10', 10, 10, CURRENT_DATE);
+INSERT INTO plateforme.tarifs_packs_ag (id, type_pack, credits, prix_unitaire_ht, valide_du)
+VALUES ('a3000000-0000-0000-0000-0000000000a7'::uuid, 'pack_10', 10, 100, CURRENT_DATE);
+INSERT INTO plateforme.packs_antgaspi (id, organisation_id, type_pack, credits_initiaux, date_achat)
+VALUES ('a3000000-0000-0000-0000-0000000000a8'::uuid, 'a3000000-0000-0000-0000-0000000000a1'::uuid, 'pack_10', 10, CURRENT_DATE);
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- 1. Contraintes shadow (rappel Niveau 0 — P1 §06.11 cat 3)
@@ -321,9 +321,9 @@ SELECT throws_ok(
 -- INSERT pack par l'agence : refusé (négociation commerciale = Admin only)
 SELECT throws_ok(
   $$ INSERT INTO plateforme.packs_antgaspi
-       (organisation_id, tarif_pack_id, type_pack, nb_collectes, credits_initiaux, date_achat)
-     VALUES ('a3000000-0000-0000-0000-0000000000a1'::uuid, 'a3000000-0000-0000-0000-0000000000a7'::uuid,
-             'pack_10', 10, 10, CURRENT_DATE) $$,
+       (organisation_id, type_pack, credits_initiaux, date_achat)
+     VALUES ('a3000000-0000-0000-0000-0000000000a1'::uuid,
+             'pack_10', 10, CURRENT_DATE) $$,
   '42501', NULL,
   'agence_pack_ag_insert_denied'
 );

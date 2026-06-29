@@ -73,11 +73,11 @@ INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, da
 VALUES ('a09f0007-0000-0000-0000-000000000001'::uuid, 'a09f0006-0000-0000-0000-000000000001'::uuid, 'zero_dechet', 'programmee', 'non_envoye', current_date + 7, '08:00');
 
 -- Tarif pack + pack AG (pour triggers pack)
-INSERT INTO plateforme.tarifs_packs_ag (id, nb_collectes, prix_ht, valide_du, actif, type_pack, credits, prix_unitaire_ht)
-VALUES ('a09f0008-0000-0000-0000-000000000001'::uuid, 5, 250.00, '2026-01-01', true, 'unitaire', 5, 250.00);
+INSERT INTO plateforme.tarifs_packs_ag (id, valide_du, type_pack, credits, prix_unitaire_ht)
+VALUES ('a09f0008-0000-0000-0000-000000000001'::uuid, '2026-01-01', 'unitaire', 5, 250.00);
 
-INSERT INTO plateforme.packs_antgaspi (id, organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, nb_annulees, statut, date_achat, credits_initiaux, type_pack)
-VALUES ('a09f0009-0000-0000-0000-000000000001'::uuid, 'a09f0001-0000-0000-0000-000000000001'::uuid, 'a09f0008-0000-0000-0000-000000000001'::uuid, 5, 2, 0, 'actif', current_date, 5, 'personnalise');
+INSERT INTO plateforme.packs_antgaspi (id, organisation_id, statut, date_achat, credits_initiaux, type_pack)
+VALUES ('a09f0009-0000-0000-0000-000000000001'::uuid, 'a09f0001-0000-0000-0000-000000000001'::uuid, 'actif', current_date, 5, 'personnalise');
 
 -- Collecte AG programmee (pour trigger pack_debit — date dans moins de 12h)
 INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, pack_antgaspi_id)

@@ -2545,27 +2545,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "fk_pack_facture"
-            columns: ["facture_pack_id"]
-            isOneToOne: false
-            referencedRelation: "factures"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_pack_facture"
-            columns: ["facture_pack_id"]
-            isOneToOne: false
-            referencedRelation: "v_factures_client"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_pack_facture"
-            columns: ["facture_pack_id"]
-            isOneToOne: false
-            referencedRelation: "v_ops_factures_bloquees"
-            referencedColumns: ["facture_id"]
-          },
-          {
             foreignKeyName: "packs_antgaspi_facture_achat_id_fkey"
             columns: ["facture_achat_id"]
             isOneToOne: false
@@ -2598,13 +2577,6 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "v_referentiel_traiteurs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "packs_antgaspi_tarif_pack_id_fkey"
-            columns: ["tarif_pack_id"]
-            isOneToOne: false
-            referencedRelation: "tarifs_packs_ag"
             referencedColumns: ["id"]
           },
         ]

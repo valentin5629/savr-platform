@@ -26,8 +26,6 @@ CREATE INDEX IF NOT EXISTS idx_emails_retry
   ON plateforme.emails_envoyes (created_at)
   WHERE statut = 'failed' AND tentative_numero < 4;
 
--- ROLLBACK (additif, réversible sans perte — colonnes de convergence DDL cible) :
---   DROP INDEX IF EXISTS plateforme.idx_emails_retry;
---   ALTER TABLE plateforme.emails_envoyes
---     DROP COLUMN IF EXISTS variables_jsonb,
---     DROP COLUMN IF EXISTS tentative_numero;
+-- ROLLBACK (additif, réversible sans perte de donnée — colonnes de convergence DDL cible) :
+--   retirer l'index idx_emails_retry, puis retirer les 2 colonnes ajoutées
+--   (variables_jsonb, tentative_numero) de plateforme.emails_envoyes via ALTER TABLE.

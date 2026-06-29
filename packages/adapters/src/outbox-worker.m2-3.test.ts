@@ -124,10 +124,10 @@ describe('M2.3 / worker outbox — routing dispatch AG par type_tms (C10)', () =
   it('type_tms=a_toutes → AdapterEverest.dispatchCollecte (pas MTS-1)', async () => {
     const everestSpy = vi
       .spyOn(AdapterEverest.prototype, 'dispatchCollecte')
-      .mockResolvedValue(undefined);
+      .mockResolvedValue('adapter_everest');
     const mts1Spy = vi
       .spyOn(AdapterMts1.prototype, 'dispatchCollecte')
-      .mockResolvedValue(undefined);
+      .mockResolvedValue('adapter_mts1');
 
     const supabase = makeWorkerSupabase({
       typeTms: 'a_toutes',
@@ -149,10 +149,10 @@ describe('M2.3 / worker outbox — routing dispatch AG par type_tms (C10)', () =
   it('type_tms=mts1 → AdapterMts1.dispatchCollecte (pas Everest)', async () => {
     const everestSpy = vi
       .spyOn(AdapterEverest.prototype, 'dispatchCollecte')
-      .mockResolvedValue(undefined);
+      .mockResolvedValue('adapter_everest');
     const mts1Spy = vi
       .spyOn(AdapterMts1.prototype, 'dispatchCollecte')
-      .mockResolvedValue(undefined);
+      .mockResolvedValue('adapter_mts1');
 
     const supabase = makeWorkerSupabase({
       typeTms: 'mts1',
@@ -167,10 +167,10 @@ describe('M2.3 / worker outbox — routing dispatch AG par type_tms (C10)', () =
   it('type_tms=autre → ProviderManual.dispatchCollecte (no-op, ni MTS-1 ni Everest)', async () => {
     const everestSpy = vi
       .spyOn(AdapterEverest.prototype, 'dispatchCollecte')
-      .mockResolvedValue(undefined);
+      .mockResolvedValue('adapter_everest');
     const mts1Spy = vi
       .spyOn(AdapterMts1.prototype, 'dispatchCollecte')
-      .mockResolvedValue(undefined);
+      .mockResolvedValue('adapter_mts1');
     const manualSpy = vi.spyOn(ProviderManual.prototype, 'dispatchCollecte');
 
     const supabase = makeWorkerSupabase({
@@ -187,10 +187,10 @@ describe('M2.3 / worker outbox — routing dispatch AG par type_tms (C10)', () =
   it('prestataire_logistique_id NULL → no-op (aucun adapter invoqué)', async () => {
     const everestSpy = vi
       .spyOn(AdapterEverest.prototype, 'dispatchCollecte')
-      .mockResolvedValue(undefined);
+      .mockResolvedValue('adapter_everest');
     const mts1Spy = vi
       .spyOn(AdapterMts1.prototype, 'dispatchCollecte')
-      .mockResolvedValue(undefined);
+      .mockResolvedValue('adapter_mts1');
 
     const supabase = makeWorkerSupabase({
       typeTms: 'a_toutes',
@@ -210,10 +210,10 @@ describe('M2.3 / worker outbox — routing dispatch AG par type_tms (C10)', () =
   it('E2 collecte.modifiee (a_toutes) → AdapterEverest.updateCollecte (pas MTS-1)', async () => {
     const everestSpy = vi
       .spyOn(AdapterEverest.prototype, 'updateCollecte')
-      .mockResolvedValue(undefined);
+      .mockResolvedValue('noop_no_remote');
     const mts1Spy = vi
       .spyOn(AdapterMts1.prototype, 'updateCollecte')
-      .mockResolvedValue(undefined);
+      .mockResolvedValue('adapter_mts1');
 
     const supabase = makeWorkerSupabase({
       typeTms: 'a_toutes',
@@ -229,10 +229,10 @@ describe('M2.3 / worker outbox — routing dispatch AG par type_tms (C10)', () =
   it('E3 collecte.annulee (a_toutes) → AdapterEverest.cancelCollecte (pas MTS-1)', async () => {
     const everestSpy = vi
       .spyOn(AdapterEverest.prototype, 'cancelCollecte')
-      .mockResolvedValue(undefined);
+      .mockResolvedValue('adapter_everest');
     const mts1Spy = vi
       .spyOn(AdapterMts1.prototype, 'cancelCollecte')
-      .mockResolvedValue(undefined);
+      .mockResolvedValue('adapter_mts1');
 
     const supabase = makeWorkerSupabase({
       typeTms: 'a_toutes',

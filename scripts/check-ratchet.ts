@@ -39,6 +39,7 @@ const GATES: { key: string; cmd: string[] }[] = [
   { key: 'manifest-completeness', cmd: ['check:manifest-completeness'] },
   { key: 'cdc-drift', cmd: ['check:cdc-drift'] },
   { key: 'column-db', cmd: ['check:column-db'] },
+  { key: 'test-mocks', cmd: ['check:test-mocks'] }, // G5 (durci R9, cluster C7)
 ];
 
 function runGate(cmd: string[]): number | null {

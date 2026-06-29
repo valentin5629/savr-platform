@@ -1,5 +1,6 @@
 import type {
   Collecte,
+  ConsumerTag,
   FenetreSync,
   Lieu,
   LogistiqueProvider,
@@ -9,7 +10,10 @@ import type {
 export class ProviderManual implements LogistiqueProvider {
   constructor(private readonly transporteur: Transporteur) {}
 
-  async dispatchCollecte(_collecte: Collecte, _rang: number): Promise<void> {
+  async dispatchCollecte(
+    _collecte: Collecte,
+    _rang: number,
+  ): Promise<ConsumerTag> {
     console.info(
       JSON.stringify({
         level: 'info',
@@ -19,9 +23,10 @@ export class ProviderManual implements LogistiqueProvider {
         transporteur_id: this.transporteur.id,
       }),
     );
+    return 'manual';
   }
 
-  async updateCollecte(_collecte: Collecte): Promise<void> {
+  async updateCollecte(_collecte: Collecte): Promise<ConsumerTag> {
     console.info(
       JSON.stringify({
         level: 'info',
@@ -31,9 +36,10 @@ export class ProviderManual implements LogistiqueProvider {
         transporteur_id: this.transporteur.id,
       }),
     );
+    return 'manual';
   }
 
-  async cancelCollecte(_collecte: Collecte): Promise<void> {
+  async cancelCollecte(_collecte: Collecte): Promise<ConsumerTag> {
     console.info(
       JSON.stringify({
         level: 'info',
@@ -43,6 +49,7 @@ export class ProviderManual implements LogistiqueProvider {
         transporteur_id: this.transporteur.id,
       }),
     );
+    return 'manual';
   }
 
   async updateLieu(_lieu: Lieu): Promise<void> {

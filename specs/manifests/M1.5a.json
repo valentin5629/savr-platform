@@ -38,7 +38,7 @@
     "M1.5a / réconciliation — ordre introuvable → re-POST autorisé",
     "M1.5a / updateCollecte sans external_ref_commande → no-op",
     "M1.5a / cancelCollecte 4xx → CancelWindowClosedError",
-    "M1.5a / ProviderManual — toutes les méthodes résolvent sans erreur",
+    "M1.5a / ProviderManual — méthodes sortantes renvoient le consumer",
     "M1.5a / factory mts1 → AdapterMts1",
     "M1.5a / retry palier 1 → next_retry_at dans ~5 min",
     "type_tms=a_toutes → AdapterEverest.dispatchCollecte (pas MTS-1)"
@@ -164,18 +164,18 @@
     {
       "id": "BL-P2-35",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "`pesees_tournees` RLS `pt_admin FOR ALL`"
+      "artefact": "supabase/migrations/20260629100000_plateforme_r9_outbox_concurrence.sql",
+      "test": "P2-35 : pt_admin restreinte à SELECT (l'admin ne contourne plus le chemin tracé) [outbox_concurrence_r9.test.sql]",
+      "statut": "implemented",
+      "libelle": "pesees_tournees RLS pt_admin FOR ALL → FOR SELECT (écriture = adapter MTS-1 service_role / saisie manuelle tracée cf_update_staff, jamais l'admin en direct)"
     },
     {
       "id": "BL-P2-37",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "Divergence pesée post-clôture : alerte Ops manquante"
+      "artefact": "packages/adapters/src/mts1/adapter.ts",
+      "test": "M1.5b-5 / collecte cloturee + poids différent → log PESEE_DIVERGENCE_POST_CLOTURE + alerte Ops f_upsert_alerte_admin [adapter.m1-5b.test.ts]",
+      "statut": "implemented",
+      "libelle": "divergence pesée post-clôture : 2 sorties (§08 §3bis.7 l.442) — trace integrations_logs ET alerte Ops in-app f_upsert_alerte_admin (pesee_divergence_post_cloture)"
     },
     {
       "id": "M1.5a-15",
@@ -184,6 +184,38 @@
       "test": "type_tms=a_toutes → AdapterEverest.dispatchCollecte (pas MTS-1)",
       "statut": "implemented",
       "libelle": "fetchCollecte / updateLieu lisent contacts + lieu via la jointure événement (§06.04 l.375, §08 l.411) — l'édition des champs ÉVÉNEMENT se propage réellement au TMS sur E2 (fix B1)"
+    },
+    {
+      "id": "BL-P1-OUTBOX-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:473",
+      "artefact": "supabase/migrations/20260629100000_plateforme_r9_outbox_concurrence.sql",
+      "test": "OUTBOX-01 skip/requeue/resolve : dead → débloqué + audit_log + gardes admin/motif/dead [outbox_concurrence_r9.test.sql]",
+      "statut": "implemented",
+      "libelle": "3 RPC déblocage DLQ fn_admin_requeue/skip/resolve_outbox (SECURITY DEFINER, admin_savr only via f_assert_audit_context, tracées audit_log) — un event dead ne bloque plus définitivement son agrégat"
+    },
+    {
+      "id": "BL-P1-OUTBOX-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md",
+      "artefact": "supabase/migrations/20260629100000_plateforme_r9_outbox_concurrence.sql",
+      "test": "OUTBOX-02 : un E1 dead BLOQUE l'agrégat → E2 non claimé ; un E1 done ne bloque pas [outbox_concurrence_r9.test.sql]",
+      "statut": "implemented",
+      "libelle": "fn_claim_outbox_batch : garde head-of-line `e2.statut <> 'done'` (un event dead bloque son agrégat ; seul done libère) — sémantique CDC restaurée (était NOT IN ('done','dead'))"
+    },
+    {
+      "id": "BL-P1-OUTBOX-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:473",
+      "artefact": "packages/adapters/src/outbox-worker.ts",
+      "test": "R9 worker reaper + alerte anticipée J-1 + DLQ critique (vrai runOutboxWorker, SANS mock du worker — G5) [outbox-worker.r9.test.ts] + OUTBOX-03 reaper [outbox_concurrence_r9.test.sql]",
+      "statut": "implemented",
+      "libelle": "vrai chemin worker testé : fn_reap_outbox_claims (requeue + requires_reconciliation), alerte anticipée attempts>=2 & date_collecte<now+24h, alerte DLQ critique — interdiction de mocker le worker (G5)"
+    },
+    {
+      "id": "BL-P2-34",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
+      "artefact": "packages/adapters/src/outbox-worker.ts",
+      "test": "consumer propagé : no prestataire → noop_no_remote ; manual → manual [outbox-worker.r9.test.ts] + Everest updateCollecte → noop_no_remote + alerte info [adapter.m2-5.test.ts]",
+      "statut": "implemented",
+      "libelle": "worker propage le consumer effectif à fn_result_outbox (noop_no_remote / manual / adapter_mts1 / adapter_everest) ; Everest updateCollecte no-op → sendAlert(canal:info) au lieu de console.warn"
     }
   ],
   "cdc_source_hash": {

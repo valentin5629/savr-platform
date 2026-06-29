@@ -115,8 +115,12 @@ function makeSyncSupabase(opts: {
   photoExistante?: boolean;
   /** La pesée existe déjà dans pesees_tournees ? */
   peseeExistante?: { poids_kg: number } | null;
-  /** integrations_inbox INSERT retourne une ligne (non dédupliqué) ? */
+  /** integrations_inbox claim (upsert) retourne 0 ligne (conflit concurrent) ? */
   inboxClaimRetourneRien?: boolean;
+  /** integrations_inbox claim renvoie une erreur DB (code testé : ≠23505 propage) */
+  inboxClaimError?: { code: string; message?: string };
+  /** ligne integrations_inbox déjà existante au re-query (crash-recovery A4-A2) */
+  inboxExistant?: { traite: boolean };
   /** collecte.statut_tms courant */
   collecteStatutTms?: string;
 }) {
@@ -163,8 +167,19 @@ function makeSyncSupabase(opts: {
       }),
       in: vi.fn((_col: string, _vals: unknown) => self),
       limit: vi.fn((_n: number) => {
-        // integrations_inbox claim : retourne le row ou rien selon le flag
+        // integrations_inbox claim (upsert ON CONFLICT DO NOTHING) :
+        //   - erreur DB simulée → propagée par l'adapter si code≠23505 (OUTBOX-04)
+        //   - 0 ligne = conflit concurrent ; sinon la ligne claimée
         if (table === 'integrations_inbox') {
+          if (opts.inboxClaimError) {
+            return Promise.resolve({
+              data: null,
+              error: {
+                code: opts.inboxClaimError.code,
+                message: opts.inboxClaimError.message ?? 'db error',
+              },
+            });
+          }
           const row = opts.inboxClaimRetourneRien ? [] : [{ id: 'inbox-001' }];
           return Promise.resolve({ data: row, error: null });
         }
@@ -190,6 +205,15 @@ function makeSyncSupabase(opts: {
                 },
               ],
             },
+            error: null,
+          });
+        }
+        if (table === 'integrations_inbox') {
+          // Re-query crash-recovery (A4-A2) : ligne déjà présente, traite=?
+          return Promise.resolve({
+            data: opts.inboxExistant
+              ? { id: 'inbox-001', traite: opts.inboxExistant.traite }
+              : null,
             error: null,
           });
         }
@@ -245,6 +269,11 @@ function makeSyncSupabase(opts: {
   const supabase = {
     from: fromFn,
     schema: vi.fn((_s: string) => ({ from: fromFn })),
+    // f_upsert_alerte_admin (pesée hors seuil / divergence post-clôture) passe par rpc
+    rpc: vi.fn(async (name: string, args?: unknown) => {
+      calls.push({ table: name, op: 'rpc', data: args });
+      return { data: null, error: null };
+    }),
     _calls: calls,
   };
 
@@ -289,11 +318,12 @@ describe('M1.5b / AdapterMts1.sync — nominal', () => {
 
     const calls = (supabase as unknown as { _calls: TableCall[] })._calls;
 
-    // Vérifier qu'un INSERT inbox a bien eu lieu
-    const inboxInsert = calls.find(
-      (c) => c.table === 'integrations_inbox' && c.op === 'insert',
+    // Vérifier qu'un claim inbox ATOMIQUE (upsert ON CONFLICT) a bien eu lieu
+    // (OUTBOX-04 : plus de .insert() check-then-act).
+    const inboxClaim = calls.find(
+      (c) => c.table === 'integrations_inbox' && c.op === 'upsert',
     );
-    expect(inboxInsert).toBeDefined();
+    expect(inboxClaim).toBeDefined();
 
     // Vérifier mise à jour statut_tms
     const collecteUpdate = calls.find(
@@ -536,7 +566,8 @@ describe('M1.5b / AdapterMts1.sync — divergence post-clôture', () => {
     );
     expect(peseesUpserts.length).toBe(0);
 
-    // Log divergence
+    // BL-P2-37 : 2 sorties attendues (§08 §3bis.7 l.442) —
+    // (1) trace technique integrations_logs
     const logInsert = calls.find(
       (c) =>
         c.table === 'integrations_logs' &&
@@ -546,6 +577,163 @@ describe('M1.5b / AdapterMts1.sync — divergence post-clôture', () => {
         ),
     );
     expect(logInsert).toBeDefined();
+
+    // (2) alerte Ops in-app f_upsert_alerte_admin (sinon divergence silencieuse)
+    const alerteOps = calls.find(
+      (c) =>
+        c.op === 'rpc' &&
+        c.table === 'f_upsert_alerte_admin' &&
+        (c.data as Record<string, unknown>)['p_code'] ===
+          'pesee_divergence_post_cloture',
+    );
+    expect(alerteOps).toBeDefined();
+  });
+});
+
+// ─── OUTBOX-04 : claim entrant atomique (upsert ON CONFLICT) ──────────────────
+describe('M1.5b / AdapterMts1.sync — claim entrant atomique (BL-P1-OUTBOX-04)', () => {
+  afterEach(() => _setMts1Handlers(null));
+
+  it('conflit concurrent (0 ligne) + traité → skip complet (aucun upsert pesées)', async () => {
+    _setMts1Handlers({
+      pollOrders: vi.fn().mockResolvedValue({
+        customerOrders: [ORDER_OK],
+        totalCount: 1,
+        page: 1,
+        pageSize: 50,
+      }),
+      getTour: vi.fn().mockResolvedValue(TOUR_NOMINAL),
+      getPhotos: vi.fn().mockResolvedValue([]),
+      postOrder: vi.fn(),
+    });
+
+    // upsert renvoie 0 ligne (un run concurrent a claimé l'event) ; le re-query
+    // existant (maybeSingle integrations_inbox = null par défaut → considéré traité)
+    // → skip. Aucune double-écriture.
+    const supabase = makeSyncSupabase({ inboxClaimRetourneRien: true });
+    const adapter = new AdapterMts1(
+      {
+        id: 'presta-001',
+        type_tms: 'mts1',
+        code_transporteur_mts1: 'STRIKE',
+        prestataire_logistique_id: 'presta-001',
+      },
+      supabase,
+    );
+
+    await adapter.sync({
+      depuis: new Date('2026-07-15T00:00:00Z'),
+      jusqu_a: new Date('2026-07-17T00:00:00Z'),
+    });
+
+    const calls = (supabase as unknown as { _calls: TableCall[] })._calls;
+    // Claim via upsert (jamais .insert check-then-act)
+    expect(
+      calls.some((c) => c.table === 'integrations_inbox' && c.op === 'upsert'),
+    ).toBe(true);
+    expect(
+      calls.some((c) => c.table === 'integrations_inbox' && c.op === 'insert'),
+    ).toBe(false);
+    // Skippé → aucune pesée upsertée
+    expect(
+      calls.filter((c) => c.table === 'pesees_tournees' && c.op === 'upsert')
+        .length,
+    ).toBe(0);
+  });
+
+  it('conflit (0 ligne) mais event NON traité (crash-recovery A4-A2) → REJOUE (effets idempotents)', async () => {
+    _setMts1Handlers({
+      pollOrders: vi.fn().mockResolvedValue({
+        customerOrders: [ORDER_OK],
+        totalCount: 1,
+        page: 1,
+        pageSize: 50,
+      }),
+      getTour: vi.fn().mockResolvedValue(TOUR_NOMINAL),
+      getPhotos: vi.fn().mockResolvedValue([]),
+      postOrder: vi.fn(),
+    });
+
+    // upsert renvoie 0 ligne (clé déjà posée par un run précédent CRASHÉ avant
+    // markInboxDone) ; le re-query trouve la ligne avec traite=false → on REJOUE
+    // (tous les effets sont idempotents : upsert pesées par clé, etc.). Sans ce
+    // replay, la collecte ne passerait jamais realisee (A4-A2).
+    const supabase = makeSyncSupabase({
+      inboxClaimRetourneRien: true,
+      inboxExistant: { traite: false },
+    });
+    const adapter = new AdapterMts1(
+      {
+        id: 'presta-001',
+        type_tms: 'mts1',
+        code_transporteur_mts1: 'STRIKE',
+        prestataire_logistique_id: 'presta-001',
+      },
+      supabase,
+    );
+
+    await adapter.sync({
+      depuis: new Date('2026-07-15T00:00:00Z'),
+      jusqu_a: new Date('2026-07-17T00:00:00Z'),
+    });
+
+    const calls = (supabase as unknown as { _calls: TableCall[] })._calls;
+    // Replay → les pesées sont (ré)upsertées (5 flux valides) malgré le conflit.
+    expect(
+      calls.filter((c) => c.table === 'pesees_tournees' && c.op === 'upsert')
+        .length,
+    ).toBe(5);
+  });
+
+  it('erreur DB ≠ 23505 sur le claim → propagée (jamais avalée comme « déjà traité »)', async () => {
+    _setMts1Handlers({
+      pollOrders: vi.fn().mockResolvedValue({
+        customerOrders: [ORDER_OK],
+        totalCount: 1,
+        page: 1,
+        pageSize: 50,
+      }),
+      getTour: vi.fn().mockResolvedValue(TOUR_NOMINAL),
+      getPhotos: vi.fn().mockResolvedValue([]),
+      postOrder: vi.fn(),
+    });
+
+    // Erreur transitoire (ex : connexion) — DOIT remonter, pas être confondue avec
+    // un doublon bénin → l'event est retenté au poll suivant (sync log l'échec).
+    const supabase = makeSyncSupabase({
+      inboxClaimError: { code: '08006', message: 'connection failure' },
+    });
+    const adapter = new AdapterMts1(
+      {
+        id: 'presta-001',
+        type_tms: 'mts1',
+        code_transporteur_mts1: 'STRIKE',
+        prestataire_logistique_id: 'presta-001',
+      },
+      supabase,
+    );
+
+    // sync() isole par collecte (try/catch) → log SYNC_ORDER_FAILED, pas de throw global
+    await adapter.sync({
+      depuis: new Date('2026-07-15T00:00:00Z'),
+      jusqu_a: new Date('2026-07-17T00:00:00Z'),
+    });
+
+    const calls = (supabase as unknown as { _calls: TableCall[] })._calls;
+    // L'erreur a été propagée → loggée comme échec de traitement, pas de pesées écrites
+    const syncFailed = calls.find(
+      (c) =>
+        c.table === 'integrations_logs' &&
+        c.op === 'insert' &&
+        String((c.data as Record<string, unknown>)['erreur']).includes(
+          'SYNC_ORDER_FAILED',
+        ),
+    );
+    expect(syncFailed).toBeDefined();
+    expect(
+      calls.filter((c) => c.table === 'pesees_tournees' && c.op === 'upsert')
+        .length,
+    ).toBe(0);
   });
 });
 

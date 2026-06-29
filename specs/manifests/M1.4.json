@@ -298,6 +298,14 @@
       "test": null,
       "statut": "partial",
       "libelle": "Correction volume aberrant AG"
+    },
+    {
+      "id": "BL-P2-36",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md",
+      "artefact": "supabase/migrations/20260629100000_plateforme_r9_outbox_concurrence.sql",
+      "test": "E3 collecte.annulee : 1 event ecrit a l'annulation (RPC fn_modifier_collecte, pas trigger) [outbox_par_mutation.test.sql] + P2-36 trigger trg_collecte_annulee_e3 supprimé [outbox_concurrence_r9.test.sql]",
+      "statut": "implemented",
+      "libelle": "E3 collecte.annulee émise INLINE par fn_modifier_collecte (pattern RPC) ; trigger AFTER UPDATE trg_collecte_annulee_e3 + fonction _fn_trg_outbox_collecte_annulee supprimés (pattern interdit)"
     }
   ],
   "cdc_source_hash": {

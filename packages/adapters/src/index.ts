@@ -22,6 +22,18 @@ export type TypeTms = 'mts1' | 'a_toutes' | 'autre';
 export type ExternalRefCommande = string;
 
 // ---------------------------------------------------------------------------
+// Consumer d'un event outbox — traçabilité (BL-P2-34). Posé sur
+// outbox_events.consumer au résultat du worker. 'noop_no_remote' = event consommé
+// sans appel distant (E2/E3 jamais envoyée à MTS-1, ou pas de prestataire) ;
+// 'manual' = transporteur type_tms='autre' (dispatch hors système).
+// ---------------------------------------------------------------------------
+export type ConsumerTag =
+  | 'adapter_mts1'
+  | 'adapter_everest'
+  | 'manual'
+  | 'noop_no_remote';
+
+// ---------------------------------------------------------------------------
 // Erreurs typées — le worker route, le provider lève.
 // ---------------------------------------------------------------------------
 export class LogistiqueProviderError extends Error {
@@ -99,12 +111,13 @@ export interface FenetreSync {
 // Interface logistique_provider — 5 méthodes (4 sortantes E1/E2/E3/E5 + sync).
 // ---------------------------------------------------------------------------
 export interface LogistiqueProvider {
-  /** E1 `collecte.creee` — appelée rang=1..nb_camions_demande. */
-  dispatchCollecte(collecte: Collecte, rang: number): Promise<void>;
-  /** E2 `collecte.modifiee`. */
-  updateCollecte(collecte: Collecte): Promise<void>;
-  /** E3 `collecte.annulee`. */
-  cancelCollecte(collecte: Collecte): Promise<void>;
+  /** E1 `collecte.creee` — appelée rang=1..nb_camions_demande. Renvoie le
+   *  consumer effectif (BL-P2-34). */
+  dispatchCollecte(collecte: Collecte, rang: number): Promise<ConsumerTag>;
+  /** E2 `collecte.modifiee`. Renvoie 'noop_no_remote' si jamais envoyée. */
+  updateCollecte(collecte: Collecte): Promise<ConsumerTag>;
+  /** E3 `collecte.annulee`. Renvoie 'noop_no_remote' si jamais envoyée. */
+  cancelCollecte(collecte: Collecte): Promise<ConsumerTag>;
   /** E5 `lieu.champ_critique_modifie`. */
   updateLieu(lieu: Lieu): Promise<void>;
   /** Cron 15 min — écrit `statut_tms`, pesées, photos, tournees. */

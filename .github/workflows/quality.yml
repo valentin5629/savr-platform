@@ -364,6 +364,23 @@ jobs:
       - name: G1 — rapport couverture livrables CDC
         run: pnpm check:spec-deliverables
 
+  # G5 — check:test-mocks (durci R9, cluster C7). Interdit de mocker le VRAI chemin
+  # du worker outbox (runOutboxWorker / handleError / getNextRetryAt) dans ses
+  # propres tests (co-localisés adapters). Mocker le client Supabase, sendAlert ou
+  # la frontière HTTP de l'adapter reste autorisé. Pur Node (tsx), sans DB. Aussi
+  # enforced par gate-ratchet (baseline 0 → toute régression bloque).
+  test-mocks:
+    runs-on: ubuntu-latest
+    continue-on-error: true # MODE RAPPORT — l'enforcement dur est dans gate-ratchet
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: G5 — rapport mock du vrai chemin worker outbox
+        run: pnpm check:test-mocks
+
   # ===========================================================================
   # Lot 0 / R0c — Garde-fous de 2e ordre (red-team), MODE RAPPORT (T0)
   # ===========================================================================

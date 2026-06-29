@@ -371,7 +371,7 @@ describe('Lot A / A4 — annulation E3 idempotente', () => {
       new AdapterMts1(TRANSPORTEUR, makeCancelSupabase()).cancelCollecte(
         COLLECTE,
       ),
-    ).resolves.toBeUndefined();
+    ).resolves.toBe('adapter_mts1');
     expect(deleteOrder).toHaveBeenCalledOnce();
   });
 
@@ -412,7 +412,7 @@ describe('Lot A / A4 — annulation E3 idempotente', () => {
         COLLECTE,
         { requiresReconciliation: true },
       ),
-    ).resolves.toBeUndefined();
+    ).resolves.toBe('adapter_mts1');
     expect(scanOrdersByDateRange).toHaveBeenCalledOnce();
     expect(deleteOrder).not.toHaveBeenCalled();
   });

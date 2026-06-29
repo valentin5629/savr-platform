@@ -61,6 +61,9 @@ interface CollecteRow {
   contact_secours_nom: string | null;
   contact_secours_telephone: string | null;
   prestataire_logistique_id: string | null;
+  // AG uniquement (BL-P1-API-02) — placeId favori MTS-1 de l'association
+  // destinataire, résolu via attributions_antgaspi → associations.
+  association_id_point_collecte_mts1: string | null;
   lieux: {
     id: string;
     nom: string;
@@ -420,6 +423,16 @@ async function fetchCollecte(
   const evt = Array.isArray(raw.evenement) ? raw.evenement[0]! : raw.evenement;
   const lieu = Array.isArray(evt.lieux) ? evt.lieux[0]! : evt.lieux;
 
+  // BL-P1-API-02 — lieu de dépôt AG : l'association destinataire est attribuée
+  // APRÈS la création de la collecte (§08 l.154), donc connue au moment où le
+  // worker consomme `collecte.creee` émis par la cascade d'attribution (R5). On
+  // résout son point favori MTS-1 (associations.id_point_collecte_mts1) via la
+  // dernière attribution_antgaspi. ZD = jamais d'association → NULL.
+  let idPointCollecteMts1: string | null = null;
+  if (raw.type === 'anti_gaspi') {
+    idPointCollecteMts1 = await fetchIdPointCollecteMts1(supabase, raw.id);
+  }
+
   return {
     id: raw.id,
     type: raw.type,
@@ -431,12 +444,37 @@ async function fetchCollecte(
     informations_supplementaires: raw.informations_supplementaires,
     notes_internes: raw.notes_internes,
     prestataire_logistique_id: raw.prestataire_logistique_id,
+    association_id_point_collecte_mts1: idPointCollecteMts1,
     contact_principal_nom: evt.contact_principal_nom,
     contact_principal_telephone: evt.contact_principal_telephone,
     contact_secours_nom: evt.contact_secours_nom,
     contact_secours_telephone: evt.contact_secours_telephone,
     lieux: lieu,
   };
+}
+
+// BL-P1-API-02 — résout le placeId favori MTS-1 du lieu de dépôt d'une collecte AG
+// (associations.id_point_collecte_mts1) via son attribution. `collecte_id` est
+// UNIQUE sur attributions_antgaspi (≤ 1 ligne) → maybeSingle, même pattern que
+// l'adapter Everest resolveServiceId. Une association sans point favori
+// (id_point_collecte_mts1 NULL) ⇒ pas de deliveryPlace.
+async function fetchIdPointCollecteMts1(
+  supabase: SupabaseClient,
+  collecteId: string,
+): Promise<string | null> {
+  const { data } = await supabase
+    .from('attributions_antgaspi')
+    .select('associations:association_id(id_point_collecte_mts1)')
+    .eq('collecte_id', collecteId)
+    .maybeSingle();
+
+  if (!data) return null;
+  const assoc = (data as { associations?: unknown }).associations;
+  const row = Array.isArray(assoc) ? assoc[0] : assoc;
+  return (
+    (row as { id_point_collecte_mts1?: string | null } | null)
+      ?.id_point_collecte_mts1 ?? null
+  );
 }
 
 async function fetchTransporteur(
@@ -492,6 +530,7 @@ function toCollecte(row: CollecteRow): Collecte {
     contact_principal_telephone: row.contact_principal_telephone,
     contact_secours_nom: row.contact_secours_nom,
     contact_secours_telephone: row.contact_secours_telephone,
+    association_id_point_collecte_mts1: row.association_id_point_collecte_mts1,
     lieu: row.lieux,
   };
 }

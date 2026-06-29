@@ -219,7 +219,7 @@ export async function validerFacture(
   // recrée pas le client).
   let customerId = ef.pennylane_customer_id;
   if (!customerId) {
-    const custRes = await createCustomer(buildCustomerPayload(ef));
+    const custRes = await createCustomer(supabase, buildCustomerPayload(ef));
     if (!custRes.ok) {
       const is4 = is4xx(custRes);
       await supabase
@@ -255,7 +255,7 @@ export async function validerFacture(
     dateEcheance,
     customerId,
   );
-  const createRes = await createInvoice(payload, factureId);
+  const createRes = await createInvoice(supabase, payload, factureId);
 
   if (!createRes.ok) {
     const is4 = is4xx(createRes);
@@ -286,7 +286,7 @@ export async function validerFacture(
     .eq('id', factureId);
 
   // 4. Finalize
-  const finalizeRes = await finalizeInvoice(pennylaneId);
+  const finalizeRes = await finalizeInvoice(supabase, pennylaneId);
   if (!finalizeRes.ok) {
     await supabase
       .from('factures')
@@ -310,7 +310,7 @@ export async function validerFacture(
   const pdfUrl = finalizeRes.invoice.file_url ?? null;
 
   // 5. Send email
-  const emailRes = await sendInvoiceEmail(pennylaneId);
+  const emailRes = await sendInvoiceEmail(supabase, pennylaneId);
   if (!emailRes.ok) {
     await supabase
       .from('factures')

@@ -43,3 +43,14 @@ plateforme.integrations_logs
 plateforme.integrations_inbox
 plateforme.outbox_events
 plateforme.emails_envoyes
+
+# --- everest_missions — table V1-only (état adapter Everest) ------------------
+# M2.5 (gate Everest levée Val 2026-06-15, CLAUDE.md §7) crée la table en
+# `plateforme.*` ; le DDL cible la place en `tms.everest_missions`
+# (schema_cible_v2.sql l.1807) → divergence de SCHÉMA (plateforme→tms) + de
+# domaine CHECK everest_service_id (V1 : 71/74/77/91 — service 74 ex-75 DIV-1,
+# 77 camion express V1-only DIV-3 ; cible : 71/75/91). Convergence = migration
+# 2-step au cutover V2 (le TMS natif reprend l'intégration Everest). Table
+# allowlistée ENTIÈRE (colonnes pas à converger une par une). Trace :
+# _Divergences/M2.5_20260615.md (DIV-1/DIV-3) + _Divergences/M2.5_R10a_20260629.md.
+plateforme.everest_missions

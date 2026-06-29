@@ -207,6 +207,86 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
     expect(orderPayload['stuffs']).toBeUndefined();
   });
 
+  // BL-P1-API-02 — lieu de dépôt AG (favoritePlaces). Sans deliveryPlace.placeId,
+  // MTS-1 ignore où déposer les excédents AG (§08 §3bis.5 étape 2 / as-built l.60).
+  it('M1.5a / dispatch AG — deliveryPlace.placeId = id_point_collecte_mts1 de l’association', async () => {
+    const postOrder = vi.fn().mockResolvedValue({
+      ok: true,
+      id: 'MTS1-ORDER-AG-FAV',
+      externalReference: 'col-ag-fav-1',
+      status: 'PLANNED',
+      createdAt: '',
+    });
+    const createTour = vi.fn().mockResolvedValue({
+      tourId: 'MTS1-TOUR-AG-FAV',
+      externalReference: 'col-ag-fav-1',
+      status: 'DRAFT',
+      createdAt: '',
+      customerOrderId: 'MTS1-ORDER-AG-FAV',
+    } satisfies Mts1CreatedTour);
+    _setMts1Handlers({
+      pollOrders: vi.fn(),
+      getTour: vi.fn(),
+      postOrder,
+      createTour,
+      dispatchTour: vi.fn().mockResolvedValue(undefined),
+      validateTour: vi.fn().mockResolvedValue(undefined),
+    });
+
+    const collecteAgFavorite: Collecte = {
+      ...COLLECTE_AG,
+      id: 'col-ag-fav',
+      association_id_point_collecte_mts1: 'PLACE_BLUESPACE_IVRY',
+    };
+    const supabase = makeMockSupabase({ tourneeExistante: null });
+    await new AdapterMts1(TRANSPORTEUR, supabase).dispatchCollecte(
+      collecteAgFavorite,
+      1,
+    );
+
+    const tourPayload = createTour.mock.calls[0]![0] as Record<string, unknown>;
+    expect(tourPayload['deliveryPlace']).toEqual({
+      placeId: 'PLACE_BLUESPACE_IVRY',
+    });
+  });
+
+  // AG sans point favori résolu (association.id_point_collecte_mts1 NULL) → pas de
+  // deliveryPlace (l'adresse de l'association n'est pas connue de MTS-1).
+  it('M1.5a / dispatch AG — pas de point favori → deliveryPlace absent', async () => {
+    const postOrder = vi.fn().mockResolvedValue({
+      ok: true,
+      id: 'O-AG-NOFAV',
+      externalReference: 'col-ag-001-1',
+      status: 'PLANNED',
+      createdAt: '',
+    });
+    const createTour = vi.fn().mockResolvedValue({
+      tourId: 'T-AG-NOFAV',
+      externalReference: 'col-ag-001-1',
+      status: 'DRAFT',
+      createdAt: '',
+      customerOrderId: 'O-AG-NOFAV',
+    } satisfies Mts1CreatedTour);
+    _setMts1Handlers({
+      pollOrders: vi.fn(),
+      getTour: vi.fn(),
+      postOrder,
+      createTour,
+      dispatchTour: vi.fn().mockResolvedValue(undefined),
+      validateTour: vi.fn().mockResolvedValue(undefined),
+    });
+
+    const supabase = makeMockSupabase({ tourneeExistante: null });
+    // COLLECTE_AG n'a pas association_id_point_collecte_mts1 (undefined)
+    await new AdapterMts1(TRANSPORTEUR, supabase).dispatchCollecte(
+      COLLECTE_AG,
+      1,
+    );
+
+    const tourPayload = createTour.mock.calls[0]![0] as Record<string, unknown>;
+    expect(tourPayload['deliveryPlace']).toBeUndefined();
+  });
+
   it('M1.5a / dispatch ZD — stuffs contient les 5 flux + volume_du_camion', async () => {
     const postOrder = vi.fn().mockResolvedValue({
       ok: true,

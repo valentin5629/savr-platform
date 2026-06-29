@@ -25,6 +25,7 @@ import type {
 import { CancelWindowClosedError, LogistiquePermanentError } from '../index.js';
 import type { CreateOrderPayload, CreateTourPayload } from './client.js';
 import { Mts1Client } from './client.js';
+import type { Mts1Tour } from './mock.js';
 
 interface TourneeRow {
   id: string;
@@ -490,6 +491,9 @@ export class AdapterMts1 implements LogistiqueProvider {
   ): Promise<void> {
     const tour = await this.client.getTour(tourId);
 
+    // BL-P1-API-03 — résoudre plaque + chauffeur depuis le référentiel carrier.
+    await this.resolveCarrierForTournee(tour, tourneeId);
+
     for (const stop of tour.stops) {
       if (!stop.items?.length) continue;
 
@@ -570,6 +574,72 @@ export class AdapterMts1 implements LogistiqueProvider {
 
     // Téléchargement photos (non bloquant)
     await this.processPhotos(tourId, collecteId);
+  }
+
+  // BL-P1-API-03 — peuple tournees.plaque_immatriculation + chauffeur_nom à partir
+  // du référentiel carrier (la plaque n'est PAS sur le tour, as-built §6). Algo :
+  //   plaque    : dispatch.vehicleShareableCode        → vehicles[].numberPlate
+  //   chauffeur : dispatch.transporterUserShareableCode → transporters[].firstname+lastname
+  // Téléphone chauffeur NON exposé par l'API (as-built §6) → reste NULL.
+  // Idempotent : n'écrit que sur changement ; plaque_saisie_at posé à la 1re
+  // résolution seulement (pas de churn à chaque poll). Non bloquant (audit DREAL,
+  // jamais une pesée) : un échec carrier est tracé, ne casse pas le poll.
+  private async resolveCarrierForTournee(
+    tour: Mts1Tour,
+    tourneeId: string,
+  ): Promise<void> {
+    const dispatch = tour.dispatch;
+    const vehCode = dispatch?.vehicleShareableCode ?? null;
+    const transCode = dispatch?.transporterUserShareableCode ?? null;
+    if (!vehCode && !transCode) return;
+
+    let carriers: import('./mock.js').Mts1Carrier[];
+    try {
+      carriers = await this.client.getCarrier();
+    } catch {
+      await this.logEntrantError(
+        'CARRIER_FETCH_FAILED',
+        `tournee=${tourneeId}`,
+      );
+      return;
+    }
+
+    const plaque = vehCode
+      ? (carriers
+          .flatMap((c) => c.vehicles ?? [])
+          .find((v) => v.vehicleShareableCode === vehCode)?.numberPlate ?? null)
+      : null;
+    const transporter = transCode
+      ? carriers
+          .flatMap((c) => c.transporters ?? [])
+          .find((t) => t.transporterShareableCode === transCode)
+      : undefined;
+    const chauffeurNom = transporter
+      ? `${transporter.firstname} ${transporter.lastname}`.trim()
+      : null;
+
+    if (!plaque && !chauffeurNom) return;
+
+    // Relecture du courant : idempotence + plaque_saisie_at au 1er enregistrement.
+    const { data: cur } = await this.supabase
+      .from('tournees')
+      .select('plaque_immatriculation, chauffeur_nom')
+      .eq('id', tourneeId)
+      .maybeSingle();
+    const curPlaque = (cur?.plaque_immatriculation as string | null) ?? null;
+    const curChauffeur = (cur?.chauffeur_nom as string | null) ?? null;
+
+    const updates: Record<string, unknown> = {};
+    if (plaque && plaque !== curPlaque) {
+      updates['plaque_immatriculation'] = plaque;
+      if (!curPlaque) updates['plaque_saisie_at'] = new Date().toISOString();
+    }
+    if (chauffeurNom && chauffeurNom !== curChauffeur) {
+      updates['chauffeur_nom'] = chauffeurNom;
+    }
+    if (Object.keys(updates).length === 0) return;
+
+    await this.supabase.from('tournees').update(updates).eq('id', tourneeId);
   }
 
   private async processPhotos(
@@ -936,10 +1006,20 @@ export class AdapterMts1 implements LogistiqueProvider {
         ]
       : undefined;
 
+    // BL-P1-API-02 — lieu de dépôt AG (MTS_1_delivery_place, §08 §3bis.5 étape 2 /
+    // relevé as-built l.60-61) : `placeId` favori de l'association destinataire
+    // (favoritePlaces, §3bis.4 ; stocké sur associations.id_point_collecte_mts1).
+    // Le pickup (traiteur) reste en adresse inline sur la commande (buildOrderPayload).
+    // Sans ce champ, MTS-1 ignore où déposer les excédents AG.
+    const deliveryPlaceId = collecte.association_id_point_collecte_mts1;
+
     return {
       customerOrderId,
       orderNumber: this.orderNumber(collecte, rang),
       stuffs,
+      ...(deliveryPlaceId
+        ? { deliveryPlace: { placeId: deliveryPlaceId } }
+        : {}),
     };
   }
 

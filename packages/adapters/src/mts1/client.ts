@@ -12,7 +12,12 @@ import {
   LogistiquePermanentError,
   LogistiqueTransientError,
 } from '../index.js';
-import type { Mts1CustomerOrder, Mts1Photo, Mts1Tour } from './mock.js';
+import type {
+  Mts1Carrier,
+  Mts1CustomerOrder,
+  Mts1Photo,
+  Mts1Tour,
+} from './mock.js';
 import { _getMts1Handlers } from './mock.js';
 
 export interface CreateOrderPayload {
@@ -31,7 +36,11 @@ export interface CreateOrderPayload {
 export interface CreateTourPayload {
   customerOrderId: string;
   orderNumber: string;
-  deliveryPlace?: { address: { addressSingleLine: string } };
+  // Lieu de dépôt (MTS_1_delivery_place, §08 §3bis.5 étape 2) : `placeId` favori
+  // pré-enregistré (AG → associations.id_point_collecte_mts1) OU adresse inline.
+  deliveryPlace?:
+    | { placeId: string }
+    | { address: { addressSingleLine: string } };
   stuffs?: Array<{ name: string; task: string; quantity: number }>;
 }
 
@@ -55,6 +64,9 @@ export type ScanResult = Mts1CustomerOrder[];
 export class Mts1Client {
   private readonly baseUrl: string;
   private readonly apiKey: string;
+  // Cache instance du référentiel transporteurs (quasi statique, as-built §6) :
+  // un seul GET /v3/carrier par run de sync, partagé entre les N tours traités.
+  private carrierCache: Mts1Carrier[] | null = null;
 
   constructor(private readonly supabase: SupabaseClient) {
     this.baseUrl = process.env['MTS1_BASE_URL'] ?? '';
@@ -337,6 +349,41 @@ export class Mts1Client {
       'entrant',
     );
     return (await res.json()) as Mts1Photo[];
+  }
+
+  // BL-P1-API-03 — référentiel transporteurs. La plaque (`numberPlate`) et le
+  // chauffeur ne sont PAS sur le tour : ils se résolvent ici par code opaque
+  // (`vehicleShareableCode` / `transporterUserShareableCode` du dispatch).
+  async getCarrier(): Promise<Mts1Carrier[]> {
+    if (this.carrierCache) return this.carrierCache;
+
+    const handlers = _getMts1Handlers();
+    const t0 = Date.now();
+
+    if (handlers?.getCarrier) {
+      const result = await handlers.getCarrier();
+      await this.log({
+        methode: 'GET',
+        endpoint: '/v3/carrier',
+        statut_http: 200,
+        duree_ms: Date.now() - t0,
+        direction: 'entrant',
+      });
+      this.carrierCache = result;
+      return result;
+    }
+
+    const res = await this.fetch(
+      'GET',
+      '/v3/carrier',
+      undefined,
+      undefined,
+      t0,
+      'entrant',
+    );
+    const body = (await res.json()) as { carriers: Mts1Carrier[] };
+    this.carrierCache = body.carriers;
+    return body.carriers;
   }
 
   async downloadPhoto(url: string): Promise<Buffer | null> {

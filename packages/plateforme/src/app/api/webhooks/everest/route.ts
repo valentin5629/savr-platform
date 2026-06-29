@@ -31,6 +31,33 @@ function mapEverestStatut(apiStatus: string, fallback: string): string {
   return EVEREST_STATUS_ENUM.has(apiStatus) ? apiStatus : fallback;
 }
 
+// BL-P1-API-04 (d) — « course sans marchandise ». Libellés `mission_status`
+// tranchés CLAUDE.md §7 (gate Everest levée 2026-06-15, mail Mathieu Lomazzi) :
+// `Pas de commande` (rien à enlever) / `Client absent / Marchandise refusée`
+// (récupérée mais non livrée). Lus du RE-FETCH (jamais du payload non signé,
+// BL-P0-07). Une collecte AG sur l'un de ces statuts passe realisee_sans_collecte
+// (§05, AG only). Le wire exact (event_type porteur, photo du lieu) reste à
+// confirmer côté dev Everest → _Divergences/M2.5_R10a_20260629.md (type:ambigu).
+const COURSE_VIDE_MISSION_STATUSES = new Set([
+  'pas de commande',
+  'client absent / marchandise refusée',
+]);
+
+function isCourseVide(missionStatus: string | null | undefined): boolean {
+  if (!missionStatus) return false;
+  const norm = missionStatus.trim().toLowerCase().replace(/\s+/g, ' ');
+  return COURSE_VIDE_MISSION_STATUSES.has(norm);
+}
+
+// Statuts terminaux d'une collecte : jamais régressés par un webhook tardif.
+const STATUTS_TERMINAUX_COLLECTE = new Set([
+  'realisee',
+  'realisee_sans_collecte',
+  'cloturee',
+  'annulee',
+  'annulation_demandee',
+]);
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -299,11 +326,61 @@ async function handleEventType(
         .from('everest_missions')
         .update(updates)
         .eq('id', mission.id);
-      // M05 reste source de vérité pour le statut opérationnel — pas de mutation collectes.statut
+
+      // BL-P1-API-04 (d) : course sans marchandise (mission_status re-fetché) →
+      // realisee_sans_collecte (AG, §05). Le coût + la mobilisation restent dus
+      // (facture tarif normal V1), d'où la persistance cout/preuve ci-dessus.
+      if (isCourseVide(detail.status)) {
+        await transitionRealiseeSansCollecte(
+          supabase,
+          mission,
+          missionId,
+          detail,
+          now,
+        );
+      }
+      // Sinon, M05 reste source de vérité du statut opérationnel — pas de mutation collectes.statut
       break;
     }
 
     case 'mission_failed': {
+      // BL-P1-API-04 (d) : re-fetch pour lire mission_status — une « course sans
+      // marchandise » peut remonter en catégorie fail (hypothèse _PENDING §3).
+      // Re-fetch indispo → on retombe sur le traitement d'échec nominal.
+      let detail: Awaited<
+        ReturnType<typeof fetchEverestMissionDetails>
+      > | null = null;
+      try {
+        detail = await fetchEverestMissionDetails(
+          missionId,
+          supabase,
+          missionId,
+        );
+      } catch {
+        detail = null;
+      }
+
+      if (detail && isCourseVide(detail.status)) {
+        // Pas un échec : course sans marchandise → realisee_sans_collecte (AG).
+        await supabase
+          .from('everest_missions')
+          .update({
+            statut_everest: 'completed_incomplete',
+            derniere_sync_at: now,
+            payload_latest_update: payload,
+          })
+          .eq('id', mission.id);
+        await transitionRealiseeSansCollecte(
+          supabase,
+          mission,
+          missionId,
+          detail,
+          now,
+        );
+        break;
+      }
+
+      // Échec réel.
       await supabase
         .from('everest_missions')
         .update({
@@ -321,6 +398,9 @@ async function handleEventType(
         erreur: `mission_failed: mission_id=${String(params.get('mission_id'))}`,
         correlation_id: String(params.get('mission_id')),
       });
+      // BL-P1-API-04 (c) : échec AVANT acceptation = rejet prestataire (webhook
+      // async, §08 §3 l.276) → statut_tms=rejetee_par_prestataire + retour file.
+      await rejeterSiPreAcceptation(supabase, mission, missionId, 'échouée');
       break;
     }
 
@@ -360,6 +440,14 @@ async function handleEventType(
           erreur: `mission_cancelled_externally: mission_id=${String(params.get('mission_id'))}`,
           correlation_id: String(params.get('mission_id')),
         });
+        // BL-P1-API-04 (c) : annulation externe AVANT acceptation = refus
+        // transporteur (§08 §3 l.276) → rejetee_par_prestataire + retour file.
+        await rejeterSiPreAcceptation(
+          supabase,
+          mission,
+          missionId,
+          'annulée par le prestataire',
+        );
       }
       break;
     }
@@ -386,4 +474,101 @@ async function handleEventType(
       break;
     }
   }
+}
+
+// ─── Helpers transitions collecte (BL-P1-API-04 c+d) ────────────────────────────
+
+async function fetchCollecteEtat(
+  supabase: ReturnType<typeof createAdminSupabaseClient>,
+  collecteId: string,
+): Promise<{ type: string; statut: string; statut_tms: string } | null> {
+  const { data } = await supabase
+    .from('collectes')
+    .select('type, statut, statut_tms')
+    .eq('id', collecteId)
+    .maybeSingle();
+  return (
+    (data as { type: string; statut: string; statut_tms: string } | null) ??
+    null
+  );
+}
+
+// (d) Course sans marchandise → realisee_sans_collecte. AG uniquement (§05 : la ZD
+// a toujours des déchets). Motif chauffeur = libellé mission_status re-fetché ;
+// photo du lieu = preuve re-fetchée si fournie, sinon NULL (Everest n'expose pas
+// systématiquement de photo en V1 — colonne nullable). Alerte Ops in-app
+// type=collecte_aucun_repas (Gherkin §08 l.332). Pas d'attestation, facture tarif
+// normal V1 (§08 §1 l.103-107). Jamais de régression d'un statut terminal.
+async function transitionRealiseeSansCollecte(
+  supabase: ReturnType<typeof createAdminSupabaseClient>,
+  mission: { id: string; collecte_id: string },
+  missionId: string,
+  detail: Awaited<ReturnType<typeof fetchEverestMissionDetails>>,
+  now: string,
+): Promise<void> {
+  const etat = await fetchCollecteEtat(supabase, mission.collecte_id);
+  if (!etat) return;
+
+  if (etat.type !== 'anti_gaspi') {
+    // realisee_sans_collecte n'existe pas en ZD → on trace, on ne transitionne pas.
+    await supabase.from('integrations_logs').insert({
+      integration: 'everest',
+      direction: 'entrant',
+      methode: 'POST',
+      endpoint: '/api/webhooks/everest',
+      erreur: `course_vide_non_ag_ignoree: collecte=${mission.collecte_id} mission_status=${detail.status}`,
+      correlation_id: missionId,
+    });
+    return;
+  }
+
+  if (STATUTS_TERMINAUX_COLLECTE.has(etat.statut)) return;
+
+  await supabase
+    .from('collectes')
+    .update({
+      statut: 'realisee_sans_collecte',
+      realisee_at: now,
+      aucun_repas_motif: detail.status,
+      aucun_repas_photo_url: detail.preuve_url ?? null,
+    })
+    .eq('id', mission.collecte_id);
+
+  await supabase.rpc('f_upsert_alerte_admin', {
+    p_code: 'collecte_aucun_repas',
+    p_titre: 'Collecte AG sans repas (Everest)',
+    p_message: `Course Everest sans marchandise — motif « ${detail.status} ». Collecte ${mission.collecte_id} → realisee_sans_collecte (facture tarif normal V1, pas d'attestation).`,
+    p_entity_type: 'collectes',
+    p_entity_id: mission.collecte_id,
+  });
+}
+
+// (c) Rejet prestataire (webhook async Everest, §08 §3 l.276). Un échec / une
+// annulation externe AVANT acceptation (statut_tms encore en attente) = refus du
+// transporteur → statut_tms=rejetee_par_prestataire (le statut métier reste
+// `programmee` : le trigger fn_sync ne dérive rien sur ce statut) + retour file
+// (alerte Ops). Après acceptation (acceptee/en_cours), un échec est un incident,
+// pas un rejet → on n'y touche pas.
+async function rejeterSiPreAcceptation(
+  supabase: ReturnType<typeof createAdminSupabaseClient>,
+  mission: { id: string; collecte_id: string },
+  missionId: string,
+  motifCourt: string,
+): Promise<void> {
+  const etat = await fetchCollecteEtat(supabase, mission.collecte_id);
+  if (!etat) return;
+  if (etat.statut_tms !== 'attribuee_en_attente_acceptation') return;
+
+  await supabase
+    .from('collectes')
+    .update({ statut_tms: 'rejetee_par_prestataire' })
+    .eq('id', mission.collecte_id);
+
+  await supabase.rpc('f_upsert_alerte_admin', {
+    p_code: 'collecte_rejetee_prestataire',
+    p_titre: 'Course Everest rejetée par le prestataire',
+    p_message: `Mission Everest ${motifCourt} avant acceptation (${missionId}) — collecte ${mission.collecte_id} repassée en file d'attente (rejetee_par_prestataire). Réattribuer (§08 §3).`,
+    p_entity_type: 'collectes',
+    p_entity_id: mission.collecte_id,
+  });
 }

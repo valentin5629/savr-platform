@@ -64,6 +64,15 @@ packages/plateforme/src/app/api/v1/admin/everest/missions/manual-accept/route.ts
 supabase/migrations/20260615210000_plateforme_m2_5_everest.sql
 supabase/migrations/20260615220000_plateforme_m2_5_everest_fix.sql
 supabase/migrations/20260615230000_plateforme_m2_5_everest_rls_v2.sql
+# supabase/migrations/20260629110000_* (R10a/BL-P1-API-04) — élargit le CHECK
+# chk_everest_service_id_values de la table `everest_missions` (ajout service 77).
+# 'everest' = nom de table + colonne `everest_service_id`. Schéma DB uniquement,
+# aucune logique adapter ni appel HTTP. 'customerOrders' reste banni.
+supabase/migrations/20260629110000_plateforme_r10a_everest_service_77.sql
+# supabase/tests/r10a_everest_service_77.test.sql (R10a) — pgTAP guard du CHECK
+# ci-dessus. 'everest' = nom de table `everest_missions` dans les INSERT fixtures.
+# Aucune logique adapter. 'customerOrders' reste banni.
+supabase/tests/r10a_everest_service_77.test.sql
 # supabase/migrations/*_m2_3_algo* (M2.3) — 'mts1' = valeur de type_tms dans SELECT
 # de transporteur par type (recherche Marathon par type_tms='mts1' dans la DB). 'everest' =
 # dans les commentaires de code décrivant les services (71/74/77). Aucun appel HTTP MTS-1/Everest

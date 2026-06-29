@@ -26,6 +26,7 @@
   "services_everest": {
     "71": "ag_velo_programme",
     "74": "ag_velo_express",
+    "77": "ag_everest_camion_express",
     "91": "ag_marathon_volume_backup_camion"
   },
   "divergences": [
@@ -39,6 +40,14 @@
       "test": "M2.5 / webhook Everest — re-fetch API (BL-P0-07) (packages/plateforme/tests/api/webhooks/everest.m2-5.test.ts) — payload.cost ≠ API.cost prouve la valeur API persistée",
       "statut": "implemented",
       "libelle": "re-fetch Everest sur signal webhook (cost/preuve écrits depuis l'API, pas le payload)"
+    },
+    {
+      "id": "BL-P1-API-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:269",
+      "artefact": "packages/adapters/src/everest/adapter.ts, packages/plateforme/src/app/api/webhooks/everest/route.ts, supabase/migrations/20260629110000_plateforme_r10a_everest_service_77.sql",
+      "test": "service 77 (ag_everest_camion_express) [adapter.m2-5.test.ts] + course-vide→realisee_sans_collecte (AG) + rejet→rejetee_par_prestataire [everest.m2-5.test.ts] + ALTER CHECK 71/74/77/91 [r10a_everest_service_77.test.sql]",
+      "statut": "implemented",
+      "libelle": "Everest : (a) mapping branche ag_everest_camion_express→service 77 + (b) ALTER CHECK everest_service_id IN(71,74,77,91) ; (c) rejet async (mission_failed/annulation externe AVANT acceptation) → statut_tms=rejetee_par_prestataire + alerte Ops + retour file (§08 §3 l.276) ; (d) course sans marchandise (mission_status re-fetché ∈ {Pas de commande, Client absent/Marchandise refusée}) → realisee_sans_collecte AG (§05) + alerte collecte_aucun_repas. Wire ambigu tracé _Divergences/M2.5_R10a_20260629.md."
     }
   ],
   "cdc_source_hash": {

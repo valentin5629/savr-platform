@@ -56,6 +56,14 @@ export interface Mts1TourStop {
   items?: Mts1StopItem[];
 }
 
+// Bloc dispatch du tour (as-built §7) — porte les codes opaques résolus en
+// plaque/chauffeur via GET /v3/carrier (BL-P1-API-03).
+export interface Mts1TourDispatch {
+  carrierShareableCode?: string;
+  transporterUserShareableCode?: string | null;
+  vehicleShareableCode?: string | null;
+}
+
 export interface Mts1Tour {
   tourId: string;
   externalReference: string;
@@ -63,6 +71,28 @@ export interface Mts1Tour {
   startedAt?: string | null;
   completedAt?: string | null;
   stops: Mts1TourStop[];
+  dispatch?: Mts1TourDispatch;
+}
+
+// Référentiel transporteurs MTS-1 (GET /v3/carrier) — quasi statique (as-built §6).
+// La plaque/chauffeur ne sont PAS sur le tour : on les résout ici par code.
+export interface Mts1CarrierVehicle {
+  name?: string;
+  numberPlate: string;
+  vehicleShareableCode: string;
+}
+
+export interface Mts1CarrierTransporter {
+  firstname: string;
+  lastname: string;
+  transporterShareableCode: string;
+}
+
+export interface Mts1Carrier {
+  carrierShareableCode: string;
+  name?: string;
+  vehicles: Mts1CarrierVehicle[];
+  transporters: Mts1CarrierTransporter[];
 }
 
 export interface Mts1Photo {
@@ -114,6 +144,8 @@ export interface Mts1Handlers {
   pollOrders: () => Promise<Mts1PollResult>;
   getTour: (tourId: string) => Promise<Mts1Tour>;
   getPhotos?: (tourId: string) => Promise<Mts1Photo[]>;
+  // M1.5b — référentiel transporteurs (résolution plaque/chauffeur, BL-P1-API-03)
+  getCarrier?: () => Promise<Mts1Carrier[]>;
   // M1.5a — sortant
   postOrder: (payload: Record<string, unknown>) => Promise<Mts1PostResult>;
   createTour?: (payload: Record<string, unknown>) => Promise<Mts1CreatedTour>;

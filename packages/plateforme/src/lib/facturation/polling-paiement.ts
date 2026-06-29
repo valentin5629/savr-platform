@@ -36,7 +36,7 @@ export async function runPollingPaiement(
   for (const facture of factures as unknown as FactureEmise[]) {
     result.checked++;
     try {
-      const r = await getInvoice(facture.pennylane_id);
+      const r = await getInvoice(supabase, facture.pennylane_id);
       if (!r.ok) {
         result.errors.push(`facture ${facture.id}: ${r.message}`);
         continue;

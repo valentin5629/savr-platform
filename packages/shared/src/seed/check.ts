@@ -423,7 +423,7 @@ async function main(): Promise<void> {
     check(
       'pack Cirette bas ≤ 10%',
       (await scalar(
-        "select count(*) n from plateforme.packs_antgaspi where credits_restants::numeric / nb_collectes <= 0.10 and statut='actif'",
+        "select count(*) n from plateforme.packs_antgaspi where credits_restants::numeric / credits_initiaux <= 0.10 and statut='actif'",
       )) >= 1,
     );
     // ev_k_datenull = cas intentionnel « date à confirmer » (sans collecte).

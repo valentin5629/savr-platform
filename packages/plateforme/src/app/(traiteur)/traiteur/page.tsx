@@ -48,7 +48,7 @@ export default function TraiteurDashboardPage() {
   const [nbAttente, setNbAttente] = useState(0);
   const [pack, setPack] = useState<{
     pack_actif: boolean;
-    nb_collectes?: number;
+    credits_initiaux?: number;
     credits_restants?: number;
   } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -107,9 +107,9 @@ export default function TraiteurDashboardPage() {
 
   const seuilBas =
     pack?.pack_actif &&
-    pack.nb_collectes != null &&
+    pack.credits_initiaux != null &&
     pack.credits_restants != null &&
-    pack.credits_restants <= 0.1 * pack.nb_collectes;
+    pack.credits_restants <= 0.1 * pack.credits_initiaux;
   const packEpuise = pack?.pack_actif && pack.credits_restants === 0;
 
   const qsLink = filters
@@ -221,7 +221,7 @@ export default function TraiteurDashboardPage() {
                 <CardContent className="space-y-3">
                   <p className="text-sm">
                     Crédits restants : <strong>{pack.credits_restants}</strong>{' '}
-                    / {pack.nb_collectes}
+                    / {pack.credits_initiaux}
                   </p>
                   {packEpuise && <Badge variant="error">Pack épuisé</Badge>}
                   {seuilBas && !packEpuise && (

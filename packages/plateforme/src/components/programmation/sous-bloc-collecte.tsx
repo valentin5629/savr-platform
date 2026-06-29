@@ -14,8 +14,8 @@ export interface CollecteFormData {
 
 interface PackInfo {
   pack_actif: boolean;
-  nb_collectes?: number;
-  nb_utilisees?: number;
+  credits_initiaux?: number;
+  credits_consommes?: number;
   credits_restants?: number;
 }
 
@@ -64,7 +64,7 @@ export function SousBlocCollecte({
         <div>
           {pack.pack_actif ? (
             <PackAGIndicator
-              total={pack.nb_collectes ?? 0}
+              total={pack.credits_initiaux ?? 0}
               restant={pack.credits_restants ?? 0}
               label="Crédits pack AG restants"
             />

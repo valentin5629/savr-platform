@@ -7,7 +7,7 @@
 -- ============================================================================
 
 BEGIN;
-SELECT plan(18);
+SELECT plan(17);
 
 -- ── credits (nombre de collectes par pack) ──────────────────────────────────
 SELECT is(
@@ -67,12 +67,6 @@ SELECT is(
 SELECT is(
   (SELECT nb_mensualites FROM plateforme.tarifs_packs_ag WHERE type_pack='pack_60' AND valide_jusqu_au IS NULL),
   6, 'pack_60 : 6 mensualités');
-
--- ── legacy V1 (NOT NULL) maintenu cohérent ──────────────────────────────────
-SELECT is(
-  (SELECT nb_collectes = credits AND prix_ht = prix_unitaire_ht
-     FROM plateforme.tarifs_packs_ag WHERE type_pack='pack_30' AND valide_jusqu_au IS NULL),
-  true, 'pack_30 : colonnes legacy (nb_collectes/prix_ht) alignées sur credits/prix_unitaire_ht');
 
 SELECT * FROM finish();
 ROLLBACK;

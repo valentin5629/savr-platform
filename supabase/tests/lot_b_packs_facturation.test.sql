@@ -43,25 +43,25 @@ INSERT INTO plateforme.evenements (
   'Contact Test', '0600000001'
 );
 
-INSERT INTO plateforme.tarifs_packs_ag (id, nb_collectes, prix_ht, valide_du, type_pack, credits, prix_unitaire_ht, montant_total_ht)
-VALUES ('b0000000-0000-0000-0000-000000000004', 10, 130.00, '2026-01-01', 'pack_10', 10, 130.00, 1300.00);
+INSERT INTO plateforme.tarifs_packs_ag (id, valide_du, type_pack, credits, prix_unitaire_ht, montant_total_ht)
+VALUES ('b0000000-0000-0000-0000-000000000004', '2026-01-01', 'pack_10', 10, 130.00, 1300.00);
 
 -- ═══ M7 : recrédit avec un autre pack actif ═════════════════════════════════
 -- Pack P1 EPUISE (10/10 consommés)
 INSERT INTO plateforme.packs_antgaspi (
-  id, organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, nb_annulees,
+  id, organisation_id,
   type_pack, credits_initiaux, credits_consommes, montant_total_ht, mode_facturation, statut, date_achat
 ) VALUES (
   'b0000000-0000-0000-0000-0000000000a1', 'b0000000-0000-0000-0000-000000000001',
-  'b0000000-0000-0000-0000-000000000004', 10, 10, 0, 'pack_10', 10, 10, 1300.00, 'par_collecte', 'epuise', CURRENT_DATE
+  'pack_10', 10, 10, 1300.00, 'par_collecte', 'epuise', CURRENT_DATE
 );
 -- Pack P2 ACTIF (l'org a renouvelé) — un seul actif autorisé par l'index
 INSERT INTO plateforme.packs_antgaspi (
-  id, organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, nb_annulees,
+  id, organisation_id,
   type_pack, credits_initiaux, credits_consommes, montant_total_ht, mode_facturation, statut, date_achat
 ) VALUES (
   'b0000000-0000-0000-0000-0000000000a2', 'b0000000-0000-0000-0000-000000000001',
-  'b0000000-0000-0000-0000-000000000004', 10, 0, 0, 'pack_10', 10, 0, 1300.00, 'par_collecte', 'actif', CURRENT_DATE
+  'pack_10', 10, 0, 1300.00, 'par_collecte', 'actif', CURRENT_DATE
 );
 -- Collecte AG REALISEE rattachée à P1 (insert direct à realisee = pas de trigger débit)
 INSERT INTO plateforme.collectes (

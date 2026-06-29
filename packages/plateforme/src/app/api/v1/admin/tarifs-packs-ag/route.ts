@@ -95,10 +95,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       mensualisable: mensualisable ?? false,
       nb_mensualites,
       valide_du,
-      // Colonnes legacy V1 encore NOT NULL (jamais droppées, cf. bloc5) — tenues
-      // cohérentes avec les colonnes convergées, sinon violation NOT NULL → 422.
-      nb_collectes: credits,
-      prix_ht: prix_unitaire_ht,
     })
     .select('*')
     .single();

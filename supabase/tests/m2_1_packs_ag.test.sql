@@ -86,19 +86,18 @@ INSERT INTO plateforme.evenements (
   CURRENT_DATE + INTERVAL '1 day', 200, 'Contact Test', '0600000001'
 );
 
--- Tarif AG test (inclure nb_collectes + prix_ht qui sont NOT NULL depuis M0.3)
-INSERT INTO plateforme.tarifs_packs_ag (id, nb_collectes, prix_ht, valide_du, type_pack, credits, prix_unitaire_ht, montant_total_ht)
-VALUES ('00000000-0000-0000-0000-000000000004'::uuid, 10, 130.00, '2026-01-01', 'pack_10', 10, 130.00, 1300.00);
+-- Tarif AG test
+INSERT INTO plateforme.tarifs_packs_ag (id, valide_du, type_pack, credits, prix_unitaire_ht, montant_total_ht)
+VALUES ('00000000-0000-0000-0000-000000000004'::uuid, '2026-01-01', 'pack_10', 10, 130.00, 1300.00);
 
 -- Pack AG actif (10 crédits, 0 consommés)
 INSERT INTO plateforme.packs_antgaspi (
-  id, organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, nb_annulees,
+  id, organisation_id,
   type_pack, credits_initiaux, credits_consommes,
   montant_total_ht, mode_facturation, statut, date_achat
 ) VALUES (
   '00000000-0000-0000-0000-000000000005'::uuid,
   '00000000-0000-0000-0000-000000000001'::uuid,
-  '00000000-0000-0000-0000-000000000004'::uuid, 10, 0, 0,
   'pack_10', 10, 0,
   1300.00, 'par_collecte', 'actif', CURRENT_DATE
 );
@@ -249,13 +248,12 @@ INSERT INTO plateforme.organisations (id, nom, raison_sociale, type, siret, acti
 VALUES ('00000000-0000-0000-0000-000000000031'::uuid, 'Org E2 TZ', 'Org E2 TZ', 'traiteur', '99999999900099', true);
 
 INSERT INTO plateforme.packs_antgaspi (
-  id, organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, nb_annulees,
+  id, organisation_id,
   type_pack, credits_initiaux, credits_consommes,
   montant_total_ht, mode_facturation, statut, date_achat
 ) VALUES (
   '00000000-0000-0000-0000-000000000030'::uuid,
   '00000000-0000-0000-0000-000000000031'::uuid,
-  '00000000-0000-0000-0000-000000000004'::uuid, 10, 0, 0,
   'pack_10', 10, 0,
   1300.00, 'par_collecte', 'actif', CURRENT_DATE
 );
@@ -318,12 +316,11 @@ SELECT test_as_superuser();
 
 SELECT throws_ok(
   $$INSERT INTO plateforme.packs_antgaspi (
-      organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, nb_annulees,
+      organisation_id,
       type_pack, credits_initiaux, credits_consommes,
       montant_total_ht, mode_facturation, statut, date_achat
     ) VALUES (
       '00000000-0000-0000-0000-000000000001'::uuid,
-      '00000000-0000-0000-0000-000000000004'::uuid, 1, 0, 0,
       'unitaire', 5, -1,
       130.00, 'par_collecte', 'annule', CURRENT_DATE
     )$$,
@@ -376,12 +373,11 @@ SELECT test_set_jwt('traiteur_manager', '00000000-0000-0000-0000-000000000001'::
 
 SELECT throws_ok(
   $$INSERT INTO plateforme.packs_antgaspi (
-      organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, nb_annulees,
+      organisation_id,
       type_pack, credits_initiaux, credits_consommes,
       montant_total_ht, mode_facturation, statut, date_achat
     ) VALUES (
       '00000000-0000-0000-0000-000000000001'::uuid,
-      '00000000-0000-0000-0000-000000000004'::uuid, 1, 0, 0,
       'unitaire', 1, 0, 130.00, 'par_collecte', 'annule', CURRENT_DATE
     )$$,
   '42501',
@@ -394,26 +390,24 @@ SELECT throws_ok(
 SELECT test_as_superuser();
 
 INSERT INTO plateforme.packs_antgaspi (
-  organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, nb_annulees,
+  organisation_id,
   type_pack, credits_initiaux, credits_consommes,
   montant_total_ht, mode_facturation, statut, date_achat,
   idempotency_key
 ) VALUES (
   '00000000-0000-0000-0000-000000000001'::uuid,
-  '00000000-0000-0000-0000-000000000004'::uuid, 1, 0, 0,
   'unitaire', 1, 0, 130.00, 'par_collecte', 'annule', CURRENT_DATE,
   'test-idem-key-123'
 );
 
 SELECT throws_ok(
   $$INSERT INTO plateforme.packs_antgaspi (
-      organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, nb_annulees,
+      organisation_id,
       type_pack, credits_initiaux, credits_consommes,
       montant_total_ht, mode_facturation, statut, date_achat,
       idempotency_key
     ) VALUES (
       '00000000-0000-0000-0000-000000000001'::uuid,
-      '00000000-0000-0000-0000-000000000004'::uuid, 1, 0, 0,
       'unitaire', 1, 0, 130.00, 'par_collecte', 'annule', CURRENT_DATE,
       'test-idem-key-123'
     )$$,

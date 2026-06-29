@@ -93,9 +93,8 @@ describe('M2.2 / GET /api/v1/programmation/pack-ag', () => {
     mockMaybeSingle.mockResolvedValueOnce({
       data: {
         id: 'pack-uuid-1',
-        nb_collectes: 10,
-        nb_utilisees: 3,
-        nb_annulees: 0,
+        credits_initiaux: 10,
+        credits_consommes: 3,
         credits_restants: 7,
         date_expiration: null,
         statut: 'actif',
@@ -110,6 +109,8 @@ describe('M2.2 / GET /api/v1/programmation/pack-ag', () => {
     const json = (await res.json()) as Record<string, unknown>;
     expect(json.pack_actif).toBe(true);
     expect(json.pack_id).toBe('pack-uuid-1');
+    expect(json.credits_initiaux).toBe(10);
+    expect(json.credits_consommes).toBe(3);
     expect(json.credits_restants).toBe(7);
   });
 
@@ -147,9 +148,8 @@ describe('M2.2 / GET /api/v1/programmation/pack-ag', () => {
     mockMaybeSingle.mockResolvedValueOnce({
       data: {
         id: 'pack-vide',
-        nb_collectes: 5,
-        nb_utilisees: 5,
-        nb_annulees: 0,
+        credits_initiaux: 5,
+        credits_consommes: 5,
         credits_restants: 0,
         date_expiration: null,
         statut: 'actif',

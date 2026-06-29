@@ -147,16 +147,15 @@ INSERT INTO plateforme.evenements (
 -- Collecte AG future (> 12h → delai_court FALSE) + prestataire mandaté
 -- (statut_tms='acceptee' → mandat actif) → débit attendu. Déterministe (pas de
 -- dépendance à l'heure de run, contrairement à la branche temporelle).
-INSERT INTO plateforme.tarifs_packs_ag (id, nb_collectes, prix_ht, valide_du, type_pack, credits, prix_unitaire_ht, montant_total_ht)
-VALUES ('a9000000-0000-0000-0000-000000000004'::uuid, 10, 130.00, '2026-01-01', 'pack_10', 10, 130.00, 1300.00);
+INSERT INTO plateforme.tarifs_packs_ag (id, valide_du, type_pack, credits, prix_unitaire_ht, montant_total_ht)
+VALUES ('a9000000-0000-0000-0000-000000000004'::uuid, '2026-01-01', 'pack_10', 10, 130.00, 1300.00);
 
 INSERT INTO plateforme.packs_antgaspi (
-  id, organisation_id, tarif_pack_id, nb_collectes, nb_utilisees, nb_annulees,
+  id, organisation_id,
   type_pack, credits_initiaux, credits_consommes, montant_total_ht, mode_facturation, statut, date_achat
 ) VALUES (
   'a9000000-0000-0000-0000-000000000005'::uuid,
   'a9000000-0000-0000-0000-000000000001'::uuid,
-  'a9000000-0000-0000-0000-000000000004'::uuid, 10, 0, 0,
   'pack_10', 10, 0, 1300.00, 'par_collecte', 'actif', CURRENT_DATE
 );
 

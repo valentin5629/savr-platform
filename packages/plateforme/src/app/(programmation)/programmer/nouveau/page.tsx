@@ -47,8 +47,8 @@ interface TraiteurOption {
 
 interface PackInfo {
   pack_actif: boolean;
-  nb_collectes?: number;
-  nb_utilisees?: number;
+  credits_initiaux?: number;
+  credits_consommes?: number;
   credits_restants?: number;
 }
 

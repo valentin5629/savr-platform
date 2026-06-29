@@ -48,11 +48,6 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
   const grilleZdId = grille.get('Grille standard V1');
   if (!grilleZdId)
     throw new Error('Référentiel manquant : grille ZD par défaut');
-  const packTarif = await lookupMap(
-    client,
-    'select nb_collectes::text as k, id from plateforme.tarifs_packs_ag',
-    'k',
-  );
   const flux = await lookupMap(
     client,
     'select code, id from plateforme.flux_dechets',
@@ -465,43 +460,14 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
     client,
     'plateforme.packs_antgaspi',
     [
-      pack(
-        'pack_kaspia',
-        'org_tr_kaspia',
-        packTarif.get('20')!,
-        20,
-        4,
-        0,
-        'actif',
-        d(-150),
-      ),
-      pack(
-        'pack_fleurdemets',
-        'org_tr_fleurdemets',
-        packTarif.get('20')!,
-        20,
-        7,
-        0,
-        'actif',
-        d(-120),
-      ),
-      pack(
-        'pack_cirette_bas',
-        'org_tr_cirette',
-        packTarif.get('50')!,
-        50,
-        46,
-        0,
-        'actif',
-        d(-200),
-      ), // 4/50 = 8% (bas)
+      pack('pack_kaspia', 'org_tr_kaspia', 20, 4, 'actif', d(-150)),
+      pack('pack_fleurdemets', 'org_tr_fleurdemets', 20, 7, 'actif', d(-120)),
+      pack('pack_cirette_bas', 'org_tr_cirette', 50, 46, 'actif', d(-200)), // 4/50 = 8% (bas)
       pack(
         'pack_fleurdemets_epuise',
         'org_tr_fleurdemets',
-        packTarif.get('10')!,
         10,
         10,
-        0,
         'epuise',
         d(-365),
       ),
@@ -1620,18 +1586,14 @@ function transp(
 function pack(
   slug: string,
   orgSlug: string,
-  tarifId: string,
   nb: number,
   utilisees: number,
-  annulees: number,
   statut: string,
   dateAchat: string,
 ): Row {
   return {
     id: U(slug),
     organisation_id: U(orgSlug),
-    tarif_pack_id: tarifId,
-    // type_pack + credits_* ajoutés en M2.1 (migration 20260615200000) — NOT NULL.
     type_pack:
       nb === 10
         ? 'pack_10'
@@ -1640,9 +1602,6 @@ function pack(
           : nb === 60
             ? 'pack_60'
             : 'personnalise',
-    nb_collectes: nb,
-    nb_utilisees: utilisees,
-    nb_annulees: annulees,
     credits_initiaux: nb,
     credits_consommes: utilisees,
     statut,

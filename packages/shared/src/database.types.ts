@@ -2493,19 +2493,13 @@ export type Database = {
           date_achat: string
           date_expiration: string | null
           facture_achat_id: string | null
-          facture_pack_id: string | null
           id: string
           idempotency_key: string | null
           mode_facturation: string
           montant_total_ht: number | null
-          nb_annulees: number
-          nb_collectes: number
-          nb_utilisees: number
-          notes: string | null
           organisation_id: string
           prix_unitaire_ht: number | null
           statut: Database["plateforme"]["Enums"]["pack_statut"]
-          tarif_pack_id: string | null
           type_pack: string
           updated_at: string
         }
@@ -2519,19 +2513,13 @@ export type Database = {
           date_achat: string
           date_expiration?: string | null
           facture_achat_id?: string | null
-          facture_pack_id?: string | null
           id?: string
           idempotency_key?: string | null
           mode_facturation?: string
           montant_total_ht?: number | null
-          nb_annulees?: number
-          nb_collectes: number
-          nb_utilisees?: number
-          notes?: string | null
           organisation_id: string
           prix_unitaire_ht?: number | null
           statut?: Database["plateforme"]["Enums"]["pack_statut"]
-          tarif_pack_id?: string | null
           type_pack: string
           updated_at?: string
         }
@@ -2545,19 +2533,13 @@ export type Database = {
           date_achat?: string
           date_expiration?: string | null
           facture_achat_id?: string | null
-          facture_pack_id?: string | null
           id?: string
           idempotency_key?: string | null
           mode_facturation?: string
           montant_total_ht?: number | null
-          nb_annulees?: number
-          nb_collectes?: number
-          nb_utilisees?: number
-          notes?: string | null
           organisation_id?: string
           prix_unitaire_ht?: number | null
           statut?: Database["plateforme"]["Enums"]["pack_statut"]
-          tarif_pack_id?: string | null
           type_pack?: string
           updated_at?: string
         }
@@ -3387,54 +3369,39 @@ export type Database = {
       }
       tarifs_packs_ag: {
         Row: {
-          actif: boolean
-          commentaire: string | null
           created_at: string
           credits: number
           id: string
           mensualisable: boolean
           montant_total_ht: number | null
-          nb_collectes: number
           nb_mensualites: number | null
-          prix_ht: number
           prix_unitaire_ht: number
           type_pack: string
           valide_du: string
-          valide_jusqu: string | null
           valide_jusqu_au: string | null
         }
         Insert: {
-          actif?: boolean
-          commentaire?: string | null
           created_at?: string
           credits: number
           id?: string
           mensualisable?: boolean
           montant_total_ht?: number | null
-          nb_collectes: number
           nb_mensualites?: number | null
-          prix_ht: number
           prix_unitaire_ht: number
           type_pack: string
           valide_du: string
-          valide_jusqu?: string | null
           valide_jusqu_au?: string | null
         }
         Update: {
-          actif?: boolean
-          commentaire?: string | null
           created_at?: string
           credits?: number
           id?: string
           mensualisable?: boolean
           montant_total_ht?: number | null
-          nb_collectes?: number
           nb_mensualites?: number | null
-          prix_ht?: number
           prix_unitaire_ht?: number
           type_pack?: string
           valide_du?: string
-          valide_jusqu?: string | null
           valide_jusqu_au?: string | null
         }
         Relationships: []

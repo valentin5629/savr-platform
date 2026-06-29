@@ -190,6 +190,8 @@ Principe : chaque table sensible a une policy qui filtre les lignes visibles sel
 
 Policy héritée de `evenements` via `evenement_id`. Même logique de filtrage. **Précision 2026-05-07** : la jointure passe par `evenements.organisation_id` (programmateur) ET `evenements.traiteur_operationnel_organisation_id` (traiteur opérationnel) pour les rôles traiteur. Les autres rôles (agence, gestionnaire_lieux) n'utilisent que `organisation_id`. Le rôle `traiteur` voit toutes les collectes où il est opérationnel, peu importe le programmateur.
 
+> **Note d'implémentation M1.2 (2026-06-26)** : pour la policy UPDATE collectes, les 3 rôles `traiteur_manager`, `agence`, `gestionnaire_lieux` partagent une policy unique `col_update_client` (scope organisation, champs whitelistés). `traiteur_commercial` a une policy distincte `col_update_commercial` (scope `created_by` uniquement). Il n'y a pas de policy par rôle distincte pour les 3 premiers rôles. Patch M1.2_20260626.
+
 > **Restriction DELETE 2026-06-07 (test scenarios §06.04 F5, arbitrage Val)** : la policy DELETE `collectes` est limitée à `statut = 'brouillon'` pour les rôles traiteur (créateur ou manager) — une collecte poussée TMS ne peut être que **annulée** (statut `annulee` → E3 `DELETE /collectes/:id` systématique vers TMS si `statut_tms ≠ non_envoye`, tous acteurs : traiteur, Ops, Admin). pgTAP : `test_collectes_delete_brouillon_only` (allow brouillon créateur, deny programmee+ manager et commercial). Cf. §06.04 policy ÉCRITURE + §05 §Annulation.
 
 ### Table `factures`

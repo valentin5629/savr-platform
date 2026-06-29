@@ -92,8 +92,8 @@
       "bytes": 2699
     },
     "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": {
-      "sha256": "87452a3eb00aa12747ffba6e5ccec41c6e9ec3546def394db41f2a69cee604c9",
-      "bytes": 116971
+      "sha256": "21f0f41068e9dcc05a9fb265bf4700074ce2b61806ccfec3541775e0c9e4baa7",
+      "bytes": 117501
     },
     "specs/cdc/01 - Cahier des charges App/05 - Strategies optimisation.md": {
       "sha256": "d5b5913a7b2b1f0390ab243a2c15a038e76279b0e187461707a9b2ab308a77e2",
@@ -124,8 +124,8 @@
       "bytes": 8438
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": {
-      "sha256": "01f34ca023138ede59e9af64166872ca18fdd96756f62de45413d5956e241a35",
-      "bytes": 89663
+      "sha256": "63c9e233eb1503c67ee703615ae1e75318fb460343bb9543ef6846bdc0105b39",
+      "bytes": 90312
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": {
       "sha256": "cf69f909039e59a7257162491ae2fa9781ebb06357f4ddf875ccef4e4f404081",
@@ -148,8 +148,8 @@
       "bytes": 16912
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/_RAPPORT-EXPORT.md": {
-      "sha256": "7de45ab74a9dd5533b2c6fd1546a41af8370299661769fbba7ec76fcc597d8a7",
-      "bytes": 572
+      "sha256": "02c00ec0e981735090ecc8915567245a623cabdc837b9c9eaded53d8a195c1d1",
+      "bytes": 576
     },
     "specs/cdc/01 - Cahier des charges App/06 - Monitoring perf prod.md": {
       "sha256": "7cc0e21a5d3fb591a4fa351f2ff37e939fe4b7320f980ef346ab86c759f867a6",
@@ -268,8 +268,8 @@
       "bytes": 43267
     },
     "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": {
-      "sha256": "56088874a445f9a6e31953a3f08edd8b8ea6bf14b9f294e685514db5f494a8bf",
-      "bytes": 89448
+      "sha256": "08337c40ec142a761c950422e243e82a4f32123ab1af136891306a1988cf19bf",
+      "bytes": 89880
     },
     "specs/cdc/01 - Cahier des charges App/09 - Flux algo attribution AG (Admin).md": {
       "sha256": "af2e1bee02ba67766a3d953c268679b7f89b8617fcec268bc9b516c47506f8dd",
@@ -316,8 +316,8 @@
       "bytes": 13755
     },
     "specs/cdc/01 - Cahier des charges App/Adapter MTS-1 (MyTroopers) — relevé as-built Bubble.md": {
-      "sha256": "f2ca2bcaf0ebc78d6a4756cca762f5d905c3a160ea5fd840393c7b56e6110c21",
-      "bytes": 9439
+      "sha256": "a12d843282fa133752b4933b396c61e491add5199879d8342b38308bc90acd44",
+      "bytes": 10108
     },
     "specs/cdc/01 - Cahier des charges App/CGU Savr V1 - Draft.md": {
       "sha256": "2cc8294096f90ae0582a699895a55119d766dc8626eaac4bf7b944e9580c161a",
@@ -336,8 +336,8 @@
       "bytes": 5111
     },
     "specs/cdc/01 - Cahier des charges App/_RAPPORT-EXPORT.md": {
-      "sha256": "7de45ab74a9dd5533b2c6fd1546a41af8370299661769fbba7ec76fcc597d8a7",
-      "bytes": 572
+      "sha256": "90eef118bd9750605947e4c03b9aa4031c44860490b90cef68ad43cc923e0e7d",
+      "bytes": 674
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.01-formulaire-programmation-scenarios.md": {
       "sha256": "eeef70254cf5cc4e306ee40ab56be7c41e102aa19b5a6fd8459b75c0a5a1db29",
@@ -352,12 +352,12 @@
       "bytes": 27821
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.04-espace-traiteur-scenarios.md": {
-      "sha256": "58bb22e9047c1c6d0b3a53e13e8a376a0a02b2e46997726a406d2b76ce21a528",
-      "bytes": 35775
+      "sha256": "967ca407405d8d05dc8abe24d2f48066211e84494a73418e61611a4663be253e",
+      "bytes": 36745
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.05-espace-gestionnaire-lieux-scenarios.md": {
-      "sha256": "687750005e29333bb3eeeb080c0ee6131d13f16b926d8b0aa02d798dd56765c2",
-      "bytes": 33137
+      "sha256": "6aaab6b3f033115242a4cad62392ceb0cc4346c88dcc526a8e0bc7ef3edd80fa",
+      "bytes": 34089
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.06-back-office-admin-scenarios.md": {
       "sha256": "152c69d95bedb8251659f305a3151651737e72dcc86fb4efc148aad19dd44247",
@@ -388,8 +388,8 @@
       "bytes": 39815
     },
     "specs/cdc/01 - Cahier des charges App/tests/_RAPPORT-EXPORT.md": {
-      "sha256": "630f444a840a46f21178bb234698e8a44205141ec4fcc16ec1258bb83a12142a",
-      "bytes": 468
+      "sha256": "9b02c69d0671082bb0d05c750717dc156dbc4d1f985a07f18a90ced7be79a837",
+      "bytes": 346
     },
     "specs/cdc/02 - Cahier des charges TMS/00 - Index.md": {
       "sha256": "4d95e412d75f4648afb3e710d9a7bf039f812e55f390716c6ba36073d54e40b7",

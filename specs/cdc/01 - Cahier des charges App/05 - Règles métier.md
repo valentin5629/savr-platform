@@ -320,6 +320,8 @@ Le traiteur peut modifier librement les informations de toute collecte non encor
 
 **Cascade TMS** : si `collectes.statut_tms ≠ non_envoye` (collecte déjà poussée vers le TMS), déclenchement endpoint E2 `PATCH /collectes/:id` vers TMS (voir [[08 - APIs et intégrations]]).
 
+> **Précision M1.2 (2026-06-26)** : la modification d'un champ ÉVÉNEMENT TMS-pertinent (`contact_principal_*`, `contact_secours_*`, `nb_pax`) émet également E2 par collecte dispatchée rattachée à l'événement (push silencieux, pas de réacceptation). E2 est catch-all et inclut contacts + nb_pax (§08 l.156). `lieu_id` reste verrouillé — jamais de PATCH lieu (§08 l.158). Implémenté via `fn_modifier_evenement` (RPC, transactional outbox, row lock sur collecte avant INSERT `outbox_events`). Patch M1.2_20260626.
+
 **Réacceptation prestataire** : si modification de `date_collecte` ou `heure_collecte` sur collecte `statut_tms = acceptee`, le statut TMS repasse à `attribuee_en_attente_acceptation` (réutilisation enum existant + flag `flags_jsonb.re_confirmation_requise = true` côté TMS, cf. M04 W10) → notification au prestataire pour re-confirmation. **Conséquence côté statut métier (Sujet 2, 2026-05-26)** : le trigger `fn_sync_statut_collecte_from_tms` ramène alors `statut` de `validee` à `programmee` (la collecte n'est plus acceptée tant que le prestataire n'a pas re-confirmé) — côté traiteur, la fiche repasse de « Confirmée » à « En cours d'organisation », ce qui reflète fidèlement l'état réel. Au retour `acceptee`, le trigger repasse `programmee`→`validee`. Modifications mineures (notes, contact secours, etc.) : push silencieux sans réacceptation, `statut` inchangé.
 
 **Permissions** :

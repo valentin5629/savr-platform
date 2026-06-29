@@ -473,6 +473,8 @@ Tous les champs métier de la collecte et de l'événement parent :
 - Manager (`role = traiteur_manager` même orga) : oui
 - Autre commercial de la même orga : **non** (lecture seule — il voit la collecte mais ne peut pas la modifier ; révision 2026-05-29)
 
+> **Synthèse d'implémentation M1.2 (2026-06-26)** : les 4 rôles programmateurs (`traiteur_manager`, `traiteur_commercial`, `agence`, `gestionnaire_lieux`) peuvent éditer les champs événement ET collecte depuis la fiche collecte (une seule modale, `editer-collecte-form.tsx`). `client_organisateur` = lecture seule. Route événement unifiée : `PATCH /api/v1/programmation/evenements/:id` (RPC `fn_modifier_evenement`, `requireProgrammateur`, transactional outbox E2 par collecte dispatchée rattachée). Périmètre d'écriture : `traiteur_commercial` = ses créations (`created_by`) ; les 3 autres = leur organisation. Patch M1.2_20260626.
+
 **Audit** : `audit_log` global rempli (champs `user_id`, `collecte_id`, `champ_modifie`, `ancienne_valeur`, `nouvelle_valeur`, `timestamp`, `cascade_tms`, `priorite_urgence`). Pas d'onglet front traiteur (sobriété A2 2026-05-04). Audit accessible Admin Savr uniquement via back-office §06.06.
 
 **Notification client organisateur** : aucune (Ops Savr fait le filtre et relaie au cas par cas).

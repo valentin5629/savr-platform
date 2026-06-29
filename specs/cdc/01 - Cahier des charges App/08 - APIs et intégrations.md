@@ -278,6 +278,12 @@ Plateforme (validation attribution AG IDF par Admin Savr ou auto-accept)
 
 **Spec technique V1 (implémentée M2.5)** : services actifs Everest = **71** (vélo programmé), **74** (vélo express — ex-75 abandonné), **77** (camion express — branche attribution à confirmer, DIV-3 pending Val), **91** (camion fallback Marathon). Auth clé API + secret en Supabase Vault. Retry policy 3 paliers 5 min / 1h / 24h. Webhook = signal → re-fetch API (pas de HMAC, secret dans URL). Gate levée 2026-06-15.
 
+**Course sans marchandise (V1, implémentée M2.5 — décision Val 2026-06-29, option « re-fetch mission_status ») :** sur webhook terminal Everest (`mission_finished` / `mission_success` / `mission_failed`), l'adapter ne fait **jamais** confiance au payload — il **re-fetch la mission** (pattern §3 « webhook = signal → re-fetch ») et lit son `mission_status` :
+
+- `mission_status` ∈ {`Pas de commande`, `Client absent / Marchandise refusée`} (comparaison normalisée minuscule/espaces) **ET** collecte `type = anti_gaspi` **ET** statut non terminal → `statut = realisee_sans_collecte`, `realisee_at = now()`, `aucun_repas_motif = <libellé mission_status>` (le libellé EST le motif), `aucun_repas_photo_url =` preuve re-fetchée si fournie sinon `NULL` (colonne nullable §04 ; Everest n'expose pas systématiquement de photo de lieu en V1) + alerte Ops in-app `type = collecte_aucun_repas`. ZD → trace seule, jamais de transition.
+- `mission_failed` / annulation externe **avant acceptation** (`statut_tms = attribuee_en_attente_acceptation`) → `statut_tms = rejetee_par_prestataire` + alerte Ops.
+- ⚠ **Wire à figer au compte de test Everest** (non encore fourni, cf. [[_PENDING - Everest API V1 (à intégrer §08 §3)]] §3 Q1) : (1) l'`event_type` réel porteur du signal (catégorie `fail` vs `success`) ; (2) les libellés `mission_status` exacts (`POST /statuses`) ; (3) la disponibilité d'une photo de lieu (sinon `aucun_repas_photo_url` NULL entériné pour les courses vides Everest V1). Seul le **mapping de détection** (`COURSE_VIDE_MISSION_STATUSES` + les `case` du switch) serait alors à ajuster — la transition et ses effets restent valides.
+
 ### V2 — intégration Everest déplacée vers le Savr TMS *(décision 2026-04-21)*
 
 Au cutover V2, Everest est connecté au Savr TMS et plus à la Plateforme. Le flux métier devient :

@@ -19,13 +19,13 @@
 | Catégorie | Nb scénarios | Couverture estimée |
 |-----------|-------------|-------------------|
 | 1 — Happy path | 14 | E1/E2/S1/S5/S7/S11, MTS-1 flux nominal, Pennylane nominal, Resend nominal, Puppeteer |
-| 2 — Cas limites métier | 11 | realisee_sans_collecte, multi-camions, out-of-order, 256KB, PATCH champs interdits, Pennylane 4xx, retry épuisé |
-| 3 — Cas d'erreur | 10 | HMAC invalide, X-API-Version absent, collecte inconnue, validation 422/409, svix invalide |
+| 2 — Cas limites métier | 12 | realisee_sans_collecte (dont Everest course vide V1, M2.5 R10a), multi-camions, out-of-order, 256KB, PATCH champs interdits, Pennylane 4xx, retry épuisé |
+| 3 — Cas d'erreur | 11 | HMAC invalide, X-API-Version absent, collecte inconnue, validation 422/409, svix invalide, Everest mission_failed avant acceptation |
 | 4 — Isolation RLS | 8 | ops_savr lecture/écriture, manager_traiteur, SERVICE_ROLE, admin_savr |
 | 5 — Idempotence/états | 9 | dédup event_id, Idempotency-Key, orderNumber MTS-1, svix-id Resend, snapshot CO₂ figé |
 | 6 — Cross-app | 4 | chaîne E1→S1→S5 complète, chaîne Pennylane create→finalize→send_email→poll |
 | 7 — Migration | 4 | réconciliation customerOrderId, idempotence script MTS-1, rollback |
-| **TOTAL** | **60** | |
+| **TOTAL** | **62** | |
 
 ---
 
@@ -989,6 +989,43 @@ Scénario : everest_confirmation_positive_statut_tms_acceptee
     Et le trigger fn_sync_statut_collecte_from_tms dérive collectes.statut = validee
     Et integrations_logs contient une entrée (system=everest, action=create_mission, statut=succes)
     Et aucune bascule automatique n'a eu lieu avant ce signal positif
+```
+
+---
+
+```gherkin
+# Source : §08 §3 V1 — Everest course sans marchandise → realisee_sans_collecte (AG, M2.5 R10a)
+# Couche : api + db
+# Priorité : P1-critique
+
+Scénario : everest_course_vide_refetch_realisee_sans_collecte
+  Étant donné une collecte AG IDF (transporteur.type_tms=a_toutes, statut=en_cours, non terminal)
+    Et Everest envoie un webhook terminal (mission_failed)
+    Et le re-fetch de la mission retourne mission_status="Client absent / Marchandise refusée"
+  Quand l'adapter Everest traite le webhook (re-fetch mission, jamais le payload)
+  Alors collectes.statut = realisee_sans_collecte
+    Et collectes.realisee_at = now()
+    Et aucun_repas_motif = "Client absent / Marchandise refusée"
+    Et aucun_repas_photo_url = NULL (aucune photo de lieu fournie par Everest en V1)
+    Et une alerte Ops in-app est créée (type=collecte_aucun_repas)
+    Et aucune attestation 2041-GE n'est générée
+    Et une collecte ZD équivalente ne déclencherait qu'une trace (aucune transition)
+```
+
+---
+
+```gherkin
+# Source : §08 §3 V1 — Everest mission_failed avant acceptation → rejetee_par_prestataire
+# Couche : api + db
+# Priorité : P1-critique
+
+Scénario : everest_mission_failed_avant_acceptation_rejetee
+  Étant donné une collecte AG IDF (transporteur.type_tms=a_toutes, statut_tms=attribuee_en_attente_acceptation)
+    Et Everest envoie mission_failed / annulation externe avant acceptation
+  Quand l'adapter Everest traite le webhook (re-fetch mission_status)
+  Alors collectes.statut_tms = rejetee_par_prestataire
+    Et collectes.statut métier reste programmee
+    Et une alerte Ops est créée
 ```
 
 ---

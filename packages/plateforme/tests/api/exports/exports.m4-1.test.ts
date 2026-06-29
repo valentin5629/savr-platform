@@ -398,3 +398,40 @@ describe('M4.1 / evenements', () => {
     expect((rls.__calls.in ?? []).some((a) => a[0] === 'lieu_id')).toBe(true);
   });
 });
+
+describe('M4.1 / packs-ag', () => {
+  it('colonnes réelles packs_antgaspi + SANS financier (masquage gestionnaire §06.05)', async () => {
+    setupAuth('gestionnaire_lieux');
+    // Colonnes RÉELLES (convergées M2.1). Si le builder relisait reference/
+    // date_debut/prix_ht/devise (colonnes phantom), ces valeurs seraient absentes.
+    rls.push({
+      data: [
+        {
+          type_pack: 'pack_30',
+          credits_initiaux: 30,
+          credits_consommes: 5,
+          credits_restants: 25,
+          date_achat: '2026-01-10',
+          date_expiration: null,
+          statut: 'actif',
+        },
+      ],
+      error: null,
+    });
+    const res = await call('packs-ag');
+    expect(res.status).toBe(200);
+    const text = new TextDecoder().decode(
+      new Uint8Array(await res.arrayBuffer()),
+    );
+    const [header, line1] = text.split('\r\n');
+    expect(header).toContain('Type de pack');
+    expect(header).toContain('Crédits restants');
+    expect(header).toContain("Date d'achat");
+    // financier masqué (§06.05) — aucune colonne prix / montant / devise
+    expect(header).not.toContain('Montant');
+    expect(header).not.toContain('Prix');
+    expect(header).not.toContain('Devise');
+    expect(line1).toContain('pack_30');
+    expect(line1).toContain('25');
+  });
+});

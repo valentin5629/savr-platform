@@ -290,18 +290,24 @@ export async function buildPacksAgExport(
   _sp: URLSearchParams,
 ): Promise<ExportOutput> {
   void _sp;
+  // Colonnes réelles packs_antgaspi (convergées M2.1 / §04) : pas de reference /
+  // date_debut / date_fin / prix_ht / devise — mappées sur type_pack /
+  // date_achat / date_expiration. Export « mouvements » = crédits + dates, SANS
+  // financier : cet export est accessible à gestionnaire_lieux (EXPORT_MATRIX) où
+  // tout élément financier est masqué (§06.05). Le montant pré-existait en
+  // colonne phantom (toujours null) → aucune régression pour les autres rôles.
   const { data, error } = await ctx.supabase
     .from('packs_antgaspi')
     .select(
-      `reference, credits_initiaux, credits_consommes, credits_restants,
-       date_debut, date_fin, statut, prix_ht, devise`,
+      `type_pack, credits_initiaux, credits_consommes, credits_restants,
+       date_achat, date_expiration, statut`,
     )
     .order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
   const rows = (data ?? []) as Row[];
 
   const columns: CsvColumn<Row>[] = [
-    { header: 'Référence', value: (r) => r.reference as string },
+    { header: 'Type de pack', value: (r) => r.type_pack as string },
     {
       header: 'Crédits initiaux',
       value: (r) => (r.credits_initiaux as number) ?? '',
@@ -315,16 +321,14 @@ export async function buildPacksAgExport(
       value: (r) => (r.credits_restants as number) ?? '',
     },
     {
-      header: 'Date début',
-      value: (r) => formatDateFr(r.date_debut as string),
+      header: "Date d'achat",
+      value: (r) => formatDateFr(r.date_achat as string),
     },
-    { header: 'Date fin', value: (r) => formatDateFr(r.date_fin as string) },
-    { header: 'Statut', value: (r) => libelle(STATUT_PACK_LIBELLE, r.statut) },
     {
-      header: 'Prix HT (€)',
-      value: (r) => formatNombreFr(r.prix_ht as number),
+      header: "Date d'expiration",
+      value: (r) => formatDateFr(r.date_expiration as string),
     },
-    { header: 'Devise', value: (r) => (r.devise as string) ?? '' },
+    { header: 'Statut', value: (r) => libelle(STATUT_PACK_LIBELLE, r.statut) },
   ];
 
   return { filenamePrefix: 'packs-ag', csv: toCsv(rows, columns) };

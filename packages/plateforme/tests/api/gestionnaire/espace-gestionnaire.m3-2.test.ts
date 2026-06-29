@@ -552,15 +552,20 @@ describe('M3.2 / traiteurs', () => {
 
 // ── Pack AG ──────────────────────────────────────────────────────────────────
 describe('M3.2 / pack AG', () => {
-  it('M3.2/pack_ag_actif_retourne_restants — crédits restants exposés', async () => {
+  it('M3.2/pack_ag_actif_retourne_restants — colonnes réelles mappées (pas de colonne phantom)', async () => {
     setupAuth('gestionnaire_lieux');
+    // Le mock fournit les colonnes RÉELLES de packs_antgaspi (convergées M2.1).
+    // Si la route sélectionnait des colonnes inexistantes (reference/date_debut/
+    // prix_ht…), les champs mappés seraient undefined → ce test échouerait.
     rls.push({
       data: {
         id: 'p1',
-        reference: 'PACK-2026-001',
+        type_pack: 'pack_30',
         credits_initiaux: 20,
         credits_consommes: 8,
         credits_restants: 12,
+        date_achat: '2026-01-15',
+        date_expiration: null,
         statut: 'actif',
       },
       error: null,
@@ -570,9 +575,28 @@ describe('M3.2 / pack AG', () => {
     const { GET } = await import('@/app/api/v1/gestionnaire/pack-ag/route.js');
     const res = await GET(makeReq('GET', '/api/v1/gestionnaire/pack-ag'));
     const json = (await res.json()) as {
-      data: { pack_actif: { credits_restants: number } | null };
+      data: {
+        pack_actif: {
+          nb_collectes_total: number;
+          nb_collectes_restantes: number;
+          reference: string | null;
+          date_debut: string | null;
+          date_fin: string | null;
+          // financier (prix/montant/devise) NON exposé côté gestionnaire (§06.05)
+          prix_ht?: unknown;
+          montant_total_ht?: unknown;
+        } | null;
+      };
     };
-    expect(json.data.pack_actif?.credits_restants).toBe(12);
+    const pack = json.data.pack_actif;
+    expect(pack?.nb_collectes_restantes).toBe(12);
+    expect(pack?.nb_collectes_total).toBe(20);
+    expect(pack?.reference).toBe('pack_30');
+    expect(pack?.date_debut).toBe('2026-01-15');
+    expect(pack?.date_fin).toBeNull();
+    // masquage financier
+    expect(pack?.prix_ht).toBeUndefined();
+    expect(pack?.montant_total_ht).toBeUndefined();
   });
 
   it('M3.2/pack_ag_aucun_actif_null — retour pack_actif null', async () => {

@@ -1,3 +1,8 @@
+-- REVIEWED-DESTRUCTIVE: DROP COLUMN de 11 colonnes LEGACY (tarifs_packs_ag x5, packs_antgaspi x6) +
+-- DROP du trigger zombie fn_trg_pack_recredite_annulation_collecte. Convergence V1 ⊆ DDL cible :
+-- toutes ces colonnes sont REDONDANTES (valeur portée par la colonne convergée : nb_collectes→credits,
+-- prix_ht→prix_unitaire_ht, nb_utilisees→credits_consommes…) OU orphelines (0 lecteur après l'align M2.1b).
+-- Aucune donnée métier perdue. 3 reviewers GO (data-model + rls + conformité §04). Cf. corps ci-dessous.
 -- Convergence V1 ⊆ DDL cible — purge des colonnes LEGACY de la facturation packs AG
 -- ============================================================================
 -- Dette R8 (CLAUDE.md §4 « dettes purgées en fin de session »). Le schéma bloc5

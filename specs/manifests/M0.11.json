@@ -609,6 +609,14 @@
       "test": "M0.11/INSEE-VIES/clear-les-deux",
       "statut": "implemented",
       "libelle": "clearInseViesMocks() réinitialise les deux mocks simultanément"
+    },
+    {
+      "id": "BL-P1-API-09",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:551",
+      "artefact": "packages/plateforme/src/app/api/webhooks/resend/route.ts",
+      "test": "signature valide + email.delivered → 200 et statut emails_envoyes = delivered",
+      "statut": "implemented",
+      "libelle": "Webhook Resend POST /api/webhooks/resend : validation svix + dédup integrations_inbox (svix-id) + mapping statut emails_envoyes (non-régression terminale)"
     }
   ],
   "cdc_source_hash": {

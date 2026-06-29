@@ -1185,6 +1185,8 @@ export type Database = {
           statut: Database["plateforme"]["Enums"]["email_statut_enum"]
           sujet: string
           template_code: string
+          tentative_numero: number
+          variables_jsonb: Json
         }
         Insert: {
           created_at?: string
@@ -1198,6 +1200,8 @@ export type Database = {
           statut?: Database["plateforme"]["Enums"]["email_statut_enum"]
           sujet: string
           template_code: string
+          tentative_numero?: number
+          variables_jsonb?: Json
         }
         Update: {
           created_at?: string
@@ -1211,6 +1215,8 @@ export type Database = {
           statut?: Database["plateforme"]["Enums"]["email_statut_enum"]
           sujet?: string
           template_code?: string
+          tentative_numero?: number
+          variables_jsonb?: Json
         }
         Relationships: []
       }

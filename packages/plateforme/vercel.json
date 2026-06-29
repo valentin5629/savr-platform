@@ -25,6 +25,10 @@
       "schedule": "*/30 * * * *"
     },
     {
+      "path": "/api/cron/email-retry",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/polling-pennylane",
       "schedule": "0 3 * * *"
     },

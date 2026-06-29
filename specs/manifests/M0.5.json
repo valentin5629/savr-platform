@@ -185,6 +185,22 @@
       "test": "AUTH-E2E-7 — logout sans session retourne 200 (idempotent)",
       "statut": "implemented",
       "libelle": "AUTH-E2E-7 — logout sans session retourne 200 (idempotent)"
+    },
+    {
+      "id": "BL-P1-API-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:546",
+      "artefact": "packages/shared/src/email/index.ts",
+      "test": "variable requise absente → aucun envoi, aucune ligne emails_envoyes, trace MISSING_VARIABLE",
+      "statut": "implemented",
+      "libelle": "Resend : refus MISSING_VARIABLE (lecture email_templates.variables) + retry 3 paliers (cron email-retry, tentative_numero/variables_jsonb)"
+    },
+    {
+      "id": "M0.5-resend-template-not-found-skip",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:548",
+      "artefact": "packages/shared/src/email/index.ts",
+      "test": "slug inexistant → aucun envoi, throw + trace TEMPLATE_NOT_FOUND (CDC l.548)",
+      "statut": "implemented",
+      "libelle": "Resend : slug inexistant (TEMPLATE_NOT_FOUND) + template inactif (SKIP_INACTIF) — aucun appel Resend, trace integrations_logs"
     }
   ],
   "cdc_source_hash": {

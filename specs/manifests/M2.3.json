@@ -308,10 +308,10 @@
     {
       "id": "M2.3-emplacement",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:20",
-      "artefact": "packages/plateforme/src/lib/nav-config.ts (entrée menu Admin « Attributions AG » → /admin/attributions-ag) ; packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (action « Attribuer → » par ligne AG programmée → /admin/attributions-ag/[id])",
-      "test": "preuve-visuelle (GO-VISUAL) — entrée menu visible + lien Attribuer sur les lignes AG ; corrige le gap d'accès (§06.09 §1 « Emplacement : Collectes AG → Attributions à valider »)",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (chip « Collectes à attribuer » = file d'attribution intégrée + action « Attribuer → » par ligne AG → /admin/attributions-ag/[id] ; colonnes Type/Date/Heure/Traiteur/Pax/Lieu/Statut) ; packages/plateforme/src/app/(admin)/admin/settings/users/page.tsx (liens Paramètres algorithme + Configuration auto-accept) ; nav-config.ts (entrée Attributions AG retirée — décision Val 2026-06-30 : pas de page dédiée au menu, accès depuis Collectes)",
+      "test": "preuve-visuelle (GO-VISUAL) — chip « Collectes à attribuer » filtre les AG à attribuer, lien Attribuer → écran attribution (hors menu), liens algo/auto-accept sous Paramètres. Décision Val 2026-06-30 (intégration dans Collectes plutôt que page dédiée — divergence §06.09 §1 à tracer).",
       "statut": "à-vérifier",
-      "libelle": "Accès à la file d'attribution AG (menu + lien depuis Collectes) — emplacement §06.09 §1"
+      "libelle": "Accès à l'attribution AG intégré à Collectes (filtre + lien) + paramètres algo sous Paramètres — emplacement §06.09 §1 (intégration Val 2026-06-30)"
     },
     {
       "id": "BL-P1-ALGO-07",

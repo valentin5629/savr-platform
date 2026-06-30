@@ -171,21 +171,6 @@ export default function AttributionsAgPage() {
           rowClassName={(r) => (r.criticite ? 'bg-red-50' : '')}
         />
       )}
-
-      <div className="flex gap-3 text-sm">
-        <Link
-          href="/admin/parametres/algo-ag"
-          className="text-primary-600 hover:underline"
-        >
-          Paramètres algorithme →
-        </Link>
-        <Link
-          href="/admin/parametres/auto-accept"
-          className="text-primary-600 hover:underline"
-        >
-          Configuration auto-accept →
-        </Link>
-      </div>
     </div>
   );
 }

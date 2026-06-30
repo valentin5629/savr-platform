@@ -23,6 +23,7 @@ interface Collecte {
   heure_collecte: string;
   evenements: {
     nom_evenement: string | null;
+    pax: number | null;
     organisations: { raison_sociale: string };
     lieux: { nom: string; ville: string };
   };
@@ -32,12 +33,21 @@ const CHIPS = [
   { key: 'non_transmises', label: 'Non transmises TMS' },
   { key: 'attente_prestataire', label: 'Attente prestataire' },
   { key: 'dirty_tms', label: 'Modifiées sans renvoi' },
-  { key: 'ag_attente_attribution', label: 'AG attente attribution' },
+  { key: 'ag_attente_attribution', label: 'Collectes à attribuer' },
   { key: 'zd_48h', label: 'ZD 48h' },
   { key: 'ag_48h', label: 'AG 48h' },
 ];
 
 const columns: Column<Collecte>[] = [
+  {
+    key: 'type',
+    header: 'Type',
+    render: (row) => (
+      <Badge variant={row.type === 'zero_dechet' ? 'success' : 'warning'}>
+        {row.type === 'zero_dechet' ? 'ZD' : 'AG'}
+      </Badge>
+    ),
+  },
   {
     key: 'date_collecte',
     header: 'Date',
@@ -51,21 +61,22 @@ const columns: Column<Collecte>[] = [
     ),
   },
   {
-    key: 'type',
-    header: 'Type',
-    render: (row) => (
-      <Badge variant={row.type === 'zero_dechet' ? 'success' : 'warning'}>
-        {row.type === 'zero_dechet' ? 'ZD' : 'AG'}
-      </Badge>
-    ),
+    key: 'heure_collecte',
+    header: 'Heure',
+    render: (row) => row.heure_collecte?.slice(0, 5) ?? '—',
   },
   {
-    key: 'evenements',
+    key: 'traiteur',
     header: 'Traiteur',
     render: (row) => row.evenements.organisations.raison_sociale,
   },
   {
-    key: 'evenements',
+    key: 'pax',
+    header: 'Pax',
+    render: (row) => row.evenements.pax ?? '—',
+  },
+  {
+    key: 'lieu',
     header: 'Lieu',
     render: (row) =>
       `${row.evenements.lieux.nom} — ${row.evenements.lieux.ville}`,
@@ -76,25 +87,9 @@ const columns: Column<Collecte>[] = [
     render: (row) => <StatusCollecte statut={row.statut as StatutCollecte} />,
   },
   {
-    key: 'statut_tms',
-    header: 'Statut TMS',
-    render: (row) => (
-      <div className="flex items-center gap-1">
-        <Badge variant="neutral" className="text-xs">
-          {row.statut_tms}
-        </Badge>
-        {row.dirty_tms && (
-          <Badge variant="warning" className="text-xs">
-            dirty
-          </Badge>
-        )}
-      </div>
-    ),
-  },
-  {
     // §06.09 — accès direct à l'écran d'attribution AG depuis la liste collectes.
     // Affiché pour les collectes AG en attente d'attribution (même définition que
-    // le chip « AG attente attribution » : anti_gaspi + non_envoye + programmee/validee).
+    // le chip « Collectes à attribuer » : anti_gaspi + non_envoye + programmee/validee).
     key: 'attribution',
     header: '',
     render: (row) =>

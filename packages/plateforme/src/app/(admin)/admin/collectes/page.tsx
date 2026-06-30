@@ -27,7 +27,12 @@ interface Collecte {
     nom_evenement: string | null;
     pax: number | null;
     organisations: { raison_sociale: string };
-    lieux: { nom: string; ville: string };
+    lieux: {
+      nom: string;
+      adresse_acces: string | null;
+      code_postal: string | null;
+      ville: string;
+    };
   };
 }
 
@@ -106,8 +111,23 @@ const columns: Column<Collecte>[] = [
   {
     key: 'lieu',
     header: 'Lieu',
-    render: (row) =>
-      `${row.evenements.lieux.nom} — ${row.evenements.lieux.ville}`,
+    render: (row) => {
+      const l = row.evenements.lieux;
+      const adresse = [
+        l.adresse_acces,
+        [l.code_postal, l.ville].filter(Boolean).join(' '),
+      ]
+        .filter(Boolean)
+        .join(', ');
+      return (
+        <div className="flex flex-col leading-tight">
+          <span className="font-medium text-savr-neutral-900">{l.nom}</span>
+          {adresse && (
+            <span className="text-xs text-savr-neutral-500">{adresse}</span>
+          )}
+        </div>
+      );
+    },
   },
   {
     key: 'statut',

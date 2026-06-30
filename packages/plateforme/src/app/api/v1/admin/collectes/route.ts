@@ -28,7 +28,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
        evenements!inner(
          organisation_id, nom_evenement, pax,
          organisations!organisation_id(raison_sociale),
-         lieux!lieu_id(nom, ville)
+         lieux!lieu_id(nom, adresse_acces, code_postal, ville)
        )`,
       { count: 'exact' },
     )

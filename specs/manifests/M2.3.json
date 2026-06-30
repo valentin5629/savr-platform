@@ -306,7 +306,7 @@
       "libelle": "Auto-accept déclenchement/non-déclenchement (évaluation config_auto_accept_ag + branche SINON)"
     },
     {
-      "id": "M2.3-EMPLACEMENT",
+      "id": "M2.3-emplacement",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:20",
       "artefact": "packages/plateforme/src/lib/nav-config.ts (entrée menu Admin « Attributions AG » → /admin/attributions-ag) ; packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (action « Attribuer → » par ligne AG programmée → /admin/attributions-ag/[id])",
       "test": "preuve-visuelle (GO-VISUAL) — entrée menu visible + lien Attribuer sur les lignes AG ; corrige le gap d'accès (§06.09 §1 « Emplacement : Collectes AG → Attributions à valider »)",

@@ -62,3 +62,16 @@ CREATE POLICY frs_staff_select ON plateforme.file_revalidation_siret
 -- GRANT explicite : le blanket grant TO authenticated n'est pas rétroactif (table post-0.4a).
 -- service_role couvert par ALTER DEFAULT PRIVILEGES.
 GRANT SELECT, INSERT, UPDATE, DELETE ON plateforme.file_revalidation_siret TO authenticated;
+
+-- ============================================================
+-- Contrôle PRÉ-PROD (à exécuter par Val + frère AVANT application en prod) :
+-- l'index UNIQUE partiel échoue si des SIRET non vides en double préexistent.
+-- Doit renvoyer 0 ligne ; sinon, dédupliquer manuellement avant d'appliquer.
+--   SELECT siret, COUNT(*) FROM plateforme.entites_facturation
+--   WHERE siret <> '' GROUP BY siret HAVING COUNT(*) > 1;
+--
+-- Rollback (down-migration) — cette migration est purement additive (création table +
+-- index, aucune perte de donnée). Pour l'annuler : retirer la table
+-- plateforme.file_revalidation_siret et l'index uniq_entites_facturation_siret
+-- (DDL inverses des CREATE ci-dessus). Procédure générale : RUNBOOK_INCIDENT.md §3.
+-- ============================================================

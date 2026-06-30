@@ -73,19 +73,19 @@ const columns: Column<Collecte>[] = [
     key: 'date_collecte',
     header: 'Date',
     render: (row) => (
-      <span className="flex items-center gap-2">
-        {estUrgente(row) && (
-          <Badge variant="error" dot={false}>
-            URGENT
-          </Badge>
-        )}
+      <div className="flex flex-col leading-tight">
         <Link
           href={`/admin/collectes/${row.id}`}
           className="font-medium text-primary-700 hover:underline"
         >
           {new Date(row.date_collecte).toLocaleDateString('fr-FR')}
         </Link>
-      </span>
+        {estUrgente(row) && (
+          <span className="text-[10px] font-bold uppercase text-savr-error-strong">
+            Urgent
+          </span>
+        )}
+      </div>
     ),
   },
   {

@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EditerCollecteForm } from '@/components/collecte/editer-collecte-form';
 
@@ -124,7 +124,7 @@ export default function FicheCollectePage({
           )}
           <div>
             <span className="text-savr-neutral-500">Statut : </span>
-            <Badge variant="neutral">{c.statut}</Badge>
+            <CollecteStatutBadge statut={c.statut} />
           </div>
         </CardContent>
       </Card>

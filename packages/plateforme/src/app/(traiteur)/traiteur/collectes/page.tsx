@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import {
   CollecteTypeTabs,
   type CollecteType,
@@ -151,11 +151,7 @@ function CollectesContent() {
                     </td>
                     <td className="px-3 py-2">{evt?.pax ?? '—'}</td>
                     <td className="px-3 py-2">
-                      <Badge variant="neutral">
-                        {c.statut === 'realisee_sans_collecte'
-                          ? 'Aucun repas collecté'
-                          : c.statut}
-                      </Badge>
+                      <CollecteStatutBadge statut={c.statut} />
                     </td>
                     <td className="px-3 py-2">
                       {dispo ? (

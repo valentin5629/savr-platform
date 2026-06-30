@@ -1,7 +1,7 @@
 'use client';
 
 import { use, useEffect, useState } from 'react';
-import { Badge } from '@/components/ui/badge';
+import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { EditerCollecteForm } from '@/components/collecte/editer-collecte-form';
@@ -103,7 +103,7 @@ export default function FicheCollecteGestionnairePage({
           </div>
           <div>
             <span className="text-savr-neutral-500">Statut : </span>
-            <Badge variant="neutral">{c.statut}</Badge>
+            <CollecteStatutBadge statut={c.statut} />
           </div>
         </CardContent>
       </Card>

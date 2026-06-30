@@ -543,7 +543,7 @@ Au cutover V2, l'intégration MTS-1 est **entièrement coupée** : le Savr TMS p
 
 ### Gestion des échecs d'envoi *(spécifié 2026-06-07 — F3 tranchée Val, session test-scenarios §06.02)*
 
-- **Échec API Resend** (5xx, timeout) : **3 retries** espacés 1 min / 10 min / 1 h (`tentative_numero` 2-4). Après échec final : `emails_envoyes.statut = echec` + ligne `integrations_logs` (`system='resend'`, `statut='echec_final'`). Pas de DLQ dédiée V1 — requête dashboard Admin sur `statut='echec'`.
+- **Échec API Resend** (5xx, timeout) : **3 retries** espacés **5 min / 1h / 24h** (`tentative_numero` 2-4, retry policy unifiée §08 §1/§2/§3bis, alignée 2026-06-29 R10b). Après échec final : `emails_envoyes.statut = echec` + ligne `integrations_logs` (`system='resend'`, `statut='echec_final'`). Pas de DLQ dédiée V1 — requête dashboard Admin sur `statut='echec'`.
 - **Variable requise manquante au rendu** (déclarée dans `email_templates.variables`, absente du payload) : **refus d'envoi** (jamais d'email avec `undefined`/placeholder brut) + `integrations_logs` `erreur_code='MISSING_VARIABLE'`.
 - **Slug inexistant ou template `actif=false`** : aucun appel Resend, trace `integrations_logs` (`TEMPLATE_NOT_FOUND` / skip inactif).
 - `bounce` et `echec` sont **terminaux** : un event Resend tardif (ex. `opened` après `bounce`) ne régresse pas le statut.

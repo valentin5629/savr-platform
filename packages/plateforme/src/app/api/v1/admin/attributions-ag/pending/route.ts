@@ -17,7 +17,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const { data, error, count } = await supabase
     .from('collectes')
     .select(
+      // attributions_antgaspi!collecte_id(id) DOIT être embarqué pour que le
+      // filtre `.is('attributions_antgaspi', null)` soit interprété comme une
+      // anti-jointure (collectes sans attribution). Sans l'embed, PostgREST lit
+      // `attributions_antgaspi` comme une colonne → 42703 "column does not exist".
       `id, date_collecte, heure_collecte, volume_estime_repas, statut, statut_tms, created_at,
+       attributions_antgaspi!collecte_id(id),
        evenements!evenement_id(
          nom_evenement, pax,
          organisations!organisation_id(raison_sociale),

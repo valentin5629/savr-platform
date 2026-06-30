@@ -15,7 +15,7 @@ import {
 
 interface Collecte {
   id: string;
-  type: 'zd' | 'ag';
+  type: 'zero_dechet' | 'anti_gaspi';
   statut: string;
   statut_tms: string;
   dirty_tms: boolean;
@@ -54,8 +54,8 @@ const columns: Column<Collecte>[] = [
     key: 'type',
     header: 'Type',
     render: (row) => (
-      <Badge variant={row.type === 'zd' ? 'success' : 'warning'}>
-        {row.type.toUpperCase()}
+      <Badge variant={row.type === 'zero_dechet' ? 'success' : 'warning'}>
+        {row.type === 'zero_dechet' ? 'ZD' : 'AG'}
       </Badge>
     ),
   },
@@ -93,11 +93,14 @@ const columns: Column<Collecte>[] = [
   },
   {
     // §06.09 — accès direct à l'écran d'attribution AG depuis la liste collectes.
-    // Affiché pour les collectes AG en attente d'attribution (programmée).
+    // Affiché pour les collectes AG en attente d'attribution (même définition que
+    // le chip « AG attente attribution » : anti_gaspi + non_envoye + programmee/validee).
     key: 'attribution',
     header: '',
     render: (row) =>
-      row.type === 'ag' && row.statut === 'programmee' ? (
+      row.type === 'anti_gaspi' &&
+      row.statut_tms === 'non_envoye' &&
+      (row.statut === 'programmee' || row.statut === 'validee') ? (
         <Link
           href={`/admin/attributions-ag/${row.id}`}
           className="text-sm font-medium text-primary-600 hover:underline"

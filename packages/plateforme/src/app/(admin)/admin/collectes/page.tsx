@@ -211,8 +211,8 @@ export default function CollectesPage() {
             }}
           >
             <option value="">Tous types</option>
-            <option value="zd">ZD</option>
-            <option value="ag">AG</option>
+            <option value="zero_dechet">ZD</option>
+            <option value="anti_gaspi">AG</option>
           </select>
           <select
             className="border border-savr-neutral-200 rounded-lg px-3 py-2 text-sm"

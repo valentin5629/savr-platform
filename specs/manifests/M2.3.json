@@ -306,6 +306,14 @@
       "libelle": "Auto-accept déclenchement/non-déclenchement (évaluation config_auto_accept_ag + branche SINON)"
     },
     {
+      "id": "M2.3-EMPLACEMENT",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:20",
+      "artefact": "packages/plateforme/src/lib/nav-config.ts (entrée menu Admin « Attributions AG » → /admin/attributions-ag) ; packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (action « Attribuer → » par ligne AG programmée → /admin/attributions-ag/[id])",
+      "test": "preuve-visuelle (GO-VISUAL) — entrée menu visible + lien Attribuer sur les lignes AG ; corrige le gap d'accès (§06.09 §1 « Emplacement : Collectes AG → Attributions à valider »)",
+      "statut": "à-vérifier",
+      "libelle": "Accès à la file d'attribution AG (menu + lien depuis Collectes) — emplacement §06.09 §1"
+    },
+    {
       "id": "BL-P1-ALGO-07",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:115-122",
       "artefact": "packages/adapters/src/everest/adapter.ts (dispatch → statut_tms attribuee_en_attente_acceptation ; rejet permanent 4xx → rejetee_par_prestataire) ; packages/plateforme/src/app/api/webhooks/everest/route.ts (acceptee sur mission_dispatched)",

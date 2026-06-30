@@ -50,6 +50,11 @@ export const NAV_CONFIG: Record<Role, NavGroup[]> = {
           icon: BarChart3,
         },
         { label: 'Collectes', href: '/admin/collectes', icon: Truck },
+        {
+          label: 'Attributions AG',
+          href: '/admin/attributions-ag',
+          icon: ClipboardList,
+        },
         { label: 'Facturation', href: '/admin/factures', icon: Receipt },
         { label: 'Associations', href: '/admin/associations', icon: Heart },
         { label: 'Transporteurs', href: '/admin/transporteurs', icon: Truck },

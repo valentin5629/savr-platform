@@ -91,6 +91,21 @@ const columns: Column<Collecte>[] = [
       </div>
     ),
   },
+  {
+    // §06.09 — accès direct à l'écran d'attribution AG depuis la liste collectes.
+    // Affiché pour les collectes AG en attente d'attribution (programmée).
+    key: 'attribution',
+    header: '',
+    render: (row) =>
+      row.type === 'ag' && row.statut === 'programmee' ? (
+        <Link
+          href={`/admin/attributions-ag/${row.id}`}
+          className="text-sm font-medium text-primary-600 hover:underline"
+        >
+          Attribuer →
+        </Link>
+      ) : null,
+  },
 ];
 
 export default function CollectesPage() {

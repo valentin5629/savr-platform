@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { isDisposableEmail } from '@savr/shared/src/email-denylist.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
-import { verifySiret } from '@savr/shared/src/api/siret.js';
-import { verifyTva } from '@savr/shared/src/api/tva.js';
+import { verifySiret, isValidSiretFormat } from '@savr/shared/src/api/siret.js';
+import { enqueueSiretRevalidation } from '@savr/shared/src/siret/revalidation.js';
 import {
   checkSignupRateLimit,
   extractClientIp,
 } from '@/lib/signup-rate-limit.js';
+import { validatePasswordStrength } from '@/lib/password.js';
 import { CGU_VERSION_COURANTE } from '@/lib/cgu.js';
 
 const TYPE_PROFIL = ['traiteur', 'agence', 'gestionnaire_lieux'] as const;
@@ -22,6 +23,17 @@ function rolePourDomaineConu(orgType: string): string {
   if (orgType === 'traiteur') return 'traiteur_commercial';
   return orgType; // agence | gestionnaire_lieux
 }
+
+// Résultat de création d'organisation : succès (avec l'id de l'entité de facturation
+// créée, nécessaire pour enqueue revalidation) ou échec typé mappé en HTTP par le POST.
+type CreationOrgaResult =
+  | {
+      ok: true;
+      organisationId: string;
+      role: string;
+      entiteFacturationId: string;
+    }
+  | { ok: false; code: 'siret_doublon' | 'domaine_doublon' | 'erreur' };
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   // Rate-limit best-effort en amont de tout travail DB (§15 §2.6 : max 5/IP/heure).
@@ -51,6 +63,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     telephone,
     type_profil,
     raison_sociale,
+    siret,
     acceptation_cgu,
   } = body as {
     email?: string;
@@ -60,6 +73,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     telephone?: string;
     type_profil?: string;
     raison_sociale?: string;
+    siret?: string;
     acceptation_cgu?: boolean;
   };
 
@@ -91,6 +105,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // Politique de mot de passe (CDC §09 l.84-85) : 10c min + maj + chiffre + spécial.
+  const pwd = validatePasswordStrength(mot_de_passe);
+  if (!pwd.ok) {
+    return NextResponse.json({ error: pwd.error }, { status: 422 });
+  }
+
   const domain = email.split('@')[1]?.toLowerCase() ?? '';
   if (!domain) {
     return NextResponse.json({ error: 'Email invalide' }, { status: 422 });
@@ -114,12 +134,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .maybeSingle();
   const isPublicDomain = !!publicRow;
 
-  let organisationId: string;
-  let userRole: string;
-  let orgCreee = false; // true si l'organisation a été créée dans cette requête
+  // ── Résolution du chemin d'onboarding ──────────────────────────────────────
+  // Chemin A (rattachement) : domaine pro reconnu → l'utilisateur rejoint une orga
+  //   existante (qui porte déjà son entité de facturation + SIRET) → aucun SIRET à
+  //   collecter ici.
+  // Chemins B/C (création) : domaine pro inconnu OU domaine public → création d'une
+  //   nouvelle orga + entité → SIRET requis + vérification synchrone (ONB-01).
+  let attachOrganisationId: string | null = null;
+  let attachRole: string | null = null;
 
   if (!isPublicDomain) {
-    // Chercher une org avec ce domaine email reconnu
     const { data: domainRow } = await supabase
       .from('organisations_domaines_email')
       .select('organisation_id, organisations(type)')
@@ -127,40 +151,112 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .maybeSingle();
 
     if (domainRow?.organisation_id) {
-      // Rattachement automatique
-      organisationId = domainRow.organisation_id;
+      attachOrganisationId = domainRow.organisation_id;
       const rawOrg = domainRow.organisations as
         | { type: string }
         | { type: string }[]
         | null;
       const orgType =
         (Array.isArray(rawOrg) ? rawOrg[0] : rawOrg)?.type ?? type_profil;
-      userRole = rolePourDomaineConu(orgType);
-    } else {
-      // Nouveau domaine pro → créer orga
-      const { organisationId: id, role } = await creerNouvelleOrga(
-        supabase,
-        raison_sociale,
-        type_profil as TypeProfil,
-        domain,
-        telephone,
-      );
-      organisationId = id;
-      userRole = role;
-      orgCreee = true;
+      attachRole = rolePourDomaineConu(orgType);
     }
+  }
+
+  const isCreationPath = attachOrganisationId === null;
+
+  let organisationId: string;
+  let userRole: string;
+  let orgCreee = false; // true si l'organisation a été créée dans cette requête
+
+  if (!isCreationPath) {
+    // Chemin A — rattachement automatique à une orga existante.
+    organisationId = attachOrganisationId!;
+    userRole = attachRole!;
   } else {
-    // Domaine public → orga isolée sans rattachement
-    const { organisationId: id, role } = await creerNouvelleOrga(
+    // Chemins B/C — création : SIRET requis + vérifié de façon synchrone.
+    if (!siret || siret.trim() === '') {
+      return NextResponse.json({ error: 'SIRET obligatoire' }, { status: 422 });
+    }
+    const siretNettoye = siret.trim();
+    if (!isValidSiretFormat(siretNettoye)) {
+      return NextResponse.json(
+        { error: 'SIRET invalide (14 chiffres attendus)' },
+        { status: 422 },
+      );
+    }
+
+    // Détection de doublon SIRET (§15 §2.6 l.69) — pré-check avant l'appel INSEE.
+    // L'index UNIQUE partiel uniq_entites_facturation_siret est le filet anti-race.
+    const { data: doublon } = await supabase
+      .from('entites_facturation')
+      .select('id')
+      .eq('siret', siretNettoye)
+      .maybeSingle();
+    if (doublon) {
+      return NextResponse.json(
+        { error: 'Ce SIRET est déjà rattaché à une organisation.' },
+        { status: 409 },
+      );
+    }
+
+    // Vérification SIRET synchrone (ONB-01) :
+    //   'echec' (INSEE répond : SIRET inexistant/inactif) → 422 bloquant de saisie ;
+    //   'down'  (INSEE injoignable) → en_attente + revalidation async (jamais bloquant) ;
+    //   'verifie' → verifie.
+    const siretResult = await verifySiret(siretNettoye);
+    if (siretResult === 'echec') {
+      return NextResponse.json(
+        { error: 'SIRET inexistant ou entreprise inactive (INSEE).' },
+        { status: 422 },
+      );
+    }
+    const siretVerification =
+      siretResult === 'verifie' ? 'verifie' : 'en_attente';
+
+    // domain à enregistrer : seul le chemin B (domaine pro inconnu) le rattache ;
+    // le chemin C (domaine public) crée une orga isolée sans rattachement.
+    const domainPourRattachement = isPublicDomain ? null : domain;
+
+    const creation = await creerNouvelleOrga(
       supabase,
       raison_sociale,
       type_profil as TypeProfil,
-      null,
+      domainPourRattachement,
       telephone,
+      siretNettoye,
+      siretVerification,
     );
-    organisationId = id;
-    userRole = role;
+
+    if (!creation.ok) {
+      if (creation.code === 'siret_doublon') {
+        return NextResponse.json(
+          { error: 'Ce SIRET est déjà rattaché à une organisation.' },
+          { status: 409 },
+        );
+      }
+      if (creation.code === 'domaine_doublon') {
+        return NextResponse.json(
+          { error: 'Ce domaine email est déjà rattaché à une organisation.' },
+          { status: 409 },
+        );
+      }
+      return NextResponse.json(
+        { error: 'Erreur création organisation' },
+        { status: 422 },
+      );
+    }
+
+    organisationId = creation.organisationId;
+    userRole = creation.role;
     orgCreee = true;
+
+    // INSEE injoignable → planifier la revalidation (3 paliers 15min/1h/24h, ONB-02).
+    if (siretResult === 'down') {
+      await enqueueSiretRevalidation(
+        supabase,
+        creation.entiteFacturationId,
+      ).catch(() => null);
+    }
   }
 
   // Créer le compte Supabase Auth
@@ -223,9 +319,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }).catch(() => null);
   }
 
-  // Lancer la vérification INSEE de manière asynchrone (jamais bloquante)
-  void lancerVerificationInsee(supabase, organisationId).catch(() => null);
-
   return NextResponse.json(
     { success: true, organisation_id: organisationId },
     { status: 201 },
@@ -238,7 +331,9 @@ async function creerNouvelleOrga(
   typeProfil: TypeProfil,
   domain: string | null,
   telephone: string,
-): Promise<{ organisationId: string; role: string }> {
+  siret: string,
+  siretVerification: 'verifie' | 'en_attente',
+): Promise<CreationOrgaResult> {
   const { data: org, error } = await supabase
     .from('organisations')
     .insert({
@@ -252,36 +347,71 @@ async function creerNouvelleOrga(
     .select('id')
     .single();
 
-  if (error || !org) throw new Error('Erreur création organisation');
+  if (error || !org) return { ok: false, code: 'erreur' };
 
-  // Créer l'entité de facturation par défaut (siret_verification='en_attente')
-  await supabase.from('entites_facturation').insert({
-    organisation_id: org.id,
-    raison_sociale: raisonSociale,
-    siret: '',
-    adresse_facturation: '',
-    code_postal: '',
-    ville: '',
-    entite_par_defaut: true,
-    siret_verification: 'en_attente',
-    tva_verification: 'en_attente',
-  });
+  // Créer l'entité de facturation par défaut avec le SIRET réel + le statut de
+  // vérification synchrone. Une violation de uniq_entites_facturation_siret (race
+  // sur un SIRET concurrent) → doublon (409).
+  const { data: entite, error: entiteErr } = await supabase
+    .from('entites_facturation')
+    .insert({
+      organisation_id: org.id,
+      raison_sociale: raisonSociale,
+      siret,
+      adresse_facturation: '',
+      code_postal: '',
+      ville: '',
+      entite_par_defaut: true,
+      siret_verification: siretVerification,
+      siret_verifie_le:
+        siretVerification === 'verifie' ? new Date().toISOString() : null,
+      // Aucun n° TVA collecté au signup → non_applicable (jamais bloquant, §15 §2.6
+      // l.73). Le n° TVA est renseigné/vérifié ultérieurement (Mon organisation / Admin).
+      tva_verification: 'non_applicable',
+    })
+    .select('id')
+    .single();
 
-  // Enregistrer le domaine email si non-public et non-null
+  if (entiteErr || !entite) {
+    await rollbackOrganisation(supabase, org.id);
+    if (isUniqueViolation(entiteErr)) {
+      return { ok: false, code: 'siret_doublon' };
+    }
+    return { ok: false, code: 'erreur' };
+  }
+
+  // Enregistrer le domaine email si non-public et non-null. Une collision (race :
+  // deux inscriptions concurrentes sur le même domaine inconnu) → doublon (409),
+  // remplace l'ancien catch{} silencieux (ONB-03).
   if (domain) {
-    try {
-      await supabase
-        .from('organisations_domaines_email')
-        .insert({ organisation_id: org.id, domaine: domain });
-    } catch {
-      // ignore si domaine déjà pris (race condition)
+    const { error: domErr } = await supabase
+      .from('organisations_domaines_email')
+      .insert({ organisation_id: org.id, domaine: domain });
+    if (domErr) {
+      await rollbackOrganisation(supabase, org.id);
+      if (isUniqueViolation(domErr)) {
+        return { ok: false, code: 'domaine_doublon' };
+      }
+      return { ok: false, code: 'erreur' };
     }
   }
 
   return {
+    ok: true,
     organisationId: org.id,
     role: rolePourDomainePropriete(typeProfil),
+    entiteFacturationId: entite.id,
   };
+}
+
+// PostgreSQL 23505 = unique_violation (index UNIQUE partiel SIRET / domaine).
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    'code' in err &&
+    (err as { code?: string }).code === '23505'
+  );
 }
 
 async function rollbackOrganisation(
@@ -303,38 +433,4 @@ async function rollbackOrganisation(
   } catch {
     // ignore : rollback best-effort
   }
-}
-
-async function lancerVerificationInsee(
-  supabase: ReturnType<typeof createAdminSupabaseClient>,
-  organisationId: string,
-): Promise<void> {
-  // Récupérer le SIRET de l'entité de facturation
-  const { data } = await supabase
-    .from('entites_facturation')
-    .select('id, siret, tva_intracom')
-    .eq('organisation_id', organisationId)
-    .eq('entite_par_defaut', true)
-    .maybeSingle();
-
-  if (!data?.siret) return;
-
-  const [siretResult, tvaResult] = await Promise.all([
-    verifySiret(data.siret),
-    verifyTva(data.tva_intracom ?? null),
-  ]);
-
-  await supabase
-    .from('entites_facturation')
-    .update({
-      siret_verification: siretResult === 'down' ? 'en_attente' : siretResult,
-      siret_verifie_le:
-        siretResult !== 'down' ? new Date().toISOString() : null,
-      tva_verification: tvaResult === 'down' ? 'en_attente' : tvaResult,
-      tva_verifiee_le:
-        tvaResult !== 'down' && tvaResult !== 'non_applicable'
-          ? new Date().toISOString()
-          : null,
-    })
-    .eq('id', data.id);
 }

@@ -1,5 +1,12 @@
 export type SiretVerificationResult = 'verifie' | 'echec' | 'down';
 
+// Format SIRET : 14 chiffres exactement (5 SIREN + 5 + 4 NIC). Garde de saisie en amont
+// de l'appel INSEE — un format invalide est une erreur utilisateur (422), pas un 'echec' INSEE.
+// Aligné §06.11 RPC f_completer_siret_shadow (« format 14 chiffres »).
+export function isValidSiretFormat(siret: string): boolean {
+  return /^\d{14}$/.test(siret.trim());
+}
+
 // En test, le mock prend le relais via mockInseeVerify()
 let mockFn: ((siret: string) => SiretVerificationResult) | null = null;
 

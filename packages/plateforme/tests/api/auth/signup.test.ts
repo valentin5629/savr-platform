@@ -11,6 +11,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { _resetSignupRateLimit } from '@/lib/signup-rate-limit.js';
 import { CGU_VERSION_COURANTE } from '@/lib/cgu.js';
+import { verifySiret } from '@savr/shared/src/api/siret.js';
+import { enqueueSiretRevalidation } from '@savr/shared/src/siret/revalidation.js';
 
 type Resp = { data?: unknown; error?: unknown };
 
@@ -26,15 +28,21 @@ function shift(q: Record<string, Resp[]>, table: string): Resp | undefined {
   return q[table]?.shift();
 }
 
+const INSERT_SINGLE_DEFAULTS: Record<string, Resp> = {
+  organisations: { data: { id: 'org-1' }, error: null },
+  entites_facturation: { data: { id: 'entite-1' }, error: null },
+};
+
 function makeInsertResult(table: string): Record<string, unknown> {
   // Objet renvoyé par insert() : chaînable (.select().single()) ET awaitable (then).
+  // insertResult[table] (si défini) override le défaut — permet de simuler une
+  // violation UNIQUE (23505) sur l'insert entites_facturation / domaine.
   const r: Record<string, unknown> = {
     select: () => r,
     single: () =>
       Promise.resolve(
-        table === 'organisations'
-          ? { data: { id: 'org-1' }, error: null }
-          : { data: null, error: null },
+        insertResult[table] ??
+          INSERT_SINGLE_DEFAULTS[table] ?? { data: null, error: null },
       ),
     then: (resolve: (v: Resp) => void) =>
       resolve(insertResult[table] ?? { data: null, error: null }),
@@ -90,9 +98,10 @@ vi.mock('@savr/shared/src/email/index.js', () => ({
 }));
 vi.mock('@savr/shared/src/api/siret.js', () => ({
   verifySiret: vi.fn().mockResolvedValue('verifie'),
+  isValidSiretFormat: (s: string) => /^\d{14}$/.test(s.trim()),
 }));
-vi.mock('@savr/shared/src/api/tva.js', () => ({
-  verifyTva: vi.fn().mockResolvedValue('valide'),
+vi.mock('@savr/shared/src/siret/revalidation.js', () => ({
+  enqueueSiretRevalidation: vi.fn().mockResolvedValue(undefined),
 }));
 
 function makeReq(body: unknown, ip?: string): NextRequest {
@@ -115,6 +124,7 @@ const VALID_BODY = {
   telephone: '0102030405',
   type_profil: 'traiteur',
   raison_sociale: 'Traiteur Test SAS',
+  siret: '12345678901234',
   acceptation_cgu: true,
 };
 
@@ -245,5 +255,116 @@ describe('M0.4 — persistance acceptation CGU (BL-P0-04, preuve opposable)', ()
 
     // Aucune création de compte : pas d'INSERT users sur le chemin refusé.
     expect(insertCalls.some((c) => c.table === 'users')).toBe(false);
+  });
+});
+
+describe('M0.4 — SIRET au signup + vérif synchrone (BL-P1-ONB-01)', () => {
+  it('SIRET valide → 201, entité créée avec le SIRET réel + siret_verification=verifie', async () => {
+    const { POST } = await import('@/app/api/auth/signup/route.js');
+    const res = await POST(makeReq(VALID_BODY));
+
+    expect(res.status).toBe(201);
+    const entiteInsert = insertCalls.find(
+      (c) => c.table === 'entites_facturation',
+    );
+    expect(entiteInsert).toBeDefined();
+    // Plus de siret:'' (chemin mort) — la vraie valeur est persistée.
+    expect(entiteInsert!.payload.siret).toBe('12345678901234');
+    expect(entiteInsert!.payload.siret_verification).toBe('verifie');
+    expect(vi.mocked(verifySiret)).toHaveBeenCalledWith('12345678901234');
+  });
+
+  it('SIRET au mauvais format → 422 AVANT tout appel INSEE et toute création', async () => {
+    const { POST } = await import('@/app/api/auth/signup/route.js');
+    const res = await POST(makeReq({ ...VALID_BODY, siret: '123' }));
+
+    expect(res.status).toBe(422);
+    expect(vi.mocked(verifySiret)).not.toHaveBeenCalled();
+    expect(insertCalls.some((c) => c.table === 'organisations')).toBe(false);
+  });
+
+  it('SIRET absent sur un chemin de création → 422', async () => {
+    const { POST } = await import('@/app/api/auth/signup/route.js');
+    const { siret, ...sansSiret } = VALID_BODY;
+    void siret;
+    const res = await POST(makeReq(sansSiret));
+
+    expect(res.status).toBe(422);
+    expect(insertCalls.some((c) => c.table === 'organisations')).toBe(false);
+  });
+
+  it("INSEE répond 'echec' (SIRET inexistant/inactif) → 422 bloquant, aucune orga créée", async () => {
+    vi.mocked(verifySiret).mockResolvedValueOnce('echec');
+    const { POST } = await import('@/app/api/auth/signup/route.js');
+    const res = await POST(makeReq(VALID_BODY));
+
+    expect(res.status).toBe(422);
+    expect(insertCalls.some((c) => c.table === 'organisations')).toBe(false);
+  });
+
+  it("INSEE injoignable ('down') → 201 NON bloquant, entité en_attente + revalidation planifiée", async () => {
+    vi.mocked(verifySiret).mockResolvedValueOnce('down');
+    const { POST } = await import('@/app/api/auth/signup/route.js');
+    const res = await POST(makeReq(VALID_BODY));
+
+    // Jamais de hard-block sur une API tierce down (§15 §2.6 l.73).
+    expect(res.status).toBe(201);
+    const entiteInsert = insertCalls.find(
+      (c) => c.table === 'entites_facturation',
+    );
+    expect(entiteInsert!.payload.siret_verification).toBe('en_attente');
+    // Revalidation asynchrone enqueue (3 paliers).
+    expect(vi.mocked(enqueueSiretRevalidation)).toHaveBeenCalledWith(
+      expect.anything(),
+      'entite-1',
+    );
+  });
+
+  it('mot de passe trop faible → 422 (CDC §09 : 10c + maj + chiffre + spécial)', async () => {
+    const { POST } = await import('@/app/api/auth/signup/route.js');
+    // 'abc' : trop court, pas de maj/chiffre/spécial.
+    const res = await POST(makeReq({ ...VALID_BODY, mot_de_passe: 'abc' }));
+
+    expect(res.status).toBe(422);
+    expect(vi.mocked(verifySiret)).not.toHaveBeenCalled();
+    expect(insertCalls.some((c) => c.table === 'organisations')).toBe(false);
+  });
+});
+
+describe('M0.4 — détection doublons SIRET / domaine (BL-P1-ONB-03)', () => {
+  it('SIRET déjà rattaché (pré-check) → 409, pas d’appel INSEE', async () => {
+    maybeSingleQueue['entites_facturation'] = [
+      { data: { id: 'entite-existante' }, error: null },
+    ];
+    const { POST } = await import('@/app/api/auth/signup/route.js');
+    const res = await POST(makeReq(VALID_BODY));
+
+    expect(res.status).toBe(409);
+    expect(vi.mocked(verifySiret)).not.toHaveBeenCalled();
+    expect(insertCalls.some((c) => c.table === 'organisations')).toBe(false);
+  });
+
+  it('SIRET en collision à l’insert (race UNIQUE 23505) → 409 + rollback', async () => {
+    insertResult['entites_facturation'] = {
+      data: null,
+      error: { code: '23505' },
+    };
+    const { POST } = await import('@/app/api/auth/signup/route.js');
+    const res = await POST(makeReq(VALID_BODY));
+
+    expect(res.status).toBe(409);
+    expect(deleteCalls.some((c) => c.table === 'organisations')).toBe(true);
+  });
+
+  it('domaine déjà rattaché à l’insert (race UNIQUE 23505) → 409 + rollback', async () => {
+    insertResult['organisations_domaines_email'] = {
+      data: null,
+      error: { code: '23505' },
+    };
+    const { POST } = await import('@/app/api/auth/signup/route.js');
+    const res = await POST(makeReq(VALID_BODY));
+
+    expect(res.status).toBe(409);
+    expect(deleteCalls.some((c) => c.table === 'organisations')).toBe(true);
   });
 });

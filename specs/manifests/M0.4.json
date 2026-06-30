@@ -7,7 +7,17 @@
     "la création de compte persiste cgu_accepte_le (horodatage) + cgu_version",
     "POST demande-suppression crée une demande en_attente sans anonymisation immédiate",
     "GET export-rgpd renvoie les PII de l'utilisateur (self)",
-    "PATCH profil rectifie prenom/nom et rejette les champs hors allowlist"
+    "PATCH profil rectifie prenom/nom et rejette les champs hors allowlist",
+    "SIRET valide → 201",
+    "INSEE injoignable",
+    "mot de passe trop faible → 422",
+    "update-password : politique mot de passe au reset",
+    "SIRET déjà rattaché (pré-check) → 409",
+    "enqueue planifie une ligne en_attente au 1er palier",
+    "entité verifie + file resolu",
+    "invitation admin appelle sendEmail",
+    "requireCompletedOrganisation",
+    "requireValidatedOrganisation"
   ],
   "deliverables": [
     {
@@ -28,43 +38,43 @@
     },
     {
       "id": "BL-P1-ONB-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "SIRET jamais collecté au signup"
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:73",
+      "artefact": "packages/plateforme/src/app/api/auth/signup/route.ts (champ siret requis sur chemin création + verifySiret synchrone : echec→422, down→en_attente+enqueue, verifie→verifie ; plus de siret:'') + packages/shared/src/api/siret.ts (isValidSiretFormat 14 chiffres) + packages/plateforme/src/lib/password.ts (validatePasswordStrength : 10c + maj + chiffre + spécial, §09 l.84-85) + packages/plateforme/src/app/api/auth/update-password/route.ts (même helper appliqué au reset/changement — A1 signup+reset) + supabase/config.toml (minimum_password_length 10)",
+      "test": "packages/plateforme/tests/api/auth/signup.test.ts « M0.4 — SIRET au signup + vérif synchrone (BL-P1-ONB-01) » (SIRET valide→201/verifie ; format→422 ; echec→422 ; down→201 en_attente + enqueue ; mot de passe faible→422) + packages/plateforme/tests/api/auth/update-password.m0-4.test.ts « M0.4 — update-password : politique mot de passe au reset (A1) »",
+      "statut": "implemented",
+      "libelle": "SIRET collecté au signup + vérif INSEE synchrone bloquante sur echec seul (down jamais bloquant) + politique mot de passe"
     },
     {
       "id": "BL-P1-ONB-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "Job async revalidation SIRET 3 paliers"
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:73",
+      "artefact": "supabase/migrations/20260630130000_plateforme_r13_onboarding_siret.sql (table file_revalidation_siret + RLS staff-read + index) + packages/shared/src/siret/revalidation.ts (enqueueSiretRevalidation + runSiretRevalidationWorker : paliers 15min/1h/24h, verifie/echec→resolu, 3 down→epuise + alerte Admin f_upsert_alerte_admin + email org siret_verification_echec) + packages/plateforme/src/app/api/cron/revalidation-siret/route.ts + packages/plateforme/vercel.json (cron */15)",
+      "test": "packages/shared/src/siret/revalidation.m0-4.test.ts « M0.4 — revalidation SIRET : enqueue / escalade et sortie (BL-P1-ONB-02) » + supabase/tests/r13_onboarding_siret.test.sql (RLS file_revalidation_siret) + packages/plateforme/tests/api/cron/cron-auth.test.ts (fail-closed revalidation-siret)",
+      "statut": "implemented",
+      "libelle": "Job async revalidation SIRET 3 paliers 15min/1h/24h (INSEE down → en_attente non facturable résorbé)"
     },
     {
       "id": "BL-P1-ONB-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "Doublon SIRET/domaine non détecté"
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:69",
+      "artefact": "supabase/migrations/20260630130000_plateforme_r13_onboarding_siret.sql (index UNIQUE partiel uniq_entites_facturation_siret WHERE siret <> '') + packages/plateforme/src/app/api/auth/signup/route.ts (pré-check doublon SIRET→409 + mapping violation 23505→409 + collision domaine à l'insert→409, remplace le catch{} silencieux)",
+      "test": "packages/plateforme/tests/api/auth/signup.test.ts « M0.4 — détection doublons SIRET / domaine (BL-P1-ONB-03) » (doublon SIRET pré-check→409 ; race 23505→409 ; doublon domaine→409) + supabase/tests/r13_onboarding_siret.test.sql (UNIQUE partiel SIRET)",
+      "statut": "implemented",
+      "libelle": "Doublon SIRET (UNIQUE partiel) + doublon domaine détectés → 409 explicite"
     },
     {
       "id": "BL-P1-ONB-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "Email bienvenue/invitation cassé"
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:124",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/users/route.ts (slug 'bienvenue_invitation' inexistant → 'invitation_utilisateur' seedé + variables requises prenom + organisation_nom + lien_invitation, fetch organisations.nom)",
+      "test": "packages/plateforme/tests/api/admin/users.m1-1a.test.ts « M0.4 — email invitation admin (BL-P1-ONB-04) » (sendEmail('invitation_utilisateur', …) appelé avec les variables requises)",
+      "statut": "implemented",
+      "libelle": "Email invitation admin réparé (slug seedé + variables alignées, plus de throw avalé)"
     },
     {
       "id": "BL-P1-ONB-05",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "Middlewares onboarding nommés"
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:880",
+      "artefact": "packages/plateforme/src/lib/onboarding-guards.ts (requireCompletedOrganisation : gate programmation SIRET vérifié ; requireValidatedOrganisation : gate push Pennylane) + câblage des 3 sites inline dédupliqués : programmation/evenements/route.ts, programmation/evenements/[id]/confirmer/route.ts, lib/facturation/validation-admin.ts",
+      "test": "packages/plateforme/tests/lib/onboarding-guards.m0-4.test.ts « M0.4 — requireCompletedOrganisation / requireValidatedOrganisation (BL-P1-ONB-05) »",
+      "statut": "implemented",
+      "libelle": "Middlewares onboarding nommés (gate programmation + gate Pennylane factorisés)"
     },
     {
       "id": "BL-P1-AUTH-01",

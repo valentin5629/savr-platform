@@ -37,6 +37,7 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
 vi.mock('@savr/shared/src/email/index.js', () => ({
   sendEmail: vi.fn().mockResolvedValue(undefined),
 }));
+import { sendEmail } from '@savr/shared/src/email/index.js';
 
 function makeJwt(claims: Record<string, unknown>): string {
   return `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
@@ -124,6 +125,11 @@ describe('M1.1a / Users / Invitation', () => {
           action_link: 'https://app.gosavr.io/auth/confirm?token=xxx',
         },
       },
+      error: null,
+    });
+    // Nom de l'organisation pour le template d'invitation (ONB-04).
+    mockSupabaseChain.maybeSingle.mockResolvedValueOnce({
+      data: { nom: 'Traiteur Test' },
       error: null,
     });
 
@@ -281,6 +287,64 @@ describe('M1.1a / Users / Impersonation', () => {
     expect(res.status).toBe(200);
     const json = (await res.json()) as { lien_impersonation: string };
     expect(json.lien_impersonation).toContain('impersonate');
+  });
+});
+
+describe('M0.4 — email invitation admin (BL-P1-ONB-04)', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("M0.4 — l'invitation admin appelle sendEmail('invitation_utilisateur') avec les variables requises", async () => {
+    setupAuth('admin_savr');
+    mockAdminCreateUser.mockResolvedValue({
+      data: { user: { id: 'new-user-id' } },
+      error: null,
+    });
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: {
+        id: 'new-user-id',
+        email: 'invite@traiteur.fr',
+        prenom: 'Marie',
+        nom: 'Martin',
+        role: 'traiteur_commercial',
+      },
+      error: null,
+    });
+    mockAdminGenerateLink.mockResolvedValue({
+      data: {
+        properties: {
+          action_link: 'https://app.gosavr.io/auth/new-password?token=zzz',
+        },
+      },
+      error: null,
+    });
+    mockSupabaseChain.maybeSingle.mockResolvedValueOnce({
+      data: { nom: 'Traiteur Martin SAS' },
+      error: null,
+    });
+
+    const { POST } = await import('@/app/api/v1/admin/users/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/users', {
+        email: 'invite@traiteur.fr',
+        prenom: 'Marie',
+        nom: 'Martin',
+        role: 'traiteur_commercial',
+        organisation_id: 'org-42',
+      }),
+    );
+
+    expect(res.status).toBe(201);
+    // Slug réel seedé (plus 'bienvenue_invitation' inexistant → throw avalé) + les
+    // 3 variables requises du template (prenom + organisation_nom + lien_invitation).
+    expect(vi.mocked(sendEmail)).toHaveBeenCalledWith(
+      'invitation_utilisateur',
+      'invite@traiteur.fr',
+      expect.objectContaining({
+        prenom: 'Marie',
+        organisation_nom: 'Traiteur Martin SAS',
+        lien_invitation: 'https://app.gosavr.io/auth/new-password?token=zzz',
+      }),
+    );
   });
 });
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
 import { requireProgrammateurOuAdmin } from '@/lib/api-auth.js';
+import { requireCompletedOrganisation } from '@/lib/onboarding-guards.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireProgrammateurOuAdmin(req);
@@ -195,23 +196,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // Gating facturation (R1) — vérification entité de facturation active
-  const { data: entite } = await supabase
-    .from('entites_facturation')
-    .select('id')
-    .eq('organisation_id', effectiveOrgId)
-    .eq('siret_verification', 'verifie')
-    .maybeSingle();
-
-  if (!entite) {
-    return NextResponse.json(
-      {
-        error:
-          'Complétez votre profil entreprise (SIRET vérifié requis pour programmer une collecte)',
-      },
-      { status: 422 },
-    );
-  }
+  // Gating facturation (R1) — profil entreprise complet (SIRET vérifié), §09 §5.
+  const completude = await requireCompletedOrganisation(
+    supabase,
+    effectiveOrgId,
+    'Complétez votre profil entreprise (SIRET vérifié requis pour programmer une collecte)',
+  );
+  if (!completude.ok) return completude.error;
 
   // Vérification pack AG si collecte AG présente (R3)
   const hasAg = body.collectes.some((c) => c.type === 'ag');
@@ -240,7 +231,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .insert({
       organisation_id: effectiveOrgId,
       traiteur_operationnel_organisation_id: traiteurOperationnelId,
-      entite_facturation_id: entite.id,
+      entite_facturation_id: completude.entiteFacturationId,
       lieu_id: body.lieu_id,
       created_by: auth.ctx.userId,
       nom_evenement: body.nom_evenement ?? null,

@@ -15,6 +15,7 @@ import {
   attribuerNumeroFacture,
   type SerieFacturation,
 } from './numerotation.js';
+import { requireValidatedOrganisation } from '../onboarding-guards.js';
 
 export interface ValidationResult {
   ok: boolean;
@@ -176,9 +177,16 @@ export async function validerFacture(
     };
   }
 
-  // Gate SIRET
+  // Gate SIRET — requireValidatedOrganisation (§09 §5) : push Pennylane bloqué tant
+  // que l'entité de facturation n'est pas validée (SIRET vérifié).
   const ef = f.entites_facturation;
-  if (!ef || ef.siret_verification !== 'verifie') {
+  const validation = requireValidatedOrganisation(ef);
+  if (!validation.ok) {
+    return { ok: false, statut: 'brouillon', erreur: validation.raison };
+  }
+  // Inatteignable (validation.ok ⇒ ef non-null) — garde de narrowing TS pour les
+  // accès `ef.*` ci-dessous.
+  if (!ef) {
     return {
       ok: false,
       statut: 'brouillon',

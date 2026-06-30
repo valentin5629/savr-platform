@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireProgrammateur } from '@/lib/api-auth.js';
+import { requireCompletedOrganisation } from '@/lib/onboarding-guards.js';
 
 export async function PATCH(
   req: NextRequest,
@@ -41,23 +42,14 @@ export async function PATCH(
     );
   }
 
-  // Gate facturation (R1) — vérifiée à la confirmation, même règle que le chemin direct
-  const { data: entite } = await supabase
-    .from('entites_facturation')
-    .select('id')
-    .eq('organisation_id', evt.organisation_id)
-    .eq('siret_verification', 'verifie')
-    .maybeSingle();
-
-  if (!entite) {
-    return NextResponse.json(
-      {
-        error:
-          'Complétez votre profil entreprise (SIRET vérifié requis pour confirmer la programmation)',
-      },
-      { status: 422 },
-    );
-  }
+  // Gate facturation (R1) — profil entreprise complet (SIRET vérifié), §09 §5,
+  // même règle que le chemin direct.
+  const completude = await requireCompletedOrganisation(
+    supabase,
+    evt.organisation_id,
+    'Complétez votre profil entreprise (SIRET vérifié requis pour confirmer la programmation)',
+  );
+  if (!completude.ok) return completude.error;
 
   // Gate pack AG (R3) — si des collectes AG sont présentes dans ce brouillon
   const hasAg = collectes.some((c) => c.type === 'ag');

@@ -3,7 +3,7 @@
 --         évaluation auto-accept (déclenchement + SINON + valide_par NULL).
 
 BEGIN;
-SELECT plan(9);
+SELECT plan(11);
 
 CREATE OR REPLACE FUNCTION test_as_superuser_r11()
 RETURNS void LANGUAGE plpgsql AS $$
@@ -63,6 +63,29 @@ UPDATE plateforme.transporteurs
   SET prestataire_logistique_id = 'b1000000-0000-0000-0000-000000000053'::uuid
   WHERE id = 'b1000000-0000-0000-0000-000000000043'::uuid;
 
+-- §05 R2 filtres province : transporteur ZD-only (prestataire sans 'ag') au lieu
+-- Rouen (distance 0 → serait top1 SI éligible) — doit être EXCLU du top 3.
+INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, ville, type_tms, actif, contact_nom, contact_email, contact_telephone, types_vehicules, latitude, longitude)
+VALUES ('b1000000-0000-0000-0000-000000000044'::uuid, 'ProvZD R11', '555555555', '0 Quai', '76000', 'Rouen', 'mts1', true, 'Z', 'z@t.test', '0600000005', ARRAY['fourgon'], 49.4431, 1.0993);
+INSERT INTO shared.prestataires (id, nom, code, type_prestation, mode_integration, siret, statut, nb_collectes_6_mois_cache)
+VALUES ('b1000000-0000-0000-0000-000000000054'::uuid, 'ProvZD R11', 'PROVZD_R11', ARRAY['zd'], 'mts1', '555555555012345', 'actif', 0)
+ON CONFLICT (id) DO NOTHING;
+
+-- §05 R2 compat véhicule : lieu province ÉTROIT (type_vehicule_max='camionnette')
+-- situé à LYON (loin de Rouen, pour ne pas polluer le top 3 de la collecte 080).
+-- Transporteur 'poids_lourd' (incompatible, EXCLU) vs 'camionnette' (OK).
+INSERT INTO plateforme.lieux (id, nom, adresse_acces, ville, code_postal, type_vehicule_max, latitude, longitude, region)
+VALUES ('b1000000-0000-0000-0000-000000000022'::uuid, 'Lieu Province Étroit', '9 Ruelle', 'Lyon', '69001', 'camionnette', 45.7640, 4.8357, 'province');
+INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, ville, type_tms, actif, contact_nom, contact_email, contact_telephone, types_vehicules, latitude, longitude)
+VALUES
+  ('b1000000-0000-0000-0000-000000000045'::uuid, 'ProvBig R11', '666666666', '1 Quai', '69001', 'Lyon', 'mts1', true, 'BG', 'bg@t.test', '0600000006', ARRAY['poids_lourd'], 45.7640, 4.8357),
+  ('b1000000-0000-0000-0000-000000000046'::uuid, 'ProvSmall R11', '777777777', '2 Quai', '69001', 'Lyon', 'mts1', true, 'SM', 'sm@t.test', '0600000007', ARRAY['camionnette'], 45.7640, 4.8357);
+INSERT INTO shared.prestataires (id, nom, code, type_prestation, mode_integration, siret, statut, nb_collectes_6_mois_cache)
+VALUES
+  ('b1000000-0000-0000-0000-000000000055'::uuid, 'ProvBig R11', 'PROVBIG_R11', ARRAY['ag'], 'mts1', '666666666012345', 'actif', 0),
+  ('b1000000-0000-0000-0000-000000000056'::uuid, 'ProvSmall R11', 'PROVSMALL_R11', ARRAY['ag'], 'mts1', '777777777012345', 'actif', 0)
+ON CONFLICT (id) DO NOTHING;
+
 -- Associations : 1 province (Rouen) + 2 IDF (A = la plus proche, B = config auto-accept différente)
 INSERT INTO plateforme.associations (id, nom, adresse, ville, region, contact_email, capacite_max_beneficiaires, actif, description_rapport_impact, latitude, longitude)
 VALUES
@@ -82,7 +105,11 @@ INSERT INTO plateforme.evenements (
   -- IDF (auto-accept)
   ('b1000000-0000-0000-0000-000000000071'::uuid, 'b1000000-0000-0000-0000-000000000001'::uuid, 'b1000000-0000-0000-0000-000000000001'::uuid,
    'b1000000-0000-0000-0000-000000000011'::uuid, 'b1000000-0000-0000-0000-000000000010'::uuid,
-   'b1000000-0000-0000-0000-000000000021'::uuid, 'b1000000-0000-0000-0000-000000000009'::uuid, CURRENT_DATE + 7, 200, 'C', '0600000099');
+   'b1000000-0000-0000-0000-000000000021'::uuid, 'b1000000-0000-0000-0000-000000000009'::uuid, CURRENT_DATE + 7, 200, 'C', '0600000099'),
+  -- province lieu étroit (camionnette max) — test compat véhicule
+  ('b1000000-0000-0000-0000-000000000072'::uuid, 'b1000000-0000-0000-0000-000000000001'::uuid, 'b1000000-0000-0000-0000-000000000001'::uuid,
+   'b1000000-0000-0000-0000-000000000011'::uuid, 'b1000000-0000-0000-0000-000000000010'::uuid,
+   'b1000000-0000-0000-0000-000000000022'::uuid, 'b1000000-0000-0000-0000-000000000009'::uuid, CURRENT_DATE + 7, 200, 'C', '0600000099');
 
 INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, volume_estime_repas)
 VALUES
@@ -91,7 +118,9 @@ VALUES
   -- IDF nuit (22:00 → Marathon) pour auto-accept déclenché
   ('b1000000-0000-0000-0000-000000000081'::uuid, 'b1000000-0000-0000-0000-000000000071'::uuid, 'anti_gaspi', 'programmee', 'non_envoye', CURRENT_DATE + 7, '22:00', 200),
   -- IDF nuit pour auto-accept NON déclenché (config sur asso B mais top1 = asso A)
-  ('b1000000-0000-0000-0000-000000000082'::uuid, 'b1000000-0000-0000-0000-000000000071'::uuid, 'anti_gaspi', 'programmee', 'non_envoye', CURRENT_DATE + 7, '22:00', 200);
+  ('b1000000-0000-0000-0000-000000000082'::uuid, 'b1000000-0000-0000-0000-000000000071'::uuid, 'anti_gaspi', 'programmee', 'non_envoye', CURRENT_DATE + 7, '22:00', 200),
+  -- province lieu étroit (camionnette) — test compat véhicule
+  ('b1000000-0000-0000-0000-000000000083'::uuid, 'b1000000-0000-0000-0000-000000000072'::uuid, 'anti_gaspi', 'programmee', 'non_envoye', CURRENT_DATE + 7, '10:00', 200);
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- BL-P1-ALGO-01 : top 3 transporteurs province
@@ -125,6 +154,36 @@ SELECT is(
   (plateforme.fn_calculer_algo_attribution_ag('b1000000-0000-0000-0000-000000000080'::uuid))->>'branche',
   'ag_province_proximite',
   'R11-T4 : branche province reste ag_province_proximite'
+);
+
+-- R11-T4b : §05 R2 — transporteur ZD-only (prestataire sans 'ag') exclu du top 3
+-- (ProvZD est à distance 0 → serait top1 SI le filtre type_prestation manquait)
+SELECT ok(
+  NOT EXISTS (
+    SELECT 1 FROM jsonb_array_elements(
+      (plateforme.fn_calculer_algo_attribution_ag('b1000000-0000-0000-0000-000000000080'::uuid))->'transporteurs'
+    ) e
+    WHERE (e->>'id')::uuid = 'b1000000-0000-0000-0000-000000000044'::uuid
+  ),
+  'R11-T4b : transporteur ZD-only (type_prestation sans ag) exclu du top 3 province'
+);
+
+-- R11-T4c : §05 R2 — compat véhicule. Lieu max=camionnette : ProvBig (poids_lourd)
+-- exclu, ProvSmall (camionnette) inclus.
+SELECT ok(
+  NOT EXISTS (
+    SELECT 1 FROM jsonb_array_elements(
+      (plateforme.fn_calculer_algo_attribution_ag('b1000000-0000-0000-0000-000000000083'::uuid))->'transporteurs'
+    ) e
+    WHERE (e->>'id')::uuid = 'b1000000-0000-0000-0000-000000000045'::uuid
+  )
+  AND EXISTS (
+    SELECT 1 FROM jsonb_array_elements(
+      (plateforme.fn_calculer_algo_attribution_ag('b1000000-0000-0000-0000-000000000083'::uuid))->'transporteurs'
+    ) e
+    WHERE (e->>'id')::uuid = 'b1000000-0000-0000-0000-000000000046'::uuid
+  ),
+  'R11-T4c : compat véhicule — poids_lourd exclu (lieu max camionnette), camionnette inclus'
 );
 
 -- ═══════════════════════════════════════════════════════════════════════════

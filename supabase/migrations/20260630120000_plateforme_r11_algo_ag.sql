@@ -55,6 +55,7 @@ DECLARE
   v_lieu_lat           double precision;
   v_lieu_lon           double precision;
   v_cp_dep2            text;
+  v_type_vehicule_max  plateforme.type_vehicule;   -- §05 R2 compat véhicule province
 
   -- Paramètres algo
   v_plage_debut        time;
@@ -97,7 +98,8 @@ BEGIN
     l.region,
     l.latitude,
     l.longitude,
-    l.code_postal
+    l.code_postal,
+    l.type_vehicule_max
   INTO v_collecte
   FROM plateforme.collectes c
   JOIN plateforme.evenements e ON e.id = c.evenement_id
@@ -118,6 +120,7 @@ BEGIN
   v_lieu_lat       := v_collecte.latitude;
   v_lieu_lon       := v_collecte.longitude;
   v_cp_dep2        := left(COALESCE(v_collecte.code_postal, ''), 2);
+  v_type_vehicule_max := v_collecte.type_vehicule_max;
 
   -- === Charger les paramètres algo ===
   SELECT
@@ -365,6 +368,19 @@ BEGIN
       )
       WHERE t.actif = true
         AND t.type_tms != 'a_toutes'
+        -- §05 R2 : prestataire habilité AG (sinon transporteur ZD-only exclu)
+        AND 'ag' = ANY(p.type_prestation)
+        -- §05 R2 : compatibilité véhicule/lieu (R_compatibilite_vehicule_lieu) —
+        -- au moins un véhicule du transporteur ≤ type_vehicule_max du lieu (enum
+        -- ordonné velo_cargo<camionnette<fourgon<vul<poids_lourd). NULL max = pas
+        -- de contrainte. types_vehicules est text[] → cast vers l'enum pour le tri.
+        AND (
+          v_type_vehicule_max IS NULL
+          OR EXISTS (
+            SELECT 1 FROM unnest(t.types_vehicules) tv
+            WHERE tv::plateforme.type_vehicule <= v_type_vehicule_max
+          )
+        )
         AND (
           p.rayon_intervention_km IS NULL
           OR (

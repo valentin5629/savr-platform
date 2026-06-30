@@ -62,9 +62,11 @@ VALUES ('a0000000-0000-0000-0000-000000000009'::uuid, 'GALA_M23', 'Gala M2.3 Tes
 INSERT INTO plateforme.lieux (id, nom, adresse_acces, ville, code_postal, type_vehicule_max, latitude, longitude, region)
 VALUES ('a0000000-0000-0000-0000-000000000020'::uuid, 'Lieu IDF Paris', '1 Rue Rivoli', 'Paris', '75001', 'camionnette', 48.8566, 2.3522, 'idf');
 
--- Lieu province (Rouen)
+-- Lieu province (Rouen) — type_vehicule_max=poids_lourd : le transporteur province
+-- de test (Transnormandie, véhicule 'fourgon') doit rester compatible (§05 R2
+-- compat véhicule ajoutée R11 ; un lieu camionnette exclurait un fourgon).
 INSERT INTO plateforme.lieux (id, nom, adresse_acces, ville, code_postal, type_vehicule_max, latitude, longitude, region)
-VALUES ('a0000000-0000-0000-0000-000000000021'::uuid, 'Lieu Province Rouen', '5 Quai de Rouen', 'Rouen', '76000', 'camionnette', 49.4431, 1.0993, 'province');
+VALUES ('a0000000-0000-0000-0000-000000000021'::uuid, 'Lieu Province Rouen', '5 Quai de Rouen', 'Rouen', '76000', 'poids_lourd', 49.4431, 1.0993, 'province');
 
 -- Associations IDF (top 3 à distances croissantes)
 -- asso_proche : 4.2 km, capacite=500 (500×2=1000 > volume 200 ✓)

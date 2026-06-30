@@ -103,7 +103,8 @@
   "divergences": [
     "DIV-5 (clair) : scénario test v1_appel_direct_everest_velo_express_service_75 (specs/tests ligne 658) cite service 75 mais l'adapter M2.5 utilise service 74 pour ag_velo_express. Migration et adapter alignés sur 74.",
     "DIV-6 (clair) : pack debit timing — brief module citait un débit dans la transaction de validation ; implémentation = réservation seule (set pack_antgaspi_id) à la validation, débit effectif (credits_consommes+1) délégué au trigger fn_trg_pack_debit_realisee existant (M2.1) au passage à realisee. Cohérent avec M2.1.",
-    "DIV-7 (clair) : config_auto_accept_ag — DDL cible V2 a type_evenement_id + actif ; DB réelle (migration M0.3) a organisation_id + transporteur_id + seuil_pax_min/max. Implémentation suit la DB réelle."
+    "DIV-7 (clair) : config_auto_accept_ag — DDL cible V2 a type_evenement_id + actif ; DB réelle (migration M0.3) a organisation_id + transporteur_id + seuil_pax_min/max. Implémentation suit la DB réelle.",
+    "DIV-8 (clair, R11) : filtre province §05 R2 « Grille tarifaire valide à la date de la collecte » NON implémentable en V1 — aucune table de grille/coût transporteur n'existe (les coûts logistiques = tms.*/V2, Dashboard Bloc 3 Coûts descopé V1.1). Les 4 autres filtres province sont câblés (actif + type_prestation AG + rayon + compat véhicule). Tracé : ~/Desktop/Obsidian Savr/_Divergences/M2.3_20260630.md → Cowork marque le filtre V2-only dans §05 R2."
   ],
   "hors_scope": [
     "Dispatch vers MTS-1 / Everest après attribution (géré par M2.5 adapter outbox consumer)",
@@ -258,11 +259,11 @@
     },
     {
       "id": "BL-P1-ALGO-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:73",
-      "artefact": "supabase/migrations/20260630120000_plateforme_r11_algo_ag.sql (fn_calculer_algo_attribution_ag : province LIMIT 1 → top 3 agrégés dans la clé `transporteurs`, tri distance ASC + nb_collectes ASC ; `transporteur`=top1 conservé) ; packages/plateforme/src/app/(admin)/admin/attributions-ag/[collecteId]/page.tsx (liste province top 3 sélectionnable)",
-      "test": "R11-T1/T2/T3/T4 (supabase/tests/r11_algo_ag.test.sql) — 3 transporteurs province + top1 le plus proche + rétro-compat `transporteur` + branche ag_province_proximite. UI liste = preuve-visuelle (GO-VISUAL)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:63-83",
+      "artefact": "supabase/migrations/20260630120000_plateforme_r11_algo_ag.sql (fn_calculer_algo_attribution_ag : province LIMIT 1 → top 3 agrégés dans la clé `transporteurs`, tri distance ASC + nb_collectes ASC ; `transporteur`=top1 conservé ; + filtres §05 R2 ajoutés : `'ag' = ANY(p.type_prestation)` + compat véhicule `types_vehicules::type_vehicule <= lieux.type_vehicule_max`) ; packages/plateforme/src/app/(admin)/admin/attributions-ag/[collecteId]/page.tsx (liste province top 3 sélectionnable)",
+      "test": "R11-T1/T2/T3/T4 + T4b (ZD-only exclu, type_prestation) + T4c (véhicule incompatible exclu) (supabase/tests/r11_algo_ag.test.sql) — 3 transporteurs province éligibles + top1 le plus proche + rétro-compat `transporteur` + branche ag_province_proximite. UI liste = preuve-visuelle (GO-VISUAL)",
       "statut": "implemented",
-      "libelle": "Top 3 transporteurs province (algo + liste sélectionnable Admin)"
+      "libelle": "Top 3 transporteurs province (algo top 3 + filtres §05 R2 type_prestation/véhicule + liste sélectionnable Admin). Filtre grille tarifaire = V2 (référentiel coûts transporteur tms.*, hors V1 — cf. divergence DIV-8/M2.3_20260630)"
     },
     {
       "id": "BL-P1-ALGO-02",

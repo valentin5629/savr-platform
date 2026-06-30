@@ -31,6 +31,11 @@ function req(headers: Record<string, string> = {}): Request {
 const ROUTES = [
   { name: 'outbox-worker', path: '@/app/api/cron/outbox-worker/route.js' },
   { name: 'polling-mts1', path: '@/app/api/cron/polling-mts1/route.js' },
+  // R13 · ONB-02 — revalidation SIRET (job async, écrit le gating facturation).
+  {
+    name: 'revalidation-siret',
+    path: '@/app/api/cron/revalidation-siret/route.js',
+  },
 ];
 
 describe('crons sensibles — fail-closed (BUG 3)', () => {

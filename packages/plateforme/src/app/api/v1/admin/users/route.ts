@@ -144,9 +144,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     linkData?.properties?.action_link ??
     `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/auth/login`;
 
-  void sendEmail('bienvenue_invitation', email, {
+  // Nom de l'organisation de rattachement (variable requise du template).
+  const { data: org } = await supabase
+    .from('organisations')
+    .select('nom')
+    .eq('id', organisation_id)
+    .maybeSingle();
+
+  // ONB-04 : le slug 'bienvenue_invitation' n'existait pas au seed → throw avalé,
+  // aucun email envoyé. Slug réel = 'invitation_utilisateur' (variables requises
+  // prenom + organisation_nom + lien_invitation, cf. seed bloc8 + call-sites
+  // gestionnaire/traiteur).
+  void sendEmail('invitation_utilisateur', email, {
     prenom: prenom ?? '',
-    lien_connexion: resetUrl,
+    organisation_nom: (org as { nom?: string } | null)?.nom ?? '',
+    lien_invitation: resetUrl,
   }).catch(() => null);
 
   return NextResponse.json(user, { status: 201 });

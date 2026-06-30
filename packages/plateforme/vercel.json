@@ -33,6 +33,10 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/cron/revalidation-siret",
+      "schedule": "*/15 * * * *"
+    },
+    {
       "path": "/api/cron/polling-pennylane",
       "schedule": "0 3 * * *"
     },

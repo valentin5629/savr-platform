@@ -56,7 +56,9 @@ additional_redirect_urls = [
 jwt_expiry = 3600
 enable_signup = true
 enable_anonymous_sign_ins = false
-minimum_password_length = 8
+# CDC §09 l.84 : 10 caractères minimum (la complexité maj+chiffre+spécial est
+# vérifiée côté applicatif au signup — GoTrue ne contrôle que la longueur).
+minimum_password_length = 10
 
 [auth.email]
 enable_signup = true

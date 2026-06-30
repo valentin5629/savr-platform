@@ -17,7 +17,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const { data, error, count } = await supabase
     .from('collectes')
     .select(
+      // attributions_antgaspi!collecte_id(id) DOIT être embarqué pour que le
+      // filtre `.is('attributions_antgaspi', null)` soit interprété comme une
+      // anti-jointure (collectes sans attribution). Sans l'embed, PostgREST lit
+      // `attributions_antgaspi` comme une colonne → 42703 "column does not exist".
       `id, date_collecte, heure_collecte, volume_estime_repas, statut, statut_tms, created_at,
+       attributions_antgaspi!collecte_id(id),
        evenements!evenement_id(
          nom_evenement, pax,
          organisations!organisation_id(raison_sociale),
@@ -34,8 +39,24 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // BL-P1-ALGO-02 — Indicateur criticité (CDC §06.09 §1) : rouge si la collecte
+  // est à moins de 48h ET non encore attribuée. Le tri SQL date_collecte ASC place
+  // déjà les créneaux les plus proches (= les urgents) en tête de file ; on ajoute
+  // ici le drapeau `criticite` que l'UI utilise pour le badge "URGENT" + fond rose.
+  const seuil48h = Date.now() + 48 * 60 * 60 * 1000;
+  const rows = (data ?? []).map((row) => {
+    const r = row as Record<string, unknown>;
+    const dateStr = r.date_collecte as string;
+    const heureStr = (r.heure_collecte as string) ?? '00:00:00';
+    const ts = new Date(`${dateStr}T${heureStr}`).getTime();
+    return {
+      ...r,
+      criticite: Number.isFinite(ts) ? ts < seuil48h : false,
+    };
+  });
+
   return NextResponse.json({
-    data: data ?? [],
+    data: rows,
     total: count ?? 0,
     page,
     limit,

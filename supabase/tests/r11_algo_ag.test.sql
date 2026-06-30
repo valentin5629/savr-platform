@@ -3,7 +3,7 @@
 --         évaluation auto-accept (déclenchement + SINON + valide_par NULL).
 
 BEGIN;
-SELECT plan(11);
+SELECT plan(13);
 
 CREATE OR REPLACE FUNCTION test_as_superuser_r11()
 RETURNS void LANGUAGE plpgsql AS $$
@@ -84,6 +84,15 @@ INSERT INTO shared.prestataires (id, nom, code, type_prestation, mode_integratio
 VALUES
   ('b1000000-0000-0000-0000-000000000055'::uuid, 'ProvBig R11', 'PROVBIG_R11', ARRAY['ag'], 'mts1', '666666666012345', 'actif', 0),
   ('b1000000-0000-0000-0000-000000000056'::uuid, 'ProvSmall R11', 'PROVSMALL_R11', ARRAY['ag'], 'mts1', '777777777012345', 'actif', 0)
+ON CONFLICT (id) DO NOTHING;
+
+-- Robustesse : transporteur avec types_vehicules HORS enum (colonne text[] sans
+-- CHECK) au lieu Rouen — le filtre compat véhicule ne doit pas lever d'exception
+-- (array_position NULL → exclu), l'algo doit continuer.
+INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, ville, type_tms, actif, contact_nom, contact_email, contact_telephone, types_vehicules, latitude, longitude)
+VALUES ('b1000000-0000-0000-0000-000000000047'::uuid, 'ProvBadVeh R11', '888888888', '3 Quai', '76000', 'Rouen', 'mts1', true, 'BV', 'bv@t.test', '0600000008', ARRAY['camion_16m3'], 49.4431, 1.0993);
+INSERT INTO shared.prestataires (id, nom, code, type_prestation, mode_integration, siret, statut, nb_collectes_6_mois_cache)
+VALUES ('b1000000-0000-0000-0000-000000000057'::uuid, 'ProvBadVeh R11', 'PROVBAD_R11', ARRAY['ag'], 'mts1', '888888888012345', 'actif', 0)
 ON CONFLICT (id) DO NOTHING;
 
 -- Associations : 1 province (Rouen) + 2 IDF (A = la plus proche, B = config auto-accept différente)
@@ -184,6 +193,22 @@ SELECT ok(
     WHERE (e->>'id')::uuid = 'b1000000-0000-0000-0000-000000000046'::uuid
   ),
   'R11-T4c : compat véhicule — poids_lourd exclu (lieu max camionnette), camionnette inclus'
+);
+
+-- R11-T4d : robustesse — valeur types_vehicules hors enum n'interrompt pas l'algo
+-- (pas d'exception) et le transporteur invalide est exclu du top 3.
+SELECT lives_ok(
+  $$SELECT plateforme.fn_calculer_algo_attribution_ag('b1000000-0000-0000-0000-000000000080'::uuid)$$,
+  'R11-T4d : types_vehicules hors enum → algo ne lève PAS d''exception (array_position)'
+);
+SELECT ok(
+  NOT EXISTS (
+    SELECT 1 FROM jsonb_array_elements(
+      (plateforme.fn_calculer_algo_attribution_ag('b1000000-0000-0000-0000-000000000080'::uuid))->'transporteurs'
+    ) e
+    WHERE (e->>'id')::uuid = 'b1000000-0000-0000-0000-000000000047'::uuid
+  ),
+  'R11-T4e : transporteur à véhicule hors-enum exclu du top 3'
 );
 
 -- ═══════════════════════════════════════════════════════════════════════════

@@ -56,6 +56,7 @@ DECLARE
   v_lieu_lon           double precision;
   v_cp_dep2            text;
   v_type_vehicule_max  plateforme.type_vehicule;   -- §05 R2 compat véhicule province
+  v_vehicule_order     text[];                      -- labels enum ordonnés (compat véhicule)
 
   -- Paramètres algo
   v_plage_debut        time;
@@ -121,6 +122,11 @@ BEGIN
   v_lieu_lon       := v_collecte.longitude;
   v_cp_dep2        := left(COALESCE(v_collecte.code_postal, ''), 2);
   v_type_vehicule_max := v_collecte.type_vehicule_max;
+  -- Ordre des labels de l'enum véhicule (velo_cargo<camionnette<fourgon<vul<poids_lourd).
+  -- Sert à comparer types_vehicules (text[]) au type_vehicule_max SANS cast direct :
+  -- une valeur text hors-enum donne array_position = NULL → exclue (pas d'exception
+  -- runtime, la colonne types_vehicules étant text[] sans CHECK enum).
+  v_vehicule_order := enum_range(NULL::plateforme.type_vehicule)::text[];
 
   -- === Charger les paramètres algo ===
   SELECT
@@ -371,14 +377,16 @@ BEGIN
         -- §05 R2 : prestataire habilité AG (sinon transporteur ZD-only exclu)
         AND 'ag' = ANY(p.type_prestation)
         -- §05 R2 : compatibilité véhicule/lieu (R_compatibilite_vehicule_lieu) —
-        -- au moins un véhicule du transporteur ≤ type_vehicule_max du lieu (enum
-        -- ordonné velo_cargo<camionnette<fourgon<vul<poids_lourd). NULL max = pas
-        -- de contrainte. types_vehicules est text[] → cast vers l'enum pour le tri.
+        -- au moins un véhicule du transporteur ≤ type_vehicule_max du lieu (ordre
+        -- enum velo_cargo<camionnette<fourgon<vul<poids_lourd). NULL max = pas de
+        -- contrainte. Comparaison par position dans v_vehicule_order (exception-safe :
+        -- une valeur text[] hors-enum → array_position NULL → exclue, jamais d'erreur).
         AND (
           v_type_vehicule_max IS NULL
           OR EXISTS (
             SELECT 1 FROM unnest(t.types_vehicules) tv
-            WHERE tv::plateforme.type_vehicule <= v_type_vehicule_max
+            WHERE array_position(v_vehicule_order, tv)
+                  <= array_position(v_vehicule_order, v_type_vehicule_max::text)
           )
         )
         AND (

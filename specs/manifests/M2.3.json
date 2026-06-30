@@ -261,7 +261,7 @@
       "id": "BL-P1-ALGO-01",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:63-83",
       "artefact": "supabase/migrations/20260630120000_plateforme_r11_algo_ag.sql (fn_calculer_algo_attribution_ag : province LIMIT 1 → top 3 agrégés dans la clé `transporteurs`, tri distance ASC + nb_collectes ASC ; `transporteur`=top1 conservé ; + filtres §05 R2 ajoutés : `'ag' = ANY(p.type_prestation)` + compat véhicule `types_vehicules::type_vehicule <= lieux.type_vehicule_max`) ; packages/plateforme/src/app/(admin)/admin/attributions-ag/[collecteId]/page.tsx (liste province top 3 sélectionnable)",
-      "test": "R11-T1/T2/T3/T4 + T4b (ZD-only exclu, type_prestation) + T4c (véhicule incompatible exclu) (supabase/tests/r11_algo_ag.test.sql) — 3 transporteurs province éligibles + top1 le plus proche + rétro-compat `transporteur` + branche ag_province_proximite. UI liste = preuve-visuelle (GO-VISUAL)",
+      "test": "R11-T1/T2/T3/T4 + T4b (ZD-only exclu, type_prestation) + T4c (véhicule incompatible exclu) + T4d/T4e (types_vehicules hors-enum → pas d'exception + exclu) (supabase/tests/r11_algo_ag.test.sql) — 3 transporteurs province éligibles + top1 le plus proche + rétro-compat `transporteur` + branche ag_province_proximite. UI liste = preuve-visuelle (GO-VISUAL)",
       "statut": "implemented",
       "libelle": "Top 3 transporteurs province (algo top 3 + filtres §05 R2 type_prestation/véhicule + liste sélectionnable Admin). Filtre grille tarifaire = V2 (référentiel coûts transporteur tms.*, hors V1 — cf. divergence DIV-8/M2.3_20260630)"
     },

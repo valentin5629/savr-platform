@@ -38,6 +38,21 @@ const CHIPS = [
   { key: 'ag_48h', label: 'AG 48h' },
 ];
 
+// Criticité (§06.09 §1 / ALGO-02) : collecte AG à attribuer ET à moins de 48h.
+function estUrgente(row: Collecte): boolean {
+  if (
+    row.type !== 'anti_gaspi' ||
+    row.statut_tms !== 'non_envoye' ||
+    (row.statut !== 'programmee' && row.statut !== 'validee')
+  ) {
+    return false;
+  }
+  const ts = new Date(
+    `${row.date_collecte}T${row.heure_collecte ?? '00:00:00'}`,
+  ).getTime();
+  return Number.isFinite(ts) && ts < Date.now() + 48 * 60 * 60 * 1000;
+}
+
 const columns: Column<Collecte>[] = [
   {
     key: 'type',
@@ -84,7 +99,16 @@ const columns: Column<Collecte>[] = [
   {
     key: 'statut',
     header: 'Statut',
-    render: (row) => <StatusCollecte statut={row.statut as StatutCollecte} />,
+    render: (row) => (
+      <span className="flex items-center gap-2">
+        {estUrgente(row) && (
+          <Badge variant="error" dot={false}>
+            URGENT
+          </Badge>
+        )}
+        <StatusCollecte statut={row.statut as StatutCollecte} />
+      </span>
+    ),
   },
   {
     // §06.09 — accès direct à l'écran d'attribution AG depuis la liste collectes.
@@ -137,13 +161,6 @@ export default function CollectesPage() {
     void fetchCollectes();
   }, [fetchCollectes]);
 
-  function exportCsv() {
-    const params = new URLSearchParams();
-    if (!chip && type) params.set('type', type);
-    if (!chip && statut) params.set('statut', statut);
-    window.open(`/api/v1/exports/collectes?${params}`);
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -154,9 +171,6 @@ export default function CollectesPage() {
           </h1>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" onClick={exportCsv}>
-            Exporter CSV
-          </Button>
           <Link href="/admin/collectes/nouvelle">
             <Button>
               <Plus className="h-4 w-4 mr-2" />
@@ -249,8 +263,12 @@ export default function CollectesPage() {
       ) : (
         <DataTable
           columns={columns}
-          data={collectes}
+          // Urgents (AG à attribuer < 48h) remontés en tête (§06.09 §1)
+          data={[...collectes].sort(
+            (a, b) => Number(estUrgente(b)) - Number(estUrgente(a)),
+          )}
           keyExtractor={(row) => row.id}
+          rowClassName={(r) => (estUrgente(r) ? 'bg-red-50' : '')}
           pagination={{ page, total, limit: 50, onPageChange: setPage }}
         />
       )}

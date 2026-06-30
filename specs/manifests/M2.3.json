@@ -28,7 +28,6 @@
     "packages/plateforme/src/app/api/cron/process-attributions-ag/route.ts",
     "packages/plateforme/vercel.json",
     "packages/plateforme/src/components/ui/data-table.tsx",
-    "packages/plateforme/src/app/(admin)/admin/attributions-ag/page.tsx",
     "packages/plateforme/src/app/(admin)/admin/attributions-ag/[collecteId]/page.tsx",
     "packages/plateforme/src/app/(admin)/admin/parametres/algo-ag/page.tsx",
     "packages/plateforme/src/app/(admin)/admin/parametres/auto-accept/page.tsx",
@@ -268,10 +267,10 @@
     {
       "id": "BL-P1-ALGO-02",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:36-39",
-      "artefact": "packages/plateforme/src/app/api/v1/admin/attributions-ag/pending/route.ts (flag criticite = date_collecte < now()+48h) ; packages/plateforme/src/app/(admin)/admin/attributions-ag/page.tsx (badge URGENT + fond rose) ; packages/plateforme/src/components/ui/data-table.tsx (prop rowClassName)",
-      "test": "M2.3 / R11 ALGO-02 file criticité (packages/plateforme/tests/api/admin/algo-attribution-ag-r11.m2-3.test.ts) — criticite true <48h / false sinon. Badge + fond rose = preuve-visuelle (GO-VISUAL)",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (estUrgente : AG à attribuer + statut_tms non_envoye + date_collecte < now()+48h → badge URGENT + fond rose + tri urgent-first) ; packages/plateforme/src/components/ui/data-table.tsx (prop rowClassName) ; logique <48h aussi dans api/v1/admin/attributions-ag/pending/route.ts (flag criticite, testé)",
+      "test": "M2.3 / R11 ALGO-02 file criticité (packages/plateforme/tests/api/admin/algo-attribution-ag-r11.m2-3.test.ts) — criticite true <48h / false sinon (même logique que estUrgente). Badge URGENT + fond rose sur Collectes = preuve-visuelle (GO-VISUAL)",
       "statut": "implemented",
-      "libelle": "Criticité <48h / badge URGENT / pré-tri (le tri date ASC place déjà les urgents en tête)"
+      "libelle": "Criticité <48h / badge URGENT / tri urgent-first — intégré à la page Collectes (décision Val 2026-06-30, ex-page file d'attente supprimée)"
     },
     {
       "id": "BL-P1-ALGO-03",

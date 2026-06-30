@@ -24,6 +24,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .select(
       `id, type, statut, statut_tms, dirty_tms, date_collecte, heure_collecte,
        nb_camions_demande, tms_reference, created_at,
+       attributions_antgaspi!collecte_id(id),
        evenements!inner(
          organisation_id, nom_evenement, pax,
          organisations!organisation_id(raison_sociale),
@@ -44,10 +45,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   } else if (chip === 'dirty_tms') {
     query = query.eq('dirty_tms', true).not('tms_reference', 'is', null);
   } else if (chip === 'ag_attente_attribution') {
+    // « Collectes à attribuer » = AG programmée SANS attribution encore (anti-jointure).
     query = query
       .eq('type', 'anti_gaspi')
-      .eq('statut_tms', 'non_envoye')
-      .in('statut', ['programmee', 'validee']);
+      .eq('statut', 'programmee')
+      .is('attributions_antgaspi', null);
   } else if (chip === 'zd_48h') {
     const now = new Date();
     const in48h = new Date(now.getTime() + 48 * 60 * 60 * 1000);

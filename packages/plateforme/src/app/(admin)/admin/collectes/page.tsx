@@ -21,6 +21,8 @@ interface Collecte {
   dirty_tms: boolean;
   date_collecte: string;
   heure_collecte: string;
+  // Présence d'attribution AG (to-one via contrainte unique) : null = à attribuer.
+  attributions_antgaspi: { id: string } | null;
   evenements: {
     nom_evenement: string | null;
     pax: number | null;
@@ -38,15 +40,19 @@ const CHIPS = [
   { key: 'ag_48h', label: 'AG 48h' },
 ];
 
-// Criticité (§06.09 §1 / ALGO-02) : collecte AG à attribuer ET à moins de 48h.
+// Collecte AG « à attribuer » : programmée et sans attribution encore (≈ « Créée »).
+// Une fois attribuée, elle a une ligne attributions_antgaspi → statut « Programmée ».
+function aAttribuer(row: Collecte): boolean {
+  return (
+    row.type === 'anti_gaspi' &&
+    row.statut === 'programmee' &&
+    row.attributions_antgaspi == null
+  );
+}
+
+// Criticité (§06.09 §1 / ALGO-02) : collecte à attribuer ET à moins de 48h.
 function estUrgente(row: Collecte): boolean {
-  if (
-    row.type !== 'anti_gaspi' ||
-    row.statut_tms !== 'non_envoye' ||
-    (row.statut !== 'programmee' && row.statut !== 'validee')
-  ) {
-    return false;
-  }
+  if (!aAttribuer(row)) return false;
   const ts = new Date(
     `${row.date_collecte}T${row.heure_collecte ?? '00:00:00'}`,
   ).getTime();
@@ -106,20 +112,22 @@ const columns: Column<Collecte>[] = [
             URGENT
           </Badge>
         )}
-        <StatusCollecte statut={row.statut as StatutCollecte} />
+        {aAttribuer(row) ? (
+          <Badge variant="neutral">Créée</Badge>
+        ) : (
+          <StatusCollecte statut={row.statut as StatutCollecte} />
+        )}
       </span>
     ),
   },
   {
     // §06.09 — accès direct à l'écran d'attribution AG depuis la liste collectes.
-    // Affiché pour les collectes AG en attente d'attribution (même définition que
-    // le chip « Collectes à attribuer » : anti_gaspi + non_envoye + programmee/validee).
+    // Affiché uniquement pour les collectes AG « à attribuer » (= « Créée » :
+    // programmée + sans attribution). Une fois attribuée, plus de bouton.
     key: 'attribution',
     header: '',
     render: (row) =>
-      row.type === 'anti_gaspi' &&
-      row.statut_tms === 'non_envoye' &&
-      (row.statut === 'programmee' || row.statut === 'validee') ? (
+      aAttribuer(row) ? (
         <Link
           href={`/admin/attributions-ag/${row.id}`}
           className="text-sm font-medium text-primary-600 hover:underline"

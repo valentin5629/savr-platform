@@ -14,6 +14,7 @@ describe('R12 statutCollecteDisplay — vue admin', () => {
     ['realisee', 'Réalisée'],
     ['realisee_sans_collecte', 'Sans excédents'],
     ['cloturee', 'Clôturée'],
+    ['annulation_demandee', 'Annulation demandée'],
     ['annulee', 'Annulée'],
     ['rejetee_par_prestataire', 'Rejetée'],
   ];

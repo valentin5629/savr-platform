@@ -4584,6 +4584,18 @@ export type Database = {
         }
         Returns: Json
       }
+      rpc_evaluer_auto_accept_ag: {
+        Args: { p_collecte_id: string }
+        Returns: Json
+      }
+      rpc_log_attribution_aucune_reco: {
+        Args: {
+          p_attribution_id: string
+          p_collecte_id: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       rpc_valider_attribution_ag: {
         Args: {
           p_association_id: string

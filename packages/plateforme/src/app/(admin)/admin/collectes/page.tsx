@@ -15,16 +15,24 @@ import {
 
 interface Collecte {
   id: string;
-  type: 'zd' | 'ag';
+  type: 'zero_dechet' | 'anti_gaspi';
   statut: string;
   statut_tms: string;
   dirty_tms: boolean;
   date_collecte: string;
   heure_collecte: string;
+  // Présence d'attribution AG (to-one via contrainte unique) : null = à attribuer.
+  attributions_antgaspi: { id: string } | null;
   evenements: {
     nom_evenement: string | null;
+    pax: number | null;
     organisations: { raison_sociale: string };
-    lieux: { nom: string; ville: string };
+    lieux: {
+      nom: string;
+      adresse_acces: string | null;
+      code_postal: string | null;
+      ville: string;
+    };
   };
 }
 
@@ -32,64 +40,120 @@ const CHIPS = [
   { key: 'non_transmises', label: 'Non transmises TMS' },
   { key: 'attente_prestataire', label: 'Attente prestataire' },
   { key: 'dirty_tms', label: 'Modifiées sans renvoi' },
-  { key: 'ag_attente_attribution', label: 'AG attente attribution' },
+  { key: 'ag_attente_attribution', label: 'Collectes à attribuer' },
   { key: 'zd_48h', label: 'ZD 48h' },
   { key: 'ag_48h', label: 'AG 48h' },
 ];
 
+// Collecte AG « à attribuer » : programmée et sans attribution encore (≈ « Créée »).
+// Une fois attribuée, elle a une ligne attributions_antgaspi → statut « Programmée ».
+function aAttribuer(row: Collecte): boolean {
+  return (
+    row.type === 'anti_gaspi' &&
+    row.statut === 'programmee' &&
+    row.attributions_antgaspi == null
+  );
+}
+
+// Criticité (§06.09 §1 / ALGO-02) : collecte à attribuer ET à moins de 48h.
+function estUrgente(row: Collecte): boolean {
+  if (!aAttribuer(row)) return false;
+  const ts = new Date(
+    `${row.date_collecte}T${row.heure_collecte ?? '00:00:00'}`,
+  ).getTime();
+  return Number.isFinite(ts) && ts < Date.now() + 48 * 60 * 60 * 1000;
+}
+
 const columns: Column<Collecte>[] = [
-  {
-    key: 'date_collecte',
-    header: 'Date',
-    render: (row) => (
-      <Link
-        href={`/admin/collectes/${row.id}`}
-        className="font-medium text-primary-700 hover:underline"
-      >
-        {new Date(row.date_collecte).toLocaleDateString('fr-FR')}
-      </Link>
-    ),
-  },
   {
     key: 'type',
     header: 'Type',
     render: (row) => (
-      <Badge variant={row.type === 'zd' ? 'success' : 'warning'}>
-        {row.type.toUpperCase()}
+      <Badge variant={row.type === 'zero_dechet' ? 'success' : 'warning'}>
+        {row.type === 'zero_dechet' ? 'ZD' : 'AG'}
       </Badge>
     ),
   },
   {
-    key: 'evenements',
+    key: 'date_collecte',
+    header: 'Date',
+    render: (row) => (
+      <div className="flex flex-col leading-tight">
+        <Link
+          href={`/admin/collectes/${row.id}`}
+          className="font-medium text-primary-700 hover:underline"
+        >
+          {new Date(row.date_collecte).toLocaleDateString('fr-FR')}
+        </Link>
+        {estUrgente(row) && (
+          <span className="text-[10px] font-bold uppercase text-savr-error-strong">
+            Urgent
+          </span>
+        )}
+      </div>
+    ),
+  },
+  {
+    key: 'heure_collecte',
+    header: 'Heure',
+    render: (row) => row.heure_collecte?.slice(0, 5) ?? '—',
+  },
+  {
+    key: 'traiteur',
     header: 'Traiteur',
     render: (row) => row.evenements.organisations.raison_sociale,
   },
   {
-    key: 'evenements',
+    key: 'pax',
+    header: 'Pax',
+    render: (row) => row.evenements.pax ?? '—',
+  },
+  {
+    key: 'lieu',
     header: 'Lieu',
-    render: (row) =>
-      `${row.evenements.lieux.nom} — ${row.evenements.lieux.ville}`,
+    render: (row) => {
+      const l = row.evenements.lieux;
+      const adresse = [
+        l.adresse_acces,
+        [l.code_postal, l.ville].filter(Boolean).join(' '),
+      ]
+        .filter(Boolean)
+        .join(', ');
+      return (
+        <div className="flex flex-col leading-tight">
+          <span className="font-medium text-savr-neutral-900">{l.nom}</span>
+          {adresse && (
+            <span className="text-xs text-savr-neutral-500">{adresse}</span>
+          )}
+        </div>
+      );
+    },
   },
   {
     key: 'statut',
     header: 'Statut',
-    render: (row) => <StatusCollecte statut={row.statut as StatutCollecte} />,
+    render: (row) =>
+      aAttribuer(row) ? (
+        <Badge variant="neutral">Créée</Badge>
+      ) : (
+        <StatusCollecte statut={row.statut as StatutCollecte} />
+      ),
   },
   {
-    key: 'statut_tms',
-    header: 'Statut TMS',
-    render: (row) => (
-      <div className="flex items-center gap-1">
-        <Badge variant="neutral" className="text-xs">
-          {row.statut_tms}
-        </Badge>
-        {row.dirty_tms && (
-          <Badge variant="warning" className="text-xs">
-            dirty
-          </Badge>
-        )}
-      </div>
-    ),
+    // §06.09 — accès direct à l'écran d'attribution AG depuis la liste collectes.
+    // Affiché uniquement pour les collectes AG « à attribuer » (= « Créée » :
+    // programmée + sans attribution). Une fois attribuée, plus de bouton.
+    key: 'attribution',
+    header: '',
+    render: (row) =>
+      aAttribuer(row) ? (
+        <Link
+          href={`/admin/attributions-ag/${row.id}`}
+          className="text-sm font-medium text-primary-600 hover:underline"
+        >
+          Attribuer →
+        </Link>
+      ) : null,
   },
 ];
 
@@ -124,13 +188,6 @@ export default function CollectesPage() {
     void fetchCollectes();
   }, [fetchCollectes]);
 
-  function exportCsv() {
-    const params = new URLSearchParams();
-    if (!chip && type) params.set('type', type);
-    if (!chip && statut) params.set('statut', statut);
-    window.open(`/api/v1/exports/collectes?${params}`);
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -141,9 +198,6 @@ export default function CollectesPage() {
           </h1>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" onClick={exportCsv}>
-            Exporter CSV
-          </Button>
           <Link href="/admin/collectes/nouvelle">
             <Button>
               <Plus className="h-4 w-4 mr-2" />
@@ -198,8 +252,8 @@ export default function CollectesPage() {
             }}
           >
             <option value="">Tous types</option>
-            <option value="zd">ZD</option>
-            <option value="ag">AG</option>
+            <option value="zero_dechet">ZD</option>
+            <option value="anti_gaspi">AG</option>
           </select>
           <select
             className="border border-savr-neutral-200 rounded-lg px-3 py-2 text-sm"
@@ -236,8 +290,12 @@ export default function CollectesPage() {
       ) : (
         <DataTable
           columns={columns}
-          data={collectes}
+          // Urgents (AG à attribuer < 48h) remontés en tête (§06.09 §1)
+          data={[...collectes].sort(
+            (a, b) => Number(estUrgente(b)) - Number(estUrgente(a)),
+          )}
           keyExtractor={(row) => row.id}
+          rowClassName={(r) => (estUrgente(r) ? 'bg-red-50' : '')}
           pagination={{ page, total, limit: 50, onPageChange: setPage }}
         />
       )}

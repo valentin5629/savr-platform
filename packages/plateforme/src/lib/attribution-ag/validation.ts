@@ -54,3 +54,28 @@ export async function validerAttributionAg(
 
   return data as ValiderAttributionResult;
 }
+
+/**
+ * BL-P1-ALGO-03 — Journalise `attribution_manuelle_aucune_reco` (CDC §06.09 §2
+ * « Cas aucune association éligible »). Appelé après une validation où l'algo
+ * n'avait proposé AUCUNE association (recherche libre). Best-effort : un échec
+ * d'audit ne doit pas faire échouer la validation déjà committée.
+ */
+export async function logAttributionAucuneReco(
+  collecteId: string,
+  attributionId: string,
+  userId: string,
+): Promise<void> {
+  const supabase = createAdminSupabaseClient();
+  const { error } = await supabase.rpc('rpc_log_attribution_aucune_reco', {
+    p_collecte_id: collecteId,
+    p_attribution_id: attributionId,
+    p_user_id: userId,
+  });
+  if (error) {
+    console.error(
+      '[attribution] log attribution_manuelle_aucune_reco KO',
+      error.message,
+    );
+  }
+}

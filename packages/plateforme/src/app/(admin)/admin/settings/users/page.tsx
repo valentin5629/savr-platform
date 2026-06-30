@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
 import { Users, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -94,6 +95,23 @@ export default function SettingsUsersPage() {
           <Plus className="w-4 h-4" />
           Inviter un membre
         </Button>
+      </div>
+
+      {/* Paramètres avancés (algo AG) — accès depuis la page Paramètres */}
+      <div className="flex flex-wrap items-center gap-4 rounded-md border border-savr-neutral-200 bg-savr-neutral-50 px-4 py-3 text-sm">
+        <span className="font-medium text-savr-neutral-700">Paramètres :</span>
+        <Link
+          href="/admin/parametres/algo-ag"
+          className="text-primary-600 hover:underline"
+        >
+          Paramètres algorithme →
+        </Link>
+        <Link
+          href="/admin/parametres/auto-accept"
+          className="text-primary-600 hover:underline"
+        >
+          Configuration auto-accept →
+        </Link>
       </div>
 
       {loading ? (

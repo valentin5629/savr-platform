@@ -9,22 +9,30 @@
   },
   "fichiers_produits": [
     "supabase/migrations/20260615240000_plateforme_m2_3_algo_attribution_ag.sql",
+    "supabase/migrations/20260630120000_plateforme_r11_algo_ag.sql",
     "supabase/tests/m2_3_algo_attribution_ag.test.sql",
+    "supabase/tests/r11_algo_ag.test.sql",
     "packages/plateforme/src/lib/attribution-ag/algo.ts",
     "packages/plateforme/src/lib/attribution-ag/validation.ts",
     "packages/plateforme/src/lib/attribution-ag/job.ts",
+    "packages/plateforme/src/lib/attribution-ag/auto-accept.ts",
     "packages/plateforme/src/app/api/v1/admin/attributions-ag/pending/route.ts",
     "packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/recommandation/route.ts",
     "packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/valider/route.ts",
     "packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/poids/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/auto-accept/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/associations/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/transporteurs/route.ts",
     "packages/plateforme/src/app/api/v1/admin/parametres-algo/route.ts",
     "packages/plateforme/src/app/api/v1/admin/config-auto-accept/route.ts",
     "packages/plateforme/src/app/api/cron/process-attributions-ag/route.ts",
-    "packages/plateforme/src/app/(admin)/admin/attributions-ag/page.tsx",
+    "packages/plateforme/vercel.json",
+    "packages/plateforme/src/components/ui/data-table.tsx",
     "packages/plateforme/src/app/(admin)/admin/attributions-ag/[collecteId]/page.tsx",
     "packages/plateforme/src/app/(admin)/admin/parametres/algo-ag/page.tsx",
     "packages/plateforme/src/app/(admin)/admin/parametres/auto-accept/page.tsx",
     "packages/plateforme/tests/api/admin/algo-attribution-ag.m2-3.test.ts",
+    "packages/plateforme/tests/api/admin/algo-attribution-ag-r11.m2-3.test.ts",
     "specs/manifests/M2.3.json"
   ],
   "tables_concernees": [
@@ -83,20 +91,23 @@
   ],
   "tests": {
     "pgtap": [
-      "supabase/tests/m2_3_algo_attribution_ag.test.sql (34 tests)"
+      "supabase/tests/m2_3_algo_attribution_ag.test.sql (39 tests)",
+      "supabase/tests/r11_algo_ag.test.sql (9 tests — R11 top3 province + audit aucune-reco + auto-accept)"
     ],
     "vitest": [
-      "packages/plateforme/tests/api/admin/algo-attribution-ag.m2-3.test.ts (13 tests)"
+      "packages/plateforme/tests/api/admin/algo-attribution-ag.m2-3.test.ts (13 tests)",
+      "packages/plateforme/tests/api/admin/algo-attribution-ag-r11.m2-3.test.ts (9 tests — R11 criticité/recherche libre/audit/auto-accept/cron)"
     ]
   },
   "divergences": [
     "DIV-5 (clair) : scénario test v1_appel_direct_everest_velo_express_service_75 (specs/tests ligne 658) cite service 75 mais l'adapter M2.5 utilise service 74 pour ag_velo_express. Migration et adapter alignés sur 74.",
     "DIV-6 (clair) : pack debit timing — brief module citait un débit dans la transaction de validation ; implémentation = réservation seule (set pack_antgaspi_id) à la validation, débit effectif (credits_consommes+1) délégué au trigger fn_trg_pack_debit_realisee existant (M2.1) au passage à realisee. Cohérent avec M2.1.",
-    "DIV-7 (clair) : config_auto_accept_ag — DDL cible V2 a type_evenement_id + actif ; DB réelle (migration M0.3) a organisation_id + transporteur_id + seuil_pax_min/max. Implémentation suit la DB réelle."
+    "DIV-7 (clair) : config_auto_accept_ag — DDL cible V2 a type_evenement_id + actif ; DB réelle (migration M0.3) a organisation_id + transporteur_id + seuil_pax_min/max. Implémentation suit la DB réelle.",
+    "DIV-8 (clair, R11) : filtre province §05 R2 « Grille tarifaire valide à la date de la collecte » NON implémentable en V1 — aucune table de grille/coût transporteur n'existe (les coûts logistiques = tms.*/V2, Dashboard Bloc 3 Coûts descopé V1.1). Les 4 autres filtres province sont câblés (actif + type_prestation AG + rayon + compat véhicule). Tracé : ~/Desktop/Obsidian Savr/_Divergences/M2.3_20260630.md → Cowork marque le filtre V2-only dans §05 R2."
   ],
   "hors_scope": [
     "Dispatch vers MTS-1 / Everest après attribution (géré par M2.5 adapter outbox consumer)",
-    "Auto-accept déclenchement automatique au cron (UI de configuration seule livrable M2.3)",
+    "Auto-accept : l'évaluation (rpc_evaluer_auto_accept_ag) + endpoint sont livrés (R11). Le déclenchement AUTOMATIQUE de l'algo/auto-accept à la confirmation de programmation reste hors M2.3 (cf. BL-P1-PROG-05, lot R12).",
     "Reporting attributions / KPIs (M3.x)",
     "Webhook attribution vers traiteur (V1.1)"
   ],
@@ -247,51 +258,59 @@
     },
     {
       "id": "BL-P1-ALGO-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "Top 3 transporteurs province"
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:63-83",
+      "artefact": "supabase/migrations/20260630120000_plateforme_r11_algo_ag.sql (fn_calculer_algo_attribution_ag : province LIMIT 1 → top 3 agrégés dans la clé `transporteurs`, tri distance ASC + nb_collectes ASC ; `transporteur`=top1 conservé ; + filtres §05 R2 ajoutés : `'ag' = ANY(p.type_prestation)` + compat véhicule `types_vehicules::type_vehicule <= lieux.type_vehicule_max`) ; packages/plateforme/src/app/(admin)/admin/attributions-ag/[collecteId]/page.tsx (liste province top 3 sélectionnable)",
+      "test": "R11-T1/T2/T3/T4 + T4b (ZD-only exclu, type_prestation) + T4c (véhicule incompatible exclu) + T4d/T4e (types_vehicules hors-enum → pas d'exception + exclu) (supabase/tests/r11_algo_ag.test.sql) — 3 transporteurs province éligibles + top1 le plus proche + rétro-compat `transporteur` + branche ag_province_proximite. UI liste = preuve-visuelle (GO-VISUAL)",
+      "statut": "implemented",
+      "libelle": "Top 3 transporteurs province (algo top 3 + filtres §05 R2 type_prestation/véhicule + liste sélectionnable Admin). Filtre grille tarifaire = V2 (référentiel coûts transporteur tms.*, hors V1 — cf. divergence DIV-8/M2.3_20260630)"
     },
     {
       "id": "BL-P1-ALGO-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
-      "artefact": null,
-      "test": null,
-      "statut": "à-vérifier",
-      "libelle": "Criticité <48h / badge URGENT / pré-tri"
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:36-39",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (estUrgente : AG à attribuer + statut_tms non_envoye + date_collecte < now()+48h → badge URGENT + fond rose + tri urgent-first) ; packages/plateforme/src/components/ui/data-table.tsx (prop rowClassName) ; logique <48h aussi dans api/v1/admin/attributions-ag/pending/route.ts (flag criticite, testé)",
+      "test": "M2.3 / R11 ALGO-02 file criticité (packages/plateforme/tests/api/admin/algo-attribution-ag-r11.m2-3.test.ts) — criticite true <48h / false sinon (même logique que estUrgente). Badge URGENT + fond rose sur Collectes = preuve-visuelle (GO-VISUAL)",
+      "statut": "implemented",
+      "libelle": "Criticité <48h / badge URGENT / tri urgent-first — intégré à la page Collectes (décision Val 2026-06-30, ex-page file d'attente supprimée)"
     },
     {
       "id": "BL-P1-ALGO-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "Recherche libre asso + audit aucune-reco"
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:77-80",
+      "artefact": "supabase/migrations/20260630120000_plateforme_r11_algo_ag.sql (rpc_log_attribution_aucune_reco) ; packages/plateforme/src/app/api/v1/admin/associations/route.ts (filtres capacite_min + habilitee 2041-GE) ; packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/valider/route.ts + src/lib/attribution-ag/validation.ts (logAttributionAucuneReco) ; [collecteId]/page.tsx (panel recherche libre asso)",
+      "test": "R11-T5/T6 (supabase/tests/r11_algo_ag.test.sql) audit attribution_manuelle_aucune_reco ; M2.3 / R11 ALGO-03 recherche libre association + audit aucune-reco (algo-attribution-ag-r11.m2-3.test.ts)",
+      "statut": "implemented",
+      "libelle": "Recherche libre association (ville/capacité/2041-GE) + audit attribution_manuelle_aucune_reco"
     },
     {
       "id": "BL-P1-ALGO-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "Recherche libre transporteur (impasse)"
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:86-92",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/attributions-ag/[collecteId]/page.tsx (panel recherche libre transporteur ouvert quand no_prestataire + motifs preset CDC §3 alignés) ; packages/plateforme/src/app/api/v1/admin/transporteurs/route.ts (filtre q réutilisé)",
+      "test": "M2.3 / R11 ALGO-04 recherche libre transporteur (algo-attribution-ag-r11.m2-3.test.ts) — filtre transporteurs par nom. Panel + motif obligatoire = preuve-visuelle (GO-VISUAL)",
+      "statut": "implemented",
+      "libelle": "Recherche libre transporteur (impasse aucun_prestataire) + motif obligatoire"
     },
     {
       "id": "BL-P1-ALGO-05",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "Cron `attribution.validee` + 3 actions async"
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:110-115",
+      "artefact": "packages/plateforme/vercel.json (cron /api/cron/process-attributions-ag */5). Les 3 actions async : email association + email transporteur (process-attributions-ag/route.ts → job.ts) + envoi ordre/dispatch (event collecte.creee → outbox-worker → adapter, câblé R5)",
+      "test": "M2.3 / R11 ALGO-05 cron registration (algo-attribution-ag-r11.m2-3.test.ts) — vercel.json déclare le cron ; emails couverts par M2.3 job + dispatch par BL-P0-08 (R5)",
+      "statut": "implemented",
+      "libelle": "Cron `attribution.validee` enregistré + 3 actions async (2 emails + dispatch outbox)"
     },
     {
       "id": "BL-P1-ALGO-06",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "Auto-accept déclenchement/non-déclenchement"
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:196-224",
+      "artefact": "supabase/migrations/20260630120000_plateforme_r11_algo_ag.sql (rpc_evaluer_auto_accept_ag : algo → match config_auto_accept_ag → rpc_valider_attribution_ag mode auto_accept valide_par NULL, sinon SINON) ; packages/plateforme/src/lib/attribution-ag/auto-accept.ts ; packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/auto-accept/route.ts (admin only)",
+      "test": "R11-T7/T8/T9 (supabase/tests/r11_algo_ag.test.sql) déclenche=true / mode auto_accept valide_par NULL / SINON=false ; M2.3 / R11 ALGO-06 auto-accept (algo-attribution-ag-r11.m2-3.test.ts) endpoint + 403 ops",
+      "statut": "implemented",
+      "libelle": "Auto-accept déclenchement/non-déclenchement (évaluation config_auto_accept_ag + branche SINON)"
+    },
+    {
+      "id": "M2.3-emplacement",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:20",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (chip « Collectes à attribuer » = file d'attribution intégrée + action « Attribuer → » par ligne AG → /admin/attributions-ag/[id] ; colonnes Type/Date/Heure/Traiteur/Pax/Lieu/Statut) ; packages/plateforme/src/app/(admin)/admin/settings/users/page.tsx (liens Paramètres algorithme + Configuration auto-accept) ; nav-config.ts (entrée Attributions AG retirée — décision Val 2026-06-30 : pas de page dédiée au menu, accès depuis Collectes)",
+      "test": "preuve-visuelle (GO-VISUAL) — chip « Collectes à attribuer » filtre les AG à attribuer, lien Attribuer → écran attribution (hors menu), liens algo/auto-accept sous Paramètres. Décision Val 2026-06-30 (intégration dans Collectes plutôt que page dédiée — divergence §06.09 §1 à tracer).",
+      "statut": "à-vérifier",
+      "libelle": "Accès à l'attribution AG intégré à Collectes (filtre + lien) + paramètres algo sous Paramètres — emplacement §06.09 §1 (intégration Val 2026-06-30)"
     },
     {
       "id": "BL-P1-ALGO-07",

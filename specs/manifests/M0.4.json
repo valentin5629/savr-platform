@@ -11,6 +11,7 @@
     "SIRET valide → 201",
     "INSEE injoignable",
     "mot de passe trop faible → 422",
+    "update-password : politique mot de passe au reset",
     "SIRET déjà rattaché (pré-check) → 409",
     "enqueue planifie une ligne en_attente au 1er palier",
     "entité verifie + file resolu",
@@ -38,8 +39,8 @@
     {
       "id": "BL-P1-ONB-01",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:73",
-      "artefact": "packages/plateforme/src/app/api/auth/signup/route.ts (champ siret requis sur chemin création + verifySiret synchrone : echec→422, down→en_attente+enqueue, verifie→verifie ; plus de siret:'') + packages/shared/src/api/siret.ts (isValidSiretFormat 14 chiffres) + packages/plateforme/src/lib/password.ts (validatePasswordStrength : 10c + maj + chiffre + spécial, §09 l.84-85) + supabase/config.toml (minimum_password_length 10)",
-      "test": "packages/plateforme/tests/api/auth/signup.test.ts « M0.4 — SIRET au signup + vérif synchrone (BL-P1-ONB-01) » (SIRET valide→201/verifie ; format→422 ; echec→422 ; down→201 en_attente + enqueue ; mot de passe faible→422)",
+      "artefact": "packages/plateforme/src/app/api/auth/signup/route.ts (champ siret requis sur chemin création + verifySiret synchrone : echec→422, down→en_attente+enqueue, verifie→verifie ; plus de siret:'') + packages/shared/src/api/siret.ts (isValidSiretFormat 14 chiffres) + packages/plateforme/src/lib/password.ts (validatePasswordStrength : 10c + maj + chiffre + spécial, §09 l.84-85) + packages/plateforme/src/app/api/auth/update-password/route.ts (même helper appliqué au reset/changement — A1 signup+reset) + supabase/config.toml (minimum_password_length 10)",
+      "test": "packages/plateforme/tests/api/auth/signup.test.ts « M0.4 — SIRET au signup + vérif synchrone (BL-P1-ONB-01) » (SIRET valide→201/verifie ; format→422 ; echec→422 ; down→201 en_attente + enqueue ; mot de passe faible→422) + packages/plateforme/tests/api/auth/update-password.m0-4.test.ts « M0.4 — update-password : politique mot de passe au reset (A1) »",
       "statut": "implemented",
       "libelle": "SIRET collecté au signup + vérif INSEE synchrone bloquante sur echec seul (down jamais bloquant) + politique mot de passe"
     },

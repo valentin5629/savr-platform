@@ -365,7 +365,9 @@ async function creerNouvelleOrga(
       siret_verification: siretVerification,
       siret_verifie_le:
         siretVerification === 'verifie' ? new Date().toISOString() : null,
-      tva_verification: 'en_attente',
+      // Aucun n° TVA collecté au signup → non_applicable (jamais bloquant, §15 §2.6
+      // l.73). Le n° TVA est renseigné/vérifié ultérieurement (Mon organisation / Admin).
+      tva_verification: 'non_applicable',
     })
     .select('id')
     .single();

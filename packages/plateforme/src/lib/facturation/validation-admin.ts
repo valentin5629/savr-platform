@@ -181,13 +181,16 @@ export async function validerFacture(
   // que l'entité de facturation n'est pas validée (SIRET vérifié).
   const ef = f.entites_facturation;
   const validation = requireValidatedOrganisation(ef);
-  if (!validation.ok || !ef) {
+  if (!validation.ok) {
+    return { ok: false, statut: 'brouillon', erreur: validation.raison };
+  }
+  // Inatteignable (validation.ok ⇒ ef non-null) — garde de narrowing TS pour les
+  // accès `ef.*` ci-dessous.
+  if (!ef) {
     return {
       ok: false,
       statut: 'brouillon',
-      erreur: validation.ok
-        ? 'SIRET non vérifié — envoi Pennylane bloqué'
-        : validation.raison,
+      erreur: 'SIRET non vérifié — envoi Pennylane bloqué',
     };
   }
 

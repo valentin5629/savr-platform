@@ -1,7 +1,5 @@
 # 09 - Flux algo attribution AG (Admin)
 
-**Statut** : Validé V1
-**Dernière mise à jour** : 2026-04-21
 **Lié à** : [[05 - Règles métier]] §2 — Algorithme d'attribution Anti-Gaspi · [[04 - Data Model]] tables `attributions_antgaspi`, `associations`, `transporteurs`, `parametres_algo`
 
 ---
@@ -14,29 +12,20 @@ Ce module est exclusivement accessible par le profil `admin_savr`.
 
 ---
 
-## 1. File d'attente des attributions à valider
+## 1. Accès à l'attribution AG — intégré à la page Collectes (refonte UX 2026-06-30)
 
 ### Emplacement
-Page dédiée dans le back-office Admin Savr : **Collectes AG → Attributions à valider**.
+> **Refonte UX 2026-06-30 (divergence ATTRIBUTION-EMPLACEMENT)** : il n'y a **plus de page dédiée « Attributions à valider » dans le menu**. L'accès à l'attribution AG est **intégré à la page Collectes** du back-office Admin.
 
-### Affichage
-Tableau chronologique trié par **créneau de collecte le plus proche** (colonne `collectes.date_collecte` ASC). Navigation par scroll vertical.
+- Un **filtre / chip « Collectes à attribuer »** sur `/admin/collectes` liste les collectes AG en attente d'attribution (= ex-file d'attente : `type = anti_gaspi` + `statut_tms = non_envoye` + statut `programmee`/`validee`).
+- Chaque ligne AG porte un bouton **« Attribuer → »** menant à l'écran d'attribution `/admin/attributions-ag/[collecteId]` (§2). Cet écran **ne figure pas dans le menu de gauche** : on y accède uniquement depuis la liste Collectes.
+- Les **« Paramètres algorithme »** et la **« Configuration auto-accept »** (auparavant rattachés à la file d'attente) sont déplacés sous la page **Paramètres** du menu principal.
 
-Colonnes du tableau :
+### Affichage (liste Collectes)
+Colonnes de la liste Collectes, dans l'ordre (décision Val 2026-06-30) : **Type · Date · Heure · Traiteur · Pax · Lieu · Statut · bouton Attribuer**. La colonne « Statut TMS » est **retirée de cette vue**. Le filtre « Collectes à attribuer » restreint la liste aux collectes AG en attente d'attribution, triées par **créneau de collecte le plus proche** (`collectes.date_collecte` ASC).
 
-| Colonne | Source | Notes |
-|---------|--------|-------|
-| Créneau | `collectes.date_collecte` + `collectes.heure_collecte` | Format : "Jeu 23 Avr · 08h30" — **correction 2026-05-03 audit cohérence Run 5** : ancienne référence `heure_debut` corrigée (renommage colonne effectué revue sobriété M05 2026-04-29, dette propagée). |
-| Événement | `evenements.nom` | Lien cliquable vers le détail |
-| Client (programmateur) | `organisations.nom` (`evenements.organisation_id`) | **Précision 2026-05-07** : peut être un traiteur, une agence ou un gestionnaire de lieux. Affichage du type sous le nom (badge). Le crédit AG sera décompté sur le pack de cette organisation. |
-| Traiteur opérationnel | `organisations.nom` (`evenements.traiteur_operationnel_organisation_id`) | **Ajout 2026-05-07** — Affiché si différent du programmateur. Sert au matching algo (zone géographique = lieu, pas traiteur). Si fiche shadow, badge orange "Hors référentiel". |
-| Lieu | `lieux.nom` | |
-| Volume estimé (repas) | `collectes.volume_estime_repas` | |
-| Statut | `attributions_antgaspi` présente ou non | "En attente" / "Recommandation prête" |
-| Indicateur criticité | Calculé | Rouge si `date_collecte < now() + 48h` ET attribution non validée |
-
-### Indicateur rouge < 48h
-Badge rouge "URGENT" sur la ligne + ligne surlignée en fond rose pâle. Toutes les lignes urgentes sont automatiquement remontées en haut du tableau, avant le tri chronologique général. Il n'y a pas de notification email Admin pour ce seuil en V1 (traitement visuel uniquement).
+### Indicateur criticité < 48h (reporté sur « Collectes à attribuer » — décision Val 2026-06-30)
+La criticité < 48h vit désormais sur la vue filtrée « Collectes à attribuer » de la page Collectes (la page dédiée disparaît) : badge rouge **« URGENT »** sur la ligne + ligne surlignée (fond rose pâle) si `date_collecte < now() + 48h` ET attribution non validée. Les lignes urgentes sont **automatiquement remontées en tête** de la liste filtrée, avant le tri chronologique général. Pas de notification email Admin pour ce seuil en V1 (traitement visuel uniquement).
 
 ---
 
@@ -71,6 +60,8 @@ La sélection du transporteur AG suit **deux logiques distinctes selon la régio
 
 - **Lieu en Île-de-France** → application des **règles d'attribution dur §2.3** (3 branches A Toutes!/Marathon). Pas de top 3 affiché : la branche retourne un transporteur unique avec un motif explicite (bandeau "Branche AG Marathon nuit", "Branche AG vélo express", etc.). L'Admin peut overrider avec motif obligatoire (cf. §3).
 - **Lieu hors Île-de-France** → scoring distance + véhicule compatible (cf. [[05 - Règles métier#Critères de scoring — Transporteur]]). Top 3 affiché, sélection par l'Admin, override avec motif si choix ≠ top 1.
+
+**Précision périmètre V1 (filtres province — 2026-06-30, divergence M2.3)** : la **validité de grille tarifaire transporteur n'est PAS un filtre V1**. Le référentiel de coûts/grilles par transporteur n'existe pas en V1 (il relève du Dashboard Bloc 3 Coûts sur `tms.*`, descopé V1.1 — cf. CLAUDE.md §3). Les filtres d'éligibilité province réellement appliqués en V1 sont : `actif` + `type_prestation` contient `ag` + rayon (Haversine ≤ `rayon_intervention_km`) + compatibilité véhicule/lieu ; le **tri** se fait sur distance ASC puis `nb_collectes_6_mois_cache` ASC. Un transporteur sans grille de coût peut donc figurer dans le top 3 (l'Admin valide, le coût étant calculé hors algo en V1.1+). Le filtre grille sera réintroduit en V2 quand le référentiel `tms.*` existera.
 
 **Précision conceptuelle 2026-05-09** : A Toutes! et Marathon sont modélisés dans la table `transporteurs` (jamais dans `associations`). A Toutes! gère son propre transport via Everest, mais l'orchestration de l'ordre (Plateforme V1 / Savr TMS V2) reste centralisée — cf. §3 cascade de validation. La référence ancienne "association = A Toutes!" était un raccourci ambigu, supprimée pour cohérence avec les règles IDF dur §2.3.
 

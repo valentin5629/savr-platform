@@ -109,9 +109,9 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "21f0f41068e9dcc05a9fb265bf4700074ce2b61806ccfec3541775e0c9e4baa7",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "63c9e233eb1503c67ee703615ae1e75318fb460343bb9543ef6846bdc0105b39",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "cf69f909039e59a7257162491ae2fa9781ebb06357f4ddf875ccef4e4f404081",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "6b0ee4142abca504a65c6f8d8cb4648c69bc3eedc652ed0ea43b9bba5e2ecebb",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "9da8a15fbec4291363b2f7fcc6f366aa2c8b52e44ad08408ba6918715ac9aed2",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "f36eeebb461c2b0a489b04aa18d5e0e116a0ed18be010706d79278175e16aea9",
     "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "c5621bd507ac9bd795627426f65a8b1883c866d71c2350ac4fdec7facb9402c6",
     "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "08337c40ec142a761c950422e243e82a4f32123ab1af136891306a1988cf19bf"
   }

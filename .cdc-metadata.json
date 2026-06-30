@@ -72,8 +72,8 @@
       "bytes": 3410
     },
     "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": {
-      "sha256": "9effb599a9f18ce2c67834fd43f24d113b94e3f8762d324c7439ec6145755792",
-      "bytes": 288603
+      "sha256": "5a94d4b914cb245177720efa037453973fb0a36d5523bb08c0c5cf62ad36bf5b",
+      "bytes": 289358
     },
     "specs/cdc/01 - Cahier des charges App/04 - Espace client traiteur.md": {
       "sha256": "05bb568a11fd0baac5b10c4a8a84281f1d953857fd92efba513a8e925616737c",
@@ -92,8 +92,8 @@
       "bytes": 2699
     },
     "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": {
-      "sha256": "21f0f41068e9dcc05a9fb265bf4700074ce2b61806ccfec3541775e0c9e4baa7",
-      "bytes": 117501
+      "sha256": "6b0ee4142abca504a65c6f8d8cb4648c69bc3eedc652ed0ea43b9bba5e2ecebb",
+      "bytes": 117616
     },
     "specs/cdc/01 - Cahier des charges App/05 - Strategies optimisation.md": {
       "sha256": "d5b5913a7b2b1f0390ab243a2c15a038e76279b0e187461707a9b2ab308a77e2",
@@ -124,12 +124,12 @@
       "bytes": 8438
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": {
-      "sha256": "63c9e233eb1503c67ee703615ae1e75318fb460343bb9543ef6846bdc0105b39",
-      "bytes": 90312
+      "sha256": "9da8a15fbec4291363b2f7fcc6f366aa2c8b52e44ad08408ba6918715ac9aed2",
+      "bytes": 91676
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": {
-      "sha256": "cf69f909039e59a7257162491ae2fa9781ebb06357f4ddf875ccef4e4f404081",
-      "bytes": 49896
+      "sha256": "f36eeebb461c2b0a489b04aa18d5e0e116a0ed18be010706d79278175e16aea9",
+      "bytes": 50014
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": {
       "sha256": "a3d8cd45fde4b0489ffa5101a595460278442217a51cb3523fbce9e69a7dc000",
@@ -140,16 +140,16 @@
       "bytes": 23165
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": {
-      "sha256": "af2e1bee02ba67766a3d953c268679b7f89b8617fcec268bc9b516c47506f8dd",
-      "bytes": 37379
+      "sha256": "e7c153aa4e9c062e972b9f121ef7a0699dd9c72c6a2d3f7bd7dab9cbf2647d32",
+      "bytes": 38236
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md": {
-      "sha256": "18ccbee7e8f974811cc9b4839f0dcdc9d4c2cb1c1bbf1a296c4f05af0b98477b",
-      "bytes": 16912
+      "sha256": "e478ec643f520f5d708b1f5b3857410b29586f4ad302038e9851f4722ff7df83",
+      "bytes": 17393
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/_RAPPORT-EXPORT.md": {
-      "sha256": "02c00ec0e981735090ecc8915567245a623cabdc837b9c9eaded53d8a195c1d1",
-      "bytes": 576
+      "sha256": "88bbaa90aa5da61fa94b7ac9940bdddfe9e0dd4d19271ad2305a981e565247df",
+      "bytes": 336
     },
     "specs/cdc/01 - Cahier des charges App/06 - Monitoring perf prod.md": {
       "sha256": "7cc0e21a5d3fb591a4fa351f2ff37e939fe4b7320f980ef346ab86c759f867a6",
@@ -284,8 +284,8 @@
       "bytes": 24399
     },
     "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": {
-      "sha256": "da6231ce34f4c3841b48bcb9dc8f064f034fa4133b749089b343ded293e7006c",
-      "bytes": 25731
+      "sha256": "1d64d72cffde79652a34cbd80f44b1b52a07fc7790bf80b593fe6a483d25aa7e",
+      "bytes": 25511
     },
     "specs/cdc/01 - Cahier des charges App/11 - Espace client agence.md": {
       "sha256": "668ee341b2e8b98f1ba16485cd6b60e8c3fd031fa6a1a0af74e2dfa3668fa9bf",
@@ -336,8 +336,8 @@
       "bytes": 5111
     },
     "specs/cdc/01 - Cahier des charges App/_RAPPORT-EXPORT.md": {
-      "sha256": "e0b95ed1958dca8bb2deb84f2fd1a8405809e216d2da71b3842b3cd9df5831e4",
-      "bytes": 1029
+      "sha256": "649075b8abfbb7d2c1d0a5b3d2b4ca689c52da382b9c89f92ef960a64ce64265",
+      "bytes": 472
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.01-formulaire-programmation-scenarios.md": {
       "sha256": "eeef70254cf5cc4e306ee40ab56be7c41e102aa19b5a6fd8459b75c0a5a1db29",

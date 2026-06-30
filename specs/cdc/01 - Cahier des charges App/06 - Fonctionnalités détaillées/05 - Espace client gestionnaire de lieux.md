@@ -1,7 +1,5 @@
 # 05 - Espace client gestionnaire de lieux
 
-**Statut** : Validé V1 (session test-scenarios 2026-06-07 — 6 floues tranchées Val : F1 toggle notif collecte supprimé · F2 statut consolidé défini · F3 brouillons tiers exclus · F4 fenêtre `f_collecte_editable` sur UPDATE gestionnaire · F5 policies users org-wide · F6 factures SELECT self — cf. `tests/06.05-espace-gestionnaire-lieux-scenarios.md`)
-**Dernière mise à jour** : 2026-06-07
 **Lié à** : [[02 - Personas et cas d'usage]] · [[04 - Data Model]] tables `organisations`, `organisations_lieux`, `lieux`, `types_evenements`, `flux_dechets`, `coefficients_perte_labo` · [[05 - Règles métier#R_dechets_labo_estimes]] · [[06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte]] · [[06 - Fonctionnalités détaillées/04 - Espace client traiteur]] · [[11 - Dashboards]] · [[12 - Reporting et exports]] §1.6
 
 ---
@@ -324,7 +322,7 @@ Clic sur une ligne → vue consolidée en lecture seule (consultation pure, aucu
 - **Déchets labo estimés (kg)** *(ajout 2026-05-22)* — estimation du déchet produit en amont au laboratoire du traiteur = `pax × coefficient` du traiteur opérationnel pour l'année − 1 (cf. [[05 - Règles métier#R_dechets_labo_estimes]]). Affiché avec tooltip explicatif ("estimation amont, distincte des déchets collectés sur l'événement ci-dessous"). `—` si le traiteur n'a pas communiqué de coefficient pour l'année applicable. Le coefficient brut n'est jamais affiché, seule l'estimation kg.
 
 **Bloc collectes rattachées** : 1 sous-bloc par collecte (ZD et/ou AG), affichant :
-- Type (ZD / AG), date + heure début, statut (Programmée / Réalisée / Annulée) — mapping affichage *(décision F2 2026-06-07)* : `programmee`/`validee` → Programmée · `realisee`/`cloturee` → Réalisée · `annulee` → Annulée
+- Type (ZD / AG), date + heure début, **statut affiché côté client** — mapping canonique : voir [[04 - Espace client traiteur#Mapping d'affichage du statut collecte côté client (canonique — décision Val 2026-06-30, divergence UX-STATUTS)]]. Points clés : `programmee` → **Créée** (jamais « Programmée »), `validee` → Validée, `en_cours`/`realisee` → En cours, `cloturee` → **Réalisée**, `realisee_sans_collecte` → Sans excédents, `annulee`/`annulation_demandee` → Annulée. *(Supersède le mapping F2 2026-06-07 `programmee`/`validee` → Programmée · `realisee`/`cloturee` → Réalisée — décision Val 2026-06-30. UX-only, enum `collectes.statut` inchangé. Le « Statut consolidé » événement ci-dessus reste distinct.)*
 - **Pour ZD** : détail des pesées par flux (kg par flux pour les 5 flux ZD : `biodechet`, `emballage`, `carton`, `verre`, `dechet_residuel`), **taux de recyclage** de la collecte *(lecture directe `collectes.taux_recyclage`, formule à captation par filière)*
 - **Pour AG** : repas donnés, association(s) bénéficiaire(s) avec ville et distance, attribution(s)
 

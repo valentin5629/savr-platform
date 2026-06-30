@@ -1,7 +1,5 @@
 # 11 - Dashboards
 
-**Statut** : Validé
-**Dernière mise à jour** : 2026-06-07 (**Session test-scenarios lot ⑫ — F5 tranchée Val** : histogramme Revenus Bloc 2 = statuts factures `emise|payee`, avoirs en négatif. Scénarios : `tests/11-12-dashboards-reporting-scenarios.md`.) / Antérieure : 2026-06-03 (**Revue de sobriété §11 Dashboards — 4 items, zéro dette** : **A1** suppression des 4 vues matérialisées `mv_kpi_*` + cron 15 min (fantômes, absentes §04) → vues SQL non matérialisées `v_kpi_*` à la volée ; **B1** préférences filtres/période → `localStorage` (plus de table serveur) ; **B2** retrait onglet « Vue consolidée » du dashboard `client_organisateur` → bandeau de tête + nettoyage références stale (décisions L208 + agence) ; **C1** dédup « Export PDF dashboards Puppeteer » → source unique §12. Toutes modifs locales §11.) — *ex 2026-05-06 : Taux de recyclage indicateur unique ZD-only, cf. [[04 - Data Model]] addendum 2026-05-06 + [[05 - Règles métier#R_taux_recyclage]]*
 
 ---
 
@@ -66,6 +64,8 @@ Spec détaillée : voir [[06 - Fonctionnalités détaillées/06 - Back-office Ad
 ## 2. Dashboard `traiteur_manager` & `traiteur_commercial` *(refonte 2026-05-10 — alignement strict §06.05/§06.11)*
 
 **Source de vérité** : la spec détaillée du dashboard traiteur (onglets ZD/AG, 5 filtres globaux, blocs 1 à 8 par onglet) vit dans [[06 - Fonctionnalités détaillées/04 - Espace client traiteur#2. Dashboard de pilotage (page d'accueil)]]. Cette section est un résumé pour l'index dashboards.
+
+> **Libellés de statut collecte sur les dashboards client (décision Val 2026-06-30, divergence UX-STATUTS)** : tout statut de collecte affiché à un rôle client (traiteur, agence, gestionnaire de lieux, client organisateur — ex. blocs « Prochaines collectes ») suit le **mapping client canonique** de [[06 - Fonctionnalités détaillées/04 - Espace client traiteur#Mapping d'affichage du statut collecte côté client (canonique — décision Val 2026-06-30, divergence UX-STATUTS)]] : jamais « Programmée » (`programmee` → **Créée**), « Réalisée » = `cloturee`, le `realisee` DB reste **« En cours »**. UX-only, enum `collectes.statut` inchangé ; les dashboards **Admin** conservent la granularité complète (seul `brouillon` → « Créée »). Supersède F2 2026-06-07.
 
 ### Synthèse (commun aux deux profils, RLS adapté)
 

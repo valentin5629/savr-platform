@@ -322,6 +322,25 @@ Tableau filtrable (refonte 2026-05-05 — colonnes Événement supprimée, Lieu 
 
 > **Refonte 2026-05-05** : colonne `Événement` supprimée (nom événement reste accessible depuis la fiche collecte, dénomination événement aussi reprise dans le titre fiche). Surface tableau réduite, focus sur le lieu (info pilotante côté traiteur).
 
+#### Mapping d'affichage du statut collecte côté client (canonique — décision Val 2026-06-30, divergence UX-STATUTS)
+
+> **UX uniquement** : la table `collectes.statut` conserve ses valeurs d'enum, seul le **libellé affiché** change. Côté client (traiteur, agence, gestionnaire de lieux, client organisateur), l'utilisateur **ne voit jamais « Programmée »** et **« Réalisée » = `cloturee`** (le `realisee` DB reste affiché **« En cours »**). Cette table est la **source unique** référencée par §06.05, §06.11 et [[11 - Dashboards]]. Elle **supersède la décision F2 2026-06-07** (ancien mapping `programmee`/`validee` → Programmée, `realisee`/`cloturee` → Réalisée).
+
+| Statut DB (`collectes.statut`) | Libellé affiché côté client |
+| --- | --- |
+| `brouillon` | Créée |
+| `programmee` | Créée |
+| `validee` | Validée |
+| `en_cours` | En cours |
+| `realisee` | En cours |
+| `realisee_sans_collecte` | Sans excédents |
+| `cloturee` | **Réalisée** |
+| `annulation_demandee` | Annulée |
+| `annulee` | Annulée |
+| `rejetee_par_prestataire` | Créée (rejet = interne Ops, masqué) |
+
+> **Vue Admin** : granularité complète inchangée — seul `brouillon` est ré-étiqueté **« Créée »** (rename global admin + client). Le badge AG `realisee_sans_collecte` = libellé **« Sans excédents »** (cf. cas ci-dessous).
+
 **Cas "Aucun repas à collecter" (AG)** :
 
 **AG uniquement** — ce cas n'existe pas en ZD (il y a toujours des déchets à collecter). Quand le chauffeur déclare qu'il n'y a rien à collecter via l'app mobile TMS (webhook `collecte-terminee` avec `statut_final = realisee_sans_collecte`, voir [[02 - Cahier des charges TMS/03 - Périmètre fonctionnel TMS#M05]]), la ligne de collecte affiche :

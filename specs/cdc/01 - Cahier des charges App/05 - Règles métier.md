@@ -72,7 +72,7 @@ Pour chaque collecte Anti-Gaspi programmée, l'algorithme recommande une associa
 | Type prestation contient `ag` | `transporteurs.types_prestation` |
 | Distance Haversine ≤ `transporteurs.rayon_intervention_km` | Refonte 2026-05-08 — calcul depuis coords géocodées |
 | Compatibilité hiérarchique véhicule/lieu | Règle `R_compatibilite_vehicule_lieu` — au moins un `transporteurs.types_vehicules` ≤ `lieux.type_vehicule_max` |
-| Grille tarifaire valide à la date de la collecte | Référentiel grilles |
+| Grille tarifaire valide à la date de la collecte **(V2 — référentiel de coûts transporteur sur `tms.*`, hors V1 ; cf. Dashboard Bloc 3 Coûts descopé V1.1)** | Référentiel grilles |
 
 **Tri** :
 - Primaire : distance Haversine ASC

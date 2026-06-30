@@ -51,6 +51,8 @@ Différence : **pas de Registre réglementaire** (non producteur, cf. différenc
 
 Vue liste et fiche collecte identiques au §06.04, scopées sur le périmètre de l'agence (différence #1). **Unique ajout** : la **fiche collecte** affiche le traiteur opérationnel (différence #3), avec badge « Hors référentiel » cliquable → modal de complétion SIRET si fiche shadow.
 
+> **Affichage du statut collecte côté agence (décision Val 2026-06-30, divergence UX-STATUTS)** : l'agence est un rôle client → elle suit le **mapping client canonique** défini en [[04 - Espace client traiteur#Mapping d'affichage du statut collecte côté client (canonique — décision Val 2026-06-30, divergence UX-STATUTS)]] (jamais « Programmée » ; « Réalisée » = `cloturee` ; le `realisee` DB reste « En cours »). UX-only, enum `collectes.statut` inchangé.
+
 **Mécanique de complétion SIRET (décisions F2/F3/F4 test-scenarios lot ⑨ 2026-06-07, tranché Val)** :
 
 - **F2** : la modal appelle la RPC **`f_completer_siret_shadow(org_id, siret)`** (SECURITY DEFINER) — pas d'UPDATE RLS direct (§09 inchangé : « pas de droit UPDATE sur les fiches shadow »). Gardes internes : fiche cible `est_shadow=true` ET `cree_par_organisation_id = organisation de l'appelant` ET rôle `agence` ; **écrasement interdit** si `siret` déjà renseigné (exception) ; format SIRET 14 chiffres validé.

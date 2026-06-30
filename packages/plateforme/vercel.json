@@ -29,6 +29,10 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/cron/process-attributions-ag",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/polling-pennylane",
       "schedule": "0 3 * * *"
     },

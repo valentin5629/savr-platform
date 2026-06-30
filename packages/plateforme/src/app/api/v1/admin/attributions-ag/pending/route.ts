@@ -34,8 +34,24 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // BL-P1-ALGO-02 — Indicateur criticité (CDC §06.09 §1) : rouge si la collecte
+  // est à moins de 48h ET non encore attribuée. Le tri SQL date_collecte ASC place
+  // déjà les créneaux les plus proches (= les urgents) en tête de file ; on ajoute
+  // ici le drapeau `criticite` que l'UI utilise pour le badge "URGENT" + fond rose.
+  const seuil48h = Date.now() + 48 * 60 * 60 * 1000;
+  const rows = (data ?? []).map((row) => {
+    const r = row as Record<string, unknown>;
+    const dateStr = r.date_collecte as string;
+    const heureStr = (r.heure_collecte as string) ?? '00:00:00';
+    const ts = new Date(`${dateStr}T${heureStr}`).getTime();
+    return {
+      ...r,
+      criticite: Number.isFinite(ts) ? ts < seuil48h : false,
+    };
+  });
+
   return NextResponse.json({
-    data: data ?? [],
+    data: rows,
     total: count ?? 0,
     page,
     limit,

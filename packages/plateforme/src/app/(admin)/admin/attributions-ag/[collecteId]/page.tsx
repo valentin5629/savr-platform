@@ -10,6 +10,7 @@ import {
   MapPin,
   Users,
   Truck,
+  Search,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,10 +25,18 @@ interface AssociationSuggestion {
   contact_email: string;
 }
 
+interface TransporteurSuggestion {
+  id: string;
+  nom: string;
+  type_tms: string;
+  distance_km?: number;
+}
+
 interface AlgoResult {
   associations: AssociationSuggestion[];
   assoc_count: number;
-  transporteur: { id: string; nom: string; type_tms: string } | null;
+  transporteur: TransporteurSuggestion | null;
+  transporteurs: TransporteurSuggestion[];
   branche: string;
   is_idf: boolean;
   no_asso: boolean;
@@ -36,7 +45,42 @@ interface AlgoResult {
   nb_pax: number;
 }
 
-type ModeValidation = 'manuel_top1' | 'manuel_override';
+interface AssoRef {
+  id: string;
+  nom: string;
+  ville: string;
+  capacite_max_beneficiaires: number | null;
+  habilitee_attestation_fiscale: boolean;
+}
+
+interface TranspRef {
+  id: string;
+  nom: string;
+  type_tms: string;
+  ville: string;
+}
+
+// CDC §06.09 §3 — 6 motifs preset d'override (+ texte libre si 'autre').
+const MOTIFS_OVERRIDE: { code: string; libelle: string }[] = [
+  {
+    code: 'assoc_top1_surchargee',
+    libelle: 'Association top 1 surchargée cette semaine',
+  },
+  { code: 'client_demande', libelle: 'Demande spécifique client' },
+  {
+    code: 'transporteur_top1_indispo',
+    libelle: 'Transporteur top 1 indisponible',
+  },
+  {
+    code: 'a_toutes_indispo_locale',
+    libelle: 'A Toutes! indisponible localement',
+  },
+  {
+    code: 'proximite_acceptable',
+    libelle: 'Distance top 2/3 acceptable, choix opérationnel',
+  },
+  { code: 'autre', libelle: 'Autre — préciser' },
+];
 
 const BRANCHE_LABELS: Record<string, string> = {
   ag_marathon_nuit: 'Marathon — Nuit',
@@ -59,11 +103,27 @@ export default function AttributionDetailPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [selectedAsso, setSelectedAsso] = useState<string | null>(null);
-  const [mode, setMode] = useState<ModeValidation>('manuel_top1');
+  const [selectedAssoNom, setSelectedAssoNom] = useState<string | null>(null);
+  const [assoSource, setAssoSource] = useState<'reco' | 'libre'>('reco');
+  const [selectedTransp, setSelectedTransp] = useState<string | null>(null);
+  const [selectedTranspNom, setSelectedTranspNom] = useState<string | null>(
+    null,
+  );
+  const [transpSource, setTranspSource] = useState<'reco' | 'libre'>('reco');
+
   const [motif, setMotif] = useState('');
   const [motifLibre, setMotifLibre] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Recherche libre association (BL-P1-ALGO-03)
+  const [assoQuery, setAssoQuery] = useState('');
+  const [assoCapMin, setAssoCapMin] = useState('');
+  const [assoHabilitee, setAssoHabilitee] = useState(false);
+  const [assoResults, setAssoResults] = useState<AssoRef[]>([]);
+  // Recherche libre transporteur (BL-P1-ALGO-04)
+  const [transpQuery, setTranspQuery] = useState('');
+  const [transpResults, setTranspResults] = useState<TranspRef[]>([]);
 
   const loadAlgo = useCallback(async () => {
     setLoading(true);
@@ -78,9 +138,16 @@ export default function AttributionDetailPage() {
       }
       const json = (await res.json()) as { data: AlgoResult };
       setAlgo(json.data);
-      // Pré-sélectionner top 1
+      // Pré-sélectionner top 1 (asso + transporteur recommandés)
       if (json.data.associations.length > 0) {
         setSelectedAsso(json.data.associations[0]?.id ?? null);
+        setSelectedAssoNom(json.data.associations[0]?.nom ?? null);
+        setAssoSource('reco');
+      }
+      if (json.data.transporteur) {
+        setSelectedTransp(json.data.transporteur.id);
+        setSelectedTranspNom(json.data.transporteur.nom);
+        setTranspSource('reco');
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur inconnue');
@@ -93,10 +160,50 @@ export default function AttributionDetailPage() {
     void loadAlgo();
   }, [loadAlgo]);
 
+  // Override = choix asso hors top 1 OU transporteur hors recommandation OU
+  // recherche libre transporteur (impasse aucun_prestataire). Motif alors obligatoire.
+  const assoIsTop1 =
+    !!algo &&
+    algo.associations.length > 0 &&
+    selectedAsso === algo.associations[0]?.id;
+  const transpIsReco =
+    !!algo && !!algo.transporteur && selectedTransp === algo.transporteur.id;
+  const isOverride =
+    !!algo &&
+    (((algo.associations.length > 0 && !assoIsTop1) ||
+      (!!algo.transporteur && !transpIsReco) ||
+      transpSource === 'libre') as boolean);
+  const aucuneReco = !!algo && algo.no_asso && assoSource === 'libre';
+  const motifOk =
+    !isOverride ||
+    (motif !== '' && (motif !== 'autre' || motifLibre.length >= 10));
+
+  const searchAssos = async () => {
+    const p = new URLSearchParams({ actif: 'true' });
+    if (assoQuery) p.set('q', assoQuery);
+    if (assoCapMin) p.set('capacite_min', assoCapMin);
+    if (assoHabilitee) p.set('habilitee', 'true');
+    const res = await fetch(`/api/v1/admin/associations?${p.toString()}`);
+    if (res.ok) {
+      const json = (await res.json()) as { data: AssoRef[] };
+      setAssoResults(json.data);
+    }
+  };
+
+  const searchTransps = async () => {
+    const p = new URLSearchParams({ actif: 'true' });
+    if (transpQuery) p.set('q', transpQuery);
+    const res = await fetch(`/api/v1/admin/transporteurs?${p.toString()}`);
+    if (res.ok) {
+      const json = (await res.json()) as { data: TranspRef[] };
+      setTranspResults(json.data);
+    }
+  };
+
   const handleValider = async () => {
-    if (!algo?.transporteur || !selectedAsso) return;
-    if (mode === 'manuel_override' && !motif) {
-      setError('Motif override obligatoire');
+    if (!selectedAsso || !selectedTransp || !algo) return;
+    if (isOverride && !motifOk) {
+      setError('Motif override obligatoire (min 10 car. si « Autre »)');
       return;
     }
     setSubmitting(true);
@@ -109,11 +216,13 @@ export default function AttributionDetailPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             association_id: selectedAsso,
-            transporteur_id: algo.transporteur.id,
+            transporteur_id: selectedTransp,
             branche_attribution: algo.branche,
-            mode_validation: mode,
-            motif_override: mode === 'manuel_override' ? motif : undefined,
-            motif_override_libre: motifLibre || undefined,
+            mode_validation: isOverride ? 'manuel_override' : 'manuel_top1',
+            motif_override: isOverride ? motif : undefined,
+            motif_override_libre:
+              isOverride && motif === 'autre' ? motifLibre : undefined,
+            aucune_reco: aucuneReco,
           }),
         },
       );
@@ -129,6 +238,10 @@ export default function AttributionDetailPage() {
       setSubmitting(false);
     }
   };
+
+  // Liste transporteurs à présenter : top 3 (province) ou unique (IDF).
+  const transpList = algo?.transporteurs ?? [];
+  const showTranspList = transpList.length > 1; // province → choix multiple
 
   return (
     <div className="space-y-6">
@@ -172,12 +285,6 @@ export default function AttributionDetailPage() {
               Associations suggérées ({algo.assoc_count})
             </div>
 
-            {algo.no_asso && (
-              <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
-                Aucune association éligible trouvée pour ce créneau / volume.
-              </div>
-            )}
-
             {algo.associations.map((asso, idx) => (
               <Card
                 key={asso.id}
@@ -188,7 +295,8 @@ export default function AttributionDetailPage() {
                 }`}
                 onClick={() => {
                   setSelectedAsso(asso.id);
-                  setMode(idx === 0 ? 'manuel_top1' : 'manuel_override');
+                  setSelectedAssoNom(asso.nom);
+                  setAssoSource('reco');
                 }}
               >
                 <div className="flex items-start justify-between">
@@ -213,24 +321,108 @@ export default function AttributionDetailPage() {
                 </div>
               </Card>
             ))}
+
+            {/* BL-P1-ALGO-03 — Recherche libre association (aucune reco ou choix alternatif) */}
+            {algo.no_asso && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
+                Aucune association disponible pour ce créneau. Traitement manuel
+                requis.
+              </div>
+            )}
+            <details className="rounded-md border border-savr-neutral-200 p-3">
+              <summary className="cursor-pointer text-sm font-medium text-savr-neutral-700">
+                <Search className="mr-1 inline h-3.5 w-3.5" />
+                Choisir une autre association (recherche libre)
+              </summary>
+              <div className="mt-3 space-y-2">
+                <div className="flex flex-wrap gap-2">
+                  <input
+                    className="flex-1 rounded border border-savr-neutral-200 px-2 py-1 text-sm"
+                    placeholder="Ville ou nom…"
+                    value={assoQuery}
+                    onChange={(e) => setAssoQuery(e.target.value)}
+                  />
+                  <input
+                    className="w-28 rounded border border-savr-neutral-200 px-2 py-1 text-sm"
+                    placeholder="Capacité min"
+                    type="number"
+                    value={assoCapMin}
+                    onChange={(e) => setAssoCapMin(e.target.value)}
+                  />
+                  <label className="flex items-center gap-1 text-xs text-savr-neutral-600">
+                    <input
+                      type="checkbox"
+                      checked={assoHabilitee}
+                      onChange={(e) => setAssoHabilitee(e.target.checked)}
+                    />
+                    Habilitée 2041-GE
+                  </label>
+                  <Button size="sm" variant="secondary" onClick={searchAssos}>
+                    Rechercher
+                  </Button>
+                </div>
+                {assoResults.map((a) => (
+                  <button
+                    key={a.id}
+                    className={`flex w-full items-center justify-between rounded border px-2 py-1 text-left text-sm ${
+                      selectedAsso === a.id
+                        ? 'border-primary-500 bg-primary-50'
+                        : 'border-savr-neutral-200'
+                    }`}
+                    onClick={() => {
+                      setSelectedAsso(a.id);
+                      setSelectedAssoNom(a.nom);
+                      setAssoSource('libre');
+                    }}
+                  >
+                    <span>
+                      {a.nom}{' '}
+                      <span className="text-xs text-savr-neutral-500">
+                        · {a.ville}
+                      </span>
+                    </span>
+                    {a.habilitee_attestation_fiscale && (
+                      <Badge variant="neutral" dot={false}>
+                        2041-GE
+                      </Badge>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </details>
           </div>
 
           {/* Colonne droite : transporteur + validation */}
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-sm font-medium text-savr-neutral-700">
               <Truck className="h-4 w-4" />
-              Transporteur recommandé
+              Transporteur{' '}
+              {showTranspList ? 'recommandé (top 3)' : 'recommandé'}
             </div>
 
-            {algo.no_prestataire ? (
+            {algo.no_prestataire && (
               <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
-                Aucun prestataire disponible pour cette branche.
+                Aucun prestataire éligible — traitement manuel. Sélectionnez un
+                transporteur via la recherche libre ci-dessous.
               </div>
-            ) : algo.transporteur ? (
-              <Card className="border border-savr-neutral-200 p-4">
-                <p className="font-medium text-savr-neutral-900">
-                  {algo.transporteur.nom}
-                </p>
+            )}
+
+            {/* Province : top 3 sélectionnable ; IDF : transporteur unique (bandeau branche) */}
+            {transpList.map((t) => (
+              <Card
+                key={t.id}
+                className={`cursor-pointer border-2 p-4 transition-colors ${
+                  selectedTransp === t.id
+                    ? 'border-primary-500 bg-primary-50'
+                    : 'border-savr-neutral-200 hover:border-savr-neutral-300'
+                }`}
+                onClick={() => {
+                  setSelectedTransp(t.id);
+                  setSelectedTranspNom(t.nom);
+                  setTranspSource('reco');
+                }}
+              >
+                <p className="font-medium text-savr-neutral-900">{t.nom}</p>
                 <p className="mt-1 text-xs text-savr-neutral-500">
                   Branche :{' '}
                   <span className="font-medium">
@@ -239,19 +431,76 @@ export default function AttributionDetailPage() {
                 </p>
                 <p className="text-xs text-savr-neutral-500">
                   Zone : {algo.is_idf ? 'IDF' : 'Province'} · {algo.nb_pax} PAX
-                  ·{' '}
-                  {algo.delai_minutes < 60
-                    ? `${algo.delai_minutes} min`
-                    : `${Math.round(algo.delai_minutes / 60)} h`}
+                  {t.distance_km != null ? ` · ${t.distance_km} km` : ''}
                 </p>
               </Card>
-            ) : null}
+            ))}
 
-            {/* Mode validation override */}
-            {mode === 'manuel_override' && (
+            {/* BL-P1-ALGO-04 — Recherche libre transporteur (impasse aucun_prestataire ou override) */}
+            <details
+              className="rounded-md border border-savr-neutral-200 p-3"
+              open={algo.no_prestataire}
+            >
+              <summary className="cursor-pointer text-sm font-medium text-savr-neutral-700">
+                <Search className="mr-1 inline h-3.5 w-3.5" />
+                Choisir un autre transporteur (recherche libre)
+              </summary>
+              <div className="mt-3 space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    className="flex-1 rounded border border-savr-neutral-200 px-2 py-1 text-sm"
+                    placeholder="Nom du transporteur…"
+                    value={transpQuery}
+                    onChange={(e) => setTranspQuery(e.target.value)}
+                  />
+                  <Button size="sm" variant="secondary" onClick={searchTransps}>
+                    Rechercher
+                  </Button>
+                </div>
+                {transpResults.map((t) => (
+                  <button
+                    key={t.id}
+                    className={`flex w-full items-center justify-between rounded border px-2 py-1 text-left text-sm ${
+                      selectedTransp === t.id
+                        ? 'border-primary-500 bg-primary-50'
+                        : 'border-savr-neutral-200'
+                    }`}
+                    onClick={() => {
+                      setSelectedTransp(t.id);
+                      setSelectedTranspNom(t.nom);
+                      setTranspSource('libre');
+                    }}
+                  >
+                    <span>
+                      {t.nom}{' '}
+                      <span className="text-xs text-savr-neutral-500">
+                        · {t.ville}
+                      </span>
+                    </span>
+                    <Badge variant="neutral" dot={false}>
+                      {t.type_tms}
+                    </Badge>
+                  </button>
+                ))}
+              </div>
+            </details>
+
+            {/* Récapitulatif sélection */}
+            <div className="rounded-md border border-savr-neutral-200 bg-savr-neutral-50 p-3 text-xs text-savr-neutral-600">
+              Sélection : <strong>{selectedAssoNom ?? '—'}</strong> +{' '}
+              <strong>{selectedTranspNom ?? '—'}</strong>
+              {aucuneReco && (
+                <span className="ml-1 text-amber-700">
+                  (association hors recommandation — audité)
+                </span>
+              )}
+            </div>
+
+            {/* Motif override (obligatoire si override / recherche libre transporteur) */}
+            {isOverride && (
               <div className="space-y-2 rounded-md border border-amber-200 bg-amber-50 p-3">
                 <p className="text-xs font-medium text-amber-800">
-                  Sélection hors top 1 — motif override requis
+                  Choix hors recommandation — motif obligatoire
                 </p>
                 <select
                   className="w-full rounded border border-savr-neutral-200 px-2 py-1 text-sm"
@@ -259,19 +508,16 @@ export default function AttributionDetailPage() {
                   onChange={(e) => setMotif(e.target.value)}
                 >
                   <option value="">Choisir un motif…</option>
-                  <option value="asso_indisponible">
-                    Association top 1 indisponible
-                  </option>
-                  <option value="capacite_insuffisante">
-                    Capacité insuffisante
-                  </option>
-                  <option value="accord_prealable">Accord préalable</option>
-                  <option value="autre">Autre</option>
+                  {MOTIFS_OVERRIDE.map((m) => (
+                    <option key={m.code} value={m.code}>
+                      {m.libelle}
+                    </option>
+                  ))}
                 </select>
                 {motif === 'autre' && (
                   <textarea
                     className="w-full rounded border border-savr-neutral-200 px-2 py-1 text-sm"
-                    placeholder="Précision libre…"
+                    placeholder="Précision libre (min 10 caractères)…"
                     rows={2}
                     value={motifLibre}
                     onChange={(e) => setMotifLibre(e.target.value)}
@@ -283,10 +529,7 @@ export default function AttributionDetailPage() {
             <Button
               className="w-full"
               disabled={
-                !selectedAsso ||
-                !algo.transporteur ||
-                submitting ||
-                (mode === 'manuel_override' && !motif)
+                !selectedAsso || !selectedTransp || submitting || !motifOk
               }
               onClick={handleValider}
             >

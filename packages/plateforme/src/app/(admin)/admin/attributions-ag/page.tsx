@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Leaf, Clock, CheckCircle2, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { DataTable, type Column } from '@/components/ui/data-table';
+import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -13,6 +14,8 @@ interface CollectePending {
   heure_collecte: string;
   volume_estime_repas: number | null;
   statut: string;
+  // BL-P1-ALGO-02 — collecte à < 48h non attribuée (CDC §06.09 §1)
+  criticite?: boolean;
   evenements: {
     nom_evenement: string | null;
     pax: number;
@@ -26,13 +29,20 @@ const columnsPending: Column<CollectePending>[] = [
     key: 'date_collecte',
     header: 'Date collecte',
     render: (row) => (
-      <Link
-        href={`/admin/attributions-ag/${row.id}`}
-        className="font-medium text-primary-700 hover:underline"
-      >
-        {new Date(row.date_collecte).toLocaleDateString('fr-FR')} à{' '}
-        {row.heure_collecte.slice(0, 5)}
-      </Link>
+      <span className="flex items-center gap-2">
+        {row.criticite && (
+          <Badge variant="error" dot={false} className="shrink-0">
+            URGENT
+          </Badge>
+        )}
+        <Link
+          href={`/admin/attributions-ag/${row.id}`}
+          className="font-medium text-primary-700 hover:underline"
+        >
+          {new Date(row.date_collecte).toLocaleDateString('fr-FR')} à{' '}
+          {row.heure_collecte.slice(0, 5)}
+        </Link>
+      </span>
     ),
   },
   {
@@ -158,6 +168,7 @@ export default function AttributionsAgPage() {
           columns={columnsPending}
           data={pending}
           keyExtractor={(r) => r.id}
+          rowClassName={(r) => (r.criticite ? 'bg-red-50' : '')}
         />
       )}
 

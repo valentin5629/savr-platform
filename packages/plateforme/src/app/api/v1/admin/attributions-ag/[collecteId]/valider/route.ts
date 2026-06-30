@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/api-auth.js';
-import { validerAttributionAg } from '@/lib/attribution-ag/validation.js';
+import {
+  validerAttributionAg,
+  logAttributionAucuneReco,
+} from '@/lib/attribution-ag/validation.js';
 
 interface ValiderBody {
   association_id: string;
@@ -9,6 +12,9 @@ interface ValiderBody {
   mode_validation: 'manuel_top1' | 'manuel_override' | 'auto_accept';
   motif_override?: string;
   motif_override_libre?: string;
+  // BL-P1-ALGO-03 — true quand l'Admin valide via recherche libre faute de
+  // recommandation association (algo no_asso) → audit attribution_manuelle_aucune_reco.
+  aucune_reco?: boolean;
 }
 
 // POST /api/v1/admin/attributions-ag/[collecteId]/valider
@@ -66,6 +72,14 @@ export async function POST(
       motifOverride: body.motif_override,
       motifOverrideLibre: body.motif_override_libre,
     });
+    // BL-P1-ALGO-03 — audit aucune-reco (best-effort, hors transaction de validation)
+    if (body.aucune_reco === true) {
+      await logAttributionAucuneReco(
+        collecteId,
+        result.attribution_id,
+        auth.ctx.userId,
+      );
+    }
     return NextResponse.json({ data: result }, { status: 201 });
   } catch (err) {
     const error = err as Error & { code?: string };

@@ -119,3 +119,14 @@ docs/audit/*.mjs
 # (un fichier de types ne contient que des declarations). 'customerOrders' reste
 # banni (verifie : 0 occurrence).
 packages/shared/src/database.types.ts
+# supabase/migrations/20260630120000_* (R11) — CREATE OR REPLACE de
+# fn_calculer_algo_attribution_ag (corps copie de la source M2.3 ci-dessus + province
+# top 3) : 'mts1' = valeur enum type_tms dans le SELECT du transporteur, 'Everest' en
+# commentaires services 71/74/77/91 + rpc_evaluer_auto_accept_ag /
+# rpc_log_attribution_aucune_reco. Aucune logique adapter ni appel HTTP — le dispatch
+# passe par l'outbox (R5). 'customerOrders' reste banni.
+supabase/migrations/20260630120000_plateforme_r11_algo_ag.sql
+# supabase/tests/r11_algo_ag.test.sql (R11) — 'mts1' = valeur enum type_tms dans les
+# INSERT fixtures pgTAP (transporteurs province + Marathon). Pas de logique adapter.
+# 'customerOrders' reste banni.
+supabase/tests/r11_algo_ag.test.sql

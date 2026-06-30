@@ -12,6 +12,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const actif = searchParams.get('actif');
   const region = searchParams.get('region');
   const q = sanitizeOrTerm(searchParams.get('q') ?? ''); // C2 : neutralise l'injection .or
+  // BL-P1-ALGO-03 — recherche libre association (CDC §06.09 §2 « Choisir une autre
+  // association ») : filtres ville (q), capacité min, habilitation 2041-GE.
+  const capaciteMinRaw = searchParams.get('capacite_min');
+  const capaciteMin =
+    capaciteMinRaw !== null && capaciteMinRaw !== ''
+      ? parseInt(capaciteMinRaw, 10)
+      : null;
+  const habilitee = searchParams.get('habilitee'); // '2041-GE'
   const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
   const limit = 50;
   const offset = (page - 1) * limit;
@@ -25,6 +33,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (actif !== null) query = query.eq('actif', actif === 'true');
   if (region) query = query.eq('region', region);
   if (q) query = query.or(`nom.ilike.%${q}%,ville.ilike.%${q}%`);
+  if (capaciteMin !== null && Number.isFinite(capaciteMin))
+    query = query.gte('capacite_max_beneficiaires', capaciteMin);
+  if (habilitee === 'true' || habilitee === '2041-GE')
+    query = query.eq('habilitee_attestation_fiscale', true);
 
   const { data, error, count } = await query;
   if (error)

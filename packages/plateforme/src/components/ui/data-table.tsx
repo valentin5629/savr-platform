@@ -21,6 +21,8 @@ interface DataTableProps<T> {
   sortKey?: string;
   sortDirection?: 'asc' | 'desc';
   className?: string;
+  /** Classe CSS appliquée par ligne (ex. surlignage criticité). */
+  rowClassName?: (row: T) => string;
   pagination?: {
     page: number;
     total: number;
@@ -38,6 +40,7 @@ function DataTable<T>({
   sortKey,
   sortDirection,
   className,
+  rowClassName,
 }: DataTableProps<T>) {
   const handleSort = (key: string) => {
     if (!onSort) return;
@@ -111,7 +114,10 @@ function DataTable<T>({
             {data.map((row) => (
               <tr
                 key={keyExtractor(row)}
-                className="border-b border-savr-neutral-100 hover:bg-savr-neutral-50 transition-colors"
+                className={cn(
+                  'border-b border-savr-neutral-100 hover:bg-savr-neutral-50 transition-colors',
+                  rowClassName?.(row),
+                )}
               >
                 {columns.map((col) => (
                   <td
@@ -137,7 +143,10 @@ function DataTable<T>({
         {data.map((row) => (
           <div
             key={keyExtractor(row)}
-            className="bg-savr-white border border-savr-neutral-200 rounded-savr-md p-4 space-y-2"
+            className={cn(
+              'bg-savr-white border border-savr-neutral-200 rounded-savr-md p-4 space-y-2',
+              rowClassName?.(row),
+            )}
           >
             {columns.map((col) => (
               <div

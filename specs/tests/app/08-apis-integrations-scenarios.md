@@ -489,8 +489,8 @@ Scénario : mts1_polling_tous_tours_ko_collecte_reste_en_cours
 
 Scénario : resend_3_retries_epuises_statut_echec
   Étant donné un envoi email qui échoue en 5xx Resend
-    Et les retries à 1min et 10min échouent aussi
-    Et le retry à 1h échoue
+    Et les retries à 5min et 1h échouent aussi
+    Et le retry à 24h échoue
   Quand les 3 retries sont épuisés
   Alors emails_envoyes.statut = echec
     Et emails_envoyes.tentative_numero = 4

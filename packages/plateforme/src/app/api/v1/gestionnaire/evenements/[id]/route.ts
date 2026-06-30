@@ -4,6 +4,7 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
+import { statutCollecteDisplay } from '@/lib/statut-collecte-labels';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
@@ -90,10 +91,8 @@ function tailleBracket(pax: number): string {
   return 'XL';
 }
 
-// Mapping affichage statut collecte (décision F2 2026-06-07)
+// Mapping affichage statut collecte — vue client (décision Val 2026-06-30,
+// supersède F2 2026-06-07). Source unique : statutCollecteDisplay (libellés).
 function mapStatut(statut: string): string {
-  if (statut === 'programmee' || statut === 'validee') return 'Programmée';
-  if (statut === 'realisee' || statut === 'cloturee') return 'Réalisée';
-  if (statut === 'annulee') return 'Annulée';
-  return statut;
+  return statutCollecteDisplay(statut, 'client').label;
 }

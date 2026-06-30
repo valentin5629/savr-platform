@@ -6,6 +6,7 @@ import { use } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 
 interface LieuDetail {
   id: string;
@@ -182,7 +183,7 @@ export default function LieuDetailPage({
                       </Badge>
                     </td>
                     <td className="py-1">
-                      <Badge variant="neutral">{c.statut}</Badge>
+                      <CollecteStatutBadge statut={c.statut} />
                     </td>
                   </tr>
                 ))}

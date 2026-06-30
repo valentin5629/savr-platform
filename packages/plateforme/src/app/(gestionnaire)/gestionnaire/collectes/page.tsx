@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
+import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 
 interface CollecteRow {
   id: string;
@@ -70,7 +71,9 @@ export default function GestionnaireCollectesPage() {
                     </Badge>
                   </td>
                   <td className="px-3 py-2">
-                    {c.statut_consolide ?? c.statut}
+                    <CollecteStatutBadge
+                      statut={c.statut_consolide ?? c.statut}
+                    />
                   </td>
                 </tr>
               ))}

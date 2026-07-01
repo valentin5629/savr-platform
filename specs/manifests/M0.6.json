@@ -1134,6 +1134,38 @@
       "test": "ops_savr NE PEUT PAS s'auto-promouvoir admin_savr (escalade refusée)",
       "statut": "implemented",
       "libelle": "RLS ops column-level : anti-escalade users.role→admin_savr + colonnes/actions admin-only (factures montant + annulation, associations habilitation/désactivation, organisations tarif_refacture_pax_zd)"
+    },
+    {
+      "id": "M0.6-impersonation-banner-mount",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:46",
+      "artefact": "packages/plateforme/src/components/ui/impersonation-banner-mount.tsx (monté layout racine) + supabase/migrations/20260701120000_plateforme_r14_impersonation_claim.sql (hook injecte impersonator_id)",
+      "test": "packages/plateforme/src/components/ui/impersonation-banner-mount.test.tsx « M0.6 — bandeau impersonation » + supabase/tests/r14_impersonation_claim.test.sql",
+      "statut": "implemented",
+      "libelle": "Bandeau orange impersonation monté + claim impersonator_id (audit tracé)"
+    },
+    {
+      "id": "M0.6-tournee-siblings-not-exposed",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:163",
+      "artefact": "supabase/migrations/20260617180000_plateforme_fix_role_claim.sql (policy t_select via f_collecte_visible)",
+      "test": "supabase/tests/r14_tournee_siblings.test.sql (tournee_siblings_not_exposed)",
+      "statut": "implemented",
+      "libelle": "Cloisonnement tournees : tournée sœur d’une autre org non exposée"
+    },
+    {
+      "id": "M0.6-attestation-delete-deny",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:909",
+      "artefact": "supabase/migrations/20260701120100_plateforme_r14_attestation_no_delete.sql",
+      "test": "supabase/tests/rls_attestations_don_m2_4.test.sql (delete_attestation_deny)",
+      "statut": "implemented",
+      "libelle": "attestations_don : aucune policy DELETE (registre fiscal immuable)"
+    },
+    {
+      "id": "M0.6-impersonation-launcher-ui",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:901",
+      "artefact": "packages/plateforme/src/components/ui/impersonation-launcher.tsx (select users + bouton Impersoner, admin_savr only) monté sur packages/plateforme/src/app/(admin)/admin/clients/page.tsx",
+      "test": "packages/plateforme/src/components/ui/impersonation-launcher.test.tsx « M0.6 — lanceur impersonation admin (BL-P1-BOA-09) » (masqué non-admin, liste hors-soi, POST impersoner + navigation)",
+      "statut": "implemented",
+      "libelle": "Bouton + liste déroulante utilisateurs pour lancer l’impersonation (§09 §7 « Bouton Impersonate », volet UI BL-P1-BOA-09)"
     }
   ],
   "cdc_source_hash": {

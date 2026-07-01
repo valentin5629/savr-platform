@@ -3,7 +3,7 @@
 --         f_attribuer_numero_facture gapless, trigger avoir, RLS factures.
 
 BEGIN;
-SELECT plan(37);
+SELECT plan(38);
 
 -- ── Helpers simulation JWT (identiques à rls_0_4_smoke.test.sql) ─────────────
 
@@ -309,6 +309,37 @@ $$;
 SELECT ok(
   (SELECT count(*) FROM plateforme.v_factures_client) = 0,
   'v_factures_client : org B ne voit pas les factures d''org A (isolation cross-org)'
+);
+
+SELECT test_as_superuser();
+
+-- ── 11. v_factures_client — cas POSITIF : le manager voit les factures de SON org
+-- (test_factures_vue_client_non_vide_manager, AUTH-04) — complète le contrôle
+-- d'isolation négatif ci-dessus par la garantie que la vue n'est pas vide côté client.
+DO $$
+DECLARE
+  v_org_c uuid;
+  v_ef_c  uuid;
+  v_uid_c uuid := gen_random_uuid();
+BEGIN
+  INSERT INTO plateforme.organisations (id, nom, type)
+  VALUES (gen_random_uuid(), 'Org C (vue client non-vide)', 'traiteur')
+  RETURNING id INTO v_org_c;
+
+  INSERT INTO plateforme.entites_facturation (id, organisation_id, raison_sociale, siret, adresse_facturation, code_postal, ville)
+  VALUES (gen_random_uuid(), v_org_c, 'EF C', '00000000000005', '5 rue test', '75005', 'Paris')
+  RETURNING id INTO v_ef_c;
+
+  INSERT INTO plateforme.factures (id, organisation_id, entite_facturation_id, statut, montant_ht, taux_tva, montant_tva, montant_ttc, devise)
+  VALUES (gen_random_uuid(), v_org_c, v_ef_c, 'emise', 500, 20, 100, 600, 'EUR');
+
+  PERFORM test_set_jwt('traiteur_manager', v_org_c, v_uid_c);
+END;
+$$;
+
+SELECT ok(
+  (SELECT count(*) FROM plateforme.v_factures_client) > 0,
+  'test_factures_vue_client_non_vide_manager : traiteur_manager voit les factures de son org (vue non vide)'
 );
 
 SELECT test_as_superuser();

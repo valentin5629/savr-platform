@@ -5,7 +5,7 @@
 
 BEGIN;
 
-SELECT plan(17);
+SELECT plan(19);
 
 -- ─── Helpers JWT (pattern canonique repo) ──────────────────────────────────
 
@@ -210,6 +210,21 @@ SELECT is(
   (SELECT count(*)::int FROM plateforme.attestations_don),
   2,
   'T4 : admin_savr voit toutes les attestations (2)'
+);
+
+-- AUTH-02 (delete_attestation_deny) : l'attestation de don (Cerfa 2041-GE) est un
+-- document fiscal immuable — aucune policy DELETE (att_admin scindé, migration
+-- 20260701120100). Le DELETE ne lève pas mais n'affecte 0 ligne (RLS DENY résiduel).
+SELECT lives_ok(
+  $$DELETE FROM plateforme.attestations_don WHERE id = 'f0000000-0000-0000-0001-000000000002'$$,
+  'delete_attestation_deny : DELETE admin_savr ne lève pas (RLS filtre silencieusement)'
+);
+
+SELECT is(
+  (SELECT count(*)::int FROM plateforme.attestations_don
+   WHERE id = 'f0000000-0000-0000-0001-000000000002'::uuid),
+  1,
+  'delete_attestation_deny : attestation TOUJOURS présente après DELETE admin (aucune policy DELETE)'
 );
 
 -- T5/T5b : admin_savr peut UPDATE

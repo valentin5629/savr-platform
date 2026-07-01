@@ -78,34 +78,34 @@
     },
     {
       "id": "BL-P1-AUTH-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:898",
+      "artefact": "packages/plateforme/src/app/auth/impersonate-callback/route.ts + supabase/migrations/20260701120000_plateforme_r14_impersonation_claim.sql + packages/plateforme/src/app/api/auth/exit-impersonation/route.ts + packages/plateforme/src/components/ui/impersonation-banner-mount.tsx (monté layout racine) + packages/plateforme/src/app/api/v1/admin/users/[id]/impersoner/route.ts",
+      "test": "packages/plateforme/tests/api/auth/impersonate.test.ts « M0.4 — impersonate callback / exit impersonation » + supabase/tests/r14_impersonation_claim.test.sql (hook injecte impersonator_id, fenêtre 1h) + packages/plateforme/src/components/ui/impersonation-banner-mount.test.tsx « M0.6 — bandeau impersonation » + supabase/tests/audit_trail.m0-10.test.sql (T14/T15 : action en session impersonée → audit_log.impersonator_id=admin ET user_id=user impersoné, chaîne bout-en-bout §09 §7 l.904)",
+      "statut": "implemented",
       "libelle": "Cluster impersonation (chaîne rompue)"
     },
     {
       "id": "BL-P1-AUTH-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:909",
+      "artefact": "supabase/migrations/20260701120100_plateforme_r14_attestation_no_delete.sql (att_admin scindé SELECT/INSERT/UPDATE, pas de DELETE)",
+      "test": "supabase/tests/rls_attestations_don_m2_4.test.sql (delete_attestation_deny : DELETE admin_savr filtré, attestation conservée)",
+      "statut": "implemented",
       "libelle": "`attestations_don` DELETE policy"
     },
     {
       "id": "BL-P1-AUTH-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:144",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/users/[id]/route.ts (ops peut suspendre/réassigner rôle non-admin ; seule promotion admin_savr réservée admin)",
+      "test": "packages/plateforme/tests/api/admin/users.m1-1a.test.ts « M0.4 — gating ops users (BL-P1-AUTH-03) » (ops réassigne non-admin→200, ops promeut admin→403, ops touche admin→403, admin promeut→200)",
+      "statut": "implemented",
       "libelle": "Gating ops `users` trop restrictif (divergence §09)"
     },
     {
       "id": "BL-P1-AUTH-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:163",
+      "artefact": "supabase/tests/m1_7_facturation.test.sql + supabase/tests/r14_tournee_siblings.test.sql",
+      "test": "supabase/tests/m1_7_facturation.test.sql (test_factures_vue_client_non_vide_manager) + supabase/tests/r14_tournee_siblings.test.sql (tournee_siblings_not_exposed)",
+      "statut": "implemented",
       "libelle": "2 tests pgTAP nommés absents"
     },
     {

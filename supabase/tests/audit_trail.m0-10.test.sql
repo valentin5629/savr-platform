@@ -5,7 +5,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(13);
+SELECT plan(15);
 
 -- Helpers (identiques aux autres fichiers de test)
 CREATE OR REPLACE FUNCTION test_set_jwt(
@@ -338,6 +338,76 @@ SELECT results_eq(
 );
 
 -- =====================================================================
+-- T14/T15 (R14 · BL-P1-AUTH-01) — Chaîne impersonation bout-en-bout :
+-- une action réalisée en session IMPERSONÉE (JWT sub=user + impersonator_id=admin)
+-- déclenche un trigger audité → audit_log.impersonator_id = admin ET user_id = user.
+-- Preuve que fn_audit_insert lit le claim impersonator_id (injecté par le hook) et
+-- le persiste (§09 §7 l.904 : « chaque action ... user_id ET impersonator_id »).
+-- =====================================================================
+
+SELECT test_as_superuser();
+
+-- Admin impersonateur réel (audit_log.impersonator_id porte une FK → plateforme.users).
+INSERT INTO plateforme.users (id, organisation_id, email, prenom, nom, role)
+VALUES ('a09f00ad-0000-0000-0000-000000000001'::uuid, 'a09f0001-0000-0000-0000-000000000001'::uuid, 'admin@audit.test', 'Admin', 'Savr', 'admin_savr');
+
+-- Fixtures fraîches (lieu/collecte non touchés par les cascades précédentes).
+INSERT INTO plateforme.lieux (id, nom, adresse_acces, code_postal, ville, type_vehicule_max)
+VALUES ('a09f0010-0000-0000-0000-000000000001'::uuid, 'Salle Imperso', '10 rue imperso', '75010', 'Paris', 'fourgon');
+
+INSERT INTO plateforme.evenements (
+  id, organisation_id, lieu_id, traiteur_operationnel_organisation_id,
+  entite_facturation_id, created_by, type_evenement_id,
+  date_evenement, pax, contact_principal_nom, contact_principal_telephone
+) VALUES (
+  'a09f0011-0000-0000-0000-000000000001'::uuid,
+  'a09f0001-0000-0000-0000-000000000001'::uuid,
+  'a09f0010-0000-0000-0000-000000000001'::uuid,
+  'a09f0001-0000-0000-0000-000000000001'::uuid,
+  'a09f0004-0000-0000-0000-000000000001'::uuid,
+  'a09f0003-0000-0000-0000-000000000001'::uuid,
+  'a09f0002-0000-0000-0000-000000000001'::uuid,
+  now() + interval '9 days', 60, 'Imperso Contact', '0600000010'
+);
+
+INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte)
+VALUES ('a09f0012-0000-0000-0000-000000000001'::uuid, 'a09f0011-0000-0000-0000-000000000001'::uuid, 'zero_dechet', 'programmee', 'non_envoye', current_date + 9, '08:00');
+
+-- Session impersonée : le traiteur_manager (a09f0003) de l'org, avec le claim
+-- impersonator_id = admin (b0b0...). Rôle applicatif = celui du user impersoné.
+SELECT set_config('request.jwt.claims', json_build_object(
+  'sub', 'a09f0003-0000-0000-0000-000000000001',
+  'user_role', 'traiteur_manager',
+  'organisation_id', 'a09f0001-0000-0000-0000-000000000001',
+  'impersonator_id', 'a09f00ad-0000-0000-0000-000000000001',
+  'app_domain', 'plateforme'
+)::text, true);
+SELECT set_config('role', 'authenticated', true);
+
+-- Action éditable par le traiteur_manager sur sa collecte → déclenche la cascade auditée.
+UPDATE plateforme.collectes
+SET controle_acces_requis = true
+WHERE id = 'a09f0012-0000-0000-0000-000000000001'::uuid;
+
+SELECT test_as_superuser();
+
+SELECT is(
+  (SELECT impersonator_id FROM plateforme.audit_log
+   WHERE action = 'controle_acces_cascade_upgrade'
+     AND record_id = 'a09f0012-0000-0000-0000-000000000001'::uuid
+   LIMIT 1),
+  'a09f00ad-0000-0000-0000-000000000001'::uuid,
+  'T14 (AUTH-01) : audit_log.impersonator_id = admin impersonateur (action en session impersonée)'
+);
+
+SELECT is(
+  (SELECT user_id FROM plateforme.audit_log
+   WHERE action = 'controle_acces_cascade_upgrade'
+     AND record_id = 'a09f0012-0000-0000-0000-000000000001'::uuid
+   LIMIT 1),
+  'a09f0003-0000-0000-0000-000000000001'::uuid,
+  'T15 (AUTH-01) : audit_log.user_id = user impersoné (distinct de l''impersonateur)'
+);
 
 SELECT * FROM finish();
 ROLLBACK;

@@ -1,7 +1,5 @@
 # 06 - Back-office Admin Savr
 
-**Statut** : Validé V1
-**Dernière mise à jour** : 2026-06-07 (**Session `cdc-test-scenarios` lot ⑥ — 6 floues tranchées Val + 2 résidus corrigés** : **F1** table `audit_log` créée dans [[04 - Data Model]] (référencée ~40× sans définition ; résidu `audit_logs` §05 corrigé) · **F2** Packs AG : « Ajuster crédits » + « Annuler le pack » ouverts à `ops_savr` (alignement matrice §09 qui fait foi — ex admin-only §8) · **F3** Transporteurs : édition SIREN + désactivation `actif=false` ouvertes à `ops_savr` (alignement matrice §09 ; 2 tests pgTAP contraires retirés §09) · **F4** carte KPI « Collectes non transmises au TMS » volet AG **gardée telle quelle** (compte toutes les AG `non_envoye`, file d'attribution nominale comprise — assumé : pas un indicateur d'échec côté AG, ne pas re-proposer) · **F5** terminologie « émission S7 » (sens sortant App→TMS) renommée **« émission dispatch »** (E1 initial / réémission endpoint §08 §10.1) — S7 ne désigne plus que le webhook TMS→App `plaque-saisie` · **F6** bouton « Fusionner 2 organisations » **retiré V1** (opération exceptionnelle par script SQL assisté hors UI ; UI complète V1.1) · résidus : ligne matrice « Relancer facture » et récap #9 purgés (relances = Pennylane, décision 2026-04-28) ; compteur templates 18 → 19 actifs.)
 **Dernière mise à jour précédente** : 2026-05-30 (**Revue de sobriété §06.06 (skill `cdc-review-sobriete`) — 8 simplifications appliquées zéro dette** : **A1** champ association `nombre_convives_par_jour` supprimé (§5 — jamais utilisé ; matching par taille = `capacite_max_beneficiaires`) · **A2** axe histogramme revenus = montant HT unique (toggle nb/montant retiré, §1 Bloc 2.1) · **B2** alerte marge négative retirée (§1 Bloc 3 — pas de marge négative attendue V1, décision Val) · **A3/D1** statut pack `expire` retiré V1 (`actif`/`epuise`/`annule` — aucun mécanisme d'expiration V1 ; §8 + §04 enum) · **B1** modal création pack wizard 4 étapes → formulaire modal unique (§8) · **C1** logique SQL recrédit inline du Bloc 6 §3 retirée → source unique [[05 - Règles métier]] · **C2** description du flag `dirty_tms` centralisée (définition canonique = §3 Bloc 0, KPI §1 + chip §3 y renvoient) · **C3** récap « Actions manuelles critiques V1 » transformé en index non-normatif (pointeurs vers sections sources). 3 fichiers App édités (§06.06 + §04 Data Model + mockup admin) zéro dette. Cross-CDC : 0 divergence (toutes modifs internes Plateforme : UI dashboard, enum pack non partagée, récap).)
 **Dernière mise à jour précédente** : 2026-05-22 (§8 Clients > fiche organisation traiteur : ajout onglet Coefficient de perte labo — saisie admin par année, table `coefficients_perte_labo`. Cf. [[05 - Règles métier#R_dechets_labo_estimes]].)
 **Dernière mise à jour précédente** : 2026-05-08 (fusion ex-fichier 07 dans §8 Clients > onglet Packs AG + §9 Paramètres > Tarifs Anti-Gaspi (publics). Pack unique actif (suppression FIFO multi-packs). Cf. memory `project_fusion_07_packs_ag_2026_05_08`.)
@@ -534,7 +532,6 @@ Voir [[02 - Templates emails V1]] template `admin_demande_ajout_lieu`.
 
 > **Retiré V1 (Sujet 4, 2026-05-26)** : le mécanisme « Autre + texte libre + normalisation » est **supprimé** (pas seulement reporté). `types_evenements` est figé à 4 catégories de format de service (`cocktail_aperitif`, `cocktail_repas_complet`, `repas_assis`, `autre`) ; `autre` est un fourre-tout sélectionnable **sans saisie**. La colonne `evenements.type_evenement_libre` est supprimée (§04), la règle `R_type_evenement_libre` est retirée (§05), et le champ libre disparaît du formulaire §06.01. Plus aucune file de normalisation, ni en V1 ni en V1.1. Extension du référentiel = **ajout direct d'une ligne** dans `types_evenements` (Admin/Supabase), sans UI dédiée. Les événements `autre` sont comptés comme un bucket benchmark normal.
 >
-> Contenu historique conservé pour traçabilité :
 >
 
 ---
@@ -671,7 +668,7 @@ Si aucun coefficient : message "Aucun coefficient communiqué" + bouton "Ajouter
 `admin_savr` + `ops_savr` (sauf mention) :
 
 - Créer / modifier / suspendre un utilisateur
-- Inviter un nouvel utilisateur (envoi email d'invitation)
+- Inviter un nouvel utilisateur (envoi email d'invitation) — **provisioning direct unique** *(décision Val 2026-07-01, M3.1 — self-service écarté)* : le compte est provisionné immédiatement (prénom + nom + email, rôle + organisation imposés, `organisation_id` posé côté serveur), l'invité reçoit un lien d'activation pour définir son mot de passe. Rattachement à l'organisation garanti à la création.
 - Changer le rôle d'un utilisateur
 - **Impersonner un utilisateur** (admin-only — bandeau UI + log, voir [[09 - Authentification et permissions]])
 - Suppression compte soft delete (48h validation) — admin-only sur hard delete

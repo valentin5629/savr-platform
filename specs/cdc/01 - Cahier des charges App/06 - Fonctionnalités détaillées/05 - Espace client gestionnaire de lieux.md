@@ -457,11 +457,10 @@ Informations de l'organisation :
 
 Liste des utilisateurs de l'organisation (rôle `gestionnaire_lieux`). Colonnes : nom, email, dernière connexion, statut (actif/inactif), actions (désactiver).
 
-**Invitation d'un nouveau collègue** :
+**Invitation d'un nouveau collègue** — mode unique : **provisioning direct** (*décision Val 2026-07-01, M3.1 — self-service écarté, « doublon inutile »*) :
 - Bouton "Inviter un collègue"
-- Champs : prénom, nom, email
-- Envoi email `invitation_utilisateur` (voir [[02 - Templates emails V1]] template 17) avec lien d'activation (validité 7 jours)
-- Le collaborateur invité devient `gestionnaire_lieux` de la même organisation
+- Champs **prénom + nom + email** ; le compte est provisionné immédiatement (rôle `gestionnaire_lieux` + organisation de l'invitant imposés, `organisation_id` posé côté serveur). L'invité reçoit un email `invitation_utilisateur` (voir [[02 - Templates emails V1]] template 17) avec lien d'activation (validité 7 jours) pour définir son mot de passe.
+- Le collaborateur invité devient `gestionnaire_lieux` de la même organisation, rattachement garanti à la création (y compris email perso)
 
 **Désactivation** : bouton "Désactiver" sur chaque ligne utilisateur. `users.actif = false`. L'utilisateur ne peut plus se connecter mais son historique (qui a généré quoi) est conservé.
 

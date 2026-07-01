@@ -229,19 +229,19 @@
     },
     {
       "id": "BL-P1-RM-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "Transition `realisee→cloturee` jamais écrite"
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:244",
+      "artefact": "supabase/migrations/20260702000000_plateforme_r16a_cloture_embargo.sql (fn_cloturer_collectes_embargo), packages/plateforme/src/app/api/cron/cloture-embargo/route.ts, packages/plateforme/vercel.json",
+      "test": "supabase/tests/r16a_machine_etats.test.sql (RM-01 : realisee+H+24→cloturee ; <H+24 reste realisee ; realisee_sans_collecte exclu) ; M1.8/RM-01 — cron appelle fn_cloturer_collectes_embargo et renvoie nb_traite",
+      "statut": "implemented",
+      "libelle": "Clôture automatique realisee → cloturee après embargo H+24 (cron cloture-embargo + fn_cloturer_collectes_embargo). Divergence §05 l.244 « immédiate » tracée _Divergences/M1.4_20260702.md"
     },
     {
       "id": "BL-P1-RM-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "Gate statut sur modif `nb_camions_demande`"
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:271",
+      "artefact": "supabase/migrations/20260702000100_plateforme_r16a_fn_modifier_collecte_gardes.sql (garde NB_CAMIONS_STATUT_TERMINAL), packages/plateforme/src/app/api/v1/admin/collectes/[id]/route.ts",
+      "test": "supabase/tests/r16a_machine_etats.test.sql (RM-02 : modif nb_camions sur realisee → exception ; sur programmee → OK) ; M1.4/RM-02 — nb_camions sur statut terminal : 409",
+      "statut": "implemented",
+      "libelle": "Gate statut sur modif nb_camions_demande : interdit hors (programmee, validee, en_cours) — jamais de régression d'un état terminal"
     },
     {
       "id": "BL-P1-RM-03",
@@ -261,35 +261,35 @@
     },
     {
       "id": "BL-P1-RM-05",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "Réduction N bloquée <1h"
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:271",
+      "artefact": "supabase/migrations/20260702000100_plateforme_r16a_fn_modifier_collecte_gardes.sql (garde REDUCTION_CANCEL_WINDOW_CLOSED), packages/plateforme/src/app/api/v1/admin/collectes/[id]/route.ts (alerte Ops sur rollback)",
+      "test": "supabase/tests/r16a_machine_etats.test.sql (RM-05 : réduction <1h → exception ; mission lointaine → OK ; augmentation <1h → OK) ; M1.4/RM-05 — réduction N < 1h : 409 + alerte Ops",
+      "statut": "implemented",
+      "libelle": "Réduction de N bloquée < 1h avant mission (CANCEL_WINDOW_CLOSED + alerte Ops) ; augmentation autorisée"
     },
     {
       "id": "BL-P1-RM-07",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "Rejet total transporteur silencieux"
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:265",
+      "artefact": "supabase/migrations/20260702000200_plateforme_r16a_agreger_alerte_rejet.sql (f_upsert_alerte_admin sur transition rejetee_par_prestataire)",
+      "test": "supabase/tests/r16a_machine_etats.test.sql (RM-07 : tous tours KO → rejetee_par_prestataire + alerte Admin collecte_rejetee_par_prestataire)",
+      "statut": "implemented",
+      "libelle": "Rejet total transporteur → alerte Admin « réattribution requise » (retour file Ops-driven ; statut rejetee_par_prestataire conservé, non destructif — décision Val 2026-07-02, _Divergences/M1.8_20260702.md)"
     },
     {
       "id": "BL-P1-RM-08",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
-      "artefact": null,
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Observabilité/06 - Audit trail.md:37",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/collectes/[id]/route.ts (motif ≥10 + action audit collecte_statut_force — fait R15)",
       "test": null,
       "statut": "partial",
-      "libelle": "Forcer statut sans motif"
+      "libelle": "Forcer statut : API fait R15 (motif ≥10 obligatoire + audit collecte_statut_force). Modale UI différée R17 (Back-office Admin UI) — décision R16 2026-07-02"
     },
     {
       "id": "BL-P1-RM-09",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "Flux incident prestataire"
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:340",
+      "artefact": "supabase/migrations/20260702000100_plateforme_r16a_fn_modifier_collecte_gardes.sql (champs incident) + 20260702000300_plateforme_r16a_pack_debit_incident_guard.sql (garde débit) + 20260702000400_plateforme_r16a_seed_template_incident.sql (template), packages/plateforme/src/app/api/v1/admin/collectes/[id]/incident/route.ts",
+      "test": "supabase/tests/r16a_machine_etats.test.sql (RM-09 : incident prestataire → aucun débit pack ; client → débit) ; M1.4/RM-09 — incident prestataire : annulee + email Admin + notif client (annulation_collecte) + 200 ; motif<10 → 422 ; imputable invalide → 422",
+      "statut": "implemented",
+      "libelle": "Flux incident prestataire : annulee + incident_imputable_a + motif_incident ; pas de débit pack si imputable ≠ client (§05 §4bis l.346) ; alerte Admin admin_incident_collecte (§06.02 item 10) + notification client au programmeur (§05 §4bis l.347, template annulation_collecte, mention non-facturation)"
     },
     {
       "id": "BL-P1-RM-10",

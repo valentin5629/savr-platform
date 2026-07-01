@@ -118,7 +118,38 @@ export async function PATCH(
     },
   );
 
-  if (error) return serverError(error, 'admin.collectes.update');
+  if (error) {
+    const msg = error.message ?? '';
+    // RM-05 : réduction du nombre de camions bloquée < 1h avant la mission →
+    // alerte Ops (créée hors de la transaction rollbackée) + refus 409.
+    if (msg.includes('REDUCTION_CANCEL_WINDOW_CLOSED')) {
+      await supabase.rpc('f_upsert_alerte_admin', {
+        p_code: 'reduction_camions_bloquee',
+        p_titre: 'Réduction de camions bloquée (< 1h avant mission)',
+        p_message: `La réduction du nombre de camions de la collecte ${id} a été bloquée (moins d’1h avant la mission). Intervention manuelle requise (contacter le transporteur).`,
+        p_entity_type: 'collectes',
+        p_entity_id: id,
+      });
+      return NextResponse.json(
+        {
+          error:
+            'Réduction du nombre de camions impossible à moins d’1h de la mission (alerte Ops créée)',
+        },
+        { status: 409 },
+      );
+    }
+    // RM-02 : nb_camions_demande non modifiable sur un statut terminal.
+    if (msg.includes('NB_CAMIONS_STATUT_TERMINAL')) {
+      return NextResponse.json(
+        {
+          error:
+            'Le nombre de camions n’est plus modifiable (collecte à un statut terminal)',
+        },
+        { status: 409 },
+      );
+    }
+    return serverError(error, 'admin.collectes.update');
+  }
 
   const data = updatedJson as Record<string, unknown>;
 

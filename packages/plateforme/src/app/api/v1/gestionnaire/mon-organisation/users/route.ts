@@ -6,6 +6,10 @@ import {
 } from '@/lib/api-auth.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
+import {
+  parseInvitationMode,
+  sendSelfServiceInvitation,
+} from '@/lib/invitations.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
@@ -42,7 +46,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const supabase = createSupabaseServerClient();
   const admin = createAdminSupabaseClient();
 
-  let body: { email?: string; prenom?: string; nom?: string; role?: string };
+  let body: {
+    email?: string;
+    prenom?: string;
+    nom?: string;
+    role?: string;
+    mode?: string;
+  };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -50,7 +60,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const { email, prenom, nom, role } = body;
-  if (!email || !prenom || !nom)
+  const mode = parseInvitationMode(body.mode);
+  if (!email)
+    return NextResponse.json({ error: 'email est requis' }, { status: 400 });
+  // Mode `direct` : prenom + nom obligatoires (provisioning immédiat, colonnes NOT NULL).
+  // Mode `self_service` : l'invité saisira son nom à l'acceptation → email seul requis.
+  if (mode === 'direct' && (!prenom || !nom))
     return NextResponse.json(
       { error: 'email, prenom et nom sont requis' },
       { status: 400 },
@@ -83,6 +98,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .select('nom')
     .eq('id', auth.ctx.organisationId)
     .maybeSingle();
+
+  // Mode self-service : l'invité crée lui-même son compte (nom + mot de passe + CGU) via
+  // le lien. Rattachement à l'org garanti (metadata serveur, rôle gestionnaire_lieux).
+  if (mode === 'self_service') {
+    const res = await sendSelfServiceInvitation(admin, {
+      email,
+      organisationId: auth.ctx.organisationId,
+      role: roleInvite,
+      organisationNom: org?.nom ?? '',
+    });
+    if (!res.ok) {
+      return NextResponse.json({ error: res.error }, { status: 422 });
+    }
+    return NextResponse.json({ data: { email, mode } }, { status: 201 });
+  }
 
   // Créer le compte Auth (service_role requis). On n'utilise PAS inviteUserByEmail :
   // il enverrait un email natif Supabase non brandé, alors que le CDC §06.05 F5 exige

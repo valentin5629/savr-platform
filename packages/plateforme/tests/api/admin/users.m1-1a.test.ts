@@ -346,6 +346,49 @@ describe('M0.4 — email invitation admin (BL-P1-ONB-04)', () => {
       }),
     );
   });
+
+  it('M1.1a/invitation_admin_self_service — 201 lien token, pas de provisioning, org+role en metadata', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.maybeSingle.mockResolvedValueOnce({
+      data: { nom: 'Traiteur Martin SAS' },
+      error: null,
+    });
+    mockAdminGenerateLink.mockResolvedValue({
+      data: { properties: { hashed_token: 'hashed-token-abc' } },
+      error: null,
+    });
+
+    const { POST } = await import('@/app/api/v1/admin/users/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/users', {
+        email: 'libre@traiteur.fr',
+        role: 'traiteur_commercial',
+        organisation_id: 'org-42',
+        mode: 'self_service',
+      }),
+    );
+
+    expect(res.status).toBe(201);
+    // Compte « invited » avec metadata org+role choisies par l'Admin (jamais le body invité).
+    expect(mockAdminGenerateLink).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'invite',
+        email: 'libre@traiteur.fr',
+        options: expect.objectContaining({
+          data: expect.objectContaining({
+            organisation_id: 'org-42',
+            role: 'traiteur_commercial',
+          }),
+        }),
+      }),
+    );
+    // Pas de provisioning direct.
+    expect(mockAdminCreateUser).not.toHaveBeenCalled();
+    const emailVars = vi.mocked(sendEmail).mock.calls[0]?.[2] as {
+      lien_invitation?: string;
+    };
+    expect(emailVars.lien_invitation).toContain('token_hash=hashed-token-abc');
+  });
 });
 
 describe('M1.1a / Coefficients / Permissions', () => {

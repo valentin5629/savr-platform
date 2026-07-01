@@ -4428,6 +4428,7 @@ export type Database = {
         Args: { p_collecte_id: string }
         Returns: string
       }
+      fn_cloturer_collectes_embargo: { Args: never; Returns: number }
       fn_ajouter_collecte_evenement: {
         Args: {
           p_controle_acces?: boolean

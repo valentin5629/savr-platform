@@ -268,8 +268,8 @@
       "bytes": 43267
     },
     "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": {
-      "sha256": "08337c40ec142a761c950422e243e82a4f32123ab1af136891306a1988cf19bf",
-      "bytes": 89880
+      "sha256": "5bf65cc35e403893a92ee041f16a057332303f2fe2fb85dfd867db8d25de0d58",
+      "bytes": 89929
     },
     "specs/cdc/01 - Cahier des charges App/09 - Flux algo attribution AG (Admin).md": {
       "sha256": "af2e1bee02ba67766a3d953c268679b7f89b8617fcec268bc9b516c47506f8dd",
@@ -336,8 +336,8 @@
       "bytes": 5111
     },
     "specs/cdc/01 - Cahier des charges App/_RAPPORT-EXPORT.md": {
-      "sha256": "76179504af4a912a5f25d3440436db40430a4a843d0abb6d24d1da652b93b7b2",
-      "bytes": 804
+      "sha256": "5baab5325e4f315590781f3c9b296dc4e4d23a8f89044f57ab51d643ef1bc33b",
+      "bytes": 674
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.01-formulaire-programmation-scenarios.md": {
       "sha256": "eeef70254cf5cc4e306ee40ab56be7c41e102aa19b5a6fd8459b75c0a5a1db29",

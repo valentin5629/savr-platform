@@ -84,25 +84,71 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .eq('id', auth.ctx.organisationId)
     .maybeSingle();
 
-  // Créer le user via le client admin (service_role requis pour inviteUserByEmail)
-  const { data: invited, error: inviteErr } =
-    await admin.auth.admin.inviteUserByEmail(email, {
-      data: { prenom, nom, role: roleInvite },
+  // Créer le compte Auth (service_role requis). On n'utilise PAS inviteUserByEmail :
+  // il enverrait un email natif Supabase non brandé, alors que le CDC §06.05 F5 exige
+  // l'email template §06.02 n°17 `invitation_utilisateur` avec lien d'activation. Même
+  // mécanisme que la route Admin (createUser + generateLink recovery), un seul email.
+  const motDePasseTemporaire =
+    Math.random().toString(36).slice(2, 10) + 'Savr1!';
+
+  const { data: authData, error: authError } =
+    await admin.auth.admin.createUser({
+      email,
+      password: motDePasseTemporaire,
+      email_confirm: true,
+      user_metadata: { prenom, nom },
     });
 
-  if (inviteErr)
-    return NextResponse.json({ error: inviteErr.message }, { status: 500 });
+  if (authError || !authData.user)
+    return NextResponse.json(
+      { error: authError?.message ?? 'Erreur création compte' },
+      { status: 422 },
+    );
 
-  // Envoyer l'email d'invitation via template catalogue §06.02 n°17
+  const userId = authData.user.id;
+
+  // Le collaborateur invité devient gestionnaire_lieux de la même organisation
+  // (CDC §06.05 F5 + RLS F5 `users INSERT organisation_id = self`).
+  const { error: userError } = await admin.from('users').insert({
+    id: userId,
+    organisation_id: auth.ctx.organisationId,
+    email,
+    prenom,
+    nom,
+    role: roleInvite,
+  });
+
+  if (userError) {
+    // Rollback compte Auth (best-effort) pour ne pas laisser un user orphelin.
+    await admin.auth.admin.deleteUser(userId).catch(() => null);
+    return NextResponse.json({ error: userError.message }, { status: 422 });
+  }
+
+  // Lien d'activation (validité 7 jours, gérée par Supabase Auth) → écran set password.
+  const { data: linkData } = await admin.auth.admin.generateLink({
+    type: 'recovery',
+    email,
+    options: {
+      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/auth/new-password`,
+    },
+  });
+  const lienActivation =
+    linkData?.properties?.action_link ??
+    `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/auth/login`;
+
+  // Email d'invitation brandé (template catalogue §06.02 n°17). La variable
+  // `lien_invitation` est REQUISE (email_templates.variables) : sans elle, sendEmail
+  // refuse l'envoi et trace MISSING_VARIABLE.
   await sendEmail(
     'invitation_utilisateur',
     email,
-    { prenom: prenom ?? '', organisation_nom: org?.nom ?? '' },
+    {
+      prenom: prenom ?? '',
+      organisation_nom: org?.nom ?? '',
+      lien_invitation: lienActivation,
+    },
     { entityType: 'organisation', entityId: auth.ctx.organisationId },
   );
 
-  return NextResponse.json(
-    { data: { id: invited.user?.id, email } },
-    { status: 201 },
-  );
+  return NextResponse.json({ data: { id: userId, email } }, { status: 201 });
 }

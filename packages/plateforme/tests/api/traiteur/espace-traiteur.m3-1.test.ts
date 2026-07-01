@@ -64,6 +64,9 @@ let admin = makeChain();
 const mockGetUser = vi.fn();
 const mockGetSession = vi.fn();
 const mockSendEmail = vi.fn().mockResolvedValue(undefined);
+const mockCreateUser = vi.fn();
+const mockGenerateLink = vi.fn();
+const mockDeleteUser = vi.fn();
 
 vi.mock('@supabase/ssr', () => ({
   createServerClient: () => ({
@@ -72,7 +75,18 @@ vi.mock('@supabase/ssr', () => ({
   }),
 }));
 vi.mock('@savr/shared/src/supabase-client.js', () => ({
-  createAdminSupabaseClient: () => admin,
+  createAdminSupabaseClient: () => ({
+    from: (...a: unknown[]) =>
+      (admin.from as (...x: unknown[]) => unknown)(...a),
+    rpc: (...a: unknown[]) => (admin.rpc as (...x: unknown[]) => unknown)(...a),
+    auth: {
+      admin: {
+        createUser: mockCreateUser,
+        generateLink: mockGenerateLink,
+        deleteUser: mockDeleteUser,
+      },
+    },
+  }),
 }));
 vi.mock('@savr/shared/src/email/index.js', () => ({
   sendEmail: (...a: unknown[]) => mockSendEmail(...a),
@@ -113,6 +127,17 @@ beforeEach(() => {
   vi.clearAllMocks();
   rls = makeChain();
   admin = makeChain();
+  mockCreateUser.mockResolvedValue({
+    data: { user: { id: 'new-commercial-id' } },
+    error: null,
+  });
+  mockGenerateLink.mockResolvedValue({
+    data: {
+      properties: { action_link: 'https://app.gosavr.io/activation#token' },
+    },
+    error: null,
+  });
+  mockDeleteUser.mockResolvedValue({ data: null, error: null });
 });
 
 // ── Badge "en attente de facturation" (F3) ──────────────────────────────────
@@ -387,21 +412,47 @@ describe('M3.1 / invitation collaborateur', () => {
     setupAuth('traiteur_manager', 'org-kaspia');
     admin.push({ data: null, error: null }); // users lookup → pas de doublon
     admin.push({ data: { nom: 'Kaspia' }, error: null }); // org
+    admin.push({ data: null, error: null }); // insert profil users (await)
     const { POST } =
       await import('@/app/api/v1/traiteur/equipe/invitation/route.js');
     const res = await POST(
       makeReq('POST', '/api/v1/traiteur/equipe/invitation', {
         email: 'jeanne@exemple-perso.fr',
         prenom: 'Jeanne',
+        nom: 'Martin',
       }),
     );
     expect(res.status).toBe(201);
+    // Compte provisionné directement (pas d'email natif Supabase).
+    expect(mockCreateUser).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: 'jeanne@exemple-perso.fr',
+        email_confirm: true,
+      }),
+    );
+    // Rattachement AUTOMATIQUE à l'org de l'invitant + rôle commercial
+    // (décision Val 2026-07-01, CDC §06.04 ligne 719).
+    const insertArgs = admin.__calls.insert?.[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect(insertArgs).toMatchObject({
+      organisation_id: 'org-kaspia',
+      role: 'traiteur_commercial',
+      email: 'jeanne@exemple-perso.fr',
+    });
+    // Email brandé template §06.02 n°17 avec la variable REQUISE lien_invitation
+    // (sans elle, sendEmail refuse l'envoi et trace MISSING_VARIABLE).
     expect(mockSendEmail).toHaveBeenCalledWith(
       'invitation_utilisateur',
       'jeanne@exemple-perso.fr',
-      expect.any(Object),
+      expect.objectContaining({ lien_invitation: expect.any(String) }),
       expect.any(Object),
     );
+    const emailVars = mockSendEmail.mock.calls[0]?.[2] as {
+      lien_invitation?: string;
+    };
+    expect(emailVars.lien_invitation).toBeTruthy();
   });
 
   it('M3.1/invitation_email_deja_membre_refusee — 409', async () => {
@@ -412,6 +463,8 @@ describe('M3.1 / invitation collaborateur', () => {
     const res = await POST(
       makeReq('POST', '/api/v1/traiteur/equipe/invitation', {
         email: 'paul@kaspia.fr',
+        prenom: 'Paul',
+        nom: 'Durand',
       }),
     );
     expect(res.status).toBe(409);
@@ -427,6 +480,41 @@ describe('M3.1 / invitation collaborateur', () => {
       }),
     );
     expect(res.status).toBe(403);
+  });
+
+  it('M3.1/invitation_prenom_nom_requis — 422 sans prenom/nom (provisioning direct)', async () => {
+    setupAuth('traiteur_manager', 'org-kaspia');
+    const { POST } =
+      await import('@/app/api/v1/traiteur/equipe/invitation/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/traiteur/equipe/invitation', {
+        email: 'sansnom@kaspia.fr',
+      }),
+    );
+    expect(res.status).toBe(422);
+    // Aucun compte créé si le payload est incomplet.
+    expect(mockCreateUser).not.toHaveBeenCalled();
+  });
+
+  it('M3.1/invitation_rollback_auth_si_insert_echoue — deleteUser + 422 (pas de user orphelin)', async () => {
+    setupAuth('traiteur_manager', 'org-kaspia');
+    admin.push({ data: null, error: null }); // users lookup → pas de doublon
+    admin.push({ data: { nom: 'Kaspia' }, error: null }); // org
+    admin.push({ data: null, error: { message: 'insert boom' } }); // INSERT users échoue
+    const { POST } =
+      await import('@/app/api/v1/traiteur/equipe/invitation/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/traiteur/equipe/invitation', {
+        email: 'jeanne@exemple-perso.fr',
+        prenom: 'Jeanne',
+        nom: 'Martin',
+      }),
+    );
+    expect(res.status).toBe(422);
+    // Le compte Auth créé est rollbacké pour ne pas laisser un user orphelin.
+    expect(mockDeleteUser).toHaveBeenCalledWith('new-commercial-id');
+    // Pas d'email envoyé si le provisioning a échoué.
+    expect(mockSendEmail).not.toHaveBeenCalled();
   });
 });
 

@@ -220,11 +220,11 @@
       "bytes": 2699
     },
     "specs/cdc/01 - Cahier des charges App/07 - Observabilité/06 - Audit trail.md": {
-      "sha256": "8ca2ee7d469856efb4c0d25613c0e2e9ca5d3e2d2e3f3d0cf7be7a9c650c0434",
-      "bytes": 5111
+      "sha256": "77f6edc3e9ecc1a04e009ca1ea3c335c393e54bd0878fb878bc0c8b7e94f4916",
+      "bytes": 5599
     },
     "specs/cdc/01 - Cahier des charges App/07 - Observabilité/_RAPPORT-EXPORT.md": {
-      "sha256": "cffa01fc0b84ee17f49301fb911c6f3c427c7c1a060635b2e4d35be6ff2995b8",
+      "sha256": "84713a56e8ac16f0a74d309cb55e8b42fef866465cbd97de029f2a3599084069",
       "bytes": 1615
     },
     "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": {

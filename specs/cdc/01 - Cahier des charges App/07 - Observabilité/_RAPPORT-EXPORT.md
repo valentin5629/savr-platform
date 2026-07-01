@@ -1,7 +1,7 @@
 # Rapport export dev-facing
 
 Mode : AGGRESSIVE (T1+T2)
-**Total : 30202 -> 30202 octets (-0, -0.0%)**
+**Total : 30677 -> 30677 octets (-0, -0.0%)**
 
 
 ## 00 - Stack retenue.md
@@ -41,7 +41,7 @@ Mode : AGGRESSIVE (T1+T2)
 - lignes historiques T2 supprimees : 0
 
 ## 06 - Audit trail.md
-- octets : 4948 -> 4948 (-0, -0.0%)
-- tokens estimes : ~1237 -> ~1237
+- octets : 5423 -> 5423 (-0, -0.0%)
+- tokens estimes : ~1355 -> ~1355
 - tombstones supprimes : 0 | fragments barres retires : 0 | en-tetes debarres : 0
 - lignes historiques T2 supprimees : 0

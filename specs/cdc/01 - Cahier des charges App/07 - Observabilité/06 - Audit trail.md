@@ -26,7 +26,7 @@ Une action est auditée si elle touche **finances, fiscalité, sécurité ou int
 | `facture_emise` | `factures` | Validation Admin → Pennylane |
 | `facture_avoir_cree` | `factures` | Émission d'un avoir |
 | `facture_numero_attribue` | `sequences_facturation` | Attribution numéro gapless |
-| `tarif_refacture_pax_zd_update` | `organisations` | Modif tarif refacturé (déjà tracé §04) |
+| `tarif_refacture_pax_zd_update` | `organisations` | Modif tarif refacturé (route Admin, service_role — câblé R15) |
 | `parametres_algo_update` | `parametres_algo` | Modif paramètre algo/tarif (déjà tracé §04) |
 | `parametres_co2_divers_update` | `parametres_co2_divers` | Modif facteur CO₂ (déjà tracé §04) |
 
@@ -55,6 +55,8 @@ Une action est auditée si elle touche **finances, fiscalité, sécurité ou int
 | `config_auto_accept_update` | `config_auto_accept_ag` | Toggle auto-accept AG (déjà §04) |
 
 > Les lignes « déjà §04 » sont les actions que les sessions précédentes ont câblées dans la table ; ce fichier les **consolide en un catalogue unique** et ajoute les actions financières/fiscales/sécurité manquantes pour couverture complète.
+
+> **Frontière audit vs logs (précision R15).** Les connexions (login/logout) relèvent des logs business §07/01 (`auth.login_success` / `auth.login_failed`), **pas de l'`audit_log`** (la route login tourne en client anon et ne peut pas insérer ; ces logs alimentent la chaîne d'alerte bruteforce). L'envoi Pennylane est couvert par l'action `facture_emise` (déclencheur « Validation Admin → Pennylane ») — **pas d'action `pennylane_envoi` distincte**.
 
 ---
 

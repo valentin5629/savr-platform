@@ -64,14 +64,16 @@ let rls = makeChain();
 let adminClient = makeChain();
 const mockGetUser = vi.fn();
 const mockGetSession = vi.fn();
-const mockInviteUserByEmail = vi.fn();
+const mockCreateUser = vi.fn();
+const mockGenerateLink = vi.fn();
+const mockDeleteUser = vi.fn();
+const mockSendEmail = vi.fn().mockResolvedValue(undefined);
 
 vi.mock('@supabase/ssr', () => ({
   createServerClient: () => ({
     auth: {
       getUser: mockGetUser,
       getSession: mockGetSession,
-      admin: { inviteUserByEmail: mockInviteUserByEmail },
     },
     from: (...a: unknown[]) => (rls.from as (...x: unknown[]) => unknown)(...a),
     rpc: (...a: unknown[]) => (rls.rpc as (...x: unknown[]) => unknown)(...a),
@@ -81,11 +83,17 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
   createAdminSupabaseClient: () => ({
     from: (...a: unknown[]) =>
       (adminClient.from as (...x: unknown[]) => unknown)(...a),
-    auth: { admin: { inviteUserByEmail: mockInviteUserByEmail } },
+    auth: {
+      admin: {
+        createUser: mockCreateUser,
+        generateLink: mockGenerateLink,
+        deleteUser: mockDeleteUser,
+      },
+    },
   }),
 }));
 vi.mock('@savr/shared/src/email/index.js', () => ({
-  sendEmail: vi.fn().mockResolvedValue(undefined),
+  sendEmail: (...a: unknown[]) => mockSendEmail(...a),
 }));
 vi.mock('next/headers', () => ({
   cookies: () => ({ getAll: () => [], set: () => {} }),
@@ -127,10 +135,17 @@ beforeEach(() => {
   vi.clearAllMocks();
   rls = makeChain();
   adminClient = makeChain();
-  mockInviteUserByEmail.mockResolvedValue({
+  mockCreateUser.mockResolvedValue({
     data: { user: { id: 'new-user-id' } },
     error: null,
   });
+  mockGenerateLink.mockResolvedValue({
+    data: {
+      properties: { action_link: 'https://app.gosavr.io/activation#token' },
+    },
+    error: null,
+  });
+  mockDeleteUser.mockResolvedValue({ data: null, error: null });
 });
 
 // ── Auth guard ───────────────────────────────────────────────────────────────
@@ -679,6 +694,7 @@ describe('M3.2 / mon-organisation / users (F5)', () => {
     setupAuth('gestionnaire_lieux', 'org-viparis');
     rls.push({ data: null, error: null }); // pas de doublon email (maybeSingle via rls)
     adminClient.push({ data: { nom: 'Viparis SA' }, error: null }); // org name (maybeSingle via admin)
+    adminClient.push({ data: null, error: null }); // insert profil users (await)
     const { POST } =
       await import('@/app/api/v1/gestionnaire/mon-organisation/users/route.js');
     const res = await POST(
@@ -689,12 +705,53 @@ describe('M3.2 / mon-organisation / users (F5)', () => {
       }),
     );
     expect(res.status).toBe(201);
-    expect(mockInviteUserByEmail).toHaveBeenCalledWith(
-      'nouveau@viparis.fr',
+    // Compte Auth créé sans email natif Supabase (pas d'inviteUserByEmail).
+    expect(mockCreateUser).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ role: 'gestionnaire_lieux' }),
+        email: 'nouveau@viparis.fr',
+        email_confirm: true,
       }),
     );
+    // Le collaborateur devient gestionnaire_lieux de la même organisation.
+    const insertArgs = adminClient.__calls.insert?.[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect(insertArgs).toMatchObject({
+      organisation_id: 'org-viparis',
+      role: 'gestionnaire_lieux',
+      email: 'nouveau@viparis.fr',
+    });
+    // Email brandé template §06.02 n°17 avec la variable REQUISE lien_invitation.
+    expect(mockSendEmail).toHaveBeenCalledWith(
+      'invitation_utilisateur',
+      'nouveau@viparis.fr',
+      expect.objectContaining({ lien_invitation: expect.any(String) }),
+      expect.any(Object),
+    );
+    const emailVars = mockSendEmail.mock.calls[0]?.[2] as {
+      lien_invitation?: string;
+    };
+    expect(emailVars.lien_invitation).toBeTruthy();
+  });
+
+  it('M3.2/F5_invitation_rollback_auth_si_insert_echoue — deleteUser + 422 (pas de user orphelin)', async () => {
+    setupAuth('gestionnaire_lieux', 'org-viparis');
+    rls.push({ data: null, error: null }); // pas de doublon (rls)
+    adminClient.push({ data: { nom: 'Viparis SA' }, error: null }); // org
+    adminClient.push({ data: null, error: { message: 'insert boom' } }); // INSERT users échoue
+    const { POST } =
+      await import('@/app/api/v1/gestionnaire/mon-organisation/users/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/gestionnaire/mon-organisation/users', {
+        email: 'nouveau@viparis.fr',
+        prenom: 'Camille',
+        nom: 'Dupont',
+      }),
+    );
+    expect(res.status).toBe(422);
+    expect(mockDeleteUser).toHaveBeenCalledWith('new-user-id');
+    expect(mockSendEmail).not.toHaveBeenCalled();
   });
 
   it('M3.2/F5_invitation_email_doublon_409 — 409 si email existant', async () => {

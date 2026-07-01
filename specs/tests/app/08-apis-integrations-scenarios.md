@@ -25,7 +25,8 @@
 | 5 — Idempotence/états | 9 | dédup event_id, Idempotency-Key, orderNumber MTS-1, svix-id Resend, snapshot CO₂ figé |
 | 6 — Cross-app | 4 | chaîne E1→S1→S5 complète, chaîne Pennylane create→finalize→send_email→poll |
 | 7 — Migration | 4 | réconciliation customerOrderId, idempotence script MTS-1, rollback |
-| **TOTAL** | **62** | |
+| 8 — Onboarding SIRET (§15 §2.6, ajout 2026-07-01) | 7 | revalidation INSEE (enqueue, 3 paliers, verifie/echec/epuise), anti-doublon, siret vide non bloquant |
+| **TOTAL** | **69** | |
 
 ---
 
@@ -1111,6 +1112,107 @@ Scénario : migration_pennylane_factures_sans_pennylane_id_identifiees
   Alors les factures sans pennylane_id sont identifiées dans un rapport (liste + count)
     Et ces factures sont marquées pour saisie manuelle Admin (flag migration_reconciliation_requise=true)
     Et aucune facture avec statut=payee n'a pennylane_id=null (invariant critique)
+```
+
+---
+
+## §15 §2.6 — Onboarding : revalidation SIRET (INSEE) & anti-doublon
+
+> Ajout 2026-07-01 (suite divergence M0.4 / lot R13). Source de vérité : [[15 - Sécurité et conformité]] §2.6 (l.69 anti-doublon, l.73 revalidation asynchrone) + [[04 - Data Model]] (`file_revalidation_siret`, `entites_facturation.siret_verification`, index `uniq_entites_facturation_siret`). Regroupés dans §08 car INSEE/VIES sont les intégrations API tierces de l'onboarding. Rappel §04 : la **facturation est bloquée tant que `siret_verification ≠ 'verifie'`** (cf. `06.08-generation-edition-facture-scenarios.md`).
+
+```gherkin
+# Source : §15 §2.6 l.73 + §04 file_revalidation_siret — INSEE injoignable au signup → compte créé, revalidation enfilée
+# Couche : api + db
+# Priorité : P1-critique
+
+Scénario : revalidation_siret_signup_insee_injoignable_enfile_le_job
+  Étant donné un candidat qui s'inscrit avec un SIRET syntaxiquement valide
+    Et l'API INSEE/Sirene est injoignable (timeout > 3 s ou 5xx)
+  Quand le flux d'inscription traite la vérification SIRET
+  Alors le compte et son entite_facturation sont créés (inscription NON bloquée)
+    Et entites_facturation.siret_verification = 'en_attente'
+    Et une ligne file_revalidation_siret est créée (statut='en_attente', tentatives=0, prochaine_tentative_le = now()+15min)
+    Et un second passage INSEE-down pour la même entite_facturation ne crée PAS de 2e ligne active (index unique (entite_facturation_id) WHERE statut='en_attente')
+```
+
+```gherkin
+# Source : §15 §2.6 l.73 — revalidation asynchrone, 3 paliers 15 min / 1 h / 24 h
+# Couche : db
+# Priorité : P1-critique
+
+Scénario : revalidation_siret_espacement_des_3_paliers
+  Étant donné une ligne file_revalidation_siret en statut='en_attente'
+    Et l'API INSEE reste injoignable à chaque échéance
+  Quand le worker cron traite successivement les échéances sans réponse INSEE
+  Alors après la 1re tentative : tentatives=1 et prochaine_tentative_le = base + 15 min
+    Et après la 2e tentative : tentatives=2 et prochaine_tentative_le = base + 1 h
+    Et après la 3e tentative : tentatives=3 et prochaine_tentative_le = base + 24 h
+```
+
+```gherkin
+# Source : §15 §2.6 l.73 + §04 — une tentative obtient « entreprise active » → SIRET vérifié, facturation débloquée
+# Couche : api + db
+# Priorité : P1-critique
+
+Scénario : revalidation_siret_insee_repond_active_resout_et_debloque_facturation
+  Étant donné une ligne file_revalidation_siret (statut='en_attente', tentatives=1)
+  Quand le worker cron rejoue la vérification et l'INSEE répond « entreprise existante et active »
+  Alors entites_facturation.siret_verification = 'verifie'
+    Et entites_facturation.siret_verifie_le est renseigné
+    Et file_revalidation_siret.statut = 'resolu' (prochaine_tentative_le = NULL, plus aucun essai)
+    Et la facturation de cette entité est désormais autorisée (gate §04 levé)
+```
+
+```gherkin
+# Source : §15 §2.6 + §04 — une tentative obtient « inexistant/inactif » → échec, facturation reste bloquée
+# Couche : api + db
+# Priorité : P1-critique
+
+Scénario : revalidation_siret_insee_repond_inactif_echec_alerte_admin
+  Étant donné une ligne file_revalidation_siret (statut='en_attente')
+  Quand le worker cron rejoue la vérification et l'INSEE répond « SIRET inexistant ou inactif »
+  Alors entites_facturation.siret_verification = 'echec'
+    Et file_revalidation_siret.statut = 'resolu' (verdict obtenu, plus aucun essai)
+    Et l'organisation remonte dans le filtre Admin « nouvelles organisations » (alerte in-app)
+    Et la facturation de cette entité reste bloquée (siret_verification ≠ 'verifie')
+```
+
+```gherkin
+# Source : §15 §2.6 l.73 + §04 — 3 paliers épuisés sans réponse INSEE → abandon automate, reprise humaine
+# Couche : db
+# Priorité : P2-important
+
+Scénario : revalidation_siret_3_paliers_epuises_reste_en_attente
+  Étant donné une ligne file_revalidation_siret (statut='en_attente', tentatives=3)
+  Quand l'échéance du 3e palier est traitée et l'INSEE ne répond toujours pas
+  Alors file_revalidation_siret.statut = 'epuise' (plus aucun essai automatique)
+    Et entites_facturation.siret_verification reste 'en_attente' (aucun verdict obtenu)
+    Et l'organisation reste visible dans le filtre Admin « nouvelles organisations » pour traitement manuel
+    Et la facturation de cette entité reste bloquée
+```
+
+```gherkin
+# Source : §15 §2.6 l.69 + §04 index uniq_entites_facturation_siret — SIRET déjà rattaché → inscription bloquée
+# Couche : api + db
+# Priorité : P1-critique
+
+Scénario : doublon_siret_signup_bloque
+  Étant donné une entite_facturation existante avec siret = '83179309400017' (siret <> '')
+  Quand un candidat s'inscrit avec le SIRET '83179309400017'
+  Alors l'inscription est bloquée avec un message explicite (« SIRET déjà rattaché à une organisation »)
+    Et aucune nouvelle organisation ni entite_facturation n'est créée
+    Et l'index unique partiel uniq_entites_facturation_siret (siret) WHERE siret <> '' garantit le rejet au niveau base
+```
+
+```gherkin
+# Source : §04 index partiel WHERE siret <> '' — les entités sans SIRET ne collisionnent pas entre elles
+# Couche : db
+# Priorité : P2-important
+
+Scénario : siret_vide_plusieurs_entites_autorise
+  Étant donné une entite_facturation existante avec siret = '' (onboarding partiel / shadow)
+  Quand une seconde entite_facturation est créée avec siret = ''
+  Alors les deux coexistent sans conflit (l'index unique ne s'applique qu'aux siret non vides)
 ```
 
 ---

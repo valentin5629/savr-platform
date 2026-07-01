@@ -59,7 +59,12 @@
 --   PK composite (id,created_at) sur tms.audit_logs + tms.integrations_logs.
 -- Regelé le : 2026-06-11 bis (revue adversariale concurrence) : outbox_events +txid/+claimed_until/
 --   +requires_reconciliation (lease/claim, advisory lock supprimé), + table plateforme.pesees_tournees
---   (pesées brutes par tour, INC-0). 89 tables (55 plateforme).
+--   (pesées brutes par tour, INC-0).
+-- Regelé le : 2026-06-30 (divergence M0.4 / lot R13 onboarding SIRET) : + table
+--   plateforme.file_revalidation_siret (V1-only, job revalidation SIRET §15 §2.6) + index UNIQUE
+--   partiel uniq_entites_facturation_siret sur entites_facturation.siret (détection doublon §15 §2.6
+--   l.69). Recompté pglast : 92 tables (58 plateforme, 32 tms, 2 shared), 319 statements — l'en-tête
+--   « 89/55 » du 06-11 avait dérivé (tables ajoutées par les divergences 06-15/06-24 non recomptées).
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
@@ -276,6 +281,20 @@ CREATE TABLE plateforme.entites_facturation (
   commentaires              text,
   created_at                timestamptz NOT NULL DEFAULT now(),
   updated_at                timestamptz NOT NULL DEFAULT now()
+);
+
+-- nouvelle V1 (ajout 2026-06-30, divergence M0.4 / lot R13) : file du job de revalidation SIRET
+-- (§15 §2.6 l.73 — 3 paliers 15 min/1 h/24 h si INSEE injoignable au signup). V1-only assumé
+-- (liste fermée Frontière G1) : purement plateforme, aucune sémantique partagée TMS.
+CREATE TABLE plateforme.file_revalidation_siret (
+  id                     uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  entite_facturation_id  uuid NOT NULL,
+  statut                 text NOT NULL DEFAULT 'en_attente' CHECK (statut IN ('en_attente','resolu','epuise')),
+  tentatives             integer NOT NULL DEFAULT 0,
+  prochaine_tentative_le timestamptz,
+  derniere_erreur        text,
+  created_at             timestamptz NOT NULL DEFAULT now(),
+  updated_at             timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE plateforme.organisations_lieux (
@@ -1840,6 +1859,16 @@ CREATE UNIQUE INDEX uq_stocks_rolls_traiteur_lieu
   ON tms.stocks_rolls_traiteurs (plateforme_traiteur_id, plateforme_lieu_id, type_contenant_id)
   WHERE plateforme_lieu_id IS NOT NULL;
 
+-- Partial unique indexes (onboarding SIRET — divergence M0.4 2026-06-30)
+--   détection de doublon SIRET (§15 §2.6 l.69) : les entités sans SIRET portent siret='' et ne collisionnent pas
+CREATE UNIQUE INDEX uniq_entites_facturation_siret
+  ON plateforme.entites_facturation (siret)
+  WHERE siret <> '';
+--   idempotence de l'enqueue : une entité n'a qu'une revalidation active à la fois
+CREATE UNIQUE INDEX uq_file_revalidation_siret_active
+  ON plateforme.file_revalidation_siret (entite_facturation_id)
+  WHERE statut = 'en_attente';
+
 -- ---------------------------------------------------------------------
 -- 5. FOREIGN KEYS  (toutes différées en fin de fichier — ordre-indépendant)
 --    Règle : FK cross-schema autorisées UNIQUEMENT vers shared.prestataires
@@ -1852,6 +1881,7 @@ ALTER TABLE plateforme.organisations            ADD FOREIGN KEY (grille_tarifair
 ALTER TABLE plateforme.users                    ADD FOREIGN KEY (organisation_id)          REFERENCES plateforme.organisations(id);
 ALTER TABLE plateforme.jobs_pdf                 ADD FOREIGN KEY (fichier_id)               REFERENCES shared.fichiers(id);  -- ajout 2026-06-10
 ALTER TABLE plateforme.entites_facturation      ADD FOREIGN KEY (organisation_id)          REFERENCES plateforme.organisations(id);
+ALTER TABLE plateforme.file_revalidation_siret  ADD FOREIGN KEY (entite_facturation_id)    REFERENCES plateforme.entites_facturation(id);  -- ajout 2026-06-30 divergence M0.4
 ALTER TABLE plateforme.organisations_lieux      ADD FOREIGN KEY (organisation_id)          REFERENCES plateforme.organisations(id);
 ALTER TABLE plateforme.organisations_lieux      ADD FOREIGN KEY (lieu_id)                  REFERENCES plateforme.lieux(id);
 ALTER TABLE plateforme.organisations_lieux      ADD FOREIGN KEY (created_by)               REFERENCES plateforme.users(id);

@@ -718,6 +718,7 @@ Une organisation peut porter plusieurs entités juridiques de facturation (cas d
 - Une organisation **non-shadow** a au minimum 1 `entite_facturation` (créée par défaut à l'onboarding)
 - **Cas shadow (2026-05-07)** : interdiction d'`entites_facturation` tant que `organisations.est_shadow = true`. Trigger SQL `BEFORE INSERT` qui rejette toute insertion si l'organisation cible est shadow. La promotion shadow → client réel par Admin Savr déclenche la création de l'`entite_facturation` par défaut dans le même flow.
 - Une seule peut avoir `entite_par_defaut = true` par organisation (contrainte SQL unique partielle)
+- **Unicité partielle du SIRET (2026-06-30, divergence M0.4 — matérialise §15 §2.6 l.69 « détection de doublons »)** : index `UNIQUE (siret) WHERE siret <> ''` (`uniq_entites_facturation_siret`). Les entités créées sans SIRET (onboarding partiel / shadow) portent `siret = ''` et ne collisionnent pas ; deux entités ne peuvent pas porter le même SIRET non vide → bloque l'inscription si le SIRET est déjà rattaché à une organisation existante. Voir [[15 - Sécurité et conformité#2.6 Protection contre les abus à l'onboarding]].
 - À la programmation d'un événement, l'entité de facturation est sélectionnée (par défaut celle marquée `entite_par_defaut`)
 - **Règle V1 (2026-05-07)** : `evenements.entite_facturation_id` doit appartenir à l'organisation programmatrice (`evenements.organisation_id`). Pas de découplage programmateur ≠ facturé en V1. Voir §05.
 - Les champs `siret`, `adresse`, `email_principal` sur `organisations` deviennent informatifs — la source de vérité pour la facturation est `entites_facturation`
@@ -725,6 +726,32 @@ Une organisation peut porter plusieurs entités juridiques de facturation (cas d
 **Migration Pennylane** : chaque `entite_facturation` correspond à un client distinct côté Pennylane (mapping via `pennylane_customer_id`, colonne **désormais portée par `entites_facturation`** — audit sobriété §04 2026-05-25 C2).
 
 **RLS (audit RLS 2026-06-11, Q2 — BLOQUANT levé)** : l'ex-classement §09 « table financière interne, admin only » était un résidu — la table porte les entités de **toutes** les organisations clientes (sélecteur §06.01, « Mon organisation »). Policy corrigée : lecture staff + `organisation_id = self` pour tous les rôles clients ; écriture staff seul V1 (création onboarding = SERVICE_ROLE) ; colonnes système (`siret_verification`, `tva_verification`, `pennylane_customer_id`…) écrites par SERVICE_ROLE seul. Cf. [[09 - Authentification et permissions#Q2 — `entites_facturation`]].
+
+---
+
+### Table : `file_revalidation_siret` *(nouvelle V1 — ajout 2026-06-30, divergence M0.4 / lot R13 onboarding)*
+
+File d'attente **interne plateforme** qui matérialise le job asynchrone de revalidation SIRET imposé par [[15 - Sécurité et conformité#2.6 Protection contre les abus à l'onboarding]] (l.73 — 3 paliers 15 min / 1 h / 24 h quand INSEE est injoignable au signup). Sans elle, aucune structure ne porte l'état du job (statut / tentatives / prochaine tentative) : l'enqueue au signup et le worker cron n'auraient nulle part où persister leur avancement.
+
+| Champ | Type | Contrainte | Description |
+|-------|------|-----------|-------------|
+| `id` | uuid | PK | |
+| `entite_facturation_id` | uuid | FK → entites_facturation, NOT NULL | Entité dont le SIRET reste à revalider |
+| `statut` | text | NOT NULL, CHECK IN (`en_attente`, `resolu`, `epuise`), défaut `en_attente` | `resolu` = INSEE a répondu (verdict écrit dans `entites_facturation.siret_verification`) ; `epuise` = 3 paliers échoués sans réponse INSEE |
+| `tentatives` | integer | NOT NULL, défaut 0 | Compteur de paliers consommés (max 3) |
+| `prochaine_tentative_le` | timestamptz | | Horodatage du prochain essai (scan cron). NULL une fois `resolu`/`epuise` |
+| `derniere_erreur` | text | | Dernier motif d'échec (timeout, 5xx…) |
+| `created_at` | timestamptz | NOT NULL | |
+| `updated_at` | timestamptz | NOT NULL | |
+
+**Contraintes / index** :
+- `UNIQUE (entite_facturation_id) WHERE statut = 'en_attente'` — idempotence de l'enqueue (une entité n'a qu'une revalidation active à la fois).
+- Index `(prochaine_tentative_le) WHERE statut = 'en_attente'` — scan du worker cron.
+- Choix `text` + `CHECK` (pas d'ENUM) pour `statut` : évite une convergence de nom d'ENUM supplémentaire au cutover V2 (cf. migration `…_converge_enums_noms_cible`).
+
+**RLS** : DENY ALL par défaut + 1 policy lecture staff (`frs_staff_select` via `f_is_staff()`, debug Ops) ; écriture `SERVICE_ROLE` seul (enqueue au signup + worker cron). Aucun rôle client.
+
+**Forward-compatible (garde-fou G1)** : file **purement plateforme** (gating facturation) — le TMS V2 n'en a aucun besoin, aucune sémantique partagée. Ajout neutre à intégrer au DDL cible V2 pour que le diff schéma V1↔cible reste vide (même statut V1-only assumé que `nb_camions_demande` / `pesees_tournees`, liste fermée Frontière G1).
 
 ---
 

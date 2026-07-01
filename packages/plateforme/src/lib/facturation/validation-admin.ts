@@ -141,6 +141,9 @@ function buildPennylanePayload(
 export async function validerFacture(
   supabase: SupabaseClient,
   factureId: string,
+  // Auteur de la validation (§07/06 facture_emise). null sur le chemin worker
+  // retry (cron sans utilisateur) — user_id null = action système.
+  actorUserId: string | null = null,
 ): Promise<ValidationResult> {
   // 1. Charger la facture avec dépendances
   const { data: facture, error: loadErr } = await supabase
@@ -355,6 +358,22 @@ export async function validerFacture(
     })
     .eq('id', factureId);
 
+  // §07/06 facture_emise — trace l'émission (Validation Admin → Pennylane).
+  // Couvre AUSSI le chemin worker retry (via renvoyerFacture) → user_id null.
+  // Service_role (RLS bypass, §06 pt3). N'inclut pas de nouvelle valeur d'action
+  // « pennylane_envoi » : l'envoi Pennylane EST facture_emise (cf. _Divergences M0.9).
+  await supabase.from('audit_log').insert({
+    action: 'facture_emise',
+    table_name: 'factures',
+    record_id: factureId,
+    user_id: actorUserId,
+    new_values: {
+      numero_facture: numeroFacture,
+      pennylane_id: pennylaneId,
+      montant_ttc: f.montant_ttc,
+    },
+  });
+
   return {
     ok: true,
     statut: 'emise',
@@ -369,13 +388,14 @@ export async function validerFacture(
 export async function renvoyerFacture(
   supabase: SupabaseClient,
   factureId: string,
+  actorUserId: string | null = null,
 ): Promise<ValidationResult> {
   // Remettre statut brouillon pour que validerFacture ré-entre proprement
   await supabase
     .from('factures')
     .update({ statut: 'brouillon' })
     .eq('id', factureId);
-  return validerFacture(supabase, factureId);
+  return validerFacture(supabase, factureId, actorUserId);
 }
 
 // Worker retry automatique — appelle renvoyerFacture pour les factures éligibles.

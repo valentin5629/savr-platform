@@ -204,6 +204,28 @@ export async function runBatchPdfJ1Ag(
 
       const attestationId = (attRow as { id: string }).id;
 
+      // 6bis. §07/06 attestation_don_generee — trace fiscale (mention 2041-GE).
+      // Batch J+1 sans utilisateur → user_id null (system). Best-effort : un échec
+      // d'audit ne doit pas interrompre le batch (idempotence en amont via doneIds).
+      try {
+        await supabase.from('audit_log').insert({
+          action: 'attestation_don_generee',
+          table_name: 'attestations_don',
+          record_id: attestationId,
+          user_id: null,
+          new_values: {
+            numero,
+            collecte_id: collecte.id,
+            association_id: attr.association_id,
+            mention_fiscale_2041ge: mentionFiscale,
+            nb_repas: attr.volume_repas_realise,
+          },
+          details: { source: 'batch-pdf-j1-ag' },
+        });
+      } catch {
+        /* best-effort : audit non bloquant */
+      }
+
       // 7. Payload PDF pour Railway/Puppeteer
       const attestationPayload = {
         numero,

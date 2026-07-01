@@ -197,6 +197,12 @@ describe('M1.1a / Organisations / Modification', () => {
 
   it('M1.1a/orgas/modification — 200 si admin_savr modifie tarif_refacture_pax_zd', async () => {
     setupAuth('admin_savr');
+    // R15 (§07/06 tarif_refacture_pax_zd_update) : pré-fetch de l'ancien tarif
+    // AVANT l'UPDATE pour figer l'avant/après dans audit_log.
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: { tarif_refacture_pax_zd: 1.5 },
+      error: null,
+    });
     mockSupabaseChain.single.mockResolvedValueOnce({
       data: {
         id: 'org-1',

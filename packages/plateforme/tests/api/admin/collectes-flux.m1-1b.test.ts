@@ -85,7 +85,7 @@ function makeSeqSupabase(responses: Array<Record<string, unknown>>) {
 beforeEach(() => vi.clearAllMocks());
 
 describe('M1.1b / Pesées ZD / Saisie manuelle', () => {
-  it('M1.1b/flux/manuel — 422 si motif < 5 caractères', async () => {
+  it('M1.1b/flux/manuel — 422 si motif < 10 caractères (§07/06 pt2)', async () => {
     setupAuth('admin_savr');
     adminClient = makeSeqSupabase([]);
     const { PATCH } =
@@ -93,7 +93,7 @@ describe('M1.1b / Pesées ZD / Saisie manuelle', () => {
     const res = await PATCH(
       makeReq('PATCH', {
         pesees: [{ flux_code: 'biodechet', poids_reel_kg: 10 }],
-        motif: 'abc',
+        motif: 'court', // 5 car. < 10 → refusé
       }),
       PARAMS,
     );
@@ -220,7 +220,7 @@ describe('M1.1b / Pesées ZD / Saisie manuelle', () => {
     expect(insertSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         table_name: 'collecte_flux',
-        action: 'UPDATE',
+        action: 'pesee_corrigee',
         motif: 'Saisie manuelle — pesées MTS-1 manquantes (R9)',
       }),
     );

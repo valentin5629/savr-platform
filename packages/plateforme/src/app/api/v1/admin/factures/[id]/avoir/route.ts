@@ -34,6 +34,23 @@ export async function POST(
   const supabase = createAdminSupabaseClient();
   const result = await creerAvoir(supabase, id, motif);
 
+  // §07/06 facture_avoir_cree — trace l'émission d'un avoir (service_role, §06 pt3).
+  // motif métier (obligatoire) réutilisé comme motif d'audit.
+  if (result.ok) {
+    await supabase.from('audit_log').insert({
+      action: 'facture_avoir_cree',
+      table_name: 'factures',
+      record_id: result.avoir_id,
+      user_id: auth.ctx.userId,
+      motif,
+      new_values: {
+        avoir_id: result.avoir_id,
+        numero_avoir: result.numero_avoir,
+        facture_origine_id: id,
+      },
+    });
+  }
+
   const status = result.ok ? 201 : 422;
   return NextResponse.json(result, { status });
 }

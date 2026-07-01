@@ -31,13 +31,24 @@
     "M0.9-6 — GET /health — liveness DB via REST, retourne 200 ok ou 503 ko",
     "M0.9-7 — GET /health/full — readiness DB + Auth, auth admin_savr/ops_savr ou X-Internal-Token",
     "M0.9-8 — Migration SQL health_ping() + 5 vues ops accessibles uniquement à service_role",
-    "M0.9-9 — Page /admin/sante-systeme — guard rôle admin_savr/ops_savr, affiche 5 cartes ops"
+    "M0.9-9 — Page /admin/sante-systeme — guard rôle admin_savr/ops_savr, affiche 5 cartes ops",
+    "M0.9-10 — un call-site réel émet un event canonique JSON via le logger (stdout)",
+    "M0.9-11 — sanitizePayload rédige la PII par clé (siret/email), préserve le montant",
+    "M0.9-12 — succès : job.cron.started + job.cron.completed(nb_traite), 200, pas d’alerte",
+    "M0.9-13 — job critique échoué : job.cron.failed + sendAlert(eleve) + 500",
+    "M0.9-14 — garde CRON_SECRET : 401 sans Bearer valide",
+    "M0.9-15 — user_role_modifie : changement de rôle → audit action exacte + motif",
+    "M0.9-16 — tarif_refacture_pax_zd_update : modif tarif orga → audit action exacte",
+    "M0.9-17 — login échoué : auth.login_failed émis avec email HACHÉ (jamais en clair)",
+    "M0.9-18 — deny RLS (Postgres 42501) → event rls.policy.deny émis",
+    "M0.9-19 — login réussi : auth.login_success avec { user_id, ip, role } (§07/01)",
+    "M0.9-20 — impersonation : audit impersonation_session + event auth.impersonation_started"
   ],
   "hors_scope": [
-    "audit_log triggers (module 0.10)",
-    "alertes métier DLQ/pesées/cron (câblées dans M1.x qui les déclenche)",
     "Better Uptime (configuration manuelle)",
-    "tms.* (non créé en V1)"
+    "tms.* (non créé en V1)",
+    "audit_log triggers packs/params (déjà câblés par trigger DB, hors R15)",
+    "seuils d'agrégation temps-fenêtre bruteforce/RLS-deny/API-HS (règles plateforme Supabase Logs, config externe comme Better Uptime)"
   ],
   "deliverables": [
     {
@@ -111,9 +122,124 @@
       "test": "M0.9-9 — Page /admin/sante-systeme — guard rôle admin_savr/ops_savr, affiche 5 cartes ops",
       "statut": "implemented",
       "libelle": "M0.9-9 — Page /admin/sante-systeme — guard rôle admin_savr/ops_savr, affiche 5 cartes ops"
+    },
+    {
+      "id": "BL-P1-OBS-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Observabilité/01 - Logs business.md",
+      "artefact": "Logger @savr/shared CÂBLÉ : crons (via withCronObservability), health/route, api-helpers (api_route.error + rls.policy.deny), attribution-ag (api.external.failed resend + log interne), manual provider (outbox.event_consumed), pennylane client (api.external.failed), login (auth.login_*). console.* métier supprimés. eslint no-console:error (overrides seed/scripts/sinks). G8 check-primitive-orpheline BLOQUANT (logger/sendAlert/captureException non-orphelins).",
+      "test": "M0.9-10 ; M0.9-11 ; lint no-console (eslint.config.js) ; scripts/check-primitive-orpheline.sh (bloquant, CI job primitive-orpheline) ; M0.9-17 ; M0.9-19 ; M0.9-20",
+      "statut": "implemented",
+      "libelle": "BL-P1-OBS-01 — Logger jamais câblé en prod (C8) : câblage + PII rédigée + lint/G8"
+    },
+    {
+      "id": "BL-P1-OBS-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Observabilité/03 - Alertes.md",
+      "artefact": "withCronObservability sur les 11 crons : job.cron.started/completed/failed (§07/02) + sendAlert par canal §07/03 (eleve : mts1_polling, attestations_batch, bordereaux_rapports_batch ; info : pennylane_polling). Chaînes câblées : PDF échec définitif→Slack eleve (pdf-worker) ; bruteforce (auth.login_failed) + RLS deny (rls.policy.deny) + API tierce (api.external.failed pennylane/resend) émis, seuils agrégés côté plateforme (stack §07/00). Anti-doublon §13 : alertes fonctionnelles restent in-app.",
+      "test": "M0.9-12 ; M0.9-13 ; M0.9-14 ; M0.9-17 ; M0.9-18",
+      "statut": "implemented",
+      "libelle": "BL-P1-OBS-02 — Chaînes event→alerte Slack rompues (C8) : wrapper cron + chaînes"
+    },
+    {
+      "id": "BL-P1-OBS-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Observabilité/06 - Audit trail.md",
+      "artefact": "audit_log (service_role, §06 pt3) sur 11 actions catalogue §2 : facture_emise, facture_avoir_cree, facture_numero_attribue, attestation_don_generee, user_role_modifie, user_desactive, collecte_statut_force, pesee_corrigee, pack_ajuste_manuel, tarif_refacture_pax_zd_update, impersonation_session. Motif ≥10 (pt2) pour role/désactivation/statut-force/pesée. Valeurs d'action alignées sur le catalogue (renommages : impersonation→impersonation_session, UPDATE→pesee_corrigee/collecte_statut_force, ajustement_credits→pack_ajuste_manuel).",
+      "test": "M0.9-15 ; M0.9-16 ; M1.1b/flux/manuel (pesee_corrigee) ; supabase/tests/audit_trail.m0-10.test.sql (immuabilité)",
+      "statut": "implemented",
+      "libelle": "BL-P1-OBS-03 — audit_log actions sensibles manquantes (C8) : 11 actions §07/06"
+    },
+    {
+      "id": "M0.9-obs01-ev",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Observabilité/01 - Logs business.md",
+      "artefact": "Event canonique émis via le logger à un call-site réel (§07/01)",
+      "test": "M0.9-10",
+      "statut": "implemented",
+      "libelle": "OBS-01 — event canonique émis via le logger (call-site réel)"
+    },
+    {
+      "id": "M0.9-obs01-pii",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Observabilité/01 - Logs business.md",
+      "artefact": "sanitizePayload rédige la PII par clé au call-site (siret/email), montant préservé",
+      "test": "M0.9-11",
+      "statut": "implemented",
+      "libelle": "OBS-01 — PII rédigée au call-site (sanitizePayload)"
+    },
+    {
+      "id": "M0.9-obs01-lint",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Observabilité/01 - Logs business.md",
+      "artefact": "no-console:error (périmètre plateforme+adapters) + G8 primitive-orpheline bloquant",
+      "test": "lint no-console (eslint.config.js) ; scripts/check-primitive-orpheline.sh (exit 1 si orphelin)",
+      "statut": "implemented",
+      "libelle": "OBS-01 — lint no-console + G8 primitive-orpheline (bloquant)"
+    },
+    {
+      "id": "M0.9-obs02-cron",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Observabilité/02 - Logs techniques.md",
+      "artefact": "withCronObservability : job.cron.started/completed/failed + sendAlert(canal) sur les 11 crons",
+      "test": "M0.9-12 ; M0.9-13 ; M0.9-14",
+      "statut": "implemented",
+      "libelle": "OBS-02 — wrapper cron job.cron.* + alerte canal"
+    },
+    {
+      "id": "M0.9-obs02-bf",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Observabilité/03 - Alertes.md",
+      "artefact": "auth.login_failed émis (email haché) — alimente l'alerte bruteforce §07/03 (agrégée plateforme)",
+      "test": "M0.9-17",
+      "statut": "implemented",
+      "libelle": "OBS-02 — chaîne bruteforce (auth.login_failed)"
+    },
+    {
+      "id": "M0.9-obs02-rls",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Observabilité/02 - Logs techniques.md",
+      "artefact": "rls.policy.deny émis sur 42501 (api-helpers) — alimente l'alerte RLS deny §07/03",
+      "test": "M0.9-18",
+      "statut": "implemented",
+      "libelle": "OBS-02 — chaîne RLS deny (rls.policy.deny)"
+    },
+    {
+      "id": "M0.9-obs03-usr",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Observabilité/06 - Audit trail.md",
+      "artefact": "user_role_modifie (motif ≥10) — audit action exacte du catalogue",
+      "test": "M0.9-15",
+      "statut": "implemented",
+      "libelle": "OBS-03 — audit user_role_modifie + motif"
+    },
+    {
+      "id": "M0.9-obs03-tarif",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Observabilité/06 - Audit trail.md",
+      "artefact": "tarif_refacture_pax_zd_update — audit avant/après sur organisations",
+      "test": "M0.9-16",
+      "statut": "implemented",
+      "libelle": "OBS-03 — audit tarif_refacture_pax_zd_update"
+    },
+    {
+      "id": "M0.9-obs03-pesee",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Observabilité/06 - Audit trail.md",
+      "artefact": "pesee_corrigee (motif ≥10) — renommage UPDATE→pesee_corrigee",
+      "test": "M1.1b/flux/manuel — 200 : UPSERT poids_reel_kg + audit_log avec motif",
+      "statut": "implemented",
+      "libelle": "OBS-03 — audit pesee_corrigee (motif ≥10)"
+    },
+    {
+      "id": "M0.9-obs01-login",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Observabilité/01 - Logs business.md",
+      "artefact": "auth.login_success (payload {user_id, ip, role} — rôle depuis le claim user_role de l'access_token) + auth.login_failed (email SHA-256)",
+      "test": "M0.9-17 ; M0.9-19",
+      "statut": "implemented",
+      "libelle": "OBS-01 — events auth.login_success/failed (§07/01, payload complet)"
+    },
+    {
+      "id": "M0.9-obs01-imp",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Observabilité/01 - Logs business.md",
+      "artefact": "auth.impersonation_started (warn, {impersonator_id, target_user, by_role}) émis EN PLUS de l'audit impersonation_session",
+      "test": "M0.9-20",
+      "statut": "implemented",
+      "libelle": "OBS-01 — event auth.impersonation_started (§07/01)"
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/07 - Observabilité/01 - Logs business.md": "bda4490df59ea574a7cd48a66dc6136f1864543cd18a624f6a43493da0b42287"
+    "specs/cdc/01 - Cahier des charges App/07 - Observabilité/01 - Logs business.md": "bda4490df59ea574a7cd48a66dc6136f1864543cd18a624f6a43493da0b42287",
+    "specs/cdc/01 - Cahier des charges App/07 - Observabilité/02 - Logs techniques.md": "6ef1ab77a5bb90496e24ffb564467193e5a7876208ef0c587899bfebaae45f36",
+    "specs/cdc/01 - Cahier des charges App/07 - Observabilité/03 - Alertes.md": "8a2f0c7e7f24f2235cf5f245a95188dd61d91591689972afe181bf82acf1f8d2",
+    "specs/cdc/01 - Cahier des charges App/07 - Observabilité/06 - Audit trail.md": "8ca2ee7d469856efb4c0d25613c0e2e9ca5d3e2d2e3f3d0cf7be7a9c650c0434"
   }
 }

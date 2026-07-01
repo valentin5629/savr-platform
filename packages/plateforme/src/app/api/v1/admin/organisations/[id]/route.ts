@@ -123,6 +123,23 @@ export async function PATCH(
   }
 
   const supabase = createAdminSupabaseClient();
+
+  // §07/06 tarif_refacture_pax_zd_update — capture l'ancienne valeur AVANT l'UPDATE.
+  // Seule mutation d'organisation auditée (§2) ; les autres champs (raison_sociale,
+  // siret, adresse…) ne sont PAS au catalogue → pas d'audit.
+  const tarifChange = updatePayload.tarif_refacture_pax_zd !== undefined;
+  let ancienTarif: number | null = null;
+  if (tarifChange) {
+    const { data: prev } = await supabase
+      .from('organisations')
+      .select('tarif_refacture_pax_zd')
+      .eq('id', id)
+      .single();
+    ancienTarif =
+      (prev as { tarif_refacture_pax_zd: number | null } | null)
+        ?.tarif_refacture_pax_zd ?? null;
+  }
+
   const { data: org, error } = await supabase
     .from('organisations')
     .update(updatePayload)
@@ -138,6 +155,19 @@ export async function PATCH(
       { error: 'Organisation non trouvée' },
       { status: 404 },
     );
+  }
+
+  if (tarifChange) {
+    await supabase.from('audit_log').insert({
+      action: 'tarif_refacture_pax_zd_update',
+      table_name: 'organisations',
+      record_id: id,
+      user_id: auth.ctx.userId,
+      old_values: { tarif_refacture_pax_zd: ancienTarif },
+      new_values: {
+        tarif_refacture_pax_zd: updatePayload.tarif_refacture_pax_zd,
+      },
+    });
   }
 
   return NextResponse.json(org);

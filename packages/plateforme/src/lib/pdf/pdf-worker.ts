@@ -7,6 +7,8 @@ import {
   isPdfDocumentType,
   type PdfDocumentType,
 } from '@savr/shared/src/pdf/document-types.js';
+import { sendAlert } from '@savr/shared/src/alerting/slack.js';
+import { logger } from '@savr/shared/src/logger/index.js';
 
 import { generatePdf } from './railway-client.js';
 import { uploadPdf, type R2Bucket } from './r2-client.js';
@@ -143,13 +145,37 @@ export async function runPdfWorker(
 
       if (isDead) {
         result.dead++;
-        // Alerte Admin in-app via la fonction SQL dédupliquée
+        // Alerte Admin in-app via la fonction SQL dédupliquée (worklist Ops)
         await supabase.rpc('f_upsert_alerte_admin', {
           p_code: 'pdf_job_dead',
           p_titre: 'Échec génération PDF',
           p_message: `Job PDF ${job.type_document} définitivement échoué après ${newAttempts} tentatives.`,
           p_entity_type: job.entity_type,
           p_entity_id: job.entity_id,
+        });
+        // §07/03 « PDF job en échec définitif » → push Slack eleve (chaîne technique,
+        // distincte de la worklist in-app ci-dessus). Never throws.
+        logger.error(
+          'pdf.job_failed',
+          {
+            job_id: job.id,
+            type_doc: job.type_document,
+            entity_type: job.entity_type,
+            entity_id: job.entity_id,
+            retry_count: newAttempts,
+          },
+          { service: 'pdf' },
+        );
+        await sendAlert({
+          canal: 'eleve',
+          titre: 'PDF job en échec définitif',
+          message: `Job PDF ${job.type_document} mort après ${newAttempts} tentatives (${job.entity_type}/${job.entity_id}).`,
+          metadata: {
+            job_id: job.id,
+            type_document: job.type_document,
+            entity_type: job.entity_type,
+            entity_id: job.entity_id,
+          },
         });
       }
 

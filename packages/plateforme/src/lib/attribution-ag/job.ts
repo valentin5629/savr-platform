@@ -1,3 +1,4 @@
+import { logger } from '@savr/shared/src/logger/index.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 
 export interface AttributionValideePayload {
@@ -68,7 +69,14 @@ export async function processAttributionValidee(
       },
     );
     if (emailErr) {
-      console.error('[attribution-job] email asso KO', emailErr.message);
+      // §07/01 api.external.failed (service=resend). On NE logge PAS le destinataire
+      // (PII) — seul le template + le message d'erreur RPC (sans email en clair).
+      logger.error('api.external.failed', {
+        service: 'resend',
+        endpoint: 'fn_envoyer_email_template',
+        template: 'ag_attribution_association',
+        error: emailErr.message,
+      });
     }
   }
 
@@ -89,7 +97,12 @@ export async function processAttributionValidee(
       },
     );
     if (emailErr) {
-      console.error('[attribution-job] email transp KO', emailErr.message);
+      logger.error('api.external.failed', {
+        service: 'resend',
+        endpoint: 'fn_envoyer_email_template',
+        template: 'ag_attribution_transporteur',
+        error: emailErr.message,
+      });
     }
   }
 }

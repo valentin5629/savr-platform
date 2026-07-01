@@ -39,10 +39,11 @@ export async function PATCH(
   const body = parsed.data as { pesees?: unknown; motif?: unknown };
 
   // ── Validation ──────────────────────────────────────────────────────────────
+  // §07/06 pt2 : correction de pesée = motif obligatoire ≥ 10 caractères.
   const motif = typeof body.motif === 'string' ? body.motif.trim() : '';
-  if (motif.length < 5) {
+  if (motif.length < 10) {
     return NextResponse.json(
-      { error: 'Motif obligatoire (≥ 5 caractères)' },
+      { error: 'Motif obligatoire (≥ 10 caractères)' },
       { status: 422 },
     );
   }
@@ -158,11 +159,11 @@ export async function PATCH(
 
   if (upErr) return serverError(upErr, 'admin.collectes.flux.upsert');
 
-  // ── Audit (motif obligatoire) ────────────────────────────────────────────────
+  // ── Audit §07/06 pesee_corrigee (motif obligatoire) ──────────────────────────
   await supabase.from('audit_log').insert({
     table_name: 'collecte_flux',
     record_id: id,
-    action: 'UPDATE',
+    action: 'pesee_corrigee',
     user_id: auth.ctx.userId,
     motif,
     old_values: { pesees: before ?? [] },

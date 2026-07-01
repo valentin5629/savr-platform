@@ -206,7 +206,11 @@ describe('M1.1a / Users / Changement de rôle', () => {
     });
     const { PATCH } = await import('@/app/api/v1/admin/users/[id]/route.js');
     const res = await PATCH(
-      makeReq('PATCH', '/api/v1/admin/users/user-1', { actif: false }),
+      // §07/06 pt2 : la désactivation exige un motif ≥ 10 car.
+      makeReq('PATCH', '/api/v1/admin/users/user-1', {
+        actif: false,
+        motif: 'Suspension pour inactivité prolongée',
+      }),
       { params: Promise.resolve({ id: 'user-1' }) },
     );
     expect(res.status).toBe(200);
@@ -279,6 +283,7 @@ describe('M0.4 — gating ops users (BL-P1-AUTH-03)', () => {
     const res = await PATCH(
       makeReq('PATCH', '/api/v1/admin/users/user-1', {
         role: 'traiteur_manager',
+        motif: 'Réassignation de rôle demandée par le manager',
       }),
       { params: Promise.resolve({ id: 'user-1' }) },
     );
@@ -329,7 +334,10 @@ describe('M0.4 — gating ops users (BL-P1-AUTH-03)', () => {
     });
     const { PATCH } = await import('@/app/api/v1/admin/users/[id]/route.js');
     const res = await PATCH(
-      makeReq('PATCH', '/api/v1/admin/users/user-1', { role: 'admin_savr' }),
+      makeReq('PATCH', '/api/v1/admin/users/user-1', {
+        role: 'admin_savr',
+        motif: 'Promotion admin validée par la direction',
+      }),
       { params: Promise.resolve({ id: 'user-1' }) },
     );
     expect(res.status).toBe(200);

@@ -3,10 +3,6 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { serverError, writeError } from '@/lib/api-helpers.js';
-import {
-  parseInvitationMode,
-  sendSelfServiceInvitation,
-} from '@/lib/invitations.js';
 
 const ROLES_VALIDES = [
   'admin_savr',
@@ -73,19 +69,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     role?: string;
     organisation_id?: string;
   };
-  const mode = parseInvitationMode(body.mode);
 
-  // `email`, `role`, `organisation_id` requis dans les deux modes. `prenom`/`nom` requis
-  // seulement en `direct` (en `self_service` l'invité les saisira à l'acceptation).
-  if (!email || !role || !organisation_id) {
+  if (!email || !prenom || !nom || !role || !organisation_id) {
     return NextResponse.json(
-      { error: 'email, role, organisation_id sont obligatoires' },
-      { status: 422 },
-    );
-  }
-  if (mode === 'direct' && (!prenom || !nom)) {
-    return NextResponse.json(
-      { error: 'prenom et nom sont obligatoires (mode direct)' },
+      { error: 'email, prenom, nom, role, organisation_id sont obligatoires' },
       { status: 422 },
     );
   }
@@ -103,27 +90,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const supabase = createAdminSupabaseClient();
-
-  // Mode self-service : l'utilisateur crée lui-même son compte (nom + mot de passe + CGU)
-  // via le lien. Le rôle et l'organisation choisis par l'Admin sont posés en metadata
-  // (serveur) et appliqués à l'acceptation.
-  if (mode === 'self_service') {
-    const { data: orgSs } = await supabase
-      .from('organisations')
-      .select('nom')
-      .eq('id', organisation_id)
-      .maybeSingle();
-    const res = await sendSelfServiceInvitation(supabase, {
-      email,
-      organisationId: organisation_id,
-      role,
-      organisationNom: (orgSs as { nom?: string } | null)?.nom ?? '',
-    });
-    if (!res.ok) {
-      return NextResponse.json({ error: res.error }, { status: 422 });
-    }
-    return NextResponse.json({ email, mode }, { status: 201 });
-  }
 
   // Mot de passe temporaire — l'utilisateur sera invité à le changer via email
   const motDePasseTemporaire =

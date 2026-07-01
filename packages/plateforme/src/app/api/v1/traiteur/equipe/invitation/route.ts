@@ -2,10 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
 import { requireUser, type ClientRole } from '@/lib/api-auth.js';
-import {
-  parseInvitationMode,
-  sendSelfServiceInvitation,
-} from '@/lib/invitations.js';
 
 // Invitation de collaborateur = Manager only (§06.04 §6). Le commercial n'a pas
 // la gestion des utilisateurs.
@@ -20,19 +16,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     email?: string;
     prenom?: string;
     nom?: string;
-    mode?: string;
   };
-  const mode = parseInvitationMode(body.mode);
   const email = (body.email ?? '').trim().toLowerCase();
   const prenom = (body.prenom ?? '').trim();
   const nom = (body.nom ?? '').trim();
-  if (!email) {
-    return NextResponse.json({ error: 'Email requis' }, { status: 422 });
-  }
-  // Mode `direct` : prenom + nom obligatoires (compte provisionné tout de suite,
-  // `plateforme.users.prenom`/`nom` sont NOT NULL). Mode `self_service` : l'invité
-  // saisira lui-même son nom à l'acceptation → seul l'email est requis ici.
-  if (mode === 'direct' && (!prenom || !nom)) {
+  // prenom + nom obligatoires : le compte est provisionné directement et
+  // `plateforme.users.prenom`/`nom` sont NOT NULL (aligné invitation gestionnaire F5).
+  if (!email || !prenom || !nom) {
     return NextResponse.json(
       { error: 'email, prenom et nom sont requis' },
       { status: 422 },
@@ -60,25 +50,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .select('nom')
     .eq('id', auth.ctx.organisationId)
     .maybeSingle();
-
-  // Mode self-service : l'invité crée lui-même son compte (nom + mot de passe + CGU)
-  // via le lien. Le rattachement à l'org de l'invitant reste garanti (metadata posées
-  // côté serveur, rôle `traiteur_commercial`).
-  if (mode === 'self_service') {
-    const res = await sendSelfServiceInvitation(admin, {
-      email,
-      organisationId: auth.ctx.organisationId,
-      role: 'traiteur_commercial',
-      organisationNom: org?.nom ?? '',
-    });
-    if (!res.ok) {
-      return NextResponse.json({ error: res.error }, { status: 422 });
-    }
-    return NextResponse.json(
-      { data: { invitation: 'envoyee', email, mode } },
-      { status: 201 },
-    );
-  }
 
   // CDC §06.04 « Invitation de collaborateur » : le collaborateur est rattaché
   // AUTOMATIQUEMENT à l'organisation de l'invitant, rôle `traiteur_commercial`

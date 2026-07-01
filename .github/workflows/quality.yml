@@ -320,12 +320,13 @@ jobs:
   # exportés de @savr/shared mais sans call-site de production (chaînes
   # event→log/alerte muettes). Pur grep, sans DB. Le volet process de G8 =
   # mandat du reviewer `reviewer-conformite-spec` (item-par-item, GO-VISUAL).
+  # BLOQUANT depuis R15 (T1) : les 3 primitives sont câblées → toute régression
+  # à l'état orphelin rougit la CI (exit 1).
   primitive-orpheline:
     runs-on: ubuntu-latest
-    continue-on-error: true # MODE RAPPORT — informatif, non bloquant en T0
     steps:
       - uses: actions/checkout@v4
-      - name: G8 — rapport primitives orphelines
+      - name: G8 — primitives orphelines (bloquant)
         run: bash scripts/check-primitive-orpheline.sh
 
   # G2 — Manifeste au grain LIVRABLE (R0b). Valide chaque specs/manifests/M*.json

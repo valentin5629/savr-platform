@@ -1,3 +1,4 @@
+import { logger } from '@savr/shared/src/logger/index.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 
 export type ModeValidation = 'manuel_top1' | 'manuel_override' | 'auto_accept';
@@ -73,9 +74,11 @@ export async function logAttributionAucuneReco(
     p_user_id: userId,
   });
   if (error) {
-    console.error(
-      '[attribution] log attribution_manuelle_aucune_reco KO',
-      error.message,
-    );
+    // Best-effort : échec de l'écriture d'audit, ne fait pas échouer la validation.
+    logger.error('attribution.log_aucune_reco_failed', {
+      collecte_id: collecteId,
+      attribution_id: attributionId,
+      error: error.message,
+    });
   }
 }

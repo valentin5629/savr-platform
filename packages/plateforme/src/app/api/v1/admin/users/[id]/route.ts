@@ -96,10 +96,12 @@ export async function PATCH(
 
   const supabase = createAdminSupabaseClient();
 
-  // Fetch target user — seul admin_savr peut modifier un compte admin_savr
+  // Fetch target user — seul admin_savr peut modifier un compte admin_savr.
+  // `actif` inclus pour détecter une désactivation réelle (true→false) et figer
+  // l'avant/après dans l'audit (§07/06 user_desactive).
   const { data: targetUser, error: fetchErr } = await supabase
     .from('users')
-    .select('id, role')
+    .select('id, role, actif')
     .eq('id', id)
     .single();
 
@@ -110,10 +112,31 @@ export async function PATCH(
     );
   }
 
-  if ((targetUser as { role: string }).role === 'admin_savr' && !isAdmin) {
+  const target = targetUser as { id: string; role: string; actif: boolean };
+
+  if (target.role === 'admin_savr' && !isAdmin) {
     return NextResponse.json(
       { error: "Modification d'un admin Savr réservée à admin Savr" },
       { status: 403 },
+    );
+  }
+
+  // §07/06 pt2 : motif obligatoire (≥ 10 car.) pour un changement de rôle OU une
+  // désactivation — les deux actions sensibles auditées de cette route.
+  const roleModifie =
+    'role' in updatePayload && updatePayload.role !== target.role;
+  const desactivation =
+    'actif' in updatePayload &&
+    updatePayload.actif === false &&
+    target.actif !== false;
+  const motif = typeof body.motif === 'string' ? body.motif.trim() : '';
+  if ((roleModifie || desactivation) && motif.length < 10) {
+    return NextResponse.json(
+      {
+        error:
+          'Un motif d’au moins 10 caractères est requis pour un changement de rôle ou une désactivation',
+      },
+      { status: 422 },
     );
   }
 
@@ -129,6 +152,31 @@ export async function PATCH(
       { error: 'Utilisateur non trouvé' },
       { status: 404 },
     );
+
+  // §07/06 — audit des actions sensibles (service_role, §06 pt3). Deux actions
+  // distinctes possibles depuis un même PATCH (rôle ET actif changés).
+  if (roleModifie) {
+    await supabase.from('audit_log').insert({
+      action: 'user_role_modifie',
+      table_name: 'users',
+      record_id: id,
+      user_id: auth.ctx.userId,
+      motif,
+      old_values: { role: target.role },
+      new_values: { role: updatePayload.role },
+    });
+  }
+  if (desactivation) {
+    await supabase.from('audit_log').insert({
+      action: 'user_desactive',
+      table_name: 'users',
+      record_id: id,
+      user_id: auth.ctx.userId,
+      motif,
+      old_values: { actif: target.actif },
+      new_values: { actif: false },
+    });
+  }
 
   return NextResponse.json(user);
 }

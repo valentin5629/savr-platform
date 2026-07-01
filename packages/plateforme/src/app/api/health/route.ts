@@ -1,26 +1,8 @@
 import { NextResponse } from 'next/server';
 
-let _lastStatus: 'ok' | 'ko' | null = null;
+import { logger } from '@savr/shared/src/logger/index.js';
 
-function logJson(
-  level: string,
-  event: string,
-  payload: Record<string, unknown> = {},
-) {
-  console.log(
-    JSON.stringify({
-      ts: new Date().toISOString(),
-      level,
-      service: 'platform',
-      event,
-      actor_id: null,
-      actor_role: null,
-      org_id: null,
-      trace_id: null,
-      payload,
-    }),
-  );
-}
+let _lastStatus: 'ok' | 'ko' | null = null;
 
 export async function GET(): Promise<NextResponse> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -51,20 +33,20 @@ export async function GET(): Promise<NextResponse> {
     if (!res.ok || Date.now() - start > 200) {
       if (_lastStatus !== 'ko') {
         _lastStatus = 'ko';
-        logJson('error', 'health.db_ko', { http_status: res.status });
+        logger.error('health.db_ko', { http_status: res.status });
       }
       return NextResponse.json({ status: 'ko' }, { status: 503 });
     }
 
     if (_lastStatus === 'ko') {
-      logJson('info', 'health.db_recovered');
+      logger.info('health.db_recovered');
     }
     _lastStatus = 'ok';
     return NextResponse.json({ status: 'ok' });
   } catch (err) {
     if (_lastStatus !== 'ko') {
       _lastStatus = 'ko';
-      logJson('error', 'health.db_ko', {
+      logger.error('health.db_ko', {
         error: err instanceof Error ? err.message : 'unknown',
       });
     }

@@ -79,6 +79,21 @@ export async function PATCH(
     );
   }
 
+  // §07/06 collecte_statut_force — une bascule MANUELLE de statut exige un motif
+  // (≥ 10 car., §07/06 pt2). Les éditions de routine (date, notes, camions…)
+  // restent une simple action 'UPDATE' sans motif.
+  const forceStatut = 'statut' in updates;
+  const motif = typeof body.motif === 'string' ? body.motif.trim() : '';
+  if (forceStatut && motif.length < 10) {
+    return NextResponse.json(
+      {
+        error:
+          'Un motif d’au moins 10 caractères est requis pour forcer le statut d’une collecte',
+      },
+      { status: 422 },
+    );
+  }
+
   const supabase = createAdminSupabaseClient();
   const { data: before, error: fetchErr } = await supabase
     .from('collectes')
@@ -107,14 +122,26 @@ export async function PATCH(
 
   const data = updatedJson as Record<string, unknown>;
 
-  await supabase.from('audit_log').insert({
-    table_name: 'collectes',
-    record_id: id,
-    action: 'UPDATE',
-    user_id: auth.ctx.userId,
-    old_values: before,
-    new_values: data,
-  });
+  if (forceStatut) {
+    await supabase.from('audit_log').insert({
+      table_name: 'collectes',
+      record_id: id,
+      action: 'collecte_statut_force',
+      user_id: auth.ctx.userId,
+      motif,
+      old_values: { statut: (before as { statut?: unknown }).statut },
+      new_values: { statut: updates.statut },
+    });
+  } else {
+    await supabase.from('audit_log').insert({
+      table_name: 'collectes',
+      record_id: id,
+      action: 'UPDATE',
+      user_id: auth.ctx.userId,
+      old_values: before,
+      new_values: data,
+    });
+  }
 
   return NextResponse.json(data);
 }

@@ -8,6 +8,7 @@
 // trace, un échec Pennylane (4xx/5xx/timeout) était invisible côté Ops. Le
 // `supabase` (service_role côté jobs/routes facturation) est threadé des appelants.
 
+import { logger } from '@savr/shared/src/logger/index.js';
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 
 import {
@@ -104,6 +105,14 @@ async function pennylaneRequest<T>(
       } catch {
         /* ignore */
       }
+      // §07/01 api.external.failed (service=pennylane) → alerte « API tierce HS »
+      // §07/03 (3× 5xx/timeout consécutifs), agrégée côté plateforme.
+      logger.error('api.external.failed', {
+        service: 'pennylane',
+        endpoint: path,
+        error_code: String(res.status),
+        retry_count: 0,
+      });
       return {
         ok: false,
         status: res.status,
@@ -116,6 +125,12 @@ async function pennylaneRequest<T>(
     return { ok: true, data };
   } catch (err) {
     // AbortError (timeout) ou réseau → 5xx-like pour retry
+    logger.error('api.external.failed', {
+      service: 'pennylane',
+      endpoint: path,
+      error_code: 'network_error',
+      retry_count: 0,
+    });
     return {
       ok: false,
       status: 503,

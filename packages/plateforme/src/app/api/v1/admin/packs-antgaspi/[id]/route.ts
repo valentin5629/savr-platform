@@ -84,10 +84,11 @@ export async function PATCH(
       await supabase.from('audit_log').insert({
         table_name: 'packs_antgaspi',
         record_id: id,
-        action: 'ajustement_credits',
+        action: 'pack_ajuste_manuel',
         user_id: auth.ctx.userId,
+        motif,
         old_values: { credits_initiaux: oldVal },
-        new_values: { credits_initiaux, motif },
+        new_values: { credits_initiaux },
       });
     } catch {
       /* audit failure non-bloquante */

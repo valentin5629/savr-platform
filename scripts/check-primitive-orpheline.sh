@@ -11,10 +11,10 @@
 # Ce check liste, pour chaque primitive transverse, le nombre de call-sites de
 # PRODUCTION (hors tests, hors module de definition). 0 call-site = ORPHELINE.
 #
-# MODE RAPPORT (T0) : informe, ne bloque jamais (exit 0 toujours). Ecrit un
-# resume dans $GITHUB_STEP_SUMMARY (si defini) + un compteur de burn-down.
-# Flip bloquant (T1) = avec R15 (Observabilite : logger cable + chaines
-# event->alerte), via durcissement par cliquet — cf. Lot 0.
+# MODE BLOQUANT (T1, flip R15) : logger/sendAlert/captureException sont desormais
+# cables (chaines event->log/alerte). Toute REGRESSION a l'etat orphelin (une
+# primitive transverse re-exportee sans call-site de prod) rougit la CI (exit 1).
+# Ecrit un resume dans $GITHUB_STEP_SUMMARY (si defini) + un compteur de burn-down.
 #
 # Compatible bash 3.2 (macOS) et GNU bash (CI Linux).
 # =============================================================================
@@ -111,5 +111,10 @@ done
 
 echo ""
 echo "[primitive-orpheline] Compteur burn-down : ${orphan_count} orpheline(s)."
-echo "[primitive-orpheline] Mode RAPPORT — informatif, non bloquant (exit 0)."
+if [ "$orphan_count" -gt 0 ]; then
+  echo "[primitive-orpheline] BLOQUANT (T1) — une primitive transverse est orpheline"
+  echo "                      (chaine event->log/alerte muette en prod). Cf. §07/01-03."
+  exit 1
+fi
+echo "[primitive-orpheline] OK — toutes les primitives transverses sont cablees."
 exit 0

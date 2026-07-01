@@ -1,19 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { withCronObservability } from '@/lib/cron-observabilite.js';
 
-export async function GET(req: NextRequest): Promise<NextResponse> {
-  const secret = req.headers.get('authorization')?.replace('Bearer ', '');
-  if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const supabase = createAdminSupabaseClient();
-  const { error } = await supabase.rpc('refresh_mv_benchmark');
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
-
-  return NextResponse.json({
-    ok: true,
-    refreshed_at: new Date().toISOString(),
-  });
-}
+// GET /api/cron/refresh-benchmark — rafraîchit la vue matérialisée benchmark.
+// Garde CRON_SECRET harmonisée (Bearer strict). Non catalogué §07/02 → pas de Slack.
+export const GET = withCronObservability(
+  'refresh_benchmark',
+  async ({ supabase }) => {
+    const { error } = await supabase.rpc('refresh_mv_benchmark');
+    if (error) throw error;
+    return { refreshed_at: new Date().toISOString() };
+  },
+);

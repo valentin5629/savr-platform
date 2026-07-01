@@ -2,55 +2,19 @@
 // Appelé par Vercel Cron toutes les 15 min (vercel.json : crons).
 // Auth : header Authorization Bearer == CRON_SECRET (Vercel injecte automatiquement).
 
-import { NextResponse } from 'next/server';
-
 import { runOutboxWorker } from '@savr/adapters/src/outbox-worker.js';
-import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+
+import { withCronObservability } from '@/lib/cron-observabilite.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-export async function POST(request: Request): Promise<NextResponse> {
-  // Vercel Cron injecte Authorization: Bearer <CRON_SECRET>
-  const auth = request.headers.get('authorization');
-  const cronSecret = process.env['CRON_SECRET'];
-  if (!cronSecret || auth !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-  }
-
-  const supabase = createAdminSupabaseClient();
-
-  try {
-    const result = await runOutboxWorker(supabase);
-    console.info(
-      JSON.stringify({
-        ts: new Date().toISOString(),
-        level: 'info',
-        service: 'platform',
-        event: 'outbox_worker.run',
-        actor_id: null,
-        actor_role: null,
-        org_id: null,
-        trace_id: null,
-        payload: result,
-      }),
-    );
-    return NextResponse.json({ ok: true, ...result });
-  } catch (err) {
-    console.error(
-      JSON.stringify({
-        ts: new Date().toISOString(),
-        level: 'error',
-        service: 'platform',
-        event: 'outbox_worker.crash',
-        actor_id: null,
-        actor_role: null,
-        org_id: null,
-        trace_id: null,
-        payload: { error: String(err) },
-      }),
-    );
-    return NextResponse.json({ error: String(err) }, { status: 500 });
-  }
-}
+// Pas d'alerte Slack sur le crash du run : les alertes actionnables (DLQ critique,
+// collecte imminente) sont émises AU NIVEAU EVENT dans runOutboxWorker (anti-doublon §13).
+export const POST = withCronObservability(
+  'outbox_worker',
+  async ({ supabase }) => {
+    return await runOutboxWorker(supabase);
+  },
+);

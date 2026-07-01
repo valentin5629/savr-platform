@@ -16,7 +16,7 @@ export async function POST(
   const { id } = await params;
   const supabase = createAdminSupabaseClient();
 
-  const result = await renvoyerFacture(supabase, id);
+  const result = await renvoyerFacture(supabase, id, auth.ctx.userId);
 
   const status = result.ok ? 200 : result.statut === 'brouillon' ? 422 : 202;
   return NextResponse.json(result, { status });

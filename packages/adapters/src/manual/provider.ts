@@ -1,3 +1,5 @@
+import { logger } from '@savr/shared/src/logger/index.js';
+
 import type {
   Collecte,
   ConsumerTag,
@@ -10,58 +12,37 @@ import type {
 export class ProviderManual implements LogistiqueProvider {
   constructor(private readonly transporteur: Transporteur) {}
 
+  // Consommation d'un event outbox par le provider no-op (dispatch email/téléphone
+  // hors plateforme) → log business `outbox.event_consumed` (§07/01, adapter='manual').
+  private logConsumed(kind: string): void {
+    logger.info('outbox.event_consumed', {
+      adapter: 'manual',
+      consumer: 'manual',
+      kind,
+      transporteur_id: this.transporteur.id,
+    });
+  }
+
   async dispatchCollecte(
     _collecte: Collecte,
     _rang: number,
   ): Promise<ConsumerTag> {
-    console.info(
-      JSON.stringify({
-        level: 'info',
-        service: 'platform',
-        event: 'provider_manual.dispatch',
-        consumer: 'manual',
-        transporteur_id: this.transporteur.id,
-      }),
-    );
+    this.logConsumed('dispatch');
     return 'manual';
   }
 
   async updateCollecte(_collecte: Collecte): Promise<ConsumerTag> {
-    console.info(
-      JSON.stringify({
-        level: 'info',
-        service: 'platform',
-        event: 'provider_manual.update_collecte',
-        consumer: 'manual',
-        transporteur_id: this.transporteur.id,
-      }),
-    );
+    this.logConsumed('update_collecte');
     return 'manual';
   }
 
   async cancelCollecte(_collecte: Collecte): Promise<ConsumerTag> {
-    console.info(
-      JSON.stringify({
-        level: 'info',
-        service: 'platform',
-        event: 'provider_manual.cancel_collecte',
-        consumer: 'manual',
-        transporteur_id: this.transporteur.id,
-      }),
-    );
+    this.logConsumed('cancel_collecte');
     return 'manual';
   }
 
   async updateLieu(_lieu: Lieu): Promise<void> {
-    console.info(
-      JSON.stringify({
-        level: 'info',
-        service: 'platform',
-        event: 'provider_manual.update_lieu',
-        consumer: 'manual',
-        transporteur_id: this.transporteur.id,
-      }),
-    );
+    this.logConsumed('update_lieu');
   }
 
   async sync(_fenetre: FenetreSync): Promise<void> {

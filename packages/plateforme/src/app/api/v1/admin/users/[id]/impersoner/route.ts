@@ -53,13 +53,15 @@ export async function POST(
     `?token_hash=${encodeURIComponent(tokenHash)}` +
     `&type=magiclink&impersonator=${encodeURIComponent(auth.ctx.userId)}`;
 
-  // Tracer dans audit_log
+  // Tracer dans audit_log — §07/06 impersonation_session (impersonator_id renseigné,
+  // §09 §7). user_id = identité assumée (cible), impersonator_id = admin réel.
   try {
     await supabase.from('audit_log').insert({
       table_name: 'users',
       record_id: id,
-      action: 'impersonation',
-      user_id: auth.ctx.userId,
+      action: 'impersonation_session',
+      user_id: id,
+      impersonator_id: auth.ctx.userId,
       new_values: { impersonated_user_id: id, impersonated_email: cible.email },
     });
   } catch {

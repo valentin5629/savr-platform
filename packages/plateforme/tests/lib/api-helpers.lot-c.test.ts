@@ -21,7 +21,9 @@ describe('Lot C / C2 — sanitizeOrTerm', () => {
 
 describe('Lot C / C1 — serverError', () => {
   it('renvoie 500 + message générique, jamais le détail DB ; logge côté serveur', async () => {
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    // R15 : serverError logge via le logger @savr/shared → puits console.log
+    // (JSON structuré, event api_route.error). Le détail DB reste côté SERVEUR.
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const res = serverError(
       new Error('column "secret_interne" does not exist'),
       'test.event',
@@ -29,8 +31,16 @@ describe('Lot C / C1 — serverError', () => {
     expect(res.status).toBe(500);
     const body = (await res.json()) as { error: string };
     expect(body.error).toBe('Erreur serveur');
+    // La RÉPONSE client ne fuite jamais le détail DB…
     expect(JSON.stringify(body)).not.toContain('secret_interne');
-    expect(spy).toHaveBeenCalledTimes(1); // l'erreur réelle est loggée serveur
+    // …mais le LOG serveur émet bien l'event api_route.error (debug d'incident).
+    expect(spy).toHaveBeenCalledTimes(1);
+    const entry = JSON.parse(spy.mock.calls[0]![0] as string) as {
+      event: string;
+      payload: { route: string };
+    };
+    expect(entry.event).toBe('api_route.error');
+    expect(entry.payload.route).toBe('test.event');
     spy.mockRestore();
   });
 });

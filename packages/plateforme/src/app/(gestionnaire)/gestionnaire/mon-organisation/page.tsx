@@ -47,7 +47,6 @@ export default function MonOrganisationPage() {
   const [email, setEmail] = useState('');
   const [prenom, setPrenom] = useState('');
   const [nom, setNom] = useState('');
-  const [mode, setMode] = useState<'direct' | 'self_service'>('direct');
   const [inviting, setInviting] = useState(false);
   const [inviteMsg, setInviteMsg] = useState('');
 
@@ -78,20 +77,10 @@ export default function MonOrganisationPage() {
     const res = await fetch('/api/v1/gestionnaire/mon-organisation/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email,
-        prenom,
-        nom,
-        role: 'gestionnaire_lieux',
-        mode,
-      }),
+      body: JSON.stringify({ email, prenom, nom, role: 'gestionnaire_lieux' }),
     });
     if (res.ok) {
-      setInviteMsg(
-        mode === 'self_service'
-          ? 'Invitation envoyée — le collaborateur créera son compte via le lien reçu.'
-          : 'Invitation envoyée — le collaborateur recevra un lien d’activation.',
-      );
+      setInviteMsg('Invitation envoyée.');
       setEmail('');
       setPrenom('');
       setNom('');
@@ -270,84 +259,23 @@ export default function MonOrganisationPage() {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleInvite} className="space-y-3">
-                {/* Choix du mode d'invitation */}
-                <fieldset className="space-y-2">
-                  <legend className="text-sm font-medium text-savr-neutral-700">
-                    Mode d&apos;invitation
-                  </legend>
-                  <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                    <label
-                      className={`flex cursor-pointer items-start gap-2 rounded-savr-md border px-3 py-2 text-sm ${
-                        mode === 'direct'
-                          ? 'border-savr-primary-500 bg-savr-primary-50'
-                          : 'border-savr-neutral-300'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="invite-mode"
-                        checked={mode === 'direct'}
-                        onChange={() => setMode('direct')}
-                        className="mt-0.5"
-                      />
-                      <span>
-                        <span className="font-medium">Créer le compte</span>
-                        <span className="block text-xs text-savr-neutral-500">
-                          Le membre reçoit un lien d&apos;activation.
-                        </span>
-                      </span>
-                    </label>
-                    <label
-                      className={`flex cursor-pointer items-start gap-2 rounded-savr-md border px-3 py-2 text-sm ${
-                        mode === 'self_service'
-                          ? 'border-savr-primary-500 bg-savr-primary-50'
-                          : 'border-savr-neutral-300'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="invite-mode"
-                        checked={mode === 'self_service'}
-                        onChange={() => setMode('self_service')}
-                        className="mt-0.5"
-                      />
-                      <span>
-                        <span className="font-medium">
-                          Invitation à compléter
-                        </span>
-                        <span className="block text-xs text-savr-neutral-500">
-                          Le membre crée lui-même son compte.
-                        </span>
-                      </span>
-                    </label>
-                  </div>
-                </fieldset>
-
-                <div
-                  className={`grid grid-cols-1 gap-3 ${
-                    mode === 'direct' ? 'md:grid-cols-3' : ''
-                  }`}
-                >
-                  {mode === 'direct' && (
-                    <>
-                      <input
-                        type="text"
-                        placeholder="Prénom"
-                        value={prenom}
-                        onChange={(e) => setPrenom(e.target.value)}
-                        required
-                        className="rounded border border-savr-neutral-300 px-3 py-2 text-sm"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Nom"
-                        value={nom}
-                        onChange={(e) => setNom(e.target.value)}
-                        required
-                        className="rounded border border-savr-neutral-300 px-3 py-2 text-sm"
-                      />
-                    </>
-                  )}
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <input
+                    type="text"
+                    placeholder="Prénom"
+                    value={prenom}
+                    onChange={(e) => setPrenom(e.target.value)}
+                    required
+                    className="rounded border border-savr-neutral-300 px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Nom"
+                    value={nom}
+                    onChange={(e) => setNom(e.target.value)}
+                    required
+                    className="rounded border border-savr-neutral-300 px-3 py-2 text-sm"
+                  />
                   <input
                     type="email"
                     placeholder="Email"

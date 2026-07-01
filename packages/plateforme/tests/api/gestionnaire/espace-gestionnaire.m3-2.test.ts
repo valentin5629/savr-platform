@@ -141,10 +141,7 @@ beforeEach(() => {
   });
   mockGenerateLink.mockResolvedValue({
     data: {
-      properties: {
-        action_link: 'https://app.gosavr.io/activation#token',
-        hashed_token: 'hashed-token-abc',
-      },
+      properties: { action_link: 'https://app.gosavr.io/activation#token' },
     },
     error: null,
   });
@@ -785,37 +782,6 @@ describe('M3.2 / mon-organisation / users (F5)', () => {
       }),
     );
     expect(res.status).toBe(403);
-  });
-
-  it('M3.2/F5_invitation_self_service_email_seul — 201 lien token, pas de provisioning', async () => {
-    setupAuth('gestionnaire_lieux', 'org-viparis');
-    rls.push({ data: null, error: null }); // pas de doublon (rls)
-    adminClient.push({ data: { nom: 'Viparis SA' }, error: null }); // org
-    const { POST } =
-      await import('@/app/api/v1/gestionnaire/mon-organisation/users/route.js');
-    const res = await POST(
-      makeReq('POST', '/api/v1/gestionnaire/mon-organisation/users', {
-        email: 'nouveau@viparis.fr',
-        mode: 'self_service',
-      }),
-    );
-    expect(res.status).toBe(201);
-    expect(mockGenerateLink).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'invite',
-        options: expect.objectContaining({
-          data: expect.objectContaining({
-            organisation_id: 'org-viparis',
-            role: 'gestionnaire_lieux',
-          }),
-        }),
-      }),
-    );
-    expect(mockCreateUser).not.toHaveBeenCalled();
-    const emailVars = mockSendEmail.mock.calls[0]?.[2] as {
-      lien_invitation?: string;
-    };
-    expect(emailVars.lien_invitation).toContain('token_hash=hashed-token-abc');
   });
 
   it('M3.2/F5_desactivation_membre_actif — retour actif=false', async () => {

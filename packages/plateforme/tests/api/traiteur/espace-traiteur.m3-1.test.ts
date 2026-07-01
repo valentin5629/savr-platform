@@ -133,10 +133,7 @@ beforeEach(() => {
   });
   mockGenerateLink.mockResolvedValue({
     data: {
-      properties: {
-        action_link: 'https://app.gosavr.io/activation#token',
-        hashed_token: 'hashed-token-abc',
-      },
+      properties: { action_link: 'https://app.gosavr.io/activation#token' },
     },
     error: null,
   });
@@ -518,41 +515,6 @@ describe('M3.1 / invitation collaborateur', () => {
     expect(mockDeleteUser).toHaveBeenCalledWith('new-commercial-id');
     // Pas d'email envoyé si le provisioning a échoué.
     expect(mockSendEmail).not.toHaveBeenCalled();
-  });
-
-  it('M3.1/invitation_self_service_email_seul — 201 lien token, email seul, pas de provisioning', async () => {
-    setupAuth('traiteur_manager', 'org-kaspia');
-    admin.push({ data: null, error: null }); // users lookup → pas de doublon
-    admin.push({ data: { nom: 'Kaspia' }, error: null }); // org
-    const { POST } =
-      await import('@/app/api/v1/traiteur/equipe/invitation/route.js');
-    const res = await POST(
-      makeReq('POST', '/api/v1/traiteur/equipe/invitation', {
-        email: 'jeanne@exemple-perso.fr',
-        mode: 'self_service',
-      }),
-    );
-    expect(res.status).toBe(201);
-    // Compte « invited » créé via generateLink(invite) avec metadata org+rôle (serveur).
-    expect(mockGenerateLink).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'invite',
-        email: 'jeanne@exemple-perso.fr',
-        options: expect.objectContaining({
-          data: expect.objectContaining({
-            organisation_id: 'org-kaspia',
-            role: 'traiteur_commercial',
-          }),
-        }),
-      }),
-    );
-    // Pas de provisioning direct : l'invité finalise à l'acceptation.
-    expect(mockCreateUser).not.toHaveBeenCalled();
-    // Email brandé avec lien_invitation portant le token.
-    const emailVars = mockSendEmail.mock.calls[0]?.[2] as {
-      lien_invitation?: string;
-    };
-    expect(emailVars.lien_invitation).toContain('token_hash=hashed-token-abc');
   });
 });
 

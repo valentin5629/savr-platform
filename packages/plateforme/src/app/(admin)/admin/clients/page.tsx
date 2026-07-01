@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ImpersonationLauncher } from '@/components/ui/impersonation-launcher';
 
 interface Organisation {
   id: string;
@@ -121,6 +122,9 @@ export default function ClientsPage() {
           </Button>
         </Link>
       </div>
+
+      {/* Impersonation (admin_savr uniquement — le composant se masque sinon) */}
+      <ImpersonationLauncher />
 
       {/* Filtres */}
       <div className="flex gap-3 flex-wrap">

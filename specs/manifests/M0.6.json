@@ -1158,6 +1158,14 @@
       "test": "supabase/tests/rls_attestations_don_m2_4.test.sql (delete_attestation_deny)",
       "statut": "implemented",
       "libelle": "attestations_don : aucune policy DELETE (registre fiscal immuable)"
+    },
+    {
+      "id": "M0.6-impersonation-launcher-ui",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:901",
+      "artefact": "packages/plateforme/src/components/ui/impersonation-launcher.tsx (select users + bouton Impersoner, admin_savr only) monté sur packages/plateforme/src/app/(admin)/admin/clients/page.tsx",
+      "test": "packages/plateforme/src/components/ui/impersonation-launcher.test.tsx « M0.6 — lanceur impersonation admin (BL-P1-BOA-09) » (masqué non-admin, liste hors-soi, POST impersoner + navigation)",
+      "statut": "implemented",
+      "libelle": "Bouton + liste déroulante utilisateurs pour lancer l’impersonation (§09 §7 « Bouton Impersonate », volet UI BL-P1-BOA-09)"
     }
   ],
   "cdc_source_hash": {

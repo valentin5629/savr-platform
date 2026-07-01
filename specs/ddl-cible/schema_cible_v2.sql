@@ -291,7 +291,7 @@ CREATE TABLE plateforme.file_revalidation_siret (
   entite_facturation_id  uuid NOT NULL,
   statut                 text NOT NULL DEFAULT 'en_attente' CHECK (statut IN ('en_attente','resolu','epuise')),
   tentatives             integer NOT NULL DEFAULT 0,
-  prochaine_tentative_le timestamptz,
+  prochaine_tentative_le timestamptz NOT NULL DEFAULT now(),
   derniere_erreur        text,
   created_at             timestamptz NOT NULL DEFAULT now(),
   updated_at             timestamptz NOT NULL DEFAULT now()

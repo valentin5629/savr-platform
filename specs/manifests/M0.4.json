@@ -126,7 +126,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "08337c40ec142a761c950422e243e82a4f32123ab1af136891306a1988cf19bf",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "5bf65cc35e403893a92ee041f16a057332303f2fe2fb85dfd867db8d25de0d58",
     "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "742495d608eb789d19c22dd602df76495943d6457d3f037d6c83a7c6c6d6aa35",
     "specs/cdc/01 - Cahier des charges App/CGU Savr V1 - Draft.md": "2cc8294096f90ae0582a699895a55119d766dc8626eaac4bf7b944e9580c161a"
   }

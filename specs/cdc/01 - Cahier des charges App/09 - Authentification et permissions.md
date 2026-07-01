@@ -900,7 +900,7 @@ Tables sensibles (factures, bordereaux, attestations) : log complet des modifica
 Un Admin Savr peut "se mettre à la place" d'un utilisateur pour debug ou support :
 - Bouton "Impersonate" sur le profil user dans le back-office
 - Génère un JWT signé avec `role = user.role` + `organisation_id = user.organisation_id` + `impersonator_id = admin.id`
-- Un bandeau rouge permanent signale la session impersonation dans l'UI
+- Un bandeau orange permanent signale la session impersonation dans l'UI (cf. [[15 - Sécurité et conformité]] §2.3)
 - Toutes les actions effectuées sont loggées dans `audit_log` avec `user_id = user.id` ET `impersonator_id = admin.id`
 - Fin de session : retour auto au compte Admin après 1h ou bouton "Quitter l'impersonation"
 
@@ -934,7 +934,7 @@ Deux niveaux possibles, dans cet ordre :
 - **Rôle `lieu_independant` retiré — fusionné dans `gestionnaire_lieux` (sobriété 2026-06-03 D1)** : le §04 Data Model ne le portait déjà pas (`organisations.type` et `users.role` sans `lieu_independant`) ; le rôle n'avait aucun comportement RLS distinct (toujours rangé dans « autres ») et son dashboard §11 §6 était « identique au gestionnaire, scopé à 1 lieu ». Un lieu autonome mono-site = un `gestionnaire_lieux` avec une seule ligne `organisations_lieux`. Incohérence levée (son dashboard offrait « Programmer » sans policy INSERT). Migration Bubble : toute org typée « lieu indépendant » → `gestionnaire_lieux`. Propagé : §11, §16, §06.03, §06.06, §08, §05, §00 Index.
 - **traiteur_commercial — lecture alignée Manager (révision 2026-05-29)** : SELECT org-wide sur `evenements`, `collectes`, `factures`, `bordereaux_savr` (`organisation_id = self`) + dashboards/benchmarks + Bloc 7 Top 5 commerciaux. **Écriture** restreinte à ses propres créations (`created_by = auth.uid()`). **Pas** de gestion des utilisateurs ( **révisé F4 lot ⑪ 2026-06-07 : SELECT `users` org-wide en lecture, UPDATE reste self only — aucune invitation/désactivation**) ni d'édition des paramètres org (UPDATE `organisations` reste manager only). Option C (factures fiche-only) levée. Propagé : [[02 - Personas et cas d'usage]], [[11 - Dashboards]], [[06 - Fonctionnalités détaillées/04 - Espace client traiteur]]
 - **SSO SAML anticipé dans l'archi V1** : claims JWT provisionnables par IdP externe, activation V2 sans migration
-- **Impersonation Admin Savr** : bandeau rouge UI, logs `audit_log` avec `impersonator_id`
+- **Impersonation Admin Savr** : bandeau orange UI, logs `audit_log` avec `impersonator_id`
 - **Suppression comptes 2 niveaux** : soft delete (défaut, 48h validation Admin) + hard delete / anonymisation PII sur demande user ou Admin
 - **RLS activé sur toutes les tables sensibles** (enforcement DB-level)
 - **Extension transactionnelle agence + gestionnaire_lieux (2026-05-07)** : INSERT/UPDATE `evenements` + `collectes` ouvert aux 2 rôles. Périmètre agence = ouvert. Périmètre gestionnaire = fermé via `organisations_lieux` + filtre traiteur opérationnel non-shadow. Pas de nouveau rôle créé (extension périmètre des rôles existants).

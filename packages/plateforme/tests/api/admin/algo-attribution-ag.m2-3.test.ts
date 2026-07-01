@@ -243,10 +243,25 @@ describe('M2.3 / PATCH /attributions-ag/:id/poids', () => {
   });
 
   it('met à jour le poids et retourne volume calculé (200)', async () => {
-    mockSupabaseChain.single.mockResolvedValue({
-      data: { id: 'attr-1', poids_repas_kg: 135.0, volume_repas_realise: 300 },
-      error: null,
-    });
+    // 1re saisie (poids null en amont) → pas de motif exigé (RM-10 : motif requis
+    // seulement SUR CORRECTION d'un poids déjà saisi, §06.09 l.177 vs l.183).
+    mockSupabaseChain.single
+      .mockResolvedValueOnce({
+        data: {
+          id: 'attr-1',
+          poids_repas_kg: null,
+          volume_repas_realise: null,
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: {
+          id: 'attr-1',
+          poids_repas_kg: 135.0,
+          volume_repas_realise: 300,
+        },
+        error: null,
+      });
 
     const { PATCH } =
       await import('@/app/api/v1/admin/attributions-ag/[collecteId]/poids/route.js');

@@ -244,22 +244,6 @@
       "libelle": "Gate statut sur modif nb_camions_demande : interdit hors (programmee, validee, en_cours) — jamais de régression d'un état terminal"
     },
     {
-      "id": "BL-P1-RM-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "Multi-camions augmentation N"
-    },
-    {
-      "id": "BL-P1-RM-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "Multi-camions réduction N"
-    },
-    {
       "id": "BL-P1-RM-05",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:271",
       "artefact": "supabase/migrations/20260702000100_plateforme_r16a_fn_modifier_collecte_gardes.sql (garde REDUCTION_CANCEL_WINDOW_CLOSED), packages/plateforme/src/app/api/v1/admin/collectes/[id]/route.ts (alerte Ops sur rollback)",
@@ -290,14 +274,6 @@
       "test": "supabase/tests/r16a_machine_etats.test.sql (RM-09 : incident prestataire → aucun débit pack ; client → débit) ; M1.4/RM-09 — incident prestataire : annulee + email Admin + notif client (annulation_collecte) + 200 ; motif<10 → 422 ; imputable invalide → 422",
       "statut": "implemented",
       "libelle": "Flux incident prestataire : annulee + incident_imputable_a + motif_incident ; pas de débit pack si imputable ≠ client (§05 §4bis l.346) ; alerte Admin admin_incident_collecte (§06.02 item 10) + notification client au programmeur (§05 §4bis l.347, template annulation_collecte, mention non-facturation)"
-    },
-    {
-      "id": "BL-P1-RM-10",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "Correction volume aberrant AG"
     },
     {
       "id": "BL-P2-36",

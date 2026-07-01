@@ -181,13 +181,26 @@ export class AdapterMts1 implements LogistiqueProvider {
     const tournees = await this.findTournees(collecte.id);
     const avecRef = tournees.filter((t) => t.external_ref_commande);
 
-    // Pas encore envoyé à MTS-1 → no-op succès (consumer noop_no_remote)
+    // Pas encore envoyé à MTS-1 → no-op succès (consumer noop_no_remote).
+    // E1 (collecte.creee) dispatchera lui-même les N rangs ; une E2 antérieure au
+    // dispatch n'a rien à mettre à jour ni à créer/supprimer.
     if (avecRef.length === 0) {
       return 'noop_no_remote';
     }
 
+    const n = collecte.nb_camions_demande;
+
+    // BL-P1-RM-04 — réduction N→N−k : supprimer sélectivement les rangs au-delà de N
+    // (customerOrder MTS-1 + tournée + lien collecte_tournees). Le gate <1h de la
+    // réduction est appliqué en amont par fn_modifier_collecte (RM-05) : si l'E2
+    // arrive ici, la réduction est autorisée. Jamais de sur-dispatch fantôme.
+    for (const t of tournees.filter((t) => t.rang > n)) {
+      await this.deleteTourneeRang(collecte, t);
+    }
+
+    // Rangs conservés (≤ N) déjà envoyés à MTS-1 → PUT pour propager la modification.
     const updatePayload = this.buildUpdatePayload(collecte);
-    for (const t of avecRef) {
+    for (const t of avecRef.filter((t) => t.rang <= n)) {
       // A4 : sur reprise après timeout (requiresReconciliation), confirmer que
       // l'ordre existe encore côté MTS-1 avant le PUT. Un ordre disparu (annulé
       // entre-temps) ne doit pas être ré-adressé (le PUT n'est de toute façon
@@ -202,7 +215,56 @@ export class AdapterMts1 implements LogistiqueProvider {
         this.orderNumber(collecte, t.rang),
       );
     }
+
+    // BL-P1-RM-03 — augmentation N→N+k : créer les rangs manquants (1..N sans tournée)
+    // via dispatchCollecte (idempotent, clé d'idempotence reference-{rang}). Une
+    // grosse collecte dont Ops augmente N est ainsi entièrement servie.
+    const rangsPresents = new Set(tournees.map((t) => t.rang));
+    for (let rang = 1; rang <= n; rang++) {
+      if (!rangsPresents.has(rang)) {
+        await this.dispatchCollecte(collecte, rang, {
+          requiresReconciliation: opts?.requiresReconciliation,
+        });
+      }
+    }
+
     return 'adapter_mts1';
+  }
+
+  // Suppression d'un rang retiré (RM-04) : annule la commande MTS-1 (idempotent sur
+  // 404) puis purge les lignes DB (pesées éventuelles, lien, tournée).
+  private async deleteTourneeRang(
+    collecte: Collecte,
+    t: TourneeRow,
+  ): Promise<void> {
+    if (t.external_ref_commande) {
+      try {
+        await this.client.deleteOrder(
+          t.external_ref_commande,
+          this.orderNumber(collecte, t.rang),
+        );
+      } catch (err) {
+        // 404 = commande déjà supprimée côté MTS-1 → DELETE idempotent, on continue
+        // le nettoyage DB. Toute autre erreur remonte (le rang reste à re-traiter).
+        if (
+          !(
+            err instanceof LogistiquePermanentError &&
+            err.message.includes('MTS-1 404')
+          )
+        ) {
+          throw err;
+        }
+      }
+    }
+    // Purge DB (enfants avant parent pour respecter les FK). Une réduction survient
+    // avant la mission (gate <1h RM-05) → pas de pesées en pratique, delete défensif.
+    await this.supabase.from('pesees_tournees').delete().eq('tournee_id', t.id);
+    await this.supabase
+      .from('collecte_tournees')
+      .delete()
+      .eq('collecte_id', collecte.id)
+      .eq('tournee_id', t.id);
+    await this.supabase.from('tournees').delete().eq('id', t.id);
   }
 
   // ─── E3 collecte.annulee ─────────────────────────────────────────────────────

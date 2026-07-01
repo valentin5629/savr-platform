@@ -233,6 +233,22 @@
       "statut": "descoped",
       "ref_divergence": "_Divergences/BLOC7_20260624.md",
       "libelle": "Convergence schéma Bloc 7 (integrations_logs/inbox, outbox_events, emails_envoyes) vs DDL cible : divergence structurelle tracée + allowlistée G6, convergence V2 (arbitrage A6 2026-06-24). Aucune migration V1."
+    },
+    {
+      "id": "BL-P1-RM-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:407",
+      "artefact": "packages/adapters/src/mts1/adapter.ts (updateCollecte — création des rangs manquants 1..N via dispatchCollecte)",
+      "test": "M1.5a / RM-03 augmentation N→N+k — crée les rangs manquants via dispatchCollecte",
+      "statut": "implemented",
+      "libelle": "Multi-camions augmentation N→N+k : updateCollecte crée les rangs manquants (1..N sans tournée) via dispatchCollecte (idempotent, clé reference-{rang})"
+    },
+    {
+      "id": "BL-P1-RM-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/Interface logistique_provider V1.md",
+      "artefact": "packages/adapters/src/mts1/adapter.ts (updateCollecte + deleteTourneeRang — DELETE sélectif des rangs > N)",
+      "test": "M1.5a / RM-04 réduction N→N−k — supprime sélectivement les rangs > N ; 404 idempotent ; N inchangé → PUT seul",
+      "statut": "implemented",
+      "libelle": "Multi-camions réduction N→N−k : DELETE sélectif customerOrder MTS-1 + tournees/collecte_tournees des rangs > N (404 = idempotent)"
     }
   ],
   "cdc_source_hash": {

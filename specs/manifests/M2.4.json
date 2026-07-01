@@ -71,6 +71,14 @@
       "test": null,
       "statut": "partial",
       "libelle": "CO2 ZD seed OMR `fe_evite=0`"
+    },
+    {
+      "id": "BL-P1-RM-10",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:183",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/poids/route.ts (motif ≥10 sur correction + audit poids_repas_saisi_ops motivé) ; régén attestation via trg_regenerer_attestation (existant)",
+      "test": "M2.4/RM-10 — correction sans motif → 422 ; correction avec motif ≥10 → 200 + audit poids_repas_saisi_ops motivé ; 1re saisie sans motif → 200 ; régén attestation (correction volume → corrigee + version+1) : supabase/tests/rls_attestations_don_m2_4.test.sql (Section R9 T7/T8/T9)",
+      "statut": "implemented",
+      "libelle": "Correction volume aberrant AG : motif obligatoire sur correction (§06.09 l.183) + audit poids_repas_saisi_ops motivé ; régénération attestation (nouvelle version + re-enqueue jobs_pdf) assurée par trg_regenerer_attestation"
     }
   ],
   "cdc_source_hash": {

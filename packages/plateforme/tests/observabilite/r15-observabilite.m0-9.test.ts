@@ -133,6 +133,7 @@ describe('M0.9 R15 / OBS-02 — wrapper cron', () => {
 });
 
 // ── OBS-03 — audit_log valeurs d'action du catalogue §07/06 ──────────────────
+const mockGenerateLink = vi.fn();
 const mockChain = {
   from: vi.fn().mockReturnThis(),
   select: vi.fn().mockReturnThis(),
@@ -140,6 +141,7 @@ const mockChain = {
   update: vi.fn().mockReturnThis(),
   eq: vi.fn().mockReturnThis(),
   single: vi.fn(),
+  auth: { admin: { generateLink: mockGenerateLink } },
 };
 vi.mock('@savr/shared/src/supabase-client.js', () => ({
   createAdminSupabaseClient: () => mockChain,
@@ -262,6 +264,57 @@ describe('M0.9 R15 / OBS-03 — audit_log catalogue §07/06', () => {
       }),
     );
   });
+
+  it('M0.9-20 — impersonation : audit impersonation_session + event auth.impersonation_started', async () => {
+    authAs('admin_savr');
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    mockChain.single.mockResolvedValueOnce({
+      data: {
+        id: 'cible-1',
+        email: 'cible@traiteur.fr',
+        prenom: 'P',
+        nom: 'M',
+        role: 'traiteur_manager',
+        organisation_id: 'org-1',
+        actif: true,
+      },
+      error: null,
+    });
+    mockGenerateLink.mockResolvedValue({
+      data: { properties: { hashed_token: 'imp-hash' } },
+      error: null,
+    });
+    const { POST } =
+      await import('@/app/api/v1/admin/users/[id]/impersoner/route.js');
+    const res = await POST(
+      new NextRequest('http://x/api/v1/admin/users/cible-1/impersoner', {
+        method: 'POST',
+      }),
+      { params: Promise.resolve({ id: 'cible-1' }) },
+    );
+    expect(res.status).toBe(200);
+    // §07/06 : audit impersonation_session (impersonator_id renseigné)
+    expect(mockChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'impersonation_session',
+        impersonator_id: 'admin-1',
+      }),
+    );
+    // §07/01 : event business auth.impersonation_started (warn)
+    const started = logSpy.mock.calls
+      .map(
+        (c) =>
+          JSON.parse(c[0] as string) as {
+            event: string;
+            payload: Record<string, unknown>;
+          },
+      )
+      .find((e) => e.event === 'auth.impersonation_started');
+    expect(started).toBeDefined();
+    expect(started!.payload.target_user).toBe('cible-1');
+    expect(started!.payload.impersonator_id).toBe('admin-1');
+    logSpy.mockRestore();
+  });
 });
 
 // ── OBS-02 (chaînes stat) — events émis, agrégation plateforme ───────────────
@@ -318,5 +371,38 @@ describe('M0.9 R15 / OBS-02 — chaînes bruteforce & RLS deny (events)', () => 
       (c) => (JSON.parse(c[0] as string) as { event: string }).event,
     );
     expect(events).toContain('rls.policy.deny');
+  });
+
+  it('M0.9-19 — login réussi : auth.login_success avec { user_id, ip, role } (§07/01)', async () => {
+    const token = `h.${Buffer.from(JSON.stringify({ user_role: 'traiteur_manager' })).toString('base64url')}.s`;
+    mockSignIn.mockResolvedValue({
+      data: {
+        user: { id: 'u-42', email: 'ok@traiteur.fr' },
+        session: { access_token: token },
+      },
+      error: null,
+    });
+    const { POST } = await import('@/app/api/auth/login/route.js');
+    const res = await POST(
+      new NextRequest('http://x/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email: 'ok@traiteur.fr', mot_de_passe: 'x' }),
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+    expect(res.status).toBe(200);
+    const entry = logSpy.mock.calls
+      .map(
+        (c) =>
+          JSON.parse(c[0] as string) as {
+            event: string;
+            payload: Record<string, unknown>;
+          },
+      )
+      .find((e) => e.event === 'auth.login_success');
+    expect(entry).toBeDefined();
+    expect(entry!.payload.user_id).toBe('u-42');
+    expect(entry!.payload.role).toBe('traiteur_manager');
+    expect(entry!.payload).toHaveProperty('ip');
   });
 });

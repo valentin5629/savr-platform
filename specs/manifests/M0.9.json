@@ -40,7 +40,9 @@
     "M0.9-15 — user_role_modifie : changement de rôle → audit action exacte + motif",
     "M0.9-16 — tarif_refacture_pax_zd_update : modif tarif orga → audit action exacte",
     "M0.9-17 — login échoué : auth.login_failed émis avec email HACHÉ (jamais en clair)",
-    "M0.9-18 — deny RLS (Postgres 42501) → event rls.policy.deny émis"
+    "M0.9-18 — deny RLS (Postgres 42501) → event rls.policy.deny émis",
+    "M0.9-19 — login réussi : auth.login_success avec { user_id, ip, role } (§07/01)",
+    "M0.9-20 — impersonation : audit impersonation_session + event auth.impersonation_started"
   ],
   "hors_scope": [
     "Better Uptime (configuration manuelle)",
@@ -125,7 +127,7 @@
       "id": "BL-P1-OBS-01",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Observabilité/01 - Logs business.md",
       "artefact": "Logger @savr/shared CÂBLÉ : crons (via withCronObservability), health/route, api-helpers (api_route.error + rls.policy.deny), attribution-ag (api.external.failed resend + log interne), manual provider (outbox.event_consumed), pennylane client (api.external.failed), login (auth.login_*). console.* métier supprimés. eslint no-console:error (overrides seed/scripts/sinks). G8 check-primitive-orpheline BLOQUANT (logger/sendAlert/captureException non-orphelins).",
-      "test": "M0.9-10 ; M0.9-11 ; lint no-console (eslint.config.js) ; scripts/check-primitive-orpheline.sh (bloquant, CI job primitive-orpheline)",
+      "test": "M0.9-10 ; M0.9-11 ; lint no-console (eslint.config.js) ; scripts/check-primitive-orpheline.sh (bloquant, CI job primitive-orpheline) ; M0.9-17 ; M0.9-19 ; M0.9-20",
       "statut": "implemented",
       "libelle": "BL-P1-OBS-01 — Logger jamais câblé en prod (C8) : câblage + PII rédigée + lint/G8"
     },
@@ -216,6 +218,22 @@
       "test": "M1.1b/flux/manuel — 200 : UPSERT poids_reel_kg + audit_log avec motif",
       "statut": "implemented",
       "libelle": "OBS-03 — audit pesee_corrigee (motif ≥10)"
+    },
+    {
+      "id": "M0.9-obs01-login",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Observabilité/01 - Logs business.md",
+      "artefact": "auth.login_success (payload {user_id, ip, role} — rôle depuis le claim user_role de l'access_token) + auth.login_failed (email SHA-256)",
+      "test": "M0.9-17 ; M0.9-19",
+      "statut": "implemented",
+      "libelle": "OBS-01 — events auth.login_success/failed (§07/01, payload complet)"
+    },
+    {
+      "id": "M0.9-obs01-imp",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Observabilité/01 - Logs business.md",
+      "artefact": "auth.impersonation_started (warn, {impersonator_id, target_user, by_role}) émis EN PLUS de l'audit impersonation_session",
+      "test": "M0.9-20",
+      "statut": "implemented",
+      "libelle": "OBS-01 — event auth.impersonation_started (§07/01)"
     }
   ],
   "cdc_source_hash": {

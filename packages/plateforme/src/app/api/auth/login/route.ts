@@ -20,6 +20,22 @@ function clientIp(req: NextRequest): string {
   return req.headers.get('x-real-ip') ?? 'unknown';
 }
 
+// Rôle métier depuis le claim `user_role` de l'access_token (posé par le hook
+// JWT), sans requête DB. Payload obligatoire de `auth.login_success` (§07/01).
+function roleFromToken(token: string | undefined): string | null {
+  if (!token) return null;
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+    const claims = JSON.parse(
+      Buffer.from(payload, 'base64url').toString('utf8'),
+    ) as Record<string, unknown>;
+    return (claims['user_role'] as string) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(req: NextRequest): Promise<NextResponse> {
   let body: Record<string, unknown>;
   try {
@@ -75,7 +91,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: error.message }, { status: 401 });
   }
 
-  logger.info('auth.login_success', { user_id: data.user.id, ip });
+  logger.info('auth.login_success', {
+    user_id: data.user.id,
+    ip,
+    role: roleFromToken(data.session?.access_token),
+  });
 
   return NextResponse.json(
     { user: { id: data.user.id, email: data.user.email } },

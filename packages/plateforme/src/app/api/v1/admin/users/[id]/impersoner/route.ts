@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { logger } from '@savr/shared/src/logger/index.js';
 import { requireAdmin } from '@/lib/api-auth.js';
 
 export async function POST(
@@ -52,6 +53,14 @@ export async function POST(
     `${appUrl}/auth/impersonate-callback` +
     `?token_hash=${encodeURIComponent(tokenHash)}` +
     `&type=magiclink&impersonator=${encodeURIComponent(auth.ctx.userId)}`;
+
+  // §07/01 auth.impersonation_started (warn) — event business (⚠ aussi audit_log
+  // ci-dessous). Payload obligatoire : impersonator_id, target_user, by_role.
+  logger.warn('auth.impersonation_started', {
+    impersonator_id: auth.ctx.userId,
+    target_user: id,
+    by_role: auth.ctx.role,
+  });
 
   // Tracer dans audit_log — §07/06 impersonation_session (impersonator_id renseigné,
   // §09 §7). user_id = identité assumée (cible), impersonator_id = admin réel.

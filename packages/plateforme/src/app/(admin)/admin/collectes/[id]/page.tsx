@@ -487,13 +487,13 @@ export default function CollecteDetailPage() {
               </table>
               <div>
                 <label className="block text-sm font-medium mb-1">
-                  Motif (obligatoire, ≥ 5 caractères)
+                  Motif (obligatoire, ≥ 10 caractères)
                 </label>
                 <textarea
                   value={peseesMotif}
                   onChange={(e) => setPeseesMotif(e.target.value)}
                   rows={2}
-                  minLength={5}
+                  minLength={10}
                   className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
                   required
                 />

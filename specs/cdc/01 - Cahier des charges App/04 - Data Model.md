@@ -739,7 +739,7 @@ File d'attente **interne plateforme** qui matérialise le job asynchrone de reva
 | `entite_facturation_id` | uuid | FK → entites_facturation, NOT NULL | Entité dont le SIRET reste à revalider |
 | `statut` | text | NOT NULL, CHECK IN (`en_attente`, `resolu`, `epuise`), défaut `en_attente` | `resolu` = INSEE a répondu (verdict écrit dans `entites_facturation.siret_verification`) ; `epuise` = 3 paliers échoués sans réponse INSEE |
 | `tentatives` | integer | NOT NULL, défaut 0 | Compteur de paliers consommés (max 3) |
-| `prochaine_tentative_le` | timestamptz | | Horodatage du prochain essai (scan cron). NULL une fois `resolu`/`epuise` |
+| `prochaine_tentative_le` | timestamptz | NOT NULL, défaut now() | Échéance de la prochaine tentative (scan cron). Sur une ligne terminale (`resolu`/`epuise`), la valeur n'est plus relue et n'est pas remise à NULL |
 | `derniere_erreur` | text | | Dernier motif d'échec (timeout, 5xx…) |
 | `created_at` | timestamptz | NOT NULL | |
 | `updated_at` | timestamptz | NOT NULL | |

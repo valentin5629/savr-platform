@@ -1159,7 +1159,7 @@ Scénario : revalidation_siret_insee_repond_active_resout_et_debloque_facturatio
   Quand le worker cron rejoue la vérification et l'INSEE répond « entreprise existante et active »
   Alors entites_facturation.siret_verification = 'verifie'
     Et entites_facturation.siret_verifie_le est renseigné
-    Et file_revalidation_siret.statut = 'resolu' (prochaine_tentative_le = NULL, plus aucun essai)
+    Et file_revalidation_siret.statut = 'resolu' (plus aucun essai ; prochaine_tentative_le conserve sa dernière échéance, non remise à NULL)
     Et la facturation de cette entité est désormais autorisée (gate §04 levé)
 ```
 

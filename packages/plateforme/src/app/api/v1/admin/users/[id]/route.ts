@@ -56,14 +56,6 @@ export async function PATCH(
     'client_organisateur',
   ];
 
-  // role et actif = réservés admin_savr (empêche ops de rétrograder ou désactiver)
-  if (!isAdmin && ('role' in body || 'actif' in body)) {
-    return NextResponse.json(
-      { error: 'Champs role/actif réservés à admin Savr' },
-      { status: 403 },
-    );
-  }
-
   // Validation de la valeur de rôle
   if ('role' in body && !VALID_ROLES.includes(body.role as string)) {
     return NextResponse.json(
@@ -72,9 +64,23 @@ export async function PATCH(
     );
   }
 
-  const allowedFields = isAdmin
-    ? ['prenom', 'nom', 'role', 'actif']
-    : ['prenom', 'nom'];
+  // §09 (matrice étendue ops_savr) : ops PEUT suspendre (`actif`) et réassigner un
+  // rôle NON-admin. SEULE la promotion vers `admin_savr` est réservée à admin_savr
+  // (BL-P1-AUTH-03 : l'ancien blocage global sur `role`/`actif` divergeait de §09).
+  // La rétrogradation / modification d'un compte admin_savr existant est couverte
+  // plus bas (garde `targetUser.role === 'admin_savr'`). Défense en profondeur DB :
+  // `fn_users_block_role_escalation` (R10b), mais cette route passe par le
+  // service_role qui la bypasse → la garde applicative est ici la seule protection.
+  if (!isAdmin && (body.role as string) === 'admin_savr') {
+    return NextResponse.json(
+      { error: 'Promotion en admin Savr réservée à admin Savr' },
+      { status: 403 },
+    );
+  }
+
+  // Staff (admin + ops) : mêmes champs éditables ; ops est borné par les deux
+  // gardes admin_savr ci-dessus/ci-dessous.
+  const allowedFields = ['prenom', 'nom', 'role', 'actif'];
 
   const updatePayload: Record<string, unknown> = {};
   for (const field of allowedFields) {

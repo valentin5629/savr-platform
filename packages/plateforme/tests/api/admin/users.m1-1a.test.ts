@@ -174,7 +174,7 @@ describe('M1.1a / Users / Invitation', () => {
 describe('M1.1a / Users / Changement de rôle', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('M1.1a/users/changement-role — ops_savr ne peut pas modifier role', async () => {
+  it('M1.1a/users/changement-role — ops_savr ne peut pas promouvoir admin_savr', async () => {
     setupAuth('ops_savr');
     const { PATCH } = await import('@/app/api/v1/admin/users/[id]/route.js');
     const res = await PATCH(
@@ -184,14 +184,32 @@ describe('M1.1a / Users / Changement de rôle', () => {
     expect(res.status).toBe(403);
   });
 
-  it('M1.1a/users/changement-role — ops_savr ne peut pas modifier actif', async () => {
+  it('M1.1a/users/suspension — ops_savr PEUT suspendre un user non-admin (actif)', async () => {
+    // BL-P1-AUTH-03 : §09 autorise ops à suspendre — ex-403 était une divergence.
     setupAuth('ops_savr');
+    // SELECT target (non-admin)
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: { id: 'user-1', role: 'traiteur_manager' },
+      error: null,
+    });
+    // UPDATE result
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: {
+        id: 'user-1',
+        prenom: 'Jean',
+        nom: 'D',
+        email: 'j@d.fr',
+        role: 'traiteur_manager',
+        actif: false,
+      },
+      error: null,
+    });
     const { PATCH } = await import('@/app/api/v1/admin/users/[id]/route.js');
     const res = await PATCH(
       makeReq('PATCH', '/api/v1/admin/users/user-1', { actif: false }),
       { params: Promise.resolve({ id: 'user-1' }) },
     );
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
   });
 
   it('M1.1a/users/protection-admin — ops_savr ne peut pas modifier un admin_savr', async () => {
@@ -237,6 +255,87 @@ describe('M1.1a / Users / Changement de rôle', () => {
   });
 });
 
+describe('M0.4 — gating ops users (BL-P1-AUTH-03)', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('M0.4 — BL-P1-AUTH-03 : ops_savr réassigne un rôle NON-admin → 200', async () => {
+    setupAuth('ops_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: { id: 'user-1', role: 'traiteur_commercial' },
+      error: null,
+    });
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: {
+        id: 'user-1',
+        prenom: 'Jean',
+        nom: 'D',
+        email: 'j@d.fr',
+        role: 'traiteur_manager',
+        actif: true,
+      },
+      error: null,
+    });
+    const { PATCH } = await import('@/app/api/v1/admin/users/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/users/user-1', {
+        role: 'traiteur_manager',
+      }),
+      { params: Promise.resolve({ id: 'user-1' }) },
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it('M0.4 — BL-P1-AUTH-03 : ops_savr promeut en admin_savr → 403', async () => {
+    setupAuth('ops_savr');
+    const { PATCH } = await import('@/app/api/v1/admin/users/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/users/user-1', { role: 'admin_savr' }),
+      { params: Promise.resolve({ id: 'user-1' }) },
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it('M0.4 — BL-P1-AUTH-03 : ops_savr ne peut pas modifier un compte admin_savr → 403', async () => {
+    setupAuth('ops_savr');
+    // SELECT target : c'est un admin_savr → intouchable par ops (rétrogradation/suspension)
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: { id: 'admin-user', role: 'admin_savr' },
+      error: null,
+    });
+    const { PATCH } = await import('@/app/api/v1/admin/users/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/users/admin-user', { actif: false }),
+      { params: Promise.resolve({ id: 'admin-user' }) },
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it('M0.4 — BL-P1-AUTH-03 : admin_savr peut toujours promouvoir en admin_savr → 200', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: { id: 'user-1', role: 'ops_savr' },
+      error: null,
+    });
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: {
+        id: 'user-1',
+        prenom: 'A',
+        nom: 'B',
+        email: 'a@b.fr',
+        role: 'admin_savr',
+        actif: true,
+      },
+      error: null,
+    });
+    const { PATCH } = await import('@/app/api/v1/admin/users/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/users/user-1', { role: 'admin_savr' }),
+      { params: Promise.resolve({ id: 'user-1' }) },
+    );
+    expect(res.status).toBe(200);
+  });
+});
+
 describe('M1.1a / Users / Impersonation', () => {
   beforeEach(() => vi.clearAllMocks());
 
@@ -269,8 +368,8 @@ describe('M1.1a / Users / Impersonation', () => {
     mockAdminGenerateLink.mockResolvedValue({
       data: {
         properties: {
-          action_link:
-            'https://app.gosavr.io/auth/confirm?token=impersonate-xxx',
+          // Le callback consomme le hashed_token via verifyOtp (pas l'action_link).
+          hashed_token: 'imp-token-hash-xxx',
         },
       },
       error: null,
@@ -286,7 +385,10 @@ describe('M1.1a / Users / Impersonation', () => {
     );
     expect(res.status).toBe(200);
     const json = (await res.json()) as { lien_impersonation: string };
-    expect(json.lien_impersonation).toContain('impersonate');
+    // URL callback : /auth/impersonate-callback?token_hash=...&type=magiclink&impersonator=...
+    expect(json.lien_impersonation).toContain('/auth/impersonate-callback');
+    expect(json.lien_impersonation).toContain('token_hash=imp-token-hash-xxx');
+    expect(json.lien_impersonation).toContain('type=magiclink');
   });
 });
 

@@ -29,22 +29,29 @@ export async function POST(
       { status: 422 },
     );
 
-  // Générer un token de connexion temporaire via Supabase Auth Admin
+  // Générer un OTP magiclink via Supabase Auth Admin. On récupère le `hashed_token`
+  // (pas l'action_link) : le lien pointe vers NOTRE route callback qui l'échange via
+  // verifyOtp (même pattern que /api/auth/verify-email) → la session impersonée est
+  // établie côté serveur, et le callback y pose `app_metadata.impersonator_id`.
   const { data: linkData, error: linkError } =
     await supabase.auth.admin.generateLink({
       type: 'magiclink',
       email: cible.email as string,
-      options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/auth/impersonate-callback?impersonator=${auth.ctx.userId}`,
-      },
     });
 
-  if (linkError || !linkData.properties?.action_link) {
+  const tokenHash = linkData?.properties?.hashed_token;
+  if (linkError || !tokenHash) {
     return NextResponse.json(
       { error: 'Erreur génération lien impersonation' },
       { status: 500 },
     );
   }
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? '';
+  const lienImpersonation =
+    `${appUrl}/auth/impersonate-callback` +
+    `?token_hash=${encodeURIComponent(tokenHash)}` +
+    `&type=magiclink&impersonator=${encodeURIComponent(auth.ctx.userId)}`;
 
   // Tracer dans audit_log
   try {
@@ -60,7 +67,7 @@ export async function POST(
   }
 
   return NextResponse.json({
-    lien_impersonation: linkData.properties.action_link,
+    lien_impersonation: lienImpersonation,
     cible: {
       id: cible.id,
       email: cible.email,

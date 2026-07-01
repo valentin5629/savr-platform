@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Nunito } from 'next/font/google';
 import './globals.css';
+import { ImpersonationBannerMount } from '@/components/ui/impersonation-banner-mount';
 
 const nunito = Nunito({
   subsets: ['latin'],
@@ -20,7 +21,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr" className={nunito.variable}>
-      <body>{children}</body>
+      <body>
+        <ImpersonationBannerMount />
+        {children}
+      </body>
     </html>
   );
 }

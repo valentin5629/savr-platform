@@ -274,6 +274,14 @@
       "test": "M1.7 Pennylane integrations_logs : createInvoice succès/4xx + finalize + getInvoice + listInvoices → log pennylane [pennylane/client.m1-7.test.ts]",
       "statut": "implemented",
       "libelle": "Observabilité Pennylane : wrapper log() (modèle mts1/client.ts) — chaque opération (createCustomer/createInvoice/finalizeInvoice/sendInvoiceEmail/getInvoice/listInvoices) trace integrations_logs (integration='pennylane', direction=sortant, endpoint, statut_http, erreur, correlation_id). supabase threadé depuis validation-admin/avoirs/polling-paiement."
+    },
+    {
+      "id": "M1.7-factures-vue-client-non-vide",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:299",
+      "artefact": "supabase/migrations/20260617180000_plateforme_fix_role_claim.sql (f_fichier_visible factures scope) + vue v_factures_client",
+      "test": "supabase/tests/m1_7_facturation.test.sql (test_factures_vue_client_non_vide_manager)",
+      "statut": "implemented",
+      "libelle": "v_factures_client non vide pour un traiteur_manager de son org"
     }
   ],
   "cdc_source_hash": {

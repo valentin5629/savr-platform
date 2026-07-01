@@ -389,6 +389,21 @@ describe('M0.4 — email invitation admin (BL-P1-ONB-04)', () => {
     };
     expect(emailVars.lien_invitation).toContain('token_hash=hashed-token-abc');
   });
+
+  it('M1.1a/invitation_admin_direct_sans_prenom_nom — 422 (mode direct exige prenom+nom)', async () => {
+    setupAuth('admin_savr');
+    const { POST } = await import('@/app/api/v1/admin/users/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/users', {
+        email: 'sansnom@traiteur.fr',
+        role: 'traiteur_commercial',
+        organisation_id: 'org-42',
+        // mode absent → direct : prenom + nom obligatoires
+      }),
+    );
+    expect(res.status).toBe(422);
+    expect(mockAdminCreateUser).not.toHaveBeenCalled();
+  });
 });
 
 describe('M1.1a / Coefficients / Permissions', () => {

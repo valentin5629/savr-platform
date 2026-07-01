@@ -203,4 +203,23 @@ describe('accept-invitation', () => {
     expect(res.status).toBe(422);
     expect(mockVerifyOtp).not.toHaveBeenCalled();
   });
+
+  it('rate-limit — 429 à la 6e tentative (anti-bruteforce §15)', async () => {
+    const { POST } = await import('@/app/api/auth/accept-invitation/route.js');
+    let last = 0;
+    for (let i = 0; i < 6; i++) {
+      const res = await POST(
+        makeReq({
+          token_hash: 'hh',
+          prenom: 'Jeanne',
+          nom: 'Martin',
+          mot_de_passe: STRONG_PWD,
+          acceptation_cgu: true,
+        }),
+      );
+      last = res.status;
+    }
+    // MAX_ATTEMPTS=5 → la 6e tentative est refusée avant tout traitement.
+    expect(last).toBe(429);
+  });
 });

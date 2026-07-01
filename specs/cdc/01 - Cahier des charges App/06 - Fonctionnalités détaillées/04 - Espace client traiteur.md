@@ -665,7 +665,7 @@ Ces règles sont rappelées dans la modal avant confirmation, avec une mention e
 **Équipe (users rattachés)**
 - Liste des utilisateurs avec : nom, email, rôle, dernière connexion
 - Actions manager :
-  - **Inviter un collaborateur** : email + rôle (`traiteur_commercial`)
+  - **Inviter un collaborateur** : prénom + nom + email (rôle imposé `traiteur_commercial`)
   - Modifier le rôle d'un collaborateur
   - Suspendre un compte (soft delete)
   - Transférer les collectes d'un commercial vers un autre (en cas de départ)
@@ -712,12 +712,13 @@ Toutes les factures de l'organisation sont visibles (factures par collecte, fact
 
 ### Invitation de collaborateur (flux)
 
-1. Clic "Inviter un collaborateur" → modal
-2. Champs : email, prénom, nom, rôle (sélecteur `traiteur_commercial`)
-3. Envoi d'un email d'invitation au collaborateur (template `invitation_utilisateur`, déjà présent au catalogue §06.02)
-4. Le collaborateur clique sur le lien → création de compte en auto-service
-5. Rattachement automatique à l'organisation de l'invitant
-6. Statut initial : `actif`
+Mode unique : **provisioning direct** — *(décision Val 2026-07-01, M3.1 — le mode self-service a été écarté, « doublon inutile »)* :
+
+1. Le manager saisit **prénom + nom + email** (rôle imposé = `traiteur_commercial`).
+2. Le compte est provisionné directement à l'invitation : `organisation_id` = organisation de l'invitant, posé côté serveur (JWT de l'invitant), jamais depuis le body ; pas d'email natif Supabase.
+3. Le collaborateur reçoit un lien d'activation (email brandé `invitation_utilisateur`, catalogue §06.02) pour définir son mot de passe.
+
+Le rattachement à l'organisation de l'invitant est **garanti** (posé à la création), y compris pour un email perso. Statut initial `actif`. Aligné §06.05 F5 (gestionnaire) et §06.06 (Admin).
 
 ---
 

@@ -116,24 +116,24 @@
       "bytes": 51399
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": {
-      "sha256": "2d21b0d3825d0adcc60b85cf96b954dcc60f9c8165da3b1dd0fc6e86fa9abc40",
-      "bytes": 29919
+      "sha256": "ceab086160acfc84dbd698257fc03436484fb3f8d8fb40ec79d416ee67fd227d",
+      "bytes": 30029
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md": {
       "sha256": "8fb0a03f0d066fee65cd5dd65f60a77ce0d5e4e6c75f79cdf0370dece4d7b1f5",
       "bytes": 8438
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": {
-      "sha256": "9da8a15fbec4291363b2f7fcc6f366aa2c8b52e44ad08408ba6918715ac9aed2",
-      "bytes": 91676
+      "sha256": "a5f6cbed8c04d132dbb74814fd8aa8dc59cc20ab32303e011f455b15828a3d00",
+      "bytes": 92063
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": {
-      "sha256": "f36eeebb461c2b0a489b04aa18d5e0e116a0ed18be010706d79278175e16aea9",
-      "bytes": 50014
+      "sha256": "8ccead5e1df3c20bf13ce8f1996e95cedaa141a06863199a132e4b91c84457cf",
+      "bytes": 50403
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": {
-      "sha256": "a3d8cd45fde4b0489ffa5101a595460278442217a51cb3523fbce9e69a7dc000",
-      "bytes": 85214
+      "sha256": "53a89dfe379a16160f8d5fe2e912e55086ed70e070cfb27193cb56650ed01f70",
+      "bytes": 84161
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md": {
       "sha256": "7292c799fdb5c5598dcd979245740850df9851ffb0b475fb08e9fd76e44b41e4",
@@ -148,8 +148,8 @@
       "bytes": 17393
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/_RAPPORT-EXPORT.md": {
-      "sha256": "88bbaa90aa5da61fa94b7ac9940bdddfe9e0dd4d19271ad2305a981e565247df",
-      "bytes": 336
+      "sha256": "01ce28ef24d7482a6186cb7bac4504b6ba19b759231561ebeda4c3112cb01d2d",
+      "bytes": 740
     },
     "specs/cdc/01 - Cahier des charges App/06 - Monitoring perf prod.md": {
       "sha256": "7cc0e21a5d3fb591a4fa351f2ff37e939fe4b7320f980ef346ab86c759f867a6",

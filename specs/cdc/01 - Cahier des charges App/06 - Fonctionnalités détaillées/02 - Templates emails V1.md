@@ -389,15 +389,15 @@ L'équipe Savr
 
 ## 17. Email invitation collaborateur
 
-**Slug** : `invitation_utilisateur` *(corrigé M3.1 2026-06-17)*
+**Slug** : `invitation_utilisateur` *(corrigé M3.1 2026-06-17 — le slug seedé est `invitation_utilisateur`, pas `invitation_collaborateur`)*
 **Destinataire** : collaborateur invité par un manager
 **Déclencheur** : action "Inviter un collaborateur" depuis l'espace "Mon organisation"
-**Objet** : {{inviteur_prenom}} vous invite à rejoindre {{organisation_nom}} sur Savr
+**Objet** : Invitation à rejoindre {{organisation_nom}} sur Savr
 
 ```
 Bonjour {{prenom}},
 
-{{inviteur_prenom}} {{inviteur_nom}} vous invite à rejoindre l'équipe {{organisation_nom}} sur Savr.
+Vous êtes invité(e) à rejoindre l'équipe {{organisation_nom}} sur Savr.
 
 Savr est la plateforme utilisée par votre organisation pour programmer et suivre les collectes Zéro-Déchet et Anti-Gaspi.
 
@@ -408,7 +408,7 @@ Ce lien est valide pendant 7 jours. Pour toute question, contactez-nous à hello
 L'équipe Savr
 ```
 
-**Variables** : `prenom`, `inviteur_prenom`, `inviteur_nom`, `organisation_nom`, `lien_activation`
+**Variables** : `prenom`, `organisation_nom`, `lien_invitation` *(aligné sur la seed déployée — M0.5 2026-07-01, Option A : le nom de l'invitant n'est pas transmis en V1)*
 
 ---
 

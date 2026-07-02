@@ -92,6 +92,12 @@ supabase/migrations/20260615240000_plateforme_m2_3_algo_attribution_ag.sql
 # appel HTTP : la fonction émet seulement un event outbox, l'adapter (packages/adapters/)
 # le consomme. 'customerOrders' reste banni.
 supabase/migrations/20260625000000_plateforme_r5_dispatch_ag_bridge.sql
+# supabase/migrations/20260702020200_* (R17b/BL-P1-BOA-02, Val 2026-07-02) — CREATE OR
+# REPLACE VERBATIM de rpc_valider_attribution_ag (copie du R5 ci-dessus) : seule la ligne
+# du CASE change (ELSE→provider_manual pour router 'autre'/'par_mail'/'par_telephone' →
+# dispatch manuel). Mêmes 'mts1'/'adapter_mts1' (valeur enum type_tms → consumer). Aucun
+# appel HTTP — la fonction émet un event outbox, l'adapter le consomme. 'customerOrders' banni.
+supabase/migrations/20260702020200_plateforme_r17b_dispatch_par_mail_telephone.sql
 # supabase/migrations/20260620100000_* (fix E2 timezone) — CREATE OR REPLACE de
 # fn_calculer_algo_attribution_ag : corps copié VERBATIM de la source M2.3 ci-dessus
 # (seule la ligne de calcul du délai change), donc mêmes 'mts1' (enum type_tms) +

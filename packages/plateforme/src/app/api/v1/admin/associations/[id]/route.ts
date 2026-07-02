@@ -40,7 +40,8 @@ export async function PATCH(
   const { id } = await params;
   const body = (await req.json()) as Record<string, unknown>;
 
-  // Champs editables par ops_savr
+  // Champs editables par ops_savr (§5 associations : contacts, horaires,
+  // instructions, capacité, description). logo/instructions_acces = ops OK.
   const OPS_FIELDS = [
     'contact_nom',
     'contact_email',
@@ -50,15 +51,20 @@ export async function PATCH(
     'capacite_max_beneficiaires',
     'types_aliments_acceptes',
     'commentaires_internes',
+    'instructions_acces',
+    'logo_url',
     'nom',
     'adresse',
     'ville',
     'region',
   ];
-  // Champs admin-only
-  // (pas de colonne `siren` sur associations — cf. _Divergences/BOA_20260702.md)
+  // Champs admin-only (§5 associations l.425-426 : SIREN + habilitation 2041-GE
+  // (booléen + date d'expiration) + désactivation `actif`). Ajout Val 2026-07-02 :
+  // siren (col. créée) + date_expiration_habilitation.
   const ADMIN_FIELDS = [
     'habilitee_attestation_fiscale',
+    'date_expiration_habilitation',
+    'siren',
     'id_point_collecte_mts1',
     'actif',
   ];
@@ -95,6 +101,18 @@ export async function PATCH(
         error:
           'description_rapport_impact doit contenir au moins 30 caractères',
       },
+      { status: 422 },
+    );
+  }
+
+  // SIREN non obligatoire mais 9 chiffres si fourni (vide = effacement autorisé).
+  if (
+    typeof updates.siren === 'string' &&
+    updates.siren !== '' &&
+    !/^\d{9}$/.test(updates.siren)
+  ) {
+    return NextResponse.json(
+      { error: 'siren doit contenir 9 chiffres' },
       { status: 422 },
     );
   }

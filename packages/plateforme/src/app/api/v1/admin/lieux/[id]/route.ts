@@ -24,7 +24,19 @@ export async function GET(
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json(data);
+  // Gestionnaire rattaché (organisations_lieux) — exposé pour pré-remplir la fiche.
+  const { data: lien } = await supabase
+    .from('organisations_lieux')
+    .select('organisation_id')
+    .eq('lieu_id', id)
+    .limit(1)
+    .maybeSingle();
+
+  return NextResponse.json({
+    ...(data as Record<string, unknown>),
+    gestionnaire_organisation_id:
+      (lien as { organisation_id?: string } | null)?.organisation_id ?? null,
+  });
 }
 
 export async function PATCH(
@@ -66,7 +78,11 @@ export async function PATCH(
     Object.entries(body).filter(([k]) => ALLOWED_FIELDS.includes(k)),
   );
 
-  if (Object.keys(updates).length === 0) {
+  // Le rattachement gestionnaire (organisations_lieux) est un champ hors-colonne
+  // lieux : compte comme une modification valide même si aucune colonne lieu ne change.
+  const gestionnaireProvided = 'gestionnaire_organisation_id' in body;
+
+  if (Object.keys(updates).length === 0 && !gestionnaireProvided) {
     return NextResponse.json(
       { error: 'Aucun champ modifiable fourni' },
       { status: 422 },
@@ -116,6 +132,25 @@ export async function PATCH(
 
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Rattachement gestionnaire (organisations_lieux) — remplacement single :
+  // on retire le lien existant du lieu puis on pose le nouveau (si fourni).
+  // Décision Val 2026-07-02 : 1 gestionnaire par lieu, non obligatoire.
+  if (gestionnaireProvided) {
+    const gestionnaireId =
+      typeof body.gestionnaire_organisation_id === 'string' &&
+      body.gestionnaire_organisation_id !== ''
+        ? body.gestionnaire_organisation_id
+        : null;
+    await supabase.from('organisations_lieux').delete().eq('lieu_id', id);
+    if (gestionnaireId) {
+      await supabase.from('organisations_lieux').insert({
+        organisation_id: gestionnaireId,
+        lieu_id: id,
+        created_by: auth.ctx.userId,
+      });
+    }
+  }
 
   await supabase.from('audit_log').insert({
     table_name: 'lieux',

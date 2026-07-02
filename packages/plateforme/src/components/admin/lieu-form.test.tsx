@@ -15,7 +15,15 @@ vi.mock('next/navigation', () => ({
 import { LieuForm } from '@/components/admin/lieu-form';
 
 describe('M0.6 — formulaire lieu CRUD Admin (BL-P1-BOA-03)', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Le form fetch la liste des gestionnaires au montage (useEffect) — stub par
+    // défaut ; les tests de soumission surchargent ce mock.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: [] }) }),
+    );
+  });
   afterEach(() => vi.restoreAllMocks());
 
   it('M0.6 — rend les champs visibles programmation + admin/ops-only', () => {
@@ -83,7 +91,11 @@ describe('M0.6 — formulaire lieu CRUD Admin (BL-P1-BOA-03)', () => {
   });
 
   it('M0.6 — SIREN invalide bloque la soumission', async () => {
-    const fetchMock = vi.fn();
+    // fetch résout (le montage charge la liste des gestionnaires) ; on vérifie
+    // ensuite que le POST /lieux n'a PAS été appelé (validation bloque avant).
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ data: [] }) });
     vi.stubGlobal('fetch', fetchMock);
     render(<LieuForm />);
 
@@ -109,6 +121,29 @@ describe('M0.6 — formulaire lieu CRUD Admin (BL-P1-BOA-03)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Créer le lieu/ }));
 
     expect(await screen.findByText(/SIREN : 9 chiffres/)).toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      '/api/v1/admin/lieux',
+      expect.anything(),
+    );
+  });
+
+  it('M0.6 — sélecteur « Gestionnaire de lieux » présent (mono, optionnel)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          data: [{ id: 'org-1', raison_sociale: 'Viparis' }],
+        }),
+      }),
+    );
+    render(<LieuForm />);
+    const select = await screen.findByLabelText(/Gestionnaire de lieux/);
+    expect(select).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.getByRole('option', { name: 'Viparis' }),
+      ).toBeInTheDocument(),
+    );
   });
 });

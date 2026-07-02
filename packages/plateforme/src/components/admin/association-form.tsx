@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select } from '@/components/ui/select';
 import { FormField } from '@/components/ui/form-field';
+import { LogoUpload } from '@/components/admin/logo-upload';
 import {
   HorairesOuvertureEditor,
   horairesParDefaut,
@@ -26,8 +27,12 @@ export interface AssociationFormValues {
   types_aliments_acceptes: string;
   description_rapport_impact: string;
   commentaires_internes: string;
+  instructions_acces: string;
+  siren: string;
+  logo_url: string;
   id_point_collecte_mts1: string;
   habilitee_attestation_fiscale: boolean;
+  date_expiration_habilitation: string;
   actif: boolean;
   horaires_ouverture: JourHoraire[];
 }
@@ -44,8 +49,12 @@ const VIDE: AssociationFormValues = {
   types_aliments_acceptes: '',
   description_rapport_impact: '',
   commentaires_internes: '',
+  instructions_acces: '',
+  siren: '',
+  logo_url: '',
   id_point_collecte_mts1: '',
   habilitee_attestation_fiscale: false,
+  date_expiration_habilitation: '',
   actif: true,
   horaires_ouverture: horairesParDefaut(),
 };
@@ -93,6 +102,8 @@ export function AssociationForm({
     if (values.description_rapport_impact.trim().length < 30)
       next.description_rapport_impact =
         'Description du rapport d’impact : 30 caractères minimum';
+    if (values.siren.trim() !== '' && !/^\d{9}$/.test(values.siren.trim()))
+      next.siren = 'SIREN : 9 chiffres';
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -119,8 +130,12 @@ export function AssociationForm({
         : null,
       description_rapport_impact: values.description_rapport_impact.trim(),
       commentaires_internes: values.commentaires_internes.trim() || null,
+      instructions_acces: values.instructions_acces.trim() || null,
+      siren: values.siren.trim() || null,
+      logo_url: values.logo_url || null,
       id_point_collecte_mts1: values.id_point_collecte_mts1.trim() || null,
       habilitee_attestation_fiscale: values.habilitee_attestation_fiscale,
+      date_expiration_habilitation: values.date_expiration_habilitation || null,
       actif: values.actif,
       horaires_ouverture: values.horaires_ouverture,
     };
@@ -186,6 +201,16 @@ export function AssociationForm({
             />
           </FormField>
         </div>
+        <FormField
+          label="Logo de l'association"
+          htmlFor="logo"
+          hint="Affiché dans les rapports AG — optionnel"
+        >
+          <LogoUpload
+            value={values.logo_url}
+            onChange={(v) => set('logo_url', v)}
+          />
+        </FormField>
       </Card>
 
       <Card className="p-6 space-y-4">
@@ -327,11 +352,35 @@ export function AssociationForm({
             onChange={(e) => set('types_aliments_acceptes', e.target.value)}
           />
         </FormField>
+        <FormField
+          label="Instructions d'accès (pour le transporteur)"
+          htmlFor="instructions_acces"
+        >
+          <Textarea
+            id="instructions_acces"
+            rows={2}
+            value={values.instructions_acces}
+            onChange={(e) => set('instructions_acces', e.target.value)}
+          />
+        </FormField>
       </Card>
 
       <Card className="p-6 space-y-4">
         <h2 className="font-semibold text-savr-neutral-800">Admin / Ops</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormField
+            label="SIREN"
+            htmlFor="siren"
+            error={errors.siren}
+            hint="9 chiffres — optionnel, édition admin"
+          >
+            <Input
+              id="siren"
+              value={values.siren}
+              onChange={(e) => set('siren', e.target.value)}
+              error={Boolean(errors.siren)}
+            />
+          </FormField>
           <FormField
             label="Id du point de collecte dans MTS-1"
             htmlFor="id_point_collecte_mts1"
@@ -341,6 +390,20 @@ export function AssociationForm({
               id="id_point_collecte_mts1"
               value={values.id_point_collecte_mts1}
               onChange={(e) => set('id_point_collecte_mts1', e.target.value)}
+            />
+          </FormField>
+          <FormField
+            label="Date d'expiration habilitation 2041-GE"
+            htmlFor="date_expiration_habilitation"
+            hint="Optionnel — édition admin"
+          >
+            <Input
+              id="date_expiration_habilitation"
+              type="date"
+              value={values.date_expiration_habilitation}
+              onChange={(e) =>
+                set('date_expiration_habilitation', e.target.value)
+              }
             />
           </FormField>
           <FormField

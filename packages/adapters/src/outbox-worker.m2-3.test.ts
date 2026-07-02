@@ -15,7 +15,7 @@ import { ProviderManual } from './manual/provider.js';
 // ─── Mock Supabase pour le worker ─────────────────────────────────────────────
 
 interface WorkerMockOpts {
-  typeTms: 'mts1' | 'a_toutes' | 'autre';
+  typeTms: 'mts1' | 'a_toutes' | 'autre' | 'par_mail' | 'par_telephone';
   prestataireLogistiqueId: string | null;
   eventType?: 'collecte.creee' | 'collecte.modifiee' | 'collecte.annulee';
 }
@@ -183,6 +183,31 @@ describe('M2.3 / worker outbox — routing dispatch AG par type_tms (C10)', () =
     expect(everestSpy).not.toHaveBeenCalled();
     expect(mts1Spy).not.toHaveBeenCalled();
   });
+
+  // R17b (Val 2026-07-02) — 'par_mail'/'par_telephone' = hors TMS, validation
+  // manuelle Admin : routés comme 'autre' vers ProviderManual, JAMAIS MTS-1/Everest.
+  it.each(['par_mail', 'par_telephone'] as const)(
+    'type_tms=%s → ProviderManual.dispatchCollecte (ni MTS-1 ni Everest)',
+    async (typeTms) => {
+      const everestSpy = vi
+        .spyOn(AdapterEverest.prototype, 'dispatchCollecte')
+        .mockResolvedValue('adapter_everest');
+      const mts1Spy = vi
+        .spyOn(AdapterMts1.prototype, 'dispatchCollecte')
+        .mockResolvedValue('adapter_mts1');
+      const manualSpy = vi.spyOn(ProviderManual.prototype, 'dispatchCollecte');
+
+      const supabase = makeWorkerSupabase({
+        typeTms,
+        prestataireLogistiqueId: PRESTA_ID,
+      });
+      await runOutboxWorker(supabase);
+
+      expect(manualSpy).toHaveBeenCalledTimes(1);
+      expect(everestSpy).not.toHaveBeenCalled();
+      expect(mts1Spy).not.toHaveBeenCalled();
+    },
+  );
 
   it('prestataire_logistique_id NULL → no-op (aucun adapter invoqué)', async () => {
     const everestSpy = vi

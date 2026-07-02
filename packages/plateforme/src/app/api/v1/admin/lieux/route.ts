@@ -110,9 +110,26 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
 
+  const lieuId = (data as { id: string }).id;
+
+  // Rattachement au gestionnaire (organisations_lieux) — décision Val 2026-07-02 :
+  // 1 gestionnaire (organisation type gestionnaire_lieux) par lieu, non obligatoire.
+  const gestionnaireId =
+    typeof body.gestionnaire_organisation_id === 'string' &&
+    body.gestionnaire_organisation_id !== ''
+      ? body.gestionnaire_organisation_id
+      : null;
+  if (gestionnaireId) {
+    await supabase.from('organisations_lieux').insert({
+      organisation_id: gestionnaireId,
+      lieu_id: lieuId,
+      created_by: auth.ctx.userId,
+    });
+  }
+
   await supabase.from('audit_log').insert({
     table_name: 'lieux',
-    record_id: (data as { id: string }).id,
+    record_id: lieuId,
     action: 'INSERT',
     user_id: auth.ctx.userId,
     new_values: data,

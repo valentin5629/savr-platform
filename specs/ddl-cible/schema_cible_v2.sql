@@ -103,7 +103,7 @@ CREATE TYPE plateforme.tournee_statut AS ENUM ('planifiee','en_cours','terminee'
 -- 1.5 plateforme — remises
 CREATE TYPE plateforme.activite_remise AS ENUM ('zd','ag');
 CREATE TYPE plateforme.scope_remise AS ENUM ('organisation','gestionnaire');
-CREATE TYPE plateforme.type_tms AS ENUM ('mts1','a_toutes','autre');
+CREATE TYPE plateforme.type_tms AS ENUM ('mts1','a_toutes','autre','par_mail','par_telephone');
 CREATE TYPE plateforme.type_document_pdf AS ENUM ('bordereau_zd','rapport_recyclage','attestation_don');  -- ajout 2026-06-10 (jobs_pdf)
 
 -- 1.6 plateforme — flux déchets / paramètres CO2
@@ -603,10 +603,14 @@ CREATE TABLE plateforme.associations (
   contact_email                 text NOT NULL,
   contact_telephone             text,
   habilitee_attestation_fiscale boolean NOT NULL DEFAULT false,
+  date_expiration_habilitation  date,
   actif                         boolean NOT NULL DEFAULT true,
   derniere_verification         date,
   commentaires_internes         text,
   description_rapport_impact    text NOT NULL,
+  logo_url                      text,
+  instructions_acces            text,
+  siren                         text CHECK (siren IS NULL OR siren ~ '^[0-9]{9}$'),
   id_point_collecte_mts1        text,                      -- V1 only, déprécié V2
   created_at                    timestamptz NOT NULL DEFAULT now(),
   updated_at                    timestamptz NOT NULL DEFAULT now()
@@ -622,7 +626,9 @@ CREATE TABLE plateforme.transporteurs (
   latitude                double precision,
   longitude               double precision,
   types_vehicules         text[] NOT NULL,
+  types_collecte          text[],
   type_tms                plateforme.type_tms NOT NULL,
+  description_process_collecte text,
   code_transporteur_mts1  text,                            -- V1 only, déprécié V2
   contact_nom             text NOT NULL,
   contact_email           text NOT NULL,

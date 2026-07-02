@@ -19,6 +19,7 @@ type LieuApi = {
   type_vehicule_max: string;
   controle_acces_requis_default: boolean;
   actif: boolean;
+  gestionnaire_organisation_id: string | null;
   commentaire_lieu: string | null;
   siren: string | null;
   email_gestionnaire: string | null;
@@ -49,6 +50,7 @@ export default function ModifierLieuPage() {
             d.type_vehicule_max as LieuFormValues['type_vehicule_max'],
           controle_acces_requis_default: d.controle_acces_requis_default,
           actif: d.actif,
+          gestionnaire_organisation_id: d.gestionnaire_organisation_id ?? '',
           commentaire_lieu: d.commentaire_lieu ?? '',
           siren: d.siren ?? '',
           email_gestionnaire: d.email_gestionnaire ?? '',

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Select } from '@/components/ui/select';
 import { FormField } from '@/components/ui/form-field';
 
@@ -18,7 +19,9 @@ export interface TransporteurFormValues {
   code_postal: string;
   ville: string;
   types_vehicules: string[];
-  type_tms: 'mts1' | 'a_toutes' | 'autre' | '';
+  types_collecte: string[];
+  type_tms: 'mts1' | 'a_toutes' | 'autre' | 'par_mail' | 'par_telephone' | '';
+  description_process_collecte: string;
   code_transporteur_mts1: string;
   actif: boolean;
 }
@@ -31,6 +34,12 @@ const TYPES_VEHICULES = [
   { value: 'poids_lourd', label: 'Poids lourd' },
 ] as const;
 
+// Flux gérés — valeurs alignées sur collectes.type (multi, décision Val 2026-07-02).
+const TYPES_COLLECTE = [
+  { value: 'anti_gaspi', label: 'Anti-Gaspi (AG)' },
+  { value: 'zero_dechet', label: 'Zéro Déchet (ZD)' },
+] as const;
+
 const VIDE: TransporteurFormValues = {
   nom: '',
   siren: '',
@@ -41,7 +50,9 @@ const VIDE: TransporteurFormValues = {
   code_postal: '',
   ville: '',
   types_vehicules: [],
+  types_collecte: [],
   type_tms: '',
+  description_process_collecte: '',
   code_transporteur_mts1: '',
   actif: true,
 };
@@ -78,6 +89,15 @@ export function TransporteurForm({
       types_vehicules: v.types_vehicules.includes(value)
         ? v.types_vehicules.filter((t) => t !== value)
         : [...v.types_vehicules, value],
+    }));
+  }
+
+  function toggleTypeCollecte(value: string) {
+    setValues((v) => ({
+      ...v,
+      types_collecte: v.types_collecte.includes(value)
+        ? v.types_collecte.filter((t) => t !== value)
+        : [...v.types_collecte, value],
     }));
   }
 
@@ -121,7 +141,11 @@ export function TransporteurForm({
       code_postal: values.code_postal.trim(),
       ville: values.ville.trim(),
       types_vehicules: values.types_vehicules,
+      types_collecte:
+        values.types_collecte.length > 0 ? values.types_collecte : null,
       type_tms: values.type_tms,
+      description_process_collecte:
+        values.description_process_collecte.trim() || null,
       code_transporteur_mts1:
         values.type_tms === 'mts1'
           ? values.code_transporteur_mts1.trim()
@@ -314,6 +338,34 @@ export function TransporteurForm({
           </div>
         </FormField>
 
+        <FormField
+          label="Type(s) de collecte"
+          htmlFor="types_collecte"
+          hint="Flux gérés par ce transporteur — AG et/ou ZD"
+        >
+          <div
+            id="types_collecte"
+            role="group"
+            aria-label="Type(s) de collecte"
+            className="flex flex-wrap gap-4"
+          >
+            {TYPES_COLLECTE.map((t) => (
+              <label
+                key={t.value}
+                className="flex items-center gap-2 text-sm text-savr-neutral-700"
+              >
+                <input
+                  type="checkbox"
+                  checked={values.types_collecte.includes(t.value)}
+                  onChange={() => toggleTypeCollecte(t.value)}
+                  className="h-4 w-4 rounded border-savr-neutral-300 text-savr-primary-700 focus:outline-2 focus:outline-savr-primary-500"
+                />
+                {t.label}
+              </label>
+            ))}
+          </div>
+        </FormField>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
             label="Type de TMS"
@@ -336,6 +388,12 @@ export function TransporteurForm({
               <option value="mts1">MTS-1 (Strike / Marathon)</option>
               <option value="a_toutes">A Toutes! (vélo cargo)</option>
               <option value="autre">Autre (province — email/téléphone)</option>
+              <option value="par_mail">
+                Par mail (validation Admin manuelle)
+              </option>
+              <option value="par_telephone">
+                Par téléphone (validation Admin manuelle)
+              </option>
             </Select>
           </FormField>
           {values.type_tms === 'mts1' && (
@@ -355,6 +413,21 @@ export function TransporteurForm({
             </FormField>
           )}
         </div>
+
+        <FormField
+          label="Description process de création de collecte"
+          htmlFor="description_process_collecte"
+          hint="Comment déclencher une collecte auprès de ce transporteur (texte libre)"
+        >
+          <Textarea
+            id="description_process_collecte"
+            rows={3}
+            value={values.description_process_collecte}
+            onChange={(e) =>
+              set('description_process_collecte', e.target.value)
+            }
+          />
+        </FormField>
 
         <label className="flex items-center gap-2 text-sm font-medium text-savr-neutral-700 pt-2">
           <input

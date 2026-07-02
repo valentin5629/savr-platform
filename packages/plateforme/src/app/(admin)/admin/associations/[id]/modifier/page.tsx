@@ -24,8 +24,12 @@ type AssociationApi = {
   types_aliments_acceptes: string[] | null;
   description_rapport_impact: string;
   commentaires_internes: string | null;
+  instructions_acces: string | null;
+  siren: string | null;
+  logo_url: string | null;
   id_point_collecte_mts1: string | null;
   habilitee_attestation_fiscale: boolean;
+  date_expiration_habilitation: string | null;
   actif: boolean;
   horaires_ouverture: AssociationFormValues['horaires_ouverture'] | null;
 };
@@ -53,8 +57,12 @@ export default function ModifierAssociationPage() {
           types_aliments_acceptes: d.types_aliments_acceptes?.join(', ') ?? '',
           description_rapport_impact: d.description_rapport_impact,
           commentaires_internes: d.commentaires_internes ?? '',
+          instructions_acces: d.instructions_acces ?? '',
+          siren: d.siren ?? '',
+          logo_url: d.logo_url ?? '',
           id_point_collecte_mts1: d.id_point_collecte_mts1 ?? '',
           habilitee_attestation_fiscale: d.habilitee_attestation_fiscale,
+          date_expiration_habilitation: d.date_expiration_habilitation ?? '',
           actif: d.actif,
           horaires_ouverture: d.horaires_ouverture ?? horairesParDefaut(),
         });

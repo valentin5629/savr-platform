@@ -19,9 +19,15 @@ describe('M0.6 — formulaire association (BL-P1-BOA-01)', () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.restoreAllMocks());
 
-  it('M0.6 — pas de champ upload logo (divergence BOA_20260702)', () => {
+  it('M0.6 — champs ajoutés à la revue Val 2026-07-02 (logo, instructions, SIREN, date habilitation)', () => {
     render(<AssociationForm />);
-    expect(screen.queryByLabelText(/logo/i)).toBeNull();
+    // Logo présent (décision Val — réactivé après la divergence BOA_20260702).
+    expect(screen.getByLabelText(/Logo de l'association/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Instructions d'accès/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^SIREN/)).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/Date d'expiration habilitation 2041-GE/),
+    ).toBeInTheDocument();
   });
 
   it('M0.6 — rend les champs obligatoires du formulaire de création', () => {
@@ -41,6 +47,20 @@ describe('M0.6 — formulaire association (BL-P1-BOA-01)', () => {
     ).toBeInTheDocument();
     expect(screen.getByTestId('horaires-ouverture-editor')).toBeInTheDocument();
     expect(screen.getByLabelText(/Habilitation 2041-GE/)).toBeInTheDocument();
+  });
+
+  it('M0.6 — SIREN invalide (≠ 9 chiffres) bloque la soumission', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    render(<AssociationForm />);
+    fireEvent.change(screen.getByLabelText(/^SIREN/), {
+      target: { value: '123' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: /Créer l’association/ }),
+    );
+    expect(await screen.findByText(/SIREN : 9 chiffres/)).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('M0.6 — bloque la soumission si description rapport d’impact < 30 caractères', async () => {

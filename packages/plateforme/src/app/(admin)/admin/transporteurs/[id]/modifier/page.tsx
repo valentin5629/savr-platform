@@ -21,7 +21,9 @@ type TransporteurApi = {
   code_postal: string;
   ville: string;
   types_vehicules: string[];
+  types_collecte: string[] | null;
   type_tms: string;
+  description_process_collecte: string | null;
   code_transporteur_mts1: string | null;
   actif: boolean;
 };
@@ -46,7 +48,9 @@ export default function ModifierTransporteurPage() {
           code_postal: d.code_postal,
           ville: d.ville,
           types_vehicules: d.types_vehicules ?? [],
+          types_collecte: d.types_collecte ?? [],
           type_tms: d.type_tms as TransporteurFormValues['type_tms'],
+          description_process_collecte: d.description_process_collecte ?? '',
           code_transporteur_mts1: d.code_transporteur_mts1 ?? '',
           actif: d.actif,
         });

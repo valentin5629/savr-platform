@@ -26,6 +26,8 @@ export interface LieuFormValues {
     | 'poids_lourd';
   controle_acces_requis_default: boolean;
   actif: boolean;
+  // Gestionnaire rattaché (organisations_lieux) — organisation type gestionnaire_lieux
+  gestionnaire_organisation_id: string;
   // Admin/ops only (RLS column-level)
   commentaire_lieu: string;
   siren: string;
@@ -44,11 +46,18 @@ const VIDE: LieuFormValues = {
   type_vehicule_max: '',
   controle_acces_requis_default: false,
   actif: true,
+  gestionnaire_organisation_id: '',
   commentaire_lieu: '',
   siren: '',
   email_gestionnaire: '',
   reference_citeo: false,
 };
+
+interface OrgOption {
+  id: string;
+  raison_sociale: string | null;
+  nom?: string | null;
+}
 
 interface LieuFormProps {
   lieuId?: string;
@@ -65,6 +74,15 @@ export function LieuForm({ lieuId, initialValues }: LieuFormProps) {
   const [submitting, setSubmitting] = React.useState(false);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [serverError, setServerError] = React.useState<string | null>(null);
+  const [gestionnaires, setGestionnaires] = React.useState<OrgOption[]>([]);
+
+  // Liste des organisations gestionnaires de lieux (pour le sélecteur mono).
+  React.useEffect(() => {
+    void fetch('/api/v1/admin/organisations?type=gestionnaire_lieux&actif=true')
+      .then((r) => r.json())
+      .then((j: { data?: OrgOption[] }) => setGestionnaires(j.data ?? []))
+      .catch(() => setGestionnaires([]));
+  }, []);
 
   function set<K extends keyof LieuFormValues>(
     key: K,
@@ -106,6 +124,7 @@ export function LieuForm({ lieuId, initialValues }: LieuFormProps) {
       type_vehicule_max: values.type_vehicule_max,
       controle_acces_requis_default: values.controle_acces_requis_default,
       actif: values.actif,
+      gestionnaire_organisation_id: values.gestionnaire_organisation_id || '',
       commentaire_lieu: values.commentaire_lieu.trim() || null,
       siren: values.siren.trim() || null,
       email_gestionnaire: values.email_gestionnaire.trim() || null,
@@ -300,6 +319,27 @@ export function LieuForm({ lieuId, initialValues }: LieuFormProps) {
             Actif
           </label>
         </div>
+
+        <FormField
+          label="Gestionnaire de lieux"
+          htmlFor="gestionnaire_organisation_id"
+          hint="Organisation gestionnaire rattachée — optionnel"
+        >
+          <Select
+            id="gestionnaire_organisation_id"
+            value={values.gestionnaire_organisation_id}
+            onChange={(e) =>
+              set('gestionnaire_organisation_id', e.target.value)
+            }
+          >
+            <option value="">Aucun</option>
+            {gestionnaires.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.raison_sociale ?? g.nom ?? g.id}
+              </option>
+            ))}
+          </Select>
+        </FormField>
       </Card>
 
       <Card className="p-6 space-y-4">

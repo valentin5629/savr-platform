@@ -1,11 +1,12 @@
 /**
  * M0.6 — Liste collectes Admin (BL-P1-BOA-05).
- * Colonnes (client organisateur, contrôle d'accès), indicateurs (rapport, poids
- * ZD, taux, repas AG, info incomplète, statut attribution) et filtres (statut
+ * Colonnes (client organisateur, contrôle d'accès), indicateurs (rapport
+ * disponible/consulté/régénéré, poids ZD, taux, repas AG, info incomplète,
+ * statut attribution AG : En attente / Validée / Auto-accept) et filtres (statut
  * multi, info incomplète, rapport non consulté). Câblage sur l'API existante.
  *
  * NB : DataTable rend simultanément la vue desktop (table) et mobile (cards) —
- * chaque libellé apparaît plusieurs fois → assertions en getAllByText.
+ * chaque libellé apparaît plusieurs fois → assertions en getAllBy*.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
@@ -16,6 +17,7 @@ vi.mock('next/navigation', () => ({
 
 import CollectesPage from './page';
 
+// ZD clôturée : poids + taux + rapport consulté ET régénéré (version > 1).
 const collecteZd = {
   id: 'zd-1',
   type: 'zero_dechet',
@@ -33,9 +35,9 @@ const collecteZd = {
     {
       disponible_a: '2026-04-24T06:00:00Z',
       genere_at: '2026-04-24T06:00:00Z',
-      regenere_at: null,
-      consulte_par_user_at: null,
-      version: 1,
+      regenere_at: '2026-04-25T09:00:00Z',
+      consulte_par_user_at: '2026-04-24T10:00:00Z',
+      version: 2,
     },
   ],
   evenements: {
@@ -53,41 +55,86 @@ const collecteZd = {
   },
 };
 
-const collecteAg = {
-  id: 'ag-1',
-  type: 'anti_gaspi',
-  statut: 'programmee',
-  statut_tms: 'non_envoye',
-  dirty_tms: false,
-  date_collecte: '2026-05-10',
-  heure_collecte: '19:00:00',
-  controle_acces_requis: false,
-  informations_completes: false,
-  taux_recyclage: null,
-  attributions_antgaspi: null,
-  collecte_flux: [],
-  rapports_rse: [],
-  evenements: {
-    nom_evenement: 'Cocktail AG',
-    pax: 80,
-    nom_client_organisateur: 'Fondation X',
-    organisations: { raison_sociale: 'Traiteur Beta' },
-    client_organisateur: null,
-    lieux: {
-      nom: 'Pavillon',
-      adresse_acces: null,
-      code_postal: '75008',
-      ville: 'Paris',
+function ag(overrides: Record<string, unknown>) {
+  return {
+    id: 'ag',
+    type: 'anti_gaspi',
+    statut: 'programmee',
+    statut_tms: 'non_envoye',
+    dirty_tms: false,
+    date_collecte: '2026-05-10',
+    heure_collecte: '19:00:00',
+    controle_acces_requis: false,
+    informations_completes: true,
+    taux_recyclage: null,
+    attributions_antgaspi: null,
+    collecte_flux: [],
+    rapports_rse: [],
+    evenements: {
+      nom_evenement: 'Cocktail AG',
+      pax: 80,
+      nom_client_organisateur: 'Fondation X',
+      organisations: { raison_sociale: 'Traiteur Beta' },
+      client_organisateur: null,
+      lieux: {
+        nom: 'Pavillon',
+        adresse_acces: null,
+        code_postal: '75008',
+        ville: 'Paris',
+      },
     },
+    ...overrides,
+  };
+}
+
+// AG à venir sans attribution + info incomplète → « En attente » + badge orange.
+const agEnAttente = ag({
+  id: 'ag-attente',
+  informations_completes: false,
+  attributions_antgaspi: null,
+});
+// AG validée manuellement → « Validée ».
+const agValidee = ag({
+  id: 'ag-validee',
+  statut: 'validee',
+  attributions_antgaspi: {
+    id: 'att-1',
+    valide_at: '2026-05-01T12:00:00Z',
+    mode_validation: 'manuel_top1',
+    volume_repas_realise: null,
   },
-};
+});
+// AG auto-acceptée → « Auto-accept ».
+const agAuto = ag({
+  id: 'ag-auto',
+  statut: 'validee',
+  attributions_antgaspi: {
+    id: 'att-2',
+    valide_at: '2026-05-01T12:00:00Z',
+    mode_validation: 'auto_accept',
+    volume_repas_realise: null,
+  },
+});
+// AG réalisée → nombre de repas collectés.
+const agRealisee = ag({
+  id: 'ag-realisee',
+  statut: 'realisee',
+  attributions_antgaspi: {
+    id: 'att-3',
+    valide_at: '2026-05-01T12:00:00Z',
+    mode_validation: 'manuel_top1',
+    volume_repas_realise: 250,
+  },
+});
+
+const ALL = [collecteZd, agEnAttente, agValidee, agAuto, agRealisee];
 
 function mockCollectesFetch() {
   const fetchMock = vi.fn((url: string) => {
     if (typeof url === 'string' && url.startsWith('/api/v1/admin/collectes')) {
       return Promise.resolve({
         ok: true,
-        json: async () => ({ data: [collecteZd, collecteAg], total: 2 }),
+        json: async () => ({ data: ALL, total: ALL.length }),
       });
     }
     return Promise.resolve({ ok: true, json: async () => ({ data: [] }) });
@@ -104,7 +151,6 @@ describe('M0.6 — liste collectes Admin (BL-P1-BOA-05)', () => {
     mockCollectesFetch();
     render(<CollectesPage />);
 
-    // En-têtes de colonne exigées §06.06 §3
     expect(
       (await screen.findAllByText('Client organisateur')).length,
     ).toBeGreaterThan(0);
@@ -116,18 +162,41 @@ describe('M0.6 — liste collectes Admin (BL-P1-BOA-05)', () => {
     expect(screen.getAllByText('Fondation X').length).toBeGreaterThan(0);
   });
 
-  it('M0.6 — indicateurs ZD (poids + taux) et AG (info incomplète + à attribuer)', async () => {
+  it('M0.6 — indicateurs rapport (disponible/consulté/régénéré) + poids/taux ZD', async () => {
     mockCollectesFetch();
     render(<CollectesPage />);
 
-    // ZD passée : poids total (10 + 2,5 = 12,5 kg) + taux recyclage
-    expect((await screen.findAllByText(/12,5 kg/)).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/78,4/).length).toBeGreaterThan(0);
+    // Rapport RSE disponible + consulté + régénéré (version 2 / regenere_at)
+    expect(
+      (await screen.findAllByLabelText('Rapport disponible')).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByLabelText('Rapport consulté').length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getAllByLabelText('Rapport régénéré').length).toBeGreaterThan(
+      0,
+    );
 
-    // AG à venir avec informations_completes=false → badge « Info incomplète »
+    // ZD passée : poids total (10 + 2,5 = 12,5 kg) + taux recyclage
+    expect(screen.getAllByText(/12,5 kg/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/78,4/).length).toBeGreaterThan(0);
+  });
+
+  it('M0.6 — statut attribution AG : En attente / Validée / Auto-accept + repas', async () => {
+    mockCollectesFetch();
+    render(<CollectesPage />);
+    await screen.findAllByText('Client organisateur');
+
+    // Les 3 états d'attribution dérivables (§06.06 §3 l.182)
+    expect(screen.getAllByText('En attente').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Validée').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Auto-accept').length).toBeGreaterThan(0);
+
+    // AG réalisée : nombre de repas collectés
+    expect(screen.getAllByText(/250 repas/).length).toBeGreaterThan(0);
+
+    // AG à venir avec informations_completes=false → « Info incomplète »
     expect(screen.getAllByText('Info incomplète').length).toBeGreaterThan(0);
-    // AG programmée sans attribution → « À attribuer »
-    expect(screen.getAllByText('À attribuer').length).toBeGreaterThan(0);
   });
 
   it('M0.6 — filtre statut multi ajoute le paramètre statuts à la requête', async () => {
@@ -135,7 +204,6 @@ describe('M0.6 — liste collectes Admin (BL-P1-BOA-05)', () => {
     render(<CollectesPage />);
     await screen.findAllByText('Client organisateur');
 
-    // Sélectionne le statut « Clôturée » (multi-sélection — bouton chip)
     fireEvent.click(screen.getByRole('button', { name: 'Clôturée' }));
 
     await waitFor(() => {
@@ -157,13 +225,27 @@ describe('M0.6 — liste collectes Admin (BL-P1-BOA-05)', () => {
     });
   });
 
-  it('M0.6 — filtres traiteur + lieu (autocomplete) et rapport non consulté présents', async () => {
+  it('M0.6 — filtre « Rapport non consulté » ajoute rapport_non_consulte=true', async () => {
+    const fetchMock = mockCollectesFetch();
+    render(<CollectesPage />);
+    await screen.findAllByText('Client organisateur');
+
+    fireEvent.click(screen.getByLabelText('Rapport non consulté'));
+
+    await waitFor(() => {
+      const urls = fetchMock.mock.calls.map((c) => String(c[0]));
+      expect(urls.some((u) => u.includes('rapport_non_consulte=true'))).toBe(
+        true,
+      );
+    });
+  });
+
+  it('M0.6 — filtres traiteur + lieu (autocomplete) présents', async () => {
     mockCollectesFetch();
     render(<CollectesPage />);
     await screen.findAllByText('Client organisateur');
 
     expect(screen.getByLabelText('Filtrer par traiteur')).toBeInTheDocument();
     expect(screen.getByLabelText('Filtrer par lieu')).toBeInTheDocument();
-    expect(screen.getByLabelText('Rapport non consulté')).toBeInTheDocument();
   });
 });

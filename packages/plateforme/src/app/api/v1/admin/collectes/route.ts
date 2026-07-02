@@ -37,7 +37,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       `id, type, statut, statut_tms, dirty_tms, date_collecte, heure_collecte,
        nb_camions_demande, tms_reference, created_at,
        controle_acces_requis, informations_completes, taux_recyclage,
-       attributions_antgaspi!collecte_id(id, valide_at, volume_repas_realise),
+       attributions_antgaspi!collecte_id(id, valide_at, mode_validation, volume_repas_realise),
        collecte_flux(poids_reel_kg),
        ${rapportEmbed},
        evenements!inner(

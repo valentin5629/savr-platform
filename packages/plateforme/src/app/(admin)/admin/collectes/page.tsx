@@ -44,6 +44,7 @@ interface Collecte {
   attributions_antgaspi: {
     id: string;
     valide_at: string | null;
+    mode_validation: 'manuel_top1' | 'manuel_override' | 'auto_accept' | null;
     volume_repas_realise: number | null;
   } | null;
   collecte_flux: { poids_reel_kg: number | null }[];
@@ -133,6 +134,21 @@ function poidsTotalZd(row: Collecte): number {
   return row.collecte_flux.reduce((s, f) => s + (f.poids_reel_kg ?? 0), 0);
 }
 
+// Statut d'attribution AG affiché sur la liste (§06.06 §3 l.182). 3 des 4 états
+// CDC sont dérivables : « Validée » (mode_validation manuel_top1/override),
+// « Auto-accept » (auto_accept), « En attente » (aucune attribution). Le 4e état
+// « aucune reco » n'a pas de marqueur persisté pré-validation (cf. divergence).
+function attributionBadge(row: Collecte): {
+  label: string;
+  variant: 'success' | 'primary' | 'neutral';
+} {
+  const a = row.attributions_antgaspi;
+  if (!a) return { label: 'En attente', variant: 'neutral' };
+  if (a.mode_validation === 'auto_accept')
+    return { label: 'Auto-accept', variant: 'success' };
+  return { label: 'Validée', variant: 'primary' };
+}
+
 // Indicateurs par ligne (§06.06 §3). NB : « Anomalie pesée » = détection seuils
 // par flux → exception actée V2 (non calculée en V1), donc pas d'indicateur ici.
 function Indicateurs({ row }: { row: Collecte }) {
@@ -165,7 +181,10 @@ function Indicateurs({ row }: { row: Collecte }) {
         >
           <FileText className="h-3.5 w-3.5" aria-label="Rapport disponible" />
           {rapport.consulte_par_user_at && (
-            <CheckCircle2 className="h-3 w-3 text-savr-success-strong" />
+            <CheckCircle2
+              className="h-3 w-3 text-savr-success-strong"
+              aria-label="Rapport consulté"
+            />
           )}
           {regenere && (
             <RotateCw
@@ -198,13 +217,14 @@ function Indicateurs({ row }: { row: Collecte }) {
         </Badge>
       )}
 
-      {/* AG à venir : statut attribution */}
+      {/* AG à venir : statut attribution (§06.06 §3 l.182). mode_validation
+          distingue « Validée » (manuel_top1/override) de « Auto-accept ». Le 4e
+          état CDC « aucune reco » n'a pas de représentation persistée pré-validation
+          en V1 (seul un audit_log post-validation existe) → confondu avec « En
+          attente » ici, cf. _Divergences/BOA-COLLECTES_20260702.md. */}
       {row.type === 'anti_gaspi' && upcoming && (
-        <Badge
-          variant={row.attributions_antgaspi ? 'primary' : 'neutral'}
-          className="text-[10px]"
-        >
-          {row.attributions_antgaspi ? 'Attribuée' : 'À attribuer'}
+        <Badge variant={attributionBadge(row).variant} className="text-[10px]">
+          {attributionBadge(row).label}
         </Badge>
       )}
     </div>

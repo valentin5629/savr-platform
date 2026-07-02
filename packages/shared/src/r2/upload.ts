@@ -8,7 +8,11 @@
 // dans packages/adapters/ — l'adapter importe `uploadObject`, il ne réimplémente
 // pas la signature. Les clés stockées en DB = "bucket/key", jamais d'URL signée.
 
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+} from '@aws-sdk/client-s3';
 
 /**
  * Construit le client S3 pointant sur R2 (Cloudflare). Échoue (fail-closed) si les
@@ -55,4 +59,22 @@ export async function uploadObject(
     }),
   );
   return `${bucket}/${key}`;
+}
+
+/**
+ * Récupère un objet binaire depuis R2 (S3-compatible). Retourne le corps
+ * (Uint8Array) + le content-type. Utilisé par le proxy d'affichage de logo
+ * (streaming via le serveur — pas d'URL publique R2 requise). Lève si l'objet
+ * est absent ou si les credentials manquent.
+ */
+export async function getObject(
+  bucket: string,
+  key: string,
+): Promise<{ body: Uint8Array; contentType: string }> {
+  const client = getS3Client();
+  const res = await client.send(
+    new GetObjectCommand({ Bucket: bucket, Key: key }),
+  );
+  const body = await res.Body!.transformToByteArray();
+  return { body, contentType: res.ContentType ?? 'application/octet-stream' };
 }

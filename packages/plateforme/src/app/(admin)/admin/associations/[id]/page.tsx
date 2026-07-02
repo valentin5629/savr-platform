@@ -114,10 +114,20 @@ export default function AssociationDetailPage() {
                 </dd>
               </div>
             )}
-            <div className="flex justify-between">
+            <div className="flex items-center justify-between">
               <dt className="text-savr-neutral-500">Logo</dt>
               <dd className="font-medium">
-                {asso.logo_url ? 'Enregistré' : '—'}
+                {asso.logo_url ? (
+                  <img
+                    src={`/api/v1/admin/uploads/logo?key=${encodeURIComponent(
+                      asso.logo_url,
+                    )}`}
+                    alt={`Logo ${asso.nom}`}
+                    className="h-12 w-auto rounded-savr-md border border-savr-neutral-200 object-contain"
+                  />
+                ) : (
+                  '—'
+                )}
               </dd>
             </div>
             {asso.instructions_acces && (

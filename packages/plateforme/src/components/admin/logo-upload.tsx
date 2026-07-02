@@ -49,6 +49,13 @@ export function LogoUpload({
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-3">
+        {value && (
+          <img
+            src={`/api/v1/admin/uploads/logo?key=${encodeURIComponent(value)}`}
+            alt="Aperçu logo"
+            className="h-12 w-12 rounded-savr-md border border-savr-neutral-200 object-contain"
+          />
+        )}
         <label
           htmlFor={inputId}
           className="inline-flex cursor-pointer items-center gap-2 rounded-savr-md border border-savr-neutral-300 bg-savr-white px-3 py-2 text-sm font-medium text-savr-neutral-700 hover:border-savr-primary-400"

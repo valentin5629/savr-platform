@@ -10,24 +10,40 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const supabase = createAdminSupabaseClient();
   const { searchParams } = new URL(req.url);
   const statut = searchParams.get('statut');
+  const statuts = searchParams.get('statuts'); // multi-sélection (CSV) §06.06 §3
   const type = searchParams.get('type');
   const statut_tms = searchParams.get('statut_tms');
   const chip = searchParams.get('chip');
   const from = searchParams.get('from');
   const to = searchParams.get('to');
+  const organisation_id = searchParams.get('organisation_id'); // traiteur (autocomplete)
+  const lieu_id = searchParams.get('lieu_id'); // lieu (autocomplete)
+  const info_incomplete = searchParams.get('info_incomplete'); // « Info incomplète »
+  const rapport_non_consulte = searchParams.get('rapport_non_consulte'); // rapport non consulté
   const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
   const limit = 50;
   const offset = (page - 1) * limit;
+
+  // Embed rapports_rse : inner + filtrable quand on filtre « rapport non consulté »
+  // (sinon left embed pour l'indicateur d'icône rapport de la liste).
+  const rapportEmbed =
+    rapport_non_consulte === 'true'
+      ? 'rapports_rse!collecte_id!inner(disponible_a, genere_at, regenere_at, consulte_par_user_at, version)'
+      : 'rapports_rse!collecte_id(disponible_a, genere_at, regenere_at, consulte_par_user_at, version)';
 
   let query = supabase
     .from('collectes')
     .select(
       `id, type, statut, statut_tms, dirty_tms, date_collecte, heure_collecte,
        nb_camions_demande, tms_reference, created_at,
-       attributions_antgaspi!collecte_id(id),
+       controle_acces_requis, informations_completes, taux_recyclage,
+       attributions_antgaspi!collecte_id(id, valide_at, mode_validation, volume_repas_realise),
+       collecte_flux(poids_reel_kg),
+       ${rapportEmbed},
        evenements!inner(
-         organisation_id, nom_evenement, pax,
+         organisation_id, lieu_id, nom_evenement, pax, nom_client_organisateur,
          organisations!organisation_id(raison_sociale),
+         client_organisateur:organisations!client_organisateur_organisation_id(raison_sociale),
          lieux!lieu_id(nom, adresse_acces, code_postal, ville)
        )`,
       { count: 'exact' },
@@ -36,10 +52,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   // Chips prédéfinis (§06.06 §3)
   if (chip === 'non_transmises') {
-    query = query
-      .eq('statut_tms', 'non_envoye')
-      .is('tms_reference', null)
-      .in('statut', ['programmee', 'validee']);
+    // CDC §06.06 §3 (filtre canonique) : « Non transmises au TMS »
+    // = statut=programmee ET tms_reference IS NULL. (Prédicat corrigé BL-P1-BOA-05 —
+    // les gardes statut_tms='non_envoye' + statut IN (programmee,validee) étaient
+    // hors-spec.)
+    query = query.eq('statut', 'programmee').is('tms_reference', null);
   } else if (chip === 'attente_prestataire') {
     query = query.eq('statut_tms', 'attribuee_en_attente_acceptation');
   } else if (chip === 'dirty_tms') {
@@ -67,11 +84,27 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       .lte('date_collecte', in48h.toISOString().slice(0, 10))
       .in('statut', ['programmee', 'validee']);
   } else {
-    if (statut) query = query.eq('statut', statut);
+    // Statut : multi-sélection (`statuts` CSV) prioritaire, sinon mono (`statut`).
+    if (statuts) {
+      const list = statuts
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (list.length > 0) query = query.in('statut', list);
+    } else if (statut) {
+      query = query.eq('statut', statut);
+    }
     if (type) query = query.eq('type', type);
     if (statut_tms) query = query.eq('statut_tms', statut_tms);
     if (from) query = query.gte('date_collecte', from);
     if (to) query = query.lte('date_collecte', to);
+    if (organisation_id)
+      query = query.eq('evenements.organisation_id', organisation_id);
+    if (lieu_id) query = query.eq('evenements.lieu_id', lieu_id);
+    if (info_incomplete === 'true')
+      query = query.eq('informations_completes', false);
+    if (rapport_non_consulte === 'true')
+      query = query.is('rapports_rse.consulte_par_user_at', null);
   }
 
   const { data, error, count } = await query.range(offset, offset + limit - 1);

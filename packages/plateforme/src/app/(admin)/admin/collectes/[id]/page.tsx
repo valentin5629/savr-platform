@@ -1,16 +1,72 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Truck, Send, AlertTriangle } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowLeft, Truck, Send, AlertTriangle, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import { Select } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   StatusCollecte,
   type StatutCollecte,
 } from '@/components/ui/status-collecte';
+import {
+  statutCollecteDisplay,
+  type StatutCollecteDb,
+} from '@/lib/statut-collecte-labels';
+
+// Transporteurs (référentiel) — le sélecteur prestataire Bloc 0 liste les
+// transporteurs actifs ; `type_tms` pilote le fork du bouton d'envoi (§06.06 §3
+// « Spec V1 fork ») et `prestataire_logistique_id` (pont R5 → shared.prestataires)
+// est la valeur envoyée à l'endpoint dispatch.
+interface Transporteur {
+  id: string;
+  nom: string;
+  type_tms: string;
+  prestataire_logistique_id: string | null;
+  actif: boolean;
+}
+
+// Recommandation de l'algo d'attribution AG (§06.09) — sous-ensemble consommé par
+// Bloc 0 : transporteur top-1 (baseline « ≠ top-1 → motif obligatoire ») +
+// association recommandée. L'attribution complète (validation, emails, top 3) vit
+// sur l'écran /admin/attributions-ag/[id] (+ Bloc 5).
+interface RecoAlgo {
+  associations: { id: string; nom: string }[];
+  transporteur: { id: string; nom: string; type_tms: string } | null;
+  no_asso: boolean;
+  no_prestataire: boolean;
+}
+
+// Les 9 valeurs de l'enum collectes.statut (forçage manuel RM-08).
+const STATUTS_FORCABLES: StatutCollecteDb[] = [
+  'brouillon',
+  'programmee',
+  'validee',
+  'en_cours',
+  'realisee',
+  'realisee_sans_collecte',
+  'cloturee',
+  'annulation_demandee',
+  'annulee',
+  'rejetee_par_prestataire',
+];
+
+// Libellé du bouton d'envoi TMS forké par type_tms (§06.06 §3 « Spec V1 fork » :
+// MTS-1 pour Strike/Marathon, A Toutes! pour le vélo cargo, manuel sinon).
+function libelleDispatch(
+  typeTms: string | undefined,
+  dejaEnvoye: boolean,
+): string {
+  const verbe = dejaEnvoye ? 'Renvoyer' : 'Envoyer';
+  if (typeTms === 'mts1') return `${verbe} à MTS-1`;
+  if (typeTms === 'a_toutes') return `${verbe} à A Toutes!`;
+  return 'Dispatcher (manuel)';
+}
 
 interface CollecteDetail {
   id: string;
@@ -18,6 +74,7 @@ interface CollecteDetail {
   statut: string;
   statut_tms: string;
   dirty_tms: boolean;
+  statut_tms_at: string | null;
   date_collecte: string;
   heure_collecte: string;
   nb_camions_demande: number;
@@ -40,7 +97,7 @@ interface CollecteDetail {
     pax: number;
     organisations: { raison_sociale: string };
     lieux: { nom: string; ville: string; adresse_acces: string };
-    types_evenements: { nom: string };
+    types_evenements: { libelle: string } | null;
   };
   collecte_flux: {
     flux_id: string;
@@ -51,12 +108,18 @@ interface CollecteDetail {
     rang: number;
     tournees: {
       id: string;
-      statut_tms: string;
+      statut: string;
       tms_reference: string | null;
       external_ref_commande: string | null;
     };
   }[];
-  factures_collectes: { id: string; montant_ht: number; statut: string }[];
+  // factures_collectes = lignes de facture ; le statut vit sur la facture parente
+  // (jointure facture_id → factures). La ligne elle-même n'a pas de statut.
+  factures_collectes: {
+    id: string;
+    montant_ht: number;
+    factures: { statut: string } | null;
+  }[];
 }
 
 // Référentiel des 5 flux ZD V1 (figé — seed flux_dechets). Sert à afficher tous
@@ -90,6 +153,17 @@ export default function CollecteDetailPage() {
   const [peseesMotif, setPeseesMotif] = useState('');
   const [peseesSaving, setPeseesSaving] = useState(false);
   const [peseesError, setPeseesError] = useState<string | null>(null);
+  // Bloc 0 — dispatch prestataire (BOA-06)
+  const [transporteurs, setTransporteurs] = useState<Transporteur[]>([]);
+  const [selectedTransporteurId, setSelectedTransporteurId] = useState('');
+  const [motifOverride, setMotifOverride] = useState('');
+  const [reco, setReco] = useState<RecoAlgo | null>(null);
+  // RM-08 — forçage manuel du statut
+  const [forceStatutModal, setForceStatutModal] = useState(false);
+  const [forceStatutValue, setForceStatutValue] = useState('');
+  const [forceStatutMotif, setForceStatutMotif] = useState('');
+  const [forceStatutSubmitting, setForceStatutSubmitting] = useState(false);
+  const [forceStatutError, setForceStatutError] = useState<string | null>(null);
 
   const STATUTS_TERMINAUX = [
     'realisee',
@@ -98,13 +172,74 @@ export default function CollecteDetailPage() {
     'realisee_sans_collecte',
   ];
 
+  const refetch = useCallback(async () => {
+    const updated = await fetch(`/api/v1/admin/collectes/${params.id}`);
+    if (updated.ok) setCollecte((await updated.json()) as CollecteDetail);
+  }, [params.id]);
+
   useEffect(() => {
+    // On vérifie res.ok AVANT de désérialiser : une réponse d'erreur (404/500)
+    // renvoie un corps { error } — le poser dans `collecte` faisait crasher le
+    // rendu (collecte.type.toUpperCase() sur undefined = exception client).
     fetch(`/api/v1/admin/collectes/${params.id}`)
-      .then((r) => r.json())
-      .then((d: CollecteDetail) => setCollecte(d))
+      .then(async (r) => {
+        if (!r.ok) {
+          const body = (await r.json().catch(() => ({}))) as {
+            error?: string;
+          };
+          setError(body.error ?? 'Collecte introuvable');
+          return;
+        }
+        setCollecte((await r.json()) as CollecteDetail);
+      })
       .catch(() => setError('Erreur chargement'))
       .finally(() => setLoading(false));
   }, [params.id]);
+
+  // Référentiel transporteurs actifs — sélecteur prestataire Bloc 0.
+  useEffect(() => {
+    fetch('/api/v1/admin/transporteurs?actif=true')
+      .then((r) => (r.ok ? r.json() : { data: [] }))
+      .then((json: { data: Transporteur[] }) => setTransporteurs(json.data))
+      .catch(() => setTransporteurs([]));
+  }, []);
+
+  // Recommandation algo (§06.09) — uniquement AG non terminale (dispatch pertinent).
+  // Sert à afficher le prestataire/asso recommandés et à décider si un motif override
+  // est requis (choix ≠ top-1). Le top-1 pré-sélectionne le sélecteur (validation
+  // de la reco = 0 motif). Erreur/aucune reco = dégradation gracieuse (pas de baseline).
+  const collecteType = collecte?.type;
+  const collecteStatut = collecte?.statut;
+  const collectePresta = collecte?.prestataire_logistique_id ?? null;
+  useEffect(() => {
+    if (collecteType !== 'anti_gaspi') return;
+    if (
+      collecteStatut != null &&
+      ['realisee', 'cloturee', 'annulee', 'realisee_sans_collecte'].includes(
+        collecteStatut,
+      )
+    ) {
+      return;
+    }
+    let active = true;
+    fetch(`/api/v1/admin/attributions-ag/${params.id}/recommandation`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { data: RecoAlgo } | null) => {
+        if (!active) return;
+        const r = j?.data ?? null;
+        setReco(r);
+        // Pré-sélection du top-1 recommandé si aucune sélection ni prestataire courant.
+        if (r?.transporteur && collectePresta == null) {
+          setSelectedTransporteurId((prev) => prev || r.transporteur!.id);
+        }
+      })
+      .catch(() => {
+        if (active) setReco(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [params.id, collecteType, collecteStatut, collectePresta]);
 
   const handleAnnulerCredit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,19 +267,53 @@ export default function CollecteDetailPage() {
   const handleDispatch = async () => {
     setDispatching(true);
     setDispatchError(null);
+    // Prestataire choisi (AG) → on envoie son prestataire_logistique_id (pont R5).
+    // Sans changement (ZD / re-send) → body vide = réémission dispatch idempotente.
+    const selected = transporteurs.find((t) => t.id === selectedTransporteurId);
+    const body: Record<string, unknown> = {};
+    if (selected?.prestataire_logistique_id) {
+      body.prestataire_logistique_id = selected.prestataire_logistique_id;
+      if (motifOverride.trim()) {
+        body.motif_override_prestataire = motifOverride.trim();
+      }
+    }
     const res = await fetch(`/api/v1/admin/collectes/${params.id}/dispatch`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({}),
+      body: JSON.stringify(body),
     });
     if (res.ok) {
-      const updated = await fetch(`/api/v1/admin/collectes/${params.id}`);
-      if (updated.ok) setCollecte((await updated.json()) as CollecteDetail);
+      await refetch();
+      setSelectedTransporteurId('');
+      setMotifOverride('');
     } else {
-      const body = (await res.json()) as { error: string };
-      setDispatchError(body.error);
+      const errBody = (await res.json()) as { error: string };
+      setDispatchError(errBody.error);
     }
     setDispatching(false);
+  };
+
+  const handleForceStatut = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForceStatutSubmitting(true);
+    setForceStatutError(null);
+    // L'API PATCH valide déjà motif ≥ 10 car. + audite `collecte_statut_force`.
+    const res = await fetch(`/api/v1/admin/collectes/${params.id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        statut: forceStatutValue,
+        motif: forceStatutMotif,
+      }),
+    });
+    if (res.ok) {
+      await refetch();
+      setForceStatutModal(false);
+    } else {
+      const body = (await res.json()) as { error: string };
+      setForceStatutError(body.error);
+    }
+    setForceStatutSubmitting(false);
   };
 
   const openEditPesees = () => {
@@ -206,6 +375,27 @@ export default function CollecteDetailPage() {
 
   const isTerminal = STATUTS_TERMINAUX.includes(collecte.statut);
 
+  // Bloc 0 — résolution prestataire (pont R5 : transporteurs.prestataire_logistique_id
+  // → collectes.prestataire_logistique_id) + fork type_tms.
+  const currentTransporteur = transporteurs.find(
+    (t) => t.prestataire_logistique_id === collecte.prestataire_logistique_id,
+  );
+  const selectedTransporteur = transporteurs.find(
+    (t) => t.id === selectedTransporteurId,
+  );
+  const forkTypeTms =
+    selectedTransporteur?.type_tms ?? currentTransporteur?.type_tms;
+  // Transporteur recommandé par l'algo (top-1) — baseline de l'override (§06.06 §3 :
+  // motif obligatoire SI le choix ≠ top-1 algo). Pas de reco → pas de baseline → pas
+  // de motif requis (cohérent avec la garde serveur du dispatch).
+  const recommendedTransporteurId = reco?.transporteur?.id ?? null;
+  const overrideActif =
+    selectedTransporteur != null &&
+    recommendedTransporteurId != null &&
+    selectedTransporteur.id !== recommendedTransporteurId;
+  const overrideMotifManquant =
+    overrideActif && motifOverride.trim().length < 5;
+
   return (
     <div className="space-y-6">
       {/* En-tête */}
@@ -228,31 +418,58 @@ export default function CollecteDetailPage() {
             Modifiée — renvoi requis
           </Badge>
         )}
+        {/* RM-08 — forçage manuel du statut (motif obligatoire) */}
+        <Button
+          variant="secondary"
+          size="sm"
+          className="ml-auto"
+          onClick={() => {
+            setForceStatutValue(collecte.statut);
+            setForceStatutMotif('');
+            setForceStatutError(null);
+            setForceStatutModal(true);
+          }}
+        >
+          <Settings2 className="h-4 w-4 mr-2" />
+          Forcer le statut
+        </Button>
       </div>
 
       {/* Bloc 0 — Attribution prestataire & dispatch */}
       <Card className="p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-savr-neutral-800">
-            Bloc 0 — Prestataire & Dispatch
-          </h2>
-          <Button
-            size="sm"
-            disabled={isTerminal || dispatching}
-            onClick={() => void handleDispatch()}
-          >
-            <Send className="h-4 w-4 mr-2" />
-            {dispatching
-              ? 'Envoi…'
-              : collecte.tms_reference
-                ? 'Renvoyer au TMS'
-                : 'Envoyer au TMS'}
-          </Button>
-        </div>
+        <h2 className="font-semibold text-savr-neutral-800">
+          Bloc 0 — Prestataire & Dispatch
+        </h2>
         {dispatchError && (
           <p className="text-savr-error-600 text-sm">{dispatchError}</p>
         )}
         <dl className="grid grid-cols-2 gap-3 text-sm">
+          <div>
+            <dt className="text-savr-neutral-500">Prestataire actuel</dt>
+            <dd className="font-medium flex items-center gap-2">
+              {currentTransporteur?.nom ?? (
+                <span className="text-savr-neutral-400">
+                  Aucun prestataire attribué
+                </span>
+              )}
+              {currentTransporteur && (
+                <Badge variant="neutral" className="text-[10px]">
+                  {currentTransporteur.type_tms}
+                </Badge>
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-savr-neutral-500">Statut TMS</dt>
+            <dd className="font-medium">
+              {collecte.statut_tms}
+              {collecte.statut_tms_at && (
+                <span className="ml-1 text-xs text-savr-neutral-400">
+                  ({new Date(collecte.statut_tms_at).toLocaleString('fr-FR')})
+                </span>
+              )}
+            </dd>
+          </div>
           <div>
             <dt className="text-savr-neutral-500">Référence TMS</dt>
             <dd className="font-mono font-medium">
@@ -273,6 +490,109 @@ export default function CollecteDetailPage() {
           )}
         </dl>
 
+        {/* Sélecteur prestataire (AG) — override manuel §06.06 §3. Pas de
+            sélecteur ZD V1 (prestataire fixe par lieu/zone : réémission seule). */}
+        {collecte.type === 'anti_gaspi' && !isTerminal && (
+          <div className="space-y-3 border-t border-savr-neutral-100 pt-4">
+            {/* Recommandation algo (§06.09) — prestataire + association top-1. */}
+            <div className="rounded-savr-md border border-savr-primary-100 bg-savr-primary-50 p-3 text-sm">
+              <p className="font-medium text-savr-primary-800">
+                Recommandation algo
+              </p>
+              <dl className="mt-1 grid grid-cols-1 gap-1 sm:grid-cols-2">
+                <div>
+                  <dt className="text-savr-neutral-500">
+                    Prestataire recommandé
+                  </dt>
+                  <dd className="font-medium">
+                    {reco?.transporteur ? (
+                      `${reco.transporteur.nom} (${reco.transporteur.type_tms})`
+                    ) : (
+                      <span className="text-savr-neutral-400">
+                        Aucune recommandation
+                      </span>
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-savr-neutral-500">
+                    Association recommandée
+                  </dt>
+                  <dd className="font-medium">
+                    {reco?.associations?.[0]?.nom ?? (
+                      <span className="text-savr-neutral-400">Aucune</span>
+                    )}
+                  </dd>
+                </div>
+              </dl>
+              <p className="mt-2 text-xs text-savr-neutral-500">
+                Attribution complète (validation, emails, top 3 associations) :{' '}
+                <Link
+                  href={`/admin/attributions-ag/${collecte.id}`}
+                  className="text-primary-600 hover:underline"
+                >
+                  écran d&apos;attribution AG →
+                </Link>
+              </p>
+            </div>
+
+            <label
+              htmlFor="dispatch-transporteur"
+              className="block text-sm font-medium text-savr-neutral-700"
+            >
+              Prestataire à attribuer
+            </label>
+            <Select
+              id="dispatch-transporteur"
+              value={selectedTransporteurId}
+              onChange={(e) => setSelectedTransporteurId(e.target.value)}
+            >
+              <option value="">
+                {currentTransporteur
+                  ? `Conserver — ${currentTransporteur.nom}`
+                  : '— Choisir un transporteur —'}
+              </option>
+              {transporteurs.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.nom} ({t.type_tms})
+                  {t.id === recommendedTransporteurId ? ' — recommandé' : ''}
+                </option>
+              ))}
+            </Select>
+            {overrideActif && (
+              <div>
+                <label
+                  htmlFor="dispatch-motif"
+                  className="block text-sm font-medium text-savr-neutral-700 mb-1"
+                >
+                  Motif override (obligatoire ≥ 5 car. — prestataire ≠ reco
+                  algo)
+                </label>
+                <Textarea
+                  id="dispatch-motif"
+                  rows={2}
+                  value={motifOverride}
+                  onChange={(e) => setMotifOverride(e.target.value)}
+                  placeholder="Raison du choix d'un prestataire différent de la recommandation…"
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Bouton d'envoi TMS forké par type_tms */}
+        <div className="flex justify-end">
+          <Button
+            disabled={isTerminal || dispatching || overrideMotifManquant}
+            onClick={() => void handleDispatch()}
+          >
+            <Send className="h-4 w-4 mr-2" />
+            {dispatching
+              ? 'Envoi…'
+              : libelleDispatch(forkTypeTms, !!collecte.tms_reference)}
+          </Button>
+        </div>
+
         {/* Tournées (multi-camions) */}
         {collecte.collecte_tournees.length > 0 && (
           <div>
@@ -287,7 +607,7 @@ export default function CollecteDetailPage() {
                 >
                   <span className="font-medium">Camion {ct.rang}</span>
                   <Badge variant="neutral" className="text-xs">
-                    {ct.tournees.statut_tms}
+                    {ct.tournees.statut}
                   </Badge>
                   <span className="font-mono text-xs text-savr-neutral-500">
                     {ct.tournees.external_ref_commande ?? '—'}
@@ -321,7 +641,7 @@ export default function CollecteDetailPage() {
             <div>
               <dt className="text-savr-neutral-500">Type</dt>
               <dd className="font-medium">
-                {collecte.evenements.types_evenements.nom}
+                {collecte.evenements.types_evenements?.libelle ?? '—'}
               </dd>
             </div>
             <div>
@@ -556,7 +876,7 @@ export default function CollecteDetailPage() {
                 <span className="font-mono text-xs text-savr-neutral-500">
                   {f.id.slice(0, 8)}…
                 </span>
-                <Badge variant="neutral">{f.statut}</Badge>
+                <Badge variant="neutral">{f.factures?.statut ?? '—'}</Badge>
                 <span className="font-medium">{f.montant_ht} € HT</span>
               </div>
             ))}
@@ -655,6 +975,89 @@ export default function CollecteDetailPage() {
                   {annulerCreditSubmitting
                     ? 'Annulation…'
                     : "Confirmer l'annulation"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modale — Forcer le statut (RM-08) */}
+      {forceStatutModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+            <h2 className="text-lg font-semibold mb-4">
+              Forcer le statut de la collecte
+            </h2>
+            {forceStatutError && (
+              <div className="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-2 text-sm">
+                {forceStatutError}
+              </div>
+            )}
+            <form
+              onSubmit={(e) => void handleForceStatut(e)}
+              className="space-y-4"
+            >
+              <p className="text-sm text-neutral-500">
+                Bascule manuelle hors machine à états. L&apos;action est tracée
+                dans l&apos;audit (motif obligatoire).
+              </p>
+              <div>
+                <label
+                  htmlFor="force-statut-select"
+                  className="block text-sm font-medium mb-1"
+                >
+                  Nouveau statut
+                </label>
+                <Select
+                  id="force-statut-select"
+                  value={forceStatutValue}
+                  onChange={(e) => setForceStatutValue(e.target.value)}
+                  required
+                >
+                  {STATUTS_FORCABLES.map((s) => (
+                    <option key={s} value={s}>
+                      {statutCollecteDisplay(s, 'admin').label}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div>
+                <label
+                  htmlFor="force-statut-motif"
+                  className="block text-sm font-medium mb-1"
+                >
+                  Motif (obligatoire, ≥ 10 caractères)
+                </label>
+                <Textarea
+                  id="force-statut-motif"
+                  value={forceStatutMotif}
+                  onChange={(e) => setForceStatutMotif(e.target.value)}
+                  rows={3}
+                  minLength={10}
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setForceStatutModal(false)}
+                  disabled={forceStatutSubmitting}
+                >
+                  Retour
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={
+                    forceStatutSubmitting ||
+                    forceStatutMotif.trim().length < 10 ||
+                    forceStatutValue === ''
+                  }
+                >
+                  {forceStatutSubmitting
+                    ? 'Application…'
+                    : 'Confirmer le forçage'}
                 </Button>
               </div>
             </form>

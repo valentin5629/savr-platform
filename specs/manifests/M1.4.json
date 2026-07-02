@@ -286,6 +286,7 @@
   ],
   "cdc_source_hash": {
     "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "e5afe55f34b49ed3bfb2face28ef1ee6c3aea24f0dac5d491a865e6fea1a5295",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "6b0ee4142abca504a65c6f8d8cb4648c69bc3eedc652ed0ea43b9bba5e2ecebb"
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "2867003790a6772bb525ef68345895253745aa7681fde23f2c3696501445a4c2",
+    "specs/cdc/01 - Cahier des charges App/07 - Observabilité/06 - Audit trail.md": "77f6edc3e9ecc1a04e009ca1ea3c335c393e54bd0878fb878bc0c8b7e94f4916"
   }
 }

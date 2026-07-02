@@ -27,7 +27,26 @@ export async function GET(
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json(data);
+  // Nom du prestataire logistique (pont V1 shared.prestataires) — exposé en
+  // lecture pour la fiche (« toutes les informations », Val 2026-07-02).
+  const prestaId = (data as { prestataire_logistique_id: string | null })
+    .prestataire_logistique_id;
+  let prestataire_logistique_nom: string | null = null;
+  if (prestaId) {
+    const { data: presta } = await supabase
+      .schema('shared')
+      .from('prestataires')
+      .select('nom')
+      .eq('id', prestaId)
+      .maybeSingle();
+    prestataire_logistique_nom =
+      (presta as { nom?: string } | null)?.nom ?? null;
+  }
+
+  return NextResponse.json({
+    ...(data as Record<string, unknown>),
+    prestataire_logistique_nom,
+  });
 }
 
 export async function PATCH(

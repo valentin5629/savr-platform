@@ -25,6 +25,7 @@ interface Transporteur {
   contact_telephone: string;
   tarif_par_course: number | null;
   derniere_verification: string | null;
+  prestataire_logistique_nom: string | null;
   actif: boolean;
   commentaires_internes: string | null;
 }
@@ -156,6 +157,16 @@ export default function TransporteurDetailPage() {
                 <dt className="text-savr-neutral-500">Dernière vérification</dt>
                 <dd className="font-medium">
                   {transporteur.derniere_verification}
+                </dd>
+              </div>
+            )}
+            {transporteur.prestataire_logistique_nom && (
+              <div className="flex justify-between">
+                <dt className="text-savr-neutral-500">
+                  Prestataire logistique
+                </dt>
+                <dd className="font-medium">
+                  {transporteur.prestataire_logistique_nom}
                 </dd>
               </div>
             )}

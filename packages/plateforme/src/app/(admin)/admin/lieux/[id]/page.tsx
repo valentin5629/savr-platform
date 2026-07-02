@@ -25,6 +25,7 @@ interface Lieu {
   capacite_maximum: number | null;
   contraintes_horaires: string | null;
   acces_details: string | null;
+  photos_urls: string[] | null;
   gestionnaire_nom: string | null;
   commentaires_internes: string | null;
   commentaire_lieu: string | null;
@@ -236,6 +237,25 @@ export default function LieuDetailPage() {
                 )}
               </dd>
             </div>
+            {lieu.commentaires_internes && (
+              <div>
+                <dt className="text-savr-neutral-500 mb-1">
+                  Commentaires internes
+                </dt>
+                <dd className="text-savr-neutral-700 bg-savr-neutral-50 rounded p-2">
+                  {lieu.commentaires_internes}
+                </dd>
+              </div>
+            )}
+            {lieu.photos_urls && lieu.photos_urls.length > 0 && (
+              <div className="flex justify-between">
+                <dt className="text-savr-neutral-500">Photos</dt>
+                <dd className="font-medium">
+                  {lieu.photos_urls.length} photo
+                  {lieu.photos_urls.length > 1 ? 's' : ''}
+                </dd>
+              </div>
+            )}
           </dl>
         </Card>
       </div>

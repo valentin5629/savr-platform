@@ -157,6 +157,37 @@ export default function AssociationDetailPage() {
             )}
         </Card>
 
+        {Array.isArray(asso.horaires_ouverture) &&
+          asso.horaires_ouverture.length > 0 && (
+            <Card className="p-6 space-y-4">
+              <h2 className="font-semibold text-savr-neutral-800">
+                Horaires d'ouverture
+              </h2>
+              <dl className="space-y-1 text-sm">
+                {(
+                  asso.horaires_ouverture as {
+                    jour: string;
+                    ouvert: boolean;
+                    creneaux?: { debut: string; fin: string }[];
+                  }[]
+                ).map((j) => (
+                  <div key={j.jour} className="flex justify-between">
+                    <dt className="text-savr-neutral-500 capitalize">
+                      {j.jour}
+                    </dt>
+                    <dd className="font-medium">
+                      {j.ouvert && j.creneaux && j.creneaux.length > 0
+                        ? j.creneaux
+                            .map((c) => `${c.debut}–${c.fin}`)
+                            .join(', ')
+                        : 'Fermé'}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </Card>
+          )}
+
         <Card className="p-6 space-y-4">
           <h2 className="font-semibold text-savr-neutral-800">Admin / Ops</h2>
           <dl className="space-y-2 text-sm">

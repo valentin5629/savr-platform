@@ -122,7 +122,7 @@ function DataTable<T>({
                 {columns.map((col) => (
                   <td
                     key={String(col.key)}
-                    className="h-12 px-4 text-savr-neutral-800"
+                    className="px-4 py-4 align-middle text-savr-neutral-800"
                   >
                     {col.render
                       ? col.render(row)

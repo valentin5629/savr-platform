@@ -94,6 +94,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       stationnement: body.stationnement ?? null,
       flux_autorises: body.flux_autorises ?? null,
       volume_max_bacs: body.volume_max_bacs ?? null,
+      capacite_maximum: body.capacite_maximum ?? null,
       controle_acces_requis_default:
         body.controle_acces_requis_default ?? false,
       commentaire_lieu: body.commentaire_lieu ?? null,

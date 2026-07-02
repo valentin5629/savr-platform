@@ -351,6 +351,7 @@ CREATE TABLE plateforme.lieux (
   contraintes_horaires           text,
   flux_autorises                 text[],
   volume_max_bacs                integer,
+  capacite_maximum               integer,
   traiteurs_operant              uuid[],                   -- FK implicites (pas de contrainte)
   controle_acces_requis_default  boolean NOT NULL DEFAULT false,
   photos_urls                    text[],

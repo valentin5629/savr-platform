@@ -18,6 +18,7 @@ type LieuApi = {
   stationnement: string | null;
   type_vehicule_max: string;
   controle_acces_requis_default: boolean;
+  capacite_maximum: number | null;
   actif: boolean;
   gestionnaire_organisation_id: string | null;
   commentaire_lieu: string | null;
@@ -49,6 +50,7 @@ export default function ModifierLieuPage() {
           type_vehicule_max:
             d.type_vehicule_max as LieuFormValues['type_vehicule_max'],
           controle_acces_requis_default: d.controle_acces_requis_default,
+          capacite_maximum: d.capacite_maximum?.toString() ?? '',
           actif: d.actif,
           gestionnaire_organisation_id: d.gestionnaire_organisation_id ?? '',
           commentaire_lieu: d.commentaire_lieu ?? '',

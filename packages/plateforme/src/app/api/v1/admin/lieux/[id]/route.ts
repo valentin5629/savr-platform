@@ -24,18 +24,26 @@ export async function GET(
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Gestionnaire rattaché (organisations_lieux) — exposé pour pré-remplir la fiche.
+  // Gestionnaire rattaché (organisations_lieux) — exposé pour pré-remplir la fiche
+  // (id) + affichage lecture (nom via jointure organisations).
   const { data: lien } = await supabase
     .from('organisations_lieux')
-    .select('organisation_id')
+    .select('organisation_id, organisations(nom, raison_sociale)')
     .eq('lieu_id', id)
     .limit(1)
     .maybeSingle();
+
+  const org = (
+    lien as {
+      organisations?: { nom?: string; raison_sociale?: string } | null;
+    } | null
+  )?.organisations;
 
   return NextResponse.json({
     ...(data as Record<string, unknown>),
     gestionnaire_organisation_id:
       (lien as { organisation_id?: string } | null)?.organisation_id ?? null,
+    gestionnaire_nom: org?.raison_sociale ?? org?.nom ?? null,
   });
 }
 
@@ -65,6 +73,7 @@ export async function PATCH(
     'contraintes_horaires',
     'flux_autorises',
     'volume_max_bacs',
+    'capacite_maximum',
     'controle_acces_requis_default',
     'photos_urls',
     'commentaires_internes',

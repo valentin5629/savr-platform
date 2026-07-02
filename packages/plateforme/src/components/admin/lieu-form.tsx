@@ -25,6 +25,7 @@ export interface LieuFormValues {
     | 'vul'
     | 'poids_lourd';
   controle_acces_requis_default: boolean;
+  capacite_maximum: string;
   actif: boolean;
   // Gestionnaire rattaché (organisations_lieux) — organisation type gestionnaire_lieux
   gestionnaire_organisation_id: string;
@@ -45,6 +46,7 @@ const VIDE: LieuFormValues = {
   stationnement: '',
   type_vehicule_max: '',
   controle_acces_requis_default: false,
+  capacite_maximum: '',
   actif: true,
   gestionnaire_organisation_id: '',
   commentaire_lieu: '',
@@ -123,6 +125,9 @@ export function LieuForm({ lieuId, initialValues }: LieuFormProps) {
       stationnement: values.stationnement || null,
       type_vehicule_max: values.type_vehicule_max,
       controle_acces_requis_default: values.controle_acces_requis_default,
+      capacite_maximum: values.capacite_maximum
+        ? parseInt(values.capacite_maximum, 10)
+        : null,
       actif: values.actif,
       gestionnaire_organisation_id: values.gestionnaire_organisation_id || '',
       commentaire_lieu: values.commentaire_lieu.trim() || null,
@@ -294,6 +299,15 @@ export function LieuForm({ lieuId, initialValues }: LieuFormProps) {
               <option value="vul">VUL</option>
               <option value="poids_lourd">Poids lourd</option>
             </Select>
+          </FormField>
+          <FormField label="Capacité maximum" htmlFor="capacite_maximum">
+            <Input
+              id="capacite_maximum"
+              type="number"
+              min={0}
+              value={values.capacite_maximum}
+              onChange={(e) => set('capacite_maximum', e.target.value)}
+            />
           </FormField>
         </div>
 

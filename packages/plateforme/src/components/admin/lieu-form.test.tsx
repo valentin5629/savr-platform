@@ -51,6 +51,8 @@ describe('M0.6 — formulaire lieu CRUD Admin (BL-P1-BOA-03)', () => {
     expect(screen.getByLabelText(/Référencé Citeo/)).toBeInTheDocument();
     // Pas de champ "Contact sur place" (divergence BOA-LIEUX_20260702)
     expect(screen.queryByLabelText(/Contact sur place/)).toBeNull();
+    // Capacité maximum (R17c, Val 2026-07-02)
+    expect(screen.getByLabelText(/Capacité maximum/)).toBeInTheDocument();
   });
 
   it('M0.6 — soumission valide → POST lieux puis redirection', async () => {

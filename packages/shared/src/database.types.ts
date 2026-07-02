@@ -2190,6 +2190,7 @@ export type Database = {
           updated_at: string
           ville: string
           volume_max_bacs: number | null
+          capacite_maximum: number | null
         }
         Insert: {
           acces_details?: string | null
@@ -2223,6 +2224,7 @@ export type Database = {
           updated_at?: string
           ville: string
           volume_max_bacs?: number | null
+          capacite_maximum?: number | null
         }
         Update: {
           acces_details?: string | null
@@ -2256,6 +2258,7 @@ export type Database = {
           updated_at?: string
           ville?: string
           volume_max_bacs?: number | null
+          capacite_maximum?: number | null
         }
         Relationships: []
       }

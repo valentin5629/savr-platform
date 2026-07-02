@@ -22,8 +22,10 @@ interface Lieu {
   controle_acces_requis_default: boolean;
   flux_autorises: string[] | null;
   volume_max_bacs: number | null;
+  capacite_maximum: number | null;
   contraintes_horaires: string | null;
   acces_details: string | null;
+  gestionnaire_nom: string | null;
   commentaires_internes: string | null;
   commentaire_lieu: string | null;
   siren: string | null;
@@ -116,6 +118,12 @@ export default function LieuDetailPage() {
                 <dd className="font-medium">{lieu.region}</dd>
               </div>
             )}
+            {lieu.nom_alternatif && (
+              <div className="flex justify-between">
+                <dt className="text-savr-neutral-500">Nom alternatif</dt>
+                <dd className="font-medium">{lieu.nom_alternatif}</dd>
+              </div>
+            )}
             <div className="flex justify-between">
               <dt className="text-savr-neutral-500">Véhicule max</dt>
               <dd className="font-medium">{lieu.type_vehicule_max}</dd>
@@ -126,6 +134,28 @@ export default function LieuDetailPage() {
                 {lieu.controle_acces_requis_default ? 'Oui' : 'Non'}
               </dd>
             </div>
+            <div className="flex justify-between">
+              <dt className="text-savr-neutral-500">Capacité maximum</dt>
+              <dd className="font-medium">{lieu.capacite_maximum ?? '—'}</dd>
+            </div>
+            {lieu.gestionnaire_nom && (
+              <div className="flex justify-between">
+                <dt className="text-savr-neutral-500">Gestionnaire</dt>
+                <dd className="font-medium">{lieu.gestionnaire_nom}</dd>
+              </div>
+            )}
+            {lieu.flux_autorises && lieu.flux_autorises.length > 0 && (
+              <div>
+                <dt className="text-savr-neutral-500 mb-1">Flux autorisés</dt>
+                <dd className="flex flex-wrap gap-1">
+                  {lieu.flux_autorises.map((f) => (
+                    <Badge key={f} variant="neutral">
+                      {f}
+                    </Badge>
+                  ))}
+                </dd>
+              </div>
+            )}
             {lieu.contraintes_horaires && (
               <div className="flex justify-between">
                 <dt className="text-savr-neutral-500">Horaires</dt>

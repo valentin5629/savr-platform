@@ -973,7 +973,7 @@
       "artefact": "packages/plateforme/src/components/admin/association-form.tsx (monté sur nouvelle/[id]/modifier) ; géocodage serveur ; R17b (décisions Val 2026-07-02) : logo (LogoUpload + POST /api/v1/admin/uploads/logo → R2), instructions_acces, siren (non oblig., admin-only), date_expiration_habilitation — colonnes ajoutées migration 20260702020100 + DDL cible ; ADMIN_FIELDS re-inclut siren + date (trigger trg_ops_immutable_cols étendu)",
       "test": "packages/plateforme/src/components/admin/association-form.test.tsx « M0.6 — formulaire association (BL-P1-BOA-01) » (6 scénarios : champs R17b logo/instructions/SIREN/date présents, SIREN 9 chiffres, validation description ≥30, POST, PATCH) + packages/plateforme/tests/api/admin/associations.m1-1b.test.ts",
       "statut": "à-vérifier",
-      "libelle": "Formulaire création/édition association — GO-VISUAL en attente (validation Val). Champs Val 2026-07-02 (logo, instructions d'accès, SIREN non oblig., date d'expiration habilitation) implémentés (R17b) — divergences BOA_20260702 + M0.6-BOA-AMBIGU résolues. Seul « Lien site web » reste ouvert (non demandé par Val)."
+      "libelle": "Formulaire création/édition association + FICHE DÉTAIL complète (R17c : tous les champs affichés en lecture, sans passer par Modifier) — GO-VISUAL en attente (validation Val). Champs Val 2026-07-02 (logo, instructions d'accès, SIREN non oblig., date d'expiration habilitation) implémentés (R17b) — divergences BOA_20260702 + M0.6-BOA-AMBIGU résolues. Seul « Lien site web » reste ouvert (non demandé par Val)."
     },
     {
       "id": "BL-P1-BOA-02",
@@ -981,7 +981,7 @@
       "artefact": "packages/plateforme/src/components/admin/transporteur-form.tsx (monté sur nouveau/[id]/modifier) ; géocodage serveur ; R17b (Val 2026-07-02) : types_collecte text[] (AG/ZD multi), description_process_collecte, type_tms += par_mail/par_telephone (migration 20260702020000/020100 + DDL cible) ; routing par_mail/par_telephone→provider_manual (packages/adapters/src/index.ts + dispatch SQL 20260702020200)",
       "test": "packages/plateforme/src/components/admin/transporteur-form.test.tsx « M0.6 — formulaire transporteur (BL-P1-BOA-02) » (5 scénarios : code_transporteur_mts1 conditionnel, validation mts1, POST, options par_mail/par_telephone, types_collecte+description POST) + packages/adapters/src/outbox-worker.m2-3.test.ts (par_mail/par_telephone→ProviderManual) + packages/plateforme/tests/api/admin/transporteurs.m1-1b.test.ts",
       "statut": "à-vérifier",
-      "libelle": "Formulaire création/édition transporteur — GO-VISUAL en attente (validation Val). Champs Val 2026-07-02 (Type de collecte AG/ZD multi, Type de TMS par mail/téléphone, Description process de création) implémentés (R17b)."
+      "libelle": "Formulaire création/édition transporteur + FICHE DÉTAIL complète (R17c : types_collecte, type_tms libellé à jour, description process, tarif, dernière vérif. affichés en lecture) — GO-VISUAL en attente (validation Val). Champs Val 2026-07-02 (Type de collecte AG/ZD multi, Type de TMS par mail/téléphone, Description process de création) implémentés (R17b)."
     },
     {
       "id": "BL-P1-BOA-03",
@@ -989,7 +989,7 @@
       "artefact": "packages/plateforme/src/components/admin/lieu-form.tsx (monté sur nouveau/[id]/modifier, 8 champs prog. + 4 admin/ops + sélecteur Gestionnaire mono → organisations_lieux) ; extension LieuManuelForm (composant packages/plateforme/src/components/programmation/lieu-manuel-form.tsx) ; email admin_demande_ajout_lieu (migration 20260702010000) ; liste lieux réordonnée Nom/Adresse/Contrôle accès/Statut (page.tsx) ; routes lieux POST/PATCH/GET écrivent/exposent organisations_lieux (single, Val 2026-07-02)",
       "test": "packages/plateforme/src/components/admin/lieu-form.test.tsx « M0.6 — formulaire lieu CRUD Admin (BL-P1-BOA-03) » (4 scénarios dont sélecteur Gestionnaire) + packages/plateforme/src/components/programmation/lieu-manuel-form.test.tsx (2 scénarios quick-add) + packages/plateforme/tests/api/admin/lieux.m1-1b.test.ts",
       "statut": "à-vérifier",
-      "libelle": "Formulaire CRUD lieu Admin + quick-add + email + liste réordonnée + sélecteur Gestionnaire (mono, Val 2026-07-02, écrit organisations_lieux) — GO-VISUAL en attente (validation Val). Champ « Contact sur place » (quick-add) reste non implémenté : divergence clair _Divergences/BOA-LIEUX_20260702.md (pas de colonne DB)."
+      "libelle": "Formulaire CRUD lieu Admin + quick-add + email + liste (Nom/Adresse/Capacité max/Contrôle accès/Statut) + sélecteur Gestionnaire (mono, écrit organisations_lieux) + FICHE DÉTAIL complète (capacité, gestionnaire, flux…) + champ « Capacité maximum » (R17c : colonne dédiée lieux.capacite_maximum, migration 20260702030000, distincte de volume_max_bacs) — GO-VISUAL en attente (validation Val). Champ « Contact sur place » (quick-add) reste non implémenté : divergence clair _Divergences/BOA-LIEUX_20260702.md (pas de colonne DB)."
     },
     {
       "id": "BL-P1-BOA-04",

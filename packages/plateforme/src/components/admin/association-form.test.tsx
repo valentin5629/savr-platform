@@ -1,7 +1,8 @@
 /**
  * M0.6 — Formulaire création/édition association (BL-P1-BOA-01).
- * Tous les champs CDC §5 sauf « upload logo » (divergence _Divergences/BOA_20260702.md :
- * pas de colonne logo sur `associations`, ni V1 ni DDL cible V2).
+ * Champs CDC §5 + champs ajoutés à la revue Val 2026-07-02 (R17b) : logo (upload R2),
+ * instructions d'accès, SIREN (non oblig.), date d'expiration habilitation. Cf.
+ * _Divergences/BOA_20260702.md + M0.6-BOA-AMBIGU_20260702.md (décisions Val).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';

@@ -22,6 +22,14 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
   createAdminSupabaseClient: () => mockSupabaseChain,
 }));
 
+// R17 : les routes POST/PATCH appellent geocodeAdresse (fetch réseau vers
+// api-adresse.data.gouv.fr, fail-open). Stubbé ici pour éviter tout appel réseau
+// live pendant les tests (flakiness/CI) — le géocodage est couvert par
+// packages/plateforme/src/lib/geocoding.test.ts.
+vi.mock('@/lib/geocoding.js', () => ({
+  geocodeAdresse: vi.fn().mockResolvedValue(null),
+}));
+
 function makeJwt(claims: Record<string, unknown>): string {
   return `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
 }

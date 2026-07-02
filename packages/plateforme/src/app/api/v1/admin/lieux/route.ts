@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { sanitizeOrTerm } from '@/lib/api-helpers.js';
+import { geocodeAdresse } from '@/lib/geocoding.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -70,11 +71,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // Géocodage en background au save, fail-open — cf. lib/geocoding.ts.
+  const coords = await geocodeAdresse(
+    adresse_acces as string,
+    code_postal as string,
+    ville as string,
+  );
+
   const supabase = createAdminSupabaseClient();
   const { data, error } = await supabase
     .from('lieux')
     .insert({
       nom,
+      nom_alternatif: body.nom_alternatif ?? null,
       adresse_acces,
       code_postal,
       ville,
@@ -85,6 +94,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       stationnement: body.stationnement ?? null,
       flux_autorises: body.flux_autorises ?? null,
       volume_max_bacs: body.volume_max_bacs ?? null,
+      capacite_maximum: body.capacite_maximum ?? null,
       controle_acces_requis_default:
         body.controle_acces_requis_default ?? false,
       commentaire_lieu: body.commentaire_lieu ?? null,
@@ -92,6 +102,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       email_gestionnaire: body.email_gestionnaire ?? null,
       reference_citeo: body.reference_citeo ?? false,
       actif: body.actif ?? false,
+      latitude: coords?.latitude ?? null,
+      longitude: coords?.longitude ?? null,
     })
     .select()
     .single();
@@ -99,9 +111,26 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
 
+  const lieuId = (data as { id: string }).id;
+
+  // Rattachement au gestionnaire (organisations_lieux) — décision Val 2026-07-02 :
+  // 1 gestionnaire (organisation type gestionnaire_lieux) par lieu, non obligatoire.
+  const gestionnaireId =
+    typeof body.gestionnaire_organisation_id === 'string' &&
+    body.gestionnaire_organisation_id !== ''
+      ? body.gestionnaire_organisation_id
+      : null;
+  if (gestionnaireId) {
+    await supabase.from('organisations_lieux').insert({
+      organisation_id: gestionnaireId,
+      lieu_id: lieuId,
+      created_by: auth.ctx.userId,
+    });
+  }
+
   await supabase.from('audit_log').insert({
     table_name: 'lieux',
-    record_id: (data as { id: string }).id,
+    record_id: lieuId,
     action: 'INSERT',
     user_id: auth.ctx.userId,
     new_values: data,

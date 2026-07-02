@@ -79,6 +79,10 @@ export type Database = {
           types_aliments_acceptes: string[] | null
           updated_at: string
           ville: string
+          date_expiration_habilitation: string | null
+          instructions_acces: string | null
+          logo_url: string | null
+          siren: string | null
         }
         Insert: {
           actif?: boolean
@@ -102,6 +106,10 @@ export type Database = {
           types_aliments_acceptes?: string[] | null
           updated_at?: string
           ville: string
+          date_expiration_habilitation?: string | null
+          instructions_acces?: string | null
+          logo_url?: string | null
+          siren?: string | null
         }
         Update: {
           actif?: boolean
@@ -125,6 +133,10 @@ export type Database = {
           types_aliments_acceptes?: string[] | null
           updated_at?: string
           ville?: string
+          date_expiration_habilitation?: string | null
+          instructions_acces?: string | null
+          logo_url?: string | null
+          siren?: string | null
         }
         Relationships: []
       }
@@ -2178,6 +2190,7 @@ export type Database = {
           updated_at: string
           ville: string
           volume_max_bacs: number | null
+          capacite_maximum: number | null
         }
         Insert: {
           acces_details?: string | null
@@ -2211,6 +2224,7 @@ export type Database = {
           updated_at?: string
           ville: string
           volume_max_bacs?: number | null
+          capacite_maximum?: number | null
         }
         Update: {
           acces_details?: string | null
@@ -2244,6 +2258,7 @@ export type Database = {
           updated_at?: string
           ville?: string
           volume_max_bacs?: number | null
+          capacite_maximum?: number | null
         }
         Relationships: []
       }
@@ -3517,6 +3532,8 @@ export type Database = {
           type_tms: Database["plateforme"]["Enums"]["type_tms"]
           types_vehicules: string[]
           ville: string
+          description_process_collecte: string | null
+          types_collecte: string[] | null
         }
         Insert: {
           actif?: boolean
@@ -3539,6 +3556,8 @@ export type Database = {
           type_tms: Database["plateforme"]["Enums"]["type_tms"]
           types_vehicules: string[]
           ville: string
+          description_process_collecte?: string | null
+          types_collecte?: string[] | null
         }
         Update: {
           actif?: boolean
@@ -3561,6 +3580,8 @@ export type Database = {
           type_tms?: Database["plateforme"]["Enums"]["type_tms"]
           types_vehicules?: string[]
           ville?: string
+          description_process_collecte?: string | null
+          types_collecte?: string[] | null
         }
         Relationships: []
       }
@@ -4718,7 +4739,7 @@ export type Database = {
         | "registre_dechets"
         | "bordereaux_batch"
         | "attestations_batch"
-      type_tms: "mts1" | "a_toutes" | "autre"
+      type_tms: "mts1" | "a_toutes" | "autre" | "par_mail" | "par_telephone"
       type_vehicule:
         | "velo_cargo"
         | "camionnette"
@@ -5134,7 +5155,7 @@ export const Constants = {
         "bordereaux_batch",
         "attestations_batch",
       ],
-      type_tms: ["mts1", "a_toutes", "autre"],
+      type_tms: ["mts1", "a_toutes", "autre", "par_mail", "par_telephone"],
       type_vehicule: [
         "velo_cargo",
         "camionnette",

@@ -125,6 +125,27 @@ describe('M0.8-9 — StatusCollecte affiche les 5 statuts valides (programmee, v
   }
 });
 
+// BL-P1-BOA-04 (R17) : les 5 statuts restants (dont ceux qui provoquaient un
+// `config undefined` avant R12/statut-collecte-labels — brouillon, annulee,
+// annulation_demandee) doivent aussi se rendre sans crash. STEP couvre déjà les
+// 10 valeurs de collecte_statut_enum (STEP est dérivé de Object.keys), donc un
+// statut absent du record ferait planter TIMELINE_STEPS.map avant même le rendu.
+describe('M0.6 — StatusCollecte : les 5 statuts hors timeline ne crashent pas (BL-P1-BOA-04)', () => {
+  const statuts = [
+    'brouillon',
+    'realisee_sans_collecte',
+    'annulation_demandee',
+    'annulee',
+    'rejetee_par_prestataire',
+  ] as const;
+  for (const statut of statuts) {
+    it(`statut ${statut}`, () => {
+      render(<StatusCollecte statut={statut} showTimeline />);
+      expect(document.body).toBeTruthy();
+    });
+  }
+});
+
 // ── PackAGIndicator ─────────────────────────────────────────────────────────
 
 it('M0.8-10 — PackAGIndicator affiche une jauge et un compteur', () => {

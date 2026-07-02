@@ -11,8 +11,15 @@
 
 // ---------------------------------------------------------------------------
 // Enum type_tms (porté par `plateforme.transporteurs.type_tms`)
+// 'par_mail'/'par_telephone' (ajout Val 2026-07-02) = transporteurs hors TMS,
+// validation de course MANUELLE Admin — routés comme 'autre' vers ProviderManual.
 // ---------------------------------------------------------------------------
-export type TypeTms = 'mts1' | 'a_toutes' | 'autre';
+export type TypeTms =
+  | 'mts1'
+  | 'a_toutes'
+  | 'autre'
+  | 'par_mail'
+  | 'par_telephone';
 
 // ---------------------------------------------------------------------------
 // Référence neutre côté Plateforme — garde-fou 5
@@ -153,6 +160,9 @@ export function getLogistiqueProvider(
       // Gate levée 2026-06-15 (CLAUDE.md §7).
       return new AdapterEverest(transporteur, supabase);
     case 'autre':
+    case 'par_mail':
+    case 'par_telephone':
+      // Hors TMS — validation de course manuelle Admin, aucun appel API.
       return new ProviderManual(transporteur);
     default: {
       const _exhaustive: never = transporteur.type_tms;

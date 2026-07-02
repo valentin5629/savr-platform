@@ -7,7 +7,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { LieuManuelForm } from './page';
+import { LieuManuelForm } from './lieu-manuel-form';
 
 describe('M0.6 — quick-add lieu manuel (BL-P1-BOA-03)', () => {
   beforeEach(() => vi.clearAllMocks());

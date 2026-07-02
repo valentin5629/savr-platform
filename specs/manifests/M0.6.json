@@ -969,35 +969,35 @@
     },
     {
       "id": "BL-P1-BOA-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
-      "artefact": null,
-      "test": null,
-      "statut": "à-vérifier",
-      "libelle": "Formulaire création/édition association"
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:381-426",
+      "artefact": "packages/plateforme/src/components/admin/association-form.tsx (monté sur packages/plateforme/src/app/(admin)/admin/associations/nouvelle/page.tsx + [id]/modifier/page.tsx) ; fix ADMIN_FIELDS (retrait `siren`, colonne inexistante sur associations) + géocodage serveur dans api/v1/admin/associations/route.ts + [id]/route.ts",
+      "test": "packages/plateforme/src/components/admin/association-form.test.tsx « M0.6 — formulaire association (BL-P1-BOA-01) » (5 scénarios : champs obligatoires, validation description ≥30 car., absence champ logo, POST création, PATCH édition)",
+      "statut": "partial",
+      "libelle": "Formulaire création/édition association — 17 champs alignés DB implémentés + testés ; GO-VISUAL capturée, validation Val en attente. GAPS EN ATTENTE VAL (décision data-model, _Divergences/M0.6-BOA-AMBIGU_20260702.md) : (1) SIREN — CDC oblig. + Gherkin creation_association_complete, mais colonne absente en V1 ET DDL cible V2 ; (2) habilitation 2041-GE date d'expiration — CDC « booléen + date », seul le booléen existe. Champ « Upload logo »/instructions/lien web non implémentés : divergence clair _Divergences/BOA_20260702.md (pas de colonne DB)."
     },
     {
       "id": "BL-P1-BOA-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
-      "artefact": null,
-      "test": null,
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:439-452",
+      "artefact": "packages/plateforme/src/components/admin/transporteur-form.tsx (monté sur packages/plateforme/src/app/(admin)/admin/transporteurs/nouveau/page.tsx + [id]/modifier/page.tsx) ; géocodage serveur dans api/v1/admin/transporteurs/route.ts + [id]/route.ts",
+      "test": "packages/plateforme/src/components/admin/transporteur-form.test.tsx « M0.6 — formulaire transporteur (BL-P1-BOA-02) » (3 scénarios : code_transporteur_mts1 conditionnel affiché/masqué, validation obligatoire si type_tms=mts1, soumission POST)",
       "statut": "à-vérifier",
-      "libelle": "Formulaire création/édition transporteur"
+      "libelle": "Formulaire création/édition transporteur — GO-VISUAL en attente (checkpoint Val)"
     },
     {
       "id": "BL-P1-BOA-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
-      "artefact": null,
-      "test": null,
-      "statut": "à-vérifier",
-      "libelle": "Formulaire CRUD lieu Admin + quick-add"
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:484-514 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:90-103",
+      "artefact": "packages/plateforme/src/components/admin/lieu-form.tsx (monté sur packages/plateforme/src/app/(admin)/admin/lieux/nouveau/page.tsx + [id]/modifier/page.tsx, 8 champs programmation + 4 admin/ops-only) ; extension LieuManuelForm (packages/plateforme/src/app/(programmation)/programmer/nouveau/page.tsx) aux 3 champs optionnels supplémentaires (stationnement, type_vehicule_max, acces_office) ; géocodage serveur dans api/v1/admin/lieux/route.ts + [id]/route.ts + api/v1/programmation/lieux/route.ts ; email admin_demande_ajout_lieu seedé (supabase/migrations/20260702010000_plateforme_r17_seed_template_admin_demande_ajout_lieu.sql) et envoyé à la création manuelle",
+      "test": "packages/plateforme/src/components/admin/lieu-form.test.tsx « M0.6 — formulaire lieu CRUD Admin (BL-P1-BOA-03) » (3 scénarios) + packages/plateforme/src/app/(programmation)/programmer/nouveau/lieu-manuel-form.test.tsx « M0.6 — quick-add lieu manuel (BL-P1-BOA-03) » (2 scénarios)",
+      "statut": "partial",
+      "libelle": "Formulaire CRUD lieu Admin (8 champs prog. + 4 admin/ops) + quick-add étendu + email admin_demande_ajout_lieu implémentés + testés ; GO-VISUAL capturée, validation Val en attente. GAP EN ATTENTE VAL (_Divergences/M0.6-BOA-AMBIGU_20260702.md) : champ « Gestionnaire » (FK organisations_lieux) non implémenté — cardinalité single vs multi non tranchée (table N-N sans UNIQUE(lieu_id)). Champ « Contact sur place » (quick-add) non implémenté : divergence clair _Divergences/BOA-LIEUX_20260702.md (pas de colonne DB)."
     },
     {
       "id": "BL-P1-BOA-04",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
-      "artefact": null,
-      "test": null,
-      "statut": "à-vérifier",
-      "libelle": "Badge statut 9 valeurs (crash)"
+      "artefact": "packages/plateforme/src/components/ui/status-collecte.tsx (déjà refondu par R12 sur statutCollecteDisplay — couvre dynamiquement les 10 valeurs de collecte_statut_enum, aucun code modifié par R17)",
+      "test": "packages/plateforme/src/components/ui/components.m0-8.test.tsx « M0.6 — StatusCollecte : les 5 statuts hors timeline ne crashent pas (BL-P1-BOA-04) » (brouillon, realisee_sans_collecte, annulation_demandee, annulee, rejetee_par_prestataire — les 5 valeurs qui provoquaient le `config undefined` avant R12) + packages/plateforme/src/lib/statut-collecte-labels.test.ts (5 autres valeurs)",
+      "statut": "implemented",
+      "libelle": "Badge statut 9 valeurs (crash) — clos sans re-code (drift R12), preuve de non-crash ajoutée pour les 5 statuts hors timeline manquants à la couverture existante"
     },
     {
       "id": "BL-P1-BOA-05",

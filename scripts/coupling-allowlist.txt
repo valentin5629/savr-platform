@@ -48,6 +48,14 @@ supabase/migrations/20260613000001_plateforme_health_views_ops.sql
 packages/plateforme/src/app/(admin)/admin/transporteurs/*
 packages/plateforme/src/app/api/v1/admin/transporteurs/*
 packages/plateforme/tests/api/admin/transporteurs.m1-1b.test.ts
+# packages/plateforme/src/components/admin/transporteur-form.* (R17/BL-P1-BOA-02) —
+# formulaire de création/édition transporteur (composant extrait, monté sur les pages
+# admin/transporteurs/{nouveau,[id]/modifier}). 'mts1' = valeur de l'enum transporteurs.type_tms :
+# (1) affichage conditionnel du champ code_transporteur_mts1, (2) validation « obligatoire si
+# type_tms='mts1' » (§04 Data Model, même règle que la route déjà allowlistée ci-dessus).
+# Aucun appel HTTP MTS-1 — la logique adapter vit dans packages/adapters/. 'customerOrders' reste banni.
+packages/plateforme/src/components/admin/transporteur-form.tsx
+packages/plateforme/src/components/admin/transporteur-form.test.tsx
 # packages/plateforme/.../webhooks/everest/* (M2.5) — endpoint récepteur du webhook Everest.
 # "everest" = nom du transporteur dans les logs/champs `integration` de la table integrations_logs
 # et valeur métier de `source='everest'` dans integrations_inbox. Aucun appel HTTP Everest ici :

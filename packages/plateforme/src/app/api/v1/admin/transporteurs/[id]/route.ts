@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import { geocodeAdresse } from '@/lib/geocoding.js';
 
 export async function GET(
   req: NextRequest,
@@ -102,6 +103,29 @@ export async function PATCH(
       { error: 'code_transporteur_mts1 requis pour type_tms=mts1' },
       { status: 422 },
     );
+  }
+
+  // Géocodage en background au save, relancé si adresse/code_postal/ville change
+  // — fail-open, cf. packages/plateforme/src/lib/geocoding.ts.
+  if (
+    updates.adresse !== undefined ||
+    updates.code_postal !== undefined ||
+    updates.ville !== undefined
+  ) {
+    const beforeTransp = before as {
+      adresse: string;
+      code_postal: string;
+      ville: string;
+    };
+    const coords = await geocodeAdresse(
+      (updates.adresse as string | undefined) ?? beforeTransp.adresse,
+      (updates.code_postal as string | undefined) ?? beforeTransp.code_postal,
+      (updates.ville as string | undefined) ?? beforeTransp.ville,
+    );
+    if (coords) {
+      updates.latitude = coords.latitude;
+      updates.longitude = coords.longitude;
+    }
   }
 
   const { data, error } = await supabase

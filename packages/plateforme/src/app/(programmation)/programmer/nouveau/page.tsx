@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Button } from '@/components/ui/button';
+import { Select } from '@/components/ui/select';
 import { FormStepIndicator } from '@/components/programmation/form-step-indicator';
 import {
   LieuCombobox,
@@ -672,7 +673,7 @@ export default function NouveauProgrammationPage() {
 }
 
 // Formulaire lieu manuel inline
-function LieuManuelForm({
+export function LieuManuelForm({
   onSave,
   onCancel,
 }: {
@@ -684,6 +685,9 @@ function LieuManuelForm({
     adresse_acces: '',
     code_postal: '',
     ville: '',
+    stationnement: '',
+    type_vehicule_max: '',
+    acces_office: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -695,7 +699,13 @@ function LieuManuelForm({
       const res = await fetch('/api/v1/programmation/lieux', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          // Champs optionnels : ne jamais envoyer '' (invalide pour un enum Postgres)
+          stationnement: form.stationnement || undefined,
+          type_vehicule_max: form.type_vehicule_max || undefined,
+          acces_office: form.acces_office || undefined,
+        }),
       });
       const data = (await res.json()) as LieuOption & { error?: string };
       if (!res.ok) {
@@ -736,6 +746,46 @@ function LieuManuelForm({
           />
         ),
       )}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <Select
+          aria-label="Type de véhicule max"
+          value={form.type_vehicule_max}
+          onChange={(e) =>
+            setForm((p) => ({ ...p, type_vehicule_max: e.target.value }))
+          }
+        >
+          <option value="">Véhicule max (optionnel)</option>
+          <option value="velo_cargo">Vélo cargo</option>
+          <option value="camionnette">Camionnette</option>
+          <option value="fourgon">Fourgon</option>
+          <option value="vul">VUL</option>
+          <option value="poids_lourd">Poids lourd</option>
+        </Select>
+        <Select
+          aria-label="Stationnement"
+          value={form.stationnement}
+          onChange={(e) =>
+            setForm((p) => ({ ...p, stationnement: e.target.value }))
+          }
+        >
+          <option value="">Stationnement (optionnel)</option>
+          <option value="facile">Facile</option>
+          <option value="difficile">Difficile</option>
+          <option value="tres_difficile">Très difficile</option>
+        </Select>
+        <Select
+          aria-label="Accès office"
+          value={form.acces_office}
+          onChange={(e) =>
+            setForm((p) => ({ ...p, acces_office: e.target.value }))
+          }
+        >
+          <option value="">Accès office (optionnel)</option>
+          <option value="facile">Facile</option>
+          <option value="difficile">Difficile</option>
+          <option value="tres_difficile">Très difficile</option>
+        </Select>
+      </div>
       {error && <p className="text-sm text-savr-error">{error}</p>}
       <div className="flex gap-2 justify-end">
         <Button variant="secondary" onClick={onCancel}>

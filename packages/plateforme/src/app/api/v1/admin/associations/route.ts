@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { sanitizeOrTerm } from '@/lib/api-helpers.js';
+import { geocodeAdresse } from '@/lib/geocoding.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -86,6 +87,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // Géocodage en background au save (§5 Associations « Adresse + géocodage auto »),
+  // fail-open — cf. packages/plateforme/src/lib/geocoding.ts.
+  const coords = await geocodeAdresse(adresse as string, '', ville as string);
+
   const supabase = createAdminSupabaseClient();
   const { data, error } = await supabase
     .from('associations')
@@ -105,8 +110,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         body.habilitee_attestation_fiscale ?? false,
       commentaires_internes: body.commentaires_internes ?? null,
       id_point_collecte_mts1: body.id_point_collecte_mts1 ?? null,
-      latitude: body.latitude ?? null,
-      longitude: body.longitude ?? null,
+      latitude: coords?.latitude ?? null,
+      longitude: coords?.longitude ?? null,
     })
     .select()
     .single();

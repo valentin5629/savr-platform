@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import { geocodeAdresse } from '@/lib/geocoding.js';
 
 export async function GET(
   req: NextRequest,
@@ -81,6 +82,29 @@ export async function PATCH(
 
   if (fetchErr?.code === 'PGRST116' || !before) {
     return NextResponse.json({ error: 'Lieu introuvable' }, { status: 404 });
+  }
+
+  // Géocodage en background au save, relancé si adresse/code_postal/ville change
+  // — fail-open, cf. lib/geocoding.ts.
+  if (
+    updates.adresse_acces !== undefined ||
+    updates.code_postal !== undefined ||
+    updates.ville !== undefined
+  ) {
+    const beforeLieu = before as {
+      adresse_acces: string;
+      code_postal: string;
+      ville: string;
+    };
+    const coords = await geocodeAdresse(
+      (updates.adresse_acces as string | undefined) ?? beforeLieu.adresse_acces,
+      (updates.code_postal as string | undefined) ?? beforeLieu.code_postal,
+      (updates.ville as string | undefined) ?? beforeLieu.ville,
+    );
+    if (coords) {
+      updates.latitude = coords.latitude;
+      updates.longitude = coords.longitude;
+    }
   }
 
   const { data, error } = await supabase

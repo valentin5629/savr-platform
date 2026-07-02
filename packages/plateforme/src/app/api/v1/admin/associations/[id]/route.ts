@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import { geocodeAdresse } from '@/lib/geocoding.js';
 
 export async function GET(
   req: NextRequest,
@@ -53,15 +54,13 @@ export async function PATCH(
     'adresse',
     'ville',
     'region',
-    'latitude',
-    'longitude',
   ];
   // Champs admin-only
+  // (pas de colonne `siren` sur associations — cf. _Divergences/BOA_20260702.md)
   const ADMIN_FIELDS = [
     'habilitee_attestation_fiscale',
     'id_point_collecte_mts1',
     'actif',
-    'siren',
   ];
 
   const allowedFields =
@@ -119,6 +118,22 @@ export async function PATCH(
       { error: 'Association introuvable' },
       { status: 404 },
     );
+  }
+
+  // Géocodage en background au save (§5 Associations « Adresse + géocodage auto ») —
+  // relancé uniquement si adresse/ville change, fail-open (pas de blocage si l'API
+  // externe échoue, cf. packages/plateforme/src/lib/geocoding.ts).
+  if (updates.adresse !== undefined || updates.ville !== undefined) {
+    const beforeAsso = before as { adresse: string; ville: string };
+    const coords = await geocodeAdresse(
+      (updates.adresse as string | undefined) ?? beforeAsso.adresse,
+      '',
+      (updates.ville as string | undefined) ?? beforeAsso.ville,
+    );
+    if (coords) {
+      updates.latitude = coords.latitude;
+      updates.longitude = coords.longitude;
+    }
   }
 
   const { data, error } = await supabase

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { sendEmail } from '@savr/shared/src/email/index.js';
 import { requireProgrammateur } from '@/lib/api-auth.js';
 import { sanitizeOrTerm } from '@/lib/api-helpers.js';
+import { geocodeAdresse } from '@/lib/geocoding.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireProgrammateur(req);
@@ -77,6 +79,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // Géocodage en background au save, fail-open — cf. lib/geocoding.ts.
+  const coords = await geocodeAdresse(
+    String(adresse_acces),
+    String(code_postal),
+    String(ville),
+  );
+
   const supabase = createAdminSupabaseClient();
   const { data, error } = await supabase
     .from('lieux')
@@ -91,12 +100,40 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       acces_office: body.acces_office ?? null,
       acces_details: body.acces_details ?? null,
       controle_acces_requis_default: false,
+      latitude: coords?.latitude ?? null,
+      longitude: coords?.longitude ?? null,
     })
     .select('id, nom, adresse_acces, code_postal, ville, actif')
     .single();
 
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Action "Normaliser un lieu" (§06 Back-office Admin) : le lieu saisi manuellement
+  // est créé actif=false, l'Admin est notifié pour vérifier/compléter/valider.
+  const [{ data: user }, { data: org }] = await Promise.all([
+    supabase
+      .from('users')
+      .select('prenom, nom')
+      .eq('id', auth.ctx.userId)
+      .maybeSingle(),
+    supabase
+      .from('organisations')
+      .select('nom')
+      .eq('id', auth.ctx.organisationId)
+      .maybeSingle(),
+  ]);
+  const lieu = data as { id: string; nom: string; adresse_acces: string };
+  void sendEmail('admin_demande_ajout_lieu', 'hello@gosavr.io', {
+    lieu_nom: lieu.nom,
+    lieu_adresse: lieu.adresse_acces,
+    user_nom: user
+      ? `${(user as { prenom: string }).prenom} ${(user as { nom: string }).nom}`
+      : '',
+    organisation_nom: (org as { nom?: string } | null)?.nom ?? '',
+    date_collecte: '',
+    lien_lieu: `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/admin/lieux/${lieu.id}`,
+  }).catch(() => null);
 
   return NextResponse.json(data, { status: 201 });
 }

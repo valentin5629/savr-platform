@@ -144,3 +144,13 @@ supabase/migrations/20260630120000_plateforme_r11_algo_ag.sql
 # INSERT fixtures pgTAP (transporteurs province + Marathon). Pas de logique adapter.
 # 'customerOrders' reste banni.
 supabase/tests/r11_algo_ag.test.sql
+# packages/plateforme/.../admin/collectes/[id]/page.tsx (+ test) (R17/BL-P1-BOA-06) —
+# fiche collecte Bloc 0 dispatch. 'mts1'/'a_toutes' = valeurs de l'enum transporteurs.type_tms
+# utilisées UNIQUEMENT pour forker le LIBELLÉ du bouton d'envoi (helper libelleDispatch :
+# type_tms='mts1' → « Envoyer à MTS-1 »). Aucun appel HTTP MTS-1/Everest : le dispatch passe
+# par l'endpoint /dispatch → outbox → adapter (packages/adapters/). Même nature d'exception
+# que transporteur-form.tsx (UI keyée sur l'enum type_tms). 'customerOrders' reste banni.
+# NB : le segment [id] est une classe de caractères en glob → on utilise * (qui
+# traverse /) pour matcher le dossier de route dynamique littéral.
+packages/plateforme/src/app/(admin)/admin/collectes/*/page.tsx
+packages/plateforme/src/app/(admin)/admin/collectes/*/collecte-detail.m0-6.test.tsx

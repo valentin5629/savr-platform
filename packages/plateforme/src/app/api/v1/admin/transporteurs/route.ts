@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import { geocodeAdresse } from '@/lib/geocoding.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -78,6 +79,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // Géocodage en background au save (§6 Transporteurs « Adresse + géocodage »),
+  // fail-open — cf. packages/plateforme/src/lib/geocoding.ts.
+  const coords = await geocodeAdresse(
+    adresse as string,
+    code_postal as string,
+    ville as string,
+  );
+
   const supabase = createAdminSupabaseClient();
   const { data, error } = await supabase
     .from('transporteurs')
@@ -88,15 +97,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       code_postal,
       ville,
       types_vehicules,
+      types_collecte: body.types_collecte ?? null,
       type_tms,
+      description_process_collecte: body.description_process_collecte ?? null,
       contact_nom,
       contact_email,
       contact_telephone,
       code_transporteur_mts1: body.code_transporteur_mts1 ?? null,
       tarif_par_course: body.tarif_par_course ?? null,
       commentaires_internes: body.commentaires_internes ?? null,
-      latitude: body.latitude ?? null,
-      longitude: body.longitude ?? null,
+      latitude: coords?.latitude ?? null,
+      longitude: coords?.longitude ?? null,
     })
     .select()
     .single();

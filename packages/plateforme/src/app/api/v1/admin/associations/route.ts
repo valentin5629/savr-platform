@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { sanitizeOrTerm } from '@/lib/api-helpers.js';
+import { geocodeAdresse } from '@/lib/geocoding.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -86,6 +87,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // SIREN non obligatoire (arbitrage Val 2026-07-02) mais 9 chiffres si fourni.
+  if (
+    typeof body.siren === 'string' &&
+    body.siren !== '' &&
+    !/^\d{9}$/.test(body.siren)
+  ) {
+    return NextResponse.json(
+      { error: 'siren doit contenir 9 chiffres' },
+      { status: 422 },
+    );
+  }
+
+  // Géocodage en background au save (§5 Associations « Adresse + géocodage auto »),
+  // fail-open — cf. packages/plateforme/src/lib/geocoding.ts.
+  const coords = await geocodeAdresse(adresse as string, '', ville as string);
+
   const supabase = createAdminSupabaseClient();
   const { data, error } = await supabase
     .from('associations')
@@ -103,10 +120,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       contact_telephone: body.contact_telephone ?? null,
       habilitee_attestation_fiscale:
         body.habilitee_attestation_fiscale ?? false,
+      date_expiration_habilitation: body.date_expiration_habilitation ?? null,
       commentaires_internes: body.commentaires_internes ?? null,
+      instructions_acces: body.instructions_acces ?? null,
+      logo_url: body.logo_url ?? null,
+      siren: body.siren ?? null,
       id_point_collecte_mts1: body.id_point_collecte_mts1 ?? null,
-      latitude: body.latitude ?? null,
-      longitude: body.longitude ?? null,
+      latitude: coords?.latitude ?? null,
+      longitude: coords?.longitude ?? null,
     })
     .select()
     .single();

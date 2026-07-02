@@ -17,6 +17,7 @@ import {
   LieuCombobox,
   type LieuOption,
 } from '@/components/programmation/lieu-combobox';
+import { LieuManuelForm } from '@/components/programmation/lieu-manuel-form';
 import {
   ContactCombobox,
   type ContactOption,
@@ -667,84 +668,6 @@ export default function NouveauProgrammationPage() {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-// Formulaire lieu manuel inline
-function LieuManuelForm({
-  onSave,
-  onCancel,
-}: {
-  onSave: (lieu: LieuOption) => void;
-  onCancel: () => void;
-}) {
-  const [form, setForm] = useState({
-    nom: '',
-    adresse_acces: '',
-    code_postal: '',
-    ville: '',
-  });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleSave = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/v1/programmation/lieux', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(form),
-      });
-      const data = (await res.json()) as LieuOption & { error?: string };
-      if (!res.ok) {
-        setError(data.error ?? 'Erreur');
-        return;
-      }
-      onSave(data);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const valid =
-    form.nom.trim() !== '' &&
-    form.adresse_acces.trim() !== '' &&
-    form.code_postal.trim() !== '' &&
-    form.ville.trim() !== '';
-
-  return (
-    <div className="space-y-3">
-      {(['nom', 'adresse_acces', 'code_postal', 'ville'] as const).map(
-        (field) => (
-          <input
-            key={field}
-            placeholder={
-              {
-                nom: 'Nom du lieu *',
-                adresse_acces: "Adresse d'accès livraison *",
-                code_postal: 'Code postal *',
-                ville: 'Ville *',
-              }[field]
-            }
-            value={form[field]}
-            onChange={(e) =>
-              setForm((p) => ({ ...p, [field]: e.target.value }))
-            }
-            className="w-full rounded-savr-md border border-savr-neutral-300 px-3 py-2 text-sm focus:outline-2 focus:outline-savr-primary-500"
-          />
-        ),
-      )}
-      {error && <p className="text-sm text-savr-error">{error}</p>}
-      <div className="flex gap-2 justify-end">
-        <Button variant="secondary" onClick={onCancel}>
-          Annuler
-        </Button>
-        <Button onClick={() => void handleSave()} disabled={!valid || loading}>
-          Ajouter ce lieu
-        </Button>
-      </div>
     </div>
   );
 }

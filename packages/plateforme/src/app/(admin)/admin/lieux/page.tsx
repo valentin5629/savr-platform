@@ -12,13 +12,17 @@ import { Skeleton } from '@/components/ui/skeleton';
 interface Lieu {
   id: string;
   nom: string;
+  adresse_acces: string;
   ville: string;
   code_postal: string;
-  type_vehicule_max: string;
+  capacite_maximum: number | null;
+  controle_acces_requis_default: boolean;
   actif: boolean;
-  reference_citeo: boolean;
 }
 
+// Colonnes liste (décision Val 2026-07-02) : Nom · Adresse · Capacité max ·
+// Contrôle accès · Statut. Le reste (véhicule max, Citeo, gestionnaire…) est dans
+// la fiche lieu.
 const columns: Column<Lieu>[] = [
   {
     key: 'nom',
@@ -33,17 +37,26 @@ const columns: Column<Lieu>[] = [
     ),
   },
   {
-    key: 'ville',
-    header: 'Ville',
-    render: (row) => `${row.ville} (${row.code_postal})`,
+    key: 'adresse_acces',
+    header: 'Adresse',
+    render: (row) => `${row.adresse_acces}, ${row.code_postal} ${row.ville}`,
   },
-  { key: 'type_vehicule_max', header: 'Véhicule max' },
   {
-    key: 'reference_citeo',
-    header: 'Citeo',
+    key: 'capacite_maximum',
+    header: 'Capacité max',
     render: (row) =>
-      row.reference_citeo ? (
-        <Badge variant="success">Oui</Badge>
+      row.capacite_maximum != null ? (
+        String(row.capacite_maximum)
+      ) : (
+        <span className="text-savr-neutral-400">—</span>
+      ),
+  },
+  {
+    key: 'controle_acces_requis_default',
+    header: 'Contrôle accès',
+    render: (row) =>
+      row.controle_acces_requis_default ? (
+        <Badge variant="warning">Requis</Badge>
       ) : (
         <span className="text-savr-neutral-400">—</span>
       ),

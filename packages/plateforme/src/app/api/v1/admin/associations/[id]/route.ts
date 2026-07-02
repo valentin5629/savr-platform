@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import { geocodeAdresse } from '@/lib/geocoding.js';
 
 export async function GET(
   req: NextRequest,
@@ -39,7 +40,8 @@ export async function PATCH(
   const { id } = await params;
   const body = (await req.json()) as Record<string, unknown>;
 
-  // Champs editables par ops_savr
+  // Champs editables par ops_savr (§5 associations : contacts, horaires,
+  // instructions, capacité, description). logo/instructions_acces = ops OK.
   const OPS_FIELDS = [
     'contact_nom',
     'contact_email',
@@ -49,19 +51,22 @@ export async function PATCH(
     'capacite_max_beneficiaires',
     'types_aliments_acceptes',
     'commentaires_internes',
+    'instructions_acces',
+    'logo_url',
     'nom',
     'adresse',
     'ville',
     'region',
-    'latitude',
-    'longitude',
   ];
-  // Champs admin-only
+  // Champs admin-only (§5 associations l.425-426 : SIREN + habilitation 2041-GE
+  // (booléen + date d'expiration) + désactivation `actif`). Ajout Val 2026-07-02 :
+  // siren (col. créée) + date_expiration_habilitation.
   const ADMIN_FIELDS = [
     'habilitee_attestation_fiscale',
+    'date_expiration_habilitation',
+    'siren',
     'id_point_collecte_mts1',
     'actif',
-    'siren',
   ];
 
   const allowedFields =
@@ -100,6 +105,18 @@ export async function PATCH(
     );
   }
 
+  // SIREN non obligatoire mais 9 chiffres si fourni (vide = effacement autorisé).
+  if (
+    typeof updates.siren === 'string' &&
+    updates.siren !== '' &&
+    !/^\d{9}$/.test(updates.siren)
+  ) {
+    return NextResponse.json(
+      { error: 'siren doit contenir 9 chiffres' },
+      { status: 422 },
+    );
+  }
+
   if (Object.keys(updates).length === 0) {
     return NextResponse.json(
       { error: 'Aucun champ modifiable fourni' },
@@ -119,6 +136,22 @@ export async function PATCH(
       { error: 'Association introuvable' },
       { status: 404 },
     );
+  }
+
+  // Géocodage en background au save (§5 Associations « Adresse + géocodage auto ») —
+  // relancé uniquement si adresse/ville change, fail-open (pas de blocage si l'API
+  // externe échoue, cf. packages/plateforme/src/lib/geocoding.ts).
+  if (updates.adresse !== undefined || updates.ville !== undefined) {
+    const beforeAsso = before as { adresse: string; ville: string };
+    const coords = await geocodeAdresse(
+      (updates.adresse as string | undefined) ?? beforeAsso.adresse,
+      '',
+      (updates.ville as string | undefined) ?? beforeAsso.ville,
+    );
+    if (coords) {
+      updates.latitude = coords.latitude;
+      updates.longitude = coords.longitude;
+    }
   }
 
   const { data, error } = await supabase

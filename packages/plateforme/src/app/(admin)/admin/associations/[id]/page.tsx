@@ -18,10 +18,14 @@ interface Association {
   contact_email: string;
   contact_telephone: string | null;
   habilitee_attestation_fiscale: boolean;
+  date_expiration_habilitation: string | null;
   description_rapport_impact: string;
   capacite_max_beneficiaires: number | null;
   types_aliments_acceptes: string[] | null;
   horaires_ouverture: Record<string, unknown> | null;
+  logo_url: string | null;
+  instructions_acces: string | null;
+  siren: string | null;
   commentaires_internes: string | null;
   id_point_collecte_mts1: string | null;
   actif: boolean;
@@ -110,6 +114,22 @@ export default function AssociationDetailPage() {
                 </dd>
               </div>
             )}
+            <div className="flex justify-between">
+              <dt className="text-savr-neutral-500">Logo</dt>
+              <dd className="font-medium">
+                {asso.logo_url ? 'Enregistré' : '—'}
+              </dd>
+            </div>
+            {asso.instructions_acces && (
+              <div>
+                <dt className="text-savr-neutral-500 mb-1">
+                  Instructions d'accès
+                </dt>
+                <dd className="bg-savr-neutral-50 rounded p-2">
+                  {asso.instructions_acces}
+                </dd>
+              </div>
+            )}
           </dl>
         </Card>
 
@@ -137,9 +157,55 @@ export default function AssociationDetailPage() {
             )}
         </Card>
 
+        {Array.isArray(asso.horaires_ouverture) &&
+          asso.horaires_ouverture.length > 0 && (
+            <Card className="p-6 space-y-4">
+              <h2 className="font-semibold text-savr-neutral-800">
+                Horaires d'ouverture
+              </h2>
+              <dl className="space-y-1 text-sm">
+                {(
+                  asso.horaires_ouverture as {
+                    jour: string;
+                    ouvert: boolean;
+                    creneaux?: { debut: string; fin: string }[];
+                  }[]
+                ).map((j) => (
+                  <div key={j.jour} className="flex justify-between">
+                    <dt className="text-savr-neutral-500 capitalize">
+                      {j.jour}
+                    </dt>
+                    <dd className="font-medium">
+                      {j.ouvert && j.creneaux && j.creneaux.length > 0
+                        ? j.creneaux
+                            .map((c) => `${c.debut}–${c.fin}`)
+                            .join(', ')
+                        : 'Fermé'}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </Card>
+          )}
+
         <Card className="p-6 space-y-4">
           <h2 className="font-semibold text-savr-neutral-800">Admin / Ops</h2>
           <dl className="space-y-2 text-sm">
+            {asso.siren && (
+              <div className="flex justify-between">
+                <dt className="text-savr-neutral-500">SIREN</dt>
+                <dd className="font-mono font-medium">{asso.siren}</dd>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <dt className="text-savr-neutral-500">Habilitation 2041-GE</dt>
+              <dd className="font-medium">
+                {asso.habilitee_attestation_fiscale ? 'Oui' : 'Non'}
+                {asso.date_expiration_habilitation
+                  ? ` (exp. ${asso.date_expiration_habilitation})`
+                  : ''}
+              </dd>
+            </div>
             {asso.id_point_collecte_mts1 && (
               <div className="flex justify-between">
                 <dt className="text-savr-neutral-500">ID point MTS-1</dt>

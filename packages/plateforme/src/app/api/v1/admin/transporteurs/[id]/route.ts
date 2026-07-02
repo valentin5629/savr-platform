@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import { geocodeAdresse } from '@/lib/geocoding.js';
 
 export async function GET(
   req: NextRequest,
@@ -26,7 +27,26 @@ export async function GET(
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json(data);
+  // Nom du prestataire logistique (pont V1 shared.prestataires) — exposé en
+  // lecture pour la fiche (« toutes les informations », Val 2026-07-02).
+  const prestaId = (data as { prestataire_logistique_id: string | null })
+    .prestataire_logistique_id;
+  let prestataire_logistique_nom: string | null = null;
+  if (prestaId) {
+    const { data: presta } = await supabase
+      .schema('shared')
+      .from('prestataires')
+      .select('nom')
+      .eq('id', prestaId)
+      .maybeSingle();
+    prestataire_logistique_nom =
+      (presta as { nom?: string } | null)?.nom ?? null;
+  }
+
+  return NextResponse.json({
+    ...(data as Record<string, unknown>),
+    prestataire_logistique_nom,
+  });
 }
 
 export async function PATCH(
@@ -48,7 +68,9 @@ export async function PATCH(
     'latitude',
     'longitude',
     'types_vehicules',
+    'types_collecte',
     'type_tms',
+    'description_process_collecte',
     'code_transporteur_mts1',
     'contact_nom',
     'contact_email',
@@ -102,6 +124,29 @@ export async function PATCH(
       { error: 'code_transporteur_mts1 requis pour type_tms=mts1' },
       { status: 422 },
     );
+  }
+
+  // Géocodage en background au save, relancé si adresse/code_postal/ville change
+  // — fail-open, cf. packages/plateforme/src/lib/geocoding.ts.
+  if (
+    updates.adresse !== undefined ||
+    updates.code_postal !== undefined ||
+    updates.ville !== undefined
+  ) {
+    const beforeTransp = before as {
+      adresse: string;
+      code_postal: string;
+      ville: string;
+    };
+    const coords = await geocodeAdresse(
+      (updates.adresse as string | undefined) ?? beforeTransp.adresse,
+      (updates.code_postal as string | undefined) ?? beforeTransp.code_postal,
+      (updates.ville as string | undefined) ?? beforeTransp.ville,
+    );
+    if (coords) {
+      updates.latitude = coords.latitude;
+      updates.longitude = coords.longitude;
+    }
   }
 
   const { data, error } = await supabase

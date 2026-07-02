@@ -20,7 +20,7 @@ interface Transporteur {
 
 const TYPE_TMS_LABELS: Record<string, string> = {
   mts1: 'MTS-1',
-  a_toutes: 'A Toutes! (V1.1)',
+  a_toutes: 'A Toutes!',
   autre: 'Autre',
 };
 

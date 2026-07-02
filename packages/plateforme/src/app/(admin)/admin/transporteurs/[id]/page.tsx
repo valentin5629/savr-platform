@@ -16,20 +16,31 @@ interface Transporteur {
   code_postal: string;
   ville: string;
   types_vehicules: string[];
+  types_collecte: string[] | null;
   type_tms: string;
+  description_process_collecte: string | null;
   code_transporteur_mts1: string | null;
   contact_nom: string;
   contact_email: string;
   contact_telephone: string;
   tarif_par_course: number | null;
+  derniere_verification: string | null;
+  prestataire_logistique_nom: string | null;
   actif: boolean;
   commentaires_internes: string | null;
 }
 
 const TYPE_TMS_LABELS: Record<string, string> = {
   mts1: 'MTS-1',
-  a_toutes: 'A Toutes! (V1.1)',
+  a_toutes: 'A Toutes!',
   autre: 'Autre',
+  par_mail: 'Par mail',
+  par_telephone: 'Par téléphone',
+};
+
+const TYPE_COLLECTE_LABELS: Record<string, string> = {
+  anti_gaspi: 'Anti-Gaspi (AG)',
+  zero_dechet: 'Zéro Déchet (ZD)',
 };
 
 export default function TransporteurDetailPage() {
@@ -111,11 +122,51 @@ export default function TransporteurDetailPage() {
                 ))}
               </dd>
             </div>
+            <div>
+              <dt className="text-savr-neutral-500 mb-1">Types de collecte</dt>
+              <dd className="flex flex-wrap gap-1">
+                {transporteur.types_collecte &&
+                transporteur.types_collecte.length > 0 ? (
+                  transporteur.types_collecte.map((t) => (
+                    <Badge key={t} variant="neutral">
+                      {TYPE_COLLECTE_LABELS[t] ?? t}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-savr-neutral-400">—</span>
+                )}
+              </dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-savr-neutral-500">Type de TMS</dt>
+              <dd className="font-medium">
+                {TYPE_TMS_LABELS[transporteur.type_tms] ??
+                  transporteur.type_tms}
+              </dd>
+            </div>
             {transporteur.tarif_par_course !== null && (
               <div className="flex justify-between">
                 <dt className="text-savr-neutral-500">Tarif / course</dt>
                 <dd className="font-medium">
                   {transporteur.tarif_par_course} €
+                </dd>
+              </div>
+            )}
+            {transporteur.derniere_verification && (
+              <div className="flex justify-between">
+                <dt className="text-savr-neutral-500">Dernière vérification</dt>
+                <dd className="font-medium">
+                  {transporteur.derniere_verification}
+                </dd>
+              </div>
+            )}
+            {transporteur.prestataire_logistique_nom && (
+              <div className="flex justify-between">
+                <dt className="text-savr-neutral-500">
+                  Prestataire logistique
+                </dt>
+                <dd className="font-medium">
+                  {transporteur.prestataire_logistique_nom}
                 </dd>
               </div>
             )}
@@ -141,6 +192,7 @@ export default function TransporteurDetailPage() {
         </Card>
 
         {(transporteur.code_transporteur_mts1 ||
+          transporteur.description_process_collecte ||
           transporteur.commentaires_internes) && (
           <Card className="p-6 space-y-4">
             <h2 className="font-semibold text-savr-neutral-800">
@@ -152,6 +204,16 @@ export default function TransporteurDetailPage() {
                   <dt className="text-savr-neutral-500">Code MTS-1</dt>
                   <dd className="font-mono font-medium">
                     {transporteur.code_transporteur_mts1}
+                  </dd>
+                </div>
+              )}
+              {transporteur.description_process_collecte && (
+                <div>
+                  <dt className="text-savr-neutral-500 mb-1">
+                    Process de création de collecte
+                  </dt>
+                  <dd className="bg-savr-neutral-50 rounded p-2">
+                    {transporteur.description_process_collecte}
                   </dd>
                 </div>
               )}

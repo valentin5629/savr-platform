@@ -186,6 +186,26 @@ export function LieuForm({ lieuId, initialValues }: LieuFormProps) {
             />
           </FormField>
         </div>
+        <FormField
+          label="Gestionnaire de lieux"
+          htmlFor="gestionnaire_organisation_id"
+          hint="Organisation gestionnaire rattachée — optionnel"
+        >
+          <Select
+            id="gestionnaire_organisation_id"
+            value={values.gestionnaire_organisation_id}
+            onChange={(e) =>
+              set('gestionnaire_organisation_id', e.target.value)
+            }
+          >
+            <option value="">Aucun</option>
+            {gestionnaires.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.raison_sociale ?? g.nom ?? g.id}
+              </option>
+            ))}
+          </Select>
+        </FormField>
       </Card>
 
       <Card className="p-6 space-y-4">
@@ -334,25 +354,13 @@ export function LieuForm({ lieuId, initialValues }: LieuFormProps) {
           </label>
         </div>
 
-        <FormField
-          label="Gestionnaire de lieux"
-          htmlFor="gestionnaire_organisation_id"
-          hint="Organisation gestionnaire rattachée — optionnel"
-        >
-          <Select
-            id="gestionnaire_organisation_id"
-            value={values.gestionnaire_organisation_id}
-            onChange={(e) =>
-              set('gestionnaire_organisation_id', e.target.value)
-            }
-          >
-            <option value="">Aucun</option>
-            {gestionnaires.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.raison_sociale ?? g.nom ?? g.id}
-              </option>
-            ))}
-          </Select>
+        <FormField label="Commentaire sur le lieu" htmlFor="commentaire_lieu">
+          <Textarea
+            id="commentaire_lieu"
+            rows={2}
+            value={values.commentaire_lieu}
+            onChange={(e) => set('commentaire_lieu', e.target.value)}
+          />
         </FormField>
       </Card>
 
@@ -389,14 +397,6 @@ export function LieuForm({ lieuId, initialValues }: LieuFormProps) {
             />
           </FormField>
         </div>
-        <FormField label="Commentaire sur le lieu" htmlFor="commentaire_lieu">
-          <Textarea
-            id="commentaire_lieu"
-            rows={2}
-            value={values.commentaire_lieu}
-            onChange={(e) => set('commentaire_lieu', e.target.value)}
-          />
-        </FormField>
         <label className="flex items-center gap-2 text-sm font-medium text-savr-neutral-700">
           <input
             type="checkbox"

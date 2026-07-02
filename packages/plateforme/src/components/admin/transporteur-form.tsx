@@ -307,7 +307,7 @@ export function TransporteurForm({
 
       <Card className="p-6 space-y-4">
         <h2 className="font-semibold text-savr-neutral-800">
-          Véhicules &amp; TMS
+          Véhicules &amp; collecte
         </h2>
         <FormField
           label="Type(s) de véhicule"
@@ -365,7 +365,12 @@ export function TransporteurForm({
             ))}
           </div>
         </FormField>
+      </Card>
 
+      <Card className="p-6 space-y-4">
+        <h2 className="font-semibold text-savr-neutral-800">
+          Admin / Intégration
+        </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
             label="Type de TMS"

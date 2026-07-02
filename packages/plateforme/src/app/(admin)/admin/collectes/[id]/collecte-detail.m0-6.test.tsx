@@ -44,11 +44,25 @@ const collecteAg = {
     pax: 80,
     organisations: { raison_sociale: 'Traiteur Beta' },
     lieux: { nom: 'Pavillon', ville: 'Paris', adresse_acces: '1 rue X' },
-    types_evenements: { nom: 'Cocktail' },
+    types_evenements: { libelle: 'Cocktail apéritif' },
   },
   collecte_flux: [],
-  collecte_tournees: [],
-  factures_collectes: [],
+  // Colonnes DB réelles (BL-P0 fiche corrigée) : tournees.statut (pas statut_tms),
+  // factures_collectes → factures.statut (le statut vit sur la facture parente).
+  collecte_tournees: [
+    {
+      rang: 1,
+      tournees: {
+        id: 'tour-1',
+        statut: 'planifiee',
+        tms_reference: 'TMS-42',
+        external_ref_commande: 'CMD-42',
+      },
+    },
+  ],
+  factures_collectes: [
+    { id: 'fc-1', montant_ht: 120, factures: { statut: 'emise' } },
+  ],
 };
 
 const transporteurs = [
@@ -178,5 +192,21 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       expect(body.statut).toBe('validee');
       expect(body.motif.length).toBeGreaterThanOrEqual(10);
     });
+  });
+
+  // Régression BL-P0 : le GET fiche référençait des colonnes DB inexistantes
+  // (types_evenements.nom, tournees.statut_tms, factures_collectes.statut) → 400
+  // → crash blanc. Ce test rend la fiche avec les shapes DB corrigées.
+  it('M0.6 — rend type d’événement (libelle), tournée (statut) et facture (factures.statut)', async () => {
+    mockFetch();
+    render(<CollecteDetailPage />);
+    await screen.findByText('Prestataire actuel');
+
+    // types_evenements.libelle (Bloc 1)
+    expect(screen.getByText('Cocktail apéritif')).toBeInTheDocument();
+    // tournees.statut (Bloc 0 — liste multi-camions)
+    expect(screen.getByText('planifiee')).toBeInTheDocument();
+    // factures_collectes → factures.statut (Bloc 6)
+    expect(screen.getByText('emise')).toBeInTheDocument();
   });
 });

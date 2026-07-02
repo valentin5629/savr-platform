@@ -98,11 +98,10 @@ Ces informations sont **communes à l'événement** : saisies une fois, hérité
 | **Stationnement**                   | Non         | **Refonte 2026-05-08** — Select enum (`facile` / `difficile` / `très difficile`).                                                                                                                                                                                               |
 | **Type de véhicule max**            | Non         | **Refonte 2026-05-08** — Select enum (`vélo cargo` / `camionnette` / `fourgon` / `VUL` / `poids lourd`). Aligné sur enum véhicules transporteurs. Le lieu impose un max → tous les véhicules ≤ max sont compatibles (cf. [[05 - Règles métier#R_compatibilite_vehicule_lieu]]). |
 | **Accès office**                    | Non         | **Refonte 2026-05-08** — Select enum (`facile` / `difficile` / `très difficile`).                                                                                                                                                                                               |
-| Contact sur place (nom + téléphone) | Non         |                                                                                                                                                                                                                                                                                 |
 
 Le lieu saisi manuellement est créé avec `actif = false` côté référentiel : utilisable immédiatement pour les collectes en cours, puis validé/normalisé par l'Admin Savr en asynchrone (notification dédiée).
 
-**Cas "lieu existant"** : à la sélection d'un lieu via la combobox, **tous les champs associés au lieu (sauf le nom du lieu) s'affichent en autocomplete pré-remplis et éditables**. Champs concernés : adresse accès livraison, code postal, ville, stationnement, type de véhicule max, accès office, contact sur place, contraintes horaires, flux acceptés (lecture/édition selon RLS).
+**Cas "lieu existant"** : à la sélection d'un lieu via la combobox, **tous les champs associés au lieu (sauf le nom du lieu) s'affichent en autocomplete pré-remplis et éditables**. Champs concernés : adresse accès livraison, code postal, ville, stationnement, type de véhicule max, accès office, contraintes horaires, flux acceptés (lecture/édition selon RLS).
 
 **Champs admin/ops only NON visibles côté traiteur/agence/gestionnaire** : `commentaire_lieu`, `siren`, `email_gestionnaire`, `reference_citeo` (cf. [[05 - Règles métier#R_lieux_admin_only_fields]]).
 

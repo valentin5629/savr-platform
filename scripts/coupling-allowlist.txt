@@ -154,3 +154,7 @@ supabase/tests/r11_algo_ag.test.sql
 # traverse /) pour matcher le dossier de route dynamique littéral.
 packages/plateforme/src/app/(admin)/admin/collectes/*/page.tsx
 packages/plateforme/src/app/(admin)/admin/collectes/*/collecte-detail.m0-6.test.tsx
+# collectes.m1-1b.test.ts (BL-P1-BOA-06) — 'mts1' = valeur de l'enum type_tms dans
+# une fixture d'objet algoReco (transporteur mocké du test dispatch AG motif-vs-top1).
+# Aucun appel HTTP. 'customerOrders' reste banni.
+packages/plateforme/tests/api/admin/collectes.m1-1b.test.ts

@@ -186,6 +186,81 @@ describe('M1.1b / Dispatch / Permissions', () => {
   });
 });
 
+// BL-P1-BOA-06 (Val 2026-07-02) — Bloc 0 AG : le motif override est obligatoire
+// UNIQUEMENT si le prestataire choisi ≠ top-1 de l'algo (calculé serveur), pas ≠
+// prestataire actuel. Valider le top-1 = 0 motif.
+describe('M0.6 / Dispatch AG / motif override vs top-1 algo', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const collecteAg = {
+    id: 'col-ag',
+    statut: 'programmee',
+    statut_tms: 'non_envoye',
+    tms_reference: null,
+    type: 'anti_gaspi',
+    date_collecte: '2026-07-01',
+    dirty_tms: false,
+    prestataire_logistique_id: null,
+  };
+  // top-1 algo = transporteur t-top1 (→ prestataire presta-top1)
+  const algoReco = {
+    transporteur: { id: 't-top1', nom: 'Strike', type_tms: 'mts1' },
+    associations: [],
+    assoc_count: 0,
+    branche: 'idf',
+    is_idf: true,
+    no_asso: false,
+    no_prestataire: false,
+    delai_minutes: 60,
+    nb_pax: 80,
+  };
+
+  it('M0.6/dispatch AG — 422 si prestataire ≠ top-1 algo sans motif', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single
+      .mockResolvedValueOnce({ data: collecteAg, error: null }) // collecte
+      .mockResolvedValueOnce({
+        data: { prestataire_logistique_id: 'presta-top1' },
+        error: null,
+      }); // transporteur top-1
+    mockSupabaseChain.rpc.mockResolvedValueOnce({
+      data: algoReco,
+      error: null,
+    }); // algo
+    const { POST } =
+      await import('@/app/api/v1/admin/collectes/[id]/dispatch/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/collectes/col-ag/dispatch', {
+        prestataire_logistique_id: 'presta-AUTRE',
+      }),
+      { params: Promise.resolve({ id: 'col-ag' }) },
+    );
+    expect(res.status).toBe(422);
+  });
+
+  it('M0.6/dispatch AG — accepte le top-1 algo SANS motif (200)', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single
+      .mockResolvedValueOnce({ data: collecteAg, error: null }) // collecte
+      .mockResolvedValueOnce({
+        data: { prestataire_logistique_id: 'presta-top1' },
+        error: null,
+      }); // transporteur top-1
+    mockSupabaseChain.rpc
+      .mockResolvedValueOnce({ data: algoReco, error: null }) // algo
+      .mockResolvedValueOnce({ data: 'collecte.creee', error: null }); // dispatcher
+    const { POST } =
+      await import('@/app/api/v1/admin/collectes/[id]/dispatch/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/collectes/col-ag/dispatch', {
+        prestataire_logistique_id: 'presta-top1',
+      }),
+      { params: Promise.resolve({ id: 'col-ag' }) },
+    );
+    expect(res.status).toBe(200);
+  });
+});
+
 describe('M1.1b / Dispatch / Outbox G4', () => {
   beforeEach(() => vi.clearAllMocks());
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import { calculerAlgoAttributionAg } from '@/lib/attribution-ag/algo.js';
 
 const STATUTS_TERMINAUX = [
   'realisee',
@@ -57,11 +58,40 @@ export async function POST(
     );
   }
 
-  // Override prestataire : ops interdit, motif obligatoire
-  if (
-    prestataire_logistique_id &&
-    prestataire_logistique_id !== c.prestataire_logistique_id
-  ) {
+  // Détermination de l'override (§06.06 §3 Bloc 0) :
+  //  - AG : override = prestataire choisi ≠ TOP 1 de l'algo (CDC : « Motif override
+  //    obligatoire si choix ≠ top 1 algo » ; motif NULL sinon). Le top-1 est calculé
+  //    côté serveur (source de vérité, jamais fourni par le client). Algo indisponible
+  //    ou aucune reco → pas de baseline → pas de motif requis.
+  //  - autres (ZD legacy) : override = prestataire choisi ≠ prestataire actuel.
+  let isOverride = false;
+  if (prestataire_logistique_id) {
+    if (c.type === 'anti_gaspi') {
+      let top1PrestaId: string | null = null;
+      try {
+        const reco = await calculerAlgoAttributionAg(id);
+        if (reco.transporteur) {
+          const { data: t } = await supabase
+            .from('transporteurs')
+            .select('prestataire_logistique_id')
+            .eq('id', reco.transporteur.id)
+            .single();
+          top1PrestaId =
+            (t as { prestataire_logistique_id?: string } | null)
+              ?.prestataire_logistique_id ?? null;
+        }
+      } catch {
+        top1PrestaId = null;
+      }
+      isOverride =
+        top1PrestaId != null && prestataire_logistique_id !== top1PrestaId;
+    } else {
+      isOverride = prestataire_logistique_id !== c.prestataire_logistique_id;
+    }
+  }
+
+  // Override prestataire : ops interdit, motif obligatoire (≥ 5 car.)
+  if (isOverride) {
     if (auth.ctx.role === 'ops_savr') {
       return NextResponse.json(
         { error: "L'override de prestataire est réservé aux admin Savr" },
@@ -75,7 +105,7 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "motif_override_prestataire obligatoire (≥ 5 caractères) lors d'un override",
+            "motif_override_prestataire obligatoire (≥ 5 caractères) lorsqu'on choisit un prestataire ≠ recommandation algo (top 1)",
         },
         { status: 422 },
       );

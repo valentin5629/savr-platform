@@ -38,7 +38,8 @@ const collecteAg = {
   annulee_cote_savr: false,
   pack_antgaspi_id: null,
   packs_antgaspi: null,
-  prestataire_logistique_id: 'presta-mts1',
+  // Collecte AG non encore attribuée (comme sur le preview réel).
+  prestataire_logistique_id: null,
   evenements: {
     nom_evenement: 'Cocktail AG',
     pax: 80,
@@ -92,6 +93,21 @@ function mockFetch() {
           json: async () => ({ data: transporteurs }),
         });
       }
+      // Recommandation algo (top-1 = Strike / t-mts1) — Bloc 0 pré-sélectionne le
+      // top-1 et n'exige un motif override que si le choix ≠ top-1.
+      if (url.includes('/recommandation')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              associations: [{ id: 'a1', nom: 'Les Restos du Cœur' }],
+              transporteur: { id: 't-mts1', nom: 'Strike', type_tms: 'mts1' },
+              no_asso: false,
+              no_prestataire: false,
+            },
+          }),
+        });
+      }
       if (url === '/api/v1/admin/collectes/c1' && method === 'PATCH') {
         return Promise.resolve({ ok: true, json: async () => collecteAg });
       }
@@ -113,42 +129,49 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.restoreAllMocks());
 
-  it('M0.6 — Bloc 0 affiche le prestataire actuel + bouton forké MTS-1', async () => {
+  it('M0.6 — Bloc 0 affiche la reco algo (prestataire + association) + pré-sélectionne le top-1', async () => {
     mockFetch();
     render(<CollecteDetailPage />);
 
-    expect(await screen.findByText('Prestataire actuel')).toBeInTheDocument();
-    // Prestataire résolu via le pont transporteurs.prestataire_logistique_id
-    expect(screen.getByText('Strike')).toBeInTheDocument();
-    // Fork type_tms=mts1, jamais envoyée (tms_reference null) → « Envoyer à MTS-1 »
+    // Recommandation algo affichée (§06.09) : prestataire top-1 + association.
+    // findByText sur l'association attend la résolution du fetch reco (async).
+    expect(await screen.findByText('Les Restos du Cœur')).toBeInTheDocument();
+    expect(screen.getByText('Recommandation algo')).toBeInTheDocument();
+    expect(screen.getByText('Strike (mts1)')).toBeInTheDocument();
+    // Collecte non attribuée
+    expect(screen.getByText('Aucun prestataire attribué')).toBeInTheDocument();
+
+    // Pré-sélection du top-1 recommandé → bouton « Envoyer à MTS-1 », et AUCUN
+    // motif override requis (on valide la reco).
     expect(
-      screen.getByRole('button', { name: /Envoyer à MTS-1/ }),
+      await screen.findByRole('button', { name: /Envoyer à MTS-1/ }),
     ).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Motif override/)).not.toBeInTheDocument();
   });
 
-  it('M0.6 — sélection A Toutes! → bouton forké A Toutes! + motif override obligatoire', async () => {
+  it('M0.6 — choix ≠ top-1 algo → bouton A Toutes! + motif override obligatoire (≥ 5)', async () => {
     mockFetch();
     render(<CollecteDetailPage />);
-    await screen.findByText('Prestataire actuel');
+    // Attendre la pré-sélection du top-1 (bouton MTS-1)
+    await screen.findByRole('button', { name: /Envoyer à MTS-1/ });
 
-    // Sélecteur AG (§06.06 §3) — choisir un prestataire différent
+    // Choisir A Toutes! (≠ top-1 Strike) → override → motif obligatoire
     fireEvent.change(screen.getByLabelText('Prestataire à attribuer'), {
       target: { value: 't-atoutes' },
     });
 
-    // Bouton forké A Toutes!
-    expect(
-      screen.getByRole('button', { name: /Envoyer à A Toutes!/ }),
-    ).toBeInTheDocument();
-    // Champ motif override conditionnel apparu
+    const bouton = screen.getByRole('button', { name: /Envoyer à A Toutes!/ });
     const motif = screen.getByLabelText(/Motif override/);
     expect(motif).toBeInTheDocument();
-
-    // Bouton d'envoi désactivé tant que le motif override < 5 caractères
-    const bouton = screen.getByRole('button', { name: /Envoyer à A Toutes!/ });
     expect(bouton).toBeDisabled();
     fireEvent.change(motif, { target: { value: 'Zone vélo cargo IDF' } });
     expect(bouton).not.toBeDisabled();
+
+    // Re-sélection du top-1 recommandé → plus de motif requis (validation reco)
+    fireEvent.change(screen.getByLabelText('Prestataire à attribuer'), {
+      target: { value: 't-mts1' },
+    });
+    expect(screen.queryByLabelText(/Motif override/)).not.toBeInTheDocument();
   });
 
   it('M0.6 — modale forçage statut : PATCH exige un motif ≥ 10 caractères', async () => {

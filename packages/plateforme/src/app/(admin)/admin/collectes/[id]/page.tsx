@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { ArrowLeft, Truck, Send, AlertTriangle, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +29,17 @@ interface Transporteur {
   type_tms: string;
   prestataire_logistique_id: string | null;
   actif: boolean;
+}
+
+// Recommandation de l'algo d'attribution AG (§06.09) — sous-ensemble consommé par
+// Bloc 0 : transporteur top-1 (baseline « ≠ top-1 → motif obligatoire ») +
+// association recommandée. L'attribution complète (validation, emails, top 3) vit
+// sur l'écran /admin/attributions-ag/[id] (+ Bloc 5).
+interface RecoAlgo {
+  associations: { id: string; nom: string }[];
+  transporteur: { id: string; nom: string; type_tms: string } | null;
+  no_asso: boolean;
+  no_prestataire: boolean;
 }
 
 // Les 9 valeurs de l'enum collectes.statut (forçage manuel RM-08).
@@ -145,6 +157,7 @@ export default function CollecteDetailPage() {
   const [transporteurs, setTransporteurs] = useState<Transporteur[]>([]);
   const [selectedTransporteurId, setSelectedTransporteurId] = useState('');
   const [motifOverride, setMotifOverride] = useState('');
+  const [reco, setReco] = useState<RecoAlgo | null>(null);
   // RM-08 — forçage manuel du statut
   const [forceStatutModal, setForceStatutModal] = useState(false);
   const [forceStatutValue, setForceStatutValue] = useState('');
@@ -190,6 +203,43 @@ export default function CollecteDetailPage() {
       .then((json: { data: Transporteur[] }) => setTransporteurs(json.data))
       .catch(() => setTransporteurs([]));
   }, []);
+
+  // Recommandation algo (§06.09) — uniquement AG non terminale (dispatch pertinent).
+  // Sert à afficher le prestataire/asso recommandés et à décider si un motif override
+  // est requis (choix ≠ top-1). Le top-1 pré-sélectionne le sélecteur (validation
+  // de la reco = 0 motif). Erreur/aucune reco = dégradation gracieuse (pas de baseline).
+  const collecteType = collecte?.type;
+  const collecteStatut = collecte?.statut;
+  const collectePresta = collecte?.prestataire_logistique_id ?? null;
+  useEffect(() => {
+    if (collecteType !== 'anti_gaspi') return;
+    if (
+      collecteStatut != null &&
+      ['realisee', 'cloturee', 'annulee', 'realisee_sans_collecte'].includes(
+        collecteStatut,
+      )
+    ) {
+      return;
+    }
+    let active = true;
+    fetch(`/api/v1/admin/attributions-ag/${params.id}/recommandation`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { data: RecoAlgo } | null) => {
+        if (!active) return;
+        const r = j?.data ?? null;
+        setReco(r);
+        // Pré-sélection du top-1 recommandé si aucune sélection ni prestataire courant.
+        if (r?.transporteur && collectePresta == null) {
+          setSelectedTransporteurId((prev) => prev || r.transporteur!.id);
+        }
+      })
+      .catch(() => {
+        if (active) setReco(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [params.id, collecteType, collecteStatut, collectePresta]);
 
   const handleAnnulerCredit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -335,11 +385,14 @@ export default function CollecteDetailPage() {
   );
   const forkTypeTms =
     selectedTransporteur?.type_tms ?? currentTransporteur?.type_tms;
-  // Override = prestataire choisi différent de l'actuel → motif obligatoire (≥ 5, §06.06 §3).
+  // Transporteur recommandé par l'algo (top-1) — baseline de l'override (§06.06 §3 :
+  // motif obligatoire SI le choix ≠ top-1 algo). Pas de reco → pas de baseline → pas
+  // de motif requis (cohérent avec la garde serveur du dispatch).
+  const recommendedTransporteurId = reco?.transporteur?.id ?? null;
   const overrideActif =
     selectedTransporteur != null &&
-    selectedTransporteur.prestataire_logistique_id !==
-      collecte.prestataire_logistique_id;
+    recommendedTransporteurId != null &&
+    selectedTransporteur.id !== recommendedTransporteurId;
   const overrideMotifManquant =
     overrideActif && motifOverride.trim().length < 5;
 
@@ -440,7 +493,49 @@ export default function CollecteDetailPage() {
         {/* Sélecteur prestataire (AG) — override manuel §06.06 §3. Pas de
             sélecteur ZD V1 (prestataire fixe par lieu/zone : réémission seule). */}
         {collecte.type === 'anti_gaspi' && !isTerminal && (
-          <div className="space-y-2 border-t border-savr-neutral-100 pt-4">
+          <div className="space-y-3 border-t border-savr-neutral-100 pt-4">
+            {/* Recommandation algo (§06.09) — prestataire + association top-1. */}
+            <div className="rounded-savr-md border border-savr-primary-100 bg-savr-primary-50 p-3 text-sm">
+              <p className="font-medium text-savr-primary-800">
+                Recommandation algo
+              </p>
+              <dl className="mt-1 grid grid-cols-1 gap-1 sm:grid-cols-2">
+                <div>
+                  <dt className="text-savr-neutral-500">
+                    Prestataire recommandé
+                  </dt>
+                  <dd className="font-medium">
+                    {reco?.transporteur ? (
+                      `${reco.transporteur.nom} (${reco.transporteur.type_tms})`
+                    ) : (
+                      <span className="text-savr-neutral-400">
+                        Aucune recommandation
+                      </span>
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-savr-neutral-500">
+                    Association recommandée
+                  </dt>
+                  <dd className="font-medium">
+                    {reco?.associations?.[0]?.nom ?? (
+                      <span className="text-savr-neutral-400">Aucune</span>
+                    )}
+                  </dd>
+                </div>
+              </dl>
+              <p className="mt-2 text-xs text-savr-neutral-500">
+                Attribution complète (validation, emails, top 3 associations) :{' '}
+                <Link
+                  href={`/admin/attributions-ag/${collecte.id}`}
+                  className="text-primary-600 hover:underline"
+                >
+                  écran d&apos;attribution AG →
+                </Link>
+              </p>
+            </div>
+
             <label
               htmlFor="dispatch-transporteur"
               className="block text-sm font-medium text-savr-neutral-700"
@@ -460,6 +555,7 @@ export default function CollecteDetailPage() {
               {transporteurs.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.nom} ({t.type_tms})
+                  {t.id === recommendedTransporteurId ? ' — recommandé' : ''}
                 </option>
               ))}
             </Select>
@@ -469,14 +565,15 @@ export default function CollecteDetailPage() {
                   htmlFor="dispatch-motif"
                   className="block text-sm font-medium text-savr-neutral-700 mb-1"
                 >
-                  Motif override (obligatoire, ≥ 5 caractères)
+                  Motif override (obligatoire ≥ 5 car. — prestataire ≠ reco
+                  algo)
                 </label>
                 <Textarea
                   id="dispatch-motif"
                   rows={2}
                   value={motifOverride}
                   onChange={(e) => setMotifOverride(e.target.value)}
-                  placeholder="Raison du choix d'un prestataire différent…"
+                  placeholder="Raison du choix d'un prestataire différent de la recommandation…"
                 />
               </div>
             )}

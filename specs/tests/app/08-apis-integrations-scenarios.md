@@ -461,8 +461,9 @@ Scénario : mts1_polling_detecte_refus_transporteur
     Et le polling lit customerOrderStatus=CANCELED pour CO_42XZ
   Quand le cron traite la réponse
   Alors collectes.statut_tms = rejetee_par_prestataire
-    Et collectes.statut reste programmee (retour file, statut inchangé)
-    Et une notification Admin Savr est créée (retour file + motif preset)
+    Et collectes.statut = rejetee_par_prestataire (visibilité dashboard, décision Val 2026-06-15)
+    Et une alerte Admin in-app « réattribution requise » est créée
+    Et le retour en file est Ops-driven (pas de remise auto ; la file /pending exige statut=programmee)
     Et integrations_inbox est mis à jour (statut=traite)
 ```
 
@@ -471,13 +472,14 @@ Scénario : mts1_polling_detecte_refus_transporteur
 # Couche : api + db
 # Priorité : P1-critique
 
-Scénario : mts1_polling_tous_tours_ko_collecte_reste_en_cours
+Scénario : mts1_polling_tous_tours_ko_collecte_rejetee_par_prestataire
   Étant donné une collecte multi-camions (statut=en_cours) servie par 2 tournées
     Et le polling lit un état terminal CANCELED/KO pour les 2 customerOrders
   Quand le cron agrège les états terminaux des tours (fn_agreger_terminal_collecte)
   Alors collectes.statut_tms = 'rejetee_par_prestataire'
-    Et collectes.statut RESTE 'en_cours' (rejetee_par_prestataire absent de collecte_statut_enum — signal TMS uniquement)
-    Et une alerte Ops in-app est créée (intervention manuelle attendue : re-dispatch / reprogrammation, aucune reprogrammation automatique)
+    Et collectes.statut = 'rejetee_par_prestataire' (visibilité dashboard, décision Val 2026-06-15)
+    Et une alerte Admin in-app « réattribution requise » est créée (code collecte_rejetee_par_prestataire)
+    Et aucune mutation automatique de l'attribution (pas de reset statut→programmee, pas de DELETE attributions_antgaspi) — retour file Ops-driven
     Et aucun bordereau ni PDF n'est généré
 ```
 
@@ -1025,8 +1027,8 @@ Scénario : everest_mission_failed_avant_acceptation_rejetee
     Et Everest envoie mission_failed / annulation externe avant acceptation
   Quand l'adapter Everest traite le webhook (re-fetch mission_status)
   Alors collectes.statut_tms = rejetee_par_prestataire
-    Et collectes.statut métier reste programmee
-    Et une alerte Ops est créée
+    Et collectes.statut = rejetee_par_prestataire (visibilité dashboard)
+    Et une alerte Admin in-app « réattribution requise » est créée
 ```
 
 ---

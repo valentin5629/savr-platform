@@ -391,10 +391,9 @@ Clic sur une ligne → fiche détaillée.
 | Instructions d'accès au lieu (pour le transporteur) | texte long | Non | |
 | **Horaires d'ouverture** (simplifié) | tableau 7 lignes | Oui | Voir §Horaires ci-dessous |
 | Zone de commentaire à usage interne | texte long | Non | |
-| SIREN | texte | Oui | Validation INSEE — édition admin-only |
+| SIREN | texte | Non | Validation INSEE (9 chiffres) — facultatif, édition admin-only. Colonne `associations.siren`. |
 | Habilitation 2041-GE | booléen + date expiration | Non | Si `true`, attestation fiscale activée — édition admin-only |
 | Capacité max bénéficiaires (repas) | integer | Oui | **Critère de matching par taille d'événement** : exclut l'asso si trop petite (`capacite_max_beneficiaires × 2 > volume_estimé`). C'est ce champ qui garantit qu'un gros événement (ex. 3000 pax) est attribué à une asso avec assez de bénéficiaires. |
-| Lien site web (pour le client) | URL | Non | Affiché dans rapports |
 | **Description pour le rapport d'impact (pour le client)** | texte long | **Oui** *(rendu obligatoire 2026-05-07)* | Copié dans rapport AG. Validation : ≥ 30 caractères. |
 | **Id du point de collecte dans MTS-1** *(ajout 2026-05-07, V1 only)* | texte | Non | Identifiant point de collecte côté MTS-1 — sert au pré-fill V1 lors de l'envoi vers MTS-1 (cf. §3 Bloc 0 Attribution Prestataire / fork V1). En V2 (TMS Savr natif), ce champ devient déprécié (gardé en lecture pour audit historique). |
 | Actif | booléen | Oui | Défaut `true` |
@@ -447,8 +446,10 @@ Tableau filtrable : nom, ville, véhicule(s), type de TMS, actif.
 | Mail de contact                  | email             | Oui         | Destinataire `ag_attribution_transporteur`                                                                                                                       |
 | Adresse                          | texte + géocodage | Oui         | Base calcul distance (`adresse`, `code_postal`, `ville` → `latitude`/`longitude` géocodés)                                                                        |
 | **Type(s) de véhicule**          | multi-enum        | Oui         | **Refonte 2026-05-08** — sélection multiple (`text[]`) parmi `velo_cargo`, `camionnette`, `fourgon`, `vul`, `poids_lourd`. Enum aligné sur `lieux.type_vehicule_max`. |
-| **Type de TMS**                  | enum              | Oui         | **Refonte 2026-05-08** — `mts1` (Strike + Marathon V1, push API depuis Plateforme via fork V1) / `a_toutes` (workflow A Toutes! distinct) / `autre` (province → email + téléphone manuel). Détermine quel bouton apparaît au Bloc 0 Attribution Prestataire §3. Champs fusionnés (ex `process_creation_collecte`, `process_creation_collecte_detail`, `type_tms` regroupés en un seul). |
+| **Type de TMS**                  | enum              | Oui         | **Refonte 2026-05-08** — `mts1` (Strike + Marathon V1, push API depuis Plateforme via fork V1) / `a_toutes` (workflow A Toutes! distinct) / `autre` / `par_mail` / `par_telephone` (province & transporteurs hors TMS → email/téléphone manuel, routés `provider_manual`, validation manuelle Admin). Détermine quel bouton apparaît au Bloc 0 Attribution Prestataire §3. Champs fusionnés (ex `process_creation_collecte`, `process_creation_collecte_detail`, `type_tms` regroupés en un seul). |
 | **Code transporteur MTS-1**      | texte             | Si `type_tms = mts1` | **Ajout 2026-05-29 (propagation §3bis)** — `carrierShareableCode` côté MTS-1 (récupérable via `GET /v3/carrier`), utilisé pour déléguer l'ordre au bon transporteur. Obligatoire si `type_tms = 'mts1'` (cf. [[05 - Règles métier#R_code_mts1_requis]]). Masqué si `type_tms ≠ mts1`. Déprécié V2. |
+| **Type(s) de collecte**          | multi-enum        | Oui         | Flux gérés par le transporteur (`text[]` parmi `anti_gaspi` / `zero_dechet`), sélection multiple. |
+| **Description du process de collecte** | texte long | Non | Consignes métier de collecte propres au transporteur (champ `description_process_collecte`). |
 | Actif                            | booléen           | Oui         | Défaut `true`                                                                                                                                                    |
 
 **Champs supprimés (refonte 2026-05-08)** :

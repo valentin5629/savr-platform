@@ -252,7 +252,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "e5afe55f34b49ed3bfb2face28ef1ee6c3aea24f0dac5d491a865e6fea1a5295",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "c1dd62da71475c0d2d380050b2e5c756c70c8734e6aff75c06c51e684ccb5aea",
     "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "2867003790a6772bb525ef68345895253745aa7681fde23f2c3696501445a4c2",
     "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "12220ef7239242e5e65bcb454d7aeeb19b9285cb65606c08c6f70487ce825082",
     "specs/cdc/01 - Cahier des charges App/Interface logistique_provider V1.md": "4be718d5d7e2ba42d7522bddbad8add381ceaa636527565f1fd521bd98fc155d"

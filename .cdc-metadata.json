@@ -72,8 +72,8 @@
       "bytes": 3410
     },
     "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": {
-      "sha256": "e5afe55f34b49ed3bfb2face28ef1ee6c3aea24f0dac5d491a865e6fea1a5295",
-      "bytes": 292413
+      "sha256": "c1dd62da71475c0d2d380050b2e5c756c70c8734e6aff75c06c51e684ccb5aea",
+      "bytes": 293314
     },
     "specs/cdc/01 - Cahier des charges App/04 - Espace client traiteur.md": {
       "sha256": "05bb568a11fd0baac5b10c4a8a84281f1d953857fd92efba513a8e925616737c",
@@ -112,8 +112,8 @@
       "bytes": 3477
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": {
-      "sha256": "a2ccc5014eeb54cebc36fdf41c1504cee3f17ec328a9973f6b32564e071c4776",
-      "bytes": 51399
+      "sha256": "2c029e09dcacca300236e20c9e0eca88aad3c4d452756f5d6fd48e18fb8740d7",
+      "bytes": 51050
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": {
       "sha256": "ceab086160acfc84dbd698257fc03436484fb3f8d8fb40ec79d416ee67fd227d",
@@ -132,8 +132,8 @@
       "bytes": 50403
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": {
-      "sha256": "53a89dfe379a16160f8d5fe2e912e55086ed70e070cfb27193cb56650ed01f70",
-      "bytes": 84161
+      "sha256": "bcdc02ec451511d31d3dcebf664bdedd05fdfd794ce9bdf94442a2543c902440",
+      "bytes": 84585
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md": {
       "sha256": "7292c799fdb5c5598dcd979245740850df9851ffb0b475fb08e9fd76e44b41e4",
@@ -176,8 +176,8 @@
       "bytes": 33192
     },
     "specs/cdc/01 - Cahier des charges App/06.06-back-office-admin-scenarios.md": {
-      "sha256": "152c69d95bedb8251659f305a3151651737e72dcc86fb4efc148aad19dd44247",
-      "bytes": 40059
+      "sha256": "7d5992535cc3d0927f1104616689a15c8c00c8030cf9c32c21d438143153155b",
+      "bytes": 40081
     },
     "specs/cdc/01 - Cahier des charges App/06.08-generation-edition-facture-scenarios.md": {
       "sha256": "be12b9144e21479cc88ee35410337767c9e0b2c26098ca992816270ff3354c41",
@@ -360,8 +360,8 @@
       "bytes": 34089
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.06-back-office-admin-scenarios.md": {
-      "sha256": "152c69d95bedb8251659f305a3151651737e72dcc86fb4efc148aad19dd44247",
-      "bytes": 40059
+      "sha256": "7d5992535cc3d0927f1104616689a15c8c00c8030cf9c32c21d438143153155b",
+      "bytes": 40081
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.08-generation-edition-facture-scenarios.md": {
       "sha256": "e0a960f03394c0bb6723eb1226b6681774912039e4187b9afe052076d654842e",

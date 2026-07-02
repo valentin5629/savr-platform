@@ -83,7 +83,7 @@
   ],
   "cdc_source_hash": {
     "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "2867003790a6772bb525ef68345895253745aa7681fde23f2c3696501445a4c2",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "53a89dfe379a16160f8d5fe2e912e55086ed70e070cfb27193cb56650ed01f70",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "bcdc02ec451511d31d3dcebf664bdedd05fdfd794ce9bdf94442a2543c902440",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "e7c153aa4e9c062e972b9f121ef7a0699dd9c72c6a2d3f7bd7dab9cbf2647d32",
     "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "8604cfe90e04318af438fec76daa28f8f9fb74cf51a22f7c7b6b366d41780680"
   }

@@ -15,13 +15,20 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const limit = 50;
   const offset = (page - 1) * limit;
 
+  // NB : PAS d'embed `evenements` ici. `evenements` a DEUX FK vers
+  // `organisations` (`organisation_id` + `client_organisateur_organisation_id`)
+  // → un embed non désambiguïsé renvoie un HTTP 300 `PGRST201` (« ambiguous
+  // relationship ») qui faisait échouer TOUTE la liste Clients (« 0 organisation »
+  // alors que la base en contient). L'ancien `collectes_zd:evenements!inner(...)`
+  // était en plus **du code mort** (jamais lu dans le mapping ci-dessous — les
+  // compteurs ZD/AG viennent de la RPC `count_collectes_par_org`). Vérifié contre
+  // savr-dev : HTTP 206 + 14 organisations.
   let query = supabase
     .from('organisations')
     .select(
       `
       id, raison_sociale, type, siret, actif, logo_url, est_shadow, created_at,
-      users:users(count),
-      collectes_zd:evenements!inner(collectes!inner(id))
+      users:users(count)
     `,
       { count: 'exact' },
     )

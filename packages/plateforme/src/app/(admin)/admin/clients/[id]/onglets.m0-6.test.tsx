@@ -151,6 +151,16 @@ describe('M0.6 — onglet Factures', () => {
     ).toBe(true);
     expect(screen.getAllByText('Payée').length).toBeGreaterThan(0);
   });
+
+  it('clic sur une ligne → navigue vers la fiche facture', async () => {
+    mockFetch({ '/api/v1/admin/factures': { data: [facture] } });
+    render(<OngletFactures organisationId="org-1" />);
+    await waitFor(() =>
+      expect(screen.getAllByText('ZD-2026-0005').length).toBeGreaterThan(0),
+    );
+    fireEvent.click(screen.getAllByText('ZD-2026-0005')[0] as HTMLElement);
+    expect(mockPush).toHaveBeenCalledWith('/admin/factures/fac-1');
+  });
 });
 
 // ── Grille ZD ───────────────────────────────────────────────────────────────

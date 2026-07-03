@@ -12,6 +12,10 @@ export default tseslint.config(
       // agent/pipeline/log/args) + scripts de recompte de registres (Node CLI).
       'docs/audit/**',
       '.claude/workflows/**',
+      // Worktrees git imbriqués (sessions parallèles isolées) : checkouts
+      // indépendants avec leur propre cycle de lint — jamais linter depuis le
+      // clone parent, sinon leur code en cours casse le gate pre-commit ici.
+      '.claude/worktrees/**',
       // Types DB générés (G7) : artefact dérivé du schéma (régénéré par
       // `pnpm db:types:local`) — jamais édité à la main, ne pas lint-churner.
       'packages/shared/src/database.types.ts',

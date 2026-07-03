@@ -544,7 +544,8 @@ interface Coefficient {
   annee_reference: number;
   coefficient_kg_couvert: number;
   source_commentaire: string | null;
-  created_at: string;
+  saisi_par_user: { prenom: string; nom: string } | null;
+  saisi_le: string;
 }
 
 type CoefModal =
@@ -673,6 +674,7 @@ export function OngletCoefficients({
               <th className="pb-2">Coefficient (kg/couvert)</th>
               <th className="pb-2">Appliqué aux événements de</th>
               <th className="pb-2">Source / commentaire</th>
+              <th className="pb-2">Saisi par</th>
               <th className="pb-2">Saisi le</th>
               {canEdit && <th className="pb-2"></th>}
             </tr>
@@ -692,7 +694,12 @@ export function OngletCoefficients({
                   {c.source_commentaire ?? '—'}
                 </td>
                 <td className="py-2 text-neutral-500">
-                  {new Date(c.created_at).toLocaleDateString('fr-FR')}
+                  {c.saisi_par_user
+                    ? `${c.saisi_par_user.prenom} ${c.saisi_par_user.nom}`
+                    : '—'}
+                </td>
+                <td className="py-2 text-neutral-500">
+                  {new Date(c.saisi_le).toLocaleDateString('fr-FR')}
                 </td>
                 {canEdit && (
                   <td className="py-2 text-right">

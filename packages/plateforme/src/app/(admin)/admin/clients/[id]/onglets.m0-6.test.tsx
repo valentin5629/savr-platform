@@ -63,7 +63,9 @@ const coefficient = {
   annee_reference: 2025,
   coefficient_kg_couvert: 0.18,
   source_commentaire: 'Estimation labo',
-  created_at: '2026-06-19T16:33:22Z',
+  saisi_par: 'u-ops',
+  saisi_le: '2026-06-19T16:33:22Z',
+  saisi_par_user: { prenom: 'Ops', nom: 'Un' },
 };
 
 interface FetchCall {
@@ -225,6 +227,8 @@ describe('M0.6 — onglet Coefficient de perte labo', () => {
     // « Appliqué aux événements de » = 2026 (année réf + 1).
     expect(screen.getByText('2026')).toBeInTheDocument();
     expect(screen.getByText('Estimation labo')).toBeInTheDocument();
+    // Colonne « Saisi par » = auteur résolu (§06.06 §8 tableau coefficients).
+    expect(screen.getByText('Ops Un')).toBeInTheDocument();
   });
 
   it('admin : Ajouter → POST coefficient', async () => {

@@ -843,6 +843,11 @@ export function OngletRemises({
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [closingId, setClosingId] = React.useState<string | null>(null);
+  const [activesOnly, setActivesOnly] = React.useState(false);
+
+  const displayed = activesOnly
+    ? remises.filter((r) => !r.valide_jusqu_au)
+    : remises;
 
   function openCreer() {
     setModal(true);
@@ -856,8 +861,8 @@ export function OngletRemises({
   async function creer(e: React.FormEvent) {
     e.preventDefault();
     const pct = Number(fPct);
-    if (isNaN(pct) || pct < 0 || pct > 100) {
-      setError('Remise invalide (0 à 100 %)');
+    if (isNaN(pct) || pct <= 0 || pct > 100) {
+      setError('Remise invalide (> 0 et ≤ 100 %)');
       return;
     }
     if (!fValideDu) {
@@ -909,11 +914,21 @@ export function OngletRemises({
 
       <div className="flex items-center justify-between">
         <h3 className="font-medium text-sm">Remises négociées</h3>
-        {canEdit && (
-          <Button size="sm" onClick={openCreer}>
-            Créer une remise
-          </Button>
-        )}
+        <div className="flex items-center gap-4">
+          <label className="flex items-center gap-2 text-sm text-neutral-600">
+            <input
+              type="checkbox"
+              checked={activesOnly}
+              onChange={(e) => setActivesOnly(e.target.checked)}
+            />
+            Actives uniquement
+          </label>
+          {canEdit && (
+            <Button size="sm" onClick={openCreer}>
+              Créer une remise
+            </Button>
+          )}
+        </div>
       </div>
 
       {remises.length === 0 ? (
@@ -935,7 +950,7 @@ export function OngletRemises({
             </tr>
           </thead>
           <tbody>
-            {remises.map((r) => (
+            {displayed.map((r) => (
               <tr key={r.id} className="border-t border-neutral-100">
                 <td className="py-2">
                   {r.activite ? r.activite.toUpperCase() : '—'}

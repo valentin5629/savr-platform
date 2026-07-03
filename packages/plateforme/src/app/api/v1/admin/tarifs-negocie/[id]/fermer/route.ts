@@ -28,5 +28,19 @@ export async function POST(
     );
   }
 
+  // Action sensible (impact facturation) → audit_log (§06.06 §8 « toutes les
+  // actions sensibles sont tracées »). Symétrique à `creation_remise`.
+  try {
+    await supabase.from('audit_log').insert({
+      table_name: 'tarifs_negocie',
+      record_id: id,
+      action: 'fermeture_remise',
+      user_id: auth.ctx.userId,
+      new_values: { valide_jusqu_au: today },
+    });
+  } catch {
+    /* audit failure non-bloquante */
+  }
+
   return NextResponse.json(data);
 }

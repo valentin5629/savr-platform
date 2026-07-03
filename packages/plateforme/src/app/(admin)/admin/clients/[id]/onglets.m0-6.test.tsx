@@ -402,4 +402,30 @@ describe('M0.6 — onglet Remises négociées', () => {
     expect(screen.queryByText('Créer une remise')).not.toBeInTheDocument();
     expect(screen.queryByText('Fermer')).not.toBeInTheDocument();
   });
+
+  it('filtre « Actives uniquement » masque les remises fermées', () => {
+    mockFetch({});
+    const fermee = {
+      ...remise,
+      id: 'rem-2',
+      activite: 'ag',
+      valide_jusqu_au: '2026-06-30',
+      commentaires: 'Ancienne remise',
+    };
+    render(
+      <OngletRemises
+        organisationId="org-1"
+        remises={[remise, fermee]}
+        canEdit={true}
+        onUpdated={() => {}}
+      />,
+    );
+    // Les deux visibles au départ.
+    expect(screen.getByText('Ancienne remise')).toBeInTheDocument();
+    expect(screen.getByText('Geste commercial')).toBeInTheDocument();
+    // Activer le filtre → la remise fermée disparaît.
+    fireEvent.click(screen.getByLabelText('Actives uniquement'));
+    expect(screen.queryByText('Ancienne remise')).not.toBeInTheDocument();
+    expect(screen.getByText('Geste commercial')).toBeInTheDocument();
+  });
 });

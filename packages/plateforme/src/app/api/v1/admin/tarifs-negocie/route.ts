@@ -83,11 +83,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { status: 422 },
     );
   }
-  // remise_pct est une FRACTION 0..1 (0.15 = 15 %), CHECK DB
-  // `tarifs_negocie_remise_pct_check`. L'UI saisit un % et divise par 100.
-  if (remise_pct < 0 || remise_pct > 1) {
+  // remise_pct est une FRACTION > 0 et <= 1 (0.15 = 15 %), CHECK DB
+  // `tarifs_negocie_remise_pct_check` (zéro exclu). L'UI saisit un % et divise
+  // par 100.
+  if (remise_pct <= 0 || remise_pct > 1) {
     return NextResponse.json(
-      { error: 'remise_pct doit être une fraction entre 0 et 1' },
+      { error: 'remise_pct doit être une fraction > 0 et <= 1' },
       { status: 422 },
     );
   }

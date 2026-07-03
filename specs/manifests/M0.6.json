@@ -1010,18 +1010,18 @@
     {
       "id": "BL-P1-BOA-06",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
-      "artefact": null,
-      "test": null,
+      "artefact": "packages/plateforme/src/app/api/v1/admin/collectes/[id]/route.ts (GET) + packages/plateforme/src/app/(admin)/admin/collectes/[id]/page.tsx (Bloc 0 — dispatch + tournées)",
+      "test": "packages/plateforme/tests/ui/collecte-detail.m0-6.test.tsx « M0.6 / Fiche collecte Admin / régression colonne-DB » (tournee statut + external_ref) + packages/plateforme/tests/api/admin/collectes.m1-1b.test.ts",
       "statut": "à-vérifier",
-      "libelle": "Fiche collecte Admin : Bloc 0 dispatch"
+      "libelle": "Fiche collecte Admin : Bloc 0 dispatch — fix crash colonne-DB (le GET embarquait tournees.statut_tms inexistant → colonne réelle tournees.statut ; page durcie res.ok). GO-VISUAL en attente (Val)."
     },
     {
       "id": "BL-P1-BOA-07",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
-      "artefact": null,
-      "test": null,
+      "artefact": "packages/plateforme/src/app/api/v1/admin/collectes/[id]/route.ts (GET) + packages/plateforme/src/app/(admin)/admin/collectes/[id]/page.tsx (Blocs 1 & 6) + packages/plateforme/src/app/api/v1/admin/evenements/[id]/route.ts (GET)",
+      "test": "packages/plateforme/tests/ui/collecte-detail.m0-6.test.tsx « M0.6 / Fiche collecte Admin / régression colonne-DB (BL-P1-BOA-07) » (type via types_evenements.libelle, facture via factures.statut, res.ok non-ok → état erreur)",
       "statut": "à-vérifier",
-      "libelle": "Fiche collecte Admin : Blocs 1/3/4/5/7"
+      "libelle": "Fiche collecte Admin : Blocs 1/3/4/5/7 — fix crash écran blanc (P0) : le GET embarquait des colonnes inexistantes types_evenements.nom→libelle (fiche collecte ET evenements/[id]) + factures_collectes.statut→factures.statut ; page durcie res.ok avant désérialisation. GO-VISUAL en attente (Val)."
     },
     {
       "id": "BL-P1-BOA-08",

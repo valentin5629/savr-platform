@@ -16,7 +16,7 @@ export async function GET(
     .select(
       `*, organisations!organisation_id(raison_sociale),
        lieux!lieu_id(nom, ville, adresse_acces),
-       types_evenements!type_evenement_id(nom),
+       types_evenements!type_evenement_id(libelle),
        collectes(id, type, statut, date_collecte, statut_tms)`,
     )
     .eq('id', id)

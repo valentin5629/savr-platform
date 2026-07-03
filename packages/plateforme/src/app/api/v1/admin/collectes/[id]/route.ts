@@ -19,14 +19,14 @@ export async function GET(
       `*,
        evenements!inner(
          *, organisations!organisation_id(raison_sociale, siret),
-         lieux!lieu_id(*), types_evenements!type_evenement_id(nom)
+         lieux!lieu_id(*), types_evenements!type_evenement_id(libelle)
        ),
        collecte_flux(flux_id, poids_reel_kg, equivalent_roll, nb_bacs, flux_dechets!flux_id(code, nom)),
        collecte_tournees(
-         *, tournees(id, statut_tms, tms_reference, external_ref_commande)
+         *, tournees(id, statut, tms_reference, external_ref_commande)
        ),
        packs_antgaspi!pack_antgaspi_id(id, type_pack, credits_restants),
-       factures_collectes(id, montant_ht, statut)`,
+       factures_collectes(id, montant_ht, factures!facture_id(statut))`,
     )
     .eq('id', id)
     .single();

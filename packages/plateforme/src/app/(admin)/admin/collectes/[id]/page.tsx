@@ -40,7 +40,7 @@ interface CollecteDetail {
     pax: number;
     organisations: { raison_sociale: string };
     lieux: { nom: string; ville: string; adresse_acces: string };
-    types_evenements: { nom: string };
+    types_evenements: { libelle: string } | null;
   };
   collecte_flux: {
     flux_id: string;
@@ -51,12 +51,16 @@ interface CollecteDetail {
     rang: number;
     tournees: {
       id: string;
-      statut_tms: string;
+      statut: string;
       tms_reference: string | null;
       external_ref_commande: string | null;
     };
   }[];
-  factures_collectes: { id: string; montant_ht: number; statut: string }[];
+  factures_collectes: {
+    id: string;
+    montant_ht: number;
+    factures: { statut: string } | null;
+  }[];
 }
 
 // Référentiel des 5 flux ZD V1 (figé — seed flux_dechets). Sert à afficher tous
@@ -100,8 +104,14 @@ export default function CollecteDetailPage() {
 
   useEffect(() => {
     fetch(`/api/v1/admin/collectes/${params.id}`)
-      .then((r) => r.json())
-      .then((d: CollecteDetail) => setCollecte(d))
+      .then(async (r) => {
+        // Une réponse 4xx/5xx (ex. PostgREST 400 « colonne inconnue ») ne doit
+        // PAS être désérialisée puis posée comme donnée : son corps d'erreur
+        // ferait planter le rendu (écran blanc). On bascule sur l'état d'erreur.
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return (await r.json()) as CollecteDetail;
+      })
+      .then((d) => setCollecte(d))
       .catch(() => setError('Erreur chargement'))
       .finally(() => setLoading(false));
   }, [params.id]);
@@ -287,7 +297,7 @@ export default function CollecteDetailPage() {
                 >
                   <span className="font-medium">Camion {ct.rang}</span>
                   <Badge variant="neutral" className="text-xs">
-                    {ct.tournees.statut_tms}
+                    {ct.tournees.statut}
                   </Badge>
                   <span className="font-mono text-xs text-savr-neutral-500">
                     {ct.tournees.external_ref_commande ?? '—'}
@@ -321,7 +331,7 @@ export default function CollecteDetailPage() {
             <div>
               <dt className="text-savr-neutral-500">Type</dt>
               <dd className="font-medium">
-                {collecte.evenements.types_evenements.nom}
+                {collecte.evenements.types_evenements?.libelle ?? '—'}
               </dd>
             </div>
             <div>
@@ -556,7 +566,7 @@ export default function CollecteDetailPage() {
                 <span className="font-mono text-xs text-savr-neutral-500">
                   {f.id.slice(0, 8)}…
                 </span>
-                <Badge variant="neutral">{f.statut}</Badge>
+                <Badge variant="neutral">{f.factures?.statut ?? '—'}</Badge>
                 <span className="font-medium">{f.montant_ht} € HT</span>
               </div>
             ))}

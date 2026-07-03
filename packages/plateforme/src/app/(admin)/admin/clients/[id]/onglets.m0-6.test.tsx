@@ -22,6 +22,7 @@ import {
   OngletGrilleZd,
   OngletTarifRefacture,
   OngletCoefficients,
+  OngletRemises,
 } from './onglets';
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
@@ -302,5 +303,129 @@ describe('M0.6 — onglet Coefficient de perte labo', () => {
       screen.queryByText('Ajouter un coefficient'),
     ).not.toBeInTheDocument();
     expect(screen.queryByText('Éditer')).not.toBeInTheDocument();
+  });
+});
+
+// ── Remises négociées ────────────────────────────────────────────────────────
+
+const remise = {
+  id: 'rem-1',
+  activite: 'zd',
+  remise_pct: 0.15, // fraction → doit s'afficher « 15 % »
+  valide_du: '2025-01-01',
+  valide_jusqu_au: null,
+  scope: 'organisation',
+  commentaires: 'Geste commercial',
+};
+
+describe('M0.6 — onglet Remises négociées', () => {
+  it('affiche la remise en pourcentage (fraction ×100)', () => {
+    mockFetch({});
+    render(
+      <OngletRemises
+        organisationId="org-1"
+        remises={[remise]}
+        canEdit={true}
+        onUpdated={() => {}}
+      />,
+    );
+    // 0.15 → « 15 % » (et pas « 0.15 % »).
+    expect(screen.getByText(/^15\s*%$/)).toBeInTheDocument();
+    expect(screen.getByText('Geste commercial')).toBeInTheDocument();
+  });
+
+  it('admin : Créer une remise → POST avec remise_pct en fraction', async () => {
+    mockFetch({ '/api/v1/admin/tarifs-negocie': { id: 'new' } });
+    const onUpdated = vi.fn();
+    render(
+      <OngletRemises
+        organisationId="org-1"
+        remises={[]}
+        canEdit={true}
+        onUpdated={onUpdated}
+      />,
+    );
+    fireEvent.click(screen.getByText('Créer une remise'));
+    fireEvent.change(screen.getByLabelText('Remise (%)'), {
+      target: { value: '10' },
+    });
+    fireEvent.change(screen.getByLabelText('Valide du'), {
+      target: { value: '2026-01-01' },
+    });
+    fireEvent.click(screen.getByText('Créer'));
+    await waitFor(() => expect(onUpdated).toHaveBeenCalled());
+    const post = calls.find(
+      (c) => c.method === 'POST' && c.url === '/api/v1/admin/tarifs-negocie',
+    );
+    expect(post?.body).toMatchObject({
+      scope: 'organisation',
+      organisation_id: 'org-1',
+      activite: 'zd',
+      remise_pct: 0.1, // 10 % → 0.1
+      valide_du: '2026-01-01',
+    });
+  });
+
+  it('admin : Fermer → POST fermer', async () => {
+    mockFetch({ '/api/v1/admin/tarifs-negocie/rem-1/fermer': { id: 'rem-1' } });
+    const onUpdated = vi.fn();
+    render(
+      <OngletRemises
+        organisationId="org-1"
+        remises={[remise]}
+        canEdit={true}
+        onUpdated={onUpdated}
+      />,
+    );
+    fireEvent.click(screen.getByText('Fermer'));
+    await waitFor(() => expect(onUpdated).toHaveBeenCalled());
+    expect(
+      calls.some(
+        (c) =>
+          c.method === 'POST' &&
+          c.url === '/api/v1/admin/tarifs-negocie/rem-1/fermer',
+      ),
+    ).toBe(true);
+  });
+
+  it('ops : bandeau read-only + pas de Créer/Fermer', () => {
+    mockFetch({});
+    render(
+      <OngletRemises
+        organisationId="org-1"
+        remises={[remise]}
+        canEdit={false}
+        onUpdated={() => {}}
+      />,
+    );
+    expect(screen.getByText(/Lecture seule/)).toBeInTheDocument();
+    expect(screen.queryByText('Créer une remise')).not.toBeInTheDocument();
+    expect(screen.queryByText('Fermer')).not.toBeInTheDocument();
+  });
+
+  it('filtre « Actives uniquement » masque les remises fermées', () => {
+    mockFetch({});
+    const fermee = {
+      ...remise,
+      id: 'rem-2',
+      activite: 'ag',
+      valide_jusqu_au: '2026-06-30',
+      commentaires: 'Ancienne remise',
+    };
+    render(
+      <OngletRemises
+        organisationId="org-1"
+        remises={[remise, fermee]}
+        canEdit={true}
+        onUpdated={() => {}}
+      />,
+    );
+    // Les deux visibles au départ.
+    expect(screen.getByText('Ancienne remise')).toBeInTheDocument();
+    expect(screen.getByText('Geste commercial')).toBeInTheDocument();
+    // Activer le filtre → la remise fermée disparaît.
+    fireEvent.click(screen.getByLabelText('Actives uniquement'));
+    expect(screen.queryByText('Ancienne remise')).not.toBeInTheDocument();
+    expect(screen.getByText('Geste commercial')).toBeInTheDocument();
   });
 });

@@ -26,6 +26,7 @@ import {
   OngletGrilleZd,
   OngletTarifRefacture,
   OngletCoefficients,
+  OngletRemises,
 } from './onglets';
 
 interface OrgDetail {
@@ -69,6 +70,8 @@ interface OrgDetail {
     remise_pct: number;
     valide_du: string;
     valide_jusqu_au: string | null;
+    scope: string;
+    commentaires: string | null;
   }[];
 }
 
@@ -576,46 +579,12 @@ export default function ClientFichePage({
         )}
 
         {onglet === 'remises' && (
-          <Card className="p-6">
-            {org.tarifs_negocie.length === 0 ? (
-              <EmptyState
-                icon={<Percent />}
-                title="Aucune remise négociée"
-                description="Ajoutez une remise pour cette organisation."
-              />
-            ) : (
-              <table className="w-full text-sm">
-                <thead className="text-left text-neutral-500">
-                  <tr>
-                    <th className="pb-2">Type</th>
-                    <th className="pb-2">Remise</th>
-                    <th className="pb-2">Valide du</th>
-                    <th className="pb-2">Jusqu'au</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {org.tarifs_negocie.map((t) => (
-                    <tr key={t.id} className="border-t border-neutral-100">
-                      <td className="py-2">
-                        {t.activite ? t.activite.toUpperCase() : '—'}
-                      </td>
-                      <td className="py-2 font-medium">{t.remise_pct} %</td>
-                      <td className="py-2 text-neutral-500">
-                        {new Date(t.valide_du).toLocaleDateString('fr-FR')}
-                      </td>
-                      <td className="py-2 text-neutral-500">
-                        {t.valide_jusqu_au
-                          ? new Date(t.valide_jusqu_au).toLocaleDateString(
-                              'fr-FR',
-                            )
-                          : '—'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </Card>
+          <OngletRemises
+            organisationId={id}
+            remises={org.tarifs_negocie}
+            canEdit={canEditAdminOnly}
+            onUpdated={() => void refreshOrg()}
+          />
         )}
 
         {onglet === 'collectes' && <OngletCollectes organisationId={id} />}

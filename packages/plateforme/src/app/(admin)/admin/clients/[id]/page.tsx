@@ -66,7 +66,7 @@ interface OrgDetail {
   }[];
   tarifs_negocie: {
     id: string;
-    type_remise: string;
+    activite: string;
     remise_pct: number;
     valide_du: string;
     valide_jusqu_au: string | null;
@@ -144,10 +144,13 @@ export default function ClientFichePage({
   const [fAnnulerMotif, setFAnnulerMotif] = useState('');
 
   useEffect(() => {
+    // Durcir : vérifier res.ok AVANT de désérialiser. Sinon une réponse d'erreur
+    // (404/400 → `{ error }`) était castée en OrgDetail → `org.entites_facturation`
+    // undefined → `.length`/`.map` → exception client-side = écran blanc.
     fetch(`/api/v1/admin/organisations/${id}`)
-      .then((r) => r.json())
+      .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        setOrg(data as OrgDetail);
+        setOrg(data as OrgDetail | null);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -188,6 +191,7 @@ export default function ClientFichePage({
 
   async function refreshOrg() {
     const r = await fetch(`/api/v1/admin/organisations/${id}`);
+    if (!r.ok) return;
     setOrg((await r.json()) as OrgDetail);
   }
 
@@ -596,7 +600,9 @@ export default function ClientFichePage({
                 <tbody>
                   {org.tarifs_negocie.map((t) => (
                     <tr key={t.id} className="border-t border-neutral-100">
-                      <td className="py-2">{t.type_remise}</td>
+                      <td className="py-2">
+                        {t.activite ? t.activite.toUpperCase() : '—'}
+                      </td>
                       <td className="py-2 font-medium">{t.remise_pct} %</td>
                       <td className="py-2 text-neutral-500">
                         {new Date(t.valide_du).toLocaleDateString('fr-FR')}

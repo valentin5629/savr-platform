@@ -12,18 +12,26 @@ export async function GET(
   const { id } = await params;
   const supabase = createAdminSupabaseClient();
 
+  // Colonnes/relations réelles (vérifiées contre savr-dev). L'ancien select
+  // faisait planter la fiche organisation (écran blanc) sur 3 points :
+  //  - `code_postal`/`ville` : colonnes INEXISTANTES sur `organisations` (400).
+  //  - `tarifs_negocie` embed AMBIGU : 2 FK vers `organisations`
+  //    (`organisation_id` + `gestionnaire_organisation_id`) → HTTP 300 PGRST201.
+  //    Désambiguïsé sur `!organisation_id` (les remises propres à l'orga).
+  //  - `tarifs_negocie.type_remise` : colonne INEXISTANTE, réelle = `activite`.
+  // Vérifié : HTTP 200 (1 entité, 2 users, 1 pack, 1 remise pour Kaspia).
   const { data: org, error } = await supabase
     .from('organisations')
     .select(
       `
-      id, raison_sociale, type, siret, email_principal, telephone, adresse, code_postal, ville,
+      id, raison_sociale, type, siret, email_principal, telephone, adresse,
       actif, logo_url, est_shadow, tarif_refacture_pax_zd, grille_tarifaire_zd_id,
       cree_par_organisation_id, created_at, updated_at,
       entites_facturation(id, raison_sociale, siret, siret_verification, tva_intracom, tva_verification, entite_par_defaut),
       organisations_domaines_email(domaine),
       users(id, prenom, nom, email, role, actif, derniere_connexion),
       packs_antgaspi(id, type_pack, credits_initiaux, credits_consommes, statut, mode_facturation, commentaires, created_at),
-      tarifs_negocie(id, type_remise, remise_pct, valide_du, valide_jusqu_au, scope)
+      tarifs_negocie!organisation_id(id, activite, remise_pct, valide_du, valide_jusqu_au, scope)
     `,
     )
     .eq('id', id)

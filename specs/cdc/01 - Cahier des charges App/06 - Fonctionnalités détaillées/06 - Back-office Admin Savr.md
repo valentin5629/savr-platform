@@ -172,14 +172,14 @@ Colonnes par ligne :
 **Collectes ZD (passées)**
 - Poids total collecté (kg) : somme des pesées par flux
 - **Taux de recyclage** : `collectes.taux_recyclage` (figé à la clôture, formule à captation par filière). Format `78.4 %`, `—` si NULL.
-- Badge "Anomalie pesée" rouge si au moins un flux hors seuils min/max
+- Badge "Anomalie pesée" rouge si au moins un flux hors seuils min/max *(V2 — détection seuils par flux en g/pax, exception actée ; non calculé en V1, aucun flag `collecte_flux.anomalie` ni table de seuils alimentée)*
 
 **Collectes AG (passées)**
 - Nombre de repas collectés (`attributions_antgaspi.volume_repas_realise`)
 
 **Collectes à venir et en cours**
 - Badge "Info incomplète" orange si certains champs non bloquants sont manquants
-- Pour AG : statut attribution (en attente / validée / auto-accept / aucune reco)
+- Pour AG : statut attribution (en attente / validée / auto-accept) *(« aucune reco » replié sur « en attente » — décision Val 2026-07-02, divergence M0.6 ; une collecte sans reco est de fait en attente d'attribution. Distinction visible sur la fiche/flux algo §06.09, non persistée pré-validation en V1)*
 
 ### Filtres
 
@@ -189,7 +189,7 @@ Colonnes par ligne :
 - Statut (multi-sélection)
 - Plage de dates (`date_collecte` entre X et Y)
 - "Info incomplète" oui/non
-- "Anomalie pesée" oui/non (ZD uniquement)
+- "Anomalie pesée" oui/non (ZD uniquement) *(V2 — détection seuils par flux, exception actée ; filtre inactif en V1)*
 - "Rapport non consulté" oui/non
 - **Filtres prédéfinis cliquables (chips en haut de liste)** *(ajout 2026-05-07)* :
   - "Non transmises au TMS" *(renommé Sujet 2 2026-05-26, ex « À valider »)* → `statut=programmee` ET `tms_reference IS NULL`
@@ -232,6 +232,8 @@ Page complète. Reprise des **4 blocs de l'espace traiteur §06.04** + **3 blocs
 **Spec V1 fork (cdc-v1-scoping ultérieur)** : avec MTS-1 + Everest comme TMS V1, le bouton sera dérivé en **2 boutons distincts selon prestataire** :
 - « Envoyer à MTS-1 » — pour collectes Strike et Marathon (pousse vers MTS-1 via API V1)
 - « Envoyer à A Toutes! » — pour collectes A Toutes! (workflow distinct A Toutes!)
+
+**Routing du `consumer`/adapter (précision 2026-07-02, divergence M0.6)** : la dérivation de l'adapter au dispatch Bloc 0 doit suivre `transporteurs.type_tms` (`mts1 → adapter_mts1`, `a_toutes → adapter_everest`, `autre`/`par_mail`/`par_telephone` → `provider_manual`), exactement comme `fn_valider_attribution_ag`. La RPC `fn_dispatcher_collecte` ne doit PAS émettre l'outbox avec un `consumer = 'adapter_mts1'` fixe, sinon un dispatch A Toutes!/manuel serait routé vers l'adapter MTS-1.
 
 Le contrat S7 unifié reste en V2 (TMS Savr natif). À matérialiser dans le fork V1 quand la skill `cdc-v1-scoping` sera lancée. Voir [[08 - APIs et intégrations]] §9 Bloc Attribution Prestataire (V1 + V2).
 

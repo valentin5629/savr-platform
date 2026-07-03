@@ -1088,7 +1088,8 @@ interface PackAudit {
   id: string;
   action: string;
   old_values: { credits_initiaux?: number } | null;
-  new_values: { credits_initiaux?: number } | null;
+  // annulation_pack range le motif dans new_values.motif (pas la colonne motif).
+  new_values: { credits_initiaux?: number; motif?: string } | null;
   motif: string | null;
   created_at: string;
   auteur: { prenom: string; nom: string } | null;
@@ -1163,7 +1164,9 @@ export function PackAjustementsHistorique({
                   ? `${a.old_values.credits_initiaux} → ${a.new_values.credits_initiaux}`
                   : '—'}
               </td>
-              <td className="py-2 text-neutral-500">{a.motif ?? '—'}</td>
+              <td className="py-2 text-neutral-500">
+                {a.motif ?? a.new_values?.motif ?? '—'}
+              </td>
               <td className="py-2 text-neutral-500">
                 {a.auteur ? `${a.auteur.prenom} ${a.auteur.nom}` : '—'}
               </td>

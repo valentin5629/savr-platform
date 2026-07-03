@@ -460,12 +460,14 @@ describe('M0.6 — historique ajustements pack', () => {
   });
 
   it('rend l’action « Annulation du pack » (crédits —)', async () => {
+    // Réaliste : la route PATCH `annuler` range le motif dans new_values.motif
+    // (pas la colonne motif). Le composant doit le retrouver via fallback.
     const annulation = {
       id: 'aud-2',
       action: 'annulation_pack',
       old_values: { statut: 'actif' },
-      new_values: { statut: 'annule' },
-      motif: 'Doublon de pack',
+      new_values: { statut: 'annule', motif: 'Doublon de pack' },
+      motif: null,
       created_at: '2026-07-02T09:00:00Z',
       auteur: { prenom: 'Ops', nom: 'Un' },
     };

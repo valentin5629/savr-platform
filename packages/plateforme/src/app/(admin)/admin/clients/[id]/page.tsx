@@ -20,6 +20,14 @@ import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
+import { useUserRole } from '@/lib/use-user-role';
+import {
+  OngletCollectes,
+  OngletFactures,
+  OngletGrilleZd,
+  OngletTarifRefacture,
+  OngletCoefficients,
+} from './onglets';
 
 interface OrgDetail {
   id: string;
@@ -108,6 +116,12 @@ export default function ClientFichePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const role = useUserRole();
+  // Édition des colonnes/onglets admin-only (tarif refacturé, grille ZD,
+  // coefficient perte labo) réservée à admin_savr — ops_savr = lecture seule
+  // + bandeau (§06.06 §8 ; §09 §144/§293/§359-367). Le serveur ré-applique le
+  // droit (routes requireAdmin) : ce flag ne fait que masquer/désactiver l'UI.
+  const canEditAdminOnly = role === 'admin_savr';
   const [org, setOrg] = useState<OrgDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [onglet, setOnglet] = useState<OngletKey>('informations');
@@ -602,18 +616,30 @@ export default function ClientFichePage({
           </Card>
         )}
 
-        {(onglet === 'collectes' ||
-          onglet === 'factures' ||
-          onglet === 'grille' ||
-          onglet === 'tarif-refacture' ||
-          onglet === 'coefficients') && (
-          <Card className="p-6">
-            <EmptyState
-              icon={<BarChart3 />}
-              title="À venir"
-              description={`Cet onglet sera disponible dans le prochain sous-lot (M1.1b/M1.1c).`}
-            />
-          </Card>
+        {onglet === 'collectes' && <OngletCollectes organisationId={id} />}
+
+        {onglet === 'factures' && <OngletFactures organisationId={id} />}
+
+        {onglet === 'grille' && (
+          <OngletGrilleZd
+            organisationId={id}
+            grilleId={org.grille_tarifaire_zd_id}
+            canEdit={canEditAdminOnly}
+            onUpdated={() => void refreshOrg()}
+          />
+        )}
+
+        {onglet === 'tarif-refacture' && (
+          <OngletTarifRefacture
+            organisationId={id}
+            value={org.tarif_refacture_pax_zd}
+            canEdit={canEditAdminOnly}
+            onUpdated={() => void refreshOrg()}
+          />
+        )}
+
+        {onglet === 'coefficients' && (
+          <OngletCoefficients organisationId={id} canEdit={canEditAdminOnly} />
         )}
       </div>
 

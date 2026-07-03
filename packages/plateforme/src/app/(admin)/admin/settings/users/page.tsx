@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useUserRole } from '@/lib/use-user-role';
+import { InviteUserModal } from './invite-user-modal';
 
 interface StaffUser {
   id: string;
@@ -59,6 +61,8 @@ export default function SettingsUsersPage() {
   const [users, setUsers] = useState<StaffUser[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [showInvite, setShowInvite] = useState(false);
+  const role = useUserRole();
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -91,11 +95,22 @@ export default function SettingsUsersPage() {
             {total} membre{total !== 1 ? 's' : ''} de l&apos;équipe
           </p>
         </div>
-        <Button onClick={() => alert('Modal invitation — M1.1a suivant')}>
+        <Button onClick={() => setShowInvite(true)}>
           <Plus className="w-4 h-4" />
           Inviter un membre
         </Button>
       </div>
+
+      {showInvite && (
+        <InviteUserModal
+          canInviteAdmin={role === 'admin_savr'}
+          onClose={() => setShowInvite(false)}
+          onCreated={() => {
+            setShowInvite(false);
+            void fetchUsers();
+          }}
+        />
+      )}
 
       {/* Paramètres avancés (algo AG) — accès depuis la page Paramètres */}
       <div className="flex flex-wrap items-center gap-4 rounded-md border border-savr-neutral-200 bg-savr-neutral-50 px-4 py-3 text-sm">

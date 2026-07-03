@@ -6,7 +6,6 @@ import {
   Building2,
   Users,
   Package,
-  FileText,
   CreditCard,
   BarChart3,
   Tag,
@@ -75,7 +74,6 @@ interface OrgDetail {
 
 const ONGLETS = [
   { key: 'informations', label: 'Informations légales', icon: Building2 },
-  { key: 'domaines', label: 'Domaines email', icon: FileText },
   { key: 'users', label: 'Utilisateurs', icon: Users },
   { key: 'packs', label: 'Packs AG', icon: Package },
   { key: 'collectes', label: 'Collectes', icon: BarChart3 },
@@ -294,7 +292,7 @@ export default function ClientFichePage({
             </div>
           )}
           <div>
-            <h1 className="text-2xl font-semibold text-primary-950">
+            <h1 className="text-2xl font-semibold text-savr-primary-950">
               {org.raison_sociale}
             </h1>
             <div className="flex items-center gap-2 mt-1">
@@ -317,7 +315,7 @@ export default function ClientFichePage({
             onClick={() => setOnglet(key)}
             className={`flex items-center gap-2 px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
               onglet === key
-                ? 'border-primary-700 text-primary-700'
+                ? 'border-savr-primary-700 text-savr-primary-700'
                 : 'border-transparent text-neutral-500 hover:text-neutral-900'
             }`}
           >
@@ -376,29 +374,27 @@ export default function ClientFichePage({
                 ))}
               </div>
             )}
-          </Card>
-        )}
-
-        {onglet === 'domaines' && (
-          <Card className="p-6">
-            {org.organisations_domaines_email.length === 0 ? (
-              <EmptyState
-                icon={<FileText />}
-                title="Aucun domaine email"
-                description="Aucun domaine whitelisté pour cette organisation."
-              />
-            ) : (
-              <ul className="space-y-2">
-                {org.organisations_domaines_email.map(({ domaine }) => (
-                  <li
-                    key={domaine}
-                    className="flex items-center gap-2 text-sm font-mono bg-neutral-50 px-3 py-2 rounded"
-                  >
-                    @{domaine}
-                  </li>
-                ))}
-              </ul>
-            )}
+            {/* Domaines email — fusionnés dans « Informations légales »
+                (décision Val 2026-07-03, onglet Domaines supprimé). */}
+            <div>
+              <h3 className="font-medium mb-2">Domaines email</h3>
+              {org.organisations_domaines_email.length === 0 ? (
+                <p className="text-sm text-neutral-500">
+                  Aucun domaine whitelisté pour cette organisation.
+                </p>
+              ) : (
+                <ul className="flex flex-wrap gap-2">
+                  {org.organisations_domaines_email.map(({ domaine }) => (
+                    <li
+                      key={domaine}
+                      className="text-sm font-mono bg-neutral-50 px-3 py-1.5 rounded"
+                    >
+                      @{domaine}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </Card>
         )}
 
@@ -521,7 +517,7 @@ export default function ClientFichePage({
                   </div>
                   <div className="w-full bg-neutral-100 rounded-full h-2">
                     <div
-                      className="bg-primary-600 h-2 rounded-full"
+                      className="bg-savr-primary-600 h-2 rounded-full"
                       style={{
                         width: `${Math.round((packActif.credits_consommes / packActif.credits_initiaux) * 100)}%`,
                       }}

@@ -11,6 +11,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 
+const mockPush = vi.fn();
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: mockPush, back: vi.fn(), refresh: vi.fn() }),
+}));
+
 import {
   OngletCollectes,
   OngletFactures,
@@ -95,6 +100,7 @@ function mockFetch(routes: Record<string, unknown>) {
 
 beforeEach(() => {
   calls = [];
+  mockPush.mockClear();
 });
 afterEach(() => {
   vi.restoreAllMocks();
@@ -116,6 +122,16 @@ describe('M0.6 — onglet Collectes', () => {
       ),
     ).toBe(true);
     expect(screen.getAllByText(/Salle Wagram/).length).toBeGreaterThan(0);
+  });
+
+  it('clic sur une ligne → navigue vers la fiche collecte', async () => {
+    mockFetch({ '/api/v1/admin/collectes': { data: [collecte] } });
+    render(<OngletCollectes organisationId="org-1" />);
+    await waitFor(() =>
+      expect(screen.getAllByText('Gala ZD').length).toBeGreaterThan(0),
+    );
+    fireEvent.click(screen.getAllByText('Gala ZD')[0] as HTMLElement);
+    expect(mockPush).toHaveBeenCalledWith('/admin/collectes/col-1');
   });
 });
 

@@ -16,7 +16,7 @@
  */
 
 import * as React from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { BarChart3, CreditCard, FlaskConical, Lock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -56,6 +56,7 @@ export function OngletCollectes({
 }: {
   organisationId: string;
 }): React.ReactElement {
+  const router = useRouter();
   const [rows, setRows] = React.useState<CollecteRow[]>([]);
   const [loading, setLoading] = React.useState(true);
 
@@ -100,12 +101,9 @@ export function OngletCollectes({
       key: 'evenement',
       header: 'Événement',
       render: (row) => (
-        <Link
-          href={`/admin/collectes/${row.id}`}
-          className="font-medium text-primary-700 hover:underline"
-        >
+        <span className="font-medium text-savr-primary-700">
           {row.evenements?.nom_evenement ?? '—'}
-        </Link>
+        </span>
       ),
     },
     {
@@ -139,7 +137,12 @@ export function OngletCollectes({
 
   return (
     <Card className="p-4">
-      <DataTable columns={columns} data={rows} keyExtractor={(row) => row.id} />
+      <DataTable
+        columns={columns}
+        data={rows}
+        keyExtractor={(row) => row.id}
+        onRowClick={(row) => router.push(`/admin/collectes/${row.id}`)}
+      />
     </Card>
   );
 }
@@ -174,6 +177,7 @@ export function OngletFactures({
 }: {
   organisationId: string;
 }): React.ReactElement {
+  const router = useRouter();
   const [rows, setRows] = React.useState<FactureRow[]>([]);
   const [loading, setLoading] = React.useState(true);
 
@@ -201,12 +205,9 @@ export function OngletFactures({
       key: 'numero_facture',
       header: 'Numéro',
       render: (row) => (
-        <Link
-          href={`/admin/factures/${row.id}`}
-          className="font-medium text-primary-700 hover:underline"
-        >
+        <span className="font-medium text-savr-primary-700">
           {row.numero_facture ?? '— brouillon —'}
-        </Link>
+        </span>
       ),
     },
     {
@@ -260,7 +261,12 @@ export function OngletFactures({
 
   return (
     <Card className="p-4">
-      <DataTable columns={columns} data={rows} keyExtractor={(row) => row.id} />
+      <DataTable
+        columns={columns}
+        data={rows}
+        keyExtractor={(row) => row.id}
+        onRowClick={(row) => router.push(`/admin/factures/${row.id}`)}
+      />
     </Card>
   );
 }
@@ -363,11 +369,13 @@ export function OngletGrilleZd({
             onChange={(e) => void changerGrille(e.target.value)}
             className="w-full max-w-md border border-neutral-300 rounded-lg px-3 py-2 text-sm disabled:opacity-60"
           >
-            <option value="">Grille par défaut (Standard paliers)</option>
+            <option value="">
+              — Aucune grille spécifique (défaut appliqué) —
+            </option>
             {grilles.map((g) => (
               <option key={g.id} value={g.id}>
                 {g.nom}
-                {g.est_defaut ? ' (défaut)' : ''}
+                {g.est_defaut ? ' (grille par défaut)' : ''}
               </option>
             ))}
           </select>

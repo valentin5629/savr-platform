@@ -128,6 +128,30 @@ describe('M1.1a / Organisations / Liste', () => {
     expect(json.total).toBe(1);
     expect(Array.isArray(json.data)).toBe(true);
   });
+
+  it('M1.1a/orgas/liste — le select N’embarque PAS `evenements` (FK ambiguë → 300)', async () => {
+    // Garde anti-régression : `evenements` a 2 FK vers `organisations`
+    // (organisation_id + client_organisateur_organisation_id) → un embed non
+    // désambiguïsé renvoie HTTP 300 PGRST201 et vide toute la liste Clients.
+    // Les compteurs ZD/AG viennent de la RPC count_collectes_par_org, pas d'un
+    // embed. Vérifié réel contre savr-dev (206 + 14 organisations).
+    setupAuth('admin_savr');
+    mockSupabaseChain.range.mockResolvedValueOnce({
+      data: [],
+      error: null,
+      count: 0,
+    });
+    mockSupabaseChain.rpc
+      .mockResolvedValueOnce({ data: [], error: null })
+      .mockResolvedValueOnce({ data: [], error: null });
+
+    const { GET } = await import('@/app/api/v1/admin/organisations/route.js');
+    await GET(makeReq('GET', '/api/v1/admin/organisations'));
+
+    const selectArg = mockSupabaseChain.select.mock.calls[0]?.[0] as string;
+    expect(selectArg).not.toMatch(/evenements/);
+    expect(selectArg).toContain('users:users(count)');
+  });
 });
 
 describe('M1.1a / Organisations / Création', () => {

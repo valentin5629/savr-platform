@@ -269,3 +269,54 @@ describe('M1.1a / Organisations / Modification', () => {
     expect(json.actif).toBe(false);
   });
 });
+
+describe('M1.1a / Organisations / Fiche (GET [id])', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('M1.1a/orgas/fiche — 200 + select sans colonnes/relations fantômes', async () => {
+    // Garde anti-régression du crash « écran blanc » (P0) : le select de la
+    // fiche ne doit référencer NI `code_postal`/`ville` (colonnes inexistantes,
+    // HTTP 400) NI `type_remise` (réel = `activite`) et doit désambiguïser
+    // `tarifs_negocie!organisation_id` (2 FK → HTTP 300 sinon). Vérifié réel
+    // contre savr-dev (HTTP 200).
+    setupAuth('admin_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: {
+        id: 'org-1',
+        raison_sociale: 'Kaspia',
+        type: 'traiteur',
+        entites_facturation: [],
+        organisations_domaines_email: [],
+        users: [],
+        packs_antgaspi: [],
+        tarifs_negocie: [],
+      },
+      error: null,
+    });
+    const { GET } =
+      await import('@/app/api/v1/admin/organisations/[id]/route.js');
+    const res = await GET(makeReq('GET', '/api/v1/admin/organisations/org-1'), {
+      params: Promise.resolve({ id: 'org-1' }),
+    });
+    expect(res.status).toBe(200);
+
+    const selectArg = mockSupabaseChain.select.mock.calls[0]?.[0] as string;
+    expect(selectArg).not.toMatch(/code_postal|ville|type_remise/);
+    expect(selectArg).toContain('tarifs_negocie!organisation_id');
+    expect(selectArg).toContain('activite');
+  });
+
+  it('M1.1a/orgas/fiche — 404 si organisation introuvable', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'not found' },
+    });
+    const { GET } =
+      await import('@/app/api/v1/admin/organisations/[id]/route.js');
+    const res = await GET(makeReq('GET', '/api/v1/admin/organisations/nope'), {
+      params: Promise.resolve({ id: 'nope' }),
+    });
+    expect(res.status).toBe(404);
+  });
+});

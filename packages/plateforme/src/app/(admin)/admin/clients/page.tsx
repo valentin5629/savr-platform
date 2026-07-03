@@ -35,7 +35,7 @@ const columns: Column<Organisation>[] = [
     render: (row) => (
       <a
         href={`/admin/clients/${row.id}`}
-        className="font-medium text-primary-700 hover:underline"
+        className="font-medium text-savr-primary-700 hover:underline"
       >
         {row.raison_sociale}
       </a>
@@ -110,7 +110,9 @@ export default function ClientsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-primary-950">Clients</h1>
+          <h1 className="text-2xl font-semibold text-savr-primary-950">
+            Clients
+          </h1>
           <p className="text-sm text-neutral-500 mt-1">
             {total} organisation{total !== 1 ? 's' : ''}
           </p>
@@ -135,13 +137,13 @@ export default function ClientsPage() {
             placeholder="Rechercher…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 pr-4 py-2 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="pl-9 pr-4 py-2 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-savr-primary-500"
           />
         </div>
         <select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value)}
-          className="px-3 py-2 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+          className="px-3 py-2 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-savr-primary-500"
         >
           <option value="">Tous les types</option>
           {Object.entries(TYPE_LABELS).map(([k, v]) => (
@@ -153,7 +155,7 @@ export default function ClientsPage() {
         <select
           value={actifFilter}
           onChange={(e) => setActifFilter(e.target.value)}
-          className="px-3 py-2 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+          className="px-3 py-2 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-savr-primary-500"
         >
           <option value="">Tous les statuts</option>
           <option value="true">Actifs</option>

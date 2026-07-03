@@ -30,7 +30,7 @@ const columns: Column<Lieu>[] = [
     render: (row) => (
       <Link
         href={`/admin/lieux/${row.id}`}
-        className="font-medium text-primary-700 hover:underline"
+        className="font-medium text-savr-primary-700 hover:underline"
       >
         {row.nom}
       </Link>
@@ -135,7 +135,7 @@ export default function LieuxPage() {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-savr-neutral-400" />
           <input
-            className="w-full pl-9 pr-3 py-2 border border-savr-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full pl-9 pr-3 py-2 border border-savr-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-savr-primary-500"
             placeholder="Rechercher…"
             value={q}
             onChange={(e) => {

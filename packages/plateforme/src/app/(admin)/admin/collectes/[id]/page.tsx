@@ -529,7 +529,7 @@ export default function CollecteDetailPage() {
                 Attribution complète (validation, emails, top 3 associations) :{' '}
                 <Link
                   href={`/admin/attributions-ag/${collecte.id}`}
-                  className="text-primary-600 hover:underline"
+                  className="text-savr-primary-600 hover:underline"
                 >
                   écran d&apos;attribution AG →
                 </Link>

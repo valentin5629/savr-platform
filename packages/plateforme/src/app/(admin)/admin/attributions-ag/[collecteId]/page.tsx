@@ -290,7 +290,7 @@ export default function AttributionDetailPage() {
                 key={asso.id}
                 className={`cursor-pointer border-2 p-4 transition-colors ${
                   selectedAsso === asso.id
-                    ? 'border-primary-500 bg-primary-50'
+                    ? 'border-savr-primary-500 bg-savr-primary-50'
                     : 'border-savr-neutral-200 hover:border-savr-neutral-300'
                 }`}
                 onClick={() => {
@@ -366,7 +366,7 @@ export default function AttributionDetailPage() {
                     key={a.id}
                     className={`flex w-full items-center justify-between rounded border px-2 py-1 text-left text-sm ${
                       selectedAsso === a.id
-                        ? 'border-primary-500 bg-primary-50'
+                        ? 'border-savr-primary-500 bg-savr-primary-50'
                         : 'border-savr-neutral-200'
                     }`}
                     onClick={() => {
@@ -413,7 +413,7 @@ export default function AttributionDetailPage() {
                 key={t.id}
                 className={`cursor-pointer border-2 p-4 transition-colors ${
                   selectedTransp === t.id
-                    ? 'border-primary-500 bg-primary-50'
+                    ? 'border-savr-primary-500 bg-savr-primary-50'
                     : 'border-savr-neutral-200 hover:border-savr-neutral-300'
                 }`}
                 onClick={() => {
@@ -462,7 +462,7 @@ export default function AttributionDetailPage() {
                     key={t.id}
                     className={`flex w-full items-center justify-between rounded border px-2 py-1 text-left text-sm ${
                       selectedTransp === t.id
-                        ? 'border-primary-500 bg-primary-50'
+                        ? 'border-savr-primary-500 bg-savr-primary-50'
                         : 'border-savr-neutral-200'
                     }`}
                     onClick={() => {

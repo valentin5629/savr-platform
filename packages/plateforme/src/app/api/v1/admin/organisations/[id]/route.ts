@@ -31,7 +31,7 @@ export async function GET(
       organisations_domaines_email(domaine),
       users(id, prenom, nom, email, role, actif, derniere_connexion),
       packs_antgaspi(id, type_pack, credits_initiaux, credits_consommes, statut, mode_facturation, commentaires, created_at),
-      tarifs_negocie!organisation_id(id, activite, remise_pct, valide_du, valide_jusqu_au, scope)
+      tarifs_negocie!organisation_id(id, activite, remise_pct, valide_du, valide_jusqu_au, scope, commentaires)
     `,
     )
     .eq('id', id)

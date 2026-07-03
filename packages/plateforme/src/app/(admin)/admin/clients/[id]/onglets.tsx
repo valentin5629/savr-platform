@@ -17,7 +17,13 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { BarChart3, CreditCard, FlaskConical, Lock } from 'lucide-react';
+import {
+  BarChart3,
+  CreditCard,
+  FlaskConical,
+  Lock,
+  Percent,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -796,6 +802,261 @@ export function OngletCoefficients({
                 </Button>
                 <Button type="submit" disabled={saving}>
                   {saving ? 'Enregistrement…' : 'Enregistrer'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ── Onglet Remises négociées (écriture admin-only) ──────────────────────────
+
+interface Remise {
+  id: string;
+  activite: string;
+  remise_pct: number; // FRACTION 0..1 (0.15 = 15 %)
+  valide_du: string;
+  valide_jusqu_au: string | null;
+  scope: string;
+  commentaires: string | null;
+}
+
+export function OngletRemises({
+  organisationId,
+  remises,
+  canEdit,
+  onUpdated,
+}: {
+  organisationId: string;
+  remises: Remise[];
+  canEdit: boolean;
+  onUpdated: () => void;
+}): React.ReactElement {
+  const [modal, setModal] = React.useState(false);
+  const [fActivite, setFActivite] = React.useState('zd');
+  const [fPct, setFPct] = React.useState('');
+  const [fValideDu, setFValideDu] = React.useState('');
+  const [fCommentaires, setFCommentaires] = React.useState('');
+  const [saving, setSaving] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [closingId, setClosingId] = React.useState<string | null>(null);
+
+  function openCreer() {
+    setModal(true);
+    setFActivite('zd');
+    setFPct('');
+    setFValideDu('');
+    setFCommentaires('');
+    setError(null);
+  }
+
+  async function creer(e: React.FormEvent) {
+    e.preventDefault();
+    const pct = Number(fPct);
+    if (isNaN(pct) || pct < 0 || pct > 100) {
+      setError('Remise invalide (0 à 100 %)');
+      return;
+    }
+    if (!fValideDu) {
+      setError('Date « valide du » requise');
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const r = await fetch('/api/v1/admin/tarifs-negocie', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scope: 'organisation',
+          organisation_id: organisationId,
+          activite: fActivite,
+          remise_pct: pct / 100, // % → fraction 0..1
+          valide_du: fValideDu,
+          commentaires: fCommentaires || undefined,
+        }),
+      });
+      const j = (await r.json().catch(() => ({}))) as { error?: string };
+      if (!r.ok) {
+        setError(j.error ?? 'Erreur');
+        return;
+      }
+      setModal(false);
+      onUpdated();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function fermer(id: string) {
+    setClosingId(id);
+    try {
+      const r = await fetch(`/api/v1/admin/tarifs-negocie/${id}/fermer`, {
+        method: 'POST',
+      });
+      if (r.ok) onUpdated();
+    } finally {
+      setClosingId(null);
+    }
+  }
+
+  return (
+    <Card className="p-6 space-y-4">
+      {!canEdit && <OpsReadOnlyBanner />}
+
+      <div className="flex items-center justify-between">
+        <h3 className="font-medium text-sm">Remises négociées</h3>
+        {canEdit && (
+          <Button size="sm" onClick={openCreer}>
+            Créer une remise
+          </Button>
+        )}
+      </div>
+
+      {remises.length === 0 ? (
+        <EmptyState
+          icon={<Percent />}
+          title="Aucune remise négociée"
+          description="Aucune remise n'a été accordée à cette organisation."
+        />
+      ) : (
+        <table className="w-full text-sm">
+          <thead className="text-left text-neutral-500">
+            <tr>
+              <th className="pb-2">Activité</th>
+              <th className="pb-2">Remise</th>
+              <th className="pb-2">Valide du</th>
+              <th className="pb-2">Jusqu'au</th>
+              <th className="pb-2">Commentaire</th>
+              {canEdit && <th className="pb-2"></th>}
+            </tr>
+          </thead>
+          <tbody>
+            {remises.map((r) => (
+              <tr key={r.id} className="border-t border-neutral-100">
+                <td className="py-2">
+                  {r.activite ? r.activite.toUpperCase() : '—'}
+                </td>
+                <td className="py-2 font-medium">
+                  {(r.remise_pct * 100).toLocaleString('fr-FR', {
+                    maximumFractionDigits: 2,
+                  })}{' '}
+                  %
+                </td>
+                <td className="py-2 text-neutral-500">
+                  {new Date(r.valide_du).toLocaleDateString('fr-FR')}
+                </td>
+                <td className="py-2 text-neutral-500">
+                  {r.valide_jusqu_au ? (
+                    new Date(r.valide_jusqu_au).toLocaleDateString('fr-FR')
+                  ) : (
+                    <Badge variant="success" className="text-xs">
+                      Active
+                    </Badge>
+                  )}
+                </td>
+                <td className="py-2 text-neutral-500">
+                  {r.commentaires ?? '—'}
+                </td>
+                {canEdit && (
+                  <td className="py-2 text-right">
+                    {!r.valide_jusqu_au && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={closingId === r.id}
+                        onClick={() => void fermer(r.id)}
+                      >
+                        {closingId === r.id ? 'Fermeture…' : 'Fermer'}
+                      </Button>
+                    )}
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {modal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+            <h2 className="text-lg font-semibold mb-4">Créer une remise</h2>
+            {error && (
+              <div className="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-2 text-sm">
+                {error}
+              </div>
+            )}
+            <form onSubmit={(e) => void creer(e)} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Activité
+                </label>
+                <select
+                  aria-label="Activité"
+                  value={fActivite}
+                  onChange={(e) => setFActivite(e.target.value)}
+                  className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
+                >
+                  <option value="zd">Zéro déchet (ZD)</option>
+                  <option value="ag">Anti-gaspi (AG)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Remise (%)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step="0.01"
+                  value={fPct}
+                  aria-label="Remise (%)"
+                  onChange={(e) => setFPct(e.target.value)}
+                  className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Valide du
+                </label>
+                <input
+                  type="date"
+                  value={fValideDu}
+                  aria-label="Valide du"
+                  onChange={(e) => setFValideDu(e.target.value)}
+                  className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Commentaire
+                </label>
+                <textarea
+                  value={fCommentaires}
+                  onChange={(e) => setFCommentaires(e.target.value)}
+                  rows={2}
+                  className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
+                  placeholder="Optionnel"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={saving}
+                  onClick={() => setModal(false)}
+                >
+                  Annuler
+                </Button>
+                <Button type="submit" disabled={saving}>
+                  {saving ? 'Création…' : 'Créer'}
                 </Button>
               </div>
             </form>

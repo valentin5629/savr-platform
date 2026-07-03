@@ -13,10 +13,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     'gestionnaire_organisation_id',
   );
 
+  // Colonne réelle = `activite` (zd/ag), PAS `type_remise` (inexistante → HTTP 400).
+  // Vérifié contre savr-dev.
   let query = supabase
     .from('tarifs_negocie')
     .select(
-      'id, scope, organisation_id, gestionnaire_organisation_id, type_remise, remise_pct, valide_du, valide_jusqu_au, created_at',
+      'id, scope, organisation_id, gestionnaire_organisation_id, activite, remise_pct, valide_du, valide_jusqu_au, commentaires, created_at',
     )
     .order('created_at', { ascending: false });
 
@@ -49,21 +51,23 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     scope,
     organisation_id,
     gestionnaire_organisation_id,
-    type_remise,
+    activite,
     remise_pct,
     valide_du,
+    commentaires,
   } = body as {
     scope?: string;
     organisation_id?: string;
     gestionnaire_organisation_id?: string;
-    type_remise?: string;
+    activite?: string;
     remise_pct?: number;
     valide_du?: string;
+    commentaires?: string;
   };
 
-  if (!scope || !type_remise || remise_pct === undefined || !valide_du) {
+  if (!scope || !activite || remise_pct === undefined || !valide_du) {
     return NextResponse.json(
-      { error: 'scope, type_remise, remise_pct, valide_du sont obligatoires' },
+      { error: 'scope, activite, remise_pct, valide_du sont obligatoires' },
       { status: 422 },
     );
   }
@@ -79,9 +83,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { status: 422 },
     );
   }
-  if (remise_pct < 0 || remise_pct > 100) {
+  // remise_pct est une FRACTION 0..1 (0.15 = 15 %), CHECK DB
+  // `tarifs_negocie_remise_pct_check`. L'UI saisit un % et divise par 100.
+  if (remise_pct < 0 || remise_pct > 1) {
     return NextResponse.json(
-      { error: 'remise_pct doit être entre 0 et 100' },
+      { error: 'remise_pct doit être une fraction entre 0 et 1' },
       { status: 422 },
     );
   }
@@ -94,9 +100,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       scope,
       organisation_id,
       gestionnaire_organisation_id,
-      type_remise,
+      activite,
       remise_pct,
       valide_du,
+      commentaires: commentaires ?? null,
     })
     .select('*')
     .single();
@@ -110,7 +117,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       record_id: data.id,
       action: 'creation_remise',
       user_id: auth.ctx.userId,
-      new_values: { scope, organisation_id, remise_pct, valide_du },
+      new_values: { scope, organisation_id, activite, remise_pct, valide_du },
     });
   } catch {
     /* audit failure non-bloquante */

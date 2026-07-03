@@ -88,7 +88,7 @@ export default function SettingsUsersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-primary-950">
+          <h1 className="text-2xl font-semibold text-savr-primary-950">
             Utilisateurs Savr
           </h1>
           <p className="text-sm text-neutral-500 mt-1">
@@ -117,13 +117,13 @@ export default function SettingsUsersPage() {
         <span className="font-medium text-savr-neutral-700">Paramètres :</span>
         <Link
           href="/admin/parametres/algo-ag"
-          className="text-primary-600 hover:underline"
+          className="text-savr-primary-600 hover:underline"
         >
           Paramètres algorithme →
         </Link>
         <Link
           href="/admin/parametres/auto-accept"
-          className="text-primary-600 hover:underline"
+          className="text-savr-primary-600 hover:underline"
         >
           Configuration auto-accept →
         </Link>

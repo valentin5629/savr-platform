@@ -436,7 +436,7 @@ export default function FactureDetailPage() {
           href={facture.pdf_url_pennylane}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex items-center gap-2 text-sm text-primary-700 hover:underline"
+          className="inline-flex items-center gap-2 text-sm text-savr-primary-700 hover:underline"
         >
           Télécharger le PDF Pennylane
         </a>

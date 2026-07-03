@@ -124,7 +124,7 @@ export default function TarifsPacksAGPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-primary-950">
+          <h1 className="text-2xl font-semibold text-savr-primary-950">
             Tarifs packs AG
           </h1>
           <p className="text-sm text-neutral-500 mt-1">
@@ -171,7 +171,7 @@ export default function TarifsPacksAGPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-neutral-500">Montant total HT</span>
-                  <span className="font-medium text-primary-700">
+                  <span className="font-medium text-savr-primary-700">
                     {tarif.montant_total_ht.toLocaleString('fr-FR', {
                       minimumFractionDigits: 2,
                     })}{' '}

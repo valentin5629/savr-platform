@@ -121,7 +121,7 @@ export function ImpersonationLauncher(): React.ReactElement | null {
           aria-label="Utilisateur à impersonner"
           value={selected}
           onChange={(e) => setSelected(e.target.value)}
-          className="min-w-[22rem] px-3 py-2 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+          className="min-w-[22rem] px-3 py-2 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-savr-primary-500"
         >
           <option value="">Choisir un utilisateur…</option>
           {candidats.map((u) => (

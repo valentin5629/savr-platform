@@ -66,7 +66,7 @@ const columns: Column<Facture>[] = [
     render: (row) => (
       <Link
         href={`/admin/factures/${row.id}`}
-        className="font-medium text-primary-700 hover:underline"
+        className="font-medium text-savr-primary-700 hover:underline"
       >
         {row.numero_facture ?? '— brouillon —'}
       </Link>
@@ -156,7 +156,7 @@ export default function FacturesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <FileText className="h-6 w-6 text-primary-600" />
+          <FileText className="h-6 w-6 text-savr-primary-600" />
           <h1 className="text-2xl font-semibold">Factures</h1>
         </div>
         <Button variant="ghost" onClick={exportCsv}>
@@ -171,7 +171,7 @@ export default function FacturesPage() {
             onClick={() => setFiltre(f.key)}
             className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
               filtre === f.key
-                ? 'bg-primary-600 text-white'
+                ? 'bg-savr-primary-600 text-white'
                 : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
             }`}
           >

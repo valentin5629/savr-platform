@@ -235,7 +235,7 @@ const columns: Column<Collecte>[] = [
       <div className="flex flex-col leading-tight">
         <Link
           href={`/admin/collectes/${row.id}`}
-          className="font-medium text-primary-700 hover:underline"
+          className="font-medium text-savr-primary-700 hover:underline"
         >
           {formatDateHeure(row.date_collecte, row.heure_collecte)}
         </Link>
@@ -332,7 +332,7 @@ const columns: Column<Collecte>[] = [
       aAttribuer(row) ? (
         <Link
           href={`/admin/attributions-ag/${row.id}`}
-          className="text-sm font-medium text-primary-600 hover:underline"
+          className="text-sm font-medium text-savr-primary-600 hover:underline"
         >
           Attribuer →
         </Link>
@@ -483,7 +483,7 @@ export default function CollectesPage() {
           }}
           className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
             chip === ''
-              ? 'bg-primary-600 text-white'
+              ? 'bg-savr-primary-600 text-white'
               : 'bg-savr-neutral-100 text-savr-neutral-700 hover:bg-savr-neutral-200'
           }`}
         >
@@ -498,7 +498,7 @@ export default function CollectesPage() {
             }}
             className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
               chip === c.key
-                ? 'bg-primary-600 text-white'
+                ? 'bg-savr-primary-600 text-white'
                 : 'bg-savr-neutral-100 text-savr-neutral-700 hover:bg-savr-neutral-200'
             }`}
           >
@@ -618,7 +618,7 @@ export default function CollectesPage() {
                     onClick={() => toggleStatut(s)}
                     className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
                       active
-                        ? 'bg-primary-600 text-white'
+                        ? 'bg-savr-primary-600 text-white'
                         : 'bg-savr-white text-savr-neutral-700 border border-savr-neutral-200 hover:bg-savr-neutral-100'
                     }`}
                   >

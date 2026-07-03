@@ -132,8 +132,8 @@
       "bytes": 50403
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": {
-      "sha256": "bb22534c12398270f0bb859a211fcdeb7c1de1fceef07f380d8768094e66db50",
-      "bytes": 85552
+      "sha256": "da0d2f07ec18ac99496547ea15797cdd002168b18c06f9f72e59100002ad1ae8",
+      "bytes": 87125
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md": {
       "sha256": "7292c799fdb5c5598dcd979245740850df9851ffb0b475fb08e9fd76e44b41e4",
@@ -148,8 +148,8 @@
       "bytes": 17393
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/_RAPPORT-EXPORT.md": {
-      "sha256": "01ce28ef24d7482a6186cb7bac4504b6ba19b759231561ebeda4c3112cb01d2d",
-      "bytes": 740
+      "sha256": "cbbda34dcc0dc947a9ccd62fc5d2aeaf4a93b277ed347bd6e88eaf6b1ba6bd52",
+      "bytes": 658
     },
     "specs/cdc/01 - Cahier des charges App/06 - Monitoring perf prod.md": {
       "sha256": "7cc0e21a5d3fb591a4fa351f2ff37e939fe4b7320f980ef346ab86c759f867a6",
@@ -220,12 +220,12 @@
       "bytes": 2699
     },
     "specs/cdc/01 - Cahier des charges App/07 - Observabilité/06 - Audit trail.md": {
-      "sha256": "77f6edc3e9ecc1a04e009ca1ea3c335c393e54bd0878fb878bc0c8b7e94f4916",
-      "bytes": 5599
+      "sha256": "4c34eefcb747039ee1dc825321457083e0f286fe138c31d2c06a973c212acadd",
+      "bytes": 5855
     },
     "specs/cdc/01 - Cahier des charges App/07 - Observabilité/_RAPPORT-EXPORT.md": {
-      "sha256": "84713a56e8ac16f0a74d309cb55e8b42fef866465cbd97de029f2a3599084069",
-      "bytes": 1615
+      "sha256": "a8ef997b82d9a2ba31e668b00a09e99ae3a2a1b8330e29170c9c9a82fd4ed059",
+      "bytes": 315
     },
     "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": {
       "sha256": "12220ef7239242e5e65bcb454d7aeeb19b9285cb65606c08c6f70487ce825082",

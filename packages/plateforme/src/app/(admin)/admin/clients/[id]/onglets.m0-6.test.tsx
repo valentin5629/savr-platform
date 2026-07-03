@@ -459,6 +459,29 @@ describe('M0.6 — historique ajustements pack', () => {
     expect(screen.getByText('Admin Savr')).toBeInTheDocument();
   });
 
+  it('rend l’action « Annulation du pack » (crédits —)', async () => {
+    const annulation = {
+      id: 'aud-2',
+      action: 'annulation_pack',
+      old_values: { statut: 'actif' },
+      new_values: { statut: 'annule' },
+      motif: 'Doublon de pack',
+      created_at: '2026-07-02T09:00:00Z',
+      auteur: { prenom: 'Ops', nom: 'Un' },
+    };
+    mockFetch({
+      '/api/v1/admin/packs-antgaspi/historique': { data: [annulation] },
+    });
+    render(<PackAjustementsHistorique organisationId="org-1" />);
+    await waitFor(() =>
+      expect(screen.getByText('Annulation du pack')).toBeInTheDocument(),
+    );
+    expect(screen.getByText('Doublon de pack')).toBeInTheDocument();
+    expect(screen.getByText('Ops Un')).toBeInTheDocument();
+    // Pas de crédits avant/après sur une annulation → « — ».
+    expect(screen.queryByText(/→/)).not.toBeInTheDocument();
+  });
+
   it('ne rend rien si aucun ajustement', async () => {
     mockFetch({ '/api/v1/admin/packs-antgaspi/historique': { data: [] } });
     const { container } = render(

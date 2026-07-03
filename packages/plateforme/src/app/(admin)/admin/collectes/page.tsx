@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Truck, Plus, FileText, CheckCircle2, RotateCw } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -8,10 +8,6 @@ import { Badge } from '@/components/ui/badge';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Autocomplete,
-  type AutocompleteOption,
-} from '@/components/ui/autocomplete';
 import {
   StatusCollecte,
   type StatutCollecte,
@@ -351,55 +347,64 @@ export default function CollectesPage() {
   const [chip, setChip] = useState('');
   const [type, setType] = useState('');
   const [statuts, setStatuts] = useState<string[]>([]);
-  const [traiteur, setTraiteur] = useState<AutocompleteOption | null>(null);
-  const [lieu, setLieu] = useState<AutocompleteOption | null>(null);
+  const [traiteurId, setTraiteurId] = useState('');
+  const [lieuId, setLieuId] = useState('');
+  // Listes complètes pour les menus déroulants (chargées une seule fois).
+  const [traiteurs, setTraiteurs] = useState<{ id: string; label: string }[]>(
+    [],
+  );
+  const [lieux, setLieux] = useState<{ id: string; label: string }[]>([]);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [infoIncomplete, setInfoIncomplete] = useState(false);
   const [rapportNonConsulte, setRapportNonConsulte] = useState(false);
   const [page, setPage] = useState(1);
 
-  // Cache de la liste des traiteurs (filtrage autocomplete côté client — ~80 orgas).
-  const traiteursCache = useRef<AutocompleteOption[] | null>(null);
-
-  const fetchTraiteurs = useCallback(
-    async (q: string): Promise<AutocompleteOption[]> => {
-      if (!traiteursCache.current) {
-        const res = await fetch('/api/v1/admin/organisations?type=traiteur');
-        if (res.ok) {
-          const json = (await res.json()) as {
-            data: { id: string; raison_sociale: string }[];
-          };
-          traiteursCache.current = json.data.map((o) => ({
-            id: o.id,
-            label: o.raison_sociale,
-          }));
-        } else {
-          traiteursCache.current = [];
-        }
+  // Chargement des listes complètes (traiteurs + lieux) pour les menus
+  // déroulants, une seule fois. Pagination suivie jusqu'à épuisement.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const trAll: { id: string; label: string }[] = [];
+      for (let p = 1; p <= 20; p++) {
+        const res = await fetch(
+          `/api/v1/admin/organisations?type=traiteur&page=${p}`,
+        );
+        if (!res.ok) break;
+        const j = (await res.json()) as {
+          data: { id: string; raison_sociale: string }[];
+          limit?: number;
+        };
+        trAll.push(
+          ...j.data.map((o) => ({ id: o.id, label: o.raison_sociale })),
+        );
+        if (j.data.length < (j.limit ?? 50)) break;
       }
-      const needle = q.toLowerCase();
-      return traiteursCache.current
-        .filter((o) => o.label.toLowerCase().includes(needle))
-        .slice(0, 20);
-    },
-    [],
-  );
+      if (!cancelled)
+        setTraiteurs(trAll.sort((a, b) => a.label.localeCompare(b.label)));
 
-  const fetchLieux = useCallback(
-    async (q: string): Promise<AutocompleteOption[]> => {
-      const res = await fetch(`/api/v1/admin/lieux?q=${encodeURIComponent(q)}`);
-      if (!res.ok) return [];
-      const json = (await res.json()) as {
-        data: { id: string; nom: string; ville: string | null }[];
-      };
-      return json.data.slice(0, 20).map((l) => ({
-        id: l.id,
-        label: l.ville ? `${l.nom} — ${l.ville}` : l.nom,
-      }));
-    },
-    [],
-  );
+      const lxAll: { id: string; label: string }[] = [];
+      for (let p = 1; p <= 40; p++) {
+        const res = await fetch(`/api/v1/admin/lieux?page=${p}`);
+        if (!res.ok) break;
+        const j = (await res.json()) as {
+          data: { id: string; nom: string; ville: string | null }[];
+        };
+        lxAll.push(
+          ...j.data.map((l) => ({
+            id: l.id,
+            label: l.ville ? `${l.nom} — ${l.ville}` : l.nom,
+          })),
+        );
+        if (j.data.length < 50) break;
+      }
+      if (!cancelled)
+        setLieux(lxAll.sort((a, b) => a.label.localeCompare(b.label)));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const fetchCollectes = useCallback(async () => {
     setLoading(true);
@@ -409,8 +414,8 @@ export default function CollectesPage() {
     } else {
       if (type) params.set('type', type);
       if (statuts.length > 0) params.set('statuts', statuts.join(','));
-      if (traiteur) params.set('organisation_id', traiteur.id);
-      if (lieu) params.set('lieu_id', lieu.id);
+      if (traiteurId) params.set('organisation_id', traiteurId);
+      if (lieuId) params.set('lieu_id', lieuId);
       if (from) params.set('from', from);
       if (to) params.set('to', to);
       if (infoIncomplete) params.set('info_incomplete', 'true');
@@ -431,8 +436,8 @@ export default function CollectesPage() {
     chip,
     type,
     statuts,
-    traiteur,
-    lieu,
+    traiteurId,
+    lieuId,
     from,
     to,
     infoIncomplete,
@@ -527,31 +532,43 @@ export default function CollectesPage() {
               <label className="mb-1 block text-xs font-medium text-savr-neutral-600">
                 Traiteur
               </label>
-              <Autocomplete
+              <select
                 aria-label="Filtrer par traiteur"
-                placeholder="Rechercher un traiteur…"
-                fetchOptions={fetchTraiteurs}
-                selected={traiteur}
-                onChange={(o) => {
-                  setTraiteur(o);
+                className="h-10 w-full rounded-savr-md border border-savr-neutral-300 bg-savr-white px-3 text-sm"
+                value={traiteurId}
+                onChange={(e) => {
+                  setTraiteurId(e.target.value);
                   setPage(1);
                 }}
-              />
+              >
+                <option value="">Tous les traiteurs</option>
+                {traiteurs.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-savr-neutral-600">
                 Lieu
               </label>
-              <Autocomplete
+              <select
                 aria-label="Filtrer par lieu"
-                placeholder="Rechercher un lieu…"
-                fetchOptions={fetchLieux}
-                selected={lieu}
-                onChange={(o) => {
-                  setLieu(o);
+                className="h-10 w-full rounded-savr-md border border-savr-neutral-300 bg-savr-white px-3 text-sm"
+                value={lieuId}
+                onChange={(e) => {
+                  setLieuId(e.target.value);
                   setPage(1);
                 }}
-              />
+              >
+                <option value="">Tous les lieux</option>
+                {lieux.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.label}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="flex gap-2">
               <div className="flex-1">

@@ -137,6 +137,32 @@ function mockCollectesFetch() {
         json: async () => ({ data: ALL, total: ALL.length }),
       });
     }
+    // Listes des menus déroulants (chargées au montage). Une 2e page vide
+    // arrête la pagination.
+    if (typeof url === 'string' && url.includes('/admin/organisations')) {
+      const empty = /page=([2-9]|\d{2,})/.test(url);
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          data: empty
+            ? []
+            : [{ id: 'org-1', raison_sociale: 'Traiteur Alpha' }],
+          limit: 50,
+        }),
+      });
+    }
+    if (typeof url === 'string' && url.includes('/admin/lieux')) {
+      const empty = /page=([2-9]|\d{2,})/.test(url);
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          data: empty
+            ? []
+            : [{ id: 'lieu-1', nom: 'Salle Wagram', ville: 'Paris' }],
+          total: 1,
+        }),
+      });
+    }
     return Promise.resolve({ ok: true, json: async () => ({ data: [] }) });
   });
   vi.stubGlobal('fetch', fetchMock);
@@ -240,12 +266,54 @@ describe('M0.6 — liste collectes Admin (BL-P1-BOA-05)', () => {
     });
   });
 
-  it('M0.6 — filtres traiteur + lieu (autocomplete) présents', async () => {
-    mockCollectesFetch();
+  it('M0.6 — filtres traiteur + lieu = menus déroulants peuplés + filtrage serveur', async () => {
+    const fetchMock = mockCollectesFetch();
     render(<CollectesPage />);
     await screen.findAllByText('Client organisateur');
 
-    expect(screen.getByLabelText('Filtrer par traiteur')).toBeInTheDocument();
-    expect(screen.getByLabelText('Filtrer par lieu')).toBeInTheDocument();
+    const traiteurSelect = screen.getByLabelText(
+      'Filtrer par traiteur',
+    ) as HTMLSelectElement;
+    const lieuSelect = screen.getByLabelText(
+      'Filtrer par lieu',
+    ) as HTMLSelectElement;
+    expect(traiteurSelect.tagName).toBe('SELECT');
+    expect(lieuSelect.tagName).toBe('SELECT');
+
+    // Options chargées au montage (listes complètes).
+    await waitFor(() =>
+      expect(
+        screen.getByRole('option', { name: 'Traiteur Alpha' }),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByRole('option', { name: 'Salle Wagram — Paris' }),
+    ).toBeInTheDocument();
+
+    // Sélectionner un traiteur → requête collectes filtrée par organisation_id.
+    fireEvent.change(traiteurSelect, { target: { value: 'org-1' } });
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(
+          (c) =>
+            typeof c[0] === 'string' &&
+            c[0].startsWith('/api/v1/admin/collectes') &&
+            c[0].includes('organisation_id=org-1'),
+        ),
+      ).toBe(true),
+    );
+
+    // Sélectionner un lieu → requête filtrée par lieu_id.
+    fireEvent.change(lieuSelect, { target: { value: 'lieu-1' } });
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(
+          (c) =>
+            typeof c[0] === 'string' &&
+            c[0].startsWith('/api/v1/admin/collectes') &&
+            c[0].includes('lieu_id=lieu-1'),
+        ),
+      ).toBe(true),
+    );
   });
 });

@@ -1081,3 +1081,96 @@ export function OngletRemises({
     </Card>
   );
 }
+
+// ── Historique des ajustements de crédits pack (audit_log) ──────────────────
+
+interface PackAudit {
+  id: string;
+  action: string;
+  old_values: { credits_initiaux?: number } | null;
+  new_values: { credits_initiaux?: number } | null;
+  motif: string | null;
+  created_at: string;
+  auteur: { prenom: string; nom: string } | null;
+}
+
+/**
+ * Journal des actions manuelles sur les packs AG (ajustement crédits,
+ * annulation) depuis `audit_log`. Rendu sous « Historique des packs » de
+ * l'onglet Packs AG. Ne rend rien s'il n'y a aucun ajustement (pas de section
+ * vide). §06.06 §8 (valeurs avant/après + motif + auteur tracés).
+ */
+export function PackAjustementsHistorique({
+  organisationId,
+}: {
+  organisationId: string;
+}): React.ReactElement | null {
+  const [rows, setRows] = React.useState<PackAudit[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    void fetch(
+      `/api/v1/admin/packs-antgaspi/historique?organisation_id=${organisationId}`,
+    )
+      .then((r) => (r.ok ? r.json() : { data: [] }))
+      .then((j: { data?: PackAudit[] }) => {
+        if (!cancelled) setRows(j.data ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setRows([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [organisationId]);
+
+  if (loading || rows.length === 0) return null;
+
+  return (
+    <Card className="p-6">
+      <h3 className="font-medium mb-4">
+        Historique des ajustements de crédits
+      </h3>
+      <table className="w-full text-sm">
+        <thead className="text-left text-neutral-500">
+          <tr>
+            <th className="pb-2">Date</th>
+            <th className="pb-2">Action</th>
+            <th className="pb-2">Crédits</th>
+            <th className="pb-2">Motif</th>
+            <th className="pb-2">Auteur</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((a) => (
+            <tr key={a.id} className="border-t border-neutral-100">
+              <td className="py-2 text-neutral-500">
+                {new Date(a.created_at).toLocaleDateString('fr-FR')}
+              </td>
+              <td className="py-2">
+                {a.action === 'annulation_pack'
+                  ? 'Annulation du pack'
+                  : 'Ajustement crédits'}
+              </td>
+              <td className="py-2 font-medium">
+                {a.action === 'pack_ajuste_manuel' &&
+                a.old_values?.credits_initiaux != null &&
+                a.new_values?.credits_initiaux != null
+                  ? `${a.old_values.credits_initiaux} → ${a.new_values.credits_initiaux}`
+                  : '—'}
+              </td>
+              <td className="py-2 text-neutral-500">{a.motif ?? '—'}</td>
+              <td className="py-2 text-neutral-500">
+                {a.auteur ? `${a.auteur.prenom} ${a.auteur.nom}` : '—'}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Card>
+  );
+}

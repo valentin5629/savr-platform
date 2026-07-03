@@ -23,6 +23,7 @@ import {
   OngletTarifRefacture,
   OngletCoefficients,
   OngletRemises,
+  PackAjustementsHistorique,
 } from './onglets';
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
@@ -427,5 +428,50 @@ describe('M0.6 — onglet Remises négociées', () => {
     fireEvent.click(screen.getByLabelText('Actives uniquement'));
     expect(screen.queryByText('Ancienne remise')).not.toBeInTheDocument();
     expect(screen.getByText('Geste commercial')).toBeInTheDocument();
+  });
+});
+
+// ── Historique ajustements pack ──────────────────────────────────────────────
+
+const packAudit = {
+  id: 'aud-1',
+  action: 'pack_ajuste_manuel',
+  old_values: { credits_initiaux: 20 },
+  new_values: { credits_initiaux: 15 },
+  motif: 'Correction erreur de saisie',
+  created_at: '2026-07-03T12:00:00Z',
+  auteur: { prenom: 'Admin', nom: 'Savr' },
+};
+
+describe('M0.6 — historique ajustements pack', () => {
+  it('affiche les ajustements (ancien → nouveau, motif, auteur)', async () => {
+    mockFetch({
+      '/api/v1/admin/packs-antgaspi/historique': { data: [packAudit] },
+    });
+    render(<PackAjustementsHistorique organisationId="org-1" />);
+    await waitFor(() =>
+      expect(
+        screen.getByText('Historique des ajustements de crédits'),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.getByText('20 → 15')).toBeInTheDocument();
+    expect(screen.getByText('Correction erreur de saisie')).toBeInTheDocument();
+    expect(screen.getByText('Admin Savr')).toBeInTheDocument();
+  });
+
+  it('ne rend rien si aucun ajustement', async () => {
+    mockFetch({ '/api/v1/admin/packs-antgaspi/historique': { data: [] } });
+    const { container } = render(
+      <PackAjustementsHistorique organisationId="org-1" />,
+    );
+    await waitFor(() =>
+      expect(
+        calls.some((c) => c.url.includes('packs-antgaspi/historique')),
+      ).toBe(true),
+    );
+    expect(
+      screen.queryByText('Historique des ajustements de crédits'),
+    ).not.toBeInTheDocument();
+    expect(container).toBeEmptyDOMElement();
   });
 });

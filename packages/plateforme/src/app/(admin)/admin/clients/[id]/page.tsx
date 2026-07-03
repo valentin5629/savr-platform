@@ -27,6 +27,7 @@ import {
   OngletTarifRefacture,
   OngletCoefficients,
   OngletRemises,
+  PackAjustementsHistorique,
 } from './onglets';
 
 interface OrgDetail {
@@ -575,6 +576,9 @@ export default function ClientFichePage({
                 </table>
               </Card>
             )}
+
+            {/* Journal des ajustements de crédits (audit_log) — rien si aucun. */}
+            <PackAjustementsHistorique organisationId={id} />
           </div>
         )}
 

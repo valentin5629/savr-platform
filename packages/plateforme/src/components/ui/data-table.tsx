@@ -23,6 +23,8 @@ interface DataTableProps<T> {
   className?: string;
   /** Classe CSS appliquée par ligne (ex. surlignage criticité). */
   rowClassName?: (row: T) => string;
+  /** Rend chaque ligne cliquable (navigation vers le détail). */
+  onRowClick?: (row: T) => void;
   pagination?: {
     page: number;
     total: number;
@@ -41,6 +43,7 @@ function DataTable<T>({
   sortDirection,
   className,
   rowClassName,
+  onRowClick,
 }: DataTableProps<T>) {
   const handleSort = (key: string) => {
     if (!onSort) return;
@@ -114,8 +117,10 @@ function DataTable<T>({
             {data.map((row) => (
               <tr
                 key={keyExtractor(row)}
+                onClick={onRowClick ? () => onRowClick(row) : undefined}
                 className={cn(
                   'border-b border-savr-neutral-100 hover:bg-savr-neutral-50 transition-colors',
+                  onRowClick && 'cursor-pointer',
                   rowClassName?.(row),
                 )}
               >
@@ -143,8 +148,10 @@ function DataTable<T>({
         {data.map((row) => (
           <div
             key={keyExtractor(row)}
+            onClick={onRowClick ? () => onRowClick(row) : undefined}
             className={cn(
               'bg-savr-white border border-savr-neutral-200 rounded-savr-md p-4 space-y-2',
+              onRowClick && 'cursor-pointer',
               rowClassName?.(row),
             )}
           >

@@ -44,6 +44,7 @@ Une action est auditée si elle touche **finances, fiscalité, sécurité ou int
 | `pack_recredite_annulation_collecte` | `packs_antgaspi` | Trigger recrédit (déjà §04) |
 | `pack_debite_annulation_tardive` | `packs_antgaspi` | Trigger débit < 12h (déjà §04) |
 | `pack_ajuste_manuel` | `packs_antgaspi` | Ajustement Ops/Admin |
+| `annulation_pack` | `packs_antgaspi` | Action Admin « Annuler le pack » (§06.06 §8) — `ancienne_valeur` `{statut:'actif'}`, `nouvelle_valeur` `{statut:'annule'}`, motif obligatoire (≥ 10 car.), auteur `admin_savr`/`ops_savr` |
 
 ### Sécurité / accès
 | `action` | `table_cible` | Déclencheur |
@@ -77,6 +78,6 @@ Une action est auditée si elle touche **finances, fiscalité, sécurité ou int
 ## 5. À implémenter (Claude Code)
 
 1. Pour chaque `action` du §2 non encore câblée (financier/fiscal/sécurité), brancher l'INSERT `audit_log` dans le trigger DB ou la fonction serveur correspondante, dans **la même transaction** que la mutation.
-2. `motif` obligatoire (≥ 10 car., validation applicative) pour : `collecte_statut_force`, `pesee_corrigee`, `pack_ajuste_manuel`, `user_role_modifie`, `user_desactive`.
+2. `motif` obligatoire (≥ 10 car., validation applicative) pour : `collecte_statut_force`, `pesee_corrigee`, `pack_ajuste_manuel`, `annulation_pack`, `user_role_modifie`, `user_desactive`.
 3. Aucun chemin d'écriture `audit_log` via une route API exposée — uniquement `SERVICE_ROLE`/`SECURITY DEFINER`.
 4. Test pgTAP : vérifier l'immuabilité (UPDATE/DELETE refusés tous rôles) et la présence d'une ligne `audit_log` par action du §2.

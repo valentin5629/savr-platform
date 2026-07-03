@@ -184,8 +184,8 @@ Colonnes par ligne :
 ### Filtres
 
 - Type : ZD / AG / Tout
-- Traiteur (`organisation_id` via autocomplete)
-- Lieu (`lieu_id` via autocomplete)
+- Traiteur (`organisation_id` via liste déroulante — menu `<select>` peuplé de tous les traiteurs, tri alphabétique, option « Tous les traiteurs »)
+- Lieu (`lieu_id` via liste déroulante — menu `<select>` peuplé de tous les lieux, tri alphabétique, option « Tous les lieux »)
 - Statut (multi-sélection)
 - Plage de dates (`date_collecte` entre X et Y)
 - "Info incomplète" oui/non
@@ -393,10 +393,9 @@ Clic sur une ligne → fiche détaillée.
 | Instructions d'accès au lieu (pour le transporteur) | texte long | Non | |
 | **Horaires d'ouverture** (simplifié) | tableau 7 lignes | Oui | Voir §Horaires ci-dessous |
 | Zone de commentaire à usage interne | texte long | Non | |
-| SIREN | texte | Non | Validation INSEE (9 chiffres) — facultatif, édition admin-only. Colonne `associations.siren`. |
+| SIREN | texte | Non | Validation INSEE (9 chiffres) — édition admin-only. **Non obligatoire — tranché Val 2026-07-02 (R17b) ; colonne `associations.siren` ajoutée (V1 + DDL cible).** |
 | Habilitation 2041-GE | booléen + date expiration | Non | Si `true`, attestation fiscale activée — édition admin-only |
-| Capacité max bénéficiaires (repas) | integer | Oui | **Critère de matching par taille d'événement** : exclut l'asso si trop petite (`capacite_max_beneficiaires × 2 > volume_estimé`). C'est ce champ qui garantit qu'un gros événement (ex. 3000 pax) est attribué à une asso avec assez de bénéficiaires. |
-| **Description pour le rapport d'impact (pour le client)** | texte long | **Oui** *(rendu obligatoire 2026-05-07)* | Copié dans rapport AG. Validation : ≥ 30 caractères. |
+| Capacité max bénéficiaires (repas) | integer | Oui | **Critère de matching par taille d'événement** : exclut l'asso si trop petite (`capacite_max_beneficiaires × 2 > volume_estimé`). C'est ce champ qui garantit qu'un gros événement (ex. 3000 pax) est attribué à une asso avec assez de bénéficiaires. || **Description pour le rapport d'impact (pour le client)** | texte long | **Oui** *(rendu obligatoire 2026-05-07)* | Copié dans rapport AG. Validation : ≥ 30 caractères. |
 | **Id du point de collecte dans MTS-1** *(ajout 2026-05-07, V1 only)* | texte | Non | Identifiant point de collecte côté MTS-1 — sert au pré-fill V1 lors de l'envoi vers MTS-1 (cf. §3 Bloc 0 Attribution Prestataire / fork V1). En V2 (TMS Savr natif), ce champ devient déprécié (gardé en lecture pour audit historique). |
 | Actif | booléen | Oui | Défaut `true` |
 
@@ -448,15 +447,15 @@ Tableau filtrable : nom, ville, véhicule(s), type de TMS, actif.
 | Mail de contact                  | email             | Oui         | Destinataire `ag_attribution_transporteur`                                                                                                                       |
 | Adresse                          | texte + géocodage | Oui         | Base calcul distance (`adresse`, `code_postal`, `ville` → `latitude`/`longitude` géocodés)                                                                        |
 | **Type(s) de véhicule**          | multi-enum        | Oui         | **Refonte 2026-05-08** — sélection multiple (`text[]`) parmi `velo_cargo`, `camionnette`, `fourgon`, `vul`, `poids_lourd`. Enum aligné sur `lieux.type_vehicule_max`. |
-| **Type de TMS**                  | enum              | Oui         | **Refonte 2026-05-08** — `mts1` (Strike + Marathon V1, push API depuis Plateforme via fork V1) / `a_toutes` (workflow A Toutes! distinct) / `autre` / `par_mail` / `par_telephone` (province & transporteurs hors TMS → email/téléphone manuel, routés `provider_manual`, validation manuelle Admin). Détermine quel bouton apparaît au Bloc 0 Attribution Prestataire §3. Champs fusionnés (ex `process_creation_collecte`, `process_creation_collecte_detail`, `type_tms` regroupés en un seul). |
+| **Type de TMS**                  | enum              | Oui         | **Refonte 2026-05-08** — `mts1` (Strike + Marathon V1, push API depuis Plateforme via fork V1) / `a_toutes` (workflow A Toutes! distinct) / `autre` (province → email + téléphone manuel) / `par_mail` / `par_telephone` (**ajout R17b 2026-07-02** — transporteurs hors TMS routés `provider_manual`, validation manuelle Admin). Détermine quel bouton apparaît au Bloc 0 Attribution Prestataire §3. Champs fusionnés (ex `process_creation_collecte`, `process_creation_collecte_detail`, `type_tms` regroupés en un seul). |
 | **Code transporteur MTS-1**      | texte             | Si `type_tms = mts1` | **Ajout 2026-05-29 (propagation §3bis)** — `carrierShareableCode` côté MTS-1 (récupérable via `GET /v3/carrier`), utilisé pour déléguer l'ordre au bon transporteur. Obligatoire si `type_tms = 'mts1'` (cf. [[05 - Règles métier#R_code_mts1_requis]]). Masqué si `type_tms ≠ mts1`. Déprécié V2. |
-| **Type(s) de collecte**          | multi-enum        | Oui         | Flux gérés par le transporteur (`text[]` parmi `anti_gaspi` / `zero_dechet`), sélection multiple. |
-| **Description du process de collecte** | texte long | Non | Consignes métier de collecte propres au transporteur (champ `description_process_collecte`). |
+| **Type(s) de collecte**          | multi-enum        | Oui         | **Ajout R17b 2026-07-02** — flux gérés par le transporteur (`text[]` parmi `anti_gaspi` / `zero_dechet`), sélection multiple. |
+| **Description du process de collecte** | texte long | Non | **Ré-ajout R17b 2026-07-02** (ex `process_creation_collecte_detail`) — consignes métier de collecte propres au transporteur, champ dédié `description_process_collecte`. |
 | Actif                            | booléen           | Oui         | Défaut `true`                                                                                                                                                    |
 
 **Champs supprimés (refonte 2026-05-08)** :
 - (enum email/API/téléphone) — fusionné dans `type_tms`
-- — supprimé, info logistique reportée dans `commentaires_internes`
+- — **ré-ajouté R17b 2026-07-02** sous le nom `description_process_collecte` (champ dédié, cf. formulaire ci-dessus)
 
 ### Rattachement automatique province
 
@@ -552,14 +551,13 @@ Tableau : nom, type (traiteur / agence / gestionnaire_lieux / client_organisateu
 
 Onglets sur la fiche :
 
-- **Informations légales** : SIREN, entités de facturation, multi-SIRET, **Logo organisation** *(ajout 2026-05-08)* — upload (JPG/PNG max 2 Mo) + preview. Stocké dans `organisations.logo_url` (champ déjà existant utilisé pour rapports RSE — voir [[04 - Data Model]] table `organisations`). Édition admin/ops. Affiché dans rapports ZD/AG quand l'organisation est `client_organisateur` ou en en-tête de fiche traiteur.
-- **Domaines email** : table `organisations_domaines_email`
+- **Informations légales** : SIREN, entités de facturation, multi-SIRET, **Logo organisation** *(ajout 2026-05-08)* — upload (JPG/PNG max 2 Mo) + preview. Stocké dans `organisations.logo_url` (champ déjà existant utilisé pour rapports RSE — voir [[04 - Data Model]] table `organisations`). Édition admin/ops. Affiché dans rapports ZD/AG quand l'organisation est `client_organisateur` ou en en-tête de fiche traiteur. **Sous-section « Domaines email »** *(fusionnée depuis l'ex-onglet Domaines email — décision Val 2026-07-03)* : domaines whitelistés `organisations_domaines_email`, affichés après les entités de facturation. Aucune modification data-model/API.
 - **Users rattachés** : liste avec rôle, statut, dernière connexion
 - **Packs AG** *(refonte 2026-05-07)* : voir sous-section dédiée ci-dessous
 - **Collectes** : liste filtrée
 - **Factures** : liste filtrée
 - **Grille tarifaire ZD** *(refonte 2026-05-26, visible si `type='traiteur'`)* : sélecteur de la grille du catalogue affectée à l'organisation (`organisations.grille_tarifaire_zd_id`). Vide = grille par défaut « Standard paliers ». Édition Admin Savr only.
-- **Remises négociées** *(refonte 2026-05-26)* : lignes `tarifs_negocie` (remises %) éligibles à cette organisation (`scope=organisation`) ou à ses lieux (`scope=gestionnaire`). Création/fermeture depuis cet onglet.
+- **Remises négociées** *(refonte 2026-05-26 ; scope de création précisé 2026-07-03)* : lignes `tarifs_negocie` (remises %) éligibles à cette organisation (`scope=organisation`) ou à ses lieux (`scope=gestionnaire`, en lecture). **Depuis la fiche organisation, la création est limitée au scope `organisation`** (org de la fiche, `organisation_id` posé depuis le contexte — non saisi). La création de remises `scope=gestionnaire` (avec `gestionnaire_organisation_id` + `lieu_id` optionnel) relève d'un écran de gestion des remises dédié / la fiche du gestionnaire négociateur (à spécifier séparément). La **fermeture** reste possible pour toute remise affichée (organisation comme gestionnaire).
 - **Tarif refacturé client final ZD** *(visible uniquement si `type='traiteur'`)* : champ `organisations.tarif_refacture_pax_zd` (numeric, défaut 1.50 €). Sert au calcul du KPI Marge dashboard traiteur (cf. [[05 - Règles métier#R_marge_zd_traiteur]]).
 - **Coefficient de perte labo** *(ajout 2026-05-22 — visible uniquement si `type='traiteur'`)* : sous-bloc de saisie du coefficient annuel communiqué par le traiteur. Table `coefficients_perte_labo` (cf. [[04 - Data Model#⚠ Addendum 2026-05-22 — Coefficient de perte labo (estimation déchets amont, gestionnaire-only)]]). Voir sous-section dédiée ci-dessous.
 
@@ -740,8 +738,8 @@ Grille tarifaire publique des packs Anti-Gaspi. Sert de référentiel au formula
 
 ### Remises négociées (`tarifs_negocie`) *(refonte 2026-05-26 — ne porte plus que des remises %)*
 - Tableau : activité (ZD/AG) + scope (organisation/gestionnaire) + bénéficiaire + lieu (si précis) + **remise %** + période de validité + commentaires
-- Filtres : par activité, par scope, par organisation, actifs uniquement
-- Création : formulaire modal — choix activité → choix scope → sélection organisation ou gestionnaire → lieu optionnel → **remise % (0–100)** + dates + commentaires
+- Filtres : par activité, par scope, par organisation, actifs uniquement. **Dans le contexte de la fiche organisation, seul « Actives uniquement » est implémenté** (activité/scope/organisation sont contextuels — une seule org affichée).
+- Création : formulaire modal. **Depuis la fiche organisation, le scope `organisation` est imposé** (org de la fiche, non saisie) → flux réduit à : choix activité → lieu optionnel → **remise % (0–100)** + dates + commentaires. Le choix de scope + la sélection d'un gestionnaire (`gestionnaire_organisation_id`) relèvent de l'écran de gestion des remises dédié (à spécifier). *(précision 2026-07-03)*
 - Cumul : plusieurs remises éligibles à une même collecte se cumulent **multiplicativement** sur la base (grille ZD / tarif unitaire AG) — cf. [[05 - Règles métier#Tarifs et remises — résolution du prix]]
 - Modification → fermeture de la ligne active + création nouvelle ligne (jamais de modification rétroactive)
 - Suppression impossible si la ligne a déjà été utilisée dans une `factures_collectes` (données figées via `tarif_detail`)

@@ -8,10 +8,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const supabase = createAdminSupabaseClient();
 
+  // Colonnes réelles du schéma (vérifiées contre savr-dev, R17-BOA sl3) :
+  // grilles_tarifaires_zd → actif, valide_jusqu (pas de `methode`, pas de
+  // `valide_jusqu_au`) ; tarifs_zero_dechet → prix_base_ht, prix_par_couvert_ht
+  // (pas de `montant_fixe_ht`/`montant_par_pax_ht`). L'ancien select renvoyait un
+  // HTTP 400 (`column tarifs_zero_dechet.montant_fixe_ht does not exist`) → l'onglet
+  // Grille ZD de la fiche organisation aurait affiché un écran blanc.
   const { data, error } = await supabase
     .from('grilles_tarifaires_zd')
     .select(
-      'id, nom, description, est_defaut, methode, valide_du, valide_jusqu_au, tarifs_zero_dechet(id, pax_min, pax_max, montant_fixe_ht, montant_par_pax_ht)',
+      'id, nom, description, est_defaut, actif, valide_du, valide_jusqu, tarifs_zero_dechet(id, pax_min, pax_max, prix_base_ht, prix_par_couvert_ht)',
     )
     .order('est_defaut', { ascending: false })
     .order('nom');

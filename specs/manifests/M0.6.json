@@ -1033,19 +1033,19 @@
     },
     {
       "id": "BL-P1-BOA-08",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
-      "artefact": null,
-      "test": null,
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:540",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/clients/[id]/onglets.tsx (onglets Collectes/Factures/Grille ZD/Tarif refacturé/Coefficient perte labo) monté dans packages/plateforme/src/app/(admin)/admin/clients/[id]/page.tsx (remplace l'EmptyState « À venir »). Bandeau lecture seule ops (OpsReadOnlyBanner) + actions admin-only (édition tarif, sélecteur grille, ajout/édition coefficient) gatées par le claim user_role (packages/plateforme/src/lib/use-user-role.ts). Fix route packages/plateforme/src/app/api/v1/admin/grilles-tarifaires-zd/route.ts (colonnes réelles).",
+      "test": "packages/plateforme/src/app/(admin)/admin/clients/[id]/onglets.m0-6.test.tsx « M0.6 — onglet Collectes/Factures/Grille tarifaire ZD/Tarif refacturé/Coefficient de perte labo » (rendu des données + bandeau read-only ops + PATCH/POST admin-only) ; packages/plateforme/src/lib/use-user-role.m0-6.test.tsx (décodage claim user_role)",
       "statut": "à-vérifier",
-      "libelle": "Fiche orga : onglets « À venir »"
+      "libelle": "Fiche orga : onglets Collectes/Factures/Grille ZD/Tarif refacturé/Coefficient perte labo câblés + bandeau read-only ops"
     },
     {
       "id": "BL-P1-BOA-09",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
-      "artefact": null,
-      "test": null,
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:667",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/settings/users/invite-user-modal.tsx (modale prénom/nom/email/rôle/organisation → POST /api/v1/admin/users, option admin_savr gatée) montée dans packages/plateforme/src/app/(admin)/admin/settings/users/page.tsx (remplace l'alert placeholder). Volet impersonation déjà livré (M0.6-impersonation-launcher-ui).",
+      "test": "packages/plateforme/src/app/(admin)/admin/settings/users/invite-user-modal.m0-6.test.tsx « M0.6 — modale invitation » (POST users provisioning + gating option admin_savr + erreur serveur)",
       "statut": "à-vérifier",
-      "libelle": "Fiche orga : invitation + impersonation UI"
+      "libelle": "Fiche orga / Utilisateurs Savr : modale invitation membre (provisioning direct) — impersonation UI déjà livrée"
     },
     {
       "id": "BL-P2-04",

@@ -10,10 +10,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(req.url);
   const organisation_id = searchParams.get('organisation_id');
 
+  // Colonnes réelles (vérifiées contre savr-dev, R17-BOA sl3) : saisi_par (FK
+  // users) + saisi_le — PAS `cree_par_user_id`/`created_at`. L'ancien select
+  // renvoyait un HTTP 400 (`column coefficients_perte_labo.cree_par_user_id
+  // does not exist`) → l'onglet Coefficient de perte labo n'affichait jamais les
+  // lignes. `saisi_par_user` = auteur résolu pour la colonne « Saisi par »
+  // (§06.06 §8 tableau coefficients).
   let query = supabase
     .from('coefficients_perte_labo')
     .select(
-      'id, organisation_id, organisations(raison_sociale), annee_reference, coefficient_kg_couvert, source_commentaire, cree_par_user_id, created_at',
+      'id, organisation_id, organisations(raison_sociale), annee_reference, coefficient_kg_couvert, source_commentaire, saisi_par, saisi_le, saisi_par_user:users!saisi_par(prenom, nom)',
     )
     .order('annee_reference', { ascending: false });
 
@@ -89,7 +95,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       annee_reference,
       coefficient_kg_couvert,
       source_commentaire,
-      cree_par_user_id: auth.ctx.userId,
+      // Colonne réelle = saisi_par (NOT NULL, FK users) ; saisi_le a un DEFAULT
+      // now(). L'ancien `cree_par_user_id` faisait échouer l'INSERT (colonne
+      // inexistante) → « Ajouter un coefficient » cassé.
+      saisi_par: auth.ctx.userId,
     })
     .select('*')
     .single();

@@ -3,7 +3,19 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Truck, Send, AlertTriangle, Settings2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  Truck,
+  Send,
+  AlertTriangle,
+  Settings2,
+  FileText,
+  Download,
+  RotateCw,
+  Upload,
+  History,
+  Gift,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -36,7 +48,14 @@ interface Transporteur {
 // association recommandée. L'attribution complète (validation, emails, top 3) vit
 // sur l'écran /admin/attributions-ag/[id] (+ Bloc 5).
 interface RecoAlgo {
-  associations: { id: string; nom: string }[];
+  // Scores détaillés (distance, capacité) exposés par calculerAlgoAttributionAg
+  // (§06.06 l.253) — surfacés dans le top 3 du Bloc 5.
+  associations: {
+    id: string;
+    nom: string;
+    distance_km?: number;
+    capacite_max_beneficiaires?: number;
+  }[];
   transporteur: { id: string; nom: string; type_tms: string } | null;
   no_asso: boolean;
   no_prestataire: boolean;
@@ -90,6 +109,16 @@ interface CollecteDetail {
     id: string;
     type_pack: string;
     credits_restants: number;
+    statut: string;
+  } | null;
+  // Attribution AG (Bloc 5) — asso/transporteur retenus + volume réalisé (§06.06 l.249).
+  attributions_antgaspi: {
+    id: string;
+    mode_validation: string;
+    valide_at: string | null;
+    volume_repas_realise: number | null;
+    associations: { nom: string } | null;
+    transporteurs: { nom: string } | null;
   } | null;
   prestataire_logistique_id: string | null;
   evenements: {
@@ -133,6 +162,59 @@ const ZD_FLUX = [
   { code: 'dechet_residuel', nom: 'Déchet résiduel' },
 ] as const;
 
+// Bloc 3 — Documents (GET /[id]/documents).
+interface RapportDoc {
+  id: string;
+  version: number;
+  disponible_a: string | null;
+  genere_at: string | null;
+  regenere_at: string | null;
+  consulte_par_user_at: string | null;
+  pdf_url: string | null;
+}
+interface BordereauDoc {
+  id: string;
+  statut: string;
+  numero: string | null;
+  genere_at: string | null;
+  pdf_fichier_id: string | null;
+}
+interface AttestationDoc {
+  id: string;
+  statut: string;
+  numero: string | null;
+  genere_at: string | null;
+  pdf_url: string | null;
+  version: number;
+}
+interface PhotoItem {
+  id: string;
+  content_type: string;
+  created_at: string;
+  url: string | null;
+}
+interface DocumentsData {
+  rapport: RapportDoc | null;
+  bordereau: BordereauDoc | null;
+  attestation: AttestationDoc | null;
+  photos: PhotoItem[];
+}
+
+// Bloc 7 — Historique + audit log (GET /[id]/audit).
+interface AuditEntry {
+  id: string;
+  created_at: string;
+  role: string | null;
+  action: string;
+  old_values: Record<string, unknown> | null;
+  new_values: Record<string, unknown> | null;
+  motif: string | null;
+  impersonator_id: string | null;
+}
+
+// Types de document PDF régénérables (aligné @savr/shared PDF_DOCUMENT_TYPES).
+type PdfType = 'rapport-recyclage-zd' | 'bordereau-zd' | 'attestation-don';
+
 export default function CollecteDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -164,6 +246,13 @@ export default function CollecteDetailPage() {
   const [forceStatutMotif, setForceStatutMotif] = useState('');
   const [forceStatutSubmitting, setForceStatutSubmitting] = useState(false);
   const [forceStatutError, setForceStatutError] = useState<string | null>(null);
+  // Bloc 3 — Documents / Bloc 7 — Historique (BOA-07)
+  const [documents, setDocuments] = useState<DocumentsData | null>(null);
+  const [audit, setAudit] = useState<AuditEntry[]>([]);
+  const [recreditAt, setRecreditAt] = useState<string | null>(null);
+  const [regenerating, setRegenerating] = useState<PdfType | null>(null);
+  const [docError, setDocError] = useState<string | null>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
 
   const STATUTS_TERMINAUX = [
     'realisee',
@@ -176,6 +265,80 @@ export default function CollecteDetailPage() {
     const updated = await fetch(`/api/v1/admin/collectes/${params.id}`);
     if (updated.ok) setCollecte((await updated.json()) as CollecteDetail);
   }, [params.id]);
+
+  // Bloc 3 — Documents (rapport / bordereau / attestation / photos).
+  const refetchDocuments = useCallback(async () => {
+    const r = await fetch(`/api/v1/admin/collectes/${params.id}/documents`);
+    if (r.ok) setDocuments((await r.json()) as DocumentsData);
+  }, [params.id]);
+
+  // Bloc 7 — Historique + audit log (+ date de recrédit pour Bloc 4).
+  const refetchAudit = useCallback(async () => {
+    const r = await fetch(`/api/v1/admin/collectes/${params.id}/audit`);
+    if (r.ok) {
+      const j = (await r.json()) as {
+        data: AuditEntry[];
+        recredit_at: string | null;
+      };
+      setAudit(j.data);
+      setRecreditAt(j.recredit_at);
+    }
+  }, [params.id]);
+
+  useEffect(() => {
+    void refetchDocuments();
+    void refetchAudit();
+  }, [refetchDocuments, refetchAudit]);
+
+  // Régénération d'un PDF (§06.06 l.283-284) — ré-enqueue jobs_pdf côté serveur.
+  const handleRegenerate = async (type: PdfType) => {
+    setRegenerating(type);
+    setDocError(null);
+    const res = await fetch(
+      `/api/v1/admin/collectes/${params.id}/documents/${type}/regenerate`,
+      { method: 'POST' },
+    );
+    if (res.ok) {
+      await refetchDocuments();
+      await refetchAudit();
+    } else {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      setDocError(body.error ?? 'Échec de la régénération');
+    }
+    setRegenerating(null);
+  };
+
+  // Téléchargement PDF via la route /download dédiée (URL R2 pré-signée).
+  const handleDownload = async (path: string) => {
+    setDocError(null);
+    const res = await fetch(path);
+    if (res.ok) {
+      const { url } = (await res.json()) as { url: string };
+      window.open(url, '_blank', 'noopener');
+    } else {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      setDocError(body.error ?? 'Téléchargement indisponible');
+    }
+  };
+
+  // Import manuel d'une photo (§06.06 Bloc 3 « Importer des photos »).
+  const handleImportPhoto = async (file: File) => {
+    setPhotoUploading(true);
+    setDocError(null);
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch(`/api/v1/admin/collectes/${params.id}/photos`, {
+      method: 'POST',
+      body: fd,
+    });
+    if (res.ok) {
+      await refetchDocuments();
+    } else {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      setDocError(body.error ?? 'Import de photo indisponible');
+    }
+    setPhotoUploading(false);
+  };
 
   useEffect(() => {
     // On vérifie res.ok AVANT de désérialiser : une réponse d'erreur (404/500)
@@ -839,21 +1002,364 @@ export default function CollecteDetailPage() {
         </Card>
       )}
 
-      {/* Bloc 5 — AG Attribution (squelette) */}
+      {/* Bloc 3 (CDC) — Documents : rapport RSE / bordereau ZD / attestation AG + photos */}
+      <Card className="p-6 space-y-4">
+        <h2 className="font-semibold text-savr-neutral-800 flex items-center gap-2">
+          <FileText className="h-4 w-4" />
+          Documents
+        </h2>
+        {docError && <p className="text-savr-error-600 text-sm">{docError}</p>}
+
+        <div className="divide-y divide-savr-neutral-100">
+          {/* Rapport RSE (ZD + AG) */}
+          <div className="flex items-center gap-3 py-3">
+            <div className="flex-1">
+              <p className="text-sm font-medium flex items-center gap-2">
+                Rapport RSE
+                {documents?.rapport &&
+                  (documents.rapport.version > 1 ||
+                    documents.rapport.regenere_at) && (
+                    <span
+                      title={`Rapport régénéré${
+                        documents.rapport.regenere_at
+                          ? ` — mis à jour le ${new Date(
+                              documents.rapport.regenere_at,
+                            ).toLocaleDateString('fr-FR')}`
+                          : ''
+                      }`}
+                      className="inline-flex items-center text-savr-primary-600"
+                    >
+                      <RotateCw className="h-3.5 w-3.5" />
+                    </span>
+                  )}
+              </p>
+              <p className="text-xs text-savr-neutral-500">
+                {!documents?.rapport
+                  ? 'Non encore généré'
+                  : !documents.rapport.genere_at
+                    ? 'En attente de génération'
+                    : documents.rapport.consulte_par_user_at
+                      ? `Consulté le ${new Date(
+                          documents.rapport.consulte_par_user_at,
+                        ).toLocaleDateString('fr-FR')}`
+                      : 'Disponible'}
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={!documents?.rapport?.genere_at}
+              onClick={() =>
+                documents?.rapport &&
+                void handleDownload(
+                  `/api/v1/admin/rapports-rse/${documents.rapport.id}/download`,
+                )
+              }
+            >
+              <Download className="h-4 w-4 mr-1" />
+              Télécharger
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={
+                !documents?.rapport || regenerating === 'rapport-recyclage-zd'
+              }
+              onClick={() => void handleRegenerate('rapport-recyclage-zd')}
+            >
+              <RotateCw
+                className={`h-4 w-4 mr-1 ${
+                  regenerating === 'rapport-recyclage-zd' ? 'animate-spin' : ''
+                }`}
+              />
+              Régénérer
+            </Button>
+          </div>
+
+          {/* Bordereau ZD (ZD only) */}
+          {collecte.type === 'zero_dechet' && (
+            <div className="flex items-center gap-3 py-3">
+              <div className="flex-1">
+                <p className="text-sm font-medium">
+                  Bordereau ZD
+                  {documents?.bordereau?.numero && (
+                    <span className="ml-2 font-mono text-xs text-savr-neutral-500">
+                      {documents.bordereau.numero}
+                    </span>
+                  )}
+                </p>
+                <p className="text-xs text-savr-neutral-500">
+                  {documents?.bordereau
+                    ? `Statut : ${documents.bordereau.statut}`
+                    : 'Non encore généré'}
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={!documents?.bordereau?.genere_at}
+                onClick={() =>
+                  documents?.bordereau &&
+                  void handleDownload(
+                    `/api/v1/admin/bordereaux/${documents.bordereau.id}/download`,
+                  )
+                }
+              >
+                <Download className="h-4 w-4 mr-1" />
+                Télécharger
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={
+                  !documents?.bordereau || regenerating === 'bordereau-zd'
+                }
+                onClick={() => void handleRegenerate('bordereau-zd')}
+              >
+                <RotateCw
+                  className={`h-4 w-4 mr-1 ${
+                    regenerating === 'bordereau-zd' ? 'animate-spin' : ''
+                  }`}
+                />
+                Régénérer
+              </Button>
+            </div>
+          )}
+
+          {/* Attestation de don (AG only) */}
+          {collecte.type === 'anti_gaspi' && (
+            <div className="flex items-center gap-3 py-3">
+              <div className="flex-1">
+                <p className="text-sm font-medium">
+                  Attestation de don
+                  {documents?.attestation?.numero && (
+                    <span className="ml-2 font-mono text-xs text-savr-neutral-500">
+                      {documents.attestation.numero}
+                    </span>
+                  )}
+                </p>
+                <p className="text-xs text-savr-neutral-500">
+                  {documents?.attestation
+                    ? `Statut : ${documents.attestation.statut}`
+                    : 'Non encore générée'}
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={!documents?.attestation?.genere_at}
+                onClick={() =>
+                  documents?.attestation &&
+                  void handleDownload(
+                    `/api/v1/admin/attestations/${documents.attestation.id}/download`,
+                  )
+                }
+              >
+                <Download className="h-4 w-4 mr-1" />
+                Télécharger
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={
+                  !documents?.attestation || regenerating === 'attestation-don'
+                }
+                onClick={() => void handleRegenerate('attestation-don')}
+              >
+                <RotateCw
+                  className={`h-4 w-4 mr-1 ${
+                    regenerating === 'attestation-don' ? 'animate-spin' : ''
+                  }`}
+                />
+                Régénérer
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Galerie photos + import */}
+        <div className="border-t border-savr-neutral-100 pt-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-medium text-savr-neutral-700">
+              Photos ({documents?.photos?.length ?? 0})
+            </p>
+            <label className="inline-flex items-center gap-1 text-sm text-savr-primary-600 cursor-pointer hover:underline">
+              <Upload className="h-4 w-4" />
+              {photoUploading ? 'Import…' : 'Importer des photos'}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                disabled={photoUploading}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void handleImportPhoto(f);
+                  e.target.value = '';
+                }}
+              />
+            </label>
+          </div>
+          {documents?.photos && documents.photos.length > 0 ? (
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+              {documents.photos.map((p) =>
+                p.url ? (
+                  <img
+                    key={p.id}
+                    src={p.url}
+                    alt="Photo collecte"
+                    className="h-24 w-full object-cover rounded-savr-md border border-savr-neutral-200"
+                  />
+                ) : (
+                  <div
+                    key={p.id}
+                    className="h-24 w-full flex items-center justify-center rounded-savr-md border border-savr-neutral-200 bg-savr-neutral-50 text-xs text-savr-neutral-400"
+                  >
+                    Photo
+                  </div>
+                ),
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-savr-neutral-400">
+              Aucune photo importée.
+            </p>
+          )}
+        </div>
+      </Card>
+
+      {/* Bloc 4 (CDC) — Pack AG (si type AG) */}
       {collecte.type === 'anti_gaspi' && (
-        <Card className="p-6 space-y-3">
+        <Card className="p-6 space-y-4">
+          <h2 className="font-semibold text-savr-neutral-800 flex items-center gap-2">
+            <Gift className="h-4 w-4" />
+            Pack AG
+          </h2>
+          {collecte.packs_antgaspi ? (
+            <dl className="grid grid-cols-3 gap-3 text-sm">
+              <div>
+                <dt className="text-savr-neutral-500">Pack rattaché</dt>
+                <dd className="font-medium">
+                  {collecte.packs_antgaspi.type_pack}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-savr-neutral-500">Crédits restants</dt>
+                <dd className="font-medium">
+                  {collecte.packs_antgaspi.credits_restants}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-savr-neutral-500">Statut</dt>
+                <dd>
+                  <Badge variant="neutral" className="text-xs">
+                    {collecte.packs_antgaspi.statut}
+                  </Badge>
+                </dd>
+              </div>
+            </dl>
+          ) : (
+            <p className="text-sm text-savr-neutral-500">
+              Aucun pack rattaché à cette collecte.
+            </p>
+          )}
+          {/* Badge recrédit (annulee après realisee, §06.06 l.247 — le pack a été
+              détaché par le trigger, la date vient de l'audit du recrédit). */}
+          {collecte.statut === 'annulee' && recreditAt && (
+            <Badge variant="warning" className="text-xs">
+              Crédit recrédité automatiquement le{' '}
+              {new Date(recreditAt).toLocaleDateString('fr-FR')}
+            </Badge>
+          )}
+        </Card>
+      )}
+
+      {/* Bloc 5 (CDC) — Attribution AG complète (Admin-only, si type AG) */}
+      {collecte.type === 'anti_gaspi' && (
+        <Card className="p-6 space-y-4">
           <h2 className="font-semibold text-savr-neutral-800">
             Bloc 5 — Attribution AG
           </h2>
-          <p className="text-sm text-savr-neutral-500">
-            Attribution automatique (algo V2) — Non disponible en V1.
-          </p>
-          <Button variant="secondary" size="sm" disabled>
-            Re-jouer l&apos;algo
-            <Badge variant="neutral" className="ml-2 text-xs">
-              V2
-            </Badge>
-          </Button>
+          <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="text-savr-neutral-500">Association retenue</dt>
+              <dd className="font-medium">
+                {collecte.attributions_antgaspi?.associations?.nom ?? (
+                  <span className="text-savr-neutral-400">
+                    Aucune (en attente d’attribution)
+                  </span>
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-savr-neutral-500">Transporteur retenu</dt>
+              <dd className="font-medium">
+                {collecte.attributions_antgaspi?.transporteurs?.nom ?? (
+                  <span className="text-savr-neutral-400">—</span>
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-savr-neutral-500">Validation</dt>
+              <dd className="font-medium">
+                {collecte.attributions_antgaspi?.valide_at ? (
+                  <>
+                    {collecte.attributions_antgaspi.mode_validation} —{' '}
+                    {new Date(
+                      collecte.attributions_antgaspi.valide_at,
+                    ).toLocaleDateString('fr-FR')}
+                  </>
+                ) : (
+                  <Badge variant="warning" className="text-xs">
+                    En attente de validation
+                  </Badge>
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-savr-neutral-500">
+                Volume repas (estimé / réalisé)
+              </dt>
+              <dd className="font-medium">
+                {collecte.volume_estime_repas ?? '—'} /{' '}
+                {collecte.attributions_antgaspi?.volume_repas_realise ?? '—'}
+              </dd>
+            </div>
+          </dl>
+          {reco?.associations && reco.associations.length > 0 && (
+            <div className="rounded-savr-md border border-savr-neutral-100 bg-savr-neutral-50 p-3">
+              <p className="text-xs font-medium text-savr-neutral-600 mb-1">
+                Top 3 associations recommandées + scores (algo §06.09)
+              </p>
+              <ol className="list-decimal list-inside text-sm text-savr-neutral-700">
+                {reco.associations.slice(0, 3).map((a) => (
+                  <li key={a.id}>
+                    {a.nom}
+                    {(a.distance_km != null ||
+                      a.capacite_max_beneficiaires != null) && (
+                      <span className="text-savr-neutral-500">
+                        {' — '}
+                        {a.distance_km != null ? `${a.distance_km} km` : ''}
+                        {a.distance_km != null &&
+                        a.capacite_max_beneficiaires != null
+                          ? ' · '
+                          : ''}
+                        {a.capacite_max_beneficiaires != null
+                          ? `capacité ${a.capacite_max_beneficiaires}`
+                          : ''}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+          <Link
+            href={`/admin/attributions-ag/${collecte.id}`}
+            className="inline-flex items-center text-sm font-medium text-savr-primary-600 hover:underline"
+          >
+            Ouvrir l’attribution complète (top 3, validation, emails, re-jouer
+            l’algo) →
+          </Link>
         </Card>
       )}
 
@@ -910,6 +1416,55 @@ export default function CollecteDetailPage() {
             </Badge>
           )}
         </div>
+      </Card>
+
+      {/* Bloc 7 (CDC) — Historique + Audit log (Admin-only) */}
+      <Card className="p-6 space-y-4">
+        <h2 className="font-semibold text-savr-neutral-800 flex items-center gap-2">
+          <History className="h-4 w-4" />
+          Historique &amp; audit
+        </h2>
+        {audit.length === 0 ? (
+          <p className="text-sm text-savr-neutral-500">
+            Aucune action enregistrée sur cette collecte.
+          </p>
+        ) : (
+          <ol className="space-y-3">
+            {audit.map((e) => {
+              const oldStatut = (e.old_values as { statut?: string } | null)
+                ?.statut;
+              const newStatut = (e.new_values as { statut?: string } | null)
+                ?.statut;
+              return (
+                <li
+                  key={e.id}
+                  className="flex gap-3 border-l-2 border-savr-neutral-200 pl-3"
+                >
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-savr-neutral-800">
+                      {e.action}
+                      {oldStatut && newStatut && (
+                        <span className="ml-2 font-normal text-savr-neutral-500">
+                          {oldStatut} → {newStatut}
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-xs text-savr-neutral-500">
+                      {new Date(e.created_at).toLocaleString('fr-FR')}
+                      {e.role ? ` · ${e.role}` : ''}
+                      {e.impersonator_id ? ' · (impersonation)' : ''}
+                    </p>
+                    {e.motif && (
+                      <p className="text-xs text-savr-neutral-600 mt-1 italic">
+                        « {e.motif} »
+                      </p>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        )}
       </Card>
 
       {/* Modale — Annuler le crédit AG */}

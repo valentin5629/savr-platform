@@ -66,8 +66,10 @@ export interface CollecteRow {
       ville: string;
     };
   };
-  // Champs additifs (câblés par la route liste, cf. Phase 1) — optionnels.
+  // Champs additifs (câblés par la route liste) — optionnels.
   transporteur_nom?: string | null;
+  // Montant résolu côté route (ZD = facture, AG = pack actif de l'org).
+  montant_ht?: number | null;
   factures_collectes?: { montant_ht: number | null }[];
   packs_antgaspi?: { prix_unitaire_ht: number | null } | null;
 }
@@ -112,6 +114,8 @@ function poidsTotalZd(row: CollecteRow): number {
 //   AG  → prix du pack ramené à la collecte = packs_antgaspi.prix_unitaire_ht.
 // Retourne null si non déterminable (ZD non encore facturée) → affiché « — ».
 export function montantCollecte(row: CollecteRow): number | null {
+  // Priorité au montant résolu côté route (source unique : pack actif / facture).
+  if (row.montant_ht != null) return row.montant_ht;
   if (row.type === 'anti_gaspi') {
     return row.packs_antgaspi?.prix_unitaire_ht ?? null;
   }

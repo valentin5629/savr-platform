@@ -39,7 +39,30 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         return [chip, count ?? 0] as const;
       }),
     );
-    return NextResponse.json(Object.fromEntries(entries));
+
+    // KPI « à dispatcher » par type (tuiles de tête, refonte UI Collectes) =
+    // programmée ET non transmise au TMS (même prédicat que le chip
+    // `non_transmises`, scindé AG / ZD). Définition à confirmer avec Val.
+    const dispatchByType = async (t: string): Promise<number> => {
+      const { count, error } = await supabase
+        .from('collectes')
+        .select('id', { count: 'exact', head: true })
+        .eq('type', t)
+        .eq('statut', 'programmee')
+        .is('tms_reference', null);
+      if (error) throw error;
+      return count ?? 0;
+    };
+    const [ag_a_dispatcher, zd_a_dispatcher] = await Promise.all([
+      dispatchByType('anti_gaspi'),
+      dispatchByType('zero_dechet'),
+    ]);
+
+    return NextResponse.json({
+      ...Object.fromEntries(entries),
+      ag_a_dispatcher,
+      zd_a_dispatcher,
+    });
   } catch (err) {
     return serverError(err, 'admin.collectes.chip_counts');
   }

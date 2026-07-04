@@ -42,7 +42,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       `id, type, statut, statut_tms, dirty_tms, date_collecte, heure_collecte,
        nb_camions_demande, tms_reference, created_at,
        controle_acces_requis, informations_completes, taux_recyclage,
-       attributions_antgaspi!collecte_id(id, valide_at, mode_validation, volume_repas_realise),
+       attributions_antgaspi!collecte_id(id, valide_at, mode_validation, volume_repas_realise, transporteurs!transporteur_id(nom)),
+       packs_antgaspi!pack_antgaspi_id(prix_unitaire_ht),
+       factures_collectes(montant_ht),
+       collecte_tournees(tournees(prestataire_logistique_id)),
        collecte_flux(poids_reel_kg),
        ${rapportEmbed},
        evenements!inner(
@@ -91,7 +94,50 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const { data, error, count } = await query.range(offset, offset + limit - 1);
   if (error) return serverError(error, 'admin.collectes.list');
 
-  return NextResponse.json({ data: data ?? [], total: count ?? 0 });
+  // Nom du transporteur (ligne 2 de la carte, §06.06 §3) — AG : via l'attribution
+  // (embed) ; ZD / dispatchée : via la tournée → shared.prestataires. Ce repo
+  // n'embed jamais shared.* en cross-schema → 1 requête batch (pas 1 par ligne).
+  type Row = {
+    attributions_antgaspi?: { transporteurs?: { nom?: string } | null } | null;
+    collecte_tournees?: {
+      tournees?: { prestataire_logistique_id?: string | null } | null;
+    }[];
+    transporteur_nom?: string | null;
+  };
+  const rows = (data ?? []) as Row[];
+  const prestaIds = new Set<string>();
+  for (const r of rows) {
+    for (const ct of r.collecte_tournees ?? []) {
+      const pid = ct.tournees?.prestataire_logistique_id;
+      if (pid) prestaIds.add(pid);
+    }
+  }
+  const prestaNoms = new Map<string, string>();
+  if (prestaIds.size > 0) {
+    const { data: prestas } = await supabase
+      .schema('shared')
+      .from('prestataires')
+      .select('id, nom')
+      .in('id', [...prestaIds]);
+    for (const p of (prestas ?? []) as { id: string; nom: string }[]) {
+      prestaNoms.set(p.id, p.nom);
+    }
+  }
+  for (const r of rows) {
+    let nom = r.attributions_antgaspi?.transporteurs?.nom ?? null;
+    if (!nom) {
+      for (const ct of r.collecte_tournees ?? []) {
+        const pid = ct.tournees?.prestataire_logistique_id;
+        if (pid && prestaNoms.has(pid)) {
+          nom = prestaNoms.get(pid) ?? null;
+          break;
+        }
+      }
+    }
+    r.transporteur_nom = nom;
+  }
+
+  return NextResponse.json({ data: rows, total: count ?? 0 });
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {

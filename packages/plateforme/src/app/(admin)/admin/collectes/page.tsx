@@ -1,394 +1,132 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { Truck, Plus, FileText, CheckCircle2, RotateCw } from 'lucide-react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import {
+  Truck,
+  Plus,
+  UtensilsCrossed,
+  Leaf,
+  ArrowRight,
+  Search,
+  SlidersHorizontal,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
 import { PageHero } from '@/components/ui/page-hero';
 import { FilterChips } from '@/components/ui/filter-chips';
-import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  StatusCollecte,
-  type StatutCollecte,
-} from '@/components/ui/status-collecte';
-import {
-  statutCollecteDisplay,
-  type StatutCollecteDb,
-} from '@/lib/statut-collecte-labels';
-import { statutTmsDisplay } from '@/lib/statut-tms-labels';
+  CollecteCard,
+  groupBySemaine,
+  type CollecteRow,
+} from '@/components/ui/collecte-card';
 
-interface RapportRse {
-  disponible_a: string | null;
-  genere_at: string | null;
-  regenere_at: string | null;
-  consulte_par_user_at: string | null;
-  version: number | null;
-}
+// Onglets = preset du filtre `statuts` (à venir vs terminaux), via l'API existante.
+const STATUTS_PROGRAMMEES = ['programmee', 'validee', 'en_cours'];
+const STATUTS_HISTORIQUE = [
+  'realisee',
+  'realisee_sans_collecte',
+  'cloturee',
+  'annulee',
+  'rejetee_par_prestataire',
+];
 
-interface Collecte {
-  id: string;
-  type: 'zero_dechet' | 'anti_gaspi';
-  statut: string;
-  statut_tms: string;
-  dirty_tms: boolean;
-  date_collecte: string;
-  heure_collecte: string;
-  controle_acces_requis: boolean;
-  informations_completes: boolean;
-  taux_recyclage: number | null;
-  // Présence d'attribution AG (to-one via contrainte unique) : null = à attribuer.
-  attributions_antgaspi: {
-    id: string;
-    valide_at: string | null;
-    mode_validation: 'manuel_top1' | 'manuel_override' | 'auto_accept' | null;
-    volume_repas_realise: number | null;
-  } | null;
-  collecte_flux: { poids_reel_kg: number | null }[];
-  rapports_rse: RapportRse[];
-  evenements: {
-    nom_evenement: string | null;
-    pax: number | null;
-    nom_client_organisateur: string | null;
-    organisations: { raison_sociale: string };
-    client_organisateur: { raison_sociale: string } | null;
-    lieux: {
-      nom: string;
-      adresse_acces: string | null;
-      code_postal: string | null;
-      ville: string;
-    };
-  };
-}
-
-// Chips de filtres prédéfinis (§06.06 §3). Les `key` = valeurs du paramètre API
-// `chip` (inchangées) ; libellés alignés sur la maquette Admin V1. Le chip
-// « Toutes » (key vide) réinitialise le filtre prédéfini.
-const CHIPS = [
+// Chips prédéfinis Programmées (§06.06 §3) — `key` = valeur du paramètre `chip`.
+const CHIPS_PROGRAMMEES = [
   { key: '', label: 'Toutes' },
   { key: 'non_transmises', label: 'Non transmises au TMS' },
   { key: 'attente_prestataire', label: 'En attente prestataire' },
   { key: 'dirty_tms', label: 'Modifiées sans renvoi TMS' },
   { key: 'ag_attente_attribution', label: 'AG en attente attribution' },
-  { key: 'zd_48h', label: 'ZD 48h' },
-  { key: 'ag_48h', label: 'AG 48h' },
+  { key: 'zd_48h', label: 'ZD 48 h' },
+  { key: 'ag_48h', label: 'AG 48 h' },
 ];
 
-// Statuts sélectionnables dans le filtre multi (§06.06 §3 — 9 valeurs de l'enum
-// collectes.statut, source unique statut-collecte-labels).
-const STATUTS_FILTRE: StatutCollecteDb[] = [
-  'brouillon',
-  'programmee',
-  'validee',
-  'en_cours',
-  'realisee',
-  'realisee_sans_collecte',
-  'cloturee',
-  'annulation_demandee',
-  'annulee',
-  'rejetee_par_prestataire',
+// Filtres rapides Historique — mappés sur type / statuts (pas de chip serveur).
+const CHIPS_HISTORIQUE = [
+  { key: '', label: 'Toutes' },
+  { key: 'ag', label: 'Anti-Gaspi' },
+  { key: 'zd', label: 'Zéro Déchet' },
+  { key: 'annulee', label: 'Annulées' },
 ];
 
-const STATUTS_TERMINAUX = new Set([
-  'realisee',
-  'realisee_sans_collecte',
-  'cloturee',
-  'annulee',
-  'rejetee_par_prestataire',
-]);
+type Tab = 'programmees' | 'historique';
 
-// Collecte AG « à attribuer » : programmée et sans attribution encore (≈ « Créée »).
-// Une fois attribuée, elle a une ligne attributions_antgaspi → statut « Programmée ».
-function aAttribuer(row: Collecte): boolean {
+// KPI « à dispatcher » cliquable (Programmées) — filtre par type.
+function KpiTile({
+  type,
+  count,
+  active,
+  onClick,
+}: {
+  type: 'anti_gaspi' | 'zero_dechet';
+  count: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  const ag = type === 'anti_gaspi';
+  const Icone = ag ? UtensilsCrossed : Leaf;
   return (
-    row.type === 'anti_gaspi' &&
-    row.statut === 'programmee' &&
-    row.attributions_antgaspi == null
-  );
-}
-
-// Criticité (§06.09 §1 / ALGO-02) : collecte à attribuer ET à moins de 48h.
-function estUrgente(row: Collecte): boolean {
-  if (!aAttribuer(row)) return false;
-  const ts = new Date(
-    `${row.date_collecte}T${row.heure_collecte ?? '00:00:00'}`,
-  ).getTime();
-  return Number.isFinite(ts) && ts < Date.now() + 48 * 60 * 60 * 1000;
-}
-
-// Format CDC §06.06 §3 : "Jeu 23 Avr · 08h30".
-function formatDateHeure(date: string, heure: string | null): string {
-  const d = new Date(`${date}T${heure ?? '00:00:00'}`);
-  const jour = d
-    .toLocaleDateString('fr-FR', {
-      weekday: 'short',
-      day: '2-digit',
-      month: 'short',
-    })
-    .replace(/\./g, '')
-    .replace(/\b\p{L}/gu, (c) => c.toUpperCase());
-  const h = (heure ?? '').slice(0, 5).replace(':', 'h');
-  return h ? `${jour} · ${h}` : jour;
-}
-
-function poidsTotalZd(row: Collecte): number {
-  return row.collecte_flux.reduce((s, f) => s + (f.poids_reel_kg ?? 0), 0);
-}
-
-// Statut d'attribution AG affiché sur la liste (§06.06 §3 l.182). 3 des 4 états
-// CDC sont dérivables : « Validée » (mode_validation manuel_top1/override),
-// « Auto-accept » (auto_accept), « En attente » (aucune attribution). Le 4e état
-// « aucune reco » n'a pas de marqueur persisté pré-validation (cf. divergence).
-function attributionBadge(row: Collecte): {
-  label: string;
-  variant: 'success' | 'primary' | 'neutral';
-} {
-  const a = row.attributions_antgaspi;
-  if (!a) return { label: 'En attente', variant: 'neutral' };
-  if (a.mode_validation === 'auto_accept')
-    return { label: 'Auto-accept', variant: 'success' };
-  return { label: 'Validée', variant: 'primary' };
-}
-
-// Indicateurs par ligne (§06.06 §3). NB : « Anomalie pesée » = détection seuils
-// par flux → exception actée V2 (non calculée en V1), donc pas d'indicateur ici.
-function Indicateurs({ row }: { row: Collecte }) {
-  const rapport = row.rapports_rse[0];
-  const upcoming = !STATUTS_TERMINAUX.has(row.statut);
-  const poids = poidsTotalZd(row);
-  const repas = row.attributions_antgaspi?.volume_repas_realise;
-  const regenere =
-    rapport != null &&
-    (rapport.regenere_at != null || (rapport.version ?? 1) > 1);
-
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {/* Info incomplète (à venir / en cours) */}
-      {upcoming && !row.informations_completes && (
-        <Badge variant="warning" className="text-[10px]">
-          Info incomplète
-        </Badge>
-      )}
-
-      {/* Rapport RSE (toutes collectes passées) */}
-      {rapport && (
-        <span
-          className="inline-flex items-center gap-0.5 text-savr-neutral-500"
-          title={
-            rapport.consulte_par_user_at
-              ? `Rapport consulté le ${new Date(rapport.consulte_par_user_at).toLocaleDateString('fr-FR')}`
-              : 'Rapport disponible (non consulté)'
-          }
-        >
-          <FileText className="h-3.5 w-3.5" aria-label="Rapport disponible" />
-          {rapport.consulte_par_user_at && (
-            <CheckCircle2
-              className="h-3 w-3 text-savr-success-strong"
-              aria-label="Rapport consulté"
-            />
-          )}
-          {regenere && (
-            <RotateCw
-              className="h-3 w-3 text-savr-info-strong"
-              aria-label="Rapport régénéré"
-            />
-          )}
-        </span>
-      )}
-
-      {/* ZD passées : poids total + taux de recyclage */}
-      {row.type === 'zero_dechet' && poids > 0 && (
-        <Badge variant="success" className="text-[10px]">
-          {poids.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} kg
-        </Badge>
-      )}
-      {row.type === 'zero_dechet' && row.taux_recyclage != null && (
-        <Badge variant="info" className="text-[10px]">
-          {row.taux_recyclage.toLocaleString('fr-FR', {
-            maximumFractionDigits: 1,
-          })}{' '}
-          %
-        </Badge>
-      )}
-
-      {/* AG passées : nombre de repas collectés */}
-      {row.type === 'anti_gaspi' && repas != null && (
-        <Badge variant="success" className="text-[10px]">
-          {repas} repas
-        </Badge>
-      )}
-
-      {/* AG à venir : statut attribution (§06.06 §3 l.182). mode_validation
-          distingue « Validée » (manuel_top1/override) de « Auto-accept ». Le 4e
-          état CDC « aucune reco » n'a pas de représentation persistée pré-validation
-          en V1 (seul un audit_log post-validation existe) → confondu avec « En
-          attente » ici, cf. _Divergences/BOA-COLLECTES_20260702.md. */}
-      {row.type === 'anti_gaspi' && upcoming && (
-        <Badge variant={attributionBadge(row).variant} className="text-[10px]">
-          {attributionBadge(row).label}
-        </Badge>
-      )}
-    </div>
-  );
-}
-
-const columns: Column<Collecte>[] = [
-  {
-    key: 'date_collecte',
-    header: 'Date + heure',
-    render: (row) => (
-      <div className="flex flex-col leading-tight">
-        <Link
-          href={`/admin/collectes/${row.id}`}
-          className="font-medium text-savr-primary-700 hover:underline"
-        >
-          {formatDateHeure(row.date_collecte, row.heure_collecte)}
-        </Link>
-        {estUrgente(row) && (
-          <span className="text-[10px] font-bold uppercase text-savr-error-strong">
-            Urgent
-          </span>
-        )}
-      </div>
-    ),
-  },
-  {
-    key: 'type',
-    header: 'Type',
-    render: (row) => (
-      <Badge variant={row.type === 'zero_dechet' ? 'success' : 'warning'}>
-        {row.type === 'zero_dechet' ? 'ZD' : 'AG'}
-      </Badge>
-    ),
-  },
-  {
-    key: 'traiteur',
-    header: 'Traiteur',
-    render: (row) => row.evenements.organisations.raison_sociale,
-  },
-  {
-    key: 'pax',
-    header: 'Pax',
-    render: (row) => row.evenements.pax ?? '—',
-  },
-  {
-    key: 'lieu',
-    header: 'Lieu',
-    render: (row) => {
-      const l = row.evenements.lieux;
-      const adresse = [
-        l.adresse_acces,
-        [l.code_postal, l.ville].filter(Boolean).join(' '),
-      ]
-        .filter(Boolean)
-        .join(', ');
-      return (
-        <div className="flex flex-col leading-tight">
-          <span className="font-medium text-savr-neutral-900">{l.nom}</span>
-          {adresse && (
-            <span className="text-xs text-savr-neutral-500">{adresse}</span>
-          )}
-        </div>
-      );
-    },
-  },
-  {
-    key: 'client_organisateur',
-    header: 'Client organisateur',
-    render: (row) =>
-      row.evenements.client_organisateur?.raison_sociale ??
-      row.evenements.nom_client_organisateur ?? (
-        <span className="text-savr-neutral-400">—</span>
-      ),
-  },
-  {
-    key: 'controle_acces',
-    header: 'Contrôle accès',
-    render: (row) => (
-      <span title="Plaque + nom chauffeur communiqués avant exécution">
-        <Badge variant={row.controle_acces_requis ? 'info' : 'neutral'}>
-          {row.controle_acces_requis ? 'Oui' : 'Non'}
-        </Badge>
-      </span>
-    ),
-  },
-  {
-    key: 'statut',
-    header: 'Statut',
-    // AG programmée sans attribution : statut réel = `programmee` (pas `brouillon`).
-    // Affiché « À attribuer » (et non « Créée ») pour ne pas entrer en conflit avec
-    // le filtre « Créée » = brouillon ; ces lignes se filtrent via le chip « AG en
-    // attente attribution ». (Divergence libellé §06.06 §3 « ≈ Créée ».)
-    render: (row) =>
-      aAttribuer(row) ? (
-        <Badge variant="warning">À attribuer</Badge>
-      ) : (
-        <StatusCollecte statut={row.statut as StatutCollecte} />
-      ),
-  },
-  {
-    // Statut logistique (enum statut_tms) — colonne de la maquette Admin V1,
-    // libellés via le mapping partagé (valeurs réelles de l'enum).
-    key: 'statut_tms',
-    header: 'Statut TMS',
-    render: (row) => (
-      <Badge
-        variant={statutTmsDisplay(row.statut_tms).variant}
-        className="text-[10px]"
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={`flex items-center gap-4 rounded-savr-lg border bg-savr-white px-5 py-4 text-left shadow-savr-sm transition-[border-color,box-shadow,transform] duration-[120ms] hover:-translate-y-px hover:border-savr-primary-200 hover:shadow-savr-md ${
+        active
+          ? 'border-savr-primary-700 shadow-[0_0_0_1px_var(--color-savr-primary-700)]'
+          : 'border-savr-neutral-200'
+      }`}
+    >
+      <span
+        className={`grid h-[46px] w-[46px] place-items-center rounded-savr-md ${
+          ag
+            ? 'bg-savr-warning-subtle text-savr-warning-strong'
+            : 'bg-savr-success-subtle text-savr-success-strong'
+        }`}
       >
-        {statutTmsDisplay(row.statut_tms).label}
-      </Badge>
-    ),
-  },
-  {
-    key: 'indicateurs',
-    header: 'Indicateurs',
-    render: (row) => <Indicateurs row={row} />,
-  },
-  {
-    // §06.09 — accès direct à l'écran d'attribution AG depuis la liste collectes.
-    // Affiché uniquement pour les collectes AG « à attribuer » (= « Créée » :
-    // programmée + sans attribution). Une fois attribuée, plus de bouton.
-    key: 'attribution',
-    header: '',
-    render: (row) =>
-      aAttribuer(row) ? (
-        <Link
-          href={`/admin/attributions-ag/${row.id}`}
-          className="text-sm font-medium text-savr-primary-600 hover:underline"
-        >
-          Attribuer →
-        </Link>
-      ) : null,
-  },
-];
+        <Icone className="h-6 w-6" aria-hidden="true" />
+      </span>
+      <div>
+        <div className="text-3xl font-extrabold leading-none tracking-tight text-savr-neutral-900 tabular-nums">
+          {count}
+        </div>
+        <div className="mt-1 text-sm font-bold text-savr-neutral-800">
+          {ag ? 'AG' : 'ZD'} à dispatcher
+        </div>
+        <div className="text-xs font-semibold text-savr-neutral-500">
+          validées transporteur
+        </div>
+      </div>
+      <ArrowRight className="ml-auto h-5 w-5 text-savr-neutral-300" />
+    </button>
+  );
+}
 
 export default function CollectesPage() {
-  const [collectes, setCollectes] = useState<Collecte[]>([]);
+  const [tab, setTab] = useState<Tab>('programmees');
+  const [collectes, setCollectes] = useState<CollecteRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [chip, setChip] = useState('');
+  // Filtre rapide de l'onglet actif : chip Programmées OU filtre Historique.
+  const [quickFilter, setQuickFilter] = useState('');
   const [type, setType] = useState('');
-  const [statuts, setStatuts] = useState<string[]>([]);
   const [traiteurId, setTraiteurId] = useState('');
   const [lieuId, setLieuId] = useState('');
-  // Listes complètes pour les menus déroulants (chargées une seule fois).
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [search, setSearch] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [page, setPage] = useState(1);
   const [traiteurs, setTraiteurs] = useState<{ id: string; label: string }[]>(
     [],
   );
   const [lieux, setLieux] = useState<{ id: string; label: string }[]>([]);
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
-  const [infoIncomplete, setInfoIncomplete] = useState(false);
-  const [rapportNonConsulte, setRapportNonConsulte] = useState(false);
-  const [page, setPage] = useState(1);
-  // Compteurs par chip prédéfini (§06.06 §3) — pastilles de la liste.
   const [chipCounts, setChipCounts] = useState<Record<string, number>>({});
 
-  // Compteurs des chips — chargés une fois au montage (endpoint dédié).
+  // Compteurs chips + KPI « à dispatcher » — chargés une fois au montage.
   useEffect(() => {
     let cancelled = false;
     void fetch('/api/v1/admin/collectes/chip-counts')
@@ -404,8 +142,7 @@ export default function CollectesPage() {
     };
   }, []);
 
-  // Chargement des listes complètes (traiteurs + lieux) pour les menus
-  // déroulants, une seule fois. Pagination suivie jusqu'à épuisement.
+  // Listes complètes (traiteurs + lieux) pour les menus déroulants.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -453,58 +190,92 @@ export default function CollectesPage() {
   const fetchCollectes = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams({ page: String(page) });
-    if (chip) {
-      params.set('chip', chip);
+
+    if (tab === 'programmees') {
+      if (quickFilter) {
+        // Chemin chip serveur (les chips sont tous à portée « Programmées »).
+        params.set('chip', quickFilter);
+      } else {
+        params.set('statuts', STATUTS_PROGRAMMEES.join(','));
+        if (type) params.set('type', type);
+      }
     } else {
-      if (type) params.set('type', type);
-      if (statuts.length > 0) params.set('statuts', statuts.join(','));
+      // Historique : preset terminaux, raffiné par le filtre rapide.
+      if (quickFilter === 'annulee') {
+        params.set('statuts', 'annulee,rejetee_par_prestataire');
+      } else {
+        params.set('statuts', STATUTS_HISTORIQUE.join(','));
+        if (quickFilter === 'ag') params.set('type', 'anti_gaspi');
+        else if (quickFilter === 'zd') params.set('type', 'zero_dechet');
+        else if (type) params.set('type', type);
+      }
+    }
+
+    // Filtres avancés (communs, hors chemin chip Programmées).
+    if (!(tab === 'programmees' && quickFilter)) {
       if (traiteurId) params.set('organisation_id', traiteurId);
       if (lieuId) params.set('lieu_id', lieuId);
       if (from) params.set('from', from);
       if (to) params.set('to', to);
-      if (infoIncomplete) params.set('info_incomplete', 'true');
-      if (rapportNonConsulte) params.set('rapport_non_consulte', 'true');
     }
+
     const res = await fetch(`/api/v1/admin/collectes?${params}`);
     if (res.ok) {
-      const json = (await res.json()) as {
-        data: Collecte[];
-        total: number;
-      };
+      const json = (await res.json()) as { data: CollecteRow[]; total: number };
       setCollectes(json.data);
       setTotal(json.total);
     }
     setLoading(false);
-  }, [
-    page,
-    chip,
-    type,
-    statuts,
-    traiteurId,
-    lieuId,
-    from,
-    to,
-    infoIncomplete,
-    rapportNonConsulte,
-  ]);
+  }, [tab, page, quickFilter, type, traiteurId, lieuId, from, to]);
 
   useEffect(() => {
     void fetchCollectes();
   }, [fetchCollectes]);
 
-  const toggleStatut = (s: string) => {
-    setStatuts((prev) =>
-      prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s],
-    );
+  const changeTab = (next: Tab) => {
+    setTab(next);
+    setQuickFilter('');
+    setType('');
     setPage(1);
   };
 
+  // Recherche texte = filtre côté client sur la page chargée (traiteur, lieu,
+  // ville, client, adresse) — l'API n'expose pas de recherche plein-texte.
+  const visibles = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return collectes;
+    return collectes.filter((c) => {
+      const l = c.evenements.lieux;
+      const hay = [
+        c.evenements.organisations.raison_sociale,
+        l.nom,
+        l.ville,
+        l.adresse_acces,
+        c.evenements.client_organisateur?.raison_sociale,
+        c.evenements.nom_client_organisateur,
+        c.transporteur_nom,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }, [collectes, search]);
+
+  const semaines = useMemo(
+    () => groupBySemaine(visibles, tab === 'programmees' ? 'asc' : 'desc'),
+    [visibles, tab],
+  );
+
+  const chips = tab === 'programmees' ? CHIPS_PROGRAMMEES : CHIPS_HISTORIQUE;
+  const totalPages = Math.max(1, Math.ceil(total / 50));
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <PageHero
         icon={<Truck className="h-6 w-6 text-savr-primary-200" />}
         title="Collectes"
-        subtitle={`${total} collecte${total > 1 ? 's' : ''} · liste unique ZD + AG · clic sur une ligne → détail`}
+        subtitle="Liste unifiée Zéro Déchet + Anti-Gaspi · cliquez une carte pour ouvrir la fiche"
         actions={
           <Link href="/admin/collectes/nouvelle">
             <Button variant="accent">
@@ -515,192 +286,263 @@ export default function CollectesPage() {
         }
       />
 
-      {/* Chips filtres prédéfinis (sélection unique) + compteurs */}
-      <FilterChips
-        chips={CHIPS.map((c) =>
-          c.key ? { ...c, count: chipCounts[c.key] } : c,
-        )}
-        activeKey={chip}
-        ariaLabel="Filtres prédéfinis"
-        onSelect={(key) => {
-          setChip(key);
-          setPage(1);
-        }}
-      />
+      {/* Segment Programmées / Historique */}
+      <div
+        role="tablist"
+        aria-label="Vue collectes"
+        className="inline-flex rounded-savr-full border border-savr-neutral-200 bg-savr-white p-1 shadow-savr-sm"
+      >
+        {(
+          [
+            ['programmees', 'Programmées'],
+            ['historique', 'Historique'],
+          ] as [Tab, string][]
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            role="tab"
+            aria-selected={tab === key}
+            onClick={() => changeTab(key)}
+            className={`rounded-savr-full px-5 py-2 text-sm font-bold transition-colors duration-[120ms] ${
+              tab === key
+                ? 'bg-savr-primary-700 text-savr-white'
+                : 'text-savr-neutral-500 hover:text-savr-primary-700'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
-      {/* Filtres libres (§06.06 §3) */}
-      {!chip && (
-        <Card className="space-y-4 p-4">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-savr-neutral-600">
-                Type
-              </label>
-              <select
-                className="h-10 w-full rounded-savr-md border border-savr-neutral-300 bg-savr-white px-3 text-sm"
-                value={type}
-                onChange={(e) => {
-                  setType(e.target.value);
-                  setPage(1);
-                }}
-              >
-                <option value="">Tous types</option>
-                <option value="zero_dechet">ZD</option>
-                <option value="anti_gaspi">AG</option>
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-savr-neutral-600">
-                Traiteur
-              </label>
-              <select
-                aria-label="Filtrer par traiteur"
-                className="h-10 w-full rounded-savr-md border border-savr-neutral-300 bg-savr-white px-3 text-sm"
-                value={traiteurId}
-                onChange={(e) => {
-                  setTraiteurId(e.target.value);
-                  setPage(1);
-                }}
-              >
-                <option value="">Tous les traiteurs</option>
-                {traiteurs.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-savr-neutral-600">
-                Lieu
-              </label>
-              <select
-                aria-label="Filtrer par lieu"
-                className="h-10 w-full rounded-savr-md border border-savr-neutral-300 bg-savr-white px-3 text-sm"
-                value={lieuId}
-                onChange={(e) => {
-                  setLieuId(e.target.value);
-                  setPage(1);
-                }}
-              >
-                <option value="">Tous les lieux</option>
-                {lieux.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <label className="mb-1 block text-xs font-medium text-savr-neutral-600">
-                  Du
-                </label>
-                <input
-                  type="date"
-                  value={from}
-                  onChange={(e) => {
-                    setFrom(e.target.value);
-                    setPage(1);
-                  }}
-                  className="h-10 w-full rounded-savr-md border border-savr-neutral-300 bg-savr-white px-2 text-sm"
-                />
-              </div>
-              <div className="flex-1">
-                <label className="mb-1 block text-xs font-medium text-savr-neutral-600">
-                  Au
-                </label>
-                <input
-                  type="date"
-                  value={to}
-                  onChange={(e) => {
-                    setTo(e.target.value);
-                    setPage(1);
-                  }}
-                  className="h-10 w-full rounded-savr-md border border-savr-neutral-300 bg-savr-white px-2 text-sm"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Statut — multi-sélection */}
-          <div>
-            <span className="mb-1 block text-xs font-medium text-savr-neutral-600">
-              Statut
-            </span>
-            <div className="flex flex-wrap gap-1.5">
-              {STATUTS_FILTRE.map((s) => {
-                const active = statuts.includes(s);
-                return (
-                  <button
-                    key={s}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => toggleStatut(s)}
-                    className={`rounded-savr-full border px-2.5 py-1 text-xs font-semibold transition-colors ${
-                      active
-                        ? 'border-savr-primary-700 bg-savr-primary-700 text-savr-white'
-                        : 'border-savr-neutral-300 bg-savr-white text-savr-neutral-600 hover:border-savr-primary-300'
-                    }`}
-                  >
-                    {statutCollecteDisplay(s, 'admin').label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Booléens */}
-          <div className="flex flex-wrap gap-4">
-            <label className="flex items-center gap-2 text-sm text-savr-neutral-700">
-              <input
-                type="checkbox"
-                checked={infoIncomplete}
-                onChange={(e) => {
-                  setInfoIncomplete(e.target.checked);
-                  setPage(1);
-                }}
-              />
-              Info incomplète
-            </label>
-            <label className="flex items-center gap-2 text-sm text-savr-neutral-700">
-              <input
-                type="checkbox"
-                checked={rapportNonConsulte}
-                onChange={(e) => {
-                  setRapportNonConsulte(e.target.checked);
-                  setPage(1);
-                }}
-              />
-              Rapport non consulté
-            </label>
-          </div>
-        </Card>
+      {/* KPI « à dispatcher » (Programmées uniquement) */}
+      {tab === 'programmees' && (
+        <div className="grid gap-3.5 sm:max-w-[660px] sm:grid-cols-2">
+          <KpiTile
+            type="anti_gaspi"
+            count={chipCounts.ag_a_dispatcher ?? 0}
+            active={!quickFilter && type === 'anti_gaspi'}
+            onClick={() => {
+              setQuickFilter('');
+              setType((t) => (t === 'anti_gaspi' ? '' : 'anti_gaspi'));
+              setPage(1);
+            }}
+          />
+          <KpiTile
+            type="zero_dechet"
+            count={chipCounts.zd_a_dispatcher ?? 0}
+            active={!quickFilter && type === 'zero_dechet'}
+            onClick={() => {
+              setQuickFilter('');
+              setType((t) => (t === 'zero_dechet' ? '' : 'zero_dechet'));
+              setPage(1);
+            }}
+          />
+        </div>
       )}
 
+      {/* Filtres rapides + recherche + avancés */}
+      <div className="flex flex-wrap items-center gap-3">
+        <FilterChips
+          chips={chips.map((c) =>
+            tab === 'programmees' && c.key
+              ? { ...c, count: chipCounts[c.key] }
+              : c,
+          )}
+          activeKey={quickFilter}
+          ariaLabel="Filtres rapides"
+          className="flex-1"
+          onSelect={(key) => {
+            setQuickFilter(key);
+            setType('');
+            setPage(1);
+          }}
+        />
+        <label className="flex h-9 min-w-[190px] items-center gap-2 rounded-savr-md border border-savr-neutral-300 bg-savr-white px-3 text-savr-neutral-400">
+          <Search className="h-4 w-4 shrink-0" />
+          <input
+            aria-label="Rechercher"
+            placeholder="Traiteur, lieu, ville…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full bg-transparent text-sm text-savr-neutral-800 outline-none"
+          />
+        </label>
+        <Button
+          variant="secondary"
+          onClick={() => setShowAdvanced((v) => !v)}
+          className="h-9"
+        >
+          <SlidersHorizontal className="h-4 w-4" />
+          Filtres avancés
+        </Button>
+      </div>
+
+      {showAdvanced && (
+        <div className="grid grid-cols-1 gap-3 rounded-savr-lg border border-savr-neutral-200 bg-savr-white p-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <label className="mb-1 block text-xs font-bold text-savr-neutral-700">
+              Type
+            </label>
+            <select
+              aria-label="Filtrer par type"
+              className="h-10 w-full rounded-savr-md border border-savr-neutral-300 bg-savr-white px-3 text-sm"
+              value={type}
+              onChange={(e) => {
+                setType(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">Tous types</option>
+              <option value="zero_dechet">Zéro Déchet</option>
+              <option value="anti_gaspi">Anti-Gaspi</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-bold text-savr-neutral-700">
+              Traiteur
+            </label>
+            <select
+              aria-label="Filtrer par traiteur"
+              className="h-10 w-full rounded-savr-md border border-savr-neutral-300 bg-savr-white px-3 text-sm"
+              value={traiteurId}
+              onChange={(e) => {
+                setTraiteurId(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">Tous les traiteurs</option>
+              {traiteurs.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-bold text-savr-neutral-700">
+              Lieu
+            </label>
+            <select
+              aria-label="Filtrer par lieu"
+              className="h-10 w-full rounded-savr-md border border-savr-neutral-300 bg-savr-white px-3 text-sm"
+              value={lieuId}
+              onChange={(e) => {
+                setLieuId(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">Tous les lieux</option>
+              {lieux.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <label className="mb-1 block text-xs font-bold text-savr-neutral-700">
+                Du
+              </label>
+              <input
+                type="date"
+                aria-label="Date de début"
+                value={from}
+                onChange={(e) => {
+                  setFrom(e.target.value);
+                  setPage(1);
+                }}
+                className="h-10 w-full rounded-savr-md border border-savr-neutral-300 bg-savr-white px-2 text-sm"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="mb-1 block text-xs font-bold text-savr-neutral-700">
+                Au
+              </label>
+              <input
+                type="date"
+                aria-label="Date de fin"
+                value={to}
+                onChange={(e) => {
+                  setTo(e.target.value);
+                  setPage(1);
+                }}
+                className="h-10 w-full rounded-savr-md border border-savr-neutral-300 bg-savr-white px-2 text-sm"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Liste par semaine */}
       {loading ? (
-        <div className="space-y-2">
-          {[...Array(8)].map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
+        <div className="space-y-3">
+          {[...Array(5)].map((_, i) => (
+            <Skeleton key={i} className="h-[86px] w-full rounded-savr-lg" />
           ))}
         </div>
-      ) : collectes.length === 0 ? (
+      ) : semaines.length === 0 ? (
         <EmptyState
           icon={<Truck className="h-8 w-8" />}
           title="Aucune collecte"
-          description="Aucune collecte ne correspond à votre filtre."
+          description="Aucune collecte ne correspond à ce filtre."
         />
       ) : (
-        <DataTable
-          columns={columns}
-          // Urgents (AG à attribuer < 48h) remontés en tête (§06.09 §1)
-          data={[...collectes].sort(
-            (a, b) => Number(estUrgente(b)) - Number(estUrgente(a)),
-          )}
-          keyExtractor={(row) => row.id}
-          rowClassName={(r) => (estUrgente(r) ? 'bg-savr-error-subtle' : '')}
-          pagination={{ page, total, limit: 50, onPageChange: setPage }}
-        />
+        <div className="space-y-6">
+          {semaines.map((sem) => (
+            <section key={sem.key} className="space-y-3">
+              <div className="flex items-center gap-3">
+                <h2 className="text-xs font-extrabold uppercase tracking-wider text-savr-neutral-500">
+                  {sem.label}
+                </h2>
+                <span className="rounded-savr-full bg-savr-neutral-100 px-2 py-0.5 text-[11px] font-extrabold text-savr-neutral-500 tabular-nums">
+                  {sem.items.length}
+                </span>
+                <span className="h-px flex-1 bg-savr-neutral-200" />
+              </div>
+              <div className="space-y-3">
+                {sem.items.map((c) => (
+                  <CollecteCard key={c.id} collecte={c} />
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {!loading && total > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-1 text-sm text-savr-neutral-500">
+          <span>
+            {total} collecte{total > 1 ? 's' : ''}
+            {search
+              ? ` · ${visibles.length} affichée${visibles.length > 1 ? 's' : ''}`
+              : ''}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              aria-label="Page précédente"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="grid h-9 w-9 place-items-center rounded-savr-md border border-savr-neutral-200 bg-savr-white text-savr-neutral-600 disabled:opacity-40"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="text-xs font-bold tabular-nums text-savr-neutral-600">
+              {page} / {totalPages}
+            </span>
+            <button
+              type="button"
+              aria-label="Page suivante"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              className="grid h-9 w-9 place-items-center rounded-savr-md border border-savr-neutral-200 bg-savr-white text-savr-neutral-600 disabled:opacity-40"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -1,12 +1,11 @@
 /**
- * M0.6 — Liste collectes Admin (BL-P1-BOA-05).
- * Colonnes (client organisateur, contrôle d'accès), indicateurs (rapport
- * disponible/consulté/régénéré, poids ZD, taux, repas AG, info incomplète,
- * statut attribution AG : En attente / Validée / Auto-accept) et filtres (statut
- * multi, info incomplète, rapport non consulté). Câblage sur l'API existante.
- *
- * NB : DataTable rend simultanément la vue desktop (table) et mobile (cards) —
- * chaque libellé apparaît plusieurs fois → assertions en getAllBy*.
+ * M0.6 — Liste collectes Admin (BL-P1-BOA-05) — refonte UI en cartes.
+ * La liste rend désormais des cartes groupées par semaine (plus de tableau) :
+ * - contenu carte (traiteur, lieu, client organisateur, adresse, transporteur),
+ * - segment Programmées / Historique (preset du filtre `statuts`),
+ * - tuiles KPI « à dispatcher », chips + compteurs, recherche client, filtres
+ *   avancés (traiteur / lieu → filtrage serveur), indicateurs Historique
+ *   (poids/taux ZD, repas AG, rapport consulté).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
@@ -17,7 +16,7 @@ vi.mock('next/navigation', () => ({
 
 import CollectesPage from './page';
 
-// ZD clôturée : poids + taux + rapport consulté ET régénéré (version > 1).
+// ZD clôturée (terminale → vue Historique) : poids + taux + rapport, facturée.
 const collecteZd = {
   id: 'zd-1',
   type: 'zero_dechet',
@@ -35,11 +34,14 @@ const collecteZd = {
     {
       disponible_a: '2026-04-24T06:00:00Z',
       genere_at: '2026-04-24T06:00:00Z',
-      regenere_at: '2026-04-25T09:00:00Z',
+      regenere_at: null,
       consulte_par_user_at: '2026-04-24T10:00:00Z',
-      version: 2,
+      version: 1,
     },
   ],
+  transporteur_nom: 'Strike',
+  factures_collectes: [{ montant_ht: 300 }],
+  packs_antgaspi: null,
   evenements: {
     nom_evenement: 'Gala ZD',
     pax: 120,
@@ -70,6 +72,9 @@ function ag(overrides: Record<string, unknown>) {
     attributions_antgaspi: null,
     collecte_flux: [],
     rapports_rse: [],
+    transporteur_nom: 'Marathon',
+    factures_collectes: [],
+    packs_antgaspi: { prix_unitaire_ht: 45 },
     evenements: {
       nom_evenement: 'Cocktail AG',
       pax: 80,
@@ -87,13 +92,7 @@ function ag(overrides: Record<string, unknown>) {
   };
 }
 
-// AG à venir sans attribution + info incomplète → « En attente » + badge orange.
-const agEnAttente = ag({
-  id: 'ag-attente',
-  informations_completes: false,
-  attributions_antgaspi: null,
-});
-// AG validée manuellement → « Validée ».
+const agEnAttente = ag({ id: 'ag-attente', informations_completes: false });
 const agValidee = ag({
   id: 'ag-validee',
   statut: 'validee',
@@ -104,18 +103,6 @@ const agValidee = ag({
     volume_repas_realise: null,
   },
 });
-// AG auto-acceptée → « Auto-accept ».
-const agAuto = ag({
-  id: 'ag-auto',
-  statut: 'validee',
-  attributions_antgaspi: {
-    id: 'att-2',
-    valide_at: '2026-05-01T12:00:00Z',
-    mode_validation: 'auto_accept',
-    volume_repas_realise: null,
-  },
-});
-// AG réalisée → nombre de repas collectés.
 const agRealisee = ag({
   id: 'ag-realisee',
   statut: 'realisee',
@@ -127,11 +114,10 @@ const agRealisee = ag({
   },
 });
 
-const ALL = [collecteZd, agEnAttente, agValidee, agAuto, agRealisee];
+const ALL = [collecteZd, agEnAttente, agValidee, agRealisee];
 
 function mockCollectesFetch() {
   const fetchMock = vi.fn((url: string) => {
-    // Compteurs des chips (endpoint dédié) — avant le catch-all /collectes.
     if (typeof url === 'string' && url.includes('/collectes/chip-counts')) {
       return Promise.resolve({
         ok: true,
@@ -142,6 +128,8 @@ function mockCollectesFetch() {
           ag_attente_attribution: 2,
           zd_48h: 1,
           ag_48h: 4,
+          ag_a_dispatcher: 2,
+          zd_a_dispatcher: 3,
         }),
       });
     }
@@ -151,8 +139,6 @@ function mockCollectesFetch() {
         json: async () => ({ data: ALL, total: ALL.length }),
       });
     }
-    // Listes des menus déroulants (chargées au montage). Une 2e page vide
-    // arrête la pagination.
     if (typeof url === 'string' && url.includes('/admin/organisations')) {
       const empty = /page=([2-9]|\d{2,})/.test(url);
       return Promise.resolve({
@@ -183,130 +169,129 @@ function mockCollectesFetch() {
   return fetchMock;
 }
 
-describe('M0.6 — liste collectes Admin (BL-P1-BOA-05)', () => {
+describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.restoreAllMocks());
 
-  it('M0.6 — colonnes client organisateur + contrôle d’accès rendues', async () => {
+  it('M0.6 — cartes : traiteur, lieu, client organisateur, transporteur rendus', async () => {
     mockCollectesFetch();
     render(<CollectesPage />);
 
+    // Traiteur (ligne 1) + lieu
     expect(
-      (await screen.findAllByText('Client organisateur')).length,
+      (await screen.findAllByText('Traiteur Alpha')).length,
     ).toBeGreaterThan(0);
-    expect(screen.getAllByText('Contrôle accès').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Indicateurs').length).toBeGreaterThan(0);
-    // Colonne Statut TMS (maquette Admin V1)
-    expect(screen.getAllByText('Statut TMS').length).toBeGreaterThan(0);
-
-    // Client organisateur : raison sociale liée (ZD) ou texte libre (AG)
+    expect(screen.getAllByText('Salle Wagram').length).toBeGreaterThan(0);
+    // Client organisateur (ligne 2) : raison sociale liée (ZD) OU texte libre (AG)
     expect(screen.getAllByText('Mairie de Paris').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Fondation X').length).toBeGreaterThan(0);
+    // Transporteur (ligne 2)
+    expect(screen.getAllByText('Marathon').length).toBeGreaterThan(0);
   });
 
-  it('M0.6 — les chips prédéfinis affichent leur compteur (chip-counts)', async () => {
+  it('M0.6 — segment Historique repasse la requête sur les statuts terminaux', async () => {
+    const fetchMock = mockCollectesFetch();
+    render(<CollectesPage />);
+    await screen.findAllByText('Traiteur Alpha');
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Historique' }));
+
+    await waitFor(() => {
+      const urls = fetchMock.mock.calls.map((c) => String(c[0]));
+      expect(
+        urls.some(
+          (u) =>
+            u.startsWith('/api/v1/admin/collectes?') &&
+            u.includes('statuts=') &&
+            u.includes('cloturee'),
+        ),
+      ).toBe(true);
+    });
+  });
+
+  it('M0.6 — tuiles KPI « à dispatcher » AG/ZD affichent leur compteur', async () => {
+    mockCollectesFetch();
+    render(<CollectesPage />);
+
+    // Tuiles KPI = boutons cliquables ; compteurs ag_a_dispatcher=2 / zd=3
+    const agTile = await screen.findByRole('button', {
+      name: /AG à dispatcher/,
+    });
+    const zdTile = screen.getByRole('button', { name: /ZD à dispatcher/ });
+    expect(agTile).toHaveTextContent('2');
+    expect(zdTile).toHaveTextContent('3');
+  });
+
+  it('M0.6 — chips prédéfinis affichent leur compteur (chip-counts)', async () => {
     mockCollectesFetch();
     render(<CollectesPage />);
     const chip = await screen.findByRole('button', {
       name: /Non transmises au TMS/,
     });
-    // Pastille compteur = valeur renvoyée par /chip-counts (3).
     await waitFor(() => expect(chip).toHaveTextContent('3'));
   });
 
-  it('M0.6 — indicateurs rapport (disponible/consulté/régénéré) + poids/taux ZD', async () => {
+  it('M0.6 — indicateurs Historique : poids/taux ZD + repas AG + rapport consulté', async () => {
     mockCollectesFetch();
     render(<CollectesPage />);
+    await screen.findAllByText('Traiteur Alpha');
 
-    // Rapport RSE disponible + consulté + régénéré (version 2 / regenere_at)
-    expect(
-      (await screen.findAllByLabelText('Rapport disponible')).length,
-    ).toBeGreaterThan(0);
-    expect(screen.getAllByLabelText('Rapport consulté').length).toBeGreaterThan(
-      0,
-    );
-    expect(screen.getAllByLabelText('Rapport régénéré').length).toBeGreaterThan(
-      0,
-    );
-
-    // ZD passée : poids total (10 + 2,5 = 12,5 kg) + taux recyclage
+    // ZD clôturée : poids total (10 + 2,5 = 12,5 kg) + taux + rapport consulté
     expect(screen.getAllByText(/12,5 kg/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/78,4/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/78/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Rapport consulté/).length).toBeGreaterThan(0);
+    // AG réalisée : nombre de repas donnés
+    expect(screen.getAllByText(/250 repas/).length).toBeGreaterThan(0);
   });
 
-  it('M0.6 — statut attribution AG : En attente / Validée / Auto-accept + repas', async () => {
+  it('M0.6 — carte AG à attribuer : badge Info incomplète + bouton Attribuer', async () => {
     mockCollectesFetch();
     render(<CollectesPage />);
-    await screen.findAllByText('Client organisateur');
+    await screen.findAllByText('Traiteur Alpha');
 
-    // Les 3 états d'attribution dérivables (§06.06 §3 l.182)
-    expect(screen.getAllByText('En attente').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Validée').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Auto-accept').length).toBeGreaterThan(0);
-
-    // AG réalisée : nombre de repas collectés
-    expect(screen.getAllByText(/250 repas/).length).toBeGreaterThan(0);
-
-    // AG à venir avec informations_completes=false → « Info incomplète »
+    // agEnAttente : programmée, sans attribution, info incomplète
     expect(screen.getAllByText('Info incomplète').length).toBeGreaterThan(0);
+    const attribuer = screen.getAllByRole('link', { name: /Attribuer/ });
+    expect(attribuer.length).toBeGreaterThan(0);
+    expect(attribuer[0]).toHaveAttribute(
+      'href',
+      '/admin/attributions-ag/ag-attente',
+    );
   });
 
-  it('M0.6 — filtre statut multi ajoute le paramètre statuts à la requête', async () => {
-    const fetchMock = mockCollectesFetch();
+  it('M0.6 — recherche client filtre les cartes de la page chargée', async () => {
+    mockCollectesFetch();
     render(<CollectesPage />);
-    await screen.findAllByText('Client organisateur');
+    await screen.findAllByText('Traiteur Alpha');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Clôturée' }));
-
-    await waitFor(() => {
-      const urls = fetchMock.mock.calls.map((c) => String(c[0]));
-      expect(urls.some((u) => u.includes('statuts=cloturee'))).toBe(true);
+    fireEvent.change(screen.getByLabelText('Rechercher'), {
+      target: { value: 'Wagram' },
     });
+
+    // Ne reste que la carte du lieu « Salle Wagram » (Traiteur Alpha) ;
+    // « Traiteur Beta » (AG, lieu Pavillon) disparaît.
+    await waitFor(() =>
+      expect(screen.queryByText('Traiteur Beta')).not.toBeInTheDocument(),
+    );
+    expect(screen.getAllByText('Salle Wagram').length).toBeGreaterThan(0);
   });
 
-  it('M0.6 — filtre « Info incomplète » ajoute info_incomplete=true', async () => {
+  it('M0.6 — filtres avancés : traiteur/lieu peuplés + filtrage serveur', async () => {
     const fetchMock = mockCollectesFetch();
     render(<CollectesPage />);
-    await screen.findAllByText('Client organisateur');
+    await screen.findAllByText('Traiteur Alpha');
 
-    fireEvent.click(screen.getByLabelText('Info incomplète'));
+    // Panneau replié par défaut → ouvrir
+    fireEvent.click(screen.getByRole('button', { name: /Filtres avancés/ }));
 
-    await waitFor(() => {
-      const urls = fetchMock.mock.calls.map((c) => String(c[0]));
-      expect(urls.some((u) => u.includes('info_incomplete=true'))).toBe(true);
-    });
-  });
-
-  it('M0.6 — filtre « Rapport non consulté » ajoute rapport_non_consulte=true', async () => {
-    const fetchMock = mockCollectesFetch();
-    render(<CollectesPage />);
-    await screen.findAllByText('Client organisateur');
-
-    fireEvent.click(screen.getByLabelText('Rapport non consulté'));
-
-    await waitFor(() => {
-      const urls = fetchMock.mock.calls.map((c) => String(c[0]));
-      expect(urls.some((u) => u.includes('rapport_non_consulte=true'))).toBe(
-        true,
-      );
-    });
-  });
-
-  it('M0.6 — filtres traiteur + lieu = menus déroulants peuplés + filtrage serveur', async () => {
-    const fetchMock = mockCollectesFetch();
-    render(<CollectesPage />);
-    await screen.findAllByText('Client organisateur');
-
-    const traiteurSelect = screen.getByLabelText(
+    const traiteurSelect = (await screen.findByLabelText(
       'Filtrer par traiteur',
-    ) as HTMLSelectElement;
+    )) as HTMLSelectElement;
     const lieuSelect = screen.getByLabelText(
       'Filtrer par lieu',
     ) as HTMLSelectElement;
     expect(traiteurSelect.tagName).toBe('SELECT');
-    expect(lieuSelect.tagName).toBe('SELECT');
 
-    // Options chargées au montage (listes complètes).
     await waitFor(() =>
       expect(
         screen.getByRole('option', { name: 'Traiteur Alpha' }),
@@ -316,7 +301,6 @@ describe('M0.6 — liste collectes Admin (BL-P1-BOA-05)', () => {
       screen.getByRole('option', { name: 'Salle Wagram — Paris' }),
     ).toBeInTheDocument();
 
-    // Sélectionner un traiteur → requête collectes filtrée par organisation_id.
     fireEvent.change(traiteurSelect, { target: { value: 'org-1' } });
     await waitFor(() =>
       expect(
@@ -329,7 +313,6 @@ describe('M0.6 — liste collectes Admin (BL-P1-BOA-05)', () => {
       ).toBe(true),
     );
 
-    // Sélectionner un lieu → requête filtrée par lieu_id.
     fireEvent.change(lieuSelect, { target: { value: 'lieu-1' } });
     await waitFor(() =>
       expect(

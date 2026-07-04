@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
-import { requireAdmin } from '@/lib/api-auth.js';
+import { requireAdmin, requireStaff } from '@/lib/api-auth.js';
 
 export async function PUT(
   req: NextRequest,
@@ -68,7 +68,9 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ filiere_id: string }> },
 ): Promise<NextResponse> {
-  const auth = await requireAdmin(req);
+  // Lecture historique = admin_savr + ops_savr (CDC §9 l.803), cohérent avec les
+  // autres routes history (tarifs-ag, templates). L'écriture (PUT) reste admin-only.
+  const auth = await requireStaff(req);
   if (auth.error) return auth.error;
 
   const { filiere_id } = await params;

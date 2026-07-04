@@ -213,13 +213,16 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
     mockCollectesFetch();
     render(<CollectesPage />);
 
-    // Tuiles KPI = boutons cliquables ; compteurs ag_a_dispatcher=2 / zd=3
+    // Tuiles KPI = boutons cliquables, déjà présents au 1er rendu (compteur à
+    // 0 avant résolution async de /chip-counts) → attendre la mise à jour du
+    // texte, pas juste l'existence du bouton (sinon race avec setChipCounts,
+    // flaky en CI).
     const agTile = await screen.findByRole('button', {
       name: /AG à dispatcher/,
     });
     const zdTile = screen.getByRole('button', { name: /ZD à dispatcher/ });
-    expect(agTile).toHaveTextContent('2');
-    expect(zdTile).toHaveTextContent('3');
+    await waitFor(() => expect(agTile).toHaveTextContent('2'));
+    await waitFor(() => expect(zdTile).toHaveTextContent('3'));
   });
 
   it('M0.6 — chips prédéfinis affichent leur compteur (chip-counts)', async () => {

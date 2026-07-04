@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { readJsonBody, serverError } from '@/lib/api-helpers.js';
+import {
+  applyChipPredicate,
+  isChipKey,
+  type ChipQuery,
+} from '@/lib/collectes-chips.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -50,39 +55,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     )
     .order('date_collecte', { ascending: false });
 
-  // Chips prédéfinis (§06.06 §3)
-  if (chip === 'non_transmises') {
-    // CDC §06.06 §3 (filtre canonique) : « Non transmises au TMS »
-    // = statut=programmee ET tms_reference IS NULL. (Prédicat corrigé BL-P1-BOA-05 —
-    // les gardes statut_tms='non_envoye' + statut IN (programmee,validee) étaient
-    // hors-spec.)
-    query = query.eq('statut', 'programmee').is('tms_reference', null);
-  } else if (chip === 'attente_prestataire') {
-    query = query.eq('statut_tms', 'attribuee_en_attente_acceptation');
-  } else if (chip === 'dirty_tms') {
-    query = query.eq('dirty_tms', true).not('tms_reference', 'is', null);
-  } else if (chip === 'ag_attente_attribution') {
-    // « Collectes à attribuer » = AG programmée SANS attribution encore (anti-jointure).
-    query = query
-      .eq('type', 'anti_gaspi')
-      .eq('statut', 'programmee')
-      .is('attributions_antgaspi', null);
-  } else if (chip === 'zd_48h') {
-    const now = new Date();
-    const in48h = new Date(now.getTime() + 48 * 60 * 60 * 1000);
-    query = query
-      .eq('type', 'zero_dechet')
-      .gte('date_collecte', now.toISOString().slice(0, 10))
-      .lte('date_collecte', in48h.toISOString().slice(0, 10))
-      .in('statut', ['programmee', 'validee']);
-  } else if (chip === 'ag_48h') {
-    const now = new Date();
-    const in48h = new Date(now.getTime() + 48 * 60 * 60 * 1000);
-    query = query
-      .eq('type', 'anti_gaspi')
-      .gte('date_collecte', now.toISOString().slice(0, 10))
-      .lte('date_collecte', in48h.toISOString().slice(0, 10))
-      .in('statut', ['programmee', 'validee']);
+  // Chips prédéfinis (§06.06 §3) — prédicats partagés avec /chip-counts.
+  if (chip && isChipKey(chip)) {
+    // Cast via `unknown` : le builder PostgREST est structurellement compatible
+    // avec ChipQuery mais la comparaison profonde déclenche TS2589.
+    query = applyChipPredicate(
+      query as unknown as ChipQuery,
+      chip,
+      new Date(),
+    ) as unknown as typeof query;
   } else {
     // Statut : multi-sélection (`statuts` CSV) prioritaire, sinon mono (`statut`).
     if (statuts) {

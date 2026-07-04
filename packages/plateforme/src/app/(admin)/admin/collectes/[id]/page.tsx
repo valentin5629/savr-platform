@@ -21,6 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHero } from '@/components/ui/page-hero';
 import { AlertBar } from '@/components/ui/alert-bar';
@@ -256,6 +257,11 @@ export default function CollecteDetailPage() {
   const [forceStatutMotif, setForceStatutMotif] = useState('');
   const [forceStatutSubmitting, setForceStatutSubmitting] = useState(false);
   const [forceStatutError, setForceStatutError] = useState<string | null>(null);
+  // RM-02 — modification du nombre de camions (multi-camions MTS-1)
+  const [nbCamionsModal, setNbCamionsModal] = useState(false);
+  const [nbCamionsValue, setNbCamionsValue] = useState('1');
+  const [nbCamionsSubmitting, setNbCamionsSubmitting] = useState(false);
+  const [nbCamionsError, setNbCamionsError] = useState<string | null>(null);
   // Bloc 3 — Documents / Bloc 7 — Historique (BOA-07)
   const [documents, setDocuments] = useState<DocumentsData | null>(null);
   const [audit, setAudit] = useState<AuditEntry[]>([]);
@@ -489,6 +495,28 @@ export default function CollecteDetailPage() {
     setForceStatutSubmitting(false);
   };
 
+  // RM-02 — modification du nombre de camions (multi-camions MTS-1). Le PATCH
+  // route valide déjà les gardes RM-02 (statut terminal → 409) et RM-05
+  // (réduction < 1h avant mission → 409 + alerte Ops).
+  const handleModifierNbCamions = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setNbCamionsSubmitting(true);
+    setNbCamionsError(null);
+    const res = await fetch(`/api/v1/admin/collectes/${params.id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ nb_camions_demande: Number(nbCamionsValue) }),
+    });
+    if (res.ok) {
+      await refetch();
+      setNbCamionsModal(false);
+    } else {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      setNbCamionsError(body.error ?? 'Modification impossible');
+    }
+    setNbCamionsSubmitting(false);
+  };
+
   const openEditPesees = () => {
     if (!collecte) return;
     const prefill: Record<string, string> = {};
@@ -545,6 +573,10 @@ export default function CollecteDetailPage() {
   }
 
   const isTerminal = STATUTS_TERMINAUX.includes(collecte.statut);
+  // RM-02 — N camions modifiable uniquement hors état terminal (garde serveur).
+  const nbCamionsEditable = ['programmee', 'validee', 'en_cours'].includes(
+    collecte.statut,
+  );
 
   // Bloc 0 — résolution prestataire (pont R5 : transporteurs.prestataire_logistique_id
   // → collectes.prestataire_logistique_id) + fork type_tms.
@@ -672,7 +704,23 @@ export default function CollecteDetailPage() {
           </div>
           <div>
             <dt className="text-savr-neutral-500">Nb camions</dt>
-            <dd className="font-medium">{collecte.nb_camions_demande}</dd>
+            <dd className="flex items-center gap-2 font-medium">
+              {collecte.nb_camions_demande}
+              {nbCamionsEditable && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setNbCamionsValue(String(collecte.nb_camions_demande));
+                    setNbCamionsError(null);
+                    setNbCamionsModal(true);
+                  }}
+                >
+                  Modifier
+                </Button>
+              )}
+            </dd>
           </div>
           {collecte.motif_override_prestataire && (
             <div className="col-span-2">
@@ -1624,6 +1672,67 @@ export default function CollecteDetailPage() {
               }
             >
               {forceStatutSubmitting ? 'Application…' : 'Confirmer le forçage'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modale — Modifier N camions (multi-camions MTS-1, RM-02) */}
+      <Modal
+        open={nbCamionsModal}
+        title="Modifier le nombre de camions"
+        onClose={() => setNbCamionsModal(false)}
+      >
+        {nbCamionsError && (
+          <AlertBar variant="err" className="mb-4">
+            {nbCamionsError}
+          </AlertBar>
+        )}
+        <form
+          onSubmit={(e) => void handleModifierNbCamions(e)}
+          className="space-y-4"
+        >
+          <p className="text-sm text-savr-neutral-500">
+            L&apos;adapter crée N tournées (1 par camion). Réduire N à moins
+            d&apos;1 h de la mission est bloqué (alerte Ops). Non modifiable sur
+            un statut terminal.
+          </p>
+          <div>
+            <label
+              htmlFor="nb-camions-input"
+              className="mb-1 block text-sm font-medium text-savr-neutral-700"
+            >
+              Nombre de camions
+            </label>
+            <Input
+              id="nb-camions-input"
+              type="number"
+              min={1}
+              max={10}
+              value={nbCamionsValue}
+              onChange={(e) => setNbCamionsValue(e.target.value)}
+              className="w-32"
+              required
+            />
+          </div>
+          <div className="flex justify-end gap-2 border-t border-savr-neutral-100 pt-4">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setNbCamionsModal(false)}
+              disabled={nbCamionsSubmitting}
+            >
+              Retour
+            </Button>
+            <Button
+              type="submit"
+              disabled={
+                nbCamionsSubmitting ||
+                Number(nbCamionsValue) < 1 ||
+                !Number.isInteger(Number(nbCamionsValue))
+              }
+            >
+              {nbCamionsSubmitting ? 'Enregistrement…' : 'Enregistrer'}
             </Button>
           </div>
         </form>

@@ -318,9 +318,13 @@ const columns: Column<Collecte>[] = [
   {
     key: 'statut',
     header: 'Statut',
+    // AG programmée sans attribution : statut réel = `programmee` (pas `brouillon`).
+    // Affiché « À attribuer » (et non « Créée ») pour ne pas entrer en conflit avec
+    // le filtre « Créée » = brouillon ; ces lignes se filtrent via le chip « AG en
+    // attente attribution ». (Divergence libellé §06.06 §3 « ≈ Créée ».)
     render: (row) =>
       aAttribuer(row) ? (
-        <Badge variant="neutral">Créée</Badge>
+        <Badge variant="warning">À attribuer</Badge>
       ) : (
         <StatusCollecte statut={row.statut as StatutCollecte} />
       ),
@@ -381,6 +385,24 @@ export default function CollectesPage() {
   const [infoIncomplete, setInfoIncomplete] = useState(false);
   const [rapportNonConsulte, setRapportNonConsulte] = useState(false);
   const [page, setPage] = useState(1);
+  // Compteurs par chip prédéfini (§06.06 §3) — pastilles de la liste.
+  const [chipCounts, setChipCounts] = useState<Record<string, number>>({});
+
+  // Compteurs des chips — chargés une fois au montage (endpoint dédié).
+  useEffect(() => {
+    let cancelled = false;
+    void fetch('/api/v1/admin/collectes/chip-counts')
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((j: unknown) => {
+        if (!cancelled && j && typeof j === 'object') {
+          setChipCounts(j as Record<string, number>);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Chargement des listes complètes (traiteurs + lieux) pour les menus
   // déroulants, une seule fois. Pagination suivie jusqu'à épuisement.
@@ -493,9 +515,11 @@ export default function CollectesPage() {
         }
       />
 
-      {/* Chips filtres prédéfinis (sélection unique) */}
+      {/* Chips filtres prédéfinis (sélection unique) + compteurs */}
       <FilterChips
-        chips={CHIPS}
+        chips={CHIPS.map((c) =>
+          c.key ? { ...c, count: chipCounts[c.key] } : c,
+        )}
         activeKey={chip}
         ariaLabel="Filtres prédéfinis"
         onSelect={(key) => {

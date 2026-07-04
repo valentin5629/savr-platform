@@ -252,6 +252,37 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
     // factures_collectes → factures.statut (Bloc 6)
     expect(screen.getByText('emise')).toBeInTheDocument();
   });
+
+  it('M0.6 — modale N camions : PATCH nb_camions_demande (RM-02)', async () => {
+    const fetchMock = mockFetch();
+    render(<CollecteDetailPage />);
+    await screen.findByText('Prestataire actuel');
+
+    // Bouton « Modifier » à côté de Nb camions (statut programmee = éditable).
+    fireEvent.click(screen.getByRole('button', { name: 'Modifier' }));
+    const dialog = screen
+      .getByText('Modifier le nombre de camions')
+      .closest('div') as HTMLElement;
+    fireEvent.change(within(dialog).getByLabelText('Nombre de camions'), {
+      target: { value: '3' },
+    });
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: 'Enregistrer' }),
+    );
+
+    await waitFor(() => {
+      const patch = fetchMock.mock.calls.find(
+        (c) =>
+          c[0] === '/api/v1/admin/collectes/c1' &&
+          (c[1] as { method?: string } | undefined)?.method === 'PATCH',
+      );
+      expect(patch).toBeTruthy();
+      const body = JSON.parse((patch![1] as { body: string }).body) as {
+        nb_camions_demande: number;
+      };
+      expect(body.nb_camions_demande).toBe(3);
+    });
+  });
 });
 
 // ============================================================================

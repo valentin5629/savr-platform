@@ -1025,11 +1025,51 @@
     },
     {
       "id": "BL-P1-BOA-07",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
-      "artefact": null,
-      "test": null,
-      "statut": "à-vérifier",
-      "libelle": "Fiche collecte Admin : Blocs 1/3/4/5/7"
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:246",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/[id]/page.tsx (Bloc 3 Documents + Bloc 4 Pack AG + Bloc 5 Attribution AG réelle remplaçant le stub « algo V2 » + Bloc 7 Historique/Timeline) ; endpoints packages/plateforme/src/app/api/v1/admin/collectes/[id]/documents/route.ts (GET), /photos/route.ts (POST import), /audit/route.ts (GET timeline + recredit_at), /documents/[type]/regenerate/route.ts (POST) ; packages/plateforme/src/app/api/v1/admin/attestations/[id]/download/route.ts (nouvelle route download attestation admin) ; packages/plateforme/src/lib/pdf/regenerate.ts (helper ré-enqueue jobs_pdf) ; main GET /[id]/route.ts enrichi (packs_antgaspi.statut + embed attributions_antgaspi asso/transporteur pour Bloc 5)",
+      "test": "packages/plateforme/src/app/(admin)/admin/collectes/[id]/collecte-detail.m0-6.test.tsx « M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA-07) » (10 scénarios : Bloc 3 rapport/attestation/régénérer/picto/bordereau-ZD/galerie-photos/import, Bloc 4 pack/recrédit, Bloc 5 asso-transporteur-lien + scores, Bloc 7 timeline) + packages/plateforme/tests/api/admin/collectes-documents.m0-6.test.ts « M0.6 — régénération PDF collecte » (5) + packages/plateforme/tests/api/admin/attestations-download.m0-6.test.ts « M0.6 — download attestation AG » (4 : embargo/200/202/404) — routes reproduites HTTP 200 contre savr-dev (embeds pack/attribution + shared.fichiers + filtre JSON recredit + reads régén)",
+      "statut": "implemented",
+      "libelle": "Fiche collecte Admin : Blocs 3 Documents / 4 Pack AG / 5 Attribution AG réelle (+ scores distance/capacité) / 7 Timeline (§06.06 l.246-270 + actions régén l.283-284). Régén PDF = ré-enqueue jobs_pdf en recopiant le dernier payload figé (snapshot immuable, worker re-render iso), pas de reconstruction du payload. Bloc 5 emails asso/transporteur + Re-jouer délégués à l'écran §06.09 (divergence _Divergences/M0.6-BOA07-BLOC5_20260703.md, à confirmer Val). GO-VISUAL en attente (validation Val). template_version retiré des SELECT (migration R2 20260624140000 non encore appliquée à savr-dev, colonne non affichée en UI)."
+    },
+    {
+      "id": "M0.6-col-bloc3-documents",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:246",
+      "artefact": "Bloc 3 Documents (page.tsx) : liste Rapport RSE (statut disponible/consulté + picto ⟳ si version≠initiale l.170) / Bordereau ZD (ZD) / Attestation de don (AG) avec Télécharger (routes /admin/rapports-rse|bordereaux|attestations/[id]/download) + Régénérer ; galerie photos (shared.fichiers via GET /documents, URL R2 pré-signée) + bouton « Importer des photos » (POST /photos multipart → R2 + shared.fichiers entity_type='plateforme.collectes'). Nouvelle route packages/plateforme/src/app/api/v1/admin/attestations/[id]/download/route.ts (embargo eligible_at, pdf_url=storageKey).",
+      "test": "packages/plateforme/src/app/(admin)/admin/collectes/[id]/collecte-detail.m0-6.test.tsx « M0.6 — Bloc 3 Documents : rapport RSE + attestation AG affichés ; le bouton Régénérer appelle l’endpoint » + « M0.6 — Bloc 3 : picto « régénéré » affiché quand version ≠ initiale » + « M0.6 — Bloc 3 : bordereau ZD affiché pour une collecte ZD (numéro + statut) ; pas d’attestation AG » + « M0.6 — Bloc 3 : la galerie affiche les photos importées (shared.fichiers, URL R2) » + « M0.6 — Bloc 3 : « Importer des photos » envoie un POST multipart /photos » + packages/plateforme/tests/api/admin/attestations-download.m0-6.test.ts « M0.6 — download attestation AG (BL-P1-BOA-07) » (embargo H+24 → 425, 200 URL R2, 202, 404)",
+      "statut": "implemented",
+      "libelle": "Bloc 3 Documents : rapport/bordereau/attestation (statut + télécharger + régénérer) + galerie photos + import R2 + download attestation admin embargo H+24 (§06.06 l.246)"
+    },
+    {
+      "id": "M0.6-col-doc-regenerate-endpoint",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:283",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/collectes/[id]/documents/[type]/regenerate/route.ts (POST, requireStaff, [type] ∈ PDF_DOCUMENT_TYPES → 422 sinon, 409 si document jamais généré / aucun rendu antérieur, 202 sinon) + packages/plateforme/src/lib/pdf/regenerate.ts (ré-enqueue jobs_pdf statut pending copie du dernier payload figé de l'entité + audit_log action document_regenere ; rapport RSE : regenere_at + regenere_par_user_id + version+1)",
+      "test": "packages/plateforme/tests/api/admin/collectes-documents.m0-6.test.ts « M0.6 — régénération PDF collecte (BL-P1-BOA-07) » (5 scénarios : UNKNOWN_TYPE, NO_DOCUMENT, NO_PRIOR_JOB, succès rapport insert jobs_pdf payload copié + audit_log + bump regenere_at/version, succès attestation sans bump)",
+      "statut": "implemented",
+      "libelle": "Endpoint POST régénération PDF : ré-enqueue jobs_pdf + audit_log (§06.06 l.283-284, modèle poids/route.ts)"
+    },
+    {
+      "id": "M0.6-col-bloc4-pack",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:248",
+      "artefact": "Bloc 4 Pack AG (page.tsx, si type=AG) : pack rattaché (type_pack), crédits restants, statut (packs_antgaspi.statut via main GET) + badge « Crédit recrédité automatiquement le {date} » si collecte annulee après réalisation (date = GET /audit recredit_at, lookup audit action pack_recredite_annulation_collecte car le trigger détache le pack).",
+      "test": "packages/plateforme/src/app/(admin)/admin/collectes/[id]/collecte-detail.m0-6.test.tsx « M0.6 — Bloc 4 Pack AG : pack rattaché + crédits restants + statut » + « M0.6 — Bloc 4 : badge « Crédit recrédité » si collecte annulee après réalisation »",
+      "statut": "implemented",
+      "libelle": "Bloc 4 Pack AG : pack rattaché + crédits + statut + badge recrédit (§06.06 l.248)"
+    },
+    {
+      "id": "M0.6-col-bloc5-attribution",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:249",
+      "artefact": "Bloc 5 Attribution AG (page.tsx, si type=AG) — REMPLACE le stub « Attribution automatique (algo V2) — Non disponible en V1 » : association retenue + transporteur retenu (embed attributions_antgaspi), validation (mode_validation + valide_at), volume estimé/réalisé, top-3 associations recommandées + SCORES détaillés (distance_km + capacite_max_beneficiaires depuis calculerAlgoAttributionAg, §06.06 l.253) + lien « Ouvrir l'attribution complète » → /admin/attributions-ag/[collecteId]. Statuts emails asso/transporteur (l.254-255) + bouton Re-jouer l'algo (l.257) DÉLÉGUÉS à l'écran §06.09 (architecture BOA-06 mergée) — divergence tracée _Divergences/M0.6-BOA07-BLOC5_20260703.md (type ambigu, à confirmer Val).",
+      "test": "packages/plateforme/src/app/(admin)/admin/collectes/[id]/collecte-detail.m0-6.test.tsx « M0.6 — Bloc 5 Attribution AG : association + transporteur retenus + lien vers l’écran complet (plus de stub « algo V2 ») » + « M0.6 — Bloc 5 : top 3 affiche les scores détaillés (distance + capacité, §06.06 l.253) »",
+      "statut": "implemented",
+      "libelle": "Bloc 5 Attribution AG réelle (R11) remplace le stub algo V2 : asso/transporteur/volumes/top-3 + scores (distance/capacité) + lien écran attribution (§06.06 l.249-267 + §06.09). Emails asso/transporteur + Re-jouer délégués à l'écran §06.09 (divergence M0.6-BOA07-BLOC5 à confirmer Val)."
+    },
+    {
+      "id": "M0.6-col-bloc7-timeline",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:268",
+      "artefact": "Bloc 7 Historique + Audit (page.tsx) alimenté par packages/plateforme/src/app/api/v1/admin/collectes/[id]/audit/route.ts (audit_log table_name='collectes' AND record_id=collecteId, tri created_at DESC) : timeline action + transition de statut (old→new) + auteur (rôle) + horodatage + motif + marqueur impersonation.",
+      "test": "packages/plateforme/src/app/(admin)/admin/collectes/[id]/collecte-detail.m0-6.test.tsx « M0.6 — Bloc 7 Timeline : les entrées d’audit sont rendues (action + transition de statut) »",
+      "statut": "implemented",
+      "libelle": "Bloc 7 Timeline : historique des statuts + actions Admin/Ops depuis audit_log (§06.06 l.268-270)"
     },
     {
       "id": "BL-P1-BOA-08",

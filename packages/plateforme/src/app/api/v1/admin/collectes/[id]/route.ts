@@ -25,7 +25,8 @@ export async function GET(
        collecte_tournees(
          *, tournees(id, statut, tms_reference, external_ref_commande)
        ),
-       packs_antgaspi!pack_antgaspi_id(id, type_pack, credits_restants),
+       packs_antgaspi!pack_antgaspi_id(id, type_pack, credits_restants, statut),
+       attributions_antgaspi(id, mode_validation, valide_at, volume_repas_realise, associations!association_id(nom), transporteurs!transporteur_id(nom)),
        factures_collectes(id, montant_ht, factures!facture_id(statut))`,
     )
     .eq('id', id)

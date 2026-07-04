@@ -117,6 +117,24 @@ function mockFetch() {
           json: async () => ({ ok: true, event_type: 'collecte.creee' }),
         });
       }
+      // Bloc 3 Documents / Bloc 7 Audit (BOA-07) — shapes vides pour ces tests Bloc 0.
+      if (url.endsWith('/documents')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            rapport: null,
+            bordereau: null,
+            attestation: null,
+            photos: [],
+          }),
+        });
+      }
+      if (url.endsWith('/audit')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: [], recredit_at: null }),
+        });
+      }
       // GET collecte
       return Promise.resolve({ ok: true, json: async () => collecteAg });
     },
@@ -134,8 +152,10 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
     render(<CollecteDetailPage />);
 
     // Recommandation algo affichée (§06.09) : prestataire top-1 + association.
-    // findByText sur l'association attend la résolution du fetch reco (async).
-    expect(await screen.findByText('Les Restos du Cœur')).toBeInTheDocument();
+    // findAllByText : l'association apparaît en Bloc 0 (reco) ET Bloc 5 (top-3) — BOA-07.
+    expect(
+      (await screen.findAllByText('Les Restos du Cœur')).length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText('Recommandation algo')).toBeInTheDocument();
     expect(screen.getByText('Strike (mts1)')).toBeInTheDocument();
     // Collecte non attribuée
@@ -231,5 +251,329 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
     expect(screen.getByText('planifiee')).toBeInTheDocument();
     // factures_collectes → factures.statut (Bloc 6)
     expect(screen.getByText('emise')).toBeInTheDocument();
+  });
+});
+
+// ============================================================================
+// BL-P1-BOA-07 — Blocs Documents / Pack AG / Attribution AG / Timeline (§06.06
+// l.246-270). Remplace le stub « algo V2 » du Bloc 5, câble régénération PDF +
+// import photo + audit.
+// ============================================================================
+
+const baseAg = {
+  id: 'c1',
+  type: 'anti_gaspi' as const,
+  statut: 'realisee',
+  statut_tms: 'acceptee',
+  statut_tms_at: null,
+  dirty_tms: false,
+  date_collecte: '2026-05-10',
+  heure_collecte: '19:00:00',
+  nb_camions_demande: 1,
+  tms_reference: 'TMS-9',
+  volume_estime_repas: 50,
+  controle_acces_requis: false,
+  notes_internes: null,
+  informations_supplementaires: null,
+  motif_override_prestataire: null,
+  annulee_cote_savr: false,
+  pack_antgaspi_id: 'p1',
+  packs_antgaspi: {
+    id: 'p1',
+    type_pack: 'Pack 10 collectes',
+    credits_restants: 7,
+    statut: 'actif',
+  },
+  attributions_antgaspi: {
+    id: 'attr1',
+    mode_validation: 'manuel',
+    valide_at: '2026-05-01T10:00:00Z',
+    volume_repas_realise: 42,
+    associations: { nom: 'Les Restos du Cœur' },
+    transporteurs: { nom: 'A Toutes!' },
+  },
+  prestataire_logistique_id: null,
+  evenements: {
+    nom_evenement: 'Cocktail AG',
+    pax: 80,
+    organisations: { raison_sociale: 'Traiteur Beta' },
+    lieux: { nom: 'Pavillon', ville: 'Paris', adresse_acces: '1 rue X' },
+    types_evenements: { libelle: 'Cocktail apéritif' },
+  },
+  collecte_flux: [],
+  collecte_tournees: [],
+  factures_collectes: [],
+};
+
+const documentsAg = {
+  rapport: {
+    id: 'r1',
+    version: 2,
+    disponible_a: '2026-05-11T06:00:00Z',
+    genere_at: '2026-05-11T06:05:00Z',
+    regenere_at: '2026-05-12T09:00:00Z',
+    consulte_par_user_at: null,
+    pdf_url: 'rapports/r1.pdf',
+  },
+  bordereau: null,
+  attestation: {
+    id: 'a1',
+    statut: 'emise',
+    numero: 'ATT-DON-2026-00001',
+    genere_at: '2026-05-11T06:05:00Z',
+    pdf_url: 'rapports/a1.pdf',
+    version: 1,
+  },
+  photos: [],
+};
+
+const auditAg = {
+  data: [
+    {
+      id: 'au1',
+      created_at: '2026-05-10T20:00:00Z',
+      role: 'admin_savr',
+      action: 'collecte_statut_force',
+      old_values: { statut: 'validee' },
+      new_values: { statut: 'realisee' },
+      motif: 'Confirmation réalisation terrain',
+      impersonator_id: null,
+    },
+  ],
+  recredit_at: null,
+};
+
+// Fixtures ZD (Bloc 3 bordereau, pas d'attestation ni pack/attribution AG).
+const baseZd = {
+  ...baseAg,
+  type: 'zero_dechet' as const,
+  packs_antgaspi: null,
+  attributions_antgaspi: null,
+};
+
+const documentsZd = {
+  rapport: documentsAg.rapport,
+  bordereau: {
+    id: 'b1',
+    statut: 'emis',
+    numero: 'BSAV-2026-00001',
+    genere_at: '2026-05-11T06:05:00Z',
+    pdf_fichier_id: 'fich-1',
+  },
+  attestation: null,
+  photos: [],
+};
+
+const recoAg = {
+  data: {
+    // Scores détaillés (distance, capacité) — §06.06 l.253, exposés par l'algo.
+    associations: [
+      {
+        id: 'a1',
+        nom: 'Les Restos du Cœur',
+        distance_km: 3.2,
+        capacite_max_beneficiaires: 200,
+      },
+      { id: 'a2', nom: 'Banque Alimentaire' },
+      { id: 'a3', nom: 'Secours Populaire' },
+    ],
+    transporteur: { id: 't-mts1', nom: 'Strike', type_tms: 'mts1' },
+    no_asso: false,
+    no_prestataire: false,
+  },
+};
+
+function installMock(opts: {
+  collecte?: Record<string, unknown>;
+  documents?: unknown;
+  audit?: unknown;
+}) {
+  const collecte = opts.collecte ?? baseAg;
+  const documents = opts.documents ?? documentsAg;
+  const audit = opts.audit ?? auditAg;
+  const fetchMock = vi.fn(
+    (url: string, init?: { method?: string; body?: unknown }) => {
+      const method = init?.method ?? 'GET';
+      const ok = (json: unknown, status = 200) =>
+        Promise.resolve({ ok: status < 400, status, json: async () => json });
+
+      // Régénération PDF (POST /documents/<type>/regenerate)
+      if (url.includes('/documents/') && method === 'POST') {
+        return ok({ job_id: 'job-1', type: 'x' }, 202);
+      }
+      if (url.endsWith('/documents')) return ok(documents);
+      if (url.endsWith('/audit')) return ok(audit);
+      if (url.includes('/photos') && method === 'POST') {
+        return ok({ fichier: { id: 'f1' } }, 201);
+      }
+      if (url.includes('/download')) return ok({ url: 'https://r2/signed' });
+      if (url.startsWith('/api/v1/admin/transporteurs'))
+        return ok({ data: [] });
+      if (url.includes('/recommandation')) return ok(recoAg);
+      if (url.includes('/dispatch')) return ok({ ok: true });
+      return ok(collecte);
+    },
+  );
+  vi.stubGlobal('fetch', fetchMock);
+  return fetchMock;
+}
+
+describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA-07)', () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  it('M0.6 — Bloc 3 Documents : rapport RSE + attestation AG affichés ; le bouton Régénérer appelle l’endpoint de régénération', async () => {
+    const fetchMock = installMock({});
+    render(<CollecteDetailPage />);
+
+    // Bloc Documents rendu + rapport + attestation (AG).
+    expect(await screen.findByText('Documents')).toBeInTheDocument();
+    expect(screen.getByText('Rapport RSE')).toBeInTheDocument();
+    expect(screen.getByText('Attestation de don')).toBeInTheDocument();
+    expect(screen.getByText('ATT-DON-2026-00001')).toBeInTheDocument();
+
+    // Régénérer le rapport → POST /documents/rapport-recyclage-zd/regenerate.
+    const regenBtns = screen.getAllByRole('button', { name: /Régénérer/ });
+    fireEvent.click(regenBtns[0]!);
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find(
+        (c) =>
+          typeof c[0] === 'string' &&
+          (c[0] as string).includes(
+            '/documents/rapport-recyclage-zd/regenerate',
+          ) &&
+          (c[1] as { method?: string } | undefined)?.method === 'POST',
+      );
+      expect(call).toBeTruthy();
+    });
+  });
+
+  it('M0.6 — Bloc 3 : picto « régénéré » affiché quand version ≠ initiale', async () => {
+    installMock({});
+    render(<CollecteDetailPage />);
+    // rapport.version = 2 + regenere_at → picto ⟳ avec title « Rapport régénéré ».
+    expect(await screen.findByTitle(/Rapport régénéré/)).toBeInTheDocument();
+  });
+
+  it('M0.6 — Bloc 4 Pack AG : pack rattaché + crédits restants + statut', async () => {
+    installMock({});
+    render(<CollecteDetailPage />);
+    expect(await screen.findByText('Pack AG')).toBeInTheDocument();
+    expect(screen.getByText('Pack 10 collectes')).toBeInTheDocument();
+    expect(screen.getByText('7')).toBeInTheDocument();
+  });
+
+  it('M0.6 — Bloc 4 : badge « Crédit recrédité » si collecte annulee après réalisation', async () => {
+    installMock({
+      collecte: { ...baseAg, statut: 'annulee' },
+      audit: { data: [], recredit_at: '2026-06-01T08:00:00Z' },
+    });
+    render(<CollecteDetailPage />);
+    expect(
+      await screen.findByText(/Crédit recrédité automatiquement le/),
+    ).toBeInTheDocument();
+  });
+
+  it('M0.6 — Bloc 5 Attribution AG : association + transporteur retenus + lien vers l’écran complet (plus de stub « algo V2 »)', async () => {
+    installMock({});
+    render(<CollecteDetailPage />);
+
+    expect(
+      await screen.findByText('Bloc 5 — Attribution AG'),
+    ).toBeInTheDocument();
+    // Association + transporteur retenus (embed attributions_antgaspi).
+    expect(screen.getAllByText('Les Restos du Cœur').length).toBeGreaterThan(0);
+    expect(screen.getByText('A Toutes!')).toBeInTheDocument();
+    // Lien vers l'écran d'attribution complète (§06.09).
+    const lien = screen.getByRole('link', { name: /attribution compl/i });
+    expect(lien).toHaveAttribute('href', '/admin/attributions-ag/c1');
+    // Le stub V2 a disparu.
+    expect(
+      screen.queryByText(/algo V2.*Non disponible en V1/),
+    ).not.toBeInTheDocument();
+  });
+
+  it('M0.6 — Bloc 7 Timeline : les entrées d’audit sont rendues (action + transition de statut)', async () => {
+    installMock({});
+    render(<CollecteDetailPage />);
+    expect(await screen.findByText('Historique & audit')).toBeInTheDocument();
+    expect(screen.getByText('collecte_statut_force')).toBeInTheDocument();
+    // Transition old → new statut.
+    expect(screen.getByText(/validee → realisee/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Confirmation réalisation terrain/),
+    ).toBeInTheDocument();
+  });
+
+  it('M0.6 — Bloc 3 : « Importer des photos » envoie un POST multipart /photos', async () => {
+    const fetchMock = installMock({});
+    const { container } = render(<CollecteDetailPage />);
+    await screen.findByText('Documents');
+
+    const input = container.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
+    const file = new File(['x'], 'photo.png', { type: 'image/png' });
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find(
+        (c) =>
+          typeof c[0] === 'string' &&
+          (c[0] as string).endsWith('/photos') &&
+          (c[1] as { method?: string } | undefined)?.method === 'POST',
+      );
+      expect(call).toBeTruthy();
+      expect((call![1] as { body?: unknown }).body instanceof FormData).toBe(
+        true,
+      );
+    });
+  });
+
+  it('M0.6 — Bloc 3 : bordereau ZD affiché pour une collecte ZD (numéro + statut) ; pas d’attestation AG', async () => {
+    installMock({ collecte: baseZd, documents: documentsZd });
+    render(<CollecteDetailPage />);
+    expect(await screen.findByText('Bordereau ZD')).toBeInTheDocument();
+    expect(screen.getByText('BSAV-2026-00001')).toBeInTheDocument();
+    expect(screen.getByText(/Statut : emis/)).toBeInTheDocument();
+    // Une collecte ZD n'a pas d'attestation de don (bloc AG masqué).
+    expect(screen.queryByText('Attestation de don')).not.toBeInTheDocument();
+    // Ni de Bloc 4/5 AG.
+    expect(screen.queryByText('Pack AG')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Bloc 5 — Attribution AG'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('M0.6 — Bloc 3 : la galerie affiche les photos importées (shared.fichiers, URL R2)', async () => {
+    installMock({
+      documents: {
+        ...documentsAg,
+        photos: [
+          {
+            id: 'ph1',
+            content_type: 'image/png',
+            created_at: '2026-05-11T00:00:00Z',
+            url: 'https://r2/signed-photo',
+          },
+        ],
+      },
+    });
+    const { container } = render(<CollecteDetailPage />);
+    await screen.findByText('Documents');
+    expect(screen.getByText('Photos (1)')).toBeInTheDocument();
+    const img = container.querySelector(
+      'img[alt="Photo collecte"]',
+    ) as HTMLImageElement | null;
+    expect(img).toBeTruthy();
+    expect(img!.getAttribute('src')).toBe('https://r2/signed-photo');
+  });
+
+  it('M0.6 — Bloc 5 : top 3 affiche les scores détaillés (distance + capacité, §06.06 l.253)', async () => {
+    // Collecte AG NON terminale → l'algo (reco) est appelé → top 3 + scores rendus.
+    installMock({ collecte: { ...baseAg, statut: 'programmee' } });
+    render(<CollecteDetailPage />);
+    expect(await screen.findByText(/3\.2 km/)).toBeInTheDocument();
+    expect(screen.getByText(/capacité 200/)).toBeInTheDocument();
   });
 });

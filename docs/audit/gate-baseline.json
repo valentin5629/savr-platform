@@ -3,6 +3,6 @@
   "spec-deliverables": 51,
   "manifest-completeness": 5,
   "cdc-drift": 0,
-  "column-db": 10,
+  "column-db": 9,
   "test-mocks": 0
 }

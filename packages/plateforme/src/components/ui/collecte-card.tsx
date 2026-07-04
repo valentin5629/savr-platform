@@ -220,7 +220,7 @@ function IndicateursHistorique({ row }: { row: CollecteRow }) {
   const repas = row.attributions_antgaspi?.volume_repas_realise;
 
   return (
-    <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs font-bold text-savr-neutral-600">
+    <div className="flex flex-wrap items-center justify-start gap-x-3 gap-y-1 text-xs font-bold text-savr-neutral-600 xl:justify-end">
       {row.type === 'anti_gaspi' && repas != null && (
         <span className="inline-flex items-center gap-1.5">
           <Package className="h-3.5 w-3.5 text-savr-neutral-400" />
@@ -292,7 +292,7 @@ export function CollecteCard({ collecte: row }: CollecteCardProps) {
   return (
     <div
       className={cn(
-        'group relative grid grid-cols-[42px_1fr_auto] items-center gap-4 rounded-savr-lg border bg-savr-white py-4 pl-[22px] pr-[18px]',
+        'group relative grid grid-cols-[42px_1fr] items-start gap-x-4 gap-y-3 rounded-savr-lg border bg-savr-white py-4 pl-[22px] pr-[18px] xl:grid-cols-[42px_1fr_auto] xl:items-center xl:gap-4',
         'transition-[border-color,box-shadow,transform] duration-[120ms] ease-out',
         'hover:-translate-y-px hover:border-savr-primary-200 hover:shadow-savr-md',
         urgente
@@ -386,8 +386,8 @@ export function CollecteCard({ collecte: row }: CollecteCardProps) {
         </div>
       </div>
 
-      {/* Colonne d'état + montant */}
-      <div className="flex min-w-[150px] flex-col items-end gap-2">
+      {/* Colonne d'état + montant (sous le contenu en mobile/tablette, à droite en xl) */}
+      <div className="col-span-2 flex flex-col items-stretch gap-2 border-t border-savr-neutral-100 pt-3 xl:col-span-1 xl:min-w-[150px] xl:items-end xl:border-t-0 xl:pt-0">
         {terminale ? (
           <>
             {/* Historique : statut collecte (statut_tms n'a pas d'état terminal) */}
@@ -396,7 +396,7 @@ export function CollecteCard({ collecte: row }: CollecteCardProps) {
           </>
         ) : (
           <>
-            <div className="flex flex-wrap items-center justify-end gap-1.5">
+            <div className="flex flex-wrap items-center justify-start gap-1.5 xl:justify-end">
               {!row.informations_completes && (
                 <Badge variant="warning" className="text-[11px]">
                   Info incomplète

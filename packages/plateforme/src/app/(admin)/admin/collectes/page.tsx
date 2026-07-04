@@ -19,6 +19,7 @@ import {
   statutCollecteDisplay,
   type StatutCollecteDb,
 } from '@/lib/statut-collecte-labels';
+import { statutTmsDisplay } from '@/lib/statut-tms-labels';
 
 interface RapportRse {
   disponible_a: string | null;
@@ -323,6 +324,20 @@ const columns: Column<Collecte>[] = [
       ) : (
         <StatusCollecte statut={row.statut as StatutCollecte} />
       ),
+  },
+  {
+    // Statut logistique (enum statut_tms) — colonne de la maquette Admin V1,
+    // libellés via le mapping partagé (valeurs réelles de l'enum).
+    key: 'statut_tms',
+    header: 'Statut TMS',
+    render: (row) => (
+      <Badge
+        variant={statutTmsDisplay(row.statut_tms).variant}
+        className="text-[10px]"
+      >
+        {statutTmsDisplay(row.statut_tms).label}
+      </Badge>
+    ),
   },
   {
     key: 'indicateurs',

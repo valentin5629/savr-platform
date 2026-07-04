@@ -34,43 +34,11 @@ import {
   statutCollecteDisplay,
   type StatutCollecteDb,
 } from '@/lib/statut-collecte-labels';
-import type { BadgeProps } from '@/components/ui/badge';
+import { statutTmsDisplay } from '@/lib/statut-tms-labels';
 
 // Libellé d'affichage du type de collecte (UX — la DB garde l'enum).
 function typeCollecteLabel(type: string): string {
   return type === 'zero_dechet' ? 'Zéro Déchet' : 'Anti-Gaspi';
-}
-
-// Affichage du statut TMS (§08 §3bis.6) — libellés + variant Badge pour les
-// valeurs réelles de l'enum statut_tms (aucun statut inventé ; toute valeur non
-// mappée retombe sur son libellé brut, neutre).
-const STATUT_TMS_DISPLAY: Record<
-  string,
-  { label: string; variant: NonNullable<BadgeProps['variant']> }
-> = {
-  non_envoye: { label: 'Non envoyé', variant: 'neutral' },
-  a_attribuer: { label: 'À attribuer', variant: 'neutral' },
-  attribuee_en_attente_acceptation: {
-    label: 'Attente acceptation presta',
-    variant: 'warning',
-  },
-  acceptee: { label: 'Acceptée presta', variant: 'success' },
-  en_attente_execution: { label: 'En attente exécution', variant: 'info' },
-  rejetee_par_prestataire: {
-    label: 'Rejetée par prestataire',
-    variant: 'error',
-  },
-  annulee_par_traiteur: { label: 'Annulée par traiteur', variant: 'error' },
-  rejetee_par_tms: { label: 'Rejetée par TMS', variant: 'error' },
-};
-
-function statutTmsDisplay(statutTms: string): {
-  label: string;
-  variant: NonNullable<BadgeProps['variant']>;
-} {
-  return (
-    STATUT_TMS_DISPLAY[statutTms] ?? { label: statutTms, variant: 'neutral' }
-  );
 }
 
 // Transporteurs (référentiel) — le sélecteur prestataire Bloc 0 liste les

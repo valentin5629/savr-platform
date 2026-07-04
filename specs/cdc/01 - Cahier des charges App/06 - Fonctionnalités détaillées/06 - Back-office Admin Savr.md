@@ -157,7 +157,7 @@ Colonnes par ligne :
 | Adresse lieu | `lieux.adresse` |
 | Client Organisateur | `evenements.client_organisateur_organisation_id → nom` (si renseigné) |
 | **Contrôle d'accès** *(ajout 2026-05-07)* | Badge oui/non depuis `collectes.controle_acces_requis`. Tooltip : "Plaque + nom chauffeur communiqués avant exécution". |
-| Statut programmation | Badge coloré (enum `collectes.statut` 9 valeurs, aligné audit sobriété §04 2026-05-25 D1) : `brouillon` / `programmee` / `validee` / `en_cours` / `realisee` / `realisee_sans_collecte` (AG only) / `cloturee` / `annulation_demandee` / `annulee`. (`incident` et `manquee` retirés : no-show prestataire = `annulee` + `incident_imputable_a='prestataire'`.) |
+| Statut programmation | Badge coloré (enum `collectes.statut` 9 valeurs, aligné audit sobriété §04 2026-05-25 D1) : `brouillon` / `programmee` / `validee` / `en_cours` / `realisee` / `realisee_sans_collecte` (AG only) / `cloturee` / `annulation_demandee` / `annulee`. (`incident` et `manquee` retirés : no-show prestataire = `annulee` + `incident_imputable_a='prestataire'`.) **Libellés d'affichage** *(précisé 2026-07-04, divergence BOA-UI collectes)* : `brouillon` = « Créée » ; une collecte **AG `programmee` sans attribution validée** s'affiche **« À attribuer »** (variant *warning*, cohérent avec le chip « AG en attente attribution » §3 et l'action « Attribuer → »), et non « Créée ». |
 | Indicateurs | Voir §ci-dessous |
 
 ### Indicateurs par ligne
@@ -246,16 +246,22 @@ Reprise stricte de la vue détail de l'espace traiteur (post-refonte 2026-05-04 
 - **Bloc 3 — Documents** : Rapport RSE (télécharger / consulter statut / régénérer), Bordereau ZD, Attestation de don (AG), galerie photos + bouton « Importer des photos » côté Admin.
 - **Bloc 4 — Pack AG** (si type AG) : pack rattaché, crédits restants, statut. Si la collecte est `annulee` après avoir été `realisee` : badge "Crédit recrédité automatiquement le {{date}}" (cf. [[05 - Règles métier#Annulation d'une collecte AG recrédit automatique]]).
 
-#### Bloc 5 — Attribution AG complète (Admin-only, si type=AG)
+#### Bloc 5 — Attribution AG (résumé + lien, Admin-only, si type=AG)
 
-Détail complet du workflow AG (vs vue traiteur qui ne montre que le pack) :
+Résumé de l'attribution AG sur la fiche collecte (vs vue traiteur qui ne montre que le pack). Le **workflow interactif complet** (sélection top-3, validation, statuts emails, re-jouer l'algo) vit sur l'écran dédié [[09 - Flux algo attribution AG (Admin)]] (`/admin/attributions-ag/[collecteId]`, R11) — le Bloc 5 en est un **résumé lecture + point d'entrée**, pas une duplication *(clarifié 2026-07-04, divergence M0.6 BOA-07 : évite la duplication UI avec l'écran §06.09 ; architecture actée BOA-06 PR #150)*.
 
-- Top 3 associations recommandées par l'algo + scores détaillés (distance, capacité)
-- Association sélectionnée + statut emails (`ag_attribution_association` envoyé / lu, accepté / refusé)
-- Transporteur retenu + statut emails (`ag_attribution_transporteur`)
-- Volume estimé (calculé auto, cf. §3.x Champs bloquants ci-dessous) + volume réalisé saisi
+Rendu inline sur la fiche :
+
+- Top 3 associations recommandées par l'algo + scores détaillés (distance km, capacité) — données `calculerAlgoAttributionAg`
+- Association retenue + transporteur retenu (embed `attributions_antgaspi`)
+- Validation (`mode_validation` + `valide_at`)
+- Volume estimé (`collectes.volume_estime_repas`, calculé auto, cf. §3.x Champs bloquants ci-dessous) + volume réalisé (`attributions_antgaspi.volume_repas_realise`)
+- **Lien proéminent** « Ouvrir l'attribution complète (top 3, validation, emails, re-jouer l'algo) → » vers `/admin/attributions-ag/[collecteId]`
+
+Délégué à l'écran §06.09 (non dupliqué inline) :
+
+- Statuts emails association (`ag_attribution_association` envoyé / lu, accepté / refusé) et transporteur (`ag_attribution_transporteur`)
 - Bouton « Re-jouer l'algo » (si attribution invalidée)
-- Lien vers [[09 - Flux algo attribution AG (Admin)]]
 
 #### Bloc 6 — Facturation détaillée (Admin-only)
 

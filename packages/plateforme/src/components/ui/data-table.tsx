@@ -89,7 +89,7 @@ function DataTable<T>({
                   key={String(col.key)}
                   scope="col"
                   className={cn(
-                    'h-11 px-4 text-left text-xs font-semibold text-savr-neutral-600 select-none',
+                    'h-11 select-none px-4 text-left text-[11px] font-bold uppercase tracking-wide text-savr-neutral-500',
                     col.sortable &&
                       onSort &&
                       'cursor-pointer hover:text-savr-neutral-900',

@@ -21,7 +21,12 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PageHero } from '@/components/ui/page-hero';
+import { AlertBar } from '@/components/ui/alert-bar';
+import { Modal } from '@/components/ui/modal';
+import { Timeline, TimelineItem } from '@/components/ui/timeline';
 import {
   StatusCollecte,
   type StatutCollecte,
@@ -30,6 +35,12 @@ import {
   statutCollecteDisplay,
   type StatutCollecteDb,
 } from '@/lib/statut-collecte-labels';
+import { statutTmsDisplay } from '@/lib/statut-tms-labels';
+
+// Libellé d'affichage du type de collecte (UX — la DB garde l'enum).
+function typeCollecteLabel(type: string): string {
+  return type === 'zero_dechet' ? 'Zéro Déchet' : 'Anti-Gaspi';
+}
 
 // Transporteurs (référentiel) — le sélecteur prestataire Bloc 0 liste les
 // transporteurs actifs ; `type_tms` pilote le fork du bouton d'envoi (§06.06 §3
@@ -246,6 +257,11 @@ export default function CollecteDetailPage() {
   const [forceStatutMotif, setForceStatutMotif] = useState('');
   const [forceStatutSubmitting, setForceStatutSubmitting] = useState(false);
   const [forceStatutError, setForceStatutError] = useState<string | null>(null);
+  // RM-02 — modification du nombre de camions (multi-camions MTS-1)
+  const [nbCamionsModal, setNbCamionsModal] = useState(false);
+  const [nbCamionsValue, setNbCamionsValue] = useState('1');
+  const [nbCamionsSubmitting, setNbCamionsSubmitting] = useState(false);
+  const [nbCamionsError, setNbCamionsError] = useState<string | null>(null);
   // Bloc 3 — Documents / Bloc 7 — Historique (BOA-07)
   const [documents, setDocuments] = useState<DocumentsData | null>(null);
   const [audit, setAudit] = useState<AuditEntry[]>([]);
@@ -479,6 +495,28 @@ export default function CollecteDetailPage() {
     setForceStatutSubmitting(false);
   };
 
+  // RM-02 — modification du nombre de camions (multi-camions MTS-1). Le PATCH
+  // route valide déjà les gardes RM-02 (statut terminal → 409) et RM-05
+  // (réduction < 1h avant mission → 409 + alerte Ops).
+  const handleModifierNbCamions = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setNbCamionsSubmitting(true);
+    setNbCamionsError(null);
+    const res = await fetch(`/api/v1/admin/collectes/${params.id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ nb_camions_demande: Number(nbCamionsValue) }),
+    });
+    if (res.ok) {
+      await refetch();
+      setNbCamionsModal(false);
+    } else {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      setNbCamionsError(body.error ?? 'Modification impossible');
+    }
+    setNbCamionsSubmitting(false);
+  };
+
   const openEditPesees = () => {
     if (!collecte) return;
     const prefill: Record<string, string> = {};
@@ -531,12 +569,14 @@ export default function CollecteDetailPage() {
   }
 
   if (error || !collecte) {
-    return (
-      <p className="text-savr-error-600">{error ?? 'Collecte introuvable'}</p>
-    );
+    return <AlertBar variant="err">{error ?? 'Collecte introuvable'}</AlertBar>;
   }
 
   const isTerminal = STATUTS_TERMINAUX.includes(collecte.statut);
+  // RM-02 — N camions modifiable uniquement hors état terminal (garde serveur).
+  const nbCamionsEditable = ['programmee', 'validee', 'en_cours'].includes(
+    collecte.statut,
+  );
 
   // Bloc 0 — résolution prestataire (pont R5 : transporteurs.prestataire_logistique_id
   // → collectes.prestataire_logistique_id) + fork type_tms.
@@ -561,51 +601,69 @@ export default function CollecteDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* En-tête */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <Button variant="ghost" onClick={() => router.back()}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <Truck className="h-5 w-5 text-savr-neutral-600" />
-        <h1 className="text-xl font-bold text-savr-neutral-900">
-          Collecte {collecte.type.toUpperCase()} —{' '}
-          {new Date(collecte.date_collecte).toLocaleDateString('fr-FR')}
-        </h1>
-        <StatusCollecte statut={collecte.statut as StatutCollecte} />
-        <Badge variant="neutral" className="text-xs">
-          TMS: {collecte.statut_tms}
-        </Badge>
-        {collecte.dirty_tms && (
-          <Badge variant="warning" className="text-xs flex items-center gap-1">
-            <AlertTriangle className="h-3 w-3" />
-            Modifiée — renvoi requis
-          </Badge>
-        )}
-        {/* RM-08 — forçage manuel du statut (motif obligatoire) */}
-        <Button
-          variant="secondary"
-          size="sm"
-          className="ml-auto"
-          onClick={() => {
-            setForceStatutValue(collecte.statut);
-            setForceStatutMotif('');
-            setForceStatutError(null);
-            setForceStatutModal(true);
-          }}
-        >
-          <Settings2 className="h-4 w-4 mr-2" />
-          Forcer le statut
-        </Button>
-      </div>
+      {/* En-tête — bandeau navy (levier #2) : réf/type + méta + badges statut */}
+      <PageHero
+        icon={
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              aria-label="Retour"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-savr-md text-savr-white transition-colors hover:bg-savr-white/10"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            <Truck className="h-6 w-6 text-savr-primary-200" />
+          </div>
+        }
+        title={`Collecte ${typeCollecteLabel(collecte.type)}`}
+        subtitle={
+          <>
+            {new Date(collecte.date_collecte).toLocaleDateString('fr-FR')}
+            {collecte.heure_collecte
+              ? ` · ${collecte.heure_collecte.slice(0, 5)}`
+              : ''}{' '}
+            · {collecte.evenements.organisations.raison_sociale} ·{' '}
+            {collecte.evenements.lieux.nom} ({collecte.evenements.lieux.ville})
+            · {collecte.evenements.pax} pax
+          </>
+        }
+        actions={
+          <>
+            <StatusCollecte statut={collecte.statut as StatutCollecte} />
+            {collecte.dirty_tms && (
+              <Badge
+                variant="warning"
+                className="flex items-center gap-1 text-xs"
+              >
+                <AlertTriangle className="h-3 w-3" />
+                Modifiée — renvoi requis
+              </Badge>
+            )}
+            {/* RM-08 — forçage manuel du statut (motif obligatoire) */}
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setForceStatutValue(collecte.statut);
+                setForceStatutMotif('');
+                setForceStatutError(null);
+                setForceStatutModal(true);
+              }}
+            >
+              <Settings2 className="h-4 w-4" />
+              Forcer le statut
+            </Button>
+          </>
+        }
+      />
 
       {/* Bloc 0 — Attribution prestataire & dispatch */}
       <Card className="p-6 space-y-4">
         <h2 className="font-semibold text-savr-neutral-800">
           Bloc 0 — Prestataire & Dispatch
         </h2>
-        {dispatchError && (
-          <p className="text-savr-error-600 text-sm">{dispatchError}</p>
-        )}
+        {dispatchError && <AlertBar variant="err">{dispatchError}</AlertBar>}
         <dl className="grid grid-cols-2 gap-3 text-sm">
           <div>
             <dt className="text-savr-neutral-500">Prestataire actuel</dt>
@@ -625,7 +683,12 @@ export default function CollecteDetailPage() {
           <div>
             <dt className="text-savr-neutral-500">Statut TMS</dt>
             <dd className="font-medium">
-              {collecte.statut_tms}
+              <Badge
+                variant={statutTmsDisplay(collecte.statut_tms).variant}
+                className="text-xs"
+              >
+                {statutTmsDisplay(collecte.statut_tms).label}
+              </Badge>
               {collecte.statut_tms_at && (
                 <span className="ml-1 text-xs text-savr-neutral-400">
                   ({new Date(collecte.statut_tms_at).toLocaleString('fr-FR')})
@@ -641,7 +704,23 @@ export default function CollecteDetailPage() {
           </div>
           <div>
             <dt className="text-savr-neutral-500">Nb camions</dt>
-            <dd className="font-medium">{collecte.nb_camions_demande}</dd>
+            <dd className="flex items-center gap-2 font-medium">
+              {collecte.nb_camions_demande}
+              {nbCamionsEditable && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setNbCamionsValue(String(collecte.nb_camions_demande));
+                    setNbCamionsError(null);
+                    setNbCamionsModal(true);
+                  }}
+                >
+                  Modifier
+                </Button>
+              )}
+            </dd>
           </div>
           {collecte.motif_override_prestataire && (
             <div className="col-span-2">
@@ -960,7 +1039,7 @@ export default function CollecteDetailPage() {
                               [flux.code]: e.target.value,
                             }))
                           }
-                          className="w-28 border border-neutral-300 rounded-lg px-2 py-1 text-sm text-right"
+                          className="w-28 rounded-savr-md border border-savr-neutral-300 px-2 py-1 text-right text-sm focus:outline-2 focus:outline-offset-2 focus:outline-savr-primary-500"
                           placeholder="kg"
                         />
                       </td>
@@ -969,21 +1048,18 @@ export default function CollecteDetailPage() {
                 </tbody>
               </table>
               <div>
-                <label className="block text-sm font-medium mb-1">
+                <label className="mb-1 block text-sm font-medium text-savr-neutral-700">
                   Motif (obligatoire, ≥ 10 caractères)
                 </label>
-                <textarea
+                <Textarea
                   value={peseesMotif}
                   onChange={(e) => setPeseesMotif(e.target.value)}
                   rows={2}
                   minLength={10}
-                  className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
                   required
                 />
               </div>
-              {peseesError && (
-                <p className="text-savr-error-600 text-sm">{peseesError}</p>
-              )}
+              {peseesError && <AlertBar variant="err">{peseesError}</AlertBar>}
               <div className="flex justify-end gap-2">
                 <Button
                   type="button"
@@ -1008,7 +1084,7 @@ export default function CollecteDetailPage() {
           <FileText className="h-4 w-4" />
           Documents
         </h2>
-        {docError && <p className="text-savr-error-600 text-sm">{docError}</p>}
+        {docError && <AlertBar variant="err">{docError}</AlertBar>}
 
         <div className="divide-y divide-savr-neutral-100">
           {/* Rapport RSE (ZD + AG) */}
@@ -1429,196 +1505,238 @@ export default function CollecteDetailPage() {
             Aucune action enregistrée sur cette collecte.
           </p>
         ) : (
-          <ol className="space-y-3">
+          <Timeline>
             {audit.map((e) => {
               const oldStatut = (e.old_values as { statut?: string } | null)
                 ?.statut;
               const newStatut = (e.new_values as { statut?: string } | null)
                 ?.statut;
               return (
-                <li
-                  key={e.id}
-                  className="flex gap-3 border-l-2 border-savr-neutral-200 pl-3"
-                >
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-savr-neutral-800">
-                      {e.action}
-                      {oldStatut && newStatut && (
-                        <span className="ml-2 font-normal text-savr-neutral-500">
-                          {oldStatut} → {newStatut}
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-xs text-savr-neutral-500">
-                      {new Date(e.created_at).toLocaleString('fr-FR')}
-                      {e.role ? ` · ${e.role}` : ''}
-                      {e.impersonator_id ? ' · (impersonation)' : ''}
-                    </p>
-                    {e.motif && (
-                      <p className="text-xs text-savr-neutral-600 mt-1 italic">
-                        « {e.motif} »
-                      </p>
+                <TimelineItem key={e.id}>
+                  <p className="text-sm font-medium text-savr-neutral-800">
+                    {e.action}
+                    {oldStatut && newStatut && (
+                      <span className="ml-2 font-normal text-savr-neutral-500">
+                        {oldStatut} → {newStatut}
+                      </span>
                     )}
-                  </div>
-                </li>
+                  </p>
+                  <p className="text-xs text-savr-neutral-500">
+                    {new Date(e.created_at).toLocaleString('fr-FR')}
+                    {e.role ? ` · ${e.role}` : ''}
+                    {e.impersonator_id ? ' · (impersonation)' : ''}
+                  </p>
+                  {e.motif && (
+                    <p className="mt-1 text-xs italic text-savr-neutral-600">
+                      « {e.motif} »
+                    </p>
+                  )}
+                </TimelineItem>
               );
             })}
-          </ol>
+          </Timeline>
         )}
       </Card>
 
       {/* Modale — Annuler le crédit AG */}
-      {annulerCreditModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-            <h2 className="text-lg font-semibold mb-4">Annuler le crédit AG</h2>
-            {annulerCreditError && (
-              <div className="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-2 text-sm">
-                {annulerCreditError}
-              </div>
+      <Modal
+        open={annulerCreditModal}
+        title="Annuler le crédit AG"
+        onClose={() => setAnnulerCreditModal(false)}
+      >
+        {annulerCreditError && (
+          <AlertBar variant="err" className="mb-4">
+            {annulerCreditError}
+          </AlertBar>
+        )}
+        <form
+          onSubmit={(e) => void handleAnnulerCredit(e)}
+          className="space-y-4"
+        >
+          <p className="text-sm text-savr-neutral-500">
+            Le crédit AG sera annulé côté Savr. La collecte reste à{' '}
+            <strong>réalisée</strong> — seul le décompte du pack est rétabli.
+            {collecte.packs_antgaspi && (
+              <>
+                {' '}
+                Pack : <strong>
+                  {collecte.packs_antgaspi.type_pack}
+                </strong> — {collecte.packs_antgaspi.credits_restants} crédit
+                {collecte.packs_antgaspi.credits_restants !== 1 ? 's' : ''}{' '}
+                restant
+                {collecte.packs_antgaspi.credits_restants !== 1 ? 's' : ''}.
+              </>
             )}
-            <form
-              onSubmit={(e) => void handleAnnulerCredit(e)}
-              className="space-y-4"
-            >
-              <p className="text-sm text-neutral-500">
-                Le crédit AG sera annulé côté Savr. La collecte reste à{' '}
-                <strong>réalisée</strong> — seul le décompte du pack est
-                rétabli.
-                {collecte.packs_antgaspi && (
-                  <>
-                    {' '}
-                    Pack : <strong>
-                      {collecte.packs_antgaspi.type_pack}
-                    </strong>{' '}
-                    — {collecte.packs_antgaspi.credits_restants} crédit
-                    {collecte.packs_antgaspi.credits_restants !== 1
-                      ? 's'
-                      : ''}{' '}
-                    restant
-                    {collecte.packs_antgaspi.credits_restants !== 1 ? 's' : ''}.
-                  </>
-                )}
-              </p>
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Motif (≥ 10 caractères)
-                </label>
-                <textarea
-                  value={annulerCreditMotif}
-                  onChange={(e) => setAnnulerCreditMotif(e.target.value)}
-                  rows={3}
-                  minLength={10}
-                  className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
-                  required
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => setAnnulerCreditModal(false)}
-                  disabled={annulerCreditSubmitting}
-                >
-                  Retour
-                </Button>
-                <Button
-                  type="submit"
-                  variant="destructive"
-                  disabled={annulerCreditSubmitting}
-                >
-                  {annulerCreditSubmitting
-                    ? 'Annulation…'
-                    : "Confirmer l'annulation"}
-                </Button>
-              </div>
-            </form>
+          </p>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-savr-neutral-700">
+              Motif (≥ 10 caractères)
+            </label>
+            <Textarea
+              value={annulerCreditMotif}
+              onChange={(e) => setAnnulerCreditMotif(e.target.value)}
+              rows={3}
+              minLength={10}
+              required
+            />
           </div>
-        </div>
-      )}
+          <div className="flex justify-end gap-2 border-t border-savr-neutral-100 pt-4">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setAnnulerCreditModal(false)}
+              disabled={annulerCreditSubmitting}
+            >
+              Retour
+            </Button>
+            <Button
+              type="submit"
+              variant="destructive"
+              disabled={annulerCreditSubmitting}
+            >
+              {annulerCreditSubmitting
+                ? 'Annulation…'
+                : "Confirmer l'annulation"}
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Modale — Forcer le statut (RM-08) */}
-      {forceStatutModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-            <h2 className="text-lg font-semibold mb-4">
-              Forcer le statut de la collecte
-            </h2>
-            {forceStatutError && (
-              <div className="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-2 text-sm">
-                {forceStatutError}
-              </div>
-            )}
-            <form
-              onSubmit={(e) => void handleForceStatut(e)}
-              className="space-y-4"
+      <Modal
+        open={forceStatutModal}
+        title="Forcer le statut de la collecte"
+        onClose={() => setForceStatutModal(false)}
+      >
+        {forceStatutError && (
+          <AlertBar variant="err" className="mb-4">
+            {forceStatutError}
+          </AlertBar>
+        )}
+        <form onSubmit={(e) => void handleForceStatut(e)} className="space-y-4">
+          <p className="text-sm text-savr-neutral-500">
+            Bascule manuelle hors machine à états. L&apos;action est tracée dans
+            l&apos;audit (motif obligatoire).
+          </p>
+          <div>
+            <label
+              htmlFor="force-statut-select"
+              className="mb-1 block text-sm font-medium text-savr-neutral-700"
             >
-              <p className="text-sm text-neutral-500">
-                Bascule manuelle hors machine à états. L&apos;action est tracée
-                dans l&apos;audit (motif obligatoire).
-              </p>
-              <div>
-                <label
-                  htmlFor="force-statut-select"
-                  className="block text-sm font-medium mb-1"
-                >
-                  Nouveau statut
-                </label>
-                <Select
-                  id="force-statut-select"
-                  value={forceStatutValue}
-                  onChange={(e) => setForceStatutValue(e.target.value)}
-                  required
-                >
-                  {STATUTS_FORCABLES.map((s) => (
-                    <option key={s} value={s}>
-                      {statutCollecteDisplay(s, 'admin').label}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div>
-                <label
-                  htmlFor="force-statut-motif"
-                  className="block text-sm font-medium mb-1"
-                >
-                  Motif (obligatoire, ≥ 10 caractères)
-                </label>
-                <Textarea
-                  id="force-statut-motif"
-                  value={forceStatutMotif}
-                  onChange={(e) => setForceStatutMotif(e.target.value)}
-                  rows={3}
-                  minLength={10}
-                  required
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => setForceStatutModal(false)}
-                  disabled={forceStatutSubmitting}
-                >
-                  Retour
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={
-                    forceStatutSubmitting ||
-                    forceStatutMotif.trim().length < 10 ||
-                    forceStatutValue === ''
-                  }
-                >
-                  {forceStatutSubmitting
-                    ? 'Application…'
-                    : 'Confirmer le forçage'}
-                </Button>
-              </div>
-            </form>
+              Nouveau statut
+            </label>
+            <Select
+              id="force-statut-select"
+              value={forceStatutValue}
+              onChange={(e) => setForceStatutValue(e.target.value)}
+              required
+            >
+              {STATUTS_FORCABLES.map((s) => (
+                <option key={s} value={s}>
+                  {statutCollecteDisplay(s, 'admin').label}
+                </option>
+              ))}
+            </Select>
           </div>
-        </div>
-      )}
+          <div>
+            <label
+              htmlFor="force-statut-motif"
+              className="mb-1 block text-sm font-medium text-savr-neutral-700"
+            >
+              Motif (obligatoire, ≥ 10 caractères)
+            </label>
+            <Textarea
+              id="force-statut-motif"
+              value={forceStatutMotif}
+              onChange={(e) => setForceStatutMotif(e.target.value)}
+              rows={3}
+              minLength={10}
+              required
+            />
+          </div>
+          <div className="flex justify-end gap-2 border-t border-savr-neutral-100 pt-4">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setForceStatutModal(false)}
+              disabled={forceStatutSubmitting}
+            >
+              Retour
+            </Button>
+            <Button
+              type="submit"
+              disabled={
+                forceStatutSubmitting ||
+                forceStatutMotif.trim().length < 10 ||
+                forceStatutValue === ''
+              }
+            >
+              {forceStatutSubmitting ? 'Application…' : 'Confirmer le forçage'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modale — Modifier N camions (multi-camions MTS-1, RM-02) */}
+      <Modal
+        open={nbCamionsModal}
+        title="Modifier le nombre de camions"
+        onClose={() => setNbCamionsModal(false)}
+      >
+        {nbCamionsError && (
+          <AlertBar variant="err" className="mb-4">
+            {nbCamionsError}
+          </AlertBar>
+        )}
+        <form
+          onSubmit={(e) => void handleModifierNbCamions(e)}
+          className="space-y-4"
+        >
+          <p className="text-sm text-savr-neutral-500">
+            L&apos;adapter crée N tournées (1 par camion). Réduire N à moins
+            d&apos;1 h de la mission est bloqué (alerte Ops). Non modifiable sur
+            un statut terminal.
+          </p>
+          <div>
+            <label
+              htmlFor="nb-camions-input"
+              className="mb-1 block text-sm font-medium text-savr-neutral-700"
+            >
+              Nombre de camions
+            </label>
+            <Input
+              id="nb-camions-input"
+              type="number"
+              min={1}
+              max={10}
+              value={nbCamionsValue}
+              onChange={(e) => setNbCamionsValue(e.target.value)}
+              className="w-32"
+              required
+            />
+          </div>
+          <div className="flex justify-end gap-2 border-t border-savr-neutral-100 pt-4">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setNbCamionsModal(false)}
+              disabled={nbCamionsSubmitting}
+            >
+              Retour
+            </Button>
+            <Button
+              type="submit"
+              disabled={
+                nbCamionsSubmitting ||
+                Number(nbCamionsValue) < 1 ||
+                !Number.isInteger(Number(nbCamionsValue))
+              }
+            >
+              {nbCamionsSubmitting ? 'Enregistrement…' : 'Enregistrer'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

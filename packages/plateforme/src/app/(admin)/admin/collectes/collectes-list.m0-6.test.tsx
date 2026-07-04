@@ -131,6 +131,20 @@ const ALL = [collecteZd, agEnAttente, agValidee, agAuto, agRealisee];
 
 function mockCollectesFetch() {
   const fetchMock = vi.fn((url: string) => {
+    // Compteurs des chips (endpoint dédié) — avant le catch-all /collectes.
+    if (typeof url === 'string' && url.includes('/collectes/chip-counts')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          non_transmises: 3,
+          attente_prestataire: 1,
+          dirty_tms: 0,
+          ag_attente_attribution: 2,
+          zd_48h: 1,
+          ag_48h: 4,
+        }),
+      });
+    }
     if (typeof url === 'string' && url.startsWith('/api/v1/admin/collectes')) {
       return Promise.resolve({
         ok: true,
@@ -182,10 +196,22 @@ describe('M0.6 — liste collectes Admin (BL-P1-BOA-05)', () => {
     ).toBeGreaterThan(0);
     expect(screen.getAllByText('Contrôle accès').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Indicateurs').length).toBeGreaterThan(0);
+    // Colonne Statut TMS (maquette Admin V1)
+    expect(screen.getAllByText('Statut TMS').length).toBeGreaterThan(0);
 
     // Client organisateur : raison sociale liée (ZD) ou texte libre (AG)
     expect(screen.getAllByText('Mairie de Paris').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Fondation X').length).toBeGreaterThan(0);
+  });
+
+  it('M0.6 — les chips prédéfinis affichent leur compteur (chip-counts)', async () => {
+    mockCollectesFetch();
+    render(<CollectesPage />);
+    const chip = await screen.findByRole('button', {
+      name: /Non transmises au TMS/,
+    });
+    // Pastille compteur = valeur renvoyée par /chip-counts (3).
+    await waitFor(() => expect(chip).toHaveTextContent('3'));
   });
 
   it('M0.6 — indicateurs rapport (disponible/consulté/régénéré) + poids/taux ZD', async () => {

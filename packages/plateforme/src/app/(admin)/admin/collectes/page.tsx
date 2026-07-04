@@ -5,6 +5,9 @@ import { Truck, Plus, FileText, CheckCircle2, RotateCw } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { PageHero } from '@/components/ui/page-hero';
+import { FilterChips } from '@/components/ui/filter-chips';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -16,6 +19,7 @@ import {
   statutCollecteDisplay,
   type StatutCollecteDb,
 } from '@/lib/statut-collecte-labels';
+import { statutTmsDisplay } from '@/lib/statut-tms-labels';
 
 interface RapportRse {
   disponible_a: string | null;
@@ -60,11 +64,15 @@ interface Collecte {
   };
 }
 
+// Chips de filtres prédéfinis (§06.06 §3). Les `key` = valeurs du paramètre API
+// `chip` (inchangées) ; libellés alignés sur la maquette Admin V1. Le chip
+// « Toutes » (key vide) réinitialise le filtre prédéfini.
 const CHIPS = [
-  { key: 'non_transmises', label: 'Non transmises TMS' },
-  { key: 'attente_prestataire', label: 'Attente prestataire' },
-  { key: 'dirty_tms', label: 'Modifiées sans renvoi' },
-  { key: 'ag_attente_attribution', label: 'Collectes à attribuer' },
+  { key: '', label: 'Toutes' },
+  { key: 'non_transmises', label: 'Non transmises au TMS' },
+  { key: 'attente_prestataire', label: 'En attente prestataire' },
+  { key: 'dirty_tms', label: 'Modifiées sans renvoi TMS' },
+  { key: 'ag_attente_attribution', label: 'AG en attente attribution' },
   { key: 'zd_48h', label: 'ZD 48h' },
   { key: 'ag_48h', label: 'AG 48h' },
 ];
@@ -310,12 +318,30 @@ const columns: Column<Collecte>[] = [
   {
     key: 'statut',
     header: 'Statut',
+    // AG programmée sans attribution : statut réel = `programmee` (pas `brouillon`).
+    // Affiché « À attribuer » (et non « Créée ») pour ne pas entrer en conflit avec
+    // le filtre « Créée » = brouillon ; ces lignes se filtrent via le chip « AG en
+    // attente attribution ». (Divergence libellé §06.06 §3 « ≈ Créée ».)
     render: (row) =>
       aAttribuer(row) ? (
-        <Badge variant="neutral">Créée</Badge>
+        <Badge variant="warning">À attribuer</Badge>
       ) : (
         <StatusCollecte statut={row.statut as StatutCollecte} />
       ),
+  },
+  {
+    // Statut logistique (enum statut_tms) — colonne de la maquette Admin V1,
+    // libellés via le mapping partagé (valeurs réelles de l'enum).
+    key: 'statut_tms',
+    header: 'Statut TMS',
+    render: (row) => (
+      <Badge
+        variant={statutTmsDisplay(row.statut_tms).variant}
+        className="text-[10px]"
+      >
+        {statutTmsDisplay(row.statut_tms).label}
+      </Badge>
+    ),
   },
   {
     key: 'indicateurs',
@@ -359,6 +385,24 @@ export default function CollectesPage() {
   const [infoIncomplete, setInfoIncomplete] = useState(false);
   const [rapportNonConsulte, setRapportNonConsulte] = useState(false);
   const [page, setPage] = useState(1);
+  // Compteurs par chip prédéfini (§06.06 §3) — pastilles de la liste.
+  const [chipCounts, setChipCounts] = useState<Record<string, number>>({});
+
+  // Compteurs des chips — chargés une fois au montage (endpoint dédié).
+  useEffect(() => {
+    let cancelled = false;
+    void fetch('/api/v1/admin/collectes/chip-counts')
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((j: unknown) => {
+        if (!cancelled && j && typeof j === 'object') {
+          setChipCounts(j as Record<string, number>);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Chargement des listes complètes (traiteurs + lieux) pour les menus
   // déroulants, une seule fois. Pagination suivie jusqu'à épuisement.
@@ -457,59 +501,36 @@ export default function CollectesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Truck className="h-6 w-6 text-savr-neutral-600" />
-          <h1 className="text-2xl font-bold text-savr-neutral-900">
-            Collectes
-          </h1>
-        </div>
-        <div className="flex items-center gap-2">
+      <PageHero
+        icon={<Truck className="h-6 w-6 text-savr-primary-200" />}
+        title="Collectes"
+        subtitle={`${total} collecte${total > 1 ? 's' : ''} · liste unique ZD + AG · clic sur une ligne → détail`}
+        actions={
           <Link href="/admin/collectes/nouvelle">
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Nouvelle collecte
+            <Button variant="accent">
+              <Plus className="h-4 w-4" />
+              Programmer une collecte
             </Button>
           </Link>
-        </div>
-      </div>
+        }
+      />
 
-      {/* Chips filtres prédéfinis */}
-      <div className="flex flex-wrap gap-2">
-        <button
-          onClick={() => {
-            setChip('');
-            setPage(1);
-          }}
-          className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-            chip === ''
-              ? 'bg-savr-primary-600 text-white'
-              : 'bg-savr-neutral-100 text-savr-neutral-700 hover:bg-savr-neutral-200'
-          }`}
-        >
-          Toutes
-        </button>
-        {CHIPS.map((c) => (
-          <button
-            key={c.key}
-            onClick={() => {
-              setChip(c.key);
-              setPage(1);
-            }}
-            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-              chip === c.key
-                ? 'bg-savr-primary-600 text-white'
-                : 'bg-savr-neutral-100 text-savr-neutral-700 hover:bg-savr-neutral-200'
-            }`}
-          >
-            {c.label}
-          </button>
-        ))}
-      </div>
+      {/* Chips filtres prédéfinis (sélection unique) + compteurs */}
+      <FilterChips
+        chips={CHIPS.map((c) =>
+          c.key ? { ...c, count: chipCounts[c.key] } : c,
+        )}
+        activeKey={chip}
+        ariaLabel="Filtres prédéfinis"
+        onSelect={(key) => {
+          setChip(key);
+          setPage(1);
+        }}
+      />
 
       {/* Filtres libres (§06.06 §3) */}
       {!chip && (
-        <div className="space-y-3 rounded-savr-md border border-savr-neutral-200 bg-savr-neutral-50 p-4">
+        <Card className="space-y-4 p-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <label className="mb-1 block text-xs font-medium text-savr-neutral-600">
@@ -616,10 +637,10 @@ export default function CollectesPage() {
                     type="button"
                     aria-pressed={active}
                     onClick={() => toggleStatut(s)}
-                    className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                    className={`rounded-savr-full border px-2.5 py-1 text-xs font-semibold transition-colors ${
                       active
-                        ? 'bg-savr-primary-600 text-white'
-                        : 'bg-savr-white text-savr-neutral-700 border border-savr-neutral-200 hover:bg-savr-neutral-100'
+                        ? 'border-savr-primary-700 bg-savr-primary-700 text-savr-white'
+                        : 'border-savr-neutral-300 bg-savr-white text-savr-neutral-600 hover:border-savr-primary-300'
                     }`}
                   >
                     {statutCollecteDisplay(s, 'admin').label}
@@ -654,7 +675,7 @@ export default function CollectesPage() {
               Rapport non consulté
             </label>
           </div>
-        </div>
+        </Card>
       )}
 
       {loading ? (
@@ -677,7 +698,7 @@ export default function CollectesPage() {
             (a, b) => Number(estUrgente(b)) - Number(estUrgente(a)),
           )}
           keyExtractor={(row) => row.id}
-          rowClassName={(r) => (estUrgente(r) ? 'bg-red-50' : '')}
+          rowClassName={(r) => (estUrgente(r) ? 'bg-savr-error-subtle' : '')}
           pagination={{ page, total, limit: 50, onPageChange: setPage }}
         />
       )}

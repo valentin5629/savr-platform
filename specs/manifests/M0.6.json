@@ -1088,38 +1088,6 @@
       "libelle": "Fiche orga / Utilisateurs Savr : modale invitation membre (provisioning direct) — impersonation UI déjà livrée"
     },
     {
-      "id": "BL-P2-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "Grilles tarifaires ZD : catalogue + colonne-DB + versionnement"
-    },
-    {
-      "id": "BL-P2-05",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "Remises négociées : colonne-DB + validation /100 + UI"
-    },
-    {
-      "id": "BL-P2-06",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
-      "artefact": null,
-      "test": null,
-      "statut": "à-vérifier",
-      "libelle": "Taux recyclage : modale colonne-DB + audit + history"
-    },
-    {
-      "id": "BL-P2-07",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "Paramètres : référentiels / intégrations / config / templates / tarifs AG history"
-    },
-    {
       "id": "BL-P2-08",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
       "artefact": null,
@@ -1214,6 +1182,110 @@
       "test": "packages/plateforme/src/components/ui/impersonation-launcher.test.tsx « M0.6 — lanceur impersonation admin (BL-P1-BOA-09) » (masqué non-admin, liste hors-soi, POST impersoner + navigation)",
       "statut": "implemented",
       "libelle": "Bouton + liste déroulante utilisateurs pour lancer l’impersonation (§09 §7 « Bouton Impersonate », volet UI BL-P1-BOA-09)"
+    },
+    {
+      "id": "BL-P2-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:737",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/grilles-tarifaires-zd/route.ts",
+      "test": "packages/plateforme/tests/api/admin/grilles-tarifaires-zd.m0-6.test.ts",
+      "statut": "implemented",
+      "libelle": "Grilles tarifaires ZD : catalogue + colonne-DB (mode) + versionnement (fix column-db, cf. grain M0.6-grille-*)"
+    },
+    {
+      "id": "BL-P2-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:745",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/tarifs-negocie/route.ts",
+      "test": "packages/plateforme/src/app/(admin)/admin/clients/[id]/onglets.m0-6.test.tsx",
+      "statut": "implemented",
+      "libelle": "Remises négociées : colonnes activite/remise_pct (fraction) + /100 + fermeture + scope organisation — CONFIRMÉ (PR #160), pas de code R18"
+    },
+    {
+      "id": "BL-P2-06",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:765",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/parametres/taux-recyclage/page.tsx",
+      "test": "packages/plateforme/src/app/(admin)/admin/parametres/taux-recyclage/taux-recyclage.m0-6.test.tsx",
+      "statut": "implemented",
+      "libelle": "Taux recyclage : modale historique + Idempotency-Key front + nav (cf. grain M0.6-taux-*, M0.6-parametres-nav-hub)"
+    },
+    {
+      "id": "BL-P2-07",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:704",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/parametres/tarifs-ag/page.tsx",
+      "test": "packages/plateforme/src/app/(admin)/admin/parametres/tarifs-ag/tarifs-ag-history.m0-6.test.tsx",
+      "statut": "partial",
+      "libelle": "Paramètres §9 : tarifs AG history + templates viewer + bandeau ops LIVRÉS (grain M0.6-tarifs-ag-history / M0.6-templates-viewer / M0.6-ops-readonly-banner). Référentiels / Intégrations / Config générale REPORTÉS lot R18b (arbitrage Val 2026-07-04, _Divergences/BOA-PARAMS-DEFER_20260704)"
+    },
+    {
+      "id": "M0.6-grille-mode-col",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:737",
+      "artefact": "supabase/migrations/20260704170000_plateforme_r18_grilles_zd_mode.sql",
+      "test": "supabase/tests/R18__grilles_zd_mode_rpc.test.sql",
+      "statut": "implemented",
+      "libelle": "Colonne `mode` (enum mode_grille_zd) convergente DDL cible — remplace la colonne fantôme `methode`"
+    },
+    {
+      "id": "M0.6-grille-rpc-post",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:743",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/grilles-tarifaires-zd/route.ts",
+      "test": "packages/plateforme/tests/api/admin/grilles-tarifaires-zd.m0-6.test.ts",
+      "statut": "implemented",
+      "libelle": "POST corrigé methode→mode + RPC rpc_creer_grille_zd (création versionnée close-then-create ; par-pax forcé 0 en mode paliers)"
+    },
+    {
+      "id": "M0.6-grille-catalogue",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:738",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/parametres/grilles-zd/page.tsx",
+      "test": "packages/plateforme/src/app/(admin)/admin/parametres/grilles-zd/grilles-zd.m0-6.test.tsx",
+      "statut": "implemented",
+      "libelle": "Écran catalogue grilles ZD (nom/mode/défaut/validité/nb orgas) + modale création paliers/fixe_variable"
+    },
+    {
+      "id": "M0.6-taux-history-modal",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:796",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/parametres/taux-recyclage/page.tsx",
+      "test": "packages/plateforme/src/app/(admin)/admin/parametres/taux-recyclage/taux-recyclage.m0-6.test.tsx",
+      "statut": "implemented",
+      "libelle": "Taux recyclage : modale Historique (consomme le GET ; « Modifié par » résolu sans embed PostgREST)"
+    },
+    {
+      "id": "M0.6-taux-idempotency",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:783",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/parametres/taux-recyclage/page.tsx",
+      "test": "packages/plateforme/src/app/(admin)/admin/parametres/taux-recyclage/taux-recyclage.m0-6.test.tsx",
+      "statut": "implemented",
+      "libelle": "Taux recyclage : Idempotency-Key UUID v4 généré + envoyé côté front (PUT) — CDC l.783"
+    },
+    {
+      "id": "M0.6-parametres-nav-hub",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:689",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/parametres/page.tsx",
+      "test": "packages/plateforme/src/app/(admin)/admin/parametres/parametres-hub.m0-6.test.tsx",
+      "statut": "implemented",
+      "libelle": "Nav : hub /admin/parametres + entrée « Paramètres » (désorphelinage des 5 écrans param)"
+    },
+    {
+      "id": "M0.6-tarifs-ag-history",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:726",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/tarifs-packs-ag/history/route.ts",
+      "test": "packages/plateforme/tests/api/admin/tarifs-packs-ag-history.m0-6.test.ts",
+      "statut": "implemented",
+      "libelle": "Tarifs AG : modale Historique = versions de la ligne versionnée + audit_log, SANS table _history (garde-fou 1)"
+    },
+    {
+      "id": "M0.6-templates-viewer",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:820",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/parametres/templates/page.tsx",
+      "test": "packages/plateforme/src/app/(admin)/admin/parametres/templates/templates.m0-6.test.tsx",
+      "statut": "implemented",
+      "libelle": "Templates emails : viewer read-only (liste actifs + variables + aperçu iframe sandbox) ; édition = V1.1"
+    },
+    {
+      "id": "M0.6-ops-readonly-banner",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:26",
+      "artefact": "packages/plateforme/src/components/ui/ops-read-only-banner.tsx",
+      "test": "packages/plateforme/src/app/(admin)/admin/parametres/grilles-zd/grilles-zd.m0-6.test.tsx",
+      "statut": "implemented",
+      "libelle": "Bandeau ops « Lecture seule — édition réservée admin » partagé, appliqué aux écrans Paramètres §9"
     }
   ],
   "cdc_source_hash": {

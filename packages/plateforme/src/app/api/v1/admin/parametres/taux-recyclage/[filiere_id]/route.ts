@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
-import { requireAdmin } from '@/lib/api-auth.js';
+import { requireAdmin, requireStaff } from '@/lib/api-auth.js';
 
 export async function PUT(
   req: NextRequest,
@@ -57,7 +57,10 @@ export async function PUT(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  void idempotencyKey; // utilisé pour dédup côté client si besoin
+  // CDC §9 l.783 : le front génère + envoie un Idempotency-Key (UUID v4). La
+  // spec n'exige PAS de dédup serveur en V1 (aucun store de dédup requis) — on
+  // accepte l'en-tête sans le rejeter. Une garde serveur relèverait de V1.1.
+  void idempotencyKey;
   return NextResponse.json(data);
 }
 
@@ -65,20 +68,46 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ filiere_id: string }> },
 ): Promise<NextResponse> {
-  const auth = await requireAdmin(req);
+  // Lecture historique = admin_savr + ops_savr (CDC §9 l.803), cohérent avec les
+  // autres routes history (tarifs-ag, templates). L'écriture (PUT) reste admin-only.
+  const auth = await requireStaff(req);
   if (auth.error) return auth.error;
 
   const { filiere_id } = await params;
   const supabase = createAdminSupabaseClient();
 
+  // Historique antéchronologique (CDC §9 l.796-800). Colonnes taux/prestataire/
+  // source avant-après + commentaire + auteur, alimentées par le trigger
+  // fn_audit_taux_recyclage.
   const { data, error } = await supabase
     .from('parametres_taux_recyclage_history')
     .select('*')
     .eq('parametre_id', filiere_id)
-    .order('created_at', { ascending: false });
+    .order('modifie_le', { ascending: false });
 
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ data: data ?? [] });
+  const rows = data ?? [];
+
+  // Résout « Modifié par » en nom lisible via une 2e requête (pas d'embed
+  // PostgREST — évite les 400 de jointure ; volumétrie ≤ 10 modifs/an).
+  const auteurIds = [...new Set(rows.map((r) => r.modifie_par))];
+  const nameById = new Map<string, string>();
+  if (auteurIds.length > 0) {
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, prenom, nom')
+      .in('id', auteurIds);
+    for (const u of users ?? []) {
+      nameById.set(u.id, `${u.prenom ?? ''} ${u.nom ?? ''}`.trim());
+    }
+  }
+
+  const enriched = rows.map((r) => ({
+    ...r,
+    modifie_par_nom: nameById.get(r.modifie_par) || r.modifie_par,
+  }));
+
+  return NextResponse.json({ data: enriched });
 }

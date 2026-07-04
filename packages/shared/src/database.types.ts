@@ -1957,6 +1957,7 @@ export type Database = {
           description: string | null
           est_defaut: boolean
           id: string
+          mode: "fixe_variable" | "paliers"
           nom: string
           updated_at: string
           valide_du: string
@@ -1968,6 +1969,7 @@ export type Database = {
           description?: string | null
           est_defaut?: boolean
           id?: string
+          mode: "fixe_variable" | "paliers"
           nom: string
           updated_at?: string
           valide_du: string
@@ -1979,6 +1981,7 @@ export type Database = {
           description?: string | null
           est_defaut?: boolean
           id?: string
+          mode?: "fixe_variable" | "paliers"
           nom?: string
           updated_at?: string
           valide_du?: string
@@ -4574,6 +4577,17 @@ export type Database = {
       refresh_mv_benchmark: { Args: never; Returns: undefined }
       rpc_annuler_credit_collecte: {
         Args: { p_collecte_id: string; p_motif: string }
+        Returns: Json
+      }
+      rpc_creer_grille_zd: {
+        Args: {
+          p_description?: string
+          p_est_defaut: boolean
+          p_mode: "fixe_variable" | "paliers"
+          p_nom: string
+          p_paliers: Json
+          p_valide_du: string
+        }
         Returns: Json
       }
       rpc_maj_co2_divers: {

@@ -17,13 +17,8 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  BarChart3,
-  CreditCard,
-  FlaskConical,
-  Lock,
-  Percent,
-} from 'lucide-react';
+import { BarChart3, CreditCard, FlaskConical, Percent } from 'lucide-react';
+import { OpsReadOnlyBanner } from '@/components/ui/ops-read-only-banner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -33,15 +28,8 @@ import { DataTable, type Column } from '@/components/ui/data-table';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 
 // ── Bandeau lecture seule ops ────────────────────────────────────────────────
-
-export function OpsReadOnlyBanner(): React.ReactElement {
-  return (
-    <div className="mb-4 flex items-center gap-2 rounded-lg border border-savr-warning-subtle bg-savr-warning-subtle px-4 py-2.5 text-sm text-savr-warning-strong">
-      <Lock className="w-4 h-4 shrink-0" aria-hidden="true" />
-      <span>Lecture seule — édition réservée admin.</span>
-    </div>
-  );
-}
+// OpsReadOnlyBanner extrait en composant partagé (R18, importé en tête) —
+// réutilisé par les écrans Paramètres §9.
 
 // ── Onglet Collectes ─────────────────────────────────────────────────────────
 

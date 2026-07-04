@@ -55,7 +55,7 @@ export const NAV_CONFIG: Record<Role, NavGroup[]> = {
         { label: 'Transporteurs', href: '/admin/transporteurs', icon: Truck },
         { label: 'Lieux', href: '/admin/lieux', icon: MapPin },
         { label: 'Clients', href: '/admin/clients', icon: Building2 },
-        { label: 'Paramètres', href: '/admin/settings/users', icon: Settings },
+        { label: 'Paramètres', href: '/admin/parametres', icon: Settings },
         {
           label: 'Santé système',
           href: '/admin/sante-systeme',

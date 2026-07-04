@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
+import { X, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { useUserRole } from '@/lib/use-user-role';
+import { OpsReadOnlyBanner } from '@/components/ui/ops-read-only-banner';
 
 interface TarifPackAG {
   id: string;
@@ -19,6 +21,18 @@ interface TarifPackAG {
   valide_jusqu_au: string | null;
 }
 
+interface TarifHistoryRow extends TarifPackAG {
+  modifie_par_nom: string;
+  date_modif: string;
+}
+
+interface HistState {
+  open: boolean;
+  type: string | null;
+  rows: TarifHistoryRow[];
+  loading: boolean;
+}
+
 const TYPE_LABELS: Record<string, string> = {
   unitaire: 'Unitaire (1 collecte)',
   pack_10: 'Pack 10 collectes',
@@ -29,11 +43,32 @@ const TYPE_LABELS: Record<string, string> = {
 const TYPES_PACK = ['unitaire', 'pack_10', 'pack_30', 'pack_60'] as const;
 
 export default function TarifsPacksAGPage() {
+  const role = useUserRole();
+  const canEdit = role === 'admin_savr';
+
   const [tarifs, setTarifs] = useState<TarifPackAG[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [hist, setHist] = useState<HistState>({
+    open: false,
+    type: null,
+    rows: [],
+    loading: false,
+  });
+
+  const openHistory = (type: string) => {
+    setHist({ open: true, type, rows: [], loading: true });
+    fetch(`/api/v1/admin/tarifs-packs-ag/history?type_pack=${type}`)
+      .then((r) => r.json())
+      .then((d: { data: TarifHistoryRow[] }) =>
+        setHist((h) => ({ ...h, rows: d.data ?? [], loading: false })),
+      )
+      .catch(() => setHist((h) => ({ ...h, loading: false })));
+  };
+  const closeHistory = () =>
+    setHist((h) => ({ ...h, open: false, type: null }));
 
   // Form state
   const [fType, setFType] = useState<string>('pack_10');
@@ -132,8 +167,10 @@ export default function TarifsPacksAGPage() {
             précédente et ouvre une nouvelle version.
           </p>
         </div>
-        <Button onClick={() => openModal()}>Nouveau tarif</Button>
+        {canEdit && <Button onClick={() => openModal()}>Nouveau tarif</Button>}
       </div>
+
+      {!canEdit && <OpsReadOnlyBanner />}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {byType.map(({ type, label, tarif }) => (
@@ -192,24 +229,46 @@ export default function TarifsPacksAGPage() {
                     </span>
                   </div>
                 )}
-                <div className="pt-2">
+                <div className="pt-2 flex gap-2">
+                  {canEdit && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => openModal(type)}
+                    >
+                      Modifier le tarif
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => openHistory(type)}
+                  >
+                    <History className="h-4 w-4 mr-1" />
+                    Historique
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                {canEdit && (
                   <Button
                     size="sm"
                     variant="secondary"
                     onClick={() => openModal(type)}
                   >
-                    Modifier le tarif
+                    Définir un tarif
                   </Button>
-                </div>
+                )}
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => openHistory(type)}
+                >
+                  <History className="h-4 w-4 mr-1" />
+                  Historique
+                </Button>
               </div>
-            ) : (
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => openModal(type)}
-              >
-                Définir un tarif
-              </Button>
             )}
           </Card>
         ))}
@@ -356,6 +415,83 @@ export default function TarifsPacksAGPage() {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modale historique (versions de la grille — lecture seule, CDC §9 l.726-729) */}
+      {hist.open && hist.type && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-neutral-100 px-6 py-4">
+              <h2 className="text-lg font-semibold">
+                Historique — {TYPE_LABELS[hist.type] ?? hist.type}
+              </h2>
+              <button
+                onClick={closeHistory}
+                aria-label="Fermer"
+                className="text-neutral-400 hover:text-neutral-900"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              {hist.loading ? (
+                <Skeleton className="h-32 w-full" />
+              ) : hist.rows.length === 0 ? (
+                <p className="text-sm text-neutral-500">
+                  Aucune version enregistrée.
+                </p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="text-neutral-500 text-left">
+                    <tr>
+                      <th className="py-2 pr-3 font-medium">Crédits</th>
+                      <th className="py-2 pr-3 font-medium">Prix unit. HT</th>
+                      <th className="py-2 pr-3 font-medium">Total HT</th>
+                      <th className="py-2 pr-3 font-medium">Mensualisable</th>
+                      <th className="py-2 pr-3 font-medium">Validité</th>
+                      <th className="py-2 pr-3 font-medium">Modifié par</th>
+                      <th className="py-2 font-medium">Date modif</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-100">
+                    {hist.rows.map((r) => (
+                      <tr key={r.id}>
+                        <td className="py-2 pr-3">{r.credits}</td>
+                        <td className="py-2 pr-3">
+                          {r.prix_unitaire_ht.toLocaleString('fr-FR', {
+                            minimumFractionDigits: 2,
+                          })}{' '}
+                          €
+                        </td>
+                        <td className="py-2 pr-3">
+                          {r.montant_total_ht.toLocaleString('fr-FR', {
+                            minimumFractionDigits: 2,
+                          })}{' '}
+                          €
+                        </td>
+                        <td className="py-2 pr-3">
+                          {r.mensualisable
+                            ? `Oui${r.nb_mensualites ? ` (${r.nb_mensualites}×)` : ''}`
+                            : 'Non'}
+                        </td>
+                        <td className="py-2 pr-3 whitespace-nowrap">
+                          {new Date(r.valide_du).toLocaleDateString('fr-FR')}
+                          {r.valide_jusqu_au
+                            ? ` → ${new Date(r.valide_jusqu_au).toLocaleDateString('fr-FR')}`
+                            : ' → …'}
+                        </td>
+                        <td className="py-2 pr-3">{r.modifie_par_nom}</td>
+                        <td className="py-2 whitespace-nowrap">
+                          {new Date(r.date_modif).toLocaleDateString('fr-FR')}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
         </div>
       )}

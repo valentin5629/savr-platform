@@ -23,6 +23,7 @@ import {
   groupBySemaine,
   type CollecteRow,
 } from '@/components/ui/collecte-card';
+import { statutCollecteDisplay } from '@/lib/statut-collecte-labels';
 
 // Onglets = preset du filtre `statuts` (à venir vs terminaux), via l'API existante.
 const STATUTS_PROGRAMMEES = ['programmee', 'validee', 'en_cours'];
@@ -119,6 +120,12 @@ export default function CollectesPage() {
   const [to, setTo] = useState('');
   const [search, setSearch] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
+  // Statut (multi-sélection, §06.06 §3) : scopé aux valeurs valides de l'onglet
+  // actif ; vide = preset de l'onglet. Info incomplète / rapport non consulté :
+  // booléens indépendants de l'onglet.
+  const [statutsSel, setStatutsSel] = useState<string[]>([]);
+  const [infoIncomplete, setInfoIncomplete] = useState(false);
+  const [rapportNonConsulte, setRapportNonConsulte] = useState(false);
   const [page, setPage] = useState(1);
   const [traiteurs, setTraiteurs] = useState<{ id: string; label: string }[]>(
     [],
@@ -196,7 +203,12 @@ export default function CollectesPage() {
         // Chemin chip serveur (les chips sont tous à portée « Programmées »).
         params.set('chip', quickFilter);
       } else {
-        params.set('statuts', STATUTS_PROGRAMMEES.join(','));
+        params.set(
+          'statuts',
+          statutsSel.length > 0
+            ? statutsSel.join(',')
+            : STATUTS_PROGRAMMEES.join(','),
+        );
         if (type) params.set('type', type);
       }
     } else {
@@ -204,7 +216,12 @@ export default function CollectesPage() {
       if (quickFilter === 'annulee') {
         params.set('statuts', 'annulee,rejetee_par_prestataire');
       } else {
-        params.set('statuts', STATUTS_HISTORIQUE.join(','));
+        params.set(
+          'statuts',
+          statutsSel.length > 0
+            ? statutsSel.join(',')
+            : STATUTS_HISTORIQUE.join(','),
+        );
         if (quickFilter === 'ag') params.set('type', 'anti_gaspi');
         else if (quickFilter === 'zd') params.set('type', 'zero_dechet');
         else if (type) params.set('type', type);
@@ -217,6 +234,8 @@ export default function CollectesPage() {
       if (lieuId) params.set('lieu_id', lieuId);
       if (from) params.set('from', from);
       if (to) params.set('to', to);
+      if (infoIncomplete) params.set('info_incomplete', 'true');
+      if (rapportNonConsulte) params.set('rapport_non_consulte', 'true');
     }
 
     const res = await fetch(`/api/v1/admin/collectes?${params}`);
@@ -226,7 +245,19 @@ export default function CollectesPage() {
       setTotal(json.total);
     }
     setLoading(false);
-  }, [tab, page, quickFilter, type, traiteurId, lieuId, from, to]);
+  }, [
+    tab,
+    page,
+    quickFilter,
+    type,
+    statutsSel,
+    traiteurId,
+    lieuId,
+    from,
+    to,
+    infoIncomplete,
+    rapportNonConsulte,
+  ]);
 
   useEffect(() => {
     void fetchCollectes();
@@ -236,6 +267,14 @@ export default function CollectesPage() {
     setTab(next);
     setQuickFilter('');
     setType('');
+    setStatutsSel([]);
+    setPage(1);
+  };
+
+  const toggleStatut = (s: string) => {
+    setStatutsSel((prev) =>
+      prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s],
+    );
     setPage(1);
   };
 
@@ -470,6 +509,62 @@ export default function CollectesPage() {
                 className="h-10 w-full rounded-savr-md border border-savr-neutral-300 bg-savr-white px-2 text-sm"
               />
             </div>
+          </div>
+
+          {/* Statut — multi-sélection scopée aux valeurs de l'onglet actif */}
+          <div className="sm:col-span-2 lg:col-span-4">
+            <span className="mb-1 block text-xs font-bold text-savr-neutral-700">
+              Statut
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {(tab === 'programmees'
+                ? STATUTS_PROGRAMMEES
+                : STATUTS_HISTORIQUE
+              ).map((s) => {
+                const active = statutsSel.includes(s);
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => toggleStatut(s)}
+                    className={`rounded-savr-full border px-2.5 py-1 text-xs font-semibold transition-colors ${
+                      active
+                        ? 'border-savr-primary-700 bg-savr-primary-700 text-savr-white'
+                        : 'border-savr-neutral-300 bg-savr-white text-savr-neutral-600 hover:border-savr-primary-300'
+                    }`}
+                  >
+                    {statutCollecteDisplay(s, 'admin').label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Booléens */}
+          <div className="flex flex-wrap gap-4 sm:col-span-2 lg:col-span-4">
+            <label className="flex items-center gap-2 text-sm text-savr-neutral-700">
+              <input
+                type="checkbox"
+                checked={infoIncomplete}
+                onChange={(e) => {
+                  setInfoIncomplete(e.target.checked);
+                  setPage(1);
+                }}
+              />
+              Info incomplète
+            </label>
+            <label className="flex items-center gap-2 text-sm text-savr-neutral-700">
+              <input
+                type="checkbox"
+                checked={rapportNonConsulte}
+                onChange={(e) => {
+                  setRapportNonConsulte(e.target.checked);
+                  setPage(1);
+                }}
+              />
+              Rapport non consulté
+            </label>
           </div>
         </div>
       )}

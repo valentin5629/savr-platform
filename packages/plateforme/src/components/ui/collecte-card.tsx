@@ -201,6 +201,10 @@ export function groupBySemaine(
         `${b.date_collecte}${b.heure_collecte ?? ''}`,
       ),
     );
+    // Urgences (AG à attribuer < 48h) remontées en tête du groupe (§06.09 §1),
+    // tri stable → l'ordre chronologique est conservé au sein de chaque groupe
+    // urgent/non-urgent (parité comportement #164).
+    items.sort((a, b) => Number(estUrgente(b)) - Number(estUrgente(a)));
     return {
       key,
       label: `Semaine du ${fmt(lundi)} — ${fmt(dimanche)}`,
@@ -338,6 +342,11 @@ export function CollecteCard({ collecte: row }: CollecteCardProps) {
           <span className="text-[15px] font-extrabold tracking-tight text-savr-neutral-900 tabular-nums">
             {jour}
           </span>
+          {urgente && (
+            <span className="rounded-savr-full bg-savr-error px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-savr-white">
+              Urgent
+            </span>
+          )}
           {heure && (
             <>
               <span className="text-savr-neutral-300">·</span>

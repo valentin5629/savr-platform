@@ -325,4 +325,92 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       ).toBe(true),
     );
   });
+
+  it('M0.6 — filtre statut (multi-sélection) ajoute le paramètre statuts à la requête', async () => {
+    const fetchMock = mockCollectesFetch();
+    render(<CollectesPage />);
+    await screen.findAllByText('Traiteur Alpha');
+
+    fireEvent.click(screen.getByRole('button', { name: /Filtres avancés/ }));
+    // Statut multi-sélection scopée à l'onglet Programmées (chip = bouton,
+    // distinct de la même étiquette utilisée comme badge sur une carte).
+    fireEvent.click(screen.getByRole('button', { name: 'Validée' }));
+
+    await waitFor(() => {
+      const urls = fetchMock.mock.calls.map((c) => String(c[0]));
+      expect(
+        urls.some(
+          (u) =>
+            u.startsWith('/api/v1/admin/collectes?') &&
+            u.includes('statuts=validee'),
+        ),
+      ).toBe(true);
+    });
+  });
+
+  it('M0.6 — filtre « Info incomplète » ajoute info_incomplete=true', async () => {
+    const fetchMock = mockCollectesFetch();
+    render(<CollectesPage />);
+    await screen.findAllByText('Traiteur Alpha');
+
+    fireEvent.click(screen.getByRole('button', { name: /Filtres avancés/ }));
+    fireEvent.click(screen.getByLabelText('Info incomplète'));
+
+    await waitFor(() => {
+      const urls = fetchMock.mock.calls.map((c) => String(c[0]));
+      expect(urls.some((u) => u.includes('info_incomplete=true'))).toBe(true);
+    });
+  });
+
+  it('M0.6 — filtre « Rapport non consulté » ajoute rapport_non_consulte=true', async () => {
+    const fetchMock = mockCollectesFetch();
+    render(<CollectesPage />);
+    await screen.findAllByText('Traiteur Alpha');
+
+    fireEvent.click(screen.getByRole('button', { name: /Filtres avancés/ }));
+    fireEvent.click(screen.getByLabelText('Rapport non consulté'));
+
+    await waitFor(() => {
+      const urls = fetchMock.mock.calls.map((c) => String(c[0]));
+      expect(urls.some((u) => u.includes('rapport_non_consulte=true'))).toBe(
+        true,
+      );
+    });
+  });
+
+  it('M0.6 — carte urgente (AG à attribuer < 48h) : badge Urgent affiché, pas sur la lointaine', async () => {
+    const urgente = ag({
+      id: 'ag-urgente',
+      date_collecte: new Date(Date.now() + 2 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10),
+      heure_collecte: '10:00:00',
+    });
+    // AG à attribuer, mais loin (> 48h) : pas urgente.
+    const lointaine = ag({
+      id: 'ag-lointaine',
+      date_collecte: '2027-01-15',
+      heure_collecte: '10:00:00',
+    });
+    const fetchMock = vi.fn((url: string) => {
+      if (typeof url === 'string' && url.includes('/collectes/chip-counts')) {
+        return Promise.resolve({ ok: true, json: async () => ({}) });
+      }
+      if (
+        typeof url === 'string' &&
+        url.startsWith('/api/v1/admin/collectes')
+      ) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: [lointaine, urgente], total: 2 }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ data: [] }) });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(<CollectesPage />);
+
+    await screen.findAllByText('Traiteur Beta');
+    expect(screen.getAllByText('Urgent')).toHaveLength(1);
+  });
 });

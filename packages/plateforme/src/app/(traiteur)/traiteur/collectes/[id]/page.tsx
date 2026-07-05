@@ -30,7 +30,18 @@ interface Evenement {
 interface TourneeInfo {
   plaque_immatriculation: string | null;
   chauffeur_nom: string | null;
+  type_vehicule: string | null;
+  plaque_saisie_at: string | null;
+  prestataire_nom: string | null;
 }
+
+const TYPE_VEHICULE_LABEL: Record<string, string> = {
+  velo_cargo: 'Vélo cargo',
+  camionnette: 'Camionnette',
+  fourgon: 'Fourgon',
+  vul: 'VUL',
+  poids_lourd: 'Poids lourd',
+};
 interface FactureInfo {
   id: string;
   numero_facture: string;
@@ -137,9 +148,7 @@ export default function FicheCollectePage({
     c.controle_acces_requis &&
     ['programmee', 'validee', 'en_cours'].includes(c.statut);
 
-  const controleInfos = (c.tournees ?? []).filter(
-    (t) => t.plaque_immatriculation || t.chauffeur_nom,
-  );
+  const controleTournees = c.tournees ?? [];
 
   const factureTelechargeable = (c.factures ?? []).find(
     (f) => f.statut !== 'brouillon' && (f.pdf_url_pennylane || f.pdf_url_savr),
@@ -323,23 +332,60 @@ export default function FicheCollectePage({
           <CardHeader>
             <CardTitle>Contrôle d&apos;accès</CardTitle>
           </CardHeader>
-          <CardContent className="text-sm">
-            {controleInfos.length === 0 ? (
+          <CardContent className="space-y-3 text-sm">
+            {controleTournees.length > 1 && (
+              <p className="font-semibold text-savr-neutral-800">
+                {controleTournees.length} véhicules prévus
+              </p>
+            )}
+            {controleTournees.length === 0 ? (
               <p className="text-savr-neutral-500">
-                En attente de la plaque et du nom du chauffeur communiqués par
-                le prestataire.
+                Le prestataire n&apos;a pas encore communiqué la plaque + le nom
+                du chauffeur.
               </p>
             ) : (
-              <ul className="space-y-1">
-                {controleInfos.map((t, i) => (
-                  <li key={i}>
-                    <span className="text-savr-neutral-500">Plaque : </span>
-                    <strong>{t.plaque_immatriculation ?? 'en attente'}</strong>
-                    {' · '}
-                    <span className="text-savr-neutral-500">Chauffeur : </span>
-                    <strong>{t.chauffeur_nom ?? 'en attente'}</strong>
-                  </li>
-                ))}
+              <ul className="space-y-3">
+                {controleTournees.map((t, i) => {
+                  const veloCargo = t.type_vehicule === 'velo_cargo';
+                  const communique = veloCargo
+                    ? Boolean(t.chauffeur_nom)
+                    : Boolean(t.plaque_immatriculation && t.chauffeur_nom);
+                  const typeLabel = t.type_vehicule
+                    ? (TYPE_VEHICULE_LABEL[t.type_vehicule] ?? t.type_vehicule)
+                    : null;
+                  const dateMaj = t.plaque_saisie_at
+                    ? new Date(t.plaque_saisie_at).toLocaleDateString('fr-FR')
+                    : null;
+                  return (
+                    <li key={i} className="space-y-1">
+                      {veloCargo ? (
+                        <p>
+                          Vélo cargo — pas de plaque communiquée. Chauffeur :{' '}
+                          <strong>{t.chauffeur_nom ?? 'en attente'}</strong>
+                        </p>
+                      ) : communique ? (
+                        <p>
+                          Véhicule prévu :{' '}
+                          <strong>{t.plaque_immatriculation}</strong>
+                          {typeLabel ? ` (${typeLabel})` : ''} — Chauffeur :{' '}
+                          <strong>{t.chauffeur_nom}</strong>
+                        </p>
+                      ) : (
+                        <p className="text-savr-neutral-500">
+                          Le prestataire n&apos;a pas encore communiqué la
+                          plaque + le nom du chauffeur.
+                        </p>
+                      )}
+                      {communique && (
+                        <span className="inline-block rounded bg-savr-success-subtle px-2 py-0.5 text-xs text-savr-success-600">
+                          Communiqué
+                          {t.prestataire_nom ? ` par ${t.prestataire_nom}` : ''}
+                          {dateMaj ? ` le ${dateMaj}` : ''}
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </CardContent>

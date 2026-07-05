@@ -21,6 +21,7 @@ function makeClient() {
       select: () => c,
       eq: () => c,
       is: () => c,
+      in: () => c,
       order: () => c,
       limit: () => c,
       maybeSingle: () => Promise.resolve(res()),
@@ -29,7 +30,8 @@ function makeClient() {
     };
     return c;
   }
-  return {
+  const api = {
+    schema: () => api,
     from: (table: string) => {
       calls.push(table);
       return chain(table);
@@ -37,6 +39,7 @@ function makeClient() {
     results,
     calls,
   };
+  return api;
 }
 
 let rls = makeClient();
@@ -86,9 +89,16 @@ describe('M3.1 / fiche collecte GET augmenté (BL-P1-TRAIT-03)', () => {
           tournee: {
             plaque_immatriculation: 'AB-123-CD',
             chauffeur_nom: 'Léa',
+            type_vehicule: 'camionnette',
+            plaque_saisie_at: '2026-07-01T08:00:00Z',
+            prestataire_logistique_id: 'p1',
           },
         },
       ],
+      error: null,
+    };
+    admin.results.prestataires = {
+      data: [{ id: 'p1', nom: 'Strike' }],
       error: null,
     };
     admin.results.rapports_rse = {
@@ -119,12 +129,18 @@ describe('M3.1 / fiche collecte GET augmenté (BL-P1-TRAIT-03)', () => {
     expect(res.status).toBe(200);
     const { data } = (await res.json()) as {
       data: {
-        tournees: Array<{ plaque_immatriculation: string }>;
+        tournees: Array<{
+          plaque_immatriculation: string;
+          type_vehicule: string;
+          prestataire_nom: string | null;
+        }>;
         rapport_rse_disponible: boolean;
         factures: Array<{ numero_facture: string }>;
       };
     };
     expect(data.tournees[0]?.plaque_immatriculation).toBe('AB-123-CD');
+    expect(data.tournees[0]?.type_vehicule).toBe('camionnette');
+    expect(data.tournees[0]?.prestataire_nom).toBe('Strike');
     expect(data.rapport_rse_disponible).toBe(true);
     expect(data.factures[0]?.numero_facture).toBe('FZD-2026-1');
   });

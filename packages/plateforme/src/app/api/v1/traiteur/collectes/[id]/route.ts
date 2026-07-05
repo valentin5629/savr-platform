@@ -124,7 +124,9 @@ export async function GET(
   const [ctRes, rapRes, fcRes] = await Promise.all([
     admin
       .from('collecte_tournees')
-      .select('tournee:tournees(plaque_immatriculation, chauffeur_nom)')
+      .select(
+        'tournee:tournees(plaque_immatriculation, chauffeur_nom, type_vehicule, plaque_saisie_at, prestataire_logistique_id)',
+      )
       .eq('collecte_id', id),
     admin
       .from('rapports_rse')
@@ -141,17 +143,50 @@ export async function GET(
       .eq('collecte_id', id),
   ]);
 
-  type TourneeInfo = {
+  type TourneeRow = {
     plaque_immatriculation: string | null;
     chauffeur_nom: string | null;
+    type_vehicule: string | null;
+    plaque_saisie_at: string | null;
+    prestataire_logistique_id: string | null;
   };
-  const tournees: TourneeInfo[] = (
+  const tourneesRaw: TourneeRow[] = (
     (ctRes.data ?? []) as Array<{
-      tournee: TourneeInfo | TourneeInfo[] | null;
+      tournee: TourneeRow | TourneeRow[] | null;
     }>
   )
     .map((r) => (Array.isArray(r.tournee) ? r.tournee[0] : r.tournee))
-    .filter((t): t is TourneeInfo => Boolean(t));
+    .filter((t): t is TourneeRow => Boolean(t));
+
+  // Nom du prestataire (badge « Communiqué par … ») — shared.prestataires n'est
+  // jamais embarqué (cross-schema) → résolution par requête batch (cf. route liste).
+  const prestaIds = [
+    ...new Set(
+      tourneesRaw
+        .map((t) => t.prestataire_logistique_id)
+        .filter((v): v is string => Boolean(v)),
+    ),
+  ];
+  const prestaNoms = new Map<string, string>();
+  if (prestaIds.length > 0) {
+    const { data: prestas } = await admin
+      .schema('shared')
+      .from('prestataires')
+      .select('id, nom')
+      .in('id', prestaIds);
+    for (const p of (prestas ?? []) as { id: string; nom: string }[]) {
+      prestaNoms.set(p.id, p.nom);
+    }
+  }
+  const tournees = tourneesRaw.map((t) => ({
+    plaque_immatriculation: t.plaque_immatriculation,
+    chauffeur_nom: t.chauffeur_nom,
+    type_vehicule: t.type_vehicule,
+    plaque_saisie_at: t.plaque_saisie_at,
+    prestataire_nom: t.prestataire_logistique_id
+      ? (prestaNoms.get(t.prestataire_logistique_id) ?? null)
+      : null,
+  }));
 
   const rap = rapRes.data as {
     disponible_a: string | null;

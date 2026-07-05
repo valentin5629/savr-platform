@@ -19,7 +19,21 @@
     "packages/plateforme/src/app/api/v1/traiteur/pack-ag/renouvellement/route.ts",
     "packages/plateforme/src/app/api/v1/traiteur/equipe/invitation/route.ts",
     "packages/plateforme/src/app/api/v1/traiteur/factures/route.ts",
-    "packages/plateforme/tests/api/traiteur/espace-traiteur.m3-1.test.ts"
+    "packages/plateforme/tests/api/traiteur/espace-traiteur.m3-1.test.ts",
+    "supabase/migrations/20260705120000_plateforme_r19a_trait01_monorga.sql",
+    "supabase/tests/r19a_trait01_monorga.test.sql",
+    "packages/plateforme/src/app/(traiteur)/traiteur/mon-organisation/page.tsx",
+    "packages/plateforme/src/app/(traiteur)/traiteur/mon-organisation/mon-organisation-client.tsx",
+    "packages/plateforme/src/app/api/v1/traiteur/mon-organisation/profil/route.ts",
+    "packages/plateforme/src/app/api/v1/traiteur/mon-organisation/entites-facturation/route.ts",
+    "packages/plateforme/src/app/api/v1/traiteur/mon-organisation/entites-facturation/[id]/route.ts",
+    "packages/plateforme/src/app/api/v1/traiteur/mon-organisation/domaines-email/route.ts",
+    "packages/plateforme/src/app/api/v1/traiteur/mon-organisation/domaines-email/[id]/route.ts",
+    "packages/plateforme/src/app/api/v1/traiteur/mon-organisation/logo/route.ts",
+    "packages/plateforme/src/app/api/v1/traiteur/equipe/route.ts",
+    "packages/plateforme/src/app/api/v1/traiteur/equipe/[id]/route.ts",
+    "packages/plateforme/src/app/api/v1/traiteur/equipe/transfert/route.ts",
+    "packages/plateforme/tests/api/traiteur/mon-organisation.m3-1.test.ts"
   ],
   "scenarios": [
     "M3.1/marge_badge_attente_facturation_partielle",
@@ -37,7 +51,33 @@
     "M3.1/invitation_commercial_interdite",
     "M3.1/demande_renouvellement_pack",
     "M3.1/factures_commercial_lecture_seule",
-    "M3.1/benchmark_filtre_traiteur_ids_rejete_cote_serveur"
+    "M3.1/benchmark_filtre_traiteur_ids_rejete_cote_serveur",
+    "M3.1/trait_monorga_profil_patch_audit",
+    "M3.1/trait_monorga_profil_commercial_readonly",
+    "M3.1/trait_monorga_entites_create",
+    "M3.1/trait_monorga_entites_siret_echec",
+    "M3.1/trait_monorga_entites_doublon",
+    "M3.1/trait_monorga_entites_commercial_denied",
+    "M3.1/trait_monorga_domaines_create",
+    "M3.1/trait_monorga_domaines_dup",
+    "M3.1/trait_monorga_domaines_commercial_denied",
+    "M3.1/trait_monorga_equipe_role",
+    "M3.1/trait_monorga_equipe_role_escalade",
+    "M3.1/trait_monorga_equipe_suspend_self",
+    "M3.1/trait_monorga_equipe_suspend",
+    "M3.1/trait_monorga_transfert",
+    "M3.1/trait_monorga_transfert_hors_org",
+    "M3.1/trait_monorga_equipe_liste_commercial_denied",
+    "M3.1/trait_monorga_logo_upload",
+    "M3.1/trait_monorga_logo_commercial_denied",
+    "M3.1/trait_monorga_entites_patch",
+    "M3.1/trait_monorga_entites_patch_siret_reverif",
+    "M3.1/trait_monorga_entites_delete",
+    "M3.1/trait_monorga_entites_delete_defaut_bloque",
+    "M3.1/trait_monorga_entites_patch_commercial_denied",
+    "M3.1/trait_monorga_domaines_delete",
+    "M3.1/trait_monorga_domaines_delete_hors_org",
+    "M3.1/trait_monorga_factures_filtres"
   ],
   "deliverables": [
     {
@@ -223,6 +263,102 @@
       "test": null,
       "statut": "à-vérifier",
       "libelle": "Dupliquer une collecte = pré-remplir le formulaire de programmation (/programmer/nouveau?from=), date vide, rien créé avant validation (décision Val 2026-07-05) — preuve visuelle GO-VISUAL"
+    },
+    {
+      "id": "BL-P1-TRAIT-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:646-671",
+      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/mon-organisation/mon-organisation-client.tsx",
+      "test": "M3.1/trait_monorga_profil_patch_audit",
+      "statut": "implemented",
+      "libelle": "Mon organisation traiteur ÉDITABLE (remplace la page 100% read-only) : page client à onglets (Infos légales / Équipe / Facturation / Préférences), gating manager/commercial DOUBLE (serveur requirePageSession + API requireUser). Commercial = lecture seule, onglet Équipe masqué (l.653)."
+    },
+    {
+      "id": "M3.1-trait-monorga-infos-legales-edit-audit",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:659-660",
+      "artefact": "packages/plateforme/src/app/api/v1/traiteur/mon-organisation/profil/route.ts",
+      "test": "M3.1/trait_monorga_profil_patch_audit",
+      "statut": "implemented",
+      "libelle": "Informations légales (raison sociale / SIREN=organisations.siret / adresse) éditables par le manager ; toute modification loguée dans audit_log (action organisation_infos_legales_update, service_role)."
+    },
+    {
+      "id": "M3.1-trait-monorga-entites-facturation-crud",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:661",
+      "artefact": "packages/plateforme/src/app/api/v1/traiteur/mon-organisation/entites-facturation/route.ts",
+      "test": "M3.1/trait_monorga_entites_create",
+      "statut": "implemented",
+      "libelle": "Entités de facturation (multi-SIRET) : CRUD manager — ajout (test _create), modif+re-vérif SIRET (tests _patch/_patch_siret_reverif), soft-delete + protection entité par défaut (tests _delete/_delete_defaut_bloque), commercial refusé (_commercial_denied/_patch_commercial_denied) ; chaque SIRET re-vérifié INSEE (echec→422, down→revalidation async, doublon→409)."
+    },
+    {
+      "id": "M3.1-trait-monorga-domaines-email-crud",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:662",
+      "artefact": "packages/plateforme/src/app/api/v1/traiteur/mon-organisation/domaines-email/route.ts",
+      "test": "M3.1/trait_monorga_domaines_create",
+      "statut": "implemented",
+      "libelle": "Domaines email autorisés : ajout (test _create) + suppression (tests _delete/_delete_hors_org) manager (onboarding auto) ; contrainte UNIQUE globale → 409 si domaine déjà rattaché ; commercial refusé (_commercial_denied)."
+    },
+    {
+      "id": "M3.1-trait-monorga-logo-upload",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:663",
+      "artefact": "packages/plateforme/src/app/api/v1/traiteur/mon-organisation/logo/route.ts",
+      "test": "M3.1/trait_monorga_logo_upload",
+      "statut": "implemented",
+      "libelle": "Logo de l'organisation : upload manager (R2, JPG/PNG ≤2Mo) + proxy d'affichage (manager+commercial) ; clé écrite dans organisations.logo_url via profil PATCH."
+    },
+    {
+      "id": "M3.1-trait-monorga-equipe-role",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:669",
+      "artefact": "packages/plateforme/src/app/api/v1/traiteur/equipe/[id]/route.ts",
+      "test": "M3.1/trait_monorga_equipe_role",
+      "statut": "implemented",
+      "libelle": "Modifier le rôle d'un collaborateur : bascule traiteur_commercial ↔ traiteur_manager (allowlist code + trigger anti-escalade R10b bloque admin_savr)."
+    },
+    {
+      "id": "M3.1-trait-monorga-equipe-suspend",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:670",
+      "artefact": "packages/plateforme/src/app/api/v1/traiteur/equipe/[id]/route.ts",
+      "test": "M3.1/trait_monorga_equipe_suspend",
+      "statut": "implemented",
+      "libelle": "Suspendre un compte (soft-delete actif=false, RLS usr_manager_update own-org) ; anti-auto-suspension du manager (403)."
+    },
+    {
+      "id": "M3.1-trait-monorga-equipe-transfert",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:671",
+      "artefact": "packages/plateforme/src/app/api/v1/traiteur/equipe/transfert/route.ts",
+      "test": "M3.1/trait_monorga_transfert",
+      "statut": "implemented",
+      "libelle": "Transférer les collectes d'un commercial vers un autre (réassignation evenements.created_by A→B, tous statuts via service_role car evt_manager_update gated f_collecte_editable) ; source+cible validées membres de l'org ; AUCUN E2 (created_by non transmis au TMS)."
+    },
+    {
+      "id": "M3.1-trait-monorga-equipe-invite",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:668",
+      "artefact": "packages/plateforme/src/app/api/v1/traiteur/equipe/invitation/route.ts",
+      "test": "M3.1/invitation_collaborateur_flux_complet",
+      "statut": "implemented",
+      "libelle": "Inviter un collaborateur (prénom+nom+email, rôle imposé traiteur_commercial) : route existante branchée à la page Équipe (formulaire InviteCard)."
+    },
+    {
+      "id": "M3.1-trait-monorga-commercial-readonly",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:652-653",
+      "artefact": "packages/plateforme/src/app/api/v1/traiteur/mon-organisation/profil/route.ts",
+      "test": "M3.1/trait_monorga_profil_commercial_readonly",
+      "statut": "implemented",
+      "libelle": "Commercial = lecture seule (Infos/Logo/Facturation) et sous-section Équipe masquée : gating serveur réel (403 sur toute route d'écriture pour traiteur_commercial, pas seulement masquage UI)."
+    },
+    {
+      "id": "M3.1-trait-monorga-rls-entites-domaines",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:661-662",
+      "artefact": "supabase/migrations/20260705120000_plateforme_r19a_trait01_monorga.sql",
+      "test": "supabase/tests/r19a_trait01_monorga.test.sql",
+      "statut": "implemented",
+      "libelle": "Cloisonnement DB (défense en profondeur) : policies RLS ef_manager_write + ode_manager_write (traiteur_manager own-org) ; pgTAP prouve manager écrit own-org, commercial refusé, cross-org refusé (WITH CHECK + USING). Policy-only (garde-fou 1 sûr)."
+    },
+    {
+      "id": "M3.1-trait-monorga-facturation-params-contact",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:677-690",
+      "artefact": "packages/plateforme/src/app/api/v1/traiteur/factures/route.ts",
+      "test": "M3.1/trait_monorga_factures_filtres",
+      "statut": "partial",
+      "libelle": "Paramètres de facturation : « Contact principal facturation » = entites_facturation.email_facturation (par entité, éditable manager via la carte Entités) ; vue liste factures lecture seule (manager+commercial) + filtres §6 l.690 statut/type/période câblés sur les enums RÉELS facture_statut/facture_type (route factures gte/lte date_emission ; test _factures_filtres). « Coordonnées bancaires » NON implémentées (contradiction CDC l.678↔l.701, aucune colonne). NB : organisations n'a PAS de colonne contact_facturation (bug 500 attrapé en GO-VISUAL, corrigé) — cf. _Divergences M3.1_20260705_facturation_params.md."
     }
   ],
   "cdc_source_hash": {

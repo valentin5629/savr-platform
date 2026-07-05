@@ -363,8 +363,12 @@ SELECT results_eq(
   'T27 entites_fact_cross_org_denied'
 );
 
--- T28 : entites_fact_write_client_denied — traiteur ne peut PAS écrire
-SELECT test_set_jwt('traiteur_manager', '11111111-0000-0000-0000-000000000001'::uuid);
+-- T28 : entites_fact_write_client_denied — un client NON-manager ne peut PAS écrire.
+-- (Depuis R19a-TRAIT-01, le traiteur_manager PEUT écrire ses propres entités via
+--  la policy ef_manager_write — testé dans r19a_trait01_monorga.test.sql. Le
+--  cloisonnement d'écriture pour les AUTRES rôles clients reste garanti : ici le
+--  traiteur_commercial n'a aucune policy write → INSERT refusé 42501.)
+SELECT test_set_jwt('traiteur_commercial', '11111111-0000-0000-0000-000000000001'::uuid);
 SELECT throws_ok(
   $$INSERT INTO plateforme.entites_facturation (id, organisation_id, raison_sociale, siret, adresse_facturation, code_postal, ville)
     VALUES ('eeff0003-0000-0000-0000-000000000001', '11111111-0000-0000-0000-000000000001', 'Test', '00000000000000', '3 rue test', '75003', 'Paris')$$,

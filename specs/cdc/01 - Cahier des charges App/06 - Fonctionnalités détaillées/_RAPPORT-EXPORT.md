@@ -1,12 +1,12 @@
 # Rapport export dev-facing
 
 Mode : AGGRESSIVE (T1+T2)
-**Total : 88706 -> 85651 octets (-3055, -3.4%)**
+**Total : 88960 -> 85905 octets (-3055, -3.4%)**
 
 
 ## 06 - Back-office Admin Savr.md
-- octets : 88706 -> 85651 (-3055, -3.4%)
-- tokens estimes : ~22176 -> ~21412
+- octets : 88960 -> 85905 (-3055, -3.4%)
+- tokens estimes : ~22240 -> ~21476
 - tombstones supprimes : 6 | fragments barres retires : 12 | en-tetes debarres : 1
 - lignes historiques T2 supprimees : 3
 - ⚠ tombstones en prose a revoir a la main :

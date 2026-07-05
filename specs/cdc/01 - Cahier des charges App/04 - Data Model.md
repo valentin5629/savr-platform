@@ -1372,10 +1372,10 @@ Référentiel des associations Anti-Gaspi. Géré par Admin Savr.
 | `contact_email` | text | NOT NULL | Pour envoi email automatique |
 | `contact_telephone` | text | | |
 | `habilitee_attestation_fiscale` | boolean | NOT NULL, défaut `false` | `true` si l'association est habilitée à émettre le document 2041-GE (défiscalisation 60% pour le donateur) |
-| `date_expiration_habilitation` | date | NULL | Date d'expiration de l'habilitation 2041-GE. Édition admin-only. |
-| `siren` | text | NULL, CHECK `siren ~ '^[0-9]{9}$'` | SIREN INSEE 9 chiffres, facultatif. Validation INSEE. Édition admin-only (trigger `trg_ops_immutable_cols`). |
-| `logo_url` | text | NULL | URL logo association (bucket Storage `logos`), affiché dans les rapports AG. |
-| `instructions_acces` | text | NULL | Instructions d'accès au lieu pour le transporteur (texte long). |
+| `date_expiration_habilitation` | date | NULL | **Ajout R17b 2026-07-02** — Date d'expiration de l'habilitation 2041-GE (satisfait le CDC §06 §5 « booléen + date expiration »). Édition admin-only. |
+| `siren` | text | NULL, CHECK `siren ~ '^[0-9]{9}$'` | **Ajout R17b 2026-07-02** — SIREN INSEE 9 chiffres, **non obligatoire** (tranché Val). Édition admin-only (trigger `trg_ops_immutable_cols`). Aligné sur `lieux`/`transporteurs`. |
+| `logo_url` | text | NULL | **Ajout R17b 2026-07-02** — URL logo association (bucket Storage `logos`), affiché dans les rapports AG. |
+| `instructions_acces` | text | NULL | **Ajout R17b 2026-07-02** — Instructions d'accès au lieu pour le transporteur (texte long). |
 | `actif` | boolean | NOT NULL, défaut `true` | |
 | `derniere_verification` | date | | Date de dernière vérification des infos par Admin Savr |
 | `commentaires_internes` | text | | Notes Admin Savr |
@@ -1403,8 +1403,8 @@ Référentiel des transporteurs Anti-Gaspi (IDF + province, tous prestataires co
 | `latitude` | float | | **Ajout 2026-05-08** — Géocodage automatique adresse (Algolia Places ou équivalent) |
 | `longitude` | float | | **Ajout 2026-05-08** |
 | `types_vehicules` | text[] | NOT NULL, length ≥ 1 | **Refonte 2026-05-08** — Multi-valeurs parmi `velo_cargo / camionnette / fourgon / vul / poids_lourd`. Hiérarchie alignée sur `lieux.type_vehicule_max` (du plus petit au plus gros). Sert à la règle [[05 - Règles métier#R_compatibilite_vehicule_lieu]]. Au moins une valeur requise. |
-| `types_collecte` | text[] | NOT NULL, length ≥ 1 | Flux gérés par le transporteur, multi-valeurs parmi `anti_gaspi` / `zero_dechet`. |
-| `type_tms` | enum | NOT NULL | **Ajout 2026-05-08** — Enum `mts1` / `a_toutes` / `autre` / `par_mail` / `par_telephone` (`par_mail`/`par_telephone` = transporteurs hors TMS routés `provider_manual`, validation manuelle Admin). Détermine le mode de dispatch + le bouton affiché en Bloc 0 Attribution Prestataire §06 §3 (Envoyer à MTS-1 / Envoyer à A Toutes! / Manuel email+téléphone). Fusionne les ex-champs `process_creation_collecte`, `process_creation_collecte_detail`, `type_tms` jamais physiquement créés en DB Bubble. |
+| `types_collecte` | text[] | NOT NULL, length ≥ 1 | **Ajout R17b 2026-07-02** — Flux gérés par le transporteur, multi-valeurs parmi `anti_gaspi` / `zero_dechet`. |
+| `type_tms` | enum | NOT NULL | **Ajout 2026-05-08** — Enum `mts1` / `a_toutes` / `autre` / `par_mail` / `par_telephone` (**ajout R17b 2026-07-02** — `par_mail`/`par_telephone` = transporteurs hors TMS routés `provider_manual`, validation manuelle Admin). Détermine le mode de dispatch + le bouton affiché en Bloc 0 Attribution Prestataire §06 §3 (Envoyer à MTS-1 / Envoyer à A Toutes! / Manuel email+téléphone). Fusionne les ex-champs `process_creation_collecte`, `process_creation_collecte_detail`, `type_tms` jamais physiquement créés en DB Bubble. |
 | `code_transporteur_mts1` | text | NULL | **Ajout 2026-05-29 — V1 only (propagation [[08 - APIs et intégrations#3bis. API Plateforme ↔ MTS-1]])** — `carrierShareableCode` côté MTS-1, identifie ce transporteur lors du **dispatch de la tournée** `POST /v3/tours/{tourId}/dispatch` (payload `{ carrierShareableCode }` — flux réconcilié relevé as-built 2026-06-06). Récupérable via `GET /v3/carrier`. **Requis si `type_tms = 'mts1'`** (cf. [[05 - Règles métier#R_code_mts1_requis]]). Déprécié en V2 (gardé en lecture pour audit). |
 | `contact_nom` | text | NOT NULL | **Rendu obligatoire 2026-05-08** |
 | `contact_email` | text | NOT NULL | Pour envoi email automatique `ag_attribution_transporteur` |
@@ -1413,7 +1413,7 @@ Référentiel des transporteurs Anti-Gaspi (IDF + province, tous prestataires co
 | `actif` | boolean | NOT NULL, défaut `true` | |
 | `derniere_verification` | date | | |
 | `commentaires_internes` | text | | Notes opérationnelles Admin Savr (ex consignes métier libres ex-`process_creation_collecte_detail`) |
-| `description_process_collecte` | text | NULL | Consignes métier de collecte propres au transporteur (champ dédié). |
+| `description_process_collecte` | text | NULL | **Ré-ajout R17b 2026-07-02** (ex `process_creation_collecte_detail`) — consignes métier de collecte propres au transporteur, champ dédié. |
 | `created_at` | timestamptz | NOT NULL | |
 
 ---
@@ -1700,6 +1700,8 @@ Catalogue des **méthodes de tarification ZD**. Plusieurs grilles coexistent (ex
 | `commentaires` | text | | Usage interne Admin Savr |
 | `created_at` | timestamptz | NOT NULL | |
 | `updated_at` | timestamptz | NOT NULL | |
+
+**⚠ Écart V1 tracé (divergence R18, 2026-07-04)** : le schéma **live** de `grilles_tarifaires_zd` porte deux colonnes héritées **`actif` (boolean)** + **`description` (text)** absentes de cette cible (le DDL cible V2 a `commentaires` + `est_defaut`, pas `actif`/`description`). V1-only, non utilisées par le versionnement (close-then-create sur `valide_du`/`valide_jusqu`/`est_defaut`) → **à retirer en convergence V2** (garde-fou 1). Le POST `admin/grilles-tarifaires-zd` lit/insère bien **`mode`** (enum `mode_grille_zd`), jamais `methode` (colonne inexistante — bug code corrigé migration R18 `20260704170000`).
 
 **Versioning** : pour modifier une grille, on la ferme (`valide_jusqu`) et on crée une nouvelle grille (entête + lignes) ; les collectes passées conservent leur tarif via `factures_collectes.tarif_detail`. Pas de modification rétroactive.
 

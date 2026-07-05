@@ -1,7 +1,7 @@
 import { requirePageSession } from '@/lib/page-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { RgpdComptePanel } from '@/components/compte/rgpd-compte-panel';
+import { ChangerMotDePassePanel } from '@/components/compte/changer-mot-de-passe-panel';
 
 const TRAITEUR_ROLES = ['traiteur_manager', 'traiteur_commercial'] as const;
 
@@ -28,16 +28,7 @@ export default async function MonProfilPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Sécurité</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Button variant="secondary" asChild>
-            <a href="/login">Changer mon mot de passe</a>
-          </Button>
-        </CardContent>
-      </Card>
+      <ChangerMotDePassePanel />
 
       <RgpdComptePanel />
     </div>

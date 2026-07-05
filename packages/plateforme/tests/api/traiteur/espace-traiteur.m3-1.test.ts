@@ -216,6 +216,27 @@ describe('M3.1 / collectes liste', () => {
       eqCalls.some(([col, val]) => col === 'type' && val === 'zero_dechet'),
     ).toBe(true);
   });
+
+  it('M3.1/liste_collectes_filtre_statut_onglet — .in(statut, [...]) pour l’onglet Programmées', async () => {
+    setupAuth('traiteur_manager', 'org-1');
+    rls.push({ data: [], error: null });
+    const { GET } = await import('@/app/api/v1/traiteur/collectes/route.js');
+    await GET(
+      makeReq(
+        'GET',
+        '/api/v1/traiteur/collectes?type=zero_dechet&statut=brouillon,programmee,validee,en_cours',
+      ),
+    );
+    const inCalls = rls.__calls.in ?? [];
+    const statutCall = inCalls.find(([col]) => col === 'statut');
+    expect(statutCall).toBeTruthy();
+    expect(statutCall![1]).toEqual([
+      'brouillon',
+      'programmee',
+      'validee',
+      'en_cours',
+    ]);
+  });
 });
 
 // ── Édition collecte ────────────────────────────────────────────────────────
@@ -310,6 +331,70 @@ describe('M3.1 / édition collecte', () => {
       { params: Promise.resolve({ id: 'c1' }) },
     );
     expect(res.status).toBe(403);
+  });
+
+  // BL-P1-TRAIT-04 — alerte Ops de modification (§05 l.316-318), sévérité modulée.
+  function queueEditOk(statutTms = 'non_envoye', dateCollecte = '2030-12-31') {
+    rls.push({
+      data: {
+        id: 'c1',
+        statut: 'programmee',
+        statut_tms: statutTms,
+        date_collecte: dateCollecte,
+        heure_collecte: '10:00:00',
+        evenement: {
+          created_by: 'user-1',
+          organisation_id: 'org-1',
+          organisation: { nom: 'Traiteur Test' },
+        },
+      },
+      error: null,
+    });
+    admin.push({ data: { id: 'c1' }, error: null }); // before
+    admin.push({ data: { id: 'c1' }, error: null }); // rpc fn_modifier_collecte
+    admin.push({ data: null, error: null }); // audit insert
+  }
+
+  it('M3.1/edition_alerte_ops_priorite_normale — email Ops priorité normale (>= 12h)', async () => {
+    setupAuth('traiteur_commercial', 'org-1', 'user-1');
+    queueEditOk('non_envoye', '2030-12-31');
+    const { PATCH } =
+      await import('@/app/api/v1/traiteur/collectes/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/traiteur/collectes/c1', {
+        notes_internes: 'x',
+      }),
+      { params: Promise.resolve({ id: 'c1' }) },
+    );
+    expect(res.status).toBe(200);
+    const call = mockSendEmail.mock.calls.find(
+      ([code]) => code === 'admin_modification_collecte_traiteur',
+    );
+    expect(call).toBeTruthy();
+    expect(call![1]).toBe('hello@gosavr.io');
+    expect((call![2] as { priorite: string }).priorite).toBe('normale');
+    expect((call![2] as { organisation_nom: string }).organisation_nom).toBe(
+      'Traiteur Test',
+    );
+  });
+
+  it('M3.1/edition_alerte_ops_priorite_haute — email Ops priorité haute (< 12h)', async () => {
+    setupAuth('traiteur_commercial', 'org-1', 'user-1');
+    // Créneau déjà passé → délai < 12h → priorité haute.
+    queueEditOk('non_envoye', '2020-01-01');
+    const { PATCH } =
+      await import('@/app/api/v1/traiteur/collectes/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/traiteur/collectes/c1', {
+        notes_internes: 'x',
+      }),
+      { params: Promise.resolve({ id: 'c1' }) },
+    );
+    expect(res.status).toBe(200);
+    const call = mockSendEmail.mock.calls.find(
+      ([code]) => code === 'admin_modification_collecte_traiteur',
+    );
+    expect((call![2] as { priorite: string }).priorite).toBe('haute');
   });
 });
 

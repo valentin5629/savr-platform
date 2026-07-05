@@ -11,7 +11,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const supabase = createSupabaseServerClient();
   const { data, error } = await supabase
     .from('users')
-    .select('id, prenom, nom, email, role')
+    .select('id, prenom, nom, email, telephone, role')
     .eq('id', auth.ctx.userId)
     .maybeSingle();
 
@@ -25,12 +25,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 // Allowlist stricte : rectification self-service limitée aux PII d'identité.
 // email/role/organisation_id NON éditables ici (l'email est une PII gérée par le
 // flux Auth ; role/organisation_id = escalade de privilège).
-const CHAMPS_EDITABLES = new Set(['prenom', 'nom']);
+// prenom/nom = NOT NULL (valeur non vide requise) ; telephone = nullable
+// (chaîne vide → null pour permettre l'effacement). CDC §06.04 §7 « Mon profil ».
+const CHAMPS_NON_VIDES = new Set(['prenom', 'nom']);
+const CHAMPS_NULLABLES = new Set(['telephone']);
 
 // PATCH /api/me/profil
 // RGPD Art.16 (§15 §3.3 l.106) — rectification self-service des données d'identité
 // (transverse, tous rôles). RLS `usr_self_update` applique le périmètre self ;
-// l'allowlist serveur empêche toute écriture hors {prenom, nom}.
+// l'allowlist serveur empêche toute écriture hors {prenom, nom, telephone}.
 export async function PATCH(req: NextRequest): Promise<NextResponse> {
   const auth = await requireAnyUser(req);
   if (auth.error) return auth.error;
@@ -38,16 +41,20 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
   const parsed = await readJsonBody<Record<string, unknown>>(req);
   if ('error' in parsed) return parsed.error;
 
-  const patch: Record<string, string> = {};
+  const patch: Record<string, string | null> = {};
   for (const [k, v] of Object.entries(parsed.data)) {
-    if (CHAMPS_EDITABLES.has(k) && typeof v === 'string' && v.trim() !== '') {
-      patch[k] = v.trim().slice(0, 200);
+    if (typeof v !== 'string') continue;
+    const val = v.trim();
+    if (CHAMPS_NON_VIDES.has(k) && val !== '') {
+      patch[k] = val.slice(0, 200);
+    } else if (CHAMPS_NULLABLES.has(k)) {
+      patch[k] = val === '' ? null : val.slice(0, 30);
     }
   }
 
   if (Object.keys(patch).length === 0) {
     return NextResponse.json(
-      { error: 'Aucun champ modifiable fourni (prenom, nom)' },
+      { error: 'Aucun champ modifiable fourni (prenom, nom, telephone)' },
       { status: 400 },
     );
   }
@@ -57,7 +64,7 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
     .from('users')
     .update(patch)
     .eq('id', auth.ctx.userId)
-    .select('id, prenom, nom, email')
+    .select('id, prenom, nom, email, telephone')
     .single();
 
   if (error) return writeError(error, 'me.profil.update');

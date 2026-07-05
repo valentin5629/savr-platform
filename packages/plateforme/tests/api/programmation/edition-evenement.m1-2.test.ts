@@ -31,6 +31,7 @@ function makeChain() {
     'from',
     'select',
     'eq',
+    'is',
     'in',
     'gte',
     'lte',
@@ -327,5 +328,66 @@ describe('M1.2 / édition collecte gestionnaire', () => {
     });
     const res = await patchGestionnaireCollecte({ notes_internes: 'x' });
     expect(res.status).toBe(422);
+  });
+});
+
+// ── BL-P1-TRAIT-04 — recompute informations_completes sur édition événement ──
+describe('M3.1 / cascade édition — recompute informations_completes (BL-P1-TRAIT-04)', () => {
+  it('M3.1/recompute_infos_completes_true — contact + client renseignés → collectes.informations_completes=true', async () => {
+    setupAuth('traiteur_manager', 'org-1', 'user-1');
+    queueEventOk({ organisation_id: 'org-1' });
+    admin.push({ data: null, error: null }); // recompute update collectes
+    const res = await patchEvent({
+      contact_principal_telephone: '+33611111111',
+      nom_client_organisateur: 'ACME',
+    });
+    expect(res.status).toBe(200);
+    const updateCalls = admin.__calls.update ?? [];
+    const recompute = updateCalls.find(
+      ([u]) =>
+        (u as { informations_completes?: boolean }).informations_completes !==
+        undefined,
+    );
+    expect(recompute).toBeTruthy();
+    expect(
+      (recompute![0] as { informations_completes: boolean })
+        .informations_completes,
+    ).toBe(true);
+    // Restreint aux collectes sans override lieu (.is('lieu_overrides', null)).
+    const isCalls = admin.__calls.is ?? [];
+    expect(isCalls.some(([col]) => col === 'lieu_overrides')).toBe(true);
+  });
+
+  it('M3.1/recompute_infos_completes_false — client final vidé → informations_completes=false', async () => {
+    setupAuth('traiteur_manager', 'org-1', 'user-1');
+    queueEventOk({ organisation_id: 'org-1' });
+    admin.push({ data: null, error: null }); // recompute update collectes
+    const res = await patchEvent({ nom_client_organisateur: '' });
+    expect(res.status).toBe(200);
+    const updateCalls = admin.__calls.update ?? [];
+    const recompute = updateCalls.find(
+      ([u]) =>
+        (u as { informations_completes?: boolean }).informations_completes !==
+        undefined,
+    );
+    expect(
+      (recompute![0] as { informations_completes: boolean })
+        .informations_completes,
+    ).toBe(false);
+  });
+
+  it('M3.1/recompute_absent_si_champs_hors_completude — édition pax seule → pas de recompute', async () => {
+    setupAuth('traiteur_manager', 'org-1', 'user-1');
+    queueEventOk({ organisation_id: 'org-1' });
+    const res = await patchEvent({ pax: 250 });
+    expect(res.status).toBe(200);
+    const updateCalls = admin.__calls.update ?? [];
+    expect(
+      updateCalls.some(
+        ([u]) =>
+          (u as { informations_completes?: boolean }).informations_completes !==
+          undefined,
+      ),
+    ).toBe(false);
   });
 });

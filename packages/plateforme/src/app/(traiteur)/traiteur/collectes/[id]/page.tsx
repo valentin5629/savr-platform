@@ -4,6 +4,7 @@ import { use, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Modal } from '@/components/ui/modal';
 import { EditerCollecteForm } from '@/components/collecte/editer-collecte-form';
 
 interface Lieu {
@@ -26,6 +27,28 @@ interface Evenement {
   contact_secours_telephone: string | null;
   lieu: Lieu | Lieu[] | null;
 }
+interface TourneeInfo {
+  plaque_immatriculation: string | null;
+  chauffeur_nom: string | null;
+  type_vehicule: string | null;
+  plaque_saisie_at: string | null;
+  prestataire_nom: string | null;
+}
+
+const TYPE_VEHICULE_LABEL: Record<string, string> = {
+  velo_cargo: 'Vélo cargo',
+  camionnette: 'Camionnette',
+  fourgon: 'Fourgon',
+  vul: 'VUL',
+  poids_lourd: 'Poids lourd',
+};
+interface FactureInfo {
+  id: string;
+  numero_facture: string;
+  statut: string;
+  pdf_url_savr: string | null;
+  pdf_url_pennylane: string | null;
+}
 interface Collecte {
   id: string;
   type: string;
@@ -38,7 +61,11 @@ interface Collecte {
   informations_supplementaires: string | null;
   notes_internes: string | null;
   taux_recyclage: number | null;
+  realisee_at: string | null;
   aucun_repas_motif: string | null;
+  tournees: TourneeInfo[] | null;
+  rapport_rse_disponible: boolean | null;
+  factures: FactureInfo[] | null;
   evenement: Evenement | Evenement[] | null;
 }
 
@@ -60,6 +87,12 @@ export default function FicheCollectePage({
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
 
+  // Annulation (BL-P1-TRAIT-03) — modale + champ motif (plus de POST à motif vide).
+  const [annulOpen, setAnnulOpen] = useState(false);
+  const [annulMotif, setAnnulMotif] = useState('');
+  const [annulEnCours, setAnnulEnCours] = useState(false);
+  const [annulErreur, setAnnulErreur] = useState<string | null>(null);
+
   function reload() {
     fetch(`/api/v1/traiteur/collectes/${id}`)
       .then((r) => r.json())
@@ -70,6 +103,48 @@ export default function FicheCollectePage({
   useEffect(() => {
     reload();
   }, [id]);
+
+  // Ouverture directe en mode édition depuis l'action « Modifier » de la liste
+  // (/traiteur/collectes/[id]?edit=1). Lu via window.location pour éviter la
+  // contrainte Suspense de useSearchParams sur cette page.
+  useEffect(() => {
+    if (
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get('edit') === '1'
+    ) {
+      setEditing(true);
+    }
+  }, []);
+
+  async function confirmerAnnulation() {
+    setAnnulEnCours(true);
+    setAnnulErreur(null);
+    try {
+      const res = await fetch(`/api/v1/traiteur/collectes/${id}/annulation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ motif: annulMotif }),
+      });
+      if (res.ok) {
+        setAnnulOpen(false);
+        reload();
+      } else {
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
+        setAnnulErreur(j.error ?? "Échec de l'annulation.");
+      }
+    } finally {
+      setAnnulEnCours(false);
+    }
+  }
+
+  async function telechargerRapport() {
+    const res = await fetch(
+      `/api/v1/traiteur/collectes/${id}/rapport-rse/download`,
+    );
+    if (!res.ok) return;
+    const { url } = (await res.json()) as { url?: string };
+    if (url) window.open(url, '_blank');
+  }
 
   if (loading) return <p className="p-4 text-sm">Chargement…</p>;
   if (!c) return <p className="p-4 text-sm">Collecte introuvable.</p>;
@@ -84,6 +159,17 @@ export default function FicheCollectePage({
   const controleAccesVisible =
     c.controle_acces_requis &&
     ['programmee', 'validee', 'en_cours'].includes(c.statut);
+
+  const controleTournees = c.tournees ?? [];
+
+  const factureTelechargeable = (c.factures ?? []).find(
+    (f) => f.statut !== 'brouillon' && (f.pdf_url_pennylane || f.pdf_url_savr),
+  );
+  const documentsVisibles = Boolean(
+    c.rapport_rse_disponible || factureTelechargeable,
+  );
+
+  const estDemande = c.statut === 'validee';
 
   return (
     <div className="space-y-6">
@@ -136,6 +222,7 @@ export default function FicheCollectePage({
             id: c.id,
             type: c.type,
             statut: c.statut,
+            statut_tms: c.statut_tms,
             date_collecte: c.date_collecte,
             heure_collecte: c.heure_collecte,
             controle_acces_requis: c.controle_acces_requis,
@@ -182,19 +269,48 @@ export default function FicheCollectePage({
         <Button
           variant="ghost"
           disabled={!STATUTS_ANNULABLES.includes(c.statut)}
-          onClick={() =>
-            fetch(`/api/v1/traiteur/collectes/${id}/annulation`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ motif: '' }),
-            }).then(() => location.reload())
-          }
+          onClick={() => {
+            setAnnulErreur(null);
+            setAnnulOpen(true);
+          }}
         >
-          {c.statut === 'validee'
-            ? "Demander l'annulation"
-            : 'Annuler la collecte'}
+          {estDemande ? "Demander l'annulation" : 'Annuler la collecte'}
         </Button>
       </div>
+
+      {/* Documents téléchargeables (BL-P1-TRAIT-03) — §06.04 l.403-404 */}
+      {documentsVisibles && (
+        <Card data-testid="bloc-documents">
+          <CardHeader>
+            <CardTitle>Documents</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            {c.rapport_rse_disponible && (
+              <Button
+                variant="secondary"
+                onClick={() => void telechargerRapport()}
+              >
+                Télécharger le rapport RSE
+              </Button>
+            )}
+            {factureTelechargeable && (
+              <Button
+                variant="secondary"
+                onClick={() =>
+                  window.open(
+                    factureTelechargeable.pdf_url_pennylane ??
+                      factureTelechargeable.pdf_url_savr ??
+                      '',
+                    '_blank',
+                  )
+                }
+              >
+                Télécharger la facture
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Cas realisee_sans_collecte (AG) */}
       {c.statut === 'realisee_sans_collecte' && (
@@ -222,18 +338,114 @@ export default function FicheCollectePage({
         </Card>
       )}
 
-      {/* Bloc Contrôle d'accès */}
+      {/* Bloc Contrôle d'accès (BL-P1-TRAIT-03) — plaque + nom chauffeur (tournées) */}
       {controleAccesVisible && (
         <Card data-testid="bloc-controle-acces">
           <CardHeader>
             <CardTitle>Contrôle d&apos;accès</CardTitle>
           </CardHeader>
-          <CardContent className="text-sm text-savr-neutral-500">
-            Le prestataire n&apos;a pas encore communiqué la plaque + le nom du
-            chauffeur.
+          <CardContent className="space-y-3 text-sm">
+            {controleTournees.length > 1 && (
+              <p className="font-semibold text-savr-neutral-800">
+                {controleTournees.length} véhicules prévus
+              </p>
+            )}
+            {controleTournees.length === 0 ? (
+              <p className="text-savr-neutral-500">
+                Le prestataire n&apos;a pas encore communiqué la plaque + le nom
+                du chauffeur.
+              </p>
+            ) : (
+              <ul className="space-y-3">
+                {controleTournees.map((t, i) => {
+                  const veloCargo = t.type_vehicule === 'velo_cargo';
+                  const communique = veloCargo
+                    ? Boolean(t.chauffeur_nom)
+                    : Boolean(t.plaque_immatriculation && t.chauffeur_nom);
+                  const typeLabel = t.type_vehicule
+                    ? (TYPE_VEHICULE_LABEL[t.type_vehicule] ?? t.type_vehicule)
+                    : null;
+                  const dateMaj = t.plaque_saisie_at
+                    ? new Date(t.plaque_saisie_at).toLocaleDateString('fr-FR')
+                    : null;
+                  return (
+                    <li key={i} className="space-y-1">
+                      {veloCargo ? (
+                        <p>
+                          Vélo cargo — pas de plaque communiquée. Chauffeur :{' '}
+                          <strong>{t.chauffeur_nom ?? 'en attente'}</strong>
+                        </p>
+                      ) : communique ? (
+                        <p>
+                          Véhicule prévu :{' '}
+                          <strong>{t.plaque_immatriculation}</strong>
+                          {typeLabel ? ` (${typeLabel})` : ''} — Chauffeur :{' '}
+                          <strong>{t.chauffeur_nom}</strong>
+                        </p>
+                      ) : (
+                        <p className="text-savr-neutral-500">
+                          Le prestataire n&apos;a pas encore communiqué la
+                          plaque + le nom du chauffeur.
+                        </p>
+                      )}
+                      {communique && (
+                        <span className="inline-block rounded bg-savr-success-subtle px-2 py-0.5 text-xs text-savr-success-600">
+                          Communiqué
+                          {t.prestataire_nom ? ` par ${t.prestataire_nom}` : ''}
+                          {dateMaj ? ` le ${dateMaj}` : ''}
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </CardContent>
         </Card>
       )}
+
+      {/* Modale d'annulation / demande d'annulation (BL-P1-TRAIT-03) */}
+      <Modal
+        open={annulOpen}
+        title={estDemande ? "Demander l'annulation" : 'Annuler la collecte'}
+        onClose={() => setAnnulOpen(false)}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-savr-neutral-500">
+            {estDemande
+              ? 'Votre demande d’annulation sera transmise à l’équipe Savr pour validation.'
+              : 'Cette collecte sera annulée immédiatement. Le prestataire sera informé le cas échéant.'}
+          </p>
+          <label className="block text-sm">
+            <span className="text-savr-neutral-700">Motif (facultatif)</span>
+            <textarea
+              className="mt-1 w-full rounded-savr-md border border-savr-neutral-300 px-3 py-2 text-sm"
+              rows={3}
+              value={annulMotif}
+              onChange={(e) => setAnnulMotif(e.target.value)}
+            />
+          </label>
+          {annulErreur && (
+            <p className="text-sm text-savr-error-600">{annulErreur}</p>
+          )}
+          <div className="flex justify-end gap-2 border-t border-savr-neutral-100 pt-4">
+            <Button
+              variant="secondary"
+              onClick={() => setAnnulOpen(false)}
+              disabled={annulEnCours}
+            >
+              Retour
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => void confirmerAnnulation()}
+              disabled={annulEnCours}
+            >
+              {estDemande ? 'Confirmer la demande' : "Confirmer l'annulation"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

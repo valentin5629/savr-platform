@@ -3677,6 +3677,7 @@ export type Database = {
           organisation_id: string
           prenom: string
           role: Database["plateforme"]["Enums"]["user_role"]
+          telephone: string | null
         }
         Insert: {
           actif?: boolean
@@ -3691,6 +3692,7 @@ export type Database = {
           organisation_id: string
           prenom: string
           role: Database["plateforme"]["Enums"]["user_role"]
+          telephone?: string | null
         }
         Update: {
           actif?: boolean
@@ -3705,6 +3707,7 @@ export type Database = {
           organisation_id?: string
           prenom?: string
           role?: Database["plateforme"]["Enums"]["user_role"]
+          telephone?: string | null
         }
         Relationships: [
           {

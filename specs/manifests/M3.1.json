@@ -167,6 +167,38 @@
       "test": "M3.1/benchmark_filtre_traiteur_ids_rejete_cote_serveur",
       "statut": "implemented",
       "libelle": "M3.1/benchmark_filtre_traiteur_ids_rejete_cote_serveur"
+    },
+    {
+      "id": "BL-P1-TRAIT-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:18-25",
+      "artefact": "packages/plateforme/src/lib/nav-config.ts",
+      "test": "M3.1/nav_traiteur_manager_4_entrees_sans_registre",
+      "statut": "implemented",
+      "libelle": "Nav traiteur = 4 entrées V1 (Registre réglementaire retiré des 2 rôles traiteur, conservé gestionnaire/organisateur)"
+    },
+    {
+      "id": "BL-P1-TRAIT-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:725-735",
+      "artefact": "packages/plateforme/src/app/api/me/profil/route.ts",
+      "test": "M3.1/profil_telephone_editable",
+      "statut": "implemented",
+      "libelle": "Mon profil : téléphone éditable (Card Compte) + changement de mot de passe in-app (ChangerMotDePassePanel → /api/auth/update-password) ; RGPD déjà câblé (R7)"
+    },
+    {
+      "id": "BL-P1-TRAIT-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:400-509",
+      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/[id]/page.tsx",
+      "test": "M3.1/fiche_get_augmente",
+      "statut": "implemented",
+      "libelle": "Fiche collecte : Contrôle d'accès câblé (plaque + chauffeur via tournées, 4 états), downloads rapport RSE (route traiteur + embargo H+24) et facture, modale d'annulation + motif"
+    },
+    {
+      "id": "BL-P1-TRAIT-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:481-507",
+      "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts",
+      "test": "M3.1/edition_alerte_ops_priorite_normale",
+      "statut": "implemented",
+      "libelle": "Cascade édition : email Ops modification (admin_modification_collecte_traiteur, priorité normale/haute §05 l.316-318), recompute informations_completes, modale de confirmation empilée ; flag TMS route-level (divergence M3.1_20260705)"
     }
   ],
   "cdc_source_hash": {

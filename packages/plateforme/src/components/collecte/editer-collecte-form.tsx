@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Modal } from '@/components/ui/modal';
 
 interface TypeEvenement {
   id: string;
@@ -33,6 +34,10 @@ export interface CollecteEditData {
   id: string;
   type: string;
   statut: string;
+  // Optionnel : seule la fiche traiteur le fournit en V1 (BL-P1-TRAIT-03) →
+  // l'avertissement de réacceptation prestataire ne s'affiche que là. Les fiches
+  // agence/gestionnaire conservent le modal (urgence seule) sans régression.
+  statut_tms?: string;
   date_collecte: string;
   heure_collecte: string | null;
   controle_acces_requis: boolean;
@@ -88,6 +93,7 @@ export function EditerCollecteForm({
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Types d'événement éditables (§06.04 l.446 « type d'événement »).
   useEffect(() => {
@@ -102,6 +108,20 @@ export function EditerCollecteForm({
   // Créneau < 12h → avertissement priorité (§05 l.316, §06.04 l.483).
   const creneau = new Date(`${dateCollecte}T${heureCollecte || '00:00'}:00`);
   const urgence = creneau.getTime() - Date.now() < 12 * 3600 * 1000;
+  // Réacceptation prestataire (§06.04 l.505) : modif de créneau sur collecte
+  // acceptée → le prestataire devra re-confirmer.
+  const dateHeureModifiee =
+    dateCollecte !== collecte.date_collecte ||
+    heureCollecte !== (collecte.heure_collecte?.slice(0, 5) ?? '');
+  const reacceptation = dateHeureModifiee && collecte.statut_tms === 'acceptee';
+
+  // Confirmation (§06.04 l.501-507) : modal unique empilant les avertissements
+  // applicables (priorité urgence < 12h + réacceptation prestataire). Si aucun
+  // avertissement → sauvegarde directe sans modal.
+  function onSubmitClick() {
+    if (urgence || reacceptation) setConfirmOpen(true);
+    else void save();
+  }
 
   async function save() {
     setSaving(true);
@@ -375,7 +395,7 @@ export function EditerCollecteForm({
         {error && <p className="text-sm text-savr-error">{error}</p>}
 
         <div className="flex gap-2">
-          <Button onClick={save} disabled={saving}>
+          <Button onClick={onSubmitClick} disabled={saving}>
             {saving ? 'Enregistrement…' : 'Confirmer la modification'}
           </Button>
           {onCancel && (
@@ -384,6 +404,50 @@ export function EditerCollecteForm({
             </Button>
           )}
         </div>
+
+        {/* Modal de confirmation unique (§06.04 l.501-507) — empile les
+            avertissements applicables avant la sauvegarde. */}
+        <Modal
+          open={confirmOpen}
+          title="Confirmer la modification"
+          onClose={() => setConfirmOpen(false)}
+        >
+          <div className="space-y-3">
+            <ul className="list-disc space-y-2 pl-5 text-sm text-savr-neutral-700">
+              {urgence && (
+                <li>
+                  Cette modification a lieu moins de 12h avant la collecte.
+                  Notre équipe Ops sera alertée en urgence pour relayer au
+                  prestataire si besoin.
+                </li>
+              )}
+              {reacceptation && (
+                <li>
+                  Cette modification de créneau invalidera l’acceptation du
+                  prestataire qui devra re-confirmer.
+                </li>
+              )}
+            </ul>
+            <div className="flex justify-end gap-2 border-t border-savr-neutral-100 pt-4">
+              <Button
+                variant="secondary"
+                onClick={() => setConfirmOpen(false)}
+                disabled={saving}
+              >
+                Annuler
+              </Button>
+              <Button
+                onClick={() => {
+                  setConfirmOpen(false);
+                  void save();
+                }}
+                disabled={saving}
+              >
+                Confirmer la modification
+              </Button>
+            </div>
+          </div>
+        </Modal>
       </CardContent>
     </Card>
   );

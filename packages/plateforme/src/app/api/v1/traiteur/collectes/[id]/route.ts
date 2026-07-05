@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { sendEmail } from '@savr/shared/src/email/index.js';
 import {
   requireUser,
   createSupabaseServerClient,
@@ -28,25 +29,44 @@ interface CollecteRow {
   statut_tms: string;
   date_collecte: string;
   heure_collecte: string | null;
-  evenement: { created_by: string; organisation_id: string } | null;
+  evenement: {
+    created_by: string;
+    organisation_id: string;
+    organisation?: { nom: string } | null;
+  } | null;
 }
 
 async function loadCollecteForUser(id: string): Promise<CollecteRow | null> {
   // Lecture RLS-scopée : si la collecte n'est pas visible (cross-org), null.
+  // Le nom de l'organisation programmatrice alimente l'email Ops de modification.
   const supabase = createSupabaseServerClient();
   const { data } = await supabase
     .from('collectes')
     .select(
       `id, statut, statut_tms, date_collecte, heure_collecte,
-       evenement:evenements!inner(created_by, organisation_id)`,
+       evenement:evenements!inner(created_by, organisation_id,
+         organisation:organisations!organisation_id(nom))`,
     )
     .eq('id', id)
     .maybeSingle();
   if (!data) return null;
-  const evt = Array.isArray(data.evenement)
+  const evtRaw = Array.isArray(data.evenement)
     ? data.evenement[0]
     : data.evenement;
-  return { ...data, evenement: evt } as CollecteRow;
+  // PostgREST embarque les relations imbriquées en tableau → normaliser organisation.
+  const org = evtRaw
+    ? Array.isArray(evtRaw.organisation)
+      ? (evtRaw.organisation[0] ?? null)
+      : (evtRaw.organisation ?? null)
+    : null;
+  const evenement = evtRaw
+    ? {
+        created_by: evtRaw.created_by,
+        organisation_id: evtRaw.organisation_id,
+        organisation: org,
+      }
+    : null;
+  return { ...data, evenement } as unknown as CollecteRow;
 }
 
 function canWrite(
@@ -94,7 +114,72 @@ export async function GET(
       { error: 'Collecte introuvable' },
       { status: 404 },
     );
-  return NextResponse.json({ data });
+
+  // Enrichissements fiche (BL-P1-TRAIT-03) — lecture service-role APRÈS le contrôle
+  // d'appartenance RLS ci-dessus (la collecte est visible = appartient au traiteur) :
+  //  · tournées → plaque + nom chauffeur pour le bloc « Contrôle d'accès »
+  //  · disponibilité du rapport RSE (embargo H+24) pour le bouton de téléchargement
+  //  · factures rattachées (via factures_collectes) pour le bouton « Télécharger la facture »
+  const admin = createAdminSupabaseClient();
+  const [ctRes, rapRes, fcRes] = await Promise.all([
+    admin
+      .from('collecte_tournees')
+      .select('tournee:tournees(plaque_immatriculation, chauffeur_nom)')
+      .eq('collecte_id', id),
+    admin
+      .from('rapports_rse')
+      .select('disponible_a, genere_at')
+      .eq('collecte_id', id)
+      .order('version', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    admin
+      .from('factures_collectes')
+      .select(
+        'facture:factures(id, numero_facture, statut, pdf_url_savr, pdf_url_pennylane)',
+      )
+      .eq('collecte_id', id),
+  ]);
+
+  type TourneeInfo = {
+    plaque_immatriculation: string | null;
+    chauffeur_nom: string | null;
+  };
+  const tournees: TourneeInfo[] = (
+    (ctRes.data ?? []) as Array<{
+      tournee: TourneeInfo | TourneeInfo[] | null;
+    }>
+  )
+    .map((r) => (Array.isArray(r.tournee) ? r.tournee[0] : r.tournee))
+    .filter((t): t is TourneeInfo => Boolean(t));
+
+  const rap = rapRes.data as {
+    disponible_a: string | null;
+    genere_at: string | null;
+  } | null;
+  const rapport_rse_disponible =
+    Boolean(rap?.genere_at) &&
+    rap?.disponible_a != null &&
+    new Date(rap.disponible_a).getTime() <= Date.now();
+
+  type FactureInfo = {
+    id: string;
+    numero_facture: string;
+    statut: string;
+    pdf_url_savr: string | null;
+    pdf_url_pennylane: string | null;
+  };
+  const factures: FactureInfo[] = (
+    (fcRes.data ?? []) as Array<{
+      facture: FactureInfo | FactureInfo[] | null;
+    }>
+  )
+    .map((r) => (Array.isArray(r.facture) ? r.facture[0] : r.facture))
+    .filter((f): f is FactureInfo => Boolean(f));
+
+  return NextResponse.json({
+    data: { ...data, tournees, rapport_rse_disponible, factures },
+  });
 }
 
 export async function PATCH(
@@ -202,6 +287,19 @@ export async function PATCH(
     user_id: auth.ctx.userId,
     old_values: before ?? {},
     new_values: { updates, cascade_tms, priorite_urgence },
+  });
+
+  // Alerte Ops de modification (§05 l.316-318) — une seule alerte, sévérité
+  // modulée par la proximité du créneau : priorité « normale » >= 12h, « haute »
+  // < 12h (le modal de confirmation côté traiteur double le cas < 12h).
+  const orgNom = collecte.evenement?.organisation?.nom ?? '';
+  await sendEmail('admin_modification_collecte_traiteur', 'hello@gosavr.io', {
+    organisation_nom: orgNom,
+    demandeur_nom: auth.ctx.userId,
+    collecte_ref: id,
+    date_collecte: collecte.date_collecte ?? '',
+    champs_modifies: Object.keys(updates).join(', '),
+    priorite: priorite_urgence ? 'haute' : 'normale',
   });
 
   return NextResponse.json({

@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 export function RgpdComptePanel(): React.JSX.Element {
   const [prenom, setPrenom] = useState('');
   const [nom, setNom] = useState('');
+  const [telephone, setTelephone] = useState('');
   const [chargement, setChargement] = useState(true);
   const [profilMsg, setProfilMsg] = useState<string | null>(null);
   const [suppressionMsg, setSuppressionMsg] = useState<string | null>(null);
@@ -25,6 +26,7 @@ export function RgpdComptePanel(): React.JSX.Element {
           const { data } = await res.json();
           setPrenom(data?.prenom ?? '');
           setNom(data?.nom ?? '');
+          setTelephone(data?.telephone ?? '');
         }
       } finally {
         setChargement(false);
@@ -40,7 +42,7 @@ export function RgpdComptePanel(): React.JSX.Element {
       const res = await fetch('/api/me/profil', {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ prenom, nom }),
+        body: JSON.stringify({ prenom, nom, telephone }),
       });
       setProfilMsg(
         res.ok ? 'Profil mis à jour.' : 'Échec de la mise à jour du profil.',
@@ -111,6 +113,16 @@ export function RgpdComptePanel(): React.JSX.Element {
                 <input
                   value={nom}
                   onChange={(e) => setNom(e.target.value)}
+                  disabled={chargement}
+                  className="mt-1 w-full rounded border border-savr-neutral-300 px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="text-savr-neutral-500">Téléphone</span>
+                <input
+                  type="tel"
+                  value={telephone}
+                  onChange={(e) => setTelephone(e.target.value)}
                   disabled={chargement}
                   className="mt-1 w-full rounded border border-savr-neutral-300 px-3 py-2 text-sm"
                 />

@@ -187,3 +187,49 @@ describe('M0.4 — RGPD self-service (BL-P0-09 / OBS-04 / P2-27)', () => {
     expect(calls.some((c) => c.op === 'update')).toBe(false);
   });
 });
+
+describe('M3.1 / Mon profil — téléphone (BL-P1-TRAIT-02)', () => {
+  it('M3.1/profil_telephone_editable — téléphone passe l’allowlist', async () => {
+    results['update:users'] = {
+      data: {
+        id: 'u-victim',
+        prenom: 'Victime',
+        nom: 'Kaspia',
+        email: 'victim@kaspia.test',
+        telephone: '0601020304',
+      },
+      error: null,
+    };
+
+    const { PATCH } = await import('@/app/api/me/profil/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', {
+        prenom: 'Victime',
+        nom: 'Kaspia',
+        telephone: '0601020304',
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    const update = calls.find((c) => c.op === 'update' && c.table === 'users');
+    expect(update!.payload).toEqual({
+      prenom: 'Victime',
+      nom: 'Kaspia',
+      telephone: '0601020304',
+    });
+  });
+
+  it('M3.1/profil_telephone_effacement — chaîne vide → null (téléphone nullable)', async () => {
+    results['update:users'] = {
+      data: { id: 'u-victim', telephone: null },
+      error: null,
+    };
+
+    const { PATCH } = await import('@/app/api/me/profil/route.js');
+    const res = await PATCH(makeReq('PATCH', { telephone: '   ' }));
+
+    expect(res.status).toBe(200);
+    const update = calls.find((c) => c.op === 'update' && c.table === 'users');
+    expect(update!.payload).toEqual({ telephone: null });
+  });
+});

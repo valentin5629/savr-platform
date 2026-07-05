@@ -1,12 +1,12 @@
 # Rapport export dev-facing
 
 Mode : AGGRESSIVE (T1+T2)
-**Total : 92677 -> 89068 octets (-3609, -3.9%)**
+**Total : 92926 -> 89317 octets (-3609, -3.9%)**
 
 
 ## 04 - Espace client traiteur.md
-- octets : 92677 -> 89068 (-3609, -3.9%)
-- tokens estimes : ~23169 -> ~22267
+- octets : 92926 -> 89317 (-3609, -3.9%)
+- tokens estimes : ~23231 -> ~22329
 - tombstones supprimes : 0 | fragments barres retires : 12 | en-tetes debarres : 4
 - lignes historiques T2 supprimees : 2
 - ⚠ tombstones en prose a revoir a la main :

@@ -675,9 +675,10 @@ Ces règles sont rappelées dans la modal avant confirmation, avec une mention e
 Sous-section unifiée. *(Révision 2026-05-29)* : édition des **paramètres de facturation** = Manager only ; **vue liste + fiche facture** accessibles au commercial en **lecture seule** (toutes les factures de l'orga).
 
 **Paramètres de facturation** (haut de page) :
-- Coordonnées bancaires (affichées sur les factures émises)
 - Contact principal facturation (email qui reçoit les factures et relances)
 - Conditions de paiement négociées (V2)
+
+> Les coordonnées bancaires figurant sur une facture sont celles de **Savr** (le client règle Savr par virement, cf. « Pas de paiement en ligne » ci-dessous) — elles sont portées par le template de facture, pas par les paramètres de l'organisation cliente. Aucun champ « coordonnées bancaires » côté client.
 
 **Vue liste des factures** (corps de page — ex §4 Factures vue liste) :
 

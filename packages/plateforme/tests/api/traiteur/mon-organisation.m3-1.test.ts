@@ -30,6 +30,8 @@ function makeChain() {
     'eq',
     'in',
     'neq',
+    'gte',
+    'lte',
     'order',
     'ilike',
     'update',
@@ -542,5 +544,30 @@ describe('M3.1 / mon-organisation logo', () => {
     const res = await POST(makeUploadReq('traiteur_commercial'));
     expect(res.status).toBe(403);
     expect(mockUploadObject).not.toHaveBeenCalled();
+  });
+});
+
+// ── Facturation : filtres (statut / type / période) ─────────────────────────
+describe('M3.1 / mon-organisation facturation filtres', () => {
+  it('M3.1/trait_monorga_factures_filtres — statut/type/période mappés aux enums réels', async () => {
+    setupAuth('traiteur_manager');
+    rls.push({ data: [{ id: 'f1' }], error: null });
+    const { GET } = await import('@/app/api/v1/traiteur/factures/route.js');
+    const res = await GET(
+      makeReq(
+        'GET',
+        '/api/v1/traiteur/factures?statut=emise&type=collecte_antigaspi&date_debut=2026-01-01&date_fin=2026-12-31',
+      ),
+    );
+    expect(res.status).toBe(200);
+    // Valeurs envoyées = enums RÉELS (facture_statut / facture_type), pas des
+    // libellés fantômes (en_retard / anti_gaspi / pack).
+    const eqCalls = rls.__calls.eq ?? [];
+    expect(eqCalls).toContainEqual(['statut', 'emise']);
+    expect(eqCalls).toContainEqual(['type', 'collecte_antigaspi']);
+    const gte = rls.__calls.gte ?? [];
+    const lte = rls.__calls.lte ?? [];
+    expect(gte).toContainEqual(['date_emission', '2026-01-01']);
+    expect(lte).toContainEqual(['date_emission', '2026-12-31']);
   });
 });

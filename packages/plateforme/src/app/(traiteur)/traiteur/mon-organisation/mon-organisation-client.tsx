@@ -958,15 +958,18 @@ function FacturationTab({ isManager }: { isManager: boolean }) {
         <CardContent>
           {/* Filtres §6 l.690 : statut, type, période */}
           <div className="mb-3 flex flex-wrap gap-2">
+            {/* Valeurs = enums réels plateforme.facture_statut / facture_type
+                (brouillon exclu par la route ; « En retard » est un badge dérivé
+                de date_echeance, pas un statut stocké → non filtrable). */}
             <select
               className="rounded border border-savr-neutral-300 px-2 py-1 text-xs"
               value={statut}
               onChange={(e) => setStatut(e.target.value)}
             >
               <option value="">Tous statuts</option>
+              <option value="en_attente_pennylane">En attente</option>
               <option value="emise">Émise</option>
               <option value="payee">Payée</option>
-              <option value="en_retard">En retard</option>
               <option value="annulee">Annulée</option>
             </select>
             <select
@@ -976,8 +979,8 @@ function FacturationTab({ isManager }: { isManager: boolean }) {
             >
               <option value="">Tous types</option>
               <option value="zero_dechet">ZD</option>
-              <option value="anti_gaspi">AG</option>
-              <option value="pack">Pack</option>
+              <option value="collecte_antigaspi">AG</option>
+              <option value="achat_pack_antigaspi">Pack</option>
               <option value="avoir">Avoir</option>
             </select>
             <input

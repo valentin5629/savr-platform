@@ -76,7 +76,8 @@
     "M3.1/trait_monorga_entites_delete_defaut_bloque",
     "M3.1/trait_monorga_entites_patch_commercial_denied",
     "M3.1/trait_monorga_domaines_delete",
-    "M3.1/trait_monorga_domaines_delete_hors_org"
+    "M3.1/trait_monorga_domaines_delete_hors_org",
+    "M3.1/trait_monorga_factures_filtres"
   ],
   "deliverables": [
     {
@@ -353,11 +354,11 @@
     },
     {
       "id": "M3.1-trait-monorga-facturation-params-contact",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:677-679",
-      "artefact": "packages/plateforme/src/app/api/v1/traiteur/mon-organisation/entites-facturation/route.ts",
-      "test": "M3.1/trait_monorga_entites_create",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:677-690",
+      "artefact": "packages/plateforme/src/app/api/v1/traiteur/factures/route.ts",
+      "test": "M3.1/trait_monorga_factures_filtres",
       "statut": "partial",
-      "libelle": "Paramètres de facturation : « Contact principal facturation » = entites_facturation.email_facturation (par entité, éditable manager via la carte Entités) ; vue liste factures lecture seule (manager+commercial) + filtres §6 l.690 statut/type/période câblés (route factures gte/lte date_emission). « Coordonnées bancaires » NON implémentées (contradiction CDC l.678↔l.701, aucune colonne). NB : organisations n'a PAS de colonne contact_facturation (bug 500 attrapé en GO-VISUAL, corrigé) — cf. _Divergences M3.1_20260705_facturation_params.md."
+      "libelle": "Paramètres de facturation : « Contact principal facturation » = entites_facturation.email_facturation (par entité, éditable manager via la carte Entités) ; vue liste factures lecture seule (manager+commercial) + filtres §6 l.690 statut/type/période câblés sur les enums RÉELS facture_statut/facture_type (route factures gte/lte date_emission ; test _factures_filtres). « Coordonnées bancaires » NON implémentées (contradiction CDC l.678↔l.701, aucune colonne). NB : organisations n'a PAS de colonne contact_facturation (bug 500 attrapé en GO-VISUAL, corrigé) — cf. _Divergences M3.1_20260705_facturation_params.md."
     }
   ],
   "cdc_source_hash": {

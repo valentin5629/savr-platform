@@ -69,7 +69,14 @@
     "M3.1/trait_monorga_transfert_hors_org",
     "M3.1/trait_monorga_equipe_liste_commercial_denied",
     "M3.1/trait_monorga_logo_upload",
-    "M3.1/trait_monorga_logo_commercial_denied"
+    "M3.1/trait_monorga_logo_commercial_denied",
+    "M3.1/trait_monorga_entites_patch",
+    "M3.1/trait_monorga_entites_patch_siret_reverif",
+    "M3.1/trait_monorga_entites_delete",
+    "M3.1/trait_monorga_entites_delete_defaut_bloque",
+    "M3.1/trait_monorga_entites_patch_commercial_denied",
+    "M3.1/trait_monorga_domaines_delete",
+    "M3.1/trait_monorga_domaines_delete_hors_org"
   ],
   "deliverables": [
     {
@@ -278,7 +285,7 @@
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/mon-organisation/entites-facturation/route.ts",
       "test": "M3.1/trait_monorga_entites_create",
       "statut": "implemented",
-      "libelle": "Entités de facturation (multi-SIRET) : CRUD manager (ajout/modif/soft-delete) ; chaque SIRET re-vérifié INSEE (echec→422, down→revalidation async enqueueSiretRevalidation, doublon→409) ; entité par défaut protégée en suppression."
+      "libelle": "Entités de facturation (multi-SIRET) : CRUD manager — ajout (test _create), modif+re-vérif SIRET (tests _patch/_patch_siret_reverif), soft-delete + protection entité par défaut (tests _delete/_delete_defaut_bloque), commercial refusé (_commercial_denied/_patch_commercial_denied) ; chaque SIRET re-vérifié INSEE (echec→422, down→revalidation async, doublon→409)."
     },
     {
       "id": "M3.1-trait-monorga-domaines-email-crud",
@@ -286,7 +293,7 @@
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/mon-organisation/domaines-email/route.ts",
       "test": "M3.1/trait_monorga_domaines_create",
       "statut": "implemented",
-      "libelle": "Domaines email autorisés : ajout/suppression manager (onboarding auto) ; contrainte UNIQUE globale → 409 si domaine déjà rattaché."
+      "libelle": "Domaines email autorisés : ajout (test _create) + suppression (tests _delete/_delete_hors_org) manager (onboarding auto) ; contrainte UNIQUE globale → 409 si domaine déjà rattaché ; commercial refusé (_commercial_denied)."
     },
     {
       "id": "M3.1-trait-monorga-logo-upload",
@@ -347,10 +354,10 @@
     {
       "id": "M3.1-trait-monorga-facturation-params-contact",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:677-679",
-      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/mon-organisation/mon-organisation-client.tsx",
-      "test": "M3.1/trait_monorga_profil_patch_audit",
+      "artefact": "packages/plateforme/src/app/api/v1/traiteur/mon-organisation/entites-facturation/route.ts",
+      "test": "M3.1/trait_monorga_entites_create",
       "statut": "partial",
-      "libelle": "Paramètres de facturation : contact principal facturation (organisations.contact_facturation) éditable manager + vue liste factures lecture seule (manager+commercial). « Coordonnées bancaires » NON implémentées (contradiction CDC l.678↔l.701, aucune colonne) — cf. _Divergences M3.1_20260705_facturation_params.md."
+      "libelle": "Paramètres de facturation : « Contact principal facturation » = entites_facturation.email_facturation (par entité, éditable manager via la carte Entités) ; vue liste factures lecture seule (manager+commercial) + filtres §6 l.690 statut/type/période câblés (route factures gte/lte date_emission). « Coordonnées bancaires » NON implémentées (contradiction CDC l.678↔l.701, aucune colonne). NB : organisations n'a PAS de colonne contact_facturation (bug 500 attrapé en GO-VISUAL, corrigé) — cf. _Divergences M3.1_20260705_facturation_params.md."
     }
   ],
   "cdc_source_hash": {

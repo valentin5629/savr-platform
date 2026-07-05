@@ -24,16 +24,17 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 const READ_ROLES: ClientRole[] = ['traiteur_manager', 'traiteur_commercial'];
 const MANAGER_ROLE: ClientRole[] = ['traiteur_manager'];
 
-// Champs éditables par le manager. `contact_facturation` (jsonb) = « Contact
-// principal facturation » (§6 Facturation params). Les « coordonnées bancaires »
-// du §6 sont NON implémentées : contradiction CDC l.678↔l.701 + aucune colonne
-// dédiée (cf. _Divergences M3.1_20260705_facturation_params).
+// Champs éditables par le manager (colonnes RÉELLES de plateforme.organisations).
+// Le « Contact principal facturation » du §6 (email qui reçoit les factures) n'a
+// PAS de home org-level : sa colonne réelle est `entites_facturation.email_facturation`
+// (par entité), éditée via la route entites-facturation. Les « coordonnées
+// bancaires » du §6 sont NON implémentées (contradiction l.678↔l.701 + aucune
+// colonne) — cf. _Divergences M3.1_20260705_facturation_params.
 const EDITABLE_FIELDS = new Set([
   'raison_sociale',
   'siret',
   'adresse',
   'logo_url',
-  'contact_facturation',
 ]);
 // Champs « informations légales » dont toute modification est auditée (l.660).
 const AUDITED_FIELDS = ['raison_sociale', 'siret', 'adresse'] as const;
@@ -46,7 +47,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const { data, error } = await supabase
     .from('organisations')
     .select(
-      'id, nom, raison_sociale, siret, adresse, email_principal, telephone, logo_url, contact_facturation',
+      'id, nom, raison_sociale, siret, adresse, email_principal, telephone, logo_url',
     )
     .eq('id', auth.ctx.organisationId)
     .maybeSingle();
@@ -99,7 +100,7 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
     .update(patch)
     .eq('id', auth.ctx.organisationId)
     .select(
-      'id, nom, raison_sociale, siret, adresse, email_principal, telephone, logo_url, contact_facturation',
+      'id, nom, raison_sociale, siret, adresse, email_principal, telephone, logo_url',
     )
     .maybeSingle();
 

@@ -23,6 +23,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(req.url);
   const statut = searchParams.get('statut');
   const type = searchParams.get('type');
+  // Filtres §06.04 §6 l.690 : statut, type, période (date d'émission).
+  const dateDebut = searchParams.get('date_debut');
+  const dateFin = searchParams.get('date_fin');
 
   let query = supabase
     .from('factures')
@@ -35,6 +38,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   if (statut) query = query.eq('statut', statut);
   if (type) query = query.eq('type', type);
+  if (dateDebut) query = query.gte('date_emission', dateDebut);
+  if (dateFin) query = query.lte('date_emission', dateFin);
 
   const { data, error } = await query;
   if (error)

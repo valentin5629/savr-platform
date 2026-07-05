@@ -16,7 +16,6 @@ interface OrgProfil {
   email_principal: string | null;
   telephone: string | null;
   logo_url: string | null;
-  contact_facturation: { email?: string } | null;
 }
 interface Entite {
   id: string;
@@ -369,6 +368,7 @@ function EntitesCard({
     adresse_facturation: '',
     code_postal: '',
     ville: '',
+    email_facturation: '',
   });
   const [msg, setMsg] = useState('');
   const [saving, setSaving] = useState(false);
@@ -392,6 +392,7 @@ function EntitesCard({
         adresse_facturation: '',
         code_postal: '',
         ville: '',
+        email_facturation: '',
       });
       setShowForm(false);
       onChanged();
@@ -431,6 +432,7 @@ function EntitesCard({
               <tr>
                 <th className="py-1">Raison sociale</th>
                 <th className="py-1">SIRET</th>
+                <th className="py-1">Contact facturation</th>
                 <th className="py-1">Vérif.</th>
                 <th className="py-1">Défaut</th>
                 {isManager && <th className="py-1"></th>}
@@ -441,6 +443,7 @@ function EntitesCard({
                 <tr key={e.id} className="border-t border-savr-neutral-100">
                   <td className="py-1">{e.raison_sociale}</td>
                   <td className="py-1">{e.siret}</td>
+                  <td className="py-1">{e.email_facturation ?? '—'}</td>
                   <td className="py-1">
                     <Badge
                       variant={
@@ -524,6 +527,15 @@ function EntitesCard({
                     setForm({ ...form, ville: ev.target.value })
                   }
                   required
+                />
+                <input
+                  className={`${inputCls} md:col-span-2`}
+                  type="email"
+                  placeholder="Contact facturation (email qui reçoit les factures)"
+                  value={form.email_facturation}
+                  onChange={(ev) =>
+                    setForm({ ...form, email_facturation: ev.target.value })
+                  }
                 />
               </div>
               {msg && <p className="text-sm text-savr-error">{msg}</p>}
@@ -899,35 +911,23 @@ function TransfertCard({
 
 function FacturationTab({ isManager }: { isManager: boolean }) {
   const [factures, setFactures] = useState<FactureRow[]>([]);
-  const [contactEmail, setContactEmail] = useState('');
-  const [msg, setMsg] = useState('');
-
-  const reloadProfil = useCallback(() => {
-    fetch('/api/v1/traiteur/mon-organisation/profil')
-      .then((r) => r.json())
-      .then((j) => {
-        const p = j.data as OrgProfil;
-        setContactEmail(p?.contact_facturation?.email ?? '');
-      });
-  }, []);
+  const [statut, setStatut] = useState('');
+  const [type, setType] = useState('');
+  const [dateDebut, setDateDebut] = useState('');
+  const [dateFin, setDateFin] = useState('');
 
   useEffect(() => {
-    fetch('/api/v1/traiteur/factures')
+    // Filtres §6 l.690 : statut, type, période (date d'émission).
+    const params = new URLSearchParams();
+    if (statut) params.set('statut', statut);
+    if (type) params.set('type', type);
+    if (dateDebut) params.set('date_debut', dateDebut);
+    if (dateFin) params.set('date_fin', dateFin);
+    const qs = params.toString();
+    fetch(`/api/v1/traiteur/factures${qs ? `?${qs}` : ''}`)
       .then((r) => r.json())
       .then((j) => setFactures((j.data ?? []) as FactureRow[]));
-    reloadProfil();
-  }, [reloadProfil]);
-
-  async function saveContact(e: React.FormEvent) {
-    e.preventDefault();
-    setMsg('');
-    const res = await fetch('/api/v1/traiteur/mon-organisation/profil', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contact_facturation: { email: contactEmail } }),
-    });
-    setMsg(res.ok ? 'Contact enregistré.' : 'Erreur.');
-  }
+  }, [statut, type, dateDebut, dateFin]);
 
   return (
     <div className="space-y-4">
@@ -935,30 +935,19 @@ function FacturationTab({ isManager }: { isManager: boolean }) {
         <CardHeader>
           <CardTitle>Paramètres de facturation</CardTitle>
         </CardHeader>
-        <CardContent>
-          {isManager ? (
-            <form onSubmit={saveContact} className="space-y-2">
-              <label className={labelCls}>
-                Contact principal facturation (reçoit factures et relances)
-              </label>
-              <input
-                className={inputCls}
-                type="email"
-                placeholder="compta@monentreprise.fr"
-                value={contactEmail}
-                onChange={(e) => setContactEmail(e.target.value)}
-              />
-              {msg && <p className="text-sm text-savr-neutral-600">{msg}</p>}
-              <Button type="submit">Enregistrer</Button>
-            </form>
-          ) : (
-            <div className="text-sm">
-              <span className="text-savr-neutral-500">
-                Contact facturation :{' '}
-              </span>
-              {contactEmail || '—'}
-            </div>
-          )}
+        <CardContent className="space-y-1 text-sm text-savr-neutral-600">
+          <p>
+            Le <strong>contact principal de facturation</strong> (email qui
+            reçoit les factures et relances) se règle sur chaque{' '}
+            <strong>entité de facturation</strong>
+            {isManager
+              ? ' (onglet Informations légales > Entités de facturation).'
+              : '.'}
+          </p>
+          <p className="text-xs text-savr-neutral-400">
+            Les coordonnées bancaires de règlement figurent sur la facture
+            (virement — pas de paiement en ligne en V1).
+          </p>
         </CardContent>
       </Card>
 
@@ -967,6 +956,45 @@ function FacturationTab({ isManager }: { isManager: boolean }) {
           <CardTitle>Factures</CardTitle>
         </CardHeader>
         <CardContent>
+          {/* Filtres §6 l.690 : statut, type, période */}
+          <div className="mb-3 flex flex-wrap gap-2">
+            <select
+              className="rounded border border-savr-neutral-300 px-2 py-1 text-xs"
+              value={statut}
+              onChange={(e) => setStatut(e.target.value)}
+            >
+              <option value="">Tous statuts</option>
+              <option value="emise">Émise</option>
+              <option value="payee">Payée</option>
+              <option value="en_retard">En retard</option>
+              <option value="annulee">Annulée</option>
+            </select>
+            <select
+              className="rounded border border-savr-neutral-300 px-2 py-1 text-xs"
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+            >
+              <option value="">Tous types</option>
+              <option value="zero_dechet">ZD</option>
+              <option value="anti_gaspi">AG</option>
+              <option value="pack">Pack</option>
+              <option value="avoir">Avoir</option>
+            </select>
+            <input
+              type="date"
+              aria-label="Période — du"
+              className="rounded border border-savr-neutral-300 px-2 py-1 text-xs"
+              value={dateDebut}
+              onChange={(e) => setDateDebut(e.target.value)}
+            />
+            <input
+              type="date"
+              aria-label="Période — au"
+              className="rounded border border-savr-neutral-300 px-2 py-1 text-xs"
+              value={dateFin}
+              onChange={(e) => setDateFin(e.target.value)}
+            />
+          </div>
           {factures.length === 0 ? (
             <p className="text-sm text-savr-neutral-500">Aucune facture.</p>
           ) : (

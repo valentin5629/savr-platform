@@ -252,6 +252,97 @@ describe('M3.1 / mon-organisation entités facturation', () => {
     );
     expect(res.status).toBe(403);
   });
+
+  it('M3.1/trait_monorga_entites_patch — manager édite un champ (sans SIRET)', async () => {
+    setupAuth('traiteur_manager');
+    rls.push({ data: { id: 'e1', raison_sociale: 'Kaspia v2' }, error: null }); // update
+    const { PATCH } =
+      await import('@/app/api/v1/traiteur/mon-organisation/entites-facturation/[id]/route.js');
+    const res = await PATCH(
+      makeReq(
+        'PATCH',
+        '/api/v1/traiteur/mon-organisation/entites-facturation/e1',
+        { raison_sociale: 'Kaspia v2', email_facturation: 'compta@kaspia.fr' },
+      ),
+      { params: Promise.resolve({ id: 'e1' }) },
+    );
+    expect(res.status).toBe(200);
+    expect(mockVerifySiret).not.toHaveBeenCalled();
+  });
+
+  it('M3.1/trait_monorga_entites_patch_siret_reverif — changement de SIRET relance INSEE', async () => {
+    setupAuth('traiteur_manager');
+    admin.push({ data: null, error: null }); // doublon cross-entité
+    mockVerifySiret.mockResolvedValue('verifie');
+    rls.push({
+      data: { id: 'e1', siret_verification: 'verifie' },
+      error: null,
+    }); // update
+    const { PATCH } =
+      await import('@/app/api/v1/traiteur/mon-organisation/entites-facturation/[id]/route.js');
+    const res = await PATCH(
+      makeReq(
+        'PATCH',
+        '/api/v1/traiteur/mon-organisation/entites-facturation/e1',
+        { siret: '11111111100033' },
+      ),
+      { params: Promise.resolve({ id: 'e1' }) },
+    );
+    expect(res.status).toBe(200);
+    expect(mockVerifySiret).toHaveBeenCalledOnce();
+  });
+
+  it('M3.1/trait_monorga_entites_delete — soft-delete d’une entité non par-défaut', async () => {
+    setupAuth('traiteur_manager');
+    rls.push({
+      data: { id: 'e1', entite_par_defaut: false, actif: true },
+      error: null,
+    }); // read cible
+    rls.push({ data: { id: 'e1', actif: false }, error: null }); // update actif=false
+    const { DELETE } =
+      await import('@/app/api/v1/traiteur/mon-organisation/entites-facturation/[id]/route.js');
+    const res = await DELETE(
+      makeReq(
+        'DELETE',
+        '/api/v1/traiteur/mon-organisation/entites-facturation/e1',
+      ),
+      { params: Promise.resolve({ id: 'e1' }) },
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it('M3.1/trait_monorga_entites_delete_defaut_bloque — entité par défaut non supprimable (409)', async () => {
+    setupAuth('traiteur_manager');
+    rls.push({
+      data: { id: 'e1', entite_par_defaut: true, actif: true },
+      error: null,
+    }); // read cible
+    const { DELETE } =
+      await import('@/app/api/v1/traiteur/mon-organisation/entites-facturation/[id]/route.js');
+    const res = await DELETE(
+      makeReq(
+        'DELETE',
+        '/api/v1/traiteur/mon-organisation/entites-facturation/e1',
+      ),
+      { params: Promise.resolve({ id: 'e1' }) },
+    );
+    expect(res.status).toBe(409);
+  });
+
+  it('M3.1/trait_monorga_entites_patch_commercial_denied — commercial refusé (403)', async () => {
+    setupAuth('traiteur_commercial');
+    const { PATCH } =
+      await import('@/app/api/v1/traiteur/mon-organisation/entites-facturation/[id]/route.js');
+    const res = await PATCH(
+      makeReq(
+        'PATCH',
+        '/api/v1/traiteur/mon-organisation/entites-facturation/e1',
+        { raison_sociale: 'Hack' },
+      ),
+      { params: Promise.resolve({ id: 'e1' }) },
+    );
+    expect(res.status).toBe(403);
+  });
 });
 
 // ── Domaines email ──────────────────────────────────────────────────────────
@@ -292,6 +383,30 @@ describe('M3.1 / mon-organisation domaines email', () => {
       }),
     );
     expect(res.status).toBe(403);
+  });
+
+  it('M3.1/trait_monorga_domaines_delete — manager supprime un domaine', async () => {
+    setupAuth('traiteur_manager');
+    rls.push({ data: { id: 'd1' }, error: null }); // delete...select...maybeSingle
+    const { DELETE } =
+      await import('@/app/api/v1/traiteur/mon-organisation/domaines-email/[id]/route.js');
+    const res = await DELETE(
+      makeReq('DELETE', '/api/v1/traiteur/mon-organisation/domaines-email/d1'),
+      { params: Promise.resolve({ id: 'd1' }) },
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it('M3.1/trait_monorga_domaines_delete_hors_org — domaine hors org → 404', async () => {
+    setupAuth('traiteur_manager');
+    rls.push({ data: null, error: null }); // rien supprimé (RLS filtre)
+    const { DELETE } =
+      await import('@/app/api/v1/traiteur/mon-organisation/domaines-email/[id]/route.js');
+    const res = await DELETE(
+      makeReq('DELETE', '/api/v1/traiteur/mon-organisation/domaines-email/dX'),
+      { params: Promise.resolve({ id: 'dX' }) },
+    );
+    expect(res.status).toBe(404);
   });
 });
 

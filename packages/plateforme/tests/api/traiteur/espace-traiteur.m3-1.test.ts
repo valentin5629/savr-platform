@@ -216,6 +216,27 @@ describe('M3.1 / collectes liste', () => {
       eqCalls.some(([col, val]) => col === 'type' && val === 'zero_dechet'),
     ).toBe(true);
   });
+
+  it('M3.1/liste_collectes_filtre_statut_onglet — .in(statut, [...]) pour l’onglet Programmées', async () => {
+    setupAuth('traiteur_manager', 'org-1');
+    rls.push({ data: [], error: null });
+    const { GET } = await import('@/app/api/v1/traiteur/collectes/route.js');
+    await GET(
+      makeReq(
+        'GET',
+        '/api/v1/traiteur/collectes?type=zero_dechet&statut=brouillon,programmee,validee,en_cours',
+      ),
+    );
+    const inCalls = rls.__calls.in ?? [];
+    const statutCall = inCalls.find(([col]) => col === 'statut');
+    expect(statutCall).toBeTruthy();
+    expect(statutCall![1]).toEqual([
+      'brouillon',
+      'programmee',
+      'validee',
+      'en_cours',
+    ]);
+  });
 });
 
 // ── Édition collecte ────────────────────────────────────────────────────────

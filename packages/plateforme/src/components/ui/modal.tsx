@@ -37,6 +37,15 @@ const Modal = ({
   const titleId = React.useId();
   const [show, setShow] = React.useState(false);
 
+  // onClose est souvent une fonction inline (nouvelle identité à chaque render).
+  // On la lit via une ref pour que l'effet ci-dessous ne dépende QUE de `open` —
+  // sinon il se relancerait à chaque frappe dans un champ de la modale et volerait
+  // le focus (panelRef.focus()), rendant la saisie impossible (1 lettre à la fois).
+  const onCloseRef = React.useRef(onClose);
+  React.useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
   React.useEffect(() => {
     if (!open) {
       setShow(false);
@@ -45,7 +54,7 @@ const Modal = ({
     const raf = requestAnimationFrame(() => setShow(true));
     const focusTimer = setTimeout(() => panelRef.current?.focus(), 0);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') onCloseRef.current();
     };
     document.addEventListener('keydown', onKey);
     const prevOverflow = document.body.style.overflow;
@@ -56,7 +65,7 @@ const Modal = ({
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = prevOverflow;
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 

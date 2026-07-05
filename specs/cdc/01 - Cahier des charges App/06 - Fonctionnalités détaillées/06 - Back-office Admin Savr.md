@@ -819,7 +819,7 @@ Trois écrans (cf. [[04 - Data Model]] addendum 2026-06-04 + [[08 - APIs et int�
 
 ### Templates emails
 - Liste des 19 templates actifs V1 *(compteur corrigé 2026-06-07 — 3 templates tiers/admin ajoutés session test-scenarios §06.02 F2, cf. [[06 - Fonctionnalités détaillées/02 - Templates emails V1]] qui fait foi)*
-- Édition du corps + variables + preview
+- **V1 : consultation seule** (liste + sujet + variables + aperçu du corps). Édition du corps + variables + preview-avec-variables = **V1.1** (cf. [[06 - Fonctionnalités détaillées/02 - Templates emails V1]] qui fait foi). *(corrigé R18 2026-07-04 — le §9 contredisait §06.02 sur la portée V1)*
 - Voir [[06 - Fonctionnalités détaillées/02 - Templates emails V1]]
 
 ### Référentiels

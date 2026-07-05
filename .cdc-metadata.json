@@ -72,8 +72,8 @@
       "bytes": 3410
     },
     "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": {
-      "sha256": "c1dd62da71475c0d2d380050b2e5c756c70c8734e6aff75c06c51e684ccb5aea",
-      "bytes": 293314
+      "sha256": "0e6ba31bc8391ca885302996edbc082cf8f426c3c342dee48429c35b17f4ad2a",
+      "bytes": 294302
     },
     "specs/cdc/01 - Cahier des charges App/04 - Espace client traiteur.md": {
       "sha256": "05bb568a11fd0baac5b10c4a8a84281f1d953857fd92efba513a8e925616737c",
@@ -132,8 +132,8 @@
       "bytes": 50403
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": {
-      "sha256": "f1330c74c9a89b1e54be210a907f7efc2bf000e68ac63b5678464e33cc3ff019",
-      "bytes": 88309
+      "sha256": "92126868d2a894fadf4c0076ed3302025a21ba870ef45abd6a19a72f40df5c59",
+      "bytes": 88573
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md": {
       "sha256": "7292c799fdb5c5598dcd979245740850df9851ffb0b475fb08e9fd76e44b41e4",
@@ -148,7 +148,7 @@
       "bytes": 17393
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/_RAPPORT-EXPORT.md": {
-      "sha256": "dea32de0640c0af17a77d148cfdecdad0022087e91d86608abd9de1e39790461",
+      "sha256": "b00e0d3e6d67e000efdd6c8e20f405d4a8b8b6827b1dc580d057a27eec367248",
       "bytes": 658
     },
     "specs/cdc/01 - Cahier des charges App/06 - Monitoring perf prod.md": {
@@ -336,8 +336,8 @@
       "bytes": 5111
     },
     "specs/cdc/01 - Cahier des charges App/_RAPPORT-EXPORT.md": {
-      "sha256": "b19fbf5ddc51234aaa7226ea6ef3138a6d6d25177c1337bc7ae3d063605c37a3",
-      "bytes": 1029
+      "sha256": "6510ec2f720430e1a5aa4734b86ef2103b4cd13f50f8e6cfc82750e18fa7a2ef",
+      "bytes": 804
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.01-formulaire-programmation-scenarios.md": {
       "sha256": "eeef70254cf5cc4e306ee40ab56be7c41e102aa19b5a6fd8459b75c0a5a1db29",

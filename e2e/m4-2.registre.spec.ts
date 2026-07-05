@@ -28,12 +28,10 @@ test.describe('M4.2 / Registre / protection des routes', () => {
 });
 
 test.describe('M4.2 / Registre / entrée de menu par rôle', () => {
-  const withRegistre = [
-    'traiteur_manager',
-    'traiteur_commercial',
-    'gestionnaire_lieux',
-    'client_organisateur',
-  ];
+  // Le Registre réglementaire reste dans la nav des rôles gestionnaire de lieux
+  // et client organisateur. Il a été retiré des rôles traiteur (nav = 4 entrées
+  // V1, §06.04 §1 — BL-P1-TRAIT-05) et n'a jamais été exposé à l'agence (F6).
+  const withRegistre = ['gestionnaire_lieux', 'client_organisateur'];
   for (const role of withRegistre) {
     test(`M4.2/e2e — nav ${role} expose "Registre réglementaire"`, async ({
       request,
@@ -47,12 +45,15 @@ test.describe('M4.2 / Registre / entrée de menu par rôle', () => {
     });
   }
 
-  test("M4.2/e2e — nav agence n'expose PAS le Registre (F6)", async ({
-    request,
-  }) => {
-    const res = await request.get(`${BASE_URL}/api/nav?role=agence`);
-    const body = (await res.json()) as NavResponse;
-    const labels = body.items.map((i) => i.label);
-    expect(labels).not.toContain('Registre réglementaire');
-  });
+  const withoutRegistre = ['traiteur_manager', 'traiteur_commercial', 'agence'];
+  for (const role of withoutRegistre) {
+    test(`M4.2/e2e — nav ${role} n'expose PAS le Registre`, async ({
+      request,
+    }) => {
+      const res = await request.get(`${BASE_URL}/api/nav?role=${role}`);
+      const body = (await res.json()) as NavResponse;
+      const labels = body.items.map((i) => i.label);
+      expect(labels).not.toContain('Registre réglementaire');
+    });
+  }
 });

@@ -33,7 +33,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       `id, type, statut, statut_tms, date_collecte, heure_collecte,
        informations_completes, taux_recyclage, realisee_at,
        evenements!inner(
-         id, organisation_id, traiteur_operationnel_organisation_id,
+         id, organisation_id, traiteur_operationnel_organisation_id, created_by,
          nom_evenement, pax, nom_client_organisateur,
          lieux!lieu_id(id, nom, adresse_acces, code_postal, ville)
        )`,

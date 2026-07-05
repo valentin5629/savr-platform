@@ -53,6 +53,34 @@ interface PackInfo {
   credits_restants?: number;
 }
 
+// Source de pré-remplissage « Dupliquer » (?from=) — sous-ensemble du GET
+// /api/v1/traiteur/collectes/:id.
+interface SourceLieu {
+  id: string;
+  nom: string | null;
+  adresse_acces: string | null;
+  code_postal: string | null;
+  ville: string | null;
+}
+interface SourceEvenement {
+  pax: number | null;
+  type_evenement_id: string | null;
+  nom_client_organisateur: string | null;
+  reference_affaire: string | null;
+  contact_principal_nom: string | null;
+  contact_principal_telephone: string | null;
+  contact_secours_nom: string | null;
+  contact_secours_telephone: string | null;
+  lieu: SourceLieu | SourceLieu[] | null;
+}
+interface SourceCollecte {
+  type: string;
+  heure_collecte: string | null;
+  controle_acces_requis: boolean;
+  informations_supplementaires: string | null;
+  evenement: SourceEvenement | SourceEvenement[] | null;
+}
+
 const emptyCollecte = (type: 'zd' | 'ag'): CollecteFormData => ({
   type,
   date_collecte: '',
@@ -124,6 +152,72 @@ export default function NouveauProgrammationPage() {
     void fetch('/api/v1/programmation/types-evenements')
       .then((r) => r.json() as Promise<TypeEvenement[]>)
       .then(setTypesEvenements);
+  }, []);
+
+  // Pré-remplissage « Dupliquer » (?from=<collecteId>) — décision Val 2026-07-05.
+  // Charge la collecte source et pré-remplit le formulaire ; la date reste vide
+  // (nouvelle date à choisir). Rien n'est créé tant que l'utilisateur ne valide
+  // pas. Le sync-effect typesCollecte→collectes conserve la ligne pré-remplie
+  // (même type). Erreur/absence = formulaire vierge (dégradation gracieuse).
+  useEffect(() => {
+    const from =
+      typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('from')
+        : null;
+    if (!from) return;
+    void fetch(`/api/v1/traiteur/collectes/${from}`)
+      .then((r) =>
+        r.ok ? (r.json() as Promise<{ data?: SourceCollecte }>) : null,
+      )
+      .then((j) => {
+        const d = j?.data;
+        if (!d) return;
+        const evt = Array.isArray(d.evenement) ? d.evenement[0] : d.evenement;
+        if (!evt) return;
+        const lieuSrc = Array.isArray(evt.lieu) ? evt.lieu[0] : evt.lieu;
+        const isZd = d.type === 'zero_dechet';
+        setNomClient(evt.nom_client_organisateur ?? '');
+        setPax(evt.pax != null ? String(evt.pax) : '');
+        setTypeEvenementId(evt.type_evenement_id ?? '');
+        setReferenceAffaire(evt.reference_affaire ?? '');
+        setControleAcces(Boolean(d.controle_acces_requis));
+        if (lieuSrc) {
+          setLieu({
+            id: lieuSrc.id,
+            nom: lieuSrc.nom ?? '',
+            adresse_acces: lieuSrc.adresse_acces ?? '',
+            ville: lieuSrc.ville ?? '',
+            code_postal: lieuSrc.code_postal ?? '',
+            controle_acces_requis_default: false,
+          });
+        }
+        if (evt.contact_principal_nom) {
+          setContactPrincipal({
+            id: '',
+            prenom: '',
+            nom: evt.contact_principal_nom,
+            telephone: evt.contact_principal_telephone ?? '',
+          });
+        }
+        if (evt.contact_secours_nom) {
+          setContactSecours({
+            id: '',
+            prenom: '',
+            nom: evt.contact_secours_nom,
+            telephone: evt.contact_secours_telephone ?? '',
+          });
+        }
+        setTypesCollecte({ zd: isZd, ag: !isZd });
+        setCollectes([
+          {
+            type: isZd ? 'zd' : 'ag',
+            date_collecte: '',
+            heure_collecte: (d.heure_collecte ?? '').slice(0, 5),
+            informations_supplementaires: d.informations_supplementaires ?? '',
+          },
+        ]);
+      })
+      .catch(() => {});
   }, []);
 
   // Lecture du rôle + chargement des traiteurs si agence/gestionnaire
@@ -223,10 +317,11 @@ export default function NouveauProgrammationPage() {
         reference_affaire: referenceAffaire || undefined,
         lieu_id: lieu!.id,
         controle_acces_requis: controleAcces,
-        contact_principal_nom: `${contactPrincipal!.prenom} ${contactPrincipal!.nom}`,
+        contact_principal_nom:
+          `${contactPrincipal!.prenom} ${contactPrincipal!.nom}`.trim(),
         contact_principal_telephone: contactPrincipal!.telephone,
         contact_secours_nom: contactSecours
-          ? `${contactSecours.prenom} ${contactSecours.nom}`
+          ? `${contactSecours.prenom} ${contactSecours.nom}`.trim()
           : undefined,
         contact_secours_telephone: contactSecours?.telephone,
         collectes: collectes.map((c) => ({

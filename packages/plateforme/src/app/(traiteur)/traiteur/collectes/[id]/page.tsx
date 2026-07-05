@@ -104,6 +104,18 @@ export default function FicheCollectePage({
     reload();
   }, [id]);
 
+  // Ouverture directe en mode édition depuis l'action « Modifier » de la liste
+  // (/traiteur/collectes/[id]?edit=1). Lu via window.location pour éviter la
+  // contrainte Suspense de useSearchParams sur cette page.
+  useEffect(() => {
+    if (
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get('edit') === '1'
+    ) {
+      setEditing(true);
+    }
+  }, []);
+
   async function confirmerAnnulation() {
     setAnnulEnCours(true);
     setAnnulErreur(null);

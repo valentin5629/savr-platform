@@ -199,6 +199,30 @@
       "test": "M3.1/edition_alerte_ops_priorite_normale",
       "statut": "implemented",
       "libelle": "Cascade édition : email Ops modification (admin_modification_collecte_traiteur, priorité normale/haute §05 l.316-318), recompute informations_completes, modale de confirmation empilée ; flag TMS route-level (divergence M3.1_20260705)"
+    },
+    {
+      "id": "BL-P2-14",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:290-369",
+      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx",
+      "test": "M3.1/card_traiteur_champs",
+      "statut": "partial",
+      "libelle": "Refonte liste collectes traiteur (décision Val 2026-07-05, divergence M3.1_20260705_liste_collectes) : onglets Programmées/Historique + sélecteur ZD/AG + cartes simplifiées (Date/Heure/Lieu/Pax/Statut) + actions Modifier/Annuler/Dupliquer, grisage commercial. Volet AGENCE (M3.3) à venir."
+    },
+    {
+      "id": "M3.1-liste-carte-simplifiee",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:308-369",
+      "artefact": "packages/plateforme/src/components/collecte/collecte-card-traiteur.tsx",
+      "test": "M3.1/card_traiteur_gating_readonly",
+      "statut": "implemented",
+      "libelle": "Carte simplifiée liste traiteur : Date/Heure/Lieu/Pax/Statut + gating actions (Modifier/Annuler par statut+canWrite ; Dupliquer toujours actif)"
+    },
+    {
+      "id": "M3.1-dupliquer-collecte",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:290-369",
+      "artefact": "packages/plateforme/src/app/(programmation)/programmer/nouveau/page.tsx",
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Dupliquer une collecte = pré-remplir le formulaire de programmation (/programmer/nouveau?from=), date vide, rien créé avant validation (décision Val 2026-07-05) — preuve visuelle GO-VISUAL"
     }
   ],
   "cdc_source_hash": {

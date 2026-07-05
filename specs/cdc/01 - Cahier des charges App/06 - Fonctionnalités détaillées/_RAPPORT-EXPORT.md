@@ -1,15 +1,14 @@
 # Rapport export dev-facing
 
 Mode : AGGRESSIVE (T1+T2)
-**Total : 88960 -> 85905 octets (-3055, -3.4%)**
+**Total : 92677 -> 89068 octets (-3609, -3.9%)**
 
 
-## 06 - Back-office Admin Savr.md
-- octets : 88960 -> 85905 (-3055, -3.4%)
-- tokens estimes : ~22240 -> ~21476
-- tombstones supprimes : 6 | fragments barres retires : 12 | en-tetes debarres : 1
-- lignes historiques T2 supprimees : 3
+## 04 - Espace client traiteur.md
+- octets : 92677 -> 89068 (-3609, -3.9%)
+- tokens estimes : ~23169 -> ~22267
+- tombstones supprimes : 0 | fragments barres retires : 12 | en-tetes debarres : 4
+- lignes historiques T2 supprimees : 2
 - ⚠ tombstones en prose a revoir a la main :
-    L413: - — supprimé 2026-05-07 (unification libellé)
-    L417: - — **supprimé V1 (revue sobriété 2026-05-30 A1)** : jamais utilisé (ni facturation, ni al
-    L992: - **Fermée 2026-06-07 (F6, tranché Val)** : bouton retiré V1, fusion = script SQL assisté 
+    L56: **Retiré V1 (refonte formulaire unique 2026-05-21)** — l'entrée se fait désormais par un b
+    L359: - — **retiré 2026-05-07**, géré par le sélecteur de type ZD / AG en haut de page

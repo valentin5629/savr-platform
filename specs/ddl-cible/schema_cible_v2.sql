@@ -65,6 +65,10 @@
 --   partiel uniq_entites_facturation_siret sur entites_facturation.siret (détection doublon §15 §2.6
 --   l.69). Recompté pglast : 92 tables (58 plateforme, 32 tms, 2 shared), 319 statements — l'en-tête
 --   « 89/55 » du 06-11 avait dérivé (tables ajoutées par les divergences 06-15/06-24 non recomptées).
+-- Regelé le : 2026-07-05 (divergence M3.1 « Mon profil ») : + colonne plateforme.users.telephone
+--   (text nullable, profil transverse tous rôles §06.04 §7 ; V1 migration 20260705110000). Convergence
+--   V1⊂cible rétablie — plus une divergence à tracer. Revalidé pglast v7.14 : 319 statements, 92 tables,
+--   56 enums, 3 schémas — comptes inchangés (une colonne nullable n'ajoute aucun statement).
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
@@ -249,6 +253,7 @@ CREATE TABLE plateforme.users (
   email              text NOT NULL UNIQUE,
   prenom             text NOT NULL,
   nom                text NOT NULL,
+  telephone          text,                                 -- profil « Mon compte » (transverse tous rôles, §06.04 §7) ; V1 migration 20260705110000
   role               plateforme.user_role NOT NULL,
   actif              boolean NOT NULL DEFAULT true,
   derniere_connexion timestamptz,

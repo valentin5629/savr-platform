@@ -289,38 +289,38 @@ Contenu évolutif selon les retours utilisateurs. Structure V1 volontairement re
 
 ## 3. Collectes
 
-### Structure : 2 onglets ZD / AG (refonte 2026-05-07)
+### Structure : onglets Programmées / Historique + sélecteur de type (refonte 2026-07-05)
 
-La page Collectes est scindée en **2 onglets** au sommet :
-- **Zéro-déchet** (sélectionné par défaut)
-- **Anti-gaspi**
+La page Collectes adopte le modèle de la **liste Admin, épuré**. Deux niveaux de navigation :
+- **2 onglets par ÉTAT** au sommet :
+  - **Programmées** (sélectionné par défaut) : statuts `brouillon`, `programmee`, `validee`, `en_cours`
+  - **Historique** : statuts `realisee`, `realisee_sans_collecte`, `cloturee`, `annulation_demandee`, `annulee`, `rejetee_par_prestataire`
+- **Sélecteur de type** séparé et bien visible : **Zéro-Déchet / Anti-Gaspi** (filtre transverse aux deux onglets, persisté en query string, deep-linkable).
 
-Suppression de la vue "Toutes les collectes" historique (ex-filtre Type `ZD / AG / Tout` retiré). L'onglet actif filtre l'ensemble du tableau et conditionne le bouton de programmation (cf. §Bouton "Programmer une collecte" ci-dessous).
+> **Refonte 2026-07-05** : remplace la refonte 2026-05-07 (« 2 onglets ZD / AG »). Le dashboard §2 conserve ses 2 onglets par type ; seule la **liste** Collectes bascule sur une navigation par état + sélecteur de type.
 
-Cohérent avec la structure du dashboard §2 (mêmes 2 onglets ZD/AG). L'onglet sélectionné est persisté en query string (deep-linkable).
+### Bouton "Programmer une collecte" (contextuel par sélecteur de type — refonte 2026-07-05)
 
-### Bouton "Programmer une collecte" (contextuel par onglet — refonte 2026-05-07)
+Au-dessus de la liste, à droite, **un bouton unique [ Programmer un événement ]**. Clic → ouvre le formulaire unique §06.01 avec le **type pré-coché selon le sélecteur de type actif** (Zéro-Déchet ou Anti-Gaspi), l'utilisateur pouvant cocher l'autre type.
 
-Au-dessus du tableau, à droite, **un bouton unique [ Programmer un événement ]** (refonte 2026-05-21). Clic → ouvre le formulaire unique §06.01 avec le **type pré-coché selon l'onglet actif** (onglet ZD → Zéro-Déchet pré-coché ; onglet AG → Anti-Gaspi pré-coché), l'utilisateur pouvant cocher l'autre type. Gain de 1 clic préservé via le contexte d'onglet.
+> **Cas pack AG épuisé** : si le sélecteur de type est sur Anti-Gaspi ET le pack actif a un solde = 0, la **case Anti-Gaspi est cochée mais la soumission AG est bloquée** (alerte "Pack épuisé — demander un renouvellement depuis le dashboard onglet AG"). La collecte ZD reste programmable si l'utilisateur coche aussi Zéro-Déchet. Cohérent avec règle Bloc 4 AG dashboard et §06.01 Sélection pack AG.
 
-> **Cas pack AG épuisé** : si l'utilisateur arrive depuis l'onglet AG (Anti-Gaspi pré-coché) ET le pack actif a un solde = 0, la **case Anti-Gaspi est cochée mais la soumission AG est bloquée** (alerte "Pack épuisé — demander un renouvellement depuis le dashboard onglet AG"). La collecte ZD reste programmable si l'utilisateur coche aussi Zéro-Déchet. Cohérent avec règle Bloc 4 AG dashboard et §06.01 Sélection pack AG.
+### Vue cartes (refonte 2026-07-05 — remplace la vue tableau)
 
-### Vue liste
+Les collectes s'affichent en **cartes groupées par semaine** (rail latéral coloré par type ZD / AG), triées par date décroissante (plus récentes en premier). Fini le tableau multi-colonnes.
 
-Tableau filtrable (refonte 2026-05-05 — colonnes Événement supprimée, Lieu enrichi adresse, Pax ajoutée après Client / refonte 2026-05-07 — filtrage Type retiré, géré par l'onglet) :
+**Carte simplifiée** — affiche uniquement :
+- **Date · Heure · Lieu · Pax · Statut** (badge coloré, libellés selon le mapping canonique ci-dessous ; badge dédié « Sans excédents » pour `realisee_sans_collecte`, AG uniquement).
+- **Indicateur « programmée par un tiers »** : picto orange « user-tag » si `evenements.organisation_id ≠ traiteur_operationnel_organisation_id`, tooltip « Programmée par {{nom organisation}} ».
 
-| Colonne             | Contenu                                                                                                                                                                 |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Date + heure        | `collectes.date_collecte` + `collectes.heure_collecte`                                                                                                                  |
-| Type                | Badge ZD / AG                                                                                                                                                           |
-| Lieu                | **Nom du lieu** (ligne 1) + **adresse complète** (ligne 2, fonte secondaire) — refonte 2026-05-05 (ex Nom + ville)                                                      |
-| Client Organisateur | Si renseigné                                                                                                                                                            |
-| Pax                 | `evenements.pax` — refonte 2026-05-05 (nouvelle colonne)                                                                                                                |
-| Statut              | Badge coloré — inclut le statut `realisee_sans_collecte` avec badge dédié "Aucun repas collecté" (AG uniquement)                                                        |
-| Rapport             | Indicateur (Disponible / À venir / Non consulté) **+ picto téléchargement actif si Disponible** (clic = download direct du PDF rapport RSE — ajouté refonte 2026-05-04) |
-| Poids ZD / Repas AG | Valeur si collecte passée. Affiche "—" si `statut = realisee_sans_collecte`                                                                                             |
+**Actions par carte** :
+- **Modifier** → ouvre la fiche en édition (statuts `programmee` / `validee`).
+- **Annuler** → modale + motif obligatoire (statuts `brouillon` / `programmee` / `validee` ; `validee` = demande soumise à l'Admin, cf. §Annulation).
+- **Dupliquer** *(nouveau 2026-07-05)* → pré-remplit le formulaire de programmation (`/programmer/nouveau?from=<collecteId>`), **date laissée vide** ; rien n'est créé tant que l'utilisateur ne valide pas (réutilise tout le flux §06.01 : tarif ZD, vérif pack AG).
 
-> **Refonte 2026-05-05** : colonne `Événement` supprimée (nom événement reste accessible depuis la fiche collecte, dénomination événement aussi reprise dans le titre fiche). Surface tableau réduite, focus sur le lieu (info pilotante côté traiteur).
+> **Téléchargement du rapport retiré de la liste** (ex-colonne « Rapport » + picto download, refonte 2026-05-04 superseded) : le téléchargement (rapport RSE + facture) reste accessible depuis la **fiche** collecte (cf. §Actions fiche, BL-P1-TRAIT-03).
+
+> **Périmètre commercial** *(révision 2026-05-29 conservée)* : le `traiteur_commercial` voit **toutes les collectes de l'organisation** ; sur les collectes d'un autre (`created_by ≠ auth.uid()`), actions **Modifier / Annuler grisées** (lecture seule) ; **Dupliquer reste disponible** (crée une nouvelle collecte à son nom).
 
 #### Mapping d'affichage du statut collecte côté client (canonique — décision Val 2026-06-30, divergence UX-STATUTS)
 
@@ -343,18 +343,18 @@ Tableau filtrable (refonte 2026-05-05 — colonnes Événement supprimée, Lieu 
 
 **Cas "Aucun repas à collecter" (AG)** :
 
-**AG uniquement** — ce cas n'existe pas en ZD (il y a toujours des déchets à collecter). Quand le chauffeur déclare qu'il n'y a rien à collecter via l'app mobile TMS (webhook `collecte-terminee` avec `statut_final = realisee_sans_collecte`, voir [[02 - Cahier des charges TMS/03 - Périmètre fonctionnel TMS#M05]]), la ligne de collecte affiche :
-- Badge "Aucun repas collecté" dans la colonne Statut
+**AG uniquement** — ce cas n'existe pas en ZD (il y a toujours des déchets à collecter). Quand le chauffeur déclare qu'il n'y a rien à collecter via l'app mobile TMS (webhook `collecte-terminee` avec `statut_final = realisee_sans_collecte`, voir [[02 - Cahier des charges TMS/03 - Périmètre fonctionnel TMS#M05]]), la carte de collecte affiche :
+- Badge "Aucun repas collecté" dans le Statut de la carte
 - Tooltip au survol : motif chauffeur (saisi sur l'app mobile TMS)
 - Dans la fiche détail : section dédiée "Aucun repas collecté" avec motif + horodatage (la photo du lieu prise par le chauffeur comme preuve de présence reste stockée côté TMS et est accessible par Ops Savr ; **plus affichée à l'utilisateur traiteur** depuis la refonte 2026-05-04)
 - Pas d'attestation de don 2041-GE générée (pas de don à certifier)
-- **Nouveau rapport PDF "Événement sans excédent alimentaire"** (refonte 2026-05-04) : rapport texte seul, sans photos. Téléchargeable depuis la colonne Rapport (picto actif). Spec : voir [[12 - Reporting et exports]] §Rapports PDF.
+- **Nouveau rapport PDF "Événement sans excédent alimentaire"** (refonte 2026-05-04) : rapport texte seul, sans photos. Téléchargeable depuis la fiche collecte (picto actif). Spec : voir [[12 - Reporting et exports]] §Rapports PDF.
 - **Facturation client au tarif normal V1** (le déplacement et la mobilisation chauffeur restent facturés). Facturation partielle possible en V2 selon retour terrain.
 
 Ces informations sont visibles par le traiteur (contexte sur sa propre collecte) ET par l'Admin Savr (back-office).
 
 **Filtres disponibles** :
-- — **retiré 2026-05-07**, géré par les onglets ZD/AG en haut de page
+- — **retiré 2026-05-07**, géré par le sélecteur de type ZD / AG en haut de page
 - Statut (multi — inclut `realisee_sans_collecte` AG-only)
 - Période
 - Lieu
@@ -362,7 +362,7 @@ Ces informations sont visibles par le traiteur (contexte sur sa propre collecte)
 - "Info incomplète" oui/non
 - **Programmée par** (multi : "Mon organisation" / "Agence : {{nom}}" / "Gestionnaire : {{nom}}") — ajout 2026-05-07. Permet au traiteur de filtrer les collectes programmées par des tiers (cas où il opère pour le compte d'une agence ou d'un gestionnaire de lieux).
 
-**Indicateur ligne tableau (ajout 2026-05-07)** : si `evenements.organisation_id ≠ traiteur_operationnel_organisation_id`, picto orange à côté du nom du lieu (icône "user-tag"). Tooltip "Programmée par {{nom organisation programmatrice}}". Pas de colonne dédiée pour ne pas alourdir le tableau (déjà 8 colonnes).
+**Indicateur sur la carte (ajout 2026-05-07, vue cartes 2026-07-05)** : si `evenements.organisation_id ≠ traiteur_operationnel_organisation_id`, picto orange à côté du nom du lieu (icône "user-tag"). Tooltip "Programmée par {{nom organisation programmatrice}}".
 
 **Tri par défaut** : date décroissante (les plus récentes en premier).
 
@@ -484,7 +484,7 @@ Tous les champs métier de la collecte et de l'événement parent :
 
 **Effets de bord côté prestataire** (résumé) :
 - Champ non-impactant (notes, contact secours, `informations_supplementaires`, etc.) : push silencieux
-- Date / heure sur collecte `statut_tms = acceptee` : **réacceptation prestataire requise** (statut TMS → `attribuee_en_attente_acceptation` + flag `flags_jsonb.re_confirmation_requise`)
+- Date / heure sur collecte `statut_tms = acceptee` : **réacceptation prestataire requise**. Côté plateforme V1 : `statut_tms` → `attribuee_en_attente_acceptation` et le statut métier repasse `validee` → `programmee` (mécanisme route-level, cf. §05 « Modification d'une collecte à venir »). Le flag `flags_jsonb.re_confirmation_requise` est un concept **TMS-side (V2, M04 W10)** — aucune colonne `flags_jsonb` sur `plateforme.collectes` en V1.
 - `controle_acces_requis` : push silencieux, le bloc "Contrôle d'accès" se met à jour côté fiche
 
 **Permissions** (cf. §05 source unique) — *modification* d'une collecte :

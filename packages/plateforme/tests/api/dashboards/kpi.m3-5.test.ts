@@ -212,10 +212,13 @@ describe('M3.5 / benchmark', () => {
     mockRpc.mockResolvedValue({
       data: [
         {
+          flux_id: 'f-compost',
           flux_code: 'COMPOST',
-          bracket: 'M',
-          median_kg_pax: 1.2,
-          nb_collectes: 8,
+          type_evenement_id: 't-cocktail',
+          taille_evenement: 'M',
+          kg_par_pax_moyen: 1.2,
+          nb_collectes_segment: 8,
+          nb_organisations_distinctes: 3,
         },
       ],
       error: null,

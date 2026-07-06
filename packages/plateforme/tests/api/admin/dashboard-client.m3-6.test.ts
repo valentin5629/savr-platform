@@ -322,10 +322,13 @@ describe('M3.6 / Dashboard Client / benchmark', () => {
     rpcResult = {
       data: [
         {
+          flux_id: 'f-bio',
           flux_code: 'biodechet',
-          bracket: 'M',
-          median_kg_pax: 1.2,
-          nb_collectes: 8,
+          type_evenement_id: 't-cocktail',
+          taille_evenement: 'M',
+          kg_par_pax_moyen: 1.2,
+          nb_collectes_segment: 8,
+          nb_organisations_distinctes: 3,
         },
       ],
       error: null,
@@ -338,9 +341,11 @@ describe('M3.6 / Dashboard Client / benchmark', () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { data: unknown[] };
     expect(body.data.length).toBeGreaterThan(0);
+    // BL-P1-GEST-04 : nouvelle signature 7 params — le bracket est passé via
+    // p_taille_evenement_codes[] (ex p_bracket).
     expect(adminClient.rpc).toHaveBeenCalledWith(
       'f_benchmark_kg_pax_zd',
-      expect.objectContaining({ p_bracket: 'M' }),
+      expect.objectContaining({ p_taille_evenement_codes: ['M'] }),
     );
   });
 

@@ -37,16 +37,37 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   );
 
   const { searchParams } = new URL(req.url);
-  // bracket obligatoire (XS|S|M|L|XL) — sans bracket on retourne tous les brackets via mv
-  const bracket = searchParams.get('bracket');
-  const fluxCode = searchParams.get('flux_code');
+  // Arrays passés en CSV (ex ?taille_evenement_codes=M,L). flux_code : filtrage
+  // client-side dans BenchmarkGauge (la fonction renvoie tous les flux du segment).
+  const csv = (k: string): string[] | null => {
+    const v = searchParams.get(k);
+    if (!v) return null;
+    const arr = v
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    return arr.length ? arr : null;
+  };
 
-  // Garde : les rôles traiteur ne peuvent pas passer traiteur_ids (§04 préservation compétitive)
-  const traiteurIdsRaw = searchParams.get('traiteur_ids');
+  // Encart « Filtres benchmark » (§06.05) — tous optionnels (absent = pas de filtre).
+  // `bracket` (mono-taille) = compat legacy pour les autres dashboards qui n'ont pas
+  // encore l'encart ; sans rien, on couvre les 5 brackets.
+  const bracket = searchParams.get('bracket');
+  const tailleCodes =
+    csv('taille_evenement_codes') ??
+    (bracket ? [bracket] : ['XS', 'S', 'M', 'L', 'XL']);
+  const typeIds = csv('type_evenement_ids');
+  const lieuIds = csv('lieu_ids');
+  const traiteurIds = csv('traiteur_ids');
+  const periodeDebut = searchParams.get('periode_debut');
+  const periodeFin = searchParams.get('periode_fin');
+
+  // Garde : les rôles traiteur ne peuvent pas passer traiteur_ids (§04 préservation
+  // compétitive) — doublée côté fonction (RAISE).
   const isTraiteur =
     auth.ctx.role === 'traiteur_manager' ||
     auth.ctx.role === 'traiteur_commercial';
-  if (isTraiteur && traiteurIdsRaw) {
+  if (isTraiteur && traiteurIds) {
     return NextResponse.json(
       {
         error:
@@ -56,32 +77,24 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // Sans bracket : on retourne les données pré-calculées de la vue matérialisée via la fonction
-  // Avec bracket : on appelle la fonction directement pour ce bracket
-  const allBrackets = ['XS', 'S', 'M', 'L', 'XL'];
-  const bracketsToQuery = bracket ? [bracket] : allBrackets;
+  // On n'envoie que les params fournis → les autres prennent le DEFAULT NULL de la RPC.
+  const args = {
+    p_taille_evenement_codes: tailleCodes,
+    ...(typeIds ? { p_type_evenement_ids: typeIds } : {}),
+    ...(periodeDebut ? { p_periode_debut: periodeDebut } : {}),
+    ...(periodeFin ? { p_periode_fin: periodeFin } : {}),
+    ...(lieuIds ? { p_lieu_ids: lieuIds } : {}),
+    ...(traiteurIds ? { p_traiteur_ids: traiteurIds } : {}),
+  };
 
-  const results = await Promise.all(
-    bracketsToQuery.map((b) =>
-      supabase.rpc('f_benchmark_kg_pax_zd', {
-        p_bracket: b,
-        ...(fluxCode ? { p_flux_code: fluxCode } : {}),
-      }),
-    ),
-  );
+  const { data, error } = await supabase.rpc('f_benchmark_kg_pax_zd', args);
 
-  const firstError = results.find((r) => r.error);
-  if (firstError?.error) {
-    return NextResponse.json(
-      { error: firstError.error.message },
-      { status: 500 },
-    );
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const data = results.flatMap((r) => r.data ?? []);
-
   return NextResponse.json(
-    { data },
+    { data: data ?? [] },
     { headers: { 'Cache-Control': 'private, max-age=300' } },
   );
 }

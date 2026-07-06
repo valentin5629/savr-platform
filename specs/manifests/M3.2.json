@@ -29,7 +29,18 @@
     "packages/plateforme/src/app/api/v1/gestionnaire/mon-organisation/profil/route.ts",
     "packages/plateforme/src/app/api/v1/gestionnaire/mon-organisation/users/route.ts",
     "packages/plateforme/src/app/api/v1/gestionnaire/mon-organisation/users/[id]/route.ts",
-    "packages/plateforme/tests/api/gestionnaire/espace-gestionnaire.m3-2.test.ts"
+    "packages/plateforme/tests/api/gestionnaire/espace-gestionnaire.m3-2.test.ts",
+    "supabase/migrations/20260705130000_plateforme_r19b_gest04_benchmark_7params.sql",
+    "supabase/migrations/20260705140000_plateforme_r19b_benchmark_filtres_parc.sql",
+    "supabase/tests/r19b_gest04_benchmark_ponderee.test.sql",
+    "packages/plateforme/tests/ui/espace-gestionnaire.m3-2.test.tsx",
+    "packages/plateforme/tests/api/dashboards/benchmark-encart.m3-2.test.ts",
+    "packages/plateforme/src/components/dashboards/BenchmarkGauge.tsx",
+    "packages/plateforme/src/components/dashboards/BenchmarkFilterBar.tsx",
+    "packages/plateforme/src/components/dashboards/MultiSelectFilter.tsx",
+    "packages/plateforme/src/app/api/v1/dashboards/benchmark/route.ts",
+    "packages/plateforme/src/app/api/v1/dashboards/benchmark/filtres/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/dashboard-client/benchmark/route.ts"
   ],
   "scenarios": [
     "M3.2/auth_guard_non_gestionnaire_401",
@@ -55,7 +66,17 @@
     "M3.2/F5_invitation_role_escalade_interdit",
     "M3.2/F5_desactivation_membre_actif",
     "M3.2/F5_auto_desactivation_interdite",
-    "M3.2/F6_factures_self_uniquement"
+    "M3.2/F6_factures_self_uniquement",
+    "M3.2/GEST01_bouton_programmer_present",
+    "M3.2/GEST02_form_cas_gestionnaire",
+    "M3.2/GEST03_kpi_affiches_cle_kpis",
+    "M3.2/GEST04_benchmark_gauge_moyenne_ponderee",
+    "M3.2/GEST04_encart_filtres_present",
+    "M3.2/GEST04_encart_choix_taille",
+    "M3.2/GEST04_filtres_gestionnaire_listes_parc",
+    "M3.2/GEST04_filtres_traiteur_sans_liste_traiteurs",
+    "M3.2/GEST04_route_forward_7_params",
+    "M3.2/GEST04_route_traiteur_lieu_filter_403"
   ],
   "deliverables": [
     {
@@ -249,9 +270,50 @@
       "test": "M3.2/F6_factures_self_uniquement",
       "statut": "implemented",
       "libelle": "M3.2/F6_factures_self_uniquement"
+    },
+    {
+      "id": "BL-P1-GEST-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:89",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx",
+      "test": "M3.2/GEST01_bouton_programmer_present",
+      "statut": "implemented",
+      "libelle": "Bouton primaire « Programmer un événement » — bandeau actions rapides du dashboard (§06.05, pas de section Collectes en V1)"
+    },
+    {
+      "id": "BL-P1-GEST-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:24",
+      "artefact": "packages/plateforme/src/app/(programmation)/programmer/nouveau/page.tsx",
+      "test": "M3.2/GEST02_form_cas_gestionnaire",
+      "statut": "implemented",
+      "libelle": "Formulaire partagé cas Gestionnaire : lieu filtré organisations_lieux, traiteur référentiel, blocage AG sans pack actif"
+    },
+    {
+      "id": "BL-P1-GEST-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:112",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx",
+      "test": "M3.2/GEST03_kpi_affiches_cle_kpis",
+      "statut": "implemented",
+      "libelle": "KPI dashboard Bloc 1 affichés (client lit data.kpis — fix EmptyState systématique kpi/kpis)"
+    },
+    {
+      "id": "BL-P1-GEST-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2098",
+      "artefact": "supabase/migrations/20260705130000_plateforme_r19b_gest04_benchmark_7params.sql",
+      "test": "supabase/tests/r19b_gest04_benchmark_ponderee.test.sql — GEST04-1..14 (signature 7 params, grain flux×type×taille, colonnes CDC, moyenne pondérée, k-anonymat, garde traiteur, listes parc) + M3.2/GEST04_benchmark_gauge_moyenne_ponderee",
+      "statut": "implemented",
+      "libelle": "f_benchmark_kg_pax_zd conforme CDC §04 : 7 params + grain (flux×type×taille) + colonnes exposées (kg_par_pax_moyen, nb_collectes_segment, nb_organisations_distinctes) + moyenne pondérée par tonnage (ex 2 params/médiane)"
+    },
+    {
+      "id": "BL-P1-GEST-04-ENCART",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:148",
+      "artefact": "packages/plateforme/src/components/dashboards/BenchmarkFilterBar.tsx",
+      "test": "M3.2/GEST04_encart_filtres_present + M3.2/GEST04_encart_choix_taille + M3.2/GEST04_filtres_gestionnaire_listes_parc + M3.2/GEST04_route_forward_7_params",
+      "statut": "implemented",
+      "libelle": "Encart « Filtres benchmark » §06.05 Bloc 3 : 5 critères (période+raccourcis, lieux parc, traiteurs parc, type, taille), init 12 mois, Réinitialiser, avertissement comparaison-à-soi, listes parc SECURITY DEFINER + garde compétitive traiteurs, légende couleur 100/130 %. NB : l'héritage Type/Taille depuis les filtres globaux (CDC l.160) est vacant tant que BL-P2-12 (P2) n'a pas ajouté Type/Taille à la barre globale — défaut « Tous » en attendant."
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "8ccead5e1df3c20bf13ce8f1996e95cedaa141a06863199a132e4b91c84457cf"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "8ccead5e1df3c20bf13ce8f1996e95cedaa141a06863199a132e4b91c84457cf",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "0e6ba31bc8391ca885302996edbc082cf8f426c3c342dee48429c35b17f4ad2a"
   }
 }

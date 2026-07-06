@@ -14,32 +14,21 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const supabase = createAdminSupabaseClient();
   const { searchParams } = new URL(req.url);
+  // bracket → filtre taille de la fonction 7-params (BL-P1-GEST-04) ; flux_code
+  // filtré client-side dans BenchmarkGauge.
   const bracket = searchParams.get('bracket');
-  const fluxCode = searchParams.get('flux_code');
 
   const allBrackets = ['XS', 'S', 'M', 'L', 'XL'];
-  const bracketsToQuery = bracket ? [bracket] : allBrackets;
+  const { data, error } = await supabase.rpc('f_benchmark_kg_pax_zd', {
+    p_taille_evenement_codes: bracket ? [bracket] : allBrackets,
+  });
 
-  const results = await Promise.all(
-    bracketsToQuery.map((b) =>
-      supabase.rpc('f_benchmark_kg_pax_zd', {
-        p_bracket: b,
-        ...(fluxCode ? { p_flux_code: fluxCode } : {}),
-      }),
-    ),
-  );
-
-  const firstError = results.find((r) => r.error);
-  if (firstError?.error) {
-    return NextResponse.json(
-      { error: firstError.error.message },
-      { status: 500 },
-    );
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const data = results.flatMap((r) => r.data ?? []);
   return NextResponse.json(
-    { data },
+    { data: data ?? [] },
     { headers: { 'Cache-Control': 'private, max-age=300' } },
   );
 }

@@ -3730,10 +3730,13 @@ export type Database = {
     Views: {
       mv_benchmark_kg_pax_zd_base: {
         Row: {
-          bracket: string | null
+          flux_id: string | null
           flux_code: string | null
-          median_kg_pax: number | null
-          nb_collectes: number | null
+          type_evenement_id: string | null
+          taille_evenement: string | null
+          kg_par_pax_moyen: number | null
+          nb_collectes_segment: number | null
+          nb_organisations_distinctes: number | null
         }
         Relationships: []
       }
@@ -4380,13 +4383,32 @@ export type Database = {
       }
       f_audit_user: { Args: never; Returns: string }
       f_benchmark_kg_pax_zd: {
-        Args: { p_bracket: string; p_flux_code?: string }
+        Args: {
+          p_flux_id?: string
+          p_type_evenement_ids?: string[]
+          p_taille_evenement_codes?: string[]
+          p_periode_debut?: string
+          p_periode_fin?: string
+          p_lieu_ids?: string[]
+          p_traiteur_ids?: string[]
+        }
         Returns: {
-          bracket: string
+          flux_id: string
           flux_code: string
-          median_kg_pax: number
-          nb_collectes: number
+          type_evenement_id: string
+          taille_evenement: string
+          kg_par_pax_moyen: number
+          nb_collectes_segment: number
+          nb_organisations_distinctes: number
         }[]
+      }
+      f_benchmark_lieux_parc: {
+        Args: Record<PropertyKey, never>
+        Returns: { id: string; nom: string }[]
+      }
+      f_benchmark_traiteurs_parc: {
+        Args: Record<PropertyKey, never>
+        Returns: { id: string; nom: string }[]
       }
       f_benchmark_single_collecte: {
         Args: { p_collecte_id: string }

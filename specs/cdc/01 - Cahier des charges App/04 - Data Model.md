@@ -2126,36 +2126,31 @@ Implémentation : **fonction PostgreSQL** `f_benchmark_kg_pax_zd(p_flux_id, p_ty
 
 **Performance** : à matérialiser via une table intermédiaire `mv_benchmark_kg_pax_zd_base` rafraîchie quotidiennement (5 dimensions = `flux_id × type_evenement_id × taille_evenement × jour × lieu_id × traiteur_id` — cardinalité maîtrisable à volume V1). La fonction `f_benchmark_kg_pax_zd` interroge cette table matérialisée (≤ 200 ms attendus). Si le coût stockage dérive en V2, basculer en agrégation à la volée avec index ciblés (cf. [[14 - Scalabilité et évolutivité]]).
 
-#### Extension grain `single_collecte` (refonte 2026-05-05)
+#### Grain `single_collecte` — fonction dédiée `f_benchmark_single_collecte` (refonte 2026-05-05 — aligné as-built 2026-07-06, divergence M3.2)
 
-Pour alimenter le Bloc 3 ZD jauges sur la fiche collecte traiteur §06.04, la fonction est étendue avec un nouveau paramètre `p_collecte_id uuid` (nullable).
+Pour alimenter le Bloc 3 ZD jauges sur la fiche collecte traiteur §06.04, le grain `single_collecte` est servi par une **fonction dédiée** `plateforme.f_benchmark_single_collecte(p_collecte_id uuid)` — **pas** par une extension de signature de `f_benchmark_kg_pax_zd`. La fonction dédiée réutilise `f_benchmark_kg_pax_zd`, filtrée sur le `(type_evenement × taille_evenement)` du segment de la collecte, pour établir le point de comparaison (benchmark parc).
 
-**Signature étendue** :
+**Signature** :
 ```sql
-f_benchmark_kg_pax_zd(
-  p_flux_id uuid,
-  p_type_evenement_ids uuid[],
-  p_taille_evenement_codes text[],
-  p_periode_debut date,
-  p_periode_fin date,
-  p_lieu_ids uuid[],
-  p_traiteur_ids uuid[],
-  p_collecte_id uuid DEFAULT NULL  -- nouveau, refonte 2026-05-05
+f_benchmark_single_collecte(
+  p_collecte_id uuid
 ) RETURNS TABLE (
-  ratio_user numeric,        -- nouveau : ratio kg/pax côté demandeur (1 collecte si p_collecte_id NOT NULL, sinon agrégat existant)
-  ratio_benchmark numeric,   -- inchangé : moyenne parc selon filtres benchmark
-  nb_collectes_segment integer,
-  ...
+  flux_code text,              -- flux ZD de la collecte
+  taille_evenement text,       -- segment (taille) de l'événement de la collecte
+  ratio_user numeric,          -- ratio kg/pax de cette collecte (poids_kg_flux / pax_evenement)
+  benchmark_kg_pax numeric,    -- moyenne pondérée du parc sur le segment (type × taille), via f_benchmark_kg_pax_zd
+  nb_collectes_segment integer -- effectif du segment de comparaison
 );
 ```
 
 **Comportement** :
-- Si `p_collecte_id IS NULL` (cas dashboards §05/§06.04) → `ratio_user` = agrégat sur les filtres globaux du demandeur (RLS appliqué). Comportement existant inchangé.
-- Si `p_collecte_id IS NOT NULL` (cas fiche collecte §06.04) → `ratio_user` = `(poids_kg_flux_de_cette_collecte / pax_evenement)` calculé directement depuis `collecte_flux` + `evenements` jointe via `collectes`. RLS standard appliquée (le demandeur doit avoir accès à la collecte).
-- `ratio_benchmark` calculé selon `p_*_benchmark` (paramètres benchmark) dans les deux cas.
-- K-anonymat ≥5 toujours appliqué sur `ratio_benchmark` uniquement (le ratio user est par définition une donnée du demandeur, pas anonymisable).
+- `ratio_user` = `(poids_kg_flux_de_cette_collecte / pax_evenement)`, calculé depuis `collecte_flux` + `evenements` jointe via `collectes`. RLS standard appliquée (le demandeur doit avoir accès à la collecte).
+- `benchmark_kg_pax` = moyenne pondérée du parc (refonte 2026-05-30, `kg_par_pax_moyen`) obtenue en appelant `f_benchmark_kg_pax_zd` avec les `p_type_evenement_ids` + `p_taille_evenement_codes` du segment de la collecte.
+- K-anonymat ≥5 appliqué sur `benchmark_kg_pax` uniquement (le `ratio_user` est par définition une donnée du demandeur, pas anonymisable).
 
-**Garde supplémentaire** : si `p_collecte_id IS NOT NULL` ET la collecte référencée n'est pas accessible via RLS au rôle courant → `RAISE EXCEPTION 'Collecte not accessible'` (fail fast).
+**Garde** : si la collecte référencée n'est pas accessible via RLS au rôle courant → `RAISE EXCEPTION 'Collecte not accessible'` (fail fast).
+
+> **Note as-built (divergence M3.2, 2026-07-06)** : la fonction est implémentée et **recâblée sur la nouvelle signature** de `f_benchmark_kg_pax_zd` (valeur servie = moyenne pondérée correcte), mais **actuellement inerte** (0 consommateur front — la fiche collecte §06.04 ne l'appelle pas encore). Les noms de colonnes de sortie ci-dessus sont la forme canonique cible ; l'as-built expose encore `bracket`/`valeur_kg_pax`/`median_kg_pax`, **à normaliser au câblage front §06.04**.
 
 > ⚠ **NON CRÉÉ V1 (audit sobriété §04 2026-05-25, A1)** : les 6 tables ci-dessous (`briefs_evenement`, `referentiel_categories`, `referentiel_items`, `brief_items`, `impact_calculs`, `impact_synthese_evenement`) **ne sont pas créées en V1**. Anticipation retirée du schéma V1 : zéro interface/règle/API V1, et sous Supabase l'ajout en V2 est une migration triviale (l'argument « zéro migration V2 » n'achète rien et ajoute 6 tables + RLS à maintenir + un risque que le dev code dessus par erreur). La spec ci-dessous est **conservée comme référence V2** (Module 19).
 

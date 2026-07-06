@@ -341,3 +341,185 @@ describe('M3.2 / P2 dashboard filtres globaux', () => {
     expect(json.data.kpis.tonnage_kg).toBe(400);
   });
 });
+
+// ── Export CSV : respecte les filtres actifs (§06.05 l.338) ───────────────────
+describe('M3.2 / P2 export CSV filtres', () => {
+  it('M3.2/P2_export_csv_respecte_filtre_taille — seule la taille filtrée est exportée', async () => {
+    setupAuth();
+    rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null }); // organisations_lieux
+    rls.push({
+      data: [
+        {
+          id: 'e-s',
+          nom_evenement: 'PetitEvt',
+          date_evenement: '2026-06-01',
+          pax: 300, // S
+          traiteur_operationnel_organisation_id: 'tr1',
+          lieux: { nom: 'A' },
+          types_evenements: { libelle: 'Gala' },
+          collectes: [
+            {
+              id: 'c-s',
+              type: 'zero_dechet',
+              statut: 'cloturee',
+              date_collecte: '2026-06-01',
+              taux_recyclage: 0.8,
+              collecte_flux: [{ poids_reel_kg: 100 }],
+            },
+          ],
+        },
+        {
+          id: 'e-m',
+          nom_evenement: 'GrandEvt',
+          date_evenement: '2026-06-02',
+          pax: 600, // M
+          traiteur_operationnel_organisation_id: 'tr1',
+          lieux: { nom: 'B' },
+          types_evenements: { libelle: 'Gala' },
+          collectes: [
+            {
+              id: 'c-m',
+              type: 'zero_dechet',
+              statut: 'cloturee',
+              date_collecte: '2026-06-02',
+              taux_recyclage: 0.8,
+              collecte_flux: [{ poids_reel_kg: 400 }],
+            },
+          ],
+        },
+      ],
+      error: null,
+    }); // evenements
+    // resolveTraiteurNoms → v_referentiel_traiteurs (pas d'AG → resolveRepas ne requête pas)
+    rls.push({
+      data: [{ id: 'tr1', nom: 'Kaspia', raison_sociale: 'Kaspia SAS' }],
+      error: null,
+    });
+
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/evenements/export-csv/route.js');
+    const res = await GET(
+      makeReq(
+        '/api/v1/gestionnaire/evenements/export-csv?taille_evenements[]=M',
+      ),
+    );
+    const csv = await res.text();
+    expect(csv).toContain('GrandEvt');
+    expect(csv).not.toContain('PetitEvt');
+  });
+});
+
+// ── Détail Lieu : capacité + photos + collectes (graphique) ───────────────────
+describe('M3.2 / P2 détail lieu', () => {
+  it('M3.2/P2_lieu_detail_capacite_photos_collectes — champs rendus retournés', async () => {
+    setupAuth();
+    rls.push({
+      data: {
+        id: 'lieu-1',
+        nom: 'Palais',
+        adresse_acces: '2 place',
+        code_postal: '75017',
+        ville: 'Paris',
+        region: 'ile_de_france',
+        type_vehicule_max: 'poids_lourd',
+        capacite_maximum: 3500,
+        acces_office: true,
+        stationnement: 'facile',
+        photos_urls: ['https://r2/p1.jpg'],
+        flux_autorises: ['biodechet'],
+      },
+      error: null,
+    }); // v_lieux_clients maybeSingle
+    rls.push({
+      data: [
+        {
+          id: 'c1',
+          type: 'zero_dechet',
+          statut: 'cloturee',
+          date_collecte: '2026-06-01',
+          taux_recyclage: 0.9,
+          evenements: {
+            lieu_id: 'lieu-1',
+            organisations: { id: 'tr1', nom: 'Kaspia' },
+          },
+          collecte_flux: [{ poids_reel_kg: 250 }],
+        },
+      ],
+      error: null,
+    }); // collectes
+
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/lieux/[id]/route.js');
+    const res = await GET(makeReq('/api/v1/gestionnaire/lieux/lieu-1'), {
+      params: Promise.resolve({ id: 'lieu-1' }),
+    });
+    const json = (await res.json()) as {
+      data: {
+        capacite_maximum: number;
+        photos_urls: string[];
+        collectes: { collecte_flux: { poids_reel_kg: number }[] }[];
+      };
+    };
+    expect(json.data.capacite_maximum).toBe(3500);
+    expect(json.data.photos_urls).toEqual(['https://r2/p1.jpg']);
+    expect(json.data.collectes).toHaveLength(1);
+    expect(json.data.collectes[0]?.collecte_flux[0]?.poids_reel_kg).toBe(250);
+  });
+});
+
+// ── Détail Traiteur : historique collectes (§06.05 l.439) ─────────────────────
+describe('M3.2 / P2 détail traiteur', () => {
+  it('M3.2/P2_traiteur_detail_historique — historique_collectes avec lieu_nom + statut', async () => {
+    setupAuth();
+    rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null }); // organisations_lieux
+    rls.push({
+      data: {
+        id: 'tr1',
+        nom: 'Kaspia',
+        logo_url: null,
+        ville: 'Paris',
+        description_activite: null,
+      },
+      error: null,
+    }); // orga maybeSingle
+    rls.push({
+      data: [
+        {
+          id: 'c1',
+          type: 'zero_dechet',
+          statut: 'cloturee',
+          date_collecte: '2026-06-01',
+          taux_recyclage: 0.9,
+          evenements: {
+            lieu_id: 'lieu-1',
+            traiteur_operationnel_organisation_id: 'tr1',
+            lieux: { nom: 'Palais des Congrès' },
+          },
+          collecte_flux: [{ poids_reel_kg: 200 }],
+          attributions_antgaspi: [],
+        },
+      ],
+      error: null,
+    }); // collectes
+
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/traiteurs/[id]/route.js');
+    const res = await GET(makeReq('/api/v1/gestionnaire/traiteurs/tr1'), {
+      params: Promise.resolve({ id: 'tr1' }),
+    });
+    const json = (await res.json()) as {
+      data: {
+        historique_collectes: {
+          lieu_nom: string | null;
+          statut: string;
+          type: string;
+        }[];
+      };
+    };
+    expect(json.data.historique_collectes).toHaveLength(1);
+    expect(json.data.historique_collectes[0]?.lieu_nom).toBe(
+      'Palais des Congrès',
+    );
+    expect(json.data.historique_collectes[0]?.statut).toBe('cloturee');
+  });
+});

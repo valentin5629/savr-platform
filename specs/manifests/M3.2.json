@@ -99,7 +99,10 @@
     "M3.2/P2_encart_herite_type_taille",
     "M3.2/P2_evenements_colonnes_rendues",
     "M3.2/P2_lieux_colonne_capacite",
-    "M3.2/P2_traiteurs_colonne_lieux"
+    "M3.2/P2_traiteurs_colonne_lieux",
+    "M3.2/P2_export_csv_respecte_filtre_taille",
+    "M3.2/P2_lieu_detail_capacite_photos_collectes",
+    "M3.2/P2_traiteur_detail_historique"
   ],
   "deliverables": [
     {
@@ -346,7 +349,7 @@
       "id": "BL-P2-12",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:99",
       "artefact": "packages/plateforme/src/components/dashboards/DashboardFilterBar.tsx",
-      "test": "M3.2/P2_dashboard_barre_5_filtres + M3.2/P2_dashboard_compteur_collectes + M3.2/P2_dashboard_carte_kpi_cliquable + M3.2/P2_dashboard_filtre_taille + M3.2/P2_filtres_options_parc + M3.2/P2_filtres_vide_si_aucun_perimetre + M3.2/P2_evenements_colonnes_rendues + M3.2/P2_evenements_colonnes_et_champs_plats + M3.2/P2_evenements_filtre_taille + M3.2/P2_lieux_colonne_capacite + M3.2/P2_traiteurs_colonne_lieux + M3.2/P2_traiteurs_lieux_intervention_noms + M3.2/P2_encart_herite_type_taille",
+      "test": "M3.2/P2_dashboard_barre_5_filtres + M3.2/P2_dashboard_compteur_collectes + M3.2/P2_dashboard_carte_kpi_cliquable + M3.2/P2_dashboard_filtre_taille + M3.2/P2_filtres_options_parc + M3.2/P2_filtres_vide_si_aucun_perimetre + M3.2/P2_evenements_colonnes_rendues + M3.2/P2_evenements_colonnes_et_champs_plats + M3.2/P2_evenements_filtre_taille + M3.2/P2_export_csv_respecte_filtre_taille + M3.2/P2_lieux_colonne_capacite + M3.2/P2_lieu_detail_capacite_photos_collectes + M3.2/P2_traiteurs_colonne_lieux + M3.2/P2_traiteurs_lieux_intervention_noms + M3.2/P2_traiteur_detail_historique + M3.2/P2_encart_herite_type_taille",
       "statut": "implemented",
       "libelle": "Listes + filtres gestionnaire (§06.05 §1/§2/§3/§5) : (1) barre de filtres GLOBALE dashboard 5 filtres — Période + Lieux + Traiteurs + Type d'événement + Taille (l.99-107), compteur « X collectes correspondent » (l.110), cartes KPI cliquables → liste Événements filtrée (l.130) ; (2) liste Événements — colonnes Tonnage total / Déchets labo estimés / Repas donnés (l.309-311) + barre 7 filtres (5 globaux + Type de collecte + Statut consolidé, l.280-293) + champs plats lieu_nom/traiteur_nom (fix mismatch latent) + export CSV respecte les filtres (l.338) ; (3) liste Lieux — colonne Capacité (capacite_maximum exposée via v_lieux_clients ; colonne Type OMISE, cf. _Divergences/M3.2_20260706_lieux_type.md) + détail lieu Capacité/Stationnement/Photos/graphique évolution 12 mois (l.366-372) ; (4) liste Traiteurs — colonne Lieux d'intervention (l.432) + détail traiteur historique collectes (l.439) ; (5) endpoint /api/v1/gestionnaire/filtres (options parc org) ; (6) héritage Type/Taille de l'encart benchmark débloqué (l.160)."
     },

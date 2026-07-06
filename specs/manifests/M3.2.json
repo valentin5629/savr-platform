@@ -361,6 +361,30 @@
       "test": "M3.2/P2_nav_pack_masque_si_absent + M3.2/P2_nav_pack_affiche_si_present",
       "statut": "implemented",
       "libelle": "Nav gestionnaire — conditionnel « Mon pack AG » (CDC l.71) : l'entrée est masquée si l'organisation n'a aucun packs_antgaspi (count serveur dans le layout → hiddenNavHrefs filtré dans Sidebar/BottomNav/AppShell). ⚠ Override Val 2026-07-06 : les entrées « Collectes » (/gestionnaire/collectes) et « Registre réglementaire » (/registre) sont CONSERVÉES (9 entrées, pas 7) — inversion assumée de la décision CDC §06.05 l.79 « Pas de section Collectes », cf. _Divergences/M3.2_20260706_nav_collectes_registre.md (type: ambigu, CDC à re-synchroniser)."
+    },
+    {
+      "id": "M3.2-bloc2-zd",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:138",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/charts/EvolutionFluxChart.tsx",
+      "test": "M3.2/dash_bloc2_bloc4_zd_montes — Évolution + donut sur l’onglet ZD",
+      "statut": "implemented",
+      "libelle": "Bloc 2 ZD — évolution mensuelle : barres empilées des 5 flux + courbe taux de recyclage (composant §11 partagé)"
+    },
+    {
+      "id": "M3.2-bloc2-ag",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:224",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/charts/EvolutionRepasChart.tsx",
+      "test": "M3.2/dash_bloc4_zd_only — pas de donut sur l’onglet AG",
+      "statut": "implemented",
+      "libelle": "Bloc 2 AG — évolution mensuelle : courbe repas donnés + ratio repas/pax (composant §11 partagé)"
+    },
+    {
+      "id": "M3.2-bloc4-donut",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:184",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/charts/TonnagesDonut.tsx",
+      "test": "M3.2/dash_bloc2_bloc4_zd_montes — Évolution + donut sur l’onglet ZD",
+      "statut": "implemented",
+      "libelle": "Bloc 4 ZD — donut répartition des tonnages 5 flux + total au centre (ZD only, composant §11 partagé)"
     }
   ],
   "cdc_source_hash": {

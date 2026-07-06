@@ -8,9 +8,16 @@ import {
   BenchmarkGauge,
   TonnageDisplay,
   EmptyDashboardState,
+  FLUX_ZD,
+  useEvolutionBlocs,
   type CollecteType,
   type DashboardFilters,
 } from '@/components/dashboards/index.js';
+import {
+  EvolutionFluxChart,
+  EvolutionRepasChart,
+  TonnagesDonut,
+} from '@/components/dashboards/charts/lazy.js';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -25,14 +32,6 @@ interface KpiRow {
   marge_zd_ht: number | null;
   pax_total: number;
 }
-
-const FLUX_ZD = [
-  { code: 'biodechet', label: 'Biodéchets' },
-  { code: 'emballage', label: 'Emballages' },
-  { code: 'carton', label: 'Cartons' },
-  { code: 'verre', label: 'Verre' },
-  { code: 'dechet_residuel', label: 'Déchet résiduel' },
-];
 
 function formatEuro(v: number): string {
   return new Intl.NumberFormat('fr-FR', {
@@ -54,6 +53,9 @@ export default function TraiteurDashboardPage() {
   const [loading, setLoading] = useState(true);
 
   const handleFilters = useCallback((f: DashboardFilters) => setFilters(f), []);
+
+  // Bloc 2 (évolution) + Bloc 4 (donut) — série partagée §11 par onglet actif.
+  const { granularite, zdSeries, agSeries } = useEvolutionBlocs(filters, tab);
 
   useEffect(() => {
     if (!filters) return;
@@ -195,6 +197,26 @@ export default function TraiteurDashboardPage() {
             </div>
           )}
 
+          {/* Bloc 2 — Évolution mensuelle (§06.04 Bloc 2) */}
+          <Card data-testid="bloc-2-traiteur">
+            <CardHeader>
+              <CardTitle>Évolution mensuelle</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {tab === 'zero_dechet' ? (
+                <EvolutionFluxChart
+                  series={zdSeries}
+                  granularite={granularite}
+                />
+              ) : (
+                <EvolutionRepasChart
+                  series={agSeries}
+                  granularite={granularite}
+                />
+              )}
+            </CardContent>
+          </Card>
+
           {/* Bloc 3 ZD — jauges benchmark / Bloc 4 AG — Mon pack AG */}
           {tab === 'zero_dechet' ? (
             <Card>
@@ -244,6 +266,18 @@ export default function TraiteurDashboardPage() {
                 </CardContent>
               </Card>
             )
+          )}
+
+          {/* Bloc 4 ZD — Répartition des tonnages (donut, §06.04 Bloc 4) */}
+          {tab === 'zero_dechet' && (
+            <Card data-testid="bloc-4-traiteur">
+              <CardHeader>
+                <CardTitle>Répartition des tonnages</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <TonnagesDonut series={zdSeries} />
+              </CardContent>
+            </Card>
           )}
 
           {/* Bloc 8 — Export synthèse PDF (mécanique complète : lot ⑫ V4) */}

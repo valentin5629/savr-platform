@@ -23,11 +23,27 @@
     },
     {
       "id": "BL-P1-PARITE-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md",
-      "artefact": null,
-      "test": null,
-      "statut": "à-vérifier",
-      "libelle": "Blocs §11 manquants — cluster parité 3 rôles"
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:64",
+      "artefact": "packages/plateforme/src/components/dashboards/charts/",
+      "test": "M3.5/chart_flux_legende_5_flux — légende des 5 flux ZD rendue",
+      "statut": "partial",
+      "libelle": "Blocs §11 partagés — R20a monte Bloc 2 (barres/courbe) + Bloc 4 donut sur les 3 rôles ; Bloc 5/6/7 + Bloc 3 AG assos + encart benchmark = R20b"
+    },
+    {
+      "id": "M3.5-charts-lib",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:83",
+      "artefact": "packages/plateforme/src/components/dashboards/charts/",
+      "test": "M3.5/chart_donut_total_centre — total au centre = somme des flux",
+      "statut": "implemented",
+      "libelle": "Lib charting (recharts, lazy-load) + composants §11 partagés réutilisés par rôle (EvolutionFluxChart, EvolutionRepasChart, TonnagesDonut, palette FLUX_ZD)"
+    },
+    {
+      "id": "M3.5-evolution-endpoint",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:116",
+      "artefact": "packages/plateforme/src/app/api/v1/dashboards/evolution/route.ts",
+      "test": "M3.5/evolution_zd_barres_5_flux_taux_pondere — sommes par flux + taux pondéré (exclut NULL)",
+      "statut": "implemented",
+      "libelle": "Endpoint partagé /dashboards/evolution (traiteur/agence/gestionnaire) — série par flux/mois + repas/pax AG, granularité auto, périmètre par rôle"
     },
     {
       "id": "BL-P1-PARITE-02",
@@ -35,15 +51,15 @@
       "artefact": null,
       "test": null,
       "statut": "à-vérifier",
-      "libelle": "Export PDF synthèse (stub « V4 » non descopé)"
+      "libelle": "Export PDF synthèse (stub « V4 » non descopé) — implémenté en R20b"
     },
     {
       "id": "BL-P2-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md",
-      "artefact": null,
-      "test": null,
-      "statut": "à-vérifier",
-      "libelle": "Dashboard Admin Bloc 2 Revenus"
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:37",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/dashboard/revenus-organisations/route.ts",
+      "test": "M3.5/admin_revenus_6_colonnes — nom · type · nb/CA ZD · nb/CA AG",
+      "statut": "implemented",
+      "libelle": "Dashboard Admin Bloc 2 Revenus — tableau 6 colonnes (nom/type/nb ZD/CA ZD/nb AG/CA AG), nb depuis collectes + montant depuis factures, période/tri/pagination corrigée/CSV + histogramme 12 mois monté"
     },
     {
       "id": "BL-P2-11",

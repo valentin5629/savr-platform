@@ -9,11 +9,18 @@ import {
   BenchmarkFilterBar,
   TonnageDisplay,
   EmptyDashboardState,
+  FLUX_ZD,
+  useEvolutionBlocs,
   type CollecteType,
   type DashboardFilters,
   type BenchmarkFilters,
   type ParcFilterOptions,
 } from '@/components/dashboards/index.js';
+import {
+  EvolutionFluxChart,
+  EvolutionRepasChart,
+  TonnagesDonut,
+} from '@/components/dashboards/charts/lazy.js';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -34,14 +41,6 @@ interface PackActif {
   nb_collectes_restantes: number;
   statut: string;
 }
-
-const FLUX_ZD = [
-  { code: 'biodechet', label: 'Biodéchets' },
-  { code: 'emballage', label: 'Emballages' },
-  { code: 'carton', label: 'Cartons' },
-  { code: 'verre', label: 'Verre' },
-  { code: 'dechet_residuel', label: 'Déchet résiduel' },
-];
 
 // Carte KPI cliquable → liste Événements avec les filtres globaux + Type ZD/AG selon
 // l'onglet actif (§06.05 l.130).
@@ -82,6 +81,9 @@ export default function GestionnaireDashboardPage() {
     (f: BenchmarkFilters) => setBenchmarkFilters(f),
     [],
   );
+
+  // Bloc 2 (évolution) + Bloc 4 (donut) — série partagée §11, honore les filtres parc.
+  const { granularite, zdSeries, agSeries } = useEvolutionBlocs(filters, tab);
 
   // Options des filtres globaux (Lieux/Traiteurs/Type du parc de l'organisation).
   useEffect(() => {
@@ -222,6 +224,26 @@ export default function GestionnaireDashboardPage() {
             </div>
           )}
 
+          {/* Bloc 2 — Évolution mensuelle (§06.05 Bloc 2) */}
+          <Card data-testid="bloc-2-gestionnaire">
+            <CardHeader>
+              <CardTitle>Évolution mensuelle</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {tab === 'zero_dechet' ? (
+                <EvolutionFluxChart
+                  series={zdSeries}
+                  granularite={granularite}
+                />
+              ) : (
+                <EvolutionRepasChart
+                  series={agSeries}
+                  granularite={granularite}
+                />
+              )}
+            </CardContent>
+          </Card>
+
           {tab === 'zero_dechet' ? (
             <Card>
               <CardHeader>
@@ -272,6 +294,18 @@ export default function GestionnaireDashboardPage() {
                 </CardContent>
               </Card>
             )
+          )}
+
+          {/* Bloc 4 ZD — Répartition des tonnages (donut, §06.05 Bloc 4) */}
+          {tab === 'zero_dechet' && (
+            <Card data-testid="bloc-4-gestionnaire">
+              <CardHeader>
+                <CardTitle>Répartition des tonnages</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <TonnagesDonut series={zdSeries} />
+              </CardContent>
+            </Card>
           )}
         </>
       )}

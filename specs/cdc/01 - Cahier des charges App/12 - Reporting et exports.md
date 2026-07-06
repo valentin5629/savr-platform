@@ -1,7 +1,5 @@
 # 12 - Reporting et exports
 
-**Statut** : Validé V1
-**Dernière mise à jour** : 2026-06-07 (**Session test-scenarios lot ⑫ — 5 floues tranchées Val** : **F1** persistance rapport « sans excédent » §1.3-bis = **ligne `rapports_rse` standard** (pas de colonne type, `disponible_a = genere_at` — pas d'embargo, `entity_type` `shared.fichiers` = `rapports_rse` existant) ; **F2** alerte pesées anormales §1.5 = **alerte in-app back-office seule** (email immédiat retiré — pas de 20e template §06.02) ; **F3** régénération manuelle traiteur_manager §1.2 = **Edge Function SERVICE_ROLE** avec contrôle applicatif du périmètre org (policy A8 §09 inchangée + test P1 anti-régénération cross-org) ; **F4** inclusion synthèse §1.6 = prédicat explicite `statut = cloturee AND realisee_at + 24h ≤ now()` ; **F5** histogramme Revenus §11 = statuts `emise|payee`, avoirs en négatif. Scénarios : `tests/11-12-dashboards-reporting-scenarios.md`.) / Antérieure : 2026-06-03 (**Revue de sobriété §12 Reporting et exports (skill `cdc-review-sobriete`) — 4 items appliqués zéro dette.** A1 : lien de partage public horodaté 90j **reporté V1.1** (aligné QR code) → V1 le `traiteur_manager` télécharge + transmet par email (propagé §05 + §15 + §16). A2 (PDF « sans excédent ») et B1 (graphes synthèse §1.6) **gardés V1** (refusés Val). **B2 ANNULÉE le 2026-06-03 (arbitrage Val, session sobriété §06.04)** : snapshot des filtres benchmark **rétabli** (PDF reproductible), colonne `rapports_rse.filtres_benchmark` **rétablie** + **légende des filtres ajoutée sous le graphe benchmark** du PDF (propagé §04 + §06.04 + §06.11) ; taux de recyclage reste figé (`collectes.taux_recyclage`). C1 : embargo H+24 = **énoncé canonique unique** en Vue d'ensemble (départ = `collectes.realisee_at`, fenêtre `rapports_rse.disponible_a`), §1.2/§1.3 y renvoient. C2 : notice CSRD = **une version canonique** (courte), longue conservée comme matériau post-dev. **6 fichiers App édités** (§12 + §05 + §15 + §16 + §04 + §06.04 + §06.11). **Cross-CDC : 0 divergence** (reporting Plateforme-only). Précédent : 2026-05-12 (note "À INTÉGRER LORS DE LA FINALISATION" §1.2 : notice méthodologique CSRD / ESRS E5 / AGEC, versions longue + courte + recommandations placement + QR code preuve d'audit, à finaliser au moment du rendu graphique PDF Rapport de recyclage). Précédent : 2026-05-06 (introduction Taux de recyclage indicateur unique ZD-only, suppression notion "Taux de valorisation". PDF Rapport RSE §1.2 et synthèse §1.6 alignés. Exports CSV ZD enrichis colonne `taux_recyclage`.)
 
 ---
 
@@ -36,7 +34,7 @@ Deux types de sorties documentaires dans la Plateforme Savr :
 
 **Accessibilité** : Admin Savr + traiteur_manager + traiteur_commercial (lecture seule). RLS par `organisation_id`.
 
-**Régénération** : disponible pour Admin Savr uniquement (en cas de correction de pesée post-génération).
+**Régénération** : disponible pour Admin Savr uniquement (en cas de correction de pesée post-génération). **V2 (audit cohérence 2026-07-06)** : également **automatique** à réception d'un webhook S5 `type=correction` TMS (toute source — cf. [[08 - APIs et intégrations]] §1), même mécanique de versionnage.
 
 ---
 
@@ -160,7 +158,7 @@ Justification : l'agence partage ce rapport avec son client final, son branding 
 
 **Accessibilité** : Admin Savr + traiteur_manager + traiteur_commercial. RLS par `organisation_id`.
 
-**Régénération** : Admin Savr uniquement. Si l'association perd son habilitation 2041-GE après génération, les attestations passées restent valides (snapshot).
+**Régénération** : Admin Savr uniquement. **V2 (audit cohérence 2026-07-06)** : également **automatique** à réception d'un webhook S5 `type=correction` TMS (pesée `don_alimentaire` corrigée/tardive — cf. [[08 - APIs et intégrations]] §1). Si l'association perd son habilitation 2041-GE après génération, les attestations passées restent valides (snapshot).
 
 **Régénération automatique sur correction `volume_repas_realise` (décision 2026-05-29)** : lorsque l'Admin corrige manuellement `attributions_antgaspi.volume_repas_realise` (cf. [[06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin)]]), l'attestation de don correspondante est **régénérée automatiquement** pour refléter le chiffre corrigé (document à valeur quasi-juridique). La version précédente est marquée supersédée : indicateur visuel sur le document + date de dernière mise à jour dans l'interface (même mécanisme que la régénération post-correction de pesée du rapport de recyclage §1.2).
 

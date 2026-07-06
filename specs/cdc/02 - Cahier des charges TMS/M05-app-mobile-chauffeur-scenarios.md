@@ -2,7 +2,6 @@
 
 **Source CDC** : §06/M05 (E1→E10, W1→W12) + §05 R_M05.1→R_M05.19 + R6.1/R6.2 (cycle de vie) + §04 tables `pesees`, `types_contenants`, `auth_sessions_tms`, `incidents`, `chauffeurs_geolocalisation` + §08 S3/S5/S9 + §09 RLS chauffeur
 **Généré le** : 2026-06-06
-**Statut** : À implémenter par Claude Code
 
 > **Instructions Claude Code** : ces scénarios sont la source de vérité pour les tests du module M05.
 > Pour chaque scénario :
@@ -36,7 +35,8 @@
 | 5. Idempotence / états | 8 | dédup `event_id`, `realisee→en_cours` interdit, `annulee` terminal, edit pesée post-realisee, DLQ 5 retries, conflit serveur, dédup photo, multi-camions dérivé |
 | 6. Cross-app (TMS → Plateforme) | 7 | S5 payload + agrégation, S9 enum + statut_apres, S3 transitions, HMAC 401, X-API-Version 400, event_id rejoué, entité inconnue |
 | 7. Migration | 0 | **Hors scope M05** (cf. note ci-dessous) |
-| **TOTAL** | **49** | |
+| 8. Revue adversariale concurrence (2026-07-06) | 3 | head-of-line pesée DLQ retient clôture, ordre_pesee attribution serveur concurrente, grâce de flush device-switch 401 |
+| **TOTAL** | **52** | |
 
 > **Note catégorie 7 (migration)** : M05 ne possède pas de check de réconciliation propre dans `04 - Migration/05 - Checks reconciliation.md`. Les chauffeurs, pesées et historiques migrés depuis MTS-1 sont des données d'amont (M06/M01) ; M05 ne fait que les consommer en runtime. Les scénarios de migration sont couverts par les modules sources. Aucun scénario migration M05 V1.
 
@@ -161,11 +161,12 @@ Scénario : ag_aucun_repas_a_collecter
 # Priorité : P1-critique
 
 Scénario : cloture_collecte_zd_avec_pesee
-  Étant donné une collecte ZD en_cours avec au moins 1 pesée enregistrée
+  Étant donné une collecte ZD en_cours avec au moins 1 pesée enregistrée (réécrit 2026-07-06, arbitrage Val RC-M05-01)
   Quand le chauffeur clique "Terminer collecte"
-  Alors statut_operationnel passe à realisee, heure_fin_reelle est renseigné
-  Et le webhook S5 collecte-terminee est émis en batch (pesees agrégées par flux)
-  Et un audit log COLLECTE_REALISEE est créé
+  Alors collecte_tournees.statut_execution passe à 'faite' pour (cette collecte, SA tournée) — statut_operationnel N'est PAS posé directement
+  Et AUCUN S5 n'est émis à ce stade : la collecte passera 'realisee' (date_fin_reelle posée) à la dérivation R6.1 quand toutes ses tournées seront 'terminee', qui insère le S5 terminal unique dans tms.outbox_events
+  Et un audit log COLLECTE_PORTION_TERMINEE est créé
+  Et en mono-camion, la clôture de l'unique tournée (W9) déclenche la dérivation + S5 immédiatement (comportement fonctionnel inchangé)
 ```
 
 ```gherkin
@@ -349,10 +350,11 @@ Scénario : cloture_collecte_zd_sans_pesee_refusee
 # Priorité : P1-critique
 
 Scénario : cloture_tournee_avec_collecte_non_terminale_bloquee
-  Étant donné une tournée en_cours avec au moins une collecte non-terminale (ni realisee, ni realisee_sans_collecte, ni incident, ni annulee)
+  Étant donné une tournée en_cours avec au moins une liaison collecte_tournees.statut_execution='a_faire' et la collecte concernée non terminale (réécrit 2026-07-06, arbitrage Val RC-M05-01)
   Quand le chauffeur ouvre E4
   Alors le bouton "Terminer la tournée" est grisé
-  Et il devient actif uniquement quand toutes les collectes sont terminales
+  Et il devient actif quand, pour chaque collecte de SA tournée : statut_execution IN ('faite','incident') OU la collecte est terminale (realisee_sans_collecte, incident, annulee)
+  Et la gate ne dépend jamais de statut_operationnel='realisee' (dérivé seulement quand toutes les tournées sœurs sont closes — l'ancienne gate créait un livelock multi-camions)
 ```
 
 ```gherkin
@@ -672,6 +674,49 @@ Scénario : webhook_entite_inconnue_tracee_et_alertee
 - **Présélection contenant par stats prestataire (Q11)** : reportée V1.1 — V1 sans présélection.
 - **Multi-langue, audit WCAG, signature AG renforcée (horodatage GPS), feedback post-appel, gestion équipier** : V1.1 (Q9/Q10/Q12/Q13/Q14).
 - **Migration MTS-1** : couverte par modules sources (M06 chauffeurs/véhicules, M01 collectes) — pas de check de réconciliation propre à M05.
+
+---
+
+## Catégorie 8 — Revue adversariale concurrence (ajouts 2026-07-06, arbitrages Val)
+
+```gherkin
+# Source : §06/M05 W11 head-of-line — RC-M05-04
+# Couche : integration
+# Priorité : P1-critique
+
+Scénario : head_of_line_pesee_dlq_retient_cloture
+  Étant donné une queue offline [pesée P1 (collecte X), pesée P2 (X), "Terminer collecte X", pesée P3 (collecte Y)] et P1 échoue 5× (DLQ)
+  Quand la sync W11 s'exécute
+  Alors les items suivants de la collecte X (P2 + "Terminer collecte X") sont gelés (head-of-line par collecte)
+  Et le bandeau "Synchronisation incomplète — voir Ops" s'affiche côté chauffeur
+  Et P3 (collecte Y) se synchronise normalement (le gel est par collecte, pas global)
+  Et aucun S5 sur poids incomplets ne peut être déclenché pour X
+```
+
+```gherkin
+# Source : §04 pesees attribution ordre serveur — RC-M05-03
+# Couche : db
+# Priorité : P2-important
+
+Scénario : ordre_pesee_attribution_serveur_concurrente
+  Étant donné deux pesées du même couple (collecte_tms_id, flux) envoyées simultanément par 2 chauffeurs (tournées sœurs), sans ordre_pesee côté client
+  Quand les 2 INSERT s'exécutent en transactions concurrentes
+  Alors le serveur attribue ordre_pesee 1 et 2 sous lock du couple (aucune violation UNIQUE, aucun item en DLQ)
+  Et les 2 pesées sont sommées dans l'agrégat par flux du futur S5
+```
+
+```gherkin
+# Source : §06/M05 W11 règles grâce de flush + C14 — RC-M05-05
+# Couche : api
+# Priorité : P2-important
+
+Scénario : grace_flush_device_switch_sync_401
+  Étant donné un chauffeur avec 3 items pending sur le device A, qui se connecte sur un device B (session A révoquée pour device-switch D12)
+  Quand le device A rejoue sa queue dans les m05_grace_flush_heures (48 h)
+  Alors les endpoints de sync acceptent le token révoqué pour les items créés avant la révocation (aucune perte de donnée terrain — KPI §1)
+  Et idempotency_key déduplique les éventuelles re-saisies faites sur le device B
+  Et au-delà de 48 h (ou révocation C5 sécurité) les items passent en DLQ locale + écran "Données non synchronisées" + audit SYNC_ORPHAN_QUEUE_DETECTED
+```
 
 ---
 

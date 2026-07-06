@@ -38,7 +38,11 @@
     "M3.3/siret_rpc_erreur_remontee_422",
     "M3.3/factures_lecture_seule_agence",
     "M3.3/shadow_creation_in_app_aucun_email",
-    "M3.3/shadow_creation_role_non_agence_403"
+    "M3.3/shadow_creation_role_non_agence_403",
+    "M3.3/AGENCE01_renouvellement_role_agence_201",
+    "M3.3/AGENCE01_renouvellement_role_non_autorise_403",
+    "M3.3/AGENCE01_bouton_renouvellement_onglet_ag",
+    "M3.3/AGENCE01_bouton_renouvellement_poste_endpoint"
   ],
   "deliverables": [
     {
@@ -176,6 +180,14 @@
       "test": "M3.3/shadow_creation_role_non_agence_403",
       "statut": "implemented",
       "libelle": "M3.3/shadow_creation_role_non_agence_403"
+    },
+    {
+      "id": "BL-P1-AGENCE-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:44 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:242",
+      "artefact": "packages/plateforme/src/app/api/v1/traiteur/pack-ag/renouvellement/route.ts + packages/plateforme/src/app/(agence)/agence/page.tsx",
+      "test": "M3.3/AGENCE01_renouvellement_role_agence_201 + M3.3/AGENCE01_renouvellement_role_non_autorise_403 + M3.3/AGENCE01_bouton_renouvellement_onglet_ag + M3.3/AGENCE01_bouton_renouvellement_poste_endpoint",
+      "statut": "implemented",
+      "libelle": "Pack AG renouvellement côté agence (§06.11 l.36/l.44 « onglet AG identique au §06.04 ») : (1) endpoint partagé /api/v1/traiteur/pack-ag/renouvellement autorise désormais le rôle agence (const TRAITEUR_ROLES → PACK_RENOUVELLEMENT_ROLES + 'agence' ; action et template admin_demande_renouvellement_pack inchangés, path cosmétique) ; (2) bouton « Demander un renouvellement » monté dans le bloc « Mon pack Anti-Gaspi » de l'onglet AG du dashboard agence, réplique STRICTE de la page traiteur §06.04 l.242 (actif dès solde ≤ 10 % ou = 0, POST endpoint). NB parité : la page traiteur (réf canonique) POST un corps vide sans modale « pack souhaité + message » (CDC §06.04 l.243) ; répliquer un formulaire côté agence seul romprait la parité absolue exigée par le module M3.3 → le formulaire pack souhaité relève d'un écart §06.04 hors périmètre de ce ticket agence."
     }
   ],
   "cdc_source_hash": {

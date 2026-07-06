@@ -1,15 +1,29 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import {
+  ParcMultiSelects,
+  type ParcFilterOptions,
+  type ParcFilterValue,
+} from './ParcMultiSelects.js';
 
 export interface DashboardFilters {
   from: string; // YYYY-MM-DD
   to: string; // YYYY-MM-DD
+  // Filtres « parc » globaux (§06.05 §1) — optionnels : présents seulement quand la
+  // barre reçoit `parcOptions` (dashboard gestionnaire). Absents/vides pour les
+  // autres dashboards (traiteur/agence/organisateur/admin) → rétro-compatible.
+  lieu_ids?: string[];
+  traiteur_ids?: string[];
+  type_evenement_ids?: string[];
+  taille_evenement_codes?: string[];
 }
 
 interface DashboardFilterBarProps {
   storageKey: string;
   onChange: (filters: DashboardFilters) => void;
+  /** Si fourni, affiche les 4 filtres parc (Lieux/Traiteurs/Type/Taille) + Réinitialiser. */
+  parcOptions?: ParcFilterOptions;
   className?: string;
 }
 
@@ -20,16 +34,31 @@ function defaultFilters(): DashboardFilters {
   return {
     from: from.toISOString().slice(0, 10),
     to: to.toISOString().slice(0, 10),
+    lieu_ids: [],
+    traiteur_ids: [],
+    type_evenement_ids: [],
+    taille_evenement_codes: [],
+  };
+}
+
+function parcValue(f: DashboardFilters): ParcFilterValue {
+  return {
+    lieu_ids: f.lieu_ids ?? [],
+    traiteur_ids: f.traiteur_ids ?? [],
+    type_evenement_ids: f.type_evenement_ids ?? [],
+    taille_evenement_codes: f.taille_evenement_codes ?? [],
   };
 }
 
 /**
- * Barre de filtres période — persistance localStorage (sobriété B1, pas de table serveur).
- * Période par défaut : 30 derniers jours (§11 §8).
+ * Barre de filtres du dashboard — persistance localStorage (sobriété B1, pas de table).
+ * Sans `parcOptions` : Période seule (30 j par défaut, §11 §8). Avec `parcOptions` :
+ * Période + Lieux + Traiteurs + Type + Taille (§06.05 §1, 5 filtres globaux).
  */
 export function DashboardFilterBar({
   storageKey,
   onChange,
+  parcOptions,
   className,
 }: DashboardFilterBarProps) {
   const [filters, setFilters] = useState<DashboardFilters>(defaultFilters);
@@ -41,8 +70,9 @@ export function DashboardFilterBar({
       if (stored) {
         const parsed = JSON.parse(stored) as DashboardFilters;
         if (parsed.from && parsed.to) {
-          setFilters(parsed);
-          onChange(parsed);
+          const merged = { ...defaultFilters(), ...parsed };
+          setFilters(merged);
+          onChange(merged);
           return;
         }
       }
@@ -64,7 +94,7 @@ export function DashboardFilterBar({
 
   return (
     <div
-      className={`flex flex-wrap items-center gap-3 ${className ?? ''}`}
+      className={`flex flex-wrap items-end gap-3 ${className ?? ''}`}
       data-testid="dashboard-filter-bar"
     >
       <label className="flex items-center gap-1.5 text-sm">
@@ -87,6 +117,25 @@ export function DashboardFilterBar({
           className="rounded-md border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         />
       </label>
+
+      {parcOptions && (
+        <>
+          <ParcMultiSelects
+            value={parcValue(filters)}
+            options={parcOptions}
+            onChange={(patch) => apply({ ...filters, ...patch })}
+            testidPrefix="dashboard-filter"
+          />
+          <button
+            type="button"
+            onClick={() => apply(defaultFilters())}
+            data-testid="dashboard-filter-reinitialiser"
+            className="text-xs text-savr-primary-700 hover:underline"
+          >
+            Réinitialiser
+          </button>
+        </>
+      )}
     </div>
   );
 }

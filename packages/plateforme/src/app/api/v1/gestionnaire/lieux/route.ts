@@ -9,7 +9,9 @@ const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
 // GET /api/v1/gestionnaire/lieux
 // Liste des lieux de l'organisation via v_lieux_clients (masque les champs admin-only).
-// Colonnes : id, nom, adresse_acces, ville, type_vehicule_max + indicateurs 12 mois.
+// Colonnes §06.05 §3 : Nom, Adresse, Capacité (capacite_maximum), Nb collectes 12 mois,
+// Tonnage 12 mois. (Colonne « Type » CDC omise : lieux.type inexistant V1/cible V2 —
+// cf. _Divergences/M3.2_20260706_lieux_type.md, type: clair.)
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(req, ROLES);
   if (auth.error) return auth.error;
@@ -21,7 +23,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const { data: lieux, error } = await supabase
     .from('v_lieux_clients')
     .select(
-      'id, nom, adresse_acces, code_postal, ville, region, type_vehicule_max, actif',
+      'id, nom, adresse_acces, code_postal, ville, region, type_vehicule_max, capacite_maximum, actif',
     )
     .eq('actif', true)
     .order('nom');

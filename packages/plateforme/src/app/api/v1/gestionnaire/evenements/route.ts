@@ -138,15 +138,30 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       const nbZd = zbCollectes.length;
       const nbAg = agCollectes.length;
 
+      // Aplatir les embeds to-one (PostgREST renvoie objet, parfois tableau) →
+      // champs plats consommés directement par la liste (fix mismatch latent :
+      // la page lisait lieu_nom/traiteur_nom que la route ne renvoyait pas).
+      const lieu = pickOne(e.lieux) as {
+        nom?: string | null;
+        ville?: string | null;
+      } | null;
+      const traiteur = pickOne(e.organisations) as {
+        nom?: string | null;
+      } | null;
+      const typeEvt = pickOne(e.types_evenements) as {
+        libelle?: string | null;
+      } | null;
+
       return {
         id: e.id as string,
         nom_evenement: e.nom_evenement,
         date_evenement: e.date_evenement,
         pax,
         taille_bracket: bracket,
-        lieu: e.lieux,
-        traiteur: e.organisations,
-        type_evenement: e.types_evenements,
+        lieu_nom: lieu?.nom ?? null,
+        lieu_ville: lieu?.ville ?? null,
+        traiteur_nom: traiteur?.nom ?? null,
+        type_evenement_libelle: typeEvt?.libelle ?? null,
         nb_collectes_zd: nbZd,
         nb_collectes_ag: nbAg,
         tonnage_zd_kg: tonnageKg,
@@ -161,9 +176,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     date_evenement: unknown;
     pax: number;
     taille_bracket: string;
-    lieu: unknown;
-    traiteur: unknown;
-    type_evenement: unknown;
+    lieu_nom: string | null;
+    lieu_ville: string | null;
+    traiteur_nom: string | null;
+    type_evenement_libelle: string | null;
     nb_collectes_zd: number;
     nb_collectes_ag: number;
     tonnage_zd_kg: number;
@@ -196,4 +212,9 @@ function tailleBracket(pax: number): string {
   if (pax < 750) return 'M';
   if (pax < 1000) return 'L';
   return 'XL';
+}
+
+// Embed to-one PostgREST : objet (ou tableau à 1 élément selon le contexte).
+function pickOne(v: unknown): unknown {
+  return Array.isArray(v) ? v[0] : v;
 }

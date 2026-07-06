@@ -117,8 +117,13 @@ export const NAV_CONFIG: Record<Role, NavGroup[]> = {
     },
   ],
 
-  // §06.05 §Navigation — 7 sections (refonte sobriété 2026-05-30).
-  // "Mon pack AG" affiché conditionnellement côté layout si packs_antgaspi existe.
+  // §06.05 §Navigation. Le CDC fige 7 sections (sans Collectes ni Registre), mais
+  // Val a demandé le 2026-07-06 de CONSERVER « Collectes » + « Registre réglementaire »
+  // (override explicite de la décision CDC l.79 « Pas de section Collectes » —
+  // cf. _Divergences/M3.2_20260706_nav_collectes_registre.md, type: ambigu).
+  // → 9 entrées. Seule règle CDC-conforme appliquée ici : « Mon pack AG » masqué si
+  // l'organisation n'a aucun pack (filtrage `hiddenNavHrefs` calculé côté layout,
+  // appliqué dans Sidebar/BottomNav — CDC l.71).
   gestionnaire_lieux: [
     {
       items: [

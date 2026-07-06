@@ -38,6 +38,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .select(
       `id, type, statut, date_collecte, taux_recyclage,
        evenements!inner(lieu_id, traiteur_operationnel_organisation_id,
+         lieux!lieu_id(id, nom),
          organisations!traiteur_operationnel_organisation_id(id, nom, logo_url)),
        collecte_flux(poids_reel_kg),
        attributions_antgaspi(volume_repas_realise)`,
@@ -49,7 +50,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Agréger par traiteur
+  // Agréger par traiteur. lieux = Map lieu_id → nom (colonne « Lieux d'intervention »
+  // §06.05 §5 l.432 : liste des lieux où le traiteur est intervenu).
   const byTraiteur = new Map<
     string,
     {
@@ -60,7 +62,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       tauxNum: number;
       tauxDen: number;
       repas12: number;
-      lieux: Set<string>;
+      lieux: Map<string, string>;
     }
   >();
 
@@ -75,6 +77,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     if (!orgs) continue;
 
     const lieuId = (evt as { lieu_id?: string })?.lieu_id ?? '';
+    const lieuEmbed = (
+      evt as unknown as {
+        lieux?: { id?: string; nom?: string } | { id?: string; nom?: string }[];
+      }
+    )?.lieux;
+    const lieuObj = Array.isArray(lieuEmbed) ? lieuEmbed[0] : lieuEmbed;
     const cur = byTraiteur.get(orgs.id) ?? {
       nom: orgs.nom,
       logo_url: orgs.logo_url ?? null,
@@ -83,9 +91,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       tauxNum: 0,
       tauxDen: 0,
       repas12: 0,
-      lieux: new Set<string>(),
+      lieux: new Map<string, string>(),
     };
-    cur.lieux.add(lieuId);
+    if (lieuId) cur.lieux.set(lieuId, lieuObj?.nom ?? lieuId);
 
     const in12m = (c.date_collecte as string) >= since12mStr;
     if (in12m) {
@@ -124,7 +132,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     tonnage_12m_kg: v.tonnage12,
     taux_recyclage_moyen: v.tauxDen > 0 ? v.tauxNum / v.tauxDen : null,
     repas_donnes_12m: v.repas12,
-    lieux_intervention: [...v.lieux],
+    lieux_intervention: [...v.lieux.entries()].map(([lid, nom]) => ({
+      id: lid,
+      nom,
+    })),
   }));
 
   return NextResponse.json({ data: rows });

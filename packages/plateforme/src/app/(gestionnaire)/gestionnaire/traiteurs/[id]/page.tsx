@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { use } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 
 interface TraiteurDetail {
   id: string;
@@ -19,6 +21,13 @@ interface TraiteurDetail {
     taux_recyclage_moyen: number | null;
     repas_donnes: number;
   };
+  historique_collectes: {
+    id: string;
+    type: string;
+    statut: string;
+    date_collecte: string | null;
+    lieu_nom: string | null;
+  }[];
 }
 
 export default function TraiteurDetailPage({
@@ -123,6 +132,43 @@ export default function TraiteurDetailPage({
           </div>
         </CardContent>
       </Card>
+
+      {/* Historique collectes sur les lieux de l'organisation (§06.05 l.439) */}
+      {traiteur.historique_collectes.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Historique des collectes (12 mois)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <table className="w-full text-sm">
+              <thead className="text-left text-xs uppercase text-savr-neutral-500">
+                <tr>
+                  <th className="py-1">Date</th>
+                  <th className="py-1">Lieu</th>
+                  <th className="py-1">Type</th>
+                  <th className="py-1">Statut</th>
+                </tr>
+              </thead>
+              <tbody>
+                {traiteur.historique_collectes.map((c) => (
+                  <tr key={c.id} className="border-t border-savr-neutral-100">
+                    <td className="py-1">{c.date_collecte ?? '—'}</td>
+                    <td className="py-1">{c.lieu_nom ?? '—'}</td>
+                    <td className="py-1">
+                      <Badge variant="neutral">
+                        {c.type === 'zero_dechet' ? 'ZD' : 'AG'}
+                      </Badge>
+                    </td>
+                    <td className="py-1">
+                      <CollecteStatutBadge statut={c.statut} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

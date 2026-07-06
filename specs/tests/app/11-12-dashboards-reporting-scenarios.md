@@ -358,13 +358,13 @@ Scénario : benchmark_filtre_traiteur_ids_interdit_cote_traiteur
 ```
 
 ```gherkin
-# Source : §04 f_benchmark extension single_collecte
+# Source : §04 f_benchmark_single_collecte (grain single_collecte)
 # Couche : db
 # Priorité : P1-critique
 
 Scénario : benchmark_collecte_inaccessible_exception
   Étant donné un traiteur_manager Kaspia et une collecte appartenant à Kardamome
-  Quand il appelle f_benchmark_kg_pax_zd avec p_collecte_id = collecte Kardamome
+  Quand il appelle f_benchmark_single_collecte(p_collecte_id) sur la collecte Kardamome
   Alors la fonction lève EXCEPTION 'Collecte not accessible'
 ```
 

@@ -2,7 +2,6 @@
 
 **Source CDC** : `§06/M01` + `§05` R6.1 / R2.7 bis + `§04` (`collectes_tms`, `integrations_inbox`, `integrations_logs`) + `§08` E1/E2/E3/S11 (+ schémas `08 - savr-api-contracts`) + `§09` §16 RLS `integrations_*`
 **Généré le** : 2026-06-05
-**Statut** : À implémenter par Claude Code
 
 > **Instructions Claude Code** : ces scénarios sont la source de vérité pour les tests du module M01.
 > Pour chaque scénario :

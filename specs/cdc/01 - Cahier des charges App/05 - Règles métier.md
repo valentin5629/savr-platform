@@ -29,7 +29,7 @@ Le palier > 1 000 (1 €/pax) est désormais exprimé proprement en affine (`pri
 
 **Exemple grille « Forfait + variable »** : une ligne `[1, null]` avec `prix_base_ht=200`, `prix_par_couvert_ht=1` → 200 € + 1 €/pax. Affectée à une organisation via `grille_tarifaire_zd_id`.
 
-**Règle d'application** : la grille (donc la base de prix) est déterminée par l'organisation programmatrice et le `evenements.pax` au moment de la facturation. **Retiré V1 (2026-05-29)** : pax unique au niveau événement, pas d'override par collecte ; multi-jours à pax variable reporté V2. La composition base + remises est figée dans `factures_collectes.tarif_detail` + `montant_ligne_ht`. Si la grille évolue entre programmation et facturation, c'est la grille en vigueur à la facturation qui s'applique (sauf engagement contractuel — CGV). Voir la résolution complète ci-dessous, [[#Tarifs et remises — résolution du prix]].
+**Règle d'application** : la grille (donc la base de prix) est déterminée par l'organisation programmatrice et le `evenements.pax` au moment de la facturation. **Retiré V1 (2026-05-29)** : pax unique au niveau événement, pas d'override par collecte; multi-jours à pax variable reporté V2. La composition base + remises est figée dans `factures_collectes.tarif_detail` + `montant_ligne_ht`. Si la grille évolue entre programmation et facturation, c'est la grille en vigueur à la facturation qui s'applique (sauf engagement contractuel — CGV). Voir la résolution complète ci-dessous, [[#Tarifs et remises — résolution du prix]].
 
 **Modification tarifaire** : pour modifier une grille, l'Admin Savr ferme la grille (`grilles_tarifaires_zd.valide_jusqu`) et en crée une nouvelle (entête + lignes). Pas de modification rétroactive ; les collectes passées conservent leur calcul via `tarif_detail`.
 
@@ -493,10 +493,6 @@ Le traiteur peut modifier librement les informations de toute collecte non encor
 ### Alerte pesées anormales (Admin Savr) **— SUPPRIMÉE V1 (décision Val 2026-06-15)**
 
 > **Décision Val 2026-06-15** : le check poids hors seuil (`alerte_ops_pesee_anormale`) est **hors scope V1**. Le type d'alerte reste seedé en DB (migration `20260611171642…`) mais n'est jamais déclenché. Réintroduit en V1.1 si besoin avéré. Divergence ADAPTER_20260615.md archivée.
-
-
-
-
 
 
 
@@ -1126,7 +1122,8 @@ Issu de la refonte du formulaire de programmation §06.01. Les règles ci-dessou
 
 > **Retirée V1 (Sujet 4, 2026-05-26)** : le mécanisme « Autre + texte libre + normalisation Admin » est supprimé. `types_evenements` est figé à 4 catégories de format de service (`cocktail_aperitif`, `cocktail_repas_complet`, `repas_assis`, `autre`), `autre` étant un fourre-tout sélectionnable **sans saisie**. Plus de colonne `type_evenement_libre`, plus de file de normalisation back-office. Les événements `autre` sont comptés comme un bucket benchmark normal. Extension du référentiel = ajout direct d'une ligne dans `types_evenements` (Supabase), sans UI. Cf. [[04 - Data Model]] table `types_evenements` + [[06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte]].
 >
->
+> Contenu historique conservé pour traçabilité :
+> 
 
 ### R_lieu_modif_pending *(simplifié 2026-05-25 — audit sobriété §04 B1)*
 
@@ -1172,16 +1169,15 @@ WHERE id = [id de l'événement];
 > **Retiré V1 (2026-05-29)** — règle supprimée. Le pax est **unique au niveau événement** (`evenements.pax`), non modifiable par collecte. La tarification ZD, les rapports de recyclage (§12) et le payload E1 lisent directement `evenements.pax`. Cas multi-jours à pax variable reporté V2.
 
 
-
 ---
 
 ### R_collecte_evenement_rattachement *(ajout 2026-05-21, D1)*
 
-**Règle** : une collecte est rattachée à un événement **explicitement** via `collectes.evenement_id`. Le formulaire unique §06.01 crée l'événement puis ses collectes dans la même transaction ; l'ajout ultérieur d'une collecte (autre type) cible un `evenement_id` existant via le bouton "Ajouter une collecte" de la fiche événement. **Révisé 2026-05-25 (Sujet 1, option A)** : le besoin « camion supplémentaire » ne crée plus de collecte — il est interne au TMS (1 collecte ZD → N tournées prestataire).
+**Règle** : une collecte est rattachée à un événement **explicitement** via `collectes.evenement_id`. Le formulaire unique §06.01 crée l'événement puis ses collectes dans la même transaction; l'ajout ultérieur d'une collecte (autre type) cible un `evenement_id` existant via le bouton "Ajouter une collecte" de la fiche événement. **Révisé 2026-05-25 (Sujet 1, option A)** : le besoin « camion supplémentaire » ne crée plus de collecte — il est interne au TMS (1 collecte ZD → N tournées prestataire).
 
 **Suppression du matching textuel** : l'ancienne logique de rattachement automatique par correspondance `date + lieu + nom client` est **supprimée** (refonte 2026-05-21). Elle était source de doublons d'événements (faute de frappe sur le nom client → second événement créé au lieu d'un rattachement). Plus aucun rattachement implicite.
 
-**Multi-collectes par événement** : un événement porte normalement une collecte ZD et/ou une collecte AG (types différents). **Révisé 2026-05-25 (Sujet 1, option A)** : le multi-camions n'est plus un cas de collectes ZD multiples (interne au TMS — 1 collecte ZD → N tournées prestataire). Pas de contrainte d'unicité de type par événement ; un second exemplaire du même type reste techniquement possible (cas distincts rares), l'UI avertit alors.
+**Multi-collectes par événement** : un événement porte normalement une collecte ZD et/ou une collecte AG (types différents). **Révisé 2026-05-25 (Sujet 1, option A)** : le multi-camions n'est plus un cas de collectes ZD multiples (interne au TMS — 1 collecte ZD → N tournées prestataire). Pas de contrainte d'unicité de type par événement; un second exemplaire du même type reste techniquement possible (cas distincts rares), l'UI avertit alors.
 
 ---
 
@@ -1261,8 +1257,8 @@ END IF;
 
 _Aucune — module stabilisé pour V1. (2026-04-28)_
 
-**Clôturé** : traité côté contrat commercial, hors scope CDC. (2026-04-28)
-**Clôturé** : à cadrer avec juridique séparément, hors scope CDC V1. (2026-04-28)
+ **Clôturé** : traité côté contrat commercial, hors scope CDC. (2026-04-28)
+ **Clôturé** : à cadrer avec juridique séparément, hors scope CDC V1. (2026-04-28)
 
 ## Liens
 

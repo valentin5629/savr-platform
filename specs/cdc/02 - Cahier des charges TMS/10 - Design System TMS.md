@@ -1,6 +1,5 @@
 # 10 — Design System TMS
 
-**Statut** : V1 rédigée 2026-04-28.
 **Périmètre** : référentiel visuel et composants partagés du Savr TMS V1. Section documentaire (option a) — formalise et consolide ce qui est déjà défini dans §07, §11 et les modules fonctionnels. L'évolution UX approfondie (tokens avancés, dark mode, Storybook, audit accessibilité) sera pilotée via **Claude Design** en V1.1+.
 **Stack de référence** : Next.js 15 App Router · Tailwind CSS v4 · shadcn/ui · `packages/ui-tms` (monorepo Turborepo).
 

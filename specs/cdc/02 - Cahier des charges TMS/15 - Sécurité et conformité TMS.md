@@ -41,7 +41,7 @@ ou son équivalent Plateforme. Les tables du schéma `shared.*` ont des policies
 
 ### Tests bloquants CI (pgTAP)
 
-**Décision atelier** (révisée 2026-06-03 — arbitrage Val, alignement App §09 sobriété 2026-06-03 B2) : **framework = pgTAP** (et non un script TS via client Supabase) ; les RLS vivent dans la DB, on les teste en SQL au plus près. **Couverture ciblée V1**, **100% promu V1.1**. Le moteur reste identique, seul le périmètre bloquant V1 est resserré sur les tables critiques.
+**Décision atelier** (révisée 2026-06-03 — arbitrage Val, alignement App §09 sobriété 2026-06-03 B2) : **framework = pgTAP** (et non un script TS via client Supabase); les RLS vivent dans la DB, on les teste en SQL au plus près. **Couverture ciblée V1**, **100% promu V1.1**. Le moteur reste identique, seul le périmètre bloquant V1 est resserré sur les tables critiques.
 
 | Scope | Règle |
 |---|---|
@@ -130,6 +130,7 @@ Donnée opérationnelle critique (base facturation). Pas de PII mais enjeu finan
 **Device binding** :
 - **Manager prestataire** : multi-device illimité (bureau + mobile + tablette, cas business courant)
 - **Chauffeur** : 1 device actif (inchangé D12 M05, anti-partage compte, cohérence queue offline PWA)
+- **Grâce de flush device-switch (2026-07-06 COH-08, arbitrage Val RC-M05-05) — fenêtre de risque cadrée** : un token chauffeur révoqué pour device-switch reste accepté `m05_grace_flush_heures` (48 h) sur les **seuls** endpoints `POST /sync/*`, pour les items créés avant la révocation (règle complète : [[09 - Authentification et permissions TMS]] §1bis). **Risque assumé** : device volé/perdu ≤ 48 h peut encore pousser des écritures de sync — surface limitée aux écritures **idempotentes** (`idempotency_key`, dédup DB), aucune lecture, aucun endpoint métier, aucun accès aux référentiels. **Mitigations** : exclusion totale du force-logout sécurité C5 (un device compromis se révoque en immédiat via M13, sans grâce), audit de chaque write sous grâce, dédup contre les re-saisies du nouveau device. Le vol de device relève de C5, pas du device-switch.
 
 **Bootstrap password chauffeur via magic link (refondu revue sobriété §05 2026-05-01 B1)** :
 - → **Supprimé V1**. Le bootstrap se fait via **magic link 30 min** envoyé par email à la création du compte (M06 W3 manager prestataire ou Ops/Admin + M13 E3 admin). Le chauffeur clique le lien, définit son password (≥ 8 car), session ouverte automatiquement. **Aucun password en clair transmis par email.**

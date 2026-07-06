@@ -1,9 +1,7 @@
 # M11 — Alerting transverse
 
-**Statut** : V1 rédigée 2026-04-24 — **Revue de sobriété 2026-04-25 Blocs 1+2+3+4+5 + Bloc 6 2026-04-28 appliqués** (A6 Slack, A8 flood, A2 E5 comportemental chauffeurs, A3 E3 historique par code, A4+A12 E6 préférences user + sonore, A1 criticité `info`, A7 statut `expiree`, A5 W10 test alerte + cron `m11_nettoyer_tests` + R_M11.12 + entity_type='test', A10 colonne `remplace_par_code` + EC16, A11 colonne `canaux` JSONB — dégagés Blocs 1-5. A9 + A13 rejetés → conservés V1. **Bloc 6 2026-04-28** : B2 statut `ackee` → metadata (enum 3 valeurs, `ackee_par/at` reste), C1 `alertes_evenements_log` → `tms.audit_logs`, C2 `notifications_inbox_tms` supprimée (cloche lit `tms.alertes` directement), C3 `alertes_codes_overrides` supprimée (criticité override via `alertes_catalogue.criticite_par_defaut` uniquement), D2 enum `alerte_statut` 4→3 valeurs, P0 `m13_migration_mode_active/inactive` → `tms.audit_logs` action `M13_MIGRATION_MODE_TOGGLE`. B5 cron `m11_unsnoozer` conservé. B5bis catalogue: `m04_checklist_bypass` dégagé V1 → `m05_checklist_contournement_detecte` code canonique (convention émetteur M05).)
 **Parent** : [[03 - Périmètre fonctionnel TMS|§03 M11 Alerting et monitoring ops]]
 **Dépendances** : tous modules M01-M08 + M12 (émetteurs d'alertes), M13 (config catalogue et destinataires)
-**Dernière mise à jour** : 2026-06-07 — **Scénarios de test M11 (46, `tests/M11-alerting-scenarios.md`) + 5 specs floues TRANCHÉES Val** : **F1** `admin_savr` PEUT ack/résoudre (mention « lecture seule » E1/§2 retirée — W4/EC13 font foi) ; **F2** EC10 réécrit double-ack idempotent silencieux (résidu pré-Bloc 6 corrigé) ; **F3** `dedup_key` = `GENERATED ALWAYS AS (code||':'||COALESCE(entity_type,'')||':'||COALESCE(entity_id::text,'')) STORED` (expression explicite §11.3, l'INSERT W1 ne la fournit pas) ; **F4** durées snooze {1,4,24} hardcodées RPC, paramètre `m11.snooze_durees_autorisees` supprimé (§9) ; **F5** ack/snooze réservés staff, manager prestataire destinataire = SELECT only V1 (W4/W5/§7 amendés, aligné §13.4). — *(précédent 2026-06-04 — Revue de sobriété M11)* : aucune suppression fonctionnelle (module déjà purgé Blocs 1-6 + revues par module). Purge dette doc : (B) `integration_pennylane_down` seedé `active=false` V1 (code V2) ; (C1) décompte catalogue reconcilié — **SOLDE CATALOGUE V1 autoritaire ajouté §11.7** : 60 lignes seedées dont 2 `active=false` → 58 émettables V1 (narrations 56/58 périmées marquées) + note B5 doublon résolue ; (C2) 2 QO §15 mortes fermées (Q3 E6 supprimé, Q4 W10 supprimé). Enum `alerte_statut` déjà à 3 valeurs (item « 4→3 » soldé Bloc 6). Cross-CDC 0. — *(2026-06-05 : 3 résidus stale `ackee`-comme-statut soldés — filtre statut E1 L54, rationale D5, cycle de vie §03 Périmètre ; change-log Bloc 3 annoté. Canonique inchangé.)* — *(précédent 2026-06-04 : propagation suppression saisie plaque terrain — retrait `m04_plaque_mismatch_warning` + `m04_plaque_inconnue`, `m03_plaque_manquante_dispatch` conservé.)*
 
 ---
 
@@ -95,7 +93,7 @@ Centraliser dans un point unique toutes les alertes opérationnelles émises par
 
 **Bloc 4 sobriété 2026-04-25** :
 - A11 colonne `Canaux` retirée (matrice canal/criticité figée hardcodée V1 : `warning` → in-app, `critical` → in-app + email Resend)
-- A5 bouton `Tester` retiré (RPC `m11_emit_test` + cron + rate limit dégagés V1, cf. )
+- A5 bouton `Tester` retiré (RPC `m11_emit_test` + cron + rate limit dégagés V1, cf.)
 
 **Édition** (modal ou page dédiée) :
 - Modifier criticité par défaut (peut être override par code appelant)
@@ -438,7 +436,7 @@ Objet : `[Savr TMS / Critical] {{titre}}`
 1. **Dump pré-purge** : INSERT INTO `tms.alertes_archive_critical` SELECT * FROM `tms.alertes` WHERE `criticite = 'critical' AND statut = 'resolue' AND resolue_at < now() - interval '3 years'` (table archive append-only dédiée, RLS admin_tms read-only).
 2. **Purge** : DELETE FROM `tms.alertes` WHERE `statut = 'resolue' AND resolue_at < now() - interval '3 years'` (toutes criticités).
 
-→ **Supprimé revue sobriété §05 2026-05-01 B3**. Trigger sur opération destructive = piège (perf bulk DELETE + complexité debug + couplage audit_logs/alertes incorrect). Remplacé par dump explicite dans table dédiée `tms.alertes_archive_critical` (séparation des préoccupations).
+ → **Supprimé revue sobriété §05 2026-05-01 B3**. Trigger sur opération destructive = piège (perf bulk DELETE + complexité debug + couplage audit_logs/alertes incorrect). Remplacé par dump explicite dans table dédiée `tms.alertes_archive_critical` (séparation des préoccupations).
 
 **Bloc 3 sobriété 2026-04-25 (A7)** : statut `expiree` dégagé, scope rétention restreint à `resolue` uniquement.
 
@@ -695,6 +693,7 @@ Codes regroupés par module (liste extractable exhaustive à partir des modules 
 | `m04_tournee_sans_chauffeur_j1` | warning | M04 | Tournée J+0 sans chauffeur à J-1 17h |
 | `m04_tournee_oubliee_cloture_auto` | warning | M04 | Tournée inactive > 8h, clôture forcée possible Ops (R_M04.4 — propagation A5 2026-04-25) |
 | `m04_cloture_hors_zone` | warning | M04 | Clôture GPS > 300m du lieu théorique (M04 W5 étape 3 — propagation A5 2026-04-25) |
+| `m04_cloture_reelle_post_forcee` | warning | M04 | Clôture chauffeur rejouée (sync offline) après clôture forcée W9 — replay no-overwrite, Δ horaires affiché, correction via W8 (arbitrage RC-M05-06 ; ajout catalogue 2026-07-06 COH-07, criticité `info`→`warning` — enum sans `info`) |
 | `m05_geofence_anomalie` | warning | M05 | Fallback "J'arrive" hors geofence 300m |
 | `m05_dlq_offline_conflict` | warning | M05 | Conflit sync offline non résolvable (R_M05.16). **Criticité abaissée critical → warning (revue sobriété §05 2026-05-01 B2)** — un seul niveau de gravité V1, escalade humaine via traitement Ops standard. |
 | `m05_queue_offline_saturee` | warning | M05 | Cap 3 tournées / 150 photos / 300 Mo atteint (R_M05.9 — propagation A5 2026-04-25) |
@@ -750,8 +749,8 @@ Codes regroupés par module (liste extractable exhaustive à partir des modules 
 | `m11_notification_email_failed` | critical | M11 | Échec notif email pour alerte critical |
 
 > **SOLDE CATALOGUE V1 — décompte autoritaire (revue sobriété M11 2026-06-04)**
-> **60 lignes seedées** dans le catalogue ci-dessus (entrées non barrées), dont **2 seedées `active = false` V1** (`m14_everest_mission_late` — seuil Everest non confirmé Q4 ; `integration_pennylane_down` — intégration Pennylane = V2) → **58 codes effectivement émettables V1**.
-> Ce solde intègre toutes les passes antérieures (Blocs 1-6 + revues §05/§08 par module) **et** le retrait des 2 codes plaque (`m04_plaque_mismatch_warning`, `m04_plaque_inconnue`) du 2026-06-04 (suppression saisie plaque terrain). Les narrations historiques de décompte ci-dessous (« 56 codes », « 61→58 codes » §13.11) sont **périmées** — ce solde fait foi.
+> **61 lignes seedées** dans le catalogue ci-dessus (entrées non barrées), dont **2 seedées `active = false` V1** (`m14_everest_mission_late` — seuil Everest non confirmé Q4 ; `integration_pennylane_down` — intégration Pennylane = V2) → **59 codes effectivement émettables V1**.
+> Ce solde intègre toutes les passes antérieures (Blocs 1-6 + revues §05/§08 par module), le retrait des 2 codes plaque (`m04_plaque_mismatch_warning`, `m04_plaque_inconnue`) du 2026-06-04 (suppression saisie plaque terrain) **et l'ajout de `m04_cloture_reelle_post_forcee` (2026-07-06 COH-07, arbitrage RC-M05-06 — ex-solde 60/58)**. Les narrations historiques de décompte ci-dessous (« 56 codes », « 61→58 codes » §13.11) sont **périmées** — ce solde fait foi.
 
 **Codes dégagés revue sobriété 2026-04-25** :
 - A8 `m11_flood_suspect` (était : flood alerte détecté, lié à R_M11.9 dégagée)
@@ -874,7 +873,7 @@ Traité dans le task audit propagations cross-CDC.
 **Périmètre concerné** : 11 codes auto-résolus sur 57 (~19% du catalogue), répartis sur 6 modules :
 - M03 (2) : `m03_type_vehicule_a_valider`, `m03_plaque_manquante_dispatch` (revue sobriété 2026-04-29 — `m03_sla_acceptation_expire` retiré)
 - M04 (2) : `m04_evenement_dlq`, `m04_tournee_sans_chauffeur_j1`
-- M07 (0 post-propagation S6 2026-06-04) : retiré V1 (webhook S6 supprimé A2 2026-05-01, recalcul marge cross-schema sans DLQ) ; `m07_cout_manquant` retiré §05 D2. M07 ne contribue plus aucun code auto-résolu.
+- M07 (0 post-propagation S6 2026-06-04) : retiré V1 (webhook S6 supprimé A2 2026-05-01, recalcul marge cross-schema sans DLQ); `m07_cout_manquant` retiré §05 D2. M07 ne contribue plus aucun code auto-résolu.
 - M08 (1 post-revue sobriété §05 2026-05-01 A1) : `m08_facture_ecart_detecte` (`m08_rappel_facture` retiré V1)
 - M09 (1) : `m09_stock_bas`
 - M10 (2) : `m10_bac_satur` (criticité dynamique fusion B3), `m10_passage_non_confirme` (criticité dynamique fusion C1)

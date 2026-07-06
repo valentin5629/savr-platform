@@ -689,6 +689,7 @@ Le cron expiration SLA + retour auto `a_attribuer` + webhook S2 motif `sla_depas
 
 ### EC8 — Facture uploadée avec écart vs calcul Savr (refonte propagation M08 2026-04-24 D4/D5)
 
+- **Retiré V1 (propagation M08 D5 pas de paliers)**
 - **Zéro tolérance** : tout écart (même 0,01€) → INSERT `factures_prestataires` avec `statut_rapprochement = 'ecart_detecte'`
 - Alerte Ops + Admin (N3) → Ops prend la main (validation manuelle W5 avec motif ≥ 30 car OU contestation W6 avec avoir demandé au prestataire)
 - Manager notifié "Votre facture présente un écart avec notre calcul, nos équipes vont revenir vers vous rapidement."
@@ -850,7 +851,7 @@ Tous endpoints protégés par middleware JWT + RLS `prestataire_id` + rate limit
 **Note pour Claude Code** : ne pas redéfinir les règles ici. Toute modification doit être faite dans §05. Cette section §06 M03 ne contient qu'un index de mapping pour faciliter la lecture du module.
 
 **Mapping ancien → nouveau (pour traçabilité refs historiques)** :
-- ex-§06 R_M03.1 = §05 R_M03.2 — même suppression
+- ex-§06 R_M03.1 () = §05 R_M03.2 () — même suppression
 - ex-§06 R_M03.2 (Escalade refus) = §05 R_M03.3 (Alerte 2 refus consécutifs)
 - ex-§06 R_M03.3 (Assignation véhicule) = §05 R_M03.4 (Plaque conditionnelle) + R_M04.CONTROLE_ACCES
 - ex-§06 R_M03.4 (Fenêtre modif) = §05 **R_M03.11** (nouveau)
@@ -917,7 +918,7 @@ Tous endpoints protégés par middleware JWT + RLS `prestataire_id` + rate limit
 - Table **`types_vehicules`** (déjà définie §04) — pas de colonne `ptac_kg` (retirée revue sobriété M03 passe 2 2026-04-29). Colonnes pertinentes M03 : `code`, `libelle`, `volume_m3_standard`, `frigorifique`, `hayon`, `actif`, `valide_ops`, `cree_par`, **`categorie_plateforme`** *(ajout 2026-05-08, NOT NULL, enum `velo_cargo/camionnette/fourgon/vul/poids_lourd`)*. Seed V1 : `camion_20m3_hayon` (poids_lourd), `camion_16m3` (vul), `camion_6m3` (fourgon), `velo_cargo_frigo` (velo_cargo).
 - Suppression colonne **`vehicules.carte_grise_url`** (retirée revue sobriété M03 passe 2 2026-04-29 — docs véhicule supprimés V1 cohérence E8). Suppression aussi du bucket Supabase Storage `docs-vehicules` si défini en §07.
 - Nouvelle colonne `tms.collectes_tms.controle_acces_requis boolean DEFAULT false`
-- Table `factures_prestataires` : **définition source unique = §04 Data Model TMS** (`numero_facture` NOT NULL, `periode_debut`/`periode_fin`, `date_facture`, `montant_ht`, `statut_rapprochement`, UNIQUE `(numero_facture, prestataire_id)` WHERE `deleted_at IS NULL`, plusieurs factures/mois autorisées — M08 D12).
+- Table `factures_prestataires` : **définition source unique = §04 Data Model TMS** (`numero_facture` NOT NULL, `periode_debut`/`periode_fin`, `date_facture`, `montant_ht`, `statut_rapprochement`, UNIQUE `(numero_facture, prestataire_id)` WHERE `deleted_at IS NULL`, plusieurs factures/mois autorisées — M08 D12). 
 - Fonction SQL `merger_type_vehicule(type_a_id uuid, type_b_id uuid)` : remap FK + désactivation source
 - Vues matérialisées ou vues simples : `v_m03_revenus_manager`, `v_m03_revenus_detail(tournee_id)`
 

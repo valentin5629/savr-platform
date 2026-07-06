@@ -2,7 +2,6 @@
 
 **Source CDC** : §06/M07 + §05 R2.1–R2.8/R2.10 + §04 Addendum M07 (trigger `trg_m07_calc_cost`, tables `tournees`/`ajustements_couts_log`/`grilles_tarifaires_prestataires`) + §09 §6/§7/§11/§11bis/§11ter (RLS)
 **Généré le** : 2026-06-06
-**Statut** : À implémenter par Claude Code
 
 > **Instructions Claude Code** : ces scénarios sont la source de vérité pour les tests du module M07.
 > Pour chaque scénario :

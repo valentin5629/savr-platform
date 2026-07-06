@@ -2,7 +2,6 @@
 
 **Source CDC** : §06/M12 + §05 R1.1-R1.4 + §04 TMS §1186-1276 (`collectes_tms` colonnes suggestion, `suggestions_attribution_log`, `shared.prestataires.nb_collectes_6_mois_cache`, `parametres_tms.attribution`) + §09 RLS §14/§17bis + `plateforme.parametres_algo` (App §04)
 **Généré le** : 2026-06-07
-**Statut** : À implémenter par Claude Code — **8 specs floues : F2/F4/F5/F7 TRANCHÉES Val 2026-06-07, F1/F6 tranchées par reco, F3 dette purgée, F8 reco notée**. Toutes propagées (M12 + §04 + §05 + §09). Voir section finale
 
 > **Instructions Claude Code** : ces scénarios sont la source de vérité pour les tests du module M12.
 > Pour chaque scénario :

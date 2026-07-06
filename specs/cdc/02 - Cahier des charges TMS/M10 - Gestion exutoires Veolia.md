@@ -1,6 +1,5 @@
 # M10 — Gestion exutoires Veolia
 
-**Statut** : V2 sobre 2026-04-30 (revue de sobriété — suppression dualité `realise`/`confirme_at`, suppression confirmation chauffeur M05, suppression cron escalade gradient + auto-confirmation J+7, statut réduit à 3 valeurs, fusion alertes saturation). **Arbitrages session test-scenarios 2026-06-07 (Val)** : F1 E4 sans contrainte de date (`date_prevue` passée → a posteriori, `= aujourd'hui` → `planifie` normal, R5.8/EC6 alignés sur `<`) ; F2 `statut_realise_at` = valeur saisie `date_realise_at` (pas `now()` — le passage peut avoir eu lieu la veille) ; F3 trigger anti-déconfirmation étendu aux 2 états terminaux (`realise` + `annule`) ; F4 EC14 redéfini = alerte `m10_stock_incoherence` émise au clamping vides à 0 dans W1.
 **Persona principal** : Ops Savr (consultation + saisie quotidienne / hebdomadaire). Admin TMS (paramétrage capacité + seuils).
 **Priorité** : Cœur métier (V1).
 **Dépendances** : M04 (clôture tournée ZD → auto-incrémentation pleins), M11 (alertes catalogue + dashboard), M13 (paramétrage `parametres_tms.m10`).

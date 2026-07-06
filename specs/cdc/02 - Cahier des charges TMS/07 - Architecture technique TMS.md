@@ -1,7 +1,5 @@
 # 07 - Architecture technique TMS
 
-**Statut** : V1 rédigé 2026-04-23 (suite atelier tech avec frère 2026-04-23)
-**Dernière mise à jour** : 2026-04-27 (propagation §12 App mobile chauffeur V1 2026-04-27 — D1 PWA `tms.gosavr.io/m/*` mono-domaine, D3 Service Worker Serwist, D4 offline-first complet V1 (M05 source de vérité, ex-§7.7.3 V1.1 obsolète), D5 émetteur Web Push = Edge Function Supabase `tms.push_send` (§7.6.1 obsolète, alignement M13 / §11 / §12), §14 sous-domaines mention `/m/*`). Mise à jour antérieure 2026-04-25 (revue de sobriété Bloc 1 — Slack dégagé V1 (A6), flood protection dégagée V1 (A8). Propagation M13 antérieure — section 13 Secrets enrichie : 4 secrets supplémentaires gérés par M13 E5 via Vault, ajout colonne "Géré par" + cron expiration ; nouvelle section 17 Edge Functions M13)
 
 **Rôle du document** : décrit l'architecture technique du Savr TMS. Pendant TMS de [[../01 - Cahier des charges App/07 - Architecture technique]]. Les deux documents doivent rester alignés — l'infrastructure est mutualisée à 80%.
 
@@ -415,8 +413,8 @@ Issu de [[06 - Fonctionnalités détaillées TMS/M14 - Intégration Everest]] (V
 
 | Trigger | Type | Source | Effet |
 |---------|------|--------|-------|
-| `trg_m14_push_mission` | AFTER UPDATE on `tms.collectes_tms` | `OLD.statut_dispatch IS DISTINCT FROM NEW.statut_dispatch AND NEW.statut_dispatch = 'attribuee_en_attente_acceptation' AND prestataire.integration_externe = 'everest'` (lookup cross-schema `shared.prestataires`) | `pg_notify('m14_create_queue', json_build_object('collecte_id', NEW.id))` consumé par worker Next.js → POST `/api/internal/m14/missions/create` |
-| `trg_m14_cascade_cancel` | AFTER UPDATE on `tms.collectes_tms` | `OLD.statut_dispatch IS DISTINCT FROM NEW.statut_dispatch AND NEW.statut_dispatch IN ('rejetee_par_prestataire','annulee_par_traiteur') AND EXISTS (SELECT 1 FROM tms.everest_missions em WHERE (em.collecte_tms_id = NEW.id OR em.tournee_id = NEW.tournee_id) AND em.statut_everest NOT IN ('cancelled','cancelled_externally','completed','completed_incomplete','failed','creation_failed'))` (revue sobriété §04 2026-04-30 A6 — colonnes miroir supprimées V1, lookup direct sur `everest_missions`) | `pg_notify('m14_cancel_queue', ...)` consumé par worker → POST `/api/internal/m14/missions/cancel` |
+| `trg_m14_push_mission` | AFTER UPDATE on `tms.collectes_tms` | `OLD.statut_dispatch IS DISTINCT FROM NEW.statut_dispatch AND NEW.statut_dispatch = 'attribuee_en_attente_acceptation' AND prestataire.integration_externe = 'everest'` (lookup cross-schema `shared.prestataires`) | **INSERT `tms.outbox_events`** (`event_type='everest.create'`, `aggregate_type='collecte'`, `aggregate_id=NEW.id`) dans la même transaction + `pg_notify('m14_create_queue')` en simple **réveil** — le worker outbox (§18bis) consomme la ligne et POST `/api/internal/m14/missions/create` *(bascule 2026-07-06 COH-03 option A — l'ex pg_notify-transport, non durable, est remplacé)* |
+| `trg_m14_cascade_cancel` | AFTER UPDATE on `tms.collectes_tms` | `OLD.statut_dispatch IS DISTINCT FROM NEW.statut_dispatch AND NEW.statut_dispatch IN ('rejetee_par_prestataire','annulee_par_traiteur') AND EXISTS (SELECT 1 FROM tms.everest_missions em WHERE (em.collecte_tms_id = NEW.id OR em.tournee_id = NEW.tournee_id) AND em.statut_everest NOT IN ('cancelled','cancelled_externally','completed','completed_incomplete','failed','creation_failed'))` (revue sobriété §04 2026-04-30 A6 — colonnes miroir supprimées V1, lookup direct sur `everest_missions`) | **INSERT `tms.outbox_events`** (`event_type='everest.cancel'`, `aggregate_type='collecte'`, `aggregate_id=NEW.id`) dans la même transaction + `pg_notify('m14_cancel_queue')` en simple **réveil** — le worker outbox (§18bis) consomme la ligne et POST `/api/internal/m14/missions/cancel` *(bascule 2026-07-06 COH-03 option A)* |
 
 ### 1 Fonction SQL helper
 
@@ -424,9 +422,28 @@ Issu de [[06 - Fonctionnalités détaillées TMS/M14 - Intégration Everest]] (V
 |----------|-----------|-------|
 | `tms.m14_lookup_mission_by_collecte(collecte_id uuid)` | returns `tms.everest_missions` | Résout la mission Everest depuis une collecte : (1) lookup direct `everest_missions WHERE collecte_tms_id = $collecte_id` (cas vélo, services 71/75), (2) sinon résout la `tournee_id` via `collectes_tms` puis lookup `everest_missions WHERE tournee_id = ?` (cas camion). Revue sobriété §04 2026-04-30 A6 — colonnes miroir supprimées V1, source de vérité unique = `everest_missions`. Utilisé W2 (réception webhook) et W5 (notify_incomplete). |
 
-### Worker Next.js (queue listener)
+### Worker Next.js (consommateur outbox — refondu 2026-07-06 COH-03 option A)
 
-Un worker Next.js dédié écoute `pg_notify` channels `m14_create_queue` + `m14_cancel_queue` (via `LISTEN/NOTIFY` postgres) et POST en interne aux API routes correspondantes. Co-localisé avec le worker M11 (`alerte_emit` queue) si possible pour limiter les processes.
+ **Les jobs Everest M14 sont consommés par le worker outbox unique (§18bis)** depuis `tms.outbox_events` (`event_type IN ('everest.create','everest.cancel')`). `LISTEN m14_create_queue`/`m14_cancel_queue` ne sert plus que de **réveil** (latence) — une notification perdue est rattrapée au scan périodique de l'outbox, plus aucune mission créée/annulée ne peut se perdre si le worker est down. Co-localisé avec le worker M11 (`alerte_emit` queue) si possible pour limiter les processes.
+
+## 18bis. Worker outbox sortants S1-S11 + jobs Everest (ajout 2026-07-06 COH-02 / COH-03 option A — arbitrage RC-M04-06)
+
+> Chapitre architecture du consommateur de `tms.outbox_events` (§04) promis par §08 §2bis. Pattern identique au worker outbox App (tranché 2026-06-11 côté App — même doctrine, même vocabulaire).
+
+**Périmètre consommé** : webhooks sortants TMS → Plateforme **S1-S11** (`event_type` = slugs S-events) **+ jobs d'intégration Everest M14** (`event_type` `everest.create` / `everest.cancel` → POST API routes internes M14 au lieu d'un POST Plateforme). Toute mutation métier productrice INSÈRE dans `tms.outbox_events` **dans sa transaction** (RPC ou trigger — dérivation R6.1, `trg_pesee_tardive_s5_correction`, `trg_m14_push_mission`, `trg_m14_cascade_cancel`…) ; **aucun webhook/POST n'est émis directement depuis un trigger ou un handler HTTP**.
+
+**Mécanique (lease/claim)** :
+- **Claim** : tx courte — sélection `status='pending'` éligible (`next_retry_at IS NULL OR <= now()`, garde de visibilité `txid < txid_snapshot_xmin(txid_current_snapshot())`), passage `status='processing'` + `claimed_until = now() + lease` + `attempts++`, **AVANT tout HTTP**. Jamais de lock tenu pendant le HTTP (PgBouncer transaction mode + serverless).
+- **Livraison** : POST hors transaction (Plateforme pour S1-S11, API route interne pour everest.*), enveloppe §08 figée à l'émission, `event_id` réutilisé à l'identique à chaque retry (dédup côté récepteur).
+- **Résultat** : tx courte — succès = `consumed_at`/`consumer` posés ; échec = `status='failed'` + `next_retry_at` au palier suivant.
+- **Ordering** : `seq` bigserial + **head-of-line par agrégat** `(aggregate_type, aggregate_id)` — un event `pending`/`processing`/`failed` plus ancien bloque les suivants du même agrégat (jamais de S5 avant son S3, jamais de cancel avant son create).
+- **Retry** : 3 paliers **5 min / 1h / 24h** (4 tentatives) puis `status='dead'` + `dead_at` → **DLQ = alerte critical M11** (visibilité + Rejouer : dashboard M13 E6/W6, re-queue `status='pending'` avec `event_id` d'origine).
+- **Reaper** : re-queue les claims expirés (`claimed_until < now()` et `processing`) avec `requires_reconciliation=true` → **réconciliation obligatoire avant tout re-POST** (le POST a pu partir avant le crash).
+- **`pg_notify` = réveil uniquement, jamais transport** : les triggers producteurs peuvent notifier un channel pour réduire la latence de scan ; toute notification perdue est rattrapée par le scan périodique. C'est l'outbox qui porte la durabilité.
+
+**Hébergement** : worker Next.js long-running (même process que le listener M14 refondu ci-dessus + worker M11 si possible) — PAS une API route serverless (le lease/claim requiert un scan périodique).
+
+**Renvois** : structure table + index → §04 `tms.outbox_events` ; doctrine émission + enveloppe + matrice transitions/webhooks → §08 §2bis ; dashboard sync + Rejouer → M13 E6/W6 ; alerte DLQ → M11.
 
 ### Sécurité webhook entrant
 

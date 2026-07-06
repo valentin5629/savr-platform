@@ -1,6 +1,5 @@
 # 12 — App mobile chauffeur
 
-**Statut** : V1 rédigée 2026-04-27. **MAJ Bloc 3 2026-06-04** : D6 refondue (écran d'information géoloc à l'inscription, base légale intérêt légitime).
 **Périmètre** : section transverse — vue d'ensemble PWA chauffeur + arbitrages techniques structurants non tranchés dans M05. **Ne re-spécifie pas** les écrans, workflows, alertes, paramètres détaillés (voir [[06 - Fonctionnalités détaillées TMS/M05 - App mobile chauffeur|M05]] = source de vérité fonctionnelle).
 **Persona ciblé** : Chauffeur Strike / Marathon / futurs prestataires.
 **Référence transverse** : [[07 - Architecture technique TMS]] (stack), [[09 - Authentification et permissions TMS]] (auth + RLS), [[14 - Scalabilité TMS]] (perf), [[15 - Sécurité et conformité TMS]] (RGPD géoloc).
@@ -161,7 +160,7 @@ Cf. M05 D24 + R_M05.10-R_M05.11 + §addendum 2026-04-24 + §15.4.4 + §09. Synth
 
 **Décision D7** (refondue revue sobriété §05 2026-05-01 B1) : **bootstrap chauffeur via magic link 30 min uniquement** (pas de password initial transmis par email). Le chauffeur reçoit un email "Définir mon mot de passe", clique le lien, définit son password (≥ 8 car) puis se connecte normalement. Aucun password en clair transmis par email.
 
-→ **Supprimé V1 (revue sobriété §05 2026-05-01 B1)** — la colonne devient inutile, le magic link force par construction la création du password à la 1ère connexion. Plus d'écran intermédiaire "force change" puisqu'il n'y a jamais de password par défaut.
+ → **Supprimé V1 (revue sobriété §05 2026-05-01 B1)** — la colonne devient inutile, le magic link force par construction la création du password à la 1ère connexion. Plus d'écran intermédiaire "force change" puisqu'il n'y a jamais de password par défaut.
 
 **Justification** : sécurité renforcée (zéro password en clair transmis par email — réduit la surface d'attaque), implémentation simplifiée (1 chemin de code au lieu de 2 — magic link reset password déjà existant pour EA2), cohérence R_M03.1 (reset password = magic link 30 min), ergonomie identique pour le chauffeur (1 email reçu, 1 clic, 1 saisie password).
 

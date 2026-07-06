@@ -2,7 +2,6 @@
 
 **Objectif** : spécifier l'authentification, la gestion des comptes, les rôles, le cumul de rôles, les policies RLS Supabase détaillées et la conformité RGPD sur le Savr TMS (tms.gosavr.io).
 
-**Dernière mise à jour** : 2026-06-04 (**propagation Bloc 3 — workflow RGPD géoloc** — refonte A5 : base légale géoloc requalifiée intérêt légitime (ex-consentement Art. 7), écran d'information à l'inscription + trace `users_tms.consentements.geoloc_notice`, suppression révocation/notification manager in-app, table « Droits des personnes » requalifiée manuelle Admin TMS sans self-service (alignement §15.5.1), purge docs cron seule sans demande anticipée (3a), correction réf table géoloc `tournees.positions_gps` → `tms.chauffeurs_geolocalisation`) / 2026-04-25 (**propagation M13 Administration TMS** — addendum politique session 30j glissantes admin+ops device trusted **sans re-MFA actions sensibles** (R_M13.12, R_M13.13, D10 risque assumé), MFA TOTP admin 1ère fois device (D11), cap 3 devices trusted/user (D14 R_M13.11), RLS 4 nouvelles tables `users_tms_devices_trusted`/`alertes_codes_overrides`/`secrets_metadata`/`impersonation_sessions`, helper SQL `auth.is_impersonating()`, contraintes impersonation R_M13.9+R_M13.10) / 2026-04-25 propagation M10 Gestion exutoires Veolia — section 13 enrichie avec `recomptages_stocks_entrepot_log` append-only, 5 policies RLS + trigger BEFORE UPDATE/DELETE + 5 tests pgTAP bloquants / 2026-04-24 propagation M03 Portail prestataire — email+password manager+chauffeur, politique password unifiée 8 car min, magic link retournement chauffeur→password, Ops/Admin inchangés SSO Google+MFA TOTP
 
 **Sources croisées** :
 - [[04 - Data Model TMS]] — table `users_tms`, matrice RLS, fonctions helpers
@@ -42,6 +41,17 @@ Issu de [[06 - Fonctionnalités détaillées TMS/M13 - Administration TMS]] V1 r
 - Notification cible sur certaines actions (W4 reset MFA, W9 impersonation)
 
 À reconsidérer V2 si : recrutement 3ème admin, incident sécu, audit externe, ou évolution conformité (ISO 27001, SOC 2).
+
+### 1bis. Sessions chauffeur — grâce de flush device-switch (2026-07-06 COH-08, arbitrage Val RC-M05-05)
+
+**Exception à la règle « révocation = invalidation immédiate »**, cantonnée au device binding chauffeur (D12 M05) :
+
+- **SI** un token chauffeur est révoqué **pour cause de device-switch** (`reason='device_switch'` — login sur un nouveau device, C14 M05) **ALORS** ce token reste accepté pendant `m05_grace_flush_heures` (défaut 48 h, paramètre §12 M05) sur les **seuls endpoints de sync** (`POST /sync/*`), et uniquement pour les items de queue offline **créés avant la révocation** (`created_at <` révocation ; `idempotency_key` dédoublonne si le chauffeur a re-saisi sur le nouveau device).
+- **Toute autre révocation reste immédiate sur tous les endpoints** — en particulier le **force-logout sécurité (C5 M05)**, la désactivation user Admin (M13) et la rotation forcée de password (W4 M13) ne bénéficient d'AUCUNE grâce.
+- Hors scope de la grâce : tout endpoint non-sync (lecture tournées, login, référentiels) répond 401 normalement dès la révocation.
+- **Audit** : chaque write accepté sous grâce est loggé (`audit_logs`, token révoqué + device d'origine identifiés) ; au-delà de la fenêtre, queue orpheline = DLQ locale + audit `SYNC_ORPHAN_QUEUE_DETECTED` (W11 M05).
+
+**Justification** : pas de perte de données terrain au switch de device (KPI « 0 perte » §1 M05) — les écritures de sync sont idempotentes (`idempotency_key`) et à blast radius limité. Cadrage risque : cf. [[15 - Sécurité et conformité TMS]] §Device binding.
 
 ### 2. RLS nouvelles tables M13
 
@@ -244,7 +254,7 @@ Paramètre unique JSONB `parametres_tms.auth.session_duree_jours_par_role` (defa
 
 Paramètre `auth.session_glissante` boolean (default `true`) — flag global toutes rôles V1, ex-`m13_session_glissante`.
 
-**Suppressions revue sobriété §05 2026-05-01 C2** : , , , . Toutes ces variantes étaient à 30 — fusion sans changement de comportement V1.
+**Suppressions revue sobriété §05 2026-05-01 C2** :,,,. Toutes ces variantes étaient à 30 — fusion sans changement de comportement V1.
 
 Remplace la décision D13 M05 (spécifique chauffeur) par une règle commune :
 - **Durée session** : 30 jours glissants par défaut (paramètre `auth.session_duree_jours_par_role->>'<role>'`)
@@ -371,7 +381,7 @@ Documents chauffeur (permis, visite médicale) purgés après 3 ans d'archivage 
 
 ### Isolation par schémas (retournement 2 projets → 1 projet 3 schémas)
 
-→ **1 seul projet Supabase**, 3 schémas (`plateforme.*`, `tms.*`, `shared.*`) isolés par **RLS cross-schema deny**. Une seule table `auth.users` partagée physiquement, mais :
+ → **1 seul projet Supabase**, 3 schémas (`plateforme.*`, `tms.*`, `shared.*`) isolés par **RLS cross-schema deny**. Une seule table `auth.users` partagée physiquement, mais :
 
 - **JWT custom claim `app_domain`** (`'plateforme'` \| `'tms'`) posé par hook Supabase Auth au login, basé sur l'origine de la tentative de connexion (sous-domaine `app.gosavr.io` vs `tms.gosavr.io`).
 - **Fonction helper RLS** `app_domain() RETURNS text` lit le claim JWT courant. Toutes les policies RLS TMS ajoutent `AND app_domain() = 'tms'` (sauf exceptions `shared.*`).
@@ -422,7 +432,6 @@ CREATE POLICY prestataires_ops_tms_update_identity ON shared.prestataires
   USING (app_domain() = 'tms' AND has_role(ARRAY['ops_savr']))
   WITH CHECK (app_domain() = 'tms' AND has_role(ARRAY['ops_savr']));
 -- Les colonnes opérationnelles (rayon_intervention_km, coords_siege_*, integration_externe, everest_client_id, type_prestation, has_portail_self_service, statut, date_fin_contrat) restent deny pour ops_savr via GRANT column-level.
--- retirées V1 (revue sobriété §04 2026-04-30 A3 — vue dérivée tms.vue_prestataires_everest_status sur integrations_logs).
 -- Workflow fin de contrat (M06 E8) : seul admin_tms peut écrire `statut` et `date_fin_contrat`.
 ```
 
@@ -521,7 +530,7 @@ Rotation **annuelle** (retournement vs décision 9.3.16 semestrielle — atelier
 
 ### Isolation stricte Plateforme vs TMS
 
-**(retourné atelier 2026-04-23)** : 1 projet Supabase, 3 schémas (`plateforme.*`, `tms.*`, `shared.*`), isolés par RLS cross-schema deny + claim JWT `app_domain`. Cf. addendum ci-dessus. Le principe d'isolation est maintenu par la sécurité DB (RLS deny par défaut) malgré la DB unique.
+ **(retourné atelier 2026-04-23)** : 1 projet Supabase, 3 schémas (`plateforme.*`, `tms.*`, `shared.*`), isolés par RLS cross-schema deny + claim JWT `app_domain`. Cf. addendum ci-dessus. Le principe d'isolation est maintenu par la sécurité DB (RLS deny par défaut) malgré la DB unique.
 
 **Conséquence** : un Ops Savr qui bosse sur les deux apps a **deux comptes** avec deux emails différents (ou le même email dupliqué sur deux `auth.users`). Pas de session partagée, pas de token partagé.
 
@@ -1255,8 +1264,6 @@ CREATE POLICY tournees_ajustement_staff_write ON tournees
 -- - SET cout_final_ht = cout_ajuste_ht
 -- - INSERT integrations_logs sortant 'course-cout-calculee' v+1 (push S6 immédiat, pas de seuil)
 
--- — SUPPRIMÉE (sobriété A3 2026-04-30)
--- — SUPPRIMÉ (sobriété A3 2026-04-30)
 
 -- Interdiction UPDATE de cout_calcule_ht (figement R2.8 §05 authoritative)
 -- Trigger DB tms.trg_tournees_cout_calcule_immutable (BEFORE UPDATE) :
@@ -1371,11 +1378,9 @@ CREATE POLICY factures_admin_deverrouillage ON factures_prestataires
 --   → RAISE EXCEPTION si (action_deverrouillage|motif_deverrouillage|deverrouillee_at) modifiés
 --     ET NOT auth.user_has_role('admin_tms').
 
--- revue sobriété §04 2026-04-30 A5 — table supprimée V1.
 -- Audit visuel via factures_prestataires.pdf_url + pdf_extraction_json.
 -- Réintroduction V1.1 si rapprochement ligne-à-ligne devient nécessaire métier.
 
--- revue sobriété 2026-04-30 B2 — table dédiée supprimée.
 -- Trace via tms.audit_logs action M08_EXPORT_PENNYLANE / M08_EXPORT_PENNYLANE_ANNULEE.
 -- RLS audit_logs standard (lecture staff via policies existantes) + immutabilité applicative D5 M13.
 -- INSERT via fonction tms.audit_log_emit (Edge Function ou trigger M08 W10).
@@ -1546,8 +1551,6 @@ CREATE POLICY suggestions_log_staff_read ON suggestions_attribution_log
 **Rétention** : 2 ans, purge via cron daily DELETE WHERE `cree_le < now() - INTERVAL '2 years'`.
 
 ### 17ter. `everest_coverage_cache` — **Caduc (audit cohérence A4 2026-05-09, purge F3 2026-06-07)**
-
-> Table supprimée — couverture Everest = check local `parametres_algo.everest_codes_postaux`, aucune policy à créer. Bloc conservé pour historique uniquement.
 
 
 
@@ -1950,7 +1953,7 @@ Gestion manuelle possible par Admin TMS pour anticiper (ex: incident de sécurit
   -- UPDATE chauffeurs SET permis_url = NULL, piece_identite_url = NULL WHERE id = ...
   -- INSERT audit_logs action = 'documents_purged_rgpd'
   ```
-- **Retiré V1 (Bloc 3 2026-06-04, arbitrage 3a)** : pas de purge manuelle anticipée. La rétention 3 ans est une obligation employeur transport ; une suppression avant terme risquerait de détruire une pièce encore légalement requise. Purge **cron seule** au-delà de 3 ans. Réouverture V1.1 si besoin terrain avéré.
+- **Retiré V1 (Bloc 3 2026-06-04, arbitrage 3a)** : pas de purge manuelle anticipée. La rétention 3 ans est une obligation employeur transport; une suppression avant terme risquerait de détruire une pièce encore légalement requise. Purge **cron seule** au-delà de 3 ans. Réouverture V1.1 si besoin terrain avéré.
 
 ### Chiffrement et transport
 

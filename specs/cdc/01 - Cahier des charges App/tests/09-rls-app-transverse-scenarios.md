@@ -24,10 +24,10 @@
 | 2. Cas limites métier | 11 | frontières de visibilité (traiteur opérationnel, shadow, brouillons tiers, multi-camions, fenêtre édition, column-level) |
 | 3. Cas d'erreur métier | 11 | écritures refusées par rôle (matrice étendue ops, périmètres INSERT) |
 | 4. Isolation données (RLS) | 14 | cross-org deny par rôle, tables filles, fichiers polymorphes, PII |
-| 5. Idempotence et états | 9 | append-only, immuabilité, SERVICE_ROLE only, soft delete |
+| 5. Idempotence et états | 14 | append-only, immuabilité, SERVICE_ROLE only, soft delete users/fichiers, RGPD demandes_suppression |
 | 6. Cross-app | 4 | réduite/justifiée — schéma `tms.*` inexistant V1 ; SERVICE_ROLE + claim `app_domain` |
 | 7. Migration | 5 | mapping rôles, claims post-migration, échantillonnage cross-org, anonymisation, idempotence policies |
-| **TOTAL** | **62** | |
+| **TOTAL** | **67** | |
 
 **Fixtures de référence** : org A = Kaspia (traiteur), org B = Kardamome (traiteur), org C = Viparis (gestionnaire de lieux, 2 lieux liés via `organisations_lieux`), org D = agence événementielle, org E = client organisateur. Users : `manager_kaspia`, `commercial1_kaspia`, `commercial2_kaspia`, `manager_kardamome`, `gest_viparis`, `agence_d`, `client_e`, `ops1` (ops_savr), `val` (admin_savr).
 
@@ -131,16 +131,25 @@ Scénario : commercial_update_sa_collecte_dans_fenetre
   Alors la mise à jour réussit (created_by = self ET f_collecte_editable)
 
 Scénario : lieux_colonnes_admin_only_invisibles_clients (lieux_admin_only_fields_hidden_from_clients)
-  Étant donné le lieu L1 avec `commentaire_lieu`, `siren`, `email_gestionnaire`, `reference_citeo` renseignés
-  Quand `manager_kaspia` puis `gest_viparis` exécutent SELECT de ces 4 colonnes sur `plateforme.lieux`
+  Étant donné le lieu L1 avec `commentaire_lieu`, `siren`, `email_gestionnaire`, `reference_citeo`, `commentaires_internes` renseignés
+  Quand `manager_kaspia` puis `gest_viparis` exécutent SELECT de ces 5 colonnes sur `plateforme.lieux`
   Alors chaque requête échoue en erreur de privilège column-level
-  # Couche : db | Priorité : P1-critique (GRANT column-level, pas RLS row)
+  Et `v_lieux_clients` (SECURITY INVOKER) retourne le lieu sans ces 5 colonnes (masquage via REVOKE/GRANT whitelist)
+  # Couche : db | Priorité : P1-critique (REVOKE table-level + GRANT SELECT whitelist, pattern F5 factures)
 
 Scénario : v_factures_client_sans_marge_logistique (test_factures_marge_invisible_clients — F5 lot ⑦)
   Étant donné une facture Kaspia avec marge_logistique renseignée
   Quand `manager_kaspia` interroge `v_factures_client`
   Alors la facture est visible et la vue n'expose ni `marge_logistique` ni `erreur_synchro*`
   Et le SELECT direct sur `plateforme.factures` par `manager_kaspia` retourne 0 ligne (table = staff only)
+
+Scénario : v_factures_client_non_vide_manager (test_factures_vue_client_non_vide_manager — F5-corr M3.5 2026-06-16)
+  # Prérequis : policy fac_client_select sur plateforme.factures — SANS elle, SECURITY INVOKER + DENY ALL → 0 ligne
+  Étant donné une facture Kaspia émise (organisation_id = org_kaspia)
+  Et `manager_kaspia` authentifié (rôle traiteur_manager, organisation_id = org_kaspia)
+  Quand `manager_kaspia` interroge `v_factures_client`
+  Alors ≥ 1 ligne retournée et aucune erreur RLS
+  Et une facture d'organisation B est absente (org-scoping actif via fac_client_select)
 
 Scénario : lieu_visible_par_double_chemin
   Étant donné un lieu L3 sans lien organisations_lieux avec Kaspia mais référencé par un événement Kaspia
@@ -322,12 +331,39 @@ Scénario : fichiers_soft_deleted_invisibles
   Quand `manager_kaspia` exécute SELECT sur `shared.fichiers`
   Alors la ligne n'est pas retournée (prédicat deleted_at IS NULL dans la policy)
 
+Scénario : users_soft_deleted_invisibles_clients
+  Étant donné un user Kaspia anonymisé (deleted_at NOT NULL) via fn_anonymize_user
+  Quand `manager_kaspia` exécute SELECT sur `users` de son organisation
+  Alors la ligne anonymisée n'est pas retournée (prédicat deleted_at IS NULL)
+  Et `val` (admin_savr) la voit toujours (policy usr_admin non gatée)
+
+Scénario : fn_anonymize_user_idempotente
+  Étant donné un user déjà anonymisé (deleted_at NOT NULL)
+  Quand le SERVICE_ROLE rappelle fn_anonymize_user sur ce même user
+  Alors l'appel est un no-op (aucune nouvelle écriture, deleted_at inchangé), et aucune entrée audit_log dupliquée
+
 Scénario : impersonation_journalisee
   Étant donné `val` en session impersonation de `manager_kaspia` (claims role=traiteur_manager, organisation_id=Kaspia, impersonator_id=val)
   Quand il modifie un événement Kaspia
   Alors la RLS appliquée est celle de traiteur_manager (un événement Kardamome reste invisible)
   Et l'entrée audit_log porte user_id=manager_kaspia ET impersonator_id=val
   # Couche : api | Priorité : P2-important
+
+# Source : §04 demandes_suppression (RGPD §15 §3.3) — ajout divergence M0.4 R7 2026-06-25
+
+Scénario : demande_suppression_self_insert_select
+  Étant donné `manager_kaspia` connecté
+  Quand il INSERT une demande de suppression le concernant puis SELECT
+  Alors l'INSERT réussit et il voit sa propre demande (statut en_attente)
+
+Scénario : demande_suppression_cloisonnee_cross_user
+  Étant donné une demande de suppression de `manager_kaspia`
+  Quand `commercial1_kaspia` (même org) puis `manager_kardamome` exécutent SELECT
+  Alors aucun ne voit la demande (self SELECT only — pas org-wide)
+
+Scénario : demande_suppression_statut_non_falsifiable_client
+  Quand `manager_kaspia` exécute UPDATE statut='validee' sur sa propre demande sous `authenticated`
+  Alors l'UPDATE affecte 0 ligne (pilotage statut = admin_savr / SERVICE_ROLE only)
 ```
 
 ---

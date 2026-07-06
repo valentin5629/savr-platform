@@ -46,6 +46,7 @@ L'équipe Savr
 ## 2. Email rappel completion profil entreprise **Retiré V1 (revue de sobriété 2026-06-03, A2)**
 
 **Slug** : `completion_profil_requise`
+**Statut** : retiré V1
 **Motif** : le blocage de la programmation sans organisation complétée est déjà géré **in-app** (modal « Complétez votre profil entreprise » qui liste les champs manquants et redirige vers le formulaire de complétion — cf. [[../05 - Règles métier]] §9 UX). L'email doublait une information déjà affichée à l'instant T → confort. Décision Val 2026-06-03 : in-app uniquement, pas d'email V1.
 
 ---
@@ -169,29 +170,12 @@ L'équipe Savr
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ---
 
 ## 8. Email alerte Admin — Nouvelle organisation à valider **Retiré V1 (revue de sobriété 2026-06-03, A3)**
 
 **Slug** : `admin_orga_a_valider`
+**Statut** : retiré V1
 **Motif** : alerte purement informative (l'email lui-même précisait « l'organisation est déjà active, cette alerte sert à vérifier a posteriori »). L'onboarding est 100% automatisé sans validation amont (§05 §851) → aucun gating, aucune action requise à l'instant T. Le push email génère du bruit à volume. La vérification de cohérence a posteriori se fait via le **filtre « nouvelles organisations » du back-office** (orgs déjà listées, revue à la cadence Admin). Décision Val 2026-06-03.
 
 ---
@@ -352,6 +336,7 @@ Un traiteur a soumis une demande de renouvellement de pack Anti-Gaspi.
 ## 15. Email relance facture en retard **Retiré V1 (revue de sobriété 2026-05-08)**
 
 **Slug** : `facture_relance`
+**Statut** : retiré V1
 **Motif** : les relances de factures en retard sont gérées **directement dans Pennylane** (décision 2026-04-28). Aucun flux relance V1 côté plateforme Savr — donc pas de template email Savr associé. Voir [[06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin)]] §8.
 
 ---
@@ -642,7 +627,7 @@ ATTENTION : annulation à moins de 12h du créneau — plein tarif applicable, v
 
 ## Questions ouvertes
 
-1. **Tranchée 2026-05-29 (Val) : signature générique "L'équipe Savr"** (conforme à la convention transverse en tête de document). Aucun mapping référent↔organisation n'existe en V1 ; une signature nominative imposerait ce mapping + sa maintenance pour un gain faible. Signature nominative reportée V2 si une logique de référent dédié est introduite.
+1. **Tranchée 2026-05-29 (Val) : signature générique "L'équipe Savr"** (conforme à la convention transverse en tête de document). Aucun mapping référent↔organisation n'existe en V1; une signature nominative imposerait ce mapping + sa maintenance pour un gain faible. Signature nominative reportée V2 si une logique de référent dédié est introduite.
 2. **Anglais** : traduction EN de tous les templates pour gestionnaires anglophones V1 ou V1.1 ?
 3. **Envoi automatique factures par email** : hors scope V1 acté, à trancher pour V1.1
 4. **Template pour clients finaux (profil 6)** : mail de bienvenue spécifique lors de l'activation du rattachement à un événement ?

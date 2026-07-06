@@ -69,6 +69,12 @@
 --   (text nullable, profil transverse tous rôles §06.04 §7 ; V1 migration 20260705110000). Convergence
 --   V1⊂cible rétablie — plus une divergence à tracer. Revalidé pglast v7.14 : 319 statements, 92 tables,
 --   56 enums, 3 schémas — comptes inchangés (une colonne nullable n'ajoute aucun statement).
+-- Regelé le : 2026-07-06 (revue adversariale concurrence TMS, arbitrages Val RC-M04-06 + RC-M05-01/02) :
+--   + table tms.outbox_events (webhooks sortants S1-S11 transactionnels, worker lease/claim, seq,
+--   event_id UNIQUE — structure calquée plateforme.outbox_events), + colonne
+--   tms.collecte_tournees.statut_execution (a_faire|faite|incident, gate clôture M05 E4),
+--   tms.pesees.idempotency_key : DEFAULT gen_random_uuid() retiré (RC-M05-02). Recompté : 93 tables
+--   (58 plateforme, 33 tms, 2 shared).
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
@@ -1415,11 +1421,37 @@ CREATE TABLE tms.collecte_tournees (
   collecte_tms_id     uuid NOT NULL,                        -- FK -> tms.collectes_tms
   tournee_id          uuid NOT NULL,                        -- FK -> tms.tournees
   ordre_dans_tournee  smallint NOT NULL CHECK (ordre_dans_tournee >= 1),
+  statut_execution    text NOT NULL DEFAULT 'a_faire' CHECK (statut_execution IN ('a_faire','faite','incident')),  -- ajout 2026-07-06 (revue adversariale TMS RC-M05-01) : avancement de la portion collecte x tournée, gate clôture M05 E4 ; statut collecte global reste dérivé R6.1
   cout_reparti_centimes integer,
   created_at          timestamptz NOT NULL DEFAULT now(),
   updated_at          timestamptz NOT NULL DEFAULT now(),
   UNIQUE (collecte_tms_id, tournee_id),
   CONSTRAINT uq_tms_collecte_tournees_ordre UNIQUE (tournee_id, ordre_dans_tournee) DEFERRABLE INITIALLY DEFERRED
+);
+
+-- Ajout 2026-07-06 (revue adversariale TMS RC-M04-06, arbitrage Val) : outbox transactionnelle
+-- des webhooks sortants S1-S11 (TMS -> Plateforme). Structure calquée sur plateforme.outbox_events
+-- (même worker lease/claim, garde-fou 2) + event_id/occurred_at/aggregate_type propres au contrat §08.
+CREATE TABLE tms.outbox_events (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  seq           bigserial NOT NULL UNIQUE,                 -- ordering déterministe (+ tranche les occurred_at égaux)
+  event_type    text NOT NULL,                             -- slug S-event (collecte-acceptee, tournee-upsert, collecte-terminee, incident, ...)
+  aggregate_type text NOT NULL CHECK (aggregate_type IN ('collecte','tournee')),
+  aggregate_id  uuid NOT NULL,
+  event_id      uuid NOT NULL UNIQUE,                      -- clé d'idempotence webhook, réutilisée à chaque retry (dédup integrations_inbox Plateforme)
+  payload       jsonb NOT NULL,                            -- enveloppe complète §08 figée à l'émission
+  occurred_at   timestamptz NOT NULL DEFAULT now(),
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  consumed_at   timestamptz,
+  consumer      text,
+  attempts      integer NOT NULL DEFAULT 0,
+  status        text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','processing','failed','dead')),
+  next_retry_at timestamptz,
+  last_error    text,
+  dead_at       timestamptz,
+  txid          bigint NOT NULL DEFAULT txid_current(),    -- garde de visibilité worker (pattern App 2026-06-11)
+  claimed_until timestamptz,                               -- bail du claim worker (lease/claim)
+  requires_reconciliation boolean NOT NULL DEFAULT false   -- posé par le reaper sur claim expiré
 );
 
 CREATE TABLE tms.pesees (
@@ -1434,7 +1466,7 @@ CREATE TABLE tms.pesees (
   tare_kg               numeric(7,2) NOT NULL DEFAULT 0,
   poids_net_kg          numeric(7,2) GENERATED ALWAYS AS (GREATEST(poids_brut_kg - tare_kg, 0)) STORED,  -- A5 confirmé Val 2026-06-10 : kg canonique
   saisi_par_chauffeur_id uuid NOT NULL,                     -- FK -> tms.chauffeurs
-  idempotency_key       uuid NOT NULL UNIQUE DEFAULT gen_random_uuid(),
+  idempotency_key       uuid NOT NULL UNIQUE,                    -- default gen_random_uuid() RETIRÉ 2026-07-06 (RC-M05-02) : un oubli de propagation doit échouer, pas générer une clé qui tue la dédup ; écriture ON CONFLICT DO NOTHING
   source                text NOT NULL DEFAULT 'chauffeur' CHECK (source IN ('chauffeur','ag_sans_collecte')),
   tare_override_motif   text,
   photos                text[] DEFAULT '{}',

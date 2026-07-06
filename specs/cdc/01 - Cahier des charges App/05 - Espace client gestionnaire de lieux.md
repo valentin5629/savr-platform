@@ -1,7 +1,5 @@
 # 05 - Espace client gestionnaire de lieux
 
-**Statut** : Validé V1 (session test-scenarios 2026-06-07 — 6 floues tranchées Val : F1 toggle notif collecte supprimé · F2 statut consolidé défini · F3 brouillons tiers exclus · F4 fenêtre `f_collecte_editable` sur UPDATE gestionnaire · F5 policies users org-wide · F6 factures SELECT self — cf. `tests/06.05-espace-gestionnaire-lieux-scenarios.md`)
-**Dernière mise à jour** : 2026-06-07
 **Lié à** : [[02 - Personas et cas d'usage]] · [[04 - Data Model]] tables `organisations`, `organisations_lieux`, `lieux`, `types_evenements`, `flux_dechets`, `coefficients_perte_labo` · [[05 - Règles métier#R_dechets_labo_estimes]] · [[06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte]] · [[06 - Fonctionnalités détaillées/04 - Espace client traiteur]] · [[11 - Dashboards]] · [[12 - Reporting et exports]] §1.6
 
 ---
@@ -64,21 +62,23 @@ Un user `gestionnaire_lieux` **ne voit pas** :
 
 ## Navigation (refonte 2026-05-07)
 
-Barre latérale gauche, **7 sections** *(refonte sobriété 2026-05-30 — entrée "Rapports" retirée, la génération de synthèse passe par le bouton dashboard ; vs 8 entre 2026-05-07 et 2026-05-30, vs 6 avant 2026-05-07)* :
+Barre latérale gauche, **9 sections** *(Val 2026-07-06, divergence M3.2 R19b-P2 : réintégration **Collectes** + **Registre réglementaire** — override de la décision 2026-05-03 ; neutralise la partie « 9→7 » du ticket BL-P2-13. Historique : 7 sections après refonte sobriété 2026-05-30 — entrée "Rapports" retirée ; vs 8 entre 2026-05-07 et 2026-05-30, vs 6 avant 2026-05-07)* :
 
 1. **Dashboard** — page d'accueil (vue 360 — inchangé)
 2. **Événements** — liste des événements sur les lieux (incluant ceux programmés par le gestionnaire lui-même + ceux programmés par les traiteurs intervenants)
 3. **Lieux** — liste des lieux de l'organisation
-4. **Traiteurs** — partenaires intervenants
-5. **Mon pack AG** *(nouveau 2026-05-07)* — vue pack actif + crédits restants + historique consommation. Affiché uniquement si l'organisation a au moins 1 pack (`packs_antgaspi WHERE organisation_id = current_org`). Sinon l'entrée nav est masquée. Comportement identique au Bloc 4 AG du §06.04 (pack actif unique, pas d'historique multi-packs).
-6. **Mon organisation** *(nouveau 2026-05-07)* — sous-sections : Profil organisation / Utilisateurs (invitations, rôles) / **Facturation** (entités juridiques, factures, mandats SEPA, intégration Pennylane). Réutilisation du composant §06.04 §6 "Mon organisation" (manager only — ici tous les users gestionnaire ont accès, pas de distinction manager/commercial en V1).
-7. **Paramètres** — préférences personnelles utilisateur (notifications email, langue) — réduit vs avant (organisation + utilisateurs déplacés dans Mon organisation)
+4. **Collectes** *(réintégrée Val 2026-07-06)* — liste des collectes sur les lieux de l'organisation (`/gestionnaire/collectes`, vue `v_collectes_gestionnaire_lieux`) → détail collecte
+5. **Registre réglementaire** *(réintégré Val 2026-07-06)* — registre déchets ZD hérité (R13, `/registre`, prédicat gestionnaire `v_registre_dechets`)
+6. **Traiteurs** — partenaires intervenants
+7. **Mon pack AG** *(nouveau 2026-05-07)* — vue pack actif + crédits restants + historique consommation. Affiché uniquement si l'organisation a au moins 1 pack (`packs_antgaspi WHERE organisation_id = current_org`). Sinon l'entrée nav est masquée. Comportement identique au Bloc 4 AG du §06.04 (pack actif unique, pas d'historique multi-packs).
+8. **Mon organisation** *(nouveau 2026-05-07)* — sous-sections : Profil organisation / Utilisateurs (invitations, rôles) / **Facturation** (entités juridiques, factures, mandats SEPA, intégration Pennylane). Réutilisation du composant §06.04 §6 "Mon organisation" (manager only — ici tous les users gestionnaire ont accès, pas de distinction manager/commercial en V1).
+9. **Paramètres** — préférences personnelles utilisateur (notifications email, langue) — réduit vs avant (organisation + utilisateurs déplacés dans Mon organisation)
 
 > La génération de synthèse PDF agrégée n'a plus d'entrée nav dédiée : elle se déclenche via le bouton "Exporter une synthèse PDF" du dashboard (ZD et AG), qui ouvre la modal de génération (cf. §4). Décision sobriété 2026-05-30.
 
 **Bouton primaire dashboard "Programmer un événement"** *(refonte 2026-05-21 — formulaire unique événement-centré, ex 2 sous-boutons ZD/AG)* : ouvre le formulaire unique §06.01 (choix ☐ZD ☐AG en étape 1) avec les contraintes Cas Gestionnaire (combobox lieu filtrée à `organisations_lieux`, combobox traiteur opérationnel restreinte au référentiel sans option shadow). Si la case Anti-Gaspi est cochée sans pack actif, la soumission AG est bloquée (alerte "Contactez Savr pour négocier un pack AG") — la collecte ZD reste programmable.
 
-Pas de section "Collectes" en V1 : le gestionnaire raisonne par événement (un événement = 1 à N collectes ZD/AG). Les détails de chaque collecte (pesées par flux, repas, bordereau, rapport recyclage, attestation don) sont accessibles depuis le détail événement. Décision Val 2026-05-03.
+**Section Collectes réintégrée (Val 2026-07-06 — divergence M3.2, override de la décision 2026-05-03)** : le gestionnaire dispose d'une entrée nav Collectes dédiée (`/gestionnaire/collectes`). Le détail d'une collecte (pesées par flux, repas, bordereau, rapport recyclage, attestation don) reste **également** accessible depuis le détail événement parent.
 
 **Différenciation visuelle événements programmés par le gestionnaire vs par le traiteur** : dans la liste Événements, badge "Programmée par moi" (vert) si `evenements.organisation_id = current_org`, sinon badge "Programmée par {{traiteur}}" (gris). Permet au gestionnaire d'identifier rapidement ses propres programmations.
 
@@ -324,7 +324,7 @@ Clic sur une ligne → vue consolidée en lecture seule (consultation pure, aucu
 - **Déchets labo estimés (kg)** *(ajout 2026-05-22)* — estimation du déchet produit en amont au laboratoire du traiteur = `pax × coefficient` du traiteur opérationnel pour l'année − 1 (cf. [[05 - Règles métier#R_dechets_labo_estimes]]). Affiché avec tooltip explicatif ("estimation amont, distincte des déchets collectés sur l'événement ci-dessous"). `—` si le traiteur n'a pas communiqué de coefficient pour l'année applicable. Le coefficient brut n'est jamais affiché, seule l'estimation kg.
 
 **Bloc collectes rattachées** : 1 sous-bloc par collecte (ZD et/ou AG), affichant :
-- Type (ZD / AG), date + heure début, statut (Programmée / Réalisée / Annulée) — mapping affichage *(décision F2 2026-06-07)* : `programmee`/`validee` → Programmée · `realisee`/`cloturee` → Réalisée · `annulee` → Annulée
+- Type (ZD / AG), date + heure début, **statut affiché côté client** — mapping canonique : voir [[04 - Espace client traiteur#Mapping d'affichage du statut collecte côté client (canonique — décision Val 2026-06-30, divergence UX-STATUTS)]]. Points clés : `programmee` → **Créée** (jamais « Programmée »), `validee` → Validée, `en_cours`/`realisee` → En cours, `cloturee` → **Réalisée**, `realisee_sans_collecte` → Sans excédents, `annulee`/`annulation_demandee` → Annulée. *(Supersède le mapping F2 2026-06-07 `programmee`/`validee` → Programmée · `realisee`/`cloturee` → Réalisée — décision Val 2026-06-30. UX-only, enum `collectes.statut` inchangé. Le « Statut consolidé » événement ci-dessus reste distinct.)*
 - **Pour ZD** : détail des pesées par flux (kg par flux pour les 5 flux ZD : `biodechet`, `emballage`, `carton`, `verre`, `dechet_residuel`), **taux de recyclage** de la collecte *(lecture directe `collectes.taux_recyclage`, formule à captation par filière)*
 - **Pour AG** : repas donnés, association(s) bénéficiaire(s) avec ville et distance, attribution(s)
 
@@ -360,15 +360,14 @@ Tous les lieux de l'organisation. Rattachement géré par Admin Savr (ajout/retr
 |---|---|
 | Nom | Nom du lieu |
 | Adresse | |
-| Capacité | Capacité d'accueil (si renseignée) |
-| Type | Enum `lieux.type` (palais des congrès, hôtel, salle événementielle, etc.) |
+| Capacité | Capacité d'accueil (si renseignée — `lieux.capacite_maximum`, exposée via `v_lieux_clients`) |
 | Nb collectes 12 mois | Indicateur d'activité |
 | Tonnage 12 mois | |
 
 ### Détail lieu
 
 Fiche lieu avec :
-- Informations générales (**Adresse accès livraison** *(label refondé 2026-05-08)*, capacité, type, photos si disponibles, stationnement / accès office / type véhicule max — tous enum facile/difficile/très difficile pour stationnement+accès office, enum véhicule unifié `velo_cargo/camionnette/fourgon/vul/poids_lourd` pour type véhicule max — cf. [[04 - Data Model]] table `lieux`)
+- Informations générales (**Adresse accès livraison** *(label refondé 2026-05-08)*, capacité, photos si disponibles *(« type » retiré 2026-07-06 — divergence M3.2 : colonne `lieux.type` inexistante dans le schéma V1 ET le DDL cible V2 ; si une catégorie de lieu est souhaitée un jour, c'est une évolution Data Model + DDL, pas un patch texte)*, stationnement / accès office / type véhicule max — tous enum facile/difficile/très difficile pour stationnement+accès office, enum véhicule unifié `velo_cargo/camionnette/fourgon/vul/poids_lourd` pour type véhicule max — cf. [[04 - Data Model]] table `lieux`)
 - Historique complet des collectes sur ce lieu
 - Graphique évolution sur 12 mois
 - Top traiteurs intervenant sur ce lieu
@@ -459,11 +458,10 @@ Informations de l'organisation :
 
 Liste des utilisateurs de l'organisation (rôle `gestionnaire_lieux`). Colonnes : nom, email, dernière connexion, statut (actif/inactif), actions (désactiver).
 
-**Invitation d'un nouveau collègue** :
+**Invitation d'un nouveau collègue** — mode unique : **provisioning direct** (*décision Val 2026-07-01, M3.1 — self-service écarté, « doublon inutile »*) :
 - Bouton "Inviter un collègue"
-- Champs : prénom, nom, email
-- Envoi email `invitation_utilisateur` (voir [[02 - Templates emails V1]] template 17) avec lien d'activation (validité 7 jours)
-- Le collaborateur invité devient `gestionnaire_lieux` de la même organisation
+- Champs **prénom + nom + email** ; le compte est provisionné immédiatement (rôle `gestionnaire_lieux` + organisation de l'invitant imposés, `organisation_id` posé côté serveur). L'invité reçoit un email `invitation_utilisateur` (voir [[02 - Templates emails V1]] template 17) avec lien d'activation (validité 7 jours) pour définir son mot de passe.
+- Le collaborateur invité devient `gestionnaire_lieux` de la même organisation, rattachement garanti à la création (y compris email perso)
 
 **Désactivation** : bouton "Désactiver" sur chaque ligne utilisateur. `users.actif = false`. L'utilisateur ne peut plus se connecter mais son historique (qui a généré quoi) est conservé.
 
@@ -471,7 +469,7 @@ Liste des utilisateurs de l'organisation (rôle `gestionnaire_lieux`). Colonnes 
 
 ### Bloc Préférences de notification
 
-**Supprimé V1 (décision F1 2026-06-07)** : aucun des 19 templates actifs §06.02 ne l'implémentait (le template 20 `collecte_programmee_tiers` cible le traiteur opérationnel, pas le gestionnaire) — promesse fonctionnelle morte, même pattern que la sobriété 2026-05-30 ci-dessous. Réintroduction V1.1 avec template dédié si demande terrain. Le bloc Préférences ne porte plus que la langue (aucun toggle email V1).
+ **Supprimé V1 (décision F1 2026-06-07)** : aucun des 19 templates actifs §06.02 ne l'implémentait (le template 20 `collecte_programmee_tiers` cible le traiteur opérationnel, pas le gestionnaire) — promesse fonctionnelle morte, même pattern que la sobriété 2026-05-30 ci-dessous. Réintroduction V1.1 avec template dédié si demande terrain. Le bloc Préférences ne porte plus que la langue (aucun toggle email V1).
 
 > *(Refonte sobriété 2026-05-30 — toggle "rapport automatique" retiré)* : la préférence "Recevoir un email à la mise à disposition d'un nouveau rapport automatique" est supprimée — les rapports automatiques (batchs mensuel/trimestriel/annuel) ont été supprimés à la refonte 2026-05-05. Le toggle ne pilotait plus aucun envoi (promesse fonctionnelle morte).
 
@@ -506,7 +504,6 @@ Le reste des données nécessaires est déjà modélisé :
 - `users` (role `gestionnaire_lieux`)
 - `organisations_lieux` (rattachement N-N)
 - `lieux`, `evenements`, `collectes`, `collecte_flux`, `attributions_antgaspi`, `courses_logistiques` (consultation uniquement, pas les champs financiers)
-- : table supprimée refonte 2026-05-05 (synthèses générées à la demande, non archivées)
 - `rapports_rse` (lecture selon `organisation_id` traiteur ≠ gestionnaire — à arbitrer, voir Questions ouvertes)
 - `types_evenements` (filtre dashboard "type d'événement" — référentiel extensible Admin)
 - `flux_dechets` (5 valeurs canoniques V1 : `biodechet`, `emballage`, `carton`, `verre`, `dechet_residuel` — voir [[04 - Data Model]])
@@ -518,7 +515,6 @@ Un `user` avec `role = 'gestionnaire_lieux'` accède :
 - `evenements` SELECT : prédicat complété *(décision F3 2026-06-07)* par `(date_evenement IS NOT NULL OR organisation_id = self)` — les brouillons tiers sont exclus. UPDATE : prédicat complété *(décision F4 2026-06-07)* par `f_collecte_editable(evenements.id)` — fenêtre d'édition identique au workflow traiteur (§05 source unique).
 - `factures` SELECT `organisation_id = self` *(décision F6 2026-06-07)* — ses propres factures Savr uniquement (collectes programmées par lui) ; les factures des traiteurs restent invisibles même si la collecte s'est tenue sur ses lieux. Miroir `shared.fichiers` (scope strict = RLS table factures).
 - `users` INSERT + UPDATE `organisation_id = self` *(décision F5 2026-06-07)* — invitation + désactivation de collègues (aligné traiteur_manager).
-- : table supprimée refonte 2026-05-05. Génération synthèse asynchrone : RLS appliquée via JWT du demandeur sur les collectes sources lues par l'Edge Function.
 - `rapports_rse` WHERE `collectes.lieu_id` IN (ses lieux) — validé : le gestionnaire de lieux voit tous les rapports de recyclage des collectes sur ses lieux
 - `lieux` WHERE `id` IN (ses lieux)
 - `traiteurs` (vue restreinte) WHERE `organisation_id` IN (traiteurs intervenus sur ses lieux)

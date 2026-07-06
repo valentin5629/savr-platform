@@ -2,7 +2,6 @@
 
 **Persona principal** : Manager prestataire (Strike, Marathon, A Toutes!)
 **Contexte d'usage** : web responsive (desktop bureau + mobile), usage pluriquotidien (acceptation collectes), hebdomadaire (gestion parc), mensuel (facturation).
-**Dernière mise à jour** : 2026-06-05 (**revue de sobriété M03** — A1 param `m03.facture_ecart_seuil_alerte_pct` supprimé (statut `ecart_important` retiré V1, sans consommateur) / A2 param `m03.controle_acces_requis_default_lieu` supprimé (défaut porté par lieu côté Plateforme) / C1 déf `factures_prestataires` §15 périmée → renvoi §04 source unique / C2 réf plaque terrain M05 E3 corrigée (saisie terrain supprimée 2026-06-04) / C3 mapping règles → R_M03.1 à R_M03.12 / C4 typo changelog. Détail blocs A/C dans §12 + §15.) / 2026-05-03 (**propagation refonte formulaire §06.01 Plateforme** — renommage `plaque_requise` → `controle_acces_requis` (flag unique plaque + nom chauffeur), R_M04.CONTROLE_ACCES (validation étendue à `chauffeur_id IS NOT NULL`), R_M03.4 renommée + étendue, webhook S7 enrichi payload `plaque + chauffeur_nom`. Annule la NOTE GLOBALE 2026-04-29 ci-dessous : la chaîne contrôle d'accès est restaurée + étendue depuis l'audit cohérence inter-CDC 2026-05-01 et la refonte formulaire 2026-05-03.) / 2026-05-01 (propagation revue sobriété §08 Bloc C — webhook S7 `plaque-saisie` supprimé, lecture Plateforme via vue cross-schema. Toutes les mentions "S7" / "webhook plaque" ci-dessous obsolètes V1.) / 2026-04-29 (revue de sobriété M03 — passe 4 propagation revue M05 : suppression Cas A "pré-saisie plaque par manager" en E4 Section 4 — la plaque devient 100% saisie chauffeur en M05 E3, donc le verrou véhicule obligatoire si `controle_acces_requis=true` perd son objet. Champ `tournees.plaque_preassignee_manager` retiré §04, R_M04.CONTROLE_ACCES retirée §05, alerte M11 `m05_plaque_override_chauffeur` retirée §M11, action audit `PLAQUE_OVERRIDE_CHAUFFEUR` retirée. Passe 3 : alignement E4 portail manager sur E3 M04 Ops + RLS prestataire — voir [[M04 - Gestion des tournées#E4 — Vue tournée portail prestataire (spécifié dans M03)]]. Passe 2 : suppression contact chauffeur photo+langue E4/E5/E6, retrait PTAC + remplacement "type" → "modèle" affichage E4/E7, suppression docs véhicule E8 + colonne `vehicules.carte_grise_url` §04, ajout contact secours traiteur E3 Section 3, suppression KPI Taux d'acceptation + Délai moyen d'acceptation E1 bloc 3 + E9 Section 1. Passe 1 (matin) — suppression complète SLA acceptation prestataire : R_M03.1 + W3 escalade auto + cron expiration + paramètres `m03.sla_*` + alerte M11 `m03_sla_acceptation_expire` + webhook S2 motif `sla_depasse`. Acceptation reste libre côté manager, supervision manuelle Ops via E1 Zone 2 dispatch. Last-write-wins assumé sur la concurrence.)
 
 ---
 
@@ -261,7 +260,7 @@ Statuts complets alignés §04 TMS `collectes_tms.statut_dispatch` (enum 6 valeu
 - **Section 7 — Coût** (lecture seule) : détail calcul R2 + grille tarifaire snapshot (pas de correction durée — Ops uniquement)
 - **Section 8 — Audit** : badge "Audit disponible (Admin Savr)" sans accès — propagation revue sobriété 2026-04-29 (V2 = feed UI dédié)
 
-**Bouton de validation principal** : `Valider l'assignation` (ex-Section 5) — submit Sections 3+4+5 simultanément. Submit déclenche UPDATE `tournees.chauffeur_id`, `vehicule_id`, `equipier_id`, transition `collectes_tms.statut_dispatch acceptee → en_attente_execution`, webhook S3 émis.
+**Bouton de validation principal** : `Valider l'assignation` (ex-Section 5) — submit Sections 3+4+5 simultanément. Submit déclenche UPDATE `tournees.chauffeur_id`, `vehicule_id`, `equipier_id`, transition `collectes_tms.statut_dispatch acceptee → en_attente_execution`, webhook S3 émis. **La bascule (et l'évaluation « toutes collectes acceptées ») passe par la RPC `tms.m04_evaluer_completude(tournee_id)` — `SELECT … FOR UPDATE` sur la tournée avant relecture (arbitrage Val 2026-07-06 RC-M04-05, cf. M04 W3 step 5)** — comme chaque acceptation individuelle de collecte.
 
 **Layout détail Sections 3-5 (édition)** :
 
@@ -690,7 +689,6 @@ Le cron expiration SLA + retour auto `a_attribuer` + webhook S2 motif `sla_depas
 
 ### EC8 — Facture uploadée avec écart vs calcul Savr (refonte propagation M08 2026-04-24 D4/D5)
 
-- **Retiré V1 (propagation M08 D5 pas de paliers)**
 - **Zéro tolérance** : tout écart (même 0,01€) → INSERT `factures_prestataires` avec `statut_rapprochement = 'ecart_detecte'`
 - Alerte Ops + Admin (N3) → Ops prend la main (validation manuelle W5 avec motif ≥ 30 car OU contestation W6 avec avoir demandé au prestataire)
 - Manager notifié "Votre facture présente un écart avec notre calcul, nos équipes vont revenir vers vous rapidement."
@@ -852,7 +850,7 @@ Tous endpoints protégés par middleware JWT + RLS `prestataire_id` + rate limit
 **Note pour Claude Code** : ne pas redéfinir les règles ici. Toute modification doit être faite dans §05. Cette section §06 M03 ne contient qu'un index de mapping pour faciliter la lecture du module.
 
 **Mapping ancien → nouveau (pour traçabilité refs historiques)** :
-- ex-§06 R_M03.1 () = §05 R_M03.2 () — même suppression
+- ex-§06 R_M03.1 = §05 R_M03.2 — même suppression
 - ex-§06 R_M03.2 (Escalade refus) = §05 R_M03.3 (Alerte 2 refus consécutifs)
 - ex-§06 R_M03.3 (Assignation véhicule) = §05 R_M03.4 (Plaque conditionnelle) + R_M04.CONTROLE_ACCES
 - ex-§06 R_M03.4 (Fenêtre modif) = §05 **R_M03.11** (nouveau)

@@ -172,11 +172,11 @@ Rappel [[05 - Règles métier TMS#R6.2 — Cycle de vie `tournees`]] enrichi ave
 | `acceptee` → `planifiee` | Ajout d'une collecte non encore acceptée (W2) — la tournée n'est plus complète | Ops Savr | S3 `tournee-upsert` (update) — payload `planifiee` inchangé |
 | `acceptee` → `en_cours` | Clic "Démarrer" (checklist pré-départ M05 pour ZD, direct pour AG/vélo) | Chauffeur | S3 `tournee-upsert` (statut_tournee `en_cours`) — *plus de S7 côté chauffeur, propagation 2026-06-04* |
 | `en_cours` (modif) | Remplacement véhicule ou chauffeur en urgence | Ops Savr | S3 `tournee-upsert` (update) |
-| `en_cours` → `terminee` | Clic "Terminer" + toutes collectes terminales | Chauffeur (ou Ops si clôture forcée) | S3 `tournee-upsert` (statut_tournee `realisee` — mapping `terminee`→`realisee`) ; recalc marge Plateforme via trigger DB cross-schema `plateforme.fn_recalc_marge_tournee()` (ex-S6 supprimé Bloc A A2, plus de webhook HTTP) |
-| `acceptee` → `terminee` | Filet de sécurité : toutes collectes terminales avant démarrage, ou clôture forcée Ops W9 | Système / Ops Savr | S3 `tournee-upsert` (statut_tournee `realisee`) ; recalc marge (idem ci-dessus) |
+| `en_cours` → `terminee` | Clic "Terminer" + toutes collectes terminales | Chauffeur (ou Ops si clôture forcée) | S3 `tournee-upsert` (statut_tournee **`terminee`** — 1:1 avec la colonne, réaligné B2 audit 2026-06-11, plus de mapping wire↔colonne ; *résidu `realisee` corrigé audit cohérence 2026-07-06*) ; recalc marge Plateforme via trigger DB cross-schema `plateforme.fn_recalc_marge_tournee()` (ex-S6 supprimé Bloc A A2, plus de webhook HTTP) |
+| `acceptee` → `terminee` | Filet de sécurité : toutes collectes terminales avant démarrage, ou clôture forcée Ops W9 | Système / Ops Savr | S3 `tournee-upsert` (statut_tournee `terminee` — 1:1, idem ci-dessus ; *résidu `realisee` corrigé audit cohérence 2026-07-06*) ; recalc marge (idem ci-dessus) |
 | `planifiee` / `acceptee` → `annulee` | Ops annule avec motif (avant démarrage) | Ops Savr | S3 `tournee-upsert` (statut_tournee `annulee`) |
 
-**Clôture auto** (R6.2) : dès que **toutes** les `collectes_tms` de la tournée ont un `statut_operationnel` terminal (`realisee`, `realisee_sans_collecte`, `incident`, `annulee`), la tournée bascule auto en `terminee`. Déclenche immédiatement :
+**Clôture de la tournée (réécrite 2026-07-06, arbitrage Val RC-M04-02 — §05 R6.2 fait foi)** : la tournée passe `terminee` **quand le chauffeur la clôture** (M05 E8 : capture GPS, retour entrepôt ZD / dernière livraison AG — c'est ce geste qui pose `heure_reelle_fin`). **La clôture auto n'est qu'un filet** : si **toutes** les `collectes_tms` de la tournée sont terminales **par incident/annulation** (`incident`, `annulee` — aucune clôture chauffeur attendue), bascule auto en `terminee` via trigger AFTER UPDATE sur `collectes_tms` (transition vers un statut terminal non-`realisee`). Tournée filet jamais démarrée : `heure_reelle_debut/fin` restent NULL et **coût = 0 €, sans alerte `m07_horaires_manquants`** (exception au précheck M07 pour ce cas légitime). **Garde systématique** : toute clôture (chauffeur E8, forcée W9, filet) = `UPDATE … SET statut='terminee' WHERE id=? AND statut IN ('en_cours','acceptee')` — 0 ligne = no-op/409, jamais d'écrasement d'horaires. La clôture déclenche immédiatement :
 1. Calcul coût M07 (R2) → UPDATE `tms.tournees.cout_final_ht` + incrément `push_s6_version`
 2. **Recalcul marge Plateforme via trigger DB cross-schema** `plateforme.fn_recalc_marge_tournee()` (sur UPDATE `cout_final_ht` / `push_s6_version`, lecture vue `plateforme.v_courses_logistiques`) — *ex-webhook S6 `course-cout-calculee` supprimé Bloc A A2, recalcul synchrone en DB, pas de réseau ni retry ni DLQ*
 3. **Trigger M10 sur passage à `terminee`** : le passage `OLD.statut <> 'terminee' AND NEW.statut = 'terminee'` déclenche `trg_m10_auto_increment_pleins`. La fonction itère en interne sur `pesees_brutes JOIN collectes_tms` filtrées sur `type_flux IN ('biodechet','verre','dechet_residuel','emballage','carton')` (5 flux ZD V1). Si la tournée est purement AG (aucune pesée ZD) → no-op silencieux. Sinon : auto-incrémentation `stocks_bacs_entrepot.quantite_pleine` + décrément `quantite_vide_disponible` puis `UPDATE tournees SET stock_entrepot_update_at = now()` (cf. R5.5 / [[M10 - Gestion exutoires Veolia#W1|M10 W1]]) — propagation M10 2026-04-25. Idempotent par check `NEW.stock_entrepot_update_at IS NULL` au démarrage du trigger (skip si déjà propagé)
@@ -401,7 +401,7 @@ Cas : une nouvelle collecte arrive tardivement via M01, Ops souhaite la greffer 
 | 7 | Système | Notifie chauffeur si app mobile ouverte : "Nouveau stop ajouté" | Push M05 |
 | 8 | Système | Audit log `action=TOURNEE_ADD_COLLECTE` | Diff collecte_ids |
 
-**Contrainte bloquante** : tournée doit être `statut IN ('planifiee','acceptee')` (avant démarrage chauffeur). Si `en_cours` ou `terminee` ou `annulee` → bouton "Ajouter collecte" désactivé avec tooltip explicatif. **Si la tournée est `acceptee`** (toutes collectes déjà acceptées + chauffeur/véhicule assignés), l'ajout d'une collecte non encore acceptée fait **repasser la tournée en `planifiee`** (elle n'est plus complète) jusqu'à nouvelle acceptation de la collecte ajoutée — décision cycle de vie 2026-06-06.
+**Contrainte bloquante** : tournée doit être `statut IN ('planifiee','acceptee')` (avant démarrage chauffeur). Si `en_cours` ou `terminee` ou `annulee` → bouton "Ajouter collecte" désactivé avec tooltip explicatif. **Garde transactionnelle (arbitrage Val 2026-07-06 RC-M04-04)** : l'ajout s'exécute en RPC avec `SELECT … FOR UPDATE` sur la tournée + re-vérification du statut sous lock (0 ligne = 409 « état modifié entre-temps ») — le check UI ne suffit pas (race avec le démarrage chauffeur : sans garde, une collecte peut être greffée sur une tournée passée `en_cours` entre le check et le commit). **Si la tournée est `acceptee`** (toutes collectes déjà acceptées + chauffeur/véhicule assignés), l'ajout d'une collecte non encore acceptée fait **repasser la tournée en `planifiee`** (elle n'est plus complète) jusqu'à nouvelle acceptation de la collecte ajoutée — décision cycle de vie 2026-06-06.
 
 **Hors périmètre V1** : contrôle capacité camion (V2), extension auto créneau (V2), droit de refus manager (non prévu).
 
@@ -415,7 +415,7 @@ Le manager agit sur son portail M03. Détail UX dans M03, ici on spécifie l'imp
 | 2 | Manager | Ouvre E4 dans son portail | Charge `tournees` via RLS |
 | 3 | Manager | Assigne chauffeur + véhicule (+ équipier optionnel) | UPDATE `tournees.chauffeur_id`, `vehicule_id`, `equipier_id` |
 | 4 | Manager | Accepte les collectes individuellement (flux M02 inchangé) | Transitions `collectes_tms.statut_dispatch` collecte par collecte (`attribuee_en_attente_acceptation` → `acceptee`, propagation A1 2026-04-25) |
-| 5 | Système | Si toutes collectes `acceptee` ET chauffeur+véhicule assignés → bascule de toutes les collectes en `en_attente_execution` (propagation A1 2026-04-25) **ET tournée `planifiee` → `acceptee`** (tournée prête à rouler — décision cycle de vie 2026-06-06). Si une collecte non acceptée est ajoutée ensuite (W2), la tournée repasse `acceptee` → `planifiee` | |
+| 5 | Système | Si toutes collectes `acceptee` ET chauffeur+véhicule assignés → bascule de toutes les collectes en `en_attente_execution` (propagation A1 2026-04-25) **ET tournée `planifiee` → `acceptee`** (tournée prête à rouler — décision cycle de vie 2026-06-06). Si une collecte non acceptée est ajoutée ensuite (W2), la tournée repasse `acceptee` → `planifiee`. **Sérialisation (arbitrage Val 2026-07-06 RC-M04-05)** : évaluation portée par la RPC `tms.m04_evaluer_completude(tournee_id)` — `SELECT … FOR UPDATE` sur `tournees` AVANT relecture des collectes liées, appelée en fin de chaque acceptation individuelle ET de « Valider l'assignation » (M03 E4) ; bascule atomique collectes + tournée par la transaction qui voit l'état complet (deux acceptations concurrentes des 2 dernières collectes ne peuvent plus se rater) | |
 | 6 | Système | Re-émet S3 `tournee-upsert` avec chauffeur/véhicule | Plateforme miroir |
 | 7 | Système | Notifie chauffeur assigné (magic link app mobile) | Via M05 |
 | 8 | Système | Audit log `action=TOURNEE_ASSIGN_CHAUFFEUR`, `action=TOURNEE_ASSIGN_VEHICULE` | |
@@ -456,7 +456,7 @@ Sur toute la durée `en_cours`, le chauffeur effectue ses collectes via M05. Cha
 | 8 | Système | Re-émet S3 `tournee-upsert` (statut=terminee) | |
 | 9 | Système | Audit log `action=TOURNEE_END` + `action=COUT_CALCULE` | |
 
-**Clôture auto via collectes terminales** : alternative à l'étape 1, le système peut basculer la tournée en `terminee` dès que toutes ses collectes sont terminales (R6.2). Permet de gérer le cas où le chauffeur oublie de cliquer "Terminer" manuellement — après 8h d'inactivité, alerte M11 "tournée oubliée" + clôture forcée possible par Ops (E3 bouton "Clôturer manuellement").
+**Clôture auto = filet incident/annulation uniquement (arbitrage Val 2026-07-06 RC-M04-02)** : la bascule automatique en `terminee` ne s'applique que si toutes les collectes sont terminales **par incident/annulation** (aucune clôture chauffeur attendue — cf. §4 + R6.2). Une tournée dont des collectes sont `realisee` attend le clic « Terminer » du chauffeur (E8, GPS). Si le chauffeur oublie : après 8h d'inactivité, alerte M11 « tournée oubliée » + clôture forcée Ops (W9, avec ses préconditions).
 
 ### W6 — Remplacement véhicule ou chauffeur en urgence (`en_cours`)
 
@@ -493,7 +493,7 @@ Cas : prestataire se désiste la veille au soir → Ops doit re-dispatcher les c
 | 8 | Système | Pas de webhook `collecte-rejetee` — la collecte n'est pas rejetée, elle est ré-orientée | |
 | 9 | Système | Audit log `action=TOURNEE_CANCEL` avec motif | |
 
-**Règle** : impossible d'annuler une tournée `en_cours` (R2.7 bis — la tournée finit quand même, vacation facturée). Le bouton "Annuler tournée" est actif tant que la tournée n'a pas démarré, soit `statut IN ('planifiee','acceptee')` ; désactivé avec tooltip si `statut IN ('en_cours','terminee','annulee')`.
+**Règle** : impossible d'annuler une tournée `en_cours` (R2.7 bis — la tournée finit quand même, vacation facturée). Le bouton "Annuler tournée" est actif tant que la tournée n'a pas démarré, soit `statut IN ('planifiee','acceptee')` ; désactivé avec tooltip si `statut IN ('en_cours','terminee','annulee')`. **Garde transactionnelle (arbitrage Val 2026-07-06 RC-M04-04)** : W7 = RPC avec `SELECT … FOR UPDATE` + `WHERE statut IN ('planifiee','acceptee')` (0 ligne = 409 — le chauffeur a démarré entre-temps, l'annulation est refusée) ; la suppression des liaisons `collecte_tournees` (étape 5) se fait **dans la même transaction** que la transition gardée. En dernier ressort, le trigger machine à états `trg_tournees_transitions` (§04) rejette `en_cours→annulee` et `annulee→*`.
 
 ### W8 — Correction durée a posteriori
 
@@ -506,13 +506,13 @@ Cas : prestataire se désiste la veille au soir → Ops doit re-dispatcher les c
 | 5 | Ops / Admin TMS | Saisit motif obligatoire (min 10 caractères) | Validation |
 | 6 | Ops / Admin TMS | Confirme | |
 | 7 | Système | UPDATE `tournees.heure_reelle_debut/fin` | `duree_reelle_minutes` GENERATED |
-| 8 | Système | Re-calcule R2 + UPDATE `cout_calcule_ht`, `cout_detail`, `cout_final_ht`, incrément `push_s6_version` | |
+| 8 | Système | Re-calcule R2 → écrit le résultat dans **`cout_ajuste_ht`** (chemin M07 W2 : `statut_financier='ajuste'`, motif = celui de l'étape 5) + `cout_final_ht` mis à jour (trigger = `cout_ajuste_ht`) + incrément `push_s6_version`. **`cout_calcule_ht`/`cout_detail` d'origine intacts — figement R2.8 respecté (arbitrage Val 2026-07-06 RC-M04-03)** | |
 | 9 | Système | Si delta coût > 20% : alerte M11 `warning` à Val + Louis | |
 | 10 | Système | Recalcul marge Plateforme via trigger DB cross-schema `plateforme.fn_recalc_marge_tournee()` | Lecture vue `plateforme.v_courses_logistiques` — *ex-S6 supprimé Bloc A A2* |
-| 11 | Système | Si facture en `en_rapprochement` ou `en_attente_validation` : déclenche re-rapprochement auto M08 | |
+| 11 | Système | Si facture du mois en `en_attente`, `ecart_detecte` ou `rapprochement_manuel_requis` (enum réelle `statut_rapprochement` M08 — corrigé 2026-07-06 RC-M04-03) : déclenche re-rapprochement auto M08 | |
 | 12 | Système | Audit log `action=TOURNEE_DURATION_CORRECT` avec before/after + motif | |
 
-**Fenêtre de correction** : tant que `factures_prestataires.statut NOT IN (validee, payee)` pour le mois concerné. Au-delà, blocage (litige à traiter hors TMS).
+**Fenêtre de correction** : tant que `factures_prestataires.statut_rapprochement NOT IN ('valide','regle')` pour le mois concerné *(enum corrigée 2026-07-06 RC-M04-03 — ex `validee, payee` inexistants)*. Au-delà, blocage (litige à traiter hors TMS). **Garde DB (arbitrage Val 2026-07-06)** : trigger `trg_tournees_horaires_verrouilles` (§04) rejette toute modification de `heure_reelle_debut/fin` si `cout_final_verrouille = true` — la fenêtre est transactionnelle, pas seulement UX (TOCTOU vs auto-validation M08 fermé).
 
 **Badge "Durée corrigée"** ajouté sur la tournée (E3 + E2 liste), visible jusqu'à purge (aucune — badge permanent).
 
@@ -524,7 +524,7 @@ Cas : le traiteur modifie librement les informations d'une collecte depuis son e
 |---|---|---|---|
 | 1 | Système TMS | Reçoit `PATCH /collectes/:id` E2 avec `event_id` + `diff` (sobriété B5 2026-05-04 : plus de `side_effects`, le TMS calcule sa propre logique sur le diff) | Handler W3 (M01) appelle M04 |
 | 2 | Système TMS | Vérifie statut TMS de la collecte | |
-| 3 | Système TMS | Si `collectes_tms.statut_operationnel ∈ (en_cours, realisee, realisee_sans_collecte, incident)` → réponse 409 Conflict (alignement audit Run 6 2026-05-07 A3, ex `statut_tms IN (realisee, en_cours, terminee, cloturee)` — valeurs hors enum miroir + `cloturee` inexistant) | Plateforme alerte Ops, ne réessaye pas |
+| 3 | Système TMS | Si `collectes_tms.statut_operationnel ∈ (en_cours, realisee, realisee_sans_collecte, incident)` (alignement audit Run 6 2026-05-07 A3) **OU si la collecte est rattachée via `collecte_tournees` à au moins une tournée `statut IN ('acceptee','en_cours')` (arbitrage Val 2026-07-06 RC-M04-07 — multi-camions : 409 dès qu'UNE tournée liée est active)** → réponse 409 Conflict | Plateforme alerte Ops, ne réessaye pas — modification traitée manuellement (téléphone + W2/W7 M04) |
 | 4 | Système TMS | Si `statut_dispatch = attribuee_en_attente_acceptation` (pas encore acceptée) → applique le diff `tms.collectes_tms` (et `tms.tournees` impactée) silencieusement, notification standard manager prestataire en M03 (alignement audit Run 6 2026-05-07 A2, ex `statut_tms = attribuee` valeur inexistante) | Pas de réacceptation |
 | 5 | Système TMS | Si `statut_dispatch = acceptee` ET diff porte sur `date_collecte` ou `heure_collecte` → applique le diff + workflow réacceptation | |
 | 5.1 | Système TMS | Statut collecte → `attribuee_en_attente_acceptation` (réutilisation enum existant, flag temporaire `re_confirmation = true` dans `tms.collectes_tms.flags_jsonb` pour distinguer d'une 1ère acceptation côté UI portail prestataire) | Webhook S2 `collecte-refusee` non émis ; webhook S1 `collecte-acceptee` sera émis à la re-confirmation. Plateforme miroir `statut_tms = attribuee_en_attente_acceptation`. |
@@ -558,6 +558,10 @@ Cas : chauffeur a oublié de terminer, n'est plus joignable, tournée en `en_cou
 | 7 | Système | Applique suite W5 (R2 calcul coût → recalc marge Plateforme via trigger DB `fn_recalc_marge_tournee()`, S3) | *ex-S6 supprimé Bloc A A2* |
 | 8 | Système | Alerte M11 `warning` supplémentaire : "Clôture manuelle forcée T#123" | |
 | 9 | Système | Audit log `action=TOURNEE_FORCE_CLOSE` avec motif | |
+
+**Préconditions (arbitrage Val 2026-07-06 RC-M05-06)** : la clôture forcée exige de **statuer sur chaque collecte non terminale** au moment du geste — pour chacune, Ops choisit : `incident` motif « chauffeur injoignable » (→ S9) OU saisie manuelle des pesées puis terminaison. **Jamais de tournée `terminee` avec une collecte non terminale** (sinon la dérivation R6.1 ne se déclencherait plus jamais pour elle → S5 jamais émis, collecte fantôme côté Plateforme).
+
+**Replay post-clôture forcée (même arbitrage)** : le « Terminer tournée » du chauffeur rejoué par la sync offline (W11 M05) sur une tournée déjà `terminee` **ne modifie ni statut ni horaires** (garde de transition §04) ; il logge `TOURNEE_CLOSE_REPLAY_POST_FORCE`, stocke `cloture_gps` si absent, et émet l'alerte M11 info `m04_cloture_reelle_post_forcee` (Δ horaires affiché) → correction éventuelle par Ops via W8 (chemin unique de correction, avec ses gardes).
 
 **Fréquence attendue** : très rare (<1 cas/mois à l'usage). Si >2/mois : problème process prestataire, discussion à avoir.
 
@@ -689,11 +693,11 @@ Déjà décrit W5 étapes 2-4. Paramètres : `seuil_distance_cloture_entrepot_me
 
 ### R_M04.3 — Fenêtre de correction durée
 
-Correction durée autorisée tant que `factures_prestataires.statut NOT IN (validee, payee)` pour le mois concerné. Au-delà, UX bloquée + traitement hors TMS.
+Correction durée autorisée tant que `factures_prestataires.statut_rapprochement NOT IN ('valide','regle')` pour le mois concerné *(enum corrigée 2026-07-06 RC-M04-03)*. Au-delà, UX bloquée + traitement hors TMS. Garde DB : `heure_reelle_debut/fin` non modifiables si `cout_final_verrouille = true` (trigger `trg_tournees_horaires_verrouilles`, §04).
 
-### R_M04.4 — Clôture automatique via collectes terminales
+### R_M04.4 — Clôture automatique = filet incident/annulation (réécrite 2026-07-06, arbitrage Val RC-M04-02)
 
-Repris de R6.2. Dès que toutes les `collectes_tms.statut_operationnel` sont terminales (`realisee`, `realisee_sans_collecte`, `incident`, `annulee`) pour une tournée `en_cours`, le TMS bascule auto en `terminee` et déclenche W5 étapes 6-11.
+Aligné sur R6.2 (authoritative) : la clôture nominale est **l'acte du chauffeur** (E8/W5, `heure_reelle_fin` + GPS). La bascule auto en `terminee` ne s'applique que si **toutes** les `collectes_tms.statut_operationnel` de la tournée sont terminales **par incident/annulation** (`incident`, `annulee` — aucune `realisee`/`realisee_sans_collecte`, qui supposent un geste chauffeur), pour une tournée `en_cours` ou `acceptee` (filet R6.2). Mécanisme : trigger AFTER UPDATE sur `collectes_tms` (transition vers statut terminal non-`realisee`) + transition gardée `WHERE statut IN ('en_cours','acceptee')`. Effets : W5 étapes 6-11 ; si la tournée n'a jamais démarré, horaires NULL et **coût 0 € sans alerte critical**.
 
 ### R_M04.5 — Interdiction annulation tournée `en_cours`
 
@@ -803,6 +807,7 @@ Tous dans `parametres_tms.parametres` (JSONB) :
 | `m04_tournee_sans_chauffeur_j1` | warning | Tournée J+0 sans chauffeur à J-1 17h (EC R_M04.X) |
 | `m04_tournee_oubliee_cloture_auto` | warning | Tournée inactive > 8h, clôture forcée possible Ops (seedé catalogue M11 propagation A5 2026-04-25) |
 | `m04_cloture_hors_zone` | warning | Clôture GPS > 300m du lieu théorique (W étape 3) (seedé catalogue M11 propagation A5 2026-04-25) |
+| `m04_cloture_reelle_post_forcee` | info | Clôture chauffeur rejouée (sync offline) après clôture forcée W9 — replay no-overwrite, Δ horaires affiché, correction éventuelle via W8 (arbitrage Val 2026-07-06 RC-M05-06) |
 
 **Résolution auto W7** : dès qu'un event en DLQ est rejoué avec succès, appeler `tms.alerte_resoudre_auto('m04_evenement_dlq', 'tournee', tournee_id, 'dlq_rejoue')`. Idem pour `m04_tournee_sans_chauffeur_j1` à affectation chauffeur.
 

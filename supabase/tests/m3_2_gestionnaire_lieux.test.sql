@@ -334,10 +334,11 @@ SELECT is(
 -- T17–T18 : benchmark_execute_gestionnaire (Catégorie 4)
 -- ════════════════════════════════════════════════════════════════════════════
 
--- T17 : gestionnaire peut appeler f_benchmark_kg_pax_zd
+-- T17 : gestionnaire peut appeler f_benchmark_kg_pax_zd (nouvelle signature 7 params,
+--        BL-P1-GEST-04 — filtre taille par bracket, autres dimensions NULL).
 SELECT lives_ok(
-  $$ SELECT * FROM plateforme.f_benchmark_kg_pax_zd('M', NULL) $$,
-  'T17 : f_benchmark_kg_pax_zd exécutable par gestionnaire_lieux'
+  $$ SELECT * FROM plateforme.f_benchmark_kg_pax_zd(p_taille_evenement_codes => ARRAY['M']) $$,
+  'T17 : f_benchmark_kg_pax_zd (7 params) exécutable par gestionnaire_lieux'
 );
 
 -- T18 : SELECT direct sur mv_benchmark_kg_pax_zd_base refusé (M3.5 REVOKE)

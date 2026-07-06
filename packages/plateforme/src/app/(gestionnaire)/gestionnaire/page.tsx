@@ -6,13 +6,16 @@ import {
   DashboardFilterBar,
   KpiCard,
   BenchmarkGauge,
+  BenchmarkFilterBar,
   TonnageDisplay,
   EmptyDashboardState,
   type CollecteType,
   type DashboardFilters,
+  type BenchmarkFilters,
 } from '@/components/dashboards/index.js';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 interface KpiData {
   nb_collectes: number;
@@ -45,8 +48,15 @@ export default function GestionnaireDashboardPage() {
   const [kpi, setKpi] = useState<KpiData | null>(null);
   const [pack, setPack] = useState<PackActif | null>(null);
   const [loading, setLoading] = useState(true);
+  // Filtres de l'encart benchmark (§06.05 Bloc 3) — pilotent le point rouge.
+  const [benchmarkFilters, setBenchmarkFilters] =
+    useState<BenchmarkFilters | null>(null);
 
   const handleFilters = useCallback((f: DashboardFilters) => setFilters(f), []);
+  const handleBenchmarkFilters = useCallback(
+    (f: BenchmarkFilters) => setBenchmarkFilters(f),
+    [],
+  );
 
   useEffect(() => {
     if (!filters) return;
@@ -59,7 +69,10 @@ export default function GestionnaireDashboardPage() {
     fetch(`/api/v1/gestionnaire/dashboard?${qs}`)
       .then((r) => r.json())
       .then((j) => {
-        setKpi((j.data?.kpi ?? null) as KpiData | null);
+        // §06.05 Bloc 1 — la route renvoie `data.kpis` (pluriel). Lire `kpi`
+        // (singulier) laissait toujours kpi=null → EmptyState systématique
+        // (BL-P1-GEST-03).
+        setKpi((j.data?.kpis ?? null) as KpiData | null);
         setPack((j.data?.pack ?? null) as PackActif | null);
       })
       .finally(() => setLoading(false));
@@ -73,7 +86,15 @@ export default function GestionnaireDashboardPage() {
 
   return (
     <div className="space-y-6" data-testid="gestionnaire-dashboard">
-      <h1 className="text-2xl font-bold text-savr-primary-800">Dashboard</h1>
+      {/* §06.05 — bouton primaire « Programmer un événement » en bandeau
+          actions rapides (parcours métier principal du gestionnaire,
+          parité §06.04 traiteur/agence — BL-P1-GEST-01). */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-savr-primary-800">Dashboard</h1>
+        <Button asChild>
+          <a href="/programmer/nouveau">Programmer un événement</a>
+        </Button>
+      </div>
 
       <DashboardFilterBar
         storageKey="gestionnaire-dashboard"
@@ -126,15 +147,22 @@ export default function GestionnaireDashboardPage() {
               <CardHeader>
                 <CardTitle>Performance vs benchmark parc (kg/pax)</CardTitle>
               </CardHeader>
-              <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-5">
-                {FLUX_ZD.map((f) => (
-                  <BenchmarkGauge
-                    key={f.code}
-                    bracket="M"
-                    fluxCode={f.code}
-                    myKgPax={kpi.kg_par_pax}
-                  />
-                ))}
+              <CardContent className="space-y-4">
+                {/* Encart « Filtres benchmark » — l'utilisateur choisit le
+                    périmètre du point rouge (§06.05 Bloc 3). */}
+                <BenchmarkFilterBar onChange={handleBenchmarkFilters} />
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-5">
+                  {FLUX_ZD.map((f) => (
+                    <BenchmarkGauge
+                      key={f.code}
+                      bracket="M"
+                      fluxCode={f.code}
+                      label={f.label}
+                      myKgPax={kpi.kg_par_pax}
+                      benchmarkFilters={benchmarkFilters ?? undefined}
+                    />
+                  ))}
+                </div>
               </CardContent>
             </Card>
           ) : (

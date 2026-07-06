@@ -34,7 +34,7 @@ function makeChain() {
     record('from', args);
     return chain;
   };
-  for (const m of ['select', 'in', 'gte', 'lte', 'range', 'not']) {
+  for (const m of ['select', 'in', 'eq', 'gte', 'lte', 'range', 'not']) {
     chain[m] = (...args: unknown[]) => {
       record(m, args);
       return chain;
@@ -84,13 +84,24 @@ function collecte(
   orgId: string,
   orgName: string,
   orgType = 'traiteur',
+  opts: { statut?: string; prixUnitaireAg?: number } = {},
 ) {
   return {
     type,
+    statut: opts.statut ?? 'cloturee',
     evenements: {
       organisation_id: orgId,
       organisations: { raison_sociale: orgName, type: orgType },
     },
+    // Coût/collecte AG (CA économique) — relation to-one PostgREST rendue en objet.
+    packs_antgaspi:
+      opts.prixUnitaireAg != null
+        ? {
+            prix_unitaire_ht: opts.prixUnitaireAg,
+            montant_total_ht: null,
+            credits_initiaux: null,
+          }
+        : null,
   };
 }
 function facture(montant_ht: number, type: string, orgId: string) {
@@ -152,24 +163,26 @@ describe('admin/revenus-organisations', () => {
     ).toBe(true);
   });
 
-  it('revenus/6_colonnes_split_zd_ag — nb depuis collectes, montant depuis factures, tri montant_total desc', async () => {
+  it('revenus/6_colonnes_split_zd_ag — nb depuis collectes ; ZD depuis factures ; AG = coût/collecte pack (CA économique) ; tri montant_total desc', async () => {
     setupAuth('ops_savr');
-    // org-1 : 2 collectes ZD + 1 AG ; org-2 : 1 collecte ZD.
+    // org-1 : 2 collectes ZD + 1 AG (pack 120€/collecte, cloturee) ; org-2 : 1 collecte ZD.
     admin.setResult('collectes', {
       data: [
         collecte('zero_dechet', 'org-1', 'A'),
         collecte('zero_dechet', 'org-1', 'A'),
-        collecte('anti_gaspi', 'org-1', 'A'),
+        collecte('anti_gaspi', 'org-1', 'A', 'traiteur', {
+          prixUnitaireAg: 120,
+        }),
         collecte('zero_dechet', 'org-2', 'B', 'agence'),
       ],
       error: null,
     });
-    // Montants : org-1 ZD 150 + AG 40 = 190 ; org-2 ZD 300 = 300.
+    // ZD montant depuis factures. La facture AG (40€) est IGNORÉE (AG = coût/collecte pack).
     admin.setResult('factures_collectes', {
       data: [
         facture(100, 'zero_dechet', 'org-1'),
         facture(50, 'zero_dechet', 'org-1'),
-        facture(40, 'anti_gaspi', 'org-1'),
+        facture(40, 'anti_gaspi', 'org-1'), // ne doit PAS compter dans montant_ag
         facture(300, 'zero_dechet', 'org-2'),
       ],
       error: null,
@@ -190,7 +203,7 @@ describe('admin/revenus-organisations', () => {
         montant_total: number;
       }>;
     };
-    // org-2 (300) avant org-1 (190) — tri décroissant montant_total.
+    // org-2 (300) avant org-1 (270) — tri décroissant montant_total.
     expect(json.data[0]?.organisation_id).toBe('org-2');
     expect(json.data[0]?.montant_total).toBe(300);
     expect(json.data[0]?.type_label).toBe('Agence');
@@ -198,8 +211,9 @@ describe('admin/revenus-organisations', () => {
     expect(org1.nb_zd).toBe(2);
     expect(org1.montant_zd_ht).toBe(150);
     expect(org1.nb_ag).toBe(1);
-    expect(org1.montant_ag_ht).toBe(40);
-    expect(org1.montant_total).toBe(190);
+    // AG = coût/collecte pack (120€), PAS la facture AG (40€).
+    expect(org1.montant_ag_ht).toBe(120);
+    expect(org1.montant_total).toBe(270); // 150 ZD + 120 AG
   });
 
   it('revenus/imputation_organisation_programmatrice — agrégé sur evenements.organisation_id (CDC §06.06 P1)', async () => {

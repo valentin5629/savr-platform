@@ -59,7 +59,15 @@
       "artefact": "packages/plateforme/src/app/api/v1/admin/dashboard/revenus-organisations/route.ts",
       "test": "M3.5/admin_revenus_6_colonnes — nom · type · nb/CA ZD · nb/CA AG",
       "statut": "implemented",
-      "libelle": "Dashboard Admin Bloc 2 Revenus — tableau 6 colonnes (nom/type/nb ZD/CA ZD/nb AG/CA AG), nb depuis collectes + montant depuis factures, période/tri/pagination corrigée/CSV + histogramme 12 mois monté"
+      "libelle": "Dashboard Admin Bloc 2 Revenus — tableau 6 colonnes (nom/type/nb ZD/CA ZD/nb AG/CA AG), nb depuis collectes ; CA ZD depuis factures emise/payee ; CA AG = coût/collecte du pack (CA économique, divergence Val 2026-07-07) ; période/tri/pagination corrigée/CSV + histogramme 12 mois monté"
+    },
+    {
+      "id": "M3.5-kpi-admin-ca-eco-ag",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:37",
+      "artefact": "supabase/migrations/20260707120000_plateforme_r20a_kpi_admin_ca_economique_ag.sql",
+      "test": "M3.5/admin_revenus_6_colonnes — CA AG = coût/collecte pack (realisee/cloturee)",
+      "statut": "implemented",
+      "libelle": "v_kpi_admin — montant AG de l'histogramme = CA économique = Σ (collectes AG livrées realisee/cloturee × coût/collecte pack = prix_unitaire_ht), imputé au mois de date_collecte ; remplace la facture d'achat de pack (pas de double comptage) ; ZD inchangé (factures emise/payee par date_emission). Divergence CDC §11 §1.1 tracée (Val 2026-07-07)."
     },
     {
       "id": "BL-P2-11",

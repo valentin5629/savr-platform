@@ -90,12 +90,21 @@ async function fetchAll(
   return { rows, error: null };
 }
 
+interface PackEmbed {
+  prix_unitaire_ht: number | null;
+  montant_total_ht: number | null;
+  credits_initiaux: number | null;
+}
+
 interface CollecteAggRow {
   type: string;
+  statut: string;
   evenements: {
     organisation_id: string;
     organisations: { raison_sociale: string; type: string } | null;
   } | null;
+  // Relation to-one PostgREST → objet (ou tableau). Coût/collecte AG (CA économique).
+  packs_antgaspi: PackEmbed | PackEmbed[] | null;
 }
 
 interface FactureAggRow {
@@ -109,6 +118,15 @@ interface FactureAggRow {
 function csvEscape(v: string | number): string {
   const s = String(v);
   return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+// Coût par collecte AG = prix_unitaire du pack (fallback montant / crédits).
+function coutCollecteAg(pack: PackEmbed | null): number {
+  if (!pack) return 0;
+  if (pack.prix_unitaire_ht != null) return pack.prix_unitaire_ht;
+  if (pack.montant_total_ht != null && pack.credits_initiaux)
+    return pack.montant_total_ht / pack.credits_initiaux;
+  return 0;
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -151,16 +169,17 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return o;
   }
 
-  // ── Query 1 : nb collectes par org × type (source « nb ») ──
+  // ── Query 1 : nb collectes par org × type + CA économique AG (coût/collecte pack) ──
   const collectesRes = await fetchAll(async (offset) => {
     const { data, error } = await supabase
       .from('collectes')
       .select(
-        `type,
+        `type, statut,
          evenements!inner(
            organisation_id,
            organisations!organisation_id(raison_sociale, type)
-         )`,
+         ),
+         packs_antgaspi(prix_unitaire_ht, montant_total_ht, credits_initiaux)`,
       )
       .not('statut', 'in', '(annulee,brouillon)')
       .gte('date_collecte', from)
@@ -191,10 +210,21 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       org?.type ?? '',
     );
     if (r.type === 'zero_dechet') o.nb_zd += 1;
-    else if (r.type === 'anti_gaspi') o.nb_ag += 1;
+    else if (r.type === 'anti_gaspi') {
+      o.nb_ag += 1;
+      // CA économique AG = coût/collecte du pack, sur les collectes livrées.
+      if (r.statut === 'realisee' || r.statut === 'cloturee') {
+        const pack = Array.isArray(r.packs_antgaspi)
+          ? (r.packs_antgaspi[0] ?? null)
+          : r.packs_antgaspi;
+        o.montant_ag_ht += coutCollecteAg(pack);
+      }
+    }
   }
 
-  // ── Query 2 : montant HT par org × type (source « montant ») ──
+  // ── Query 2 : montant ZD HT par org (factures emises/payees) ──
+  // AG exclu : son CA « économique » est calculé en Query 1 (coût/collecte du pack),
+  // pas via les factures (décision Val 2026-07-07, cf. _Divergences §11 §1.1).
   const facturesRes = await fetchAll(async (offset) => {
     const { data, error } = await supabase
       .from('factures_collectes')
@@ -208,6 +238,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
          )`,
       )
       .in('factures.statut', ['emise', 'payee'])
+      .eq('collectes.type', 'zero_dechet')
       .gte('collectes.date_collecte', from)
       .lte('collectes.date_collecte', to)
       .range(offset, offset + FETCH_BATCH - 1);
@@ -235,8 +266,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     // Une org peut n'apparaître que dans les factures (collecte hors période nb ?
     // non : même filtre date_collecte). ensure() sans nom si absente de Q1.
     const o = ensure(evt.organisation_id, '—', '');
+    // Query 2 filtrée sur type=zero_dechet → seul le montant ZD est agrégé ici.
     if (col.type === 'zero_dechet') o.montant_zd_ht += r.montant_ht ?? 0;
-    else if (col.type === 'anti_gaspi') o.montant_ag_ht += r.montant_ht ?? 0;
   }
 
   const rows = [...byOrg.values()].map((o) => ({

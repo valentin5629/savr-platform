@@ -46,6 +46,9 @@ export default function GestionnaireDashboardPage() {
   const [tab, setTab] = useState<CollecteType>('zero_dechet');
   const [filters, setFilters] = useState<DashboardFilters | null>(null);
   const [kpi, setKpi] = useState<KpiData | null>(null);
+  // kg/pax du gestionnaire PAR FLUX (jauge §06.05 Bloc 3 : chaque flux comparé à
+  // son propre point rouge benchmark).
+  const [perFlux, setPerFlux] = useState<Record<string, number>>({});
   const [pack, setPack] = useState<PackActif | null>(null);
   const [loading, setLoading] = useState(true);
   // Filtres de l'encart benchmark (§06.05 Bloc 3) — pilotent le point rouge.
@@ -73,6 +76,9 @@ export default function GestionnaireDashboardPage() {
         // (singulier) laissait toujours kpi=null → EmptyState systématique
         // (BL-P1-GEST-03).
         setKpi((j.data?.kpis ?? null) as KpiData | null);
+        setPerFlux(
+          (j.data?.kg_par_pax_par_flux ?? {}) as Record<string, number>,
+        );
         setPack((j.data?.pack ?? null) as PackActif | null);
       })
       .finally(() => setLoading(false));
@@ -158,7 +164,7 @@ export default function GestionnaireDashboardPage() {
                       bracket="M"
                       fluxCode={f.code}
                       label={f.label}
-                      myKgPax={kpi.kg_par_pax}
+                      myKgPax={perFlux[f.code] ?? null}
                       benchmarkFilters={benchmarkFilters ?? undefined}
                     />
                   ))}

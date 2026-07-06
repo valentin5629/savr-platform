@@ -212,6 +212,40 @@ describe('M3.2 / dashboard', () => {
     expect(json.data.kpis.tonnage_kg).toBe(450);
   });
 
+  it('M3.2/GEST04_dashboard_kg_pax_par_flux — kg/pax PAR FLUX pour la jauge (§06.05 Bloc 3)', async () => {
+    setupAuth('gestionnaire_lieux');
+    rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null });
+    rls.push({
+      data: [
+        {
+          id: 'c1',
+          type: 'zero_dechet',
+          statut: 'cloturee',
+          taux_recyclage: 0.8,
+          evenements: { id: 'e1', lieu_id: 'lieu-1', pax: 100 },
+          collecte_flux: [
+            { poids_reel_kg: 50, flux_dechets: { code: 'biodechet' } },
+            { poids_reel_kg: 20, flux_dechets: { code: 'verre' } },
+          ],
+        },
+      ],
+      error: null,
+    });
+    rls.push({ data: null, error: null }); // pack AG
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/dashboard/route.js');
+    const res = await GET(
+      makeReq('GET', '/api/v1/gestionnaire/dashboard?type=zero_dechet'),
+    );
+    const json = (await res.json()) as {
+      data: { kg_par_pax_par_flux: Record<string, number> };
+    };
+    // Chaque flux comparé à SON benchmark : biodechet 50/100=0.5, verre 20/100=0.2
+    // (≠ kg/pax global 0.7 → plus de ratio « Vous » inflaté vs benchmark par-flux).
+    expect(json.data.kg_par_pax_par_flux.biodechet).toBeCloseTo(0.5);
+    expect(json.data.kg_par_pax_par_flux.verre).toBeCloseTo(0.2);
+  });
+
   it('M3.2/dashboard_kpi_ag_repas_donnes — nb repas aggregés', async () => {
     setupAuth('gestionnaire_lieux');
     rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null });

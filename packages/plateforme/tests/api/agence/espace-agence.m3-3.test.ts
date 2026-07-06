@@ -469,3 +469,37 @@ describe('M3.3 / création shadow F3', () => {
     expect(res.status).toBe(403);
   });
 });
+
+// ── Renouvellement pack AG (BL-P1-AGENCE-01) ────────────────────────────────
+// §06.11 l.36/l.44 : onglet AG identique au §06.04 → l'agence doit pouvoir
+// demander un renouvellement (endpoint partagé /traiteur/pack-ag/renouvellement).
+describe('M3.3 / renouvellement pack AG (BL-P1-AGENCE-01)', () => {
+  it('M3.3/AGENCE01_renouvellement_role_agence_201 — agence autorisée + email admin', async () => {
+    setupAuth('agence', 'org-wpm');
+    admin.push({ data: { nom: 'WPM Agence' }, error: null }); // lookup organisations.nom
+    const { POST } =
+      await import('@/app/api/v1/traiteur/pack-ag/renouvellement/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/traiteur/pack-ag/renouvellement', {
+        pack_souhaite: 'Pack 20',
+      }),
+    );
+    expect(res.status).toBe(201);
+    expect(mockSendEmail).toHaveBeenCalledWith(
+      'admin_demande_renouvellement_pack',
+      expect.any(String),
+      expect.objectContaining({ organisation_nom: 'WPM Agence' }),
+    );
+  });
+
+  it('M3.3/AGENCE01_renouvellement_role_non_autorise_403 — client_organisateur bloqué, aucun email', async () => {
+    setupAuth('client_organisateur', 'org-wpm');
+    const { POST } =
+      await import('@/app/api/v1/traiteur/pack-ag/renouvellement/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/traiteur/pack-ag/renouvellement', {}),
+    );
+    expect(res.status).toBe(403);
+    expect(mockSendEmail).not.toHaveBeenCalled();
+  });
+});

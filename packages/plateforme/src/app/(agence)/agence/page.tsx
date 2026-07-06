@@ -188,6 +188,23 @@ export default function AgenceDashboardPage() {
                   {seuilBas && !packEpuise && (
                     <Badge variant="warning">Pack bientôt épuisé</Badge>
                   )}
+                  {/* §06.11 l.44 — onglet AG identique au §06.04 : bouton
+                      « Demander un renouvellement » (BL-P1-AGENCE-01), actif
+                      dès solde ≤ 10 % ou = 0 (§06.04 l.242). Endpoint partagé. */}
+                  <div>
+                    <Button
+                      disabled={!seuilBas && !packEpuise}
+                      onClick={() =>
+                        fetch('/api/v1/traiteur/pack-ag/renouvellement', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({}),
+                        })
+                      }
+                    >
+                      Demander un renouvellement
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             )

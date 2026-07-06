@@ -47,7 +47,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       `id, type, taux_recyclage, realisee_at,
        evenements!inner(id, lieu_id, pax, type_evenement_id,
          traiteur_operationnel_organisation_id),
-       collecte_flux(poids_reel_kg),
+       collecte_flux(poids_reel_kg, flux_dechets(code)),
        attributions_antgaspi(volume_repas_realise)`,
     )
     .eq('statut', 'cloturee')
@@ -79,6 +79,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   });
 
   let kpis: Record<string, number | null>;
+  // kg/pax PAR FLUX du gestionnaire (jauge §06.05 Bloc 3 : ratio kg du flux / pax) —
+  // pour comparer chaque flux à SON point rouge benchmark (ZD uniquement).
+  const kgParPaxParFlux: Record<string, number> = {};
   if (type === 'zero_dechet') {
     const nbCollectes = rows.length;
     const tonnageTotal = rows.reduce((s, c) => {
@@ -115,6 +118,23 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     );
     const tauxMoyen = tauxDen > 0 ? tauxNum / tauxDen : null;
     const kgParPax = paxTotal > 0 ? tonnageTotal / paxTotal : null;
+    // Poids cumulé par flux (via l'embed flux_dechets(code)) / pax cumulés.
+    if (paxTotal > 0) {
+      const poidsParFlux: Record<string, number> = {};
+      for (const c of rows) {
+        const flux = Array.isArray(c.collecte_flux) ? c.collecte_flux : [];
+        for (const f of flux) {
+          const fd = (
+            f as { flux_dechets?: { code?: string } | { code?: string }[] }
+          ).flux_dechets;
+          const code = (Array.isArray(fd) ? fd[0] : fd)?.code;
+          const poids = (f as { poids_reel_kg?: number }).poids_reel_kg ?? 0;
+          if (code) poidsParFlux[code] = (poidsParFlux[code] ?? 0) + poids;
+        }
+      }
+      for (const [code, p] of Object.entries(poidsParFlux))
+        kgParPaxParFlux[code] = p / paxTotal;
+    }
     kpis = {
       nb_collectes: nbCollectes,
       tonnage_kg: tonnageTotal,
@@ -155,7 +175,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .eq('statut', 'actif')
     .maybeSingle();
 
-  return NextResponse.json({ data: { kpis, pack: pack ?? null } });
+  return NextResponse.json({
+    data: { kpis, pack: pack ?? null, kg_par_pax_par_flux: kgParPaxParFlux },
+  });
 }
 
 // M3 : Σ pax sur les ÉVÉNEMENTS DISTINCTS — un événement à 2+ collectes ne

@@ -69,7 +69,13 @@ function jsonResponse(obj: unknown): Promise<Response> {
 const fetchMock = vi.fn((input: RequestInfo | URL) => {
   const url = String(input);
   if (url.includes('/gestionnaire/dashboard'))
-    return jsonResponse({ data: { kpis: KPIS_ZD, pack: null } });
+    return jsonResponse({
+      data: {
+        kpis: KPIS_ZD,
+        pack: null,
+        kg_par_pax_par_flux: { biodechet: 0.6 },
+      },
+    });
   // ⚠ /benchmark/filtres AVANT /dashboards/benchmark (préfixe commun).
   if (url.includes('/dashboards/benchmark/filtres'))
     return jsonResponse({

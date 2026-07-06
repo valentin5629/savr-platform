@@ -50,3 +50,12 @@ SELECT
 FROM plateforme.lieux l;
 
 GRANT SELECT ON plateforme.v_lieux_clients TO authenticated;
+
+-- ⚠ P0 (revue data-model 2026-07-06) : la vue est SECURITY INVOKER → PostgreSQL
+-- évalue les privilèges COLONNE de `authenticated` sur TOUT le SELECT sous-jacent.
+-- Le fix P1 masquage (20260617170000) a REVOKE le SELECT table-level puis GRANT une
+-- liste FIGÉE de colonnes ; `capacite_maximum` (ajouté R17c 20260702030000) n'y était
+-- pas → SELECT de la vue = « permission denied for table lieux » pour tout rôle client,
+-- cassant TOUTE la lecture v_lieux_clients (pas seulement la colonne). Réparation :
+-- accorder explicitement le SELECT colonne sur `capacite_maximum`.
+GRANT SELECT (capacite_maximum) ON plateforme.lieux TO authenticated;

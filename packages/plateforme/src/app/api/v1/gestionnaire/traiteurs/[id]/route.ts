@@ -48,14 +48,16 @@ export async function GET(
     .from('collectes')
     .select(
       `id, type, statut, date_collecte, taux_recyclage,
-       evenements!inner(lieu_id, traiteur_operationnel_organisation_id),
+       evenements!inner(lieu_id, traiteur_operationnel_organisation_id,
+         lieux!lieu_id(nom)),
        collecte_flux(poids_reel_kg),
        attributions_antgaspi(volume_repas_realise)`,
     )
     .eq('statut', 'cloturee')
     .eq('evenements.traiteur_operationnel_organisation_id', id)
     .in('evenements.lieu_id', lieuIds)
-    .gte('date_collecte', sinceStr);
+    .gte('date_collecte', sinceStr)
+    .order('date_collecte', { ascending: false });
 
   let tonnage = 0,
     tauxNum = 0,
@@ -63,6 +65,14 @@ export async function GET(
     repas = 0,
     nbZd = 0,
     nbAg = 0;
+  // Historique collectes réalisées sur les lieux de l'organisation (§06.05 l.439).
+  const historique: {
+    id: string;
+    type: string;
+    statut: string;
+    date_collecte: string | null;
+    lieu_nom: string | null;
+  }[] = [];
   for (const c of collectes ?? []) {
     const flux = Array.isArray(c.collecte_flux) ? c.collecte_flux : [];
     const t = flux.reduce(
@@ -89,6 +99,18 @@ export async function GET(
         0,
       );
     }
+    const evt = Array.isArray(c.evenements) ? c.evenements[0] : c.evenements;
+    const lieuEmbed = (
+      evt as unknown as { lieux?: { nom?: string } | { nom?: string }[] }
+    )?.lieux;
+    const lieuObj = Array.isArray(lieuEmbed) ? lieuEmbed[0] : lieuEmbed;
+    historique.push({
+      id: c.id as string,
+      type: c.type as string,
+      statut: c.statut as string,
+      date_collecte: (c.date_collecte as string) ?? null,
+      lieu_nom: lieuObj?.nom ?? null,
+    });
   }
 
   if (!orga)
@@ -108,6 +130,7 @@ export async function GET(
         taux_recyclage_moyen: tauxDen > 0 ? tauxNum / tauxDen : null,
         repas_donnes: repas,
       },
+      historique_collectes: historique,
     },
   });
 }

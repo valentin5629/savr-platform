@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MultiSelectFilter, type MultiOption } from './MultiSelectFilter.js';
+import { TAILLE_OPTIONS } from './taille-options.js';
 
 // Filtres du « point rouge » benchmark (§06.05 Bloc 3 ZD) — distincts des filtres
 // globaux du dashboard : ils n'affectent QUE la moyenne parc, pas les jauges.
@@ -13,14 +14,6 @@ export interface BenchmarkFilters {
   lieu_ids: string[];
   traiteur_ids: string[];
 }
-
-const TAILLE_OPTIONS: MultiOption[] = [
-  { id: 'XS', nom: 'XS (< 250 pax)' },
-  { id: 'S', nom: 'S (250-499)' },
-  { id: 'M', nom: 'M (500-749)' },
-  { id: 'L', nom: 'L (750-999)' },
-  { id: 'XL', nom: 'XL (≥ 1000)' },
-];
 
 type Preset = '12m' | '24m' | 'civile' | 'perso';
 
@@ -39,14 +32,19 @@ function anneeCivile(): { debut: string; fin: string } {
   return { debut: `${y}-01-01`, fin: `${y}-12-31` };
 }
 
-// Défaut CDC : 12 mois glissants.
-function defaultFilters(): BenchmarkFilters {
+// Défaut CDC : 12 mois glissants. Type/Taille hérités des filtres globaux du
+// dashboard (§06.05 l.160 — « à l'ouverture, les filtres benchmark héritent par
+// défaut des filtres globaux (Type d'événement + Taille uniquement) »).
+function defaultFilters(
+  initType: string[] = [],
+  initTaille: string[] = [],
+): BenchmarkFilters {
   const { debut, fin } = isoDaysAgoMonths(12);
   return {
     periode_debut: debut,
     periode_fin: fin,
-    type_evenement_ids: [],
-    taille_evenement_codes: [],
+    type_evenement_ids: initType,
+    taille_evenement_codes: initTaille,
     lieu_ids: [],
     traiteur_ids: [],
   };
@@ -56,6 +54,10 @@ interface BenchmarkFilterBarProps {
   onChange: (filters: BenchmarkFilters) => void;
   /** Endpoint des données de filtres (défaut = route gestionnaire/traiteur). */
   filtresEndpoint?: string;
+  /** Héritage §06.05 l.160 : Type d'événement des filtres globaux (init + reset). */
+  initialTypeEvenementIds?: string[];
+  /** Héritage §06.05 l.160 : Taille d'événement des filtres globaux (init + reset). */
+  initialTailleCodes?: string[];
 }
 
 /**
@@ -66,8 +68,12 @@ interface BenchmarkFilterBarProps {
 export function BenchmarkFilterBar({
   onChange,
   filtresEndpoint = '/api/v1/dashboards/benchmark/filtres',
+  initialTypeEvenementIds,
+  initialTailleCodes,
 }: BenchmarkFilterBarProps) {
-  const [filters, setFilters] = useState<BenchmarkFilters>(defaultFilters);
+  const [filters, setFilters] = useState<BenchmarkFilters>(() =>
+    defaultFilters(initialTypeEvenementIds, initialTailleCodes),
+  );
   const [preset, setPreset] = useState<Preset>('12m');
   const [lieux, setLieux] = useState<MultiOption[]>([]);
   const [traiteurs, setTraiteurs] = useState<MultiOption[]>([]);
@@ -115,7 +121,8 @@ export function BenchmarkFilterBar({
 
   function reset(): void {
     setPreset('12m');
-    apply(defaultFilters());
+    // Retour à l'héritage par défaut (Type/Taille des filtres globaux — §06.05 l.160).
+    apply(defaultFilters(initialTypeEvenementIds, initialTailleCodes));
   }
 
   const comparaisonSoi = useMemo(

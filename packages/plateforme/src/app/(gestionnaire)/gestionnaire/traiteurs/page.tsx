@@ -11,6 +11,7 @@ interface TraiteurRow {
   tonnage_12m_kg: number;
   taux_recyclage_moyen: number | null;
   repas_donnes_12m: number;
+  lieux_intervention: { id: string; nom: string }[];
 }
 
 export default function GestionnaireTraiteursPage() {
@@ -46,6 +47,7 @@ export default function GestionnaireTraiteursPage() {
                 <th className="px-3 py-2">Tonnage ZD 12 m</th>
                 <th className="px-3 py-2">Taux recyclage</th>
                 <th className="px-3 py-2">Repas AG 12 m</th>
+                <th className="px-3 py-2">Lieux d'intervention</th>
               </tr>
             </thead>
             <tbody>
@@ -80,6 +82,15 @@ export default function GestionnaireTraiteursPage() {
                   </td>
                   <td className="px-3 py-2">
                     {t.repas_donnes_12m > 0 ? t.repas_donnes_12m : '—'}
+                  </td>
+                  <td className="px-3 py-2">
+                    {t.lieux_intervention.length > 0 ? (
+                      <span className="text-xs text-savr-neutral-600">
+                        {t.lieux_intervention.map((l) => l.nom).join(', ')}
+                      </span>
+                    ) : (
+                      '—'
+                    )}
                   </td>
                 </tr>
               ))}

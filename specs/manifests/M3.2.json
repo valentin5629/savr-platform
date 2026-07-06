@@ -40,7 +40,14 @@
     "packages/plateforme/src/components/dashboards/MultiSelectFilter.tsx",
     "packages/plateforme/src/app/api/v1/dashboards/benchmark/route.ts",
     "packages/plateforme/src/app/api/v1/dashboards/benchmark/filtres/route.ts",
-    "packages/plateforme/src/app/api/v1/admin/dashboard-client/benchmark/route.ts"
+    "packages/plateforme/src/app/api/v1/admin/dashboard-client/benchmark/route.ts",
+    "supabase/migrations/20260706100000_plateforme_r19b_p2_v_lieux_clients_capacite.sql",
+    "packages/plateforme/src/app/api/v1/gestionnaire/filtres/route.ts",
+    "packages/plateforme/src/components/dashboards/ParcMultiSelects.tsx",
+    "packages/plateforme/src/components/dashboards/EvenementsFilterBar.tsx",
+    "packages/plateforme/src/components/dashboards/taille-options.ts",
+    "packages/plateforme/tests/api/gestionnaire/espace-gestionnaire-p2.m3-2.test.ts",
+    "packages/plateforme/tests/ui/espace-gestionnaire-p2.m3-2.test.tsx"
   ],
   "scenarios": [
     "M3.2/auth_guard_non_gestionnaire_401",
@@ -77,7 +84,22 @@
     "M3.2/GEST04_filtres_traiteur_sans_liste_traiteurs",
     "M3.2/GEST04_route_forward_7_params",
     "M3.2/GEST04_route_traiteur_lieu_filter_403",
-    "M3.2/GEST04_dashboard_kg_pax_par_flux"
+    "M3.2/GEST04_dashboard_kg_pax_par_flux",
+    "M3.2/P2_filtres_options_parc",
+    "M3.2/P2_filtres_vide_si_aucun_perimetre",
+    "M3.2/P2_evenements_colonnes_et_champs_plats",
+    "M3.2/P2_evenements_filtre_taille",
+    "M3.2/P2_traiteurs_lieux_intervention_noms",
+    "M3.2/P2_dashboard_filtre_taille",
+    "M3.2/P2_nav_pack_masque_si_absent",
+    "M3.2/P2_nav_pack_affiche_si_present",
+    "M3.2/P2_dashboard_barre_5_filtres",
+    "M3.2/P2_dashboard_compteur_collectes",
+    "M3.2/P2_dashboard_carte_kpi_cliquable",
+    "M3.2/P2_encart_herite_type_taille",
+    "M3.2/P2_evenements_colonnes_rendues",
+    "M3.2/P2_lieux_colonne_capacite",
+    "M3.2/P2_traiteurs_colonne_lieux"
   ],
   "deliverables": [
     {
@@ -310,7 +332,7 @@
       "artefact": "packages/plateforme/src/components/dashboards/BenchmarkFilterBar.tsx",
       "test": "M3.2/GEST04_encart_filtres_present + M3.2/GEST04_encart_choix_taille + M3.2/GEST04_filtres_gestionnaire_listes_parc + M3.2/GEST04_route_forward_7_params",
       "statut": "implemented",
-      "libelle": "Encart « Filtres benchmark » §06.05 Bloc 3 : 5 critères (période+raccourcis, lieux parc, traiteurs parc, type, taille), init 12 mois, Réinitialiser, avertissement comparaison-à-soi, listes parc SECURITY DEFINER + garde compétitive traiteurs, légende couleur 100/130 %. NB : l'héritage Type/Taille depuis les filtres globaux (CDC l.160) est vacant tant que BL-P2-12 (P2) n'a pas ajouté Type/Taille à la barre globale — défaut « Tous » en attendant."
+      "libelle": "Encart « Filtres benchmark » §06.05 Bloc 3 : 5 critères (période+raccourcis, lieux parc, traiteurs parc, type, taille), init 12 mois, Réinitialiser, avertissement comparaison-à-soi, listes parc SECURITY DEFINER + garde compétitive traiteurs, légende couleur 100/130 %. NB : l'héritage Type/Taille depuis les filtres globaux (CDC l.160) est ACTIF depuis R19b-P2 (BL-P2-12) — BenchmarkFilterBar reçoit initialTypeEvenementIds/initialTailleCodes des filtres globaux du dashboard (init + Réinitialiser), cf. M3.2/P2_encart_herite_type_taille."
     },
     {
       "id": "BL-P1-GEST-04-JAUGE",
@@ -319,6 +341,22 @@
       "test": "M3.2/GEST04_dashboard_kg_pax_par_flux",
       "statut": "implemented",
       "libelle": "Jauge gestionnaire §06.05 Bloc 3 : ratio kg DU FLUX / pax (dashboard renvoie kg_par_pax_par_flux, chaque jauge compare son flux à son point rouge) — corrige le ratio « Vous » inflaté (ex : kg/pax global vs benchmark par-flux)"
+    },
+    {
+      "id": "BL-P2-12",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:99",
+      "artefact": "packages/plateforme/src/components/dashboards/DashboardFilterBar.tsx",
+      "test": "M3.2/P2_dashboard_barre_5_filtres + M3.2/P2_dashboard_compteur_collectes + M3.2/P2_dashboard_carte_kpi_cliquable + M3.2/P2_dashboard_filtre_taille + M3.2/P2_filtres_options_parc + M3.2/P2_filtres_vide_si_aucun_perimetre + M3.2/P2_evenements_colonnes_rendues + M3.2/P2_evenements_colonnes_et_champs_plats + M3.2/P2_evenements_filtre_taille + M3.2/P2_lieux_colonne_capacite + M3.2/P2_traiteurs_colonne_lieux + M3.2/P2_traiteurs_lieux_intervention_noms + M3.2/P2_encart_herite_type_taille",
+      "statut": "implemented",
+      "libelle": "Listes + filtres gestionnaire (§06.05 §1/§2/§3/§5) : (1) barre de filtres GLOBALE dashboard 5 filtres — Période + Lieux + Traiteurs + Type d'événement + Taille (l.99-107), compteur « X collectes correspondent » (l.110), cartes KPI cliquables → liste Événements filtrée (l.130) ; (2) liste Événements — colonnes Tonnage total / Déchets labo estimés / Repas donnés (l.309-311) + barre 7 filtres (5 globaux + Type de collecte + Statut consolidé, l.280-293) + champs plats lieu_nom/traiteur_nom (fix mismatch latent) + export CSV respecte les filtres (l.338) ; (3) liste Lieux — colonne Capacité (capacite_maximum exposée via v_lieux_clients ; colonne Type OMISE, cf. _Divergences/M3.2_20260706_lieux_type.md) + détail lieu Capacité/Stationnement/Photos/graphique évolution 12 mois (l.366-372) ; (4) liste Traiteurs — colonne Lieux d'intervention (l.432) + détail traiteur historique collectes (l.439) ; (5) endpoint /api/v1/gestionnaire/filtres (options parc org) ; (6) héritage Type/Taille de l'encart benchmark débloqué (l.160)."
+    },
+    {
+      "id": "BL-P2-13",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:71",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/layout.tsx",
+      "test": "M3.2/P2_nav_pack_masque_si_absent + M3.2/P2_nav_pack_affiche_si_present",
+      "statut": "implemented",
+      "libelle": "Nav gestionnaire — conditionnel « Mon pack AG » (CDC l.71) : l'entrée est masquée si l'organisation n'a aucun packs_antgaspi (count serveur dans le layout → hiddenNavHrefs filtré dans Sidebar/BottomNav/AppShell). ⚠ Override Val 2026-07-06 : les entrées « Collectes » (/gestionnaire/collectes) et « Registre réglementaire » (/registre) sont CONSERVÉES (9 entrées, pas 7) — inversion assumée de la décision CDC §06.05 l.79 « Pas de section Collectes », cf. _Divergences/M3.2_20260706_nav_collectes_registre.md (type: ambigu, CDC à re-synchroniser)."
     }
   ],
   "cdc_source_hash": {

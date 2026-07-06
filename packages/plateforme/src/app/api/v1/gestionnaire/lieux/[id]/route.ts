@@ -25,9 +25,9 @@ export async function GET(
     .from('v_lieux_clients')
     .select(
       `id, nom, nom_alternatif, adresse_acces, code_postal, ville, region,
-       latitude, longitude, type_vehicule_max, acces_office, stationnement,
-       acces_details, contraintes_horaires, flux_autorises, volume_max_bacs,
-       controle_acces_requis_default, photos_urls, actif`,
+       latitude, longitude, type_vehicule_max, capacite_maximum, acces_office,
+       stationnement, acces_details, contraintes_horaires, flux_autorises,
+       volume_max_bacs, controle_acces_requis_default, photos_urls, actif`,
     )
     .eq('id', id)
     .maybeSingle();

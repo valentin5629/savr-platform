@@ -11,15 +11,21 @@ interface SidebarProps {
   role: Role;
   collapsed?: boolean;
   onToggle?: () => void;
+  /** hrefs à masquer (ex : « Mon pack AG » si l'org n'a aucun pack — §06.05 l.71). */
+  hiddenNavHrefs?: string[];
   className?: string;
 }
 
 // Sidebar — bloc primaire plein primary-800 (levier #2)
 // Item actif : fond primary-700 + barre accent-500 3px gauche
 const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
-  ({ role, collapsed = false, onToggle, className }, ref) => {
+  ({ role, collapsed = false, onToggle, hiddenNavHrefs, className }, ref) => {
     const pathname = usePathname();
-    const groups = NAV_CONFIG[role] ?? [];
+    const hidden = new Set(hiddenNavHrefs ?? []);
+    const groups = (NAV_CONFIG[role] ?? []).map((g) => ({
+      ...g,
+      items: g.items.filter((i) => !hidden.has(i.href)),
+    }));
 
     return (
       <nav

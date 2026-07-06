@@ -8,14 +8,19 @@ import { type Role, NAV_CONFIG } from '@/lib/nav-config';
 
 interface BottomNavProps {
   role: Role;
+  /** hrefs à masquer (ex : « Mon pack AG » si l'org n'a aucun pack — §06.05 l.71). */
+  hiddenNavHrefs?: string[];
   className?: string;
 }
 
 // Affiche les 4 premiers items de nav en bas d'écran (mobile)
 const BottomNav = React.forwardRef<HTMLElement, BottomNavProps>(
-  ({ role, className }, ref) => {
+  ({ role, hiddenNavHrefs, className }, ref) => {
     const pathname = usePathname();
-    const items = (NAV_CONFIG[role]?.flatMap((g) => g.items) ?? []).slice(0, 4);
+    const hidden = new Set(hiddenNavHrefs ?? []);
+    const items = (NAV_CONFIG[role]?.flatMap((g) => g.items) ?? [])
+      .filter((i) => !hidden.has(i.href))
+      .slice(0, 4);
 
     return (
       <nav

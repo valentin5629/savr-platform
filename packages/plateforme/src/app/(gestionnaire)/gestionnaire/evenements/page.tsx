@@ -1,9 +1,14 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  EvenementsFilterBar,
+  defaultEvenementsFilters,
+  type EvenementsListFilters,
+} from '@/components/dashboards/index.js';
 
 interface EvenementRow {
   id: string;
@@ -17,34 +22,77 @@ interface EvenementRow {
   statut_consolide: string;
   nb_collectes_zd: number;
   nb_collectes_ag: number;
+  tonnage_zd_kg: number;
+  dechets_labo_kg: number | null;
+  repas_donnes: number;
   programmee_par_moi: boolean;
+}
+
+// Query string (deep-linkable §06.05 l.99) → filtres. Utilisé à l'init + par les
+// cartes KPI du dashboard qui transmettent les filtres globaux.
+function filtersFromParams(params: URLSearchParams): EvenementsListFilters {
+  const base = defaultEvenementsFilters();
+  const typeCollecte = params.get('type_collecte');
+  return {
+    from: params.get('from') ?? base.from,
+    to: params.get('to') ?? base.to,
+    lieu_ids: params.getAll('lieu_ids[]'),
+    traiteur_ids: params.getAll('traiteur_ids[]'),
+    type_evenement_ids: params.getAll('type_evenement_ids[]'),
+    taille_evenement_codes: params.getAll('taille_evenements[]'),
+    type_collecte:
+      typeCollecte === 'avec_zd' ||
+      typeCollecte === 'avec_ag' ||
+      typeCollecte === 'zd_et_ag'
+        ? typeCollecte
+        : '',
+    statut_consolide: params.getAll('statut_consolide[]'),
+  };
+}
+
+function toQueryString(f: EvenementsListFilters): URLSearchParams {
+  const qs = new URLSearchParams();
+  if (f.from) qs.set('from', f.from);
+  if (f.to) qs.set('to', f.to);
+  f.lieu_ids.forEach((id) => qs.append('lieu_ids[]', id));
+  f.traiteur_ids.forEach((id) => qs.append('traiteur_ids[]', id));
+  f.type_evenement_ids.forEach((id) => qs.append('type_evenement_ids[]', id));
+  f.taille_evenement_codes.forEach((c) => qs.append('taille_evenements[]', c));
+  if (f.type_collecte) qs.set('type_collecte', f.type_collecte);
+  f.statut_consolide.forEach((s) => qs.append('statut_consolide[]', s));
+  return qs;
 }
 
 function EvenementsContent() {
   const router = useRouter();
   const params = useSearchParams();
+  // État = source unique, initialisé une fois depuis la query string (deep-link,
+  // §06.05 l.99). Lecture initiale unique → deps [] volontaire (params capturé au
+  // premier rendu ; les changements ultérieurs viennent de l'état, pas de l'URL).
+  const initial = useMemo(
+    () => filtersFromParams(new URLSearchParams(params.toString())),
+    [],
+  );
+  const [filters, setFilters] = useState<EvenementsListFilters>(initial);
   const [rows, setRows] = useState<EvenementRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
-    const qs = new URLSearchParams();
-    const from = params.get('from');
-    const to = params.get('to');
-    if (from) qs.set('from', from);
-    if (to) qs.set('to', to);
+    const qs = toQueryString(filters);
+    // Reflète les filtres dans l'URL (deep-linkable §06.05 l.99), sans rechargement.
+    router.replace(`/gestionnaire/evenements?${qs.toString()}`, {
+      scroll: false,
+    });
     fetch(`/api/v1/gestionnaire/evenements?${qs}`)
       .then((r) => r.json())
       .then((j) => setRows((j.data ?? []) as EvenementRow[]))
       .finally(() => setLoading(false));
-  }, [params]);
+    // router hors deps (référence stable Next) : refetch au changement de filtres.
+  }, [filters]);
 
   function exportCsv() {
-    const qs = new URLSearchParams();
-    const from = params.get('from');
-    const to = params.get('to');
-    if (from) qs.set('from', from);
-    if (to) qs.set('to', to);
+    const qs = toQueryString(filters);
     window.open(`/api/v1/gestionnaire/evenements/export-csv?${qs}`);
   }
 
@@ -56,6 +104,12 @@ function EvenementsContent() {
           Exporter CSV
         </Button>
       </div>
+
+      <EvenementsFilterBar
+        value={filters}
+        onChange={setFilters}
+        resultCount={loading ? undefined : rows.length}
+      />
 
       {loading ? (
         <p className="text-sm text-savr-neutral-500">Chargement…</p>
@@ -72,6 +126,9 @@ function EvenementsContent() {
                 <th className="px-3 py-2">Traiteur</th>
                 <th className="px-3 py-2">Pax</th>
                 <th className="px-3 py-2">Collectes</th>
+                <th className="px-3 py-2">Tonnage total</th>
+                <th className="px-3 py-2">Déchets labo est.</th>
+                <th className="px-3 py-2">Repas donnés</th>
                 <th className="px-3 py-2">Statut</th>
               </tr>
             </thead>
@@ -111,12 +168,28 @@ function EvenementsContent() {
                   <td className="px-3 py-2">
                     <span className="text-xs">
                       {e.nb_collectes_zd > 0 && (
-                        <span className="mr-1">ZD: {e.nb_collectes_zd}</span>
+                        <span className="mr-1">{e.nb_collectes_zd} ZD</span>
                       )}
                       {e.nb_collectes_ag > 0 && (
-                        <span>AG: {e.nb_collectes_ag}</span>
+                        <span>{e.nb_collectes_ag} AG</span>
                       )}
+                      {e.nb_collectes_zd === 0 &&
+                        e.nb_collectes_ag === 0 &&
+                        '—'}
                     </span>
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2">
+                    {e.tonnage_zd_kg > 0
+                      ? `${e.tonnage_zd_kg.toFixed(0)} kg`
+                      : '—'}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2">
+                    {e.dechets_labo_kg != null
+                      ? `${e.dechets_labo_kg.toFixed(0)} kg`
+                      : '—'}
+                  </td>
+                  <td className="px-3 py-2">
+                    {e.repas_donnes > 0 ? e.repas_donnes : '—'}
                   </td>
                   <td className="px-3 py-2">
                     <Badge

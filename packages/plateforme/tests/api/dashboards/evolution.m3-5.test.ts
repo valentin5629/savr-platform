@@ -203,7 +203,9 @@ describe('M3.5 / dashboards/evolution', () => {
           date_collecte: '2026-06-10',
           evenements: evt('evt-1', { pax: 100 }),
           collecte_flux: [],
-          attributions_antgaspi: [{ volume_repas_realise: 30 }],
+          // Relation to-one : PostgREST renvoie un OBJET (pas un tableau). Le endpoint
+          // doit le normaliser, sinon le Bloc 2 AG est vide (repas perdus).
+          attributions_antgaspi: { volume_repas_realise: 30 },
         },
         {
           id: 'c2',
@@ -212,7 +214,7 @@ describe('M3.5 / dashboards/evolution', () => {
           date_collecte: '2026-06-12',
           evenements: evt('evt-1', { pax: 100 }), // MÊME événement → pax compté 1×
           collecte_flux: [],
-          attributions_antgaspi: [{ volume_repas_realise: 40 }],
+          attributions_antgaspi: [{ volume_repas_realise: 40 }], // forme tableau aussi supportée
         },
       ],
       error: null,

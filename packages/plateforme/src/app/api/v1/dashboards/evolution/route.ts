@@ -52,7 +52,12 @@ interface CollecteRow {
   collecte_flux:
     | { poids_reel_kg: number | null; flux_dechets: { code: string } | null }[]
     | null;
-  attributions_antgaspi: { volume_repas_realise: number | null }[] | null;
+  // PostgREST renvoie une relation to-ONE (collecte_id unique sur attributions)
+  // comme un OBJET, pas un tableau — d'où les deux formes.
+  attributions_antgaspi:
+    | { volume_repas_realise: number | null }[]
+    | { volume_repas_realise: number | null }
+    | null;
 }
 
 function tailleBracket(pax: number): string {
@@ -229,9 +234,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       b = { repas: 0, paxParEvt: new Map() };
       buckets.set(key, b);
     }
+    // Relation to-one : PostgREST renvoie un objet (ou tableau selon la version) —
+    // normaliser en tableau pour ne pas perdre les repas (bug Bloc 2 AG vide).
     const attrs = Array.isArray(c.attributions_antgaspi)
       ? c.attributions_antgaspi
-      : [];
+      : c.attributions_antgaspi
+        ? [c.attributions_antgaspi]
+        : [];
     for (const a of attrs) b.repas += a.volume_repas_realise ?? 0;
     const evt = evtOf(c);
     if (evt?.id && !b.paxParEvt.has(evt.id))

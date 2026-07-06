@@ -1,7 +1,5 @@
 # 07 - Architecture technique
 
-**Statut** : Validé V1 — mise à jour majeure 2026-04-23 (atelier tech avec frère)
-**Dernière mise à jour** : 2026-06-10 (addendum scope V1)
 
 ---
 
@@ -345,7 +343,6 @@ Supabase Pro inclut des backups quotidiens automatiques avec rétention 7 jours.
 ### Question ouverte
 
 
-
 ✅ **LEVÉE 2026-06-11** — Registrar = **OVH**. Contacts transférés (demande OVH 4468362 terminée). Zones DNS sous contrôle Val. CNAME Supabase/Railway/Vercel à configurer au démarrage Phase 1 infra.
 
 ---
@@ -379,7 +376,7 @@ Supabase Pro inclut des backups quotidiens automatiques avec rétention 7 jours.
 
 - **✅ LEVÉE 2026-06-11 — Registrar = OVH, contacts transférés (demande 4468362). CNAME Supabase/Railway/Vercel à configurer au démarrage Phase 1 infra.****
 
-**Re-tranché 2026-05-31 (revue sobriété §08 App B1)** : **V1 = polling J+1 3h uniquement** (un seul chemin de code, latence ≤ 24h acceptable pour le recouvrement). Webhook `invoice.paid` temps réel **reporté V1.1**. *(Annule la décision 2026-04-28 « webhook temps réel retenu » — cf. §08 §2 + §08 Questions ouvertes.)*
+ **Re-tranché 2026-05-31 (revue sobriété §08 App B1)** : **V1 = polling J+1 3h uniquement** (un seul chemin de code, latence ≤ 24h acceptable pour le recouvrement). Webhook `invoice.paid` temps réel **reporté V1.1**. *(Annule la décision 2026-04-28 « webhook temps réel retenu » — cf. §08 §2 + §08 Questions ouvertes.)*
 
 ## Liens
 

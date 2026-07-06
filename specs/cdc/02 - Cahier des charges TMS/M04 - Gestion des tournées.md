@@ -35,9 +35,6 @@ Issu de la rédaction de [[M03 - Portail prestataire self-service]] (V1, 16 déc
 ### 1. Nouvelle règle R_M04.PLAQUE — Blocage assignation tournée sans plaque pré-saisie — Retirée 2026-04-29
 
 
-
-
--
 - (retiré data model)
 - (retiré, M03 E4 Section 3 véhicule désormais toujours optionnel)
 
@@ -46,12 +43,11 @@ Issu de la rédaction de [[M03 - Portail prestataire self-service]] (V1, 16 déc
 ### 2. Plaque pré-saisie = pré-remplissage M05 checklist (E3) — Retirée 2026-04-29
 
 
-
 **Remplacement V1 (revue sobriété M05 2026-04-29)** : la plaque est saisie 100% chauffeur en M05 E3 (sans pré-remplissage). Webhook S7 `plaque-saisie` émet la plaque chauffeur en source de vérité unique.
 
 ### 3. W6 Remplacement chauffeur — héritage plaque (révisée 2026-04-29) — **Caduque (propagation suppression saisie plaque terrain 2026-06-04)**
 
-Plus de saisie plaque chauffeur en M05 E3. Le remplacement de chauffeur (W6) n'a plus de logique d'héritage de plaque terrain. La plaque pour contrôle d'accès reste la **plaque pré-saisie manager** (`tournees.plaque_preassignee_manager`), indépendante du remplacement chauffeur.
+ Plus de saisie plaque chauffeur en M05 E3. Le remplacement de chauffeur (W6) n'a plus de logique d'héritage de plaque terrain. La plaque pour contrôle d'accès reste la **plaque pré-saisie manager** (`tournees.plaque_preassignee_manager`), indépendante du remplacement chauffeur.
 
 ---
 
@@ -108,7 +104,7 @@ La tournée est l'**unité d'exécution** du TMS. Elle lie 1 vacation (1 camion 
 ### Chauffeur (exécution terrain via M05)
 - App mobile PWA
 - Voit sa tournée : liste des collectes ordonnées, checklist pré-départ (ZD uniquement), boutons de transition statut
-- **Retiré V1 (propagation suppression saisie plaque terrain 2026-06-04)** — plus de saisie plaque chauffeur ; la plaque pour contrôle d'accès est pré-saisie par le manager (M03 E4)
+- **Retiré V1 (propagation suppression saisie plaque terrain 2026-06-04)** — plus de saisie plaque chauffeur; la plaque pour contrôle d'accès est pré-saisie par le manager (M03 E4)
 - Effectue collectes, pesées, clôture tournée au retour entrepôt (ZD) ou dernière livraison (AG)
 
 ---
@@ -524,7 +520,7 @@ Cas : le traiteur modifie librement les informations d'une collecte depuis son e
 |---|---|---|---|
 | 1 | Système TMS | Reçoit `PATCH /collectes/:id` E2 avec `event_id` + `diff` (sobriété B5 2026-05-04 : plus de `side_effects`, le TMS calcule sa propre logique sur le diff) | Handler W3 (M01) appelle M04 |
 | 2 | Système TMS | Vérifie statut TMS de la collecte | |
-| 3 | Système TMS | Si `collectes_tms.statut_operationnel ∈ (en_cours, realisee, realisee_sans_collecte, incident)` (alignement audit Run 6 2026-05-07 A3) **OU si la collecte est rattachée via `collecte_tournees` à au moins une tournée `statut IN ('acceptee','en_cours')` (arbitrage Val 2026-07-06 RC-M04-07 — multi-camions : 409 dès qu'UNE tournée liée est active)** → réponse 409 Conflict | Plateforme alerte Ops, ne réessaye pas — modification traitée manuellement (téléphone + W2/W7 M04) |
+| 3 | Système TMS | Si `collectes_tms.statut_operationnel ∈ (en_cours, realisee, realisee_sans_collecte, incident)` (alignement audit Run 6 2026-05-07 A3) **OU si la collecte est rattachée via `collecte_tournees` à au moins une tournée `statut IN ('acceptee','en_cours')` (arbitrage Val 2026-07-06 RC-M04-07 — multi-camions : 409 dès qu'UNE tournée liée est active)** → réponse **409 `collecte_sur_tournee_active`** (code d'erreur canonique §08 L345 — slug ajouté 2026-07-06 COH-09, garde miroir M01 W3 étape 6bis) | Plateforme alerte Ops, ne réessaye pas — modification traitée manuellement (téléphone + W2/W7 M04) |
 | 4 | Système TMS | Si `statut_dispatch = attribuee_en_attente_acceptation` (pas encore acceptée) → applique le diff `tms.collectes_tms` (et `tms.tournees` impactée) silencieusement, notification standard manager prestataire en M03 (alignement audit Run 6 2026-05-07 A2, ex `statut_tms = attribuee` valeur inexistante) | Pas de réacceptation |
 | 5 | Système TMS | Si `statut_dispatch = acceptee` ET diff porte sur `date_collecte` ou `heure_collecte` → applique le diff + workflow réacceptation | |
 | 5.1 | Système TMS | Statut collecte → `attribuee_en_attente_acceptation` (réutilisation enum existant, flag temporaire `re_confirmation = true` dans `tms.collectes_tms.flags_jsonb` pour distinguer d'une 1ère acceptation côté UI portail prestataire) | Webhook S2 `collecte-refusee` non émis ; webhook S1 `collecte-acceptee` sera émis à la re-confirmation. Plateforme miroir `statut_tms = attribuee_en_attente_acceptation`. |
@@ -561,7 +557,7 @@ Cas : chauffeur a oublié de terminer, n'est plus joignable, tournée en `en_cou
 
 **Préconditions (arbitrage Val 2026-07-06 RC-M05-06)** : la clôture forcée exige de **statuer sur chaque collecte non terminale** au moment du geste — pour chacune, Ops choisit : `incident` motif « chauffeur injoignable » (→ S9) OU saisie manuelle des pesées puis terminaison. **Jamais de tournée `terminee` avec une collecte non terminale** (sinon la dérivation R6.1 ne se déclencherait plus jamais pour elle → S5 jamais émis, collecte fantôme côté Plateforme).
 
-**Replay post-clôture forcée (même arbitrage)** : le « Terminer tournée » du chauffeur rejoué par la sync offline (W11 M05) sur une tournée déjà `terminee` **ne modifie ni statut ni horaires** (garde de transition §04) ; il logge `TOURNEE_CLOSE_REPLAY_POST_FORCE`, stocke `cloture_gps` si absent, et émet l'alerte M11 info `m04_cloture_reelle_post_forcee` (Δ horaires affiché) → correction éventuelle par Ops via W8 (chemin unique de correction, avec ses gardes).
+**Replay post-clôture forcée (même arbitrage)** : le « Terminer tournée » du chauffeur rejoué par la sync offline (W11 M05) sur une tournée déjà `terminee` **ne modifie ni statut ni horaires** (garde de transition §04) ; il logge `TOURNEE_CLOSE_REPLAY_POST_FORCE`, stocke `cloture_gps` si absent, et émet l'alerte M11 **warning** `m04_cloture_reelle_post_forcee` (Δ horaires affiché — criticité alignée 2026-07-06 COH-07 : l'enum `alerte_criticite` ne porte pas `info`) → correction éventuelle par Ops via W8 (chemin unique de correction, avec ses gardes).
 
 **Fréquence attendue** : très rare (<1 cas/mois à l'usage). Si >2/mois : problème process prestataire, discussion à avoir.
 
@@ -575,7 +571,7 @@ Cas : chauffeur a oublié de terminer, n'est plus joignable, tournée en `en_cou
 
 ### C2 — Plaque saisie correspond à un véhicule d'un autre prestataire — **Retiré V1 (propagation suppression saisie plaque terrain 2026-06-04)**
 
-Plus de saisie plaque chauffeur → plus de cas de divergence terrain/référentiel.
+ Plus de saisie plaque chauffeur → plus de cas de divergence terrain/référentiel.
 
 ### C3 — Chauffeur démarre la tournée sans avoir fait la checklist pré-départ
 
@@ -675,7 +671,7 @@ Sortants TMS → Plateforme :
 | S3 | `POST /webhooks/tms/tournee-upsert` | Création, modif, annulation tournée | `event_id` UUID par événement |
 | | | **Émis par le manager (M03 E4), pas par M04/chauffeur — propagation 2026-06-04.** Plus déclenché au démarrage de tournée. | `event_id` |
 
-: sans objet — l'email T+3h a été retiré V1 (Q10 2026-04-24) et la plaque pour contrôle d'accès est désormais pré-saisie manager (M03 E4). Voir M03.
+ : sans objet — l'email T+3h a été retiré V1 (Q10 2026-04-24) et la plaque pour contrôle d'accès est désormais pré-saisie manager (M03 E4). Voir M03.
 
 Détails payloads : [[08 - Contrat API Plateforme-TMS#S3 — `POST /webhooks/tms/tournee-upsert`]]. *( supprimé Bloc A A2 → lecture cross-schema `plateforme.v_courses_logistiques`. S7 documenté côté [[M03 - Portail prestataire self-service]] + [[08 - Contrat API Plateforme-TMS#S7 — `POST /webhooks/tms/plaque-saisie`]].)*
 
@@ -743,7 +739,7 @@ Tous dans `parametres_tms.parametres` (JSONB) :
 
 9bis. **D8bis — Multi-vélo AG (1 collecte = N vélos)** : ouvert (généralisation 2026-05-29, arbitrages Val 2026-05-29). Axe **orthogonal** à D8 : une collecte AG dont le volume dépasse la capacité d'un vélo cargo réfrigéré peut être servie par **N vélos A Toutes! = N tournées sœurs**, chacune portant cette unique collecte (D8 respecté). Réutilise intégralement la mécanique multi-camions ZD (table `collecte_tournees` N↔N, dérivation statut R6.1, coût `cout_reparti_centimes`, S5 terminal unique). Découpage **interne TMS décidé par l'Ops au dispatch** (M12 inchangé, pas de split auto — V2 si retour terrain). Affordance « + Ajouter un vélo » (E1bis). **Multi-facturation** : N missions Everest = N courses facturées (cohérent tarif A Toutes! par course). Acceptation = 1re mission dispatchée (idempotent). Annulation collecte = cascade sur les N missions (M14 W3). Marqué **V2** (le TMS V1 ship avec 1 collecte = 1 vélo ; mécanique figée maintenant car héritée gratuitement du multi-camions).
 
-10. **** — **Décision caduque (email plaque T+3h retiré V1, Q10 2026-04-24 ; webhook S7 chauffeur retiré 2026-06-04)**. La plaque pour contrôle d'accès est désormais pré-saisie par le manager en M03 E4 (S7 émis par le manager, pas par le chauffeur). Plus d'email de communication plaque côté Plateforme V1. 2026-04-23.
+10. **** — **Décision caduque (email plaque T+3h retiré V1, Q10 2026-04-24; webhook S7 chauffeur retiré 2026-06-04)**. La plaque pour contrôle d'accès est désormais pré-saisie par le manager en M03 E4 (S7 émis par le manager, pas par le chauffeur). Plus d'email de communication plaque côté Plateforme V1. 2026-04-23.
 
 11. **** **Supprimée V1 (revue sobriété 2026-04-29)** — corollaire de la suppression `flux_prevus`. Plus d'auto-insertion à 0kg. Le rapport recyclage Plateforme reflète uniquement les pesées réelles chauffeur. Plus de webhook `pesee-brute-upsert` unitaire (déjà retiré).
 
@@ -801,13 +797,12 @@ Tous dans `parametres_tms.parametres` (JSONB) :
 |----------------|-----------|-------------|
 | `m04_ecart_cout_dispatch` | warning | Delta coût > 20 % au dispatch (W9 étape 9) |
 | `m04_cloture_manuelle_forcee` | warning | Ops Savr clôture manuelle tournée E3 |
-| → `m05_checklist_contournement_detecte` | critical | **Retiré V1 (Bloc 6 B5bis 2026-04-28 — convention émetteur)** : contournement checklist pré-départ. L'émetteur réel est M05 (chauffeur agit sur l'app). Code unifié dans le catalogue M11 sous `m05_checklist_contournement_detecte`. |
 | `m04_tournee_vide` | warning | Tournée `planifiee` sans collecte |
 | `m04_evenement_dlq` | critical | Event dispatch DLQ après retries |
 | `m04_tournee_sans_chauffeur_j1` | warning | Tournée J+0 sans chauffeur à J-1 17h (EC R_M04.X) |
 | `m04_tournee_oubliee_cloture_auto` | warning | Tournée inactive > 8h, clôture forcée possible Ops (seedé catalogue M11 propagation A5 2026-04-25) |
 | `m04_cloture_hors_zone` | warning | Clôture GPS > 300m du lieu théorique (W étape 3) (seedé catalogue M11 propagation A5 2026-04-25) |
-| `m04_cloture_reelle_post_forcee` | info | Clôture chauffeur rejouée (sync offline) après clôture forcée W9 — replay no-overwrite, Δ horaires affiché, correction éventuelle via W8 (arbitrage Val 2026-07-06 RC-M05-06) |
+| `m04_cloture_reelle_post_forcee` | warning | Clôture chauffeur rejouée (sync offline) après clôture forcée W9 — replay no-overwrite, Δ horaires affiché, correction éventuelle via W8 (arbitrage Val 2026-07-06 RC-M05-06 ; criticité `info`→`warning` alignée 2026-07-06 COH-07, enum sans `info`) |
 
 **Résolution auto W7** : dès qu'un event en DLQ est rejoué avec succès, appeler `tms.alerte_resoudre_auto('m04_evenement_dlq', 'tournee', tournee_id, 'dlq_rejoue')`. Idem pour `m04_tournee_sans_chauffeur_j1` à affectation chauffeur.
 
@@ -819,7 +814,7 @@ Tous dans `parametres_tms.parametres` (JSONB) :
 - [[03 - Périmètre fonctionnel TMS]]
 - [[04 - Data Model TMS]] — table `tournees`, `pesees`, `collectes_tms`
 - [[05 - Règles métier TMS]] — R2, R6.2
-- [[08 - Contrat API Plateforme-TMS]] — S3, S7 (pesées via S5 `collecte-terminee` batch émis par M05) ; supprimé Bloc A A2 → lecture cross-schema `plateforme.v_courses_logistiques`
+- [[08 - Contrat API Plateforme-TMS]] — S3, S7 (pesées via S5 `collecte-terminee` batch émis par M05); supprimé Bloc A A2 → lecture cross-schema `plateforme.v_courses_logistiques`
 - [[09 - Authentification et permissions TMS]] — RLS tournées
 - [[M01 - Réception ordres de collecte]] — amont
 - [[M02 - Dispatch Ops Savr]] — extension E1 multi-sélection

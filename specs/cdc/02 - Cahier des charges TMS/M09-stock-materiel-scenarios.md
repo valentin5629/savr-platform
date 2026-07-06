@@ -2,7 +2,6 @@
 
 **Source CDC** : §06/M09 + §05 R4.1-R4.4 / R_M09.5-R_M09.8 + §04 `stocks_rolls_traiteurs` / `rolls_mouvements` / `types_contenants` + §09 RLS sections 4, 9, 13 + §04 App vue `plateforme.v_stocks_rolls`
 **Généré le** : 2026-06-07
-**Statut** : À implémenter par Claude Code
 
 > **Instructions Claude Code** : ces scénarios sont la source de vérité pour les tests du module M09.
 > Pour chaque scénario :

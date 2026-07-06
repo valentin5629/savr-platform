@@ -1,7 +1,5 @@
 # 01 - Vision et objectifs TMS
 
-**Statut** : V1 rédigée — §1 à §7 complets, décisions tracées, questions ouvertes listées
-**Dernière mise à jour** : 2026-04-21
 
 ---
 
@@ -124,7 +122,7 @@ Un TMS propriétaire permet de construire **exactement** ce dont le métier Savr
 | Validation facture prestataire pour comptabilisation | | X | TMS valide puis remonte consolidé à la Plateforme |
 | **Communication client** | | | |
 | Email programmation, confirmation | X | | Via Resend depuis Plateforme |
-| **Retiré V1 (Q10 2026-04-24)** | | | Email plaque supprimé ; plaque de contrôle d'accès pré-saisie manager M03 E4 |
+| **Retiré V1 (Q10 2026-04-24)** | | | Email plaque supprimé; plaque de contrôle d'accès pré-saisie manager M03 E4 |
 | Rapport RSE PDF post-collecte | X | | Puppeteer Plateforme |
 | **Communication interne / terrain** | | | |
 | Notifications push app mobile chauffeur | | X | Attribution tournée, rappel départ, incident |

@@ -572,7 +572,7 @@ Scénario : multi_camions_collecte_realisee_quand_toutes_tournees_terminee
   Et 2 tournées sont terminee, la 3e est en_cours
   Quand la 3e tournée passe à terminee (chauffeur la clôture)
   Alors le trigger fn_derive_statut_collecte_multi_tournees() passe la collecte à realisee
-  Et c'est cette transition qui émet le S5 terminal unique (pesées des 3 camions sommées par (collecte_tms_id, flux))
+  Et c'est cette transition qui insère l'event S5 terminal unique dans tms.outbox_events (même transaction — le worker §08 §2bis livre le webhook ; pesées des 3 camions sommées par (collecte_tms_id, flux))
   Et tant qu'au moins une tournée n'est pas terminee, la collecte reste non-realisee
 ```
 

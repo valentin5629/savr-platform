@@ -2,7 +2,6 @@
 
 **Source CDC** : §06/M11 + §05 R_M11.1-R_M11.11 + §04 addendum §11 (`alertes`, `alertes_catalogue`, `alertes_archive_critical`) + §09 RLS §13.4
 **Généré le** : 2026-06-07
-**Statut** : À implémenter par Claude Code
 
 > **Instructions Claude Code** : ces scénarios sont la source de vérité pour les tests du module M11.
 > Pour chaque scénario :

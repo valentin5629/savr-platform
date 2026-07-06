@@ -2,7 +2,6 @@
 
 **Source CDC** : §08 APIs et intégrations + §05 Règles métier (retry, idempotence) + §09 RLS (integrations_logs, emails_envoyes, parametres_*)
 **Généré le** : 2026-06-07
-**Statut** : À implémenter par Claude Code
 
 > **Instructions Claude Code** : ces scénarios sont la source de vérité pour les tests du module §08.
 > Pour chaque scénario :
@@ -19,13 +18,14 @@
 | Catégorie | Nb scénarios | Couverture estimée |
 |-----------|-------------|-------------------|
 | 1 — Happy path | 14 | E1/E2/S1/S5/S7/S11, MTS-1 flux nominal, Pennylane nominal, Resend nominal, Puppeteer |
-| 2 — Cas limites métier | 11 | realisee_sans_collecte, multi-camions, out-of-order, 256KB, PATCH champs interdits, Pennylane 4xx, retry épuisé |
-| 3 — Cas d'erreur | 10 | HMAC invalide, X-API-Version absent, collecte inconnue, validation 422/409, svix invalide |
+| 2 — Cas limites métier | 12 | realisee_sans_collecte (dont Everest course vide V1, M2.5 R10a), multi-camions, out-of-order, 256KB, PATCH champs interdits, Pennylane 4xx, retry épuisé |
+| 3 — Cas d'erreur | 11 | HMAC invalide, X-API-Version absent, collecte inconnue, validation 422/409, svix invalide, Everest mission_failed avant acceptation |
 | 4 — Isolation RLS | 8 | ops_savr lecture/écriture, manager_traiteur, SERVICE_ROLE, admin_savr |
 | 5 — Idempotence/états | 9 | dédup event_id, Idempotency-Key, orderNumber MTS-1, svix-id Resend, snapshot CO₂ figé |
 | 6 — Cross-app | 4 | chaîne E1→S1→S5 complète, chaîne Pennylane create→finalize→send_email→poll |
 | 7 — Migration | 4 | réconciliation customerOrderId, idempotence script MTS-1, rollback |
-| **TOTAL** | **60** | |
+| 8 — Onboarding SIRET (§15 §2.6, ajout 2026-07-01) | 7 | revalidation INSEE (enqueue, 3 paliers, verifie/echec/epuise), anti-doublon, siret vide non bloquant |
+| **TOTAL** | **69** | |
 
 ---
 
@@ -460,8 +460,9 @@ Scénario : mts1_polling_detecte_refus_transporteur
     Et le polling lit customerOrderStatus=CANCELED pour CO_42XZ
   Quand le cron traite la réponse
   Alors collectes.statut_tms = rejetee_par_prestataire
-    Et collectes.statut reste programmee (retour file, statut inchangé)
-    Et une notification Admin Savr est créée (retour file + motif preset)
+    Et collectes.statut = rejetee_par_prestataire (visibilité dashboard, décision Val 2026-06-15)
+    Et une alerte Admin in-app « réattribution requise » est créée
+    Et le retour en file est Ops-driven (pas de remise auto ; la file /pending exige statut=programmee)
     Et integrations_inbox est mis à jour (statut=traite)
 ```
 
@@ -470,13 +471,14 @@ Scénario : mts1_polling_detecte_refus_transporteur
 # Couche : api + db
 # Priorité : P1-critique
 
-Scénario : mts1_polling_tous_tours_ko_collecte_reste_en_cours
+Scénario : mts1_polling_tous_tours_ko_collecte_rejetee_par_prestataire
   Étant donné une collecte multi-camions (statut=en_cours) servie par 2 tournées
     Et le polling lit un état terminal CANCELED/KO pour les 2 customerOrders
   Quand le cron agrège les états terminaux des tours (fn_agreger_terminal_collecte)
   Alors collectes.statut_tms = 'rejetee_par_prestataire'
-    Et collectes.statut RESTE 'en_cours' (rejetee_par_prestataire absent de collecte_statut_enum — signal TMS uniquement)
-    Et une alerte Ops in-app est créée (intervention manuelle attendue : re-dispatch / reprogrammation, aucune reprogrammation automatique)
+    Et collectes.statut = 'rejetee_par_prestataire' (visibilité dashboard, décision Val 2026-06-15)
+    Et une alerte Admin in-app « réattribution requise » est créée (code collecte_rejetee_par_prestataire)
+    Et aucune mutation automatique de l'attribution (pas de reset statut→programmee, pas de DELETE attributions_antgaspi) — retour file Ops-driven
     Et aucun bordereau ni PDF n'est généré
 ```
 
@@ -489,8 +491,8 @@ Scénario : mts1_polling_tous_tours_ko_collecte_reste_en_cours
 
 Scénario : resend_3_retries_epuises_statut_echec
   Étant donné un envoi email qui échoue en 5xx Resend
-    Et les retries à 1min et 10min échouent aussi
-    Et le retry à 1h échoue
+    Et les retries à 5min et 1h échouent aussi
+    Et le retry à 24h échoue
   Quand les 3 retries sont épuisés
   Alors emails_envoyes.statut = echec
     Et emails_envoyes.tentative_numero = 4
@@ -994,6 +996,43 @@ Scénario : everest_confirmation_positive_statut_tms_acceptee
 ---
 
 ```gherkin
+# Source : §08 §3 V1 — Everest course sans marchandise → realisee_sans_collecte (AG, M2.5 R10a)
+# Couche : api + db
+# Priorité : P1-critique
+
+Scénario : everest_course_vide_refetch_realisee_sans_collecte
+  Étant donné une collecte AG IDF (transporteur.type_tms=a_toutes, statut=en_cours, non terminal)
+    Et Everest envoie un webhook terminal (mission_failed)
+    Et le re-fetch de la mission retourne mission_status="Client absent / Marchandise refusée"
+  Quand l'adapter Everest traite le webhook (re-fetch mission, jamais le payload)
+  Alors collectes.statut = realisee_sans_collecte
+    Et collectes.realisee_at = now()
+    Et aucun_repas_motif = "Client absent / Marchandise refusée"
+    Et aucun_repas_photo_url = NULL (aucune photo de lieu fournie par Everest en V1)
+    Et une alerte Ops in-app est créée (type=collecte_aucun_repas)
+    Et aucune attestation 2041-GE n'est générée
+    Et une collecte ZD équivalente ne déclencherait qu'une trace (aucune transition)
+```
+
+---
+
+```gherkin
+# Source : §08 §3 V1 — Everest mission_failed avant acceptation → rejetee_par_prestataire
+# Couche : api + db
+# Priorité : P1-critique
+
+Scénario : everest_mission_failed_avant_acceptation_rejetee
+  Étant donné une collecte AG IDF (transporteur.type_tms=a_toutes, statut_tms=attribuee_en_attente_acceptation)
+    Et Everest envoie mission_failed / annulation externe avant acceptation
+  Quand l'adapter Everest traite le webhook (re-fetch mission_status)
+  Alors collectes.statut_tms = rejetee_par_prestataire
+    Et collectes.statut = rejetee_par_prestataire (visibilité dashboard)
+    Et une alerte Admin in-app « réattribution requise » est créée
+```
+
+---
+
+```gherkin
 # Source : §08 §3bis.7 — MTS-1 chaîne polling complète : create → dispatch → poll STARTED → poll OK
 # Couche : api + db
 # Priorité : P1-critique
@@ -1074,6 +1113,107 @@ Scénario : migration_pennylane_factures_sans_pennylane_id_identifiees
   Alors les factures sans pennylane_id sont identifiées dans un rapport (liste + count)
     Et ces factures sont marquées pour saisie manuelle Admin (flag migration_reconciliation_requise=true)
     Et aucune facture avec statut=payee n'a pennylane_id=null (invariant critique)
+```
+
+---
+
+## §15 §2.6 — Onboarding : revalidation SIRET (INSEE) & anti-doublon
+
+> Ajout 2026-07-01 (suite divergence M0.4 / lot R13). Source de vérité : [[15 - Sécurité et conformité]] §2.6 (l.69 anti-doublon, l.73 revalidation asynchrone) + [[04 - Data Model]] (`file_revalidation_siret`, `entites_facturation.siret_verification`, index `uniq_entites_facturation_siret`). Regroupés dans §08 car INSEE/VIES sont les intégrations API tierces de l'onboarding. Rappel §04 : la **facturation est bloquée tant que `siret_verification ≠ 'verifie'`** (cf. `06.08-generation-edition-facture-scenarios.md`).
+
+```gherkin
+# Source : §15 §2.6 l.73 + §04 file_revalidation_siret — INSEE injoignable au signup → compte créé, revalidation enfilée
+# Couche : api + db
+# Priorité : P1-critique
+
+Scénario : revalidation_siret_signup_insee_injoignable_enfile_le_job
+  Étant donné un candidat qui s'inscrit avec un SIRET syntaxiquement valide
+    Et l'API INSEE/Sirene est injoignable (timeout > 3 s ou 5xx)
+  Quand le flux d'inscription traite la vérification SIRET
+  Alors le compte et son entite_facturation sont créés (inscription NON bloquée)
+    Et entites_facturation.siret_verification = 'en_attente'
+    Et une ligne file_revalidation_siret est créée (statut='en_attente', tentatives=0, prochaine_tentative_le = now()+15min)
+    Et un second passage INSEE-down pour la même entite_facturation ne crée PAS de 2e ligne active (index unique (entite_facturation_id) WHERE statut='en_attente')
+```
+
+```gherkin
+# Source : §15 §2.6 l.73 — revalidation asynchrone, 3 paliers 15 min / 1 h / 24 h
+# Couche : db
+# Priorité : P1-critique
+
+Scénario : revalidation_siret_espacement_des_3_paliers
+  Étant donné une ligne file_revalidation_siret en statut='en_attente'
+    Et l'API INSEE reste injoignable à chaque échéance
+  Quand le worker cron traite successivement les échéances sans réponse INSEE
+  Alors après la 1re tentative : tentatives=1 et prochaine_tentative_le = base + 15 min
+    Et après la 2e tentative : tentatives=2 et prochaine_tentative_le = base + 1 h
+    Et après la 3e tentative : tentatives=3 et prochaine_tentative_le = base + 24 h
+```
+
+```gherkin
+# Source : §15 §2.6 l.73 + §04 — une tentative obtient « entreprise active » → SIRET vérifié, facturation débloquée
+# Couche : api + db
+# Priorité : P1-critique
+
+Scénario : revalidation_siret_insee_repond_active_resout_et_debloque_facturation
+  Étant donné une ligne file_revalidation_siret (statut='en_attente', tentatives=1)
+  Quand le worker cron rejoue la vérification et l'INSEE répond « entreprise existante et active »
+  Alors entites_facturation.siret_verification = 'verifie'
+    Et entites_facturation.siret_verifie_le est renseigné
+    Et file_revalidation_siret.statut = 'resolu' (plus aucun essai ; prochaine_tentative_le conserve sa dernière échéance, non remise à NULL)
+    Et la facturation de cette entité est désormais autorisée (gate §04 levé)
+```
+
+```gherkin
+# Source : §15 §2.6 + §04 — une tentative obtient « inexistant/inactif » → échec, facturation reste bloquée
+# Couche : api + db
+# Priorité : P1-critique
+
+Scénario : revalidation_siret_insee_repond_inactif_echec_alerte_admin
+  Étant donné une ligne file_revalidation_siret (statut='en_attente')
+  Quand le worker cron rejoue la vérification et l'INSEE répond « SIRET inexistant ou inactif »
+  Alors entites_facturation.siret_verification = 'echec'
+    Et file_revalidation_siret.statut = 'resolu' (verdict obtenu, plus aucun essai)
+    Et l'organisation remonte dans le filtre Admin « nouvelles organisations » (alerte in-app)
+    Et la facturation de cette entité reste bloquée (siret_verification ≠ 'verifie')
+```
+
+```gherkin
+# Source : §15 §2.6 l.73 + §04 — 3 paliers épuisés sans réponse INSEE → abandon automate, reprise humaine
+# Couche : db
+# Priorité : P2-important
+
+Scénario : revalidation_siret_3_paliers_epuises_reste_en_attente
+  Étant donné une ligne file_revalidation_siret (statut='en_attente', tentatives=3)
+  Quand l'échéance du 3e palier est traitée et l'INSEE ne répond toujours pas
+  Alors file_revalidation_siret.statut = 'epuise' (plus aucun essai automatique)
+    Et entites_facturation.siret_verification reste 'en_attente' (aucun verdict obtenu)
+    Et l'organisation reste visible dans le filtre Admin « nouvelles organisations » pour traitement manuel
+    Et la facturation de cette entité reste bloquée
+```
+
+```gherkin
+# Source : §15 §2.6 l.69 + §04 index uniq_entites_facturation_siret — SIRET déjà rattaché → inscription bloquée
+# Couche : api + db
+# Priorité : P1-critique
+
+Scénario : doublon_siret_signup_bloque
+  Étant donné une entite_facturation existante avec siret = '83179309400017' (siret <> '')
+  Quand un candidat s'inscrit avec le SIRET '83179309400017'
+  Alors l'inscription est bloquée avec un message explicite (« SIRET déjà rattaché à une organisation »)
+    Et aucune nouvelle organisation ni entite_facturation n'est créée
+    Et l'index unique partiel uniq_entites_facturation_siret (siret) WHERE siret <> '' garantit le rejet au niveau base
+```
+
+```gherkin
+# Source : §04 index partiel WHERE siret <> '' — les entités sans SIRET ne collisionnent pas entre elles
+# Couche : db
+# Priorité : P2-important
+
+Scénario : siret_vide_plusieurs_entites_autorise
+  Étant donné une entite_facturation existante avec siret = '' (onboarding partiel / shadow)
+  Quand une seconde entite_facturation est créée avec siret = ''
+  Alors les deux coexistent sans conflit (l'index unique ne s'applique qu'aux siret non vides)
 ```
 
 ---

@@ -1,7 +1,5 @@
 # 10 - Design System
 
-**Statut** : Validé V1 — refonte 2026-06-08 (structure inspirée du UAE Design System / AEGOV DLS v3, palette Savr conservée)
-**Dernière mise à jour** : 2026-06-08
 **Inspiration visuelle de référence** : [UAE Design System (designsystem.gov.ae)](https://designsystem.gov.ae/) — système institutionnel, accessible, dense mais aéré. On en reprend la **rigueur** (échelles tonales complètes, focus states forts, sobriété des ombres, pleins blocs de couleur primaire), pas l'identité (couleurs Savr conservées).
 
 ---
@@ -277,6 +275,52 @@ Pattern signature institutionnel — sidebar, hero d'écran, bandeau de page.
 - Erreur : bordure `error` + `FormError` `error-strong` dessous + icône.
 - Label `--text-sm` poids 600 `neutral-700`, au-dessus du champ.
 
+### 5.6 PageHero (bandeau d'écran)
+
+Bandeau d'en-tête d'écran (liste collectes, fiche collecte), dérivé du bloc primaire plein §5.3 *(ajout 2026-07-04, divergence BOA-UI collectes — implémentation de référence `components/ui/page-hero`)*.
+
+- Fond `primary-700` plein, texte blanc.
+- Titre `h1` Nunito poids 800, `letter-spacing -0.02em` (levier #7).
+- Sous-titre / contexte : `primary-200`.
+- Slot **actions à droite** (boutons `accent` / `secondary` sur fond sombre).
+- Radius `lg` si encart, pleine largeur sinon.
+
+### 5.7 FilterChips (chips de filtre à compteur)
+
+Barre de filtres rapides au-dessus d'un `DataTable` (ex. liste collectes) *(ajout 2026-07-04, divergence BOA-UI collectes — réf `components/ui/filter-chips`)*.
+
+- Pilule `radius-full`, `--text-sm`, padding `--space-1`/`--space-3`.
+- Repos : fond `neutral-100`, texte `neutral-700`.
+- **Actif** : aplat `primary-700`, texte blanc.
+- **Pastille compteur** : seul aplat `accent-500` texte `primary-950` (levier #3 — usage unique de l'orange plein).
+- Transition `--motion-fast`.
+
+### 5.8 AlertBar (message persistant)
+
+Bandeau d'information/alerte inline — warning pack AG, blocage, info *(ajout 2026-07-04, divergence BOA-UI collectes — réf `components/ui/alert-bar`, structure de l'entrée `Alert` §6)*.
+
+- Variantes `warn` / `err` / `info` / `neutral` = fond `{semantic}-subtle` + texte `{semantic}-strong` + bordure teintée `{semantic}`, radius `md`.
+- Icône à gauche (couleur `{semantic}-strong`), padding `--space-3`/`--space-4`.
+- Slot action optionnel à droite (lien ou bouton `ghost`).
+
+### 5.9 Modal (structure)
+
+Complète l'entrée `Modal / Sheet` (§6) avec la structure visuelle *(ajout 2026-07-04, divergence BOA-UI collectes — réf `components/ui/modal`)*.
+
+- Overlay `rgba(13,20,40,0.45)`.
+- Panneau : fond blanc, radius `lg`, `--shadow-lg`, largeur max contextualisée.
+- Structure `header` (titre + fermeture) / `body` / `footer` (actions alignées à droite).
+- Fermeture : touche `Esc` + clic sur l'overlay. **Focus-trap** obligatoire (accessibilité §10).
+- Mobile → `Sheet` montant depuis le bas (§8).
+
+### 5.10 Timeline (statuts)
+
+Détaille le volet timeline de `StatusCollecte` (§6) et l'historique fiche collecte (Bloc 7 §06.06) *(ajout 2026-07-04, divergence BOA-UI collectes — réf `components/ui/timeline`)*.
+
+- Bordure gauche `neutral-200` continue.
+- Points d'étape `primary-400` (étape courante `primary-700`).
+- Item = horodatage `neutral-500` (`--text-xs`) + libellé `neutral-900`.
+
 ---
 
 ## 6. Inventaire des composants UI V1
@@ -291,6 +335,7 @@ Composants à implémenter pour couvrir tous les écrans V1, issus de shadcn/ui 
 | `TopBar` | Barre supérieure mobile, burger menu | Mobile + tablet |
 | `BottomNav` | Navigation bas d'écran (4-5 items) | Mobile |
 | `Breadcrumb` | Fil d'Ariane pages imbriquées | Dashboard → Événement → Collecte |
+| `PageHero` | Bandeau d'en-tête d'écran (§5.6) | Liste + fiche collecte (Admin) |
 
 ### Données et tableaux
 
@@ -318,9 +363,10 @@ Composants à implémenter pour couvrir tous les écrans V1, issus de shadcn/ui 
 | `Button` | Variantes §5.1 (primary, secondary, accent, destructive, ghost) |
 | `IconButton` | Icône seule (actions tableau) |
 | `Dropdown` | Menu contextuel (kebab) |
-| `Modal` / `Sheet` | Dialogue / panel latéral (détail collecte mobile) |
+| `Modal` / `Sheet` | Dialogue / panel latéral (détail collecte mobile) — structure §5.9 |
 | `Toast` | Notification temporaire |
-| `Alert` | Message persistant (warning pack AG, blocage) |
+| `AlertBar` (`Alert`) | Message persistant, variantes warn/err/info/neutral (§5.8) — warning pack AG, blocage |
+| `FilterChips` | Chips de filtre rapide à compteur au-dessus d'un `DataTable` (§5.7) |
 | `Tooltip` | Info-bulle au survol |
 
 ### Navigation de contenu
@@ -335,7 +381,7 @@ Composants à implémenter pour couvrir tous les écrans V1, issus de shadcn/ui 
 
 | Composant | Description |
 |---|---|
-| `StatusCollecte` | Badge enrichi + timeline de statuts |
+| `StatusCollecte` | Badge enrichi + timeline de statuts (timeline §5.10) |
 | `PackAGIndicator` | Jauge de crédit AG (barre `radius-full` + compteur) |
 | `TourneeCard` | Card résumé tournée (camion, N collectes, chauffeur, plaque) |
 | `ImpersonationBanner` | Bandeau **accent-500** quand Admin impersonne un utilisateur |

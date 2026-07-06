@@ -1,6 +1,5 @@
 # 11 — Dashboards TMS
 
-**Statut** : V1 rédigée 2026-04-27.
 **Périmètre** : section transverse — index des dashboards déjà spécifiés dans les modules + patterns communs (routes, navigation cross-app, exports, refresh, responsive). **Ne re-spécifie pas** les écrans détaillés (voir modules sources).
 **Persona ciblé** : tous rôles TMS (Ops Savr, Admin TMS, Manager prestataire, Chauffeur).
 **Référence Plateforme** : [[01 - Cahier des charges App/00 - Index]] (cumul cross-app Ops).

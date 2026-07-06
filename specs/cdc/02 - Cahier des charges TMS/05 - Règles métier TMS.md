@@ -33,7 +33,7 @@ Source : §03 M12 + `parametres_tms` namespace `attribution` + spec détaillée 
 → Ops Savr confirme ou override manuellement
 ```
 
-**Évolution** : si un 2ème prestataire ZD est ajouté, la règle d'attribution sera définie à ce moment-là (ajout dans `parametres_tms` + logique M12). Le code M12 ne contient aucune référence à "Strike" en dur — la règle est portée par `parametres_tms.attribution.regle_zd_prestataire_prioritaire_code` (string code prestataire, seed `'strike'`, modifiable `admin_tms` seul — **F2 tranché Val 2026-06-07** : paramètre ajouté au seed §04 TMS §5, il était utilisé sans exister au data model ; simplifié string simple V1, cohérent D11).
+**Évolution** : si un 2ème prestataire ZD est ajouté, la règle d'attribution sera définie à ce moment-là (ajout dans `parametres_tms` + logique M12). Le code M12 ne contient aucune référence à "Strike" en dur — la règle est portée par `parametres_tms.attribution.regle_zd_prestataire_prioritaire_code` (string code prestataire, seed `'strike'`, modifiable `admin_tms` seul — **F2 tranché Val 2026-06-07** : paramètre ajouté au seed §04 TMS §5, il était utilisé sans exister au data model; simplifié string simple V1, cohérent D11).
 
 ### R1.2 — Collectes AG
 
@@ -142,7 +142,7 @@ Source : §03 M07 + `grilles_tarifaires_prestataires` + `formules_catalogue`.
    - **Trigger DB sur `tournees`** : précondition à la transition `terminee` → vérifie qu'une grille active existe pour `(prestataire_id, type_vehicule_id, date_planifiee)`. Si non → exception (bug à investiguer, pas un cas métier normal V1).
 3. Exécuter la fonction de calcul correspondant à formules_catalogue.code
 4. Stocker cout_calcule_ht + cout_detail (snapshot JSON) + grille_tarifaire_id sur tournees
-5. → **Obsolète V1 (revue sobriété §08 Bloc A 2026-05-01 A2)** : le coût est lu cross-schema par la Plateforme via la vue `plateforme.v_courses_logistiques` + trigger DB `plateforme.fn_recalc_marge_tournee` (sur UPDATE `tms.tournees.cout_final_ht`). Aucun push HTTP TMS.
+5. → **Obsolète V1 (revue sobriété §08 Bloc A 2026-05-01 A2)** : le coût est lu cross-schema par la Plateforme via la vue `plateforme.v_courses_logistiques` + trigger DB `plateforme.fn_recalc_marge_tournee()` (sur UPDATE `tms.tournees.cout_final_ht`). Aucun push HTTP TMS.
 ```
 
 ### R2.2 — Formule `vacations_paliers` (Strike) *(grilles réelles intégrées 2026-06-07 — Marathon reclassé `forfait_fixe` → R2.5)*
@@ -245,6 +245,7 @@ A Toutes! = intégration Everest. Coût Everest stocké dans `everest_missions.c
 
 Seuil paramétrable : `parametres_tms.m07.delai_annulation_sans_facturation_minutes` (default `180`, ex-`60`).
 
+ **Retiré V1 (propagation M07 2026-04-24 D5)**.
  **Remplacé par 3h** (sobriété C3 2026-04-30) — délai de mobilisation chauffeur plus réaliste.
 
 ### R2.7 bis — Annulation pendant tournée `en_cours` = vacation facturée (formalisé revue sobriété §05 2026-05-01 C1)
@@ -796,7 +797,7 @@ en_cours  → realisee (clôture normale — pesées saisies, rolls déclarés)
 
 **Règles de transition** :
 - `en_cours → realisee` : requiert `pesees.count >= 1` pour ZD, ou `pesees.count >= 0` pour AG (0 kg possible = `realisee_sans_collecte`).
-- **Multi-véhicules — `realisee` dérivé (2026-05-25, arbitrage 6a ; couvre le multi-vélo AG 2026-05-29)** : une collecte servie par N tournées (via `collecte_tournees`) passe à `realisee` quand **toutes** ses tournées sont `terminee` (chacune clôturée par son chauffeur, qui a pesé sa portion). Le statut collecte est **dérivé** des statuts de tournées, pas posé directement par un chauffeur unique. Trigger DB `tms.fn_derive_statut_collecte_multi_tournees()` `AFTER UPDATE OF statut ON tms.tournees` : à chaque passage d'une tournée à `terminee`, pour chaque collecte de cette tournée, si **toutes** ses tournées liées sont `terminee` → collecte `realisee` (ZD : garde `SUM(pesees.poids_net) > 0` ; sinon alerte Ops). C'est cette transition qui émet le **S5 terminal unique** (pesées des N véhicules sommées par `(collecte_tms_id, flux)` pour le ZD, ou `don_alimentaire` total pour l'AG, cf. §08). **Multi-vélo AG (2026-05-29)** : mécanique identique — les N vélos A Toutes! d'une même collecte sont N tournées sœurs ; la collecte passe `realisee` quand les N sont clôturées. **Cas standard (1 tournée)** : la dérivation se réduit à "la tournée unique est `terminee` ⇒ collecte `realisee`" = comportement identique à avant. **Concurrence (revue adversariale 2026-07-06 RC-M04-01)** : le trigger sérialise **par collecte** (`SELECT … FOR UPDATE` sur `collectes_tms` avant ré-évaluation, ordre de lock déterministe) — deux clôtures de tournées sœurs simultanées ne peuvent pas perdre la dérivation.
+- **Multi-véhicules — `realisee` dérivé (2026-05-25, arbitrage 6a ; couvre le multi-vélo AG 2026-05-29)** : une collecte servie par N tournées (via `collecte_tournees`) passe à `realisee` quand **toutes** ses tournées sont `terminee` (chacune clôturée par son chauffeur, qui a pesé sa portion). Le statut collecte est **dérivé** des statuts de tournées, pas posé directement par un chauffeur unique. Trigger DB `tms.fn_derive_statut_collecte_multi_tournees()` `AFTER UPDATE OF statut ON tms.tournees` : à chaque passage d'une tournée à `terminee`, pour chaque collecte de cette tournée, si **toutes** ses tournées liées sont `terminee` → collecte `realisee` (ZD : garde `SUM(pesees.poids_net) > 0` ; sinon alerte Ops). C'est cette transition qui **insère l'event S5 terminal unique dans `tms.outbox_events`** (le worker §08 §2bis livre le webhook — elle n'« émet » pas le webhook directement ; pesées des N véhicules sommées par `(collecte_tms_id, flux)` pour le ZD, ou `don_alimentaire` total pour l'AG, cf. §08). **Multi-vélo AG (2026-05-29)** : mécanique identique — les N vélos A Toutes! d'une même collecte sont N tournées sœurs ; la collecte passe `realisee` quand les N sont clôturées. **Cas standard (1 tournée)** : la dérivation se réduit à "la tournée unique est `terminee` ⇒ collecte `realisee`" = comportement identique à avant. **Concurrence (revue adversariale 2026-07-06 RC-M04-01)** : le trigger sérialise **par collecte** (`SELECT … FOR UPDATE` sur `collectes_tms` avant ré-évaluation, ordre de lock déterministe) — deux clôtures de tournées sœurs simultanées ne peuvent pas perdre la dérivation.
 - `en_cours → realisee_sans_collecte` : AG uniquement, requiert `aucun_repas_motif IS NOT NULL AND aucun_repas_photo_url IS NOT NULL`.
 - **Fin de portion par tournée (arbitrage Val 2026-07-06 RC-M05-01)** : le clic chauffeur « Terminer collecte » (M05 W8) pose `collecte_tournees.statut_execution='faite'` pour (collecte, SA tournée) — il ne pose **jamais** `statut_operationnel=realisee` directement. La gate « Terminer la tournée » (M05 E4) lit `statut_execution` de ses propres liaisons (lève le livelock multi-camions : chaque chauffeur peut clôturer sa tournée sans attendre les tournées sœurs).
 - **Pesée tardive post-dérivation (arbitrage Val 2026-07-06 RC-M05-04)** : un INSERT `pesees` sur une collecte déjà `realisee` déclenche automatiquement un S5 `type=correction` (trigger `trg_pesee_tardive_s5_correction` §04 — déclencheur (c) du §08 étendu à toute source) ; la Plateforme régénère bordereau/attestation versionnés.
@@ -965,7 +966,7 @@ Bouton "J'arrive" disponible dès `en_route` sans délai (pas de 3 min). Clic = 
 
 **Détection abus a posteriori (V1)** : requête SQL ad-hoc Admin TMS sur `audit_logs` (compte par chauffeur sur fenêtre glissante). Pas de widget M11 dédié, pas de paramètre seuil.
 
- → **Supprimés revue sobriété §05 2026-05-01 A4**. Comportement attendu = chauffeurs en immeuble = fallback légitime fréquent → seuil paramétrable + widget dédié = sur-ingénierie. Audit log seul suffit V1 ; widget M11 réintroduit V1.1 si Admin TMS constate effectivement un abus systémique.
+ → **Supprimés revue sobriété §05 2026-05-01 A4**. Comportement attendu = chauffeurs en immeuble = fallback légitime fréquent → seuil paramétrable + widget dédié = sur-ingénierie. Audit log seul suffit V1; widget M11 réintroduit V1.1 si Admin TMS constate effectivement un abus systémique.
 
 ### R_M05.9 — Queue offline cap 3 tournées + 150 photos + 300 Mo (D2)
 
@@ -1277,6 +1278,7 @@ Cohérent avec rétention `ajustements_couts_log` M07. **Bloc 3 sobriété 2026-
 
 Trigger BEFORE UPDATE `tms.alertes` bloque modification de `code, criticite, emise_at, entity_type, entity_id, dedup_key, occurrences` (sauf par W1 debounce et W7 auto-résolution via path explicite). Transitions de statut autorisées uniquement (Bloc 3 sobriété 2026-04-25 A7 : transition `→ expiree` retirée ; Bloc 6 B2 2026-04-28 : statut `ackee` retiré enum → metadata) :
 - `ouverte → snoozee | resolue` (l'ack = update colonnes metadata `ackee_par_user_id`/`ackee_at`, pas de changement statut)
+- (statut `ackee` retiré Bloc 6 B2)
 - `snoozee → ouverte | resolue`
 - `resolue → *` **impossible** V1 (V2 : RPC Admin `m11_rouvrir_alerte` motif ≥ 30 car + audit)
 

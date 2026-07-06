@@ -72,7 +72,7 @@ M01 seconde salve ajoute 2 colonnes sur `tms.collectes_tms` pour matérialiser l
 - `lieu_snapshot` (JSONB, NOT NULL) — photo figée du lieu à la création.
 - `last_occurred_at` (TIMESTAMPTZ, NOT NULL) — horodatage du dernier event appliqué (skip out-of-order si event reçu ≤ cette valeur).
 
-→ **Colonne `attribuee_source` SUPPRIMÉE V1** *(sobriété M01 B_M01_04 + D_M01_03 — 2026-04-30 ; auto-relance M12 W3 retirée → enum à 1 valeur = colonne morte)*. À ne pas créer.
+ → **Colonne `attribuee_source` SUPPRIMÉE V1** *(sobriété M01 B_M01_04 + D_M01_03 — 2026-04-30; auto-relance M12 W3 retirée → enum à 1 valeur = colonne morte)*. À ne pas créer.
 
 ### Impact suppression pré-affectation
 
@@ -175,7 +175,7 @@ Voir détail dans [[05 - Règles métier#R_controle_acces_cascade]].
 
 ### 4. Nouveau champ `evenements.type_evenement_libre` **Retiré V1 (propagation Sujet 4 — type vs taille, 2026-05-26)**
 
->
+> 
 >
 > **Retiré V1 (Sujet 4, 2026-05-26)** : le mécanisme « Autre + texte libre + normalisation » est supprimé. `types_evenements` est figé à **4 catégories** (`cocktail apéritif`, `cocktail repas complet`, `repas assis`, `autre`). `autre` devient une **catégorie fourre-tout sélectionnable sans saisie** (pas de champ texte, pas de file de normalisation Admin). La colonne `evenements.type_evenement_libre` est supprimée, la règle `R_type_evenement_libre` (§05) est retirée. Extension future = ajout direct d'une ligne dans `types_evenements` (Supabase), sans UI dédiée.
 
@@ -561,7 +561,7 @@ Ce fichier décrit les entités (tables Supabase), leurs champs, leurs relations
 
 **Multi-camions (révisé 2026-05-25, Sujet 1 option A — annule la décision 4a du 2026-05-21)** : un événement à fort volume (ex: 3000 pax) nécessitant plusieurs camions reste **une seule collecte ZD** côté traiteur/Plateforme (assiette pax, facturation, rapport, registre). Le dimensionnement en N camions est décidé par l'**Admin Savr au dispatch** et reste **interne au TMS** : `1 collecte ZD → N tournées` prestataire (rattachées au `collecte_id`). Les pesées des N camions sont **agrégées sous la collecte ZD** (webhook S5 agrège par `collecte_tms_id`). **Cardinalité TMS `collecte → N tournées` à figer en session `cdc-tms-savr` dédiée** (le modèle TMS actuel `1 tournée → N collectes` / `collecte → 1 tournée` doit évoluer). Contrat §08 S5 inchangé (agrège déjà par `collecte_tms_id`).
 
-**`date_collecte` = champ primaire, `date_evenement` = dérivé (refonte 2026-05-29)** : `collectes.date_collecte` est la date d'intervention logistique saisie par le programmeur — chaque collecte porte la sienne. `evenements.date_evenement` est calculé automatiquement = `MIN(collectes.date_collecte)` de l'événement via trigger (jamais saisi). C'est la date de référence des rapports PDF. **Retiré V1 (2026-05-29)** — pax unique au niveau événement (`evenements.pax`) ; multi-jours à pax variable reporté V2. Voir tables `evenements` et `collectes` ci-dessous.
+**`date_collecte` = champ primaire, `date_evenement` = dérivé (refonte 2026-05-29)** : `collectes.date_collecte` est la date d'intervention logistique saisie par le programmeur — chaque collecte porte la sienne. `evenements.date_evenement` est calculé automatiquement = `MIN(collectes.date_collecte)` de l'événement via trigger (jamais saisi). C'est la date de référence des rapports PDF.. **Retiré V1 (2026-05-29)** — pax unique au niveau événement (`evenements.pax`); multi-jours à pax variable reporté V2. Voir tables `evenements` et `collectes` ci-dessous.
 
 ---
 
@@ -1434,7 +1434,7 @@ Table centrale. Un événement = une prestation physique chez un client, à un l
 | `created_by` | uuid | FK → users, NOT NULL | User programmateur (`traiteur_commercial`, `traiteur_manager`, `agence`, `gestionnaire_lieux`, ou `admin_savr` — naming rôles aligné §09, corrigé 2026-06-11). Étendu 2026-05-07 : ouverture aux rôles agence et gestionnaire_lieux. |
 | `nom_evenement` | text | | Nom libre (ex: "Gala LVMH 2026") |
 | `type_evenement_id` | uuid | FK → types_evenements, NOT NULL | Référence à la table `types_evenements` (4 catégories de **format de service** : `cocktail_aperitif`, `cocktail_repas_complet`, `repas_assis`, `autre`). Référentiel extensible par ajout direct de ligne (Admin/Supabase), sans UI. La **taille** de l'événement ne vit pas ici : elle se dérive du `pax` via `taille_evenement_bracket()`. **Sujet 4 (2026-05-26)** : le seed `autre` est un fourre-tout sélectionnable sans saisie ; le mécanisme de texte libre est retiré. |
-| `date_evenement` | date | NULL *( — révisé 2026-06-07, test scenarios §06.01 F1 BLOQUANT, arbitrage Val : la ligne `evenements` est écrite dès le brouillon étape 1, avant toute `date_collecte` ; NULL = brouillon sans collecte datée, jamais NULL sur événement confirmé — garde applicative à la confirmation, cf. §05 R_date_evenement_auto_derive)* | **Champ backend auto-dérivé (refonte 2026-05-29)** — Non saisi dans les formulaires. Calculé automatiquement = `MIN(collectes.date_collecte)` des collectes rattachées à l'événement, via trigger `fn_set_date_evenement` (`AFTER INSERT/UPDATE/DELETE ON collectes`, `FOR EACH ROW`). **Date de référence des rapports PDF client** (§12). Extensible V2 : la règle de dérivation pourra être affinée (ex. date réelle de l'événement ≠ première collecte, si recueillie séparément). |
+| `date_evenement` | date | NULL *( — révisé 2026-06-07, test scenarios §06.01 F1 BLOQUANT, arbitrage Val : la ligne `evenements` est écrite dès le brouillon étape 1, avant toute `date_collecte`; NULL = brouillon sans collecte datée, jamais NULL sur événement confirmé — garde applicative à la confirmation, cf. §05 R_date_evenement_auto_derive)* | **Champ backend auto-dérivé (refonte 2026-05-29)** — Non saisi dans les formulaires. Calculé automatiquement = `MIN(collectes.date_collecte)` des collectes rattachées à l'événement, via trigger `fn_set_date_evenement` (`AFTER INSERT/UPDATE/DELETE ON collectes`, `FOR EACH ROW`). **Date de référence des rapports PDF client** (§12). Extensible V2 : la règle de dérivation pourra être affinée (ex. date réelle de l'événement ≠ première collecte, si recueillie séparément). (refonte 2026-05-21 D2). |
 | `pax` | integer | NOT NULL | Nombre de convives — fourni systématiquement par le traiteur à la programmation. Base de la facturation ZD. |
 | `contact_principal_nom` | text | NOT NULL | Contact terrain principal (responsable événement côté traiteur ou lieu) |
 | `contact_principal_telephone` | text | NOT NULL | Numéro joignable le jour J |
@@ -1494,7 +1494,7 @@ Une collecte = une intervention physique d'un type donné (zéro-déchet OU anti
 | `collecte_remplacee_id` | uuid | FK → collectes | Si cette collecte remplace une collecte `annulee` (traçabilité ; couvre le cas ex-`manquee` = no-show prestataire annulé) |
 | `motif_incident` | text | | Renseigné si statut = `annulee` (y compris no-show prestataire, ex-`manquee`) ou `realisee_sans_collecte`. Édité aussi lors d'une contestation de pesée (collecte restant `cloturee`, ex-`en_reexamen`). |
 | `incident_imputable_a` | enum | | `prestataire` \| `client` \| `association` \| `savr` \| `externe` (météo, grève). Renseigné avec `motif_incident` sur les annulations imputables (ex-`manquee` = `prestataire`). |
-| `date_collecte` | date | NOT NULL | Date d'intervention du prestataire. **Champ primaire (refonte 2026-05-29)** — saisie obligatoire au formulaire §06.01 étape 3, par collecte, sans défaut pré-rempli depuis `date_evenement` (la relation est inversée : c'est `evenements.date_evenement` qui est dérivé de cette colonne). Chaque collecte porte sa propre date : multi-jours = N collectes sur N dates distinctes. **Refonte 2026-05-21 (D2)** : désormais saisie explicitement au formulaire (anciennement défaut implicite = date événement). Transmise au TMS via webhook E1 `heure_collecte.date` (= `date_collecte`, cf. [[../02 - Cahier des charges TMS/08 - Contrat API Plateforme-TMS#E1 — `POST /collectes`]]). |
+| `date_collecte` | date | NOT NULL | Date d'intervention du prestataire. **Champ primaire (refonte 2026-05-29)** — saisie obligatoire au formulaire §06.01 étape 3, par collecte, sans défaut pré-rempli depuis `date_evenement` (la relation est inversée : c'est `evenements.date_evenement` qui est dérivé de cette colonne). Chaque collecte porte sa propre date : multi-jours = N collectes sur N dates distinctes. **Refonte 2026-05-21 (D2)** : désormais saisie explicitement au formulaire (anciennement défaut implicite = date événement).. Transmise au TMS via webhook E1 `heure_collecte.date` (= `date_collecte`, cf. [[../02 - Cahier des charges TMS/08 - Contrat API Plateforme-TMS#E1 — `POST /collectes`]]). |
 | `heure_collecte` | time | NOT NULL | **Propagation 2026-04-29** — heure d'arrivée souhaitée du prestataire (point fixe V1, pas de fenêtre). Saisie commercial à la programmation. Anciennement `heure_debut_prevue` (renommé pour lever toute ambiguïté point/fenêtre). V2 : dérivation d'une fenêtre opérationnelle TMS via tampon paramétrable (cf. `m04_tournee_tampon_minutes`). |
 | `heure_debut_reelle` | timestamptz | | Renseignée par l'adapter MTS-1 (V1) / le TMS Savr (V2) — heure réelle d'arrivée chauffeur. **Type corrigé `time` → `timestamptz` (2026-06-11, audit data model — collectes de nuit, passage de minuit ; aligné `tms.collectes_tms.date_debut_reelle` timestamptz)** |
 | `heure_fin_reelle` | timestamptz | | Renseignée par l'adapter MTS-1 (V1) / le TMS Savr (V2) — heure réelle de départ chauffeur. **Type corrigé (2026-06-11, idem)** |
@@ -1602,7 +1602,7 @@ Résultat de l'algorithme d'attribution pour une collecte anti-gaspi.
 
 **RLS collectes V1 (sans partage) — révision 2026-05-29, naming + prédicat corrigés 2026-06-11 (audit data model)** : la **lecture** est org-wide pour `traiteur_manager` **et** `traiteur_commercial` — un user voit une collecte si l'organisation programmatrice de son événement est la sienne (`collectes.evenement_id → evenements.organisation_id = user.organisation_id` ; ⚠ `collectes` ne porte **pas** de colonne `organisation_id`, le scope passe toujours par la jointure `evenements`), ou si son traiteur y est opérationnel (`evenements.traiteur_operationnel_organisation_id`). L'**écriture** (INSERT/UPDATE/DELETE) reste limitée : `collectes.created_by = auth.uid()` (commercial : ses propres collectes) **OU** `traiteur_manager` / `admin_savr` de l'organisation. Le `OR collecte_partages` est retiré de la policy (réactivation V1.1 sur l'écriture). Détail §09.
 
-*(spec conservée pour réactivation V1.1)*
+ *(spec conservée pour réactivation V1.1)*
 
 ---
 
@@ -1638,7 +1638,7 @@ Coût logistique réel par tournée. Base du pilotage marge (V2 — cf. statut V
 
 **Calcul marge par collecte** *(figé audit 2026-05-26)* : `factures.montant_ht - (SELECT COALESCE(SUM(cout_reparti_ht), 0) FROM v_courses_logistiques WHERE collecte_id = :collecte_id)`. La vue ayant déjà fait la jointure `tms.tournees ⋈ tms.collecte_tournees` et la répartition côté TMS, la marge est une simple somme des `cout_reparti_ht` des lignes de la collecte. Cas standard (1 tournée) = un seul terme. Cas multi-camions (N tournées dédiées) = somme des N parts. Cas mutualisé (tournée partagée) = la part déjà proratisée par le trigger TMS.
 
-**Source de vérité** : `tms.tournees` côté TMS, exposée en lecture via vue `plateforme.v_courses_logistiques` *(remplace ex-webhook `course-cout-calculee` S6 supprimé revue sobriété §08 Bloc A 2026-05-01 A2)*. La Plateforme ne recalcule pas le coût — elle le lit. **Sans objet 2026-05-01** : la vue lit directement le dernier état TMS, le versioning reste interne TMS pour audit (colonne `version_paiement` exposée en lecture pour reporting "marge ajustée").
+**Source de vérité** : `tms.tournees` côté TMS, exposée en lecture via vue `plateforme.v_courses_logistiques` **. La Plateforme ne recalcule pas le coût — elle le lit. **Sans objet 2026-05-01** : la vue lit directement le dernier état TMS, le versioning reste interne TMS pour audit (colonne `version_paiement` exposée en lecture pour reporting "marge ajustée").
 
 ---
 
@@ -1737,7 +1737,7 @@ Lignes d'une grille du catalogue ZD. Chaque ligne couvre une tranche de pax et p
 - Grille `paliers` : `prix_par_couvert_ht = 0` (prix fixe par tranche).
 - Grille `fixe_variable` : typiquement une ligne unique `[1, null]` avec part fixe + part variable (ex. 200 € + 1 €/pax), ou plusieurs tranches si paliers internes.
 
-**Renommé `montant_fixe_ht` (refonte 2026-05-26)**, puis **renommé `prix_base_ht` (M1.3)**. **Retirés (refonte 2026-05-26)** — versioning porté par la grille.
+ **Renommé `montant_fixe_ht` (refonte 2026-05-26)**, puis **renommé `prix_base_ht` (M1.3)**. **Retirés (refonte 2026-05-26)** — versioning porté par la grille.
 
 **Migration** : créer la grille `est_defaut` « Standard paliers » ; rattacher les lignes existantes (`prix_base_ht = ancien prix_ht`, `prix_par_couvert_ht = 0`, `grille_id` = grille standard) ; reprendre la tranche >1000 en `prix_base_ht=0`/`prix_par_couvert_ht=1`.
 
@@ -2154,7 +2154,7 @@ f_benchmark_single_collecte(
 
 > ⚠ **NON CRÉÉ V1 (audit sobriété §04 2026-05-25, A1)** : les 6 tables ci-dessous (`briefs_evenement`, `referentiel_categories`, `referentiel_items`, `brief_items`, `impact_calculs`, `impact_synthese_evenement`) **ne sont pas créées en V1**. Anticipation retirée du schéma V1 : zéro interface/règle/API V1, et sous Supabase l'ajout en V2 est une migration triviale (l'argument « zéro migration V2 » n'achète rien et ajoute 6 tables + RLS à maintenir + un risque que le dev code dessus par erreur). La spec ci-dessous est **conservée comme référence V2** (Module 19).
 
-Spec V2 — voir [[03 - Périmètre fonctionnel global]] Module 19.
+ Spec V2 — voir [[03 - Périmètre fonctionnel global]] Module 19.
 
 **Pattern** : `brief → items extraits → mapping référentiel → calculs d'impact → synthèse événement`
 
@@ -2627,7 +2627,7 @@ brief_items
 
 - **1 événement → N collectes** : un même événement peut avoir simultanément une collecte ZD et une collecte AG. **Révisé 2026-05-25 (Sujet 1, option A)** : le multi-camions n'est plus modélisé comme N collectes ZD — il est interne au TMS (1 collecte ZD → N tournées prestataire). En usage normal, 1 collecte ZD par événement (un 2ᵉ exemplaire du même type reste techniquement possible pour des cas distincts type passage mi-événement/fin d'événement, sans contrainte d'unicité)
 - **Rattachement explicite collecte→événement (2026-05-21, D1)** : via `collectes.evenement_id`. Suppression du rattachement par matching textuel date+lieu+client (source de doublons d'événements). Le formulaire unique §06.01 crée l'événement puis ses collectes ; l'ajout ultérieur passe par l'`evenement_id` existant.
-- **`date_collecte` champ primaire, `date_evenement` auto-dérivé (refonte 2026-05-29)** : `collectes.date_collecte` = date d'intervention logistique saisie obligatoirement par collecte au formulaire §06.01 étape 3 (sans défaut). `evenements.date_evenement` = calculé automatiquement = `MIN(collectes.date_collecte)` via trigger `fn_set_date_evenement` — jamais saisi, référence des rapports PDF. Extensible V2 (règle de dérivation affinable). **Retiré V1 (2026-05-29)** : pax unique au niveau événement (`evenements.pax`), non modifiable par collecte ; multi-jours à pax variable reporté V2.
+- **`date_collecte` champ primaire, `date_evenement` auto-dérivé (refonte 2026-05-29)** : `collectes.date_collecte` = date d'intervention logistique saisie obligatoirement par collecte au formulaire §06.01 étape 3 (sans défaut). `evenements.date_evenement` = calculé automatiquement = `MIN(collectes.date_collecte)` via trigger `fn_set_date_evenement` — jamais saisi, référence des rapports PDF. Extensible V2 (règle de dérivation affinable).. **Retiré V1 (2026-05-29)** : pax unique au niveau événement (`evenements.pax`), non modifiable par collecte; multi-jours à pax variable reporté V2.
 - **Contrôle d'accès saisi niveau événement, copié sur collectes (2026-05-21)** : `controle_acces_requis` saisi une fois (la contrainte vient du site), copié sur chaque `collectes` à l'INSERT. Colonne conservée sur `collectes` (override per-collecte possible).
 - **Tarifs ZD versionnés** : les tarifs ne sont jamais modifiés rétroactivement — chaque collecte fige le tarif appliqué
 - **`organisations` générique** : traiteurs, agences et gestionnaires de lieux partagent la même table avec un champ `type`

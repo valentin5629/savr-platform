@@ -1,7 +1,5 @@
 # 01 - Vision et objectifs
 
-**Statut** : ✅ Complété
-**Dernière mise à jour** : 2026-04-20
 
 ---
 

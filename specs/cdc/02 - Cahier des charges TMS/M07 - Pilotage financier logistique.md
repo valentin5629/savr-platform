@@ -1,6 +1,5 @@
 # M07 — Pilotage financier logistique
 
-**Statut** : V1 rédigée 2026-04-24, revue de sobriété 2026-04-30, **propagation revue sobriété §08 Bloc A 2026-05-01 (suppression webhook S6, remplacement par vue cross-schema)**, **revue de sobriété 2026-06-04 (purge dette propagation S6 dans le corps + N1 supprimée + dashboard à la volée)**
 
 ---
 
@@ -370,6 +369,7 @@ valide_par_admin;heure_reelle_fin
 1. **Trigger DB AFTER UPDATE** `tms.trg_m07_calc_cost` (pas un job async — on veut calcul synchrone pour éviter race conditions avec M08). Spec complète + body PL/pgSQL : §04 addendum M07 §7 (propagation A6 2026-04-25). Filtre `WHEN OLD.statut IN ('en_cours','acceptee') AND NEW.statut='terminee'`. Sortie immédiate sur autres transitions, idempotence post-calcul, 4 cas erreur traités sans rollback (horaires manquants, durée nulle, grille absente, formule non implémentée — alerte M11 dédiée + statut_financier correspondant). **Trigger compagnon `trg_m07_recalc_on_horaires`** (arbitrage Val 2026-06-06, §04 §7) : `AFTER UPDATE OF heure_reelle_debut, heure_reelle_fin` ; quand Ops corrige des horaires manquants sur une tournée `terminee` à `cout_calcule_ht NULL`, il rejoue le coeur de calcul (`fn_m07_compute_and_store`) et résout l'alerte `m07_horaires_manquants`. Sans lui, le coût resterait NULL indéfiniment (le trigger principal n'écoute que `statut`).
 
 2. **Précheck** :
+   - **Exception filet (2026-07-06 COH-05, arbitrage RC-M04-02 iii)** : tournée filet **jamais démarrée** (clôture auto `trg_collectes_autoclose_filet` §04, `acceptee→terminee`, horaires NULL, toutes collectes terminales par incident/annulation) → `cout_calcule_ht = 0`, `cout_detail.raison='filet_jamais_demarree'`, `statut_financier='calcule'`, **pas d'émission `m07_horaires_manquants`** (step 2.0 du précheck §04 §7 — rien à corriger, aucune vacation)
    - `heure_reelle_debut IS NOT NULL AND heure_reelle_fin IS NOT NULL` sinon abort (erreur logs)
    - `duree_reelle_minutes > 0` sinon `cout_calcule_ht = 0` + alerte M11 gravité `warning` "Durée réelle nulle — à vérifier"
    - `grille_tarifaire_id IS NOT NULL` sinon → step 3 (lookup forcé) + **exception SQL bloquante** si échec (revue sobriété §05 2026-05-01 D2 — ex-`cout_manquant`)
@@ -496,9 +496,9 @@ valide_par_admin;heure_reelle_fin
 Renvois explicites vers `[[../05 - Règles métier TMS|§05]]` (pas de duplication de règle) :
 
 - **R2.1 Algorithme général** → cf. §05 R2.1. Utilisé par W1.
-- **R2.2 Formule `vacations_paliers`** → cf. §05 R2.2. Strike (grilles réelles 2026-06-07 : Marathon reclassé `forfait_fixe` → R2.5 ; dépassement par heure entamée, supplément équipage double 31,25 €/h sur dépassement seul). Paliers JSON configurables.
+- **R2.2 Formule `vacations_paliers`** → cf. §05 R2.2. Strike (grilles réelles 2026-06-07 : Marathon reclassé `forfait_fixe` → R2.5; dépassement par heure entamée, supplément équipage double 31,25 €/h sur dépassement seul). Paliers JSON configurables.
 - **R2.3 Formule `grille_matricielle_zone_type_course`** → cf. §05 R2.3. A Toutes! vélo. Avec précision 2026-04-24 : `type_course = incomplete` uniquement si `tarif_sans_collecte_applicable = true` dans la grille (défaut false pour Strike/Marathon).
-- **R2.4 Formule `grille_matricielle_zone`** → cf. §05 R2.4. **Aucune grille V1** (arbitrage Val 2026-06-07 — camion A Toutes! = R2.6 manuel/Everest ; formule conservée au catalogue).
+- **R2.4 Formule `grille_matricielle_zone`** → cf. §05 R2.4. **Aucune grille V1** (arbitrage Val 2026-06-07 — camion A Toutes! = R2.6 manuel/Everest; formule conservée au catalogue).
 - **R2.5 Formules `forfait_km` / `forfait_fixe`** → cf. §05 R2.5. Prestataires province + **Marathon IDF (`forfait_fixe` 100 €/tournée — grille réelle 2026-06-07)**.
 - **R2.6 Cas sans grille** → cf. §05 R2.6. **Refondu revue sobriété §05 2026-05-01 D2** : cas impossible par construction (R_M06.X grille obligatoire à création prestataire). Si déclenché → exception SQL bloquante. **Exception assumée V1 (arbitrage Val 2026-06-07)** : courses **camion A Toutes!** — aucune grille camion n'existe (seule la grille vélo est instanciée) → saisie manuelle Ops (§05 R2.6), pas une exception SQL.
 - **R2.7 Annulation — règle authoritative `[[../05 - Règles métier TMS|§05 R2.7]]`** (seuil 3h, sobriété C3 2026-04-30, ex-1h) :
@@ -526,6 +526,7 @@ Renvois explicites vers `[[../05 - Règles métier TMS|§05]]` (pas de duplicati
 |---|-----|-----------------|
 | EC2 | `duree_reelle_minutes = 0` (erreur saisie chauffeur ou `heure_reelle_debut = heure_reelle_fin`) | `cout_calcule_ht = 0` + alerte M11 `m07_duree_nulle` (warning) "Durée nulle — vérifier saisie chauffeur". Ops Savr corrige via ajustement manuel. |
 | EC3 | `heure_reelle_fin IS NULL` (tournée pas encore terminée alors que `statut = terminee`) | Impossible (contrainte DB sur transition statut). Trigger bloque. |
+| | | **Refondu revue sobriété §05 2026-05-01 D2** : exception SQL bloquante `INVARIANT_VIOLATION: formule X non implémentée pour grille Y. Mismatch DB seed vs code.` Bug déploiement à corriger immédiatement, pas un état métier. devient sans objet (EC1 lui-même refondu en exception bloquante). |
 | EC5 | Double clôture tournée (UPDATE idempotent) | **No-op strict** (arbitrage Val 2026-06-06 floue #2) : si `cout_calcule_ht IS NOT NULL` → skip calcul, pas de réincrément `push_s6_version`, quelle que soit la grille. retiré — inatteignable et contraire au figement R2.8 (`cout_calcule_ht` immuable post-clôture, grille figée à la date tournée). La correction d'un coût erroné passe exclusivement par l'ajustement manuel `cout_ajuste_ht` (W2). |
 | EC6 | Annulation **collecte** par le client pendant que la tournée est `en_cours` | **Reformulé (arbitrage Val 2026-06-06 floue #3)** : la tournée `en_cours` **ne transite jamais** vers `annulee` au niveau `tournees.statut` (cf. §05 R2.7bis authoritative). C'est la collecte qui passe `annulee_par_traiteur` ; la tournée finit toujours (clôture chauffeur) → **vacation facturée intégralement** (M07 calcule normalement sur durée réelle, coût ≠ 0). L'annulation **avant** démarrage tournée relève de R2.7 (≥ 3h = 0€, < 3h = facturée), pas d'EC6. |
 | EC7 | Chevauchement grilles actives (bug insertion) | Contrainte `EXCLUDE USING gist` bloque INSERT/UPDATE (sobriété B2 2026-04-30 — remplace trigger custom `tg_grilles_unicite`). Défensif : query W1 LIMIT 1 avec ORDER BY prend la plus récente. Erreur SQL native interceptée côté API. |
@@ -640,7 +641,7 @@ Transitions autorisées :
 
 | Code canonique | Criticité | Trigger M07 |
 |----------------|-----------|-------------|
-| `m07_horaires_manquants` | critical | Tournée passée à `terminee` sans `heure_reelle_debut` ou `heure_reelle_fin` (précheck `trg_m07_calc_cost` step 2) |
+| `m07_horaires_manquants` | critical | Tournée passée à `terminee` sans `heure_reelle_debut` ou `heure_reelle_fin` (précheck `trg_m07_calc_cost` step 2). **Exception (2026-07-06 COH-05)** : non émise pour une tournée filet jamais démarrée (`trg_collectes_autoclose_filet`, toutes collectes terminales par incident/annulation) → coût 0 €, `statut_financier='calcule'`, silencieux |
 | `m07_duree_nulle` | warning | Durée réelle tournée = 0 (erreur saisie) |
 | `m07_ajustement_pendant_facturation` | critical | Tentative ajustement sur tournée verrouillée par facture (`cout_final_verrouille = true`, EC9) |
 
@@ -663,7 +664,7 @@ Transitions autorisées :
 - [[M04 - Gestion des tournées]] — trigger clôture = déclencheur W1
 - [[M06 - Référentiel prestataires]] — E7 éditeur formule partagé avec M07 E6
 - [[M08 - Facturation prestataires]] — `montant_ht_calcule_tms` = agrégat `cout_final_ht` par prestataire × période, flag `cout_final_verrouille` boolean
-- [[M11 - Alerting transverse]] — codes alertes M07 (**3 codes V1**, source authoritative M11 : `m07_horaires_manquants` critical, `m07_duree_nulle` warning, `m07_ajustement_pendant_facturation` critical ; retiré §05 D2, retiré A2 2026-05-01 — S6 supprimé)
+- [[M11 - Alerting transverse]] — codes alertes M07 (**3 codes V1**, source authoritative M11 : `m07_horaires_manquants` critical, `m07_duree_nulle` warning, `m07_ajustement_pendant_facturation` critical; retiré §05 D2, retiré A2 2026-05-01 — S6 supprimé)
 - [[M12 - Attribution transporteur]] — `prestataire_id` choisi = source grille lookup
 - [[M13 - Administration TMS]] — paramètres `m07.*` (le namespace existe toujours mais sans `seuil_validation_ajustement_pourcent` ni `alerte_expiration_grille_jours`)
 - [[M14 - Intégration Everest (A Toutes!)]] — `everest_missions.cout_everest_ht` comparatif audit

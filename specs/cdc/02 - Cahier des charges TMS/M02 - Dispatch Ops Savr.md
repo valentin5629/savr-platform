@@ -4,7 +4,6 @@
 
 **Persona principal** : Ops Savr (Val, Louis, +1 recrue prévue V1.1)
 **Contexte d'usage** : desktop bureau, pic d'activité 6h-10h (préparation journée) + ajustements continus jusqu'à 20h.
-**Dernière mise à jour** : 2026-04-29 (revue de sobriété M02 — coupes radicales : suppression SLA dispatch, bulk actions W4/W5, auto-relance refus W3, lock optimiste, audit override avec motifs, push navigateur, vues jour+semaine fusionnées en vue mois, KPIs J-7, tuiles exutoires E1, sélecteur Ops actif. Email seul pour les notifications. Last-write-wins assumé sur concurrence multi-Ops.)
 
 ---
 
@@ -526,7 +525,7 @@ Toute transition non listée → bloquée applicativement + trigger Postgres ant
 5. — **Tranché 2026-06-05 (arbitrage Val) : Ops Savr crée directement via fonction `SECURITY DEFINER`**. Le bouton "Créer un nouveau prestataire province" (E5 / 7.6) appelle `tms.fn_create_prestataire_province(...)` qui insère un `shared.prestataires` `type='province'`, `statut='actif'` **sans** ouvrir de GRANT large à `ops_savr` sur les colonnes opérationnelles (la RLS §09 garde le deny direct sur ces colonnes). Friction zéro au dispatch 6h. Garde-fou intégré à la fonction : validation doublon `SIRET` puis `(nom_normalisé, ville)`. Admin TMS supervise/corrige a posteriori. Cf. §09 (définition fonction) + M06.
 6. — **Tranché 2026-04-23 : Admin TMS uniquement**.
 7. — **Tranché 2026-04-29 (revue sobriété)** : pas de filtre zone géo V1 (pas de découpage administratif/département). Référentiel `zones_geo` retiré de M02 (peut rester en data model si M04/M12 l'utilisent). **Précision 2026-06-03** : l'ajout de la carte E6 (pins GPS) ne réintroduit PAS de filtre zone géo — ce sont deux choses distinctes (la carte affiche des positions, elle ne filtre pas par zone administrative).
-8. — **Tranché 2026-06-05 (arbitrage Val) : colonne simple V1**. Pas de table dédiée ni de `jsonb` V1. `collectes_tms.motif_refus` (text) + `date_refus` portent le dernier refus (W3) ; l'historique des refus multiples et le KPI taux de refus par prestataire sont dérivés de `audit_logs` (diff `prestataire_id` avant/après). Table `collecte_refus_historique` reportée V1.1 si le KPI est confirmé.
+8. — **Tranché 2026-06-05 (arbitrage Val) : colonne simple V1**. Pas de table dédiée ni de `jsonb` V1. `collectes_tms.motif_refus` (text) + `date_refus` portent le dernier refus (W3); l'historique des refus multiples et le KPI taux de refus par prestataire sont dérivés de `audit_logs` (diff `prestataire_id` avant/après). Table `collecte_refus_historique` reportée V1.1 si le KPI est confirmé.
 9. — **Reporté V1.1**.
 10. — **Tranché 2026-04-23** : UI M13 "Collectes orphelines à réconcilier" + suggestion auto match `(lieu_id, heure_collecte ±30min, traiteur_id, nb_pax ±10%)` (propagation 2026-04-29).
 

@@ -1,7 +1,5 @@
 # 15 - Sécurité et conformité
 
-**Statut** : Validé V1
-**Dernière mise à jour** : 2026-04-20
 
 ---
 
@@ -242,8 +240,8 @@ Actions obligatoires avant mise en production avec clients réels :
 
 - Trackdéchets : surveiller l'évolution réglementaire — pourrait devenir obligatoire avant V2
 
-**Clôturé** : CGU V1 rédigées suffisent pour le go-live. Politique de confidentialité à rédiger en parallèle du dev, non bloquante. (2026-04-28)
-**Clôturé** : CGU V1 Draft couvre le périmètre V1. Non bloquant go-live. (2026-04-28)
+ **Clôturé** : CGU V1 rédigées suffisent pour le go-live. Politique de confidentialité à rédiger en parallèle du dev, non bloquante. (2026-04-28)
+ **Clôturé** : CGU V1 Draft couvre le périmètre V1. Non bloquant go-live. (2026-04-28)
 
 ## Liens
 

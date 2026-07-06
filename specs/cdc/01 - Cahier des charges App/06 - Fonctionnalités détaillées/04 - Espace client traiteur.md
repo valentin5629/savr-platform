@@ -240,7 +240,7 @@ Visible uniquement aux organisations avec un pack actif.
 
 **Actions** (manager + commercial, RLS lecture sur le solde, action ouverte aux deux) :
 - Bouton "Demander un renouvellement" : actif dès que **solde ≤ 10 % des crédits initiaux** *(révisé 2026-06-07 — test scenarios §06.04 F2, arbitrage Val : seuil relatif aligné sur l'alerte email admin `admin_pack_ag_etat` au franchissement ≤ 10 %, ex-seuil absolu < 10 crédits)*, toujours actif si solde = 0
-- Soumission formulaire (pack souhaité + message optionnel)
+- Clic = demande directe (POST sans formulaire) ; l'email admin identifie le demandeur et son organisation. Le pack souhaité est négocié hors app avec Savr. *(arbitrage 2026-07-06 — divergence M3.1 option A : le formulaire « pack souhaité + message » n'a jamais été implémenté ; le renouvellement est un simple signal, code déjà conforme côté traiteur + agence)*
 - Email à Admin Savr (template `admin_demande_renouvellement_pack`, identification du demandeur)
 
 **Alertes visuelles intégrées** *(seuil révisé 2026-06-07 F2 — relatif ≤ 10 %, une seule logique UI + email)* :

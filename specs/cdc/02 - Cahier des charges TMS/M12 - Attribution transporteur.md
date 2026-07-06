@@ -2,7 +2,6 @@
 
 **Persona principal** : Système (moteur backend) + Ops Savr (consommateur via M02) + Admin TMS (monitoring via M13)
 **Contexte d'usage** : backend pur, appelé à la volée par M01/M02. Aucune UI dédiée V1 — monitoring dans M13.
-**Dernière mise à jour** : 2026-04-29 (revue de sobriété M02 propagée — suppression auto-relance W3 (T2 simplifié en recalcul stateless), suppression T4 Re-suggérer + T5 Bulk re-compute, suppression RPC `m12_enrich_override` + colonnes override_* sur log, suppression colonne `refusee_par_prestataire_id` array + index GIN, suppression cascade_depth + paramètre `max_auto_relances_cascade`, suppression alerte `m12_cascade_max_atteinte`. M12 reste : T1 création + T2 refus (recalcul affichage Ops, sans bascule auto) + T3 re-confirmation post-modif. Ops réattribue manuellement via M02 W5 après refus.)
 
 ---
 

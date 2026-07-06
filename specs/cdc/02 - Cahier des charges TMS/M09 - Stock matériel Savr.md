@@ -1,6 +1,5 @@
 # M09 — Stock matériel Savr
 
-**Statut** : V1 rédigée 2026-04-25 (option e — frontière documentaire avec M10, pas de refactor data), **propagation revue sobriété §08 Bloc A 2026-05-01 (suppression webhook S8 + R_M09.7, remplacement par vue cross-schema)**
 
 ---
 
@@ -440,7 +439,7 @@ Renvois textuels (source §05 R4 + nouveaux R_M09) :
 | **D7** *(révisé §08 Bloc A 2026-05-01 A3)* | **Lecture cross-schema directe — vue `plateforme.v_stocks_rolls`** (remplace l'ex-décision "push webhook S8 obligatoire") | (a) Push webhook S8 + table miroir `lieux_stocks_rolls` (décision initiale, abandonnée) ; (b) Polling Plateforme ; (c) pas de push (Plateforme reconstruit logique) | DB partagée Plateforme/TMS : écriture une seule source physique (`tms.stocks_rolls_traiteurs`), lecture par vue = MAJ temps réel sans réseau ni retry. Supprime le push HTTP, la table miroir `lieux_stocks_rolls`, l'alerte `m09_webhook_s8_dlq` et R_M09.7. TMS = source de vérité unique |
 | **D8** | **Pas d'écran stock côté chauffeur V1** (chauffeur n'a pas vue UI stock traiteur, juste inputs déclaration M05) | (a) Écran lecture stock courant pour info chauffeur | Ajout UI mobile = effort PWA non justifié V1. Chauffeur a juste besoin de saisir, pas de consulter. Si retour terrain V1.5 demande, ajout simple (1 écran lecture) |
 | **D9** | **Stock multi-entrepôts traiteur** géré via `plateforme_lieu_id` nullable (UNIQUE composite) — ne s'active que si traiteur a > 1 lieu actif | Refacto V3 entrepot_id dédié | Nullable suffit V1 pour 95% des cas (1 traiteur = 1 lieu). Si traiteur multi-lieux, stock par lieu activé naturellement. V3 si entrepôt Savr secondaire ouvre |
-| **D10** | **Recompte Ops traçé en `tms.audit_logs` action `M09_RECOMPTE_ECART_ROLLS`** si écart absolu ≥ 3 OU relatif ≥ 30% (audit only, pas notif) — révisé Bloc 3 sobriété 2026-04-25 A1 (initialement alerte M11 info, dégagée) | (a) Pas de trace ; (c) trace warning systématique | Audit_logs = source de vérité audit, sans pollution de la table `tms.alertes`. Permet exploitation V2 (dashboard qualité saisie chauffeur — E5 dégagée revue sobriété 2026-04-25 A2, à recréer V1.1). Aligné avec M10 D10 trace écarts recompte bacs (révisé Bloc 3 idem) |
+| **D10** | **Recompte Ops traçé en `tms.audit_logs` action `M09_RECOMPTE_ECART_ROLLS`** si écart absolu ≥ 3 OU relatif ≥ 30% (audit only, pas notif) — révisé Bloc 3 sobriété 2026-04-25 A1 (initialement alerte M11 info, dégagée) | (a) Pas de trace; (c) trace warning systématique | Audit_logs = source de vérité audit, sans pollution de la table `tms.alertes`. Permet exploitation V2 (dashboard qualité saisie chauffeur — E5 dégagée revue sobriété 2026-04-25 A2, à recréer V1.1). Aligné avec M10 D10 trace écarts recompte bacs (révisé Bloc 3 idem) |
 
 ---
 

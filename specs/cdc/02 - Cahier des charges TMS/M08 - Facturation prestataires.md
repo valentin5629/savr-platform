@@ -1,6 +1,5 @@
 # M08 — Facturation prestataires
 
-**Statut** : V1 rédigée 2026-04-24, **revue de sobriété 2026-04-30** (16 simplifications appliquées : Bloc A 6 suppressions + Bloc B 6 simplifications + Bloc C 3 fusions + Bloc D enums) + **revue §05 2026-05-01** (cron W11 supprimé, auto-validation match exact) + **revue de sobriété M08 2026-06-05** (0 suppr fonctionnelle ; C1 dédup viewer PDF E2 Zone 3/5 + D1-D6 purge refs mortes `rejetee_pour_correction`/`rapproche_ok`/lignes/W4/param escalade)
 **Persona principal** : Ops Savr (upload province + contestation + validation + règlement + export Pennylane) + Admin TMS (validation + déverrouillage factures)
 **Dépend de** : [[M07 - Pilotage financier logistique]] (coût TMS = référence rapprochement), [[M06 - Référentiel prestataires]] (prestataire + contact facturation), [[M03 - Portail prestataire self-service]] (W10 upload manager), [[M04 - Gestion des tournées]] (périmètre tournées facturées)
 **Bloque** : export comptable mensuel Pennylane + pilotage trésorerie logistique
@@ -174,7 +173,7 @@ Note : E10 (M03 manager) existe déjà dans M03 W10, pas redéfini ici.
 - Tri par défaut : `date_upload DESC`
 - Highlight `ecart_detecte` : ligne rouge clair
 - Highlight `valide non réglée` : ligne bleu clair
-- Actions par ligne : `Voir détail` (→ E2), → **supprimée revue sobriété §05 2026-05-01 D1** (validation auto match exact, plus d'étape Ops requise), `Contester` (→ E6 si `ecart_detecte`, `rapprochement_manuel_requis` ou `valide` — **arbitrage Val 2026-06-06 : Ops peut contester une facture `valide`, ce qui déverrouille les tournées rapprochées ; `regle` reste W9 Admin only**), `Régler` (→ E7 si `valide`)
+- Actions par ligne : `Voir détail` (→ E2), → **supprimée revue sobriété §05 2026-05-01 D1** (validation auto match exact, plus d'étape Ops requise), `Contester` (→ E6 si `ecart_detecte`, `rapprochement_manuel_requis` ou `valide` — **arbitrage Val 2026-06-06 : Ops peut contester une facture `valide`, ce qui déverrouille les tournées rapprochées; `regle` reste W9 Admin only**), `Régler` (→ E7 si `valide`)
 
 **Actions** :
 - `Exporter sélection CSV` (sélection multi-lignes possible pour export uniquement)
@@ -310,9 +309,9 @@ E4 standalone fusionné dans **onglet « Factures » de M06 E5** (fiche prestata
 - W4 : Nb factures validées non réglées
 - W5 : Total HT validé non réglé (€)
 
-: nb prestataires uploadé M-1, retard upload, top 5 CA → exports CSV à la demande, pas de widget.
-: factures rejetées 12 mois, taux écart par prestataire, tendance écarts → exports CSV à la demande.
-: DSO moyen + factures en retard règlement → onglet M06 E5#factures porte le DSO par prestataire (cf. A4/C1) ; export CSV global à la demande.
+ : nb prestataires uploadé M-1, retard upload, top 5 CA → exports CSV à la demande, pas de widget.
+ : factures rejetées 12 mois, taux écart par prestataire, tendance écarts → exports CSV à la demande.
+ : DSO moyen + factures en retard règlement → onglet M06 E5#factures porte le DSO par prestataire (cf. A4/C1); export CSV global à la demande.
 
 **Actions** :
 - `Exporter dashboard CSV` (factures du mois + agrégats W1-W5).
@@ -727,7 +726,7 @@ Une facture est **automatiquement validée** (`statut_rapprochement = 'valide'` 
 
 Tout écart (même 0,01€) → `statut_rapprochement = 'ecart_detecte'`. Pas de seuil, pas de tolérance. Ops tranche via W5 (validation manuelle motif ≥ 30 car) ou W6 (contestation).
 
-supprimé V1 (revue sobriété §05 2026-05-01 D1) — match exact zéro tolérance = aucune décision humaine à prendre, donc pas d'étape Ops manuelle. Réintroduction V1.1 si Val/Louis ré-instaurent une revue humaine systématique.
+ supprimé V1 (revue sobriété §05 2026-05-01 D1) — match exact zéro tolérance = aucune décision humaine à prendre, donc pas d'étape Ops manuelle. Réintroduction V1.1 si Val/Louis ré-instaurent une revue humaine systématique.
 
 **Raison** : intégrité financière + traçabilité + alignement pratique comptable FR (un écart = un avoir).
 

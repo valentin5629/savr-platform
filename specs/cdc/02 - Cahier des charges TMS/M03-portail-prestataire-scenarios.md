@@ -2,7 +2,6 @@
 
 **Source CDC** : §06/M03 + §05 R_M03.1 à R_M03.12 + §04 (`collectes_tms`, `tournees`, `chauffeurs`, `vehicules`, `types_vehicules`, `factures_prestataires`) + §09 RLS TMS
 **Généré le** : 2026-06-05
-**Statut** : À implémenter par Claude Code
 
 > **Instructions Claude Code** : ces scénarios sont la source de vérité pour les tests du module M03.
 > Pour chaque scénario :
@@ -586,6 +585,17 @@ Scénario : alerte_oubli_assignation_lit_etat_courant
   Quand le manager assigne un chauffeur à 17h58 (avant le passage du job)
   Alors le job lit l'état courant (chauffeur présent) et n'émet aucune alerte Ops
   Et inversement, si la tournée est toujours sans chauffeur à 18h00, l'alerte Ops est émise
+```
+
+```gherkin
+# Source : §04 RPC m04_evaluer_completude / RC-M04-05 / renvoi COH-19 2026-07-06
+# Couche : api
+# Priorité : P1-critique
+
+Scénario : validation_assignation_concurrente_couverte_par_m04
+  Étant donné que « Valider l'assignation » (M03 E4) passe par la RPC partagée tms.m04_evaluer_completude (SELECT … FOR UPDATE, bascule atomique — RC-M04-05)
+  Alors le cas des acceptations concurrentes (2 managers valident la dernière collecte en même temps) est couvert par le scénario acceptations_concurrentes_derniere_collecte de tests/M04-gestion-tournees-scenarios.md
+  # Renvoi sans duplication : RPC unique, un seul scénario canonique côté M04 (COH-19)
 ```
 
 ---

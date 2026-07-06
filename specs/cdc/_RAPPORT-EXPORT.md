@@ -1,38 +1,130 @@
-# Rapport export dev-facing — 2026-06-15
+# Rapport export dev-facing — 2026-07-06 (run COMPLET post-patchs COH)
 
 Mode : AGGRESSIVE (T1 barré + T2 lignes méta pures Statut/MAJ + traçabilité isolée).
-Régénération **dest-driven** : chaque fichier de _DEV-FACING ré-écrit depuis sa source
-(chemin miroir, sinon basename dans le sous-arbre CDC). Vault source intact.
+Run COMPLET dest-driven sur layout canonique (COH-10) : App = sous-dossiers miroir, TMS = à plat racine.
+Vault source intact. Purge des orphelins/legacy incluse (liste en fin de rapport).
 
 ## Bilan
-- Fichiers régénérés : **165**
-- Fichiers sans source (conservés tels quels) : 0
-- Octets : 6 450 961 -> 6 119 465 (**-331 496  -5.1 %**)
-- Tokens estimés (après) : ~1 529 866
+- Fichiers régénérés : **101**
+- Fichiers purgés : **1** (sous-arbres legacy TMS 06/tests, doublons racine App, orphelins)
+- Octets : 4 555 822 -> 4 294 218 (**-261 604**)
+- Tokens estimés (après) : ~1 073 554
 
 ## Invariants (bloquants)
-- Barré résiduel (~~) dans l'export : **0**  ✅
-- Erreurs invariant : 0
+- Barré résiduel (~~) dans l'export : **0**  OK
+- Tombstones tableau supprimés : 210 · lignes tombstone : 7 · fragments retirés : 678 · en-têtes débarrés : 97 · lignes méta retirées : 122 · blocs multilignes barrés : 49 lignes · traçabilité isolée : 4
 - Aucun bloc Addendum daté supprimé (politique zéro risque respectée)
 
 ## Sentinelles anti-régression
-- 10 - Design System.md : présent ✅
-- Adapter MTS-1 (MyTroopers) — relevé as-built Bubble.md : présent ✅
-- M14 - Intégration Everest.md : présent ✅
-- 08 - APIs et intégrations.md : présent ✅
+- 10 - Design System.md : présent OK
+- Adapter MTS-1 (MyTroopers) — relevé as-built Bubble.md : présent OK
+- M14 - Intégration Everest.md : présent OK
+- 08 - APIs et intégrations.md : présent OK
 
----
+## Fichiers du run (exhaustif — tout fichier de _DEV-FACING absent de cette liste a été purgé)
 
-## Régénération partielle 2026-07-06 (run cdc-patch-divergences — revue adversariale concurrence)
+- `01 - Cahier des charges App/00 - Index.md` (123 051 -> 114 959 o)
+- `01 - Cahier des charges App/00 - Scoping V1.md` (6 859 -> 6 859 o)
+- `01 - Cahier des charges App/01 - Vision et objectifs.md` (18 235 -> 18 167 o)
+- `01 - Cahier des charges App/02 - Personas et cas d'usage.md` (23 655 -> 23 472 o)
+- `01 - Cahier des charges App/03 - Périmètre fonctionnel global.md` (27 490 -> 26 628 o)
+- `01 - Cahier des charges App/04 - Data Model.md` (310 660 -> 294 899 o)
+- `01 - Cahier des charges App/05 - Règles métier.md` (123 675 -> 119 230 o)
+- `01 - Cahier des charges App/06 - Fonctionnalités détaillées/00 - Index section 06.md` (4 004 -> 3 477 o)
+- `01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md` (54 361 -> 51 076 o)
+- `01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md` (32 626 -> 30 082 o)
+- `01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md` (9 064 -> 8 438 o)
+- `01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md` (95 880 -> 92 130 o)
+- `01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md` (52 129 -> 51 202 o)
+- `01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md` (91 784 -> 88 310 o)
+- `01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md` (23 951 -> 23 170 o)
+- `01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md` (38 742 -> 38 235 o)
+- `01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md` (20 025 -> 17 393 o)
+- `01 - Cahier des charges App/07 - Architecture technique.md` (29 489 -> 28 454 o)
+- `01 - Cahier des charges App/07 - Observabilité/00 - Stack retenue.md` (5 103 -> 5 103 o)
+- `01 - Cahier des charges App/07 - Observabilité/01 - Logs business.md` (6 484 -> 6 484 o)
+- `01 - Cahier des charges App/07 - Observabilité/02 - Logs techniques.md` (3 246 -> 3 246 o)
+- `01 - Cahier des charges App/07 - Observabilité/03 - Alertes.md` (5 000 -> 5 000 o)
+- `01 - Cahier des charges App/07 - Observabilité/04 - Dashboards business.md` (3 410 -> 3 410 o)
+- `01 - Cahier des charges App/07 - Observabilité/05 - Health checks.md` (2 699 -> 2 699 o)
+- `01 - Cahier des charges App/07 - Observabilité/06 - Audit trail.md` (5 855 -> 5 855 o)
+- `01 - Cahier des charges App/08 - APIs et intégrations.md` (121 380 -> 115 978 o)
+- `01 - Cahier des charges App/08 - Performance/01 - Volumes attendus.md` (4 677 -> 4 589 o)
+- `01 - Cahier des charges App/08 - Performance/02 - SLA par endpoint.md` (5 458 -> 5 370 o)
+- `01 - Cahier des charges App/08 - Performance/03 - Cibles techniques transverses.md` (2 793 -> 2 705 o)
+- `01 - Cahier des charges App/08 - Performance/04 - Scenarios de charge.md` (3 333 -> 3 245 o)
+- `01 - Cahier des charges App/08 - Performance/05 - Strategies optimisation.md` (3 622 -> 3 534 o)
+- `01 - Cahier des charges App/08 - Performance/06 - Monitoring perf prod.md` (2 840 -> 2 752 o)
+- `01 - Cahier des charges App/09 - Authentification et permissions.md` (92 175 -> 89 929 o)
+- `01 - Cahier des charges App/10 - Design System.md` (27 190 -> 27 020 o)
+- `01 - Cahier des charges App/11 - Dashboards.md` (26 845 -> 25 510 o)
+- `01 - Cahier des charges App/12 - Reporting et exports.md` (49 016 -> 45 716 o)
+- `01 - Cahier des charges App/13 - Migration depuis Bubble.md` (15 195 -> 14 484 o)
+- `01 - Cahier des charges App/14 - Scalabilité et évolutivité.md` (11 420 -> 11 356 o)
+- `01 - Cahier des charges App/15 - Sécurité et conformité.md` (16 326 -> 16 176 o)
+- `01 - Cahier des charges App/16 - Roadmap et priorisation.md` (13 975 -> 13 691 o)
+- `01 - Cahier des charges App/Adapter MTS-1 (MyTroopers) — relevé as-built Bubble.md` (10 108 -> 10 108 o)
+- `01 - Cahier des charges App/CGU Savr V1 - Draft.md` (28 866 -> 28 775 o)
+- `01 - Cahier des charges App/Frontière TMS-Ready V1.md` (12 747 -> 12 747 o)
+- `01 - Cahier des charges App/Interface logistique_provider V1.md` (7 182 -> 7 182 o)
+- `01 - Cahier des charges App/_PENDING - Everest API V1 (à intégrer §08 §3).md` (5 277 -> 5 277 o)
+- `01 - Cahier des charges App/tests/06.01-formulaire-programmation-scenarios.md` (37 198 -> 37 153 o)
+- `01 - Cahier des charges App/tests/06.02-templates-emails-scenarios.md` (28 974 -> 28 744 o)
+- `01 - Cahier des charges App/tests/06.03-registre-reglementaire-scenarios.md` (27 821 -> 27 361 o)
+- `01 - Cahier des charges App/tests/06.04-espace-traiteur-scenarios.md` (38 464 -> 38 419 o)
+- `01 - Cahier des charges App/tests/06.05-espace-gestionnaire-lieux-scenarios.md` (35 102 -> 35 057 o)
+- `01 - Cahier des charges App/tests/06.06-back-office-admin-scenarios.md` (42 733 -> 42 688 o)
+- `01 - Cahier des charges App/tests/06.08-generation-edition-facture-scenarios.md` (31 622 -> 31 577 o)
+- `01 - Cahier des charges App/tests/06.09-algo-attribution-ag-scenarios.md` (32 345 -> 32 300 o)
+- `01 - Cahier des charges App/tests/06.11-espace-agence-scenarios.md` (26 225 -> 26 180 o)
+- `01 - Cahier des charges App/tests/08-apis-integrations-scenarios.md` (51 096 -> 51 051 o)
+- `01 - Cahier des charges App/tests/09-rls-app-transverse-scenarios.md` (26 545 -> 26 500 o)
+- `01 - Cahier des charges App/tests/11-12-dashboards-reporting-scenarios.md` (39 836 -> 39 791 o)
+- `02 - Cahier des charges TMS/00 - Index.md` (168 241 -> 75 487 o)
+- `02 - Cahier des charges TMS/01 - Vision et objectifs TMS.md` (54 695 -> 54 401 o)
+- `02 - Cahier des charges TMS/03 - Périmètre fonctionnel TMS.md` (75 740 -> 74 373 o)
+- `02 - Cahier des charges TMS/04 - Data Model TMS.md` (309 626 -> 289 501 o)
+- `02 - Cahier des charges TMS/05 - Règles métier TMS.md` (129 715 -> 124 358 o)
+- `02 - Cahier des charges TMS/07 - Architecture technique TMS.md` (37 525 -> 35 857 o)
+- `02 - Cahier des charges TMS/08 - Contrat API Plateforme-TMS.md` (109 935 -> 103 569 o)
+- `02 - Cahier des charges TMS/08 - savr-api-contracts/README.md` (3 077 -> 3 077 o)
+- `02 - Cahier des charges TMS/09 - Authentification et permissions TMS.md` (121 532 -> 117 813 o)
+- `02 - Cahier des charges TMS/10 - Design System TMS.md` (16 281 -> 16 243 o)
+- `02 - Cahier des charges TMS/11 - Dashboards TMS.md` (29 011 -> 28 783 o)
+- `02 - Cahier des charges TMS/12 - App mobile chauffeur.md` (21 253 -> 20 922 o)
+- `02 - Cahier des charges TMS/13 - Migration MTS-1.md` (39 987 -> 39 987 o)
+- `02 - Cahier des charges TMS/14 - Scalabilité TMS.md` (10 446 -> 10 446 o)
+- `02 - Cahier des charges TMS/15 - Sécurité et conformité TMS.md` (44 125 -> 43 406 o)
+- `02 - Cahier des charges TMS/M01 - Réception ordres de collecte.md` (51 220 -> 48 082 o)
+- `02 - Cahier des charges TMS/M01-reception-ordres-scenarios.md` (23 457 -> 23 242 o)
+- `02 - Cahier des charges TMS/M02 - Dispatch Ops Savr.md` (46 598 -> 45 671 o)
+- `02 - Cahier des charges TMS/M02-dispatch-scenarios.md` (28 430 -> 28 385 o)
+- `02 - Cahier des charges TMS/M03 - Portail prestataire self-service.md` (71 974 -> 67 132 o)
+- `02 - Cahier des charges TMS/M03-portail-prestataire-scenarios.md` (28 944 -> 28 899 o)
+- `02 - Cahier des charges TMS/M04 - Gestion des tournées.md` (88 147 -> 79 514 o)
+- `02 - Cahier des charges TMS/M04-gestion-tournees-scenarios.md` (38 911 -> 38 866 o)
+- `02 - Cahier des charges TMS/M05 - App mobile chauffeur.md` (100 283 -> 92 378 o)
+- `02 - Cahier des charges TMS/M05-app-mobile-chauffeur-scenarios.md` (33 495 -> 33 450 o)
+- `02 - Cahier des charges TMS/M06 - Référentiel prestataires.md` (55 548 -> 52 578 o)
+- `02 - Cahier des charges TMS/M06-referentiel-prestataires-scenarios.md` (31 986 -> 31 941 o)
+- `02 - Cahier des charges TMS/M07 - Pilotage financier logistique.md` (63 027 -> 58 028 o)
+- `02 - Cahier des charges TMS/M07-pilotage-financier-scenarios.md` (33 000 -> 32 955 o)
+- `02 - Cahier des charges TMS/M08 - Facturation prestataires.md` (90 415 -> 84 757 o)
+- `02 - Cahier des charges TMS/M08-facturation-prestataires-scenarios.md` (29 500 -> 29 455 o)
+- `02 - Cahier des charges TMS/M09 - Stock matériel Savr.md` (46 307 -> 44 992 o)
+- `02 - Cahier des charges TMS/M09-stock-materiel-scenarios.md` (30 421 -> 30 376 o)
+- `02 - Cahier des charges TMS/M10 - Gestion exutoires Veolia.md` (50 016 -> 49 264 o)
+- `02 - Cahier des charges TMS/M10-gestion-exutoires-veolia-scenarios.md` (29 912 -> 29 867 o)
+- `02 - Cahier des charges TMS/M11 - Alerting transverse.md` (88 814 -> 79 221 o)
+- `02 - Cahier des charges TMS/M11-alerting-scenarios.md` (26 736 -> 26 691 o)
+- `02 - Cahier des charges TMS/M12 - Attribution transporteur.md` (53 920 -> 51 501 o)
+- `02 - Cahier des charges TMS/M12-attribution-transporteur-scenarios.md` (32 514 -> 32 278 o)
+- `02 - Cahier des charges TMS/M13 - Administration TMS.md` (85 511 -> 77 590 o)
+- `02 - Cahier des charges TMS/M13-administration-tms-scenarios.md` (33 393 -> 33 262 o)
+- `02 - Cahier des charges TMS/M14 - Intégration Everest.md` (65 954 -> 64 471 o)
+- `02 - Cahier des charges TMS/M14-integration-everest-scenarios.md` (28 973 -> 28 842 o)
+- `09 - Roadmap exécution/03 - Modules par verticale/V4/_squelette V4 - Reporting exports registre.md` (1 364 -> 1 364 o)
 
-9 fichiers régénérés (sources modifiées par le patch du jour), reste de l'export inchangé (sources intactes) :
-`02 - CDC TMS/04 - Data Model TMS.md` (+ table `tms.outbox_events`, + `collecte_tournees.statut_execution`, triggers de garde, trigger dérivation FOR UPDATE), `05 - Règles métier TMS.md`, `08 - Contrat API Plateforme-TMS.md` (§2bis émission outbox, S5 (c) étendu, 409 `collecte_sur_tournee_active`), `M03`, `M04`, `M05`, `M04-gestion-tournees-scenarios.md` (52 scénarios), `M05-app-mobile-chauffeur-scenarios.md` (52 scénarios), `01 - CDC App/05 - Espace client gestionnaire de lieux.md` (M3.2 : colonne Type retirée, nav 9 sections).
-Invariant 0 barré : vérifié sur les 9. Moteur : réimplémentation fidèle de `strip_devfacing.py` (T1 + multiligne + T2 aggressive lignes méta), fidélité validée par diff sur fichier témoin non modifié (§09 TMS, 30 lignes d'écart, toutes = nettoyages supplémentaires légitimes).
+## Purge de ce run
 
----
-
-## Régénération partielle 2026-07-06 bis (audit coherence-inter-cdc post-patch)
-
-6 fichiers régénérés (sources modifiées par l'audit de cohérence, moteur `strip_devfacing.py` mode aggressive), reste inchangé :
-`01 - CDC App/05 - Règles métier.md` (typo S4, refus TMS 409 §4, correction auto V2 §6), `01 - CDC App/08 - APIs et intégrations.md` (S5 `type`, effet correction, 2 codes 409, payload+effet S9), `01 - CDC App/12 - Reporting et exports.md` (régénération auto V2 ×2), `02 - CDC TMS/08 - Contrat API Plateforme-TMS.md` (S9 motif unique + effet Plateforme, code `collecte_non_modifiable`), `02 - CDC TMS/06 - Fonctionnalités détaillées TMS/M04 - Gestion des tournées.md` + copie aplatie `02 - CDC TMS/M04 - Gestion des tournées.md` (statut_tournee `terminee` 1:1).
-Invariant 0 barré : vérifié sur les 6. Ajv re-run : 21/21 (schemas non modifiés).
+- `_RAPPORT-EXPORT.md` — rapport racine — réécrit par ce run

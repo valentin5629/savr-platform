@@ -1,7 +1,5 @@
 # 03 - Périmètre fonctionnel TMS
 
-**Statut** : V1 rédigée — 14 modules V1 + 2 modules V2
-**Dernière mise à jour** : 2026-04-22
 
 **Cohérence CDC Plateforme** : ce fichier est le pendant TMS de [[01 - Cahier des charges App/03 - Périmètre fonctionnel global]] (Module 9 — Intégration TMS Savr). Chaque module TMS est aligné avec le contrat API défini dans [[01 - Cahier des charges App/08 - APIs et intégrations]].
 
@@ -341,7 +339,7 @@ Cumul chauffeur+manager : géré via `users_tms.roles text[]` (pas via flag déd
 
 ### Synchronisation Plateforme ↔ TMS (prestataires)
 
-**plus applicable depuis le retournement D14 seconde salve M01 (2026-04-23)**. Table unique `shared.prestataires`, écriture TMS uniquement via M06, lecture Plateforme via RLS cross-schema. Le module prestataires Plateforme est devenu read-only.
+ **plus applicable depuis le retournement D14 seconde salve M01 (2026-04-23)**. Table unique `shared.prestataires`, écriture TMS uniquement via M06, lecture Plateforme via RLS cross-schema. Le module prestataires Plateforme est devenu read-only.
 
 ### Périmètre V1
 Tout. La saisie des 30 prestataires est une tâche de seed data à planifier (voir §01 — action Val : seed data depuis MTS-1).

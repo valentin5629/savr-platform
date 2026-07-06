@@ -2,7 +2,6 @@
 
 **Persona principal** : Système (traitement auto) + Admin TMS (supervision) + Ops Savr (consommateur indirect via M02).
 **Contexte d'usage** : backend permanent 24/7, supervision occasionnelle Admin TMS.
-**Dernière mise à jour** : 2026-06-04 (**Revue de sobriété M01 (skill `cdc-review-sobriete`)** — purge de la dette de propagation polling/S6 : A1 W5 cold-start supprimé (lisait table morte `integrations_polling_state` + appelait W2 polling supprimé) → détection passive boot only ; B1 cap 72h/forcer-polling/runbook curl effondrés sur règle gap unique 24h ; C1 references polling E6 du corps purgées (KPI L78, §2, E1 Zone1, W2, §6 table, §10, edge case 7.16) ; C2 paramètre mort `polling_e6_active` retiré §04 ; C3 §11 D9 aligné webhook-only ; C4 webhook S6 fantôme W4 + Liens remplacé par trigger DB `plateforme.fn_recalc_marge_tournee()`. 0 enum (Bloc D RAS). 3 fichiers TMS (M01, §04, §11), cross-CDC 0.) / 2026-05-01 (propagation revue sobriété §08 Bloc A — suppression complète polling E6/S10, B_M01_02 obsolète)
 
 ---
 
@@ -225,6 +224,7 @@ Ces écrans sont intégrés à **M13 Administration TMS** (onglet "Intégrations
 6. **Détection re-run M12** (arbitrage 7) — trigger **T3** (re-confirmation post-modif, cf. [[M12 - Attribution transporteur]] §3, propagation 2026-04-24) :
    - Si diff touche `lieu_id`, `heure_collecte`, `nb_pax`, `type_collecte` → re-run M12 avec `trigger_source='T3_re_confirmation'`
    - Si suggestion change → update `collectes_tms.suggestion_prestataire_id` + alerte M02 Ops "Suggestion modifiée"
+6bis. **Garde tournée active (2026-07-06 COH-09, arbitrage RC-M04-07)** : si le diff touche `date_collecte` ou `heure_collecte` ET la collecte est rattachée via `collecte_tournees` à ≥ 1 tournée `statut IN ('acceptee','en_cours')` → **refus 409 `collecte_sur_tournee_active`** (cf. M04 W10 step 3 + §08 L345), **pas de re-confirmation** (l'étape 7 ne s'exécute pas). La Plateforme doit d'abord retirer la collecte de la tournée (M04 W10) ou attendre la clôture. Sans cette garde, le pipeline E2 re-confirmerait une collecte déjà engagée sur une tournée active (bug RC-M04-07).
 7. **Gestion re-confirmation** (arbitrage 6 ; champs déclencheurs alignés sur §08 E2 canonique 2026-06-05) :
    - Si `statut_dispatch IN ('acceptee','en_attente_execution')` ET diff touche **`date_collecte` ou `heure_collecte`** → `collectes_tms.re_confirmation_requise=true` (propagation A1 2026-04-25 — couvre acceptee manager + en_attente_execution post-assignation ; champ `flux` retiré revue sobriété 2026-04-29 ; renommage `creneau` → `heure_collecte` propagation 2026-04-29)
      - **`nb_pax` retiré des déclencheurs de réacceptation (arbitrage Val 2026-06-05)** : une modification du pax met à jour la donnée + re-run M12 (étape 6, suggestion interne) mais **ne redemande pas** d'acceptation au prestataire. Push silencieux côté prestataire.
@@ -557,7 +557,7 @@ failed_dlq → rejected_manual (commentaire Admin ≥10 car, terminal, déclench
 ## 13. Liens
 
 - Vue macro : [[../03 - Périmètre fonctionnel TMS#M01 — Réception ordres de collecte]]
-- Data Model : [[../04 - Data Model TMS]] — tables `collectes_tms` (5 nouveaux flags dont `lieu_snapshot` JSONB et `last_occurred_at` ; `attribuee_source` retirée sobriété B_M01_04 — 2026-04-30), `integrations_inbox` (TTL **7j** revue sobriété Bloc B 2026-05-01 B5, ex-30j post-B_M01_01), `integrations_logs` (audit/forensic 2 ans, plus utilisée pour dedup), (supprimée Bloc A A4 polling), `integrations_dlq`, `audit_logs`
+- Data Model : [[../04 - Data Model TMS]] — tables `collectes_tms` (5 nouveaux flags dont `lieu_snapshot` JSONB et `last_occurred_at`; `attribuee_source` retirée sobriété B_M01_04 — 2026-04-30), `integrations_inbox` (TTL **7j** revue sobriété Bloc B 2026-05-01 B5, ex-30j post-B_M01_01), `integrations_logs` (audit/forensic 2 ans, plus utilisée pour dedup), (supprimée Bloc A A4 polling), `integrations_dlq`, `audit_logs`
 - Règles métier : [[../05 - Règles métier TMS#R6.1 — Cycle de vie collectes_tms|R6.1]], [[../05 - Règles métier TMS#R2.7 — Annulation avant démarrage|R2.7]]
 - Contrat API : [[../08 - Contrat API Plateforme-TMS]] — **E1**, **E2**, **E3**, (supprimé), E5 (allégé, notif seule), (polling supprimé Bloc A A4), (course-cout-calculee supprimé Bloc A A2 → trigger DB `plateforme.fn_recalc_marge_tournee()`), **S11** (collecte-rejetee, nouveau)
 - Auth et permissions : [[../09 - Authentification et permissions TMS]] — RLS `integrations_*` restreinte Admin TMS + RLS cross-schema `shared.prestataires` + `plateforme.lieux` colonnes logistiques

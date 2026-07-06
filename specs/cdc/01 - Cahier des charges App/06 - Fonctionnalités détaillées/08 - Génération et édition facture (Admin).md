@@ -357,11 +357,11 @@ Bénéfice : aucune logique de transition, pas de fenêtre de désynchronisation
 
 - **Champs exacts API Pennylane v2** : valider avec la doc Pennylane (https://pennylane.readme.io) que tous les champs Factur-X sont bien couverts — à vérifier au moment du build.
 
-**Clôturé** : V1.1. (2026-04-28)
-**Clôturé** : format comptabilité classique. (2026-04-28)
-**Clôturé** : V1.1, relance unique J+30. Géré directement dans Pennylane, pas via la plateforme Savr. (2026-04-28)
-**Clôturé** : reporté V1.1 (2026-05-08, revue de sobriété).
-**Clôturé** : retiré du CDC, pas une décision V1 (2026-05-08, revue de sobriété).
+ **Clôturé** : V1.1. (2026-04-28)
+ **Clôturé** : format comptabilité classique. (2026-04-28)
+ **Clôturé** : V1.1, relance unique J+30. Géré directement dans Pennylane, pas via la plateforme Savr. (2026-04-28)
+ **Clôturé** : reporté V1.1 (2026-05-08, revue de sobriété).
+ **Clôturé** : retiré du CDC, pas une décision V1 (2026-05-08, revue de sobriété).
 
 ---
 

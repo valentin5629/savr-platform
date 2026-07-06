@@ -44,7 +44,7 @@ Source : échange mail dev Everest, 2026-06-07/08.
 
 ## 3. Questions ouvertes — mail envoyé au dev Everest (2026-06-08), en attente
 
-1. **Statut « course vide »** (client absent / rien à enlever) : quel statut est appliqué et dans **quelle catégorie de workflow** (`fail` vs `success`) ? Détermine le mapping vers `realisee_sans_collecte` côté Plateforme. Hypothèse de travail : catégorie `fail` → webhook `mission_failed`. **À confirmer.**
+1. **Statut « course vide »** (client absent / rien à enlever) : ✅ **résolu métier 2026-06-29** (CLAUDE.md §7 ; décision Val « re-fetch mission_status », spec figée §08 §3 « Course sans marchandise (V1) »). **Wire à figer au compte de test** : `event_type` exact (catégorie `fail` vs `success`), libellés `mission_status` réels (`POST /statuses`), disponibilité d'une photo de lieu. Hypothèse de travail conservée : catégorie `fail` → webhook `mission_failed`.
 2. **Compte client de test** : à créer par le dev + transmission des accès. Permettra de récupérer la liste réelle des statuts via `POST /statuses`.
 
 *(Vélo Express `74` vs `75` → TRANCHÉ 2026-06-08 : `74` retenu, `75` abandonné. Cf. §2.)*

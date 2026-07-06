@@ -25,7 +25,8 @@ plateforme.associations.id_point_collecte_mts1
 # prestataire_logistique_id : pont transporteur → shared.prestataires, V1-only.
 # Décision Val 2026-06-25 (option B). Sans lui, le dispatch AG ne peut poser
 # tournees.prestataire_logistique_id (FK NOT NULL). ABSENT du DDL cible (le TMS
-# natif résout ce lien en V2) → neutralisé au cutover. Trace : _Divergences/M2.3_20260625.md.
+# natif résout ce lien en V2) → neutralisé au cutover.
+# Trace : _Divergences/_traités/2026-06/M2.3_20260625.md (chemin corrigé 2026-07-06 COH-17).
 plateforme.transporteurs.prestataire_logistique_id
 
 # --- Table V1-only assumée (revue adversariale INC-0, 2026-06-11) -------------
@@ -37,8 +38,9 @@ plateforme.pesees_tournees
 # --- Bloc 7 (intégrations) — divergence structurelle A6 assumée ---------------
 # Les 4 tables divergent STRUCTURELLEMENT du DDL cible (renames / PK / partition)
 # au-delà de simples omissions. Convergence reportée V2 (migration 2-step +
-# redeploy adapter). Trace : _Divergences/BLOC7_20260624.md (type ambigu,
-# pré-validé Val A6 — 2026-06-24). Tables allowlistées ENTIÈRES.
+# redeploy adapter). Trace : _Divergences/_traités/2026-06/BLOC7_20260624.md
+# (chemin corrigé 2026-07-06 COH-17 ; type ambigu, pré-validé Val A6 — 2026-06-24).
+# Tables allowlistées ENTIÈRES.
 plateforme.integrations_logs
 plateforme.integrations_inbox
 plateforme.outbox_events
@@ -52,5 +54,6 @@ plateforme.emails_envoyes
 # 77 camion express V1-only DIV-3 ; cible : 71/75/91). Convergence = migration
 # 2-step au cutover V2 (le TMS natif reprend l'intégration Everest). Table
 # allowlistée ENTIÈRE (colonnes pas à converger une par une). Trace :
-# _Divergences/M2.5_20260615.md (DIV-1/DIV-3) + _Divergences/M2.5_R10a_20260629.md.
+# _Divergences/_traités/M2.5_20260615.md (DIV-1/DIV-3)
+# + _Divergences/_traités/2026-06/M2.5_R10a_20260629.md (chemins corrigés 2026-07-06 COH-17).
 plateforme.everest_missions

@@ -1,7 +1,5 @@
 # 14 - Scalabilité et évolutivité
 
-**Statut** : Validé V1
-**Dernière mise à jour** : 2026-04-20
 
 ---
 

@@ -260,6 +260,8 @@ Section "Checklist pré-départ" (3 items, tous bloquants) :
 - Tous les items cochés = bouton "Démarrer tournée" activé (couleur primaire)
 - 1 item décroché = bouton grisé + tooltip "Complète la checklist"
 - Camion ZD = 3 items bloquants (Tenue, N rolls, Film). Camion AG motorisé + vélo cargo = E3 sauté, transition directe E2 → E4.
+- **Retiré V1 (propagation M05 2026-06-04)**
+- **Retiré V1 (propagation M05 2026-06-04 — plus de plaque terrain à comparer)**
 - À la validation "Démarrer tournée" → M04 W4 (UPDATE `tournees.statut=en_cours`, `heure_reelle_debut`, S3, audit — transition `acceptee` → `en_cours` ; le bouton "Démarrer" suppose la tournée `acceptee`, cf. cycle de vie M04 §4 2026-06-06). Plus d'écriture `plaque_saisie_terrain`, plus de webhook S7 côté chauffeur (S7 reste émis par le manager en M03 E4).
 
 **Suppressions vs version antérieure (revue sobriété 2026-04-29)** :
@@ -821,12 +823,14 @@ V1.1 : workflow déclaration stocks fin de tournée. V1 : hors M05.
 ### M11 — Alerting et monitoring ops
 M05 émet 5 alertes automatiques (revue sobriété M05 E9 2026-04-30 : suppression `panne_vehicule_signalee` ; revue sobriété §05 2026-05-01 A3 : suppression `pattern_pesee_zero_kg` ; revue sobriété §05 2026-05-01 A4 : suppression `arrivee_sans_geoloc` info/widget — audit_logs `M05_PESEE_ZERO_KG` + `M05_ARRIVEE_GEOLOC_FALLBACK` conservés seuls ; propagation M05 2026-06-04 : suppression `plaque_saisie_non_conforme` + `plaque_inconnue_prestataire`, suppression saisie plaque terrain) :
 - `pesee_anormale_hors_seuil` (warning) — alerte côté Ops uniquement, AUCUN affichage côté chauffeur (revue sobriété M05 E6 2026-04-30)
-- → **supprimée revue sobriété §05 2026-05-01 A4** (widget M11 retiré, criticité `info` déjà dégagée Bloc 3 sobriété 2026-04-25 A1 ; trace conservée via audit_log `M05_ARRIVEE_GEOLOC_FALLBACK` exploité SQL ad-hoc Admin TMS)
+- → **supprimée propagation M05 2026-06-04** (plus de saisie plaque chauffeur)
+- → **supprimée revue sobriété §05 2026-05-01 A4** (widget M11 retiré, criticité `info` déjà dégagée Bloc 3 sobriété 2026-04-25 A1; trace conservée via audit_log `M05_ARRIVEE_GEOLOC_FALLBACK` exploité SQL ad-hoc Admin TMS)
 - `cloture_hors_zone` (warning via M04)
 - `queue_offline_saturation` (warning)
 - `sync_dlq_item` (warning)
 - `force_update_applied` (info)
-- → **supprimée revue sobriété §05 2026-05-01 A3** (code jamais seedé au catalogue M11, R_M11.1 violation latente ; audit_log `M05_PESEE_ZERO_KG` exploité via SQL admin suffit V1)
+- → **supprimée revue sobriété §05 2026-05-01 A3** (code jamais seedé au catalogue M11, R_M11.1 violation latente; audit_log `M05_PESEE_ZERO_KG` exploité via SQL admin suffit V1)
+- → **supprimée propagation M05 2026-06-04** (plus de saisie plaque chauffeur)
 
 ### M13 — Administration TMS
 Paramètres M05 configurables par Admin TMS (cf. §11).

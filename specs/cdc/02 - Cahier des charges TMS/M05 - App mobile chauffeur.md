@@ -1,9 +1,7 @@
 # M05 — App mobile chauffeur (PWA offline-first)
 
-**Statut** : V1 rédigée (session 2026-04-24 — 20 décisions structurantes tranchées + D25 force change password ajoutée 2026-04-27 propagation §12) + revue sobriété 2026-04-29 (E2/E3/E4/E5 simplifiés) + revue sobriété 2026-04-30 (E6/E7/E9)
 **Persona principal** : Chauffeur prestataire (Strike, Marathon, A Toutes!) — 30+ profils terrain à V1
 **Contexte d'usage** : smartphone personnel ou pro (Android Chrome 100+ Android 10+ / iOS Safari 16.4+ — propagation §12 D2 2026-04-27), conditions terrain dégradées (4G faible, sous-sols parking, extérieur soleil, mains chargées)
-**Dernière mise à jour** : 2026-06-04 (**Revue de sobriété M05 (skill `cdc-review-sobriete`)** — relancée après la suppression saisie plaque terrain. **Bloc C cohérence/refs mortes** : C1 S6 `course-cout-calculee` fantôme purgé (cycle de vie §4, W9 step 5, M08 cross-module → trigger DB `fn_recalc_marge_tournee()` ex-S6 §08 A2) ; C2 résidus S7 « sortant M05 » nettoyés (en-tête Cohérence CDC + §1 Objectif → S3/S5/S9, S7 émis par M03) ; C3 présélection contenant/flux purgée (R_M05.3 réécrite sans présélection, **R_M05.4 repurposée « Présélection » → « Override manuel tare » pour réaligner la numérotation sur §05**, W5 steps 2-3, Q11) ; C4 widget géoloc M11 fantôme purgé (E5/W4/C3/D5/Q1 → audit_log `M05_ARRIVEE_GEOLOC_FALLBACK` seul, **+ §11 Dashboards L234 nettoyé**) ; C5 `auth_sessions` → `auth_sessions_tms` (§15.1 + RLS + Liens) ; C6 « 14 règles » corrigé + réf orpheline R_M05.16 → §8.4/C8/D1. **Bloc D** : D1 S9 « enum 12 valeurs » → 6. **Bloc B simplifications** : B1 alerte `m05_checklist_contournement_detecte` critical → **warning** (E3 ne gate plus que tenue/rolls/film depuis retrait plaque) ; B2 badge persistant « modifiée » + tracking `dernière_visualisation_chauffeur` retirés (push suffit) ; B3 kill switch 2 booléens → **enum `m05_force_update_mode` `off|soft|hard`** (supprime état invalide). Cross-fichiers : §11 Dashboards, §04, §12, M13. Cross-CDC 0. Voir mémoire `project_revue_sobriete_m05_tms_2026_06_04`.) / 2026-06-04 (propagation suppression saisie plaque terrain — arbitrage Val : retrait item Plaque checklist E3, skip E3 pour camion AG motorisé, suppression colonne `plaque_saisie_terrain` §04, suppression alertes `plaque_saisie_non_conforme`+`plaque_inconnue_prestataire`+cas C2, R_M05.2 retirée, D10 annulée ; S7 reste émis par le manager M03 E4) / 2026-05-01 (propagation revue sobriété §08 Bloc B+C+D — `photos_urls`→`photos`, S7 supprimé, `type_incident` 14→6 valeurs : retrait `vehicule_panne`/`accident_route`/`chauffeur_indisponible`/`absence_contenant`/`materiel_casse`/`erreur_pesee`/`blessure` ; transition `planifiee→incident` fusionnée dans `inchange` D3 ; E4 motifs avant arrivée 4→1 (`client_annule_avant_arrivee` seul, autres gérés hors app)) / 2026-04-30 (revue sobriété M05 E6/E7/E9 — E6 suppression `bac_660L` + `caisse_isotherme_AG`, suppression présélection contenant, décimale 1 chiffre, min 0 kg, alerte seuils côté Ops uniquement / E7 coefficient kg/repas 0,4 → 0,45 + alignement strict Plateforme + paramètre `m05_equivalent_repas_kg` / E9 5 catégories (acces_refuse couvre lieu fermé, client_absent, probleme_tri, pas_excedents AG-only, autre) — suppression `lieu_ferme`/`bacs_vides`/`bacs_non_conformes`/`panne_vehicule` + suppression alerte M11 `panne_vehicule_signalee` + gestion panne hors app) / 2026-04-29 (revue sobriété M05 — E2 J→J+7 + sticky header + carte résumée/détail + badge "modifiée" / E3 checklist 4 items max + matrice véhicule × ZD/AG + suppression cas A/B plaque + skip vélo cargo / E4 ajout adresse_acces + transition `planifiee`→`incident` + overlay incident / E5 Bloc 1 nouvelle composition pax+traiteur+contact_principal+contact_secours, suppression adresse_grand_public + type_vehicule_max + bouton Appeler Ops + bouton Historique lieu, overlay incident permanent) / 2026-04-27 (propagation §12 App mobile chauffeur V1 — D2 OS supportés Android 10+ / iOS 16.4+ ligne 72, D3 Service Worker Serwist §8.1, D5 Web Push Edge Function `tms.push_send` confirmé §8.1, D7 force change password W1 étape 6-bis + D25 ajoutée, D9 paramètre `m05_force_update_strict` ajouté §12) / 2026-04-24 (propagation M03 — retournement méthode auth chauffeur magic link → email+password)
 
 ---
 
@@ -138,7 +136,7 @@ Rappel statuts opérationnels ZD et AG (cf. [[01 - Vision et objectifs TMS#Statu
 | `planifiee` → `en_route`              | Clic "Démarrer collecte" ou départ tournée (auto 1ère collecte)   | S3 `tournee-upsert` (statut tournée `en_cours`)                 |
 | `en_route` → `arrivee`                | Geofence 300m franchi (D4) ou bouton manuel (D5 fallback GPS off) | — (interne)                                                     |
 | `arrivee` → `en_cours`                | Clic "Commencer collecte"                                         | — (interne)                                                     |
-| `en_cours` → `realisee`               | Clic "Terminer collecte" (ZD avec ≥1 pesée, AG avec signature)    | S5 `collecte-terminee` (batch pesées agrégées)                  |
+| `en_cours` → `realisee`               | **Dérivé R6.1 (réécrit 2026-07-06, arbitrage Val RC-M05-01)** : le clic "Terminer collecte" (ZD avec ≥1 pesée, AG avec signature) pose `collecte_tournees.statut_execution='faite'` pour MA tournée ; la collecte passe `realisee` quand **toutes** ses tournées sont `terminee` (trigger R6.1) | S5 `collecte-terminee` émis **à la dérivation** (terminal unique, pesées des N véhicules sommées — plus d'émission par clic) |
 | `en_cours` → `realisee_sans_collecte` | AG : clic "Aucun repas à collecter" + motif                       | S5 `collecte-terminee` (poids 0 avec source `ag_sans_collecte`) |
 | `*` → `inchange` (ex-`incident`, fusion Bloc D D3) | Clic "Signaler incident" + catégorie | S9 `incident` (**enum 5 valeurs** post-décision 2026-06-06 : `acces_refuse`, `client_absent`, `probleme_tri`, `autre`, `client_annule_avant_arrivee` — `pas_excedents` retiré, cf. E5/E9) |
 | `planifiee` → `inchange` (ex-`incident`, fusion Bloc D D3) | Clic "Signaler incident" depuis E4 avant arrivée + motif unique `client_annule_avant_arrivee` *(revue sobriété §08 Bloc D 2026-05-01 D1+D2 : `vehicule_panne`/`accident_route`/`chauffeur_indisponible` retirés — gestion hors app via appel direct Ops bouton tel:)* | S9 `incident` avec `geofence_status=avant_arrivee` |
@@ -262,8 +260,6 @@ Section "Checklist pré-départ" (3 items, tous bloquants) :
 - Tous les items cochés = bouton "Démarrer tournée" activé (couleur primaire)
 - 1 item décroché = bouton grisé + tooltip "Complète la checklist"
 - Camion ZD = 3 items bloquants (Tenue, N rolls, Film). Camion AG motorisé + vélo cargo = E3 sauté, transition directe E2 → E4.
-- **Retiré V1 (propagation M05 2026-06-04)**
-- **Retiré V1 (propagation M05 2026-06-04 — plus de plaque terrain à comparer)**
 - À la validation "Démarrer tournée" → M04 W4 (UPDATE `tournees.statut=en_cours`, `heure_reelle_debut`, S3, audit — transition `acceptee` → `en_cours` ; le bouton "Démarrer" suppose la tournée `acceptee`, cf. cycle de vie M04 §4 2026-06-06). Plus d'écriture `plaque_saisie_terrain`, plus de webhook S7 côté chauffeur (S7 reste émis par le manager en M03 E4).
 
 **Suppressions vs version antérieure (revue sobriété 2026-04-29)** :
@@ -302,9 +298,9 @@ Section "Checklist pré-départ" (3 items, tous bloquants) :
 - Pas de carte de routing V1 (D2 M04 : pas d'optimisation routing). Chauffeur utilise Waze/Google Maps en externe.
 
 **Règles** :
-- Bouton "Terminer tournée" grisé tant qu'au moins une collecte est non-terminale (ni `realisee`, ni `realisee_sans_collecte`, ni `incident`, ni `annulee`)
-- Si toutes collectes terminales → bouton actif, clic → E8 capture GPS
-- Clôture auto possible (R_M04.4) si le chauffeur oublie : alerte M11 après 8h inactivité tournée
+- Bouton "Terminer tournée" actif quand, pour **chaque collecte de MA tournée** : `collecte_tournees.statut_execution ∈ ('faite','incident')` **OU** la collecte est déjà terminale (`realisee_sans_collecte`, `incident`, `annulee`) — **réécrit 2026-07-06 (arbitrage Val RC-M05-01)** : la gate ne raisonne plus sur `statut_operationnel = realisee` (dérivé seulement quand TOUTES les tournées sœurs sont closes — l'ancienne gate créait un livelock en multi-camions)
+- Clic → E8 capture GPS
+- Clôture auto = filet incident/annulation uniquement (R_M04.4 réécrite 2026-07-06) ; si le chauffeur oublie : alerte M11 après 8h inactivité tournée + clôture forcée Ops (W9 M04, avec préconditions)
 
 **Incident avant arrivée (nouveau revue sobriété 2026-04-29)** :
 - Nouvelle transition autorisée : `planifiee` → `inchange` (signalement non bloquant, ex-`incident` fusionné Bloc D D3)
@@ -394,6 +390,7 @@ Section "Checklist pré-départ" (3 items, tous bloquants) :
 - Si contenant = `sans_contenant` et poids brut = 0 : toast "Pesée à 0 kg enregistrée (sac vide). Continuer ?" + validation 2 clics
 - Alerte M11 si poids net < seuil min ou > seuil max (paramètre `m05_seuils_pesees_kg_min_max_par_flux`, ZD-only cf. mémoire AG vs ZD) — **alerte côté Ops uniquement, AUCUN affichage côté chauffeur** (revue sobriété M05 E6 2026-04-30 : ne pas perturber la saisie terrain, l'arbitrage qualité reste Ops via M11/M02)
 - Offline : pesée stockée IndexedDB avec `sync_status=pending`, `idempotency_key=uuid()`
+- **Débounce (arbitrage Val 2026-07-06 RC-M05-03)** : le bouton « Enregistrer la pesée » est désactivé dès le tap jusqu'au retour du handler local (anti double-tap → 2 items avec 2 `idempotency_key` distinctes = doublon indétectable). `ordre_pesee` n'est **jamais** calculé côté client — attribution serveur sous lock dans la transaction d'INSERT (cf. §04 table `pesees`)
 - Edit pesée : possible tant que collecte `en_cours` ; impossible après `realisee` (correction Ops uniquement)
 
 ### E7 — Signature AG + équivalent repas
@@ -541,7 +538,7 @@ Douze workflows couvrent les parcours opérationnels M05. **W13 confirmation pas
 | 6 | Système | Transition UI → E4 | |
 | 7 | Système | Audit log `action=CHECKLIST_VALIDATED` + `action=TOURNEE_START` | |
 
-: saisie plaque chauffeur, UPDATE `plaque_saisie_terrain`, webhook S7 côté chauffeur (déjà strikethrough C3), alerte plaque ≠ référentiel. *(Étape 8-bis confirmation Veolia déjà supprimée revue sobriété 2026-04-30 A1.)*
+ : saisie plaque chauffeur, UPDATE `plaque_saisie_terrain`, webhook S7 côté chauffeur (déjà strikethrough C3), alerte plaque ≠ référentiel. *(Étape 8-bis confirmation Veolia déjà supprimée revue sobriété 2026-04-30 A1.)*
 
 **Cas camion AG motorisé + vélo cargo (A Toutes!)** :
 - Skip total écran E3 : transition directe E2 → E4 au clic "Démarrer tournée" (UPDATE `statut=en_cours`, `heure_reelle_debut`, S3, audit — transition `acceptee` → `en_cours`)
@@ -618,17 +615,19 @@ Douze workflows couvrent les parcours opérationnels M05. **W13 confirmation pas
 | 8 | Système | Webhook S9 `incident` émis (toute catégorie) avec `statut_collecte_apres` selon bloquant/non-bloquant | `echec_acces` si `acces_refuse` / `client_absent` ; `inchange` si `probleme_tri` / `autre` *(revue sobriété M05 E9 2026-04-30 — confirmée Bloc D D3 : `incident` fusionné dans `inchange`)* ; `annulee` si `client_annule_avant_arrivee`. *(`pas_excedents`→`realisee_sans_collecte` retiré décision 2026-06-06 : ce cas passe par E5→S5.)* |
 | 9 | Système | Retour E4 + toast "Signalement enregistré" | |
 
-### W8 — Clôture collecte ZD (après pesées)
+### W8 — Clôture collecte = fin de MA portion (réécrit 2026-07-06, arbitrage Val RC-M05-01 — alignement reframe multi-camions R6.1)
 
 | Étape | Acteur | Action | Système |
 |---|---|---|---|
-| 1 | Chauffeur | Depuis E5, clic "Terminer collecte" | Validation : ≥1 pesée |
-| 2 | Système | UPDATE `collectes_tms.statut_operationnel=realisee`, `heure_fin_reelle=NOW()` | (R_M05.18 présomption 0kg supprimée revue sobriété 2026-04-29 avec `flux_prevus`) |
-| 3 | Système | POST webhook S5 `collecte-terminee` batch (pesees[] réelles uniquement) → Plateforme | `idempotency_key` UUID par pesée, `source` enum 2 valeurs |
-| 4 | Système | Si offline : queue IndexedDB, retry W11 | Payload S5 complet persisté |
-| 5 | Système | Retour E4 + toast "Collecte terminée" | |
-| 6 | Système | Vérifie R_M04.4 : si toutes collectes terminales → suggère bouton "Terminer tournée" E4 sticky | |
-| 7 | Système | Audit log `action=COLLECTE_REALISEE` | |
+| 1 | Chauffeur | Depuis E5, clic "Terminer collecte" | Validation : ≥1 pesée (ZD) |
+| 2 | Système | UPDATE `collecte_tournees.statut_execution='faite'` pour (cette collecte, MA tournée) | **Ne pose PLUS `statut_operationnel=realisee`** — statut collecte dérivé (R6.1) ; `date_fin_reelle` posée par la dérivation |
+| 3 | Système | **Plus de POST S5 ici** | Le S5 terminal unique est émis à la dérivation `collecte → realisee` (toutes tournées `terminee`, trigger R6.1) via l'outbox `tms.outbox_events` (§04) |
+| 4 | Système | Si offline : queue IndexedDB, retry W11 (**head-of-line par collecte**) | `idempotency_key` par item |
+| 5 | Système | Retour E4 + toast "Collecte terminée" (badge local = `statut_execution`) | |
+| 6 | Système | Si toutes les liaisons de MA tournée ont `statut_execution ∈ ('faite','incident')` OU collecte terminale → active le bouton "Terminer tournée" E4 sticky | |
+| 7 | Système | Audit log `action=COLLECTE_PORTION_TERMINEE` (ex `COLLECTE_REALISEE`) | |
+
+**Cas mono-camion (standard)** : comportement fonctionnellement identique à avant — la clôture de l'unique tournée (W9) déclenche immédiatement la dérivation `collecte → realisee` + S5. **Cas AG « Aucun repas » (W6)** : inchangé — `realisee_sans_collecte` reste posé directement (chemin unique E5→S5 tranché 2026-06-06, mono-vélo en V1).
 
 ### W9 — Clôture tournée
 
@@ -637,7 +636,7 @@ Douze workflows couvrent les parcours opérationnels M05. **W13 confirmation pas
 | 1 | Chauffeur | Clic "Terminer la tournée" sticky E4 | → E8 |
 | 2 | Système | Capture GPS (navigator.geolocation, high accuracy ponctuelle D6) | |
 | 3 | Chauffeur | Clic "Confirmer la fin de tournée" | |
-| 4 | Système | Applique W5 étapes 2-5 de M04 (contrôle géoloc, UPDATE statut `terminee`) | Plus d'action pesée à ce stade |
+| 4 | Système | Applique W5 étapes 2-5 de M04 (contrôle géoloc, UPDATE statut `terminee` **gardé `WHERE statut='en_cours'`**). Si la tournée est déjà `terminee` (clôture forcée W9 M04 entre-temps) : **replay no-overwrite (arbitrage Val 2026-07-06 RC-M05-06)** — ni statut ni horaires modifiés, audit `TOURNEE_CLOSE_REPLAY_POST_FORCE` + `cloture_gps` stocké si absent + alerte M11 info `m04_cloture_reelle_post_forcee` | Plus d'action pesée à ce stade |
 | 5 | Système | Applique W5 étapes 6-9 de M04 (R2 calcul coût, recalcul marge Plateforme via trigger DB `fn_recalc_marge_tournee()` ex-S6, S3 tournee-upsert terminée, audit) | Plus d'émission pesée à ce stade (revue sobriété 2026-04-29) |
 | 6 | Système | Retour E2 + toast "Tournée terminée" | |
 
@@ -656,15 +655,16 @@ Reporté V1.1. Décrit dans M09 (hors périmètre M05 V1).
 |---|---|---|---|
 | 1 | Système | Détecte retour réseau | Event listener |
 | 2 | Système | Parcourt queue IndexedDB triée par `created_at` | |
-| 3 | Système | Pour chaque item `pending` : retry POST webhook avec `idempotency_key` | |
+| 3 | Système | Pour chaque item `pending` : retry POST avec `idempotency_key`. **Head-of-line PAR COLLECTE (arbitrage Val 2026-07-06 RC-M05-04)** : un item en échec gèle les items suivants du même `collecte_tms_id` (dont « Terminer collecte ») ; les items des autres collectes continuent | |
 | 4 | Système | Si succès → marque `sync_status=synced`, supprime de la queue | |
-| 5 | Système | Si échec 5× consécutifs (HTTP 5xx) → `sync_status=dlq`, alerte M11 | |
+| 5 | Système | Si échec 5× consécutifs (HTTP 5xx) → `sync_status=dlq`, alerte M11. **DLQ d'une pesée ⇒ le « Terminer collecte » de la même collecte reste retenu** + bandeau chauffeur « Synchronisation incomplète — voir Ops » (RC-M05-04) | |
 | 6 | Système | Si conflit (ex : collecte déjà `realisee` côté serveur, D1 option b) → accepte/merge selon policy serveur ou DLQ | |
 | 7 | Système | Affiche indicateur "Synchronisation en cours : N éléments" dans UI si queue > 0 | |
 
 **Règles** :
 - Cap queue = 3 tournées + 150 photos (~300 Mo) (D2)
 - Si cap atteint + nouveau item → refus stockage + toast "Queue pleine. Connecte-toi à un réseau." (cas extrême — documenté C7)
+- **401 session révoquée par device-switch (arbitrage Val 2026-07-06 RC-M05-05)** : **grâce de flush** — un token révoqué **pour cause de device-switch** (D12) reste accepté `m05_grace_flush_heures` (défaut 48 h) sur les **seuls endpoints de sync**, pour les items créés avant la révocation (`idempotency_key` dédoublonne si le chauffeur a re-saisi sur le nouveau device). Au-delà de la grâce, ou pour toute autre révocation (C5 force logout sécurité) : queue orpheline persistée en **DLQ locale** + écran dédié « Données non synchronisées » au prochain login sur CE device + audit `SYNC_ORPHAN_QUEUE_DETECTED`.
 
 ### W12 — Réception push notifications
 
@@ -702,7 +702,7 @@ Reporté V1.1. Décrit dans M09 (hors périmètre M05 V1).
 
 ### C2 — Plaque saisie ≠ véhicule référentiel prestataire — **Retiré V1 (propagation M05 2026-06-04, suppression saisie plaque terrain)**
 
-Plus de saisie plaque chauffeur → plus de cas de divergence terrain/référentiel.
+ Plus de saisie plaque chauffeur → plus de cas de divergence terrain/référentiel.
 
 ### C3 — GPS indisponible au démarrage tournée
 
@@ -750,7 +750,7 @@ Plus de saisie plaque chauffeur → plus de cas de divergence terrain/référent
 
 ### C14 — Tentative de connexion simultanée 2 devices
 
-**Comportement (D12)** : invalidation session ancienne + toast sur device éjecté "Tu as été déconnecté car l'app a été ouverte sur un autre appareil." Chauffeur doit re-login.
+**Comportement (D12)** : invalidation session ancienne + toast sur device éjecté "Tu as été déconnecté car l'app a été ouverte sur un autre appareil." Chauffeur doit re-login. **Queue non vide au moment du switch (arbitrage Val 2026-07-06 RC-M05-05)** : les items `pending` de l'ancien device bénéficient de la grâce de flush 48 h sur les endpoints de sync (cf. W11 règles) — pas de perte de données terrain (KPI « 0 perte » §1).
 
 ---
 
@@ -790,6 +790,8 @@ Section spécifique M05 — pattern non applicable aux autres modules.
 | Statut collecte `realisee` local + `incident` serveur | DLQ — incompatible |
 | Signature AG insérée offline, collecte passée `annulee` | DLQ + alerte Ops |
 | Photo uploadée 2× (retry après timeout ambigu) | Idem key déduplique — 1 seul INSERT |
+| Pesée synchronisée après dérivation `realisee` (item DLQ rejoué, pesée tardive) | INSERT accepté → **S5 `type=correction` émis automatiquement** (déclencheur (c) §08 étendu à toute source — arbitrage Val 2026-07-06 RC-M05-04) ; la Plateforme régénère bordereau/attestation versionnés |
+| Replay avec session révoquée (device-switch) | Grâce de flush `m05_grace_flush_heures` (48 h) sur endpoints sync ; sinon DLQ locale + écran dédié (RC-M05-05) |
 
 ---
 
@@ -819,14 +821,12 @@ V1.1 : workflow déclaration stocks fin de tournée. V1 : hors M05.
 ### M11 — Alerting et monitoring ops
 M05 émet 5 alertes automatiques (revue sobriété M05 E9 2026-04-30 : suppression `panne_vehicule_signalee` ; revue sobriété §05 2026-05-01 A3 : suppression `pattern_pesee_zero_kg` ; revue sobriété §05 2026-05-01 A4 : suppression `arrivee_sans_geoloc` info/widget — audit_logs `M05_PESEE_ZERO_KG` + `M05_ARRIVEE_GEOLOC_FALLBACK` conservés seuls ; propagation M05 2026-06-04 : suppression `plaque_saisie_non_conforme` + `plaque_inconnue_prestataire`, suppression saisie plaque terrain) :
 - `pesee_anormale_hors_seuil` (warning) — alerte côté Ops uniquement, AUCUN affichage côté chauffeur (revue sobriété M05 E6 2026-04-30)
-- → **supprimée propagation M05 2026-06-04** (plus de saisie plaque chauffeur)
 - → **supprimée revue sobriété §05 2026-05-01 A4** (widget M11 retiré, criticité `info` déjà dégagée Bloc 3 sobriété 2026-04-25 A1 ; trace conservée via audit_log `M05_ARRIVEE_GEOLOC_FALLBACK` exploité SQL ad-hoc Admin TMS)
 - `cloture_hors_zone` (warning via M04)
 - `queue_offline_saturation` (warning)
 - `sync_dlq_item` (warning)
 - `force_update_applied` (info)
 - → **supprimée revue sobriété §05 2026-05-01 A3** (code jamais seedé au catalogue M11, R_M11.1 violation latente ; audit_log `M05_PESEE_ZERO_KG` exploité via SQL admin suffit V1)
-- → **supprimée propagation M05 2026-06-04** (plus de saisie plaque chauffeur)
 
 ### M13 — Administration TMS
 Paramètres M05 configurables par Admin TMS (cf. §11).
@@ -869,7 +869,7 @@ Conformité véhicule/EPI = responsabilité manager prestataire (M03). Suppressi
 
 ### R_M05.2 — Saisie plaque par chauffeur uniquement — **Retirée V1 (propagation M05 2026-06-04, arbitrage Val)**
 
-Plus de saisie plaque par le chauffeur. La plaque pour contrôle d'accès / registre est la plaque **pré-saisie manager** (M03 E4, webhook S7). Colonne `plaque_saisie_terrain` supprimée (§04).
+ Plus de saisie plaque par le chauffeur. La plaque pour contrôle d'accès / registre est la plaque **pré-saisie manager** (M03 E4, webhook S7). Colonne `plaque_saisie_terrain` supprimée (§04).
 
 ### R_M05.3 — Auto-tare contenant paramétrable (D7/D8/D9)
 
@@ -953,6 +953,7 @@ Tous dans `parametres_tms.parametres` (JSONB) :
 | `m05_seuils_pesees_kg_min_max_par_flux` | JSONB enum flux → {min, max} | Seuils alerte pesée anormale (ZD-only) — **alerte côté Ops uniquement, AUCUN affichage côté chauffeur** (revue sobriété M05 E6 2026-04-30) |
 | `m05_push_cap_par_heure_par_collecte` | 1 | Cap notifs spam |
 | `m05_tournee_inactivite_heures` | 8 | Seuil R_M04.4 |
+| `m05_grace_flush_heures` | 48 | **Nouveau (arbitrage Val 2026-07-06 RC-M05-05)** : grâce de flush sync après révocation device-switch — token révoqué accepté sur les seuls endpoints de sync, pour les items créés avant la révocation |
 | `m05_ops_numero_telephone` | (num Ops Savr) | Numéro "Appeler Ops" E5/E9 |
 | `m05_force_update_mode` | `off` | **Kill switch reload PWA (enum 3 valeurs, revue sobriété 2026-06-04 B3 — fusion des ex-booléens `m05_force_update_active` + `m05_force_update_strict`)** : `off` = pas de forçage (défaut) ; `soft` = toast bannière non-bloquant + bouton "Recharger" + grace period 24h max (au-delà : escalade modal) ; `hard` = modal bloquant immédiat au boot PWA "Mise à jour requise" (urgence sécurité critique). Supprime l'état invalide ex-`active=false`+`strict=true`. |
 

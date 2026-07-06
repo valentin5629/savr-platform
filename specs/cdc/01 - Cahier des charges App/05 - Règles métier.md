@@ -251,7 +251,7 @@ brouillon → programmee → validee (auto) → en_cours → realisee → clotur
 
 Une collecte peut être servie par N tournées (relation N↔N via `collecte_tournees`, cf. [[04 - Data Model#Table : `collecte_tournees`]]). Règle d'agrégation du statut :
 
-- **`en_cours`** : la collecte passe `en_cours` dès qu'**au moins une** de ses tournées démarre (premier webhook S5 `collecte-en-cours`). Les démarrages suivants des autres camions ne changent pas le statut (déjà `en_cours`).
+- **`en_cours`** : la collecte passe `en_cours` dès qu'**au moins une** de ses tournées démarre (premier webhook S4 `collecte-en-cours` — *numérotation corrigée audit cohérence 2026-07-06, ex-« S5 » erroné : S5 = `collecte-terminee`*). Les démarrages suivants des autres camions ne changent pas le statut (déjà `en_cours`).
 - **`realisee` / `realisee_sans_collecte`** : la collecte passe à l'état terminal au **S5 terminal unique** (`collecte-terminee`). Le TMS n'émet ce S5 qu'une fois **toutes** les tournées de la collecte terminées et **après avoir agrégé les pesées** des N camions (responsabilité TMS — arbitrage 2026-05-25 option a). L'App ne calcule pas elle-même la complétude des tournées : elle reçoit un seul événement terminal, déjà agrégé.
 - **`realisee_at`** : horodatage de réception de ce S5 terminal = départ de l'embargo H+24 du rapport (cf. [[12 - Reporting et exports]] §1.2).
 - **Cas standard (1 tournée)** : la règle dégénère en `en_cours` au démarrage / `realisee` à la fin de l'unique tournée — comportement inchangé.
@@ -319,6 +319,8 @@ Le traiteur peut modifier librement les informations de toute collecte non encor
 - Modification après début collecte : verrouillage UI
 
 **Cascade TMS** : si `collectes.statut_tms ≠ non_envoye` (collecte déjà poussée vers le TMS), déclenchement endpoint E2 `PATCH /collectes/:id` vers TMS (voir [[08 - APIs et intégrations]]).
+
+> **Refus TMS possible (V2 — ajout audit cohérence 2026-07-06, arbitrage Val RC-M04-07)** : même dans la fenêtre autorisée ci-dessus, le TMS répond **`409 collecte_sur_tournee_active`** si la collecte est rattachée via `collecte_tournees` à au moins une tournée `acceptee`/`en_cours` (le gate de cette section ne voit que les statuts de la **collecte**, pas ceux des tournées ; en multi-camions, une seule tournée active suffit). Traitement : **alerte Ops, pas de retry**, la modification locale Plateforme reste enregistrée, arbitrage manuel Ops avec le prestataire (téléphone + M04 W2/W7). **Aucune notification automatique au traiteur** (doctrine « Ops fait le filtre », cf. Notification client organisateur infra).
 
 > **Précision M1.2 (2026-06-26)** : la modification d'un champ ÉVÉNEMENT TMS-pertinent (`contact_principal_*`, `contact_secours_*`, `nb_pax`) émet également E2 par collecte dispatchée rattachée à l'événement (push silencieux, pas de réacceptation). E2 est catch-all et inclut contacts + nb_pax (§08 l.156). `lieu_id` reste verrouillé — jamais de PATCH lieu (§08 l.158). Implémenté via `fn_modifier_evenement` (RPC, transactional outbox, row lock sur collecte avant INSERT `outbox_events`). Patch M1.2_20260626.
 
@@ -457,7 +459,7 @@ Le traiteur peut modifier librement les informations de toute collecte non encor
 5. PDF stocké dans Supabase Storage, URL enregistrée dans `bordereaux_savr.pdf_url`
 6. Disponible immédiatement dans l'espace client du traiteur concerné
 
-**Correction** : si une pesée est corrigée post-émission (rare), l'Admin Savr peut régénérer le bordereau → `version` incrémentée, ancien PDF archivé, nouveau PDF remplace l'affichage espace client.
+**Correction** : si une pesée est corrigée post-émission (rare), l'Admin Savr peut régénérer le bordereau → `version` incrémentée, ancien PDF archivé, nouveau PDF remplace l'affichage espace client. **V2 (ajout audit cohérence 2026-07-06, arbitrage Val RC-M05-04)** : la même régénération est déclenchée **automatiquement** à réception d'un webhook S5 `type=correction` du TMS — toute source (ajustement Ops TMS **ou** pesée tardive DLQ rejouée, trigger `trg_pesee_tardive_s5_correction` §04 TMS) — mêmes effets + alerte Ops « Correction pesée reçue depuis TMS » (cf. [[08 - APIs et intégrations]] §1).
 
 ### Attestation de don (AG)
 

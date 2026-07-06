@@ -25,9 +25,10 @@
 | 3. Cas d'erreur | 7 | annulation en_cours interdite, ajout collecte non-planifiee, véhicule/chauffeur inactif, grille absente, fin<debut, correction post-facture validée, retrait collecte démarrée |
 | 4. Isolation RLS | 5 | ops_savr/admin_tms full, manager_prestataire scope E4, chauffeur scope collecte_tournees, cross-org Strike/Marathon |
 | 5. Idempotence/états | 8 | figement cout_calcule_ht, terminee→planifiee interdit, annulee terminal, clôture auto idempotente, R5.5 stock idempotent, dedup event_id S3, push_s6_version, recalc marge cross-schema |
-| 6. Cross-app | 6 | S3 émission upsert, retry 3 paliers, HMAC, X-API-Version, E2 PATCH W10 réacceptation créneau, recalc marge trigger DB (ex-S6) |
+| 6. Cross-app | 7 | S3 émission upsert, retry 3 paliers, HMAC, X-API-Version, E2 PATCH W10 réacceptation créneau, 409 collecte_sur_tournee_active (2026-07-06), recalc marge trigger DB (ex-S6) |
 | 7. Migration | 0 | Hors scope M04 (runtime tournées ; cf. cdc-migration-data + §13 MTS-1) |
-| **TOTAL** | **45** | |
+| 8. Revue adversariale concurrence (2026-07-06) | 6 | dérivation concurrente FOR UPDATE, acceptations concurrentes RPC completude, annulation vs démarrage gardée, outbox transactionnelle, pesée tardive S5 correction, replay post-force no-overwrite |
+| **TOTAL** | **52** | |
 
 ---
 
@@ -131,7 +132,7 @@ Scénario : cloture_filet_securite_acceptee_vers_terminee
   Étant donné une tournée 'acceptee' jamais démarrée (chauffeur n'a pas cliqué "Démarrer")
   Quand toutes ses collectes deviennent terminales par incident/annulation avant arrivée (ou Ops force la clôture W9)
   Alors la tournée passe directement 'acceptee' → 'terminee' (filet de sécurité, accepté par fn_m07_calc_cost OLD.statut IN ('en_cours','acceptee'))
-  Et le calcul coût R2 + recalc marge cross-schema s'appliquent normalement
+  Et pour une tournée jamais démarrée : heure_reelle_debut/fin restent NULL, cout_calcule_ht = 0 € et AUCUNE alerte 'm07_horaires_manquants' n'est émise (exception au précheck — arbitrage Val 2026-07-06 RC-M04-02)
 ```
 
 ```gherkin
@@ -171,7 +172,7 @@ Scénario : annulation_tournee_planifiee_collectes_retour_dispatch
 # Priorité : P1-critique
 
 Scénario : correction_duree_aposteriori_recalcule_cout
-  Étant donné une tournée 'terminee' avec cout_calcule_ht=282,50€ et la facture prestataire du mois NOT IN ('validee','payee')
+  Étant donné une tournée 'terminee' avec cout_calcule_ht=282,50€ et la facture prestataire du mois statut_rapprochement NOT IN ('valide','regle') — enums corrigées 2026-07-06 RC-M04-03
   Quand un Ops corrige heure_reelle_fin via "Corriger durée" et saisit un motif ≥ 10 caractères
   Alors duree_reelle_minutes (GENERATED) est recalculée et R2 recalcule le coût
   Et cout_ajuste_ht / cout_final_ht sont mis à jour, statut_financier='ajuste', push_s6_version incrémenté
@@ -187,8 +188,8 @@ Scénario : correction_duree_aposteriori_recalcule_cout
 
 Scénario : cloture_forcee_ops_chauffeur_injoignable
   Étant donné une tournée 'en_cours' depuis plus de 8h et un chauffeur injoignable
-  Quand l'Ops clique "Clôturer manuellement", saisit heure_reelle_fin estimée + motif obligatoire
-  Alors tms.tournees.statut passe à 'terminee' avec la fin saisie et le flag cloture_manuelle_ops=true (audit)
+  Quand l'Ops clique "Clôturer manuellement", statue sur chaque collecte non terminale (incident motif "chauffeur injoignable" → S9, OU saisie manuelle des pesées puis terminaison — précondition RC-M05-06 2026-07-06), saisit heure_reelle_fin estimée + motif obligatoire
+  Alors tms.tournees.statut passe à 'terminee' avec la fin saisie et le flag cloture_manuelle_ops=true (audit) — jamais de tournée 'terminee' avec une collecte non terminale
   Et la suite W5 s'applique (R2 calcul coût → recalc marge Plateforme via trigger DB fn_recalc_marge_tournee, S3)
   Et une alerte M11 'm04_cloture_manuelle_forcee' (warning) est émise
   Et audit_logs action='TOURNEE_FORCE_CLOSE' (avec motif) est inséré
@@ -365,10 +366,10 @@ Scénario : correction_duree_fin_avant_debut_refusee
 # Priorité : P1-critique
 
 Scénario : correction_duree_facture_validee_bloquee
-  Étant donné une tournée 'terminee' dont la facture prestataire du mois est statut='validee' (ou 'payee') → cout_final_verrouille=true
+  Étant donné une tournée 'terminee' dont la facture prestataire du mois est statut_rapprochement='valide' (ou 'regle') → cout_final_verrouille=true (enums corrigées 2026-07-06)
   Quand l'Ops tente "Corriger durée"
   Alors le bouton est désactivé avec tooltip "Facture <mois> validée, correction impossible"
-  Et toute modification de cout_final_ht / heure_reelle_fin est rejetée côté DB (figement + verrouillage)
+  Et toute modification de heure_reelle_debut/fin est rejetée côté DB par le trigger trg_tournees_horaires_verrouilles (RC-M04-03 — garde transactionnelle, pas seulement UX) et cout_calcule_ht par le trigger figement R2.8
 ```
 
 ```gherkin
@@ -501,10 +502,11 @@ Scénario : cloture_auto_stock_zd_idempotent
 # Couche : db
 # Priorité : P2-important
 
-Scénario : cloture_auto_quand_toutes_collectes_terminales
-  Étant donné une tournée 'en_cours' dont toutes les collectes deviennent terminales (realisee / realisee_sans_collecte / incident / annulee) sans clic chauffeur
-  Quand la dernière collecte passe terminale
+Scénario : cloture_auto_filet_incident_annulation_uniquement
+  Étant donné une tournée 'en_cours' dont toutes les collectes deviennent terminales par incident/annulation UNIQUEMENT (aucune realisee/realisee_sans_collecte — réécrit 2026-07-06, arbitrage Val RC-M04-02)
+  Quand la dernière collecte passe terminale (incident ou annulee)
   Alors la tournée bascule automatiquement en 'terminee' (R6.2 filet de sécurité) et déclenche W5 étapes 6-9
+  Et si au moins une collecte est 'realisee' (geste chauffeur), la tournée reste 'en_cours' jusqu'au clic "Terminer tournée" (E8, GPS, heure_reelle_fin) — jamais d'auto-close sur le chemin nominal
 ```
 
 ```gherkin
@@ -598,7 +600,7 @@ Scénario : webhook_entrant_x_api_version_absente_rejet_400
 # Priorité : P1-critique
 
 Scénario : patch_collecte_acceptee_modif_creneau_declenche_reacceptation
-  Étant donné une collecte 'acceptee' rattachée à une tournée Strike, avec event_id E2 inédit
+  Étant donné une collecte 'acceptee' rattachée à une tournée Strike 'planifiee' (tournée NON active — si 'acceptee'/'en_cours' → 409, cf. patch_collecte_sur_tournee_active_409, arbitrage 2026-07-06 RC-M04-07), avec event_id E2 inédit
   Quand un PATCH E2 modifie date_collecte ou heure_collecte
   Alors le diff est appliqué, statut_dispatch repasse 'attribuee_en_attente_acceptation' avec flags_jsonb.re_confirmation_requise=true
   Et le manager est notifié "modification créneau — re-confirmation requise" (pas de S2 émis ; S1 émis à la re-confirmation)
@@ -616,6 +618,92 @@ Scénario : patch_collecte_en_cours_renvoie_409
   Quand un PATCH E2 est reçu
   Alors le TMS répond 409 Conflict (la Plateforme alerte Ops, ne réessaye pas)
   Et un PATCH sur lieu_id ou type_collecte répond 422 (anomalie — annuler + reprogrammer côté Plateforme)
+
+Scénario : patch_collecte_sur_tournee_active_409
+  Étant donné une collecte 'acceptee' statut_operationnel='planifiee' rattachée (via collecte_tournees) à au moins une tournée statut IN ('acceptee','en_cours') — arbitrage Val 2026-07-06 RC-M04-07
+  Quand un PATCH E2 modifie date_collecte ou heure_collecte
+  Alors le TMS répond 409 'collecte_sur_tournee_active' (non retryable) — aucune réacceptation déclenchée, aucun diff appliqué
+  Et la Plateforme alerte Ops (traitement manuel : téléphone + W2/W7 M04)
+  Et en multi-camions le 409 s'applique dès qu'UNE tournée liée est active
+```
+
+---
+
+### Catégorie 8 — Revue adversariale concurrence (ajouts 2026-07-06, arbitrages Val)
+
+```gherkin
+# Source : §04 fn_derive_statut_collecte_multi_tournees (FOR UPDATE) + §05 R6.1 — RC-M04-01
+# Couche : db
+# Priorité : P1-critique
+
+Scénario : derivation_concurrente_deux_tournees_soeurs_lock
+  Étant donné une collecte ZD servie par 2 tournées sœurs T1 et T2 toutes deux 'en_cours', avec pesées poids_net > 0
+  Quand T1→terminee et T2→terminee sont commitées par deux transactions concurrentes
+  Alors le trigger sérialise par collecte (SELECT ... FOR UPDATE, ordre déterministe) et la collecte passe 'realisee' exactement une fois
+  Et exactement UN event S5 'collecte-terminee' est inséré dans tms.outbox_events (pesées des 2 camions sommées par flux)
+  Et aucun interleaving ne laisse la collecte non-realisee avec T1 et T2 'terminee'
+```
+
+```gherkin
+# Source : §06/M04 W3 step 5 + RPC tms.m04_evaluer_completude — RC-M04-05
+# Couche : db
+# Priorité : P1-critique
+
+Scénario : acceptations_concurrentes_derniere_collecte
+  Étant donné une tournée 'planifiee' avec chauffeur+véhicule assignés et 2 collectes 'attribuee_en_attente_acceptation'
+  Quand les 2 acceptations s'exécutent en transactions concurrentes (chacune terminant par m04_evaluer_completude)
+  Alors le SELECT FOR UPDATE sur la tournée sérialise l'évaluation de complétude
+  Et la tournée finit 'acceptee' avec les 2 collectes 'en_attente_execution' — jamais bloquée 'planifiee' avec 2 collectes acceptées
+```
+
+```gherkin
+# Source : §06/M04 W7 gardes + §04 trg_tournees_transitions — RC-M04-04
+# Couche : db
+# Priorité : P1-critique
+
+Scénario : annulation_vs_demarrage_transition_gardee
+  Étant donné une tournée 'acceptee'
+  Quand le chauffeur démarre (acceptee→en_cours commité) puis l'annulation Ops W7 tente de s'appliquer
+  Alors la RPC W7 (FOR UPDATE + WHERE statut IN ('planifiee','acceptee')) matche 0 ligne et répond 409
+  Et un UPDATE direct 'en_cours'→'annulee' est rejeté par trg_tournees_transitions (RAISE EXCEPTION — R2.7bis)
+  Et les liaisons collecte_tournees ne sont pas supprimées (pas de re-dispatch fantôme)
+```
+
+```gherkin
+# Source : §04 tms.outbox_events + §08 §2bis — RC-M04-06
+# Couche : db
+# Priorité : P1-critique
+
+Scénario : outbox_s5_insere_meme_transaction
+  Étant donné une dérivation collecte→realisee déclenchée dans une transaction
+  Quand la transaction est rollbackée
+  Alors aucune ligne n'existe dans tms.outbox_events (émission transactionnelle — jamais de webhook orphelin ni d'event perdu)
+  Et quand la transaction est commitée, une ligne status='pending' existe avec event_id UNIQUE, seq et payload figé
+```
+
+```gherkin
+# Source : §04 trg_pesee_tardive_s5_correction + §08 S5 déclencheur (c) étendu — RC-M05-04
+# Couche : db
+# Priorité : P1-critique
+
+Scénario : pesee_tardive_post_derivation_s5_correction
+  Étant donné une collecte 'realisee' (dérivée) dont le S5 type='cloture' a été émis
+  Quand une pesée tardive (item offline DLQ rejoué) est insérée pour cette collecte
+  Alors un event S5 type='correction' est inséré automatiquement dans tms.outbox_events
+  Et la Plateforme régénérera bordereau/attestation en version incrémentée (ancienne archivée)
+```
+
+```gherkin
+# Source : §06/M04 W9 replay + M05 W9 step 4 — RC-M05-06
+# Couche : api
+# Priorité : P2-important
+
+Scénario : replay_cloture_post_forcee_no_overwrite
+  Étant donné une tournée clôturée de force par Ops (W9, heure_reelle_fin estimée, coût calculé)
+  Quand le "Terminer tournée" du chauffeur (GPS + heure réelle) est rejoué par la sync offline W11
+  Alors ni le statut ni heure_reelle_fin ne sont modifiés (no-overwrite — garde WHERE statut='en_cours' + trg_tournees_horaires_verrouilles si verrouillée)
+  Et cloture_gps est stocké s'il était absent, audit TOURNEE_CLOSE_REPLAY_POST_FORCE inséré
+  Et l'alerte M11 info 'm04_cloture_reelle_post_forcee' est émise avec le Δ horaires (correction éventuelle via W8)
 ```
 
 ---

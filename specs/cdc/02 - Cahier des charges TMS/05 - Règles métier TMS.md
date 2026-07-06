@@ -4,7 +4,6 @@
 
 > ⚠ **Addendum 2026-05-01 — Propagation revue sobriété §08 Bloc A** : les mentions "push webhook S6 `course-cout-calculee`" et "push webhook S8 `traiteur-stock-rolls-update`" dans les règles ci-dessous sont **obsolètes V1**. Remplacées par lecture cross-schema directe Plateforme via vues `plateforme.v_courses_logistiques` (ex-S6) + `plateforme.v_stocks_rolls` (ex-S8). R_M09.7 "TMS push obligatoire" supprimée. Voir [[08 - Contrat API Plateforme-TMS#Addendum 2026-05-01 — Revue sobriété §08 Bloc A]].
 
-**Dernière mise à jour** : 2026-06-04 (**propagation suppression saisie plaque terrain — arbitrage Val** — R_M05.2 retirée, matrice checklist R_M05.1 (item Plaque retiré, camion AG motorisé skip E3), cycle de vie `acceptee→en_cours` sans saisie plaque. R_M04.CONTROLE_ACCES + R_M03.4 (plaque pré-saisie manager pour contrôle d'accès) **inchangées**. `plaque_saisie_terrain` supprimée §04.) / 2026-05-03 (**propagation refonte formulaire §06.01 Plateforme** — R_M04.PLAQUE → R_M04.CONTROLE_ACCES (validation étendue à `chauffeur_id IS NOT NULL`), R_M03.4 renommée + étendue à plaque + nom chauffeur + cascade upgrade-only) / 2026-04-25 v2 (**Refonte M10 R5.4 v2 reset total + dual confirmation chauffeur/ops/auto J+7** — R5.4 réécrit reset TOTAL stock à confirmation effective via 3 sources, R5.4 bis 3 sources documentées, R5.7 v2 RAISE EXCEPTION anti-déconfirmation, R5.8 v2 création atomique a posteriori, R5.9 distinction déclaration vs confirmation, R5.10 cron escalade gradient J+1/J+3/J+7) / 2026-04-25 v1 (propagation M10 V1 — R5.1/R5.2 modernisées codes alertes M11, R5.3 seuil absolu par couple `flux × type_contenant`, R5.5/R5.6/R5.7/R5.8 ajoutées) / 2026-04-24 (propagation M03 Portail prestataire — 10 règles R_M03.x + 1 règle R_M04.PLAQUE + révision R_M05.10 volet méthode)
 
 ---
 
@@ -143,7 +142,7 @@ Source : §03 M07 + `grilles_tarifaires_prestataires` + `formules_catalogue`.
    - **Trigger DB sur `tournees`** : précondition à la transition `terminee` → vérifie qu'une grille active existe pour `(prestataire_id, type_vehicule_id, date_planifiee)`. Si non → exception (bug à investiguer, pas un cas métier normal V1).
 3. Exécuter la fonction de calcul correspondant à formules_catalogue.code
 4. Stocker cout_calcule_ht + cout_detail (snapshot JSON) + grille_tarifaire_id sur tournees
-5. → **Obsolète V1 (revue sobriété §08 Bloc A 2026-05-01 A2)** : le coût est lu cross-schema par la Plateforme via la vue `plateforme.v_courses_logistiques` + trigger DB `plateforme.fn_recalc_marge_tournee()` (sur UPDATE `tms.tournees.cout_final_ht`). Aucun push HTTP TMS.
+5. → **Obsolète V1 (revue sobriété §08 Bloc A 2026-05-01 A2)** : le coût est lu cross-schema par la Plateforme via la vue `plateforme.v_courses_logistiques` + trigger DB `plateforme.fn_recalc_marge_tournee` (sur UPDATE `tms.tournees.cout_final_ht`). Aucun push HTTP TMS.
 ```
 
 ### R2.2 — Formule `vacations_paliers` (Strike) *(grilles réelles intégrées 2026-06-07 — Marathon reclassé `forfait_fixe` → R2.5)*
@@ -174,7 +173,6 @@ si palier.prolongation :
 | Strike 20 m³ | 300 € (75 €/h) | 75 € | +31,25 € |
 
 Paliers JSON : `[0h→4h : 1 vacation, sans prolongation]` + `[4h→∞ : 1 vacation, prolongation base 4h]`. Ex (grille réelle Val) : tournée 6 h équipage simple 16 m³ = 240 + 2 × 60 = **360 €**.
-
 
 **Marathon V1** : — **reclassé `forfait_fixe` 100 €/tournée (grille réelle 2026-06-07), cf. R2.5**.
 
@@ -247,8 +245,7 @@ A Toutes! = intégration Everest. Coût Everest stocké dans `everest_missions.c
 
 Seuil paramétrable : `parametres_tms.m07.delai_annulation_sans_facturation_minutes` (default `180`, ex-`60`).
 
-**Retiré V1 (propagation M07 2026-04-24 D5)**.
-**Remplacé par 3h** (sobriété C3 2026-04-30) — délai de mobilisation chauffeur plus réaliste.
+ **Remplacé par 3h** (sobriété C3 2026-04-30) — délai de mobilisation chauffeur plus réaliste.
 
 ### R2.7 bis — Annulation pendant tournée `en_cours` = vacation facturée (formalisé revue sobriété §05 2026-05-01 C1)
 
@@ -350,7 +347,6 @@ sinon :
 **Refonte D1 revue sobriété §05 2026-05-01** : ancienne étape `rapproche_ok` (notification "validation requise" + Ops/Admin valide via W4) supprimée V1. Avec zéro tolérance R_M08.1, `montant_ht_prestataire = montant_ht_calcule_tms` → aucune valeur ajoutée à la validation Ops manuelle (juste un clic). Auto-validation directe + notification informative N1 = -1 étape workflow, -1 valeur enum, -1 workflow W4. La supervision Ops a posteriori reste possible via filtre E1 statut `valide` + colonne "Validée par : système" dans la liste. Réintroduction V1.1 si Val/Louis veulent ré-instaurer une revue humaine systématique.
 
 
-
 **Retiré V1 (propagation M08 2026-04-24, D4)** : zéro tolérance strict, pas de seuil, cohérence pratique comptable FR (avoir obligatoire sur écart). Paramètre d'alerte conservé : `m08.seuil_alerte_validation_manuelle_ht` (default 100€) = notification Admin si Ops valide un écart supérieur.
 
 ### R3.4 — Rapprochement ligne-à-ligne **Supprimée V1 revue sobriété 2026-04-30 B1 + table supprimée 2026-04-30 A5**
@@ -432,7 +428,7 @@ nouveau_stock = stock_actuel
 UPDATE stocks_rolls_traiteurs SET quantite_actuelle = nouveau_stock
 ```
 
-→ **Obsolète V1 (revue sobriété §08 Bloc A 2026-05-01 A3)** : le stock rolls est lu cross-schema par la Plateforme via la vue `plateforme.v_stocks_rolls` (lecture directe `tms.stocks_rolls_traiteurs`). Aucun push HTTP TMS.
+ → **Obsolète V1 (revue sobriété §08 Bloc A 2026-05-01 A3)** : le stock rolls est lu cross-schema par la Plateforme via la vue `plateforme.v_stocks_rolls` (lecture directe `tms.stocks_rolls_traiteurs`). Aucun push HTTP TMS.
 
 ### R4.2 — Alerte stock bas
 
@@ -791,7 +787,7 @@ acceptee    → annulee_par_traiteur (avant heure de collecte, pas de facturatio
 
 ```
 planifiee → en_cours (chauffeur démarre tournée sur app M05)
-          → incident (incident avant arrivée — propagation revue sobriété M05 2026-04-29 — sans passer par en_cours)
+          → annulee (incident avant arrivée, motif unique client_annule_avant_arrivee — Bloc D 2026-05-01 + M05 E4, aligné 2026-07-06 RC-M05-07 — sans passer par en_cours)
 en_cours  → realisee (clôture normale — pesées saisies, rolls déclarés)
           → realisee_sans_collecte (AG uniquement — bouton "Aucun repas", photo + commentaire obligatoires)
           → incident (problème terrain — collecte peut rester en incident ou passer à realisee après résolution)
@@ -800,14 +796,11 @@ en_cours  → realisee (clôture normale — pesées saisies, rolls déclarés)
 
 **Règles de transition** :
 - `en_cours → realisee` : requiert `pesees.count >= 1` pour ZD, ou `pesees.count >= 0` pour AG (0 kg possible = `realisee_sans_collecte`).
-- **Multi-véhicules — `realisee` dérivé (2026-05-25, arbitrage 6a ; couvre le multi-vélo AG 2026-05-29)** : une collecte servie par N tournées (via `collecte_tournees`) passe à `realisee` quand **toutes** ses tournées sont `terminee` (chacune clôturée par son chauffeur, qui a pesé sa portion). Le statut collecte est **dérivé** des statuts de tournées, pas posé directement par un chauffeur unique. Trigger DB `tms.fn_derive_statut_collecte_multi_tournees()` `AFTER UPDATE OF statut ON tms.tournees` : à chaque passage d'une tournée à `terminee`, pour chaque collecte de cette tournée, si **toutes** ses tournées liées sont `terminee` → collecte `realisee` (ZD : garde `SUM(pesees.poids_net) > 0` ; sinon alerte Ops). C'est cette transition qui émet le **S5 terminal unique** (pesées des N véhicules sommées par `(collecte_tms_id, flux)` pour le ZD, ou `don_alimentaire` total pour l'AG, cf. §08). **Multi-vélo AG (2026-05-29)** : mécanique identique — les N vélos A Toutes! d'une même collecte sont N tournées sœurs ; la collecte passe `realisee` quand les N sont clôturées. **Cas standard (1 tournée)** : la dérivation se réduit à "la tournée unique est `terminee` ⇒ collecte `realisee`" = comportement identique à avant.
+- **Multi-véhicules — `realisee` dérivé (2026-05-25, arbitrage 6a ; couvre le multi-vélo AG 2026-05-29)** : une collecte servie par N tournées (via `collecte_tournees`) passe à `realisee` quand **toutes** ses tournées sont `terminee` (chacune clôturée par son chauffeur, qui a pesé sa portion). Le statut collecte est **dérivé** des statuts de tournées, pas posé directement par un chauffeur unique. Trigger DB `tms.fn_derive_statut_collecte_multi_tournees()` `AFTER UPDATE OF statut ON tms.tournees` : à chaque passage d'une tournée à `terminee`, pour chaque collecte de cette tournée, si **toutes** ses tournées liées sont `terminee` → collecte `realisee` (ZD : garde `SUM(pesees.poids_net) > 0` ; sinon alerte Ops). C'est cette transition qui émet le **S5 terminal unique** (pesées des N véhicules sommées par `(collecte_tms_id, flux)` pour le ZD, ou `don_alimentaire` total pour l'AG, cf. §08). **Multi-vélo AG (2026-05-29)** : mécanique identique — les N vélos A Toutes! d'une même collecte sont N tournées sœurs ; la collecte passe `realisee` quand les N sont clôturées. **Cas standard (1 tournée)** : la dérivation se réduit à "la tournée unique est `terminee` ⇒ collecte `realisee`" = comportement identique à avant. **Concurrence (revue adversariale 2026-07-06 RC-M04-01)** : le trigger sérialise **par collecte** (`SELECT … FOR UPDATE` sur `collectes_tms` avant ré-évaluation, ordre de lock déterministe) — deux clôtures de tournées sœurs simultanées ne peuvent pas perdre la dérivation.
 - `en_cours → realisee_sans_collecte` : AG uniquement, requiert `aucun_repas_motif IS NOT NULL AND aucun_repas_photo_url IS NOT NULL`.
-- **`planifiee → incident` (incident avant arrivée — propagation revue sobriété M05 2026-04-29)** : nouvelle transition ZD ET AG autorisée depuis M05 E4 (overlay "Signaler incident") sans passer par `en_route` / `arrivee` / `en_cours`. Évite déplacement inutile quand client annule en cours de route, panne véhicule, accident, chauffeur indisponible. Sous-ensemble de **4 motifs autorisés avant arrivée** (sur les 12 motifs incident totaux M05 §08) :
-  - `client_annule_avant_arrivee`
-  - `vehicule_panne`
-  - `accident_route`
-  - `chauffeur_indisponible`
-  Webhook S9 `incident` émis avec champ `geofence_status='avant_arrivee'`. Statut collecte après transition : `incident` (terminal, pas de pesée à attendre). Tournée passe à `terminee` automatiquement si toutes collectes restantes terminales (R6.2). Zéro coût M07 pour la collecte (pas de vacation honorée), mais coût tournée préservé si autres collectes réalisées.
+- **Fin de portion par tournée (arbitrage Val 2026-07-06 RC-M05-01)** : le clic chauffeur « Terminer collecte » (M05 W8) pose `collecte_tournees.statut_execution='faite'` pour (collecte, SA tournée) — il ne pose **jamais** `statut_operationnel=realisee` directement. La gate « Terminer la tournée » (M05 E4) lit `statut_execution` de ses propres liaisons (lève le livelock multi-camions : chaque chauffeur peut clôturer sa tournée sans attendre les tournées sœurs).
+- **Pesée tardive post-dérivation (arbitrage Val 2026-07-06 RC-M05-04)** : un INSERT `pesees` sur une collecte déjà `realisee` déclenche automatiquement un S5 `type=correction` (trigger `trg_pesee_tardive_s5_correction` §04 — déclencheur (c) du §08 étendu à toute source) ; la Plateforme régénère bordereau/attestation versionnés.
+- **`planifiee → annulee` (incident avant arrivée — aligné 2026-07-06 sur M05 E4 + §08 S9, revue adversariale RC-M05-07 ; ex-`planifiee → incident` 2026-04-29)** : transition ZD ET AG autorisée depuis M05 E4 (overlay "Signaler incident") sans passer par `en_route` / `arrivee` / `en_cours`. **Motif unique : `client_annule_avant_arrivee`** (revue sobriété §08 Bloc D 2026-05-01 — `vehicule_panne`/`accident_route`/`chauffeur_indisponible` retirés, gérés hors app via appel Ops ; enum `type_incident` = 5 valeurs). Webhook S9 `incident` émis avec `geofence_status='avant_arrivee'` et `statut_collecte_apres='annulee'`. Statut collecte après transition : `annulee` (terminal, pas de pesée à attendre — la valeur `incident` est inexprimable dans l'enum S9). Tournée passe à `terminee` automatiquement si toutes collectes restantes terminales (R6.2). Zéro coût M07 pour la collecte (pas de vacation honorée), mais coût tournée préservé si autres collectes réalisées.
 - Cas particulier `en_cours` + annulation client (DELETE E3 Plateforme) → `statut_dispatch='annulee_par_traiteur'` + `annulee_pendant_en_cours=true` (propagation A1 2026-04-25), mais `statut_operationnel` reste `en_cours` jusqu'à clôture chauffeur puis passe à `realisee` (saisie pesées justif vacation). Pas de notif client, vacation prestataire facturée (R2.7 bis).
 - Toute transition vers un statut terminal (`realisee`, `realisee_sans_collecte`, `incident`, `annulee_par_traiteur`) déclenche les effets suivants (refondu revue sobriété §05 2026-05-01 B4) :
   - Mise à jour du stock rolls (si applicable, cf. R4 — lecture cross-schema Plateforme via `plateforme.v_stocks_rolls`, plus de push S8 ; R_M09.7 supprimée revue sobriété §08 Bloc A 2026-05-01)
@@ -840,7 +833,7 @@ annulee   → [immuable]
 
 > **Résolution spec floue 2026-06-06 (alignement enum ↔ trigger ↔ M04)** : la transition `acceptee → terminee` est désormais **explicitement listée** (elle était déjà acceptée par le trigger `fn_m07_calc_cost` mais absente de l'enum R6.2 → incohérence remontée par `cdc-test-scenarios` M04). C'est le **filet de sécurité** : une tournée prête (`acceptee`) jamais démarrée peut se clôturer directement si toutes ses collectes deviennent terminales (incident avant arrivée / annulation client) ou par clôture forcée Ops (W9). La transition `planifiee → en_cours` **directe reste interdite** (passage par `acceptee` obligatoire). Tranché Val : la tournée passe bien par `acceptee` ; le chauffeur province utilise l'app M05 comme tout chauffeur (la confirmation manuelle Ops en W2 vaut acceptation, sans validation prestataire). La règle « prestataire accepte depuis portail » ne couvrait que Strike/Marathon — précisée ici pour inclure le cas province.
 
-**Règle de clôture tournée (reframe multi-camions 2026-05-25, arbitrage 6a)** : la tournée passe à `terminee` quand **le chauffeur la clôture** (M05 "terminer la tournée" — retour entrepôt ZD / dernière livraison AG, `heure_reelle_fin` renseignée). Déclenche immédiatement M07 calcul coût. **Filet de sécurité** : la tournée s'auto-clôture aussi si **toutes** ses `collectes_tms` (via `collecte_tournees`) sont déjà terminales **par incident/annulation** (rien à collecter, pas de clôture chauffeur attendue).
+**Règle de clôture tournée (reframe multi-camions 2026-05-25, arbitrage 6a ; précisée 2026-07-06, arbitrage Val RC-M04-02)** : la tournée passe à `terminee` quand **le chauffeur la clôture** (M05 "terminer la tournée" — retour entrepôt ZD / dernière livraison AG, `heure_reelle_fin` renseignée). Déclenche immédiatement M07 calcul coût. **Filet de sécurité** : la tournée s'auto-clôture aussi si **toutes** ses `collectes_tms` (via `collecte_tournees`) sont déjà terminales **par incident/annulation** (rien à collecter, pas de clôture chauffeur attendue). **Mécanisme du filet** : trigger AFTER UPDATE sur `collectes_tms` (transition vers un statut terminal non-`realisee`) ; tournée filet jamais démarrée → horaires NULL et **coût 0 € sans alerte critical** (exception au précheck `m07_horaires_manquants`). **Gardes (RC-M04-04)** : toute clôture = `UPDATE … WHERE statut IN ('en_cours','acceptee')` (0 ligne = no-op/409) ; la matrice de transitions ci-dessus est matérialisée par le trigger DB `trg_tournees_transitions` (§04, whitelist + EXCEPTION) derrière des RPC `FOR UPDATE` — jamais de garde uniquement UX.
 
 > **Pourquoi ce reframe** : avant, la tournée passait `terminee` "quand toutes ses collectes sont terminales", et la collecte passait `realisee` à la clôture chauffeur. Avec le multi-camions (1 collecte → N tournées), ce serait circulaire : la collecte X ne peut être `realisee` que si T1+T2+T3 sont `terminee`, mais chaque tournée attendait que X soit terminale → **deadlock**. On inverse donc : la **tournée** est pilotée par la clôture chauffeur, et le statut de la **collecte** est dérivé des tournées (cf. R6.1). Pour le cas standard (1 collecte = 1 tournée), le résultat est identique à avant (clôturer la tournée ⇒ collecte `realisee`).
 
@@ -940,7 +933,7 @@ Une tournée ne peut pas passer en `statut=en_cours` tant que les items obligato
 
 ### R_M05.2 — Saisie plaque par chauffeur uniquement — **Retirée V1 (propagation suppression saisie plaque terrain 2026-06-04, arbitrage Val)**
 
-Plus de saisie plaque par le chauffeur. La plaque pour contrôle d'accès / registre est la plaque **pré-saisie manager** (`tournees.plaque_preassignee_manager`, webhook S7 émis depuis M03 E4 — voir R_M04.CONTROLE_ACCES). Colonne `tms.tournees.plaque_saisie_terrain` supprimée (§04). Email client T+3h déjà supprimé V1 (propagation Q10 2026-04-24).
+ Plus de saisie plaque par le chauffeur. La plaque pour contrôle d'accès / registre est la plaque **pré-saisie manager** (`tournees.plaque_preassignee_manager`, webhook S7 émis depuis M03 E4 — voir R_M04.CONTROLE_ACCES). Colonne `tms.tournees.plaque_saisie_terrain` supprimée (§04). Email client T+3h déjà supprimé V1 (propagation Q10 2026-04-24).
 
 ### R_M05.3 — Auto-tare contenant paramétrable (D7/D8/D9)
 
@@ -956,7 +949,7 @@ Le contenant virtuel `sans_contenant` (tare = 0) représente une pesée sac plas
 
 **Audit V1 (au lieu d'alerte M11)** : chaque pesée 0 kg INSERT une ligne `tms.audit_logs` (action `M05_PESEE_ZERO_KG`, `acteur_user_id = chauffeur`, `diff = {pesee_id, contenant, poids_brut, collecte_id}`). Exploitation a posteriori par Admin TMS via SQL ad-hoc Supabase Studio (détection fraude/négligence chauffeur si pattern récurrent observé).
 
-→ **Supprimée revue sobriété §05 2026-05-01 A3**. Code `pattern_pesee_zero_kg` jamais seedé au catalogue M11 (R_M11.1 violation latente). Détection abus = audit log + requête SQL admin, pas alerte temps réel.
+ → **Supprimée revue sobriété §05 2026-05-01 A3**. Code `pattern_pesee_zero_kg` jamais seedé au catalogue M11 (R_M11.1 violation latente). Détection abus = audit log + requête SQL admin, pas alerte temps réel.
 
 ### R_M05.6 — Équivalent repas AG = 0,45 kg / repas
 
@@ -972,7 +965,7 @@ Bouton "J'arrive" disponible dès `en_route` sans délai (pas de 3 min). Clic = 
 
 **Détection abus a posteriori (V1)** : requête SQL ad-hoc Admin TMS sur `audit_logs` (compte par chauffeur sur fenêtre glissante). Pas de widget M11 dédié, pas de paramètre seuil.
 
-→ **Supprimés revue sobriété §05 2026-05-01 A4**. Comportement attendu = chauffeurs en immeuble = fallback légitime fréquent → seuil paramétrable + widget dédié = sur-ingénierie. Audit log seul suffit V1 ; widget M11 réintroduit V1.1 si Admin TMS constate effectivement un abus systémique.
+ → **Supprimés revue sobriété §05 2026-05-01 A4**. Comportement attendu = chauffeurs en immeuble = fallback légitime fréquent → seuil paramétrable + widget dédié = sur-ingénierie. Audit log seul suffit V1 ; widget M11 réintroduit V1.1 si Admin TMS constate effectivement un abus systémique.
 
 ### R_M05.9 — Queue offline cap 3 tournées + 150 photos + 300 Mo (D2)
 
@@ -988,7 +981,7 @@ Durée de session par rôle pilotée par **paramètre unique JSON `parametres_tm
 
 Refresh silencieux (`last_seen_at` touché à chaque requête PWA authentifiée). Invalidation explicite possible via Admin TMS M06 (bouton "Déconnecter tous les appareils" — C5 M05). Purge pg_cron horaire des sessions expirées.
 
-→ **Supprimé revue sobriété §05 2026-05-01 C2** — fusionné dans `auth.session_duree_jours_par_role` (clé `chauffeur`). Évite la divergence entre 3 paramètres distincts (`m05_session_duree_jours`, `m13_session_duree_jours`, implicite manager).
+ → **Supprimé revue sobriété §05 2026-05-01 C2** — fusionné dans `auth.session_duree_jours_par_role` (clé `chauffeur`). Évite la divergence entre 3 paramètres distincts (`m05_session_duree_jours`, `m13_session_duree_jours`, implicite manager).
 
 ### R_M05.12 — Push notifications V1 : attribution + H-30 + alerte Ops (D16)
 
@@ -1018,7 +1011,7 @@ Au retour de connexion, la PWA rejoue la queue IndexedDB avec `idempotency_key` 
 
 Job pg_cron horaire scanne `integrations_logs` où `statut='echec_final' AND type_event LIKE '%_dlq' AND created_at > now() - interval '24 hours'`. Émet alerte M11 **`warning` si > 0 items DLQ** (un seul niveau de gravité).
 
-→ **Supprimé revue sobriété §05 2026-05-01 B2**. Le double seuil n'apporte rien tant qu'Ops ack la première alerte (aucun item DLQ silencieux). Escalade humaine via traitement de l'alerte warning (lien direct interface Admin TMS pour rejouabilité manuelle V1.1). Réintroduction V1.1 si pattern d'inaction Ops observé sur >10 items DLQ.
+ → **Supprimé revue sobriété §05 2026-05-01 B2**. Le double seuil n'apporte rien tant qu'Ops ack la première alerte (aucun item DLQ silencieux). Escalade humaine via traitement de l'alerte warning (lien direct interface Admin TMS pour rejouabilité manuelle V1.1). Réintroduction V1.1 si pattern d'inaction Ops observé sur >10 items DLQ.
 
 Lien direct vers interface Admin TMS pour rejouabilité manuelle (V1.1).
 
@@ -1173,7 +1166,7 @@ Durée session pour `manager_prestataire` pilotée par **paramètre unique JSON 
 
 Le manager prestataire peut créer un nouveau chauffeur depuis M03 E6 (fiche chauffeur). Workflow : saisie email + nom + téléphone + upload permis + numéro permis + date visite médicale. **Bootstrap unique** : email "Définir mon mot de passe" envoyé au chauffeur avec **magic link 30 min** (template `chauffeur_bienvenue`). Le chauffeur clique le lien, définit son password (≥ 8 car), accède à la PWA M05. Aucune transmission de password en clair par email.
 
-→ **Chemin "password généré" supprimé revue sobriété §05 2026-05-01 B1**. Cohérence avec R_M03.1 (reset password = magic link 30 min) — un seul flow d'établissement password = magic link. Réduit la surface d'attaque (pas de password en clair par email) et simplifie l'implémentation (1 chemin de code au lieu de 2).
+ → **Chemin "password généré" supprimé revue sobriété §05 2026-05-01 B1**. Cohérence avec R_M03.1 (reset password = magic link 30 min) — un seul flow d'établissement password = magic link. Réduit la surface d'attaque (pas de password en clair par email) et simplifie l'implémentation (1 chemin de code au lieu de 2).
 
 Admin TMS reste autorisé à créer des chauffeurs côté back-office M06 (cumul de droits sans conflit, même flow magic link). Archivage chauffeur = `tms.chauffeurs.statut='archive'` (soft delete) + invalidation toutes sessions actives (`auth_sessions_tms.revoked_at=now()`).
 
@@ -1276,7 +1269,7 @@ Cron `m11_purger_archives` mensuel (1er du mois 4h) :
 1. **Étape 1 (dump pré-purge)** : INSERT INTO `tms.alertes_archive_critical` SELECT * FROM `tms.alertes` WHERE `criticite = 'critical' AND statut = 'resolue' AND resolue_at < now() - interval '3 years'`. Table archive append-only (RLS admin_tms read-only, pas d'UPDATE/DELETE).
 2. **Étape 2 (purge)** : DELETE FROM `tms.alertes` WHERE `statut = 'resolue' AND resolue_at < now() - interval '3 years'` (toutes criticités).
 
-→ **Supprimé revue sobriété §05 2026-05-01 B3**. Trigger sur opération destructive = piège (perf sur purge bulk + complexité debug + couplage avec audit_logs alors que le contenu purgé est une alerte, pas une mutation métier). Remplacé par dump explicite dans table dédiée `tms.alertes_archive_critical` (séparation des préoccupations).
+ → **Supprimé revue sobriété §05 2026-05-01 B3**. Trigger sur opération destructive = piège (perf sur purge bulk + complexité debug + couplage avec audit_logs alors que le contenu purgé est une alerte, pas une mutation métier). Remplacé par dump explicite dans table dédiée `tms.alertes_archive_critical` (séparation des préoccupations).
 
 Cohérent avec rétention `ajustements_couts_log` M07. **Bloc 3 sobriété 2026-04-25 A7** : statut `expiree` dégagé, scope rétention restreint à `resolue` uniquement.
 
@@ -1284,7 +1277,6 @@ Cohérent avec rétention `ajustements_couts_log` M07. **Bloc 3 sobriété 2026-
 
 Trigger BEFORE UPDATE `tms.alertes` bloque modification de `code, criticite, emise_at, entity_type, entity_id, dedup_key, occurrences` (sauf par W1 debounce et W7 auto-résolution via path explicite). Transitions de statut autorisées uniquement (Bloc 3 sobriété 2026-04-25 A7 : transition `→ expiree` retirée ; Bloc 6 B2 2026-04-28 : statut `ackee` retiré enum → metadata) :
 - `ouverte → snoozee | resolue` (l'ack = update colonnes metadata `ackee_par_user_id`/`ackee_at`, pas de changement statut)
-- (statut `ackee` retiré Bloc 6 B2)
 - `snoozee → ouverte | resolue`
 - `resolue → *` **impossible** V1 (V2 : RPC Admin `m11_rouvrir_alerte` motif ≥ 30 car + audit)
 

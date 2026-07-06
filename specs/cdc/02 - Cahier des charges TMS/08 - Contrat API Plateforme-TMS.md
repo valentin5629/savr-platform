@@ -1,7 +1,5 @@
 # 08 - Contrat API Plateforme ↔ TMS
 
-**Statut** : V1 — mise à jour architecturale 2026-04-23 (atelier tech avec frère) — propagation M03 2026-04-24 — **revue sobriété §08 COMPLÈTE 2026-05-01** : Bloc A (6 suppressions) + Bloc B (5 simplifications payload+auth) + Bloc C (2 duplications) + Bloc D (5 simplifications enums)
-**Dernière mise à jour** : 2026-06-04 (**propagation suppression saisie plaque terrain — arbitrage Val** — colonne `plaque_saisie_terrain` supprimée + exposition cross-schema retirée de `v_courses_logistiques` ; S7 `plaque-saisie` **inchangé** : reste émis par le manager M03 E4 pour le contrôle d'accès. Il ne reste qu'une seule plaque dans le système.) / 2026-05-03 (**propagation refonte formulaire §06.01 Plateforme** — payload E1 renommage `plaque_requise` → `controle_acces_requis`, payload S7 enrichi `chauffeur_nom`, sémantique étendue plaque + nom chauffeur) / 2026-05-01 (revue sobriété §08 Bloc D — suppression 7 valeurs `type_incident` S9, fusion `incident`/`inchange` dans `statut_collecte_apres`, suppression `stationnement.non_defini`, enum `motif_dlq` → text libre côté payload, suppression `recu` `integrations_inbox.statut`)
 
 **Rôle du document** : spécification contractuelle détaillée des échanges entre la Plateforme Savr (`app.gosavr.io`) et le Savr TMS (`tms.gosavr.io`). Ce fichier est le **pendant TMS** de [[01 - Cahier des charges App/08 - APIs et intégrations]] section 1 ("API Plateforme ↔ TMS Savr"). Les deux documents doivent rester strictement alignés — toute modification d'un payload ou endpoint doit être répercutée dans les deux.
 
@@ -193,6 +191,10 @@ Chaque événement porte un `event_id` UUID unique. Le consommateur stocke les `
 - Prestataires : `prestataire_id`
 - Lieux : `lieu_id`
 
+### 2bis. Émission côté TMS — outbox transactionnelle (arbitrage Val 2026-07-06, revue adversariale RC-M04-06)
+
+Tous les webhooks sortants S1-S11 sont produits via la table **`tms.outbox_events`** (cf. §04 TMS) : INSERT de l'événement (payload figé, `event_id`, `occurred_at`, `seq`) **dans la même transaction** que la mutation métier qui le déclenche ; worker consommateur en lease/claim (claim court avant tout HTTP, POST hors transaction, reaper + `requires_reconciliation`), retry 3 paliers, **head-of-line par agrégat**. Aucun webhook n'est émis directement depuis un trigger ou un handler HTTP ; `pg_notify` = réveil du worker uniquement, jamais transport (non durable). Garantie : at-least-once + zéro perte silencieuse — un event non livré reste visible (`status IN ('pending','processing','failed')`, dashboard sync M13 + bouton « Rejouer » avec `event_id` d'origine). Le `seq` d'émission tranche aussi les `occurred_at` égaux côté consommateur.
+
 ### 3. Horodatage et ordre
 
 Chaque payload contient :
@@ -333,6 +335,8 @@ Codes d'erreur normalisés :
 - `401 unauthorized` — JWT ou HMAC invalide (non retryable)
 - `409 event_out_of_order` — event plus ancien que le dernier traité (non retryable, ignoré)
 - `409 duplicate_event` — `event_id` déjà traité (non retryable, idempotent)
+- `409 collecte_sur_tournee_active` — PATCH E2 refusé : la collecte est rattachée (via `collecte_tournees`) à au moins une tournée `acceptee`/`en_cours` (arbitrage Val 2026-07-06 RC-M04-07 — la Plateforme alerte Ops, modification traitée manuellement, non retryable)
+- `409 collecte_non_modifiable` — PATCH E2 refusé : `statut_operationnel ∈ (en_cours, realisee, realisee_sans_collecte, incident)`, exécution démarrée ou terminée (code nommé audit cohérence 2026-07-06, arbitrage Val — ex-409 générique sans code ; même traitement Plateforme : alerte Ops, non retryable)
 - `422 business_conflict` — état métier incompatible (ex: collecte déjà annulée)
 - `429 rate_limited` — quota dépassé (retryable après `Retry-After` header)
 - `500 internal_error` — erreur serveur (retryable)
@@ -463,7 +467,7 @@ Codes d'erreur normalisés :
 > **`association_attribuee` (AG uniquement — ajout 2026-05-29, arbitrage Val)** : destination de livraison des excédents AG. L'association est attribuée puis validée côté Plateforme (algo §06.09 + Admin) **après** la création de la collecte (E1 part à la soumission, l'association n'est pas encore connue). En V2, la cascade `attribution_validee` (App §06.09 §3) émet **E2** avec cet objet pour transmettre la destination au TMS. M01 W3 le fige dans `tms.collectes_tms.association_snapshot` → affiché au chauffeur en M05 E7 (pré-rempli). Ré-attribution association (refus asso Plateforme) → nouvel E2, snapshot écrasé. **Push silencieux** (pas de réacceptation : changer la destination de livraison n'affecte pas l'acceptation de la course par le transporteur). Champ jamais présent pour les collectes ZD.
 
 **Règles métier (refonte 2026-05-04)** :
-- Si `collectes_tms.statut_operationnel ∈ (en_cours, realisee, realisee_sans_collecte, incident)` → **refus 409 Conflict** (la collecte n'est plus modifiable, exécution démarrée ou terminée). Plateforme alerte Ops, ne réessaye pas. *(Alignement audit cohérence inter-CDC Run 6 2026-05-07 A3 : ex `statut_tms = realisee, en_cours, terminee, cloturee`, valeurs hors enum `statut_tms` 8 valeurs miroir + `cloturee` inexistant nulle part.)*
+- Si `collectes_tms.statut_operationnel ∈ (en_cours, realisee, realisee_sans_collecte, incident)` → **refus `409 collecte_non_modifiable`** *(code nommé audit cohérence 2026-07-06)* (la collecte n'est plus modifiable, exécution démarrée ou terminée). Plateforme alerte Ops, ne réessaye pas. *(Alignement audit cohérence inter-CDC Run 6 2026-05-07 A3 : ex `statut_tms = realisee, en_cours, terminee, cloturee`, valeurs hors enum `statut_tms` 8 valeurs miroir + `cloturee` inexistant nulle part.)*
 - Si `statut_dispatch = attribuee_en_attente_acceptation` → diff appliqué silencieusement (pas de réacceptation : le prestataire n'a pas encore accepté). Notification standard manager prestataire en M03. *(Alignement audit cohérence inter-CDC Run 6 2026-05-07 A2 : ex `statut_tms = attribuee`, valeur inexistante dans l'enum miroir 8 valeurs.)*
 - Si `statut_dispatch = acceptee` :
   - Diff sur **date_collecte** ou **heure_collecte** : **réacceptation requise** → statut TMS repasse à `attribuee_en_attente_acceptation` (réutilisation enum existant, pas de 7e valeur), flag `flags_jsonb.re_confirmation_requise = true` sur `tms.collectes_tms` pour distinguer d'une 1ère acceptation côté UI portail M03 (cf. M04 W10). Push notification au prestataire (email + portail M03) pour re-confirmation.
@@ -635,7 +639,7 @@ Codes d'erreur normalisés :
 **Déclencheur** : clôture collecte côté TMS, que ce soit :
 - (a) collecte réalisée normalement (pesée effectuée + livraison asso si AG)
 - (b) collecte clôturée sans pesée via bouton "Aucun repas à collecter" (AG uniquement, voir §03 M05)
-- (c) correction de pesée post-clôture par Ops Savr → re-push avec `type = correction` (décision §05 R6 Q6 — 2026-04-22)
+- (c) correction de pesée post-clôture — **toute source** (étendu 2026-07-06, arbitrage Val RC-M05-04) : ajustement Ops Savr **OU** pesée tardive insérée après la dérivation `realisee` (item offline DLQ rejoué — trigger `trg_pesee_tardive_s5_correction` §04) → re-push avec `type = correction` (décision §05 R6 Q6 — 2026-04-22, étendue 2026-07-06)
 
 > **Multi-véhicules — un seul S5 terminal par collecte (refonte 2026-05-25, arbitrage 4 + 6a ; couvre le multi-vélo AG 2026-05-29)** : pour une collecte servie par N tournées (N camions ZD **ou N vélos A Toutes! AG**), le TMS n'émet **qu'un seul** `collecte-terminee`, déclenché quand **toutes** ses tournées sont `terminee` (dérivation du statut collecte → `realisee`, trigger `fn_derive_statut_collecte_multi_tournees` §05 R6.1). Les `pesees[]` sont **agrégées sur les N véhicules** (`SUM ... GROUP BY collecte_tms_id, flux` — chaque véhicule a pesé sa portion sous le même `collecte_tms_id` avec son propre `tournee_id` ; AG : `don_alimentaire` total). Le champ `tournee_id` du payload est alors **informatif** (dernière tournée terminée) — la Plateforme clé sur `collecte_id`. **Cas standard (1 tournée)** : inchangé, un S5 à la clôture de l'unique tournée. *(La Plateforme ne voit jamais le nombre de véhicules : elle reçoit la collecte terminée + le coût logistique agrégé via `v_courses_logistiques`. Multi-vélo invisible côté Plateforme par design.)*
 
@@ -871,11 +875,14 @@ Voir [[../05 - Règles métier TMS#R6.1 — Cycle de vie collectes_tms]] et [[..
 - `statut_collecte_apres` (enum, **4 valeurs** post-décision 2026-06-06) : statut opérationnel résultant après signalement. `echec_acces` si catégorie bloquante (`acces_refuse` / `client_absent`). `inchange` pour signalements informatifs (`probleme_tri`, `autre`, ex-`incident` fusionné). **`annulee`** pour `client_annule_avant_arrivee`. `realisee` rare (post-clôture). retiré 2026-06-06 (plus atteignable via S9 depuis le retrait de `pas_excedents` ; le cas AG « aucun repas » est émis par S5 `collecte-terminee` via `statut_final`). fusionné dans `inchange` (Bloc D D3).
 - `gravite` (enum) : aligné avec `incidents.gravite` §04 (`warning`, `critical`) — **enum 2 valeurs** post revue sobriété §04 2026-04-30 D1 (`info` retirée V1, aucun comportement applicatif distinct).
 - **`geofence_status`** (enum, propagation revue sobriété M05 2026-04-29) : indique le contexte spatial du signalement par rapport au lieu de collecte. 3 valeurs :
-  - `avant_arrivee` : chauffeur signale incident avant d'avoir atteint le geofence 300m du lieu (collecte encore en `planifiee`). Utilisé pour les 4 motifs ci-dessus (`client_annule_avant_arrivee`, `vehicule_panne`, `accident_route`, `chauffeur_indisponible`).
+  - `avant_arrivee` : chauffeur signale incident avant d'avoir atteint le geofence 300m du lieu (collecte encore en `planifiee`). Utilisé pour le **motif unique `client_annule_avant_arrivee`** *(résidu « 4 motifs » corrigé audit cohérence 2026-07-06 — `vehicule_panne`/`accident_route`/`chauffeur_indisponible` retirés de l'enum revue sobriété Bloc D 2026-05-01, gérés hors app via appel Ops ; aligné §05 R6.1 patché RC-M05-07)*.
   - `sur_place` : chauffeur signale dans le geofence du lieu (collecte en `arrivee` / `en_cours`). Cas standard incidents terrain (`acces_refuse`, `client_absent`, `probleme_tri`, `autre` — `pas_excedents` retiré décision 2026-06-06, passe par E5→S5).
   - `apres_cloture` : signalement post-collecte (rare, ex: erreur pesée détectée ultérieurement).
 
-**Effet Plateforme** : création entrée dans `incidents_collectes`, alerte admin Ops Savr + commercial en charge du compte traiteur. Si `statut_collecte_apres=echec_acces` : MAJ `collectes.statut`, annulation flux downstream (bordereau, attestation, facture).
+**Effet Plateforme (précisé audit cohérence 2026-07-06, arbitrage Val)** : alerte admin Ops Savr + commercial en charge du compte traiteur + trace `audit_log`. *(table inexistante des deux côtés — le modèle incident Plateforme = colonnes `plateforme.collectes.motif_incident` + `incident_imputable_a`, cf. §04 App)*. Selon `statut_collecte_apres` :
+- `∈ (echec_acces, annulee)` → `collectes.statut = 'annulee'` + `motif_incident` (= `description` S9) + `incident_imputable_a` (mappé depuis `imputable_a`) + annulation flux downstream (bordereau, attestation) ; facturation selon les règles d'annulation Plateforme §05 App §4bis (imputable client — dont `client_annule_avant_arrivee` et `echec_acces` — = plein tarif ZD / débit pack AG ; imputable prestataire = pas de facturation).
+- `inchange` → statut collecte non modifié (entrée trace + alerte uniquement).
+- `realisee` / `realisee_sans_collecte` → statut porté par le S5 `collecte-terminee` associé (S9 = signalement, pas de MAJ statut).
 
 ### S10 — `GET /sync/poll` (fallback) (supprimé revue sobriété 2026-05-01 A4)
 

@@ -25,15 +25,18 @@ const EXPECTED_TYPES = [
   'attestation-don',
   'bordereau-zd',
   'rapport-recyclage-zd',
+  'synthese-dashboard',
 ];
 const EXPECTED_VERSIONS: Record<string, string> = {
   'bordereau-zd': 'bordereau-zd@1',
   'rapport-recyclage-zd': 'rapport-recyclage-zd@1',
   'attestation-don': 'attestation-don@1',
+  'synthese-dashboard': 'synthese-dashboard@1',
 };
 import type { AttestationDonData } from './templates/attestation-don.js';
 import type { BordereauZdData } from './templates/bordereau-zd.js';
 import type { RapportRecyclageZdData } from './templates/rapport-recyclage-zd.js';
+import type { SyntheseDashboardData } from './templates/synthese-dashboard.js';
 
 function bordereauData(): BordereauZdData {
   return {
@@ -91,10 +94,70 @@ function attestationData(
   };
 }
 
+function syntheseData(
+  overrides: Partial<SyntheseDashboardData> = {},
+): SyntheseDashboardData {
+  return {
+    organisation_nom: 'Traiteur SA',
+    perimetre_label: 'traiteur',
+    periode_label: '01/01/2026 → 30/06/2026',
+    filtres_label: 'Types : Zéro-Déchet',
+    date_generation: '07/07/2026 09:12',
+    nb_collectes: 3,
+    inclut_zd: true,
+    inclut_ag: false,
+    tonnage_zd_kg: 540,
+    tonnage_ag_kg: 0,
+    taux_recyclage_moyen_pondere: 82.4,
+    nb_repas_donnes: 0,
+    co2: {
+      evite_kg: 420,
+      induit_kg: 90,
+      net_kg: 330,
+      energie_primaire_evitee_kwh: 1200,
+      equiv_km_voiture: 2100,
+      facteurs_version: 'ADEME-2025',
+    },
+    flux_zd: [
+      { nom: 'Biodéchets', poids_kg: 300 },
+      { nom: 'Emballages', poids_kg: 120 },
+      { nom: 'Carton', poids_kg: 80 },
+      { nom: 'Verre', poids_kg: 40 },
+    ],
+    associations_ag: null,
+    lieux: [
+      { lieu_nom: 'Pavillon', nb_collectes: 2, tonnage_kg: 360 },
+      { lieu_nom: 'Carrousel', nb_collectes: 1, tonnage_kg: 180 },
+    ],
+    traiteurs: null,
+    evolution: [
+      { mois: '01/26', tonnage_kg: 180, taux_recyclage: 80 },
+      { mois: '02/26', tonnage_kg: 360, taux_recyclage: 84 },
+    ],
+    detail: [
+      {
+        date_evenement: '15/02/2026',
+        evenement: 'Gala',
+        lieu: 'Pavillon',
+        type: 'ZD',
+        tonnage_kg: 360,
+        taux_recyclage: 84,
+        repas_donnes: null,
+      },
+    ],
+    co2_facteurs_snapshot: {
+      biodechet_kgco2_par_kg: 0.12,
+      mix_emballages: 'v1',
+    },
+    ...overrides,
+  };
+}
+
 const DATA_BY_TYPE: Record<string, unknown> = {
   'bordereau-zd': bordereauData(),
   'rapport-recyclage-zd': rapportData(),
   'attestation-don': attestationData(),
+  'synthese-dashboard': syntheseData(),
 };
 
 describe('M1.6 / renderer PDF — dispatch type_document', () => {
@@ -152,5 +215,108 @@ describe('M2.4 / attestation de don 2041-GE — mention fiscale conditionnelle',
     expect(html).toContain(
       'Estimation FAO — 2,5 kgCO₂e par repas sauvé du gaspillage',
     );
+  });
+});
+
+describe('M3.5 / renderer synthèse §12 §1.6 — template agrégé', () => {
+  it('export ZD : page de garde + chiffres clés ZD + flux + CO₂ + évolution + détail, PAS de section Anti-Gaspi', () => {
+    const html = renderByType('synthese-dashboard', syntheseData());
+    expect(html).toContain('<!DOCTYPE html>');
+    expect(html).toContain('Rapport de synthèse');
+    expect(html).toContain('Traiteur SA');
+    // Section 1 chiffres clés + taux pondéré
+    expect(html).toContain('1 · Chiffres clés');
+    expect(html).toContain('82,4 %');
+    // Section 2 flux ZD + Section 5 évolution + CO₂ agrégé
+    expect(html).toContain('Ventilation par flux');
+    expect(html).toContain('Impact carbone agrégé');
+    expect(html).toContain('Évolution mensuelle');
+    expect(html).toContain('Biodéchets');
+    // Q2 : type figé ZD → PAS de section Anti-Gaspi
+    expect(html).not.toContain('Ventilation Anti-Gaspi');
+  });
+
+  it('export AG : sections Anti-Gaspi + repas, PAS de flux/évolution/CO₂ ZD (Q2)', () => {
+    const html = renderByType(
+      'synthese-dashboard',
+      syntheseData({
+        perimetre_label: 'traiteur',
+        inclut_zd: false,
+        inclut_ag: true,
+        tonnage_zd_kg: 0,
+        tonnage_ag_kg: 210,
+        taux_recyclage_moyen_pondere: null,
+        nb_repas_donnes: 480,
+        co2: null,
+        flux_zd: null,
+        evolution: null,
+        associations_ag: [
+          {
+            association_nom: 'Restos du Cœur',
+            nb_collectes: 2,
+            repas_donnes: 300,
+            poids_kg: 130,
+          },
+          {
+            association_nom: 'Banque Alimentaire',
+            nb_collectes: 1,
+            repas_donnes: 180,
+            poids_kg: 80,
+          },
+        ],
+        detail: [
+          {
+            date_evenement: '15/02/2026',
+            evenement: 'Gala',
+            lieu: 'Pavillon',
+            type: 'AG',
+            tonnage_kg: 130,
+            taux_recyclage: null,
+            repas_donnes: 300,
+          },
+        ],
+      }),
+    );
+    expect(html).toContain('Ventilation Anti-Gaspi');
+    expect(html).toContain('Restos du Cœur');
+    expect(html).toContain('480'); // repas donnés (chiffres clés)
+    // Q2 : type figé AG → pas de sections ZD
+    expect(html).not.toContain('Ventilation par flux');
+    expect(html).not.toContain('Évolution mensuelle');
+    expect(html).not.toContain('Impact carbone agrégé');
+  });
+
+  it('agrégat vide : PDF valide avec mention « Aucune collecte » (pas de blocage)', () => {
+    const html = renderByType(
+      'synthese-dashboard',
+      syntheseData({
+        nb_collectes: 0,
+        tonnage_zd_kg: 0,
+        taux_recyclage_moyen_pondere: null,
+        co2: null,
+        flux_zd: [],
+        lieux: [],
+        evolution: [],
+        detail: [],
+      }),
+    );
+    expect(html).toContain('<!DOCTYPE html>');
+    expect(html).toContain('Aucune collecte');
+  });
+
+  it('section géographique affichée si ≥2 lieux + ventilation par traiteur si fournie (gestionnaire)', () => {
+    const html = renderByType(
+      'synthese-dashboard',
+      syntheseData({
+        perimetre_label: 'gestionnaire de lieux',
+        traiteurs: [
+          { traiteur_nom: 'Traiteur A', nb_collectes: 2, tonnage_kg: 300 },
+          { traiteur_nom: 'Traiteur B', nb_collectes: 1, tonnage_kg: 240 },
+        ],
+      }),
+    );
+    expect(html).toContain('Ventilation géographique');
+    expect(html).toContain('Ventilation par traiteur');
+    expect(html).toContain('Traiteur A');
   });
 });

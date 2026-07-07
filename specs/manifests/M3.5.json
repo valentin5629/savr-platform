@@ -50,11 +50,11 @@
     },
     {
       "id": "BL-P1-PARITE-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md",
-      "artefact": null,
-      "test": null,
-      "statut": "à-vérifier",
-      "libelle": "Export PDF synthèse (stub « V4 » non descopé) — implémenté en R20b"
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:192",
+      "artefact": "packages/plateforme/src/app/api/v1/dashboards/synthese-pdf/route.ts + packages/plateforme/src/lib/dashboards/synthese-snapshot.ts + packages/plateforme/src/components/dashboards/ExportSyntheseBloc.tsx + apps/pdf-renderer/src/templates/synthese-dashboard.ts",
+      "test": "M3.5 / route synthèse PDF — génération synchrone + M3.5 / synthèse PDF — snapshot §12 §1.6 + M3.5 / renderer synthèse §12 §1.6 — template agrégé",
+      "statut": "implemented",
+      "libelle": "Export synthèse PDF (Bloc 8 ZD/AG) implémenté R20b-2 sur les 3 rôles : bouton dashboard → modale 3 étapes (pré-remplie, type figé selon onglet) → route SYNCHRONE /api/v1/dashboards/synthese-pdf (snapshot sous JWT, RLS f_collecte_visible, prédicat embargo H+24) → renderer Railway 'synthese-dashboard' → objet R2 pré-signé 1h, AUCUN archivage (pas de jobs_pdf, pas de rapports_synthese). Décisions Val 2026-07-07 : génération synchrone + sections du type sélectionné (Q1/Q2)."
     },
     {
       "id": "BL-P2-03",

@@ -430,6 +430,14 @@
       "test": "M3.1/blocs_top_associations_ordre_repas + M3.1/blocs_traiteur_ag_associations_et_top7",
       "statut": "implemented",
       "libelle": "Bloc 3 AG — top associations bénéficiaires (attributions_antgaspi ⋈ associations, RLS via collectes), ordonné par repas reçus : Association/Ville/Nb collectes/Repas reçus. Colonne « Distance moyenne (km) » §06.05 NON rendue (décision Val 2026-07-07 : critère interne à l'algo d'attribution AG, non restitué aux dashboards ; la donnée existe — géocodage lieux/associations)."
+    },
+    {
+      "id": "M3.1-bloc8-export-pdf",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:192",
+      "artefact": "packages/plateforme/src/components/dashboards/ExportSyntheseBloc.tsx + packages/plateforme/src/app/(traiteur)/traiteur/page.tsx",
+      "test": "M3.1 / synthèse traiteur — périmètre opérationnel (0 fuite inter-org)",
+      "statut": "implemented",
+      "libelle": "Bloc 8 ZD/AG « Exporter une synthèse PDF » (§06.04 l.192/272) : bouton dashboard → modale de génération (pré-remplie, type figé selon onglet) → route synchrone /api/v1/dashboards/synthese-pdf. Périmètre traiteur = collectes opérées (traiteur_operationnel_organisation_id, §12 §1.6 l.246)."
     }
   ],
   "cdc_source_hash": {

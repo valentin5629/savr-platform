@@ -25,7 +25,10 @@ interface DocEntity {
   entityType: string;
 }
 
-const DOC_ENTITY: Record<PdfDocumentType, DocEntity> = {
+// Partiel : seuls les documents ARCHIVÉS grain-collecte sont régénérables. La
+// synthèse agrégée (type 'synthese-dashboard') n'a pas de table document (pas
+// d'archivage §12 §1.6) et n'est jamais re-enqueue via ce flux → absente de la map.
+const DOC_ENTITY: Partial<Record<PdfDocumentType, DocEntity>> = {
   'bordereau-zd': { table: 'bordereaux_savr', entityType: 'bordereaux_savr' },
   'rapport-recyclage-zd': { table: 'rapports_rse', entityType: 'rapports_rse' },
   'attestation-don': {
@@ -56,6 +59,14 @@ export async function regenerateCollecteDocument(
     };
   }
   const cfg = DOC_ENTITY[type];
+  if (!cfg) {
+    // type PDF connu mais non archivé (ex. 'synthese-dashboard') → rien à régénérer.
+    return {
+      ok: false,
+      code: 'NO_DOCUMENT',
+      message: `type_document non régénérable : ${type}`,
+    };
+  }
 
   // 1. Localiser la ligne document de la collecte (dernière version si plusieurs —
   //    attestations_don a une clé (collecte_id, version), les autres sont uniques).

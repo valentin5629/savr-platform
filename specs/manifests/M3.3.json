@@ -266,6 +266,14 @@
       "test": "M3.3/blocs_agence_top_acteurs_null + M3.3/blocs_agence_zd_sans_bloc7",
       "statut": "implemented",
       "libelle": "Bloc 7 « Top 5 commerciaux » RETIRÉ côté agence (§06.11 diff #8, F1 2026-06-07 — RLS users agence = self) : non monté sur la page ; l'endpoint /blocs renvoie topActeurs=null pour le rôle agence (garde serveur)."
+    },
+    {
+      "id": "M3.3-bloc8-export-pdf",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:36",
+      "artefact": "packages/plateforme/src/components/dashboards/ExportSyntheseBloc.tsx + packages/plateforme/src/app/(agence)/agence/page.tsx",
+      "test": "M3.3 / synthèse agence — périmètre programmateur (0 fuite inter-org)",
+      "statut": "implemented",
+      "libelle": "Bloc 8 ZD/AG « Exporter une synthèse PDF » côté agence = réplique stricte du §06.04 (§06.11 l.36) : même composant partagé, même modale, même route synchrone. Périmètre agence = collectes programmées (evenements.organisation_id, §12 §1.6 l.249). Branding logo agence PDF = hors scope R20b-2 (BL-P3-05 / R23)."
     }
   ],
   "cdc_source_hash": {

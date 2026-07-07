@@ -419,7 +419,7 @@
       "artefact": "packages/plateforme/src/components/dashboards/TopAssociationsBloc.tsx",
       "test": "M3.2/blocs_gestionnaire_ag_associations",
       "statut": "implemented",
-      "libelle": "Bloc 3 AG gestionnaire — top associations bénéficiaires (périmètre parc). Colonne Distance moyenne (§06.05 l.52) non rendue en V1 (pas de source de distance asso↔lieu, cf. _Divergences)."
+      "libelle": "Bloc 3 AG gestionnaire — top associations bénéficiaires (périmètre parc). Colonne « Distance moyenne (km) » (§06.05 l.52) NON rendue (décision Val 2026-07-07 : la distance lieu↔asso reste un critère INTERNE à l'algo d'attribution AG — Haversine dans fn_calculer_algo_attribution_ag — et n'est pas restituée aux dashboards clients ; ce n'est PAS un manque de données, lieux+associations sont géocodées ; cf. _Divergences M3.2_20260707)."
     }
   ],
   "cdc_source_hash": {

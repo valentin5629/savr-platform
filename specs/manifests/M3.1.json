@@ -429,7 +429,7 @@
       "artefact": "packages/plateforme/src/components/dashboards/TopAssociationsBloc.tsx",
       "test": "M3.1/blocs_top_associations_ordre_repas + M3.1/blocs_traiteur_ag_associations_et_top7",
       "statut": "implemented",
-      "libelle": "Bloc 3 AG — top associations bénéficiaires (attributions_antgaspi ⋈ associations, RLS via collectes), ordonné par repas reçus : Association/Ville/Nb collectes/Repas reçus (colonne Distance §06.05 non rendue, pas de source geo)."
+      "libelle": "Bloc 3 AG — top associations bénéficiaires (attributions_antgaspi ⋈ associations, RLS via collectes), ordonné par repas reçus : Association/Ville/Nb collectes/Repas reçus. Colonne « Distance moyenne (km) » §06.05 NON rendue (décision Val 2026-07-07 : critère interne à l'algo d'attribution AG, non restitué aux dashboards ; la donnée existe — géocodage lieux/associations)."
     }
   ],
   "cdc_source_hash": {

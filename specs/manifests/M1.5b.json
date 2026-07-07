@@ -118,7 +118,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "953c592b674a87f1bda285b33dfe8572e47387e6858a3369acc403112e21e7bf",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "9e82dedf4b5816a58b6e43eddf810957b772e5e7edb12d1b15ba5c70d30e8e1d"
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "e334d1b439d2356f12db8de139d495f9797c9a1c203e1b31e61ade71a8fb302a",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "fc007aa1be20a5e0f82dc5cd4bbce73a6eb31e209d8b97f366e764d93628cd55"
   }
 }

@@ -1290,7 +1290,7 @@
   ],
   "cdc_source_hash": {
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "92126868d2a894fadf4c0076ed3302025a21ba870ef45abd6a19a72f40df5c59",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "5bf65cc35e403893a92ee041f16a057332303f2fe2fb85dfd867db8d25de0d58",
-    "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "cbcc9fb6a4b81451b62d4fab39d0d9229bc80d45a568cd61e2b377fd5645c0a7"
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "4f711aee38e9a08d166e0f7d6abcbe5a995c8be7640a9c61b09056d6259a90bf",
+    "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "0fcf6f081583aee93f4ba4ff80d564feeb96d4037cee8c2e92747d210fe848a8"
   }
 }

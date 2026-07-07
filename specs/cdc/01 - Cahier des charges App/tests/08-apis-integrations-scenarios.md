@@ -71,7 +71,7 @@ Scénario : e1_collecte_creee_envoyee_tms_nominal
   Étant donné une collecte ZD Kaspia Paris (traiteur = Kaspia, lieu = Salle Pleyel)
     Et la collecte vient d'être soumise (statut = programmee, statut_tms = non_envoye)
     Et le TMS retourne 201 avec event_id valide
-  Quand l'Edge Function d'envoi E1 est déclenchée
+  Quand la Next.js API Route d'envoi E1 est déclenchée
   Alors une requête POST est envoyée à `{tms_base}/collectes`
     Et le payload contient traiteur_operationnel.organisation_id = Kaspia.id, type_collecte = zd, nb_pax, heure_collecte.{date,heure,fuseau}, contacts.principal obligatoire
     Et le payload ne contient PAS prestataire_id_pre_affecte
@@ -258,7 +258,7 @@ Scénario : resend_envoi_email_nominal
   Étant donné une collecte clôturée déclenchant le template admin_collecte_cloturee
     Et toutes les variables requises sont disponibles
     Et Resend retourne 200 avec resend_id=RE_abc123
-  Quand l'Edge Function send-email.ts est appelée
+  Quand la Next.js API Route send-email est appelée
   Alors une ligne emails_envoyes est créée (template_slug=admin_collecte_cloturee, statut=envoye, resend_id=RE_abc123, tentative_numero=1)
     Et une ligne integrations_logs est créée (system=resend, direction=sortant, statut=succes)
 ```
@@ -289,8 +289,8 @@ Scénario : resend_webhook_opened_maj_statut_emails_envoyes
 Scénario : puppeteer_generation_bordereau_zd
   Étant donné une collecte ZD clôturée avec pesees[] renseignées
     Et Puppeteer container Railway est disponible
-  Quand l'Edge Function generate-pdf.ts est appelée (template=bordereau_savr)
-  Alors un PDF est généré et uploadé dans Supabase Storage (bucket=bordereaux)
+  Quand la Next.js API Route generate-pdf est appelée (template=bordereau_savr)
+  Alors un PDF est généré et uploadé dans Cloudflare R2 (bucket=bordereaux)
     Et bordereaux_savr.fichier_id est renseigné (référence shared.fichiers)
     Et bordereaux_savr.template_version est enregistrée
 ```
@@ -577,7 +577,7 @@ Scénario : webhook_tms_collecte_inconnue_200_anomalie_tracee
 Scénario : resend_variable_requise_manquante_refus_envoi
   Étant donné un déclenchement d'email pour template admin_collecte_cloturee
     Et la variable {{prenom}} est absente du payload
-  Quand l'Edge Function send-email.ts tente l'envoi
+  Quand la Next.js API Route send-email tente l'envoi
   Alors aucun appel API Resend n'est effectué
     Et une ligne integrations_logs est créée (erreur_code=MISSING_VARIABLE, system=resend)
     Et aucune ligne emails_envoyes n'est créée
@@ -606,7 +606,7 @@ Scénario : resend_webhook_signature_svix_invalide_rejet_401
 
 Scénario : template_slug_inexistant_no_op_trace
   Étant donné un déclenchement d'email avec template_slug=template_fantome (inexistant en DB)
-  Quand l'Edge Function send-email.ts tente l'envoi
+  Quand la Next.js API Route send-email tente l'envoi
   Alors aucun appel Resend n'est effectué
     Et une ligne integrations_logs est créée (erreur_code=TEMPLATE_NOT_FOUND)
 ```

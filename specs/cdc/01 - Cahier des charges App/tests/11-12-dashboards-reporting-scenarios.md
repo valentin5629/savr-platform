@@ -133,9 +133,64 @@ Scénario : rapport_sans_excedent_genere_immediatement
 Scénario : synthese_pdf_a_la_demande_traiteur
   Étant donné un traiteur_manager Kaspia avec 8 collectes cloturees (6 ZD + 2 AG) sur les 30 derniers jours
   Quand il clique "Exporter une synthèse PDF" depuis le Bloc 8 ZD, garde les filtres pré-remplis et génère
-  Alors l'Edge Function (JWT du demandeur) retourne une URL pré-signée Supabase Storage expirant à 1h
-  Et le PDF contient page de garde (logo, filtres en clair, nb collectes), sections 1/2/5/6 et le taux moyen pondéré par tonnage
+  Alors la Route API (Next.js, JWT du demandeur) génère le PDF via Railway/Puppeteer de façon synchrone et retourne une URL pré-signée Cloudflare R2 expirant à 1h
+  Et seules les 6 collectes ZD sont agrégées (les 2 AG exclues — Type de collecte figé ZD)
+  Et le PDF contient page de garde (logo, filtres en clair, nb collectes), les sections ZD applicables (1 chiffres clés, 2 flux + camembert, 5 évolution + courbe taux, 6 détail) et le taux moyen pondéré par tonnage, sans Section 3 AG
   Et aucune ligne n'est persistée en DB (pas de table `rapports_synthese`)
+```
+
+```gherkin
+# Source : §12 §1.6 (sections selon le type sélectionné — tranché 2026-07-07 R20b-2)
+# Couche : api
+# Priorité : P1-critique
+
+Scénario : synthese_sections_ag_seul
+  Étant donné un traiteur_manager générant depuis le Bloc 8 AG (Type de collecte figé = AG)
+  Quand il génère la synthèse
+  Alors le PDF contient les sections AG (chiffres clés AG, Section 3 Anti-Gaspi + Top 3 assos, détail AG)
+  Et il ne contient ni Section 2 flux ZD ni Section 5 évolution ZD
+
+Scénario : synthese_type_decoche_couvre_zd_et_ag
+  Étant donné le modal de génération avec le filtre « Types de collecte » décoché
+  Quand l'utilisateur génère
+  Alors le PDF couvre ZD + AG (toutes les sections applicables sont présentes)
+```
+
+```gherkin
+# Source : §12 §1.6 (Section 4bis Ventilation par traiteur — gestionnaire uniquement)
+# Couche : api
+# Priorité : P2-important
+
+Scénario : synthese_section_traiteur_gestionnaire_uniquement
+  Étant donné un gestionnaire_lieux et un traiteur_manager générant chacun une synthèse sur un périmètre ≥ 2 traiteurs
+  Quand chacun génère son PDF
+  Alors le PDF du gestionnaire inclut la Section 4bis « Ventilation par traiteur » (traiteur · nb collectes · tonnage)
+  Et le PDF du traiteur ne l'inclut pas (périmètre = organisation elle-même)
+```
+
+```gherkin
+# Source : §12 §1.6 (agrégat vide — tranché 2026-07-07 R20b-2)
+# Couche : api
+# Priorité : P2-important
+
+Scénario : synthese_agregat_vide_pdf_a_zero
+  Étant donné des filtres ne matchant aucune collecte satisfaisant période + embargo H+24
+  Quand l'utilisateur génère la synthèse
+  Alors un PDF valide est produit avec les sections à zéro et la mention « Aucune collecte sur la période »
+  Et le bouton de génération n'est jamais bloqué
+```
+
+```gherkin
+# Source : §12 §1.6 étape 2 (filtres Client organisateur + Commercial dans la modale)
+# Couche : api
+# Priorité : P2-important
+
+Scénario : synthese_filtres_client_commercial_dans_modale
+  Étant donné un traiteur_manager ouvrant le modal de synthèse (barre 5-dimensions BL-P2-12 déférée)
+  Quand la modal charge l'étape 2
+  Alors les filtres Client organisateur et Commercial sont des multi-selects natifs de la modal
+  Et ils sont alimentés par GET /api/v1/dashboards/synthese-pdf/filtres scopé par rôle
+  Et côté gestionnaire_lieux ces deux filtres ne sont pas affichés
 ```
 
 ```gherkin
@@ -356,7 +411,7 @@ Scénario : acces_direct_rapport_sous_embargo_refuse
 Scénario : synthese_periode_invalide_rejetee
   Étant donné le modal de génération de synthèse
   Quand l'utilisateur soumet date_debut > date_fin, puis une période avec borne dans le futur
-  Alors chaque soumission est rejetée avec un message de validation (aucun appel Edge Function parti)
+  Alors chaque soumission est rejetée avec un message de validation (aucun appel de génération parti)
 ```
 
 ```gherkin
@@ -417,15 +472,15 @@ Scénario : export_registre_format_hors_enum_rejete
 ```
 
 ```gherkin
-# Source : §12 §1.6 (traitement asynchrone)
+# Source : §12 §1.6 (traitement synchrone)
 # Couche : api
 # Priorité : P3-nominal
 
-Scénario : synthese_timeout_edge_function
+Scénario : synthese_timeout_generation
   Étant donné une génération de synthèse qui dépasse le timeout de 2 min
-  Quand l'Edge Function expire
+  Quand la génération (Route API + Railway/Puppeteer) expire
   Alors le modal affiche un état d'échec explicite (pas de spinner infini)
-  Et aucun fichier orphelin n'est conservé en Storage
+  Et aucun fichier orphelin n'est conservé sur R2
 ```
 
 ```gherkin
@@ -574,13 +629,13 @@ Scénario : benchmark_pas_de_select_brut_table_base
 ```
 
 ```gherkin
-# Source : §12 §1.6 RLS (Edge Function JWT demandeur)
+# Source : §12 §1.6 RLS (Route API JWT demandeur)
 # Couche : api
 # Priorité : P1-critique
 
 Scénario : synthese_perimetre_rls_du_demandeur
   Étant donné un gestionnaire_lieux G générant une synthèse
-  Quand l'Edge Function agrège les collectes (JWT de G)
+  Quand la Route API agrège les collectes (JWT de G)
   Alors seules les collectes de ses lieux (`organisations_lieux`) + celles qu'il a programmées entrent dans le PDF
   Et aucune collecte d'un lieu hors périmètre n'apparaît en Section 6, même si la période la couvre
 ```
@@ -850,8 +905,8 @@ Le PDF « sans excédent » §1.3-bis n'avait aucune table porteuse (`type_rappo
 ### F2 — (tranché : alerte in-app seule — inverse de la reco, ne pas re-proposer de template)
 L'email immédiat « pesées anormales » §1.5 n'avait aucun template §06.02. **Décision Val** : **alerte in-app back-office seule**, email retiré — pas de 20e template. Propagé §12 §1.5 + tableau Décisions.
 
-### F3 — (tranché : Edge Function SERVICE_ROLE)
-Régénération manager §1.2 morte au niveau RLS (A8 admin-only). **Décision Val** : canal **Edge Function SERVICE_ROLE** avec contrôle applicatif du périmètre (mêmes 4 chemins que `rr_select`), policy `rr_write_admin` inchangée. Test P1 `test_rapports_rse_regen_cross_org_denied` ajouté. Propagé §12 §1.2 + §04 + §09 A8.
+### F3 — (tranché : Next.js API Route SERVICE_ROLE)
+Régénération manager §1.2 morte au niveau RLS (A8 admin-only). **Décision Val** : canal **Next.js API Route SERVICE_ROLE** (aligné 9.1.16, ex-Edge Function 2026-07-07) avec contrôle applicatif du périmètre (mêmes 4 chemins que `rr_select`), policy `rr_write_admin` inchangée. Test P1 `test_rapports_rse_regen_cross_org_denied` ajouté. Propagé §12 §1.2 + §04 + §09 A8.
 
 ### F4 — (tranché : prédicat explicite)
 Inclusion synthèse §1.6 = `statut = 'cloturee' AND realisee_at + interval '24h' <= now()` (aligné embargo canonique). Propagé §12 §1.6.

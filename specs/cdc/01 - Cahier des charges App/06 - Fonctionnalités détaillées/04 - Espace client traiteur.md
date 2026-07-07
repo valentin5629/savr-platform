@@ -196,7 +196,7 @@ Bouton "Exporter une synthèse PDF" pré-rempli :
 - **Lieux / Client organisateur / Type d'événement / Taille d'événement** : valeurs des filtres globaux
 - **Type de collecte** : `ZD` (figé selon onglet actif)
 
-Clic → ouvre la modal de génération synthèse (Edge Function asynchrone 5-30 sec selon volume) puis téléchargement direct du PDF (URL pré-signée Supabase Storage temporaire, expire 1h). Si l'utilisateur veut modifier les filtres avant génération, retour aux étapes 1-2 possible. **Pas d'archivage** (refonte 2026-05-05 — table `rapports_synthese` supprimée).
+Clic → ouvre la modal de génération synthèse (Next.js API Route + Railway/Puppeteer, 5-30 sec selon volume) puis téléchargement direct du PDF (URL pré-signée Cloudflare R2 temporaire, expire 1h). Si l'utilisateur veut modifier les filtres avant génération, retour aux étapes 1-2 possible. **Pas d'archivage** (refonte 2026-05-05 — table `rapports_synthese` supprimée).
 
 Pattern aligné §06.05 §1 Bloc 8 ZD et §06.11 §1 Bloc 8 ZD.
 
@@ -276,7 +276,7 @@ Bouton "Exporter une synthèse PDF" pré-rempli :
 - **Lieux / Client organisateur / Type d'événement / Taille d'événement** : valeurs des filtres globaux
 - **Type de collecte** : `AG` (figé selon onglet actif)
 
-Clic → ouvre la modal de génération synthèse (Edge Function asynchrone) puis téléchargement direct du PDF.
+Clic → ouvre la modal de génération synthèse (Next.js API Route + Railway/Puppeteer) puis téléchargement direct du PDF.
 
 Pattern aligné §06.05 §1 Bloc 8 AG et §06.11 §1 Bloc 8 AG.
 

@@ -51,7 +51,7 @@ Voir [[07 - Architecture technique]] section 6 pour l'inventaire complet. Princi
 
 - Aucun secret dans le code ou le repo GitHub
 - Rotation des clés API sensibles tous les 6 mois
-- `SUPABASE_SERVICE_ROLE_KEY` utilisable uniquement dans les Edge Functions, jamais exposée côté frontend
+- `SUPABASE_SERVICE_ROLE_KEY` utilisable uniquement côté serveur (Next.js API Routes / workers), jamais exposée côté frontend
 - Fichiers `.env.local` gitignorés, jamais commités
 
 ### 2.5 Sécurité des webhooks entrants
@@ -149,7 +149,7 @@ Supabase, Railway et Resend traitent des données personnelles pour le compte de
 
 ### Conservation des PDFs
 
-Les PDFs sont stockés dans Supabase Storage avec accès RLS. Un PDF de bordereau ou d'attestation ne peut pas être supprimé par un utilisateur client — uniquement par l'Admin Savr. Les URLs de Storage sont signées (expiration 1h pour les téléchargements directs). **Liens de partage public horodatés (URL permanente 90 jours) reportés V1.1** (revue sobriété §12 2026-06-03, A1) — V1 : pas d'URL publique permanente, le `traiteur_manager` télécharge et transmet le PDF lui-même.
+Les PDFs sont stockés dans Cloudflare R2. Un PDF de bordereau ou d'attestation ne peut pas être supprimé par un utilisateur client — uniquement par l'Admin Savr. Les URLs R2 sont pré-signées (expiration 1h pour les téléchargements directs). **Liens de partage public horodatés (URL permanente 90 jours) reportés V1.1** (revue sobriété §12 2026-06-03, A1) — V1 : pas d'URL publique permanente, le `traiteur_manager` télécharge et transmet le PDF lui-même.
 
 ### Audit log
 

@@ -7,7 +7,7 @@
 
 Deux types de sorties documentaires dans la Plateforme Savr :
 
-1. **Documents PDF** : générés automatiquement ou à la demande, archivés dans Supabase Storage
+1. **Documents PDF** : générés automatiquement ou à la demande, archivés dans Cloudflare R2
 2. **Exports tabulaires (CSV)** : à la demande, filtrés par RLS selon le profil utilisateur
 
 **Règle embargo H+24 (énoncé canonique — source unique de cette section, revue sobriété §12 2026-06-03 C1)** : aucun rapport de collecte n'est généré ni accessible avant **`collectes.realisee_at` + 24h** (`realisee_at` = horodatage du passage de la collecte à `realisee`, émis par le webhook S5 terminal du TMS). Ce délai laisse à l'Admin Savr le temps de corriger une pesée erronée reçue du TMS avant la première génération automatique. La fenêtre est matérialisée par `rapports_rse.disponible_a` (cf. [[04 - Data Model]]) et la génération automatique tombe au batch J+1 6h. Toutes les sous-sections (§1.2, §1.3) renvoient à cet énoncé sans le redéfinir.
@@ -89,7 +89,7 @@ Le PDF dit "rapport RSE" est désormais un document unique multi-pages qui agrè
 
 Justification : l'agence partage ce rapport avec son client final, son branding doit primer sur celui du traiteur opérationnel (qui n'est pas le donneur d'ordre). Pour les collectes programmées par un gestionnaire de lieux : pas d'override branding (le gestionnaire utilise le rapport en interne, pas de partage client final attendu).
 
-**Régénération manuelle** : disponible pour le traiteur_manager depuis l'espace client. **Canal (tranché 2026-06-07, F3 lot ⑫)** : le clic passe par une **Edge Function SERVICE_ROLE** (même mécanisme que le batch J+1) qui vérifie applicativement que le demandeur appartient à une organisation autorisée sur le rapport (mêmes 4 chemins que la policy A8 SELECT), puis régénère le PDF et met à jour la ligne `rapports_rse` (version+1, `regenere_at`, `regenere_par_user_id`). La policy RLS `rr_write_admin` (§09 A8) reste inchangée — **aucune écriture client directe**. Test P1 bloquant CI : tentative de régénération cross-org → 403. Si le rapport a été régénéré après sa première génération automatique (ex: correction de pesée), un indicateur visuel est affiché sur le document et dans l'interface (picto + date de dernière mise à jour). Voir section Indicateurs ci-dessous.
+**Régénération manuelle** : disponible pour le traiteur_manager depuis l'espace client. **Canal (tranché 2026-06-07, F3 lot ⑫)** : le clic passe par une **Next.js API Route SERVICE_ROLE** (même mécanisme que le batch J+1) qui vérifie applicativement que le demandeur appartient à une organisation autorisée sur le rapport (mêmes 4 chemins que la policy A8 SELECT), puis régénère le PDF et met à jour la ligne `rapports_rse` (version+1, `regenere_at`, `regenere_par_user_id`). La policy RLS `rr_write_admin` (§09 A8) reste inchangée — **aucune écriture client directe**. Test P1 bloquant CI : tentative de régénération cross-org → 403. Si le rapport a été régénéré après sa première génération automatique (ex: correction de pesée), un indicateur visuel est affiché sur le document et dans l'interface (picto + date de dernière mise à jour). Voir section Indicateurs ci-dessous.
 
 **Partage (V1)** : pas de lien de partage public natif en V1. Le `traiteur_manager` télécharge le PDF (régénération + download déjà disponibles) et le transmet lui-même à son client organisateur par email. **Lien de partage public horodaté (90 jours) reporté V1.1** (revue sobriété §12 2026-06-03, A1) — aligné sur le QR code de vérification, lui aussi V1.1 : on ne maintient pas en V1 un mécanisme d'accès public (route publique + RLS token-based + expiration) pour un usage occasionnel couvert par le download manuel.
 
@@ -264,15 +264,20 @@ Déclenché par un user depuis son **dashboard** (bouton "Exporter une synthèse
    - Lieux (multi-select) — scopé par périmètre utilisateur
    - Traiteurs (multi-select) — **visible côté gestionnaire de lieux uniquement**. Côté traiteur, filtre absent (par construction = lui-même). **Côté agence : filtre retiré en V1 (revue sobriété §06.11 2026-06-03 — parité absolue §06.04)** ; l'agence exporte sa synthèse comme un traiteur (sans filtre traiteurs). Réévalué post-V1.
    - Types de collecte (multi-select) : `zero_dechet`, `antigaspi`
-   - Client organisateur (multi-select) — visible côté traiteur ET côté agence (refonte 2026-05-04 + extension 2026-05-07)
-   - Commerciaux (multi-select) — visible côté manager traiteur uniquement (pas applicable agence/gestionnaire en V1)
+   - Type d'événement + Taille d'événement (multi-select) — hérités de la barre dashboard (gestionnaire : présents ; traiteur/agence : arriveront avec BL-P2-12), propagés à l'agrégat
+   - Client organisateur (multi-select) — visible côté traiteur ET côté agence (refonte 2026-05-04 + extension 2026-05-07). **Construit dans la modale** (multi-select natif étape 2, tranché 2026-07-07 R20b-2), non hérité de la barre dashboard : la barre 5-dimensions traiteur/agence (BL-P2-12) étant déférée, ce filtre est alimenté par l'endpoint dédié `GET /api/v1/dashboards/synthese-pdf/filtres` scopé par rôle (clients résolus depuis `evenements.nom_client_organisateur`). Non applicable côté gestionnaire.
+   - Commerciaux (multi-select) — visible côté manager traiteur uniquement (pas applicable agence/gestionnaire en V1). **Construit dans la modale** (même endpoint dédié, commerciaux résolus depuis `evenements.created_by ⋈ users`).
 3. Bouton "Générer le rapport" → téléchargement direct du PDF une fois prêt
 
-**Traitement** : asynchrone via Edge Function (timeout 2 min max). Pendant la génération, modal affiche un état "En cours" + spinner. Téléchargement direct dès `pdf_url` disponible (URL pré-signée Supabase Storage temporaire, expire 1h après génération — l'utilisateur doit télécharger immédiatement, pas d'archivage).
+**Traitement** : génération PDF **synchrone** (Next.js API Route + Railway/Puppeteer, réponse en 5-30 s selon volume, timeout 2 min max). Aucune trace en base : pas de `jobs_pdf`, pas de worker, pas de `shared.fichiers`. Pendant la génération, modal affiche un état "En cours" + spinner. Téléchargement direct dès `pdf_url` disponible (URL pré-signée Cloudflare R2 temporaire, expire 1h après génération — l'utilisateur doit télécharger immédiatement, pas d'archivage).
 
 **Idempotence** : pas de contrainte d'unicité — l'utilisateur peut régénérer autant de fois qu'il veut (la génération est gratuite, c'est un simple assemblage de données). Aucun risque de doublon en DB puisque pas de stockage.
 
+**Agrégat vide** : si aucune collecte ne satisfait période + filtres + prédicat embargo, le PDF est tout de même généré avec les sections à zéro et la mention « Aucune collecte sur la période » ; le bouton n'est jamais bloqué (aligné « aucun embargo sur la génération »).
+
 #### Contenu du PDF (template unique)
+
+> **Sections rendues selon le(s) type(s) de collecte sélectionné(s) (tranché 2026-07-07, R20b-2)** : le PDF n'inclut que les sections applicables au filtre « Types de collecte » de l'étape 2. **ZD seul** → sections ZD (chiffres clés ZD, Section 2 flux + camembert, Section 5 évolution + courbe taux, détail ZD), **pas de Section 3 AG**. **AG seul** → sections AG (chiffres clés AG, Section 3 Anti-Gaspi + Top 3 assos, détail AG), **pas de Sections 2/5 ZD**. Filtre « Types de collecte » **décoché** → le PDF couvre **ZD + AG** (toutes sections applicables). Les sections communes (page de garde, Section 4 géographique si ≥ 2 lieux, Section 4bis par traiteur si gestionnaire, annexes, watermark) sont **toujours** présentes selon leurs conditions propres.
 
 **Page de garde** :
 - Logo Savr + logo de l'organisation cible (si `organisations.logo_url` existe)
@@ -293,13 +298,17 @@ Déclenché par un user depuis son **dashboard** (bouton "Exporter une synthèse
 - Camembert associé
 - *(Pas de "taux de recyclage par flux" — supprimé 2026-05-06 : la métrique unique est le taux de recyclage global, calculé sur l'ensemble des 5 flux avec captation par filière.)*
 
-**Section 3 — Ventilation Anti-Gaspi** :
+**Section 3 — Ventilation Anti-Gaspi (AG uniquement)** :
 - Tableau : association bénéficiaire · nombre de collectes · repas donnés · poids
 - Top 3 associations bénéficiaires
 
 **Section 4 — Ventilation géographique** :
 - Tableau : lieu · nombre de collectes · tonnage
 - Affichée uniquement si le périmètre comporte ≥ 2 lieux
+
+**Section 4bis — Ventilation par traiteur (gestionnaire de lieux uniquement)** :
+- Tableau : traiteur · nombre de collectes · tonnage
+- Affichée uniquement côté gestionnaire de lieux (cf. §06.05 §4) — non rendue pour traiteur/agence (périmètre = organisation elle-même)
 
 **Section 5 — Évolution mensuelle** :
 - Graphique barres : tonnage mois par mois sur la période
@@ -331,7 +340,7 @@ Déclenché par un user depuis son **dashboard** (bouton "Exporter une synthèse
 
 #### RLS (refonte 2026-05-05)
 
-- Génération uniquement, pas de stockage. RLS appliquée à la **lecture des collectes sources** (l'Edge Function tourne avec le JWT du demandeur).
+- Génération uniquement, pas de stockage. RLS appliquée à la **lecture des collectes sources** (la Route API lit les collectes avec le JWT du demandeur).
 - Manager traiteur : génère sur toutes les collectes de l'organisation
 - Commercial traiteur : génère sur **toutes les collectes de l'organisation** (RLS lecture `organisation_id`, alignée manager — révision 2026-05-29)
 - Gestionnaire de lieux : génère sur les collectes liées à ses lieux (via `organisations_lieux`)
@@ -343,7 +352,7 @@ Déclenché par un user depuis son **dashboard** (bouton "Exporter une synthèse
 
 ### Principe
 
-Disponibles pour tous les profils, filtrés automatiquement par RLS — chaque utilisateur n'exporte que les données auxquelles il a accès sur l'interface. Coût : 0€ (Edge Function Supabase sur l'infra existante).
+Disponibles pour tous les profils, filtrés automatiquement par RLS — chaque utilisateur n'exporte que les données auxquelles il a accès sur l'interface. Coût : 0€ (Next.js API Route sur l'infra existante).
 
 ### Exports disponibles par profil
 

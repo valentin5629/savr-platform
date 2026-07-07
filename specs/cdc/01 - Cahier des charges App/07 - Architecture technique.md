@@ -226,7 +226,7 @@ Tout le code est versionné sur GitHub. Les déploiements en prod sont automatiq
 4. Migration DB (Supabase CLI)
    → Applique les migrations en prod
 
-5. Déploiement frontend + Edge Functions
+5. Déploiement frontend + API Routes (Vercel)
    → Go live
 ```
 
@@ -263,7 +263,7 @@ Si un bug critique est détecté en prod après déploiement : revert du commit 
 ### Sentry (error tracking)
 
 - **Plan** : gratuit (< 5 000 erreurs/mois — largement suffisant pour les volumes Savr V1)
-- **Intégré dans** : frontend Next.js + Edge Functions Supabase
+- **Intégré dans** : frontend Next.js + API Routes Next.js (Vercel)
 - **Ce qu'il capture** : toute exception non gérée avec stacktrace, contexte utilisateur (rôle, organisation_id), et la requête ayant déclenché l'erreur
 - **Alertes** : email à Val dès qu'une nouvelle erreur apparaît (pas un doublon d'une erreur connue)
 - **Upgrade** : si Savr dépasse 5 000 erreurs/mois, c'est le signe d'un problème structurel à corriger — pas un signal d'upgrade plan Sentry
@@ -314,7 +314,7 @@ Aucun secret ne transite dans le code ou le repo GitHub. Toutes les clés API, c
 
 Supabase Pro inclut des backups quotidiens automatiques avec rétention 7 jours. En cas de corruption ou suppression accidentelle : restauration possible jusqu'à J-7 depuis le dashboard Supabase. Délai de restauration : < 30 minutes.
 
-**Point d'attention** : Supabase Storage (fichiers PDF) n'est PAS sauvegardé automatiquement sur le plan Pro. Les PDFs générés sont reconstructibles à la demande via Puppeteer (les données source sont en DB). Une régénération en masse est possible en cas de perte.
+**Point d'attention** : Cloudflare R2 (fichiers PDF) n'est PAS sauvegardé automatiquement. Les PDFs générés sont reconstructibles à la demande via Puppeteer (les données source sont en DB). Une régénération en masse est possible en cas de perte.
 
 ### Plan de continuité opérationnelle
 

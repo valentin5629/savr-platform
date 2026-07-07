@@ -125,4 +125,22 @@ describe('M3.5 / route synthèse PDF — génération synchrone', () => {
     const res = await callPost(post({ from: '2026-01-01', to: '2026-06-30' }));
     expect(res.status).toBe(502);
   });
+
+  it('filtres Client organisateur + Commercial propagés au snapshot (§1.6 étape 2)', async () => {
+    await callPost(
+      post({
+        from: '2026-01-01',
+        to: '2026-06-30',
+        types: ['zero_dechet'],
+        client_organisateur_ids: ['cli-1', 'cli-2'],
+        commercial_ids: ['com-1'],
+      }),
+    );
+    const params = buildSyntheseSnapshot.mock.calls[0]?.[2] as {
+      clientOrgaIds: string[];
+      commercialIds: string[];
+    };
+    expect(params.clientOrgaIds).toEqual(['cli-1', 'cli-2']);
+    expect(params.commercialIds).toEqual(['com-1']);
+  });
 });

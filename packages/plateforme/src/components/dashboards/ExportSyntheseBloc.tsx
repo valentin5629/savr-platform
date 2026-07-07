@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
+import { MultiSelectFilter, type MultiOption } from './MultiSelectFilter.js';
 import type { CollecteType } from './CollecteTypeTabs.js';
 import type { DashboardFilters } from './DashboardFilterBar.js';
 
@@ -81,6 +82,12 @@ export function ExportSyntheseBloc({ filters, tab }: Props) {
   const [includeBoth, setIncludeBoth] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Filtres modale-natifs (§1.6 étape 2, absents de la barre dashboard traiteur/agence) :
+  // options chargées à l'ouverture depuis /synthese-pdf/filtres (scopées par rôle).
+  const [clientOptions, setClientOptions] = useState<MultiOption[]>([]);
+  const [commercialOptions, setCommercialOptions] = useState<MultiOption[]>([]);
+  const [clientIds, setClientIds] = useState<string[]>([]);
+  const [commercialIds, setCommercialIds] = useState<string[]>([]);
 
   const openModal = () => {
     // Pré-remplissage depuis les filtres globaux du dashboard.
@@ -88,9 +95,28 @@ export function ExportSyntheseBloc({ filters, tab }: Props) {
     setTo(filters?.to ?? '');
     setPreset('perso');
     setIncludeBoth(false);
+    setClientIds([]);
+    setCommercialIds([]);
     setError(null);
     setStep(2);
     setOpen(true);
+    // Options Client organisateur / Commercial (scopées par rôle côté serveur).
+    void fetch('/api/v1/dashboards/synthese-pdf/filtres')
+      .then((r) =>
+        r.ok ? r.json() : { data: { clients: [], commerciaux: [] } },
+      )
+      .then(
+        (j: {
+          data?: { clients?: MultiOption[]; commerciaux?: MultiOption[] };
+        }) => {
+          setClientOptions(j.data?.clients ?? []);
+          setCommercialOptions(j.data?.commerciaux ?? []);
+        },
+      )
+      .catch(() => {
+        setClientOptions([]);
+        setCommercialOptions([]);
+      });
   };
 
   const applyPreset = (p: Preset) => {
@@ -135,6 +161,8 @@ export function ExportSyntheseBloc({ filters, tab }: Props) {
           traiteur_ids: filters?.traiteur_ids ?? [],
           type_evenement_ids: filters?.type_evenement_ids ?? [],
           taille_evenements: filters?.taille_evenement_codes ?? [],
+          client_organisateur_ids: clientIds,
+          commercial_ids: commercialIds,
         }),
       });
       const json = (await res.json().catch(() => ({}))) as {
@@ -276,6 +304,26 @@ export function ExportSyntheseBloc({ filters, tab }: Props) {
                 Inclure les deux types (Zéro-Déchet + Anti-Gaspi)
               </label>
             </div>
+            {clientOptions.length > 0 && (
+              <MultiSelectFilter
+                label="Client organisateur"
+                options={clientOptions}
+                selected={clientIds}
+                onChange={setClientIds}
+                allLabel="Tous les clients"
+                testid="synthese-filtre-clients"
+              />
+            )}
+            {commercialOptions.length > 0 && (
+              <MultiSelectFilter
+                label="Commercial"
+                options={commercialOptions}
+                selected={commercialIds}
+                onChange={setCommercialIds}
+                allLabel="Tous les commerciaux"
+                testid="synthese-filtre-commerciaux"
+              />
+            )}
             <div>
               <p className="text-sm font-medium text-savr-neutral-800">
                 Filtres hérités du tableau de bord
@@ -306,6 +354,12 @@ export function ExportSyntheseBloc({ filters, tab }: Props) {
               </li>
               {inheritedFilters.length > 0 && (
                 <li>Filtres : {inheritedFilters.join(' · ')}</li>
+              )}
+              {clientIds.length > 0 && (
+                <li>Clients : {clientIds.length} sélectionné(s)</li>
+              )}
+              {commercialIds.length > 0 && (
+                <li>Commerciaux : {commercialIds.length} sélectionné(s)</li>
               )}
             </ul>
             <p className="text-xs text-savr-neutral-400">

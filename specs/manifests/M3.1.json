@@ -434,10 +434,10 @@
     {
       "id": "M3.1-bloc8-export-pdf",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:192",
-      "artefact": "packages/plateforme/src/components/dashboards/ExportSyntheseBloc.tsx + packages/plateforme/src/app/(traiteur)/traiteur/page.tsx",
-      "test": "M3.1 / synthèse traiteur — périmètre opérationnel (0 fuite inter-org)",
+      "artefact": "packages/plateforme/src/components/dashboards/ExportSyntheseBloc.tsx + packages/plateforme/src/app/api/v1/dashboards/synthese-pdf/filtres/route.ts + packages/plateforme/src/app/(traiteur)/traiteur/page.tsx",
+      "test": "M3.1 / synthèse traiteur — périmètre opérationnel (0 fuite inter-org) + M3.1 / synthèse — options filtres modale (client organisateur + commercial)",
       "statut": "implemented",
-      "libelle": "Bloc 8 ZD/AG « Exporter une synthèse PDF » (§06.04 l.192/272) : bouton dashboard → modale de génération (pré-remplie, type figé selon onglet) → route synchrone /api/v1/dashboards/synthese-pdf. Périmètre traiteur = collectes opérées (traiteur_operationnel_organisation_id, §12 §1.6 l.246)."
+      "libelle": "Bloc 8 ZD/AG « Exporter une synthèse PDF » (§06.04 l.192/272) : bouton dashboard → modale de génération (pré-remplie, type figé selon onglet) → route synchrone /api/v1/dashboards/synthese-pdf. Périmètre traiteur = collectes opérées (traiteur_operationnel_organisation_id, §12 §1.6 l.246). Filtres modale Client organisateur + Commercial (manager) construits dans la modale via /synthese-pdf/filtres (décision Val 2026-07-07)."
     }
   ],
   "cdc_source_hash": {

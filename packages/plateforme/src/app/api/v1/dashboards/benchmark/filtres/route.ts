@@ -13,6 +13,8 @@ const ALLOWED_ROLES = [
   'gestionnaire_lieux',
   'traiteur_manager',
   'traiteur_commercial',
+  // Agence = réplique stricte §06.04 (benchmark 4 dimensions, sans liste traiteurs).
+  'agence',
 ] as const;
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -38,13 +40,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     },
   );
 
+  // Traiteur ET agence : pas de liste traiteurs (préservation compétitive) → 4 dims.
   const isTraiteur =
     auth.ctx.role === 'traiteur_manager' ||
-    auth.ctx.role === 'traiteur_commercial';
+    auth.ctx.role === 'traiteur_commercial' ||
+    auth.ctx.role === 'agence';
 
   const [lieux, traiteurs, types] = await Promise.all([
     supabase.rpc('f_benchmark_lieux_parc'),
-    // Rôle traiteur : pas de filtre par traiteur nommé (compétitif) → liste vide.
+    // Rôle traiteur/agence : pas de filtre par traiteur nommé (compétitif) → liste vide.
     isTraiteur
       ? Promise.resolve({ data: [], error: null })
       : supabase.rpc('f_benchmark_traiteurs_parc'),

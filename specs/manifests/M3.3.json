@@ -45,7 +45,10 @@
     "M3.3/AGENCE01_bouton_renouvellement_poste_endpoint",
     "M3.3/blocs_agence_top_acteurs_null",
     "M3.3/blocs_agence_zd_sans_bloc7",
-    "M3.3/blocs_agence_ag_associations"
+    "M3.3/blocs_agence_ag_associations",
+    "M3.3/benchmark_agence_autorise",
+    "M3.3/benchmark_agence_traiteur_ids_rejete",
+    "M3.3/benchmark_filtres_agence_sans_liste_traiteurs"
   ],
   "deliverables": [
     {
@@ -223,6 +226,14 @@
       "test": "M3.3/blocs_agence_zd_sans_bloc7",
       "statut": "implemented",
       "libelle": "Bloc 3 ZD agence — jauges benchmark parc RÉEL (remplace stub R20a), réplique stricte §06.04 : encart BenchmarkFilterBar 4 dimensions + gauges alimentées par kgParPaxParFlux."
+    },
+    {
+      "id": "M3.3-bloc3-benchmark-role-agence",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:36",
+      "artefact": "packages/plateforme/src/app/api/v1/dashboards/benchmark/route.ts + packages/plateforme/src/app/api/v1/dashboards/benchmark/filtres/route.ts",
+      "test": "M3.3/benchmark_agence_autorise + M3.3/benchmark_agence_traiteur_ids_rejete + M3.3/benchmark_filtres_agence_sans_liste_traiteurs",
+      "statut": "implemented",
+      "libelle": "Rôle agence autorisé sur /dashboards/benchmark(+/filtres) — corrige le 403 latent (ALLOWED_ROLES sans agence, activé par le vrai Bloc 3 ZD agence de R20b, relevé en revue conformité). Même garde compétitive que le traiteur : traiteur_ids rejeté (403), liste traiteurs vide (benchmark 4 dimensions, §06.04 l.143 / §06.11)."
     },
     {
       "id": "M3.3-bloc5-prochaines",

@@ -8,6 +8,9 @@ const ALLOWED_ROLES = [
   'gestionnaire_lieux',
   'traiteur_manager',
   'traiteur_commercial',
+  // Agence = réplique stricte §06.04 : Bloc 3 ZD benchmark 4 dimensions
+  // (traiteur_ids rejeté, même garde compétitive que le traiteur, §06.11).
+  'agence',
 ] as const;
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -62,11 +65,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const periodeDebut = searchParams.get('periode_debut');
   const periodeFin = searchParams.get('periode_fin');
 
-  // Garde : les rôles traiteur ne peuvent pas passer traiteur_ids (§04 préservation
-  // compétitive) — doublée côté fonction (RAISE).
+  // Garde : les rôles traiteur ET agence ne peuvent pas passer traiteur_ids (§04
+  // préservation compétitive, §06.04 l.143 / §06.11) — doublée côté fonction (RAISE).
   const isTraiteur =
     auth.ctx.role === 'traiteur_manager' ||
-    auth.ctx.role === 'traiteur_commercial';
+    auth.ctx.role === 'traiteur_commercial' ||
+    auth.ctx.role === 'agence';
   if (isTraiteur && traiteurIds) {
     return NextResponse.json(
       {

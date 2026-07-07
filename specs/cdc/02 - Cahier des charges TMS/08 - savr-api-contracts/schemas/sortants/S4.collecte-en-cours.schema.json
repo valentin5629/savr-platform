@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.gosavr.io/2026.04/sortants/S4.collecte-en-cours.schema.json",
+  "title": "S4 — POST /webhooks/tms/collecte-en-cours (collecte.en_cours)",
+  "description": "TMS → Plateforme. Chauffeur démarre la collecte. Champ geoloc retiré (sobriété Bloc B B4 — géoloc traitée côté TMS M11). NB : enveloppe omise dans la prose, normalisée 2026-06-03.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "event_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+    "emis_le": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/timestamp" },
+    "occurred_at": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/timestamp" },
+    "source": { "type": "string", "const": "tms" },
+    "type": { "type": "string", "const": "collecte.en_cours" },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "collecte_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+        "tournee_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+        "demarree_le": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/timestamp" },
+        "chauffeur_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" }
+      },
+      "required": ["collecte_id", "tournee_id", "demarree_le", "chauffeur_id"]
+    }
+  },
+  "required": ["event_id", "occurred_at", "source", "type", "data"]
+}

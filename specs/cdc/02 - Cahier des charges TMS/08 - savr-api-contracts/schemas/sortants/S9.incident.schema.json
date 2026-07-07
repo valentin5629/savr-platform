@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.gosavr.io/2026.04/sortants/S9.incident.schema.json",
+  "title": "S9 — POST /webhooks/tms/incident (incident.declare)",
+  "description": "TMS → Plateforme. Signalement terrain chauffeur (M05 E9 / E4). NB normalisation 2026-06-03 : enveloppe ajoutée ; gravite = 2 valeurs (warning|critical) — la prose de l'exemple listait info|warning|critical par erreur, la décision sobriété §04 2026-04-30 D1 (info retirée) fait foi.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "event_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+    "emis_le": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/timestamp" },
+    "occurred_at": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/timestamp" },
+    "source": { "type": "string", "const": "tms" },
+    "type": { "type": "string", "const": "incident.declare" },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "incident_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+        "idempotency_key": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+        "collecte_id": { "type": ["string", "null"], "format": "uuid" },
+        "tournee_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+        "type_incident": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/enum_type_incident" },
+        "gravite": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/enum_gravite" },
+        "description": { "type": "string" },
+        "photos": {
+          "type": "array",
+          "items": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/url_signee" }
+        },
+        "appels_effectues": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "destinataire": { "type": "string", "enum": ["traiteur", "ops"] },
+              "created_at": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/timestamp" }
+            },
+            "required": ["destinataire", "created_at"]
+          }
+        },
+        "imputable_a": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/enum_imputable_a" },
+        "declare_le": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/timestamp" },
+        "chauffeur_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+        "statut_collecte_apres": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/enum_statut_collecte_apres" },
+        "geofence_status": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/enum_geofence_status" }
+      },
+      "required": ["incident_id", "idempotency_key", "tournee_id", "type_incident", "gravite", "declare_le", "chauffeur_id", "statut_collecte_apres"]
+    }
+  },
+  "required": ["event_id", "occurred_at", "source", "type", "data"]
+}

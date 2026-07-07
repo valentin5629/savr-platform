@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.gosavr.io/2026.04/sortants/S11.collecte-rejetee.schema.json",
+  "title": "S11 — POST /webhooks/tms/collecte-rejetee (collecte.rejetee_par_tms)",
+  "description": "TMS → Plateforme. Admin TMS rejette définitivement un event DLQ de type collecte.* (M01 W8). Plateforme passe la collecte en rejetee_par_tms. motif_dlq = text libre côté payload (Bloc D D5) ; info utile portée par commentaire_admin ≥10 chars.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "event_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+    "emis_le": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/timestamp" },
+    "occurred_at": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/timestamp" },
+    "source": { "type": "string", "const": "tms" },
+    "type": { "type": "string", "const": "collecte.rejetee_par_tms" },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "event_id_tms_source": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+        "collecte_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+        "motif_dlq": { "type": "string", "description": "Text libre (Bloc D D5). Enum interne TMS non exposé dans le contrat." },
+        "commentaire_admin": { "type": "string", "minLength": 10 },
+        "rejete_par_admin_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+        "rejete_at": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/timestamp" }
+      },
+      "required": ["event_id_tms_source", "collecte_id", "motif_dlq", "commentaire_admin", "rejete_par_admin_id", "rejete_at"]
+    }
+  },
+  "required": ["event_id", "occurred_at", "source", "type", "data"]
+}

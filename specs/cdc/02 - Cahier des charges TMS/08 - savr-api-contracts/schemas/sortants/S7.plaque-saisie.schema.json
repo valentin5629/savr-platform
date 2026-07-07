@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.gosavr.io/2026.04/sortants/S7.plaque-saisie.schema.json",
+  "title": "S7 — POST /webhooks/tms/plaque-saisie (tournee.plaque_saisie)",
+  "description": "TMS → Plateforme. Émis à la saisie manager M03 E4 (plaque + chauffeur) sur tournée avec controle_acces_requis=true. Alimente plateforme.tournees.plaque_immatriculation + chauffeur_nom + plaque_saisie_at. plaque=null pour vélo cargo A Toutes! (chauffeur_nom reste requis). NB normalisation 2026-06-03 : la prose montrait un payload PLAT (champs à la racine) ; normalisé au format commun (enveloppe + data). À valider en coherence-inter-cdc.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "event_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+    "emis_le": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/timestamp" },
+    "occurred_at": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/timestamp" },
+    "source": { "type": "string", "const": "tms" },
+    "type": { "type": "string", "const": "tournee.plaque_saisie" },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tournee_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+        "plaque": { "type": ["string", "null"], "description": "null si vélo cargo A Toutes!." },
+        "chauffeur_nom": {
+          "type": "string",
+          "description": "JOIN chauffeurs.nom_complet via tournees.chauffeur_id. Requis (ajout 2026-05-03)."
+        },
+        "saisie_par_user_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+        "saisie_at": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/timestamp" }
+      },
+      "required": ["tournee_id", "plaque", "chauffeur_nom", "saisie_par_user_id", "saisie_at"]
+    }
+  },
+  "required": ["event_id", "occurred_at", "source", "type", "data"]
+}

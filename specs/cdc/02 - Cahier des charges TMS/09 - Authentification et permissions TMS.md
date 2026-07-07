@@ -254,7 +254,7 @@ Paramètre unique JSONB `parametres_tms.auth.session_duree_jours_par_role` (defa
 
 Paramètre `auth.session_glissante` boolean (default `true`) — flag global toutes rôles V1, ex-`m13_session_glissante`.
 
-**Suppressions revue sobriété §05 2026-05-01 C2** :,,,. Toutes ces variantes étaient à 30 — fusion sans changement de comportement V1.
+**Suppressions revue sobriété §05 2026-05-01 C2** : , , , . Toutes ces variantes étaient à 30 — fusion sans changement de comportement V1.
 
 Remplace la décision D13 M05 (spécifique chauffeur) par une règle commune :
 - **Durée session** : 30 jours glissants par défaut (paramètre `auth.session_duree_jours_par_role->>'<role>'`)
@@ -381,7 +381,7 @@ Documents chauffeur (permis, visite médicale) purgés après 3 ans d'archivage 
 
 ### Isolation par schémas (retournement 2 projets → 1 projet 3 schémas)
 
- → **1 seul projet Supabase**, 3 schémas (`plateforme.*`, `tms.*`, `shared.*`) isolés par **RLS cross-schema deny**. Une seule table `auth.users` partagée physiquement, mais :
+→ **1 seul projet Supabase**, 3 schémas (`plateforme.*`, `tms.*`, `shared.*`) isolés par **RLS cross-schema deny**. Une seule table `auth.users` partagée physiquement, mais :
 
 - **JWT custom claim `app_domain`** (`'plateforme'` \| `'tms'`) posé par hook Supabase Auth au login, basé sur l'origine de la tentative de connexion (sous-domaine `app.gosavr.io` vs `tms.gosavr.io`).
 - **Fonction helper RLS** `app_domain() RETURNS text` lit le claim JWT courant. Toutes les policies RLS TMS ajoutent `AND app_domain() = 'tms'` (sauf exceptions `shared.*`).
@@ -432,6 +432,7 @@ CREATE POLICY prestataires_ops_tms_update_identity ON shared.prestataires
   USING (app_domain() = 'tms' AND has_role(ARRAY['ops_savr']))
   WITH CHECK (app_domain() = 'tms' AND has_role(ARRAY['ops_savr']));
 -- Les colonnes opérationnelles (rayon_intervention_km, coords_siege_*, integration_externe, everest_client_id, type_prestation, has_portail_self_service, statut, date_fin_contrat) restent deny pour ops_savr via GRANT column-level.
+-- retirées V1 (revue sobriété §04 2026-04-30 A3 — vue dérivée tms.vue_prestataires_everest_status sur integrations_logs).
 -- Workflow fin de contrat (M06 E8) : seul admin_tms peut écrire `statut` et `date_fin_contrat`.
 ```
 
@@ -530,7 +531,7 @@ Rotation **annuelle** (retournement vs décision 9.3.16 semestrielle — atelier
 
 ### Isolation stricte Plateforme vs TMS
 
- **(retourné atelier 2026-04-23)** : 1 projet Supabase, 3 schémas (`plateforme.*`, `tms.*`, `shared.*`), isolés par RLS cross-schema deny + claim JWT `app_domain`. Cf. addendum ci-dessus. Le principe d'isolation est maintenu par la sécurité DB (RLS deny par défaut) malgré la DB unique.
+**(retourné atelier 2026-04-23)** : 1 projet Supabase, 3 schémas (`plateforme.*`, `tms.*`, `shared.*`), isolés par RLS cross-schema deny + claim JWT `app_domain`. Cf. addendum ci-dessus. Le principe d'isolation est maintenu par la sécurité DB (RLS deny par défaut) malgré la DB unique.
 
 **Conséquence** : un Ops Savr qui bosse sur les deux apps a **deux comptes** avec deux emails différents (ou le même email dupliqué sur deux `auth.users`). Pas de session partagée, pas de token partagé.
 
@@ -612,7 +613,6 @@ On y ajoute des custom claims via un hook Supabase Auth (ou via `raw_app_meta_da
 }
 ```
 
-**Mise à jour** : les claims sont rafraîchis à chaque login et à chaque refresh token. Toute modification de `users_tms.roles` par l'Admin TMS force un invalidate session (cf. A4).
 
 **Fallback** : pour les policies qui ne peuvent pas s'appuyer sur le JWT (cas complexes), on lit `users_tms` via une fonction `SECURITY DEFINER` cachée pendant la transaction.
 
@@ -1264,6 +1264,8 @@ CREATE POLICY tournees_ajustement_staff_write ON tournees
 -- - SET cout_final_ht = cout_ajuste_ht
 -- - INSERT integrations_logs sortant 'course-cout-calculee' v+1 (push S6 immédiat, pas de seuil)
 
+-- — SUPPRIMÉE (sobriété A3 2026-04-30)
+-- — SUPPRIMÉ (sobriété A3 2026-04-30)
 
 -- Interdiction UPDATE de cout_calcule_ht (figement R2.8 §05 authoritative)
 -- Trigger DB tms.trg_tournees_cout_calcule_immutable (BEFORE UPDATE) :
@@ -1378,9 +1380,11 @@ CREATE POLICY factures_admin_deverrouillage ON factures_prestataires
 --   → RAISE EXCEPTION si (action_deverrouillage|motif_deverrouillage|deverrouillee_at) modifiés
 --     ET NOT auth.user_has_role('admin_tms').
 
+-- revue sobriété §04 2026-04-30 A5 — table supprimée V1.
 -- Audit visuel via factures_prestataires.pdf_url + pdf_extraction_json.
 -- Réintroduction V1.1 si rapprochement ligne-à-ligne devient nécessaire métier.
 
+-- revue sobriété 2026-04-30 B2 — table dédiée supprimée.
 -- Trace via tms.audit_logs action M08_EXPORT_PENNYLANE / M08_EXPORT_PENNYLANE_ANNULEE.
 -- RLS audit_logs standard (lecture staff via policies existantes) + immutabilité applicative D5 M13.
 -- INSERT via fonction tms.audit_log_emit (Edge Function ou trigger M08 W10).
@@ -1551,6 +1555,8 @@ CREATE POLICY suggestions_log_staff_read ON suggestions_attribution_log
 **Rétention** : 2 ans, purge via cron daily DELETE WHERE `cree_le < now() - INTERVAL '2 years'`.
 
 ### 17ter. `everest_coverage_cache` — **Caduc (audit cohérence A4 2026-05-09, purge F3 2026-06-07)**
+
+> Table supprimée — couverture Everest = check local `parametres_algo.everest_codes_postaux`, aucune policy à créer. Bloc conservé pour historique uniquement.
 
 
 
@@ -1953,7 +1959,7 @@ Gestion manuelle possible par Admin TMS pour anticiper (ex: incident de sécurit
   -- UPDATE chauffeurs SET permis_url = NULL, piece_identite_url = NULL WHERE id = ...
   -- INSERT audit_logs action = 'documents_purged_rgpd'
   ```
-- **Retiré V1 (Bloc 3 2026-06-04, arbitrage 3a)** : pas de purge manuelle anticipée. La rétention 3 ans est une obligation employeur transport; une suppression avant terme risquerait de détruire une pièce encore légalement requise. Purge **cron seule** au-delà de 3 ans. Réouverture V1.1 si besoin terrain avéré.
+- **Retiré V1 (Bloc 3 2026-06-04, arbitrage 3a)** : pas de purge manuelle anticipée. La rétention 3 ans est une obligation employeur transport ; une suppression avant terme risquerait de détruire une pièce encore légalement requise. Purge **cron seule** au-delà de 3 ans. Réouverture V1.1 si besoin terrain avéré.
 
 ### Chiffrement et transport
 

@@ -33,7 +33,7 @@ Source : §03 M12 + `parametres_tms` namespace `attribution` + spec détaillée 
 → Ops Savr confirme ou override manuellement
 ```
 
-**Évolution** : si un 2ème prestataire ZD est ajouté, la règle d'attribution sera définie à ce moment-là (ajout dans `parametres_tms` + logique M12). Le code M12 ne contient aucune référence à "Strike" en dur — la règle est portée par `parametres_tms.attribution.regle_zd_prestataire_prioritaire_code` (string code prestataire, seed `'strike'`, modifiable `admin_tms` seul — **F2 tranché Val 2026-06-07** : paramètre ajouté au seed §04 TMS §5, il était utilisé sans exister au data model; simplifié string simple V1, cohérent D11).
+**Évolution** : si un 2ème prestataire ZD est ajouté, la règle d'attribution sera définie à ce moment-là (ajout dans `parametres_tms` + logique M12). Le code M12 ne contient aucune référence à "Strike" en dur — la règle est portée par `parametres_tms.attribution.regle_zd_prestataire_prioritaire_code` (string code prestataire, seed `'strike'`, modifiable `admin_tms` seul — **F2 tranché Val 2026-06-07** : paramètre ajouté au seed §04 TMS §5, il était utilisé sans exister au data model ; simplifié string simple V1, cohérent D11).
 
 ### R1.2 — Collectes AG
 
@@ -174,6 +174,7 @@ si palier.prolongation :
 
 Paliers JSON : `[0h→4h : 1 vacation, sans prolongation]` + `[4h→∞ : 1 vacation, prolongation base 4h]`. Ex (grille réelle Val) : tournée 6 h équipage simple 16 m³ = 240 + 2 × 60 = **360 €**.
 
+
 **Marathon V1** : — **reclassé `forfait_fixe` 100 €/tournée (grille réelle 2026-06-07), cf. R2.5**.
 
 ### R2.3 — Formule `grille_matricielle_zone_type_course` (A Toutes! vélo)
@@ -245,8 +246,8 @@ A Toutes! = intégration Everest. Coût Everest stocké dans `everest_missions.c
 
 Seuil paramétrable : `parametres_tms.m07.delai_annulation_sans_facturation_minutes` (default `180`, ex-`60`).
 
- **Retiré V1 (propagation M07 2026-04-24 D5)**.
- **Remplacé par 3h** (sobriété C3 2026-04-30) — délai de mobilisation chauffeur plus réaliste.
+**Retiré V1 (propagation M07 2026-04-24 D5)**.
+**Remplacé par 3h** (sobriété C3 2026-04-30) — délai de mobilisation chauffeur plus réaliste.
 
 ### R2.7 bis — Annulation pendant tournée `en_cours` = vacation facturée (formalisé revue sobriété §05 2026-05-01 C1)
 
@@ -348,6 +349,7 @@ sinon :
 **Refonte D1 revue sobriété §05 2026-05-01** : ancienne étape `rapproche_ok` (notification "validation requise" + Ops/Admin valide via W4) supprimée V1. Avec zéro tolérance R_M08.1, `montant_ht_prestataire = montant_ht_calcule_tms` → aucune valeur ajoutée à la validation Ops manuelle (juste un clic). Auto-validation directe + notification informative N1 = -1 étape workflow, -1 valeur enum, -1 workflow W4. La supervision Ops a posteriori reste possible via filtre E1 statut `valide` + colonne "Validée par : système" dans la liste. Réintroduction V1.1 si Val/Louis veulent ré-instaurer une revue humaine systématique.
 
 
+
 **Retiré V1 (propagation M08 2026-04-24, D4)** : zéro tolérance strict, pas de seuil, cohérence pratique comptable FR (avoir obligatoire sur écart). Paramètre d'alerte conservé : `m08.seuil_alerte_validation_manuelle_ht` (default 100€) = notification Admin si Ops valide un écart supérieur.
 
 ### R3.4 — Rapprochement ligne-à-ligne **Supprimée V1 revue sobriété 2026-04-30 B1 + table supprimée 2026-04-30 A5**
@@ -429,7 +431,7 @@ nouveau_stock = stock_actuel
 UPDATE stocks_rolls_traiteurs SET quantite_actuelle = nouveau_stock
 ```
 
- → **Obsolète V1 (revue sobriété §08 Bloc A 2026-05-01 A3)** : le stock rolls est lu cross-schema par la Plateforme via la vue `plateforme.v_stocks_rolls` (lecture directe `tms.stocks_rolls_traiteurs`). Aucun push HTTP TMS.
+→ **Obsolète V1 (revue sobriété §08 Bloc A 2026-05-01 A3)** : le stock rolls est lu cross-schema par la Plateforme via la vue `plateforme.v_stocks_rolls` (lecture directe `tms.stocks_rolls_traiteurs`). Aucun push HTTP TMS.
 
 ### R4.2 — Alerte stock bas
 
@@ -934,7 +936,7 @@ Une tournée ne peut pas passer en `statut=en_cours` tant que les items obligato
 
 ### R_M05.2 — Saisie plaque par chauffeur uniquement — **Retirée V1 (propagation suppression saisie plaque terrain 2026-06-04, arbitrage Val)**
 
- Plus de saisie plaque par le chauffeur. La plaque pour contrôle d'accès / registre est la plaque **pré-saisie manager** (`tournees.plaque_preassignee_manager`, webhook S7 émis depuis M03 E4 — voir R_M04.CONTROLE_ACCES). Colonne `tms.tournees.plaque_saisie_terrain` supprimée (§04). Email client T+3h déjà supprimé V1 (propagation Q10 2026-04-24).
+Plus de saisie plaque par le chauffeur. La plaque pour contrôle d'accès / registre est la plaque **pré-saisie manager** (`tournees.plaque_preassignee_manager`, webhook S7 émis depuis M03 E4 — voir R_M04.CONTROLE_ACCES). Colonne `tms.tournees.plaque_saisie_terrain` supprimée (§04). Email client T+3h déjà supprimé V1 (propagation Q10 2026-04-24).
 
 ### R_M05.3 — Auto-tare contenant paramétrable (D7/D8/D9)
 
@@ -950,7 +952,7 @@ Le contenant virtuel `sans_contenant` (tare = 0) représente une pesée sac plas
 
 **Audit V1 (au lieu d'alerte M11)** : chaque pesée 0 kg INSERT une ligne `tms.audit_logs` (action `M05_PESEE_ZERO_KG`, `acteur_user_id = chauffeur`, `diff = {pesee_id, contenant, poids_brut, collecte_id}`). Exploitation a posteriori par Admin TMS via SQL ad-hoc Supabase Studio (détection fraude/négligence chauffeur si pattern récurrent observé).
 
- → **Supprimée revue sobriété §05 2026-05-01 A3**. Code `pattern_pesee_zero_kg` jamais seedé au catalogue M11 (R_M11.1 violation latente). Détection abus = audit log + requête SQL admin, pas alerte temps réel.
+→ **Supprimée revue sobriété §05 2026-05-01 A3**. Code `pattern_pesee_zero_kg` jamais seedé au catalogue M11 (R_M11.1 violation latente). Détection abus = audit log + requête SQL admin, pas alerte temps réel.
 
 ### R_M05.6 — Équivalent repas AG = 0,45 kg / repas
 
@@ -966,7 +968,7 @@ Bouton "J'arrive" disponible dès `en_route` sans délai (pas de 3 min). Clic = 
 
 **Détection abus a posteriori (V1)** : requête SQL ad-hoc Admin TMS sur `audit_logs` (compte par chauffeur sur fenêtre glissante). Pas de widget M11 dédié, pas de paramètre seuil.
 
- → **Supprimés revue sobriété §05 2026-05-01 A4**. Comportement attendu = chauffeurs en immeuble = fallback légitime fréquent → seuil paramétrable + widget dédié = sur-ingénierie. Audit log seul suffit V1; widget M11 réintroduit V1.1 si Admin TMS constate effectivement un abus systémique.
+→ **Supprimés revue sobriété §05 2026-05-01 A4**. Comportement attendu = chauffeurs en immeuble = fallback légitime fréquent → seuil paramétrable + widget dédié = sur-ingénierie. Audit log seul suffit V1 ; widget M11 réintroduit V1.1 si Admin TMS constate effectivement un abus systémique.
 
 ### R_M05.9 — Queue offline cap 3 tournées + 150 photos + 300 Mo (D2)
 
@@ -982,7 +984,7 @@ Durée de session par rôle pilotée par **paramètre unique JSON `parametres_tm
 
 Refresh silencieux (`last_seen_at` touché à chaque requête PWA authentifiée). Invalidation explicite possible via Admin TMS M06 (bouton "Déconnecter tous les appareils" — C5 M05). Purge pg_cron horaire des sessions expirées.
 
- → **Supprimé revue sobriété §05 2026-05-01 C2** — fusionné dans `auth.session_duree_jours_par_role` (clé `chauffeur`). Évite la divergence entre 3 paramètres distincts (`m05_session_duree_jours`, `m13_session_duree_jours`, implicite manager).
+→ **Supprimé revue sobriété §05 2026-05-01 C2** — fusionné dans `auth.session_duree_jours_par_role` (clé `chauffeur`). Évite la divergence entre 3 paramètres distincts (`m05_session_duree_jours`, `m13_session_duree_jours`, implicite manager).
 
 ### R_M05.12 — Push notifications V1 : attribution + H-30 + alerte Ops (D16)
 
@@ -1012,7 +1014,7 @@ Au retour de connexion, la PWA rejoue la queue IndexedDB avec `idempotency_key` 
 
 Job pg_cron horaire scanne `integrations_logs` où `statut='echec_final' AND type_event LIKE '%_dlq' AND created_at > now() - interval '24 hours'`. Émet alerte M11 **`warning` si > 0 items DLQ** (un seul niveau de gravité).
 
- → **Supprimé revue sobriété §05 2026-05-01 B2**. Le double seuil n'apporte rien tant qu'Ops ack la première alerte (aucun item DLQ silencieux). Escalade humaine via traitement de l'alerte warning (lien direct interface Admin TMS pour rejouabilité manuelle V1.1). Réintroduction V1.1 si pattern d'inaction Ops observé sur >10 items DLQ.
+→ **Supprimé revue sobriété §05 2026-05-01 B2**. Le double seuil n'apporte rien tant qu'Ops ack la première alerte (aucun item DLQ silencieux). Escalade humaine via traitement de l'alerte warning (lien direct interface Admin TMS pour rejouabilité manuelle V1.1). Réintroduction V1.1 si pattern d'inaction Ops observé sur >10 items DLQ.
 
 Lien direct vers interface Admin TMS pour rejouabilité manuelle (V1.1).
 
@@ -1167,7 +1169,7 @@ Durée session pour `manager_prestataire` pilotée par **paramètre unique JSON 
 
 Le manager prestataire peut créer un nouveau chauffeur depuis M03 E6 (fiche chauffeur). Workflow : saisie email + nom + téléphone + upload permis + numéro permis + date visite médicale. **Bootstrap unique** : email "Définir mon mot de passe" envoyé au chauffeur avec **magic link 30 min** (template `chauffeur_bienvenue`). Le chauffeur clique le lien, définit son password (≥ 8 car), accède à la PWA M05. Aucune transmission de password en clair par email.
 
- → **Chemin "password généré" supprimé revue sobriété §05 2026-05-01 B1**. Cohérence avec R_M03.1 (reset password = magic link 30 min) — un seul flow d'établissement password = magic link. Réduit la surface d'attaque (pas de password en clair par email) et simplifie l'implémentation (1 chemin de code au lieu de 2).
+→ **Chemin "password généré" supprimé revue sobriété §05 2026-05-01 B1**. Cohérence avec R_M03.1 (reset password = magic link 30 min) — un seul flow d'établissement password = magic link. Réduit la surface d'attaque (pas de password en clair par email) et simplifie l'implémentation (1 chemin de code au lieu de 2).
 
 Admin TMS reste autorisé à créer des chauffeurs côté back-office M06 (cumul de droits sans conflit, même flow magic link). Archivage chauffeur = `tms.chauffeurs.statut='archive'` (soft delete) + invalidation toutes sessions actives (`auth_sessions_tms.revoked_at=now()`).
 
@@ -1270,7 +1272,7 @@ Cron `m11_purger_archives` mensuel (1er du mois 4h) :
 1. **Étape 1 (dump pré-purge)** : INSERT INTO `tms.alertes_archive_critical` SELECT * FROM `tms.alertes` WHERE `criticite = 'critical' AND statut = 'resolue' AND resolue_at < now() - interval '3 years'`. Table archive append-only (RLS admin_tms read-only, pas d'UPDATE/DELETE).
 2. **Étape 2 (purge)** : DELETE FROM `tms.alertes` WHERE `statut = 'resolue' AND resolue_at < now() - interval '3 years'` (toutes criticités).
 
- → **Supprimé revue sobriété §05 2026-05-01 B3**. Trigger sur opération destructive = piège (perf sur purge bulk + complexité debug + couplage avec audit_logs alors que le contenu purgé est une alerte, pas une mutation métier). Remplacé par dump explicite dans table dédiée `tms.alertes_archive_critical` (séparation des préoccupations).
+→ **Supprimé revue sobriété §05 2026-05-01 B3**. Trigger sur opération destructive = piège (perf sur purge bulk + complexité debug + couplage avec audit_logs alors que le contenu purgé est une alerte, pas une mutation métier). Remplacé par dump explicite dans table dédiée `tms.alertes_archive_critical` (séparation des préoccupations).
 
 Cohérent avec rétention `ajustements_couts_log` M07. **Bloc 3 sobriété 2026-04-25 A7** : statut `expiree` dégagé, scope rétention restreint à `resolue` uniquement.
 

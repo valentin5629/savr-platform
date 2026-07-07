@@ -45,8 +45,8 @@ Les deux migrations sont **simultanées** sur la même fenêtre temporelle :
 4. **Référentiel lieux initié via migration** (normalisé + enrichi : adresse accès unique — `adresse_grand_public` supprimée revue sobriété M05 2026-04-29, accès office, stationnement enum, type véhicule max, traiteurs opérant) — ensuite **modifiable Admin Savr** exclusivement. **Précision 2026-06-07 (Phase 10, tranché Val)** : source = Data Type Bubble `Lieu événementiels` (773 lignes, dédupliquées par adresse normalisée) + 2e passe sur les adresses des collectes ; `type_vehicule_max` initialisé `poids_lourd` (resserrage Admin lieu par lieu), `stationnement`/`acces_office` NULL (cf. cas particulier 2026-05-08 ci-dessous). Fiche complète : `04 - Migration/02 - Mappings/03`.
 5. **Associations et transporteurs AG** : référentiel minimal pour que l'algo fonctionne dès le lancement
 6. **Historique complet des collectes clôturées** (tout l'historique Bubble migré, pas seulement 12 mois) — obligatoire avant ouverture nouvelle app pour ne pas casser le reporting RSE client ni l'accès au registre réglementaire
-7. **Amendé 2026-06-07 (Phase 10, tranché Val)** — Bubble n'a aucun Data Type Facture : **Pennylane est la source de vérité comptable**, aucune migration de factures. La continuité est assurée côté Pennylane; le rapprochement `entites_facturation.pennylane_customer_id` se fait post-import (match SIRET puis raison sociale, listing manuel des non-matchés — fiche `04 - Migration/02 - Mappings/01` §3). La table `factures` démarre vide à la bascule.
-8. **Amendé 2026-06-07 (Phase 10, tranché Val)** — aucune trace exploitable dans Bubble (colonne CERFA vide à 100 %) : bordereaux/attestations/rapports d'impact historiques = **archive cold uniquement** (export Bubble complet, §Phase 4). Le registre réglementaire est reconstruit depuis les collectes migrées (badge `historique_partiel` le cas échéant); les rapports restent régénérables à la demande via §12. Items 16-18 de `04 - Migration/07 - Donnees abandonnees`.
+7. **Amendé 2026-06-07 (Phase 10, tranché Val)** — Bubble n'a aucun Data Type Facture : **Pennylane est la source de vérité comptable**, aucune migration de factures. La continuité est assurée côté Pennylane ; le rapprochement `entites_facturation.pennylane_customer_id` se fait post-import (match SIRET puis raison sociale, listing manuel des non-matchés — fiche `04 - Migration/02 - Mappings/01` §3). La table `factures` démarre vide à la bascule.
+8. **Amendé 2026-06-07 (Phase 10, tranché Val)** — aucune trace exploitable dans Bubble (colonne CERFA vide à 100 %) : bordereaux/attestations/rapports d'impact historiques = **archive cold uniquement** (export Bubble complet, §Phase 4). Le registre réglementaire est reconstruit depuis les collectes migrées (badge `historique_partiel` le cas échéant) ; les rapports restent régénérables à la demande via §12. Items 16-18 de `04 - Migration/07 - Donnees abandonnees`.
 
 ### Traitement manuel des cas manquants
 
@@ -143,8 +143,8 @@ Le type d'organisation `lieu_independant` est supprimé (cf. [[09 - Authentifica
 
 _Aucune — module stabilisé pour V1. (2026-04-28)_
 
- **Clôturé** : ~30 utilisateurs actifs. (2026-04-28)
- **Clôturé** : pas de conditions particulières. Migration = récupérer types de packs + crédits restants par organisation. (2026-04-28)
+**Clôturé** : ~30 utilisateurs actifs. (2026-04-28)
+**Clôturé** : pas de conditions particulières. Migration = récupérer types de packs + crédits restants par organisation. (2026-04-28)
 
 ## Liens
 

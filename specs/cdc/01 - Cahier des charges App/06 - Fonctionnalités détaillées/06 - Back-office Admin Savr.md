@@ -540,8 +540,7 @@ Voir [[02 - Templates emails V1]] template `admin_demande_ajout_lieu`.
 
 > **Retiré V1 (Sujet 4, 2026-05-26)** : le mécanisme « Autre + texte libre + normalisation » est **supprimé** (pas seulement reporté). `types_evenements` est figé à 4 catégories de format de service (`cocktail_aperitif`, `cocktail_repas_complet`, `repas_assis`, `autre`) ; `autre` est un fourre-tout sélectionnable **sans saisie**. La colonne `evenements.type_evenement_libre` est supprimée (§04), la règle `R_type_evenement_libre` est retirée (§05), et le champ libre disparaît du formulaire §06.01. Plus aucune file de normalisation, ni en V1 ni en V1.1. Extension du référentiel = **ajout direct d'une ligne** dans `types_evenements` (Admin/Supabase), sans UI dédiée. Les événements `autre` sont comptés comme un bucket benchmark normal.
 >
-> Contenu historique conservé pour traçabilité :
-> 
+>
 
 ---
 
@@ -680,7 +679,7 @@ Si aucun coefficient : message "Aucun coefficient communiqué" + bouton "Ajouter
 - Changer le rôle d'un utilisateur
 - **Impersonner un utilisateur** (admin-only — bandeau UI + log, voir [[09 - Authentification et permissions]])
 - Suppression compte soft delete (48h validation) — admin-only sur hard delete
-- **Retiré V1 (tranché Val 2026-06-07 F6)** — la fusion d'organisations est une opération exceptionnelle traitée par **script SQL assisté** (admin/Supabase, hors UI). Bouton + ligne matrice §09 retirés; UI complète avec spec de fusion (users, événements, collectes, factures, packs, remises) = V1.1.
+- **Retiré V1 (tranché Val 2026-06-07 F6)** — la fusion d'organisations est une opération exceptionnelle traitée par **script SQL assisté** (admin/Supabase, hors UI). Bouton + ligne matrice §09 retirés ; UI complète avec spec de fusion (users, événements, collectes, factures, packs, remises) = V1.1.
 - Modifier le logo de l'organisation
 - **Éditer `tarif_refacture_pax_zd`** (admin-only, traiteurs uniquement) : champ numérique €/pax. Validation : `>= 0`, max 2 décimales. Audit_log automatique. Pas de cascade UI — les dashboards traiteur recalculent à la prochaine ouverture (KPI live). Tooltip champ : "Tarif que ce traiteur refacture à son client final par couvert sur ses collectes ZD. Sert au calcul de sa marge affichée dans son dashboard."
 - **Saisir / éditer le coefficient de perte labo** *(ajout 2026-05-22 — admin-only, traiteurs uniquement)* : via l'onglet Coefficient de perte labo de la fiche organisation (cf. sous-section dédiée ci-dessus). Saisie par année de référence, `coefficient_kg_couvert ≥ 0` (4 décimales max). Audit_log automatique. Pas de cascade UI — l'espace gestionnaire recalcule l'estimation à la prochaine ouverture.
@@ -970,6 +969,7 @@ Aucun nouveau champ — `volume_estime_repas` reste sur `collectes` (pas `evenem
 | **§7 type_vehicule_max enum aligné transporteurs** *(2026-05-08)* | Enum spécifique lieu (`vl/camion_16m3/...`) | Cohérence cross-table indispensable pour la règle de compatibilité algo. Hiérarchie unique. |
 | **§7 4 nouveaux champs admin/ops only (commentaire, SIREN, email gestionnaire, Référencé Citeo)** *(2026-05-08)* | Champs ouverts à tous | Données internes Savr (commercial, SIREN propriétaire, REP) — RLS column-level. |
 | **§7 SIREN lieu distinct du SIREN organisation gestionnaire** *(2026-05-08)* | Auto-fill depuis gestionnaire | Le lieu peut être propriété d'une entité juridique différente (filiale, lieu indépendant géré par un tiers). |
+| → **Mécanisme entièrement retiré (Sujet 4, 2026-05-26)** | | Le mécanisme « Autre + texte libre + normalisation » est supprimé (pas reporté). `types_evenements` = 4 catégories figées, `autre` = fourre-tout sans saisie, extension par ajout direct de ligne (Supabase). Cf. section retirée ci-dessus. |
 | **§8 Vue liste split nb collectes ZD / AG** *(2026-05-08)* | Colonne unique cumul | Permet d'identifier le profil d'usage (orienté ZD, AG ou mix) sans drill-down. |
 | **§8 Logo organisation fiche** *(2026-05-08)* | Logo invisible (DB only) | Édition admin/ops directe sans passer par les rapports RSE. |
 

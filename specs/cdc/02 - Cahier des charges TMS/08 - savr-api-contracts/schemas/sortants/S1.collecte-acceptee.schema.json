@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.gosavr.io/2026.04/sortants/S1.collecte-acceptee.schema.json",
+  "title": "S1 — POST /webhooks/tms/collecte-acceptee (collecte.acceptee)",
+  "description": "TMS → Plateforme. Acceptation (a) manager Strike/Marathon M03, (b) A Toutes! mission_dispatched M14, (c) failover Ops M14. Un seul S1 par collecte même en multi-vélo. NB normalisation 2026-06-03 : type='collecte.acceptee' sans préfixe tms. (la prose montrait 'tms.collecte.acceptee' — incohérence vs format commun + S11 + entrants, normalisée, source='tms' porte la direction). À valider en coherence-inter-cdc.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "event_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+    "emis_le": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/timestamp" },
+    "occurred_at": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/timestamp" },
+    "source": { "type": "string", "const": "tms" },
+    "type": { "type": "string", "const": "collecte.acceptee" },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "collecte_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+        "prestataire_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+        "chauffeur": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "chauffeur_id null pour A Toutes! (coursier non géré Savr à l'acceptation, nom=coursier_nom Everest).",
+          "properties": {
+            "chauffeur_id": { "type": ["string", "null"], "format": "uuid" },
+            "nom": { "type": "string" },
+            "prenom": { "type": ["string", "null"] }
+          },
+          "required": ["chauffeur_id", "nom"]
+        },
+        "equipier": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "equipier_id": { "type": ["string", "null"], "format": "uuid" },
+            "nom": { "type": ["string", "null"] }
+          }
+        },
+        "vehicule": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "vehicule_id + plaque null pour A Toutes! (vélo cargo). type dérivé de vehicule_type_everest.",
+          "properties": {
+            "vehicule_id": { "type": ["string", "null"], "format": "uuid" },
+            "type": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/enum_type_vehicule_acceptation" },
+            "plaque": { "type": ["string", "null"] }
+          },
+          "required": ["vehicule_id", "type", "plaque"]
+        },
+        "acceptee_le": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/timestamp" }
+      },
+      "required": ["collecte_id", "prestataire_id", "chauffeur", "vehicule", "acceptee_le"]
+    }
+  },
+  "required": ["event_id", "occurred_at", "source", "type", "data"]
+}

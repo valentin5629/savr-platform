@@ -252,9 +252,9 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "0fcff82e8a6954c72c376283f15ba21159e1d4988394b3da757668be93336273",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "0a4353105dff0331dd0a259a41929326a1d5f4fad2ef832ed3d25a27e145308f",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "0002b78fb5f94befe289c4576118a25eaf852f7ffa379323443c06acc3262ca0",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "b65bd1978bb5d50d23a42d61334da5c7aca78447b00df375b5951476a2835963",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "953c592b674a87f1bda285b33dfe8572e47387e6858a3369acc403112e21e7bf",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "9e82dedf4b5816a58b6e43eddf810957b772e5e7edb12d1b15ba5c70d30e8e1d",
     "specs/cdc/01 - Cahier des charges App/Interface logistique_provider V1.md": "4be718d5d7e2ba42d7522bddbad8add381ceaa636527565f1fd521bd98fc155d"
   }
 }

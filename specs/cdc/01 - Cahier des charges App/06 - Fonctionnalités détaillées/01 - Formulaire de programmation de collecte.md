@@ -35,9 +35,9 @@ Le traiteur raisonne en **événement** (un gala, un mariage, un sommet). Un év
 **Une seule date : la date de collecte (refonte 2026-05-29)** :
 
 - **Date + heure de collecte** (`collectes.date_collecte` + `collectes.heure_collecte`) : moment où le prestataire intervient. C'est la vérité logistique transmise au TMS et **l'unique date saisie par l'utilisateur**. Chaque collecte porte la sienne.
-- `evenements.date_evenement` : champ **backend uniquement**, auto-calculé = `MIN(collectes.date_collecte)` de l'événement (trigger `fn_set_date_evenement`). Jamais affiché dans les formulaires. Sert de référence pour les rapports PDF client (§12). (refonte 2026-05-21 D2).
+- `evenements.date_evenement` : champ **backend uniquement**, auto-calculé = `MIN(collectes.date_collecte)` de l'événement (trigger `fn_set_date_evenement`). Jamais affiché dans les formulaires. Sert de référence pour les rapports PDF client (§12).
 
- **Retiré V1 (2026-05-29)** — le pax reste **unique au niveau événement** (`evenements.pax`), non modifiable par collecte. Le cas multi-jours à pax variable est reporté V2.
+**Retiré V1 (2026-05-29)** — le pax reste **unique au niveau événement** (`evenements.pax`), non modifiable par collecte. Le cas multi-jours à pax variable est reporté V2.
 
 ---
 
@@ -210,7 +210,7 @@ Affichage fiche récap + bouton "Modifier" (retour étape 1 ou 2).
 
 > ⚠ **Reportée V1.1 (A4 2026-05-25)** : le partage de collecte entre collègues (table `collecte_partages`) est retiré du périmètre V1 — le manager voit déjà toutes les collectes de l'organisation, le cas commercial↔commercial est marginal. Section non exposée au formulaire V1.
 
- *(spec conservée pour réactivation V1.1)*
+*(spec conservée pour réactivation V1.1)*
 
 **Boutons** :
 
@@ -405,7 +405,7 @@ Responsive mobile : steps en single-column, sous-blocs collecte stacked, boutons
 
 - **Formulaire unique événement-centré (2026-05-21)** : un point d'entrée, étape 1 = événement + choix des types (☐ZD ☐AG), une soumission crée l'événement + 1-2 collectes. Remplace les 2 boutons + saisie séquentielle + matching textuel.
 - **Rattachement explicite collecte→événement (2026-05-21)** : via `collectes.evenement_id`. Fin du matching date+lieu+client (source de doublons d'événements).
-- **Date événement vs date collecte distinguées (2026-05-21, révisé 2026-05-29)** : `collectes.date_collecte` (vérité logistique, **saisie étape 3, sans défaut, obligatoire**) est la seule date saisie; `evenements.date_evenement` est **auto-dérivé en backend** = `MIN(date_collecte)` (trigger `fn_set_date_evenement`), jamais saisi au formulaire. inversé par la refonte 2026-05-29. Heure de collecte propre à chaque collecte.
+- **Date événement vs date collecte distinguées (2026-05-21, révisé 2026-05-29)** : `collectes.date_collecte` (vérité logistique, **saisie étape 3, sans défaut, obligatoire**) est la seule date saisie ; `evenements.date_evenement` est **auto-dérivé en backend** = `MIN(date_collecte)` (trigger `fn_set_date_evenement`), jamais saisi au formulaire. inversé par la refonte 2026-05-29. Heure de collecte propre à chaque collecte.
 - **Contrôle d'accès niveau événement (2026-05-21)** : saisi une fois, copié sur chaque collecte (la contrainte vient du site, pas de la collecte). Cascade lieu upgrade-only conservée. Exception vélo cargo AG conservée.
 - **Révisé 2026-05-25 (Sujet 1, option A)** : multi-camions interne au TMS — 1 collecte ZD traiteur → N tournées prestataire (Admin au dispatch), agrégation des pesées au niveau de la collecte ZD. Plus de collectes ZD multiples côté traiteur ni d'agrégation niveau événement.
 - **Ajout d'une collecte à un événement existant (2026-05-21)** : bouton depuis la fiche événement, niveau événement pré-rempli figé.

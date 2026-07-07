@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.gosavr.io/2026.04/entrants/E1.collecte-creee.schema.json",
+  "title": "E1 — POST /collectes (collecte.creee)",
+  "description": "Plateforme → TMS. Émis à la soumission du formulaire (statut programmee, statut_tms non_envoye→a_attribuer). Pas de prestataire_id_pre_affecte (seconde salve M01). Pas de champ flux[] (sobriété 2026-04-29).",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "event_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+    "emis_le": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/timestamp" },
+    "occurred_at": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/timestamp" },
+    "source": { "type": "string", "const": "plateforme" },
+    "type": { "type": "string", "const": "collecte.creee" },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "collecte_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+        "evenement_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+        "traiteur_id": {
+          "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid",
+          "description": "Invariant V1 : = traiteur_operationnel.organisation_id (producteur juridique du déchet, rétrocompat TMS)."
+        },
+        "traiteur_operationnel": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/traiteur_operationnel" },
+        "programmateur": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/programmateur" },
+        "lieu": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/lieu" },
+        "contacts": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/contacts" },
+        "heure_collecte": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/heure_collecte" },
+        "type_collecte": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/enum_type_collecte" },
+        "nb_pax": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "= evenements.pax (pax unique niveau événement). collectes.pax_collecte retiré V1 (2026-05-29)."
+        },
+        "controle_acces_requis": {
+          "type": "boolean",
+          "description": "Si true → manager prestataire doit pré-saisir plaque + nom chauffeur en M03 E4 avant validation tournée (R_M03.4 + R_M04.CONTROLE_ACCES). Exception A Toutes! vélo cargo sur le critère plaque uniquement. Renommé 2026-05-03 (ex plaque_requise)."
+        },
+        "informations_supplementaires": {
+          "type": ["string", "null"],
+          "maxLength": 1000,
+          "description": "Texte libre logistique (§06.01 §2.a). Visible manager prestataire + chauffeur. Remplace l'ex notes_commerciales (orphelin, supprimé 2026-05-06)."
+        }
+      },
+      "required": [
+        "collecte_id",
+        "evenement_id",
+        "traiteur_id",
+        "traiteur_operationnel",
+        "programmateur",
+        "lieu",
+        "contacts",
+        "heure_collecte",
+        "type_collecte",
+        "nb_pax",
+        "controle_acces_requis"
+      ]
+    }
+  },
+  "required": ["event_id", "occurred_at", "source", "type", "data"]
+}

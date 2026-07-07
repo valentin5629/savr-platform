@@ -41,7 +41,7 @@ ou son équivalent Plateforme. Les tables du schéma `shared.*` ont des policies
 
 ### Tests bloquants CI (pgTAP)
 
-**Décision atelier** (révisée 2026-06-03 — arbitrage Val, alignement App §09 sobriété 2026-06-03 B2) : **framework = pgTAP** (et non un script TS via client Supabase); les RLS vivent dans la DB, on les teste en SQL au plus près. **Couverture ciblée V1**, **100% promu V1.1**. Le moteur reste identique, seul le périmètre bloquant V1 est resserré sur les tables critiques.
+**Décision atelier** (révisée 2026-06-03 — arbitrage Val, alignement App §09 sobriété 2026-06-03 B2) : **framework = pgTAP** (et non un script TS via client Supabase) ; les RLS vivent dans la DB, on les teste en SQL au plus près. **Couverture ciblée V1**, **100% promu V1.1**. Le moteur reste identique, seul le périmètre bloquant V1 est resserré sur les tables critiques.
 
 | Scope | Règle |
 |---|---|

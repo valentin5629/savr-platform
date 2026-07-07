@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.gosavr.io/2026.04/entrants/E2.collecte-modifiee.schema.json",
+  "title": "E2 — PATCH /collectes/:id (collecte.modifiee)",
+  "description": "Plateforme → TMS. Modification d'une collecte déjà transmise (statut_tms ≠ non_envoye). Le `diff` ne contient QUE les champs effectivement modifiés (≥ 1). Le TMS déduit la logique de réacceptation du diff (sobriété B5 2026-05-04 — pas de side_effects dans le payload). Champs non modifiables (collecte_id, evenement_id, traiteur_id, lieu_id, type_collecte) → refus 422 s'ils apparaissent.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "event_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+    "emis_le": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/timestamp" },
+    "occurred_at": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/timestamp" },
+    "source": { "type": "string", "const": "plateforme" },
+    "type": { "type": "string", "const": "collecte.modifiee" },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "collecte_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+        "modifie_par_user_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+        "diff": {
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "description": "Uniquement les champs modifiés. Diff date_collecte/heure_collecte sur statut acceptee → réacceptation requise (R réacceptation §08).",
+          "properties": {
+            "date_collecte": { "$ref": "#/$defs/diff_date" },
+            "heure_collecte": { "$ref": "#/$defs/diff_heure" },
+            "nb_pax": { "$ref": "#/$defs/diff_entier" },
+            "controle_acces_requis": { "$ref": "#/$defs/diff_booleen" },
+            "informations_supplementaires": { "$ref": "#/$defs/diff_texte" },
+            "contacts": {
+              "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/contacts",
+              "description": "Nouvelle valeur des contacts (forme alignée sur la prose §08 E2)."
+            },
+            "association_attribuee": { "$ref": "#/$defs/diff_association" }
+          }
+        }
+      },
+      "required": ["collecte_id", "modifie_par_user_id", "diff"]
+    }
+  },
+  "required": ["event_id", "occurred_at", "source", "type", "data"],
+
+  "$defs": {
+    "diff_date": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ancien": { "type": ["string", "null"], "format": "date" },
+        "nouveau": { "type": "string", "format": "date" }
+      },
+      "required": ["ancien", "nouveau"]
+    },
+    "diff_heure": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ancien": { "type": ["string", "null"], "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$" },
+        "nouveau": { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$" }
+      },
+      "required": ["ancien", "nouveau"]
+    },
+    "diff_entier": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ancien": { "type": ["integer", "null"], "minimum": 0 },
+        "nouveau": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["ancien", "nouveau"]
+    },
+    "diff_booleen": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ancien": { "type": ["boolean", "null"] },
+        "nouveau": { "type": "boolean" }
+      },
+      "required": ["ancien", "nouveau"]
+    },
+    "diff_texte": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ancien": { "type": ["string", "null"], "maxLength": 1000 },
+        "nouveau": { "type": ["string", "null"], "maxLength": 1000 }
+      },
+      "required": ["ancien", "nouveau"]
+    },
+    "diff_association": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "AG uniquement (ajout 2026-05-29). Destination de livraison des excédents. Push silencieux (pas de réacceptation). En V2 via cascade attribution_validee §06.09.",
+      "properties": {
+        "ancien": {
+          "anyOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/association" }
+          ]
+        },
+        "nouveau": {
+          "anyOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/association" }
+          ]
+        }
+      },
+      "required": ["ancien", "nouveau"]
+    },
+    "association": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "association_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+        "nom": { "type": "string" },
+        "adresse": { "type": "string" },
+        "code_postal": { "type": "string" },
+        "ville": { "type": "string" },
+        "coordonnees_gps": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/coordonnees_gps" },
+        "contact": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/contact" },
+        "horaires_ouverture": { "type": "string" }
+      },
+      "required": ["association_id", "nom", "adresse", "code_postal", "ville"]
+    }
+  }
+}

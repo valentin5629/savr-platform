@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.gosavr.io/2026.04/entrants/E5.lieu-upsert.schema.json",
+  "title": "E5 — PATCH /lieux/:id (lieu.upsert)",
+  "description": "Plateforme → TMS (allégé seconde salve M01). Notification qu'un champ critique d'un lieu a changé (adresse, coordonnees_gps). Ne met PAS à jour rétroactivement le lieu_snapshot des collectes reçues (cristallisé E1) — déclenche l'alerte M02 snapshot divergent. Les colonnes RW cross-schema (acces_details, acces_office) ne déclenchent PAS E5.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "event_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+    "emis_le": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/timestamp" },
+    "occurred_at": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/timestamp" },
+    "source": { "type": "string", "const": "plateforme" },
+    "type": { "type": "string", "const": "lieu.upsert" },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "lieu_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+        "champs_modifies": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "enum": ["adresse", "coordonnees_gps"] },
+          "description": "Champs critiques modifiés déclenchant l'alerte snapshot divergent."
+        },
+        "nouvelle_valeur_snapshot": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "nom": { "type": "string" },
+            "adresse": { "type": "string" },
+            "code_postal": { "type": "string" },
+            "ville": { "type": "string" },
+            "coordonnees_gps": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/coordonnees_gps" }
+          },
+          "required": ["nom", "adresse", "code_postal", "ville", "coordonnees_gps"]
+        },
+        "modifie_le": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/timestamp" }
+      },
+      "required": ["lieu_id", "champs_modifies", "nouvelle_valeur_snapshot", "modifie_le"]
+    }
+  },
+  "required": ["event_id", "occurred_at", "source", "type", "data"]
+}

@@ -168,13 +168,13 @@ Justification : l'agence partage ce rapport avec son client final, son branding 
 
 **Contexte** : nouveau PDF dédié aux collectes AG terminées en `realisee_sans_collecte` (chauffeur déclare "aucun repas à collecter" via app mobile TMS). Aucune attestation 2041-GE n'est générée (pas de don à certifier), mais l'utilisateur a besoin d'un justificatif documentant la prestation. Refonte 2026-05-04 §06.04 : remplace l'ancien affichage "Voir les photos" + tooltip motif sur la fiche collecte traiteur.
 
-**Déclenchement** : à réception du webhook `collecte-terminee` avec `statut_final = realisee_sans_collecte` (immédiat, pas d'embargo H+24 — pas de pesée à corriger).
+**Déclenchement (V1)** : batch dédié nightly (`runBatchSansExcedent`, monté dans le cron J+1 6h à côté des batchs bordereau/rapport/attestation) sur les collectes AG `realisee_sans_collecte` sans rapport (idempotent). **Sans embargo H+24** : `rapports_rse.disponible_a = genere_at` (pas de pesée à corriger). Décision Val 2026-07-07 (archi V1 batch vs « immédiat »). _Cible V2 : déclenchement événementiel immédiat à réception du webhook `collecte-terminee` (`statut_final = realisee_sans_collecte`) — inchangé._
 
 **Contenu (texte seul, pas de photos — décision Val 2026-05-04)** :
 
 - En-tête événement : nom, **date de l'événement** (`evenements.date_evenement`, référence client), lieu, traiteur, nombre de pax, client organisateur si renseigné
 - Bloc "Constat" :
-  - **Date et heure de présentation chauffeur sur site** (`tournees.heure_reelle_arrivee`) — c'est ici qu'apparaît la date d'intervention réelle (peut différer de la date événement)
+  - **Date et heure de présentation chauffeur sur site** (`tournees.heure_debut_reelle`) — c'est ici qu'apparaît la date d'intervention réelle (peut différer de la date événement)
   - Identification chauffeur (nom)
   - Plaque véhicule si `controle_acces_requis = true` (sinon masqué)
   - Motif déclaré par le chauffeur (texte libre saisi via M05)

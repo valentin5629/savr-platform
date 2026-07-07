@@ -10,8 +10,9 @@
 // A8 SELECT), puis régénère via le pipeline commun. Aucune écriture client directe :
 // la policy rr_write_admin (§09 A8) reste inchangée. Cross-org → 403 (test P1 bloquant).
 //
-// [type] ∈ PDF_DOCUMENT_TYPES régénérables : rapport-recyclage-zd (+ bordereau-zd /
-// attestation-don, servis via le même pipeline figé).
+// [type] : SEUL 'rapport-recyclage-zd' est régénérable côté traiteur. Le bordereau ZD
+// (§12 §1.1 l.37) et l'attestation de don AG (§12 §1.3 l.161) restent réservés à
+// l'Admin Savr → tout autre type est rejeté en 403 avant tout effet de bord.
 
 import { NextRequest, NextResponse } from 'next/server';
 

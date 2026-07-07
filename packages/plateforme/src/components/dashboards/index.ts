@@ -33,3 +33,14 @@ export { EmptyDashboardState } from './EmptyDashboardState.js';
 export { KpiCard } from './KpiCard.js';
 export { RevenusHistogramme } from './RevenusHistogramme.js';
 export { TonnageDisplay } from './TonnageDisplay.js';
+export { ProchainesCollectesBloc } from './ProchainesCollectesBloc.js';
+export { TopLieuxBloc } from './TopLieuxBloc.js';
+export { TopActeursBloc } from './TopActeursBloc.js';
+export { TopAssociationsBloc } from './TopAssociationsBloc.js';
+export type {
+  BlocsData,
+  ProchaineCollecte,
+  TopLieu,
+  TopActeur,
+  TopAssociation,
+} from './blocs-types.js';

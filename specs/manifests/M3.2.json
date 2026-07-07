@@ -103,7 +103,10 @@
     "M3.2/P2_traiteurs_colonne_lieux",
     "M3.2/P2_export_csv_respecte_filtre_taille",
     "M3.2/P2_lieu_detail_capacite_photos_collectes",
-    "M3.2/P2_traiteur_detail_historique"
+    "M3.2/P2_traiteur_detail_historique",
+    "M3.2/blocs_gestionnaire_perimetre_et_top_traiteurs",
+    "M3.2/blocs_gestionnaire_zd_prochaines_colonne_traiteur",
+    "M3.2/blocs_gestionnaire_ag_associations"
   ],
   "deliverables": [
     {
@@ -385,6 +388,38 @@
       "test": "M3.2/dash_bloc2_bloc4_zd_montes — Évolution + donut sur l’onglet ZD",
       "statut": "implemented",
       "libelle": "Bloc 4 ZD — donut répartition des tonnages 5 flux + total au centre (ZD only, composant §11 partagé)"
+    },
+    {
+      "id": "M3.2-bloc5-prochaines",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:188",
+      "artefact": "packages/plateforme/src/components/dashboards/ProchainesCollectesBloc.tsx",
+      "test": "M3.2/blocs_gestionnaire_zd_prochaines_colonne_traiteur",
+      "statut": "implemented",
+      "libelle": "Bloc 5 ZD/AG gestionnaire — prochaines collectes AVEC colonne Traiteur (§06.05 l.194, nom résolu via v_referentiel_traiteurs), clic → détail événement parent (§06.05 l.613)."
+    },
+    {
+      "id": "M3.2-bloc6-top-lieux",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:199",
+      "artefact": "packages/plateforme/src/components/dashboards/TopLieuxBloc.tsx",
+      "test": "M3.2/blocs_gestionnaire_perimetre_et_top_traiteurs",
+      "statut": "implemented",
+      "libelle": "Bloc 6 ZD/AG gestionnaire — top 5 lieux (périmètre organisations_lieux), ZD par tonnage / AG par repas."
+    },
+    {
+      "id": "M3.2-bloc7-top-traiteurs",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:204",
+      "artefact": "packages/plateforme/src/components/dashboards/TopActeursBloc.tsx",
+      "test": "M3.2/blocs_gestionnaire_perimetre_et_top_traiteurs",
+      "statut": "implemented",
+      "libelle": "Bloc 7 ZD/AG gestionnaire — top 5 TRAITEURS opérationnels (evenements.traiteur_operationnel_organisation_id, PAS le transporteur), ordonné par nb collectes, noms via v_referentiel_traiteurs."
+    },
+    {
+      "id": "M3.2-bloc3ag-associations",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:233",
+      "artefact": "packages/plateforme/src/components/dashboards/TopAssociationsBloc.tsx",
+      "test": "M3.2/blocs_gestionnaire_ag_associations",
+      "statut": "implemented",
+      "libelle": "Bloc 3 AG gestionnaire — top associations bénéficiaires (périmètre parc). Colonne Distance moyenne (§06.05 l.52) non rendue en V1 (pas de source de distance asso↔lieu, cf. _Divergences)."
     }
   ],
   "cdc_source_hash": {

@@ -6,12 +6,19 @@ import {
   DashboardFilterBar,
   KpiCard,
   BenchmarkGauge,
+  BenchmarkFilterBar,
   TonnageDisplay,
   EmptyDashboardState,
+  ProchainesCollectesBloc,
+  TopLieuxBloc,
+  TopActeursBloc,
+  TopAssociationsBloc,
   FLUX_ZD,
   useEvolutionBlocs,
   type CollecteType,
   type DashboardFilters,
+  type BenchmarkFilters,
+  type BlocsData,
 } from '@/components/dashboards/index.js';
 import {
   EvolutionFluxChart,
@@ -51,8 +58,19 @@ export default function TraiteurDashboardPage() {
     credits_restants?: number;
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  // Blocs §11 partagés (5 prochaines / 6 top lieux / 7 top commerciaux / 3 AG
+  // associations + kg/pax par flux pour les jauges Bloc 3 ZD).
+  const [blocs, setBlocs] = useState<BlocsData | null>(null);
+  // Filtres de l'encart benchmark (§06.04 Bloc 3 ZD, 4 dimensions) — pilotent
+  // le point rouge. Le paramètre traiteurs est rejeté côté serveur (compétitif).
+  const [benchmarkFilters, setBenchmarkFilters] =
+    useState<BenchmarkFilters | null>(null);
 
   const handleFilters = useCallback((f: DashboardFilters) => setFilters(f), []);
+  const handleBenchmarkFilters = useCallback(
+    (f: BenchmarkFilters) => setBenchmarkFilters(f),
+    [],
+  );
 
   // Bloc 2 (évolution) + Bloc 4 (donut) — série partagée §11 par onglet actif.
   const { granularite, zdSeries, agSeries } = useEvolutionBlocs(filters, tab);
@@ -85,6 +103,20 @@ export default function TraiteurDashboardPage() {
       .then((r) => r.json())
       .then((j) => setPack(j));
   }, [tab]);
+
+  // Blocs 5/6/7/3AG + kg/pax par flux (§11) — endpoint partagé, périmètre org.
+  useEffect(() => {
+    if (!filters) return;
+    const qs = new URLSearchParams({
+      from: filters.from,
+      to: filters.to,
+      type: tab,
+    });
+    fetch(`/api/v1/dashboards/blocs?${qs}`)
+      .then((r) => r.json())
+      .then((j) => setBlocs((j.data ?? null) as BlocsData | null))
+      .catch(() => setBlocs(null));
+  }, [filters, tab]);
 
   // Agrégats sur la période filtrée
   const nbCollectes = rows.reduce((s, r) => s + (r.nb_collectes ?? 0), 0);
@@ -150,14 +182,17 @@ export default function TraiteurDashboardPage() {
               <KpiCard
                 label="Tonnage collecté"
                 value={<TonnageDisplay kg={tonnage} />}
+                href={`/traiteur/collectes${qsLink}`}
               />
               <KpiCard
                 label="Taux de recyclage"
                 value={taux != null ? `${taux.toFixed(1)} %` : '—'}
+                href={`/traiteur/collectes${qsLink}`}
               />
               <KpiCard
                 label="kg/pax moyen"
                 value={kgPax != null ? kgPax.toFixed(2) : '—'}
+                href={`/traiteur/collectes${qsLink}`}
               />
               <div>
                 <KpiCard
@@ -169,6 +204,7 @@ export default function TraiteurDashboardPage() {
                         ? `−${formatEuro(Math.abs(marge))} €`
                         : `${formatEuro(marge)} €`
                   }
+                  href={`/traiteur/collectes${qsLink}`}
                   className={
                     marge != null && marge < 0 ? 'text-savr-error' : ''
                   }
@@ -188,11 +224,20 @@ export default function TraiteurDashboardPage() {
                 value={nbCollectes}
                 href={`/traiteur/collectes${qsLink}`}
               />
-              <KpiCard label="Repas donnés" value={repas} />
-              <KpiCard label="Pax cumulés" value={pax} />
+              <KpiCard
+                label="Repas donnés"
+                value={repas}
+                href={`/traiteur/collectes${qsLink}`}
+              />
+              <KpiCard
+                label="Pax cumulés"
+                value={pax}
+                href={`/traiteur/collectes${qsLink}`}
+              />
               <KpiCard
                 label="Repas/pax moyen"
                 value={pax > 0 ? (repas / pax).toFixed(2) : '—'}
+                href={`/traiteur/collectes${qsLink}`}
               />
             </div>
           )}
@@ -217,21 +262,50 @@ export default function TraiteurDashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Bloc 3 ZD — jauges benchmark / Bloc 4 AG — Mon pack AG */}
+          {/* Bloc 3 ZD — jauges benchmark parc (4 dimensions §06.04) /
+              Bloc 3 AG — Top associations bénéficiaires */}
           {tab === 'zero_dechet' ? (
             <Card>
               <CardHeader>
                 <CardTitle>Performance vs benchmark parc (kg/pax)</CardTitle>
               </CardHeader>
-              <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-5">
-                {FLUX_ZD.map((f) => (
-                  <BenchmarkGauge
-                    key={f.code}
-                    bracket="M"
-                    fluxCode={f.code}
-                    myKgPax={pax > 0 ? tonnage / pax / FLUX_ZD.length : null}
-                  />
-                ))}
+              <CardContent className="space-y-4">
+                {/* Encart « Filtres benchmark » — 4 dimensions côté traiteur
+                    (le multi-select Traiteurs est masqué : l'endpoint /filtres
+                    renvoie une liste vide, paramètre traiteur_ids[] rejeté
+                    serveur, §06.04 l.143). Héritage Type/Taille à l'ouverture. */}
+                <BenchmarkFilterBar
+                  onChange={handleBenchmarkFilters}
+                  initialTypeEvenementIds={filters?.type_evenement_ids ?? []}
+                  initialTailleCodes={filters?.taille_evenement_codes ?? []}
+                />
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-5">
+                  {FLUX_ZD.map((f) => (
+                    <BenchmarkGauge
+                      key={f.code}
+                      bracket="M"
+                      fluxCode={f.code}
+                      label={f.label}
+                      myKgPax={blocs?.kgParPaxParFlux[f.code] ?? null}
+                      benchmarkFilters={benchmarkFilters ?? undefined}
+                    />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <TopAssociationsBloc items={blocs?.topAssociations ?? []} />
+          )}
+
+          {/* Bloc 4 ZD — Répartition des tonnages (donut) /
+              Bloc 4 AG — Mon pack Anti-Gaspi (§06.04 Bloc 4) */}
+          {tab === 'zero_dechet' ? (
+            <Card data-testid="bloc-4-traiteur">
+              <CardHeader>
+                <CardTitle>Répartition des tonnages</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <TonnagesDonut series={zdSeries} />
               </CardContent>
             </Card>
           ) : (
@@ -268,16 +342,23 @@ export default function TraiteurDashboardPage() {
             )
           )}
 
-          {/* Bloc 4 ZD — Répartition des tonnages (donut, §06.04 Bloc 4) */}
-          {tab === 'zero_dechet' && (
-            <Card data-testid="bloc-4-traiteur">
-              <CardHeader>
-                <CardTitle>Répartition des tonnages</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <TonnagesDonut series={zdSeries} />
-              </CardContent>
-            </Card>
+          {/* Bloc 5 — Prochaines collectes (§06.04 Bloc 5) */}
+          <ProchainesCollectesBloc
+            items={blocs?.prochaines ?? []}
+            hrefFor={(c) => `/traiteur/collectes/${c.id}`}
+          />
+
+          {/* Bloc 6 — Top 5 lieux (§06.04 Bloc 6) */}
+          <TopLieuxBloc items={blocs?.topLieux ?? []} type={tab} />
+
+          {/* Bloc 7 — Top 5 commerciaux, visible manager ET commercial
+              (§06.04 l.185/267, ouvert 2026-05-29) */}
+          {blocs?.topActeurs && blocs.acteurLabel && (
+            <TopActeursBloc
+              items={blocs.topActeurs}
+              type={tab}
+              acteurLabel={blocs.acteurLabel}
+            />
           )}
 
           {/* Bloc 8 — Export synthèse PDF (mécanique complète : lot ⑫ V4) */}

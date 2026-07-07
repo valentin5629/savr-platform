@@ -77,7 +77,14 @@
     "M3.1/trait_monorga_entites_patch_commercial_denied",
     "M3.1/trait_monorga_domaines_delete",
     "M3.1/trait_monorga_domaines_delete_hors_org",
-    "M3.1/trait_monorga_factures_filtres"
+    "M3.1/trait_monorga_factures_filtres",
+    "M3.1/blocs_top_lieux_zd_ordre_tonnage",
+    "M3.1/blocs_top_commerciaux_ordre_nb_et_noms",
+    "M3.1/blocs_prochaines_fenetre_statuts",
+    "M3.1/blocs_top_associations_ordre_repas",
+    "M3.1/blocs_traiteur_zd_montes_et_benchmark_reel",
+    "M3.1/blocs_traiteur_ag_associations_et_top7",
+    "M3.1/blocs_traiteur_kpi_cartes_cliquables"
   ],
   "deliverables": [
     {
@@ -383,6 +390,46 @@
       "test": "M3.1/dash_bloc2_bloc4_zd_montes — Évolution + donut sur l’onglet ZD",
       "statut": "implemented",
       "libelle": "Bloc 4 ZD — donut répartition des tonnages 5 flux + total au centre (ZD only, composant §11 partagé)"
+    },
+    {
+      "id": "M3.1-bloc3-zd-benchmark",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:126",
+      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx",
+      "test": "M3.1/blocs_traiteur_zd_montes_et_benchmark_reel",
+      "statut": "implemented",
+      "libelle": "Bloc 3 ZD — jauges kg/pax × benchmark parc RÉEL (remplace le stub R20a tonnage/pax/5) : encart BenchmarkFilterBar 4 dimensions (Traiteurs masqué, traiteur_ids[] rejeté serveur §06.04 l.143) + 5 BenchmarkGauge alimentées par kgParPaxParFlux (Vous) et benchmarkFilters (point rouge)."
+    },
+    {
+      "id": "M3.1-bloc5-prochaines",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:166",
+      "artefact": "packages/plateforme/src/components/dashboards/ProchainesCollectesBloc.tsx",
+      "test": "M3.1/blocs_prochaines_fenetre_statuts + M3.1/blocs_traiteur_zd_montes_et_benchmark_reel",
+      "statut": "implemented",
+      "libelle": "Bloc 5 ZD/AG — prochaines collectes (fenêtre 30 j, statuts non terminaux) : Date+heure/Événement/Lieu/Statut (badge client), clic → fiche collecte."
+    },
+    {
+      "id": "M3.1-bloc6-top-lieux",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:178",
+      "artefact": "packages/plateforme/src/components/dashboards/TopLieuxBloc.tsx",
+      "test": "M3.1/blocs_top_lieux_zd_ordre_tonnage + M3.1/blocs_top_associations_ordre_repas",
+      "statut": "implemented",
+      "libelle": "Bloc 6 ZD/AG — top 5 lieux : ZD ordonné par tonnage (Lieu/Nb/Tonnage/Taux pondéré), AG par repas donnés (Lieu/Nb/Repas/Repas-pax)."
+    },
+    {
+      "id": "M3.1-bloc7-top-commerciaux",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:183",
+      "artefact": "packages/plateforme/src/components/dashboards/TopActeursBloc.tsx",
+      "test": "M3.1/blocs_top_commerciaux_ordre_nb_et_noms + M3.1/blocs_traiteur_ag_associations_et_top7",
+      "statut": "implemented",
+      "libelle": "Bloc 7 ZD/AG — top 5 commerciaux (evenements.created_by), ordonné par nb collectes, visible manager ET commercial (§06.04 l.185/267). Noms résolus via users (RLS own-org)."
+    },
+    {
+      "id": "M3.1-bloc3ag-associations",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:216",
+      "artefact": "packages/plateforme/src/components/dashboards/TopAssociationsBloc.tsx",
+      "test": "M3.1/blocs_top_associations_ordre_repas + M3.1/blocs_traiteur_ag_associations_et_top7",
+      "statut": "implemented",
+      "libelle": "Bloc 3 AG — top associations bénéficiaires (attributions_antgaspi ⋈ associations, RLS via collectes), ordonné par repas reçus : Association/Ville/Nb collectes/Repas reçus (colonne Distance §06.05 non rendue, pas de source geo)."
     }
   ],
   "cdc_source_hash": {

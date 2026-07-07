@@ -412,7 +412,6 @@ Infos pilotantes affichées en bloc compact :
 - Modifier les pesées (post-collecte)
 - Modifier le statut directement
 - Importer des photos (uniquement Admin Savr)
-- Régénérer un rapport (uniquement Admin Savr)
 
 **Bloc 2bis ZD — Taux de recyclage de la collecte *(ajout 2026-05-06)***
 

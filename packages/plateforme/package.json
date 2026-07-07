@@ -37,6 +37,7 @@
     "next": "15",
     "react": "19",
     "react-dom": "19",
+    "recharts": "^3.9.2",
     "tailwind-merge": "^2.6.0",
     "tailwindcss": "^4.1.0"
   },

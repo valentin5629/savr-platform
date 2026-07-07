@@ -7,6 +7,20 @@ export { ParcMultiSelects } from './ParcMultiSelects.js';
 export type { ParcFilterOptions, ParcFilterValue } from './ParcMultiSelects.js';
 export { TAILLE_OPTIONS } from './taille-options.js';
 export {
+  FLUX_ZD,
+  FLUX_ZD_CODES,
+  TAUX_RECYCLAGE_COLOR,
+  REPAS_COLOR,
+  RATIO_COLOR,
+} from './flux.js';
+export type { FluxZd } from './flux.js';
+export { useEvolutionBlocs } from './useEvolutionBlocs.js';
+export type {
+  EvolutionType,
+  FluxSeriePoint,
+  RepasSeriePoint,
+} from './useEvolutionBlocs.js';
+export {
   EvenementsFilterBar,
   defaultEvenementsFilters,
 } from './EvenementsFilterBar.js';

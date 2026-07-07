@@ -89,7 +89,12 @@ export async function upsert(
   conflict: string[],
 ): Promise<void> {
   if (rows.length === 0) return;
-  const cols = Object.keys(rows[0]!);
+  // Union des clés de TOUTES les lignes (pas seulement rows[0]) : les lots
+  // hétérogènes (ex. collectes ZD avec taux_recyclage + AG sans) ne doivent pas
+  // perdre une colonne présente sur d'autres lignes du lot — sinon la colonne est
+  // omise de l'INSERT et devient NULL en base (bug taux_recyclage trouée par mois).
+  // Une ligne sans la clé → row[c] undefined → lié NULL par node-pg.
+  const cols = [...new Set(rows.flatMap((r) => Object.keys(r)))];
   const params: unknown[] = [];
   const tuples = rows.map((row) => {
     const placeholders = cols.map((c) => {

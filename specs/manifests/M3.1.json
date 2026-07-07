@@ -359,6 +359,30 @@
       "test": "M3.1/trait_monorga_factures_filtres",
       "statut": "partial",
       "libelle": "Paramètres de facturation : « Contact principal facturation » = entites_facturation.email_facturation (par entité, éditable manager via la carte Entités) ; vue liste factures lecture seule (manager+commercial) + filtres §6 l.690 statut/type/période câblés sur les enums RÉELS facture_statut/facture_type (route factures gte/lte date_emission ; test _factures_filtres). « Coordonnées bancaires » NON implémentées (contradiction CDC l.678↔l.701, aucune colonne). NB : organisations n'a PAS de colonne contact_facturation (bug 500 attrapé en GO-VISUAL, corrigé) — cf. _Divergences M3.1_20260705_facturation_params.md."
+    },
+    {
+      "id": "M3.1-bloc2-zd",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:116",
+      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/components/dashboards/charts/EvolutionFluxChart.tsx",
+      "test": "M3.1/dash_bloc2_bloc4_zd_montes — Évolution + donut sur l’onglet ZD",
+      "statut": "implemented",
+      "libelle": "Bloc 2 ZD — évolution mensuelle : barres empilées des 5 flux + courbe taux de recyclage (composant §11 partagé)"
+    },
+    {
+      "id": "M3.1-bloc2-ag",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:207",
+      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/components/dashboards/charts/EvolutionRepasChart.tsx",
+      "test": "M3.1/dash_bloc4_zd_only — pas de donut sur l’onglet AG (un seul flux)",
+      "statut": "implemented",
+      "libelle": "Bloc 2 AG — évolution mensuelle : courbe repas donnés + ratio repas/pax (composant §11 partagé)"
+    },
+    {
+      "id": "M3.1-bloc4-donut",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:162",
+      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/components/dashboards/charts/TonnagesDonut.tsx",
+      "test": "M3.1/dash_bloc2_bloc4_zd_montes — Évolution + donut sur l’onglet ZD",
+      "statut": "implemented",
+      "libelle": "Bloc 4 ZD — donut répartition des tonnages 5 flux + total au centre (ZD only, composant §11 partagé)"
     }
   ],
   "cdc_source_hash": {

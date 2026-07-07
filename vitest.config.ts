@@ -7,6 +7,12 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'packages/plateforme/src'),
+      // recharts → stub léger EN TEST uniquement (le vrai recharts hang vitest
+      // sous jsdom via ResizeObserver). Le build Next.js n'est pas concerné.
+      recharts: path.resolve(
+        __dirname,
+        'packages/plateforme/test-stubs/recharts.tsx',
+      ),
     },
   },
   test: {

@@ -9,6 +9,7 @@ import {
   BenchmarkGauge,
   TonnageDisplay,
   EmptyDashboardState,
+  FLUX_ZD,
   type CollecteType,
   type DashboardFilters,
 } from '@/components/dashboards/index.js';
@@ -31,14 +32,6 @@ interface KpiData {
 
 const STORAGE_KEY = 'savr.dashboard-client.organisations';
 const BENCHMARK_ENDPOINT = '/api/v1/admin/dashboard-client/benchmark';
-
-const FLUX_ZD = [
-  { code: 'biodechet', label: 'Biodéchets' },
-  { code: 'emballage', label: 'Emballages' },
-  { code: 'carton', label: 'Cartons' },
-  { code: 'verre', label: 'Verre' },
-  { code: 'dechet_residuel', label: 'Déchet résiduel' },
-];
 
 /**
  * Dashboard Client (§06.06 §2) — vue Admin LECTURE SEULE répliquant le dashboard

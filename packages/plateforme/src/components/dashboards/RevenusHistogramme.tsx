@@ -121,7 +121,7 @@ export function RevenusHistogramme({
           return (
             <div
               key={mois}
-              className="group relative flex flex-1 flex-col items-center justify-end"
+              className="group relative flex h-full flex-1 flex-col items-center justify-end"
               title={`${label} — ZD: ${zdVal.toLocaleString('fr-FR')} | AG: ${agVal.toLocaleString('fr-FR')}`}
             >
               {agVal > 0 && (

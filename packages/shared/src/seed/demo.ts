@@ -615,13 +615,16 @@ export async function seedDemo(client: pg.Client): Promise<void> {
     const t = r.traiteur.replace(/^org_tr_/, '');
     const evId = U('ev_' + r.slug);
     const isAg = r.type === 'anti_gaspi';
+    // ~1 événement / 9 est PROGRAMMÉ par une agence (donneur d'ordre) et exécuté par
+    // le traiteur → alimente le dashboard agence (scopé sur evenements.organisation_id).
+    const isAgenceEvent = i % 9 === 0;
     evRows.push({
       id: evId,
-      organisation_id: U(r.traiteur),
+      organisation_id: isAgenceEvent ? U('org_ag_caromy') : U(r.traiteur),
       traiteur_operationnel_organisation_id: U(r.traiteur),
       entite_facturation_id: U(`entite_${t}`),
       lieu_id: U(r.lieu),
-      created_by: mgr(t),
+      created_by: isAgenceEvent ? U('user_agence_caromy') : mgr(t),
       nom_evenement: `${cap(t)} — ${r.date}`,
       type_evenement_id: isAg ? tEvAg : tEvZd,
       date_evenement: r.date,
@@ -669,23 +672,35 @@ export async function seedDemo(client: pg.Client): Promise<void> {
     .filter((r) => r.type === 'zero_dechet')
     .forEach((r, i) => {
       const base = r.pax * 0.3;
+      // Les 5 flux ZD présents sur chaque collecte (Bloc 2 barres empilées + Bloc 4 donut
+      // utilisent les 5 flux : biodechet/emballage/carton/verre/dechet_residuel).
       fluxRows.push(
-        cflux(`cf_${r.slug}_bio`, r.slug, F('biodechet'), round1(base * 0.5)),
+        cflux(`cf_${r.slug}_bio`, r.slug, F('biodechet'), round1(base * 0.4)),
       );
       fluxRows.push(
-        cflux(`cf_${r.slug}_carton`, r.slug, F('carton'), round1(base * 0.3)),
+        cflux(`cf_${r.slug}_carton`, r.slug, F('carton'), round1(base * 0.25)),
       );
-      // 1 collecte sur 40 en alerte (min/max alternés)
-      if (i % 40 === 0)
-        fluxRows.push(cflux(`cf_${r.slug}_verre`, r.slug, F('verre'), 1.5));
-      else if (i % 40 === 20)
-        fluxRows.push(
-          cflux(`cf_${r.slug}_residuel`, r.slug, F('dechet_residuel'), 5300),
-        );
-      else
-        fluxRows.push(
-          cflux(`cf_${r.slug}_verre`, r.slug, F('verre'), round1(base * 0.2)),
-        );
+      fluxRows.push(
+        cflux(`cf_${r.slug}_emb`, r.slug, F('emballage'), round1(base * 0.15)),
+      );
+      // verre : normal, ou alerte MIN (1 collecte / 40)
+      fluxRows.push(
+        cflux(
+          `cf_${r.slug}_verre`,
+          r.slug,
+          F('verre'),
+          i % 40 === 0 ? 1.5 : round1(base * 0.12),
+        ),
+      );
+      // dechet_residuel : normal, ou alerte MAX (1 collecte / 40)
+      fluxRows.push(
+        cflux(
+          `cf_${r.slug}_residuel`,
+          r.slug,
+          F('dechet_residuel'),
+          i % 40 === 20 ? 5300 : round1(base * 0.08),
+        ),
+      );
     });
   await batchUpsert(client, 'plateforme.collecte_flux', fluxRows, ['id'], 300);
 
@@ -702,6 +717,8 @@ export async function seedDemo(client: pg.Client): Promise<void> {
           : i % 7 === 0
             ? 'manuel_override'
             : 'manuel_top1';
+      // Repas donnés ≈ 8-12 % du pax (varie pour une courbe ratio non plate).
+      const volumeRepas = Math.round(r.pax * (0.08 + (i % 6) * 0.008));
       const a = attr(
         `attr_${r.slug}`,
         r.slug,
@@ -709,6 +726,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
         U('transp_' + tr),
         isProvince ? 'province' : 'idf',
         mode,
+        volumeRepas,
       );
       return a;
     });
@@ -866,26 +884,35 @@ export async function seedDemo(client: pg.Client): Promise<void> {
       {
         id: U('exp_kaspia'),
         organisation_id: U('org_tr_kaspia'),
-        created_by: U('user_manager_kaspia'),
+        user_id: U('user_manager_kaspia'),
         periode_debut: '2025-06-01',
         periode_fin: '2026-05-31',
-        nb_collectes: 100,
+        nb_lignes: 100,
+        type_export: 'registre_dechets',
+        format: 'csv',
+        genere_at: '2026-06-01T06:00:00Z',
       },
       {
         id: U('exp_potel'),
         organisation_id: U('org_tr_potel'),
-        created_by: U('user_manager_potel'),
+        user_id: U('user_manager_potel'),
         periode_debut: '2025-06-01',
         periode_fin: '2026-05-31',
-        nb_collectes: 40,
+        nb_lignes: 40,
+        type_export: 'registre_dechets',
+        format: 'csv',
+        genere_at: '2026-06-01T06:00:00Z',
       },
       {
         id: U('exp_lenotre'),
         organisation_id: U('org_tr_lenotre'),
-        created_by: U('user_manager_lenotre'),
+        user_id: U('user_manager_lenotre'),
         periode_debut: '2025-06-01',
         periode_fin: '2026-05-31',
-        nb_collectes: 26,
+        nb_lignes: 26,
+        type_export: 'registre_dechets',
+        format: 'csv',
+        genere_at: '2026-06-01T06:00:00Z',
       },
     ],
     ['id'],
@@ -1025,7 +1052,11 @@ async function seedFactures(
         'payee',
         mois + '-28',
         ht,
-        { periode_debut: mois + '-01', periode_fin: mois + '-28' },
+        {
+          periode_debut: mois + '-01',
+          periode_fin: mois + '-28',
+          type: 'zero_dechet',
+        },
       ),
     );
     for (const c of cols)
@@ -1054,7 +1085,7 @@ async function seedFactures(
         'payee',
         '2025-09-05',
         2400,
-        {},
+        { type: 'achat_pack_antigaspi', pack_antgaspi_id: U(`pack_${t}`) },
       ),
     );
     lignes.push(
@@ -1086,6 +1117,7 @@ async function seedFactures(
         taux_tva: 20,
         montant_tva: -60,
         montant_ttc: -360,
+        type: 'avoir',
         facture_origine_id: U('fac_pack_kaspia'),
         motif_avoir: 'Geste commercial',
       },
@@ -1288,6 +1320,11 @@ function pack(
   statut: string,
   dateAchat: string,
 ): Row {
+  // Coût par collecte (crédit) décroissant avec la taille du pack (économie
+  // d'échelle) — sert au CA « économique » AG (montant amorti par collecte livrée,
+  // v_kpi_admin + tableau Revenus). Pack 20 crédits = 120€/collecte → 2400€ (cohérent
+  // avec la facture d'achat de pack du seed).
+  const prixUnitaire = nb >= 60 ? 100 : nb >= 30 ? 110 : nb >= 20 ? 120 : 130;
   return {
     id: U(slug),
     organisation_id: U(orgSlug),
@@ -1301,6 +1338,8 @@ function pack(
             : 'personnalise',
     credits_initiaux: nb,
     credits_consommes: utilisees,
+    prix_unitaire_ht: prixUnitaire,
+    montant_total_ht: prixUnitaire * nb,
     statut,
     date_achat: dateAchat,
   };
@@ -1325,6 +1364,7 @@ function attr(
   transpId: string,
   branche: string,
   mode: string,
+  volumeRepas?: number,
 ): Row {
   const r: Row = {
     id: U(slug),
@@ -1334,6 +1374,11 @@ function attr(
     branche_attribution: branche,
     mode_validation: mode,
   };
+  // Repas réellement donnés (alimente Bloc 2 AG « repas donnés » + ratio repas/pax).
+  if (volumeRepas != null) {
+    r.volume_repas_realise = volumeRepas;
+    r.poids_repas_kg = Math.round(volumeRepas * 0.5 * 10) / 10;
+  }
   if (mode === 'manuel_override') {
     r.motif_override = 'Réattribution Admin';
     r.motif_override_libre = 'Réattribution Admin';

@@ -113,10 +113,11 @@ describe('M0.6 — régénération PDF collecte (BL-P1-BOA-07)', () => {
     expect(job!.payload.type_document).toBe('rapport-recyclage-zd');
     expect(job!.payload.entity_type).toBe('rapports_rse');
     expect(job!.payload.entity_id).toBe('r1');
-    expect(job!.payload.payload).toEqual({
-      numero: 'BSAV-1',
-      poids_total_kg: 12,
-    });
+    // Payload figé recopié + mention de régénération pied de page (§12 §1.4, BL-P2-20).
+    const rePayload = job!.payload.payload as Record<string, unknown>;
+    expect(rePayload.numero).toBe('BSAV-1');
+    expect(rePayload.poids_total_kg).toBe(12);
+    expect(typeof rePayload.regenere_le).toBe('string');
     expect(job!.payload.statut).toBe('pending');
 
     // audit_log tracé.

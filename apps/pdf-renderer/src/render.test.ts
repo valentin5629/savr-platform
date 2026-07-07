@@ -28,9 +28,9 @@ const EXPECTED_TYPES = [
   'synthese-dashboard',
 ];
 const EXPECTED_VERSIONS: Record<string, string> = {
-  'bordereau-zd': 'bordereau-zd@1',
-  'rapport-recyclage-zd': 'rapport-recyclage-zd@1',
-  'attestation-don': 'attestation-don@1',
+  'bordereau-zd': 'bordereau-zd@2',
+  'rapport-recyclage-zd': 'rapport-recyclage-zd@2',
+  'attestation-don': 'attestation-don@2',
   'synthese-dashboard': 'synthese-dashboard@1',
 };
 import type { AttestationDonData } from './templates/attestation-don.js';
@@ -38,7 +38,9 @@ import type { BordereauZdData } from './templates/bordereau-zd.js';
 import type { RapportRecyclageZdData } from './templates/rapport-recyclage-zd.js';
 import type { SyntheseDashboardData } from './templates/synthese-dashboard.js';
 
-function bordereauData(): BordereauZdData {
+function bordereauData(
+  overrides: Partial<BordereauZdData> = {},
+): BordereauZdData {
   return {
     numero: 'BSAV-2026-00001',
     date_emission: '02/07/2026',
@@ -51,12 +53,18 @@ function bordereauData(): BordereauZdData {
     producteur_adresse: '2 rue Y, Paris',
     transporteur_nom: 'Strike',
     exutoire_nom: 'Veolia',
-    flux: [{ nom: 'Biodéchets', poids_kg: 12 }],
-    poids_total_kg: 12,
+    flux: [
+      { nom: 'Biodéchets', poids_kg: 12, nb_bacs: 3 },
+      { nom: 'Cartons', poids_kg: 8, equivalent_roll: 2 },
+    ],
+    poids_total_kg: 20,
+    ...overrides,
   };
 }
 
-function rapportData(): RapportRecyclageZdData {
+function rapportData(
+  overrides: Partial<RapportRecyclageZdData> = {},
+): RapportRecyclageZdData {
   return {
     nom_evenement: 'Gala',
     date_evenement: '01/07/2026',
@@ -64,9 +72,37 @@ function rapportData(): RapportRecyclageZdData {
     lieu_nom: 'Pavillon',
     lieu_adresse: '1 rue X, Paris',
     traiteur_nom: 'Traiteur SA',
-    flux: [{ nom: 'Biodéchets', poids_kg: 12 }],
-    poids_total_kg: 12,
+    taux_recyclage: 72.5,
+    flux: [
+      { nom: 'Biodéchets', poids_kg: 12 },
+      { nom: 'Cartons', poids_kg: 8 },
+    ],
+    poids_total_kg: 20,
+    co2_evite_kg: 300,
+    co2_induit_kg: 40,
+    co2_net_kg: -260,
+    energie_primaire_evitee_kwh: 9000,
+    co2_facteurs_version: 'ADEME 2024',
+    equivalences: { km_voiture: 1376, repas_boeuf: 43, foyer: 2 },
+    comparaison_savr: { taux_moyen_pondere: 68.4, nb_organisations: 7 },
+    benchmark_flux: [
+      {
+        flux_nom: 'Biodéchets',
+        collecte_kg_pax: 0.12,
+        benchmark_kg_pax: 0.1,
+        nb_collectes_segment: 42,
+      },
+      {
+        flux_nom: 'Cartons',
+        collecte_kg_pax: 0.05,
+        benchmark_kg_pax: null,
+        nb_collectes_segment: 3,
+      },
+    ],
+    benchmark_legende:
+      "période : toutes · lieux : tous · type d'événement : Gala · taille : XS",
     bordereau: bordereauData(),
+    ...overrides,
   };
 }
 
@@ -215,6 +251,88 @@ describe('M2.4 / attestation de don 2041-GE — mention fiscale conditionnelle',
     expect(html).toContain(
       'Estimation FAO — 2,5 kgCO₂e par repas sauvé du gaspillage',
     );
+  });
+});
+
+describe('M1.6 / rapport recyclage §1.2 — benchmark + contenu (R21a)', () => {
+  it('BL-P1-RPT-01 : 5 jauges benchmark — point rouge parc si segment ≥5, sinon « Données insuffisantes »', () => {
+    const html = renderByType('rapport-recyclage-zd', rapportData());
+    expect(html).toContain('Benchmark kg/convive par flux');
+    // Point rouge parc (segment ≥5) : valeur du parc affichée.
+    expect(html).toContain('0,10 kg/convive');
+    expect(html).toContain('42 collectes');
+    // Segment < 5 (Cartons, nb=3) → pas de point rouge, mention explicite.
+    expect(html).toContain('Données insuffisantes pour benchmark');
+    // Légende des filtres appliqués (§1.2 l.69) + garde k-anonymat.
+    expect(html).toContain("type d'événement : Gala");
+    expect(html).toContain('K-anonymat ≥ 5');
+  });
+
+  it('BL-P2-18 (1) : équivalences pédagogiques du CO₂ évité (km voiture, repas bœuf, foyers)', () => {
+    const html = renderByType('rapport-recyclage-zd', rapportData());
+    expect(html).toContain('1 376 km en voiture');
+    expect(html).toContain('43 repas avec bœuf');
+    expect(html).toContain('2 foyers');
+  });
+
+  it('BL-P2-18 (2) : comparaison vs moyenne Savr anonymisée (≥3 acteurs)', () => {
+    const html = renderByType('rapport-recyclage-zd', rapportData());
+    expect(html).toContain('Comparaison au parc Savr');
+    expect(html).toContain('68,4 %'); // moyenne parc
+    expect(html).toContain('7 organisations');
+  });
+
+  it('BL-P2-18 : camembert par flux (§1.2 l.68) rendu en SVG', () => {
+    const html = renderByType('rapport-recyclage-zd', rapportData());
+    expect(html).toContain('<svg');
+    expect(html).toContain('donut-seg');
+  });
+
+  it('BL-P2-20 : mention pied de page uniquement sur un rapport régénéré', () => {
+    const base = renderByType('rapport-recyclage-zd', rapportData());
+    expect(base).not.toContain('Version mise à jour');
+    const regen = renderByType(
+      'rapport-recyclage-zd',
+      rapportData({ regenere_le: '07/07/2026' }),
+    );
+    expect(regen).toContain('Version mise à jour — générée le 07/07/2026');
+  });
+
+  it('bloc benchmark absent si aucune jauge (collecte sans pesée) — pas de plantage', () => {
+    const html = renderByType(
+      'rapport-recyclage-zd',
+      rapportData({ benchmark_flux: [] }),
+    );
+    expect(html).not.toContain('Benchmark kg/convive par flux');
+    expect(html).toContain('<!DOCTYPE html>');
+  });
+});
+
+describe('M1.6 / bordereau ZD §1.1 — équivalent bacs/rolls (BL-P2-16)', () => {
+  it('colonne « Bacs / Rolls » : bacs si renseigné, sinon rolls', () => {
+    const html = renderByType('bordereau-zd', bordereauData());
+    expect(html).toContain('3 bacs'); // Biodéchets → nb_bacs
+    expect(html).toContain('2 rolls'); // Cartons → equivalent_roll
+  });
+
+  it('BL-P2-20 : mention de régénération sur bordereau régénéré', () => {
+    const html = renderByType(
+      'bordereau-zd',
+      bordereauData({ regenere_le: '07/07/2026' }),
+    );
+    expect(html).toContain('Version mise à jour — générée le 07/07/2026');
+  });
+});
+
+describe('M2.4 / attestation de don — mention de régénération (BL-P2-20)', () => {
+  it('mention pied de page présente uniquement si régénérée', () => {
+    const base = renderByType('attestation-don', attestationData());
+    expect(base).not.toContain('Version mise à jour');
+    const regen = renderByType(
+      'attestation-don',
+      attestationData({ regenere_le: '07/07/2026' }),
+    );
+    expect(regen).toContain('Version mise à jour — générée le 07/07/2026');
   });
 });
 

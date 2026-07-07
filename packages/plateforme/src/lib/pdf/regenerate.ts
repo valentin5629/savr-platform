@@ -17,6 +17,10 @@ import {
   isPdfDocumentType,
   type PdfDocumentType,
 } from '@savr/shared/src/pdf/document-types.js';
+import {
+  resolveRapportBenchmark,
+  type BenchmarkFilters,
+} from './rapport-benchmark.js';
 
 interface DocEntity {
   /** Table plateforme.* portant la ligne document (clé collecte_id). */
@@ -50,6 +54,10 @@ export async function regenerateCollecteDocument(
   collecteId: string,
   type: string,
   actor: { userId: string; role?: string },
+  // Filtres benchmark choisis à la régénération (§12 §1.2 « défaut batch / choisis à la
+  // régén »). Uniquement pris en compte pour 'rapport-recyclage-zd' ; sinon le PDF est
+  // reproduit à l'identique depuis le payload figé.
+  benchmarkFilters?: BenchmarkFilters,
 ): Promise<RegenerateResult> {
   if (!isPdfDocumentType(type)) {
     return {
@@ -112,14 +120,39 @@ export async function regenerateCollecteDocument(
     };
   }
 
-  // 3. Ré-enqueuer un job frais (même contrat que le batch : statut pending, attempts 0).
+  // 3. Reconstituer le payload : copie du payload figé + mention de régénération
+  //    (§12 §1.4 « Version mise à jour — générée le … » en pied de page).
+  const frozen = (lastJob as { payload: Record<string, unknown> }).payload;
+  const payload: Record<string, unknown> = {
+    ...frozen,
+    regenere_le: new Date().toLocaleDateString('fr-FR'),
+  };
+
+  // Rapport RSE : le demandeur peut surcharger les filtres benchmark à la régénération
+  // (§12 §1.2). On recalcule alors le bloc benchmark + on ré-fige le snapshot
+  // rapports_rse.filtres_benchmark. Sans filtres → reproduction fidèle du payload figé.
+  if (type === 'rapport-recyclage-zd' && benchmarkFilters) {
+    const bench = await resolveRapportBenchmark(
+      supabase,
+      collecteId,
+      benchmarkFilters,
+    );
+    payload.benchmark_flux = bench.benchmark_flux;
+    payload.benchmark_legende = bench.benchmark_legende;
+    await supabase
+      .from('rapports_rse')
+      .update({ filtres_benchmark: bench.filtres_benchmark })
+      .eq('id', entityId);
+  }
+
+  // 4. Ré-enqueuer un job frais (même contrat que le batch : statut pending, attempts 0).
   const { data: newJob, error: insErr } = await supabase
     .from('jobs_pdf')
     .insert({
       type_document: type,
       entity_type: cfg.entityType,
       entity_id: entityId,
-      payload: (lastJob as { payload: Record<string, unknown> }).payload,
+      payload,
       statut: 'pending',
       attempts: 0,
     })
@@ -134,7 +167,7 @@ export async function regenerateCollecteDocument(
     };
   }
 
-  // 4. Rapport RSE : marquer la régénération (picto ⟳ « Rapport régénéré », §06.06
+  // 6. Rapport RSE : marquer la régénération (picto ⟳ « Rapport régénéré », §06.06
   //    l.170) — regenere_at + regenere_par_user_id + bump version (≠ version initiale).
   if (type === 'rapport-recyclage-zd') {
     const { data: cur } = await supabase
@@ -153,7 +186,7 @@ export async function regenerateCollecteDocument(
       .eq('id', entityId);
   }
 
-  // 5. Audit (modèle poids/route.ts) — action tracée, table du document régénéré.
+  // 7. Audit (modèle poids/route.ts) — action tracée, table du document régénéré.
   await supabase.from('audit_log').insert({
     table_name: cfg.table,
     record_id: entityId,

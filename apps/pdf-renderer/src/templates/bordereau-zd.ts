@@ -1,11 +1,16 @@
 // Version figée du gabarit — doit rester égale à TEMPLATE_VERSIONS['bordereau-zd']
 // du contrat partagé (@savr/shared). Vérifié par check:integration-contracts.
-export const TEMPLATE_VERSION = 'bordereau-zd@1';
+// @2 (R21a) : colonne « Bacs / Rolls » alimentée (nb_bacs / equivalent_roll) +
+// mention pied de page de régénération.
+export const TEMPLATE_VERSION = 'bordereau-zd@2';
 
 export interface FluxDetail {
   nom: string;
   poids_kg: number;
-  nb_bacs?: number;
+  /** Nombre de bacs (flux collectés en bacs — §12 §1.1 « équivalent bacs/rolls »). */
+  nb_bacs?: number | null;
+  /** Équivalent en rolls (flux collectés en rolls, ex. cartons/emballages). */
+  equivalent_roll?: number | null;
 }
 
 export interface BordereauZdData {
@@ -24,6 +29,16 @@ export interface BordereauZdData {
   nb_pax?: number;
   flux: FluxDetail[];
   poids_total_kg: number;
+  /** Mention de régénération (§12 §1.4) — présente uniquement sur un document régénéré. */
+  regenere_le?: string;
+}
+
+/** Cellule « Bacs / Rolls » (§12 §1.1) : bacs si renseigné, sinon rolls, sinon —. */
+function bacsRolls(f: FluxDetail): string {
+  if (f.nb_bacs != null) return `${f.nb_bacs} bac${f.nb_bacs > 1 ? 's' : ''}`;
+  if (f.equivalent_roll != null)
+    return `${f.equivalent_roll} roll${f.equivalent_roll > 1 ? 's' : ''}`;
+  return '—';
 }
 
 export function renderBordereauZd(data: BordereauZdData): string {
@@ -33,7 +48,7 @@ export function renderBordereauZd(data: BordereauZdData): string {
       <tr>
         <td class="flux-nom">${esc(f.nom)}</td>
         <td class="num">${f.poids_kg.toFixed(2).replace('.', ',')} kg</td>
-        <td class="num">${f.nb_bacs != null ? f.nb_bacs : '—'}</td>
+        <td class="num">${bacsRolls(f)}</td>
       </tr>`,
     )
     .join('');
@@ -69,6 +84,7 @@ export function renderBordereauZd(data: BordereauZdData): string {
   .signature-block { display: flex; gap: 40px; }
   .sig-box { flex: 1; border: 1px dashed #d1d5db; border-radius: 4px; padding: 10px; min-height: 60px; }
   .sig-box .label { font-size: 9px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; }
+  .regen-mention { font-size: 9px; color: #b45309; font-style: italic; margin-bottom: 8px; }
 </style>
 </head>
 <body>
@@ -129,6 +145,8 @@ export function renderBordereauZd(data: BordereauZdData): string {
     <div class="sig-box"><div class="label">Signature chauffeur</div></div>
     <div class="sig-box"><div class="label">Signature représentant traiteur</div></div>
   </div>
+
+  ${data.regenere_le ? `<div class="regen-mention">Version mise à jour — générée le ${esc(data.regenere_le)}</div>` : ''}
 
   <div class="footer">
     <div class="footer-mention">Document officiel Savr · ${esc(data.numero)}</div>

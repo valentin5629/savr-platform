@@ -11,7 +11,8 @@
 // Version figée du gabarit — doit rester égale à TEMPLATE_VERSIONS['attestation-don']
 // du contrat partagé (@savr/shared/src/pdf/document-types.ts). Vérifié par le gate
 // CI check:integration-contracts. Incrémenter @N à toute modif structurelle.
-export const TEMPLATE_VERSION = 'attestation-don@1';
+// @2 (R21a) : mention pied de page de régénération (§12 §1.4).
+export const TEMPLATE_VERSION = 'attestation-don@2';
 
 export interface AttestationDonData {
   numero: string;
@@ -32,6 +33,8 @@ export interface AttestationDonData {
   /** Équivalence pédagogique en km voiture (snapshot equivalences.km_voiture). */
   co2_km_voiture?: number | null;
   co2_facteurs_version?: string | null;
+  /** Mention de régénération (§12 §1.4) — présente uniquement sur un document régénéré. */
+  regenere_le?: string | null;
 }
 
 export function renderAttestationDon(data: AttestationDonData): string {
@@ -119,6 +122,7 @@ export function renderAttestationDon(data: AttestationDonData): string {
   .footer { border-top: 1px solid #e5e7eb; padding-top: 12px; display: flex; justify-content: space-between; }
   .footer-mention { font-size: 9px; color: #9ca3af; }
   .official { font-size: 10px; font-weight: 600; color: #374151; }
+  .regen-mention { font-size: 9px; color: #b45309; font-style: italic; margin-bottom: 8px; }
 </style>
 </head>
 <body>
@@ -173,6 +177,8 @@ export function renderAttestationDon(data: AttestationDonData): string {
     <div class="sig-box"><div class="label">Cachet / signature association</div></div>
     <div class="sig-box"><div class="label">Cachet / signature donateur</div></div>
   </div>
+
+  ${data.regenere_le ? `<div class="regen-mention">Version mise à jour — générée le ${esc(data.regenere_le)}</div>` : ''}
 
   <div class="footer">
     <div class="footer-mention">Document généré par Savr · ${esc(data.numero)}</div>

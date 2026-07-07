@@ -4,6 +4,8 @@
 
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 
+import { resolveRapportBenchmark } from './rapport-benchmark.js';
+
 export interface BatchPdfJ1Result {
   enqueued: number;
   skipped_no_flux: number;
@@ -52,6 +54,48 @@ interface CollecteRow {
       ville: string | null;
     } | null;
   } | null;
+}
+
+/** Ligne retournée par la RPC plateforme.f_taux_recyclage_moyen_parc (§12 §1.2 l.67). */
+interface ParcMoyenRow {
+  taux_moyen_pondere: number;
+  nb_organisations: number;
+  nb_collectes: number;
+}
+
+/**
+ * Équivalences pédagogiques du CO₂ évité (§12 §1.2 l.63/l.65). Les facteurs sont figés
+ * dans `co2_facteurs_snapshot.equivalences` à la clôture (reproductibilité) :
+ *   - km_voiture / repas_boeuf = kgCO₂e par unité → compte = co2_evite_kg / facteur
+ *   - foyer_kwh = kWh/an d'un foyer → compte = energie_primaire_evitee_kwh / facteur
+ * Retourne undefined si pas de CO₂ évité ou pas de snapshot (bloc masqué côté PDF).
+ */
+export function buildEquivalences(
+  co2EviteKg: number | null,
+  energiePrimaireKwh: number | null,
+  snapshot: Record<string, unknown> | null,
+):
+  | {
+      km_voiture: number | null;
+      repas_boeuf: number | null;
+      foyer: number | null;
+    }
+  | undefined {
+  if (co2EviteKg == null || !snapshot) return undefined;
+  const eqv = (snapshot as { equivalences?: Record<string, unknown> })
+    .equivalences;
+  if (!eqv) return undefined;
+  const feKm = Number(eqv.km_voiture);
+  const feBoeuf = Number(eqv.repas_boeuf);
+  const feFoyer = Number(eqv.foyer_kwh);
+  return {
+    km_voiture: feKm > 0 ? Math.round(co2EviteKg / feKm) : null,
+    repas_boeuf: feBoeuf > 0 ? Math.round(co2EviteKg / feBoeuf) : null,
+    foyer:
+      energiePrimaireKwh != null && feFoyer > 0
+        ? Math.round(energiePrimaireKwh / feFoyer)
+        : null,
+  };
 }
 
 export async function runBatchPdfJ1(
@@ -120,6 +164,21 @@ export async function runBatchPdfJ1(
 
   const now = new Date();
 
+  // Comparaison vs moyenne Savr anonymisée (§12 §1.2 l.67) — parc-wide, identique pour
+  // toutes les collectes du batch → calculée une seule fois. Masquée si < 3 acteurs
+  // (la fonction ne retourne aucune ligne). Distinct du benchmark kg/pax (k≥5, par collecte).
+  const { data: parcRows } = await supabase.rpc(
+    'f_taux_recyclage_moyen_parc',
+    {},
+  );
+  const parc = ((parcRows ?? []) as ParcMoyenRow[])[0];
+  const comparaisonSavr = parc
+    ? {
+        taux_moyen_pondere: Number(parc.taux_moyen_pondere),
+        nb_organisations: parc.nb_organisations,
+      }
+    : undefined;
+
   for (const collecte of toProcess) {
     try {
       // 3. Vérifier qu'il y a des pesées dans collecte_flux
@@ -152,15 +211,20 @@ export async function runBatchPdfJ1(
         continue;
       }
 
-      // 4. Charger les flux pour le payload
+      // 4. Charger les flux pour le payload (équivalent bacs/rolls inclus, §12 §1.1)
       const { data: flux } = await supabase
         .from('collecte_flux')
-        .select('flux_id, poids_reel_kg, flux:flux_id ( nom )')
+        .select(
+          'flux_id, poids_reel_kg, nb_bacs, equivalent_roll, flux:flux_id ( nom )',
+        )
         .eq('collecte_id', collecte.id);
 
       const fluxDetails = (flux ?? []).map((f: Record<string, unknown>) => ({
         nom: (f.flux as { nom: string } | null)?.nom ?? String(f.flux_id),
         poids_kg: Number(f.poids_reel_kg),
+        nb_bacs: f.nb_bacs != null ? Number(f.nb_bacs) : null,
+        equivalent_roll:
+          f.equivalent_roll != null ? Number(f.equivalent_roll) : null,
       }));
       const poidsTotalKg = fluxDetails.reduce(
         (s: number, f: { poids_kg: number }) => s + f.poids_kg,
@@ -230,6 +294,21 @@ export async function runBatchPdfJ1(
         new Date(collecte.realisee_at).getTime() + 24 * 3600 * 1000,
       );
 
+      // 5bis. Bloc benchmark §12 §1.2 (BL-P1-RPT-01) — 5 jauges kg/pax + point rouge
+      // parc. Défaut batch auto (pas de filtres) : segment = type d'événement + taille
+      // de la collecte ; le helper résout filtres, légende et snapshot (k-anonymat ≥5).
+      const benchmark = await resolveRapportBenchmark(supabase, collecte.id);
+      const filtresBenchmark = benchmark.filtres_benchmark;
+
+      // Équivalences pédagogiques du CO₂ évité (§12 §1.2 l.63) — comptes dérivés des
+      // FACTEURS figés dans co2_facteurs_snapshot.equivalences (km_voiture/repas_boeuf =
+      // kgCO₂e/unité ; foyer_kwh = kWh/an). Absent si pas de snapshot / pas de CO₂.
+      const equivalences = buildEquivalences(
+        collecte.co2_evite_kg,
+        collecte.energie_primaire_evitee_kwh,
+        collecte.co2_facteurs_snapshot,
+      );
+
       const rapportPayload = {
         nom_evenement: ev.nom_evenement,
         date_evenement: dateEvenementStr,
@@ -248,6 +327,10 @@ export async function runBatchPdfJ1(
         co2_facteurs_version: (
           collecte.co2_facteurs_snapshot as Record<string, unknown> | null
         )?.version_parametres_at as string | undefined,
+        equivalences,
+        comparaison_savr: comparaisonSavr,
+        benchmark_flux: benchmark.benchmark_flux,
+        benchmark_legende: benchmark.benchmark_legende,
         bordereau: bordereauPayload,
       };
 
@@ -285,7 +368,7 @@ export async function runBatchPdfJ1(
           version: 1,
           disponible_a: disponibleA.toISOString(),
           genere_par: 'automatique',
-          filtres_benchmark: {},
+          filtres_benchmark: filtresBenchmark,
         })
         .select('id')
         .single();

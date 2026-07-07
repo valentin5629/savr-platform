@@ -58,7 +58,17 @@
     "les 3 type_document du contrat rendent un HTML non vide (plus de 400)",
     "type inconnu → UnknownDocumentTypeError mappé en 400",
     "shared.fichiers inséré avec colonnes réelles (storage_provider/bucket/key/size_bytes/content_type)",
-    "template_version persisté sur l'entité (re-rendu iso)"
+    "template_version persisté sur l'entité (re-rendu iso)",
+    "5 jauges benchmark",
+    "équivalences pédagogiques du CO₂ évité",
+    "comparaison vs moyenne Savr anonymisée",
+    "camembert par flux",
+    "colonne « Bacs / Rolls »",
+    "manager + collecte visible → 202",
+    "cross-org (collecte existe mais hors périmètre RLS) → 403",
+    "convertit les FACTEURS figés en comptes",
+    "respecte les filtres surchargés",
+    "mention pied de page uniquement sur un rapport régénéré"
   ],
   "tests": {
     "vitest": [
@@ -195,6 +205,62 @@
       "test": "template_version persisté sur l'entité (re-rendu iso)",
       "statut": "implemented",
       "libelle": "PDF versioning template_version (TEMPLATE_VERSIONS persisté par le worker → re-rendu iso traçable)"
+    },
+    {
+      "id": "BL-P1-RPT-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:69",
+      "artefact": "supabase/migrations/20260707130000_plateforme_r21a_rapport_benchmark.sql (f_rapport_benchmark_zd) + packages/plateforme/src/lib/pdf/rapport-benchmark.ts + apps/pdf-renderer/src/templates/rapport-recyclage-zd.ts (benchmarkBlock 5 jauges)",
+      "test": "M1.6 / rapport recyclage §1.2 — benchmark : 5 jauges benchmark (point rouge parc si ≥5, « Données insuffisantes » sinon) + M1.6 / resolveRapportBenchmark (défaut + filtres surchargés)",
+      "statut": "implemented",
+      "libelle": "Bloc benchmark kg/pax × parc alimenté : 5 jauges (1/flux) + point rouge (moyenne pondérée f_benchmark_kg_pax_zd, k-anonymat ≥5) + légende des filtres + snapshot rapports_rse.filtres_benchmark (reproductibilité). Défaut batch = segment type+taille ; filtres choisis à la régénération."
+    },
+    {
+      "id": "BL-P2-18",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:63",
+      "artefact": "apps/pdf-renderer/src/templates/rapport-recyclage-zd.ts (co2Block équivalences + comparaisonBlock + camembert SVG + benchmark légende) ; packages/plateforme/src/lib/pdf/batch-pdf-j1.ts (buildEquivalences) ; supabase/migrations/20260707130000_plateforme_r21a_rapport_benchmark.sql (f_taux_recyclage_moyen_parc) ; item (3) AG = attestation → voir M2.4-p2-18-ag-attestation",
+      "test": "M1.6 / rapport recyclage §1.2 : équivalences pédagogiques du CO₂ évité + comparaison vs moyenne Savr anonymisée (≥3 acteurs) + camembert par flux (§1.2 l.68) ; M1.6 / buildEquivalences : convertit les FACTEURS figés en comptes",
+      "statut": "implemented",
+      "libelle": "Contenu §1.2 : (1) équivalences pédagogiques CO₂ évité (km voiture/repas bœuf/foyers, depuis co2_facteurs_snapshot) ; (2) comparaison vs moyenne Savr anonymisée ≥3 acteurs (f_taux_recyclage_moyen_parc, distinct du benchmark k≥5) ; (3) rapport AG = attestation standalone (option a Val, cf. M2.4) ; (4) camembert par flux + légende benchmark détaillée."
+    },
+    {
+      "id": "BL-P2-16",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:30",
+      "artefact": "packages/plateforme/src/lib/pdf/batch-pdf-j1.ts (select+map nb_bacs/equivalent_roll) + apps/pdf-renderer/src/templates/bordereau-zd.ts (bacsRolls)",
+      "test": "M1.6 / bordereau ZD §1.1 : colonne « Bacs / Rolls » (bacs si renseigné, sinon rolls) + M1.6 / BatchPdfJ1 / Nominal : le payload bordereau porte l'équivalent bacs",
+      "statut": "implemented",
+      "libelle": "Bordereau ZD : nb_bacs / equivalent_roll lus depuis collecte_flux et transmis au payload ; colonne « Bacs / Rolls » du template statue bacs sinon rolls."
+    },
+    {
+      "id": "BL-P2-20",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:207",
+      "artefact": "packages/plateforme/src/lib/pdf/regenerate.ts (injection regenere_le) + apps/pdf-renderer/src/templates/{rapport-recyclage-zd,bordereau-zd,attestation-don}.ts (mention pied de page)",
+      "test": "M1.6 / rapport recyclage : BL-P2-20 mention pied de page uniquement sur un rapport régénéré + M0.6 — succès rapport RSE (payload figé + regenere_le)",
+      "statut": "implemented",
+      "libelle": "Mention pied de page « Version mise à jour — générée le … » injectée par regenerate.ts et rendue par les 3 templates uniquement sur un document régénéré (§12 §1.4)."
+    },
+    {
+      "id": "BL-P1-RPT-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:92",
+      "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/documents/[type]/regenerate/route.ts + fiche traiteur (picto « rapport régénéré » + bouton Régénérer manager)",
+      "test": "M1.6 / régénération rapport traiteur (RPT-04) : manager + collecte visible → 202 ; cross-org → 403 ; inexistante → 404",
+      "statut": "implemented",
+      "libelle": "Régénération rapport RSE par le traiteur_manager (décision Val 2026-07-07 : §12 §1.2 prime sur §06.04 l.415) : route SERVICE_ROLE + contrôle applicatif du périmètre (4 chemins org RLS) + cross-org 403 + picto/bouton côté espace traiteur."
+    },
+    {
+      "id": "BL-P2-21",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:94",
+      "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/rapport-rse/download/route.ts",
+      "test": "M3.1/rapport_download_ok — URL pré-signée (embargo levé) + M3.1/rapport_download_embargo — 425",
+      "statut": "implemented",
+      "libelle": "Téléchargement rapport RSE traiteur (R19a) : embargo H+24 (425) + URL pré-signée R2 (900 s). Vérifié inchangé + transcrit."
+    },
+    {
+      "id": "M1.6-rpt-01-sql",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:69",
+      "artefact": "supabase/migrations/20260707130000_plateforme_r21a_rapport_benchmark.sql",
+      "test": "supabase/tests/m1_6_rapport_benchmark.test.sql (pgTAP : f_rapport_benchmark_zd grain flux + k-anonymat ; f_taux_recyclage_moyen_parc gate ≥3 ; service_role only)",
+      "statut": "implemented",
+      "libelle": "2 fonctions SECURITY DEFINER service-role : f_rapport_benchmark_zd (wrapper grain collecte de f_benchmark_kg_pax_zd, sans garde JWT) + f_taux_recyclage_moyen_parc (moyenne parc anonymisée ≥3). REVOKE PUBLIC, GRANT service_role."
     }
   ],
   "cdc_source_hash": {

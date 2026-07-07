@@ -5,6 +5,7 @@
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 
 import { resolveRapportBenchmark } from './rapport-benchmark.js';
+import { resolveRapportLogo } from './logo-cascade.js';
 
 export interface BatchPdfJ1Result {
   enqueued: number;
@@ -35,17 +36,28 @@ interface CollecteRow {
     pax: number | null;
     organisation_id: string;
     traiteur_operationnel_organisation_id: string | null;
+    // Cascade logo §1.2 (BL-P2-19).
+    client_organisateur_organisation_id: string | null;
+    logo_client_organisateur_url: string | null;
     organisations: {
       raison_sociale: string;
       siret: string | null;
       adresse: string | null;
       // Destinataire email rapport_disponible = programmeur de la collecte (§06.02).
       email_principal: string | null;
+      // Cascade logo §1.2 : type (agence prime) + logo du programmateur.
+      type: string | null;
+      logo_url: string | null;
     } | null;
     traiteur_operationnel: {
       raison_sociale: string;
       siret: string | null;
       adresse: string | null;
+      logo_url: string | null;
+    } | null;
+    // Organisation du client organisateur (compte Savr) — logo cascade §1.2 étape 2.
+    client_organisateur: {
+      logo_url: string | null;
     } | null;
     lieux: {
       nom: string;
@@ -120,8 +132,10 @@ export async function runBatchPdfJ1(
       evenements (
         id, nom_evenement, date_evenement, pax,
         organisation_id, traiteur_operationnel_organisation_id,
-        organisations ( raison_sociale, siret, adresse, email_principal ),
-        traiteur_operationnel:organisations!traiteur_operationnel_organisation_id ( raison_sociale, siret, adresse ),
+        client_organisateur_organisation_id, logo_client_organisateur_url,
+        organisations ( raison_sociale, siret, adresse, email_principal, type, logo_url ),
+        traiteur_operationnel:organisations!traiteur_operationnel_organisation_id ( raison_sociale, siret, adresse, logo_url ),
+        client_organisateur:organisations!client_organisateur_organisation_id ( logo_url ),
         lieux ( nom, adresse_acces, code_postal, ville )
       )
     `,
@@ -309,6 +323,15 @@ export async function runBatchPdfJ1(
         collecte.co2_facteurs_snapshot,
       );
 
+      // Cascade logo client §12 §1.2 (BL-P2-19) : agence prime → client organisateur
+      // (compte Savr, sinon upload) → traiteur opérationnel → Savr (fallback template).
+      const logo = resolveRapportLogo({
+        programmateur: ev.organisations,
+        client_organisateur: ev.client_organisateur,
+        evenement_logo_client_url: ev.logo_client_organisateur_url,
+        traiteur_operationnel: ev.traiteur_operationnel ?? ev.organisations,
+      });
+
       const rapportPayload = {
         nom_evenement: ev.nom_evenement,
         date_evenement: dateEvenementStr,
@@ -317,6 +340,7 @@ export async function runBatchPdfJ1(
         lieu_adresse: adresseLieu,
         nb_pax: ev.pax,
         traiteur_nom: organisationProd?.raison_sociale ?? '',
+        logo_url: logo.logo_url,
         taux_recyclage: collecte.taux_recyclage,
         flux: fluxDetails,
         poids_total_kg: poidsTotalKg,

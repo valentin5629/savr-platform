@@ -32,12 +32,19 @@ interface DocEntity {
 // Partiel : seuls les documents ARCHIVÉS grain-collecte sont régénérables. La
 // synthèse agrégée (type 'synthese-dashboard') n'a pas de table document (pas
 // d'archivage §12 §1.6) et n'est jamais re-enqueue via ce flux → absente de la map.
+// 'rapport-evenement-sans-excedent' (§12 §1.3-bis l.198 « Régénération : Admin Savr
+// uniquement, correction motif chauffeur / plaque post-saisie ») est porté par
+// rapports_rse → régénérable comme le rapport de recyclage.
 const DOC_ENTITY: Partial<Record<PdfDocumentType, DocEntity>> = {
   'bordereau-zd': { table: 'bordereaux_savr', entityType: 'bordereaux_savr' },
   'rapport-recyclage-zd': { table: 'rapports_rse', entityType: 'rapports_rse' },
   'attestation-don': {
     table: 'attestations_don',
     entityType: 'attestations_don',
+  },
+  'rapport-evenement-sans-excedent': {
+    table: 'rapports_rse',
+    entityType: 'rapports_rse',
   },
 };
 
@@ -169,7 +176,9 @@ export async function regenerateCollecteDocument(
 
   // 6. Rapport RSE : marquer la régénération (picto ⟳ « Rapport régénéré », §06.06
   //    l.170) — regenere_at + regenere_par_user_id + bump version (≠ version initiale).
-  if (type === 'rapport-recyclage-zd') {
+  //    Couvre les deux documents portés par rapports_rse : recyclage ZD ET rapport
+  //    « Événement sans excédent » AG (§12 §1.3-bis, régénération Admin).
+  if (cfg.table === 'rapports_rse') {
     const { data: cur } = await supabase
       .from('rapports_rse')
       .select('version')

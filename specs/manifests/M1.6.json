@@ -68,7 +68,9 @@
     "cross-org (collecte existe mais hors périmètre RLS) → 403",
     "convertit les FACTEURS figés en comptes",
     "respecte les filtres surchargés",
-    "mention pied de page uniquement sur un rapport régénéré"
+    "mention pied de page uniquement sur un rapport régénéré",
+    "cascade logo rapport §1.2 (BL-P2-19)",
+    "Logo cascade §1.2 (BL-P2-19)"
   ],
   "tests": {
     "vitest": [
@@ -253,6 +255,14 @@
       "test": "M3.1/rapport_download_ok — URL pré-signée (embargo levé) + M3.1/rapport_download_embargo — 425",
       "statut": "implemented",
       "libelle": "Téléchargement rapport RSE traiteur (R19a) : embargo H+24 (425) + URL pré-signée R2 (900 s). Vérifié inchangé + transcrit."
+    },
+    {
+      "id": "BL-P2-19",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:47",
+      "artefact": "packages/plateforme/src/lib/pdf/logo-cascade.ts (resolveRapportLogo) + packages/plateforme/src/lib/pdf/batch-pdf-j1.ts (SELECT type/logo_url + rapportPayload.logo_url) ; réutilisé par batch-pdf-sans-excedent.ts (cohérence AG)",
+      "test": "M1.6 / cascade logo rapport §1.2 (BL-P2-19) ; M1.6 / BatchPdfJ1 / Logo cascade §1.2 (BL-P2-19) : programmateur agence → logo agence dans le payload",
+      "statut": "implemented",
+      "libelle": "Cascade logo client §1.2 (l.47-51 + l.86-90) : agence programmatrice prime → client organisateur (compte Savr organisations.logo_url, sinon upload evenements.logo_client_organisateur_url) → traiteur opérationnel → Savr (fallback template). Pas d'override branding gestionnaire de lieux (l.90). Le batch ZD alimente désormais rapportPayload.logo_url (auparavant absent → fallback « Savr » systématique) ; même helper réutilisé pour le rapport sans-excédent AG."
     },
     {
       "id": "M1.6-rpt-01-sql",

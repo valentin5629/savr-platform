@@ -20,6 +20,11 @@ export const PDF_DOCUMENT_TYPES = [
   // Rapport de synthèse agrégé §12 §1.6 (multi-collectes, à la demande, non archivé).
   // Généré en synchrone par la route /api/v1/dashboards/synthese-pdf (R20b-2).
   'synthese-dashboard',
+  // Rapport « Événement sans excédent alimentaire » §12 §1.3-bis (AG
+  // realisee_sans_collecte : justificatif texte seul, sans photos). Porté par une
+  // ligne rapports_rse standard, disponible_a = genere_at (pas d'embargo H+24).
+  // Slug CDC = rapport_evenement_sans_excedent. Batch runBatchSansExcedent (R21b).
+  'rapport-evenement-sans-excedent',
 ] as const;
 
 export type PdfDocumentType = (typeof PDF_DOCUMENT_TYPES)[number];
@@ -35,6 +40,7 @@ export const TEMPLATE_VERSIONS: Record<PdfDocumentType, string> = {
   'rapport-recyclage-zd': 'rapport-recyclage-zd@2',
   'attestation-don': 'attestation-don@2',
   'synthese-dashboard': 'synthese-dashboard@1',
+  'rapport-evenement-sans-excedent': 'rapport-evenement-sans-excedent@1',
 };
 
 /** Garde de type : `x` est-il un type de document PDF connu ? */

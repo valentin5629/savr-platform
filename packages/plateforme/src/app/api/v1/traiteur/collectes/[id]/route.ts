@@ -122,6 +122,12 @@ export async function GET(
   //  · factures rattachées (via factures_collectes) pour le bouton « Télécharger la facture »
   const admin = createAdminSupabaseClient();
   const isAg = (data as { type: string }).type === 'anti_gaspi';
+  // AG realisee_sans_collecte (BL-P1-RPT-02) : pas d'attestation → le « rapport RSE » est
+  // le rapport « Événement sans excédent » (rapports_rse, sans embargo). ZD et AG
+  // sans-excédent lisent rapports_rse ; l'AG cloturee lit l'attestation.
+  const isSansExcedent =
+    isAg && (data as { statut: string }).statut === 'realisee_sans_collecte';
+  const useRapportsRse = !isAg || isSansExcedent;
   const [ctRes, rapRes, attRes, fcRes] = await Promise.all([
     admin
       .from('collecte_tournees')
@@ -207,18 +213,21 @@ export async function GET(
     eligible_at: string | null;
     pdf_url: string | null;
   } | null;
-  // Disponibilité du « rapport RSE » : ZD = rapports_rse (rendu + embargo) ; AG = attestation.
-  const rapport_rse_disponible = isAg
-    ? Boolean(att?.pdf_url) &&
-      att?.eligible_at != null &&
-      new Date(att.eligible_at).getTime() <= Date.now()
-    : Boolean(rap?.genere_at) &&
+  // Disponibilité du « rapport RSE » : rapports_rse (rendu + embargo) pour ZD et AG
+  // sans-excédent ; attestation pour l'AG cloturee. Le rapport sans-excédent n'a pas
+  // d'embargo (disponible_a = genere_at) : la garde disponible_a <= now est immédiate.
+  const rapport_rse_disponible = useRapportsRse
+    ? Boolean(rap?.genere_at) &&
       rap?.disponible_a != null &&
-      new Date(rap.disponible_a).getTime() <= Date.now();
-  // Picto « rapport régénéré » (§12 §1.4) — porté par rapports_rse.regenere_at (ZD).
-  const rapport_rse_regenere = !isAg && Boolean(rap?.regenere_at);
+      new Date(rap.disponible_a).getTime() <= Date.now()
+    : Boolean(att?.pdf_url) &&
+      att?.eligible_at != null &&
+      new Date(att.eligible_at).getTime() <= Date.now();
+  // Picto « rapport régénéré » (§12 §1.4) — porté par rapports_rse.regenere_at (ZD +
+  // AG sans-excédent régénéré par l'Admin).
+  const rapport_rse_regenere = useRapportsRse && Boolean(rap?.regenere_at);
   // Régénération traiteur (RPT-04, décision Val 2026-07-07) : manager, ZD uniquement
-  // (l'attestation AG reste régénérable par l'Admin seul, §12 §1.3).
+  // (attestation AG + rapport sans-excédent = régénérables par l'Admin seul, §12 §1.3/§1.3-bis).
   const can_regenerate = auth.ctx.role === 'traiteur_manager' && !isAg;
 
   type FactureInfo = {

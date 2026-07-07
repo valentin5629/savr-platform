@@ -12,8 +12,11 @@ interface Props {
  * Bloc 3 AG — Top associations bénéficiaires, ordonné par repas reçus
  * (§06.04 l.218, §06.05 l.233, §06.11 hérite §06.04). Colonnes : Association ·
  * Ville · Nombre de collectes · Repas reçus. La colonne « Distance moyenne (km) »
- * du §06.05 n'est pas rendue en V1 (pas de source de distance asso↔lieu ;
- * cohérent avec sa suppression côté traiteur §06.04 l.223 — cf. _Divergences).
+ * du §06.05 n'est PAS rendue : décision Val 2026-07-07 = la distance lieu↔asso
+ * reste un critère INTERNE à l'algo d'attribution AG (Admin, Haversine dans
+ * fn_calculer_algo_attribution_ag) et n'est pas restituée aux dashboards clients.
+ * (La donnée existe — lieux/associations géocodées ; ce n'est pas un manque de
+ * source. §06.05 à aligner sur ce retrait — cf. _Divergences M3.2_20260707.)
  */
 export function TopAssociationsBloc({ items, className }: Props) {
   return (

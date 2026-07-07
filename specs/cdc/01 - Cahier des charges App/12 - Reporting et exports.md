@@ -71,7 +71,7 @@ Le PDF dit "rapport RSE" est désormais un document unique multi-pages qui agrè
   - Mentions légales Savr
   - Watermark + QR code vérification (V1.1)
 - **Page 2 (si collecte ZD)** — Bordereau de pesée intégré : reproduit intégralement le contenu du §1.1 Bordereau ZD (en-tête, tableau pesées par flux, équivalent bacs/rolls, totaux, signature/cachet, mention "Document officiel").
-- **Page 3 (si collecte AG avec don)** — Attestation de don intégrée : reproduit intégralement le contenu du §1.3 Attestation AG (en-tête, association bénéficiaire, repas + estimation poids, mention 2041-GE si applicable).
+> **Grain collecte — le rapport RSE §1.2 est un document ZD (2 pages : synthèse ZD + bordereau).** `collectes.type` = `zero_dechet` XOR `anti_gaspi` (§04) → une collecte ne peut alimenter à la fois une page ZD et une page AG. Pour une collecte **AG**, le « rapport RSE » servi au traiteur (bouton §06.04) **EST l'attestation de don standalone §1.3** — pas de « Page 3 attestation » intégrée ni de « Page 1 Synthèse RSE » AG (option a, décision Val 2026-07-07 ; cf. [[05 - Règles métier]] §6 : `rapport_recyclage` strictement ZD).
 
 **Cohérence cross-section** :
 - Côté `traiteur` (§06.04) : la fiche collecte expose **uniquement** ce PDF unique (suppression UI bordereau/attestation/photos séparés).
@@ -79,7 +79,7 @@ Le PDF dit "rapport RSE" est désormais un document unique multi-pages qui agrè
 - Côté `Registre réglementaire` (§06.03) : les bordereaux ZD restent listés et téléchargeables séparément (justificatif réglementaire R541-45, accès indépendant du PDF agrégé).
 - Côté `Admin Savr` (back-office §06.06) : accès séparé à tous les PDF unitaires + au PDF agrégé.
 
-**Implémentation Puppeteer** : le PDF agrégé est généré en concaténant les 3 templates HTML (synthèse + bordereau + attestation) avant rendu Puppeteer unique. Pas de PDF merge a posteriori — un seul render = sobriété perf.
+**Implémentation Puppeteer** : le PDF agrégé (ZD) est généré en concaténant les 2 templates HTML (synthèse + bordereau) avant rendu Puppeteer unique. Pas de PDF merge a posteriori — un seul render = sobriété perf.
 
 **Accessibilité** : Admin Savr + traiteur_manager + traiteur_commercial + client_organisateur (si rattaché à l'événement) + **agence + gestionnaire_lieux** (si l'organisation est programmatrice de la collecte — extension 2026-05-07). RLS par `organisation_id` (programmateur) + `traiteur_operationnel_organisation_id` (traiteur sur place) + `client_organisateur_organisation_id` (client final).
 

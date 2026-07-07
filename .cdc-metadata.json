@@ -40,8 +40,8 @@
       "bytes": 8435
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": {
-      "sha256": "3bf7eca7fe3d872411ff2b1be4a2454cd70950413e2f92688210572bbf836924",
-      "bytes": 92474
+      "sha256": "4a64157d49a7e9c6cfca82b0329d67c1444704d47fe6c65ddb31743f4a3f7382",
+      "bytes": 92424
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": {
       "sha256": "5d9ba496580f9de0fa09965275785dcc7723bc95972d499b956961ac40a6dd64",
@@ -64,8 +64,8 @@
       "bytes": 17393
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/_RAPPORT-EXPORT.md": {
-      "sha256": "a9c4eb45086cb2b5729b2a5bc814df68365f224b93f7e1a766f91098b5a6074a",
-      "bytes": 336
+      "sha256": "7e910e71f8a54cd0c8277916cdd077820d95ebf883a81baa989e304b3331fb70",
+      "bytes": 588
     },
     "specs/cdc/01 - Cahier des charges App/07 - Architecture technique.md": {
       "sha256": "6608523b9b91a930e9e6f271970f88c836e1a780eddf03a6f26c2400bfe8daca",
@@ -140,8 +140,8 @@
       "bytes": 26196
     },
     "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": {
-      "sha256": "f123141c281afdf244ad279fb07bca36e3fcf8f2830ca70a0830c78c5df97257",
-      "bytes": 47966
+      "sha256": "5a4a4b40b74a4692ebc517691d3bbd02d99a73395de0cf629d71acbcdd429369",
+      "bytes": 48280
     },
     "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md": {
       "sha256": "9601497c35602100d8e89c2365836657a3071768da18e3a63116ed861bc4baf7",
@@ -176,8 +176,8 @@
       "bytes": 7182
     },
     "specs/cdc/01 - Cahier des charges App/_RAPPORT-EXPORT.md": {
-      "sha256": "8c76cc479a2666e99101449aa1af425077a3a1ba81d38750e0cf5185083f0e5e",
-      "bytes": 701
+      "sha256": "e2142bce259418f33e37e2251e78c1052043b9fe635f36c1c8a6fed72842b9f4",
+      "bytes": 336
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.01-formulaire-programmation-scenarios.md": {
       "sha256": "a71330f61e399d537e19327c17048471306fe61a617c9182054e3a55d24c5f39",

@@ -1,11 +1,14 @@
 # Rapport export dev-facing
 
 Mode : AGGRESSIVE (T1+T2)
-**Total : 8743 -> 8147 octets (-596, -6.8%)**
+**Total : 93206 -> 89597 octets (-3609, -3.9%)**
 
 
-## 03 - Registre réglementaire (UX).md
-- octets : 8743 -> 8147 (-596, -6.8%)
-- tokens estimes : ~2185 -> ~2036
-- tombstones supprimes : 0 | fragments barres retires : 0 | en-tetes debarres : 0
+## 04 - Espace client traiteur.md
+- octets : 93206 -> 89597 (-3609, -3.9%)
+- tokens estimes : ~23301 -> ~22399
+- tombstones supprimes : 0 | fragments barres retires : 12 | en-tetes debarres : 4
 - lignes historiques T2 supprimees : 2
+- ⚠ tombstones en prose a revoir a la main :
+    L56: **Retiré V1 (refonte formulaire unique 2026-05-21)** — l'entrée se fait désormais par un b
+    L359: - — **retiré 2026-05-07**, géré par le sélecteur de type ZD / AG en haut de page

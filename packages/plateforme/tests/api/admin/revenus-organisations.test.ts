@@ -84,8 +84,33 @@ function collecte(
   orgId: string,
   orgName: string,
   orgType = 'traiteur',
-  opts: { statut?: string; prixUnitaireAg?: number } = {},
+  opts: {
+    statut?: string;
+    prixUnitaireAg?: number;
+    montantTotalAg?: number;
+    creditsAg?: number;
+  } = {},
 ) {
+  // Coût/collecte AG (CA économique) — relation to-one PostgREST rendue en objet.
+  // prix_unitaire_ht prioritaire ; sinon fallback montant_total_ht / crédits_initiaux.
+  let pack: {
+    prix_unitaire_ht: number | null;
+    montant_total_ht: number | null;
+    credits_initiaux: number | null;
+  } | null = null;
+  if (opts.prixUnitaireAg != null) {
+    pack = {
+      prix_unitaire_ht: opts.prixUnitaireAg,
+      montant_total_ht: null,
+      credits_initiaux: null,
+    };
+  } else if (opts.montantTotalAg != null && opts.creditsAg != null) {
+    pack = {
+      prix_unitaire_ht: null,
+      montant_total_ht: opts.montantTotalAg,
+      credits_initiaux: opts.creditsAg,
+    };
+  }
   return {
     type,
     statut: opts.statut ?? 'cloturee',
@@ -93,15 +118,7 @@ function collecte(
       organisation_id: orgId,
       organisations: { raison_sociale: orgName, type: orgType },
     },
-    // Coût/collecte AG (CA économique) — relation to-one PostgREST rendue en objet.
-    packs_antgaspi:
-      opts.prixUnitaireAg != null
-        ? {
-            prix_unitaire_ht: opts.prixUnitaireAg,
-            montant_total_ht: null,
-            credits_initiaux: null,
-          }
-        : null,
+    packs_antgaspi: pack,
   };
 }
 function facture(montant_ht: number, type: string, orgId: string) {
@@ -214,6 +231,31 @@ describe('admin/revenus-organisations', () => {
     // AG = coût/collecte pack (120€), PAS la facture AG (40€).
     expect(org1.montant_ag_ht).toBe(120);
     expect(org1.montant_total).toBe(270); // 150 ZD + 120 AG
+  });
+
+  it('revenus/ca_ag_fallback_montant_sur_credits — coût/collecte = montant_total_ht/crédits si prix_unitaire NULL', async () => {
+    setupAuth('admin_savr');
+    // Pack sans prix_unitaire_ht mais montant_total_ht=1200 / crédits=10 → coût 120/collecte.
+    admin.setResult('collectes', {
+      data: [
+        collecte('anti_gaspi', 'org-1', 'A', 'traiteur', {
+          montantTotalAg: 1200,
+          creditsAg: 10,
+        }),
+      ],
+      error: null,
+    });
+    admin.setResult('factures_collectes', { data: [], error: null });
+    const { GET } =
+      await import('@/app/api/v1/admin/dashboard/revenus-organisations/route.js');
+    const res = await GET(
+      makeReq('/api/v1/admin/dashboard/revenus-organisations'),
+    );
+    const json = (await res.json()) as {
+      data: Array<{ organisation_id: string; montant_ag_ht: number }>;
+    };
+    const org1 = json.data.find((r) => r.organisation_id === 'org-1')!;
+    expect(org1.montant_ag_ht).toBe(120); // 1200 / 10
   });
 
   it('revenus/imputation_organisation_programmatrice — agrégé sur evenements.organisation_id (CDC §06.06 P1)', async () => {

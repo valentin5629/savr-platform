@@ -64,6 +64,11 @@ revenus_zd AS (
 -- ── AG : CA économique = coût par collecte du pack, par date_collecte livrée ──
 -- Coût/collecte = prix_unitaire_ht (fallback montant_total_ht / crédits). Une collecte
 -- AG consomme un crédit à `realisee` → revenu reconnu sur les collectes realisee/cloturee.
+-- CONSÉQUENCE de la décision (divergence Val 2026-07-07) : les factures d'achat de pack
+-- (type='achat_pack_antigaspi') ET leurs avoirs ne sont PLUS lus ici — le montant AG du
+-- dashboard est le service livré, pas le cash. Le revenu comptable (facture d'achat +
+-- avoir éventuel) reste dans le module Facturation. L'ancienne v_kpi_admin sommait ces
+-- factures/avoirs pour l'AG : ce changement est volontaire et tracé (cf. _Divergences).
 revenus_ag AS (
   SELECT
     date_trunc('month', c.date_collecte)::date AS mois,

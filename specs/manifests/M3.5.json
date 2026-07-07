@@ -65,9 +65,9 @@
       "id": "M3.5-kpi-admin-ca-eco-ag",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:37",
       "artefact": "supabase/migrations/20260707120000_plateforme_r20a_kpi_admin_ca_economique_ag.sql",
-      "test": "M3.5/admin_revenus_6_colonnes — CA AG = coût/collecte pack (realisee/cloturee)",
+      "test": "supabase/tests/m3_5_v_kpi_admin_ca_eco_ag.test.sql — v_kpi_admin CA AG économique (pack) + non-régression ZD + exclusion facture/avoir pack",
       "statut": "implemented",
-      "libelle": "v_kpi_admin — montant AG de l'histogramme = CA économique = Σ (collectes AG livrées realisee/cloturee × coût/collecte pack = prix_unitaire_ht), imputé au mois de date_collecte ; remplace la facture d'achat de pack (pas de double comptage) ; ZD inchangé (factures emise/payee par date_emission). Divergence CDC §11 §1.1 tracée (Val 2026-07-07)."
+      "libelle": "v_kpi_admin — montant AG de l'histogramme = CA économique = Σ (collectes AG livrées realisee/cloturee × coût/collecte pack = prix_unitaire_ht, fallback montant_total_ht/crédits), imputé au mois de date_collecte ; remplace la facture d'achat de pack (les factures achat_pack_antigaspi ET leurs avoirs sont exclus du CA AG de pilotage) ; ZD inchangé (factures emise/payee par date_emission, avoirs ZD négatifs). Divergence CDC §11 §1.1 tracée (Val 2026-07-07)."
     },
     {
       "id": "BL-P2-11",

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.gosavr.io/2026.04/entrants/E3.collecte-annulee.schema.json",
+  "title": "E3 — DELETE /collectes/:id (collecte.annulee)",
+  "description": "Plateforme → TMS. Annulation d'une collecte. Conséquences TMS selon statut_tournee (cf. §08 / §03).",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "event_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+    "emis_le": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/timestamp" },
+    "occurred_at": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/timestamp" },
+    "source": { "type": "string", "const": "plateforme" },
+    "type": { "type": "string", "const": "collecte.annulee" },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "collecte_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+        "motif": { "type": "string" },
+        "annule_par_user_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+        "annule_le": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/timestamp" }
+      },
+      "required": ["collecte_id", "motif", "annule_par_user_id", "annule_le"]
+    }
+  },
+  "required": ["event_id", "occurred_at", "source", "type", "data"]
+}

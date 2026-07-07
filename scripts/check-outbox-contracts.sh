@@ -33,31 +33,20 @@ if [[ ${#SCHEMAS_MANQUANTS[@]} -gt 0 ]]; then
 fi
 echo "  ✅ Schémas E1/E2/E3/E5 présents" >&2
 
-# ── 2. Structure table outbox_events (colonnes lease/claim V2) ───────────────
-# Colonnes non-négociables (ajoutées revue adversariale 2026-06-11) :
-REQUIRED_COLS=(event_type event_id payload status seq txid claimed_until requires_reconciliation)
-
-if ! compgen -G "${MIGRATIONS_DIR}/*.sql" > /dev/null 2>&1; then
-  echo "⚠️  Aucune migration — skip structure outbox." >&2
-  exit 0
-fi
-
-MIGRATION_CONTENT=$(cat "${MIGRATIONS_DIR}"/*.sql 2>/dev/null || echo "")
-
-COLS_MANQUANTES=()
-for col in "${REQUIRED_COLS[@]}"; do
-  # Cherche la colonne dans un contexte outbox_events
-  if ! echo "$MIGRATION_CONTENT" | grep -A 30 'outbox_events' | grep -qw "$col"; then
-    COLS_MANQUANTES+=("$col")
-  fi
-done
-
-if [[ ${#COLS_MANQUANTES[@]} -gt 0 ]]; then
-  echo "❌ Colonnes outbox_events manquantes vs contrat V2 : ${COLS_MANQUANTES[*]}" >&2
-  echo "   Ces colonnes sont requises pour le pattern lease/claim et la compatibilité V2." >&2
-  exit 1
-fi
-echo "  ✅ Structure outbox_events conforme (${#REQUIRED_COLS[@]} colonnes)" >&2
+# ── 2. Structure table outbox_events — VALIDÉE AILLEURS (divergence BLOC7) ────
+# La table V1 `plateforme.outbox_events` DIVERGE STRUCTURELLEMENT du contrat V2 §08 :
+# naming V1 = `statut` / `aggregate_id`, contrat V2 = `status` / `event_id`. C'est une
+# divergence TRACÉE et ASSUMÉE, convergence reportée V2 (CLAUDE.md §3bis +
+# _Divergences/_traités/2026-06/BLOC7_20260624.md — les 4 tables Bloc 7 divergent du
+# DDL cible). Comparer ici la table V1 aux NOMS de colonnes V2 produisait un FAUX ÉCHEC
+# permanent (masqué jusqu'ici car les schémas V2 étaient absents → Section 1 skippait).
+#
+# La conformité structurelle V1↔cible est déjà couverte par le gate `check-schema-vs-cible`
+# (avec l'allowlist BLOC7, R0c) + les tests pgTAP G4 (pattern lease/claim sur la vraie DB).
+# Ce gate se limite donc au niveau CONTRAT V2 = présence des schémas E1/E2/E3/E5 §08
+# (Section 1 ci-dessus, validables en isolation) — pas de re-check de la structure V1.
+# `${MIGRATIONS_DIR}` conservé pour référence si la Section 2 est un jour rétablie au grain V1.
+: "${MIGRATIONS_DIR:?}"
 
 # ── 3. Champ event_type valide (E1/E2/E3/E5 uniquement) ──────────────────────
 # Cherche des event_type codés en dur hors du périmètre contractuel

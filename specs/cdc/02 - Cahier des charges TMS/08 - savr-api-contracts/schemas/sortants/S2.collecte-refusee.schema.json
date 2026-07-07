@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.gosavr.io/2026.04/sortants/S2.collecte-refusee.schema.json",
+  "title": "S2 — POST /webhooks/tms/collecte-refusee (collecte.refusee)",
+  "description": "TMS → Plateforme. Manager prestataire refuse une collecte → réattribution Ops. NB : la prose ne montrait que `data` (enveloppe omise) ; normalisée au format commun 2026-06-03.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "event_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+    "emis_le": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/timestamp" },
+    "occurred_at": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/timestamp" },
+    "source": { "type": "string", "const": "tms" },
+    "type": { "type": "string", "const": "collecte.refusee" },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "collecte_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+        "prestataire_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+        "motif": { "type": "string" },
+        "refusee_le": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/timestamp" }
+      },
+      "required": ["collecte_id", "prestataire_id", "motif", "refusee_le"]
+    }
+  },
+  "required": ["event_id", "occurred_at", "source", "type", "data"]
+}

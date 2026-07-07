@@ -120,7 +120,6 @@ Cette règle garantit :
 
 ## M03 — Portail prestataire self-service
 
-**Statut** : V1 **rédigée** (fichier détaillé 2026-04-24, 16 décisions structurantes tranchées) — voir [[06 - Fonctionnalités détaillées TMS/M03 - Portail prestataire self-service]]
 
 ### Rôle
 Interface dédiée aux **3 prestataires principaux** (Strike, Marathon, A Toutes!) pour accepter les collectes attribuées, gérer leur parc (chauffeurs, véhicules, types de véhicules), consulter leurs revenus et déposer leurs factures. Les prestataires province sont gérés par Ops Savr (hors portail V1).
@@ -339,7 +338,7 @@ Cumul chauffeur+manager : géré via `users_tms.roles text[]` (pas via flag déd
 
 ### Synchronisation Plateforme ↔ TMS (prestataires)
 
- **plus applicable depuis le retournement D14 seconde salve M01 (2026-04-23)**. Table unique `shared.prestataires`, écriture TMS uniquement via M06, lecture Plateforme via RLS cross-schema. Le module prestataires Plateforme est devenu read-only.
+**plus applicable depuis le retournement D14 seconde salve M01 (2026-04-23)**. Table unique `shared.prestataires`, écriture TMS uniquement via M06, lecture Plateforme via RLS cross-schema. Le module prestataires Plateforme est devenu read-only.
 
 ### Périmètre V1
 Tout. La saisie des 30 prestataires est une tâche de seed data à planifier (voir §01 — action Val : seed data depuis MTS-1).

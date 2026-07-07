@@ -129,7 +129,7 @@ Vues analytiques par profil (détaillées dans [[11 - Dashboards]], règles en [
 - **Client Organisateur** (nouveau) : synthèse RSE YTD, export PDF Rapport d'impact Savr
 - **Admin Savr** : vue consolidée tous clients + statut TMS acceptance + tournées + picto plaque
 
- **Réouvert 2026-05-07** : programmation ouverte aux 3 types (traiteur + agence + gestionnaire de lieux). Le gestionnaire programme sur ses propres lieux avec un traiteur du référentiel. Pas de nouveau rôle créé (extension du rôle `gestionnaire_lieux` existant). La table `tarifs_negocie` reste en place pour les remises négociées.
+**Réouvert 2026-05-07** : programmation ouverte aux 3 types (traiteur + agence + gestionnaire de lieux). Le gestionnaire programme sur ses propres lieux avec un traiteur du référentiel. Pas de nouveau rôle créé (extension du rôle `gestionnaire_lieux` existant). La table `tarifs_negocie` (ex `tarifs_zd_par_gestionnaire`, renommée 2026-04-28 ; remises % depuis 2026-05-26) reste en place pour les remises négociées.
 
 **Interface concernée** : tous les profils espace client
 **Dépendances** : données pesées TMS, [[04 - Data Model]] (vues SQL analytiques, `tournees`, `tarifs_negocie`)
@@ -182,7 +182,7 @@ Un user Ops Savr peut avoir 2 profils (Plateforme + TMS) avec même email Google
 
 **Risque assumé V1** : un user sans profil sur l'app cible voit un bouton qui mène à une page d'accès refusé propre. Acceptable — pas de fuite de données, message UX clair (« Vous n'avez pas accès au TMS Savr. Contactez Val ou Louis. »).
 
- **Supprimé revue sobriété §08 A1 2026-05-01** — pas d'endpoint dédié, donc pas de CORS spécifique.
+**Supprimé revue sobriété §08 A1 2026-05-01** — pas d'endpoint dédié, donc pas de CORS spécifique.
 
 ---
 
@@ -370,7 +370,7 @@ Plan de sortie de la dépendance Everest si A Toutes! change de TMS.
 
 _Aucune — module stabilisé pour V1. (2026-04-28)_
 
- **Clôturé** : Everest expose bien les tarifs réels. Grille tarifaire A Toutes! (prestataire Vélo Frais) documentée dans §05 Règles métier. (2026-04-28)
+**Clôturé** : Everest expose bien les tarifs réels. Grille tarifaire A Toutes! (prestataire Vélo Frais) documentée dans §05 Règles métier. (2026-04-28)
 
 ## Liens
 

@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.gosavr.io/2026.04/sortants/S5.collecte-terminee.schema.json",
+  "title": "S5 — POST /webhooks/tms/collecte-terminee (collecte.terminee)",
+  "description": "TMS → Plateforme. Clôture collecte : (a) réalisée + pesée, (b) 'Aucun repas' AG (realisee_sans_collecte), (c) correction post-clôture (data.type=correction). Un seul S5 terminal par collecte même en multi-tournées (pesees agrégées). NB normalisation 2026-06-03 : enveloppe ajoutée ; data.type valeur 'cloture' sans accent (ex 'clôture', décision Val 2026-06-03).",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "event_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+    "emis_le": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/timestamp" },
+    "occurred_at": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/timestamp" },
+    "source": { "type": "string", "const": "tms" },
+    "type": { "type": "string", "const": "collecte.terminee" },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "collecte_id": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid" },
+        "tournee_id": {
+          "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/uuid",
+          "description": "Informatif en multi-tournées (dernière tournée terminée). La Plateforme clé sur collecte_id."
+        },
+        "terminee_le": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/timestamp" },
+        "type": {
+          "type": "string",
+          "enum": ["cloture", "correction"],
+          "description": "Discriminant métier (≠ enveloppe.type). 'cloture' = clôture normale (génère bordereau/attestation). 'correction' = re-push pesées Ops (R6 Q6)."
+        },
+        "statut_final": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/enum_statut_final" },
+        "pesees": {
+          "type": "array",
+          "items": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/pesee" }
+        },
+        "photos_collecte": {
+          "type": "array",
+          "items": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/url_signee" }
+        },
+        "rolls": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Obligatoire pour ZD réalisée (le type ZD/AG est connu côté TMS, non porté par le payload).",
+          "properties": {
+            "pleins_recuperes": { "type": "integer", "minimum": 0 },
+            "vides_laisses": { "type": "integer", "minimum": 0 }
+          },
+          "required": ["pleins_recuperes", "vides_laisses"]
+        },
+        "signature_asso": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/signature_asso" },
+        "aucun_repas": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "motif_chauffeur": { "type": "string" },
+            "photo_lieu_url": { "$ref": "https://contracts.gosavr.io/2026.04/common.schema.json#/$defs/url_signee" }
+          },
+          "required": ["motif_chauffeur", "photo_lieu_url"]
+        }
+      },
+      "required": ["collecte_id", "tournee_id", "terminee_le", "type", "statut_final", "pesees"],
+      "allOf": [
+        {
+          "if": { "properties": { "statut_final": { "const": "realisee" } } },
+          "then": {
+            "properties": { "pesees": { "minItems": 1 } },
+            "not": { "required": ["aucun_repas"] }
+          }
+        },
+        {
+          "if": { "properties": { "statut_final": { "const": "realisee_sans_collecte" } } },
+          "then": {
+            "properties": { "pesees": { "maxItems": 0 } },
+            "required": ["aucun_repas"],
+            "not": { "anyOf": [ { "required": ["rolls"] }, { "required": ["signature_asso"] } ] }
+          }
+        }
+      ]
+    }
+  },
+  "required": ["event_id", "occurred_at", "source", "type", "data"]
+}

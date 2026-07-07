@@ -424,7 +424,7 @@ Issu de [[06 - Fonctionnalités détaillées TMS/M14 - Intégration Everest]] (V
 
 ### Worker Next.js (consommateur outbox — refondu 2026-07-06 COH-03 option A)
 
- **Les jobs Everest M14 sont consommés par le worker outbox unique (§18bis)** depuis `tms.outbox_events` (`event_type IN ('everest.create','everest.cancel')`). `LISTEN m14_create_queue`/`m14_cancel_queue` ne sert plus que de **réveil** (latence) — une notification perdue est rattrapée au scan périodique de l'outbox, plus aucune mission créée/annulée ne peut se perdre si le worker est down. Co-localisé avec le worker M11 (`alerte_emit` queue) si possible pour limiter les processes.
+**Les jobs Everest M14 sont consommés par le worker outbox unique (§18bis)** depuis `tms.outbox_events` (`event_type IN ('everest.create','everest.cancel')`). `LISTEN m14_create_queue`/`m14_cancel_queue` ne sert plus que de **réveil** (latence) — une notification perdue est rattrapée au scan périodique de l'outbox, plus aucune mission créée/annulée ne peut se perdre si le worker est down. Co-localisé avec le worker M11 (`alerte_emit` queue) si possible pour limiter les processes.
 
 ## 18bis. Worker outbox sortants S1-S11 + jobs Everest (ajout 2026-07-06 COH-02 / COH-03 option A — arbitrage RC-M04-06)
 

@@ -233,9 +233,11 @@ Pas de jauge en onglet AG (Décision Val 2026-05-02 — option B retenue : KPI +
 #### Bloc 3 AG — Top associations bénéficiaires
 
 Tableau ordonné par nombre de repas reçus (période filtrée) :
-- Association · Ville · Nombre de collectes · Repas reçus · Distance moyenne (km)
+- Association · Ville · Nombre de collectes · Repas reçus
 
 Source : `attributions_antgaspi` jointe à `associations`.
+
+> **Correction 2026-07-07** : colonne `Distance moyenne (km)` supprimée (alignement §06.04 traiteur — donnée non restituée au client, reste un critère interne de l'algo d'attribution AG).
 
 > **Note numérotation** : pas de Bloc 4 AG (pas de donut côté AG, AG = un seul flux `don_alimentaire`). On saute directement à Bloc 5 AG pour préserver l'alignement des numéros entre onglets sur les blocs partagés (5/6/7/8).
 
@@ -469,7 +471,7 @@ Liste des utilisateurs de l'organisation (rôle `gestionnaire_lieux`). Colonnes 
 
 ### Bloc Préférences de notification
 
- **Supprimé V1 (décision F1 2026-06-07)** : aucun des 19 templates actifs §06.02 ne l'implémentait (le template 20 `collecte_programmee_tiers` cible le traiteur opérationnel, pas le gestionnaire) — promesse fonctionnelle morte, même pattern que la sobriété 2026-05-30 ci-dessous. Réintroduction V1.1 avec template dédié si demande terrain. Le bloc Préférences ne porte plus que la langue (aucun toggle email V1).
+**Supprimé V1 (décision F1 2026-06-07)** : aucun des 19 templates actifs §06.02 ne l'implémentait (le template 20 `collecte_programmee_tiers` cible le traiteur opérationnel, pas le gestionnaire) — promesse fonctionnelle morte, même pattern que la sobriété 2026-05-30 ci-dessous. Réintroduction V1.1 avec template dédié si demande terrain. Le bloc Préférences ne porte plus que la langue (aucun toggle email V1).
 
 > *(Refonte sobriété 2026-05-30 — toggle "rapport automatique" retiré)* : la préférence "Recevoir un email à la mise à disposition d'un nouveau rapport automatique" est supprimée — les rapports automatiques (batchs mensuel/trimestriel/annuel) ont été supprimés à la refonte 2026-05-05. Le toggle ne pilotait plus aucun envoi (promesse fonctionnelle morte).
 

@@ -1,0 +1,367 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.gosavr.io/2026.04/common.schema.json",
+  "title": "Savr API Contracts — définitions communes (Plateforme ↔ TMS)",
+  "description": "Source unique des enveloppes, enums normalisés, sous-objets réutilisables et réponses. Version contrat 2026.04 (header X-API-Version autoritatif). Tous les payloads des deux apps DOIVENT référencer ces $defs — un enum n'est défini qu'ici.",
+
+  "$defs": {
+
+    "uuid": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUID v4 (v7 toléré pour event_id). Aucun ID séquentiel exposé."
+    },
+
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC, précision milliseconde (ex: 2026-04-22T14:30:00.123Z)."
+    },
+
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date civile ISO 8601 (YYYY-MM-DD)."
+    },
+
+    "heure": {
+      "type": "string",
+      "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+      "description": "Heure locale HH:MM 24h."
+    },
+
+    "montant_centimes": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Montant en centimes (15025 = 150,25 €). Jamais de flottant pour la monnaie."
+    },
+
+    "poids_kg": {
+      "type": "number",
+      "minimum": 0,
+      "multipleOf": 0.01,
+      "description": "Poids en kilogrammes, numeric(7,2) — réaligné 2026-06-11 sur les data models (`pesees.poids_*_kg` / `collecte_flux.poids_reel_kg`), ex-grammes entiers."
+    },
+
+    "url_signee": {
+      "type": "string",
+      "format": "uri",
+      "description": "URL signée Supabase Storage (TTL 7 jours). Le consommateur télécharge et ré-uploade pour persistance."
+    },
+
+    "telephone": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Numéro de téléphone (format libre V1, normalisation E.164 reportée)."
+    },
+
+    "envelope_base": {
+      "type": "object",
+      "description": "Enveloppe commune à TOUS les payloads (section 'Format commun' §08). Le champ `version` payload est supprimé (Bloc B B3) — le header HTTP X-API-Version fait foi. Chaque schéma d'endpoint étend cette base en verrouillant `type` (const), `source` (const) et `data`.",
+      "properties": {
+        "event_id": { "$ref": "#/$defs/uuid" },
+        "emis_le": { "$ref": "#/$defs/timestamp" },
+        "occurred_at": {
+          "$ref": "#/$defs/timestamp",
+          "description": "Horodatage métier (quand l'événement est réellement survenu côté émetteur, peut différer de emis_le si retry). Sert à l'ordonnancement out-of-order."
+        }
+      },
+      "required": ["event_id", "occurred_at"]
+    },
+
+    "coordonnees_gps": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "lat": { "type": "number", "minimum": -90, "maximum": 90 },
+        "lng": { "type": "number", "minimum": -180, "maximum": 180 }
+      },
+      "required": ["lat", "lng"]
+    },
+
+    "contact": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "nom": { "type": "string" },
+        "telephone": { "$ref": "#/$defs/telephone" }
+      },
+      "required": ["nom", "telephone"]
+    },
+
+    "heure_collecte": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Date/heure d'intervention logistique (= plateforme.collectes.date_collecte). DISTINCTE de evenements.date_evenement (date client, non transmise au TMS).",
+      "properties": {
+        "date": { "$ref": "#/$defs/date" },
+        "heure": { "$ref": "#/$defs/heure" },
+        "fuseau": { "type": "string", "const": "Europe/Paris" }
+      },
+      "required": ["date", "heure", "fuseau"]
+    },
+
+    "enum_statut_tms": {
+      "type": "string",
+      "description": "Statut dispatch côté Plateforme (statut_tms) — 8 valeurs miroir. Côté TMS (statut_dispatch) = 6 valeurs (sans non_envoye ni rejetee_par_tms).",
+      "enum": [
+        "non_envoye",
+        "a_attribuer",
+        "attribuee_en_attente_acceptation",
+        "acceptee",
+        "en_attente_execution",
+        "rejetee_par_prestataire",
+        "annulee_par_traiteur",
+        "rejetee_par_tms"
+      ]
+    },
+
+    "enum_statut_final": {
+      "type": "string",
+      "description": "Discriminant S5 collecte-terminee.",
+      "enum": ["realisee", "realisee_sans_collecte"]
+    },
+
+    "enum_type_collecte": {
+      "type": "string",
+      "enum": ["zd", "ag"]
+    },
+
+    "enum_statut_tournee": {
+      "type": "string",
+      "enum": ["planifiee", "en_cours", "terminee", "annulee"]
+    },
+
+    "enum_type_flux": {
+      "type": "string",
+      "description": "Flux pesée — union ZD (5 valeurs, enum fermée post-refonte 2026-05-02, dib→dechet_residuel) + AG (don_alimentaire).",
+      "enum": [
+        "biodechet",
+        "verre",
+        "dechet_residuel",
+        "emballage",
+        "carton",
+        "don_alimentaire"
+      ]
+    },
+
+    "enum_devise": {
+      "type": "string",
+      "const": "EUR",
+      "description": "V1 mono-devise."
+    },
+
+    "enum_type_incident": {
+      "type": "string",
+      "description": "5 valeurs (décision 2026-06-06 — `pas_excedents` retiré : cas AG « aucun repas » via E5 → S5 collecte-terminee, plus par S9). Cas exceptionnels → `autre` + description libre.",
+      "enum": [
+        "acces_refuse",
+        "client_absent",
+        "probleme_tri",
+        "autre",
+        "client_annule_avant_arrivee"
+      ]
+    },
+
+    "enum_gravite": {
+      "type": "string",
+      "description": "2 valeurs (post-sobriété §04 2026-04-30 D1 — `info` retirée V1, aucun comportement applicatif distinct). NB: la prose de l'exemple S9 listait info|warning|critical par erreur — la décision faisant foi est 2 valeurs.",
+      "enum": ["warning", "critical"]
+    },
+
+    "enum_statut_collecte_apres": {
+      "type": "string",
+      "description": "4 valeurs (décision 2026-06-06 — `realisee_sans_collecte` retiré, plus atteignable via S9 depuis le retrait de `pas_excedents` ; ce cas est émis par S5 via `enum_statut_final`). `incident` déjà fusionné dans `inchange` (Bloc D D3).",
+      "enum": [
+        "realisee",
+        "echec_acces",
+        "inchange",
+        "annulee"
+      ]
+    },
+
+    "enum_geofence_status": {
+      "type": "string",
+      "enum": ["avant_arrivee", "sur_place", "apres_cloture"]
+    },
+
+    "enum_imputable_a": {
+      "type": "string",
+      "enum": ["traiteur", "chauffeur", "savr", "externe", "indetermine"]
+    },
+
+    "enum_difficulte_acces": {
+      "description": "Difficulté d'accès — enum unifié `stationnement` + `acces_office` (refonte App 2026-05-08, propagée §08 TMS le 2026-06-03). Nullable si non renseigné côté lieu. ANCIEN `stationnement` (parking_dedie|quai_livraison|stationnement_rue|zone_livraison_courte) et ANCIEN `acces_office` (text libre) périmés depuis 2026-05-08.",
+      "type": ["string", "null"],
+      "enum": ["facile", "difficile", "tres_difficile", null]
+    },
+
+    "enum_type_vehicule_max": {
+      "type": "string",
+      "description": "Capacité véhicule max du lieu (sous-objet lieu E1). Enum unifié Plateforme (refonte App 2026-05-08, propagée §08 TMS le 2026-06-03). ANCIEN `vl|camion_16m3|camion_20m3|camion_30m3` périmé. Hiérarchie ordonnée velo_cargo(1)<camionnette(2)<fourgon(3)<vul(4)<poids_lourd(5).",
+      "enum": ["velo_cargo", "camionnette", "fourgon", "vul", "poids_lourd"]
+    },
+
+    "enum_type_vehicule_categorie_plateforme": {
+      "type": "string",
+      "description": "Catégorie véhicule alignée Plateforme (S3 tournee-upsert, dérivée tms.types_vehicules.categorie_plateforme).",
+      "enum": ["velo_cargo", "camionnette", "fourgon", "vul", "poids_lourd"]
+    },
+
+    "enum_type_vehicule_acceptation": {
+      "type": "string",
+      "description": "Type véhicule au moment de l'acceptation (S1).",
+      "enum": ["camion_16m3", "camion_20m3", "velo_cargo", "autre"]
+    },
+
+    "enum_contenant_code": {
+      "description": "Slug types_contenants.code. Nullable si pesée historique (compat migration Bubble).",
+      "type": ["string", "null"],
+      "enum": ["bac_240L", "roll_240L", "bac_1100L", "sac", "sans_contenant", null]
+    },
+
+    "enum_source_pesee": {
+      "type": "string",
+      "description": "Origine de la pesée (S5).",
+      "enum": ["chauffeur", "ag_sans_collecte"]
+    },
+
+    "lieu": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Sous-objet lieu E1 (restructuré 2026-04-28 audit A2). `contraintes_acces` legacy fusionné dans `acces_details`.",
+      "properties": {
+        "lieu_id": { "$ref": "#/$defs/uuid" },
+        "nom": { "type": "string" },
+        "adresse": { "type": "string" },
+        "code_postal": { "type": "string" },
+        "ville": { "type": "string" },
+        "coordonnees_gps": { "$ref": "#/$defs/coordonnees_gps" },
+        "acces_details": { "type": ["string", "null"] },
+        "acces_office": { "$ref": "#/$defs/enum_difficulte_acces" },
+        "stationnement": { "$ref": "#/$defs/enum_difficulte_acces" },
+        "contraintes_horaires": { "type": ["string", "null"] },
+        "type_vehicule_max": { "$ref": "#/$defs/enum_type_vehicule_max" },
+        "volume_max_bacs": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["lieu_id", "nom", "adresse", "code_postal", "ville"]
+    },
+
+    "contacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Sous-objet racine contacts E1 (sorti de lieu — dépend du couple lieu × traiteur). `principal` obligatoire, `secours` optionnel.",
+      "properties": {
+        "principal": { "$ref": "#/$defs/contact" },
+        "secours": { "$ref": "#/$defs/contact" }
+      },
+      "required": ["principal"]
+    },
+
+    "traiteur_operationnel": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Producteur juridique du déchet (ajout 2026-05-07 extension 3 types). Possiblement fiche shadow.",
+      "properties": {
+        "organisation_id": { "$ref": "#/$defs/uuid" },
+        "nom": { "type": "string" },
+        "raison_sociale": { "type": "string" },
+        "siret": { "type": ["string", "null"] },
+        "est_shadow": { "type": "boolean" }
+      },
+      "required": ["organisation_id", "nom", "est_shadow"]
+    },
+
+    "programmateur": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Donneur d'ordre (qui paye Savr). Info UX TMS uniquement, aucun impact dispatch.",
+      "properties": {
+        "organisation_id": { "$ref": "#/$defs/uuid" },
+        "nom": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": ["traiteur", "agence", "gestionnaire_lieux"]
+        }
+      },
+      "required": ["organisation_id", "nom", "type"]
+    },
+
+    "pesee": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Pesée individuelle dans S5. Agrégée sur N véhicules pour une collecte multi-tournées.",
+      "properties": {
+        "pesee_id": { "$ref": "#/$defs/uuid" },
+        "idempotency_key": {
+          "$ref": "#/$defs/uuid",
+          "description": "Généré par la PWA M05 avant queue IndexedDB — dédup retry offline (W11)."
+        },
+        "type_flux": { "$ref": "#/$defs/enum_type_flux" },
+        "poids_brut_kg": { "$ref": "#/$defs/poids_kg" },
+        "tare_kg": { "$ref": "#/$defs/poids_kg" },
+        "poids_net_kg": { "$ref": "#/$defs/poids_kg" },
+        "contenant_code": { "$ref": "#/$defs/enum_contenant_code" },
+        "tare_override_motif": {
+          "type": ["string", "null"],
+          "minLength": 10,
+          "description": "Non-null si tare ≠ snapshot attendue (R_M05.4). Min 10 caractères."
+        },
+        "source": { "$ref": "#/$defs/enum_source_pesee" },
+        "photos": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/url_signee" },
+          "maxItems": 5,
+          "description": "Array URLs (champ unique post-Bloc B B2, même si 1 photo). Max paramétrable m05_photo_max_par_pesee."
+        }
+      },
+      "required": ["pesee_id", "idempotency_key", "type_flux", "poids_brut_kg", "tare_kg", "poids_net_kg", "source"]
+    },
+
+    "signature_asso": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "nom": { "type": "string" },
+        "prenom": { "type": "string" },
+        "signature_url": { "$ref": "#/$defs/url_signee" },
+        "signe_le": { "$ref": "#/$defs/timestamp" }
+      },
+      "required": ["nom", "signature_url", "signe_le"]
+    },
+
+    "reponse_succes": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Réponse 2xx minimale.",
+      "properties": {
+        "event_id": { "$ref": "#/$defs/uuid" },
+        "received_at": { "$ref": "#/$defs/timestamp" }
+      },
+      "required": ["event_id", "received_at"]
+    },
+
+    "reponse_erreur": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Réponse d'erreur normalisée.",
+      "properties": {
+        "error": {
+          "type": "string",
+          "enum": [
+            "invalid_payload",
+            "unauthorized",
+            "event_out_of_order",
+            "duplicate_event",
+            "business_conflict",
+            "rate_limited",
+            "internal_error"
+          ]
+        },
+        "message": { "type": "string" },
+        "retryable": { "type": "boolean" }
+      },
+      "required": ["error", "message", "retryable"]
+    }
+  }
+}

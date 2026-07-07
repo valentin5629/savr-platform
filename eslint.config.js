@@ -12,6 +12,10 @@ export default tseslint.config(
       // agent/pipeline/log/args) + scripts de recompte de registres (Node CLI).
       'docs/audit/**',
       '.claude/workflows/**',
+      // specs/ = miroir DÉRIVÉ du Vault CDC (jamais du runtime applicatif) :
+      // Markdown + artefacts CDC (ex. savr-api-contracts/validate.mjs, script de
+      // validation JSON Schema en Node CLI) — jamais linté.
+      'specs/**',
       // Worktrees git imbriqués (sessions parallèles isolées) : checkouts
       // indépendants avec leur propre cycle de lint — jamais linter depuis le
       // clone parent, sinon leur code en cours casse le gate pre-commit ici.

@@ -9,12 +9,17 @@ import {
   BenchmarkFilterBar,
   TonnageDisplay,
   EmptyDashboardState,
+  ProchainesCollectesBloc,
+  TopLieuxBloc,
+  TopActeursBloc,
+  TopAssociationsBloc,
   FLUX_ZD,
   useEvolutionBlocs,
   type CollecteType,
   type DashboardFilters,
   type BenchmarkFilters,
   type ParcFilterOptions,
+  type BlocsData,
 } from '@/components/dashboards/index.js';
 import {
   EvolutionFluxChart,
@@ -75,6 +80,9 @@ export default function GestionnaireDashboardPage() {
   // Filtres de l'encart benchmark (§06.05 Bloc 3) — pilotent le point rouge.
   const [benchmarkFilters, setBenchmarkFilters] =
     useState<BenchmarkFilters | null>(null);
+  // Blocs §11 partagés (5 prochaines / 6 top lieux / 7 top traiteurs / 3 AG
+  // associations) — endpoint partagé, périmètre organisations_lieux.
+  const [blocs, setBlocs] = useState<BlocsData | null>(null);
 
   const handleFilters = useCallback((f: DashboardFilters) => setFilters(f), []);
   const handleBenchmarkFilters = useCallback(
@@ -127,6 +135,30 @@ export default function GestionnaireDashboardPage() {
         setPack((j.data?.pack ?? null) as PackActif | null);
       })
       .finally(() => setLoading(false));
+  }, [filters, tab]);
+
+  // Blocs 5/6/7/3AG (§11) — endpoint partagé, mêmes filtres globaux parc.
+  useEffect(() => {
+    if (!filters) return;
+    const qs = new URLSearchParams({
+      from: filters.from,
+      to: filters.to,
+      type: tab,
+    });
+    (filters.lieu_ids ?? []).forEach((id) => qs.append('lieu_ids[]', id));
+    (filters.traiteur_ids ?? []).forEach((id) =>
+      qs.append('traiteur_ids[]', id),
+    );
+    (filters.type_evenement_ids ?? []).forEach((id) =>
+      qs.append('type_evenement_ids[]', id),
+    );
+    (filters.taille_evenement_codes ?? []).forEach((c) =>
+      qs.append('taille_evenements[]', c),
+    );
+    fetch(`/api/v1/dashboards/blocs?${qs}`)
+      .then((r) => r.json())
+      .then((j) => setBlocs((j.data ?? null) as BlocsData | null))
+      .catch(() => setBlocs(null));
   }, [filters, tab]);
 
   const packEpuise = pack && pack.nb_collectes_restantes === 0;
@@ -273,27 +305,7 @@ export default function GestionnaireDashboardPage() {
               </CardContent>
             </Card>
           ) : (
-            pack && (
-              <Card data-testid="bloc-pack-ag">
-                <CardHeader>
-                  <CardTitle>Mon pack Anti-Gaspi</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <p className="text-sm">
-                    Crédits restants :{' '}
-                    <strong>{pack.nb_collectes_restantes}</strong> /{' '}
-                    {pack.nb_collectes_total}
-                  </p>
-                  {packEpuise && <Badge variant="error">Pack épuisé</Badge>}
-                  {packBas && (
-                    <Badge variant="warning">Pack bientôt épuisé</Badge>
-                  )}
-                  <p className="text-sm text-savr-neutral-500">
-                    Contactez votre responsable Savr pour renouveler votre pack.
-                  </p>
-                </CardContent>
-              </Card>
-            )
+            <TopAssociationsBloc items={blocs?.topAssociations ?? []} />
           )}
 
           {/* Bloc 4 ZD — Répartition des tonnages (donut, §06.05 Bloc 4) */}
@@ -306,6 +318,54 @@ export default function GestionnaireDashboardPage() {
                 <TonnagesDonut series={zdSeries} />
               </CardContent>
             </Card>
+          )}
+
+          {/* Mon pack AG (lecture seule gestionnaire, hors §06.05 mais conservé
+              M3.2) — onglet AG uniquement, sous le Bloc 3 AG associations. */}
+          {tab === 'anti_gaspi' && pack && (
+            <Card data-testid="bloc-pack-ag">
+              <CardHeader>
+                <CardTitle>Mon pack Anti-Gaspi</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <p className="text-sm">
+                  Crédits restants :{' '}
+                  <strong>{pack.nb_collectes_restantes}</strong> /{' '}
+                  {pack.nb_collectes_total}
+                </p>
+                {packEpuise && <Badge variant="error">Pack épuisé</Badge>}
+                {packBas && (
+                  <Badge variant="warning">Pack bientôt épuisé</Badge>
+                )}
+                <p className="text-sm text-savr-neutral-500">
+                  Contactez votre responsable Savr pour renouveler votre pack.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Bloc 5 — Prochaines collectes (§06.05 Bloc 5, colonne Traiteur ;
+              clic → détail événement parent §06.05 l.613) */}
+          <ProchainesCollectesBloc
+            items={blocs?.prochaines ?? []}
+            showTraiteur
+            hrefFor={(c) =>
+              c.evenement_id
+                ? `/gestionnaire/evenements/${c.evenement_id}`
+                : undefined
+            }
+          />
+
+          {/* Bloc 6 — Top 5 lieux (§06.05 Bloc 6) */}
+          <TopLieuxBloc items={blocs?.topLieux ?? []} type={tab} />
+
+          {/* Bloc 7 — Top 5 traiteurs (§06.05 Bloc 7) */}
+          {blocs?.topActeurs && blocs.acteurLabel && (
+            <TopActeursBloc
+              items={blocs.topActeurs}
+              type={tab}
+              acteurLabel={blocs.acteurLabel}
+            />
           )}
         </>
       )}

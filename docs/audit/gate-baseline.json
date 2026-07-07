@@ -4,5 +4,6 @@
   "manifest-completeness": 5,
   "cdc-drift": 0,
   "column-db": 8,
-  "test-mocks": 0
+  "test-mocks": 0,
+  "orphan-components": 0
 }

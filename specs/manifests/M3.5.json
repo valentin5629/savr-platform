@@ -3,7 +3,10 @@
   "titre": "Dashboard Admin (KPI Bloc 1 + blocs §11 + parité) — souche (manifeste manquant, livrables P0)",
   "description": "Souche créée en R0b : le dashboard Admin (cartes KPI, blocs graphiques §11, parité 3 rôles) n'avait pas de manifeste alors qu'il porte un P0 (BL-P0-05 KPI à 0 sur enum). deliverables[] transcrit les livrables CDC ; scenarios[]/tests câblés par les lots R4/R20.",
   "_souche": true,
-  "scenarios": [],
+  "scenarios": [
+    "M3.5/blocs_auth_401_sans_jwt",
+    "M3.5/blocs_role_hors_perimetre_403"
+  ],
   "deliverables": [
     {
       "id": "BL-P0-05",
@@ -24,10 +27,10 @@
     {
       "id": "BL-P1-PARITE-01",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:64",
-      "artefact": "packages/plateforme/src/components/dashboards/charts/",
-      "test": "M3.5/chart_flux_legende_5_flux — légende des 5 flux ZD rendue",
-      "statut": "partial",
-      "libelle": "Blocs §11 partagés — R20a monte Bloc 2 (barres/courbe) + Bloc 4 donut sur les 3 rôles ; Bloc 5/6/7 + Bloc 3 AG assos + encart benchmark = R20b"
+      "artefact": "packages/plateforme/src/app/api/v1/dashboards/blocs/route.ts",
+      "test": "M3.5/blocs_auth_401_sans_jwt + M3.1/blocs_top_lieux_zd_ordre_tonnage + M3.1/blocs_traiteur_zd_montes_et_benchmark_reel",
+      "statut": "implemented",
+      "libelle": "Blocs §11 partagés COMPLETS sur les 3 rôles : R20a = Bloc 2 (barres/courbe) + Bloc 4 donut ; R20b = Bloc 5 prochaines + Bloc 6 top lieux + Bloc 7 top acteurs (commerciaux traiteur / traiteurs gestionnaire, retiré agence) + Bloc 3 AG associations + Bloc 3 ZD benchmark réel (encart 4 dims traiteur/agence). Endpoint partagé /api/v1/dashboards/blocs (evolution-pattern, périmètre par rôle, RLS f_collecte_visible)."
     },
     {
       "id": "M3.5-charts-lib",
@@ -71,19 +74,27 @@
     },
     {
       "id": "BL-P2-11",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md",
-      "artefact": null,
-      "test": null,
-      "statut": "à-vérifier",
-      "libelle": "Dashboards : filtres globaux + cartes cliquables (3 rôles)"
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:92",
+      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/app/(agence)/agence/page.tsx",
+      "test": "M3.1/blocs_traiteur_kpi_cartes_cliquables",
+      "statut": "implemented",
+      "libelle": "Cartes KPI cliquables → liste Collectes filtrée (période + onglet en query string) sur traiteur/agence (les 5/4 cartes, plus seulement « Nombre de collectes »). Gestionnaire déjà fait (BL-P2-12, R19b-P2, cartes → Événements). NB : l'extension de la barre de filtres globale traiteur/agence aux 5 dimensions CDC (§06.04 l.68-82) reste un ticket dédié (parité BL-P2-12), hors périmètre blocs R20b — barre période conservée."
     },
     {
       "id": "BL-P2-43",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "Pré-cochage type collecte depuis dashboard"
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:92",
+      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx",
+      "test": "M3.1/blocs_traiteur_kpi_cartes_cliquables",
+      "statut": "implemented",
+      "libelle": "Pré-cochage du type de collecte (onglet ZD/AG) transmis en query string : les cartes KPI et les liens dashboard passent type=zero_dechet|anti_gaspi ; la liste Collectes traiteur/agence lit params.get('type') et pré-sélectionne l'onglet (déjà en place)."
+    },
+    {
+      "id": "M3.5-blocs-endpoint",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:77",
+      "artefact": "packages/plateforme/src/app/api/v1/dashboards/blocs/route.ts",
+      "test": "M3.5/blocs_role_hors_perimetre_403 + M3.1/blocs_prochaines_fenetre_statuts",
+      "statut": "implemented",
+      "libelle": "Endpoint partagé GET /api/v1/dashboards/blocs (traiteur/agence/gestionnaire) : Bloc 5 prochaines (fenêtre 30 j, statuts non terminaux), Bloc 6 top 5 lieux, Bloc 7 top 5 acteurs, Bloc 3 AG associations, kg/pax par flux ZD. Périmètre par rôle (org / organisations_lieux) EN PLUS de la RLS f_collecte_visible, agrégation TS (aucune vue nouvelle), normalisation to-one PostgREST."
     }
   ],
   "cdc_source_hash": {

@@ -42,7 +42,10 @@
     "M3.3/AGENCE01_renouvellement_role_agence_201",
     "M3.3/AGENCE01_renouvellement_role_non_autorise_403",
     "M3.3/AGENCE01_bouton_renouvellement_onglet_ag",
-    "M3.3/AGENCE01_bouton_renouvellement_poste_endpoint"
+    "M3.3/AGENCE01_bouton_renouvellement_poste_endpoint",
+    "M3.3/blocs_agence_top_acteurs_null",
+    "M3.3/blocs_agence_zd_sans_bloc7",
+    "M3.3/blocs_agence_ag_associations"
   ],
   "deliverables": [
     {
@@ -212,6 +215,46 @@
       "test": "M3.3/dash_bloc2_bloc4_zd_montes — Évolution + donut sur l’onglet ZD",
       "statut": "implemented",
       "libelle": "Bloc 4 ZD — donut répartition des tonnages 5 flux + total au centre (ZD only, composant §11 partagé)"
+    },
+    {
+      "id": "M3.3-bloc3-zd-benchmark",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:36",
+      "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx",
+      "test": "M3.3/blocs_agence_zd_sans_bloc7",
+      "statut": "implemented",
+      "libelle": "Bloc 3 ZD agence — jauges benchmark parc RÉEL (remplace stub R20a), réplique stricte §06.04 : encart BenchmarkFilterBar 4 dimensions + gauges alimentées par kgParPaxParFlux."
+    },
+    {
+      "id": "M3.3-bloc5-prochaines",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:36",
+      "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx",
+      "test": "M3.3/blocs_agence_zd_sans_bloc7",
+      "statut": "implemented",
+      "libelle": "Bloc 5 ZD/AG agence — prochaines collectes (fenêtre 30 j), clic → fiche collecte agence. Périmètre evenements.organisation_id (donneur d'ordre)."
+    },
+    {
+      "id": "M3.3-bloc6-top-lieux",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:36",
+      "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx",
+      "test": "M3.3/blocs_agence_zd_sans_bloc7 + M3.3/blocs_agence_ag_associations",
+      "statut": "implemented",
+      "libelle": "Bloc 6 ZD/AG agence — top 5 lieux (réplique §06.04)."
+    },
+    {
+      "id": "M3.3-bloc3ag-associations",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:36",
+      "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx",
+      "test": "M3.3/blocs_agence_ag_associations",
+      "statut": "implemented",
+      "libelle": "Bloc 3 AG agence — top associations bénéficiaires (réplique §06.04)."
+    },
+    {
+      "id": "M3.3-bloc7-retire",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:28",
+      "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx",
+      "test": "M3.3/blocs_agence_top_acteurs_null + M3.3/blocs_agence_zd_sans_bloc7",
+      "statut": "implemented",
+      "libelle": "Bloc 7 « Top 5 commerciaux » RETIRÉ côté agence (§06.11 diff #8, F1 2026-06-07 — RLS users agence = self) : non monté sur la page ; l'endpoint /blocs renvoie topActeurs=null pour le rôle agence (garde serveur)."
     }
   ],
   "cdc_source_hash": {

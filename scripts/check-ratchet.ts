@@ -40,6 +40,7 @@ const GATES: { key: string; cmd: string[] }[] = [
   { key: 'cdc-drift', cmd: ['check:cdc-drift'] },
   { key: 'column-db', cmd: ['check:column-db'] },
   { key: 'test-mocks', cmd: ['check:test-mocks'] }, // G5 (durci R9, cluster C7)
+  { key: 'orphan-components', cmd: ['check:orphan-components'] }, // G3 (câblé R20b)
 ];
 
 function runGate(cmd: string[]): number | null {

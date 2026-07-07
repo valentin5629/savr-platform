@@ -420,6 +420,14 @@
       "test": "M3.2/blocs_gestionnaire_ag_associations",
       "statut": "implemented",
       "libelle": "Bloc 3 AG gestionnaire — top associations bénéficiaires (périmètre parc). Colonne « Distance moyenne (km) » (§06.05 l.52) NON rendue (décision Val 2026-07-07 : la distance lieu↔asso reste un critère INTERNE à l'algo d'attribution AG — Haversine dans fn_calculer_algo_attribution_ag — et n'est pas restituée aux dashboards clients ; ce n'est PAS un manque de données, lieux+associations sont géocodées ; cf. _Divergences M3.2_20260707)."
+    },
+    {
+      "id": "M3.2-bloc8-export-pdf",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:209",
+      "artefact": "packages/plateforme/src/components/dashboards/ExportSyntheseBloc.tsx + packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx",
+      "test": "M3.2 / synthèse gestionnaire — lieux du parc + programmées + section traiteurs",
+      "statut": "implemented",
+      "libelle": "Bloc 8 ZD/AG « Exporter une synthèse PDF » AJOUTÉ côté gestionnaire (§06.05 l.209/265, absent avant R20b-2) : bouton dashboard → modale de génération → route synchrone. Périmètre = collectes sur ses lieux (organisations_lieux) OU programmées (§12 §1.6 l.248) ; le PDF inclut la section « Ventilation par traiteur » propre au gestionnaire (§06.05 §4 l.418)."
     }
   ],
   "cdc_source_hash": {

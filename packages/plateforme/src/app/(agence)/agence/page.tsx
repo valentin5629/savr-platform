@@ -12,6 +12,7 @@ import {
   ProchainesCollectesBloc,
   TopLieuxBloc,
   TopAssociationsBloc,
+  ExportSyntheseBloc,
   FLUX_ZD,
   useEvolutionBlocs,
   type CollecteType,
@@ -312,16 +313,8 @@ export default function AgenceDashboardPage() {
           {/* Bloc 7 « Top 5 commerciaux » RETIRÉ côté agence (§06.11 diff #8,
               F1 2026-06-07 — RLS users agence = self). Non monté. */}
 
-          {/* Bloc 8 — Export synthèse PDF (mécanique complète : lot ⑫ V4) */}
-          <div>
-            <Button
-              variant="ghost"
-              disabled
-              title="Disponible en V4 (Reporting)"
-            >
-              Exporter une synthèse PDF
-            </Button>
-          </div>
+          {/* Bloc 8 — Export synthèse PDF (§06.11 réplique stricte §06.04, R20b-2) */}
+          <ExportSyntheseBloc filters={filters} tab={tab} />
         </>
       )}
     </div>

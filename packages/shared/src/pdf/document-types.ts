@@ -9,14 +9,17 @@
 // ⚠ Le renderer (apps/pdf-renderer) est un service Railway AUTO-SUFFISANT : son
 // Dockerfile ne build que `apps/pdf-renderer/` (npm, hors workspace pnpm) → il ne
 // PEUT PAS importer ce module à l'exécution. L'alignement renderer ↔ ce contrat
-// est donc garanti par le gate CI statique `check:integration-contracts`
-// (scripts/check-integration-contracts.ts), pas par un import runtime.
+// est donc garanti par le gate CI statique `check:pdf-contract`
+// (scripts/check-pdf-contract.ts), pas par un import runtime.
 
 /** Liste fermée des documents PDF générés en V1. 1 entrée = 1 template renderer. */
 export const PDF_DOCUMENT_TYPES = [
   'bordereau-zd',
   'rapport-recyclage-zd',
   'attestation-don',
+  // Rapport de synthèse agrégé §12 §1.6 (multi-collectes, à la demande, non archivé).
+  // Généré en synchrone par la route /api/v1/dashboards/synthese-pdf (R20b-2).
+  'synthese-dashboard',
 ] as const;
 
 export type PdfDocumentType = (typeof PDF_DOCUMENT_TYPES)[number];
@@ -31,6 +34,7 @@ export const TEMPLATE_VERSIONS: Record<PdfDocumentType, string> = {
   'bordereau-zd': 'bordereau-zd@1',
   'rapport-recyclage-zd': 'rapport-recyclage-zd@1',
   'attestation-don': 'attestation-don@1',
+  'synthese-dashboard': 'synthese-dashboard@1',
 };
 
 /** Garde de type : `x` est-il un type de document PDF connu ? */

@@ -5,7 +5,7 @@
 //
 // ⚠ Le renderer ne peut pas importer @savr/shared (build Docker hors workspace).
 // L'alignement avec le contrat partagé worker (PDF_DOCUMENT_TYPES / TEMPLATE_VERSIONS)
-// est garanti par le gate CI `check:integration-contracts`, qui compare ces deux
+// est garanti par le gate CI `check:pdf-contract`, qui compare ces deux
 // constantes au contrat @savr/shared. Toute divergence (type ajouté côté worker mais
 // pas ici, version désynchronisée) fait rougir le build → plus de 400 silencieux.
 
@@ -24,12 +24,18 @@ import {
   TEMPLATE_VERSION as V_ATTESTATION,
   type AttestationDonData,
 } from './templates/attestation-don.js';
+import {
+  renderSyntheseDashboard,
+  TEMPLATE_VERSION as V_SYNTHESE,
+  type SyntheseDashboardData,
+} from './templates/synthese-dashboard.js';
 
 /** Types de document gérés par le renderer (doit = PDF_DOCUMENT_TYPES de @savr/shared). */
 export const RENDERER_DOCUMENT_TYPES = [
   'bordereau-zd',
   'rapport-recyclage-zd',
   'attestation-don',
+  'synthese-dashboard',
 ] as const;
 
 export type RendererDocumentType = (typeof RENDERER_DOCUMENT_TYPES)[number];
@@ -40,6 +46,7 @@ export const RENDERER_TEMPLATE_VERSIONS: Record<RendererDocumentType, string> =
     'bordereau-zd': V_BORDEREAU,
     'rapport-recyclage-zd': V_RAPPORT,
     'attestation-don': V_ATTESTATION,
+    'synthese-dashboard': V_SYNTHESE,
   };
 
 /** Levée quand `type` n'est pas un document connu → mappé en HTTP 400 par server.ts. */
@@ -64,6 +71,8 @@ export function renderByType(type: string, data: unknown): string {
       return renderRapportRecyclageZd(data as RapportRecyclageZdData);
     case 'attestation-don':
       return renderAttestationDon(data as AttestationDonData);
+    case 'synthese-dashboard':
+      return renderSyntheseDashboard(data as SyntheseDashboardData);
     default:
       throw new UnknownDocumentTypeError(type);
   }

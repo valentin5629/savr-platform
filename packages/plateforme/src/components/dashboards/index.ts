@@ -37,6 +37,7 @@ export { ProchainesCollectesBloc } from './ProchainesCollectesBloc.js';
 export { TopLieuxBloc } from './TopLieuxBloc.js';
 export { TopActeursBloc } from './TopActeursBloc.js';
 export { TopAssociationsBloc } from './TopAssociationsBloc.js';
+export { ExportSyntheseBloc } from './ExportSyntheseBloc.js';
 export type {
   BlocsData,
   ProchaineCollecte,

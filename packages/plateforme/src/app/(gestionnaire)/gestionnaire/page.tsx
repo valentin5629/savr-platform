@@ -13,6 +13,7 @@ import {
   TopLieuxBloc,
   TopActeursBloc,
   TopAssociationsBloc,
+  ExportSyntheseBloc,
   FLUX_ZD,
   useEvolutionBlocs,
   type CollecteType,
@@ -367,6 +368,9 @@ export default function GestionnaireDashboardPage() {
               acteurLabel={blocs.acteurLabel}
             />
           )}
+
+          {/* Bloc 8 — Export synthèse PDF (§06.05 Bloc 8 ZD/AG, ajouté R20b-2) */}
+          <ExportSyntheseBloc filters={filters} tab={tab} />
         </>
       )}
     </div>

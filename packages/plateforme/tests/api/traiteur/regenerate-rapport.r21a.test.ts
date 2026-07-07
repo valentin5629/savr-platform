@@ -69,11 +69,11 @@ beforeEach(() => {
   mockPresigned.mockResolvedValue('https://r2/att.pdf');
 });
 
-async function regen(id = 'c1') {
+async function regen(id = 'c1', type = 'rapport-recyclage-zd') {
   const { POST } =
     await import('@/app/api/v1/traiteur/collectes/[id]/documents/[type]/regenerate/route.js');
   return POST(postReq(), {
-    params: Promise.resolve({ id, type: 'rapport-recyclage-zd' }),
+    params: Promise.resolve({ id, type }),
   });
 }
 
@@ -107,6 +107,21 @@ describe('M1.6 / régénération rapport traiteur (RPT-04)', () => {
     });
     const res = await regen();
     expect(res.status).toBe(403);
+  });
+
+  it('regeneration_bordereau_et_attestation_interdites_traiteur : type bordereau/attestation → 403, rapport RSE → 202', async () => {
+    rls.results.collectes = { data: { id: 'c1' }, error: null };
+    // Bordereau ZD réservé Admin (§12 §1.1 l.37) — refusé avant tout appel pipeline.
+    const bord = await regen('c1', 'bordereau-zd');
+    expect(bord.status).toBe(403);
+    // Attestation AG réservée Admin (§12 §1.3 l.161).
+    const att = await regen('c1', 'attestation-don');
+    expect(att.status).toBe(403);
+    expect(mockRegen).not.toHaveBeenCalled();
+    // Le rapport RSE §1.2 lui reste accessible.
+    const rse = await regen('c1', 'rapport-recyclage-zd');
+    expect(rse.status).toBe(202);
+    expect(mockRegen).toHaveBeenCalledTimes(1);
   });
 });
 

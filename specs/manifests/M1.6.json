@@ -215,28 +215,12 @@
       "libelle": "Bloc benchmark kg/pax × parc alimenté : 5 jauges (1/flux) + point rouge (moyenne pondérée f_benchmark_kg_pax_zd, k-anonymat ≥5) + légende des filtres + snapshot rapports_rse.filtres_benchmark (reproductibilité). Défaut batch = segment type+taille ; filtres choisis à la régénération."
     },
     {
-      "id": "M1.6-p2-18-equivalences",
+      "id": "BL-P2-18",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:63",
-      "artefact": "packages/plateforme/src/lib/pdf/batch-pdf-j1.ts (buildEquivalences) + apps/pdf-renderer/src/templates/rapport-recyclage-zd.ts (co2Block)",
-      "test": "M1.6 / buildEquivalences : convertit les FACTEURS figés en comptes + M1.6 / rapport recyclage : équivalences pédagogiques du CO₂ évité",
+      "artefact": "apps/pdf-renderer/src/templates/rapport-recyclage-zd.ts (co2Block équivalences + comparaisonBlock + camembert SVG + benchmark légende) ; packages/plateforme/src/lib/pdf/batch-pdf-j1.ts (buildEquivalences) ; supabase/migrations/20260707130000_plateforme_r21a_rapport_benchmark.sql (f_taux_recyclage_moyen_parc) ; item (3) AG = attestation → voir M2.4-p2-18-ag-attestation",
+      "test": "M1.6 / rapport recyclage §1.2 : équivalences pédagogiques du CO₂ évité + comparaison vs moyenne Savr anonymisée (≥3 acteurs) + camembert par flux (§1.2 l.68) ; M1.6 / buildEquivalences : convertit les FACTEURS figés en comptes",
       "statut": "implemented",
-      "libelle": "Équivalences pédagogiques du CO₂ évité (km voiture / repas bœuf / foyers) dérivées des facteurs figés co2_facteurs_snapshot.equivalences ; foyers rattachés à l'énergie primaire évitée."
-    },
-    {
-      "id": "M1.6-p2-18-comparaison",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:67",
-      "artefact": "supabase/migrations/20260707130000_plateforme_r21a_rapport_benchmark.sql (f_taux_recyclage_moyen_parc) + batch-pdf-j1.ts + rapport-recyclage-zd.ts (comparaisonBlock)",
-      "test": "M1.6 / rapport recyclage §1.2 : comparaison vs moyenne Savr anonymisée (≥3 acteurs)",
-      "statut": "implemented",
-      "libelle": "Bloc « comparaison vs moyenne Savr » : moyenne pondérée par tonnage du taux de recyclage sur le parc, masquée si < 3 organisations distinctes (anonymat). Distinct du benchmark kg/pax (k≥5)."
-    },
-    {
-      "id": "M1.6-p2-18-camembert",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:68",
-      "artefact": "apps/pdf-renderer/src/templates/rapport-recyclage-zd.ts (camembert SVG + légende benchmark)",
-      "test": "M1.6 / rapport recyclage §1.2 : camembert par flux (§1.2 l.68) rendu en SVG",
-      "statut": "implemented",
-      "libelle": "Visualisation graphique camembert par flux (donut SVG) + légende détaillée des filtres benchmark appliqués (§1.2 l.69)."
+      "libelle": "Contenu §1.2 : (1) équivalences pédagogiques CO₂ évité (km voiture/repas bœuf/foyers, depuis co2_facteurs_snapshot) ; (2) comparaison vs moyenne Savr anonymisée ≥3 acteurs (f_taux_recyclage_moyen_parc, distinct du benchmark k≥5) ; (3) rapport AG = attestation standalone (option a Val, cf. M2.4) ; (4) camembert par flux + légende benchmark détaillée."
     },
     {
       "id": "BL-P2-16",
@@ -255,7 +239,7 @@
       "libelle": "Mention pied de page « Version mise à jour — générée le … » injectée par regenerate.ts et rendue par les 3 templates uniquement sur un document régénéré (§12 §1.4)."
     },
     {
-      "id": "M1.6-rpt-04",
+      "id": "BL-P1-RPT-04",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:92",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/documents/[type]/regenerate/route.ts + fiche traiteur (picto « rapport régénéré » + bouton Régénérer manager)",
       "test": "M1.6 / régénération rapport traiteur (RPT-04) : manager + collecte visible → 202 ; cross-org → 403 ; inexistante → 404",

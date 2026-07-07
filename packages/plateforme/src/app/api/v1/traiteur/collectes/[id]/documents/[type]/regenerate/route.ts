@@ -39,6 +39,19 @@ export async function POST(
   if (auth.error) return auth.error;
   const { id, type } = await params;
 
+  // Le traiteur ne peut régénérer QUE le rapport de recyclage ZD. Le bordereau ZD
+  // (§12 §1.1 l.37) et l'attestation de don AG (§12 §1.3 l.161) restent réservés à
+  // l'Admin Savr. Scénario P1 bloquant : regeneration_bordereau_et_attestation_interdites_traiteur.
+  if (type !== 'rapport-recyclage-zd') {
+    return NextResponse.json(
+      {
+        error:
+          'Régénération réservée à l’Admin Savr pour ce type de document (bordereau / attestation).',
+      },
+      { status: 403 },
+    );
+  }
+
   // Cloisonnement applicatif : la collecte doit être VISIBLE (RLS) par le demandeur.
   const rls = createSupabaseServerClient();
   const { data: visible } = await rls

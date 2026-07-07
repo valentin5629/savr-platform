@@ -4,7 +4,9 @@
 // Ré-enqueue jobs_pdf (type_document + TEMPLATE_VERSIONS courant appliqué par le
 // worker) + audit_log. Accès : admin_savr + ops_savr (requireStaff).
 //
-// [type] ∈ PDF_DOCUMENT_TYPES : bordereau-zd | rapport-recyclage-zd | attestation-don.
+// [type] ∈ PDF_DOCUMENT_TYPES : bordereau-zd | rapport-recyclage-zd | attestation-don |
+// rapport-evenement-sans-excedent (§12 §1.3-bis l.198 : régénération Admin uniquement,
+// correction motif chauffeur / plaque post-saisie).
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';

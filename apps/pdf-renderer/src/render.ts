@@ -29,6 +29,11 @@ import {
   TEMPLATE_VERSION as V_SYNTHESE,
   type SyntheseDashboardData,
 } from './templates/synthese-dashboard.js';
+import {
+  renderRapportEvenementSansExcedent,
+  TEMPLATE_VERSION as V_SANS_EXCEDENT,
+  type RapportEvenementSansExcedentData,
+} from './templates/rapport-evenement-sans-excedent.js';
 
 /** Types de document gérés par le renderer (doit = PDF_DOCUMENT_TYPES de @savr/shared). */
 export const RENDERER_DOCUMENT_TYPES = [
@@ -36,6 +41,7 @@ export const RENDERER_DOCUMENT_TYPES = [
   'rapport-recyclage-zd',
   'attestation-don',
   'synthese-dashboard',
+  'rapport-evenement-sans-excedent',
 ] as const;
 
 export type RendererDocumentType = (typeof RENDERER_DOCUMENT_TYPES)[number];
@@ -47,6 +53,7 @@ export const RENDERER_TEMPLATE_VERSIONS: Record<RendererDocumentType, string> =
     'rapport-recyclage-zd': V_RAPPORT,
     'attestation-don': V_ATTESTATION,
     'synthese-dashboard': V_SYNTHESE,
+    'rapport-evenement-sans-excedent': V_SANS_EXCEDENT,
   };
 
 /** Levée quand `type` n'est pas un document connu → mappé en HTTP 400 par server.ts. */
@@ -73,6 +80,10 @@ export function renderByType(type: string, data: unknown): string {
       return renderAttestationDon(data as AttestationDonData);
     case 'synthese-dashboard':
       return renderSyntheseDashboard(data as SyntheseDashboardData);
+    case 'rapport-evenement-sans-excedent':
+      return renderRapportEvenementSansExcedent(
+        data as RapportEvenementSansExcedentData,
+      );
     default:
       throw new UnknownDocumentTypeError(type);
   }

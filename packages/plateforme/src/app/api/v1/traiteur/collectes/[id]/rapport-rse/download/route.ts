@@ -10,6 +10,10 @@
 // d'une collecte anti_gaspi EST l'attestation de don standalone (§1.3). Le §1.2 « page 3
 // attestation » / « page 1 Synthèse RSE AG » sont des fantômes non applicables au grain
 // collecte AG (cf. _Divergences). On sert donc ici l'attestation pour une collecte AG.
+//
+// Exception AG realisee_sans_collecte (BL-P1-RPT-02, R21b) : pas d'attestation (pas de
+// don) → on sert le rapport « Événement sans excédent alimentaire » (§1.3-bis), porté
+// par une ligne rapports_rse standard SANS embargo H+24 (disponible_a = genere_at).
 
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -42,7 +46,7 @@ export async function GET(
   const rls = createSupabaseServerClient();
   const { data: collecte } = await rls
     .from('collectes')
-    .select('id, type')
+    .select('id, type, statut')
     .eq('id', id)
     .maybeSingle();
   if (!collecte) {
@@ -53,10 +57,20 @@ export async function GET(
   }
 
   // Lecture service-role après contrôle d'appartenance ci-dessus (évite une dépendance
-  // à une policy RLS dédiée). AG → attestation standalone ; ZD → rapport de recyclage.
+  // à une policy RLS dédiée). AG cloturee → attestation standalone ; AG
+  // realisee_sans_collecte → rapport sans-excédent (rapports_rse, pas d'embargo) ;
+  // ZD → rapport de recyclage (rapports_rse).
   const admin = createAdminSupabaseClient();
 
-  if ((collecte as { type: string }).type === 'anti_gaspi') {
+  const { type: collecteType, statut: collecteStatut } = collecte as {
+    type: string;
+    statut: string;
+  };
+  const servirAttestation =
+    collecteType === 'anti_gaspi' &&
+    collecteStatut !== 'realisee_sans_collecte';
+
+  if (servirAttestation) {
     const { data: att } = await admin
       .from('attestations_don')
       .select('id, eligible_at, pdf_url')
@@ -88,7 +102,8 @@ export async function GET(
     return NextResponse.json({ url: attUrl, expires_in: 900 });
   }
 
-  // Rapport ZD le plus récent pour la collecte.
+  // Rapport rapports_rse le plus récent pour la collecte (ZD = recyclage ; AG
+  // realisee_sans_collecte = « Événement sans excédent », disponible_a = genere_at).
   const { data: rapport } = await admin
     .from('rapports_rse')
     .select('id, disponible_a, genere_at, pdf_url')

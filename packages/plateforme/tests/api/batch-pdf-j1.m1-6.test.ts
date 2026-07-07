@@ -312,3 +312,81 @@ describe('M1.6 / BatchPdfJ1 / Embargo', () => {
     expect(seuil).toBeLessThanOrEqual(after - 24 * 3600 * 1000 + 1000);
   });
 });
+
+describe('M1.6 / BatchPdfJ1 / Logo cascade §1.2 (BL-P2-19)', () => {
+  it('programmateur agence → logo agence posé dans le payload rapport (prime sur traiteur)', async () => {
+    // §1.2 l.86-90 : l'agence programmatrice prime. Le batch alimente désormais
+    // rapportPayload.logo_url (auparavant absent → fallback « Savr » systématique).
+    const collecte = makeCollecte({
+      evenements: {
+        id: 'ev-1',
+        nom_evenement: 'Gala Kaspia',
+        date_evenement: '2026-06-13',
+        pax: 250,
+        organisation_id: 'org-agence',
+        traiteur_operationnel_organisation_id: 'org-traiteur',
+        client_organisateur_organisation_id: null,
+        logo_client_organisateur_url: null,
+        organisations: {
+          raison_sociale: 'Agence Événement',
+          siret: '11111111100001',
+          adresse: '1 rue',
+          email_principal: 'a@agence.fr',
+          type: 'agence',
+          logo_url: 'https://cdn/agence-logo.png',
+        },
+        traiteur_operationnel: {
+          raison_sociale: 'Traiteur Op',
+          siret: '22222222200002',
+          adresse: '2 rue',
+          logo_url: 'https://cdn/traiteur-logo.png',
+        },
+        client_organisateur: null,
+        lieux: {
+          nom: 'Grand Palais',
+          adresse_acces: '3 avenue',
+          code_postal: '75008',
+          ville: 'Paris',
+        },
+      },
+    });
+    const sb = makeSupabase([
+      { data: [collecte], error: null }, // select collectes
+      { data: [], error: null }, // bordereaux existants
+      { count: 2, error: null }, // count collecte_flux
+      {
+        data: [
+          { flux_id: 'f1', poids_reel_kg: 10, flux: { nom: 'Biodéchets' } },
+        ],
+      }, // flux
+      { data: 'BSAV-2026-00010', error: null }, // rpc numero
+      {
+        data: { nom: 'Strike Transport', siret: '98765432100011' },
+      }, // shared.prestataires
+      {
+        data: {
+          evenement: {
+            type_evenement_id: 't1',
+            type_evenement: { libelle: 'Gala' },
+          },
+        },
+      }, // resolveRapportBenchmark : type d'événement
+      { data: { id: 'bord-logo' }, error: null }, // insert bordereaux_savr
+      { data: { id: 'rse-logo' }, error: null }, // insert rapports_rse
+      { data: null, error: null }, // job bordereau
+      { data: null, error: null }, // job rapport
+    ]);
+
+    await runBatchPdfJ1(sb as never);
+
+    const insertCalls = (sb._chain.insert as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[Record<string, unknown>]>;
+    const rapJob = insertCalls.find(
+      (c) => c[0].type_document === 'rapport-recyclage-zd',
+    )?.[0];
+    expect(rapJob).toBeDefined();
+    expect((rapJob!.payload as { logo_url?: string }).logo_url).toBe(
+      'https://cdn/agence-logo.png',
+    );
+  });
+});

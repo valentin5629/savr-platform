@@ -24,6 +24,7 @@ import {
 const EXPECTED_TYPES = [
   'attestation-don',
   'bordereau-zd',
+  'rapport-evenement-sans-excedent',
   'rapport-recyclage-zd',
   'synthese-dashboard',
 ];
@@ -32,11 +33,13 @@ const EXPECTED_VERSIONS: Record<string, string> = {
   'rapport-recyclage-zd': 'rapport-recyclage-zd@2',
   'attestation-don': 'attestation-don@2',
   'synthese-dashboard': 'synthese-dashboard@1',
+  'rapport-evenement-sans-excedent': 'rapport-evenement-sans-excedent@1',
 };
 import type { AttestationDonData } from './templates/attestation-don.js';
 import type { BordereauZdData } from './templates/bordereau-zd.js';
 import type { RapportRecyclageZdData } from './templates/rapport-recyclage-zd.js';
 import type { SyntheseDashboardData } from './templates/synthese-dashboard.js';
+import type { RapportEvenementSansExcedentData } from './templates/rapport-evenement-sans-excedent.js';
 
 function bordereauData(
   overrides: Partial<BordereauZdData> = {},
@@ -189,11 +192,33 @@ function syntheseData(
   };
 }
 
+function sansExcedentData(
+  overrides: Partial<RapportEvenementSansExcedentData> = {},
+): RapportEvenementSansExcedentData {
+  return {
+    nom_evenement: 'Cocktail Élysée',
+    date_evenement: '01/07/2026',
+    lieu_nom: 'Palais',
+    lieu_adresse: '55 rue du Faubourg, 75008 Paris',
+    traiteur_nom: 'Traiteur SA',
+    nb_pax: 200,
+    client_organisateur_nom: 'Mairie de Paris',
+    logo_url: null,
+    presentation_datetime: '01/07/2026 20:30',
+    chauffeur_nom: 'Jean Vélo',
+    plaque_immatriculation: 'AB-123-CD',
+    motif: 'Client absent / Marchandise refusée',
+    reference_facture: 'FAC-2026-00042',
+    ...overrides,
+  };
+}
+
 const DATA_BY_TYPE: Record<string, unknown> = {
   'bordereau-zd': bordereauData(),
   'rapport-recyclage-zd': rapportData(),
   'attestation-don': attestationData(),
   'synthese-dashboard': syntheseData(),
+  'rapport-evenement-sans-excedent': sansExcedentData(),
 };
 
 describe('M1.6 / renderer PDF — dispatch type_document', () => {
@@ -251,6 +276,92 @@ describe('M2.4 / attestation de don 2041-GE — mention fiscale conditionnelle',
     expect(html).toContain(
       'Estimation FAO — 2,5 kgCO₂e par repas sauvé du gaspillage',
     );
+  });
+});
+
+describe('M2.4 / renderer — rapport « Événement sans excédent » §1.3-bis (BL-P1-RPT-02)', () => {
+  it('rend un HTML complet avec en-tête événement + titre dédié', () => {
+    const html = renderByType(
+      'rapport-evenement-sans-excedent',
+      sansExcedentData(),
+    );
+    expect(html).toContain('<!DOCTYPE html>');
+    expect(html).toContain('Événement sans excédent alimentaire');
+    expect(html).toContain('Cocktail Élysée');
+    expect(html).toContain('200 convives');
+    expect(html).toContain('Mairie de Paris');
+    expect(html).toContain('Traiteur SA');
+  });
+
+  it('bloc Constat : présentation chauffeur + nom + motif', () => {
+    const html = renderByType(
+      'rapport-evenement-sans-excedent',
+      sansExcedentData(),
+    );
+    expect(html).toContain('01/07/2026 20:30');
+    expect(html).toContain('Jean Vélo');
+    expect(html).toContain('Client absent / Marchandise refusée');
+  });
+
+  it('bloc Conséquences : mention fixe (aucune attestation 2041-GE, tarif normal) + réf facture', () => {
+    const html = renderByType(
+      'rapport-evenement-sans-excedent',
+      sansExcedentData(),
+    );
+    expect(html).toContain("Aucun repas n'a été collecté");
+    expect(html).toContain('Aucune attestation de don');
+    expect(html).toContain('facturée au tarif normal au titre du déplacement');
+    expect(html).toContain('FAC-2026-00042');
+  });
+
+  it('plaque affichée seulement si fournie (masquée par le batch si !controle_acces_requis)', () => {
+    const avec = renderByType(
+      'rapport-evenement-sans-excedent',
+      sansExcedentData({ plaque_immatriculation: 'AB-123-CD' }),
+    );
+    expect(avec).toContain('AB-123-CD');
+    const sans = renderByType(
+      'rapport-evenement-sans-excedent',
+      sansExcedentData({ plaque_immatriculation: null }),
+    );
+    expect(sans).not.toContain('AB-123-CD');
+    expect(sans).not.toContain('Véhicule');
+  });
+
+  it('texte seul : aucune photo, aucun watermark (V1.1)', () => {
+    // logo_url null → aucun <img> du tout (pas de photos §1.3-bis, pas de logo).
+    const html = renderByType(
+      'rapport-evenement-sans-excedent',
+      sansExcedentData({ logo_url: null }),
+    );
+    expect(html).not.toContain('<img');
+    expect(html.toLowerCase()).not.toContain('watermark');
+  });
+
+  it('logo cascade §1.2 : logo client rendu en en-tête si fourni, sinon « Savr »', () => {
+    const avecLogo = renderByType(
+      'rapport-evenement-sans-excedent',
+      sansExcedentData({ logo_url: 'https://cdn/agence-logo.png' }),
+    );
+    expect(avecLogo).toContain('https://cdn/agence-logo.png');
+    const sansLogo = renderByType(
+      'rapport-evenement-sans-excedent',
+      sansExcedentData({ logo_url: null }),
+    );
+    expect(sansLogo).toContain('logo-savr');
+  });
+
+  it('mention de régénération présente uniquement si régénéré (§1.4)', () => {
+    const base = renderByType(
+      'rapport-evenement-sans-excedent',
+      sansExcedentData(),
+    );
+    expect(base).not.toContain('Version mise à jour');
+    const regen = renderByType(
+      'rapport-evenement-sans-excedent',
+      sansExcedentData({ regenere_le: '07/07/2026' }),
+    );
+    expect(regen).toContain('Version mise à jour — générée le 07/07/2026');
   });
 });
 

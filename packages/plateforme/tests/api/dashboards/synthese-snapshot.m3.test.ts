@@ -236,6 +236,42 @@ describe('M3.5 / synthèse PDF — snapshot §12 §1.6', () => {
     expect(snap.nb_collectes).toBe(0);
     expect(snap.detail).toEqual([]);
   });
+
+  it('géographique (traiteur/agence) : masquée à 1 lieu, affichée à ≥2 lieux (§1.6 l.302)', async () => {
+    // 1 seul lieu (l1) → section géographique masquée côté traiteur.
+    const un = makeSupabase({
+      collectes: { data: [ZD_COLLECTE], error: null },
+    });
+    const snap1 = await buildSyntheseSnapshot(
+      un.client,
+      ctxTraiteur,
+      baseParams({ types: ['zero_dechet'] }),
+      CLOCK,
+    );
+    expect(snap1.lieux).toBeNull();
+
+    // 2 lieux distincts (l1 + l2) → section géographique affichée.
+    const ZD_L2 = {
+      ...ZD_COLLECTE,
+      id: 'c1b',
+      evenements: evt({
+        id: 'e1b',
+        lieu_id: 'l2',
+        lieux: { id: 'l2', nom: 'Carrousel' },
+      }),
+    };
+    const deux = makeSupabase({
+      collectes: { data: [ZD_COLLECTE, ZD_L2], error: null },
+    });
+    const snap2 = await buildSyntheseSnapshot(
+      deux.client,
+      ctxTraiteur,
+      baseParams({ types: ['zero_dechet'] }),
+      CLOCK,
+    );
+    expect(snap2.lieux).not.toBeNull();
+    expect(snap2.lieux).toHaveLength(2);
+  });
 });
 
 describe('M3.1 / synthèse traiteur — périmètre opérationnel (0 fuite inter-org)', () => {

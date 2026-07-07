@@ -20,14 +20,14 @@
 
 | Catégorie | Nb scénarios | Couverture |
 |-----------|-------------|------------|
-| 1. Happy path | 9 | Dashboard Admin actions/revenus/coûts, batch J+1, attestation AG, synthèse à la demande, CSV, rapport sans excédent |
+| 1. Happy path | 10 | Dashboard Admin actions/revenus/coûts, CA économique AG (patch M3.5), batch J+1, attestation AG, synthèse à la demande, CSV, rapport sans excédent |
 | 2. Cas limites | 13 | Bornes embargo H+24, k-anonymat =5/4, seuils g/pax min/max, taux NULL/0, marge NULL/négative, ≥2 lieux, kg→t |
 | 3. Cas d'erreur | 9 | Embargo applicatif, périodes invalides, garde traiteur_ids, régénérations interdites, format export |
 | 4. Isolation RLS | 11 | rapports_rse (4 chemins org), bordereaux, attestations, exports_registre, documents_generaux, matrice CSV |
 | 5. Idempotence / états | 10 | Versions régénération, snapshots figés (caps, co2, benchmark), batch re-run, synthèse sans stockage |
 | 6. Cross-app | 5 | S5 → realisee_at (base embargo), agrégation multi-camions, statut_tms cartes Admin, v_courses_logistiques |
 | 7. Migration | 5 | Historique Bubble dans dashboards, historique_partiel, PDF importés, idempotence relance |
-| **TOTAL** | **62** | |
+| **TOTAL** | **63** | |
 
 ---
 
@@ -56,6 +56,20 @@ Scénario : tableau_revenus_imputation_programmateur
   Alors la ligne porte le nom "Mathilde M." (organisation programmatrice, `evenements.organisation_id`)
   Et "Maison X" (traiteur opérationnel) n'apparaît sur aucune ligne du tableau
   Et le montant ZD HT de la ligne = 450,00 €
+```
+
+```gherkin
+# Source : §11 §1.1 Bloc 2 (CA économique AG, patch divergence M3.5 2026-07-07)
+# Couche : db
+# Priorité : P1-critique
+
+Scénario : revenus_ag_ca_economique_pas_facture_pack
+  Étant donné un Pack 30 acheté par Kaspia en janvier (montant_total_ht 13 800 €, prix_unitaire_ht 460 €) avec facture achat_pack_antigaspi "payee" + un avoir de 300 € sur cette facture, et 2 collectes AG "realisee" en mars
+  Quand l'admin_savr consulte l'histogramme Revenus et le tableau "Revenus par organisation" sur mars
+  Alors le montant AG de mars = 920,00 € (2 × 460 €, imputé au mois de date_collecte)
+  Et janvier n'affiche aucun montant AG issu de la facture d'achat de pack (pas de double comptage)
+  Et l'avoir de 300 € sur le pack n'impacte pas le CA AG de pilotage (exclu, tranché Val 2026-07-07 — reste visible module Facturation)
+  Et le montant ZD reste calculé sur les factures emise/payee par date_emission (inchangé)
 ```
 
 ```gherkin
@@ -268,10 +282,10 @@ Scénario : marge_zd_distinct_pax_multi_collectes
 # Couche : ui
 # Priorité : P3-nominal
 
-Scénario : bascule_kg_vers_tonnes_a_1000
-  Étant donné un KPI tonnage à 999 kg puis 1 000 kg
+Scénario : bascule_kg_vers_tonnes_a_10000
+  Étant donné un KPI tonnage à 9 999 kg puis 10 000 kg
   Quand le dashboard s'affiche
-  Alors 999 s'affiche en "999 kg" et 1 000 en "1 t" (seuil auto à 1 000 kg)
+  Alors 9 999 s'affiche en "9 999 kg" et 10 000 en "10 t" (seuil auto à 10 000 kg, patch M3.5 2026-07-07)
 ```
 
 ```gherkin
@@ -843,8 +857,8 @@ Régénération manager §1.2 morte au niveau RLS (A8 admin-only). **Décision V
 ### F4 — (tranché : prédicat explicite)
 Inclusion synthèse §1.6 = `statut = 'cloturee' AND realisee_at + interval '24h' <= now()` (aligné embargo canonique). Propagé §12 §1.6.
 
-### F5 — (tranché : `emise|payee`, avoirs en négatif)
-Histogramme Revenus §11 Bloc 2 = mêmes statuts que R_revenus_imputation_organisation, avoirs comptés en négatif sur leur mois d'émission. Propagé §11 §1.1.
+### F5 — (tranché : `emise|payee`, avoirs en négatif — ZD seul depuis patch M3.5 2026-07-07)
+Histogramme Revenus §11 Bloc 2 = mêmes statuts que R_revenus_imputation_organisation, avoirs comptés en négatif sur leur mois d'émission. Propagé §11 §1.1. **Amendé 2026-07-07 (patch divergence M3.5)** : cette règle ne vaut plus que pour le **ZD** ; le montant AG = CA économique (coût/collecte pack × collectes AG livrées `realisee`/`cloturee`, imputé au mois de `date_collecte`), factures `achat_pack_antigaspi` et avoirs pack exclus du CA AG de pilotage (revenu comptable = module Facturation).
 
 ### Note non bloquante — CO₂/taux des collectes migrées (À CONFIRMER)
 §13 ne dit pas si les collectes Bubble migrées reçoivent un calcul rétroactif taux/CO₂ ou restent NULL. Le scénario `historique_partiel_sans_crash_agregats` assume **NULL sans recalcul rétroactif** (snapshot « facteurs du moment » non reconstituable). À confirmer en session migration, sinon simple note d'implémentation.

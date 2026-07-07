@@ -136,7 +136,7 @@ Source de vérité unique : [[05 - Règles métier#7. Règles d'accès au regist
 ## Décisions prises
 
 - **Watermark PDF** : tous les PDFs réglementaires (bordereaux, export registre) portent la mention "Document généré par Savr — référence {{numero_document}} — toute altération invalide le document" en pied de page, plus un QR code renvoyant à une page publique de vérification (V1.1 pour la page publique, V1 pour le QR inactif).
-- **Rétention documents** : accès illimité aux PDFs côté espace client (pas d'archivage masqué V1). Stockage Supabase Storage non capé V1.
+- **Rétention documents** : accès illimité aux PDFs côté espace client (pas d'archivage masqué V1). Stockage Cloudflare R2 non capé V1.
 - **Export PDF réglementaire reporté V1.1** (sobriété 2026-06-03 A1) : template et rendu à co-construire en phase de build (itérations Puppeteer) lors du passage V1.1. Hors scope V1 — CSV registre + ZIP bordereaux couvrent l'obligation R541-43.
 - **Snapshot transporteur** : `plaque_vehicule` et `chauffeur_nom` conservés en DB côté snapshot collecte mais non affichés dans l'UX V1 (audit DREAL).
 - **Rapport RSE PDF retiré du registre** (2026-05-04) : le rapport RSE est un livrable consolidé multi-collectes, il ne vit pas sur la page de détail d'une collecte unitaire. Il est adressé dans deux emplacements dédiés :

@@ -354,7 +354,7 @@ Plan de sortie de la dépendance Everest si A Toutes! change de TMS.
 - **Benchmarks** : data model V1, interface client exposée V2 (seuil ~30 collectes/segment requis)
 - **App mobile Plateforme** : V2 (TMS Savr a son app mobile en V1)
 - **Reporting Citeo** : V2 par défaut
-- **Stockage PDF** : Supabase Storage confirmé pour la V1
+- **Stockage PDF** : Cloudflare R2 confirmé pour la V1
 - **Pilotage financier V1 limité** : revenus collectes + coûts logistiques directs (Strike, Marathon, A Toutes!) uniquement. Coûts Veolia exclus du V1 (factures mensuelles avec relevés de passage → saisie manuelle trop lourde). Connexion Gmail pour auto-import coûts Veolia → V2.
 - **Commentaires internes** : champ commentaire libre ajouté sur les collectes ET sur les lieux (pour notes opérationnelles ops Savr). MVP.
 - **Référentiel lieux enrichi** : la base de données lieux doit contenir toutes les spécificités opérationnelles (accès, contraintes, contacts, horaires, historique incidents). Ces données doivent être accessibles au TMS Savr via l'API. Ce n'est pas au traiteur de les saisir — pré-remplissage automatique dans le formulaire de programmation. Données gérées exclusivement par Admin Savr. **MVP.**

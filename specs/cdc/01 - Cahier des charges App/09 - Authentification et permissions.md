@@ -488,7 +488,7 @@ CREATE POLICY outbox_admin_read ON plateforme.outbox_events
 
 ### A2bis — `email_templates` + `emails_envoyes` *(ajout 2026-06-07 — F1 session test-scenarios §06.02)*
 
-Tables du pipeline email Resend (§08 §4), spécifiées §06.02/§08 mais absentes de l'audit du 2026-06-05. `emails_envoyes` contient des **PII** (`destinataire_email`). Même patron que `outbox_events` : écriture `SERVICE_ROLE` seule (Edge Function `send-email`, webhook `/webhooks/resend/events`, seed/migrations), lecture Admin debug, deny tout autre rôle.
+Tables du pipeline email Resend (§08 §4), spécifiées §06.02/§08 mais absentes de l'audit du 2026-06-05. `emails_envoyes` contient des **PII** (`destinataire_email`). Même patron que `outbox_events` : écriture `SERVICE_ROLE` seule (Next.js API Route `send-email`, webhook `/webhooks/resend/events`, seed/migrations), lecture Admin debug, deny tout autre rôle.
 
 ```sql
 ALTER TABLE plateforme.email_templates ENABLE ROW LEVEL SECURITY;
@@ -599,7 +599,7 @@ CREATE POLICY aa_write_ops_poids ON plateforme.attributions_antgaspi FOR UPDATE
 
 Org-scoped via événement. Lecture par l'organisation de l'événement (l'embargo H+24 `disponible_a` est un contrôle **applicatif**, pas RLS). Écriture système (batch J+1) + Admin (régénération).
 
-> **Régénération manuelle traiteur_manager (tranché 2026-06-07, F3 test-scenarios lot ⑫)** : la régénération §12 §1.2 ouverte au manager passe par une **Edge Function SERVICE_ROLE** qui contrôle applicativement le périmètre du demandeur (mêmes 4 chemins org que `rr_select`) avant d'écrire. La policy `rr_write_admin` ci-dessous reste **inchangée** — aucune écriture client directe. pgTAP/Vitest P1 bloquant CI : `test_rapports_rse_regen_cross_org_denied` (manager org B tente la régénération d'un rapport org A → 403, ligne intacte).
+> **Régénération manuelle traiteur_manager (tranché 2026-06-07, F3 test-scenarios lot ⑫)** : la régénération §12 §1.2 ouverte au manager passe par une **Next.js API Route SERVICE_ROLE** qui contrôle applicativement le périmètre du demandeur (mêmes 4 chemins org que `rr_select`) avant d'écrire. La policy `rr_write_admin` ci-dessous reste **inchangée** — aucune écriture client directe. pgTAP/Vitest P1 bloquant CI : `test_rapports_rse_regen_cross_org_denied` (manager org B tente la régénération d'un rapport org A → 403, ligne intacte).
 
 ```sql
 ALTER TABLE plateforme.rapports_rse ENABLE ROW LEVEL SECURITY;
@@ -779,7 +779,7 @@ CREATE POLICY sf_admin_read ON plateforme.sequences_facturation
 ALTER TABLE plateforme.jobs_pdf ENABLE ROW LEVEL SECURITY;
 CREATE POLICY jp_admin_read ON plateforme.jobs_pdf
   FOR SELECT USING (auth.jwt()->>'role' = 'admin_savr');
--- Écriture : SERVICE_ROLE seul (worker Railway + batchs J+1 + régénération manuelle via Edge Function).
+-- Écriture : SERVICE_ROLE seul (worker Railway + batchs J+1 + régénération manuelle via Next.js API Route).
 ```
 
 ### Q4 — `lieux` : chemin `client_organisateur` *(complément A-4)*
@@ -873,7 +873,7 @@ Les policies RLS lisent ces claims via `auth.jwt()->>'claim_name'`.
 
 ## 5. Middlewares applicatifs
 
-En complément du RLS (qui protège la DB), le frontend et les Edge Functions appliquent des middlewares de permission :
+En complément du RLS (qui protège la DB), le frontend et les API Routes Next.js appliquent des middlewares de permission :
 
 - **Middleware `requireRole(['admin_savr'])`** : bloque les routes back-office Admin
 - **Middleware `requireVerifiedEmail`** : bloque la programmation de collecte si email non vérifié

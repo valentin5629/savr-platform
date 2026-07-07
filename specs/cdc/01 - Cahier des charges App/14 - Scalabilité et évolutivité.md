@@ -71,7 +71,7 @@ PostgreSQL devient lent non pas à cause du volume de données brut, mais à cau
 
 ### Connection pooling
 
-**PgBouncer activé dès V1** (inclus dans Supabase Pro). Les Edge Functions se connectent via le port de pooling (5432 pooler) et non directement à la DB (5432 direct). Cela permet de supporter des pics de connexions simultanées sans saturer PostgreSQL.
+**PgBouncer activé dès V1** (inclus dans Supabase Pro). Les API Routes Next.js se connectent via le port de pooling (6543 pooler) et non directement à la DB (5432 direct). Cela permet de supporter des pics de connexions simultanées sans saturer PostgreSQL.
 
 ---
 
@@ -121,7 +121,7 @@ Déclencher une réflexion sur l'archivage si l'une de ces conditions est attein
 - Requêtes dashboard > 1s en moyenne
 - Données > 5 ans (obligation légale atteinte pour certains documents)
 
-Stratégie probable V2 : archivage des collectes > 3 ans dans une table `collectes_archive` (même schéma, hors RLS active). Les PDFs restent dans Supabase Storage (coût marginal).
+Stratégie probable V2 : archivage des collectes > 3 ans dans une table `collectes_archive` (même schéma, hors RLS active). Les PDFs restent dans Cloudflare R2 (coût marginal).
 
 ---
 
@@ -185,7 +185,7 @@ Le data model a anticipé les évolutions V2 sans les construire :
 | Décision | Alternative écartée | Raison |
 |---|---|---|
 | Indexation complète dès V1 | Ajouter les index si ça rame | Beaucoup plus coûteux de corriger les performances en prod avec des données réelles |
-| PgBouncer activé dès V1 | Connexions directes | Prévient les saturations sur les pics d'Edge Functions |
+| PgBouncer activé dès V1 | Connexions directes | Prévient les saturations sur les pics de fonctions serverless (API Routes) |
 | File PDF séquentielle (5 simultanés max) | Parallélisation totale | Évite de saturer Railway sur les grosses nuits. Délai batch < 2 min à T+18 mois |
 | Pas d'archivage automatique V1 | Archivage dès V1 | Inutile sur les volumes projetés. Complexité disproportionnée. Revisiter à T+3 ans |
 | Upgrade Supabase Team non planifié V1 | Pro → Team dès le lancement | Pro couvre largement la trajectoire 36 mois. Team = ×24 le coût mensuel pour des besoins qui n'existent pas encore |

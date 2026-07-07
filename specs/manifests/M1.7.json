@@ -285,9 +285,9 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "953c592b674a87f1bda285b33dfe8572e47387e6858a3369acc403112e21e7bf",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "e334d1b439d2356f12db8de139d495f9797c9a1c203e1b31e61ade71a8fb302a",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md": "7292c799fdb5c5598dcd979245740850df9851ffb0b475fb08e9fd76e44b41e4",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "9e82dedf4b5816a58b6e43eddf810957b772e5e7edb12d1b15ba5c70d30e8e1d",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "5bf65cc35e403893a92ee041f16a057332303f2fe2fb85dfd867db8d25de0d58"
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "fc007aa1be20a5e0f82dc5cd4bbce73a6eb31e209d8b97f366e764d93628cd55",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "4f711aee38e9a08d166e0f7d6abcbe5a995c8be7640a9c61b09056d6259a90bf"
   }
 }

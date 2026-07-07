@@ -204,7 +204,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "b65bd1978bb5d50d23a42d61334da5c7aca78447b00df375b5951476a2835963",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "9e82dedf4b5816a58b6e43eddf810957b772e5e7edb12d1b15ba5c70d30e8e1d"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "6e0ad6d35b35cdd786f46b6e04d9e03a417cf58d8687e49894b19706f6160774",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "fc007aa1be20a5e0f82dc5cd4bbce73a6eb31e209d8b97f366e764d93628cd55"
   }
 }

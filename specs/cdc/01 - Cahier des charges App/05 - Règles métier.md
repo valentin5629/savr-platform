@@ -456,7 +456,7 @@ Le traiteur peut modifier librement les informations de toute collecte non encor
 2. Génération automatique du PDF bordereau depuis les données de la collecte
 3. **Snapshot** des données producteur, transporteur, exutoire dans `bordereaux_savr` (voir section 04)
 4. Numéro séquentiel global Savr attribué automatiquement (`BSAV-YYYY-NNNNN`)
-5. PDF stocké dans Supabase Storage, URL enregistrée dans `bordereaux_savr.pdf_url`
+5. PDF stocké dans Cloudflare R2, URL enregistrée dans `bordereaux_savr.pdf_url`
 6. Disponible immédiatement dans l'espace client du traiteur concerné
 
 **Correction** : si une pesée est corrigée post-émission (rare), l'Admin Savr peut régénérer le bordereau → `version` incrémentée, ancien PDF archivé, nouveau PDF remplace l'affichage espace client. **V2 (ajout audit cohérence 2026-07-06, arbitrage Val RC-M05-04)** : la même régénération est déclenchée **automatiquement** à réception d'un webhook S5 `type=correction` du TMS — toute source (ajustement Ops TMS **ou** pesée tardive DLQ rejouée, trigger `trg_pesee_tardive_s5_correction` §04 TMS) — mêmes effets + alerte Ops « Correction pesée reçue depuis TMS » (cf. [[08 - APIs et intégrations]] §1).
@@ -471,7 +471,7 @@ Le traiteur peut modifier librement les informations de toute collecte non encor
 1. Génération automatique du PDF attestation
 2. Snapshot des données donateur + association dans `attestations_don`
 3. Numéro séquentiel (`ATT-DON-YYYY-NNNNN`)
-4. PDF stocké Supabase Storage
+4. PDF stocké Cloudflare R2
 5. Disponible dans l'espace client du traiteur
 
 **Adaptation du contenu selon habilitation** :

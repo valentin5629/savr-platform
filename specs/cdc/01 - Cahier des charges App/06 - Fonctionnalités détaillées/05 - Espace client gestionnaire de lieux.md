@@ -213,7 +213,7 @@ Bouton "Exporter une synthèse PDF" pré-rempli :
 - **Lieux / Traiteurs / Type d'événement / Taille d'événement** : valeurs des filtres globaux
 - **Type de collecte** : `ZD` (figé selon onglet actif)
 
-Clic → ouvre la modal de génération §4 Génération de synthèse PDF en étape 3 directement (téléchargement après Edge Function async ≤2 min). Si l'utilisateur veut modifier les filtres avant génération, retour aux étapes 1-2 possible.
+Clic → ouvre la modal de génération §4 Génération de synthèse PDF en étape 3 directement (téléchargement après génération Next.js API Route + Railway/Puppeteer ≤2 min). Si l'utilisateur veut modifier les filtres avant génération, retour aux étapes 1-2 possible.
 
 Pattern aligné §06.04 espace traiteur (bouton dashboard équivalent).
 
@@ -401,9 +401,9 @@ Accessible depuis le bouton "Exporter une synthèse PDF" du dashboard, dans les 
 - Types de collecte (ZD / AG)
 
 **Étape 3 — Générer** :
-- Clic "Générer" → Edge Function asynchrone (timeout 2 min max)
+- Clic "Générer" → génération PDF (Next.js API Route + Railway/Puppeteer, cible ≤ 2 min)
 - Modal affiche état "En cours" + spinner
-- Une fois généré : téléchargement direct du PDF (URL pré-signée Supabase Storage temporaire, expire 1h)
+- Une fois généré : téléchargement direct du PDF (URL pré-signée Cloudflare R2 temporaire, expire 1h)
 - **Pas d'archivage** côté DB (refonte 2026-05-05)
 
 ### Rapports automatiques (supprimés refonte 2026-05-05)
@@ -518,7 +518,7 @@ Un `user` avec `role = 'gestionnaire_lieux'` accède :
 - `evenements` SELECT : prédicat complété *(décision F3 2026-06-07)* par `(date_evenement IS NOT NULL OR organisation_id = self)` — les brouillons tiers sont exclus. UPDATE : prédicat complété *(décision F4 2026-06-07)* par `f_collecte_editable(evenements.id)` — fenêtre d'édition identique au workflow traiteur (§05 source unique).
 - `factures` SELECT `organisation_id = self` *(décision F6 2026-06-07)* — ses propres factures Savr uniquement (collectes programmées par lui) ; les factures des traiteurs restent invisibles même si la collecte s'est tenue sur ses lieux. Miroir `shared.fichiers` (scope strict = RLS table factures).
 - `users` INSERT + UPDATE `organisation_id = self` *(décision F5 2026-06-07)* — invitation + désactivation de collègues (aligné traiteur_manager).
-- : table supprimée refonte 2026-05-05. Génération synthèse asynchrone : RLS appliquée via JWT du demandeur sur les collectes sources lues par l'Edge Function.
+- : table supprimée refonte 2026-05-05. Génération synthèse : RLS appliquée via JWT du demandeur sur les collectes sources lues par la Route API.
 - `rapports_rse` WHERE `collectes.lieu_id` IN (ses lieux) — validé : le gestionnaire de lieux voit tous les rapports de recyclage des collectes sur ses lieux
 - `lieux` WHERE `id` IN (ses lieux)
 - `traiteurs` (vue restreinte) WHERE `organisation_id` IN (traiteurs intervenus sur ses lieux)

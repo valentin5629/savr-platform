@@ -112,7 +112,7 @@ Voir [[02 - Cahier des charges TMS/08 - Contrat API Plateforme-TMS]] section add
 
 **Contrainte photos** : le TMS Savr doit compresser les photos avant upload dans Supabase Storage (JPEG 80%, cible ≤ 2 Mo/photo). **Pas de limite de nombre** de photos par collecte V1 (ex: M05 AG = 1 photo pesée + ≥ 1 photo livraison asso + potentielle photo lieu pour "Aucun repas"). Cette contrainte est documentée dans le CDC TMS M05 comme prérequis technique non négociable.
 
-**URLs photos** : les photos sont transmises par **URL signée Supabase Storage TTL 7 jours**. La Plateforme les télécharge et les ré-uploade dans son propre Storage pour persistance légale (5 ans archivage bordereaux + attestations).
+**URLs photos** : les photos sont transmises par **URL signée Supabase Storage TTL 7 jours**. La Plateforme les télécharge et les ré-uploade dans son propre stockage **Cloudflare R2** pour persistance légale (5 ans archivage bordereaux + attestations).
 
 ### Notion de tournée (cf. `04 - Data Model`)
 
@@ -519,7 +519,7 @@ Au cutover V2, l'intégration MTS-1 est **entièrement coupée** : le Savr TMS p
 
 ### Pattern retenu
 
-**Resend** comme provider unique V1. Intégration via SDK officiel dans Supabase Edge Functions.
+**Resend** comme provider unique V1. Intégration via SDK officiel dans une **Next.js API Route** (Vercel) — pas de Supabase Edge Function (décision 9.1.16, cf. [[07 - Architecture technique]]).
 
 ### Raisons du choix
 
@@ -532,8 +532,8 @@ Au cutover V2, l'intégration MTS-1 est **entièrement coupée** : le Savr TMS p
 
 ```
 Événement métier (ex: collecte clôturée)
-  → Trigger Supabase (DB trigger ou Edge Function)
-  → Edge Function `send-email.ts`
+  → Déclenchement (event métier / outbox / Vercel Cron)
+  → Next.js API Route `send-email` (Vercel)
     → Lecture template en DB (table `email_templates`)
     → Interpolation des variables ({{prenom}}, {{date_collecte}})
     → Appel API Resend
@@ -573,12 +573,12 @@ Endpoint Plateforme : `POST /webhooks/resend/events` — MAJ `emails_envoyes.sta
 
 ```
 Déclenchement (ex: clôture collecte)
-  → Edge Function `generate-pdf.ts`
+  → Next.js API Route / batch Vercel Cron `generate-pdf`
     → Construction payload (données snapshot)
     → Appel micro-service Puppeteer (container dédié, HTTP interne)
       → Rendu HTML depuis template + payload
       → Export PDF
-      → Upload vers Supabase Storage
+      → Upload vers Cloudflare R2
     → Retour URL PDF
     → MAJ table (bordereaux_savr / attestations_don / rapports)
 ```
@@ -1079,7 +1079,7 @@ Architecture DNS retenue :
 |--------------|-------|-------------|
 | `app.gosavr.io` | Plateforme Savr (espace client) | Front Plateforme |
 | `tms.gosavr.io` | Savr TMS (ops logistiques) | Front TMS |
-| `api.gosavr.io` | Endpoints API publics | Backend (Supabase Edge Functions) |
+| `api.gosavr.io` | Endpoints API publics | Backend (Next.js API Routes sur Vercel) |
 | `api.gosavr.io/webhooks/tms/*` | Webhooks entrants TMS | Backend |
 | | — **non exposé V1 (sobriété B1 2026-05-31, polling J+1 only)**, à rouvrir V1.1 si webhook `invoice.paid` retenu | Backend |
 | `api.gosavr.io/webhooks/resend/*` | Webhooks entrants Resend | Backend |

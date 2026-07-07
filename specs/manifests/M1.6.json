@@ -198,7 +198,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "9e82dedf4b5816a58b6e43eddf810957b772e5e7edb12d1b15ba5c70d30e8e1d",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "9b46ac93da776e21e789efd96601092c0977f3d44d1b5106fbf9fb37343deea6"
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "fc007aa1be20a5e0f82dc5cd4bbce73a6eb31e209d8b97f366e764d93628cd55",
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "f123141c281afdf244ad279fb07bca36e3fcf8f2830ca70a0830c78c5df97257"
   }
 }

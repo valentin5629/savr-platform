@@ -101,7 +101,7 @@ Sans cette phase, les collectes restent bloquées au statut `programmee` pour to
 - Batch cron J+1 à 6h (bordereaux + rapports + attestations)
 - Embargo H+24 sur rapport de recyclage
 - Alerte pesées anormales déclenchée avant le batch
-- Stockage PDFs dans Supabase Storage (buckets dédiés, RLS)
+- Stockage PDFs dans Cloudflare R2 (buckets dédiés, URLs pré-signées)
 - Accès PDFs depuis back-office Admin
 
 **Jalon** : une collecte réalisée déclenche la génération automatique des 3 documents au batch J+1. Val vérifie le rendu PDF.

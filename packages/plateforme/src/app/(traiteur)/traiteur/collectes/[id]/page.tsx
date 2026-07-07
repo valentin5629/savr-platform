@@ -65,6 +65,8 @@ interface Collecte {
   aucun_repas_motif: string | null;
   tournees: TourneeInfo[] | null;
   rapport_rse_disponible: boolean | null;
+  rapport_rse_regenere: boolean | null;
+  can_regenerate: boolean | null;
   factures: FactureInfo[] | null;
   evenement: Evenement | Evenement[] | null;
 }
@@ -92,6 +94,7 @@ export default function FicheCollectePage({
   const [annulMotif, setAnnulMotif] = useState('');
   const [annulEnCours, setAnnulEnCours] = useState(false);
   const [annulErreur, setAnnulErreur] = useState<string | null>(null);
+  const [regenEnCours, setRegenEnCours] = useState(false);
 
   function reload() {
     fetch(`/api/v1/traiteur/collectes/${id}`)
@@ -144,6 +147,20 @@ export default function FicheCollectePage({
     if (!res.ok) return;
     const { url } = (await res.json()) as { url?: string };
     if (url) window.open(url, '_blank');
+  }
+
+  // Régénération manuelle du rapport RSE (RPT-04, manager, ZD) — §12 §1.2 l.92.
+  async function regenererRapport() {
+    setRegenEnCours(true);
+    try {
+      const res = await fetch(
+        `/api/v1/traiteur/collectes/${id}/documents/rapport-recyclage-zd/regenerate`,
+        { method: 'POST' },
+      );
+      if (res.ok) reload();
+    } finally {
+      setRegenEnCours(false);
+    }
   }
 
   if (loading) return <p className="p-4 text-sm">Chargement…</p>;
@@ -284,13 +301,31 @@ export default function FicheCollectePage({
           <CardHeader>
             <CardTitle>Documents</CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
+          <CardContent className="flex flex-wrap items-center gap-2">
             {c.rapport_rse_disponible && (
               <Button
                 variant="secondary"
                 onClick={() => void telechargerRapport()}
               >
                 Télécharger le rapport RSE
+              </Button>
+            )}
+            {c.rapport_rse_regenere && (
+              <span
+                data-testid="rapport-regenere"
+                className="inline-flex items-center gap-1 text-xs text-amber-700"
+                title="Ce rapport a été mis à jour après sa première génération."
+              >
+                ⟳ Rapport mis à jour
+              </span>
+            )}
+            {c.can_regenerate && c.rapport_rse_disponible && (
+              <Button
+                variant="ghost"
+                disabled={regenEnCours}
+                onClick={() => void regenererRapport()}
+              >
+                {regenEnCours ? 'Régénération…' : 'Régénérer le rapport'}
               </Button>
             )}
             {factureTelechargeable && (

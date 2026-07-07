@@ -31,9 +31,9 @@ export type PdfDocumentType = (typeof PDF_DOCUMENT_TYPES)[number];
  * Incrémenter `@N` à toute modification visuelle/structurelle d'un template.
  */
 export const TEMPLATE_VERSIONS: Record<PdfDocumentType, string> = {
-  'bordereau-zd': 'bordereau-zd@1',
-  'rapport-recyclage-zd': 'rapport-recyclage-zd@1',
-  'attestation-don': 'attestation-don@1',
+  'bordereau-zd': 'bordereau-zd@2',
+  'rapport-recyclage-zd': 'rapport-recyclage-zd@2',
+  'attestation-don': 'attestation-don@2',
   'synthese-dashboard': 'synthese-dashboard@1',
 };
 

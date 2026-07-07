@@ -4,8 +4,12 @@
 // Miroir de la route admin (rapports-rse/[id]/download) mais keyée par COLLECTE et
 // RLS-scopée : on confirme d'abord la visibilité de la collecte (cloisonnement org
 // via le client RLS), puis on lit le rapport et on renvoie une URL pré-signée R2.
-// Régénération = Admin uniquement (§06.04 l.415) — non exposée ici.
 // BL-P1-TRAIT-03.
+//
+// Collecte AG (BL-P2-18 (3), arbitrage Val 2026-07-07 option a) : le « rapport RSE »
+// d'une collecte anti_gaspi EST l'attestation de don standalone (§1.3). Le §1.2 « page 3
+// attestation » / « page 1 Synthèse RSE AG » sont des fantômes non applicables au grain
+// collecte AG (cf. _Divergences). On sert donc ici l'attestation pour une collecte AG.
 
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -38,7 +42,7 @@ export async function GET(
   const rls = createSupabaseServerClient();
   const { data: collecte } = await rls
     .from('collectes')
-    .select('id')
+    .select('id, type')
     .eq('id', id)
     .maybeSingle();
   if (!collecte) {
@@ -48,9 +52,43 @@ export async function GET(
     );
   }
 
-  // Rapport le plus récent pour la collecte (lecture service-role après contrôle
-  // d'appartenance ci-dessus — évite une dépendance à une policy RLS dédiée).
+  // Lecture service-role après contrôle d'appartenance ci-dessus (évite une dépendance
+  // à une policy RLS dédiée). AG → attestation standalone ; ZD → rapport de recyclage.
   const admin = createAdminSupabaseClient();
+
+  if ((collecte as { type: string }).type === 'anti_gaspi') {
+    const { data: att } = await admin
+      .from('attestations_don')
+      .select('id, eligible_at, pdf_url')
+      .eq('collecte_id', id)
+      .order('version', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!att) {
+      return NextResponse.json(
+        { error: 'Attestation introuvable' },
+        { status: 404 },
+      );
+    }
+    // Embargo applicatif H+24 (R-PDF2) — jamais contournable.
+    if (Date.now() < new Date(att.eligible_at as string).getTime()) {
+      return NextResponse.json(
+        { error: 'Rapport sous embargo H+24', disponible_a: att.eligible_at },
+        { status: 425 },
+      );
+    }
+    const attKey = att.pdf_url as string | null;
+    if (!attKey) {
+      return NextResponse.json(
+        { error: 'PDF non encore généré' },
+        { status: 202 },
+      );
+    }
+    const attUrl = await getPresignedUrl(attKey, 900);
+    return NextResponse.json({ url: attUrl, expires_in: 900 });
+  }
+
+  // Rapport ZD le plus récent pour la collecte.
   const { data: rapport } = await admin
     .from('rapports_rse')
     .select('id, disponible_a, genere_at, pdf_url')

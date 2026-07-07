@@ -4459,6 +4459,37 @@ export type Database = {
         Args: { p_traiteur_id: string }
         Returns: boolean
       }
+      f_rapport_benchmark_zd: {
+        Args: {
+          p_collecte_id: string
+          p_periode_debut?: string
+          p_periode_fin?: string
+          p_lieu_ids?: string[]
+          p_type_evenement_ids?: string[]
+          p_taille_evenement_codes?: string[]
+        }
+        Returns: {
+          flux_id: string
+          flux_code: string
+          flux_nom: string
+          taille_evenement: string
+          collecte_kg_pax: number
+          benchmark_kg_pax: number
+          nb_collectes_segment: number
+        }[]
+      }
+      f_taux_recyclage_moyen_parc: {
+        Args: {
+          p_periode_debut?: string
+          p_periode_fin?: string
+          p_nb_acteurs_min?: number
+        }
+        Returns: {
+          taux_moyen_pondere: number
+          nb_organisations: number
+          nb_collectes: number
+        }[]
+      }
       f_upsert_alerte_admin: {
         Args: {
           p_code: string

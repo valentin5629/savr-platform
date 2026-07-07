@@ -119,13 +119,27 @@ describe('M1.6 / BatchPdfJ1 / Nominal', () => {
       { count: 3, error: null }, // count collecte_flux
       {
         data: [
-          { flux_id: 'f1', poids_reel_kg: 12, flux: { nom: 'Biodéchets' } },
+          {
+            flux_id: 'f1',
+            poids_reel_kg: 12,
+            nb_bacs: 3,
+            equivalent_roll: null,
+            flux: { nom: 'Biodéchets' },
+          },
         ],
-      }, // select flux
+      }, // select flux (BL-P2-16 : nb_bacs / equivalent_roll)
       { data: 'BSAV-2026-00001', error: null }, // rpc numero
       {
         data: { nom: 'Strike Transport', siret: '98765432100011' },
       }, // shared.prestataires (transporteur)
+      {
+        data: {
+          evenement: {
+            type_evenement_id: 't1',
+            type_evenement: { libelle: 'Gala' },
+          },
+        },
+      }, // helper resolveRapportBenchmark : fetch type d'événement (légende/snapshot)
       { data: { id: 'bord-new' }, error: null }, // insert bordereaux_savr
       { data: { id: 'rse-new' }, error: null }, // insert rapports_rse
       { data: null, error: null }, // insert job bordereau
@@ -145,6 +159,31 @@ describe('M1.6 / BatchPdfJ1 / Nominal', () => {
       .filter(Boolean) as string[];
     expect(types).toContain('bordereau-zd');
     expect(types).toContain('rapport-recyclage-zd');
+
+    // BL-P1-RPT-01 : le batch appelle le benchmark (5 jauges) et la moyenne parc.
+    const rpcNames = (sb.rpc as ReturnType<typeof vi.fn>).mock.calls.map(
+      (c) => c[0],
+    );
+    expect(rpcNames).toContain('f_rapport_benchmark_zd');
+    expect(rpcNames).toContain('f_taux_recyclage_moyen_parc');
+
+    // BL-P1-RPT-01 : snapshot filtres_benchmark non vide (reproductibilité §1.2 l.69).
+    const rseInsert = insertCalls.find(
+      (c) => c[0].filtres_benchmark !== undefined,
+    )?.[0];
+    expect(rseInsert).toBeDefined();
+    const fb = rseInsert!.filtres_benchmark as {
+      type_evenement_ids: string[] | null;
+    };
+    expect(fb.type_evenement_ids).toEqual(['t1']);
+
+    // BL-P2-16 : le payload bordereau porte l'équivalent bacs.
+    const bordJob = insertCalls.find(
+      (c) => c[0].type_document === 'bordereau-zd',
+    )?.[0];
+    const bordFlux = (bordJob!.payload as { flux: Array<{ nb_bacs: number }> })
+      .flux;
+    expect(bordFlux[0]!.nb_bacs).toBe(3);
   });
 });
 
@@ -222,6 +261,14 @@ describe('M1.6 / BatchPdfJ1 / Embargo', () => {
       {
         data: { nom: 'Strike Transport', siret: '98765432100011' },
       }, // shared.prestataires (transporteur)
+      {
+        data: {
+          evenement: {
+            type_evenement_id: 't1',
+            type_evenement: { libelle: 'Gala' },
+          },
+        },
+      }, // helper resolveRapportBenchmark : fetch type d'événement
       { data: { id: 'bord-x' }, error: null },
       { data: { id: 'rse-x' }, error: null },
       { data: null, error: null },

@@ -291,6 +291,7 @@ describe('M1.6 / PdfWorker / template_version (BL-P1-API-07)', () => {
     )?.[0];
     expect(entityUpdate).toBeDefined();
     // Version figée du contrat partagé pour 'bordereau-zd' → re-rendu iso.
-    expect(entityUpdate!.template_version).toBe('bordereau-zd@1');
+    // @2 depuis R21a (colonne bacs/rolls + mention de régénération).
+    expect(entityUpdate!.template_version).toBe('bordereau-zd@2');
   });
 });

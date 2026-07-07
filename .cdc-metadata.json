@@ -1,7 +1,7 @@
 {
   "_note": "DÉRIVÉ/régénérable (scripts/gen-cdc-metadata.ts, appelé par sync-specs.sh). Hash sha256 par fichier specs/cdc/**/*.md. Référence de G10 (complétude) et G11 (drift). Ne pas éditer à la main.",
   "generated_from": "specs/cdc",
-  "nb_fichiers": 103,
+  "nb_fichiers": 105,
   "files": {
     "specs/cdc/01 - Cahier des charges App/00 - Index.md": {
       "sha256": "e131065b470a5cefa3f8f87e8ca607f05ac7eb76b9a0cb4243af8a61393f5af2",
@@ -144,8 +144,8 @@
       "bytes": 27020
     },
     "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": {
-      "sha256": "a6bd56d8c3329d21da82abaa58cd2813bfe6677a99afc8d8e2980ccace0413a9",
-      "bytes": 25510
+      "sha256": "ec6e24cfa8e2245587c55283fcfca5b78e6e867322bac99f97ad5f324a188a28",
+      "bytes": 26196
     },
     "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": {
       "sha256": "9b46ac93da776e21e789efd96601092c0977f3d44d1b5106fbf9fb37343deea6",
@@ -186,6 +186,10 @@
     "specs/cdc/01 - Cahier des charges App/_PENDING - Everest API V1 (à intégrer §08 §3).md": {
       "sha256": "6c9af21f3e8852be31b0d95fbe07179d6fd00b87d904e76fb2847c25a5146f5e",
       "bytes": 5277
+    },
+    "specs/cdc/01 - Cahier des charges App/_RAPPORT-EXPORT.md": {
+      "sha256": "273c942386320fd795cadcc6d40d7acf39e4bb0662934ae89a4743df6fb4e951",
+      "bytes": 472
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.01-formulaire-programmation-scenarios.md": {
       "sha256": "a71330f61e399d537e19327c17048471306fe61a617c9182054e3a55d24c5f39",
@@ -232,8 +236,12 @@
       "bytes": 26500
     },
     "specs/cdc/01 - Cahier des charges App/tests/11-12-dashboards-reporting-scenarios.md": {
-      "sha256": "2f3df8a6a9f0cacd12a06ac8bbf73b33c756af915f7e92fb36344beac7a87093",
-      "bytes": 39791
+      "sha256": "2e886a4cd81b645435f6458b4a2a2e74d4ce621c3661991c1340d01da21dfa7d",
+      "bytes": 41203
+    },
+    "specs/cdc/01 - Cahier des charges App/tests/_RAPPORT-EXPORT.md": {
+      "sha256": "a8cdb60f9389455cec5ce15425f95f5622626fb80ce985cf60db20f81107fd23",
+      "bytes": 341
     },
     "specs/cdc/02 - Cahier des charges TMS/00 - Index.md": {
       "sha256": "a00604474662baca0bb5a3bd97730296b7866974184ed547f6370824498d70e2",

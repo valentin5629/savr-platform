@@ -116,11 +116,12 @@ Scénario : attestation_don_ag_batch_avec_snapshot
 # Couche : api
 # Priorité : P1-critique
 
-Scénario : rapport_sans_excedent_genere_immediatement
-  Étant donné une collecte AG dont le webhook `collecte-terminee` arrive avec statut_final = "realisee_sans_collecte" et un motif chauffeur
-  Quand le webhook est traité
-  Alors le PDF "Événement sans excédent alimentaire" (template `rapport_evenement_sans_excedent`) est généré immédiatement, sans embargo H+24
+Scénario : rapport_sans_excedent_genere_batch_nightly
+  Étant donné une collecte AG passée en "realisee_sans_collecte" (transition via webhook Everest, course vide AG) avec un motif chauffeur, sans rapport encore généré
+  Quand le batch nightly `runBatchSansExcedent` (monté dans le cron J+1 6h) tourne
+  Alors le PDF "Événement sans excédent alimentaire" (template `rapport_evenement_sans_excedent`) est généré, sans embargo H+24
   Et une ligne `rapports_rse` standard est créée avec disponible_a = genere_at (F1 tranchée 2026-06-07 — pas de colonne type)
+  Et le batch est idempotent (skip si une ligne `rapports_rse` existe déjà pour la collecte)
   Et le PDF contient : heure de présentation chauffeur, nom chauffeur, motif déclaré, mention "Aucun repas n'a été collecté…"
   Et aucune `attestations_don` n'est créée pour cette collecte
   Et aucune photo n'est incluse dans le PDF (photos TMS accessibles back-office Admin seulement)
@@ -826,7 +827,7 @@ Scénario : couts_dashboard_somme_tournees_multi_camions
 Scénario : rapport_sans_excedent_donnees_tms
   Étant donné un S5 realisee_sans_collecte portant motif chauffeur et heure de présentation
   Quand le PDF est généré
-  Alors heure de présentation (`tournees.heure_reelle_arrivee`), nom chauffeur et motif proviennent des données poussées par le TMS
+  Alors heure de présentation (`tournees.heure_debut_reelle`), nom chauffeur et motif proviennent des données poussées par le TMS
   Et la plaque n'apparaît QUE si controle_acces_requis = true sur la collecte
 ```
 

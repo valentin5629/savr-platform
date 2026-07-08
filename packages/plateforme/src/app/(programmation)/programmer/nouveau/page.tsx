@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Save,
   CheckCircle,
+  PlusCircle,
 } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Button } from '@/components/ui/button';
@@ -17,6 +18,12 @@ import {
   LieuCombobox,
   type LieuOption,
 } from '@/components/programmation/lieu-combobox';
+import {
+  LieuChampsEditables,
+  lieuToEdits,
+  computeLieuOverrides,
+  type LieuEdits,
+} from '@/components/programmation/lieu-champs-editables';
 import { LieuManuelForm } from '@/components/programmation/lieu-manuel-form';
 import {
   ContactCombobox,
@@ -41,9 +48,9 @@ interface TypeEvenement {
 
 interface TraiteurOption {
   id: string;
+  nom: string;
   raison_sociale: string;
-  nom_commercial: string | null;
-  ville: string | null;
+  siret: string | null;
 }
 
 interface PackInfo {
@@ -128,7 +135,31 @@ export default function NouveauProgrammationPage() {
 
   // Étape 2
   const [lieu, setLieu] = useState<LieuOption | null>(null);
+  // PROG-01 : champs lieu éditables (override per-collecte). `lieuBase` = valeurs de
+  // référence à la sélection ; `lieuEdits` = valeurs courantes ; le diff = lieu_overrides.
+  const [lieuBase, setLieuBase] = useState<LieuEdits | null>(null);
+  const [lieuEdits, setLieuEdits] = useState<LieuEdits | null>(null);
   const [controleAcces, setControleAcces] = useState(false);
+  // PROG-02 : création d'un traiteur « hors référentiel » (shadow) — agence uniquement.
+  const [showShadowModal, setShowShadowModal] = useState(false);
+  const [shadowForm, setShadowForm] = useState({
+    raison_sociale: '',
+    nom_commercial: '',
+    siret: '',
+  });
+  const [shadowError, setShadowError] = useState<string | null>(null);
+
+  const applyLieu = useCallback((l: LieuOption | null) => {
+    setLieu(l);
+    if (l) {
+      const edits = lieuToEdits(l);
+      setLieuBase(edits);
+      setLieuEdits(edits);
+    } else {
+      setLieuBase(null);
+      setLieuEdits(null);
+    }
+  }, []);
   const [contactPrincipal, setContactPrincipal] =
     useState<ContactOption | null>(null);
   const [contactSecours, setContactSecours] = useState<ContactOption | null>(
@@ -182,7 +213,7 @@ export default function NouveauProgrammationPage() {
         setReferenceAffaire(evt.reference_affaire ?? '');
         setControleAcces(Boolean(d.controle_acces_requis));
         if (lieuSrc) {
-          setLieu({
+          applyLieu({
             id: lieuSrc.id,
             nom: lieuSrc.nom ?? '',
             adresse_acces: lieuSrc.adresse_acces ?? '',
@@ -218,7 +249,7 @@ export default function NouveauProgrammationPage() {
         ]);
       })
       .catch(() => {});
-  }, []);
+  }, [applyLieu]);
 
   // Lecture du rôle + chargement des traiteurs si agence/gestionnaire
   useEffect(() => {
@@ -305,10 +336,44 @@ export default function NouveauProgrammationPage() {
     setNewContact({ prenom: '', nom: '', telephone: '', fonction: '' });
   };
 
+  // PROG-02 : création d'un traiteur « hors référentiel » (shadow) — agence uniquement.
+  const handleCreateShadow = async () => {
+    setShadowError(null);
+    if (
+      !shadowForm.raison_sociale.trim() ||
+      shadowForm.nom_commercial.trim().length < 2
+    ) {
+      setShadowError('Raison sociale et nom commercial (2 car. min) requis.');
+      return;
+    }
+    const res = await fetch('/api/v1/programmation/organisations/shadow', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        raison_sociale: shadowForm.raison_sociale.trim(),
+        nom_commercial: shadowForm.nom_commercial.trim(),
+        siret: shadowForm.siret.trim() || undefined,
+      }),
+    });
+    if (!res.ok) {
+      const j = (await res.json().catch(() => ({}))) as { error?: string };
+      setShadowError(j.error ?? 'Échec de la création du traiteur.');
+      return;
+    }
+    const created = (await res.json()) as TraiteurOption;
+    setTraiteurs((prev) => [created, ...prev]);
+    setTraiteurOperationnelId(created.id);
+    setShowShadowModal(false);
+    setShadowForm({ raison_sociale: '', nom_commercial: '', siret: '' });
+  };
+
   const handleSubmit = async (confirmer: boolean) => {
     setSubmitting(true);
     setError(null);
     try {
+      // PROG-01 : override lieu = diff des champs édités vs référence (undefined si aucun).
+      const lieuOverrides =
+        lieuBase && lieuEdits ? computeLieuOverrides(lieuBase, lieuEdits) : {};
       const body = {
         nom_evenement: nomClient.trim() || undefined,
         nom_client_organisateur: nomClient.trim() || undefined,
@@ -316,6 +381,8 @@ export default function NouveauProgrammationPage() {
         type_evenement_id: typeEvenementId,
         reference_affaire: referenceAffaire || undefined,
         lieu_id: lieu!.id,
+        lieu_overrides:
+          Object.keys(lieuOverrides).length > 0 ? lieuOverrides : undefined,
         controle_acces_requis: controleAcces,
         contact_principal_nom:
           `${contactPrincipal!.prenom} ${contactPrincipal!.nom}`.trim(),
@@ -494,13 +561,101 @@ export default function NouveauProgrammationPage() {
                 <option value="">Choisir un traiteur…</option>
                 {traiteurs.map((t) => (
                   <option key={t.id} value={t.id}>
-                    {t.nom_commercial ?? t.raison_sociale}
-                    {t.ville ? ` — ${t.ville}` : ''}
+                    {t.nom || t.raison_sociale}
                   </option>
                 ))}
               </select>
+              {/* PROG-02 : option « hors référentiel » — agence uniquement (CDC
+                  §06.01 l.280 : le gestionnaire de lieux n'a PAS cette option). */}
+              {role === 'agence' && (
+                <button
+                  type="button"
+                  onClick={() => setShowShadowModal(true)}
+                  className="mt-1 flex items-center gap-1 text-sm text-savr-primary-700 hover:underline"
+                >
+                  <PlusCircle className="h-4 w-4" />
+                  Ajouter un traiteur hors référentiel
+                </button>
+              )}
             </div>
           )}
+
+          {/* PROG-02 : modal création traiteur shadow (hors référentiel) */}
+          <Dialog.Root open={showShadowModal} onOpenChange={setShowShadowModal}>
+            <Dialog.Portal>
+              <Dialog.Overlay className="fixed inset-0 bg-savr-neutral-900/40 z-40" />
+              <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-savr-lg bg-savr-white p-6 shadow-xl space-y-4">
+                <Dialog.Title className="font-semibold text-savr-neutral-900">
+                  Traiteur hors référentiel
+                </Dialog.Title>
+                <p className="text-xs text-savr-neutral-500">
+                  Une fiche traiteur provisoire sera créée et signalée à Savr
+                  pour vérification.
+                </p>
+                <div className="space-y-3">
+                  <input
+                    placeholder="Nom commercial *"
+                    value={shadowForm.nom_commercial}
+                    onChange={(e) =>
+                      setShadowForm((p) => ({
+                        ...p,
+                        nom_commercial: e.target.value,
+                      }))
+                    }
+                    className="w-full rounded-savr-md border border-savr-neutral-300 px-3 py-2 text-sm focus:outline-2 focus:outline-savr-primary-500"
+                  />
+                  <input
+                    placeholder="Raison sociale *"
+                    value={shadowForm.raison_sociale}
+                    onChange={(e) =>
+                      setShadowForm((p) => ({
+                        ...p,
+                        raison_sociale: e.target.value,
+                      }))
+                    }
+                    className="w-full rounded-savr-md border border-savr-neutral-300 px-3 py-2 text-sm focus:outline-2 focus:outline-savr-primary-500"
+                  />
+                  <div className="space-y-1">
+                    <input
+                      placeholder="SIRET (fortement recommandé)"
+                      value={shadowForm.siret}
+                      onChange={(e) =>
+                        setShadowForm((p) => ({ ...p, siret: e.target.value }))
+                      }
+                      className="w-full rounded-savr-md border border-savr-neutral-300 px-3 py-2 text-sm focus:outline-2 focus:outline-savr-primary-500"
+                    />
+                    {!shadowForm.siret.trim() && (
+                      <p className="text-xs text-savr-error">
+                        Sans SIRET, le bordereau réglementaire ne pourra pas
+                        être généré et le traiteur opérationnel ne sera pas
+                        conforme aux obligations de traçabilité déchets.
+                      </p>
+                    )}
+                  </div>
+                  {shadowError && (
+                    <p className="text-sm text-savr-error">{shadowError}</p>
+                  )}
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    variant="secondary"
+                    onClick={() => setShowShadowModal(false)}
+                  >
+                    Annuler
+                  </Button>
+                  <Button
+                    onClick={() => void handleCreateShadow()}
+                    disabled={
+                      !shadowForm.raison_sociale.trim() ||
+                      shadowForm.nom_commercial.trim().length < 2
+                    }
+                  >
+                    Créer le traiteur
+                  </Button>
+                </div>
+              </Dialog.Content>
+            </Dialog.Portal>
+          </Dialog.Root>
 
           <div className="flex justify-end">
             <Button onClick={() => setStep(1)} disabled={!step1Valid}>
@@ -524,15 +679,15 @@ export default function NouveauProgrammationPage() {
             </label>
             <LieuCombobox
               value={lieu}
-              onChange={setLieu}
+              onChange={applyLieu}
               onAddManuel={() => setShowLieuManuel(true)}
             />
-            {lieu && (
-              <p className="text-xs text-savr-neutral-500 mt-1">
-                {lieu.adresse_acces}, {lieu.code_postal} {lieu.ville}
-              </p>
-            )}
           </div>
+
+          {/* PROG-01 : champs du lieu pré-remplis et éditables (override per-collecte) */}
+          {lieu && lieuEdits && (
+            <LieuChampsEditables edits={lieuEdits} onChange={setLieuEdits} />
+          )}
 
           {/* Lieu manuel — dialog */}
           <Dialog.Root open={showLieuManuel} onOpenChange={setShowLieuManuel}>
@@ -544,7 +699,7 @@ export default function NouveauProgrammationPage() {
                 </Dialog.Title>
                 <LieuManuelForm
                   onSave={(l) => {
-                    setLieu(l);
+                    applyLieu(l);
                     setShowLieuManuel(false);
                   }}
                   onCancel={() => setShowLieuManuel(false)}

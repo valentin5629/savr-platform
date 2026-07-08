@@ -19,9 +19,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(req.url);
   const q = sanitizeOrTerm(searchParams.get('q') ?? ''); // C2 : neutralise l'injection .or
 
+  // ⚠ plateforme.organisations n'a NI colonne `nom_commercial` NI `ville` (le nom
+  // commercial est stocké dans `nom` ; le SIRET vit sur entites_facturation). L'ancien
+  // SELECT/filtre sur ces colonnes fantômes provoquait un PostgREST 400 au runtime
+  // (bug latent colonne-DB PROG-02). On ne lit que des colonnes réelles.
   let query = supabase
     .from('organisations')
-    .select('id, raison_sociale, nom_commercial, siret, ville')
+    .select('id, nom, raison_sociale, siret')
     .eq('type', 'traiteur')
     .eq('est_shadow', false)
     .eq('actif', true)
@@ -30,7 +34,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   if (q) {
     query = query.or(
-      `raison_sociale.ilike.%${q}%,nom_commercial.ilike.%${q}%,siret.ilike.%${q}%`,
+      `raison_sociale.ilike.%${q}%,nom.ilike.%${q}%,siret.ilike.%${q}%`,
     );
   }
 

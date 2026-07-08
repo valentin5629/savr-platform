@@ -12,6 +12,14 @@ export interface LieuOption {
   ville: string;
   code_postal: string;
   controle_acces_requis_default: boolean;
+  // Champs lieu éditables au formulaire (PROG-01) — pré-remplis depuis le référentiel,
+  // renvoyés par GET /programmation/lieux. Nullables (facultatifs / lieu manuel).
+  acces_details?: string | null;
+  acces_office?: string | null;
+  stationnement?: string | null;
+  type_vehicule_max?: string | null;
+  contraintes_horaires?: string | null;
+  flux_autorises?: string[] | null;
 }
 
 interface LieuComboboxProps {

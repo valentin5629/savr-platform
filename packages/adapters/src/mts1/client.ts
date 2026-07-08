@@ -31,6 +31,9 @@ export interface CreateOrderPayload {
   timeslots: Array<{ start: string; end: string }>;
   contacts: Array<{ name: string; phone: string; role: string }>;
   stuffs?: Array<{ name: string; task: string; quantity: number }>;
+  // Instructions logistiques libres transmises au prestataire (M01/M03/M05).
+  // MTS-1 as-built §3bis.5 l.389 : `comment` ← collectes.informations_supplementaires.
+  comment?: string;
 }
 
 export interface CreateTourPayload {

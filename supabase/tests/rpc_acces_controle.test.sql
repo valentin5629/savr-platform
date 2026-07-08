@@ -11,7 +11,7 @@ SELECT plan(6);
 SELECT ok(
   NOT has_function_privilege(
     'authenticated',
-    'plateforme.fn_creer_collecte(uuid, text, date, time, smallint, boolean, text, text)',
+    'plateforme.fn_creer_collecte(uuid, text, date, time, smallint, boolean, text, text, jsonb)',
     'execute'
   ),
   'fn_creer_collecte : EXECUTE refusé à authenticated (B1)'
@@ -20,7 +20,7 @@ SELECT ok(
 SELECT ok(
   NOT has_function_privilege(
     'anon',
-    'plateforme.fn_creer_collecte(uuid, text, date, time, smallint, boolean, text, text)',
+    'plateforme.fn_creer_collecte(uuid, text, date, time, smallint, boolean, text, text, jsonb)',
     'execute'
   ),
   'fn_creer_collecte : EXECUTE refusé à anon (B1)'

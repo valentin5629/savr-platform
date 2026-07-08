@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
-import { sendEmail } from '@savr/shared/src/email/index.js';
 import { requireProgrammateurOuAdmin } from '@/lib/api-auth.js';
 import { requireCompletedOrganisation } from '@/lib/onboarding-guards.js';
+import { envoyerRecapProgrammation } from '@/lib/programmation/recap-email.js';
+import { notifierOverrideLieu } from '@/lib/programmation/lieu-override.js';
+import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireProgrammateurOuAdmin(req);
@@ -263,8 +265,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .eq('controle_acces_requis_default', false);
   }
 
+  const hasOverride = !!(
+    body.lieu_overrides && Object.keys(body.lieu_overrides).length > 0
+  );
+
   if (body.confirmer) {
-    // Chemin confirmation : fn_creer_collecte (SECURITY DEFINER, gère E1 pour ZD)
+    // Chemin confirmation : fn_creer_collecte (SECURITY DEFINER, gère E1 pour ZD).
+    // PROG-01/PROG-03 : lieu_overrides passé à la RPC → écrit sur la ligne ET inclus
+    // dans le payload E1 (collecte.creee) dans la MÊME transaction (« transmis au TMS
+    // via E1 », CDC §06.01 l.110), aux côtés de controle_acces_requis + info_suppl.
     for (const c of body.collectes) {
       const { data: collecteId, error: cErr } = await supabase.rpc(
         'fn_creer_collecte',
@@ -277,6 +286,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           p_controle_acces: body.controle_acces_requis,
           p_notes: null,
           p_info_suppl: c.informations_supplementaires ?? null,
+          p_lieu_overrides: hasOverride ? body.lieu_overrides : null,
         },
       );
 
@@ -289,20 +299,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       collecteIds.push(collecteId as string);
     }
 
-    // Override lieu per-collecte si présent (R11)
-    if (body.lieu_overrides && Object.keys(body.lieu_overrides).length > 0) {
-      await supabase
-        .from('collectes')
-        .update({
-          lieu_overrides: body.lieu_overrides,
-          informations_completes: false,
-        })
-        .in('id', collecteIds);
-    }
-
-    // Informations manquantes : badge info_incomplete (R12)
+    // Informations manquantes OU override lieu : badge info_incomplete.
     const hasIncomplete =
-      !body.contact_principal_telephone || !body.nom_client_organisateur;
+      !body.contact_principal_telephone ||
+      !body.nom_client_organisateur ||
+      hasOverride;
     if (hasIncomplete) {
       await supabase
         .from('collectes')
@@ -310,19 +311,45 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         .in('id', collecteIds);
     }
 
-    // Email récap (stub M1.2 — template minimal)
-    const firstCollecte = body.collectes[0];
-    void sendEmail(
-      'collecte_programmee',
-      '', // email résolu côté traiteur — stub minimal, module emails le complétera
-      {
-        nom_evenement: evt.nom_evenement ?? 'Votre événement',
-        date_collecte: firstCollecte?.date_collecte ?? '',
-      },
-      { entityType: 'evenement', entityId: evenementId },
-    ).catch(() => undefined); // non-bloquant
+    // PROG-01 : override lieu → signalement léger Admin + trace audit_log (l.111).
+    if (hasOverride) {
+      await notifierOverrideLieu(supabase, {
+        evenementId,
+        lieuId: body.lieu_id,
+        overrides: body.lieu_overrides as Record<string, unknown>,
+        userId: auth.ctx.userId,
+        role: auth.ctx.role,
+      });
+    }
+
+    // PROG-05 : à la confirmation, évaluer l'auto-accept de chaque collecte AG (CDC
+    // §06.01 l.398 + §09 §6). Best-effort : sans config active → la collecte reste en
+    // file d'attribution Admin ; avec config match → attribution auto-validée + cascade.
+    await Promise.all(
+      body.collectes.map((c, i) => {
+        const cid = collecteIds[i];
+        return c.type === 'ag' && cid
+          ? evaluerAutoAcceptAg(cid).then(
+              () => undefined,
+              () => undefined,
+            )
+          : Promise.resolve();
+      }),
+    );
+
+    // PROG-04 : email récap au programmeur (un seul email, tarif ZD inclus).
+    await envoyerRecapProgrammation(supabase, {
+      programmeurUserId: auth.ctx.userId,
+      evenementId,
+      nomEvenement: evt.nom_evenement,
+      pax: body.pax,
+      organisationId: effectiveOrgId,
+      collectes: body.collectes,
+    }).catch(() => undefined); // non-bloquant
   } else {
-    // Chemin brouillon : INSERT direct avec statut='brouillon'
+    // Chemin brouillon : INSERT direct avec statut='brouillon'.
+    // PROG-01 : lieu_overrides persisté ici aussi (sinon perdu à la confirmation) ;
+    // le signalement Admin est émis à la confirmation (PATCH .../confirmer).
     for (const c of body.collectes) {
       const { data: newCollecte, error: cErr } = await supabase
         .from('collectes')
@@ -335,6 +362,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           statut_tms: 'non_envoye',
           controle_acces_requis: body.controle_acces_requis,
           informations_supplementaires: c.informations_supplementaires ?? null,
+          lieu_overrides: hasOverride ? body.lieu_overrides : null,
           nb_camions_demande: 1,
         })
         .select('id')

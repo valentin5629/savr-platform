@@ -1048,6 +1048,13 @@ export class AdapterMts1 implements LogistiqueProvider {
       timeslots: [{ start: dateHeure, end: dateHeure }],
       contacts,
       stuffs,
+      // BL-P1-PROG-03 : informations_supplementaires → `comment` MTS-1 (§08 l.389),
+      // pour que les instructions logistiques du programmeur atteignent le prestataire
+      // (M01/M03/M05). controle_acces_requis n'a pas de champ natif MTS-1 (concern V2 TMS
+      // via validate_tournee_controle_acces) → hors payload sortant V1.
+      ...(collecte.informations_supplementaires
+        ? { comment: collecte.informations_supplementaires }
+        : {}),
     };
   }
 

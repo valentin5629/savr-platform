@@ -106,10 +106,51 @@
       "test": "M1.2 — édition collecte gestionnaire réacceptation prestataire (date + statut_tms=acceptee)",
       "statut": "implemented",
       "libelle": "Réacceptation prestataire sur changement de créneau (statut→programmee + statut_tms→attribuee_en_attente_acceptation) ; édition événement = push silencieux"
+    },
+    {
+      "id": "BL-P1-PROG-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:104",
+      "artefact": "packages/plateforme/src/app/(programmation)/programmer/nouveau/page.tsx",
+      "test": "M1.2 — PROG-01 override lieu : lieu_overrides passé à fn_creer_collecte + notif Admin + audit_log",
+      "statut": "implemented",
+      "libelle": "Lieu existant : champs pré-remplis éditables → collectes.lieu_overrides transmis via E1 + signalement Admin léger + trace audit_log ; lieu référentiel non modifié"
+    },
+    {
+      "id": "BL-P1-PROG-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:256",
+      "artefact": "packages/plateforme/src/app/api/v1/programmation/organisations/traiteurs/route.ts",
+      "test": "M1.2 — PROG-02 shadow traiteur créé par agence (201)",
+      "statut": "implemented",
+      "libelle": "Agence : sélecteur traiteur (colonnes réelles, fix nom_commercial/ville fantômes) + option « hors référentiel » → création shadow (est_shadow, cree_par) + alerte Admin ; gestionnaire exclu"
+    },
+    {
+      "id": "BL-P1-PROG-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:396",
+      "artefact": "supabase/migrations/20260708120000_plateforme_r12b_programmation_e1_payload.sql",
+      "test": "T1b (PROG-03) : payload E1 inclut controle_acces_requis + informations_supplementaires + lieu_overrides",
+      "statut": "implemented",
+      "libelle": "Payload E1 collecte.creee enrichi (controle_acces_requis + informations_supplementaires + lieu_overrides) + mapping adapter MTS-1 informations_supplementaires→comment (§08 l.389)"
+    },
+    {
+      "id": "BL-P1-PROG-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:397",
+      "artefact": "packages/plateforme/src/lib/programmation/recap-email.ts",
+      "test": "M1.2 — PROG-04 récap programmation envoyé au programmeur avec tarif ZD",
+      "statut": "implemented",
+      "libelle": "Email récap unique au programmeur (destinataire résolu §05 l.240/1240, tarif ZD calculé §06.01 l.180) câblé sur les 3 chemins de confirmation"
+    },
+    {
+      "id": "BL-P1-PROG-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:398",
+      "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/confirmer/route.ts",
+      "test": "M1.2 — PROG-05 auto-accept AG déclenché à la confirmation",
+      "statut": "implemented",
+      "libelle": "À la confirmation AG : évaluation auto-accept (algo §09 §6, best-effort) + fix bug latent gate pack 'anti_gaspi'"
     }
   ],
   "cdc_source_hash": {
     "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "e334d1b439d2356f12db8de139d495f9797c9a1c203e1b31e61ade71a8fb302a",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "2c029e09dcacca300236e20c9e0eca88aad3c4d452756f5d6fd48e18fb8740d7",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "4a64157d49a7e9c6cfca82b0329d67c1444704d47fe6c65ddb31743f4a3f7382",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "5d9ba496580f9de0fa09965275785dcc7723bc95972d499b956961ac40a6dd64",
     "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "fc007aa1be20a5e0f82dc5cd4bbce73a6eb31e209d8b97f366e764d93628cd55",

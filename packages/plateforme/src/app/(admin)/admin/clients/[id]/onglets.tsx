@@ -544,6 +544,8 @@ export function OngletTarifRefacture({
 interface Coefficient {
   id: string;
   annee_reference: number;
+  // annee_application = annee_reference + 1, calculée côté serveur (CDC §9bis.1).
+  annee_application?: number;
   coefficient_kg_couvert: number;
   source_commentaire: string | null;
   saisi_par_user: { prenom: string; nom: string } | null;
@@ -574,7 +576,7 @@ export function OngletCoefficients({
   const load = React.useCallback(() => {
     setLoading(true);
     void fetch(
-      `/api/v1/admin/coefficients-perte-labo?organisation_id=${organisationId}`,
+      `/api/v1/admin/organisations/${organisationId}/coefficients-perte-labo`,
     )
       .then((r) => (r.ok ? r.json() : { data: [] }))
       .then((j: { data?: Coefficient[] }) => setCoefs(j.data ?? []))
@@ -614,16 +616,18 @@ export function OngletCoefficients({
     try {
       const r =
         modal.mode === 'ajouter'
-          ? await fetch('/api/v1/admin/coefficients-perte-labo', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                organisation_id: organisationId,
-                annee_reference: fAnnee,
-                coefficient_kg_couvert: coefNum,
-                source_commentaire: fSource || undefined,
-              }),
-            })
+          ? await fetch(
+              `/api/v1/admin/organisations/${organisationId}/coefficients-perte-labo`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  annee_reference: fAnnee,
+                  coefficient_kg_couvert: coefNum,
+                  source_commentaire: fSource || undefined,
+                }),
+              },
+            )
           : await fetch(
               `/api/v1/admin/coefficients-perte-labo/${modal.coef.id}`,
               {
@@ -691,7 +695,9 @@ export function OngletCoefficients({
                     maximumFractionDigits: 4,
                   })}
                 </td>
-                <td className="py-2">{c.annee_reference + 1}</td>
+                <td className="py-2">
+                  {c.annee_application ?? c.annee_reference + 1}
+                </td>
                 <td className="py-2 text-neutral-500">
                   {c.source_commentaire ?? '—'}
                 </td>

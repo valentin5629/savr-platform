@@ -90,7 +90,11 @@ export default function ParametresCo2Page() {
     setMixError(null);
     const res = await fetch('/api/v1/admin/parametres/mix-emballages', {
       method: 'PUT',
-      headers: { 'content-type': 'application/json' },
+      headers: {
+        'content-type': 'application/json',
+        // CDC §9ter.6 : Idempotency-Key UUID v4 obligatoire sur PUT (dédup 24h).
+        'idempotency-key': crypto.randomUUID(),
+      },
       body: JSON.stringify({
         mix: mixDraft.map((m) => ({
           id: m.id,
@@ -117,7 +121,11 @@ export default function ParametresCo2Page() {
     setSavingFacteurs(true);
     const res = await fetch('/api/v1/admin/parametres/facteurs-co2', {
       method: 'PUT',
-      headers: { 'content-type': 'application/json' },
+      headers: {
+        'content-type': 'application/json',
+        // CDC §9ter.6 : Idempotency-Key UUID v4 obligatoire sur PUT (dédup 24h).
+        'idempotency-key': crypto.randomUUID(),
+      },
       body: JSON.stringify({
         // emballage inclus : seule son énergie primaire est prise en compte
         // (FE induit/évité dérivés du mix, protégés par la RPC).
@@ -145,7 +153,11 @@ export default function ParametresCo2Page() {
     setSavingAg(true);
     const res = await fetch('/api/v1/admin/parametres/facteurs-co2-ag', {
       method: 'PUT',
-      headers: { 'content-type': 'application/json' },
+      headers: {
+        'content-type': 'application/json',
+        // CDC §9ter.6 : Idempotency-Key UUID v4 obligatoire sur PUT (dédup 24h).
+        'idempotency-key': crypto.randomUUID(),
+      },
       body: JSON.stringify({
         id: facteurAg.id,
         facteur_co2_evite_par_repas_kg: Number(agDraft),
@@ -166,7 +178,11 @@ export default function ParametresCo2Page() {
     setSavingDivers(true);
     const res = await fetch('/api/v1/admin/parametres/co2-divers', {
       method: 'PUT',
-      headers: { 'content-type': 'application/json' },
+      headers: {
+        'content-type': 'application/json',
+        // CDC §9ter.6 : Idempotency-Key UUID v4 obligatoire sur PUT (dédup 24h).
+        'idempotency-key': crypto.randomUUID(),
+      },
       body: JSON.stringify({
         divers: diversDraft.map((d) => ({
           id: d.id,

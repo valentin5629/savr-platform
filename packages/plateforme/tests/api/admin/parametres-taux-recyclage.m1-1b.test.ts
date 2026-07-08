@@ -9,9 +9,15 @@ const mockRpc = vi.fn();
 const mockSupabaseChain = {
   from: vi.fn().mockReturnThis(),
   select: vi.fn().mockReturnThis(),
+  insert: vi.fn().mockReturnThis(),
   update: vi.fn().mockReturnThis(),
   eq: vi.fn().mockReturnThis(),
+  gte: vi.fn().mockReturnThis(),
+  not: vi.fn().mockReturnThis(),
   order: vi.fn().mockReturnThis(),
+  limit: vi.fn().mockReturnThis(),
+  // Rejeu idempotence (BL-P2-31) : findIdempotentReplay lit integrations_logs.
+  maybeSingle: vi.fn(),
   single: vi.fn(),
   // R3 : les routes taux/mix passent désormais par une RPC SECURITY DEFINER.
   rpc: mockRpc,
@@ -59,13 +65,19 @@ function makeReq(
     body: body ? JSON.stringify(body) : undefined,
     headers: {
       ...(body ? { 'content-type': 'application/json' } : {}),
+      // Idempotency-Key désormais OBLIGATOIRE sur PUT (CDC §9, BL-P2-31).
+      ...(method === 'PUT' ? { 'idempotency-key': 'k-m11b' } : {}),
       ...headers,
     },
   });
 }
 
 describe('M1.1b / Taux recyclage / Validation', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Par défaut : aucun rejeu idempotence en attente (integrations_logs vide).
+    mockSupabaseChain.maybeSingle.mockResolvedValue({ data: null });
+  });
 
   it('M1.1b/taux-recyclage/put — 422 si taux > 1', async () => {
     setupAuth('admin_savr');
@@ -161,7 +173,10 @@ describe('M1.1b / Taux recyclage / Validation', () => {
 });
 
 describe('M1.1b / Mix emballages / Validation somme 100', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSupabaseChain.maybeSingle.mockResolvedValue({ data: null });
+  });
 
   it('M1.1b/mix-emballages/put — 422 si somme ≠ 100', async () => {
     setupAuth('admin_savr');

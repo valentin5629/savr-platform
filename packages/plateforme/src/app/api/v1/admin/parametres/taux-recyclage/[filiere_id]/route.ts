@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireAdmin, requireStaff } from '@/lib/api-auth.js';
+import {
+  idempotencyKeyOrError,
+  findIdempotentReplay,
+  recordIdempotentResult,
+} from '@/lib/idempotency.js';
+import { typedRpcError } from '@/lib/api-helpers.js';
 
 export async function PUT(
   req: NextRequest,
@@ -10,7 +16,20 @@ export async function PUT(
   if (auth.error) return auth.error;
 
   const { filiere_id } = await params;
-  const idempotencyKey = req.headers.get('idempotency-key');
+  // Scope de dédup PAR filière : une même Idempotency-Key sur deux filières
+  // distinctes ne doit pas rejouer la réponse de l'autre (revue sécu R22a).
+  const scope = `admin_taux_recyclage:${filiere_id}`;
+
+  // CDC §9 l.800 : `Idempotency-Key` OBLIGATOIRE sur PUT (422 si absente) +
+  // dédup 24h via `integrations_logs` (l.734 : « si déjà reçu dans les 24h →
+  // renvoie le résultat précédent »). Rejeu AVANT toute mutation → aucune 2ᵉ
+  // ligne `parametres_taux_recyclage_history`.
+  const idem = idempotencyKeyOrError(req);
+  if ('error' in idem) return idem.error;
+
+  const supabase = createAdminSupabaseClient();
+  const replay = await findIdempotentReplay(supabase, scope, idem.key);
+  if (replay) return replay;
 
   const body = (await req.json()) as Record<string, unknown>;
   const { taux_captation, commentaire_modif } = body;
@@ -39,7 +58,6 @@ export async function PUT(
   // contexte d'audit). La table principale n'a PAS de colonnes modifie_par/
   // modifie_le/commentaire_modif — l'historique va dans parametres_taux_recyclage_history
   // via le trigger fn_audit_taux_recyclage.
-  const supabase = createAdminSupabaseClient();
   const { data, error } = await supabase.rpc('rpc_maj_taux_recyclage', {
     p_auteur: auth.ctx.userId,
     p_commentaire: String(commentaire_modif),
@@ -47,20 +65,23 @@ export async function PUT(
     p_taux: taux,
   });
 
-  if (error) {
-    if ((error.message ?? '').includes('introuvable')) {
-      return NextResponse.json(
-        { error: 'Filière introuvable' },
-        { status: 404 },
-      );
-    }
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  // Erreur typée sans fuite Postgres (BL-P2-31) : P0002 (filière introuvable) →
+  // 404, 22023/23514 → 422, sinon 500 générique.
+  if (error)
+    return typedRpcError(error, 'admin.taux_recyclage.maj', {
+      message404: 'Filière introuvable',
+      message422: 'Taux de captation invalide (0 ≤ x ≤ 1)',
+    });
 
-  // CDC §9 l.783 : le front génère + envoie un Idempotency-Key (UUID v4). La
-  // spec n'exige PAS de dédup serveur en V1 (aucun store de dédup requis) — on
-  // accepte l'en-tête sans le rejeter. Une garde serveur relèverait de V1.1.
-  void idempotencyKey;
+  // Persiste la réponse pour rejeu 24h (CDC §9 l.734/800, dédup Idempotency-Key).
+  await recordIdempotentResult(supabase, {
+    scope,
+    key: idem.key,
+    endpoint: `/api/v1/admin/parametres/taux-recyclage/${filiere_id}`,
+    methode: 'PUT',
+    statutHttp: 200,
+    payloadOut: data,
+  });
   return NextResponse.json(data);
 }
 

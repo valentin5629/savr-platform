@@ -68,6 +68,7 @@ const grille = {
 const coefficient = {
   id: 'c1',
   annee_reference: 2025,
+  annee_application: 2026, // calculé serveur (CDC §9bis.1)
   coefficient_kg_couvert: 0.18,
   source_commentaire: 'Estimation labo',
   saisi_par: 'u-ops',
@@ -248,7 +249,9 @@ describe('M0.6 — onglet Tarif refacturé', () => {
 describe('M0.6 — onglet Coefficient de perte labo', () => {
   it('rend les coefficients + année d’application = année réf + 1', async () => {
     mockFetch({
-      '/api/v1/admin/coefficients-perte-labo': { data: [coefficient] },
+      '/api/v1/admin/organisations/org-1/coefficients-perte-labo': {
+        data: [coefficient],
+      },
     });
     render(<OngletCoefficients organisationId="org-1" canEdit={true} />);
     await waitFor(() => expect(screen.getByText('2025')).toBeInTheDocument());
@@ -261,7 +264,7 @@ describe('M0.6 — onglet Coefficient de perte labo', () => {
 
   it('admin : Ajouter → POST coefficient', async () => {
     mockFetch({
-      '/api/v1/admin/coefficients-perte-labo': { data: [] },
+      '/api/v1/admin/organisations/org-1/coefficients-perte-labo': { data: [] },
     });
     render(<OngletCoefficients organisationId="org-1" canEdit={true} />);
     await waitFor(() =>
@@ -283,18 +286,19 @@ describe('M0.6 — onglet Coefficient de perte labo', () => {
       const post = calls.find(
         (c) =>
           c.method === 'POST' &&
-          c.url === '/api/v1/admin/coefficients-perte-labo',
+          c.url === '/api/v1/admin/organisations/org-1/coefficients-perte-labo',
       );
-      expect(post?.body).toMatchObject({
-        organisation_id: 'org-1',
-        coefficient_kg_couvert: 0.17,
-      });
+      // Organisation portée par le PATH, plus dans le body (BL-P2-32).
+      expect(post?.body).toMatchObject({ coefficient_kg_couvert: 0.17 });
+      expect(post?.body).not.toHaveProperty('organisation_id');
     });
   });
 
   it('ops : bandeau read-only + pas de bouton Ajouter', async () => {
     mockFetch({
-      '/api/v1/admin/coefficients-perte-labo': { data: [coefficient] },
+      '/api/v1/admin/organisations/org-1/coefficients-perte-labo': {
+        data: [coefficient],
+      },
     });
     render(<OngletCoefficients organisationId="org-1" canEdit={false} />);
     await waitFor(() =>

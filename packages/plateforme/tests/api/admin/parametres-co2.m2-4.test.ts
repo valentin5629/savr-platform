@@ -16,8 +16,14 @@ const mockRpc = vi.fn();
 const mockSupabaseChain = {
   from: vi.fn().mockReturnThis(),
   select: vi.fn().mockReturnThis(),
+  insert: vi.fn().mockReturnThis(),
+  eq: vi.fn().mockReturnThis(),
+  gte: vi.fn().mockReturnThis(),
+  not: vi.fn().mockReturnThis(),
   order: vi.fn().mockReturnThis(),
   limit: vi.fn().mockReturnThis(),
+  // Rejeu idempotence (BL-P2-31) : findIdempotentReplay lit integrations_logs.
+  maybeSingle: vi.fn(),
   single: vi.fn(),
   rpc: mockRpc,
 };
@@ -57,13 +63,19 @@ function makeReq(method: string, url: string, body?: unknown): NextRequest {
   return new NextRequest(`http://localhost${url}`, {
     method,
     body: body ? JSON.stringify(body) : undefined,
-    headers: body ? { 'content-type': 'application/json' } : undefined,
+    headers: {
+      ...(body ? { 'content-type': 'application/json' } : {}),
+      // Idempotency-Key désormais OBLIGATOIRE sur PUT (CDC §9ter.6, BL-P2-31).
+      ...(method === 'PUT' ? { 'idempotency-key': 'k-m24' } : {}),
+    },
   });
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockRpc.mockResolvedValue({ data: [], error: null });
+  // Par défaut : aucun rejeu idempotence en attente (integrations_logs vide).
+  mockSupabaseChain.maybeSingle.mockResolvedValue({ data: null });
 });
 
 // ---------------------------------------------------------------------------

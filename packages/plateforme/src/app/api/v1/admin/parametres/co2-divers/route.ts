@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff, requireAdmin } from '@/lib/api-auth.js';
+import { typedRpcError } from '@/lib/api-helpers.js';
+import {
+  idempotencyKeyOrError,
+  findIdempotentReplay,
+  recordIdempotentResult,
+} from '@/lib/idempotency.js';
+
+const IDEMPOTENCY_SCOPE = 'admin_co2_divers';
 
 // GET — paramètres CO₂ divers (clé-valeur : forfait collecte + équivalences)
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -25,6 +33,18 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
   const auth = await requireAdmin(req);
   if (auth.error) return auth.error;
 
+  // CDC §9ter.6 l.861 : `Idempotency-Key` OBLIGATOIRE sur PUT + dédup 24h.
+  const idem = idempotencyKeyOrError(req);
+  if ('error' in idem) return idem.error;
+
+  const supabase = createAdminSupabaseClient();
+  const replay = await findIdempotentReplay(
+    supabase,
+    IDEMPOTENCY_SCOPE,
+    idem.key,
+  );
+  if (replay) return replay;
+
   const body = (await req.json()) as {
     divers?: { id: string; valeur: number }[];
     commentaire_modif?: string;
@@ -42,16 +62,39 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
       { status: 422 },
     );
   }
+  // CDC §9ter.3 : `valeur` > 0 (422 sinon). La table `parametres_co2_divers`
+  // n'a PAS de CHECK DB (divergence tracée) → contrôle applicatif obligatoire,
+  // sinon une valeur ≤ 0 serait acceptée silencieusement.
+  const valeurInvalide = body.divers.some(
+    (d) => d.valeur === undefined || d.valeur === null || Number(d.valeur) <= 0,
+  );
+  if (valeurInvalide) {
+    return NextResponse.json(
+      { error: 'Chaque valeur doit être strictement positive (> 0)' },
+      { status: 422 },
+    );
+  }
 
-  const supabase = createAdminSupabaseClient();
   const { data, error } = await supabase.rpc('rpc_maj_co2_divers', {
     p_auteur: auth.ctx.userId,
     p_commentaire: body.commentaire_modif,
     p_divers: body.divers,
   });
 
+  // Erreur typée sans fuite Postgres (BL-P2-31) : 22023/23514 → 422, P0002 → 404.
   if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return typedRpcError(error, 'admin.co2_divers.maj', {
+      message422: 'Valeur CO2 invalide (> 0 requis)',
+    });
 
-  return NextResponse.json({ data });
+  const payload = { data };
+  await recordIdempotentResult(supabase, {
+    scope: IDEMPOTENCY_SCOPE,
+    key: idem.key,
+    endpoint: '/api/v1/admin/parametres/co2-divers',
+    methode: 'PUT',
+    statutHttp: 200,
+    payloadOut: payload,
+  });
+  return NextResponse.json(payload);
 }

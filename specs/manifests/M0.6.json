@@ -429,7 +429,7 @@
     },
     "status": "COMPLETE"
   },
-  "notes": "Module M0.6 complet : 64 tests pgTAP couvrant 100% des tables plateforme.*/shared.*. Catégories 1-7 avec tous les scénarios P1+P2. Assertions E3 garde-fou TMS-Ready incluses. T63/T64 ajoutés 2026-06-22 (fix fuite PII cross-org ct_read sur contacts_traiteurs, migration 20260622150000).",
+  "notes": "Module M0.6 complet : 64 tests pgTAP couvrant 100% des tables plateforme.*/shared.*. Catégories 1-7 avec tous les scénarios P1+P2. Assertions E3 garde-fou TMS-Ready incluses. T63/T64 ajoutés 2026-06-22 (fix fuite PII cross-org ct_read sur contacts_traiteurs, migration 20260622150000). R22a (BL-P2-31/32) : idempotence serveur des PUT paramètres + erreurs typées (typedRpcError) + coef perte labo route nested organisations/{id} ; résiduels §9ter.6 nécessitant une migration tracés M0.6-co2-typed-errors-residuels (batch-404 / emballage-409 / CHECK DB valeur>0).",
   "deliverables": [
     {
       "id": "M0.6-01",
@@ -1105,19 +1105,35 @@
     },
     {
       "id": "BL-P2-31",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
-      "artefact": null,
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:800",
+      "artefact": "packages/plateforme/src/lib/idempotency.ts",
+      "test": "packages/plateforme/tests/api/admin/idempotency-params.m0-6.test.ts",
+      "statut": "implemented",
+      "libelle": "Idempotence serveur des PUT Paramètres : Idempotency-Key obligatoire (422 si absente) + dédup 24h via integrations_logs (rejeu de la réponse, pas de 2e mutation) sur taux-recyclage + 4 CO2 ; erreurs typées (typedRpcError) 422 sur valeurs hors bornes (FE/valeur/facteur ≥ 0) + 404 facteur AG id inconnu, sans fuite du détail Postgres"
+    },
+    {
+      "id": "M0.6-co2-typed-errors-residuels",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:861",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/parametres/co2-divers/route.ts",
       "test": null,
       "statut": "partial",
-      "libelle": "Idempotency + erreurs typées endpoints Admin"
+      "libelle": "Résiduels §9ter.6 nécessitant une migration (hors lot R22a sans-migration, à traiter en suivi) : 404 id inconnu sur les PUT CO2 BATCH facteurs/mix/divers (RPC UPDATE no-op silencieux — divergence structurelle batch vs per-{flux_id} héritée M2.4) ; 409 « FE emballage écriture directe » (rpc_maj_facteurs_co2 ignore au lieu de rejeter, hérité R3) ; CHECK DB (valeur > 0) manquant sur parametres_co2_divers (contrat 422 désormais tenu côté route)"
+    },
+    {
+      "id": "M0.6-idempotency-store",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:734",
+      "artefact": "packages/plateforme/src/lib/idempotency.ts",
+      "test": "packages/plateforme/tests/api/admin/idempotency-params.m0-6.test.ts",
+      "statut": "implemented",
+      "libelle": "Rejeu 24h keyé par Idempotency-Key (correlation_id + payload_out d'integrations_logs) : PUT rejoué ne ré-exécute pas la RPC (aucune 2e ligne d'historique)"
     },
     {
       "id": "BL-P2-32",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
-      "libelle": "Coef perte labo : route + validation type"
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:865",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/organisations/[id]/coefficients-perte-labo/route.ts",
+      "test": "packages/plateforme/tests/api/admin/coefficients-perte-labo.m0-6.test.ts",
+      "statut": "implemented",
+      "libelle": "Coef perte labo : route nested /organisations/{id}/coefficients-perte-labo (organisation du PATH, plus du body) + contrôle type=traiteur (422) / org inconnue (404) / doublon année (409) + annee_application=annee_reference+1 calculé serveur"
     },
     {
       "id": "BL-P2-38",

@@ -458,43 +458,7 @@ describe('M0.4 — email invitation admin (BL-P1-ONB-04)', () => {
   });
 });
 
-describe('M1.1a / Coefficients / Permissions', () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it('M1.1a/coefficients/creation-admin-only — 403 si ops_savr tente de créer', async () => {
-    setupAuth('ops_savr');
-    const { POST } =
-      await import('@/app/api/v1/admin/coefficients-perte-labo/route.js');
-    const res = await POST(
-      makeReq('POST', '/api/v1/admin/coefficients-perte-labo', {
-        organisation_id: 'org-1',
-        annee_reference: 2025,
-        coefficient_kg_couvert: 0.15,
-      }),
-    );
-    expect(res.status).toBe(403);
-  });
-
-  it('M1.1a/coefficients/creation-ok — 201 si admin_savr avec données valides', async () => {
-    setupAuth('admin_savr');
-    mockSupabaseChain.single.mockResolvedValueOnce({
-      data: {
-        id: 'coef-1',
-        organisation_id: 'org-1',
-        annee_reference: 2025,
-        coefficient_kg_couvert: 0.15,
-      },
-      error: null,
-    });
-    const { POST } =
-      await import('@/app/api/v1/admin/coefficients-perte-labo/route.js');
-    const res = await POST(
-      makeReq('POST', '/api/v1/admin/coefficients-perte-labo', {
-        organisation_id: 'org-1',
-        annee_reference: 2025,
-        coefficient_kg_couvert: 0.15,
-      }),
-    );
-    expect(res.status).toBe(201);
-  });
-});
+// NB — Les tests « M1.1a / Coefficients » ont migré vers la route nested
+// `/admin/organisations/{id}/coefficients-perte-labo` (BL-P2-32) et sont couverts
+// par tests/api/admin/coefficients-perte-labo.m0-6.test.ts (403 ops, 201 admin,
+// contrôle type=traiteur, 404, 409, bornes année, annee_application).

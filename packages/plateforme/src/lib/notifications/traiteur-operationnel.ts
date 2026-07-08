@@ -293,7 +293,7 @@ export async function notifierAdminAnnulation(
   params: {
     collecteId: string;
     collecteRef: string;
-    organisationNom: string;
+    organisationNom?: string;
     dateCollecte: string;
     heureCollecte?: string | null;
     lieuNom?: string;
@@ -310,12 +310,28 @@ export async function notifierAdminAnnulation(
     now,
   );
 
-  // Type de collecte + nom lisible de l'acteur (best-effort).
+  // Type de collecte + nom d'organisation (résolu ici si l'appelant ne l'a pas) +
+  // nom lisible de l'acteur (best-effort).
   const { data: col } = await supabase
     .from('collectes')
-    .select('type')
+    .select(
+      'type, evenement:evenements!inner(organisation:organisations!organisation_id(nom))',
+    )
     .eq('id', params.collecteId)
     .maybeSingle();
+  let organisationNom = params.organisationNom;
+  if (!organisationNom && col) {
+    const evt = (
+      col as {
+        evenement?: { organisation?: unknown } | { organisation?: unknown }[];
+      }
+    ).evenement;
+    const evtObj = Array.isArray(evt) ? evt[0] : evt;
+    const org = (evtObj as { organisation?: unknown } | undefined)
+      ?.organisation;
+    const orgObj = Array.isArray(org) ? org[0] : org;
+    organisationNom = (orgObj as { nom?: string } | undefined)?.nom ?? '';
+  }
   const { data: u } = await supabase
     .from('users')
     .select('prenom, nom')
@@ -331,7 +347,7 @@ export async function notifierAdminAnnulation(
     {
       collecte_ref: params.collecteRef,
       type_collecte: libelleType(col?.type),
-      organisation_nom: params.organisationNom,
+      organisation_nom: organisationNom ?? '',
       date_collecte: params.dateCollecte,
       lieu_nom: params.lieuNom ?? '',
       user_nom: userNom,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireProgrammateur } from '@/lib/api-auth.js';
 import { envoyerRecapProgrammation } from '@/lib/programmation/recap-email.js';
+import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
 import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
 
 export async function POST(
@@ -110,6 +111,16 @@ export async function POST(
     organisationId: evt.organisation_id,
     collectes: [{ type: String(type), date_collecte: String(date_collecte) }],
   }).catch(() => undefined); // non-bloquant
+
+  // BL-P2-22 (tpl 20) : info-only au traiteur opérationnel si la collecte est
+  // programmée par un tiers (garde tiers-non-shadow dans le helper). Best-effort.
+  if (collecteId) {
+    void notifierTraiteurOperationnel(supabase, {
+      collecteId: collecteId as string,
+      acteurOrgId: auth.ctx.organisationId,
+      changement: { kind: 'programmation', programmeurUserId: auth.ctx.userId },
+    }).catch(() => undefined);
+  }
 
   return NextResponse.json({ collecte_id: collecteId }, { status: 201 });
 }

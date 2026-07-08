@@ -21,22 +21,81 @@ export function setEmailCaptureSink(fn: EmailCaptureFn | null): void {
   _captureFn = fn;
 }
 
-function interpolate(
+// Bloc conditionnel {{#if var}}…{{/if}} (non imbriqué — le CDC §06.02 n'imbrique
+// jamais). Le corps entre les balises est conservé si la variable est « truthy »,
+// sinon retiré. Utilisé par les templates tiers/conditionnels (20/21/22/9, R22f).
+const IF_BLOCK_RE = /\{\{#if\s+(\w+)\}\}([\s\S]*?)\{\{\/if\}\}/g;
+
+// Les variables sont des chaînes (Record<string,string>) : un booléen métier est
+// passé 'true'/'false'. Est « truthy » toute valeur présente, non vide et qui n'est
+// pas une négation textuelle explicite ('false'/'0'/'non').
+function isBlockTruthy(v: string | undefined | null): boolean {
+  if (v === undefined || v === null) return false;
+  const t = v.trim().toLowerCase();
+  return t !== '' && t !== 'false' && t !== '0' && t !== 'non';
+}
+
+export function interpolate(
   template: string,
   variables: Record<string, string>,
 ): string {
-  return template.replace(/\{\{(\w+)\}\}/g, (_, key) => variables[key] ?? '');
+  // 1) Résout les blocs conditionnels AVANT le remplacement simple (sinon les
+  //    {{var}} internes seraient déjà substitués). Templates plats = no-op.
+  const resolved = template.replace(
+    IF_BLOCK_RE,
+    (_, key: string, inner: string) =>
+      isBlockTruthy(variables[key]) ? inner : '',
+  );
+  // 2) Remplacement des variables simples {{var}} (comportement historique).
+  return resolved.replace(/\{\{(\w+)\}\}/g, (_, key) => variables[key] ?? '');
+}
+
+// Variables NON exigées à l'envoi, dérivées du corps du template :
+//  - les conditions de bloc {{#if X}} (contrôle de flux, jamais du contenu) ;
+//  - les variables référencées UNIQUEMENT à l'intérieur d'un bloc conditionnel
+//    (ex. diff_list, rendu seulement si la branche est active) — les exiger
+//    refuserait à tort l'envoi quand la branche est inactive.
+function conditionalVariableNames(body: string): Set<string> {
+  const optional = new Set<string>();
+  for (const m of body.matchAll(/\{\{#if\s+(\w+)\}\}/g))
+    optional.add(m[1] as string);
+
+  const insideBlocks: string[] = [];
+  const bodyWithoutBlocks = body.replace(
+    IF_BLOCK_RE,
+    (_, _key, inner: string) => {
+      insideBlocks.push(inner);
+      return '';
+    },
+  );
+  const outsideVars = new Set(
+    [...bodyWithoutBlocks.matchAll(/\{\{(\w+)\}\}/g)].map(
+      (m) => m[1] as string,
+    ),
+  );
+  for (const inner of insideBlocks) {
+    for (const m of inner.matchAll(/\{\{(\w+)\}\}/g)) {
+      const name = m[1] as string;
+      if (!outsideVars.has(name)) optional.add(name);
+    }
+  }
+  return optional;
 }
 
 // Variables requises déclarées au template (email_templates.variables = text[]) qui
 // manquent du payload. CDC §08 §4 l.547 : une variable requise absente = REFUS d'envoi
-// (jamais d'email avec placeholder brut/undefined).
-function findMissingVariables(
+// (jamais d'email avec placeholder brut/undefined). Les variables conditionnelles
+// (booléens de bloc + contenu de branche) sont exclues du contrôle — dérivées du corps.
+export function findMissingVariables(
   required: string[] | null | undefined,
   provided: Record<string, string>,
+  body: string,
 ): string[] {
+  const optional = conditionalVariableNames(body);
   return (required ?? []).filter(
-    (key) => provided[key] === undefined || provided[key] === null,
+    (key) =>
+      !optional.has(key) &&
+      (provided[key] === undefined || provided[key] === null),
   );
 }
 
@@ -115,9 +174,12 @@ export async function sendEmail(
   }
 
   // Variable requise manquante → refus d'envoi + trace (CDC §08 §4 l.547).
+  // Corps passé pour exclure les variables conditionnelles ({{#if}} + contenu
+  // de branche) du contrôle (R22f — templates tiers/conditionnels).
   const missing = findMissingVariables(
     tpl.variables as string[] | null,
     variables,
+    `${(tpl.sujet as string) ?? ''} ${(tpl.corps_html as string) ?? ''}`,
   );
   if (missing.length > 0) {
     await traceResendLog(

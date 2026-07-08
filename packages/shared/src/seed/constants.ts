@@ -1,8 +1,8 @@
 // Constantes partagées entre les scripts de seed.
 // Réferentiel (types_evenements, flux_dechets, parametres_*, grilles, packs,
-// 19 email_templates, domaines_email_publics) = déjà seedé par la migration
-// bloc8 + auth ; les scripts de seed le RELISENT par clé naturelle, jamais
-// ils ne le réinsèrent.
+// email_templates, domaines_email_publics) = déjà seedé par les migrations
+// (bloc8 + ajouts par lot) + auth ; les scripts de seed le RELISENT par clé
+// naturelle, jamais ils ne le réinsèrent.
 
 export const SEED_REF_DATE = '2026-06-01';
 export const SEED_PASSWORD = 'SavrTest2026!';
@@ -10,9 +10,12 @@ export const SEED_EMAIL_DOMAIN = 'savr-test.local';
 // Ref dev hard-codée — garde-fou prod
 export const DEV_PROJECT_REF = 'nvbyuajdvtuezcvyxtkd';
 
-// Codes des 19 templates email actifs seedés par la migration (bloc8).
-// Référencés par emails_envoyes.template_code (pas de FK, cohérence seed).
+// Codes des templates email actifs seedés en migrations (bloc8 + ajouts par lot).
+// Documentaire — référence emails_envoyes.template_code (pas de FK) ; la DB fait
+// foi. Maintenu additivement par lot (dé-stalé R22f : bloc8 ne couvrait que les 19
+// premiers ; les ajouts M1.2/M2.3/M3.1/R16a/R17/R19 + les 4 R22f manquaient).
 export const EMAIL_TEMPLATE_CODES = [
+  // ── bloc8 (20260611171642) ──
   'bienvenue_organisation',
   'verification_email',
   'reinitialisation_mot_de_passe',
@@ -32,6 +35,21 @@ export const EMAIL_TEMPLATE_CODES = [
   'attribution_association',
   'attribution_transporteur',
   'siret_verification_echec',
+  // ── ajouts par lot ──
+  'collecte_programmee', // M1.2 (récap programmeur)
+  'ag_attribution_association', // M2.3
+  'ag_attribution_transporteur', // M2.3
+  'ag_a_toutes_indispo', // M2.3
+  'admin_demande_renouvellement_pack', // M3.1
+  'admin_demande_annulation', // M3.1
+  'admin_incident_collecte', // R16a
+  'admin_demande_ajout_lieu', // R17
+  'admin_modification_collecte_traiteur', // R19
+  // ── R22f (BL-P2-22) — tiers / conditionnels ──
+  'collecte_programmee_tiers',
+  'collecte_modifiee_tiers',
+  'admin_collecte_annulee',
+  'admin_pack_ag_etat',
 ] as const;
 
 // Téléphones fictifs : +33 6 99 99 XX XX (range de test, jamais réel).

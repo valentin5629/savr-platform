@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
+import { notifierAdminAnnulation } from '@/lib/notifications/traiteur-operationnel.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { readJsonBody, serverError } from '@/lib/api-helpers.js';
 
@@ -51,7 +52,7 @@ export async function POST(
   const { data: before, error: fetchErr } = await supabase
     .from('collectes')
     .select(
-      `id, statut, type, date_collecte,
+      `id, statut, type, date_collecte, heure_collecte,
        evenements!inner(created_by, lieux!lieu_id(nom))`,
     )
     .eq('id', id)
@@ -156,6 +157,23 @@ export async function POST(
       });
     }
   }
+
+  // BL-P2-22 (tpl 22) : alerte Admin « collecte annulée », en parallèle du
+  // template 5 (annulation_collecte). Le nom d'organisation est résolu par le
+  // helper. Best-effort, en dernier (complément de l'alerte incident, dossier
+  // distinct — jamais bloquant pour la réponse).
+  void notifierAdminAnnulation(supabase, {
+    collecteId: id,
+    collecteRef: id,
+    dateCollecte,
+    heureCollecte: (before as { heure_collecte?: string | null })
+      .heure_collecte,
+    lieuNom: lieu?.nom ?? '',
+    acteurUserId: auth.ctx.userId,
+    acteurRole: auth.ctx.role,
+    infoFacturation:
+      imputable === 'client' ? '' : 'Incident non imputable au client',
+  }).catch(() => undefined);
 
   return NextResponse.json(updatedJson);
 }

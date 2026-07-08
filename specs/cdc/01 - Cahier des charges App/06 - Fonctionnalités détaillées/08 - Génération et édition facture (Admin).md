@@ -1,5 +1,7 @@
 # 08 - Génération et édition facture (Admin)
 
+**Statut** : Validé V1
+**Dernière mise à jour** : 2026-06-07 (session test-scenarios lot ⑦ — 5 floues tranchées Val + 2 recos : F1 avoir sur `payee` autorisé, F2 mensuelle = agrégation auto J+1 confirmée, F3 lignes libres → `factures_collectes` étendue, F4 numéro conservé après 4xx + table `sequences_facturation`, F5 `factures.marge_logistique` + vue `v_factures_client`, Reco A échéance = `conditions_paiement_jours`, Reco B trigger anti-double-facturation) / 2026-05-08 (revue de sobriété appliquée)
 **Lié à** : [[05 - Règles métier]] §4 — Facturation · [[04 - Data Model]] tables `factures`, `factures_collectes`, `tarifs_zero_dechet` · [[08 - APIs et intégrations]] (Pennylane v2)
 
 ---
@@ -42,7 +44,7 @@ Pour que Pennylane produise une Factur-X valide, la plateforme Savr doit transme
 | Facture | Numéro unique séquentiel, date d'émission, date d'échéance, devise |
 | Lignes | Désignation, quantité, PU HT, taux TVA, montant HT, montant TVA, montant TTC |
 | Totaux | Total HT, total TVA par taux, total TTC |
-| Mentions | Conditions de paiement, pénalités de retard, escompte, mention "TVA non applicable art. 293 B CGI" si applicable |
+| Mentions | Conditions de paiement, pénalités de retard, escompte. Mention « TVA non applicable, art. 293 B du CGI » **non applicable en V1** : Savr est assujettie à la TVA (aucun régime de franchise en base). Réservé V2 si le statut TVA de Savr change (nécessiterait un flag régime dédié). |
 | Référence | `evenements.reference_affaire` si renseigné (ex: numéro d'affaire Potel & Chabot) ; sinon bon de commande / contrat si disponible (facultatif) |
 
 ### Timing réglementaire — décision actée (2026-04-28)

@@ -282,10 +282,18 @@
       "test": "E3 collecte.annulee : 1 event ecrit a l'annulation (RPC fn_modifier_collecte, pas trigger) [outbox_par_mutation.test.sql] + P2-36 trigger trg_collecte_annulee_e3 supprimé [outbox_concurrence_r9.test.sql]",
       "statut": "implemented",
       "libelle": "E3 collecte.annulee émise INLINE par fn_modifier_collecte (pattern RPC) ; trigger AFTER UPDATE trg_collecte_annulee_e3 + fonction _fn_trg_outbox_collecte_annulee supprimés (pattern interdit)"
+    },
+    {
+      "id": "BL-P2-10",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:325",
+      "artefact": "supabase/migrations/20260708140000_plateforme_r22c_fn_modifier_evenement_en_cours.sql (émission E2 étendue à en_cours) + packages/adapters/src/mts1/adapter.ts (buildUpdatePayload repousse les contacts via buildContacts partagé)",
+      "test": "supabase/tests/r22c_evenement_e2_en_cours.test.sql (R22c-1..7 : E2 sur contact/pax en_cours+programmee dispatchées, exclusions non-dispatchée/terminal/champ non-TMS, recalcul volume) ; M1.4/r22c — updateCollecte PUT contient contacts principal+secours [adapter.r22c.test.ts]",
+      "statut": "implemented",
+      "libelle": "Modification contacts/pax d'un événement propagée au TMS via le modèle immédiat E2 (§05 l.325 ; PAS de trigger dirty_tms, qui provoquerait un double-push) ; émission E2 fn_modifier_evenement étendue aux collectes en_cours (Val 2026-07-08) + contacts repoussés au PUT MTS-1 (buildUpdatePayload). Réconciliation CDC def canonique dirty_tms/Gherkin : _Divergences/M1.4_20260708.md"
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "6e0ad6d35b35cdd786f46b6e04d9e03a417cf58d8687e49894b19706f6160774",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "6955e1879f87a60d8a0cc83d32fd1a7e4902bc62acdd9c4742c1527c192428bd",
     "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "e334d1b439d2356f12db8de139d495f9797c9a1c203e1b31e61ade71a8fb302a",
     "specs/cdc/01 - Cahier des charges App/07 - Observabilité/06 - Audit trail.md": "4c34eefcb747039ee1dc825321457083e0f286fe138c31d2c06a973c212acadd"
   }

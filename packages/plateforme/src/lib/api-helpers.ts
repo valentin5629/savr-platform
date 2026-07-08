@@ -54,6 +54,38 @@ export function writeError(error: unknown, event: string): NextResponse {
 }
 
 /**
+ * Erreur typée d'une RPC de mutation (BL-P2-31 « erreurs typées », CDC §9ter.6).
+ * Mappe les codes Postgres normalisés vers le bon statut HTTP au lieu d'un 500
+ * uniforme, SANS fuiter le détail Postgres (message neutre) :
+ * - `22023` invalid_parameter_value / `23514` check_violation → 422 (valeur invalide)
+ * - `P0002` no_data_found → 404 (id/clé inconnu)
+ * - tout le reste → 500 générique (loggé côté serveur).
+ * `message422`/`message404` = libellés neutres orientés utilisateur.
+ */
+export function typedRpcError(
+  error: { code?: string } | null,
+  event: string,
+  messages?: { message422?: string; message404?: string },
+): NextResponse {
+  const code = error?.code;
+  if (code === '22023' || code === '23514') {
+    logApiError(error, event, 'write');
+    return NextResponse.json(
+      { error: messages?.message422 ?? 'Valeur invalide' },
+      { status: 422 },
+    );
+  }
+  if (code === 'P0002') {
+    logApiError(error, event, 'write');
+    return NextResponse.json(
+      { error: messages?.message404 ?? 'Ressource introuvable' },
+      { status: 404 },
+    );
+  }
+  return serverError(error, event);
+}
+
+/**
  * C4 — Parse le corps JSON d'une requête en renvoyant un 400 propre si le corps
  * est absent/malformé (au lieu d'un 500 sur le throw de req.json()).
  *

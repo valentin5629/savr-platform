@@ -18,6 +18,12 @@ import {
 } from '../../src/lib/facturation/validation-admin.js';
 import { creerAvoir } from '../../src/lib/facturation/avoirs.js';
 import {
+  pastillePennylane2h,
+  tempsEcouleFr,
+  estEnRetard,
+  PASTILLE_2H_MS,
+} from '../../src/lib/facturation/facture-ui.js';
+import {
   setSlackSink,
   type SlackPayload,
 } from '@savr/shared/src/alerting/slack.js';
@@ -47,6 +53,7 @@ function makeSupabase(responses: Array<Record<string, unknown>>) {
     'select',
     'insert',
     'update',
+    'upsert',
     'eq',
     'in',
     'not',
@@ -1272,5 +1279,125 @@ describe('M1.7 / creerAvoir / FACT-08 — payload Pennylane credit_note', () => 
     expect(captured.avoir).toBeDefined();
     expect(captured.avoir!.type).toBe('credit_note');
     expect(captured.avoir!.is_credit_note).toBeUndefined();
+  });
+});
+
+// ─── R22b — Copie de travail PDF Savr (BL-P2-01) ─────────────────────────────
+
+describe('M1.7 / R22b — copie de travail PDF Savr (BL-P2-01)', () => {
+  let teardown: () => void;
+
+  beforeEach(() => {
+    teardown = setupPennylaneMock({
+      create: 'success',
+      finalize: 'success',
+      sendEmail: 'success',
+    });
+  });
+
+  afterEach(() => {
+    teardown();
+    vi.clearAllMocks();
+  });
+
+  it('fact-col-pdf-savr : émission → enfile un jobs_pdf type=facture, entity=factures', async () => {
+    const sb = makeSupabase([
+      { data: FACTURE_BROUILLON, error: null }, // load
+      { data: null, error: null }, // update en_attente
+      { data: null, error: null }, // update pennylane_id
+      { data: null, error: null }, // update emise
+    ]);
+    sb._rpcSingle.mockResolvedValueOnce({
+      data: 'FZD-2026-00001',
+      error: null,
+    });
+
+    const result = await validerFacture(sb as never, 'fac-001', 'user-admin');
+
+    expect(result.ok).toBe(true);
+    expect(result.statut).toBe('emise');
+    // Enfilage vers le worker PDF (entity_type='factures' → écrit pdf_url_savr).
+    expect(sb.from).toHaveBeenCalledWith('jobs_pdf');
+    expect(sb._chain.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type_document: 'facture',
+        entity_type: 'factures',
+        entity_id: 'fac-001',
+        statut: 'pending',
+      }),
+      expect.objectContaining({
+        onConflict: 'entity_type,entity_id,type_document',
+      }),
+    );
+    // Le payload = copie de travail (numéro + lignes + totaux figés).
+    const upsertCalls = (
+      sb._chain.upsert as unknown as {
+        mock: { calls: Array<[Record<string, unknown>]> };
+      }
+    ).mock.calls;
+    const firstCall = upsertCalls[0];
+    expect(firstCall).toBeDefined();
+    const payload = firstCall![0].payload as Record<string, unknown>;
+    expect(payload.numero).toBe('FZD-2026-00001');
+    expect(payload.total_ttc).toBe(708);
+    expect((payload.lignes as unknown[]).length).toBe(1);
+  });
+
+  it('4xx Pennylane (retour brouillon) → AUCUN enqueue facture (jamais de copie sur échec)', async () => {
+    teardown();
+    teardown = setupPennylaneMock({ create: 'error_4xx' });
+    const sb = makeSupabase([
+      { data: FACTURE_BROUILLON, error: null }, // load
+      { data: null, error: null }, // update en_attente
+      { data: null, error: null }, // update 4xx → brouillon
+    ]);
+    sb._rpcSingle.mockResolvedValueOnce({
+      data: 'FZD-2026-00002',
+      error: null,
+    });
+
+    const result = await validerFacture(sb as never, 'fac-001', 'user-admin');
+
+    expect(result.ok).toBe(false);
+    expect(result.statut).toBe('brouillon');
+    expect(sb._chain.upsert).not.toHaveBeenCalled();
+  });
+});
+
+// ─── R22b — Helpers SLA facture (pastille / bandeau / en retard) ─────────────
+
+describe('M1.7 / R22b — helpers SLA facture (BL-P2-01/02)', () => {
+  const T0 = Date.parse('2026-07-08T12:00:00.000Z');
+
+  it('fact-pastille-orange-2h : borne stricte > 2h (2h00 → non, 2h01 → oui)', () => {
+    const a2h00 = new Date(T0 - PASTILLE_2H_MS).toISOString();
+    const b2h01 = new Date(T0 - PASTILLE_2H_MS - 60_000).toISOString();
+    expect(pastillePennylane2h('en_attente_pennylane', a2h00, T0)).toBe(false);
+    expect(pastillePennylane2h('en_attente_pennylane', b2h01, T0)).toBe(true);
+    // Autre statut ou aucune tentative → jamais de pastille.
+    expect(pastillePennylane2h('emise', b2h01, T0)).toBe(false);
+    expect(pastillePennylane2h('en_attente_pennylane', null, T0)).toBe(false);
+  });
+
+  it('fact-bandeau-en-attente : « dernier essai il y a X min / X h »', () => {
+    expect(tempsEcouleFr(new Date(T0 - 10 * 60_000).toISOString(), T0)).toBe(
+      'il y a 10 min',
+    );
+    expect(tempsEcouleFr(new Date(T0 - 3 * 3_600_000).toISOString(), T0)).toBe(
+      'il y a 3 h',
+    );
+    expect(
+      tempsEcouleFr(new Date(T0 - (3_600_000 + 5 * 60_000)).toISOString(), T0),
+    ).toBe('il y a 1 h 5 min');
+    expect(tempsEcouleFr(null, T0)).toBe('—');
+  });
+
+  it('fact-suivi-en-retard : emise + échéance < aujourd’hui (borne stricte jour)', () => {
+    // T0 = 2026-07-08. Échéance du jour → PAS en retard ; hier → en retard.
+    expect(estEnRetard('emise', '2026-07-08', T0)).toBe(false);
+    expect(estEnRetard('emise', '2026-07-07', T0)).toBe(true);
+    // Non emise → jamais « en retard », même échéance dépassée.
+    expect(estEnRetard('brouillon', '2026-07-01', T0)).toBe(false);
+    expect(estEnRetard('payee', '2026-07-01', T0)).toBe(false);
   });
 });

@@ -24,6 +24,7 @@ import {
 const EXPECTED_TYPES = [
   'attestation-don',
   'bordereau-zd',
+  'facture',
   'rapport-evenement-sans-excedent',
   'rapport-recyclage-zd',
   'synthese-dashboard',
@@ -34,12 +35,14 @@ const EXPECTED_VERSIONS: Record<string, string> = {
   'attestation-don': 'attestation-don@2',
   'synthese-dashboard': 'synthese-dashboard@1',
   'rapport-evenement-sans-excedent': 'rapport-evenement-sans-excedent@1',
+  facture: 'facture@1',
 };
 import type { AttestationDonData } from './templates/attestation-don.js';
 import type { BordereauZdData } from './templates/bordereau-zd.js';
 import type { RapportRecyclageZdData } from './templates/rapport-recyclage-zd.js';
 import type { SyntheseDashboardData } from './templates/synthese-dashboard.js';
 import type { RapportEvenementSansExcedentData } from './templates/rapport-evenement-sans-excedent.js';
+import type { FactureData } from './templates/facture.js';
 
 function bordereauData(
   overrides: Partial<BordereauZdData> = {},
@@ -213,12 +216,51 @@ function sansExcedentData(
   };
 }
 
+function factureData(overrides: Partial<FactureData> = {}): FactureData {
+  return {
+    numero: 'FZD-2026-00124',
+    date_emission: '08/07/2026',
+    date_echeance: '07/08/2026',
+    entite_raison_sociale: 'Kaspia SAS',
+    entite_siret: '12345678900001',
+    entite_tva_intracom: 'FR12345678900',
+    entite_adresse: '12 rue de la Paix',
+    entite_code_postal: '75001',
+    entite_ville: 'Paris',
+    entite_pays: 'FR',
+    reference_affaire: 'REF-2026-001',
+    conditions_paiement: 'Paiement à 30 jours par virement.',
+    devise: 'EUR',
+    lignes: [
+      {
+        designation: 'Collecte Zéro Déchet — Soirée de gala',
+        quantite: 1,
+        pu_ht: 430,
+        taux_tva: 20,
+        montant_ht: 430,
+      },
+      {
+        designation: 'Collecte Zéro Déchet — Cocktail',
+        quantite: 1,
+        pu_ht: 200,
+        taux_tva: 10,
+        montant_ht: 200,
+      },
+    ],
+    total_ht: 630,
+    total_tva: 106,
+    total_ttc: 736,
+    ...overrides,
+  };
+}
+
 const DATA_BY_TYPE: Record<string, unknown> = {
   'bordereau-zd': bordereauData(),
   'rapport-recyclage-zd': rapportData(),
   'attestation-don': attestationData(),
   'synthese-dashboard': syntheseData(),
   'rapport-evenement-sans-excedent': sansExcedentData(),
+  facture: factureData(),
 };
 
 describe('M1.6 / renderer PDF — dispatch type_document', () => {
@@ -547,5 +589,71 @@ describe('M3.5 / renderer synthèse §12 §1.6 — template agrégé', () => {
     expect(html).toContain('Ventilation géographique');
     expect(html).toContain('Ventilation par traiteur');
     expect(html).toContain('Traiteur A');
+  });
+});
+
+describe('M1.7 / R22b — Facture (copie de travail §06.08 §1) [BL-P2-01/02]', () => {
+  it('rend un HTML complet : numéro, client, lignes, totaux HT/TVA/TTC', () => {
+    const html = renderByType('facture', factureData());
+    expect(html).toContain('<!DOCTYPE html>');
+    expect(html).toContain('FZD-2026-00124');
+    expect(html).toContain('Kaspia SAS');
+    expect(html).toContain('12345678900001'); // SIRET client
+    expect(html).toContain('Collecte Zéro Déchet — Soirée de gala');
+    expect(html).toContain('Total HT');
+    expect(html).toContain('Total TTC');
+    expect(html).toContain('736,00'); // TTC
+  });
+
+  it('copie de travail explicite : NON la facture légale (celle-ci = Pennylane)', () => {
+    const html = renderByType('facture', factureData());
+    expect(html).toContain('Copie de travail');
+    expect(html).toContain('Pennylane');
+  });
+
+  it('TVA par taux (Bloc 4) : une ligne de total TVA par taux distinct', () => {
+    const html = renderByType('facture', factureData());
+    // 2 taux distincts (20 % et 10 %) → 2 sous-totaux TVA.
+    expect(html).toContain('TVA 20 %');
+    expect(html).toContain('TVA 10 %');
+  });
+
+  it('fact-mention-tva-293b : AUCUNE mention 293 B (Savr assujettie, N/A V1)', () => {
+    // Arbitrage Val 2026-07-08 (_Divergences/M1.7_20260708.md) : Savr est assujettie
+    // à la TVA, la franchise en base ne s'applique pas → la mention n'est jamais rendue.
+    const html = renderByType('facture', factureData());
+    expect(html).not.toContain('293 B');
+    expect(html).not.toContain('293B');
+    expect(html.toLowerCase()).not.toContain('franchise');
+    // Même une facture 100 % à taux 0 ne fait pas apparaître la mention en V1.
+    const html0 = renderByType(
+      'facture',
+      factureData({
+        lignes: [
+          {
+            designation: 'Prestation exonérée',
+            quantite: 1,
+            pu_ht: 100,
+            taux_tva: 0,
+            montant_ht: 100,
+          },
+        ],
+        total_ht: 100,
+        total_tva: 0,
+        total_ttc: 100,
+      }),
+    );
+    expect(html0).not.toContain('293 B');
+  });
+
+  it('reference client + conditions de paiement affichées si fournies', () => {
+    const html = renderByType('facture', factureData());
+    expect(html).toContain('REF-2026-001');
+    expect(html).toContain('Paiement à 30 jours par virement.');
+  });
+
+  it('pas de watermark (V2) — texte seul', () => {
+    const html = renderByType('facture', factureData());
+    expect(html.toLowerCase()).not.toContain('watermark');
   });
 });

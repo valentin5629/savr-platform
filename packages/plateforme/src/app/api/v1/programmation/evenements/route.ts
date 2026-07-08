@@ -4,6 +4,7 @@ import { requireProgrammateurOuAdmin } from '@/lib/api-auth.js';
 import { requireCompletedOrganisation } from '@/lib/onboarding-guards.js';
 import { envoyerRecapProgrammation } from '@/lib/programmation/recap-email.js';
 import { notifierOverrideLieu } from '@/lib/programmation/lieu-override.js';
+import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
 import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -346,6 +347,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       organisationId: effectiveOrgId,
       collectes: body.collectes,
     }).catch(() => undefined); // non-bloquant
+
+    // BL-P2-22 (tpl 20) : info-only au traiteur opérationnel si programmé par un
+    // tiers. Une notification par programmation (collecte représentative), comme
+    // le récap. Garde tiers-non-shadow dans le helper. Best-effort.
+    if (collecteIds[0]) {
+      void notifierTraiteurOperationnel(supabase, {
+        collecteId: collecteIds[0],
+        acteurOrgId: effectiveOrgId,
+        changement: {
+          kind: 'programmation',
+          programmeurUserId: auth.ctx.userId,
+        },
+      }).catch(() => undefined);
+    }
   } else {
     // Chemin brouillon : INSERT direct avec statut='brouillon'.
     // PROG-01 : lieu_overrides persisté ici aussi (sinon perdu à la confirmation) ;

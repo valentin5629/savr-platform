@@ -4,6 +4,7 @@ import { requireProgrammateur } from '@/lib/api-auth.js';
 import { requireCompletedOrganisation } from '@/lib/onboarding-guards.js';
 import { envoyerRecapProgrammation } from '@/lib/programmation/recap-email.js';
 import { notifierOverrideLieu } from '@/lib/programmation/lieu-override.js';
+import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
 import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
 
 export async function PATCH(
@@ -121,6 +122,16 @@ export async function PATCH(
       date_collecte: c.date_collecte,
     })),
   }).catch(() => undefined); // non-bloquant
+
+  // BL-P2-22 (tpl 20) : info-only au traiteur opérationnel si programmé par un
+  // tiers (garde tiers-non-shadow dans le helper). Best-effort, une notification.
+  if (collectes[0]) {
+    void notifierTraiteurOperationnel(supabase, {
+      collecteId: collectes[0].id,
+      acteurOrgId: auth.ctx.organisationId,
+      changement: { kind: 'programmation', programmeurUserId: auth.ctx.userId },
+    }).catch(() => undefined);
+  }
 
   return NextResponse.json({ evenement_id: evenementId, statut: 'programmee' });
 }

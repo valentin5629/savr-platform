@@ -5,6 +5,7 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
+import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
 
 const AGENCE_ROLES: ClientRole[] = ['agence'];
 
@@ -187,6 +188,18 @@ export async function PATCH(
       .update({ statut_tms: 'attribuee_en_attente_acceptation' })
       .eq('id', id);
   }
+
+  // BL-P2-22 (tpl 21, modification) : info-only au traiteur opérationnel — l'agence
+  // est un tiers dès que le traiteur op est une org distincte non-shadow (garde
+  // dans le helper). Best-effort.
+  void notifierTraiteurOperationnel(admin, {
+    collecteId: id,
+    acteurOrgId: auth.ctx.organisationId,
+    changement: {
+      kind: 'modification',
+      champsModifies: Object.keys(updates),
+    },
+  }).catch(() => undefined);
 
   return NextResponse.json({
     data: updated,

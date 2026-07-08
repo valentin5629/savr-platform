@@ -403,4 +403,48 @@ describe('M1.2 / PROG-05 auto-accept AG', () => {
     const json = (await res.json()) as { error: string };
     expect(json.error).toMatch(/pack|Anti-Gaspi/i);
   });
+
+  it('M1.2 — PROG-04/05 ajout collecte AG à un événement existant déclenche auto-accept + récap', async () => {
+    setupAuth('traiteur_commercial', 'org-traiteur-1');
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'evt-1',
+        organisation_id: 'org-traiteur-1',
+        nom_evenement: 'Gala',
+        pax: 50,
+      },
+      error: null,
+    });
+    mockRpc
+      .mockResolvedValueOnce({ data: true, error: null }) // f_collecte_editable
+      .mockResolvedValueOnce({ data: 'new-collecte-ag', error: null }) // fn_ajouter_collecte_evenement
+      .mockResolvedValueOnce({ data: { auto_accepted: false }, error: null }); // rpc_evaluer_auto_accept_ag
+    mockMaybeSingle
+      .mockResolvedValueOnce({
+        data: { id: 'pack-1', credits_restants: 5 },
+        error: null,
+      }) // pack
+      .mockResolvedValueOnce({ data: { email: 'prog@x.fr' }, error: null }); // users récap
+
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/programmation/evenements/evt-1/collectes', {
+        type: 'ag',
+        date_collecte: '2030-02-01',
+        heure_collecte: '10:00',
+      }),
+      { params: Promise.resolve({ id: 'evt-1' }) },
+    );
+    expect(res.status).toBe(201);
+    expect(mockRpc).toHaveBeenCalledWith('rpc_evaluer_auto_accept_ag', {
+      p_collecte_id: 'new-collecte-ag',
+    });
+    expect(vi.mocked(emailModule.sendEmail)).toHaveBeenCalledWith(
+      'collecte_programmee',
+      'prog@x.fr',
+      expect.objectContaining({ tarif_ligne: expect.any(String) }),
+      expect.anything(),
+    );
+  });
 });

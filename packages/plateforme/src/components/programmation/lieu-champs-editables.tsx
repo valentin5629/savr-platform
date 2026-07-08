@@ -6,7 +6,8 @@ import type { LieuOption } from './lieu-combobox';
 // SAUF le nom s'affichent pré-remplis et ÉDITABLES. Toute valeur modifiée est stockée
 // dans collectes.lieu_overrides (le référentiel lieu n'est PAS mis à jour). Les champs
 // admin/ops-only (commentaire_lieu, siren, email_gestionnaire, reference_citeo) ne sont
-// jamais exposés. `flux_acceptes` n'est pas une colonne lieu V1 (flux peuplés aux pesées).
+// jamais exposés. `flux acceptés` = colonne lieux.flux_autorises (text[]) : éditée ici en
+// liste séparée par des virgules, l'override est stocké comme tableau.
 
 const DIFFICULTE = [
   { v: 'facile', l: 'Facile' },
@@ -30,6 +31,8 @@ export interface LieuEdits {
   type_vehicule_max: string;
   acces_office: string;
   contraintes_horaires: string;
+  // flux acceptés (lieux.flux_autorises text[]) — saisis en liste séparée par virgules.
+  flux_autorises: string;
 }
 
 export function lieuToEdits(lieu: LieuOption): LieuEdits {
@@ -42,17 +45,29 @@ export function lieuToEdits(lieu: LieuOption): LieuEdits {
     type_vehicule_max: lieu.type_vehicule_max ?? '',
     acces_office: lieu.acces_office ?? '',
     contraintes_horaires: lieu.contraintes_horaires ?? '',
+    flux_autorises: (lieu.flux_autorises ?? []).join(', '),
   };
 }
 
-/** Diff des éditions vs valeurs de référence du lieu → override (clés modifiées seules). */
+/**
+ * Diff des éditions vs valeurs de référence du lieu → override (clés modifiées seules).
+ * `flux_autorises` est re-sérialisé en tableau (colonne DB text[]) ; les autres champs
+ * restent des chaînes.
+ */
 export function computeLieuOverrides(
   base: LieuEdits,
   edits: LieuEdits,
-): Record<string, string> {
-  const overrides: Record<string, string> = {};
+): Record<string, unknown> {
+  const overrides: Record<string, unknown> = {};
   (Object.keys(edits) as (keyof LieuEdits)[]).forEach((k) => {
-    if (edits[k] !== base[k]) overrides[k] = edits[k];
+    if (edits[k] === base[k]) return;
+    overrides[k] =
+      k === 'flux_autorises'
+        ? edits[k]
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : edits[k];
   });
   return overrides;
 }
@@ -175,6 +190,17 @@ export function LieuChampsEditables({
           value={edits.contraintes_horaires}
           onChange={(e) => set('contraintes_horaires', e.target.value)}
           placeholder="Ex : livraison avant 9h uniquement"
+          className={inputCls}
+        />
+      </div>
+
+      <div className="space-y-1">
+        <label className={labelCls}>Flux acceptés</label>
+        <input
+          type="text"
+          value={edits.flux_autorises}
+          onChange={(e) => set('flux_autorises', e.target.value)}
+          placeholder="Ex : biodéchets, carton, verre (séparés par des virgules)"
           className={inputCls}
         />
       </div>

@@ -19,6 +19,7 @@ export interface LieuOption {
   stationnement?: string | null;
   type_vehicule_max?: string | null;
   contraintes_horaires?: string | null;
+  flux_autorises?: string[] | null;
 }
 
 interface LieuComboboxProps {

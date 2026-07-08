@@ -626,8 +626,9 @@ export default function NouveauProgrammationPage() {
                     />
                     {!shadowForm.siret.trim() && (
                       <p className="text-xs text-savr-error">
-                        Sans SIRET, la fiche devra être complétée avant
-                        facturation.
+                        Sans SIRET, le bordereau réglementaire ne pourra pas
+                        être généré et le traiteur opérationnel ne sera pas
+                        conforme aux obligations de traçabilité déchets.
                       </p>
                     )}
                   </div>

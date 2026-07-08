@@ -18,6 +18,7 @@ const LIEU: LieuOption = {
   acces_office: 'difficile',
   contraintes_horaires: null,
   acces_details: null,
+  flux_autorises: ['biodéchets', 'carton'],
 };
 
 describe('M1.2 / PROG-01 lieu override (front)', () => {
@@ -38,10 +39,20 @@ describe('M1.2 / PROG-01 lieu override (front)', () => {
     });
   });
 
+  it('M1.2 — computeLieuOverrides re-sérialise flux_autorises en tableau (colonne text[])', () => {
+    const base = lieuToEdits(LIEU);
+    const edits: LieuEdits = { ...base, flux_autorises: 'biodéchets, verre' };
+    expect(computeLieuOverrides(base, edits)).toEqual({
+      flux_autorises: ['biodéchets', 'verre'],
+    });
+  });
+
   it('M1.2 — lieuToEdits pré-remplit tous les champs éditables (défaut chaîne vide)', () => {
     const edits = lieuToEdits(LIEU);
     expect(edits.adresse_acces).toBe('252 rue du Fbg St-Honoré');
     expect(edits.type_vehicule_max).toBe('camionnette');
+    // flux_autorises (text[]) pré-rempli en liste séparée par virgules.
+    expect(edits.flux_autorises).toBe('biodéchets, carton');
     // Champs nuls du lieu → chaîne vide éditable, jamais undefined.
     expect(edits.contraintes_horaires).toBe('');
     expect(edits.acces_details).toBe('');

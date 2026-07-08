@@ -45,7 +45,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .select(
       `id, nom, adresse_acces, code_postal, ville, acces_details,
        acces_office, stationnement, type_vehicule_max,
-       controle_acces_requis_default, contraintes_horaires`,
+       controle_acces_requis_default, contraintes_horaires, flux_autorises`,
     )
     .eq('actif', true)
     .in('id', uniqueIds)

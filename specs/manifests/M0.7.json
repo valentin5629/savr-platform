@@ -126,6 +126,14 @@
       "test": "M0.7-12 — upsert sérialise les colonnes jsonb avec un cast ::jsonb",
       "statut": "implemented",
       "libelle": "M0.7-12 — upsert sérialise les colonnes jsonb avec un cast ::jsonb"
+    },
+    {
+      "id": "BL-P2-22",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:525",
+      "artefact": "supabase/migrations/20260708150000_plateforme_r22f_seed_templates_tiers_conditionnels.sql ; packages/shared/src/email/index.ts (interpolateur {{#if}}) ; packages/plateforme/src/lib/notifications/traiteur-operationnel.ts (émission tpl 20/21/22, câblée routes programmation/modification/annulation)",
+      "test": "M0.7/bl-p2-22-emission-programmation — template 20",
+      "statut": "implemented",
+      "libelle": "BL-P2-22 — Templates emails tiers/conditionnels : interpolateur {{#if}} + seed tpl 20/21/22 + émission (garde tiers-non-shadow) ; tpl 9 admin_pack_ag_etat seedé seul (émission = BL-P2-30)"
     }
   ],
   "cdc_source_hash": {

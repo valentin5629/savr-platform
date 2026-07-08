@@ -6,6 +6,10 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
+import {
+  notifierAdminAnnulation,
+  notifierTraiteurOperationnel,
+} from '@/lib/notifications/traiteur-operationnel.js';
 
 const AGENCE_ROLES: ClientRole[] = ['agence'];
 
@@ -28,7 +32,7 @@ export async function POST(
   const { data: c } = await rls
     .from('collectes')
     .select(
-      `id, statut, statut_tms, date_collecte,
+      `id, statut, statut_tms, date_collecte, heure_collecte,
        evenement:evenements!inner(organisation_id, nom_evenement,
          organisation:organisations!organisation_id(nom))`,
     )
@@ -63,6 +67,25 @@ export async function POST(
       collecte_ref: id,
       motif,
     });
+
+    // BL-P2-22 (tpl 22) : alerte Admin « collecte annulée », en parallèle du
+    // template 5. (tpl 21) : info au traiteur opérationnel — l'agence est un tiers
+    // dès que le traiteur op est une org distincte non-shadow (garde dans le helper).
+    void notifierAdminAnnulation(admin, {
+      collecteId: id,
+      collecteRef: id,
+      organisationNom: orgNom ?? '',
+      dateCollecte: c.date_collecte ?? '',
+      heureCollecte: c.heure_collecte,
+      acteurUserId: auth.ctx.userId,
+      acteurRole: auth.ctx.role,
+    }).catch(() => undefined);
+    void notifierTraiteurOperationnel(admin, {
+      collecteId: id,
+      acteurOrgId: auth.ctx.organisationId,
+      changement: { kind: 'annulation' },
+    }).catch(() => undefined);
+
     return NextResponse.json({ data: { statut: 'annulee' } });
   }
 

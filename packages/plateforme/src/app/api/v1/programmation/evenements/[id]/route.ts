@@ -4,6 +4,7 @@ import {
   requireProgrammateur,
   createSupabaseServerClient,
 } from '@/lib/api-auth.js';
+import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
 
 // Champs métier ÉVÉNEMENT éditables par les rôles programmateurs (§06.04 l.444,
 // §05 l.307). lieu_id et type_collecte = verrouillés (§05 l.314 / §06.04 l.459) :
@@ -193,6 +194,31 @@ export async function PATCH(
       .update({ informations_completes: complet })
       .eq('evenement_id', id)
       .is('lieu_overrides', null);
+  }
+
+  // BL-P2-22 (tpl 21, modification) : info-only au traiteur opérationnel si la
+  // modification est faite par un tiers (garde tiers-non-shadow dans le helper).
+  // Modif événement = niveau événement → une collecte représentative. Best-effort :
+  // tout le bloc est protégé — une notification ne doit JAMAIS casser la modification.
+  try {
+    const { data: colNotif } = await admin
+      .from('collectes')
+      .select('id')
+      .eq('evenement_id', id)
+      .limit(1)
+      .maybeSingle();
+    if (colNotif) {
+      void notifierTraiteurOperationnel(admin, {
+        collecteId: colNotif.id,
+        acteurOrgId: auth.ctx.organisationId,
+        changement: {
+          kind: 'modification',
+          champsModifies: Object.keys(updates),
+        },
+      }).catch(() => undefined);
+    }
+  } catch {
+    // notification best-effort — ignorée si irrésoluble
   }
 
   return NextResponse.json({ data: updated });

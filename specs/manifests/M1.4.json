@@ -282,6 +282,14 @@
       "test": "E3 collecte.annulee : 1 event ecrit a l'annulation (RPC fn_modifier_collecte, pas trigger) [outbox_par_mutation.test.sql] + P2-36 trigger trg_collecte_annulee_e3 supprimé [outbox_concurrence_r9.test.sql]",
       "statut": "implemented",
       "libelle": "E3 collecte.annulee émise INLINE par fn_modifier_collecte (pattern RPC) ; trigger AFTER UPDATE trg_collecte_annulee_e3 + fonction _fn_trg_outbox_collecte_annulee supprimés (pattern interdit)"
+    },
+    {
+      "id": "BL-P2-10",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:325",
+      "artefact": "supabase/migrations/20260708140000_plateforme_r22c_fn_modifier_evenement_en_cours.sql (émission E2 étendue à en_cours) + packages/adapters/src/mts1/adapter.ts (buildUpdatePayload repousse les contacts via buildContacts partagé)",
+      "test": "supabase/tests/r22c_evenement_e2_en_cours.test.sql (R22c-1..7 : E2 sur contact/pax en_cours+programmee dispatchées, exclusions non-dispatchée/terminal/champ non-TMS, recalcul volume) ; M1.4/r22c — updateCollecte PUT contient contacts principal+secours [adapter.r22c.test.ts]",
+      "statut": "implemented",
+      "libelle": "Modification contacts/pax d'un événement propagée au TMS via le modèle immédiat E2 (§05 l.325 ; PAS de trigger dirty_tms, qui provoquerait un double-push) ; émission E2 fn_modifier_evenement étendue aux collectes en_cours (Val 2026-07-08) + contacts repoussés au PUT MTS-1 (buildUpdatePayload). Réconciliation CDC def canonique dirty_tms/Gherkin : _Divergences/M1.4_20260708.md"
     }
   ],
   "cdc_source_hash": {

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAnyUser, createSupabaseServerClient } from '@/lib/api-auth.js';
-import { serverError } from '@/lib/api-helpers.js';
+import { serverError, withApiTrace } from '@/lib/api-helpers.js';
 
 // GET /api/me/export-rgpd
 // RGPD Art.15 (accès) / Art.20 (portabilité) — §15 §3.3 l.105/109. Export JSON des
 // données personnelles de l'utilisateur authentifié (self, RLS) : enregistrement
 // d'identité + historique de ses demandes de suppression. Téléchargement direct.
-export async function GET(req: NextRequest): Promise<NextResponse> {
+async function getHandler(req: NextRequest): Promise<NextResponse> {
   const auth = await requireAnyUser(req);
   if (auth.error) return auth.error;
 
@@ -49,3 +49,5 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     },
   });
 }
+
+export const GET = withApiTrace(getHandler);

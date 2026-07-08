@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/api-auth.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
-import { readJsonBody, serverError, writeError } from '@/lib/api-helpers.js';
+import {
+  readJsonBody,
+  serverError,
+  writeError,
+  withApiTrace,
+} from '@/lib/api-helpers.js';
 
 // PATCH /api/v1/admin/demandes-suppression/[id]
 // Validation Admin sous 48h d'une demande RGPD (§15 §3.3 l.101) :
@@ -10,7 +15,7 @@ import { readJsonBody, serverError, writeError } from '@/lib/api-helpers.js';
 //   action=refuser → demande clôturée 'refusee'.
 // Remplace le NÉANT existant : `auth.admin.deleteUser` (admin/users/route.ts) est un
 // rollback de création, PAS un chemin RGPD — aucun hard-delete brut n'est utilisé ici.
-export async function PATCH(
+async function patchHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
@@ -90,3 +95,5 @@ export async function PATCH(
     data: { id, statut: 'validee', user_id: demande.user_id },
   });
 }
+
+export const PATCH = withApiTrace(patchHandler);

@@ -47,19 +47,26 @@ export function generateTraceId(): string {
  * s'il existe déjà — sinon générer »). On ne PROPAGE jamais de `traceparent`
  * SORTANT vers les tiers (décision de périmètre V1 : chaîne interne uniquement).
  */
+// Un trace_id honoré depuis un en-tête entrant doit rester STRICTEMENT OPAQUE :
+// il apparaît au top-level du LogEntry, HORS `sanitizePayload` (garde-fou RGPD
+// §07/00 §5). On borne charset + longueur ; toute valeur hostile (retour à la
+// ligne, PII injectée, valeur géante) est ignorée → génération d'un uuid propre.
+// Le `traceparent` W3C a sa propre validation stricte (segment 32 hex).
+const SAFE_TRACE_ID = /^[A-Za-z0-9._-]{1,128}$/;
+
 export function extractOrCreateTraceId(
   get: (name: string) => string | null | undefined,
 ): string {
-  const own = get(TRACE_HEADER);
-  if (own && own.trim()) return own.trim();
+  const own = get(TRACE_HEADER)?.trim();
+  if (own && SAFE_TRACE_ID.test(own)) return own;
   const tp = get('traceparent'); // 00-<trace-id 32hex>-<span 16hex>-<flags>
   if (tp) {
     const seg = tp.split('-');
     if (seg.length >= 2 && seg[1] && /^[0-9a-f]{32}$/i.test(seg[1]))
       return seg[1];
   }
-  const rid = get('x-request-id');
-  if (rid && rid.trim()) return rid.trim();
+  const rid = get('x-request-id')?.trim();
+  if (rid && SAFE_TRACE_ID.test(rid)) return rid;
   return generateTraceId();
 }
 

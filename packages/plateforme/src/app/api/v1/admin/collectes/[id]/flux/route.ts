@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
-import { readJsonBody, serverError } from '@/lib/api-helpers.js';
+import { readJsonBody, serverError, withApiTrace } from '@/lib/api-helpers.js';
 
 // Saisie / édition manuelle des pesées ZD par flux (§06.06 fiche collecte Bloc 2/3 :
 // « Modifier les pesées par flux manuellement (ZD) », admin_savr + ops_savr, motif
@@ -26,7 +26,7 @@ interface PeseeInput {
   poids_reel_kg: number;
 }
 
-export async function PATCH(
+async function patchHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
@@ -172,3 +172,5 @@ export async function PATCH(
 
   return NextResponse.json({ collecte_id: id, pesees: after ?? [] });
 }
+
+export const PATCH = withApiTrace(patchHandler);

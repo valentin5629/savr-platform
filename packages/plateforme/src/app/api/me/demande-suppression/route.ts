@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAnyUser, createSupabaseServerClient } from '@/lib/api-auth.js';
-import { writeError } from '@/lib/api-helpers.js';
+import { writeError, withApiTrace } from '@/lib/api-helpers.js';
 
 // POST /api/me/demande-suppression
 // RGPD Art.17 (§15 §3.3 l.101) — l'utilisateur authentifié (tout rôle) soumet une
@@ -9,7 +9,7 @@ import { writeError } from '@/lib/api-helpers.js';
 // Admin sous 48h ouvrées déclenchera `fn_anonymize_user` (anonymisation PII).
 // Notification = file in-app admin (GET /api/v1/admin/demandes-suppression) ;
 // pas d'email (le CDC §15 n'en mandate pas + catalogue gelé à 19 templates).
-export async function POST(req: NextRequest): Promise<NextResponse> {
+async function postHandler(req: NextRequest): Promise<NextResponse> {
   const auth = await requireAnyUser(req);
   if (auth.error) return auth.error;
 
@@ -53,3 +53,5 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   return NextResponse.json({ data }, { status: 201 });
 }
+
+export const POST = withApiTrace(postHandler);

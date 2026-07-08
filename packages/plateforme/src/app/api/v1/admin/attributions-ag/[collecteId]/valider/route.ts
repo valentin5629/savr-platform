@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/api-auth.js';
+import { withApiTrace } from '@/lib/api-helpers.js';
 import {
   validerAttributionAg,
   logAttributionAucuneReco,
@@ -18,7 +19,7 @@ interface ValiderBody {
 }
 
 // POST /api/v1/admin/attributions-ag/[collecteId]/valider
-export async function POST(
+async function postHandler(
   req: NextRequest,
   { params }: { params: Promise<{ collecteId: string }> },
 ): Promise<NextResponse> {
@@ -93,3 +94,5 @@ export async function POST(
     );
   }
 }
+
+export const POST = withApiTrace(postHandler);

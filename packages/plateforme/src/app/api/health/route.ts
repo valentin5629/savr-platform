@@ -2,9 +2,11 @@ import { NextResponse } from 'next/server';
 
 import { logger } from '@savr/shared/src/logger/index.js';
 
+import { withApiTrace } from '@/lib/api-helpers.js';
+
 let _lastStatus: 'ok' | 'ko' | null = null;
 
-export async function GET(): Promise<NextResponse> {
+async function getHandler(_req: Request): Promise<NextResponse> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey =
     process.env.SUPABASE_SERVICE_ROLE_KEY ??
@@ -53,3 +55,5 @@ export async function GET(): Promise<NextResponse> {
     return NextResponse.json({ status: 'ko' }, { status: 503 });
   }
 }
+
+export const GET = withApiTrace(getHandler);

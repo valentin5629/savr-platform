@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
-import { serverError } from '@/lib/api-helpers.js';
+import { serverError, withApiTrace } from '@/lib/api-helpers.js';
 
 /**
  * GET /api/v1/admin/packs-antgaspi/historique?organisation_id=<id>
@@ -13,7 +13,7 @@ import { serverError } from '@/lib/api-helpers.js';
  * l'état courant ; cette route restitue le JOURNAL des ajustements.
  * Lecture staff (admin_savr + ops_savr).
  */
-export async function GET(req: NextRequest): Promise<NextResponse> {
+async function getHandler(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
   if (auth.error) return auth.error;
 
@@ -51,3 +51,5 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   return NextResponse.json({ data: data ?? [] });
 }
+
+export const GET = withApiTrace(getHandler);

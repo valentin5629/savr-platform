@@ -261,4 +261,43 @@ describe('M0.9 — BL-P2-44 trace_id (OTel léger, §07/01 l.20/l.30)', () => {
     expect(generateTraceId()).toMatch(UUID_RE); // generateur = uuid v4
     spy.mockRestore();
   });
+
+  it('M0.9-25 — trace_id entrant honore (x-savr-trace-id > traceparent > x-request-id) avant de generer', () => {
+    // Ticket : « Respecter un traceparent/x-request-id entrant s'il existe deja ».
+    const from = (h: Record<string, string>) =>
+      extractOrCreateTraceId((n) => h[n.toLowerCase()] ?? null);
+
+    // 1. x-savr-trace-id (notre en-tete) honore tel quel, priorite maximale.
+    expect(from({ 'x-savr-trace-id': 'req-abc' })).toBe('req-abc');
+
+    // 2. traceparent W3C (00-<trace-id 32hex>-<span 16hex>-<flags>) → segment trace-id.
+    const tid = '4bf92f3577b34da6a3ce929d0e0e4736';
+    expect(from({ traceparent: `00-${tid}-00f067aa0ba902b7-01` })).toBe(tid);
+
+    // 3. x-request-id honore si seul present.
+    expect(from({ 'x-request-id': 'rid-42' })).toBe('rid-42');
+
+    // 4. Priorite : x-savr-trace-id l'emporte sur traceparent et x-request-id.
+    expect(
+      from({
+        'x-savr-trace-id': 'own',
+        traceparent: `00-${tid}-00f067aa0ba902b7-01`,
+        'x-request-id': 'rid',
+      }),
+    ).toBe('own');
+
+    // 5. traceparent malforme (pas 32 hex) ignore → repli sur x-request-id.
+    expect(from({ traceparent: 'garbage', 'x-request-id': 'rid-7' })).toBe(
+      'rid-7',
+    );
+
+    // 6. Aucun en-tete → uuid genere.
+    expect(from({})).toMatch(UUID_RE);
+
+    // 7. En-tete HOSTILE (newline / > 128 chars / hors charset) IGNORE →
+    //    trace_id strictement opaque genere (garde-fou RGPD §07/00 §5).
+    expect(from({ 'x-savr-trace-id': 'evil\ninjected' })).toMatch(UUID_RE);
+    expect(from({ 'x-request-id': 'a'.repeat(200) })).toMatch(UUID_RE);
+    expect(from({ 'x-savr-trace-id': 'jean@gosavr.io' })).toMatch(UUID_RE);
+  });
 });

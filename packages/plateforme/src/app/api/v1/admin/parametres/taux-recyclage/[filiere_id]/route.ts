@@ -6,9 +6,9 @@ import {
   findIdempotentReplay,
   recordIdempotentResult,
 } from '@/lib/idempotency.js';
-import { typedRpcError } from '@/lib/api-helpers.js';
+import { typedRpcError, withApiTrace } from '@/lib/api-helpers.js';
 
-export async function PUT(
+async function putHandler(
   req: NextRequest,
   { params }: { params: Promise<{ filiere_id: string }> },
 ): Promise<NextResponse> {
@@ -85,7 +85,7 @@ export async function PUT(
   return NextResponse.json(data);
 }
 
-export async function GET(
+async function getHandler(
   req: NextRequest,
   { params }: { params: Promise<{ filiere_id: string }> },
 ): Promise<NextResponse> {
@@ -132,3 +132,6 @@ export async function GET(
 
   return NextResponse.json({ data: enriched });
 }
+
+export const PUT = withApiTrace(putHandler);
+export const GET = withApiTrace(getHandler);

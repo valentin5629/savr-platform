@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
-import { readJsonBody, serverError } from '@/lib/api-helpers.js';
+import { readJsonBody, serverError, withApiTrace } from '@/lib/api-helpers.js';
 import {
   applyChipPredicate,
   isChipKey,
   type ChipQuery,
 } from '@/lib/collectes-chips.js';
 
-export async function GET(req: NextRequest): Promise<NextResponse> {
+async function getHandler(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
   if (auth.error) return auth.error;
 
@@ -196,7 +196,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   return NextResponse.json({ data: rows, total: count ?? 0 });
 }
 
-export async function POST(req: NextRequest): Promise<NextResponse> {
+async function postHandler(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
   if (auth.error) return auth.error;
 
@@ -254,3 +254,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   return NextResponse.json(data, { status: 201 });
 }
+
+export const GET = withApiTrace(getHandler);
+export const POST = withApiTrace(postHandler);

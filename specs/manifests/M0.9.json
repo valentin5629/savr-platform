@@ -46,7 +46,8 @@
     "M0.9-21 — trace_id genere par requete (uuid) + propage via AsyncLocalStorage",
     "M0.9-22 — isolation ALS : deux runWithTrace concurrents ne partagent pas leur trace_id",
     "M0.9-23 — job.cron.started porte job_name ET trace_id non-null (§07/02 l.18)",
-    "M0.9-24 — hors contexte trace : trace_id null (fallback, non-regression)"
+    "M0.9-24 — hors contexte trace : trace_id null (fallback, non-regression)",
+    "M0.9-25 — trace_id entrant honore (x-savr-trace-id > traceparent > x-request-id) avant de generer"
   ],
   "hors_scope": [
     "Better Uptime (configuration manuelle)",
@@ -242,8 +243,8 @@
     {
       "id": "BL-P2-44",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Observabilité/01 - Logs business.md:30",
-      "artefact": "OTel léger V1 (§07/00 l.34 — WRAPPER MAISON sur les logs structurés, AUCUN SDK @opentelemetry/*). logger @savr/shared (packages/shared/src/logger/index.ts) : AsyncLocalStorage + runWithTrace/getTraceId/generateTraceId/extractOrCreateTraceId ; emit() lit le store ALS en priorité (fallback _context conservé, 0 régression). Câblage requête : withApiTrace (packages/plateforme/src/lib/api-helpers.ts) enveloppe les routes à logs directs (auth/login, users/[id]/impersoner) — honore un traceparent/x-request-id entrant, sinon génère un uuid (§07/01 l.20). Câblage cron : withCronObservability (lib/cron-observabilite.ts) + batch-pdf-j1 posent le trace_id du run → job.cron.started porte job_name ET trace_id (§07/02 l.18) + propagation transitive aux logs adapters/clients. Périmètre V1 : chaîne interne (pas de traceparent sortant vers les tiers) ; pas de retrofit des 166 routes (§07/00 « wrapper léger… sans refactoring »).",
-      "test": "M0.9-21 ; M0.9-22 ; M0.9-23 ; M0.9-24",
+      "artefact": "OTel léger V1 (§07/00 l.34 — WRAPPER MAISON sur les logs structurés, AUCUN SDK @opentelemetry/*). Primitive : logger @savr/shared (packages/shared/src/logger/index.ts) AsyncLocalStorage + runWithTrace/getTraceId/generateTraceId/extractOrCreateTraceId ; emit() lit le store ALS en priorité (fallback _context conservé, 0 régression). CÂBLAGE EXHAUSTIF de TOUS les points d'émission logger.* du code (§07/01 « propagé sur toute la chaîne d'une requête ») : (a) crons — withCronObservability (lib/cron-observabilite.ts, 11 crons) + batch-pdf-j1 posent le trace_id du run → job.cron.started porte job_name ET trace_id (§07/02 l.18) + propagation transitive aux logs adapters (manual provider via les crons polling-mts1 ET outbox-worker), pdf-worker, pennylane (polling/retry), attribution-ag (job) ; (b) routes — withApiTrace (lib/api-helpers.ts) enveloppe TOUTES les routes émettant un event : auth/login, users/[id]/impersoner, health, les 23 routes à erreurs api-helpers (me/*, admin collectes/organisations/packs-antgaspi/parametres/factures/demandes-suppression/users, webhooks everest+resend → api_route.error/rls.policy.deny), attributions-ag/[id]/valider (logAttributionAucuneReco), factures/[id]/valider+renvoyer+avoir (api.external.failed pennylane). Honore un traceparent/x-request-id entrant, sinon uuid (§07/01 l.20). Périmètre V1 : chaîne INTERNE (pas de traceparent sortant vers les tiers — décision de périmètre) ; les routes qui n'émettent AUCUN logger.* ne sont pas enveloppées (rien à corréler). Pas de middleware.ts (Edge = invocation séparée du handler → ne peut pas poser l'ALS du handler).",
+      "test": "M0.9-21 ; M0.9-22 ; M0.9-23 ; M0.9-24 ; M0.9-25",
       "statut": "implemented",
       "libelle": "BL-P2-44 — OTel léger + trace_id généré/propagé (AsyncLocalStorage, requête + cron)"
     }

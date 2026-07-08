@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
-import { serverError } from '@/lib/api-helpers.js';
+import { serverError, withApiTrace } from '@/lib/api-helpers.js';
 import {
   CHIP_KEYS,
   applyChipPredicate,
@@ -12,7 +12,7 @@ import {
 // Compteur par chip prédéfini (§06.06 §3) pour les pastilles de la liste. Un
 // count-only (head:true) par chip, prédicats partagés avec la liste (source
 // unique = lib/collectes-chips) → jamais de divergence compteur/filtre.
-export async function GET(req: NextRequest): Promise<NextResponse> {
+async function getHandler(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
   if (auth.error) return auth.error;
 
@@ -67,3 +67,5 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return serverError(err, 'admin.collectes.chip_counts');
   }
 }
+
+export const GET = withApiTrace(getHandler);

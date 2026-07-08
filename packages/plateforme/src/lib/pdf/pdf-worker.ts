@@ -225,5 +225,17 @@ async function linkFichierToEntity(
         genere_at: new Date().toISOString(),
       })
       .eq('id', entityId);
+  } else if (entityType === 'factures') {
+    // Facture = copie de travail (§06.08 §1). La clé R2 est stockée dans
+    // pdf_url_savr (comme rapports_rse). factures n'a PAS de colonne
+    // template_version ni de statut PDF — le statut facture suit le flux
+    // Pennylane, pas la génération PDF. On écrit uniquement la clé R2.
+    await supabase
+      .from('factures')
+      .update({
+        pdf_url_savr: storageKey,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', entityId);
   }
 }

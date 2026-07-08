@@ -25,6 +25,10 @@ export const PDF_DOCUMENT_TYPES = [
   // ligne rapports_rse standard, disponible_a = genere_at (pas d'embargo H+24).
   // Slug CDC = rapport_evenement_sans_excedent. Batch runBatchSansExcedent (R21b).
   'rapport-evenement-sans-excedent',
+  // Facture — copie de travail visuelle §06.08 §1 (l.30/l.343). PAS la facture
+  // légale (celle-ci = Factur-X Pennylane, pdf_url_pennylane). Enfilée à l'émission
+  // (validerFacture succès), écrite dans factures.pdf_url_savr par le worker. R22b BL-P2-01.
+  'facture',
 ] as const;
 
 export type PdfDocumentType = (typeof PDF_DOCUMENT_TYPES)[number];
@@ -41,6 +45,7 @@ export const TEMPLATE_VERSIONS: Record<PdfDocumentType, string> = {
   'attestation-don': 'attestation-don@2',
   'synthese-dashboard': 'synthese-dashboard@1',
   'rapport-evenement-sans-excedent': 'rapport-evenement-sans-excedent@1',
+  facture: 'facture@1',
 };
 
 /** Garde de type : `x` est-il un type de document PDF connu ? */

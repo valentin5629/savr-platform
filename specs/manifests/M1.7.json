@@ -37,6 +37,9 @@
     "packages/plateforme/tests/lib/facturation.m1-7.test.ts",
     "supabase/tests/m1_7_facturation.test.sql",
     "packages/plateforme/vercel.json",
+    "apps/pdf-renderer/src/templates/facture.ts",
+    "packages/plateforme/src/lib/facturation/facture-ui.ts",
+    "packages/plateforme/src/app/api/v1/admin/factures/[id]/pdf-savr/download/route.ts",
     "specs/manifests/M1.7.json"
   ],
   "variables_env_requises": [
@@ -282,6 +285,22 @@
       "test": "supabase/tests/m1_7_facturation.test.sql (test_factures_vue_client_non_vide_manager)",
       "statut": "implemented",
       "libelle": "v_factures_client non vide pour un traiteur_manager de son org"
+    },
+    {
+      "id": "BL-P2-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md:305",
+      "artefact": "packages/shared/src/pdf/document-types.ts (type 'facture' + facture@1) ; apps/pdf-renderer/src/templates/facture.ts ; apps/pdf-renderer/src/render.ts (dispatch) ; packages/plateforme/src/lib/pdf/pdf-worker.ts (linkFichierToEntity branche factures → pdf_url_savr) ; packages/plateforme/src/lib/facturation/validation-admin.ts (enqueue jobs_pdf à l'émission) ; packages/plateforme/src/app/api/v1/admin/factures/[id]/pdf-savr/download/route.ts ; packages/plateforme/src/lib/facturation/facture-ui.ts (pastillePennylane2h, tempsEcouleFr) ; packages/plateforme/src/app/(admin)/admin/factures/page.tsx (colonne PDF Savr + pastille) ; packages/plateforme/src/app/(admin)/admin/factures/[id]/page.tsx (bandeau)",
+      "test": "M1.7 / R22b fact-col-pdf-savr + fact-pastille-orange-2h + fact-bandeau-en-attente [packages/plateforme/tests/lib/facturation.m1-7.test.ts] ; M1.7 / R22b Facture copie de travail [apps/pdf-renderer/src/render.test.ts]",
+      "statut": "implemented",
+      "libelle": "Facture — colonne/lien PDF Savr (contrat pdf 'facture' + template copie de travail + worker→pdf_url_savr + enqueue à l'émission + download présigné) ; bandeau « En attente d'envoi Pennylane — dernier essai il y a Xmin » + bouton Renvoyer (§2.3) ; pastille orange >2h borne stricte (§2.3/§4)"
+    },
+    {
+      "id": "BL-P2-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md:138",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/factures/route.ts (filtres statut/organisation_id/type/période/en_erreur + pdf_url_savr + factures_collectes(count)) ; packages/plateforme/src/app/(admin)/admin/factures/page.tsx (filtres statut incl. annulée + organisation + type + période + en-erreur ; colonnes §4 Lignes/Montant HT/Créée le) ; packages/plateforme/src/lib/facturation/facture-ui.ts (estEnRetard)",
+      "test": "M1.7 / R22b fact-suivi-en-retard [packages/plateforme/tests/lib/facturation.m1-7.test.ts] ; M1.7 / R22b fact-mention-tva-293b [apps/pdf-renderer/src/render.test.ts]",
+      "statut": "implemented",
+      "libelle": "Facture — listes/filtres/colonnes §4/§8 : filtres statut (brouillon/en_attente/en erreur/émise/payée/annulée) + organisation + type + période, colonnes Lignes/Montant HT/Créée le, indicateur « en retard » borne stricte jour (§10). Mention « TVA non applicable art. 293 B CGI » : NON applicable V1 (Savr assujettie à la TVA, aucune franchise en base — arbitrage Val 2026-07-08, cf. _Divergences/M1.7_20260708.md ; oracle négatif fact-mention-tva-293b)"
     }
   ],
   "cdc_source_hash": {

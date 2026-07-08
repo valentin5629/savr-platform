@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff, requireAdmin } from '@/lib/api-auth.js';
-import { typedRpcError } from '@/lib/api-helpers.js';
+import { typedRpcError, withApiTrace } from '@/lib/api-helpers.js';
 import {
   idempotencyKeyOrError,
   findIdempotentReplay,
@@ -11,7 +11,7 @@ import {
 const IDEMPOTENCY_SCOPE = 'admin_co2_divers';
 
 // GET — paramètres CO₂ divers (clé-valeur : forfait collecte + équivalences)
-export async function GET(req: NextRequest): Promise<NextResponse> {
+async function getHandler(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
   if (auth.error) return auth.error;
 
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
 // PUT — mise à jour des valeurs clé-valeur (admin uniquement, commentaire obligatoire).
 // Audit via audit_log (auteur + motif) écrit par le trigger fn_audit_parametres_co2_divers.
-export async function PUT(req: NextRequest): Promise<NextResponse> {
+async function putHandler(req: NextRequest): Promise<NextResponse> {
   const auth = await requireAdmin(req);
   if (auth.error) return auth.error;
 
@@ -98,3 +98,6 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
   });
   return NextResponse.json(payload);
 }
+
+export const GET = withApiTrace(getHandler);
+export const PUT = withApiTrace(putHandler);

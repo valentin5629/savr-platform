@@ -1,3 +1,5 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
+
 import type { LogContext, LogEntry, LogLevel, ServiceName } from './types.js';
 
 export type { LogContext, LogEntry, LogLevel, ServiceName };
@@ -10,6 +12,76 @@ export function setLogContext(ctx: LogContext) {
 
 export function clearLogContext() {
   _context = {};
+}
+
+// ── OTel léger V1 : trace_id propagé par requête (BL-P2-44, §07/00 l.34) ──────
+// §07/00 l.34 : « OpenTelemetry est instrumenté dès V1 (WRAPPER LÉGER sur les logs
+// structurés) … c'est le seul anticipé ». On n'ajoute donc AUCUN SDK `@opentelemetry/*` :
+// un `AsyncLocalStorage` (natif node:async_hooks) suffit à porter le `trace_id`
+// « sur toute la chaîne d'une requête » (§07/01 l.30) sans refactoring des handlers.
+//
+// Pourquoi ALS et pas le `_context` module-global ci-dessus : en serverless une
+// même instance sert des requêtes concurrentes ; un `trace_id` posé dans un état
+// module fuirait d'une requête à l'autre (corrélation faussée). `runWithTrace`
+// scope le store à l'exécution du callback ET à toutes ses opérations asynchrones,
+// isolant chaque requête. `_context` reste comme fallback (actor_id/org_id/service
+// posés par `setLogContext`) — non impacté.
+const traceStore = new AsyncLocalStorage<{ trace_id: string }>();
+
+/** En-tête de corrélation de requête (in/out interne). */
+export const TRACE_HEADER = 'x-savr-trace-id';
+
+/** UUID v4 (§07/01 l.20 : « <uuid requête, propagé OTel> »). Web Crypto = Node 18+. */
+export function generateTraceId(): string {
+  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+  if (c?.randomUUID) return c.randomUUID();
+  // Fallback improbable (runtime sans Web Crypto) : id non-uuid mais unique-ish,
+  // suffisant pour la corrélation de logs (jamais atteint en Node 18+/Edge).
+  return `trace-${Date.now().toString(36)}-${Math.round(Math.random() * 1e9).toString(36)}`;
+}
+
+/**
+ * Résout le `trace_id` d'une requête entrante : honore un id DÉJÀ propagé
+ * (`x-savr-trace-id`, puis un `traceparent` W3C, puis `x-request-id`), sinon en
+ * génère un (ticket BL-P2-44 : « Respecter un traceparent/x-request-id entrant
+ * s'il existe déjà — sinon générer »). On ne PROPAGE jamais de `traceparent`
+ * SORTANT vers les tiers (décision de périmètre V1 : chaîne interne uniquement).
+ */
+// Un trace_id honoré depuis un en-tête entrant doit rester STRICTEMENT OPAQUE :
+// il apparaît au top-level du LogEntry, HORS `sanitizePayload` (garde-fou RGPD
+// §07/00 §5). On borne charset + longueur ; toute valeur hostile (retour à la
+// ligne, PII injectée, valeur géante) est ignorée → génération d'un uuid propre.
+// Le `traceparent` W3C a sa propre validation stricte (segment 32 hex).
+const SAFE_TRACE_ID = /^[A-Za-z0-9._-]{1,128}$/;
+
+export function extractOrCreateTraceId(
+  get: (name: string) => string | null | undefined,
+): string {
+  const own = get(TRACE_HEADER)?.trim();
+  if (own && SAFE_TRACE_ID.test(own)) return own;
+  const tp = get('traceparent'); // 00-<trace-id 32hex>-<span 16hex>-<flags>
+  if (tp) {
+    const seg = tp.split('-');
+    if (seg.length >= 2 && seg[1] && /^[0-9a-f]{32}$/i.test(seg[1]))
+      return seg[1];
+  }
+  const rid = get('x-request-id')?.trim();
+  if (rid && SAFE_TRACE_ID.test(rid)) return rid;
+  return generateTraceId();
+}
+
+/**
+ * Enveloppe une exécution (handler de route, run de cron) dans un contexte de
+ * trace : tous les `logger.*` émis PENDANT `fn` (y compris transitivement, dans
+ * les adapters/clients appelés) portent ce `trace_id`. Isolation request-safe.
+ */
+export function runWithTrace<T>(trace_id: string, fn: () => T): T {
+  return traceStore.run({ trace_id }, fn);
+}
+
+/** `trace_id` du contexte de trace courant, ou `null` hors requête tracée. */
+export function getTraceId(): string | null {
+  return traceStore.getStore()?.trace_id ?? null;
 }
 
 function hashEmail(email: string): string {
@@ -97,7 +169,8 @@ function emit(
     actor_id: ctx?.actor_id ?? _context.actor_id ?? null,
     actor_role: ctx?.actor_role ?? _context.actor_role ?? null,
     org_id: ctx?.org_id ?? _context.org_id ?? null,
-    trace_id: ctx?.trace_id ?? _context.trace_id ?? null,
+    // ALS (contexte de requête) prioritaire sur le fallback `_context` global.
+    trace_id: ctx?.trace_id ?? getTraceId() ?? _context.trace_id ?? null,
     payload: sanitizePayload(payload),
   };
 

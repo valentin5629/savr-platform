@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAnyUser, createSupabaseServerClient } from '@/lib/api-auth.js';
-import { readJsonBody, serverError, writeError } from '@/lib/api-helpers.js';
+import {
+  readJsonBody,
+  serverError,
+  writeError,
+  withApiTrace,
+} from '@/lib/api-helpers.js';
 
 // GET /api/me/profil — données d'identité de l'utilisateur authentifié (self, RLS),
 // pour pré-remplir le formulaire de rectification.
-export async function GET(req: NextRequest): Promise<NextResponse> {
+async function getHandler(req: NextRequest): Promise<NextResponse> {
   const auth = await requireAnyUser(req);
   if (auth.error) return auth.error;
 
@@ -34,7 +39,7 @@ const CHAMPS_NULLABLES = new Set(['telephone']);
 // RGPD Art.16 (§15 §3.3 l.106) — rectification self-service des données d'identité
 // (transverse, tous rôles). RLS `usr_self_update` applique le périmètre self ;
 // l'allowlist serveur empêche toute écriture hors {prenom, nom, telephone}.
-export async function PATCH(req: NextRequest): Promise<NextResponse> {
+async function patchHandler(req: NextRequest): Promise<NextResponse> {
   const auth = await requireAnyUser(req);
   if (auth.error) return auth.error;
 
@@ -70,3 +75,6 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
   if (error) return writeError(error, 'me.profil.update');
   return NextResponse.json({ data });
 }
+
+export const GET = withApiTrace(getHandler);
+export const PATCH = withApiTrace(patchHandler);

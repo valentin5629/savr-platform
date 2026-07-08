@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { fetchEverestMissionDetails } from '@savr/adapters/src/index.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
-import { serverError } from '@/lib/api-helpers.js';
+import { serverError, withApiTrace } from '@/lib/api-helpers.js';
 
 // Statuts Everest API → enum plateforme.statut_mission_everest (BL-P0-07).
 // Le re-fetch est la vérité ; on borne la valeur au domaine de l'enum, sinon on
@@ -81,7 +81,7 @@ const TERMINAL_STATUTS = new Set([
   'failed',
 ]);
 
-export async function POST(req: NextRequest): Promise<NextResponse> {
+async function postHandler(req: NextRequest): Promise<NextResponse> {
   const supabase = createAdminSupabaseClient();
 
   // ── 1. Validation token webhook ────────────────────────────────────────────
@@ -572,3 +572,5 @@ async function rejeterSiPreAcceptation(
     p_entity_id: mission.collecte_id,
   });
 }
+
+export const POST = withApiTrace(postHandler);

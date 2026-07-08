@@ -130,6 +130,38 @@ describe('M0.9 R15 / OBS-02 — wrapper cron', () => {
     );
     expect(res.status).toBe(401);
   });
+
+  it('M0.9-23 — job.cron.started porte job_name ET trace_id non-null (§07/02 l.18)', async () => {
+    const handler = withCronObservability('email_retry', async () => ({
+      nb_traite: 0,
+    }));
+    const req = new NextRequest('http://x/api/cron/email-retry', {
+      method: 'POST',
+      headers: { authorization: 'Bearer sekret-test' },
+    });
+    const res = await handler(req);
+    expect(res.status).toBe(200);
+
+    const parsed = logSpy.mock.calls.map(
+      (c) =>
+        JSON.parse(c[0] as string) as {
+          event: string;
+          trace_id: string | null;
+          payload: { job_name?: string; trace_id?: string | null };
+        },
+    );
+    const started = parsed.find((e) => e.event === 'job.cron.started');
+    expect(started).toBeDefined();
+    // §07/02 l.18 : payload obligatoire { job_name, trace_id }.
+    expect(started!.payload.job_name).toBe('email_retry');
+    expect(typeof started!.payload.trace_id).toBe('string');
+    expect(started!.payload.trace_id).toBeTruthy();
+    // §07/01 : le champ top-level trace_id du schema est renseigne (via ALS).
+    expect(started!.trace_id).toBe(started!.payload.trace_id);
+    // Propagation « sur toute la chaine » : completed partage le meme trace_id.
+    const completed = parsed.find((e) => e.event === 'job.cron.completed');
+    expect(completed!.trace_id).toBe(started!.trace_id);
+  });
 });
 
 // ── OBS-03 — audit_log valeurs d'action du catalogue §07/06 ──────────────────

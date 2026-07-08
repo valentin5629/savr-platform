@@ -4,6 +4,10 @@
 import { NextResponse } from 'next/server';
 
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import {
+  runWithTrace,
+  extractOrCreateTraceId,
+} from '@savr/shared/src/logger/index.js';
 
 import { runBatchPdfJ1 } from '../../../../lib/pdf/batch-pdf-j1.js';
 import { runBatchPdfJ1Ag } from '../../../../lib/pdf/batch-pdf-j1-ag.js';
@@ -27,8 +31,18 @@ export async function POST(request: Request): Promise<NextResponse> {
   const unauthorized = assertCronAuth(request);
   if (unauthorized) return unauthorized;
 
-  const supabase = createAdminSupabaseClient();
+  // Ce cron n'utilise pas `withCronObservability` (3 job_names émis en parallèle) :
+  // on pose donc explicitement le contexte de trace du run, partagé par les 3
+  // sous-batchs (job.cron.started porte alors le même trace_id — §07/02 l.18).
+  const traceId = extractOrCreateTraceId((n) => request.headers.get(n));
+  return runWithTrace(traceId, () =>
+    runBatchPdfJ1All(createAdminSupabaseClient()),
+  );
+}
 
+async function runBatchPdfJ1All(
+  supabase: ReturnType<typeof createAdminSupabaseClient>,
+): Promise<NextResponse> {
   const startedZd = emitCronStarted('bordereaux_rapports_batch');
   const startedAg = emitCronStarted('attestations_batch');
   // Rapport « Événement sans excédent alimentaire » (§12 §1.3-bis, R21b) — batch dédié

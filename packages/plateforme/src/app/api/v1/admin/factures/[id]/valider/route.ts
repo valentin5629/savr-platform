@@ -4,9 +4,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import { withApiTrace } from '@/lib/api-helpers.js';
 import { validerFacture } from '@/lib/facturation/validation-admin.js';
 
-export async function POST(
+async function postHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
@@ -21,3 +22,5 @@ export async function POST(
   const status = result.ok ? 200 : result.statut === 'brouillon' ? 422 : 202;
   return NextResponse.json(result, { status });
 }
+
+export const POST = withApiTrace(postHandler);

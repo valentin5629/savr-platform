@@ -1,7 +1,11 @@
 // Helpers API transverses — durcissement Lot C (C1 / C2 / C4).
 import { NextResponse } from 'next/server';
 
-import { logger } from '@savr/shared/src/logger/index.js';
+import {
+  logger,
+  runWithTrace,
+  extractOrCreateTraceId,
+} from '@savr/shared/src/logger/index.js';
 
 /**
  * Émission d'observabilité commune aux erreurs API serveur (§07/02).
@@ -107,6 +111,28 @@ export async function readJsonBody<T = Record<string, unknown>>(
       ),
     };
   }
+}
+
+/**
+ * OTel léger V1 (BL-P2-44, §07/01 l.30 : « trace_id propagé sur toute la chaîne
+ * d'une requête »). Enveloppe un handler de route dans un contexte de trace :
+ * honore un `traceparent`/`x-request-id`/`x-savr-trace-id` entrant, sinon génère
+ * un `trace_id`, puis exécute le handler sous `runWithTrace` (AsyncLocalStorage)
+ * — tous les `logger.*` émis pendant le handler portent alors ce `trace_id`.
+ *
+ * Enveloppe SÛRE : contrairement au `_context` module-global du logger, ALS isole
+ * chaque requête concurrente (pas de fuite de trace_id d'une requête à l'autre).
+ * `middleware.ts` (Edge) est une invocation SÉPARÉE du handler et ne peut pas
+ * poser ce contexte → la trace est établie ici, au niveau du handler Node.
+ */
+export function withApiTrace<R extends Request, A extends unknown[]>(
+  handler: (req: R, ...rest: A) => Promise<NextResponse>,
+): (req: R, ...rest: A) => Promise<NextResponse> {
+  return (req: R, ...rest: A): Promise<NextResponse> =>
+    runWithTrace(
+      extractOrCreateTraceId((n) => req.headers.get(n)),
+      () => handler(req, ...rest),
+    );
 }
 
 /**

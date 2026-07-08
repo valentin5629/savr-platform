@@ -3,7 +3,7 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
 import { notifierAdminAnnulation } from '@/lib/notifications/traiteur-operationnel.js';
 import { requireStaff } from '@/lib/api-auth.js';
-import { readJsonBody, serverError } from '@/lib/api-helpers.js';
+import { readJsonBody, serverError, withApiTrace } from '@/lib/api-helpers.js';
 
 // POST /api/v1/admin/collectes/[id]/incident — §05 §4bis « Gestion des incidents »
 // Flux incident (collecte manquée / refus / pesée) : passe la collecte à `annulee`
@@ -12,7 +12,7 @@ import { readJsonBody, serverError } from '@/lib/api-helpers.js';
 // Émet l'alerte Admin (template `admin_incident_collecte`, §06.02 item 10).
 const IMPUTABLE = ['prestataire', 'client', 'association', 'savr', 'externe'];
 
-export async function POST(
+async function postHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
@@ -177,3 +177,5 @@ export async function POST(
 
   return NextResponse.json(updatedJson);
 }
+
+export const POST = withApiTrace(postHandler);

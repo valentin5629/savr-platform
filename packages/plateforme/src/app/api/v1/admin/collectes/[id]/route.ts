@@ -6,9 +6,9 @@ import {
   notifierTraiteurOperationnel,
 } from '@/lib/notifications/traiteur-operationnel.js';
 import { requireStaff } from '@/lib/api-auth.js';
-import { readJsonBody, serverError } from '@/lib/api-helpers.js';
+import { readJsonBody, serverError, withApiTrace } from '@/lib/api-helpers.js';
 
-export async function GET(
+async function getHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
@@ -48,7 +48,7 @@ export async function GET(
   return NextResponse.json(data);
 }
 
-export async function PATCH(
+async function patchHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
@@ -278,3 +278,6 @@ export async function PATCH(
 
   return NextResponse.json(data);
 }
+
+export const GET = withApiTrace(getHandler);
+export const PATCH = withApiTrace(patchHandler);

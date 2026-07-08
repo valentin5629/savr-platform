@@ -11,7 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
-import { serverError } from '@/lib/api-helpers.js';
+import { serverError, withApiTrace } from '@/lib/api-helpers.js';
 import { verifySvixSignature } from '@/lib/webhooks/svix.js';
 
 export const runtime = 'nodejs';
@@ -65,7 +65,7 @@ async function traceLog(
   });
 }
 
-export async function POST(req: NextRequest): Promise<NextResponse> {
+async function postHandler(req: NextRequest): Promise<NextResponse> {
   const supabase = createAdminSupabaseClient();
 
   // ── 1. Lecture brute (la signature porte sur le corps exact) ───────────────
@@ -179,3 +179,5 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     statut: nouveauStatut ?? current.statut,
   });
 }
+
+export const POST = withApiTrace(postHandler);

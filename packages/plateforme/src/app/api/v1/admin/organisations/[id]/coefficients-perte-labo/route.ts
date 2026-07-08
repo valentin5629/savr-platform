@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff, requireAdmin } from '@/lib/api-auth.js';
-import { serverError, writeError } from '@/lib/api-helpers.js';
+import { serverError, writeError, withApiTrace } from '@/lib/api-helpers.js';
 
 // Coefficient de perte labo par traiteur × année (CDC §08 §9bis).
 // L'organisation est CONTEXTUELLE (fiche traiteur) → portée par le PATH
@@ -11,7 +11,7 @@ import { serverError, writeError } from '@/lib/api-helpers.js';
 // GET §9bis.1 — liste antéchronologique des coefficients du traiteur.
 // Lecture admin_savr + ops_savr. `annee_application = annee_reference + 1`
 // (calculé côté serveur, non stocké).
-export async function GET(
+async function getHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
@@ -44,7 +44,7 @@ export async function GET(
 // POST §9bis.2 — créer un coefficient pour le traiteur du path.
 // Écriture admin_savr uniquement. Erreurs typées : 422 (org non traiteur /
 // année hors borne / coefficient < 0), 404 (org inconnue), 409 (doublon année).
-export async function POST(
+async function postHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
@@ -161,3 +161,6 @@ export async function POST(
     { status: 201 },
   );
 }
+
+export const GET = withApiTrace(getHandler);
+export const POST = withApiTrace(postHandler);

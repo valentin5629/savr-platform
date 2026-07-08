@@ -10,10 +10,12 @@ import {
   Plus,
   Trash2,
   Save,
+  Download,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { tempsEcouleFr } from '@/lib/facturation/facture-ui';
 
 interface Ligne {
   id: string;
@@ -45,7 +47,9 @@ interface FactureDetail {
   date_paiement: string | null;
   notes: string | null;
   erreur_synchro: string | null;
+  derniere_tentative_pennylane_at: string | null;
   pdf_url_pennylane: string | null;
+  pdf_url_savr: string | null;
   organisations: { raison_sociale: string; siret: string | null } | null;
   entites_facturation: {
     raison_sociale: string;
@@ -134,6 +138,18 @@ export default function FactureDetailPage() {
     } finally {
       setActionLoading(null);
     }
+  }
+
+  // Télécharge la copie de travail PDF (§06.08 §1) via URL pré-signée R2.
+  async function downloadPdfSavr() {
+    setError(null);
+    const res = await fetch(`/api/v1/admin/factures/${id}/pdf-savr/download`);
+    if (!res.ok) {
+      setError('PDF de travail indisponible.');
+      return;
+    }
+    const { url } = (await res.json()) as { url?: string };
+    if (url) window.open(url, '_blank');
   }
 
   // Appels d'édition (PATCH/POST/DELETE) — affichent l'erreur API + rechargent.
@@ -256,7 +272,45 @@ export default function FactureDetailPage() {
         </div>
       )}
 
-      {facture.erreur_synchro && (
+      {/* Bandeau SLA Pennylane §06.08 §2.3 — en_attente_pennylane : « dernier essai
+          il y a Xmin » + bouton Renvoyer. echec_final (retry épuisé) = intervention. */}
+      {facture.statut === 'en_attente_pennylane' && (
+        <div className="rounded-md bg-orange-50 border border-orange-300 px-4 py-3 text-sm text-orange-800 flex items-start justify-between gap-4">
+          <div>
+            <strong>En attente d’envoi Pennylane</strong>
+            {facture.derniere_tentative_pennylane_at && (
+              <>
+                {' '}
+                — dernier essai :{' '}
+                {tempsEcouleFr(
+                  facture.derniere_tentative_pennylane_at,
+                  Date.now(),
+                )}
+              </>
+            )}
+            {facture.pennylane_statut === 'echec_final' && (
+              <div className="mt-1 font-medium">
+                Échec après 3 tentatives — renvoi manuel requis.
+              </div>
+            )}
+            {facture.erreur_synchro && (
+              <div className="mt-1 text-orange-700">
+                {facture.erreur_synchro}
+              </div>
+            )}
+          </div>
+          <Button
+            variant="secondary"
+            onClick={() => doAction('renvoyer')}
+            disabled={actionLoading !== null}
+          >
+            <RotateCcw className="h-4 w-4 mr-1" />
+            {actionLoading === 'renvoyer' ? 'Envoi…' : 'Renvoyer'}
+          </Button>
+        </div>
+      )}
+
+      {facture.statut !== 'en_attente_pennylane' && facture.erreur_synchro && (
         <div className="rounded-md bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
           <strong>Erreur Pennylane :</strong> {facture.erreur_synchro}
         </div>
@@ -431,16 +485,29 @@ export default function FactureDetailPage() {
         )}
       </section>
 
-      {facture.pdf_url_pennylane && (
-        <a
-          href={facture.pdf_url_pennylane}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-2 text-sm text-savr-primary-700 hover:underline"
-        >
-          Télécharger le PDF Pennylane
-        </a>
-      )}
+      <div className="flex flex-wrap gap-4">
+        {facture.pdf_url_pennylane && (
+          <a
+            href={facture.pdf_url_pennylane}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 text-sm text-savr-primary-700 hover:underline"
+          >
+            Télécharger le PDF Pennylane
+          </a>
+        )}
+        {/* Copie de travail §06.08 §1 — clé R2 pré-signée à la volée. */}
+        {facture.pdf_url_savr && (
+          <button
+            type="button"
+            onClick={downloadPdfSavr}
+            className="inline-flex items-center gap-2 text-sm text-savr-primary-700 hover:underline"
+          >
+            <Download className="h-4 w-4" />
+            Télécharger le PDF Savr (copie de travail)
+          </button>
+        )}
+      </div>
 
       {/* Bloc 6 — Actions */}
       <section className="flex gap-3 border-t pt-4">
@@ -456,16 +523,8 @@ export default function FactureDetailPage() {
           </Button>
         )}
 
-        {facture.statut === 'en_attente_pennylane' && (
-          <Button
-            variant="secondary"
-            onClick={() => doAction('renvoyer')}
-            disabled={actionLoading !== null}
-          >
-            <RotateCcw className="h-4 w-4 mr-2" />
-            {actionLoading === 'renvoyer' ? 'Envoi…' : 'Renvoyer manuellement'}
-          </Button>
-        )}
+        {/* Renvoi manuel §06.08 §2.3 : porté par le bandeau orange en_attente_pennylane
+            (ci-dessus), pas de doublon dans le Bloc Actions. */}
 
         {['emise', 'payee'].includes(facture.statut) && (
           <Button

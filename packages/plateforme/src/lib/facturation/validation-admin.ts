@@ -138,6 +138,49 @@ function buildPennylanePayload(
   };
 }
 
+// R22b BL-P2-01 — payload de la copie de travail PDF (§06.08 §1). Objet plat
+// aligné sur FactureData du renderer (apps/pdf-renderer/.../templates/facture.ts).
+// Le renderer étant un service Railway autonome (hors workspace pnpm), on ne peut
+// pas importer son type ici — même pattern que batch-pdf-j1-ag / AttestationDonData.
+function buildFacturePdfPayload(
+  facture: FactureRow,
+  numeroFacture: string,
+  dateEmission: string,
+  dateEcheance: string,
+): Record<string, unknown> {
+  const ef = facture.entites_facturation;
+  const lignes = facture.factures_collectes.map((fc) => ({
+    designation: fc.libelle_ligne ?? fc.designation ?? 'Prestation Savr',
+    quantite: fc.quantite,
+    pu_ht: fc.montant_ligne_ht,
+    taux_tva: fc.taux_tva,
+    montant_ht: fc.montant_ligne_ht * fc.quantite,
+  }));
+  const referenceAffaire =
+    facture.factures_collectes.find(
+      (fc) => fc.collectes?.evenements?.reference_affaire,
+    )?.collectes?.evenements?.reference_affaire ?? null;
+  return {
+    numero: numeroFacture,
+    date_emission: dateEmission,
+    date_echeance: dateEcheance,
+    entite_raison_sociale: ef?.raison_sociale ?? '',
+    entite_siret: ef?.siret ?? null,
+    entite_tva_intracom: ef?.tva_intracom ?? null,
+    entite_adresse: ef?.adresse_facturation ?? null,
+    entite_code_postal: ef?.code_postal ?? null,
+    entite_ville: ef?.ville ?? null,
+    entite_pays: ef?.pays ?? null,
+    reference_affaire: referenceAffaire,
+    conditions_paiement: facture.notes ?? null,
+    devise: facture.devise,
+    lignes,
+    total_ht: facture.montant_ht,
+    total_tva: facture.montant_tva,
+    total_ttc: facture.montant_ttc,
+  };
+}
+
 export async function validerFacture(
   supabase: SupabaseClient,
   factureId: string,
@@ -357,6 +400,33 @@ export async function validerFacture(
       updated_at: new Date().toISOString(),
     })
     .eq('id', factureId);
+
+  // R22b BL-P2-01 — enfiler la copie de travail PDF (§06.08 §1, l.30/l.343). Écrite
+  // dans factures.pdf_url_savr par le worker (entity_type='factures'). Best-effort :
+  // un échec d'enqueue ne doit JAMAIS faire échouer l'émission (la facture est déjà
+  // emise + poussée Pennylane). upsert onConflict (idx_jobs_pdf_anti_dupe) = re-génère
+  // si un job existait déjà pour cette facture.
+  try {
+    await supabase.from('jobs_pdf').upsert(
+      {
+        type_document: 'facture',
+        entity_type: 'factures',
+        entity_id: factureId,
+        payload: buildFacturePdfPayload(
+          f,
+          numeroFacture,
+          dateEmission,
+          dateEcheance,
+        ),
+        statut: 'pending',
+        attempts: 0,
+        next_retry_at: null,
+      },
+      { onConflict: 'entity_type,entity_id,type_document' },
+    );
+  } catch {
+    // Génération de la copie de travail non bloquante — on n'échoue pas l'émission.
+  }
 
   // §07/06 facture_emise — trace l'émission (Validation Admin → Pennylane).
   // Couvre AUSSI le chemin worker retry (via renvoyerFacture) → user_id null.

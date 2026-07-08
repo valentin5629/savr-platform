@@ -34,6 +34,11 @@ import {
   TEMPLATE_VERSION as V_SANS_EXCEDENT,
   type RapportEvenementSansExcedentData,
 } from './templates/rapport-evenement-sans-excedent.js';
+import {
+  renderFacture,
+  TEMPLATE_VERSION as V_FACTURE,
+  type FactureData,
+} from './templates/facture.js';
 
 /** Types de document gérés par le renderer (doit = PDF_DOCUMENT_TYPES de @savr/shared). */
 export const RENDERER_DOCUMENT_TYPES = [
@@ -42,6 +47,7 @@ export const RENDERER_DOCUMENT_TYPES = [
   'attestation-don',
   'synthese-dashboard',
   'rapport-evenement-sans-excedent',
+  'facture',
 ] as const;
 
 export type RendererDocumentType = (typeof RENDERER_DOCUMENT_TYPES)[number];
@@ -54,6 +60,7 @@ export const RENDERER_TEMPLATE_VERSIONS: Record<RendererDocumentType, string> =
     'attestation-don': V_ATTESTATION,
     'synthese-dashboard': V_SYNTHESE,
     'rapport-evenement-sans-excedent': V_SANS_EXCEDENT,
+    facture: V_FACTURE,
   };
 
 /** Levée quand `type` n'est pas un document connu → mappé en HTTP 400 par server.ts. */
@@ -84,6 +91,8 @@ export function renderByType(type: string, data: unknown): string {
       return renderRapportEvenementSansExcedent(
         data as RapportEvenementSansExcedentData,
       );
+    case 'facture':
+      return renderFacture(data as FactureData);
     default:
       throw new UnknownDocumentTypeError(type);
   }

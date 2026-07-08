@@ -7,7 +7,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(16);
+SELECT plan(17);
 
 -- ─── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -88,6 +88,51 @@ SELECT ok(
       AND consumer = 'adapter_mts1'
   ),
   'T1 : fn_creer_collecte ZD émet outbox E1'
+);
+
+-- ─── Test 1b (PROG-03/PROG-01) : payload E1 enrichi ──────────────────────────
+-- Le payload collecte.creee doit porter controle_acces_requis + informations_supplementaires
+-- + lieu_overrides (contrat E1 §08 l.68 / §06.01 l.396+l.110), pas seulement l'id.
+
+INSERT INTO plateforme.evenements (
+  id, organisation_id, traiteur_operationnel_organisation_id,
+  entite_facturation_id, lieu_id, created_by, type_evenement_id, pax,
+  contact_principal_nom, contact_principal_telephone
+) VALUES (
+  '00000000-0000-0000-0000-000000000026'::uuid,
+  '00000000-0000-0000-0000-000000000010'::uuid,
+  '00000000-0000-0000-0000-000000000010'::uuid,
+  '00000000-0000-0000-0000-000000000011'::uuid,
+  '00000000-0000-0000-0000-000000000012'::uuid,
+  '00000000-0000-0000-0000-000000000014'::uuid,
+  '00000000-0000-0000-0000-000000000013'::uuid,
+  50, 'Contact Test', '0600000001'
+);
+
+SELECT plateforme.fn_creer_collecte(
+  p_evenement_id := '00000000-0000-0000-0000-000000000026'::uuid,
+  p_type := 'zd',
+  p_date_collecte := CURRENT_DATE + 7,
+  p_heure_collecte := '14:00',
+  p_controle_acces := true,
+  p_info_suppl := 'Quai N°2 fermé le lundi',
+  p_lieu_overrides := '{"ville": "Lyon"}'::jsonb
+);
+
+SELECT ok(
+  EXISTS(
+    SELECT 1 FROM plateforme.outbox_events oe
+    WHERE oe.aggregate_id = (
+      SELECT id FROM plateforme.collectes
+      WHERE evenement_id = '00000000-0000-0000-0000-000000000026'::uuid
+        AND type = 'zero_dechet'::plateforme.collecte_type
+    )
+      AND oe.event_type = 'collecte.creee'
+      AND (oe.payload->>'controle_acces_requis')::boolean = true
+      AND oe.payload->>'informations_supplementaires' = 'Quai N°2 fermé le lundi'
+      AND oe.payload->'lieu_overrides'->>'ville' = 'Lyon'
+  ),
+  'T1b (PROG-03) : payload E1 inclut controle_acces_requis + informations_supplementaires + lieu_overrides'
 );
 
 -- ─── Test 2 : fn_creer_collecte AG n'émet PAS E1 ─────────────────────────────

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireProgrammateur } from '@/lib/api-auth.js';
+import { envoyerRecapProgrammation } from '@/lib/programmation/recap-email.js';
+import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
 
 export async function POST(
   req: NextRequest,
@@ -33,7 +35,7 @@ export async function POST(
   // Vérification propriété et éditabilité
   const { data: evt } = await supabase
     .from('evenements')
-    .select('id, organisation_id')
+    .select('id, organisation_id, nom_evenement, pax')
     .eq('id', evenementId)
     .eq('organisation_id', auth.ctx.organisationId)
     .single();
@@ -90,6 +92,24 @@ export async function POST(
 
   if (rpcErr)
     return NextResponse.json({ error: rpcErr.message }, { status: 500 });
+
+  // PROG-05 : auto-accept si la collecte ajoutée est AG (§06.01 l.398 + §09 §6).
+  if (String(type) === 'ag' && collecteId) {
+    await evaluerAutoAcceptAg(collecteId as string).then(
+      () => undefined,
+      () => undefined,
+    );
+  }
+
+  // PROG-04 : email récap au programmeur pour la collecte ajoutée (tarif ZD inclus).
+  await envoyerRecapProgrammation(supabase, {
+    programmeurUserId: auth.ctx.userId,
+    evenementId,
+    nomEvenement: evt.nom_evenement,
+    pax: evt.pax,
+    organisationId: evt.organisation_id,
+    collectes: [{ type: String(type), date_collecte: String(date_collecte) }],
+  }).catch(() => undefined); // non-bloquant
 
   return NextResponse.json({ collecte_id: collecteId }, { status: 201 });
 }

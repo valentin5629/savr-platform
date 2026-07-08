@@ -765,3 +765,58 @@ describe('M1.5a / erreurs typées', () => {
     expect(err.name).toBe('LogistiqueAmbiguousError');
   });
 });
+
+// ─── BL-P1-PROG-03 : informations_supplementaires → comment MTS-1 (§08 l.389) ──
+describe('M1.5a / PROG-03 comment MTS-1', () => {
+  afterEach(() => _setMts1Handlers(null));
+
+  function setupHandlers() {
+    const postOrder = vi.fn().mockResolvedValue({
+      ok: true,
+      id: 'MTS1-ORDER-C',
+      externalReference: 'x',
+      status: 'PLANNED',
+      createdAt: '',
+    });
+    _setMts1Handlers({
+      pollOrders: vi.fn(),
+      getTour: vi.fn(),
+      postOrder,
+      createTour: vi.fn().mockResolvedValue({
+        tourId: 'MTS1-TOUR-C',
+        externalReference: 'x',
+        status: 'DRAFT',
+        createdAt: '',
+        customerOrderId: 'MTS1-ORDER-C',
+      } satisfies Mts1CreatedTour),
+      dispatchTour: vi.fn().mockResolvedValue(undefined),
+      validateTour: vi.fn().mockResolvedValue(undefined),
+    });
+    return postOrder;
+  }
+
+  it('M1.5a / buildOrderPayload mappe informations_supplementaires vers comment MTS-1', async () => {
+    const postOrder = setupHandlers();
+    const supabase = makeMockSupabase({ tourneeExistante: null });
+    await new AdapterMts1(TRANSPORTEUR, supabase).dispatchCollecte(
+      {
+        ...COLLECTE_ZD,
+        informations_supplementaires: 'Sonner interphone B au RDC',
+      },
+      1,
+    );
+    const orderPayload = postOrder.mock.calls[0]![0] as Record<string, unknown>;
+    expect(orderPayload['comment']).toBe('Sonner interphone B au RDC');
+  });
+
+  it('M1.5a / buildOrderPayload sans informations_supplementaires — pas de comment', async () => {
+    const postOrder = setupHandlers();
+    const supabase = makeMockSupabase({ tourneeExistante: null });
+    await new AdapterMts1(TRANSPORTEUR, supabase).dispatchCollecte(
+      COLLECTE_ZD,
+      1,
+    );
+    const orderPayload = postOrder.mock.calls[0]![0] as Record<string, unknown>;
+    expect(orderPayload['comment']).toBeUndefined();
+  });
+});

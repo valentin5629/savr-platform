@@ -4569,6 +4569,7 @@ export type Database = {
           p_evenement_id: string
           p_heure_collecte: string
           p_info_suppl?: string
+          p_lieu_overrides?: Json
           p_nb_camions?: number
           p_notes?: string
           p_type: string

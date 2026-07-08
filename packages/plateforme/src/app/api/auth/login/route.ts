@@ -6,6 +6,8 @@ import { cookies } from 'next/headers';
 
 import { logger } from '@savr/shared/src/logger/index.js';
 
+import { withApiTrace } from '@/lib/api-helpers.js';
+
 export const runtime = 'nodejs';
 
 // §07/01 : jamais d'email en clair dans les logs → SHA-256 (email_hash).
@@ -36,72 +38,79 @@ function roleFromToken(token: string | undefined): string | null {
   }
 }
 
-export async function POST(req: NextRequest): Promise<NextResponse> {
-  let body: Record<string, unknown>;
-  try {
-    body = (await req.json()) as Record<string, unknown>;
-  } catch {
-    return NextResponse.json({ error: 'Corps JSON invalide' }, { status: 400 });
-  }
+// §07/01 : `auth.login_*` émis ici → route enveloppée pour que ces events portent
+// le `trace_id` de la requête (login hors du gating middleware / des helpers auth).
+export const POST = withApiTrace(
+  async (req: NextRequest): Promise<NextResponse> => {
+    let body: Record<string, unknown>;
+    try {
+      body = (await req.json()) as Record<string, unknown>;
+    } catch {
+      return NextResponse.json(
+        { error: 'Corps JSON invalide' },
+        { status: 400 },
+      );
+    }
 
-  const { email, mot_de_passe } = body as {
-    email?: string;
-    mot_de_passe?: string;
-  };
+    const { email, mot_de_passe } = body as {
+      email?: string;
+      mot_de_passe?: string;
+    };
 
-  if (!email || !mot_de_passe) {
-    return NextResponse.json(
-      { error: 'Email et mot de passe requis' },
-      { status: 422 },
-    );
-  }
+    if (!email || !mot_de_passe) {
+      return NextResponse.json(
+        { error: 'Email et mot de passe requis' },
+        { status: 422 },
+      );
+    }
 
-  const cookieStore = await cookies();
-  const response = NextResponse.json({});
+    const cookieStore = await cookies();
+    const response = NextResponse.json({});
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: (cookiesToSet) => {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options),
-          );
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll: () => cookieStore.getAll(),
+          setAll: (cookiesToSet) => {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              response.cookies.set(name, value, options),
+            );
+          },
         },
       },
-    },
-  );
+    );
 
-  const ip = clientIp(req);
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password: mot_de_passe,
-  });
-
-  if (error) {
-    // §07/01 auth.login_failed (warn) — alimente l'alerte bruteforce §07/03
-    // (> 5/5min même email_hash ou ip), agrégée côté plateforme (Supabase Logs).
-    logger.warn('auth.login_failed', {
-      email_hash: hashEmail(email),
-      ip,
-      reason: error.message,
+    const ip = clientIp(req);
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password: mot_de_passe,
     });
-    return NextResponse.json({ error: error.message }, { status: 401 });
-  }
 
-  logger.info('auth.login_success', {
-    user_id: data.user.id,
-    ip,
-    role: roleFromToken(data.session?.access_token),
-  });
+    if (error) {
+      // §07/01 auth.login_failed (warn) — alimente l'alerte bruteforce §07/03
+      // (> 5/5min même email_hash ou ip), agrégée côté plateforme (Supabase Logs).
+      logger.warn('auth.login_failed', {
+        email_hash: hashEmail(email),
+        ip,
+        reason: error.message,
+      });
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
 
-  return NextResponse.json(
-    { user: { id: data.user.id, email: data.user.email } },
-    {
-      status: 200,
-      headers: response.headers,
-    },
-  );
-}
+    logger.info('auth.login_success', {
+      user_id: data.user.id,
+      ip,
+      role: roleFromToken(data.session?.access_token),
+    });
+
+    return NextResponse.json(
+      { user: { id: data.user.id, email: data.user.email } },
+      {
+        status: 200,
+        headers: response.headers,
+      },
+    );
+  },
+);

@@ -4,6 +4,10 @@ import {
   sanitizePayload,
   setLogContext,
   clearLogContext,
+  runWithTrace,
+  getTraceId,
+  generateTraceId,
+  extractOrCreateTraceId,
 } from './index.js';
 
 describe('M0.9 — Logger structuré', () => {
@@ -185,5 +189,76 @@ describe('M0.9 — sanitizePayload (RGPD)', () => {
     });
     expect(result.actor_email_hash).toBe('a1b2c3d4e5');
     expect(result.montant_ttc).toBe(1234.56);
+  });
+});
+
+// ── BL-P2-44 — OTel léger : trace_id généré + propagé (AsyncLocalStorage) ─────
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+describe('M0.9 — BL-P2-44 trace_id (OTel léger, §07/01 l.20/l.30)', () => {
+  beforeEach(() => clearLogContext());
+
+  it('M0.9-21 — trace_id genere par requete (uuid) + propage via AsyncLocalStorage', () => {
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    // Aucune en-tete entrante → un uuid est genere pour la requete.
+    const traceId = extractOrCreateTraceId(() => undefined);
+    expect(traceId).toMatch(UUID_RE);
+    // Le log emis PENDANT le contexte de trace porte ce trace_id.
+    runWithTrace(traceId, () => {
+      logger.info('collecte.scheduled', { collecte_id: 'c-1', type: 'zd' });
+      expect(getTraceId()).toBe(traceId);
+    });
+    const entry = JSON.parse(spy.mock.calls[0]![0] as string) as {
+      trace_id: string | null;
+    };
+    expect(entry.trace_id).toBe(traceId);
+    spy.mockRestore();
+  });
+
+  it('M0.9-22 — isolation ALS : deux runWithTrace concurrents ne partagent pas leur trace_id', async () => {
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    // Deux "requetes" entrelacees (yield sur une microtache entre l'ouverture du
+    // contexte et le log). Un etat MODULE-GLOBAL (le piege _context) ferait fuiter
+    // le trace_id de l'une vers l'autre → cet oracle ROUGIRAIT. ALS les isole.
+    async function requete(id: string): Promise<string | null> {
+      return runWithTrace(id, async () => {
+        await Promise.resolve();
+        logger.info('evenement.created', { marqueur: id });
+        return getTraceId();
+      });
+    }
+    const [a, b] = await Promise.all([requete('trace-A'), requete('trace-B')]);
+    expect(a).toBe('trace-A');
+    expect(b).toBe('trace-B');
+    // Chaque ligne de log porte le trace_id de SA requete (pas de fuite croisee).
+    const parTrace = Object.fromEntries(
+      spy.mock.calls
+        .map(
+          (c) =>
+            JSON.parse(c[0] as string) as {
+              trace_id: string | null;
+              payload: { marqueur?: string };
+            },
+        )
+        .filter((e) => e.payload.marqueur)
+        .map((e) => [e.payload.marqueur, e.trace_id]),
+    );
+    expect(parTrace['trace-A']).toBe('trace-A');
+    expect(parTrace['trace-B']).toBe('trace-B');
+    spy.mockRestore();
+  });
+
+  it('M0.9-24 — hors contexte trace : trace_id null (fallback, non-regression)', () => {
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    // Aucun runWithTrace autour → fallback sur _context (vide) → null. Le schema
+    // fige (§07/01) reste conforme : la cle trace_id est presente, a null.
+    logger.info('collecte.scheduled', { collecte_id: 'c-2', type: 'zd' });
+    const entry = JSON.parse(spy.mock.calls[0]![0] as string) as {
+      trace_id: string | null;
+    };
+    expect(entry.trace_id).toBeNull();
+    expect(generateTraceId()).toMatch(UUID_RE); // generateur = uuid v4
+    spy.mockRestore();
   });
 });

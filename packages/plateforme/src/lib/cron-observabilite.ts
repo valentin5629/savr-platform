@@ -15,7 +15,12 @@
 // =============================================================================
 import { NextResponse } from 'next/server';
 
-import { logger } from '@savr/shared/src/logger/index.js';
+import {
+  logger,
+  runWithTrace,
+  getTraceId,
+  extractOrCreateTraceId,
+} from '@savr/shared/src/logger/index.js';
 import { captureException } from '@savr/shared/src/alerting/sentry.js';
 import { sendAlert, type SlackCanal } from '@savr/shared/src/alerting/slack.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
@@ -41,9 +46,17 @@ export function assertCronAuth(req: Request): NextResponse | null {
   return null;
 }
 
-/** Émet `job.cron.started` (§07/02) et renvoie l'horodatage de départ (ms). */
+/**
+ * Émet `job.cron.started` (§07/02 l.18 : payload obligatoire `job_name, trace_id`)
+ * et renvoie l'horodatage de départ (ms). Le `trace_id` provient du contexte de
+ * trace du run (posé par `withCronObservability`) via ALS ; `null` hors run tracé.
+ */
 export function emitCronStarted(jobName: string): number {
-  logger.info('job.cron.started', { job_name: jobName }, { service: 'cron' });
+  logger.info(
+    'job.cron.started',
+    { job_name: jobName, trace_id: getTraceId() },
+    { service: 'cron' },
+  );
   return Date.now();
 }
 
@@ -105,23 +118,29 @@ export function withCronObservability<T extends object>(
     const unauthorized = assertCronAuth(req);
     if (unauthorized) return unauthorized;
 
-    const supabase = createAdminSupabaseClient();
-    const startedAt = emitCronStarted(jobName);
-    try {
-      const result = await handler({ supabase, req });
-      const nb_traite = (result as { nb_traite?: number }).nb_traite ?? null;
-      const errors = (result as { errors?: unknown[] }).errors;
-      emitCronCompleted(jobName, startedAt, {
-        nb_traite,
-        ...(Array.isArray(errors) ? { nb_errors: errors.length } : {}),
-      });
-      return NextResponse.json({ ok: true, ...result });
-    } catch (err) {
-      await emitCronFailed(jobName, err, {
-        etape: 'run',
-        canal: opts.canalOnFailure,
-      });
-      return NextResponse.json({ error: String(err) }, { status: 500 });
-    }
+    // Contexte de trace du run : un `trace_id` par exécution de cron (honore un
+    // header entrant, sinon généré). Tous les events du run — job.cron.* ET les
+    // logs transitifs des adapters/clients appelés dans `handler` — le portent.
+    const traceId = extractOrCreateTraceId((n) => req.headers.get(n));
+    return runWithTrace(traceId, async () => {
+      const supabase = createAdminSupabaseClient();
+      const startedAt = emitCronStarted(jobName);
+      try {
+        const result = await handler({ supabase, req });
+        const nb_traite = (result as { nb_traite?: number }).nb_traite ?? null;
+        const errors = (result as { errors?: unknown[] }).errors;
+        emitCronCompleted(jobName, startedAt, {
+          nb_traite,
+          ...(Array.isArray(errors) ? { nb_errors: errors.length } : {}),
+        });
+        return NextResponse.json({ ok: true, ...result });
+      } catch (err) {
+        await emitCronFailed(jobName, err, {
+          etape: 'run',
+          canal: opts.canalOnFailure,
+        });
+        return NextResponse.json({ error: String(err) }, { status: 500 });
+      }
+    });
   };
 }

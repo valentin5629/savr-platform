@@ -13,13 +13,18 @@ interface SidebarProps {
   onToggle?: () => void;
   /** hrefs à masquer (ex : « Mon pack AG » si l'org n'a aucun pack — §06.05 l.71). */
   hiddenNavHrefs?: string[];
+  /** Compteurs par href (ex : { '/admin/alertes': 3 }) → pastille sur l'item. */
+  navBadges?: Record<string, number>;
   className?: string;
 }
 
 // Sidebar — bloc primaire plein primary-800 (levier #2)
 // Item actif : fond primary-700 + barre accent-500 3px gauche
 const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
-  ({ role, collapsed = false, onToggle, hiddenNavHrefs, className }, ref) => {
+  (
+    { role, collapsed = false, onToggle, hiddenNavHrefs, navBadges, className },
+    ref,
+  ) => {
     const pathname = usePathname();
     const hidden = new Set(hiddenNavHrefs ?? []);
     const groups = (NAV_CONFIG[role] ?? []).map((g) => ({
@@ -69,6 +74,7 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
                   pathname === item.href ||
                   pathname.startsWith(item.href + '/');
                 const Icon = item.icon;
+                const badgeCount = navBadges?.[item.href] ?? 0;
                 return (
                   <Link
                     key={item.href}
@@ -90,16 +96,33 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
                         aria-hidden="true"
                       />
                     )}
-                    <Icon
-                      className={cn(
-                        'h-5 w-5 shrink-0',
-                        isActive
-                          ? 'text-savr-white'
-                          : 'text-savr-primary-200 group-hover:text-savr-white',
+                    <span className="relative shrink-0">
+                      <Icon
+                        className={cn(
+                          'h-5 w-5',
+                          isActive
+                            ? 'text-savr-white'
+                            : 'text-savr-primary-200 group-hover:text-savr-white',
+                        )}
+                        aria-hidden="true"
+                      />
+                      {/* Collapsé : point rouge (le compteur n'a pas la place). */}
+                      {collapsed && badgeCount > 0 && (
+                        <span
+                          className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-savr-error ring-2 ring-savr-primary-800"
+                          aria-hidden="true"
+                        />
                       )}
-                      aria-hidden="true"
-                    />
+                    </span>
                     {!collapsed && <span>{item.label}</span>}
+                    {!collapsed && badgeCount > 0 && (
+                      <span
+                        className="ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-savr-error px-1.5 py-0.5 text-xs font-semibold text-savr-white"
+                        aria-label={`${badgeCount} alerte${badgeCount > 1 ? 's' : ''} ouverte${badgeCount > 1 ? 's' : ''}`}
+                      >
+                        {badgeCount > 99 ? '99+' : badgeCount}
+                      </span>
+                    )}
                   </Link>
                 );
               })}

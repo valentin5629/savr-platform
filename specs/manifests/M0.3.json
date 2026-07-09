@@ -9,11 +9,24 @@
     "packages/plateforme/src/lib/attribution-ag/notif-alerte.ts",
     "packages/plateforme/src/lib/packs/notify-pack-etat.ts",
     "supabase/migrations/20260709120000_plateforme_r22e_pack_etat_alertes.sql",
-    "packages/plateforme/vercel.json"
+    "packages/plateforme/vercel.json",
+    "packages/plateforme/src/lib/alertes-admin.ts",
+    "packages/plateforme/src/app/api/v1/admin/alertes/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/alertes/count/route.ts",
+    "packages/plateforme/src/app/api/v1/admin/alertes/[id]/route.ts",
+    "packages/plateforme/src/app/(admin)/admin/alertes/page.tsx",
+    "packages/plateforme/src/lib/nav-config.ts",
+    "packages/plateforme/src/components/layout/sidebar.tsx",
+    "packages/plateforme/src/components/layout/app-shell.tsx",
+    "packages/plateforme/src/app/(admin)/layout.tsx"
   ],
   "tests_vitest": [
     "packages/plateforme/tests/api/attributions-ag/recommandation-alertes.m0-3.test.ts",
-    "packages/plateforme/tests/api/cron/notify-pack-etat.m0-3.test.ts"
+    "packages/plateforme/tests/api/cron/notify-pack-etat.m0-3.test.ts",
+    "packages/plateforme/tests/api/admin/alertes.test.ts",
+    "packages/plateforme/tests/lib/alertes-admin.test.ts",
+    "packages/plateforme/tests/ui/alertes-page.m0-3.test.tsx",
+    "packages/plateforme/tests/ui/sidebar-nav-badge.test.tsx"
   ],
   "tests_pgtap": [
     "supabase/tests/pack_etat_alertes.m0-3.test.sql"
@@ -97,6 +110,14 @@
       "test": "supabase/tests/pack_etat_alertes.m0-3.test.sql",
       "statut": "implemented",
       "libelle": "Colonne alertes_admin.email_notifie_at (pont trigger→email tpl 9)"
+    },
+    {
+      "id": "M0.3-alertes-admin-lecteur",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Observabilité/03 - Alertes.md:43",
+      "artefact": "Lecteur manquant de plateforme.alertes_admin (émetteurs présents depuis M1.6, 0 lecteur applicatif → alertes write-only). packages/plateforme/src/app/api/v1/admin/alertes/route.ts (GET liste, filtre statut), /count/route.ts (compteur ouvertes pour pastille nav), /[id]/route.ts (PATCH action=resoudre → statut resolue + resolue_par) ; page (admin)/admin/alertes/page.tsx (file + résolution + sévérité par code via lib/alertes-admin) ; entrée nav « Alertes » + pastille compteur ((admin)/layout fetch count → AppShell/Sidebar navBadges). Admin Savr uniquement (RLS aa_admin admin-only, gate requireAdmin). §07/03 §3 « le canal d'action des alertes fonctionnelles est l'écran Admin, pas Slack ».",
+      "test": "packages/plateforme/tests/api/admin/alertes.test.ts ; packages/plateforme/tests/lib/alertes-admin.test.ts ; packages/plateforme/tests/ui/alertes-page.m0-3.test.tsx ; packages/plateforme/tests/ui/sidebar-nav-badge.test.tsx",
+      "statut": "à-vérifier",
+      "libelle": "Écran Admin — file des alertes in-app + résolution + pastille nav (lecteur alertes_admin) — logique testée, rendu UI à valider visuellement (checkpoint Val)"
     }
   ],
   "cdc_source_hash": {

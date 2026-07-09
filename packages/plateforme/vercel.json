@@ -47,6 +47,10 @@
     {
       "path": "/api/cron/refresh-benchmark",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/notify-pack-etat",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

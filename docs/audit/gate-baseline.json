@@ -1,7 +1,7 @@
 {
   "manifest-grain": 0,
-  "spec-deliverables": 20,
-  "manifest-completeness": 5,
+  "spec-deliverables": 19,
+  "manifest-completeness": 4,
   "cdc-drift": 0,
   "column-db": 8,
   "test-mocks": 0,

@@ -1,0 +1,108 @@
+{
+  "module": "M0.3",
+  "title": "Seed prestataires + alertes Admin AG manquantes (BL-P2-30)",
+  "description": "Lot de remédiation R22e. phase1 (seed prestataires/transporteurs/associations/packs) DÉJÀ satisfaite par le seed minimal V1 (fixture pack bas incluse). phase2 = les 3 alertes Admin AG jamais émises : (a) aucune association éligible, (b) aucun transporteur province éligible (branche aucun_prestataire) → alertes in-app via f_upsert_alerte_admin depuis la route recommandation ; (c) pack AG bas (franchissement ≤10%) → alerte in-app pack_ag_bas dans les triggers de débit + email template 9 admin_pack_ag_etat (bas/épuisé) émis par le cron notify-pack-etat. Re-arm F4 : recrédit >10% résout l'alerte ouverte.",
+  "fichiers": [
+    "packages/shared/src/seed/minimal.ts",
+    "packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/recommandation/route.ts",
+    "packages/plateforme/src/app/api/cron/notify-pack-etat/route.ts",
+    "packages/plateforme/src/lib/attribution-ag/notif-alerte.ts",
+    "packages/plateforme/src/lib/packs/notify-pack-etat.ts",
+    "supabase/migrations/20260709120000_plateforme_r22e_pack_etat_alertes.sql",
+    "packages/plateforme/vercel.json"
+  ],
+  "tests_vitest": [
+    "packages/plateforme/tests/api/attributions-ag/recommandation-alertes.m0-3.test.ts",
+    "packages/plateforme/tests/api/cron/notify-pack-etat.m0-3.test.ts"
+  ],
+  "tests_pgtap": [
+    "supabase/tests/pack_etat_alertes.m0-3.test.sql"
+  ],
+  "scenarios": [
+    "M0.3-1 — aucune association éligible (no_asso) → alerte attribution_aucune_asso émise",
+    "M0.3-2 — aucun transporteur éligible (no_prestataire) → alerte attribution_aucun_prestataire émise",
+    "M0.3-3 — reco complète (association + transporteur) → aucune alerte attribution émise",
+    "M0.3-4 — best-effort : échec f_upsert_alerte_admin n’empêche pas la réponse 200",
+    "M0.3-5 — alerte pack_ag_bas → template 9 niveau=bas envoyé + email_notifie_at posé",
+    "M0.3-6 — alerte pack_ag_epuise → template 9 niveau=epuise (bloc programmation bloquée)",
+    "M0.3-7 — alerte déjà notifiée (email_notifie_at renseigné) → aucun renvoi (idempotent)",
+    "M0.3-8 — variables tpl 9 résolues depuis le pack (organisation, crédits, pct, etat_libelle)"
+  ],
+  "hors_scope": [
+    "Alerte Slack pack.exhausted (§07/03 §2) — hors BL-P2-30, canal ops distinct non touché par ce lot",
+    "Re-seed prestataires/transporteurs/associations — phase1 déjà satisfaite par le seed minimal V1 (aucune ligne/colonne manquante)",
+    "tms.* (non créé en V1)"
+  ],
+  "deliverables": [
+    {
+      "id": "BL-P2-30",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md",
+      "artefact": "phase1 seed (packages/shared/src/seed/minimal.ts : shared.prestataires, plateforme.transporteurs type_tms mts1/a_toutes, plateforme.associations, packs_antgaspi dont pack_cirette_bas à 8%) DÉJÀ présent V1 ; phase2 alertes Admin AG (recommandation route + triggers pack + cron tpl 9).",
+      "test": "seed:check ; M0.3-1 ; M0.3-2 ; M0.3-5 ; supabase/tests/pack_etat_alertes.m0-3.test.sql",
+      "statut": "implemented",
+      "libelle": "BL-P2-30 — Schéma seed prestataires + alertes Admin AG manquantes"
+    },
+    {
+      "id": "M0.3-seed-prestataires",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md",
+      "artefact": "packages/shared/src/seed/minimal.ts — shared.prestataires (Strike/Marathon/Transnormandie, type_prestation zd+ag, mode_integration mts1) + plateforme.transporteurs (type_tms, code_transporteur_mts1, types_vehicules) + plateforme.associations + packs_antgaspi (fixtures actif/bas/épuisé). phase1 déjà satisfaite — vérifiée par seed:check (volumétrie + objets clés).",
+      "test": "seed:check",
+      "statut": "implemented",
+      "libelle": "phase1 — seed prestataires/transporteurs/associations/packs (déjà satisfait V1)"
+    },
+    {
+      "id": "M0.3-alerte-aucune-asso",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:61",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/recommandation/route.ts + lib/attribution-ag/notif-alerte.ts : quand l'algo retourne no_asso=true → f_upsert_alerte_admin('attribution_aucune_asso', …, entity=collecte). §05 l.61 « alerte Admin Savr immédiate ». In-app (§07/03 : alerte fonctionnelle, pas Slack). Idempotent + best-effort.",
+      "test": "M0.3-1 ; M0.3-4",
+      "statut": "implemented",
+      "libelle": "Alerte in-app Admin — aucune association éligible (§05 l.61)"
+    },
+    {
+      "id": "M0.3-alerte-aucun-prestataire",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:83",
+      "artefact": "recommandation/route.ts : quand l'algo retourne no_prestataire=true (branche aucun_prestataire, incl. province tri distance) → f_upsert_alerte_admin('attribution_aucun_prestataire', …). §05 l.83/l.104/l.120.",
+      "test": "M0.3-2 ; M0.3-4",
+      "statut": "implemented",
+      "libelle": "Alerte in-app Admin — aucun transporteur éligible / aucun_prestataire (§05 l.83)"
+    },
+    {
+      "id": "M0.3-alerte-pack-bas",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:1018",
+      "artefact": "supabase/migrations/20260709120000 : fn_trg_pack_debit_realisee + fn_trg_pack_debit_annulation_tardive — détection franchissement du seuil 10% (restants avant >10% ET après ≤10% ET non épuisé) → f_upsert_alerte_admin('pack_ag_bas', …, entity=pack). Le pack_ag_epuise in-app préexistant est conservé.",
+      "test": "supabase/tests/pack_etat_alertes.m0-3.test.sql",
+      "statut": "implemented",
+      "libelle": "Alerte in-app Admin — pack AG bientôt épuisé (franchissement ≤10%, §05 l.1018)"
+    },
+    {
+      "id": "M0.3-rearm-pack-alerte",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:204",
+      "artefact": "supabase/migrations/20260709120000 : fn_trg_pack_recredit + rpc_annuler_credit_collecte — un recrédit qui repasse le solde >10% RÉSOUT (statut='resolue') l'alerte ouverte pack_ag_bas/pack_ag_epuise → ré-arme le déclencheur (F4 tranchée Val 2026-06-07).",
+      "test": "supabase/tests/pack_etat_alertes.m0-3.test.sql",
+      "statut": "implemented",
+      "libelle": "Re-arm F4 — recrédit >10% résout l'alerte ouverte (§06.02 l.204)"
+    },
+    {
+      "id": "M0.3-tpl9-email",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:199",
+      "artefact": "packages/plateforme/src/app/api/cron/notify-pack-etat/route.ts + lib/packs/notify-pack-etat.ts : scanne alertes_admin (code pack_ag_bas/pack_ag_epuise, statut ouverte, email_notifie_at IS NULL) → sendEmail('admin_pack_ag_etat','hello@gosavr.io', {niveau, etat_libelle, organisation_nom, credits_restants/initiaux, pct_restant, niveau_bas, niveau_epuise, …}) → pose email_notifie_at (idempotent). Destinataire = tous admin_savr via inbox partagée (§06.02 l.202). vercel.json cron.",
+      "test": "M0.3-5 ; M0.3-6 ; M0.3-7 ; M0.3-8",
+      "statut": "implemented",
+      "libelle": "Email template 9 admin_pack_ag_etat (bas/épuisé) émis au débit — cron notify-pack-etat"
+    },
+    {
+      "id": "M0.3-alertes-admin-email-notifie-at",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Observabilité/03 - Alertes.md:34",
+      "artefact": "supabase/migrations/20260709120000 : ALTER TABLE plateforme.alertes_admin ADD COLUMN email_notifie_at timestamptz + index partiel (code pack_ag_* WHERE email_notifie_at IS NULL). Table V1-only (hors DDL cible V2) — pont trigger→email, idempotence du cron.",
+      "test": "supabase/tests/pack_etat_alertes.m0-3.test.sql",
+      "statut": "implemented",
+      "libelle": "Colonne alertes_admin.email_notifie_at (pont trigger→email tpl 9)"
+    }
+  ],
+  "cdc_source_hash": {
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "6955e1879f87a60d8a0cc83d32fd1a7e4902bc62acdd9c4742c1527c192428bd",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "e334d1b439d2356f12db8de139d495f9797c9a1c203e1b31e61ade71a8fb302a",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "ceab086160acfc84dbd698257fc03436484fb3f8d8fb40ec79d416ee67fd227d",
+    "specs/cdc/01 - Cahier des charges App/07 - Observabilité/03 - Alertes.md": "8a2f0c7e7f24f2235cf5f245a95188dd61d91591689972afe181bf82acf1f8d2"
+  }
+}

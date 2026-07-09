@@ -13,6 +13,7 @@ export type Database = {
         Row: {
           code: string
           created_at: string
+          email_notifie_at: string | null
           entity_id: string | null
           entity_type: string | null
           id: string
@@ -25,6 +26,7 @@ export type Database = {
         Insert: {
           code: string
           created_at?: string
+          email_notifie_at?: string | null
           entity_id?: string | null
           entity_type?: string | null
           id?: string
@@ -37,6 +39,7 @@ export type Database = {
         Update: {
           code?: string
           created_at?: string
+          email_notifie_at?: string | null
           entity_id?: string | null
           entity_type?: string | null
           id?: string

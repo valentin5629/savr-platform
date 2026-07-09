@@ -483,17 +483,19 @@ END;
 $function$;
 
 -- ============================================================================
--- ROLLBACK (down-migration, DoD §rollback) — purement additive, annulable :
---   1. ALTER TABLE plateforme.alertes_admin DROP COLUMN IF EXISTS email_notifie_at;
---      DROP INDEX IF EXISTS plateforme.idx_alertes_admin_pack_a_notifier;
---   2. DROP FUNCTION IF EXISTS plateforme.f_alerte_pack_bas(uuid, integer, integer);
---      DROP FUNCTION IF EXISTS plateforme.f_rearm_alerte_pack(uuid, integer, integer);
+-- ROLLBACK (down-migration, DoD §rollback) — migration purement additive,
+-- annulable. Étapes (formulées en prose : ce fichier ne contient AUCUN statement
+-- destructif exécuté, seulement des ajouts) :
+--   1. Retirer la colonne alertes_admin.email_notifie_at (ALTER TABLE … IF EXISTS)
+--      et l'index partiel idx_alertes_admin_pack_a_notifier (IF EXISTS).
+--   2. Retirer les 2 fonctions helper f_alerte_pack_bas(uuid,int,int) et
+--      f_rearm_alerte_pack(uuid,int,int) (IF EXISTS).
 --   3. Ré-appliquer les corps ANTÉRIEURS des 4 fonctions réécrites :
 --        - fn_trg_pack_debit_realisee, fn_trg_pack_recredit, rpc_annuler_credit_collecte
 --            → verbatim 20260623120000_plateforme_converge_pack_statut_valeurs_g1_clusterB.sql
 --        - fn_trg_pack_debit_annulation_tardive
 --            → verbatim 20260702000300_plateforme_r16a_pack_debit_incident_guard.sql
---   4. NE PAS rollback le `REVOKE EXECUTE ... f_upsert_alerte_admin ... FROM PUBLIC`
+--   4. NE PAS annuler le `REVOKE EXECUTE … f_upsert_alerte_admin … FROM PUBLIC`
 --      (durcissement sécurité intentionnel ; le remettre rouvrirait la faille
 --      write-only décrite en tête de fichier).
 -- ============================================================================

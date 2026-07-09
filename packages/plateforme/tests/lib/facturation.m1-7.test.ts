@@ -270,6 +270,42 @@ describe('M1.7 / validerFacture / Erreur 4xx Pennylane', () => {
   });
 });
 
+describe('M0.9 — Pennylane 429 retryable (BL-P2-33)', () => {
+  let teardown: () => void;
+
+  beforeEach(() => {
+    teardown = setupPennylaneMock({ create: 'error_429' });
+  });
+
+  afterEach(() => {
+    teardown();
+    vi.clearAllMocks();
+  });
+
+  it('BL-P2-33 : 429 create → en_attente_pennylane / retry_1 (jamais echec_4xx terminal)', async () => {
+    const sb = makeSupabase([
+      { data: FACTURE_BROUILLON, error: null },
+      { data: null, error: null }, // update en_attente_pennylane
+      { data: null, error: null }, // update retry_1
+    ]);
+    sb._rpcSingle.mockResolvedValueOnce({
+      data: 'FZD-2026-00001',
+      error: null,
+    });
+
+    const result = await validerFacture(sb as never, 'fac-001');
+
+    expect(result.ok).toBe(false);
+    // 429 = rate-limit → retryable (VOLET 3), pas de bascule brouillon/echec_4xx.
+    expect(result.statut).toBe('en_attente_pennylane');
+    const updateCalls = (sb._chain.update as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[Record<string, unknown>]>;
+    const lastUpdate = updateCalls[updateCalls.length - 1]![0];
+    expect(lastUpdate.statut).toBe('en_attente_pennylane');
+    expect(lastUpdate.pennylane_statut).toBe('retry_1');
+  });
+});
+
 describe('M1.7 / validerFacture / Erreur 5xx Pennylane', () => {
   let teardown: () => void;
 

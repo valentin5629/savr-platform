@@ -480,7 +480,10 @@ export class Mts1Client {
     if (status === 408 || status === 504) {
       return new LogistiqueAmbiguousError(`MTS-1 ${status} : ${message}`);
     }
-    if (status >= 500) {
+    // 429 rate-limit → transitoire : retenté par les paliers de l'outbox worker
+    // (5 min/1 h/24 h), jamais DLQ direct (VOLET 3 R22g, défensif — honore le 429 via
+    // le back-off palier, quotas éditeur inconnus §08 l.512 Q3bis-4).
+    if (status === 429 || status >= 500) {
       return new LogistiqueTransientError(`MTS-1 ${status} : ${message}`);
     }
     return new LogistiquePermanentError(`MTS-1 ${status} : ${message}`);

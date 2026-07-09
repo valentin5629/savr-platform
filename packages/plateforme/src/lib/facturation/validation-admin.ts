@@ -10,6 +10,7 @@ import {
   finalizeInvoice,
   sendInvoiceEmail,
   is4xx,
+  is429,
 } from '../pennylane/client.js';
 import {
   attribuerNumeroFacture,
@@ -275,7 +276,8 @@ export async function validerFacture(
   if (!customerId) {
     const custRes = await createCustomer(supabase, buildCustomerPayload(ef));
     if (!custRes.ok) {
-      const is4 = is4xx(custRes);
+      // 429 exclu du terminal 4xx → retenté (VOLET 3 R22g).
+      const is4 = is4xx(custRes) && !is429(custRes);
       await supabase
         .from('factures')
         .update({
@@ -312,7 +314,8 @@ export async function validerFacture(
   const createRes = await createInvoice(supabase, payload, factureId);
 
   if (!createRes.ok) {
-    const is4 = is4xx(createRes);
+    // 429 exclu du terminal 4xx → retenté (VOLET 3 R22g).
+    const is4 = is4xx(createRes) && !is429(createRes);
     await supabase
       .from('factures')
       .update({

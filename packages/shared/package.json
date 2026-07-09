@@ -17,7 +17,8 @@
     "./src/siret/revalidation.js": "./src/siret/revalidation.ts",
     "./src/logger/index.js": "./src/logger/index.ts",
     "./src/alerting/sentry.js": "./src/alerting/sentry.ts",
-    "./src/alerting/slack.js": "./src/alerting/slack.ts"
+    "./src/alerting/slack.js": "./src/alerting/slack.ts",
+    "./src/rate-limit/outbound-throttle.js": "./src/rate-limit/outbound-throttle.ts"
   },
   "scripts": {
     "build": "echo 'shared: build no-op (paquet TS-only consommé via main)'",

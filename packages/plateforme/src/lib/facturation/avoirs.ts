@@ -7,6 +7,7 @@ import {
   finalizeInvoice,
   sendInvoiceEmail,
   is4xx,
+  is429,
 } from '../pennylane/client.js';
 import { attribuerNumeroFacture } from './numerotation.js';
 
@@ -185,11 +186,13 @@ export async function creerAvoir(
   const createRes = await createInvoice(supabase, pennylanePayload, avoir_id);
 
   if (!createRes.ok) {
+    // 429 exclu du terminal 4xx → retenté (VOLET 3 R22g).
+    const is4 = is4xx(createRes) && !is429(createRes);
     await supabase
       .from('factures')
       .update({
-        statut: is4xx(createRes) ? 'brouillon' : 'en_attente_pennylane',
-        pennylane_statut: is4xx(createRes) ? 'echec_4xx' : 'retry_1',
+        statut: is4 ? 'brouillon' : 'en_attente_pennylane',
+        pennylane_statut: is4 ? 'echec_4xx' : 'retry_1',
         erreur_synchro: createRes.message,
         erreur_synchro_at: now.toISOString(),
         updated_at: now.toISOString(),

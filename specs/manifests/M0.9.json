@@ -13,14 +13,24 @@
     "packages/plateforme/src/app/api/health/full/route.ts",
     "packages/plateforme/src/app/(admin)/admin/sante-systeme/page.tsx",
     "supabase/migrations/20260613000001_plateforme_health_views_ops.sql",
-    "supabase/migrations/20260613120000_plateforme_health_views_security_invoker.sql"
+    "supabase/migrations/20260613120000_plateforme_health_views_security_invoker.sql",
+    "packages/shared/src/api/integrations-log.ts",
+    "packages/shared/src/api/siret.ts",
+    "packages/shared/src/api/tva.ts",
+    "packages/shared/src/rate-limit/outbound-throttle.ts",
+    "packages/plateforme/src/app/api/cron/purge-logs/route.ts",
+    "supabase/migrations/20260710000000_plateforme_purge_logs_retention_partitions.sql"
   ],
   "tests_vitest": [
     "packages/shared/src/logger/logger.m0-9.test.ts",
-    "packages/shared/src/alerting/alerting.m0-9.test.ts"
+    "packages/shared/src/alerting/alerting.m0-9.test.ts",
+    "packages/shared/src/rate-limit/outbound-throttle.m0-9.test.ts",
+    "packages/shared/src/api/integrations-tiers-log.m0-9.test.ts",
+    "packages/adapters/src/mts1/client-429.m0-9.test.ts"
   ],
   "tests_pgtap": [
-    "supabase/tests/health_ops_views.m0-9.test.sql"
+    "supabase/tests/health_ops_views.m0-9.test.sql",
+    "supabase/tests/purge_logs_retention.m0-9.test.sql"
   ],
   "scenarios": [
     "M0.9-1 — logger JSON stdout — schéma figé {ts, level, service, event, actor_id, actor_role, org_id, trace_id, payload}",
@@ -247,12 +257,21 @@
       "test": "M0.9-21 ; M0.9-22 ; M0.9-23 ; M0.9-24 ; M0.9-25",
       "statut": "implemented",
       "libelle": "BL-P2-44 — OTel léger + trace_id généré/propagé (AsyncLocalStorage, requête + cron)"
+    },
+    {
+      "id": "BL-P2-33",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:636",
+      "artefact": "Rate-limit tiers + logs INSEE/VIES + rétention (décision Val Q1 « Logs + défensif », R22g). VOLET 1 — journal integrations_logs des appels INSEE (packages/shared/src/api/siret.ts) et VIES (tva.ts) via logIntegration() best-effort (packages/shared/src/api/integrations-log.ts) : integration/direction/methode/endpoint/statut_http/duree_ms/correlation_id(=SIRET|TVA)/erreur, AUCUN en-tête/secret (table réelle sans request_headers, §04 l.2323), jamais bloquant (§04/§15). Complète les logs déjà en place (Pennylane/Resend/adapters logistiques). VOLET 2 — rotation + rétention (migration 20260710000000) : f_ensure_partition_annee + f_purge_logs = job « purge_logs » (§07/02) : partitions integrations_logs année courante+suivante, purge > 2 ans (§04 l.2312/§08 l.639), purge integrations_inbox > 7 j (§04 l.2351), audit_log 2027-2031 pré-provisionné mais JAMAIS purgé (§07/02 l.55) ; cron quotidien /api/cron/purge-logs (04:00) ; REVOKE PUBLIC + GRANT service_role. VOLET 3 — défensif 429 (§08 l.655, Pennylane 120/min, Resend 10/s) : throttle sortant PARTAGÉ in-memory NON distribué (packages/shared/src/rate-limit/outbound-throttle.ts, espacement + honorer Retry-After) câblé chemin réel Pennylane (pennylaneRequest) + Resend (dispatchToResend) ; 429 rendu RETRYABLE — MTS-1 httpError 429→Transient (retry paliers, plus DLQ direct), Pennylane is429 exclu du terminal echec_4xx (validation-admin/avoirs), INSEE 429→'down' (revalidation-siret). HORS scope (Val Q1/Q3) : limiteur ENTRANT nouveau, quota distribué (V1.1), Railway, succès Resend, throttle Everest.",
+      "test": "M0.9 — logs tiers INSEE/VIES (BL-P2-33) ; M0.9 — throttle sortant défensif (BL-P2-33) ; M0.9 — MTS-1 429 transitoire (BL-P2-33) ; M0.9 — Pennylane 429 retryable (BL-P2-33) ; supabase/tests/purge_logs_retention.m0-9.test.sql",
+      "statut": "implemented",
+      "libelle": "BL-P2-33 — Rate-limit tiers défensif + logs INSEE/VIES + rétention 2 ans (rotation partitions purge_logs)"
     }
   ],
   "cdc_source_hash": {
     "specs/cdc/01 - Cahier des charges App/07 - Observabilité/01 - Logs business.md": "bda4490df59ea574a7cd48a66dc6136f1864543cd18a624f6a43493da0b42287",
     "specs/cdc/01 - Cahier des charges App/07 - Observabilité/02 - Logs techniques.md": "6ef1ab77a5bb90496e24ffb564467193e5a7876208ef0c587899bfebaae45f36",
     "specs/cdc/01 - Cahier des charges App/07 - Observabilité/03 - Alertes.md": "8a2f0c7e7f24f2235cf5f245a95188dd61d91591689972afe181bf82acf1f8d2",
-    "specs/cdc/01 - Cahier des charges App/07 - Observabilité/06 - Audit trail.md": "4c34eefcb747039ee1dc825321457083e0f286fe138c31d2c06a973c212acadd"
+    "specs/cdc/01 - Cahier des charges App/07 - Observabilité/06 - Audit trail.md": "4c34eefcb747039ee1dc825321457083e0f286fe138c31d2c06a973c212acadd",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "fc007aa1be20a5e0f82dc5cd4bbce73a6eb31e209d8b97f366e764d93628cd55"
   }
 }

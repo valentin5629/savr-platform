@@ -10,6 +10,11 @@
 
 import { logger } from '@savr/shared/src/logger/index.js';
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
+import {
+  throttleOutbound,
+  honorRetryAfter,
+  parseRetryAfter,
+} from '@savr/shared/src/rate-limit/outbound-throttle.js';
 
 import {
   _getPennylaneHandlers,
@@ -91,6 +96,9 @@ async function pennylaneRequest<T>(
     };
     if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
 
+    // VOLET 3 R22g — espacement défensif (§08 l.655, Pennylane 120 req/min).
+    await throttleOutbound('pennylane');
+
     const res = await fetch(`${BASE_URL}${path}`, {
       method,
       headers,
@@ -99,6 +107,14 @@ async function pennylaneRequest<T>(
     });
 
     if (!res.ok) {
+      // 429 rate-limit : honore Retry-After (décale le prochain appel) — l'échec reste
+      // retryable (429 exclu du terminal echec_4xx, cf. validation-admin/avoirs).
+      if (res.status === 429) {
+        honorRetryAfter(
+          'pennylane',
+          parseRetryAfter(res.headers.get('retry-after')),
+        );
+      }
       let errBody: Record<string, unknown> = {};
       try {
         errBody = (await res.json()) as Record<string, unknown>;
@@ -328,4 +344,11 @@ export function is4xx(err: PennylaneError): boolean {
 
 export function is5xx(err: PennylaneError): boolean {
   return err.status >= 500 || err.status === 0;
+}
+
+// VOLET 3 R22g (défensif) : 429 est un 4xx NON terminal — un rate-limit Pennylane doit
+// être RETENTÉ (via en_attente_pennylane/retry_1), jamais figé en echec_4xx/brouillon.
+// Les appelants excluent donc 429 du terminal 4xx : `is4xx(err) && !is429(err)`.
+export function is429(err: PennylaneError): boolean {
+  return err.status === 429;
 }

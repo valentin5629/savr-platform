@@ -4493,6 +4493,7 @@ export type Database = {
           nb_collectes: number
         }[]
       }
+      f_purge_logs: { Args: { p_now?: string }; Returns: Json }
       f_upsert_alerte_admin: {
         Args: {
           p_code: string

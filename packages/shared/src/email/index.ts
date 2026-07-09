@@ -1,5 +1,10 @@
 import { Resend } from 'resend';
 import { createAdminSupabaseClient } from '../supabase-client.js';
+import {
+  throttleOutbound,
+  honorRetryAfter,
+  parseRetryAfter,
+} from '../rate-limit/outbound-throttle.js';
 
 export interface SendEmailOptions {
   entityType?: string;
@@ -116,6 +121,10 @@ async function dispatchToResend(
   if (apiKey === 'test') {
     return { resendId: null, statut: 'sent', erreur: null };
   }
+  // VOLET 3 R22g — espacement défensif (§08 l.655, Resend 10 req/s) : borne le débit
+  // des envois groupés (batch / retries) sous le plafond de l'éditeur. Chemin réel
+  // uniquement (le sink 'test' ci-dessus court-circuite → aucun impact sur les tests).
+  await throttleOutbound('resend');
   const resend = new Resend(apiKey);
   const result = await resend.emails.send({
     from: process.env['RESEND_FROM'] ?? 'noreply@gosavr.io',
@@ -124,6 +133,14 @@ async function dispatchToResend(
     html,
   });
   if (result.error) {
+    // 429 Resend : honore Retry-After (décale le prochain envoi) — l'échec est ensuite
+    // retenté par le worker email-retry (§08 §6, paliers 5 min/1 h/24 h) (VOLET 3 R22g).
+    if (result.error.name === 'rate_limit_exceeded') {
+      honorRetryAfter(
+        'resend',
+        parseRetryAfter(result.headers?.['retry-after'] ?? null),
+      );
+    }
     return { resendId: null, statut: 'failed', erreur: result.error.message };
   }
   return { resendId: result.data?.id ?? null, statut: 'sent', erreur: null };

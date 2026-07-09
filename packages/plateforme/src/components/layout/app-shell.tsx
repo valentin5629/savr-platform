@@ -14,6 +14,8 @@ interface AppShellProps {
   onLogout?: () => void;
   /** hrefs de nav à masquer (calculé côté serveur, ex : « Mon pack AG » §06.05 l.71). */
   hiddenNavHrefs?: string[];
+  /** Compteurs par href (calculé côté serveur, ex : { '/admin/alertes': 3 }). */
+  navBadges?: Record<string, number>;
   children: React.ReactNode;
   className?: string;
 }
@@ -24,6 +26,7 @@ const AppShell = ({
   pageTitle,
   onLogout,
   hiddenNavHrefs,
+  navBadges,
   children,
   className,
 }: AppShellProps) => {
@@ -44,6 +47,7 @@ const AppShell = ({
           collapsed={sidebarCollapsed}
           onToggle={() => setSidebarCollapsed((v) => !v)}
           hiddenNavHrefs={hiddenNavHrefs}
+          navBadges={navBadges}
         />
       </div>
 
@@ -63,7 +67,11 @@ const AppShell = ({
           mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
-        <Sidebar role={role} hiddenNavHrefs={hiddenNavHrefs} />
+        <Sidebar
+          role={role}
+          hiddenNavHrefs={hiddenNavHrefs}
+          navBadges={navBadges}
+        />
       </div>
 
       {/* Contenu principal */}

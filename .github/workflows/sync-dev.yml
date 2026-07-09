@@ -1,0 +1,50 @@
+name: sync-dev-visualisation
+
+# Après chaque push sur `main` (merge de module), resynchronise la branche `dev`
+# de VISUALISATION sur le contenu de main. La branche `dev` alimente l'alias
+# Vercel stable `savr-platform-git-dev-savr-s-projects.vercel.app` (site de
+# visualisation, base savr-dev). Cf. la topologie de déploiement.
+#
+# Deux subtilités que ce workflow gère :
+#  1. Piège dédup Vercel : pousser `dev` sur EXACTEMENT le SHA de main (déjà buildé
+#     en Production) → Vercel ne rebuild pas et réutilise le build Production
+#     (variables PROD). On pousse donc un commit VIDE au-dessus de main (même tree,
+#     SHA distinct) → Vercel rebuild en Preview→dev (variables dev).
+#  2. Pas de double CI : le push est fait avec le GITHUB_TOKEN par défaut ; un push
+#     via GITHUB_TOKEN NE déclenche PAS d'autres workflows (donc quality.yml ne
+#     re-tourne pas sur `dev`), alors que le webhook Git de Vercel, lui, déploie.
+
+on:
+  push:
+    branches: [main]
+
+# Le résultat n'est fonction que du dernier main : on annule un resync en cours
+# au profit du plus récent (jamais de push d'un main périmé par-dessus un neuf).
+concurrency:
+  group: sync-dev-visualisation
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  sync-dev:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # `git commit-tree ... -p HEAD` n'a besoin que de HEAD + son tree ;
+          # la profondeur 1 par défaut suffit. Les credentials du token sont
+          # persistés par checkout → le push ci-dessous est authentifié.
+          fetch-depth: 1
+
+      - name: Resync `dev` sur main (SHA distinct → build Preview→dev)
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          SHORT="$(git rev-parse --short HEAD)"
+          NEW="$(git commit-tree "$(git rev-parse 'HEAD^{tree}')" -p HEAD \
+            -m "chore(dev): resync visualisation sur main (${SHORT})")"
+          echo "main=${SHORT} → dev=${NEW}"
+          git push --force origin "${NEW}:dev"

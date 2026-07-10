@@ -33,3 +33,16 @@ export function statutTmsDisplay(statutTms: string): {
     STATUT_TMS_DISPLAY[statutTms] ?? { label: statutTms, variant: 'neutral' }
   );
 }
+
+// BL-P3-12 — Picto plaque TMS (monitoring Admin interne, CDC §11) : vert si TOUTES
+// les tournées de la collecte ont leur plaque_immatriculation renseignée, gris si
+// au moins une manque. Collecte sans tournée = false (le picto n'est pas rendu à
+// vide, le bloc Tournées lui-même n'apparaissant que si length > 0).
+export function plaqueTmsComplete(
+  tournees: { tournees: { plaque_immatriculation: string | null } }[],
+): boolean {
+  return (
+    tournees.length > 0 &&
+    tournees.every((ct) => Boolean(ct.tournees.plaque_immatriculation))
+  );
+}

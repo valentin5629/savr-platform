@@ -181,6 +181,11 @@ export const NAV_CONFIG: Record<Role, NavGroup[]> = {
           href: '/registre',
           icon: ClipboardList,
         },
+        {
+          label: 'Mon profil',
+          href: '/organisateur/mon-profil',
+          icon: Settings,
+        },
       ],
     },
   ],

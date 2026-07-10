@@ -5,7 +5,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 
 // Mock next/navigation — usePathname n'a pas de contexte router en jsdom
 vi.mock('next/navigation', () => ({ usePathname: () => '/' }));
@@ -33,6 +33,33 @@ import { StatusCollecte } from '@/components/ui/status-collecte';
 import { PackAGIndicator } from '@/components/ui/pack-ag-indicator';
 import { ImpersonationBanner } from '@/components/ui/impersonation-banner';
 import { DataTable } from '@/components/ui/data-table';
+// R23a — composants DS §6 ajoutés (BL-P3-01)
+import { Tooltip } from '@/components/ui/tooltip';
+import { ToastProvider, useToast } from '@/components/ui/toast';
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from '@/components/ui/accordion';
+import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Dropdown,
+  DropdownTrigger,
+  DropdownContent,
+  DropdownItem,
+} from '@/components/ui/dropdown';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Sheet } from '@/components/ui/sheet';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Pagination } from '@/components/ui/pagination';
+import { Breadcrumb } from '@/components/ui/breadcrumb';
+import { IconButton } from '@/components/ui/icon-button';
+import { TourneeCard } from '@/components/ui/tournee-card';
+import { FormError } from '@/components/ui/form-error';
+import { Input } from '@/components/ui/input';
+import { StatCard, StatCardGrid } from '@/components/ui/stat-card';
 import { Sidebar } from '@/components/layout/sidebar';
 import { getNavItems } from '@/lib/nav-config';
 import type { Role } from '@/lib/nav-config';
@@ -305,4 +332,257 @@ it('M0.8-22 — entrées non autorisées pour le rôle sont absentes de la navig
 it('M0.8-23 — pnpm build passe sans erreur TypeScript', () => {
   // Ancre manifest — vérifié par CI (pnpm build)
   expect(true).toBe(true);
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// R23a — BL-P3-01 : composants DS §6 manquants + états §7 + tokens + 44px §8/§10
+// (tests titrés « M0.8-NN » en top-level pour être captés par test:module M0.8)
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── Tooltip (§6, §7 Disabled) ────────────────────────────────────────────────
+it('M0.8-24 — Tooltip affiche son contenu à l’ouverture', () => {
+  render(
+    <Tooltip open content="Pack AG épuisé — contacter Savr">
+      <button>Programmer</button>
+    </Tooltip>,
+  );
+  expect(
+    screen.getByRole('button', { name: 'Programmer' }),
+  ).toBeInTheDocument();
+  // Radix rend un duplicata visually-hidden pour lecteurs d’écran → getAllByText
+  expect(
+    screen.getAllByText('Pack AG épuisé — contacter Savr').length,
+  ).toBeGreaterThan(0);
+});
+
+// ── Toast (§6, §7 Success 4s) ────────────────────────────────────────────────
+it('M0.8-25 — Toast s’affiche via useToast avec une variante', () => {
+  function Trigger() {
+    const { toast } = useToast();
+    return (
+      <button
+        onClick={() =>
+          toast({ title: 'Collecte enregistrée', variant: 'success' })
+        }
+      >
+        Envoyer
+      </button>
+    );
+  }
+  render(
+    <ToastProvider>
+      <Trigger />
+    </ToastProvider>,
+  );
+  expect(screen.queryByText('Collecte enregistrée')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByText('Envoyer'));
+  expect(screen.getByText('Collecte enregistrée')).toBeInTheDocument();
+});
+
+// ── Accordion (§6, §8 mobile) ────────────────────────────────────────────────
+it('M0.8-26 — Accordion déplie le contenu de l’item ouvert', () => {
+  render(
+    <Accordion type="single" defaultValue="a" collapsible>
+      <AccordionItem value="a">
+        <AccordionTrigger>Voir plus</AccordionTrigger>
+        <AccordionContent>Détails secondaires</AccordionContent>
+      </AccordionItem>
+    </Accordion>,
+  );
+  expect(screen.getByText('Voir plus')).toBeInTheDocument();
+  expect(screen.getByText('Détails secondaires')).toBeInTheDocument();
+});
+
+// ── Switch (§6) ──────────────────────────────────────────────────────────────
+it('M0.8-27 — Switch expose role=switch et l’état checked', () => {
+  render(<Switch defaultChecked aria-label="Activer" />);
+  const sw = screen.getByRole('switch');
+  expect(sw).toHaveAttribute('data-state', 'checked');
+});
+
+// ── Checkbox (§6) ────────────────────────────────────────────────────────────
+it('M0.8-28 — Checkbox expose role=checkbox et l’état checked', () => {
+  render(<Checkbox defaultChecked aria-label="Accepter les CGV" />);
+  const cb = screen.getByRole('checkbox');
+  expect(cb).toHaveAttribute('data-state', 'checked');
+});
+
+// ── Dropdown (§6 kebab) ──────────────────────────────────────────────────────
+it('M0.8-29 — Dropdown ouvre son menu et affiche ses items', () => {
+  render(
+    <Dropdown open>
+      <DropdownTrigger asChild>
+        <button aria-label="Actions">⋮</button>
+      </DropdownTrigger>
+      <DropdownContent>
+        <DropdownItem>Modifier</DropdownItem>
+        <DropdownItem destructive>Supprimer</DropdownItem>
+      </DropdownContent>
+    </Dropdown>,
+  );
+  expect(screen.getByText('Modifier')).toBeInTheDocument();
+  expect(screen.getByText('Supprimer')).toBeInTheDocument();
+});
+
+// ── Tabs générique (§6) ──────────────────────────────────────────────────────
+it('M0.8-30 — Tabs affiche le panneau de l’onglet actif', () => {
+  render(
+    <Tabs defaultValue="zd">
+      <TabsList>
+        <TabsTrigger value="ag">AG</TabsTrigger>
+        <TabsTrigger value="zd">ZD</TabsTrigger>
+      </TabsList>
+      <TabsContent value="ag">Contenu AG</TabsContent>
+      <TabsContent value="zd">Contenu ZD</TabsContent>
+    </Tabs>,
+  );
+  expect(screen.getByText('Contenu ZD')).toBeInTheDocument();
+  expect(screen.queryByText('Contenu AG')).not.toBeInTheDocument();
+  expect(screen.getByRole('tab', { name: 'ZD' })).toHaveAttribute(
+    'data-state',
+    'active',
+  );
+});
+
+// ── Sheet (§5.9, §8 mobile) ──────────────────────────────────────────────────
+it('M0.8-31 — Sheet s’ouvre en panneau avec titre, corps et fermeture', () => {
+  const onClose = vi.fn();
+  render(
+    <Sheet open title="Détail collecte" side="bottom" onClose={onClose}>
+      Corps du panneau
+    </Sheet>,
+  );
+  const dialog = screen.getByRole('dialog');
+  expect(dialog).toHaveAttribute('aria-modal', 'true');
+  expect(
+    screen.getByRole('heading', { name: 'Détail collecte' }),
+  ).toBeInTheDocument();
+  expect(screen.getByText('Corps du panneau')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Fermer' }));
+  expect(onClose).toHaveBeenCalled();
+});
+
+// ── DatePicker (§6) ──────────────────────────────────────────────────────────
+it('M0.8-32 — DatePicker rend un champ date + un créneau heure optionnel', () => {
+  const { container } = render(
+    <DatePicker
+      value="2026-07-10"
+      withTime
+      timeValue="14:30"
+      aria-label="Date de collecte"
+    />,
+  );
+  const date = container.querySelector('input[type="date"]')!;
+  expect(date).toHaveValue('2026-07-10');
+  const time = container.querySelector('input[type="time"]')!;
+  expect(time).toHaveValue('14:30');
+});
+
+// ── Pagination (§6 — composant, pas le tri serveur BL-P3-07) ─────────────────
+it('M0.8-33 — Pagination marque la page courante et navigue', () => {
+  const onPageChange = vi.fn();
+  render(<Pagination page={2} pageCount={5} onPageChange={onPageChange} />);
+  const current = screen.getByRole('button', { name: 'Page 2' });
+  expect(current).toHaveAttribute('aria-current', 'page');
+  expect(current.className).toContain('h-11'); // cible tactile 44px mobile
+  fireEvent.click(screen.getByRole('button', { name: 'Page suivante' }));
+  expect(onPageChange).toHaveBeenCalledWith(3);
+});
+
+// ── Breadcrumb (§6) ──────────────────────────────────────────────────────────
+it('M0.8-34 — Breadcrumb marque le dernier item aria-current=page', () => {
+  render(
+    <Breadcrumb
+      items={[
+        { label: 'Dashboard', href: '/' },
+        { label: 'Événement', href: '/e' },
+        { label: 'Collecte' },
+      ]}
+    />,
+  );
+  expect(screen.getByText('Collecte')).toHaveAttribute('aria-current', 'page');
+  expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument();
+});
+
+// ── IconButton (§6, §9 aria-label, §8/§10 44px) ─────────────────────────────
+it('M0.8-35 — IconButton exige aria-label et applique la cible tactile 44px', () => {
+  render(
+    <IconButton aria-label="Supprimer">
+      <svg data-testid="trash" />
+    </IconButton>,
+  );
+  const btn = screen.getByRole('button', { name: 'Supprimer' });
+  expect(btn.className).toContain('h-11');
+  expect(btn.className).toContain('sm:h-10');
+});
+
+// ── TourneeCard (§6) ─────────────────────────────────────────────────────────
+it('M0.8-36 — TourneeCard affiche camion, plaque, chauffeur et N collectes', () => {
+  const { container } = render(
+    <TourneeCard
+      camion="Camion 20 m³"
+      immatriculation="AB-123-CD"
+      chauffeur="Jean Martin"
+      nbCollectes={3}
+    />,
+  );
+  expect(screen.getByText('Camion 20 m³')).toBeInTheDocument();
+  expect(screen.getByText('AB-123-CD')).toBeInTheDocument();
+  expect(screen.getByText('Jean Martin')).toBeInTheDocument();
+  expect(container.textContent).toContain('3 collecte');
+});
+
+// ── FormError (§6, §5.5) ─────────────────────────────────────────────────────
+it('M0.8-37 — FormError rend le message en role=alert et rien si vide', () => {
+  render(<FormError>Le SIRET est requis</FormError>);
+  const err = screen.getByRole('alert');
+  expect(err).toHaveTextContent('Le SIRET est requis');
+  const { container } = render(<FormError />);
+  expect(container.firstChild).toBeNull();
+});
+
+// ── États système §7 + cibles tactiles §8/§10 + tokens ──────────────────────
+it('M0.8-38 — Input applique l’état succès (bordure success) et 44px mobile', () => {
+  const { container } = render(<Input success placeholder="ok" />);
+  const input = container.querySelector('input')!;
+  expect(input.className).toContain('border-savr-success');
+  expect(input.className).toContain('h-11');
+  expect(input.className).toContain('sm:h-10');
+});
+
+it('M0.8-39 — Button md applique la cible tactile 44px mobile (h-11 sm:h-10)', () => {
+  const { container } = render(<Button>Enregistrer</Button>);
+  const btn = container.querySelector('button')!;
+  expect(btn.className).toContain('h-11');
+  expect(btn.className).toContain('sm:h-10');
+});
+
+it('M0.8-40 — État Disabled : Button désactivé est non-interactif', () => {
+  const onClick = vi.fn();
+  render(
+    <Button disabled onClick={onClick}>
+      Bloqué
+    </Button>,
+  );
+  const btn = screen.getByRole('button', { name: 'Bloqué' });
+  expect(btn).toBeDisabled();
+  expect(btn.className).toContain('disabled:opacity-50');
+  expect(btn.className).toContain('disabled:pointer-events-none');
+});
+
+it('M0.8-41 — tokens : --text-4xl=38px (§3.2) et tracking titres -0.02em (levier #7)', () => {
+  expect(css).toContain('--text-4xl: 38px');
+  expect(css).toContain('-0.02em');
+});
+
+it('M0.8-42 — StatCardGrid applique la grille responsive KPI 1/2/3-4 (§8)', () => {
+  const { container } = render(
+    <StatCardGrid>
+      <StatCard label="Collectes" value={12} />
+    </StatCardGrid>,
+  );
+  const grid = container.firstElementChild!;
+  expect(grid.className).toContain('grid-cols-1');
+  expect(grid.className).toContain('sm:grid-cols-2');
+  expect(grid.className).toContain('lg:grid-cols-4');
 });

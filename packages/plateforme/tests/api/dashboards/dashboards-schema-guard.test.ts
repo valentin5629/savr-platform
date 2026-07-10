@@ -24,6 +24,9 @@ function makeStubClient() {
   }
   chain.then = (resolve: (r: unknown) => unknown) => resolve(result);
   chain.rpc = () => Promise.resolve(result);
+  // BL-P3-02 : kpi-traiteur lit organisations.tarif_refacture_pax_zd (maybeSingle).
+  chain.maybeSingle = () =>
+    Promise.resolve({ data: { tarif_refacture_pax_zd: 1.5 }, error: null });
   return {
     auth: {
       getUser: () =>

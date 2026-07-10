@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, type Column } from '@/components/ui/data-table';
+import { Pagination } from '@/components/ui/pagination';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -145,12 +146,25 @@ export default function AssociationsPage() {
           description="Créez la première association."
         />
       ) : (
-        <DataTable
-          columns={columns}
-          data={associations}
-          keyExtractor={(row) => row.id}
-          pagination={{ page, total, limit: 50, onPageChange: setPage }}
-        />
+        <>
+          <DataTable
+            columns={columns}
+            data={associations}
+            keyExtractor={(row) => row.id}
+          />
+          {total > 50 && (
+            <div className="flex items-center justify-between gap-2 pt-3 text-sm">
+              <span className="text-savr-neutral-500">
+                {total} association{total > 1 ? 's' : ''}
+              </span>
+              <Pagination
+                page={page}
+                pageCount={Math.ceil(total / 50)}
+                onPageChange={setPage}
+              />
+            </div>
+          )}
+        </>
       )}
     </div>
   );

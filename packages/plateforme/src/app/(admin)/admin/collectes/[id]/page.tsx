@@ -36,6 +36,7 @@ import {
   type StatutCollecteDb,
 } from '@/lib/statut-collecte-labels';
 import { statutTmsDisplay } from '@/lib/statut-tms-labels';
+import { PlaqueTmsPicto } from '@/components/collectes/plaque-tms-picto';
 
 // Libellé d'affichage du type de collecte (UX — la DB garde l'enum).
 function typeCollecteLabel(type: string): string {
@@ -151,6 +152,7 @@ interface CollecteDetail {
       statut: string;
       tms_reference: string | null;
       external_ref_commande: string | null;
+      plaque_immatriculation: string | null;
     };
   }[];
   // factures_collectes = lignes de facture ; le statut vit sur la facture parente
@@ -838,9 +840,12 @@ export default function CollecteDetailPage() {
         {/* Tournées (multi-camions) */}
         {collecte.collecte_tournees.length > 0 && (
           <div>
-            <p className="text-sm font-medium text-savr-neutral-700 mb-2">
-              Tournées
-            </p>
+            <div className="flex items-center gap-2 mb-2">
+              <p className="text-sm font-medium text-savr-neutral-700">
+                Tournées
+              </p>
+              <PlaqueTmsPicto tournees={collecte.collecte_tournees} />
+            </div>
             <div className="space-y-1">
               {collecte.collecte_tournees.map((ct) => (
                 <div
@@ -853,6 +858,9 @@ export default function CollecteDetailPage() {
                   </Badge>
                   <span className="font-mono text-xs text-savr-neutral-500">
                     {ct.tournees.external_ref_commande ?? '—'}
+                  </span>
+                  <span className="font-mono text-xs text-savr-neutral-600">
+                    {ct.tournees.plaque_immatriculation ?? 'plaque —'}
                   </span>
                 </div>
               ))}

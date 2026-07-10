@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PreferencesLangueCard } from '@/components/compte/preferences-langue';
 
 type OrgTab = 'infos' | 'equipe' | 'facturation' | 'preferences';
 
@@ -1055,23 +1056,5 @@ function FacturationTab({ isManager }: { isManager: boolean }) {
 /* ─────────────────────────────── Préférences ──────────────────────────────── */
 
 function PreferencesTab() {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Préférences</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2 text-sm">
-        <div>
-          <span className="text-savr-neutral-500">
-            Langue de l’interface :{' '}
-          </span>
-          Français (FR)
-        </div>
-        <p className="text-xs text-savr-neutral-400">
-          La gestion des notifications email par type d’événement sera
-          disponible ultérieurement.
-        </p>
-      </CardContent>
-    </Card>
-  );
+  return <PreferencesLangueCard />;
 }

@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
 const generatePdf = vi.fn();
 const uploadPdf = vi.fn();
 const getPresignedUrl = vi.fn();
+const getObjectBytes = vi.fn();
 const buildSyntheseSnapshot = vi.fn();
 const orgMaybeSingle = vi.fn();
 let authResult: unknown;
@@ -33,6 +34,7 @@ vi.mock('@/lib/pdf/railway-client.js', () => ({
 vi.mock('@/lib/pdf/r2-client.js', () => ({
   uploadPdf: (...a: unknown[]) => uploadPdf(...a),
   getPresignedUrl: (...a: unknown[]) => getPresignedUrl(...a),
+  getObjectBytes: (...a: unknown[]) => getObjectBytes(...a),
 }));
 
 const SNAPSHOT = {
@@ -61,13 +63,14 @@ beforeEach(() => {
     ctx: { userId: 'u1', role: 'traiteur_manager', organisationId: 'org-1' },
   };
   orgMaybeSingle.mockResolvedValue({
-    data: { nom: 'Traiteur SA' },
+    data: { nom: 'Traiteur SA', logo_url: 'logos-savr/logos/org1.png' },
     error: null,
   });
   buildSyntheseSnapshot.mockResolvedValue(SNAPSHOT);
   generatePdf.mockResolvedValue({ pdfBuffer: Buffer.from('%PDF-1.4') });
   uploadPdf.mockResolvedValue('rapports/synthese/org-1/abc.pdf');
   getPresignedUrl.mockResolvedValue('https://r2.example/signed?token=x');
+  getObjectBytes.mockResolvedValue(Buffer.from([1, 2, 3]));
 });
 
 describe('M3.5 / route synthèse PDF — génération synchrone', () => {
@@ -80,8 +83,13 @@ describe('M3.5 / route synthèse PDF — génération synchrone', () => {
     expect(json.url).toBe('https://r2.example/signed?token=x');
     expect(json.expires_in).toBe(3600);
 
-    // Contrat renderer : type_document 'synthese-dashboard' + snapshot en payload.
-    expect(generatePdf).toHaveBeenCalledWith('synthese-dashboard', SNAPSHOT);
+    // Contrat renderer : type_document 'synthese-dashboard' + snapshot en payload,
+    // enrichi du logo de l'org inliné en data URI (BL-P3-05, §1.6 l.283).
+    expect(getObjectBytes).toHaveBeenCalledWith('logos-savr/logos/org1.png');
+    expect(generatePdf).toHaveBeenCalledWith('synthese-dashboard', {
+      ...SNAPSHOT,
+      logo_data_uri: `data:image/png;base64,${Buffer.from([1, 2, 3]).toString('base64')}`,
+    });
     // Objet R2 éphémère sous préfixe synthese/<org>/ (pas d'archivage DB).
     expect(uploadPdf).toHaveBeenCalledWith(
       'rapports',

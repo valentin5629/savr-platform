@@ -6,6 +6,7 @@ import {
   DashboardFilterBar,
   KpiCard,
   BenchmarkGauge,
+  BenchmarkLegend,
   BenchmarkFilterBar,
   TonnageDisplay,
   EmptyDashboardState,
@@ -29,6 +30,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { margeTooltipZd } from '@/lib/marge-tooltip';
 
 interface KpiRow {
   mois: string;
@@ -52,6 +54,8 @@ export default function TraiteurDashboardPage() {
   const [tab, setTab] = useState<CollecteType>('zero_dechet');
   const [filters, setFilters] = useState<DashboardFilters | null>(null);
   const [rows, setRows] = useState<KpiRow[]>([]);
+  // tarif refacturé €/pax ZD (BL-P3-02) — alimente la formule du tooltip Marge.
+  const [tarifZd, setTarifZd] = useState<number | null>(null);
   const [nbAttente, setNbAttente] = useState(0);
   const [pack, setPack] = useState<{
     pack_actif: boolean;
@@ -86,7 +90,14 @@ export default function TraiteurDashboardPage() {
     });
     fetch(`/api/v1/dashboards/kpi-traiteur?${qs}`)
       .then((r) => r.json())
-      .then((j) => setRows((j.data ?? []) as KpiRow[]))
+      .then((j) => {
+        setRows((j.data ?? []) as KpiRow[]);
+        setTarifZd(
+          typeof j.tarif_refacture_pax_zd === 'number'
+            ? j.tarif_refacture_pax_zd
+            : null,
+        );
+      })
       .finally(() => setLoading(false));
   }, [filters, tab]);
 
@@ -166,6 +177,18 @@ export default function TraiteurDashboardPage() {
       />
       <CollecteTypeTabs value={tab} onChange={setTab} />
 
+      {/* Compteur « X collectes correspondent » (BL-P3-02) — parité avec le
+          dashboard gestionnaire. Agrégat déjà calculé côté client. */}
+      {!loading && filters && (
+        <p
+          data-testid="dashboard-collectes-count"
+          className="text-sm text-savr-neutral-500"
+        >
+          {nbCollectes} collecte{nbCollectes > 1 ? 's' : ''} correspond
+          {nbCollectes > 1 ? 'ent' : ''} à votre sélection
+        </p>
+      )}
+
       {loading ? (
         <p className="text-sm text-savr-neutral-500">Chargement…</p>
       ) : nbCollectes === 0 ? (
@@ -198,6 +221,11 @@ export default function TraiteurDashboardPage() {
               <div>
                 <KpiCard
                   label="Marge générée"
+                  tooltip={
+                    tarifZd != null && marge != null
+                      ? margeTooltipZd(tarifZd, pax, marge)
+                      : 'Marge sur vos collectes ZD = tarif refacturé par pax × pax − total des factures HT ZD reçues, sur la période filtrée.'
+                  }
                   value={
                     marge == null
                       ? '—'
@@ -280,6 +308,7 @@ export default function TraiteurDashboardPage() {
                   initialTypeEvenementIds={filters?.type_evenement_ids ?? []}
                   initialTailleCodes={filters?.taille_evenement_codes ?? []}
                 />
+                <BenchmarkLegend />
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-5">
                   {FLUX_ZD.map((f) => (
                     <BenchmarkGauge

@@ -1,0 +1,46 @@
+<!--
+  Email de réinitialisation de mot de passe — CDC §06.02 template 11 « reset_password ».
+  Délivrance GoTrue-native (CDC §09 « lien magique signé par Supabase »), contenu Savr brandé.
+  Variable GoTrue disponible : {{ .ConfirmationURL }} (lien de réinitialisation signé, valide 1 h
+  via [auth.email].otp_expiry = 3600). GoTrue n'expose pas le prénom → pas de « Bonjour {prenom} »
+  (arbitrage Val R23c : reste GoTrue-natif, sans personnalisation prénom).
+-->
+<div
+  style="
+    font-family: Arial, Helvetica, sans-serif;
+    color: #1a1a1a;
+    line-height: 1.6;
+    max-width: 560px;
+    margin: 0 auto;
+  "
+>
+  <p>Bonjour,</p>
+
+  <p>Vous avez demandé la réinitialisation de votre mot de passe Savr.</p>
+
+  <p>Ce lien est valide pendant 1 heure.</p>
+
+  <p style="text-align: center; margin: 28px 0">
+    <a
+      href="{{ .ConfirmationURL }}"
+      style="
+        display: inline-block;
+        background-color: #1f3d2b;
+        color: #ffffff;
+        text-decoration: none;
+        padding: 12px 24px;
+        border-radius: 6px;
+        font-weight: bold;
+      "
+    >
+      Réinitialiser mon mot de passe
+    </a>
+  </p>
+
+  <p>
+    Si vous n'êtes pas à l'origine de cette demande, ignorez cet email — rien
+    n'aura changé sur votre compte.
+  </p>
+
+  <p style="margin-top: 24px">L'équipe Savr</p>
+</div>

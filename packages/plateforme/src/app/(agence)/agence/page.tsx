@@ -6,6 +6,7 @@ import {
   DashboardFilterBar,
   KpiCard,
   BenchmarkGauge,
+  BenchmarkLegend,
   BenchmarkFilterBar,
   TonnageDisplay,
   EmptyDashboardState,
@@ -142,6 +143,17 @@ export default function AgenceDashboardPage() {
       />
       <CollecteTypeTabs value={tab} onChange={setTab} />
 
+      {/* Compteur « X collectes correspondent » (BL-P3-02) — parité gestionnaire. */}
+      {!loading && filters && (
+        <p
+          data-testid="dashboard-collectes-count"
+          className="text-sm text-savr-neutral-500"
+        >
+          {nbCollectes} collecte{nbCollectes > 1 ? 's' : ''} correspond
+          {nbCollectes > 1 ? 'ent' : ''} à votre sélection
+        </p>
+      )}
+
       {loading ? (
         <p className="text-sm text-savr-neutral-500">Chargement…</p>
       ) : nbCollectes === 0 ? (
@@ -235,6 +247,7 @@ export default function AgenceDashboardPage() {
                   initialTypeEvenementIds={filters?.type_evenement_ids ?? []}
                   initialTailleCodes={filters?.taille_evenement_codes ?? []}
                 />
+                <BenchmarkLegend />
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-5">
                   {FLUX_ZD.map((f) => (
                     <BenchmarkGauge

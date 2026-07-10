@@ -3,12 +3,15 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 
+// Textarea — §5.5. États erreur/succès (§6 « états erreur/succès ») : bordure
+// error / success.
 export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   error?: boolean;
+  success?: boolean;
 }
 
 const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ className, error, ...props }, ref) => (
+  ({ className, error, success, ...props }, ref) => (
     <textarea
       ref={ref}
       className={cn(
@@ -18,7 +21,9 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
         'disabled:opacity-50 disabled:cursor-not-allowed',
         error
           ? 'border-savr-error'
-          : 'border-savr-neutral-300 hover:border-savr-primary-400',
+          : success
+            ? 'border-savr-success'
+            : 'border-savr-neutral-300 hover:border-savr-primary-400',
         className,
       )}
       aria-invalid={error || undefined}

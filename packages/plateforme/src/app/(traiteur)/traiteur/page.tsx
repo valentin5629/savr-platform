@@ -30,6 +30,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { margeTooltipZd } from '@/lib/marge-tooltip';
 
 interface KpiRow {
   mois: string;
@@ -53,6 +54,8 @@ export default function TraiteurDashboardPage() {
   const [tab, setTab] = useState<CollecteType>('zero_dechet');
   const [filters, setFilters] = useState<DashboardFilters | null>(null);
   const [rows, setRows] = useState<KpiRow[]>([]);
+  // tarif refacturé €/pax ZD (BL-P3-02) — alimente la formule du tooltip Marge.
+  const [tarifZd, setTarifZd] = useState<number | null>(null);
   const [nbAttente, setNbAttente] = useState(0);
   const [pack, setPack] = useState<{
     pack_actif: boolean;
@@ -87,7 +90,14 @@ export default function TraiteurDashboardPage() {
     });
     fetch(`/api/v1/dashboards/kpi-traiteur?${qs}`)
       .then((r) => r.json())
-      .then((j) => setRows((j.data ?? []) as KpiRow[]))
+      .then((j) => {
+        setRows((j.data ?? []) as KpiRow[]);
+        setTarifZd(
+          typeof j.tarif_refacture_pax_zd === 'number'
+            ? j.tarif_refacture_pax_zd
+            : null,
+        );
+      })
       .finally(() => setLoading(false));
   }, [filters, tab]);
 
@@ -211,7 +221,11 @@ export default function TraiteurDashboardPage() {
               <div>
                 <KpiCard
                   label="Marge générée"
-                  tooltip={`Marge Savr sur vos collectes ZD (${pax} pax sur la période) = tarif refacturé par pax × pax − total des factures HT ZD reçues.`}
+                  tooltip={
+                    tarifZd != null && marge != null
+                      ? margeTooltipZd(tarifZd, pax, marge)
+                      : 'Marge sur vos collectes ZD = tarif refacturé par pax × pax − total des factures HT ZD reçues, sur la période filtrée.'
+                  }
                   value={
                     marge == null
                       ? '—'

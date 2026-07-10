@@ -41,6 +41,11 @@ const mockClientChain = {
   lte: vi.fn().mockReturnThis(),
   in: vi.fn().mockReturnThis(),
   order: vi.fn().mockResolvedValue({ data: [], error: null }),
+  // BL-P3-02 : la route kpi-traiteur lit organisations.tarif_refacture_pax_zd
+  // (traiteur only) pour le tooltip Marge → requête terminée par maybeSingle().
+  maybeSingle: vi
+    .fn()
+    .mockResolvedValue({ data: { tarif_refacture_pax_zd: 1.5 }, error: null }),
 };
 
 const mockAdminChain = {

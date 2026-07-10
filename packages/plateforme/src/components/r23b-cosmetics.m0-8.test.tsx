@@ -12,6 +12,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 import { refCourteCollecte } from '@/lib/collecte-ref';
+import { margeTooltipZd } from '@/lib/marge-tooltip';
 import { PreferencesLangueCard } from '@/components/compte/preferences-langue';
 import { KpiCard } from '@/components/dashboards/KpiCard';
 import { BenchmarkLegend } from '@/components/dashboards/BenchmarkLegend';
@@ -79,6 +80,21 @@ describe('M0.8-45 — DashboardFilterBar expose presets + Réinitialiser hors mo
     };
     expect(last.from).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(last.to).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+// ── BL-P3-02 — tooltip KPI Marge : formule avec valeurs réelles (scénario P1) ──
+describe('M0.8-48 — margeTooltipZd restitue tarif × pax − coût = marge (BL-P3-02)', () => {
+  it('reproduit le scénario P1 kpi_marge_zd_formule_nominale (1,50 × 1200 − 1032 = 768)', () => {
+    // Coût dérivé : tarif×pax − marge = 1,50×1200 − 768 = 1032.
+    expect(margeTooltipZd(1.5, 1200, 768)).toBe(
+      'Marge = 1,50 €/pax × 1200 pax − 1032,00 € = 768,00 €',
+    );
+  });
+  it('gère une marge négative', () => {
+    expect(margeTooltipZd(1.5, 100, -50)).toBe(
+      'Marge = 1,50 €/pax × 100 pax − 200,00 € = -50,00 €',
+    );
   });
 });
 

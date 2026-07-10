@@ -453,7 +453,7 @@
       "artefact": "packages/plateforme/src/components/dashboards/DashboardFilterBar.tsx, packages/plateforme/src/components/dashboards/KpiCard.tsx, packages/plateforme/src/components/dashboards/BenchmarkLegend.tsx",
       "test": "M0.8-45 — DashboardFilterBar expose presets + Réinitialiser hors mode parc (BL-P3-02)",
       "statut": "implemented",
-      "libelle": "BL-P3-02 — Dashboards : presets période liste CDC exacte (7j/30j/Trimestre/12 mois/Année civile) + Réinitialiser généralisé (traiteur/agence/admin), compteur « X correspondent » (traiteur+agence, GO-VISUAL), tooltip KPI Marge (générique + pax ; valeurs tarif/coût NON exposées = tarif admin-only, contradiction scénario P1 tracée _Divergences/M0.8_20260710) + légende benchmark (§11, §06.04). Avert. k-anonymat déjà présent."
+      "libelle": "BL-P3-02 — Dashboards : presets période liste CDC exacte (7j/30j/Trimestre/12 mois/Année civile) + Réinitialiser généralisé (traiteur/agence/admin), compteur « X correspondent » (traiteur+agence, GO-VISUAL), tooltip KPI Marge DYNAMIQUE conforme scénario P1 kpi_marge_zd_formule_nominale (tarif × pax − coût = marge, helper margeTooltipZd testé M0.8-48 ; tarif lisible traiteur §04 l.928) + légende benchmark partagée (§11, §06.04). Avert. k-anonymat déjà présent. Défaut période 12 mois §06.04/05 vs 30j §11 = divergence CDC tracée _Divergences/M0.8_20260710 (défaut inchangé)."
     },
     {
       "id": "BL-P3-03",

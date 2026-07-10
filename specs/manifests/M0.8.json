@@ -453,7 +453,7 @@
       "artefact": "packages/plateforme/src/components/dashboards/DashboardFilterBar.tsx, packages/plateforme/src/components/dashboards/KpiCard.tsx, packages/plateforme/src/components/dashboards/BenchmarkLegend.tsx",
       "test": "M0.8-45 — DashboardFilterBar expose presets + Réinitialiser hors mode parc (BL-P3-02)",
       "statut": "implemented",
-      "libelle": "BL-P3-02 — Dashboards : presets période + Réinitialiser généralisé (traiteur/agence/admin), compteur « X correspondent » (traiteur+agence, GO-VISUAL), tooltip KPI Marge + légende benchmark (§11 §1/§8, §06.04). Avert. k-anonymat déjà présent (BenchmarkGauge)."
+      "libelle": "BL-P3-02 — Dashboards : presets période liste CDC exacte (7j/30j/Trimestre/12 mois/Année civile) + Réinitialiser généralisé (traiteur/agence/admin), compteur « X correspondent » (traiteur+agence, GO-VISUAL), tooltip KPI Marge (générique + pax ; valeurs tarif/coût NON exposées = tarif admin-only, contradiction scénario P1 tracée _Divergences/M0.8_20260710) + légende benchmark (§11, §06.04). Avert. k-anonymat déjà présent."
     },
     {
       "id": "BL-P3-03",
@@ -482,10 +482,10 @@
     {
       "id": "BL-P3-08",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:711",
-      "artefact": "packages/plateforme/src/components/compte/preferences-langue.tsx, packages/plateforme/src/app/(gestionnaire)/gestionnaire/mon-organisation/page.tsx",
+      "artefact": "packages/plateforme/src/components/compte/preferences-langue.tsx, packages/plateforme/src/app/(gestionnaire)/gestionnaire/parametres/page.tsx",
       "test": "M0.8-44 — PreferencesLangueCard affiche la langue française figée (BL-P3-08)",
       "statut": "implemented",
-      "libelle": "BL-P3-08 — Bloc Préférences « Langue : Français (FR) » figé V1 (composant partagé), ajouté au gestionnaire (§06.05 l.474) ; traiteur déjà présent. Aucune persistance ni colonne users.langue (multi-langues = V1.1)."
+      "libelle": "BL-P3-08 — Bloc Préférences « Langue : Français (FR) » figé V1 (composant partagé). Côté gestionnaire dans la section « Paramètres » §9 (§06.05 l.75/l.474) ; côté traiteur dans « Mon organisation » §6 (§06.04 l.709-711, déjà présent). Aucune persistance ni colonne users.langue (multi-langues = V1.1)."
     }
   ],
   "cdc_source_hash": {

@@ -48,20 +48,17 @@ describe('M0.8-44 — PreferencesLangueCard affiche la langue française figée 
 
 // ── BL-P3-02 — presets période + Réinitialiser généralisé ───────────────────
 describe('M0.8-45 — DashboardFilterBar expose presets + Réinitialiser hors mode parc (BL-P3-02)', () => {
-  it('rend les 3 presets et le bouton Réinitialiser sans parcOptions', () => {
+  it('rend les 5 presets CDC et le bouton Réinitialiser sans parcOptions', () => {
     const onChange = vi.fn();
     render(
       <DashboardFilterBar storageKey="test-r23b-presets" onChange={onChange} />,
     );
-    expect(
-      screen.getByTestId('dashboard-filter-preset-7j'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByTestId('dashboard-filter-preset-30j'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByTestId('dashboard-filter-preset-mois'),
-    ).toBeInTheDocument();
+    // Liste CDC exacte §06.04 l.73 / §06.05 l.105 (Personnalisé = les champs date).
+    for (const key of ['7j', '30j', 'trimestre', '12m', 'civile']) {
+      expect(
+        screen.getByTestId(`dashboard-filter-preset-${key}`),
+      ).toBeInTheDocument();
+    }
     // Réinitialiser était gestionnaire-only (garde parcOptions) → désormais présent partout.
     expect(
       screen.getByTestId('dashboard-filter-reinitialiser'),

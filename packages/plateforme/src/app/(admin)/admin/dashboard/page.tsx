@@ -54,22 +54,34 @@ function currentMonth(): { from: string; to: string } {
   return { from, to };
 }
 
-// Presets de période (BL-P3-02) — raccourcis rapides du tableau Revenus admin.
-type PresetKey = '7j' | '30j' | 'mois';
+// Presets de période (BL-P3-02) — liste CDC §06.04 l.73 / §06.05 l.105.
+type PresetKey = '7j' | '30j' | 'trimestre' | '12m' | 'civile';
 const DASHBOARD_PRESETS: { key: PresetKey; label: string }[] = [
-  { key: '7j', label: '7 derniers jours' },
-  { key: '30j', label: '30 derniers jours' },
-  { key: 'mois', label: 'Mois en cours' },
+  { key: '7j', label: '7 jours' },
+  { key: '30j', label: '30 jours' },
+  { key: 'trimestre', label: 'Trimestre en cours' },
+  { key: '12m', label: '12 derniers mois' },
+  { key: 'civile', label: 'Année civile' },
 ];
 function presetRange(key: PresetKey): { from: string; to: string } {
-  if (key === 'mois') return currentMonth();
-  const to = new Date();
+  const now = new Date();
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  if (key === 'trimestre')
+    return {
+      from: iso(
+        new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1),
+      ),
+      to: iso(now),
+    };
+  if (key === 'civile')
+    return {
+      from: `${now.getFullYear()}-01-01`,
+      to: `${now.getFullYear()}-12-31`,
+    };
   const from = new Date();
-  from.setDate(from.getDate() - (key === '7j' ? 7 : 30));
-  return {
-    from: from.toISOString().slice(0, 10),
-    to: to.toISOString().slice(0, 10),
-  };
+  if (key === '12m') from.setMonth(from.getMonth() - 12);
+  else from.setDate(from.getDate() - (key === '7j' ? 7 : 30));
+  return { from: iso(from), to: iso(now) };
 }
 
 const revenusColumns: Column<RevenusRow>[] = [

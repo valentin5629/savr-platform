@@ -4,9 +4,8 @@ import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PreferencesLangueCard } from '@/components/compte/preferences-langue';
 
-type OrgTab = 'profil' | 'membres' | 'factures' | 'preferences';
+type OrgTab = 'profil' | 'membres' | 'factures';
 
 interface OrgProfil {
   id: string;
@@ -64,15 +63,12 @@ export default function MonOrganisationPage() {
         .then((r) => r.json())
         .then((j) => setUsers((j.data ?? []) as UserRow[]))
         .finally(() => setLoading(false));
-    } else if (tab === 'factures') {
+    } else {
       setLoading(true);
       fetch('/api/v1/gestionnaire/mon-organisation/factures')
         .then((r) => r.json())
         .then((j) => setFactures((j.data ?? []) as FactureRow[]))
         .finally(() => setLoading(false));
-    } else {
-      // Préférences (BL-P3-08) : bloc statique langue FR figé, aucun fetch.
-      setLoading(false);
     }
   }, [tab]);
 
@@ -138,12 +134,6 @@ export default function MonOrganisationPage() {
           onClick={() => setTab('factures')}
         >
           Factures
-        </button>
-        <button
-          className={tabCls('preferences')}
-          onClick={() => setTab('preferences')}
-        >
-          Préférences
         </button>
       </div>
 
@@ -308,9 +298,6 @@ export default function MonOrganisationPage() {
           </Card>
         </div>
       )}
-
-      {/* Onglet Préférences (BL-P3-08) — langue FR figé, §06.05 l.474 */}
-      {tab === 'preferences' && <PreferencesLangueCard />}
 
       {/* Onglet Factures */}
       {!loading && tab === 'factures' && (

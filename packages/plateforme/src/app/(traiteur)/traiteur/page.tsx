@@ -211,7 +211,7 @@ export default function TraiteurDashboardPage() {
               <div>
                 <KpiCard
                   label="Marge générée"
-                  tooltip="Marge Savr sur vos collectes ZD : tarif refacturé par pax × pax − total des factures HT ZD reçues, sur la période filtrée."
+                  tooltip={`Marge Savr sur vos collectes ZD (${pax} pax sur la période) = tarif refacturé par pax × pax − total des factures HT ZD reçues.`}
                   value={
                     marge == null
                       ? '—'

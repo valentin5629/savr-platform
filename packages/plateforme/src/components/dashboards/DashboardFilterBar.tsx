@@ -52,22 +52,44 @@ function parcValue(f: DashboardFilters): ParcFilterValue {
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
-// Presets de période (BL-P3-02) — raccourcis rapides sur la barre globale. Chacun
-// ne touche QUE from/to (les filtres parc sont préservés).
-type PresetKey = '7j' | '30j' | 'mois';
+// Presets de période (BL-P3-02) — liste CDC EXACTE §06.04 l.73 / §06.05 l.105 :
+// 7j / 30j / Trimestre en cours / 12 derniers mois (défaut) / Année civile /
+// Personnalisé (= les 2 champs date). Chaque preset ne touche QUE from/to (les
+// filtres parc sont préservés).
+type PresetKey = '7j' | '30j' | 'trimestre' | '12m' | 'civile';
 const PERIOD_PRESETS: { key: PresetKey; label: string }[] = [
-  { key: '7j', label: '7 derniers jours' },
-  { key: '30j', label: '30 derniers jours' },
-  { key: 'mois', label: 'Mois en cours' },
+  { key: '7j', label: '7 jours' },
+  { key: '30j', label: '30 jours' },
+  { key: 'trimestre', label: 'Trimestre en cours' },
+  { key: '12m', label: '12 derniers mois' },
+  { key: 'civile', label: 'Année civile' },
 ];
 
 function presetRange(key: PresetKey): { from: string; to: string } {
-  const to = new Date();
+  const now = new Date();
   const from = new Date();
-  if (key === '7j') from.setDate(from.getDate() - 7);
-  else if (key === '30j') from.setDate(from.getDate() - 30);
-  else from.setDate(1); // mois en cours : 1er jour du mois courant
-  return { from: iso(from), to: iso(to) };
+  if (key === '7j') {
+    from.setDate(from.getDate() - 7);
+  } else if (key === '30j') {
+    from.setDate(from.getDate() - 30);
+  } else if (key === 'trimestre') {
+    // Trimestre en cours : 1er jour du trimestre courant → aujourd'hui.
+    return {
+      from: iso(
+        new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1),
+      ),
+      to: iso(now),
+    };
+  } else if (key === '12m') {
+    from.setMonth(from.getMonth() - 12);
+  } else {
+    // Année civile — aligné sur le preset benchmark existant (Jan 1 → Dec 31).
+    return {
+      from: `${now.getFullYear()}-01-01`,
+      to: `${now.getFullYear()}-12-31`,
+    };
+  }
+  return { from: iso(from), to: iso(now) };
 }
 
 /**

@@ -6,7 +6,7 @@ import type { FluxSeriePoint } from '@/components/dashboards/useEvolutionBlocs';
 import type { Granularite } from '../types';
 import { formatPeriode } from '../format';
 import { ChartCard } from './ChartCard';
-import { fmtInt } from './fmt';
+import { fmtInt, fmtDec } from './fmt';
 
 // EvolutionZdChart (Cockpit R24) — barres empilées des 5 flux ZD (kg) + courbe du
 // taux de valorisation superposée (axe droit 0-100 %). §11 Bloc 2 ZD. Empilement
@@ -151,6 +151,10 @@ const EvolutionZdChart = React.forwardRef<
                     const segBottom = yCursor;
                     yCursor = segTop;
                     const isTop = vi === visible.length - 1;
+                    // Tooltip natif au survol : kg + % du mois (CDC §06.04 l.126).
+                    const total = Number(p.tonnage_total) || 0;
+                    const pct = total > 0 ? (val / total) * 100 : 0;
+                    const tip = `${f.label} : ${fmtInt(val)} kg (${fmtDec(pct, 0)} %)`;
                     if (isTop) {
                       const r = Math.min(3, barW / 2);
                       return (
@@ -160,7 +164,9 @@ const EvolutionZdChart = React.forwardRef<
                           fill={f.color}
                           stroke="#fff"
                           strokeWidth={0.75}
-                        />
+                        >
+                          <title>{tip}</title>
+                        </path>
                       );
                     }
                     return (
@@ -173,7 +179,9 @@ const EvolutionZdChart = React.forwardRef<
                         fill={f.color}
                         stroke="#fff"
                         strokeWidth={0.75}
-                      />
+                      >
+                        <title>{tip}</title>
+                      </rect>
                     );
                   })}
                 </g>

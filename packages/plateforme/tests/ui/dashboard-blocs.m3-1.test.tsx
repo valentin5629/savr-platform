@@ -1,8 +1,8 @@
 /**
- * M3.1 — Dashboard traiteur : Bloc 2 (évolution) + Bloc 4 (donut) montés (§06.04
- * Bloc 2/4, BL-P1-PARITE-01). Les graphes lazy sont stubés (le rendu recharts
- * dépend d'une taille jsdom) : on vérifie que les SECTIONS §11 sont montées au bon
- * endroit et conditionnées à l'onglet (Bloc 4 ZD only).
+ * M3.1 — Dashboard traiteur « Cockpit » (R24) : Bloc 2 (évolution) + Bloc 4 (donut)
+ * montés (§06.04 Bloc 2/4). Les charts Cockpit sont du SVG pur (pas recharts) → ils
+ * rendent en jsdom : on vérifie que les SECTIONS §11 sont montées au bon endroit et
+ * conditionnées à l'onglet (Bloc 4 donut = ZD only).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
@@ -101,8 +101,10 @@ describe('M3.1 / dashboard traiteur — Bloc 2/4 §11 (BL-P1-PARITE-01)', () => 
     render(<TraiteurDashboardPage />);
     expect(await screen.findByTestId('bloc-2-traiteur')).toBeInTheDocument();
     expect(screen.getByTestId('bloc-4-traiteur')).toBeInTheDocument();
-    // Le graphe ZD (barres empilées flux) est monté dans le Bloc 2.
-    expect(screen.getByTestId('stub-flux')).toBeInTheDocument();
+    // Le graphe ZD Cockpit (barres empilées flux) est monté dans le Bloc 2.
+    expect(
+      screen.getByText(/Évolution mensuelle Zéro Déchet/),
+    ).toBeInTheDocument();
   });
 
   it('M3.1/dash_bloc4_zd_only — pas de donut sur l’onglet AG (un seul flux)', async () => {
@@ -112,6 +114,6 @@ describe('M3.1 / dashboard traiteur — Bloc 2/4 §11 (BL-P1-PARITE-01)', () => 
     // Bloc 2 AG toujours présent (courbe repas), Bloc 4 donut retiré.
     expect(await screen.findByTestId('bloc-2-traiteur')).toBeInTheDocument();
     expect(screen.queryByTestId('bloc-4-traiteur')).toBeNull();
-    expect(screen.getByTestId('stub-repas')).toBeInTheDocument();
+    expect(screen.getByText(/Évolution Anti-Gaspi/)).toBeInTheDocument();
   });
 });

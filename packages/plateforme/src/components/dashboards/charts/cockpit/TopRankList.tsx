@@ -24,6 +24,9 @@ export interface TopItem {
   label: string;
   /** Valeur DÉJÀ formatée par l'appelant (ex. '14,2 t', '5 240 €', '7 850'). */
   value: string;
+  /** Métriques secondaires formatées (ex. '3 collectes · 82 % recyclage') —
+   *  rendues sous le libellé. Préserve les colonnes CDC §06.04 (Bloc 6/7/3AG). */
+  secondary?: string;
   /** Largeur de la barre en pourcentage (0..100). Absent = pas de barre. */
   barPct?: number;
 }
@@ -94,6 +97,11 @@ const TopRankList = React.forwardRef<HTMLDivElement, TopRankListProps>(
                           {item.value}
                         </span>
                       </div>
+                      {item.secondary && (
+                        <div className="mb-1 truncate text-[11px] tabular-nums text-savr-neutral-500">
+                          {item.secondary}
+                        </div>
+                      )}
                       {hasBar && (
                         <div
                           className="h-1.5 rounded-savr-full"

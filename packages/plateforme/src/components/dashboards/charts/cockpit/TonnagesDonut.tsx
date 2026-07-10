@@ -62,20 +62,27 @@ const TonnagesDonut = React.forwardRef<HTMLDivElement, TonnagesDonutProps>(
             aria-label={`Répartition des tonnages, total ${masse.value} ${masse.unit}`}
           >
             {total > 0 ? (
-              arcs.map((a, i) => (
-                <circle
-                  key={FLUX_ZD[i]!.code}
-                  cx={100}
-                  cy={100}
-                  r={R}
-                  fill="none"
-                  stroke={a.color}
-                  strokeWidth={26}
-                  strokeDasharray={a.dasharray}
-                  strokeDashoffset={a.dashoffset}
-                  transform="rotate(-90 100 100)"
-                />
-              ))
+              arcs.map((a, i) => {
+                const f = perFlux[i]!;
+                const m = fmtMasse(f.kg);
+                return (
+                  <circle
+                    key={f.code}
+                    cx={100}
+                    cy={100}
+                    r={R}
+                    fill="none"
+                    stroke={a.color}
+                    strokeWidth={26}
+                    strokeDasharray={a.dasharray}
+                    strokeDashoffset={a.dashoffset}
+                    transform="rotate(-90 100 100)"
+                  >
+                    {/* Tooltip natif au survol : kg + % (CDC §06.04 l.164). */}
+                    <title>{`${f.label} : ${m.value} ${m.unit} (${fmtDec(a.pct * 100, 0)} %)`}</title>
+                  </circle>
+                );
+              })
             ) : (
               <circle
                 cx={100}
@@ -140,7 +147,10 @@ const TonnagesDonut = React.forwardRef<HTMLDivElement, TonnagesDonutProps>(
                   {f.label}
                 </span>
                 <span className="font-extrabold tabular-nums">
-                  {fmtDec(pct, 0)} %
+                  {(() => {
+                    const m = fmtMasse(f.kg);
+                    return `${m.value} ${m.unit} · ${fmtDec(pct, 0)} %`;
+                  })()}
                 </span>
               </div>
             );

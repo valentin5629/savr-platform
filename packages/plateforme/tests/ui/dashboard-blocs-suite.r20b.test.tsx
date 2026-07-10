@@ -210,6 +210,11 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
     // Prochaines : événement rendu + lien vers la fiche collecte.
     const lien = screen.getByRole('link', { name: 'Gala' });
     expect(lien).toHaveAttribute('href', '/traiteur/collectes/p1');
+    // Colonnes CDC §06.04 Bloc 6 (Nb collectes + Taux de recyclage) préservées
+    // dans le libellé secondaire Cockpit (R24 — pas seulement le tonnage).
+    expect(
+      screen.getByText(/3 collectes · 80,0 % recyclage/),
+    ).toBeInTheDocument();
   });
 
   it('M3.1/blocs_traiteur_ag_associations_et_top7', async () => {
@@ -222,6 +227,8 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
       await screen.findByTestId('bloc-3ag-top-associations'),
     ).toBeInTheDocument();
     expect(screen.getByText('Asso Un')).toBeInTheDocument();
+    // Colonnes CDC §06.04 Bloc 3 AG (Ville + Nb collectes) préservées (secondary).
+    expect(screen.getByText(/Paris · 2 collectes/)).toBeInTheDocument();
     expect(screen.getByTestId('bloc-7-top-acteurs')).toBeInTheDocument();
   });
 
@@ -229,18 +236,16 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
     useFetch(blocsZd());
     render(<TraiteurDashboardPage />);
     await screen.findByTestId('bloc-6-top-lieux');
-    // BL-P2-11 : les cartes KPI ZD sont cliquables (role=button « Voir les
-    // collectes »). Auparavant seule « Nombre de collectes » l'était.
-    const cartes = screen.getAllByRole('button', {
-      name: /Voir les collectes/i,
-    });
-    expect(cartes.length).toBeGreaterThanOrEqual(4);
-    // Le clic navigue vers la liste Collectes filtrée (période + onglet, BL-P2-43).
-    pushMock.mockClear();
-    fireEvent.click(cartes[1]!);
-    expect(pushMock).toHaveBeenCalledWith(
-      expect.stringMatching(/^\/traiteur\/collectes\?.*type=zero_dechet/),
-    );
+    // R24 Cockpit : les cartes KPI ZD sont des LIENS vers la liste Collectes
+    // filtrée (période + onglet, BL-P2-11/BL-P2-43) — modèle ancre (a11y) qui
+    // remplace l'ancien role=button + router.push.
+    const liens = screen
+      .getAllByRole('link')
+      .filter((a) => a.getAttribute('href')?.includes('/traiteur/collectes?'));
+    expect(liens.length).toBeGreaterThanOrEqual(4);
+    for (const a of liens) {
+      expect(a.getAttribute('href')).toMatch(/type=zero_dechet/);
+    }
   });
 });
 

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable, type Column } from '@/components/ui/data-table';
+import { Pagination } from '@/components/ui/pagination';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { pastillePennylane2h, estEnRetard } from '@/lib/facturation/facture-ui';
@@ -205,6 +206,8 @@ export default function FacturesPage() {
   const [dateFin, setDateFin] = useState('');
   const [orgFiltre, setOrgFiltre] = useState('');
   const [orgs, setOrgs] = useState<{ id: string; label: string }[]>([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
 
   // Liste complète des organisations pour le filtre (§06.08 §4/§8). Boucle de
   // pagination (pas de troncature silencieuse) — même pattern que la liste collectes.
@@ -246,15 +249,24 @@ export default function FacturesPage() {
   const load = useCallback(() => {
     setLoading(true);
     const qs = buildParams();
-    fetch(`/api/v1/admin/factures${qs ? `?${qs}` : ''}`)
+    const url = `/api/v1/admin/factures?${qs ? `${qs}&` : ''}page=${page}`;
+    fetch(url)
       .then((r) => r.json())
-      .then((d: { data: Facture[] }) => setFactures(d.data ?? []))
+      .then((d: { data: Facture[]; total?: number }) => {
+        setFactures(d.data ?? []);
+        setTotal(d.total ?? 0);
+      })
       .finally(() => setLoading(false));
-  }, [buildParams]);
+  }, [buildParams, page]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // Retour à la page 1 quand les filtres changent (BL-P3-07).
+  useEffect(() => {
+    setPage(1);
+  }, [buildParams]);
 
   function exportCsv() {
     const qs = buildParams();
@@ -365,11 +377,25 @@ export default function FacturesPage() {
           description="Les brouillons apparaissent ici après le batch J+1."
         />
       ) : (
-        <DataTable
-          columns={columns}
-          data={factures}
-          keyExtractor={(row) => row.id}
-        />
+        <>
+          <DataTable
+            columns={columns}
+            data={factures}
+            keyExtractor={(row) => row.id}
+          />
+          {total > 50 && (
+            <div className="flex items-center justify-between gap-2 pt-3 text-sm">
+              <span className="text-savr-neutral-500">
+                {total} facture{total > 1 ? 's' : ''}
+              </span>
+              <Pagination
+                page={page}
+                pageCount={Math.ceil(total / 50)}
+                onPageChange={setPage}
+              />
+            </div>
+          )}
+        </>
       )}
     </div>
   );

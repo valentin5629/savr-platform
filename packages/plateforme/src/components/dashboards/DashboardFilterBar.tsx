@@ -50,6 +50,26 @@ function parcValue(f: DashboardFilters): ParcFilterValue {
   };
 }
 
+const iso = (d: Date) => d.toISOString().slice(0, 10);
+
+// Presets de période (BL-P3-02) — raccourcis rapides sur la barre globale. Chacun
+// ne touche QUE from/to (les filtres parc sont préservés).
+type PresetKey = '7j' | '30j' | 'mois';
+const PERIOD_PRESETS: { key: PresetKey; label: string }[] = [
+  { key: '7j', label: '7 derniers jours' },
+  { key: '30j', label: '30 derniers jours' },
+  { key: 'mois', label: 'Mois en cours' },
+];
+
+function presetRange(key: PresetKey): { from: string; to: string } {
+  const to = new Date();
+  const from = new Date();
+  if (key === '7j') from.setDate(from.getDate() - 7);
+  else if (key === '30j') from.setDate(from.getDate() - 30);
+  else from.setDate(1); // mois en cours : 1er jour du mois courant
+  return { from: iso(from), to: iso(to) };
+}
+
 /**
  * Barre de filtres du dashboard — persistance localStorage (sobriété B1, pas de table).
  * Sans `parcOptions` : Période seule (30 j par défaut, §11 §8). Avec `parcOptions` :
@@ -118,24 +138,40 @@ export function DashboardFilterBar({
         />
       </label>
 
-      {parcOptions && (
-        <>
-          <ParcMultiSelects
-            value={parcValue(filters)}
-            options={parcOptions}
-            onChange={(patch) => apply({ ...filters, ...patch })}
-            testidPrefix="dashboard-filter"
-          />
+      {/* Presets de période (BL-P3-02) — raccourcis sur tous les dashboards. */}
+      <div className="flex flex-wrap items-center gap-1">
+        {PERIOD_PRESETS.map((p) => (
           <button
+            key={p.key}
             type="button"
-            onClick={() => apply(defaultFilters())}
-            data-testid="dashboard-filter-reinitialiser"
-            className="text-xs text-savr-primary-700 hover:underline"
+            onClick={() => apply({ ...filters, ...presetRange(p.key) })}
+            data-testid={`dashboard-filter-preset-${p.key}`}
+            className="rounded-md border border-savr-neutral-200 px-2 py-1 text-xs text-savr-neutral-600 hover:bg-savr-neutral-100"
           >
-            Réinitialiser
+            {p.label}
           </button>
-        </>
+        ))}
+      </div>
+
+      {parcOptions && (
+        <ParcMultiSelects
+          value={parcValue(filters)}
+          options={parcOptions}
+          onChange={(patch) => apply({ ...filters, ...patch })}
+          testidPrefix="dashboard-filter"
+        />
       )}
+
+      {/* Réinitialiser — généralisé à tous les dashboards (BL-P3-02, avant
+          gestionnaire-only). Ramène période 30 j + filtres parc vides. */}
+      <button
+        type="button"
+        onClick={() => apply(defaultFilters())}
+        data-testid="dashboard-filter-reinitialiser"
+        className="text-xs text-savr-primary-700 hover:underline"
+      >
+        Réinitialiser
+      </button>
     </div>
   );
 }

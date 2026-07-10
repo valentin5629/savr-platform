@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PreferencesLangueCard } from '@/components/compte/preferences-langue';
 
-type OrgTab = 'profil' | 'membres' | 'factures';
+type OrgTab = 'profil' | 'membres' | 'factures' | 'preferences';
 
 interface OrgProfil {
   id: string;
@@ -51,22 +52,27 @@ export default function MonOrganisationPage() {
   const [inviteMsg, setInviteMsg] = useState('');
 
   useEffect(() => {
-    setLoading(true);
     if (tab === 'profil') {
+      setLoading(true);
       fetch('/api/v1/gestionnaire/mon-organisation/profil')
         .then((r) => r.json())
         .then((j) => setProfil(j.data as OrgProfil))
         .finally(() => setLoading(false));
     } else if (tab === 'membres') {
+      setLoading(true);
       fetch('/api/v1/gestionnaire/mon-organisation/users')
         .then((r) => r.json())
         .then((j) => setUsers((j.data ?? []) as UserRow[]))
         .finally(() => setLoading(false));
-    } else {
+    } else if (tab === 'factures') {
+      setLoading(true);
       fetch('/api/v1/gestionnaire/mon-organisation/factures')
         .then((r) => r.json())
         .then((j) => setFactures((j.data ?? []) as FactureRow[]))
         .finally(() => setLoading(false));
+    } else {
+      // Préférences (BL-P3-08) : bloc statique langue FR figé, aucun fetch.
+      setLoading(false);
     }
   }, [tab]);
 
@@ -132,6 +138,12 @@ export default function MonOrganisationPage() {
           onClick={() => setTab('factures')}
         >
           Factures
+        </button>
+        <button
+          className={tabCls('preferences')}
+          onClick={() => setTab('preferences')}
+        >
+          Préférences
         </button>
       </div>
 
@@ -296,6 +308,9 @@ export default function MonOrganisationPage() {
           </Card>
         </div>
       )}
+
+      {/* Onglet Préférences (BL-P3-08) — langue FR figé, §06.05 l.474 */}
+      {tab === 'preferences' && <PreferencesLangueCard />}
 
       {/* Onglet Factures */}
       {!loading && tab === 'factures' && (

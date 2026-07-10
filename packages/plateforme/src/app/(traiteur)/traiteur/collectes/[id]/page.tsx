@@ -5,7 +5,16 @@ import { Button } from '@/components/ui/button';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Modal } from '@/components/ui/modal';
+import { Tooltip } from '@/components/ui/tooltip';
 import { EditerCollecteForm } from '@/components/collecte/editer-collecte-form';
+import { refCourteCollecte } from '@/lib/collecte-ref';
+
+// Tooltip méthode UE (§06.04 l.422) — texte figé, affiché sur le libellé « Taux de
+// recyclage » de la fiche (BL-P3-03).
+const TOOLTIP_TAUX_UE =
+  'Taux de recyclage net (méthode UE 2019/1004) — calculé avec les taux de captation ' +
+  'effectifs par filière (verre, carton, biodéchets, emballages). L’OMR (déchet ' +
+  'résiduel) entre uniquement au dénominateur. Voir Méthodologie.';
 
 interface Lieu {
   nom: string;
@@ -54,6 +63,7 @@ interface Collecte {
   type: string;
   statut: string;
   statut_tms: string;
+  tms_reference: string | null;
   date_collecte: string;
   heure_collecte: string | null;
   controle_acces_requis: boolean;
@@ -198,7 +208,9 @@ export default function FicheCollectePage({
 
       <div>
         <h1 className="text-2xl font-bold text-savr-primary-800">{titre}</h1>
-        <p className="text-xs text-savr-neutral-400">Réf. {c.id}</p>
+        <p className="text-xs text-savr-neutral-400">
+          Réf. {refCourteCollecte(c)}
+        </p>
       </div>
 
       {/* Entête infos pilotantes */}
@@ -363,7 +375,17 @@ export default function FicheCollectePage({
       {c.type === 'zero_dechet' && c.statut === 'cloturee' && (
         <Card>
           <CardHeader>
-            <CardTitle>Taux de recyclage</CardTitle>
+            <CardTitle>
+              <Tooltip content={TOOLTIP_TAUX_UE}>
+                <span
+                  className="cursor-help border-b border-dotted border-savr-neutral-400"
+                  tabIndex={0}
+                  aria-label={TOOLTIP_TAUX_UE}
+                >
+                  Taux de recyclage
+                </span>
+              </Tooltip>
+            </CardTitle>
           </CardHeader>
           <CardContent className="text-2xl font-bold">
             {c.taux_recyclage != null
@@ -451,6 +473,17 @@ export default function FicheCollectePage({
               ? 'Votre demande d’annulation sera transmise à l’équipe Savr pour validation.'
               : 'Cette collecte sera annulée immédiatement. Le prestataire sera informé le cas échéant.'}
           </p>
+          {/* Mention crédit préservé (AG) — §06.04 l.614 : rappel avant confirmation
+              qu'une annulation avant réalisation ne débite aucun crédit pack. */}
+          {c.type === 'anti_gaspi' && (
+            <p
+              data-testid="mention-credit-ag"
+              className="rounded-savr-md bg-savr-success-subtle px-3 py-2 text-sm text-savr-success-strong"
+            >
+              Votre crédit Anti-Gaspi sera préservé : il n’a pas encore été
+              débité (annulation avant réalisation de la collecte).
+            </p>
+          )}
           <label className="block text-sm">
             <span className="text-savr-neutral-700">Motif (facultatif)</span>
             <textarea

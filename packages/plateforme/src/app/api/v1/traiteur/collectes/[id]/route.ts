@@ -93,7 +93,7 @@ export async function GET(
   const { data, error } = await supabase
     .from('collectes')
     .select(
-      `id, type, statut, statut_tms, date_collecte, heure_collecte,
+      `id, type, statut, statut_tms, tms_reference, date_collecte, heure_collecte,
        controle_acces_requis, informations_completes, informations_supplementaires,
        notes_internes, taux_recyclage, realisee_at, aucun_repas_motif,
        evenement:evenements!inner(

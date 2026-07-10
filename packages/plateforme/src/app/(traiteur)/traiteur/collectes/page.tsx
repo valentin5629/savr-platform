@@ -110,7 +110,10 @@ function CollectesContent() {
   const [role, setRole] = useState('');
   const [userId, setUserId] = useState('');
 
-  // Export ZIP groupé des rapports RSE (BL-P3-06, onglet Historique).
+  // Export ZIP groupé des rapports RSE (BL-P3-06, onglet Historique). Mode sélection
+  // OPT-IN : la liste reste épurée par défaut, les cases n'apparaissent qu'après
+  // activation du bouton « Exporter des rapports (ZIP) ».
+  const [selectionMode, setSelectionMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [zipEnCours, setZipEnCours] = useState(false);
   const [zipErreur, setZipErreur] = useState<string | null>(null);
@@ -140,6 +143,7 @@ function CollectesContent() {
       type: typeFiltre,
       statut: statuts.join(','),
     });
+    setSelectionMode(false);
     setSelected(new Set());
     setZipErreur(null);
     fetch(`/api/v1/traiteur/collectes?${qs}`)
@@ -206,6 +210,7 @@ function CollectesContent() {
       a.remove();
       URL.revokeObjectURL(url);
       setSelected(new Set());
+      setSelectionMode(false);
     } finally {
       setZipEnCours(false);
     }
@@ -338,29 +343,40 @@ function CollectesContent() {
       {/* Sélecteur ZD / AG */}
       <CollecteTypeTabs value={typeFiltre} onChange={changeType} />
 
-      {/* Barre d'export ZIP groupé des rapports RSE (BL-P3-06) — Historique only */}
+      {/* Barre d'export ZIP groupé des rapports RSE (BL-P3-06) — Historique only,
+          sélection OPT-IN pour garder la liste épurée par défaut. */}
       {onglet === 'historique' && (
         <div
           className="flex flex-wrap items-center gap-3"
           data-testid="rse-zip-toolbar"
         >
-          <Button
-            variant="secondary"
-            disabled={selected.size === 0 || zipEnCours}
-            onClick={() => void exportZipSelection()}
-          >
-            {zipEnCours
-              ? 'Génération…'
-              : `Exporter la sélection (${selected.size}) en ZIP`}
-          </Button>
-          {selected.size > 0 && (
-            <button
-              type="button"
-              className="text-xs text-savr-primary-700 hover:underline"
-              onClick={() => setSelected(new Set())}
-            >
-              Tout désélectionner
-            </button>
+          {!selectionMode ? (
+            <Button variant="ghost" onClick={() => setSelectionMode(true)}>
+              Exporter des rapports (ZIP)
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="secondary"
+                disabled={selected.size === 0 || zipEnCours}
+                onClick={() => void exportZipSelection()}
+              >
+                {zipEnCours
+                  ? 'Génération…'
+                  : `Exporter la sélection (${selected.size}) en ZIP`}
+              </Button>
+              <button
+                type="button"
+                className="text-xs text-savr-neutral-500 hover:underline"
+                onClick={() => {
+                  setSelectionMode(false);
+                  setSelected(new Set());
+                  setZipErreur(null);
+                }}
+              >
+                Terminer
+              </button>
+            </>
           )}
           {zipErreur && (
             <span className="text-sm text-savr-error-600">{zipErreur}</span>
@@ -382,6 +398,7 @@ function CollectesContent() {
               <div className="space-y-2">
                 {g.items.map(({ data, row }) => {
                   const selectable =
+                    selectionMode &&
                     onglet === 'historique' &&
                     STATUTS_RAPPORT.includes(row.statut);
                   const card = (

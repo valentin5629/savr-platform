@@ -84,7 +84,7 @@
     "M3.1/blocs_top_associations_ordre_repas",
     "M3.1/blocs_traiteur_zd_montes_et_benchmark_reel",
     "M3.1/blocs_traiteur_ag_associations_et_top7",
-    "M3.1/blocs_traiteur_kpi_cartes_cliquables"
+    "M3.1/blocs_traiteur_kpi_cartes_non_cliquables"
   ],
   "deliverables": [
     {
@@ -443,7 +443,7 @@
       "id": "M3.1-cockpit-page",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:84-283",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/*",
-      "test": "M3.1/dash_bloc2_bloc4_zd_montes + M3.1/blocs_traiteur_zd_montes_et_benchmark_reel + M3.1/blocs_traiteur_kpi_cartes_cliquables",
+      "test": "M3.1/dash_bloc2_bloc4_zd_montes + M3.1/blocs_traiteur_zd_montes_et_benchmark_reel + M3.1/blocs_traiteur_kpi_cartes_non_cliquables",
       "statut": "implemented",
       "libelle": "Refonte visuelle « Cockpit » du dashboard traiteur (R24, pilote UX hors-audit) : 8 composants data-viz R24 câblés sur les blocs §06.04 (KpiCockpitCard, EvolutionZdChart/EvolutionAgChart, BenchmarkBulletGauges, TonnagesDonut cockpit, PackAgRing, TopRankList) importés en direct (hors barrel → orphan-components reste 0). DS §10 par défaut. Testids §11 (bloc-2/4-traiteur, bloc-5/6/7-*, bloc-3ag, bloc-pack-ag) + tooltip Marge (BL-P3-02) + badge « X en attente de facturation » (F3) préservés. Cartes KPI = liens vers la liste Collectes filtrée (période + onglet)."
     },

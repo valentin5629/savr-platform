@@ -232,20 +232,17 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
     expect(screen.getByTestId('bloc-7-top-acteurs')).toBeInTheDocument();
   });
 
-  it('M3.1/blocs_traiteur_kpi_cartes_cliquables', async () => {
+  it('M3.1/blocs_traiteur_kpi_cartes_non_cliquables', async () => {
     useFetch(blocsZd());
     render(<TraiteurDashboardPage />);
     await screen.findByTestId('bloc-6-top-lieux');
-    // R24 Cockpit : les cartes KPI ZD sont des LIENS vers la liste Collectes
-    // filtrée (période + onglet, BL-P2-11/BL-P2-43) — modèle ancre (a11y) qui
-    // remplace l'ancien role=button + router.push.
-    const liens = screen
-      .getAllByRole('link')
+    // R24 Cockpit — décision Val GO-VISUAL 2026-07-10 : les cartes KPI ne sont
+    // PLUS cliquables (revient sur BL-P2-11/BL-P2-43). Aucun lien vers la liste
+    // Collectes filtrée ne doit être rendu par les cartes KPI.
+    const liensCollectes = screen
+      .queryAllByRole('link')
       .filter((a) => a.getAttribute('href')?.includes('/traiteur/collectes?'));
-    expect(liens.length).toBeGreaterThanOrEqual(4);
-    for (const a of liens) {
-      expect(a.getAttribute('href')).toMatch(/type=zero_dechet/);
-    }
+    expect(liensCollectes).toHaveLength(0);
   });
 });
 
@@ -285,6 +282,11 @@ describe('M3.2 / gestionnaire — top traiteurs + colonne Traiteur', () => {
     expect(screen.getByText('Traiteur Un')).toBeInTheDocument();
     // Bloc 7 = top traiteurs.
     expect(screen.getByTestId('bloc-7-top-acteurs')).toBeInTheDocument();
+    // Colonnes §06.05 Bloc 6 (Nb collectes + Taux) préservées dans le libellé
+    // secondaire Cockpit côté gestionnaire (parité avec le traiteur).
+    expect(
+      screen.getByText(/3 collectes · 80,0 % recyclage/),
+    ).toBeInTheDocument();
   });
 
   it('M3.2/blocs_gestionnaire_ag_associations', async () => {

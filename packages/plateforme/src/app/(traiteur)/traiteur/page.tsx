@@ -187,11 +187,8 @@ export default function TraiteurDashboardPage() {
     pack.credits_restants != null &&
     pack.credits_restants <= 0.1 * pack.credits_initiaux;
   const packEpuise = pack?.pack_actif && pack.credits_restants === 0;
-
-  const qsLink = filters
-    ? `?from=${filters.from}&to=${filters.to}&type=${tab}`
-    : '';
-  const collectesHref = `/traiteur/collectes${qsLink}`;
+  // Cartes KPI NON cliquables (décision Val GO-VISUAL 2026-07-10 — revient sur
+  // BL-P2-11/BL-P2-43 « cartes cliquables ») : plus de href vers la liste collectes.
 
   // ── Top listes (Cockpit TopRankList) — value = métrique d'ordre, secondary =
   //    colonnes CDC §06.04 restantes (Nb collectes · Taux/Repas-pax · Ville). ──
@@ -303,7 +300,6 @@ export default function TraiteurDashboardPage() {
               dotColor={DOT.navy}
               variationPct={variationPct(agg.nbCollectes, prev.nbCollectes)}
               sparkPoints={sparkFromRows(rows, (r) => r.nb_collectes)}
-              href={collectesHref}
             />
             <KpiCockpitCard
               label="Tonnage collecté"
@@ -312,7 +308,6 @@ export default function TraiteurDashboardPage() {
               dotColor={DOT.navy2}
               variationPct={variationPct(agg.tonnage, prev.tonnage)}
               sparkPoints={sparkFromRows(rows, (r) => r.tonnage_kg)}
-              href={collectesHref}
             />
             <KpiCockpitCard
               label="Taux de recyclage"
@@ -322,7 +317,6 @@ export default function TraiteurDashboardPage() {
               variationPct={variationPct(agg.taux ?? 0, prev.taux ?? 0)}
               sparkPoints={sparkFromRows(rows, (r) => r.taux_recyclage_pondere)}
               sparkColor={DOT.green}
-              href={collectesHref}
             />
             <KpiCockpitCard
               label="kg/pax moyen"
@@ -332,7 +326,6 @@ export default function TraiteurDashboardPage() {
               sparkPoints={sparkFromRows(rows, (r) =>
                 r.pax_total > 0 ? (r.tonnage_kg ?? 0) / r.pax_total : 0,
               )}
-              href={collectesHref}
             />
             <div>
               <KpiCockpitCard
@@ -343,7 +336,6 @@ export default function TraiteurDashboardPage() {
                 variationPct={variationPct(agg.marge ?? 0, prev.marge ?? 0)}
                 sparkPoints={sparkFromRows(rows, (r) => r.marge_zd_ht)}
                 sparkColor={DOT.accent}
-                href={collectesHref}
               />
               <div className="mt-1.5 flex flex-wrap items-center gap-2">
                 {nbAttente >= 1 && (
@@ -442,7 +434,6 @@ export default function TraiteurDashboardPage() {
               dotColor={DOT.navy}
               variationPct={variationPct(agg.nbCollectes, prev.nbCollectes)}
               sparkPoints={sparkFromRows(rows, (r) => r.nb_collectes)}
-              href={collectesHref}
             />
             <KpiCockpitCard
               label="Repas donnés"
@@ -451,7 +442,6 @@ export default function TraiteurDashboardPage() {
               variationPct={variationPct(agg.repas, prev.repas)}
               sparkPoints={sparkFromRows(rows, (r) => r.nb_repas_donnes)}
               sparkColor={DOT.accent}
-              href={collectesHref}
             />
             <KpiCockpitCard
               label="Pax cumulés"
@@ -459,7 +449,6 @@ export default function TraiteurDashboardPage() {
               dotColor={DOT.navy2}
               variationPct={variationPct(agg.pax, prev.pax)}
               sparkPoints={sparkFromRows(rows, (r) => r.pax_total)}
-              href={collectesHref}
             />
             <KpiCockpitCard
               label="Repas/pax moyen"
@@ -468,7 +457,6 @@ export default function TraiteurDashboardPage() {
               sparkPoints={sparkFromRows(rows, (r) =>
                 r.pax_total > 0 ? (r.nb_repas_donnes ?? 0) / r.pax_total : 0,
               )}
-              href={collectesHref}
             />
           </div>
 

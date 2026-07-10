@@ -9,16 +9,18 @@ import { ChartCard } from './ChartCard';
 import { fmtInt, fmtDec } from './fmt';
 
 // EvolutionZdChart (Cockpit R24) — barres empilées des 5 flux ZD (kg) + courbe du
-// taux de valorisation superposée (axe droit 0-100 %). §11 Bloc 2 ZD. Empilement
+// taux de recyclage superposée (axe droit 0-100 %). §11 Bloc 2 ZD. Empilement
 // bas→haut = résiduel → biodéchets ; sommet arrondi ; séparateurs blancs fins ;
-// légende cliquable (masque un flux). Échelle kg calculée depuis les données.
-const VBW = 640;
-const LEFT = 60;
-const RIGHT = 600;
-const BASE = 250;
-const TOP = 30;
-const PLOT_H = BASE - TOP; // 220
-const PLOT_W = RIGHT - LEFT; // 540
+// légende cliquable (masque un flux) ; tooltip au survol (kg + % par flux + taux).
+// Format paysage compact (fonts réduites) pour ne pas dominer la page.
+const VBW = 760;
+const VBH = 230;
+const LEFT = 46;
+const RIGHT = 726;
+const BASE = 188;
+const TOP = 20;
+const PLOT_H = BASE - TOP; // 168
+const PLOT_W = RIGHT - LEFT; // 680
 
 // Empilement du bas vers le haut (résiduel au sol, biodéchets au sommet).
 const STACK = [...FLUX_ZD].reverse();
@@ -40,6 +42,7 @@ const EvolutionZdChart = React.forwardRef<
   EvolutionZdChartProps
 >(({ series, granularite }, ref) => {
   const [hidden, setHidden] = React.useState<Set<string>>(new Set());
+  const [hover, setHover] = React.useState<number | null>(null);
   const toggle = (code: string) =>
     setHidden((prev) => {
       const next = new Set(prev);
@@ -56,8 +59,9 @@ const EvolutionZdChart = React.forwardRef<
   const niceMax = niceCeil(rawMax);
   const n = Math.max(1, series.length);
   const slot = PLOT_W / n;
-  const barW = Math.min(52, slot * 0.5);
+  const barW = Math.min(46, slot * 0.5);
   const cx = (i: number) => LEFT + slot * (i + 0.5);
+  const visibleFlux = FLUX_ZD.filter((f) => !hidden.has(f.code));
 
   // Points de la courbe taux (non-null uniquement)
   const ratePts = series
@@ -74,7 +78,7 @@ const EvolutionZdChart = React.forwardRef<
     <ChartCard
       ref={ref}
       title="Évolution mensuelle Zéro Déchet"
-      subtitle="Tonnages par flux · taux de valorisation superposé"
+      subtitle="Tonnages par flux · taux de recyclage superposé"
       headerRight={
         <span className="text-[13px] tabular-nums text-savr-neutral-400">
           kg
@@ -87,150 +91,247 @@ const EvolutionZdChart = React.forwardRef<
         </p>
       ) : (
         <>
-          <svg
-            viewBox={`0 0 ${VBW} 300`}
-            width="100%"
-            style={{ display: 'block' }}
-            role="img"
-            aria-label="Évolution mensuelle des tonnages par flux et du taux de valorisation"
-          >
-            {/* gridlines + axe gauche kg */}
-            {gridT.map((t) => {
-              const y = BASE - t * PLOT_H;
-              return (
-                <g key={t}>
-                  <line
-                    x1={LEFT}
-                    y1={y}
-                    x2={RIGHT}
-                    y2={y}
-                    stroke={t === 0 ? '#DDE1EB' : '#EEF0F5'}
-                    strokeWidth={1}
-                  />
-                  <text
-                    x={LEFT - 8}
-                    y={y + 4}
-                    textAnchor="end"
-                    className="tabular-nums"
-                    style={{ fontSize: 11, fill: '#9AA2B8' }}
-                  >
-                    {fmtInt(niceMax * t)}
-                  </text>
-                </g>
-              );
-            })}
-            {/* axe droit % */}
-            {[
-              [0, '0'],
-              [0.5, '50'],
-              [1, '100 %'],
-            ].map(([t, lbl]) => (
-              <text
-                key={String(t)}
-                x={RIGHT + 8}
-                y={BASE - (t as number) * PLOT_H + 4}
-                className="tabular-nums"
-                style={{ fontSize: 11, fill: '#B36400' }}
-              >
-                {lbl}
-              </text>
-            ))}
+          <div className="relative">
+            <svg
+              viewBox={`0 0 ${VBW} ${VBH}`}
+              width="100%"
+              style={{ display: 'block', maxHeight: 340 }}
+              role="img"
+              aria-label="Évolution mensuelle des tonnages par flux et du taux de recyclage"
+              onMouseLeave={() => setHover(null)}
+            >
+              {/* gridlines + axe gauche kg */}
+              {gridT.map((t) => {
+                const y = BASE - t * PLOT_H;
+                return (
+                  <g key={t}>
+                    <line
+                      x1={LEFT}
+                      y1={y}
+                      x2={RIGHT}
+                      y2={y}
+                      stroke={t === 0 ? '#DDE1EB' : '#EEF0F5'}
+                      strokeWidth={1}
+                    />
+                    <text
+                      x={LEFT - 6}
+                      y={y + 3}
+                      textAnchor="end"
+                      className="tabular-nums"
+                      style={{ fontSize: 9, fill: '#9AA2B8' }}
+                    >
+                      {fmtInt(niceMax * t)}
+                    </text>
+                  </g>
+                );
+              })}
+              {/* axe droit % */}
+              {[
+                [0, '0'],
+                [0.5, '50'],
+                [1, '100 %'],
+              ].map(([t, lbl]) => (
+                <text
+                  key={String(t)}
+                  x={RIGHT + 6}
+                  y={BASE - (t as number) * PLOT_H + 3}
+                  className="tabular-nums"
+                  style={{ fontSize: 9, fill: '#B36400' }}
+                >
+                  {lbl}
+                </text>
+              ))}
 
-            {/* barres empilées */}
-            {series.map((p, i) => {
-              const x = cx(i) - barW / 2;
-              const visible = STACK.filter((f) => !hidden.has(f.code));
-              let yCursor = BASE;
-              return (
-                <g key={p.periode}>
-                  {visible.map((f, vi) => {
-                    const val = Number(p[f.code as keyof FluxSeriePoint]) || 0;
-                    if (val <= 0) return null;
-                    const h = (val / niceMax) * PLOT_H;
-                    const segTop = yCursor - h;
-                    const segBottom = yCursor;
-                    yCursor = segTop;
-                    const isTop = vi === visible.length - 1;
-                    // Tooltip natif au survol : kg + % du mois (CDC §06.04 l.126).
-                    const total = Number(p.tonnage_total) || 0;
-                    const pct = total > 0 ? (val / total) * 100 : 0;
-                    const tip = `${f.label} : ${fmtInt(val)} kg (${fmtDec(pct, 0)} %)`;
-                    if (isTop) {
-                      const r = Math.min(3, barW / 2);
+              {/* colonne survolée (surbrillance) */}
+              {hover != null && (
+                <rect
+                  x={cx(hover) - slot / 2}
+                  y={TOP}
+                  width={slot}
+                  height={PLOT_H}
+                  fill="#161A26"
+                  opacity={0.04}
+                />
+              )}
+
+              {/* barres empilées */}
+              {series.map((p, i) => {
+                const x = cx(i) - barW / 2;
+                const visible = STACK.filter((f) => !hidden.has(f.code));
+                let yCursor = BASE;
+                return (
+                  <g key={p.periode}>
+                    {visible.map((f, vi) => {
+                      const val =
+                        Number(p[f.code as keyof FluxSeriePoint]) || 0;
+                      if (val <= 0) return null;
+                      const h = (val / niceMax) * PLOT_H;
+                      const segTop = yCursor - h;
+                      const segBottom = yCursor;
+                      yCursor = segTop;
+                      const isTop = vi === visible.length - 1;
+                      const total = Number(p.tonnage_total) || 0;
+                      const pct = total > 0 ? (val / total) * 100 : 0;
+                      const tip = `${f.label} : ${fmtInt(val)} kg (${fmtDec(pct, 0)} %)`;
+                      if (isTop) {
+                        const r = Math.min(3, barW / 2);
+                        return (
+                          <path
+                            key={f.code}
+                            d={`M${x},${segTop + r} Q${x},${segTop} ${x + r},${segTop} H${x + barW - r} Q${x + barW},${segTop} ${x + barW},${segTop + r} V${segBottom} H${x} Z`}
+                            fill={f.color}
+                            stroke="#fff"
+                            strokeWidth={0.75}
+                            style={{ pointerEvents: 'none' }}
+                          >
+                            <title>{tip}</title>
+                          </path>
+                        );
+                      }
                       return (
-                        <path
+                        <rect
                           key={f.code}
-                          d={`M${x},${segTop + r} Q${x},${segTop} ${x + r},${segTop} H${x + barW - r} Q${x + barW},${segTop} ${x + barW},${segTop + r} V${segBottom} H${x} Z`}
+                          x={x}
+                          y={segTop}
+                          width={barW}
+                          height={h}
                           fill={f.color}
                           stroke="#fff"
                           strokeWidth={0.75}
+                          style={{ pointerEvents: 'none' }}
                         >
                           <title>{tip}</title>
-                        </path>
+                        </rect>
                       );
-                    }
+                    })}
+                  </g>
+                );
+              })}
+
+              {/* courbe taux de recyclage (fine) */}
+              {ratePts.length > 0 && (
+                <>
+                  <polyline
+                    points={ratePts
+                      .map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`)
+                      .join(' ')}
+                    fill="none"
+                    stroke={TAUX_RECYCLAGE_COLOR}
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    style={{ pointerEvents: 'none' }}
+                  />
+                  {ratePts.map(([x, y], i) => {
+                    const isLast = i === ratePts.length - 1;
                     return (
-                      <rect
-                        key={f.code}
-                        x={x}
-                        y={segTop}
-                        width={barW}
-                        height={h}
-                        fill={f.color}
-                        stroke="#fff"
-                        strokeWidth={0.75}
-                      >
-                        <title>{tip}</title>
-                      </rect>
+                      <circle
+                        key={i}
+                        cx={x}
+                        cy={y}
+                        r={isLast ? 3.5 : 2.5}
+                        fill={isLast ? TAUX_RECYCLAGE_COLOR : '#fff'}
+                        stroke={isLast ? '#fff' : TAUX_RECYCLAGE_COLOR}
+                        strokeWidth={1.5}
+                        style={{ pointerEvents: 'none' }}
+                      />
                     );
                   })}
-                </g>
-              );
-            })}
+                </>
+              )}
 
-            {/* courbe taux de valorisation */}
-            {ratePts.length > 0 && (
-              <>
-                <polyline
-                  points={ratePts
-                    .map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`)
-                    .join(' ')}
-                  fill="none"
-                  stroke={TAUX_RECYCLAGE_COLOR}
-                  strokeWidth={3}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+              {/* étiquettes X */}
+              {series.map((p, i) => (
+                <text
+                  key={p.periode}
+                  x={cx(i)}
+                  y={208}
+                  textAnchor="middle"
+                  style={{ fontSize: 9, fill: '#6E7790', fontWeight: 600 }}
+                >
+                  {formatPeriode(p.periode, granularite)}
+                </text>
+              ))}
+
+              {/* zones de survol transparentes (au-dessus, captent le curseur) */}
+              {series.map((p, i) => (
+                <rect
+                  key={`hz-${p.periode}`}
+                  x={cx(i) - slot / 2}
+                  y={TOP}
+                  width={slot}
+                  height={PLOT_H}
+                  fill="transparent"
+                  onMouseEnter={() => setHover(i)}
                 />
-                {ratePts.map(([x, y], i) => {
-                  const isLast = i === ratePts.length - 1;
-                  return (
-                    <circle
-                      key={i}
-                      cx={x}
-                      cy={y}
-                      r={isLast ? 4.5 : 3}
-                      fill={isLast ? TAUX_RECYCLAGE_COLOR : '#fff'}
-                      stroke={isLast ? '#fff' : TAUX_RECYCLAGE_COLOR}
-                      strokeWidth={2}
-                    />
-                  );
-                })}
-              </>
-            )}
+              ))}
+            </svg>
 
-            {/* étiquettes X */}
-            {series.map((p, i) => (
-              <text
-                key={p.periode}
-                x={cx(i)}
-                y={270}
-                textAnchor="middle"
-                style={{ fontSize: 12, fill: '#6E7790', fontWeight: 600 }}
-              >
-                {formatPeriode(p.periode, granularite)}
-              </text>
-            ))}
-          </svg>
+            {/* Tooltip au survol : valeurs kg + % par flux + taux (CDC §06.04 l.126). */}
+            {hover != null &&
+              (() => {
+                const p = series[hover]!;
+                const total = Number(p.tonnage_total) || 0;
+                const leftPct = (cx(hover) / VBW) * 100;
+                const transform =
+                  leftPct < 30
+                    ? 'translateX(0)'
+                    : leftPct > 70
+                      ? 'translateX(-100%)'
+                      : 'translateX(-50%)';
+                return (
+                  <div
+                    className="pointer-events-none absolute z-10 rounded-savr-md border border-savr-neutral-200 bg-savr-white px-3 py-2 shadow-savr-md"
+                    style={{ left: `${leftPct}%`, top: 4, transform }}
+                  >
+                    <div className="mb-1.5 text-[11px] font-bold text-savr-neutral-900">
+                      {formatPeriode(p.periode, granularite)}
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      {visibleFlux.map((f) => {
+                        const val =
+                          Number(p[f.code as keyof FluxSeriePoint]) || 0;
+                        const pct = total > 0 ? (val / total) * 100 : 0;
+                        return (
+                          <div
+                            key={f.code}
+                            className="flex items-center justify-between gap-5 text-[11px] tabular-nums"
+                          >
+                            <span className="flex items-center gap-1.5 text-savr-neutral-600">
+                              <span
+                                style={{
+                                  width: 8,
+                                  height: 8,
+                                  borderRadius: 2,
+                                  background: f.color,
+                                }}
+                              />
+                              {f.label}
+                            </span>
+                            <span className="font-bold text-savr-neutral-900">
+                              {fmtInt(val)} kg · {fmtDec(pct, 0)} %
+                            </span>
+                          </div>
+                        );
+                      })}
+                      {p.taux_recyclage != null && (
+                        <div className="mt-0.5 flex items-center justify-between gap-5 border-t border-savr-neutral-100 pt-1 text-[11px]">
+                          <span className="text-savr-neutral-600">
+                            Taux de recyclage
+                          </span>
+                          <span
+                            className="font-bold tabular-nums"
+                            style={{ color: '#B36400' }}
+                          >
+                            {fmtDec(p.taux_recyclage, 1)} %
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+          </div>
 
           {/* légende cliquable */}
           <div className="mt-4 flex flex-wrap gap-2">
@@ -273,7 +374,7 @@ const EvolutionZdChart = React.forwardRef<
                   borderRadius: 2,
                 }}
               />
-              Taux de valorisation
+              Taux de recyclage
             </span>
           </div>
         </>

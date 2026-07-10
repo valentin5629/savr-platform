@@ -1,13 +1,14 @@
 import { requirePageSession } from '@/lib/page-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { RgpdComptePanel } from '@/components/compte/rgpd-compte-panel';
-import { ChangerMotDePassePanel } from '@/components/compte/changer-mot-de-passe-panel';
 import { SecuriteAccesPanel } from '@/components/compte/securite-acces-panel';
 
-const TRAITEUR_ROLES = ['traiteur_manager', 'traiteur_commercial'] as const;
+const ORGANISATEUR_ROLES = ['client_organisateur'] as const;
 
-export default async function MonProfilPage() {
-  const session = await requirePageSession(TRAITEUR_ROLES);
+// BL-P3-13 — « Sécurité du compte » pour le client organisateur (rôle impersonable,
+// CDC §15 §2.3). Ce rôle n'avait pas de page profil : on en crée une minimale
+// portant l'historique self des accès admin.
+export default async function MonProfilOrganisateurPage() {
+  const session = await requirePageSession(ORGANISATEUR_ROLES);
 
   return (
     <div className="space-y-6">
@@ -29,11 +30,7 @@ export default async function MonProfilPage() {
         </CardContent>
       </Card>
 
-      <ChangerMotDePassePanel />
-
       <SecuriteAccesPanel />
-
-      <RgpdComptePanel />
     </div>
   );
 }

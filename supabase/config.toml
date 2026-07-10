@@ -52,13 +52,29 @@ additional_redirect_urls = [
   "http://localhost:3000",
   "https://dev.app.gosavr.io",
 ]
-# JWT expire après 1 heure ; refresh token rotation activée
+# JWT (access token) expire après 1 heure — CDC §09 l.87/931 (« Session JWT 1h »).
 jwt_expiry = 3600
+# CDC §09 l.87/931 : « Refresh token valide 30 jours » + rotation activée. La borne
+# 30j est matérialisée via [auth.sessions].timebox ci-dessous (GoTrue n'expose pas
+# de durée d'expiration directe du refresh token ; la rotation invalide l'ancien).
+enable_refresh_token_rotation = true
 enable_signup = true
 enable_anonymous_sign_ins = false
 # CDC §09 l.84 : 10 caractères minimum (la complexité maj+chiffre+spécial est
 # vérifiée côté applicatif au signup — GoTrue ne contrôle que la longueur).
 minimum_password_length = 10
+
+# CDC §09 l.87/931 : « Refresh token valide 30 jours ». Time-box la session à 30j
+# (720h) → ré-authentification forcée au-delà = borne effective du refresh token.
+[auth.sessions]
+timebox = "720h"
+
+# CDC §09 l.96 : « Rate limit : 3 demandes max par heure ». email_sent = plafond
+# horaire des emails d'auth (recovery/confirmation) émis par l'instance GoTrue.
+# ⚠ Cap GLOBAL/instance, PAS per-email : le « 3/h par email » strict relèverait
+# d'un throttle applicatif (hors périmètre config ; cf. R22g throttle sortant).
+[auth.rate_limit]
+email_sent = 3
 
 [auth.email]
 enable_signup = true
@@ -66,6 +82,16 @@ double_confirm_changes = true
 # Confirmations email obligatoires (production-like en local)
 enable_confirmations = true
 max_frequency = "1s"
+# CDC §09 l.95 : lien de réinitialisation / OTP email valide 1 heure (3600 s).
+otp_expiry = 3600
+
+# CDC §06.02 template 11 « reset_password » (arbitrage Val R23c) : la délivrance
+# reste GoTrue-native (§09 « lien magique signé par Supabase ») mais l'email porte
+# le contenu Savr brandé (objet + corps FR, « valide 1 heure », signature Savr).
+# GoTrue n'expose pas la variable prénom → pas de « Bonjour {prenom} » côté reset.
+[auth.email.template.recovery]
+subject = "Réinitialisez votre mot de passe Savr"
+content_path = "./supabase/templates/recovery.html"
 
 [edge_runtime]
 enabled = false

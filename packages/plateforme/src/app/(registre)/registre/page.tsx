@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { preset30JoursRange } from '@/lib/registre-presets';
 
 // ---------------------------------------------------------------------------
 // Registre réglementaire ZD (§06.03) — vue liste : tableau chronologique des
@@ -210,6 +211,7 @@ function RegistreContent() {
           Du
           <input
             type="date"
+            data-testid="registre-from"
             value={from}
             onChange={(e) => {
               setPage(1);
@@ -222,6 +224,7 @@ function RegistreContent() {
           Au
           <input
             type="date"
+            data-testid="registre-to"
             value={to}
             onChange={(e) => {
               setPage(1);
@@ -230,6 +233,22 @@ function RegistreContent() {
             className="rounded border border-savr-neutral-300 px-2 py-1 text-sm"
           />
         </label>
+        {/* BL-P3-10 — Preset « 30 derniers jours » (CDC §06.03). Applique la
+            fenêtre au clic ; le défaut au chargement reste vide (historique
+            complet), arbitrage Val R23c. */}
+        <button
+          type="button"
+          data-testid="registre-preset-30j"
+          onClick={() => {
+            setPage(1);
+            const r = preset30JoursRange();
+            setFrom(r.from);
+            setTo(r.to);
+          }}
+          className="rounded border border-savr-neutral-300 px-3 py-1 text-sm text-savr-neutral-700 hover:bg-savr-neutral-50"
+        >
+          30 derniers jours
+        </button>
         <label className="flex flex-col text-xs text-savr-neutral-500">
           Lieu
           <select

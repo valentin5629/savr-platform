@@ -51,4 +51,31 @@ const StatCard = React.forwardRef<HTMLDivElement, StatCardProps>(
 );
 StatCard.displayName = 'StatCard';
 
-export { StatCard };
+// StatCardGrid — grille responsive de KPIs (§8 « Dashboard KPIs : 1 col mobile /
+// 2 tablet / 3-4 desktop »). Encode la règle une fois pour que les dashboards la
+// réutilisent au lieu de la redéfinir écran par écran.
+interface StatCardGridProps {
+  children: React.ReactNode;
+  /** Nombre de colonnes desktop (≥ 1024px). 3 ou 4. Défaut 4. */
+  desktopCols?: 3 | 4;
+  className?: string;
+}
+
+const StatCardGrid = React.forwardRef<HTMLDivElement, StatCardGridProps>(
+  ({ children, desktopCols = 4, className }, ref) => (
+    <div
+      ref={ref}
+      className={cn(
+        // 1 col mobile · 2 tablet (≥640px) · 3-4 desktop (≥1024px)
+        'grid grid-cols-1 gap-4 sm:grid-cols-2',
+        desktopCols === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-4',
+        className,
+      )}
+    >
+      {children}
+    </div>
+  ),
+);
+StatCardGrid.displayName = 'StatCardGrid';
+
+export { StatCard, StatCardGrid };

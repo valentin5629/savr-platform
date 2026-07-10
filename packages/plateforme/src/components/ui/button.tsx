@@ -30,10 +30,12 @@ const buttonVariants = cva(
         link: 'text-savr-primary-700 underline-offset-4 hover:underline focus-visible:outline-savr-primary-500',
       },
       size: {
+        // Cible tactile 44px sur mobile → 40px desktop (§5.1, §8, §10). `sm` reste
+        // compact (contextes denses, opt-in).
         sm: 'h-8 rounded-savr-md px-3 text-xs',
-        md: 'h-10 rounded-savr-md px-4',
+        md: 'h-11 rounded-savr-md px-4 sm:h-10',
         lg: 'h-11 rounded-savr-md px-6 text-base',
-        icon: 'h-10 w-10 rounded-savr-md',
+        icon: 'h-11 w-11 rounded-savr-md sm:h-10 sm:w-10',
       },
     },
     defaultVariants: {

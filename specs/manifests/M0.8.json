@@ -19,7 +19,21 @@
     "packages/plateforme/src/components/layout/top-bar.tsx",
     "packages/plateforme/src/components/layout/bottom-nav.tsx",
     "packages/plateforme/src/components/layout/app-shell.tsx",
-    "packages/plateforme/src/app/(admin)/layout.tsx"
+    "packages/plateforme/src/app/(admin)/layout.tsx",
+    "packages/plateforme/src/components/ui/tooltip.tsx",
+    "packages/plateforme/src/components/ui/toast.tsx",
+    "packages/plateforme/src/components/ui/accordion.tsx",
+    "packages/plateforme/src/components/ui/switch.tsx",
+    "packages/plateforme/src/components/ui/checkbox.tsx",
+    "packages/plateforme/src/components/ui/dropdown.tsx",
+    "packages/plateforme/src/components/ui/tabs.tsx",
+    "packages/plateforme/src/components/ui/sheet.tsx",
+    "packages/plateforme/src/components/ui/date-picker.tsx",
+    "packages/plateforme/src/components/ui/pagination.tsx",
+    "packages/plateforme/src/components/ui/breadcrumb.tsx",
+    "packages/plateforme/src/components/ui/icon-button.tsx",
+    "packages/plateforme/src/components/ui/tournee-card.tsx",
+    "packages/plateforme/src/components/ui/form-error.tsx"
   ],
   "tests_vitest": [
     "packages/plateforme/src/components/ui/components.m0-8.test.tsx"
@@ -43,14 +57,33 @@
     "M0.8-13 — Skeleton affiche un bloc animé neutral-100 (pas de spinner)",
     "M0.8-14 — DataTable affiche les données en colonnes sur desktop",
     "M0.8-15 — Sidebar affiche le fond primary-700/800 (levier #2)",
-    "M0.8-16 — nav admin_savr affiche les entrées admin (Orgs, Users, Collectes, Config)",
+    "M0.8-16 — nav admin_savr affiche les entrées admin (Clients, Paramètres, Collectes)",
     "M0.8-17 — nav traiteur_manager affiche les entrées traiteur (Événements, Collectes, Dashboard)",
     "M0.8-18 — nav traiteur_commercial affiche les entrées commercial (Programmation, Collectes)",
     "M0.8-19 — nav agence affiche les entrées agence",
     "M0.8-20 — nav gestionnaire_lieux affiche les entrées gestionnaire de lieux",
     "M0.8-21 — nav client_organisateur affiche les entrées client organisateur",
     "M0.8-22 — entrées non autorisées pour le rôle sont absentes de la navigation",
-    "M0.8-23 — pnpm build passe sans erreur TypeScript"
+    "M0.8-23 — pnpm build passe sans erreur TypeScript",
+    "M0.8-24 — Tooltip affiche son contenu à l’ouverture",
+    "M0.8-25 — Toast s’affiche via useToast avec une variante",
+    "M0.8-26 — Accordion déplie le contenu de l’item ouvert",
+    "M0.8-27 — Switch expose role=switch et l’état checked",
+    "M0.8-28 — Checkbox expose role=checkbox et l’état checked",
+    "M0.8-29 — Dropdown ouvre son menu et affiche ses items",
+    "M0.8-30 — Tabs affiche le panneau de l’onglet actif",
+    "M0.8-31 — Sheet s’ouvre en panneau avec titre, corps et fermeture",
+    "M0.8-32 — DatePicker rend un champ date + un créneau heure optionnel",
+    "M0.8-33 — Pagination marque la page courante et navigue",
+    "M0.8-34 — Breadcrumb marque le dernier item aria-current=page",
+    "M0.8-35 — IconButton exige aria-label et applique la cible tactile 44px",
+    "M0.8-36 — TourneeCard affiche camion, plaque, chauffeur et N collectes",
+    "M0.8-37 — FormError rend le message en role=alert et rien si vide",
+    "M0.8-38 — Input applique l’état succès (bordure success) et 44px mobile",
+    "M0.8-39 — Button md applique la cible tactile 44px mobile (h-11 sm:h-10)",
+    "M0.8-40 — État Disabled : Button désactivé est non-interactif",
+    "M0.8-41 — tokens : --text-4xl=38px (§3.2) et tracking titres -0.02em (levier #7)",
+    "M0.8-42 — StatCardGrid applique la grille responsive KPI 1/2/3-4 (§8)"
   ],
   "deliverables": [
     {
@@ -177,9 +210,9 @@
       "id": "M0.8-16",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
       "artefact": null,
-      "test": "M0.8-16 — nav admin_savr affiche les entrées admin (Orgs, Users, Collectes, Config)",
+      "test": "M0.8-16 — nav admin_savr affiche les entrées admin (Clients, Paramètres, Collectes)",
       "statut": "implemented",
-      "libelle": "M0.8-16 — nav admin_savr affiche les entrées admin (Orgs, Users, Collectes, Config)"
+      "libelle": "M0.8-16 — nav admin_savr affiche les entrées admin (Clients, Paramètres, Collectes)"
     },
     {
       "id": "M0.8-17",
@@ -236,6 +269,182 @@
       "test": "M0.8-23 — pnpm build passe sans erreur TypeScript",
       "statut": "implemented",
       "libelle": "M0.8-23 — pnpm build passe sans erreur TypeScript"
+    },
+    {
+      "id": "BL-P3-01",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:326",
+      "artefact": "packages/plateforme/src/components/ui/",
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "BL-P3-01 — Design System : composants §6, états §7, tokens, cibles 44px, responsive — PRIMITIVES livrées + testées unit ; intégration écrans réels + preuve visuelle = R23b (GO-VISUAL)"
+    },
+    {
+      "id": "M0.8-tooltip",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:370",
+      "artefact": null,
+      "test": "M0.8-24 — Tooltip affiche son contenu à l’ouverture",
+      "statut": "à-vérifier",
+      "libelle": "Tooltip — info-bulle survol/focus (§6 ; §7 Disabled), Radix"
+    },
+    {
+      "id": "M0.8-toast",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:367",
+      "artefact": null,
+      "test": "M0.8-25 — Toast s’affiche via useToast avec une variante",
+      "statut": "à-vérifier",
+      "libelle": "Toast — notification temporaire, auto-dismiss 4s (§6 ; §7 Success)"
+    },
+    {
+      "id": "M0.8-accordion",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:378",
+      "artefact": null,
+      "test": "M0.8-26 — Accordion déplie le contenu de l’item ouvert",
+      "statut": "à-vérifier",
+      "libelle": "Accordion — contenu dépliable (§6 ; §8 mobile), Radix"
+    },
+    {
+      "id": "M0.8-switch",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:357",
+      "artefact": null,
+      "test": "M0.8-27 — Switch expose role=switch et l’état checked",
+      "statut": "à-vérifier",
+      "libelle": "Switch — toggle on/off (§6), Radix"
+    },
+    {
+      "id": "M0.8-checkbox",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:357",
+      "artefact": null,
+      "test": "M0.8-28 — Checkbox expose role=checkbox et l’état checked",
+      "statut": "à-vérifier",
+      "libelle": "Checkbox — case à cocher (§6), Radix"
+    },
+    {
+      "id": "M0.8-dropdown",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:365",
+      "artefact": null,
+      "test": "M0.8-29 — Dropdown ouvre son menu et affiche ses items",
+      "statut": "à-vérifier",
+      "libelle": "Dropdown — menu contextuel kebab (§6), Radix"
+    },
+    {
+      "id": "M0.8-tabs",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:376",
+      "artefact": null,
+      "test": "M0.8-30 — Tabs affiche le panneau de l’onglet actif",
+      "statut": "à-vérifier",
+      "libelle": "Tabs — onglets génériques de contenu (§6), Radix"
+    },
+    {
+      "id": "M0.8-sheet",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:306",
+      "artefact": null,
+      "test": "M0.8-31 — Sheet s’ouvre en panneau avec titre, corps et fermeture",
+      "statut": "à-vérifier",
+      "libelle": "Sheet — panneau latéral/montant (§5.9 ; §8 mobile)"
+    },
+    {
+      "id": "M0.8-date-picker",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:356",
+      "artefact": null,
+      "test": "M0.8-32 — DatePicker rend un champ date + un créneau heure optionnel",
+      "statut": "à-vérifier",
+      "libelle": "DatePicker — date + créneau heure (§6)"
+    },
+    {
+      "id": "M0.8-pagination",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:377",
+      "artefact": null,
+      "test": "M0.8-33 — Pagination marque la page courante et navigue",
+      "statut": "à-vérifier",
+      "libelle": "Pagination — composant réutilisable (§6, hors tri serveur BL-P3-07)"
+    },
+    {
+      "id": "M0.8-breadcrumb",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:337",
+      "artefact": null,
+      "test": "M0.8-34 — Breadcrumb marque le dernier item aria-current=page",
+      "statut": "à-vérifier",
+      "libelle": "Breadcrumb — fil d'Ariane (§6)"
+    },
+    {
+      "id": "M0.8-icon-button",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:364",
+      "artefact": null,
+      "test": "M0.8-35 — IconButton exige aria-label et applique la cible tactile 44px",
+      "statut": "à-vérifier",
+      "libelle": "IconButton — icône seule, aria-label requis (§6/§9), 44px (§8/§10)"
+    },
+    {
+      "id": "M0.8-tournee-card",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:386",
+      "artefact": null,
+      "test": "M0.8-36 — TourneeCard affiche camion, plaque, chauffeur et N collectes",
+      "statut": "à-vérifier",
+      "libelle": "TourneeCard — carte résumé tournée (§6)"
+    },
+    {
+      "id": "M0.8-form-error",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:358",
+      "artefact": null,
+      "test": "M0.8-37 — FormError rend le message en role=alert et rien si vide",
+      "statut": "implemented",
+      "libelle": "FormError — message d'erreur inline (§6/§5.5)"
+    },
+    {
+      "id": "M0.8-etat-succes-champs",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:272",
+      "artefact": null,
+      "test": "M0.8-38 — Input applique l’état succès (bordure success) et 44px mobile",
+      "statut": "à-vérifier",
+      "libelle": "État succès sur Input/Textarea/Select (§6 « états erreur/succès »)"
+    },
+    {
+      "id": "M0.8-cible-tactile-44",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:424",
+      "artefact": null,
+      "test": "M0.8-39 — Button md applique la cible tactile 44px mobile (h-11 sm:h-10)",
+      "statut": "implemented",
+      "libelle": "Cibles tactiles 44px mobile sur les contrôles interactifs (§8/§10)"
+    },
+    {
+      "id": "M0.8-etat-disabled",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:401",
+      "artefact": null,
+      "test": "M0.8-40 — État Disabled : Button désactivé est non-interactif",
+      "statut": "implemented",
+      "libelle": "État Disabled — contrôle grisé non-interactif (§7)"
+    },
+    {
+      "id": "M0.8-tokens-typo",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:153",
+      "artefact": null,
+      "test": "M0.8-41 — tokens : --text-4xl=38px (§3.2) et tracking titres -0.02em (levier #7)",
+      "statut": "implemented",
+      "libelle": "Tokens typo — --text-4xl 38px (§3.2) + tracking titres -0.02em (levier #7)"
+    },
+    {
+      "id": "M0.8-responsive-kpi",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:425",
+      "artefact": null,
+      "test": "M0.8-42 — StatCardGrid applique la grille responsive KPI 1/2/3-4 (§8)",
+      "statut": "à-vérifier",
+      "libelle": "StatCardGrid — grille responsive KPI 1/2/3-4 (§8)"
+    },
+    {
+      "id": "M0.8-leviers-signature-r23a",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:33",
+      "artefact": null,
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Leviers §1bis (1/2/4/5) visibles sur les nouveaux composants DS — GO-VISUAL"
+    },
+    {
+      "id": "M0.8-etats-systeme-visuel",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:391",
+      "artefact": null,
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Rendu visuel cohérent des 5 états système Loading/Empty/Error/Success/Disabled (§7) — GO-VISUAL"
     }
   ],
   "cdc_source_hash": {

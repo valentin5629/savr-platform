@@ -69,6 +69,11 @@
   /* ── Typographie : Nunito (levier #7) ────────────────────────────────────── */
   --font-sans: var(--font-nunito), system-ui, sans-serif;
 
+  /* Échelle typographique §3.2. Seul --text-4xl diverge du défaut Tailwind
+     (38px vs 36px) → override explicite ; xs→3xl coïncident avec le défaut. */
+  --text-4xl: 38px;
+  --text-4xl--line-height: 1.15;
+
   /* ── Spacing (grille 4px) ────────────────────────────────────────────────── */
   --spacing-savr-1: 4px;
   --spacing-savr-2: 8px;
@@ -131,6 +136,17 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Titres — display serré (levier #7 : letter-spacing négatif -0.02em, §3.1) ─
+   Signature typographique appliquée par défaut aux titres ; une utilitaire
+   `tracking-*` explicite (composants PageHero/StatCard/CardTitle) reste
+   prioritaire. Le poids 700/800 est porté par les utilitaires/composants. */
+h1,
+h2,
+h3 {
+  letter-spacing: -0.02em;
+  line-height: 1.15;
 }
 
 /* ─── Focus ring signature (levier #4 — anneau primary-500, tout élément) ── */

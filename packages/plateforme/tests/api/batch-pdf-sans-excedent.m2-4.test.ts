@@ -7,6 +7,12 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+// BL-P3-05 : le logo (clé R2 de la cascade) est inliné en data URI via getObjectBytes.
+const getObjectBytes = vi.fn().mockResolvedValue(Buffer.from([1, 2, 3]));
+vi.mock('@/lib/pdf/r2-client.js', () => ({
+  getObjectBytes: (...a: unknown[]) => getObjectBytes(...a),
+}));
+
 import { runBatchSansExcedent } from '../../src/lib/pdf/batch-pdf-sans-excedent.js';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -269,8 +275,10 @@ describe('M2.4 / batch sans-excédent — cascade logo §1.2 (BL-P2-19 cohérenc
     const sb = makeSupabase(happyResponses(collecte));
     await runBatchSansExcedent(sb as never);
     const payload = jobInsert(sb)!.payload as Record<string, unknown>;
-    // Agence prime sur le traiteur opérationnel (§1.2 l.86-90).
-    expect(payload.logo_url).toBe('https://cdn/agence-logo.png');
+    // Agence prime sur le traiteur opérationnel (§1.2 l.86-90) ; le logo est inliné
+    // en data URI (BL-P3-05) — la clé agence est celle téléchargée.
+    expect(getObjectBytes).toHaveBeenCalledWith('https://cdn/agence-logo.png');
+    expect(payload.logo_url as string).toMatch(/^data:image\/png;base64,/);
   });
 });
 

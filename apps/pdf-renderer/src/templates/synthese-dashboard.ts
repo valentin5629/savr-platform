@@ -74,6 +74,9 @@ export interface SyntheseCo2 {
 export interface SyntheseDashboardData {
   // Page de garde
   organisation_nom: string;
+  // Logo de l'organisation cible inliné en data URI (BL-P3-05, §12 §1.6 l.283 :
+  // « Logo Savr + logo de l'organisation cible si logo_url »). null = Savr seul.
+  logo_data_uri?: string | null;
   perimetre_label: string; // "traiteur", "gestionnaire de lieux", "agence"
   periode_label: string; // "01/01/2026 → 30/06/2026"
   filtres_label?: string | null; // "Lieux : X, Y · Types : Zéro-Déchet" ou null
@@ -130,7 +133,10 @@ export function renderSyntheseDashboard(data: SyntheseDashboardData): string {
   // ── Page de garde ──
   const cover = `
   <section class="cover">
-    <div class="cover-brand"><span class="logo-savr">Savr</span></div>
+    <div class="cover-brand">
+      <span class="logo-savr">Savr</span>
+      ${data.logo_data_uri ? `<img class="cover-logo-org" src="${esc(data.logo_data_uri)}" alt="" />` : ''}
+    </div>
     <h1>Rapport de synthèse — ${esc(data.perimetre_label)}</h1>
     <div class="cover-org">${esc(data.organisation_nom)}</div>
     <div class="cover-periode">${esc(data.periode_label)}</div>
@@ -357,7 +363,9 @@ export function renderSyntheseDashboard(data: SyntheseDashboardData): string {
   h3 { font-size: 11px; font-weight: 700; color: #374151; margin: 12px 0 5px; }
   section { page-break-inside: auto; }
   .cover { text-align: center; padding: 60px 0 40px; border-bottom: 1px solid #e5e7eb; margin-bottom: 8px; page-break-after: always; }
+  .cover-brand { display: flex; align-items: center; justify-content: center; gap: 20px; }
   .cover .logo-savr { font-size: 40px; font-weight: 800; color: #16a34a; letter-spacing: -1px; }
+  .cover-logo-org { max-height: 48px; max-width: 200px; object-fit: contain; }
   .cover h1 { font-size: 24px; font-weight: 700; margin: 28px 0 6px; color: #1a1a1a; }
   .cover-org { font-size: 16px; font-weight: 600; color: #15803d; }
   .cover-periode { font-size: 13px; color: #6b7280; margin-top: 8px; }

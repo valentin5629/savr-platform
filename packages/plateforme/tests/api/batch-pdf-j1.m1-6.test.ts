@@ -8,6 +8,12 @@ vi.mock('@savr/shared/src/email/index.js', () => ({
   sendEmail: vi.fn().mockResolvedValue(undefined),
 }));
 
+// BL-P3-05 : le logo (clé R2 de la cascade) est inliné en data URI via getObjectBytes.
+const getObjectBytes = vi.fn().mockResolvedValue(Buffer.from([1, 2, 3]));
+vi.mock('@/lib/pdf/r2-client.js', () => ({
+  getObjectBytes: (...a: unknown[]) => getObjectBytes(...a),
+}));
+
 import { runBatchPdfJ1 } from '../../src/lib/pdf/batch-pdf-j1.js';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -385,8 +391,12 @@ describe('M1.6 / BatchPdfJ1 / Logo cascade §1.2 (BL-P2-19)', () => {
       (c) => c[0].type_document === 'rapport-recyclage-zd',
     )?.[0];
     expect(rapJob).toBeDefined();
-    expect((rapJob!.payload as { logo_url?: string }).logo_url).toBe(
-      'https://cdn/agence-logo.png',
+    // BL-P3-05 : le logo agence (gagnant de la cascade) est inliné en data URI
+    // (le renderer n'affiche pas une clé R2 brute) — la clé agence est bien celle
+    // téléchargée (prime sur le traiteur).
+    expect(getObjectBytes).toHaveBeenCalledWith('https://cdn/agence-logo.png');
+    expect((rapJob!.payload as { logo_url?: string }).logo_url).toMatch(
+      /^data:image\/png;base64,/,
     );
   });
 });

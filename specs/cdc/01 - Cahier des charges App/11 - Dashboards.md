@@ -160,12 +160,12 @@ Onglet **AG** / Onglet **ZD**. *(Onglet « Vue consolidée » retiré — revue 
 **Bandeau de tête (commun aux 2 onglets)** : synthèse impact RSE annuel (YTD, à communiquer dans rapport DPEF / bilan carbone) + accès aux rapports RSE/PDF existants → `/organisateur/documents` *(V1 : liste des rapports RSE/bordereaux/attestations générés, avec logo client si fourni. Un PDF agrégé dédié « Rapport d'impact Savr » = V4 — décision M3.4 2026-06-17.)*
 
 ### Onglet AG
-- Cadrans (filtre période, §8 — par défaut 30 j) : événements AG, repas détournés, **CO₂e évité** *(taux de recyclage retiré — métrique ZD-only, cf. addendum 2026-05-06)*. **CO₂e évité AG modélisé 2026-06-04 bis** : lu depuis `collectes.co2_evite_kg` figé (= `volume_repas_realise × 2,5 kgCO₂e/repas`, facteur FAO `parametres_facteurs_co2_ag`), cf. [[05 - Règles métier#R_co2_ag]]. Évité seul V1 (induit/net/transport = V2). *(La synthèse YTD figée vit dans le bandeau de tête — décision M3.4 2026-06-17.)*
+- Cadrans (filtre période, §8 — par défaut 12 derniers mois) : événements AG, repas détournés, **CO₂e évité** *(taux de recyclage retiré — métrique ZD-only, cf. addendum 2026-05-06)*. **CO₂e évité AG modélisé 2026-06-04 bis** : lu depuis `collectes.co2_evite_kg` figé (= `volume_repas_realise × 2,5 kgCO₂e/repas`, facteur FAO `parametres_facteurs_co2_ag`), cf. [[05 - Règles métier#R_co2_ag]]. Évité seul V1 (induit/net/transport = V2). *(La synthèse YTD figée vit dans le bandeau de tête — décision M3.4 2026-06-17.)*
 - Liste événements (date, nom, lieu, traiteur, pax, repas)
 - Accès aux rapports RSE / attestations PDF
 
 ### Onglet ZD
-- Cadrans (filtre période, §8 — par défaut 30 j) : événements ZD, kg détournés, taux de recyclage *(formule à captation par filière, indicateur unique — "taux de valorisation" supprimé 2026-05-06)*, **CO₂ évité en headline** (refonte 2026-06-04, Sujet 3) — induit + net + énergie primaire en détail repliable (règle ABC, lus depuis `collectes.co2_*` figés, cf. [[05 - Règles métier#R_co2_calcul]]). *(La synthèse YTD figée vit dans le bandeau de tête — décision M3.4 2026-06-17.)*
+- Cadrans (filtre période, §8 — par défaut 12 derniers mois) : événements ZD, kg détournés, taux de recyclage *(formule à captation par filière, indicateur unique — "taux de valorisation" supprimé 2026-05-06)*, **CO₂ évité en headline** (refonte 2026-06-04, Sujet 3) — induit + net + énergie primaire en détail repliable (règle ABC, lus depuis `collectes.co2_*` figés, cf. [[05 - Règles métier#R_co2_calcul]]). *(La synthèse YTD figée vit dans le bandeau de tête — décision M3.4 2026-06-17.)*
 - Liste événements
 - Accès aux rapports RSE / bordereaux PDF
 

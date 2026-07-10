@@ -55,7 +55,7 @@ export default function ClientOrganisateurDashboardPage() {
 
   const handleFilters = useCallback((f: DashboardFilters) => setFilters(f), []);
 
-  // Cadrans de l'onglet — suivent la période du filtre (défaut 30 j, §11 §8)
+  // Cadrans de l'onglet — suivent la période du filtre (défaut 12 derniers mois, §11 §8)
   useEffect(() => {
     if (!filters) return;
     setLoading(true);

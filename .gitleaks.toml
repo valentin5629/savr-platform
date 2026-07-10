@@ -9,7 +9,8 @@ commits = [
   "b4f20b7d33f3d19839a59f1edd5442e8d92722ae",
 ]
 regexes = [
-  # storageKey factices du test DashboardFilterBar (R23b) — chaînes de test, pas
+  # storageKey factices des tests DashboardFilterBar (R23b) — chaînes de test, pas
   # des secrets ; la règle generic-api-key les flagge par entropie (« r23b »).
-  '''test-r23b-(presets|apply)''',
+  # Couvre tous les suffixes (presets/apply/default12mois/…).
+  '''test-r23b-[a-z0-9-]+''',
 ]

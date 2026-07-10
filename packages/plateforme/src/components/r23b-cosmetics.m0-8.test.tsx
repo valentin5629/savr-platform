@@ -81,6 +81,24 @@ describe('M0.8-45 — DashboardFilterBar expose presets + Réinitialiser hors mo
     expect(last.from).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(last.to).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
+
+  it('M0.8-56 — période par défaut = 12 derniers mois (§11 aligné §06.04/05)', () => {
+    const onChange = vi.fn();
+    render(
+      <DashboardFilterBar
+        storageKey="test-r23b-default12mois"
+        onChange={onChange}
+      />,
+    );
+    // Au montage (localStorage vide), onChange reçoit le défaut.
+    const first = onChange.mock.calls[0]?.[0] as { from: string; to: string };
+    const from = new Date(first.from);
+    const to = new Date(first.to);
+    const monthsDiff =
+      (to.getFullYear() - from.getFullYear()) * 12 +
+      (to.getMonth() - from.getMonth());
+    expect(monthsDiff).toBe(12);
+  });
 });
 
 // ── BL-P3-02 — tooltip KPI Marge : formule avec valeurs réelles (scénario P1) ──

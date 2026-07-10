@@ -1,9 +1,9 @@
 'use client';
 
 import * as React from 'react';
-import { AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
+import { FormError } from '@/components/ui/form-error';
 
 // FormField — regroupe Label + champ + FormError §5.5 (erreur : error-strong + icône).
 interface FormFieldProps {
@@ -32,10 +32,7 @@ function FormField({
       </Label>
       {children}
       {error ? (
-        <p className="flex items-center gap-1 text-xs text-savr-error-strong">
-          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-          {error}
-        </p>
+        <FormError>{error}</FormError>
       ) : hint ? (
         <p className="text-xs text-savr-neutral-500">{hint}</p>
       ) : null}

@@ -8,20 +8,24 @@ import { cn } from '@/lib/utils';
 // avec le reste du form-kit qui reste volontairement simple).
 export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   error?: boolean;
+  success?: boolean;
 }
 
 const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
-  ({ className, error, children, ...props }, ref) => (
+  ({ className, error, success, children, ...props }, ref) => (
     <div className="relative">
       <select
         ref={ref}
         className={cn(
-          'flex h-10 w-full appearance-none rounded-savr-md border bg-savr-white px-3 pr-9 text-sm text-savr-neutral-900',
+          // Hauteur 44px mobile → 40px desktop (cible tactile §8/§10).
+          'flex h-11 w-full appearance-none rounded-savr-md border bg-savr-white px-3 pr-9 text-sm text-savr-neutral-900 sm:h-10',
           'focus:outline-2 focus:outline-offset-2 focus:outline-savr-primary-500',
           'disabled:opacity-50 disabled:cursor-not-allowed',
           error
             ? 'border-savr-error'
-            : 'border-savr-neutral-300 hover:border-savr-primary-400',
+            : success
+              ? 'border-savr-success'
+              : 'border-savr-neutral-300 hover:border-savr-primary-400',
           className,
         )}
         aria-invalid={error || undefined}

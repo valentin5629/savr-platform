@@ -28,7 +28,7 @@ async function getHandler(
        ),
        collecte_flux(flux_id, poids_reel_kg, equivalent_roll, nb_bacs, flux_dechets!flux_id(code, nom)),
        collecte_tournees(
-         *, tournees(id, statut, tms_reference, external_ref_commande)
+         *, tournees(id, statut, tms_reference, external_ref_commande, plaque_immatriculation)
        ),
        packs_antgaspi!pack_antgaspi_id(id, type_pack, credits_restants, statut),
        attributions_antgaspi(id, mode_validation, valide_at, volume_repas_realise, associations!association_id(nom), transporteurs!transporteur_id(nom)),

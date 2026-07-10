@@ -18,7 +18,7 @@ export const EMAIL_TEMPLATE_CODES = [
   // ── bloc8 (20260611171642) ──
   'bienvenue_organisation',
   'verification_email',
-  'reinitialisation_mot_de_passe',
+  'reset_password', // R23c BL-P3-11 : aligné slug CDC §06.02 (ex reinitialisation_mot_de_passe)
   'invitation_utilisateur',
   'confirmation_collecte',
   'rappel_collecte_j3',

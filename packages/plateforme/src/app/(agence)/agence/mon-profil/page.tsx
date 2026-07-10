@@ -2,6 +2,7 @@ import { requirePageSession } from '@/lib/page-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RgpdComptePanel } from '@/components/compte/rgpd-compte-panel';
+import { SecuriteAccesPanel } from '@/components/compte/securite-acces-panel';
 
 const AGENCE_ROLES = ['agence'] as const;
 
@@ -38,6 +39,8 @@ export default async function MonProfilAgencePage() {
           </Button>
         </CardContent>
       </Card>
+
+      <SecuriteAccesPanel />
 
       <RgpdComptePanel />
     </div>

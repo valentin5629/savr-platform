@@ -504,13 +504,66 @@
       "statut": "descoped",
       "ref_divergence": "_Divergences/M0.8_20260710_descope_zip_rse.md",
       "libelle": "BL-P3-06 — Export ZIP groupé des rapports RSE traiteur (§06.04 l.903 / §12 §1.2) : DESCOPÉ V1 (décision Val 2026-07-10). Les rapports RSE restent téléchargeables INDIVIDUELLEMENT depuis la fiche collecte (route /rapport-rse/download, bouton « Télécharger le rapport RSE » — BL-P1-TRAIT-03, déjà en prod). L'export ZIP groupé alourdit l'UI sans valeur ajoutée démontrée → retiré (route + multi-sélection supprimées). Tracé _Divergences/M0.8_20260710_descope_zip_rse.md pour mise à jour CDC."
+    },
+    {
+      "id": "BL-P3-09",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:87",
+      "artefact": "supabase/config.toml ([auth] enable_refresh_token_rotation ; [auth.sessions] timebox=720h ; [auth.email] otp_expiry=3600 ; [auth.rate_limit] email_sent=3)",
+      "test": "M0.8-57 — Config auth : refresh 30j / OTP reset 1h / rate-limit 3/h figés (BL-P3-09)",
+      "statut": "implemented",
+      "libelle": "BL-P3-09 — Paramètres auth explicites (CDC §09) : refresh 30j (timebox 720h + rotation), OTP/lien reset 1h (otp_expiry 3600), rate-limit reset 3/h (email_sent). Caveat non bloquant : email_sent = cap GoTrue global/heure, pas per-email (throttle applicatif hors scope). Prod = Dashboard manuel (Val)."
+    },
+    {
+      "id": "BL-P3-10",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:42",
+      "artefact": "packages/plateforme/src/app/(registre)/registre/page.tsx (bouton preset) ; packages/plateforme/src/lib/registre-presets.ts",
+      "test": "M0.8-58 — Registre : preset « 30 derniers jours » (BL-P3-10)",
+      "statut": "implemented",
+      "libelle": "BL-P3-10 — Preset « 30 derniers jours » de la barre de filtres registre (§06.03). Bouton appliquant J−30/J ; défaut au chargement conservé vide (arbitrage Val R23c : ne pas auto-limiter le registre réglementaire). GO-VISUAL."
+    },
+    {
+      "id": "BL-P3-11",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:257",
+      "artefact": "supabase/config.toml ([auth.email.template.recovery]) ; supabase/templates/recovery.html ; supabase/migrations/20260710120000_plateforme_r23c_reset_password_slug.sql ; packages/shared/src/seed/constants.ts",
+      "test": "M0.8-59 — reset_password : recovery template GoTrue brandé + slug catalogue (BL-P3-11)",
+      "statut": "implemented",
+      "libelle": "BL-P3-11 — Slug catalogue reset_password (§06.02) : email de reset brandé Savr via recovery template GoTrue (délivrance GoTrue-native §09, sans {prenom}), code seed aligné reinitialisation_mot_de_passe→reset_password. Arbitrage Val R23c : contradiction §06.02↔§09 tranchée = template GoTrue brandé."
+    },
+    {
+      "id": "BL-P3-12",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:210",
+      "artefact": "packages/plateforme/src/components/collectes/plaque-tms-picto.tsx ; packages/plateforme/src/lib/statut-tms-labels.ts (plaqueTmsComplete) ; packages/plateforme/src/app/(admin)/admin/collectes/[id]/page.tsx ; packages/plateforme/src/app/api/v1/admin/collectes/[id]/route.ts",
+      "test": "M0.8-60 — Picto plaque TMS : vert ssi toutes les tournées ont leur plaque (BL-P3-12)",
+      "statut": "implemented",
+      "libelle": "BL-P3-12 — Picto plaque TMS fiche collecte Admin (§11 l.210) : vert si toutes les tournées ont plaque_immatriculation, gris sinon. Route étendue (plaque_immatriculation), picto collecte-level + plaque par tournée. GO-VISUAL."
+    },
+    {
+      "id": "BL-P3-13",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:46",
+      "artefact": "supabase/migrations/20260710130000_plateforme_r23c_mes_acces_compte.sql (f_mes_acces_compte SECURITY DEFINER) ; packages/plateforme/src/app/api/me/acces/route.ts ; packages/plateforme/src/components/compte/securite-acces-panel.tsx ; pages mon-profil traiteur/agence/organisateur + gestionnaire parametres ; nav-config.ts",
+      "test": "M0.8-61 — Sécurité du compte : historique self des accès admin (BL-P3-13) ; pgTAP supabase/tests/r23c_mes_acces_compte.test.sql (self-scope + al_select_staff intact)",
+      "statut": "implemented",
+      "libelle": "BL-P3-13 — Page « Sécurité du compte » (§15 §2.3) : l'utilisateur voit l'historique des accès admin (impersonation) à SON compte via RPC SECURITY DEFINER f_mes_acces_compte scopée auth.uid() (date + libellé générique, jamais l'identité admin ; audit_log reste staff-only al_select_staff). Câblée sur les 4 rôles impersonables (traiteur/agence/gestionnaire/organisateur). GO-VISUAL + reviewer rls-sécurité."
+    },
+    {
+      "id": "BL-P3-14",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:575",
+      "artefact": "supabase/tests/M2_4__co2_params_rpc.test.sql (boundary 99.96/105) ; packages/plateforme/src/app/api/v1/admin/parametres/mix-emballages/co2-tolerance.m0-8.test.ts (verrou source 4 couches)",
+      "test": "M0.8-62 — CO2 mix : tolérance somme 100 % = 0,05 alignée (BL-P3-14) ; pgTAP M2_4 boundary 99,96 accepté / 105 rejeté (22023)",
+      "statut": "implemented",
+      "libelle": "BL-P3-14 — Tolérance Σ mix emballages = 0,05 (§05 l.575) : les 4 couches (route, frontend, trigger DB, RPC) déjà alignées à 0,05 (constat backlog « 0.01 » périmé). Verrou de non-régression ajouté (pgTAP boundary + assertion source). 99,96 % passe, 105 % rejeté."
     }
   ],
   "cdc_source_hash": {
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "e334d1b439d2356f12db8de139d495f9797c9a1c203e1b31e61ade71a8fb302a",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "ceab086160acfc84dbd698257fc03436484fb3f8d8fb40ec79d416ee67fd227d",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md": "d1d27862f2f8499db22d29d253d9ab6c9a825258df458172f16c868ce791ada0",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "8d05ca4ebd98e2b845b887ee14fd285c2026128c17750edd8f87f22de9806d0b",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "4175a18a449a29c84ec0ff7d59ac496c6f81d0b4fa8e146b5baf343f6728c67e",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "4f711aee38e9a08d166e0f7d6abcbe5a995c8be7640a9c61b09056d6259a90bf",
     "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "1672e191d61ed4d702b595952d6e7759b0d49715940a3c76d661d9b706944bc9",
     "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "7776a13e7297a39d4110630c3b45e2567e0fe39bc5af9f31a197d42288ffa351",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "395550f99b433f9779bea4e570fb6c3acd28ffbae4bdf3c6cb0a653f96b7a124"
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "395550f99b433f9779bea4e570fb6c3acd28ffbae4bdf3c6cb0a653f96b7a124",
+    "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "0fcf6f081583aee93f4ba4ff80d564feeb96d4037cee8c2e92747d210fe848a8"
   }
 }

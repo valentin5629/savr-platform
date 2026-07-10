@@ -4437,6 +4437,10 @@ export type Database = {
         Returns: number
       }
       f_is_staff: { Args: never; Returns: boolean }
+      f_mes_acces_compte: {
+        Args: never
+        Returns: { accede_le: string; type_acces: string }[]
+      }
       f_log_audit: {
         Args: {
           p_action: string

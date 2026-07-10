@@ -9,7 +9,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(19);
+SELECT plan(21);
 
 -- Auteur admin (le trigger résout modifie_par via le GUC savr.audit_user posé par la RPC).
 INSERT INTO plateforme.organisations (id, nom, type, actif, est_shadow, tarif_refacture_pax_zd, mode_facturation_zd)
@@ -157,6 +157,32 @@ SELECT is(
 SELECT is(
   (SELECT fe_induit_kg_t FROM plateforme.parametres_mix_emballages WHERE code_materiau='carton_papier'),
   77::decimal, 'mix : FE induit matériau carton édité à la main (CDC §9.2)');
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 8. BL-P3-14 — tolérance Σ=100 = 0,05 (CDC §05 R_co2 l.575 / §04 Data Model).
+--    Verrou de non-régression : 99,96 % accepté (|Δ|=0,04), 105 % rejeté (22023).
+-- ─────────────────────────────────────────────────────────────────────────────
+SELECT lives_ok(
+  $$ SELECT plateforme.rpc_maj_mix_emballages(
+       '11111111-1111-1111-1111-111111111111', 'BL-P3-14 tolérance basse 99.96',
+       (SELECT jsonb_agg(jsonb_build_object('id', id, 'part_pct',
+          part_pct + CASE WHEN code_materiau='carton_papier'
+            THEN (99.96 - (SELECT SUM(part_pct) FROM plateforme.parametres_mix_emballages WHERE actif))
+            ELSE 0 END))
+        FROM plateforme.parametres_mix_emballages WHERE actif)) $$,
+  'BL-P3-14 : mix Σ=99,96 accepté (|Δ|=0,04 ≤ tolérance 0,05)');
+
+SELECT throws_ok(
+  $$ SELECT plateforme.rpc_maj_mix_emballages(
+       '11111111-1111-1111-1111-111111111111', 'BL-P3-14 hors tolérance 105',
+       (SELECT jsonb_agg(jsonb_build_object('id', id, 'part_pct',
+          part_pct + CASE WHEN code_materiau='carton_papier'
+            THEN (105 - (SELECT SUM(part_pct) FROM plateforme.parametres_mix_emballages WHERE actif))
+            ELSE 0 END))
+        FROM plateforme.parametres_mix_emballages WHERE actif)) $$,
+  '22023',
+  NULL,
+  'BL-P3-14 : mix Σ=105 rejeté (RAISE 22023, hors tolérance)');
 
 SELECT finish();
 ROLLBACK;

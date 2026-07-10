@@ -176,7 +176,7 @@ Onglet **AG** / Onglet **ZD**. *(Onglet « Vue consolidée » retiré — revue 
 ## 8. Règles communes UI/UX
 
 - **Chargement** : les cadrans se chargent en <1s (vues SQL indexées, calcul à la volée — cf. §9)
-- **Période par défaut** : 30 derniers jours, personnalisable par user (persistée en `localStorage` navigateur, pas de table serveur — cf. décision sobriété 2026-06-03 B1)
+- **Période par défaut** : 12 derniers mois (aligné §06.04/§06.05), personnalisable par user (persistée en `localStorage` navigateur, pas de table serveur — cf. décision sobriété 2026-06-03 B1)
 - **Split AG / ZD** : onglets obligatoires sur tous les dashboards qui agrègent de la collecte
 - **Devise / unités** : € HT, kg, tonnes, kg CO₂e (seuil auto : passage à t à partir de 10 000 kg — aligné §06.04/§06.05 Bloc 2 ZD, patch divergence M3.5 2026-07-07)
 - **Pas de données → état vide explicite** : "Aucune collecte sur la période sélectionnée. Ajustez les filtres ou programmez votre première collecte."

@@ -38,8 +38,7 @@
   "tests_vitest": [
     "packages/plateforme/src/components/ui/components.m0-8.test.tsx",
     "packages/plateforme/src/components/r23b-cosmetics.m0-8.test.tsx",
-    "packages/plateforme/src/lib/pdf/logo-inline.m0-8.test.ts",
-    "packages/plateforme/tests/api/traiteur/rapports-rse-export-zip.m0-8.test.ts"
+    "packages/plateforme/src/lib/pdf/logo-inline.m0-8.test.ts"
   ],
   "tests_playwright": [
     "e2e/m0-8.nav-par-role.spec.ts"
@@ -500,10 +499,11 @@
     {
       "id": "BL-P3-06",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:903",
-      "artefact": "packages/plateforme/src/app/api/v1/traiteur/rapports-rse/export-zip/route.ts, packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx",
-      "test": "M0.8-53 — export ZIP RSE : rapports disponibles → 200 application/zip",
-      "statut": "implemented",
-      "libelle": "BL-P3-06 — Export ZIP groupé des rapports de recyclage RSE traiteur (§12 §1.2 + §06.04 l.903 plafond 50). Nouvelle route POST /api/v1/traiteur/rapports-rse/export-zip (réutilise createStoreZip ; résolution par collecte attestation AG / rapports_rse ZD+sans-excédent, embargo H+24 respecté ; cloisonnement RLS = collectes visibles seules) + multi-sélection UI sur l'onglet Historique de la liste collectes. Tests M0.8-50..54 (vide/cap 50/cross-org/200 zip/embargo). Aucune migration (pas de trace exports_registre)."
+      "artefact": null,
+      "test": null,
+      "statut": "descoped",
+      "ref_divergence": "_Divergences/M0.8_20260710_descope_zip_rse.md",
+      "libelle": "BL-P3-06 — Export ZIP groupé des rapports RSE traiteur (§06.04 l.903 / §12 §1.2) : DESCOPÉ V1 (décision Val 2026-07-10). Les rapports RSE restent téléchargeables INDIVIDUELLEMENT depuis la fiche collecte (route /rapport-rse/download, bouton « Télécharger le rapport RSE » — BL-P1-TRAIT-03, déjà en prod). L'export ZIP groupé alourdit l'UI sans valeur ajoutée démontrée → retiré (route + multi-sélection supprimées). Tracé _Divergences/M0.8_20260710_descope_zip_rse.md pour mise à jour CDC."
     }
   ],
   "cdc_source_hash": {

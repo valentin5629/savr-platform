@@ -34,11 +34,6 @@ const STATUTS_HISTORIQUE = [
 
 type Onglet = 'programmees' | 'historique';
 
-// Collectes pouvant porter un rapport RSE téléchargeable (§12 §1.2) — cibles de
-// l'export ZIP groupé (BL-P3-06). Les autres statuts historique (annulée, rejetée,
-// annulation_demandee) n'ont pas de rapport → non sélectionnables.
-const STATUTS_RAPPORT = ['realisee', 'realisee_sans_collecte', 'cloturee'];
-
 interface Lieu {
   nom: string;
   adresse_acces: string | null;
@@ -110,14 +105,6 @@ function CollectesContent() {
   const [role, setRole] = useState('');
   const [userId, setUserId] = useState('');
 
-  // Export ZIP groupé des rapports RSE (BL-P3-06, onglet Historique). Mode sélection
-  // OPT-IN : la liste reste épurée par défaut, les cases n'apparaissent qu'après
-  // activation du bouton « Exporter des rapports (ZIP) ».
-  const [selectionMode, setSelectionMode] = useState(false);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [zipEnCours, setZipEnCours] = useState(false);
-  const [zipErreur, setZipErreur] = useState<string | null>(null);
-
   // Annulation (modale liste — réutilise l'endpoint de la fiche).
   const [annulTarget, setAnnulTarget] = useState<CollecteRow | null>(null);
   const [annulMotif, setAnnulMotif] = useState('');
@@ -143,9 +130,6 @@ function CollectesContent() {
       type: typeFiltre,
       statut: statuts.join(','),
     });
-    setSelectionMode(false);
-    setSelected(new Set());
-    setZipErreur(null);
     fetch(`/api/v1/traiteur/collectes?${qs}`)
       .then((r) => r.json())
       .then((j) => setRows((j.data ?? []) as CollecteRow[]))
@@ -173,47 +157,6 @@ function CollectesContent() {
 
   function exportCsv() {
     window.open(`/api/v1/exports/collectes?type=${typeFiltre}`);
-  }
-
-  function toggleSelection(id: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  // Export ZIP groupé des rapports RSE de la sélection (BL-P3-06) — POST + blob.
-  async function exportZipSelection() {
-    if (selected.size === 0) return;
-    setZipEnCours(true);
-    setZipErreur(null);
-    try {
-      const res = await fetch('/api/v1/traiteur/rapports-rse/export-zip', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ collecte_ids: [...selected] }),
-      });
-      if (!res.ok) {
-        const j = (await res.json().catch(() => ({}))) as { error?: string };
-        setZipErreur(j.error ?? "Échec de l'export.");
-        return;
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'rapports-rse.zip';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      setSelected(new Set());
-      setSelectionMode(false);
-    } finally {
-      setZipEnCours(false);
-    }
   }
 
   function canWrite(row: CollecteRow): boolean {
@@ -343,47 +286,6 @@ function CollectesContent() {
       {/* Sélecteur ZD / AG */}
       <CollecteTypeTabs value={typeFiltre} onChange={changeType} />
 
-      {/* Barre d'export ZIP groupé des rapports RSE (BL-P3-06) — Historique only,
-          sélection OPT-IN pour garder la liste épurée par défaut. */}
-      {onglet === 'historique' && (
-        <div
-          className="flex flex-wrap items-center gap-3"
-          data-testid="rse-zip-toolbar"
-        >
-          {!selectionMode ? (
-            <Button variant="ghost" onClick={() => setSelectionMode(true)}>
-              Exporter des rapports (ZIP)
-            </Button>
-          ) : (
-            <>
-              <Button
-                variant="secondary"
-                disabled={selected.size === 0 || zipEnCours}
-                onClick={() => void exportZipSelection()}
-              >
-                {zipEnCours
-                  ? 'Génération…'
-                  : `Exporter la sélection (${selected.size}) en ZIP`}
-              </Button>
-              <button
-                type="button"
-                className="text-xs text-savr-neutral-500 hover:underline"
-                onClick={() => {
-                  setSelectionMode(false);
-                  setSelected(new Set());
-                  setZipErreur(null);
-                }}
-              >
-                Terminer
-              </button>
-            </>
-          )}
-          {zipErreur && (
-            <span className="text-sm text-savr-error-600">{zipErreur}</span>
-          )}
-        </div>
-      )}
-
       {loading ? (
         <p className="text-sm text-savr-neutral-500">Chargement…</p>
       ) : groupes.length === 0 ? (
@@ -396,45 +298,25 @@ function CollectesContent() {
                 {g.libelle}
               </h2>
               <div className="space-y-2">
-                {g.items.map(({ data, row }) => {
-                  const selectable =
-                    selectionMode &&
-                    onglet === 'historique' &&
-                    STATUTS_RAPPORT.includes(row.statut);
-                  const card = (
-                    <TraiteurCollecteCard
-                      c={data}
-                      canWrite={canWrite(row)}
-                      onOpen={() =>
-                        router.push(`/traiteur/collectes/${data.id}`)
-                      }
-                      onModifier={() =>
-                        router.push(`/traiteur/collectes/${data.id}?edit=1`)
-                      }
-                      onAnnuler={() => {
-                        setAnnulErreur(null);
-                        setAnnulMotif('');
-                        setAnnulTarget(row);
-                      }}
-                      onDupliquer={() =>
-                        router.push(`/programmer/nouveau?from=${data.id}`)
-                      }
-                    />
-                  );
-                  if (!selectable) return <div key={data.id}>{card}</div>;
-                  return (
-                    <div key={data.id} className="flex items-start gap-2">
-                      <input
-                        type="checkbox"
-                        className="mt-4 h-4 w-4 shrink-0 accent-savr-primary-700"
-                        aria-label={`Sélectionner la collecte du ${data.date_collecte} pour l'export ZIP`}
-                        checked={selected.has(data.id)}
-                        onChange={() => toggleSelection(data.id)}
-                      />
-                      <div className="min-w-0 flex-1">{card}</div>
-                    </div>
-                  );
-                })}
+                {g.items.map(({ data, row }) => (
+                  <TraiteurCollecteCard
+                    key={data.id}
+                    c={data}
+                    canWrite={canWrite(row)}
+                    onOpen={() => router.push(`/traiteur/collectes/${data.id}`)}
+                    onModifier={() =>
+                      router.push(`/traiteur/collectes/${data.id}?edit=1`)
+                    }
+                    onAnnuler={() => {
+                      setAnnulErreur(null);
+                      setAnnulMotif('');
+                      setAnnulTarget(row);
+                    }}
+                    onDupliquer={() =>
+                      router.push(`/programmer/nouveau?from=${data.id}`)
+                    }
+                  />
+                ))}
               </div>
             </section>
           ))}

@@ -6,6 +6,7 @@ import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 
 import { resolveRapportBenchmark } from './rapport-benchmark.js';
 import { resolveRapportLogo } from './logo-cascade.js';
+import { makeLogoResolver } from './logo-inline.js';
 
 export interface BatchPdfJ1Result {
   enqueued: number;
@@ -193,6 +194,11 @@ export async function runBatchPdfJ1(
       }
     : undefined;
 
+  // Inline logo mémoïsé (BL-P3-05) : la cascade renvoie une clé R2 brute que le
+  // renderer n'affiche pas → data URI. Cache partagé sur tout le batch (même logo
+  // d'agence réutilisé sur N rapports).
+  const resolveLogoUri = makeLogoResolver();
+
   for (const collecte of toProcess) {
     try {
       // 3. Vérifier qu'il y a des pesées dans collecte_flux
@@ -340,7 +346,7 @@ export async function runBatchPdfJ1(
         lieu_adresse: adresseLieu,
         nb_pax: ev.pax,
         traiteur_nom: organisationProd?.raison_sociale ?? '',
-        logo_url: logo.logo_url,
+        logo_url: (await resolveLogoUri(logo.logo_url)) ?? undefined,
         taux_recyclage: collecte.taux_recyclage,
         flux: fluxDetails,
         poids_total_kg: poidsTotalKg,

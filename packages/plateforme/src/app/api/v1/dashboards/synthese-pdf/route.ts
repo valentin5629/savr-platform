@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { requireUser, createSupabaseServerClient } from '@/lib/api-auth.js';
 import { generatePdf } from '@/lib/pdf/railway-client.js';
 import { uploadPdf, getPresignedUrl } from '@/lib/pdf/r2-client.js';
+import { logoKeyToDataUri } from '@/lib/pdf/logo-inline.js';
 import {
   buildSyntheseSnapshot,
   type SyntheseParams,
@@ -87,12 +88,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     tailleEvts: asStringArray(body['taille_evenements']),
   };
 
-  // Nom de l'organisation courante (page de garde). RLS organisations = self.
+  // Nom + logo de l'organisation courante (page de garde). RLS organisations = self
+  // → aucune fuite inter-org. Le logo (§12 §1.6 l.283, branding agence prioritaire
+  // l.86-90/l.249) est celui de l'org demandeuse elle-même (l'agence pour une synthèse
+  // agence). BL-P3-05 : inliné en data URI (le renderer ne présigne pas).
   const { data: org } = await supabase
     .from('organisations')
-    .select('nom')
+    .select('nom, logo_url')
     .eq('id', auth.ctx.organisationId)
     .maybeSingle();
+  const logoDataUri = await logoKeyToDataUri(
+    (org?.logo_url as string | null) ?? null,
+  );
 
   const now = new Date();
   const clock = {
@@ -125,10 +132,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // Rendu Railway + dépôt R2 éphémère + URL pré-signée.
   try {
-    const { pdfBuffer } = await generatePdf(
-      'synthese-dashboard',
-      snapshot as unknown as Record<string, unknown>,
-    );
+    const { pdfBuffer } = await generatePdf('synthese-dashboard', {
+      ...(snapshot as unknown as Record<string, unknown>),
+      logo_data_uri: logoDataUri,
+    });
     const key = `synthese/${auth.ctx.organisationId}/${randomUUID()}.pdf`;
     const storageKey = await uploadPdf('rapports', key, pdfBuffer);
     const url = await getPresignedUrl(storageKey, PRESIGN_TTL_SECONDS);

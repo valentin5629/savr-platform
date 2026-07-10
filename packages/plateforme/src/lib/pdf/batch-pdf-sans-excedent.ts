@@ -15,6 +15,7 @@
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 
 import { resolveRapportLogo } from './logo-cascade.js';
+import { makeLogoResolver } from './logo-inline.js';
 
 export interface BatchSansExcedentResult {
   enqueued: number;
@@ -123,6 +124,9 @@ export async function runBatchSansExcedent(
 
   if (!toProcess.length) return result;
 
+  // Inline logo mémoïsé (BL-P3-05) — data URI, clé R2 non rendue par le renderer.
+  const resolveLogoUri = makeLogoResolver();
+
   for (const collecte of toProcess) {
     try {
       const ev = collecte.evenements;
@@ -207,7 +211,7 @@ export async function runBatchSansExcedent(
         traiteur_nom: traiteurNom,
         nb_pax: ev.pax,
         client_organisateur_nom: ev.nom_client_organisateur,
-        logo_url: logo.logo_url ?? null,
+        logo_url: (await resolveLogoUri(logo.logo_url)) ?? null,
         presentation_datetime: presentationDatetime,
         chauffeur_nom: tournee?.chauffeur_nom ?? null,
         plaque_immatriculation: plaque,

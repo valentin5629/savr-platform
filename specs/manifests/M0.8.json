@@ -37,7 +37,9 @@
   ],
   "tests_vitest": [
     "packages/plateforme/src/components/ui/components.m0-8.test.tsx",
-    "packages/plateforme/src/components/r23b-cosmetics.m0-8.test.tsx"
+    "packages/plateforme/src/components/r23b-cosmetics.m0-8.test.tsx",
+    "packages/plateforme/src/lib/pdf/logo-inline.m0-8.test.ts",
+    "packages/plateforme/tests/api/traiteur/rapports-rse-export-zip.m0-8.test.ts"
   ],
   "tests_playwright": [
     "e2e/m0-8.nav-par-role.spec.ts"
@@ -486,12 +488,29 @@
       "test": "M0.8-44 — PreferencesLangueCard affiche la langue française figée (BL-P3-08)",
       "statut": "implemented",
       "libelle": "BL-P3-08 — Bloc Préférences « Langue : Français (FR) » figé V1 (composant partagé). Côté gestionnaire dans la section « Paramètres » §9 (§06.05 l.75/l.474) ; côté traiteur dans « Mon organisation » §6 (§06.04 l.709-711, déjà présent). Aucune persistance ni colonne users.langue (multi-langues = V1.1)."
+    },
+    {
+      "id": "BL-P3-05",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:283",
+      "artefact": "packages/plateforme/src/lib/pdf/logo-inline.ts, packages/plateforme/src/app/api/v1/dashboards/synthese-pdf/route.ts, apps/pdf-renderer/src/templates/synthese-dashboard.ts, packages/plateforme/src/lib/pdf/batch-pdf-j1.ts, packages/plateforme/src/lib/pdf/batch-pdf-sans-excedent.ts",
+      "test": "M0.8-49 — logoKeyToDataUri inline un logo R2 en data URI (BL-P3-05)",
+      "statut": "implemented",
+      "libelle": "BL-P3-05 — Logo de l'organisation en page de garde de la synthèse PDF (§12 §1.6 l.283 « Savr + logo org cible » ; branding agence prioritaire l.86-90/l.249, org self). Le logo (clé R2 brute) est INLINÉ en data URI (helper logoKeyToDataUri, testé M0.8-49) car le renderer Railway ne présigne pas. Fix latent étendu (décision Val 2026-07-10) : les logos des rapports R21b (rapport-recyclage-zd + sans-excédent) sont aussi inlinés dans leurs batchs (jamais rendus auparavant). GO-VISUAL sur le rendu PDF."
+    },
+    {
+      "id": "BL-P3-06",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:903",
+      "artefact": "packages/plateforme/src/app/api/v1/traiteur/rapports-rse/export-zip/route.ts, packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx",
+      "test": "M0.8-53 — export ZIP RSE : rapports disponibles → 200 application/zip",
+      "statut": "implemented",
+      "libelle": "BL-P3-06 — Export ZIP groupé des rapports de recyclage RSE traiteur (§12 §1.2 + §06.04 l.903 plafond 50). Nouvelle route POST /api/v1/traiteur/rapports-rse/export-zip (réutilise createStoreZip ; résolution par collecte attestation AG / rapports_rse ZD+sans-excédent, embargo H+24 respecté ; cloisonnement RLS = collectes visibles seules) + multi-sélection UI sur l'onglet Historique de la liste collectes. Tests M0.8-50..54 (vide/cap 50/cross-org/200 zip/embargo). Aucune migration (pas de trace exports_registre)."
     }
   ],
   "cdc_source_hash": {
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "4a64157d49a7e9c6cfca82b0329d67c1444704d47fe6c65ddb31743f4a3f7382",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "4175a18a449a29c84ec0ff7d59ac496c6f81d0b4fa8e146b5baf343f6728c67e",
     "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "1672e191d61ed4d702b595952d6e7759b0d49715940a3c76d661d9b706944bc9",
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "ec6e24cfa8e2245587c55283fcfca5b78e6e867322bac99f97ad5f324a188a28"
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "ec6e24cfa8e2245587c55283fcfca5b78e6e867322bac99f97ad5f324a188a28",
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "395550f99b433f9779bea4e570fb6c3acd28ffbae4bdf3c6cb0a653f96b7a124"
   }
 }

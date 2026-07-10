@@ -353,14 +353,19 @@ export default function TraiteurDashboardPage() {
                   </Badge>
                 )}
                 <Tooltip content={margeTooltip}>
-                  <span
-                    role="note"
-                    tabIndex={0}
+                  <button
+                    type="button"
                     aria-label="Détail du calcul de la marge"
-                    className="inline-flex h-5 w-5 cursor-help items-center justify-center rounded-savr-full border border-savr-neutral-300 text-[11px] font-bold text-savr-neutral-500"
+                    className="inline-flex min-h-[44px] min-w-[44px] cursor-help items-center justify-center rounded-savr-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
                   >
-                    ?
-                  </span>
+                    {/* Cible tactile 44px (DS §10 l.447) ; « ? » visuel compact. */}
+                    <span
+                      aria-hidden
+                      className="inline-flex h-5 w-5 items-center justify-center rounded-savr-full border border-savr-neutral-300 text-[11px] font-bold text-savr-neutral-500"
+                    >
+                      ?
+                    </span>
+                  </button>
                 </Tooltip>
               </div>
             </div>

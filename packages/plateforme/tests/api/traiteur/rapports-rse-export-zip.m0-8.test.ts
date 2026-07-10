@@ -133,6 +133,33 @@ describe('M0.8-53 — export ZIP RSE : rapports disponibles → 200 application/
   });
 });
 
+describe('M0.8-55 — export ZIP RSE : AG clôturée → sert l’attestation (branche AG)', () => {
+  it('résout attestations_don pour une collecte anti_gaspi cloturee', async () => {
+    rls.results.collectes = {
+      data: [
+        {
+          id: 'c1',
+          type: 'anti_gaspi',
+          statut: 'cloturee',
+          date_collecte: '2026-06-02',
+          tms_reference: 'AG-001',
+        },
+      ],
+      error: null,
+    };
+    admin.results.attestations_don = {
+      data: { eligible_at: PAST, pdf_url: 'rapports/att-a1.pdf' },
+      error: null,
+    };
+    // Si le code lisait rapports_rse pour une AG clôturée, il manquerait l'attestation.
+    admin.results.rapports_rse = { data: null, error: null };
+
+    const res = await post({ collecte_ids: ['c1'] });
+    expect(res.status).toBe(200);
+    expect(mockGetObjectBytes).toHaveBeenCalledWith('rapports/att-a1.pdf');
+  });
+});
+
 describe('M0.8-54 — export ZIP RSE : tout sous embargo H+24 → 422 (aucun fichier)', () => {
   it('skippe les rapports embargués et refuse un ZIP vide', async () => {
     rls.results.collectes = {

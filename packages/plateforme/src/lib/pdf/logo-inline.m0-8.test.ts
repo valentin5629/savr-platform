@@ -40,6 +40,11 @@ describe('M0.8-49 — logoKeyToDataUri inline un logo R2 en data URI (BL-P3-05)'
     expect(await logoKeyToDataUri('b/x.png')).toBeNull();
   });
 
+  it('null si le logo dépasse 1 Mo (évite un data URI > limite 2 Mo du renderer)', async () => {
+    getObjectBytes.mockResolvedValue(Buffer.alloc(1_000_001));
+    expect(await logoKeyToDataUri('b/gros.png')).toBeNull();
+  });
+
   it('makeLogoResolver mémoïse : une seule lecture R2 par clé', async () => {
     getObjectBytes.mockResolvedValue(Buffer.from([1]));
     const resolve = makeLogoResolver();

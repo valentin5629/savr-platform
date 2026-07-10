@@ -19,12 +19,20 @@ const MIME_BY_EXT: Record<string, string> = {
   svg: 'image/svg+xml',
 };
 
+// Plafond de taille du logo inliné. Le renderer Railway borne le corps JSON à 2 Mo
+// (apps/pdf-renderer/src/server.ts) ; la base64 gonfle de ~33 %. Au-delà de 1 Mo brut
+// (~1,33 Mo base64) on risque de dépasser la limite AVEC le reste du payload → on
+// retombe sur l'en-tête Savr (best-effort, jamais bloquant) plutôt que de faire échouer
+// TOUTE la génération PDF pour un logo simplement trop lourd (revue conformité R23b-2).
+const MAX_LOGO_BYTES = 1_000_000;
+
 export async function logoKeyToDataUri(
   storageKey: string | null | undefined,
 ): Promise<string | null> {
   if (!storageKey || !storageKey.trim()) return null;
   try {
     const bytes = await getObjectBytes(storageKey);
+    if (bytes.byteLength > MAX_LOGO_BYTES) return null;
     const ext = storageKey.split('.').pop()?.toLowerCase() ?? '';
     const mime = MIME_BY_EXT[ext] ?? 'image/png';
     return `data:${mime};base64,${bytes.toString('base64')}`;

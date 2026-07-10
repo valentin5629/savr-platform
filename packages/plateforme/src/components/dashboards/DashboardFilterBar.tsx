@@ -50,6 +50,48 @@ function parcValue(f: DashboardFilters): ParcFilterValue {
   };
 }
 
+const iso = (d: Date) => d.toISOString().slice(0, 10);
+
+// Presets de période (BL-P3-02) — liste CDC EXACTE §06.04 l.73 / §06.05 l.105 :
+// 7j / 30j / Trimestre en cours / 12 derniers mois (défaut) / Année civile /
+// Personnalisé (= les 2 champs date). Chaque preset ne touche QUE from/to (les
+// filtres parc sont préservés).
+type PresetKey = '7j' | '30j' | 'trimestre' | '12m' | 'civile';
+const PERIOD_PRESETS: { key: PresetKey; label: string }[] = [
+  { key: '7j', label: '7 jours' },
+  { key: '30j', label: '30 jours' },
+  { key: 'trimestre', label: 'Trimestre en cours' },
+  { key: '12m', label: '12 derniers mois' },
+  { key: 'civile', label: 'Année civile' },
+];
+
+function presetRange(key: PresetKey): { from: string; to: string } {
+  const now = new Date();
+  const from = new Date();
+  if (key === '7j') {
+    from.setDate(from.getDate() - 7);
+  } else if (key === '30j') {
+    from.setDate(from.getDate() - 30);
+  } else if (key === 'trimestre') {
+    // Trimestre en cours : 1er jour du trimestre courant → aujourd'hui.
+    return {
+      from: iso(
+        new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1),
+      ),
+      to: iso(now),
+    };
+  } else if (key === '12m') {
+    from.setMonth(from.getMonth() - 12);
+  } else {
+    // Année civile — aligné sur le preset benchmark existant (Jan 1 → Dec 31).
+    return {
+      from: `${now.getFullYear()}-01-01`,
+      to: `${now.getFullYear()}-12-31`,
+    };
+  }
+  return { from: iso(from), to: iso(now) };
+}
+
 /**
  * Barre de filtres du dashboard — persistance localStorage (sobriété B1, pas de table).
  * Sans `parcOptions` : Période seule (30 j par défaut, §11 §8). Avec `parcOptions` :
@@ -118,24 +160,40 @@ export function DashboardFilterBar({
         />
       </label>
 
-      {parcOptions && (
-        <>
-          <ParcMultiSelects
-            value={parcValue(filters)}
-            options={parcOptions}
-            onChange={(patch) => apply({ ...filters, ...patch })}
-            testidPrefix="dashboard-filter"
-          />
+      {/* Presets de période (BL-P3-02) — raccourcis sur tous les dashboards. */}
+      <div className="flex flex-wrap items-center gap-1">
+        {PERIOD_PRESETS.map((p) => (
           <button
+            key={p.key}
             type="button"
-            onClick={() => apply(defaultFilters())}
-            data-testid="dashboard-filter-reinitialiser"
-            className="text-xs text-savr-primary-700 hover:underline"
+            onClick={() => apply({ ...filters, ...presetRange(p.key) })}
+            data-testid={`dashboard-filter-preset-${p.key}`}
+            className="rounded-md border border-savr-neutral-200 px-2 py-1 text-xs text-savr-neutral-600 hover:bg-savr-neutral-100"
           >
-            Réinitialiser
+            {p.label}
           </button>
-        </>
+        ))}
+      </div>
+
+      {parcOptions && (
+        <ParcMultiSelects
+          value={parcValue(filters)}
+          options={parcOptions}
+          onChange={(patch) => apply({ ...filters, ...patch })}
+          testidPrefix="dashboard-filter"
+        />
       )}
+
+      {/* Réinitialiser — généralisé à tous les dashboards (BL-P3-02, avant
+          gestionnaire-only). Ramène période 30 j + filtres parc vides. */}
+      <button
+        type="button"
+        onClick={() => apply(defaultFilters())}
+        data-testid="dashboard-filter-reinitialiser"
+        className="text-xs text-savr-primary-700 hover:underline"
+      >
+        Réinitialiser
+      </button>
     </div>
   );
 }

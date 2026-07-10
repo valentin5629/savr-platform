@@ -4,7 +4,12 @@ title = "Savr gitleaks config"
 useDefault = true
 
 [allowlist]
-description = "Faux positifs — clés d'objets de colonnes de tableau (noms de champs SQL)"
+description = "Faux positifs — clés d'objets de colonnes de tableau (noms de champs SQL) + storageKey de test (R23b)"
 commits = [
   "b4f20b7d33f3d19839a59f1edd5442e8d92722ae",
+]
+regexes = [
+  # storageKey factices du test DashboardFilterBar (R23b) — chaînes de test, pas
+  # des secrets ; la règle generic-api-key les flagge par entropie (« r23b »).
+  '''test-r23b-(presets|apply)''',
 ]

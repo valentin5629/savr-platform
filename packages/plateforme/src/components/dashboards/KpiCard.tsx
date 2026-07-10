@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { Tooltip } from '@/components/ui/tooltip';
 
 interface KpiCardProps {
   label: string;
@@ -9,6 +10,8 @@ interface KpiCardProps {
   /** URL cible + query string transmis au clic (§11 décision cartes cliquables) */
   href?: string;
   className?: string;
+  /** Info-bulle explicative du KPI (ex. formule Marge, BL-P3-02). Marqueur « ? » à côté du libellé. */
+  tooltip?: React.ReactNode;
 }
 
 /**
@@ -20,6 +23,7 @@ export function KpiCard({
   trend,
   href,
   className,
+  tooltip,
 }: KpiCardProps) {
   const router = useRouter();
 
@@ -54,8 +58,21 @@ export function KpiCard({
       onKeyDown={handleKeyDown}
       className={`${base} ${interactive} ${className ?? ''}`}
     >
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <p className="flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {label}
+        {tooltip != null && (
+          <Tooltip content={tooltip}>
+            <span
+              role="note"
+              tabIndex={0}
+              aria-label={typeof tooltip === 'string' ? tooltip : label}
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-current text-[10px] leading-none"
+            >
+              ?
+            </span>
+          </Tooltip>
+        )}
       </p>
       <p className={`mt-1 text-2xl font-bold ${trendColor}`}>{value}</p>
     </div>

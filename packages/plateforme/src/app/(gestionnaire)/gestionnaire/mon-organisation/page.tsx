@@ -51,18 +51,20 @@ export default function MonOrganisationPage() {
   const [inviteMsg, setInviteMsg] = useState('');
 
   useEffect(() => {
-    setLoading(true);
     if (tab === 'profil') {
+      setLoading(true);
       fetch('/api/v1/gestionnaire/mon-organisation/profil')
         .then((r) => r.json())
         .then((j) => setProfil(j.data as OrgProfil))
         .finally(() => setLoading(false));
     } else if (tab === 'membres') {
+      setLoading(true);
       fetch('/api/v1/gestionnaire/mon-organisation/users')
         .then((r) => r.json())
         .then((j) => setUsers((j.data ?? []) as UserRow[]))
         .finally(() => setLoading(false));
     } else {
+      setLoading(true);
       fetch('/api/v1/gestionnaire/mon-organisation/factures')
         .then((r) => r.json())
         .then((j) => setFactures((j.data ?? []) as FactureRow[]))

@@ -61,17 +61,31 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // §06.11 diff #7 — l'agence n'a pas de KPI « Marge générée » (4 cartes ZD).
   // marge_zd_ht est retiré de la réponse côté serveur (pas un masquage CSS) :
   // aucune donnée de marge ne transite pour le rôle agence.
-  const rows =
-    auth.ctx.role === 'agence'
-      ? (data ?? []).map((r) => {
-          const { marge_zd_ht: _omit, ...rest } = r as Record<string, unknown>;
-          void _omit;
-          return rest;
-        })
-      : data;
+  const isAgence = auth.ctx.role === 'agence';
+  const rows = isAgence
+    ? (data ?? []).map((r) => {
+        const { marge_zd_ht: _omit, ...rest } = r as Record<string, unknown>;
+        void _omit;
+        return rest;
+      })
+    : data;
+
+  // tarif_refacture_pax_zd (BL-P3-02) — alimente le tooltip formule du KPI Marge.
+  // Lecture traiteur autorisée (CDC §04 l.928 ; écriture Admin only). Non exposé à
+  // l'agence (pas de carte Marge côté agence), au même titre que marge_zd_ht.
+  let tarif_refacture_pax_zd: number | null = null;
+  if (!isAgence) {
+    const { data: org } = await supabase
+      .from('organisations')
+      .select('tarif_refacture_pax_zd')
+      .eq('id', auth.ctx.organisationId)
+      .maybeSingle();
+    tarif_refacture_pax_zd =
+      (org?.tarif_refacture_pax_zd as number | null) ?? null;
+  }
 
   return NextResponse.json(
-    { data: rows },
+    { data: rows, tarif_refacture_pax_zd },
     { headers: { 'Cache-Control': 'private, max-age=60' } },
   );
 }

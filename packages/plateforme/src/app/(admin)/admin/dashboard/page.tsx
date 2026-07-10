@@ -14,6 +14,7 @@ import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { DataTable, type Column } from '@/components/ui/data-table';
+import { Pagination } from '@/components/ui/pagination';
 import { RevenusHistogramme } from '@/components/dashboards/index.js';
 
 interface KpiData {
@@ -51,6 +52,36 @@ function currentMonth(): { from: string; to: string } {
     .toISOString()
     .slice(0, 10);
   return { from, to };
+}
+
+// Presets de période (BL-P3-02) — liste CDC §06.04 l.73 / §06.05 l.105.
+type PresetKey = '7j' | '30j' | 'trimestre' | '12m' | 'civile';
+const DASHBOARD_PRESETS: { key: PresetKey; label: string }[] = [
+  { key: '7j', label: '7 jours' },
+  { key: '30j', label: '30 jours' },
+  { key: 'trimestre', label: 'Trimestre en cours' },
+  { key: '12m', label: '12 derniers mois' },
+  { key: 'civile', label: 'Année civile' },
+];
+function presetRange(key: PresetKey): { from: string; to: string } {
+  const now = new Date();
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  if (key === 'trimestre')
+    return {
+      from: iso(
+        new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1),
+      ),
+      to: iso(now),
+    };
+  if (key === 'civile')
+    return {
+      from: `${now.getFullYear()}-01-01`,
+      to: `${now.getFullYear()}-12-31`,
+    };
+  const from = new Date();
+  if (key === '12m') from.setMonth(from.getMonth() - 12);
+  else from.setDate(from.getDate() - (key === '7j' ? 7 : 30));
+  return { from: iso(from), to: iso(now) };
 }
 
 const revenusColumns: Column<RevenusRow>[] = [
@@ -262,6 +293,32 @@ export default function DashboardAdminPage() {
                 data-testid="revenus-to"
               />
             </label>
+            {/* Presets + Réinitialiser (BL-P3-02) */}
+            {DASHBOARD_PRESETS.map((p) => (
+              <button
+                key={p.key}
+                type="button"
+                onClick={() => {
+                  setPeriode(presetRange(p.key));
+                  setPage(1);
+                }}
+                data-testid={`revenus-preset-${p.key}`}
+                className="rounded-md border border-savr-neutral-200 px-2 py-1 text-xs text-savr-neutral-600 hover:bg-savr-neutral-100"
+              >
+                {p.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => {
+                setPeriode(currentMonth());
+                setPage(1);
+              }}
+              data-testid="revenus-reinitialiser"
+              className="text-xs text-savr-primary-700 hover:underline"
+            >
+              Réinitialiser
+            </button>
           </div>
           <Button
             variant="secondary"
@@ -298,29 +355,14 @@ export default function DashboardAdminPage() {
               {totalPages > 1 && (
                 <div className="flex items-center justify-between gap-2 border-t border-savr-neutral-100 p-3 text-sm">
                   <span className="text-savr-neutral-500">
-                    {total} organisation{total > 1 ? 's' : ''} · page {page}/
-                    {totalPages}
+                    {total} organisation{total > 1 ? 's' : ''}
                   </span>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={page <= 1}
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    >
-                      Précédent
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={page >= totalPages}
-                      onClick={() =>
-                        setPage((p) => Math.min(totalPages, p + 1))
-                      }
-                    >
-                      Suivant
-                    </Button>
-                  </div>
+                  {/* Pagination DS (BL-P3-07) — remplace le footer Précédent/Suivant maison. */}
+                  <Pagination
+                    page={page}
+                    pageCount={totalPages}
+                    onPageChange={setPage}
+                  />
                 </div>
               )}
             </>

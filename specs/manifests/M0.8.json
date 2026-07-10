@@ -36,7 +36,8 @@
     "packages/plateforme/src/components/ui/form-error.tsx"
   ],
   "tests_vitest": [
-    "packages/plateforme/src/components/ui/components.m0-8.test.tsx"
+    "packages/plateforme/src/components/ui/components.m0-8.test.tsx",
+    "packages/plateforme/src/components/r23b-cosmetics.m0-8.test.tsx"
   ],
   "tests_playwright": [
     "e2e/m0-8.nav-par-role.spec.ts"
@@ -445,9 +446,52 @@
       "test": null,
       "statut": "à-vérifier",
       "libelle": "Rendu visuel cohérent des 5 états système Loading/Empty/Error/Success/Disabled (§7) — GO-VISUAL"
+    },
+    {
+      "id": "BL-P3-02",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:73",
+      "artefact": "packages/plateforme/src/components/dashboards/DashboardFilterBar.tsx, packages/plateforme/src/components/dashboards/KpiCard.tsx, packages/plateforme/src/components/dashboards/BenchmarkLegend.tsx",
+      "test": "M0.8-45 — DashboardFilterBar expose presets + Réinitialiser hors mode parc (BL-P3-02)",
+      "statut": "implemented",
+      "libelle": "BL-P3-02 — Dashboards : presets période liste CDC exacte (7j/30j/Trimestre/12 mois/Année civile) + Réinitialiser généralisé (traiteur/agence/admin), compteur « X correspondent » (traiteur+agence, GO-VISUAL), tooltip KPI Marge DYNAMIQUE conforme scénario P1 kpi_marge_zd_formule_nominale (tarif × pax − coût = marge, helper margeTooltipZd testé M0.8-48 ; tarif lisible traiteur §04 l.928) + légende benchmark partagée (§11, §06.04). Avert. k-anonymat déjà présent. Défaut période 12 mois §06.04/05 vs 30j §11 = divergence CDC tracée _Divergences/M0.8_20260710 (défaut inchangé)."
+    },
+    {
+      "id": "BL-P3-03",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:381",
+      "artefact": "packages/plateforme/src/lib/collecte-ref.ts, packages/plateforme/src/app/(traiteur)/traiteur/collectes/[id]/page.tsx",
+      "test": "M0.8-43 — refCourteCollecte préfère tms_reference sinon UUID court (BL-P3-03)",
+      "statut": "implemented",
+      "libelle": "BL-P3-03 — Fiche collecte traiteur : sous-titre référence courte (tms_reference sinon UUID court, plus l'UUID brut) + tooltip méthode UE 2019/1004 sur le taux (§06.04 l.381/l.422). Message vélo cargo A Toutes! déjà présent (BL-P1-TRAIT-03)."
+    },
+    {
+      "id": "BL-P3-04",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:614",
+      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/[id]/page.tsx",
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "BL-P3-04 — Modale d'annulation (déjà présente BL-P1-TRAIT-03) + mention conditionnelle AG « crédit préservé » (§06.04 l.614) — data-testid mention-credit-ag, GO-VISUAL."
+    },
+    {
+      "id": "BL-P3-07",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:101",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/dashboard/page.tsx, packages/plateforme/src/app/(admin)/admin/{transporteurs,associations,lieux,factures}/page.tsx",
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "BL-P3-07 — Rendu du composant Pagination (R23a) dans les listes admin déjà paginées serveur (Revenus §06.06 l.101 + transporteurs/associations/lieux/factures) ; tableau Revenus triable déjà en place. Tri serveur des listes génériques NON requis CDC → signalé, non implémenté (décision Val 2026-07-10). GO-VISUAL."
+    },
+    {
+      "id": "BL-P3-08",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:711",
+      "artefact": "packages/plateforme/src/components/compte/preferences-langue.tsx, packages/plateforme/src/app/(gestionnaire)/gestionnaire/parametres/page.tsx",
+      "test": "M0.8-44 — PreferencesLangueCard affiche la langue française figée (BL-P3-08)",
+      "statut": "implemented",
+      "libelle": "BL-P3-08 — Bloc Préférences « Langue : Français (FR) » figé V1 (composant partagé). Côté gestionnaire dans la section « Paramètres » §9 (§06.05 l.75/l.474) ; côté traiteur dans « Mon organisation » §6 (§06.04 l.709-711, déjà présent). Aucune persistance ni colonne users.langue (multi-langues = V1.1)."
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "1672e191d61ed4d702b595952d6e7759b0d49715940a3c76d661d9b706944bc9"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "4a64157d49a7e9c6cfca82b0329d67c1444704d47fe6c65ddb31743f4a3f7382",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "4175a18a449a29c84ec0ff7d59ac496c6f81d0b4fa8e146b5baf343f6728c67e",
+    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "1672e191d61ed4d702b595952d6e7759b0d49715940a3c76d661d9b706944bc9",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "ec6e24cfa8e2245587c55283fcfca5b78e6e867322bac99f97ad5f324a188a28"
   }
 }

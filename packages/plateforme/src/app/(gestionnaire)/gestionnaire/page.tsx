@@ -6,6 +6,7 @@ import {
   DashboardFilterBar,
   KpiCard,
   BenchmarkGauge,
+  BenchmarkLegend,
   BenchmarkFilterBar,
   TonnageDisplay,
   EmptyDashboardState,
@@ -291,6 +292,7 @@ export default function GestionnaireDashboardPage() {
                   initialTypeEvenementIds={filters?.type_evenement_ids ?? []}
                   initialTailleCodes={filters?.taille_evenement_codes ?? []}
                 />
+                <BenchmarkLegend />
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-5">
                   {FLUX_ZD.map((f) => (
                     <BenchmarkGauge

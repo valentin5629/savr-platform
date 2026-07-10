@@ -28,9 +28,11 @@ interface DashboardFilterBarProps {
 }
 
 function defaultFilters(): DashboardFilters {
+  // Défaut = 12 derniers mois (CDC §11 l.179 aligné sur §06.04 l.73 / §06.05 l.105,
+  // résolution divergence _Divergences/M0.8_20260710, décision Val 2026-07-10).
   const to = new Date();
   const from = new Date();
-  from.setDate(from.getDate() - 30);
+  from.setMonth(from.getMonth() - 12);
   return {
     from: from.toISOString().slice(0, 10),
     to: to.toISOString().slice(0, 10),
@@ -94,7 +96,7 @@ function presetRange(key: PresetKey): { from: string; to: string } {
 
 /**
  * Barre de filtres du dashboard — persistance localStorage (sobriété B1, pas de table).
- * Sans `parcOptions` : Période seule (30 j par défaut, §11 §8). Avec `parcOptions` :
+ * Sans `parcOptions` : Période seule (12 derniers mois par défaut, §11 §8). Avec `parcOptions` :
  * Période + Lieux + Traiteurs + Type + Taille (§06.05 §1, 5 filtres globaux).
  */
 export function DashboardFilterBar({
@@ -185,7 +187,7 @@ export function DashboardFilterBar({
       )}
 
       {/* Réinitialiser — généralisé à tous les dashboards (BL-P3-02, avant
-          gestionnaire-only). Ramène période 30 j + filtres parc vides. */}
+          gestionnaire-only). Ramène période 12 derniers mois + filtres parc vides. */}
       <button
         type="button"
         onClick={() => apply(defaultFilters())}

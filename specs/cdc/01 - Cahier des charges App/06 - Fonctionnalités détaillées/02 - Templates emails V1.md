@@ -258,6 +258,8 @@ Action requise : évaluation et suite à donner (avoir, réattribution, contesta
 **Destinataire** : user demandeur
 **Objet** : Réinitialisez votre mot de passe Savr
 
+> **Délivrance : GoTrue-native** (lien magique signé par Supabase, cf. [[09 - Authentification et permissions#Récupération de mot de passe]]). Le contenu brandé est porté par le _recovery template_ GoTrue (`supabase/config.toml [auth.email.template.recovery]` + `supabase/templates/recovery.html`), **PAS** par le pipeline Resend/`email_templates`. **Limitation GoTrue** : la variable `{{prenom}}` ci-dessous n'est **pas injectée** (GoTrue ne l'expose pas) → l'email réel n'est **pas personnalisé au prénom** (« Bonjour, » sans prénom). Seule variable réellement disponible = le lien de réinitialisation (`{{ .ConfirmationURL }}` côté GoTrue). La ligne `email_templates` (slug `reset_password`) est un **reflet catalogue documentaire**, jamais envoyée (migration `20260710120000` : renomme le code seed `reinitialisation_mot_de_passe` → `reset_password`).
+
 ```
 Bonjour {{prenom}},
 
@@ -272,7 +274,7 @@ Si vous n'êtes pas à l'origine de cette demande, ignorez cet email — rien n'
 L'équipe Savr
 ```
 
-**Variables** : `prenom`, `lien_reset`
+**Variables** : `prenom` *(non injecté — délivrance GoTrue-native, cf. note ci-dessus)*, `lien_reset` *(→ `{{ .ConfirmationURL }}` GoTrue)*
 
 ---
 

@@ -94,6 +94,7 @@ Obligatoire à l'inscription. Un compte non vérifié ne peut pas programmer de 
 
 - Lien magique envoyé par email, valide 1 heure
 - Rate limit : 3 demandes max par heure par email
+- Contenu de l'email brandé Savr via le _recovery template_ GoTrue (`supabase/config.toml [auth.email.template.recovery]` + `supabase/templates/recovery.html`), cf. [[02 - Templates emails V1#11. Email récupération mot de passe]] tpl 11. Email non personnalisé au prénom (GoTrue n'expose pas `{{prenom}}`).
 
 ---
 

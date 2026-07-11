@@ -4,7 +4,7 @@
  * exposent leurs valeurs/structures signature (SVG, chiffres FR, états).
  */
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import type {
   FluxSeriePoint,
   RepasSeriePoint,
@@ -190,6 +190,34 @@ it('TopRankList — rend rangs, libellés et valeurs formatées', () => {
   );
   expect(screen.getByText('Pavillon Gabriel')).toBeInTheDocument();
   expect(screen.getByText('14,2 t')).toBeInTheDocument();
+});
+
+it('EvolutionZdChart — survol d’un segment ouvre le tooltip du flux (grain flux)', () => {
+  const { container } = render(
+    <EvolutionZdChart series={zd} granularite="mois" />,
+  );
+  // Aucun tooltip de flux sans survol.
+  expect(screen.queryByText(/% du mois/)).toBeNull();
+  // Segment « emballage » (#3F5599, non sommet → <rect>) survolé.
+  const seg = container.querySelector('rect[fill="#3F5599"]');
+  expect(seg).not.toBeNull();
+  fireEvent.mouseEnter(seg!);
+  expect(screen.getByText(/% du mois/)).toBeInTheDocument();
+});
+
+it('BenchmarkBulletGauges — survol d’une jauge affiche Vous/Parc/Écart', () => {
+  const { container } = render(
+    <BenchmarkBulletGauges
+      items={[{ label: 'Biodéchets', value: 0.72, benchmark: 0.8 }]}
+    />,
+  );
+  expect(screen.queryByText('Vous')).toBeNull();
+  const gauge = container.querySelector('.relative');
+  expect(gauge).not.toBeNull();
+  fireEvent.mouseEnter(gauge!);
+  expect(screen.getByText('Vous')).toBeInTheDocument();
+  expect(screen.getByText('Parc')).toBeInTheDocument();
+  expect(screen.getByText('Écart')).toBeInTheDocument();
 });
 
 describe('non-régression fmt', () => {

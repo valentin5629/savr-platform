@@ -42,7 +42,10 @@ const EvolutionZdChart = React.forwardRef<
   EvolutionZdChartProps
 >(({ series, granularite }, ref) => {
   const [hidden, setHidden] = React.useState<Set<string>>(new Set());
-  const [hover, setHover] = React.useState<number | null>(null);
+  // Survol au grain FLUX (segment de couleur), pas la barre entière (retour Val).
+  const [hover, setHover] = React.useState<{ i: number; code: string } | null>(
+    null,
+  );
   const toggle = (code: string) =>
     setHidden((prev) => {
       const next = new Set(prev);
@@ -61,7 +64,6 @@ const EvolutionZdChart = React.forwardRef<
   const slot = PLOT_W / n;
   const barW = Math.min(46, slot * 0.5);
   const cx = (i: number) => LEFT + slot * (i + 0.5);
-  const visibleFlux = FLUX_ZD.filter((f) => !hidden.has(f.code));
 
   // Points de la courbe taux (non-null uniquement)
   const ratePts = series
@@ -142,10 +144,10 @@ const EvolutionZdChart = React.forwardRef<
                 </text>
               ))}
 
-              {/* colonne survolée (surbrillance) */}
+              {/* colonne survolée (surbrillance discrète) */}
               {hover != null && (
                 <rect
-                  x={cx(hover) - slot / 2}
+                  x={cx(hover.i) - slot / 2}
                   y={TOP}
                   width={slot}
                   height={PLOT_H}
@@ -173,6 +175,8 @@ const EvolutionZdChart = React.forwardRef<
                       const total = Number(p.tonnage_total) || 0;
                       const pct = total > 0 ? (val / total) * 100 : 0;
                       const tip = `${f.label} : ${fmtInt(val)} kg (${fmtDec(pct, 0)} %)`;
+                      const isHovered = hover?.i === i && hover.code === f.code;
+                      const onEnter = () => setHover({ i, code: f.code });
                       if (isTop) {
                         const r = Math.min(3, barW / 2);
                         return (
@@ -180,9 +184,10 @@ const EvolutionZdChart = React.forwardRef<
                             key={f.code}
                             d={`M${x},${segTop + r} Q${x},${segTop} ${x + r},${segTop} H${x + barW - r} Q${x + barW},${segTop} ${x + barW},${segTop + r} V${segBottom} H${x} Z`}
                             fill={f.color}
-                            stroke="#fff"
-                            strokeWidth={0.75}
-                            style={{ pointerEvents: 'none' }}
+                            stroke={isHovered ? '#161A26' : '#fff'}
+                            strokeWidth={isHovered ? 1.25 : 0.75}
+                            style={{ cursor: 'pointer' }}
+                            onMouseEnter={onEnter}
                           >
                             <title>{tip}</title>
                           </path>
@@ -196,9 +201,10 @@ const EvolutionZdChart = React.forwardRef<
                           width={barW}
                           height={h}
                           fill={f.color}
-                          stroke="#fff"
-                          strokeWidth={0.75}
-                          style={{ pointerEvents: 'none' }}
+                          stroke={isHovered ? '#161A26' : '#fff'}
+                          strokeWidth={isHovered ? 1.25 : 0.75}
+                          style={{ cursor: 'pointer' }}
+                          onMouseEnter={onEnter}
                         >
                           <title>{tip}</title>
                         </rect>
@@ -252,27 +258,19 @@ const EvolutionZdChart = React.forwardRef<
                   {formatPeriode(p.periode, granularite)}
                 </text>
               ))}
-
-              {/* zones de survol transparentes (au-dessus, captent le curseur) */}
-              {series.map((p, i) => (
-                <rect
-                  key={`hz-${p.periode}`}
-                  x={cx(i) - slot / 2}
-                  y={TOP}
-                  width={slot}
-                  height={PLOT_H}
-                  fill="transparent"
-                  onMouseEnter={() => setHover(i)}
-                />
-              ))}
             </svg>
 
-            {/* Tooltip au survol : valeurs kg + % par flux + taux (CDC §06.04 l.126). */}
+            {/* Tooltip au survol d'UN FLUX (segment de couleur) : ce flux seul +
+                taux du mois en contexte (retour Val — grain flux, pas la barre). */}
             {hover != null &&
               (() => {
-                const p = series[hover]!;
+                const p = series[hover.i]!;
+                const f = FLUX_ZD.find((x) => x.code === hover.code);
+                if (!f) return null;
                 const total = Number(p.tonnage_total) || 0;
-                const leftPct = (cx(hover) / VBW) * 100;
+                const val = Number(p[f.code as keyof FluxSeriePoint]) || 0;
+                const pct = total > 0 ? (val / total) * 100 : 0;
+                const leftPct = (cx(hover.i) / VBW) * 100;
                 const transform =
                   leftPct < 30
                     ? 'translateX(0)'
@@ -284,50 +282,41 @@ const EvolutionZdChart = React.forwardRef<
                     className="pointer-events-none absolute z-10 rounded-savr-md border border-savr-neutral-200 bg-savr-white px-3 py-2 shadow-savr-md"
                     style={{ left: `${leftPct}%`, top: 4, transform }}
                   >
-                    <div className="mb-1.5 text-[11px] font-bold text-savr-neutral-900">
+                    <div className="mb-1 text-[11px] font-semibold text-savr-neutral-500">
                       {formatPeriode(p.periode, granularite)}
                     </div>
-                    <div className="flex flex-col gap-1">
-                      {visibleFlux.map((f) => {
-                        const val =
-                          Number(p[f.code as keyof FluxSeriePoint]) || 0;
-                        const pct = total > 0 ? (val / total) * 100 : 0;
-                        return (
-                          <div
-                            key={f.code}
-                            className="flex items-center justify-between gap-5 text-[11px] tabular-nums"
-                          >
-                            <span className="flex items-center gap-1.5 text-savr-neutral-600">
-                              <span
-                                style={{
-                                  width: 8,
-                                  height: 8,
-                                  borderRadius: 2,
-                                  background: f.color,
-                                }}
-                              />
-                              {f.label}
-                            </span>
-                            <span className="font-bold text-savr-neutral-900">
-                              {fmtInt(val)} kg · {fmtDec(pct, 0)} %
-                            </span>
-                          </div>
-                        );
-                      })}
-                      {p.taux_recyclage != null && (
-                        <div className="mt-0.5 flex items-center justify-between gap-5 border-t border-savr-neutral-100 pt-1 text-[11px]">
-                          <span className="text-savr-neutral-600">
-                            Taux de recyclage
-                          </span>
-                          <span
-                            className="font-bold tabular-nums"
-                            style={{ color: '#B36400' }}
-                          >
-                            {fmtDec(p.taux_recyclage, 1)} %
-                          </span>
-                        </div>
-                      )}
+                    <div className="flex items-center justify-between gap-5 text-[13px]">
+                      <span className="flex items-center gap-1.5 font-bold text-savr-neutral-900">
+                        <span
+                          style={{
+                            width: 9,
+                            height: 9,
+                            borderRadius: 2,
+                            background: f.color,
+                          }}
+                        />
+                        {f.label}
+                      </span>
+                      <span className="font-extrabold tabular-nums text-savr-neutral-900">
+                        {fmtInt(val)} kg
+                      </span>
                     </div>
+                    <div className="mt-0.5 text-right text-[11px] tabular-nums text-savr-neutral-500">
+                      {fmtDec(pct, 0)} % du mois
+                    </div>
+                    {p.taux_recyclage != null && (
+                      <div className="mt-1 flex items-center justify-between gap-5 border-t border-savr-neutral-100 pt-1 text-[11px]">
+                        <span className="text-savr-neutral-600">
+                          Taux de recyclage
+                        </span>
+                        <span
+                          className="font-bold tabular-nums"
+                          style={{ color: '#B36400' }}
+                        >
+                          {fmtDec(p.taux_recyclage, 1)} %
+                        </span>
+                      </div>
+                    )}
                   </div>
                 );
               })()}

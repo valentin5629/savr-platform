@@ -61,12 +61,30 @@ function Legend(): React.ReactElement {
   );
 }
 
+// Tooltip de survol d'une jauge (retour Val — voir les valeurs au survol).
+function GaugeTooltip({
+  children,
+}: {
+  children: React.ReactNode;
+}): React.ReactElement {
+  return (
+    <div className="pointer-events-none absolute left-1/2 top-full z-20 mt-1 -translate-x-1/2 whitespace-nowrap rounded-savr-md border border-savr-neutral-200 bg-savr-white px-3 py-2 shadow-savr-md">
+      {children}
+    </div>
+  );
+}
+
 function Gauge({ item }: { item: GaugeItem }): React.ReactElement {
   const insuffisant = item.value == null || item.benchmark == null;
+  const [hover, setHover] = React.useState(false);
 
   if (insuffisant) {
     return (
-      <div>
+      <div
+        className="relative"
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+      >
         <div className="mb-2.5 flex items-baseline justify-between">
           <span className="text-[13px] font-bold text-savr-neutral-400">
             {item.label}
@@ -115,6 +133,24 @@ function Gauge({ item }: { item: GaugeItem }): React.ReactElement {
             n &lt; 5
           </span>
         </div>
+        {hover && (
+          <GaugeTooltip>
+            <div className="mb-1 text-[12px] font-bold text-savr-neutral-900">
+              {item.label}
+            </div>
+            <div className="flex flex-col gap-0.5 text-[11px] tabular-nums">
+              <div className="flex justify-between gap-4">
+                <span className="text-savr-neutral-600">Vous</span>
+                <span className="font-bold">
+                  {item.value != null ? `${fmtDec(item.value, 2)} kg/pax` : '—'}
+                </span>
+              </div>
+              <div className="text-savr-neutral-500">
+                Parc : données insuffisantes (n &lt; 5)
+              </div>
+            </div>
+          </GaugeTooltip>
+        )}
       </div>
     );
   }
@@ -128,9 +164,19 @@ function Gauge({ item }: { item: GaugeItem }): React.ReactElement {
   const pct = clamp(ratio * 60, 0, 100);
   const delta = (ratio - 1) * 100;
   const badgeTxt = `${delta >= 0 ? '+' : '−'}${fmtDec(Math.abs(delta), 0)} %`;
+  const statutLabel =
+    ratio <= 1
+      ? '≤ parc'
+      : ratio <= 1.3
+        ? '100-130 % du parc'
+        : '> 130 % du parc';
 
   return (
-    <div>
+    <div
+      className="relative"
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
       <div className="mb-2.5 flex items-baseline justify-between">
         <span className="text-[13px] font-bold text-savr-neutral-800">
           {item.label}
@@ -179,6 +225,29 @@ function Gauge({ item }: { item: GaugeItem }): React.ReactElement {
           {badgeTxt}
         </span>
       </div>
+      {hover && (
+        <GaugeTooltip>
+          <div className="mb-1 text-[12px] font-bold text-savr-neutral-900">
+            {item.label}
+          </div>
+          <div className="flex flex-col gap-0.5 text-[11px] tabular-nums">
+            <div className="flex justify-between gap-4">
+              <span className="text-savr-neutral-600">Vous</span>
+              <span className="font-bold">{fmtDec(value, 2)} kg/pax</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-savr-neutral-600">Parc</span>
+              <span className="font-bold">{fmtDec(benchmark, 2)} kg/pax</span>
+            </div>
+            <div className="flex justify-between gap-4 border-t border-savr-neutral-100 pt-0.5">
+              <span className="text-savr-neutral-600">Écart</span>
+              <span className="font-bold" style={{ color: statut.badgeColor }}>
+                {badgeTxt} · {statutLabel}
+              </span>
+            </div>
+          </div>
+        </GaugeTooltip>
+      )}
     </div>
   );
 }

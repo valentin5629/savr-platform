@@ -44,18 +44,18 @@ function LegendDot({ color }: { color: string }): React.ReactElement {
 
 function Legend(): React.ReactElement {
   return (
-    <div className="flex gap-3">
+    <div className="flex flex-wrap gap-3">
       <span className="flex items-center gap-1.5 text-[11px] font-semibold text-savr-neutral-600">
-        <LegendDot color="#16A34A" /> ≤ parc
+        <LegendDot color="#16A34A" /> Inférieur
       </span>
       <span className="flex items-center gap-1.5 text-[11px] font-semibold text-savr-neutral-600">
-        <LegendDot color="#FF9B00" /> 100-130 %
+        <LegendDot color="#FF9B00" /> Supérieur
       </span>
       <span className="flex items-center gap-1.5 text-[11px] font-semibold text-savr-neutral-600">
-        <LegendDot color="#DC2626" /> &gt; 130 %
+        <LegendDot color="#DC2626" /> Largement supérieur
       </span>
       <span className="flex items-center gap-1.5 text-[11px] font-semibold text-savr-neutral-600">
-        <LegendDot color="#C3C9D9" /> n &lt; 5
+        <LegendDot color="#C3C9D9" /> Données manquantes
       </span>
     </div>
   );
@@ -130,7 +130,7 @@ function Gauge({ item }: { item: GaugeItem }): React.ReactElement {
             className="rounded-savr-md px-1.5 py-0.5 text-[11px] font-semibold"
             style={{ color: '#6E7790', background: '#EEF0F5' }}
           >
-            n &lt; 5
+            Données manquantes
           </span>
         </div>
         {hover && (
@@ -146,7 +146,7 @@ function Gauge({ item }: { item: GaugeItem }): React.ReactElement {
                 </span>
               </div>
               <div className="text-savr-neutral-500">
-                Parc : données insuffisantes (n &lt; 5)
+                Parc : données manquantes
               </div>
             </div>
           </GaugeTooltip>
@@ -166,10 +166,10 @@ function Gauge({ item }: { item: GaugeItem }): React.ReactElement {
   const badgeTxt = `${delta >= 0 ? '+' : '−'}${fmtDec(Math.abs(delta), 0)} %`;
   const statutLabel =
     ratio <= 1
-      ? '≤ parc'
+      ? 'Inférieur'
       : ratio <= 1.3
-        ? '100-130 % du parc'
-        : '> 130 % du parc';
+        ? 'Supérieur'
+        : 'Largement supérieur';
 
   return (
     <div

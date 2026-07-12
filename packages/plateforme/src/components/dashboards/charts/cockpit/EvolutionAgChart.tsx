@@ -8,9 +8,9 @@ import { formatPeriode } from '../format';
 import { ChartCard } from './ChartCard';
 import { fmtInt, fmtDec } from './fmt';
 
-// EvolutionAgChart (Cockpit R24) — courbe des repas donnés (aire dégradée orange)
-// + ratio repas/pax (ligne navy pointillée, axe droit). §11 Bloc 2 AG. Format
-// paysage compact + tooltip au survol (repas + ratio + pax par période).
+// EvolutionAgChart (Cockpit R24) — BARRES verticales des repas donnés (orange,
+// axe gauche) + courbe du ratio repas/pax (ligne navy pointillée, axe droit).
+// §11 Bloc 2 AG. Format paysage compact + tooltip au survol (repas + ratio + pax).
 const VBW = 760;
 const VBH = 210;
 const LEFT = 44;
@@ -19,7 +19,6 @@ const BASE = 172;
 const TOP = 18;
 const PLOT_H = BASE - TOP; // 154
 const PLOT_W = RIGHT - LEFT; // 680
-const GRAD_ID = 'r24-ag-area';
 
 function niceCeil(v: number): number {
   const p = Math.pow(10, Math.floor(Math.log10(v)));
@@ -39,10 +38,10 @@ const EvolutionAgChart = React.forwardRef<
 >(({ series, granularite }, ref) => {
   const [hover, setHover] = React.useState<number | null>(null);
   const empty = series.length === 0;
-  const n = series.length;
-  const xOf = (i: number) =>
-    n > 1 ? LEFT + (PLOT_W * i) / (n - 1) : LEFT + PLOT_W / 2;
-  const slot = n > 0 ? PLOT_W / n : PLOT_W;
+  const n = Math.max(1, series.length);
+  const slot = PLOT_W / n;
+  const barW = Math.min(46, slot * 0.5);
+  const cx = (i: number) => LEFT + slot * (i + 0.5);
 
   const repasMax = niceCeil(
     Math.max(1, ...series.map((p) => p.repas_donnes || 0)),
@@ -51,24 +50,15 @@ const EvolutionAgChart = React.forwardRef<
     Math.max(0.1, ...series.map((p) => Number(p.ratio) || 0)),
   );
 
-  const repasPts = series.map(
-    (p, i) =>
-      [xOf(i), BASE - ((p.repas_donnes || 0) / repasMax) * PLOT_H] as const,
-  );
   const ratioPts = series
     .map((p, i) =>
       p.ratio != null
-        ? ([xOf(i), BASE - (p.ratio / ratioMax) * PLOT_H] as const)
+        ? ([cx(i), BASE - (p.ratio / ratioMax) * PLOT_H] as const)
         : null,
     )
     .filter((v): v is readonly [number, number] => v !== null);
 
-  const areaPath =
-    repasPts.length > 0
-      ? `M${repasPts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' L')} L${xOf(n - 1).toFixed(1)},${BASE} L${LEFT},${BASE} Z`
-      : '';
-  const last = repasPts[repasPts.length - 1];
-  const lastRatio = ratioPts[ratioPts.length - 1];
+  const gridT = [0, 0.5, 1];
 
   return (
     <ChartCard
@@ -80,8 +70,8 @@ const EvolutionAgChart = React.forwardRef<
           <span className="flex items-center gap-1.5">
             <span
               style={{
-                width: 14,
-                height: 3,
+                width: 10,
+                height: 10,
                 background: REPAS_COLOR,
                 borderRadius: 2,
               }}
@@ -111,101 +101,115 @@ const EvolutionAgChart = React.forwardRef<
           <svg
             viewBox={`0 0 ${VBW} ${VBH}`}
             width="100%"
-            style={{ display: 'block', maxHeight: 320 }}
+            style={{ display: 'block', maxHeight: 340 }}
             role="img"
-            aria-label="Évolution des repas donnés et du ratio repas par pax"
+            aria-label="Évolution des repas donnés (barres) et du ratio repas par pax"
             onMouseLeave={() => setHover(null)}
           >
-            <defs>
-              <linearGradient id={GRAD_ID} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stopColor={REPAS_COLOR} stopOpacity={0.2} />
-                <stop offset="1" stopColor={REPAS_COLOR} stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            {[0, 0.5, 0.85, 1].map((t) => (
-              <line
-                key={t}
-                x1={LEFT}
-                y1={BASE - t * PLOT_H}
-                x2={RIGHT}
-                y2={BASE - t * PLOT_H}
-                stroke={t === 0 ? '#DDE1EB' : '#EEF0F5'}
-                strokeWidth={1}
-              />
+            {/* gridlines + axe gauche repas */}
+            {gridT.map((t) => {
+              const y = BASE - t * PLOT_H;
+              return (
+                <g key={t}>
+                  <line
+                    x1={LEFT}
+                    y1={y}
+                    x2={RIGHT}
+                    y2={y}
+                    stroke={t === 0 ? '#DDE1EB' : '#EEF0F5'}
+                    strokeWidth={1}
+                  />
+                  <text
+                    x={LEFT - 6}
+                    y={y + 3}
+                    textAnchor="end"
+                    className="tabular-nums"
+                    style={{ fontSize: 9, fill: '#9AA2B8' }}
+                  >
+                    {fmtInt(repasMax * t)}
+                  </text>
+                </g>
+              );
+            })}
+            {/* axe droit ratio */}
+            {gridT.map((t) => (
+              <text
+                key={`r-${t}`}
+                x={RIGHT + 6}
+                y={BASE - t * PLOT_H + 3}
+                className="tabular-nums"
+                style={{ fontSize: 9, fill: '#3C4459' }}
+              >
+                {fmtDec(ratioMax * t, 2)}
+              </text>
             ))}
+
+            {/* colonne survolée (surbrillance discrète) */}
             {hover != null && (
-              <line
-                x1={xOf(hover)}
-                y1={TOP}
-                x2={xOf(hover)}
-                y2={BASE}
-                stroke="#161A26"
-                strokeWidth={1}
-                opacity={0.12}
+              <rect
+                x={cx(hover) - slot / 2}
+                y={TOP}
+                width={slot}
+                height={PLOT_H}
+                fill="#161A26"
+                opacity={0.04}
               />
             )}
-            {areaPath && <path d={areaPath} fill={`url(#${GRAD_ID})`} />}
-            <polyline
-              points={repasPts
-                .map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`)
-                .join(' ')}
-              fill="none"
-              stroke={REPAS_COLOR}
-              strokeWidth={2.5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            {last && (
-              <circle
-                cx={last[0]}
-                cy={last[1]}
-                r={3.5}
-                fill={REPAS_COLOR}
-                stroke="#fff"
-                strokeWidth={1.5}
-              />
-            )}
+
+            {/* barres repas donnés (orange) */}
+            {series.map((p, i) => {
+              const val = p.repas_donnes || 0;
+              if (val <= 0) return null;
+              const h = (val / repasMax) * PLOT_H;
+              const x = cx(i) - barW / 2;
+              const y = BASE - h;
+              const r = Math.min(3, barW / 2);
+              return (
+                <path
+                  key={p.periode}
+                  d={`M${x},${y + r} Q${x},${y} ${x + r},${y} H${x + barW - r} Q${x + barW},${y} ${x + barW},${y + r} V${BASE} H${x} Z`}
+                  fill={REPAS_COLOR}
+                  style={{ pointerEvents: 'none' }}
+                >
+                  <title>{`${p.periode} — ${fmtInt(val)} repas`}</title>
+                </path>
+              );
+            })}
+
+            {/* courbe ratio repas/pax (navy pointillée) */}
             {ratioPts.length > 0 && (
-              <polyline
-                points={ratioPts
-                  .map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`)
-                  .join(' ')}
-                fill="none"
-                stroke={RATIO_COLOR}
-                strokeWidth={2}
-                strokeDasharray="1 5"
-                strokeLinecap="round"
-              />
+              <>
+                <polyline
+                  points={ratioPts
+                    .map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`)
+                    .join(' ')}
+                  fill="none"
+                  stroke={RATIO_COLOR}
+                  strokeWidth={2}
+                  strokeDasharray="1 5"
+                  strokeLinecap="round"
+                  style={{ pointerEvents: 'none' }}
+                />
+                {ratioPts.map(([x, y], k) => (
+                  <circle
+                    key={k}
+                    cx={x}
+                    cy={y}
+                    r={2.5}
+                    fill="#fff"
+                    stroke={RATIO_COLOR}
+                    strokeWidth={1.5}
+                    style={{ pointerEvents: 'none' }}
+                  />
+                ))}
+              </>
             )}
-            {lastRatio && (
-              <circle
-                cx={lastRatio[0]}
-                cy={lastRatio[1]}
-                r={3.5}
-                fill={RATIO_COLOR}
-                stroke="#fff"
-                strokeWidth={1.5}
-              />
-            )}
-            {/* point survolé */}
-            {hover != null && series[hover] && (
-              <circle
-                cx={xOf(hover)}
-                cy={
-                  BASE -
-                  ((series[hover]!.repas_donnes || 0) / repasMax) * PLOT_H
-                }
-                r={4}
-                fill={REPAS_COLOR}
-                stroke="#fff"
-                strokeWidth={1.5}
-                style={{ pointerEvents: 'none' }}
-              />
-            )}
+
+            {/* étiquettes X */}
             {series.map((p, i) => (
               <text
                 key={p.periode}
-                x={xOf(i)}
+                x={cx(i)}
                 y={196}
                 textAnchor="middle"
                 style={{ fontSize: 9, fill: '#6E7790', fontWeight: 600 }}
@@ -213,11 +217,12 @@ const EvolutionAgChart = React.forwardRef<
                 {formatPeriode(p.periode, granularite)}
               </text>
             ))}
-            {/* zones de survol transparentes */}
+
+            {/* zones de survol transparentes (captent le curseur sur toute la colonne) */}
             {series.map((p, i) => (
               <rect
                 key={`hz-${p.periode}`}
-                x={xOf(i) - slot / 2}
+                x={cx(i) - slot / 2}
                 y={TOP}
                 width={slot}
                 height={PLOT_H}
@@ -231,7 +236,7 @@ const EvolutionAgChart = React.forwardRef<
           {hover != null &&
             (() => {
               const p = series[hover]!;
-              const leftPct = (xOf(hover) / VBW) * 100;
+              const leftPct = (cx(hover) / VBW) * 100;
               const transform =
                 leftPct < 30
                   ? 'translateX(0)'

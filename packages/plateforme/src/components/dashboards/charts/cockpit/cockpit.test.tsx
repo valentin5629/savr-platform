@@ -138,8 +138,11 @@ it('BenchmarkBulletGauges — rend 5 jauges dont un état n<5 (insuffisant)', ()
     />,
   );
   expect(screen.getByText('Biodéchets')).toBeInTheDocument();
-  // « n < 5 » figure dans la légende ET sur la jauge insuffisante (Résiduel).
-  expect(screen.getAllByText(/n\s*<\s*5/).length).toBeGreaterThanOrEqual(1);
+  // « Données manquantes » (ex « n < 5 ») figure dans la légende ET sur la jauge
+  // insuffisante (Résiduel) — libellés benchmark changés (retour Val).
+  expect(
+    screen.getAllByText(/Données manquantes/).length,
+  ).toBeGreaterThanOrEqual(1);
 });
 
 it('Co2HeroCard — met en avant l’évité et affiche induit/net/énergie + équivalences', () => {
@@ -168,11 +171,13 @@ it('PackAgRing — badge « Pack épuisé » à 0', () => {
   expect(screen.getByText(/Pack épuisé/)).toBeInTheDocument();
 });
 
-it('EvolutionAgChart — rend l’aire + la courbe repas, ou un état vide', () => {
+it('EvolutionAgChart — rend des barres repas + la courbe ratio', () => {
   const { container } = render(
     <EvolutionAgChart series={ag} granularite="mois" />,
   );
-  expect(container.querySelectorAll('polyline').length).toBeGreaterThan(0);
+  // Barres verticales des repas donnés (path) + courbe ratio (polyline pointillée).
+  expect(container.querySelectorAll('path').length).toBeGreaterThan(0);
+  expect(container.querySelector('polyline')).toBeInTheDocument();
   expect(screen.getByText(/Évolution Anti-Gaspi/)).toBeInTheDocument();
 });
 
@@ -203,6 +208,19 @@ it('EvolutionZdChart — survol d’un segment ouvre le tooltip du flux (grain f
   expect(seg).not.toBeNull();
   fireEvent.mouseEnter(seg!);
   expect(screen.getByText(/% du mois/)).toBeInTheDocument();
+});
+
+it('EvolutionZdChart — survol de la courbe taux affiche la valeur du mois', () => {
+  const { container } = render(
+    <EvolutionZdChart series={zd} granularite="mois" />,
+  );
+  // « Taux de recyclage » n'apparaît qu'une fois (légende) sans survol.
+  const before = screen.getAllByText('Taux de recyclage').length;
+  const hit = container.querySelector('circle[r="9"]'); // cible de survol de la courbe
+  expect(hit).not.toBeNull();
+  fireEvent.mouseEnter(hit!);
+  // Le tooltip taux s'ajoute (légende + tooltip).
+  expect(screen.getAllByText('Taux de recyclage').length).toBe(before + 1);
 });
 
 it('BenchmarkBulletGauges — survol d’une jauge affiche Vous/Parc/Écart', () => {

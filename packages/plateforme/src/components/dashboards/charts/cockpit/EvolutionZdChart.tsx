@@ -65,14 +65,16 @@ const EvolutionZdChart = React.forwardRef<
   const barW = Math.min(46, slot * 0.5);
   const cx = (i: number) => LEFT + slot * (i + 0.5);
 
-  // Points de la courbe taux (non-null uniquement)
+  // Points de la courbe taux (non-null uniquement), avec l'index série conservé
+  // (pour le survol de la courbe : accès à la valeur taux du mois).
   const ratePts = series
     .map((p, i) =>
       p.taux_recyclage != null
-        ? ([cx(i), BASE - (p.taux_recyclage / 100) * PLOT_H] as const)
+        ? { i, x: cx(i), y: BASE - (p.taux_recyclage / 100) * PLOT_H }
         : null,
     )
-    .filter((v): v is readonly [number, number] => v !== null);
+    .filter((v): v is { i: number; x: number; y: number } => v !== null);
+  const TAUX = '__taux__';
 
   const gridT = [0, 0.25, 0.5, 0.75, 1];
 
@@ -219,7 +221,7 @@ const EvolutionZdChart = React.forwardRef<
                 <>
                   <polyline
                     points={ratePts
-                      .map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`)
+                      .map((pt) => `${pt.x.toFixed(1)},${pt.y.toFixed(1)}`)
                       .join(' ')}
                     fill="none"
                     stroke={TAUX_RECYCLAGE_COLOR}
@@ -228,21 +230,38 @@ const EvolutionZdChart = React.forwardRef<
                     strokeLinejoin="round"
                     style={{ pointerEvents: 'none' }}
                   />
-                  {ratePts.map(([x, y], i) => {
-                    const isLast = i === ratePts.length - 1;
+                  {ratePts.map((pt, k) => {
+                    const isLast = k === ratePts.length - 1;
+                    const isHovered = hover?.code === TAUX && hover.i === pt.i;
                     return (
                       <circle
-                        key={i}
-                        cx={x}
-                        cy={y}
-                        r={isLast ? 3.5 : 2.5}
-                        fill={isLast ? TAUX_RECYCLAGE_COLOR : '#fff'}
-                        stroke={isLast ? '#fff' : TAUX_RECYCLAGE_COLOR}
+                        key={pt.i}
+                        cx={pt.x}
+                        cy={pt.y}
+                        r={isHovered ? 4.5 : isLast ? 3.5 : 2.5}
+                        fill={
+                          isHovered || isLast ? TAUX_RECYCLAGE_COLOR : '#fff'
+                        }
+                        stroke={
+                          isHovered || isLast ? '#fff' : TAUX_RECYCLAGE_COLOR
+                        }
                         strokeWidth={1.5}
                         style={{ pointerEvents: 'none' }}
                       />
                     );
                   })}
+                  {/* Cibles de survol de la courbe taux (invisibles, larges). */}
+                  {ratePts.map((pt) => (
+                    <circle
+                      key={`th-${pt.i}`}
+                      cx={pt.x}
+                      cy={pt.y}
+                      r={9}
+                      fill="transparent"
+                      style={{ cursor: 'pointer' }}
+                      onMouseEnter={() => setHover({ i: pt.i, code: TAUX })}
+                    />
+                  ))}
                 </>
               )}
 
@@ -265,6 +284,51 @@ const EvolutionZdChart = React.forwardRef<
             {hover != null &&
               (() => {
                 const p = series[hover.i]!;
+                const leftPctBase = (cx(hover.i) / VBW) * 100;
+                const transformBase =
+                  leftPctBase < 30
+                    ? 'translateX(0)'
+                    : leftPctBase > 70
+                      ? 'translateX(-100%)'
+                      : 'translateX(-50%)';
+                // Survol de la courbe taux de recyclage.
+                if (hover.code === TAUX) {
+                  return (
+                    <div
+                      className="pointer-events-none absolute z-10 rounded-savr-md border border-savr-neutral-200 bg-savr-white px-3 py-2 shadow-savr-md"
+                      style={{
+                        left: `${leftPctBase}%`,
+                        top: 4,
+                        transform: transformBase,
+                      }}
+                    >
+                      <div className="mb-1 text-[11px] font-semibold text-savr-neutral-500">
+                        {formatPeriode(p.periode, granularite)}
+                      </div>
+                      <div className="flex items-center justify-between gap-5 text-[13px]">
+                        <span className="flex items-center gap-1.5 font-bold text-savr-neutral-900">
+                          <span
+                            style={{
+                              width: 14,
+                              height: 3,
+                              borderRadius: 2,
+                              background: TAUX_RECYCLAGE_COLOR,
+                            }}
+                          />
+                          Taux de recyclage
+                        </span>
+                        <span
+                          className="font-extrabold tabular-nums"
+                          style={{ color: '#B36400' }}
+                        >
+                          {p.taux_recyclage != null
+                            ? `${fmtDec(p.taux_recyclage, 1)} %`
+                            : '—'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                }
                 const f = FLUX_ZD.find((x) => x.code === hover.code);
                 if (!f) return null;
                 const total = Number(p.tonnage_total) || 0;

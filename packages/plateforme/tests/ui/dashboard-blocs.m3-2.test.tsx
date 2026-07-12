@@ -100,7 +100,9 @@ describe('M3.2 / dashboard gestionnaire — Bloc 2/4 §11 (BL-P1-PARITE-01)', ()
       await screen.findByTestId('bloc-2-gestionnaire'),
     ).toBeInTheDocument();
     expect(screen.getByTestId('bloc-4-gestionnaire')).toBeInTheDocument();
-    expect(screen.getByTestId('stub-flux')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Évolution mensuelle Zéro Déchet/),
+    ).toBeInTheDocument();
   });
 
   it('M3.2/dash_bloc4_zd_only — pas de donut sur l’onglet AG', async () => {
@@ -111,6 +113,6 @@ describe('M3.2 / dashboard gestionnaire — Bloc 2/4 §11 (BL-P1-PARITE-01)', ()
       await screen.findByTestId('bloc-2-gestionnaire'),
     ).toBeInTheDocument();
     expect(screen.queryByTestId('bloc-4-gestionnaire')).toBeNull();
-    expect(screen.getByTestId('stub-repas')).toBeInTheDocument();
+    expect(screen.getByText(/Évolution Anti-Gaspi/)).toBeInTheDocument();
   });
 });

@@ -84,7 +84,7 @@
     "M3.1/blocs_top_associations_ordre_repas",
     "M3.1/blocs_traiteur_zd_montes_et_benchmark_reel",
     "M3.1/blocs_traiteur_ag_associations_et_top7",
-    "M3.1/blocs_traiteur_kpi_cartes_cliquables"
+    "M3.1/blocs_traiteur_kpi_cartes_non_cliquables"
   ],
   "deliverables": [
     {
@@ -370,7 +370,7 @@
     {
       "id": "M3.1-bloc2-zd",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:116",
-      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/components/dashboards/charts/EvolutionFluxChart.tsx",
+      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/EvolutionZdChart.tsx",
       "test": "M3.1/dash_bloc2_bloc4_zd_montes — Évolution + donut sur l’onglet ZD",
       "statut": "implemented",
       "libelle": "Bloc 2 ZD — évolution mensuelle : barres empilées des 5 flux + courbe taux de recyclage (composant §11 partagé)"
@@ -378,7 +378,7 @@
     {
       "id": "M3.1-bloc2-ag",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:207",
-      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/components/dashboards/charts/EvolutionRepasChart.tsx",
+      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/EvolutionAgChart.tsx",
       "test": "M3.1/dash_bloc4_zd_only — pas de donut sur l’onglet AG (un seul flux)",
       "statut": "implemented",
       "libelle": "Bloc 2 AG — évolution mensuelle : courbe repas donnés + ratio repas/pax (composant §11 partagé)"
@@ -386,7 +386,7 @@
     {
       "id": "M3.1-bloc4-donut",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:162",
-      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/components/dashboards/charts/TonnagesDonut.tsx",
+      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/TonnagesDonut.tsx",
       "test": "M3.1/dash_bloc2_bloc4_zd_montes — Évolution + donut sur l’onglet ZD",
       "statut": "implemented",
       "libelle": "Bloc 4 ZD — donut répartition des tonnages 5 flux + total au centre (ZD only, composant §11 partagé)"
@@ -410,23 +410,23 @@
     {
       "id": "M3.1-bloc6-top-lieux",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:178",
-      "artefact": "packages/plateforme/src/components/dashboards/TopLieuxBloc.tsx",
-      "test": "M3.1/blocs_top_lieux_zd_ordre_tonnage + M3.1/blocs_top_associations_ordre_repas",
+      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/TopRankList.tsx (R24 ; TopLieuxBloc.tsx conservé pour agence/gestionnaire)",
+      "test": "M3.1/blocs_top_lieux_zd_ordre_tonnage + M3.1/blocs_traiteur_zd_montes_et_benchmark_reel",
       "statut": "implemented",
-      "libelle": "Bloc 6 ZD/AG — top 5 lieux : ZD ordonné par tonnage (Lieu/Nb/Tonnage/Taux pondéré), AG par repas donnés (Lieu/Nb/Repas/Repas-pax)."
+      "libelle": "Bloc 6 ZD/AG — top 5 lieux (R24 Cockpit TopRankList) : ZD ordonné par tonnage (héros) + Nb collectes/Taux en ligne secondaire ; AG par repas donnés + Nb collectes/Repas-pax. Toutes les colonnes §06.04 l.178/262 préservées (secondary), testées en DOM."
     },
     {
       "id": "M3.1-bloc7-top-commerciaux",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:183",
-      "artefact": "packages/plateforme/src/components/dashboards/TopActeursBloc.tsx",
+      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/TopRankList.tsx (R24 ; TopActeursBloc.tsx conservé pour agence/gestionnaire)",
       "test": "M3.1/blocs_top_commerciaux_ordre_nb_et_noms + M3.1/blocs_traiteur_ag_associations_et_top7",
       "statut": "implemented",
-      "libelle": "Bloc 7 ZD/AG — top 5 commerciaux (evenements.created_by), ordonné par nb collectes, visible manager ET commercial (§06.04 l.185/267). Noms résolus via users (RLS own-org)."
+      "libelle": "Bloc 7 ZD/AG — top 5 commerciaux (evenements.created_by, R24 Cockpit TopRankList), ordonné par nb collectes (héros) + Tonnage/Taux (ZD) ou Repas/Repas-pax (AG) en ligne secondaire ; visible manager ET commercial (§06.04 l.187/269). Colonnes §06.04 préservées."
     },
     {
       "id": "M3.1-bloc3ag-associations",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:216",
-      "artefact": "packages/plateforme/src/components/dashboards/TopAssociationsBloc.tsx",
+      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/TopRankList.tsx (R24 ; TopAssociationsBloc.tsx conservé pour agence/gestionnaire)",
       "test": "M3.1/blocs_top_associations_ordre_repas + M3.1/blocs_traiteur_ag_associations_et_top7",
       "statut": "implemented",
       "libelle": "Bloc 3 AG — top associations bénéficiaires (attributions_antgaspi ⋈ associations, RLS via collectes), ordonné par repas reçus : Association/Ville/Nb collectes/Repas reçus. Colonne « Distance moyenne (km) » §06.05 NON rendue (décision Val 2026-07-07 : critère interne à l'algo d'attribution AG, non restitué aux dashboards ; la donnée existe — géocodage lieux/associations)."
@@ -438,6 +438,30 @@
       "test": "M3.1 / synthèse traiteur — périmètre opérationnel (0 fuite inter-org) + M3.1 / synthèse — options filtres modale (client organisateur + commercial)",
       "statut": "implemented",
       "libelle": "Bloc 8 ZD/AG « Exporter une synthèse PDF » (§06.04 l.192/272) : bouton dashboard → modale de génération (pré-remplie, type figé selon onglet) → route synchrone /api/v1/dashboards/synthese-pdf. Périmètre traiteur = collectes opérées (traiteur_operationnel_organisation_id, §12 §1.6 l.246). Filtres modale Client organisateur + Commercial (manager) construits dans la modale via /synthese-pdf/filtres (décision Val 2026-07-07)."
+    },
+    {
+      "id": "M3.1-cockpit-page",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:84-283",
+      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/*",
+      "test": "M3.1/dash_bloc2_bloc4_zd_montes + M3.1/blocs_traiteur_zd_montes_et_benchmark_reel + M3.1/blocs_traiteur_kpi_cartes_non_cliquables",
+      "statut": "implemented",
+      "libelle": "Refonte visuelle « Cockpit » du dashboard traiteur (R24, pilote UX hors-audit) : 8 composants data-viz R24 câblés sur les blocs §06.04 (KpiCockpitCard, EvolutionZdChart/EvolutionAgChart, BenchmarkBulletGauges, TonnagesDonut cockpit, PackAgRing, TopRankList) importés en direct (hors barrel → orphan-components reste 0). DS §10 par défaut. Testids §11 (bloc-2/4-traiteur, bloc-5/6/7-*, bloc-3ag, bloc-pack-ag) + tooltip Marge (BL-P3-02) + badge « X en attente de facturation » (F3) préservés. Cartes KPI = liens vers la liste Collectes filtrée (période + onglet)."
+    },
+    {
+      "id": "M3.1-cockpit-co2-hero",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:84-283",
+      "artefact": "packages/plateforme/src/components/dashboards/charts/cockpit/Co2HeroCard.tsx + packages/plateforme/src/app/api/v1/dashboards/kpi-traiteur/route.ts + packages/plateforme/src/lib/dashboards/cockpit-derive.ts",
+      "test": "M3.1/dash_cockpit_co2_equivalences_facteurs_ademe",
+      "statut": "implemented",
+      "libelle": "Héros CO₂ ZD (ajout au-delà de §06.04, décision Val 2026-07-10 — cf. _Divergences M3.1_20260710_cockpit_co2_traiteur, type ambigu). Grandeurs figées co2_* de v_kpi_traiteur (jamais recalculées à l'affichage, §11 l.185) + équivalences km voiture / repas bœuf / foyers depuis parametres_co2_divers (ADEME, lues en service_role car RLS ops/admin, repli constantes 0,218/7/4500). Masqué si Σ co2_evite = 0 ; ZD only (AG = évité seul V1, §11 l.163)."
+    },
+    {
+      "id": "M3.1-cockpit-kpi-sparkline-n1",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:84-113",
+      "artefact": "packages/plateforme/src/lib/dashboards/cockpit-derive.ts + packages/plateforme/src/app/api/v1/dashboards/kpi-traiteur/route.ts",
+      "test": "M3.1/dash_cockpit_variation_n1 + M3.1/dash_cockpit_sparkline_triee_min_2_points + M3.1/dash_cockpit_fenetre_n1_equivalente",
+      "statut": "implemented",
+      "libelle": "Cartes KPI Cockpit : sparkline dérivée des lignes mensuelles déjà renvoyées (≥ 2 points) + variation N-1 = période précédente équivalente (endpoint kpi-traiteur ?compare=n1 → 2e requête décalée de même durée, additive et non bloquante). kg/pax sans variation (sens « plus bas = mieux » ambigu). Dérivations pures testées (cockpit-derive)."
     }
   ],
   "cdc_source_hash": {

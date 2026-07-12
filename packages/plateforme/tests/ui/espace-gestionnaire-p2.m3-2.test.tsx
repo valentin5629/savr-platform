@@ -201,14 +201,20 @@ describe('M3.2 / P2 dashboard filtres globaux', () => {
     expect(count).toHaveTextContent(/5 collectes correspondent/i);
   });
 
-  it('M3.2/P2_dashboard_carte_kpi_cliquable — navigue vers Événements filtrés (l.130)', async () => {
+  it('M3.2/P2_dashboard_carte_kpi_non_cliquable — cartes KPI non cliquables (Val 2026-07-10)', async () => {
     render(<GestionnaireDashboardPage />);
     const carte = await screen.findByText('Nombre de collectes');
+    routerPush.mockClear();
     fireEvent.click(carte);
-    await waitFor(() => expect(routerPush).toHaveBeenCalled());
-    const target = String(routerPush.mock.calls.at(-1)?.[0] ?? '');
-    expect(target).toContain('/gestionnaire/evenements');
-    expect(target).toContain('type_collecte=avec_zd');
+    // R24 Cockpit — décision Val GO-VISUAL 2026-07-10 : les cartes KPI ne sont
+    // plus cliquables (aucune navigation, aucun lien vers Événements).
+    expect(routerPush).not.toHaveBeenCalled();
+    const liens = screen
+      .queryAllByRole('link')
+      .filter((a) =>
+        a.getAttribute('href')?.includes('/gestionnaire/evenements'),
+      );
+    expect(liens).toHaveLength(0);
   });
 });
 

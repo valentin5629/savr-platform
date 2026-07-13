@@ -194,7 +194,10 @@ async function checkDemo(c: Pg, scalar: Scalar): Promise<void> {
   console.log('3. Séquences gapless');
   const seqRows = (
     await c.query(
-      'select serie, dernier, annee from plateforme.sequences_facturation',
+      // colonne renommée dernier → dernier_numero en M1.7 (20260615000100) ;
+      // alias conservé pour le reste du check (bug latent révélé quand le schéma
+      // dev a rattrapé le rename — sans rapport avec le CO₂).
+      'select serie, dernier_numero as dernier, annee from plateforme.sequences_facturation',
     )
   ).rows;
   for (const { serie, dernier } of seqRows) {
@@ -455,7 +458,8 @@ async function main(): Promise<void> {
     console.log('4. Séquences de facturation gapless');
     const seqRows = (
       await c.query(
-        'select serie, dernier from plateforme.sequences_facturation',
+        // dernier → dernier_numero (rename M1.7 20260615000100) ; alias conservé.
+        'select serie, dernier_numero as dernier from plateforme.sequences_facturation',
       )
     ).rows;
     for (const { serie, dernier } of seqRows) {

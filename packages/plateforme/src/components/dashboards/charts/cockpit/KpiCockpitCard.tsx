@@ -21,6 +21,8 @@ interface KpiCockpitCardProps {
   sparkPoints?: number[];
   sparkColor?: string;
   href?: string;
+  /** Carte cliquable (ex. ouvre une modale de détail) — rendue en <button>. */
+  onClick?: () => void;
   className?: string;
   /** Contenu à droite de l'en-tête (avant la pastille) — ex. tooltip d'aide. */
   headerRight?: React.ReactNode;
@@ -37,6 +39,7 @@ function KpiCockpitCard({
   sparkPoints,
   sparkColor,
   href,
+  onClick,
   className,
   headerRight,
   footer,
@@ -109,6 +112,18 @@ function KpiCockpitCard({
       <a href={href} className={rootClassName} tabIndex={0}>
         {body}
       </a>
+    );
+  }
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={cn(rootClassName, 'cursor-pointer text-left')}
+      >
+        {body}
+      </button>
     );
   }
 

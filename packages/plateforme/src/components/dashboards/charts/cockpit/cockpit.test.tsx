@@ -3,7 +3,7 @@
  * Composants présentationnels : on vérifie qu'ils rendent sans crash et
  * exposent leurs valeurs/structures signature (SVG, chiffres FR, états).
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import type {
   FluxSeriePoint,
@@ -18,6 +18,7 @@ import { Co2HeroCard } from './Co2HeroCard';
 import { PackAgRing } from './PackAgRing';
 import { EvolutionAgChart } from './EvolutionAgChart';
 import { TopRankList } from './TopRankList';
+import { Co2MethodePanel } from './Co2MethodePanel';
 
 const zd: FluxSeriePoint[] = [
   {
@@ -107,6 +108,47 @@ it('KpiCockpitCard — rend les slots headerRight et footer', () => {
   );
   expect(screen.getByText('aide')).toBeInTheDocument();
   expect(screen.getByText('2 en attente')).toBeInTheDocument();
+});
+
+it('KpiCockpitCard — onClick rend un bouton qui déclenche le handler', () => {
+  const onClick = vi.fn();
+  render(
+    <KpiCockpitCard
+      label="CO₂ évité"
+      value="8 803"
+      unit="kg CO₂e"
+      dotColor="#16A34A"
+      onClick={onClick}
+    />,
+  );
+  const btn = screen.getByRole('button', { name: /CO₂ évité/ });
+  fireEvent.click(btn);
+  expect(onClick).toHaveBeenCalledTimes(1);
+});
+
+it('Co2MethodePanel — affiche la méthode + le tableau des facteurs par matière', () => {
+  render(
+    <Co2MethodePanel
+      forfait={{ km: 50, fe_camion: 2.1 }}
+      fluxFactors={[
+        {
+          code: 'biodechet',
+          nom: 'Biodéchets',
+          fe_evite: 120,
+          fe_induit: 30,
+          energie: 500,
+        },
+      ]}
+      equivalences={{ km_voiture: 0.218, repas_boeuf: 7, foyer_kwh: 4500 }}
+    />,
+  );
+  expect(
+    screen.getByText(/Comment ces chiffres sont-ils calculés/),
+  ).toBeInTheDocument();
+  // Forfait transport injecté depuis les variables serveur.
+  expect(screen.getByText(/50 km/)).toBeInTheDocument();
+  // Ligne du tableau des facteurs.
+  expect(screen.getByText('Biodéchets')).toBeInTheDocument();
 });
 
 it('KpiCockpitCard — href rend un lien cliquable', () => {

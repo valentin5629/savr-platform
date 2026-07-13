@@ -704,6 +704,27 @@ export async function seedDemo(client: pg.Client): Promise<void> {
     });
   await batchUpsert(client, 'plateforme.collecte_flux', fluxRows, ['id'], 300);
 
+  // ── Calcul CO₂ ZD (rejeu de la transition de clôture) ─────────────────────
+  // Le trigger `trg_co2_zd_cloture` est AFTER UPDATE (transition realisee→cloturee) :
+  // le seed INSÈRE les collectes déjà 'cloturee', donc le trigger ne se déclenche
+  // jamais → co2_induit/evite/net + taux_recyclage restent vides en dev (héros CO₂
+  // R24 masqué, carte KPI CO₂ à 0). On rejoue la transition sur les collectes ZD
+  // clôturées, APRÈS l'insertion des flux, pour peupler ces grandeurs exactement
+  // comme en prod (où la clôture est un UPDATE via le cron embargo H+24). ZD only :
+  // aucune régression de pack (triggers pack = AG). Compte 'cloturee' inchangé
+  // (on termine en 'cloturee' — cf. seed:check).
+  await client.query(`
+    DROP TABLE IF EXISTS _seed_zd_clot;
+    CREATE TEMP TABLE _seed_zd_clot AS
+      SELECT id FROM plateforme.collectes
+      WHERE type = 'zero_dechet' AND statut = 'cloturee';
+    UPDATE plateforme.collectes SET statut = 'realisee'
+      WHERE id IN (SELECT id FROM _seed_zd_clot);
+    UPDATE plateforme.collectes SET statut = 'cloturee'
+      WHERE id IN (SELECT id FROM _seed_zd_clot);
+    DROP TABLE _seed_zd_clot;
+  `);
+
   // ── Attributions AG (1/collecte AG) ───────────────────────────────────────
   const assos = ['asso_alpha', 'asso_bravo', 'asso_charlie', 'asso_echo'];
   const attrRows: Row[] = rows

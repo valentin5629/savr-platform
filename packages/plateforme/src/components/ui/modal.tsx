@@ -88,7 +88,7 @@ const Modal = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-[rgba(13,20,40,0.45)] p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(13,20,40,0.45)] p-4"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -101,7 +101,9 @@ const Modal = ({
         tabIndex={-1}
         onKeyDown={trapTab}
         className={cn(
-          'relative w-full rounded-savr-lg bg-savr-white shadow-savr-lg outline-none',
+          // Colonne flex bornée à 90vh : en-tête/pied fixes, corps défilable —
+          // un contenu long (ex. modale CO₂ méthode) ne déborde plus l'écran.
+          'relative flex max-h-[90vh] w-full flex-col rounded-savr-lg bg-savr-white shadow-savr-lg outline-none',
           'transition-[opacity,transform] duration-200 ease-out',
           show ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0',
           wide ? 'max-w-3xl' : 'max-w-lg',
@@ -118,13 +120,13 @@ const Modal = ({
         </button>
         <h2
           id={titleId}
-          className="px-6 pr-14 pt-6 text-lg font-bold tracking-[-0.01em] text-savr-neutral-900"
+          className="shrink-0 px-6 pr-14 pt-6 text-lg font-bold tracking-[-0.01em] text-savr-neutral-900"
         >
           {title}
         </h2>
-        <div className="px-6 py-4">{children}</div>
+        <div className="flex-1 overflow-y-auto px-6 py-4">{children}</div>
         {footer && (
-          <div className="flex flex-wrap justify-end gap-2 border-t border-savr-neutral-100 px-6 py-4">
+          <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-savr-neutral-100 px-6 py-4">
             {footer}
           </div>
         )}

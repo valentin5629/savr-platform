@@ -949,6 +949,62 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
     ],
     ['id'],
   );
+  // ── 13bis. Calcul CO₂ AG (UPDATE nu, sans transition de statut) ───────────
+  // `trg_co2_ag_cloture` est AFTER UPDATE (…→cloturee) ; le seed insère les AG
+  // déjà 'cloturee' → jamais déclenché. On NE PEUT PAS rejouer la transition : le
+  // round-trip cloturee→realisee déclencherait `trg_pack_debit_realisee` (BEFORE
+  // UPDATE OF statut) → double-débit du pack, casse seed:check. On peuple donc
+  // co2_evite_kg + snapshot par un UPDATE qui NE NOMME PAS `statut` : les 3
+  // triggers pack (BEFORE UPDATE OF statut) ne se déclenchent jamais. Formule +
+  // snapshot = copie exacte de trg_co2_ag_cloture. Effet de bord voulu :
+  // volume_repas_realise (absent en minimal) alimente AUSSI « Repas donnés » AG de
+  // v_kpi_traiteur. En prod, la clôture EST un UPDATE de statut → le trigger tourne
+  // normalement (aucune régression prod).
+  await client.query(`
+    -- volume_repas_realise sur les attributions AG clôturées (= volume estimé),
+    -- seulement si absent (no-op quand déjà seedé, ex. seed_demo).
+    UPDATE plateforme.attributions_antgaspi aa
+    SET volume_repas_realise = c.volume_estime_repas
+    FROM plateforme.collectes c
+    WHERE aa.collecte_id = c.id
+      AND c.type = 'anti_gaspi' AND c.statut = 'cloturee'
+      AND aa.volume_repas_realise IS NULL
+      AND c.volume_estime_repas IS NOT NULL;
+
+    WITH fac AS (
+      SELECT
+        COALESCE((SELECT facteur_co2_evite_par_repas_kg
+                    FROM plateforme.parametres_facteurs_co2_ag
+                    WHERE actif = true ORDER BY date_maj DESC LIMIT 1), 2.5) AS facteur,
+        COALESCE((SELECT date_maj
+                    FROM plateforme.parametres_facteurs_co2_ag
+                    WHERE actif = true ORDER BY date_maj DESC LIMIT 1), now()) AS facteur_ts,
+        COALESCE((SELECT valeur
+                    FROM plateforme.parametres_co2_divers
+                    WHERE cle = 'equiv_km_voiture_kgco2'), 0.218) AS fe_voiture
+    ),
+    calc AS (
+      SELECT c.id, COALESCE(aa.volume_repas_realise, 0) AS volume
+      FROM plateforme.collectes c
+        LEFT JOIN plateforme.attributions_antgaspi aa ON aa.collecte_id = c.id
+      WHERE c.type = 'anti_gaspi' AND c.statut = 'cloturee'
+    )
+    UPDATE plateforme.collectes c
+    SET co2_evite_kg = calc.volume * fac.facteur,
+        co2_facteurs_snapshot = jsonb_build_object(
+          'type', 'anti_gaspi',
+          'facteur_co2_evite_par_repas_kg', fac.facteur,
+          'volume_repas_realise', calc.volume,
+          'equivalences', jsonb_build_object(
+            'km_voiture', round((calc.volume * fac.facteur) / fac.fe_voiture)::integer
+          ),
+          'version_parametres_at', fac.facteur_ts::text
+        ),
+        updated_at = now()
+    FROM calc, fac
+    WHERE c.id = calc.id;
+  `);
+
   await upsert(
     client,
     'plateforme.config_auto_accept_ag',

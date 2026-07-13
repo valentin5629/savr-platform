@@ -29,7 +29,9 @@ const FORFAIT_KEYS = {
 } as const;
 
 /** Variables du calcul CO₂ (forfait transport + facteurs d'émission par flux),
- *  affichées dans la modale « méthode de calcul » du KPI CO₂ évité (retour Val). */
+ *  affichées dans la modale « méthode de calcul » du KPI CO₂ évité (retour Val).
+ *  `ag` = facteur ANTI-GASPI par repas (méthode simplifiée « évité seul » V1,
+ *  §11 l.163) — distinct des facteurs ZD par matière. */
 export interface Co2Methode {
   forfait: { km: number; fe_camion: number };
   flux: {
@@ -39,6 +41,7 @@ export interface Co2Methode {
     fe_induit: number;
     energie: number;
   }[];
+  ag: { facteur_par_repas: number; source: string | null };
 }
 
 /**
@@ -47,7 +50,12 @@ export interface Co2Methode {
  * sur les constantes ADEME du trigger m4_3 (jamais bloquant pour l'affichage).
  */
 async function lireMethodeCo2(): Promise<Co2Methode> {
-  const methode: Co2Methode = { forfait: { km: 50, fe_camion: 2.1 }, flux: [] };
+  // ag = repli FAO 2023 (identique au COALESCE du trigger trg_co2_ag_cloture).
+  const methode: Co2Methode = {
+    forfait: { km: 50, fe_camion: 2.1 },
+    flux: [],
+    ag: { facteur_par_repas: 2.5, source: null },
+  };
   try {
     const admin = createAdminSupabaseClient();
     const { data: div } = await admin
@@ -83,6 +91,22 @@ async function lireMethodeCo2(): Promise<Co2Methode> {
           energie: Number(row.energie_primaire_evitee_kwh_t),
         };
       });
+    }
+    // Facteur ANTI-GASPI par repas (méthode « évité seul » V1) — même source que
+    // le trigger trg_co2_ag_cloture : parametres_facteurs_co2_ag, actif le + récent.
+    const { data: agRow } = await admin
+      .from('parametres_facteurs_co2_ag')
+      .select('facteur_co2_evite_par_repas_kg, source_donnee')
+      .eq('actif', true)
+      .order('date_maj', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (agRow) {
+      const row = agRow as Record<string, unknown>;
+      const f = Number(row.facteur_co2_evite_par_repas_kg);
+      if (Number.isFinite(f) && f > 0) methode.ag.facteur_par_repas = f;
+      const src = row.source_donnee;
+      methode.ag.source = typeof src === 'string' && src.trim() ? src : null;
     }
   } catch {
     // conserve les défauts ADEME (jamais bloquant)

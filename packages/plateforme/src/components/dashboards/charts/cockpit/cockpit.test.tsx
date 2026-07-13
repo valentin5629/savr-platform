@@ -95,6 +95,20 @@ it('KpiCockpitCard — variation négative affiche ▼ et le pourcentage', () =>
   expect(screen.getByText(/▼\s*8,3\s*%/)).toBeInTheDocument();
 });
 
+it('KpiCockpitCard — rend les slots headerRight et footer', () => {
+  render(
+    <KpiCockpitCard
+      label="Marge"
+      value="12"
+      dotColor="#223870"
+      headerRight={<span>aide</span>}
+      footer={<span>2 en attente</span>}
+    />,
+  );
+  expect(screen.getByText('aide')).toBeInTheDocument();
+  expect(screen.getByText('2 en attente')).toBeInTheDocument();
+});
+
 it('KpiCockpitCard — href rend un lien cliquable', () => {
   const { container } = render(
     <KpiCockpitCard

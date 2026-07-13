@@ -200,6 +200,7 @@ const EvolutionAgChart = React.forwardRef<
                     key={p.periode}
                     d={`M${x},${y + r} Q${x},${y} ${x + r},${y} H${x + barW - r} Q${x + barW},${y} ${x + barW},${y + r} V${BASE} H${x} Z`}
                     fill={REPAS_COLOR}
+                    fillOpacity={0.75}
                     style={{ pointerEvents: 'none' }}
                   >
                     <title>{`${p.periode} — ${fmtInt(val)} repas`}</title>
@@ -216,7 +217,7 @@ const EvolutionAgChart = React.forwardRef<
                     .join(' ')}
                   fill="none"
                   stroke={RATIO_COLOR}
-                  strokeWidth={2.25}
+                  strokeWidth={1.125}
                   strokeDasharray="1.5 5"
                   strokeLinecap="round"
                   style={{ pointerEvents: 'none' }}
@@ -226,10 +227,10 @@ const EvolutionAgChart = React.forwardRef<
                     key={k}
                     cx={x}
                     cy={y}
-                    r={2.5}
+                    r={1.25}
                     fill="#fff"
                     stroke={RATIO_COLOR}
-                    strokeWidth={1.5}
+                    strokeWidth={0.75}
                     style={{ pointerEvents: 'none' }}
                   />
                 ))}

@@ -327,28 +327,20 @@ export default function TraiteurDashboardPage() {
                 r.pax_total > 0 ? (r.tonnage_kg ?? 0) / r.pax_total : 0,
               )}
             />
-            <div>
-              <KpiCockpitCard
-                label="Marge générée"
-                value={margeNode}
-                unit={agg.marge != null ? '€' : undefined}
-                dotColor={DOT.accent}
-                variationPct={variationPct(agg.marge ?? 0, prev.marge ?? 0)}
-                sparkPoints={sparkFromRows(rows, (r) => r.marge_zd_ht)}
-                sparkColor={DOT.accent}
-              />
-              <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                {nbAttente >= 1 && (
-                  <Badge variant="info">
-                    {nbAttente} collecte{nbAttente > 1 ? 's' : ''} en attente de
-                    facturation
-                  </Badge>
-                )}
+            <KpiCockpitCard
+              label="Marge générée"
+              value={margeNode}
+              unit={agg.marge != null ? '€' : undefined}
+              dotColor={DOT.accent}
+              variationPct={variationPct(agg.marge ?? 0, prev.marge ?? 0)}
+              sparkPoints={sparkFromRows(rows, (r) => r.marge_zd_ht)}
+              sparkColor={DOT.accent}
+              headerRight={
                 <Tooltip content={margeTooltip}>
                   <button
                     type="button"
                     aria-label="Détail du calcul de la marge"
-                    className="inline-flex min-h-[44px] min-w-[44px] cursor-help items-center justify-center rounded-savr-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
+                    className="-my-3 inline-flex min-h-[44px] min-w-[44px] cursor-help items-center justify-center rounded-savr-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
                   >
                     {/* Cible tactile 44px (DS §10 l.447) ; « ? » visuel compact. */}
                     <span
@@ -359,8 +351,16 @@ export default function TraiteurDashboardPage() {
                     </span>
                   </button>
                 </Tooltip>
-              </div>
-            </div>
+              }
+              footer={
+                nbAttente >= 1 ? (
+                  <Badge variant="info">
+                    {nbAttente} collecte{nbAttente > 1 ? 's' : ''} en attente de
+                    facturation
+                  </Badge>
+                ) : undefined
+              }
+            />
           </div>
 
           {/* Héros CO₂ (ZD) — grandeurs figées v_kpi_traiteur + équivalences ADEME.

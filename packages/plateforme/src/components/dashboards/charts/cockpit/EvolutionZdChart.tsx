@@ -194,6 +194,7 @@ const EvolutionZdChart = React.forwardRef<
                             key={f.code}
                             d={`M${x},${segTop + r} Q${x},${segTop} ${x + r},${segTop} H${x + barW - r} Q${x + barW},${segTop} ${x + barW},${segTop + r} V${segBottom} H${x} Z`}
                             fill={f.color}
+                            fillOpacity={0.75}
                             stroke={isHovered ? INK : '#fff'}
                             strokeWidth={isHovered ? 1.25 : 0.75}
                             style={{ cursor: 'pointer' }}
@@ -211,6 +212,7 @@ const EvolutionZdChart = React.forwardRef<
                           width={barW}
                           height={h}
                           fill={f.color}
+                          fillOpacity={0.75}
                           stroke={isHovered ? INK : '#fff'}
                           strokeWidth={isHovered ? 1.25 : 0.75}
                           style={{ cursor: 'pointer' }}
@@ -233,7 +235,7 @@ const EvolutionZdChart = React.forwardRef<
                       .join(' ')}
                     fill="none"
                     stroke={TAUX_RECYCLAGE_COLOR}
-                    strokeWidth={2}
+                    strokeWidth={1}
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     style={{ pointerEvents: 'none' }}
@@ -246,14 +248,14 @@ const EvolutionZdChart = React.forwardRef<
                         key={pt.i}
                         cx={pt.x}
                         cy={pt.y}
-                        r={isHovered ? 4.5 : isLast ? 3.5 : 2.5}
+                        r={isHovered ? 2.25 : isLast ? 1.75 : 1.25}
                         fill={
                           isHovered || isLast ? TAUX_RECYCLAGE_COLOR : '#fff'
                         }
                         stroke={
                           isHovered || isLast ? '#fff' : TAUX_RECYCLAGE_COLOR
                         }
-                        strokeWidth={1.5}
+                        strokeWidth={0.75}
                         style={{ pointerEvents: 'none' }}
                       />
                     );

@@ -412,7 +412,7 @@ const EvolutionZdChart = React.forwardRef<
                   type="button"
                   onClick={() => toggle(f.code)}
                   aria-pressed={!off}
-                  className="inline-flex items-center gap-1.5 rounded-savr-full border border-savr-neutral-100 bg-savr-neutral-50 px-2.5 py-1 text-xs font-semibold text-savr-neutral-700 transition-colors hover:border-savr-neutral-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
+                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-savr-full border border-savr-neutral-100 bg-savr-neutral-50 px-2.5 py-1 text-xs font-semibold text-savr-neutral-700 transition-colors hover:border-savr-neutral-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
                   style={{ opacity: off ? 0.4 : 1 }}
                 >
                   <span
@@ -431,7 +431,7 @@ const EvolutionZdChart = React.forwardRef<
               type="button"
               onClick={() => toggle(TAUX)}
               aria-pressed={!hidden.has(TAUX)}
-              className="inline-flex items-center gap-1.5 rounded-savr-full border px-2.5 py-1 text-xs font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-savr-full border px-2.5 py-1 text-xs font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
               style={{
                 borderColor: '#FFE8C2',
                 background: '#FFF4E0',

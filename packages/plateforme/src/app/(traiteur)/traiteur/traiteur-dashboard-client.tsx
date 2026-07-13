@@ -23,10 +23,12 @@ import type {
 // components/dashboards → aucun impact sur le gate orphan-components).
 import { KpiCockpitCard } from '@/components/dashboards/charts/cockpit/KpiCockpitCard';
 import { Co2HeroCard } from '@/components/dashboards/charts/cockpit/Co2HeroCard';
+import { Co2HeroCardAg } from '@/components/dashboards/charts/cockpit/Co2HeroCardAg';
 import {
   Co2MethodePanel,
   type Co2FluxFactor,
 } from '@/components/dashboards/charts/cockpit/Co2MethodePanel';
+import { Co2MethodePanelAg } from '@/components/dashboards/charts/cockpit/Co2MethodePanelAg';
 import { EvolutionZdChart } from '@/components/dashboards/charts/cockpit/EvolutionZdChart';
 import { EvolutionAgChart } from '@/components/dashboards/charts/cockpit/EvolutionAgChart';
 import { TonnagesDonut } from '@/components/dashboards/charts/cockpit/TonnagesDonut';
@@ -58,9 +60,11 @@ import { Info } from 'lucide-react';
 import type { TraiteurDashboardPayload } from '@/lib/dashboards/loaders';
 
 // Variables du calcul CO₂ renvoyées par l'endpoint kpi-traiteur (modale méthode).
+// `ag` = facteur anti-gaspi par repas (méthode « évité seul » V1, §11 l.163).
 interface Co2Methode {
   forfait: { km: number; fe_camion: number };
   flux: Co2FluxFactor[];
+  ag?: { facteur_par_repas: number; source: string | null };
 }
 
 /** ISO `YYYY-MM-DD` → `DD/MM/YYYY` (affichage FR de la période analysée). */
@@ -120,6 +124,9 @@ export function TraiteurDashboardClient({
   const [loading, setLoading] = useState(false);
   // Facteurs / méthode CO₂ (modale « Impact carbone »).
   const [co2ModalOpen, setCo2ModalOpen] = useState(false);
+  // Modale « Impact carbone » de l'onglet Anti-Gaspi (héros/méthode AG allégés,
+  // distincts du ZD) — état séparé pour éviter tout report d'état entre onglets.
+  const [co2AgModalOpen, setCo2AgModalOpen] = useState(false);
   // Bloc 3 ZD — repère parc (rows pilotés par les filtres benchmark).
   const [benchmarkRows, setBenchmarkRows] = useState<BenchmarkRow[]>(
     benchmark.rows,
@@ -493,8 +500,9 @@ export function TraiteurDashboardClient({
         </>
       ) : (
         <>
-          {/* Bloc 1 — KPIs Cockpit (4 cartes AG) */}
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {/* Bloc 1 — KPIs Cockpit (5 cartes AG : + CO₂ évité, décision Val
+              2026-07-13 — divergence §06.04/§11 tracée, cf. carte ZD #216) */}
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
             <KpiCockpitCard
               label="Nombre de collectes"
               value={fmtInt(agg.nbCollectes)}
@@ -525,7 +533,62 @@ export function TraiteurDashboardClient({
                 r.pax_total > 0 ? (r.nb_repas_donnes ?? 0) / r.pax_total : 0,
               )}
             />
+            {/* CO₂ évité AG (évité seul V1, §11 l.163) — même UX que le ZD :
+                cliquable → modale « Impact carbone » (héros + méthode AG) UNIQUEMENT
+                si Σ co2_evite > 0. Aucune navigation (invariant R24 préservé). */}
+            <KpiCockpitCard
+              label="CO₂ évité"
+              value={co2Masse.value}
+              unit={`${co2Masse.unit} CO₂e`}
+              dotColor={DOT.green}
+              variationPct={variationPct(co2.eviteKg, co2Prev.eviteKg)}
+              sparkPoints={sparkFromRows(rows, (r) => r.co2_evite_kg)}
+              sparkColor={DOT.green}
+              onClick={
+                co2.eviteKg > 0 ? () => setCo2AgModalOpen(true) : undefined
+              }
+              headerRight={
+                co2.eviteKg > 0 ? (
+                  <Info aria-hidden className="h-4 w-4 text-savr-neutral-400" />
+                ) : undefined
+              }
+            />
           </div>
+
+          {/* Modale « Impact carbone » AG — héros allégé (évité seul) + méthode
+              par repas (facteur FAO figé × repas donnés), ouverte au clic sur la
+              carte KPI CO₂ évité. */}
+          <Modal
+            open={co2AgModalOpen}
+            onClose={() => setCo2AgModalOpen(false)}
+            title="Détail de l'impact carbone"
+            wide
+          >
+            <div className="space-y-5">
+              <p className="text-[13px] text-savr-neutral-500">
+                Période analysée :{' '}
+                <span className="font-semibold text-savr-neutral-700">
+                  du {frDate(filters.from)} au {frDate(filters.to)}
+                </span>{' '}
+                · {agg.nbCollectes} collecte{agg.nbCollectes > 1 ? 's' : ''}{' '}
+                clôturée{agg.nbCollectes > 1 ? 's' : ''} Anti-Gaspi
+              </p>
+              <Co2HeroCardAg
+                eviteKg={co2.eviteKg}
+                equivalences={{
+                  kmVoiture: equivalences.kmVoiture,
+                  repasBoeuf: equivalences.repasBoeuf,
+                }}
+              />
+              <Co2MethodePanelAg
+                facteurParRepas={co2Methode?.ag?.facteur_par_repas ?? 2.5}
+                source={co2Methode?.ag?.source ?? null}
+                repasDonnes={agg.repas}
+                eviteKg={co2.eviteKg}
+                equivalences={facteursCo2}
+              />
+            </div>
+          </Modal>
 
           {/* Bloc 2 — Évolution Anti-Gaspi */}
           <div data-testid="bloc-2-traiteur">

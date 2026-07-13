@@ -33,7 +33,9 @@
     "packages/plateforme/src/app/api/v1/traiteur/equipe/route.ts",
     "packages/plateforme/src/app/api/v1/traiteur/equipe/[id]/route.ts",
     "packages/plateforme/src/app/api/v1/traiteur/equipe/transfert/route.ts",
-    "packages/plateforme/tests/api/traiteur/mon-organisation.m3-1.test.ts"
+    "packages/plateforme/tests/api/traiteur/mon-organisation.m3-1.test.ts",
+    "packages/plateforme/src/components/dashboards/charts/cockpit/Co2HeroCardAg.tsx",
+    "packages/plateforme/src/components/dashboards/charts/cockpit/Co2MethodePanelAg.tsx"
   ],
   "scenarios": [
     "M3.1/marge_badge_attente_facturation_partielle",
@@ -84,7 +86,8 @@
     "M3.1/blocs_top_associations_ordre_repas",
     "M3.1/blocs_traiteur_zd_montes_et_benchmark_reel",
     "M3.1/blocs_traiteur_ag_associations_et_top7",
-    "M3.1/blocs_traiteur_kpi_cartes_non_cliquables"
+    "M3.1/blocs_traiteur_kpi_cartes_non_cliquables",
+    "M3.1/dash_cockpit_co2_ag_carte_modale"
   ],
   "deliverables": [
     {
@@ -454,6 +457,14 @@
       "test": "M3.1/dash_cockpit_co2_equivalences_facteurs_ademe",
       "statut": "implemented",
       "libelle": "CO₂ ZD (ajout au-delà de §06.04, décisions Val 2026-07-10 puis 2026-07-13 — cf. _Divergences M3.1_20260710 + M3.1_20260713, type ambigu). La carte KPI « CO₂ évité » (remplace « Marge générée », Val 2026-07-13) affiche co2_evite_kg figé de v_kpi_traiteur (jamais recalculé, §11 l.185). Le héros CO₂ + la méthode de calcul (Co2MethodePanel : formules ABC + tableau facteurs par flux + forfait + équivalences, via co2_methode/parametres_facteurs_co2 en service_role) s'ouvrent dans une MODALE au clic sur la carte, UNIQUEMENT si Σ co2_evite > 0 (garde « masqué si 0 »). Équivalences km voiture / repas bœuf / foyers depuis parametres_co2_divers (repli 0,218/7/4500). ZD only (AG = évité seul V1, §11 l.163)."
+    },
+    {
+      "id": "M3.1-cockpit-co2-ag",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:84-113",
+      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/Co2HeroCardAg.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/Co2MethodePanelAg.tsx + packages/plateforme/src/app/api/v1/dashboards/kpi-traiteur/route.ts",
+      "test": "M3.1/dash_cockpit_co2_ag_carte_modale",
+      "statut": "implemented",
+      "libelle": "CO₂ ANTI-GASPI (ajout au-delà de §06.04, décision Val 2026-07-13 — cf. _Divergences M3.1_20260713_kpi_co2_traiteur_ag, type ambigu). L'onglet AG passe de 4 à 5 cartes KPI (lg:grid-cols-5) : 5e carte « CO₂ évité » affichant co2_evite_kg figé de v_kpi_traiteur (§11 l.185, sommé aussi sur les collectes anti_gaspi). Cliquable UNIQUEMENT si Σ co2_evite > 0 → ouvre une MODALE « Détail de l'impact carbone » (aucune navigation — invariant R24 préservé). Contenu AG = héros ALLÉGÉ (Co2HeroCardAg : évité SEUL, §05 R_co2_ag l.587 / §11 l.163, sans induit/net/énergie ni tableau par matière) + méthode par repas (Co2MethodePanelAg : repas donnés × facteur FAO figé). Facteur AG (2,5 kgCO₂e/repas, FAO 2023) exposé par kpi-traiteur (co2_methode.ag, service_role parametres_facteurs_co2_ag, best-effort). Équivalences km voiture / repas bœuf (foyers = énergie → sans objet AG). §06.04 l.106 interdit une carte marge AG → ajout d'une 5e carte, pas un remplacement."
     },
     {
       "id": "M3.1-cockpit-kpi-sparkline-n1",

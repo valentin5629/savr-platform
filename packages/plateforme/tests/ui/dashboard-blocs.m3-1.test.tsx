@@ -47,7 +47,11 @@ function kpiResult(rows: unknown[]): TraiteurDashboardPayload['kpi'] {
     previous: [],
     tarif_refacture_pax_zd: null,
     facteurs_co2: FACTEURS_CO2_DEFAUT,
-    co2_methode: { forfait: { km: 50, fe_camion: 2.1 }, flux: [] },
+    co2_methode: {
+      forfait: { km: 50, fe_camion: 2.1 },
+      flux: [],
+      ag: { facteur_par_repas: 2.5, source: null },
+    },
   };
 }
 

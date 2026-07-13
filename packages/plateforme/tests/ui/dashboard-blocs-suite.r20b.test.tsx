@@ -42,6 +42,23 @@ const KPI_ROW = {
   nb_repas_donnes: 12,
   marge_zd_ht: 100,
   pax_total: 200,
+  co2_evite_kg: 300,
+  co2_induit_kg: 50,
+  co2_net_kg: 250,
+  energie_primaire_evitee_kwh: 900,
+};
+
+const CO2_METHODE = {
+  forfait: { km: 50, fe_camion: 2.1 },
+  flux: [
+    {
+      code: 'biodechet',
+      nom: 'Biodéchets',
+      fe_evite: 250,
+      fe_induit: 20,
+      energie: 800,
+    },
+  ],
 };
 
 function blocsZd(overrides: Record<string, unknown> = {}) {
@@ -138,7 +155,7 @@ function buildFetch(blocsPayload: unknown) {
     if (url.includes('/dashboards/benchmark'))
       return jsonResponse({ data: [] });
     if (url.includes('/dashboards/kpi-traiteur'))
-      return jsonResponse({ data: [KPI_ROW] });
+      return jsonResponse({ data: [KPI_ROW], co2_methode: CO2_METHODE });
     if (url.includes('/gestionnaire/dashboard'))
       return jsonResponse({
         data: {
@@ -236,13 +253,23 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
     useFetch(blocsZd());
     render(<TraiteurDashboardPage />);
     await screen.findByTestId('bloc-6-top-lieux');
-    // R24 Cockpit — décision Val GO-VISUAL 2026-07-10 : les cartes KPI ne sont
-    // PLUS cliquables (revient sur BL-P2-11/BL-P2-43). Aucun lien vers la liste
-    // Collectes filtrée ne doit être rendu par les cartes KPI.
+    // R24 Cockpit — décision Val GO-VISUAL 2026-07-10 : aucune carte KPI ne
+    // NAVIGUE vers la liste Collectes filtrée (revient sur BL-P2-11/BL-P2-43).
     const liensCollectes = screen
       .queryAllByRole('link')
       .filter((a) => a.getAttribute('href')?.includes('/traiteur/collectes?'));
     expect(liensCollectes).toHaveLength(0);
+    // Exception R24c (Val 2026-07-13) : la carte « CO₂ évité » EST cliquable,
+    // mais elle ouvre la modale « Détail de l'impact carbone » (méthode de
+    // calcul) — pas une navigation. Les autres cartes restent non interactives.
+    expect(screen.queryByText("Détail de l'impact carbone")).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /CO₂ évité/ }));
+    expect(
+      await screen.findByText("Détail de l'impact carbone"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Comment ces chiffres sont-ils calculés/),
+    ).toBeInTheDocument();
   });
 });
 

@@ -339,9 +339,16 @@ export default function TraiteurDashboardPage() {
               variationPct={variationPct(co2.eviteKg, co2Prev.eviteKg)}
               sparkPoints={sparkFromRows(rows, (r) => r.co2_evite_kg)}
               sparkColor={DOT.green}
-              onClick={() => setCo2ModalOpen(true)}
+              // Cliquable → modale « Impact carbone » UNIQUEMENT s'il existe un
+              // CO₂ évité (collectes ZD clôturées) ; sinon carte d'affichage
+              // simple (garde §11 « héros masqué si Σ co2_evite = 0 »).
+              onClick={
+                co2.eviteKg > 0 ? () => setCo2ModalOpen(true) : undefined
+              }
               headerRight={
-                <Info aria-hidden className="h-4 w-4 text-savr-neutral-400" />
+                co2.eviteKg > 0 ? (
+                  <Info aria-hidden className="h-4 w-4 text-savr-neutral-400" />
+                ) : undefined
               }
             />
           </div>

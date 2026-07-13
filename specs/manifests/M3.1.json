@@ -450,10 +450,10 @@
     {
       "id": "M3.1-cockpit-co2-hero",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:84-283",
-      "artefact": "packages/plateforme/src/components/dashboards/charts/cockpit/Co2HeroCard.tsx + packages/plateforme/src/app/api/v1/dashboards/kpi-traiteur/route.ts + packages/plateforme/src/lib/dashboards/cockpit-derive.ts",
+      "artefact": "packages/plateforme/src/components/dashboards/charts/cockpit/Co2HeroCard.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/Co2MethodePanel.tsx + packages/plateforme/src/app/api/v1/dashboards/kpi-traiteur/route.ts + packages/plateforme/src/lib/dashboards/cockpit-derive.ts",
       "test": "M3.1/dash_cockpit_co2_equivalences_facteurs_ademe",
       "statut": "implemented",
-      "libelle": "Héros CO₂ ZD (ajout au-delà de §06.04, décision Val 2026-07-10 — cf. _Divergences M3.1_20260710_cockpit_co2_traiteur, type ambigu). Grandeurs figées co2_* de v_kpi_traiteur (jamais recalculées à l'affichage, §11 l.185) + équivalences km voiture / repas bœuf / foyers depuis parametres_co2_divers (ADEME, lues en service_role car RLS ops/admin, repli constantes 0,218/7/4500). Masqué si Σ co2_evite = 0 ; ZD only (AG = évité seul V1, §11 l.163)."
+      "libelle": "CO₂ ZD (ajout au-delà de §06.04, décisions Val 2026-07-10 puis 2026-07-13 — cf. _Divergences M3.1_20260710 + M3.1_20260713, type ambigu). La carte KPI « CO₂ évité » (remplace « Marge générée », Val 2026-07-13) affiche co2_evite_kg figé de v_kpi_traiteur (jamais recalculé, §11 l.185). Le héros CO₂ + la méthode de calcul (Co2MethodePanel : formules ABC + tableau facteurs par flux + forfait + équivalences, via co2_methode/parametres_facteurs_co2 en service_role) s'ouvrent dans une MODALE au clic sur la carte, UNIQUEMENT si Σ co2_evite > 0 (garde « masqué si 0 »). Équivalences km voiture / repas bœuf / foyers depuis parametres_co2_divers (repli 0,218/7/4500). ZD only (AG = évité seul V1, §11 l.163)."
     },
     {
       "id": "M3.1-cockpit-kpi-sparkline-n1",

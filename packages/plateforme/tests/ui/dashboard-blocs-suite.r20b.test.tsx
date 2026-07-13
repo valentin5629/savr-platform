@@ -5,9 +5,20 @@
  * endroit, conditionnées par rôle (Bloc 7 retiré agence) et par onglet, et que le
  * Bloc 3 ZD traiteur/agence est le VRAI benchmark (encart « Filtres benchmark »),
  * plus le stub. Les fetch et les graphes lazy sont mockés.
+ *
+ * Traiteur (SSR perf/ssr-dashboard-traiteur) : le dashboard est rendu par
+ * `TraiteurDashboardClient` alimenté par `initialData` ; le switch d'onglet re-fetch
+ * l'endpoint consolidé `/api/v1/dashboards/traiteur-full`. Agence + gestionnaire
+ * restent des pages 'use client' inchangées (fetch par bloc).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import {
+  render,
+  screen,
+  fireEvent,
+  cleanup,
+  waitFor,
+} from '@testing-library/react';
 
 const { pushMock } = vi.hoisted(() => ({ pushMock: vi.fn() }));
 vi.mock('next/navigation', () => ({
@@ -22,9 +33,11 @@ vi.mock('@/components/dashboards/charts/lazy.js', () => ({
   TonnagesDonut: () => <div data-testid="stub-donut" />,
 }));
 
-import TraiteurDashboardPage from '@/app/(traiteur)/traiteur/page.js';
+import { TraiteurDashboardClient } from '@/app/(traiteur)/traiteur/traiteur-dashboard-client';
 import AgenceDashboardPage from '@/app/(agence)/agence/page.js';
 import GestionnaireDashboardPage from '@/app/(gestionnaire)/gestionnaire/page.js';
+import { FACTEURS_CO2_DEFAUT } from '@/lib/dashboards/cockpit-derive';
+import type { TraiteurDashboardPayload } from '@/lib/dashboards/loaders';
 
 function jsonResponse(obj: unknown): Promise<Response> {
   return Promise.resolve({
@@ -59,6 +72,7 @@ const CO2_METHODE = {
       energie: 800,
     },
   ],
+  ag: { facteur_par_repas: 2.5, source: 'FAO 2023' },
 };
 
 function blocsZd(overrides: Record<string, unknown> = {}) {
@@ -145,6 +159,91 @@ function blocsAg(overrides: Record<string, unknown> = {}) {
   };
 }
 
+// ── Traiteur : rendu client SSR (initialData) + re-fetch consolidé ────────────
+function defaultPeriod(): { from: string; to: string } {
+  const to = new Date();
+  const from = new Date();
+  from.setMonth(from.getMonth() - 12);
+  return {
+    from: from.toISOString().slice(0, 10),
+    to: to.toISOString().slice(0, 10),
+  };
+}
+const PERIOD = defaultPeriod();
+
+function kpiResult(rows: unknown[]): TraiteurDashboardPayload['kpi'] {
+  return {
+    data: rows,
+    previous: [],
+    tarif_refacture_pax_zd: null,
+    facteurs_co2: FACTEURS_CO2_DEFAUT,
+    co2_methode: CO2_METHODE,
+  };
+}
+
+function payloadZd(blocs: unknown): TraiteurDashboardPayload {
+  return {
+    kpi: kpiResult([KPI_ROW]),
+    evolution: { granularite: 'mois', series: [] },
+    blocs: blocs as TraiteurDashboardPayload['blocs'],
+    marge: { nb_en_attente: 0 },
+    pack: null,
+  };
+}
+
+function payloadAg(blocs: unknown): TraiteurDashboardPayload {
+  return {
+    kpi: kpiResult([{ ...KPI_ROW, type_collecte: 'anti_gaspi' }]),
+    evolution: { granularite: 'mois', series: [] },
+    blocs: blocs as TraiteurDashboardPayload['blocs'],
+    marge: null,
+    pack: { pack_actif: false },
+  };
+}
+
+const BENCH_PROP = {
+  rows: [],
+  options: { lieux: [], traiteurs: [], types: [] },
+  filters: {
+    periode_debut: PERIOD.from,
+    periode_fin: PERIOD.to,
+    type_evenement_ids: [],
+    taille_evenement_codes: [],
+    lieu_ids: [],
+    traiteur_ids: [],
+  },
+};
+
+function renderTraiteur(initialBlocs: unknown) {
+  return render(
+    <TraiteurDashboardClient
+      initialData={payloadZd(initialBlocs)}
+      initialFilters={PERIOD}
+      benchmark={BENCH_PROP}
+    />,
+  );
+}
+
+// Re-fetch consolidé (switch d'onglet) + route benchmark, pour le rendu traiteur.
+function useTraiteurFetch(agPayload: TraiteurDashboardPayload) {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/dashboards/traiteur-full'))
+        return jsonResponse({
+          data: url.includes('type=anti_gaspi')
+            ? agPayload
+            : payloadZd(blocsZd()),
+        });
+      if (url.includes('/dashboards/benchmark'))
+        return jsonResponse({ data: [] });
+      return jsonResponse({});
+    }),
+  );
+}
+
+// ── Agence + gestionnaire : pages 'use client' inchangées (fetch par bloc) ────
 function buildFetch(blocsPayload: unknown) {
   return vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
@@ -215,8 +314,8 @@ beforeEach(() => {
 
 describe('M3.1 / traiteur — blocs §11 restants', () => {
   it('M3.1/blocs_traiteur_zd_montes_et_benchmark_reel', async () => {
-    useFetch(blocsZd());
-    render(<TraiteurDashboardPage />);
+    useTraiteurFetch(payloadAg(blocsAg()));
+    renderTraiteur(blocsZd());
     expect(await screen.findByTestId('bloc-5-prochaines')).toBeInTheDocument();
     expect(screen.getByTestId('bloc-6-top-lieux')).toBeInTheDocument();
     expect(screen.getByTestId('bloc-7-top-acteurs')).toBeInTheDocument();
@@ -235,8 +334,8 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
   });
 
   it('M3.1/blocs_traiteur_ag_associations_et_top7', async () => {
-    useFetch(blocsAg());
-    render(<TraiteurDashboardPage />);
+    useTraiteurFetch(payloadAg(blocsAg()));
+    renderTraiteur(blocsZd());
     await screen.findByTestId('bloc-5-prochaines');
     fireEvent.click(await screen.findByRole('tab', { name: /anti-gaspi/i }));
     // Bloc 3 AG = top associations ; Bloc 7 commerciaux présent.
@@ -250,8 +349,8 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
   });
 
   it('M3.1/blocs_traiteur_kpi_cartes_non_cliquables', async () => {
-    useFetch(blocsZd());
-    render(<TraiteurDashboardPage />);
+    useTraiteurFetch(payloadAg(blocsAg()));
+    renderTraiteur(blocsZd());
     await screen.findByTestId('bloc-6-top-lieux');
     // R24 Cockpit — décision Val GO-VISUAL 2026-07-10 : aucune carte KPI ne
     // NAVIGUE vers la liste Collectes filtrée (revient sur BL-P2-11/BL-P2-43).
@@ -275,12 +374,11 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
   it('M3.1/dash_cockpit_co2_ag_carte_modale', async () => {
     // Onglet AG : 5e carte « CO₂ évité » cliquable (Σ co2_evite > 0) → ouvre la
     // modale « Détail de l'impact carbone » VARIANTE AG (méthode par repas), pas
-    // une navigation (invariant R24). KPI_ROW porte co2_evite_kg = 300 > 0.
-    useFetch(blocsAg());
-    render(<TraiteurDashboardPage />);
+    // une navigation (invariant R24). payloadAg porte co2_evite_kg = 300 > 0.
+    useTraiteurFetch(payloadAg(blocsAg()));
+    renderTraiteur(blocsZd());
     await screen.findByTestId('bloc-5-prochaines');
     fireEvent.click(await screen.findByRole('tab', { name: /anti-gaspi/i }));
-    expect(screen.queryByText("Détail de l'impact carbone")).toBeNull();
     fireEvent.click(await screen.findByRole('button', { name: /CO₂ évité/ }));
     expect(
       await screen.findByText("Détail de l'impact carbone"),
@@ -302,26 +400,22 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
   it('M3.1 — carte CO₂ AG non cliquable si Σ co2_evite = 0', async () => {
     // Garde §11 « héros masqué si Σ = 0 » : carte d'affichage simple (pas de
     // bouton, donc aucune modale possible).
-    vi.stubGlobal(
-      'fetch',
-      vi.fn((input: RequestInfo | URL) => {
-        const url = String(input);
-        if (url.includes('/dashboards/blocs'))
-          return jsonResponse({ data: blocsAg() });
-        if (url.includes('/dashboards/kpi-traiteur'))
-          return jsonResponse({ data: [{ ...KPI_ROW, co2_evite_kg: 0 }] });
-        if (url.includes('/programmation/pack-ag'))
-          return jsonResponse({ pack_actif: false });
-        if (url.includes('/marge-attente-facturation'))
-          return jsonResponse({ data: { nb_en_attente: 0 } });
-        return jsonResponse({});
-      }),
-    );
-    render(<TraiteurDashboardPage />);
+    const agZero: TraiteurDashboardPayload = {
+      ...payloadAg(blocsAg()),
+      kpi: kpiResult([
+        { ...KPI_ROW, type_collecte: 'anti_gaspi', co2_evite_kg: 0 },
+      ]),
+    };
+    useTraiteurFetch(agZero);
+    renderTraiteur(blocsZd());
     await screen.findByTestId('bloc-5-prochaines');
     fireEvent.click(await screen.findByRole('tab', { name: /anti-gaspi/i }));
-    await screen.findByText('CO₂ évité');
-    expect(screen.queryByRole('button', { name: /CO₂ évité/ })).toBeNull();
+    // Onglet AG chargé (carte « Repas donnés » propre à l'AG), puis attente que
+    // les données AG (Σ = 0) rendent la carte CO₂ non cliquable (plus de bouton).
+    await screen.findByText('Repas donnés');
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: /CO₂ évité/ })).toBeNull(),
+    );
   });
 });
 

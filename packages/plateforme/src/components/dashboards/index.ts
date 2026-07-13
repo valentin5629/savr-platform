@@ -1,7 +1,10 @@
 export { BenchmarkGauge } from './BenchmarkGauge.js';
 export { BenchmarkLegend } from './BenchmarkLegend.js';
 export { BenchmarkFilterBar } from './BenchmarkFilterBar.js';
-export type { BenchmarkFilters } from './BenchmarkFilterBar.js';
+export type {
+  BenchmarkFilters,
+  BenchmarkFilterOptions,
+} from './BenchmarkFilterBar.js';
 export { MultiSelectFilter } from './MultiSelectFilter.js';
 export type { MultiOption } from './MultiSelectFilter.js';
 export { ParcMultiSelects } from './ParcMultiSelects.js';

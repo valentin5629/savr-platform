@@ -1,628 +1,102 @@
-'use client';
-
-import { useCallback, useEffect, useState } from 'react';
+import { redirect } from 'next/navigation';
+import { createSupabaseServerClient, getVerifiedClaims } from '@/lib/api-auth';
 import {
-  CollecteTypeTabs,
-  DashboardFilterBar,
-  BenchmarkFilterBar,
-  EmptyDashboardState,
-  ProchainesCollectesBloc,
-  ExportSyntheseBloc,
-  FLUX_ZD,
-  useEvolutionBlocs,
-  type CollecteType,
-  type DashboardFilters,
-  type BenchmarkFilters,
-  type BlocsData,
-} from '@/components/dashboards/index.js';
-// Librairie data-viz « Cockpit » (R24) — importée EN DIRECT (hors barrel
-// components/dashboards → aucun impact sur le gate orphan-components).
-import { KpiCockpitCard } from '@/components/dashboards/charts/cockpit/KpiCockpitCard';
-import { Co2HeroCard } from '@/components/dashboards/charts/cockpit/Co2HeroCard';
-import { Co2HeroCardAg } from '@/components/dashboards/charts/cockpit/Co2HeroCardAg';
-import {
-  Co2MethodePanel,
-  type Co2FluxFactor,
-} from '@/components/dashboards/charts/cockpit/Co2MethodePanel';
-import { Co2MethodePanelAg } from '@/components/dashboards/charts/cockpit/Co2MethodePanelAg';
-import { EvolutionZdChart } from '@/components/dashboards/charts/cockpit/EvolutionZdChart';
-import { EvolutionAgChart } from '@/components/dashboards/charts/cockpit/EvolutionAgChart';
-import { TonnagesDonut } from '@/components/dashboards/charts/cockpit/TonnagesDonut';
-import { BenchmarkBulletGauges } from '@/components/dashboards/charts/cockpit/BenchmarkBulletGauges';
-import { PackAgRing } from '@/components/dashboards/charts/cockpit/PackAgRing';
-import { TopRankList } from '@/components/dashboards/charts/cockpit/TopRankList';
-import {
-  fmtInt,
-  fmtDec,
-  fmtMasse,
-} from '@/components/dashboards/charts/cockpit/fmt';
-import {
-  aggregateKpis,
-  co2Totals,
-  co2Equivalences,
-  variationPct,
-  sparkFromRows,
-  aggregateBenchmarkPerFlux,
-  benchmarkItems,
-  FACTEURS_CO2_DEFAUT,
-  type TraiteurKpiRow,
-  type FacteursCo2,
-  type BenchmarkRow,
-} from '@/lib/dashboards/cockpit-derive';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Modal } from '@/components/ui/modal';
-import { Info } from 'lucide-react';
+  loadTraiteurDashboard,
+  loadBenchmark,
+  loadBenchmarkFiltres,
+  type LoaderCtx,
+} from '@/lib/dashboards/loaders';
+import type { BenchmarkFilterOptions } from '@/components/dashboards/index.js';
+import type { MultiOption } from '@/components/dashboards/MultiSelectFilter';
+import type { BenchmarkFilters } from '@/components/dashboards/BenchmarkFilterBar';
+import type { BenchmarkRow } from '@/lib/dashboards/cockpit-derive';
+import { TraiteurDashboardClient } from './traiteur-dashboard-client';
 
-// Variables du calcul CO₂ renvoyées par l'endpoint kpi-traiteur (modale méthode).
-// `ag` = facteur anti-gaspi par repas (méthode « évité seul » V1, §11 l.163).
-interface Co2Methode {
-  forfait: { km: number; fe_camion: number };
-  flux: Co2FluxFactor[];
-  ag?: { facteur_par_repas: number; source: string | null };
-}
+// Lecture cookies + agrégats live par utilisateur → jamais statique.
+export const dynamic = 'force-dynamic';
 
-/** ISO `YYYY-MM-DD` → `DD/MM/YYYY` (affichage FR de la période analysée). */
-function frDate(iso?: string): string {
-  return iso ? iso.split('-').reverse().join('/') : '—';
-}
+/**
+ * Dashboard traiteur (§06.04 / §11) — SERVER COMPONENT (R-perf).
+ *
+ * Le premier rendu est fait CÔTÉ SERVEUR, données incluses : auth locale (getClaims,
+ * 0 aller-retour — le layout a déjà validé la session via getUser), puis UN Promise.all
+ * des loaders (kpi + évolution + blocs + marge + benchmark + options benchmark) à côté
+ * de la base. Supprime le temps mort d'hydratation (~0,6 s) et la vague sérialisée
+ * benchmark→filtres. L'interactivité (onglets/filtres/N-1) vit dans le composant client,
+ * qui re-fetch via l'endpoint consolidé `/api/v1/dashboards/traiteur-full`.
+ *
+ * Périmètre : `traiteur_manager` + `traiteur_commercial` (gate middleware + layout ;
+ * défense en profondeur ici : scope org des loaders sous l'identité de l'appelant).
+ */
 
-// Pastilles couleur des cartes KPI (palette data-viz DS §2.4, figée par sens).
-const DOT = {
-  navy: '#223870',
-  navy2: '#3F5599',
-  green: '#16A34A',
-  navy3: '#6379B6',
-  accent: '#FF9B00',
-};
-
-function masseStr(kg: number): string {
-  const m = fmtMasse(kg);
-  return `${m.value} ${m.unit}`;
-}
-
-export default function TraiteurDashboardPage() {
-  const [tab, setTab] = useState<CollecteType>('zero_dechet');
-  const [filters, setFilters] = useState<DashboardFilters | null>(null);
-  const [rows, setRows] = useState<TraiteurKpiRow[]>([]);
-  // Fenêtre N-1 (période précédente équivalente) — alimente la variation des KPIs.
-  const [prevRows, setPrevRows] = useState<TraiteurKpiRow[]>([]);
-  // Facteurs d'équivalence CO₂ (ADEME, parametres_co2_divers) — héros CO₂.
-  const [facteursCo2, setFacteursCo2] =
-    useState<FacteursCo2>(FACTEURS_CO2_DEFAUT);
-  // Variables de calcul CO₂ + ouverture de la modale « méthode » (retour Val).
-  const [co2Methode, setCo2Methode] = useState<Co2Methode | null>(null);
-  const [co2ModalOpen, setCo2ModalOpen] = useState(false);
-  // Modale « Impact carbone » de l'onglet Anti-Gaspi (héros/méthode AG allégés,
-  // distincts du ZD) — état séparé pour éviter tout report d'état entre onglets.
-  const [co2AgModalOpen, setCo2AgModalOpen] = useState(false);
-  const [nbAttente, setNbAttente] = useState(0);
-  const [pack, setPack] = useState<{
-    pack_actif: boolean;
-    credits_initiaux?: number;
-    credits_restants?: number;
-  } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [blocs, setBlocs] = useState<BlocsData | null>(null);
-  // Benchmark parc par flux (Bloc 3 ZD) : 1 fetch page-level (vs 1/jauge) →
-  // alimente les jauges bullet Cockpit. traiteur_ids jamais transmis (compétitif).
-  const [benchmarkRows, setBenchmarkRows] = useState<BenchmarkRow[]>([]);
-  const [benchmarkFilters, setBenchmarkFilters] =
-    useState<BenchmarkFilters | null>(null);
-
-  const handleFilters = useCallback((f: DashboardFilters) => setFilters(f), []);
-  const handleBenchmarkFilters = useCallback(
-    (f: BenchmarkFilters) => setBenchmarkFilters(f),
-    [],
-  );
-
-  // Bloc 2 (évolution) + Bloc 4 (donut) — série partagée §11 par onglet actif.
-  const { granularite, zdSeries, agSeries } = useEvolutionBlocs(filters, tab);
-
-  // KPIs + N-1 + facteurs CO₂ (compare=n1 → l'endpoint renvoie la période précédente).
-  useEffect(() => {
-    if (!filters) return;
-    setLoading(true);
-    const qs = new URLSearchParams({
-      from: filters.from,
-      to: filters.to,
-      type: tab,
-      compare: 'n1',
-    });
-    fetch(`/api/v1/dashboards/kpi-traiteur?${qs}`)
-      .then((r) => r.json())
-      .then((j) => {
-        setRows((j.data ?? []) as TraiteurKpiRow[]);
-        setPrevRows((j.previous ?? []) as TraiteurKpiRow[]);
-        setFacteursCo2(
-          (j.facteurs_co2 as FacteursCo2 | undefined) ?? FACTEURS_CO2_DEFAUT,
-        );
-        setCo2Methode((j.co2_methode as Co2Methode | undefined) ?? null);
-      })
-      .finally(() => setLoading(false));
-  }, [filters, tab]);
-
-  useEffect(() => {
-    if (!filters || tab !== 'zero_dechet') return;
-    const qs = new URLSearchParams({ from: filters.from, to: filters.to });
-    fetch(`/api/v1/traiteur/marge-attente-facturation?${qs}`)
-      .then((r) => r.json())
-      .then((j) => setNbAttente(j.data?.nb_en_attente ?? 0));
-  }, [filters, tab]);
-
-  useEffect(() => {
-    if (tab !== 'anti_gaspi') return;
-    fetch('/api/v1/programmation/pack-ag')
-      .then((r) => r.json())
-      .then((j) => setPack(j));
-  }, [tab]);
-
-  // Blocs 5/6/7/3AG + kg/pax par flux (§11) — endpoint partagé, périmètre org.
-  useEffect(() => {
-    if (!filters) return;
-    const qs = new URLSearchParams({
-      from: filters.from,
-      to: filters.to,
-      type: tab,
-    });
-    fetch(`/api/v1/dashboards/blocs?${qs}`)
-      .then((r) => r.json())
-      .then((j) => setBlocs((j.data ?? null) as BlocsData | null))
-      .catch(() => setBlocs(null));
-  }, [filters, tab]);
-
-  // Benchmark parc (Bloc 3 ZD) — piloté par l'encart « Filtres benchmark ».
-  useEffect(() => {
-    if (tab !== 'zero_dechet' || !benchmarkFilters) {
-      setBenchmarkRows([]);
-      return;
-    }
-    const f = benchmarkFilters;
-    const p = new URLSearchParams();
-    if (f.taille_evenement_codes.length)
-      p.set('taille_evenement_codes', f.taille_evenement_codes.join(','));
-    if (f.type_evenement_ids.length)
-      p.set('type_evenement_ids', f.type_evenement_ids.join(','));
-    if (f.lieu_ids.length) p.set('lieu_ids', f.lieu_ids.join(','));
-    // traiteur_ids volontairement NON transmis (préservation compétitive §06.04 l.143).
-    if (f.periode_debut) p.set('periode_debut', f.periode_debut);
-    if (f.periode_fin) p.set('periode_fin', f.periode_fin);
-    fetch(`/api/v1/dashboards/benchmark?${p}`)
-      .then((r) => r.json())
-      .then((j) => setBenchmarkRows((j.data ?? []) as BenchmarkRow[]))
-      .catch(() => setBenchmarkRows([]));
-  }, [benchmarkFilters, tab]);
-
-  // ── Agrégats période courante + N-1 ──────────────────────────────────────────
-  const agg = aggregateKpis(rows);
-  const prev = aggregateKpis(prevRows);
-  const co2 = co2Totals(rows);
-  const co2Prev = co2Totals(prevRows);
-  // CO₂e évité figé des collectes réalisées sur la période (jamais recalculé,
-  // §11 l.185) — alimente la carte KPI (retour Val : Marge → CO₂ évité).
-  const co2Masse = fmtMasse(co2.eviteKg);
-  const equivalences = co2Equivalences(co2, facteursCo2);
-
-  const seuilBas =
-    pack?.pack_actif &&
-    pack.credits_initiaux != null &&
-    pack.credits_restants != null &&
-    pack.credits_restants <= 0.1 * pack.credits_initiaux;
-  const packEpuise = pack?.pack_actif && pack.credits_restants === 0;
-  // Cartes KPI NON cliquables (décision Val GO-VISUAL 2026-07-10 — revient sur
-  // BL-P2-11/BL-P2-43 « cartes cliquables ») : plus de href vers la liste collectes.
-
-  // ── Top listes (Cockpit TopRankList) — value = métrique d'ordre, secondary =
-  //    colonnes CDC §06.04 restantes (Nb collectes · Taux/Repas-pax · Ville). ──
-  const nbColl = (n: number) => `${fmtInt(n)} collecte${n > 1 ? 's' : ''}`;
-  const tauxStr = (t: number | null) =>
-    t != null ? `${fmtDec(t, 1)} % recyclage` : 'taux n/d';
-  const repasPaxStr = (r: number | null) =>
-    r != null ? `${fmtDec(r, 2)} repas/pax` : 'repas/pax n/d';
-
-  // Bloc 6 — ordonné par tonnage (ZD) / repas donnés (AG). CDC l.181/262.
-  const topLieuxItems = (blocs?.topLieux ?? []).map((l) =>
-    tab === 'zero_dechet'
-      ? {
-          label: l.lieu_nom,
-          raw: l.tonnage_kg ?? 0,
-          value: masseStr(l.tonnage_kg ?? 0),
-          secondary: `${nbColl(l.nb_collectes)} · ${tauxStr(l.taux_recyclage)}`,
-        }
-      : {
-          label: l.lieu_nom,
-          raw: l.repas_donnes ?? 0,
-          value: `${fmtInt(l.repas_donnes ?? 0)} repas`,
-          secondary: `${nbColl(l.nb_collectes)} · ${repasPaxStr(l.repas_par_pax)}`,
-        },
-  );
-  // Bloc 7 — ordonné par nb collectes (ZD/AG). CDC l.187/269.
-  const topActeursItems = (blocs?.topActeurs ?? []).map((a) => ({
-    label: a.label,
-    raw: a.nb_collectes,
-    value: nbColl(a.nb_collectes),
-    secondary:
-      tab === 'zero_dechet'
-        ? `${masseStr(a.tonnage_kg ?? 0)} · ${a.taux_recyclage != null ? `${fmtDec(a.taux_recyclage, 1)} %` : '—'}`
-        : `${fmtInt(a.repas_donnes ?? 0)} repas · ${repasPaxStr(a.repas_par_pax)}`,
-  }));
-  // Bloc 3 AG — ordonné par repas reçus. CDC l.219 (Association · Ville · Nb · Repas).
-  const topAssociationsItems = (blocs?.topAssociations ?? []).map((a) => ({
-    label: a.nom,
-    raw: a.repas_recus,
-    value: `${fmtInt(a.repas_recus)} repas`,
-    secondary: `${a.ville ?? 'Ville n/d'} · ${nbColl(a.nb_collectes)}`,
-  }));
-  const withBars = <T extends { raw: number }>(
-    items: T[],
-  ): (T & { barPct: number })[] => {
-    const max = Math.max(1, ...items.map((i) => i.raw));
-    return items.map((i) => ({ ...i, barPct: (i.raw / max) * 100 }));
+// Période par défaut — 12 derniers mois (§11 l.179, aligné DashboardFilterBar).
+function defaultPeriod(): { from: string; to: string } {
+  const to = new Date();
+  const from = new Date();
+  from.setMonth(from.getMonth() - 12);
+  return {
+    from: from.toISOString().slice(0, 10),
+    to: to.toISOString().slice(0, 10),
   };
-  const acteurTitre =
-    blocs?.acteurLabel === 'Traiteur' ? 'Top 5 traiteurs' : 'Top 5 commerciaux';
+}
 
-  // ── Benchmark (Bloc 3 ZD) ────────────────────────────────────────────────────
-  const gaugeItems = benchmarkItems(
-    FLUX_ZD.map((f) => ({ code: f.code, label: f.label })),
-    blocs?.kgParPaxParFlux ?? {},
-    aggregateBenchmarkPerFlux(benchmarkRows),
-  );
+export default async function TraiteurDashboardPage() {
+  // Défense en profondeur (le layout garde déjà /traiteur/*) — auth LOCALE.
+  const supabase = createSupabaseServerClient({ readonly: true });
+  const claims = await getVerifiedClaims(supabase);
+  if (!claims) redirect('/login');
+  if (
+    claims.role !== 'traiteur_manager' &&
+    claims.role !== 'traiteur_commercial'
+  ) {
+    redirect('/403');
+  }
+  if (!claims.organisationId) redirect('/403');
+
+  const ctx: LoaderCtx = {
+    userId: claims.userId,
+    role: claims.role,
+    organisationId: claims.organisationId,
+  };
+
+  const { from, to } = defaultPeriod();
+  // Filtres benchmark par défaut = 12 mois glissants (comme BenchmarkFilterBar),
+  // type/taille hérités des filtres globaux (vides côté traiteur).
+  const benchmarkFilters: BenchmarkFilters = {
+    periode_debut: from,
+    periode_fin: to,
+    type_evenement_ids: [],
+    taille_evenement_codes: [],
+    lieu_ids: [],
+    traiteur_ids: [],
+  };
+
+  // UN SEUL Promise.all serveur : dashboard (onglet ZD) + repère parc + options.
+  // Le benchmark/filtres est chargé DANS ce Promise.all (plus de 2e vague sérielle).
+  const [dashboard, benchmarkFiltres, benchmarkData] = await Promise.all([
+    loadTraiteurDashboard(supabase, ctx, { from, to, type: 'zero_dechet' }),
+    loadBenchmarkFiltres(supabase, ctx),
+    loadBenchmark(supabase, ctx, {
+      periodeDebut: benchmarkFilters.periode_debut,
+      periodeFin: benchmarkFilters.periode_fin,
+    }),
+  ]);
+
+  const options: BenchmarkFilterOptions = {
+    lieux: benchmarkFiltres.lieux as MultiOption[],
+    traiteurs: benchmarkFiltres.traiteurs as MultiOption[],
+    types: benchmarkFiltres.types as { id: string; libelle: string }[],
+  };
 
   return (
-    <div className="space-y-6" data-testid="traiteur-dashboard">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-savr-primary-800">Dashboard</h1>
-        <Button asChild>
-          <a href="/programmer/nouveau">Programmer un événement</a>
-        </Button>
-      </div>
-
-      <DashboardFilterBar
-        storageKey="traiteur-dashboard"
-        onChange={handleFilters}
-      />
-      <CollecteTypeTabs value={tab} onChange={setTab} />
-
-      {!loading && filters && (
-        <p
-          data-testid="dashboard-collectes-count"
-          className="text-sm text-savr-neutral-500"
-        >
-          {agg.nbCollectes} collecte{agg.nbCollectes > 1 ? 's' : ''} correspond
-          {agg.nbCollectes > 1 ? 'ent' : ''} à votre sélection
-        </p>
-      )}
-
-      {loading ? (
-        <p className="text-sm text-savr-neutral-500">Chargement…</p>
-      ) : agg.nbCollectes === 0 ? (
-        <EmptyDashboardState />
-      ) : tab === 'zero_dechet' ? (
-        <>
-          {/* Bloc 1 — KPIs Cockpit (5 cartes ZD) */}
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-            <KpiCockpitCard
-              label="Nombre de collectes"
-              value={fmtInt(agg.nbCollectes)}
-              dotColor={DOT.navy}
-              variationPct={variationPct(agg.nbCollectes, prev.nbCollectes)}
-              sparkPoints={sparkFromRows(rows, (r) => r.nb_collectes)}
-            />
-            <KpiCockpitCard
-              label="Tonnage collecté"
-              value={fmtMasse(agg.tonnage).value}
-              unit={fmtMasse(agg.tonnage).unit}
-              dotColor={DOT.navy2}
-              variationPct={variationPct(agg.tonnage, prev.tonnage)}
-              sparkPoints={sparkFromRows(rows, (r) => r.tonnage_kg)}
-            />
-            <KpiCockpitCard
-              label="Taux de recyclage"
-              value={agg.taux != null ? fmtDec(agg.taux, 1) : '—'}
-              unit={agg.taux != null ? '%' : undefined}
-              dotColor={DOT.green}
-              variationPct={variationPct(agg.taux ?? 0, prev.taux ?? 0)}
-              sparkPoints={sparkFromRows(rows, (r) => r.taux_recyclage_pondere)}
-              sparkColor={DOT.green}
-            />
-            <KpiCockpitCard
-              label="kg/pax moyen"
-              value={agg.kgPax != null ? fmtDec(agg.kgPax, 2) : '—'}
-              unit={agg.kgPax != null ? 'kg/pax' : undefined}
-              dotColor={DOT.navy3}
-              sparkPoints={sparkFromRows(rows, (r) =>
-                r.pax_total > 0 ? (r.tonnage_kg ?? 0) / r.pax_total : 0,
-              )}
-            />
-            {/* CO₂ évité des collectes réalisées sur la période (retour Val —
-                remplace « Marge générée », divergence §06.04 tracée). Cliquable :
-                ouvre la modale « Impact carbone » (héros + méthode de calcul). */}
-            <KpiCockpitCard
-              label="CO₂ évité"
-              value={co2Masse.value}
-              unit={`${co2Masse.unit} CO₂e`}
-              dotColor={DOT.green}
-              variationPct={variationPct(co2.eviteKg, co2Prev.eviteKg)}
-              sparkPoints={sparkFromRows(rows, (r) => r.co2_evite_kg)}
-              sparkColor={DOT.green}
-              // Cliquable → modale « Impact carbone » UNIQUEMENT s'il existe un
-              // CO₂ évité (collectes ZD clôturées) ; sinon carte d'affichage
-              // simple (garde §11 « héros masqué si Σ co2_evite = 0 »).
-              onClick={
-                co2.eviteKg > 0 ? () => setCo2ModalOpen(true) : undefined
-              }
-              headerRight={
-                co2.eviteKg > 0 ? (
-                  <Info aria-hidden className="h-4 w-4 text-savr-neutral-400" />
-                ) : undefined
-              }
-            />
-          </div>
-
-          {/* Collectes en attente de facturation — info ops relogée depuis la
-              carte Marge (retirée de la rangée KPI, retour Val). */}
-          {nbAttente >= 1 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="info">
-                {nbAttente} collecte{nbAttente > 1 ? 's' : ''} en attente de
-                facturation
-              </Badge>
-            </div>
-          )}
-
-          {/* Modale « Impact carbone » — ouverte au clic sur la carte KPI CO₂
-              évité (retour Val) : héros CO₂ (grandeurs figées v_kpi_traiteur) +
-              méthode de calcul et variables utilisées. */}
-          <Modal
-            open={co2ModalOpen}
-            onClose={() => setCo2ModalOpen(false)}
-            title="Détail de l'impact carbone"
-            wide
-          >
-            <div className="space-y-5">
-              <p className="text-[13px] text-savr-neutral-500">
-                Période analysée :{' '}
-                <span className="font-semibold text-savr-neutral-700">
-                  du {frDate(filters?.from)} au {frDate(filters?.to)}
-                </span>{' '}
-                · {agg.nbCollectes} collecte{agg.nbCollectes > 1 ? 's' : ''}{' '}
-                clôturée{agg.nbCollectes > 1 ? 's' : ''} Zéro Déchet
-              </p>
-              <Co2HeroCard
-                eviteKg={co2.eviteKg}
-                induitKg={co2.induitKg}
-                netKg={co2.netKg}
-                energiePrimaireKwh={co2.energieKwh}
-                equivalences={equivalences}
-              />
-              <Co2MethodePanel
-                forfait={co2Methode?.forfait ?? { km: 50, fe_camion: 2.1 }}
-                fluxFactors={co2Methode?.flux ?? []}
-                equivalences={facteursCo2}
-              />
-            </div>
-          </Modal>
-
-          {/* Bloc 2 — Évolution mensuelle ZD */}
-          <div data-testid="bloc-2-traiteur">
-            <EvolutionZdChart series={zdSeries} granularite={granularite} />
-          </div>
-
-          {/* Bloc 3 ZD — Filtres du repère + jauges kg/pax en UN seul bloc
-              (retour Val R24b : filtres imbriqués dans la carte des jauges). */}
-          <BenchmarkBulletGauges
-            items={gaugeItems}
-            filtersSlot={
-              <BenchmarkFilterBar
-                embedded
-                onChange={handleBenchmarkFilters}
-                initialTypeEvenementIds={filters?.type_evenement_ids ?? []}
-                initialTailleCodes={filters?.taille_evenement_codes ?? []}
-              />
-            }
-          />
-
-          {/* Bloc 4 donut + Bloc 6 top lieux + Bloc 7 top commerciaux */}
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div data-testid="bloc-4-traiteur">
-              <TonnagesDonut series={zdSeries} />
-            </div>
-            <div data-testid="bloc-6-top-lieux">
-              <TopRankList
-                title="Top 5 lieux"
-                subtitle="Par tonnage collecté"
-                items={withBars(topLieuxItems)}
-                showBar
-              />
-            </div>
-            {blocs?.topActeurs && blocs.acteurLabel && (
-              <div data-testid="bloc-7-top-acteurs">
-                <TopRankList
-                  title={acteurTitre}
-                  subtitle="Par nombre de collectes"
-                  items={withBars(topActeursItems)}
-                  showBar
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Bloc 5 — Prochaines collectes */}
-          <ProchainesCollectesBloc
-            items={blocs?.prochaines ?? []}
-            hrefFor={(c) => `/traiteur/collectes/${c.id}`}
-          />
-
-          {/* Bloc 8 — Export synthèse PDF */}
-          <ExportSyntheseBloc filters={filters} tab={tab} />
-        </>
-      ) : (
-        <>
-          {/* Bloc 1 — KPIs Cockpit (5 cartes AG : + CO₂ évité, décision Val
-              2026-07-13 — divergence §06.04/§11 tracée, cf. carte ZD #216) */}
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-            <KpiCockpitCard
-              label="Nombre de collectes"
-              value={fmtInt(agg.nbCollectes)}
-              dotColor={DOT.navy}
-              variationPct={variationPct(agg.nbCollectes, prev.nbCollectes)}
-              sparkPoints={sparkFromRows(rows, (r) => r.nb_collectes)}
-            />
-            <KpiCockpitCard
-              label="Repas donnés"
-              value={fmtInt(agg.repas)}
-              dotColor={DOT.accent}
-              variationPct={variationPct(agg.repas, prev.repas)}
-              sparkPoints={sparkFromRows(rows, (r) => r.nb_repas_donnes)}
-              sparkColor={DOT.accent}
-            />
-            <KpiCockpitCard
-              label="Pax cumulés"
-              value={fmtInt(agg.pax)}
-              dotColor={DOT.navy2}
-              variationPct={variationPct(agg.pax, prev.pax)}
-              sparkPoints={sparkFromRows(rows, (r) => r.pax_total)}
-            />
-            <KpiCockpitCard
-              label="Repas/pax moyen"
-              value={agg.pax > 0 ? fmtDec(agg.repas / agg.pax, 2) : '—'}
-              dotColor={DOT.navy3}
-              sparkPoints={sparkFromRows(rows, (r) =>
-                r.pax_total > 0 ? (r.nb_repas_donnes ?? 0) / r.pax_total : 0,
-              )}
-            />
-            {/* CO₂ évité AG (évité seul V1, §11 l.163) — même UX que le ZD :
-                cliquable → modale « Impact carbone » (héros + méthode AG) UNIQUEMENT
-                si Σ co2_evite > 0. Aucune navigation (invariant R24 « KPI non
-                cliquables vers la liste » préservé). */}
-            <KpiCockpitCard
-              label="CO₂ évité"
-              value={co2Masse.value}
-              unit={`${co2Masse.unit} CO₂e`}
-              dotColor={DOT.green}
-              variationPct={variationPct(co2.eviteKg, co2Prev.eviteKg)}
-              sparkPoints={sparkFromRows(rows, (r) => r.co2_evite_kg)}
-              sparkColor={DOT.green}
-              onClick={
-                co2.eviteKg > 0 ? () => setCo2AgModalOpen(true) : undefined
-              }
-              headerRight={
-                co2.eviteKg > 0 ? (
-                  <Info aria-hidden className="h-4 w-4 text-savr-neutral-400" />
-                ) : undefined
-              }
-            />
-          </div>
-
-          {/* Modale « Impact carbone » AG — héros allégé (évité seul) + méthode
-              par repas (facteur FAO figé × repas donnés), ouverte au clic sur la
-              carte KPI CO₂ évité. */}
-          <Modal
-            open={co2AgModalOpen}
-            onClose={() => setCo2AgModalOpen(false)}
-            title="Détail de l'impact carbone"
-            wide
-          >
-            <div className="space-y-5">
-              <p className="text-[13px] text-savr-neutral-500">
-                Période analysée :{' '}
-                <span className="font-semibold text-savr-neutral-700">
-                  du {frDate(filters?.from)} au {frDate(filters?.to)}
-                </span>{' '}
-                · {agg.nbCollectes} collecte{agg.nbCollectes > 1 ? 's' : ''}{' '}
-                clôturée{agg.nbCollectes > 1 ? 's' : ''} Anti-Gaspi
-              </p>
-              <Co2HeroCardAg
-                eviteKg={co2.eviteKg}
-                equivalences={{
-                  kmVoiture: equivalences.kmVoiture,
-                  repasBoeuf: equivalences.repasBoeuf,
-                }}
-              />
-              <Co2MethodePanelAg
-                facteurParRepas={co2Methode?.ag?.facteur_par_repas ?? 2.5}
-                source={co2Methode?.ag?.source ?? null}
-                repasDonnes={agg.repas}
-                eviteKg={co2.eviteKg}
-                equivalences={facteursCo2}
-              />
-            </div>
-          </Modal>
-
-          {/* Bloc 2 — Évolution Anti-Gaspi */}
-          <div data-testid="bloc-2-traiteur">
-            <EvolutionAgChart series={agSeries} granularite={granularite} />
-          </div>
-
-          {/* Bloc 4 AG — Mon pack Anti-Gaspi */}
-          {pack?.pack_actif &&
-            pack.credits_initiaux != null &&
-            pack.credits_restants != null && (
-              <div data-testid="bloc-pack-ag" className="space-y-3">
-                <PackAgRing
-                  creditsInitiaux={pack.credits_initiaux}
-                  creditsRestants={pack.credits_restants}
-                />
-                <Button
-                  disabled={!seuilBas && !packEpuise}
-                  onClick={() =>
-                    fetch('/api/v1/traiteur/pack-ag/renouvellement', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({}),
-                    })
-                  }
-                >
-                  Demander un renouvellement
-                </Button>
-              </div>
-            )}
-
-          {/* Bloc 3 AG — Top associations + Bloc 6 top lieux */}
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div data-testid="bloc-3ag-top-associations">
-              <TopRankList
-                title="Top associations bénéficiaires"
-                subtitle="Par repas reçus"
-                items={withBars(topAssociationsItems)}
-                avatarShape="round"
-                avatarTint="orange"
-                showBar
-              />
-            </div>
-            <div data-testid="bloc-6-top-lieux">
-              <TopRankList
-                title="Top 5 lieux"
-                subtitle="Par repas donnés"
-                items={withBars(topLieuxItems)}
-                showBar
-              />
-            </div>
-          </div>
-
-          {/* Bloc 7 — Top 5 commerciaux */}
-          {blocs?.topActeurs && blocs.acteurLabel && (
-            <div data-testid="bloc-7-top-acteurs">
-              <TopRankList
-                title={acteurTitre}
-                subtitle="Par nombre de collectes"
-                items={withBars(topActeursItems)}
-                showBar
-              />
-            </div>
-          )}
-
-          {/* Bloc 5 — Prochaines collectes */}
-          <ProchainesCollectesBloc
-            items={blocs?.prochaines ?? []}
-            hrefFor={(c) => `/traiteur/collectes/${c.id}`}
-          />
-
-          {/* Bloc 8 — Export synthèse PDF */}
-          <ExportSyntheseBloc filters={filters} tab={tab} />
-        </>
-      )}
-    </div>
+    <TraiteurDashboardClient
+      initialData={dashboard}
+      initialFilters={{ from, to }}
+      benchmark={{
+        rows: benchmarkData as BenchmarkRow[],
+        options,
+        filters: benchmarkFilters,
+      }}
+    />
   );
 }

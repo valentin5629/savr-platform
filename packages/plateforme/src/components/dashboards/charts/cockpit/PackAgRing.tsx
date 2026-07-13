@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { fmtInt, fmtDec } from './fmt';
+import { RING_OK, RING_LOW, TRACK, INK, TEXT_FAINT } from './palette';
 
 export interface PackAgRingProps {
   creditsInitiaux: number;
@@ -17,7 +18,11 @@ export function PackAgRing({
   const consommes = Math.max(0, creditsInitiaux - creditsRestants);
   const pctConsomme = creditsInitiaux > 0 ? consommes / creditsInitiaux : 0;
   const pctRestant = 1 - pctConsomme;
-  const dash = pctConsomme * C;
+  // L'arc représente le RESTANT (cohérent avec le grand chiffre au centre) : il
+  // se vide au fil de la consommation, et vire au rouge sous 10 % (redondance
+  // couleur ↔ badge « solde faible »).
+  const dash = pctRestant * C;
+  const arcColor = pctRestant <= 0.1 ? RING_LOW : RING_OK;
 
   let badge: React.ReactNode = null;
   if (creditsRestants === 0) {
@@ -61,7 +66,7 @@ export function PackAgRing({
           cy={60}
           r={50}
           fill="none"
-          stroke="#EEF0F5"
+          stroke={TRACK}
           strokeWidth={14}
         />
         <circle
@@ -69,18 +74,19 @@ export function PackAgRing({
           cy={60}
           r={50}
           fill="none"
-          stroke="#FF9B00"
+          stroke={arcColor}
           strokeWidth={14}
-          strokeLinecap="butt"
+          strokeLinecap={dash > 0 && dash < C ? 'round' : 'butt'}
           strokeDasharray={`${dash} ${C - dash}`}
           transform="rotate(-90 60 60)"
+          style={{ transition: 'stroke 200ms' }}
         />
         <text
           x={60}
           y={55}
           textAnchor="middle"
           className="tabular-nums"
-          style={{ fontSize: 26, fontWeight: 900, fill: '#161A26' }}
+          style={{ fontSize: 26, fontWeight: 900, fill: INK }}
         >
           {fmtInt(creditsRestants)}
         </text>
@@ -90,7 +96,7 @@ export function PackAgRing({
           textAnchor="middle"
           style={{
             fontSize: 9,
-            fill: '#9AA2B8',
+            fill: TEXT_FAINT,
             textTransform: 'uppercase',
             letterSpacing: '0.08em',
             fontWeight: 700,

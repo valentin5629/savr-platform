@@ -7,12 +7,20 @@ import type { Granularite } from '../types';
 import { formatPeriode } from '../format';
 import { ChartCard } from './ChartCard';
 import { fmtInt, fmtDec } from './fmt';
+import {
+  INK,
+  TEXT_MUTED,
+  TEXT_FAINT,
+  GRID,
+  GRID_BASELINE,
+  ACCENT_TEXT,
+} from './palette';
 
 // EvolutionZdChart (Cockpit R24) — barres empilées des 5 flux ZD (kg) + courbe du
 // taux de recyclage superposée (axe droit 0-100 %). §11 Bloc 2 ZD. Empilement
 // bas→haut = résiduel → biodéchets ; sommet arrondi ; séparateurs blancs fins ;
-// légende cliquable (masque un flux) ; tooltip au survol (kg + % par flux + taux).
-// Format paysage compact (fonts réduites) pour ne pas dominer la page.
+// légende cliquable (masque un flux OU la courbe taux) ; tooltip au survol
+// (kg + % par flux + taux). Format paysage compact pour ne pas dominer la page.
 const VBW = 760;
 const VBH = 230;
 const LEFT = 46;
@@ -114,7 +122,7 @@ const EvolutionZdChart = React.forwardRef<
                       y1={y}
                       x2={RIGHT}
                       y2={y}
-                      stroke={t === 0 ? '#DDE1EB' : '#EEF0F5'}
+                      stroke={t === 0 ? GRID_BASELINE : GRID}
                       strokeWidth={1}
                     />
                     <text
@@ -122,7 +130,7 @@ const EvolutionZdChart = React.forwardRef<
                       y={y + 3}
                       textAnchor="end"
                       className="tabular-nums"
-                      style={{ fontSize: 9, fill: '#9AA2B8' }}
+                      style={{ fontSize: 10, fill: TEXT_FAINT }}
                     >
                       {fmtInt(niceMax * t)}
                     </text>
@@ -140,7 +148,7 @@ const EvolutionZdChart = React.forwardRef<
                   x={RIGHT + 6}
                   y={BASE - (t as number) * PLOT_H + 3}
                   className="tabular-nums"
-                  style={{ fontSize: 9, fill: '#B36400' }}
+                  style={{ fontSize: 10, fill: ACCENT_TEXT }}
                 >
                   {lbl}
                 </text>
@@ -153,7 +161,7 @@ const EvolutionZdChart = React.forwardRef<
                   y={TOP}
                   width={slot}
                   height={PLOT_H}
-                  fill="#161A26"
+                  fill={INK}
                   opacity={0.04}
                 />
               )}
@@ -186,7 +194,7 @@ const EvolutionZdChart = React.forwardRef<
                             key={f.code}
                             d={`M${x},${segTop + r} Q${x},${segTop} ${x + r},${segTop} H${x + barW - r} Q${x + barW},${segTop} ${x + barW},${segTop + r} V${segBottom} H${x} Z`}
                             fill={f.color}
-                            stroke={isHovered ? '#161A26' : '#fff'}
+                            stroke={isHovered ? INK : '#fff'}
                             strokeWidth={isHovered ? 1.25 : 0.75}
                             style={{ cursor: 'pointer' }}
                             onMouseEnter={onEnter}
@@ -203,7 +211,7 @@ const EvolutionZdChart = React.forwardRef<
                           width={barW}
                           height={h}
                           fill={f.color}
-                          stroke={isHovered ? '#161A26' : '#fff'}
+                          stroke={isHovered ? INK : '#fff'}
                           strokeWidth={isHovered ? 1.25 : 0.75}
                           style={{ cursor: 'pointer' }}
                           onMouseEnter={onEnter}
@@ -216,8 +224,8 @@ const EvolutionZdChart = React.forwardRef<
                 );
               })}
 
-              {/* courbe taux de recyclage (fine) */}
-              {ratePts.length > 0 && (
+              {/* courbe taux de recyclage (fine) — masquable via la légende */}
+              {ratePts.length > 0 && !hidden.has(TAUX) && (
                 <>
                   <polyline
                     points={ratePts
@@ -272,7 +280,7 @@ const EvolutionZdChart = React.forwardRef<
                   x={cx(i)}
                   y={208}
                   textAnchor="middle"
-                  style={{ fontSize: 9, fill: '#6E7790', fontWeight: 600 }}
+                  style={{ fontSize: 10, fill: TEXT_MUTED, fontWeight: 600 }}
                 >
                   {formatPeriode(p.periode, granularite)}
                 </text>
@@ -319,7 +327,7 @@ const EvolutionZdChart = React.forwardRef<
                         </span>
                         <span
                           className="font-extrabold tabular-nums"
-                          style={{ color: '#B36400' }}
+                          style={{ color: ACCENT_TEXT }}
                         >
                           {p.taux_recyclage != null
                             ? `${fmtDec(p.taux_recyclage, 1)} %`
@@ -375,7 +383,7 @@ const EvolutionZdChart = React.forwardRef<
                         </span>
                         <span
                           className="font-bold tabular-nums"
-                          style={{ color: '#B36400' }}
+                          style={{ color: ACCENT_TEXT }}
                         >
                           {fmtDec(p.taux_recyclage, 1)} %
                         </span>
@@ -411,12 +419,16 @@ const EvolutionZdChart = React.forwardRef<
                 </button>
               );
             })}
-            <span
-              className="inline-flex items-center gap-1.5 rounded-savr-full border px-2.5 py-1 text-xs font-bold"
+            <button
+              type="button"
+              onClick={() => toggle(TAUX)}
+              aria-pressed={!hidden.has(TAUX)}
+              className="inline-flex items-center gap-1.5 rounded-savr-full border px-2.5 py-1 text-xs font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
               style={{
                 borderColor: '#FFE8C2',
                 background: '#FFF4E0',
-                color: '#B36400',
+                color: ACCENT_TEXT,
+                opacity: hidden.has(TAUX) ? 0.4 : 1,
               }}
             >
               <span
@@ -428,7 +440,7 @@ const EvolutionZdChart = React.forwardRef<
                 }}
               />
               Taux de recyclage
-            </span>
+            </button>
           </div>
         </>
       )}

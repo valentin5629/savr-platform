@@ -63,12 +63,13 @@ function KpiCockpitCard({
       <div className="mt-3 flex items-center justify-between">
         {variationPct != null ? (
           <span
-            className="inline-flex items-center gap-1 rounded-savr-full bg-savr-success-subtle px-2 py-0.5 text-xs font-extrabold tabular-nums text-savr-success-strong"
-            style={
+            title="Variation vs période précédente équivalente"
+            className={cn(
+              'inline-flex items-center gap-1 rounded-savr-full px-2 py-0.5 text-xs font-extrabold tabular-nums',
               variationPct >= 0
-                ? undefined
-                : { background: '#FEF2F2', color: '#DC2626' }
-            }
+                ? 'bg-savr-success-subtle text-savr-success-strong'
+                : 'bg-savr-error-subtle text-savr-error',
+            )}
           >
             {`${variationPct >= 0 ? '▲' : '▼'} ${fmtDec(Math.abs(variationPct), 1)} %`}
           </span>

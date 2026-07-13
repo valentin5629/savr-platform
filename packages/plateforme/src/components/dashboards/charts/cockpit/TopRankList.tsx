@@ -3,16 +3,14 @@
 import * as React from 'react';
 import { ChartCard } from './ChartCard';
 import { initiales } from './fmt';
+import { RANK } from './palette';
 
 // TopRankList — liste-classement Cockpit (R24) : rang coloré (dégradé navy par
 // position), avatar initiales, nom, mini-barre optionnelle et valeur déjà
 // formatée par l'appelant. Enveloppé dans une ChartCard standard.
 
-// Dégradé navy par rang (index 0..4, au-delà = dernier ton).
-const RANK_COLORS = ['#223870', '#3F5599', '#6379B6', '#92A3D2', '#BDC8E5'];
-
 function rankColor(index: number): string {
-  return RANK_COLORS[index] ?? '#BDC8E5';
+  return RANK[index] ?? RANK[RANK.length - 1]!;
 }
 
 const AVATAR_TINT = {

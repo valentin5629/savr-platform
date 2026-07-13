@@ -181,11 +181,12 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
   it("M3.2/GEST04_encart_filtres_present — l'utilisateur peut choisir les paramètres du benchmark", async () => {
     render(<GestionnaireDashboardPage />);
 
-    // L'encart « Filtres benchmark » (§06.05 Bloc 3) est monté avec ses 5 critères.
+    // L'encart des filtres du repère parc (§06.05 Bloc 3) est monté (imbriqué
+    // dans la carte des jauges depuis R24b) avec ses 5 critères.
     expect(
       await screen.findByTestId('benchmark-filter-bar'),
     ).toBeInTheDocument();
-    expect(screen.getByText('Filtres benchmark')).toBeInTheDocument();
+    expect(screen.getByText('Filtres du repère parc')).toBeInTheDocument();
     expect(screen.getByTestId('benchmark-reinitialiser')).toBeInTheDocument();
     expect(screen.getByTestId('benchmark-filter-type')).toBeInTheDocument();
     expect(screen.getByTestId('benchmark-filter-taille')).toBeInTheDocument();

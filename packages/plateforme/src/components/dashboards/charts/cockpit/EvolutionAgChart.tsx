@@ -7,10 +7,19 @@ import type { Granularite } from '../types';
 import { formatPeriode } from '../format';
 import { ChartCard } from './ChartCard';
 import { fmtInt, fmtDec } from './fmt';
+import {
+  INK,
+  TEXT_MUTED,
+  TEXT_FAINT,
+  TEXT_STRONG,
+  GRID,
+  GRID_BASELINE,
+} from './palette';
 
 // EvolutionAgChart (Cockpit R24) — BARRES verticales des repas donnés (orange,
 // axe gauche) + courbe du ratio repas/pax (ligne navy pointillée, axe droit).
-// §11 Bloc 2 AG. Format paysage compact + tooltip au survol (repas + ratio + pax).
+// §11 Bloc 2 AG. Format paysage compact ; légende cliquable (masque les barres
+// OU la courbe, symétrie avec le ZD) + tooltip au survol (repas + ratio + pax).
 const VBW = 760;
 const VBH = 210;
 const LEFT = 44;
@@ -37,6 +46,15 @@ const EvolutionAgChart = React.forwardRef<
   EvolutionAgChartProps
 >(({ series, granularite }, ref) => {
   const [hover, setHover] = React.useState<number | null>(null);
+  // Séries masquables via la légende (symétrie avec le ZD).
+  const [hidden, setHidden] = React.useState<Set<'repas' | 'ratio'>>(new Set());
+  const toggle = (k: 'repas' | 'ratio') =>
+    setHidden((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
   const empty = series.length === 0;
   const n = Math.max(1, series.length);
   const slot = PLOT_W / n;
@@ -66,8 +84,14 @@ const EvolutionAgChart = React.forwardRef<
       title="Évolution Anti-Gaspi"
       subtitle="Repas donnés · ratio repas / pax"
       headerRight={
-        <div className="flex gap-3 text-[11px] font-semibold text-savr-neutral-600">
-          <span className="flex items-center gap-1.5">
+        <div className="flex gap-2 text-[11px] font-semibold text-savr-neutral-600">
+          <button
+            type="button"
+            onClick={() => toggle('repas')}
+            aria-pressed={!hidden.has('repas')}
+            className="-my-3 flex min-h-[44px] items-center gap-1.5 rounded-savr-full px-1.5 transition-opacity focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
+            style={{ opacity: hidden.has('repas') ? 0.4 : 1 }}
+          >
             <span
               style={{
                 width: 10,
@@ -77,8 +101,14 @@ const EvolutionAgChart = React.forwardRef<
               }}
             />
             Repas
-          </span>
-          <span className="flex items-center gap-1.5">
+          </button>
+          <button
+            type="button"
+            onClick={() => toggle('ratio')}
+            aria-pressed={!hidden.has('ratio')}
+            className="-my-3 flex min-h-[44px] items-center gap-1.5 rounded-savr-full px-1.5 transition-opacity focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
+            style={{ opacity: hidden.has('ratio') ? 0.4 : 1 }}
+          >
             <span
               style={{
                 width: 14,
@@ -88,7 +118,7 @@ const EvolutionAgChart = React.forwardRef<
               }}
             />
             Ratio/pax
-          </span>
+          </button>
         </div>
       }
     >
@@ -116,7 +146,7 @@ const EvolutionAgChart = React.forwardRef<
                     y1={y}
                     x2={RIGHT}
                     y2={y}
-                    stroke={t === 0 ? '#DDE1EB' : '#EEF0F5'}
+                    stroke={t === 0 ? GRID_BASELINE : GRID}
                     strokeWidth={1}
                   />
                   <text
@@ -124,7 +154,7 @@ const EvolutionAgChart = React.forwardRef<
                     y={y + 3}
                     textAnchor="end"
                     className="tabular-nums"
-                    style={{ fontSize: 9, fill: '#9AA2B8' }}
+                    style={{ fontSize: 10, fill: TEXT_FAINT }}
                   >
                     {fmtInt(repasMax * t)}
                   </text>
@@ -138,7 +168,7 @@ const EvolutionAgChart = React.forwardRef<
                 x={RIGHT + 6}
                 y={BASE - t * PLOT_H + 3}
                 className="tabular-nums"
-                style={{ fontSize: 9, fill: '#3C4459' }}
+                style={{ fontSize: 10, fill: TEXT_STRONG }}
               >
                 {fmtDec(ratioMax * t, 2)}
               </text>
@@ -151,33 +181,36 @@ const EvolutionAgChart = React.forwardRef<
                 y={TOP}
                 width={slot}
                 height={PLOT_H}
-                fill="#161A26"
+                fill={INK}
                 opacity={0.04}
               />
             )}
 
-            {/* barres repas donnés (orange) */}
-            {series.map((p, i) => {
-              const val = p.repas_donnes || 0;
-              if (val <= 0) return null;
-              const h = (val / repasMax) * PLOT_H;
-              const x = cx(i) - barW / 2;
-              const y = BASE - h;
-              const r = Math.min(3, barW / 2);
-              return (
-                <path
-                  key={p.periode}
-                  d={`M${x},${y + r} Q${x},${y} ${x + r},${y} H${x + barW - r} Q${x + barW},${y} ${x + barW},${y + r} V${BASE} H${x} Z`}
-                  fill={REPAS_COLOR}
-                  style={{ pointerEvents: 'none' }}
-                >
-                  <title>{`${p.periode} — ${fmtInt(val)} repas`}</title>
-                </path>
-              );
-            })}
+            {/* barres repas donnés (orange) — masquables via la légende */}
+            {!hidden.has('repas') &&
+              series.map((p, i) => {
+                const val = p.repas_donnes || 0;
+                if (val <= 0) return null;
+                const h = (val / repasMax) * PLOT_H;
+                const x = cx(i) - barW / 2;
+                const y = BASE - h;
+                const r = Math.min(3, barW / 2);
+                return (
+                  <path
+                    key={p.periode}
+                    d={`M${x},${y + r} Q${x},${y} ${x + r},${y} H${x + barW - r} Q${x + barW},${y} ${x + barW},${y + r} V${BASE} H${x} Z`}
+                    fill={REPAS_COLOR}
+                    fillOpacity={hover === i ? 1 : 0.75}
+                    style={{
+                      pointerEvents: 'none',
+                      transition: 'fill-opacity 120ms',
+                    }}
+                  />
+                );
+              })}
 
-            {/* courbe ratio repas/pax (navy pointillée) */}
-            {ratioPts.length > 0 && (
+            {/* courbe ratio repas/pax (navy pointillée) — masquable via légende */}
+            {ratioPts.length > 0 && !hidden.has('ratio') && (
               <>
                 <polyline
                   points={ratioPts
@@ -185,8 +218,8 @@ const EvolutionAgChart = React.forwardRef<
                     .join(' ')}
                   fill="none"
                   stroke={RATIO_COLOR}
-                  strokeWidth={2}
-                  strokeDasharray="1 5"
+                  strokeWidth={1.125}
+                  strokeDasharray="1.5 5"
                   strokeLinecap="round"
                   style={{ pointerEvents: 'none' }}
                 />
@@ -195,10 +228,10 @@ const EvolutionAgChart = React.forwardRef<
                     key={k}
                     cx={x}
                     cy={y}
-                    r={2.5}
+                    r={1.25}
                     fill="#fff"
                     stroke={RATIO_COLOR}
-                    strokeWidth={1.5}
+                    strokeWidth={0.75}
                     style={{ pointerEvents: 'none' }}
                   />
                 ))}
@@ -212,7 +245,7 @@ const EvolutionAgChart = React.forwardRef<
                 x={cx(i)}
                 y={196}
                 textAnchor="middle"
-                style={{ fontSize: 9, fill: '#6E7790', fontWeight: 600 }}
+                style={{ fontSize: 10, fill: TEXT_MUTED, fontWeight: 600 }}
               >
                 {formatPeriode(p.periode, granularite)}
               </text>
@@ -232,21 +265,31 @@ const EvolutionAgChart = React.forwardRef<
             ))}
           </svg>
 
-          {/* Tooltip au survol : repas + ratio + pax (CDC §06.04 l.208). */}
+          {/* Tooltip au survol : repas + ratio + pax (CDC §06.04 l.208).
+              Ancré à CÔTÉ de la barre (jamais au-dessus du graphe) — retour Val. */}
           {hover != null &&
             (() => {
               const p = series[hover]!;
-              const leftPct = (cx(hover) / VBW) * 100;
-              const transform =
-                leftPct < 30
-                  ? 'translateX(0)'
-                  : leftPct > 70
-                    ? 'translateX(-100%)'
-                    : 'translateX(-50%)';
+              const h = ((p.repas_donnes || 0) / repasMax) * PLOT_H;
+              const barMidY = BASE - h / 2;
+              const barCenterPct = (cx(hover) / VBW) * 100;
+              const toRight = barCenterPct < 62;
+              const anchorLeft = toRight
+                ? ((cx(hover) + barW / 2 + 10) / VBW) * 100
+                : ((cx(hover) - barW / 2 - 10) / VBW) * 100;
+              const anchorTop = Math.min(
+                84,
+                Math.max(12, (barMidY / VBH) * 100),
+              );
+              const anchorStyle: React.CSSProperties = {
+                left: `${anchorLeft}%`,
+                top: `${anchorTop}%`,
+                transform: `${toRight ? 'translateX(0)' : 'translateX(-100%)'} translateY(-50%)`,
+              };
               return (
                 <div
                   className="pointer-events-none absolute z-10 rounded-savr-md border border-savr-neutral-200 bg-savr-white px-3 py-2 shadow-savr-md"
-                  style={{ left: `${leftPct}%`, top: 4, transform }}
+                  style={anchorStyle}
                 >
                   <div className="mb-1.5 text-[11px] font-bold text-savr-neutral-900">
                     {formatPeriode(p.periode, granularite)}

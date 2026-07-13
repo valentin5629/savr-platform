@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { fmtInt, fmtMasse } from './fmt';
+import { CO2 } from './palette';
 
 // Co2HeroCard — bloc héros à FOND NAVY (PAS ChartCard) présentant l'impact
 // carbone selon la règle ABC (méthode ADEME) : le CO₂e ÉVITÉ est mis en héros,
@@ -26,11 +27,14 @@ export function Co2HeroCard({
   const evite = fmtMasse(eviteKg);
   const induit = fmtMasse(induitKg);
   const net = fmtMasse(netKg);
+  // Bilan net favorable (évité net ≥ 0) → vert clair ; défavorable (induit >
+  // évité) → orange d'alerte, jamais du vert « tout va bien » (redondance §5).
+  const netColor = netKg >= 0 ? CO2.netInk : CO2.netWarn;
 
   return (
     <div
       className="relative overflow-hidden rounded-savr-lg p-7"
-      style={{ background: '#223870', color: '#fff' }}
+      style={{ background: CO2.bg, color: '#fff' }}
     >
       {/* Filet vert (accent « évité ») */}
       <div
@@ -40,33 +44,33 @@ export function Co2HeroCard({
           left: 0,
           bottom: 0,
           width: 3,
-          background: '#16A34A',
+          background: CO2.filetEvite,
         }}
       />
 
       {/* Suréditeur */}
       <div
         className="mb-3.5 text-[11px] font-bold uppercase tracking-[0.08em]"
-        style={{ color: '#92A3D2' }}
+        style={{ color: CO2.labelSoft }}
       >
         Impact carbone · méthode ADEME
       </div>
 
       {/* Rangée principale : héros évité + lignes induit/net/énergie */}
-      <div className="flex flex-wrap items-end gap-10">
+      <div className="flex flex-wrap items-end gap-x-10 gap-y-6">
         {/* Bloc évité (héros) */}
         <div>
           <div
             className="mb-1 text-[13px] font-semibold"
-            style={{ color: '#BDC8E5' }}
+            style={{ color: CO2.label }}
           >
             CO₂e évité
           </div>
-          <div className="text-[64px] font-black leading-[0.9] tracking-[-0.03em] tabular-nums">
+          <div className="text-[44px] font-black leading-[0.9] tracking-[-0.03em] tabular-nums sm:text-[64px]">
             {evite.value}
             <span
-              className="text-2xl font-extrabold"
-              style={{ color: '#92A3D2' }}
+              className="text-xl font-extrabold sm:text-2xl"
+              style={{ color: CO2.labelSoft }}
             >
               {' '}
               {evite.unit}
@@ -79,7 +83,7 @@ export function Co2HeroCard({
           <div className="flex items-baseline gap-2.5">
             <span
               className="text-[13px]"
-              style={{ width: 120, color: '#BDC8E5' }}
+              style={{ width: 120, color: CO2.label }}
             >
               CO₂ induit
             </span>
@@ -89,17 +93,17 @@ export function Co2HeroCard({
           </div>
           <div
             className="flex items-baseline gap-2.5"
-            style={{ paddingTop: 8, borderTop: '1px solid #2E4080' }}
+            style={{ paddingTop: 8, borderTop: `1px solid ${CO2.border}` }}
           >
             <span
               className="text-[13px]"
-              style={{ width: 120, color: '#BDC8E5' }}
+              style={{ width: 120, color: CO2.label }}
             >
               Bilan net
             </span>
             <span
               className="text-lg font-extrabold tabular-nums"
-              style={{ color: '#7ED9A6' }}
+              style={{ color: netColor }}
             >
               {net.value} {net.unit}
             </span>
@@ -107,7 +111,7 @@ export function Co2HeroCard({
           <div className="flex items-baseline gap-2.5">
             <span
               className="text-[13px]"
-              style={{ width: 120, color: '#BDC8E5' }}
+              style={{ width: 120, color: CO2.label }}
             >
               Énergie primaire évitée
             </span>
@@ -120,68 +124,45 @@ export function Co2HeroCard({
 
       {/* Séparateur */}
       <div
-        style={{ height: 1, background: '#2E4080', margin: '22px 0 18px' }}
+        style={{ height: 1, background: CO2.border, margin: '22px 0 18px' }}
       />
 
       {/* Sous-titre équivalences */}
       <div
         className="mb-3 text-[10px] font-bold uppercase tracking-[0.08em]"
-        style={{ color: '#6379B6' }}
+        style={{ color: CO2.labelFaint }}
       >
         Équivalences pédagogiques
       </div>
 
       {/* Grille 3 tuiles */}
       <div className="grid grid-cols-3 gap-3.5">
-        <div
-          style={{
-            background: '#1B2C57',
-            border: '1px solid #2E4080',
-            borderRadius: 8,
-            padding: 14,
-          }}
-        >
-          <div className="text-[22px] font-extrabold tabular-nums">
-            {fmtInt(equivalences.kmVoiture)}
+        {[
+          { v: equivalences.kmVoiture, l: 'km en voiture' },
+          { v: equivalences.repasBoeuf, l: 'repas de bœuf' },
+          { v: equivalences.foyers, l: 'foyers (an)' },
+        ].map((t) => (
+          <div
+            key={t.l}
+            style={{
+              background: CO2.tile,
+              border: `1px solid ${CO2.border}`,
+              borderRadius: 8,
+              padding: 14,
+            }}
+          >
+            <div className="text-[22px] font-extrabold tabular-nums">
+              {fmtInt(t.v)}
+            </div>
+            <div className="mt-0.5 text-xs" style={{ color: CO2.label }}>
+              {t.l}
+            </div>
           </div>
-          <div className="mt-0.5 text-xs" style={{ color: '#BDC8E5' }}>
-            km en voiture
-          </div>
-        </div>
-        <div
-          style={{
-            background: '#1B2C57',
-            border: '1px solid #2E4080',
-            borderRadius: 8,
-            padding: 14,
-          }}
-        >
-          <div className="text-[22px] font-extrabold tabular-nums">
-            {fmtInt(equivalences.repasBoeuf)}
-          </div>
-          <div className="mt-0.5 text-xs" style={{ color: '#BDC8E5' }}>
-            repas de bœuf
-          </div>
-        </div>
-        <div
-          style={{
-            background: '#1B2C57',
-            border: '1px solid #2E4080',
-            borderRadius: 8,
-            padding: 14,
-          }}
-        >
-          <div className="text-[22px] font-extrabold tabular-nums">
-            {fmtInt(equivalences.foyers)}
-          </div>
-          <div className="mt-0.5 text-xs" style={{ color: '#BDC8E5' }}>
-            foyers (an)
-          </div>
-        </div>
+        ))}
       </div>
 
       {/* Note bas */}
-      <div className="mt-4 text-[11px]" style={{ color: '#6379B6' }}>
+      <div className="mt-4 text-[11px]" style={{ color: CO2.labelFaint }}>
         Incertitude ADEME ± 50 %. L'évité et l'induit ne sont jamais soustraits
         pour annoncer une compensation.
       </div>

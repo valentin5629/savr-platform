@@ -271,6 +271,58 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
       screen.getByText(/Comment ces chiffres sont-ils calculés/),
     ).toBeInTheDocument();
   });
+
+  it('M3.1/dash_cockpit_co2_ag_carte_modale', async () => {
+    // Onglet AG : 5e carte « CO₂ évité » cliquable (Σ co2_evite > 0) → ouvre la
+    // modale « Détail de l'impact carbone » VARIANTE AG (méthode par repas), pas
+    // une navigation (invariant R24). KPI_ROW porte co2_evite_kg = 300 > 0.
+    useFetch(blocsAg());
+    render(<TraiteurDashboardPage />);
+    await screen.findByTestId('bloc-5-prochaines');
+    fireEvent.click(await screen.findByRole('tab', { name: /anti-gaspi/i }));
+    expect(screen.queryByText("Détail de l'impact carbone")).toBeNull();
+    fireEvent.click(await screen.findByRole('button', { name: /CO₂ évité/ }));
+    expect(
+      await screen.findByText("Détail de l'impact carbone"),
+    ).toBeInTheDocument();
+    // Méthode AG (singulier « ce chiffre ») + héros AG (« dons anti-gaspi ») ;
+    // PAS la méthode ABC ZD (« ces chiffres » + tableau par matière).
+    expect(
+      screen.getByText(/Comment ce chiffre est-il calculé/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Impact carbone · dons anti-gaspi/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Facteurs d'émission par matière/)).toBeNull();
+    expect(
+      screen.queryByText(/Comment ces chiffres sont-ils calculés/),
+    ).toBeNull();
+  });
+
+  it('M3.1 — carte CO₂ AG non cliquable si Σ co2_evite = 0', async () => {
+    // Garde §11 « héros masqué si Σ = 0 » : carte d'affichage simple (pas de
+    // bouton, donc aucune modale possible).
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes('/dashboards/blocs'))
+          return jsonResponse({ data: blocsAg() });
+        if (url.includes('/dashboards/kpi-traiteur'))
+          return jsonResponse({ data: [{ ...KPI_ROW, co2_evite_kg: 0 }] });
+        if (url.includes('/programmation/pack-ag'))
+          return jsonResponse({ pack_actif: false });
+        if (url.includes('/marge-attente-facturation'))
+          return jsonResponse({ data: { nb_en_attente: 0 } });
+        return jsonResponse({});
+      }),
+    );
+    render(<TraiteurDashboardPage />);
+    await screen.findByTestId('bloc-5-prochaines');
+    fireEvent.click(await screen.findByRole('tab', { name: /anti-gaspi/i }));
+    await screen.findByText('CO₂ évité');
+    expect(screen.queryByRole('button', { name: /CO₂ évité/ })).toBeNull();
+  });
 });
 
 describe('M3.3 / agence — Bloc 7 retiré', () => {

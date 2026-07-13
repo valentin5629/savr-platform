@@ -409,7 +409,7 @@ it('Co2MethodePanelAg — formule par repas + facteur, sans tableau par matière
   expect(screen.queryByText(/Facteurs d'émission par matière/)).toBeNull();
 });
 
-it('M3.1/dash_cockpit_co2_ag_carte_modale', () => {
+it('Co2 AG — carte cliquable + contenu modale (composants isolés)', () => {
   // 1. La carte KPI « CO₂ évité » AG est cliquable (onClick → bouton) → ouvre la
   //    modale (aucune navigation : invariant R24 préservé).
   const onClick = vi.fn();

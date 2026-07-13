@@ -135,28 +135,14 @@ export function TraiteurDashboardClient({
   );
 
   // ── Re-fetch consolidé (endpoint traiteur-full) au changement d'onglet/période ──
-  // Clé = signature de la requête. Initialisée à la requête SSR (déjà en état) →
-  // aucun fetch au montage tant que la barre de filtres émet la même sélection.
+  // Clé = signature de la requête (le dashboard traiteur n'envoie que from/to/type ;
+  // pas de filtres « parc »). Initialisée à la requête SSR (déjà en état) → aucun
+  // fetch au montage tant que la barre de filtres émet la même période.
   const mainKey = (f: DashboardFilters, t: CollecteType): string =>
-    JSON.stringify({
-      from: f.from,
-      to: f.to,
-      t,
-      l: f.lieu_ids ?? [],
-      tr: f.traiteur_ids ?? [],
-      te: f.type_evenement_ids ?? [],
-      ta: f.taille_evenement_codes ?? [],
-    });
+    JSON.stringify({ from: f.from, to: f.to, t });
   const lastMainKey = useRef<string>(
     mainKey(
-      {
-        from: initialFilters.from,
-        to: initialFilters.to,
-        lieu_ids: [],
-        traiteur_ids: [],
-        type_evenement_ids: [],
-        taille_evenement_codes: [],
-      },
+      { from: initialFilters.from, to: initialFilters.to },
       'zero_dechet',
     ),
   );

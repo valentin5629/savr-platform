@@ -1308,10 +1308,6 @@ export interface TraiteurDashboardParams {
   from: string | null;
   to: string | null;
   type: string; // 'zero_dechet' | 'anti_gaspi'
-  lieuIds?: string[];
-  traiteurIds?: string[];
-  typeEvtIds?: string[];
-  tailleEvts?: string[];
 }
 
 export interface TraiteurDashboardPayload {
@@ -1338,27 +1334,15 @@ export async function loadTraiteurDashboard(
 ): Promise<TraiteurDashboardPayload> {
   const type = params.type === 'anti_gaspi' ? 'anti_gaspi' : 'zero_dechet';
   const isZd = type === 'zero_dechet';
-  const shared = {
-    from: params.from,
-    to: params.to,
-    lieuIds: params.lieuIds ?? [],
-    traiteurIds: params.traiteurIds ?? [],
-    typeEvtIds: params.typeEvtIds ?? [],
-    tailleEvts: params.tailleEvts ?? [],
-  };
+  // Le dashboard traiteur n'a PAS de filtres « parc » (DashboardFilterBar monté
+  // sans parcOptions) → évolution/blocs défaultent lieu/type/taille à [] en interne.
+  const { from, to } = params;
 
   const [kpi, evolution, blocs, marge, pack] = await Promise.all([
-    loadKpiTraiteur(supabase, ctx, {
-      from: params.from,
-      to: params.to,
-      type,
-      compare: 'n1',
-    }),
-    loadEvolution(supabase, ctx, { type, ...shared }),
-    loadBlocs(supabase, ctx, { type, ...shared }),
-    isZd
-      ? loadMargeAttente(supabase, { from: params.from, to: params.to })
-      : Promise.resolve(null),
+    loadKpiTraiteur(supabase, ctx, { from, to, type, compare: 'n1' }),
+    loadEvolution(supabase, ctx, { type, from, to }),
+    loadBlocs(supabase, ctx, { type, from, to }),
+    isZd ? loadMargeAttente(supabase, { from, to }) : Promise.resolve(null),
     isZd ? Promise.resolve(null) : loadPackAg(ctx),
   ]);
 

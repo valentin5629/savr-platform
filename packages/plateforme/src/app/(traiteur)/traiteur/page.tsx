@@ -58,6 +58,11 @@ interface Co2Methode {
   flux: Co2FluxFactor[];
 }
 
+/** ISO `YYYY-MM-DD` → `DD/MM/YYYY` (affichage FR de la période analysée). */
+function frDate(iso?: string): string {
+  return iso ? iso.split('-').reverse().join('/') : '—';
+}
+
 // Pastilles couleur des cartes KPI (palette data-viz DS §2.4, figée par sens).
 const DOT = {
   navy: '#223870',
@@ -362,6 +367,14 @@ export default function TraiteurDashboardPage() {
             wide
           >
             <div className="space-y-5">
+              <p className="text-[13px] text-savr-neutral-500">
+                Période analysée :{' '}
+                <span className="font-semibold text-savr-neutral-700">
+                  du {frDate(filters?.from)} au {frDate(filters?.to)}
+                </span>{' '}
+                · {agg.nbCollectes} collecte{agg.nbCollectes > 1 ? 's' : ''}{' '}
+                clôturée{agg.nbCollectes > 1 ? 's' : ''} Zéro Déchet
+              </p>
               <Co2HeroCard
                 eviteKg={co2.eviteKg}
                 induitKg={co2.induitKg}

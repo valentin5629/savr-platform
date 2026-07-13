@@ -133,29 +133,34 @@ export function BenchmarkFilterBar({
   return (
     <div
       data-testid="benchmark-filter-bar"
-      className="space-y-3 rounded-savr-md border border-savr-neutral-200 bg-savr-neutral-50 p-3"
+      className="space-y-4 rounded-savr-lg border border-savr-neutral-200 bg-savr-white p-6 shadow-savr-sm"
     >
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold text-savr-neutral-700">
-          Filtres benchmark
-        </span>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h3 className="text-base font-extrabold tracking-[-0.01em] text-savr-neutral-900">
+            Filtres benchmark
+          </h3>
+          <p className="mt-0.5 text-[13px] text-savr-neutral-500">
+            Affinent uniquement la moyenne du parc (le repère), pas vos données.
+          </p>
+        </div>
         <button
           type="button"
           onClick={reset}
           data-testid="benchmark-reinitialiser"
-          className="text-xs text-savr-primary-700 hover:underline"
+          className="shrink-0 rounded-savr-md px-2 py-1 text-xs font-semibold text-savr-primary-700 hover:bg-savr-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
         >
           Réinitialiser
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-5">
         {/* Période + raccourcis */}
         <div className="md:col-span-3 lg:col-span-1">
-          <span className="mb-1 block text-xs font-medium text-savr-neutral-600">
+          <span className="mb-1.5 block text-xs font-semibold text-savr-neutral-600">
             Période benchmark
           </span>
-          <div className="mb-1 flex flex-wrap gap-1">
+          <div className="mb-1.5 flex flex-wrap gap-1.5">
             {(
               [
                 ['12m', '12 mois'],
@@ -168,17 +173,17 @@ export function BenchmarkFilterBar({
                 type="button"
                 onClick={() => applyPreset(key)}
                 data-testid={`benchmark-preset-${key}`}
-                className={`rounded px-2 py-0.5 text-xs ${
+                className={`rounded-savr-md px-2.5 py-1 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500 ${
                   preset === key
                     ? 'bg-savr-primary-700 text-savr-white'
-                    : 'bg-savr-white text-savr-neutral-600 border border-savr-neutral-300'
+                    : 'border border-savr-neutral-300 bg-savr-white text-savr-neutral-600 hover:border-savr-neutral-400'
                 }`}
               >
                 {lbl}
               </button>
             ))}
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             <input
               type="date"
               aria-label="Début période benchmark"
@@ -187,7 +192,7 @@ export function BenchmarkFilterBar({
                 setPreset('perso');
                 apply({ ...filters, periode_debut: e.target.value });
               }}
-              className="w-full rounded border border-savr-neutral-300 px-1.5 py-1 text-xs"
+              className="w-full rounded-savr-md border border-savr-neutral-300 bg-savr-white px-2 py-1.5 text-xs text-savr-neutral-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
             />
             <input
               type="date"
@@ -197,7 +202,7 @@ export function BenchmarkFilterBar({
                 setPreset('perso');
                 apply({ ...filters, periode_fin: e.target.value });
               }}
-              className="w-full rounded border border-savr-neutral-300 px-1.5 py-1 text-xs"
+              className="w-full rounded-savr-md border border-savr-neutral-300 bg-savr-white px-2 py-1.5 text-xs text-savr-neutral-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
             />
           </div>
         </div>
@@ -238,7 +243,7 @@ export function BenchmarkFilterBar({
       {comparaisonSoi && (
         <p
           data-testid="benchmark-comparaison-soi"
-          className="text-xs text-savr-warning-700"
+          className="rounded-savr-md border border-savr-warning/30 bg-savr-warning-subtle px-3 py-2 text-xs text-savr-warning-strong"
         >
           ⚠ Si vous filtrez sur vos propres lieux/traiteurs, le benchmark
           compare vos données à vos propres données — il perd son rôle de

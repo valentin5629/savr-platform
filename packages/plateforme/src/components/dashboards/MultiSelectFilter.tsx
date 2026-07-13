@@ -55,7 +55,7 @@ export function MultiSelectFilter({
 
   return (
     <div ref={ref} className="relative" data-testid={testid}>
-      <span className="mb-1 block text-xs font-medium text-savr-neutral-600">
+      <span className="mb-1.5 block text-xs font-semibold text-savr-neutral-600">
         {label}
       </span>
       <button
@@ -63,7 +63,7 @@ export function MultiSelectFilter({
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="flex w-full items-center justify-between rounded-md border border-savr-neutral-300 bg-savr-white px-3 py-1.5 text-left text-sm hover:border-savr-neutral-400"
+        className="flex w-full items-center justify-between rounded-savr-md border border-savr-neutral-300 bg-savr-white px-3 py-2 text-left text-sm hover:border-savr-neutral-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
       >
         <span className={selected.length === 0 ? 'text-savr-neutral-500' : ''}>
           {summary}
@@ -74,13 +74,13 @@ export function MultiSelectFilter({
         <div
           role="listbox"
           aria-multiselectable="true"
-          className="absolute z-30 mt-1 max-h-56 w-full min-w-[12rem] overflow-y-auto rounded-md border border-savr-neutral-200 bg-savr-white p-1 shadow-lg"
+          className="absolute z-30 mt-1 max-h-56 w-full min-w-[12rem] overflow-y-auto rounded-savr-md border border-savr-neutral-200 bg-savr-white p-1 shadow-savr-md"
         >
           <button
             type="button"
             onClick={() => onChange([])}
             data-testid={testid ? `${testid}-opt-tous` : undefined}
-            className={`w-full rounded px-2 py-1.5 text-left text-sm ${
+            className={`w-full rounded-savr-sm px-2 py-1.5 text-left text-sm ${
               selected.length === 0
                 ? 'bg-savr-primary-50 font-medium text-savr-primary-800'
                 : 'hover:bg-savr-neutral-50'
@@ -91,7 +91,7 @@ export function MultiSelectFilter({
           {options.map((o) => (
             <label
               key={o.id}
-              className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-savr-neutral-50"
+              className="flex cursor-pointer items-center gap-2 rounded-savr-sm px-2 py-1.5 text-sm hover:bg-savr-neutral-50"
             >
               <input
                 type="checkbox"

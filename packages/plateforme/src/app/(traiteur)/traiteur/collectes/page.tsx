@@ -15,6 +15,8 @@ import {
   TraiteurCollecteCard,
   type TraiteurCollecteCardData,
 } from '@/components/collecte/collecte-card-traiteur';
+import { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
+import { readCollecteFiltreLabel } from '@/lib/dashboards/collecte-filtre-label';
 
 // Refonte liste collectes traiteur (décision Val 2026-07-05, diverge du §04
 // actuel — voir _Divergences/M3.1_20260705_liste_collectes.md) : onglets
@@ -99,6 +101,10 @@ function CollectesContent() {
   const [onglet, setOnglet] = useState<Onglet>(
     params.get('onglet') === 'historique' ? 'historique' : 'programmees',
   );
+  // Drill-down depuis les Top listes du dashboard (lieu / commercial).
+  const lieuFiltre = params.get('lieu');
+  const commercialFiltre = params.get('commercial');
+  const [filtreLabel, setFiltreLabel] = useState<string | null>(null);
   const [rows, setRows] = useState<CollecteRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -130,15 +136,26 @@ function CollectesContent() {
       type: typeFiltre,
       statut: statuts.join(','),
     });
+    if (lieuFiltre) qs.set('lieu_id', lieuFiltre);
+    if (commercialFiltre) qs.set('commercial_id', commercialFiltre);
     fetch(`/api/v1/traiteur/collectes?${qs}`)
       .then((r) => r.json())
       .then((j) => setRows((j.data ?? []) as CollecteRow[]))
       .finally(() => setLoading(false));
-  }, [typeFiltre, onglet]);
+  }, [typeFiltre, onglet, lieuFiltre, commercialFiltre]);
 
   useEffect(() => {
     charger();
   }, [charger]);
+
+  // Libellé du chip « filtre actif » : d'abord le nom mémorisé au clic
+  // (sessionStorage), sinon fallback dérivé/générique (URL partagée, refresh).
+  useEffect(() => {
+    if (lieuFiltre) setFiltreLabel(readCollecteFiltreLabel('lieu', lieuFiltre));
+    else if (commercialFiltre)
+      setFiltreLabel(readCollecteFiltreLabel('commercial', commercialFiltre));
+    else setFiltreLabel(null);
+  }, [lieuFiltre, commercialFiltre]);
 
   function pushQuery(next: { type?: CollecteType; onglet?: Onglet }) {
     const usp = new URLSearchParams(Array.from(params.entries()));
@@ -154,6 +171,25 @@ function CollectesContent() {
     setOnglet(o);
     pushQuery({ onglet: o });
   }
+  function clearFiltre() {
+    const usp = new URLSearchParams(Array.from(params.entries()));
+    usp.delete('lieu');
+    usp.delete('commercial');
+    router.replace(`/traiteur/collectes?${usp}`);
+  }
+
+  // Libellé du chip : nom mémorisé, sinon nom du lieu dérivé des lignes, sinon
+  // générique. Le filtrage lui-même ne dépend jamais de ce libellé.
+  const lieuNomDesRows = (() => {
+    const evt = one(rows[0]?.evenements ?? null);
+    const lieu = one(evt?.lieux ?? null);
+    return lieu?.nom ?? null;
+  })();
+  const chipLabel = lieuFiltre
+    ? `Lieu : ${filtreLabel ?? lieuNomDesRows ?? 'lieu sélectionné'}`
+    : commercialFiltre
+      ? `Commercial : ${filtreLabel ?? 'commercial sélectionné'}`
+      : null;
 
   function exportCsv() {
     window.open(`/api/v1/exports/collectes?type=${typeFiltre}`);
@@ -285,6 +321,11 @@ function CollectesContent() {
 
       {/* Sélecteur ZD / AG */}
       <CollecteTypeTabs value={typeFiltre} onChange={changeType} />
+
+      {/* Filtre actif (drill-down depuis une Top liste du dashboard) */}
+      {chipLabel && (
+        <CollecteFiltreActif label={chipLabel} onClear={clearFiltre} />
+      )}
 
       {loading ? (
         <p className="text-sm text-savr-neutral-500">Chargement…</p>

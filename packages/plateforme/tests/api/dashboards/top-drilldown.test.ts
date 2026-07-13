@@ -1,0 +1,163 @@
+/**
+ * Drill-down « Top listes → liste Collectes filtrée » — filtres serveur.
+ *  - API traiteur : commercial_id → filtre evenements.created_by (lieu_id déjà couvert).
+ *  - API gestionnaire : lieu_id / traiteur_id → filtres evenements.* + aplatissement
+ *    des noms (lieu_nom / evenement_nom) via l'embed evenements!inner + lieux.
+ * La chaîne PostgREST mockée ENREGISTRE les filtres (eq) pour les assertions.
+ */
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { NextRequest } from 'next/server';
+
+type Result = { data: unknown; error: unknown };
+
+function makeChain(result: Result) {
+  const eqCalls: [string, unknown][] = [];
+  const chain: Record<string, unknown> = {
+    __eq: eqCalls,
+    from: () => chain,
+    select: () => chain,
+    eq: (col: string, val: unknown) => {
+      eqCalls.push([col, val]);
+      return chain;
+    },
+    in: () => chain,
+    gte: () => chain,
+    lte: () => chain,
+    order: () => chain,
+    limit: () => chain,
+    then: (resolve: (r: Result) => unknown) => resolve(result),
+  };
+  return chain as typeof chain & { __eq: [string, unknown][] };
+}
+
+let rls = makeChain({ data: [], error: null });
+const mockRequireUser = vi.fn();
+
+vi.mock('@/lib/api-auth.js', () => ({
+  requireUser: (...a: unknown[]) => mockRequireUser(...a),
+  createSupabaseServerClient: () => rls,
+}));
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockRequireUser.mockResolvedValue({
+    ctx: { userId: 'u1', role: 'traiteur_manager', organisationId: 'org-1' },
+  });
+});
+
+describe('API traiteur/collectes — filtre commercial (drill-down Top 5 commerciaux)', () => {
+  async function call(url: string) {
+    const { GET } = await import('@/app/api/v1/traiteur/collectes/route.js');
+    return GET(new NextRequest(url));
+  }
+
+  it('commercial_id → applique .eq(evenements.created_by)', async () => {
+    rls = makeChain({ data: [], error: null });
+    const res = await call(
+      'http://localhost/api/v1/traiteur/collectes?type=zero_dechet&commercial_id=comm-9',
+    );
+    expect(res.status).toBe(200);
+    expect(rls.__eq).toContainEqual(['evenements.created_by', 'comm-9']);
+  });
+
+  it('lieu_id → applique .eq(evenements.lieu_id)', async () => {
+    rls = makeChain({ data: [], error: null });
+    await call(
+      'http://localhost/api/v1/traiteur/collectes?type=zero_dechet&lieu_id=lieu-1',
+    );
+    expect(rls.__eq).toContainEqual(['evenements.lieu_id', 'lieu-1']);
+  });
+
+  it('sans filtre commercial → aucun filtre created_by', async () => {
+    rls = makeChain({ data: [], error: null });
+    await call('http://localhost/api/v1/traiteur/collectes?type=zero_dechet');
+    expect(rls.__eq.some(([col]) => col === 'evenements.created_by')).toBe(
+      false,
+    );
+  });
+});
+
+describe('API gestionnaire/collectes — filtres lieu / traiteur + noms', () => {
+  async function call(url: string) {
+    mockRequireUser.mockResolvedValue({
+      ctx: {
+        userId: 'g1',
+        role: 'gestionnaire_lieux',
+        organisationId: 'org-1',
+      },
+    });
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/collectes/route.js');
+    return GET(new NextRequest(url));
+  }
+
+  const oneRow = {
+    id: 'c1',
+    evenement_id: 'e1',
+    type: 'zero_dechet',
+    statut: 'cloturee',
+    statut_tms: null,
+    date_collecte: '2026-01-10',
+    heure_collecte: null,
+    taux_recyclage: 80,
+    co2_evite_kg: 12,
+    realisee_at: null,
+    evenements: {
+      nom_evenement: 'Gala',
+      lieu_id: 'lieu-1',
+      traiteur_operationnel_organisation_id: 't1',
+      lieux: { nom: 'Le Pavillon' },
+    },
+  };
+
+  it('lieu_id → filtre evenements.lieu_id + aplatit lieu_nom/evenement_nom', async () => {
+    rls = makeChain({ data: [oneRow], error: null });
+    const res = await call(
+      'http://localhost/api/v1/gestionnaire/collectes?lieu_id=lieu-1',
+    );
+    const body = (await res.json()) as {
+      data: Array<Record<string, unknown>>;
+    };
+    expect(rls.__eq).toContainEqual(['evenements.lieu_id', 'lieu-1']);
+    expect(body.data[0]!.lieu_nom).toBe('Le Pavillon');
+    expect(body.data[0]!.evenement_nom).toBe('Gala');
+    // L'objet embarqué brut n'est pas renvoyé (aplati).
+    expect(body.data[0]!.evenements).toBeUndefined();
+  });
+
+  it('traiteur_id → filtre evenements.traiteur_operationnel_organisation_id', async () => {
+    rls = makeChain({ data: [oneRow], error: null });
+    await call('http://localhost/api/v1/gestionnaire/collectes?traiteur_id=t1');
+    expect(rls.__eq).toContainEqual([
+      'evenements.traiteur_operationnel_organisation_id',
+      't1',
+    ]);
+  });
+
+  it('embed sous forme de tableau (cache PostgREST) → noms aplatis quand même', async () => {
+    rls = makeChain({
+      data: [
+        {
+          ...oneRow,
+          evenements: [
+            {
+              nom_evenement: 'Gala',
+              lieu_id: 'lieu-1',
+              traiteur_operationnel_organisation_id: 't1',
+              lieux: [{ nom: 'Le Pavillon' }],
+            },
+          ],
+        },
+      ],
+      error: null,
+    });
+    const res = await call(
+      'http://localhost/api/v1/gestionnaire/collectes?lieu_id=lieu-1',
+    );
+    const body = (await res.json()) as {
+      data: Array<Record<string, unknown>>;
+    };
+    expect(body.data[0]!.lieu_nom).toBe('Le Pavillon');
+    expect(body.data[0]!.evenement_nom).toBe('Gala');
+  });
+});

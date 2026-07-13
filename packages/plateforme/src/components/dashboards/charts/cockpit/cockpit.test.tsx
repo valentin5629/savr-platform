@@ -322,6 +322,31 @@ it('TopRankList — rend rangs, libellés et valeurs formatées', () => {
   expect(screen.getByText('14,2 t')).toBeInTheDocument();
 });
 
+it('TopRankList — onItemClick : lignes cliquables, index transmis (drill-down)', () => {
+  const onItemClick = vi.fn();
+  render(
+    <TopRankList
+      title="Top 5 lieux"
+      items={[
+        { label: 'Pavillon Gabriel', value: '14,2 t' },
+        { label: 'Salons Hoche', value: '11,8 t' },
+      ]}
+      onItemClick={onItemClick}
+    />,
+  );
+  const btns = screen.getAllByRole('button', { name: /Voir les collectes/ });
+  expect(btns).toHaveLength(2);
+  fireEvent.click(btns[1]!);
+  expect(onItemClick).toHaveBeenCalledWith(1);
+});
+
+it('TopRankList — sans onItemClick : aucune ligne cliquable', () => {
+  render(<TopRankList title="Top" items={[{ label: 'X', value: '1' }]} />);
+  expect(
+    screen.queryByRole('button', { name: /Voir les collectes/ }),
+  ).toBeNull();
+});
+
 it('EvolutionZdChart — survol d’un segment ouvre le tooltip du flux (grain flux)', () => {
   const { container } = render(
     <EvolutionZdChart series={zd} granularite="mois" />,

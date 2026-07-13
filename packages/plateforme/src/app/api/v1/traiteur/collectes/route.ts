@@ -26,6 +26,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const from = searchParams.get('from');
   const to = searchParams.get('to');
   const lieuId = searchParams.get('lieu_id');
+  // Drill-down « Top 5 commerciaux » du dashboard → filtre sur le commercial
+  // créateur (evenements.created_by). Reste scopé org par la RLS col_select.
+  const commercialId = searchParams.get('commercial_id');
 
   let query = supabase
     .from('collectes')
@@ -47,6 +50,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (from) query = query.gte('date_collecte', from);
   if (to) query = query.lte('date_collecte', to);
   if (lieuId) query = query.eq('evenements.lieu_id', lieuId);
+  if (commercialId) query = query.eq('evenements.created_by', commercialId);
 
   const { data, error } = await query;
   if (error)

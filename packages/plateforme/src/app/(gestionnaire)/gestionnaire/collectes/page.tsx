@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
+import { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
+import { readCollecteFiltreLabel } from '@/lib/dashboards/collecte-filtre-label';
 
 interface CollecteRow {
   id: string;
@@ -15,21 +17,56 @@ interface CollecteRow {
   statut_consolide: string | null;
 }
 
-export default function GestionnaireCollectesPage() {
+function GestionnaireCollectesContent() {
   const router = useRouter();
+  const params = useSearchParams();
+  // Drill-down depuis les Top listes du dashboard (lieu / traiteur).
+  const lieuFiltre = params.get('lieu');
+  const traiteurFiltre = params.get('traiteur');
+  const [filtreLabel, setFiltreLabel] = useState<string | null>(null);
   const [rows, setRows] = useState<CollecteRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/v1/gestionnaire/collectes')
+    setLoading(true);
+    const qs = new URLSearchParams();
+    if (lieuFiltre) qs.set('lieu_id', lieuFiltre);
+    if (traiteurFiltre) qs.set('traiteur_id', traiteurFiltre);
+    const suffix = qs.toString() ? `?${qs}` : '';
+    fetch(`/api/v1/gestionnaire/collectes${suffix}`)
       .then((r) => r.json())
       .then((j) => setRows((j.data ?? []) as CollecteRow[]))
       .finally(() => setLoading(false));
-  }, []);
+  }, [lieuFiltre, traiteurFiltre]);
+
+  useEffect(() => {
+    if (lieuFiltre) setFiltreLabel(readCollecteFiltreLabel('lieu', lieuFiltre));
+    else if (traiteurFiltre)
+      setFiltreLabel(readCollecteFiltreLabel('traiteur', traiteurFiltre));
+    else setFiltreLabel(null);
+  }, [lieuFiltre, traiteurFiltre]);
+
+  function clearFiltre() {
+    const usp = new URLSearchParams(Array.from(params.entries()));
+    usp.delete('lieu');
+    usp.delete('traiteur');
+    const s = usp.toString();
+    router.replace(`/gestionnaire/collectes${s ? `?${s}` : ''}`);
+  }
+
+  const chipLabel = lieuFiltre
+    ? `Lieu : ${filtreLabel ?? rows[0]?.lieu_nom ?? 'lieu sélectionné'}`
+    : traiteurFiltre
+      ? `Traiteur : ${filtreLabel ?? 'traiteur sélectionné'}`
+      : null;
 
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold text-savr-primary-800">Collectes</h1>
+
+      {chipLabel && (
+        <CollecteFiltreActif label={chipLabel} onClear={clearFiltre} />
+      )}
 
       {loading ? (
         <p className="text-sm text-savr-neutral-500">Chargement…</p>
@@ -82,5 +119,13 @@ export default function GestionnaireCollectesPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function GestionnaireCollectesPage() {
+  return (
+    <Suspense fallback={<p className="p-4 text-sm">Chargement…</p>}>
+      <GestionnaireCollectesContent />
+    </Suspense>
   );
 }

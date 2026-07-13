@@ -39,6 +39,12 @@ export interface TopRankListProps {
   avatarTint?: 'navy' | 'orange';
   /** Affiche la mini-barre (si barPct fourni sur l'item). */
   showBar?: boolean;
+  /**
+   * Rend chaque ligne cliquable (drill-down vers la liste Collectes filtrée).
+   * Reçoit l'index de la ligne — l'appelant retrouve l'entité source (lieu /
+   * commercial / traiteur) par index et navigue.
+   */
+  onItemClick?: (index: number) => void;
 }
 
 const TopRankList = React.forwardRef<HTMLDivElement, TopRankListProps>(
@@ -50,6 +56,7 @@ const TopRankList = React.forwardRef<HTMLDivElement, TopRankListProps>(
       avatarShape = 'square',
       avatarTint = 'navy',
       showBar = false,
+      onItemClick,
     },
     ref,
   ) => {
@@ -69,8 +76,9 @@ const TopRankList = React.forwardRef<HTMLDivElement, TopRankListProps>(
               {items.map((item, i) => {
                 const color = rankColor(i);
                 const hasBar = showBar && item.barPct != null;
-                return (
-                  <div key={i} className="flex items-center gap-3">
+                const clickable = onItemClick != null;
+                const inner = (
+                  <>
                     <span
                       className="w-5 text-[13px] font-extrabold tabular-nums"
                       style={{ color }}
@@ -116,6 +124,21 @@ const TopRankList = React.forwardRef<HTMLDivElement, TopRankListProps>(
                         </div>
                       )}
                     </div>
+                  </>
+                );
+                return clickable ? (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => onItemClick(i)}
+                    aria-label={`Voir les collectes — ${item.label}`}
+                    className="-mx-1.5 flex w-full items-center gap-3 rounded-savr-md px-1.5 py-1 text-left transition-colors hover:bg-savr-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-savr-primary-400"
+                  >
+                    {inner}
+                  </button>
+                ) : (
+                  <div key={i} className="flex items-center gap-3">
+                    {inner}
                   </div>
                 );
               })}

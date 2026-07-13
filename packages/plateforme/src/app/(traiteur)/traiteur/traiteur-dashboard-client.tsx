@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { setCollecteFiltreLabel } from '@/lib/dashboards/collecte-filtre-label';
 import {
   CollecteTypeTabs,
   DashboardFilterBar,
@@ -107,6 +109,7 @@ export function TraiteurDashboardClient({
   initialFilters,
   benchmark,
 }: TraiteurDashboardClientProps) {
+  const router = useRouter();
   const [tab, setTab] = useState<CollecteType>('zero_dechet');
   const [filters, setFilters] = useState<DashboardFilters>({
     from: initialFilters.from,
@@ -298,6 +301,26 @@ export function TraiteurDashboardClient({
   const acteurTitre =
     blocs?.acteurLabel === 'Traiteur' ? 'Top 5 traiteurs' : 'Top 5 commerciaux';
 
+  // Drill-down Top listes → liste Collectes (onglet Historique) filtrée. On garde
+  // l'onglet ZD/AG courant (`tab`). Le libellé humain passe par sessionStorage
+  // (pas d'ID → nom en query string, cf. collecte-filtre-label).
+  const goToLieu = (i: number) => {
+    const l = blocs?.topLieux?.[i];
+    if (!l) return;
+    setCollecteFiltreLabel({ kind: 'lieu', id: l.lieu_id, label: l.lieu_nom });
+    router.push(
+      `/traiteur/collectes?onglet=historique&type=${tab}&lieu=${l.lieu_id}`,
+    );
+  };
+  const goToActeur = (i: number) => {
+    const a = blocs?.topActeurs?.[i];
+    if (!a) return;
+    setCollecteFiltreLabel({ kind: 'commercial', id: a.id, label: a.label });
+    router.push(
+      `/traiteur/collectes?onglet=historique&type=${tab}&commercial=${a.id}`,
+    );
+  };
+
   // ── Benchmark (Bloc 3 ZD) ────────────────────────────────────────────────────
   const gaugeItems = benchmarkItems(
     FLUX_ZD.map((f) => ({ code: f.code, label: f.label })),
@@ -467,6 +490,7 @@ export function TraiteurDashboardClient({
                 title="Top 5 lieux"
                 subtitle="Par tonnage collecté"
                 items={withBars(topLieuxItems)}
+                onItemClick={goToLieu}
                 showBar
               />
             </div>
@@ -476,6 +500,7 @@ export function TraiteurDashboardClient({
                   title={acteurTitre}
                   subtitle="Par nombre de collectes"
                   items={withBars(topActeursItems)}
+                  onItemClick={goToActeur}
                   showBar
                 />
               </div>
@@ -573,6 +598,7 @@ export function TraiteurDashboardClient({
                 title="Top 5 lieux"
                 subtitle="Par repas donnés"
                 items={withBars(topLieuxItems)}
+                onItemClick={goToLieu}
                 showBar
               />
             </div>
@@ -585,6 +611,7 @@ export function TraiteurDashboardClient({
                 title={acteurTitre}
                 subtitle="Par nombre de collectes"
                 items={withBars(topActeursItems)}
+                onItemClick={goToActeur}
                 showBar
               />
             </div>

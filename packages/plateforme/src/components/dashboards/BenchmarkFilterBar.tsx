@@ -50,6 +50,13 @@ function defaultFilters(
   };
 }
 
+/** Options des multi-selects fournies par le SSR (évite le fetch /filtres au mount). */
+export interface BenchmarkFilterOptions {
+  lieux: MultiOption[];
+  traiteurs: MultiOption[];
+  types: { id: string; libelle: string }[];
+}
+
 interface BenchmarkFilterBarProps {
   onChange: (filters: BenchmarkFilters) => void;
   /** Endpoint des données de filtres (défaut = route gestionnaire/traiteur). */
@@ -60,6 +67,12 @@ interface BenchmarkFilterBarProps {
   initialTailleCodes?: string[];
   /** Rendu compact SANS carte (pour être imbriqué dans la carte des jauges). */
   embedded?: boolean;
+  /**
+   * Options des multi-selects pré-chargées côté serveur (R-perf, dashboard SSR) :
+   * quand fournies, la barre NE fait PLUS le fetch `/filtres` au montage — la même
+   * requête est déjà exécutée dans le Promise.all serveur de la page.
+   */
+  initialOptions?: BenchmarkFilterOptions;
 }
 
 /**
@@ -73,18 +86,27 @@ export function BenchmarkFilterBar({
   initialTypeEvenementIds,
   initialTailleCodes,
   embedded = false,
+  initialOptions,
 }: BenchmarkFilterBarProps) {
   const [filters, setFilters] = useState<BenchmarkFilters>(() =>
     defaultFilters(initialTypeEvenementIds, initialTailleCodes),
   );
   const [preset, setPreset] = useState<Preset>('12m');
-  const [lieux, setLieux] = useState<MultiOption[]>([]);
-  const [traiteurs, setTraiteurs] = useState<MultiOption[]>([]);
-  const [types, setTypes] = useState<MultiOption[]>([]);
+  const [lieux, setLieux] = useState<MultiOption[]>(
+    () => initialOptions?.lieux ?? [],
+  );
+  const [traiteurs, setTraiteurs] = useState<MultiOption[]>(
+    () => initialOptions?.traiteurs ?? [],
+  );
+  const [types, setTypes] = useState<MultiOption[]>(() =>
+    (initialOptions?.types ?? []).map((t) => ({ id: t.id, nom: t.libelle })),
+  );
 
-  // Émet la sélection initiale + charge les listes une fois.
+  // Émet la sélection initiale + charge les listes une fois. Quand `initialOptions`
+  // est fourni (dashboard SSR), les listes sont déjà en état → pas de fetch.
   useEffect(() => {
     onChange(filters);
+    if (initialOptions) return;
     fetch(filtresEndpoint)
       .then((r) => r.json())
       .then(
@@ -103,7 +125,7 @@ export function BenchmarkFilterBar({
         },
       )
       .catch(() => {});
-    // onChange/filters volontairement hors deps (émission initiale unique).
+    // onChange/filters/initialOptions volontairement hors deps (init unique).
   }, [filtresEndpoint]);
 
   const apply = useCallback(

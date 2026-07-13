@@ -1,35 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireProgrammateur } from '@/lib/api-auth.js';
+import { loadPackAg, LoaderError } from '@/lib/dashboards/loaders.js';
 
+// GET /api/v1/programmation/pack-ag — pack unique actif de l'organisation du caller.
+// Fine enveloppe autour de `loadPackAg` (lecture service_role, filtrée sur l'org).
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireProgrammateur(req);
   if (auth.error) return auth.error;
 
-  const supabase = createAdminSupabaseClient();
-  // Toujours filtrer sur l'org du caller — jamais de param cross-org (service_role bypasse RLS)
-  const orgId = auth.ctx.organisationId;
-
-  const { data, error } = await supabase
-    .from('packs_antgaspi')
-    .select(
-      'id, credits_initiaux, credits_consommes, credits_restants, date_expiration, statut',
-    )
-    .eq('organisation_id', orgId)
-    .eq('statut', 'actif')
-    .maybeSingle();
-
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
-
-  if (!data) return NextResponse.json({ pack_actif: false });
-
-  return NextResponse.json({
-    pack_actif: true,
-    pack_id: data.id,
-    credits_initiaux: data.credits_initiaux,
-    credits_consommes: data.credits_consommes,
-    credits_restants: data.credits_restants,
-    date_expiration: data.date_expiration,
-  });
+  try {
+    const result = await loadPackAg(auth.ctx);
+    return NextResponse.json(result);
+  } catch (e) {
+    if (e instanceof LoaderError)
+      return NextResponse.json({ error: e.message }, { status: e.status });
+    throw e;
+  }
 }

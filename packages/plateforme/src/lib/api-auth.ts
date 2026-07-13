@@ -24,7 +24,7 @@ export interface UserAuthContext {
   organisationId: string;
 }
 
-interface VerifiedClaims {
+export interface VerifiedClaims {
   userId: string;
   role: string | undefined;
   organisationId: string | undefined;
@@ -56,8 +56,13 @@ function parseJwtClaims(token: string): Record<string, unknown> {
  * Repli — `getUser()` : conservé comme filet si getClaims échoue (JWKS
  * momentanément injoignable, WebCrypto absent) et comme chemin des environnements
  * sans getClaims (mocks de test). Retourne null si aucune session valide.
+ *
+ * Exporté (R-perf) pour la garde des Server Components qui veulent l'auth LOCALE
+ * (0 aller-retour) plutôt que le `getUser()` de `requirePageSession` — cf. la page
+ * dashboard traiteur (SSR). Le `layout.tsx` du sous-arbre a déjà validé la session
+ * via `getUser()` ; la page se contente donc des claims locaux.
  */
-async function getVerifiedClaims(
+export async function getVerifiedClaims(
   supabase: ReturnType<typeof createSupabaseServerClient>,
 ): Promise<VerifiedClaims | null> {
   const str = (v: unknown): string | undefined =>
@@ -95,7 +100,18 @@ async function getVerifiedClaims(
   };
 }
 
-export function createSupabaseServerClient() {
+/**
+ * Client Supabase serveur (schéma `plateforme`, clé anon, RLS appliquée sous
+ * l'identité de l'appelant via ses cookies).
+ *
+ * `readonly` (défaut `false`) : mode Server Component. Un rendu de page NE PEUT PAS
+ * écrire de cookies (`cookies().set` lève hors Server Action / Route Handler) — on
+ * neutralise donc `setAll`. Les Route Handlers gardent l'écriture (rafraîchissement
+ * de token). Un chargement de dashboard ne fait que LIRE : `readonly` est sûr.
+ */
+export function createSupabaseServerClient({
+  readonly = false,
+}: { readonly?: boolean } = {}) {
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -109,6 +125,7 @@ export function createSupabaseServerClient() {
           return cookieStore.getAll();
         },
         async setAll(cookiesToSet) {
+          if (readonly) return;
           const cookieStore = await cookies();
           for (const { name, value, options } of cookiesToSet) {
             cookieStore.set(name, value, options);

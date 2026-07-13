@@ -891,6 +891,23 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
     ['id'],
   );
 
+  // ── 12bis. Calcul CO₂ ZD (rejeu de la transition de clôture) ──────────────
+  // `trg_co2_zd_cloture` est AFTER UPDATE (realisee→cloturee) ; le seed insère les
+  // collectes déjà 'cloturee' → jamais déclenché. On rejoue la transition sur les
+  // collectes ZD clôturées (APRÈS les flux) pour peupler co2_*/taux_recyclage comme
+  // en prod. ZD only (pas de pack) ; compte 'cloturee' inchangé (seed:check).
+  await client.query(`
+    DROP TABLE IF EXISTS _seed_zd_clot;
+    CREATE TEMP TABLE _seed_zd_clot AS
+      SELECT id FROM plateforme.collectes
+      WHERE type = 'zero_dechet' AND statut = 'cloturee';
+    UPDATE plateforme.collectes SET statut = 'realisee'
+      WHERE id IN (SELECT id FROM _seed_zd_clot);
+    UPDATE plateforme.collectes SET statut = 'cloturee'
+      WHERE id IN (SELECT id FROM _seed_zd_clot);
+    DROP TABLE _seed_zd_clot;
+  `);
+
   // ── 13. Attributions AG (1 par collecte AG) + config auto-accept ──────────
   await upsert(
     client,

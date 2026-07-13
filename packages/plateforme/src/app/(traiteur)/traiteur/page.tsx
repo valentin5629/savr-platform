@@ -28,7 +28,6 @@ import { TopRankList } from '@/components/dashboards/charts/cockpit/TopRankList'
 import {
   fmtInt,
   fmtDec,
-  fmtEuro,
   fmtMasse,
 } from '@/components/dashboards/charts/cockpit/fmt';
 import {
@@ -46,8 +45,6 @@ import {
 } from '@/lib/dashboards/cockpit-derive';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tooltip } from '@/components/ui/tooltip';
-import { margeTooltipZd } from '@/lib/marge-tooltip';
 
 // Pastilles couleur des cartes KPI (palette data-viz DS §2.4, figée par sens).
 const DOT = {
@@ -72,8 +69,6 @@ export default function TraiteurDashboardPage() {
   // Facteurs d'équivalence CO₂ (ADEME, parametres_co2_divers) — héros CO₂.
   const [facteursCo2, setFacteursCo2] =
     useState<FacteursCo2>(FACTEURS_CO2_DEFAUT);
-  // tarif refacturé €/pax ZD (BL-P3-02) — alimente la formule du tooltip Marge.
-  const [tarifZd, setTarifZd] = useState<number | null>(null);
   const [nbAttente, setNbAttente] = useState(0);
   const [pack, setPack] = useState<{
     pack_actif: boolean;
@@ -114,11 +109,6 @@ export default function TraiteurDashboardPage() {
         setPrevRows((j.previous ?? []) as TraiteurKpiRow[]);
         setFacteursCo2(
           (j.facteurs_co2 as FacteursCo2 | undefined) ?? FACTEURS_CO2_DEFAUT,
-        );
-        setTarifZd(
-          typeof j.tarif_refacture_pax_zd === 'number'
-            ? j.tarif_refacture_pax_zd
-            : null,
         );
       })
       .finally(() => setLoading(false));
@@ -179,6 +169,10 @@ export default function TraiteurDashboardPage() {
   const agg = aggregateKpis(rows);
   const prev = aggregateKpis(prevRows);
   const co2 = co2Totals(rows);
+  const co2Prev = co2Totals(prevRows);
+  // CO₂e évité figé des collectes réalisées sur la période (jamais recalculé,
+  // §11 l.185) — alimente la carte KPI (retour Val : Marge → CO₂ évité).
+  const co2Masse = fmtMasse(co2.eviteKg);
   const equivalences = co2Equivalences(co2, facteursCo2);
 
   const seuilBas =
@@ -247,20 +241,6 @@ export default function TraiteurDashboardPage() {
     aggregateBenchmarkPerFlux(benchmarkRows),
   );
 
-  const margeNode =
-    agg.marge == null ? (
-      '—'
-    ) : (
-      <span style={{ color: agg.marge < 0 ? '#DC2626' : undefined }}>
-        {agg.marge < 0 ? '−' : ''}
-        {fmtEuro(Math.abs(agg.marge))}
-      </span>
-    );
-  const margeTooltip =
-    tarifZd != null && agg.marge != null
-      ? margeTooltipZd(tarifZd, agg.pax, agg.marge)
-      : 'Marge sur vos collectes ZD = tarif refacturé par pax × pax − total des factures HT ZD reçues, sur la période filtrée.';
-
   return (
     <div className="space-y-6" data-testid="traiteur-dashboard">
       <div className="flex items-center justify-between">
@@ -327,41 +307,29 @@ export default function TraiteurDashboardPage() {
                 r.pax_total > 0 ? (r.tonnage_kg ?? 0) / r.pax_total : 0,
               )}
             />
+            {/* CO₂ évité des collectes réalisées sur la période (retour Val —
+                remplace la carte « Marge générée » ; divergence §06.04 tracée). */}
             <KpiCockpitCard
-              label="Marge générée"
-              value={margeNode}
-              unit={agg.marge != null ? '€' : undefined}
-              dotColor={DOT.accent}
-              variationPct={variationPct(agg.marge ?? 0, prev.marge ?? 0)}
-              sparkPoints={sparkFromRows(rows, (r) => r.marge_zd_ht)}
-              sparkColor={DOT.accent}
-              headerRight={
-                <Tooltip content={margeTooltip}>
-                  <button
-                    type="button"
-                    aria-label="Détail du calcul de la marge"
-                    className="-my-3 inline-flex min-h-[44px] min-w-[44px] cursor-help items-center justify-center rounded-savr-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
-                  >
-                    {/* Cible tactile 44px (DS §10 l.447) ; « ? » visuel compact. */}
-                    <span
-                      aria-hidden
-                      className="inline-flex h-5 w-5 items-center justify-center rounded-savr-full border border-savr-neutral-300 text-[11px] font-bold text-savr-neutral-500"
-                    >
-                      ?
-                    </span>
-                  </button>
-                </Tooltip>
-              }
-              footer={
-                nbAttente >= 1 ? (
-                  <Badge variant="info">
-                    {nbAttente} collecte{nbAttente > 1 ? 's' : ''} en attente de
-                    facturation
-                  </Badge>
-                ) : undefined
-              }
+              label="CO₂ évité"
+              value={co2Masse.value}
+              unit={`${co2Masse.unit} CO₂e`}
+              dotColor={DOT.green}
+              variationPct={variationPct(co2.eviteKg, co2Prev.eviteKg)}
+              sparkPoints={sparkFromRows(rows, (r) => r.co2_evite_kg)}
+              sparkColor={DOT.green}
             />
           </div>
+
+          {/* Collectes en attente de facturation — info ops relogée depuis la
+              carte Marge (retirée de la rangée KPI, retour Val). */}
+          {nbAttente >= 1 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="info">
+                {nbAttente} collecte{nbAttente > 1 ? 's' : ''} en attente de
+                facturation
+              </Badge>
+            </div>
+          )}
 
           {/* Héros CO₂ (ZD) — grandeurs figées v_kpi_traiteur + équivalences ADEME.
               Affiché seulement si un CO₂ évité existe (collectes ZD clôturées). */}

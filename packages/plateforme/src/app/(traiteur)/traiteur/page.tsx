@@ -19,6 +19,10 @@ import {
 // components/dashboards → aucun impact sur le gate orphan-components).
 import { KpiCockpitCard } from '@/components/dashboards/charts/cockpit/KpiCockpitCard';
 import { Co2HeroCard } from '@/components/dashboards/charts/cockpit/Co2HeroCard';
+import {
+  Co2MethodePanel,
+  type Co2FluxFactor,
+} from '@/components/dashboards/charts/cockpit/Co2MethodePanel';
 import { EvolutionZdChart } from '@/components/dashboards/charts/cockpit/EvolutionZdChart';
 import { EvolutionAgChart } from '@/components/dashboards/charts/cockpit/EvolutionAgChart';
 import { TonnagesDonut } from '@/components/dashboards/charts/cockpit/TonnagesDonut';
@@ -45,6 +49,14 @@ import {
 } from '@/lib/dashboards/cockpit-derive';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Modal } from '@/components/ui/modal';
+import { Info } from 'lucide-react';
+
+// Variables du calcul CO₂ renvoyées par l'endpoint kpi-traiteur (modale méthode).
+interface Co2Methode {
+  forfait: { km: number; fe_camion: number };
+  flux: Co2FluxFactor[];
+}
 
 // Pastilles couleur des cartes KPI (palette data-viz DS §2.4, figée par sens).
 const DOT = {
@@ -69,6 +81,9 @@ export default function TraiteurDashboardPage() {
   // Facteurs d'équivalence CO₂ (ADEME, parametres_co2_divers) — héros CO₂.
   const [facteursCo2, setFacteursCo2] =
     useState<FacteursCo2>(FACTEURS_CO2_DEFAUT);
+  // Variables de calcul CO₂ + ouverture de la modale « méthode » (retour Val).
+  const [co2Methode, setCo2Methode] = useState<Co2Methode | null>(null);
+  const [co2ModalOpen, setCo2ModalOpen] = useState(false);
   const [nbAttente, setNbAttente] = useState(0);
   const [pack, setPack] = useState<{
     pack_actif: boolean;
@@ -110,6 +125,7 @@ export default function TraiteurDashboardPage() {
         setFacteursCo2(
           (j.facteurs_co2 as FacteursCo2 | undefined) ?? FACTEURS_CO2_DEFAUT,
         );
+        setCo2Methode((j.co2_methode as Co2Methode | undefined) ?? null);
       })
       .finally(() => setLoading(false));
   }, [filters, tab]);
@@ -308,7 +324,8 @@ export default function TraiteurDashboardPage() {
               )}
             />
             {/* CO₂ évité des collectes réalisées sur la période (retour Val —
-                remplace la carte « Marge générée » ; divergence §06.04 tracée). */}
+                remplace « Marge générée », divergence §06.04 tracée). Cliquable :
+                ouvre la modale « Impact carbone » (héros + méthode de calcul). */}
             <KpiCockpitCard
               label="CO₂ évité"
               value={co2Masse.value}
@@ -317,6 +334,10 @@ export default function TraiteurDashboardPage() {
               variationPct={variationPct(co2.eviteKg, co2Prev.eviteKg)}
               sparkPoints={sparkFromRows(rows, (r) => r.co2_evite_kg)}
               sparkColor={DOT.green}
+              onClick={() => setCo2ModalOpen(true)}
+              headerRight={
+                <Info aria-hidden className="h-4 w-4 text-savr-neutral-400" />
+              }
             />
           </div>
 
@@ -331,17 +352,30 @@ export default function TraiteurDashboardPage() {
             </div>
           )}
 
-          {/* Héros CO₂ (ZD) — grandeurs figées v_kpi_traiteur + équivalences ADEME.
-              Affiché seulement si un CO₂ évité existe (collectes ZD clôturées). */}
-          {co2.eviteKg > 0 && (
-            <Co2HeroCard
-              eviteKg={co2.eviteKg}
-              induitKg={co2.induitKg}
-              netKg={co2.netKg}
-              energiePrimaireKwh={co2.energieKwh}
-              equivalences={equivalences}
-            />
-          )}
+          {/* Modale « Impact carbone » — ouverte au clic sur la carte KPI CO₂
+              évité (retour Val) : héros CO₂ (grandeurs figées v_kpi_traiteur) +
+              méthode de calcul et variables utilisées. */}
+          <Modal
+            open={co2ModalOpen}
+            onClose={() => setCo2ModalOpen(false)}
+            title="Détail de l'impact carbone"
+            wide
+          >
+            <div className="space-y-5">
+              <Co2HeroCard
+                eviteKg={co2.eviteKg}
+                induitKg={co2.induitKg}
+                netKg={co2.netKg}
+                energiePrimaireKwh={co2.energieKwh}
+                equivalences={equivalences}
+              />
+              <Co2MethodePanel
+                forfait={co2Methode?.forfait ?? { km: 50, fe_camion: 2.1 }}
+                fluxFactors={co2Methode?.flux ?? []}
+                equivalences={facteursCo2}
+              />
+            </div>
+          </Modal>
 
           {/* Bloc 2 — Évolution mensuelle ZD */}
           <div data-testid="bloc-2-traiteur">

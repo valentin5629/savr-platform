@@ -232,20 +232,24 @@ export default function GestionnaireDashboardPage() {
       ? 'Top 5 commerciaux'
       : 'Top 5 traiteurs';
 
-  // Drill-down Top listes → liste Collectes du gestionnaire filtrée. La liste n'a
-  // pas de sélecteur ZD/AG : on ne fige pas le type (filtre lieu / traiteur seul).
-  // Libellé via sessionStorage (pas d'ID → nom en query string).
+  // Drill-down Top listes → liste Collectes du gestionnaire filtrée. Miroir EXACT
+  // du chiffre du dashboard : type courant + période (from/to) + statut `cloturee`
+  // seul (base du calcul Top listes). Libellé via sessionStorage (pas d'ID → nom
+  // en query string).
+  const drillScope = `type=${tab}&statut=cloturee${
+    filters ? `&from=${filters.from}&to=${filters.to}` : ''
+  }`;
   const goToLieu = (i: number) => {
     const l = blocs?.topLieux?.[i];
     if (!l) return;
     setCollecteFiltreLabel({ kind: 'lieu', id: l.lieu_id, label: l.lieu_nom });
-    router.push(`/gestionnaire/collectes?lieu=${l.lieu_id}`);
+    router.push(`/gestionnaire/collectes?lieu=${l.lieu_id}&${drillScope}`);
   };
   const goToActeur = (i: number) => {
     const a = blocs?.topActeurs?.[i];
     if (!a) return;
     setCollecteFiltreLabel({ kind: 'traiteur', id: a.id, label: a.label });
-    router.push(`/gestionnaire/collectes?traiteur=${a.id}`);
+    router.push(`/gestionnaire/collectes?traiteur=${a.id}&${drillScope}`);
   };
 
   const gaugeItems = benchmarkItems(

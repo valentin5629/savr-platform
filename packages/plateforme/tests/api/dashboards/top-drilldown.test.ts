@@ -12,22 +12,42 @@ type Result = { data: unknown; error: unknown };
 
 function makeChain(result: Result) {
   const eqCalls: [string, unknown][] = [];
+  const inCalls: [string, unknown][] = [];
+  const gteCalls: [string, unknown][] = [];
+  const lteCalls: [string, unknown][] = [];
   const chain: Record<string, unknown> = {
     __eq: eqCalls,
+    __in: inCalls,
+    __gte: gteCalls,
+    __lte: lteCalls,
     from: () => chain,
     select: () => chain,
     eq: (col: string, val: unknown) => {
       eqCalls.push([col, val]);
       return chain;
     },
-    in: () => chain,
-    gte: () => chain,
-    lte: () => chain,
+    in: (col: string, val: unknown) => {
+      inCalls.push([col, val]);
+      return chain;
+    },
+    gte: (col: string, val: unknown) => {
+      gteCalls.push([col, val]);
+      return chain;
+    },
+    lte: (col: string, val: unknown) => {
+      lteCalls.push([col, val]);
+      return chain;
+    },
     order: () => chain,
     limit: () => chain,
     then: (resolve: (r: Result) => unknown) => resolve(result),
   };
-  return chain as typeof chain & { __eq: [string, unknown][] };
+  return chain as typeof chain & {
+    __eq: [string, unknown][];
+    __in: [string, unknown][];
+    __gte: [string, unknown][];
+    __lte: [string, unknown][];
+  };
 }
 
 let rls = makeChain({ data: [], error: null });
@@ -72,6 +92,38 @@ describe('API traiteur/collectes — filtre commercial (drill-down Top 5 commerc
     rls = makeChain({ data: [], error: null });
     await call('http://localhost/api/v1/traiteur/collectes?type=zero_dechet');
     expect(rls.__eq.some(([col]) => col === 'evenements.created_by')).toBe(
+      false,
+    );
+  });
+
+  it('miroir exact : statut=cloturee + période (from/to) tous appliqués', async () => {
+    rls = makeChain({ data: [], error: null });
+    await call(
+      'http://localhost/api/v1/traiteur/collectes?type=zero_dechet&lieu_id=lieu-1&statut=cloturee&from=2025-07-13&to=2026-07-13',
+    );
+    // statut restreint aux clôturées (= base du chiffre du Top liste).
+    expect(rls.__in).toContainEqual(['statut', ['cloturee']]);
+    // même fenêtre temporelle que le dashboard.
+    expect(rls.__gte).toContainEqual(['date_collecte', '2025-07-13']);
+    expect(rls.__lte).toContainEqual(['date_collecte', '2026-07-13']);
+    expect(rls.__eq).toContainEqual(['evenements.lieu_id', 'lieu-1']);
+  });
+
+  it('perimetre=organisation → restreint aux événements possédés (organisation_id du JWT)', async () => {
+    rls = makeChain({ data: [], error: null });
+    await call(
+      'http://localhost/api/v1/traiteur/collectes?type=zero_dechet&lieu_id=lieu-1&perimetre=organisation',
+    );
+    // organisation_id vient du ctx (JWT), jamais du body/URL.
+    expect(rls.__eq).toContainEqual(['evenements.organisation_id', 'org-1']);
+  });
+
+  it('sans perimetre → aucun filtre organisation_id (RLS large habituelle)', async () => {
+    rls = makeChain({ data: [], error: null });
+    await call(
+      'http://localhost/api/v1/traiteur/collectes?type=zero_dechet&lieu_id=lieu-1',
+    );
+    expect(rls.__eq.some(([col]) => col === 'evenements.organisation_id')).toBe(
       false,
     );
   });

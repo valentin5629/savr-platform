@@ -45,3 +45,16 @@ export function readCollecteFiltreLabel(
     return null;
   }
 }
+
+/** Format court d'une période (bornes ISO) pour le chip, ex. « 13/07/25–13/07/26 ». */
+export function periodeCourte(
+  from?: string | null,
+  to?: string | null,
+): string | null {
+  if (!from || !to) return null;
+  const fmt = (iso: string) => {
+    const [y, m, d] = iso.slice(0, 10).split('-');
+    return d && m && y ? `${d}/${m}/${y.slice(2)}` : iso;
+  };
+  return `${fmt(from)}–${fmt(to)}`;
+}

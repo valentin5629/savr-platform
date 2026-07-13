@@ -10,6 +10,7 @@ import { CollecteFiltreActif } from './collecte-filtre-actif';
 import {
   setCollecteFiltreLabel,
   readCollecteFiltreLabel,
+  periodeCourte,
 } from '@/lib/dashboards/collecte-filtre-label';
 import { TopLieuxBloc } from '@/components/dashboards/TopLieuxBloc';
 import type { TopLieu } from '@/components/dashboards/blocs-types';
@@ -27,6 +28,29 @@ describe('CollecteFiltreActif', () => {
     expect(screen.getByText('Lieu : Le Pavillon')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Retirer le filtre/ }));
     expect(onClear).toHaveBeenCalledTimes(1);
+  });
+
+  it('affiche le périmètre (scope) quand fourni — miroir dashboard', () => {
+    render(
+      <CollecteFiltreActif
+        label="Lieu : Le Pavillon"
+        scope="clôturées · 13/07/25–13/07/26"
+        onClear={() => {}}
+      />,
+    );
+    expect(
+      screen.getByText(/clôturées · 13\/07\/25–13\/07\/26/),
+    ).toBeInTheDocument();
+  });
+});
+
+describe('periodeCourte', () => {
+  it('formate une période bornée en JJ/MM/AA', () => {
+    expect(periodeCourte('2025-07-13', '2026-07-13')).toBe('13/07/25–13/07/26');
+  });
+  it('retourne null si une borne manque', () => {
+    expect(periodeCourte(null, '2026-07-13')).toBeNull();
+    expect(periodeCourte('2025-07-13', undefined)).toBeNull();
   });
 });
 

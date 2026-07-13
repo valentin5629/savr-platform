@@ -9,7 +9,10 @@ import {
   type CollecteType,
 } from '@/components/dashboards/index.js';
 import { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
-import { readCollecteFiltreLabel } from '@/lib/dashboards/collecte-filtre-label';
+import {
+  readCollecteFiltreLabel,
+  periodeCourte,
+} from '@/lib/dashboards/collecte-filtre-label';
 
 interface Lieu {
   nom: string;
@@ -60,8 +63,10 @@ function CollectesContent() {
     const qs = new URLSearchParams({ type: tab });
     const from = params.get('from');
     const to = params.get('to');
+    const statut = params.get('statut');
     if (from) qs.set('from', from);
     if (to) qs.set('to', to);
+    if (statut) qs.set('statut', statut);
     if (lieuFiltre) qs.set('lieu_id', lieuFiltre);
     fetch(`/api/v1/agence/collectes?${qs}`)
       .then((r) => r.json())
@@ -83,7 +88,7 @@ function CollectesContent() {
   }
   function clearFiltre() {
     const usp = new URLSearchParams(Array.from(params.entries()));
-    usp.delete('lieu');
+    ['lieu', 'statut', 'from', 'to'].forEach((k) => usp.delete(k));
     router.replace(`/agence/collectes?${usp}`);
   }
 
@@ -95,6 +100,13 @@ function CollectesContent() {
   const chipLabel = lieuFiltre
     ? `Lieu : ${filtreLabel ?? lieuNomDesRows ?? 'lieu sélectionné'}`
     : null;
+  const chipScope = (() => {
+    const parts: string[] = [];
+    if (params.get('statut') === 'cloturee') parts.push('clôturées');
+    const per = periodeCourte(params.get('from'), params.get('to'));
+    if (per) parts.push(per);
+    return parts.length ? parts.join(' · ') : undefined;
+  })();
 
   function exportCsv() {
     const qs = new URLSearchParams({ type: tab });
@@ -124,7 +136,11 @@ function CollectesContent() {
       <CollecteTypeTabs value={tab} onChange={changeTab} />
 
       {chipLabel && (
-        <CollecteFiltreActif label={chipLabel} onClear={clearFiltre} />
+        <CollecteFiltreActif
+          label={chipLabel}
+          scope={chipScope}
+          onClear={clearFiltre}
+        />
       )}
 
       {loading ? (

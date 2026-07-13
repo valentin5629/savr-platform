@@ -29,6 +29,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // Drill-down « Top 5 commerciaux » du dashboard → filtre sur le commercial
   // créateur (evenements.created_by). Reste scopé org par la RLS col_select.
   const commercialId = searchParams.get('commercial_id');
+  // Miroir exact du dashboard : `perimetre=organisation` restreint aux événements
+  // POSSÉDÉS par l'org (evenements.organisation_id) — comme le calcul des Top
+  // listes — au lieu du périmètre RLS plus large (org + opéré pour tiers).
+  const perimetre = searchParams.get('perimetre');
 
   let query = supabase
     .from('collectes')
@@ -51,6 +55,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (to) query = query.lte('date_collecte', to);
   if (lieuId) query = query.eq('evenements.lieu_id', lieuId);
   if (commercialId) query = query.eq('evenements.created_by', commercialId);
+  if (perimetre === 'organisation')
+    query = query.eq('evenements.organisation_id', auth.ctx.organisationId);
 
   const { data, error } = await query;
   if (error)

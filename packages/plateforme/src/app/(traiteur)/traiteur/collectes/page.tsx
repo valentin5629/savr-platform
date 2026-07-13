@@ -16,7 +16,10 @@ import {
   type TraiteurCollecteCardData,
 } from '@/components/collecte/collecte-card-traiteur';
 import { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
-import { readCollecteFiltreLabel } from '@/lib/dashboards/collecte-filtre-label';
+import {
+  readCollecteFiltreLabel,
+  periodeCourte,
+} from '@/lib/dashboards/collecte-filtre-label';
 
 // Refonte liste collectes traiteur (décision Val 2026-07-05, diverge du §04
 // actuel — voir _Divergences/M3.1_20260705_liste_collectes.md) : onglets
@@ -101,9 +104,15 @@ function CollectesContent() {
   const [onglet, setOnglet] = useState<Onglet>(
     params.get('onglet') === 'historique' ? 'historique' : 'programmees',
   );
-  // Drill-down depuis les Top listes du dashboard (lieu / commercial).
+  // Drill-down depuis les Top listes du dashboard (lieu / commercial). Miroir
+  // exact : le drill-down porte aussi la période (from/to) + un statut override
+  // (`cloturee`) pour que le nombre de lignes = le chiffre du Top liste.
   const lieuFiltre = params.get('lieu');
   const commercialFiltre = params.get('commercial');
+  const statutOverride = params.get('statut');
+  const fromFiltre = params.get('from');
+  const toFiltre = params.get('to');
+  const perimetreFiltre = params.get('perimetre');
   const [filtreLabel, setFiltreLabel] = useState<string | null>(null);
   const [rows, setRows] = useState<CollecteRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -130,19 +139,35 @@ function CollectesContent() {
 
   const charger = useCallback(() => {
     setLoading(true);
-    const statuts =
-      onglet === 'programmees' ? STATUTS_PROGRAMMEES : STATUTS_HISTORIQUE;
+    // Statut override du drill-down (ex. `cloturee`) sinon défaut de l'onglet.
+    const statuts = statutOverride
+      ? statutOverride.split(',')
+      : onglet === 'programmees'
+        ? STATUTS_PROGRAMMEES
+        : STATUTS_HISTORIQUE;
     const qs = new URLSearchParams({
       type: typeFiltre,
       statut: statuts.join(','),
     });
     if (lieuFiltre) qs.set('lieu_id', lieuFiltre);
     if (commercialFiltre) qs.set('commercial_id', commercialFiltre);
+    if (fromFiltre) qs.set('from', fromFiltre);
+    if (toFiltre) qs.set('to', toFiltre);
+    if (perimetreFiltre) qs.set('perimetre', perimetreFiltre);
     fetch(`/api/v1/traiteur/collectes?${qs}`)
       .then((r) => r.json())
       .then((j) => setRows((j.data ?? []) as CollecteRow[]))
       .finally(() => setLoading(false));
-  }, [typeFiltre, onglet, lieuFiltre, commercialFiltre]);
+  }, [
+    typeFiltre,
+    onglet,
+    lieuFiltre,
+    commercialFiltre,
+    statutOverride,
+    fromFiltre,
+    toFiltre,
+    perimetreFiltre,
+  ]);
 
   useEffect(() => {
     charger();
@@ -169,12 +194,19 @@ function CollectesContent() {
   }
   function changeOnglet(o: Onglet) {
     setOnglet(o);
-    pushQuery({ onglet: o });
+    // Changer d'onglet lève la restriction `cloturee` du drill-down (permet de
+    // « déplier » au-delà des seules clôturées) ; le lieu/commercial + période
+    // restent, jusqu'au ✕ du chip.
+    const usp = new URLSearchParams(Array.from(params.entries()));
+    usp.set('onglet', o);
+    usp.delete('statut');
+    router.replace(`/traiteur/collectes?${usp}`);
   }
   function clearFiltre() {
     const usp = new URLSearchParams(Array.from(params.entries()));
-    usp.delete('lieu');
-    usp.delete('commercial');
+    ['lieu', 'commercial', 'statut', 'from', 'to', 'perimetre'].forEach((k) =>
+      usp.delete(k),
+    );
     router.replace(`/traiteur/collectes?${usp}`);
   }
 
@@ -190,6 +222,14 @@ function CollectesContent() {
     : commercialFiltre
       ? `Commercial : ${filtreLabel ?? 'commercial sélectionné'}`
       : null;
+  // Périmètre appliqué (miroir dashboard) affiché en clair dans le chip.
+  const chipScope = (() => {
+    const parts: string[] = [];
+    if (statutOverride === 'cloturee') parts.push('clôturées');
+    const per = periodeCourte(fromFiltre, toFiltre);
+    if (per) parts.push(per);
+    return parts.length ? parts.join(' · ') : undefined;
+  })();
 
   function exportCsv() {
     window.open(`/api/v1/exports/collectes?type=${typeFiltre}`);
@@ -324,7 +364,11 @@ function CollectesContent() {
 
       {/* Filtre actif (drill-down depuis une Top liste du dashboard) */}
       {chipLabel && (
-        <CollecteFiltreActif label={chipLabel} onClear={clearFiltre} />
+        <CollecteFiltreActif
+          label={chipLabel}
+          scope={chipScope}
+          onClear={clearFiltre}
+        />
       )}
 
       {loading ? (

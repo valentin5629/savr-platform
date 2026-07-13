@@ -334,7 +334,13 @@ export default function AgenceDashboardPage() {
                 id: l.lieu_id,
                 label: l.lieu_nom,
               });
-              router.push(`/agence/collectes?type=${tab}&lieu=${l.lieu_id}`);
+              // Miroir exact du dashboard : type + période + statut clôturée.
+              const periode = filters
+                ? `&from=${filters.from}&to=${filters.to}`
+                : '';
+              router.push(
+                `/agence/collectes?type=${tab}&statut=cloturee&lieu=${l.lieu_id}${periode}`,
+              );
             }}
           />
 

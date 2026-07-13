@@ -301,15 +301,20 @@ export function TraiteurDashboardClient({
   const acteurTitre =
     blocs?.acteurLabel === 'Traiteur' ? 'Top 5 traiteurs' : 'Top 5 commerciaux';
 
-  // Drill-down Top listes → liste Collectes (onglet Historique) filtrée. On garde
-  // l'onglet ZD/AG courant (`tab`). Le libellé humain passe par sessionStorage
-  // (pas d'ID → nom en query string, cf. collecte-filtre-label).
+  // Drill-down Top listes → liste Collectes (onglet Historique) filtrée. Miroir
+  // EXACT du chiffre du dashboard : même type, même période (from/to), et statut
+  // `cloturee` seul (base du calcul Top listes) → le nombre de lignes = le chiffre.
+  // Le libellé humain passe par sessionStorage (pas d'ID → nom en query string).
+  // `perimetre=organisation` = restreint aux événements que l'org POSSÈDE
+  // (evenements.organisation_id), comme le dashboard — la liste traiteur voit
+  // sinon aussi les événements opérés pour des tiers → sur-comptage.
+  const drillScope = `&type=${tab}&statut=cloturee&perimetre=organisation&from=${filters.from}&to=${filters.to}`;
   const goToLieu = (i: number) => {
     const l = blocs?.topLieux?.[i];
     if (!l) return;
     setCollecteFiltreLabel({ kind: 'lieu', id: l.lieu_id, label: l.lieu_nom });
     router.push(
-      `/traiteur/collectes?onglet=historique&type=${tab}&lieu=${l.lieu_id}`,
+      `/traiteur/collectes?onglet=historique&lieu=${l.lieu_id}${drillScope}`,
     );
   };
   const goToActeur = (i: number) => {
@@ -317,7 +322,7 @@ export function TraiteurDashboardClient({
     if (!a) return;
     setCollecteFiltreLabel({ kind: 'commercial', id: a.id, label: a.label });
     router.push(
-      `/traiteur/collectes?onglet=historique&type=${tab}&commercial=${a.id}`,
+      `/traiteur/collectes?onglet=historique&commercial=${a.id}${drillScope}`,
     );
   };
 

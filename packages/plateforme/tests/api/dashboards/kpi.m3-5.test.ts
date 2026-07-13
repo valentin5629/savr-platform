@@ -128,6 +128,46 @@ describe('M3.5 / kpi-traiteur', () => {
     const res = await GET(makeReq('/api/v1/dashboards/kpi-traiteur'));
     expect(res.status).toBe(401);
   });
+
+  // Cockpit R24 — N-1 : une seule requête de vue couvrant [N-1 → courante], puis
+  // découpe en JS. Vérifie que les lignes sont partitionnées par fenêtre à partir
+  // d'UNE seule résolution de `.order()` (au lieu de 2 requêtes de vue en série).
+  it('compare=n1 — découpe courante / précédente sur une requête unique', async () => {
+    setupAuth('traiteur_manager');
+    const rowCurrent = {
+      organisation_id: 'org-1',
+      mois: '2025-08-01',
+      type_collecte: 'zero_dechet',
+      nb_collectes: 3,
+    };
+    const rowPrev = {
+      organisation_id: 'org-1',
+      mois: '2024-09-01',
+      type_collecte: 'zero_dechet',
+      nb_collectes: 1,
+    };
+    // La vue n'est interrogée qu'une fois → une seule résolution de order().
+    mockClientChain.order.mockResolvedValueOnce({
+      data: [rowCurrent, rowPrev],
+      error: null,
+    });
+    const { GET } =
+      await import('@/app/api/v1/dashboards/kpi-traiteur/route.js');
+    const res = await GET(
+      makeReq(
+        '/api/v1/dashboards/kpi-traiteur?from=2025-07-01&to=2026-06-30&type=zero_dechet&compare=n1',
+      ),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // from/to = fenêtre courante (12 mois) ; previousWindow rend [2024-07-02,
+    // 2025-06-30] → rowPrev (2024-09) tombe dans previous, rowCurrent (2025-08)
+    // dans data.
+    expect(body.data).toEqual([rowCurrent]);
+    expect(body.previous).toEqual([rowPrev]);
+    // Une seule requête de vue (un seul appel terminal .order()).
+    expect(mockClientChain.order).toHaveBeenCalledTimes(1);
+  });
 });
 
 // ─── kpi-lieu ─────────────────────────────────────────────────────────────────

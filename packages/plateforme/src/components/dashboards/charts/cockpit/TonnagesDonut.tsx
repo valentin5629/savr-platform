@@ -5,13 +5,15 @@ import { FLUX_ZD } from '@/components/dashboards/flux';
 import type { FluxSeriePoint } from '@/components/dashboards/useEvolutionBlocs';
 import { ChartCard } from './ChartCard';
 import { fmtDec, fmtMasse } from './fmt';
+import { INK, TEXT_FAINT, TEXT_MUTED, GRID, SURFACE_HOVER } from './palette';
 
 // TonnagesDonut (Cockpit R24) — donut de répartition des 5 flux ZD, total au
-// centre (§11 Bloc 4). Arcs SVG en stroke-dasharray sur r=70, séparations
+// centre (§11 Bloc 4). Arcs SVG en stroke-dasharray sur r=74, séparations
 // blanches très fines entre segments. Survol d'un arc (ou d'une ligne de légende)
-// = mise en avant + valeur kg/% affichée au centre (CDC §06.04 l.164).
-const R = 70;
-const C = 2 * Math.PI * R; // circonférence ≈ 439.82
+// = mise en avant + valeur kg/% affichée au centre (CDC §06.04 l.164). Les lignes
+// de texte central sont à des baselines FIXES (pas de saut au survol).
+const R = 74;
+const C = 2 * Math.PI * R; // circonférence ≈ 464.96
 const GAP = 2; // séparation blanche (unités de longueur d'arc)
 
 interface TonnagesDonutProps {
@@ -63,8 +65,8 @@ const TonnagesDonut = React.forwardRef<HTMLDivElement, TonnagesDonutProps>(
         <div className="my-3 flex justify-center">
           <svg
             viewBox="0 0 200 200"
-            width={184}
-            height={184}
+            width={196}
+            height={196}
             style={{ display: 'block' }}
             role="img"
             aria-label={`Répartition des tonnages, total ${masse.value} ${masse.unit}`}
@@ -83,12 +85,16 @@ const TonnagesDonut = React.forwardRef<HTMLDivElement, TonnagesDonutProps>(
                     r={R}
                     fill="none"
                     stroke={a.color}
-                    strokeWidth={hover === i ? 30 : 26}
+                    strokeOpacity={0.75}
+                    strokeWidth={hover === i ? 32 : 28}
                     strokeDasharray={a.dasharray}
                     strokeDashoffset={a.dashoffset}
                     transform="rotate(-90 100 100)"
                     opacity={dim ? 0.35 : 1}
-                    style={{ cursor: 'pointer', transition: 'opacity 120ms' }}
+                    style={{
+                      cursor: 'pointer',
+                      transition: 'opacity 120ms, stroke-width 120ms',
+                    }}
                     onMouseEnter={() => setHover(i)}
                   >
                     {/* Tooltip natif au survol : kg + % (CDC §06.04 l.164). */}
@@ -102,19 +108,21 @@ const TonnagesDonut = React.forwardRef<HTMLDivElement, TonnagesDonutProps>(
                 cy={100}
                 r={R}
                 fill="none"
-                stroke="#EEF0F5"
-                strokeWidth={26}
+                stroke={GRID}
+                strokeWidth={28}
               />
             )}
+            {/* Baselines FIXES (91 / 108 / 124) : la valeur et l'unité ne bougent
+                pas au survol ; seule la 3e ligne (flux · %) apparaît/disparaît. */}
             <text
               x={100}
-              y={focus ? 90 : 94}
+              y={91}
               textAnchor="middle"
               className="tabular-nums"
               style={{
                 fontSize: 30,
                 fontWeight: 900,
-                fill: '#161A26',
+                fill: INK,
                 letterSpacing: '-0.02em',
               }}
             >
@@ -122,11 +130,11 @@ const TonnagesDonut = React.forwardRef<HTMLDivElement, TonnagesDonutProps>(
             </text>
             <text
               x={100}
-              y={focus ? 108 : 116}
+              y={108}
               textAnchor="middle"
               style={{
                 fontSize: 10,
-                fill: '#9AA2B8',
+                fill: TEXT_FAINT,
                 textTransform: 'uppercase',
                 letterSpacing: '0.08em',
                 fontWeight: 700,
@@ -144,7 +152,7 @@ const TonnagesDonut = React.forwardRef<HTMLDivElement, TonnagesDonutProps>(
                 y={124}
                 textAnchor="middle"
                 className="tabular-nums"
-                style={{ fontSize: 11, fill: '#6E7790', fontWeight: 700 }}
+                style={{ fontSize: 11, fill: TEXT_MUTED, fontWeight: 700 }}
               >
                 {`${focus.label} · ${centerPct} %`}
               </text>
@@ -159,7 +167,9 @@ const TonnagesDonut = React.forwardRef<HTMLDivElement, TonnagesDonutProps>(
               <div
                 key={f.code}
                 className="flex items-center justify-between rounded-savr-sm px-1.5 py-1 text-[13px] transition-colors"
-                style={{ background: hover === i ? '#F7F8FB' : 'transparent' }}
+                style={{
+                  background: hover === i ? SURFACE_HOVER : 'transparent',
+                }}
                 onMouseEnter={() => setHover(i)}
                 onMouseLeave={() => setHover(null)}
               >

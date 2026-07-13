@@ -58,6 +58,15 @@ it('Sparkline — ne rend rien sous 2 points', () => {
   expect(container.querySelector('svg')).toBeNull();
 });
 
+it('Sparkline — rend une aire dégradée sous la courbe', () => {
+  const { container } = render(
+    <Sparkline points={[1, 3, 2, 5]} color="#223870" />,
+  );
+  // Aire = <polygon> refermé + <linearGradient> de remplissage.
+  expect(container.querySelector('polygon')).toBeInTheDocument();
+  expect(container.querySelector('linearGradient')).toBeInTheDocument();
+});
+
 it('KpiCockpitCard — affiche label, valeur, unité et pastille de variation', () => {
   render(
     <KpiCockpitCard
@@ -72,6 +81,32 @@ it('KpiCockpitCard — affiche label, valeur, unité et pastille de variation', 
   expect(screen.getByText('Tonnage détourné')).toBeInTheDocument();
   expect(screen.getByText('48,6')).toBeInTheDocument();
   expect(screen.getByText(/12,4/)).toBeInTheDocument();
+});
+
+it('KpiCockpitCard — variation négative affiche ▼ et le pourcentage', () => {
+  render(
+    <KpiCockpitCard
+      label="Marge"
+      value="12"
+      dotColor="#223870"
+      variationPct={-8.3}
+    />,
+  );
+  expect(screen.getByText(/▼\s*8,3\s*%/)).toBeInTheDocument();
+});
+
+it('KpiCockpitCard — rend les slots headerRight et footer', () => {
+  render(
+    <KpiCockpitCard
+      label="Marge"
+      value="12"
+      dotColor="#223870"
+      headerRight={<span>aide</span>}
+      footer={<span>2 en attente</span>}
+    />,
+  );
+  expect(screen.getByText('aide')).toBeInTheDocument();
+  expect(screen.getByText('2 en attente')).toBeInTheDocument();
 });
 
 it('KpiCockpitCard — href rend un lien cliquable', () => {
@@ -117,6 +152,54 @@ it('EvolutionZdChart — légende cliquable présente pour les 5 flux', () => {
       screen.getByRole('button', { name: new RegExp(l) }),
     ).toBeInTheDocument();
   }
+});
+
+it('EvolutionZdChart — les segments ne portent plus de <title> natif (pas de double tooltip)', () => {
+  const { container } = render(
+    <EvolutionZdChart series={zd} granularite="mois" />,
+  );
+  // Le tooltip riche (div) remplace le title SVG natif — sinon double bulle (retour Val).
+  expect(container.querySelectorAll('rect > title, path > title').length).toBe(
+    0,
+  );
+});
+
+it('BenchmarkBulletGauges — rend le slot filtres imbriqué', () => {
+  render(
+    <BenchmarkBulletGauges
+      items={[{ label: 'Biodéchets', value: 0.72, benchmark: 0.8 }]}
+      filtersSlot={<div>filtres-repère-parc</div>}
+    />,
+  );
+  expect(screen.getByText('filtres-repère-parc')).toBeInTheDocument();
+  // Titre de la carte des jauges toujours présent = un seul bloc filtres + jauges.
+  expect(screen.getByText(/Intensité par flux/)).toBeInTheDocument();
+});
+
+it('EvolutionZdChart — la légende « Taux de recyclage » est un bouton qui masque la courbe', () => {
+  const { container } = render(
+    <EvolutionZdChart series={zd} granularite="mois" />,
+  );
+  // Courbe taux présente par défaut (polyline).
+  expect(container.querySelector('polyline')).toBeInTheDocument();
+  const btn = screen.getByRole('button', { name: /Taux de recyclage/ });
+  fireEvent.click(btn);
+  // Masquée après clic → plus de polyline.
+  expect(container.querySelector('polyline')).toBeNull();
+});
+
+it('EvolutionAgChart — la légende Repas/Ratio masque les séries', () => {
+  const { container } = render(
+    <EvolutionAgChart series={ag} granularite="mois" />,
+  );
+  // Ratio (polyline) masquable.
+  expect(container.querySelector('polyline')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: /Ratio\/pax/ }));
+  expect(container.querySelector('polyline')).toBeNull();
+  // Repas (barres <path>) masquables.
+  expect(container.querySelectorAll('path').length).toBeGreaterThan(0);
+  fireEvent.click(screen.getByRole('button', { name: /Repas/ }));
+  expect(container.querySelectorAll('path').length).toBe(0);
 });
 
 it('TonnagesDonut — rend le total au centre et la légende des 5 flux', () => {

@@ -3,13 +3,15 @@
 import * as React from 'react';
 import { ChartCard } from './ChartCard';
 import { fmtDec } from './fmt';
+import { STATUT, NAVY, TEXT_XFAINT, TRACK } from './palette';
 
 // BenchmarkBulletGauges — grille de 5 jauges « bullet » horizontales (R24) :
 // intensité kg/pax par flux comparée à la moyenne du parc Savr (anonymisée). Le
-// repère du parc est TOUJOURS positionné à 60 % de la piste (lecture homogène
-// entre flux), le remplissage traduit le ratio value/benchmark. Statut (vert /
-// orange / rouge) redondé par la valeur, le repère chiffré et le badge d'écart —
-// jamais porté par la seule couleur. value ou benchmark null → état insuffisant.
+// repère du parc est TOUJOURS positionné à 50 % de la piste (milieu = « à la
+// moyenne » ; lecture homogène entre flux), le remplissage traduit le ratio
+// value/benchmark (ratio 1 → pile au repère, ratio 2 → bout de piste). Statut
+// (vert / orange / rouge) redondé par la valeur, le repère chiffré et le badge
+// d'écart — jamais porté par la seule couleur. value/benchmark null → insuffisant.
 export interface GaugeItem {
   label: string;
   value: number | null;
@@ -18,14 +20,31 @@ export interface GaugeItem {
 
 interface BenchmarkBulletGaugesProps {
   items: GaugeItem[];
+  /** Filtres du repère parc, imbriqués DANS la carte (au-dessus des jauges) —
+   *  filtres + jauges = un seul bloc (retour Val R24b). */
+  filtersSlot?: React.ReactNode;
 }
 
+// Position fixe du repère « moyenne parc » sur la piste (milieu = intuitif).
+const REPERE_PCT = 50;
 // Palette statut (levier couleur = signal, DS §5). Repère parc = navy-700.
-const REPERE = '#223870';
+const REPERE = NAVY;
 const STATUTS = {
-  vert: { color: '#16A34A', badgeColor: '#16A34A', badgeBg: '#F0FDF4' },
-  orange: { color: '#FF9B00', badgeColor: '#B36400', badgeBg: '#FFF4E0' },
-  rouge: { color: '#DC2626', badgeColor: '#DC2626', badgeBg: '#FEF2F2' },
+  vert: {
+    color: STATUT.vert.fill,
+    badgeColor: STATUT.vert.badge,
+    badgeBg: STATUT.vert.badgeBg,
+  },
+  orange: {
+    color: STATUT.orange.fill,
+    badgeColor: STATUT.orange.badge,
+    badgeBg: STATUT.orange.badgeBg,
+  },
+  rouge: {
+    color: STATUT.rouge.fill,
+    badgeColor: STATUT.rouge.badge,
+    badgeBg: STATUT.rouge.badgeBg,
+  },
 } as const;
 
 function clamp(n: number, min: number, max: number): number {
@@ -46,16 +65,16 @@ function Legend(): React.ReactElement {
   return (
     <div className="flex flex-wrap gap-3">
       <span className="flex items-center gap-1.5 text-[11px] font-semibold text-savr-neutral-600">
-        <LegendDot color="#16A34A" /> Inférieur
+        <LegendDot color={STATUT.vert.fill} /> Inférieur
       </span>
       <span className="flex items-center gap-1.5 text-[11px] font-semibold text-savr-neutral-600">
-        <LegendDot color="#FF9B00" /> Supérieur
+        <LegendDot color={STATUT.orange.fill} /> Supérieur
       </span>
       <span className="flex items-center gap-1.5 text-[11px] font-semibold text-savr-neutral-600">
-        <LegendDot color="#DC2626" /> Largement supérieur
+        <LegendDot color={STATUT.rouge.fill} /> Largement supérieur
       </span>
       <span className="flex items-center gap-1.5 text-[11px] font-semibold text-savr-neutral-600">
-        <LegendDot color="#C3C9D9" /> Données manquantes
+        <LegendDot color={TEXT_XFAINT} /> Données manquantes
       </span>
     </div>
   );
@@ -95,7 +114,7 @@ function Gauge({ item }: { item: GaugeItem }): React.ReactElement {
         </div>
         <div
           className="relative h-3 rounded-[4px]"
-          style={{ background: '#EEF0F5' }}
+          style={{ background: TRACK }}
         >
           <div
             aria-hidden
@@ -111,11 +130,11 @@ function Gauge({ item }: { item: GaugeItem }): React.ReactElement {
             aria-hidden
             style={{
               position: 'absolute',
-              left: '60%',
+              left: `${REPERE_PCT}%`,
               top: -4,
               bottom: -4,
               width: 2,
-              background: '#C3C9D9',
+              background: TEXT_XFAINT,
               borderRadius: 2,
             }}
           />
@@ -161,7 +180,7 @@ function Gauge({ item }: { item: GaugeItem }): React.ReactElement {
   const ratio = value / benchmark;
   const statut =
     ratio <= 1 ? STATUTS.vert : ratio <= 1.3 ? STATUTS.orange : STATUTS.rouge;
-  const pct = clamp(ratio * 60, 0, 100);
+  const pct = clamp(ratio * REPERE_PCT, 0, 100);
   const delta = (ratio - 1) * 100;
   const badgeTxt = `${delta >= 0 ? '+' : '−'}${fmtDec(Math.abs(delta), 0)} %`;
   const statutLabel =
@@ -185,10 +204,7 @@ function Gauge({ item }: { item: GaugeItem }): React.ReactElement {
           {fmtDec(value, 2)}
         </span>
       </div>
-      <div
-        className="relative h-3 rounded-[4px]"
-        style={{ background: '#EEF0F5' }}
-      >
+      <div className="relative h-3 rounded-[4px]" style={{ background: TRACK }}>
         <div
           aria-hidden
           style={{
@@ -205,7 +221,7 @@ function Gauge({ item }: { item: GaugeItem }): React.ReactElement {
           aria-hidden
           style={{
             position: 'absolute',
-            left: '60%',
+            left: `${REPERE_PCT}%`,
             top: -4,
             bottom: -4,
             width: 2,
@@ -254,6 +270,7 @@ function Gauge({ item }: { item: GaugeItem }): React.ReactElement {
 
 export function BenchmarkBulletGauges({
   items,
+  filtersSlot,
 }: BenchmarkBulletGaugesProps): React.ReactElement {
   return (
     <ChartCard
@@ -261,6 +278,11 @@ export function BenchmarkBulletGauges({
       subtitle="Repère = moyenne du parc Savr (anonymisée). Statut selon l'écart."
       headerRight={<Legend />}
     >
+      {filtersSlot && (
+        <div className="mb-5 border-b border-savr-neutral-100 pb-5">
+          {filtersSlot}
+        </div>
+      )}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
         {items.map((item, i) => (
           <Gauge key={`${item.label}-${i}`} item={item} />

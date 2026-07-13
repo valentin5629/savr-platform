@@ -202,14 +202,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (from) qHist = qHist.gte('date_collecte', from);
   if (to) qHist = qHist.lte('date_collecte', to);
 
-  const { data: histData, error: histErr } = await qHist;
-  if (histErr)
-    return NextResponse.json({ error: histErr.message }, { status: 500 });
-  const histRows = ((histData ?? []) as unknown as CollecteRow[]).filter((c) =>
-    tailleOk(evtOf(c)),
-  );
-
   // ── Fetch B — prochaines collectes (fenêtre glissante 30 j) ──────────────────
+  // Construite AVANT l'await pour lancer A et B EN PARALLÈLE : deux requêtes
+  // collectes indépendantes (historique clôturé vs fenêtre à venir) → un
+  // aller-retour au lieu de deux en série. La résolution des noms (plus bas)
+  // dépend de A (histRows) et reste donc séquentielle après le batch.
   const today = new Date();
   const in30 = new Date(today.getTime());
   in30.setDate(in30.getDate() + PROCHAINES_FENETRE_JOURS);
@@ -231,9 +228,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .order('date_collecte', { ascending: true })
     .order('heure_collecte', { ascending: true, nullsFirst: false });
 
-  const { data: prochData, error: prochErr } = await qProch;
+  const [histRes, prochRes] = await Promise.all([qHist, qProch]);
+  const { data: histData, error: histErr } = histRes;
+  if (histErr)
+    return NextResponse.json({ error: histErr.message }, { status: 500 });
+  const { data: prochData, error: prochErr } = prochRes;
   if (prochErr)
     return NextResponse.json({ error: prochErr.message }, { status: 500 });
+  const histRows = ((histData ?? []) as unknown as CollecteRow[]).filter((c) =>
+    tailleOk(evtOf(c)),
+  );
 
   interface ProchEvt {
     id: string;

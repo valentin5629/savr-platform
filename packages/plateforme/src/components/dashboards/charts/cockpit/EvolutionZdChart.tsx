@@ -8,13 +8,15 @@ import { formatPeriode } from '../format';
 import { ChartCard } from './ChartCard';
 import { fmtInt, fmtDec } from './fmt';
 import {
-  INK,
   TEXT_MUTED,
   TEXT_FAINT,
   GRID,
   GRID_BASELINE,
   ACCENT_TEXT,
 } from './palette';
+
+// Cerclage gris du segment survolé (retour Val R24b — remplace le liseré noir).
+const SEGMENT_HOVER = TEXT_MUTED; // neutral-500
 
 // EvolutionZdChart (Cockpit R24) — barres empilées des 5 flux ZD (kg) + courbe du
 // taux de recyclage superposée (axe droit 0-100 %). §11 Bloc 2 ZD. Empilement
@@ -51,9 +53,13 @@ const EvolutionZdChart = React.forwardRef<
 >(({ series, granularite }, ref) => {
   const [hidden, setHidden] = React.useState<Set<string>>(new Set());
   // Survol au grain FLUX (segment de couleur), pas la barre entière (retour Val).
-  const [hover, setHover] = React.useState<{ i: number; code: string } | null>(
-    null,
-  );
+  // `midY` = centre vertical du segment survolé (unités viewBox) → ancre le
+  // tooltip à côté de la barre, jamais au-dessus du graphe (retour Val R24b).
+  const [hover, setHover] = React.useState<{
+    i: number;
+    code: string;
+    midY: number;
+  } | null>(null);
   const toggle = (code: string) =>
     setHidden((prev) => {
       const next = new Set(prev);
@@ -154,17 +160,8 @@ const EvolutionZdChart = React.forwardRef<
                 </text>
               ))}
 
-              {/* colonne survolée (surbrillance discrète) */}
-              {hover != null && (
-                <rect
-                  x={cx(hover.i) - slot / 2}
-                  y={TOP}
-                  width={slot}
-                  height={PLOT_H}
-                  fill={INK}
-                  opacity={0.04}
-                />
-              )}
+              {/* Plus de surbrillance pleine colonne : seul le SEGMENT survolé
+                  est mis en avant (retour Val R24b). */}
 
               {/* barres empilées */}
               {series.map((p, i) => {
@@ -182,11 +179,16 @@ const EvolutionZdChart = React.forwardRef<
                       const segBottom = yCursor;
                       yCursor = segTop;
                       const isTop = vi === visible.length - 1;
-                      const total = Number(p.tonnage_total) || 0;
-                      const pct = total > 0 ? (val / total) * 100 : 0;
-                      const tip = `${f.label} : ${fmtInt(val)} kg (${fmtDec(pct, 0)} %)`;
                       const isHovered = hover?.i === i && hover.code === f.code;
-                      const onEnter = () => setHover({ i, code: f.code });
+                      // Un survol actif estompe les AUTRES segments : seule la
+                      // catégorie pointée reste pleine + cerclée de gris (retour Val).
+                      const dim = hover != null && !isHovered;
+                      const onEnter = () =>
+                        setHover({
+                          i,
+                          code: f.code,
+                          midY: (segTop + segBottom) / 2,
+                        });
                       if (isTop) {
                         const r = Math.min(3, barW / 2);
                         return (
@@ -194,14 +196,15 @@ const EvolutionZdChart = React.forwardRef<
                             key={f.code}
                             d={`M${x},${segTop + r} Q${x},${segTop} ${x + r},${segTop} H${x + barW - r} Q${x + barW},${segTop} ${x + barW},${segTop + r} V${segBottom} H${x} Z`}
                             fill={f.color}
-                            fillOpacity={0.75}
-                            stroke={isHovered ? INK : '#fff'}
-                            strokeWidth={isHovered ? 1.25 : 0.75}
-                            style={{ cursor: 'pointer' }}
+                            fillOpacity={isHovered ? 1 : dim ? 0.45 : 0.75}
+                            stroke={isHovered ? SEGMENT_HOVER : '#fff'}
+                            strokeWidth={isHovered ? 1.5 : 0.75}
+                            style={{
+                              cursor: 'pointer',
+                              transition: 'fill-opacity 120ms',
+                            }}
                             onMouseEnter={onEnter}
-                          >
-                            <title>{tip}</title>
-                          </path>
+                          />
                         );
                       }
                       return (
@@ -212,14 +215,15 @@ const EvolutionZdChart = React.forwardRef<
                           width={barW}
                           height={h}
                           fill={f.color}
-                          fillOpacity={0.75}
-                          stroke={isHovered ? INK : '#fff'}
-                          strokeWidth={isHovered ? 1.25 : 0.75}
-                          style={{ cursor: 'pointer' }}
+                          fillOpacity={isHovered ? 1 : dim ? 0.45 : 0.75}
+                          stroke={isHovered ? SEGMENT_HOVER : '#fff'}
+                          strokeWidth={isHovered ? 1.5 : 0.75}
+                          style={{
+                            cursor: 'pointer',
+                            transition: 'fill-opacity 120ms',
+                          }}
                           onMouseEnter={onEnter}
-                        >
-                          <title>{tip}</title>
-                        </rect>
+                        />
                       );
                     })}
                   </g>
@@ -269,7 +273,9 @@ const EvolutionZdChart = React.forwardRef<
                       r={9}
                       fill="transparent"
                       style={{ cursor: 'pointer' }}
-                      onMouseEnter={() => setHover({ i: pt.i, code: TAUX })}
+                      onMouseEnter={() =>
+                        setHover({ i: pt.i, code: TAUX, midY: pt.y })
+                      }
                     />
                   ))}
                 </>
@@ -294,23 +300,30 @@ const EvolutionZdChart = React.forwardRef<
             {hover != null &&
               (() => {
                 const p = series[hover.i]!;
-                const leftPctBase = (cx(hover.i) / VBW) * 100;
-                const transformBase =
-                  leftPctBase < 30
-                    ? 'translateX(0)'
-                    : leftPctBase > 70
-                      ? 'translateX(-100%)'
-                      : 'translateX(-50%)';
+                // Ancrage LATÉRAL : le tooltip se place à droite (barres de
+                // gauche) ou à gauche (barres de droite) de la colonne, à la
+                // hauteur du segment survolé — jamais au-dessus du graphe, il
+                // ne masque plus les autres valeurs (retour Val R24b).
+                const barCenterPct = (cx(hover.i) / VBW) * 100;
+                const toRight = barCenterPct < 62;
+                const anchorLeft = toRight
+                  ? ((cx(hover.i) + barW / 2 + 10) / VBW) * 100
+                  : ((cx(hover.i) - barW / 2 - 10) / VBW) * 100;
+                const anchorTop = Math.min(
+                  84,
+                  Math.max(12, (hover.midY / VBH) * 100),
+                );
+                const anchorStyle: React.CSSProperties = {
+                  left: `${anchorLeft}%`,
+                  top: `${anchorTop}%`,
+                  transform: `${toRight ? 'translateX(0)' : 'translateX(-100%)'} translateY(-50%)`,
+                };
                 // Survol de la courbe taux de recyclage.
                 if (hover.code === TAUX) {
                   return (
                     <div
                       className="pointer-events-none absolute z-10 rounded-savr-md border border-savr-neutral-200 bg-savr-white px-3 py-2 shadow-savr-md"
-                      style={{
-                        left: `${leftPctBase}%`,
-                        top: 4,
-                        transform: transformBase,
-                      }}
+                      style={anchorStyle}
                     >
                       <div className="mb-1 text-[11px] font-semibold text-savr-neutral-500">
                         {formatPeriode(p.periode, granularite)}
@@ -344,17 +357,10 @@ const EvolutionZdChart = React.forwardRef<
                 const total = Number(p.tonnage_total) || 0;
                 const val = Number(p[f.code as keyof FluxSeriePoint]) || 0;
                 const pct = total > 0 ? (val / total) * 100 : 0;
-                const leftPct = (cx(hover.i) / VBW) * 100;
-                const transform =
-                  leftPct < 30
-                    ? 'translateX(0)'
-                    : leftPct > 70
-                      ? 'translateX(-100%)'
-                      : 'translateX(-50%)';
                 return (
                   <div
                     className="pointer-events-none absolute z-10 rounded-savr-md border border-savr-neutral-200 bg-savr-white px-3 py-2 shadow-savr-md"
-                    style={{ left: `${leftPct}%`, top: 4, transform }}
+                    style={anchorStyle}
                   >
                     <div className="mb-1 text-[11px] font-semibold text-savr-neutral-500">
                       {formatPeriode(p.periode, granularite)}

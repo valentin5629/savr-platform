@@ -154,6 +154,28 @@ it('EvolutionZdChart — légende cliquable présente pour les 5 flux', () => {
   }
 });
 
+it('EvolutionZdChart — les segments ne portent plus de <title> natif (pas de double tooltip)', () => {
+  const { container } = render(
+    <EvolutionZdChart series={zd} granularite="mois" />,
+  );
+  // Le tooltip riche (div) remplace le title SVG natif — sinon double bulle (retour Val).
+  expect(container.querySelectorAll('rect > title, path > title').length).toBe(
+    0,
+  );
+});
+
+it('BenchmarkBulletGauges — rend le slot filtres imbriqué', () => {
+  render(
+    <BenchmarkBulletGauges
+      items={[{ label: 'Biodéchets', value: 0.72, benchmark: 0.8 }]}
+      filtersSlot={<div>filtres-repère-parc</div>}
+    />,
+  );
+  expect(screen.getByText('filtres-repère-parc')).toBeInTheDocument();
+  // Titre de la carte des jauges toujours présent = un seul bloc filtres + jauges.
+  expect(screen.getByText(/Intensité par flux/)).toBeInTheDocument();
+});
+
 it('EvolutionZdChart — la légende « Taux de recyclage » est un bouton qui masque la courbe', () => {
   const { container } = render(
     <EvolutionZdChart series={zd} granularite="mois" />,

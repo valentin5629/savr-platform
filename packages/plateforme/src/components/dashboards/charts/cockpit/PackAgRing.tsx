@@ -23,6 +23,9 @@ export function PackAgRing({
   const pctFill = Math.max(0, Math.min(1, pctRestant)) * 100;
   const low = pctRestant <= 0.1;
   const fillColor = low ? RING_LOW : RING_OK;
+  // Même rendu que les barres de l'histogramme AG juste au-dessus (couleur à
+  // 75 % sur blanc — retour Val R24b).
+  const barBg = `color-mix(in srgb, ${fillColor} 75%, white)`;
 
   let badge: React.ReactNode = null;
   if (creditsRestants === 0) {
@@ -92,7 +95,7 @@ export function PackAgRing({
           className="h-full rounded-savr-full"
           style={{
             width: `${pctFill}%`,
-            background: fillColor,
+            background: barBg,
             transition: 'width 300ms ease-out, background 200ms',
           }}
         />

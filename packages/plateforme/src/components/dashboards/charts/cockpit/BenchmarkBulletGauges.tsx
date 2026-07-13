@@ -20,6 +20,9 @@ export interface GaugeItem {
 
 interface BenchmarkBulletGaugesProps {
   items: GaugeItem[];
+  /** Filtres du repère parc, imbriqués DANS la carte (au-dessus des jauges) —
+   *  filtres + jauges = un seul bloc (retour Val R24b). */
+  filtersSlot?: React.ReactNode;
 }
 
 // Position fixe du repère « moyenne parc » sur la piste (milieu = intuitif).
@@ -267,6 +270,7 @@ function Gauge({ item }: { item: GaugeItem }): React.ReactElement {
 
 export function BenchmarkBulletGauges({
   items,
+  filtersSlot,
 }: BenchmarkBulletGaugesProps): React.ReactElement {
   return (
     <ChartCard
@@ -274,6 +278,11 @@ export function BenchmarkBulletGauges({
       subtitle="Repère = moyenne du parc Savr (anonymisée). Statut selon l'écart."
       headerRight={<Legend />}
     >
+      {filtersSlot && (
+        <div className="mb-5 border-b border-savr-neutral-100 pb-5">
+          {filtersSlot}
+        </div>
+      )}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
         {items.map((item, i) => (
           <Gauge key={`${item.label}-${i}`} item={item} />

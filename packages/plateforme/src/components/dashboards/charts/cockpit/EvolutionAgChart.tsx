@@ -89,7 +89,7 @@ const EvolutionAgChart = React.forwardRef<
             type="button"
             onClick={() => toggle('repas')}
             aria-pressed={!hidden.has('repas')}
-            className="flex items-center gap-1.5 rounded-savr-full px-1.5 py-0.5 transition-opacity focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
+            className="-my-3 flex min-h-[44px] items-center gap-1.5 rounded-savr-full px-1.5 transition-opacity focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
             style={{ opacity: hidden.has('repas') ? 0.4 : 1 }}
           >
             <span
@@ -106,7 +106,7 @@ const EvolutionAgChart = React.forwardRef<
             type="button"
             onClick={() => toggle('ratio')}
             aria-pressed={!hidden.has('ratio')}
-            className="flex items-center gap-1.5 rounded-savr-full px-1.5 py-0.5 transition-opacity focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
+            className="-my-3 flex min-h-[44px] items-center gap-1.5 rounded-savr-full px-1.5 transition-opacity focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500"
             style={{ opacity: hidden.has('ratio') ? 0.4 : 1 }}
           >
             <span
@@ -200,11 +200,12 @@ const EvolutionAgChart = React.forwardRef<
                     key={p.periode}
                     d={`M${x},${y + r} Q${x},${y} ${x + r},${y} H${x + barW - r} Q${x + barW},${y} ${x + barW},${y + r} V${BASE} H${x} Z`}
                     fill={REPAS_COLOR}
-                    fillOpacity={0.75}
-                    style={{ pointerEvents: 'none' }}
-                  >
-                    <title>{`${p.periode} — ${fmtInt(val)} repas`}</title>
-                  </path>
+                    fillOpacity={hover === i ? 1 : 0.75}
+                    style={{
+                      pointerEvents: 'none',
+                      transition: 'fill-opacity 120ms',
+                    }}
+                  />
                 );
               })}
 
@@ -264,21 +265,31 @@ const EvolutionAgChart = React.forwardRef<
             ))}
           </svg>
 
-          {/* Tooltip au survol : repas + ratio + pax (CDC §06.04 l.208). */}
+          {/* Tooltip au survol : repas + ratio + pax (CDC §06.04 l.208).
+              Ancré à CÔTÉ de la barre (jamais au-dessus du graphe) — retour Val. */}
           {hover != null &&
             (() => {
               const p = series[hover]!;
-              const leftPct = (cx(hover) / VBW) * 100;
-              const transform =
-                leftPct < 30
-                  ? 'translateX(0)'
-                  : leftPct > 70
-                    ? 'translateX(-100%)'
-                    : 'translateX(-50%)';
+              const h = ((p.repas_donnes || 0) / repasMax) * PLOT_H;
+              const barMidY = BASE - h / 2;
+              const barCenterPct = (cx(hover) / VBW) * 100;
+              const toRight = barCenterPct < 62;
+              const anchorLeft = toRight
+                ? ((cx(hover) + barW / 2 + 10) / VBW) * 100
+                : ((cx(hover) - barW / 2 - 10) / VBW) * 100;
+              const anchorTop = Math.min(
+                84,
+                Math.max(12, (barMidY / VBH) * 100),
+              );
+              const anchorStyle: React.CSSProperties = {
+                left: `${anchorLeft}%`,
+                top: `${anchorTop}%`,
+                transform: `${toRight ? 'translateX(0)' : 'translateX(-100%)'} translateY(-50%)`,
+              };
               return (
                 <div
                   className="pointer-events-none absolute z-10 rounded-savr-md border border-savr-neutral-200 bg-savr-white px-3 py-2 shadow-savr-md"
-                  style={{ left: `${leftPct}%`, top: 4, transform }}
+                  style={anchorStyle}
                 >
                   <div className="mb-1.5 text-[11px] font-bold text-savr-neutral-900">
                     {formatPeriode(p.periode, granularite)}

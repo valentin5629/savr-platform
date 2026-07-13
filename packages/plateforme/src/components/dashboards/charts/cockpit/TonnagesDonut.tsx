@@ -85,6 +85,7 @@ const TonnagesDonut = React.forwardRef<HTMLDivElement, TonnagesDonutProps>(
                     r={R}
                     fill="none"
                     stroke={a.color}
+                    strokeOpacity={0.75}
                     strokeWidth={hover === i ? 32 : 28}
                     strokeDasharray={a.dasharray}
                     strokeDashoffset={a.dashoffset}

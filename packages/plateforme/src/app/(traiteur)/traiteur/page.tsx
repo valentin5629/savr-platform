@@ -380,15 +380,19 @@ export default function TraiteurDashboardPage() {
             <EvolutionZdChart series={zdSeries} granularite={granularite} />
           </div>
 
-          {/* Bloc 3 ZD — Jauges kg/pax × benchmark parc (4 dimensions §06.04) */}
-          <div className="space-y-4">
-            <BenchmarkFilterBar
-              onChange={handleBenchmarkFilters}
-              initialTypeEvenementIds={filters?.type_evenement_ids ?? []}
-              initialTailleCodes={filters?.taille_evenement_codes ?? []}
-            />
-            <BenchmarkBulletGauges items={gaugeItems} />
-          </div>
+          {/* Bloc 3 ZD — Filtres du repère + jauges kg/pax en UN seul bloc
+              (retour Val R24b : filtres imbriqués dans la carte des jauges). */}
+          <BenchmarkBulletGauges
+            items={gaugeItems}
+            filtersSlot={
+              <BenchmarkFilterBar
+                embedded
+                onChange={handleBenchmarkFilters}
+                initialTypeEvenementIds={filters?.type_evenement_ids ?? []}
+                initialTailleCodes={filters?.taille_evenement_codes ?? []}
+              />
+            }
+          />
 
           {/* Bloc 4 donut + Bloc 6 top lieux + Bloc 7 top commerciaux */}
           <div className="grid gap-6 lg:grid-cols-3">

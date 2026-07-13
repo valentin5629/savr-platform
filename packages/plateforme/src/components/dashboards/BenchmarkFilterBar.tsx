@@ -58,6 +58,8 @@ interface BenchmarkFilterBarProps {
   initialTypeEvenementIds?: string[];
   /** Héritage §06.05 l.160 : Taille d'événement des filtres globaux (init + reset). */
   initialTailleCodes?: string[];
+  /** Rendu compact SANS carte (pour être imbriqué dans la carte des jauges). */
+  embedded?: boolean;
 }
 
 /**
@@ -70,6 +72,7 @@ export function BenchmarkFilterBar({
   filtresEndpoint = '/api/v1/dashboards/benchmark/filtres',
   initialTypeEvenementIds,
   initialTailleCodes,
+  embedded = false,
 }: BenchmarkFilterBarProps) {
   const [filters, setFilters] = useState<BenchmarkFilters>(() =>
     defaultFilters(initialTypeEvenementIds, initialTailleCodes),
@@ -133,16 +136,29 @@ export function BenchmarkFilterBar({
   return (
     <div
       data-testid="benchmark-filter-bar"
-      className="space-y-4 rounded-savr-lg border border-savr-neutral-200 bg-savr-white p-6 shadow-savr-sm"
+      className={
+        embedded
+          ? 'space-y-3'
+          : 'space-y-4 rounded-savr-lg border border-savr-neutral-200 bg-savr-white p-6 shadow-savr-sm'
+      }
     >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h3 className="text-base font-extrabold tracking-[-0.01em] text-savr-neutral-900">
-            Filtres benchmark
-          </h3>
-          <p className="mt-0.5 text-[13px] text-savr-neutral-500">
-            Affinent uniquement la moyenne du parc (le repère), pas vos données.
-          </p>
+          {embedded ? (
+            <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-savr-neutral-500">
+              Filtres du repère parc
+            </span>
+          ) : (
+            <>
+              <h3 className="text-base font-extrabold tracking-[-0.01em] text-savr-neutral-900">
+                Filtres benchmark
+              </h3>
+              <p className="mt-0.5 text-[13px] text-savr-neutral-500">
+                Affinent uniquement la moyenne du parc (le repère), pas vos
+                données.
+              </p>
+            </>
+          )}
         </div>
         <button
           type="button"

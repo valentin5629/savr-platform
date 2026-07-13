@@ -204,7 +204,7 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
     expect(screen.getByTestId('bloc-6-top-lieux')).toBeInTheDocument();
     expect(screen.getByTestId('bloc-7-top-acteurs')).toBeInTheDocument();
     // Bloc 3 ZD = VRAI benchmark (encart « Filtres benchmark »), pas le stub R20a.
-    expect(screen.getByText('Filtres benchmark')).toBeInTheDocument();
+    expect(screen.getByText('Filtres du repère parc')).toBeInTheDocument();
     // Variante 4 dimensions : pas de filtre « Traiteurs » (compétitif §06.04 l.143).
     expect(screen.queryByText(/Traiteurs? benchmark/i)).toBeNull();
     // Prochaines : événement rendu + lien vers la fiche collecte.
@@ -254,7 +254,8 @@ describe('M3.3 / agence — Bloc 7 retiré', () => {
     expect(screen.getByTestId('bloc-6-top-lieux')).toBeInTheDocument();
     // Bloc 7 « Top 5 commerciaux » RETIRÉ côté agence (§06.11 diff #8).
     expect(screen.queryByTestId('bloc-7-top-acteurs')).toBeNull();
-    // Bloc 3 ZD benchmark réel présent (parité §06.04).
+    // Bloc 3 ZD benchmark réel présent (parité §06.04). L'agence n'est PAS encore
+    // fusionnée (R24b = pilotes traiteur/gestionnaire), l'encart garde son titre.
     expect(screen.getByText('Filtres benchmark')).toBeInTheDocument();
   });
 

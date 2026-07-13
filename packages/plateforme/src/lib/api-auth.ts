@@ -24,6 +24,12 @@ export interface UserAuthContext {
   organisationId: string;
 }
 
+interface VerifiedClaims {
+  userId: string;
+  role: string | undefined;
+  organisationId: string | undefined;
+}
+
 function parseJwtClaims(token: string): Record<string, unknown> {
   try {
     const payload = token.split('.')[1];
@@ -34,6 +40,59 @@ function parseJwtClaims(token: string): Record<string, unknown> {
   } catch {
     return {};
   }
+}
+
+/**
+ * Récupère l'identité de l'appelant (userId + claims métier) depuis le JWT.
+ *
+ * Chemin nominal — `getClaims()` : vérifie la signature du token LOCALEMENT
+ * (ES256/WebCrypto), avec le JWKS mis en cache au niveau du process (GLOBAL_JWKS,
+ * partagé entre requêtes). => zéro aller-retour réseau à GoTrue par requête, là où
+ * `getUser()` en faisait un à CHAQUE appel d'API. Le claim `sub` EST l'id
+ * utilisateur ; `user_role` / `organisation_id` sont posés par le hook JWT.
+ * Sécurité équivalente pour de l'auth de route (tokens courte durée), recommandé
+ * par Supabase.
+ *
+ * Repli — `getUser()` : conservé comme filet si getClaims échoue (JWKS
+ * momentanément injoignable, WebCrypto absent) et comme chemin des environnements
+ * sans getClaims (mocks de test). Retourne null si aucune session valide.
+ */
+async function getVerifiedClaims(
+  supabase: ReturnType<typeof createSupabaseServerClient>,
+): Promise<VerifiedClaims | null> {
+  const str = (v: unknown): string | undefined =>
+    typeof v === 'string' ? v : undefined;
+  const { auth } = supabase;
+
+  if (typeof auth.getClaims === 'function') {
+    try {
+      const { data } = await auth.getClaims();
+      const claims = data?.claims as Record<string, unknown> | undefined;
+      if (claims && typeof claims['sub'] === 'string') {
+        return {
+          userId: claims['sub'] as string,
+          role: str(claims['user_role']),
+          organisationId: str(claims['organisation_id']),
+        };
+      }
+    } catch {
+      // Repli sur la validation serveur ci-dessous.
+    }
+  }
+
+  const {
+    data: { user },
+  } = await auth.getUser();
+  if (!user) return null;
+  const {
+    data: { session },
+  } = await auth.getSession();
+  const claims = parseJwtClaims(session?.access_token ?? '');
+  return {
+    userId: user.id,
+    role: str(claims['user_role']),
+    organisationId: str(claims['organisation_id']),
+  };
 }
 
 export function createSupabaseServerClient() {
@@ -69,21 +128,14 @@ export async function requireStaff(
 > {
   const supabase = createSupabaseServerClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
+  const claims = await getVerifiedClaims(supabase);
+  if (!claims) {
     return {
       error: NextResponse.json({ error: 'Non autorisé' }, { status: 401 }),
     };
   }
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const claims = parseJwtClaims(session?.access_token ?? '');
-  const role = claims['user_role'] as string | undefined;
-
+  const role = claims.role;
   if (role !== 'admin_savr' && role !== 'ops_savr') {
     return {
       error: NextResponse.json({ error: 'Rôle insuffisant' }, { status: 403 }),
@@ -92,9 +144,9 @@ export async function requireStaff(
 
   return {
     ctx: {
-      userId: user.id,
+      userId: claims.userId,
       role: role as StaffRole,
-      organisationId: (claims['organisation_id'] as string) ?? null,
+      organisationId: claims.organisationId ?? null,
     },
   };
 }
@@ -109,21 +161,15 @@ export async function requireUser(
 > {
   const supabase = createSupabaseServerClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
+  const claims = await getVerifiedClaims(supabase);
+  if (!claims) {
     return {
       error: NextResponse.json({ error: 'Non autorisé' }, { status: 401 }),
     };
   }
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const claims = parseJwtClaims(session?.access_token ?? '');
-  const role = claims['user_role'] as string | undefined;
-  const organisationId = claims['organisation_id'] as string | undefined;
+  const role = claims.role;
+  const organisationId = claims.organisationId;
 
   if (!role || !allowed.includes(role as ClientRole)) {
     return {
@@ -142,7 +188,7 @@ export async function requireUser(
 
   return {
     ctx: {
-      userId: user.id,
+      userId: claims.userId,
       role: role as AnyRole,
       organisationId,
     },
@@ -169,21 +215,15 @@ export async function requireAnyUser(
 > {
   const supabase = createSupabaseServerClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
+  const claims = await getVerifiedClaims(supabase);
+  if (!claims) {
     return {
       error: NextResponse.json({ error: 'Non autorisé' }, { status: 401 }),
     };
   }
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const claims = parseJwtClaims(session?.access_token ?? '');
-  const role = claims['user_role'] as string | undefined;
-  const organisationId = claims['organisation_id'] as string | undefined;
+  const role = claims.role;
+  const organisationId = claims.organisationId;
 
   const isStaff = role === 'admin_savr' || role === 'ops_savr';
   const isClient =
@@ -215,7 +255,7 @@ export async function requireAnyUser(
 
   return {
     ctx: {
-      userId: user.id,
+      userId: claims.userId,
       role: role as AnyRole,
       organisationId: organisationId ?? null,
       isStaff,
@@ -249,21 +289,15 @@ export async function requireProgrammateurOuAdmin(
 > {
   const supabase = createSupabaseServerClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
+  const claims = await getVerifiedClaims(supabase);
+  if (!claims) {
     return {
       error: NextResponse.json({ error: 'Non autorisé' }, { status: 401 }),
     };
   }
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const claims = parseJwtClaims(session?.access_token ?? '');
-  const role = claims['user_role'] as string | undefined;
-  const organisationId = claims['organisation_id'] as string | undefined;
+  const role = claims.role;
+  const organisationId = claims.organisationId;
 
   const isAdmin = role === 'admin_savr' || role === 'ops_savr';
   const isProgrammateur = PROGRAMMATION_ROLES.includes(role as ClientRole);
@@ -285,7 +319,7 @@ export async function requireProgrammateurOuAdmin(
 
   return {
     ctx: {
-      userId: user.id,
+      userId: claims.userId,
       role: role as AnyRole,
       organisationId: organisationId ?? '', // admin: '' — sera remplacé par body.organisation_id dans la route
       isAdmin,

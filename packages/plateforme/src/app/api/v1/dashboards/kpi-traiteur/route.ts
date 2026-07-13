@@ -96,7 +96,21 @@ async function lireMethodeCo2(): Promise<Co2Methode> {
  * un traiteur ne peut pas la lire. Best-effort — toute erreur (clé service_role
  * absente en test, RLS, réseau) retombe sur les constantes ADEME (jamais bloquant).
  */
+// Cache process des 3 facteurs d'équivalence CO₂ (constantes ADEME globales,
+// éditables Admin mais quasi immuables). Sans lui, CHAQUE chargement de dashboard
+// crée un client service_role + une requête. TTL court : une modif Admin se
+// propage en < 5 min (et par instance serverless). Partagé entre tous les
+// traiteurs/agences car les facteurs sont globaux, pas par organisation.
+let _facteursCo2Cache: { at: number; val: FacteursCo2 } | null = null;
+const FACTEURS_CO2_TTL_MS = 5 * 60_000;
+
 async function lireFacteursCo2(): Promise<FacteursCo2> {
+  if (
+    _facteursCo2Cache &&
+    Date.now() - _facteursCo2Cache.at < FACTEURS_CO2_TTL_MS
+  ) {
+    return _facteursCo2Cache.val;
+  }
   const facteurs: FacteursCo2 = { ...FACTEURS_CO2_DEFAUT };
   try {
     const admin = createAdminSupabaseClient();
@@ -118,8 +132,11 @@ async function lireFacteursCo2(): Promise<FacteursCo2> {
       if (Number.isFinite(boeuf) && boeuf! > 0) facteurs.repas_boeuf = boeuf!;
       if (Number.isFinite(foyer) && foyer! > 0) facteurs.foyer_kwh = foyer!;
     }
+    // Ne met en cache que les lectures réussies (une erreur → réessai au prochain
+    // appel plutôt que de figer les défauts ADEME pendant 5 min).
+    _facteursCo2Cache = { at: Date.now(), val: facteurs };
   } catch {
-    // conserve les défauts ADEME
+    // conserve les défauts ADEME (non mis en cache)
   }
   return facteurs;
 }
@@ -188,9 +205,30 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return { rows: data, error: error ? error.message : null };
   };
 
-  const current = await runFenetre(from, to);
-  if (current.error)
-    return NextResponse.json({ error: current.error }, { status: 500 });
+  // N-1 (Cockpit R24) : variation vs période précédente équivalente, déclenchée
+  // UNIQUEMENT via ?compare=n1 (la page traiteur). previousWindow rend une fenêtre
+  // CONTIGUË et strictement antérieure à `from` → on interroge la vue UNE seule
+  // fois sur [N-1 → courante] puis on découpe en JS, au lieu de 2 requêtes de vue
+  // en série (la vue est la requête la plus lourde). Les autres consommateurs
+  // (agence, guards de schéma) restent en mono-fenêtre (win = null).
+  const win =
+    searchParams.get('compare') === 'n1' ? previousWindow(from, to) : null;
+  const unionFrom = win ? win.from : from;
+
+  // La vue (requête lourde) et les facteurs CO₂ (client service_role séparé) sont
+  // indépendants → lancés en parallèle. Le tarif orga (lecture PK triviale) reste
+  // séquentiel APRÈS la vue : sur le même client il s'entrelacerait avec la requête
+  // de vue sans gain réel.
+  const [union, facteurs_co2, co2_methode] = await Promise.all([
+    runFenetre(unionFrom, to),
+    // Facteurs d'équivalence CO₂ (héros Cockpit R24) — best-effort + cache process.
+    lireFacteursCo2(),
+    // Variables du calcul CO₂ (forfait + facteurs par flux) — modale « méthode ».
+    lireMethodeCo2(),
+  ]);
+
+  if (union.error)
+    return NextResponse.json({ error: union.error }, { status: 500 });
 
   // tarif_refacture_pax_zd (BL-P3-02) — alimente le tooltip formule du KPI Marge.
   // Lecture traiteur autorisée (CDC §04 l.928 ; écriture Admin only). Non exposé à
@@ -206,26 +244,33 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       (org?.tarif_refacture_pax_zd as number | null) ?? null;
   }
 
-  // Facteurs d'équivalence CO₂ (héros Cockpit R24) — best-effort, jamais bloquant.
-  const facteurs_co2 = await lireFacteursCo2();
-  // Variables du calcul CO₂ (forfait + facteurs par flux) — modale « méthode ».
-  const co2_methode = await lireMethodeCo2();
-
-  // N-1 (Cockpit R24) : variation vs période précédente équivalente. Déclenché
-  // UNIQUEMENT via ?compare=n1 (la page traiteur) → les autres consommateurs
-  // (agence, guards de schéma) gardent le comportement mono-requête historique.
-  let previous: unknown[] | undefined;
-  if (searchParams.get('compare') === 'n1') {
-    const win = previousWindow(from, to);
-    if (win) {
-      const prev = await runFenetre(win.from, win.to);
-      if (!prev.error) previous = stripMarge(prev.rows);
-    }
-  }
+  // Découpe la fenêtre unique en courante / précédente. Les bornes (chaînes
+  // 'YYYY-MM-DD', mois = 1er du mois) reproduisent à l'identique les filtres SQL
+  // .gte/.lte de runFenetre — comparaison lexicographique = chronologique en ISO.
+  const rows = union.rows ?? [];
+  // Réplique exactement les filtres SQL .gte('mois', lo) / .lte('mois', hi) de
+  // runFenetre : une borne absente (null) ne filtre RIEN (comportement mono-fenêtre
+  // historique quand la route est appelée sans from/to). Une borne présente exige
+  // un `mois` comparable — comme `NULL >= lo` en SQL, une ligne sans mois est alors
+  // écartée.
+  const inWindow = (
+    r: unknown,
+    lo: string | null,
+    hi: string | null,
+  ): boolean => {
+    const m = (r as { mois?: unknown }).mois;
+    const lowOk = !lo || (typeof m === 'string' && m >= lo);
+    const highOk = !hi || (typeof m === 'string' && m <= hi);
+    return lowOk && highOk;
+  };
+  const currentRows = rows.filter((r) => inWindow(r, from, to));
+  const previous = win
+    ? stripMarge(rows.filter((r) => inWindow(r, win.from, win.to)))
+    : undefined;
 
   return NextResponse.json(
     {
-      data: stripMarge(current.rows),
+      data: stripMarge(currentRows),
       tarif_refacture_pax_zd,
       facteurs_co2,
       co2_methode,

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { createBrowserSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { useUserRole } from '@/lib/use-user-role';
 import {
   AlertTriangle,
   ChevronLeft,
@@ -95,24 +95,17 @@ const emptyCollecte = (type: 'zd' | 'ag'): CollecteFormData => ({
   informations_supplementaires: '',
 });
 
-function parseJwt(token: string): Record<string, unknown> {
-  try {
-    return JSON.parse(
-      Buffer.from(token.split('.')[1] ?? '', 'base64url').toString('utf-8'),
-    ) as Record<string, unknown>;
-  } catch {
-    return {};
-  }
-}
-
 export default function NouveauProgrammationPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Rôle courant (nécessaire pour UI agence/gestionnaire/admin)
-  const [role, setRole] = useState<string>('');
+  // Rôle courant (nécessaire pour UI agence/gestionnaire/admin). Lu via
+  // useUserRole (décodage `atob` navigateur) — l'ancien décodage `Buffer.from`
+  // échouait côté client (Buffer hors bundle) → rôle jamais détecté, sélecteur
+  // traiteur/admin masqué.
+  const role = useUserRole() ?? '';
   // Admin support : programmation « pour le compte d'un traiteur » (§06.01 l.15).
   const isAdmin = role === 'admin_savr' || role === 'ops_savr';
   const needsTraiteurSelector =
@@ -259,29 +252,20 @@ export default function NouveauProgrammationPage() {
       .catch(() => {});
   }, [applyLieu]);
 
-  // Lecture du rôle + chargement des traiteurs si agence/gestionnaire
+  // Chargement des traiteurs pour les rôles qui programment pour le compte d'un
+  // tiers (agence / gestionnaire_lieux) ou en support (admin_savr / ops_savr).
   useEffect(() => {
-    const supabase = createBrowserSupabaseClient();
-    void supabase.auth.getSession().then(({ data }) => {
-      const token = data.session?.access_token;
-      if (!token) return;
-      const claims = parseJwt(token);
-      const r = claims['user_role'] as string | undefined;
-      if (r) {
-        setRole(r);
-        if (
-          r === 'agence' ||
-          r === 'gestionnaire_lieux' ||
-          r === 'admin_savr' ||
-          r === 'ops_savr'
-        ) {
-          void fetch('/api/v1/programmation/organisations/traiteurs')
-            .then((res) => res.json() as Promise<TraiteurOption[]>)
-            .then(setTraiteurs);
-        }
-      }
-    });
-  }, []);
+    if (
+      role === 'agence' ||
+      role === 'gestionnaire_lieux' ||
+      role === 'admin_savr' ||
+      role === 'ops_savr'
+    ) {
+      void fetch('/api/v1/programmation/organisations/traiteurs')
+        .then((res) => res.json() as Promise<TraiteurOption[]>)
+        .then(setTraiteurs);
+    }
+  }, [role]);
 
   // Sync collectes array when type selection changes
   useEffect(() => {

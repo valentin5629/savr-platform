@@ -338,7 +338,11 @@ export async function requireProgrammateurOuAdmin(
     ctx: {
       userId: claims.userId,
       role: role as AnyRole,
-      organisationId: organisationId ?? '', // admin: '' — sera remplacé par body.organisation_id dans la route
+      // ⚠ Pour le staff (admin/ops) organisationId = org interne `org_savr` (NON vide :
+      // users.organisation_id est NOT NULL). En programmation de support, les routes
+      // NE doivent PAS en dépendre — elles branchent sur `isAdmin` et lisent l'org
+      // cible dans le body/query (jamais `!organisationId` comme discriminant).
+      organisationId: organisationId ?? '',
       isAdmin,
     },
   };

@@ -203,6 +203,13 @@ const ADMIN_PAYLOAD = {
       },
     ],
   },
+  co2: { eviteKg: 8200, induitKg: 400, netKg: 7800, energieKwh: 12000 },
+  facteursCo2: { km_voiture: 0.218, repas_boeuf: 7, foyer_kwh: 4500 },
+  co2Methode: {
+    forfait: { km: 50, fe_camion: 2.1 },
+    flux: [],
+    ag: { facteur_par_repas: 2.5, source: 'FAO 2023' },
+  },
   blocs: {
     topLieux: [
       {
@@ -246,6 +253,13 @@ const ADMIN_PAYLOAD_AG = {
       { periode: '2026-06-01', repas_donnes: 640, pax: 1000, ratio: 0.64 },
     ],
   },
+  co2: { eviteKg: 1600, induitKg: 0, netKg: 1600, energieKwh: 0 },
+  facteursCo2: { km_voiture: 0.218, repas_boeuf: 7, foyer_kwh: 4500 },
+  co2Methode: {
+    forfait: { km: 50, fe_camion: 2.1 },
+    flux: [],
+    ag: { facteur_par_repas: 2.5, source: 'FAO 2023' },
+  },
   blocs: {
     topLieux: [],
     topActeurs: [],
@@ -288,6 +302,13 @@ describe('M3.6 / dashboard-client — déclinaison Cockpit', () => {
     // KPI Cockpit read-only (valeur/unité séparées : « 72,5 » + « % »).
     expect(await screen.findByText('Nombre de collectes')).toBeInTheDocument();
     expect(screen.getByText('72,5')).toBeInTheDocument();
+    // 5e carte KPI « CO₂ évité » cliquable → modale « Impact carbone ».
+    expect(screen.getByText('CO₂ évité')).toBeInTheDocument();
+    expect(screen.queryByText("Détail de l'impact carbone")).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /CO₂ évité/ }));
+    expect(
+      await screen.findByText("Détail de l'impact carbone"),
+    ).toBeInTheDocument();
     // Graphes Cockpit : jauges bullet (« Intensité par flux »), Top listes.
     expect(screen.getByText(/Intensité par flux/)).toBeInTheDocument();
     expect(screen.getByText('Top 5 lieux')).toBeInTheDocument();

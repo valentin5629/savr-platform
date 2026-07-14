@@ -99,7 +99,7 @@ export interface Co2Methode {
  * client service_role (tables RLS ops/admin). Best-effort : toute erreur retombe
  * sur les constantes ADEME du trigger m4_3 (jamais bloquant pour l'affichage).
  */
-async function lireMethodeCo2(): Promise<Co2Methode> {
+export async function lireMethodeCo2(): Promise<Co2Methode> {
   // ag = repli FAO 2023 (identique au COALESCE du trigger trg_co2_ag_cloture).
   const methode: Co2Methode = {
     forfait: { km: 50, fe_camion: 2.1 },
@@ -172,7 +172,7 @@ async function lireMethodeCo2(): Promise<Co2Methode> {
 let _facteursCo2Cache: { at: number; val: FacteursCo2 } | null = null;
 const FACTEURS_CO2_TTL_MS = 5 * 60_000;
 
-async function lireFacteursCo2(): Promise<FacteursCo2> {
+export async function lireFacteursCo2(): Promise<FacteursCo2> {
   if (
     _facteursCo2Cache &&
     Date.now() - _facteursCo2Cache.at < FACTEURS_CO2_TTL_MS

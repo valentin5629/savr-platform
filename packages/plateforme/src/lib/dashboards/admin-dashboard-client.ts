@@ -27,6 +27,8 @@ import {
   aggregateActeurs,
   topAssociationsFrom,
   kgParPaxParFluxFrom,
+  lireFacteursCo2,
+  lireMethodeCo2,
   type EvoCollecteRow,
   type BlocsCollecteRow,
   type LieuRow,
@@ -34,7 +36,14 @@ import {
   type AssociationRow,
   type ProchaineCollecteRow,
   type EvolutionResult,
+  type Co2Methode,
 } from '@/lib/dashboards/loaders.js';
+import {
+  co2Totals,
+  type Co2Totals,
+  type FacteursCo2,
+  type TraiteurKpiRow,
+} from '@/lib/dashboards/cockpit-derive.js';
 
 type AdminDbClient = ReturnType<typeof createAdminSupabaseClient>;
 
@@ -58,6 +67,10 @@ export interface AdminDashboardClientPayload {
   /** Bloc 3 ZD — « mon » kg/pax par flux (repère parc servi à part par la route benchmark). */
   kgParPaxParFlux: Record<string, number>;
   evolution: EvolutionResult;
+  /** KPI CO₂ évité (Σ figées collectes.co2_*) + variables de la modale « méthode ». */
+  co2: Co2Totals;
+  facteursCo2: FacteursCo2;
+  co2Methode: Co2Methode;
   blocs: {
     topLieux: LieuRow[];
     topActeurs: ActeurRow[];
@@ -68,6 +81,7 @@ export interface AdminDashboardClientPayload {
 }
 
 const SELECT_HISTORIQUE = `id, type, taux_recyclage, date_collecte,
+   co2_evite_kg, co2_induit_kg, co2_net_kg, energie_primaire_evitee_kwh,
    evenements!inner(id, lieu_id, pax, organisation_id, type_evenement_id,
      traiteur_operationnel_organisation_id, created_by, lieux!inner(id, nom)),
    collecte_flux(poids_reel_kg, flux_dechets(code)),
@@ -167,7 +181,14 @@ export async function loadAdminDashboardClient(
   // bornée à 30 jours, l'ordre serveur n'apporte rien et évite un chaînage
   // `.order()` sensible.
 
-  const [histRes, prochRes] = await Promise.all([qHist, qProch]);
+  // La vue (requête lourde) + facteurs/méthode CO₂ (clients service_role séparés,
+  // constantes ADEME globales) sont indépendants → lancés en parallèle.
+  const [histRes, prochRes, facteursCo2, co2Methode] = await Promise.all([
+    qHist,
+    qProch,
+    lireFacteursCo2(),
+    lireMethodeCo2(),
+  ]);
   if (histRes.error) throw new Error(histRes.error.message);
   if (prochRes.error) throw new Error(prochRes.error.message);
 
@@ -195,6 +216,9 @@ export async function loadAdminDashboardClient(
     type,
     g,
   );
+
+  // CO₂ évité (Σ des grandeurs figées collectes.co2_*, jamais recalculées §11 l.185).
+  const co2 = co2Totals(histRows as unknown as TraiteurKpiRow[]);
 
   const topLieux = topLieuxFrom(histRows, type);
   const topActeurs = aggregateActeurs(
@@ -263,6 +287,9 @@ export async function loadAdminDashboardClient(
     kpi,
     kgParPaxParFlux,
     evolution: { granularite: g, series },
+    co2,
+    facteursCo2,
+    co2Methode,
     blocs: {
       topLieux,
       topActeurs,

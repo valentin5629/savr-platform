@@ -1,38 +1,20 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { createBrowserSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { AppShell } from '@/components/layout/app-shell';
 import type { Role } from '@/lib/nav-config';
-
-function parseJwt(token: string): Record<string, unknown> {
-  try {
-    return JSON.parse(
-      Buffer.from(token.split('.')[1] ?? '', 'base64url').toString('utf-8'),
-    ) as Record<string, unknown>;
-  } catch {
-    return {};
-  }
-}
+import { useUserRole } from '@/lib/use-user-role';
 
 export default function ProgrammationLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [role, setRole] = useState<Role>('traiteur_commercial');
-
-  useEffect(() => {
-    const supabase = createBrowserSupabaseClient();
-    void supabase.auth.getSession().then(({ data }) => {
-      const token = data.session?.access_token;
-      if (token) {
-        const claims = parseJwt(token);
-        const r = claims['user_role'] as Role | undefined;
-        if (r) setRole(r);
-      }
-    });
-  }, []);
+  // Le rôle pilote la nav de l'AppShell. On lit le claim `user_role` via
+  // useUserRole (décodage `atob` navigateur). ⚠ L'ancien décodage `Buffer.from`
+  // échouait silencieusement côté client (Buffer absent du bundle) → le rôle
+  // restait bloqué sur le défaut `traiteur_commercial` : admin/agence/gestionnaire
+  // voyaient la nav traiteur et le formulaire n'affichait pas leur sélecteur.
+  const role = (useUserRole() ?? 'traiteur_commercial') as Role;
 
   return (
     <AppShell role={role} pageTitle="Programmer une collecte">

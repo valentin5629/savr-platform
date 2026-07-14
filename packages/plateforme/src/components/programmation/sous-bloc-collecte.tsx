@@ -4,6 +4,9 @@ import * as React from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PackAGIndicator } from '@/components/ui/pack-ag-indicator';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { FormField } from '@/components/ui/form-field';
 
 export interface CollecteFormData {
   type: 'zd' | 'ag';
@@ -51,7 +54,7 @@ export function SousBlocCollecte({
   return (
     <div
       className={cn(
-        'rounded-savr-lg border-2 p-4 space-y-4',
+        'rounded-savr-md border-2 p-4 space-y-4',
         TYPE_COLORS[type],
         className,
       )}
@@ -69,7 +72,7 @@ export function SousBlocCollecte({
               label="Crédits pack AG restants"
             />
           ) : (
-            <p className="text-sm text-savr-error font-medium">
+            <p className="text-sm text-savr-error-strong font-medium">
               Aucun pack Anti-Gaspi actif — contactez votre responsable.
             </p>
           )}
@@ -77,52 +80,44 @@ export function SousBlocCollecte({
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-1">
-          <label className="text-sm font-medium text-savr-neutral-700">
-            Date de collecte <span className="text-savr-error">*</span>
-          </label>
-          <input
+        <FormField label="Date de collecte" htmlFor={`date-${type}`} required>
+          <Input
+            id={`date-${type}`}
             type="date"
             min={today}
             value={data.date_collecte}
             onChange={(e) =>
               onChange({ ...data, date_collecte: e.target.value })
             }
-            className="w-full rounded-savr-md border border-savr-neutral-300 px-3 py-2 text-sm focus:outline-2 focus:outline-savr-primary-500"
             required
           />
           {isLessThan48h && data.date_collecte && (
-            <p className="flex items-center gap-1 text-xs text-savr-warning font-medium">
+            <p className="mt-1 flex items-center gap-1 text-xs text-savr-warning font-medium">
               <AlertTriangle className="h-3.5 w-3.5" />
               Programmation à moins de 48h — disponibilité non garantie.
             </p>
           )}
-        </div>
+        </FormField>
 
-        <div className="space-y-1">
-          <label className="text-sm font-medium text-savr-neutral-700">
-            Heure de collecte <span className="text-savr-error">*</span>
-          </label>
-          <input
+        <FormField label="Heure de collecte" htmlFor={`heure-${type}`} required>
+          <Input
+            id={`heure-${type}`}
             type="time"
             value={data.heure_collecte}
             onChange={(e) =>
               onChange({ ...data, heure_collecte: e.target.value })
             }
-            className="w-full rounded-savr-md border border-savr-neutral-300 px-3 py-2 text-sm focus:outline-2 focus:outline-savr-primary-500"
             required
           />
-        </div>
+        </FormField>
       </div>
 
-      <div className="space-y-1">
-        <label className="text-sm font-medium text-savr-neutral-700">
-          Informations supplémentaires
-          <span className="text-xs font-normal text-savr-neutral-400 ml-1">
-            (optionnel, max 1000 car.)
-          </span>
-        </label>
-        <textarea
+      <FormField
+        label="Informations supplémentaires (optionnel)"
+        htmlFor={`infos-${type}`}
+      >
+        <Textarea
+          id={`infos-${type}`}
           value={data.informations_supplementaires}
           onChange={(e) =>
             onChange({
@@ -132,12 +127,12 @@ export function SousBlocCollecte({
           }
           rows={3}
           placeholder="Instructions spécifiques, accès, matériel…"
-          className="w-full rounded-savr-md border border-savr-neutral-300 px-3 py-2 text-sm resize-none focus:outline-2 focus:outline-savr-primary-500"
+          className="resize-none"
         />
-        <p className="text-xs text-savr-neutral-400 text-right">
+        <p className="mt-1 text-xs text-savr-neutral-400 text-right">
           {data.informations_supplementaires.length}/1000
         </p>
-      </div>
+      </FormField>
     </div>
   );
 }

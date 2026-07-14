@@ -1,16 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
-import { requireProgrammateur } from '@/lib/api-auth.js';
+import { requireProgrammateurOuAdmin } from '@/lib/api-auth.js';
 import { sanitizeOrTerm } from '@/lib/api-helpers.js';
 
-// Accessible uniquement aux rôles qui programment pour le compte d'un traiteur tiers
+// Accessible aux rôles qui programment pour le compte d'un traiteur tiers
+// (agence, gestionnaire_lieux) + admin_savr/ops_savr en programmation de support
+// « tous périmètres » (CDC §06.01 l.15).
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const auth = await requireProgrammateur(req);
+  const auth = await requireProgrammateurOuAdmin(req);
   if (auth.error) return auth.error;
 
-  if (auth.ctx.role !== 'agence' && auth.ctx.role !== 'gestionnaire_lieux') {
+  if (
+    auth.ctx.role !== 'agence' &&
+    auth.ctx.role !== 'gestionnaire_lieux' &&
+    !auth.ctx.isAdmin
+  ) {
     return NextResponse.json(
-      { error: 'Réservé aux rôles agence et gestionnaire_lieux' },
+      { error: 'Réservé aux rôles agence, gestionnaire_lieux et admin' },
       { status: 403 },
     );
   }

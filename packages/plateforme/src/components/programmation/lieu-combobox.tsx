@@ -26,6 +26,8 @@ interface LieuComboboxProps {
   value: LieuOption | null;
   onChange: (lieu: LieuOption | null) => void;
   onAddManuel: () => void;
+  // Admin support : org cible dont on liste les lieux (param honoré staff-only côté route).
+  organisationId?: string;
   className?: string;
   disabled?: boolean;
 }
@@ -34,6 +36,7 @@ export function LieuCombobox({
   value,
   onChange,
   onAddManuel,
+  organisationId,
   className,
   disabled,
 }: LieuComboboxProps) {
@@ -45,12 +48,13 @@ export function LieuCombobox({
   React.useEffect(() => {
     if (!open) return;
     setLoading(true);
-    const url = `/api/v1/programmation/lieux?q=${encodeURIComponent(query)}`;
-    void fetch(url)
+    const params = new URLSearchParams({ q: query });
+    if (organisationId) params.set('organisation_id', organisationId);
+    void fetch(`/api/v1/programmation/lieux?${params}`)
       .then((r) => r.json() as Promise<LieuOption[]>)
       .then(setOptions)
       .finally(() => setLoading(false));
-  }, [query, open]);
+  }, [query, open, organisationId]);
 
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>

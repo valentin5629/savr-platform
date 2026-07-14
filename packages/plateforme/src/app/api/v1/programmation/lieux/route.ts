@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
-import { requireProgrammateur } from '@/lib/api-auth.js';
+import { requireProgrammateurOuAdmin } from '@/lib/api-auth.js';
 import { sanitizeOrTerm } from '@/lib/api-helpers.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const auth = await requireProgrammateur(req);
+  const auth = await requireProgrammateurOuAdmin(req);
   if (auth.error) return auth.error;
 
   const supabase = createAdminSupabaseClient();
@@ -14,18 +14,24 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const q = sanitizeOrTerm(searchParams.get('q') ?? ''); // C2 : neutralise l'injection .or
 
   // Scope org : correspond à la policy lieux_clients_select (module 0.4)
-  // Lieux via organisations_lieux OU via événements de l'organisation
-  // (Divergence M1_2_20260614 : nouveau traiteur sans lieux ni événements voit 0 résultats —
-  //  à clarifier avec Val : faut-il rendre tous les lieux actifs visibles en autocomplete ?)
+  // Lieux via organisations_lieux OU via événements de l'organisation.
+  // Admin support (§06.01 l.15) : mêmes lieux que verrait le traiteur cible,
+  // via ?organisation_id= (param cross-org réservé au staff — un client ne peut
+  // jamais élargir son scope). Sans org cible → 0 résultat (comme un traiteur vierge).
+  const orgId = auth.ctx.isAdmin
+    ? searchParams.get('organisation_id')
+    : auth.ctx.organisationId;
+  if (!orgId) return NextResponse.json([]);
+
   const [{ data: orgLieux }, { data: evtLieux }] = await Promise.all([
     supabase
       .from('organisations_lieux')
       .select('lieu_id')
-      .eq('organisation_id', auth.ctx.organisationId),
+      .eq('organisation_id', orgId),
     supabase
       .from('evenements')
       .select('lieu_id')
-      .eq('organisation_id', auth.ctx.organisationId)
+      .eq('organisation_id', orgId)
       .not('lieu_id', 'is', null),
   ]);
 
@@ -66,7 +72,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const auth = await requireProgrammateur(req);
+  const auth = await requireProgrammateurOuAdmin(req);
   if (auth.error) return auth.error;
 
   const body = (await req.json()) as Record<string, unknown>;
@@ -111,18 +117,28 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // Action "Normaliser un lieu" (§06 Back-office Admin) : le lieu saisi manuellement
   // est créé actif=false, l'Admin est notifié pour vérifier/compléter/valider.
-  const [{ data: user }, { data: org }] = await Promise.all([
+  // L'org sert uniquement au libellé de la notification (best-effort). Admin support :
+  // org cible via body.organisation_id (staff-only) ; absente → libellé vide, non bloquant.
+  const notifOrgId = auth.ctx.isAdmin
+    ? body.organisation_id
+      ? String(body.organisation_id)
+      : null
+    : auth.ctx.organisationId;
+  const [{ data: user }, orgRes] = await Promise.all([
     supabase
       .from('users')
       .select('prenom, nom')
       .eq('id', auth.ctx.userId)
       .maybeSingle(),
-    supabase
-      .from('organisations')
-      .select('nom')
-      .eq('id', auth.ctx.organisationId)
-      .maybeSingle(),
+    notifOrgId
+      ? supabase
+          .from('organisations')
+          .select('nom')
+          .eq('id', notifOrgId)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
+  const org = orgRes.data;
   const lieu = data as { id: string; nom: string; adresse_acces: string };
   void sendEmail('admin_demande_ajout_lieu', 'hello@gosavr.io', {
     lieu_nom: lieu.nom,

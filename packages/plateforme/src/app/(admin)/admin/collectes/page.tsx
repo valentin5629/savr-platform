@@ -316,7 +316,7 @@ export default function CollectesPage() {
         title="Collectes"
         subtitle="Liste unifiée Zéro Déchet + Anti-Gaspi · cliquez une carte pour ouvrir la fiche"
         actions={
-          <Link href="/admin/collectes/nouvelle">
+          <Link href="/programmer/nouveau">
             <Button variant="accent">
               <Plus className="h-4 w-4" />
               Programmer une collecte

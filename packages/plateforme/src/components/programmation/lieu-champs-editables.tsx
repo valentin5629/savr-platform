@@ -1,5 +1,9 @@
 'use client';
 
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { FormField } from '@/components/ui/form-field';
+import { Label } from '@/components/ui/label';
 import type { LieuOption } from './lieu-combobox';
 
 // PROG-01 (CDC §06.01 l.104-114) : à la sélection d'un lieu, tous les champs du lieu
@@ -72,10 +76,6 @@ export function computeLieuOverrides(
   return overrides;
 }
 
-const inputCls =
-  'w-full rounded-savr-md border border-savr-neutral-300 px-3 py-2 text-sm focus:outline-2 focus:outline-savr-primary-500';
-const labelCls = 'text-sm font-medium text-savr-neutral-700';
-
 export function LieuChampsEditables({
   edits,
   onChange,
@@ -86,61 +86,53 @@ export function LieuChampsEditables({
   const set = (k: keyof LieuEdits, v: string) => onChange({ ...edits, [k]: v });
 
   return (
-    <div className="rounded-savr-lg border border-savr-neutral-200 bg-savr-neutral-50 p-4 space-y-4">
+    <div className="rounded-savr-md border border-savr-neutral-200 bg-savr-neutral-50 p-4 space-y-4">
       <p className="text-sm text-savr-neutral-600">
         Champs du lieu (modifiables pour cette collecte uniquement — le
         référentiel n'est pas mis à jour).
       </p>
 
-      <div className="space-y-1">
-        <label className={labelCls}>Adresse d'accès livraison</label>
-        <input
-          type="text"
+      <FormField label="Adresse d'accès livraison" htmlFor="edit-adresse">
+        <Input
+          id="edit-adresse"
           value={edits.adresse_acces}
           onChange={(e) => set('adresse_acces', e.target.value)}
-          className={inputCls}
         />
-      </div>
+      </FormField>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1">
-          <label className={labelCls}>Code postal</label>
-          <input
-            type="text"
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <FormField label="Code postal" htmlFor="edit-cp">
+          <Input
+            id="edit-cp"
             value={edits.code_postal}
             onChange={(e) => set('code_postal', e.target.value)}
-            className={inputCls}
           />
-        </div>
-        <div className="space-y-1">
-          <label className={labelCls}>Ville</label>
-          <input
-            type="text"
+        </FormField>
+        <FormField label="Ville" htmlFor="edit-ville">
+          <Input
+            id="edit-ville"
             value={edits.ville}
             onChange={(e) => set('ville', e.target.value)}
-            className={inputCls}
           />
-        </div>
+        </FormField>
       </div>
 
-      <div className="space-y-1">
-        <label className={labelCls}>Détails d'accès</label>
-        <input
-          type="text"
+      <FormField label="Détails d'accès" htmlFor="edit-acces-details">
+        <Input
+          id="edit-acces-details"
           value={edits.acces_details}
           onChange={(e) => set('acces_details', e.target.value)}
           placeholder="Ex : quai N°2, sonner interphone B"
-          className={inputCls}
         />
-      </div>
+      </FormField>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1">
-          <label className={labelCls}>Stationnement</label>
-          <select
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="edit-stationnement">Stationnement</Label>
+          <Select
+            id="edit-stationnement"
             value={edits.stationnement}
             onChange={(e) => set('stationnement', e.target.value)}
-            className={`${inputCls} bg-savr-white`}
           >
             <option value="">Non renseigné</option>
             {DIFFICULTE.map((d) => (
@@ -148,14 +140,14 @@ export function LieuChampsEditables({
                 {d.l}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
-        <div className="space-y-1">
-          <label className={labelCls}>Accès office</label>
-          <select
+        <div className="space-y-1.5">
+          <Label htmlFor="edit-office">Accès office</Label>
+          <Select
+            id="edit-office"
             value={edits.acces_office}
             onChange={(e) => set('acces_office', e.target.value)}
-            className={`${inputCls} bg-savr-white`}
           >
             <option value="">Non renseigné</option>
             {DIFFICULTE.map((d) => (
@@ -163,16 +155,16 @@ export function LieuChampsEditables({
                 {d.l}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
       </div>
 
-      <div className="space-y-1">
-        <label className={labelCls}>Type de véhicule max</label>
-        <select
+      <div className="space-y-1.5">
+        <Label htmlFor="edit-vehicule">Type de véhicule max</Label>
+        <Select
+          id="edit-vehicule"
           value={edits.type_vehicule_max}
           onChange={(e) => set('type_vehicule_max', e.target.value)}
-          className={`${inputCls} bg-savr-white`}
         >
           <option value="">Non renseigné</option>
           {VEHICULES.map((v) => (
@@ -180,30 +172,26 @@ export function LieuChampsEditables({
               {v.l}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
-      <div className="space-y-1">
-        <label className={labelCls}>Contraintes horaires</label>
-        <input
-          type="text"
+      <FormField label="Contraintes horaires" htmlFor="edit-horaires">
+        <Input
+          id="edit-horaires"
           value={edits.contraintes_horaires}
           onChange={(e) => set('contraintes_horaires', e.target.value)}
           placeholder="Ex : livraison avant 9h uniquement"
-          className={inputCls}
         />
-      </div>
+      </FormField>
 
-      <div className="space-y-1">
-        <label className={labelCls}>Flux acceptés</label>
-        <input
-          type="text"
+      <FormField label="Flux acceptés" htmlFor="edit-flux">
+        <Input
+          id="edit-flux"
           value={edits.flux_autorises}
           onChange={(e) => set('flux_autorises', e.target.value)}
           placeholder="Ex : biodéchets, carton, verre (séparés par des virgules)"
-          className={inputCls}
         />
-      </div>
+      </FormField>
     </div>
   );
 }

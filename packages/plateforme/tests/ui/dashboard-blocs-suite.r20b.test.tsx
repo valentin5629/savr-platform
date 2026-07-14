@@ -12,7 +12,13 @@
  * restent des pages 'use client' inchangées (fetch par bloc).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import {
+  render,
+  screen,
+  fireEvent,
+  cleanup,
+  waitFor,
+} from '@testing-library/react';
 
 const { pushMock } = vi.hoisted(() => ({ pushMock: vi.fn() }));
 vi.mock('next/navigation', () => ({
@@ -66,6 +72,7 @@ const CO2_METHODE = {
       energie: 800,
     },
   ],
+  ag: { facteur_par_repas: 2.5, source: 'FAO 2023' },
 };
 
 function blocsZd(overrides: Record<string, unknown> = {}) {
@@ -362,6 +369,53 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
     expect(
       screen.getByText(/Comment ces chiffres sont-ils calculés/),
     ).toBeInTheDocument();
+  });
+
+  it('M3.1/dash_cockpit_co2_ag_carte_modale', async () => {
+    // Onglet AG : 5e carte « CO₂ évité » cliquable (Σ co2_evite > 0) → ouvre la
+    // modale « Détail de l'impact carbone » VARIANTE AG (méthode par repas), pas
+    // une navigation (invariant R24). payloadAg porte co2_evite_kg = 300 > 0.
+    useTraiteurFetch(payloadAg(blocsAg()));
+    renderTraiteur(blocsZd());
+    await screen.findByTestId('bloc-5-prochaines');
+    fireEvent.click(await screen.findByRole('tab', { name: /anti-gaspi/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /CO₂ évité/ }));
+    expect(
+      await screen.findByText("Détail de l'impact carbone"),
+    ).toBeInTheDocument();
+    // Méthode AG (singulier « ce chiffre ») + héros AG (« dons anti-gaspi ») ;
+    // PAS la méthode ABC ZD (« ces chiffres » + tableau par matière).
+    expect(
+      screen.getByText(/Comment ce chiffre est-il calculé/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Impact carbone · dons anti-gaspi/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Facteurs d'émission par matière/)).toBeNull();
+    expect(
+      screen.queryByText(/Comment ces chiffres sont-ils calculés/),
+    ).toBeNull();
+  });
+
+  it('M3.1 — carte CO₂ AG non cliquable si Σ co2_evite = 0', async () => {
+    // Garde §11 « héros masqué si Σ = 0 » : carte d'affichage simple (pas de
+    // bouton, donc aucune modale possible).
+    const agZero: TraiteurDashboardPayload = {
+      ...payloadAg(blocsAg()),
+      kpi: kpiResult([
+        { ...KPI_ROW, type_collecte: 'anti_gaspi', co2_evite_kg: 0 },
+      ]),
+    };
+    useTraiteurFetch(agZero);
+    renderTraiteur(blocsZd());
+    await screen.findByTestId('bloc-5-prochaines');
+    fireEvent.click(await screen.findByRole('tab', { name: /anti-gaspi/i }));
+    // Onglet AG chargé (carte « Repas donnés » propre à l'AG), puis attente que
+    // les données AG (Σ = 0) rendent la carte CO₂ non cliquable (plus de bouton).
+    await screen.findByText('Repas donnés');
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: /CO₂ évité/ })).toBeNull(),
+    );
   });
 });
 

@@ -15,10 +15,12 @@ import { EvolutionZdChart } from './EvolutionZdChart';
 import { TonnagesDonut } from './TonnagesDonut';
 import { BenchmarkBulletGauges } from './BenchmarkBulletGauges';
 import { Co2HeroCard } from './Co2HeroCard';
+import { Co2HeroCardAg } from './Co2HeroCardAg';
 import { PackAgRing } from './PackAgRing';
 import { EvolutionAgChart } from './EvolutionAgChart';
 import { TopRankList } from './TopRankList';
 import { Co2MethodePanel } from './Co2MethodePanel';
+import { Co2MethodePanelAg } from './Co2MethodePanelAg';
 
 const zd: FluxSeriePoint[] = [
   {
@@ -408,4 +410,88 @@ describe('non-régression fmt', () => {
     render(<TopRankList title="Top" items={[]} />);
     expect(screen.getByText(/Aucune donnée/)).toBeInTheDocument();
   });
+});
+
+// ── CO₂ Anti-Gaspi (variante « évité seul » V1 — carte KPI + modale) ─────────
+it('Co2HeroCardAg — héros évité seul, sans induit/net/énergie (V1)', () => {
+  render(
+    <Co2HeroCardAg
+      eviteKg={205}
+      equivalences={{ kmVoiture: 940, repasBoeuf: 29 }}
+    />,
+  );
+  expect(screen.getByText(/CO₂e évité/)).toBeInTheDocument();
+  expect(screen.getByText(/km en voiture/)).toBeInTheDocument();
+  expect(screen.getByText(/repas de bœuf/)).toBeInTheDocument();
+  // Évité SEUL en V1 : aucune ligne induit / bilan net / énergie primaire.
+  expect(screen.queryByText(/Bilan net/)).toBeNull();
+  expect(screen.queryByText(/CO₂ induit/)).toBeNull();
+  expect(screen.queryByText(/Énergie primaire/)).toBeNull();
+});
+
+it('Co2MethodePanelAg — formule par repas + facteur, sans tableau par matière', () => {
+  render(
+    <Co2MethodePanelAg
+      facteurParRepas={2.5}
+      source="FAO 2023 — Food loss and waste footprint"
+      repasDonnes={82}
+      eviteKg={205}
+      equivalences={{ km_voiture: 0.218, repas_boeuf: 7 }}
+    />,
+  );
+  expect(
+    screen.getByText(/Comment ce chiffre est-il calculé/),
+  ).toBeInTheDocument();
+  // Formule par repas (méthode FAO) + facteur figé injecté depuis l'endpoint.
+  expect(screen.getByText(/82 repas ×/)).toBeInTheDocument();
+  expect(screen.getByText(/FAO 2023/)).toBeInTheDocument();
+  // Pas de tableau de facteurs par matière (ZD only).
+  expect(screen.queryByText(/Facteurs d'émission par matière/)).toBeNull();
+});
+
+it('Co2 AG — carte cliquable + contenu modale (composants isolés)', () => {
+  // 1. La carte KPI « CO₂ évité » AG est cliquable (onClick → bouton) → ouvre la
+  //    modale (aucune navigation : invariant R24 préservé).
+  const onClick = vi.fn();
+  const { unmount } = render(
+    <KpiCockpitCard
+      label="CO₂ évité"
+      value="205"
+      unit="kg CO₂e"
+      dotColor="#16A34A"
+      onClick={onClick}
+    />,
+  );
+  const btn = screen.getByRole('button', { name: /CO₂ évité/ });
+  fireEvent.click(btn);
+  expect(onClick).toHaveBeenCalledTimes(1);
+  unmount();
+
+  // 2. Le contenu de la modale AG = héros allégé (évité seul) + méthode par repas.
+  render(
+    <div>
+      <Co2HeroCardAg
+        eviteKg={205}
+        equivalences={{ kmVoiture: 940, repasBoeuf: 29 }}
+      />
+      <Co2MethodePanelAg
+        facteurParRepas={2.5}
+        source="FAO 2023"
+        repasDonnes={82}
+        eviteKg={205}
+        equivalences={{ km_voiture: 0.218, repas_boeuf: 7 }}
+      />
+    </div>,
+  );
+  // Héros AG (suréditeur unique) + méthode par repas (chaînes uniques).
+  expect(
+    screen.getByText(/Impact carbone · dons anti-gaspi/),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(/Comment ce chiffre est-il calculé/),
+  ).toBeInTheDocument();
+  expect(screen.getByText(/82 repas ×/)).toBeInTheDocument();
+  // Rien de la méthode ABC ZD (induit/net/matières) sur l'AG.
+  expect(screen.queryByText(/Bilan net/)).toBeNull();
+  expect(screen.queryByText(/Facteurs d'émission par matière/)).toBeNull();
 });

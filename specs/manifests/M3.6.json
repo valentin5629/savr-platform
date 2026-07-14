@@ -136,6 +136,14 @@
       "test": "M3.6/cockpit_declinaison_drilldown + M0.6 — filtres avancés : traiteur/lieu peuplés + filtrage serveur",
       "statut": "implemented",
       "libelle": "R24c — Drill-down « clic Top 5 → /admin/collectes filtrée » (retour Val). MIROIR EXACT : type courant + statut=cloturee + période + MÊME périmètre d'organisations (param `perimetre` propagé → /admin/collectes filtre par `perimetre_org_ids[]` avec la MÊME logique opérateur-inclusive `.or` que le loader dashboard, sinon le drill sous périmètre actif renverrait un sur-ensemble). Top lieux → ?lieu, Top traiteurs → ?traiteur (= traiteur OPÉRATIONNEL, même clé que aggregateActeurs). La liste Collectes Admin devient URL-aware (lieu/traiteur/type/statut/from/to/perimetre → filtres initiaux + chip CollecteFiltreActif via sessionStorage) et son filtre « Traiteur » passe à traiteur_operationnel_id (API : nouveaux params `.eq(traiteur_operationnel_organisation_id)` + `.or` périmètre ; `organisation_id` conservé). Gestionnaire déjà aligné (traiteur_operationnel), agence = drill lieux seul (pas de Top traiteurs, diff #8), traiteur = drill commercial (created_by)."
+    },
+    {
+      "id": "M3.6-org-selecteur",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:118",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/dashboard-client/OrganisationSelector.tsx",
+      "test": "M3.6/org_selecteur_cellules_par_type + M3.6/dashboard_client_toutes_organisations_lecture_seule",
+      "statut": "implemented",
+      "libelle": "R24c — Sélecteur d'organisations refondu (retour Val GO-VISUAL) : CELLULES repliables (listes déroulantes) GROUPÉES PAR TYPE d'organisation — Traiteurs / Agences / Gestionnaires de lieux (ordre §06.06 §2), en-tête cellule = libellé + compteur + compteur sélectionnés + chevron. Recherche transverse conservée + option « Toutes les organisations » (sélection vide = défaut). Design System appliqué : tokens savr, cibles 44px (min-h-11 en-têtes/lignes/recherche/option toutes), chevrons lucide, accent checkbox savr-primary. Composant de filtrage, aucune écriture."
     }
   ],
   "cdc_source_hash": {

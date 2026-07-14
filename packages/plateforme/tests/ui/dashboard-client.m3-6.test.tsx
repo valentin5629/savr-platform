@@ -149,4 +149,29 @@ describe('M3.6 / Dashboard Client / UI', () => {
       expect(kpiCalls().some((u) => u.includes('organisation_ids'))).toBe(true),
     );
   });
+
+  it('M3.6/org_selecteur_cellules_par_type — cellules repliables groupées par type d’organisation (retour Val R24c)', async () => {
+    render(<DashboardClientView />);
+
+    // Une cellule (liste déroulante) par type présent : traiteur / gestionnaire / agence.
+    expect(
+      await screen.findByTestId('org-section-traiteur'),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('org-section-agence')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('org-section-gestionnaire_lieux'),
+    ).toBeInTheDocument();
+
+    // Dépliées par défaut → les organisations de chaque type sont visibles.
+    expect(screen.getByTestId('org-option-o1')).toBeInTheDocument(); // traiteur Alpha
+    expect(screen.getByTestId('org-option-o3')).toBeInTheDocument(); // agence Gamma
+
+    // Replier la cellule « Traiteurs » masque ses organisations.
+    fireEvent.click(screen.getByTestId('org-section-traiteur'));
+    await waitFor(() =>
+      expect(screen.queryByTestId('org-option-o1')).toBeNull(),
+    );
+    // Les autres cellules restent intactes.
+    expect(screen.getByTestId('org-option-o3')).toBeInTheDocument();
+  });
 });

@@ -4,15 +4,22 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserRole } from '@/lib/use-user-role';
 import {
-  AlertTriangle,
   ChevronLeft,
   ChevronRight,
   Save,
   CheckCircle,
   PlusCircle,
 } from 'lucide-react';
-import * as Dialog from '@radix-ui/react-dialog';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { FormField } from '@/components/ui/form-field';
+import { FormError } from '@/components/ui/form-error';
+import { Modal } from '@/components/ui/modal';
+import { AlertBar } from '@/components/ui/alert-bar';
 import { FormStepIndicator } from '@/components/programmation/form-step-indicator';
 import {
   LieuCombobox,
@@ -449,47 +456,41 @@ export default function NouveauProgrammationPage() {
 
       {/* ── Étape 1 : Événement ── */}
       {step === 0 && (
-        <div className="space-y-6">
+        <Card className="p-6 space-y-5">
           <h2 className="text-lg font-semibold text-savr-neutral-900">
             Informations sur l'événement
           </h2>
 
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-savr-neutral-700">
-              Nom du client final <span className="text-savr-error">*</span>
-            </label>
-            <input
-              type="text"
+          <FormField label="Nom du client final" htmlFor="nom-client" required>
+            <Input
+              id="nom-client"
               value={nomClient}
               onChange={(e) => setNomClient(e.target.value)}
               placeholder="Ex : Entreprise Dupont"
-              className="w-full rounded-savr-md border border-savr-neutral-300 px-3 py-2 text-sm focus:outline-2 focus:outline-savr-primary-500"
             />
-          </div>
+          </FormField>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-savr-neutral-700">
-                Nombre de convives <span className="text-savr-error">*</span>
-              </label>
-              <input
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <FormField label="Nombre de convives" htmlFor="pax" required>
+              <Input
+                id="pax"
                 type="number"
                 min="1"
                 value={pax}
                 onChange={(e) => setPax(e.target.value)}
                 placeholder="Ex : 80"
-                className="w-full rounded-savr-md border border-savr-neutral-300 px-3 py-2 text-sm focus:outline-2 focus:outline-savr-primary-500"
               />
-            </div>
+            </FormField>
 
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-savr-neutral-700">
-                Type d'événement <span className="text-savr-error">*</span>
-              </label>
-              <select
+            <FormField
+              label="Type d'événement"
+              htmlFor="type-evenement"
+              required
+            >
+              <Select
+                id="type-evenement"
                 value={typeEvenementId}
                 onChange={(e) => setTypeEvenementId(e.target.value)}
-                className="w-full rounded-savr-md border border-savr-neutral-300 px-3 py-2 text-sm focus:outline-2 focus:outline-savr-primary-500 bg-savr-white"
               >
                 <option value="">Choisir…</option>
                 {typesEvenements.map((t) => (
@@ -497,86 +498,78 @@ export default function NouveauProgrammationPage() {
                     {t.libelle}
                   </option>
                 ))}
-              </select>
-            </div>
+              </Select>
+            </FormField>
           </div>
 
           <div className="space-y-2">
-            <p className="text-sm font-medium text-savr-neutral-700">
-              Type(s) de collecte <span className="text-savr-error">*</span>
-            </p>
-            <div className="flex flex-col gap-2">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-savr-neutral-300 text-savr-primary-700"
+            <Label required>Type(s) de collecte</Label>
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  id="type-zd"
                   checked={typesCollecte.zd}
-                  onChange={(e) =>
-                    setTypesCollecte((p) => ({ ...p, zd: e.target.checked }))
+                  onCheckedChange={(c) =>
+                    setTypesCollecte((p) => ({ ...p, zd: c === true }))
                   }
                 />
-                <span className="text-sm">
+                <label htmlFor="type-zd" className="text-sm cursor-pointer">
                   <span className="font-medium">Zéro Déchet (ZD)</span>
                   <span className="text-savr-neutral-500 ml-1">
                     — compostage / méthanisation
                   </span>
-                </span>
-              </label>
+                </label>
+              </div>
 
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 mt-0.5 rounded border-savr-neutral-300 text-savr-primary-700"
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="type-ag"
+                  className="mt-0.5"
                   checked={typesCollecte.ag}
-                  onChange={(e) => void handleAgCheck(e.target.checked)}
+                  onCheckedChange={(c) => void handleAgCheck(c === true)}
                 />
-                <span className="text-sm">
+                <label htmlFor="type-ag" className="text-sm cursor-pointer">
                   <span className="font-medium">Anti-Gaspi (AG)</span>
                   <span className="text-savr-neutral-500 ml-1">
                     — don à association
                   </span>
                   {agBloque && (
-                    <span className="block text-savr-error text-xs mt-0.5">
-                      Aucun pack AG actif — décchez cette option pour continuer.
-                    </span>
+                    <FormError className="mt-0.5">
+                      Aucun pack AG actif — décochez cette option pour
+                      continuer.
+                    </FormError>
                   )}
-                </span>
-              </label>
+                </label>
+              </div>
             </div>
           </div>
 
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-savr-neutral-700">
-              Référence client{' '}
-              <span className="text-xs font-normal text-savr-neutral-400">
-                (optionnel)
-              </span>
-            </label>
-            <input
-              type="text"
+          <FormField label="Référence client (optionnel)" htmlFor="ref-client">
+            <Input
+              id="ref-client"
               value={referenceAffaire}
               onChange={(e) => setReferenceAffaire(e.target.value)}
               placeholder="Ex : CMD-2026-042"
-              className="w-full rounded-savr-md border border-savr-neutral-300 px-3 py-2 text-sm focus:outline-2 focus:outline-savr-primary-500"
             />
-          </div>
+          </FormField>
 
           {needsTraiteurSelector && (
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-savr-neutral-700">
-                {isAdmin ? 'Traiteur (pour le compte de)' : 'Traiteur opérant'}{' '}
-                <span className="text-savr-error">*</span>
-              </label>
-              {isAdmin && (
-                <p className="text-xs text-savr-neutral-500">
-                  Programmation de support — la collecte sera créée au nom de ce
-                  traiteur.
-                </p>
-              )}
-              <select
+            <FormField
+              label={
+                isAdmin ? 'Traiteur (pour le compte de)' : 'Traiteur opérant'
+              }
+              htmlFor="traiteur-select"
+              required
+              hint={
+                isAdmin
+                  ? 'Programmation de support — la collecte sera créée au nom de ce traiteur.'
+                  : undefined
+              }
+            >
+              <Select
+                id="traiteur-select"
                 value={traiteurOperationnelId}
                 onChange={(e) => setTraiteurOperationnelId(e.target.value)}
-                className="w-full rounded-savr-md border border-savr-neutral-300 px-3 py-2 text-sm focus:outline-2 focus:outline-savr-primary-500 bg-savr-white"
               >
                 <option value="">Choisir un traiteur…</option>
                 {traiteurs.map((t) => (
@@ -584,189 +577,184 @@ export default function NouveauProgrammationPage() {
                     {t.nom || t.raison_sociale}
                   </option>
                 ))}
-              </select>
+              </Select>
               {/* PROG-02 : option « hors référentiel » — agence uniquement (CDC
                   §06.01 l.280 : le gestionnaire de lieux n'a PAS cette option). */}
               {role === 'agence' && (
                 <button
                   type="button"
                   onClick={() => setShowShadowModal(true)}
-                  className="mt-1 flex items-center gap-1 text-sm text-savr-primary-700 hover:underline"
+                  className="mt-2 flex items-center gap-1 text-sm font-medium text-savr-primary-700 hover:underline"
                 >
                   <PlusCircle className="h-4 w-4" />
                   Ajouter un traiteur hors référentiel
                 </button>
               )}
-            </div>
+            </FormField>
           )}
 
           {/* PROG-02 : modal création traiteur shadow (hors référentiel) */}
-          <Dialog.Root open={showShadowModal} onOpenChange={setShowShadowModal}>
-            <Dialog.Portal>
-              <Dialog.Overlay className="fixed inset-0 bg-savr-neutral-900/40 z-40" />
-              <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-savr-lg bg-savr-white p-6 shadow-xl space-y-4">
-                <Dialog.Title className="font-semibold text-savr-neutral-900">
-                  Traiteur hors référentiel
-                </Dialog.Title>
-                <p className="text-xs text-savr-neutral-500">
-                  Une fiche traiteur provisoire sera créée et signalée à Savr
-                  pour vérification.
+          <Modal
+            open={showShadowModal}
+            title="Traiteur hors référentiel"
+            onClose={() => setShowShadowModal(false)}
+            footer={
+              <>
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowShadowModal(false)}
+                >
+                  Annuler
+                </Button>
+                <Button
+                  onClick={() => void handleCreateShadow()}
+                  disabled={
+                    !shadowForm.raison_sociale.trim() ||
+                    shadowForm.nom_commercial.trim().length < 2
+                  }
+                >
+                  Créer le traiteur
+                </Button>
+              </>
+            }
+          >
+            <div className="space-y-4">
+              <p className="text-xs text-savr-neutral-500">
+                Une fiche traiteur provisoire sera créée et signalée à Savr pour
+                vérification.
+              </p>
+              <FormField label="Nom commercial" htmlFor="shadow-nom" required>
+                <Input
+                  id="shadow-nom"
+                  value={shadowForm.nom_commercial}
+                  onChange={(e) =>
+                    setShadowForm((p) => ({
+                      ...p,
+                      nom_commercial: e.target.value,
+                    }))
+                  }
+                  placeholder="Nom commercial"
+                />
+              </FormField>
+              <FormField label="Raison sociale" htmlFor="shadow-rs" required>
+                <Input
+                  id="shadow-rs"
+                  value={shadowForm.raison_sociale}
+                  onChange={(e) =>
+                    setShadowForm((p) => ({
+                      ...p,
+                      raison_sociale: e.target.value,
+                    }))
+                  }
+                  placeholder="Raison sociale"
+                />
+              </FormField>
+              <FormField
+                label="SIRET"
+                htmlFor="shadow-siret"
+                hint="Fortement recommandé"
+              >
+                <Input
+                  id="shadow-siret"
+                  value={shadowForm.siret}
+                  onChange={(e) =>
+                    setShadowForm((p) => ({ ...p, siret: e.target.value }))
+                  }
+                  placeholder="123 456 789 00012"
+                />
+              </FormField>
+              {!shadowForm.siret.trim() && (
+                <p className="text-xs text-savr-error-strong">
+                  Sans SIRET, le bordereau réglementaire ne pourra pas être
+                  généré et le traiteur opérationnel ne sera pas conforme aux
+                  obligations de traçabilité déchets.
                 </p>
-                <div className="space-y-3">
-                  <input
-                    placeholder="Nom commercial *"
-                    value={shadowForm.nom_commercial}
-                    onChange={(e) =>
-                      setShadowForm((p) => ({
-                        ...p,
-                        nom_commercial: e.target.value,
-                      }))
-                    }
-                    className="w-full rounded-savr-md border border-savr-neutral-300 px-3 py-2 text-sm focus:outline-2 focus:outline-savr-primary-500"
-                  />
-                  <input
-                    placeholder="Raison sociale *"
-                    value={shadowForm.raison_sociale}
-                    onChange={(e) =>
-                      setShadowForm((p) => ({
-                        ...p,
-                        raison_sociale: e.target.value,
-                      }))
-                    }
-                    className="w-full rounded-savr-md border border-savr-neutral-300 px-3 py-2 text-sm focus:outline-2 focus:outline-savr-primary-500"
-                  />
-                  <div className="space-y-1">
-                    <input
-                      placeholder="SIRET (fortement recommandé)"
-                      value={shadowForm.siret}
-                      onChange={(e) =>
-                        setShadowForm((p) => ({ ...p, siret: e.target.value }))
-                      }
-                      className="w-full rounded-savr-md border border-savr-neutral-300 px-3 py-2 text-sm focus:outline-2 focus:outline-savr-primary-500"
-                    />
-                    {!shadowForm.siret.trim() && (
-                      <p className="text-xs text-savr-error">
-                        Sans SIRET, le bordereau réglementaire ne pourra pas
-                        être généré et le traiteur opérationnel ne sera pas
-                        conforme aux obligations de traçabilité déchets.
-                      </p>
-                    )}
-                  </div>
-                  {shadowError && (
-                    <p className="text-sm text-savr-error">{shadowError}</p>
-                  )}
-                </div>
-                <div className="flex gap-2 justify-end">
-                  <Button
-                    variant="secondary"
-                    onClick={() => setShowShadowModal(false)}
-                  >
-                    Annuler
-                  </Button>
-                  <Button
-                    onClick={() => void handleCreateShadow()}
-                    disabled={
-                      !shadowForm.raison_sociale.trim() ||
-                      shadowForm.nom_commercial.trim().length < 2
-                    }
-                  >
-                    Créer le traiteur
-                  </Button>
-                </div>
-              </Dialog.Content>
-            </Dialog.Portal>
-          </Dialog.Root>
+              )}
+              {shadowError && <FormError>{shadowError}</FormError>}
+            </div>
+          </Modal>
 
-          <div className="flex justify-end">
+          <div className="flex justify-end pt-1">
             <Button onClick={() => setStep(1)} disabled={!step1Valid}>
               Continuer
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* ── Étape 2 : Lieu & contacts ── */}
       {step === 1 && (
-        <div className="space-y-6">
+        <Card className="p-6 space-y-5">
           <h2 className="text-lg font-semibold text-savr-neutral-900">
             Lieu et contacts
           </h2>
 
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-savr-neutral-700">
-              Lieu de collecte <span className="text-savr-error">*</span>
-            </label>
+          <FormField label="Lieu de collecte" htmlFor="lieu-combobox" required>
             <LieuCombobox
               value={lieu}
               onChange={applyLieu}
               onAddManuel={() => setShowLieuManuel(true)}
               organisationId={adminTargetOrgId}
             />
-          </div>
+          </FormField>
 
           {/* PROG-01 : champs du lieu pré-remplis et éditables (override per-collecte) */}
           {lieu && lieuEdits && (
             <LieuChampsEditables edits={lieuEdits} onChange={setLieuEdits} />
           )}
 
-          {/* Lieu manuel — dialog */}
-          <Dialog.Root open={showLieuManuel} onOpenChange={setShowLieuManuel}>
-            <Dialog.Portal>
-              <Dialog.Overlay className="fixed inset-0 bg-savr-neutral-900/40 z-40" />
-              <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-savr-lg bg-savr-white p-6 shadow-xl space-y-4">
-                <Dialog.Title className="font-semibold text-savr-neutral-900">
-                  Ajouter un lieu manuellement
-                </Dialog.Title>
-                <LieuManuelForm
-                  onSave={(l) => {
-                    applyLieu(l);
-                    setShowLieuManuel(false);
-                  }}
-                  onCancel={() => setShowLieuManuel(false)}
-                  organisationId={adminTargetOrgId}
-                />
-              </Dialog.Content>
-            </Dialog.Portal>
-          </Dialog.Root>
+          {/* Lieu manuel — modal DS */}
+          <Modal
+            open={showLieuManuel}
+            title="Ajouter un lieu manuellement"
+            onClose={() => setShowLieuManuel(false)}
+          >
+            <LieuManuelForm
+              onSave={(l) => {
+                applyLieu(l);
+                setShowLieuManuel(false);
+              }}
+              onCancel={() => setShowLieuManuel(false)}
+              organisationId={adminTargetOrgId}
+            />
+          </Modal>
 
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-savr-neutral-700">
-              Contrôle d'accès
-            </label>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-savr-neutral-300 text-savr-primary-700"
+          <div className="space-y-2">
+            <Label>Contrôle d'accès</Label>
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="controle-acces"
+                className="mt-0.5"
                 checked={controleAcces}
-                onChange={(e) => setControleAcces(e.target.checked)}
+                onCheckedChange={(c) => setControleAcces(c === true)}
               />
-              <span className="text-sm">
+              <label
+                htmlFor="controle-acces"
+                className="text-sm cursor-pointer text-savr-neutral-700"
+              >
                 Plaque d'immatriculation et nom du chauffeur requis pour ce lieu
-              </span>
-            </label>
+              </label>
+            </div>
           </div>
 
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-savr-neutral-700">
-              Contact principal sur place{' '}
-              <span className="text-savr-error">*</span>
-            </label>
+          <FormField
+            label="Contact principal sur place"
+            htmlFor="contact-principal"
+            required
+          >
             <ContactCombobox
               value={contactPrincipal}
               onChange={setContactPrincipal}
               onAddInline={() => setShowContactForm('principal')}
               organisationId={adminTargetOrgId}
             />
-          </div>
+          </FormField>
 
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-savr-neutral-700">
-              Contact secours{' '}
-              <span className="text-xs font-normal text-savr-neutral-400">
-                (optionnel)
-              </span>
-            </label>
+          <FormField
+            label="Contact secours (optionnel)"
+            htmlFor="contact-secours"
+          >
             <ContactCombobox
               value={contactSecours}
               onChange={setContactSecours}
@@ -774,82 +762,88 @@ export default function NouveauProgrammationPage() {
               label="Ajouter un contact secours…"
               organisationId={adminTargetOrgId}
             />
-          </div>
+          </FormField>
 
-          {/* Contact inline form — dialog */}
-          <Dialog.Root
+          {/* Contact inline form — modal DS */}
+          <Modal
             open={showContactForm !== null}
-            onOpenChange={(v) => !v && setShowContactForm(null)}
+            title="Nouveau contact"
+            onClose={() => setShowContactForm(null)}
+            footer={
+              <>
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowContactForm(null)}
+                >
+                  Annuler
+                </Button>
+                <Button
+                  onClick={() =>
+                    showContactForm &&
+                    void handleAddContactInline(showContactForm)
+                  }
+                  disabled={
+                    !newContact.prenom ||
+                    !newContact.nom ||
+                    !newContact.telephone
+                  }
+                >
+                  Ajouter
+                </Button>
+              </>
+            }
           >
-            <Dialog.Portal>
-              <Dialog.Overlay className="fixed inset-0 bg-savr-neutral-900/40 z-40" />
-              <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-savr-lg bg-savr-white p-6 shadow-xl space-y-4">
-                <Dialog.Title className="font-semibold text-savr-neutral-900">
-                  Nouveau contact
-                </Dialog.Title>
-                <div className="space-y-3">
-                  <input
-                    placeholder="Prénom *"
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField label="Prénom" htmlFor="contact-prenom" required>
+                  <Input
+                    id="contact-prenom"
                     value={newContact.prenom}
                     onChange={(e) =>
                       setNewContact((p) => ({ ...p, prenom: e.target.value }))
                     }
-                    className="w-full rounded-savr-md border border-savr-neutral-300 px-3 py-2 text-sm focus:outline-2 focus:outline-savr-primary-500"
+                    placeholder="Prénom"
                   />
-                  <input
-                    placeholder="Nom *"
+                </FormField>
+                <FormField label="Nom" htmlFor="contact-nom" required>
+                  <Input
+                    id="contact-nom"
                     value={newContact.nom}
                     onChange={(e) =>
                       setNewContact((p) => ({ ...p, nom: e.target.value }))
                     }
-                    className="w-full rounded-savr-md border border-savr-neutral-300 px-3 py-2 text-sm focus:outline-2 focus:outline-savr-primary-500"
+                    placeholder="Nom"
                   />
-                  <input
-                    placeholder="Téléphone *"
-                    type="tel"
-                    value={newContact.telephone}
-                    onChange={(e) =>
-                      setNewContact((p) => ({
-                        ...p,
-                        telephone: e.target.value,
-                      }))
-                    }
-                    className="w-full rounded-savr-md border border-savr-neutral-300 px-3 py-2 text-sm focus:outline-2 focus:outline-savr-primary-500"
-                  />
-                  <input
-                    placeholder="Fonction (optionnel)"
-                    value={newContact.fonction}
-                    onChange={(e) =>
-                      setNewContact((p) => ({ ...p, fonction: e.target.value }))
-                    }
-                    className="w-full rounded-savr-md border border-savr-neutral-300 px-3 py-2 text-sm focus:outline-2 focus:outline-savr-primary-500"
-                  />
-                </div>
-                <div className="flex gap-2 justify-end">
-                  <Button
-                    variant="secondary"
-                    onClick={() => setShowContactForm(null)}
-                  >
-                    Annuler
-                  </Button>
-                  <Button
-                    onClick={() =>
-                      void handleAddContactInline(showContactForm!)
-                    }
-                    disabled={
-                      !newContact.prenom ||
-                      !newContact.nom ||
-                      !newContact.telephone
-                    }
-                  >
-                    Ajouter
-                  </Button>
-                </div>
-              </Dialog.Content>
-            </Dialog.Portal>
-          </Dialog.Root>
+                </FormField>
+              </div>
+              <FormField label="Téléphone" htmlFor="contact-tel" required>
+                <Input
+                  id="contact-tel"
+                  type="tel"
+                  value={newContact.telephone}
+                  onChange={(e) =>
+                    setNewContact((p) => ({ ...p, telephone: e.target.value }))
+                  }
+                  placeholder="06 12 34 56 78"
+                />
+              </FormField>
+              <FormField
+                label="Fonction (optionnel)"
+                htmlFor="contact-fonction"
+              >
+                <Input
+                  id="contact-fonction"
+                  value={newContact.fonction}
+                  onChange={(e) =>
+                    setNewContact((p) => ({ ...p, fonction: e.target.value }))
+                  }
+                  placeholder="Ex : Responsable salle"
+                />
+              </FormField>
+            </div>
+          </Modal>
 
-          <div className="flex justify-between">
+          <div className="flex justify-between pt-1">
             <Button variant="ghost" onClick={() => setStep(0)}>
               <ChevronLeft className="h-4 w-4" />
               Retour
@@ -859,12 +853,12 @@ export default function NouveauProgrammationPage() {
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* ── Étape 3 : Collectes + récapitulatif ── */}
       {step === 2 && (
-        <div className="space-y-6">
+        <Card className="p-6 space-y-5">
           <h2 className="text-lg font-semibold text-savr-neutral-900">
             Détails de la collecte
           </h2>
@@ -884,24 +878,24 @@ export default function NouveauProgrammationPage() {
           ))}
 
           {/* Récapitulatif */}
-          <div className="rounded-savr-lg border border-savr-neutral-200 bg-savr-neutral-50 p-4 space-y-2 text-sm">
+          <div className="rounded-savr-md border border-savr-neutral-200 bg-savr-neutral-50 p-4 space-y-2 text-sm">
             <h3 className="font-semibold text-savr-neutral-900">
               Récapitulatif
             </h3>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-savr-neutral-700">
-              <span className="text-savr-neutral-500">Client</span>
-              <span>{nomClient}</span>
-              <span className="text-savr-neutral-500">Convives</span>
-              <span>{pax}</span>
-              <span className="text-savr-neutral-500">Lieu</span>
-              <span>
+            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-savr-neutral-700">
+              <dt className="text-savr-neutral-500">Client</dt>
+              <dd>{nomClient}</dd>
+              <dt className="text-savr-neutral-500">Convives</dt>
+              <dd>{pax}</dd>
+              <dt className="text-savr-neutral-500">Lieu</dt>
+              <dd>
                 {lieu?.nom} — {lieu?.ville}
-              </span>
-              <span className="text-savr-neutral-500">Contact principal</span>
-              <span>
+              </dd>
+              <dt className="text-savr-neutral-500">Contact principal</dt>
+              <dd>
                 {contactPrincipal?.prenom} {contactPrincipal?.nom}
-              </span>
-            </div>
+              </dd>
+            </dl>
           </div>
 
           <p className="text-xs text-savr-neutral-500">
@@ -910,14 +904,9 @@ export default function NouveauProgrammationPage() {
             pack, un crédit est décompté (cf. CGV).
           </p>
 
-          {error && (
-            <div className="flex items-center gap-2 rounded-savr-md bg-red-50 border border-savr-error px-3 py-2 text-sm text-savr-error">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              {error}
-            </div>
-          )}
+          {error && <AlertBar variant="err">{error}</AlertBar>}
 
-          <div className="flex flex-col sm:flex-row justify-between gap-3">
+          <div className="flex flex-col sm:flex-row justify-between gap-3 pt-1">
             <Button variant="ghost" onClick={() => setStep(1)}>
               <ChevronLeft className="h-4 w-4" />
               Retour
@@ -940,7 +929,7 @@ export default function NouveauProgrammationPage() {
               </Button>
             </div>
           </div>
-        </div>
+        </Card>
       )}
     </div>
   );

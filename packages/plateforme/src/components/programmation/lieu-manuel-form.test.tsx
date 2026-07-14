@@ -32,17 +32,16 @@ describe('M0.6 — quick-add lieu manuel (BL-P1-BOA-03)', () => {
 
     render(<LieuManuelForm onSave={onSave} onCancel={vi.fn()} />);
 
-    fireEvent.change(screen.getByPlaceholderText('Nom du lieu *'), {
+    fireEvent.change(screen.getByLabelText(/Nom du lieu/), {
       target: { value: 'Château de Saint-Cloud' },
     });
-    fireEvent.change(
-      screen.getByPlaceholderText("Adresse d'accès livraison *"),
-      { target: { value: '1 avenue de Paris' } },
-    );
-    fireEvent.change(screen.getByPlaceholderText('Code postal *'), {
+    fireEvent.change(screen.getByLabelText(/Adresse d'accès livraison/), {
+      target: { value: '1 avenue de Paris' },
+    });
+    fireEvent.change(screen.getByLabelText(/Code postal/), {
       target: { value: '92210' },
     });
-    fireEvent.change(screen.getByPlaceholderText('Ville *'), {
+    fireEvent.change(screen.getByLabelText(/Ville/), {
       target: { value: 'Saint-Cloud' },
     });
     fireEvent.change(screen.getByLabelText(/Type de véhicule max/), {

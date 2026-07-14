@@ -308,6 +308,21 @@ it('EvolutionAgChart — rend des barres repas + la courbe ratio', () => {
   expect(screen.getByText(/Évolution Anti-Gaspi/)).toBeInTheDocument();
 });
 
+it('EvolutionAgChart — survol : point emphasé, aucune bande pleine colonne (retour Val)', () => {
+  const { container } = render(
+    <EvolutionAgChart series={ag} granularite="mois" />,
+  );
+  // Aucune surbrillance pleine colonne AVANT survol.
+  expect(container.querySelector('rect[opacity="0.04"]')).toBeNull();
+  const zone = container.querySelector('rect[fill="transparent"]');
+  expect(zone).not.toBeNull();
+  fireEvent.mouseEnter(zone!);
+  // Toujours aucune bande colonne APRÈS survol — seul le point/la barre s'emphase.
+  expect(container.querySelector('rect[opacity="0.04"]')).toBeNull();
+  // Le point de ratio du créneau survolé s'agrandit (r 1.25 → 2.75).
+  expect(container.querySelector('circle[r="2.75"]')).not.toBeNull();
+});
+
 it('TopRankList — rend rangs, libellés et valeurs formatées', () => {
   render(
     <TopRankList
@@ -322,6 +337,31 @@ it('TopRankList — rend rangs, libellés et valeurs formatées', () => {
   );
   expect(screen.getByText('Pavillon Gabriel')).toBeInTheDocument();
   expect(screen.getByText('14,2 t')).toBeInTheDocument();
+});
+
+it('TopRankList — onItemClick : lignes cliquables, index transmis (drill-down)', () => {
+  const onItemClick = vi.fn();
+  render(
+    <TopRankList
+      title="Top 5 lieux"
+      items={[
+        { label: 'Pavillon Gabriel', value: '14,2 t' },
+        { label: 'Salons Hoche', value: '11,8 t' },
+      ]}
+      onItemClick={onItemClick}
+    />,
+  );
+  const btns = screen.getAllByRole('button', { name: /Voir les collectes/ });
+  expect(btns).toHaveLength(2);
+  fireEvent.click(btns[1]!);
+  expect(onItemClick).toHaveBeenCalledWith(1);
+});
+
+it('TopRankList — sans onItemClick : aucune ligne cliquable', () => {
+  render(<TopRankList title="Top" items={[{ label: 'X', value: '1' }]} />);
+  expect(
+    screen.queryByRole('button', { name: /Voir les collectes/ }),
+  ).toBeNull();
 });
 
 it('EvolutionZdChart — survol d’un segment ouvre le tooltip du flux (grain flux)', () => {

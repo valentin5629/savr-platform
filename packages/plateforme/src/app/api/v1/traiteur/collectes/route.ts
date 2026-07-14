@@ -26,18 +26,35 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const from = searchParams.get('from');
   const to = searchParams.get('to');
   const lieuId = searchParams.get('lieu_id');
+  // Drill-down « Top 5 commerciaux » du dashboard → filtre sur le commercial
+  // créateur (evenements.created_by). Reste scopé org par la RLS col_select.
+  const commercialId = searchParams.get('commercial_id');
+  // Miroir exact du dashboard : `perimetre=organisation` restreint aux événements
+  // POSSÉDÉS par l'org (evenements.organisation_id) — comme le calcul des Top
+  // listes — au lieu du périmètre RLS plus large (org + opéré pour tiers).
+  const perimetre = searchParams.get('perimetre');
+  // Drill-down « Top associations bénéficiaires » (AG) → collectes attribuées à
+  // cette association (attributions_antgaspi.association_id, collecte_id UNIQUE).
+  const associationId = searchParams.get('association_id');
 
-  let query = supabase
-    .from('collectes')
-    .select(
-      `id, type, statut, statut_tms, date_collecte, heure_collecte,
+  // Typé `string` (pas template-literal) → overload générique supabase, sinon le
+  // parser de types échoue sur la concaténation conditionnelle de l'embed.
+  const selectBase: string = `id, type, statut, statut_tms, date_collecte, heure_collecte,
        informations_completes, taux_recyclage, realisee_at,
        evenements!inner(
          id, organisation_id, traiteur_operationnel_organisation_id, created_by,
          nom_evenement, pax, nom_client_organisateur,
          lieux!lieu_id(id, nom, adresse_acces, code_postal, ville)
-       )`,
-    )
+       )`;
+  // Embed inner sur attributions_antgaspi UNIQUEMENT si on filtre par association
+  // (sinon l'inner join exclurait les collectes ZD, dépourvues d'attribution).
+  const select = associationId
+    ? `${selectBase}, attributions_antgaspi!inner(association_id)`
+    : selectBase;
+
+  let query = supabase
+    .from('collectes')
+    .select(select)
     .order('date_collecte', { ascending: false });
 
   if (type === 'zero_dechet' || type === 'anti_gaspi') {
@@ -47,6 +64,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (from) query = query.gte('date_collecte', from);
   if (to) query = query.lte('date_collecte', to);
   if (lieuId) query = query.eq('evenements.lieu_id', lieuId);
+  if (commercialId) query = query.eq('evenements.created_by', commercialId);
+  if (perimetre === 'organisation')
+    query = query.eq('evenements.organisation_id', auth.ctx.organisationId);
+  if (associationId)
+    query = query.eq('attributions_antgaspi.association_id', associationId);
 
   const { data, error } = await query;
   if (error)
@@ -54,7 +76,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   // Indicateur "programmée par tiers" : evenement.organisation_id != traiteur opérationnel
   const orgId = auth.ctx.organisationId;
-  const rows = (data ?? []).map((c) => {
+  const rows = (
+    (data ?? []) as unknown as Array<
+      { evenements: unknown } & Record<string, unknown>
+    >
+  ).map((c) => {
     const evt = (
       Array.isArray(c.evenements) ? c.evenements[0] : c.evenements
     ) as

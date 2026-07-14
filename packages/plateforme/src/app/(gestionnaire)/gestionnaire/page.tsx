@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { setCollecteFiltreLabel } from '@/lib/dashboards/collecte-filtre-label';
 import {
   CollecteTypeTabs,
   DashboardFilterBar,
@@ -67,6 +69,7 @@ interface PackActif {
 }
 
 export default function GestionnaireDashboardPage() {
+  const router = useRouter();
   const [tab, setTab] = useState<CollecteType>('zero_dechet');
   const [filters, setFilters] = useState<DashboardFilters | null>(null);
   const [parcOptions, setParcOptions] = useState<ParcFilterOptions | undefined>(
@@ -229,6 +232,26 @@ export default function GestionnaireDashboardPage() {
       ? 'Top 5 commerciaux'
       : 'Top 5 traiteurs';
 
+  // Drill-down Top listes → liste Collectes du gestionnaire filtrée. Miroir EXACT
+  // du chiffre du dashboard : type courant + période (from/to) + statut `cloturee`
+  // seul (base du calcul Top listes). Libellé via sessionStorage (pas d'ID → nom
+  // en query string).
+  const drillScope = `type=${tab}&statut=cloturee${
+    filters ? `&from=${filters.from}&to=${filters.to}` : ''
+  }`;
+  const goToLieu = (i: number) => {
+    const l = blocs?.topLieux?.[i];
+    if (!l) return;
+    setCollecteFiltreLabel({ kind: 'lieu', id: l.lieu_id, label: l.lieu_nom });
+    router.push(`/gestionnaire/collectes?lieu=${l.lieu_id}&${drillScope}`);
+  };
+  const goToActeur = (i: number) => {
+    const a = blocs?.topActeurs?.[i];
+    if (!a) return;
+    setCollecteFiltreLabel({ kind: 'traiteur', id: a.id, label: a.label });
+    router.push(`/gestionnaire/collectes?traiteur=${a.id}&${drillScope}`);
+  };
+
   const gaugeItems = benchmarkItems(
     FLUX_ZD.map((f) => ({ code: f.code, label: f.label })),
     perFlux,
@@ -326,6 +349,7 @@ export default function GestionnaireDashboardPage() {
                 title="Top 5 lieux"
                 subtitle="Par tonnage collecté"
                 items={withBars(topLieuxItems)}
+                onItemClick={goToLieu}
                 showBar
               />
             </div>
@@ -335,6 +359,7 @@ export default function GestionnaireDashboardPage() {
                   title={acteurTitre}
                   subtitle="Par nombre de collectes"
                   items={withBars(topActeursItems)}
+                  onItemClick={goToActeur}
                   showBar
                 />
               </div>
@@ -435,6 +460,7 @@ export default function GestionnaireDashboardPage() {
                 title="Top 5 lieux"
                 subtitle="Par repas donnés"
                 items={withBars(topLieuxItems)}
+                onItemClick={goToLieu}
                 showBar
               />
             </div>
@@ -444,6 +470,7 @@ export default function GestionnaireDashboardPage() {
                   title={acteurTitre}
                   subtitle="Par nombre de collectes"
                   items={withBars(topActeursItems)}
+                  onItemClick={goToActeur}
                   showBar
                 />
               </div>

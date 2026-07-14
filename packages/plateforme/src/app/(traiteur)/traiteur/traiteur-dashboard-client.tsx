@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { setCollecteFiltreLabel } from '@/lib/dashboards/collecte-filtre-label';
 import {
   CollecteTypeTabs,
   DashboardFilterBar,
@@ -111,6 +113,7 @@ export function TraiteurDashboardClient({
   initialFilters,
   benchmark,
 }: TraiteurDashboardClientProps) {
+  const router = useRouter();
   const [tab, setTab] = useState<CollecteType>('zero_dechet');
   const [filters, setFilters] = useState<DashboardFilters>({
     from: initialFilters.from,
@@ -305,6 +308,44 @@ export function TraiteurDashboardClient({
   const acteurTitre =
     blocs?.acteurLabel === 'Traiteur' ? 'Top 5 traiteurs' : 'Top 5 commerciaux';
 
+  // Drill-down Top listes → liste Collectes (onglet Historique) filtrée. Miroir
+  // EXACT du chiffre du dashboard : même type, même période (from/to), et statut
+  // `cloturee` seul (base du calcul Top listes) → le nombre de lignes = le chiffre.
+  // Le libellé humain passe par sessionStorage (pas d'ID → nom en query string).
+  // `perimetre=organisation` = restreint aux événements que l'org POSSÈDE
+  // (evenements.organisation_id), comme le dashboard — la liste traiteur voit
+  // sinon aussi les événements opérés pour des tiers → sur-comptage.
+  const drillScope = `&type=${tab}&statut=cloturee&perimetre=organisation&from=${filters.from}&to=${filters.to}`;
+  const goToLieu = (i: number) => {
+    const l = blocs?.topLieux?.[i];
+    if (!l) return;
+    setCollecteFiltreLabel({ kind: 'lieu', id: l.lieu_id, label: l.lieu_nom });
+    router.push(
+      `/traiteur/collectes?onglet=historique&lieu=${l.lieu_id}${drillScope}`,
+    );
+  };
+  const goToActeur = (i: number) => {
+    const a = blocs?.topActeurs?.[i];
+    if (!a) return;
+    setCollecteFiltreLabel({ kind: 'commercial', id: a.id, label: a.label });
+    router.push(
+      `/traiteur/collectes?onglet=historique&commercial=${a.id}${drillScope}`,
+    );
+  };
+  // Bloc 3 AG — clic sur une association bénéficiaire → collectes AG filtrées.
+  const goToAssociation = (i: number) => {
+    const a = blocs?.topAssociations?.[i];
+    if (!a) return;
+    setCollecteFiltreLabel({
+      kind: 'association',
+      id: a.association_id,
+      label: a.nom,
+    });
+    router.push(
+      `/traiteur/collectes?onglet=historique&association=${a.association_id}${drillScope}`,
+    );
+  };
+
   // ── Benchmark (Bloc 3 ZD) ────────────────────────────────────────────────────
   const gaugeItems = benchmarkItems(
     FLUX_ZD.map((f) => ({ code: f.code, label: f.label })),
@@ -474,6 +515,7 @@ export function TraiteurDashboardClient({
                 title="Top 5 lieux"
                 subtitle="Par tonnage collecté"
                 items={withBars(topLieuxItems)}
+                onItemClick={goToLieu}
                 showBar
               />
             </div>
@@ -483,6 +525,7 @@ export function TraiteurDashboardClient({
                   title={acteurTitre}
                   subtitle="Par nombre de collectes"
                   items={withBars(topActeursItems)}
+                  onItemClick={goToActeur}
                   showBar
                 />
               </div>
@@ -626,6 +669,7 @@ export function TraiteurDashboardClient({
                 title="Top associations bénéficiaires"
                 subtitle="Par repas reçus"
                 items={withBars(topAssociationsItems)}
+                onItemClick={goToAssociation}
                 avatarShape="round"
                 avatarTint="orange"
                 showBar
@@ -636,6 +680,7 @@ export function TraiteurDashboardClient({
                 title="Top 5 lieux"
                 subtitle="Par repas donnés"
                 items={withBars(topLieuxItems)}
+                onItemClick={goToLieu}
                 showBar
               />
             </div>
@@ -648,6 +693,7 @@ export function TraiteurDashboardClient({
                 title={acteurTitre}
                 subtitle="Par nombre de collectes"
                 items={withBars(topActeursItems)}
+                onItemClick={goToActeur}
                 showBar
               />
             </div>

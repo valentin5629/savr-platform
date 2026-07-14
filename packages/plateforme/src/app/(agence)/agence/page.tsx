@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { setCollecteFiltreLabel } from '@/lib/dashboards/collecte-filtre-label';
 import {
   CollecteTypeTabs,
   DashboardFilterBar,
@@ -43,6 +45,7 @@ interface KpiRow {
 }
 
 export default function AgenceDashboardPage() {
+  const router = useRouter();
   const [tab, setTab] = useState<CollecteType>('zero_dechet');
   const [filters, setFilters] = useState<DashboardFilters | null>(null);
   const [rows, setRows] = useState<KpiRow[]>([]);
@@ -320,8 +323,26 @@ export default function AgenceDashboardPage() {
             hrefFor={(c) => `/agence/collectes/${c.id}`}
           />
 
-          {/* Bloc 6 — Top 5 lieux (§06.11 hérite §06.04 Bloc 6) */}
-          <TopLieuxBloc items={blocs?.topLieux ?? []} type={tab} />
+          {/* Bloc 6 — Top 5 lieux (§06.11 hérite §06.04 Bloc 6). Clic → liste
+              Collectes filtrée sur le lieu (libellé via sessionStorage). */}
+          <TopLieuxBloc
+            items={blocs?.topLieux ?? []}
+            type={tab}
+            onRowClick={(l) => {
+              setCollecteFiltreLabel({
+                kind: 'lieu',
+                id: l.lieu_id,
+                label: l.lieu_nom,
+              });
+              // Miroir exact du dashboard : type + période + statut clôturée.
+              const periode = filters
+                ? `&from=${filters.from}&to=${filters.to}`
+                : '';
+              router.push(
+                `/agence/collectes?type=${tab}&statut=cloturee&lieu=${l.lieu_id}${periode}`,
+              );
+            }}
+          />
 
           {/* Bloc 7 « Top 5 commerciaux » RETIRÉ côté agence (§06.11 diff #8,
               F1 2026-06-07 — RLS users agence = self). Non monté. */}

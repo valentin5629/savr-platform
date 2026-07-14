@@ -8,7 +8,6 @@ import { formatPeriode } from '../format';
 import { ChartCard } from './ChartCard';
 import { fmtInt, fmtDec } from './fmt';
 import {
-  INK,
   TEXT_MUTED,
   TEXT_FAINT,
   TEXT_STRONG,
@@ -68,13 +67,14 @@ const EvolutionAgChart = React.forwardRef<
     Math.max(0.1, ...series.map((p) => Number(p.ratio) || 0)),
   );
 
+  // 3e valeur = index série (≠ index filtré) pour matcher `hover` sur le point.
   const ratioPts = series
     .map((p, i) =>
       p.ratio != null
-        ? ([cx(i), BASE - (p.ratio / ratioMax) * PLOT_H] as const)
+        ? ([cx(i), BASE - (p.ratio / ratioMax) * PLOT_H, i] as const)
         : null,
     )
-    .filter((v): v is readonly [number, number] => v !== null);
+    .filter((v): v is readonly [number, number, number] => v !== null);
 
   const gridT = [0, 0.5, 1];
 
@@ -174,17 +174,8 @@ const EvolutionAgChart = React.forwardRef<
               </text>
             ))}
 
-            {/* colonne survolée (surbrillance discrète) */}
-            {hover != null && (
-              <rect
-                x={cx(hover) - slot / 2}
-                y={TOP}
-                width={slot}
-                height={PLOT_H}
-                fill={INK}
-                opacity={0.04}
-              />
-            )}
+            {/* Pas de surbrillance pleine colonne (retour Val) : seule la barre
+                (fill-opacity) et le point (rayon) du créneau survolé s'emphasent. */}
 
             {/* barres repas donnés (orange) — masquables via la légende */}
             {!hidden.has('repas') &&
@@ -223,18 +214,21 @@ const EvolutionAgChart = React.forwardRef<
                   strokeLinecap="round"
                   style={{ pointerEvents: 'none' }}
                 />
-                {ratioPts.map(([x, y], k) => (
-                  <circle
-                    key={k}
-                    cx={x}
-                    cy={y}
-                    r={1.25}
-                    fill="#fff"
-                    stroke={RATIO_COLOR}
-                    strokeWidth={0.75}
-                    style={{ pointerEvents: 'none' }}
-                  />
-                ))}
+                {ratioPts.map(([x, y, i], k) => {
+                  const on = hover === i;
+                  return (
+                    <circle
+                      key={k}
+                      cx={x}
+                      cy={y}
+                      r={on ? 2.75 : 1.25}
+                      fill={on ? RATIO_COLOR : '#fff'}
+                      stroke={RATIO_COLOR}
+                      strokeWidth={on ? 1 : 0.75}
+                      style={{ pointerEvents: 'none', transition: 'r 120ms' }}
+                    />
+                  );
+                })}
               </>
             )}
 

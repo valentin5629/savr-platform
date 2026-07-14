@@ -8,6 +8,11 @@ import {
   CollecteTypeTabs,
   type CollecteType,
 } from '@/components/dashboards/index.js';
+import { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
+import {
+  readCollecteFiltreLabel,
+  periodeCourte,
+} from '@/lib/dashboards/collecte-filtre-label';
 
 interface Lieu {
   nom: string;
@@ -47,6 +52,9 @@ function CollectesContent() {
   const initialTab =
     params.get('type') === 'anti_gaspi' ? 'anti_gaspi' : 'zero_dechet';
   const [tab, setTab] = useState<CollecteType>(initialTab);
+  // Drill-down « Top 5 lieux » du dashboard agence → filtre sur le lieu.
+  const lieuFiltre = params.get('lieu');
+  const [filtreLabel, setFiltreLabel] = useState<string | null>(null);
   const [rows, setRows] = useState<CollecteRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -55,13 +63,22 @@ function CollectesContent() {
     const qs = new URLSearchParams({ type: tab });
     const from = params.get('from');
     const to = params.get('to');
+    const statut = params.get('statut');
     if (from) qs.set('from', from);
     if (to) qs.set('to', to);
+    if (statut) qs.set('statut', statut);
+    if (lieuFiltre) qs.set('lieu_id', lieuFiltre);
     fetch(`/api/v1/agence/collectes?${qs}`)
       .then((r) => r.json())
       .then((j) => setRows((j.data ?? []) as CollecteRow[]))
       .finally(() => setLoading(false));
-  }, [tab, params]);
+  }, [tab, params, lieuFiltre]);
+
+  useEffect(() => {
+    setFiltreLabel(
+      lieuFiltre ? readCollecteFiltreLabel('lieu', lieuFiltre) : null,
+    );
+  }, [lieuFiltre]);
 
   function changeTab(t: CollecteType) {
     setTab(t);
@@ -69,6 +86,27 @@ function CollectesContent() {
     usp.set('type', t);
     router.replace(`/agence/collectes?${usp}`);
   }
+  function clearFiltre() {
+    const usp = new URLSearchParams(Array.from(params.entries()));
+    ['lieu', 'statut', 'from', 'to'].forEach((k) => usp.delete(k));
+    router.replace(`/agence/collectes?${usp}`);
+  }
+
+  const lieuNomDesRows = (() => {
+    const evt = one(rows[0]?.evenements ?? null);
+    const lieu = one(evt?.lieux ?? null);
+    return lieu?.nom ?? null;
+  })();
+  const chipLabel = lieuFiltre
+    ? `Lieu : ${filtreLabel ?? lieuNomDesRows ?? 'lieu sélectionné'}`
+    : null;
+  const chipScope = (() => {
+    const parts: string[] = [];
+    if (params.get('statut') === 'cloturee') parts.push('clôturées');
+    const per = periodeCourte(params.get('from'), params.get('to'));
+    if (per) parts.push(per);
+    return parts.length ? parts.join(' · ') : undefined;
+  })();
 
   function exportCsv() {
     const qs = new URLSearchParams({ type: tab });
@@ -96,6 +134,14 @@ function CollectesContent() {
       </div>
 
       <CollecteTypeTabs value={tab} onChange={changeTab} />
+
+      {chipLabel && (
+        <CollecteFiltreActif
+          label={chipLabel}
+          scope={chipScope}
+          onClear={clearFiltre}
+        />
+      )}
 
       {loading ? (
         <p className="text-sm text-savr-neutral-500">Chargement…</p>

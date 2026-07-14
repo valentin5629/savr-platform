@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { type Role, NAV_CONFIG } from '@/lib/nav-config';
+import { useLogoZd, isZdSectionPath } from '@/components/layout/logo-context';
+import { SavrLogoMark } from '@/components/layout/savr-logo';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface SidebarProps {
@@ -26,6 +28,11 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
     ref,
   ) => {
     const pathname = usePathname();
+    const { zdSelected } = useLogoZd();
+    // Logo Savr : orange par défaut, vert dès qu'on est en contexte ZD — soit
+    // par la navigation (section ZD-only), soit par une sélection ZD en cours
+    // dans la page (ex : type de collecte ZD coché).
+    const logoZd = zdSelected || isZdSectionPath(pathname);
     const hidden = new Set(hiddenNavHrefs ?? []);
     const groups = (NAV_CONFIG[role] ?? []).map((g) => ({
       ...g,
@@ -42,22 +49,21 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
           className,
         )}
       >
-        {/* Logo / marque */}
+        {/* Logo / marque — asset officiel « + savr » teinté (orange par défaut,
+            vert en contexte ZD), comme l'asset de marque monochrome */}
         <div
+          data-testid="savr-logo"
           className={cn(
-            'flex h-16 shrink-0 items-center border-b border-savr-primary-700 px-4',
+            'flex h-16 shrink-0 items-center border-b border-savr-primary-700 px-4 transition-colors duration-200',
             collapsed && 'justify-center px-0',
+            logoZd ? 'text-savr-success' : 'text-savr-accent-500',
           )}
         >
-          {collapsed ? (
-            <span className="text-xl font-extrabold text-savr-white tracking-[-0.02em]">
-              S
-            </span>
-          ) : (
-            <span className="text-xl font-extrabold text-savr-white tracking-[-0.02em]">
-              Savr
-            </span>
-          )}
+          <SavrLogoMark
+            title="savr"
+            variant={collapsed ? 'mark' : 'full'}
+            className={collapsed ? 'h-7 w-7' : 'h-8 w-auto'}
+          />
         </div>
 
         {/* Items de nav */}

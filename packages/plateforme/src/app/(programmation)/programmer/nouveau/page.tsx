@@ -33,6 +33,7 @@ import {
   SousBlocCollecte,
   type CollecteFormData,
 } from '@/components/programmation/sous-bloc-collecte';
+import { useSignalZdSelection } from '@/components/layout/logo-context';
 
 const STEPS = [
   { label: 'Événement' },
@@ -129,6 +130,8 @@ export default function NouveauProgrammationPage() {
     zd: boolean;
     ag: boolean;
   }>({ zd: false, ag: false });
+  // Logo Savr vert dès qu'on sélectionne le ZD ; retour à l'orange sinon.
+  useSignalZdSelection(typesCollecte.zd);
   const [referenceAffaire, setReferenceAffaire] = useState('');
   const [packAg, setPackAg] = useState<PackInfo | null>(null);
   const [agBloque, setAgBloque] = useState(false);

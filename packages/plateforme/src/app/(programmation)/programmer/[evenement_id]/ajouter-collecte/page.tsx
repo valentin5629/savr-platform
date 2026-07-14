@@ -8,11 +8,14 @@ import {
   SousBlocCollecte,
   type CollecteFormData,
 } from '@/components/programmation/sous-bloc-collecte';
+import { useSignalZdSelection } from '@/components/layout/logo-context';
 
 export default function AjouterCollectePage() {
   const { evenement_id } = useParams<{ evenement_id: string }>();
   const router = useRouter();
   const [type, setType] = useState<'zd' | 'ag'>('zd');
+  // Logo Savr vert tant que l'onglet ZD est actif ; orange sur Anti-Gaspi.
+  useSignalZdSelection(type === 'zd');
   const [data, setData] = useState<CollecteFormData>({
     type: 'zd',
     date_collecte: '',

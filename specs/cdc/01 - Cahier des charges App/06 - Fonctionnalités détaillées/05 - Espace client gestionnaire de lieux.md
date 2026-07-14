@@ -129,7 +129,7 @@ Mapping 4 cartes affichées par onglet :
 - **ZD** : Nombre de collectes · Tonnage collecté · Taux de recyclage · kg/pax moyen
 - **AG** : Nombre de collectes · Repas donnés · Pax cumulés · Repas/pax moyen
 
-Chaque carte clickable → renvoie vers la liste **Événements** filtrée (filtres globaux du dashboard transmis en query string, plus filtre `Type` ZD/AG selon l'onglet actif).
+Chaque carte porte une **sparkline** (tendance mensuelle) et une **variation N-1** (sauf « kg/pax ») *(déclinaison Cockpit, GO-VISUAL Val 2026-07-10)*. **Les cartes KPI ne sont PAS cliquables** *(décision Val GO-VISUAL 2026-07-10)*. Pas de héros CO₂ côté gestionnaire (endpoint agrégé, sans `co2_*`).
 
 ---
 
@@ -194,17 +194,19 @@ Liste des collectes ZD à venir sur les 30 prochains jours, filtrée selon les f
 - Traiteur
 - Statut
 
-Lecture seule. **Clic → détail de l'événement parent** (la page Collectes n'existant plus en V1, le détail collecte est intégré dans le détail événement — voir §2 Section Événements).
+Lecture seule. **Clic → détail de l'événement parent** *(correction 2026-07-14 — la page Collectes gestionnaire existe (nav §1 + section « Liste Collectes ») ; le clic pointe vers l'événement par choix UX, non par absence de page Collectes)*.
 
 #### Bloc 6 ZD — Top 5 lieux ZD
 
 Tableau ordonné par tonnage, période filtrée :
 - Lieu · Nombre de collectes ZD · Tonnage · Taux de recyclage *(moyenne pondérée par tonnage)*
+- **Chaque ligne cliquable → liste Collectes filtrée sur le lieu** *(drill-down, décision Val 2026-07-14)*. Liste plate (pas d'onglet Historique), tous statuts, type ZD/AG non figé ; filtres du dashboard propagés (période + Type/Taille d'événement). Chip « Filtre actif » ; libellé via `sessionStorage`.
 
 #### Bloc 7 ZD — Top 5 traiteurs ZD
 
 Tableau ordonné par nombre de collectes ZD, période filtrée :
 - Traiteur · Nombre de collectes ZD · Tonnage · Taux de recyclage *(moyenne pondérée par tonnage)*
+- **Chaque ligne cliquable → liste Collectes filtrée sur le traiteur** *(drill-down, décision Val 2026-07-14)*.
 
 #### Bloc 8 ZD — Exporter une synthèse PDF (ZD)
 
@@ -256,11 +258,13 @@ Lecture seule. **Clic → détail de l'événement parent**.
 
 Tableau ordonné par repas donnés, période filtrée :
 - Lieu · Nombre de collectes AG · Repas donnés · Repas/pax
+- **Chaque ligne cliquable → liste Collectes filtrée sur le lieu** *(drill-down AG, décision Val 2026-07-14)*.
 
 #### Bloc 7 AG — Top 5 traiteurs AG
 
 Tableau ordonné par nombre de collectes AG, période filtrée :
 - Traiteur · Nombre de collectes AG · Repas donnés · Repas/pax
+- **Chaque ligne cliquable → liste Collectes filtrée sur le traiteur** *(drill-down AG, décision Val 2026-07-14)*.
 
 #### Bloc 8 AG — Exporter une synthèse PDF (AG)
 

@@ -5,20 +5,35 @@ import { Eye } from 'lucide-react';
 import {
   CollecteTypeTabs,
   DashboardFilterBar,
-  KpiCard,
   BenchmarkGauge,
-  TonnageDisplay,
   EmptyDashboardState,
   FLUX_ZD,
   type CollecteType,
   type DashboardFilters,
 } from '@/components/dashboards/index.js';
+// Librairie data-viz « Cockpit » (R24) — importée en direct (hors barrel).
+import { KpiCockpitCard } from '@/components/dashboards/charts/cockpit/KpiCockpitCard';
+import {
+  fmtInt,
+  fmtDec,
+  fmtMasse,
+} from '@/components/dashboards/charts/cockpit/fmt';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
   OrganisationSelector,
   type OrganisationOption,
 } from './OrganisationSelector.js';
+
+// Pastilles couleur des cartes KPI (palette data-viz DS §2.4, figée par sens —
+// identique gestionnaire, dashboard répliqué).
+const DOT = {
+  navy: '#223870',
+  navy2: '#3F5599',
+  green: '#16A34A',
+  navy3: '#6379B6',
+  accent: '#FF9B00',
+};
 
 interface KpiData {
   nb_collectes: number;
@@ -38,6 +53,11 @@ const BENCHMARK_ENDPOINT = '/api/v1/admin/dashboard-client/benchmark';
  * gestionnaire (§06.05), agrégée sur le périmètre d'organisations sélectionné.
  * « Toutes les organisations » (défaut) = totalité des collectes Savr.
  * La sélection est persistée/restaurée via localStorage. Aucune écriture.
+ *
+ * Décliné en Cockpit (R24c) : les cartes KPI passent en `KpiCockpitCard` (chrome
+ * data-viz partagé, NON cliquables — lecture seule, aucune navigation ni action).
+ * Les jauges benchmark restent servies par `BenchmarkGauge` (endpoint Admin dédié
+ * `/api/v1/admin/dashboard-client/benchmark`, décision Val R24c option A).
  */
 export function DashboardClientView() {
   const [organisations, setOrganisations] = useState<OrganisationOption[]>([]);
@@ -144,34 +164,57 @@ export function DashboardClientView() {
         <>
           {tab === 'zero_dechet' ? (
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-              <KpiCard label="Nombre de collectes" value={kpi.nb_collectes} />
-              <KpiCard
-                label="Tonnage collecté"
-                value={<TonnageDisplay kg={kpi.tonnage_kg ?? 0} />}
+              <KpiCockpitCard
+                label="Nombre de collectes"
+                value={fmtInt(kpi.nb_collectes)}
+                dotColor={DOT.navy}
               />
-              <KpiCard
+              <KpiCockpitCard
+                label="Tonnage collecté"
+                value={fmtMasse(kpi.tonnage_kg ?? 0).value}
+                unit={fmtMasse(kpi.tonnage_kg ?? 0).unit}
+                dotColor={DOT.navy2}
+              />
+              <KpiCockpitCard
                 label="Taux de recyclage"
                 value={
                   kpi.taux_recyclage_pondere != null
-                    ? `${kpi.taux_recyclage_pondere.toFixed(1)} %`
+                    ? fmtDec(kpi.taux_recyclage_pondere, 1)
                     : '—'
                 }
+                unit={kpi.taux_recyclage_pondere != null ? '%' : undefined}
+                dotColor={DOT.green}
               />
-              <KpiCard
+              <KpiCockpitCard
                 label="kg/pax moyen"
-                value={kpi.kg_par_pax != null ? kpi.kg_par_pax.toFixed(2) : '—'}
+                value={kpi.kg_par_pax != null ? fmtDec(kpi.kg_par_pax, 2) : '—'}
+                unit={kpi.kg_par_pax != null ? 'kg/pax' : undefined}
+                dotColor={DOT.navy3}
               />
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-              <KpiCard label="Nombre de collectes" value={kpi.nb_collectes} />
-              <KpiCard label="Repas donnés" value={kpi.nb_repas_donnes ?? 0} />
-              <KpiCard label="Pax cumulés" value={kpi.pax_total ?? 0} />
-              <KpiCard
+              <KpiCockpitCard
+                label="Nombre de collectes"
+                value={fmtInt(kpi.nb_collectes)}
+                dotColor={DOT.navy}
+              />
+              <KpiCockpitCard
+                label="Repas donnés"
+                value={fmtInt(kpi.nb_repas_donnes ?? 0)}
+                dotColor={DOT.accent}
+              />
+              <KpiCockpitCard
+                label="Pax cumulés"
+                value={fmtInt(kpi.pax_total ?? 0)}
+                dotColor={DOT.navy2}
+              />
+              <KpiCockpitCard
                 label="Repas/pax moyen"
                 value={
-                  kpi.repas_par_pax != null ? kpi.repas_par_pax.toFixed(2) : '—'
+                  kpi.repas_par_pax != null ? fmtDec(kpi.repas_par_pax, 2) : '—'
                 }
+                dotColor={DOT.navy3}
               />
             </div>
           )}

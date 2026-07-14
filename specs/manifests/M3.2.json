@@ -400,7 +400,7 @@
     {
       "id": "M3.2-bloc6-top-lieux",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:199",
-      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/TopRankList.tsx (R24 Cockpit ; TopLieuxBloc conserve pour agence)",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/TopRankList.tsx (R24 Cockpit ; ex-TopLieuxBloc supprimé en R24c — agence migrée, plus aucun consommateur)",
       "test": "M3.2/blocs_gestionnaire_perimetre_et_top_traiteurs",
       "statut": "implemented",
       "libelle": "Bloc 6 ZD/AG gestionnaire — top 5 lieux (périmètre organisations_lieux), ZD par tonnage / AG par repas."
@@ -416,7 +416,7 @@
     {
       "id": "M3.2-bloc3ag-associations",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:233",
-      "artefact": "packages/plateforme/src/components/dashboards/TopAssociationsBloc.tsx",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/TopRankList.tsx (R24 Cockpit ; ex-TopAssociationsBloc.tsx supprimé en R24c)",
       "test": "M3.2/blocs_gestionnaire_ag_associations",
       "statut": "implemented",
       "libelle": "Bloc 3 AG gestionnaire — top associations bénéficiaires (périmètre parc). Colonne « Distance moyenne (km) » (§06.05 l.52) NON rendue (décision Val 2026-07-07 : la distance lieu↔asso reste un critère INTERNE à l'algo d'attribution AG — Haversine dans fn_calculer_algo_attribution_ag — et n'est pas restituée aux dashboards clients ; ce n'est PAS un manque de données, lieux+associations sont géocodées ; cf. _Divergences M3.2_20260707)."

@@ -106,8 +106,10 @@ describe('M3.6 / Dashboard Client / UI', () => {
     // Quand l'admin ouvre le Dashboard Client (sélecteur « Toutes les organisations » par défaut)
     render(<DashboardClientView />);
 
-    // Alors les KPI agrégés (totalité des collectes) s'affichent
-    expect(await screen.findByText('72.5 %')).toBeInTheDocument();
+    // Alors les KPI agrégés (totalité des collectes) s'affichent — cartes Cockpit
+    // (R24c) : valeur et unité rendues séparément, format fr (« 72,5 » + « % »).
+    expect(await screen.findByText('72,5')).toBeInTheDocument();
+    expect(screen.getByText('Taux de recyclage')).toBeInTheDocument();
     expect(screen.getByText('12')).toBeInTheDocument();
 
     // Et le sélecteur est sur « Toutes les organisations »

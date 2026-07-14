@@ -103,6 +103,14 @@
       "test": "M3.6/dashboard_client_toutes_organisations_lecture_seule",
       "statut": "implemented",
       "libelle": "M3.6/dashboard_client_toutes_organisations_lecture_seule"
+    },
+    {
+      "id": "M3.6-cockpit-declinaison",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:114",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/dashboard-client/DashboardClientView.tsx",
+      "test": "M3.6/cockpit_declinaison_kpi_cards + M3.6/dashboard_client_toutes_organisations_lecture_seule",
+      "statut": "implemented",
+      "libelle": "R24c — Déclinaison Cockpit du Dashboard Client Admin (§06.06 §2, réplique LECTURE SEULE du dashboard gestionnaire). Les cartes KPI (ZD 4 + AG 4) passent en KpiCockpitCard (valeur/unité séparées, format fr) NON cliquables — aucune action, lecture seule préservée. Les jauges benchmark restent servies par BenchmarkGauge (endpoint Admin dédié /api/v1/admin/dashboard-client/benchmark) — décision Val R24c option A : BenchmarkGauge conservé (donc non orphelin). Suppression de KpiCard (orphelin). DS appliqué. Aucune régression fonctionnelle ; endpoints inchangés. NB : M3.6 reste une réplique RÉDUITE (KPI + benchmark) — Bloc 2/4 §06.06 §2 non implémentés = gap pré-existant, hors scope de ce lot présentationnel."
     }
   ],
   "cdc_source_hash": {

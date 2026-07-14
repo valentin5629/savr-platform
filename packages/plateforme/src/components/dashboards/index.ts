@@ -1,5 +1,4 @@
 export { BenchmarkGauge } from './BenchmarkGauge.js';
-export { BenchmarkLegend } from './BenchmarkLegend.js';
 export { BenchmarkFilterBar } from './BenchmarkFilterBar.js';
 export type {
   BenchmarkFilters,
@@ -34,12 +33,9 @@ export { CollecteTypeTabs } from './CollecteTypeTabs.js';
 export type { DashboardFilters } from './DashboardFilterBar.js';
 export { DashboardFilterBar } from './DashboardFilterBar.js';
 export { EmptyDashboardState } from './EmptyDashboardState.js';
-export { KpiCard } from './KpiCard.js';
 export { RevenusHistogramme } from './RevenusHistogramme.js';
 export { TonnageDisplay } from './TonnageDisplay.js';
 export { ProchainesCollectesBloc } from './ProchainesCollectesBloc.js';
-export { TopLieuxBloc } from './TopLieuxBloc.js';
-export { TopAssociationsBloc } from './TopAssociationsBloc.js';
 export { ExportSyntheseBloc } from './ExportSyntheseBloc.js';
 export type {
   BlocsData,

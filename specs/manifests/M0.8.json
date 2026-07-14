@@ -451,10 +451,10 @@
     {
       "id": "BL-P3-02",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:73",
-      "artefact": "packages/plateforme/src/components/dashboards/DashboardFilterBar.tsx, packages/plateforme/src/components/dashboards/KpiCard.tsx, packages/plateforme/src/components/dashboards/BenchmarkLegend.tsx",
+      "artefact": "packages/plateforme/src/components/dashboards/DashboardFilterBar.tsx",
       "test": "M0.8-45 — DashboardFilterBar expose presets + Réinitialiser hors mode parc (BL-P3-02)",
       "statut": "implemented",
-      "libelle": "BL-P3-02 — Dashboards : presets période liste CDC exacte (7j/30j/Trimestre/12 mois/Année civile) + Réinitialiser généralisé (traiteur/agence/admin), compteur « X correspondent » (traiteur+agence, GO-VISUAL), tooltip KPI Marge DYNAMIQUE conforme scénario P1 kpi_marge_zd_formule_nominale (tarif × pax − coût = marge, helper margeTooltipZd testé M0.8-48 ; tarif lisible traiteur §04 l.928) + légende benchmark partagée (§11, §06.04). Avert. k-anonymat déjà présent. Défaut période aligné « 12 derniers mois » (§11 aligné §06.04/05, divergence _Divergences/M0.8_20260710 résolue Cowork + specs sync #208 ; code DashboardFilterBar.defaultFilters = 12 mois, testé M0.8-56)."
+      "libelle": "BL-P3-02 — Dashboards : presets période liste CDC exacte (7j/30j/Trimestre/12 mois/Année civile) + Réinitialiser généralisé (traiteur/agence/admin), compteur « X correspondent » (traiteur+agence, GO-VISUAL), tooltip KPI Marge DYNAMIQUE conforme scénario P1 kpi_marge_zd_formule_nominale (tarif × pax − coût = marge, helper margeTooltipZd testé M0.8-48 ; tarif lisible traiteur §04 l.928) + légende benchmark partagée (§11, §06.04). Avert. k-anonymat déjà présent. Défaut période aligné « 12 derniers mois » (§11 aligné §06.04/05, divergence _Divergences/M0.8_20260710 résolue Cowork + specs sync #208 ; code DashboardFilterBar.defaultFilters = 12 mois, testé M0.8-56). R24c : le tooltip KPI (composant KpiCard) et la légende benchmark (BenchmarkLegend) sont retirés — ces composants sont supprimés avec la déclinaison Cockpit des dashboards clients (KpiCockpitCard + légende intégrée de BenchmarkBulletGauges). Le helper margeTooltipZd (M0.8-48) subsiste. Seul DashboardFilterBar reste porté par ce livrable."
     },
     {
       "id": "BL-P3-03",

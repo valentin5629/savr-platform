@@ -148,9 +148,12 @@ describe('M3.6 / Dashboard Client / périmètre', () => {
     queryResult = { data: [], error: null };
     const { GET } =
       await import('@/app/api/v1/admin/dashboard-client/route.js');
+    // Ids d'org = UUID valides (le loader filtre en UUID par défense en profondeur).
+    const org1 = '11111111-1111-1111-1111-111111111111';
+    const org2 = '22222222-2222-2222-2222-222222222222';
     const res = await GET(
       makeReq(
-        '/api/v1/admin/dashboard-client?type=zero_dechet&organisation_ids[]=org-1&organisation_ids[]=org-2',
+        `/api/v1/admin/dashboard-client?type=zero_dechet&organisation_ids[]=${org1}&organisation_ids[]=${org2}`,
       ),
     );
     expect(res.status).toBe(200);
@@ -158,11 +161,11 @@ describe('M3.6 / Dashboard Client / périmètre', () => {
     // filtre .or(organisation_id IN … OU traiteur_operationnel_organisation_id IN …)
     // sur la table référencée evenements, appliqué aux 2 requêtes (hist + prochaines).
     const orgOr = orCalls().find((c) =>
-      String(c[0]).includes('organisation_id.in.(org-1,org-2)'),
+      String(c[0]).includes(`organisation_id.in.(${org1},${org2})`),
     );
     expect(orgOr).toBeDefined();
     expect(String(orgOr?.[0])).toContain(
-      'traiteur_operationnel_organisation_id.in.(org-1,org-2)',
+      `traiteur_operationnel_organisation_id.in.(${org1},${org2})`,
     );
     expect(orgOr?.[1]).toEqual({ referencedTable: 'evenements' });
   });

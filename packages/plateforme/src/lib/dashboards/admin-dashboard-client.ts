@@ -97,6 +97,16 @@ function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+// Les ids d'org sont interpolés dans une chaîne de filtre `.or()` PostgREST (non
+// paramétrée). Ils viennent d'un staff authentifié qui voit déjà tout — donc pas
+// de frontière de confidentialité — mais on valide en UUID par défense en
+// profondeur (empêche tout id malformé de casser/élargir le filtre, revue rls R24c).
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function onlyUuids(ids: string[]): string[] {
+  return ids.filter((id) => UUID_RE.test(id));
+}
+
 function firstOf<T>(v: T | T[] | null | undefined): T | null {
   if (v == null) return null;
   return Array.isArray(v) ? (v[0] ?? null) : v;
@@ -150,8 +160,9 @@ export async function loadAdminDashboardClient(
     // collectes opérées (incl. sous-traité pour une agence, ex. Kaspia 97 et non 85) ;
     // une agence → ses événements programmés (jamais opératrice). §06.06 §2 ne scopait
     // que par organisation_id.
-    if (organisationIds.length > 0) {
-      const ids = organisationIds.join(',');
+    const safeOrgIds = onlyUuids(organisationIds);
+    if (safeOrgIds.length > 0) {
+      const ids = safeOrgIds.join(',');
       query = query.or(
         `organisation_id.in.(${ids}),traiteur_operationnel_organisation_id.in.(${ids})`,
         { referencedTable: 'evenements' },

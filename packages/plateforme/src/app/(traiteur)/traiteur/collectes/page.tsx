@@ -187,15 +187,17 @@ function CollectesContent() {
     else setFiltreLabel(null);
   }, [lieuFiltre, commercialFiltre, associationFiltre]);
 
-  function pushQuery(next: { type?: CollecteType; onglet?: Onglet }) {
-    const usp = new URLSearchParams(Array.from(params.entries()));
-    if (next.type) usp.set('type', next.type);
-    if (next.onglet) usp.set('onglet', next.onglet);
-    router.replace(`/traiteur/collectes?${usp}`);
-  }
   function changeType(t: CollecteType) {
     setTypeFiltre(t);
-    pushQuery({ type: t });
+    // Changer de type ZD/AG sort du miroir : on lâche le périmètre miroir
+    // (statut/période/perimetre) ET le filtre association (AG-only → liste vide
+    // en ZD). Les filtres type-agnostiques lieu/commercial restent.
+    const usp = new URLSearchParams(Array.from(params.entries()));
+    usp.set('type', t);
+    ['association', 'statut', 'from', 'to', 'perimetre'].forEach((k) =>
+      usp.delete(k),
+    );
+    router.replace(`/traiteur/collectes?${usp}`);
   }
   function changeOnglet(o: Onglet) {
     setOnglet(o);

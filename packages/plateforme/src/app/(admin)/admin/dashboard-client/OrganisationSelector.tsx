@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, Search, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
@@ -35,11 +35,12 @@ const TYPE_LABEL: Record<string, string> = {
 
 /**
  * Sélecteur d'organisations du Dashboard Client (§06.06 §2).
- * Multi-sélection groupée en CELLULES par type d'organisation (retour Val R24c) :
- * une cellule repliable (liste déroulante) par type — Traiteurs / Agences /
- * Gestionnaires de lieux. Recherche transverse + « Toutes les organisations »
- * (sélection vide = défaut). Design System : tokens savr, cibles 44px, chevrons.
- * Composant de filtrage uniquement — aucune écriture.
+ * Multi-sélection en CELLULES par type d'organisation SUR UNE LIGNE (retour Val
+ * R24c) — Traiteurs / Agences / Gestionnaires de lieux (ordre §06.06 §2). Chaque
+ * cellule est une LISTE DÉROULANTE : repliée par défaut, ouverte au clic (panneau
+ * absolu, 4 lignes visibles puis scroll), fermée au clic en dehors. Recherche
+ * transverse + « Toutes les organisations » (sélection vide = défaut). Design
+ * System : tokens savr, cibles 44px, chevrons. Composant de filtrage, aucune écriture.
  */
 export function OrganisationSelector({
   organisations,
@@ -47,9 +48,19 @@ export function OrganisationSelector({
   onChange,
 }: OrganisationSelectorProps) {
   const [query, setQuery] = useState('');
-  // État replié/déplié par cellule de type — déplié par défaut (tout visible,
-  // groupé) ; l'utilisateur replie les types qu'il ne consulte pas.
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  // Une seule cellule ouverte à la fois (comportement liste déroulante).
+  const [openType, setOpenType] = useState<string | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // Fermeture au clic en dehors du sélecteur.
+  useEffect(() => {
+    if (!openType) return;
+    function onDown(e: MouseEvent): void {
+      if (!rootRef.current?.contains(e.target as Node)) setOpenType(null);
+    }
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [openType]);
 
   const byId = useMemo(
     () => new Map(organisations.map((o) => [o.id, o])),
@@ -59,7 +70,7 @@ export function OrganisationSelector({
   const toutes = selected.length === 0;
 
   // Filtre recherche puis regroupement par type, dans l'ordre TYPE_ORDER
-  // (les types hors liste sont ajoutés à la fin, ordre d'apparition).
+  // (types hors liste ajoutés à la fin). Une cellule sans résultat est masquée.
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase();
     const filtered = q
@@ -93,10 +104,11 @@ export function OrganisationSelector({
 
   return (
     <div
+      ref={rootRef}
       data-testid="organisation-selector"
       className="space-y-3 rounded-savr-lg border border-savr-neutral-200 bg-savr-white p-4 shadow-savr-sm"
     >
-      {/* En-tête : libellé + résumé de la sélection (badges retirables). */}
+      {/* En-tête : libellé + résumé sélection (badges retirables) + réinitialiser. */}
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm font-semibold text-savr-neutral-700">
           Organisations
@@ -106,23 +118,33 @@ export function OrganisationSelector({
             Toutes les organisations
           </Badge>
         ) : (
-          selected.map((id) => {
-            const o = byId.get(id);
-            const label = o ? orgLabel(o) : id;
-            return (
-              <Badge key={id} variant="primary" dot={false}>
-                {label}
-                <button
-                  type="button"
-                  aria-label={`Retirer ${label}`}
-                  onClick={() => toggle(id)}
-                  className="ml-1 inline-flex text-savr-primary-700 hover:text-savr-primary-900"
-                >
-                  <X aria-hidden className="h-3.5 w-3.5" />
-                </button>
-              </Badge>
-            );
-          })
+          <>
+            {selected.map((id) => {
+              const o = byId.get(id);
+              const label = o ? orgLabel(o) : id;
+              return (
+                <Badge key={id} variant="primary" dot={false}>
+                  {label}
+                  <button
+                    type="button"
+                    aria-label={`Retirer ${label}`}
+                    onClick={() => toggle(id)}
+                    className="ml-1 inline-flex text-savr-primary-700 hover:text-savr-primary-900"
+                  >
+                    <X aria-hidden className="h-3.5 w-3.5" />
+                  </button>
+                </Badge>
+              );
+            })}
+            <button
+              type="button"
+              data-testid="org-option-toutes"
+              onClick={() => onChange([])}
+              className="ml-1 text-xs font-medium text-savr-primary-700 hover:text-savr-primary-900"
+            >
+              Toutes les organisations
+            </button>
+          </>
         )}
       </div>
 
@@ -143,58 +165,39 @@ export function OrganisationSelector({
         />
       </div>
 
-      {/* Option « Toutes les organisations » (sélection vide). */}
-      <button
-        type="button"
-        data-testid="org-option-toutes"
-        aria-pressed={toutes}
-        onClick={() => onChange([])}
-        className={`flex min-h-11 w-full items-center gap-2 rounded-savr-md border px-3 text-left text-sm transition-colors ${
-          toutes
-            ? 'border-savr-primary-200 bg-savr-primary-50 font-semibold text-savr-primary-800'
-            : 'border-savr-neutral-200 text-savr-neutral-700 hover:bg-savr-neutral-50'
-        }`}
-      >
-        <span
-          aria-hidden
-          className={`inline-block h-2.5 w-2.5 rounded-savr-full ${
-            toutes ? 'bg-savr-primary-500' : 'bg-savr-neutral-300'
-          }`}
-        />
-        Toutes les organisations
-      </button>
-
-      {/* Cellules par type d'organisation (listes déroulantes). */}
-      <div className="space-y-2">
+      {/* Cellules par type SUR UNE LIGNE — chacune une liste déroulante. */}
+      {toutes && (
+        <p className="text-xs text-savr-neutral-500">
+          Toutes les organisations — ouvrez un type pour restreindre le
+          périmètre.
+        </p>
+      )}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {groups.map(({ type, label, items }) => {
-          const open = !collapsed[type];
+          const open = openType === type;
           const nbSel = items.filter((o) => selectedSet.has(o.id)).length;
           return (
-            <div
-              key={type}
-              className="overflow-hidden rounded-savr-md border border-savr-neutral-200"
-            >
+            <div key={type} className="relative">
               <button
                 type="button"
                 data-testid={`org-section-${type}`}
                 aria-expanded={open}
-                onClick={() =>
-                  setCollapsed((c) => ({ ...c, [type]: !c[type] }))
-                }
-                className="flex min-h-11 w-full items-center justify-between gap-2 bg-savr-neutral-50 px-3 text-left"
+                onClick={() => setOpenType(open ? null : type)}
+                className={`flex min-h-11 w-full items-center justify-between gap-2 rounded-savr-md border px-3 text-left transition-colors ${
+                  open || nbSel > 0
+                    ? 'border-savr-primary-300 bg-savr-primary-50'
+                    : 'border-savr-neutral-200 bg-savr-white hover:bg-savr-neutral-50'
+                }`}
               >
-                <span className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-savr-neutral-800">
+                <span className="flex min-w-0 flex-col">
+                  <span className="truncate text-sm font-semibold text-savr-neutral-800">
                     {label}
                   </span>
-                  <span className="rounded-savr-full bg-savr-neutral-200 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-savr-neutral-600">
-                    {items.length}
+                  <span className="text-[11px] text-savr-neutral-500">
+                    {nbSel > 0
+                      ? `${nbSel} / ${items.length} sélectionné${nbSel > 1 ? 's' : ''}`
+                      : `${items.length} organisation${items.length > 1 ? 's' : ''}`}
                   </span>
-                  {nbSel > 0 && (
-                    <span className="rounded-savr-full bg-savr-primary-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-savr-primary-700">
-                      {nbSel} sélectionné{nbSel > 1 ? 's' : ''}
-                    </span>
-                  )}
                 </span>
                 <ChevronDown
                   aria-hidden
@@ -203,12 +206,13 @@ export function OrganisationSelector({
                   }`}
                 />
               </button>
+
               {open && (
                 <ul
                   role="listbox"
                   aria-label={label}
                   aria-multiselectable="true"
-                  className="max-h-60 divide-y divide-savr-neutral-100 overflow-y-auto"
+                  className="absolute left-0 right-0 top-full z-20 mt-1 max-h-44 divide-y divide-savr-neutral-100 overflow-y-auto rounded-savr-md border border-savr-neutral-200 bg-savr-white shadow-savr-md"
                 >
                   {items.map((o) => (
                     <li key={o.id}>
@@ -220,7 +224,7 @@ export function OrganisationSelector({
                           data-testid={`org-option-${o.id}`}
                           className="h-4 w-4 shrink-0 accent-savr-primary-600"
                         />
-                        <span className="flex-1">{orgLabel(o)}</span>
+                        <span className="flex-1 truncate">{orgLabel(o)}</span>
                       </label>
                     </li>
                   ))}
@@ -230,7 +234,7 @@ export function OrganisationSelector({
           );
         })}
         {groups.length === 0 && (
-          <p className="px-1 py-2 text-sm text-savr-neutral-500">
+          <p className="px-1 py-2 text-sm text-savr-neutral-500 sm:col-span-3">
             Aucune organisation trouvée.
           </p>
         )}

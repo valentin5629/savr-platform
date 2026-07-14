@@ -143,7 +143,7 @@
       "artefact": "packages/plateforme/src/app/(admin)/admin/dashboard-client/OrganisationSelector.tsx",
       "test": "M3.6/org_selecteur_cellules_par_type + M3.6/dashboard_client_toutes_organisations_lecture_seule",
       "statut": "implemented",
-      "libelle": "R24c — Sélecteur d'organisations refondu (retour Val GO-VISUAL) : CELLULES repliables (listes déroulantes) GROUPÉES PAR TYPE d'organisation — Traiteurs / Agences / Gestionnaires de lieux (ordre §06.06 §2), en-tête cellule = libellé + compteur + compteur sélectionnés + chevron. Recherche transverse conservée + option « Toutes les organisations » (sélection vide = défaut). Design System appliqué : tokens savr, cibles 44px (min-h-11 en-têtes/lignes/recherche/option toutes), chevrons lucide, accent checkbox savr-primary. Composant de filtrage, aucune écriture."
+      "libelle": "R24c — Sélecteur d'organisations refondu (2 retours Val GO-VISUAL) : 3 CELLULES par type d'organisation SUR UNE MÊME LIGNE (grid 3 colonnes) — Traiteurs / Agences / Gestionnaires de lieux (ordre §06.06 §2). Chaque cellule = LISTE DÉROULANTE : repliée par défaut, ouverte au CLIC (panneau absolu z-20, max-h-44 = 4 lignes visibles puis scroll), fermée au clic en dehors ; une seule ouverte à la fois. En-tête = libellé + compteur (N orgs / N sélectionnés) + chevron. Recherche transverse + « Toutes les organisations » (sélection vide = défaut). Design System : tokens savr, cibles 44px (min-h-11), chevrons lucide, accent checkbox savr-primary. Composant de filtrage, aucune écriture."
     }
   ],
   "cdc_source_hash": {

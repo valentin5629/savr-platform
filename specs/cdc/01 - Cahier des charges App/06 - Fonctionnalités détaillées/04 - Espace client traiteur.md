@@ -81,17 +81,19 @@ Bouton "Réinitialiser" ramène aux valeurs par défaut. Compteur "X collectes c
 
 > **Note** : pas de filtre "Traiteurs" côté traiteur (par construction = lui seul). Filtre "Commercial" disponible dans la liste Collectes pour le manager **et le commercial** *(révision 2026-05-29 — le commercial voyant désormais toute l'orga, il peut filtrer par commercial)*.
 
-### Bloc 1 — KPIs (5 cartes ZD / 4 cartes AG)
+### Bloc 1 — KPIs (5 cartes ZD / 5 cartes AG)
 
 Cartes chiffres clés en haut de page (recalcul live selon les filtres actifs) :
 
 Mapping par onglet :
-- **ZD (5 cartes)** : Nombre de collectes · Tonnage collecté (kg) · **Taux de recyclage** (%) *(renommé 2026-05-06 — ex "Taux de tri global". Moyenne pondérée par tonnage des `collectes.taux_recyclage`, formule à captation par filière cf. [[05 - Règles métier#R_taux_recyclage]])* · kg/pax moyen · **Marge générée (€)** *(ajout 2026-05-07 — formule cf. [[05 - Règles métier#R_marge_zd_traiteur]])*
-- **AG (4 cartes)** : Nombre de collectes · Repas donnés · Pax cumulés · Repas/pax moyen
+- **ZD (5 cartes)** : Nombre de collectes · Tonnage collecté (kg) · **Taux de recyclage** (%) *(renommé 2026-05-06 — ex "Taux de tri global". Moyenne pondérée par tonnage des `collectes.taux_recyclage`, formule à captation par filière cf. [[05 - Règles métier#R_taux_recyclage]])* · kg/pax moyen · **CO₂ évité (kg/t CO₂e)** *(décision Val 2026-07-13 — remplace « Marge générée » dans la rangée KPI ; carte cliquable → modale « Détail de l'impact carbone » si Σ co2_evite > 0. Formule Marge et endpoint conservés, réversible — cf. section ci-dessous)*
+- **AG (5 cartes)** : Nombre de collectes · Repas donnés · Pax cumulés · Repas/pax moyen · **CO₂ évité (kg/t CO₂e)** *(décision Val 2026-07-13 — ajout, pas un remplacement ; §06.04 l.106 « pas de KPI marge AG V1 » inchangé. Carte cliquable → modale « Détail de l'impact carbone » (héros évité seul + méthode par repas ≈ 2,5 kgCO₂e/repas FAO) si Σ co2_evite > 0)*
 
-Chaque carte clickable → renvoie vers la liste **Collectes** sur l'onglet correspondant (ZD/AG), filtres globaux transmis en query string.
+Chaque carte porte une **sparkline** (tendance mensuelle) et une **variation vs période précédente équivalente (N-1)**, sauf « kg/pax » (sens « plus bas = mieux » ambigu) *(lot R24 GO-VISUAL Val 2026-07-10)*. **Les cartes KPI ne sont PAS cliquables vers la liste Collectes** *(décision Val GO-VISUAL 2026-07-10 — revient sur BL-P2-11/BL-P2-43)*. **Seule exception** : la carte **CO₂ évité** est cliquable → ouvre la **modale « Détail de l'impact carbone »** (aucune navigation vers `/traiteur/collectes` ; l'invariant « aucune carte KPI ne renvoie vers la liste » reste vrai).
 
-#### KPI **Marge générée (€)** — détail (ajout 2026-05-07)
+#### KPI **Marge générée (€)** — retiré de la rangée KPI (décision Val 2026-07-13), formule conservée
+
+> **Retrait rangée KPI (décision Val 2026-07-13)** : la carte « Marge générée » est retirée de la rangée KPI ZD au profit de « CO₂ évité ». La formule ci-dessous et l'endpoint (`marge_zd_ht` / `tarif_refacture_pax_zd`) restent en place — réversible. Le badge « X collectes en attente de facturation » est **relogé sous la rangée KPI**.
 
 - **Formule** : `(organisations.tarif_refacture_pax_zd) × Σ evenements.pax − Σ factures_collectes.montant_ht`
   - **Numérateur revenu** : `tarif_refacture_pax_zd` (paramètre par traiteur, défaut 1.50 €, modifiable Admin Savr only — cf. [[04 - Data Model]] §`organisations`) × pax cumulés des collectes ZD du périmètre filtré (les pax de chaque événement comptent une fois, pas de double comptage si plusieurs collectes par événement — `DISTINCT evenements.id`)
@@ -105,9 +107,16 @@ Chaque carte clickable → renvoie vers la liste **Collectes** sur l'onglet corr
 - **Périmètre RLS** : la carte affiche la marge sur le périmètre des collectes que le user voit en lecture — **manager = toute l'orga, commercial = toute l'orga** (révision 2026-05-29). RLS héritée des collectes (pas de RLS dédiée).
 - **Onglet AG** : pas de KPI marge AG V1 (modèle économique pack, marge AG ≠ marge ZD — V2 selon retours).
 
-Chaque carte est **clickable → renvoie vers la liste Collectes** filtrée (filtres globaux du dashboard transmis en query string, onglet actif ZD/AG transmis).
+*(obsolète 2026-07-10 — cartes KPI non cliquables vers la liste, cf. Bloc 1 ; seule la carte « CO₂ évité » ouvre une modale méthode)*
 
 > **Note suppression** : le KPI "CA collecte" historique (manager only) est **retiré** (refonte 2026-05-04). Le suivi du CA reste dans la section Facturation. La nouvelle carte Marge ZD couvre le besoin de pilotage économique côté traiteur.
+
+#### Modale « Détail de l'impact carbone » (au clic sur la carte KPI « CO₂ évité »)
+
+Ouverte uniquement si Σ co2_evite > 0 (sinon carte d'affichage simple, non cliquable). Modale de détail — **aucune navigation**. Deux variantes selon l'onglet actif :
+
+- **ZD — méthode ADEME complète** : CO₂ évité (héros) + CO₂ induit + bilan net + énergie primaire évitée (grandeurs figées `collectes.co2_*`, jamais recalculées à l'affichage) + tableau des facteurs d'émission par matière + forfait transport + équivalences pédagogiques (km voiture / repas bœuf / foyers). Formules ABC et facteurs lus en service_role dans `parametres_facteurs_co2` / `parametres_co2_divers` (ADEME, best-effort, données globales — jamais d'une autre org).
+- **AG — méthode « évité seul V1 »** (cf. [[05 - Règles métier#R_co2_ag]]) : héros CO₂ évité seul (pas d'induit / bilan net / énergie primaire, pas de tableau par matière) + formule unique par repas (`repas donnés × facteur FAO figé ≈ 2,5 kgCO₂e/repas`) + 2 équivalences (km voiture, repas bœuf ; « foyers » sans objet AG). Facteur AG lu en service_role dans `parametres_facteurs_co2_ag` (actif le plus récent, repli 2,5 / FAO 2023).
 
 ---
 
@@ -179,6 +188,7 @@ Clic sur une ligne → fiche collecte.
 
 Tableau ordonné par tonnage, période filtrée :
 - Lieu · Nombre de collectes ZD · Tonnage · Taux de recyclage *(moyenne pondérée par tonnage)*
+- **Chaque ligne cliquable → liste Collectes (onglet Historique) filtrée sur le lieu** *(drill-down, décision Val 2026-07-14)*. Miroir **5/5** du calcul du Top liste : type (onglet ZD/AG) + période + statut `cloturee` + `perimetre=organisation` + **Type d'événement + Taille d'événement**. Chip « Filtre actif » en tête de liste ; libellé du lieu via `sessionStorage` (jamais en query string, seul l'ID opaque transite).
 
 #### Bloc 7 ZD — Top 5 commerciaux ZD
 
@@ -186,6 +196,7 @@ Visible pour `traiteur_manager` **et** `traiteur_commercial` *(ouvert 2026-05-29
 
 Tableau ordonné par nombre de collectes ZD, période filtrée :
 - Commercial · Nombre de collectes ZD · Tonnage · Taux de recyclage *(moyenne pondérée par tonnage)*
+- **Chaque ligne cliquable → liste Collectes (onglet Historique) filtrée sur le commercial** *(drill-down, décision Val 2026-07-14 ; mêmes règles de miroir 5/5 que le Bloc 6)*.
 
 > **Note vs §05** : remplacement du bloc "Top 5 traiteurs" du §05 (sans objet côté traiteur) par "Top 5 commerciaux".
 
@@ -217,6 +228,7 @@ Pas de jauge benchmark AG (un seul flux `don_alimentaire` — pertinence visuell
 
 Tableau ordonné par nombre de repas reçus (période filtrée) :
 - Association · Ville · Nombre de collectes · Repas reçus
+- **Chaque ligne cliquable → liste Collectes AG filtrée sur l'association** *(drill-down, décision Val 2026-07-14)*. Miroir exact : type AG + période + statut `cloturee` + `perimetre=organisation` + Type/Taille d'événement + filtre serveur `attributions_antgaspi.association_id`. Chip « Association : … » ; libellé via `sessionStorage`.
 
 Source : `attributions_antgaspi` jointe à `associations`, restreinte par RLS aux collectes du traiteur.
 
@@ -261,6 +273,7 @@ Clic sur une ligne → fiche collecte.
 
 Tableau ordonné par repas donnés, période filtrée :
 - Lieu · Nombre de collectes AG · Repas donnés · Repas/pax
+- **Chaque ligne cliquable → liste Collectes (onglet Historique) filtrée sur le lieu** *(drill-down AG, décision Val 2026-07-14 ; miroir 5/5)*.
 
 #### Bloc 7 AG — Top 5 commerciaux AG
 
@@ -268,6 +281,7 @@ Visible pour `traiteur_manager` **et** `traiteur_commercial` *(ouvert 2026-05-29
 
 Tableau ordonné par nombre de collectes AG, période filtrée :
 - Commercial · Nombre de collectes AG · Repas donnés · Repas/pax
+- **Chaque ligne cliquable → liste Collectes (onglet Historique) filtrée sur le commercial** *(drill-down AG, décision Val 2026-07-14)*.
 
 #### Bloc 8 AG — Exporter une synthèse PDF (AG)
 
@@ -849,7 +863,7 @@ La clause `OR EXISTS (collecte_partages …)` est retirée de la policy V1 (réa
 | Pas de paiement CB en V1 | Paiement intégré | Complexité juridique (CGV, PSD2, Stripe) hors scope V1 |
 | Invitation collaborateur = manager uniquement | Auto-service avec domaine email | Contrôle manager sur qui rejoint l'équipe |
 | Rapports RSE section dédiée + accès via fiche collecte | Accès uniquement via fiche collecte | Usage fréquent = accès direct justifié |
-| **DESCOPÉ V1 (décision Val 2026-07-10, cf. ligne « Export groupé … ZIP » de cette section)** | Rapports un par un uniquement | Retour au téléchargement unitaire depuis la fiche collecte (canal V1) — l'export groupé n'apporte pas de valeur suffisante et alourdit l'UI. |
+| — **DESCOPÉ V1 (décision Val 2026-07-10, cf. ligne « Export groupé … ZIP » de cette section)** | Rapports un par un uniquement | Retour au téléchargement unitaire depuis la fiche collecte (canal V1) — l'export groupé n'apporte pas de valeur suffisante et alourdit l'UI. |
 | Dashboard RSE 12 mois glissants | Mois en cours uniquement | Perception d'impact long terme, fidélisation |
 | **Refonte dashboard 2026-05-04 — héritage structure §05 (2 onglets ZD/AG, 5 filtres globaux, blocs hérités)** | Conserver dashboard traiteur historique séparé | Mutualisation logique (1 dashboard, 2 contextes) — réduction surface UI + composants partagés |
 | **Filtre global "Client organisateur"** (remplace "Traiteurs" du §05) | Filtre "Commercial" | Cohérent avec filtres existants liste collectes — pas de logique conditionnelle manager/commercial |
@@ -900,7 +914,7 @@ La clause `OR EXISTS (collecte_partages …)` est retirée de la policy V1 (réa
 | **Bouton unique "Programmer un événement" + type pré-coché selon l'onglet (refonte 2026-05-21)** | Conservation des 2 boutons distincts ZD/AG | Formulaire unique événement-centré (D1) : un seul point d'entrée, choix ☐ZD ☐AG en étape 1. Le pré-cochage selon l'onglet conserve l'économie de clic du contexte. |
 | **Invitation collaborateur : n'importe quelle adresse email autorisée (2026-05-29)** | Restreindre aux emails du domaine de l'organisation | Le manager gate déjà l'invitation manuellement (saisie explicite email + rôle). La restriction domaine bloque des cas légitimes (commercial freelance en email perso) et ajoute une logique de validation pour un gain de sécurité marginal. |
 | **Transfert de collectes entre commerciaux : réassignation simple + `audit_log` (2026-05-29)** | Table d'historique dédiée `collectes_transferts` | Cas départ d'un commercial : le manager réassigne les collectes (mise à jour `cree_par_user_id`), l'opération est tracée dans `audit_log` global. Pas de table d'historique dédiée — `audit_log` couvre déjà la trace (cohérent avec la décision « Audit modifications via `audit_log` global » ci-dessus). |
-| **DESCOPÉ V1 (décision Val 2026-07-10)** | — | **DESCOPÉ V1** : rapports RSE téléchargeables individuellement depuis la fiche collecte (bouton « Télécharger le rapport RSE », route `GET /api/v1/traiteur/collectes/:id/rapport-rse/download`, canal V1 livré BL-P1-TRAIT-03). L'export groupé alourdit l'UI (multi-sélection liste collectes) sans valeur ajoutée démontrée. Réévaluable V1.1. |
+| — **DESCOPÉ V1 (décision Val 2026-07-10)** | | **DESCOPÉ V1** : rapports RSE téléchargeables individuellement depuis la fiche collecte (bouton « Télécharger le rapport RSE », route `GET /api/v1/traiteur/collectes/:id/rapport-rse/download`, canal V1 livré BL-P1-TRAIT-03). L'export groupé alourdit l'UI (multi-sélection liste collectes) sans valeur ajoutée démontrée. Réévaluable V1.1. |
 | **Sobriété B2 2026-06-03 — Bloc Contrôle d'accès : fusion état "Modification en cours" dans "Communiqué"** (3→2 états, toujours la dernière valeur plaque/nom + date d'actualisation) | Conserver 3 états distincts | Le 3e état ne déclenchait aucun comportement applicatif distinct (badge de couleur, aucune action traiteur). Affichage de la valeur la plus récente suffit. Moins d'états = moins de logique d'affichage à tester. |
 
 ---

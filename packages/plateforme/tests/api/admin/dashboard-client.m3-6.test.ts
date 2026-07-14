@@ -17,9 +17,12 @@ const adminClient: Record<string, unknown> = {
   select: vi.fn(() => adminClient),
   eq: vi.fn(() => adminClient),
   in: vi.fn(() => adminClient),
+  or: vi.fn(() => adminClient),
   gte: vi.fn(() => adminClient),
   lte: vi.fn(() => adminClient),
-  order: vi.fn(() => Promise.resolve(queryResult)),
+  order: vi.fn(() => adminClient),
+  limit: vi.fn(() => adminClient),
+  maybeSingle: vi.fn(() => Promise.resolve(queryResult)),
   rpc: vi.fn(() => Promise.resolve(rpcResult)),
   // Rend le builder awaitable (la route KPI fait `await q` sans méthode terminale).
   then: (resolve: (v: unknown) => void) => resolve(queryResult),
@@ -68,6 +71,10 @@ function makeReq(url: string): NextRequest {
 
 function inCalls(): unknown[][] {
   return (adminClient.in as ReturnType<typeof vi.fn>).mock.calls;
+}
+
+function orCalls(): unknown[][] {
+  return (adminClient.or as ReturnType<typeof vi.fn>).mock.calls;
 }
 
 function gteCalls(): unknown[][] {
@@ -127,29 +134,40 @@ describe('M3.6 / Dashboard Client / périmètre', () => {
       makeReq('/api/v1/admin/dashboard-client?type=zero_dechet'),
     );
     expect(res.status).toBe(200);
-    // « Toutes les organisations » : .in ne doit JAMAIS cibler organisation_id.
-    const orgFilter = inCalls().find(
-      (c) => c[0] === 'evenements.organisation_id',
+    // « Toutes les organisations » : aucun filtre de périmètre org (ni .in ni .or).
+    const orgIn = inCalls().find((c) => c[0] === 'evenements.organisation_id');
+    expect(orgIn).toBeUndefined();
+    const orgOr = orCalls().find((c) =>
+      String(c[0]).includes('organisation_id.in.'),
     );
-    expect(orgFilter).toBeUndefined();
+    expect(orgOr).toBeUndefined();
   });
 
-  it('M3.6/kpi_organisations_selectionnees_filtre_in — filtre evenements.organisation_id IN', async () => {
+  it('M3.6/kpi_organisations_selectionnees_filtre_in — périmètre opérateur-inclusif (programmateur OU traiteur opérationnel)', async () => {
     setupAuth('admin_savr');
     queryResult = { data: [], error: null };
     const { GET } =
       await import('@/app/api/v1/admin/dashboard-client/route.js');
+    // Ids d'org = UUID valides (le loader filtre en UUID par défense en profondeur).
+    const org1 = '11111111-1111-1111-1111-111111111111';
+    const org2 = '22222222-2222-2222-2222-222222222222';
     const res = await GET(
       makeReq(
-        '/api/v1/admin/dashboard-client?type=zero_dechet&organisation_ids[]=org-1&organisation_ids[]=org-2',
+        `/api/v1/admin/dashboard-client?type=zero_dechet&organisation_ids[]=${org1}&organisation_ids[]=${org2}`,
       ),
     );
     expect(res.status).toBe(200);
-    const orgFilter = inCalls().find(
-      (c) => c[0] === 'evenements.organisation_id',
+    // DÉCISION VAL R24c : un traiteur sélectionné = son activité d'OPÉRATEUR →
+    // filtre .or(organisation_id IN … OU traiteur_operationnel_organisation_id IN …)
+    // sur la table référencée evenements, appliqué aux 2 requêtes (hist + prochaines).
+    const orgOr = orCalls().find((c) =>
+      String(c[0]).includes(`organisation_id.in.(${org1},${org2})`),
     );
-    expect(orgFilter).toBeDefined();
-    expect(orgFilter?.[1]).toEqual(['org-1', 'org-2']);
+    expect(orgOr).toBeDefined();
+    expect(String(orgOr?.[0])).toContain(
+      `traiteur_operationnel_organisation_id.in.(${org1},${org2})`,
+    );
+    expect(orgOr?.[1]).toEqual({ referencedTable: 'evenements' });
   });
 });
 
@@ -189,18 +207,21 @@ describe('M3.6 / Dashboard Client / KPI', () => {
       data: [
         {
           taux_recyclage: 80,
+          co2_evite_kg: 40,
           evenements: [{ pax: 100 }],
           collecte_flux: [{ poids_reel_kg: 50 }],
           attributions_antgaspi: [],
         },
         {
           taux_recyclage: 60,
+          co2_evite_kg: 60,
           evenements: [{ pax: 100 }],
           collecte_flux: [{ poids_reel_kg: 150 }],
           attributions_antgaspi: [],
         },
         {
           taux_recyclage: null,
+          co2_evite_kg: 20,
           evenements: [{ pax: 100 }],
           collecte_flux: [{ poids_reel_kg: 100 }],
           attributions_antgaspi: [],
@@ -215,8 +236,13 @@ describe('M3.6 / Dashboard Client / KPI', () => {
     );
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
-      data: { kpi: Record<string, number> };
+      data: {
+        kpi: Record<string, number>;
+        co2: { eviteKg: number };
+      };
     };
+    // Plomberie CO₂ Admin bout-en-bout : SELECT co2_evite_kg → co2Totals → payload.
+    expect(body.data.co2.eviteKg).toBeCloseTo(120, 5);
     const kpi = body.data.kpi;
     expect(kpi.nb_collectes).toBe(3);
     expect(kpi.tonnage_kg).toBe(300);

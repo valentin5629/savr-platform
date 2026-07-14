@@ -14,8 +14,6 @@ vi.mock('next/navigation', () => ({
 import { refCourteCollecte } from '@/lib/collecte-ref';
 import { margeTooltipZd } from '@/lib/marge-tooltip';
 import { PreferencesLangueCard } from '@/components/compte/preferences-langue';
-import { KpiCard } from '@/components/dashboards/KpiCard';
-import { BenchmarkLegend } from '@/components/dashboards/BenchmarkLegend';
 import { DashboardFilterBar } from '@/components/dashboards/DashboardFilterBar';
 
 // ── BL-P3-03 — référence courte (jamais l'UUID brut) ────────────────────────
@@ -116,31 +114,7 @@ describe('M0.8-48 — margeTooltipZd restitue tarif × pax − coût = marge (BL
   });
 });
 
-// ── BL-P3-02 — tooltip KPI (marqueur info) ──────────────────────────────────
-describe('M0.8-46 — KpiCard rend un marqueur info quand tooltip est fourni (BL-P3-02)', () => {
-  it('affiche le marqueur « ? » avec aria-label = tooltip', () => {
-    render(
-      <KpiCard label="Marge générée" value="1 200 €" tooltip="Formule marge" />,
-    );
-    const marker = screen.getByRole('note');
-    expect(marker).toHaveAttribute('aria-label', 'Formule marge');
-  });
-  it('n’affiche aucun marqueur sans tooltip', () => {
-    render(<KpiCard label="Tonnage" value="3 t" />);
-    expect(screen.queryByRole('note')).toBeNull();
-  });
-});
-
-// ── BL-P3-02 — légende benchmark + tooltip ──────────────────────────────────
-describe('M0.8-47 — BenchmarkLegend rend le barème couleur et un tooltip (BL-P3-02)', () => {
-  it('affiche les 4 seuils de lecture + un marqueur info', () => {
-    render(<BenchmarkLegend />);
-    const legend = screen.getByTestId('benchmark-legende');
-    expect(legend).toBeInTheDocument();
-    expect(screen.getByText(/≤ 100 %/)).toBeInTheDocument();
-    expect(screen.getByText(/100–130 %/)).toBeInTheDocument();
-    expect(screen.getByText(/> 130 %/)).toBeInTheDocument();
-    expect(screen.getByText(/Données insuffisantes/)).toBeInTheDocument();
-    expect(screen.getByRole('note')).toBeInTheDocument();
-  });
-});
+// Note R24c : les ex-scénarios M0.8-46 (KpiCard tooltip) et M0.8-47
+// (BenchmarkLegend) ont été retirés — leurs composants `KpiCard` et
+// `BenchmarkLegend` sont supprimés (déclinaison Cockpit des dashboards clients,
+// remplacés par `KpiCockpitCard` + la légende intégrée de `BenchmarkBulletGauges`).

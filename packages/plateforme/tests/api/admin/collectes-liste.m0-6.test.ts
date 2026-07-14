@@ -14,6 +14,7 @@ const chain = {
   eq: vi.fn().mockReturnThis(),
   is: vi.fn().mockReturnThis(),
   in: vi.fn().mockReturnThis(),
+  or: vi.fn().mockReturnThis(),
   not: vi.fn().mockReturnThis(),
   gte: vi.fn().mockReturnThis(),
   lte: vi.fn().mockReturnThis(),
@@ -88,6 +89,37 @@ describe('M0.6 — API GET collectes filtres (BL-P1-BOA-05)', () => {
       'org-1',
     );
     expect(chain.eq).toHaveBeenCalledWith('evenements.lieu_id', 'lieu-1');
+  });
+
+  it('R24c — filtre « Traiteur » = traiteur_operationnel_id → eq(evenements.traiteur_operationnel_organisation_id)', async () => {
+    await callGet('?traiteur_operationnel_id=trait-1');
+    expect(chain.eq).toHaveBeenCalledWith(
+      'evenements.traiteur_operationnel_organisation_id',
+      'trait-1',
+    );
+  });
+
+  it('R24c — périmètre drill-down perimetre_org_ids[] (UUID) → .or(programmateur OU opérateur) sur evenements', async () => {
+    const a = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+    const b = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+    await callGet(`?perimetre_org_ids[]=${a}&perimetre_org_ids[]=${b}`);
+    const orCall = chain.or.mock.calls.find((c) =>
+      String(c[0]).includes(`organisation_id.in.(${a},${b})`),
+    );
+    expect(orCall).toBeDefined();
+    expect(String(orCall?.[0])).toContain(
+      `traiteur_operationnel_organisation_id.in.(${a},${b})`,
+    );
+    expect(orCall?.[1]).toEqual({ referencedTable: 'evenements' });
+  });
+
+  it('R24c — périmètre ignore les ids non-UUID (défense en profondeur → pas de .or)', async () => {
+    await callGet('?perimetre_org_ids[]=not-a-uuid');
+    expect(
+      chain.or.mock.calls.some((c) =>
+        String(c[0]).includes('organisation_id.in.'),
+      ),
+    ).toBe(false);
   });
 
   it('M0.6 — filtre rapport_non_consulte=true → is(rapports_rse.consulte_par_user_at, null)', async () => {

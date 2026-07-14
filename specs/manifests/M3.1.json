@@ -400,7 +400,7 @@
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx",
       "test": "M3.1/blocs_traiteur_zd_montes_et_benchmark_reel",
       "statut": "implemented",
-      "libelle": "Bloc 3 ZD — jauges kg/pax × benchmark parc RÉEL (remplace le stub R20a tonnage/pax/5) : encart BenchmarkFilterBar 4 dimensions (Traiteurs masqué, traiteur_ids[] rejeté serveur §06.04 l.143) + 5 BenchmarkGauge alimentées par kgParPaxParFlux (Vous) et benchmarkFilters (point rouge)."
+      "libelle": "Bloc 3 ZD — jauges kg/pax × benchmark parc RÉEL : encart BenchmarkFilterBar 4 dimensions imbriqué (Traiteurs masqué, traiteur_ids[] rejeté serveur §06.04 l.143) + jauges Cockpit BenchmarkBulletGauges (R24) alimentées par kgParPaxParFlux (Vous) et aggregateBenchmarkPerFlux(benchmarkRows) (repère parc). L'ancien composant BenchmarkGauge est supprimé (R24c)."
     },
     {
       "id": "M3.1-bloc5-prochaines",
@@ -413,7 +413,7 @@
     {
       "id": "M3.1-bloc6-top-lieux",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:178",
-      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/TopRankList.tsx (R24 ; TopLieuxBloc.tsx conservé pour agence/gestionnaire)",
+      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/TopRankList.tsx (R24 ; ex-TopLieuxBloc.tsx supprimé en R24c — agence migrée, plus aucun consommateur)",
       "test": "M3.1/blocs_top_lieux_zd_ordre_tonnage + M3.1/blocs_traiteur_zd_montes_et_benchmark_reel",
       "statut": "implemented",
       "libelle": "Bloc 6 ZD/AG — top 5 lieux (R24 Cockpit TopRankList) : ZD ordonné par tonnage (héros) + Nb collectes/Taux en ligne secondaire ; AG par repas donnés + Nb collectes/Repas-pax. Toutes les colonnes §06.04 l.178/262 préservées (secondary), testées en DOM."
@@ -421,7 +421,7 @@
     {
       "id": "M3.1-bloc7-top-commerciaux",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:183",
-      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/TopRankList.tsx (R24 ; TopActeursBloc.tsx conservé pour agence/gestionnaire)",
+      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/TopRankList.tsx (R24 ; ex-TopActeursBloc.tsx déjà supprimé, plus aucun consommateur)",
       "test": "M3.1/blocs_top_commerciaux_ordre_nb_et_noms + M3.1/blocs_traiteur_ag_associations_et_top7",
       "statut": "implemented",
       "libelle": "Bloc 7 ZD/AG — top 5 commerciaux (evenements.created_by, R24 Cockpit TopRankList), ordonné par nb collectes (héros) + Tonnage/Taux (ZD) ou Repas/Repas-pax (AG) en ligne secondaire ; visible manager ET commercial (§06.04 l.187/269). Colonnes §06.04 préservées."
@@ -429,7 +429,7 @@
     {
       "id": "M3.1-bloc3ag-associations",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:216",
-      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/TopRankList.tsx (R24 ; TopAssociationsBloc.tsx conservé pour agence/gestionnaire)",
+      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/TopRankList.tsx (R24 ; ex-TopAssociationsBloc.tsx supprimé en R24c — agence migrée, plus aucun consommateur)",
       "test": "M3.1/blocs_top_associations_ordre_repas + M3.1/blocs_traiteur_ag_associations_et_top7",
       "statut": "implemented",
       "libelle": "Bloc 3 AG — top associations bénéficiaires (attributions_antgaspi ⋈ associations, RLS via collectes), ordonné par repas reçus : Association/Ville/Nb collectes/Repas reçus. Colonne « Distance moyenne (km) » §06.05 NON rendue (décision Val 2026-07-07 : critère interne à l'algo d'attribution AG, non restitué aux dashboards ; la donnée existe — géocodage lieux/associations)."

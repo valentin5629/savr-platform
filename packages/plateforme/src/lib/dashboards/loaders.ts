@@ -345,7 +345,7 @@ interface EvoEvtEmbed {
   traiteur_operationnel_organisation_id: string | null;
 }
 
-interface EvoCollecteRow {
+export interface EvoCollecteRow {
   id: string;
   type: string;
   taux_recyclage: number | null;
@@ -361,7 +361,7 @@ interface EvoCollecteRow {
 }
 
 // Granularité auto (§06.04 Bloc 2). Bornes en jours calendaires.
-function granulariteFor(from: string, to: string): Granularite {
+export function granulariteFor(from: string, to: string): Granularite {
   const spanDays = (Date.parse(to) - Date.parse(from)) / (1000 * 60 * 60 * 24);
   if (spanDays < 30) return 'jour';
   if (spanDays < 365) return 'semaine';
@@ -475,6 +475,26 @@ export async function loadEvolution(
       ? granulariteFor(from, to)
       : granulariteFor(from ?? to ?? '', to ?? from ?? '');
 
+  return { granularite: g, series: buildEvolutionSeries(rows, type, g) };
+}
+
+/**
+ * Bucketise des collectes cloturées en série temporelle (Bloc 2/4). PURE :
+ * réutilisée par `loadEvolution` (dashboards client, périmètre RLS) ET par le
+ * loader Admin cross-org (`loadAdminDashboardClient`, service_role) — un seul et
+ * même algorithme de bucketing/pondération, quel que soit le périmètre.
+ */
+export function buildEvolutionSeries(
+  rows: EvoCollecteRow[],
+  type: 'zero_dechet' | 'anti_gaspi',
+  g: Granularite,
+): Record<string, unknown>[] {
+  // Défensif : une ligne sans date exploitable ne peut pas être bucketisée
+  // (jamais le cas sur les vraies requêtes cloturées ; garde-fou pour les
+  // rangées partielles de test/edge).
+  rows = rows.filter(
+    (c) => typeof c.date_collecte === 'string' && c.date_collecte,
+  );
   if (type === 'zero_dechet') {
     const buckets = new Map<
       string,
@@ -507,7 +527,7 @@ export async function loadEvolution(
         b.tauxDen += kgCollecte;
       }
     }
-    const series = [...buckets.entries()]
+    return [...buckets.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([periode, b]) => ({
         periode,
@@ -515,7 +535,6 @@ export async function loadEvolution(
         tonnage_total: b.tonnage,
         taux_recyclage: b.tauxDen > 0 ? b.tauxNum / b.tauxDen : null,
       }));
-    return { granularite: g, series };
   }
 
   // anti_gaspi — repas donnés + pax distinct par événement par bucket.
@@ -540,7 +559,7 @@ export async function loadEvolution(
     if (evt?.id && !b.paxParEvt.has(evt.id))
       b.paxParEvt.set(evt.id, evt.pax ?? 0);
   }
-  const series = [...buckets.entries()]
+  return [...buckets.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([periode, b]) => {
       const pax = [...b.paxParEvt.values()].reduce((s, p) => s + p, 0);
@@ -551,7 +570,6 @@ export async function loadEvolution(
         ratio: pax > 0 ? b.repas / pax : null,
       };
     });
-  return { granularite: g, series };
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -582,13 +600,15 @@ interface AttrEmbed {
     | null;
 }
 
-interface BlocsCollecteRow {
+export interface BlocsCollecteRow {
   id: string;
   type: string;
   taux_recyclage: number | null;
   date_collecte: string;
   evenements: BlocsEvtEmbed | BlocsEvtEmbed[] | null;
-  collecte_flux: { poids_reel_kg: number | null }[] | null;
+  collecte_flux:
+    | { poids_reel_kg: number | null; flux_dechets?: { code: string } | null }[]
+    | null;
   attributions_antgaspi: AttrEmbed[] | AttrEmbed | null;
 }
 

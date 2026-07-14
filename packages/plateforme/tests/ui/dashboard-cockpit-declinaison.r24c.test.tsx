@@ -4,8 +4,8 @@
  * monte SANS crash et rend la SIGNATURE Cockpit attendue (KpiCockpitCard ; pour
  * l'agence : TopRankList + BenchmarkBulletGauges + drill-down onItemClick → URL),
  * à parité de sens avec les pilotes traiteur/gestionnaire (R24/R24b), et que les
- * anciens composants (KpiCard, TopLieuxBloc, BenchmarkGauge côté agence) ont bien
- * disparu.
+ * anciens composants (KpiCard, TopLieuxBloc, TopAssociationsBloc, BenchmarkLegend,
+ * BenchmarkGauge) ont bien disparu au profit de la lib Cockpit.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
@@ -180,43 +180,142 @@ describe('M3.4 / organisateur — déclinaison Cockpit', () => {
 });
 
 // ── Dashboard Client Admin (M3.6) ────────────────────────────────────────────
+const ADMIN_PAYLOAD = {
+  kpi: {
+    nb_collectes: 12,
+    tonnage_kg: 3400,
+    taux_recyclage_pondere: 72.5,
+    kg_par_pax: 1.1,
+  },
+  kgParPaxParFlux: { biodechet: 1.2 },
+  evolution: {
+    granularite: 'mois',
+    series: [
+      {
+        periode: '2026-06-01',
+        biodechet: 2000,
+        emballage: 800,
+        carton: 300,
+        verre: 200,
+        dechet_residuel: 100,
+        tonnage_total: 3400,
+        taux_recyclage: 72.5,
+      },
+    ],
+  },
+  blocs: {
+    topLieux: [
+      {
+        lieu_id: 'A',
+        lieu_nom: 'Lieu A',
+        nb_collectes: 6,
+        tonnage_kg: 2000,
+        taux_recyclage: 74,
+        repas_donnes: null,
+        repas_par_pax: null,
+      },
+    ],
+    topActeurs: [
+      {
+        id: 't1',
+        label: 'Traiteur Alpha',
+        nb_collectes: 6,
+        tonnage_kg: 2000,
+        taux_recyclage: 74,
+        repas_donnes: null,
+        repas_par_pax: null,
+      },
+    ],
+    acteurLabel: 'Traiteur',
+    topAssociations: null,
+    prochaines: [],
+  },
+};
+
+const ADMIN_PAYLOAD_AG = {
+  kpi: {
+    nb_collectes: 8,
+    nb_repas_donnes: 640,
+    pax_total: 1000,
+    repas_par_pax: 0.64,
+  },
+  kgParPaxParFlux: {},
+  evolution: {
+    granularite: 'mois',
+    series: [
+      { periode: '2026-06-01', repas_donnes: 640, pax: 1000, ratio: 0.64 },
+    ],
+  },
+  blocs: {
+    topLieux: [],
+    topActeurs: [],
+    acteurLabel: 'Traiteur',
+    topAssociations: [
+      {
+        association_id: 'a1',
+        nom: 'Les Restos du Cœur',
+        ville: 'Paris',
+        nb_collectes: 4,
+        repas_recus: 320,
+      },
+    ],
+    prochaines: [],
+  },
+};
+
+function adminFetch() {
+  return vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.includes('/dashboard-client/organisations'))
+      return jsonResponse({ data: [] });
+    if (url.includes('/dashboard-client/benchmark'))
+      return jsonResponse({ data: [] });
+    if (url.includes('/dashboard-client'))
+      return jsonResponse({
+        data: url.includes('type=anti_gaspi')
+          ? ADMIN_PAYLOAD_AG
+          : ADMIN_PAYLOAD,
+      });
+    return jsonResponse({});
+  });
+}
+
 describe('M3.6 / dashboard-client — déclinaison Cockpit', () => {
-  it('M3.6/cockpit_declinaison_kpi_cards — KpiCockpitCard (lecture seule) + jauges BenchmarkGauge conservées', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn((input: RequestInfo | URL) => {
-        const url = String(input);
-        if (url.includes('/dashboard-client/organisations'))
-          return jsonResponse({ data: [] });
-        if (url.includes('/dashboard-client/benchmark'))
-          return jsonResponse({ data: [] });
-        if (url.includes('/dashboard-client'))
-          return jsonResponse({
-            data: {
-              kpi: {
-                nb_collectes: 12,
-                tonnage_kg: 3400,
-                taux_recyclage_pondere: 72.5,
-                kg_par_pax: 1.1,
-                nb_repas_donnes: null,
-                pax_total: null,
-                repas_par_pax: null,
-              },
-            },
-          });
-        return jsonResponse({});
-      }),
-    );
+  it('M3.6/cockpit_declinaison_kpi_cards — dashboard Cockpit COMPLET (KPI + évolution + jauges Cockpit + Top listes), lecture seule', async () => {
+    vi.stubGlobal('fetch', adminFetch());
     render(<DashboardClientView />);
 
     // KPI Cockpit read-only (valeur/unité séparées : « 72,5 » + « % »).
     expect(await screen.findByText('Nombre de collectes')).toBeInTheDocument();
     expect(screen.getByText('72,5')).toBeInTheDocument();
-    // Benchmark conservé (BenchmarkGauge, décision Val R24c option A).
+    // Graphes Cockpit : jauges bullet (« Intensité par flux »), Top listes.
+    expect(screen.getByText(/Intensité par flux/)).toBeInTheDocument();
+    expect(screen.getByText('Top 5 lieux')).toBeInTheDocument();
+    expect(screen.getByText('Top 5 traiteurs')).toBeInTheDocument();
+    expect(screen.getByText('Lieu A')).toBeInTheDocument();
+    // L'ancien encart BenchmarkGauge (« Performance vs benchmark parc ») a disparu.
+    expect(screen.queryByText(/Performance vs benchmark parc/)).toBeNull();
+    // Lecture seule stricte — aucune ligne de Top liste cliquable, aucun bouton.
     expect(
-      screen.getByText(/Performance vs benchmark parc/),
-    ).toBeInTheDocument();
-    // Lecture seule — aucun bouton d'action.
+      screen.queryByRole('button', { name: /Voir les collectes/ }),
+    ).toBeNull();
     expect(screen.getByTestId('lecture-seule-badge')).toBeInTheDocument();
+  });
+
+  it('M3.6/cockpit_declinaison_onglet_ag — onglet Anti-Gaspi : Top associations bénéficiaires (lecture seule)', async () => {
+    vi.stubGlobal('fetch', adminFetch());
+    render(<DashboardClientView />);
+    await screen.findByText('Nombre de collectes');
+
+    fireEvent.click(await screen.findByRole('tab', { name: /anti-gaspi/i }));
+
+    expect(
+      await screen.findByText('Top associations bénéficiaires'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Les Restos du Cœur')).toBeInTheDocument();
+    // Toujours lecture seule stricte sur l'onglet AG.
+    expect(
+      screen.queryByRole('button', { name: /Voir les collectes/ }),
+    ).toBeNull();
   });
 });

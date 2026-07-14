@@ -45,7 +45,6 @@ vi.mock('@savr/shared/src/supabase-client.js', () => {
 
 import GestionnaireDashboardPage from '@/app/(gestionnaire)/gestionnaire/page.js';
 import NouveauProgrammationPage from '@/app/(programmation)/programmer/nouveau/page.js';
-import { BenchmarkGauge } from '@/components/dashboards/BenchmarkGauge.js';
 import { BenchmarkFilterBar } from '@/components/dashboards/BenchmarkFilterBar.js';
 
 const KPIS_ZD = {
@@ -166,17 +165,12 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
     expect(screen.getByText('5')).toBeInTheDocument();
   });
 
-  it('M3.2/GEST04_benchmark_gauge_moyenne_ponderee — jauge consomme benchmark_kg_pax', async () => {
-    render(<BenchmarkGauge bracket="M" fluxCode="biodechet" myKgPax={2.0} />);
-
-    // Le libellé et la valeur proviennent de la moyenne pondérée parc (ex-median_kg_pax).
-    expect(
-      await screen.findByText(/Moyenne pondérée parc/i),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/1,6/)).toBeInTheDocument();
-    // Ratio utilisateur (2.0 / 1.6 = 125 %) affiché vs la moyenne parc.
-    expect(screen.getByText(/125% de la moyenne parc/i)).toBeInTheDocument();
-  });
+  // R24c : l'ex-scénario M3.2/GEST04_benchmark_gauge_moyenne_ponderee (rendu du
+  // composant BenchmarkGauge en isolation) est retiré — BenchmarkGauge est
+  // supprimé (déclinaison Cockpit full-graphes partout : le gestionnaire, comme
+  // les autres dashboards, rend BenchmarkBulletGauges, testé dans cockpit.test).
+  // La moyenne pondérée parc (grain flux × type × taille, k-anonymat) reste
+  // couverte par le pgTAP r19b_gest04_benchmark_ponderee.test.sql (GEST04-1..14).
 
   it("M3.2/GEST04_encart_filtres_present — l'utilisateur peut choisir les paramètres du benchmark", async () => {
     render(<GestionnaireDashboardPage />);

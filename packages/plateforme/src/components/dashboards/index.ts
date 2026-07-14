@@ -1,4 +1,3 @@
-export { BenchmarkGauge } from './BenchmarkGauge.js';
 export { BenchmarkFilterBar } from './BenchmarkFilterBar.js';
 export type {
   BenchmarkFilters,

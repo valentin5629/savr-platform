@@ -15,9 +15,10 @@
     "packages/plateforme/src/app/(admin)/admin/dashboard-client/page.tsx",
     "packages/plateforme/src/app/(admin)/admin/dashboard-client/DashboardClientView.tsx",
     "packages/plateforme/src/app/(admin)/admin/dashboard-client/OrganisationSelector.tsx",
-    "packages/plateforme/src/components/dashboards/BenchmarkGauge.tsx",
+    "packages/plateforme/src/lib/dashboards/admin-dashboard-client.ts",
     "packages/plateforme/tests/api/admin/dashboard-client.m3-6.test.ts",
     "packages/plateforme/tests/ui/dashboard-client.m3-6.test.tsx",
+    "packages/plateforme/tests/ui/dashboard-cockpit-declinaison.r24c.test.tsx",
     "specs/manifests/M3.6.json"
   ],
   "scenarios": [
@@ -106,11 +107,19 @@
     },
     {
       "id": "M3.6-cockpit-declinaison",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:114",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:129",
       "artefact": "packages/plateforme/src/app/(admin)/admin/dashboard-client/DashboardClientView.tsx",
-      "test": "M3.6/cockpit_declinaison_kpi_cards + M3.6/dashboard_client_toutes_organisations_lecture_seule",
+      "test": "M3.6/cockpit_declinaison_kpi_cards + M3.6/cockpit_declinaison_onglet_ag + M3.6/dashboard_client_toutes_organisations_lecture_seule",
       "statut": "implemented",
-      "libelle": "R24c — Déclinaison Cockpit du Dashboard Client Admin (§06.06 §2, réplique LECTURE SEULE du dashboard gestionnaire). Les cartes KPI (ZD 4 + AG 4) passent en KpiCockpitCard (valeur/unité séparées, format fr) NON cliquables — aucune action, lecture seule préservée. Les jauges benchmark restent servies par BenchmarkGauge (endpoint Admin dédié /api/v1/admin/dashboard-client/benchmark) — décision Val R24c option A : BenchmarkGauge conservé (donc non orphelin). Suppression de KpiCard (orphelin). DS appliqué. Aucune régression fonctionnelle ; endpoints inchangés. NB : M3.6 reste une réplique RÉDUITE (KPI + benchmark) — Bloc 2/4 §06.06 §2 non implémentés = gap pré-existant, hors scope de ce lot présentationnel."
+      "libelle": "R24c — Déclinaison Cockpit COMPLÈTE du Dashboard Client Admin (§06.06 §2, « reprise EXACTE du dashboard gestionnaire », retour Val « je ne vois pas les graphs »). Rendu full-graphes : KpiCockpitCard (ZD 4 / AG 4) + Bloc 2 EvolutionZd/AgChart + Bloc 4 TonnagesDonut + Bloc 3 jauges Cockpit BenchmarkBulletGauges + Bloc 6 Top lieux + Bloc 7 Top traiteurs + Bloc 3 AG Top associations + Bloc 5 Prochaines. LECTURE SEULE STRICTE : aucune ligne cliquable (TopRankList sans onItemClick), prochaines sans lien, aucune action. Comble le gap pré-existant (M3.6 n'affichait que KPI + benchmark). BenchmarkGauge SUPPRIMÉ (plus aucun consommateur — Cockpit partout). DS appliqué. LIMITE CONNUE (moins restrictif qu'avant, pas une régression) : le Bloc 3 benchmark admin lit le parc global anonymisé (tous brackets) SANS la barre de filtre dédiée à 5 critères du §06.05 — l'endpoint benchmark admin ne prend que `bracket`. La barre de filtre benchmark admin (+ endpoint /filtres staff) = follow-up séparé si Val la veut."
+    },
+    {
+      "id": "M3.6-cockpit-endpoint",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:129",
+      "artefact": "packages/plateforme/src/lib/dashboards/admin-dashboard-client.ts + packages/plateforme/src/app/api/v1/admin/dashboard-client/route.ts + packages/plateforme/src/lib/dashboards/loaders.ts (buildEvolutionSeries exporté)",
+      "test": "M3.6/kpi_zd_4_indicateurs_pondere + M3.6/kpi_ag_repas_donnes + M3.6/kpi_toutes_organisations_sans_filtre_org + M3.6/kpi_organisations_selectionnees_filtre_in + M3.6/kpi_filtre_periode_date_collecte",
+      "statut": "implemented",
+      "libelle": "R24c — Loader Admin cross-org loadAdminDashboardClient (service_role, scope organisation_ids[] ; vide = toutes) renvoyant le dashboard COMPLET (kpi + kgParPaxParFlux + évolution + blocs top/prochaines) en réutilisant EXACTEMENT les algos purs des dashboards client (computeDashboardKpi + buildEvolutionSeries + topLieuxFrom + aggregateActeurs + topAssociationsFrom + kgParPaxParFluxFrom) → parité de sémantique. Seul le SCOPE diffère (service_role + filtre org explicite, jamais RLS). Résolution des noms de traiteur via organisations (service_role). Route inchangée sur ses gardes (requireStaff, filtre org/date, 401/403)."
     }
   ],
   "cdc_source_hash": {

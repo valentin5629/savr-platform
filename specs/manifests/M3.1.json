@@ -400,7 +400,7 @@
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx",
       "test": "M3.1/blocs_traiteur_zd_montes_et_benchmark_reel",
       "statut": "implemented",
-      "libelle": "Bloc 3 ZD — jauges kg/pax × benchmark parc RÉEL (remplace le stub R20a tonnage/pax/5) : encart BenchmarkFilterBar 4 dimensions (Traiteurs masqué, traiteur_ids[] rejeté serveur §06.04 l.143) + 5 BenchmarkGauge alimentées par kgParPaxParFlux (Vous) et benchmarkFilters (point rouge)."
+      "libelle": "Bloc 3 ZD — jauges kg/pax × benchmark parc RÉEL : encart BenchmarkFilterBar 4 dimensions imbriqué (Traiteurs masqué, traiteur_ids[] rejeté serveur §06.04 l.143) + jauges Cockpit BenchmarkBulletGauges (R24) alimentées par kgParPaxParFlux (Vous) et aggregateBenchmarkPerFlux(benchmarkRows) (repère parc). L'ancien composant BenchmarkGauge est supprimé (R24c)."
     },
     {
       "id": "M3.1-bloc5-prochaines",

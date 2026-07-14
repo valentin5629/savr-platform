@@ -40,12 +40,12 @@
       "bytes": 8536
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": {
-      "sha256": "8d05ca4ebd98e2b845b887ee14fd285c2026128c17750edd8f87f22de9806d0b",
-      "bytes": 92596
+      "sha256": "3f1bcd3cafcdd03ec310d28b3be992f5a5d123b08d24cf5b0cbc51b56966fcd0",
+      "bytes": 96398
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": {
-      "sha256": "5d9ba496580f9de0fa09965275785dcc7723bc95972d499b956961ac40a6dd64",
-      "bytes": 51415
+      "sha256": "612436d8122633f42e4c0a10b58921e7cdb94a91ddbf4f1ab121b32a076c7e67",
+      "bytes": 52269
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": {
       "sha256": "4175a18a449a29c84ec0ff7d59ac496c6f81d0b4fa8e146b5baf343f6728c67e",
@@ -136,8 +136,8 @@
       "bytes": 27020
     },
     "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": {
-      "sha256": "7776a13e7297a39d4110630c3b45e2567e0fe39bc5af9f31a197d42288ffa351",
-      "bytes": 26245
+      "sha256": "ee9167a6c44ca08f888523dfea7a4505ec162b62dfe4cc75e8b2138469fdab7a",
+      "bytes": 27129
     },
     "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": {
       "sha256": "395550f99b433f9779bea4e570fb6c3acd28ffbae4bdf3c6cb0a653f96b7a124",

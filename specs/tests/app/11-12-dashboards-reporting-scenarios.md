@@ -317,9 +317,9 @@ Scénario : alerte_pesee_somme_pesees_multiples_meme_flux
 
 Scénario : marge_zd_null_et_negative
   Étant donné le dashboard traiteur Kaspia filtré sur une période sans collecte ZD
-  Quand le KPI Marge générée se calcule
-  Alors la marge = NULL et l'UI affiche "—"
-  Et sur une période où Σ factures HT (620 €) > tarif×pax (1,50 × 383 = 574,50 €), la marge s'affiche en rouge "−45,50 €"
+  Quand la grandeur marge se calcule via l'endpoint kpi-traiteur
+  Alors l'endpoint retourne NULL (plus affichée en carte KPI — retrait rangée, décision Val 2026-07-13, réversible) ; ancienne UI affichait "—"
+  Et sur une période où Σ factures HT (620 €) > tarif×pax (1,50 × 383 = 574,50 €), l'endpoint retourne la valeur négative (affichage carte rouge retiré — décision Val 2026-07-13) "−45,50 €"
 ```
 
 ```gherkin

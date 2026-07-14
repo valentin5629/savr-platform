@@ -109,6 +109,7 @@ function CollectesContent() {
   // (`cloturee`) pour que le nombre de lignes = le chiffre du Top liste.
   const lieuFiltre = params.get('lieu');
   const commercialFiltre = params.get('commercial');
+  const associationFiltre = params.get('association');
   const statutOverride = params.get('statut');
   const fromFiltre = params.get('from');
   const toFiltre = params.get('to');
@@ -151,6 +152,7 @@ function CollectesContent() {
     });
     if (lieuFiltre) qs.set('lieu_id', lieuFiltre);
     if (commercialFiltre) qs.set('commercial_id', commercialFiltre);
+    if (associationFiltre) qs.set('association_id', associationFiltre);
     if (fromFiltre) qs.set('from', fromFiltre);
     if (toFiltre) qs.set('to', toFiltre);
     if (perimetreFiltre) qs.set('perimetre', perimetreFiltre);
@@ -163,6 +165,7 @@ function CollectesContent() {
     onglet,
     lieuFiltre,
     commercialFiltre,
+    associationFiltre,
     statutOverride,
     fromFiltre,
     toFiltre,
@@ -179,8 +182,10 @@ function CollectesContent() {
     if (lieuFiltre) setFiltreLabel(readCollecteFiltreLabel('lieu', lieuFiltre));
     else if (commercialFiltre)
       setFiltreLabel(readCollecteFiltreLabel('commercial', commercialFiltre));
+    else if (associationFiltre)
+      setFiltreLabel(readCollecteFiltreLabel('association', associationFiltre));
     else setFiltreLabel(null);
-  }, [lieuFiltre, commercialFiltre]);
+  }, [lieuFiltre, commercialFiltre, associationFiltre]);
 
   function pushQuery(next: { type?: CollecteType; onglet?: Onglet }) {
     const usp = new URLSearchParams(Array.from(params.entries()));
@@ -204,9 +209,15 @@ function CollectesContent() {
   }
   function clearFiltre() {
     const usp = new URLSearchParams(Array.from(params.entries()));
-    ['lieu', 'commercial', 'statut', 'from', 'to', 'perimetre'].forEach((k) =>
-      usp.delete(k),
-    );
+    [
+      'lieu',
+      'commercial',
+      'association',
+      'statut',
+      'from',
+      'to',
+      'perimetre',
+    ].forEach((k) => usp.delete(k));
     router.replace(`/traiteur/collectes?${usp}`);
   }
 
@@ -221,7 +232,9 @@ function CollectesContent() {
     ? `Lieu : ${filtreLabel ?? lieuNomDesRows ?? 'lieu sélectionné'}`
     : commercialFiltre
       ? `Commercial : ${filtreLabel ?? 'commercial sélectionné'}`
-      : null;
+      : associationFiltre
+        ? `Association : ${filtreLabel ?? 'association sélectionnée'}`
+        : null;
   // Périmètre appliqué (miroir dashboard) affiché en clair dans le chip.
   const chipScope = (() => {
     const parts: string[] = [];

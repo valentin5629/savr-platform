@@ -325,6 +325,19 @@ export function TraiteurDashboardClient({
       `/traiteur/collectes?onglet=historique&commercial=${a.id}${drillScope}`,
     );
   };
+  // Bloc 3 AG — clic sur une association bénéficiaire → collectes AG filtrées.
+  const goToAssociation = (i: number) => {
+    const a = blocs?.topAssociations?.[i];
+    if (!a) return;
+    setCollecteFiltreLabel({
+      kind: 'association',
+      id: a.association_id,
+      label: a.nom,
+    });
+    router.push(
+      `/traiteur/collectes?onglet=historique&association=${a.association_id}${drillScope}`,
+    );
+  };
 
   // ── Benchmark (Bloc 3 ZD) ────────────────────────────────────────────────────
   const gaugeItems = benchmarkItems(
@@ -593,6 +606,7 @@ export function TraiteurDashboardClient({
                 title="Top associations bénéficiaires"
                 subtitle="Par repas reçus"
                 items={withBars(topAssociationsItems)}
+                onItemClick={goToAssociation}
                 avatarShape="round"
                 avatarTint="orange"
                 showBar

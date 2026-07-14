@@ -306,6 +306,21 @@ it('EvolutionAgChart — rend des barres repas + la courbe ratio', () => {
   expect(screen.getByText(/Évolution Anti-Gaspi/)).toBeInTheDocument();
 });
 
+it('EvolutionAgChart — survol : point emphasé, aucune bande pleine colonne (retour Val)', () => {
+  const { container } = render(
+    <EvolutionAgChart series={ag} granularite="mois" />,
+  );
+  // Aucune surbrillance pleine colonne AVANT survol.
+  expect(container.querySelector('rect[opacity="0.04"]')).toBeNull();
+  const zone = container.querySelector('rect[fill="transparent"]');
+  expect(zone).not.toBeNull();
+  fireEvent.mouseEnter(zone!);
+  // Toujours aucune bande colonne APRÈS survol — seul le point/la barre s'emphase.
+  expect(container.querySelector('rect[opacity="0.04"]')).toBeNull();
+  // Le point de ratio du créneau survolé s'agrandit (r 1.25 → 2.75).
+  expect(container.querySelector('circle[r="2.75"]')).not.toBeNull();
+});
+
 it('TopRankList — rend rangs, libellés et valeurs formatées', () => {
   render(
     <TopRankList

@@ -127,6 +127,25 @@ describe('API traiteur/collectes — filtre commercial (drill-down Top 5 commerc
       false,
     );
   });
+
+  it('association_id → filtre attributions_antgaspi.association_id (drill-down Top asso AG)', async () => {
+    rls = makeChain({ data: [], error: null });
+    await call(
+      'http://localhost/api/v1/traiteur/collectes?type=anti_gaspi&association_id=asso-7&statut=cloturee',
+    );
+    expect(rls.__eq).toContainEqual([
+      'attributions_antgaspi.association_id',
+      'asso-7',
+    ]);
+  });
+
+  it('sans association → aucun filtre attributions_antgaspi (embed non ajouté)', async () => {
+    rls = makeChain({ data: [], error: null });
+    await call('http://localhost/api/v1/traiteur/collectes?type=zero_dechet');
+    expect(
+      rls.__eq.some(([col]) => col === 'attributions_antgaspi.association_id'),
+    ).toBe(false);
+  });
 });
 
 describe('API gestionnaire/collectes — filtres lieu / traiteur + noms', () => {

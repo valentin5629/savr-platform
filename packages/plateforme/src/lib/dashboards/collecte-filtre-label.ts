@@ -8,7 +8,11 @@
 // libellé pour le chip « filtre actif », en le validant contre l'ID courant
 // (garde anti-libellé périmé si l'utilisateur édite l'URL à la main).
 
-export type CollecteFiltreKind = 'lieu' | 'commercial' | 'traiteur';
+export type CollecteFiltreKind =
+  | 'lieu'
+  | 'commercial'
+  | 'traiteur'
+  | 'association';
 
 interface StoredLabel {
   kind: CollecteFiltreKind;

@@ -111,14 +111,22 @@ export default function NouveauProgrammationPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Rôle courant (nécessaire pour UI agence/gestionnaire)
+  // Rôle courant (nécessaire pour UI agence/gestionnaire/admin)
   const [role, setRole] = useState<string>('');
+  // Admin support : programmation « pour le compte d'un traiteur » (§06.01 l.15).
+  const isAdmin = role === 'admin_savr' || role === 'ops_savr';
   const needsTraiteurSelector =
-    role === 'agence' || role === 'gestionnaire_lieux';
+    role === 'agence' || role === 'gestionnaire_lieux' || isAdmin;
 
-  // Traiteur opérant (agence / gestionnaire_lieux uniquement)
+  // Traiteur cible du sélecteur : traiteur opérant (agence / gestionnaire_lieux)
+  // ou organisation cible (admin support). Une seule state pour les trois rôles ;
+  // c'est le submit qui route la valeur vers le bon champ du body.
   const [traiteurOperationnelId, setTraiteurOperationnelId] = useState('');
   const [traiteurs, setTraiteurs] = useState<TraiteurOption[]>([]);
+  // Org cible à propager aux sous-requêtes lieux/contacts — admin support seulement
+  // (le param cross-org n'est honoré que pour le staff côté route).
+  const adminTargetOrgId =
+    isAdmin && traiteurOperationnelId ? traiteurOperationnelId : undefined;
 
   // Étape 1
   const [nomClient, setNomClient] = useState('');
@@ -261,7 +269,12 @@ export default function NouveauProgrammationPage() {
       const r = claims['user_role'] as string | undefined;
       if (r) {
         setRole(r);
-        if (r === 'agence' || r === 'gestionnaire_lieux') {
+        if (
+          r === 'agence' ||
+          r === 'gestionnaire_lieux' ||
+          r === 'admin_savr' ||
+          r === 'ops_savr'
+        ) {
           void fetch('/api/v1/programmation/organisations/traiteurs')
             .then((res) => res.json() as Promise<TraiteurOption[]>)
             .then(setTraiteurs);
@@ -290,14 +303,20 @@ export default function NouveauProgrammationPage() {
   }, [lieu]);
 
   const checkPackAg = useCallback(async (): Promise<boolean> => {
-    const res = await fetch('/api/v1/programmation/pack-ag');
+    // Admin support : le pack ciblé est celui de l'organisation choisie, pas du
+    // caller (admin n'a pas d'organisation propre) → on passe organisation_id.
+    const url =
+      isAdmin && traiteurOperationnelId
+        ? `/api/v1/programmation/pack-ag?organisation_id=${traiteurOperationnelId}`
+        : '/api/v1/programmation/pack-ag';
+    const res = await fetch(url);
     const data = (await res.json()) as PackInfo;
     setPackAg(data);
     const bloque = !data.pack_actif || (data.credits_restants ?? 0) <= 0;
     setAgBloque(bloque);
     if (bloque) setTypesCollecte((prev) => ({ ...prev, ag: false }));
     return bloque;
-  }, []);
+  }, [isAdmin, traiteurOperationnelId]);
 
   const handleAgCheck = async (checked: boolean) => {
     if (checked) {
@@ -326,7 +345,11 @@ export default function NouveauProgrammationPage() {
     const res = await fetch('/api/v1/programmation/contacts', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(newContact),
+      body: JSON.stringify(
+        adminTargetOrgId
+          ? { ...newContact, organisation_id: adminTargetOrgId }
+          : newContact,
+      ),
     });
     if (!res.ok) return;
     const created = (await res.json()) as ContactOption;
@@ -399,9 +422,15 @@ export default function NouveauProgrammationPage() {
             c.informations_supplementaires || undefined,
         })),
         confirmer,
-        ...(needsTraiteurSelector && traiteurOperationnelId
-          ? { traiteur_operationnel_organisation_id: traiteurOperationnelId }
-          : {}),
+        // Admin support : la valeur du sélecteur est l'organisation CIBLE
+        // (organisation_id) ; le serveur en dérive le traiteur opérationnel.
+        // Agence / gestionnaire : c'est le traiteur OPÉRANT (leur propre org
+        // reste l'organisation_id, résolu côté serveur depuis le JWT).
+        ...(isAdmin && traiteurOperationnelId
+          ? { organisation_id: traiteurOperationnelId }
+          : needsTraiteurSelector && traiteurOperationnelId
+            ? { traiteur_operationnel_organisation_id: traiteurOperationnelId }
+            : {}),
       };
 
       const res = await fetch('/api/v1/programmation/evenements', {
@@ -551,8 +580,15 @@ export default function NouveauProgrammationPage() {
           {needsTraiteurSelector && (
             <div className="space-y-1">
               <label className="text-sm font-medium text-savr-neutral-700">
-                Traiteur opérant <span className="text-savr-error">*</span>
+                {isAdmin ? 'Traiteur (pour le compte de)' : 'Traiteur opérant'}{' '}
+                <span className="text-savr-error">*</span>
               </label>
+              {isAdmin && (
+                <p className="text-xs text-savr-neutral-500">
+                  Programmation de support — la collecte sera créée au nom de ce
+                  traiteur.
+                </p>
+              )}
               <select
                 value={traiteurOperationnelId}
                 onChange={(e) => setTraiteurOperationnelId(e.target.value)}
@@ -681,6 +717,7 @@ export default function NouveauProgrammationPage() {
               value={lieu}
               onChange={applyLieu}
               onAddManuel={() => setShowLieuManuel(true)}
+              organisationId={adminTargetOrgId}
             />
           </div>
 
@@ -703,6 +740,7 @@ export default function NouveauProgrammationPage() {
                     setShowLieuManuel(false);
                   }}
                   onCancel={() => setShowLieuManuel(false)}
+                  organisationId={adminTargetOrgId}
                 />
               </Dialog.Content>
             </Dialog.Portal>
@@ -734,6 +772,7 @@ export default function NouveauProgrammationPage() {
               value={contactPrincipal}
               onChange={setContactPrincipal}
               onAddInline={() => setShowContactForm('principal')}
+              organisationId={adminTargetOrgId}
             />
           </div>
 
@@ -749,6 +788,7 @@ export default function NouveauProgrammationPage() {
               onChange={setContactSecours}
               onAddInline={() => setShowContactForm('secours')}
               label="Ajouter un contact secours…"
+              organisationId={adminTargetOrgId}
             />
           </div>
 

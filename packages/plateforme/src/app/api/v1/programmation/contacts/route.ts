@@ -1,17 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
-import { requireProgrammateur } from '@/lib/api-auth.js';
+import { requireProgrammateurOuAdmin } from '@/lib/api-auth.js';
 import { sanitizeOrTerm } from '@/lib/api-helpers.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const auth = await requireProgrammateur(req);
+  const auth = await requireProgrammateurOuAdmin(req);
   if (auth.error) return auth.error;
 
   const supabase = createAdminSupabaseClient();
   const { searchParams } = new URL(req.url);
   const q = sanitizeOrTerm(searchParams.get('q') ?? ''); // C2 : neutralise l'injection .or
-  // Toujours filtrer sur l'org du caller — jamais de param cross-org (service_role bypasse RLS)
-  const orgId = auth.ctx.organisationId;
+  // Org du caller par défaut. Le param `organisation_id` (org cible) n'est honoré
+  // QUE pour le staff (admin support, §06.01 l.15) — un rôle client ne peut jamais
+  // élargir son scope via ce param (sinon fuite cross-org, service_role bypasse RLS).
+  const orgId = auth.ctx.isAdmin
+    ? searchParams.get('organisation_id')
+    : auth.ctx.organisationId;
+  if (!orgId) return NextResponse.json([]);
 
   let query = supabase
     .from('contacts_traiteurs')
@@ -35,7 +40,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const auth = await requireProgrammateur(req);
+  const auth = await requireProgrammateurOuAdmin(req);
   if (auth.error) return auth.error;
 
   const body = (await req.json()) as Record<string, unknown>;
@@ -48,12 +53,27 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // Org du contact créé : caller, ou org cible (staff-only) pour l'admin support.
+  const orgId = auth.ctx.isAdmin
+    ? body.organisation_id
+      ? String(body.organisation_id)
+      : null
+    : auth.ctx.organisationId;
+  if (!orgId) {
+    return NextResponse.json(
+      {
+        error: 'organisation_id requis pour la programmation de support admin',
+      },
+      { status: 422 },
+    );
+  }
+
   const supabase = createAdminSupabaseClient();
   const { data, error } = await supabase
     .from('contacts_traiteurs')
     .upsert(
       {
-        organisation_id: auth.ctx.organisationId,
+        organisation_id: orgId,
         prenom: String(prenom),
         nom: String(nom),
         telephone: String(telephone),

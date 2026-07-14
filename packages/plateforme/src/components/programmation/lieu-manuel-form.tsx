@@ -11,9 +11,12 @@ import type { LieuOption } from '@/components/programmation/lieu-combobox';
 export function LieuManuelForm({
   onSave,
   onCancel,
+  organisationId,
 }: {
   onSave: (lieu: LieuOption) => void;
   onCancel: () => void;
+  // Admin support : org cible transmise pour le libellé de la notification (staff-only).
+  organisationId?: string;
 }) {
   const [form, setForm] = useState({
     nom: '',
@@ -40,6 +43,7 @@ export function LieuManuelForm({
           stationnement: form.stationnement || undefined,
           type_vehicule_max: form.type_vehicule_max || undefined,
           acces_office: form.acces_office || undefined,
+          organisation_id: organisationId || undefined,
         }),
       });
       const data = (await res.json()) as LieuOption & { error?: string };

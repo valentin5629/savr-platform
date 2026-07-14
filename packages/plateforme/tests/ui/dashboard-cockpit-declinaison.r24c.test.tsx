@@ -316,14 +316,27 @@ describe('M3.6 / dashboard-client — déclinaison Cockpit', () => {
     expect(screen.getByText('Lieu A')).toBeInTheDocument();
     // L'ancien encart BenchmarkGauge (« Performance vs benchmark parc ») a disparu.
     expect(screen.queryByText(/Performance vs benchmark parc/)).toBeNull();
-    // Lecture seule stricte — aucune ligne de Top liste cliquable, aucun bouton.
-    expect(
-      screen.queryByRole('button', { name: /Voir les collectes/ }),
-    ).toBeNull();
+    // Lecture seule DONNÉES + badge présent (pas d'écriture).
     expect(screen.getByTestId('lecture-seule-badge')).toBeInTheDocument();
   });
 
-  it('M3.6/cockpit_declinaison_onglet_ag — onglet Anti-Gaspi : Top associations bénéficiaires (lecture seule)', async () => {
+  it('M3.6/cockpit_declinaison_drilldown — Top lieux/traiteurs cliquables → /admin/collectes filtrée (miroir)', async () => {
+    vi.stubGlobal('fetch', adminFetch());
+    render(<DashboardClientView />);
+    await screen.findByText('Lieu A');
+
+    const rows = screen.getAllByRole('button', { name: /Voir les collectes/ });
+    expect(rows.length).toBeGreaterThan(0);
+    fireEvent.click(rows[0]!);
+
+    expect(pushMock).toHaveBeenCalledTimes(1);
+    const url = String(pushMock.mock.calls[0]![0]);
+    expect(url).toContain('/admin/collectes?lieu=A');
+    expect(url).toContain('type=zero_dechet');
+    expect(url).toContain('statut=cloturee');
+  });
+
+  it('M3.6/cockpit_declinaison_onglet_ag — onglet Anti-Gaspi : Top associations bénéficiaires', async () => {
     vi.stubGlobal('fetch', adminFetch());
     render(<DashboardClientView />);
     await screen.findByText('Nombre de collectes');
@@ -334,9 +347,5 @@ describe('M3.6 / dashboard-client — déclinaison Cockpit', () => {
       await screen.findByText('Top associations bénéficiaires'),
     ).toBeInTheDocument();
     expect(screen.getByText('Les Restos du Cœur')).toBeInTheDocument();
-    // Toujours lecture seule stricte sur l'onglet AG.
-    expect(
-      screen.queryByRole('button', { name: /Voir les collectes/ }),
-    ).toBeNull();
   });
 });

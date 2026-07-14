@@ -17,9 +17,12 @@ const adminClient: Record<string, unknown> = {
   select: vi.fn(() => adminClient),
   eq: vi.fn(() => adminClient),
   in: vi.fn(() => adminClient),
+  or: vi.fn(() => adminClient),
   gte: vi.fn(() => adminClient),
   lte: vi.fn(() => adminClient),
-  order: vi.fn(() => Promise.resolve(queryResult)),
+  order: vi.fn(() => adminClient),
+  limit: vi.fn(() => adminClient),
+  maybeSingle: vi.fn(() => Promise.resolve(queryResult)),
   rpc: vi.fn(() => Promise.resolve(rpcResult)),
   // Rend le builder awaitable (la route KPI fait `await q` sans méthode terminale).
   then: (resolve: (v: unknown) => void) => resolve(queryResult),
@@ -68,6 +71,10 @@ function makeReq(url: string): NextRequest {
 
 function inCalls(): unknown[][] {
   return (adminClient.in as ReturnType<typeof vi.fn>).mock.calls;
+}
+
+function orCalls(): unknown[][] {
+  return (adminClient.or as ReturnType<typeof vi.fn>).mock.calls;
 }
 
 function gteCalls(): unknown[][] {
@@ -127,14 +134,16 @@ describe('M3.6 / Dashboard Client / périmètre', () => {
       makeReq('/api/v1/admin/dashboard-client?type=zero_dechet'),
     );
     expect(res.status).toBe(200);
-    // « Toutes les organisations » : .in ne doit JAMAIS cibler organisation_id.
-    const orgFilter = inCalls().find(
-      (c) => c[0] === 'evenements.organisation_id',
+    // « Toutes les organisations » : aucun filtre de périmètre org (ni .in ni .or).
+    const orgIn = inCalls().find((c) => c[0] === 'evenements.organisation_id');
+    expect(orgIn).toBeUndefined();
+    const orgOr = orCalls().find((c) =>
+      String(c[0]).includes('organisation_id.in.'),
     );
-    expect(orgFilter).toBeUndefined();
+    expect(orgOr).toBeUndefined();
   });
 
-  it('M3.6/kpi_organisations_selectionnees_filtre_in — filtre evenements.organisation_id IN', async () => {
+  it('M3.6/kpi_organisations_selectionnees_filtre_in — périmètre opérateur-inclusif (programmateur OU traiteur opérationnel)', async () => {
     setupAuth('admin_savr');
     queryResult = { data: [], error: null };
     const { GET } =
@@ -145,11 +154,17 @@ describe('M3.6 / Dashboard Client / périmètre', () => {
       ),
     );
     expect(res.status).toBe(200);
-    const orgFilter = inCalls().find(
-      (c) => c[0] === 'evenements.organisation_id',
+    // DÉCISION VAL R24c : un traiteur sélectionné = son activité d'OPÉRATEUR →
+    // filtre .or(organisation_id IN … OU traiteur_operationnel_organisation_id IN …)
+    // sur la table référencée evenements, appliqué aux 2 requêtes (hist + prochaines).
+    const orgOr = orCalls().find((c) =>
+      String(c[0]).includes('organisation_id.in.(org-1,org-2)'),
     );
-    expect(orgFilter).toBeDefined();
-    expect(orgFilter?.[1]).toEqual(['org-1', 'org-2']);
+    expect(orgOr).toBeDefined();
+    expect(String(orgOr?.[0])).toContain(
+      'traiteur_operationnel_organisation_id.in.(org-1,org-2)',
+    );
+    expect(orgOr?.[1]).toEqual({ referencedTable: 'evenements' });
   });
 });
 

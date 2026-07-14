@@ -119,7 +119,23 @@
       "artefact": "packages/plateforme/src/lib/dashboards/admin-dashboard-client.ts + packages/plateforme/src/app/api/v1/admin/dashboard-client/route.ts + packages/plateforme/src/lib/dashboards/loaders.ts (buildEvolutionSeries exporté)",
       "test": "M3.6/kpi_zd_4_indicateurs_pondere + M3.6/kpi_ag_repas_donnes + M3.6/kpi_toutes_organisations_sans_filtre_org + M3.6/kpi_organisations_selectionnees_filtre_in + M3.6/kpi_filtre_periode_date_collecte",
       "statut": "implemented",
-      "libelle": "R24c — Loader Admin cross-org loadAdminDashboardClient (service_role, scope organisation_ids[] ; vide = toutes) renvoyant le dashboard COMPLET (kpi + kgParPaxParFlux + évolution + blocs top/prochaines) en réutilisant EXACTEMENT les algos purs des dashboards client (computeDashboardKpi + buildEvolutionSeries + topLieuxFrom + aggregateActeurs + topAssociationsFrom + kgParPaxParFluxFrom) → parité de sémantique. Seul le SCOPE diffère (service_role + filtre org explicite, jamais RLS). Résolution des noms de traiteur via organisations (service_role). Route inchangée sur ses gardes (requireStaff, filtre org/date, 401/403)."
+      "libelle": "R24c — Loader Admin cross-org loadAdminDashboardClient (service_role, scope organisation_ids[] ; vide = toutes) renvoyant le dashboard COMPLET (kpi + kgParPaxParFlux + évolution + blocs top/prochaines + co2) en réutilisant EXACTEMENT les algos purs des dashboards client (computeDashboardKpi + buildEvolutionSeries + topLieuxFrom + aggregateActeurs + topAssociationsFrom + kgParPaxParFluxFrom + co2Totals) → parité de sémantique. Seul le SCOPE diffère (service_role + filtre org explicite, jamais RLS). Résolution des noms de traiteur via organisations (service_role). Route inchangée sur ses gardes (requireStaff, filtre org/date, 401/403)."
+    },
+    {
+      "id": "M3.6-scope-operateur",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:118",
+      "artefact": "packages/plateforme/src/lib/dashboards/admin-dashboard-client.ts (applyScope .or)",
+      "test": "M3.6/kpi_organisations_selectionnees_filtre_in + M3.6/kpi_toutes_organisations_sans_filtre_org",
+      "statut": "implemented",
+      "libelle": "R24c — DÉCISION VAL (divergence §06.06 §2 tracée _Divergences/M3.6_20260714) : le sélecteur d'organisations scope les collectes où une org sélectionnée est PROGRAMMATRICE (organisation_id) OU TRAITEUR OPÉRATIONNEL (traiteur_operationnel_organisation_id) — filtre .or(…, {referencedTable:'evenements'}). Un traiteur → toute son activité opérée (Kaspia 97 et non 85) ; une agence → ses événements programmés. Corrige l'incohérence 85 vs 97 signalée en GO-VISUAL."
+    },
+    {
+      "id": "M3.6-drilldown",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:129",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/dashboard-client/DashboardClientView.tsx + packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (URL-aware) + packages/plateforme/src/app/api/v1/admin/collectes/route.ts (param traiteur_operationnel_id)",
+      "test": "M3.6/cockpit_declinaison_drilldown + M0.6 — filtres avancés : traiteur/lieu peuplés + filtrage serveur",
+      "statut": "implemented",
+      "libelle": "R24c — Drill-down « clic Top 5 → /admin/collectes filtrée » (retour Val). Top lieux → ?lieu, Top traiteurs → ?traiteur (= traiteur OPÉRATIONNEL, miroir exact du Top 5). La liste Collectes Admin devient URL-aware (lieu/traiteur/type/statut/from/to → filtres initiaux + chip CollecteFiltreActif via sessionStorage) et son filtre « Traiteur » passe à traiteur_operationnel_id (API : nouveau param `.eq(traiteur_operationnel_organisation_id)`). Gestionnaire déjà aligné (traiteur_operationnel), agence = drill lieux seul (pas de Top traiteurs, diff #8), traiteur = drill commercial (created_by)."
     }
   ],
   "cdc_source_hash": {

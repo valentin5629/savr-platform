@@ -133,17 +133,30 @@ export async function loadAdminDashboardClient(
     params;
   const tailleEvts = params.tailleEvts;
 
-  // Scope cross-org (service_role) : « Toutes » = aucun filtre org ; sinon `.in`.
+  // Scope cross-org (service_role) : « Toutes » = aucun filtre org.
   const applyScope = <
     Q extends {
       in: (c: string, v: readonly unknown[]) => Q;
+      or: (f: string, opts: { referencedTable: string }) => Q;
     },
   >(
     q: Q,
   ): Q => {
     let query = q;
-    if (organisationIds.length > 0)
-      query = query.in('evenements.organisation_id', organisationIds);
+    // Périmètre org — DÉCISION VAL R24c (divergence §06.06 §2 tracée) : sélectionner
+    // un TRAITEUR = voir toute son ACTIVITÉ D'OPÉRATEUR. On matche donc les collectes
+    // où une org sélectionnée est PROGRAMMATRICE (organisation_id) OU TRAITEUR
+    // OPÉRATIONNEL (traiteur_operationnel_organisation_id) : un traiteur → ses
+    // collectes opérées (incl. sous-traité pour une agence, ex. Kaspia 97 et non 85) ;
+    // une agence → ses événements programmés (jamais opératrice). §06.06 §2 ne scopait
+    // que par organisation_id.
+    if (organisationIds.length > 0) {
+      const ids = organisationIds.join(',');
+      query = query.or(
+        `organisation_id.in.(${ids}),traiteur_operationnel_organisation_id.in.(${ids})`,
+        { referencedTable: 'evenements' },
+      );
+    }
     if (lieuIds.length > 0) query = query.in('evenements.lieu_id', lieuIds);
     if (traiteurIds.length > 0)
       query = query.in(

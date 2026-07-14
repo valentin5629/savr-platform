@@ -11,7 +11,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), back: vi.fn(), refresh: vi.fn() }),
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    back: vi.fn(),
+    refresh: vi.fn(),
+  }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 import CollectesPage from './page';
@@ -311,7 +317,8 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
           (c) =>
             typeof c[0] === 'string' &&
             c[0].startsWith('/api/v1/admin/collectes') &&
-            c[0].includes('organisation_id=org-1'),
+            // R24c : le filtre « Traiteur » = traiteur OPÉRATIONNEL (décision Val).
+            c[0].includes('traiteur_operationnel_id=org-1'),
         ),
       ).toBe(true),
     );

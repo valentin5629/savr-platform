@@ -1,7 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Eye } from 'lucide-react';
+import { setCollecteFiltreLabel } from '@/lib/dashboards/collecte-filtre-label';
 import {
   CollecteTypeTabs,
   DashboardFilterBar,
@@ -153,13 +155,16 @@ const BENCHMARK_ENDPOINT = '/api/v1/admin/dashboard-client/benchmark';
  * La sélection est persistée/restaurée via localStorage. Aucune écriture.
  *
  * R24c — Déclinaison Cockpit COMPLÈTE (retour Val « je ne vois pas les graphs ») :
- * KPIs KpiCockpitCard + évolution EvolutionZd/AgChart + donut TonnagesDonut +
- * jauges Cockpit BenchmarkBulletGauges + Top listes TopRankList (lieux / traiteurs /
- * associations) + prochaines collectes. LECTURE SEULE : aucune ligne cliquable,
- * aucune navigation, aucune action. Le périmètre cross-org est agrégé côté serveur
- * (service_role, scope organisation_ids[]) par /api/v1/admin/dashboard-client.
+ * KPIs KpiCockpitCard (dont CO₂ évité → modale) + évolution EvolutionZd/AgChart +
+ * donut TonnagesDonut + jauges Cockpit BenchmarkBulletGauges + Top listes
+ * TopRankList (lieux / traiteurs / associations) + prochaines collectes. LECTURE
+ * SEULE au sens DONNÉES (aucune écriture, aucune action métier) ; les Top lieux /
+ * traiteurs sont cliquables → drill-down vers /admin/collectes filtrée (miroir
+ * exact, retour Val R24c ; « traiteur » = traiteur OPÉRATIONNEL). Le périmètre
+ * cross-org est agrégé côté serveur (service_role) par /api/v1/admin/dashboard-client.
  */
 export function DashboardClientView() {
+  const router = useRouter();
   const [organisations, setOrganisations] = useState<OrganisationOption[]>([]);
   const [selectedOrgs, setSelectedOrgs] = useState<string[]>([]);
   const [tab, setTab] = useState<CollecteType>('zero_dechet');
@@ -309,6 +314,25 @@ export function DashboardClientView() {
     aggregateBenchmarkPerFlux(benchmarkRows),
   );
 
+  // Drill-down Top listes → /admin/collectes filtrée (miroir EXACT du chiffre :
+  // type + statut cloturee + période). Le « traiteur » = traiteur OPÉRATIONNEL
+  // (décision Val R24c) → param `traiteur` mappé à traiteur_operationnel côté liste.
+  const drillScope = `type=${tab}&statut=cloturee${
+    filters ? `&from=${filters.from}&to=${filters.to}` : ''
+  }`;
+  const goToLieu = (i: number) => {
+    const l = blocs?.topLieux?.[i];
+    if (!l) return;
+    setCollecteFiltreLabel({ kind: 'lieu', id: l.lieu_id, label: l.lieu_nom });
+    router.push(`/admin/collectes?lieu=${l.lieu_id}&${drillScope}`);
+  };
+  const goToTraiteur = (i: number) => {
+    const a = blocs?.topActeurs?.[i];
+    if (!a) return;
+    setCollecteFiltreLabel({ kind: 'traiteur', id: a.id, label: a.label });
+    router.push(`/admin/collectes?traiteur=${a.id}&${drillScope}`);
+  };
+
   // ── CO₂ évité (5e carte KPI + modale « Impact carbone ») ─────────────────────
   const co2 = payload?.co2 ?? {
     eviteKg: 0,
@@ -455,6 +479,7 @@ export function DashboardClientView() {
                 title="Top 5 lieux"
                 subtitle="Par tonnage collecté"
                 items={withBars(topLieuxItems)}
+                onItemClick={goToLieu}
                 showBar
               />
             </div>
@@ -463,6 +488,7 @@ export function DashboardClientView() {
                 title="Top 5 traiteurs"
                 subtitle="Par nombre de collectes"
                 items={withBars(topActeursItems)}
+                onItemClick={goToTraiteur}
                 showBar
               />
             </div>
@@ -575,6 +601,7 @@ export function DashboardClientView() {
                 title="Top 5 lieux"
                 subtitle="Par repas donnés"
                 items={withBars(topLieuxItems)}
+                onItemClick={goToLieu}
                 showBar
               />
             </div>
@@ -586,6 +613,7 @@ export function DashboardClientView() {
               title="Top 5 traiteurs"
               subtitle="Par nombre de collectes"
               items={withBars(topActeursItems)}
+              onItemClick={goToTraiteur}
               showBar
             />
           </div>

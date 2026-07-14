@@ -336,6 +336,26 @@ describe('M3.6 / dashboard-client — déclinaison Cockpit', () => {
     expect(url).toContain('statut=cloturee');
   });
 
+  it('M3.6/cockpit_declinaison_drilldown_perimetre — le drill propage le périmètre org sélectionné (miroir exact)', async () => {
+    // Périmètre actif (org sélectionnée) restauré depuis localStorage.
+    const org = '33333333-3333-3333-3333-333333333333';
+    localStorage.setItem(
+      'savr.dashboard-client.organisations',
+      JSON.stringify([org]),
+    );
+    vi.stubGlobal('fetch', adminFetch());
+    render(<DashboardClientView />);
+    await screen.findByText('Lieu A');
+
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /Voir les collectes/ })[0]!,
+    );
+    // Le chiffre du Top 5 est borné au périmètre → le drill DOIT le propager,
+    // sinon la liste renverrait un sur-ensemble (tous programmateurs confondus).
+    const url = String(pushMock.mock.calls[0]![0]);
+    expect(url).toContain(`perimetre=${org}`);
+  });
+
   it('M3.6/cockpit_declinaison_onglet_ag — onglet Anti-Gaspi : Top associations bénéficiaires', async () => {
     vi.stubGlobal('fetch', adminFetch());
     render(<DashboardClientView />);
@@ -347,5 +367,11 @@ describe('M3.6 / dashboard-client — déclinaison Cockpit', () => {
       await screen.findByText('Top associations bénéficiaires'),
     ).toBeInTheDocument();
     expect(screen.getByText('Les Restos du Cœur')).toBeInTheDocument();
+
+    // Carte CO₂ AG cliquable → modale « Impact carbone » variante AG.
+    fireEvent.click(screen.getByRole('button', { name: /CO₂ évité/ }));
+    expect(
+      await screen.findByText("Détail de l'impact carbone"),
+    ).toBeInTheDocument();
   });
 });

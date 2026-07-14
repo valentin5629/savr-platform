@@ -315,11 +315,15 @@ export function DashboardClientView() {
   );
 
   // Drill-down Top listes → /admin/collectes filtrée (miroir EXACT du chiffre :
-  // type + statut cloturee + période). Le « traiteur » = traiteur OPÉRATIONNEL
-  // (décision Val R24c) → param `traiteur` mappé à traiteur_operationnel côté liste.
+  // type + statut cloturee + période + MÊME périmètre d'organisations sélectionné).
+  // Le « traiteur » = traiteur OPÉRATIONNEL (décision Val R24c) → param `traiteur`
+  // mappé à traiteur_operationnel côté liste. Le périmètre (`perimetre`, N ids) est
+  // propagé pour que le chiffre du Top 5 (borné au périmètre) = la liste (sinon on
+  // renverrait un sur-ensemble, tous programmateurs confondus).
+  const perimetreQs = selectedOrgs.map((id) => `&perimetre=${id}`).join('');
   const drillScope = `type=${tab}&statut=cloturee${
     filters ? `&from=${filters.from}&to=${filters.to}` : ''
-  }`;
+  }${perimetreQs}`;
   const goToLieu = (i: number) => {
     const l = blocs?.topLieux?.[i];
     if (!l) return;

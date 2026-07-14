@@ -26,6 +26,17 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
   // son activité d'opérateur, y compris sous-traité pour une agence). Miroir exact
   // du Top 5 traiteurs des dashboards (qui agrège par traiteur_operationnel).
   const traiteur_operationnel_id = searchParams.get('traiteur_operationnel_id');
+  // Périmètre d'organisations (drill-down depuis le Dashboard Client Admin) —
+  // MÊME sémantique opérateur-inclusive que le loader dashboard : une org matche
+  // si elle est programmatrice OU traiteur opérationnel. Validé en UUID (défense en
+  // profondeur, la valeur est interpolée dans un `.or()` non paramétré).
+  const perimetreOrgIds = searchParams
+    .getAll('perimetre_org_ids[]')
+    .filter((id) =>
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        id,
+      ),
+    );
   const lieu_id = searchParams.get('lieu_id'); // lieu (autocomplete)
   const info_incomplete = searchParams.get('info_incomplete'); // « Info incomplète »
   const rapport_non_consulte = searchParams.get('rapport_non_consulte'); // rapport non consulté
@@ -93,6 +104,13 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
         'evenements.traiteur_operationnel_organisation_id',
         traiteur_operationnel_id,
       );
+    if (perimetreOrgIds.length > 0) {
+      const ids = perimetreOrgIds.join(',');
+      query = query.or(
+        `organisation_id.in.(${ids}),traiteur_operationnel_organisation_id.in.(${ids})`,
+        { referencedTable: 'evenements' },
+      );
+    }
     if (lieu_id) query = query.eq('evenements.lieu_id', lieu_id);
     if (info_incomplete === 'true')
       query = query.eq('informations_completes', false);

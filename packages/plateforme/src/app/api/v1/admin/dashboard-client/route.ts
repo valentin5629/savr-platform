@@ -12,9 +12,12 @@ import { loadAdminDashboardClient } from '@/lib/dashboards/admin-dashboard-clien
 //
 // Spécificité Admin vs gestionnaire : aucun filtre RLS par lieux du périmètre.
 // L'admin voit tout (service-role, bypass RLS). Le périmètre est piloté par le
-// sélecteur d'organisations (evenements.organisation_id = organisation programmatrice) :
+// sélecteur d'organisations — DÉCISION VAL R24c (divergence §06.06 §2 tracée
+// _Divergences/M3.6_20260714) : une org sélectionnée matche les collectes où elle
+// est PROGRAMMATRICE (organisation_id) OU TRAITEUR OPÉRATIONNEL
+// (traiteur_operationnel_organisation_id) → un traiteur = toute son activité opérée :
 //   - organisation_ids[] vide  → « Toutes les organisations » = totalité des collectes Savr
-//   - organisation_ids[] fourni → restreint au périmètre sélectionné
+//   - organisation_ids[] fourni → restreint au périmètre (programmateur OU opérateur)
 //
 // Paramètres : type ('zero_dechet'|'anti_gaspi'), from, to, organisation_ids[],
 //              lieu_ids[], traiteur_ids[], type_evenement_ids[], taille_evenements[]

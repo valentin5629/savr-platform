@@ -123,6 +123,12 @@ export default function CollectesPage() {
   const drillStatut = params.get('statut');
   const drillFrom = params.get('from');
   const drillTo = params.get('to');
+  // Périmètre d'organisations propagé par le drill-down (miroir exact du chiffre
+  // du dashboard, borné au même périmètre). Figé au montage (getAll = nouveau
+  // tableau à chaque render → capté en state pour rester stable dans les deps).
+  const [perimetreOrgIds, setPerimetreOrgIds] = useState<string[]>(() =>
+    params.getAll('perimetre'),
+  );
   const hasDrill = !!(drillLieu || drillTraiteur);
 
   const [tab, setTab] = useState<Tab>(hasDrill ? 'historique' : 'programmees');
@@ -265,6 +271,9 @@ export default function CollectesPage() {
       if (lieuId) params.set('lieu_id', lieuId);
       if (from) params.set('from', from);
       if (to) params.set('to', to);
+      // Périmètre d'organisations du drill-down (miroir exact du chiffre borné).
+      for (const id of perimetreOrgIds)
+        params.append('perimetre_org_ids[]', id);
       if (infoIncomplete) params.set('info_incomplete', 'true');
       if (rapportNonConsulte) params.set('rapport_non_consulte', 'true');
     }
@@ -286,6 +295,7 @@ export default function CollectesPage() {
     lieuId,
     from,
     to,
+    perimetreOrgIds,
     infoIncomplete,
     rapportNonConsulte,
   ]);
@@ -349,6 +359,7 @@ export default function CollectesPage() {
     setStatutsSel([]);
     setFrom('');
     setTo('');
+    setPerimetreOrgIds([]);
     setPage(1);
     router.replace('/admin/collectes');
   };

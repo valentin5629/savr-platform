@@ -207,18 +207,21 @@ describe('M3.6 / Dashboard Client / KPI', () => {
       data: [
         {
           taux_recyclage: 80,
+          co2_evite_kg: 40,
           evenements: [{ pax: 100 }],
           collecte_flux: [{ poids_reel_kg: 50 }],
           attributions_antgaspi: [],
         },
         {
           taux_recyclage: 60,
+          co2_evite_kg: 60,
           evenements: [{ pax: 100 }],
           collecte_flux: [{ poids_reel_kg: 150 }],
           attributions_antgaspi: [],
         },
         {
           taux_recyclage: null,
+          co2_evite_kg: 20,
           evenements: [{ pax: 100 }],
           collecte_flux: [{ poids_reel_kg: 100 }],
           attributions_antgaspi: [],
@@ -233,8 +236,13 @@ describe('M3.6 / Dashboard Client / KPI', () => {
     );
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
-      data: { kpi: Record<string, number> };
+      data: {
+        kpi: Record<string, number>;
+        co2: { eviteKg: number };
+      };
     };
+    // Plomberie CO₂ Admin bout-en-bout : SELECT co2_evite_kg → co2Totals → payload.
+    expect(body.data.co2.eviteKg).toBeCloseTo(120, 5);
     const kpi = body.data.kpi;
     expect(kpi.nb_collectes).toBe(3);
     expect(kpi.tonnage_kg).toBe(300);

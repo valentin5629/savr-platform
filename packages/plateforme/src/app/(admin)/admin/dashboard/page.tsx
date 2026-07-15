@@ -1,21 +1,20 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import {
-  LayoutDashboard,
-  AlertTriangle,
-  Clock,
-  RefreshCw,
-  Zap,
-  Download,
-} from 'lucide-react';
-import { StatCard } from '@/components/ui/stat-card';
+import { LayoutDashboard, Download } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { FilterChips } from '@/components/ui/filter-chips';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { Pagination } from '@/components/ui/pagination';
 import { RevenusHistogramme } from '@/components/dashboards/index.js';
+// Librairie data-viz « Cockpit » (R24) — importée EN DIRECT (hors barrel
+// components/dashboards → aucun impact sur le gate orphan-components).
+import { KpiCockpitCard } from '@/components/dashboards/charts/cockpit/KpiCockpitCard';
+import { ChartCard } from '@/components/dashboards/charts/cockpit/ChartCard';
+import { fmtInt } from '@/components/dashboards/charts/cockpit/fmt';
 
 interface KpiData {
   non_transmises_zd: number;
@@ -41,6 +40,49 @@ interface RevenusRow {
 function euro(v: number): string {
   return v.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
 }
+
+// Pastilles couleur des KPI opérationnels (cockpit R24, palette data-viz DS §2.4 /
+// sémantique §10). La pastille encode la SÉVÉRITÉ (à traiter / à jour), le badge de
+// pied la reformule en clair — remplace l'ancien code couleur porté par la bordure.
+const OPS_DOT = {
+  warn: '#d97706', // warning
+  error: '#dc2626', // error
+  success: '#16a34a', // success
+  info: '#2563eb', // info
+  neutral: '#9aa2b8', // neutral-400
+  zd: '#16a34a', // Zéro déchet (vert)
+  ag: '#ff9b00', // Anti-gaspi (orange)
+};
+
+// Badge d'état d'un KPI d'alerte : action requise si > 0, « À jour » sinon.
+function badgeAlerte(
+  v: number,
+  variantActif: 'warning' | 'error',
+  labelActif: string,
+) {
+  return v > 0 ? (
+    <Badge variant={variantActif}>{labelActif}</Badge>
+  ) : (
+    <Badge variant="success">À jour</Badge>
+  );
+}
+
+// Badge d'état d'un KPI de veille (échéances 48 h, attente prestataire) : bleu info
+// si > 0, neutre sinon — pas d'alarme, juste un repère de charge à venir.
+function badgeVeille(v: number, labelActif: string) {
+  return v > 0 ? (
+    <Badge variant="info">{labelActif}</Badge>
+  ) : (
+    <Badge variant="neutral">Aucune</Badge>
+  );
+}
+
+// Champ date DS (§5.5) — bornes de période du tableau Revenus. Input natif stylé
+// aux tokens savr-* (h-10, radius md, focus ring signature global), aligné sur le
+// parti-pris DatePicker sans son icône superposée (redondante avec l'indicateur
+// natif dans une barre de filtres dense).
+const dateFieldClass =
+  'h-10 rounded-savr-md border border-savr-neutral-300 bg-savr-white px-3 text-sm text-savr-neutral-900 hover:border-savr-primary-400';
 
 // Période par défaut : mois en cours (§11 §1.1).
 function currentMonth(): { from: string; to: string } {
@@ -116,6 +158,8 @@ export default function DashboardAdminPage() {
   const [loadingRevenus, setLoadingRevenus] = useState(true);
 
   const [periode, setPeriode] = useState(currentMonth);
+  // Preset actif de la barre de période (`''` = plage personnalisée / réinitialisée).
+  const [activePreset, setActivePreset] = useState<string>('');
   const [sortKey, setSortKey] = useState<string>('montant_total');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
@@ -170,6 +214,13 @@ export default function DashboardAdminPage() {
     setPage(1);
   };
 
+  // Édition manuelle des bornes → aucun preset actif.
+  const setBorne = (champ: 'from' | 'to', value: string) => {
+    setPeriode((p) => ({ ...p, [champ]: value }));
+    setActivePreset('');
+    setPage(1);
+  };
+
   const exportCsv = async () => {
     const res = await fetch(
       `/api/v1/admin/dashboard/revenus-organisations?${revenusQs({ format: 'csv' })}`,
@@ -190,63 +241,74 @@ export default function DashboardAdminPage() {
   return (
     <div className="space-y-8">
       <div className="flex items-center gap-3">
-        <LayoutDashboard className="h-6 w-6 text-savr-neutral-600" />
-        <h1 className="text-2xl font-bold text-savr-neutral-900">
+        <LayoutDashboard className="h-6 w-6 text-savr-primary-700" />
+        <h1 className="text-2xl font-extrabold tracking-[-0.02em] text-savr-neutral-900">
           Dashboard Admin
         </h1>
       </div>
 
-      {/* Bloc 1 — KPIs opérationnels */}
+      {/* Bloc 1 — KPIs opérationnels (rangée cockpit R24) */}
       <section>
-        <h2 className="text-lg font-semibold text-savr-neutral-700 mb-4">
+        <h2 className="mb-4 text-lg font-semibold text-savr-neutral-700">
           Suivi opérationnel
         </h2>
         {loadingKpi ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
             {[...Array(6)].map((_, i) => (
-              <Skeleton key={i} className="h-28 w-full" />
+              <Skeleton key={i} className="h-36 w-full rounded-savr-lg" />
             ))}
           </div>
         ) : kpi ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            <StatCard
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+            <KpiCockpitCard
               label="Non transmises ZD"
-              value={kpi.non_transmises_zd}
-              icon={<AlertTriangle />}
-              className={
-                kpi.non_transmises_zd > 0 ? 'border-savr-warning-300' : ''
+              value={fmtInt(kpi.non_transmises_zd)}
+              dotColor={
+                kpi.non_transmises_zd > 0 ? OPS_DOT.warn : OPS_DOT.success
               }
+              footer={badgeAlerte(
+                kpi.non_transmises_zd,
+                'warning',
+                'À traiter',
+              )}
             />
-            <StatCard
+            <KpiCockpitCard
               label="Non transmises AG"
-              value={kpi.non_transmises_ag}
-              icon={<AlertTriangle />}
-              className={
-                kpi.non_transmises_ag > 0 ? 'border-savr-warning-300' : ''
+              value={fmtInt(kpi.non_transmises_ag)}
+              dotColor={
+                kpi.non_transmises_ag > 0 ? OPS_DOT.warn : OPS_DOT.success
               }
+              footer={badgeAlerte(
+                kpi.non_transmises_ag,
+                'warning',
+                'À traiter',
+              )}
             />
-            <StatCard
+            <KpiCockpitCard
               label="Attente prestataire"
-              value={kpi.attente_prestataire}
-              icon={<Clock />}
+              value={fmtInt(kpi.attente_prestataire)}
+              dotColor={
+                kpi.attente_prestataire > 0 ? OPS_DOT.info : OPS_DOT.neutral
+              }
+              footer={badgeVeille(kpi.attente_prestataire, 'En cours')}
             />
-            <StatCard
+            <KpiCockpitCard
               label="Dirty TMS"
-              value={kpi.dirty_tms}
-              icon={<RefreshCw />}
-              className={kpi.dirty_tms > 0 ? 'border-savr-error-300' : ''}
+              value={fmtInt(kpi.dirty_tms)}
+              dotColor={kpi.dirty_tms > 0 ? OPS_DOT.error : OPS_DOT.success}
+              footer={badgeAlerte(kpi.dirty_tms, 'error', 'À resynchroniser')}
             />
-            <StatCard
+            <KpiCockpitCard
               label="ZD dans 48h"
-              value={kpi.zd_48h}
-              icon={<Zap />}
-              className={kpi.zd_48h > 0 ? 'border-savr-primary-300' : ''}
+              value={fmtInt(kpi.zd_48h)}
+              dotColor={OPS_DOT.zd}
+              footer={badgeVeille(kpi.zd_48h, 'À anticiper')}
             />
-            <StatCard
+            <KpiCockpitCard
               label="AG dans 48h"
-              value={kpi.ag_48h}
-              icon={<Zap />}
-              className={kpi.ag_48h > 0 ? 'border-savr-primary-300' : ''}
+              value={fmtInt(kpi.ag_48h)}
+              dotColor={OPS_DOT.ag}
+              footer={badgeVeille(kpi.ag_48h, 'À anticiper')}
             />
           </div>
         ) : null}
@@ -256,84 +318,96 @@ export default function DashboardAdminPage() {
       <section className="space-y-4">
         <h2 className="text-lg font-semibold text-savr-neutral-700">Revenus</h2>
 
-        {/* Histogramme 12 mois glissants (§11 §1.1) */}
-        <Card className="p-4">
+        {/* Histogramme 12 mois glissants (§11 §1.1) — surface graphe DS */}
+        <ChartCard>
           <RevenusHistogramme from={histo.from} to={histo.to} />
-        </Card>
+        </ChartCard>
 
-        {/* Tableau « Revenus par organisation » */}
-        <div
-          className="flex flex-wrap items-end justify-between gap-3"
-          data-testid="revenus-orgs-controls"
-        >
-          <div className="flex flex-wrap items-end gap-2">
-            <label className="text-xs text-savr-neutral-600">
-              Du
-              <input
-                type="date"
-                value={periode.from}
-                onChange={(e) => {
-                  setPeriode((p) => ({ ...p, from: e.target.value }));
-                  setPage(1);
-                }}
-                className="ml-1 rounded border border-savr-neutral-300 px-2 py-1 text-sm"
-                data-testid="revenus-from"
-              />
-            </label>
-            <label className="text-xs text-savr-neutral-600">
-              au
-              <input
-                type="date"
-                value={periode.to}
-                onChange={(e) => {
-                  setPeriode((p) => ({ ...p, to: e.target.value }));
-                  setPage(1);
-                }}
-                className="ml-1 rounded border border-savr-neutral-300 px-2 py-1 text-sm"
-                data-testid="revenus-to"
-              />
-            </label>
-            {/* Presets + Réinitialiser (BL-P3-02) */}
-            {DASHBOARD_PRESETS.map((p) => (
-              <button
-                key={p.key}
-                type="button"
-                onClick={() => {
-                  setPeriode(presetRange(p.key));
-                  setPage(1);
-                }}
-                data-testid={`revenus-preset-${p.key}`}
-                className="rounded-md border border-savr-neutral-200 px-2 py-1 text-xs text-savr-neutral-600 hover:bg-savr-neutral-100"
-              >
-                {p.label}
-              </button>
-            ))}
-            <button
-              type="button"
+        {/* Tableau « Revenus par organisation » — barre de période DS */}
+        <div className="space-y-3" data-testid="revenus-orgs-controls">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
+              <div className="space-y-1">
+                <label
+                  htmlFor="revenus-from"
+                  className="block text-xs font-medium text-savr-neutral-600"
+                >
+                  Du
+                </label>
+                <input
+                  id="revenus-from"
+                  type="date"
+                  value={periode.from}
+                  max={periode.to}
+                  onChange={(e) => setBorne('from', e.target.value)}
+                  aria-label="Date de début"
+                  data-testid="revenus-from"
+                  className={dateFieldClass}
+                />
+              </div>
+              <div className="space-y-1">
+                <label
+                  htmlFor="revenus-to"
+                  className="block text-xs font-medium text-savr-neutral-600"
+                >
+                  au
+                </label>
+                <input
+                  id="revenus-to"
+                  type="date"
+                  value={periode.to}
+                  min={periode.from}
+                  onChange={(e) => setBorne('to', e.target.value)}
+                  aria-label="Date de fin"
+                  data-testid="revenus-to"
+                  className={dateFieldClass}
+                />
+              </div>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={exportCsv}
+              data-testid="revenus-export-csv"
+            >
+              <Download className="h-4 w-4" />
+              Exporter CSV
+            </Button>
+          </div>
+
+          {/* Presets + Réinitialiser (BL-P3-02) */}
+          <div className="flex flex-wrap items-center gap-2">
+            <FilterChips
+              ariaLabel="Période prédéfinie"
+              chips={DASHBOARD_PRESETS.map((p) => ({
+                key: p.key,
+                label: p.label,
+              }))}
+              activeKey={activePreset}
+              onSelect={(k) => {
+                setPeriode(presetRange(k as PresetKey));
+                setActivePreset(k);
+                setPage(1);
+              }}
+            />
+            <Button
+              variant="link"
+              size="sm"
               onClick={() => {
                 setPeriode(currentMonth());
+                setActivePreset('');
                 setPage(1);
               }}
               data-testid="revenus-reinitialiser"
-              className="text-xs text-savr-primary-700 hover:underline"
             >
               Réinitialiser
-            </button>
+            </Button>
           </div>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={exportCsv}
-            data-testid="revenus-export-csv"
-          >
-            <Download className="mr-1 h-4 w-4" />
-            Exporter CSV
-          </Button>
         </div>
 
         <Card>
           {loadingRevenus ? (
-            <div className="p-6 space-y-2">
+            <div className="space-y-2 p-6">
               {[...Array(5)].map((_, i) => (
                 <Skeleton key={i} className="h-10 w-full" />
               ))}

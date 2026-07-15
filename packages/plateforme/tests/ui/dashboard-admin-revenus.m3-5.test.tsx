@@ -1,8 +1,8 @@
 /**
  * M3.5 — Dashboard Admin Bloc 2 Revenus (BL-P2-03, §11 §1.1).
- * Tableau « Revenus par organisation » à 6 colonnes (nom · type · nb ZD · CA ZD ·
- * nb AG · CA AG), histogramme 12 mois monté (RevenusHistogramme n'est plus
- * orphelin), sélecteur de période, tri, export CSV.
+ * Tableau « Revenus par organisation » à 7 colonnes (nom · type · nb ZD · CA ZD ·
+ * nb AG · CA AG · Total HT), histogramme 12 mois monté (RevenusHistogramme n'est
+ * plus orphelin), sélecteur de période, tri, export CSV.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
@@ -56,8 +56,7 @@ const fetchMock = vi.fn((input: RequestInfo | URL) => {
       non_transmises_ag: 0,
       attente_prestataire: 0,
       dirty_tms: 0,
-      zd_48h: 0,
-      ag_48h: 0,
+      collectes_48h_non_validees: 0,
     });
   if (url.includes('/admin/dashboard/revenus-organisations'))
     return jsonResponse({ data: revenusRows, total: 2, page: 1, limit: 50 });
@@ -83,7 +82,7 @@ beforeEach(() => {
 });
 
 describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
-  it('M3.5/admin_revenus_6_colonnes — nom · type · nb/CA ZD · nb/CA AG', async () => {
+  it('M3.5/admin_revenus_7_colonnes — nom · type · nb/CA ZD · nb/CA AG · Total HT', async () => {
     render(<DashboardAdminPage />);
     expect(
       (await screen.findAllByText('Traiteur Alpha')).length,
@@ -95,11 +94,14 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
       'CA ZD HT',
       'Nb AG',
       'CA AG HT',
+      'Total HT',
     ]) {
       expect(screen.getAllByText(header).length).toBeGreaterThan(0);
     }
     // Split ZD/AG rendu (type org + valeurs par type).
     expect(screen.getAllByText('Traiteur').length).toBeGreaterThan(0);
+    // Colonne Total HT : montant_total (1500 = 1200 ZD + 300 AG) rendu formaté €.
+    expect(screen.getAllByText(/1\s?500,00/).length).toBeGreaterThan(0);
   });
 
   it('M3.5/admin_revenus_histogramme_monte — RevenusHistogramme n’est plus orphelin', async () => {

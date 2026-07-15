@@ -21,8 +21,7 @@ interface KpiData {
   non_transmises_ag: number;
   attente_prestataire: number;
   dirty_tms: number;
-  zd_48h: number;
-  ag_48h: number;
+  collectes_48h_non_validees: number;
 }
 
 interface RevenusRow {
@@ -50,8 +49,6 @@ const OPS_DOT = {
   success: '#16a34a', // success
   info: '#2563eb', // info
   neutral: '#9aa2b8', // neutral-400
-  zd: '#16a34a', // Zéro déchet (vert)
-  ag: '#ff9b00', // Anti-gaspi (orange)
 };
 
 // Badge d'état d'un KPI d'alerte : action requise si > 0, « À jour » sinon.
@@ -147,6 +144,16 @@ const revenusColumns: Column<RevenusRow>[] = [
     header: 'CA AG HT',
     sortable: true,
     render: (r) => <span className="font-medium">{euro(r.montant_ag_ht)}</span>,
+  },
+  {
+    key: 'montant_total',
+    header: 'Total HT',
+    sortable: true,
+    render: (r) => (
+      <span className="font-semibold text-savr-neutral-900">
+        {euro(r.montant_total)}
+      </span>
+    ),
   },
 ];
 
@@ -253,14 +260,15 @@ export default function DashboardAdminPage() {
           Suivi opérationnel
         </h2>
         {loadingKpi ? (
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
-            {[...Array(6)].map((_, i) => (
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
+            {[...Array(5)].map((_, i) => (
               <Skeleton key={i} className="h-36 w-full rounded-savr-lg" />
             ))}
           </div>
         ) : kpi ? (
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
             <KpiCockpitCard
+              reserveTwoLineLabel
               label="Non transmises ZD"
               value={fmtInt(kpi.non_transmises_zd)}
               dotColor={
@@ -273,6 +281,7 @@ export default function DashboardAdminPage() {
               )}
             />
             <KpiCockpitCard
+              reserveTwoLineLabel
               label="Non transmises AG"
               value={fmtInt(kpi.non_transmises_ag)}
               dotColor={
@@ -285,6 +294,7 @@ export default function DashboardAdminPage() {
               )}
             />
             <KpiCockpitCard
+              reserveTwoLineLabel
               label="Attente prestataire"
               value={fmtInt(kpi.attente_prestataire)}
               dotColor={
@@ -293,22 +303,28 @@ export default function DashboardAdminPage() {
               footer={badgeVeille(kpi.attente_prestataire, 'En cours')}
             />
             <KpiCockpitCard
+              reserveTwoLineLabel
               label="Dirty TMS"
               value={fmtInt(kpi.dirty_tms)}
               dotColor={kpi.dirty_tms > 0 ? OPS_DOT.error : OPS_DOT.success}
               footer={badgeAlerte(kpi.dirty_tms, 'error', 'À resynchroniser')}
             />
+            {/* Fusion ZD 48h + AG 48h (revue E2E Val 2026-07-15) : collectes ZD/AG
+                dans 48 h non validées par le prestataire (inclut les non transmises). */}
             <KpiCockpitCard
-              label="ZD dans 48h"
-              value={fmtInt(kpi.zd_48h)}
-              dotColor={OPS_DOT.zd}
-              footer={badgeVeille(kpi.zd_48h, 'À anticiper')}
-            />
-            <KpiCockpitCard
-              label="AG dans 48h"
-              value={fmtInt(kpi.ag_48h)}
-              dotColor={OPS_DOT.ag}
-              footer={badgeVeille(kpi.ag_48h, 'À anticiper')}
+              reserveTwoLineLabel
+              label="Collecte <48h non validée"
+              value={fmtInt(kpi.collectes_48h_non_validees)}
+              dotColor={
+                kpi.collectes_48h_non_validees > 0
+                  ? OPS_DOT.warn
+                  : OPS_DOT.success
+              }
+              footer={badgeAlerte(
+                kpi.collectes_48h_non_validees,
+                'warning',
+                'À valider',
+              )}
             />
           </div>
         ) : null}

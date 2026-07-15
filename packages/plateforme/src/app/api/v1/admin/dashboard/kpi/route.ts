@@ -17,8 +17,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     nonTransmisesAG,
     attentePrestataire,
     dirtyTms,
-    zd48h,
-    ag48h,
+    collectes48hNonValidees,
   ] = await Promise.all([
     supabase
       .from('collectes')
@@ -45,20 +44,18 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       .eq('dirty_tms', true)
       .not('tms_reference', 'is', null)
       .in('type', ['zero_dechet', 'anti_gaspi']),
+    // Collectes ZD + AG prévues dans les 48 h, encore actives, que le prestataire
+    // logistique n'a PAS validées (= statut_tms hors `acceptee`/`en_attente_execution`) :
+    // englobe donc les non transmises (`non_envoye`), en attente d'acceptation et
+    // rejetées. Fusion des ex-cartes « ZD dans 48h » + « AG dans 48h » (revue E2E Val 2026-07-15).
     supabase
       .from('collectes')
       .select('id', { count: 'exact', head: true })
-      .eq('type', 'zero_dechet')
+      .in('type', ['zero_dechet', 'anti_gaspi'])
       .gte('date_collecte', nowStr)
       .lte('date_collecte', in48hStr)
-      .in('statut', ['programmee', 'validee']),
-    supabase
-      .from('collectes')
-      .select('id', { count: 'exact', head: true })
-      .eq('type', 'anti_gaspi')
-      .gte('date_collecte', nowStr)
-      .lte('date_collecte', in48hStr)
-      .in('statut', ['programmee', 'validee']),
+      .in('statut', ['programmee', 'validee'])
+      .not('statut_tms', 'in', '("acceptee","en_attente_execution")'),
   ]);
 
   return NextResponse.json({
@@ -66,7 +63,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     non_transmises_ag: nonTransmisesAG.count ?? 0,
     attente_prestataire: attentePrestataire.count ?? 0,
     dirty_tms: dirtyTms.count ?? 0,
-    zd_48h: zd48h.count ?? 0,
-    ag_48h: ag48h.count ?? 0,
+    collectes_48h_non_validees: collectes48hNonValidees.count ?? 0,
   });
 }

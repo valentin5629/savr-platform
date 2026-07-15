@@ -28,6 +28,12 @@ interface KpiCockpitCardProps {
   headerRight?: React.ReactNode;
   /** Contenu plaqué en bas de la carte — ex. badge d'état. */
   footer?: React.ReactNode;
+  /**
+   * Réserve la hauteur de 2 lignes pour le libellé → la valeur démarre à la même
+   * ligne sur toute une rangée, quel que soit le nombre de lignes du titre.
+   * Opt-in (défaut inchangé) pour ne pas décaler les dashboards cockpit existants.
+   */
+  reserveTwoLineLabel?: boolean;
 }
 
 function KpiCockpitCard({
@@ -43,6 +49,7 @@ function KpiCockpitCard({
   className,
   headerRight,
   footer,
+  reserveTwoLineLabel,
 }: KpiCockpitCardProps): React.JSX.Element {
   const rootClassName = cn(
     'flex h-full flex-col rounded-savr-lg border border-savr-neutral-200 bg-savr-white p-5 shadow-savr-sm transition-[transform,box-shadow,border-color] duration-150 hover:-translate-y-0.5 hover:border-savr-neutral-300 hover:shadow-savr-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500',
@@ -52,7 +59,12 @@ function KpiCockpitCard({
   const body = (
     <>
       <div className="flex items-start justify-between gap-2">
-        <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-savr-neutral-500">
+        <span
+          className={cn(
+            'text-[10px] font-bold uppercase tracking-[0.08em] text-savr-neutral-500',
+            reserveTwoLineLabel && 'block min-h-[2.6em] leading-[1.3]',
+          )}
+        >
           {label}
         </span>
         <div className="flex shrink-0 items-center gap-2">

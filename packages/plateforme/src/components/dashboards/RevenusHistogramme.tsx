@@ -64,6 +64,17 @@ export function RevenusHistogramme({
     return toggle === 'montant' ? row.montant_factures_ht : row.nb_collectes;
   }
 
+  // Formatage d'une valeur selon la bascule active — € sans décimales en montant,
+  // entier en nombre de collectes (alimente le tooltip de survol des barres).
+  const fmtVal = (v: number): string =>
+    toggle === 'montant'
+      ? v.toLocaleString('fr-FR', {
+          style: 'currency',
+          currency: 'EUR',
+          maximumFractionDigits: 0,
+        })
+      : v.toLocaleString('fr-FR');
+
   const maxVal = Math.max(
     1,
     ...moisSet.map((m) => getValue(zdByMois[m]) + getValue(agByMois[m])),
@@ -129,8 +140,44 @@ export function RevenusHistogramme({
             <div
               key={mois}
               className="group relative flex h-full flex-1 flex-col items-center justify-end"
-              title={`${label} — ZD: ${zdVal.toLocaleString('fr-FR')} | AG: ${agVal.toLocaleString('fr-FR')}`}
             >
+              {/* Tooltip valeurs au survol — surface claire DS, calquée sur les
+                  graphes cockpit (EvolutionZdChart) : ZD, AG et total formatés
+                  selon la bascule montant/nombre. */}
+              <div
+                role="tooltip"
+                className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-savr-md border border-savr-neutral-200 bg-savr-white px-3 py-2 text-left opacity-0 shadow-savr-md transition-opacity duration-[120ms] group-hover:opacity-100"
+              >
+                <div className="mb-1 text-[11px] font-semibold text-savr-neutral-500">
+                  {label}
+                </div>
+                <div className="flex items-center justify-between gap-5 text-[13px]">
+                  <span className="flex items-center gap-1.5 font-bold text-savr-neutral-900">
+                    <span className="inline-block h-2 w-2 rounded-savr-sm bg-savr-success" />
+                    Zéro déchet
+                  </span>
+                  <span className="font-extrabold tabular-nums text-savr-neutral-900">
+                    {fmtVal(zdVal)}
+                  </span>
+                </div>
+                <div className="mt-1 flex items-center justify-between gap-5 text-[13px]">
+                  <span className="flex items-center gap-1.5 font-bold text-savr-neutral-900">
+                    <span className="inline-block h-2 w-2 rounded-savr-sm bg-savr-accent-500" />
+                    Anti-gaspi
+                  </span>
+                  <span className="font-extrabold tabular-nums text-savr-neutral-900">
+                    {fmtVal(agVal)}
+                  </span>
+                </div>
+                <div className="mt-1.5 flex items-center justify-between gap-5 border-t border-savr-neutral-100 pt-1.5 text-[13px]">
+                  <span className="font-semibold text-savr-neutral-500">
+                    Total
+                  </span>
+                  <span className="font-extrabold tabular-nums text-savr-neutral-900">
+                    {fmtVal(total)}
+                  </span>
+                </div>
+              </div>
               {agVal > 0 && (
                 <div
                   className="w-full rounded-t-savr-sm bg-savr-accent-500"

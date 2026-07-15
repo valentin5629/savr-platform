@@ -1,13 +1,15 @@
 /**
  * M3.5 — Dashboard Admin / Bloc 1 KPIs (route /admin/dashboard/kpi)
- * BL-P0-05 (cluster C3 « enum zd/ag ») : les 6 compteurs des cartes-actions Bloc 1
+ * BL-P0-05 (cluster C3 « enum zd/ag ») : les 5 compteurs des cartes-actions Bloc 1
  * filtrent `collectes.type` sur l'enum RÉEL `collecte_type_enum('zero_dechet','anti_gaspi')`.
  * Les littéraux `'zd'/'ag'` provoquent une erreur enum Postgres (avalée → carte = 0).
  *
  * Oracle BL-P0-05 : le mock RÉSOUT le count à partir du filtre `type` réellement passé.
  * Un littéral `'zd'/'ag'` → aucun match → count 0 → l'assertion `=== N` ROUGIT.
  * (pas de mock qui avale n'importe quelle valeur — cf. ticket R4.)
- * ref_cdc : 01 - Cahier des charges App/11 - Dashboards.md §Bloc 1 (5 cartes, split ZD/AG → 6 compteurs).
+ * ref_cdc : 01 - Cahier des charges App/11 - Dashboards.md §Bloc 1 (5 cartes : non transmises
+ * ZD + non transmises AG + attente prestataire + dirty TMS + « Collecte <48h non validée »
+ * = fusion ex ZD 48h + AG 48h, filtre `.in('type',[zero_dechet,anti_gaspi])` — revue E2E 2026-07-15).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
@@ -18,8 +20,13 @@ const COUNT_AG = 3;
 const COUNT_BOTH = 11;
 
 // Tous les arguments passés à `.eq('type', …)` / `.in('type', …)` sur collectes,
-// capturés à travers les 6 requêtes parallèles (le guard anti-littéral s'appuie dessus).
+// capturés à travers les requêtes parallèles (le guard anti-littéral s'appuie dessus).
 let capturedTypeArgs: unknown[] = [];
+
+// Tous les appels `.not(col, op, val)` capturés → permet d'attester la règle
+// « non validée par le prestataire » (statut_tms NOT IN acceptee/en_attente_execution)
+// de la carte fusionnée « Collecte <48h non validée » (sinon le mock l'avalerait).
+let capturedNotArgs: unknown[][] = [];
 
 /**
  * Chaîne Supabase mock RECORDING + thenable : retient le filtre `type` réellement
@@ -53,7 +60,10 @@ function makeRecordingChain() {
     eq: (col: string, val: unknown) => recordType(col, val),
     in: (col: string, val: unknown) => recordType(col, val),
     is: () => chain,
-    not: () => chain,
+    not: (...args: unknown[]) => {
+      capturedNotArgs.push(args);
+      return chain;
+    },
     gte: () => chain,
     lte: () => chain,
     // Terminal liste collectes (`/admin/collectes` GET) → { data, error, count }.
@@ -107,6 +117,7 @@ describe('M3.5 / dashboard-kpi Bloc 1 / enum réel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     capturedTypeArgs = [];
+    capturedNotArgs = [];
   });
 
   it('M3.5 / Bloc 1 — N collectes zero_dechet → carte ZD = N (oracle BL-P0-05, pas 0)', async () => {
@@ -116,14 +127,36 @@ describe('M3.5 / dashboard-kpi Bloc 1 / enum réel', () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as Record<string, number>;
 
-    // Cartes ZD/AG « non transmises » + « 48h » → .eq('type','zero_dechet'|'anti_gaspi')
+    // Cartes ZD/AG « non transmises » → .eq('type','zero_dechet'|'anti_gaspi')
     expect(body.non_transmises_zd).toBe(COUNT_ZD);
     expect(body.non_transmises_ag).toBe(COUNT_AG);
-    expect(body.zd_48h).toBe(COUNT_ZD);
-    expect(body.ag_48h).toBe(COUNT_AG);
-    // Cartes « attente prestataire » + « dirty TMS » → .in('type',['zero_dechet','anti_gaspi'])
+    // Cartes « attente prestataire » + « dirty TMS » + « Collecte <48h non validée »
+    // → .in('type',['zero_dechet','anti_gaspi']) (les deux flux confondus).
     expect(body.attente_prestataire).toBe(COUNT_BOTH);
     expect(body.dirty_tms).toBe(COUNT_BOTH);
+    expect(body.collectes_48h_non_validees).toBe(COUNT_BOTH);
+  });
+
+  it('M3.5 / Bloc 1 — carte « Collecte <48h non validée » exclut les statut_tms validés (acceptee, en_attente_execution)', async () => {
+    setupAuth('admin_savr');
+    const { GET } = await import('@/app/api/v1/admin/dashboard/kpi/route.js');
+    await GET(makeReq());
+
+    // Règle Val (revue E2E 2026-07-15) : « non validée par le prestataire » =
+    // statut_tms NOT IN (acceptee, en_attente_execution). Le mock avalerait un
+    // .not() muet → on atteste l'argument RÉEL (typo/suppression = rougit).
+    const statutTmsNotIn = capturedNotArgs.find(
+      (a) => a[0] === 'statut_tms' && a[1] === 'in',
+    );
+    expect(statutTmsNotIn).toBeDefined();
+    const excluded = String(statutTmsNotIn![2]);
+    // Les états « validés » sont exclus…
+    expect(excluded).toContain('acceptee');
+    expect(excluded).toContain('en_attente_execution');
+    // …et les états « non validés » (dont non transmises) ne le sont PAS
+    // (sinon la carte les compterait en moins, à l'inverse de l'intention).
+    expect(excluded).not.toContain('non_envoye');
+    expect(excluded).not.toContain('attribuee_en_attente_acceptation');
   });
 
   it('M3.5 / Bloc 1 — filtres type sur enum réel uniquement (littéraux zd/ag interdits)', async () => {

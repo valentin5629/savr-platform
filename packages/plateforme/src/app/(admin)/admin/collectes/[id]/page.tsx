@@ -15,6 +15,11 @@ import {
   Upload,
   History,
   Gift,
+  MapPin,
+  CalendarClock,
+  Scale,
+  HeartHandshake,
+  type LucideIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -227,6 +232,33 @@ interface AuditEntry {
 
 // Types de document PDF régénérables (aligné @savr/shared PDF_DOCUMENT_TYPES).
 type PdfType = 'rapport-recyclage-zd' | 'bordereau-zd' | 'attestation-don';
+
+// En-tête de bloc de la fiche collecte — DS §10 leviers #2 (pastille primary
+// pleine) + #7 (titre extrabold tracking serré). Uniformise les 9 blocs : pastille
+// icône `primary-50`, titre `neutral-900`, slot d'action optionnel à droite.
+function BlocHeader({
+  icon: Icon,
+  title,
+  action,
+}: {
+  icon: LucideIcon;
+  title: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-savr-md bg-savr-primary-50 text-savr-primary-700">
+          <Icon className="h-[18px] w-[18px]" />
+        </span>
+        <h2 className="truncate text-base font-extrabold tracking-[-0.01em] text-savr-neutral-900">
+          {title}
+        </h2>
+      </div>
+      {action ? <div className="shrink-0">{action}</div> : null}
+    </div>
+  );
+}
 
 export default function CollecteDetailPage() {
   const params = useParams<{ id: string }>();
@@ -602,7 +634,7 @@ export default function CollecteDetailPage() {
     overrideActif && motifOverride.trim().length < 5;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* En-tête — bandeau navy (levier #2) : réf/type + méta + badges statut */}
       <PageHero
         icon={
@@ -661,12 +693,10 @@ export default function CollecteDetailPage() {
       />
 
       {/* Bloc 0 — Attribution prestataire & dispatch */}
-      <Card className="p-6 space-y-4">
-        <h2 className="font-semibold text-savr-neutral-800">
-          Bloc 0 — Prestataire & Dispatch
-        </h2>
+      <Card className="p-5 space-y-4">
+        <BlocHeader icon={Truck} title="Prestataire & Dispatch" />
         {dispatchError && <AlertBar variant="err">{dispatchError}</AlertBar>}
-        <dl className="grid grid-cols-2 gap-3 text-sm">
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
           <div>
             <dt className="text-savr-neutral-500">Prestataire actuel</dt>
             <dd className="font-medium flex items-center gap-2">
@@ -870,12 +900,10 @@ export default function CollecteDetailPage() {
       </Card>
 
       {/* Blocs 1-4 — Infos mutualisées */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="p-6 space-y-4">
-          <h2 className="font-semibold text-savr-neutral-800">
-            Bloc 1 — Événement & Lieu
-          </h2>
-          <dl className="space-y-2 text-sm">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="p-5 space-y-4">
+          <BlocHeader icon={MapPin} title="Événement & Lieu" />
+          <dl className="space-y-2.5 text-sm">
             <div>
               <dt className="text-savr-neutral-500">Traiteur</dt>
               <dd className="font-medium">
@@ -922,11 +950,9 @@ export default function CollecteDetailPage() {
           </dl>
         </Card>
 
-        <Card className="p-6 space-y-4">
-          <h2 className="font-semibold text-savr-neutral-800">
-            Bloc 2 — Logistique
-          </h2>
-          <dl className="space-y-2 text-sm">
+        <Card className="p-5 space-y-4">
+          <BlocHeader icon={CalendarClock} title="Logistique" />
+          <dl className="space-y-2.5 text-sm">
             <div>
               <dt className="text-savr-neutral-500">Date</dt>
               <dd className="font-medium">
@@ -963,551 +989,556 @@ export default function CollecteDetailPage() {
         </Card>
       </div>
 
-      {/* Bloc 3 — Pesées ZD (dérivées des pesées MTS-1 ou saisie manuelle Admin) */}
-      {collecte.type === 'zero_dechet' && (
-        <Card className="p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-savr-neutral-800">
-              Bloc 3 — Pesées ZD
-            </h2>
-            {!editPesees && (
+      {/* Pesées ZD (ZD only) + Documents sur la même ligne : grille 2 colonnes en
+          ZD. En AG (pas de Pesées ZD) le wrapper est neutre → Documents pleine largeur. */}
+      <div
+        className={
+          collecte.type === 'zero_dechet'
+            ? 'grid items-start gap-4 md:grid-cols-2'
+            : undefined
+        }
+      >
+        {/* Pesées ZD (dérivées des pesées MTS-1 ou saisie manuelle Admin) */}
+        {collecte.type === 'zero_dechet' && (
+          <Card className="p-5 space-y-4">
+            <BlocHeader
+              icon={Scale}
+              title="Pesées ZD"
+              action={
+                !editPesees && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={collecte.statut === 'cloturee'}
+                    onClick={openEditPesees}
+                  >
+                    {collecte.statut === 'cloturee'
+                      ? 'Clôturée — édition via avoir'
+                      : 'Éditer les pesées'}
+                  </Button>
+                )
+              }
+            />
+
+            {!editPesees ? (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-savr-neutral-200">
+                    <th className="text-left py-2 text-savr-neutral-500 font-medium">
+                      Flux
+                    </th>
+                    <th className="text-right py-2 text-savr-neutral-500 font-medium">
+                      Poids (kg)
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ZD_FLUX.map((flux) => {
+                    const ligne = collecte.collecte_flux.find(
+                      (f) => f.flux_dechets?.code === flux.code,
+                    );
+                    const poids = ligne?.poids_reel_kg ?? null;
+                    return (
+                      <tr
+                        key={flux.code}
+                        className="border-b border-savr-neutral-100"
+                      >
+                        <td className="py-2 font-medium">{flux.nom}</td>
+                        <td className="py-2 text-right">
+                          {poids !== null ? (
+                            <span className="font-medium">{poids} kg</span>
+                          ) : (
+                            <span className="text-savr-neutral-400">
+                              En attente
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            ) : (
+              <form
+                onSubmit={(e) => void handleSavePesees(e)}
+                className="space-y-3"
+              >
+                <table className="w-full text-sm">
+                  <tbody>
+                    {ZD_FLUX.map((flux) => (
+                      <tr
+                        key={flux.code}
+                        className="border-b border-savr-neutral-100"
+                      >
+                        <td className="py-2 font-medium">{flux.nom}</td>
+                        <td className="py-2 text-right">
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={peseesInput[flux.code] ?? ''}
+                            onChange={(e) =>
+                              setPeseesInput((prev) => ({
+                                ...prev,
+                                [flux.code]: e.target.value,
+                              }))
+                            }
+                            className="w-28 rounded-savr-md border border-savr-neutral-300 px-2 py-1 text-right text-sm focus:outline-2 focus:outline-offset-2 focus:outline-savr-primary-500"
+                            placeholder="kg"
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-savr-neutral-700">
+                    Motif (obligatoire, ≥ 10 caractères)
+                  </label>
+                  <Textarea
+                    value={peseesMotif}
+                    onChange={(e) => setPeseesMotif(e.target.value)}
+                    rows={2}
+                    minLength={10}
+                    required
+                  />
+                </div>
+                {peseesError && (
+                  <AlertBar variant="err">{peseesError}</AlertBar>
+                )}
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setEditPesees(false)}
+                    disabled={peseesSaving}
+                  >
+                    Annuler
+                  </Button>
+                  <Button type="submit" disabled={peseesSaving}>
+                    {peseesSaving ? 'Enregistrement…' : 'Enregistrer'}
+                  </Button>
+                </div>
+              </form>
+            )}
+          </Card>
+        )}
+
+        {/* Bloc 3 (CDC) — Documents : rapport RSE / bordereau ZD / attestation AG + photos */}
+        <Card className="p-5 space-y-4">
+          <BlocHeader icon={FileText} title="Documents" />
+          {docError && <AlertBar variant="err">{docError}</AlertBar>}
+
+          <div className="divide-y divide-savr-neutral-100">
+            {/* Rapport RSE (ZD + AG) */}
+            <div className="flex items-center gap-3 py-3">
+              <div className="flex-1">
+                <p className="text-sm font-medium flex items-center gap-2">
+                  Rapport RSE
+                  {documents?.rapport &&
+                    (documents.rapport.version > 1 ||
+                      documents.rapport.regenere_at) && (
+                      <span
+                        title={`Rapport régénéré${
+                          documents.rapport.regenere_at
+                            ? ` — mis à jour le ${new Date(
+                                documents.rapport.regenere_at,
+                              ).toLocaleDateString('fr-FR')}`
+                            : ''
+                        }`}
+                        className="inline-flex items-center text-savr-primary-600"
+                      >
+                        <RotateCw className="h-3.5 w-3.5" />
+                      </span>
+                    )}
+                </p>
+                <p className="text-xs text-savr-neutral-500">
+                  {!documents?.rapport
+                    ? 'Non encore généré'
+                    : !documents.rapport.genere_at
+                      ? 'En attente de génération'
+                      : documents.rapport.consulte_par_user_at
+                        ? `Consulté le ${new Date(
+                            documents.rapport.consulte_par_user_at,
+                          ).toLocaleDateString('fr-FR')}`
+                        : 'Disponible'}
+                </p>
+              </div>
               <Button
                 size="sm"
                 variant="secondary"
-                disabled={collecte.statut === 'cloturee'}
-                onClick={openEditPesees}
+                disabled={!documents?.rapport?.genere_at}
+                onClick={() =>
+                  documents?.rapport &&
+                  void handleDownload(
+                    `/api/v1/admin/rapports-rse/${documents.rapport.id}/download`,
+                  )
+                }
               >
-                {collecte.statut === 'cloturee'
-                  ? 'Clôturée — édition via avoir'
-                  : 'Éditer les pesées'}
+                <Download className="h-4 w-4 mr-1" />
+                Télécharger
               </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={
+                  !documents?.rapport || regenerating === 'rapport-recyclage-zd'
+                }
+                onClick={() => void handleRegenerate('rapport-recyclage-zd')}
+              >
+                <RotateCw
+                  className={`h-4 w-4 mr-1 ${
+                    regenerating === 'rapport-recyclage-zd'
+                      ? 'animate-spin'
+                      : ''
+                  }`}
+                />
+                Régénérer
+              </Button>
+            </div>
+
+            {/* Bordereau ZD (ZD only) */}
+            {collecte.type === 'zero_dechet' && (
+              <div className="flex items-center gap-3 py-3">
+                <div className="flex-1">
+                  <p className="text-sm font-medium">
+                    Bordereau ZD
+                    {documents?.bordereau?.numero && (
+                      <span className="ml-2 font-mono text-xs text-savr-neutral-500">
+                        {documents.bordereau.numero}
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-xs text-savr-neutral-500">
+                    {documents?.bordereau
+                      ? `Statut : ${documents.bordereau.statut}`
+                      : 'Non encore généré'}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={!documents?.bordereau?.genere_at}
+                  onClick={() =>
+                    documents?.bordereau &&
+                    void handleDownload(
+                      `/api/v1/admin/bordereaux/${documents.bordereau.id}/download`,
+                    )
+                  }
+                >
+                  <Download className="h-4 w-4 mr-1" />
+                  Télécharger
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={
+                    !documents?.bordereau || regenerating === 'bordereau-zd'
+                  }
+                  onClick={() => void handleRegenerate('bordereau-zd')}
+                >
+                  <RotateCw
+                    className={`h-4 w-4 mr-1 ${
+                      regenerating === 'bordereau-zd' ? 'animate-spin' : ''
+                    }`}
+                  />
+                  Régénérer
+                </Button>
+              </div>
+            )}
+
+            {/* Attestation de don (AG only) */}
+            {collecte.type === 'anti_gaspi' && (
+              <div className="flex items-center gap-3 py-3">
+                <div className="flex-1">
+                  <p className="text-sm font-medium">
+                    Attestation de don
+                    {documents?.attestation?.numero && (
+                      <span className="ml-2 font-mono text-xs text-savr-neutral-500">
+                        {documents.attestation.numero}
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-xs text-savr-neutral-500">
+                    {documents?.attestation
+                      ? `Statut : ${documents.attestation.statut}`
+                      : 'Non encore générée'}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={!documents?.attestation?.genere_at}
+                  onClick={() =>
+                    documents?.attestation &&
+                    void handleDownload(
+                      `/api/v1/admin/attestations/${documents.attestation.id}/download`,
+                    )
+                  }
+                >
+                  <Download className="h-4 w-4 mr-1" />
+                  Télécharger
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={
+                    !documents?.attestation ||
+                    regenerating === 'attestation-don'
+                  }
+                  onClick={() => void handleRegenerate('attestation-don')}
+                >
+                  <RotateCw
+                    className={`h-4 w-4 mr-1 ${
+                      regenerating === 'attestation-don' ? 'animate-spin' : ''
+                    }`}
+                  />
+                  Régénérer
+                </Button>
+              </div>
             )}
           </div>
 
-          {!editPesees ? (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-savr-neutral-200">
-                  <th className="text-left py-2 text-savr-neutral-500 font-medium">
-                    Flux
-                  </th>
-                  <th className="text-right py-2 text-savr-neutral-500 font-medium">
-                    Poids (kg)
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {ZD_FLUX.map((flux) => {
-                  const ligne = collecte.collecte_flux.find(
-                    (f) => f.flux_dechets?.code === flux.code,
-                  );
-                  const poids = ligne?.poids_reel_kg ?? null;
-                  return (
-                    <tr
-                      key={flux.code}
-                      className="border-b border-savr-neutral-100"
-                    >
-                      <td className="py-2 font-medium">{flux.nom}</td>
-                      <td className="py-2 text-right">
-                        {poids !== null ? (
-                          <span className="font-medium">{poids} kg</span>
-                        ) : (
-                          <span className="text-savr-neutral-400">
-                            En attente
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          ) : (
-            <form
-              onSubmit={(e) => void handleSavePesees(e)}
-              className="space-y-3"
-            >
-              <table className="w-full text-sm">
-                <tbody>
-                  {ZD_FLUX.map((flux) => (
-                    <tr
-                      key={flux.code}
-                      className="border-b border-savr-neutral-100"
-                    >
-                      <td className="py-2 font-medium">{flux.nom}</td>
-                      <td className="py-2 text-right">
-                        <input
-                          type="number"
-                          min={0}
-                          step="0.01"
-                          value={peseesInput[flux.code] ?? ''}
-                          onChange={(e) =>
-                            setPeseesInput((prev) => ({
-                              ...prev,
-                              [flux.code]: e.target.value,
-                            }))
-                          }
-                          className="w-28 rounded-savr-md border border-savr-neutral-300 px-2 py-1 text-right text-sm focus:outline-2 focus:outline-offset-2 focus:outline-savr-primary-500"
-                          placeholder="kg"
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-savr-neutral-700">
-                  Motif (obligatoire, ≥ 10 caractères)
-                </label>
-                <Textarea
-                  value={peseesMotif}
-                  onChange={(e) => setPeseesMotif(e.target.value)}
-                  rows={2}
-                  minLength={10}
-                  required
-                />
-              </div>
-              {peseesError && <AlertBar variant="err">{peseesError}</AlertBar>}
-              <div className="flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => setEditPesees(false)}
-                  disabled={peseesSaving}
-                >
-                  Annuler
-                </Button>
-                <Button type="submit" disabled={peseesSaving}>
-                  {peseesSaving ? 'Enregistrement…' : 'Enregistrer'}
-                </Button>
-              </div>
-            </form>
-          )}
-        </Card>
-      )}
-
-      {/* Bloc 3 (CDC) — Documents : rapport RSE / bordereau ZD / attestation AG + photos */}
-      <Card className="p-6 space-y-4">
-        <h2 className="font-semibold text-savr-neutral-800 flex items-center gap-2">
-          <FileText className="h-4 w-4" />
-          Documents
-        </h2>
-        {docError && <AlertBar variant="err">{docError}</AlertBar>}
-
-        <div className="divide-y divide-savr-neutral-100">
-          {/* Rapport RSE (ZD + AG) */}
-          <div className="flex items-center gap-3 py-3">
-            <div className="flex-1">
-              <p className="text-sm font-medium flex items-center gap-2">
-                Rapport RSE
-                {documents?.rapport &&
-                  (documents.rapport.version > 1 ||
-                    documents.rapport.regenere_at) && (
-                    <span
-                      title={`Rapport régénéré${
-                        documents.rapport.regenere_at
-                          ? ` — mis à jour le ${new Date(
-                              documents.rapport.regenere_at,
-                            ).toLocaleDateString('fr-FR')}`
-                          : ''
-                      }`}
-                      className="inline-flex items-center text-savr-primary-600"
-                    >
-                      <RotateCw className="h-3.5 w-3.5" />
-                    </span>
-                  )}
+          {/* Facture (ex-bloc Facturation, désormais intégré aux Documents) */}
+          <div className="border-t border-savr-neutral-100 pt-4 space-y-3">
+            <p className="text-sm font-medium text-savr-neutral-700">Facture</p>
+            {collecte.factures_collectes.length === 0 ? (
+              <p className="text-sm text-savr-neutral-500">
+                Aucune facture générée.
               </p>
-              <p className="text-xs text-savr-neutral-500">
-                {!documents?.rapport
-                  ? 'Non encore généré'
-                  : !documents.rapport.genere_at
-                    ? 'En attente de génération'
-                    : documents.rapport.consulte_par_user_at
-                      ? `Consulté le ${new Date(
-                          documents.rapport.consulte_par_user_at,
-                        ).toLocaleDateString('fr-FR')}`
-                      : 'Disponible'}
-              </p>
-            </div>
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={!documents?.rapport?.genere_at}
-              onClick={() =>
-                documents?.rapport &&
-                void handleDownload(
-                  `/api/v1/admin/rapports-rse/${documents.rapport.id}/download`,
-                )
-              }
-            >
-              <Download className="h-4 w-4 mr-1" />
-              Télécharger
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={
-                !documents?.rapport || regenerating === 'rapport-recyclage-zd'
-              }
-              onClick={() => void handleRegenerate('rapport-recyclage-zd')}
-            >
-              <RotateCw
-                className={`h-4 w-4 mr-1 ${
-                  regenerating === 'rapport-recyclage-zd' ? 'animate-spin' : ''
-                }`}
-              />
-              Régénérer
-            </Button>
-          </div>
-
-          {/* Bordereau ZD (ZD only) */}
-          {collecte.type === 'zero_dechet' && (
-            <div className="flex items-center gap-3 py-3">
-              <div className="flex-1">
-                <p className="text-sm font-medium">
-                  Bordereau ZD
-                  {documents?.bordereau?.numero && (
-                    <span className="ml-2 font-mono text-xs text-savr-neutral-500">
-                      {documents.bordereau.numero}
-                    </span>
-                  )}
-                </p>
-                <p className="text-xs text-savr-neutral-500">
-                  {documents?.bordereau
-                    ? `Statut : ${documents.bordereau.statut}`
-                    : 'Non encore généré'}
-                </p>
-              </div>
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={!documents?.bordereau?.genere_at}
-                onClick={() =>
-                  documents?.bordereau &&
-                  void handleDownload(
-                    `/api/v1/admin/bordereaux/${documents.bordereau.id}/download`,
-                  )
-                }
-              >
-                <Download className="h-4 w-4 mr-1" />
-                Télécharger
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={
-                  !documents?.bordereau || regenerating === 'bordereau-zd'
-                }
-                onClick={() => void handleRegenerate('bordereau-zd')}
-              >
-                <RotateCw
-                  className={`h-4 w-4 mr-1 ${
-                    regenerating === 'bordereau-zd' ? 'animate-spin' : ''
-                  }`}
-                />
-                Régénérer
-              </Button>
-            </div>
-          )}
-
-          {/* Attestation de don (AG only) */}
-          {collecte.type === 'anti_gaspi' && (
-            <div className="flex items-center gap-3 py-3">
-              <div className="flex-1">
-                <p className="text-sm font-medium">
-                  Attestation de don
-                  {documents?.attestation?.numero && (
-                    <span className="ml-2 font-mono text-xs text-savr-neutral-500">
-                      {documents.attestation.numero}
-                    </span>
-                  )}
-                </p>
-                <p className="text-xs text-savr-neutral-500">
-                  {documents?.attestation
-                    ? `Statut : ${documents.attestation.statut}`
-                    : 'Non encore générée'}
-                </p>
-              </div>
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={!documents?.attestation?.genere_at}
-                onClick={() =>
-                  documents?.attestation &&
-                  void handleDownload(
-                    `/api/v1/admin/attestations/${documents.attestation.id}/download`,
-                  )
-                }
-              >
-                <Download className="h-4 w-4 mr-1" />
-                Télécharger
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={
-                  !documents?.attestation || regenerating === 'attestation-don'
-                }
-                onClick={() => void handleRegenerate('attestation-don')}
-              >
-                <RotateCw
-                  className={`h-4 w-4 mr-1 ${
-                    regenerating === 'attestation-don' ? 'animate-spin' : ''
-                  }`}
-                />
-                Régénérer
-              </Button>
-            </div>
-          )}
-        </div>
-
-        {/* Galerie photos + import */}
-        <div className="border-t border-savr-neutral-100 pt-4">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-medium text-savr-neutral-700">
-              Photos ({documents?.photos?.length ?? 0})
-            </p>
-            <label className="inline-flex items-center gap-1 text-sm text-savr-primary-600 cursor-pointer hover:underline">
-              <Upload className="h-4 w-4" />
-              {photoUploading ? 'Import…' : 'Importer des photos'}
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                className="hidden"
-                disabled={photoUploading}
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) void handleImportPhoto(f);
-                  e.target.value = '';
-                }}
-              />
-            </label>
-          </div>
-          {documents?.photos && documents.photos.length > 0 ? (
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-              {documents.photos.map((p) =>
-                p.url ? (
-                  <img
-                    key={p.id}
-                    src={p.url}
-                    alt="Photo collecte"
-                    className="h-24 w-full object-cover rounded-savr-md border border-savr-neutral-200"
-                  />
-                ) : (
+            ) : (
+              <div className="space-y-2">
+                {collecte.factures_collectes.map((f) => (
                   <div
-                    key={p.id}
-                    className="h-24 w-full flex items-center justify-center rounded-savr-md border border-savr-neutral-200 bg-savr-neutral-50 text-xs text-savr-neutral-400"
+                    key={f.id}
+                    className="flex items-center justify-between text-sm bg-savr-neutral-50 rounded px-3 py-2"
                   >
-                    Photo
+                    <span className="font-mono text-xs text-savr-neutral-500">
+                      {f.id.slice(0, 8)}…
+                    </span>
+                    <Badge variant="neutral">{f.factures?.statut ?? '—'}</Badge>
+                    <span className="font-medium">{f.montant_ht} € HT</span>
                   </div>
-                ),
+                ))}
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" size="sm" disabled>
+                Valider & envoyer Pennylane
+                <Badge variant="neutral" className="ml-2 text-xs">
+                  M1.7
+                </Badge>
+              </Button>
+              {collecte.statut === 'realisee' &&
+                collecte.type === 'anti_gaspi' &&
+                !collecte.annulee_cote_savr && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => {
+                      setAnnulerCreditMotif('');
+                      setAnnulerCreditError(null);
+                      setAnnulerCreditModal(true);
+                    }}
+                  >
+                    Annuler le crédit AG
+                  </Button>
+                )}
+              {collecte.annulee_cote_savr && (
+                <Badge variant="error" className="self-center">
+                  Crédit annulé côté Savr
+                </Badge>
               )}
             </div>
-          ) : (
-            <p className="text-sm text-savr-neutral-400">
-              Aucune photo importée.
-            </p>
-          )}
-        </div>
-      </Card>
+          </div>
 
-      {/* Bloc 4 (CDC) — Pack AG (si type AG) */}
+          {/* Galerie photos + import */}
+          <div className="border-t border-savr-neutral-100 pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-medium text-savr-neutral-700">
+                Photos ({documents?.photos?.length ?? 0})
+              </p>
+              <label className="inline-flex items-center gap-1 text-sm text-savr-primary-600 cursor-pointer hover:underline">
+                <Upload className="h-4 w-4" />
+                {photoUploading ? 'Import…' : 'Importer des photos'}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  disabled={photoUploading}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void handleImportPhoto(f);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+            </div>
+            {documents?.photos && documents.photos.length > 0 ? (
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                {documents.photos.map((p) =>
+                  p.url ? (
+                    <img
+                      key={p.id}
+                      src={p.url}
+                      alt="Photo collecte"
+                      className="h-24 w-full object-cover rounded-savr-md border border-savr-neutral-200"
+                    />
+                  ) : (
+                    <div
+                      key={p.id}
+                      className="h-24 w-full flex items-center justify-center rounded-savr-md border border-savr-neutral-200 bg-savr-neutral-50 text-xs text-savr-neutral-400"
+                    >
+                      Photo
+                    </div>
+                  ),
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-savr-neutral-400">
+                Aucune photo importée.
+              </p>
+            )}
+          </div>
+        </Card>
+      </div>
+
+      {/* Blocs 4-5 (CDC) — Pack AG + Attribution AG côte-à-côte (AG only) : gain de
+          densité. items-start = chaque carte garde sa hauteur naturelle (Pack AG,
+          court, à gauche ; Attribution AG, plus haute, à droite — pas d'étirement). */}
       {collecte.type === 'anti_gaspi' && (
-        <Card className="p-6 space-y-4">
-          <h2 className="font-semibold text-savr-neutral-800 flex items-center gap-2">
-            <Gift className="h-4 w-4" />
-            Pack AG
-          </h2>
-          {collecte.packs_antgaspi ? (
-            <dl className="grid grid-cols-3 gap-3 text-sm">
+        <div className="grid items-start gap-4 md:grid-cols-2">
+          <Card className="p-5 space-y-4">
+            <BlocHeader icon={Gift} title="Pack AG" />
+            {collecte.packs_antgaspi ? (
+              <dl className="grid grid-cols-3 gap-x-6 gap-y-3 text-sm">
+                <div>
+                  <dt className="text-savr-neutral-500">Pack rattaché</dt>
+                  <dd className="font-medium">
+                    {collecte.packs_antgaspi.type_pack}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-savr-neutral-500">Crédits restants</dt>
+                  <dd className="font-medium">
+                    {collecte.packs_antgaspi.credits_restants}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-savr-neutral-500">Statut</dt>
+                  <dd>
+                    <Badge variant="neutral" className="text-xs">
+                      {collecte.packs_antgaspi.statut}
+                    </Badge>
+                  </dd>
+                </div>
+              </dl>
+            ) : (
+              <p className="text-sm text-savr-neutral-500">
+                Aucun pack rattaché à cette collecte.
+              </p>
+            )}
+            {/* Badge recrédit (annulee après realisee, §06.06 l.247 — le pack a été
+              détaché par le trigger, la date vient de l'audit du recrédit). */}
+            {collecte.statut === 'annulee' && recreditAt && (
+              <Badge variant="warning" className="text-xs">
+                Crédit recrédité automatiquement le{' '}
+                {new Date(recreditAt).toLocaleDateString('fr-FR')}
+              </Badge>
+            )}
+          </Card>
+
+          {/* Attribution AG complète (Admin-only) */}
+          <Card className="p-5 space-y-4">
+            <BlocHeader icon={HeartHandshake} title="Attribution AG" />
+            <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
               <div>
-                <dt className="text-savr-neutral-500">Pack rattaché</dt>
+                <dt className="text-savr-neutral-500">Association retenue</dt>
                 <dd className="font-medium">
-                  {collecte.packs_antgaspi.type_pack}
+                  {collecte.attributions_antgaspi?.associations?.nom ?? (
+                    <span className="text-savr-neutral-400">
+                      Aucune (en attente d’attribution)
+                    </span>
+                  )}
                 </dd>
               </div>
               <div>
-                <dt className="text-savr-neutral-500">Crédits restants</dt>
+                <dt className="text-savr-neutral-500">Transporteur retenu</dt>
                 <dd className="font-medium">
-                  {collecte.packs_antgaspi.credits_restants}
+                  {collecte.attributions_antgaspi?.transporteurs?.nom ?? (
+                    <span className="text-savr-neutral-400">—</span>
+                  )}
                 </dd>
               </div>
               <div>
-                <dt className="text-savr-neutral-500">Statut</dt>
-                <dd>
-                  <Badge variant="neutral" className="text-xs">
-                    {collecte.packs_antgaspi.statut}
-                  </Badge>
+                <dt className="text-savr-neutral-500">Validation</dt>
+                <dd className="font-medium">
+                  {collecte.attributions_antgaspi?.valide_at ? (
+                    <>
+                      {collecte.attributions_antgaspi.mode_validation} —{' '}
+                      {new Date(
+                        collecte.attributions_antgaspi.valide_at,
+                      ).toLocaleDateString('fr-FR')}
+                    </>
+                  ) : (
+                    <Badge variant="warning" className="text-xs">
+                      En attente de validation
+                    </Badge>
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-savr-neutral-500">
+                  Volume repas (estimé / réalisé)
+                </dt>
+                <dd className="font-medium">
+                  {collecte.volume_estime_repas ?? '—'} /{' '}
+                  {collecte.attributions_antgaspi?.volume_repas_realise ?? '—'}
                 </dd>
               </div>
             </dl>
-          ) : (
-            <p className="text-sm text-savr-neutral-500">
-              Aucun pack rattaché à cette collecte.
-            </p>
-          )}
-          {/* Badge recrédit (annulee après realisee, §06.06 l.247 — le pack a été
-              détaché par le trigger, la date vient de l'audit du recrédit). */}
-          {collecte.statut === 'annulee' && recreditAt && (
-            <Badge variant="warning" className="text-xs">
-              Crédit recrédité automatiquement le{' '}
-              {new Date(recreditAt).toLocaleDateString('fr-FR')}
-            </Badge>
-          )}
-        </Card>
-      )}
-
-      {/* Bloc 5 (CDC) — Attribution AG complète (Admin-only, si type AG) */}
-      {collecte.type === 'anti_gaspi' && (
-        <Card className="p-6 space-y-4">
-          <h2 className="font-semibold text-savr-neutral-800">
-            Bloc 5 — Attribution AG
-          </h2>
-          <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-            <div>
-              <dt className="text-savr-neutral-500">Association retenue</dt>
-              <dd className="font-medium">
-                {collecte.attributions_antgaspi?.associations?.nom ?? (
-                  <span className="text-savr-neutral-400">
-                    Aucune (en attente d’attribution)
-                  </span>
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-savr-neutral-500">Transporteur retenu</dt>
-              <dd className="font-medium">
-                {collecte.attributions_antgaspi?.transporteurs?.nom ?? (
-                  <span className="text-savr-neutral-400">—</span>
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-savr-neutral-500">Validation</dt>
-              <dd className="font-medium">
-                {collecte.attributions_antgaspi?.valide_at ? (
-                  <>
-                    {collecte.attributions_antgaspi.mode_validation} —{' '}
-                    {new Date(
-                      collecte.attributions_antgaspi.valide_at,
-                    ).toLocaleDateString('fr-FR')}
-                  </>
-                ) : (
-                  <Badge variant="warning" className="text-xs">
-                    En attente de validation
-                  </Badge>
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-savr-neutral-500">
-                Volume repas (estimé / réalisé)
-              </dt>
-              <dd className="font-medium">
-                {collecte.volume_estime_repas ?? '—'} /{' '}
-                {collecte.attributions_antgaspi?.volume_repas_realise ?? '—'}
-              </dd>
-            </div>
-          </dl>
-          {reco?.associations && reco.associations.length > 0 && (
-            <div className="rounded-savr-md border border-savr-neutral-100 bg-savr-neutral-50 p-3">
-              <p className="text-xs font-medium text-savr-neutral-600 mb-1">
-                Top 3 associations recommandées + scores (algo §06.09)
-              </p>
-              <ol className="list-decimal list-inside text-sm text-savr-neutral-700">
-                {reco.associations.slice(0, 3).map((a) => (
-                  <li key={a.id}>
-                    {a.nom}
-                    {(a.distance_km != null ||
-                      a.capacite_max_beneficiaires != null) && (
-                      <span className="text-savr-neutral-500">
-                        {' — '}
-                        {a.distance_km != null ? `${a.distance_km} km` : ''}
-                        {a.distance_km != null &&
-                        a.capacite_max_beneficiaires != null
-                          ? ' · '
-                          : ''}
-                        {a.capacite_max_beneficiaires != null
-                          ? `capacité ${a.capacite_max_beneficiaires}`
-                          : ''}
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ol>
-            </div>
-          )}
-          <Link
-            href={`/admin/attributions-ag/${collecte.id}`}
-            className="inline-flex items-center text-sm font-medium text-savr-primary-600 hover:underline"
-          >
-            Ouvrir l’attribution complète (top 3, validation, emails, re-jouer
-            l’algo) →
-          </Link>
-        </Card>
-      )}
-
-      {/* Bloc 6 — Facturation */}
-      <Card className="p-6 space-y-4">
-        <h2 className="font-semibold text-savr-neutral-800">
-          Bloc 6 — Facturation
-        </h2>
-        {collecte.factures_collectes.length === 0 ? (
-          <p className="text-sm text-savr-neutral-500">
-            Aucune facture générée.
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {collecte.factures_collectes.map((f) => (
-              <div
-                key={f.id}
-                className="flex items-center justify-between text-sm bg-savr-neutral-50 rounded px-3 py-2"
-              >
-                <span className="font-mono text-xs text-savr-neutral-500">
-                  {f.id.slice(0, 8)}…
-                </span>
-                <Badge variant="neutral">{f.factures?.statut ?? '—'}</Badge>
-                <span className="font-medium">{f.montant_ht} € HT</span>
+            {reco?.associations && reco.associations.length > 0 && (
+              <div className="rounded-savr-md border border-savr-neutral-100 bg-savr-neutral-50 p-3">
+                <p className="text-xs font-medium text-savr-neutral-600 mb-1">
+                  Top 3 associations recommandées + scores (algo §06.09)
+                </p>
+                <ol className="list-decimal list-inside text-sm text-savr-neutral-700">
+                  {reco.associations.slice(0, 3).map((a) => (
+                    <li key={a.id}>
+                      {a.nom}
+                      {(a.distance_km != null ||
+                        a.capacite_max_beneficiaires != null) && (
+                        <span className="text-savr-neutral-500">
+                          {' — '}
+                          {a.distance_km != null ? `${a.distance_km} km` : ''}
+                          {a.distance_km != null &&
+                          a.capacite_max_beneficiaires != null
+                            ? ' · '
+                            : ''}
+                          {a.capacite_max_beneficiaires != null
+                            ? `capacité ${a.capacite_max_beneficiaires}`
+                            : ''}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ol>
               </div>
-            ))}
-          </div>
-        )}
-        <div className="flex gap-2 flex-wrap">
-          <Button variant="secondary" size="sm" disabled>
-            Valider & envoyer Pennylane
-            <Badge variant="neutral" className="ml-2 text-xs">
-              M1.7
-            </Badge>
-          </Button>
-          {collecte.statut === 'realisee' &&
-            collecte.type === 'anti_gaspi' &&
-            !collecte.annulee_cote_savr && (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => {
-                  setAnnulerCreditMotif('');
-                  setAnnulerCreditError(null);
-                  setAnnulerCreditModal(true);
-                }}
-              >
-                Annuler le crédit AG
-              </Button>
             )}
-          {collecte.annulee_cote_savr && (
-            <Badge variant="error" className="self-center">
-              Crédit annulé côté Savr
-            </Badge>
-          )}
+            <Link
+              href={`/admin/attributions-ag/${collecte.id}`}
+              className="inline-flex items-center text-sm font-medium text-savr-primary-600 hover:underline"
+            >
+              Ouvrir l’attribution complète (top 3, validation, emails, re-jouer
+              l’algo) →
+            </Link>
+          </Card>
         </div>
-      </Card>
+      )}
 
       {/* Bloc 7 (CDC) — Historique + Audit log (Admin-only) */}
-      <Card className="p-6 space-y-4">
-        <h2 className="font-semibold text-savr-neutral-800 flex items-center gap-2">
-          <History className="h-4 w-4" />
-          Historique &amp; audit
-        </h2>
+      <Card className="p-5 space-y-4">
+        <BlocHeader icon={History} title="Historique & audit" />
         {audit.length === 0 ? (
           <p className="text-sm text-savr-neutral-500">
             Aucune action enregistrée sur cette collecte.

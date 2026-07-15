@@ -31,3 +31,10 @@ Un module n'est "fini" que si TOUS les items applicables sont cochés.
 ## Migration
 - [ ] Backward-compat (ADD COLUMN nullable/default, pas de DROP destructif)
 - [ ] Nommage conforme + down-migration / rollback documenté
+
+## Merge & nettoyage (fusion vers main — anti-dette de branches/worktrees)
+> Cause de la dette : le squash-merge coupe le lien d'ancêtre (`git branch --merged` ne voit pas les branches mergées) → sans nettoyage, chaque lot laisse une branche locale ET distante. Trois mécanismes, du plus structurant au filet de sécurité.
+- [ ] **Couche 1 (structurel, une fois)** : GitHub `delete_branch_on_merge` activé (repo Settings → « Automatically delete head branches ») → la branche **distante** est supprimée à chaque merge.
+- [ ] **Couche 2 (par merge)** : merge en squash avec suppression de branche — `gh pr merge <n> --squash --delete-branch` (supprime la branche **locale ET distante**). Merge via l'UI GitHub = même effet grâce à la couche 1.
+- [ ] **Couche 3 (par session)** : worktree du lot démonté depuis le clone principal après merge — `git worktree remove <wt>`. Jamais deux sessions sur le même clone.
+- [ ] **Couche 4 (filet, début de session suivante)** : `pnpm git:hygiene` (fetch --prune + `git worktree prune` + purge des branches locales `[gone]`). Émis automatiquement dans le bloc SETUP par le skill `cdc-next-lot-prompt`. Aucune branche/worktree de lot mergé ne doit s'accumuler.

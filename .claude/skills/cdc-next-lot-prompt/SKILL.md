@@ -85,13 +85,18 @@ Le prompt généré DOIT s'ouvrir par le **bloc SETUP worktree**, PUIS le préam
   - `<repo>` = racine du clone principal (`git rev-parse --show-toplevel`),
   - `<slug>` = id du lot en minuscules (ex. `r2-pdf-preuves`), `<branche>` = `feat/<slug>`, `<wt>` = `../savr-<slug>` (dossier frère du clone),
   - existence de la branche : `git branch --list <branche>`.
-    Émettre dans le prompt la bonne commande de setup :
+    Émettre dans le prompt, **en 1ʳᵉ commande du bloc SETUP (depuis le clone principal, avant de créer le
+    worktree)** : `pnpm -C <repo> git:hygiene` — filet anti-dette couche 4 (`fetch --prune` + `git worktree
+prune` + purge des branches locales `[gone]` des lots déjà mergés ; sans danger, protège main/dev/courante).
+    Puis émettre la bonne commande de setup worktree :
   - branche absente : `git -C <repo> worktree add -b <branche> <wt> origin/main` (ordre canonique : `-b` avant le chemin)
   - branche déjà existante : `git -C <repo> worktree add <wt> <branche>`
     suivie de `cd <wt> && pnpm install --frozen-lockfile && git branch --show-current` (TOUT chaîné : le
     `show-current` doit s'exécuter DANS `<wt>` et afficher `<branche>` — sinon il montre la branche du clone principal).
-    Mentionner : « toute la session se déroule dans `<wt>` » et « en fin de lot (après merge), depuis le clone
-    principal : `git worktree remove <wt>` ». ⚠️ Ne JAMAIS ouvrir deux sessions Claude sur le même clone.
+    Mentionner : « toute la session se déroule dans `<wt>` » et le **nettoyage de fin de lot** (cf.
+    `DEFINITION_OF_DONE.md` § Merge & nettoyage) : merger en `gh pr merge <n> --squash --delete-branch`
+    (supprime la branche locale ET distante — couche 2), puis depuis le clone principal
+    `git worktree remove <wt>` (couche 3). ⚠️ Ne JAMAIS ouvrir deux sessions Claude sur le même clone.
 - **Préambule** : copier VERBATIM le `[PRÉAMBULE COMMUN]` actuel de `PROMPTS DEV` (il évolue — ne pas le
   réécrire de mémoire). Y substituer le nom de branche du lot dans les exemples de marker.
 - **Bloc de lot** : suivre la « Convention d'un bloc de lot (R0d) » de `PROMPTS DEV` :
@@ -120,6 +125,8 @@ Le prompt généré DOIT s'ouvrir par le **bloc SETUP worktree**, PUIS le préam
 - ✅ Scope rappelé (copie parfaite V1, circuit-breaker, \_Divergences si ambiguïté).
 - ✅ Le prompt impose en PREMIÈRE étape un **worktree DÉDIÉ** (`git worktree add ../savr-<slug>`) — jamais deux
   sessions sur le même clone (anti-collision HEAD/index).
+- ✅ Le bloc SETUP émet `pnpm git:hygiene` avant de créer le worktree (filet anti-dette couche 4) et rappelle le
+  nettoyage de fin de lot (`gh pr merge --squash --delete-branch` + `git worktree remove`).
 - ❌ Jamais : recopier un `fichier:ligne` du backlog sans l'avoir re-vérifié ; inventer un symbole ; omettre un
   bloqueur connu ; générer le prompt d'un lot dont une dépendance n'est pas mergée ; faire travailler la session
   suivante dans le clone partagé.

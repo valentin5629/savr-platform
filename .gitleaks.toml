@@ -13,4 +13,8 @@ regexes = [
   # des secrets ; la règle generic-api-key les flagge par entropie (« r23b »).
   # Couvre tous les suffixes (presets/apply/default12mois/…).
   '''test-r23b-[a-z0-9-]+''',
+  # Clé du chip de drill-down « Collecte <48h non validée » (revue E2E 2026-07-15) —
+  # identifiant de filtre de la liste Collectes, pas un secret ; generic-api-key la
+  # flagge par entropie (les chiffres « _48h_ »).
+  '''collectes_48h_non_validees''',
 ]

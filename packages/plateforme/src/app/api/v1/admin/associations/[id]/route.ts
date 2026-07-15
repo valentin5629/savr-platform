@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { logger } from '@savr/shared/src/logger/index.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
 
@@ -27,7 +28,38 @@ export async function GET(
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json(data);
+  // KPI fiche — collectes AG réalisées rattachées à cette association sur les
+  // 30 derniers jours. Rattachement via attributions_antgaspi.association_id
+  // (1 attribution par collecte AG, collecte_id UNIQUE). « Réalisées » = statuts
+  // terminaux avec collecte effective (realisee + cloturee) ; realisee_sans_collecte
+  // est exclu (aucun don parvenu à l'association). Décision Val — revue E2E 2026-07-15.
+  const cutoff30j = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  const { count: collectesRealisees30j, error: kpiError } = await supabase
+    .from('attributions_antgaspi')
+    .select('collecte_id, collectes!inner(statut,date_collecte,type)', {
+      count: 'exact',
+      head: true,
+    })
+    .eq('association_id', id)
+    .eq('collectes.type', 'anti_gaspi')
+    .in('collectes.statut', ['realisee', 'cloturee'])
+    .gte('collectes.date_collecte', cutoff30j);
+
+  // Dégradation gracieuse : un KPI en échec ne doit pas casser la fiche
+  // (retombe à 0), mais l'échec est tracé pour ne pas rester silencieux.
+  if (kpiError) {
+    logger.warn('associations.kpi_collectes_30j_failed', {
+      association_id: id,
+      error: kpiError.message,
+    });
+  }
+
+  return NextResponse.json({
+    ...data,
+    collectes_realisees_30j: collectesRealisees30j ?? 0,
+  });
 }
 
 export async function PATCH(

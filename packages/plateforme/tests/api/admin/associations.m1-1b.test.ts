@@ -13,6 +13,8 @@ const mockSupabaseChain = {
   eq: vi.fn().mockReturnThis(),
   ilike: vi.fn().mockReturnThis(),
   or: vi.fn().mockReturnThis(),
+  in: vi.fn().mockReturnThis(),
+  gte: vi.fn().mockReturnThis(),
   order: vi.fn().mockReturnThis(),
   range: vi.fn().mockReturnThis(),
   single: vi.fn(),
@@ -180,5 +182,59 @@ describe('M1.1b / Associations / Champs protégés ops', () => {
       { params: Promise.resolve({ id: 'asso-1' }) },
     );
     expect(res.status).toBe(422);
+  });
+});
+
+describe('M1.1b / Associations / GET fiche + KPI collectes 30j', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('M1.1b/associations/get — expose collectes_realisees_30j depuis le count, filtres AG réalisées', async () => {
+    setupAuth('admin_savr');
+    // 1er appel = fiche (single), 2e appel = count KPI (terminé par .gte).
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: { id: 'asso-1', ...BASE_ASSO },
+      error: null,
+    });
+    mockSupabaseChain.gte.mockResolvedValueOnce({ count: 4, error: null });
+    const { GET } =
+      await import('@/app/api/v1/admin/associations/[id]/route.js');
+    const res = await GET(makeReq('GET', '/api/v1/admin/associations/asso-1'), {
+      params: Promise.resolve({ id: 'asso-1' }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { collectes_realisees_30j: number };
+    expect(body.collectes_realisees_30j).toBe(4);
+    // Garde le rattachement + le périmètre « AG réalisées seulement » (décision Val).
+    expect(mockSupabaseChain.from).toHaveBeenCalledWith(
+      'attributions_antgaspi',
+    );
+    expect(mockSupabaseChain.eq).toHaveBeenCalledWith(
+      'association_id',
+      'asso-1',
+    );
+    expect(mockSupabaseChain.in).toHaveBeenCalledWith('collectes.statut', [
+      'realisee',
+      'cloturee',
+    ]);
+  });
+
+  it('M1.1b/associations/get — dégradation gracieuse : count null/erreur → 0', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: { id: 'asso-1', ...BASE_ASSO },
+      error: null,
+    });
+    mockSupabaseChain.gte.mockResolvedValueOnce({
+      count: null,
+      error: { message: 'boom' },
+    });
+    const { GET } =
+      await import('@/app/api/v1/admin/associations/[id]/route.js');
+    const res = await GET(makeReq('GET', '/api/v1/admin/associations/asso-1'), {
+      params: Promise.resolve({ id: 'asso-1' }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { collectes_realisees_30j: number };
+    expect(body.collectes_realisees_30j).toBe(0);
   });
 });

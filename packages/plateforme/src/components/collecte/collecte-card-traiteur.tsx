@@ -11,6 +11,7 @@ import {
   Package,
 } from 'lucide-react';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
+import { IconButton } from '@/components/ui/icon-button';
 
 // Carte simplifiée de la liste des collectes traiteur (BL-P2-14 + refonte liste
 // 2026-07-05, décision Val). Reprend le langage visuel des cartes Admin (rail
@@ -159,55 +160,52 @@ export function TraiteurCollecteCard({
               </span>
             )}
           </div>
-          <button
-            type="button"
+          <IconButton
+            variant="ghost"
             onClick={onTelecharger}
             title="Télécharger le rapport"
             aria-label="Télécharger le rapport de la collecte"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-savr-md text-savr-primary-700 hover:bg-savr-primary-50 focus-visible:outline-2"
           >
-            <Download className="h-4 w-4" />
-          </button>
+            <Download />
+          </IconButton>
         </>
       )}
 
       {/* Statut */}
       <CollecteStatutBadge statut={c.statut} />
 
-      {/* Actions — icône seule, libellé au survol (title). L'action indisponible
-          n'est pas rendue (plus de bouton grisé). */}
+      {/* Actions — IconButton (§10 §6, icône seule) : libellé au survol (title),
+          cible tactile 44/40px, focus-ring signature. L'action indisponible n'est
+          pas rendue (plus de bouton grisé). */}
       <div className="flex items-center gap-1">
         {editable && (
-          <button
-            type="button"
+          <IconButton
+            variant="ghost"
             onClick={onModifier}
             title="Modifier"
             aria-label="Modifier la collecte"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-savr-md text-savr-neutral-700 hover:bg-savr-neutral-100 focus-visible:outline-2"
           >
-            <Pencil className="h-4 w-4" />
-          </button>
+            <Pencil />
+          </IconButton>
         )}
         {annulable && (
-          <button
-            type="button"
+          <IconButton
+            variant="destructive"
             onClick={onAnnuler}
             title="Annuler"
             aria-label="Annuler la collecte"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-savr-md text-savr-error-600 hover:bg-savr-error-subtle focus-visible:outline-2"
           >
-            <XCircle className="h-4 w-4" />
-          </button>
+            <XCircle />
+          </IconButton>
         )}
-        <button
-          type="button"
+        <IconButton
+          variant="ghost"
           onClick={onDupliquer}
           title="Dupliquer"
           aria-label="Dupliquer la collecte"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-savr-md text-savr-neutral-700 hover:bg-savr-neutral-100 focus-visible:outline-2"
         >
-          <Copy className="h-4 w-4" />
-        </button>
+          <Copy />
+        </IconButton>
       </div>
     </div>
   );

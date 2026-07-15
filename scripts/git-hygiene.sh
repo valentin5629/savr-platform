@@ -7,8 +7,9 @@
 # par GitHub (`delete_branch_on_merge` activé). Protège toujours main / dev / la
 # branche courante. Aucune suppression distante, aucun reset, aucun force.
 #
-# À lancer en début de session (le skill cdc-next-lot-prompt l'émet dans le
-# bloc SETUP du prompt généré) ou à la demande :  pnpm git:hygiene
+# Lancé automatiquement pour TOUTE session du repo via le hook SessionStart de
+# `.claude/settings.json` (dev plateforme ou TMS), et émis dans le bloc SETUP du
+# prompt par le skill cdc-next-lot-prompt. À la demande :  pnpm git:hygiene
 #
 # Compatible bash 3.2 (macOS) — pas de `mapfile`, pas de `readarray`.
 # =============================================================================
@@ -38,8 +39,15 @@ while IFS=' ' read -r name track; do
   # actionnable et on continue avec les branches suivantes.
   if git branch -D "$name" 2>/dev/null; then
     purged=$((purged + 1))
+  elif ! git show-ref --verify --quiet "refs/heads/$name"; then
+    # La branche a disparu entre l'énumération et ici = déjà purgée par une
+    # session concurrente (plusieurs worktrees simultanés = pratique du projet).
+    # Course bénigne : rien à faire, on ne compte ni ne signale.
+    :
   else
-    echo "  ⚠ $name : non purgée (extraite dans un worktree non démonté ?) → 'git worktree remove <wt>' puis relancer"
+    # La branche existe toujours mais -D refuse = extraite dans un AUTRE worktree
+    # non encore démonté (couche 3 sautée).
+    echo "  ⚠ $name : non purgée (extraite dans un worktree non démonté) → 'git worktree remove <wt>' puis relancer"
     skipped=$((skipped + 1))
   fi
 done < <(git for-each-ref --format='%(refname:short) %(upstream:track)' refs/heads)
@@ -48,4 +56,17 @@ if [ "$purged" -eq 0 ] && [ "$skipped" -eq 0 ]; then
   echo "→ aucune branche locale [gone] à purger"
 fi
 
-echo "hygiène git : OK ✅ ($purged purgée(s), $skipped ignorée(s))"
+# Worktrees dont la branche est [gone] (mergée) = couche 3 probablement sautée.
+# On NE les retire PAS (risque de WIP non commité) — alerte actionnable seulement.
+current_root="$(git rev-parse --show-toplevel)"
+stale_wt=0
+while IFS=' ' read -r wt_path wt_branch; do
+  [ "$wt_path" = "$current_root" ] && continue
+  t="$(git for-each-ref --format='%(upstream:track)' "refs/heads/$wt_branch" 2>/dev/null || true)"
+  if [ "$t" = "[gone]" ]; then
+    echo "  ⚠ worktree probablement obsolète : $wt_path (branche $wt_branch mergée) → 'git worktree remove $wt_path'"
+    stale_wt=$((stale_wt + 1))
+  fi
+done < <(git worktree list --porcelain | awk '/^worktree /{p=$2} /^branch /{b=$2; sub("refs/heads/","",b); print p" "b}')
+
+echo "hygiène git : OK ✅ ($purged purgée(s), $skipped ignorée(s), $stale_wt worktree(s) obsolète(s) signalé(s))"

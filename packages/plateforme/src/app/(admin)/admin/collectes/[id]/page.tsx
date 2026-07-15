@@ -292,6 +292,7 @@ export default function CollecteDetailPage() {
     Record<
       string,
       {
+        plaque_immatriculation: string;
         chauffeur_nom: string;
         chauffeur_telephone: string;
         accompagnant_nom: string;
@@ -622,6 +623,7 @@ export default function CollecteDetailPage() {
     const prefill: typeof infosAccesInput = {};
     for (const ct of collecte.collecte_tournees) {
       prefill[ct.tournees.id] = {
+        plaque_immatriculation: ct.tournees.plaque_immatriculation ?? '',
         chauffeur_nom: ct.tournees.chauffeur_nom ?? '',
         chauffeur_telephone: ct.tournees.chauffeur_telephone ?? '',
         accompagnant_nom: ct.tournees.accompagnant_nom ?? '',
@@ -640,6 +642,7 @@ export default function CollecteDetailPage() {
     setInfosAccesError(null);
     const tournees = Object.entries(infosAccesInput).map(([tournee_id, v]) => ({
       tournee_id,
+      plaque_immatriculation: v.plaque_immatriculation,
       chauffeur_nom: v.chauffeur_nom,
       chauffeur_telephone: v.chauffeur_telephone,
       accompagnant_nom: v.accompagnant_nom,
@@ -1038,6 +1041,10 @@ export default function CollecteDetailPage() {
                   <p className="mb-1.5 font-medium">Camion {ct.rang}</p>
                   <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-savr-neutral-700">
                     <div>
+                      <dt className="text-xs text-savr-neutral-500">Plaque</dt>
+                      <dd>{ct.tournees.plaque_immatriculation ?? '—'}</dd>
+                    </div>
+                    <div>
                       <dt className="text-xs text-savr-neutral-500">
                         Chauffeur
                       </dt>
@@ -1077,6 +1084,7 @@ export default function CollecteDetailPage() {
             >
               {collecte.collecte_tournees.map((ct) => {
                 const v = infosAccesInput[ct.tournees.id] ?? {
+                  plaque_immatriculation: '',
                   chauffeur_nom: '',
                   chauffeur_telephone: '',
                   accompagnant_nom: '',
@@ -1098,6 +1106,15 @@ export default function CollecteDetailPage() {
                   >
                     <p className="text-sm font-medium">Camion {ct.rang}</p>
                     <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                      <label className="space-y-1 text-xs text-savr-neutral-500">
+                        <span>Plaque d’immatriculation</span>
+                        <Input
+                          value={v.plaque_immatriculation}
+                          onChange={(e) =>
+                            setField('plaque_immatriculation', e.target.value)
+                          }
+                        />
+                      </label>
                       <label className="space-y-1 text-xs text-savr-neutral-500">
                         <span>Nom du chauffeur</span>
                         <Input

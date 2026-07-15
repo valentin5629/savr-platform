@@ -125,6 +125,7 @@ describe('M0.6 / PATCH infos-acces — écriture + email de complétude', () => 
         tournees: [
           {
             tournee_id: 'T1',
+            plaque_immatriculation: 'AA-123-BB',
             chauffeur_nom: 'Jean',
             chauffeur_telephone: '0611',
           },

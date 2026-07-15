@@ -5,6 +5,7 @@ import { readJsonBody, serverError, withApiTrace } from '@/lib/api-helpers.js';
 import { evaluerInfosAccesEtEnvoyer } from '@/lib/infos-acces/notify.js';
 
 const CHAMPS = [
+  'plaque_immatriculation',
   'chauffeur_nom',
   'chauffeur_telephone',
   'accompagnant_nom',

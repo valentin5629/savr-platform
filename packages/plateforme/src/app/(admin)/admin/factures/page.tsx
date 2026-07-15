@@ -9,6 +9,10 @@ import { DataTable, type Column } from '@/components/ui/data-table';
 import { Pagination } from '@/components/ui/pagination';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PageHero } from '@/components/ui/page-hero';
+import { FilterChips } from '@/components/ui/filter-chips';
+import { Select } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { pastillePennylane2h, estEnRetard } from '@/lib/facturation/facture-ui';
 
 interface Facture {
@@ -169,7 +173,7 @@ const columns: Column<Facture>[] = [
               title="En attente Pennylane depuis plus de 2 h"
               aria-label="En attente Pennylane depuis plus de 2 h"
               data-testid="pastille-pennylane-2h"
-              className="inline-block h-2.5 w-2.5 rounded-full bg-orange-500"
+              className="inline-block h-2.5 w-2.5 rounded-savr-full bg-savr-warning"
             />
           )}
           <Badge variant={s.variant}>{s.label}</Badge>
@@ -192,7 +196,7 @@ const columns: Column<Facture>[] = [
           PDF
         </button>
       ) : (
-        <span className="text-neutral-400">—</span>
+        <span className="text-savr-neutral-400">—</span>
       ),
   },
 ];
@@ -274,40 +278,42 @@ export default function FacturesPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <FileText className="h-6 w-6 text-savr-primary-600" />
-          <h1 className="text-2xl font-semibold">Factures</h1>
-        </div>
-        <Button variant="ghost" onClick={exportCsv}>
-          Exporter CSV
-        </Button>
-      </div>
+    <div className="space-y-5">
+      <PageHero
+        icon={<FileText className="h-6 w-6 text-savr-primary-200" />}
+        title="Factures"
+        subtitle={
+          total > 0
+            ? `${total} facture${total > 1 ? 's' : ''}`
+            : 'Brouillons, émissions et avoirs'
+        }
+        actions={
+          <Button variant="secondary" onClick={exportCsv}>
+            <Download className="h-4 w-4" />
+            Exporter CSV
+          </Button>
+        }
+      />
 
-      <div className="flex gap-2 flex-wrap">
-        {FILTRES.map((f) => (
-          <button
-            key={f.key}
-            onClick={() => setFiltre(f.key)}
-            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-              filtre === f.key
-                ? 'bg-savr-primary-600 text-white'
-                : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-            }`}
+      <FilterChips
+        chips={FILTRES}
+        activeKey={filtre}
+        ariaLabel="Filtrer par statut"
+        onSelect={setFiltre}
+      />
+
+      <div className="grid grid-cols-1 gap-3 rounded-savr-lg border border-savr-neutral-200 bg-savr-white p-4 shadow-savr-sm sm:grid-cols-2 lg:grid-cols-4">
+        <div>
+          <label
+            htmlFor="filtre-organisation"
+            className="mb-1 block text-xs font-bold text-savr-neutral-700"
           >
-            {f.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex gap-3 flex-wrap items-end">
-        <label className="flex flex-col gap-1 text-xs text-neutral-500">
-          Organisation
-          <select
+            Organisation
+          </label>
+          <Select
+            id="filtre-organisation"
             value={orgFiltre}
             onChange={(e) => setOrgFiltre(e.target.value)}
-            className="rounded-md border border-neutral-300 px-2 py-1.5 text-sm min-w-[12rem]"
           >
             <option value="">Toutes les organisations</option>
             {orgs.map((o) => (
@@ -315,52 +321,69 @@ export default function FacturesPage() {
                 {o.label}
               </option>
             ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-xs text-neutral-500">
-          Type
-          <select
+          </Select>
+        </div>
+        <div>
+          <label
+            htmlFor="filtre-type"
+            className="mb-1 block text-xs font-bold text-savr-neutral-700"
+          >
+            Type
+          </label>
+          <Select
+            id="filtre-type"
             value={typeFiltre}
             onChange={(e) => setTypeFiltre(e.target.value)}
-            className="rounded-md border border-neutral-300 px-2 py-1.5 text-sm"
           >
             {TYPE_OPTIONS.map((t) => (
               <option key={t.key} value={t.key}>
                 {t.label}
               </option>
             ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-xs text-neutral-500">
-          Période — du
-          <input
+          </Select>
+        </div>
+        <div>
+          <label
+            htmlFor="filtre-date-debut"
+            className="mb-1 block text-xs font-bold text-savr-neutral-700"
+          >
+            Période — du
+          </label>
+          <Input
+            id="filtre-date-debut"
             type="date"
             value={dateDebut}
             onChange={(e) => setDateDebut(e.target.value)}
-            className="rounded-md border border-neutral-300 px-2 py-1.5 text-sm"
           />
-        </label>
-        <label className="flex flex-col gap-1 text-xs text-neutral-500">
-          au
-          <input
+        </div>
+        <div>
+          <label
+            htmlFor="filtre-date-fin"
+            className="mb-1 block text-xs font-bold text-savr-neutral-700"
+          >
+            au
+          </label>
+          <Input
+            id="filtre-date-fin"
             type="date"
             value={dateFin}
             onChange={(e) => setDateFin(e.target.value)}
-            className="rounded-md border border-neutral-300 px-2 py-1.5 text-sm"
           />
-        </label>
+        </div>
         {(dateDebut || dateFin || typeFiltre || orgFiltre) && (
-          <Button
-            variant="ghost"
-            onClick={() => {
-              setTypeFiltre('');
-              setOrgFiltre('');
-              setDateDebut('');
-              setDateFin('');
-            }}
-          >
-            Réinitialiser
-          </Button>
+          <div className="flex items-end sm:col-span-2 lg:col-span-4">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setTypeFiltre('');
+                setOrgFiltre('');
+                setDateDebut('');
+                setDateFin('');
+              }}
+            >
+              Réinitialiser
+            </Button>
+          </div>
         )}
       </div>
 

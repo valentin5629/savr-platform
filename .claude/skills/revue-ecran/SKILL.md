@@ -35,6 +35,46 @@ ni à une zone déjà figée.
 
 ## Procédure (dans l'ordre — chaque étape conditionne la suivante)
 
+### 0. Pré-vol — collision de session concurrente (AVANT tout, une seule fois par session)
+
+But : au démarrage, détecter si **une autre session est déjà en cours** et présente un risque, ALERTER Val, et
+lui laisser **reporter cette session** plutôt que de courir un incident. À exécuter dès la première invocation de
+la skill dans la session (pas à chaque screenshot). Tout est en **lecture seule**.
+
+```bash
+REPO="$(git rev-parse --show-toplevel)"
+# [1] Clone principal hors 'main' → une autre session l'occupe (RISQUE FORT : HEAD/index partagés)
+git -C "$REPO" symbolic-ref --short HEAD 2>/dev/null || echo "(HEAD détaché sur le clone principal)"
+# [2] Working tree principal sale → WIP d'une autre session
+git -C "$REPO" status --short
+# [3] Worktrees actifs sur branche feature (sessions parallèles)
+git -C "$REPO" worktree list | awk 'NR>1 && $0 !~ /detached/'
+# [4] Attestations/briefs récents (< 3h) → module/lot en cours ailleurs
+find "$REPO/.claude" -maxdepth 1 -type f \( -name 'brief-ack-*' -o -name 'conformite-ok-*' -o -name 'securite-ok-*' \) -newermt '-3 hours'
+# [5] Dev server déjà up → collision preview + seed savr-dev partagé
+lsof -ti tcp:3001 || true
+```
+
+Interprétation :
+
+- **Signal FORT** = [1] clone principal ≠ `main`, **ou** [2] working tree principal sale, **ou** [3] worktree(s)
+  sur `feat/*`/`fix/*` (hors spikes détachés). → une ou plusieurs sessions tournent en parallèle.
+- **Signal RESSOURCE** = [5] `:3001` occupé (deux dev servers se marchent dessus, et le seed `savr-dev` est
+  partagé → une seule session « possède » le seed pour l'E2E à un instant T). [4] = contexte (du travail s'atteste ailleurs).
+
+Sortie du pré-vol :
+
+- **Aucun signal** → une ligne « ✅ Pré-vol OK, pas de session concurrente détectée » et enchaîner sur l'Intake.
+- **≥ 1 signal** → **ALERTE en tête de réponse** : lister ce qui est détecté (branche du clone principal,
+  worktrees actifs + leur branche, PID sur `:3001`), rappeler les risques (corruption HEAD/index si on partage un
+  working tree, conflit de merge si le fix vise un **sujet commun** à une session active, écrasement du seed
+  `savr-dev` / du port `:3001`). Puis **demander à Val** : _reporter cette session, ou continuer_ ? Ne pas
+  démarrer le fix tant qu'il n'a pas tranché.
+- **Rappel** : la skill impose déjà un worktree DÉDIÉ (étape 3), donc le git du NOUVEAU travail est isolé par
+  construction. Le pré-vol protège de ce que l'isolation git ne couvre pas : ne pas rajouter une session dans un
+  clone déjà occupé, repérer un **chevauchement de sujet** avec une session active (→ conflit de merge annoncé),
+  et les ressources partagées hors git (DB dev, port).
+
 ### 1. Intake du screenshot (contexte au bon endroit)
 
 Extraire / réclamer à Val **3 infos** (les demander si absentes) :
@@ -114,6 +154,7 @@ Reconnaître l'état AVANT tout : `git fetch --quiet && git branch -a && git wor
 
 ## Barre de qualité (ce qui rend une revue « propre »)
 
+- ✅ Pré-vol collision de session passé en tête ; si une session concurrente est détectée, ALERTE + décision de Val (reporter/continuer) AVANT de démarrer.
 - ✅ Rôle + route + attendu établis avant de coder ; module CDC lu dans `specs/cdc/…`.
 - ✅ Diagnostic explicite bug-de-code vs question-de-spec ; STOP + Val si non couvert (jamais d'interprétation).
 - ✅ Zone figée / session parallèle vérifiée et signalée AVANT de coder.

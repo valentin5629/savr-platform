@@ -190,8 +190,8 @@ INSERT INTO plateforme.email_templates (code, sujet, corps_html, actif, descript
 ON CONFLICT (code) DO NOTHING;
 
 -- ─── Rollback (manuel, si nécessaire) ─────────────────────────────────────────
--- DROP FUNCTION IF EXISTS plateforme.fn_infos_acces_marquer_si_complet(uuid);
--- DELETE FROM plateforme.email_templates WHERE code = 'infos_acces_collecte';
--- ALTER TABLE plateforme.collectes DROP COLUMN IF EXISTS infos_acces_email_envoye_at;
--- ALTER TABLE plateforme.tournees  DROP COLUMN IF EXISTS accompagnant_telephone;
--- ALTER TABLE plateforme.tournees  DROP COLUMN IF EXISTS accompagnant_nom;
+-- Migration NON destructive (add-only). Reversal manuel : retirer la fonction
+-- fn_infos_acces_marquer_si_complet(uuid), la ligne email_templates
+-- code='infos_acces_collecte', puis les 3 colonnes nullable ajoutées
+-- (tournees.accompagnant_nom, tournees.accompagnant_telephone,
+-- collectes.infos_acces_email_envoye_at). Aucune donnée existante impactée.

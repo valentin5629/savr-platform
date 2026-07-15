@@ -260,9 +260,13 @@ export default function DashboardAdminPage() {
           </div>
         ) : kpi ? (
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+            {/* Chaque carte est un lien vers la liste Collectes filtrée sur le
+                MÊME prédicat que le compteur (miroir exact, §11 §1.1) — chip
+                partagé lib/collectes-chips. */}
             <KpiCockpitCard
               label="Non transmises ZD"
               value={fmtInt(kpi.non_transmises_zd)}
+              href="/admin/collectes?chip=non_transmises_zd"
               dotColor={
                 kpi.non_transmises_zd > 0 ? OPS_DOT.warn : OPS_DOT.success
               }
@@ -275,6 +279,7 @@ export default function DashboardAdminPage() {
             <KpiCockpitCard
               label="Non transmises AG"
               value={fmtInt(kpi.non_transmises_ag)}
+              href="/admin/collectes?chip=non_transmises_ag"
               dotColor={
                 kpi.non_transmises_ag > 0 ? OPS_DOT.warn : OPS_DOT.success
               }
@@ -287,6 +292,7 @@ export default function DashboardAdminPage() {
             <KpiCockpitCard
               label="Attente prestataire"
               value={fmtInt(kpi.attente_prestataire)}
+              href="/admin/collectes?chip=attente_prestataire"
               dotColor={
                 kpi.attente_prestataire > 0 ? OPS_DOT.info : OPS_DOT.neutral
               }
@@ -295,18 +301,21 @@ export default function DashboardAdminPage() {
             <KpiCockpitCard
               label="Dirty TMS"
               value={fmtInt(kpi.dirty_tms)}
+              href="/admin/collectes?chip=dirty_tms"
               dotColor={kpi.dirty_tms > 0 ? OPS_DOT.error : OPS_DOT.success}
               footer={badgeAlerte(kpi.dirty_tms, 'error', 'À resynchroniser')}
             />
             <KpiCockpitCard
               label="ZD dans 48h"
               value={fmtInt(kpi.zd_48h)}
+              href="/admin/collectes?chip=zd_48h"
               dotColor={OPS_DOT.zd}
               footer={badgeVeille(kpi.zd_48h, 'À anticiper')}
             />
             <KpiCockpitCard
               label="AG dans 48h"
               value={fmtInt(kpi.ag_48h)}
+              href="/admin/collectes?chip=ag_48h"
               dotColor={OPS_DOT.ag}
               footer={badgeVeille(kpi.ag_48h, 'À anticiper')}
             />

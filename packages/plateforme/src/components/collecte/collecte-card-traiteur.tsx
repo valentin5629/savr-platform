@@ -1,6 +1,15 @@
 'use client';
 
-import { Pencil, XCircle, Copy } from 'lucide-react';
+import {
+  Pencil,
+  XCircle,
+  Copy,
+  Download,
+  Scale,
+  Recycle,
+  Leaf,
+  Package,
+} from 'lucide-react';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 
 // Carte simplifiée de la liste des collectes traiteur (BL-P2-14 + refonte liste
@@ -20,9 +29,16 @@ export interface TraiteurCollecteCardData {
   lieu_adresse: string | null;
   pax: number | null;
   programmee_par_tiers: boolean;
+  // Résultats affichés sur la collecte réalisée (statut cloturee).
+  // ZD : poids total (Σ flux) + taux de recyclage. AG : repas donnés. Les deux : CO₂ évité.
+  poids_total_kg: number | null;
+  taux_recyclage: number | null;
+  co2_evite_kg: number | null;
+  nb_repas_donnes: number | null;
 }
 
-// Gates d'action alignés sur la fiche (§05 §4) :
+// Gates d'action alignés sur la fiche (§05 §4). Action indisponible = picto MASQUÉ
+// (décision Val 2026-07-15 — plus de bouton grisé sur la carte liste) :
 //  - Modifier : statut programmee / validee
 //  - Annuler  : statut brouillon / programmee / validee (validee = demande Admin)
 // Dupliquer est toujours disponible (crée une NOUVELLE collecte à partir du
@@ -37,6 +53,7 @@ export function TraiteurCollecteCard({
   onModifier,
   onAnnuler,
   onDupliquer,
+  onTelecharger,
 }: {
   c: TraiteurCollecteCardData;
   canWrite: boolean;
@@ -44,10 +61,14 @@ export function TraiteurCollecteCard({
   onModifier: () => void;
   onAnnuler: () => void;
   onDupliquer: () => void;
+  onTelecharger: () => void;
 }): React.JSX.Element {
   const zd = c.type === 'zero_dechet';
   const editable = canWrite && STATUTS_EDITABLES.includes(c.statut);
   const annulable = canWrite && STATUTS_ANNULABLES.includes(c.statut);
+  // « Réalisée » (vue client) = statut cloturee : on affiche les résultats de la
+  // collecte + le téléchargement du rapport, à gauche du badge.
+  const estRealisee = c.statut === 'cloturee';
   const jour = (() => {
     const d = new Date(`${c.date_collecte}T00:00:00`);
     return isNaN(d.getTime())
@@ -93,36 +114,99 @@ export function TraiteurCollecteCard({
         </div>
       </button>
 
+      {/* Résultats + téléchargement du rapport (collecte réalisée = cloturee),
+          affichés à GAUCHE du badge « Réalisée ». */}
+      {estRealisee && (
+        <>
+          <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs font-bold text-savr-neutral-600">
+            {zd ? (
+              <>
+                {c.poids_total_kg != null && c.poids_total_kg > 0 && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Scale className="h-3.5 w-3.5 text-savr-neutral-400" />
+                    {c.poids_total_kg.toLocaleString('fr-FR', {
+                      maximumFractionDigits: 1,
+                    })}{' '}
+                    kg
+                  </span>
+                )}
+                {c.taux_recyclage != null && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Recycle className="h-3.5 w-3.5 text-savr-neutral-400" />
+                    {c.taux_recyclage.toLocaleString('fr-FR', {
+                      maximumFractionDigits: 0,
+                    })}{' '}
+                    %
+                  </span>
+                )}
+              </>
+            ) : (
+              c.nb_repas_donnes != null &&
+              c.nb_repas_donnes > 0 && (
+                <span className="inline-flex items-center gap-1.5">
+                  <Package className="h-3.5 w-3.5 text-savr-neutral-400" />
+                  {c.nb_repas_donnes} repas
+                </span>
+              )
+            )}
+            {c.co2_evite_kg != null && c.co2_evite_kg > 0 && (
+              <span className="inline-flex items-center gap-1.5">
+                <Leaf className="h-3.5 w-3.5 text-savr-neutral-400" />
+                {c.co2_evite_kg.toLocaleString('fr-FR', {
+                  maximumFractionDigits: 0,
+                })}{' '}
+                kg CO₂e
+              </span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={onTelecharger}
+            title="Télécharger le rapport"
+            aria-label="Télécharger le rapport de la collecte"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-savr-md text-savr-primary-700 hover:bg-savr-primary-50 focus-visible:outline-2"
+          >
+            <Download className="h-4 w-4" />
+          </button>
+        </>
+      )}
+
       {/* Statut */}
       <CollecteStatutBadge statut={c.statut} />
 
-      {/* Actions */}
+      {/* Actions — icône seule, libellé au survol (title). L'action indisponible
+          n'est pas rendue (plus de bouton grisé). */}
       <div className="flex items-center gap-1">
-        <button
-          type="button"
-          disabled={!editable}
-          onClick={onModifier}
-          title={editable ? 'Modifier' : 'Modification impossible à ce statut'}
-          className="inline-flex items-center gap-1 rounded-savr-md px-2.5 py-1.5 text-sm text-savr-neutral-700 hover:bg-savr-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          <Pencil className="h-4 w-4" /> Modifier
-        </button>
-        <button
-          type="button"
-          disabled={!annulable}
-          onClick={onAnnuler}
-          title={annulable ? 'Annuler' : 'Annulation impossible à ce statut'}
-          className="inline-flex items-center gap-1 rounded-savr-md px-2.5 py-1.5 text-sm text-savr-error-600 hover:bg-savr-error-subtle disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          <XCircle className="h-4 w-4" /> Annuler
-        </button>
+        {editable && (
+          <button
+            type="button"
+            onClick={onModifier}
+            title="Modifier"
+            aria-label="Modifier la collecte"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-savr-md text-savr-neutral-700 hover:bg-savr-neutral-100 focus-visible:outline-2"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+        )}
+        {annulable && (
+          <button
+            type="button"
+            onClick={onAnnuler}
+            title="Annuler"
+            aria-label="Annuler la collecte"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-savr-md text-savr-error-600 hover:bg-savr-error-subtle focus-visible:outline-2"
+          >
+            <XCircle className="h-4 w-4" />
+          </button>
+        )}
         <button
           type="button"
           onClick={onDupliquer}
           title="Dupliquer"
-          className="inline-flex items-center gap-1 rounded-savr-md px-2.5 py-1.5 text-sm text-savr-neutral-700 hover:bg-savr-neutral-100"
+          aria-label="Dupliquer la collecte"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-savr-md text-savr-neutral-700 hover:bg-savr-neutral-100 focus-visible:outline-2"
         >
-          <Copy className="h-4 w-4" /> Dupliquer
+          <Copy className="h-4 w-4" />
         </button>
       </div>
     </div>

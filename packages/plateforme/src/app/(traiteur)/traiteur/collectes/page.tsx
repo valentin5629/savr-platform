@@ -58,6 +58,11 @@ interface CollecteRow {
   date_collecte: string;
   heure_collecte: string | null;
   programmee_par_tiers: boolean;
+  // Résultats de la collecte réalisée (renvoyés par la route, agrégés côté serveur).
+  poids_total_kg: number | null;
+  taux_recyclage: number | null;
+  co2_evite_kg: number | null;
+  nb_repas_donnes: number | null;
   evenements: Evenement | Evenement[] | null;
 }
 
@@ -250,6 +255,18 @@ function CollectesContent() {
     window.open(`/api/v1/exports/collectes?type=${typeFiltre}`);
   }
 
+  // Téléchargement du rapport de la collecte réalisée (ZD = rapport recyclage,
+  // AG = attestation de don) — miroir du bouton de la fiche : URL R2 pré-signée,
+  // no-op silencieux si indisponible (embargo H+24, PDF non encore généré).
+  async function telechargerRapport(collecteId: string) {
+    const res = await fetch(
+      `/api/v1/traiteur/collectes/${collecteId}/rapport-rse/download`,
+    );
+    if (!res.ok) return;
+    const { url } = (await res.json()) as { url?: string };
+    if (url) window.open(url, '_blank');
+  }
+
   function canWrite(row: CollecteRow): boolean {
     if (role === 'traiteur_manager') return true;
     const evt = one(row.evenements);
@@ -300,6 +317,10 @@ function CollectesContent() {
             .join(' ') || null,
         pax: evt?.pax ?? null,
         programmee_par_tiers: c.programmee_par_tiers,
+        poids_total_kg: c.poids_total_kg,
+        taux_recyclage: c.taux_recyclage,
+        co2_evite_kg: c.co2_evite_kg,
+        nb_repas_donnes: c.nb_repas_donnes,
       };
       return { data, row: c };
     });
@@ -415,6 +436,7 @@ function CollectesContent() {
                     onDupliquer={() =>
                       router.push(`/programmer/nouveau?from=${data.id}`)
                     }
+                    onTelecharger={() => void telechargerRapport(data.id)}
                   />
                 ))}
               </div>

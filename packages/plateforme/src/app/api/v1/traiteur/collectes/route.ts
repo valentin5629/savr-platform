@@ -39,18 +39,24 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   // Typé `string` (pas template-literal) → overload générique supabase, sinon le
   // parser de types échoue sur la concaténation conditionnelle de l'embed.
+  // Résultats collecte réalisée (affichés sur la carte à `cloturee`) : CO₂ évité
+  // (colonne collectes, ZD+AG), poids ZD (Σ collecte_flux) et repas AG
+  // (Σ attributions_antgaspi.volume_repas_realise) — mêmes sources que la fiche
+  // et les dashboards, agrégées ci-dessous par ligne.
   const selectBase: string = `id, type, statut, statut_tms, date_collecte, heure_collecte,
-       informations_completes, taux_recyclage, realisee_at,
+       informations_completes, taux_recyclage, co2_evite_kg, realisee_at,
+       collecte_flux(poids_reel_kg),
        evenements!inner(
          id, organisation_id, traiteur_operationnel_organisation_id, created_by,
          nom_evenement, pax, nom_client_organisateur,
          lieux!lieu_id(id, nom, adresse_acces, code_postal, ville)
        )`;
   // Embed inner sur attributions_antgaspi UNIQUEMENT si on filtre par association
-  // (sinon l'inner join exclurait les collectes ZD, dépourvues d'attribution).
+  // (sinon l'inner join exclurait les collectes ZD, dépourvues d'attribution) ;
+  // sinon embed left pour récupérer les repas donnés (AG réalisée).
   const select = associationId
-    ? `${selectBase}, attributions_antgaspi!inner(association_id)`
-    : selectBase;
+    ? `${selectBase}, attributions_antgaspi!inner(association_id, volume_repas_realise)`
+    : `${selectBase}, attributions_antgaspi(volume_repas_realise)`;
 
   let query = supabase
     .from('collectes')
@@ -78,7 +84,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const orgId = auth.ctx.organisationId;
   const rows = (
     (data ?? []) as unknown as Array<
-      { evenements: unknown } & Record<string, unknown>
+      {
+        evenements: unknown;
+        collecte_flux?: { poids_reel_kg: number | null }[] | null;
+        attributions_antgaspi?:
+          | { volume_repas_realise: number | null }
+          | { volume_repas_realise: number | null }[]
+          | null;
+      } & Record<string, unknown>
     >
   ).map((c) => {
     const evt = (
@@ -92,7 +105,32 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const programmeeParTiers =
       evt?.traiteur_operationnel_organisation_id === orgId &&
       evt?.organisation_id !== orgId;
-    return { ...c, programmee_par_tiers: programmeeParTiers };
+    // Poids total ZD = Σ poids_reel_kg des flux (identique fiche/dashboards).
+    const poidsTotalKg = (c.collecte_flux ?? []).reduce(
+      (s, f) => s + (f.poids_reel_kg ?? 0),
+      0,
+    );
+    // Repas donnés AG = Σ volume_repas_realise (attribution unique par collecte,
+    // somme défensive alignée sur les loaders dashboards).
+    const attrs = Array.isArray(c.attributions_antgaspi)
+      ? c.attributions_antgaspi
+      : c.attributions_antgaspi
+        ? [c.attributions_antgaspi]
+        : [];
+    const nbRepasDonnes = attrs.reduce(
+      (s, a) => s + (a.volume_repas_realise ?? 0),
+      0,
+    );
+    // On ne renvoie pas les embeds bruts (flux/attributions) au client : la carte
+    // ne consomme que les agrégats. `undefined` est retiré par la sérialisation JSON.
+    return {
+      ...c,
+      collecte_flux: undefined,
+      attributions_antgaspi: undefined,
+      programmee_par_tiers: programmeeParTiers,
+      poids_total_kg: poidsTotalKg,
+      nb_repas_donnes: nbRepasDonnes,
+    };
   });
 
   return NextResponse.json({ data: rows });

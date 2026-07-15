@@ -86,6 +86,11 @@ export interface Mts1CarrierTransporter {
   firstname: string;
   lastname: string;
   transporterShareableCode: string;
+  // Téléphone du chauffeur : NON exposé par l'API MTS-1 aujourd'hui (as-built §6,
+  // « transporters[] ne porte ni téléphone ni email »). Champ OPTIONNEL réservé —
+  // capté automatiquement SI l'API l'expose un jour ; sinon renseigné manuellement
+  // par l'Admin (fiche collecte). Ne jamais présumer sa présence.
+  phone?: string;
 }
 
 export interface Mts1Carrier {

@@ -554,8 +554,8 @@ export default function CollectesPage() {
           <KpiTile
             icon={IdCard}
             count={chipCounts.controle_acces_a_envoyer ?? 0}
-            label="Plaque à récupérer"
-            sublabel="contrôle d'accès requis"
+            label="Infos accès à envoyer"
+            sublabel="chauffeur non communiqué"
             tone="info"
             active={!quickFilter && controleAcces}
             onClick={() => {

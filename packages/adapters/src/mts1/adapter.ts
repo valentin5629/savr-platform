@@ -638,11 +638,18 @@ export class AdapterMts1 implements LogistiqueProvider {
     await this.processPhotos(tourId, collecteId);
   }
 
-  // BL-P1-API-03 — peuple tournees.plaque_immatriculation + chauffeur_nom à partir
-  // du référentiel carrier (la plaque n'est PAS sur le tour, as-built §6). Algo :
+  // BL-P1-API-03 — peuple tournees.plaque_immatriculation + chauffeur_nom (+ le
+  // téléphone chauffeur SI l'API l'expose) à partir du référentiel carrier (la
+  // plaque n'est PAS sur le tour, as-built §6). Algo :
   //   plaque    : dispatch.vehicleShareableCode        → vehicles[].numberPlate
   //   chauffeur : dispatch.transporterUserShareableCode → transporters[].firstname+lastname
-  // Téléphone chauffeur NON exposé par l'API (as-built §6) → reste NULL.
+  //   téléphone : transporters[].phone (OPTIONNEL — as-built §6 : MTS-1 ne
+  //               l'expose pas aujourd'hui → reste NULL, saisi manuellement par
+  //               l'Admin fiche collecte, qui déclenche l'email « infos accès »).
+  // Accompagnant (accompagnant_nom/_telephone) : NON exposé par MTS-1 (1 seul
+  //   transporteur par dispatch) → saisie Admin uniquement en V1. Le point
+  //   d'extension est ici : un futur provider renseignerait ces colonnes via le
+  //   même bloc `updates` idempotent (décision Val #2 « structurer sans câbler »).
   // Idempotent : n'écrit que sur changement ; plaque_saisie_at posé à la 1re
   // résolution seulement (pas de churn à chaque poll). Non bloquant (audit DREAL,
   // jamais une pesée) : un échec carrier est tracé, ne casse pas le poll.
@@ -679,17 +686,22 @@ export class AdapterMts1 implements LogistiqueProvider {
     const chauffeurNom = transporter
       ? `${transporter.firstname} ${transporter.lastname}`.trim()
       : null;
+    // Optionnel : capté uniquement si l'API le fournit (undefined aujourd'hui).
+    const chauffeurTel = transporter?.phone?.trim() || null;
 
-    if (!plaque && !chauffeurNom) return;
+    if (!plaque && !chauffeurNom && !chauffeurTel) return;
 
     // Relecture du courant : idempotence + plaque_saisie_at au 1er enregistrement.
+    // On ne touche JAMAIS les colonnes saisies par l'Admin qu'on ne résout pas ici
+    // (téléphone si absent de l'API, accompagnant) → pas d'écrasement de la saisie.
     const { data: cur } = await this.supabase
       .from('tournees')
-      .select('plaque_immatriculation, chauffeur_nom')
+      .select('plaque_immatriculation, chauffeur_nom, chauffeur_telephone')
       .eq('id', tourneeId)
       .maybeSingle();
     const curPlaque = (cur?.plaque_immatriculation as string | null) ?? null;
     const curChauffeur = (cur?.chauffeur_nom as string | null) ?? null;
+    const curTel = (cur?.chauffeur_telephone as string | null) ?? null;
 
     const updates: Record<string, unknown> = {};
     if (plaque && plaque !== curPlaque) {
@@ -698,6 +710,9 @@ export class AdapterMts1 implements LogistiqueProvider {
     }
     if (chauffeurNom && chauffeurNom !== curChauffeur) {
       updates['chauffeur_nom'] = chauffeurNom;
+    }
+    if (chauffeurTel && chauffeurTel !== curTel) {
+      updates['chauffeur_telephone'] = chauffeurTel;
     }
     if (Object.keys(updates).length === 0) return;
 

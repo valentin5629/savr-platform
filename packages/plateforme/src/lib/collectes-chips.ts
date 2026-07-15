@@ -5,6 +5,11 @@
 
 export const CHIP_KEYS = [
   'non_transmises',
+  // Miroir EXACT des cartes-actions « Non transmises ZD/AG » du Dashboard Admin
+  // (Bloc 1, §11 §1.1) → cibles de clic. Prédicat identique à
+  // `api/v1/admin/dashboard/kpi/route.ts` (non_transmises_zd/ag).
+  'non_transmises_zd',
+  'non_transmises_ag',
   'attente_prestataire',
   'dirty_tms',
   'ag_attente_attribution',
@@ -47,6 +52,21 @@ export function applyChipPredicate(
     case 'non_transmises':
       // « Non transmises au TMS » = programmée ET sans référence de commande.
       return query.eq('statut', 'programmee').is('tms_reference', null);
+    // « Non transmises ZD/AG » = miroir EXACT des cartes Bloc 1 du Dashboard Admin
+    // (§11 §1.1) : non envoyée au TMS, sans référence, encore ouverte (programmée
+    // OU validée). Toute évolution DOIT rester alignée sur dashboard/kpi/route.ts.
+    case 'non_transmises_zd':
+      return query
+        .eq('type', 'zero_dechet')
+        .eq('statut_tms', 'non_envoye')
+        .is('tms_reference', null)
+        .in('statut', ['programmee', 'validee']);
+    case 'non_transmises_ag':
+      return query
+        .eq('type', 'anti_gaspi')
+        .eq('statut_tms', 'non_envoye')
+        .is('tms_reference', null)
+        .in('statut', ['programmee', 'validee']);
     case 'attente_prestataire':
       return query.eq('statut_tms', 'attribuee_en_attente_acceptation');
     case 'dirty_tms':

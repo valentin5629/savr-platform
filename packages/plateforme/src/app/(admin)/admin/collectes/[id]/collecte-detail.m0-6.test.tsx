@@ -509,9 +509,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     installMock({});
     render(<CollecteDetailPage />);
 
-    expect(
-      await screen.findByText('Bloc 5 — Attribution AG'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Attribution AG')).toBeInTheDocument();
     // Association + transporteur retenus (embed attributions_antgaspi).
     expect(screen.getAllByText('Les Restos du Cœur').length).toBeGreaterThan(0);
     expect(screen.getByText('A Toutes!')).toBeInTheDocument();
@@ -571,9 +569,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     expect(screen.queryByText('Attestation de don')).not.toBeInTheDocument();
     // Ni de Bloc 4/5 AG.
     expect(screen.queryByText('Pack AG')).not.toBeInTheDocument();
-    expect(
-      screen.queryByText('Bloc 5 — Attribution AG'),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Attribution AG')).not.toBeInTheDocument();
   });
 
   it('M0.6 — Bloc 3 : la galerie affiche les photos importées (shared.fichiers, URL R2)', async () => {

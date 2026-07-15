@@ -15,6 +15,12 @@ import {
   Upload,
   History,
   Gift,
+  MapPin,
+  CalendarClock,
+  Scale,
+  HeartHandshake,
+  Receipt,
+  type LucideIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -227,6 +233,33 @@ interface AuditEntry {
 
 // Types de document PDF régénérables (aligné @savr/shared PDF_DOCUMENT_TYPES).
 type PdfType = 'rapport-recyclage-zd' | 'bordereau-zd' | 'attestation-don';
+
+// En-tête de bloc de la fiche collecte — DS §10 leviers #2 (pastille primary
+// pleine) + #7 (titre extrabold tracking serré). Uniformise les 9 blocs : pastille
+// icône `primary-50`, titre `neutral-900`, slot d'action optionnel à droite.
+function BlocHeader({
+  icon: Icon,
+  title,
+  action,
+}: {
+  icon: LucideIcon;
+  title: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-savr-md bg-savr-primary-50 text-savr-primary-700">
+          <Icon className="h-[18px] w-[18px]" />
+        </span>
+        <h2 className="truncate text-base font-extrabold tracking-[-0.01em] text-savr-neutral-900">
+          {title}
+        </h2>
+      </div>
+      {action ? <div className="shrink-0">{action}</div> : null}
+    </div>
+  );
+}
 
 export default function CollecteDetailPage() {
   const params = useParams<{ id: string }>();
@@ -602,7 +635,7 @@ export default function CollecteDetailPage() {
     overrideActif && motifOverride.trim().length < 5;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* En-tête — bandeau navy (levier #2) : réf/type + méta + badges statut */}
       <PageHero
         icon={
@@ -661,12 +694,10 @@ export default function CollecteDetailPage() {
       />
 
       {/* Bloc 0 — Attribution prestataire & dispatch */}
-      <Card className="p-6 space-y-4">
-        <h2 className="font-semibold text-savr-neutral-800">
-          Bloc 0 — Prestataire & Dispatch
-        </h2>
+      <Card className="p-5 space-y-4">
+        <BlocHeader icon={Truck} title="Prestataire & Dispatch" />
         {dispatchError && <AlertBar variant="err">{dispatchError}</AlertBar>}
-        <dl className="grid grid-cols-2 gap-3 text-sm">
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
           <div>
             <dt className="text-savr-neutral-500">Prestataire actuel</dt>
             <dd className="font-medium flex items-center gap-2">
@@ -870,12 +901,10 @@ export default function CollecteDetailPage() {
       </Card>
 
       {/* Blocs 1-4 — Infos mutualisées */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="p-6 space-y-4">
-          <h2 className="font-semibold text-savr-neutral-800">
-            Bloc 1 — Événement & Lieu
-          </h2>
-          <dl className="space-y-2 text-sm">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="p-5 space-y-4">
+          <BlocHeader icon={MapPin} title="Événement & Lieu" />
+          <dl className="space-y-2.5 text-sm">
             <div>
               <dt className="text-savr-neutral-500">Traiteur</dt>
               <dd className="font-medium">
@@ -922,11 +951,9 @@ export default function CollecteDetailPage() {
           </dl>
         </Card>
 
-        <Card className="p-6 space-y-4">
-          <h2 className="font-semibold text-savr-neutral-800">
-            Bloc 2 — Logistique
-          </h2>
-          <dl className="space-y-2 text-sm">
+        <Card className="p-5 space-y-4">
+          <BlocHeader icon={CalendarClock} title="Logistique" />
+          <dl className="space-y-2.5 text-sm">
             <div>
               <dt className="text-savr-neutral-500">Date</dt>
               <dd className="font-medium">
@@ -965,24 +992,25 @@ export default function CollecteDetailPage() {
 
       {/* Bloc 3 — Pesées ZD (dérivées des pesées MTS-1 ou saisie manuelle Admin) */}
       {collecte.type === 'zero_dechet' && (
-        <Card className="p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-savr-neutral-800">
-              Bloc 3 — Pesées ZD
-            </h2>
-            {!editPesees && (
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={collecte.statut === 'cloturee'}
-                onClick={openEditPesees}
-              >
-                {collecte.statut === 'cloturee'
-                  ? 'Clôturée — édition via avoir'
-                  : 'Éditer les pesées'}
-              </Button>
-            )}
-          </div>
+        <Card className="p-5 space-y-4">
+          <BlocHeader
+            icon={Scale}
+            title="Pesées ZD"
+            action={
+              !editPesees && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={collecte.statut === 'cloturee'}
+                  onClick={openEditPesees}
+                >
+                  {collecte.statut === 'cloturee'
+                    ? 'Clôturée — édition via avoir'
+                    : 'Éditer les pesées'}
+                </Button>
+              )
+            }
+          />
 
           {!editPesees ? (
             <table className="w-full text-sm">
@@ -1087,11 +1115,8 @@ export default function CollecteDetailPage() {
       )}
 
       {/* Bloc 3 (CDC) — Documents : rapport RSE / bordereau ZD / attestation AG + photos */}
-      <Card className="p-6 space-y-4">
-        <h2 className="font-semibold text-savr-neutral-800 flex items-center gap-2">
-          <FileText className="h-4 w-4" />
-          Documents
-        </h2>
+      <Card className="p-5 space-y-4">
+        <BlocHeader icon={FileText} title="Documents" />
         {docError && <AlertBar variant="err">{docError}</AlertBar>}
 
         <div className="divide-y divide-savr-neutral-100">
@@ -1311,147 +1336,142 @@ export default function CollecteDetailPage() {
         </div>
       </Card>
 
-      {/* Bloc 4 (CDC) — Pack AG (si type AG) */}
+      {/* Blocs 4-5 (CDC) — Pack AG + Attribution AG côte-à-côte (AG only) : gain de
+          densité. items-start = chaque carte garde sa hauteur naturelle (Pack AG,
+          court, à gauche ; Attribution AG, plus haute, à droite — pas d'étirement). */}
       {collecte.type === 'anti_gaspi' && (
-        <Card className="p-6 space-y-4">
-          <h2 className="font-semibold text-savr-neutral-800 flex items-center gap-2">
-            <Gift className="h-4 w-4" />
-            Pack AG
-          </h2>
-          {collecte.packs_antgaspi ? (
-            <dl className="grid grid-cols-3 gap-3 text-sm">
+        <div className="grid items-start gap-4 md:grid-cols-2">
+          <Card className="p-5 space-y-4">
+            <BlocHeader icon={Gift} title="Pack AG" />
+            {collecte.packs_antgaspi ? (
+              <dl className="grid grid-cols-3 gap-x-6 gap-y-3 text-sm">
+                <div>
+                  <dt className="text-savr-neutral-500">Pack rattaché</dt>
+                  <dd className="font-medium">
+                    {collecte.packs_antgaspi.type_pack}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-savr-neutral-500">Crédits restants</dt>
+                  <dd className="font-medium">
+                    {collecte.packs_antgaspi.credits_restants}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-savr-neutral-500">Statut</dt>
+                  <dd>
+                    <Badge variant="neutral" className="text-xs">
+                      {collecte.packs_antgaspi.statut}
+                    </Badge>
+                  </dd>
+                </div>
+              </dl>
+            ) : (
+              <p className="text-sm text-savr-neutral-500">
+                Aucun pack rattaché à cette collecte.
+              </p>
+            )}
+            {/* Badge recrédit (annulee après realisee, §06.06 l.247 — le pack a été
+              détaché par le trigger, la date vient de l'audit du recrédit). */}
+            {collecte.statut === 'annulee' && recreditAt && (
+              <Badge variant="warning" className="text-xs">
+                Crédit recrédité automatiquement le{' '}
+                {new Date(recreditAt).toLocaleDateString('fr-FR')}
+              </Badge>
+            )}
+          </Card>
+
+          {/* Attribution AG complète (Admin-only) */}
+          <Card className="p-5 space-y-4">
+            <BlocHeader icon={HeartHandshake} title="Attribution AG" />
+            <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
               <div>
-                <dt className="text-savr-neutral-500">Pack rattaché</dt>
+                <dt className="text-savr-neutral-500">Association retenue</dt>
                 <dd className="font-medium">
-                  {collecte.packs_antgaspi.type_pack}
+                  {collecte.attributions_antgaspi?.associations?.nom ?? (
+                    <span className="text-savr-neutral-400">
+                      Aucune (en attente d’attribution)
+                    </span>
+                  )}
                 </dd>
               </div>
               <div>
-                <dt className="text-savr-neutral-500">Crédits restants</dt>
+                <dt className="text-savr-neutral-500">Transporteur retenu</dt>
                 <dd className="font-medium">
-                  {collecte.packs_antgaspi.credits_restants}
+                  {collecte.attributions_antgaspi?.transporteurs?.nom ?? (
+                    <span className="text-savr-neutral-400">—</span>
+                  )}
                 </dd>
               </div>
               <div>
-                <dt className="text-savr-neutral-500">Statut</dt>
-                <dd>
-                  <Badge variant="neutral" className="text-xs">
-                    {collecte.packs_antgaspi.statut}
-                  </Badge>
+                <dt className="text-savr-neutral-500">Validation</dt>
+                <dd className="font-medium">
+                  {collecte.attributions_antgaspi?.valide_at ? (
+                    <>
+                      {collecte.attributions_antgaspi.mode_validation} —{' '}
+                      {new Date(
+                        collecte.attributions_antgaspi.valide_at,
+                      ).toLocaleDateString('fr-FR')}
+                    </>
+                  ) : (
+                    <Badge variant="warning" className="text-xs">
+                      En attente de validation
+                    </Badge>
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-savr-neutral-500">
+                  Volume repas (estimé / réalisé)
+                </dt>
+                <dd className="font-medium">
+                  {collecte.volume_estime_repas ?? '—'} /{' '}
+                  {collecte.attributions_antgaspi?.volume_repas_realise ?? '—'}
                 </dd>
               </div>
             </dl>
-          ) : (
-            <p className="text-sm text-savr-neutral-500">
-              Aucun pack rattaché à cette collecte.
-            </p>
-          )}
-          {/* Badge recrédit (annulee après realisee, §06.06 l.247 — le pack a été
-              détaché par le trigger, la date vient de l'audit du recrédit). */}
-          {collecte.statut === 'annulee' && recreditAt && (
-            <Badge variant="warning" className="text-xs">
-              Crédit recrédité automatiquement le{' '}
-              {new Date(recreditAt).toLocaleDateString('fr-FR')}
-            </Badge>
-          )}
-        </Card>
-      )}
-
-      {/* Bloc 5 (CDC) — Attribution AG complète (Admin-only, si type AG) */}
-      {collecte.type === 'anti_gaspi' && (
-        <Card className="p-6 space-y-4">
-          <h2 className="font-semibold text-savr-neutral-800">
-            Bloc 5 — Attribution AG
-          </h2>
-          <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-            <div>
-              <dt className="text-savr-neutral-500">Association retenue</dt>
-              <dd className="font-medium">
-                {collecte.attributions_antgaspi?.associations?.nom ?? (
-                  <span className="text-savr-neutral-400">
-                    Aucune (en attente d’attribution)
-                  </span>
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-savr-neutral-500">Transporteur retenu</dt>
-              <dd className="font-medium">
-                {collecte.attributions_antgaspi?.transporteurs?.nom ?? (
-                  <span className="text-savr-neutral-400">—</span>
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-savr-neutral-500">Validation</dt>
-              <dd className="font-medium">
-                {collecte.attributions_antgaspi?.valide_at ? (
-                  <>
-                    {collecte.attributions_antgaspi.mode_validation} —{' '}
-                    {new Date(
-                      collecte.attributions_antgaspi.valide_at,
-                    ).toLocaleDateString('fr-FR')}
-                  </>
-                ) : (
-                  <Badge variant="warning" className="text-xs">
-                    En attente de validation
-                  </Badge>
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-savr-neutral-500">
-                Volume repas (estimé / réalisé)
-              </dt>
-              <dd className="font-medium">
-                {collecte.volume_estime_repas ?? '—'} /{' '}
-                {collecte.attributions_antgaspi?.volume_repas_realise ?? '—'}
-              </dd>
-            </div>
-          </dl>
-          {reco?.associations && reco.associations.length > 0 && (
-            <div className="rounded-savr-md border border-savr-neutral-100 bg-savr-neutral-50 p-3">
-              <p className="text-xs font-medium text-savr-neutral-600 mb-1">
-                Top 3 associations recommandées + scores (algo §06.09)
-              </p>
-              <ol className="list-decimal list-inside text-sm text-savr-neutral-700">
-                {reco.associations.slice(0, 3).map((a) => (
-                  <li key={a.id}>
-                    {a.nom}
-                    {(a.distance_km != null ||
-                      a.capacite_max_beneficiaires != null) && (
-                      <span className="text-savr-neutral-500">
-                        {' — '}
-                        {a.distance_km != null ? `${a.distance_km} km` : ''}
-                        {a.distance_km != null &&
-                        a.capacite_max_beneficiaires != null
-                          ? ' · '
-                          : ''}
-                        {a.capacite_max_beneficiaires != null
-                          ? `capacité ${a.capacite_max_beneficiaires}`
-                          : ''}
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ol>
-            </div>
-          )}
-          <Link
-            href={`/admin/attributions-ag/${collecte.id}`}
-            className="inline-flex items-center text-sm font-medium text-savr-primary-600 hover:underline"
-          >
-            Ouvrir l’attribution complète (top 3, validation, emails, re-jouer
-            l’algo) →
-          </Link>
-        </Card>
+            {reco?.associations && reco.associations.length > 0 && (
+              <div className="rounded-savr-md border border-savr-neutral-100 bg-savr-neutral-50 p-3">
+                <p className="text-xs font-medium text-savr-neutral-600 mb-1">
+                  Top 3 associations recommandées + scores (algo §06.09)
+                </p>
+                <ol className="list-decimal list-inside text-sm text-savr-neutral-700">
+                  {reco.associations.slice(0, 3).map((a) => (
+                    <li key={a.id}>
+                      {a.nom}
+                      {(a.distance_km != null ||
+                        a.capacite_max_beneficiaires != null) && (
+                        <span className="text-savr-neutral-500">
+                          {' — '}
+                          {a.distance_km != null ? `${a.distance_km} km` : ''}
+                          {a.distance_km != null &&
+                          a.capacite_max_beneficiaires != null
+                            ? ' · '
+                            : ''}
+                          {a.capacite_max_beneficiaires != null
+                            ? `capacité ${a.capacite_max_beneficiaires}`
+                            : ''}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+            <Link
+              href={`/admin/attributions-ag/${collecte.id}`}
+              className="inline-flex items-center text-sm font-medium text-savr-primary-600 hover:underline"
+            >
+              Ouvrir l’attribution complète (top 3, validation, emails, re-jouer
+              l’algo) →
+            </Link>
+          </Card>
+        </div>
       )}
 
       {/* Bloc 6 — Facturation */}
-      <Card className="p-6 space-y-4">
-        <h2 className="font-semibold text-savr-neutral-800">
-          Bloc 6 — Facturation
-        </h2>
+      <Card className="p-5 space-y-4">
+        <BlocHeader icon={Receipt} title="Facturation" />
         {collecte.factures_collectes.length === 0 ? (
           <p className="text-sm text-savr-neutral-500">
             Aucune facture générée.
@@ -1503,11 +1523,8 @@ export default function CollecteDetailPage() {
       </Card>
 
       {/* Bloc 7 (CDC) — Historique + Audit log (Admin-only) */}
-      <Card className="p-6 space-y-4">
-        <h2 className="font-semibold text-savr-neutral-800 flex items-center gap-2">
-          <History className="h-4 w-4" />
-          Historique &amp; audit
-        </h2>
+      <Card className="p-5 space-y-4">
+        <BlocHeader icon={History} title="Historique & audit" />
         {audit.length === 0 ? (
           <p className="text-sm text-savr-neutral-500">
             Aucune action enregistrée sur cette collecte.

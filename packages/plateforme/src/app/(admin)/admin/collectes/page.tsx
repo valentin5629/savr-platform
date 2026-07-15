@@ -44,7 +44,10 @@ const STATUTS_HISTORIQUE = [
 // Chips prédéfinis Programmées (§06.06 §3) — `key` = valeur du paramètre `chip`.
 const CHIPS_PROGRAMMEES = [
   { key: '', label: 'Toutes' },
-  { key: 'non_transmises', label: 'Non transmises au TMS' },
+  // Non transmises au TMS scindé ZD/AG → miroir exact des cartes Bloc 1 du
+  // Dashboard Admin (cibles de clic). Prédicats : lib/collectes-chips.
+  { key: 'non_transmises_zd', label: 'Non transmises ZD' },
+  { key: 'non_transmises_ag', label: 'Non transmises AG' },
   { key: 'attente_prestataire', label: 'En attente prestataire' },
   { key: 'dirty_tms', label: 'Modifiées sans renvoi TMS' },
   { key: 'ag_attente_attribution', label: 'AG en attente attribution' },
@@ -119,6 +122,9 @@ export default function CollectesPage() {
   // lieu / traiteur (OPÉRATIONNEL, décision Val R24c) + type + statut + période.
   const drillLieu = params.get('lieu');
   const drillTraiteur = params.get('traiteur');
+  // Drill-down depuis les cartes-actions du Dashboard Admin (Bloc 1) : chip
+  // prédéfini « Programmées » pré-sélectionné à l'arrivée (miroir exact du compteur).
+  const drillChip = params.get('chip');
   const drillType = params.get('type');
   const drillStatut = params.get('statut');
   const drillFrom = params.get('from');
@@ -136,7 +142,13 @@ export default function CollectesPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   // Filtre rapide de l'onglet actif : chip Programmées OU filtre Historique.
-  const [quickFilter, setQuickFilter] = useState('');
+  // Pré-sélectionné depuis le drill-down Dashboard Admin (`?chip=`) s'il désigne
+  // un chip « Programmées » connu → la liste s'ouvre déjà filtrée + chip actif.
+  const [quickFilter, setQuickFilter] = useState(
+    drillChip && CHIPS_PROGRAMMEES.some((c) => c.key === drillChip)
+      ? drillChip
+      : '',
+  );
   const [type, setType] = useState(drillType ?? '');
   const [traiteurId, setTraiteurId] = useState(drillTraiteur ?? '');
   const [lieuId, setLieuId] = useState(drillLieu ?? '');

@@ -102,6 +102,25 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
     expect(screen.getAllByText('Traiteur').length).toBeGreaterThan(0);
   });
 
+  it('M3.5/admin_kpi_cartes_cliquables — chaque carte Bloc 1 lie vers /admin/collectes?chip= (miroir §11 §1.1)', async () => {
+    render(<DashboardAdminPage />);
+    await screen.findAllByText('Traiteur Alpha'); // page hydratée (KPI chargés)
+    const hrefs = screen
+      .getAllByRole('link')
+      .map((l) => l.getAttribute('href'));
+    // Les 6 cartes-actions pointent vers le chip du MÊME prédicat que leur compteur.
+    for (const chip of [
+      'non_transmises_zd',
+      'non_transmises_ag',
+      'attente_prestataire',
+      'dirty_tms',
+      'zd_48h',
+      'ag_48h',
+    ]) {
+      expect(hrefs).toContain(`/admin/collectes?chip=${chip}`);
+    }
+  });
+
   it('M3.5/admin_revenus_histogramme_monte — RevenusHistogramme n’est plus orphelin', async () => {
     render(<DashboardAdminPage />);
     expect(

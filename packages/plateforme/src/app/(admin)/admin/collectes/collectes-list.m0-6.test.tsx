@@ -10,6 +10,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 
+// URL de la page pilotable par test (drill-down `?chip=` du Dashboard Admin).
+const navState = vi.hoisted(() => ({ search: new URLSearchParams() }));
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
     push: vi.fn(),
@@ -17,7 +19,7 @@ vi.mock('next/navigation', () => ({
     back: vi.fn(),
     refresh: vi.fn(),
   }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => navState.search,
 }));
 
 import CollectesPage from './page';
@@ -129,6 +131,8 @@ function mockCollectesFetch() {
         ok: true,
         json: async () => ({
           non_transmises: 3,
+          non_transmises_zd: 2,
+          non_transmises_ag: 1,
           attente_prestataire: 1,
           dirty_tms: 0,
           ag_attente_attribution: 2,
@@ -176,7 +180,10 @@ function mockCollectesFetch() {
 }
 
 describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    navState.search = new URLSearchParams();
+  });
   afterEach(() => vi.restoreAllMocks());
 
   it('M0.6 — cartes : traiteur, lieu, client organisateur, transporteur rendus', async () => {
@@ -235,9 +242,31 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
     mockCollectesFetch();
     render(<CollectesPage />);
     const chip = await screen.findByRole('button', {
-      name: /Non transmises au TMS/,
+      name: /Non transmises ZD/,
     });
-    await waitFor(() => expect(chip).toHaveTextContent('3'));
+    await waitFor(() => expect(chip).toHaveTextContent('2'));
+  });
+
+  it('M0.6 — drill-down Dashboard Admin ?chip=non_transmises_zd → chip actif + liste filtrée', async () => {
+    navState.search = new URLSearchParams('chip=non_transmises_zd');
+    const fetchMock = mockCollectesFetch();
+    render(<CollectesPage />);
+    // Chip pré-sélectionné à l'arrivée (miroir exact du compteur dashboard).
+    const chip = await screen.findByRole('button', {
+      name: /Non transmises ZD/,
+    });
+    expect(chip).toHaveAttribute('aria-pressed', 'true');
+    // La requête liste porte le MÊME chip → prédicat serveur partagé.
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(
+          ([u]) =>
+            typeof u === 'string' &&
+            u.startsWith('/api/v1/admin/collectes?') &&
+            u.includes('chip=non_transmises_zd'),
+        ),
+      ).toBe(true),
+    );
   });
 
   it('M0.6 — indicateurs Historique : poids/taux ZD + repas AG + rapport consulté', async () => {

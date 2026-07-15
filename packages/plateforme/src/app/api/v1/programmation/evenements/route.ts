@@ -76,11 +76,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const body = (await req.json()) as ProgrammationBody;
 
-  // admin_savr programme pour le compte d'une org : organisation_id requis dans le body
-  const effectiveOrgId =
-    auth.ctx.isAdmin && !auth.ctx.organisationId
-      ? (body.organisation_id as string | undefined)
-      : auth.ctx.organisationId;
+  // admin_savr/ops_savr programme POUR le compte d'une org → l'org cible vient
+  // TOUJOURS du body (jamais du JWT du staff : les users staff sont rattachés à
+  // l'org interne `org_savr`, `users.organisation_id` étant NOT NULL — s'appuyer
+  // sur `!auth.ctx.organisationId` retombait à tort sur org_savr → 422 SIRET).
+  const effectiveOrgId = auth.ctx.isAdmin
+    ? (body.organisation_id as string | undefined)
+    : auth.ctx.organisationId;
 
   if (!effectiveOrgId) {
     return NextResponse.json(

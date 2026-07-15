@@ -363,6 +363,34 @@ describe('M1.2 / Validations bloquantes', () => {
     const json = (await res.json()) as { error: string };
     expect(json.error).toMatch(/organisation_id/i);
   });
+
+  it('programmation_admin_org_cible — effectiveOrgId = organisation_id du body, jamais l’org interne du staff', async () => {
+    // Régression : le staff a une org interne RÉELLE (org_savr, users.organisation_id
+    // est NOT NULL) → la programmation de support doit cibler l'org du body, pas org_savr.
+    setupAuth('admin_savr', 'org-savr-interne');
+    mockMaybeSingle.mockResolvedValue({ data: null, error: null }); // org cible sans SIRET vérifié → 422
+
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/programmation/evenements', {
+        ...BODY_ZD,
+        organisation_id: 'org-kaspia-cible',
+      }),
+    );
+
+    // Le gate de complétude (entites_facturation) est interrogé sur l'ORG CIBLE…
+    expect(mockSupabaseChain.eq).toHaveBeenCalledWith(
+      'organisation_id',
+      'org-kaspia-cible',
+    );
+    // …et jamais sur l'org interne du staff (sinon régression du bug !organisationId).
+    expect(mockSupabaseChain.eq).not.toHaveBeenCalledWith(
+      'organisation_id',
+      'org-savr-interne',
+    );
+    expect(res.status).toBe(422); // s'arrête au gate SIRET de l'org cible
+  });
 });
 
 describe('M1.2 / Ajout collecte à événement existant', () => {

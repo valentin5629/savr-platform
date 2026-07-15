@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Truck,
   Plus,
@@ -14,6 +15,11 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
+import {
+  readCollecteFiltreLabel,
+  periodeCourte,
+} from '@/lib/dashboards/collecte-filtre-label';
 import { PageHero } from '@/components/ui/page-hero';
 import { FilterChips } from '@/components/ui/filter-chips';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -107,23 +113,52 @@ function KpiTile({
 }
 
 export default function CollectesPage() {
-  const [tab, setTab] = useState<Tab>('programmees');
+  const router = useRouter();
+  const params = useSearchParams();
+  // Drill-down depuis les Top listes du Dashboard Client Admin (miroir exact) :
+  // lieu / traiteur (OPÉRATIONNEL, décision Val R24c) + type + statut + période.
+  const drillLieu = params.get('lieu');
+  const drillTraiteur = params.get('traiteur');
+  const drillType = params.get('type');
+  const drillStatut = params.get('statut');
+  const drillFrom = params.get('from');
+  const drillTo = params.get('to');
+  // Périmètre d'organisations propagé par le drill-down (miroir exact du chiffre
+  // du dashboard, borné au même périmètre). Figé au montage (getAll = nouveau
+  // tableau à chaque render → capté en state pour rester stable dans les deps).
+  const [perimetreOrgIds, setPerimetreOrgIds] = useState<string[]>(() =>
+    params.getAll('perimetre'),
+  );
+  const hasDrill = !!(drillLieu || drillTraiteur);
+
+  const [tab, setTab] = useState<Tab>(hasDrill ? 'historique' : 'programmees');
   const [collectes, setCollectes] = useState<CollecteRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   // Filtre rapide de l'onglet actif : chip Programmées OU filtre Historique.
   const [quickFilter, setQuickFilter] = useState('');
-  const [type, setType] = useState('');
-  const [traiteurId, setTraiteurId] = useState('');
-  const [lieuId, setLieuId] = useState('');
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
+  const [type, setType] = useState(drillType ?? '');
+  const [traiteurId, setTraiteurId] = useState(drillTraiteur ?? '');
+  const [lieuId, setLieuId] = useState(drillLieu ?? '');
+  const [from, setFrom] = useState(drillFrom ?? '');
+  const [to, setTo] = useState(drillTo ?? '');
   const [search, setSearch] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
   // Statut (multi-sélection, §06.06 §3) : scopé aux valeurs valides de l'onglet
   // actif ; vide = preset de l'onglet. Info incomplète / rapport non consulté :
   // booléens indépendants de l'onglet.
-  const [statutsSel, setStatutsSel] = useState<string[]>([]);
+  const [statutsSel, setStatutsSel] = useState<string[]>(
+    drillStatut ? [drillStatut] : [],
+  );
+  // Libellé humain du filtre de drill-down (lieu / traiteur), lu du sessionStorage
+  // posé par le dashboard (fallback null → chip générique).
+  const [drillLabel] = useState<string | null>(() => {
+    if (drillLieu) return readCollecteFiltreLabel('lieu', drillLieu);
+    if (drillTraiteur)
+      return readCollecteFiltreLabel('traiteur', drillTraiteur);
+    return null;
+  });
+  const [drillActive, setDrillActive] = useState(hasDrill);
   const [infoIncomplete, setInfoIncomplete] = useState(false);
   const [rapportNonConsulte, setRapportNonConsulte] = useState(false);
   const [page, setPage] = useState(1);
@@ -230,10 +265,15 @@ export default function CollectesPage() {
 
     // Filtres avancés (communs, hors chemin chip Programmées).
     if (!(tab === 'programmees' && quickFilter)) {
-      if (traiteurId) params.set('organisation_id', traiteurId);
+      // « Traiteur » = traiteur OPÉRATIONNEL (décision Val R24c) → miroir exact du
+      // Top 5 traiteurs des dashboards (agrégé par traiteur_operationnel).
+      if (traiteurId) params.set('traiteur_operationnel_id', traiteurId);
       if (lieuId) params.set('lieu_id', lieuId);
       if (from) params.set('from', from);
       if (to) params.set('to', to);
+      // Périmètre d'organisations du drill-down (miroir exact du chiffre borné).
+      for (const id of perimetreOrgIds)
+        params.append('perimetre_org_ids[]', id);
       if (infoIncomplete) params.set('info_incomplete', 'true');
       if (rapportNonConsulte) params.set('rapport_non_consulte', 'true');
     }
@@ -255,6 +295,7 @@ export default function CollectesPage() {
     lieuId,
     from,
     to,
+    perimetreOrgIds,
     infoIncomplete,
     rapportNonConsulte,
   ]);
@@ -309,6 +350,26 @@ export default function CollectesPage() {
   const chips = tab === 'programmees' ? CHIPS_PROGRAMMEES : CHIPS_HISTORIQUE;
   const totalPages = Math.max(1, Math.ceil(total / 50));
 
+  // Efface le filtre de drill-down (lieu / traiteur venu du dashboard) → liste nue.
+  const clearDrill = () => {
+    setDrillActive(false);
+    setTraiteurId('');
+    setLieuId('');
+    setType('');
+    setStatutsSel([]);
+    setFrom('');
+    setTo('');
+    setPerimetreOrgIds([]);
+    setPage(1);
+    router.replace('/admin/collectes');
+  };
+  const drillScope =
+    drillActive && drillStatut === 'cloturee'
+      ? `clôturées${
+          periodeCourte(from, to) ? ` · ${periodeCourte(from, to)}` : ''
+        }`
+      : undefined;
+
   return (
     <div className="space-y-5">
       <PageHero
@@ -316,7 +377,7 @@ export default function CollectesPage() {
         title="Collectes"
         subtitle="Liste unifiée Zéro Déchet + Anti-Gaspi · cliquez une carte pour ouvrir la fiche"
         actions={
-          <Link href="/admin/collectes/nouvelle">
+          <Link href="/programmer/nouveau">
             <Button variant="accent">
               <Plus className="h-4 w-4" />
               Programmer une collecte
@@ -324,6 +385,18 @@ export default function CollectesPage() {
           </Link>
         }
       />
+
+      {/* Filtre actif venu d'un drill-down du dashboard (Top listes). */}
+      {drillActive && (
+        <CollecteFiltreActif
+          label={
+            drillLabel ??
+            (drillTraiteur ? 'Traiteur sélectionné' : 'Lieu sélectionné')
+          }
+          scope={drillScope}
+          onClear={clearDrill}
+        />
+      )}
 
       {/* Segment Programmées / Historique */}
       <div

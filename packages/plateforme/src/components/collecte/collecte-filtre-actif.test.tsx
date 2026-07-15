@@ -1,8 +1,11 @@
 /**
  * Drill-down « Top listes → liste Collectes filtrée » — briques UI partagées :
  *  - chip « filtre actif » (libellé + effacement) ;
- *  - helper sessionStorage du libellé (round-trip + garde anti-libellé périmé) ;
- *  - TopLieuxBloc (agence) : lignes cliquables → onRowClick(lieu).
+ *  - helper sessionStorage du libellé (round-trip + garde anti-libellé périmé).
+ *
+ * Le drill-down « Top listes → Collectes filtrée » lui-même est désormais rendu
+ * par la lib Cockpit `TopRankList` (onItemClick) sur les dashboards ; il est
+ * couvert par les tests de déclinaison Cockpit (R24c) et de la lib cockpit.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
@@ -12,8 +15,6 @@ import {
   readCollecteFiltreLabel,
   periodeCourte,
 } from '@/lib/dashboards/collecte-filtre-label';
-import { TopLieuxBloc } from '@/components/dashboards/TopLieuxBloc';
-import type { TopLieu } from '@/components/dashboards/blocs-types';
 
 beforeEach(() => {
   sessionStorage.clear();
@@ -72,44 +73,5 @@ describe('collecte-filtre-label (sessionStorage)', () => {
 
   it('absence de mémorisation → null', () => {
     expect(readCollecteFiltreLabel('lieu', 'lieu-1')).toBeNull();
-  });
-});
-
-describe('TopLieuxBloc — drill-down', () => {
-  const items: TopLieu[] = [
-    {
-      lieu_id: 'lieu-1',
-      lieu_nom: 'Le Pavillon',
-      nb_collectes: 4,
-      tonnage_kg: 14200,
-      taux_recyclage: 82,
-      repas_donnes: null,
-      repas_par_pax: null,
-    },
-    {
-      lieu_id: 'lieu-2',
-      lieu_nom: 'Salons Hoche',
-      nb_collectes: 3,
-      tonnage_kg: 11800,
-      taux_recyclage: 79,
-      repas_donnes: null,
-      repas_par_pax: null,
-    },
-  ];
-
-  it('onRowClick fourni : clic sur une ligne → lieu correspondant', () => {
-    const onRowClick = vi.fn();
-    render(
-      <TopLieuxBloc items={items} type="zero_dechet" onRowClick={onRowClick} />,
-    );
-    fireEvent.click(screen.getByRole('button', { name: /Salons Hoche/ }));
-    expect(onRowClick).toHaveBeenCalledWith(
-      expect.objectContaining({ lieu_id: 'lieu-2', lieu_nom: 'Salons Hoche' }),
-    );
-  });
-
-  it('sans onRowClick : lignes non interactives (pas de role button)', () => {
-    render(<TopLieuxBloc items={items} type="zero_dechet" />);
-    expect(screen.queryByRole('button', { name: /Le Pavillon/ })).toBeNull();
   });
 });

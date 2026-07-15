@@ -15,9 +15,10 @@
     "packages/plateforme/src/app/(admin)/admin/dashboard-client/page.tsx",
     "packages/plateforme/src/app/(admin)/admin/dashboard-client/DashboardClientView.tsx",
     "packages/plateforme/src/app/(admin)/admin/dashboard-client/OrganisationSelector.tsx",
-    "packages/plateforme/src/components/dashboards/BenchmarkGauge.tsx",
+    "packages/plateforme/src/lib/dashboards/admin-dashboard-client.ts",
     "packages/plateforme/tests/api/admin/dashboard-client.m3-6.test.ts",
     "packages/plateforme/tests/ui/dashboard-client.m3-6.test.tsx",
+    "packages/plateforme/tests/ui/dashboard-cockpit-declinaison.r24c.test.tsx",
     "specs/manifests/M3.6.json"
   ],
   "scenarios": [
@@ -103,9 +104,49 @@
       "test": "M3.6/dashboard_client_toutes_organisations_lecture_seule",
       "statut": "implemented",
       "libelle": "M3.6/dashboard_client_toutes_organisations_lecture_seule"
+    },
+    {
+      "id": "M3.6-cockpit-declinaison",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:129",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/dashboard-client/DashboardClientView.tsx",
+      "test": "M3.6/cockpit_declinaison_kpi_cards + M3.6/cockpit_declinaison_onglet_ag + M3.6/dashboard_client_toutes_organisations_lecture_seule",
+      "statut": "implemented",
+      "libelle": "R24c — Déclinaison Cockpit COMPLÈTE du Dashboard Client Admin (§06.06 §2, « reprise EXACTE du dashboard gestionnaire », retour Val « je ne vois pas les graphs »). Rendu full-graphes : KpiCockpitCard (ZD 5 / AG 5, dont carte « CO₂ évité » cliquable → modale « Impact carbone » = héros CO₂ + méthode ABC/FAO, retour Val R24c ; parité traiteur, Σ figées collectes.co2_*) + Bloc 2 EvolutionZd/AgChart + Bloc 4 TonnagesDonut + Bloc 3 jauges Cockpit BenchmarkBulletGauges + Bloc 6 Top lieux + Bloc 7 Top traiteurs + Bloc 3 AG Top associations + Bloc 5 Prochaines. LECTURE SEULE au sens DONNÉES (aucune écriture) ; les Top lieux/traiteurs sont cliquables → drill-down /admin/collectes filtrée (cf. M3.6-drilldown), la carte CO₂ ouvre une modale d'info. Comble le gap pré-existant. BenchmarkGauge SUPPRIMÉ (Cockpit partout). DS appliqué. LIMITE CONNUE (pas une régression) : Bloc 3 benchmark admin lit le parc global anonymisé (tous brackets) SANS barre de filtre 5-critères §06.05 (endpoint admin ne prend que `bracket`) = follow-up."
+    },
+    {
+      "id": "M3.6-cockpit-endpoint",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:129",
+      "artefact": "packages/plateforme/src/lib/dashboards/admin-dashboard-client.ts + packages/plateforme/src/app/api/v1/admin/dashboard-client/route.ts + packages/plateforme/src/lib/dashboards/loaders.ts (buildEvolutionSeries exporté)",
+      "test": "M3.6/kpi_zd_4_indicateurs_pondere + M3.6/kpi_ag_repas_donnes + M3.6/kpi_toutes_organisations_sans_filtre_org + M3.6/kpi_organisations_selectionnees_filtre_in + M3.6/kpi_filtre_periode_date_collecte",
+      "statut": "implemented",
+      "libelle": "R24c — Loader Admin cross-org loadAdminDashboardClient (service_role, scope organisation_ids[] ; vide = toutes) renvoyant le dashboard COMPLET (kpi + kgParPaxParFlux + évolution + blocs top/prochaines + co2) en réutilisant EXACTEMENT les algos purs des dashboards client (computeDashboardKpi + buildEvolutionSeries + topLieuxFrom + aggregateActeurs + topAssociationsFrom + kgParPaxParFluxFrom + co2Totals) → parité de sémantique. Seul le SCOPE diffère (service_role + filtre org explicite, jamais RLS). Résolution des noms de traiteur via organisations (service_role). Route inchangée sur ses gardes (requireStaff, filtre org/date, 401/403)."
+    },
+    {
+      "id": "M3.6-scope-operateur",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:118",
+      "artefact": "packages/plateforme/src/lib/dashboards/admin-dashboard-client.ts (applyScope .or)",
+      "test": "M3.6/kpi_organisations_selectionnees_filtre_in + M3.6/kpi_toutes_organisations_sans_filtre_org",
+      "statut": "implemented",
+      "libelle": "R24c — DÉCISION VAL (divergence §06.06 §2 tracée _Divergences/M3.6_20260714) : le sélecteur d'organisations scope les collectes où une org sélectionnée est PROGRAMMATRICE (organisation_id) OU TRAITEUR OPÉRATIONNEL (traiteur_operationnel_organisation_id) — filtre .or(…, {referencedTable:'evenements'}). Un traiteur → toute son activité opérée (Kaspia 97 et non 85) ; une agence → ses événements programmés. Corrige l'incohérence 85 vs 97 signalée en GO-VISUAL."
+    },
+    {
+      "id": "M3.6-drilldown",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:129",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/dashboard-client/DashboardClientView.tsx + packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (URL-aware) + packages/plateforme/src/app/api/v1/admin/collectes/route.ts (param traiteur_operationnel_id)",
+      "test": "M3.6/cockpit_declinaison_drilldown + M0.6 — filtres avancés : traiteur/lieu peuplés + filtrage serveur",
+      "statut": "implemented",
+      "libelle": "R24c — Drill-down « clic Top 5 → /admin/collectes filtrée » (retour Val). MIROIR EXACT : type courant + statut=cloturee + période + MÊME périmètre d'organisations (param `perimetre` propagé → /admin/collectes filtre par `perimetre_org_ids[]` avec la MÊME logique opérateur-inclusive `.or` que le loader dashboard, sinon le drill sous périmètre actif renverrait un sur-ensemble). Top lieux → ?lieu, Top traiteurs → ?traiteur (= traiteur OPÉRATIONNEL, même clé que aggregateActeurs). La liste Collectes Admin devient URL-aware (lieu/traiteur/type/statut/from/to/perimetre → filtres initiaux + chip CollecteFiltreActif via sessionStorage) et son filtre « Traiteur » passe à traiteur_operationnel_id (API : nouveaux params `.eq(traiteur_operationnel_organisation_id)` + `.or` périmètre ; `organisation_id` conservé). Gestionnaire déjà aligné (traiteur_operationnel), agence = drill lieux seul (pas de Top traiteurs, diff #8), traiteur = drill commercial (created_by)."
+    },
+    {
+      "id": "M3.6-org-selecteur",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:118",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/dashboard-client/OrganisationSelector.tsx",
+      "test": "M3.6/org_selecteur_cellules_par_type + M3.6/dashboard_client_toutes_organisations_lecture_seule",
+      "statut": "implemented",
+      "libelle": "R24c — Sélecteur d'organisations refondu (2 retours Val GO-VISUAL) : 3 CELLULES par type d'organisation SUR UNE MÊME LIGNE (grid 3 colonnes) — Traiteurs / Agences / Gestionnaires de lieux (ordre §06.06 §2). Chaque cellule = LISTE DÉROULANTE : repliée par défaut, ouverte au CLIC (panneau absolu z-20, max-h-44 = 4 lignes visibles puis scroll), fermée au clic en dehors ; une seule ouverte à la fois. En-tête = libellé + compteur (N orgs / N sélectionnés) + chevron. Recherche transverse + « Toutes les organisations » (sélection vide = défaut). Design System : tokens savr, cibles 44px (min-h-11), chevrons lucide, accent checkbox savr-primary. Composant de filtrage, aucune écriture."
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "7776a13e7297a39d4110630c3b45e2567e0fe39bc5af9f31a197d42288ffa351"
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "ee9167a6c44ca08f888523dfea7a4505ec162b62dfe4cc75e8b2138469fdab7a"
   }
 }

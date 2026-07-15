@@ -3,6 +3,10 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { FormField } from '@/components/ui/form-field';
+import { FormError } from '@/components/ui/form-error';
+import { Label } from '@/components/ui/label';
 import type { LieuOption } from '@/components/programmation/lieu-combobox';
 
 // Formulaire lieu manuel inline (quick-add « lieu hors référentiel » §06.01).
@@ -11,9 +15,12 @@ import type { LieuOption } from '@/components/programmation/lieu-combobox';
 export function LieuManuelForm({
   onSave,
   onCancel,
+  organisationId,
 }: {
   onSave: (lieu: LieuOption) => void;
   onCancel: () => void;
+  // Admin support : org cible transmise pour le libellé de la notification (staff-only).
+  organisationId?: string;
 }) {
   const [form, setForm] = useState({
     nom: '',
@@ -40,6 +47,7 @@ export function LieuManuelForm({
           stationnement: form.stationnement || undefined,
           type_vehicule_max: form.type_vehicule_max || undefined,
           acces_office: form.acces_office || undefined,
+          organisation_id: organisationId || undefined,
         }),
       });
       const data = (await res.json()) as LieuOption & { error?: string };
@@ -59,70 +67,88 @@ export function LieuManuelForm({
     form.code_postal.trim() !== '' &&
     form.ville.trim() !== '';
 
+  const CHAMPS = {
+    nom: { label: 'Nom du lieu', placeholder: 'Ex : Salle Wagram' },
+    adresse_acces: {
+      label: "Adresse d'accès livraison",
+      placeholder: 'Ex : 39 av de Wagram',
+    },
+    code_postal: { label: 'Code postal', placeholder: '75017' },
+    ville: { label: 'Ville', placeholder: 'Paris' },
+  } as const;
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {(['nom', 'adresse_acces', 'code_postal', 'ville'] as const).map(
         (field) => (
-          <input
+          <FormField
             key={field}
-            placeholder={
-              {
-                nom: 'Nom du lieu *',
-                adresse_acces: "Adresse d'accès livraison *",
-                code_postal: 'Code postal *',
-                ville: 'Ville *',
-              }[field]
-            }
-            value={form[field]}
-            onChange={(e) =>
-              setForm((p) => ({ ...p, [field]: e.target.value }))
-            }
-            className="w-full rounded-savr-md border border-savr-neutral-300 px-3 py-2 text-sm focus:outline-2 focus:outline-savr-primary-500"
-          />
+            label={CHAMPS[field].label}
+            htmlFor={`lieu-${field}`}
+            required
+          >
+            <Input
+              id={`lieu-${field}`}
+              placeholder={CHAMPS[field].placeholder}
+              value={form[field]}
+              onChange={(e) =>
+                setForm((p) => ({ ...p, [field]: e.target.value }))
+              }
+            />
+          </FormField>
         ),
       )}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <Select
-          aria-label="Type de véhicule max"
-          value={form.type_vehicule_max}
-          onChange={(e) =>
-            setForm((p) => ({ ...p, type_vehicule_max: e.target.value }))
-          }
-        >
-          <option value="">Véhicule max (optionnel)</option>
-          <option value="velo_cargo">Vélo cargo</option>
-          <option value="camionnette">Camionnette</option>
-          <option value="fourgon">Fourgon</option>
-          <option value="vul">VUL</option>
-          <option value="poids_lourd">Poids lourd</option>
-        </Select>
-        <Select
-          aria-label="Stationnement"
-          value={form.stationnement}
-          onChange={(e) =>
-            setForm((p) => ({ ...p, stationnement: e.target.value }))
-          }
-        >
-          <option value="">Stationnement (optionnel)</option>
-          <option value="facile">Facile</option>
-          <option value="difficile">Difficile</option>
-          <option value="tres_difficile">Très difficile</option>
-        </Select>
-        <Select
-          aria-label="Accès office"
-          value={form.acces_office}
-          onChange={(e) =>
-            setForm((p) => ({ ...p, acces_office: e.target.value }))
-          }
-        >
-          <option value="">Accès office (optionnel)</option>
-          <option value="facile">Facile</option>
-          <option value="difficile">Difficile</option>
-          <option value="tres_difficile">Très difficile</option>
-        </Select>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="lieu-vehicule">Type de véhicule max</Label>
+          <Select
+            id="lieu-vehicule"
+            value={form.type_vehicule_max}
+            onChange={(e) =>
+              setForm((p) => ({ ...p, type_vehicule_max: e.target.value }))
+            }
+          >
+            <option value="">Optionnel</option>
+            <option value="velo_cargo">Vélo cargo</option>
+            <option value="camionnette">Camionnette</option>
+            <option value="fourgon">Fourgon</option>
+            <option value="vul">VUL</option>
+            <option value="poids_lourd">Poids lourd</option>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="lieu-stationnement">Stationnement</Label>
+          <Select
+            id="lieu-stationnement"
+            value={form.stationnement}
+            onChange={(e) =>
+              setForm((p) => ({ ...p, stationnement: e.target.value }))
+            }
+          >
+            <option value="">Optionnel</option>
+            <option value="facile">Facile</option>
+            <option value="difficile">Difficile</option>
+            <option value="tres_difficile">Très difficile</option>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="lieu-office">Accès office</Label>
+          <Select
+            id="lieu-office"
+            value={form.acces_office}
+            onChange={(e) =>
+              setForm((p) => ({ ...p, acces_office: e.target.value }))
+            }
+          >
+            <option value="">Optionnel</option>
+            <option value="facile">Facile</option>
+            <option value="difficile">Difficile</option>
+            <option value="tres_difficile">Très difficile</option>
+          </Select>
+        </div>
       </div>
-      {error && <p className="text-sm text-savr-error">{error}</p>}
-      <div className="flex gap-2 justify-end">
+      {error && <FormError>{error}</FormError>}
+      <div className="flex gap-2 justify-end pt-1">
         <Button variant="secondary" onClick={onCancel}>
           Annuler
         </Button>

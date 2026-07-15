@@ -124,6 +124,14 @@
       "test": "M3.4/document_type_inconnu_400",
       "statut": "implemented",
       "libelle": "M3.4/document_type_inconnu_400"
+    },
+    {
+      "id": "M3.4-cockpit-declinaison",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:152",
+      "artefact": "packages/plateforme/src/app/(client-organisateur)/organisateur/page.tsx",
+      "test": "M3.4/cockpit_declinaison_kpi_cards",
+      "statut": "implemented",
+      "libelle": "R24c — Déclinaison Cockpit du dashboard client_organisateur (§11 §7, « Mon impact RSE », lecture seule). Les cadrans passent en KpiCockpitCard (chrome data-viz partagé) : bandeau YTD + onglet ZD (dont CO₂ évité en headline) + détail bilan carbone ABC repliable + onglet AG, hrefs de navigation préservés. Dashboard SIMPLE conservé à l'identique du §11 §7 : pas de benchmark ni de Top listes (ce rôle n'en a pas). Suppression de KpiCard (orphelin). DS appliqué. Aucune régression fonctionnelle ; endpoint kpi-client-organisateur inchangé."
     }
   ],
   "cdc_source_hash": {

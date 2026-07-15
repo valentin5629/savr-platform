@@ -35,7 +35,6 @@
     "supabase/tests/r19b_gest04_benchmark_ponderee.test.sql",
     "packages/plateforme/tests/ui/espace-gestionnaire.m3-2.test.tsx",
     "packages/plateforme/tests/api/dashboards/benchmark-encart.m3-2.test.ts",
-    "packages/plateforme/src/components/dashboards/BenchmarkGauge.tsx",
     "packages/plateforme/src/components/dashboards/BenchmarkFilterBar.tsx",
     "packages/plateforme/src/components/dashboards/MultiSelectFilter.tsx",
     "packages/plateforme/src/app/api/v1/dashboards/benchmark/route.ts",
@@ -78,7 +77,6 @@
     "M3.2/GEST01_bouton_programmer_present",
     "M3.2/GEST02_form_cas_gestionnaire",
     "M3.2/GEST03_kpi_affiches_cle_kpis",
-    "M3.2/GEST04_benchmark_gauge_moyenne_ponderee",
     "M3.2/GEST04_encart_filtres_present",
     "M3.2/GEST04_encart_choix_taille",
     "M3.2/GEST04_filtres_gestionnaire_listes_parc",
@@ -329,7 +327,7 @@
       "id": "BL-P1-GEST-04",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2098",
       "artefact": "supabase/migrations/20260705130000_plateforme_r19b_gest04_benchmark_7params.sql",
-      "test": "supabase/tests/r19b_gest04_benchmark_ponderee.test.sql — GEST04-1..14 (signature 7 params, grain flux×type×taille, colonnes CDC, moyenne pondérée, k-anonymat, garde traiteur, listes parc) + M3.2/GEST04_benchmark_gauge_moyenne_ponderee",
+      "test": "supabase/tests/r19b_gest04_benchmark_ponderee.test.sql — GEST04-1..14 (signature 7 params, grain flux×type×taille, colonnes CDC, moyenne pondérée, k-anonymat, garde traiteur, listes parc)",
       "statut": "implemented",
       "libelle": "f_benchmark_kg_pax_zd conforme CDC §04 : 7 params + grain (flux×type×taille) + colonnes exposées (kg_par_pax_moyen, nb_collectes_segment, nb_organisations_distinctes) + moyenne pondérée par tonnage (ex 2 params/médiane)"
     },
@@ -400,7 +398,7 @@
     {
       "id": "M3.2-bloc6-top-lieux",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:199",
-      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/TopRankList.tsx (R24 Cockpit ; TopLieuxBloc conserve pour agence)",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/TopRankList.tsx (R24 Cockpit ; ex-TopLieuxBloc supprimé en R24c — agence migrée, plus aucun consommateur)",
       "test": "M3.2/blocs_gestionnaire_perimetre_et_top_traiteurs",
       "statut": "implemented",
       "libelle": "Bloc 6 ZD/AG gestionnaire — top 5 lieux (périmètre organisations_lieux), ZD par tonnage / AG par repas."
@@ -416,7 +414,7 @@
     {
       "id": "M3.2-bloc3ag-associations",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:233",
-      "artefact": "packages/plateforme/src/components/dashboards/TopAssociationsBloc.tsx",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/TopRankList.tsx (R24 Cockpit ; ex-TopAssociationsBloc.tsx supprimé en R24c)",
       "test": "M3.2/blocs_gestionnaire_ag_associations",
       "statut": "implemented",
       "libelle": "Bloc 3 AG gestionnaire — top associations bénéficiaires (périmètre parc). Colonne « Distance moyenne (km) » (§06.05 l.52) NON rendue (décision Val 2026-07-07 : la distance lieu↔asso reste un critère INTERNE à l'algo d'attribution AG — Haversine dans fn_calculer_algo_attribution_ag — et n'est pas restituée aux dashboards clients ; ce n'est PAS un manque de données, lieux+associations sont géocodées ; cf. _Divergences M3.2_20260707)."
@@ -440,6 +438,6 @@
   ],
   "cdc_source_hash": {
     "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "6955e1879f87a60d8a0cc83d32fd1a7e4902bc62acdd9c4742c1527c192428bd",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "5d9ba496580f9de0fa09965275785dcc7723bc95972d499b956961ac40a6dd64"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "612436d8122633f42e4c0a10b58921e7cdb94a91ddbf4f1ab121b32a076c7e67"
   }
 }

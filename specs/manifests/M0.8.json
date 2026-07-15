@@ -451,10 +451,10 @@
     {
       "id": "BL-P3-02",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:73",
-      "artefact": "packages/plateforme/src/components/dashboards/DashboardFilterBar.tsx, packages/plateforme/src/components/dashboards/KpiCard.tsx, packages/plateforme/src/components/dashboards/BenchmarkLegend.tsx",
+      "artefact": "packages/plateforme/src/components/dashboards/DashboardFilterBar.tsx",
       "test": "M0.8-45 — DashboardFilterBar expose presets + Réinitialiser hors mode parc (BL-P3-02)",
       "statut": "implemented",
-      "libelle": "BL-P3-02 — Dashboards : presets période liste CDC exacte (7j/30j/Trimestre/12 mois/Année civile) + Réinitialiser généralisé (traiteur/agence/admin), compteur « X correspondent » (traiteur+agence, GO-VISUAL), tooltip KPI Marge DYNAMIQUE conforme scénario P1 kpi_marge_zd_formule_nominale (tarif × pax − coût = marge, helper margeTooltipZd testé M0.8-48 ; tarif lisible traiteur §04 l.928) + légende benchmark partagée (§11, §06.04). Avert. k-anonymat déjà présent. Défaut période aligné « 12 derniers mois » (§11 aligné §06.04/05, divergence _Divergences/M0.8_20260710 résolue Cowork + specs sync #208 ; code DashboardFilterBar.defaultFilters = 12 mois, testé M0.8-56)."
+      "libelle": "BL-P3-02 — Dashboards : presets période liste CDC exacte (7j/30j/Trimestre/12 mois/Année civile) + Réinitialiser généralisé (traiteur/agence/admin), compteur « X correspondent » (traiteur+agence, GO-VISUAL), tooltip KPI Marge DYNAMIQUE conforme scénario P1 kpi_marge_zd_formule_nominale (tarif × pax − coût = marge, helper margeTooltipZd testé M0.8-48 ; tarif lisible traiteur §04 l.928) + légende benchmark partagée (§11, §06.04). Avert. k-anonymat déjà présent. Défaut période aligné « 12 derniers mois » (§11 aligné §06.04/05, divergence _Divergences/M0.8_20260710 résolue Cowork + specs sync #208 ; code DashboardFilterBar.defaultFilters = 12 mois, testé M0.8-56). R24c : le tooltip KPI (composant KpiCard) et la légende benchmark (BenchmarkLegend) sont retirés — ces composants sont supprimés avec la déclinaison Cockpit des dashboards clients (KpiCockpitCard + légende intégrée de BenchmarkBulletGauges). Le helper margeTooltipZd (M0.8-48) subsiste. Seul DashboardFilterBar reste porté par ce livrable."
     },
     {
       "id": "BL-P3-03",
@@ -558,11 +558,11 @@
     "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "e334d1b439d2356f12db8de139d495f9797c9a1c203e1b31e61ade71a8fb302a",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "94be660bdfcf0d999df02be00dc11a9038344333e89785cfe464d8f746fbbebd",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md": "55a8a9d4ff48aecb225abd315a8727a152a1c4efd38d18e7940f866898de99dc",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "8d05ca4ebd98e2b845b887ee14fd285c2026128c17750edd8f87f22de9806d0b",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "3f1bcd3cafcdd03ec310d28b3be992f5a5d123b08d24cf5b0cbc51b56966fcd0",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "4175a18a449a29c84ec0ff7d59ac496c6f81d0b4fa8e146b5baf343f6728c67e",
     "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "57fa4b93a90a3885412e7b0b026b09be8e04717c9010cd6cad24d64f04805fcb",
     "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "1672e191d61ed4d702b595952d6e7759b0d49715940a3c76d661d9b706944bc9",
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "7776a13e7297a39d4110630c3b45e2567e0fe39bc5af9f31a197d42288ffa351",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "ee9167a6c44ca08f888523dfea7a4505ec162b62dfe4cc75e8b2138469fdab7a",
     "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "395550f99b433f9779bea4e570fb6c3acd28ffbae4bdf3c6cb0a653f96b7a124",
     "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "0fcf6f081583aee93f4ba4ff80d564feeb96d4037cee8c2e92747d210fe848a8"
   }

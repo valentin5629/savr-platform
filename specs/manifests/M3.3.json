@@ -198,26 +198,26 @@
     {
       "id": "M3.3-bloc2-zd",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:36",
-      "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx + packages/plateforme/src/components/dashboards/charts/EvolutionFluxChart.tsx",
+      "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/EvolutionZdChart.tsx",
       "test": "M3.3/dash_bloc2_bloc4_zd_montes — Évolution + donut sur l’onglet ZD",
       "statut": "implemented",
-      "libelle": "Bloc 2 ZD — évolution mensuelle : barres empilées des 5 flux + courbe taux de recyclage (composant §11 partagé)"
+      "libelle": "Bloc 2 ZD — évolution mensuelle : barres empilées des 5 flux + courbe taux de recyclage (R24c : lib Cockpit EvolutionZdChart, parité traiteur/gestionnaire)"
     },
     {
       "id": "M3.3-bloc2-ag",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:36",
-      "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx + packages/plateforme/src/components/dashboards/charts/EvolutionRepasChart.tsx",
+      "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/EvolutionAgChart.tsx",
       "test": "M3.3/dash_bloc4_zd_only — pas de donut sur l’onglet AG",
       "statut": "implemented",
-      "libelle": "Bloc 2 AG — évolution mensuelle : courbe repas donnés + ratio repas/pax (composant §11 partagé)"
+      "libelle": "Bloc 2 AG — évolution mensuelle : courbe repas donnés + ratio repas/pax (R24c : lib Cockpit EvolutionAgChart, parité traiteur/gestionnaire)"
     },
     {
       "id": "M3.3-bloc4-donut",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:36",
-      "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx + packages/plateforme/src/components/dashboards/charts/TonnagesDonut.tsx",
+      "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/TonnagesDonut.tsx",
       "test": "M3.3/dash_bloc2_bloc4_zd_montes — Évolution + donut sur l’onglet ZD",
       "statut": "implemented",
-      "libelle": "Bloc 4 ZD — donut répartition des tonnages 5 flux + total au centre (ZD only, composant §11 partagé)"
+      "libelle": "Bloc 4 ZD — donut répartition des tonnages 5 flux + total au centre (ZD only, R24c : lib Cockpit TonnagesDonut)"
     },
     {
       "id": "M3.3-bloc3-zd-benchmark",
@@ -225,7 +225,7 @@
       "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx",
       "test": "M3.3/blocs_agence_zd_sans_bloc7",
       "statut": "implemented",
-      "libelle": "Bloc 3 ZD agence — jauges benchmark parc RÉEL (remplace stub R20a), réplique stricte §06.04 : encart BenchmarkFilterBar 4 dimensions + gauges alimentées par kgParPaxParFlux."
+      "libelle": "Bloc 3 ZD agence — jauges benchmark parc RÉEL, réplique stricte §06.04. R24c : jauges Cockpit BenchmarkBulletGauges (filtres BenchmarkFilterBar imbriqués, « Filtres du repère parc ») alimentées par kgParPaxParFlux + aggregateBenchmarkPerFlux(benchmarkRows) ; 4 dimensions (traiteur_ids jamais transmis). Remplace l'ancien encart BenchmarkGauge + BenchmarkLegend (supprimés)."
     },
     {
       "id": "M3.3-bloc3-benchmark-role-agence",
@@ -249,7 +249,7 @@
       "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx",
       "test": "M3.3/blocs_agence_zd_sans_bloc7 + M3.3/blocs_agence_ag_associations",
       "statut": "implemented",
-      "libelle": "Bloc 6 ZD/AG agence — top 5 lieux (réplique §06.04)."
+      "libelle": "Bloc 6 ZD/AG agence — top 5 lieux (réplique §06.04). R24c : lib Cockpit TopRankList (remplace TopLieuxBloc supprimé), colonnes §06.04 préservées via `secondary` ; drill-down lieu → liste Collectes filtrée re-câblé (onItemClick, cf. M3.3-cockpit-drilldown)."
     },
     {
       "id": "M3.3-bloc3ag-associations",
@@ -257,7 +257,7 @@
       "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx",
       "test": "M3.3/blocs_agence_ag_associations",
       "statut": "implemented",
-      "libelle": "Bloc 3 AG agence — top associations bénéficiaires (réplique §06.04)."
+      "libelle": "Bloc 3 AG agence — top associations bénéficiaires (réplique §06.04). R24c : lib Cockpit TopRankList (avatar rond orange ; remplace TopAssociationsBloc supprimé) ; lecture seule (pas de drill-down association, parité gestionnaire)."
     },
     {
       "id": "M3.3-bloc7-retire",
@@ -274,6 +274,22 @@
       "test": "M3.3 / synthèse agence — périmètre programmateur (0 fuite inter-org) + M3.3 / synthèse agence — clients scope programmateur, pas de commerciaux",
       "statut": "implemented",
       "libelle": "Bloc 8 ZD/AG « Exporter une synthèse PDF » côté agence = réplique stricte du §06.04 (§06.11 l.36) : même composant partagé, même modale, même route synchrone. Périmètre agence = collectes programmées (evenements.organisation_id, §12 §1.6 l.249). Filtre Client organisateur construit dans la modale (Commercial = manager only, non applicable agence). Branding logo agence PDF = hors scope R20b-2 (BL-P3-05 / R23)."
+    },
+    {
+      "id": "M3.3-cockpit-declinaison",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:17",
+      "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/",
+      "test": "M3.3/cockpit_declinaison_kpi_toprank_benchmark",
+      "statut": "implemented",
+      "libelle": "R24c — Déclinaison du design « Cockpit » (data-viz) sur le dashboard agence, à parité de sens avec les pilotes traiteur/gestionnaire (R24/R24b), en réutilisant la lib Cockpit figée : KPIs KpiCockpitCard (4 cartes ZD sans Marge diff #7 ; non cliquables), Top listes TopRankList, évolution EvolutionZd/AgChart, donut TonnagesDonut, benchmark BenchmarkBulletGauges. Suppression des composants pré-Cockpit orphelins (KpiCard, TopLieuxBloc, TopAssociationsBloc, BenchmarkLegend). DS appliqué (tokens, cibles 44px, palette DOT figée). Aucune régression fonctionnelle ; endpoints inchangés."
+    },
+    {
+      "id": "M3.3-cockpit-drilldown",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:36",
+      "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx",
+      "test": "M3.3/cockpit_drilldown_top_lieux_url",
+      "statut": "implemented",
+      "libelle": "R24c — Drill-down « Top lieux → liste Collectes filtrée » (#219) PRÉSERVÉ après migration TopLieuxBloc → TopRankList : onItemClick(index) → setCollecteFiltreLabel + router.push(/agence/collectes?lieu=…&type=…&statut=cloturee&from&to) — miroir exact du chiffre du dashboard, périmètre donneur d'ordre (pas de perimetre=organisation)."
     }
   ],
   "cdc_source_hash": {

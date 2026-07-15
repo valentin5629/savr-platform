@@ -11,9 +11,15 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/agence',
 }));
 
-vi.mock('@/components/dashboards/charts/lazy.js', () => ({
-  EvolutionFluxChart: () => <div data-testid="stub-flux" />,
-  EvolutionRepasChart: () => <div data-testid="stub-repas" />,
+// R24c — l'agence est passée aux graphes Cockpit (import direct depuis
+// charts/cockpit/*), on stube donc ces modules-là (plus les lazy R20a).
+vi.mock('@/components/dashboards/charts/cockpit/EvolutionZdChart', () => ({
+  EvolutionZdChart: () => <div data-testid="stub-flux" />,
+}));
+vi.mock('@/components/dashboards/charts/cockpit/EvolutionAgChart', () => ({
+  EvolutionAgChart: () => <div data-testid="stub-repas" />,
+}));
+vi.mock('@/components/dashboards/charts/cockpit/TonnagesDonut', () => ({
   TonnagesDonut: () => <div data-testid="stub-donut" />,
 }));
 

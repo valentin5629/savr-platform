@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from 'react';
 import { Heart, Plus, Search } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { Pagination } from '@/components/ui/pagination';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -13,11 +12,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 interface Association {
   id: string;
   nom: string;
+  adresse: string;
   ville: string;
   region: string;
-  contact_email: string;
-  habilitee_attestation_fiscale: boolean;
-  actif: boolean;
+  capacite_max_beneficiaires: number | null;
+  // KPI dérivé (API liste) — collectes AG réalisées rattachées, 30 derniers jours.
+  collectes_realisees_30j: number;
 }
 
 const columns: Column<Association>[] = [
@@ -34,30 +34,33 @@ const columns: Column<Association>[] = [
     ),
   },
   {
-    key: 'ville',
-    header: 'Ville',
-    render: (row) => `${row.ville} (${row.region})`,
+    key: 'adresse',
+    header: 'Adresse',
+    render: (row) => (
+      <div>
+        <div className="text-savr-neutral-800">{row.adresse}</div>
+        <div className="text-xs text-savr-neutral-500">
+          {row.ville} ({row.region})
+        </div>
+      </div>
+    ),
   },
-  { key: 'contact_email', header: 'Contact' },
   {
-    key: 'habilitee_attestation_fiscale',
-    header: 'Habilitation 2041-GE',
+    key: 'capacite_max_beneficiaires',
+    header: 'Capacité max',
     render: (row) =>
-      row.habilitee_attestation_fiscale ? (
-        <Badge variant="success">Oui</Badge>
-      ) : (
+      row.capacite_max_beneficiaires ?? (
         <span className="text-savr-neutral-400">—</span>
       ),
   },
   {
-    key: 'actif',
-    header: 'Statut',
-    render: (row) =>
-      row.actif ? (
-        <Badge variant="success">Active</Badge>
-      ) : (
-        <Badge variant="neutral">Inactive</Badge>
-      ),
+    key: 'collectes_realisees_30j',
+    header: 'Collectes (30 j)',
+    render: (row) => (
+      <span className="font-medium tabular-nums">
+        {row.collectes_realisees_30j}
+      </span>
+    ),
   },
 ];
 

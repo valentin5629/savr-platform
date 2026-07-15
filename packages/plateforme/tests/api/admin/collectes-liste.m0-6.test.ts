@@ -82,6 +82,11 @@ describe('M0.6 — API GET collectes filtres (BL-P1-BOA-05)', () => {
     expect(chain.eq).toHaveBeenCalledWith('informations_completes', false);
   });
 
+  it('M0.6 — filtre controle_acces=true → eq(controle_acces_requis,true) [« Plaques à envoyer »]', async () => {
+    await callGet('?controle_acces=true');
+    expect(chain.eq).toHaveBeenCalledWith('controle_acces_requis', true);
+  });
+
   it('M0.6 — filtres organisation_id / lieu_id sur la jointure événement', async () => {
     await callGet('?organisation_id=org-1&lieu_id=lieu-1');
     expect(chain.eq).toHaveBeenCalledWith(

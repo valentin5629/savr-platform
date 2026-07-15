@@ -15,6 +15,10 @@ export const CHIP_KEYS = [
   'ag_attente_attribution',
   'zd_48h',
   'ag_48h',
+  // Miroir EXACT de la carte Bloc 1 « Collecte <48h non validée » du Dashboard Admin
+  // (fusion ex ZD/AG 48h — revue E2E 2026-07-15). Prédicat identique à
+  // `api/v1/admin/dashboard/kpi/route.ts` (collectes_48h_non_validees).
+  'collectes_48h_non_validees',
 ] as const;
 
 export type ChipKey = (typeof CHIP_KEYS)[number];
@@ -90,6 +94,15 @@ export function applyChipPredicate(
         .gte('date_collecte', today)
         .lte('date_collecte', in48h)
         .in('statut', ['programmee', 'validee']);
+    case 'collectes_48h_non_validees':
+      // ZD + AG dans 48 h, encore actives, NON validées par le prestataire
+      // (statut_tms hors acceptee/en_attente_execution → inclut non transmises).
+      return query
+        .in('type', ['zero_dechet', 'anti_gaspi'])
+        .gte('date_collecte', today)
+        .lte('date_collecte', in48h)
+        .in('statut', ['programmee', 'validee'])
+        .not('statut_tms', 'in', '("acceptee","en_attente_execution")');
     default:
       return query;
   }

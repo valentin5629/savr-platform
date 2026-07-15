@@ -111,9 +111,10 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
     ).toBeInTheDocument();
   });
 
-  it('M3.5/admin_revenus_controls — période + export CSV présents', async () => {
+  it('M3.5/admin_revenus_controls — titre bloc + période + export CSV présents', async () => {
     render(<DashboardAdminPage />);
     await screen.findAllByText('Traiteur Alpha');
+    expect(screen.getByText('Revenu par organisation')).toBeInTheDocument();
     expect(screen.getByTestId('revenus-from')).toBeInTheDocument();
     expect(screen.getByTestId('revenus-to')).toBeInTheDocument();
     expect(screen.getByTestId('revenus-export-csv')).toBeInTheDocument();

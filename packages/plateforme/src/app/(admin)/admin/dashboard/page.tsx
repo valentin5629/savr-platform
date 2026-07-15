@@ -339,6 +339,11 @@ export default function DashboardAdminPage() {
           <RevenusHistogramme from={histo.from} to={histo.to} />
         </ChartCard>
 
+        {/* Titre du bloc tableau, au-dessus des filtres (revue E2E Val 2026-07-15). */}
+        <h3 className="text-base font-extrabold tracking-[-0.01em] text-savr-neutral-900">
+          Revenu par organisation
+        </h3>
+
         {/* Tableau « Revenus par organisation » — barre de période DS */}
         <div className="space-y-3" data-testid="revenus-orgs-controls">
           <div className="flex flex-wrap items-end justify-between gap-4">

@@ -140,6 +140,10 @@ function mockCollectesFetch() {
           ag_48h: 4,
           ag_a_dispatcher: 2,
           zd_a_dispatcher: 3,
+          ag_a_venir: 9,
+          zd_a_venir: 7,
+          controle_acces_a_envoyer: 4,
+          infos_a_recuperer: 6,
         }),
       });
     }
@@ -236,6 +240,68 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
     const zdTile = screen.getByRole('button', { name: /ZD à dispatcher/ });
     await waitFor(() => expect(agTile).toHaveTextContent('2'));
     await waitFor(() => expect(zdTile).toHaveTextContent('3'));
+  });
+
+  it('M0.6 — cartes KPI « à venir » AG/ZD affichent leur volume (indicateurs)', async () => {
+    mockCollectesFetch();
+    render(<CollectesPage />);
+
+    // Indicateurs statiques (pas des boutons) → requête par texte, compteur lu
+    // sur le conteneur (count + libellé + sous-libellé sont frères).
+    const agVenir = await screen.findByText('AG à venir');
+    const zdVenir = screen.getByText('ZD à venir');
+    await waitFor(() => expect(agVenir.parentElement).toHaveTextContent('9'));
+    await waitFor(() => expect(zdVenir.parentElement).toHaveTextContent('7'));
+  });
+
+  it('M0.6 — carte « Plaques à envoyer » : compteur + filtre controle_acces=true', async () => {
+    const fetchMock = mockCollectesFetch();
+    render(<CollectesPage />);
+
+    const tile = await screen.findByRole('button', {
+      name: /Plaques à envoyer/,
+    });
+    await waitFor(() => expect(tile).toHaveTextContent('4'));
+
+    fireEvent.click(tile);
+    await waitFor(() => {
+      const urls = fetchMock.mock.calls.map((c) => String(c[0]));
+      expect(urls.some((u) => u.includes('controle_acces=true'))).toBe(true);
+    });
+  });
+
+  it('M0.6 — carte « Infos à récupérer » : compteur + filtre info_incomplete=true', async () => {
+    const fetchMock = mockCollectesFetch();
+    render(<CollectesPage />);
+
+    const tile = await screen.findByRole('button', {
+      name: /Infos à récupérer/,
+    });
+    await waitFor(() => expect(tile).toHaveTextContent('6'));
+
+    fireEvent.click(tile);
+    await waitFor(() => {
+      const urls = fetchMock.mock.calls.map((c) => String(c[0]));
+      expect(urls.some((u) => u.includes('info_incomplete=true'))).toBe(true);
+    });
+  });
+
+  it('M0.6 — bouton de filtre par type « Anti-Gaspi » ajoute type=anti_gaspi', async () => {
+    const fetchMock = mockCollectesFetch();
+    render(<CollectesPage />);
+    await screen.findAllByText('Traiteur Alpha');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Anti-Gaspi' }));
+    await waitFor(() => {
+      const urls = fetchMock.mock.calls.map((c) => String(c[0]));
+      expect(
+        urls.some(
+          (u) =>
+            u.startsWith('/api/v1/admin/collectes?') &&
+            u.includes('type=anti_gaspi'),
+        ),
+      ).toBe(true);
+    });
   });
 
   it('M0.6 — chips prédéfinis affichent leur compteur (chip-counts)', async () => {

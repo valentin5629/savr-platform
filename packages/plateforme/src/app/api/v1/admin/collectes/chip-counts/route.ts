@@ -58,10 +58,54 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
       dispatchByType('zero_dechet'),
     ]);
 
+    // KPI de tête « à venir » / files d'action (refonte 2026-07-15, décision Val) :
+    // définitions DATE-BASED → `date_collecte >= aujourd'hui`, quel que soit le
+    // statut. AG/ZD à venir = volume par type. « Plaques à envoyer » = contrôle
+    // d'accès requis (le suivi d'envoi de plaque au lieu est hors périmètre V1,
+    // cf. `email_plaque_envoye_at` supprimé → proxy = tout accès requis).
+    // « Infos à récupérer » = infos traiteur incomplètes.
+    const today = now.toISOString().slice(0, 10);
+    const countAvenirType = async (t: string): Promise<number> => {
+      const { count, error } = await supabase
+        .from('collectes')
+        .select('id', { count: 'exact', head: true })
+        .eq('type', t)
+        .gte('date_collecte', today);
+      if (error) throw error;
+      return count ?? 0;
+    };
+    const countAvenirFlag = async (
+      col: 'controle_acces_requis' | 'informations_completes',
+      val: boolean,
+    ): Promise<number> => {
+      const { count, error } = await supabase
+        .from('collectes')
+        .select('id', { count: 'exact', head: true })
+        .eq(col, val)
+        .gte('date_collecte', today);
+      if (error) throw error;
+      return count ?? 0;
+    };
+    const [
+      ag_a_venir,
+      zd_a_venir,
+      controle_acces_a_envoyer,
+      infos_a_recuperer,
+    ] = await Promise.all([
+      countAvenirType('anti_gaspi'),
+      countAvenirType('zero_dechet'),
+      countAvenirFlag('controle_acces_requis', true),
+      countAvenirFlag('informations_completes', false),
+    ]);
+
     return NextResponse.json({
       ...Object.fromEntries(entries),
       ag_a_dispatcher,
       zd_a_dispatcher,
+      ag_a_venir,
+      zd_a_venir,
+      controle_acces_a_envoyer,
+      infos_a_recuperer,
     });
   } catch (err) {
     return serverError(err, 'admin.collectes.chip_counts');

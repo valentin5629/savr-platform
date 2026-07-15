@@ -257,14 +257,19 @@ function CollectesContent() {
 
   // Téléchargement du rapport de la collecte réalisée (ZD = rapport recyclage,
   // AG = attestation de don) — miroir du bouton de la fiche : URL R2 pré-signée,
-  // no-op silencieux si indisponible (embargo H+24, PDF non encore généré).
+  // no-op silencieux si indisponible (embargo H+24, PDF non encore généré) ou en
+  // cas d'échec réseau.
   async function telechargerRapport(collecteId: string) {
-    const res = await fetch(
-      `/api/v1/traiteur/collectes/${collecteId}/rapport-rse/download`,
-    );
-    if (!res.ok) return;
-    const { url } = (await res.json()) as { url?: string };
-    if (url) window.open(url, '_blank');
+    try {
+      const res = await fetch(
+        `/api/v1/traiteur/collectes/${collecteId}/rapport-rse/download`,
+      );
+      if (!res.ok) return;
+      const { url } = (await res.json()) as { url?: string };
+      if (url) window.open(url, '_blank');
+    } catch {
+      // Réseau indisponible : no-op silencieux (l'action reste réessayable).
+    }
   }
 
   function canWrite(row: CollecteRow): boolean {

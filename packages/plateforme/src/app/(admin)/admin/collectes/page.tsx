@@ -509,7 +509,8 @@ export default function CollectesPage() {
       {/* KPI de tête (Programmées uniquement) : volumes à venir + files d'action.
           « à venir » = date_collecte ≥ aujourd'hui (décision Val 2026-07-15). */}
       {tab === 'programmees' && (
-        <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-3 2xl:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-3">
+          {/* Ligne 1 : volumes à venir + plaque à récupérer (décision Val) */}
           <KpiTile
             icon={UtensilsCrossed}
             count={chipCounts.ag_a_venir ?? 0}
@@ -524,6 +525,20 @@ export default function CollectesPage() {
             sublabel="collectes à venir"
             tone="success"
           />
+          <KpiTile
+            icon={IdCard}
+            count={chipCounts.controle_acces_a_envoyer ?? 0}
+            label="Plaque à récupérer"
+            sublabel="contrôle d'accès requis"
+            tone="info"
+            active={!quickFilter && controleAcces}
+            onClick={() => {
+              setQuickFilter('');
+              setControleAcces((v) => !v);
+              setPage(1);
+            }}
+          />
+          {/* Ligne 2 : files d'action à dispatcher + infos à récupérer */}
           <KpiTile
             icon={UtensilsCrossed}
             count={chipCounts.ag_a_dispatcher ?? 0}
@@ -547,19 +562,6 @@ export default function CollectesPage() {
             onClick={() => {
               setQuickFilter('');
               setType((t) => (t === 'zero_dechet' ? '' : 'zero_dechet'));
-              setPage(1);
-            }}
-          />
-          <KpiTile
-            icon={IdCard}
-            count={chipCounts.controle_acces_a_envoyer ?? 0}
-            label="Plaques à envoyer"
-            sublabel="contrôle d'accès requis"
-            tone="info"
-            active={!quickFilter && controleAcces}
-            onClick={() => {
-              setQuickFilter('');
-              setControleAcces((v) => !v);
               setPage(1);
             }}
           />

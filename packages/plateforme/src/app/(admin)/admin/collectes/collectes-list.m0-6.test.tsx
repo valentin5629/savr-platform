@@ -254,12 +254,12 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
     await waitFor(() => expect(zdVenir.parentElement).toHaveTextContent('7'));
   });
 
-  it('M0.6 — carte « Plaques à envoyer » : compteur + filtre controle_acces=true', async () => {
+  it('M0.6 — carte « Plaque à récupérer » : compteur + filtre controle_acces=true', async () => {
     const fetchMock = mockCollectesFetch();
     render(<CollectesPage />);
 
     const tile = await screen.findByRole('button', {
-      name: /Plaques à envoyer/,
+      name: /Plaque à récupérer/,
     });
     await waitFor(() => expect(tile).toHaveTextContent('4'));
 

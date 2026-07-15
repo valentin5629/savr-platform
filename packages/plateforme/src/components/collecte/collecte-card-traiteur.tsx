@@ -13,12 +13,14 @@ import {
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import { IconButton } from '@/components/ui/icon-button';
 
-// Carte simplifiée de la liste des collectes traiteur (BL-P2-14 + refonte liste
-// 2026-07-05, décision Val). Reprend le langage visuel des cartes Admin (rail
-// coloré par type, carte arrondie) mais n'affiche QUE : Date · Heure · Lieu · Pax
-// · Statut, plus les actions Modifier / Annuler / Dupliquer.
-// Le rendu du type (ZD/AG) est porté par le rail coloré ; le contenu métier
-// détaillé reste sur la fiche (clic sur la carte).
+// Carte de la liste des collectes traiteur (BL-P2-14 + refonte liste 2026-07-05,
+// enrichie revue écran 2026-07-15, décisions Val). Reprend le langage visuel des
+// cartes Admin (rail coloré par type, carte arrondie) : Date · Heure · Lieu · Pax
+// · Statut + actions icône-seule Modifier / Annuler / Dupliquer (masquées si
+// indisponibles). Sur une collecte réalisée (cloturee), affiche à gauche du badge
+// « Réalisée » les résultats (ZD : poids / taux / CO₂ ; AG : repas / CO₂) et le
+// téléchargement du rapport. Le rendu du type (ZD/AG) est porté par le rail coloré ;
+// le contenu métier détaillé reste sur la fiche (clic sur la carte).
 
 export interface TraiteurCollecteCardData {
   id: string;

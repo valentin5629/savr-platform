@@ -38,3 +38,9 @@ Un module n'est "fini" que si TOUS les items applicables sont cochés.
 - [ ] **Couche 2 (par merge)** : merge en squash avec suppression de branche — `gh pr merge <n> --squash --delete-branch` (supprime la branche **locale ET distante**). Merge via l'UI GitHub = même effet grâce à la couche 1.
 - [ ] **Couche 3 (par session)** : worktree du lot démonté depuis le clone principal après merge — `git worktree remove <wt>`. Jamais deux sessions sur le même clone.
 - [ ] **Couche 4 (filet, début de CHAQUE session)** : `scripts/git-hygiene.sh` (alias `pnpm git:hygiene`) = fetch --prune + `git worktree prune` + purge des branches locales `[gone]` + alerte (sans suppression) sur les worktrees mergés oubliés. **Lancé automatiquement pour TOUTE session du repo** via le hook `SessionStart` de `.claude/settings.json` (`.claude/hooks/session-hygiene.sh`, non bloquant) — dev plateforme ou TMS, quel que soit le point d'entrée (skill `cdc-next-lot-prompt`, session ad-hoc, flux `revue-ecran`…). Aucune branche/worktree de lot mergé ne doit s'accumuler.
+
+## Sessions parallèles (séquençage des écritures savr-dev)
+> Règle complète + mécanisme : **`SESSIONS_PARALLELES.md`**.
+- [ ] Code / UI / tests mockés = parallèle libre. **Écriture dans savr-dev** (seed, `supabase db push`, reset) = **une seule session à la fois**.
+- [ ] Avant une écriture savr-dev en contexte multi-sessions : `pnpm session:doctor` (diagnostic). Le hook `db-guard` bloque automatiquement en cas de conflit réel (lease savr-dev tenu par une autre session) ; `pnpm session:db-unlock` libère un lease de session morte.
+- [ ] Pour paralléliser du travail DB : isoler la session sur une base jetable / Supabase local (pas de lease requis).

@@ -46,7 +46,9 @@
     "seed:jwt": "tsx packages/shared/src/seed/jwt.ts",
     "seed:check": "tsx packages/shared/src/seed/check.ts",
     "git:hygiene": "bash scripts/git-hygiene.sh",
-    "session:new": "bash scripts/session-new.sh"
+    "session:new": "bash scripts/session-new.sh",
+    "session:doctor": "bash scripts/session-doctor.sh",
+    "session:db-unlock": "bash scripts/session-db-unlock.sh"
   },
   "devDependencies": {
     "@eslint/js": "^9.14.0",

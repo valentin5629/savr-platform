@@ -58,14 +58,16 @@ const CHIPS_PROGRAMMEES_CATALOGUE = [
   { key: 'ag_48h', label: 'AG 48 h' },
 ];
 
-// Chips masqués de la rangée par défaut (décision Val 2026-07-15) : ils restent des
-// cibles de drill-down Dashboard Admin et ne s'affichent que s'ils sont le filtre
-// actif à l'arrivée (sinon la liste serait filtrée sans indicateur visible).
+// Chips retirés de la rangée par défaut (décision Val 2026-07-15). Conservés au
+// catalogue : ils ne s'affichent que s'ils sont le filtre actif à l'arrivée (sinon
+// la liste serait filtrée sans indicateur visible) — ce qui préserve les cibles de
+// drill-down Dashboard Admin (non_transmises_zd/ag, zd_48h, ag_48h).
 const CHIPS_PROGRAMMEES_MASQUES = new Set([
   'non_transmises_zd',
   'non_transmises_ag',
   'zd_48h',
   'ag_48h',
+  'ag_attente_attribution',
 ]);
 
 const CHIPS_PROGRAMMEES = CHIPS_PROGRAMMEES_CATALOGUE.filter(

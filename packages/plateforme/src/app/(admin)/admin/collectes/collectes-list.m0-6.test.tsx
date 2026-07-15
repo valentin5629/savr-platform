@@ -315,7 +315,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
     await waitFor(() => expect(chip).toHaveTextContent('1'));
   });
 
-  it('M0.6 — chips masqués (Non transmises ZD/AG, ZD/AG 48h) retirés de la rangée par défaut', async () => {
+  it('M0.6 — chips masqués (Non transmises ZD/AG, ZD/AG 48h, AG en attente attribution) retirés de la rangée par défaut', async () => {
     mockCollectesFetch();
     render(<CollectesPage />);
     await screen.findByRole('button', { name: /En attente prestataire/ });
@@ -327,6 +327,9 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
     ).toBeNull();
     expect(screen.queryByRole('button', { name: /ZD 48/ })).toBeNull();
     expect(screen.queryByRole('button', { name: /AG 48/ })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: /AG en attente attribution/ }),
+    ).toBeNull();
   });
 
   it('M0.6 — drill-down Dashboard Admin ?chip=non_transmises_zd → chip actif + liste filtrée', async () => {

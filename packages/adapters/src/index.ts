@@ -115,7 +115,23 @@ export interface FenetreSync {
 }
 
 // ---------------------------------------------------------------------------
-// Interface logistique_provider — 5 méthodes (4 sortantes E1/E2/E3/E5 + sync).
+// Résultat d'une sonde de connectivité (health check ops).
+//   - etat 'ok'             : provider joignable ET authentifié.
+//   - etat 'ko'             : sondé mais échec (config vide, 401, réseau…).
+//   - etat 'non_applicable' : aucune sonde read-only (Everest push-only, manuel).
+//   - ok = (etat !== 'ko'). `message` porte l'erreur (ko) ou l'explication (n/a).
+// ---------------------------------------------------------------------------
+export interface HealthCheckResult {
+  readonly ok: boolean;
+  readonly etat: 'ok' | 'ko' | 'non_applicable';
+  readonly statutHttp?: number | null;
+  readonly dureeMs?: number;
+  readonly message?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Interface logistique_provider — 6 méthodes (4 sortantes E1/E2/E3/E5 + sync
+// + healthCheck ops).
 // ---------------------------------------------------------------------------
 export interface LogistiqueProvider {
   /** E1 `collecte.creee` — appelée rang=1..nb_camions_demande. Renvoie le
@@ -129,6 +145,9 @@ export interface LogistiqueProvider {
   updateLieu(lieu: Lieu): Promise<void>;
   /** Cron 15 min — écrit `statut_tms`, pesées, photos, tournees. */
   sync(fenetre: FenetreSync): Promise<void>;
+  /** Sonde de connectivité read-only (ops). Ne lève JAMAIS : toute erreur est
+   *  capturée dans le résultat. */
+  healthCheck(): Promise<HealthCheckResult>;
 }
 
 // ---------------------------------------------------------------------------

@@ -18,6 +18,7 @@ import type {
   Collecte,
   ConsumerTag,
   FenetreSync,
+  HealthCheckResult,
   Lieu,
   LogistiqueProvider,
   Transporteur,
@@ -87,6 +88,19 @@ export class AdapterMts1 implements LogistiqueProvider {
     private readonly supabase: SupabaseClient,
   ) {
     this.client = new Mts1Client(supabase);
+  }
+
+  // ─── Health check (ops) ──────────────────────────────────────────────────────
+
+  async healthCheck(): Promise<HealthCheckResult> {
+    const r = await this.client.ping();
+    return {
+      ok: r.ok,
+      etat: r.ok ? 'ok' : 'ko',
+      statutHttp: r.statutHttp,
+      dureeMs: r.dureeMs,
+      message: r.erreur,
+    };
   }
 
   // ─── E1 collecte.creee ───────────────────────────────────────────────────────

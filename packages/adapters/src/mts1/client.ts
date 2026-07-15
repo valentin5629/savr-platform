@@ -389,6 +389,89 @@ export class Mts1Client {
     return body.carriers;
   }
 
+  /**
+   * Sonde de connectivité read-only (health check ops, hors cron/dispatch).
+   * Un seul GET /v3/carrier authentifié, timeout court (5 s). Ne lève JAMAIS :
+   * toute erreur (config vide, 401, réseau, timeout) est renvoyée dans le résultat.
+   * En mock CI (handlers injectés), renvoie un succès simulé sans appel réseau.
+   */
+  async ping(): Promise<{
+    ok: boolean;
+    statutHttp: number | null;
+    dureeMs: number;
+    erreur?: string;
+  }> {
+    const t0 = Date.now();
+
+    // Mock CI : jamais d'appel réel.
+    if (_getMts1Handlers()) {
+      return { ok: true, statutHttp: 200, dureeMs: Date.now() - t0 };
+    }
+
+    // Cause n°1 d'échec silencieux : secrets non renseignés. Les noms lus par
+    // le code sont MTS1_BASE_URL + MTS1_API_KEY (cf. .env) — on le signale.
+    if (!this.baseUrl || !this.apiKey) {
+      const manquants = [
+        this.baseUrl ? null : 'MTS1_BASE_URL',
+        this.apiKey ? null : 'MTS1_API_KEY',
+      ].filter(Boolean);
+      return {
+        ok: false,
+        statutHttp: null,
+        dureeMs: 0,
+        erreur: `Configuration manquante : ${manquants.join(' + ')} vide(s).`,
+      };
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5_000);
+    try {
+      const res = await globalThis.fetch(`${this.baseUrl}/v3/carrier`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      const dureeMs = Date.now() - t0;
+      await this.log({
+        methode: 'GET',
+        endpoint: '/v3/carrier',
+        statut_http: res.status,
+        duree_ms: dureeMs,
+        correlation_id: 'health-check',
+        erreur: res.ok ? undefined : `health-check HTTP ${res.status}`,
+        direction: 'entrant',
+      }).catch(() => undefined);
+      return res.ok
+        ? { ok: true, statutHttp: res.status, dureeMs }
+        : {
+            ok: false,
+            statutHttp: res.status,
+            dureeMs,
+            erreur: `HTTP ${res.status}`,
+          };
+    } catch (err) {
+      clearTimeout(timeout);
+      const dureeMs = Date.now() - t0;
+      const erreur =
+        err instanceof Error && err.name === 'AbortError'
+          ? 'Timeout (5 s)'
+          : `Réseau : ${String(err)}`;
+      await this.log({
+        methode: 'GET',
+        endpoint: '/v3/carrier',
+        duree_ms: dureeMs,
+        correlation_id: 'health-check',
+        erreur,
+        direction: 'entrant',
+      }).catch(() => undefined);
+      return { ok: false, statutHttp: null, dureeMs, erreur };
+    }
+  }
+
   async downloadPhoto(url: string): Promise<Buffer | null> {
     // In mock mode, signal 404 via URL pattern
     if (_getMts1Handlers()) {

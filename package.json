@@ -45,7 +45,8 @@
     "seed:auth": "tsx packages/shared/src/seed/auth.ts",
     "seed:jwt": "tsx packages/shared/src/seed/jwt.ts",
     "seed:check": "tsx packages/shared/src/seed/check.ts",
-    "git:hygiene": "bash scripts/git-hygiene.sh"
+    "git:hygiene": "bash scripts/git-hygiene.sh",
+    "session:new": "bash scripts/session-new.sh"
   },
   "devDependencies": {
     "@eslint/js": "^9.14.0",

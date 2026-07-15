@@ -72,7 +72,7 @@ export function RevenusHistogramme({
   if (loading) {
     return (
       <div
-        className={`h-48 animate-pulse rounded-md bg-muted ${className ?? ''}`}
+        className={`h-48 animate-pulse rounded-savr-md bg-savr-neutral-100 ${className ?? ''}`}
         aria-busy
       />
     );
@@ -80,7 +80,7 @@ export function RevenusHistogramme({
 
   if (moisSet.length === 0) {
     return (
-      <p className={`text-sm text-muted-foreground ${className ?? ''}`}>
+      <p className={`text-sm text-savr-neutral-500 ${className ?? ''}`}>
         Aucune donnée sur la période.
       </p>
     );
@@ -88,18 +88,25 @@ export function RevenusHistogramme({
 
   return (
     <div className={className} data-testid="revenus-histogramme">
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-medium">Revenus 12 mois glissants</h3>
-        <div className="inline-flex rounded border border-border text-xs">
+      <div className="mb-4 flex items-center justify-between gap-4">
+        <h3 className="text-base font-extrabold tracking-[-0.01em] text-savr-neutral-900">
+          Revenus 12 mois glissants
+        </h3>
+        {/* Bascule montant/nombre — segmented control DS (§5.4) */}
+        <div className="inline-flex overflow-hidden rounded-savr-md border border-savr-neutral-300 text-xs font-semibold">
           <button
+            type="button"
+            aria-pressed={toggle === 'montant'}
             onClick={() => setToggle('montant')}
-            className={`px-2 py-1 ${toggle === 'montant' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
+            className={`px-3 py-1.5 transition-colors duration-[120ms] ${toggle === 'montant' ? 'bg-savr-primary-700 text-savr-white' : 'text-savr-neutral-500 hover:bg-savr-neutral-100'}`}
           >
             Montant HT
           </button>
           <button
+            type="button"
+            aria-pressed={toggle === 'nombre'}
             onClick={() => setToggle('nombre')}
-            className={`px-2 py-1 ${toggle === 'nombre' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
+            className={`border-l border-savr-neutral-300 px-3 py-1.5 transition-colors duration-[120ms] ${toggle === 'nombre' ? 'bg-savr-primary-700 text-savr-white' : 'text-savr-neutral-500 hover:bg-savr-neutral-100'}`}
           >
             Nb collectes
           </button>
@@ -126,22 +133,22 @@ export function RevenusHistogramme({
             >
               {agVal > 0 && (
                 <div
-                  className="w-full rounded-t bg-amber-400"
+                  className="w-full rounded-t-savr-sm bg-savr-accent-500"
                   style={{ height: `${agPct}%` }}
                   aria-label={`AG ${label}`}
                 />
               )}
               {zdVal > 0 && (
                 <div
-                  className={`w-full ${agVal > 0 ? '' : 'rounded-t'} bg-emerald-500`}
+                  className={`w-full ${agVal > 0 ? '' : 'rounded-t-savr-sm'} bg-savr-success`}
                   style={{ height: `${zdPct}%` }}
                   aria-label={`ZD ${label}`}
                 />
               )}
               {zdVal <= 0 && agVal <= 0 && (
-                <div className="h-1 w-full rounded bg-muted" />
+                <div className="h-1 w-full rounded-savr-sm bg-savr-neutral-200" />
               )}
-              <span className="mt-1 text-[10px] text-muted-foreground">
+              <span className="mt-1 text-[10px] text-savr-neutral-500">
                 {label}
               </span>
             </div>
@@ -149,13 +156,13 @@ export function RevenusHistogramme({
         })}
       </div>
 
-      <div className="mt-2 flex gap-4 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-sm bg-emerald-500" />
+      <div className="mt-3 flex gap-4 text-xs text-savr-neutral-500">
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-2 w-2 rounded-savr-sm bg-savr-success" />
           Zéro déchet
         </span>
-        <span className="flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-sm bg-amber-400" />
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-2 w-2 rounded-savr-sm bg-savr-accent-500" />
           Anti-gaspi
         </span>
       </div>

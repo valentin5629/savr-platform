@@ -70,7 +70,7 @@ const SECTIONS: ParamLink[] = [
     label: 'Templates emails',
     href: '/admin/parametres/templates',
     icon: Mail,
-    description: '19 templates actifs (consultation)',
+    description: '20 templates actifs (consultation)',
   },
 ];
 

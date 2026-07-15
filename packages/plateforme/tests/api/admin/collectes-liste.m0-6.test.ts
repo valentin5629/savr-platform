@@ -82,9 +82,12 @@ describe('M0.6 — API GET collectes filtres (BL-P1-BOA-05)', () => {
     expect(chain.eq).toHaveBeenCalledWith('informations_completes', false);
   });
 
-  it('M0.6 — filtre controle_acces=true → eq(controle_acces_requis,true) [« Plaques à envoyer »]', async () => {
+  it('M0.6 — filtre controle_acces=true → miroir du KPI « Infos accès à envoyer » (requis + non envoyé + à venir)', async () => {
     await callGet('?controle_acces=true');
+    // Miroir EXACT du compteur chip-counts `controle_acces_a_envoyer`.
     expect(chain.eq).toHaveBeenCalledWith('controle_acces_requis', true);
+    expect(chain.is).toHaveBeenCalledWith('infos_acces_email_envoye_at', null);
+    expect(chain.gte).toHaveBeenCalledWith('date_collecte', expect.any(String));
   });
 
   it('M0.6 — filtres organisation_id / lieu_id sur la jointure événement', async () => {

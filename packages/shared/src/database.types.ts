@@ -813,6 +813,7 @@ export type Database = {
             | null
           informations_completes: boolean
           informations_supplementaires: string | null
+          infos_acces_email_envoye_at: string | null
           lieu_overrides: Json | null
           motif_incident: string | null
           motif_override_prestataire: string | null
@@ -857,6 +858,7 @@ export type Database = {
             | null
           informations_completes?: boolean
           informations_supplementaires?: string | null
+          infos_acces_email_envoye_at?: string | null
           lieu_overrides?: Json | null
           motif_incident?: string | null
           motif_override_prestataire?: string | null
@@ -901,6 +903,7 @@ export type Database = {
             | null
           informations_completes?: boolean
           informations_supplementaires?: string | null
+          infos_acces_email_envoye_at?: string | null
           lieu_overrides?: Json | null
           motif_incident?: string | null
           motif_override_prestataire?: string | null
@@ -3445,6 +3448,8 @@ export type Database = {
       }
       tournees: {
         Row: {
+          accompagnant_nom: string | null
+          accompagnant_telephone: string | null
           chauffeur_nom: string | null
           chauffeur_telephone: string | null
           created_at: string
@@ -3467,6 +3472,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          accompagnant_nom?: string | null
+          accompagnant_telephone?: string | null
           chauffeur_nom?: string | null
           chauffeur_telephone?: string | null
           created_at?: string
@@ -3491,6 +3498,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          accompagnant_nom?: string | null
+          accompagnant_telephone?: string | null
           chauffeur_nom?: string | null
           chauffeur_telephone?: string | null
           created_at?: string
@@ -4617,6 +4626,10 @@ export type Database = {
           p_nb_terminee: number
         }
         Returns: string
+      }
+      fn_infos_acces_marquer_si_complet: {
+        Args: { p_collecte_id: string }
+        Returns: Json
       }
       fn_modifier_collecte: {
         Args: { p_champs_modifies: string[]; p_id: string; p_updates: Json }

@@ -60,10 +60,12 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
 
     // KPI de tête « à venir » / files d'action (refonte 2026-07-15, décision Val) :
     // définitions DATE-BASED → `date_collecte >= aujourd'hui`, quel que soit le
-    // statut. AG/ZD à venir = volume par type. « Plaques à envoyer » = contrôle
-    // d'accès requis (le suivi d'envoi de plaque au lieu est hors périmètre V1,
-    // cf. `email_plaque_envoye_at` supprimé → proxy = tout accès requis).
-    // « Infos à récupérer » = infos traiteur incomplètes.
+    // statut. AG/ZD à venir = volume par type. « Infos accès à envoyer » =
+    // contrôle d'accès requis ET email récap PAS encore envoyé (module infos
+    // accès chauffeur, décision Val 2026-07-15). Une fois l'email envoyé
+    // (`infos_acces_email_envoye_at` renseigné), la collecte sort du compteur.
+    // « Infos à récupérer » = infos traiteur incomplètes. Le filtre liste
+    // `controle_acces` DOIT matcher exactement cette définition (route.ts).
     const today = now.toISOString().slice(0, 10);
     const countAvenirType = async (t: string): Promise<number> => {
       const { count, error } = await supabase
@@ -86,6 +88,17 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
       if (error) throw error;
       return count ?? 0;
     };
+    // « Infos accès à envoyer » : requis ET non encore envoyé ET à venir.
+    const countControleAccesAEnvoyer = async (): Promise<number> => {
+      const { count, error } = await supabase
+        .from('collectes')
+        .select('id', { count: 'exact', head: true })
+        .eq('controle_acces_requis', true)
+        .is('infos_acces_email_envoye_at', null)
+        .gte('date_collecte', today);
+      if (error) throw error;
+      return count ?? 0;
+    };
     const [
       ag_a_venir,
       zd_a_venir,
@@ -94,7 +107,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
     ] = await Promise.all([
       countAvenirType('anti_gaspi'),
       countAvenirType('zero_dechet'),
-      countAvenirFlag('controle_acces_requis', true),
+      countControleAccesAEnvoyer(),
       countAvenirFlag('informations_completes', false),
     ]);
 

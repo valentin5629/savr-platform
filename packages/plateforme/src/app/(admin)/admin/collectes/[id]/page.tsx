@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   Truck,
   Send,
+  KeyRound,
   AlertTriangle,
   Settings2,
   FileText,
@@ -117,6 +118,7 @@ interface CollecteDetail {
   tms_reference: string | null;
   volume_estime_repas: number | null;
   controle_acces_requis: boolean;
+  infos_acces_email_envoye_at: string | null;
   notes_internes: string | null;
   informations_supplementaires: string | null;
   motif_override_prestataire: string | null;
@@ -158,6 +160,10 @@ interface CollecteDetail {
       tms_reference: string | null;
       external_ref_commande: string | null;
       plaque_immatriculation: string | null;
+      chauffeur_nom: string | null;
+      chauffeur_telephone: string | null;
+      accompagnant_nom: string | null;
+      accompagnant_telephone: string | null;
     };
   }[];
   // factures_collectes = lignes de facture ; le statut vit sur la facture parente
@@ -280,6 +286,25 @@ export default function CollecteDetailPage() {
   const [peseesMotif, setPeseesMotif] = useState('');
   const [peseesSaving, setPeseesSaving] = useState(false);
   const [peseesError, setPeseesError] = useState<string | null>(null);
+  // Infos accès / chauffeur (contrôle d'accès) — saisie manuelle Admin par tournée.
+  const [editInfosAcces, setEditInfosAcces] = useState(false);
+  const [infosAccesInput, setInfosAccesInput] = useState<
+    Record<
+      string,
+      {
+        plaque_immatriculation: string;
+        chauffeur_nom: string;
+        chauffeur_telephone: string;
+        accompagnant_nom: string;
+        accompagnant_telephone: string;
+      }
+    >
+  >({});
+  const [infosAccesSaving, setInfosAccesSaving] = useState(false);
+  const [infosAccesError, setInfosAccesError] = useState<string | null>(null);
+  const [infosAccesFeedback, setInfosAccesFeedback] = useState<string | null>(
+    null,
+  );
   // Bloc 0 — dispatch prestataire (BOA-06)
   const [transporteurs, setTransporteurs] = useState<Transporteur[]>([]);
   const [selectedTransporteurId, setSelectedTransporteurId] = useState('');
@@ -593,6 +618,61 @@ export default function CollecteDetailPage() {
     setPeseesSaving(false);
   };
 
+  const openEditInfosAcces = () => {
+    if (!collecte) return;
+    const prefill: typeof infosAccesInput = {};
+    for (const ct of collecte.collecte_tournees) {
+      prefill[ct.tournees.id] = {
+        plaque_immatriculation: ct.tournees.plaque_immatriculation ?? '',
+        chauffeur_nom: ct.tournees.chauffeur_nom ?? '',
+        chauffeur_telephone: ct.tournees.chauffeur_telephone ?? '',
+        accompagnant_nom: ct.tournees.accompagnant_nom ?? '',
+        accompagnant_telephone: ct.tournees.accompagnant_telephone ?? '',
+      };
+    }
+    setInfosAccesInput(prefill);
+    setInfosAccesError(null);
+    setInfosAccesFeedback(null);
+    setEditInfosAcces(true);
+  };
+
+  const handleSaveInfosAcces = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setInfosAccesSaving(true);
+    setInfosAccesError(null);
+    const tournees = Object.entries(infosAccesInput).map(([tournee_id, v]) => ({
+      tournee_id,
+      plaque_immatriculation: v.plaque_immatriculation,
+      chauffeur_nom: v.chauffeur_nom,
+      chauffeur_telephone: v.chauffeur_telephone,
+      accompagnant_nom: v.accompagnant_nom,
+      accompagnant_telephone: v.accompagnant_telephone,
+    }));
+    const res = await fetch(
+      `/api/v1/admin/collectes/${params.id}/infos-acces`,
+      {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ tournees }),
+      },
+    );
+    if (res.ok) {
+      const body = (await res.json()) as { email_envoye: boolean };
+      const updated = await fetch(`/api/v1/admin/collectes/${params.id}`);
+      if (updated.ok) setCollecte((await updated.json()) as CollecteDetail);
+      setInfosAccesFeedback(
+        body.email_envoye
+          ? 'Infos enregistrées — email récapitulatif envoyé au programmateur.'
+          : 'Infos enregistrées.',
+      );
+      setEditInfosAcces(false);
+    } else {
+      const body = (await res.json()) as { error: string };
+      setInfosAccesError(body.error);
+    }
+    setInfosAccesSaving(false);
+  };
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -898,6 +978,202 @@ export default function CollecteDetailPage() {
           </div>
         )}
       </Card>
+
+      {/* Infos accès / chauffeur — visible si le lieu exige un contrôle d'accès */}
+      {collecte.controle_acces_requis && (
+        <Card className="p-5 space-y-4">
+          <BlocHeader
+            icon={KeyRound}
+            title="Infos accès / chauffeur"
+            action={
+              !editInfosAcces && collecte.collecte_tournees.length > 0 ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={openEditInfosAcces}
+                >
+                  Éditer les infos
+                </Button>
+              ) : undefined
+            }
+          />
+          <p className="text-sm text-savr-neutral-500">
+            Ce lieu exige un contrôle d’accès. Renseignez le nom et le téléphone
+            du chauffeur (et l’accompagnant s’il y en a un) pour chaque camion :
+            un email récapitulatif est envoyé au programmateur dès que toutes
+            les tournées sont complètes.
+          </p>
+
+          {collecte.infos_acces_email_envoye_at ? (
+            <div className="flex items-center gap-2 text-sm font-medium text-savr-success-600">
+              <Send className="h-4 w-4 shrink-0" />
+              Email envoyé au programmateur le{' '}
+              {new Date(
+                collecte.infos_acces_email_envoye_at,
+              ).toLocaleDateString('fr-FR')}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-sm text-savr-neutral-600">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-savr-warning-strong" />
+              En attente : infos à compléter avant envoi de l’email.
+            </div>
+          )}
+
+          {infosAccesFeedback && (
+            <AlertBar variant="info">{infosAccesFeedback}</AlertBar>
+          )}
+          {infosAccesError && (
+            <AlertBar variant="err">{infosAccesError}</AlertBar>
+          )}
+
+          {collecte.collecte_tournees.length === 0 ? (
+            <p className="text-sm text-savr-neutral-500">
+              Aucune tournée dispatchée pour le moment — les infos pourront être
+              saisies une fois le prestataire attribué.
+            </p>
+          ) : !editInfosAcces ? (
+            <div className="space-y-2">
+              {collecte.collecte_tournees.map((ct) => (
+                <div
+                  key={ct.tournees.id}
+                  className="rounded-savr-md border border-savr-neutral-100 bg-savr-neutral-50 px-3 py-2.5 text-sm"
+                >
+                  <p className="mb-1.5 font-medium">Camion {ct.rang}</p>
+                  <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-savr-neutral-700">
+                    <div>
+                      <dt className="text-xs text-savr-neutral-500">Plaque</dt>
+                      <dd>{ct.tournees.plaque_immatriculation ?? '—'}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-savr-neutral-500">
+                        Chauffeur
+                      </dt>
+                      <dd>{ct.tournees.chauffeur_nom ?? '—'}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-savr-neutral-500">
+                        Téléphone
+                      </dt>
+                      <dd>{ct.tournees.chauffeur_telephone ?? '—'}</dd>
+                    </div>
+                    {(ct.tournees.accompagnant_nom ||
+                      ct.tournees.accompagnant_telephone) && (
+                      <>
+                        <div>
+                          <dt className="text-xs text-savr-neutral-500">
+                            Accompagnant
+                          </dt>
+                          <dd>{ct.tournees.accompagnant_nom ?? '—'}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs text-savr-neutral-500">
+                            Tél. accompagnant
+                          </dt>
+                          <dd>{ct.tournees.accompagnant_telephone ?? '—'}</dd>
+                        </div>
+                      </>
+                    )}
+                  </dl>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <form
+              onSubmit={(e) => void handleSaveInfosAcces(e)}
+              className="space-y-3"
+            >
+              {collecte.collecte_tournees.map((ct) => {
+                const v = infosAccesInput[ct.tournees.id] ?? {
+                  plaque_immatriculation: '',
+                  chauffeur_nom: '',
+                  chauffeur_telephone: '',
+                  accompagnant_nom: '',
+                  accompagnant_telephone: '',
+                };
+                const setField = (field: keyof typeof v, val: string): void =>
+                  setInfosAccesInput((prev) => ({
+                    ...prev,
+                    [ct.tournees.id]: {
+                      ...v,
+                      ...prev[ct.tournees.id],
+                      [field]: val,
+                    },
+                  }));
+                return (
+                  <div
+                    key={ct.tournees.id}
+                    className="space-y-2.5 rounded-savr-md border border-savr-neutral-100 bg-savr-neutral-50 px-3 py-3"
+                  >
+                    <p className="text-sm font-medium">Camion {ct.rang}</p>
+                    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                      <label className="space-y-1 text-xs text-savr-neutral-500">
+                        <span>Plaque d’immatriculation</span>
+                        <Input
+                          value={v.plaque_immatriculation}
+                          onChange={(e) =>
+                            setField('plaque_immatriculation', e.target.value)
+                          }
+                        />
+                      </label>
+                      <label className="space-y-1 text-xs text-savr-neutral-500">
+                        <span>Nom du chauffeur</span>
+                        <Input
+                          value={v.chauffeur_nom}
+                          onChange={(e) =>
+                            setField('chauffeur_nom', e.target.value)
+                          }
+                        />
+                      </label>
+                      <label className="space-y-1 text-xs text-savr-neutral-500">
+                        <span>Téléphone du chauffeur</span>
+                        <Input
+                          type="tel"
+                          value={v.chauffeur_telephone}
+                          onChange={(e) =>
+                            setField('chauffeur_telephone', e.target.value)
+                          }
+                        />
+                      </label>
+                      <label className="space-y-1 text-xs text-savr-neutral-500">
+                        <span>Nom de l’accompagnant (facultatif)</span>
+                        <Input
+                          value={v.accompagnant_nom}
+                          onChange={(e) =>
+                            setField('accompagnant_nom', e.target.value)
+                          }
+                        />
+                      </label>
+                      <label className="space-y-1 text-xs text-savr-neutral-500">
+                        <span>Téléphone de l’accompagnant (facultatif)</span>
+                        <Input
+                          type="tel"
+                          value={v.accompagnant_telephone}
+                          onChange={(e) =>
+                            setField('accompagnant_telephone', e.target.value)
+                          }
+                        />
+                      </label>
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="flex gap-2">
+                <Button type="submit" size="sm" disabled={infosAccesSaving}>
+                  {infosAccesSaving ? 'Enregistrement…' : 'Enregistrer'}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setEditInfosAcces(false)}
+                >
+                  Annuler
+                </Button>
+              </div>
+            </form>
+          )}
+        </Card>
+      )}
 
       {/* Blocs 1-4 — Infos mutualisées */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

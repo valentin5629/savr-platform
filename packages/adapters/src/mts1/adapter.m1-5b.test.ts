@@ -482,6 +482,117 @@ describe('M1.5b / résolution plaque + chauffeur (BL-P1-API-03)', () => {
     );
     expect(plaqueWrite).toBeUndefined();
   });
+
+  it('M1.5b-carrier / téléphone NON exposé par MTS-1 → chauffeur_telephone reste NULL (as-built §6)', async () => {
+    const getCarrier = vi.fn().mockResolvedValue(CARRIER_FIXTURE); // transporters[] sans phone
+    _setMts1Handlers({
+      pollOrders: vi.fn().mockResolvedValue({
+        customerOrders: [ORDER_VALIDATED],
+        totalCount: 1,
+        page: 1,
+        pageSize: 50,
+      }),
+      getTour: vi.fn().mockResolvedValue(TOUR_WITH_DISPATCH),
+      getPhotos: vi.fn().mockResolvedValue([]),
+      getCarrier,
+      postOrder: vi.fn(),
+    });
+
+    const supabase = makeSyncSupabase({});
+    const adapter = new AdapterMts1(
+      {
+        id: 'presta-001',
+        type_tms: 'mts1',
+        code_transporteur_mts1: 'CA_STRIKE',
+        prestataire_logistique_id: 'presta-001',
+      },
+      supabase,
+    );
+    await adapter.sync({
+      depuis: new Date('2026-07-15T00:00:00Z'),
+      jusqu_a: new Date('2026-07-17T00:00:00Z'),
+    });
+
+    const calls = (supabase as unknown as { _calls: TableCall[] })._calls;
+    const tourneeUpdate = calls.find(
+      (c) =>
+        c.table === 'tournees' &&
+        c.op === 'update' &&
+        typeof c.data === 'object' &&
+        c.data !== null &&
+        'chauffeur_nom' in (c.data as Record<string, unknown>),
+    );
+    expect(tourneeUpdate).toBeDefined();
+    const data = tourneeUpdate!.data as Record<string, unknown>;
+    expect(data['chauffeur_nom']).toBe('Jean Dupont');
+    // MTS-1 n'expose pas le téléphone → jamais écrit par le poll (saisie Admin).
+    expect('chauffeur_telephone' in data).toBe(false);
+  });
+
+  it('M1.5b-carrier / téléphone exposé (provider futur) → chauffeur_telephone peuplé (seam)', async () => {
+    const carrierAvecTel: Mts1Carrier[] = [
+      {
+        carrierShareableCode: 'CA_STRIKE',
+        name: 'Strike',
+        vehicles: [
+          {
+            name: 'Camion 20m3',
+            numberPlate: '12ABC23',
+            vehicleShareableCode: 'VE_001',
+          },
+        ],
+        transporters: [
+          {
+            firstname: 'Jean',
+            lastname: 'Dupont',
+            transporterShareableCode: 'TR_001',
+            phone: '0611223344',
+          },
+        ],
+      },
+    ];
+    const getCarrier = vi.fn().mockResolvedValue(carrierAvecTel);
+    _setMts1Handlers({
+      pollOrders: vi.fn().mockResolvedValue({
+        customerOrders: [ORDER_VALIDATED],
+        totalCount: 1,
+        page: 1,
+        pageSize: 50,
+      }),
+      getTour: vi.fn().mockResolvedValue(TOUR_WITH_DISPATCH),
+      getPhotos: vi.fn().mockResolvedValue([]),
+      getCarrier,
+      postOrder: vi.fn(),
+    });
+
+    const supabase = makeSyncSupabase({});
+    const adapter = new AdapterMts1(
+      {
+        id: 'presta-001',
+        type_tms: 'mts1',
+        code_transporteur_mts1: 'CA_STRIKE',
+        prestataire_logistique_id: 'presta-001',
+      },
+      supabase,
+    );
+    await adapter.sync({
+      depuis: new Date('2026-07-15T00:00:00Z'),
+      jusqu_a: new Date('2026-07-17T00:00:00Z'),
+    });
+
+    const calls = (supabase as unknown as { _calls: TableCall[] })._calls;
+    const tourneeUpdate = calls.find(
+      (c) =>
+        c.table === 'tournees' &&
+        c.op === 'update' &&
+        typeof c.data === 'object' &&
+        c.data !== null &&
+        'chauffeur_telephone' in (c.data as Record<string, unknown>),
+    );
+    expect(tourneeUpdate).toBeDefined();
+    const data = tourneeUpdate!.data as Record<string, unknown>;
+    expect(data['chauffeur_telephone']).toBe('0611223344');
+  });
 });
 
 describe('M1.5b / AdapterMts1.sync — dédup statut', () => {

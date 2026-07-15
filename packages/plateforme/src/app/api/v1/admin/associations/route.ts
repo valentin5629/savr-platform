@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { logger } from '@savr/shared/src/logger/index.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { sanitizeOrTerm } from '@/lib/api-helpers.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
@@ -43,7 +44,40 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ data: data ?? [], total: count ?? 0 });
+  // KPI par ligne — collectes AG réalisées (realisee + cloturee) rattachées via
+  // attributions_antgaspi.association_id, sur les 30 derniers jours. Une seule
+  // requête agrégée pour toute la page (≤ 50 assos, pas de N+1), comptée par asso.
+  const rows = (data ?? []) as Array<{ id: string }>;
+  const ids = rows.map((r) => r.id);
+  const counts = new Map<string, number>();
+  if (ids.length > 0) {
+    const cutoff30j = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    const { data: attrs, error: kpiError } = await supabase
+      .from('attributions_antgaspi')
+      .select('association_id, collectes!inner(statut,date_collecte,type)')
+      .in('association_id', ids)
+      .eq('collectes.type', 'anti_gaspi')
+      .in('collectes.statut', ['realisee', 'cloturee'])
+      .gte('collectes.date_collecte', cutoff30j);
+    if (kpiError) {
+      // Dégradation gracieuse : la liste ne casse pas, les compteurs restent à 0.
+      logger.warn('associations.kpi_collectes_30j_list_failed', {
+        error: kpiError.message,
+      });
+    } else {
+      for (const a of (attrs ?? []) as Array<{ association_id: string }>) {
+        counts.set(a.association_id, (counts.get(a.association_id) ?? 0) + 1);
+      }
+    }
+  }
+  const enriched = rows.map((r) => ({
+    ...r,
+    collectes_realisees_30j: counts.get(r.id) ?? 0,
+  }));
+
+  return NextResponse.json({ data: enriched, total: count ?? 0 });
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {

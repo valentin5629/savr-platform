@@ -39,6 +39,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
     );
   const lieu_id = searchParams.get('lieu_id'); // lieu (autocomplete)
   const info_incomplete = searchParams.get('info_incomplete'); // « Info incomplète »
+  const controle_acces = searchParams.get('controle_acces'); // « Plaques à envoyer » = contrôle d'accès requis
   const rapport_non_consulte = searchParams.get('rapport_non_consulte'); // rapport non consulté
   const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
   const limit = 50;
@@ -114,6 +115,8 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
     if (lieu_id) query = query.eq('evenements.lieu_id', lieu_id);
     if (info_incomplete === 'true')
       query = query.eq('informations_completes', false);
+    if (controle_acces === 'true')
+      query = query.eq('controle_acces_requis', true);
     if (rapport_non_consulte === 'true')
       query = query.is('rapports_rse.consulte_par_user_at', null);
   }

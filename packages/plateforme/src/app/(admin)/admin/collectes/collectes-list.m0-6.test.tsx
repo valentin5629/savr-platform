@@ -354,6 +354,28 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
     );
   });
 
+  it('M0.6 — drill-down Dashboard Admin ?chip=collectes_48h_non_validees → chip actif + liste filtrée', async () => {
+    navState.search = new URLSearchParams('chip=collectes_48h_non_validees');
+    const fetchMock = mockCollectesFetch();
+    render(<CollectesPage />);
+    // Carte fusionnée « Collecte <48h non validée » (revue E2E 2026-07-15) : chip
+    // masqué mais pré-sélectionné à l'arrivée (miroir exact du compteur dashboard).
+    const chip = await screen.findByRole('button', {
+      name: /Collecte <48 h non validée/,
+    });
+    expect(chip).toHaveAttribute('aria-pressed', 'true');
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(
+          ([u]) =>
+            typeof u === 'string' &&
+            u.startsWith('/api/v1/admin/collectes?') &&
+            u.includes('chip=collectes_48h_non_validees'),
+        ),
+      ).toBe(true),
+    );
+  });
+
   it('M0.6 — indicateurs Historique : poids/taux ZD + repas AG + rapport consulté', async () => {
     mockCollectesFetch();
     render(<CollectesPage />);

@@ -1,23 +1,41 @@
 /**
  * M1.1b — Tests API /admin/dashboard/kpi
- * Valeurs correctes des 6 cartes KPI.
+ * Valeurs correctes des 5 cartes KPI.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
-const mockCountChain = {
-  from: vi.fn().mockReturnThis(),
-  select: vi.fn().mockReturnThis(),
-  eq: vi.fn().mockReturnThis(),
-  in: vi.fn().mockReturnThis(),
-  is: vi.fn().mockReturnThis(),
-  not: vi.fn().mockReturnThis(),
-  gte: vi.fn().mockReturnThis(),
-  lte: vi.fn().mockReturnThis(),
-};
+// File d'attente des counts, consommée dans l'ordre des requêtes du Promise.all.
+let countQueue: number[] = [];
+
+// Chaîne Supabase mock : chaque méthode renvoie la chaîne (fluent) ; la chaîne est
+// thenable → `await`ée par la route (head+count) et résout le prochain count en file.
+// Une chaîne fraîche par `.from()` → robuste à la position des filtres (`.in`, `.not`…).
+function makeChain() {
+  const chain: Record<string, unknown> = {};
+  const ret = () => chain;
+  Object.assign(chain, {
+    select: ret,
+    eq: ret,
+    in: ret,
+    is: ret,
+    not: ret,
+    gte: ret,
+    lte: ret,
+    then: (
+      onF: (v: { count: number; error: null }) => unknown,
+      onR?: (e: unknown) => unknown,
+    ) =>
+      Promise.resolve({ count: countQueue.shift() ?? 0, error: null }).then(
+        onF,
+        onR,
+      ),
+  });
+  return chain;
+}
 
 vi.mock('@savr/shared/src/supabase-client.js', () => ({
-  createAdminSupabaseClient: () => mockCountChain,
+  createAdminSupabaseClient: () => ({ from: () => makeChain() }),
 }));
 
 function makeJwt(claims: Record<string, unknown>): string {
@@ -52,30 +70,27 @@ function makeReq(method: string, url: string): NextRequest {
 }
 
 describe('M1.1b / Dashboard KPI / Valeurs correctes', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    countQueue = [];
+  });
 
-  it('M1.1b/dashboard/kpi — 200 avec 6 cartes correctement structurées', async () => {
+  it('M1.1b/dashboard/kpi — 200 avec 5 cartes correctement structurées', async () => {
     setupAuth('admin_savr');
 
-    // Les 6 requêtes count se terminent toutes par .in() → mock sur in
-    mockCountChain.in
-      .mockResolvedValueOnce({ count: 3, error: null }) // non_transmises_zd
-      .mockResolvedValueOnce({ count: 5, error: null }) // non_transmises_ag
-      .mockResolvedValueOnce({ count: 2, error: null }) // attente_prestataire
-      .mockResolvedValueOnce({ count: 1, error: null }) // dirty_tms
-      .mockResolvedValueOnce({ count: 4, error: null }) // zd_48h
-      .mockResolvedValueOnce({ count: 6, error: null }); // ag_48h
+    // Ordre du Promise.all de la route : non_transmises_zd, non_transmises_ag,
+    // attente_prestataire, dirty_tms, collectes_48h_non_validees.
+    countQueue = [3, 5, 2, 1, 4];
 
     const { GET } = await import('@/app/api/v1/admin/dashboard/kpi/route.js');
     const res = await GET(makeReq('GET', '/api/v1/admin/dashboard/kpi'));
     expect(res.status).toBe(200);
     const body = (await res.json()) as Record<string, number>;
-    expect(typeof body.non_transmises_zd).toBe('number');
-    expect(typeof body.non_transmises_ag).toBe('number');
-    expect(typeof body.attente_prestataire).toBe('number');
-    expect(typeof body.dirty_tms).toBe('number');
-    expect(typeof body.zd_48h).toBe('number');
-    expect(typeof body.ag_48h).toBe('number');
+    expect(body.non_transmises_zd).toBe(3);
+    expect(body.non_transmises_ag).toBe(5);
+    expect(body.attente_prestataire).toBe(2);
+    expect(body.dirty_tms).toBe(1);
+    expect(body.collectes_48h_non_validees).toBe(4);
   });
 
   it('M1.1b/dashboard/kpi — 401 si non authentifié', async () => {

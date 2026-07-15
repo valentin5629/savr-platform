@@ -52,3 +52,25 @@ describe('collectes-chips / non_transmises ZD·AG = miroir KPI Bloc 1', () => {
     expect(ag.calls).not.toContainEqual(['eq', 'type', 'zero_dechet']);
   });
 });
+
+describe('collectes-chips / collectes_48h_non_validees = miroir KPI carte fusionnée', () => {
+  it('applique le prédicat exact du compteur (ZD+AG, 48h, statut_tms non validé)', () => {
+    const { q, calls } = recorder();
+    applyChipPredicate(q, 'collectes_48h_non_validees', NOW);
+
+    // ZD + AG confondus, fenêtre 48 h, collectes encore actives.
+    expect(calls).toContainEqual(['in', 'type', ['zero_dechet', 'anti_gaspi']]);
+    expect(calls).toContainEqual(['gte', 'date_collecte', '2026-07-15']);
+    expect(calls).toContainEqual(['lte', 'date_collecte', '2026-07-17']);
+    expect(calls).toContainEqual(['in', 'statut', ['programmee', 'validee']]);
+
+    // « non validée par le prestataire » = statut_tms NOT IN (acceptee, en_attente_execution),
+    // ce qui inclut mécaniquement les non transmises (non_envoye) — identique au KPI.
+    const notCall = calls.find((c) => c[0] === 'not' && c[1] === 'statut_tms');
+    expect(notCall).toBeDefined();
+    const excluded = String(notCall![3]);
+    expect(excluded).toContain('acceptee');
+    expect(excluded).toContain('en_attente_execution');
+    expect(excluded).not.toContain('non_envoye');
+  });
+});

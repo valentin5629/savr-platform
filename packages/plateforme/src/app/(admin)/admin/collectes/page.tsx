@@ -56,6 +56,7 @@ const CHIPS_PROGRAMMEES_CATALOGUE = [
   { key: 'ag_attente_attribution', label: 'AG en attente attribution' },
   { key: 'zd_48h', label: 'ZD 48 h' },
   { key: 'ag_48h', label: 'AG 48 h' },
+  { key: 'collectes_48h_non_validees', label: 'Collecte <48 h non validée' },
 ];
 
 // Chips retirés de la rangée par défaut (décision Val 2026-07-15). Conservés au
@@ -67,6 +68,7 @@ const CHIPS_PROGRAMMEES_MASQUES = new Set([
   'non_transmises_ag',
   'zd_48h',
   'ag_48h',
+  'collectes_48h_non_validees',
   'ag_attente_attribution',
 ]);
 

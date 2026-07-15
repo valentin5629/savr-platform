@@ -44,11 +44,11 @@ const STATUTS_HISTORIQUE = [
   'rejetee_par_prestataire',
 ];
 
-// Chips prédéfinis Programmées (§06.06 §3) — `key` = valeur du paramètre `chip`.
-const CHIPS_PROGRAMMEES = [
+// Catalogue des chips Programmées (§06.06 §3) — `key` = valeur du paramètre `chip`.
+// Inclut des chips MASQUÉS de la rangée par défaut mais conservés comme cibles de
+// drill-down depuis le Dashboard Admin (?chip=…, cartes Bloc 1). Prédicats : lib/collectes-chips.
+const CHIPS_PROGRAMMEES_CATALOGUE = [
   { key: '', label: 'Toutes' },
-  // Non transmises au TMS scindé ZD/AG → miroir exact des cartes Bloc 1 du
-  // Dashboard Admin (cibles de clic). Prédicats : lib/collectes-chips.
   { key: 'non_transmises_zd', label: 'Non transmises ZD' },
   { key: 'non_transmises_ag', label: 'Non transmises AG' },
   { key: 'attente_prestataire', label: 'En attente prestataire' },
@@ -57,6 +57,20 @@ const CHIPS_PROGRAMMEES = [
   { key: 'zd_48h', label: 'ZD 48 h' },
   { key: 'ag_48h', label: 'AG 48 h' },
 ];
+
+// Chips masqués de la rangée par défaut (décision Val 2026-07-15) : ils restent des
+// cibles de drill-down Dashboard Admin et ne s'affichent que s'ils sont le filtre
+// actif à l'arrivée (sinon la liste serait filtrée sans indicateur visible).
+const CHIPS_PROGRAMMEES_MASQUES = new Set([
+  'non_transmises_zd',
+  'non_transmises_ag',
+  'zd_48h',
+  'ag_48h',
+]);
+
+const CHIPS_PROGRAMMEES = CHIPS_PROGRAMMEES_CATALOGUE.filter(
+  (c) => !CHIPS_PROGRAMMEES_MASQUES.has(c.key),
+);
 
 // Filtres rapides Historique — mappés sur type / statuts (pas de chip serveur).
 const CHIPS_HISTORIQUE = [
@@ -171,7 +185,7 @@ export default function CollectesPage() {
   // Pré-sélectionné depuis le drill-down Dashboard Admin (`?chip=`) s'il désigne
   // un chip « Programmées » connu → la liste s'ouvre déjà filtrée + chip actif.
   const [quickFilter, setQuickFilter] = useState(
-    drillChip && CHIPS_PROGRAMMEES.some((c) => c.key === drillChip)
+    drillChip && CHIPS_PROGRAMMEES_CATALOGUE.some((c) => c.key === drillChip)
       ? drillChip
       : '',
   );
@@ -389,7 +403,17 @@ export default function CollectesPage() {
     [visibles, tab],
   );
 
-  const chips = tab === 'programmees' ? CHIPS_PROGRAMMEES : CHIPS_HISTORIQUE;
+  // Rangée de chips : masqués retirés par défaut ; si le filtre actif EST un chip
+  // masqué (drill-down dashboard), on le rajoute pour rendre son état actif visible.
+  const chips =
+    tab === 'programmees'
+      ? quickFilter && CHIPS_PROGRAMMEES_MASQUES.has(quickFilter)
+        ? [
+            ...CHIPS_PROGRAMMEES,
+            ...CHIPS_PROGRAMMEES_CATALOGUE.filter((c) => c.key === quickFilter),
+          ]
+        : CHIPS_PROGRAMMEES
+      : CHIPS_HISTORIQUE;
   const totalPages = Math.max(1, Math.ceil(total / 50));
 
   // Efface le filtre de drill-down (lieu / traiteur venu du dashboard) → liste nue.

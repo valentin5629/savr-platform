@@ -7,7 +7,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(18);
+SELECT plan(21);
 
 -- ─── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -512,6 +512,80 @@ SELECT throws_ok(
 
 RESET role;
 RESET "request.jwt.claims";
+
+-- ─── Tests 16-18 : fn_supprimer_brouillon (§06.01 l.309) ───────────────────────
+-- Ces tests tournent contre la VRAIE base : c'est le seul niveau qui pouvait
+-- attraper le défaut corrigé. La route faisait `DELETE FROM evenements` en
+-- s'appuyant sur un ON DELETE CASCADE inexistant (aucune FK vers `evenements`
+-- n'est cascade) → 500 sur tout brouillon ayant des collectes, c'est-à-dire tous.
+-- Un test unitaire à Supabase mocké affirmait 204 par-dessus (faux vert).
+
+-- Brouillon supprimable : 1 événement + 2 collectes brouillon
+INSERT INTO plateforme.evenements (
+  id, organisation_id, traiteur_operationnel_organisation_id,
+  entite_facturation_id, lieu_id, created_by, type_evenement_id, pax,
+  contact_principal_nom, contact_principal_telephone
+) VALUES (
+  '00000000-0000-0000-0000-000000000050'::uuid,
+  '00000000-0000-0000-0000-000000000010'::uuid,
+  '00000000-0000-0000-0000-000000000010'::uuid,
+  '00000000-0000-0000-0000-000000000011'::uuid,
+  '00000000-0000-0000-0000-000000000012'::uuid,
+  '00000000-0000-0000-0000-000000000014'::uuid,
+  '00000000-0000-0000-0000-000000000013'::uuid,
+  80, 'Contact Suppr', '0600000050'
+) ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO plateforme.collectes (
+  id, evenement_id, type, date_collecte, heure_collecte, statut, statut_tms, nb_camions_demande
+) VALUES
+  ('00000000-0000-0000-0000-000000000051'::uuid, '00000000-0000-0000-0000-000000000050'::uuid,
+   'zero_dechet', '2099-08-01', '14:30', 'brouillon', 'non_envoye', 1),
+  ('00000000-0000-0000-0000-000000000052'::uuid, '00000000-0000-0000-0000-000000000050'::uuid,
+   'anti_gaspi', '2099-08-01', '15:30', 'brouillon', 'non_envoye', 1)
+ON CONFLICT (id) DO NOTHING;
+
+SELECT lives_ok(
+  $$SELECT plateforme.fn_supprimer_brouillon('00000000-0000-0000-0000-000000000050'::uuid)$$,
+  'T16 : fn_supprimer_brouillon supprime un brouillon AVEC collectes (la FK n''est pas ON DELETE CASCADE — un DELETE nu échouait)'
+);
+
+SELECT is(
+  (SELECT count(*)::int FROM plateforme.evenements WHERE id = '00000000-0000-0000-0000-000000000050'::uuid)
+  + (SELECT count(*)::int FROM plateforme.collectes WHERE evenement_id = '00000000-0000-0000-0000-000000000050'::uuid),
+  0,
+  'T17 : événement ET collectes supprimés (aucun orphelin laissé en base)'
+);
+
+-- Brouillon NON supprimable : une collecte déjà confirmée
+INSERT INTO plateforme.evenements (
+  id, organisation_id, traiteur_operationnel_organisation_id,
+  entite_facturation_id, lieu_id, created_by, type_evenement_id, pax,
+  contact_principal_nom, contact_principal_telephone
+) VALUES (
+  '00000000-0000-0000-0000-000000000053'::uuid,
+  '00000000-0000-0000-0000-000000000010'::uuid,
+  '00000000-0000-0000-0000-000000000010'::uuid,
+  '00000000-0000-0000-0000-000000000011'::uuid,
+  '00000000-0000-0000-0000-000000000012'::uuid,
+  '00000000-0000-0000-0000-000000000014'::uuid,
+  '00000000-0000-0000-0000-000000000013'::uuid,
+  90, 'Contact NonSuppr', '0600000053'
+) ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO plateforme.collectes (
+  id, evenement_id, type, date_collecte, heure_collecte, statut, statut_tms, nb_camions_demande
+) VALUES
+  ('00000000-0000-0000-0000-000000000054'::uuid, '00000000-0000-0000-0000-000000000053'::uuid,
+   'zero_dechet', '2099-08-01', '14:30', 'programmee', 'non_envoye', 1)
+ON CONFLICT (id) DO NOTHING;
+
+SELECT throws_ok(
+  $$SELECT plateforme.fn_supprimer_brouillon('00000000-0000-0000-0000-000000000053'::uuid)$$,
+  '22023',
+  'Des collectes sont déjà confirmées',
+  'T18 : refus de supprimer un événement dont une collecte est confirmée (§06.01 : annulation, pas suppression) — garde dans la transaction, pas fail-open'
+);
 
 SELECT * FROM finish();
 ROLLBACK;

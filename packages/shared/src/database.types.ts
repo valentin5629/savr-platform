@@ -4651,6 +4651,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      fn_supprimer_brouillon: {
+        Args: { p_evenement_id: string }
+        Returns: undefined
+      }
       health_ping: { Args: never; Returns: number }
       refresh_mv_benchmark: { Args: never; Returns: undefined }
       rpc_annuler_credit_collecte: {

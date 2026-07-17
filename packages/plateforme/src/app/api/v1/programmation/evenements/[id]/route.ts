@@ -52,12 +52,9 @@ export async function GET(
   const { id: evenementId } = await params;
   const supabase = createAdminSupabaseClient();
 
-  // Client service-role → le cloisonnement est porté par ce prédicat, pas par RLS.
-  // Rôles clients : filtre org strict. Staff : aucun filtre — leur JWT porte l'org
-  // interne `org_savr` (users.organisation_id NOT NULL), qui ne désigne aucune org
-  // cliente ; s'en servir comme prédicat ne cloisonne rien, ça masque tout (cf. le
-  // ⚠ de requireProgrammateurOuAdmin). Périmètre staff = global, comme la route
-  // back-office /api/v1/admin/evenements/[id] (requireStaff, sans filtre org).
+  // Client service-role : le cloisonnement est ce prédicat, pas la RLS. Staff =
+  // périmètre global (cf. le ⚠ de requireProgrammateurOuAdmin), comme la route
+  // back-office /api/v1/admin/evenements/[id].
   const query = supabase
     .from('evenements')
     .select(

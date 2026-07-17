@@ -38,9 +38,7 @@ export async function POST(
 
   const supabase = createAdminSupabaseClient();
 
-  // Vérification propriété et éditabilité. Cloisonnement porté par ce prédicat
-  // (client service-role) : strict pour les rôles clients, global pour le staff
-  // (son JWT porte l'org interne `org_savr` → prédicat inopérant, cf. GET).
+  // Vérification propriété et éditabilité — même cloisonnement que le GET.
   const evtQuery = supabase
     .from('evenements')
     .select('id, organisation_id, nom_evenement, pax')

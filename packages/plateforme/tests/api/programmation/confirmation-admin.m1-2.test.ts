@@ -271,4 +271,13 @@ describe('M1.2 — confirmation de programmation : action « Ajouter une collect
     expect(res.status).toBe(201);
     expect(orgPredicates()).toEqual([['organisation_id', 'org-kaspia']]);
   });
+
+  it("un rôle hors périmètre programmation n'a pas gagné l'écriture", async () => {
+    setupAuth('client_organisateur', 'org-kaspia');
+
+    // Le POST est le chemin d'ÉCRITURE que ce lot élargit : sa garde mérite le
+    // même verrou que le GET (le CDC §06.01 l.19 tient les clients finaux en
+    // lecture seule).
+    expect((await ajouterCollecte('zd')).status).toBe(403);
+  });
 });

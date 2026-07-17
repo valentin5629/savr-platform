@@ -54,6 +54,20 @@ interface CollecteInput {
   informations_supplementaires?: string;
 }
 
+// Normalisation alias d'entrée → valeurs de l'enum `collecte_type`, miroir exact du
+// CASE de `fn_creer_collecte` (chemin confirmé). L'UI envoie 'zd'/'ag' ; l'enum ne
+// connaît que 'zero_dechet'/'anti_gaspi'. Le chemin confirmé passe par la RPC, qui
+// normalise ; le chemin brouillon INSÈRE en direct et n'avait aucune normalisation
+// → « invalid input value for enum » → 500 + rollback de l'événement. « Enregistrer
+// en brouillon » n'a donc jamais fonctionné, pour aucun rôle — /brouillons était
+// structurellement vide, ce qui masquait les défauts des routes en aval.
+// `?? type` conserve la tolérance de la RPC (ELSE p_type::enum) si l'appelant envoie
+// déjà la valeur de l'enum.
+const TYPE_COLLECTE_ENUM: Record<string, string> = {
+  zd: 'zero_dechet',
+  ag: 'anti_gaspi',
+};
+
 interface ProgrammationBody {
   // Étape 1
   nom_evenement?: string;
@@ -382,7 +396,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         .from('collectes')
         .insert({
           evenement_id: evenementId,
-          type: c.type,
+          type: TYPE_COLLECTE_ENUM[c.type] ?? c.type,
           date_collecte: c.date_collecte,
           heure_collecte: c.heure_collecte,
           statut: 'brouillon',

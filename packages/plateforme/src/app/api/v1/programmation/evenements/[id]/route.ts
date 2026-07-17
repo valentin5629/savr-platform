@@ -6,6 +6,7 @@ import {
   createSupabaseServerClient,
 } from '@/lib/api-auth.js';
 import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
+import { typedRpcError } from '@/lib/api-helpers.js';
 
 // Champs métier ÉVÉNEMENT éditables par les rôles programmateurs (§06.04 l.444,
 // §05 l.307). lieu_id et type_collecte = verrouillés (§05 l.314 / §06.04 l.459) :
@@ -263,31 +264,23 @@ export async function DELETE(
     );
   }
 
-  // Vérifier que toutes les collectes sont en brouillon (pas de suppression si déjà confirmé)
-  const { data: collectes } = await supabase
-    .from('collectes')
-    .select('id, statut')
-    .eq('evenement_id', evenementId);
-
-  const hasNonBrouillon = collectes?.some((c) => c.statut !== 'brouillon');
-  if (hasNonBrouillon) {
-    return NextResponse.json(
-      {
-        error:
-          "Impossible de supprimer : des collectes sont déjà confirmées. Utilisez l'annulation.",
-      },
-      { status: 422 },
-    );
-  }
-
-  // DELETE CASCADE via FK (collectes supprimées par ON DELETE CASCADE)
-  const { error } = await supabase
-    .from('evenements')
-    .delete()
-    .eq('id', evenementId);
+  // Suppression atomique événement + collectes, garde « brouillon uniquement »
+  // portée par la RPC (même transaction, sous row lock).
+  // L'ancien code faisait `DELETE FROM evenements` en s'appuyant sur un ON DELETE
+  // CASCADE qui n'existe pas (aucune FK vers `evenements` n'est cascade, ni dans les
+  // migrations ni dans le DDL cible) → 500 sur tout brouillon ayant des collectes,
+  // c'est-à-dire tous : le bouton n'a jamais fonctionné, pour aucun rôle. La garde
+  // vivait par ailleurs ici en deux allers-retours, et `collectes?.some()` valait
+  // `undefined` si le SELECT échouait → garde franchie (fail-open).
+  const { error } = await supabase.rpc('fn_supprimer_brouillon', {
+    p_evenement_id: evenementId,
+  });
 
   if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return typedRpcError(error, 'programmation.brouillon.supprimer', {
+      message422:
+        "Impossible de supprimer : des collectes sont déjà confirmées. Utilisez l'annulation.",
+    });
 
   return new NextResponse(null, { status: 204 });
 }

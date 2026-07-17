@@ -170,6 +170,30 @@ async function listerBrouillons() {
   );
 }
 
+async function creerBrouillon(type: string) {
+  const { POST } =
+    await import('@/app/api/v1/programmation/evenements/route.js');
+  return POST(
+    new NextRequest('http://localhost/api/v1/programmation/evenements', {
+      method: 'POST',
+      body: JSON.stringify({
+        organisation_id: 'org-kaspia',
+        pax: 120,
+        type_evenement_id: 'te-1',
+        lieu_id: 'lieu-1',
+        contact_principal_nom: 'Marie Dupont',
+        contact_principal_telephone: '0600000000',
+        controle_acces_requis: false,
+        collectes: [
+          { type, date_collecte: '2099-08-01', heure_collecte: '14:30' },
+        ],
+        confirmer: false,
+      }),
+      headers: { 'content-type': 'application/json' },
+    }),
+  );
+}
+
 async function confirmer() {
   const { PATCH } =
     await import('@/app/api/v1/programmation/evenements/[id]/confirmer/route.js');
@@ -200,6 +224,35 @@ const predicatesOn = (col: string) =>
 beforeEach(() => {
   vi.clearAllMocks();
   admin = makeChain();
+});
+
+describe('M1.2 — création d’un brouillon : normalisation du type', () => {
+  // Le chemin CONFIRMÉ passe par fn_creer_collecte, qui normalise 'zd'/'ag' vers
+  // l'enum (CASE). Le chemin BROUILLON insérait en direct, sans normalisation :
+  // « invalid input value for enum plateforme.collecte_type: "zd" » → 500 +
+  // rollback de l'événement. « Enregistrer en brouillon » ne fonctionnait donc pour
+  // AUCUN rôle, et /brouillons était structurellement vide — ce qui a masqué les
+  // défauts des routes en aval (dont un DELETE mort depuis toujours).
+  it.each([
+    ['zd', 'zero_dechet'],
+    ['ag', 'anti_gaspi'],
+  ])(
+    'l’alias UI « %s » est normalisé en « %s » avant INSERT',
+    async (alias, attendu) => {
+      setupAuth('admin_savr', 'org-savr');
+      admin.push({ data: { id: 'e1', nom_evenement: null }, error: null }); // insert evenement
+      admin.push({ data: { id: 'col-1' }, error: null }); // insert collecte
+
+      const res = await creerBrouillon(alias);
+
+      expect(res.status).toBe(201);
+      // [0] = INSERT evenements, [1] = INSERT collectes.
+      expect((admin.__calls.insert ?? [])[1]?.[0]).toMatchObject({
+        type: attendu,
+        statut: 'brouillon',
+      });
+    },
+  );
 });
 
 describe('M1.2 — liste des brouillons (mode admin support)', () => {
@@ -330,33 +383,41 @@ describe('M1.2 — suppression d’un brouillon (mode admin support)', () => {
   it('admin_savr supprime son brouillon (le bouton de la liste devient opérant)', async () => {
     setupAuth('admin_savr', 'org-savr');
     admin.push({ data: { id: 'e1' }, error: null }); // select événement
-    admin.push({ data: [{ id: 'col-1', statut: 'brouillon' }], error: null }); // collectes
-    admin.push({ data: null, error: null }); // delete
+    admin.push({ data: null, error: null }); // rpc fn_supprimer_brouillon
 
     const res = await supprimer();
 
     expect(res.status).toBe(204);
     expect(predicatesOn('organisation_id')).toEqual([]);
-    expect(admin.__calls.delete).toHaveLength(1);
+    // La suppression passe par la RPC atomique : un `DELETE FROM evenements` seul
+    // viole la FK `collectes_evenement_id_fkey` (NO ACTION, pas de CASCADE) → 500.
+    // Ce qu'un mock ne peut pas voir : la preuve est en pgTAP (T16/T17).
+    expect(admin.__calls.rpc).toEqual([
+      ['fn_supprimer_brouillon', { p_evenement_id: 'e1' }],
+    ]);
+    expect(admin.__calls.delete).toBeUndefined();
   });
 
   it('la garde « brouillon uniquement » tient aussi pour l’admin', async () => {
     setupAuth('admin_savr', 'org-savr');
     admin.push({ data: { id: 'e1' }, error: null });
-    admin.push({ data: [{ id: 'col-1', statut: 'programmee' }], error: null });
+    // La garde vit désormais DANS la RPC (même transaction, sous row lock) et
+    // remonte en 22023 → 422 via typedRpcError.
+    admin.push({ data: null, error: { code: '22023' } });
 
     const res = await supprimer();
 
     // Ouvrir la route au staff ne doit pas ouvrir une porte dérobée vers la
     // suppression d'une collecte confirmée (§06.01 : annulation, pas suppression).
     expect(res.status).toBe(422);
-    expect(admin.__calls.delete).toBeUndefined();
+    await expect(res.json()).resolves.toMatchObject({
+      error: expect.stringContaining('déjà confirmées'),
+    });
   });
 
   it('un rôle client reste cloisonné sur son organisation', async () => {
     setupAuth('traiteur_manager', 'org-kaspia', 'user-tm');
     admin.push({ data: { id: 'e1' }, error: null });
-    admin.push({ data: [{ id: 'col-1', statut: 'brouillon' }], error: null });
     admin.push({ data: null, error: null });
 
     const res = await supprimer();

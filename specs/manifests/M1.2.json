@@ -154,6 +154,22 @@
       "test": "M1.2 — liste des brouillons (mode admin support) > admin_savr est cloisonné sur ses propres créations, pas sur son org interne",
       "statut": "implemented",
       "libelle": "Cycle de vie du brouillon (lister / confirmer / supprimer, §06.01 l.308-309) ouvert à admin_savr en mode support (§06.01 l.17, « tous périmètres ») ; périmètre de la liste pour le staff = ses propres créations (created_by, décision Val 2026-07-17, divergence M1.2_20260717) ; cloisonnement org strict conservé pour les rôles clients"
+    },
+    {
+      "id": "M1.2-brouillon-creation-enum",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:219",
+      "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/route.ts",
+      "test": "M1.2 — création d’un brouillon : normalisation du type > l’alias UI « zd » est normalisé en « zero_dechet » avant INSERT",
+      "statut": "implemented",
+      "libelle": "« Enregistrer en brouillon » (§06.01 l.219) rendu fonctionnel : normalisation des alias d'entrée 'zd'/'ag' → enum collecte_type ('zero_dechet'/'anti_gaspi') sur le chemin brouillon (INSERT direct), miroir du CASE de fn_creer_collecte utilisé par le chemin confirmé. Avant : invalid input value for enum → 500 + rollback événement, pour TOUS les rôles"
+    },
+    {
+      "id": "M1.2-brouillon-suppression",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:309",
+      "artefact": "supabase/migrations/20260717154800_plateforme_m1_2_supprimer_brouillon.sql",
+      "test": "T16 : fn_supprimer_brouillon supprime un brouillon AVEC collectes (la FK n'est pas ON DELETE CASCADE — un DELETE nu échouait)",
+      "statut": "implemented",
+      "libelle": "« Supprimer ce brouillon » (§06.01 l.309) rendu fonctionnel pour TOUS les rôles : RPC fn_supprimer_brouillon (suppression atomique collectes + événement, garde « brouillon uniquement » dans la transaction sous row lock). Avant : DELETE nu s'appuyant sur un ON DELETE CASCADE inexistant → violation FK → 500 systématique ; garde hors transaction et fail-open. Aucun cascade ajouté sur la FK (G1 : le DDL cible n'en a pas)"
     }
   ],
   "cdc_source_hash": {

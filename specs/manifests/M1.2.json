@@ -100,6 +100,14 @@
       "libelle": "Périmètre d'écriture : commercial = ses créations, autres = leur orga ; cross-org refusé"
     },
     {
+      "id": "M1.2-evt-delete-cloisonnement-org",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:177-188",
+      "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts",
+      "test": "M1.2 — DELETE événement d'une autre organisation → 404 et AUCUNE suppression (cloisonnement org, route service-role)",
+      "statut": "implemented",
+      "libelle": "DELETE événement — cloisonnement inter-organisation (404 cross-org + aucune suppression émise, route service-role hors RLS)"
+    },
+    {
       "id": "M1.2-ui-edition-fiche",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:436",
       "artefact": "packages/plateforme/src/components/collecte/editer-collecte-form.tsx",

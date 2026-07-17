@@ -19,6 +19,7 @@ import type {
   Collecte,
   ConsumerTag,
   FenetreSync,
+  HealthCheckResult,
   Lieu,
   LogistiqueProvider,
   Transporteur,
@@ -248,6 +249,23 @@ export class AdapterEverest implements LogistiqueProvider {
     // Everest est push-only : les statuts arrivent via webhooks entrants.
     // Le cron polling-mts1 appelle sync() sur tous les transporteurs —
     // pour Everest, c'est un no-op délibéré.
+  }
+
+  // ─── Health check (ops) ──────────────────────────────────────────────────────
+
+  async healthCheck(): Promise<HealthCheckResult> {
+    // Push-only (webhooks entrants) : aucun endpoint read-only de sonde en V1.
+    // On rapporte seulement la présence des credentials, sans appel réseau.
+    const configured =
+      !!process.env['EVEREST_CLIENT_ID'] &&
+      !!process.env['EVEREST_CLIENT_SECRET'];
+    return {
+      ok: true,
+      etat: 'non_applicable',
+      message: configured
+        ? 'Everest push-only (webhooks entrants) — pas de sonde read-only V1.'
+        : 'Everest push-only — credentials EVEREST_CLIENT_ID / EVEREST_CLIENT_SECRET absents.',
+    };
   }
 
   // ─── Helpers métier ───────────────────────────────────────────────────────────

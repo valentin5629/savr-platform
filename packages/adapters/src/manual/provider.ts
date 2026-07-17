@@ -4,6 +4,7 @@ import type {
   Collecte,
   ConsumerTag,
   FenetreSync,
+  HealthCheckResult,
   Lieu,
   LogistiqueProvider,
   Transporteur,
@@ -47,5 +48,14 @@ export class ProviderManual implements LogistiqueProvider {
 
   async sync(_fenetre: FenetreSync): Promise<void> {
     // M1.5b
+  }
+
+  async healthCheck(): Promise<HealthCheckResult> {
+    // Dispatch email/téléphone hors plateforme : aucun appel distant à sonder.
+    return {
+      ok: true,
+      etat: 'non_applicable',
+      message: 'Provider manuel (email/téléphone) — aucun appel distant.',
+    };
   }
 }

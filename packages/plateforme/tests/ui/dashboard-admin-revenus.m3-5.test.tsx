@@ -139,6 +139,49 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
     expect(screen.getByTestId('revenus-export-csv')).toBeInTheDocument();
   });
 
+  it('M3.5/admin_revenus_defaut_12_mois — période par défaut = 12 derniers mois (décision Val 2026-07-18)', async () => {
+    render(<DashboardAdminPage />);
+    await screen.findAllByText('Traiteur Alpha');
+    // Fenêtre attendue : [aujourd'hui − 12 mois ; aujourd'hui], calculée comme la page.
+    const now = new Date();
+    const to = now.toISOString().slice(0, 10);
+    const fromDate = new Date();
+    fromDate.setMonth(fromDate.getMonth() - 12);
+    const from = fromDate.toISOString().slice(0, 10);
+    // Les champs de date reflètent le défaut 12 mois…
+    expect(screen.getByTestId('revenus-from')).toHaveValue(from);
+    expect(screen.getByTestId('revenus-to')).toHaveValue(to);
+    // …et le fetch de montage porte bien cette fenêtre (défaut → requête data).
+    expect(
+      fetchMock.mock.calls.some(([u]) => {
+        const s = String(u);
+        return (
+          s.includes('/admin/dashboard/revenus-organisations') &&
+          s.includes(`from=${from}`) &&
+          s.includes(`to=${to}`)
+        );
+      }),
+    ).toBe(true);
+  });
+
+  it('M3.5/admin_revenus_reinitialiser — « Réinitialiser » ramène au défaut 12 derniers mois', async () => {
+    render(<DashboardAdminPage />);
+    await screen.findAllByText('Traiteur Alpha');
+    const iso = (d: Date) => d.toISOString().slice(0, 10);
+    const to = iso(new Date());
+    const from7j = new Date();
+    from7j.setDate(from7j.getDate() - 7);
+    const from12m = new Date();
+    from12m.setMonth(from12m.getMonth() - 12);
+    // On restreint d'abord à « 7 jours »…
+    fireEvent.click(screen.getByRole('button', { name: '7 jours' }));
+    expect(screen.getByTestId('revenus-from')).toHaveValue(iso(from7j));
+    // …puis « Réinitialiser » doit revenir aux 12 derniers mois (pas au mois en cours).
+    fireEvent.click(screen.getByTestId('revenus-reinitialiser'));
+    expect(screen.getByTestId('revenus-from')).toHaveValue(iso(from12m));
+    expect(screen.getByTestId('revenus-to')).toHaveValue(to);
+  });
+
   it('M3.5/admin_revenus_tri — clic sur une colonne triable relance le fetch trié', async () => {
     render(<DashboardAdminPage />);
     await screen.findAllByText('Traiteur Alpha');

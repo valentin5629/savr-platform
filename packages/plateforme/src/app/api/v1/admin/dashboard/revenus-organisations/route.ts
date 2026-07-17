@@ -59,16 +59,15 @@ const SORT_KEYS: SortKey[] = [
   'montant_total',
 ];
 
-// Défaut §11 §1.1 : période = mois en cours si non fournie.
-function currentMonthRange(): { from: string; to: string } {
+// Défaut de période si non fournie : 12 derniers mois (§11 §8 l.180, aligné
+// §06.04/§06.05 ; décision Val 2026-07-18, cf. divergence M3.5 vs §11 Bloc 2 l.38).
+// Fallback serveur cohérent avec le défaut UI (le tableau envoie toujours from/to).
+function defaultPeriodeRange(): { from: string; to: string } {
   const now = new Date();
-  const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
-    .toISOString()
-    .slice(0, 10);
-  const to = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0))
-    .toISOString()
-    .slice(0, 10);
-  return { from, to };
+  const to = now.toISOString().slice(0, 10);
+  const fromDate = new Date(now);
+  fromDate.setUTCMonth(fromDate.getUTCMonth() - 12);
+  return { from: fromDate.toISOString().slice(0, 10), to };
 }
 
 // Récupère toutes les lignes d'une requête paginée (au-delà du plafond 1000 lignes).
@@ -135,7 +134,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const supabase = createAdminSupabaseClient();
   const sp = new URL(req.url).searchParams;
-  const defaults = currentMonthRange();
+  const defaults = defaultPeriodeRange();
   const from = sp.get('from') ?? defaults.from;
   const to = sp.get('to') ?? defaults.to;
   const format = sp.get('format');

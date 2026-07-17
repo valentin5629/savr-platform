@@ -81,18 +81,6 @@ function badgeVeille(v: number, labelActif: string) {
 const dateFieldClass =
   'h-10 rounded-savr-md border border-savr-neutral-300 bg-savr-white px-3 text-sm text-savr-neutral-900 hover:border-savr-primary-400';
 
-// Période par défaut : mois en cours (§11 §1.1).
-function currentMonth(): { from: string; to: string } {
-  const now = new Date();
-  const from = new Date(now.getFullYear(), now.getMonth(), 1)
-    .toISOString()
-    .slice(0, 10);
-  const to = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-    .toISOString()
-    .slice(0, 10);
-  return { from, to };
-}
-
 // Presets de période (BL-P3-02) — liste CDC §06.04 l.73 / §06.05 l.105.
 type PresetKey = '7j' | '30j' | 'trimestre' | '12m' | 'civile';
 const DASHBOARD_PRESETS: { key: PresetKey; label: string }[] = [
@@ -122,6 +110,13 @@ function presetRange(key: PresetKey): { from: string; to: string } {
   else from.setDate(from.getDate() - (key === '7j' ? 7 : 30));
   return { from: iso(from), to: iso(now) };
 }
+
+// Preset par défaut du tableau Revenus : 12 derniers mois (§11 §8 l.180, aligné
+// §06.04/§06.05). Décision Val 2026-07-18 (revue E2E) — harmonise le tableau admin
+// sur le défaut générique des dashboards ; divergence tracée vs §11 Bloc 2 l.38
+// (« défaut mois en cours »). Source unique : période initiale + preset actif au
+// chargement + retour de « Réinitialiser ».
+const DEFAULT_PRESET: PresetKey = '12m';
 
 const revenusColumns: Column<RevenusRow>[] = [
   { key: 'raison_sociale', header: 'Organisation', sortable: true },
@@ -164,9 +159,10 @@ export default function DashboardAdminPage() {
   const [loadingKpi, setLoadingKpi] = useState(true);
   const [loadingRevenus, setLoadingRevenus] = useState(true);
 
-  const [periode, setPeriode] = useState(currentMonth);
-  // Preset actif de la barre de période (`''` = plage personnalisée / réinitialisée).
-  const [activePreset, setActivePreset] = useState<string>('');
+  const [periode, setPeriode] = useState(() => presetRange(DEFAULT_PRESET));
+  // Preset actif de la barre de période — défaut « 12 derniers mois » (§11 §8),
+  // `''` = plage personnalisée saisie à la main.
+  const [activePreset, setActivePreset] = useState<string>(DEFAULT_PRESET);
   const [sortKey, setSortKey] = useState<string>('montant_total');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
@@ -429,8 +425,8 @@ export default function DashboardAdminPage() {
                   variant="link"
                   size="sm"
                   onClick={() => {
-                    setPeriode(currentMonth());
-                    setActivePreset('');
+                    setPeriode(presetRange(DEFAULT_PRESET));
+                    setActivePreset(DEFAULT_PRESET);
                     setPage(1);
                   }}
                   data-testid="revenus-reinitialiser"

@@ -368,6 +368,8 @@ describe('M1.2 / PROG-05 auto-accept AG', () => {
         nom_evenement: 'B',
         pax: 50,
         lieu_id: 'lieu-1',
+        // Le commercial confirme SON propre brouillon (created_by = caller).
+        created_by: 'user-1',
       },
       error: null,
     });

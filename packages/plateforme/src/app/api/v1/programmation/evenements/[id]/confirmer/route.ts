@@ -27,7 +27,7 @@ export async function PATCH(
   // le poser en prédicat ne cloisonnerait rien, ça masquerait tout).
   const evtQuery = supabase
     .from('evenements')
-    .select('id, organisation_id, nom_evenement, pax, lieu_id')
+    .select('id, organisation_id, nom_evenement, pax, lieu_id, created_by')
     .eq('id', evenementId);
 
   const { data: evt, error: evtErr } = await (
@@ -40,6 +40,23 @@ export async function PATCH(
     return NextResponse.json(
       { error: 'Événement introuvable ou accès refusé' },
       { status: 404 },
+    );
+  }
+
+  // Périmètre d'ÉCRITURE — miroir des policies `evt_commercial_update` /
+  // `col_delete_brouillon` (§09) : `traiteur_commercial` = ses propres créations.
+  // La confirmation est une écriture à effets réels (transition brouillon→programmee,
+  // émission E1 vers le TMS, débit d'un crédit pack AG) : sans cette garde, un
+  // commercial confirmerait — et dispatcherait/facturerait — le brouillon d'un
+  // collègue. Miroir strict du DELETE et du PATCH d'édition ; RLS ne rattrape pas
+  // (route sous service-role).
+  if (
+    auth.ctx.role === 'traiteur_commercial' &&
+    evt.created_by !== auth.ctx.userId
+  ) {
+    return NextResponse.json(
+      { error: 'Confirmation non autorisée' },
+      { status: 403 },
     );
   }
 

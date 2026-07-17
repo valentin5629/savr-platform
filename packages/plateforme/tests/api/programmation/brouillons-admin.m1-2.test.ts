@@ -372,6 +372,31 @@ describe('M1.2 — confirmation d’un brouillon (mode admin support)', () => {
     ]);
   });
 
+  it("un traiteur_commercial ne peut pas confirmer le brouillon d'un collègue", async () => {
+    setupAuth('traiteur_commercial', 'org-kaspia', 'user-commercial');
+    admin.push({ data: { ...EVT, created_by: 'user-collegue' }, error: null });
+
+    const res = await confirmer();
+
+    // Confirmer = écriture à effets réels (E1 vers le TMS, débit pack AG). Miroir
+    // de col_delete_brouillon : commercial = ses propres créations. Refus AVANT la
+    // lecture des collectes → pas de RPC.
+    expect(res.status).toBe(403);
+    expect(admin.__calls.rpc).toBeUndefined();
+  });
+
+  it('un traiteur_commercial confirme son propre brouillon', async () => {
+    setupAuth('traiteur_commercial', 'org-kaspia', 'user-commercial');
+    admin.push({
+      data: { ...EVT, created_by: 'user-commercial' },
+      error: null,
+    });
+    admin.push({ data: [COLLECTE_ZD], error: null });
+    admin.push({ data: null, error: null });
+
+    expect((await confirmer()).status).toBe(200);
+  });
+
   it("un rôle hors périmètre programmation n'a pas gagné l'accès au passage", async () => {
     setupAuth('client_organisateur', 'org-kaspia');
 

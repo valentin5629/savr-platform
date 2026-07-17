@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import {
   requireProgrammateur,
+  requireProgrammateurOuAdmin,
   createSupabaseServerClient,
 } from '@/lib/api-auth.js';
 import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
@@ -36,25 +37,39 @@ const EVENT_LOCKED_FIELDS = [
   'client_organisateur_organisation_id',
 ];
 
-// Détail d'un événement avec ses collectes (pour vérification doublon AG etc.)
+// Détail d'un événement avec ses collectes (pour vérification doublon AG etc.).
+// Alimente l'écran de confirmation post-programmation (§06.01 étape 13) et la page
+// « Ajouter une collecte » — deux destinations ouvertes à l'admin en mode support
+// (§06.01 l.17 « admin_savr : programmation de support, tous périmètres »), d'où la
+// garde alignée sur celle du POST de création (requireProgrammateurOuAdmin).
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
-  const auth = await requireProgrammateur(req);
+  const auth = await requireProgrammateurOuAdmin(req);
   if (auth.error) return auth.error;
 
   const { id: evenementId } = await params;
   const supabase = createAdminSupabaseClient();
 
-  const { data, error } = await supabase
+  // Client service-role → le cloisonnement est porté par ce prédicat, pas par RLS.
+  // Rôles clients : filtre org strict. Staff : aucun filtre — leur JWT porte l'org
+  // interne `org_savr` (users.organisation_id NOT NULL), qui ne désigne aucune org
+  // cliente ; s'en servir comme prédicat ne cloisonne rien, ça masque tout (cf. le
+  // ⚠ de requireProgrammateurOuAdmin). Périmètre staff = global, comme la route
+  // back-office /api/v1/admin/evenements/[id] (requireStaff, sans filtre org).
+  const query = supabase
     .from('evenements')
     .select(
       'id, nom_evenement, pax, contact_principal_nom, lieux(nom, adresse_acces, code_postal, ville), collectes(id, type, statut, date_collecte, heure_collecte)',
     )
-    .eq('id', evenementId)
-    .eq('organisation_id', auth.ctx.organisationId)
-    .single();
+    .eq('id', evenementId);
+
+  const { data, error } = await (
+    auth.ctx.isAdmin
+      ? query
+      : query.eq('organisation_id', auth.ctx.organisationId)
+  ).single();
 
   if (error || !data)
     return NextResponse.json(
@@ -69,6 +84,10 @@ export async function GET(
 // Décision produit Val 2026-06-26 : édition événement + collecte depuis la fiche
 // collecte, fenêtre brouillon/programmee/validee, verrou dès en_cours (§06.04 l.444,
 // §05 §4). E2 par collecte déjà dispatchée émis par fn_modifier_evenement.
+// Reste volontairement fermé au staff (contrairement au GET) : editer-collecte-form
+// n'est monté que sur les fiches traiteur/agence/gestionnaire, l'admin éditant par
+// le back-office (/api/v1/admin/evenements/[id], requireStaff). Aucun chemin admin
+// n'y mène — l'ouvrir serait du code spéculatif.
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -227,6 +246,10 @@ export async function PATCH(
 }
 
 // Suppression d'un événement brouillon (et ses collectes) par son propriétaire.
+// Fermé au staff comme le PATCH : le seul appelant est /brouillons, dont la liste
+// (GET ../evenements?statut=brouillon) filtre déjà sur l'org du JWT → un admin n'y
+// voit aucune ligne, donc aucun bouton à cliquer. Le mode support des brouillons
+// est un chantier distinct (périmètre à trancher : quels brouillons l'admin voit-il ?).
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },

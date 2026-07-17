@@ -28,6 +28,14 @@
       "libelle": "PATCH événement unifié (requireProgrammateur, 4 rôles) — édition champs métier événement"
     },
     {
+      "id": "M1.2-evt-get-cloisonnement-org",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:177-188",
+      "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts",
+      "test": "M1.2 — GET événement d'une autre organisation → 404 sans aucune donnée (cloisonnement org, route service-role)",
+      "statut": "implemented",
+      "libelle": "GET détail événement — cloisonnement inter-organisation (404 cross-org, route service-role hors RLS)"
+    },
+    {
       "id": "M1.2-rpc-fn-modifier-evenement",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:156",
       "artefact": "supabase/migrations/20260626000000_plateforme_fn_modifier_evenement.sql",
@@ -154,6 +162,22 @@
       "test": "M1.2 — PROG-05 auto-accept AG déclenché à la confirmation",
       "statut": "implemented",
       "libelle": "À la confirmation AG : évaluation auto-accept (algo §09 §6, best-effort) + fix bug latent gate pack 'anti_gaspi'"
+    },
+    {
+      "id": "M1.2-confirmation-admin",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:402",
+      "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts",
+      "test": "M1.2 — confirmation de programmation : détail événement (mode admin support) > admin_savr obtient le récapitulatif (et non plus 403 « Rôle insuffisant »)",
+      "statut": "implemented",
+      "libelle": "Données de l'écran de confirmation (étape 13) servies à TOUS les rôles programmateurs — dont admin_savr en mode support (§06.01 l.17, « tous périmètres ») ; cloisonnement org strict conservé pour les rôles clients"
+    },
+    {
+      "id": "M1.2-ui-confirmation",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:402",
+      "artefact": "packages/plateforme/src/app/(programmation)/programmer/confirmation/page.tsx",
+      "test": null,
+      "statut": "à-vérifier",
+      "libelle": "Écran de confirmation dédié : bandeau succès + récapitulatif des collectes créées + rappel email récap + les 3 actions (« Ajouter une collecte à cet événement », « Programmer un autre événement », « Accueil ») — preuve visuelle GO-VISUAL"
     }
   ],
   "cdc_source_hash": {

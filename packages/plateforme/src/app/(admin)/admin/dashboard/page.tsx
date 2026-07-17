@@ -338,135 +338,143 @@ export default function DashboardAdminPage() {
       <section className="space-y-4">
         <h2 className="text-lg font-semibold text-savr-neutral-700">Revenus</h2>
 
-        {/* Histogramme 12 mois glissants (§11 §1.1) — surface graphe DS */}
-        <ChartCard>
-          <RevenusHistogramme from={histo.from} to={histo.to} />
-        </ChartCard>
+        {/* Graphe (3/5) + tableau (2/5) sur la même ligne ≥ lg (revue E2E Val
+            2026-07-18) — empilés en dessous. `items-start` : chaque colonne garde
+            sa hauteur propre, pas d'étirement du graphe sur la hauteur du tableau. */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-5 lg:items-start">
+          {/* Histogramme 12 mois glissants (§11 §1.1) — surface graphe DS */}
+          <ChartCard className="lg:col-span-3">
+            <RevenusHistogramme from={histo.from} to={histo.to} />
+          </ChartCard>
 
-        {/* Titre du bloc tableau, au-dessus des filtres (revue E2E Val 2026-07-15). */}
-        <h3 className="text-base font-extrabold tracking-[-0.01em] text-savr-neutral-900">
-          Revenu par organisation
-        </h3>
+          {/* Colonne « Revenus par organisation » — titre + filtres + tableau. */}
+          <div className="space-y-4 lg:col-span-2">
+            {/* Titre du bloc tableau, au-dessus des filtres (revue E2E Val 2026-07-15). */}
+            <h3 className="text-base font-extrabold tracking-[-0.01em] text-savr-neutral-900">
+              Revenu par organisation
+            </h3>
 
-        {/* Tableau « Revenus par organisation » — barre de période DS */}
-        <div className="space-y-3" data-testid="revenus-orgs-controls">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
-              <div className="space-y-1">
-                <label
-                  htmlFor="revenus-from"
-                  className="block text-xs font-medium text-savr-neutral-600"
+            {/* Tableau « Revenus par organisation » — barre de période DS */}
+            <div className="space-y-3" data-testid="revenus-orgs-controls">
+              <div className="flex flex-wrap items-end justify-between gap-4">
+                <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
+                  <div className="space-y-1">
+                    <label
+                      htmlFor="revenus-from"
+                      className="block text-xs font-medium text-savr-neutral-600"
+                    >
+                      Du
+                    </label>
+                    <input
+                      id="revenus-from"
+                      type="date"
+                      value={periode.from}
+                      max={periode.to}
+                      onChange={(e) => setBorne('from', e.target.value)}
+                      aria-label="Date de début"
+                      data-testid="revenus-from"
+                      className={dateFieldClass}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label
+                      htmlFor="revenus-to"
+                      className="block text-xs font-medium text-savr-neutral-600"
+                    >
+                      au
+                    </label>
+                    <input
+                      id="revenus-to"
+                      type="date"
+                      value={periode.to}
+                      min={periode.from}
+                      onChange={(e) => setBorne('to', e.target.value)}
+                      aria-label="Date de fin"
+                      data-testid="revenus-to"
+                      className={dateFieldClass}
+                    />
+                  </div>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={exportCsv}
+                  data-testid="revenus-export-csv"
                 >
-                  Du
-                </label>
-                <input
-                  id="revenus-from"
-                  type="date"
-                  value={periode.from}
-                  max={periode.to}
-                  onChange={(e) => setBorne('from', e.target.value)}
-                  aria-label="Date de début"
-                  data-testid="revenus-from"
-                  className={dateFieldClass}
-                />
+                  <Download className="h-4 w-4" />
+                  Exporter CSV
+                </Button>
               </div>
-              <div className="space-y-1">
-                <label
-                  htmlFor="revenus-to"
-                  className="block text-xs font-medium text-savr-neutral-600"
-                >
-                  au
-                </label>
-                <input
-                  id="revenus-to"
-                  type="date"
-                  value={periode.to}
-                  min={periode.from}
-                  onChange={(e) => setBorne('to', e.target.value)}
-                  aria-label="Date de fin"
-                  data-testid="revenus-to"
-                  className={dateFieldClass}
+
+              {/* Presets + Réinitialiser (BL-P3-02) */}
+              <div className="flex flex-wrap items-center gap-2">
+                <FilterChips
+                  ariaLabel="Période prédéfinie"
+                  chips={DASHBOARD_PRESETS.map((p) => ({
+                    key: p.key,
+                    label: p.label,
+                  }))}
+                  activeKey={activePreset}
+                  onSelect={(k) => {
+                    setPeriode(presetRange(k as PresetKey));
+                    setActivePreset(k);
+                    setPage(1);
+                  }}
                 />
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={() => {
+                    setPeriode(presetRange(DEFAULT_PRESET));
+                    setActivePreset(DEFAULT_PRESET);
+                    setPage(1);
+                  }}
+                  data-testid="revenus-reinitialiser"
+                >
+                  Réinitialiser
+                </Button>
               </div>
             </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={exportCsv}
-              data-testid="revenus-export-csv"
-            >
-              <Download className="h-4 w-4" />
-              Exporter CSV
-            </Button>
-          </div>
 
-          {/* Presets + Réinitialiser (BL-P3-02) */}
-          <div className="flex flex-wrap items-center gap-2">
-            <FilterChips
-              ariaLabel="Période prédéfinie"
-              chips={DASHBOARD_PRESETS.map((p) => ({
-                key: p.key,
-                label: p.label,
-              }))}
-              activeKey={activePreset}
-              onSelect={(k) => {
-                setPeriode(presetRange(k as PresetKey));
-                setActivePreset(k);
-                setPage(1);
-              }}
-            />
-            <Button
-              variant="link"
-              size="sm"
-              onClick={() => {
-                setPeriode(presetRange(DEFAULT_PRESET));
-                setActivePreset(DEFAULT_PRESET);
-                setPage(1);
-              }}
-              data-testid="revenus-reinitialiser"
-            >
-              Réinitialiser
-            </Button>
+            <Card>
+              {loadingRevenus ? (
+                <div className="space-y-2 p-6">
+                  {[...Array(5)].map((_, i) => (
+                    <Skeleton key={i} className="h-10 w-full" />
+                  ))}
+                </div>
+              ) : revenus.length === 0 ? (
+                <p className="p-6 text-sm text-savr-neutral-500">
+                  Aucune donnée sur la période.
+                </p>
+              ) : (
+                <>
+                  <DataTable
+                    columns={revenusColumns}
+                    data={revenus}
+                    keyExtractor={(row) => row.organisation_id}
+                    onSort={handleSort}
+                    sortKey={sortKey}
+                    sortDirection={sortDir}
+                  />
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between gap-2 border-t border-savr-neutral-100 p-3 text-sm">
+                      <span className="text-savr-neutral-500">
+                        {total} organisation{total > 1 ? 's' : ''}
+                      </span>
+                      {/* Pagination DS (BL-P3-07) — remplace le footer Précédent/Suivant maison. */}
+                      <Pagination
+                        page={page}
+                        pageCount={totalPages}
+                        onPageChange={setPage}
+                      />
+                    </div>
+                  )}
+                </>
+              )}
+            </Card>
           </div>
         </div>
-
-        <Card>
-          {loadingRevenus ? (
-            <div className="space-y-2 p-6">
-              {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} className="h-10 w-full" />
-              ))}
-            </div>
-          ) : revenus.length === 0 ? (
-            <p className="p-6 text-sm text-savr-neutral-500">
-              Aucune donnée sur la période.
-            </p>
-          ) : (
-            <>
-              <DataTable
-                columns={revenusColumns}
-                data={revenus}
-                keyExtractor={(row) => row.organisation_id}
-                onSort={handleSort}
-                sortKey={sortKey}
-                sortDirection={sortDir}
-              />
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between gap-2 border-t border-savr-neutral-100 p-3 text-sm">
-                  <span className="text-savr-neutral-500">
-                    {total} organisation{total > 1 ? 's' : ''}
-                  </span>
-                  {/* Pagination DS (BL-P3-07) — remplace le footer Précédent/Suivant maison. */}
-                  <Pagination
-                    page={page}
-                    pageCount={totalPages}
-                    onPageChange={setPage}
-                  />
-                </div>
-              )}
-            </>
-          )}
-        </Card>
       </section>
     </div>
   );

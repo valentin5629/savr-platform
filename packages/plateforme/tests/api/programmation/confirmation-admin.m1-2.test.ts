@@ -237,8 +237,10 @@ describe('M1.2 — confirmation de programmation : action « Ajouter une collect
 
     const res = await ajouterCollecte('ag');
 
-    // Cherché sur `org-savr`, le pack serait introuvable → 422 « Aucun pack actif ».
     expect(res.status).toBe(201);
+    // C'est cette assertion qui fait foi : le stub sert le pack quel que soit le
+    // prédicat, donc le 201 ci-dessus survivrait à une régression. En prod, un
+    // pack cherché sur `org-savr` serait introuvable → 422 « Aucun pack actif ».
     expect(orgPredicates()).toEqual([['organisation_id', 'org-kaspia']]);
   });
 

@@ -146,6 +146,14 @@
       "test": "M1.2 — PROG-05 auto-accept AG déclenché à la confirmation",
       "statut": "implemented",
       "libelle": "À la confirmation AG : évaluation auto-accept (algo §09 §6, best-effort) + fix bug latent gate pack 'anti_gaspi'"
+    },
+    {
+      "id": "M1.2-confirmation-admin",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:402",
+      "artefact": "packages/plateforme/src/app/(programmation)/programmer/confirmation/page.tsx",
+      "test": "M1.2 — confirmation de programmation : détail événement (mode admin support) > admin_savr obtient le récapitulatif (et non plus 403 « Rôle insuffisant »)",
+      "statut": "implemented",
+      "libelle": "Écran de confirmation dédié post-programmation (bandeau succès + récap des collectes créées + rappel email récap + 3 actions), servi à TOUS les rôles programmateurs — dont admin_savr en mode support (§06.01 l.17, « tous périmètres »)"
     }
   ],
   "cdc_source_hash": {

@@ -428,6 +428,34 @@ describe('M1.2 — suppression d’un brouillon (mode admin support)', () => {
     ]);
   });
 
+  it("un traiteur_commercial ne peut pas supprimer le brouillon d'un collègue", async () => {
+    setupAuth('traiteur_commercial', 'org-kaspia', 'user-commercial');
+    admin.push({
+      data: { id: 'e1', created_by: 'user-collegue' },
+      error: null,
+    });
+
+    const res = await supprimer();
+
+    // Miroir de la policy col_delete_brouillon (§09) : commercial = ses propres
+    // créations. RLS ne rattrape pas (route sous service-role). Le défaut était
+    // inerte tant que le DELETE échouait en 500 pour tout le monde ; il devient
+    // atteignable dès que la route fonctionne.
+    expect(res.status).toBe(403);
+    expect(admin.__calls.rpc).toBeUndefined();
+  });
+
+  it('un traiteur_commercial supprime son propre brouillon', async () => {
+    setupAuth('traiteur_commercial', 'org-kaspia', 'user-commercial');
+    admin.push({
+      data: { id: 'e1', created_by: 'user-commercial' },
+      error: null,
+    });
+    admin.push({ data: null, error: null });
+
+    expect((await supprimer()).status).toBe(204);
+  });
+
   it("un rôle hors périmètre programmation n'a pas gagné l'accès au passage", async () => {
     setupAuth('client_organisateur', 'org-kaspia');
 

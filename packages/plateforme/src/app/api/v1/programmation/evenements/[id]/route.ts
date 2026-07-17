@@ -248,7 +248,7 @@ export async function DELETE(
   // `org_savr`, qui ne désigne aucune org cliente).
   const evtQuery = supabase
     .from('evenements')
-    .select('id')
+    .select('id, created_by')
     .eq('id', evenementId);
 
   const { data: evt } = await (
@@ -261,6 +261,23 @@ export async function DELETE(
     return NextResponse.json(
       { error: 'Événement introuvable ou accès refusé' },
       { status: 404 },
+    );
+  }
+
+  // Périmètre d'ÉCRITURE — miroir de la policy `col_delete_brouillon` (§09), qui
+  // restreint `traiteur_commercial` à `evenements.created_by = auth.uid()` là où les
+  // autres rôles clients ont leur organisation. Le PATCH ci-dessus applique déjà ce
+  // raffinement ; le DELETE ne l'a jamais fait — sans conséquence tant qu'il échouait
+  // en 500 pour tout le monde, mais un commercial pourrait sinon supprimer le
+  // brouillon d'un collègue dès que la route fonctionne. RLS ne rattrape pas : cette
+  // route tourne sous service-role.
+  if (
+    auth.ctx.role === 'traiteur_commercial' &&
+    evt.created_by !== auth.ctx.userId
+  ) {
+    return NextResponse.json(
+      { error: 'Suppression non autorisée' },
+      { status: 403 },
     );
   }
 

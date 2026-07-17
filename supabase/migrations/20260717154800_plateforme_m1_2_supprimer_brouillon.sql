@@ -29,10 +29,16 @@
 -- Pas d'event outbox : un brouillon n'a jamais été dispatché (statut_tms='non_envoye',
 -- E1 n'est émis qu'à la confirmation) → rien à annuler côté TMS, pas de E3. G4 sans objet.
 
+-- `SET search_path` est INLINE dans le CREATE (et non posé après coup par ALTER
+-- FUNCTION) : un futur `CREATE OR REPLACE` réinitialise le proconfig et effacerait
+-- silencieusement un search_path posé par ALTER → SECURITY DEFINER exposée au
+-- search-path hijack. Pattern aligné sur la migration r12b (20260708120000).
 CREATE OR REPLACE FUNCTION plateforme.fn_supprimer_brouillon(
   p_evenement_id uuid
 ) RETURNS void
-LANGUAGE plpgsql SECURITY DEFINER AS $$
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path TO 'plateforme', 'public'
+AS $$
 DECLARE
   v_non_brouillon int;
 BEGIN
@@ -58,7 +64,7 @@ END;
 $$;
 
 -- Appelée uniquement via createAdminSupabaseClient (service role) — même pattern
--- que fn_confirmer_programmation_brouillon (B1).
+-- que fn_confirmer_programmation_brouillon (B1). L'autorisation (propriété de
+-- l'événement, raffinement `created_by` pour traiteur_commercial) vit dans la route :
+-- cette RPC ne porte QUE la garde d'état « brouillon uniquement ».
 REVOKE EXECUTE ON FUNCTION plateforme.fn_supprimer_brouillon(uuid) FROM PUBLIC;
-ALTER FUNCTION plateforme.fn_supprimer_brouillon(uuid)
-  SET search_path = plateforme, public;

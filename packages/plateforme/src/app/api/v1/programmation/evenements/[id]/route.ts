@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import {
   requireProgrammateur,
+  requireProgrammateurOuAdmin,
   createSupabaseServerClient,
 } from '@/lib/api-auth.js';
 import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
@@ -227,23 +228,33 @@ export async function PATCH(
 }
 
 // Suppression d'un événement brouillon (et ses collectes) par son propriétaire.
+// Ouverte à l'admin en mode support, comme la liste qui l'appelle : depuis que
+// celle-ci lui rend ses propres brouillons (GET ../evenements?statut=brouillon,
+// décision Val 2026-07-17), le bouton « Supprimer » est cliquable — le laisser
+// fail-closed rendrait la ligne visible mais l'action morte.
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
-  const auth = await requireProgrammateur(req);
+  const auth = await requireProgrammateurOuAdmin(req);
   if (auth.error) return auth.error;
 
   const { id: evenementId } = await params;
   const supabase = createAdminSupabaseClient();
 
-  // Vérification propriété + statut brouillon uniquement
-  const { data: evt } = await supabase
+  // Vérification propriété + statut brouillon uniquement. Route d'ITEM clé par PK :
+  // prédicat org strict pour les rôles clients, retiré pour le staff (son JWT porte
+  // `org_savr`, qui ne désigne aucune org cliente).
+  const evtQuery = supabase
     .from('evenements')
     .select('id')
-    .eq('id', evenementId)
-    .eq('organisation_id', auth.ctx.organisationId)
-    .single();
+    .eq('id', evenementId);
+
+  const { data: evt } = await (
+    auth.ctx.isAdmin
+      ? evtQuery
+      : evtQuery.eq('organisation_id', auth.ctx.organisationId)
+  ).single();
 
   if (!evt) {
     return NextResponse.json(

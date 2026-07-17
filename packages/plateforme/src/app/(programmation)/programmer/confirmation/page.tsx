@@ -18,11 +18,23 @@ type CollecteRecap = {
   type: string;
   statut: string;
   date_collecte: string | null;
+  heure_collecte: string | null;
+};
+
+type LieuRecap = {
+  nom: string | null;
+  adresse_acces: string | null;
+  code_postal: string | null;
+  ville: string | null;
 };
 
 type EvenementRecap = {
   id: string;
   nom_evenement: string;
+  pax: number | null;
+  contact_principal_nom: string | null;
+  // Relation to-one : PostgREST renvoie un objet, on tolère le tableau par sûreté.
+  lieux: LieuRecap | LieuRecap[] | null;
   collectes: CollecteRecap[];
 };
 
@@ -43,6 +55,24 @@ function formatDate(date: string | null): string {
     month: 'long',
     year: 'numeric',
   });
+}
+
+// `heure_collecte` est une colonne `time` (ex. "14:30:00") — on n'affiche que HH:MM
+// (même convention que les listes collectes agence/organisateur).
+function formatHeure(heure: string | null): string {
+  return heure ? heure.slice(0, 5) : '';
+}
+
+function formatLieu(lieux: EvenementRecap['lieux']): string {
+  const lieu = Array.isArray(lieux) ? (lieux[0] ?? null) : lieux;
+  if (!lieu) return '—';
+  const adresse = [
+    lieu.adresse_acces,
+    [lieu.code_postal, lieu.ville].filter(Boolean).join(' '),
+  ]
+    .filter(Boolean)
+    .join(', ');
+  return [lieu.nom, adresse].filter(Boolean).join(' — ') || '—';
 }
 
 function ConfirmationContent() {
@@ -117,6 +147,38 @@ function ConfirmationContent() {
         </div>
       )}
 
+      {/* Détails de l'événement — lieu / pax / contact sont portés par
+          `evenements` (pas par collecte), cf. §04 Data Model. */}
+      {evenement && (
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-savr-neutral-500">
+            Événement
+          </h2>
+          <dl className="grid gap-4 rounded-savr-md border border-savr-neutral-200 bg-savr-white px-4 py-3 sm:grid-cols-3">
+            <div className="space-y-0.5 sm:col-span-3">
+              <dt className="text-xs text-savr-neutral-500">Lieu</dt>
+              <dd className="text-sm text-savr-neutral-900">
+                {formatLieu(evenement.lieux)}
+              </dd>
+            </div>
+            <div className="space-y-0.5">
+              <dt className="text-xs text-savr-neutral-500">Nombre de pax</dt>
+              <dd className="text-sm text-savr-neutral-900">
+                {evenement.pax ?? '—'}
+              </dd>
+            </div>
+            <div className="space-y-0.5 sm:col-span-2">
+              <dt className="text-xs text-savr-neutral-500">
+                Contact principal
+              </dt>
+              <dd className="text-sm text-savr-neutral-900">
+                {evenement.contact_principal_nom || '—'}
+              </dd>
+            </div>
+          </dl>
+        </div>
+      )}
+
       {/* Récapitulatif des collectes créées */}
       {collectes.length > 0 && (
         <div className="space-y-3">
@@ -136,7 +198,10 @@ function ConfirmationContent() {
                     {libelleType(c.type)}
                   </p>
                   <p className="text-xs text-savr-neutral-500">
-                    Collecte du {formatDate(c.date_collecte)}
+                    {formatDate(c.date_collecte)}
+                    {formatHeure(c.heure_collecte)
+                      ? ` à ${formatHeure(c.heure_collecte)}`
+                      : ''}
                   </p>
                 </div>
                 <CollecteStatutBadge statut={c.statut} />

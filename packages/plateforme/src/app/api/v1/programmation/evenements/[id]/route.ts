@@ -49,7 +49,9 @@ export async function GET(
 
   const { data, error } = await supabase
     .from('evenements')
-    .select('id, nom_evenement, collectes(id, type, statut, date_collecte)')
+    .select(
+      'id, nom_evenement, pax, contact_principal_nom, lieux(nom, adresse_acces, code_postal, ville), collectes(id, type, statut, date_collecte, heure_collecte)',
+    )
     .eq('id', evenementId)
     .eq('organisation_id', auth.ctx.organisationId)
     .single();

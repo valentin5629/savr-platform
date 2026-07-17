@@ -1,5 +1,7 @@
 # 11 - Dashboards
 
+**Statut** : Validé
+**Dernière mise à jour** : 2026-06-07 (**Session test-scenarios lot ⑫ — F5 tranchée Val** : histogramme Revenus Bloc 2 = statuts factures `emise|payee`, avoirs en négatif. Scénarios : `tests/11-12-dashboards-reporting-scenarios.md`.) / Antérieure : 2026-06-03 (**Revue de sobriété §11 Dashboards — 4 items, zéro dette** : **A1** suppression des 4 vues matérialisées `mv_kpi_*` + cron 15 min (fantômes, absentes §04) → vues SQL non matérialisées `v_kpi_*` à la volée ; **B1** préférences filtres/période → `localStorage` (plus de table serveur) ; **B2** retrait onglet « Vue consolidée » du dashboard `client_organisateur` → bandeau de tête + nettoyage références stale (décisions L208 + agence) ; **C1** dédup « Export PDF dashboards Puppeteer » → source unique §12. Toutes modifs locales §11.) — *ex 2026-05-06 : Taux de recyclage indicateur unique ZD-only, cf. [[04 - Data Model]] addendum 2026-05-06 + [[05 - Règles métier#R_taux_recyclage]]*
 
 ---
 
@@ -26,8 +28,7 @@ Vue de pilotage opérationnel Savr — exclusivement orientée actions à mener.
 | Collectes non transmises au TMS (split ZD / AG) *(renommée Sujet 2 2026-05-26, ex « à valider » — monitoring d'échec E1, pas de gate Admin)* | `collectes` `statut=programmee` ET `tms_reference IS NULL` |
 | Collectes en attente de validation prestataire | `statut_tms = 'attribuee_en_attente_acceptation'` *(corrigé 2026-05-29 : ex `statut_dispatch`, champ TMS — miroir Plateforme = `collectes.statut_tms`)* |
 | Collectes modifiées sans renvoi TMS | `dirty_tms = true` |
-| Collectes ZD prévues 48h | `type=zd` ET `date_collecte BETWEEN now() AND now()+48h` ET `statut ∈ (programmee, validee)` |
-| Collectes AG prévues 48h | idem `type=ag` |
+| Collectes <48h non validées | `type ∈ (zd, ag)` ET `date_collecte BETWEEN now() AND now()+48h` ET `statut ∈ (programmee, validee)` ET `statut_tms NOT IN ('acceptee', 'en_attente_execution')` *(fusion ex « ZD prévues 48h » + « AG prévues 48h » — revue E2E 2026-07-15, divergence M3.6 : ne garder que les collectes imminentes non verrouillées côté prestataire ; le `NOT IN` englobe les non transmises `non_envoye`, en attente d'acceptation et rejetées. Route renvoie `collectes_48h_non_validees`. Badge `warning` « À valider » si > 0, sinon `success` « À jour ».)* |
 
 > **Bloc « Données opérationnelles » supprimé 2026-05-07** — les agrégats métier (tonnage, flux, taux recyclage, graphs événements) sont accessibles via le **Dashboard Client §1.2** avec sélecteur "Toutes les organisations".
 
@@ -207,7 +208,7 @@ Les dashboards lisent ces vues, pas les tables sources. Seul le benchmark Bloc 3
 
 - **6 dashboards distincts** (un par rôle V1, y compris `client_organisateur` ; `lieu_independant` fusionné dans `gestionnaire_lieux` — sobriété 2026-06-03 D1, cf. §6)
 - **Split AG / ZD systématique** via onglets sur tous les dashboards de collecte
-- **Admin** : statut TMS acceptance visible par collecte + détail tournées (N tournées listées pour une collecte multi-camions, refonte 2026-05-25) + picto "plaque TMS" (vert si **toutes** les tournées de la collecte ont leur `tournees.plaque_immatriculation` renseignée, gris si au moins une manque) — **propagation Q10 M05 2026-04-24** : picto "plaque demandée" client retiré V1, remplacé par picto monitoring Admin interne
+- **Admin** : statut TMS acceptance visible par collecte + détail tournées (N tournées listées pour une collecte multi-camions, refonte 2026-05-25) + picto "plaque TMS" (vert si **toutes** les tournées de la collecte ont leur `tournees.plaque_immatriculation` renseignée, gris si au moins une manque) — **propagation Q10 M05 2026-04-24** : picto "plaque demandée" client retiré V1, remplacé par picto monitoring Admin interne. **Réintroduction V1 « Infos accès » (décision Val 2026-07-15, divergence PLAQUES)** : la notification client des infos d'accès chauffeur est ré-avancée en V1 sous forme enrichie (nom + téléphone chauffeur + accompagnant, email au programmateur à complétude). KPI/filtre de la liste Collectes Admin **« Infos accès à envoyer »** (ex « Plaque à récupérer ») = `controle_acces_requis = true ET infos_acces_email_envoye_at IS NULL ET date_collecte >= today` ; le compteur de la carte et le filtre `controle_acces` de la liste partagent cette définition (miroir exact)
 - **Accès détail direct** au clic (pas de page intermédiaire)
 - **Manager** : ajout taux de recyclage partout (ZD uniquement, formule à captation cf. [[05 - Règles métier#R_taux_recyclage]]) + graph événements par type
 - **Commercial (révision 2026-05-29)** : lecture intégralement alignée sur le Manager — dashboard analytique complet + benchmarks + Bloc 7 Top 5 commerciaux ouverts, accès lecture à toutes les collectes et factures du traiteur (RLS `organisation_id`). Écriture limitée à ses propres créations (`cree_par_user_id`)

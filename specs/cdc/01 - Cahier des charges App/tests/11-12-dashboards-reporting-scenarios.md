@@ -2,6 +2,7 @@
 
 **Source CDC** : [[11 - Dashboards]] + [[12 - Reporting et exports]] + [[05 - Règles métier]] (R_taux_recyclage, R_co2_calcul, R_co2_ag, R_co2_snapshot_fige, R_marge_zd_traiteur, R_revenus_imputation_organisation) + [[04 - Data Model]] (`rapports_rse`, `bordereaux_savr`, `attestations_don`, `exports_registre`, `documents_generaux_savr`, `f_benchmark_kg_pax_zd`, vues `v_kpi_*`, `v_registre_dechets`) + [[09 - Authentification et permissions]] (A8, A9, A10, matrices bordereaux/attestations)
 **Généré le** : 2026-06-07
+**Statut** : À implémenter par Claude Code
 
 > **Instructions Claude Code** : ces scénarios sont la source de vérité pour les tests des modules §11 Dashboards et §12 Reporting/exports.
 > Pour chaque scénario :
@@ -38,10 +39,10 @@
 # Priorité : P1-critique
 
 Scénario : dashboard_admin_cinq_cartes_actions
-  Étant donné 1 collecte ZD "statut=programmee" avec "tms_reference IS NULL", 1 collecte "statut_tms=attribuee_en_attente_acceptation", 1 collecte "dirty_tms=true", 1 collecte ZD "programmee" à J+1 (dans 48h) et 1 collecte AG "validee" à J+1
+  Étant donné 1 collecte ZD "programmee" "statut_tms=non_envoye" "tms_reference IS NULL" (hors 48h), 1 collecte AG "programmee" "statut_tms=non_envoye" (hors 48h), 1 collecte "statut_tms=attribuee_en_attente_acceptation" (hors 48h), 1 collecte "dirty_tms=true", et 1 collecte "programmee" "statut_tms=a_attribuer" à J+1 (dans 48h, non verrouillée)
   Quand un admin_savr charge le Dashboard Admin
-  Alors les 5 cartes affichent respectivement 1 / 1 / 1 / 1 / 1
-  Et le clic sur chaque carte redirige vers la liste Collectes §3 avec le filtre correspondant pré-appliqué (pas de page intermédiaire)
+  Alors les 5 cartes « Non transmises ZD » / « Non transmises AG » / « En attente prestataire » / « Modifiées sans renvoi TMS » / « Collectes <48h non validées » affichent respectivement 1 / 1 / 1 / 1 / 1 (rangée refondue 2026-07-15 : split Non transmises M3.5 + fusion 48h M3.6)
+  Et le clic sur chaque carte redirige vers la liste Collectes §3 avec le chip miroir pré-appliqué (`non_transmises_zd` / `non_transmises_ag` / `attente_prestataire` / `dirty_tms` / `collectes_48h_non_validees`), sans page intermédiaire
 ```
 
 ```gherkin
@@ -115,11 +116,12 @@ Scénario : attestation_don_ag_batch_avec_snapshot
 # Couche : api
 # Priorité : P1-critique
 
-Scénario : rapport_sans_excedent_genere_immediatement
-  Étant donné une collecte AG dont le webhook `collecte-terminee` arrive avec statut_final = "realisee_sans_collecte" et un motif chauffeur
-  Quand le webhook est traité
-  Alors le PDF "Événement sans excédent alimentaire" (template `rapport_evenement_sans_excedent`) est généré immédiatement, sans embargo H+24
+Scénario : rapport_sans_excedent_genere_batch_nightly
+  Étant donné une collecte AG passée en "realisee_sans_collecte" (transition via webhook Everest, course vide AG) avec un motif chauffeur, sans rapport encore généré
+  Quand le batch nightly `runBatchSansExcedent` (monté dans le cron J+1 6h) tourne
+  Alors le PDF "Événement sans excédent alimentaire" (template `rapport_evenement_sans_excedent`) est généré, sans embargo H+24
   Et une ligne `rapports_rse` standard est créée avec disponible_a = genere_at (F1 tranchée 2026-06-07 — pas de colonne type)
+  Et le batch est idempotent (skip si une ligne `rapports_rse` existe déjà pour la collecte)
   Et le PDF contient : heure de présentation chauffeur, nom chauffeur, motif déclaré, mention "Aucun repas n'a été collecté…"
   Et aucune `attestations_don` n'est créée pour cette collecte
   Et aucune photo n'est incluse dans le PDF (photos TMS accessibles back-office Admin seulement)
@@ -315,9 +317,9 @@ Scénario : alerte_pesee_somme_pesees_multiples_meme_flux
 
 Scénario : marge_zd_null_et_negative
   Étant donné le dashboard traiteur Kaspia filtré sur une période sans collecte ZD
-  Quand le KPI Marge générée se calcule
-  Alors la marge = NULL et l'UI affiche "—"
-  Et sur une période où Σ factures HT (620 €) > tarif×pax (1,50 × 383 = 574,50 €), la marge s'affiche en rouge "−45,50 €"
+  Quand la grandeur marge se calcule via l'endpoint kpi-traiteur
+  Alors l'endpoint retourne NULL (plus affichée en carte KPI — retrait rangée, décision Val 2026-07-13, réversible) ; ancienne UI affichait "—"
+  Et sur une période où Σ factures HT (620 €) > tarif×pax (1,50 × 383 = 574,50 €), l'endpoint retourne la valeur négative (affichage carte rouge retiré — décision Val 2026-07-13) "−45,50 €"
 ```
 
 ```gherkin
@@ -825,7 +827,7 @@ Scénario : couts_dashboard_somme_tournees_multi_camions
 Scénario : rapport_sans_excedent_donnees_tms
   Étant donné un S5 realisee_sans_collecte portant motif chauffeur et heure de présentation
   Quand le PDF est généré
-  Alors heure de présentation (`tournees.heure_reelle_arrivee`), nom chauffeur et motif proviennent des données poussées par le TMS
+  Alors heure de présentation (`tournees.heure_debut_reelle`), nom chauffeur et motif proviennent des données poussées par le TMS
   Et la plaque n'apparaît QUE si controle_acces_requis = true sur la collecte
 ```
 

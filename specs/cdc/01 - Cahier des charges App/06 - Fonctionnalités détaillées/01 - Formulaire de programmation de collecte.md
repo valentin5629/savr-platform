@@ -1,5 +1,7 @@
 # 06.01 - Formulaire de programmation de collecte
 
+**Statut** : Draft V1 (refonte formulaire unique événement-centré 2026-05-21)
+**Dernière mise à jour** : 2026-05-29 (revue de sobriété — A1/A2/B1/C1-C5)
 
 ---
 
@@ -397,7 +399,7 @@ Responsive mobile : steps en single-column, sous-blocs collecte stacked, boutons
 10. Email récap au programmeur (un seul email couvrant l'événement et ses collectes — [[05 - Règles métier#9. Notifications V1]]).
 11. Si AG : lancement algo attribution → notification Admin pour validation.
 12. Si `controle_acces_requis = true` côté TMS : R_M04.CONTROLE_ACCES active.
-13. Redirection vers la page détail de l'événement créé (depuis laquelle "Ajouter une collecte" est disponible).
+13. Redirection vers un **écran de confirmation dédié** `/programmer/confirmation?id=…` (bandeau succès + récapitulatif des collectes créées + rappel email récap), offrant les actions « Ajouter une collecte à cet événement », « Programmer un autre événement » et « Accueil ». _(Décision Val 2026-07-16, divergence M1.2 : écran de succès dédié plutôt que redirection directe vers le détail événement.)_
 
 ---
 

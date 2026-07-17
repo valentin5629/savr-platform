@@ -120,7 +120,7 @@ Vue restituée du **Dashboard Gestionnaire de lieux** (cf. [[06 - Fonctionnalit�
 Multi-sélection :
 
 - **« Toutes les organisations »** (option par défaut) : agrège la totalité des collectes Savr (vue 100 % opérationnelle Savr)
-- **Sélection d'une ou plusieurs organisations** (autocomplete `organisations.nom`, tous types confondus : traiteur, agence, gestionnaire_lieux) : affiche le dashboard restreint au périmètre sélectionné
+- **Sélection d'une ou plusieurs organisations** (autocomplete `organisations.nom`, tous types confondus : traiteur, agence, gestionnaire_lieux) : affiche le dashboard restreint au périmètre sélectionné. **Périmètre d'une organisation sélectionnée** *(décision Val R24c 2026-07-14, divergence M3.6)* : matche les collectes où elle est **programmatrice** (`evenements.organisation_id`) **OU traiteur opérationnel** (`evenements.traiteur_operationnel_organisation_id`) — un traiteur = toute son activité d'opérateur, y compris les événements sous-traités pour une agence (ex. Kaspia = 97 collectes, et non 85). Une agence → ses événements programmés (jamais opératrice) ; un gestionnaire → inchangé. Le filtre « Traiteur » de la liste Collectes (§3) suit la même sémantique (`traiteur_operationnel`), miroir du Top 5 traiteurs.
 
 Persistance du filtre : `localStorage` côté navigateur (l'Admin retrouve sa sélection à la prochaine ouverture).
 
@@ -186,7 +186,7 @@ Colonnes par ligne :
 ### Filtres
 
 - Type : ZD / AG / Tout
-- Traiteur (`organisation_id` via liste déroulante — menu `<select>` peuplé de tous les traiteurs, tri alphabétique, option « Tous les traiteurs »)
+- Traiteur (`traiteur_operationnel_organisation_id` via liste déroulante — menu `<select>` peuplé de tous les traiteurs, tri alphabétique, option « Tous les traiteurs ») *(sémantique corrigée 2026-07-14, divergence M3.6 : filtre par traiteur opérationnel, miroir exact du Top 5 traiteurs et du drill-down des dashboards ; le param API `organisation_id` reste supporté, `traiteur_operationnel_id` ajouté)*
 - Lieu (`lieu_id` via liste déroulante — menu `<select>` peuplé de tous les lieux, tri alphabétique, option « Tous les lieux »)
 - Statut (multi-sélection)
 - Plage de dates (`date_collecte` entre X et Y)
@@ -194,7 +194,7 @@ Colonnes par ligne :
 - "Anomalie pesée" oui/non (ZD uniquement) *(V2 — détection seuils par flux, exception actée ; filtre inactif en V1)*
 - "Rapport non consulté" oui/non
 - **Filtres prédéfinis cliquables (chips en haut de liste)** *(ajout 2026-05-07)* :
-  - "Non transmises au TMS" *(renommé Sujet 2 2026-05-26, ex « À valider »)* → `statut=programmee` ET `tms_reference IS NULL`
+  - "Non transmises ZD" / "Non transmises AG" *(scindé 2026-07-15, divergence M3.5 — miroir exact des cartes-actions Bloc 1 du Dashboard Admin)* → par type : `type = zd|ag` ET `statut_tms = 'non_envoye'` ET `tms_reference IS NULL` ET `statut ∈ (programmee, validee)`. Cibles de clic des cartes du dashboard (drill-down « miroir exact », prédicats partagés `lib/collectes-chips.ts`). *(Le prédicat combiné historique « Non transmises au TMS » = `statut=programmee ET tms_reference IS NULL` reste disponible côté API — back-compat — mais retiré du bandeau visible.)*
   - "En attente prestataire" → `statut_tms = 'attribuee_en_attente_acceptation'` *(corrigé 2026-05-29 : ex `statut_dispatch`, champ TMS — côté Plateforme le miroir est `collectes.statut_tms`)*
   - "Modifiées sans renvoi TMS" → `dirty_tms = true` (cf. §3 Bloc 0 pour la définition du flag)
   - "AG en attente attribution" → `type=ag` ET aucune attribution validée (`NOT EXISTS (attributions_antgaspi a WHERE a.collecte_id = collectes.id AND a.valide_at IS NOT NULL)`) *(corrigé 2026-05-29 : ex réf `attributions_antgaspi.statut` — colonne inexistante. Équivalent post-alignement ZD/AG : `type=ag AND statut_tms = 'non_envoye'`, l'AG restant `non_envoye` tant que l'attribution n'est pas validée)*

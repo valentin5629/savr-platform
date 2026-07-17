@@ -75,6 +75,10 @@
 --   tms.collecte_tournees.statut_execution (a_faire|faite|incident, gate clôture M05 E4),
 --   tms.pesees.idempotency_key : DEFAULT gen_random_uuid() retiré (RC-M05-02). Recompté : 93 tables
 --   (58 plateforme, 33 tms, 2 shared).
+-- Regelé le : 2026-07-15 (divergence « Infos accès chauffeur » / réintro V1, décision Val ;
+--   cf. _Divergences/PLAQUES_20260715.md) : + plateforme.tournees.accompagnant_nom / accompagnant_telephone,
+--   + plateforme.collectes.infos_acces_email_envoye_at. Ajout de COLONNES sur des CREATE TABLE
+--   existants → comptes inchangés (93 tables / 56 enums / 162 FK / 320 statements).
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
@@ -408,6 +412,8 @@ CREATE TABLE plateforme.tournees (
   plaque_saisie_at         timestamptz,
   chauffeur_nom            text,
   chauffeur_telephone      text,
+  accompagnant_nom         text,                           -- infos accès chauffeur V1 (réintro Val 2026-07-15) — 2e équipier
+  accompagnant_telephone   text,                           -- idem
   statut                   plateforme.tournee_statut NOT NULL,
   tms_reference            text,
   external_ref_commande    text,                           -- neutre TMS-Ready (idempotence retry)
@@ -700,6 +706,7 @@ CREATE TABLE plateforme.collectes (
   heure_fin_reelle         timestamptz,                    -- time→timestamptz (2026-06-11 idem)
   volume_estime_repas      integer,
   controle_acces_requis    boolean NOT NULL DEFAULT false,
+  infos_acces_email_envoye_at timestamptz,                 -- infos accès chauffeur V1 (réintro Val 2026-07-15) — suivi d'envoi de l'email récap (ex-`email_plaque_envoye_at`)
   notes_internes           text,
   informations_supplementaires text,
   tms_reference            text,

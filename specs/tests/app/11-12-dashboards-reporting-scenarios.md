@@ -39,10 +39,10 @@
 # Priorité : P1-critique
 
 Scénario : dashboard_admin_cinq_cartes_actions
-  Étant donné 1 collecte ZD "statut=programmee" avec "tms_reference IS NULL", 1 collecte "statut_tms=attribuee_en_attente_acceptation", 1 collecte "dirty_tms=true", 1 collecte ZD "programmee" à J+1 (dans 48h) et 1 collecte AG "validee" à J+1
+  Étant donné 1 collecte ZD "programmee" "statut_tms=non_envoye" "tms_reference IS NULL" (hors 48h), 1 collecte AG "programmee" "statut_tms=non_envoye" (hors 48h), 1 collecte "statut_tms=attribuee_en_attente_acceptation" (hors 48h), 1 collecte "dirty_tms=true", et 1 collecte "programmee" "statut_tms=a_attribuer" à J+1 (dans 48h, non verrouillée)
   Quand un admin_savr charge le Dashboard Admin
-  Alors les 5 cartes affichent respectivement 1 / 1 / 1 / 1 / 1
-  Et le clic sur chaque carte redirige vers la liste Collectes §3 avec le filtre correspondant pré-appliqué (pas de page intermédiaire)
+  Alors les 5 cartes « Non transmises ZD » / « Non transmises AG » / « En attente prestataire » / « Modifiées sans renvoi TMS » / « Collectes <48h non validées » affichent respectivement 1 / 1 / 1 / 1 / 1 (rangée refondue 2026-07-15 : split Non transmises M3.5 + fusion 48h M3.6)
+  Et le clic sur chaque carte redirige vers la liste Collectes §3 avec le chip miroir pré-appliqué (`non_transmises_zd` / `non_transmises_ag` / `attente_prestataire` / `dirty_tms` / `collectes_48h_non_validees`), sans page intermédiaire
 ```
 
 ```gherkin

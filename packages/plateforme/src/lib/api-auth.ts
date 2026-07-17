@@ -297,7 +297,12 @@ export async function requireProgrammateur(
 }
 
 // Shortcut : programmation de support admin_savr (tous périmètres).
-// organisationId proviendra du body (champ organisation_id requis).
+// Deux idiomes selon la forme de la route, l'org cible ne venant JAMAIS du JWT :
+//  • route de COLLECTION (POST /evenements, /lieux, /contacts…) → l'org cible est
+//    déclarée par l'appelant (body/query) et le prédicat org reste posé ;
+//  • route d'ITEM clé par PK (GET /evenements/[id]…) → l'id désigne déjà la ligne,
+//    l'org se lit dessus et le prédicat org est retiré pour le staff (le poser sur
+//    `org_savr` ne cloisonnerait rien, cf. le ⚠ ci-dessous).
 export async function requireProgrammateurOuAdmin(
   _req: NextRequest,
 ): Promise<

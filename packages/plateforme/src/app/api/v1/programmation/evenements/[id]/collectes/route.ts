@@ -1,15 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
-import { requireProgrammateur } from '@/lib/api-auth.js';
+import { requireProgrammateurOuAdmin } from '@/lib/api-auth.js';
 import { envoyerRecapProgrammation } from '@/lib/programmation/recap-email.js';
 import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
 import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
 
+// Cible de l'action « Ajouter une collecte à cet événement » de l'écran de
+// confirmation (§06.01 étape 13) → ouverte à l'admin en mode support comme le POST
+// de création. L'org de rattachement n'est jamais celle du JWT ici : elle est lue
+// sur l'événement (`evt.organisation_id`), ce qui vaut identité pour un rôle client
+// (garanti par le prédicat org ci-dessous) et désigne l'org cible pour le staff.
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
-  const auth = await requireProgrammateur(req);
+  const auth = await requireProgrammateurOuAdmin(req);
   if (auth.error) return auth.error;
 
   const { id: evenementId } = await params;
@@ -33,13 +38,17 @@ export async function POST(
 
   const supabase = createAdminSupabaseClient();
 
-  // Vérification propriété et éditabilité
-  const { data: evt } = await supabase
+  // Vérification propriété et éditabilité — même cloisonnement que le GET.
+  const evtQuery = supabase
     .from('evenements')
     .select('id, organisation_id, nom_evenement, pax')
-    .eq('id', evenementId)
-    .eq('organisation_id', auth.ctx.organisationId)
-    .single();
+    .eq('id', evenementId);
+
+  const { data: evt } = await (
+    auth.ctx.isAdmin
+      ? evtQuery
+      : evtQuery.eq('organisation_id', auth.ctx.organisationId)
+  ).single();
 
   if (!evt) {
     return NextResponse.json(
@@ -64,7 +73,7 @@ export async function POST(
     const { data: pack } = await supabase
       .from('packs_antgaspi')
       .select('id, credits_restants')
-      .eq('organisation_id', auth.ctx.organisationId)
+      .eq('organisation_id', evt.organisation_id)
       .eq('statut', 'actif')
       .maybeSingle();
     if (!pack || (pack.credits_restants ?? 0) <= 0) {
@@ -117,7 +126,7 @@ export async function POST(
   if (collecteId) {
     void notifierTraiteurOperationnel(supabase, {
       collecteId: collecteId as string,
-      acteurOrgId: auth.ctx.organisationId,
+      acteurOrgId: evt.organisation_id,
       changement: { kind: 'programmation', programmeurUserId: auth.ctx.userId },
     }).catch(() => undefined);
   }

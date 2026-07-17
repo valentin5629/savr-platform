@@ -10,6 +10,7 @@ const mockSupabaseChain = {
   insert: vi.fn().mockReturnThis(),
   update: vi.fn().mockReturnThis(),
   eq: vi.fn().mockReturnThis(),
+  in: vi.fn().mockReturnThis(),
   not: vi.fn().mockReturnThis(),
   is: vi.fn().mockReturnThis(),
   ilike: vi.fn().mockReturnThis(),

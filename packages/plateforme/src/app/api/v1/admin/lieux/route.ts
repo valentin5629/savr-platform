@@ -35,6 +35,31 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // Enrichissement gestionnaire (organisations_lieux → organisations) en un seul
+  // aller-retour batché, pour la colonne « Gestionnaire » de la liste (§06.06 §7).
+  const rows = (data ?? []) as Array<Record<string, unknown>>;
+  const ids = rows.map((r) => r.id as string);
+  const gestionnaireParLieu = new Map<string, string>();
+  if (ids.length > 0) {
+    const { data: liens } = await supabase
+      .from('organisations_lieux')
+      .select('lieu_id, organisations(nom, raison_sociale)')
+      .in('lieu_id', ids);
+    for (const lien of (liens ?? []) as Array<{
+      lieu_id: string;
+      organisations?: { nom?: string; raison_sociale?: string } | null;
+    }>) {
+      const org = lien.organisations;
+      const nom = org?.raison_sociale ?? org?.nom ?? null;
+      if (nom && !gestionnaireParLieu.has(lien.lieu_id))
+        gestionnaireParLieu.set(lien.lieu_id, nom);
+    }
+  }
+  const enriched: Array<Record<string, unknown>> = rows.map((r) => ({
+    ...r,
+    gestionnaire_nom: gestionnaireParLieu.get(r.id as string) ?? null,
+  }));
+
   if (worklist === 'modifs') {
     const { data: collectesOverrides } = await supabase
       .from('collectes')
@@ -45,13 +70,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         (c) => (c.evenements as unknown as { lieu_id: string }).lieu_id,
       ),
     );
-    const filtered = (data ?? []).filter((l: { id: string }) =>
-      lieuIdsAvecOverrides.has(l.id),
+    const filtered = enriched.filter((l) =>
+      lieuIdsAvecOverrides.has(l.id as string),
     );
     return NextResponse.json({ data: filtered, total: filtered.length });
   }
 
-  return NextResponse.json({ data: data ?? [], total: count ?? 0 });
+  return NextResponse.json({ data: enriched, total: count ?? 0 });
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {

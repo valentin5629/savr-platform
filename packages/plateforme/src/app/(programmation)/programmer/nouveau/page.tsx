@@ -103,18 +103,6 @@ const emptyCollecte = (type: 'zd' | 'ag'): CollecteFormData => ({
   informations_supplementaires: '',
 });
 
-// Liste des collectes propre à chaque rôle programmateur — cible de redirection
-// après confirmation (la collecte créée y apparaît). L'admin en support voit toutes
-// les collectes (dont celle créée pour le traiteur cible) dans /admin/collectes.
-const COLLECTES_PATH_BY_ROLE: Record<string, string> = {
-  admin_savr: '/admin/collectes',
-  ops_savr: '/admin/collectes',
-  traiteur_manager: '/traiteur/collectes',
-  traiteur_commercial: '/traiteur/collectes',
-  agence: '/agence/collectes',
-  gestionnaire_lieux: '/gestionnaire/collectes',
-};
-
 export default function NouveauProgrammationPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
@@ -455,11 +443,13 @@ export default function NouveauProgrammationPage() {
         return;
       }
 
-      // Confirmée → liste des collectes du rôle (la nouvelle collecte y figure).
+      // Confirmée → écran de confirmation dédié (récap + actions, §06.01).
       // Brouillon → liste des brouillons.
-      const collectesPath =
-        COLLECTES_PATH_BY_ROLE[role] ?? '/traiteur/collectes';
-      router.push(confirmer ? collectesPath : '/brouillons');
+      if (confirmer) {
+        router.push(`/programmer/confirmation?id=${data.evenement_id ?? ''}`);
+      } else {
+        router.push('/brouillons');
+      }
     } finally {
       setSubmitting(false);
     }

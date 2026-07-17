@@ -21,6 +21,13 @@
 - **N'inclut PAS** Pennylane/Everest/Resend/Railway (décision OBS-3) : leur santé est suivie via les alertes `api.external.failed` (`03`) et la vue `v_ops_integrations` (`04`), pas dans le check de vie. Évite qu'une panne Pennylane fasse passer Savr « down » alors que la plateforme fonctionne.
 - Auth requise (`admin_savr`/`ops_savr`) ou token interne — endpoint de diagnostic, pas public.
 
+### `GET /api/health/logistique` (ops — hors périmètre OBS-3) *(ajout 2026-07-16, divergence OBS-3)*
+- **Outil ops assumé, explicitement distinct de `/health` et `/health/full`.** Sonde read-only la connectivité des transporteurs configurés via l'interface `logistique_provider`, par `type_tms` : MTS-1 = **ping de l'API MTS-1** (API tierce) ; Everest / manuel = `non_applicable`.
+- **200** si tous les providers répondent `ok` ou `non_applicable`, sinon **503**. Ne lève jamais (toute erreur capturée dans le résultat). Read-only, aucun effet de bord métier.
+- Auth : `admin_savr` **ou** token `HEALTH_INTERNAL_TOKEN` (ajouté à `.env.example`). *(Rôle `ops_savr` retiré du commit — inexistant côté Plateforme, c'est un rôle TMS/V2.)*
+- **OBS-3 ne s'applique PAS à cet endpoint** : l'arbitrage OBS-3 (« DB + Auth seulement, pas de ping API tierce ») porte sur `/health` et `/health/full` uniquement, qui restent la cible V1 conforme. Cet endpoint de diagnostic ops dédié n'est pas câblé à Better Uptime.
+- Implémenté via une 6e méthode `healthCheck()` de l'interface `logistique_provider` (mts1/everest/manuel) — à refléter dans [[Interface logistique_provider V1]].
+
 ### Endpoints surveillés par Better Uptime
 Aligné `07 - Architecture` §5 :
 - `app.gosavr.io` (frontend)

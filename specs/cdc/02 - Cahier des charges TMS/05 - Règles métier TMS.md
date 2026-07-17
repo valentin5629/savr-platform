@@ -4,6 +4,7 @@
 
 > ⚠ **Addendum 2026-05-01 — Propagation revue sobriété §08 Bloc A** : les mentions "push webhook S6 `course-cout-calculee`" et "push webhook S8 `traiteur-stock-rolls-update`" dans les règles ci-dessous sont **obsolètes V1**. Remplacées par lecture cross-schema directe Plateforme via vues `plateforme.v_courses_logistiques` (ex-S6) + `plateforme.v_stocks_rolls` (ex-S8). R_M09.7 "TMS push obligatoire" supprimée. Voir [[08 - Contrat API Plateforme-TMS#Addendum 2026-05-01 — Revue sobriété §08 Bloc A]].
 
+**Dernière mise à jour** : 2026-06-04 (**propagation suppression saisie plaque terrain — arbitrage Val** — R_M05.2 retirée, matrice checklist R_M05.1 (item Plaque retiré, camion AG motorisé skip E3), cycle de vie `acceptee→en_cours` sans saisie plaque. R_M04.CONTROLE_ACCES + R_M03.4 (plaque pré-saisie manager pour contrôle d'accès) **inchangées**. `plaque_saisie_terrain` supprimée §04.) / 2026-05-03 (**propagation refonte formulaire §06.01 Plateforme** — R_M04.PLAQUE → R_M04.CONTROLE_ACCES (validation étendue à `chauffeur_id IS NOT NULL`), R_M03.4 renommée + étendue à plaque + nom chauffeur + cascade upgrade-only) / 2026-04-25 v2 (**Refonte M10 R5.4 v2 reset total + dual confirmation chauffeur/ops/auto J+7** — R5.4 réécrit reset TOTAL stock à confirmation effective via 3 sources, R5.4 bis 3 sources documentées, R5.7 v2 RAISE EXCEPTION anti-déconfirmation, R5.8 v2 création atomique a posteriori, R5.9 distinction déclaration vs confirmation, R5.10 cron escalade gradient J+1/J+3/J+7) / 2026-04-25 v1 (propagation M10 V1 — R5.1/R5.2 modernisées codes alertes M11, R5.3 seuil absolu par couple `flux × type_contenant`, R5.5/R5.6/R5.7/R5.8 ajoutées) / 2026-04-24 (propagation M03 Portail prestataire — 10 règles R_M03.x + 1 règle R_M04.PLAQUE + révision R_M05.10 volet méthode)
 
 ---
 
@@ -1155,7 +1156,7 @@ Toggle `controle_acces_requis_default` (ex `plaque_requise_default`) niveau `pla
 
 **UX formulaire programmation Plateforme** : si traiteur coche `controle_acces_requis=true` ET lieu/contexte = vélo cargo A Toutes! AG → message UX "Vélo cargo — pas de plaque possible". Soumission autorisée (le manager vélo cargo n'aura pas de plaque à saisir mais devra affecter un chauffeur — le trigger TMS valide via exception sur le critère plaque uniquement). Pas de blocage hard côté formulaire.
 
-**Cas d'usage** : commercial traiteur demande la plaque + le nom du chauffeur pour anticipation contrôle d'accès site (Viparis, sites VIP, sites sécurisés). Visible dashboard traiteur "Contrôle d'accès" dès saisie manager M03 E4 (webhook S7 enrichi 2026-05-03 → `tournees.plaque_immatriculation` + `tournees.chauffeur_nom`). Email client V2.
+**Cas d'usage** : commercial traiteur demande la plaque + le nom du chauffeur pour anticipation contrôle d'accès site (Viparis, sites VIP, sites sécurisés). Visible dashboard traiteur "Contrôle d'accès" dès saisie manager M03 E4 (webhook S7 enrichi 2026-05-03 → `tournees.plaque_immatriculation` + `tournees.chauffeur_nom`). Email client **avancé V1** (décision Val 2026-07-15, divergence PLAQUES) : email récap au programmateur (`evenements.created_by`) à complétude des infos chauffeur (nom + téléphone + accompagnant) par tournée. Remplace l'ancien template `plaque_chauffeur` (retiré Q10 M05).
 
 ### R_M03.5 — Multi-device illimité manager, 1 device actif chauffeur
 

@@ -121,9 +121,9 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "6955e1879f87a60d8a0cc83d32fd1a7e4902bc62acdd9c4742c1527c192428bd",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "967f4cbd8907df6ee22b227c259c4010396760d6e034f1d84581caf7e9de7fe6",
     "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "e334d1b439d2356f12db8de139d495f9797c9a1c203e1b31e61ade71a8fb302a",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "94be660bdfcf0d999df02be00dc11a9038344333e89785cfe464d8f746fbbebd",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "97775a5f61f4e37de9ad18b33042c03a91548843b34ed1ae516b6dbae133b4e9",
     "specs/cdc/01 - Cahier des charges App/07 - Observabilité/03 - Alertes.md": "8a2f0c7e7f24f2235cf5f245a95188dd61d91591689972afe181bf82acf1f8d2"
   }
 }

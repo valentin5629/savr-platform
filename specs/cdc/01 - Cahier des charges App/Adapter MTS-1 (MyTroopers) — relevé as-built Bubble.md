@@ -81,7 +81,7 @@ vehicles[] : { name, numberPlate, vehicleShareableCode }   // ex numberPlate = "
 - **Chauffeur (nom/prénom)** : lire `dispatch.transporterUserShareableCode` (tour) → matcher `transporters[].transporterShareableCode` → `firstname` + `lastname`. Objet transporteur = `{ firstname, lastname, transporterShareableCode }`.
 - `GET /v3/carrier` se met en cache (référentiel quasi statique).
 
-⚠ **Téléphone chauffeur NON exposé** par l'API : `transporters[]` ne porte ni téléphone ni email (seul `phone` de l'API = contact destinataire de la commande). Aucun endpoint « get transporter ». → seul élément à demander à MTS-1 (ou non récupérable via API). Unité pesées confirmée = **kg**.
+⚠ **Téléphone chauffeur NON exposé** par l'API : `transporters[]` ne porte ni téléphone ni email (seul `phone` de l'API = contact destinataire de la commande). Aucun endpoint « get transporter ». → seul élément à demander à MTS-1 (ou non récupérable via API). Unité pesées confirmée = **kg**. *(Divergence PLAQUES 2026-07-15 : le champ optionnel `transporters[].phone` est **réservé** — capté auto si l'API l'expose un jour ; en V1 le téléphone chauffeur reste **saisi manuellement (Admin)**, et l'accompagnant n'est jamais auto — 1 transporteur par dispatch. Point d'extension prêt sans refonte.)*
 
 ## 7. Statuts (enums officiels)
 

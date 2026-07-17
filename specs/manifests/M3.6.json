@@ -147,6 +147,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "ee9167a6c44ca08f888523dfea7a4505ec162b62dfe4cc75e8b2138469fdab7a"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "5903aa9f680eb8cc4789457c7f0fde80fd53d134adac5b301343e6437346dd93",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "289e93e69cd34ddaedb5addd85d3a427054088a805b15ca2f4a4a25c466d43df"
   }
 }

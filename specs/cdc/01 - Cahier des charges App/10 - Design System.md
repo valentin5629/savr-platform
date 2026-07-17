@@ -1,5 +1,7 @@
 # 10 - Design System
 
+**Statut** : Validé V1 — refonte 2026-06-08 (structure inspirée du UAE Design System / AEGOV DLS v3, palette Savr conservée)
+**Dernière mise à jour** : 2026-06-08
 **Inspiration visuelle de référence** : [UAE Design System (designsystem.gov.ae)](https://designsystem.gov.ae/) — système institutionnel, accessible, dense mais aéré. On en reprend la **rigueur** (échelles tonales complètes, focus states forts, sobriété des ombres, pleins blocs de couleur primaire), pas l'identité (couleurs Savr conservées).
 
 ---
@@ -399,6 +401,8 @@ Chaque écran gère 5 états — aucun laissé sans UI.
 | **Error** | Échec chargement/action | Message précis + bouton "Réessayer" |
 | **Success** | Action confirmée | Toast (disparaît après 4s) |
 | **Disabled** | Action impossible | Bouton grisé + tooltip ("Pack AG épuisé — contacter Savr") |
+
+> **Exception densité — actions de ligne de la liste Collectes traiteur** *(revue écran 2026-07-15, divergence M3.1)* : sur cette liste, une action indisponible est **retirée** de la carte (et non grisée), pour la densité/lisibilité. L'état Disabled « grisé + tooltip » reste la règle par défaut partout ailleurs.
 
 **Skeleton** : blocs `neutral-100` animés (shimmer subtil), jamais spinner seul.
 

@@ -1,0 +1,81 @@
+<!-- @dsCard group="Composants" -->
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Savr · DataTable</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap');
+  :root{
+    --c-primary-50:#eff2f9;--c-primary-500:#3f5599;--c-primary-700:#223870;
+    --c-accent-50:#fff4e0;--c-accent-500:#ff9b00;--c-accent-700:#b36400;
+    --c-neutral-50:#f7f8fb;--c-neutral-100:#eef0f5;--c-neutral-200:#dde1eb;--c-neutral-400:#9aa2b8;--c-neutral-500:#6e7790;--c-neutral-700:#3c4459;--c-neutral-800:#272d3d;--c-neutral-900:#161a26;--c-white:#ffffff;
+    --c-success-strong:#15803d;--c-success-subtle:#f0fdf4;--c-success:#16a34a;
+    --c-warning-strong:#b45309;--c-warning-subtle:#fffbeb;--c-warning:#d97706;
+    --r-md:8px;--r-full:9999px;--font:'Nunito',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#f7f8fb;color:var(--c-neutral-900);font-family:var(--font);-webkit-font-smoothing:antialiased;padding:32px;}
+  h1{letter-spacing:-.02em;margin:0;font-weight:800;}
+  .page{max-width:1120px;margin:0 auto;}
+  .pagehead{margin-bottom:28px;}
+  .pagehead h1{font-size:26px;}
+  .pagehead p{margin:8px 0 0;color:var(--c-neutral-500);font-size:14px;max-width:660px;}
+  .eyebrow{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--c-neutral-500);margin:0 0 14px;}
+
+  /* DataTable — mappe data-table.tsx (desktop) */
+  .tablewrap{background:var(--c-white);border:1px solid var(--c-neutral-200);border-radius:var(--r-md);overflow:hidden;}
+  table{width:100%;border-collapse:collapse;font-size:14px;}
+  thead tr{border-bottom:1px solid var(--c-neutral-200);}
+  th{height:44px;padding:0 16px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--c-neutral-500);user-select:none;}
+  th.sortable{cursor:pointer;}
+  th.sortable:hover{color:var(--c-neutral-900);}
+  th .thc{display:inline-flex;align-items:center;gap:4px;}
+  th svg{width:14px;height:14px;}
+  tbody tr{border-bottom:1px solid var(--c-neutral-100);transition:background-color 120ms;}
+  tbody tr:last-child{border-bottom:none;}
+  tbody tr:hover{background:var(--c-neutral-50);cursor:pointer;}
+  td{padding:16px;vertical-align:middle;color:var(--c-neutral-800);}
+  td.mono{font-variant-numeric:tabular-nums;}
+  .badge{display:inline-flex;align-items:center;gap:6px;border-radius:var(--r-full);padding:2px 8px;font-size:12px;font-weight:500;}
+  .badge .dot{width:6px;height:6px;border-radius:9999px;}
+  .b-success{background:var(--c-success-subtle);color:var(--c-success-strong);} .b-success .dot{background:var(--c-success);}
+  .b-action{background:var(--c-accent-50);color:var(--c-accent-700);} .b-action .dot{background:var(--c-accent-500);}
+  .b-warning{background:var(--c-warning-subtle);color:var(--c-warning-strong);} .b-warning .dot{background:var(--c-warning);}
+  .b-neutral{background:var(--c-neutral-100);color:var(--c-neutral-700);} .b-neutral .dot{background:var(--c-neutral-400);}
+  .b-primary{background:var(--c-primary-50);color:var(--c-primary-700);} .b-primary .dot{background:var(--c-primary-500);}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="pagehead">
+    <h1>DataTable</h1>
+    <p>Tableau desktop dense : en-tête 44px, libellés 11px bold uppercase neutral-500, colonnes triables (chevron). Lignes séparées par neutral-100, hover neutral-50, cliquables. Sur mobile (&lt; 640px) : bascule en cards verticales.</p>
+  </div>
+
+  <div class="eyebrow">Liste des collectes</div>
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="sortable"><span class="thc">Réf.<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg></span></th>
+          <th>Traiteur</th>
+          <th>Type</th>
+          <th class="sortable"><span class="thc">Date<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--c-neutral-400)"><path d="m7 15 5 5 5-5M7 9l5-5 5 5"/></svg></span></th>
+          <th class="sortable"><span class="thc">Poids<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--c-neutral-400)"><path d="m7 15 5 5 5-5M7 9l5-5 5 5"/></svg></span></th>
+          <th>Statut</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="mono">#2481</td><td>Lenôtre</td><td><span class="badge b-primary"><span class="dot"></span>Zéro Déchet</span></td><td>18 juil. 2026</td><td class="mono">42 kg</td><td><span class="badge b-success"><span class="dot"></span>Réalisée</span></td></tr>
+        <tr><td class="mono">#2480</td><td>Potel &amp; Chabot</td><td><span class="badge b-neutral"><span class="dot"></span>Anti-Gaspi</span></td><td>18 juil. 2026</td><td class="mono">—</td><td><span class="badge b-action"><span class="dot"></span>À valider</span></td></tr>
+        <tr><td class="mono">#2479</td><td>Dalloyau</td><td><span class="badge b-primary"><span class="dot"></span>Zéro Déchet</span></td><td>17 juil. 2026</td><td class="mono">28 kg</td><td><span class="badge b-neutral"><span class="dot"></span>Clôturée</span></td></tr>
+        <tr><td class="mono">#2478</td><td>Fauchon</td><td><span class="badge b-neutral"><span class="dot"></span>Anti-Gaspi</span></td><td>17 juil. 2026</td><td class="mono">—</td><td><span class="badge b-warning"><span class="dot"></span>Sans collecte</span></td></tr>
+        <tr><td class="mono">#2477</td><td>Saint Clair</td><td><span class="badge b-primary"><span class="dot"></span>Zéro Déchet</span></td><td>16 juil. 2026</td><td class="mono">51 kg</td><td><span class="badge b-success"><span class="dot"></span>Réalisée</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+</body>
+</html>

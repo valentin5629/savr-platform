@@ -1,0 +1,78 @@
+<!-- @dsCard group="Fondations" -->
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Savr · Typographie</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap');
+  :root{
+    --c-primary-700:#223870;--c-neutral-200:#dde1eb;--c-neutral-400:#9aa2b8;--c-neutral-500:#6e7790;--c-neutral-600:#515a72;--c-neutral-900:#161a26;--c-white:#ffffff;--c-accent-500:#ff9b00;--c-accent-50:#fff4e0;--c-accent-200:#ffd489;
+    --r-md:8px;--font:'Nunito',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#f7f8fb;color:var(--c-neutral-900);font-family:var(--font);-webkit-font-smoothing:antialiased;padding:32px;}
+  h1,h2,h3{letter-spacing:-.02em;line-height:1.15;margin:0;font-weight:800;}
+  .page{max-width:1120px;margin:0 auto;}
+  .pagehead{margin-bottom:32px;}
+  .pagehead h1{font-size:26px;}
+  .pagehead p{margin:8px 0 0;color:var(--c-neutral-500);font-size:14px;max-width:660px;}
+  .eyebrow{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--c-neutral-500);margin:0 0 14px;}
+  .section{margin-bottom:34px;}
+  .scaleRow{display:flex;align-items:baseline;gap:20px;padding:12px 0;border-bottom:1px solid var(--c-neutral-200);}
+  .scaleRow .lbl{width:150px;flex-shrink:0;font-size:12px;color:var(--c-neutral-500);font-variant-numeric:tabular-nums;}
+  .scaleRow .lbl b{color:var(--c-neutral-900);font-weight:700;display:block;font-size:13px;}
+  .scaleRow .sample{color:var(--c-neutral-900);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .t-xs{font-size:12px}.t-sm{font-size:14px}.t-base{font-size:16px}.t-lg{font-size:18px}.t-xl{font-size:20px}.t-2xl{font-size:24px}.t-3xl{font-size:30px}.t-4xl{font-size:38px}
+  .weights{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;}
+  .wcard{background:var(--c-white);border:1px solid var(--c-neutral-200);border-radius:var(--r-md);padding:16px;}
+  .wcard .big{font-size:30px;color:var(--c-neutral-900);line-height:1;}
+  .wcard .cap{margin-top:10px;font-size:12px;color:var(--c-neutral-500);}
+  .display{background:var(--c-primary-700);color:var(--c-white);border-radius:var(--r-md);padding:28px 32px;}
+  .display .d1{font-size:38px;font-weight:800;letter-spacing:-.02em;line-height:1.1;}
+  .display .d2{font-size:24px;font-weight:700;letter-spacing:-.02em;margin-top:12px;color:#dee4f2;}
+  .note{margin-top:14px;font-size:12.5px;line-height:1.5;color:var(--c-neutral-600);background:var(--c-accent-50);border:1px solid var(--c-accent-200);border-left:3px solid var(--c-accent-500);border-radius:var(--r-md);padding:10px 12px;}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="pagehead">
+    <h1>Typographie</h1>
+    <p>Nunito (corps chaleureux RSE) + titres display serrés — poids 700/800, letter-spacing −0.02em (levier #7). Le contraste rondeur du corps / titres serrés est la signature typographique Savr.</p>
+  </div>
+
+  <div class="section">
+    <p class="eyebrow">Échelle typographique</p>
+    <div class="scaleRow"><div class="lbl"><b>text-4xl</b>38px · lh 1.15</div><div class="sample t-4xl" style="font-weight:800;letter-spacing:-.02em">Réduire le gaspillage</div></div>
+    <div class="scaleRow"><div class="lbl"><b>text-3xl</b>30px</div><div class="sample t-3xl" style="font-weight:800;letter-spacing:-.02em">Réduire le gaspillage</div></div>
+    <div class="scaleRow"><div class="lbl"><b>text-2xl</b>24px</div><div class="sample t-2xl" style="font-weight:700;letter-spacing:-.02em">Réduire le gaspillage</div></div>
+    <div class="scaleRow"><div class="lbl"><b>text-xl</b>20px</div><div class="sample t-xl" style="font-weight:700">Réduire le gaspillage alimentaire</div></div>
+    <div class="scaleRow"><div class="lbl"><b>text-lg</b>18px · titres cards</div><div class="sample t-lg" style="font-weight:600">Réduire le gaspillage alimentaire</div></div>
+    <div class="scaleRow"><div class="lbl"><b>text-base</b>16px · corps</div><div class="sample t-base">Chaque collecte détourne les invendus vers le don ou le compost.</div></div>
+    <div class="scaleRow"><div class="lbl"><b>text-sm</b>14px · UI</div><div class="sample t-sm">Chaque collecte détourne les invendus vers le don ou le compost.</div></div>
+    <div class="scaleRow"><div class="lbl"><b>text-xs</b>12px · badges, méta</div><div class="sample t-xs" style="color:var(--c-neutral-500)">Chaque collecte détourne les invendus vers le don ou le compost.</div></div>
+  </div>
+
+  <div class="section">
+    <p class="eyebrow">Graisses Nunito</p>
+    <div class="weights">
+      <div class="wcard"><div class="big" style="font-weight:400">Aa</div><div class="cap">400 · Regular — corps</div></div>
+      <div class="wcard"><div class="big" style="font-weight:500">Aa</div><div class="cap">500 · Medium — labels, badges</div></div>
+      <div class="wcard"><div class="big" style="font-weight:600">Aa</div><div class="cap">600 · Semibold — boutons, titres cards</div></div>
+      <div class="wcard"><div class="big" style="font-weight:700">Aa</div><div class="cap">700 · Bold — titres, KPIs</div></div>
+      <div class="wcard"><div class="big" style="font-weight:800">Aa</div><div class="cap">800 · Extrabold — display, hero</div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <p class="eyebrow">Display serré · levier #7 en situation</p>
+    <div class="display">
+      <div class="d1">Tableau de bord — Anti-Gaspi</div>
+      <div class="d2">1 240 repas sauvés ce mois-ci</div>
+    </div>
+    <p class="note">Les titres <strong>h1/h2/h3</strong> portent <code>letter-spacing:-0.02em</code> et <code>line-height:1.15</code> par défaut. Le poids 700/800 est porté par les utilitaires ; sur bloc primaire plein (levier #2), le display serré ancre l'identité institutionnelle.</p>
+  </div>
+</div>
+</body>
+</html>

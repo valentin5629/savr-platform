@@ -1,0 +1,116 @@
+<!-- @dsCard group="Identité" -->
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Savr · Leviers d'identité</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap');
+  :root{
+    --c-primary-50:#eff2f9;--c-primary-100:#dee4f2;--c-primary-200:#bdc8e5;--c-primary-500:#3f5599;--c-primary-700:#223870;--c-primary-800:#1b2c57;--c-primary-950:#0d1428;
+    --c-accent-500:#ff9b00;--c-accent-600:#d97f00;
+    --c-neutral-100:#eef0f5;--c-neutral-200:#dde1eb;--c-neutral-300:#c3c9d9;--c-neutral-500:#6e7790;--c-neutral-600:#515a72;--c-neutral-900:#161a26;--c-white:#ffffff;
+    --r-md:8px;--r-full:9999px;--sh-sm:0 1px 2px rgba(13,20,40,.04);--font:'Nunito',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#f7f8fb;color:var(--c-neutral-900);font-family:var(--font);-webkit-font-smoothing:antialiased;padding:32px;}
+  h1,h3{letter-spacing:-.02em;line-height:1.15;margin:0;font-weight:800;}
+  .page{max-width:1120px;margin:0 auto;}
+  .pagehead{margin-bottom:28px;}
+  .pagehead h1{font-size:26px;}
+  .pagehead p{margin:8px 0 0;color:var(--c-neutral-500);font-size:14px;max-width:680px;}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;}
+  .lever{background:var(--c-white);border:1px solid var(--c-neutral-200);border-radius:var(--r-md);padding:18px;display:flex;flex-direction:column;gap:12px;}
+  .lhead{display:flex;align-items:center;gap:10px;}
+  .lnum{width:26px;height:26px;flex-shrink:0;border-radius:var(--r-full);background:var(--c-primary-700);color:var(--c-white);font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;}
+  .ltitle{font-size:14px;font-weight:700;color:var(--c-neutral-900);}
+  .lrule{font-size:12.5px;line-height:1.5;color:var(--c-neutral-600);}
+  .demo{border-radius:var(--r-md);overflow:hidden;}
+  /* levier 1 */
+  .cmp{display:flex;gap:10px;}
+  .cmp div{flex:1;height:52px;border-radius:6px;display:flex;align-items:flex-end;padding:6px;font-size:10px;font-weight:700;color:#fff;}
+  /* levier 2 */
+  .block{background:var(--c-primary-700);color:var(--c-white);border-radius:var(--r-md);padding:14px 16px;}
+  .block b{font-size:14px;font-weight:800;letter-spacing:-.02em;}
+  .block span{display:block;font-size:11px;color:var(--c-primary-200);margin-top:2px;}
+  /* levier 3 */
+  .paren{display:flex;gap:8px;align-items:center;}
+  .mini-btn{height:32px;border-radius:var(--r-md);padding:0 12px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;border:1px solid transparent;}
+  .mb-neutral{background:var(--c-white);border-color:var(--c-neutral-300);color:var(--c-neutral-900);}
+  .mb-accent{background:var(--c-accent-500);color:var(--c-primary-950);}
+  /* levier 4 */
+  .ring-input{width:100%;height:38px;border:1px solid var(--c-neutral-300);border-radius:var(--r-md);padding:0 12px;font-size:13px;font-family:var(--font);outline:2px solid var(--c-primary-500);outline-offset:2px;background:var(--c-white);}
+  /* levier 5 */
+  .cardbrd{background:var(--c-white);border:1px solid var(--c-neutral-200);border-radius:var(--r-md);box-shadow:var(--sh-sm);padding:14px;font-size:12px;color:var(--c-neutral-600);}
+  /* levier 6 */
+  .radii{display:flex;gap:10px;align-items:center;}
+  .radii .r{width:48px;height:48px;background:var(--c-primary-100);border:1px solid var(--c-primary-200);}
+  /* levier 7 */
+  .typo{font-size:22px;font-weight:800;letter-spacing:-.02em;color:var(--c-neutral-900);}
+  .typo small{display:block;font-size:13px;font-weight:400;letter-spacing:0;color:var(--c-neutral-500);margin-top:4px;}
+  /* levier 8 */
+  .btn8{height:40px;border-radius:var(--r-md);padding:0 16px;font-size:13px;font-weight:600;color:#fff;background:var(--c-primary-700);border:none;display:inline-flex;align-items:center;transition:background-color 120ms ease-out, transform 120ms ease-out;}
+  .btn8.hover{background:var(--c-primary-800);transform:translateY(-1px);}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="pagehead">
+    <h1>Leviers d'identité Savr</h1>
+    <p>Les 8 leviers OBLIGATOIRES qui transforment un build shadcn générique en interface Savr. Au moins les leviers 1, 2, 4 et 5 doivent être visibles sur chaque écran. Un écran qui pourrait passer pour n'importe quel SaaS = non conforme.</p>
+  </div>
+  <div class="grid">
+
+    <div class="lever">
+      <div class="lhead"><div class="lnum">1</div><div class="ltitle">Neutres tintés navy</div></div>
+      <div class="lrule">Pas de gris pur. Les neutres sont désaturés vers le navy → cohésion froide-institutionnelle, jamais le slate/zinc par défaut.</div>
+      <div class="cmp"><div style="background:#6e7790">Savr navy</div><div style="background:#71717a">zinc générique</div></div>
+    </div>
+
+    <div class="lever">
+      <div class="lhead"><div class="lnum">2</div><div class="ltitle">Bloc primaire plein</div></div>
+      <div class="lrule">Sidebar, hero et bandeaux clés sont des aplats primary-700 texte blanc — signature institutionnelle, pas une nav blanche fade.</div>
+      <div class="block"><b>Savr</b><span>Anti-Gaspi · Zéro Déchet</span></div>
+    </div>
+
+    <div class="lever">
+      <div class="lhead"><div class="lnum">3</div><div class="ltitle">Accent orange parcimonieux</div></div>
+      <div class="lrule">L'orange accent-500 est réservé aux CTA secondaires, highlights, états « à faire ». Jamais en aplat de fond large — sa rareté = sa force.</div>
+      <div class="paren"><span class="mini-btn mb-neutral">Annuler</span><span class="mini-btn mb-accent">Programmer</span></div>
+    </div>
+
+    <div class="lever">
+      <div class="lhead"><div class="lnum">4</div><div class="ltitle">Focus ring signature</div></div>
+      <div class="lrule">Tout élément focusable : anneau primary-500, outline-offset 2px. Accessibilité = look institutionnel. Jamais le focus bleu navigateur.</div>
+      <input class="ring-input" value="Focus (démo)" readonly>
+    </div>
+
+    <div class="lever">
+      <div class="lhead"><div class="lnum">5</div><div class="ltitle">Ombres sobres + bordures portantes</div></div>
+      <div class="lrule">Les cards reposent sur bordure neutral-200 + fond blanc, ombre quasi nulle. La hiérarchie vient de la bordure et de l'espace.</div>
+      <div class="cardbrd">Carte portée par sa bordure — pas d'ombre lourde qui « flotte ».</div>
+    </div>
+
+    <div class="lever">
+      <div class="lhead"><div class="lnum">6</div><div class="ltitle">Radius mesuré</div></div>
+      <div class="lrule">md = 8px partout (boutons, inputs, cards). full uniquement pour badges/avatars/toggles. Ni « bubble » 2xl, ni angle vif brutaliste.</div>
+      <div class="radii"><div class="r" style="border-radius:8px"></div><span style="font-size:12px;color:var(--c-neutral-500)">8px — la règle</span></div>
+    </div>
+
+    <div class="lever">
+      <div class="lhead"><div class="lnum">7</div><div class="ltitle">Typo Nunito + display serré</div></div>
+      <div class="lrule">Nunito (corps chaleureux) + titres poids 700/800, letter-spacing −0.02em. Le contraste rondeur/serré est la signature typographique.</div>
+      <div class="typo">Collectes du jour<small>Le corps reste rond et chaleureux.</small></div>
+    </div>
+
+    <div class="lever">
+      <div class="lhead"><div class="lnum">8</div><div class="ltitle">Hover bouton à transition franche</div></div>
+      <div class="lrule">Bouton primaire : hover = primary-700 → 800 + translation −1px (lift discret), 150ms. Pas d'ombre diffuse générique.</div>
+      <div class="paren"><button class="btn8">Repos</button><button class="btn8 hover">Hover −1px</button></div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,115 @@
+<!-- @dsCard group="Composants" -->
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Savr · Button</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap');
+  :root{
+    --c-primary-50:#eff2f9;--c-primary-100:#dee4f2;--c-primary-700:#223870;--c-primary-800:#1b2c57;--c-primary-950:#0d1428;
+    --c-accent-500:#ff9b00;--c-accent-600:#d97f00;
+    --c-neutral-100:#eef0f5;--c-neutral-200:#dde1eb;--c-neutral-300:#c3c9d9;--c-neutral-500:#6e7790;--c-neutral-900:#161a26;--c-white:#ffffff;
+    --c-error:#dc2626;--c-error-strong:#b91c1c;
+    --r-md:8px;--font:'Nunito',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#f7f8fb;color:var(--c-neutral-900);font-family:var(--font);-webkit-font-smoothing:antialiased;padding:32px;}
+  h1{letter-spacing:-.02em;margin:0;font-weight:800;}
+  .page{max-width:1120px;margin:0 auto;}
+  .pagehead{margin-bottom:28px;}
+  .pagehead h1{font-size:26px;}
+  .pagehead p{margin:8px 0 0;color:var(--c-neutral-500);font-size:14px;max-width:660px;}
+  .eyebrow{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--c-neutral-500);margin:0 0 14px;}
+  .section{margin-bottom:30px;}
+  .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px;}
+  .rlabel{width:120px;flex-shrink:0;font-size:12px;color:var(--c-neutral-500);}
+
+  /* Button — mappe button.tsx (cva) exactement */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;font-size:14px;font-weight:600;border-radius:var(--r-md);border:1px solid transparent;cursor:pointer;font-family:var(--font);height:40px;padding:0 16px;transition:background-color 120ms ease-out, transform 120ms ease-out;}
+  .btn:focus-visible{outline:2px solid var(--c-primary-500);outline-offset:2px;}
+  .v-primary{background:var(--c-primary-700);color:var(--c-white);}
+  .v-primary.hover{background:var(--c-primary-800);transform:translateY(-1px);}
+  .v-secondary{background:var(--c-white);border-color:var(--c-neutral-300);color:var(--c-neutral-900);}
+  .v-secondary.hover{background:var(--c-neutral-100);}
+  .v-accent{background:var(--c-accent-500);color:var(--c-primary-950);}
+  .v-accent.hover{background:var(--c-accent-600);transform:translateY(-1px);}
+  .v-destructive{background:var(--c-error);color:var(--c-white);}
+  .v-destructive.hover{background:var(--c-error-strong);}
+  .v-ghost{background:transparent;color:var(--c-primary-700);}
+  .v-ghost.hover{background:var(--c-primary-50);}
+  .v-link{background:transparent;color:var(--c-primary-700);text-underline-offset:4px;padding:0 4px;}
+  .v-link.hover{text-decoration:underline;}
+  .btn:disabled,.btn.disabled{opacity:.5;pointer-events:none;}
+  /* sizes */
+  .s-sm{height:32px;padding:0 12px;font-size:12px;}
+  .s-md{height:40px;padding:0 16px;font-size:14px;}
+  .s-lg{height:44px;padding:0 24px;font-size:16px;}
+  .s-icon{height:40px;width:40px;padding:0;}
+  .state{font-size:11px;color:var(--c-neutral-400);width:100%;}
+  svg{width:16px;height:16px;}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="pagehead">
+    <h1>Button</h1>
+    <p>6 variants × 4 tailles. Hauteur 40px (desktop) / cible tactile 44px sur mobile. Radius 8px, poids 600, transitions franches 120ms. Primaire &amp; accent : lift −1px au hover (levier #8).</p>
+  </div>
+
+  <div class="section">
+    <p class="eyebrow">Variants · taille md — repos / hover / disabled</p>
+    <div class="row"><div class="rlabel">primary</div>
+      <button class="btn v-primary s-md">Programmer</button>
+      <button class="btn v-primary s-md hover">Programmer</button>
+      <button class="btn v-primary s-md disabled">Programmer</button>
+    </div>
+    <div class="row"><div class="rlabel">secondary</div>
+      <button class="btn v-secondary s-md">Annuler</button>
+      <button class="btn v-secondary s-md hover">Annuler</button>
+      <button class="btn v-secondary s-md disabled">Annuler</button>
+    </div>
+    <div class="row"><div class="rlabel">accent</div>
+      <button class="btn v-accent s-md">Valider la collecte</button>
+      <button class="btn v-accent s-md hover">Valider la collecte</button>
+      <button class="btn v-accent s-md disabled">Valider la collecte</button>
+    </div>
+    <div class="row"><div class="rlabel">destructive</div>
+      <button class="btn v-destructive s-md">Supprimer</button>
+      <button class="btn v-destructive s-md hover">Supprimer</button>
+      <button class="btn v-destructive s-md disabled">Supprimer</button>
+    </div>
+    <div class="row"><div class="rlabel">ghost</div>
+      <button class="btn v-ghost s-md">Détails</button>
+      <button class="btn v-ghost s-md hover">Détails</button>
+      <button class="btn v-ghost s-md disabled">Détails</button>
+    </div>
+    <div class="row"><div class="rlabel">link</div>
+      <button class="btn v-link s-md">En savoir plus</button>
+      <button class="btn v-link s-md hover">En savoir plus</button>
+      <button class="btn v-link s-md disabled">En savoir plus</button>
+    </div>
+    <div class="state">Colonnes : repos · hover · disabled</div>
+  </div>
+
+  <div class="section">
+    <p class="eyebrow">Tailles · variant primary</p>
+    <div class="row">
+      <button class="btn v-primary s-sm">sm · 32px</button>
+      <button class="btn v-primary s-md">md · 40px</button>
+      <button class="btn v-primary s-lg">lg · 44px</button>
+      <button class="btn v-primary s-icon" aria-label="Ajouter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+    </div>
+  </div>
+
+  <div class="section">
+    <p class="eyebrow">Avec icône</p>
+    <div class="row">
+      <button class="btn v-primary s-md"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Nouvelle collecte</button>
+      <button class="btn v-secondary s-md"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Exporter</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

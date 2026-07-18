@@ -1,0 +1,130 @@
+<!-- @dsCard group="Fondations" -->
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Savr · Couleurs</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap');
+  :root{
+    --c-primary-50:#eff2f9;--c-primary-100:#dee4f2;--c-primary-200:#bdc8e5;--c-primary-300:#92a3d2;--c-primary-400:#6379b6;--c-primary-500:#3f5599;--c-primary-600:#2e4080;--c-primary-700:#223870;--c-primary-800:#1b2c57;--c-primary-900:#15213f;--c-primary-950:#0d1428;
+    --c-accent-50:#fff4e0;--c-accent-100:#ffe8c2;--c-accent-200:#ffd489;--c-accent-300:#ffb340;--c-accent-400:#ffa31a;--c-accent-500:#ff9b00;--c-accent-600:#d97f00;--c-accent-700:#b36400;--c-accent-800:#8c4d00;--c-accent-900:#663800;--c-accent-950:#3d2100;
+    --c-neutral-50:#f7f8fb;--c-neutral-100:#eef0f5;--c-neutral-200:#dde1eb;--c-neutral-300:#c3c9d9;--c-neutral-400:#9aa2b8;--c-neutral-500:#6e7790;--c-neutral-600:#515a72;--c-neutral-700:#3c4459;--c-neutral-800:#272d3d;--c-neutral-900:#161a26;--c-neutral-950:#0c0f18;--c-white:#ffffff;
+    --c-success:#16a34a;--c-success-strong:#15803d;--c-success-subtle:#f0fdf4;--c-warning:#d97706;--c-warning-strong:#b45309;--c-warning-subtle:#fffbeb;--c-error:#dc2626;--c-error-strong:#b91c1c;--c-error-subtle:#fef2f2;--c-info:#2563eb;--c-info-strong:#1d4ed8;--c-info-subtle:#eff6ff;
+    --dv-1:#223870;--dv-2:#ff9b00;--dv-3:#3f5599;--dv-4:#16a34a;--dv-5:#6379b6;--dv-6:#d97f00;
+    --r-sm:4px;--r-md:8px;--r-lg:12px;--r-full:9999px;
+    --sh-sm:0 1px 2px rgba(13,20,40,.04);--sh-md:0 4px 12px rgba(13,20,40,.08);--sh-lg:0 12px 28px rgba(13,20,40,.12);
+    --font:'Nunito',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--c-neutral-50);color:var(--c-neutral-900);font-family:var(--font);-webkit-font-smoothing:antialiased;padding:32px;}
+  h1,h2,h3{letter-spacing:-.02em;line-height:1.15;margin:0;font-weight:800;}
+  *:focus-visible{outline:2px solid var(--c-primary-500);outline-offset:2px;}
+  .page{max-width:1120px;margin:0 auto;}
+  .pagehead{margin-bottom:32px;}
+  .pagehead h1{font-size:26px;}
+  .pagehead p{margin:8px 0 0;color:var(--c-neutral-500);font-size:14px;max-width:660px;}
+  .section{margin-bottom:34px;}
+  .eyebrow{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--c-neutral-500);margin:0 0 14px;}
+  .scale{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:12px;}
+  .sw{border:1px solid var(--c-neutral-200);border-radius:var(--r-md);overflow:hidden;background:var(--c-white);}
+  .sw .chip{height:56px;position:relative;}
+  .sw .tag{position:absolute;left:8px;top:8px;font-size:9px;font-weight:800;letter-spacing:.06em;padding:2px 6px;border-radius:var(--r-full);background:rgba(255,255,255,.85);color:var(--c-neutral-900);}
+  .sw .meta{padding:8px 10px;}
+  .sw .name{font-size:12px;font-weight:700;color:var(--c-neutral-900);}
+  .sw .hex{font-size:11px;color:var(--c-neutral-500);text-transform:uppercase;font-variant-numeric:tabular-nums;}
+  .trio{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;}
+  .semcard{border:1px solid var(--c-neutral-200);border-radius:var(--r-md);overflow:hidden;background:var(--c-white);}
+  .semcard .bar{height:44px;display:flex;}
+  .semcard .bar span{flex:1;}
+  .semcard .meta{padding:10px 12px;}
+  .semcard .name{font-size:13px;font-weight:700;text-transform:capitalize;}
+  .semcard .row{display:flex;justify-content:space-between;font-size:11px;color:var(--c-neutral-500);margin-top:4px;}
+  .note{margin-top:8px;font-size:12.5px;line-height:1.5;color:var(--c-neutral-600);background:var(--c-accent-50);border:1px solid var(--c-accent-200);border-left:3px solid var(--c-accent-500);border-radius:var(--r-md);padding:10px 12px;}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="pagehead">
+    <h1>Couleurs</h1>
+    <p>Palette de marque Savr — échelles tonales complètes (50 → 950). Navy institutionnel, orange parcimonieux, neutres tintés navy (jamais de gris pur — levier #1), sémantiques indépendantes du branding.</p>
+  </div>
+
+  <div class="section">
+    <p class="eyebrow">Primary · Navy Savr — base 700</p>
+    <div class="scale">
+      <div class="sw"><div class="chip" style="background:var(--c-primary-50)"></div><div class="meta"><div class="name">primary-50</div><div class="hex">#EFF2F9</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-primary-100)"></div><div class="meta"><div class="name">primary-100</div><div class="hex">#DEE4F2</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-primary-200)"></div><div class="meta"><div class="name">primary-200</div><div class="hex">#BDC8E5</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-primary-300)"></div><div class="meta"><div class="name">primary-300</div><div class="hex">#92A3D2</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-primary-400)"></div><div class="meta"><div class="name">primary-400</div><div class="hex">#6379B6</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-primary-500)"><span class="tag">FOCUS</span></div><div class="meta"><div class="name">primary-500</div><div class="hex">#3F5599</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-primary-600)"></div><div class="meta"><div class="name">primary-600</div><div class="hex">#2E4080</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-primary-700)"><span class="tag">PRIMARY</span></div><div class="meta"><div class="name">primary-700</div><div class="hex">#223870</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-primary-800)"></div><div class="meta"><div class="name">primary-800</div><div class="hex">#1B2C57</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-primary-900)"></div><div class="meta"><div class="name">primary-900</div><div class="hex">#15213F</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-primary-950)"></div><div class="meta"><div class="name">primary-950</div><div class="hex">#0D1428</div></div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <p class="eyebrow">Accent · Orange Savr — base 500</p>
+    <div class="scale">
+      <div class="sw"><div class="chip" style="background:var(--c-accent-50)"></div><div class="meta"><div class="name">accent-50</div><div class="hex">#FFF4E0</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-accent-100)"></div><div class="meta"><div class="name">accent-100</div><div class="hex">#FFE8C2</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-accent-200)"></div><div class="meta"><div class="name">accent-200</div><div class="hex">#FFD489</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-accent-300)"></div><div class="meta"><div class="name">accent-300</div><div class="hex">#FFB340</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-accent-400)"></div><div class="meta"><div class="name">accent-400</div><div class="hex">#FFA31A</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-accent-500)"><span class="tag">ACCENT</span></div><div class="meta"><div class="name">accent-500</div><div class="hex">#FF9B00</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-accent-600)"></div><div class="meta"><div class="name">accent-600</div><div class="hex">#D97F00</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-accent-700)"><span class="tag">TEXTE AA</span></div><div class="meta"><div class="name">accent-700</div><div class="hex">#B36400</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-accent-800)"></div><div class="meta"><div class="name">accent-800</div><div class="hex">#8C4D00</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-accent-900)"></div><div class="meta"><div class="name">accent-900</div><div class="hex">#663800</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-accent-950)"></div><div class="meta"><div class="name">accent-950</div><div class="hex">#3D2100</div></div></div>
+    </div>
+    <p class="note">⚠ <strong>accent-500 sur blanc ne passe pas AA pour du texte.</strong> Pour du texte orange sur fond clair, utiliser <strong>accent-700</strong> minimum. accent-500 reste réservé aux aplats (boutons, badges) avec texte blanc/navy dessus.</p>
+  </div>
+
+  <div class="section">
+    <p class="eyebrow">Neutres tintés navy · levier #1 — jamais de gris pur</p>
+    <div class="scale">
+      <div class="sw"><div class="chip" style="background:var(--c-neutral-50)"></div><div class="meta"><div class="name">neutral-50</div><div class="hex">#F7F8FB</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-neutral-100)"></div><div class="meta"><div class="name">neutral-100</div><div class="hex">#EEF0F5</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-neutral-200)"></div><div class="meta"><div class="name">neutral-200</div><div class="hex">#DDE1EB</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-neutral-300)"></div><div class="meta"><div class="name">neutral-300</div><div class="hex">#C3C9D9</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-neutral-400)"></div><div class="meta"><div class="name">neutral-400</div><div class="hex">#9AA2B8</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-neutral-500)"></div><div class="meta"><div class="name">neutral-500</div><div class="hex">#6E7790</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-neutral-600)"></div><div class="meta"><div class="name">neutral-600</div><div class="hex">#515A72</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-neutral-700)"></div><div class="meta"><div class="name">neutral-700</div><div class="hex">#3C4459</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-neutral-800)"></div><div class="meta"><div class="name">neutral-800</div><div class="hex">#272D3D</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-neutral-900)"></div><div class="meta"><div class="name">neutral-900</div><div class="hex">#161A26</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-neutral-950)"></div><div class="meta"><div class="name">neutral-950</div><div class="hex">#0C0F18</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-white);box-shadow:inset 0 0 0 1px var(--c-neutral-200)"></div><div class="meta"><div class="name">white</div><div class="hex">#FFFFFF</div></div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <p class="eyebrow">Sémantique · indépendante du branding — subtle (fond) / base / strong (texte AA)</p>
+    <div class="trio">
+      <div class="semcard"><div class="bar"><span style="background:var(--c-success-subtle)"></span><span style="background:var(--c-success)"></span><span style="background:var(--c-success-strong)"></span></div><div class="meta"><div class="name">success</div><div class="row"><span>#F0FDF4</span><span>#16A34A</span><span>#15803D</span></div></div></div>
+      <div class="semcard"><div class="bar"><span style="background:var(--c-warning-subtle)"></span><span style="background:var(--c-warning)"></span><span style="background:var(--c-warning-strong)"></span></div><div class="meta"><div class="name">warning</div><div class="row"><span>#FFFBEB</span><span>#D97706</span><span>#B45309</span></div></div></div>
+      <div class="semcard"><div class="bar"><span style="background:var(--c-error-subtle)"></span><span style="background:var(--c-error)"></span><span style="background:var(--c-error-strong)"></span></div><div class="meta"><div class="name">error</div><div class="row"><span>#FEF2F2</span><span>#DC2626</span><span>#B91C1C</span></div></div></div>
+      <div class="semcard"><div class="bar"><span style="background:var(--c-info-subtle)"></span><span style="background:var(--c-info)"></span><span style="background:var(--c-info-strong)"></span></div><div class="meta"><div class="name">info</div><div class="row"><span>#EFF6FF</span><span>#2563EB</span><span>#1D4ED8</span></div></div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <p class="eyebrow">Data-viz · ordre d'attribution des séries</p>
+    <div class="scale">
+      <div class="sw"><div class="chip" style="background:var(--dv-1)"></div><div class="meta"><div class="name">dataviz-1</div><div class="hex">#223870</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--dv-2)"></div><div class="meta"><div class="name">dataviz-2</div><div class="hex">#FF9B00</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--dv-3)"></div><div class="meta"><div class="name">dataviz-3</div><div class="hex">#3F5599</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--dv-4)"></div><div class="meta"><div class="name">dataviz-4</div><div class="hex">#16A34A</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--dv-5)"></div><div class="meta"><div class="name">dataviz-5</div><div class="hex">#6379B6</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--dv-6)"></div><div class="meta"><div class="name">dataviz-6</div><div class="hex">#D97F00</div></div></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,86 @@
+<!-- @dsCard group="Composants" -->
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Savr · StatCard</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap');
+  :root{
+    --c-primary-700:#223870;
+    --c-neutral-100:#eef0f5;--c-neutral-200:#dde1eb;--c-neutral-400:#9aa2b8;--c-neutral-500:#6e7790;--c-neutral-900:#161a26;--c-white:#ffffff;
+    --c-success-strong:#15803d;--c-error-strong:#b91c1c;--c-primary-500:#3f5599;
+    --r-md:8px;--font:'Nunito',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#f7f8fb;color:var(--c-neutral-900);font-family:var(--font);-webkit-font-smoothing:antialiased;padding:32px;}
+  h1{letter-spacing:-.02em;margin:0;font-weight:800;}
+  .page{max-width:1120px;margin:0 auto;}
+  .pagehead{margin-bottom:28px;}
+  .pagehead h1{font-size:26px;}
+  .pagehead p{margin:8px 0 0;color:var(--c-neutral-500);font-size:14px;max-width:660px;}
+  .eyebrow{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--c-neutral-500);margin:0 0 14px;}
+  .section{margin-bottom:30px;}
+
+  /* StatCard — mappe stat-card.tsx : card p-6, label 14px medium neutral-500,
+     value 30px bold tracking -0.02, variation success-strong / error-strong */
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
+  @media (max-width:900px){.grid{grid-template-columns:repeat(2,1fr);}}
+  .statcard{background:var(--c-white);border:1px solid var(--c-neutral-200);border-radius:var(--r-md);padding:24px;display:flex;flex-direction:column;gap:12px;}
+  .sc-top{display:flex;align-items:center;justify-content:space-between;}
+  .sc-label{font-size:14px;font-weight:500;color:var(--c-neutral-500);}
+  .sc-icon{color:var(--c-neutral-400);display:flex;}
+  .sc-icon svg{width:20px;height:20px;}
+  .sc-body{display:flex;align-items:flex-end;gap:12px;}
+  .sc-value{font-size:30px;font-weight:700;letter-spacing:-.02em;color:var(--c-neutral-900);line-height:1;}
+  .sc-var{font-size:14px;font-weight:500;margin-bottom:2px;}
+  .up{color:var(--c-success-strong);}
+  .down{color:var(--c-error-strong);}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="pagehead">
+    <h1>StatCard</h1>
+    <p>KPI de dashboard : label 14px medium neutral-500 + icône optionnelle, valeur 30px bold display serré, variation ±% (success-strong / error-strong). Grille responsive 1 / 2 / 3-4 colonnes.</p>
+  </div>
+
+  <div class="section">
+    <p class="eyebrow">StatCardGrid · 4 colonnes desktop</p>
+    <div class="grid">
+      <div class="statcard">
+        <div class="sc-top"><span class="sc-label">Collectes réalisées</span><span class="sc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4 12 14.01l-3-3"/></svg></span></div>
+        <div class="sc-body"><span class="sc-value">148</span><span class="sc-var up">+12% vs N-1</span></div>
+      </div>
+      <div class="statcard">
+        <div class="sc-top"><span class="sc-label">Tonnes détournées</span><span class="sc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></span></div>
+        <div class="sc-body"><span class="sc-value">6,2 t</span><span class="sc-var up">+8%</span></div>
+      </div>
+      <div class="statcard">
+        <div class="sc-top"><span class="sc-label">Marge générée</span></div>
+        <div class="sc-body"><span class="sc-value">14 820 €</span><span class="sc-var down">−3%</span></div>
+      </div>
+      <div class="statcard">
+        <div class="sc-top"><span class="sc-label">CO₂ évité</span><span class="sc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6"/></svg></span></div>
+        <div class="sc-body"><span class="sc-value">3,1 t</span><span class="sc-var up">+15%</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <p class="eyebrow">Sans variation / valeur seule</p>
+    <div class="grid">
+      <div class="statcard">
+        <div class="sc-top"><span class="sc-label">Packs actifs</span></div>
+        <div class="sc-body"><span class="sc-value">37</span></div>
+      </div>
+      <div class="statcard">
+        <div class="sc-top"><span class="sc-label">Organisations</span></div>
+        <div class="sc-body"><span class="sc-value">82</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

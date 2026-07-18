@@ -1,0 +1,88 @@
+<!-- @dsCard group="Composants" -->
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Savr · Card</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap');
+  :root{
+    --c-primary-50:#eff2f9;--c-primary-200:#bdc8e5;--c-primary-500:#3f5599;--c-primary-700:#223870;--c-primary-800:#1b2c57;--c-primary-950:#0d1428;
+    --c-accent-500:#ff9b00;--c-accent-600:#d97f00;
+    --c-neutral-100:#eef0f5;--c-neutral-200:#dde1eb;--c-neutral-300:#c3c9d9;--c-neutral-500:#6e7790;--c-neutral-800:#272d3d;--c-neutral-900:#161a26;--c-white:#ffffff;
+    --r-md:8px;--sh-sm:0 1px 2px rgba(13,20,40,.04);--font:'Nunito',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#f7f8fb;color:var(--c-neutral-900);font-family:var(--font);-webkit-font-smoothing:antialiased;padding:32px;}
+  h1{letter-spacing:-.02em;margin:0;font-weight:800;}
+  .page{max-width:1120px;margin:0 auto;}
+  .pagehead{margin-bottom:28px;}
+  .pagehead h1{font-size:26px;}
+  .pagehead p{margin:8px 0 0;color:var(--c-neutral-500);font-size:14px;max-width:660px;}
+  .eyebrow{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--c-neutral-500);margin:0 0 14px;}
+  .section{margin-bottom:30px;}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px;}
+
+  /* Card — levier #5 : bordure neutral-200 portante, ombre nulle au repos */
+  .card{background:var(--c-white);border:1px solid var(--c-neutral-200);border-radius:var(--r-md);box-shadow:none;}
+  .card-clickable{cursor:pointer;transition:border-color 120ms ease-out, box-shadow 120ms ease-out;}
+  .card-clickable.hover{border-color:var(--c-primary-200);box-shadow:var(--sh-sm);}
+  .card-header{display:flex;flex-direction:column;gap:6px;padding:24px;}
+  .card-title{font-size:18px;font-weight:600;letter-spacing:-.01em;color:var(--c-neutral-900);margin:0;}
+  .card-desc{font-size:14px;color:var(--c-neutral-500);margin:0;}
+  .card-content{padding:0 24px 24px;font-size:14px;color:var(--c-neutral-800);line-height:1.5;}
+  .card-footer{display:flex;align-items:center;gap:10px;padding:16px 24px;border-top:1px solid var(--c-neutral-100);}
+  .btn{display:inline-flex;align-items:center;justify-content:center;height:40px;padding:0 16px;border-radius:var(--r-md);font-size:14px;font-weight:600;font-family:var(--font);cursor:pointer;border:1px solid transparent;}
+  .btn-primary{background:var(--c-primary-700);color:#fff;}
+  .btn-secondary{background:var(--c-white);border-color:var(--c-neutral-300);color:var(--c-neutral-900);}
+  .statehint{font-size:11px;color:var(--c-neutral-400);margin-top:8px;}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="pagehead">
+    <h1>Card</h1>
+    <p>Fond blanc, bordure neutral-200 portante, ombre nulle au repos (levier #5). Slots Header / Title (18px semibold) / Description / Content / Footer (border-top neutral-100). La variante cliquable réagit au hover.</p>
+  </div>
+
+  <div class="section">
+    <p class="eyebrow">Anatomie complète</p>
+    <div class="grid">
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Collecte #2481</h3>
+          <p class="card-desc">Traiteur Lenôtre · 18 juil. 2026</p>
+        </div>
+        <div class="card-content">Zéro Déchet — 42 kg d'invendus détournés vers le compostage. Bordereau généré.</div>
+        <div class="card-footer">
+          <button class="btn btn-primary">Voir le détail</button>
+          <button class="btn btn-secondary">Éditer</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Pack Anti-Gaspi</h3>
+          <p class="card-desc">Organisation Sodexo</p>
+        </div>
+        <div class="card-content">Crédits restants : <strong>12 / 50</strong>. Prochaine échéance le 30 septembre 2026.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <p class="eyebrow">Card cliquable · repos / hover</p>
+    <div class="grid">
+      <div class="card card-clickable">
+        <div class="card-header"><h3 class="card-title">Repos</h3><p class="card-desc">Bordure neutral-200, aucune ombre</p></div>
+      </div>
+      <div class="card card-clickable hover">
+        <div class="card-header"><h3 class="card-title">Hover</h3><p class="card-desc">Bordure primary-200 + shadow-sm</p></div>
+      </div>
+    </div>
+    <div class="statehint">La hiérarchie vient de la bordure et de l'espace, jamais d'une ombre lourde.</div>
+  </div>
+</div>
+</body>
+</html>

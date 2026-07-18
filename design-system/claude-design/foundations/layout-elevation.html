@@ -1,0 +1,99 @@
+<!-- @dsCard group="Fondations" -->
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Savr · Layout & élévation</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap');
+  :root{
+    --c-primary-500:#3f5599;--c-primary-700:#223870;--c-neutral-100:#eef0f5;--c-neutral-200:#dde1eb;--c-neutral-300:#c3c9d9;--c-neutral-500:#6e7790;--c-neutral-600:#515a72;--c-neutral-900:#161a26;--c-white:#ffffff;--c-accent-500:#ff9b00;
+    --r-sm:4px;--r-md:8px;--r-lg:12px;--r-full:9999px;
+    --sh-sm:0 1px 2px rgba(13,20,40,.04);--sh-md:0 4px 12px rgba(13,20,40,.08);--sh-lg:0 12px 28px rgba(13,20,40,.12);
+    --font:'Nunito',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#f7f8fb;color:var(--c-neutral-900);font-family:var(--font);-webkit-font-smoothing:antialiased;padding:32px;}
+  h1{letter-spacing:-.02em;line-height:1.15;margin:0;font-weight:800;}
+  .page{max-width:1120px;margin:0 auto;}
+  .pagehead{margin-bottom:32px;}
+  .pagehead h1{font-size:26px;}
+  .pagehead p{margin:8px 0 0;color:var(--c-neutral-500);font-size:14px;max-width:660px;}
+  .eyebrow{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--c-neutral-500);margin:0 0 14px;}
+  .section{margin-bottom:36px;}
+  .spacing .row{display:flex;align-items:center;gap:16px;margin-bottom:8px;}
+  .spacing .row .k{width:150px;font-size:12px;color:var(--c-neutral-500);font-variant-numeric:tabular-nums;}
+  .spacing .row .k b{color:var(--c-neutral-900);}
+  .spacing .bar{height:16px;background:var(--c-accent-500);border-radius:2px;}
+  .rgrid{display:flex;gap:24px;flex-wrap:wrap;}
+  .ritem{text-align:center;}
+  .rbox{width:96px;height:96px;background:var(--c-primary-700);}
+  .rcap{margin-top:10px;font-size:12px;color:var(--c-neutral-500);}
+  .rcap b{display:block;color:var(--c-neutral-900);font-size:13px;}
+  .shgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:20px;}
+  .shcard{background:var(--c-white);border:1px solid var(--c-neutral-200);border-radius:var(--r-md);height:96px;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--c-neutral-500);}
+  .fieldlab{font-size:12px;color:var(--c-neutral-600);margin-bottom:6px;font-weight:600;}
+  .demo-input{width:280px;height:40px;border:1px solid var(--c-neutral-300);border-radius:var(--r-md);padding:0 12px;font-family:var(--font);font-size:14px;background:var(--c-white);outline:2px solid var(--c-primary-500);outline-offset:2px;}
+  .motion{display:flex;gap:20px;flex-wrap:wrap;}
+  .mcard{background:var(--c-white);border:1px solid var(--c-neutral-200);border-radius:var(--r-md);padding:14px 18px;font-size:13px;}
+  .mcard b{display:block;color:var(--c-neutral-900);}
+  .mcard span{color:var(--c-neutral-500);font-size:12px;}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="pagehead">
+    <h1>Layout &amp; élévation</h1>
+    <p>Grille 4px, radius mesuré (levier #6, md=8px partout), ombres sobres teintées navy (levier #5), focus ring signature (levier #4) et durées de mouvement.</p>
+  </div>
+
+  <div class="section spacing">
+    <p class="eyebrow">Spacing · grille 4px</p>
+    <div class="row"><div class="k"><b>savr-1</b> 4px</div><div class="bar" style="width:4px"></div></div>
+    <div class="row"><div class="k"><b>savr-2</b> 8px</div><div class="bar" style="width:8px"></div></div>
+    <div class="row"><div class="k"><b>savr-3</b> 12px</div><div class="bar" style="width:12px"></div></div>
+    <div class="row"><div class="k"><b>savr-4</b> 16px</div><div class="bar" style="width:16px"></div></div>
+    <div class="row"><div class="k"><b>savr-6</b> 24px</div><div class="bar" style="width:24px"></div></div>
+    <div class="row"><div class="k"><b>savr-8</b> 32px</div><div class="bar" style="width:32px"></div></div>
+    <div class="row"><div class="k"><b>savr-12</b> 48px</div><div class="bar" style="width:48px"></div></div>
+    <div class="row"><div class="k"><b>savr-16</b> 64px</div><div class="bar" style="width:64px"></div></div>
+  </div>
+
+  <div class="section">
+    <p class="eyebrow">Border radius · levier #6</p>
+    <div class="rgrid">
+      <div class="ritem"><div class="rbox" style="border-radius:var(--r-sm)"></div><div class="rcap"><b>sm</b>4px · puces</div></div>
+      <div class="ritem"><div class="rbox" style="border-radius:var(--r-md)"></div><div class="rcap"><b>md</b>8px · boutons, inputs, cards</div></div>
+      <div class="ritem"><div class="rbox" style="border-radius:var(--r-lg)"></div><div class="rcap"><b>lg</b>12px · surfaces larges</div></div>
+      <div class="ritem"><div class="rbox" style="border-radius:var(--r-full)"></div><div class="rcap"><b>full</b>· badges, avatars, toggles</div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <p class="eyebrow">Ombres · levier #5 — sobres, teintées navy</p>
+    <div class="shgrid">
+      <div class="shcard" style="box-shadow:none">none · repos</div>
+      <div class="shcard" style="box-shadow:var(--sh-sm)">sm · hover discret</div>
+      <div class="shcard" style="box-shadow:var(--sh-md)">md · popover, dropdown</div>
+      <div class="shcard" style="box-shadow:var(--sh-lg)">lg · modal, sheet</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <p class="eyebrow">Focus ring signature · levier #4</p>
+    <div class="fieldlab">Anneau primary-500, offset 2px — sur tout élément focusable</div>
+    <input class="demo-input" value="État focus permanent (démo)" readonly>
+  </div>
+
+  <div class="section">
+    <p class="eyebrow">Mouvement</p>
+    <div class="motion">
+      <div class="mcard"><b>fast</b><span>120ms ease-out · hover, press</span></div>
+      <div class="mcard"><b>base</b><span>200ms ease-out · transitions UI</span></div>
+      <div class="mcard"><b>slow</b><span>320ms ease-out · overlays</span></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

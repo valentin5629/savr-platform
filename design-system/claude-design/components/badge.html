@@ -1,0 +1,89 @@
+<!-- @dsCard group="Composants" -->
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Savr · Badge</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap');
+  :root{
+    --c-primary-50:#eff2f9;--c-primary-500:#3f5599;--c-primary-700:#223870;
+    --c-accent-50:#fff4e0;--c-accent-500:#ff9b00;--c-accent-700:#b36400;
+    --c-neutral-100:#eef0f5;--c-neutral-200:#dde1eb;--c-neutral-400:#9aa2b8;--c-neutral-500:#6e7790;--c-neutral-700:#3c4459;--c-neutral-900:#161a26;--c-white:#ffffff;
+    --c-success:#16a34a;--c-success-strong:#15803d;--c-success-subtle:#f0fdf4;
+    --c-warning:#d97706;--c-warning-strong:#b45309;--c-warning-subtle:#fffbeb;
+    --c-error:#dc2626;--c-error-strong:#b91c1c;--c-error-subtle:#fef2f2;
+    --c-info:#2563eb;--c-info-strong:#1d4ed8;--c-info-subtle:#eff6ff;
+    --r-md:8px;--r-full:9999px;--font:'Nunito',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#f7f8fb;color:var(--c-neutral-900);font-family:var(--font);-webkit-font-smoothing:antialiased;padding:32px;}
+  h1{letter-spacing:-.02em;margin:0;font-weight:800;}
+  .page{max-width:1120px;margin:0 auto;}
+  .pagehead{margin-bottom:28px;}
+  .pagehead h1{font-size:26px;}
+  .pagehead p{margin:8px 0 0;color:var(--c-neutral-500);font-size:14px;max-width:660px;}
+  .eyebrow{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--c-neutral-500);margin:0 0 14px;}
+  .section{margin-bottom:30px;}
+  .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+
+  /* Badge — mappe badge.tsx : pilule radius-full, text-xs, font-medium, point 6px */
+  .badge{display:inline-flex;align-items:center;gap:6px;border-radius:var(--r-full);padding:2px 8px;font-size:12px;font-weight:500;}
+  .badge .dot{width:6px;height:6px;border-radius:9999px;flex-shrink:0;}
+  .b-success{background:var(--c-success-subtle);color:var(--c-success-strong);} .b-success .dot{background:var(--c-success);}
+  .b-warning{background:var(--c-warning-subtle);color:var(--c-warning-strong);} .b-warning .dot{background:var(--c-warning);}
+  .b-error{background:var(--c-error-subtle);color:var(--c-error-strong);} .b-error .dot{background:var(--c-error);}
+  .b-info{background:var(--c-info-subtle);color:var(--c-info-strong);} .b-info .dot{background:var(--c-info);}
+  .b-action{background:var(--c-accent-50);color:var(--c-accent-700);} .b-action .dot{background:var(--c-accent-500);}
+  .b-neutral{background:var(--c-neutral-100);color:var(--c-neutral-700);} .b-neutral .dot{background:var(--c-neutral-400);}
+  .b-primary{background:var(--c-primary-50);color:var(--c-primary-700);} .b-primary .dot{background:var(--c-primary-500);}
+  .cap{font-size:12px;color:var(--c-neutral-500);margin-top:6px;}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="pagehead">
+    <h1>Badge</h1>
+    <p>Pilule radius-full, texte 12px medium, point coloré 6px. Fond {sémantique}-subtle + texte {sémantique}-strong (≥ AA). Variant « action » = seul usage texte orange (accent-700).</p>
+  </div>
+
+  <div class="section">
+    <p class="eyebrow">Variants · avec point (défaut)</p>
+    <div class="row">
+      <span class="badge b-success"><span class="dot"></span>Réalisée</span>
+      <span class="badge b-warning"><span class="dot"></span>Pack faible</span>
+      <span class="badge b-error"><span class="dot"></span>Annulée</span>
+      <span class="badge b-info"><span class="dot"></span>Info</span>
+      <span class="badge b-action"><span class="dot"></span>À valider</span>
+      <span class="badge b-neutral"><span class="dot"></span>Brouillon</span>
+      <span class="badge b-primary"><span class="dot"></span>Actif</span>
+    </div>
+  </div>
+
+  <div class="section">
+    <p class="eyebrow">Sans point</p>
+    <div class="row">
+      <span class="badge b-success">Réalisée</span>
+      <span class="badge b-warning">Pack faible</span>
+      <span class="badge b-error">Annulée</span>
+      <span class="badge b-action">À valider</span>
+      <span class="badge b-neutral">Brouillon</span>
+      <span class="badge b-primary">Actif</span>
+    </div>
+  </div>
+
+  <div class="section">
+    <p class="eyebrow">En situation · statuts collecte Savr</p>
+    <div class="row">
+      <span class="badge b-neutral"><span class="dot"></span>Programmée</span>
+      <span class="badge b-primary"><span class="dot"></span>Validée</span>
+      <span class="badge b-info"><span class="dot"></span>En cours</span>
+      <span class="badge b-success"><span class="dot"></span>Réalisée</span>
+      <span class="badge b-neutral"><span class="dot"></span>Clôturée</span>
+      <span class="badge b-warning"><span class="dot"></span>Sans collecte</span>
+    </div>
+  </div>
+</div>
+</body>
+</html>

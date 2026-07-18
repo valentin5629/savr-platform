@@ -1,12 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { LayoutDashboard, Download } from 'lucide-react';
+import { LayoutDashboard } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { FilterChips } from '@/components/ui/filter-chips';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { Pagination } from '@/components/ui/pagination';
 import { RevenusHistogramme } from '@/components/dashboards/index.js';
@@ -74,49 +73,24 @@ function badgeVeille(v: number, labelActif: string) {
   );
 }
 
-// Champ date DS (§5.5) — bornes de période du tableau Revenus. Input natif stylé
-// aux tokens savr-* (h-10, radius md, focus ring signature global), aligné sur le
+// Champ date DS (§5.5) — bornes de période du bloc Revenus. Input natif stylé aux
+// tokens savr-* (h-10, radius md, focus ring signature global), aligné sur le
 // parti-pris DatePicker sans son icône superposée (redondante avec l'indicateur
 // natif dans une barre de filtres dense).
 const dateFieldClass =
   'h-10 rounded-savr-md border border-savr-neutral-300 bg-savr-white px-3 text-sm text-savr-neutral-900 hover:border-savr-primary-400';
 
-// Presets de période (BL-P3-02) — liste CDC §06.04 l.73 / §06.05 l.105.
-type PresetKey = '7j' | '30j' | 'trimestre' | '12m' | 'civile';
-const DASHBOARD_PRESETS: { key: PresetKey; label: string }[] = [
-  { key: '7j', label: '7 jours' },
-  { key: '30j', label: '30 jours' },
-  { key: 'trimestre', label: 'Trimestre en cours' },
-  { key: '12m', label: '12 derniers mois' },
-  { key: 'civile', label: 'Année civile' },
-];
-function presetRange(key: PresetKey): { from: string; to: string } {
+// Période par défaut du bloc Revenus : 12 derniers mois glissants, alignés au 1er du
+// mois (12 buckets pleins pour l'histogramme). Cette MÊME fenêtre pilote l'histogramme
+// ET le tableau (filtre unique, revue E2E Val 2026-07-18) ; « Réinitialiser » y revient.
+function defaultPeriode(): { from: string; to: string } {
   const now = new Date();
   const iso = (d: Date) => d.toISOString().slice(0, 10);
-  if (key === 'trimestre')
-    return {
-      from: iso(
-        new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1),
-      ),
-      to: iso(now),
-    };
-  if (key === 'civile')
-    return {
-      from: `${now.getFullYear()}-01-01`,
-      to: `${now.getFullYear()}-12-31`,
-    };
-  const from = new Date();
-  if (key === '12m') from.setMonth(from.getMonth() - 12);
-  else from.setDate(from.getDate() - (key === '7j' ? 7 : 30));
-  return { from: iso(from), to: iso(now) };
+  return {
+    from: iso(new Date(now.getFullYear(), now.getMonth() - 11, 1)),
+    to: iso(now),
+  };
 }
-
-// Preset par défaut du tableau Revenus : 12 derniers mois (§11 §8 l.180, aligné
-// §06.04/§06.05). Décision Val 2026-07-18 (revue E2E) — harmonise le tableau admin
-// sur le défaut générique des dashboards ; divergence tracée vs §11 Bloc 2 l.38
-// (« défaut mois en cours »). Source unique : période initiale + preset actif au
-// chargement + retour de « Réinitialiser ».
-const DEFAULT_PRESET: PresetKey = '12m';
 
 const revenusColumns: Column<RevenusRow>[] = [
   { key: 'raison_sociale', header: 'Organisation', sortable: true },
@@ -159,24 +133,12 @@ export default function DashboardAdminPage() {
   const [loadingKpi, setLoadingKpi] = useState(true);
   const [loadingRevenus, setLoadingRevenus] = useState(true);
 
-  const [periode, setPeriode] = useState(() => presetRange(DEFAULT_PRESET));
-  // Preset actif de la barre de période — défaut « 12 derniers mois » (§11 §8),
-  // `''` = plage personnalisée saisie à la main.
-  const [activePreset, setActivePreset] = useState<string>(DEFAULT_PRESET);
+  // Filtre de période UNIQUE — pilote l'histogramme ET le tableau (revue E2E Val
+  // 2026-07-18). Défaut = 12 derniers mois glissants.
+  const [periode, setPeriode] = useState(defaultPeriode);
   const [sortKey, setSortKey] = useState<string>('montant_total');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
-
-  // Histogramme 12 mois glissants (§11 §1.1) — période propre, indépendante du tableau.
-  const histo = (() => {
-    const now = new Date();
-    return {
-      from: new Date(now.getFullYear(), now.getMonth() - 11, 1)
-        .toISOString()
-        .slice(0, 10),
-      to: now.toISOString().slice(0, 10),
-    };
-  })();
 
   useEffect(() => {
     fetch('/api/v1/admin/dashboard/kpi')
@@ -185,20 +147,15 @@ export default function DashboardAdminPage() {
       .finally(() => setLoadingKpi(false));
   }, []);
 
-  const revenusQs = useCallback(
-    (extra?: Record<string, string>) => {
-      const qs = new URLSearchParams({
-        from: periode.from,
-        to: periode.to,
-        sort: sortKey,
-        dir: sortDir,
-        page: String(page),
-        ...extra,
-      });
-      return qs.toString();
-    },
-    [periode, sortKey, sortDir, page],
-  );
+  const revenusQs = useCallback(() => {
+    return new URLSearchParams({
+      from: periode.from,
+      to: periode.to,
+      sort: sortKey,
+      dir: sortDir,
+      page: String(page),
+    }).toString();
+  }, [periode, sortKey, sortDir, page]);
 
   useEffect(() => {
     setLoadingRevenus(true);
@@ -217,26 +174,10 @@ export default function DashboardAdminPage() {
     setPage(1);
   };
 
-  // Édition manuelle des bornes → aucun preset actif.
+  // Édition manuelle d'une borne de période.
   const setBorne = (champ: 'from' | 'to', value: string) => {
     setPeriode((p) => ({ ...p, [champ]: value }));
-    setActivePreset('');
     setPage(1);
-  };
-
-  const exportCsv = async () => {
-    const res = await fetch(
-      `/api/v1/admin/dashboard/revenus-organisations?${revenusQs({ format: 'csv' })}`,
-    );
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `revenus-organisations_${periode.from}_${periode.to}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
   };
 
   const totalPages = Math.max(1, Math.ceil(total / 50));
@@ -334,107 +275,80 @@ export default function DashboardAdminPage() {
         ) : null}
       </section>
 
-      {/* Bloc 2 — Revenus (histogramme 12 mois + tableau par organisation) */}
+      {/* Bloc 2 — Revenus (histogramme + tableau par organisation, filtre commun) */}
       <section className="space-y-4">
         <h2 className="text-lg font-semibold text-savr-neutral-700">Revenus</h2>
 
-        {/* Graphe (3/5) + tableau (2/5) sur la même ligne ≥ lg (revue E2E Val
+        {/* Filtre de période COMMUN — pilote le graphe ET le tableau (revue E2E Val
+            2026-07-18). Champs Du/au + « Réinitialiser » (retour au défaut 12 mois). */}
+        <div
+          className="flex flex-wrap items-end gap-x-4 gap-y-3"
+          data-testid="revenus-orgs-controls"
+        >
+          <div className="space-y-1">
+            <label
+              htmlFor="revenus-from"
+              className="block text-xs font-medium text-savr-neutral-600"
+            >
+              Du
+            </label>
+            <input
+              id="revenus-from"
+              type="date"
+              value={periode.from}
+              max={periode.to}
+              onChange={(e) => setBorne('from', e.target.value)}
+              aria-label="Date de début"
+              data-testid="revenus-from"
+              className={dateFieldClass}
+            />
+          </div>
+          <div className="space-y-1">
+            <label
+              htmlFor="revenus-to"
+              className="block text-xs font-medium text-savr-neutral-600"
+            >
+              au
+            </label>
+            <input
+              id="revenus-to"
+              type="date"
+              value={periode.to}
+              min={periode.from}
+              onChange={(e) => setBorne('to', e.target.value)}
+              aria-label="Date de fin"
+              data-testid="revenus-to"
+              className={dateFieldClass}
+            />
+          </div>
+          <Button
+            variant="link"
+            size="sm"
+            onClick={() => {
+              setPeriode(defaultPeriode());
+              setPage(1);
+            }}
+            data-testid="revenus-reinitialiser"
+          >
+            Réinitialiser
+          </Button>
+        </div>
+
+        {/* Graphe (50 %) + tableau (50 %) sur la même ligne ≥ lg (revue E2E Val
             2026-07-18) — empilés en dessous. `items-start` : chaque colonne garde
             sa hauteur propre, pas d'étirement du graphe sur la hauteur du tableau. */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-5 lg:items-start">
-          {/* Histogramme 12 mois glissants (§11 §1.1) — surface graphe DS */}
-          <ChartCard className="lg:col-span-3">
-            <RevenusHistogramme from={histo.from} to={histo.to} />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
+          {/* Histogramme — MÊME fenêtre de période que le tableau (filtre commun). */}
+          <ChartCard>
+            <RevenusHistogramme from={periode.from} to={periode.to} />
           </ChartCard>
 
-          {/* Colonne « Revenus par organisation » — titre + filtres + tableau. */}
-          <div className="space-y-4 lg:col-span-2">
-            {/* Titre du bloc tableau, au-dessus des filtres (revue E2E Val 2026-07-15). */}
+          {/* Colonne « Revenus par organisation » — titre + tableau. */}
+          <div className="space-y-4">
+            {/* Titre du bloc tableau (revue E2E Val 2026-07-15). */}
             <h3 className="text-base font-extrabold tracking-[-0.01em] text-savr-neutral-900">
               Revenu par organisation
             </h3>
-
-            {/* Tableau « Revenus par organisation » — barre de période DS */}
-            <div className="space-y-3" data-testid="revenus-orgs-controls">
-              <div className="flex flex-wrap items-end justify-between gap-4">
-                <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
-                  <div className="space-y-1">
-                    <label
-                      htmlFor="revenus-from"
-                      className="block text-xs font-medium text-savr-neutral-600"
-                    >
-                      Du
-                    </label>
-                    <input
-                      id="revenus-from"
-                      type="date"
-                      value={periode.from}
-                      max={periode.to}
-                      onChange={(e) => setBorne('from', e.target.value)}
-                      aria-label="Date de début"
-                      data-testid="revenus-from"
-                      className={dateFieldClass}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label
-                      htmlFor="revenus-to"
-                      className="block text-xs font-medium text-savr-neutral-600"
-                    >
-                      au
-                    </label>
-                    <input
-                      id="revenus-to"
-                      type="date"
-                      value={periode.to}
-                      min={periode.from}
-                      onChange={(e) => setBorne('to', e.target.value)}
-                      aria-label="Date de fin"
-                      data-testid="revenus-to"
-                      className={dateFieldClass}
-                    />
-                  </div>
-                </div>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={exportCsv}
-                  data-testid="revenus-export-csv"
-                >
-                  <Download className="h-4 w-4" />
-                  Exporter CSV
-                </Button>
-              </div>
-
-              {/* Presets + Réinitialiser (BL-P3-02) */}
-              <div className="flex flex-wrap items-center gap-2">
-                <FilterChips
-                  ariaLabel="Période prédéfinie"
-                  chips={DASHBOARD_PRESETS.map((p) => ({
-                    key: p.key,
-                    label: p.label,
-                  }))}
-                  activeKey={activePreset}
-                  onSelect={(k) => {
-                    setPeriode(presetRange(k as PresetKey));
-                    setActivePreset(k);
-                    setPage(1);
-                  }}
-                />
-                <Button
-                  variant="link"
-                  size="sm"
-                  onClick={() => {
-                    setPeriode(presetRange(DEFAULT_PRESET));
-                    setActivePreset(DEFAULT_PRESET);
-                    setPage(1);
-                  }}
-                  data-testid="revenus-reinitialiser"
-                >
-                  Réinitialiser
-                </Button>
-              </div>
-            </div>
 
             <Card>
               {loadingRevenus ? (

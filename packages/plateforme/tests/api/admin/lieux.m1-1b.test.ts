@@ -126,6 +126,42 @@ describe('M1.1b / Lieux / Liste', () => {
     const res = await GET(makeReq('GET', '/api/v1/admin/lieux'));
     expect(res.status).toBe(200);
   });
+
+  it('M1.1b/lieux/liste — gestionnaire_nom enrichi (batch organisations_lieux, raison_sociale prioritaire, null si sans lien)', async () => {
+    setupAuth('admin_savr');
+    // Requête 1 (lieux) → terminée par .range
+    mockSupabaseChain.range.mockResolvedValueOnce({
+      data: [
+        { id: 'lieu-1', nom: 'Pavillon Gabriel', ville: 'Paris', actif: true },
+        { id: 'lieu-2', nom: 'Salle Wagram', ville: 'Paris', actif: true },
+      ],
+      count: 2,
+      error: null,
+    });
+    // Requête 2 (organisations_lieux) → awaitée directement, terminée par .in.
+    // lieu-1 rattaché (raison_sociale doit primer sur nom) ; lieu-2 sans lien.
+    mockSupabaseChain.in.mockResolvedValueOnce({
+      data: [
+        {
+          lieu_id: 'lieu-1',
+          organisations: { nom: 'Viparis', raison_sociale: 'Viparis SAS' },
+        },
+      ],
+      error: null,
+    });
+    const { GET } = await import('@/app/api/v1/admin/lieux/route.js');
+    const res = await GET(makeReq('GET', '/api/v1/admin/lieux'));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      data: Array<{ id: string; gestionnaire_nom: string | null }>;
+      total: number;
+    };
+    expect(body.total).toBe(2);
+    const l1 = body.data.find((l) => l.id === 'lieu-1');
+    const l2 = body.data.find((l) => l.id === 'lieu-2');
+    expect(l1?.gestionnaire_nom).toBe('Viparis SAS');
+    expect(l2?.gestionnaire_nom).toBeNull();
+  });
 });
 
 describe('M1.1b / Lieux / Création', () => {

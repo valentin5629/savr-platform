@@ -121,6 +121,31 @@ describe('M1.1 — Modale association (revue E2E)', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it('bloque la soumission si SIREN ≠ 9 chiffres', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    render(
+      <AssociationModal
+        open
+        association={null}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+
+    fillRequiredFields();
+    // SIREN est optionnel mais, s'il est renseigné, doit faire 9 chiffres.
+    fireEvent.change(screen.getByLabelText(/^SIREN/), {
+      target: { value: '123' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: /Créer l.association/ }),
+    );
+
+    expect(await screen.findByText(/SIREN : 9 chiffres/)).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('création → POST /associations + onSaved/onClose', async () => {
     const onSaved = vi.fn();
     const onClose = vi.fn();

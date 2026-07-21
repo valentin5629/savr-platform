@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Modal } from '@/components/ui/modal';
 import { CollecteDetailPanel } from './collecte-detail-panel';
 
@@ -11,6 +11,12 @@ interface CollecteDetailModalProps {
   collecteId: string | null;
   onClose: () => void;
 }
+
+// Cadre coloré par type : orange (Anti-Gaspi) / vert (Zéro Déchet) — décision Val.
+const BORDER_BY_TYPE: Record<'anti_gaspi' | 'zero_dechet', string> = {
+  anti_gaspi: 'border-4 border-savr-warning',
+  zero_dechet: 'border-4 border-savr-success',
+};
 
 export function CollecteDetailModal({
   collecteId,
@@ -23,22 +29,37 @@ export function CollecteDetailModal({
   // sous-modale se fermer seule (la fiche reste ouverte).
   const blockCloseRef = useRef(false);
 
+  // Type + titre-résumé remontés par le panneau une fois la collecte chargée :
+  // pilotent le titre figé de l'en-tête (« Collecte AG · … · jusqu'à N pax ») et
+  // la couleur du cadre. Réinitialisés à chaque changement de collecte pour ne
+  // pas afficher brièvement le titre/cadre de la fiche précédente.
+  const [meta, setMeta] = useState<{
+    type: 'anti_gaspi' | 'zero_dechet';
+    title: string;
+  } | null>(null);
+  useEffect(() => {
+    setMeta(null);
+  }, [collecteId]);
+
   const handleClose = useCallback(() => {
     if (blockCloseRef.current) return;
     onClose();
   }, [onClose]);
 
+  const borderClass = meta ? BORDER_BY_TYPE[meta.type] : '';
+
   return (
     <Modal
       open={collecteId != null}
-      title="Détail de la collecte"
+      title={meta?.title ?? 'Collecte'}
       onClose={handleClose}
-      wide
+      className={`max-w-4xl ${borderClass}`.trim()}
     >
       {collecteId != null && (
         <CollecteDetailPanel
           key={collecteId}
           collecteId={collecteId}
+          onLoaded={setMeta}
           blockCloseRef={blockCloseRef}
         />
       )}

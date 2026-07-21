@@ -487,24 +487,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     expect(await screen.findByTitle(/Rapport régénéré/)).toBeInTheDocument();
   });
 
-  it('M0.6 — Bloc 4 Pack AG : pack rattaché + crédits restants + statut', async () => {
-    installMock({});
-    render(<CollecteDetailPanel collecteId="c1" />);
-    expect(await screen.findByText('Pack AG')).toBeInTheDocument();
-    expect(screen.getByText('Pack 10 collectes')).toBeInTheDocument();
-    expect(screen.getByText('7')).toBeInTheDocument();
-  });
-
-  it('M0.6 — Bloc 4 : badge « Crédit recrédité » si collecte annulee après réalisation', async () => {
-    installMock({
-      collecte: { ...baseAg, statut: 'annulee' },
-      audit: { data: [], recredit_at: '2026-06-01T08:00:00Z' },
-    });
-    render(<CollecteDetailPanel collecteId="c1" />);
-    expect(
-      await screen.findByText(/Crédit recrédité automatiquement le/),
-    ).toBeInTheDocument();
-  });
+  // (Bloc « Pack AG » retiré de la fiche — décision Val ; ex-tests Bloc 4 supprimés.)
 
   it('M0.6 — Bloc 5 Attribution AG : association + transporteur retenus + lien vers l’écran complet (plus de stub « algo V2 »)', async () => {
     installMock({});

@@ -551,12 +551,12 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
     await screen.findAllByText('Traiteur Alpha');
 
     // Drawer fermé au départ.
-    expect(screen.queryByText('Détail de la collecte')).toBeNull();
+    expect(screen.queryByText('Prestataire & Dispatch')).toBeNull();
 
     // Clic « Dispatcher » → ouvre le panneau latéral…
     fireEvent.click(screen.getByRole('button', { name: /Dispatcher/ }));
     expect(
-      await screen.findByText('Détail de la collecte'),
+      await screen.findByText('Prestataire & Dispatch'),
     ).toBeInTheDocument();
 
     // …et charge la fiche de CETTE collecte (appariement id↔bouton — remplace
@@ -572,7 +572,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
     // Fermeture via la croix du Sheet → le panneau disparaît.
     fireEvent.click(screen.getByRole('button', { name: 'Fermer' }));
     await waitFor(() =>
-      expect(screen.queryByText('Détail de la collecte')).toBeNull(),
+      expect(screen.queryByText('Prestataire & Dispatch')).toBeNull(),
     );
   });
 

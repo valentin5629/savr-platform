@@ -13,9 +13,7 @@ import {
   RotateCw,
   Upload,
   History,
-  Gift,
   MapPin,
-  CalendarClock,
   Scale,
   HeartHandshake,
   type LucideIcon,
@@ -140,7 +138,9 @@ interface CollecteDetail {
   evenements: {
     nom_evenement: string | null;
     pax: number;
+    nom_client_organisateur: string | null;
     organisations: { raison_sociale: string };
+    client_organisateur: { raison_sociale: string } | null;
     lieux: { nom: string; ville: string; adresse_acces: string };
     types_evenements: { libelle: string } | null;
   };
@@ -269,6 +269,13 @@ interface CollecteDetailPanelProps {
   // dispatch, envoi TMS, infos accès/chauffeur, pesées ZD, documents, forçage
   // statut). L'id vient d'une prop (plus de route [id], plus de useParams).
   collecteId: string;
+  // Le panneau remonte au wrapper modale le type + le titre-résumé de la collecte
+  // une fois chargée → titre figé de l'en-tête de la modale + couleur du cadre
+  // (AG orange / ZD vert). Optionnel : absent en test unitaire du panneau seul.
+  onLoaded?: (info: {
+    type: 'anti_gaspi' | 'zero_dechet';
+    title: string;
+  }) => void;
   // Miroir « une sous-modale (forçage/nb camions/annuler crédit) est ouverte » :
   // le wrapper modale le lit pour ne PAS fermer la fiche sur Escape tant qu'une
   // sous-modale est ouverte (modale externe + sous-modale écoutent toutes deux
@@ -279,6 +286,7 @@ interface CollecteDetailPanelProps {
 
 export function CollecteDetailPanel({
   collecteId,
+  onLoaded,
   blockCloseRef,
 }: CollecteDetailPanelProps) {
   const [collecte, setCollecte] = useState<CollecteDetail | null>(null);
@@ -336,7 +344,6 @@ export function CollecteDetailPanel({
   // Bloc 3 — Documents / Bloc 7 — Historique (BOA-07)
   const [documents, setDocuments] = useState<DocumentsData | null>(null);
   const [audit, setAudit] = useState<AuditEntry[]>([]);
-  const [recreditAt, setRecreditAt] = useState<string | null>(null);
   const [regenerating, setRegenerating] = useState<PdfType | null>(null);
   const [docError, setDocError] = useState<string | null>(null);
   const [photoUploading, setPhotoUploading] = useState(false);
@@ -359,16 +366,12 @@ export function CollecteDetailPanel({
     if (r.ok) setDocuments((await r.json()) as DocumentsData);
   }, [collecteId]);
 
-  // Bloc 7 — Historique + audit log (+ date de recrédit pour Bloc 4).
+  // Bloc 7 — Historique + audit log.
   const refetchAudit = useCallback(async () => {
     const r = await fetch(`/api/v1/admin/collectes/${collecteId}/audit`);
     if (r.ok) {
-      const j = (await r.json()) as {
-        data: AuditEntry[];
-        recredit_at: string | null;
-      };
+      const j = (await r.json()) as { data: AuditEntry[] };
       setAudit(j.data);
-      setRecreditAt(j.recredit_at);
     }
   }, [collecteId]);
 
@@ -685,6 +688,21 @@ export function CollecteDetailPanel({
     setInfosAccesSaving(false);
   };
 
+  // Remonte le type + le titre-résumé au wrapper modale dès que la collecte est
+  // chargée (en-tête figé « Collecte AG · … · jusqu'à N pax » + cadre coloré).
+  useEffect(() => {
+    if (!collecte) return;
+    const d = new Date(collecte.date_collecte).toLocaleDateString('fr-FR');
+    const h = collecte.heure_collecte
+      ? ` · ${collecte.heure_collecte.slice(0, 5)}`
+      : '';
+    const lieu = collecte.evenements.lieux;
+    onLoaded?.({
+      type: collecte.type,
+      title: `Collecte ${typeCollecteLabel(collecte.type)} · ${d}${h} · ${collecte.evenements.organisations.raison_sociale} · ${lieu.nom} (${lieu.ville}) · jusqu'à ${collecte.evenements.pax} pax`,
+    });
+  }, [collecte, onLoaded]);
+
   // Miroir de l'état « sous-modale ouverte » pour le wrapper modale (garde Escape).
   const anySubModalOpen =
     annulerCreditModal || forceStatutModal || nbCamionsModal;
@@ -732,262 +750,337 @@ export function CollecteDetailPanel({
 
   return (
     <div className="space-y-4">
-      {/* En-tête compact — méta + statut + forçage. Le chrome (titre, fermeture)
-          est fourni par la modale parente → pas de PageHero navy ni de flèche retour. */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex min-w-0 items-start gap-2.5">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-savr-md bg-savr-primary-50 text-savr-primary-700">
-            <Truck className="h-[18px] w-[18px]" />
-          </span>
-          <div className="min-w-0">
-            <h3 className="text-base font-extrabold tracking-[-0.01em] text-savr-neutral-900">
-              Collecte {typeCollecteLabel(collecte.type)}
-            </h3>
-            <p className="mt-0.5 text-sm text-savr-neutral-500">
-              {new Date(collecte.date_collecte).toLocaleDateString('fr-FR')}
-              {collecte.heure_collecte
-                ? ` · ${collecte.heure_collecte.slice(0, 5)}`
-                : ''}{' '}
-              · {collecte.evenements.organisations.raison_sociale} ·{' '}
-              {collecte.evenements.lieux.nom} ({collecte.evenements.lieux.ville}
-              ) · {collecte.evenements.pax} pax
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <StatusCollecte statut={collecte.statut as StatutCollecte} />
-          {collecte.dirty_tms && (
-            <Badge
-              variant="warning"
-              className="flex items-center gap-1 text-xs"
-            >
-              <AlertTriangle className="h-3 w-3" />
-              Modifiée — renvoi requis
-            </Badge>
-          )}
-          {/* RM-08 — forçage manuel du statut (motif obligatoire) */}
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              setForceStatutValue(collecte.statut);
-              setForceStatutMotif('');
-              setForceStatutError(null);
-              setForceStatutModal(true);
-            }}
-          >
-            <Settings2 className="h-4 w-4" />
-            Forcer le statut
-          </Button>
-        </div>
+      {/* Barre d'action — statut + « dirty TMS » + forçage. Le titre/méta (type ·
+          date · traiteur · lieu · jusqu'à N pax) vit dans l'en-tête figé de la modale. */}
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <StatusCollecte statut={collecte.statut as StatutCollecte} />
+        {collecte.dirty_tms && (
+          <Badge variant="warning" className="flex items-center gap-1 text-xs">
+            <AlertTriangle className="h-3 w-3" />
+            Modifiée — renvoi requis
+          </Badge>
+        )}
+        {/* RM-08 — forçage manuel du statut (motif obligatoire) */}
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => {
+            setForceStatutValue(collecte.statut);
+            setForceStatutMotif('');
+            setForceStatutError(null);
+            setForceStatutModal(true);
+          }}
+        >
+          <Settings2 className="h-4 w-4" />
+          Forcer le statut
+        </Button>
       </div>
 
-      {/* Bloc 0 — Attribution prestataire & dispatch */}
-      <Card className="p-5 space-y-4">
-        <BlocHeader icon={Truck} title="Prestataire & Dispatch" />
-        {dispatchError && <AlertBar variant="err">{dispatchError}</AlertBar>}
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-          <div>
-            <dt className="text-savr-neutral-500">Prestataire actuel</dt>
-            <dd className="font-medium flex items-center gap-2">
-              {currentTransporteur?.nom ?? (
-                <span className="text-savr-neutral-400">
-                  Aucun prestataire attribué
-                </span>
-              )}
-              {currentTransporteur && (
-                <Badge variant="neutral" className="text-[10px]">
-                  {currentTransporteur.type_tms}
-                </Badge>
-              )}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-savr-neutral-500">Statut TMS</dt>
-            <dd className="font-medium">
-              <Badge
-                variant={statutTmsDisplay(collecte.statut_tms).variant}
-                className="text-xs"
-              >
-                {statutTmsDisplay(collecte.statut_tms).label}
-              </Badge>
-              {collecte.statut_tms_at && (
-                <span className="ml-1 text-xs text-savr-neutral-400">
-                  ({new Date(collecte.statut_tms_at).toLocaleString('fr-FR')})
-                </span>
-              )}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-savr-neutral-500">Référence TMS</dt>
-            <dd className="font-mono font-medium">
-              {collecte.tms_reference ?? '—'}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-savr-neutral-500">Nb camions</dt>
-            <dd className="flex items-center gap-2 font-medium">
-              {collecte.nb_camions_demande}
-              {nbCamionsEditable && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setNbCamionsValue(String(collecte.nb_camions_demande));
-                    setNbCamionsError(null);
-                    setNbCamionsModal(true);
-                  }}
-                >
-                  Modifier
-                </Button>
-              )}
-            </dd>
-          </div>
-          {collecte.motif_override_prestataire && (
-            <div className="col-span-2">
-              <dt className="text-savr-neutral-500">Motif override</dt>
-              <dd className="font-medium">
-                {collecte.motif_override_prestataire}
+      {/* Haut : Prestataire & Dispatch + Attribution AG côte à côte (AG only) ;
+          en ZD, Prestataire & Dispatch seul en pleine largeur (pas d'attribution AG). */}
+      <div
+        className={
+          collecte.type === 'anti_gaspi'
+            ? 'grid items-start gap-4 md:grid-cols-2'
+            : undefined
+        }
+      >
+        <Card className="p-5 space-y-4">
+          <BlocHeader icon={Truck} title="Prestataire & Dispatch" />
+          {dispatchError && <AlertBar variant="err">{dispatchError}</AlertBar>}
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+            <div>
+              <dt className="text-savr-neutral-500">Prestataire actuel</dt>
+              <dd className="font-medium flex items-center gap-2">
+                {currentTransporteur?.nom ?? (
+                  <span className="text-savr-neutral-400">
+                    Aucun prestataire attribué
+                  </span>
+                )}
+                {currentTransporteur && (
+                  <Badge variant="neutral" className="text-[10px]">
+                    {currentTransporteur.type_tms}
+                  </Badge>
+                )}
               </dd>
             </div>
-          )}
-        </dl>
-
-        {/* Sélecteur prestataire (AG) — override manuel §06.06 §3. Pas de
-            sélecteur ZD V1 (prestataire fixe par lieu/zone : réémission seule). */}
-        {collecte.type === 'anti_gaspi' && !isTerminal && (
-          <div className="space-y-3 border-t border-savr-neutral-100 pt-4">
-            {/* Recommandation algo (§06.09) — prestataire + association top-1. */}
-            <div className="rounded-savr-md border border-savr-primary-100 bg-savr-primary-50 p-3 text-sm">
-              <p className="font-medium text-savr-primary-800">
-                Recommandation algo
-              </p>
-              <dl className="mt-1 grid grid-cols-1 gap-1 sm:grid-cols-2">
-                <div>
-                  <dt className="text-savr-neutral-500">
-                    Prestataire recommandé
-                  </dt>
-                  <dd className="font-medium">
-                    {reco?.transporteur ? (
-                      `${reco.transporteur.nom} (${reco.transporteur.type_tms})`
-                    ) : (
-                      <span className="text-savr-neutral-400">
-                        Aucune recommandation
-                      </span>
-                    )}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-savr-neutral-500">
-                    Association recommandée
-                  </dt>
-                  <dd className="font-medium">
-                    {reco?.associations?.[0]?.nom ?? (
-                      <span className="text-savr-neutral-400">Aucune</span>
-                    )}
-                  </dd>
-                </div>
-              </dl>
-              <p className="mt-2 text-xs text-savr-neutral-500">
-                Attribution complète (validation, emails, top 3 associations) :{' '}
-                <Link
-                  href={`/admin/attributions-ag/${collecte.id}`}
-                  className="text-savr-primary-600 hover:underline"
+            <div>
+              <dt className="text-savr-neutral-500">Statut TMS</dt>
+              <dd className="font-medium">
+                <Badge
+                  variant={statutTmsDisplay(collecte.statut_tms).variant}
+                  className="text-xs"
                 >
-                  écran d&apos;attribution AG →
-                </Link>
-              </p>
+                  {statutTmsDisplay(collecte.statut_tms).label}
+                </Badge>
+                {collecte.statut_tms_at && (
+                  <span className="ml-1 text-xs text-savr-neutral-400">
+                    ({new Date(collecte.statut_tms_at).toLocaleString('fr-FR')})
+                  </span>
+                )}
+              </dd>
             </div>
-
-            <label
-              htmlFor="dispatch-transporteur"
-              className="block text-sm font-medium text-savr-neutral-700"
-            >
-              Prestataire à attribuer
-            </label>
-            <Select
-              id="dispatch-transporteur"
-              value={selectedTransporteurId}
-              onChange={(e) => setSelectedTransporteurId(e.target.value)}
-            >
-              <option value="">
-                {currentTransporteur
-                  ? `Conserver — ${currentTransporteur.nom}`
-                  : '— Choisir un transporteur —'}
-              </option>
-              {transporteurs.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.nom} ({t.type_tms})
-                  {t.id === recommendedTransporteurId ? ' — recommandé' : ''}
-                </option>
-              ))}
-            </Select>
-            {overrideActif && (
-              <div>
-                <label
-                  htmlFor="dispatch-motif"
-                  className="block text-sm font-medium text-savr-neutral-700 mb-1"
-                >
-                  Motif override (obligatoire ≥ 5 car. — prestataire ≠ reco
-                  algo)
-                </label>
-                <Textarea
-                  id="dispatch-motif"
-                  rows={2}
-                  value={motifOverride}
-                  onChange={(e) => setMotifOverride(e.target.value)}
-                  placeholder="Raison du choix d'un prestataire différent de la recommandation…"
-                />
+            <div>
+              <dt className="text-savr-neutral-500">Référence TMS</dt>
+              <dd className="font-mono font-medium">
+                {collecte.tms_reference ?? '—'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-savr-neutral-500">Nb camions</dt>
+              <dd className="flex items-center gap-2 font-medium">
+                {collecte.nb_camions_demande}
+                {nbCamionsEditable && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setNbCamionsValue(String(collecte.nb_camions_demande));
+                      setNbCamionsError(null);
+                      setNbCamionsModal(true);
+                    }}
+                  >
+                    Modifier
+                  </Button>
+                )}
+              </dd>
+            </div>
+            {collecte.motif_override_prestataire && (
+              <div className="col-span-2">
+                <dt className="text-savr-neutral-500">Motif override</dt>
+                <dd className="font-medium">
+                  {collecte.motif_override_prestataire}
+                </dd>
               </div>
             )}
-          </div>
-        )}
+          </dl>
 
-        {/* Bouton d'envoi TMS forké par type_tms */}
-        <div className="flex justify-end">
-          <Button
-            disabled={isTerminal || dispatching || overrideMotifManquant}
-            onClick={() => void handleDispatch()}
-          >
-            <Send className="h-4 w-4 mr-2" />
-            {dispatching
-              ? 'Envoi…'
-              : libelleDispatch(forkTypeTms, !!collecte.tms_reference)}
-          </Button>
-        </div>
+          {/* Sélecteur prestataire (AG) — override manuel §06.06 §3. Pas de
+            sélecteur ZD V1 (prestataire fixe par lieu/zone : réémission seule). */}
+          {collecte.type === 'anti_gaspi' && !isTerminal && (
+            <div className="space-y-3 border-t border-savr-neutral-100 pt-4">
+              {/* Recommandation algo (§06.09) — prestataire + association top-1. */}
+              <div className="rounded-savr-md border border-savr-primary-100 bg-savr-primary-50 p-3 text-sm">
+                <p className="font-medium text-savr-primary-800">
+                  Recommandation algo
+                </p>
+                <dl className="mt-1 grid grid-cols-1 gap-1 sm:grid-cols-2">
+                  <div>
+                    <dt className="text-savr-neutral-500">
+                      Prestataire recommandé
+                    </dt>
+                    <dd className="font-medium">
+                      {reco?.transporteur ? (
+                        `${reco.transporteur.nom} (${reco.transporteur.type_tms})`
+                      ) : (
+                        <span className="text-savr-neutral-400">
+                          Aucune recommandation
+                        </span>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-savr-neutral-500">
+                      Association recommandée
+                    </dt>
+                    <dd className="font-medium">
+                      {reco?.associations?.[0]?.nom ?? (
+                        <span className="text-savr-neutral-400">Aucune</span>
+                      )}
+                    </dd>
+                  </div>
+                </dl>
+                <p className="mt-2 text-xs text-savr-neutral-500">
+                  Attribution complète (validation, emails, top 3 associations)
+                  :{' '}
+                  <Link
+                    href={`/admin/attributions-ag/${collecte.id}`}
+                    className="text-savr-primary-600 hover:underline"
+                  >
+                    écran d&apos;attribution AG →
+                  </Link>
+                </p>
+              </div>
 
-        {/* Tournées (multi-camions) */}
-        {collecte.collecte_tournees.length > 0 && (
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <p className="text-sm font-medium text-savr-neutral-700">
-                Tournées
-              </p>
-              <PlaqueTmsPicto tournees={collecte.collecte_tournees} />
-            </div>
-            <div className="space-y-1">
-              {collecte.collecte_tournees.map((ct) => (
-                <div
-                  key={ct.rang}
-                  className="flex items-center gap-4 text-sm bg-savr-neutral-50 rounded px-3 py-2"
-                >
-                  <span className="font-medium">Camion {ct.rang}</span>
-                  <Badge variant="neutral" className="text-xs">
-                    {ct.tournees.statut}
-                  </Badge>
-                  <span className="font-mono text-xs text-savr-neutral-500">
-                    {ct.tournees.external_ref_commande ?? '—'}
-                  </span>
-                  <span className="font-mono text-xs text-savr-neutral-600">
-                    {ct.tournees.plaque_immatriculation ?? 'plaque —'}
-                  </span>
+              <label
+                htmlFor="dispatch-transporteur"
+                className="block text-sm font-medium text-savr-neutral-700"
+              >
+                Prestataire à attribuer
+              </label>
+              <Select
+                id="dispatch-transporteur"
+                value={selectedTransporteurId}
+                onChange={(e) => setSelectedTransporteurId(e.target.value)}
+              >
+                <option value="">
+                  {currentTransporteur
+                    ? `Conserver — ${currentTransporteur.nom}`
+                    : '— Choisir un transporteur —'}
+                </option>
+                {transporteurs.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.nom} ({t.type_tms})
+                    {t.id === recommendedTransporteurId ? ' — recommandé' : ''}
+                  </option>
+                ))}
+              </Select>
+              {overrideActif && (
+                <div>
+                  <label
+                    htmlFor="dispatch-motif"
+                    className="block text-sm font-medium text-savr-neutral-700 mb-1"
+                  >
+                    Motif override (obligatoire ≥ 5 car. — prestataire ≠ reco
+                    algo)
+                  </label>
+                  <Textarea
+                    id="dispatch-motif"
+                    rows={2}
+                    value={motifOverride}
+                    onChange={(e) => setMotifOverride(e.target.value)}
+                    placeholder="Raison du choix d'un prestataire différent de la recommandation…"
+                  />
                 </div>
-              ))}
+              )}
             </div>
+          )}
+
+          {/* Bouton d'envoi TMS forké par type_tms */}
+          <div className="flex justify-end">
+            <Button
+              disabled={isTerminal || dispatching || overrideMotifManquant}
+              onClick={() => void handleDispatch()}
+            >
+              <Send className="h-4 w-4 mr-2" />
+              {dispatching
+                ? 'Envoi…'
+                : libelleDispatch(forkTypeTms, !!collecte.tms_reference)}
+            </Button>
           </div>
+
+          {/* Tournées (multi-camions) */}
+          {collecte.collecte_tournees.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <p className="text-sm font-medium text-savr-neutral-700">
+                  Tournées
+                </p>
+                <PlaqueTmsPicto tournees={collecte.collecte_tournees} />
+              </div>
+              <div className="space-y-1">
+                {collecte.collecte_tournees.map((ct) => (
+                  <div
+                    key={ct.rang}
+                    className="flex items-center gap-4 text-sm bg-savr-neutral-50 rounded px-3 py-2"
+                  >
+                    <span className="font-medium">Camion {ct.rang}</span>
+                    <Badge variant="neutral" className="text-xs">
+                      {ct.tournees.statut}
+                    </Badge>
+                    <span className="font-mono text-xs text-savr-neutral-500">
+                      {ct.tournees.external_ref_commande ?? '—'}
+                    </span>
+                    <span className="font-mono text-xs text-savr-neutral-600">
+                      {ct.tournees.plaque_immatriculation ?? 'plaque —'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </Card>
+
+        {/* Attribution AG (AG only) — remontée tout en haut, à droite de
+            « Prestataire & Dispatch » (décision Val). */}
+        {collecte.type === 'anti_gaspi' && (
+          <Card className="p-5 space-y-4">
+            <BlocHeader icon={HeartHandshake} title="Attribution AG" />
+            <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+              <div>
+                <dt className="text-savr-neutral-500">Association retenue</dt>
+                <dd className="font-medium">
+                  {collecte.attributions_antgaspi?.associations?.nom ?? (
+                    <span className="text-savr-neutral-400">
+                      Aucune (en attente d’attribution)
+                    </span>
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-savr-neutral-500">Transporteur retenu</dt>
+                <dd className="font-medium">
+                  {collecte.attributions_antgaspi?.transporteurs?.nom ?? (
+                    <span className="text-savr-neutral-400">—</span>
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-savr-neutral-500">Validation</dt>
+                <dd className="font-medium">
+                  {collecte.attributions_antgaspi?.valide_at ? (
+                    <>
+                      {collecte.attributions_antgaspi.mode_validation} —{' '}
+                      {new Date(
+                        collecte.attributions_antgaspi.valide_at,
+                      ).toLocaleDateString('fr-FR')}
+                    </>
+                  ) : (
+                    <Badge variant="warning" className="text-xs">
+                      En attente de validation
+                    </Badge>
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-savr-neutral-500">
+                  Volume repas (estimé / réalisé)
+                </dt>
+                <dd className="font-medium">
+                  {collecte.volume_estime_repas ?? '—'} /{' '}
+                  {collecte.attributions_antgaspi?.volume_repas_realise ?? '—'}
+                </dd>
+              </div>
+            </dl>
+            {reco?.associations && reco.associations.length > 0 && (
+              <div className="rounded-savr-md border border-savr-neutral-100 bg-savr-neutral-50 p-3">
+                <p className="text-xs font-medium text-savr-neutral-600 mb-1">
+                  Top 3 associations recommandées + scores (algo §06.09)
+                </p>
+                <ol className="list-decimal list-inside text-sm text-savr-neutral-700">
+                  {reco.associations.slice(0, 3).map((a) => (
+                    <li key={a.id}>
+                      {a.nom}
+                      {(a.distance_km != null ||
+                        a.capacite_max_beneficiaires != null) && (
+                        <span className="text-savr-neutral-500">
+                          {' — '}
+                          {a.distance_km != null ? `${a.distance_km} km` : ''}
+                          {a.distance_km != null &&
+                          a.capacite_max_beneficiaires != null
+                            ? ' · '
+                            : ''}
+                          {a.capacite_max_beneficiaires != null
+                            ? `capacité ${a.capacite_max_beneficiaires}`
+                            : ''}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+            <Link
+              href={`/admin/attributions-ag/${collecte.id}`}
+              className="inline-flex items-center text-sm font-medium text-savr-primary-600 hover:underline"
+            >
+              Ouvrir l’attribution complète (top 3, validation, emails, re-jouer
+              l’algo) →
+            </Link>
+          </Card>
         )}
-      </Card>
+      </div>
 
       {/* Infos accès / chauffeur — visible si le lieu exige un contrôle d'accès */}
       {collecte.controle_acces_requis && (
@@ -1185,95 +1278,39 @@ export function CollecteDetailPanel({
         </Card>
       )}
 
-      {/* Blocs 1-4 — Infos mutualisées */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="p-5 space-y-4">
-          <BlocHeader icon={MapPin} title="Événement & Lieu" />
-          <dl className="space-y-2.5 text-sm">
-            <div>
-              <dt className="text-savr-neutral-500">Traiteur</dt>
-              <dd className="font-medium">
-                {collecte.evenements.organisations.raison_sociale}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-savr-neutral-500">Événement</dt>
-              <dd className="font-medium">
-                {collecte.evenements.nom_evenement ?? '—'}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-savr-neutral-500">Type</dt>
-              <dd className="font-medium">
-                {collecte.evenements.types_evenements?.libelle ?? '—'}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-savr-neutral-500">PAX</dt>
-              <dd className="font-medium">{collecte.evenements.pax}</dd>
-            </div>
-            <div>
-              <dt className="text-savr-neutral-500">Lieu</dt>
-              <dd className="font-medium">
-                {collecte.evenements.lieux.nom} —{' '}
-                {collecte.evenements.lieux.ville}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-savr-neutral-500">Adresse</dt>
-              <dd className="font-medium">
-                {collecte.evenements.lieux.adresse_acces}
-              </dd>
-            </div>
-            {collecte.volume_estime_repas && (
-              <div>
-                <dt className="text-savr-neutral-500">Volume estimé</dt>
-                <dd className="font-medium">
-                  {collecte.volume_estime_repas} repas
-                </dd>
-              </div>
-            )}
-          </dl>
-        </Card>
-
-        <Card className="p-5 space-y-4">
-          <BlocHeader icon={CalendarClock} title="Logistique" />
-          <dl className="space-y-2.5 text-sm">
-            <div>
-              <dt className="text-savr-neutral-500">Date</dt>
-              <dd className="font-medium">
-                {new Date(collecte.date_collecte).toLocaleDateString('fr-FR')}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-savr-neutral-500">Heure</dt>
-              <dd className="font-medium">{collecte.heure_collecte}</dd>
-            </div>
-            <div>
-              <dt className="text-savr-neutral-500">Contrôle accès</dt>
-              <dd className="font-medium">
-                {collecte.controle_acces_requis ? 'Oui' : 'Non'}
-              </dd>
-            </div>
-            {collecte.informations_supplementaires && (
-              <div>
-                <dt className="text-savr-neutral-500">Infos supplémentaires</dt>
-                <dd className="bg-savr-neutral-50 rounded p-2">
-                  {collecte.informations_supplementaires}
-                </dd>
-              </div>
-            )}
-            {collecte.notes_internes && (
-              <div>
-                <dt className="text-savr-neutral-500">Notes internes</dt>
-                <dd className="bg-savr-neutral-50 rounded p-2">
-                  {collecte.notes_internes}
-                </dd>
-              </div>
-            )}
-          </dl>
-        </Card>
-      </div>
+      {/* Événement & Lieu — Client, Type, Adresse, Contrôle accès (date/heure/pax
+          sont dans l'en-tête figé de la modale ; bloc Logistique retiré — Val). */}
+      <Card className="p-5 space-y-4">
+        <BlocHeader icon={MapPin} title="Événement & Lieu" />
+        <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="text-savr-neutral-500">Client</dt>
+            <dd className="font-medium">
+              {collecte.evenements.client_organisateur?.raison_sociale ??
+                collecte.evenements.nom_client_organisateur ??
+                '—'}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-savr-neutral-500">Type</dt>
+            <dd className="font-medium">
+              {collecte.evenements.types_evenements?.libelle ?? '—'}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-savr-neutral-500">Adresse</dt>
+            <dd className="font-medium">
+              {collecte.evenements.lieux.adresse_acces}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-savr-neutral-500">Contrôle accès</dt>
+            <dd className="font-medium">
+              {collecte.controle_acces_requis ? 'Oui' : 'Non'}
+            </dd>
+          </div>
+        </dl>
+      </Card>
 
       {/* Pesées ZD (ZD only) + Documents sur la même ligne : grille 2 colonnes en
           ZD. En AG (pas de Pesées ZD) le wrapper est neutre → Documents pleine largeur. */}
@@ -1688,139 +1725,6 @@ export function CollecteDetailPanel({
           </div>
         </Card>
       </div>
-
-      {/* Blocs 4-5 (CDC) — Pack AG + Attribution AG côte-à-côte (AG only) : gain de
-          densité. items-start = chaque carte garde sa hauteur naturelle (Pack AG,
-          court, à gauche ; Attribution AG, plus haute, à droite — pas d'étirement). */}
-      {collecte.type === 'anti_gaspi' && (
-        <div className="grid items-start gap-4 md:grid-cols-2">
-          <Card className="p-5 space-y-4">
-            <BlocHeader icon={Gift} title="Pack AG" />
-            {collecte.packs_antgaspi ? (
-              <dl className="grid grid-cols-3 gap-x-6 gap-y-3 text-sm">
-                <div>
-                  <dt className="text-savr-neutral-500">Pack rattaché</dt>
-                  <dd className="font-medium">
-                    {collecte.packs_antgaspi.type_pack}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-savr-neutral-500">Crédits restants</dt>
-                  <dd className="font-medium">
-                    {collecte.packs_antgaspi.credits_restants}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-savr-neutral-500">Statut</dt>
-                  <dd>
-                    <Badge variant="neutral" className="text-xs">
-                      {collecte.packs_antgaspi.statut}
-                    </Badge>
-                  </dd>
-                </div>
-              </dl>
-            ) : (
-              <p className="text-sm text-savr-neutral-500">
-                Aucun pack rattaché à cette collecte.
-              </p>
-            )}
-            {/* Badge recrédit (annulee après realisee, §06.06 l.247 — le pack a été
-              détaché par le trigger, la date vient de l'audit du recrédit). */}
-            {collecte.statut === 'annulee' && recreditAt && (
-              <Badge variant="warning" className="text-xs">
-                Crédit recrédité automatiquement le{' '}
-                {new Date(recreditAt).toLocaleDateString('fr-FR')}
-              </Badge>
-            )}
-          </Card>
-
-          {/* Attribution AG complète (Admin-only) */}
-          <Card className="p-5 space-y-4">
-            <BlocHeader icon={HeartHandshake} title="Attribution AG" />
-            <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-              <div>
-                <dt className="text-savr-neutral-500">Association retenue</dt>
-                <dd className="font-medium">
-                  {collecte.attributions_antgaspi?.associations?.nom ?? (
-                    <span className="text-savr-neutral-400">
-                      Aucune (en attente d’attribution)
-                    </span>
-                  )}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-savr-neutral-500">Transporteur retenu</dt>
-                <dd className="font-medium">
-                  {collecte.attributions_antgaspi?.transporteurs?.nom ?? (
-                    <span className="text-savr-neutral-400">—</span>
-                  )}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-savr-neutral-500">Validation</dt>
-                <dd className="font-medium">
-                  {collecte.attributions_antgaspi?.valide_at ? (
-                    <>
-                      {collecte.attributions_antgaspi.mode_validation} —{' '}
-                      {new Date(
-                        collecte.attributions_antgaspi.valide_at,
-                      ).toLocaleDateString('fr-FR')}
-                    </>
-                  ) : (
-                    <Badge variant="warning" className="text-xs">
-                      En attente de validation
-                    </Badge>
-                  )}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-savr-neutral-500">
-                  Volume repas (estimé / réalisé)
-                </dt>
-                <dd className="font-medium">
-                  {collecte.volume_estime_repas ?? '—'} /{' '}
-                  {collecte.attributions_antgaspi?.volume_repas_realise ?? '—'}
-                </dd>
-              </div>
-            </dl>
-            {reco?.associations && reco.associations.length > 0 && (
-              <div className="rounded-savr-md border border-savr-neutral-100 bg-savr-neutral-50 p-3">
-                <p className="text-xs font-medium text-savr-neutral-600 mb-1">
-                  Top 3 associations recommandées + scores (algo §06.09)
-                </p>
-                <ol className="list-decimal list-inside text-sm text-savr-neutral-700">
-                  {reco.associations.slice(0, 3).map((a) => (
-                    <li key={a.id}>
-                      {a.nom}
-                      {(a.distance_km != null ||
-                        a.capacite_max_beneficiaires != null) && (
-                        <span className="text-savr-neutral-500">
-                          {' — '}
-                          {a.distance_km != null ? `${a.distance_km} km` : ''}
-                          {a.distance_km != null &&
-                          a.capacite_max_beneficiaires != null
-                            ? ' · '
-                            : ''}
-                          {a.capacite_max_beneficiaires != null
-                            ? `capacité ${a.capacite_max_beneficiaires}`
-                            : ''}
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            )}
-            <Link
-              href={`/admin/attributions-ag/${collecte.id}`}
-              className="inline-flex items-center text-sm font-medium text-savr-primary-600 hover:underline"
-            >
-              Ouvrir l’attribution complète (top 3, validation, emails, re-jouer
-              l’algo) →
-            </Link>
-          </Card>
-        </div>
-      )}
 
       {/* Bloc 7 (CDC) — Historique + Audit log (Admin-only) */}
       <Card className="p-5 space-y-4">

@@ -404,6 +404,66 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
     );
   });
 
+  it('M0.6 — cartes ZD à dispatcher (non transmises, programmée OU validée) : bouton Dispatcher → fiche', async () => {
+    // « À dispatcher » = ZD non transmise au TMS (statut_tms non_envoye) et
+    // encore ouverte (programmée OU validée transporteur) — miroir du chip
+    // « Non transmises ZD ». Le bouton ouvre la fiche (Bloc 0 envoi MTS-1).
+    const zdProgrammee = {
+      ...collecteZd,
+      id: 'zd-disp',
+      statut: 'programmee',
+      statut_tms: 'non_envoye',
+      collecte_flux: [],
+      rapports_rse: [],
+      factures_collectes: [],
+    };
+    const zdValidee = {
+      ...zdProgrammee,
+      id: 'zd-disp-validee',
+      statut: 'validee',
+    };
+    // ZD déjà transmise (acceptée presta) → PAS de bouton (anti-vacuité).
+    const zdTransmise = {
+      ...zdProgrammee,
+      id: 'zd-envoyee',
+      statut: 'validee',
+      statut_tms: 'acceptee',
+    };
+    const fetchMock = vi.fn((url: string) => {
+      if (typeof url === 'string' && url.includes('/collectes/chip-counts')) {
+        return Promise.resolve({ ok: true, json: async () => ({}) });
+      }
+      if (
+        typeof url === 'string' &&
+        url.startsWith('/api/v1/admin/collectes')
+      ) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: [zdProgrammee, zdValidee, zdTransmise],
+            total: 3,
+          }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ data: [] }) });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(<CollectesPage />);
+
+    await screen.findAllByText('Traiteur Alpha');
+    // Exactement 2 boutons (programmée + validée non transmises), pas sur la
+    // transmise.
+    const dispatcher = screen.getAllByRole('link', { name: /Dispatcher/ });
+    expect(dispatcher).toHaveLength(2);
+    const hrefs = dispatcher.map((l) => l.getAttribute('href')).sort();
+    expect(hrefs).toEqual([
+      '/admin/collectes/zd-disp',
+      '/admin/collectes/zd-disp-validee',
+    ]);
+    // Anti-vacuité : « Attribuer » reste AG-only, jamais rendu sur une ZD.
+    expect(screen.queryByRole('link', { name: /Attribuer/ })).toBeNull();
+  });
+
   it('M0.6 — recherche client filtre les cartes de la page chargée', async () => {
     mockCollectesFetch();
     render(<CollectesPage />);

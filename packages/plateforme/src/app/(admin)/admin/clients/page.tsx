@@ -10,6 +10,11 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ImpersonationLauncher } from '@/components/ui/impersonation-launcher';
 
+interface PackActif {
+  type_pack: string;
+  credits_restants: number;
+}
+
 interface Organisation {
   id: string;
   raison_sociale: string;
@@ -19,6 +24,7 @@ interface Organisation {
   nb_users: number;
   nb_collectes_zd_12m: number;
   nb_collectes_ag_12m: number;
+  pack_actif: PackActif | null;
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -28,6 +34,26 @@ const TYPE_LABELS: Record<string, string> = {
   client_organisateur: 'Client organisateur',
 };
 
+// Libellé compact du type de pack pour la colonne (ex. pack_30 → « Pack 30 »).
+const PACK_LABELS: Record<string, string> = {
+  unitaire: 'Unitaire',
+  pack_10: 'Pack 10',
+  pack_30: 'Pack 30',
+  pack_60: 'Pack 60',
+  personnalise: 'Pack perso',
+};
+
+// Seuil « crédits faibles » aligné sur le bandeau d'alerte de la fiche (< 5).
+const PACK_CREDITS_FAIBLES = 5;
+
+// Initiales pour l'avatar (2 premières lettres significatives de la raison sociale).
+function initiales(nom: string): string {
+  const mots = nom.trim().split(/\s+/).filter(Boolean);
+  if (mots.length === 0) return '?';
+  if (mots.length === 1) return mots[0]!.slice(0, 2).toUpperCase();
+  return (mots[0]![0]! + mots[mots.length - 1]![0]!).toUpperCase();
+}
+
 const columns: Column<Organisation>[] = [
   {
     key: 'raison_sociale',
@@ -35,8 +61,14 @@ const columns: Column<Organisation>[] = [
     render: (row) => (
       <a
         href={`/admin/clients/${row.id}`}
-        className="font-medium text-savr-primary-700 hover:underline"
+        className="flex items-center gap-3 font-medium text-savr-primary-700 hover:underline"
       >
+        <span
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-savr-md bg-savr-primary-100 text-xs font-bold text-savr-primary-700"
+          aria-hidden="true"
+        >
+          {initiales(row.raison_sociale)}
+        </span>
         {row.raison_sociale}
       </a>
     ),
@@ -48,16 +80,29 @@ const columns: Column<Organisation>[] = [
       <Badge variant="neutral">{TYPE_LABELS[row.type] ?? row.type}</Badge>
     ),
   },
-  {
-    key: 'siret',
-    header: 'SIREN/SIRET',
-    render: (row) => (
-      <span className="font-mono text-sm">{row.siret ?? '—'}</span>
-    ),
-  },
   { key: 'nb_users', header: 'Users' },
-  { key: 'nb_collectes_zd_12m', header: 'ZD 12m' }, // gitleaks:allow
-  { key: 'nb_collectes_ag_12m', header: 'AG 12m' }, // gitleaks:allow
+  { key: 'nb_collectes_zd_12m', header: 'ZD 12 mois' }, // gitleaks:allow
+  { key: 'nb_collectes_ag_12m', header: 'AG 12 mois' }, // gitleaks:allow
+  {
+    key: 'pack_actif',
+    header: 'Pack actif',
+    render: (row) => {
+      if (!row.pack_actif)
+        return <span className="text-savr-neutral-400">—</span>;
+      const { type_pack, credits_restants } = row.pack_actif;
+      const label = PACK_LABELS[type_pack] ?? type_pack;
+      return (
+        <Badge
+          variant={
+            credits_restants < PACK_CREDITS_FAIBLES ? 'error' : 'success'
+          }
+        >
+          {label} · {credits_restants} restant
+          {credits_restants !== 1 ? 's' : ''}
+        </Badge>
+      );
+    },
+  },
   {
     key: 'actif',
     header: 'Statut',
@@ -108,19 +153,20 @@ export default function ClientsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Bandeau d'en-tête (Design System §10) */}
+      <div className="flex flex-col gap-4 rounded-savr-lg bg-savr-primary-900 px-6 py-6 text-savr-white sm:flex-row sm:items-center sm:justify-between sm:px-8">
         <div>
-          <h1 className="text-2xl font-semibold text-savr-primary-950">
-            Clients
-          </h1>
-          <p className="text-sm text-neutral-500 mt-1">
-            {total} organisation{total !== 1 ? 's' : ''}
+          <h1 className="text-2xl font-bold text-savr-white">Clients</h1>
+          <p className="mt-1 text-sm text-savr-primary-200">
+            {loading
+              ? 'Chargement…'
+              : `${total} organisation${total !== 1 ? 's' : ''}`}
           </p>
         </div>
-        <Link href="/admin/clients/nouveau">
-          <Button>
+        <Link href="/admin/clients/nouveau" className="shrink-0">
+          <Button variant="accent">
             <Plus className="w-4 h-4" />
-            Nouvelle organisation
+            Créer une organisation
           </Button>
         </Link>
       </div>

@@ -22,6 +22,9 @@ const mockSupabaseChain = {
   is: vi.fn().mockReturnThis(),
   or: vi.fn().mockReturnThis(),
   lte: vi.fn().mockReturnThis(),
+  // `.in()` = terminal de la requête packs actifs (statut='actif' scopé orgIds).
+  // Résolu par défaut à vide → les tests qui ne posent pas de pack ne cassent pas.
+  in: vi.fn().mockResolvedValue({ data: [], error: null }),
 };
 
 vi.mock('@savr/shared/src/supabase-client.js', () => ({
@@ -127,6 +130,78 @@ describe('M1.1a / Organisations / Liste', () => {
     const json = (await res.json()) as { data: unknown[]; total: number };
     expect(json.total).toBe(1);
     expect(Array.isArray(json.data)).toBe(true);
+  });
+
+  it('M1.1a/orgas/liste — pack actif par organisation (statut=actif, scopé aux orgs de la page, — si aucun)', async () => {
+    // Revue E2E : colonne « Pack actif » de la liste (divergence CDC §06.06 L555
+    // assumée par Val, cf. _Divergences/BOA_20260718).
+    setupAuth('admin_savr');
+    mockSupabaseChain.range.mockResolvedValueOnce({
+      data: [
+        {
+          id: 'org-1',
+          raison_sociale: 'Avec pack',
+          type: 'traiteur',
+          siret: null,
+          actif: true,
+          logo_url: null,
+          users: [{ count: 1 }],
+        },
+        {
+          id: 'org-2',
+          raison_sociale: 'Sans pack',
+          type: 'traiteur',
+          siret: null,
+          actif: true,
+          logo_url: null,
+          users: [{ count: 1 }],
+        },
+      ],
+      error: null,
+      count: 2,
+    });
+    mockSupabaseChain.rpc
+      .mockResolvedValueOnce({ data: [], error: null })
+      .mockResolvedValueOnce({ data: [], error: null });
+    // Postgres a filtré statut='actif' + scopé aux orgIds → seul org-1 remonte.
+    mockSupabaseChain.in.mockResolvedValueOnce({
+      data: [
+        {
+          organisation_id: 'org-1',
+          type_pack: 'pack_30',
+          credits_initiaux: 30,
+          credits_consommes: 27,
+        },
+      ],
+      error: null,
+    });
+
+    const { GET } = await import('@/app/api/v1/admin/organisations/route.js');
+    const res = await GET(makeReq('GET', '/api/v1/admin/organisations'));
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      data: {
+        id: string;
+        pack_actif: { type_pack: string; credits_restants: number } | null;
+      }[];
+    };
+
+    // org-1 : pack mappé, restants = credits_initiaux − credits_consommes = 3.
+    expect(json.data.find((o) => o.id === 'org-1')?.pack_actif).toEqual({
+      type_pack: 'pack_30',
+      credits_restants: 3,
+    });
+    // org-2 : aucune ligne pack actif → null (anti-vacuité : pas de fuite d'un
+    // pack d'une autre org, et pas de pack fantôme).
+    expect(json.data.find((o) => o.id === 'org-2')?.pack_actif).toBeNull();
+
+    // Oracle filtrage : la requête packs demande bien statut='actif' ET est
+    // scopée EXACTEMENT aux orgs de la page (retirer l'un ou l'autre casse ici).
+    expect(mockSupabaseChain.eq).toHaveBeenCalledWith('statut', 'actif');
+    expect(mockSupabaseChain.in).toHaveBeenCalledWith('organisation_id', [
+      'org-1',
+      'org-2',
+    ]);
   });
 
   it('M1.1a/orgas/liste — le select N’embarque PAS `evenements` (FK ambiguë → 300)', async () => {

@@ -1,14 +1,17 @@
 /**
- * M1.1 — Liste associations Admin (revue E2E 2026-07-15) : colonnes recentrées
- * sur Nom · Adresse · Capacité max · Collectes (30 j) — les colonnes Ville /
- * Contact / Habilitation / Statut sont retirées de cette vue (décision Val).
+ * M1.1 — Liste associations Admin. Colonnes recentrées sur Nom · Adresse ·
+ * Capacité max · Collectes (30 j) (revue E2E 2026-07-15). Depuis la revue-écran
+ * modale : clic ligne / crayon → modale d'édition ; « Nouvelle association » →
+ * modale de création (plus de navigation vers des pages [id]/nouvelle).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
-
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), back: vi.fn(), refresh: vi.fn() }),
-}));
+import {
+  render,
+  screen,
+  waitFor,
+  within,
+  fireEvent,
+} from '@testing-library/react';
 
 import AssociationsPage from './page';
 
@@ -73,5 +76,43 @@ describe('M1.1 — Liste associations Admin (colonnes revue E2E)', () => {
     expect(table.getByText('3')).toBeInTheDocument();
     // Capacité nulle → « — » (Bravo), compteur 0 affiché tel quel.
     expect(table.getByText('8 Rue Bravo')).toBeInTheDocument();
+  });
+
+  it('bouton « Nouvelle association » → modale de création', async () => {
+    render(<AssociationsPage />);
+    await waitFor(() => expect(screen.getByRole('grid')).toBeInTheDocument());
+
+    // Pas de modale au chargement.
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /Nouvelle association/ }),
+    );
+
+    const dialog = screen.getByRole('dialog');
+    expect(
+      within(dialog).getByText('Nouvelle association'),
+    ).toBeInTheDocument();
+  });
+
+  it('crayon d’une ligne → modale d’édition préremplie', async () => {
+    render(<AssociationsPage />);
+    await waitFor(() => expect(screen.getByRole('grid')).toBeInTheDocument());
+
+    // DataTable rend un tableau desktop ET des cartes mobiles → le crayon existe
+    // en double. On scope au <table role="grid"> pour cibler l'action desktop.
+    const grid = within(screen.getByRole('grid'));
+    fireEvent.click(
+      grid.getByRole('button', {
+        name: 'Modifier Association Alpha (fictif)',
+      }),
+    );
+
+    const dialog = screen.getByRole('dialog');
+    expect(
+      within(dialog).getByText(
+        'Fiche association — Association Alpha (fictif)',
+      ),
+    ).toBeInTheDocument();
   });
 });

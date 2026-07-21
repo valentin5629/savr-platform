@@ -28,18 +28,46 @@ const DETAIL = {
   reference_citeo: false,
 };
 
+type OrgOption = {
+  id: string;
+  raison_sociale?: string | null;
+  nom?: string | null;
+};
+
 // Mock fetch routant par URL + méthode : liste gestionnaires (GET organisations),
 // hydratation (GET /lieux/{id}), puis POST/PATCH d'enregistrement.
-function routeFetch() {
+// `orgs` peuple le sélecteur « Gestionnaire de lieux » (vide par défaut).
+function routeFetch(orgs: OrgOption[] = []) {
   return vi.fn((url: string, init?: RequestInit) => {
     const method = init?.method ?? 'GET';
     if (url.includes('/api/v1/admin/organisations'))
-      return Promise.resolve({ ok: true, json: async () => ({ data: [] }) });
+      return Promise.resolve({ ok: true, json: async () => ({ data: orgs }) });
     if (/\/api\/v1\/admin\/lieux\/[^/?]+$/.test(url) && method === 'GET')
       return Promise.resolve({ ok: true, json: async () => DETAIL });
     return Promise.resolve({ ok: true, json: async () => ({ id: 'lieu-1' }) });
   });
 }
+
+// Tous les libellés de champ attendus dans la modale (mode création) — anti-régression
+// contre le retrait accidentel d'un champ (repris de l'ex lieu-form.test.tsx).
+const CHAMPS: RegExp[] = [
+  /Nom du lieu/,
+  /Nom alternatif/,
+  /Gestionnaire de lieux/,
+  /Adresse accès livraison/,
+  /Code postal/,
+  /Ville/,
+  /Accès office/,
+  /Stationnement/,
+  /Type de véhicule max/,
+  /Capacité maximum/,
+  /Contrôle d'accès requis/,
+  /^Actif$/,
+  /Commentaire sur le lieu/,
+  /^SIREN/,
+  /Mail gestionnaire du lieu/,
+  /Référencé Citeo/,
+];
 
 function fillRequired() {
   fireEvent.change(screen.getByLabelText(/Nom du lieu/), {
@@ -149,6 +177,59 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Créer le lieu/ }));
 
     expect(await screen.findByText(/SIREN : 9 chiffres/)).toBeInTheDocument();
+    expect(postCall(fetchMock)).toBeUndefined();
+  });
+
+  it('rendu création — tous les champs de la modale sont présents', async () => {
+    const fetchMock = routeFetch();
+    vi.stubGlobal('fetch', fetchMock);
+    render(
+      <LieuModal open lieuId={null} onClose={vi.fn()} onSaved={vi.fn()} />,
+    );
+
+    for (const champ of CHAMPS) {
+      expect(screen.getByLabelText(champ)).toBeInTheDocument();
+    }
+
+    // Laisse le fetch organisations se résoudre (évite un act() warning tardif).
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/admin/organisations'),
+      ),
+    );
+  });
+
+  it('gestionnaire de lieux — sélecteur peuplé depuis GET /organisations', async () => {
+    const fetchMock = routeFetch([
+      { id: 'org-1', raison_sociale: 'Traiteur Gestionnaire SARL' },
+    ]);
+    vi.stubGlobal('fetch', fetchMock);
+    render(
+      <LieuModal open lieuId={null} onClose={vi.fn()} onSaved={vi.fn()} />,
+    );
+
+    const option = await screen.findByRole('option', {
+      name: 'Traiteur Gestionnaire SARL',
+    });
+    expect(option).toHaveValue('org-1');
+    expect(screen.getByLabelText(/Gestionnaire de lieux/)).toBeInTheDocument();
+  });
+
+  it('champ obligatoire vide (Nom) bloque la soumission (pas de POST /lieux)', async () => {
+    const fetchMock = routeFetch();
+    vi.stubGlobal('fetch', fetchMock);
+    render(
+      <LieuModal open lieuId={null} onClose={vi.fn()} onSaved={vi.fn()} />,
+    );
+
+    // Tout est valide sauf le Nom laissé vide.
+    fillRequired();
+    fireEvent.change(screen.getByLabelText(/Nom du lieu/), {
+      target: { value: '' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Créer le lieu/ }));
+
+    expect(await screen.findByText(/Nom obligatoire/)).toBeInTheDocument();
     expect(postCall(fetchMock)).toBeUndefined();
   });
 });

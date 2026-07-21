@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { MapPin, Plus, Search, ChevronRight } from 'lucide-react';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PageHero } from '@/components/ui/page-hero';
@@ -11,6 +10,7 @@ import { DataTable, type Column } from '@/components/ui/data-table';
 import { Pagination } from '@/components/ui/pagination';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
+import { LieuModal } from '@/components/admin/lieu-modal';
 
 interface Lieu {
   id: string;
@@ -70,6 +70,19 @@ export default function LieuxPage() {
   const [page, setPage] = useState(1);
   const [normalisingId, setNormalisingId] = useState<string | null>(null);
 
+  // Modale création/édition — point unique (remplace les pages nouveau/[id]).
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const openCreate = () => {
+    setEditingId(null);
+    setModalOpen(true);
+  };
+  const openEdit = (id: string) => {
+    setEditingId(id);
+    setModalOpen(true);
+  };
+
   const fetchLieux = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams({ page: String(page) });
@@ -104,6 +117,16 @@ export default function LieuxPage() {
     refreshNbModifs();
   }, [refreshNbModifs]);
 
+  // Deep-link ?edit={id} (alerte « modif signalée » → entiteHref) : ouvre la modale
+  // directement sur le lieu ciblé, puis nettoie l'URL (pas de réouverture au refresh).
+  useEffect(() => {
+    const editId = new URLSearchParams(window.location.search).get('edit');
+    if (editId) {
+      openEdit(editId);
+      window.history.replaceState(null, '', '/admin/lieux');
+    }
+  }, []);
+
   // Normalisation inline d'un lieu saisi manuellement (§06.06 §7 « Normaliser »).
   const handleNormaliser = async (id: string) => {
     setNormalisingId(id);
@@ -120,12 +143,16 @@ export default function LieuxPage() {
       header: 'Nom',
       render: (row) => (
         <div className="flex items-center gap-2">
-          <Link
-            href={`/admin/lieux/${row.id}`}
-            className="font-medium text-savr-primary-700 hover:underline"
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              openEdit(row.id);
+            }}
+            className="text-left font-medium text-savr-primary-700 hover:underline"
           >
             {row.nom}
-          </Link>
+          </button>
           {row.reference_citeo && (
             <Badge variant="info" dot={false}>
               Citeo
@@ -195,7 +222,10 @@ export default function LieuxPage() {
               size="sm"
               variant="accent"
               disabled={normalisingId === row.id}
-              onClick={() => void handleNormaliser(row.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                void handleNormaliser(row.id);
+              }}
             >
               {normalisingId === row.id ? 'En cours…' : 'Normaliser'}
             </Button>
@@ -206,13 +236,17 @@ export default function LieuxPage() {
       key: '_open',
       header: '',
       render: (row) => (
-        <Link
-          href={`/admin/lieux/${row.id}`}
+        <button
+          type="button"
           aria-label={`Ouvrir la fiche ${row.nom}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            openEdit(row.id);
+          }}
           className="inline-flex text-savr-neutral-400 hover:text-savr-primary-700"
         >
           <ChevronRight className="h-4 w-4" />
-        </Link>
+        </button>
       ),
     },
   ];
@@ -246,6 +280,7 @@ export default function LieuxPage() {
         columns={columns}
         data={lieux}
         keyExtractor={(row) => row.id}
+        onRowClick={(row) => openEdit(row.id)}
       />
       {total > 50 && (
         <div className="flex items-center justify-between gap-2 pt-3 text-sm">
@@ -269,12 +304,10 @@ export default function LieuxPage() {
         title="Lieux"
         subtitle="Référentiel lieux d'événements · normalisation des lieux saisis manuellement"
         actions={
-          <Link href="/admin/lieux/nouveau">
-            <Button variant="accent">
-              <Plus className="h-4 w-4" />
-              Nouveau lieu
-            </Button>
-          </Link>
+          <Button variant="accent" onClick={openCreate}>
+            <Plus className="h-4 w-4" />
+            Nouveau lieu
+          </Button>
         }
       />
 
@@ -330,6 +363,16 @@ export default function LieuxPage() {
           {tableau}
         </TabsContent>
       </Tabs>
+
+      <LieuModal
+        open={modalOpen}
+        lieuId={editingId}
+        onClose={() => setModalOpen(false)}
+        onSaved={() => {
+          void fetchLieux();
+          refreshNbModifs();
+        }}
+      />
     </div>
   );
 }

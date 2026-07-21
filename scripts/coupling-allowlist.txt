@@ -158,3 +158,10 @@ packages/plateforme/src/app/(admin)/admin/collectes/*/collecte-detail.m0-6.test.
 # une fixture d'objet algoReco (transporteur mocké du test dispatch AG motif-vs-top1).
 # Aucun appel HTTP. 'customerOrders' reste banni.
 packages/plateforme/tests/api/admin/collectes.m1-1b.test.ts
+# packages/plateforme/.../admin/transporteur-modal.* (E2E — modale liste transporteurs) —
+# même nature d'exception que transporteur-form.tsx : UI keyée sur l'enum transporteurs.type_tms
+# (affichage conditionnel du champ code_transporteur_mts1 + validation « obligatoire si
+# type_tms='mts1' », §04 Data Model). Aucun appel HTTP MTS-1 : la logique adapter vit dans
+# packages/adapters/. 'customerOrders' reste banni.
+packages/plateforme/src/components/admin/transporteur-modal.tsx
+packages/plateforme/src/components/admin/transporteur-modal.test.tsx

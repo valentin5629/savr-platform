@@ -1,8 +1,10 @@
 /**
  * M3.5 — Dashboard Admin Bloc 2 Revenus (BL-P2-03, §11 §1.1).
  * Tableau « Revenus par organisation » à 7 colonnes (nom · type · nb ZD · CA ZD ·
- * nb AG · CA AG · Total HT), histogramme 12 mois monté (RevenusHistogramme n'est
- * plus orphelin), sélecteur de période, tri, export CSV.
+ * nb AG · CA AG · Total HT), histogramme monté (RevenusHistogramme non orphelin),
+ * filtre de période COMMUN au graphe ET au tableau, tri. Revue E2E Val 2026-07-18 :
+ * presets (7j/30j/trimestre/12m/civile) + bouton Export CSV retirés du dashboard admin ;
+ * le filtre Du/au pilote désormais l'histogramme comme le tableau ; blocs 50/50.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
@@ -81,6 +83,17 @@ beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock);
 });
 
+// Fenêtre par défaut du bloc Revenus : 12 derniers mois glissants alignés au 1er du
+// mois — identique à defaultPeriode() de la page.
+function defaultWindow(): { from: string; to: string } {
+  const now = new Date();
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  return {
+    from: iso(new Date(now.getFullYear(), now.getMonth() - 11, 1)),
+    to: iso(now),
+  };
+}
+
 describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
   it('M3.5/admin_revenus_7_colonnes — nom · type · nb/CA ZD · nb/CA AG · Total HT', async () => {
     render(<DashboardAdminPage />);
@@ -130,13 +143,85 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
     ).toBeInTheDocument();
   });
 
-  it('M3.5/admin_revenus_controls — titre bloc + période + export CSV présents', async () => {
+  it('M3.5/admin_revenus_controls — titre bloc + champs de période présents, presets + export CSV retirés (revue E2E 2026-07-18)', async () => {
     render(<DashboardAdminPage />);
     await screen.findAllByText('Traiteur Alpha');
     expect(screen.getByText('Revenu par organisation')).toBeInTheDocument();
     expect(screen.getByTestId('revenus-from')).toBeInTheDocument();
     expect(screen.getByTestId('revenus-to')).toBeInTheDocument();
-    expect(screen.getByTestId('revenus-export-csv')).toBeInTheDocument();
+    // Retirés du dashboard admin (décision Val 2026-07-18).
+    expect(screen.queryByTestId('revenus-export-csv')).toBeNull();
+    expect(screen.queryByText('Exporter CSV')).toBeNull();
+    expect(screen.queryByText('7 jours')).toBeNull();
+    expect(screen.queryByText('12 derniers mois')).toBeNull();
+    expect(screen.queryByText('Année civile')).toBeNull();
+  });
+
+  it('M3.5/admin_revenus_defaut_12_mois — période par défaut = 12 derniers mois glissants (alignés au 1er du mois)', async () => {
+    render(<DashboardAdminPage />);
+    await screen.findAllByText('Traiteur Alpha');
+    const { from, to } = defaultWindow();
+    // Les champs de date reflètent le défaut 12 mois…
+    expect(screen.getByTestId('revenus-from')).toHaveValue(from);
+    expect(screen.getByTestId('revenus-to')).toHaveValue(to);
+    // …et le fetch de montage du tableau porte bien cette fenêtre.
+    expect(
+      fetchMock.mock.calls.some(([u]) => {
+        const s = String(u);
+        return (
+          s.includes('/admin/dashboard/revenus-organisations') &&
+          s.includes(`from=${from}`) &&
+          s.includes(`to=${to}`)
+        );
+      }),
+    ).toBe(true);
+  });
+
+  it('M3.5/admin_revenus_filtre_commun_graph — le filtre Du/au pilote AUSSI l’histogramme (revue E2E Val 2026-07-18)', async () => {
+    render(<DashboardAdminPage />);
+    await screen.findAllByText('Traiteur Alpha');
+    const { from, to } = defaultWindow();
+    // Au montage, l'histogramme (kpi-admin) est requêté sur la MÊME fenêtre que le tableau.
+    expect(
+      fetchMock.mock.calls.some(([u]) => {
+        const s = String(u);
+        return (
+          s.includes('/dashboards/kpi-admin') &&
+          s.includes(`from=${from}`) &&
+          s.includes(`to=${to}`)
+        );
+      }),
+    ).toBe(true);
+    // Modifier la borne « Du » relance le fetch de l'histogramme sur la nouvelle fenêtre.
+    fetchMock.mockClear();
+    fireEvent.change(screen.getByTestId('revenus-from'), {
+      target: { value: '2026-01-01' },
+    });
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(([u]) => {
+          const s = String(u);
+          return (
+            s.includes('/dashboards/kpi-admin') && s.includes('from=2026-01-01')
+          );
+        }),
+      ).toBe(true),
+    );
+  });
+
+  it('M3.5/admin_revenus_reinitialiser — « Réinitialiser » ramène au défaut 12 derniers mois', async () => {
+    render(<DashboardAdminPage />);
+    await screen.findAllByText('Traiteur Alpha');
+    const { from, to } = defaultWindow();
+    // On restreint d'abord à une fenêtre custom via saisie manuelle…
+    fireEvent.change(screen.getByTestId('revenus-from'), {
+      target: { value: '2026-05-01' },
+    });
+    expect(screen.getByTestId('revenus-from')).toHaveValue('2026-05-01');
+    // …puis « Réinitialiser » revient au défaut 12 derniers mois glissants.
+    fireEvent.click(screen.getByTestId('revenus-reinitialiser'));
+    expect(screen.getByTestId('revenus-from')).toHaveValue(from);
+    expect(screen.getByTestId('revenus-to')).toHaveValue(to);
   });
 
   it('M3.5/admin_revenus_tri — clic sur une colonne triable relance le fetch trié', async () => {
@@ -150,23 +235,6 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
         fetchMock.mock.calls.some(([u]) =>
           String(u).includes('sort=montant_ag_ht'),
         ),
-      ).toBe(true),
-    );
-  });
-
-  it('M3.5/admin_revenus_export_csv — le bouton déclenche un fetch format=csv', async () => {
-    render(<DashboardAdminPage />);
-    await screen.findAllByText('Traiteur Alpha');
-    // jsdom : stub des API de téléchargement.
-    vi.stubGlobal('URL', {
-      createObjectURL: vi.fn(() => 'blob:x'),
-      revokeObjectURL: vi.fn(),
-    } as unknown as typeof URL);
-    fetchMock.mockClear();
-    fireEvent.click(screen.getByTestId('revenus-export-csv'));
-    await waitFor(() =>
-      expect(
-        fetchMock.mock.calls.some(([u]) => String(u).includes('format=csv')),
       ).toBe(true),
     );
   });

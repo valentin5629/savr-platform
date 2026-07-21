@@ -429,6 +429,9 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       statut: 'validee',
       statut_tms: 'acceptee',
     };
+    // AG programmée + non transmise (même forme statut/statut_tms qu'une ZD à
+    // dispatcher) → PAS de « Dispatcher » (garde de type) mais « Attribuer ».
+    const agNonTransmise = ag({ id: 'ag-x' });
     const fetchMock = vi.fn((url: string) => {
       if (typeof url === 'string' && url.includes('/collectes/chip-counts')) {
         return Promise.resolve({ ok: true, json: async () => ({}) });
@@ -440,8 +443,8 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({
-            data: [zdProgrammee, zdValidee, zdTransmise],
-            total: 3,
+            data: [zdProgrammee, zdValidee, zdTransmise, agNonTransmise],
+            total: 4,
           }),
         });
       }
@@ -452,7 +455,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
 
     await screen.findAllByText('Traiteur Alpha');
     // Exactement 2 boutons (programmée + validée non transmises), pas sur la
-    // transmise.
+    // transmise ni sur l'AG.
     const dispatcher = screen.getAllByRole('link', { name: /Dispatcher/ });
     expect(dispatcher).toHaveLength(2);
     const hrefs = dispatcher.map((l) => l.getAttribute('href')).sort();
@@ -460,8 +463,11 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       '/admin/collectes/zd-disp',
       '/admin/collectes/zd-disp-validee',
     ]);
-    // Anti-vacuité : « Attribuer » reste AG-only, jamais rendu sur une ZD.
-    expect(screen.queryByRole('link', { name: /Attribuer/ })).toBeNull();
+    // Anti-vacuité : l'AG non transmise porte « Attribuer », jamais « Dispatcher »
+    // (les deux affordances sont mutuellement exclusives par type).
+    const attribuer = screen.getAllByRole('link', { name: /Attribuer/ });
+    expect(attribuer).toHaveLength(1);
+    expect(attribuer[0]).toHaveAttribute('href', '/admin/attributions-ag/ag-x');
   });
 
   it('M0.6 — recherche client filtre les cartes de la page chargée', async () => {

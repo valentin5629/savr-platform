@@ -33,7 +33,7 @@ import {
   type CollecteRow,
 } from '@/components/ui/collecte-card';
 import { statutCollecteDisplay } from '@/lib/statut-collecte-labels';
-import { CollecteDetailSheet } from '@/components/admin/collecte-detail-sheet';
+import { CollecteDetailModal } from '@/components/admin/collecte-detail-modal';
 
 // Onglets = preset du filtre `statuts` (à venir vs terminaux), via l'API existante.
 const STATUTS_PROGRAMMEES = ['programmee', 'validee', 'en_cours'];
@@ -368,7 +368,7 @@ export default function CollectesPage() {
     void fetchCollectes();
   }, [fetchCollectes]);
 
-  // ── Panneau latéral (drawer) — fiche collecte complète (ex-page [id]) ────────
+  // ── Pop-up centré (modale) — fiche collecte complète (ex-page [id]) ─────────
   // openId = état local, initialisé depuis l'URL (?collecte=<id>) → deep-links
   // (la route [id] redirige ici) + rafraîchissement rouvrent le panneau. On miroite
   // l'état dans l'URL via router.replace (pas push → pas de pollution d'historique)
@@ -911,9 +911,9 @@ export default function CollectesPage() {
         </div>
       )}
 
-      {/* Panneau latéral (drawer) — fiche collecte complète (ex-page [id]).
+      {/* Pop-up centré (modale) — fiche collecte complète (ex-page [id]).
           S'ouvre via ?collecte=<id> ; onClose retire le paramètre + rafraîchit. */}
-      <CollecteDetailSheet collecteId={openId} onClose={closeCollecte} />
+      <CollecteDetailModal collecteId={openId} onClose={closeCollecte} />
     </div>
   );
 }

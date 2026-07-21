@@ -1,5 +1,5 @@
 /**
- * M0.6 — La fiche collecte Admin passe en panneau latéral (drawer) sur la liste.
+ * M0.6 — La fiche collecte Admin passe en pop-up centré (modale) sur la liste.
  * La route /admin/collectes/[id] ne rend plus de page : elle redirige vers
  * /admin/collectes?collecte=<id> pour préserver les liens profonds (emails,
  * favoris, drill-down dashboards). Ce test verrouille cette redirection.
@@ -11,7 +11,7 @@ vi.mock('next/navigation', () => ({ redirect: redirectMock }));
 
 import CollecteDetailRedirect from './page';
 
-describe('M0.6 — route fiche collecte [id] → redirection drawer (BL-P1-BOA-06)', () => {
+describe('M0.6 — route fiche collecte [id] → redirection modale (BL-P1-BOA-06)', () => {
   beforeEach(() => redirectMock.mockClear());
 
   it('M0.6 — redirige vers /admin/collectes?collecte=<id>', async () => {

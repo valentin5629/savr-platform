@@ -1,10 +1,10 @@
 /**
- * M0.6 — CollecteDetailSheet : wrapper drawer (DS Sheet) de la fiche collecte.
- * Vérifie la garde Escape imbriquée : Modal (sous-modale) ET Sheet écoutent tous
- * deux Escape au niveau `document` → sans garde, Escape fermerait les deux. Quand
- * une sous-modale (forçage statut / nb camions / annuler crédit) est ouverte,
- * Escape ne doit PAS fermer le panneau (onClose non appelé) ; c'est la sous-modale
- * qui se ferme. Sans sous-modale, Escape ferme le panneau (onClose appelé).
+ * M0.6 — CollecteDetailModal : wrapper pop-up centré (DS Modal) de la fiche
+ * collecte. Vérifie la garde Escape imbriquée : la modale externe ET la sous-modale
+ * écoutent toutes deux Escape au niveau `document` → sans garde, Escape fermerait
+ * les deux. Quand une sous-modale (forçage statut / nb camions / annuler crédit)
+ * est ouverte, Escape ne doit PAS fermer la fiche (onClose non appelé) ; c'est la
+ * sous-modale qui se ferme. Sans sous-modale, Escape ferme la fiche (onClose appelé).
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
@@ -14,7 +14,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn(), refresh: vi.fn() }),
 }));
 
-import { CollecteDetailSheet } from './collecte-detail-sheet';
+import { CollecteDetailModal } from './collecte-detail-modal';
 
 // Collecte AG programmée (non terminale) → l'en-tête affiche « Forcer le statut ».
 const collecteAg = {
@@ -82,19 +82,19 @@ function mockFetch() {
   return f;
 }
 
-describe('M0.6 — CollecteDetailSheet drawer + garde Escape (BL-P1-BOA-06)', () => {
+describe('M0.6 — CollecteDetailModal pop-up + garde Escape (BL-P1-BOA-06)', () => {
   afterEach(() => vi.restoreAllMocks());
 
   it('M0.6 — collecteId null → panneau non rendu', () => {
     mockFetch();
-    render(<CollecteDetailSheet collecteId={null} onClose={vi.fn()} />);
+    render(<CollecteDetailModal collecteId={null} onClose={vi.fn()} />);
     expect(screen.queryByText('Détail de la collecte')).toBeNull();
   });
 
   it('M0.6 — Escape ferme le panneau quand aucune sous-modale n’est ouverte', async () => {
     mockFetch();
     const onClose = vi.fn();
-    render(<CollecteDetailSheet collecteId="c1" onClose={onClose} />);
+    render(<CollecteDetailModal collecteId="c1" onClose={onClose} />);
     await screen.findByText('Prestataire & Dispatch');
 
     fireEvent.keyDown(document, { key: 'Escape' });
@@ -104,7 +104,7 @@ describe('M0.6 — CollecteDetailSheet drawer + garde Escape (BL-P1-BOA-06)', ()
   it('M0.6 — Escape NE ferme PAS le panneau si une sous-modale (forçage statut) est ouverte', async () => {
     mockFetch();
     const onClose = vi.fn();
-    render(<CollecteDetailSheet collecteId="c1" onClose={onClose} />);
+    render(<CollecteDetailModal collecteId="c1" onClose={onClose} />);
     await screen.findByText('Prestataire & Dispatch');
 
     // Ouvre la sous-modale « Forcer le statut »

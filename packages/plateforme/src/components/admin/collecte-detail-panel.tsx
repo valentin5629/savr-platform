@@ -270,10 +270,10 @@ interface CollecteDetailPanelProps {
   // statut). L'id vient d'une prop (plus de route [id], plus de useParams).
   collecteId: string;
   // Miroir « une sous-modale (forçage/nb camions/annuler crédit) est ouverte » :
-  // le wrapper Sheet le lit pour ne PAS fermer le panneau sur Escape tant qu'une
-  // sous-modale est ouverte (Modal + Sheet écoutent tous deux Escape au niveau
-  // document — sans cette garde, Escape fermerait les deux). Optionnel : absent
-  // en test unitaire (rendu direct du panneau, hors Sheet).
+  // le wrapper modale le lit pour ne PAS fermer la fiche sur Escape tant qu'une
+  // sous-modale est ouverte (modale externe + sous-modale écoutent toutes deux
+  // Escape au niveau document — sans cette garde, Escape fermerait les deux).
+  // Optionnel : absent en test unitaire (rendu direct du panneau, hors modale).
   blockCloseRef?: MutableRefObject<boolean>;
 }
 
@@ -685,7 +685,7 @@ export function CollecteDetailPanel({
     setInfosAccesSaving(false);
   };
 
-  // Miroir de l'état « sous-modale ouverte » pour le wrapper Sheet (garde Escape).
+  // Miroir de l'état « sous-modale ouverte » pour le wrapper modale (garde Escape).
   const anySubModalOpen =
     annulerCreditModal || forceStatutModal || nbCamionsModal;
   if (blockCloseRef) blockCloseRef.current = anySubModalOpen;
@@ -733,7 +733,7 @@ export function CollecteDetailPanel({
   return (
     <div className="space-y-4">
       {/* En-tête compact — méta + statut + forçage. Le chrome (titre, fermeture)
-          est fourni par le Sheet parent → pas de PageHero navy ni de flèche retour. */}
+          est fourni par la modale parente → pas de PageHero navy ni de flèche retour. */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-2.5">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-savr-md bg-savr-primary-50 text-savr-primary-700">

@@ -404,10 +404,11 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
     );
   });
 
-  it('M0.6 — cartes ZD à dispatcher (non transmises, programmée OU validée) : bouton Dispatcher → fiche', async () => {
+  it('M0.6 — cartes ZD à dispatcher (non transmises, programmée OU validée) : bouton Dispatcher → drawer', async () => {
     // « À dispatcher » = ZD non transmise au TMS (statut_tms non_envoye) et
     // encore ouverte (programmée OU validée transporteur) — miroir du chip
-    // « Non transmises ZD ». Le bouton ouvre la fiche (Bloc 0 envoi MTS-1).
+    // « Non transmises ZD ». Le bouton ouvre la fiche dans le panneau latéral
+    // (drawer, ?collecte=<id>) — Bloc 0 envoi MTS-1.
     const zdProgrammee = {
       ...collecteZd,
       id: 'zd-disp',
@@ -455,19 +456,124 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
 
     await screen.findAllByText('Traiteur Alpha');
     // Exactement 2 boutons (programmée + validée non transmises), pas sur la
-    // transmise ni sur l'AG.
-    const dispatcher = screen.getAllByRole('link', { name: /Dispatcher/ });
+    // transmise ni sur l'AG. Le bouton ouvre le drawer en place (?collecte=<id>)
+    // → c'est un <button> (plus un lien). `/Dispatcher/` (D majuscule) ne matche
+    // pas les tuiles KPI « ZD/AG à dispatcher » (d minuscule).
+    const dispatcher = screen.getAllByRole('button', { name: /Dispatcher/ });
     expect(dispatcher).toHaveLength(2);
-    const hrefs = dispatcher.map((l) => l.getAttribute('href')).sort();
-    expect(hrefs).toEqual([
-      '/admin/collectes/zd-disp',
-      '/admin/collectes/zd-disp-validee',
-    ]);
     // Anti-vacuité : l'AG non transmise porte « Attribuer », jamais « Dispatcher »
     // (les deux affordances sont mutuellement exclusives par type).
     const attribuer = screen.getAllByRole('link', { name: /Attribuer/ });
     expect(attribuer).toHaveLength(1);
     expect(attribuer[0]).toHaveAttribute('href', '/admin/attributions-ag/ag-x');
+  });
+
+  it('M0.6 — clic « Dispatcher » ouvre le drawer et charge la fiche de CETTE collecte', async () => {
+    const zdDisp = {
+      ...collecteZd,
+      id: 'zd-open',
+      statut: 'programmee',
+      statut_tms: 'non_envoye',
+      collecte_flux: [],
+      rapports_rse: [],
+      factures_collectes: [],
+    };
+    // Fiche détail renvoyée à l'ouverture du panneau (shape CollecteDetail).
+    const detail = {
+      id: 'zd-open',
+      type: 'zero_dechet',
+      statut: 'programmee',
+      statut_tms: 'non_envoye',
+      statut_tms_at: null,
+      dirty_tms: false,
+      date_collecte: '2026-04-23',
+      heure_collecte: '08:30:00',
+      nb_camions_demande: 1,
+      tms_reference: null,
+      volume_estime_repas: null,
+      controle_acces_requis: false,
+      infos_acces_email_envoye_at: null,
+      notes_internes: null,
+      informations_supplementaires: null,
+      motif_override_prestataire: null,
+      annulee_cote_savr: false,
+      pack_antgaspi_id: null,
+      packs_antgaspi: null,
+      attributions_antgaspi: null,
+      prestataire_logistique_id: null,
+      evenements: {
+        nom_evenement: 'Gala',
+        pax: 120,
+        organisations: { raison_sociale: 'Traiteur Alpha' },
+        lieux: { nom: 'Salle Wagram', ville: 'Paris', adresse_acces: '1 av.' },
+        types_evenements: { libelle: 'Gala' },
+      },
+      collecte_flux: [],
+      collecte_tournees: [],
+      factures_collectes: [],
+    };
+    const fetchMock = vi.fn((url: string) => {
+      if (url.includes('/chip-counts'))
+        return Promise.resolve({ ok: true, json: async () => ({}) });
+      if (url.startsWith('/api/v1/admin/transporteurs'))
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) });
+      if (url.includes('/recommandation'))
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: null }),
+        });
+      if (url.endsWith('/documents'))
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            rapport: null,
+            bordereau: null,
+            attestation: null,
+            photos: [],
+          }),
+        });
+      if (url.endsWith('/audit'))
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: [], recredit_at: null }),
+        });
+      if (url === '/api/v1/admin/collectes/zd-open')
+        return Promise.resolve({ ok: true, json: async () => detail });
+      if (url.startsWith('/api/v1/admin/collectes'))
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: [zdDisp], total: 1 }),
+        });
+      return Promise.resolve({ ok: true, json: async () => ({ data: [] }) });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(<CollectesPage />);
+    await screen.findAllByText('Traiteur Alpha');
+
+    // Drawer fermé au départ.
+    expect(screen.queryByText('Détail de la collecte')).toBeNull();
+
+    // Clic « Dispatcher » → ouvre le panneau latéral…
+    fireEvent.click(screen.getByRole('button', { name: /Dispatcher/ }));
+    expect(
+      await screen.findByText('Détail de la collecte'),
+    ).toBeInTheDocument();
+
+    // …et charge la fiche de CETTE collecte (appariement id↔bouton — remplace
+    // l'ex-assertion href supprimée avec le passage lien → bouton drawer).
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(
+          (c) => String(c[0]) === '/api/v1/admin/collectes/zd-open',
+        ),
+      ).toBe(true),
+    );
+
+    // Fermeture via la croix du Sheet → le panneau disparaît.
+    fireEvent.click(screen.getByRole('button', { name: 'Fermer' }));
+    await waitFor(() =>
+      expect(screen.queryByText('Détail de la collecte')).toBeNull(),
+    );
   });
 
   it('M0.6 — recherche client filtre les cartes de la page chargée', async () => {

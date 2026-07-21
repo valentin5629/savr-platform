@@ -33,6 +33,7 @@ import {
   type CollecteRow,
 } from '@/components/ui/collecte-card';
 import { statutCollecteDisplay } from '@/lib/statut-collecte-labels';
+import { CollecteDetailSheet } from '@/components/admin/collecte-detail-sheet';
 
 // Onglets = preset du filtre `statuts` (à venir vs terminaux), via l'API existante.
 const STATUTS_PROGRAMMEES = ['programmee', 'validee', 'en_cours'];
@@ -226,21 +227,24 @@ export default function CollectesPage() {
   const [lieux, setLieux] = useState<{ id: string; label: string }[]>([]);
   const [chipCounts, setChipCounts] = useState<Record<string, number>>({});
 
-  // Compteurs chips + KPI « à dispatcher » — chargés une fois au montage.
-  useEffect(() => {
-    let cancelled = false;
-    void fetch('/api/v1/admin/collectes/chip-counts')
-      .then((r) => (r.ok ? r.json() : {}))
-      .then((j: unknown) => {
-        if (!cancelled && j && typeof j === 'object') {
-          setChipCounts(j as Record<string, number>);
-        }
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
+  // Compteurs chips + KPI « à dispatcher ». Chargés au montage ET rechargés à la
+  // fermeture du panneau latéral (une action dans la fiche peut changer un compteur).
+  const loadChipCounts = useCallback(async () => {
+    try {
+      const r = await fetch('/api/v1/admin/collectes/chip-counts');
+      if (!r.ok) return;
+      const j: unknown = await r.json();
+      if (j && typeof j === 'object') {
+        setChipCounts(j as Record<string, number>);
+      }
+    } catch {
+      // dégradation gracieuse : compteurs absents = tuiles à 0
+    }
   }, []);
+
+  useEffect(() => {
+    void loadChipCounts();
+  }, [loadChipCounts]);
 
   // Listes complètes (traiteurs + lieux) pour les menus déroulants.
   useEffect(() => {
@@ -363,6 +367,43 @@ export default function CollectesPage() {
   useEffect(() => {
     void fetchCollectes();
   }, [fetchCollectes]);
+
+  // ── Panneau latéral (drawer) — fiche collecte complète (ex-page [id]) ────────
+  // openId = état local, initialisé depuis l'URL (?collecte=<id>) → deep-links
+  // (la route [id] redirige ici) + rafraîchissement rouvrent le panneau. On miroite
+  // l'état dans l'URL via router.replace (pas push → pas de pollution d'historique)
+  // pour rendre le panneau partageable/rechargeable.
+  const [openId, setOpenId] = useState<string | null>(() =>
+    params.get('collecte'),
+  );
+
+  const setCollecteParam = useCallback(
+    (id: string | null) => {
+      const sp = new URLSearchParams(params.toString());
+      if (id) sp.set('collecte', id);
+      else sp.delete('collecte');
+      const qs = sp.toString();
+      router.replace(qs ? `/admin/collectes?${qs}` : '/admin/collectes');
+    },
+    [params, router],
+  );
+
+  const openCollecte = useCallback(
+    (id: string) => {
+      setOpenId(id);
+      setCollecteParam(id);
+    },
+    [setCollecteParam],
+  );
+
+  const closeCollecte = useCallback(() => {
+    setOpenId(null);
+    setCollecteParam(null);
+    // Une action dans la fiche (dispatch, forçage statut, pesées…) peut changer
+    // la liste ou un compteur → on rafraîchit à la fermeture.
+    void fetchCollectes();
+    void loadChipCounts();
+  }, [setCollecteParam, fetchCollectes, loadChipCounts]);
 
   const changeTab = (next: Tab) => {
     setTab(next);
@@ -827,7 +868,7 @@ export default function CollectesPage() {
               </div>
               <div className="space-y-3">
                 {sem.items.map((c) => (
-                  <CollecteCard key={c.id} collecte={c} />
+                  <CollecteCard key={c.id} collecte={c} onOpen={openCollecte} />
                 ))}
               </div>
             </section>
@@ -869,6 +910,10 @@ export default function CollectesPage() {
           </div>
         </div>
       )}
+
+      {/* Panneau latéral (drawer) — fiche collecte complète (ex-page [id]).
+          S'ouvre via ?collecte=<id> ; onClose retire le paramètre + rafraîchit. */}
+      <CollecteDetailSheet collecteId={openId} onClose={closeCollecte} />
     </div>
   );
 }

@@ -119,10 +119,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       stationnement: body.stationnement ?? null,
       flux_autorises: body.flux_autorises ?? null,
       volume_max_bacs: body.volume_max_bacs ?? null,
+      contraintes_horaires: body.contraintes_horaires ?? null,
       capacite_maximum: body.capacite_maximum ?? null,
       controle_acces_requis_default:
         body.controle_acces_requis_default ?? false,
       commentaire_lieu: body.commentaire_lieu ?? null,
+      commentaires_internes: body.commentaires_internes ?? null,
       siren: body.siren ?? null,
       email_gestionnaire: body.email_gestionnaire ?? null,
       reference_citeo: body.reference_citeo ?? false,

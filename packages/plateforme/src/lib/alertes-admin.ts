@@ -76,7 +76,9 @@ export function entiteHref(
     case 'factures':
       return `/admin/factures/${entityId}`;
     case 'lieux':
-      return `/admin/lieux/${entityId}`;
+      // La fiche lieu est une modale ouverte sur la liste (pas de page dédiée) :
+      // ?edit={id} ouvre directement la modale d'édition.
+      return `/admin/lieux?edit=${entityId}`;
     default:
       return null;
   }

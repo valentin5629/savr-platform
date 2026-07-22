@@ -280,13 +280,17 @@ function IndicateursHistorique({ row }: { row: CollecteRow }) {
 
 interface CollecteCardProps {
   collecte: CollecteRow;
+  // Ouvre la fiche dans le panneau latéral (drawer) de la liste Admin. Requis :
+  // la carte est admin-only (elle hardcode déjà les routes /admin/*) → un seul
+  // chemin d'ouverture (bouton → drawer), pas de fallback lien mort.
+  onOpen: (id: string) => void;
 }
 
 // Carte collecte — refonte UI Admin (§06.06 §3, Design System §10).
 // Rail de type à gauche (AG ambre / ZD vert / urgent rouge), 2 lignes de contenu,
 // colonne d'état à droite + montant. Lien « stretched » vers la fiche (le bouton
 // Attribuer reste cliquable au-dessus via z-index — pas de <a> imbriqué).
-export function CollecteCard({ collecte: row }: CollecteCardProps) {
+export function CollecteCard({ collecte: row, onOpen }: CollecteCardProps) {
   const terminale = estTerminale(row);
   const urgente = estUrgente(row);
   const { jour, heure } = formatDateHeure(
@@ -333,9 +337,11 @@ export function CollecteCard({ collecte: row }: CollecteCardProps) {
         )}
       />
 
-      {/* Lien « stretched » vers la fiche (couvre toute la carte) */}
-      <Link
-        href={`/admin/collectes/${row.id}`}
+      {/* Cible « stretched » couvrant toute la carte → ouvre la fiche dans le
+          panneau latéral (drawer). */}
+      <button
+        type="button"
+        onClick={() => onOpen(row.id)}
         aria-label={`Ouvrir la collecte du ${jour}${heure ? ` à ${heure}` : ''} — ${row.evenements.organisations.raison_sociale}`}
         className="absolute inset-0 rounded-savr-lg focus-visible:outline-2"
       />
@@ -451,16 +457,18 @@ export function CollecteCard({ collecte: row }: CollecteCardProps) {
               </Link>
             )}
             {/* ZD à dispatcher : raccourci vers la fiche (Bloc 0 « Envoyer à
-                MTS-1 »). Même affordance que « Attribuer » ; z-[1] au-dessus du
-                stretched link de la carte. */}
+                MTS-1 »). Même affordance que « Attribuer » ; z-[1] au-dessus de la
+                cible stretched. Ouvre le drawer en place (comme le corps de carte,
+                filtres conservés). */}
             {aDispatcherZd(row) && (
-              <Link
-                href={`/admin/collectes/${row.id}`}
+              <button
+                type="button"
+                onClick={() => onOpen(row.id)}
                 className="relative z-[1] inline-flex h-8 items-center gap-1.5 rounded-savr-md bg-savr-accent-500 px-3.5 text-[13px] font-extrabold text-savr-primary-950 transition-[background-color,transform] duration-[120ms] hover:-translate-y-px hover:bg-savr-accent-600"
               >
                 Dispatcher
                 <ArrowRight className="h-4 w-4" />
-              </Link>
+              </button>
             )}
           </>
         )}

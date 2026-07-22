@@ -15,14 +15,21 @@ const DETAIL = {
   adresse_acces: '1 avenue de Paris',
   code_postal: '92210',
   ville: 'Saint-Cloud',
+  region: 'idf',
   acces_office: 'facile',
   stationnement: null,
   type_vehicule_max: 'fourgon',
   controle_acces_requis_default: false,
   capacite_maximum: 500,
+  volume_max_bacs: 12,
+  contraintes_horaires: '18h-22h',
+  acces_details: 'Badge accueil, interphone porte B',
+  flux_autorises: ['zero_dechet', 'anti_gaspi'],
+  photos_urls: ['https://r2.example/photo1.jpg'],
   actif: true,
   gestionnaire_organisation_id: null,
   commentaire_lieu: null,
+  commentaires_internes: 'Migré Bubble #4210',
   siren: null,
   email_gestionnaire: null,
   reference_citeo: false,
@@ -61,11 +68,17 @@ const CHAMPS: RegExp[] = [
   /Stationnement/,
   /Type de véhicule max/,
   /Capacité maximum/,
+  /Région/,
+  /Volume max/,
+  /Contraintes horaires/,
   /Contrôle d'accès requis/,
   /^Actif$/,
+  /Carnet d'accès terrain/,
+  /Flux autorisés/,
   /Commentaire sur le lieu/,
   /^SIREN/,
   /Mail gestionnaire du lieu/,
+  /Notes internes/,
   /Référencé Citeo/,
 ];
 
@@ -231,5 +244,69 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
 
     expect(await screen.findByText(/Nom obligatoire/)).toBeInTheDocument();
     expect(postCall(fetchMock)).toBeUndefined();
+  });
+
+  it('édition — hydrate les 7 champs réintégrés puis les renvoie au PATCH', async () => {
+    const fetchMock = routeFetch();
+    vi.stubGlobal('fetch', fetchMock);
+    render(
+      <LieuModal open lieuId="lieu-77" onClose={vi.fn()} onSaved={vi.fn()} />,
+    );
+
+    // Round-trip GET → hydratation : chaque champ réintégré prend la valeur du détail.
+    const region = (await screen.findByLabelText(
+      /Région/,
+    )) as HTMLSelectElement;
+    expect(region.value).toBe('idf');
+    expect(
+      (screen.getByLabelText(/Volume max/) as HTMLInputElement).value,
+    ).toBe('12');
+    expect(
+      (screen.getByLabelText(/Contraintes horaires/) as HTMLInputElement).value,
+    ).toBe('18h-22h');
+    expect(
+      (screen.getByLabelText(/Carnet d'accès terrain/) as HTMLTextAreaElement)
+        .value,
+    ).toBe('Badge accueil, interphone porte B');
+    // flux_autorises: string[] rendu en saisie séparée par des virgules.
+    expect(
+      (screen.getByLabelText(/Flux autorisés/) as HTMLInputElement).value,
+    ).toBe('zero_dechet, anti_gaspi');
+    expect(
+      (screen.getByLabelText(/Notes internes/) as HTMLTextAreaElement).value,
+    ).toBe('Migré Bubble #4210');
+    // Photos en lecture seule (liste de liens R2).
+    expect(screen.getByRole('link', { name: 'Photo 1' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Enregistrer/ }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/admin/lieux/lieu-77',
+        expect.objectContaining({ method: 'PATCH' }),
+      ),
+    );
+    const call = fetchMock.mock.calls.find(
+      ([u, o]) =>
+        u === '/api/v1/admin/lieux/lieu-77' &&
+        (o as RequestInit)?.method === 'PATCH',
+    );
+    const body = JSON.parse((call![1] as RequestInit).body as string) as {
+      region: string | null;
+      volume_max_bacs: number | null;
+      contraintes_horaires: string | null;
+      acces_details: string | null;
+      flux_autorises: string[] | null;
+      commentaires_internes: string | null;
+      photos_urls?: unknown;
+    };
+    expect(body.region).toBe('idf');
+    expect(body.volume_max_bacs).toBe(12);
+    expect(body.contraintes_horaires).toBe('18h-22h');
+    expect(body.acces_details).toBe('Badge accueil, interphone porte B');
+    expect(body.flux_autorises).toEqual(['zero_dechet', 'anti_gaspi']);
+    expect(body.commentaires_internes).toBe('Migré Bubble #4210');
+    // Les photos ne sont jamais renvoyées (jamais écrasées).
+    expect(body.photos_urls).toBeUndefined();
   });
 });

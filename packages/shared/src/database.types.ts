@@ -4384,6 +4384,10 @@ export type Database = {
       }
     }
     Functions: {
+      count_collectes_par_org: {
+        Args: { type_collecte: string; depuis: string }
+        Returns: { organisation_id: string; nb: number }[]
+      }
       f_app_role: { Args: never; Returns: string }
       f_assert_audit_context: {
         Args: { p_auteur: string; p_commentaire: string }

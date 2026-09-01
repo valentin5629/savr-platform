@@ -5,5 +5,7 @@
   "cdc-drift": 0,
   "column-db": 6,
   "test-mocks": 0,
-  "orphan-components": 0
+  "orphan-components": 0,
+  "renamed-type-refs": 0,
+  "enum-collecte-type": 0
 }

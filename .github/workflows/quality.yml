@@ -347,6 +347,24 @@ jobs:
       - name: G2 — rapport grain livrable
         run: pnpm check:manifest-grain
 
+  # check:renamed-type-refs — anti-récidive cluster C3 / #259. Rejoue les
+  # `ALTER TYPE … RENAME` de toutes les migrations et flagge toute référence
+  # EXÉCUTABLE (cast, décl. colonne/variable/arg, y compris dans un corps $$)
+  # à un ancien nom de type déjà renommé → `db reset` échouerait TARD. Pur Node
+  # (tsx), sans DB. Enforcement via le méta-cliquet (baseline 0) ; ce job donne
+  # le détail fichier:ligne dans le PR summary.
+  renamed-type-refs:
+    runs-on: ubuntu-latest
+    continue-on-error: true # MODE RAPPORT — le cliquet gate-ratchet enforce (baseline 0)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Rapport références à un type Postgres renommé
+        run: pnpm check:renamed-type-refs
+
   # G1 — check:spec-deliverables (R0b). Diff livrables CDC (index seedé depuis
   # l'audit : specs/manifests/cdc-deliverables.index.json) ↔ union des
   # deliverables[] des manifestes. Un livrable CDC absent de tous les manifestes

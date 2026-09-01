@@ -49,8 +49,8 @@ AS $$
   WHERE c.date_collecte >= depuis
     AND c.statut NOT IN ('brouillon', 'annulee')
     AND c.type = CASE type_collecte
-                   WHEN 'zd' THEN 'zero_dechet'::plateforme.collecte_type_enum
-                   WHEN 'ag' THEN 'anti_gaspi'::plateforme.collecte_type_enum
+                   WHEN 'zd' THEN 'zero_dechet'::plateforme.collecte_type
+                   WHEN 'ag' THEN 'anti_gaspi'::plateforme.collecte_type
                  END
   GROUP BY e.organisation_id;
 $$;

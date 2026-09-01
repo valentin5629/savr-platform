@@ -9,6 +9,7 @@ import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ImpersonationLauncher } from '@/components/ui/impersonation-launcher';
+import { PageHero } from '@/components/ui/page-hero';
 
 interface PackActif {
   type_pack: string;
@@ -64,7 +65,7 @@ const columns: Column<Organisation>[] = [
         className="flex items-center gap-3 font-medium text-savr-primary-700 hover:underline"
       >
         <span
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-savr-md bg-savr-primary-100 text-xs font-bold text-savr-primary-700"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-savr-full bg-savr-primary-100 text-xs font-bold text-savr-primary-700"
           aria-hidden="true"
         >
           {initiales(row.raison_sociale)}
@@ -153,23 +154,23 @@ export default function ClientsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Bandeau d'en-tête (Design System §10) */}
-      <div className="flex flex-col gap-4 rounded-savr-lg bg-savr-primary-900 px-6 py-6 text-savr-white sm:flex-row sm:items-center sm:justify-between sm:px-8">
-        <div>
-          <h1 className="text-2xl font-bold text-savr-white">Clients</h1>
-          <p className="mt-1 text-sm text-savr-primary-200">
-            {loading
-              ? 'Chargement…'
-              : `${total} organisation${total !== 1 ? 's' : ''}`}
-          </p>
-        </div>
-        <Link href="/admin/clients/nouveau" className="shrink-0">
-          <Button variant="accent">
-            <Plus className="w-4 h-4" />
-            Créer une organisation
-          </Button>
-        </Link>
-      </div>
+      {/* Bandeau d'en-tête — composant DS PageHero (§10 §5.6, aplat primary-700) */}
+      <PageHero
+        title="Clients"
+        subtitle={
+          loading
+            ? 'Chargement…'
+            : `${total} organisation${total !== 1 ? 's' : ''}`
+        }
+        actions={
+          <Link href="/admin/clients/nouveau">
+            <Button variant="accent">
+              <Plus className="w-4 h-4" />
+              Créer une organisation
+            </Button>
+          </Link>
+        }
+      />
 
       {/* Impersonation (admin_savr uniquement — le composant se masque sinon) */}
       <ImpersonationLauncher />

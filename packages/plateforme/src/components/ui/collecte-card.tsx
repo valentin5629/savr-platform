@@ -96,6 +96,22 @@ export function aAttribuer(row: CollecteRow): boolean {
   );
 }
 
+// Collecte ZD « à dispatcher » : pas encore transmise au TMS et encore ouverte.
+// Prédicat aligné sur le chip « Non transmises ZD » (source unique
+// lib/collectes-chips → non_transmises_zd) : statut_tms 'non_envoye' ET statut
+// dans (programmee, validee) — donc le bouton apparaît exactement quand le badge
+// « TMS · Non envoyé » est affiché sur une collecte encore actionnable, y compris
+// « validée transporteur » (sous-titre de la tuile « ZD à dispatcher »).
+// Pas d'attribution manuelle ZD (CDC §06.06 l.231) → le raccourci ouvre la fiche
+// (Bloc 0 « Envoyer à MTS-1 »), aucun choix de prestataire ici.
+export function aDispatcherZd(row: CollecteRow): boolean {
+  return (
+    row.type === 'zero_dechet' &&
+    row.statut_tms === 'non_envoye' &&
+    (row.statut === 'programmee' || row.statut === 'validee')
+  );
+}
+
 // Criticité (§06.09 §1 / ALGO-02) : à attribuer ET à moins de 48h.
 export function estUrgente(row: CollecteRow): boolean {
   if (!aAttribuer(row)) return false;
@@ -431,6 +447,18 @@ export function CollecteCard({ collecte: row }: CollecteCardProps) {
                 className="relative z-[1] inline-flex h-8 items-center gap-1.5 rounded-savr-md bg-savr-accent-500 px-3.5 text-[13px] font-extrabold text-savr-primary-950 transition-[background-color,transform] duration-[120ms] hover:-translate-y-px hover:bg-savr-accent-600"
               >
                 Attribuer
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            )}
+            {/* ZD à dispatcher : raccourci vers la fiche (Bloc 0 « Envoyer à
+                MTS-1 »). Même affordance que « Attribuer » ; z-[1] au-dessus du
+                stretched link de la carte. */}
+            {aDispatcherZd(row) && (
+              <Link
+                href={`/admin/collectes/${row.id}`}
+                className="relative z-[1] inline-flex h-8 items-center gap-1.5 rounded-savr-md bg-savr-accent-500 px-3.5 text-[13px] font-extrabold text-savr-primary-950 transition-[background-color,transform] duration-[120ms] hover:-translate-y-px hover:bg-savr-accent-600"
+              >
+                Dispatcher
                 <ArrowRight className="h-4 w-4" />
               </Link>
             )}

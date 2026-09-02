@@ -12,12 +12,13 @@ import {
   within,
 } from '@testing-library/react';
 
+// Le panel reçoit l'id par prop (collecteId) → il n'appelle plus useParams.
+// On garde useRouter : next/link (utilisé dans le panel) peut le requérir sous jsdom.
 vi.mock('next/navigation', () => ({
-  useParams: () => ({ id: 'c1' }),
   useRouter: () => ({ push: vi.fn(), back: vi.fn(), refresh: vi.fn() }),
 }));
 
-import CollecteDetailPage from './page';
+import { CollecteDetailPanel } from './collecte-detail-panel';
 
 const collecteAg = {
   id: 'c1',
@@ -43,7 +44,9 @@ const collecteAg = {
   evenements: {
     nom_evenement: 'Cocktail AG',
     pax: 80,
+    nom_client_organisateur: 'Client Fallback',
     organisations: { raison_sociale: 'Traiteur Beta' },
+    client_organisateur: { raison_sociale: 'Org Cliente SA' },
     lieux: { nom: 'Pavillon', ville: 'Paris', adresse_acces: '1 rue X' },
     types_evenements: { libelle: 'Cocktail apéritif' },
   },
@@ -149,7 +152,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
 
   it('M0.6 — Bloc 0 affiche la reco algo (prestataire + association) + pré-sélectionne le top-1', async () => {
     mockFetch();
-    render(<CollecteDetailPage />);
+    render(<CollecteDetailPanel collecteId="c1" />);
 
     // Recommandation algo affichée (§06.09) : prestataire top-1 + association.
     // findAllByText : l'association apparaît en Bloc 0 (reco) ET Bloc 5 (top-3) — BOA-07.
@@ -171,7 +174,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
 
   it('M0.6 — choix ≠ top-1 algo → bouton A Toutes! + motif override obligatoire (≥ 5)', async () => {
     mockFetch();
-    render(<CollecteDetailPage />);
+    render(<CollecteDetailPanel collecteId="c1" />);
     // Attendre la pré-sélection du top-1 (bouton MTS-1)
     await screen.findByRole('button', { name: /Envoyer à MTS-1/ });
 
@@ -196,7 +199,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
 
   it('M0.6 — modale forçage statut : PATCH exige un motif ≥ 10 caractères', async () => {
     const fetchMock = mockFetch();
-    render(<CollecteDetailPage />);
+    render(<CollecteDetailPanel collecteId="c1" />);
     await screen.findByText('Prestataire actuel');
 
     // Ouvre la modale (déclencheur d'en-tête)
@@ -242,7 +245,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   // → crash blanc. Ce test rend la fiche avec les shapes DB corrigées.
   it('M0.6 — rend type d’événement (libelle), tournée (statut) et facture (factures.statut)', async () => {
     mockFetch();
-    render(<CollecteDetailPage />);
+    render(<CollecteDetailPanel collecteId="c1" />);
     await screen.findByText('Prestataire actuel');
 
     // types_evenements.libelle (Bloc 1)
@@ -255,7 +258,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
 
   it('M0.6 — modale N camions : PATCH nb_camions_demande (RM-02)', async () => {
     const fetchMock = mockFetch();
-    render(<CollecteDetailPage />);
+    render(<CollecteDetailPanel collecteId="c1" />);
     await screen.findByText('Prestataire actuel');
 
     // Bouton « Modifier » à côté de Nb camions (statut programmee = éditable).
@@ -327,7 +330,9 @@ const baseAg = {
   evenements: {
     nom_evenement: 'Cocktail AG',
     pax: 80,
+    nom_client_organisateur: 'Client Fallback',
     organisations: { raison_sociale: 'Traiteur Beta' },
+    client_organisateur: { raison_sociale: 'Org Cliente SA' },
     lieux: { nom: 'Pavillon', ville: 'Paris', adresse_acces: '1 rue X' },
     types_evenements: { libelle: 'Cocktail apéritif' },
   },
@@ -455,7 +460,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
 
   it('M0.6 — Bloc 3 Documents : rapport RSE + attestation AG affichés ; le bouton Régénérer appelle l’endpoint de régénération', async () => {
     const fetchMock = installMock({});
-    render(<CollecteDetailPage />);
+    render(<CollecteDetailPanel collecteId="c1" />);
 
     // Bloc Documents rendu + rapport + attestation (AG).
     expect(await screen.findByText('Documents')).toBeInTheDocument();
@@ -481,33 +486,16 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
 
   it('M0.6 — Bloc 3 : picto « régénéré » affiché quand version ≠ initiale', async () => {
     installMock({});
-    render(<CollecteDetailPage />);
+    render(<CollecteDetailPanel collecteId="c1" />);
     // rapport.version = 2 + regenere_at → picto ⟳ avec title « Rapport régénéré ».
     expect(await screen.findByTitle(/Rapport régénéré/)).toBeInTheDocument();
   });
 
-  it('M0.6 — Bloc 4 Pack AG : pack rattaché + crédits restants + statut', async () => {
-    installMock({});
-    render(<CollecteDetailPage />);
-    expect(await screen.findByText('Pack AG')).toBeInTheDocument();
-    expect(screen.getByText('Pack 10 collectes')).toBeInTheDocument();
-    expect(screen.getByText('7')).toBeInTheDocument();
-  });
-
-  it('M0.6 — Bloc 4 : badge « Crédit recrédité » si collecte annulee après réalisation', async () => {
-    installMock({
-      collecte: { ...baseAg, statut: 'annulee' },
-      audit: { data: [], recredit_at: '2026-06-01T08:00:00Z' },
-    });
-    render(<CollecteDetailPage />);
-    expect(
-      await screen.findByText(/Crédit recrédité automatiquement le/),
-    ).toBeInTheDocument();
-  });
+  // (Bloc « Pack AG » retiré de la fiche — décision Val ; ex-tests Bloc 4 supprimés.)
 
   it('M0.6 — Bloc 5 Attribution AG : association + transporteur retenus + lien vers l’écran complet (plus de stub « algo V2 »)', async () => {
     installMock({});
-    render(<CollecteDetailPage />);
+    render(<CollecteDetailPanel collecteId="c1" />);
 
     expect(await screen.findByText('Attribution AG')).toBeInTheDocument();
     // Association + transporteur retenus (embed attributions_antgaspi).
@@ -524,7 +512,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
 
   it('M0.6 — Bloc 7 Timeline : les entrées d’audit sont rendues (action + transition de statut)', async () => {
     installMock({});
-    render(<CollecteDetailPage />);
+    render(<CollecteDetailPanel collecteId="c1" />);
     expect(await screen.findByText('Historique & audit')).toBeInTheDocument();
     expect(screen.getByText('collecte_statut_force')).toBeInTheDocument();
     // Transition old → new statut.
@@ -536,7 +524,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
 
   it('M0.6 — Bloc 3 : « Importer des photos » envoie un POST multipart /photos', async () => {
     const fetchMock = installMock({});
-    const { container } = render(<CollecteDetailPage />);
+    const { container } = render(<CollecteDetailPanel collecteId="c1" />);
     await screen.findByText('Documents');
 
     const input = container.querySelector(
@@ -561,7 +549,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
 
   it('M0.6 — Bloc 3 : bordereau ZD affiché pour une collecte ZD (numéro + statut) ; pas d’attestation AG', async () => {
     installMock({ collecte: baseZd, documents: documentsZd });
-    render(<CollecteDetailPage />);
+    render(<CollecteDetailPanel collecteId="c1" />);
     expect(await screen.findByText('Bordereau ZD')).toBeInTheDocument();
     expect(screen.getByText('BSAV-2026-00001')).toBeInTheDocument();
     expect(screen.getByText(/Statut : emis/)).toBeInTheDocument();
@@ -586,7 +574,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
         ],
       },
     });
-    const { container } = render(<CollecteDetailPage />);
+    const { container } = render(<CollecteDetailPanel collecteId="c1" />);
     await screen.findByText('Documents');
     expect(screen.getByText('Photos (1)')).toBeInTheDocument();
     const img = container.querySelector(
@@ -599,8 +587,40 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   it('M0.6 — Bloc 5 : top 3 affiche les scores détaillés (distance + capacité, §06.06 l.253)', async () => {
     // Collecte AG NON terminale → l'algo (reco) est appelé → top 3 + scores rendus.
     installMock({ collecte: { ...baseAg, statut: 'programmee' } });
-    render(<CollecteDetailPage />);
+    render(<CollecteDetailPanel collecteId="c1" />);
     expect(await screen.findByText(/3\.2 km/)).toBeInTheDocument();
     expect(screen.getByText(/capacité 200/)).toBeInTheDocument();
+  });
+
+  it('M0.6 — Événement & Lieu réduit (Client/Type/Adresse/Contrôle accès), Logistique retiré (retour Val)', async () => {
+    installMock({ collecte: baseAg });
+    render(<CollecteDetailPanel collecteId="c1" />);
+    expect(await screen.findByText('Événement & Lieu')).toBeInTheDocument();
+    // Client = client_organisateur résolu (priorité sur nom_client_organisateur).
+    expect(screen.getByText('Client')).toBeInTheDocument();
+    expect(screen.getByText('Org Cliente SA')).toBeInTheDocument();
+    expect(screen.queryByText('Client Fallback')).not.toBeInTheDocument();
+    // Type + Adresse conservés ; Contrôle accès déplacé ici depuis l'ex-Logistique.
+    expect(screen.getByText('Cocktail apéritif')).toBeInTheDocument();
+    expect(screen.getByText('1 rue X')).toBeInTheDocument();
+    expect(screen.getByText('Contrôle accès')).toBeInTheDocument();
+    // Bloc Logistique + champs Traiteur/Volume retirés (décision Val).
+    expect(screen.queryByText('Logistique')).not.toBeInTheDocument();
+    expect(screen.queryByText('Traiteur')).not.toBeInTheDocument();
+    expect(screen.queryByText('Volume estimé')).not.toBeInTheDocument();
+  });
+
+  it('M0.6 — onLoaded remonte type + titre-résumé (cadre coloré + en-tête figé « jusqu’à N pax »)', async () => {
+    const onLoaded = vi.fn();
+    installMock({ collecte: baseAg });
+    render(<CollecteDetailPanel collecteId="c1" onLoaded={onLoaded} />);
+    await waitFor(() => expect(onLoaded).toHaveBeenCalled());
+    const arg = onLoaded.mock.calls.at(-1)?.[0] as {
+      type: string;
+      title: string;
+    };
+    expect(arg.type).toBe('anti_gaspi');
+    expect(arg.title).toContain('Collecte Anti-Gaspi');
+    expect(arg.title).toContain("jusqu'à 80 pax");
   });
 });

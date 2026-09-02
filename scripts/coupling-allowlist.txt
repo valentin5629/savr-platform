@@ -136,16 +136,18 @@ supabase/migrations/20260630120000_plateforme_r11_algo_ag.sql
 # INSERT fixtures pgTAP (transporteurs province + Marathon). Pas de logique adapter.
 # 'customerOrders' reste banni.
 supabase/tests/r11_algo_ag.test.sql
-# packages/plateforme/.../admin/collectes/[id]/page.tsx (+ test) (R17/BL-P1-BOA-06) —
-# fiche collecte Bloc 0 dispatch. 'mts1'/'a_toutes' = valeurs de l'enum transporteurs.type_tms
-# utilisées UNIQUEMENT pour forker le LIBELLÉ du bouton d'envoi (helper libelleDispatch :
+# packages/plateforme/.../components/admin/collecte-detail-panel.tsx (+ test)
+# (R17/BL-P1-BOA-06, déplacé E2E « liste type maquette + pop-up ») — fiche collecte
+# Bloc 0 dispatch, ex-page collectes/[id]/page.tsx, extraite en composant monté
+# dans une modale centrée sur la liste. 'mts1' = valeur de l'enum transporteurs.type_tms
+# utilisée UNIQUEMENT pour forker le LIBELLÉ du bouton d'envoi (helper libelleDispatch :
 # type_tms='mts1' → « Envoyer à MTS-1 »). Aucun appel HTTP MTS-1/Everest : le dispatch passe
 # par l'endpoint /dispatch → outbox → adapter (packages/adapters/). Même nature d'exception
 # que transporteur-form.tsx (UI keyée sur l'enum type_tms). 'customerOrders' reste banni.
-# NB : le segment [id] est une classe de caractères en glob → on utilise * (qui
-# traverse /) pour matcher le dossier de route dynamique littéral.
-packages/plateforme/src/app/(admin)/admin/collectes/*/page.tsx
-packages/plateforme/src/app/(admin)/admin/collectes/*/collecte-detail.m0-6.test.tsx
+# NB : la route collectes/[id]/page.tsx n'est plus qu'une redirection vers ?collecte=<id>
+# (0 réf mts1) → retirée de l'allowlist ; le wrapper collecte-detail-modal.tsx n'a aucune réf.
+packages/plateforme/src/components/admin/collecte-detail-panel.tsx
+packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx
 # collectes.m1-1b.test.ts (BL-P1-BOA-06) — 'mts1' = valeur de l'enum type_tms dans
 # une fixture d'objet algoReco (transporteur mocké du test dispatch AG motif-vs-top1).
 # Aucun appel HTTP. 'customerOrders' reste banni.

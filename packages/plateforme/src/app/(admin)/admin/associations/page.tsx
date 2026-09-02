@@ -1,36 +1,30 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Heart, Plus, Search } from 'lucide-react';
-import Link from 'next/link';
+import { Heart, Plus, Search, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { Pagination } from '@/components/ui/pagination';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  AssociationModal,
+  type AssociationRecord,
+} from '@/components/admin/association-modal';
 
-interface Association {
-  id: string;
-  nom: string;
-  adresse: string;
-  ville: string;
-  region: string;
-  capacite_max_beneficiaires: number | null;
+// Ligne = enregistrement complet (l'API liste renvoie select('*')) + KPI dérivé →
+// sert directement à préremplir la modale d'édition, sans re-fetch.
+type Association = AssociationRecord & {
   // KPI dérivé (API liste) — collectes AG réalisées rattachées, 30 derniers jours.
   collectes_realisees_30j: number;
-}
+};
 
 const columns: Column<Association>[] = [
   {
     key: 'nom',
     header: 'Nom',
     render: (row) => (
-      <Link
-        href={`/admin/associations/${row.id}`}
-        className="font-medium text-savr-primary-700 hover:underline"
-      >
-        {row.nom}
-      </Link>
+      <span className="font-medium text-savr-neutral-900">{row.nom}</span>
     ),
   },
   {
@@ -72,6 +66,9 @@ export default function AssociationsPage() {
   const [actif, setActif] = useState('true');
   const [page, setPage] = useState(1);
 
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<Association | null>(null);
+
   const fetchAssociations = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams({ page: String(page), actif });
@@ -92,6 +89,39 @@ export default function AssociationsPage() {
     void fetchAssociations();
   }, [fetchAssociations]);
 
+  function openEdit(row: Association) {
+    setEditing(row);
+    setModalOpen(true);
+  }
+
+  function openCreate() {
+    setEditing(null);
+    setModalOpen(true);
+  }
+
+  const columnsWithActions: Column<Association>[] = [
+    ...columns,
+    {
+      key: 'actions',
+      header: '',
+      render: (row) => (
+        <div className="flex justify-end">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={`Modifier ${row.nom}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              openEdit(row);
+            }}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -101,12 +131,10 @@ export default function AssociationsPage() {
             Associations
           </h1>
         </div>
-        <Link href="/admin/associations/nouvelle">
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Nouvelle association
-          </Button>
-        </Link>
+        <Button onClick={openCreate}>
+          <Plus className="h-4 w-4 mr-2" />
+          Nouvelle association
+        </Button>
       </div>
 
       <div className="flex gap-3">
@@ -151,9 +179,10 @@ export default function AssociationsPage() {
       ) : (
         <>
           <DataTable
-            columns={columns}
+            columns={columnsWithActions}
             data={associations}
             keyExtractor={(row) => row.id}
+            onRowClick={openEdit}
           />
           {total > 50 && (
             <div className="flex items-center justify-between gap-2 pt-3 text-sm">
@@ -169,6 +198,13 @@ export default function AssociationsPage() {
           )}
         </>
       )}
+
+      <AssociationModal
+        open={modalOpen}
+        association={editing}
+        onClose={() => setModalOpen(false)}
+        onSaved={() => void fetchAssociations()}
+      />
     </div>
   );
 }

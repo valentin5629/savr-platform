@@ -47,13 +47,17 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
   const orgIds = (orgs ?? []).map((o) => o.id as string);
   let statsZd: Record<string, number> = {};
   let statsAg: Record<string, number> = {};
+  let packsActifs: Record<
+    string,
+    { type_pack: string; credits_restants: number }
+  > = {};
 
   if (orgIds.length > 0) {
     const depuis12m = new Date();
     depuis12m.setFullYear(depuis12m.getFullYear() - 1);
     const depuis12mStr = depuis12m.toISOString().slice(0, 10);
 
-    const [zdRes, agRes] = await Promise.all([
+    const [zdRes, agRes, packsRes] = await Promise.all([
       supabase.rpc('count_collectes_par_org', {
         type_collecte: 'zd',
         depuis: depuis12mStr,
@@ -62,6 +66,16 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
         type_collecte: 'ag',
         depuis: depuis12mStr,
       }),
+      // Pack AG actif par organisation. Invariant métier : au plus 1 pack
+      // `statut='actif'` par org (uniq_pack_actif_par_org, CDC §05). Requête
+      // séparée filtrée aux orgs de la page (même pattern que les stats ZD/AG).
+      supabase
+        .from('packs_antgaspi')
+        .select(
+          'organisation_id, type_pack, credits_initiaux, credits_consommes',
+        )
+        .eq('statut', 'actif')
+        .in('organisation_id', orgIds),
     ]);
 
     if (zdRes.data) {
@@ -80,6 +94,24 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
         ]),
       );
     }
+    if (packsRes.data) {
+      packsActifs = Object.fromEntries(
+        (
+          packsRes.data as {
+            organisation_id: string;
+            type_pack: string;
+            credits_initiaux: number;
+            credits_consommes: number;
+          }[]
+        ).map((p) => [
+          p.organisation_id,
+          {
+            type_pack: p.type_pack,
+            credits_restants: p.credits_initiaux - p.credits_consommes,
+          },
+        ]),
+      );
+    }
   }
 
   const rows = (orgs ?? []).map((o) => ({
@@ -94,6 +126,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
       : 0,
     nb_collectes_zd_12m: statsZd[o.id as string] ?? 0,
     nb_collectes_ag_12m: statsAg[o.id as string] ?? 0,
+    pack_actif: packsActifs[o.id as string] ?? null,
   }));
 
   return NextResponse.json({ data: rows, total: count ?? 0, page, limit });

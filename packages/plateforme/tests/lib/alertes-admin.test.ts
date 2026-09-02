@@ -80,9 +80,10 @@ describe('entiteHref — lien profond back-office', () => {
   it('organisations → fiche client', () => {
     expect(entiteHref('organisations', 'o1')).toBe('/admin/clients/o1');
   });
-  it('factures / lieux → fiches dédiées', () => {
+  it('factures → fiche dédiée ; lieux → modale via ?edit', () => {
     expect(entiteHref('factures', 'f1')).toBe('/admin/factures/f1');
-    expect(entiteHref('lieux', 'l1')).toBe('/admin/lieux/l1');
+    // La fiche lieu est une modale sur la liste (pas de page [id]).
+    expect(entiteHref('lieux', 'l1')).toBe('/admin/lieux?edit=l1');
   });
   it('entité sans page dédiée (pack) ou id manquant → null', () => {
     expect(entiteHref('pack_antgaspi', 'p1')).toBeNull();

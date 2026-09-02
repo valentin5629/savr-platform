@@ -1,6 +1,15 @@
 'use client';
 
 import * as React from 'react';
+import {
+  Heart,
+  MapPin,
+  User,
+  Clock,
+  FileText,
+  Settings2,
+  type LucideIcon,
+} from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -82,6 +91,34 @@ function toForm(a: AssociationRecord | null): FormValues {
     date_expiration_habilitation: a?.date_expiration_habilitation ?? '',
     horaires_ouverture: a?.horaires_ouverture ?? horairesParDefaut(),
   };
+}
+
+// Bloc thématique — gabarit Design System partagé avec les fiches (#226/#231) :
+// carte bordée (levier §10 #5) + en-tête « pastille primary + titre extrabold
+// tracking serré » (leviers §10 #2/#7). Regroupe visuellement les champs par
+// thème dans la modale (au lieu d'un simple libellé), demande revue E2E Val.
+function Bloc({
+  icon: Icon,
+  title,
+  children,
+}: {
+  icon: LucideIcon;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-savr-md border border-savr-neutral-200 bg-savr-white p-4 sm:p-5">
+      <div className="mb-4 flex items-center gap-2.5">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-savr-md bg-savr-primary-50 text-savr-primary-700">
+          <Icon className="h-[18px] w-[18px]" />
+        </span>
+        <h3 className="text-base font-extrabold tracking-[-0.01em] text-savr-neutral-900">
+          {title}
+        </h3>
+      </div>
+      <div className="space-y-4">{children}</div>
+    </section>
+  );
 }
 
 interface AssociationModalProps {
@@ -281,12 +318,8 @@ export function AssociationModal({
       }
       footer={footer}
     >
-      <form onSubmit={handleFormSubmit} noValidate className="space-y-6">
-        {/* Identité */}
-        <section className="space-y-4">
-          <h3 className="text-sm font-semibold text-savr-neutral-800">
-            Identité
-          </h3>
+      <form onSubmit={handleFormSubmit} noValidate className="space-y-4">
+        <Bloc icon={Heart} title="Identité">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <FormField
               label="Nom de l'association"
@@ -331,13 +364,9 @@ export function AssociationModal({
               onChange={(v) => set('logo_url', v)}
             />
           </FormField>
-        </section>
+        </Bloc>
 
-        {/* Adresse */}
-        <section className="space-y-4">
-          <h3 className="text-sm font-semibold text-savr-neutral-800">
-            Adresse
-          </h3>
+        <Bloc icon={MapPin} title="Adresse">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <FormField
               label="Adresse"
@@ -387,13 +416,9 @@ export function AssociationModal({
               </Select>
             </FormField>
           </div>
-        </section>
+        </Bloc>
 
-        {/* Contact */}
-        <section className="space-y-4">
-          <h3 className="text-sm font-semibold text-savr-neutral-800">
-            Contact
-          </h3>
+        <Bloc icon={User} title="Contact">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <FormField
               label="Nom prénom du contact"
@@ -436,24 +461,16 @@ export function AssociationModal({
               />
             </FormField>
           </div>
-        </section>
+        </Bloc>
 
-        {/* Horaires d'ouverture */}
-        <section className="space-y-4">
-          <h3 className="text-sm font-semibold text-savr-neutral-800">
-            Horaires d'ouverture
-          </h3>
+        <Bloc icon={Clock} title="Horaires d'ouverture">
           <HorairesOuvertureEditor
             value={values.horaires_ouverture}
             onChange={(v) => set('horaires_ouverture', v)}
           />
-        </section>
+        </Bloc>
 
-        {/* Rapport d'impact */}
-        <section className="space-y-4">
-          <h3 className="text-sm font-semibold text-savr-neutral-800">
-            Rapport d'impact
-          </h3>
+        <Bloc icon={FileText} title="Rapport d'impact">
           <FormField
             label="Description pour le rapport d'impact (pour le client)"
             htmlFor="am_description_rapport_impact"
@@ -493,13 +510,9 @@ export function AssociationModal({
               onChange={(e) => set('instructions_acces', e.target.value)}
             />
           </FormField>
-        </section>
+        </Bloc>
 
-        {/* Admin / Ops */}
-        <section className="space-y-4">
-          <h3 className="text-sm font-semibold text-savr-neutral-800">
-            Admin / Ops
-          </h3>
+        <Bloc icon={Settings2} title="Admin / Ops">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <FormField
               label="SIREN"
@@ -562,7 +575,7 @@ export function AssociationModal({
             />
             Habilitation 2041-GE (attestation fiscale)
           </label>
-        </section>
+        </Bloc>
 
         {serverError && (
           <p className="text-sm text-savr-error-strong">{serverError}</p>

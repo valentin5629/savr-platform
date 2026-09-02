@@ -44,7 +44,9 @@ const collecteAg = {
   evenements: {
     nom_evenement: 'Cocktail AG',
     pax: 80,
+    nom_client_organisateur: 'Client Fallback',
     organisations: { raison_sociale: 'Traiteur Beta' },
+    client_organisateur: { raison_sociale: 'Org Cliente SA' },
     lieux: { nom: 'Pavillon', ville: 'Paris', adresse_acces: '1 rue X' },
     types_evenements: { libelle: 'Cocktail apéritif' },
   },
@@ -328,7 +330,9 @@ const baseAg = {
   evenements: {
     nom_evenement: 'Cocktail AG',
     pax: 80,
+    nom_client_organisateur: 'Client Fallback',
     organisations: { raison_sociale: 'Traiteur Beta' },
+    client_organisateur: { raison_sociale: 'Org Cliente SA' },
     lieux: { nom: 'Pavillon', ville: 'Paris', adresse_acces: '1 rue X' },
     types_evenements: { libelle: 'Cocktail apéritif' },
   },
@@ -586,5 +590,37 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     render(<CollecteDetailPanel collecteId="c1" />);
     expect(await screen.findByText(/3\.2 km/)).toBeInTheDocument();
     expect(screen.getByText(/capacité 200/)).toBeInTheDocument();
+  });
+
+  it('M0.6 — Événement & Lieu réduit (Client/Type/Adresse/Contrôle accès), Logistique retiré (retour Val)', async () => {
+    installMock({ collecte: baseAg });
+    render(<CollecteDetailPanel collecteId="c1" />);
+    expect(await screen.findByText('Événement & Lieu')).toBeInTheDocument();
+    // Client = client_organisateur résolu (priorité sur nom_client_organisateur).
+    expect(screen.getByText('Client')).toBeInTheDocument();
+    expect(screen.getByText('Org Cliente SA')).toBeInTheDocument();
+    expect(screen.queryByText('Client Fallback')).not.toBeInTheDocument();
+    // Type + Adresse conservés ; Contrôle accès déplacé ici depuis l'ex-Logistique.
+    expect(screen.getByText('Cocktail apéritif')).toBeInTheDocument();
+    expect(screen.getByText('1 rue X')).toBeInTheDocument();
+    expect(screen.getByText('Contrôle accès')).toBeInTheDocument();
+    // Bloc Logistique + champs Traiteur/Volume retirés (décision Val).
+    expect(screen.queryByText('Logistique')).not.toBeInTheDocument();
+    expect(screen.queryByText('Traiteur')).not.toBeInTheDocument();
+    expect(screen.queryByText('Volume estimé')).not.toBeInTheDocument();
+  });
+
+  it('M0.6 — onLoaded remonte type + titre-résumé (cadre coloré + en-tête figé « jusqu’à N pax »)', async () => {
+    const onLoaded = vi.fn();
+    installMock({ collecte: baseAg });
+    render(<CollecteDetailPanel collecteId="c1" onLoaded={onLoaded} />);
+    await waitFor(() => expect(onLoaded).toHaveBeenCalled());
+    const arg = onLoaded.mock.calls.at(-1)?.[0] as {
+      type: string;
+      title: string;
+    };
+    expect(arg.type).toBe('anti_gaspi');
+    expect(arg.title).toContain('Collecte Anti-Gaspi');
+    expect(arg.title).toContain("jusqu'à 80 pax");
   });
 });

@@ -92,8 +92,11 @@
 --   GRANT EXECUTE ON FUNCTION plateforme.f_next_numero_attestation(integer) TO PUBLIC;
 --   GRANT EXECUTE ON FUNCTION plateforme.fn_calculer_algo_attribution_ag(uuid) TO authenticated;
 --
--- Les GRANT à service_role posés ici sont à conserver dans tous les cas (ils
--- étaient déjà acquis via ALTER DEFAULT PRIVILEGES, migration 20260617160000).
+-- Les GRANT à service_role posés ici sont à conserver dans tous les cas : les
+-- 5 fonctions préexistent à la migration 20260617160000, leur EXECUTE
+-- service_role vient donc de son `GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA
+-- plateforme TO service_role` (l.29) — et non de ses ALTER DEFAULT PRIVILEGES
+-- (l.43-44), qui ne valent que pour les objets créés ENSUITE.
 -- Le rollback est sans effet de bord : aucune donnée n'est touchée, seulement
 -- les ACL des 5 fonctions. Contrôle après coup :
 --   SELECT p.proname, p.proacl FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace

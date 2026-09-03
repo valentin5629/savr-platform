@@ -78,6 +78,28 @@
 --
 -- Backward-compatible et non destructive : aucun objet créé/supprimé/renommé,
 -- uniquement des privilèges. Hors périmètre du diff structurel DDL cible V2.
+--
+-- ─── ROLLBACK (DoD « down-migration / rollback documenté ») ──────────────────
+-- ⚠ Jouer ce rollback RÉOUVRE la faille P0 décrite ci-dessus. Ne l'utiliser que
+-- pour restaurer l'état exact d'avant, le temps de traiter un appelant légitime
+-- en authenticated qui aurait été manqué — puis refermer par cette migration.
+-- L'état antérieur n'était PAS uniforme : quatre fonctions portaient l'EXECUTE
+-- PUBLIC hérité par défaut, l'algo AG un GRANT authenticated explicite.
+--
+--   GRANT EXECUTE ON FUNCTION plateforme.fn_claim_outbox_batch(integer, interval) TO PUBLIC;
+--   GRANT EXECUTE ON FUNCTION plateforme.fn_result_outbox(uuid, text, text, text, timestamptz, boolean) TO PUBLIC;
+--   GRANT EXECUTE ON FUNCTION plateforme.fn_reap_outbox_claims() TO PUBLIC;
+--   GRANT EXECUTE ON FUNCTION plateforme.f_next_numero_attestation(integer) TO PUBLIC;
+--   GRANT EXECUTE ON FUNCTION plateforme.fn_calculer_algo_attribution_ag(uuid) TO authenticated;
+--
+-- Les GRANT à service_role posés ici sont à conserver dans tous les cas (ils
+-- étaient déjà acquis via ALTER DEFAULT PRIVILEGES, migration 20260617160000).
+-- Le rollback est sans effet de bord : aucune donnée n'est touchée, seulement
+-- les ACL des 5 fonctions. Contrôle après coup :
+--   SELECT p.proname, p.proacl FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+--   WHERE n.nspname = 'plateforme' AND p.proname IN ('fn_claim_outbox_batch',
+--     'fn_result_outbox', 'fn_reap_outbox_claims', 'fn_calculer_algo_attribution_ag',
+--     'f_next_numero_attestation');
 -- =============================================================================
 
 -- ─── 1. Worker outbox (lease/claim) — service_role uniquement ────────────────

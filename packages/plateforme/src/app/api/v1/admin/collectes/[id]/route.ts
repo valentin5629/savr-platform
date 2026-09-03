@@ -24,6 +24,7 @@ async function getHandler(
       `*,
        evenements!inner(
          *, organisations!organisation_id(raison_sociale, siret),
+         client_organisateur:organisations!client_organisateur_organisation_id(raison_sociale),
          lieux!lieu_id(*), types_evenements!type_evenement_id(libelle)
        ),
        collecte_flux(flux_id, poids_reel_kg, equivalent_roll, nb_bacs, flux_dechets!flux_id(code, nom)),

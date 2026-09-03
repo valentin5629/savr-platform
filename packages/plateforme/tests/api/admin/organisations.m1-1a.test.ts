@@ -22,6 +22,9 @@ const mockSupabaseChain = {
   is: vi.fn().mockReturnThis(),
   or: vi.fn().mockReturnThis(),
   lte: vi.fn().mockReturnThis(),
+  // `.in()` = terminal de la requête packs actifs (statut='actif' scopé orgIds).
+  // Résolu par défaut à vide → les tests qui ne posent pas de pack ne cassent pas.
+  in: vi.fn().mockResolvedValue({ data: [], error: null }),
 };
 
 vi.mock('@savr/shared/src/supabase-client.js', () => ({
@@ -94,39 +97,173 @@ describe('M1.1a / Organisations / Authentification', () => {
 describe('M1.1a / Organisations / Liste', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('M1.1a/orgas/liste — 200 avec data + total pour admin_savr', async () => {
+  it('M1.1a/orgas/liste — 200 : les compteurs ZD/AG viennent de la RPC (oracle + anti-vacuité)', async () => {
+    // Bug pré-existant réparé : la RPC count_collectes_par_org n'existait pas en
+    // base → 0 partout. Ce test ne se contente PAS de vérifier le status : il
+    // FAKE la RPC en FILTRANT sur `type_collecte` (zd ≠ ag) et asserte le
+    // mapping réel des compteurs dans chaque ligne. Sans ces assertions, un
+    // retour figé / un swap zd↔ag / une RPC ignorée resteraient verts.
     setupAuth('admin_savr');
     mockSupabaseChain.range.mockResolvedValueOnce({
       data: [
         {
           id: 'org-1',
-          raison_sociale: 'Traiteur Test',
+          raison_sociale: 'Traiteur Un',
           type: 'traiteur',
           siret: '12345678901234',
           actif: true,
           logo_url: null,
           users: [{ count: 3 }],
         },
+        {
+          id: 'org-2',
+          raison_sociale: 'Traiteur Deux',
+          type: 'traiteur',
+          siret: '43210987654321',
+          actif: true,
+          logo_url: null,
+          users: [{ count: 1 }],
+        },
       ],
       error: null,
-      count: 1,
+      count: 2,
     });
-    mockSupabaseChain.rpc
-      .mockResolvedValueOnce({
-        data: [{ organisation_id: 'org-1', nb: 12 }],
-        error: null,
-      })
-      .mockResolvedValueOnce({
-        data: [{ organisation_id: 'org-1', nb: 5 }],
-        error: null,
-      });
+
+    // Fake FILTRANT : renvoie des données DIFFÉRENTES selon `type_collecte`.
+    // org-2 est volontairement ABSENTE du jeu ZD → doit retomber à 0 (anti-vacuité).
+    // Toute RPC inattendue throw (fail-closed) : une dérive de la route casse fort.
+    mockSupabaseChain.rpc.mockImplementation(
+      (fn: string, params: { type_collecte: string; depuis: string }) => {
+        if (fn !== 'count_collectes_par_org') {
+          throw new Error(`RPC inattendue: ${fn}`);
+        }
+        const parType: Record<
+          string,
+          { organisation_id: string; nb: number }[]
+        > = {
+          zd: [{ organisation_id: 'org-1', nb: 12 }],
+          ag: [
+            { organisation_id: 'org-1', nb: 5 },
+            { organisation_id: 'org-2', nb: 7 },
+          ],
+        };
+        return Promise.resolve({
+          data: parType[params.type_collecte] ?? [],
+          error: null,
+        });
+      },
+    );
 
     const { GET } = await import('@/app/api/v1/admin/organisations/route.js');
     const res = await GET(makeReq('GET', '/api/v1/admin/organisations'));
     expect(res.status).toBe(200);
-    const json = (await res.json()) as { data: unknown[]; total: number };
-    expect(json.total).toBe(1);
-    expect(Array.isArray(json.data)).toBe(true);
+    const json = (await res.json()) as {
+      data: {
+        id: string;
+        nb_collectes_zd_12m: number;
+        nb_collectes_ag_12m: number;
+      }[];
+      total: number;
+    };
+    expect(json.total).toBe(2);
+
+    const byId = Object.fromEntries(json.data.map((r) => [r.id, r]));
+    // org-1 : présente dans ZD (12) ET AG (5) → mapping correct, pas de swap.
+    expect(byId['org-1']?.nb_collectes_zd_12m).toBe(12);
+    expect(byId['org-1']?.nb_collectes_ag_12m).toBe(5);
+    // org-2 : ABSENTE du jeu ZD → 0 (défaut `?? 0`) ; présente en AG (7).
+    expect(byId['org-2']?.nb_collectes_zd_12m).toBe(0);
+    expect(byId['org-2']?.nb_collectes_ag_12m).toBe(7);
+
+    // Contrat d'appel : 1 appel zd + 1 appel ag, `depuis` au format date (12 mois).
+    const rpcCalls = mockSupabaseChain.rpc.mock.calls as [
+      string,
+      { type_collecte: string; depuis: string },
+    ][];
+    expect(rpcCalls.map((c) => c[1].type_collecte).sort()).toEqual([
+      'ag',
+      'zd',
+    ]);
+    for (const [fn, args] of rpcCalls) {
+      expect(fn).toBe('count_collectes_par_org');
+      expect(args.depuis).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    }
+    // Fenêtre glissante : `depuis` ≈ aujourd'hui − 1 an.
+    const attendu = new Date();
+    attendu.setFullYear(attendu.getFullYear() - 1);
+    expect(rpcCalls[0]?.[1].depuis).toBe(attendu.toISOString().slice(0, 10));
+  });
+
+  it('M1.1a/orgas/liste — pack actif par organisation (statut=actif, scopé aux orgs de la page, — si aucun)', async () => {
+    // Revue E2E : colonne « Pack actif » de la liste (divergence CDC §06.06 L555
+    // assumée par Val, cf. _Divergences/BOA_20260718).
+    setupAuth('admin_savr');
+    mockSupabaseChain.range.mockResolvedValueOnce({
+      data: [
+        {
+          id: 'org-1',
+          raison_sociale: 'Avec pack',
+          type: 'traiteur',
+          siret: null,
+          actif: true,
+          logo_url: null,
+          users: [{ count: 1 }],
+        },
+        {
+          id: 'org-2',
+          raison_sociale: 'Sans pack',
+          type: 'traiteur',
+          siret: null,
+          actif: true,
+          logo_url: null,
+          users: [{ count: 1 }],
+        },
+      ],
+      error: null,
+      count: 2,
+    });
+    mockSupabaseChain.rpc
+      .mockResolvedValueOnce({ data: [], error: null })
+      .mockResolvedValueOnce({ data: [], error: null });
+    // Postgres a filtré statut='actif' + scopé aux orgIds → seul org-1 remonte.
+    mockSupabaseChain.in.mockResolvedValueOnce({
+      data: [
+        {
+          organisation_id: 'org-1',
+          type_pack: 'pack_30',
+          credits_initiaux: 30,
+          credits_consommes: 27,
+        },
+      ],
+      error: null,
+    });
+
+    const { GET } = await import('@/app/api/v1/admin/organisations/route.js');
+    const res = await GET(makeReq('GET', '/api/v1/admin/organisations'));
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      data: {
+        id: string;
+        pack_actif: { type_pack: string; credits_restants: number } | null;
+      }[];
+    };
+
+    // org-1 : pack mappé, restants = credits_initiaux − credits_consommes = 3.
+    expect(json.data.find((o) => o.id === 'org-1')?.pack_actif).toEqual({
+      type_pack: 'pack_30',
+      credits_restants: 3,
+    });
+    // org-2 : aucune ligne pack actif → null (anti-vacuité : pas de fuite d'un
+    // pack d'une autre org, et pas de pack fantôme).
+    expect(json.data.find((o) => o.id === 'org-2')?.pack_actif).toBeNull();
+
+    // Oracle filtrage : la requête packs demande bien statut='actif' ET est
+    // scopée EXACTEMENT aux orgs de la page (retirer l'un ou l'autre casse ici).
+    expect(mockSupabaseChain.eq).toHaveBeenCalledWith('statut', 'actif');
+    expect(mockSupabaseChain.in).toHaveBeenCalledWith('organisation_id', [
+      'org-1',
+      'org-2',
+    ]);
   });
 
   it('M1.1a/orgas/liste — le select N’embarque PAS `evenements` (FK ambiguë → 300)', async () => {

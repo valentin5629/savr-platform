@@ -1,7 +1,7 @@
 /**
  * M3.5 — Dashboard Admin / Bloc 1 KPIs (route /admin/dashboard/kpi)
  * BL-P0-05 (cluster C3 « enum zd/ag ») : les 5 compteurs des cartes-actions Bloc 1
- * filtrent `collectes.type` sur l'enum RÉEL `collecte_type_enum('zero_dechet','anti_gaspi')`.
+ * filtrent `collectes.type` sur l'enum RÉEL `collecte_type` ('zero_dechet','anti_gaspi').
  * Les littéraux `'zd'/'ag'` provoquent une erreur enum Postgres (avalée → carte = 0).
  *
  * Oracle BL-P0-05 : le mock RÉSOUT le count à partir du filtre `type` réellement passé.

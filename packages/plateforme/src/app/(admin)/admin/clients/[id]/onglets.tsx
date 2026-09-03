@@ -13,6 +13,11 @@
  *
  * Composants séparés (pas dans page.tsx) : un export nommé arbitraire dans un
  * fichier `page.tsx` casse `next build` (leçon R17 sl1).
+ *
+ * Restyle Design System (§10, revue E2E) : formulaires en Input/Select/Textarea +
+ * Label, dialogues en Modal, bandeaux d'erreur en AlertBar, couleurs = tokens
+ * `savr-*`. Les tables restent des <table> (DataTable rendrait desktop + mobile →
+ * libellés dupliqués → casse les assertions getByText des onglets).
  */
 
 import * as React from 'react';
@@ -26,6 +31,12 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
+import { Modal } from '@/components/ui/modal';
+import { AlertBar } from '@/components/ui/alert-bar';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 
 // ── Bandeau lecture seule ops ────────────────────────────────────────────────
 // OpsReadOnlyBanner extrait en composant partagé (R18, importé en tête) —
@@ -352,16 +363,19 @@ export function OngletGrilleZd({
       {!canEdit && <OpsReadOnlyBanner />}
 
       <div>
-        <label className="block text-sm font-medium mb-1">
+        {/* htmlFor seulement quand le <select> existe (mode édition) — évite une
+            association pendante vers un id absent en lecture seule. */}
+        <Label htmlFor={canEdit ? 'grille-zd-select' : undefined}>
           Grille tarifaire ZD affectée
-        </label>
+        </Label>
         {canEdit ? (
-          <select
+          <Select
+            id="grille-zd-select"
             aria-label="Grille tarifaire ZD"
             value={grilleId ?? ''}
             disabled={saving}
             onChange={(e) => void changerGrille(e.target.value)}
-            className="w-full max-w-md border border-neutral-300 rounded-lg px-3 py-2 text-sm disabled:opacity-60"
+            className="max-w-md"
           >
             <option value="">
               — Aucune grille spécifique (défaut appliqué) —
@@ -372,7 +386,7 @@ export function OngletGrilleZd({
                 {g.est_defaut ? ' (grille par défaut)' : ''}
               </option>
             ))}
-          </select>
+          </Select>
         ) : (
           <p className="text-sm">
             {affectee ? affectee.nom : 'Grille par défaut'}
@@ -380,7 +394,7 @@ export function OngletGrilleZd({
           </p>
         )}
         {!grilleId && (
-          <p className="text-xs text-neutral-500 mt-1">
+          <p className="text-xs text-savr-neutral-500 mt-1">
             Aucune grille spécifique — la grille par défaut « Standard paliers »
             s'applique.
           </p>
@@ -392,7 +406,7 @@ export function OngletGrilleZd({
         <div>
           <h3 className="font-medium mb-2 text-sm">Paliers — {affectee.nom}</h3>
           <table className="w-full text-sm">
-            <thead className="text-left text-neutral-500">
+            <thead className="text-left text-savr-neutral-500">
               <tr>
                 <th className="pb-2">Pax min</th>
                 <th className="pb-2">Pax max</th>
@@ -404,7 +418,7 @@ export function OngletGrilleZd({
               {[...affectee.tarifs_zero_dechet]
                 .sort((a, b) => a.pax_min - b.pax_min)
                 .map((p) => (
-                  <tr key={p.id} className="border-t border-neutral-100">
+                  <tr key={p.id} className="border-t border-savr-neutral-100">
                     <td className="py-2">{p.pax_min}</td>
                     <td className="py-2">{p.pax_max ?? '∞'}</td>
                     <td className="py-2">
@@ -476,24 +490,29 @@ export function OngletTarifRefacture({
     <Card className="p-6 space-y-4 max-w-xl">
       {!canEdit && <OpsReadOnlyBanner />}
       <div>
-        <label className="block text-sm font-medium mb-1">
+        {/* htmlFor seulement quand l'<input> existe (mode édition) — évite une
+            association pendante vers un id absent en lecture seule. */}
+        <Label
+          htmlFor={editing && canEdit ? 'tarif-refacture-input' : undefined}
+        >
           Tarif refacturé client final ZD (€/pax)
-        </label>
-        <p className="text-xs text-neutral-500 mb-3">
+        </Label>
+        <p className="text-xs text-savr-neutral-500 mb-3">
           Tarif que ce traiteur refacture à son client final par couvert sur ses
           collectes ZD. Sert au calcul de sa marge affichée dans son dashboard.
         </p>
 
         {editing && canEdit ? (
           <form onSubmit={(e) => void save(e)} className="flex items-end gap-2">
-            <input
+            <Input
+              id="tarif-refacture-input"
               type="number"
               min={0}
               step="0.01"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               aria-label="Tarif refacturé (€/pax)"
-              className="w-40 border border-neutral-300 rounded-lg px-3 py-2 text-sm"
+              className="w-40"
             />
             <Button type="submit" size="sm" disabled={saving}>
               {saving ? 'Enregistrement…' : 'Enregistrer'}
@@ -514,7 +533,7 @@ export function OngletTarifRefacture({
           </form>
         ) : (
           <div className="flex items-center gap-4">
-            <span className="text-lg font-semibold">
+            <span className="text-lg font-semibold text-savr-neutral-900">
               {value != null
                 ? `${value.toLocaleString('fr-FR', {
                     minimumFractionDigits: 2,
@@ -674,7 +693,7 @@ export function OngletCoefficients({
         />
       ) : (
         <table className="w-full text-sm">
-          <thead className="text-left text-neutral-500">
+          <thead className="text-left text-savr-neutral-500">
             <tr>
               <th className="pb-2">Année de référence</th>
               <th className="pb-2">Coefficient (kg/couvert)</th>
@@ -687,7 +706,7 @@ export function OngletCoefficients({
           </thead>
           <tbody>
             {coefs.map((c) => (
-              <tr key={c.id} className="border-t border-neutral-100">
+              <tr key={c.id} className="border-t border-savr-neutral-100">
                 <td className="py-2 font-medium">{c.annee_reference}</td>
                 <td className="py-2">
                   {c.coefficient_kg_couvert.toLocaleString('fr-FR', {
@@ -698,15 +717,15 @@ export function OngletCoefficients({
                 <td className="py-2">
                   {c.annee_application ?? c.annee_reference + 1}
                 </td>
-                <td className="py-2 text-neutral-500">
+                <td className="py-2 text-savr-neutral-500">
                   {c.source_commentaire ?? '—'}
                 </td>
-                <td className="py-2 text-neutral-500">
+                <td className="py-2 text-savr-neutral-500">
                   {c.saisi_par_user
                     ? `${c.saisi_par_user.prenom} ${c.saisi_par_user.nom}`
                     : '—'}
                 </td>
-                <td className="py-2 text-neutral-500">
+                <td className="py-2 text-savr-neutral-500">
                   {new Date(c.saisi_le).toLocaleDateString('fr-FR')}
                 </td>
                 {canEdit && (
@@ -727,80 +746,81 @@ export function OngletCoefficients({
       )}
 
       {modal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-            <h2 className="text-lg font-semibold mb-4">
-              {modal.mode === 'ajouter'
-                ? 'Ajouter un coefficient'
-                : 'Éditer le coefficient'}
-            </h2>
-            {error && (
-              <div className="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-2 text-sm">
-                {error}
-              </div>
-            )}
-            <form onSubmit={(e) => void submit(e)} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Année de référence
-                </label>
-                <input
-                  type="number"
-                  min={2020}
-                  max={2100}
-                  value={fAnnee}
-                  disabled={modal.mode === 'editer'}
-                  aria-label="Année de référence"
-                  onChange={(e) =>
-                    setFAnnee(parseInt(e.target.value, 10) || fAnnee)
-                  }
-                  className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm disabled:bg-neutral-100"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Coefficient (kg/couvert)
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  step="0.0001"
-                  value={fCoef}
-                  aria-label="Coefficient (kg/couvert)"
-                  onChange={(e) => setFCoef(e.target.value)}
-                  className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Source / commentaire
-                </label>
-                <textarea
-                  value={fSource}
-                  onChange={(e) => setFSource(e.target.value)}
-                  rows={2}
-                  className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
-                  placeholder="Optionnel"
-                />
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={saving}
-                  onClick={() => setModal(null)}
-                >
-                  Annuler
-                </Button>
-                <Button type="submit" disabled={saving}>
-                  {saving ? 'Enregistrement…' : 'Enregistrer'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <Modal
+          open
+          title={
+            modal.mode === 'ajouter'
+              ? 'Ajouter un coefficient'
+              : 'Éditer le coefficient'
+          }
+          onClose={() => setModal(null)}
+          footer={
+            <>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={saving}
+                onClick={() => setModal(null)}
+              >
+                Annuler
+              </Button>
+              <Button type="submit" form="coef-form" disabled={saving}>
+                {saving ? 'Enregistrement…' : 'Enregistrer'}
+              </Button>
+            </>
+          }
+        >
+          {error && (
+            <AlertBar variant="err" className="mb-4">
+              {error}
+            </AlertBar>
+          )}
+          <form
+            id="coef-form"
+            onSubmit={(e) => void submit(e)}
+            className="space-y-4"
+          >
+            <div>
+              <Label htmlFor="coef-annee">Année de référence</Label>
+              <Input
+                id="coef-annee"
+                type="number"
+                min={2020}
+                max={2100}
+                value={fAnnee}
+                disabled={modal.mode === 'editer'}
+                aria-label="Année de référence"
+                onChange={(e) =>
+                  setFAnnee(parseInt(e.target.value, 10) || fAnnee)
+                }
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="coef-valeur">Coefficient (kg/couvert)</Label>
+              <Input
+                id="coef-valeur"
+                type="number"
+                min={0}
+                step="0.0001"
+                value={fCoef}
+                aria-label="Coefficient (kg/couvert)"
+                onChange={(e) => setFCoef(e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="coef-source">Source / commentaire</Label>
+              <Textarea
+                id="coef-source"
+                value={fSource}
+                onChange={(e) => setFSource(e.target.value)}
+                rows={2}
+                placeholder="Optionnel"
+              />
+            </div>
+          </form>
+        </Modal>
       )}
     </Card>
   );
@@ -909,7 +929,7 @@ export function OngletRemises({
       <div className="flex items-center justify-between">
         <h3 className="font-medium text-sm">Remises négociées</h3>
         <div className="flex items-center gap-4">
-          <label className="flex items-center gap-2 text-sm text-neutral-600">
+          <label className="flex items-center gap-2 text-sm text-savr-neutral-600">
             <input
               type="checkbox"
               checked={activesOnly}
@@ -933,7 +953,7 @@ export function OngletRemises({
         />
       ) : (
         <table className="w-full text-sm">
-          <thead className="text-left text-neutral-500">
+          <thead className="text-left text-savr-neutral-500">
             <tr>
               <th className="pb-2">Activité</th>
               <th className="pb-2">Remise</th>
@@ -945,7 +965,7 @@ export function OngletRemises({
           </thead>
           <tbody>
             {displayed.map((r) => (
-              <tr key={r.id} className="border-t border-neutral-100">
+              <tr key={r.id} className="border-t border-savr-neutral-100">
                 <td className="py-2">
                   {r.activite ? r.activite.toUpperCase() : '—'}
                 </td>
@@ -955,10 +975,10 @@ export function OngletRemises({
                   })}{' '}
                   %
                 </td>
-                <td className="py-2 text-neutral-500">
+                <td className="py-2 text-savr-neutral-500">
                   {new Date(r.valide_du).toLocaleDateString('fr-FR')}
                 </td>
-                <td className="py-2 text-neutral-500">
+                <td className="py-2 text-savr-neutral-500">
                   {r.valide_jusqu_au ? (
                     new Date(r.valide_jusqu_au).toLocaleDateString('fr-FR')
                   ) : (
@@ -967,7 +987,7 @@ export function OngletRemises({
                     </Badge>
                   )}
                 </td>
-                <td className="py-2 text-neutral-500">
+                <td className="py-2 text-savr-neutral-500">
                   {r.commentaires ?? '—'}
                 </td>
                 {canEdit && (
@@ -991,86 +1011,85 @@ export function OngletRemises({
       )}
 
       {modal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-            <h2 className="text-lg font-semibold mb-4">Créer une remise</h2>
-            {error && (
-              <div className="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-2 text-sm">
-                {error}
-              </div>
-            )}
-            <form onSubmit={(e) => void creer(e)} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Activité
-                </label>
-                <select
-                  aria-label="Activité"
-                  value={fActivite}
-                  onChange={(e) => setFActivite(e.target.value)}
-                  className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
-                >
-                  <option value="zd">Zéro déchet (ZD)</option>
-                  <option value="ag">Anti-gaspi (AG)</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Remise (%)
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  step="0.01"
-                  value={fPct}
-                  aria-label="Remise (%)"
-                  onChange={(e) => setFPct(e.target.value)}
-                  className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Valide du
-                </label>
-                <input
-                  type="date"
-                  value={fValideDu}
-                  aria-label="Valide du"
-                  onChange={(e) => setFValideDu(e.target.value)}
-                  className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Commentaire
-                </label>
-                <textarea
-                  value={fCommentaires}
-                  onChange={(e) => setFCommentaires(e.target.value)}
-                  rows={2}
-                  className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
-                  placeholder="Optionnel"
-                />
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={saving}
-                  onClick={() => setModal(false)}
-                >
-                  Annuler
-                </Button>
-                <Button type="submit" disabled={saving}>
-                  {saving ? 'Création…' : 'Créer'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <Modal
+          open
+          title="Créer une remise"
+          onClose={() => setModal(false)}
+          footer={
+            <>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={saving}
+                onClick={() => setModal(false)}
+              >
+                Annuler
+              </Button>
+              <Button type="submit" form="remise-form" disabled={saving}>
+                {saving ? 'Création…' : 'Créer'}
+              </Button>
+            </>
+          }
+        >
+          {error && (
+            <AlertBar variant="err" className="mb-4">
+              {error}
+            </AlertBar>
+          )}
+          <form
+            id="remise-form"
+            onSubmit={(e) => void creer(e)}
+            className="space-y-4"
+          >
+            <div>
+              <Label htmlFor="remise-activite">Activité</Label>
+              <Select
+                id="remise-activite"
+                aria-label="Activité"
+                value={fActivite}
+                onChange={(e) => setFActivite(e.target.value)}
+              >
+                <option value="zd">Zéro déchet (ZD)</option>
+                <option value="ag">Anti-gaspi (AG)</option>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="remise-pct">Remise (%)</Label>
+              <Input
+                id="remise-pct"
+                type="number"
+                min={0}
+                max={100}
+                step="0.01"
+                value={fPct}
+                aria-label="Remise (%)"
+                onChange={(e) => setFPct(e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="remise-valide-du">Valide du</Label>
+              <Input
+                id="remise-valide-du"
+                type="date"
+                value={fValideDu}
+                aria-label="Valide du"
+                onChange={(e) => setFValideDu(e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="remise-commentaire">Commentaire</Label>
+              <Textarea
+                id="remise-commentaire"
+                value={fCommentaires}
+                onChange={(e) => setFCommentaires(e.target.value)}
+                rows={2}
+                placeholder="Optionnel"
+              />
+            </div>
+          </form>
+        </Modal>
       )}
     </Card>
   );
@@ -1131,7 +1150,7 @@ export function PackAjustementsHistorique({
         Historique des ajustements de crédits
       </h3>
       <table className="w-full text-sm">
-        <thead className="text-left text-neutral-500">
+        <thead className="text-left text-savr-neutral-500">
           <tr>
             <th className="pb-2">Date</th>
             <th className="pb-2">Action</th>
@@ -1142,8 +1161,8 @@ export function PackAjustementsHistorique({
         </thead>
         <tbody>
           {rows.map((a) => (
-            <tr key={a.id} className="border-t border-neutral-100">
-              <td className="py-2 text-neutral-500">
+            <tr key={a.id} className="border-t border-savr-neutral-100">
+              <td className="py-2 text-savr-neutral-500">
                 {new Date(a.created_at).toLocaleDateString('fr-FR')}
               </td>
               <td className="py-2">
@@ -1158,10 +1177,10 @@ export function PackAjustementsHistorique({
                   ? `${a.old_values.credits_initiaux} → ${a.new_values.credits_initiaux}`
                   : '—'}
               </td>
-              <td className="py-2 text-neutral-500">
+              <td className="py-2 text-savr-neutral-500">
                 {a.motif ?? a.new_values?.motif ?? '—'}
               </td>
-              <td className="py-2 text-neutral-500">
+              <td className="py-2 text-savr-neutral-500">
                 {a.auteur ? `${a.auteur.prenom} ${a.auteur.nom}` : '—'}
               </td>
             </tr>

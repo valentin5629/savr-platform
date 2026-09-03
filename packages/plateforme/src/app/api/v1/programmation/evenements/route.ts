@@ -15,16 +15,26 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(req.url);
   const statut = searchParams.get('statut'); // 'brouillon' pour la liste brouillons
 
-  // Liste les événements de l'organisation avec leurs collectes
   let query = supabase
     .from('evenements')
     .select(
       `id, nom_evenement, nom_client_organisateur, reference_affaire, created_at,
        collectes!inner(type, date_collecte, statut)`,
     )
-    .eq('organisation_id', auth.ctx.organisationId)
     .order('created_at', { ascending: false })
     .limit(50);
+
+  // Cloisonnement porté par ce prédicat (client service-role → pas de RLS) :
+  //  • rôles clients → leur organisation, miroir de la policy evt_*_select ;
+  //  • staff en mode support → ses PROPRES créations (décision Val 2026-07-17).
+  // Le staff n'a pas d'org cliente — son JWT porte `org_savr` (org interne,
+  // users.organisation_id NOT NULL) : en prédicat, il ne cloisonne rien, il masque
+  // tout. `created_by` est le périmètre qui sert le parcours : cette liste n'est
+  // dans aucune nav, on n'y atterrit que par redirection depuis « Enregistrer en
+  // brouillon », donc pour y retrouver ce qu'on vient d'enregistrer.
+  query = auth.ctx.isAdmin
+    ? query.eq('created_by', auth.ctx.userId)
+    : query.eq('organisation_id', auth.ctx.organisationId);
 
   if (statut === 'brouillon') {
     query = query.eq('collectes.statut', 'brouillon');
@@ -43,6 +53,20 @@ interface CollecteInput {
   heure_collecte: string;
   informations_supplementaires?: string;
 }
+
+// Normalisation alias d'entrée → valeurs de l'enum `collecte_type`, miroir exact du
+// CASE de `fn_creer_collecte` (chemin confirmé). L'UI envoie 'zd'/'ag' ; l'enum ne
+// connaît que 'zero_dechet'/'anti_gaspi'. Le chemin confirmé passe par la RPC, qui
+// normalise ; le chemin brouillon INSÈRE en direct et n'avait aucune normalisation
+// → « invalid input value for enum » → 500 + rollback de l'événement. « Enregistrer
+// en brouillon » n'a donc jamais fonctionné, pour aucun rôle — /brouillons était
+// structurellement vide, ce qui masquait les défauts des routes en aval.
+// `?? type` conserve la tolérance de la RPC (ELSE p_type::enum) si l'appelant envoie
+// déjà la valeur de l'enum.
+const TYPE_COLLECTE_ENUM: Record<string, string> = {
+  zd: 'zero_dechet',
+  ag: 'anti_gaspi',
+};
 
 interface ProgrammationBody {
   // Étape 1
@@ -372,7 +396,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         .from('collectes')
         .insert({
           evenement_id: evenementId,
-          type: c.type,
+          type: TYPE_COLLECTE_ENUM[c.type] ?? c.type,
           date_collecte: c.date_collecte,
           heure_collecte: c.heure_collecte,
           statut: 'brouillon',

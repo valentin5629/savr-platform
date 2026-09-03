@@ -6,6 +6,7 @@ import {
   createSupabaseServerClient,
 } from '@/lib/api-auth.js';
 import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
+import { typedRpcError } from '@/lib/api-helpers.js';
 
 // Champs métier ÉVÉNEMENT éditables par les rôles programmateurs (§06.04 l.444,
 // §05 l.307). lieu_id et type_collecte = verrouillés (§05 l.314 / §06.04 l.459) :
@@ -243,27 +244,33 @@ export async function PATCH(
 }
 
 // Suppression d'un événement brouillon (et ses collectes) par son propriétaire.
-// Fermé au staff comme le PATCH : le seul appelant est /brouillons, dont la liste
-// (GET ../evenements?statut=brouillon) filtre déjà sur l'org du JWT → un admin n'y
-// voit aucune ligne, donc aucun bouton à cliquer. Le mode support des brouillons
-// est un chantier distinct (périmètre à trancher : quels brouillons l'admin voit-il ?).
+// Ouverte à l'admin en mode support, comme la liste qui l'appelle : depuis que
+// celle-ci lui rend ses propres brouillons (GET ../evenements?statut=brouillon,
+// décision Val 2026-07-17), le bouton « Supprimer » est cliquable — le laisser
+// fail-closed rendrait la ligne visible mais l'action morte.
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
-  const auth = await requireProgrammateur(req);
+  const auth = await requireProgrammateurOuAdmin(req);
   if (auth.error) return auth.error;
 
   const { id: evenementId } = await params;
   const supabase = createAdminSupabaseClient();
 
-  // Vérification propriété + statut brouillon uniquement
-  const { data: evt } = await supabase
+  // Vérification propriété + statut brouillon uniquement. Route d'ITEM clé par PK :
+  // prédicat org strict pour les rôles clients, retiré pour le staff (son JWT porte
+  // `org_savr`, qui ne désigne aucune org cliente).
+  const evtQuery = supabase
     .from('evenements')
-    .select('id')
-    .eq('id', evenementId)
-    .eq('organisation_id', auth.ctx.organisationId)
-    .single();
+    .select('id, created_by')
+    .eq('id', evenementId);
+
+  const { data: evt } = await (
+    auth.ctx.isAdmin
+      ? evtQuery
+      : evtQuery.eq('organisation_id', auth.ctx.organisationId)
+  ).single();
 
   if (!evt) {
     return NextResponse.json(
@@ -272,31 +279,40 @@ export async function DELETE(
     );
   }
 
-  // Vérifier que toutes les collectes sont en brouillon (pas de suppression si déjà confirmé)
-  const { data: collectes } = await supabase
-    .from('collectes')
-    .select('id, statut')
-    .eq('evenement_id', evenementId);
-
-  const hasNonBrouillon = collectes?.some((c) => c.statut !== 'brouillon');
-  if (hasNonBrouillon) {
+  // Périmètre d'ÉCRITURE — miroir de la policy `col_delete_brouillon` (§09), qui
+  // restreint `traiteur_commercial` à `evenements.created_by = auth.uid()` là où les
+  // autres rôles clients ont leur organisation. Le PATCH ci-dessus applique déjà ce
+  // raffinement ; le DELETE ne l'a jamais fait — sans conséquence tant qu'il échouait
+  // en 500 pour tout le monde, mais un commercial pourrait sinon supprimer le
+  // brouillon d'un collègue dès que la route fonctionne. RLS ne rattrape pas : cette
+  // route tourne sous service-role.
+  if (
+    auth.ctx.role === 'traiteur_commercial' &&
+    evt.created_by !== auth.ctx.userId
+  ) {
     return NextResponse.json(
-      {
-        error:
-          "Impossible de supprimer : des collectes sont déjà confirmées. Utilisez l'annulation.",
-      },
-      { status: 422 },
+      { error: 'Suppression non autorisée' },
+      { status: 403 },
     );
   }
 
-  // DELETE CASCADE via FK (collectes supprimées par ON DELETE CASCADE)
-  const { error } = await supabase
-    .from('evenements')
-    .delete()
-    .eq('id', evenementId);
+  // Suppression atomique événement + collectes, garde « brouillon uniquement »
+  // portée par la RPC (même transaction, sous row lock).
+  // L'ancien code faisait `DELETE FROM evenements` en s'appuyant sur un ON DELETE
+  // CASCADE qui n'existe pas (aucune FK vers `evenements` n'est cascade, ni dans les
+  // migrations ni dans le DDL cible) → 500 sur tout brouillon ayant des collectes,
+  // c'est-à-dire tous : le bouton n'a jamais fonctionné, pour aucun rôle. La garde
+  // vivait par ailleurs ici en deux allers-retours, et `collectes?.some()` valait
+  // `undefined` si le SELECT échouait → garde franchie (fail-open).
+  const { error } = await supabase.rpc('fn_supprimer_brouillon', {
+    p_evenement_id: evenementId,
+  });
 
   if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return typedRpcError(error, 'programmation.brouillon.supprimer', {
+      message422:
+        "Impossible de supprimer : des collectes sont déjà confirmées. Utilisez l'annulation.",
+    });
 
   return new NextResponse(null, { status: 204 });
 }

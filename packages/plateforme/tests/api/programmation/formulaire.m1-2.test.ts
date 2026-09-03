@@ -472,6 +472,9 @@ describe('M1.2 / Confirmation brouillon', () => {
         id: 'evt-b',
         organisation_id: 'org-traiteur-1',
         nom_evenement: 'B',
+        // Le commercial confirme SON propre brouillon (created_by = caller) : miroir
+        // de col_delete_brouillon (§09), un commercial ne confirme que ses créations.
+        created_by: 'user-1',
       },
       error: null,
     });
@@ -519,6 +522,7 @@ describe('M1.2 / Confirmation brouillon', () => {
         id: 'evt-d',
         organisation_id: 'org-traiteur-1',
         nom_evenement: 'D',
+        created_by: 'user-1',
       },
       error: null,
     });
@@ -561,6 +565,7 @@ describe('M1.2 / Confirmation brouillon', () => {
         id: 'evt-c',
         organisation_id: 'org-traiteur-1',
         nom_evenement: 'C',
+        created_by: 'user-1',
       },
       error: null,
     });

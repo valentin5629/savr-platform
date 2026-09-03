@@ -1,34 +1,62 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
-import { requireProgrammateur } from '@/lib/api-auth.js';
+import { requireProgrammateurOuAdmin } from '@/lib/api-auth.js';
 import { requireCompletedOrganisation } from '@/lib/onboarding-guards.js';
 import { envoyerRecapProgrammation } from '@/lib/programmation/recap-email.js';
 import { notifierOverrideLieu } from '@/lib/programmation/lieu-override.js';
 import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
 import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
 
+// Confirmation d'un brouillon. Ouverte à l'admin en mode support (§06.01 l.17
+// « admin_savr : programmation de support, tous périmètres ») comme le POST de
+// création (#223) : sans elle, l'admin créait un brouillon qu'il ne pouvait plus
+// jamais confirmer — orphelin en base.
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
-  const auth = await requireProgrammateur(req);
+  const auth = await requireProgrammateurOuAdmin(req);
   if (auth.error) return auth.error;
 
   const { id: evenementId } = await params;
   const supabase = createAdminSupabaseClient();
 
-  // Vérification propriété de l'événement
-  const { data: evt, error: evtErr } = await supabase
+  // Vérification propriété de l'événement. Route d'ITEM clé par PK : l'id désigne
+  // déjà la ligne, l'org se lit dessus — identité pour un rôle client (garantie
+  // par le prédicat), org cible pour le staff (dont le JWT porte `org_savr` :
+  // le poser en prédicat ne cloisonnerait rien, ça masquerait tout).
+  const evtQuery = supabase
     .from('evenements')
-    .select('id, organisation_id, nom_evenement, pax, lieu_id')
-    .eq('id', evenementId)
-    .eq('organisation_id', auth.ctx.organisationId)
-    .single();
+    .select('id, organisation_id, nom_evenement, pax, lieu_id, created_by')
+    .eq('id', evenementId);
+
+  const { data: evt, error: evtErr } = await (
+    auth.ctx.isAdmin
+      ? evtQuery
+      : evtQuery.eq('organisation_id', auth.ctx.organisationId)
+  ).single();
 
   if (evtErr || !evt) {
     return NextResponse.json(
       { error: 'Événement introuvable ou accès refusé' },
       { status: 404 },
+    );
+  }
+
+  // Périmètre d'ÉCRITURE — miroir des policies `evt_commercial_update` /
+  // `col_delete_brouillon` (§09) : `traiteur_commercial` = ses propres créations.
+  // La confirmation est une écriture à effets réels (transition brouillon→programmee,
+  // émission E1 vers le TMS, débit d'un crédit pack AG) : sans cette garde, un
+  // commercial confirmerait — et dispatcherait/facturerait — le brouillon d'un
+  // collègue. Miroir strict du DELETE et du PATCH d'édition ; RLS ne rattrape pas
+  // (route sous service-role).
+  if (
+    auth.ctx.role === 'traiteur_commercial' &&
+    evt.created_by !== auth.ctx.userId
+  ) {
+    return NextResponse.json(
+      { error: 'Confirmation non autorisée' },
+      { status: 403 },
     );
   }
 
@@ -125,10 +153,13 @@ export async function PATCH(
 
   // BL-P2-22 (tpl 20) : info-only au traiteur opérationnel si programmé par un
   // tiers (garde tiers-non-shadow dans le helper). Best-effort, une notification.
+  // L'acteur est l'org AU NOM DE laquelle on programme, jamais l'org du JWT : pour
+  // un admin en support, `org_savr` ferait passer le traiteur opérationnel pour un
+  // tiers → notification parasite. Miroir du POST de création (#223).
   if (collectes[0]) {
     void notifierTraiteurOperationnel(supabase, {
       collecteId: collectes[0].id,
-      acteurOrgId: auth.ctx.organisationId,
+      acteurOrgId: evt.organisation_id,
       changement: { kind: 'programmation', programmeurUserId: auth.ctx.userId },
     }).catch(() => undefined);
   }

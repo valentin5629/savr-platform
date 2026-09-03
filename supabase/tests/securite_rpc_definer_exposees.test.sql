@@ -6,7 +6,7 @@
 -- DEFINER la RLS est bypassée → sans garde de rôle interne, l'exposition vaut
 -- fuite cross-organisation (et, pour l'outbox, DoS de la chaîne logistique).
 --
--- Couvre la migration 20260903120000_plateforme_securite_revoke_rpc_definer_interne.
+-- Couvre la migration 20260903130000_plateforme_securite_revoke_rpc_definer_interne.
 --
 -- NON-VACUITÉ (vérifiée sans la migration) : les 5 throws_ok tombent en `not ok`
 -- car chaque RPC s'exécute alors normalement sous authenticated —

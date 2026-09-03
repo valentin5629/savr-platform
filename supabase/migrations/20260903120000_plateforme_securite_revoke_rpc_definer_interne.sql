@@ -11,6 +11,12 @@
 --   [RLS] SELECT direct sur plateforme.outbox_events       -> 0 ligne  (OK)
 --   [RPC] fn_claim_outbox_batch(10, '2 minutes'::interval) -> 3 lignes (FUITE)
 --
+-- Sévérité réelle = PRÉ-AUTH pour 4 des 5 : les trois RPC outbox et
+-- f_next_numero_attestation portaient l'EXECUTE PUBLIC (proacl `=X/postgres`) et
+-- `anon` a USAGE sur le schéma (20260611180000 l.15) → elles étaient atteignables
+-- avec la seule clé anon publique embarquée dans le front, sans authentification.
+-- Seule fn_calculer_algo_attribution_ag exigeait un compte (GRANT authenticated).
+--
 -- Double impact sur l'outbox : (1) fuite des payloads E1/E2/E3/E5 de TOUTES les
 -- organisations (collecte_id, association_id, transporteur_id…) ; (2) DoS de la
 -- chaîne logistique MTS-1 — un client peut claim en boucle ou passer les events
@@ -36,8 +42,9 @@
 --       transporteurs recommandés pour N'IMPORTE QUELLE collecte AG passée en
 --       paramètre : pivot cross-organisation sur simple uuid. Appelants réels :
 --       lib/attribution-ag/algo.ts (createAdminSupabaseClient) depuis 2 routes
---       admin, et rpc_valider_attribution_ag (elle-même SECURITY DEFINER, donc
---       insensible à ce REVOKE).
+--       admin, et rpc_evaluer_auto_accept_ag (migration 20260630120000 l.542,
+--       elle-même SECURITY DEFINER et déjà service_role-only, donc insensible
+--       à ce REVOKE).
 --
 --  3. f_next_numero_attestation(integer)  [GRANT service_role posé sans REVOKE
 --     PUBLIC préalable, migration 20260615250000 l.116 → PUBLIC conservé]
@@ -51,12 +58,19 @@
 -- même critère sur plateforme + shared, cf. test securite_rpc_definer_exposees) :
 --   - helpers appelés DEPUIS les policies RLS sous le rôle de l'appelant — les
 --     révoquer casserait la RLS elle-même (permission denied dans la policy) :
---     f_collecte_visible, f_collecte_editable, f_volume_repas_realise,
---     f_traiteur_intervenu_lieux_gestionnaire, shared.f_fichier_visible ;
+--     f_collecte_visible, f_collecte_editable,
+--     f_traiteur_intervenu_lieux_gestionnaire, shared.f_fichier_visible.
+--     f_collecte_editable est la SEULE allowlistée sans garde interne : elle rend
+--     un booléen « une collecte de cet événement est-elle encore éditable » et
+--     porte 4 policies UPDATE de `evenements` (evt_{agence,gestionnaire,
+--     commercial,manager}_update). Résiduel assumé : 1 bit sur un evenement_id
+--     non devinable, contre une RLS cassée si on la révoque ;
 --   - fonctions à garde de rôle interne explicite : f_benchmark_kg_pax_zd,
 --     f_benchmark_lieux_parc, f_benchmark_traiteurs_parc,
 --     f_benchmark_single_collecte, f_completer_siret_shadow,
---     f_dechets_labo_estimes, f_mes_acces_compte (scopée auth.uid()) ;
+--     f_dechets_labo_estimes, f_mes_acces_compte (scopée auth.uid()) et
+--     f_volume_repas_realise (gate f_collecte_visible ; utilisée par aucune
+--     policy, contrairement aux helpers ci-dessus) ;
 --   - health_ping() (retourne 1, aucune donnée).
 --   - les fonctions `RETURNS trigger` : PostgreSQL interdit leur appel direct
 --     (« trigger functions can only be called as triggers ») et PostgREST ne les

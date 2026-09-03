@@ -159,7 +159,10 @@ SELECT test_as_superuser();
 --
 --       Allowlist — 2 familles seulement :
 --        (a) helpers appelés DEPUIS les policies RLS sous le rôle de l'appelant
---            (les révoquer casserait la RLS : permission denied dans la policy) ;
+--            (les révoquer casserait la RLS : permission denied dans la policy).
+--            f_collecte_editable en est la seule SANS garde interne : oracle 1 bit
+--            sur un evenement_id non devinable, porté par 4 policies UPDATE de
+--            `evenements` — résiduel assumé, la révoquer casserait la RLS ;
 --        (b) fonctions à garde de rôle interne explicite (f_app_role/f_is_staff/
 --            appartenance organisation), plus health_ping qui ne rend aucune donnée.
 --       Les fonctions `RETURNS trigger` sont exclues du critère : PostgreSQL
@@ -181,13 +184,13 @@ SELECT is_empty(
     AND pg_get_function_result(p.oid) <> 'trigger'
     AND has_function_privilege('authenticated', p.oid, 'EXECUTE')
     AND p.proname NOT IN (
-      -- (a) helpers RLS
+      -- (a) helpers RLS (appelés depuis une policy sous le rôle de l'appelant)
       'f_collecte_visible',
-      'f_collecte_editable',
-      'f_volume_repas_realise',
+      'f_collecte_editable',        -- seule sans garde interne (cf. en-tête)
       'f_traiteur_intervenu_lieux_gestionnaire',
       'f_fichier_visible',
       -- (b) garde de rôle interne explicite
+      'f_volume_repas_realise',     -- gate f_collecte_visible ; aucune policy
       'f_benchmark_kg_pax_zd',
       'f_benchmark_lieux_parc',
       'f_benchmark_traiteurs_parc',

@@ -13,6 +13,7 @@ import {
   DollarSign,
   FlaskConical,
   ArrowLeft,
+  UserPlus,
   type LucideIcon,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -38,6 +39,7 @@ import {
   OngletRemises,
   PackAjustementsHistorique,
 } from './onglets';
+import { ClientInviteUserModal } from './invite-user-modal';
 
 interface OrgDetail {
   id: string;
@@ -167,6 +169,7 @@ export default function ClientFichePage({
   const [org, setOrg] = useState<OrgDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [onglet, setOnglet] = useState<OngletKey>('informations');
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [modal, setModal] = useState<ModalType>(null);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -467,7 +470,13 @@ export default function ClientFichePage({
         {/* Utilisateurs */}
         <TabsContent value="users">
           <Card className="p-6 space-y-4">
-            <BlocHeader icon={Users} title="Utilisateurs" />
+            <div className="flex items-center justify-between gap-3">
+              <BlocHeader icon={Users} title="Utilisateurs" />
+              <Button size="sm" onClick={() => setInviteOpen(true)}>
+                <UserPlus className="h-4 w-4" />
+                Ajouter un utilisateur
+              </Button>
+            </div>
             {org.users.length === 0 ? (
               <EmptyState
                 icon={<Users />}
@@ -940,6 +949,19 @@ export default function ClientFichePage({
           </form>
         )}
       </Modal>
+
+      {/* ── Modale : Ajouter un utilisateur (org imposée = la fiche) ───────── */}
+      {inviteOpen && (
+        <ClientInviteUserModal
+          organisationId={id}
+          orgType={org.type}
+          onClose={() => setInviteOpen(false)}
+          onCreated={() => {
+            setInviteOpen(false);
+            void refreshOrg();
+          }}
+        />
+      )}
     </div>
   );
 }

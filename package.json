@@ -39,6 +39,7 @@
     "test:module": "tsx scripts/test-module.ts",
     "check:coverage": "tsx scripts/check-coverage.ts",
     "check:enum-collecte-type": "bash scripts/check-enum-collecte-type.sh",
+    "check:renamed-type-refs": "tsx scripts/check-renamed-type-refs.ts",
     "test:e2e": "playwright test",
     "seed:minimal": "tsx packages/shared/src/seed/index.ts minimal",
     "seed:demo": "tsx packages/shared/src/seed/index.ts demo",

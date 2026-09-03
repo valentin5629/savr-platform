@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # check-enum-collecte-type.sh — Garde anti-récidive cluster C3 (BL-P0-05).
 #
-# L'enum réel est `plateforme.collecte_type_enum('zero_dechet','anti_gaspi')`.
+# L'enum réel est `plateforme.collecte_type` — valeurs 'zero_dechet'/'anti_gaspi'
+# (type RENOMMÉ depuis `collecte_type_enum` par la migration
+# 20260623100000_plateforme_converge_enums_noms_cible.sql ; ne PAS réécrire
+# l'ancien nom `collecte_type_enum`, il n'existe plus).
 # Filtrer `collectes.type` avec les littéraux métier 'zd'/'ag' → erreur enum
 # Postgres (avalée → KPI à 0). Ce gate flagge tout `.eq('type', 'zd'|'ag')` /
 # `.in('type', [… 'zd'|'ag' …])` qui réintroduirait le bug.

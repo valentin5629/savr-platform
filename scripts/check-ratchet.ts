@@ -41,6 +41,9 @@ const GATES: { key: string; cmd: string[] }[] = [
   { key: 'column-db', cmd: ['check:column-db'] },
   { key: 'test-mocks', cmd: ['check:test-mocks'] }, // G5 (durci R9, cluster C7)
   { key: 'orphan-components', cmd: ['check:orphan-components'] }, // G3 (câblé R20b)
+  // Anti-récidive « mauvais nom d'enum sur collectes.type » (cluster C3 / #259) :
+  { key: 'renamed-type-refs', cmd: ['check:renamed-type-refs'] }, // migration castant un type renommé
+  { key: 'enum-collecte-type', cmd: ['check:enum-collecte-type'] }, // littéral 'zd'/'ag' sur .eq/.in('type')
 ];
 
 function runGate(cmd: string[]): number | null {

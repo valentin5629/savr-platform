@@ -91,7 +91,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         statut: string;
         date_collecte: string;
         collecte_flux: { poids_reel_kg?: number }[];
-        attributions_antgaspi: { volume_repas_realise?: number }[];
+        // to-one PostgREST : objet OU tableau (normalisé avant réduction).
+        attributions_antgaspi:
+          | { volume_repas_realise?: number }[]
+          | { volume_repas_realise?: number }
+          | null;
       }[];
 
       const pax = (e.pax as number) ?? 0;
@@ -126,15 +130,18 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           ),
         0,
       );
-      const repasDonnes = agCollectes.reduce(
-        (s, c) =>
-          s +
-          (c.attributions_antgaspi ?? []).reduce(
-            (sa, a) => sa + (a.volume_repas_realise ?? 0),
-            0,
-          ),
-        0,
-      );
+      const repasDonnes = agCollectes.reduce((s, c) => {
+        // Embed to-one (collecte_id UNIQUE) → PostgREST renvoie un OBJET, pas un
+        // tableau : `(x ?? []).reduce` planterait (TypeError) sur l'objet.
+        const attrs = Array.isArray(c.attributions_antgaspi)
+          ? c.attributions_antgaspi
+          : c.attributions_antgaspi
+            ? [c.attributions_antgaspi]
+            : [];
+        return (
+          s + attrs.reduce((sa, a) => sa + (a.volume_repas_realise ?? 0), 0)
+        );
+      }, 0);
       const nbZd = zbCollectes.length;
       const nbAg = agCollectes.length;
 

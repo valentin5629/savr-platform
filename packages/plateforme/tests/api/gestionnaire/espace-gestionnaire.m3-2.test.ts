@@ -286,6 +286,47 @@ describe('M3.2 / dashboard', () => {
     expect(json.data.kpis.nb_repas_donnes).toBe(120);
   });
 
+  it('M3.2/dashboard_kpi_ag_repas_objet — embed to-one (OBJET PostgREST) compté, pas 0', async () => {
+    // Régression : PostgREST renvoie attributions_antgaspi en OBJET (relation
+    // to-one, collecte_id UNIQUE), pas en tableau. Avant le fix, `: []` jetait
+    // l'objet → nb_repas_donnes = 0 silencieusement. Le mock tableau du test
+    // précédent masquait ce bug.
+    setupAuth('gestionnaire_lieux');
+    rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null });
+    rls.push({
+      data: [
+        {
+          id: 'c1',
+          type: 'anti_gaspi',
+          statut: 'cloturee',
+          evenements: { lieu_id: 'lieu-1' },
+          pax: 400,
+          collecte_flux: [],
+          attributions_antgaspi: { volume_repas_realise: 120 },
+        },
+      ],
+      error: null,
+    });
+    rls.push({
+      data: {
+        id: 'p1',
+        credits_initiaux: 10,
+        credits_restants: 3,
+        statut: 'actif',
+      },
+      error: null,
+    });
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/dashboard/route.js');
+    const res = await GET(
+      makeReq('GET', '/api/v1/gestionnaire/dashboard?type=anti_gaspi'),
+    );
+    const json = (await res.json()) as {
+      data: { kpis: { nb_repas_donnes: number } };
+    };
+    expect(json.data.kpis.nb_repas_donnes).toBe(120);
+  });
+
   it('M3.2/dashboard_filtre_periode_date_collecte — from/to ciblent date_collecte (pas realisee_at)', async () => {
     setupAuth('gestionnaire_lieux');
     rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null }); // organisations_lieux
@@ -597,6 +638,81 @@ describe('M3.2 / traiteurs', () => {
     expect(json.data).not.toHaveProperty('siret');
     expect(json.data).not.toHaveProperty('telephone');
   });
+
+  it('M3.2/traiteurs_repas_objet — repas 12 mois : embed to-one (OBJET) compté, pas 0', async () => {
+    // Régression : attributions_antgaspi en OBJET (to-one) → `: []` jetait la
+    // valeur → repas_donnes_12m = 0 silencieusement.
+    setupAuth('gestionnaire_lieux');
+    rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null }); // organisations_lieux
+    rls.push({
+      data: [
+        {
+          id: 'c1',
+          type: 'anti_gaspi',
+          statut: 'cloturee',
+          date_collecte: new Date(Date.now() - 30 * 24 * 3600 * 1000)
+            .toISOString()
+            .slice(0, 10),
+          evenements: {
+            lieu_id: 'lieu-1',
+            traiteur_operationnel_organisation_id: 'org-kaspia',
+            organisations: { id: 'org-kaspia', nom: 'Kaspia', logo_url: null },
+          },
+          collecte_flux: [],
+          attributions_antgaspi: { volume_repas_realise: 70 },
+        },
+      ],
+      error: null,
+    });
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/traiteurs/route.js');
+    const res = await GET(makeReq('GET', '/api/v1/gestionnaire/traiteurs'));
+    const json = (await res.json()) as {
+      data: Array<{ nom: string; repas_donnes_12m: number }>;
+    };
+    expect(json.data[0]?.nom).toBe('Kaspia');
+    expect(json.data[0]?.repas_donnes_12m).toBe(70);
+  });
+
+  it('M3.2/traiteur_fiche_repas_objet — fiche : repas embed to-one (OBJET) compté, pas 0', async () => {
+    setupAuth('gestionnaire_lieux');
+    rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null }); // orgLieux
+    rls.push({
+      data: {
+        id: 'org-kaspia',
+        nom: 'Kaspia',
+        logo_url: null,
+        ville: 'Paris',
+        description_activite: null,
+      },
+      error: null,
+    }); // orga (maybeSingle)
+    rls.push({
+      data: [
+        {
+          id: 'c1',
+          type: 'anti_gaspi',
+          statut: 'cloturee',
+          date_collecte: new Date(Date.now() - 30 * 24 * 3600 * 1000)
+            .toISOString()
+            .slice(0, 10),
+          collecte_flux: [],
+          attributions_antgaspi: { volume_repas_realise: 33 },
+        },
+      ],
+      error: null,
+    }); // collectes
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/traiteurs/[id]/route.js');
+    const res = await GET(
+      makeReq('GET', '/api/v1/gestionnaire/traiteurs/org-kaspia'),
+      { params: Promise.resolve({ id: 'org-kaspia' }) },
+    );
+    const json = (await res.json()) as {
+      data: { stats_12m: { repas_donnes: number } };
+    };
+    expect(json.data.stats_12m.repas_donnes).toBe(33);
+  });
 });
 
 // ── Pack AG ──────────────────────────────────────────────────────────────────
@@ -659,6 +775,48 @@ describe('M3.2 / pack AG', () => {
       data: { pack_actif: null };
     };
     expect(json.data.pack_actif).toBeNull();
+  });
+
+  it('M3.2/pack_ag_consommation_repas_objet — historique conso : embed to-one (OBJET) compté', async () => {
+    // Régression : la ligne d'historique de consommation pack AG lit
+    // attributions_antgaspi en OBJET (to-one) → `: []` mettait repas_donnes = 0.
+    setupAuth('gestionnaire_lieux');
+    rls.push({ data: null, error: null }); // pas de pack actif
+    rls.push({ data: [], error: null }); // historique packs
+    rls.push({
+      data: [
+        {
+          id: 'c-ag',
+          date_collecte: '2026-06-01',
+          statut: 'cloturee',
+          evenements: {
+            nom_evenement: 'Gala',
+            date_evenement: '2026-06-01',
+            lieux: { nom: 'Palais' },
+          },
+          // ⚠ OBJET, pas tableau — forme réelle PostgREST.
+          attributions_antgaspi: {
+            id: 'a1',
+            volume_repas_realise: 55,
+            associations: { nom: 'Les Restos' },
+          },
+        },
+      ],
+      error: null,
+    }); // consommation
+    const { GET } = await import('@/app/api/v1/gestionnaire/pack-ag/route.js');
+    const res = await GET(makeReq('GET', '/api/v1/gestionnaire/pack-ag'));
+    const json = (await res.json()) as {
+      data: {
+        historique_consommation: Array<{
+          repas_donnes: number;
+          associations: Array<{ nom: string | null }>;
+        }>;
+      };
+    };
+    const ligne = json.data.historique_consommation[0]!;
+    expect(ligne.repas_donnes).toBe(55);
+    expect(ligne.associations[0]?.nom).toBe('Les Restos');
   });
 });
 

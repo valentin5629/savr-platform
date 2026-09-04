@@ -144,9 +144,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   } else {
     const nbCollectes = rows.length;
     const repasTotal = rows.reduce((s, c) => {
+      // PostgREST renvoie l'embed to-one (collecte_id UNIQUE) en OBJET, pas en
+      // tableau → l'envelopper, sinon `: []` le jette silencieusement (repas = 0).
       const attrs = Array.isArray(c.attributions_antgaspi)
         ? c.attributions_antgaspi
-        : [];
+        : c.attributions_antgaspi
+          ? [c.attributions_antgaspi]
+          : [];
       return (
         s +
         attrs.reduce(

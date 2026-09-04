@@ -168,6 +168,10 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
     expect(orderPayload['orderCategories']).toEqual(['Déchets']);
 
     expect(createTour).toHaveBeenCalledOnce();
+    // `tourDate` (yyyy-MM-dd) obligatoire sur POST /v3/tours — MTS-1 rejette en
+    // 400 sans lui (régression découverte au 1er dispatch réel sandbox).
+    const tourPayload = createTour.mock.calls[0]![0] as Record<string, unknown>;
+    expect(tourPayload['tourDate']).toBe('2026-07-15');
     expect(dispatchTour).toHaveBeenCalledWith('MTS1-TOUR-001', 'STRIKE-IDF');
     expect(validateTour).toHaveBeenCalledWith('MTS1-TOUR-001');
   });

@@ -39,6 +39,8 @@ export interface CreateOrderPayload {
 export interface CreateTourPayload {
   customerOrderId: string;
   orderNumber: string;
+  // Date de la tournée (yyyy-MM-dd) — champ OBLIGATOIRE de POST /v3/tours.
+  tourDate: string;
   // Lieu de dépôt (MTS_1_delivery_place, §08 §3bis.5 étape 2) : `placeId` favori
   // pré-enregistré (AG → associations.id_point_collecte_mts1) OU adresse inline.
   deliveryPlace?:

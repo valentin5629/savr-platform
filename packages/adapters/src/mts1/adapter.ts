@@ -1125,6 +1125,11 @@ export class AdapterMts1 implements LogistiqueProvider {
     return {
       customerOrderId,
       orderNumber: this.orderNumber(collecte, rang),
+      // `tourDate` (yyyy-MM-dd) est OBLIGATOIRE sur POST /v3/tours (MTS-1 rejette
+      // en 400 INVALID_REQUEST sans lui). Même source que `orderDate` de la
+      // commande : la date de collecte. Découvert au 1er dispatch réel sandbox
+      // (le mock ne validait pas ce champ).
+      tourDate: collecte.date_collecte,
       stuffs,
       ...(deliveryPlaceId
         ? { deliveryPlace: { placeId: deliveryPlaceId } }

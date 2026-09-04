@@ -1048,24 +1048,28 @@ export class AdapterMts1 implements LogistiqueProvider {
   // Partagé par buildOrderPayload (E1) ET buildUpdatePayload (E2) — R22c/BL-P2-10 :
   // les deux DOIVENT rester alignés, sinon une édition de contact post-dispatch ne
   // remonte jamais au prestataire (buildUpdatePayload ne poussait que place+orderDate).
-  private buildContacts(
+  // Contact terrain → CustomerOrderContactInput (objet UNIQUE). MTS-1 n'expose
+  // qu'UN `contact` sur la commande : on y met le contact PRINCIPAL, et le
+  // téléphone du contact de SECOURS va en `phoneAlternatives` (le nom du secours
+  // n'a pas de champ dédié — divergence tracée). On ne dispose que d'un `nom`
+  // complet → 1er mot = firstname, reste = lastname.
+  private buildContact(
     collecte: Collecte,
-  ): Array<{ name: string; phone: string; role: string }> {
-    const contacts = [
-      {
-        name: collecte.contact_principal_nom,
-        phone: collecte.contact_principal_telephone,
-        role: 'principal',
-      },
-    ];
-    if (collecte.contact_secours_nom && collecte.contact_secours_telephone) {
-      contacts.push({
-        name: collecte.contact_secours_nom,
-        phone: collecte.contact_secours_telephone,
-        role: 'secours',
-      });
-    }
-    return contacts;
+  ): CreateOrderPayload['contact'] | undefined {
+    const nom = collecte.contact_principal_nom?.trim() ?? '';
+    const phone = collecte.contact_principal_telephone;
+    const secoursPhone = collecte.contact_secours_telephone;
+    if (!nom && !phone && !secoursPhone) return undefined;
+
+    const [firstname, ...rest] = nom.split(/\s+/).filter(Boolean);
+    const lastname = rest.join(' ');
+
+    return {
+      ...(firstname ? { firstname } : {}),
+      ...(lastname ? { lastname } : {}),
+      ...(phone ? { phone } : {}),
+      ...(secoursPhone ? { phoneAlternatives: [secoursPhone] } : {}),
+    };
   }
 
   private buildOrderPayload(
@@ -1074,9 +1078,11 @@ export class AdapterMts1 implements LogistiqueProvider {
   ): CreateOrderPayload {
     const isZd = collecte.type === 'zero_dechet';
     const adresse = `${collecte.lieu.adresse_acces}, ${collecte.lieu.code_postal} ${collecte.lieu.ville}`;
-    const dateHeure = `${collecte.date_collecte}T${collecte.heure_collecte}`;
+    // MTS-1 `Timeslot.start`/`end` = format **HH:mm**. `heure_collecte` est un
+    // `time` Postgres (« HH:mm:ss ») → on tronque à HH:mm. Point fixe V1 : start=end.
+    const heureHHmm = (collecte.heure_collecte ?? '').slice(0, 5);
 
-    const contacts = this.buildContacts(collecte);
+    const contact = this.buildContact(collecte);
 
     const stuffs = isZd
       ? [
@@ -1096,9 +1102,15 @@ export class AdapterMts1 implements LogistiqueProvider {
       serviceTime: 60,
       transportersNeededCount: 1,
       orderCategories: isZd ? ['Déchets'] : ['Alimentaire'],
-      place: { address: { addressSingleLine: adresse } },
-      timeslots: [{ start: dateHeure, end: dateHeure }],
-      contacts,
+      place: {
+        address: { addressSingleLine: adresse },
+        // Créneau d'arrivée souhaité (point fixe V1 : start=end) — porté par le lieu
+        // (CustomerOrderPlaceInput.timeslots, format HH:mm), pas par la commande.
+        ...(heureHHmm
+          ? { timeslots: [{ start: heureHHmm, end: heureHHmm }] }
+          : {}),
+      },
+      ...(contact ? { contact } : {}),
       stuffs,
       // BL-P1-PROG-03 : informations_supplementaires → `comment` MTS-1 (§08 l.389),
       // pour que les instructions logistiques du programmeur atteignent le prestataire
@@ -1151,16 +1163,18 @@ export class AdapterMts1 implements LogistiqueProvider {
     const adresse = `${collecte.lieu.adresse_acces}, ${collecte.lieu.code_postal} ${collecte.lieu.ville}`;
     // R22c/BL-P2-10 : PUT /v3/customerOrders = merge partiel MTS-1 (seuls les champs
     // listés sont mis à jour ; stuffs/pesées/timeslots non listés sont préservés — le
-    // code n'envoyait déjà que place+orderDate en comptant dessus). On repousse les
-    // contacts pour qu'une édition de contact d'un événement déjà dispatché (E2
+    // code n'envoyait déjà que place+orderDate en comptant dessus). On repousse le
+    // contact pour qu'une édition de contact d'un événement déjà dispatché (E2
     // immédiat, §05 l.325) atteigne réellement le prestataire. buildOrderPayload (E1)
-    // et buildUpdatePayload (E2) restent alignés via buildContacts(). pax : MTS-1 n'a
-    // aucun champ dédié (§08 l.173, push silencieux ignoré) → jamais dans le payload
+    // et buildUpdatePayload (E2) restent alignés via buildContact() — objet UNIQUE
+    // CustomerOrderContactInput (firstname/lastname/phone). pax : MTS-1 n'a aucun
+    // champ dédié (§08 l.173, push silencieux ignoré) → jamais dans le payload
     // sortant V1 ; le signal part dans l'outbox E2, consommé par le TMS V2.
+    const contact = this.buildContact(collecte);
     return {
       place: { address: { addressSingleLine: adresse } },
       orderDate: collecte.date_collecte,
-      contacts: this.buildContacts(collecte),
+      ...(contact ? { contact } : {}),
     };
   }
 }

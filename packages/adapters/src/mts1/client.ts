@@ -37,7 +37,8 @@ export interface CreateOrderPayload {
 }
 
 export interface CreateTourPayload {
-  customerOrderId: string;
+  // NB : le rattachement de la commande se fait via PUT /v3/tours/addCustomerOrder
+  // (un `customerOrderId` ici serait ignoré par MTS-1 V3).
   orderNumber: string;
   // Date de la tournée (yyyy-MM-dd) — champ OBLIGATOIRE de POST /v3/tours.
   tourDate: string;
@@ -150,6 +151,39 @@ export class Mts1Client {
     return (await res.json()) as CreatedTour;
   }
 
+  // Rattache une commande EXISTANTE à une tournée (PUT /v3/tours/addCustomerOrder,
+  // body `{ tourId, customerOrderId }`). Étape obligatoire du flux V3 : le champ
+  // `customerOrderId` du POST /v3/tours est ignoré par MTS-1 → sans ce PUT la
+  // tournée est créée vide. Découvert au 1er dispatch réel sandbox (doc OpenAPI).
+  async addCustomerOrderToTour(
+    tourId: string,
+    customerOrderId: string,
+    correlationId?: string,
+  ): Promise<void> {
+    const handlers = _getMts1Handlers();
+    const t0 = Date.now();
+
+    if (handlers?.addCustomerOrder) {
+      await handlers.addCustomerOrder(tourId, customerOrderId);
+      await this.log({
+        methode: 'PUT',
+        endpoint: '/v3/tours/addCustomerOrder',
+        statut_http: 200,
+        duree_ms: Date.now() - t0,
+        correlation_id: correlationId,
+      });
+      return;
+    }
+
+    await this.fetch(
+      'PUT',
+      '/v3/tours/addCustomerOrder',
+      { tourId, customerOrderId },
+      correlationId,
+      t0,
+    );
+  }
+
   async dispatchTour(
     tourId: string,
     carrierShareableCode: string,
@@ -158,11 +192,13 @@ export class Mts1Client {
     const handlers = _getMts1Handlers();
     const t0 = Date.now();
 
+    // Route V3 réelle = POST /v3/dispatch/{tourId}/toCarrier (le relevé as-built
+    // Bubble « /v3/tours/{tourId}/dispatch » n'existe pas → 404 BAD_ROUTE).
     if (handlers?.dispatchTour) {
       await handlers.dispatchTour(tourId, carrierShareableCode);
       await this.log({
         methode: 'POST',
-        endpoint: `/v3/tours/${tourId}/dispatch`,
+        endpoint: `/v3/dispatch/${tourId}/toCarrier`,
         statut_http: 200,
         duree_ms: Date.now() - t0,
         correlation_id: correlationId,
@@ -172,7 +208,7 @@ export class Mts1Client {
 
     await this.fetch(
       'POST',
-      `/v3/tours/${tourId}/dispatch`,
+      `/v3/dispatch/${tourId}/toCarrier`,
       { carrierShareableCode },
       correlationId,
       t0,

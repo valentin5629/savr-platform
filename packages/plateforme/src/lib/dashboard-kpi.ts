@@ -43,7 +43,11 @@ export interface DashboardCollecteRow {
   taux_recyclage?: number | null;
   evenements?: EvtRow | EvtRow[] | null;
   collecte_flux?: FluxRow[] | null;
-  attributions_antgaspi?: AttrRow[] | null;
+  // PostgREST renvoie l'embed en OBJET quand la relation est to-one
+  // (attributions_antgaspi.collecte_id UNIQUE) et en TABLEAU sinon → accepter les
+  // deux formes, comme partout ailleurs (loaders.ts `attrsOf`, exports, routes
+  // gestionnaire). Un mock en tableau seul masque la vraie forme objet en prod.
+  attributions_antgaspi?: AttrRow[] | AttrRow | null;
 }
 
 export type TailleBracket = 'XS' | 'S' | 'M' | 'L' | 'XL';
@@ -97,10 +101,9 @@ function tonnageOf(row: DashboardCollecteRow): number {
 }
 
 function repasOf(row: DashboardCollecteRow): number {
-  return (row.attributions_antgaspi ?? []).reduce(
-    (s, a) => s + (a.volume_repas_realise ?? 0),
-    0,
-  );
+  const a = row.attributions_antgaspi;
+  const attrs = Array.isArray(a) ? a : a ? [a] : [];
+  return attrs.reduce((s, x) => s + (x.volume_repas_realise ?? 0), 0);
 }
 
 export function emptyKpi(type: DashboardCollecteType): DashboardKpi {

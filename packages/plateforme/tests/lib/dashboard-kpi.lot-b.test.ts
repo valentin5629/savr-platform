@@ -67,3 +67,50 @@ describe('Lot B / M3 — dédup PAX par événement', () => {
     expect(paxTotalEvenementsDistincts(rows)).toBe(600);
   });
 });
+
+// Régression Dashboard Client Admin (E2E) — l'onglet Anti-gaspi restait vide car
+// PostgREST renvoie `attributions_antgaspi` en OBJET (relation to-one :
+// attributions_antgaspi.collecte_id UNIQUE), pas en tableau → `repasOf` faisait
+// `.reduce` sur un objet → TypeError → l'API renvoyait 500 → la vue basculait sur
+// l'état vide. Les tests AG existants mockaient la forme TABLEAU et masquaient le
+// bug ; ceux-ci reproduisent la forme OBJET réellement reçue en prod.
+describe('AG — embed attributions_antgaspi to-one (objet PostgREST)', () => {
+  it('objet unique : repas comptés, aucun crash', () => {
+    const rows: DashboardCollecteRow[] = [
+      {
+        evenements: { id: 'ev1', pax: 100 },
+        // ⚠ OBJET, pas tableau — forme réelle renvoyée par PostgREST.
+        attributions_antgaspi: { volume_repas_realise: 30 },
+      },
+      {
+        evenements: { id: 'ev2', pax: 50 },
+        attributions_antgaspi: { volume_repas_realise: 20 },
+      },
+    ];
+    const kpi = computeDashboardKpi(rows, 'anti_gaspi');
+    expect(kpi).toMatchObject({
+      nb_collectes: 2,
+      nb_repas_donnes: 50, // 30 + 20 (avant le fix : TypeError)
+      pax_total: 150,
+    });
+  });
+
+  it('formes objet et tableau mélangées : somme cohérente', () => {
+    const rows: DashboardCollecteRow[] = [
+      {
+        evenements: { id: 'ev1', pax: 100 },
+        attributions_antgaspi: { volume_repas_realise: 30 }, // objet
+      },
+      {
+        evenements: { id: 'ev2', pax: 100 },
+        attributions_antgaspi: [{ volume_repas_realise: 20 }], // tableau
+      },
+      {
+        evenements: { id: 'ev3', pax: 100 },
+        attributions_antgaspi: null, // aucune attribution
+      },
+    ];
+    const kpi = computeDashboardKpi(rows, 'anti_gaspi');
+    expect(kpi).toMatchObject({ nb_repas_donnes: 50, pax_total: 300 });
+  });
+});

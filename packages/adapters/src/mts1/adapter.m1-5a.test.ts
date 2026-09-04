@@ -168,6 +168,21 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
     const orderPayload = postOrder.mock.calls[0]![0] as Record<string, unknown>;
     expect(orderPayload['orderNumber']).toBe('col-zd-001-1');
     expect(orderPayload['orderCategories']).toEqual(['Déchets']);
+    // Contact terrain = objet UNIQUE firstname/lastname/phone (CustomerOrderContactInput),
+    // plus l'ancien tableau `contacts` (ignoré par MTS-1 → arrivait vide).
+    expect(orderPayload['contact']).toMatchObject({
+      firstname: 'Alice',
+      lastname: 'Martin',
+      phone: '+33600000001',
+    });
+    expect(orderPayload['contacts']).toBeUndefined();
+    // Créneau porté par le lieu (place.timeslots), pas au niveau commande, au
+    // format HH:mm (heure_collecte='22:00:00' → '22:00'), point fixe V1 (start=end).
+    const place = orderPayload['place'] as {
+      timeslots?: Array<{ start: string; end: string }>;
+    };
+    expect(place.timeslots).toEqual([{ start: '22:00', end: '22:00' }]);
+    expect(orderPayload['timeslots']).toBeUndefined();
 
     expect(createTour).toHaveBeenCalledOnce();
     // `tourDate` (yyyy-MM-dd) obligatoire sur POST /v3/tours — MTS-1 rejette en

@@ -103,21 +103,24 @@ describe('M1.4/r22c — AdapterMts1 buildUpdatePayload repousse les contacts (E2
 
     expect(updateOrder).toHaveBeenCalledOnce();
     const payload = updateOrder.mock.calls[0]![1] as Record<string, unknown>;
-    const contacts = payload['contacts'] as Array<{
-      name: string;
-      phone: string;
-      role: string;
-    }>;
-    expect(contacts).toBeDefined();
-    expect(contacts).toHaveLength(1);
-    expect(contacts[0]).toMatchObject({
-      name: 'Alice Martin',
+    // Contact = objet UNIQUE (CustomerOrderContactInput), pas un tableau : nom
+    // complet → firstname + lastname, téléphone → phone.
+    const contact = payload['contact'] as {
+      firstname?: string;
+      lastname?: string;
+      phone?: string;
+      phoneAlternatives?: string[];
+    };
+    expect(contact).toBeDefined();
+    expect(contact).toMatchObject({
+      firstname: 'Alice',
+      lastname: 'Martin',
       phone: '+33600000001',
-      role: 'principal',
     });
+    expect(contact.phoneAlternatives).toBeUndefined();
   });
 
-  it('M1.4/r22c — updateCollecte PUT inclut le contact de secours quand présent', async () => {
+  it('M1.4/r22c — updateCollecte PUT : téléphone du contact secours en phoneAlternatives', async () => {
     const updateOrder = vi.fn().mockResolvedValue(undefined);
     _setMts1Handlers({
       pollOrders: vi.fn(),
@@ -132,17 +135,14 @@ describe('M1.4/r22c — AdapterMts1 buildUpdatePayload repousse les contacts (E2
     ).updateCollecte(COLLECTE_AVEC_SECOURS);
 
     const payload = updateOrder.mock.calls[0]![1] as Record<string, unknown>;
-    const contacts = payload['contacts'] as Array<{
-      name: string;
-      phone: string;
-      role: string;
-    }>;
-    expect(contacts).toHaveLength(2);
-    expect(contacts[1]).toMatchObject({
-      name: 'Bruno Secours',
-      phone: '+33600000002',
-      role: 'secours',
-    });
+    const contact = payload['contact'] as {
+      phone?: string;
+      phoneAlternatives?: string[];
+    };
+    // MTS-1 n'a qu'UN contact : le principal reste, le téléphone du secours va en
+    // phoneAlternatives.
+    expect(contact.phone).toBe('+33600000001');
+    expect(contact.phoneAlternatives).toEqual(['+33600000002']);
   });
 
   it('M1.4/r22c — updateCollecte PUT conserve place + orderDate (merge partiel)', async () => {

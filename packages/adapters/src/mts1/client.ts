@@ -27,9 +27,22 @@ export interface CreateOrderPayload {
   serviceTime: number;
   transportersNeededCount: number;
   orderCategories: string[];
-  place: { address: { addressSingleLine: string } };
-  timeslots: Array<{ start: string; end: string }>;
-  contacts: Array<{ name: string; phone: string; role: string }>;
+  // `place` = CustomerOrderPlaceInput. Le créneau (`timeslots`, Timeslot[{start,end}])
+  // est porté PAR LE LIEU — il n'existe pas au niveau commande (découvert au read-back
+  // sandbox : un `timeslots` top-level était silencieusement ignoré).
+  place: {
+    address: { addressSingleLine: string };
+    timeslots?: Array<{ start: string; end: string }>;
+  };
+  // Contact terrain = CustomerOrderContactInput, objet UNIQUE (pas un tableau
+  // `contacts`) : MTS-1 attend `firstname`/`lastname`/`phone` (+ `phoneAlternatives`),
+  // PAS `name`/`role` — sinon le contact arrive vide (`{}`).
+  contact?: {
+    firstname?: string;
+    lastname?: string;
+    phone?: string;
+    phoneAlternatives?: string[];
+  };
   stuffs?: Array<{ name: string; task: string; quantity: number }>;
   // Instructions logistiques libres transmises au prestataire (M01/M03/M05).
   // MTS-1 as-built §3bis.5 l.389 : `comment` ← collectes.informations_supplementaires.

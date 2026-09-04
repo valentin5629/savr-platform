@@ -96,9 +96,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           ? c.evenements[0]
           : c.evenements;
         const lieu = (evt as { lieux?: { nom?: string } })?.lieux;
+        // Embed to-one (collecte_id UNIQUE) → objet PostgREST : l'envelopper.
         const attrs = Array.isArray(c.attributions_antgaspi)
           ? c.attributions_antgaspi
-          : [];
+          : c.attributions_antgaspi
+            ? [c.attributions_antgaspi]
+            : [];
         return {
           collecte_id: c.id,
           date_collecte: c.date_collecte,

@@ -89,9 +89,12 @@ export async function GET(
       }
     } else {
       nbAg++;
+      // Embed to-one (collecte_id UNIQUE) → objet PostgREST : l'envelopper.
       const attrs = Array.isArray(c.attributions_antgaspi)
         ? c.attributions_antgaspi
-        : [];
+        : c.attributions_antgaspi
+          ? [c.attributions_antgaspi]
+          : [];
       repas += attrs.reduce(
         (s, a) =>
           s +

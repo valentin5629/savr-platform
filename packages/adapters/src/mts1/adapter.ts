@@ -146,16 +146,29 @@ export class AdapterMts1 implements LogistiqueProvider {
     // ── Étape 2 : POST /v3/tours ────────────────────────────────────────────────
     let tourId = tournee?.tms_reference ?? null;
     if (!tourId) {
-      const tourPayload = this.buildTourPayload(
-        collecte,
-        rang,
-        customerOrderId,
-      );
+      const tourPayload = this.buildTourPayload(collecte, rang);
       const created = await this.client.createTour(tourPayload);
       tourId = created.tourId;
       // Commit immédiat
       await this.updateTourneeRef(tournee!.id, tourId);
     }
+
+    const orderNumber = this.orderNumber(collecte, rang);
+
+    // ── Étape 2bis : rattacher la commande à la tournée ─────────────────────────
+    // INCONDITIONNEL (comme dispatch/validate ci-dessous) : rejoué à chaque passage
+    // tant que la tournée est 'planifiee'. Le `customerOrderId` du POST /v3/tours
+    // étant ignoré par MTS-1, ce PUT garantit la commande rattachée AVANT le dispatch
+    // — y compris sur reprise après échec transitoire de createTour/addCustomerOrder
+    // (sinon le dispatch porterait sur une tournée VIDE, réintroduisant en silence le
+    // bug d'origine). Rejeu présumé sûr : même hypothèse que dispatch/validate (déjà
+    // rejoués inconditionnellement) — si le PUT n'était PAS idempotent, un 2e appel
+    // échouerait BRUYAMMENT (retry/DLQ + alerte), jamais en silence.
+    await this.client.addCustomerOrderToTour(
+      tourId,
+      customerOrderId,
+      orderNumber,
+    );
 
     // ── Étape 3 : dispatch ──────────────────────────────────────────────────────
     const carrierCode = this.transporteur.code_transporteur_mts1;
@@ -164,7 +177,6 @@ export class AdapterMts1 implements LogistiqueProvider {
         `transporteur ${this.transporteur.id} sans code_transporteur_mts1`,
       );
     }
-    const orderNumber = this.orderNumber(collecte, rang);
     await this.client.dispatchTour(tourId, carrierCode, orderNumber);
 
     // ── Étape 4 : validate ──────────────────────────────────────────────────────
@@ -1101,7 +1113,6 @@ export class AdapterMts1 implements LogistiqueProvider {
   private buildTourPayload(
     collecte: Collecte,
     rang: number,
-    customerOrderId: string,
   ): CreateTourPayload {
     const isZd = collecte.type === 'zero_dechet';
     const stuffs = isZd
@@ -1123,7 +1134,6 @@ export class AdapterMts1 implements LogistiqueProvider {
     const deliveryPlaceId = collecte.association_id_point_collecte_mts1;
 
     return {
-      customerOrderId,
       orderNumber: this.orderNumber(collecte, rang),
       // `tourDate` (yyyy-MM-dd) est OBLIGATOIRE sur POST /v3/tours (MTS-1 rejette
       // en 400 INVALID_REQUEST sans lui). Même source que `orderDate` de la

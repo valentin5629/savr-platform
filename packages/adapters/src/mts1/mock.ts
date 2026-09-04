@@ -154,6 +154,8 @@ export interface Mts1Handlers {
   // M1.5a — sortant
   postOrder: (payload: Record<string, unknown>) => Promise<Mts1PostResult>;
   createTour?: (payload: Record<string, unknown>) => Promise<Mts1CreatedTour>;
+  // Rattachement commande↔tournée (PUT /v3/tours/addCustomerOrder)
+  addCustomerOrder?: (tourId: string, customerOrderId: string) => Promise<void>;
   dispatchTour?: (
     tourId: string,
     carrierShareableCode: string,

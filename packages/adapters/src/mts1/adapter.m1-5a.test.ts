@@ -146,6 +146,7 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
       createdAt: '',
       customerOrderId: 'MTS1-ORDER-001',
     } satisfies Mts1CreatedTour);
+    const addCustomerOrder = vi.fn().mockResolvedValue(undefined);
     const dispatchTour = vi.fn().mockResolvedValue(undefined);
     const validateTour = vi.fn().mockResolvedValue(undefined);
 
@@ -154,6 +155,7 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
       getTour: vi.fn(),
       postOrder,
       createTour,
+      addCustomerOrder,
       dispatchTour,
       validateTour,
     });
@@ -172,6 +174,12 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
     // 400 sans lui (régression découverte au 1er dispatch réel sandbox).
     const tourPayload = createTour.mock.calls[0]![0] as Record<string, unknown>;
     expect(tourPayload['tourDate']).toBe('2026-07-15');
+    // Rattachement obligatoire commande↔tournée (le customerOrderId du POST /tours
+    // est ignoré par MTS-1 → sans ce PUT la tournée serait vide).
+    expect(addCustomerOrder).toHaveBeenCalledWith(
+      'MTS1-TOUR-001',
+      'MTS1-ORDER-001',
+    );
     expect(dispatchTour).toHaveBeenCalledWith('MTS1-TOUR-001', 'STRIKE-IDF');
     expect(validateTour).toHaveBeenCalledWith('MTS1-TOUR-001');
   });
@@ -196,6 +204,7 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
       getTour: vi.fn(),
       postOrder,
       createTour,
+      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
       dispatchTour: vi.fn().mockResolvedValue(undefined),
       validateTour: vi.fn().mockResolvedValue(undefined),
     });
@@ -233,6 +242,7 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
       getTour: vi.fn(),
       postOrder,
       createTour,
+      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
       dispatchTour: vi.fn().mockResolvedValue(undefined),
       validateTour: vi.fn().mockResolvedValue(undefined),
     });
@@ -276,6 +286,7 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
       getTour: vi.fn(),
       postOrder,
       createTour,
+      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
       dispatchTour: vi.fn().mockResolvedValue(undefined),
       validateTour: vi.fn().mockResolvedValue(undefined),
     });
@@ -311,6 +322,7 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
       getTour: vi.fn(),
       postOrder,
       createTour,
+      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
       dispatchTour: vi.fn().mockResolvedValue(undefined),
       validateTour: vi.fn().mockResolvedValue(undefined),
     });
@@ -358,6 +370,7 @@ describe('M1.5a / AdapterMts1 — multi-camions', () => {
       getTour: vi.fn(),
       postOrder,
       createTour,
+      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
       dispatchTour: vi.fn().mockResolvedValue(undefined),
       validateTour: vi.fn().mockResolvedValue(undefined),
     });
@@ -388,6 +401,7 @@ describe('M1.5a / AdapterMts1 — curseur de reprise', () => {
       getTour: vi.fn(),
       postOrder,
       createTour: vi.fn(),
+      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
       dispatchTour: vi.fn(),
       validateTour: vi.fn(),
     });
@@ -424,6 +438,7 @@ describe('M1.5a / AdapterMts1 — curseur de reprise', () => {
       getTour: vi.fn(),
       postOrder,
       createTour,
+      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
       dispatchTour,
       validateTour,
     });
@@ -450,9 +465,10 @@ describe('M1.5a / AdapterMts1 — curseur de reprise', () => {
     );
   });
 
-  it('M1.5a / reprise étapes 3-4 — tms_reference présent + statut planifiee → dispatch+validate rejoués, order/tour NON recréés', async () => {
+  it('M1.5a / reprise étapes 2bis-4 — tms_reference présent + statut planifiee → rattachement+dispatch+validate rejoués, order/tour NON recréés', async () => {
     const postOrder = vi.fn();
     const createTour = vi.fn();
+    const addCustomerOrder = vi.fn().mockResolvedValue(undefined);
     const dispatchTour = vi.fn().mockResolvedValue(undefined);
     const validateTour = vi.fn().mockResolvedValue(undefined);
     _setMts1Handlers({
@@ -460,6 +476,7 @@ describe('M1.5a / AdapterMts1 — curseur de reprise', () => {
       getTour: vi.fn(),
       postOrder,
       createTour,
+      addCustomerOrder,
       dispatchTour,
       validateTour,
     });
@@ -482,6 +499,13 @@ describe('M1.5a / AdapterMts1 — curseur de reprise', () => {
 
     expect(postOrder).not.toHaveBeenCalled();
     expect(createTour).not.toHaveBeenCalled();
+    // Régression (item reviewer) : le rattachement commande↔tournée est INCONDITIONNEL
+    // → rejoué sur reprise même si la tournée existe déjà, pour ne jamais dispatcher
+    // une tournée vide (le customerOrderId du POST /v3/tours est ignoré par MTS-1).
+    expect(addCustomerOrder).toHaveBeenCalledWith(
+      'MTS1-TOUR-EXISTING',
+      'MTS1-ORDER-EXISTING',
+    );
     expect(dispatchTour).toHaveBeenCalledWith(
       'MTS1-TOUR-EXISTING',
       'STRIKE-IDF',
@@ -513,6 +537,7 @@ describe('M1.5a / AdapterMts1 — curseur de reprise', () => {
         createdAt: '',
         customerOrderId: 'O1',
       } satisfies Mts1CreatedTour),
+      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
       dispatchTour,
       validateTour: vi.fn(),
     });
@@ -565,6 +590,7 @@ describe('M1.5a / AdapterMts1 — erreurs et réconciliation', () => {
       getTour: vi.fn(),
       postOrder,
       createTour,
+      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
       dispatchTour: vi.fn().mockResolvedValue(undefined),
       validateTour: vi.fn().mockResolvedValue(undefined),
       scanOrdersByDateRange,
@@ -604,6 +630,7 @@ describe('M1.5a / AdapterMts1 — erreurs et réconciliation', () => {
       getTour: vi.fn(),
       postOrder,
       createTour,
+      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
       dispatchTour: vi.fn().mockResolvedValue(undefined),
       validateTour: vi.fn().mockResolvedValue(undefined),
       scanOrdersByDateRange,
@@ -793,6 +820,7 @@ describe('M1.5a / PROG-03 comment MTS-1', () => {
         createdAt: '',
         customerOrderId: 'MTS1-ORDER-C',
       } satisfies Mts1CreatedTour),
+      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
       dispatchTour: vi.fn().mockResolvedValue(undefined),
       validateTour: vi.fn().mockResolvedValue(undefined),
     });

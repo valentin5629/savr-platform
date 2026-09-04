@@ -1084,14 +1084,33 @@ export class AdapterMts1 implements LogistiqueProvider {
 
     const contact = this.buildContact(collecte);
 
+    // Point B (livraison) = où les stuffs sont déposés → `stuffs[].relatedAddress`
+    // (CustomerOrderPlaceInput). ZD → entrepôt Savr (favoritePlace `MTS1_ENTREPOT_PLACE_ID`) ;
+    // AG → point de dépôt de l'association (favoritePlace `id_point_collecte_mts1`).
+    // Le `place` de la commande reste le PICKUP (point A = adresse traiteur).
+    // ⚠ L'AG n'a pas de `stuffs` en V1 → son point B n'est PAS encore transmis (lot
+    // dédié : décision « quel stuff pour porter la livraison AG » à trancher avec Val).
+    const pointBPlaceId = isZd
+      ? process.env['MTS1_ENTREPOT_PLACE_ID'] || undefined
+      : (collecte.association_id_point_collecte_mts1 ?? undefined);
+    const relatedAddress = pointBPlaceId
+      ? { relatedAddress: { placeId: pointBPlaceId } }
+      : {};
+
     const stuffs = isZd
       ? [
           ...FLUX_STUFFS_ZD.map((name) => ({
             name,
             task: 'PICKUP',
             quantity: 0,
+            ...relatedAddress,
           })),
-          { name: '<volume_du_camion>', task: 'PICKUP', quantity: 1 },
+          {
+            name: '<volume_du_camion>',
+            task: 'PICKUP',
+            quantity: 1,
+            ...relatedAddress,
+          },
         ]
       : undefined;
 
@@ -1126,36 +1145,15 @@ export class AdapterMts1 implements LogistiqueProvider {
     collecte: Collecte,
     rang: number,
   ): CreateTourPayload {
-    const isZd = collecte.type === 'zero_dechet';
-    const stuffs = isZd
-      ? [
-          ...FLUX_STUFFS_ZD.map((name) => ({
-            name,
-            task: 'PICKUP',
-            quantity: 0,
-          })),
-          { name: '<volume_du_camion>', task: 'PICKUP', quantity: 1 },
-        ]
-      : undefined;
-
-    // BL-P1-API-02 — lieu de dépôt AG (MTS_1_delivery_place, §08 §3bis.5 étape 2 /
-    // relevé as-built l.60-61) : `placeId` favori de l'association destinataire
-    // (favoritePlaces, §3bis.4 ; stocké sur associations.id_point_collecte_mts1).
-    // Le pickup (traiteur) reste en adresse inline sur la commande (buildOrderPayload).
-    // Sans ce champ, MTS-1 ignore où déposer les excédents AG.
-    const deliveryPlaceId = collecte.association_id_point_collecte_mts1;
-
+    // `TourInput` ne prend que { tourDate, tourNumber?, customerOrders?, comments? }.
+    // Les `stuffs` et le `deliveryPlace` (relevé as-built Bubble) sont IGNORÉS par
+    // MTS-1 → retirés. Les stuffs ET le point de dépôt (B) sont désormais portés par
+    // la COMMANDE (buildOrderPayload : `stuffs[].relatedAddress`), elle-même rattachée
+    // à la tournée via PUT /v3/tours/addCustomerOrder.
     return {
       orderNumber: this.orderNumber(collecte, rang),
-      // `tourDate` (yyyy-MM-dd) est OBLIGATOIRE sur POST /v3/tours (MTS-1 rejette
-      // en 400 INVALID_REQUEST sans lui). Même source que `orderDate` de la
-      // commande : la date de collecte. Découvert au 1er dispatch réel sandbox
-      // (le mock ne validait pas ce champ).
+      // `tourDate` (yyyy-MM-dd) OBLIGATOIRE sur POST /v3/tours.
       tourDate: collecte.date_collecte,
-      stuffs,
-      ...(deliveryPlaceId
-        ? { deliveryPlace: { placeId: deliveryPlaceId } }
-        : {}),
     };
   }
 

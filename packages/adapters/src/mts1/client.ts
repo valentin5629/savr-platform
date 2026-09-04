@@ -43,7 +43,17 @@ export interface CreateOrderPayload {
     phone?: string;
     phoneAlternatives?: string[];
   };
-  stuffs?: Array<{ name: string; task: string; quantity: number }>;
+  // `relatedAddress` = point de dépôt (B) du stuff : `placeId` d'un favoritePlace
+  // (entrepôt Savr pour le ZD / association pour l'AG) OU adresse inline. Le `place`
+  // de la commande est le PICKUP (point A).
+  stuffs?: Array<{
+    name: string;
+    task: string;
+    quantity: number;
+    relatedAddress?:
+      | { placeId: string }
+      | { address: { addressSingleLine: string } };
+  }>;
   // Instructions logistiques libres transmises au prestataire (M01/M03/M05).
   // MTS-1 as-built §3bis.5 l.389 : `comment` ← collectes.informations_supplementaires.
   comment?: string;
@@ -51,16 +61,12 @@ export interface CreateOrderPayload {
 
 export interface CreateTourPayload {
   // NB : le rattachement de la commande se fait via PUT /v3/tours/addCustomerOrder
-  // (un `customerOrderId` ici serait ignoré par MTS-1 V3).
+  // (un `customerOrderId` ici serait ignoré par MTS-1 V3). `TourInput` n'accepte que
+  // { tourDate, tourNumber?, customerOrders?, comments? } : `stuffs` et `deliveryPlace`
+  // sont ignorés → portés par la COMMANDE (buildOrderPayload, stuffs[].relatedAddress).
   orderNumber: string;
   // Date de la tournée (yyyy-MM-dd) — champ OBLIGATOIRE de POST /v3/tours.
   tourDate: string;
-  // Lieu de dépôt (MTS_1_delivery_place, §08 §3bis.5 étape 2) : `placeId` favori
-  // pré-enregistré (AG → associations.id_point_collecte_mts1) OU adresse inline.
-  deliveryPlace?:
-    | { placeId: string }
-    | { address: { addressSingleLine: string } };
-  stuffs?: Array<{ name: string; task: string; quantity: number }>;
 }
 
 export interface CreatedOrder {

@@ -120,7 +120,21 @@ export class Mts1Client {
       payload.orderNumber,
       t0,
     );
-    return (await res.json()) as CreatedOrder;
+    // La réponse V3 (`CreateCustomerOrderResponse`) nomme l'id technique
+    // `customerOrderId`, PAS `id` → mapper explicitement. Sinon `created.id` est
+    // `undefined` → `external_ref_commande` jamais enregistré → l'étape
+    // addCustomerOrder échoue en 400 « customerOrderId is mandatory ».
+    const body = (await res.json()) as {
+      customerOrderId: string;
+      orderNumber?: string;
+      customerOrderStatus?: string;
+    };
+    return {
+      id: body.customerOrderId,
+      externalReference: body.orderNumber ?? '',
+      status: body.customerOrderStatus ?? '',
+      createdAt: '',
+    };
   }
 
   async createTour(payload: CreateTourPayload): Promise<CreatedTour> {

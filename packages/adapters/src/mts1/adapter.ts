@@ -1088,8 +1088,6 @@ export class AdapterMts1 implements LogistiqueProvider {
     // (CustomerOrderPlaceInput). ZD → entrepôt Savr (favoritePlace `MTS1_ENTREPOT_PLACE_ID`) ;
     // AG → point de dépôt de l'association (favoritePlace `id_point_collecte_mts1`).
     // Le `place` de la commande reste le PICKUP (point A = adresse traiteur).
-    // ⚠ L'AG n'a pas de `stuffs` en V1 → son point B n'est PAS encore transmis (lot
-    // dédié : décision « quel stuff pour porter la livraison AG » à trancher avec Val).
     const pointBPlaceId = isZd
       ? process.env['MTS1_ENTREPOT_PLACE_ID'] || undefined
       : (collecte.association_id_point_collecte_mts1 ?? undefined);
@@ -1097,6 +1095,9 @@ export class AdapterMts1 implements LogistiqueProvider {
       ? { relatedAddress: { placeId: pointBPlaceId } }
       : {};
 
+    // Marchandise transportée (pesée plus tard → quantity 0), chaque stuff portant le
+    // point B (relatedAddress). ZD = 5 flux + volume du camion ; AG = le don
+    // alimentaire (poids/photos remontés ensuite par le polling, comme les pesées ZD).
     const stuffs = isZd
       ? [
           ...FLUX_STUFFS_ZD.map((name) => ({
@@ -1112,7 +1113,14 @@ export class AdapterMts1 implements LogistiqueProvider {
             ...relatedAddress,
           },
         ]
-      : undefined;
+      : [
+          {
+            name: 'Don alimentaire',
+            task: 'PICKUP',
+            quantity: 0,
+            ...relatedAddress,
+          },
+        ];
 
     return {
       orderNumber: this.orderNumber(collecte, rang),

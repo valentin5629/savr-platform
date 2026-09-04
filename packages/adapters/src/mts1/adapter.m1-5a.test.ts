@@ -235,12 +235,20 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
 
     const orderPayload = postOrder.mock.calls[0]![0] as Record<string, unknown>;
     expect(orderPayload['orderCategories']).toEqual(['Alimentaire']);
-    expect(orderPayload['stuffs']).toBeUndefined();
+    // AG = un seul stuff « Don alimentaire » (pesé plus tard, quantity 0).
+    // COLLECTE_AG n'a pas de point favori → pas de relatedAddress.
+    const stuffs = orderPayload['stuffs'] as Array<{
+      name: string;
+      relatedAddress?: unknown;
+    }>;
+    expect(stuffs).toHaveLength(1);
+    expect(stuffs[0]!.name).toBe('Don alimentaire');
+    expect(stuffs[0]!.relatedAddress).toBeUndefined();
   });
 
-  // BL-P1-API-02 — lieu de dépôt AG (favoritePlaces). Sans deliveryPlace.placeId,
-  // MTS-1 ignore où déposer les excédents AG (§08 §3bis.5 étape 2 / as-built l.60).
-  it('M1.5a / dispatch AG — point B non transmis en V1 (pas de deliveryPlace tournée, pas de stuffs AG)', async () => {
+  // BL-P1-API-02 — point de dépôt AG = point de dépôt de l'association (favoritePlace
+  // id_point_collecte_mts1), porté par le stuff « Don alimentaire » (relatedAddress).
+  it('M1.5a / dispatch AG — point B (asso) sur le stuff Don alimentaire (relatedAddress)', async () => {
     const postOrder = vi.fn().mockResolvedValue({
       ok: true,
       id: 'MTS1-ORDER-AG-FAV',
@@ -276,13 +284,20 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
       1,
     );
 
-    // Point B AG (asso) : la tournée ne porte plus de `deliveryPlace` (TourInput
-    // l'ignore). L'AG n'ayant pas de `stuffs` en V1, son point B n'est PAS encore
-    // transmis à MTS-1 (lot dédié — cf. _Divergences). État courant, sans régression.
+    // Point B AG = point de dépôt de l'association, porté par le stuff « Don
+    // alimentaire » (relatedAddress.placeId). La tournée ne porte plus de deliveryPlace.
     const tourPayload = createTour.mock.calls[0]![0] as Record<string, unknown>;
     expect(tourPayload['deliveryPlace']).toBeUndefined();
     const orderPayload = postOrder.mock.calls[0]![0] as Record<string, unknown>;
-    expect(orderPayload['stuffs']).toBeUndefined();
+    const stuffs = orderPayload['stuffs'] as Array<{
+      name: string;
+      relatedAddress?: { placeId?: string };
+    }>;
+    expect(stuffs).toHaveLength(1);
+    expect(stuffs[0]!.name).toBe('Don alimentaire');
+    expect(stuffs[0]!.relatedAddress).toEqual({
+      placeId: 'PLACE_BLUESPACE_IVRY',
+    });
   });
 
   // AG sans point favori résolu (association.id_point_collecte_mts1 NULL) → pas de

@@ -392,8 +392,14 @@ export async function buildAssociationsAgExport(
   }
   const byAsso = new Map<string, Agg>();
   for (const c of (data ?? []) as Row[]) {
+    // Embed to-one (collecte_id UNIQUE) → objet PostgREST : l'envelopper, sinon
+    // `: []` le jette silencieusement et l'export associations sort vide.
     const attrs = (
-      Array.isArray(c.attributions_antgaspi) ? c.attributions_antgaspi : []
+      Array.isArray(c.attributions_antgaspi)
+        ? c.attributions_antgaspi
+        : c.attributions_antgaspi
+          ? [c.attributions_antgaspi]
+          : []
     ) as Row[];
     for (const a of attrs) {
       const assoId = a.association_id as string | null;

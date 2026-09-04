@@ -214,6 +214,33 @@ describe('M4.1 / cloisonnement', () => {
       (admin.__calls.from ?? []).some((a) => a[0] === 'attributions_antgaspi'),
     ).toBe(true);
   });
+
+  it('traiteur : export associations-ag — embed to-one (OBJET PostgREST) non jeté', async () => {
+    // Régression : buildAssociationsAgExport (traiteur) agrège les bénéficiaires
+    // via l'embed collectes.attributions_antgaspi, que PostgREST renvoie en OBJET
+    // (to-one, collecte_id UNIQUE). Avant le fix, `: []` le jetait → export vide.
+    setupAuth('traiteur_manager', 'org-a');
+    rls.push({
+      data: [
+        {
+          id: 'c-ag',
+          type: 'anti_gaspi',
+          // ⚠ OBJET, pas tableau — forme réelle PostgREST.
+          attributions_antgaspi: {
+            association_id: 'asso-1',
+            volume_repas_realise: 90,
+            associations: { nom: 'Les Restos', ville: 'Paris', region: 'IDF' },
+          },
+        },
+      ],
+      error: null,
+    });
+    const res = await call('associations-ag');
+    const text = await res.text();
+    expect(res.status).toBe(200);
+    expect(text).toContain('Les Restos'); // asso non jetée
+    expect(text).toContain('90'); // repas comptés
+  });
 });
 
 // ── Format CSV FR + double colonne dates (P2) ────────────────────────────────

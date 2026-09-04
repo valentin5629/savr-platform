@@ -206,6 +206,114 @@ describe('M3.2 / P2 liste événements colonnes', () => {
     expect(row.repas_donnes).toBe(40);
   });
 
+  it('M3.2/P2_evenements_repas_objet — embed to-one (OBJET PostgREST) : repas compté, pas de crash', async () => {
+    // Régression : PostgREST renvoie collectes[].attributions_antgaspi en OBJET
+    // (relation to-one, collecte_id UNIQUE). Avant le fix, `(x ?? []).reduce`
+    // plantait (TypeError → 500) sur l'objet. Le mock tableau du test précédent
+    // masquait ce crash.
+    setupAuth();
+    rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null }); // organisations_lieux
+    rls.push({
+      data: [
+        {
+          id: 'e1',
+          nom_evenement: 'Gala',
+          date_evenement: '2026-06-01',
+          pax: 600,
+          organisation_id: 'org-viparis',
+          lieu_id: 'lieu-1',
+          lieux: { id: 'lieu-1', nom: 'Palais', ville: 'Paris' },
+          traiteur_operationnel_organisation_id: 'tr1',
+          organisations: { id: 'tr1', nom: 'Kaspia' },
+          type_evenement_id: 'ty1',
+          types_evenements: { id: 'ty1', libelle: 'Gala' },
+          collectes: [
+            {
+              id: 'c2',
+              type: 'anti_gaspi',
+              statut: 'cloturee',
+              date_collecte: '2026-06-01',
+              collecte_flux: [],
+              // ⚠ OBJET, pas tableau — forme réelle PostgREST.
+              attributions_antgaspi: { volume_repas_realise: 40 },
+            },
+          ],
+        },
+      ],
+      error: null,
+    }); // evenements
+    rls.push({ data: 0, error: null }); // f_dechets_labo_estimes rpc
+
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/evenements/route.js');
+    const res = await GET(makeReq('/api/v1/gestionnaire/evenements'));
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      data: Array<{ repas_donnes: number }>;
+    };
+    expect(json.data[0]!.repas_donnes).toBe(40);
+  });
+
+  it('M3.2/P2_evenement_detail_attributions_objet — fiche : embed to-one (OBJET) normalisé en tableau', async () => {
+    // Régression : détail événement (§06.05 §2, scénario P1
+    // detail_evenement_consultation_lecture_seule). PostgREST renvoie
+    // collectes[].attributions_antgaspi en OBJET (to-one). La page fait
+    // `.length`/`.map` dessus → sans normalisation, le sous-bloc AG (repas +
+    // association) ne s'affichait jamais. La route doit renvoyer un TABLEAU.
+    setupAuth();
+    rls.push({
+      data: {
+        id: 'e1',
+        nom_evenement: 'Gala',
+        date_evenement: '2026-06-01',
+        pax: 300,
+        organisation_id: 'org-1',
+        lieux: { id: 'lieu-1', nom: 'Palais' },
+        organisations: { id: 'tr1', nom: 'Kaspia', logo_url: null },
+        types_evenements: { id: 'ty1', libelle: 'Gala' },
+        collectes: [
+          {
+            id: 'c-ag',
+            type: 'anti_gaspi',
+            statut: 'cloturee',
+            date_collecte: '2026-06-01',
+            collecte_flux: [],
+            // ⚠ OBJET, pas tableau — forme réelle PostgREST.
+            attributions_antgaspi: {
+              id: 'a1',
+              volume_repas_realise: 88,
+              associations: {
+                nom: 'Les Restos',
+                ville: 'Paris',
+                distance_km: 3,
+              },
+            },
+          },
+        ],
+      },
+      error: null,
+    }); // evenement (maybeSingle)
+    rls.push({ data: 0, error: null }); // f_dechets_labo_estimes rpc
+
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/evenements/[id]/route.js');
+    const res = await GET(makeReq('/api/v1/gestionnaire/evenements/e1'), {
+      params: Promise.resolve({ id: 'e1' }),
+    });
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      data: {
+        collectes: Array<{
+          attributions_antgaspi: Array<{ volume_repas_realise?: number }>;
+        }>;
+      };
+    };
+    const attrs = json.data.collectes[0]!.attributions_antgaspi;
+    expect(Array.isArray(attrs)).toBe(true); // objet normalisé en tableau
+    expect(attrs).toHaveLength(1);
+    expect(attrs[0]!.volume_repas_realise).toBe(88);
+  });
+
   it('M3.2/P2_evenements_filtre_taille — bracket pax honoré', async () => {
     setupAuth();
     rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null }); // organisations_lieux

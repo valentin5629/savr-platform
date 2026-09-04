@@ -67,10 +67,18 @@ export async function GET(
 
   // Mapping statut affichage collecte (F2)
   const collectes = (Array.isArray(evt.collectes) ? evt.collectes : []).map(
-    (c) => ({
-      ...c,
-      statut_affiche: mapStatut(c.statut as string),
-    }),
+    (c) => {
+      // Embed to-one (collecte_id UNIQUE) → PostgREST renvoie un OBJET : le
+      // normaliser en tableau pour que la page (attributions_antgaspi: Attribution[])
+      // affiche bien le bloc association/repas via `.length`/`.map`.
+      const a = (c as { attributions_antgaspi?: unknown })
+        .attributions_antgaspi;
+      return {
+        ...c,
+        attributions_antgaspi: Array.isArray(a) ? a : a ? [a] : [],
+        statut_affiche: mapStatut(c.statut as string),
+      };
+    },
   );
 
   return NextResponse.json({

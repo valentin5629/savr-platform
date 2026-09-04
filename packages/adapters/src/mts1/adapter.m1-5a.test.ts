@@ -129,7 +129,10 @@ function makeMockSupabase(
 // ─── Tests adapter MTS-1 (M1.5a) ─────────────────────────────────────────────
 
 describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
-  afterEach(() => _setMts1Handlers(null));
+  afterEach(() => {
+    _setMts1Handlers(null);
+    vi.unstubAllEnvs();
+  });
 
   it('M1.5a / dispatch ZD rang=1 — POST order + create tour + dispatch + validate', async () => {
     const postOrder = vi.fn().mockResolvedValue({
@@ -237,7 +240,7 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
 
   // BL-P1-API-02 — lieu de dépôt AG (favoritePlaces). Sans deliveryPlace.placeId,
   // MTS-1 ignore où déposer les excédents AG (§08 §3bis.5 étape 2 / as-built l.60).
-  it('M1.5a / dispatch AG — deliveryPlace.placeId = id_point_collecte_mts1 de l’association', async () => {
+  it('M1.5a / dispatch AG — point B non transmis en V1 (pas de deliveryPlace tournée, pas de stuffs AG)', async () => {
     const postOrder = vi.fn().mockResolvedValue({
       ok: true,
       id: 'MTS1-ORDER-AG-FAV',
@@ -273,10 +276,13 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
       1,
     );
 
+    // Point B AG (asso) : la tournée ne porte plus de `deliveryPlace` (TourInput
+    // l'ignore). L'AG n'ayant pas de `stuffs` en V1, son point B n'est PAS encore
+    // transmis à MTS-1 (lot dédié — cf. _Divergences). État courant, sans régression.
     const tourPayload = createTour.mock.calls[0]![0] as Record<string, unknown>;
-    expect(tourPayload['deliveryPlace']).toEqual({
-      placeId: 'PLACE_BLUESPACE_IVRY',
-    });
+    expect(tourPayload['deliveryPlace']).toBeUndefined();
+    const orderPayload = postOrder.mock.calls[0]![0] as Record<string, unknown>;
+    expect(orderPayload['stuffs']).toBeUndefined();
   });
 
   // AG sans point favori résolu (association.id_point_collecte_mts1 NULL) → pas de
@@ -342,6 +348,7 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
       validateTour: vi.fn().mockResolvedValue(undefined),
     });
 
+    vi.stubEnv('MTS1_ENTREPOT_PLACE_ID', 'Entrepôt Savr');
     const supabase = makeMockSupabase({ tourneeExistante: null });
     await new AdapterMts1(TRANSPORTEUR, supabase).dispatchCollecte(
       COLLECTE_ZD,
@@ -349,10 +356,65 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
     );
 
     const orderPayload = postOrder.mock.calls[0]![0] as Record<string, unknown>;
-    const stuffs = orderPayload['stuffs'] as Array<{ name: string }>;
+    const stuffs = orderPayload['stuffs'] as Array<{
+      name: string;
+      relatedAddress?: { placeId?: string };
+    }>;
     expect(stuffs.map((s) => s.name)).toContain('Bio-déchets (en kg)');
     expect(stuffs.map((s) => s.name)).toContain('<volume_du_camion>');
     expect(stuffs).toHaveLength(6);
+    // Point B (livraison) ZD = entrepôt Savr, porté par CHAQUE stuff (relatedAddress).
+    for (const s of stuffs) {
+      expect(s.relatedAddress).toEqual({ placeId: 'Entrepôt Savr' });
+    }
+    // La tournée ne porte plus ni stuffs ni deliveryPlace (déplacés sur la commande).
+    const tourPayload = createTour.mock.calls[0]![0] as Record<string, unknown>;
+    expect(tourPayload['stuffs']).toBeUndefined();
+    expect(tourPayload['deliveryPlace']).toBeUndefined();
+  });
+
+  it('M1.5a / dispatch ZD — MTS1_ENTREPOT_PLACE_ID absent → stuffs sans relatedAddress (dégradation gracieuse)', async () => {
+    const postOrder = vi.fn().mockResolvedValue({
+      ok: true,
+      id: 'O-NOENV',
+      externalReference: 'col-zd-001-1',
+      status: 'PLANNED',
+      createdAt: '',
+    });
+    const createTour = vi.fn().mockResolvedValue({
+      tourId: 'T-NOENV',
+      externalReference: 'col-zd-001-1',
+      status: 'DRAFT',
+      createdAt: '',
+      customerOrderId: 'O-NOENV',
+    } satisfies Mts1CreatedTour);
+    _setMts1Handlers({
+      pollOrders: vi.fn(),
+      getTour: vi.fn(),
+      postOrder,
+      createTour,
+      addCustomerOrder: vi.fn().mockResolvedValue(undefined),
+      dispatchTour: vi.fn().mockResolvedValue(undefined),
+      validateTour: vi.fn().mockResolvedValue(undefined),
+    });
+
+    // Config entrepôt absente → aucun point B, mais pas de throw : les stuffs
+    // partent sans relatedAddress (dégradation gracieuse).
+    vi.stubEnv('MTS1_ENTREPOT_PLACE_ID', '');
+    const supabase = makeMockSupabase({ tourneeExistante: null });
+    await new AdapterMts1(TRANSPORTEUR, supabase).dispatchCollecte(
+      COLLECTE_ZD,
+      1,
+    );
+
+    const orderPayload = postOrder.mock.calls[0]![0] as Record<string, unknown>;
+    const stuffs = orderPayload['stuffs'] as Array<{
+      relatedAddress?: unknown;
+    }>;
+    expect(stuffs).toHaveLength(6);
+    for (const s of stuffs) {
+      expect(s.relatedAddress).toBeUndefined();
+    }
   });
 });
 

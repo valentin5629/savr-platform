@@ -74,6 +74,7 @@ const PUBLIC_PREFIXES = [
   '/403',
   // Pages de smoke-test de composants (dev-only, présentationnel, sans donnée
   // sensible) — délibérément hors du gating /admin/* réservé admin_savr/ops_savr.
+  // 404 sur tout build de production : garde dans src/app/dev/layout.tsx.
   '/dev',
   '/_next',
 ];

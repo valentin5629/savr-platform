@@ -11,6 +11,9 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3001';
 // qui monte les composants directement. Route publique (hors gating /admin/*
 // réservé admin_savr/ops_savr) : composants présentationnels sans donnée
 // sensible, donc pas de session authentifiée requise.
+// ⚠ `/dev/*` répond 404 sur un build de production (src/app/dev/layout.tsx) :
+// ce spec ne tourne que contre `next dev`. Il est hors du testDir Playwright
+// (`e2e/`), donc non exécuté par `pnpm -w test:e2e` (CI = next build + start).
 
 test.describe('M3.5 — TonnageDisplay', () => {
   test('999 kg → affiche "999 kg"', async ({ page }) => {

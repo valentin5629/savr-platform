@@ -5,8 +5,6 @@
 // Job de maintenance à criticité basse (§07/02) → pas de canal Slack : un échec est
 // capté par job.cron.failed + Sentry (aucune alerte fonctionnelle à doubler, §13).
 
-import { NextResponse } from 'next/server';
-
 import { withCronObservability } from '@/lib/cron-observabilite.js';
 
 export const runtime = 'nodejs';
@@ -27,6 +25,6 @@ export const POST = withCronObservability(
   },
 );
 
-export async function GET(): Promise<NextResponse> {
-  return NextResponse.json({ error: 'method_not_allowed' }, { status: 405 });
-}
+// Vercel Cron invoque en GET (avec `Authorization: Bearer $CRON_SECRET`) ; POST reste
+// accepté pour les déclenchements manuels. Même handler, même garde fail-closed.
+export const GET = POST;

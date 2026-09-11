@@ -10,13 +10,18 @@
  *
  * Nouvelle route publique ou garde d'un autre type → l'ajouter à EXCEPTIONS,
  * consciemment, avec la raison.
+ *
+ * Les route handlers HORS `/api` (ex. `src/app/auth/**`) sont soumis à la même
+ * règle : `/auth` est aussi exclu du middleware (PUBLIC_PREFIXES), ils n'ont donc
+ * pas davantage de filet en amont (revue sécurité #281 — callback d'impersonation).
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
 
 import { describe, it, expect } from 'vitest';
 
-const API = resolve(__dirname, '../../src/app/api');
+const APP = resolve(__dirname, '../../src/app');
+const API = join(APP, 'api');
 
 // Gardes de session applicatives (src/lib/api-auth.ts, src/lib/registre/guard.ts).
 const GARDE_SESSION =
@@ -72,15 +77,31 @@ function sansCommentaires(src: string): string {
   return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 }
 
-function routes(dir = API): string[] {
+function routes(racine: string, dir = racine): string[] {
   return readdirSync(dir).flatMap((nom) => {
     const p = join(dir, nom);
-    if (statSync(p).isDirectory()) return routes(p);
-    return nom === 'route.ts' ? [relative(API, dir).split(sep).join('/')] : [];
+    if (statSync(p).isDirectory()) {
+      // Sous-arbre /api couvert par TOUTES, pas par HORS_API.
+      return racine === APP && p === API ? [] : routes(racine, p);
+    }
+    return nom === 'route.ts'
+      ? [relative(racine, dir).split(sep).join('/')]
+      : [];
   });
 }
 
-const TOUTES = routes();
+const TOUTES = routes(API);
+
+// Route handlers hors /api (chemin relatif à src/app). Aucune garde de session
+// possible ici : chacun doit être listé avec la garde qui le protège.
+const HORS_API = routes(APP);
+const EXCEPTIONS_HORS_API: Record<string, { garde: RegExp; raison: string }> = {
+  'auth/impersonate-callback': {
+    garde: /\bverifyOtp\([\s\S]*\bverifierImpersonation\(/,
+    raison:
+      'OTP magiclink + impersonation enregistrée par /impersoner (jeton, admin, cible, usage unique)',
+  },
+};
 
 describe('routes API — garde propre obligatoire (middleware exclut /api)', () => {
   it('garde anti-vacuité : les routes sont bien énumérées', () => {
@@ -124,5 +145,39 @@ describe('routes API — garde propre obligatoire (middleware exclut /api)', () 
       }
     }
     expect(fautives).toEqual([]);
+  });
+});
+
+describe('route handlers hors /api — garde propre obligatoire (middleware exclut /auth)', () => {
+  it("garde anti-vacuité : le callback d'impersonation est énuméré", () => {
+    expect(HORS_API).toContain('auth/impersonate-callback');
+  });
+
+  it('chaque route hors /api appelle une garde reconnue', () => {
+    const fautives: string[] = [];
+    for (const route of HORS_API) {
+      const exception = EXCEPTIONS_HORS_API[route];
+      const src = sansCommentaires(
+        readFileSync(join(APP, route, 'route.ts'), 'utf8'),
+      );
+      if (!exception) {
+        const methodes = [...src.matchAll(METHODE)].length;
+        const gardes = src.match(GARDE_SESSION)?.length ?? 0;
+        if (methodes === 0 || gardes < methodes) {
+          fautives.push(`${route} : ni garde de session ni exception listée`);
+        }
+        continue;
+      }
+      if (!exception.garde.test(src)) {
+        fautives.push(`${route} : garde attendue ${exception.garde} absente`);
+      }
+    }
+    expect(fautives).toEqual([]);
+  });
+
+  it('chaque exception pointe une route existante', () => {
+    expect(
+      Object.keys(EXCEPTIONS_HORS_API).filter((r) => !HORS_API.includes(r)),
+    ).toEqual([]);
   });
 });

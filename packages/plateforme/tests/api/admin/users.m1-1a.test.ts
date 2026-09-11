@@ -27,6 +27,7 @@ const mockSupabaseChain = {
       createUser: mockAdminCreateUser,
       deleteUser: mockAdminDeleteUser,
       generateLink: mockAdminGenerateLink,
+      updateUserById: vi.fn().mockResolvedValue({ data: {}, error: null }),
     },
   },
 };
@@ -397,6 +398,8 @@ describe('M1.1a / Users / Impersonation', () => {
     expect(json.lien_impersonation).toContain('/auth/impersonate-callback');
     expect(json.lien_impersonation).toContain('token_hash=imp-token-hash-xxx');
     expect(json.lien_impersonation).toContain('type=magiclink');
+    // Jeton lié à l'entrée serveur posée sur la cible (cf. tests/api/auth/impersonate).
+    expect(json.lien_impersonation).toMatch(/[?&]jeton=[\w-]{43}(&|$)/);
   });
 });
 

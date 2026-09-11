@@ -21,13 +21,12 @@ export function tokenMatches(
 
 /**
  * Middleware d'auth interne. Fail-closed : secret absent/vide = tout refuser.
- * `/health` est la seule route exemptée (sonde Railway).
+ * Aucune exemption ici : `/health` est déclarée avant ce middleware (app.ts).
  */
 export function requireInternalToken(
   secret: string | undefined,
 ): RequestHandler {
   return (req: Request, res: Response, next: NextFunction) => {
-    if (req.path === '/health') return next();
     if (!secret || !tokenMatches(req.headers['x-internal-token'], secret)) {
       res.status(401).json({ error: 'unauthorized' });
       return;

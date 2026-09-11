@@ -56,15 +56,19 @@ export function createApp(
 ): Express {
   const app = express();
   app.disable('x-powered-by');
+  // Aucune route ne lit req.query : pas de parsing qs (surface inutile avant l'auth).
+  app.set('query parser', false);
+
+  // Sonde Railway : seule route exemptée, GET/HEAD uniquement, déclarée avant
+  // l'auth (un POST /health retombe sur l'auth → 401).
+  app.get('/health', (_req: Request, res: Response) => {
+    res.json({ ok: true });
+  });
 
   // Auth AVANT le parsing JSON : un appelant non authentifié ne fait pas lire
   // son corps (2 Mo max) et reçoit 401, jamais une erreur de parsing.
   app.use(requireInternalToken(secret));
   app.use(express.json({ limit: '2mb' }));
-
-  app.get('/health', (_req: Request, res: Response) => {
-    res.json({ ok: true });
-  });
 
   app.post('/generate-pdf', async (req: Request, res: Response) => {
     const { type, data } = (req.body ?? {}) as { type: string; data: unknown };

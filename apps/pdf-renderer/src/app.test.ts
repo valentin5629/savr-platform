@@ -131,10 +131,18 @@ describe('M1.6 / renderer PDF — auth X-Internal-Token', () => {
     }
   });
 
-  it('seule /health est exemptée : une route inconnue sans jeton → 401', async () => {
+  it('seule GET /health est exemptée : autres chemins/méthodes sans jeton → 401', async () => {
     const base = await start(SECRET);
-    expect((await fetch(`${base}/health/../admin`)).status).toBe(401);
+    expect((await fetch(`${base}/health/x`)).status).toBe(401);
+    expect((await fetch(`${base}/healthz`)).status).toBe(401);
     expect((await fetch(`${base}/metrics`)).status).toBe(401);
+    // POST /health : pas d'exemption, et le corps (JSON invalide) n'est pas lu.
+    const res = await fetch(`${base}/health`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{not json',
+    });
+    expect(res.status).toBe(401);
   });
 
   it('401 AVANT parsing : JSON invalide sans jeton → 401 (pas 400)', async () => {

@@ -168,9 +168,12 @@ export function ExportSyntheseBloc({ filters, tab }: Props) {
       const json = (await res.json().catch(() => ({}))) as {
         url?: string;
         error?: string;
+        ref?: string;
       };
       if (!res.ok || !json.url) {
-        setError(json.error ?? 'La génération a échoué. Réessayez.');
+        const message = json.error ?? 'La génération a échoué. Réessayez.';
+        // Ref du renderer : permet au support de retrouver la trace.
+        setError(json.ref ? `${message} (référence : ${json.ref})` : message);
         return;
       }
       window.open(json.url, '_blank', 'noopener');

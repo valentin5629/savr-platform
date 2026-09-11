@@ -33,7 +33,6 @@ function makeCollecteAg(overrides: Record<string, unknown> = {}) {
       association_id: 'asso-1',
       associations: {
         nom: 'Les Restos du Cœur',
-        numero_rup: 'W751234567',
         habilitee_attestation_fiscale: true,
       },
     },
@@ -181,7 +180,6 @@ describe('M2.4 / BatchPdfJ1Ag / Exclusion sans attribution', () => {
         association_id: 'asso-1',
         associations: {
           nom: 'Asso X',
-          numero_rup: null,
           habilitee_attestation_fiscale: false,
         },
       },
@@ -225,7 +223,6 @@ describe('M2.4 / BatchPdfJ1Ag / Mention fiscale conditionnelle', () => {
         association_id: 'asso-2',
         associations: {
           nom: 'Croix-Rouge',
-          numero_rup: null,
           habilitee_attestation_fiscale: false,
         },
       },
@@ -280,7 +277,6 @@ describe('M2.4 / BatchPdfJ1Ag / Snapshot résistant perte habilitation', () => {
         association_id: 'asso-1',
         associations: {
           nom: 'Les Restos du Cœur',
-          numero_rup: 'W751234567',
           habilitee_attestation_fiscale: false, // perte habilitation
         },
       },
@@ -438,6 +434,30 @@ describe('M2.4 / BatchPdfJ1Ag / rapports_rse AG', () => {
     const expected = new Date(realiseeAt.getTime() + 24 * 3600 * 1000);
     expect(Math.abs(disponibleA.getTime() - expected.getTime())).toBeLessThan(
       5000,
+    );
+  });
+});
+
+/** Texte de la requête de sélection des collectes (1er `.select` embarquant `evenements`). */
+function selectionCollectes(sb: { _chain: Record<string, unknown> }): string {
+  const calls = (sb._chain['select'] as ReturnType<typeof vi.fn>).mock.calls;
+  return (
+    calls.map((c) => String(c[0])).find((s) => s.includes('evenements')) ?? ''
+  );
+}
+
+// Régression (2026-09-11) : `associations` n'a PAS de colonne `numero_rup` (le CDC §04 ne
+// définit que l'instantané `attestations_don.association_numero_rup`). La sélectionner
+// fait échouer toute la requête → aucune attestation générée. Épinglé sur le texte.
+describe('M2.4 / BatchPdfJ1Ag / requête de sélection', () => {
+  it("ne sélectionne que des colonnes réelles d'`associations` (pas de `numero_rup`)", async () => {
+    const sb = makeSupabase([{ data: [], error: null }]);
+    await runBatchPdfJ1Ag(sb as never);
+    const sel = selectionCollectes(sb);
+    expect(sel).not.toBe('');
+    expect(sel).not.toContain('numero_rup');
+    expect(sel).toMatch(
+      /associations\s*\(\s*nom, adresse, habilitee_attestation_fiscale\s*\)/,
     );
   });
 });

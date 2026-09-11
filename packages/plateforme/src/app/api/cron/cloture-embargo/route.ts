@@ -2,8 +2,6 @@
 // Déclenché toutes les heures (vercel.json). Débloque toute la chaîne post-clôture
 // (batchs J+1 bordereau/rapport/attestation, triggers CO₂/taux, registre ZD).
 
-import { NextResponse } from 'next/server';
-
 import { withCronObservability } from '@/lib/cron-observabilite.js';
 
 export const runtime = 'nodejs';
@@ -19,7 +17,6 @@ export const POST = withCronObservability(
   },
 );
 
-// Réponse OPTIONS non nécessaire (appelé par le scheduler Vercel avec CRON_SECRET).
-export async function GET(): Promise<NextResponse> {
-  return NextResponse.json({ error: 'method_not_allowed' }, { status: 405 });
-}
+// Vercel Cron invoque en GET (avec `Authorization: Bearer $CRON_SECRET`) ; POST reste
+// accepté pour les déclenchements manuels. Même handler, même garde fail-closed.
+export const GET = POST;

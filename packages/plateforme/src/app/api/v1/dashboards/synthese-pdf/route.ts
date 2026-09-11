@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
+import { logger } from '@savr/shared/src/logger/index.js';
 import { requireUser, createSupabaseServerClient } from '@/lib/api-auth.js';
 import { generatePdf } from '@/lib/pdf/railway-client.js';
 import { uploadPdf, getPresignedUrl } from '@/lib/pdf/r2-client.js';
@@ -37,6 +38,60 @@ const ALLOWED_ROLES = [
 ] as const;
 
 const PRESIGN_TTL_SECONDS = 3600; // 1h (§1.6 l.271).
+
+const ROUTE = '/api/v1/dashboards/synthese-pdf';
+const MESSAGE_ECHEC = 'La génération a échoué. Réessayez.';
+
+// generatePdf lève « Railway PDF <status>: <corps> » ; le renderer répond
+// {error, ref} (apps/pdf-renderer). On n'en extrait QUE la ref au format UUID —
+// jamais le reste du corps, quelle que soit la version du renderer déployée.
+const RAILWAY_ERROR_PREFIX = /^Railway PDF \d{3}: /;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function railwayRef(message: string): string | null {
+  if (!RAILWAY_ERROR_PREFIX.test(message)) return null;
+  try {
+    const body = JSON.parse(message.replace(RAILWAY_ERROR_PREFIX, '')) as {
+      ref?: unknown;
+    };
+    return typeof body.ref === 'string' && UUID_RE.test(body.ref)
+      ? body.ref
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Échec interne → message générique au client, détail en log serveur
+ * (`api_route.error`, §07/02). Le message brut peut porter un détail PostgREST
+ * (tables/colonnes), un nom de variable d'env (railway-client) ou une erreur du
+ * SDK R2 : il ne quitte jamais le serveur. Seule la ref Railway (UUID) est
+ * renvoyée, pour retrouver la trace du renderer côté support.
+ */
+function echec(
+  err: unknown,
+  error_code: 'synthese_agregation_failed' | 'synthese_rendu_failed',
+  status: 500 | 502,
+  ctx: { userId: string; role: string; organisationId: string },
+): NextResponse {
+  const message = err instanceof Error ? err.message : String(err);
+  const ref = railwayRef(message);
+  logger.error(
+    'api_route.error',
+    { route: ROUTE, error_code, message, ...(ref ? { ref } : {}) },
+    {
+      actor_id: ctx.userId,
+      actor_role: ctx.role,
+      org_id: ctx.organisationId,
+    },
+  );
+  return NextResponse.json(
+    ref ? { error: MESSAGE_ECHEC, ref } : { error: MESSAGE_ECHEC },
+    { status },
+  );
+}
 
 function asStringArray(v: unknown): string[] {
   return Array.isArray(v)
@@ -121,13 +176,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       clock,
     );
   } catch (err) {
-    return NextResponse.json(
-      {
-        error:
-          err instanceof Error ? err.message : 'Erreur agrégation synthèse',
-      },
-      { status: 500 },
-    );
+    return echec(err, 'synthese_agregation_failed', 500, auth.ctx);
   }
 
   // Rendu Railway + dépôt R2 éphémère + URL pré-signée.
@@ -141,12 +190,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const url = await getPresignedUrl(storageKey, PRESIGN_TTL_SECONDS);
     return NextResponse.json({ url, expires_in: PRESIGN_TTL_SECONDS });
   } catch (err) {
-    return NextResponse.json(
-      {
-        error:
-          err instanceof Error ? err.message : 'Erreur génération PDF synthèse',
-      },
-      { status: 502 },
-    );
+    return echec(err, 'synthese_rendu_failed', 502, auth.ctx);
   }
 }

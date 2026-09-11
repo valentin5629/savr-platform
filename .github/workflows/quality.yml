@@ -72,6 +72,68 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm -w check:pdf-contract
 
+  # Lockfile npm du renderer PDF. Le renderer est dans le workspace pnpm (vitest),
+  # mais son build Railway fait `npm ci` sur apps/pdf-renderer/package-lock.json.
+  # Un package.json modifié via pnpm sans régénérer ce lockfile ne se voit qu'au
+  # build Railway. Le lockfile committé doit être EXACTEMENT celui que produit la
+  # commande documentée dans le Dockerfile (même image node:22-slim, donc même npm).
+  # `npm ci --dry-run` ne suffit pas : il laisse passer une dépendance retirée ou
+  # déplacée en devDependencies (le build passe, puis `npm prune --omit=dev` retire
+  # le module et le conteneur crashe au démarrage).
+  pdf-renderer-lockfile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/pdf-renderer
+    steps:
+      - uses: actions/checkout@v4
+      - name: Régénère le lockfile avec la commande du Dockerfile
+        run: |
+          docker run --rm -v "$PWD":/w -w /w node:22-slim \
+            npm install --package-lock-only --ignore-scripts
+      - name: package-lock.json synchronisé avec package.json
+        run: |
+          if ! git diff --exit-code -- package-lock.json; then
+            echo "::error file=apps/pdf-renderer/package-lock.json::package-lock.json désynchronisé de package.json. Depuis apps/pdf-renderer/ : docker run --rm -v \"\$PWD\":/w -w /w node:22-slim npm install --package-lock-only --ignore-scripts, puis commiter package-lock.json."
+            exit 1
+          fi
+
+  # Build Docker du renderer + démarrage du conteneur. Attrape ce que le job
+  # lockfile ne voit pas : Dockerfile cassé (#272 : `tsc` absent, aucun PDF généré
+  # pendant des mois), dépendance d'exécution rangée en devDependencies (retirée par
+  # `npm prune --omit=dev`), compilation sur l'arbre npm (les tests tournent sur
+  # l'arbre pnpm). Le contexte de build est apps/pdf-renderer/ seul : sur une PR
+  # qui n'y touche pas, le build est sauté (le job reste vert).
+  pdf-renderer-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - id: changed
+        name: Renderer modifié ?
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ] &&
+             git diff --quiet "${{ github.event.pull_request.base.sha }}...HEAD" -- \
+               apps/pdf-renderer .github/workflows/quality.yml; then
+            echo "apps/pdf-renderer/ inchangé : build Docker sauté."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.changed.outputs.run == 'true'
+        run: docker build -t savr-pdf-renderer apps/pdf-renderer
+      - if: steps.changed.outputs.run == 'true'
+        name: Le conteneur démarre et /health répond
+        run: |
+          docker run -d --name pdf-renderer -p 3001:3001 \
+            -e RAILWAY_PDF_SECRET=ci-smoke savr-pdf-renderer
+          for _ in $(seq 1 30); do
+            if curl -fsS http://localhost:3001/health; then exit 0; fi
+            sleep 1
+          done
+          docker logs pdf-renderer
+          exit 1
+
   # Tests pgTAP : RLS (sous role 'authenticated', non negociable) + garde-fou 4
   # TMS-Ready (outbox par mutation : supabase/tests/outbox_par_mutation.test.sql).
   # `supabase test db` execute TOUS les *.test.sql via pg_prove → les deux sont

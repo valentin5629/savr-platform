@@ -8,6 +8,7 @@ COPY package.json package-lock.json ./
 # correspond plus à package.json → le régénérer depuis apps/pdf-renderer/ avec le
 # npm de l'image : docker run --rm -v "$PWD":/w -w /w node:22-slim \
 #   npm install --package-lock-only --ignore-scripts
+# La CI (job `pdf-renderer-lockfile`) rejoue cette commande et échoue sur le moindre diff.
 # Toutes les dépendances, devDependencies incluses : `tsc` (typescript) vit là et
 # `npm run build` en a besoin. Un `--omit=dev` ici casse le build ("tsc: not found").
 # `--ignore-scripts` : aucun script d'installation n'est exécuté. Seules des

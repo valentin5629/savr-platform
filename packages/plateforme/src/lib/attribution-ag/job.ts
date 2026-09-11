@@ -1,3 +1,4 @@
+import { sendEmail } from '@savr/shared/src/email/index.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 
@@ -52,57 +53,60 @@ export async function processAttributionValidee(
   const volumeEstime = (collecte.volume_estime_repas as number) ?? 0;
   const assoAdresse = `${asso.adresse as string}, ${asso.ville as string}`;
 
-  // Email → association bénéficiaire
+  // Emails via le canal canonique `sendEmail` (trace `emails_envoyes`, relance par le
+  // cron email-retry). L'ancienne RPC `fn_envoyer_email_template` n'a JAMAIS existé
+  // (ni migration, ni dev, ni prod) : aucun email d'attribution n'était envoyé.
+  // Best-effort : un envoi raté est tracé mais n'échoue pas le job (sinon un retry
+  // renverrait l'email déjà parti à l'autre destinataire).
   if (asso.contact_email) {
-    const { error: emailErr } = await supabase.rpc(
-      'fn_envoyer_email_template',
+    await envoyer(
+      'ag_attribution_association',
+      asso.contact_email as string,
       {
-        p_template_code: 'ag_attribution_association',
-        p_destinataire: asso.contact_email,
-        p_variables: {
-          evenement_nom: evenementNom,
-          date_collecte: dateCollecte,
-          lieu_adresse: lieuAdresse,
-          volume_estime_repas: volumeEstime,
-          transporteur_nom: transp.nom,
-        },
+        evenement_nom: evenementNom,
+        date_collecte: dateCollecte,
+        lieu_adresse: lieuAdresse,
+        volume_estime_repas: String(volumeEstime),
+        transporteur_nom: String(transp.nom ?? ''),
       },
+      payload.collecte_id,
     );
-    if (emailErr) {
-      // §07/01 api.external.failed (service=resend). On NE logge PAS le destinataire
-      // (PII) — seul le template + le message d'erreur RPC (sans email en clair).
-      logger.error('api.external.failed', {
-        service: 'resend',
-        endpoint: 'fn_envoyer_email_template',
-        template: 'ag_attribution_association',
-        error: emailErr.message,
-      });
-    }
   }
 
-  // Email → transporteur
   if (transp.contact_email) {
-    const { error: emailErr } = await supabase.rpc(
-      'fn_envoyer_email_template',
+    await envoyer(
+      'ag_attribution_transporteur',
+      transp.contact_email as string,
       {
-        p_template_code: 'ag_attribution_transporteur',
-        p_destinataire: transp.contact_email,
-        p_variables: {
-          evenement_nom: evenementNom,
-          date_collecte: dateCollecte,
-          lieu_adresse: lieuAdresse,
-          association_adresse: assoAdresse,
-          volume_estime_repas: volumeEstime,
-        },
+        evenement_nom: evenementNom,
+        date_collecte: dateCollecte,
+        lieu_adresse: lieuAdresse,
+        association_adresse: assoAdresse,
+        volume_estime_repas: String(volumeEstime),
       },
+      payload.collecte_id,
     );
-    if (emailErr) {
-      logger.error('api.external.failed', {
-        service: 'resend',
-        endpoint: 'fn_envoyer_email_template',
-        template: 'ag_attribution_transporteur',
-        error: emailErr.message,
-      });
-    }
+  }
+}
+
+async function envoyer(
+  template: string,
+  destinataire: string,
+  variables: Record<string, string>,
+  collecteId: string,
+): Promise<void> {
+  try {
+    await sendEmail(template, destinataire, variables, {
+      entityType: 'collectes',
+      entityId: collecteId,
+    });
+  } catch (e) {
+    // §07/01 api.external.failed (service=resend) — jamais le destinataire (PII).
+    logger.error('api.external.failed', {
+      service: 'resend',
+      endpoint: 'sendEmail',
+      template,
+      error: e instanceof Error ? e.message : String(e),
+    });
   }
 }

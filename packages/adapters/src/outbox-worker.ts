@@ -323,7 +323,12 @@ async function handleError(
   return 'failed';
 }
 
-function getNextRetryAt(attempts: number): Date | null {
+/**
+ * Politique de retry outbox (CDC §04 : 3 paliers 5 min / 1 h / 24 h, 4 tentatives).
+ * `attempts` = compteur APRÈS le claim. `null` → plus de palier : passer en `dead`.
+ * Exportée : le job `attribution_job` (cron process-attributions-ag) applique la même.
+ */
+export function getNextRetryAt(attempts: number): Date | null {
   const delayMs = RETRY_DELAYS_MS[attempts - 1];
   if (delayMs === undefined) return null;
   return new Date(Date.now() + delayMs);

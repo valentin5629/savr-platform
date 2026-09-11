@@ -4,6 +4,7 @@
 //          R8 (idempotence : skip si attestation emise/corrigee).
 
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { logger } from '@savr/shared/src/logger/index.js';
 
 import {
   type BatchFatal,
@@ -31,7 +32,6 @@ interface AttributionRow {
   associations: {
     nom: string;
     adresse: string | null;
-    numero_rup: string | null;
     habilitee_attestation_fiscale: boolean;
   } | null;
 }
@@ -78,7 +78,7 @@ export async function runBatchPdfJ1Ag(
       evenements ( nom_evenement, date_evenement, organisation_id ),
       attributions_antgaspi (
         id, volume_repas_realise, poids_repas_kg, association_id,
-        associations ( nom, adresse, numero_rup, habilitee_attestation_fiscale )
+        associations ( nom, adresse, habilitee_attestation_fiscale )
       )
     `,
     )
@@ -220,7 +220,9 @@ export async function runBatchPdfJ1Ag(
           donateur_raison_sociale: entite?.raison_sociale ?? '',
           donateur_siret: entite?.siret ?? '',
           association_nom: asso?.nom ?? '',
-          association_numero_rup: asso?.numero_rup ?? null,
+          // Aucune colonne source côté associations (CDC §04 : seul l'instantané existe)
+          // → null tant que le CDC ne définit pas où saisir le n° RUP (_Divergences M2.4).
+          association_numero_rup: null,
           association_habilitation: mentionFiscale
             ? 'habilitee'
             : 'non_habilitee',
@@ -275,7 +277,7 @@ export async function runBatchPdfJ1Ag(
         donateur_siret: entite?.siret ?? '',
         association_nom: asso?.nom ?? '',
         association_adresse: asso?.adresse ?? null,
-        association_numero_rup: asso?.numero_rup ?? null,
+        association_numero_rup: null,
         mention_fiscale_2041ge: mentionFiscale,
         volume_repas: attr.volume_repas_realise,
         poids_kg: attr.poids_repas_kg,
@@ -325,7 +327,18 @@ export async function runBatchPdfJ1Ag(
             numero_attestation: numero,
           },
           { entityType: 'collectes', entityId: collecte.id },
-        );
+        ).catch((e: unknown) => {
+          // Best-effort : `void` seul laisse un rejet NON GÉRÉ qui tue le processus —
+          // un email raté (template absent, Resend KO) ne doit jamais faire tomber le
+          // batch ni priver les collectes suivantes de leurs documents. §07/01, sans
+          // destinataire dans le log.
+          logger.error('api.external.failed', {
+            service: 'resend',
+            endpoint: 'sendEmail',
+            template: 'attestation_don_disponible',
+            error: e instanceof Error ? e.message : String(e),
+          });
+        });
       }
 
       result.enqueued++;

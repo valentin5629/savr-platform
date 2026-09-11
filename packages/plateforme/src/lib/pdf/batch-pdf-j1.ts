@@ -13,6 +13,7 @@ import {
 import { resolveRapportBenchmark } from './rapport-benchmark.js';
 import { resolveRapportLogo } from './logo-cascade.js';
 import { makeLogoResolver } from './logo-inline.js';
+import { logger } from '@savr/shared/src/logger/index.js';
 
 export interface BatchPdfJ1Result {
   enqueued: number;
@@ -144,7 +145,7 @@ export async function runBatchPdfJ1(
         id, nom_evenement, date_evenement, pax,
         organisation_id, traiteur_operationnel_organisation_id,
         client_organisateur_organisation_id, logo_client_organisateur_url,
-        organisations ( raison_sociale, siret, adresse, email_principal, type, logo_url ),
+        organisations!organisation_id ( raison_sociale, siret, adresse, email_principal, type, logo_url ),
         traiteur_operationnel:organisations!traiteur_operationnel_organisation_id ( raison_sociale, siret, adresse, logo_url ),
         client_organisateur:organisations!client_organisateur_organisation_id ( logo_url ),
         lieux ( nom, adresse_acces, code_postal, ville )
@@ -470,7 +471,18 @@ export async function runBatchPdfJ1(
                 : '—',
           },
           { entityType: 'collectes', entityId: collecte.id },
-        );
+        ).catch((e: unknown) => {
+          // Best-effort : `void` seul laisse un rejet NON GÉRÉ qui tue le processus —
+          // un email raté (template absent, Resend KO) ne doit jamais faire tomber le
+          // batch ni priver les collectes suivantes de leurs documents. §07/01, sans
+          // destinataire dans le log.
+          logger.error('api.external.failed', {
+            service: 'resend',
+            endpoint: 'sendEmail',
+            template: 'rapport_disponible',
+            error: e instanceof Error ? e.message : String(e),
+          });
+        });
       }
 
       result.enqueued++;

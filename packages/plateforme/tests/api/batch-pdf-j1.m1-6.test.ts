@@ -14,6 +14,8 @@ vi.mock('@/lib/pdf/r2-client.js', () => ({
   getObjectBytes: (...a: unknown[]) => getObjectBytes(...a),
 }));
 
+import { sendEmail } from '@savr/shared/src/email/index.js';
+import { logger } from '@savr/shared/src/logger/index.js';
 import { runBatchPdfJ1 } from '../../src/lib/pdf/batch-pdf-j1.js';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -398,5 +400,92 @@ describe('M1.6 / BatchPdfJ1 / Logo cascade §1.2 (BL-P2-19)', () => {
     expect((rapJob!.payload as { logo_url?: string }).logo_url).toMatch(
       /^data:image\/png;base64,/,
     );
+  });
+});
+
+/** Texte de la requête de sélection des collectes (1er `.select` embarquant `evenements`). */
+function selectionCollectes(sb: { _chain: Record<string, unknown> }): string {
+  const calls = (sb._chain['select'] as ReturnType<typeof vi.fn>).mock.calls;
+  return (
+    calls.map((c) => String(c[0])).find((s) => s.includes('evenements')) ?? ''
+  );
+}
+
+// Régression (2026-09-11) : `evenements` porte 3 FK vers `organisations` (programmateur,
+// traiteur opérationnel, client organisateur). Un embed `organisations(...)` non qualifié
+// est ambigu → PostgREST rejette la requête et le batch n'enqueue RIEN, sans lever. Un
+// mock répond quoi qu'on lui demande : seul le texte de la sélection peut l'épingler.
+describe('M1.6 / BatchPdfJ1 / requête de sélection', () => {
+  it("embed programmateur qualifié par sa FK — jamais d'embed `organisations(...)` ambigu", async () => {
+    const sb = makeSupabase([{ data: [], error: null }]);
+    await runBatchPdfJ1(sb as never);
+    const sel = selectionCollectes(sb);
+    expect(sel).not.toBe('');
+    expect(sel).toContain('organisations!organisation_id');
+    expect(sel).not.toMatch(/\borganisations\s*\(/);
+  });
+});
+
+// Régression (2026-09-11) : l'email « disponible » était envoyé en `void sendEmail(...)` SANS
+// `.catch` → un template absent (savr-dev : `rapport_disponible` jamais seedé) produisait un
+// rejet non géré qui tuait le processus au 1er document, privant toutes les collectes
+// suivantes du leur. L'email doit rester best-effort : batch complet + trace §07/01.
+describe('M1.6 / BatchPdfJ1 / email best-effort', () => {
+  it("un échec d'envoi de « rapport_disponible » ne fait pas tomber le batch et est tracé", async () => {
+    vi.mocked(sendEmail).mockRejectedValueOnce(
+      new Error('Template email introuvable : rapport_disponible'),
+    );
+    const logErr = vi.spyOn(logger, 'error');
+    const collecte = makeCollecte();
+    const sb = makeSupabase([
+      { data: [collecte], error: null },
+      { data: [], error: null },
+      { count: 3, error: null },
+      {
+        data: [
+          {
+            flux_id: 'f1',
+            poids_reel_kg: 12,
+            nb_bacs: 3,
+            equivalent_roll: null,
+            flux: { nom: 'Biodéchets' },
+          },
+        ],
+      },
+      { data: 'BSAV-2026-00001', error: null },
+      { data: { nom: 'Strike Transport', siret: '98765432100011' } },
+      {
+        data: {
+          evenement: {
+            type_evenement_id: 't1',
+            type_evenement: { libelle: 'Gala' },
+          },
+        },
+      },
+      { data: { id: 'bord-new' }, error: null },
+      { data: { id: 'rse-new' }, error: null },
+      { data: null, error: null },
+      { data: null, error: null },
+    ]);
+
+    const result = await runBatchPdfJ1(sb as never);
+    await new Promise((r) => setImmediate(r)); // laisse le rejet de l'email se propager
+
+    expect(result.enqueued).toBe(1);
+    expect(result.errors).toHaveLength(0);
+    expect(sendEmail).toHaveBeenCalledWith(
+      'rapport_disponible',
+      expect.any(String),
+      expect.any(Object),
+      expect.any(Object),
+    );
+    expect(logErr).toHaveBeenCalledWith(
+      'api.external.failed',
+      expect.objectContaining({
+        service: 'resend',
+        template: 'rapport_disponible',
+      }),
+    );
+    logErr.mockRestore();
   });
 });

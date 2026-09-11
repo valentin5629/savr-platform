@@ -19,12 +19,14 @@
     "packages/plateforme/src/lib/pdf/r2-client.ts",
     "packages/plateforme/src/lib/pdf/pdf-worker.ts",
     "packages/plateforme/src/lib/pdf/batch-pdf-j1.ts",
+    "packages/plateforme/src/lib/pdf/batch-fatal.ts",
     "packages/plateforme/src/app/api/cron/pdf-worker/route.ts",
     "packages/plateforme/src/app/api/cron/batch-pdf-j1/route.ts",
     "packages/plateforme/src/app/api/v1/admin/bordereaux/[id]/download/route.ts",
     "packages/plateforme/src/app/api/v1/admin/rapports-rse/[id]/download/route.ts",
     "packages/plateforme/tests/api/pdf-worker.m1-6.test.ts",
     "packages/plateforme/tests/api/batch-pdf-j1.m1-6.test.ts",
+    "packages/plateforme/tests/api/batch-pdf-j1-observabilite.m1-6.test.ts",
     "supabase/tests/m1_6_pdf_batch.test.sql",
     "specs/manifests/M1.6.json"
   ],
@@ -75,7 +77,8 @@
   "tests": {
     "vitest": [
       "packages/plateforme/tests/api/pdf-worker.m1-6.test.ts (8 tests)",
-      "packages/plateforme/tests/api/batch-pdf-j1.m1-6.test.ts (5 tests)"
+      "packages/plateforme/tests/api/batch-pdf-j1.m1-6.test.ts (5 tests)",
+      "packages/plateforme/tests/api/batch-pdf-j1-observabilite.m1-6.test.ts (11 tests)"
     ],
     "pgtap": [
       "supabase/tests/m1_6_pdf_batch.test.sql (14 assertions)"

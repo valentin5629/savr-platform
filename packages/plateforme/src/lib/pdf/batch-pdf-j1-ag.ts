@@ -6,12 +6,23 @@
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 
+import {
+  type BatchFatal,
+  fatalSelection,
+  fatalSiAucuneProduite,
+  logCollecteEnEchec,
+} from './batch-fatal.js';
+
 export interface BatchPdfJ1AgResult {
   enqueued: number;
   skipped_no_attribution: number;
   already_done: number;
   errors: string[];
+  /** Échec global (sélection KO / 0 produit sur N tentés) → job.cron.failed. */
+  fatal?: BatchFatal;
 }
+
+const JOB_NAME = 'attestations_batch';
 
 interface AttributionRow {
   id: string;
@@ -81,7 +92,11 @@ export async function runBatchPdfJ1Ag(
     .not('evenement_id', 'is', null);
 
   if (selErr) {
-    result.errors.push(`Sélection collectes AG : ${selErr.message}`);
+    result.fatal = fatalSelection(
+      result.errors,
+      'Sélection collectes AG',
+      selErr,
+    );
     return result;
   }
 
@@ -98,10 +113,21 @@ export async function runBatchPdfJ1Ag(
 
   // 3. Exclure collectes déjà attestées (idempotence R8)
   const collecteIds = eligible.map((c) => c.id);
-  const { data: existingAtts } = await supabase
+  const { data: existingAtts, error: attSelErr } = await supabase
     .from('attestations_don')
     .select('collecte_id, statut')
     .in('collecte_id', collecteIds);
+
+  // Fail-closed : sans la liste des attestations émises, traiter = attestation fiscale
+  // 2041-GE en double (numéro ATT-DON gapless consommé).
+  if (attSelErr) {
+    result.fatal = fatalSelection(
+      result.errors,
+      'Sélection attestations existantes',
+      attSelErr,
+    );
+    return result;
+  }
 
   type AttRow = { collecte_id: string; statut: string };
   const doneIds = new Set(
@@ -121,11 +147,21 @@ export async function runBatchPdfJ1Ag(
       toProcess.map((c) => c.evenements?.organisation_id).filter(Boolean),
     ),
   ] as string[];
-  const { data: entites } = await supabase
+  const { data: entites, error: entErr } = await supabase
     .from('entites_facturation')
     .select('id, organisation_id, raison_sociale, siret')
     .in('organisation_id', orgIds)
     .eq('entite_par_defaut', true);
+
+  // Sans entité, l'attestation serait figée avec un donateur vide (raison sociale/SIRET).
+  if (entErr) {
+    result.fatal = fatalSelection(
+      result.errors,
+      'Sélection entités de facturation',
+      entErr,
+    );
+    return result;
+  }
 
   const entiteByOrg = new Map<string, EntiteFacturation>(
     ((entites ?? []) as EntiteFacturation[]).map((e) => [e.organisation_id, e]),
@@ -308,8 +344,10 @@ export async function runBatchPdfJ1Ag(
       result.enqueued++;
     } catch (err) {
       result.errors.push(`collecte AG ${collecte.id}: ${String(err)}`);
+      logCollecteEnEchec(JOB_NAME, collecte.id, err);
     }
   }
 
+  result.fatal = fatalSiAucuneProduite(result.enqueued, result.errors);
   return result;
 }

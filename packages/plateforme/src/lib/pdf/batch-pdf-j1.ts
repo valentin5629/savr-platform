@@ -4,6 +4,12 @@
 
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 
+import {
+  type BatchFatal,
+  fatalSelection,
+  fatalSiAucuneProduite,
+  logCollecteEnEchec,
+} from './batch-fatal.js';
 import { resolveRapportBenchmark } from './rapport-benchmark.js';
 import { resolveRapportLogo } from './logo-cascade.js';
 import { makeLogoResolver } from './logo-inline.js';
@@ -15,7 +21,11 @@ export interface BatchPdfJ1Result {
   escalated_r9: number;
   already_done: number;
   errors: string[];
+  /** Échec global (sélection KO / 0 produit sur N tentés) → job.cron.failed. */
+  fatal?: BatchFatal;
 }
+
+const JOB_NAME = 'bordereaux_rapports_batch';
 
 interface CollecteRow {
   id: string;
@@ -153,7 +163,7 @@ export async function runBatchPdfJ1(
     .not('evenement_id', 'is', null);
 
   if (selErr) {
-    result.errors.push(`Sélection collectes : ${selErr.message}`);
+    result.fatal = fatalSelection(result.errors, 'Sélection collectes', selErr);
     return result;
   }
 
@@ -161,10 +171,21 @@ export async function runBatchPdfJ1(
 
   // 2. Exclure celles qui ont déjà un bordereau
   const collecteIds = collectes.map((c: { id: string }) => c.id);
-  const { data: existingBordereaux } = await supabase
+  const { data: existingBordereaux, error: bordSelErr } = await supabase
     .from('bordereaux_savr')
     .select('collecte_id, statut')
     .in('collecte_id', collecteIds);
+
+  // Fail-closed : sans la liste des bordereaux émis, traiter = ré-émettre (BSAV gapless
+  // consommé, doublon de document réglementaire).
+  if (bordSelErr) {
+    result.fatal = fatalSelection(
+      result.errors,
+      'Sélection bordereaux existants',
+      bordSelErr,
+    );
+    return result;
+  }
 
   type BordRow = { collecte_id: string; statut: string };
   const doneIds = new Set(
@@ -467,8 +488,10 @@ export async function runBatchPdfJ1(
       result.enqueued++;
     } catch (err) {
       result.errors.push(`collecte ${collecte.id}: ${String(err)}`);
+      logCollecteEnEchec(JOB_NAME, collecte.id, err);
     }
   }
 
+  result.fatal = fatalSiAucuneProduite(result.enqueued, result.errors);
   return result;
 }

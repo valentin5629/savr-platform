@@ -4,13 +4,25 @@
 //          R8 (idempotence : skip si attestation emise/corrigee).
 
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { logger } from '@savr/shared/src/logger/index.js';
+
+import {
+  type BatchFatal,
+  fatalSelection,
+  fatalSiAucuneProduite,
+  logCollecteEnEchec,
+} from './batch-fatal.js';
 
 export interface BatchPdfJ1AgResult {
   enqueued: number;
   skipped_no_attribution: number;
   already_done: number;
   errors: string[];
+  /** Échec global (sélection KO / 0 produit sur N tentés) → job.cron.failed. */
+  fatal?: BatchFatal;
 }
+
+const JOB_NAME = 'attestations_batch';
 
 interface AttributionRow {
   id: string;
@@ -20,7 +32,6 @@ interface AttributionRow {
   associations: {
     nom: string;
     adresse: string | null;
-    numero_rup: string | null;
     habilitee_attestation_fiscale: boolean;
   } | null;
 }
@@ -67,7 +78,7 @@ export async function runBatchPdfJ1Ag(
       evenements ( nom_evenement, date_evenement, organisation_id ),
       attributions_antgaspi (
         id, volume_repas_realise, poids_repas_kg, association_id,
-        associations ( nom, adresse, numero_rup, habilitee_attestation_fiscale )
+        associations ( nom, adresse, habilitee_attestation_fiscale )
       )
     `,
     )
@@ -81,7 +92,11 @@ export async function runBatchPdfJ1Ag(
     .not('evenement_id', 'is', null);
 
   if (selErr) {
-    result.errors.push(`Sélection collectes AG : ${selErr.message}`);
+    result.fatal = fatalSelection(
+      result.errors,
+      'Sélection collectes AG',
+      selErr,
+    );
     return result;
   }
 
@@ -98,10 +113,21 @@ export async function runBatchPdfJ1Ag(
 
   // 3. Exclure collectes déjà attestées (idempotence R8)
   const collecteIds = eligible.map((c) => c.id);
-  const { data: existingAtts } = await supabase
+  const { data: existingAtts, error: attSelErr } = await supabase
     .from('attestations_don')
     .select('collecte_id, statut')
     .in('collecte_id', collecteIds);
+
+  // Fail-closed : sans la liste des attestations émises, traiter = attestation fiscale
+  // 2041-GE en double (numéro ATT-DON gapless consommé).
+  if (attSelErr) {
+    result.fatal = fatalSelection(
+      result.errors,
+      'Sélection attestations existantes',
+      attSelErr,
+    );
+    return result;
+  }
 
   type AttRow = { collecte_id: string; statut: string };
   const doneIds = new Set(
@@ -121,11 +147,21 @@ export async function runBatchPdfJ1Ag(
       toProcess.map((c) => c.evenements?.organisation_id).filter(Boolean),
     ),
   ] as string[];
-  const { data: entites } = await supabase
+  const { data: entites, error: entErr } = await supabase
     .from('entites_facturation')
     .select('id, organisation_id, raison_sociale, siret')
     .in('organisation_id', orgIds)
     .eq('entite_par_defaut', true);
+
+  // Sans entité, l'attestation serait figée avec un donateur vide (raison sociale/SIRET).
+  if (entErr) {
+    result.fatal = fatalSelection(
+      result.errors,
+      'Sélection entités de facturation',
+      entErr,
+    );
+    return result;
+  }
 
   const entiteByOrg = new Map<string, EntiteFacturation>(
     ((entites ?? []) as EntiteFacturation[]).map((e) => [e.organisation_id, e]),
@@ -184,7 +220,9 @@ export async function runBatchPdfJ1Ag(
           donateur_raison_sociale: entite?.raison_sociale ?? '',
           donateur_siret: entite?.siret ?? '',
           association_nom: asso?.nom ?? '',
-          association_numero_rup: asso?.numero_rup ?? null,
+          // Aucune colonne source côté associations (CDC §04 : seul l'instantané existe)
+          // → null tant que le CDC ne définit pas où saisir le n° RUP (_Divergences M2.4).
+          association_numero_rup: null,
           association_habilitation: mentionFiscale
             ? 'habilitee'
             : 'non_habilitee',
@@ -239,7 +277,7 @@ export async function runBatchPdfJ1Ag(
         donateur_siret: entite?.siret ?? '',
         association_nom: asso?.nom ?? '',
         association_adresse: asso?.adresse ?? null,
-        association_numero_rup: asso?.numero_rup ?? null,
+        association_numero_rup: null,
         mention_fiscale_2041ge: mentionFiscale,
         volume_repas: attr.volume_repas_realise,
         poids_kg: attr.poids_repas_kg,
@@ -289,14 +327,27 @@ export async function runBatchPdfJ1Ag(
             numero_attestation: numero,
           },
           { entityType: 'collectes', entityId: collecte.id },
-        );
+        ).catch((e: unknown) => {
+          // Best-effort : `void` seul laisse un rejet NON GÉRÉ qui tue le processus —
+          // un email raté (template absent, Resend KO) ne doit jamais faire tomber le
+          // batch ni priver les collectes suivantes de leurs documents. §07/01, sans
+          // destinataire dans le log.
+          logger.error('api.external.failed', {
+            service: 'resend',
+            endpoint: 'sendEmail',
+            template: 'attestation_don_disponible',
+            error: e instanceof Error ? e.message : String(e),
+          });
+        });
       }
 
       result.enqueued++;
     } catch (err) {
       result.errors.push(`collecte AG ${collecte.id}: ${String(err)}`);
+      logCollecteEnEchec(JOB_NAME, collecte.id, err);
     }
   }
 
+  result.fatal = fatalSiAucuneProduite(result.enqueued, result.errors);
   return result;
 }

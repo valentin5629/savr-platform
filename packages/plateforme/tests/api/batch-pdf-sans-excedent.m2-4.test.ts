@@ -310,3 +310,26 @@ describe('M2.4 / batch sans-excédent — idempotence & sélection', () => {
     expect(result.errors[0]).toContain('connection timeout');
   });
 });
+
+/** Texte de la requête de sélection des collectes (1er `.select` embarquant `evenements`). */
+function selectionCollectes(sb: { _chain: Record<string, unknown> }): string {
+  const calls = (sb._chain['select'] as ReturnType<typeof vi.fn>).mock.calls;
+  return (
+    calls.map((c) => String(c[0])).find((s) => s.includes('evenements')) ?? ''
+  );
+}
+
+// Régression (2026-09-11) : `evenements` porte 3 FK vers `organisations` (programmateur,
+// traiteur opérationnel, client organisateur). Un embed `organisations(...)` non qualifié
+// est ambigu → PostgREST rejette la requête et le batch n'enqueue RIEN, sans lever. Un
+// mock répond quoi qu'on lui demande : seul le texte de la sélection peut l'épingler.
+describe('M2.4 / BatchSansExcedent / requête de sélection', () => {
+  it("embed programmateur qualifié par sa FK — jamais d'embed `organisations(...)` ambigu", async () => {
+    const sb = makeSupabase([{ data: [], error: null }]);
+    await runBatchSansExcedent(sb as never);
+    const sel = selectionCollectes(sb);
+    expect(sel).not.toBe('');
+    expect(sel).toContain('organisations!organisation_id');
+    expect(sel).not.toMatch(/\borganisations\s*\(/);
+  });
+});

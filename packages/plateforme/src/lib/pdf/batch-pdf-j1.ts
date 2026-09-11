@@ -4,9 +4,16 @@
 
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 
+import {
+  type BatchFatal,
+  fatalSelection,
+  fatalSiAucuneProduite,
+  logCollecteEnEchec,
+} from './batch-fatal.js';
 import { resolveRapportBenchmark } from './rapport-benchmark.js';
 import { resolveRapportLogo } from './logo-cascade.js';
 import { makeLogoResolver } from './logo-inline.js';
+import { logger } from '@savr/shared/src/logger/index.js';
 
 export interface BatchPdfJ1Result {
   enqueued: number;
@@ -14,7 +21,11 @@ export interface BatchPdfJ1Result {
   escalated_r9: number;
   already_done: number;
   errors: string[];
+  /** Échec global (sélection KO / 0 produit sur N tentés) → job.cron.failed. */
+  fatal?: BatchFatal;
 }
+
+const JOB_NAME = 'bordereaux_rapports_batch';
 
 interface CollecteRow {
   id: string;
@@ -134,7 +145,7 @@ export async function runBatchPdfJ1(
         id, nom_evenement, date_evenement, pax,
         organisation_id, traiteur_operationnel_organisation_id,
         client_organisateur_organisation_id, logo_client_organisateur_url,
-        organisations ( raison_sociale, siret, adresse, email_principal, type, logo_url ),
+        organisations!organisation_id ( raison_sociale, siret, adresse, email_principal, type, logo_url ),
         traiteur_operationnel:organisations!traiteur_operationnel_organisation_id ( raison_sociale, siret, adresse, logo_url ),
         client_organisateur:organisations!client_organisateur_organisation_id ( logo_url ),
         lieux ( nom, adresse_acces, code_postal, ville )
@@ -152,7 +163,7 @@ export async function runBatchPdfJ1(
     .not('evenement_id', 'is', null);
 
   if (selErr) {
-    result.errors.push(`Sélection collectes : ${selErr.message}`);
+    result.fatal = fatalSelection(result.errors, 'Sélection collectes', selErr);
     return result;
   }
 
@@ -160,10 +171,21 @@ export async function runBatchPdfJ1(
 
   // 2. Exclure celles qui ont déjà un bordereau
   const collecteIds = collectes.map((c: { id: string }) => c.id);
-  const { data: existingBordereaux } = await supabase
+  const { data: existingBordereaux, error: bordSelErr } = await supabase
     .from('bordereaux_savr')
     .select('collecte_id, statut')
     .in('collecte_id', collecteIds);
+
+  // Fail-closed : sans la liste des bordereaux émis, traiter = ré-émettre (BSAV gapless
+  // consommé, doublon de document réglementaire).
+  if (bordSelErr) {
+    result.fatal = fatalSelection(
+      result.errors,
+      'Sélection bordereaux existants',
+      bordSelErr,
+    );
+    return result;
+  }
 
   type BordRow = { collecte_id: string; statut: string };
   const doneIds = new Set(
@@ -449,14 +471,27 @@ export async function runBatchPdfJ1(
                 : '—',
           },
           { entityType: 'collectes', entityId: collecte.id },
-        );
+        ).catch((e: unknown) => {
+          // Best-effort : `void` seul laisse un rejet NON GÉRÉ qui tue le processus —
+          // un email raté (template absent, Resend KO) ne doit jamais faire tomber le
+          // batch ni priver les collectes suivantes de leurs documents. §07/01, sans
+          // destinataire dans le log.
+          logger.error('api.external.failed', {
+            service: 'resend',
+            endpoint: 'sendEmail',
+            template: 'rapport_disponible',
+            error: e instanceof Error ? e.message : String(e),
+          });
+        });
       }
 
       result.enqueued++;
     } catch (err) {
       result.errors.push(`collecte ${collecte.id}: ${String(err)}`);
+      logCollecteEnEchec(JOB_NAME, collecte.id, err);
     }
   }
 
+  result.fatal = fatalSiAucuneProduite(result.enqueued, result.errors);
   return result;
 }

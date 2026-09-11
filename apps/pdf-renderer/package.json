@@ -12,12 +12,12 @@
   },
   "dependencies": {
     "@sparticuz/chromium": "^133.0.0",
-    "express": "^4.19.2",
     "puppeteer-core": "^24.0.0"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^22.0.0",
+    "express": "^4.19.2",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0"
   }

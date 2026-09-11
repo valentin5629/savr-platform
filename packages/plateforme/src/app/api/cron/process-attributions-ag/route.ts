@@ -1,65 +1,72 @@
+import { getNextRetryAt } from '@savr/adapters/src/outbox-worker.js';
+
 import { processAttributionValidee } from '@/lib/attribution-ag/job.js';
 import type { AttributionValideePayload } from '@/lib/attribution-ag/job.js';
 import { withCronObservability } from '@/lib/cron-observabilite.js';
 
-// POST /api/cron/process-attributions-ag
-// Consomme les outbox_events attribution.validee en attente.
-// Appelé par Vercel Cron (ou pg_cron en dev). Non catalogué §07/02 → pas de Slack.
+// Cron Vercel (GET, toutes les 5 min) — consomme les events outbox de la famille
+// `attribution_job` (`attribution.validee` → emails association + transporteur).
+//
+// Famille isolée du worker logistique (migration 20260911150000) : claim dédié
+// `fn_claim_outbox_attribution_batch`, head-of-line calculé dans la famille seule
+// → un email en échec ne bloque jamais le dispatch de la collecte. Même pattern
+// lease/claim que l'outbox logistique ; résultat via `fn_result_outbox` et même
+// politique de retry (`getNextRetryAt` : 5 min / 1 h / 24 h puis `dead`).
+// Non catalogué §07/02 → pas de canal Slack.
 export const POST = withCronObservability(
   'process_attributions_ag',
   async ({ supabase }) => {
     const processed: string[] = [];
     const errors: { id: string; error: string }[] = [];
 
-    // Claim jusqu'à 10 events d'un coup (pattern lease/claim — §04 outbox)
-    const claimedUntil = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    const { data: events, error: claimErr } = await supabase.rpc(
+      'fn_claim_outbox_attribution_batch',
+      { p_limit: 10 },
+    );
+    // PostgrestError n'est pas une instance d'Error : on la convertit, sinon le
+    // log job.cron.failed ne porte que « [object Object] ».
+    if (claimErr) {
+      throw Object.assign(new Error(claimErr.message), { code: claimErr.code });
+    }
 
-    const { data: events, error: claimErr } = await supabase
-      .from('outbox_events')
-      .update({ status: 'processing', claimed_until: claimedUntil })
-      .eq('status', 'pending')
-      .eq('event_type', 'attribution.validee')
-      .eq('consumer', 'attribution_job')
-      .lte('attempts', 3)
-      .select('id, payload, attempts')
-      .limit(10);
+    const claimed = (events ?? []) as Array<{
+      id: string;
+      payload: AttributionValideePayload;
+      attempts: number;
+    }>;
 
-    if (claimErr) throw claimErr;
-
-    for (const ev of events ?? []) {
+    for (const ev of claimed) {
       try {
-        await processAttributionValidee(
-          ev.payload as AttributionValideePayload,
-        );
-
-        await supabase
-          .from('outbox_events')
-          .update({ status: 'done', processed_at: new Date().toISOString() })
-          .eq('id', ev.id);
-
-        processed.push(ev.id as string);
+        await processAttributionValidee(ev.payload);
+        await supabase.rpc('fn_result_outbox', {
+          p_id: ev.id,
+          p_statut: 'done',
+        });
+        processed.push(ev.id);
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Erreur inconnue';
-        const newAttempts = ((ev.attempts as number) ?? 0) + 1;
-
-        await supabase
-          .from('outbox_events')
-          .update({
-            status: newAttempts >= 4 ? 'dlq' : 'pending',
-            attempts: newAttempts,
-            last_error: msg,
-            claimed_until: null,
-          })
-          .eq('id', ev.id);
-
-        errors.push({ id: ev.id as string, error: msg });
+        const msg = err instanceof Error ? err.message : String(err);
+        // Sans palier restant → `dead` (last_error conservé, déblocable par les RPC
+        // DLQ admin fn_admin_requeue/skip/resolve_outbox).
+        const nextRetry = getNextRetryAt(ev.attempts);
+        await supabase.rpc(
+          'fn_result_outbox',
+          nextRetry
+            ? {
+                p_id: ev.id,
+                p_statut: 'failed',
+                p_last_error: msg,
+                p_next_retry_at: nextRetry.toISOString(),
+              }
+            : { p_id: ev.id, p_statut: 'dead', p_last_error: msg },
+        );
+        errors.push({ id: ev.id, error: msg });
       }
     }
 
     return {
       processed,
       errors,
-      total: (events ?? []).length,
+      total: claimed.length,
       nb_traite: processed.length,
     };
   },

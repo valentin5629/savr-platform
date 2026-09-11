@@ -71,3 +71,7 @@ export const POST = withCronObservability(
   },
   { canalOnFailure: 'eleve' },
 );
+
+// Vercel Cron invoque en GET (avec `Authorization: Bearer $CRON_SECRET`) ; POST reste
+// accepté pour les déclenchements manuels. Même handler, même garde fail-closed.
+export const GET = POST;

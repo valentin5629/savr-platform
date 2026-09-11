@@ -218,7 +218,7 @@ Pour toute zone d'ombre non tranchée ici : **stop et demander**.
 | **prod** | `app.gosavr.io` | Réelles client | Production |
 
 - 2 projets Supabase distincts (`savr-dev`, `savr-prod`), secrets séparés (Pennylane sandbox en dev).
-- Branches Vercel : `main` → prod, `dev` → dev. **Déploiement prod = action manuelle Val (+ frère), jamais auto.**
+- Branches Vercel : `main` → prod, `dev` → dev. **Déploiement prod = autorisé à Claude Code (assoupli 2026-09-03, cf. §12 « Merge prod »)** — merge `main` + déploiement prod sans validation préalable de Val, tant qu'il n'y a **aucun utilisateur réel en prod**. ⚠ **Règle temporaire : à ré-durcir (retour à « action manuelle Val + frère ») dès le 1er client réel en production.**
 - Aucun accès DB prod depuis dev. Pas de copie prod→dev sans anonymisation (`seed_anonymized`). Secrets dans Vercel/Supabase Vault, jamais dans le repo.
 
 ---
@@ -232,7 +232,8 @@ Pour toute zone d'ombre non tranchée ici : **stop et demander**.
 
 - **Pré-commit (câblé, hook `PreToolUse`)** : `check-coupling.sh` (anti-couplage G3) + `pnpm -w typecheck + lint + test:unit`, **exit 2 = commit bloqué**. ESLint + Prettier auto en `PostToolUse`.
 - **PR (GitHub Actions, bloquants)** : lint/format, type-check, Vitest, **`anti-coupling` (G3 TMS-Ready : 0 réf MTS-1/Everest hors `packages/adapters/`)**, **`pgtap-rls-outbox` = pgTAP RLS sous rôle `authenticated` (non négociable) + G4 TMS-Ready (outbox par mutation, auto-activé)**, Playwright E2E workflows critiques, build Next.js, secret scan gitleaks, dry-run migration anti-destructif, bundle-budget. `pnpm audit` = warning.
-- **Merge `main`** : PR obligatoire + checks verts + 1 approbation, pas de bypass admin, pas de force push ; déploiement Vercel ; **migration Supabase prod = manuelle** (revue diff SQL Val + frère) ; tag git.
+- **Merge `main`** : PR obligatoire + checks verts + 1 approbation, pas de bypass admin, pas de force push ; déploiement Vercel ; tag git.
+- **Merge prod / déploiement prod = AUTORISÉ à Claude Code (assoupli 2026-09-03, décision Val)** — motif : **aucun utilisateur réel en prod aujourd'hui**, le coût d'un incident prod est nul. Claude Code peut merger sur `main`, laisser partir le déploiement prod et **appliquer les migrations Supabase prod** sans attendre Val, aux **conditions non négociables** : (1) CI verte + gate-pr OK (aucun bypass, aucun `--admin`, aucun force push) ; (2) migration prod **jamais destructive** (add column nullable OK ; `DROP`/`RENAME`/backfill lourd → STOP, demander Val) ; (3) **jamais de seed en prod**, jamais de copie prod→dev non anonymisée ; (4) le déploiement prod est **annoncé à Val dans la réponse** (ce qui part, quelles migrations) ; (5) si les secrets prod (`savr-prod`) ne sont pas disponibles dans la session, la migration prod reste à Val — le merge/déploiement code, lui, passe quand même. ⚠ **Règle temporaire, à révoquer dès qu'un client réel est en production** → retour à « déploiement + migration prod = action manuelle Val (+ frère) ».
 - **Cron** : attestations J+1 6h, bordereaux J+1 6h, relance factures, polling MTS-1 15 min, purge logs.
 
 ---

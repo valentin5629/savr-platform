@@ -24,9 +24,10 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 // Ce cron couvre DEUX job_names §07/02 de criticité élevée
-// (bordereaux_rapports_batch = ZD, attestations_batch = AG) exécutés en parallèle.
-// Chaque sous-batch est instrumenté séparément (started/completed|failed) pour que
-// l'alerte eleve §07/03 « Job cron critique échoué » soit attribuée au bon job.
+// (bordereaux_rapports_batch = ZD, attestations_batch = AG) + le rapport sans-excédent
+// (rapport_sans_excedent_batch), exécutés en parallèle. Chaque sous-batch est
+// instrumenté séparément (started/completed|failed) pour que l'alerte eleve §07/03
+// « Job cron critique échoué » soit attribuée au bon job.
 export async function POST(request: Request): Promise<NextResponse> {
   const unauthorized = assertCronAuth(request);
   if (unauthorized) return unauthorized;
@@ -40,61 +41,68 @@ export async function POST(request: Request): Promise<NextResponse> {
   );
 }
 
+// Les 3 sous-batchs rendent la main même en échec (errors[] par collecte) : c'est
+// leur champ `fatal` qui distingue un échec GLOBAL (sélection KO, ou 0 document produit
+// sur N collectes tentées) → job.cron.failed + alerte, exactement comme un rejet.
+// Sans cette garde, une sélection cassée finissait en job.cron.completed (incident
+// 2026-09-11 : 0 PDF pendant des mois, aucune alerte).
+const SOUS_BATCHS = [
+  { jobName: 'bordereaux_rapports_batch', cle: 'zd', run: runBatchPdfJ1 },
+  { jobName: 'attestations_batch', cle: 'ag', run: runBatchPdfJ1Ag },
+  // Rapport « Événement sans excédent alimentaire » (§12 §1.3-bis, R21b) — batch dédié
+  // pour les collectes AG realisee_sans_collecte, sans embargo H+24 (décision Val).
+  {
+    jobName: 'rapport_sans_excedent_batch',
+    cle: 'sans_excedent',
+    run: runBatchSansExcedent,
+  },
+] as const;
+
 async function runBatchPdfJ1All(
   supabase: ReturnType<typeof createAdminSupabaseClient>,
 ): Promise<NextResponse> {
-  const startedZd = emitCronStarted('bordereaux_rapports_batch');
-  const startedAg = emitCronStarted('attestations_batch');
-  // Rapport « Événement sans excédent alimentaire » (§12 §1.3-bis, R21b) — batch dédié
-  // pour les collectes AG realisee_sans_collecte, sans embargo H+24 (décision Val).
-  const startedSe = emitCronStarted('rapport_sans_excedent_batch');
-
-  const [zdSettled, agSettled, seSettled] = await Promise.allSettled([
-    runBatchPdfJ1(supabase),
-    runBatchPdfJ1Ag(supabase),
-    runBatchSansExcedent(supabase),
-  ]);
+  const startedAt = SOUS_BATCHS.map((b) => emitCronStarted(b.jobName));
+  const settled = await Promise.allSettled(
+    SOUS_BATCHS.map((b) => b.run(supabase)),
+  );
 
   let failed = false;
-  let zd: unknown = null;
-  let ag: unknown = null;
-  let sans_excedent: unknown = null;
+  const body: Record<string, unknown> = {};
 
-  if (zdSettled.status === 'fulfilled') {
-    zd = zdSettled.value;
-    emitCronCompleted('bordereaux_rapports_batch', startedZd);
-  } else {
-    failed = true;
-    await emitCronFailed('bordereaux_rapports_batch', zdSettled.reason, {
-      etape: 'run',
-      canal: 'eleve',
-    });
-  }
+  for (const [i, b] of SOUS_BATCHS.entries()) {
+    const s = settled[i]!;
 
-  if (agSettled.status === 'fulfilled') {
-    ag = agSettled.value;
-    emitCronCompleted('attestations_batch', startedAg);
-  } else {
-    failed = true;
-    await emitCronFailed('attestations_batch', agSettled.reason, {
-      etape: 'run',
-      canal: 'eleve',
-    });
-  }
+    if (s.status === 'rejected') {
+      failed = true;
+      body[b.cle] = null;
+      await emitCronFailed(b.jobName, s.reason, {
+        etape: 'run',
+        canal: 'eleve',
+      });
+      continue;
+    }
 
-  if (seSettled.status === 'fulfilled') {
-    sans_excedent = seSettled.value;
-    emitCronCompleted('rapport_sans_excedent_batch', startedSe);
-  } else {
-    failed = true;
-    await emitCronFailed('rapport_sans_excedent_batch', seSettled.reason, {
-      etape: 'run',
-      canal: 'eleve',
-    });
+    body[b.cle] = s.value;
+    const { fatal } = s.value;
+    if (fatal) {
+      failed = true;
+      // `code` porté par l'Error → error_code de job.cron.failed (ex. PGRST201).
+      await emitCronFailed(
+        b.jobName,
+        Object.assign(new Error(fatal.message), { code: fatal.code }),
+        { etape: fatal.etape, canal: 'eleve' },
+      );
+    } else {
+      // Échecs par collecte éventuels (déjà loggués en warn) → nb_errors, sans alerte.
+      emitCronCompleted(b.jobName, startedAt[i]!, {
+        nb_traite: s.value.enqueued,
+        nb_errors: s.value.errors.length,
+      });
+    }
   }
 
   return NextResponse.json(
-    { ok: !failed, zd, ag, sans_excedent },
+    { ok: !failed, ...body },
     { status: failed ? 500 : 200 },
   );
 }

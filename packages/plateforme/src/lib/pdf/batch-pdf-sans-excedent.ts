@@ -16,12 +16,22 @@ import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 
 import { resolveRapportLogo } from './logo-cascade.js';
 import { makeLogoResolver } from './logo-inline.js';
+import {
+  type BatchFatal,
+  fatalSelection,
+  fatalSiAucuneProduite,
+  logCollecteEnEchec,
+} from './batch-fatal.js';
 
 export interface BatchSansExcedentResult {
   enqueued: number;
   already_done: number;
   errors: string[];
+  /** Échec global (sélection KO / 0 produit sur N tentés) → job.cron.failed. */
+  fatal?: BatchFatal;
 }
+
+const JOB_NAME = 'rapport_sans_excedent_batch';
 
 interface OrgRow {
   raison_sociale?: string | null;
@@ -94,7 +104,11 @@ export async function runBatchSansExcedent(
     .not('evenement_id', 'is', null);
 
   if (selErr) {
-    result.errors.push(`Sélection collectes sans-excédent : ${selErr.message}`);
+    result.fatal = fatalSelection(
+      result.errors,
+      'Sélection collectes sans-excédent',
+      selErr,
+    );
     return result;
   }
 
@@ -106,10 +120,20 @@ export async function runBatchSansExcedent(
   const collecteIds = (collectes as unknown as CollecteSansExcedentRow[]).map(
     (c) => c.id,
   );
-  const { data: existingRapports } = await supabase
+  const { data: existingRapports, error: rapSelErr } = await supabase
     .from('rapports_rse')
     .select('collecte_id')
     .in('collecte_id', collecteIds);
+
+  // Fail-closed : sans la liste des rapports existants, traiter = rapport en double.
+  if (rapSelErr) {
+    result.fatal = fatalSelection(
+      result.errors,
+      'Sélection rapports existants',
+      rapSelErr,
+    );
+    return result;
+  }
 
   const doneIds = new Set(
     ((existingRapports ?? []) as { collecte_id: string }[]).map(
@@ -254,8 +278,10 @@ export async function runBatchSansExcedent(
       result.errors.push(
         `collecte sans-excédent ${collecte.id}: ${String(err)}`,
       );
+      logCollecteEnEchec(JOB_NAME, collecte.id, err);
     }
   }
 
+  result.fatal = fatalSiAucuneProduite(result.enqueued, result.errors);
   return result;
 }

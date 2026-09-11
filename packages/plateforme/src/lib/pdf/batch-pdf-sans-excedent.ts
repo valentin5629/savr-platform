@@ -82,7 +82,7 @@ export async function runBatchSansExcedent(
         nom_evenement, date_evenement, pax, nom_client_organisateur,
         organisation_id, traiteur_operationnel_organisation_id,
         client_organisateur_organisation_id, logo_client_organisateur_url,
-        organisations ( raison_sociale, type, logo_url ),
+        organisations!organisation_id ( raison_sociale, type, logo_url ),
         traiteur_operationnel:organisations!traiteur_operationnel_organisation_id ( raison_sociale, logo_url ),
         client_organisateur:organisations!client_organisateur_organisation_id ( logo_url ),
         lieux ( nom, adresse_acces, code_postal, ville )

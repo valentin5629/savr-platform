@@ -3,10 +3,11 @@
  * BL-P1-PARITE-02). Génération SYNCHRONE : la route rend via Railway le
  * type_document 'synthese-dashboard', dépose un objet R2 éphémère et renvoie une
  * URL pré-signée 1h. Couvre le contrat (type_document, upload R2, presign, réponse),
- * la garde d'auth (rôle), le clamp de borne future et la propagation d'erreur.
+ * la garde d'auth (rôle), le clamp de borne future et les erreurs (message
+ * générique au client, détail en log serveur, seule la ref Railway propagée).
  * Le snapshot (agrégation/scoping) est testé à part (synthese-snapshot.m3.test.ts).
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest, NextResponse } from 'next/server';
 
 const generatePdf = vi.fn();
@@ -128,12 +129,6 @@ describe('M3.5 / route synthèse PDF — génération synchrone', () => {
     expect(params.to).toBe(today);
   });
 
-  it('échec du renderer Railway → 502', async () => {
-    generatePdf.mockRejectedValue(new Error('Railway PDF 500'));
-    const res = await callPost(post({ from: '2026-01-01', to: '2026-06-30' }));
-    expect(res.status).toBe(502);
-  });
-
   it('filtres Client organisateur + Commercial propagés au snapshot (§1.6 étape 2)', async () => {
     await callPost(
       post({
@@ -150,5 +145,143 @@ describe('M3.5 / route synthèse PDF — génération synchrone', () => {
     };
     expect(params.clientOrgaIds).toEqual(['cli-1', 'cli-2']);
     expect(params.commercialIds).toEqual(['com-1']);
+  });
+});
+
+// Les messages internes (PostgREST, variables d'env du client Railway, SDK R2,
+// corps du renderer) ne quittent jamais le serveur : réponse générique, détail
+// dans le log `api_route.error` (§07/02).
+describe('M3.5 / route synthèse PDF — erreurs sans fuite de détail interne', () => {
+  const GENERIQUE = 'La génération a échoué. Réessayez.';
+  const REF = '0b9c6f2e-3d4a-4f1b-9e8c-7a6b5c4d3e2f';
+  let logSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+  });
+  afterEach(() => {
+    logSpy.mockRestore();
+  });
+
+  function loggedEntries(): {
+    level: string;
+    event: string;
+    org_id: string | null;
+    actor_role: string | null;
+    payload: Record<string, unknown>;
+  }[] {
+    return logSpy.mock.calls.map((c) => JSON.parse(c[0] as string));
+  }
+
+  async function expectGenericBody(
+    res: NextResponse,
+    status: number,
+    secrets: string[],
+  ): Promise<Record<string, unknown>> {
+    expect(res.status).toBe(status);
+    const text = await res.text();
+    for (const s of secrets) expect(text).not.toContain(s);
+    const body = JSON.parse(text) as Record<string, unknown>;
+    expect(body['error']).toBe(GENERIQUE);
+    return body;
+  }
+
+  it('agrégation KO (message PostgREST) → 500 générique, détail loggé', async () => {
+    const detail =
+      'column collectes.poids_interne does not exist (relation "plateforme.collecte_flux")';
+    buildSyntheseSnapshot.mockRejectedValue(new Error(detail));
+    const res = await callPost(post({ from: '2026-01-01', to: '2026-06-30' }));
+    const body = await expectGenericBody(res, 500, [
+      'poids_interne',
+      'collecte_flux',
+      'column',
+    ]);
+    expect(Object.keys(body)).toEqual(['error']);
+    expect(generatePdf).not.toHaveBeenCalled();
+
+    const [entry] = loggedEntries();
+    expect(entry).toMatchObject({
+      level: 'error',
+      event: 'api_route.error',
+      org_id: 'org-1',
+      actor_role: 'traiteur_manager',
+      payload: {
+        route: '/api/v1/dashboards/synthese-pdf',
+        error_code: 'synthese_agregation_failed',
+        message: detail,
+      },
+    });
+  });
+
+  it.each([
+    ['RAILWAY_PDF_SECRET manquant', 'variable d’env du client Railway'],
+    ['RAILWAY_PDF_URL manquant', 'variable d’env du client Railway'],
+    [
+      'Railway PDF 500: Error: Protocol error (Page.printToPDF): Target closed at /app/node_modules/puppeteer-core',
+      'corps texte d’un renderer non durci',
+    ],
+  ])('rendu KO « %s » (%s) → 502 générique, sans ref', async (detail) => {
+    generatePdf.mockRejectedValue(new Error(detail));
+    const res = await callPost(post({ from: '2026-01-01', to: '2026-06-30' }));
+    const body = await expectGenericBody(res, 502, [
+      'RAILWAY',
+      'Railway',
+      'puppeteer',
+      'Protocol',
+    ]);
+    expect(Object.keys(body)).toEqual(['error']);
+    expect(uploadPdf).not.toHaveBeenCalled();
+
+    const [entry] = loggedEntries();
+    expect(entry?.event).toBe('api_route.error');
+    expect(entry?.payload).toMatchObject({
+      error_code: 'synthese_rendu_failed',
+      message: detail,
+    });
+    expect(entry?.payload).not.toHaveProperty('ref');
+  });
+
+  it('upload R2 KO (message SDK) → 502 générique', async () => {
+    uploadPdf.mockRejectedValue(
+      new Error(
+        'R2 upload failed 403: <Error><Code>AccessDenied</Code><BucketName>savr-rapports</BucketName></Error>',
+      ),
+    );
+    const res = await callPost(post({ from: '2026-01-01', to: '2026-06-30' }));
+    await expectGenericBody(res, 502, ['AccessDenied', 'savr-rapports', 'R2']);
+    expect(getPresignedUrl).not.toHaveBeenCalled();
+    expect(loggedEntries()[0]?.payload['message']).toContain('AccessDenied');
+  });
+
+  it('URL pré-signée KO → 502 générique', async () => {
+    getPresignedUrl.mockRejectedValue(
+      new Error('Resolved credential object is not valid'),
+    );
+    const res = await callPost(post({ from: '2026-01-01', to: '2026-06-30' }));
+    await expectGenericBody(res, 502, ['credential']);
+  });
+
+  it('renderer durci {error, ref} → 502 générique + ref propagée (support)', async () => {
+    generatePdf.mockRejectedValue(
+      new Error(`Railway PDF 500: {"error":"render_error","ref":"${REF}"}`),
+    );
+    const res = await callPost(post({ from: '2026-01-01', to: '2026-06-30' }));
+    const body = await expectGenericBody(res, 502, ['render_error', 'Railway']);
+    expect(body).toEqual({ error: GENERIQUE, ref: REF });
+    expect(loggedEntries()[0]?.payload).toMatchObject({
+      error_code: 'synthese_rendu_failed',
+      ref: REF,
+    });
+  });
+
+  it('ref non-UUID dans le corps Railway → ignorée (jamais recopiée)', async () => {
+    generatePdf.mockRejectedValue(
+      new Error(
+        'Railway PDF 500: {"error":"render_error","ref":"RAILWAY_PDF_SECRET=abc"}',
+      ),
+    );
+    const res = await callPost(post({ from: '2026-01-01', to: '2026-06-30' }));
+    const body = await expectGenericBody(res, 502, ['RAILWAY_PDF_SECRET']);
+    expect(Object.keys(body)).toEqual(['error']);
   });
 });

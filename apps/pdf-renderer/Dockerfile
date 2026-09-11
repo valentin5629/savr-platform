@@ -1,29 +1,18 @@
 FROM node:22-slim AS builder
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    fonts-liberation \
-    libasound2 \
-    libatk-bridge2.0-0 \
-    libatk1.0-0 \
-    libcups2 \
-    libdrm2 \
-    libgbm1 \
-    libgtk-3-0 \
-    libnspr4 \
-    libnss3 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxfixes3 \
-    libxkbcommon0 \
-    libxrandr2 \
-    xdg-utils \
-    && rm -rf /var/lib/apt/lists/*
-
+# Le builder ne fait que compiler le TypeScript : pas de Chromium ici, donc aucune
+# lib système à installer (elles vivent dans le stage runtime).
 WORKDIR /app
-COPY package.json ./
+COPY package.json package-lock.json ./
+# `npm ci` : versions figées par package-lock.json. Échoue si le lockfile ne
+# correspond plus à package.json → le régénérer depuis apps/pdf-renderer/ avec le
+# npm de l'image : docker run --rm -v "$PWD":/w -w /w node:22-slim \
+#   npm install --package-lock-only --ignore-scripts
 # Toutes les dépendances, devDependencies incluses : `tsc` (typescript) vit là et
 # `npm run build` en a besoin. Un `--omit=dev` ici casse le build ("tsc: not found").
-RUN npm install
+# `--ignore-scripts` : aucun script d'installation n'est exécuté. Seules des
+# devDependencies en déclarent (esbuild via tsx, fsevents), inutiles au build.
+RUN npm ci --ignore-scripts
 
 COPY tsconfig.json ./
 COPY src ./src
@@ -64,6 +53,11 @@ COPY --from=builder /app/dist ./dist
 
 ENV NODE_ENV=production
 ENV PORT=3001
+
+# Utilisateur non privilégié fourni par l'image node (uid 1000). /app reste à
+# root, en lecture seule pour lui. @sparticuz/chromium décompresse son binaire
+# dans /tmp (écriture autorisée à tous) ; --no-sandbox est déjà dans chromium.args.
+USER node
 
 EXPOSE 3001
 CMD ["node", "dist/server.js"]

@@ -288,7 +288,7 @@ describe('M1.1 — Modale association (revue E2E)', () => {
       screen.getByRole('button', { name: /Créer l.association/ }),
     );
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled(), ATTENTE_UI);
     const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
     const body = JSON.parse(options.body as string) as {
       numero_rup: string | null;
@@ -316,7 +316,7 @@ describe('M1.1 — Modale association (revue E2E)', () => {
       screen.getByRole('button', { name: /Créer l.association/ }),
     );
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled(), ATTENTE_UI);
     const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
     const body = JSON.parse(options.body as string) as {
       numero_rup: string | null;
@@ -345,7 +345,7 @@ describe('M1.1 — Modale association (revue E2E)', () => {
     fireEvent.change(champ, { target: { value: 'W920000001' } });
     fireEvent.click(screen.getByRole('button', { name: /Enregistrer/ }));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled(), ATTENTE_UI);
     const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
     const body = JSON.parse(options.body as string) as { numero_rup: string };
     expect(body.numero_rup).toBe('W920000001');

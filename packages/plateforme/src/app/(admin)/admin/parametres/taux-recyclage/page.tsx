@@ -93,7 +93,9 @@ export default function TauxRecyclagePage() {
 
   const openHistory = (filiere: TauxRecyclage) => {
     setHist({ open: true, filiere, rows: [], loading: true });
-    fetch(`/api/v1/admin/parametres/taux-recyclage/${filiere.id}`)
+    fetch(
+      `/api/v1/admin/parametres/taux-recyclage/${encodeURIComponent(filiere.id)}`,
+    )
       .then((r) => r.json())
       .then((d: { data: HistoryRow[] }) =>
         setHist((h) => ({ ...h, rows: d.data ?? [], loading: false })),
@@ -110,7 +112,7 @@ export default function TauxRecyclagePage() {
 
     const taux = parseFloat(modal.taux) / 100;
     const res = await fetch(
-      `/api/v1/admin/parametres/taux-recyclage/${modal.filiere.id}`,
+      `/api/v1/admin/parametres/taux-recyclage/${encodeURIComponent(modal.filiere.id)}`,
       {
         method: 'PUT',
         headers: {

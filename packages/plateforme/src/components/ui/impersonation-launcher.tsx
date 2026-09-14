@@ -84,9 +84,12 @@ export function ImpersonationLauncher(): React.ReactElement | null {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/v1/admin/users/${selected}/impersoner`, {
-        method: 'POST',
-      });
+      const res = await fetch(
+        `/api/v1/admin/users/${encodeURIComponent(selected)}/impersoner`,
+        {
+          method: 'POST',
+        },
+      );
       if (!res.ok) {
         const j = (await res.json().catch(() => ({}))) as { error?: string };
         setError(j.error ?? "Erreur lors du démarrage de l'impersonation");

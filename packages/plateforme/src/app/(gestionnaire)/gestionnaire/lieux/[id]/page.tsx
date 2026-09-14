@@ -77,7 +77,7 @@ export default function LieuDetailPage({
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/v1/gestionnaire/lieux/${id}`)
+    fetch(`/api/v1/gestionnaire/lieux/${encodeURIComponent(id)}`)
       .then((r) => {
         if (r.status === 404) {
           setNotFound(true);

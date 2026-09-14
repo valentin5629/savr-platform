@@ -342,13 +342,16 @@ export function OngletGrilleZd({
     setSaving(true);
     setError(null);
     try {
-      const r = await fetch(`/api/v1/admin/organisations/${organisationId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          grille_tarifaire_zd_id: nouvelleId === '' ? null : nouvelleId,
-        }),
-      });
+      const r = await fetch(
+        `/api/v1/admin/organisations/${encodeURIComponent(organisationId)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            grille_tarifaire_zd_id: nouvelleId === '' ? null : nouvelleId,
+          }),
+        },
+      );
       if (!r.ok) {
         const j = (await r.json().catch(() => ({}))) as { error?: string };
         setError(j.error ?? 'Erreur');
@@ -473,11 +476,14 @@ export function OngletTarifRefacture({
     setSaving(true);
     setError(null);
     try {
-      const r = await fetch(`/api/v1/admin/organisations/${organisationId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tarif_refacture_pax_zd: num }),
-      });
+      const r = await fetch(
+        `/api/v1/admin/organisations/${encodeURIComponent(organisationId)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tarif_refacture_pax_zd: num }),
+        },
+      );
       if (!r.ok) {
         const j = (await r.json().catch(() => ({}))) as { error?: string };
         setError(j.error ?? 'Erreur');
@@ -599,7 +605,7 @@ export function OngletCoefficients({
   const load = React.useCallback(() => {
     setLoading(true);
     void fetch(
-      `/api/v1/admin/organisations/${organisationId}/coefficients-perte-labo`,
+      `/api/v1/admin/organisations/${encodeURIComponent(organisationId)}/coefficients-perte-labo`,
     )
       .then((r) => (r.ok ? r.json() : { data: [] }))
       .then((j: { data?: Coefficient[] }) => setCoefs(j.data ?? []))
@@ -640,7 +646,7 @@ export function OngletCoefficients({
       const r =
         modal.mode === 'ajouter'
           ? await fetch(
-              `/api/v1/admin/organisations/${organisationId}/coefficients-perte-labo`,
+              `/api/v1/admin/organisations/${encodeURIComponent(organisationId)}/coefficients-perte-labo`,
               {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -652,7 +658,7 @@ export function OngletCoefficients({
               },
             )
           : await fetch(
-              `/api/v1/admin/coefficients-perte-labo/${modal.coef.id}`,
+              `/api/v1/admin/coefficients-perte-labo/${encodeURIComponent(modal.coef.id)}`,
               {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
@@ -919,9 +925,12 @@ export function OngletRemises({
   async function fermer(id: string) {
     setClosingId(id);
     try {
-      const r = await fetch(`/api/v1/admin/tarifs-negocie/${id}/fermer`, {
-        method: 'POST',
-      });
+      const r = await fetch(
+        `/api/v1/admin/tarifs-negocie/${encodeURIComponent(id)}/fermer`,
+        {
+          method: 'POST',
+        },
+      );
       if (r.ok) onUpdated();
     } finally {
       setClosingId(null);

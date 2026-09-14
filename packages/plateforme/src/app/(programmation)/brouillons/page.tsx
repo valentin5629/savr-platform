@@ -33,7 +33,9 @@ export default function BrouillonsPage() {
     if (!confirm('Supprimer ce brouillon ? Cette action est irréversible.'))
       return;
     setDeleting(id);
-    await fetch(`/api/v1/programmation/evenements/${id}`, { method: 'DELETE' });
+    await fetch(`/api/v1/programmation/evenements/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
     setRows((prev) => prev.filter((r) => r.id !== id));
     setDeleting(null);
   };

@@ -130,7 +130,7 @@ export default function AttributionDetailPage() {
     setError(null);
     try {
       const res = await fetch(
-        `/api/v1/admin/attributions-ag/${collecteId}/recommandation`,
+        `/api/v1/admin/attributions-ag/${encodeURIComponent(collecteId)}/recommandation`,
       );
       if (!res.ok) {
         const json = (await res.json()) as { error?: string };
@@ -210,7 +210,7 @@ export default function AttributionDetailPage() {
     setError(null);
     try {
       const res = await fetch(
-        `/api/v1/admin/attributions-ag/${collecteId}/valider`,
+        `/api/v1/admin/attributions-ag/${encodeURIComponent(collecteId)}/valider`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

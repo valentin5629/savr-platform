@@ -82,7 +82,9 @@ const TYPE_OPTIONS = [
 ];
 
 async function downloadPdfSavr(id: string): Promise<void> {
-  const res = await fetch(`/api/v1/admin/factures/${id}/pdf-savr/download`);
+  const res = await fetch(
+    `/api/v1/admin/factures/${encodeURIComponent(id)}/pdf-savr/download`,
+  );
   if (!res.ok) return;
   const { url } = (await res.json()) as { url?: string };
   if (url) window.open(url, '_blank');

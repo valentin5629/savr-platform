@@ -260,7 +260,7 @@ function CollectesContent() {
   async function telechargerRapport(collecteId: string) {
     try {
       const res = await fetch(
-        `/api/v1/traiteur/collectes/${collecteId}/rapport-rse/download`,
+        `/api/v1/traiteur/collectes/${encodeURIComponent(collecteId)}/rapport-rse/download`,
       );
       if (!res.ok) return;
       const { url } = (await res.json()) as { url?: string };
@@ -282,7 +282,7 @@ function CollectesContent() {
     setAnnulErreur(null);
     try {
       const res = await fetch(
-        `/api/v1/traiteur/collectes/${annulTarget.id}/annulation`,
+        `/api/v1/traiteur/collectes/${encodeURIComponent(annulTarget.id)}/annulation`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

@@ -176,7 +176,7 @@ export function TransporteurModal({
 
     setSubmitting(true);
     const url = isEdition
-      ? `/api/v1/admin/transporteurs/${transporteur!.id}`
+      ? `/api/v1/admin/transporteurs/${encodeURIComponent(transporteur!.id)}`
       : '/api/v1/admin/transporteurs';
     const res = await fetch(url, {
       method: isEdition ? 'PATCH' : 'POST',
@@ -205,11 +205,14 @@ export function TransporteurModal({
     if (!transporteur) return;
     setServerError(null);
     setSubmitting(true);
-    const res = await fetch(`/api/v1/admin/transporteurs/${transporteur.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ actif: !transporteur.actif }),
-    });
+    const res = await fetch(
+      `/api/v1/admin/transporteurs/${encodeURIComponent(transporteur.id)}`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actif: !transporteur.actif }),
+      },
+    );
     setSubmitting(false);
     if (!res.ok) {
       const body = (await res.json().catch(() => null)) as {

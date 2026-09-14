@@ -39,7 +39,7 @@ export default function ClientOrganisateurDocumentsPage() {
     setBusy(`${d.type}-${d.id}`);
     try {
       const res = await fetch(
-        `/api/v1/organisateur/documents/${d.type}/${d.id}/download`,
+        `/api/v1/organisateur/documents/${encodeURIComponent(d.type)}/${encodeURIComponent(d.id)}/download`,
       );
       const json = (await res.json()) as { url?: string };
       if (res.ok && json.url) {

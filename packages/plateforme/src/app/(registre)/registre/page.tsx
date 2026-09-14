@@ -157,7 +157,9 @@ function RegistreContent() {
     setPage(1);
   }
   async function downloadBordereau(id: string) {
-    const res = await fetch(`/api/v1/registre/bordereaux/${id}/download`);
+    const res = await fetch(
+      `/api/v1/registre/bordereaux/${encodeURIComponent(id)}/download`,
+    );
     if (!res.ok) return;
     const j = (await res.json()) as { url?: string };
     if (j.url) window.open(j.url, '_blank');

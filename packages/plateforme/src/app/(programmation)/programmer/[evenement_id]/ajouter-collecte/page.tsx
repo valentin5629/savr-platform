@@ -40,7 +40,7 @@ export default function AjouterCollectePage() {
     // Vérification doublon AG : détecter si CET événement a déjà une collecte AG
     if (type === 'ag' && !agDoublonConfirm) {
       const check = await fetch(
-        `/api/v1/programmation/evenements/${evenement_id}`,
+        `/api/v1/programmation/evenements/${encodeURIComponent(evenement_id)}`,
       );
       const evt = (await check.json()) as {
         collectes?: { type: string }[];
@@ -56,7 +56,7 @@ export default function AjouterCollectePage() {
     setError(null);
     try {
       const res = await fetch(
-        `/api/v1/programmation/evenements/${evenement_id}/collectes`,
+        `/api/v1/programmation/evenements/${encodeURIComponent(evenement_id)}/collectes`,
         {
           method: 'POST',
           headers: { 'content-type': 'application/json' },

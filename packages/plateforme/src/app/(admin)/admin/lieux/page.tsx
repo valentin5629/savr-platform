@@ -130,9 +130,12 @@ export default function LieuxPage() {
   // Normalisation inline d'un lieu saisi manuellement (§06.06 §7 « Normaliser »).
   const handleNormaliser = async (id: string) => {
     setNormalisingId(id);
-    const res = await fetch(`/api/v1/admin/lieux/${id}/normaliser`, {
-      method: 'POST',
-    });
+    const res = await fetch(
+      `/api/v1/admin/lieux/${encodeURIComponent(id)}/normaliser`,
+      {
+        method: 'POST',
+      },
+    );
     if (res.ok) await fetchLieux();
     setNormalisingId(null);
   };

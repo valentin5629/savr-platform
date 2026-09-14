@@ -73,7 +73,7 @@ export default function FicheCollecteAgencePage({
 
   function load() {
     setLoading(true);
-    fetch(`/api/v1/agence/collectes/${id}`)
+    fetch(`/api/v1/agence/collectes/${encodeURIComponent(id)}`)
       .then((r) => r.json())
       .then((j) => setC(j.data ?? null))
       .finally(() => setLoading(false));
@@ -86,11 +86,14 @@ export default function FicheCollecteAgencePage({
     setSiretError(null);
     const traiteur = c?.traiteur_operationnel;
     if (!traiteur) return;
-    const res = await fetch(`/api/v1/agence/shadow/${traiteur.id}/siret`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ siret }),
-    });
+    const res = await fetch(
+      `/api/v1/agence/shadow/${encodeURIComponent(traiteur.id)}/siret`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ siret }),
+      },
+    );
     setSaving(false);
     if (!res.ok) {
       const j = (await res.json().catch(() => ({}))) as { error?: string };
@@ -193,7 +196,7 @@ export default function FicheCollecteAgencePage({
               notes_internes: evt.notes_internes,
             },
           }}
-          collecteEndpoint={`/api/v1/agence/collectes/${c.id}`}
+          collecteEndpoint={`/api/v1/agence/collectes/${encodeURIComponent(c.id)}`}
           onSaved={() => {
             setEditing(false);
             load();
@@ -219,11 +222,14 @@ export default function FicheCollecteAgencePage({
           variant="ghost"
           disabled={!STATUTS_ANNULABLES.includes(c.statut)}
           onClick={() =>
-            fetch(`/api/v1/agence/collectes/${id}/annulation`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ motif: '' }),
-            }).then(() => location.reload())
+            fetch(
+              `/api/v1/agence/collectes/${encodeURIComponent(id)}/annulation`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ motif: '' }),
+              },
+            ).then(() => location.reload())
           }
         >
           {c.statut === 'validee'

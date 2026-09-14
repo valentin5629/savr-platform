@@ -13,15 +13,22 @@
  * (le `.delete()` final ne filtre QUE sur `id` — aucun garde org en second rideau).
  * §09 l.177-188 (matrice `evenements`).
  *
- * PÉRIMÈTRE : ce fichier atteste le SEUL cloisonnement `organisation_id` de la
- * route. Il ne dit rien de QUI a le droit de supprimer : la matrice §09 n'ouvre le
- * DELETE `evenements` qu'à `admin_savr` et `traiteur_manager` (soft) — une seule
- * policy RLS existe, `evt_manager_delete` — alors que la route l'ouvre aux 4 rôles
- * `requireProgrammateur` et supprime en dur. Écarts PRÉ-EXISTANTS, hors scope de ce
- * lot (remontés à Val, non corrigés ici). Les cas ci-dessous utilisent donc
- * `traiteur_manager`, le seul rôle client à qui la matrice accorde effectivement le
- * DELETE : le test ne se rend pas complice de ces écarts. Ne pas lire ce fichier
- * comme « DELETE conforme à la matrice §09 ».
+ * PÉRIMÈTRE : deux frontières, une par `describe`.
+ *   1. Cloisonnement `organisation_id` (bloc historique) — un programmateur de
+ *      l'org A ne supprime pas un événement de l'org B.
+ *   2. Propriété `created_by` (bloc ajouté 2026-09-14) — au sein d'une MÊME orga,
+ *      `traiteur_commercial`, `agence` et `gestionnaire_lieux` ne suppriment que
+ *      LEURS brouillons ; `traiteur_manager` garde le périmètre organisation.
+ *
+ * L'ancienne note de ce fichier (« la matrice n'ouvre le DELETE qu'à `admin_savr`
+ * et `traiteur_manager` … écarts pré-existants hors scope ») est PÉRIMÉE : Val a
+ * tranché le périmètre du DELETE le 2026-09-14 (§09 table `evenements`, divergences
+ * `M1.2_20260717` / `M1.2_20260717_delete-service-role`) — « chacun supprime ses
+ * propres brouillons », les 3 rôles ci-dessus passant de `—` à
+ * `created_by = auth.uid()`, et la mention « (soft) » retirée (hard delete assumé,
+ * aucune colonne `supprime_le` en V1). Le §09 exige que cette matrice soit posée en
+ * garde de rôle APPLICATIVE (403) : la route étant en service-role, pgTAP est
+ * impuissant ici et ce fichier EST l'oracle.
  *
  * FIXTURES SANS COLLECTE — choix de PÉRIMÈTRE : ce fichier atteste le seul
  * cloisonnement cross-org, dont le rempart (le SELECT filtré) est indépendant de la
@@ -177,15 +184,29 @@ function makeStore(evenements: Row[], collectes: Row[]) {
 const ORG_A = 'org-traiteur-a';
 const ORG_B = 'org-traiteur-b';
 
+const USER_A1 = 'user-a1';
+const USER_A2 = 'user-a2';
+
 const EVT_ORG_A: Row = {
   id: 'evt-org-a',
   organisation_id: ORG_A,
+  created_by: USER_A1,
   nom_evenement: 'Cocktail Org A',
 };
 const EVT_ORG_B: Row = {
   id: 'evt-org-b',
   organisation_id: ORG_B,
+  created_by: 'user-b1',
   nom_evenement: 'Gala confidentiel Org B',
+};
+// Brouillon d'un COLLÈGUE, même organisation que l'appelant du 2e bloc : le
+// prédicat `organisation_id` le laisse passer, seule la garde de propriété le
+// refuse. C'est exactement la sur-permission intra-organisationnelle corrigée.
+const EVT_COLLEGUE: Row = {
+  id: 'evt-collegue',
+  organisation_id: ORG_A,
+  created_by: USER_A2,
+  nom_evenement: 'Brouillon du collègue',
 };
 
 // Aucune collecte rattachée aux deux événements (cf. ⚠ FIXTURES en tête) : les
@@ -253,12 +274,12 @@ async function deleteEvenement(id: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  store = makeStore([EVT_ORG_A, EVT_ORG_B], [COL_AUTRE_EVT]);
+  store = makeStore([EVT_ORG_A, EVT_ORG_B, EVT_COLLEGUE], [COL_AUTRE_EVT]);
 });
 
 describe('M1.2 / DELETE événement — cloisonnement inter-organisation', () => {
   it("M1.2 — DELETE événement d'une autre organisation → 404 et AUCUNE suppression (cloisonnement org, route service-role)", async () => {
-    setupAuth('traiteur_manager', ORG_A, 'user-a');
+    setupAuth('traiteur_manager', ORG_A, USER_A1);
 
     const res = await deleteEvenement('evt-org-b');
 
@@ -281,7 +302,7 @@ describe('M1.2 / DELETE événement — cloisonnement inter-organisation', () =>
   });
 
   it('M1.2 — DELETE de son propre événement brouillon → 204 + suppression émise (contre-épreuve : le fake sait supprimer)', async () => {
-    setupAuth('traiteur_manager', ORG_A, 'user-a');
+    setupAuth('traiteur_manager', ORG_A, USER_A1);
 
     const res = await deleteEvenement('evt-org-a');
 
@@ -300,7 +321,7 @@ describe('M1.2 / DELETE événement — cloisonnement inter-organisation', () =>
   // que `evt-org-b` EST supprimable par sa propre org ferme les deux : le 404 de
   // l'org A ne peut alors venir que du filtre, et le filtre suit bien le JWT.
   it('M1.2 — DELETE du même événement par SON organisation (org B) → 204 (anti-vacuité : la ligne existe, le filtre suit le JWT)', async () => {
-    setupAuth('traiteur_manager', ORG_B, 'user-b');
+    setupAuth('traiteur_manager', ORG_B, 'user-b1');
 
     const res = await deleteEvenement('evt-org-b');
 
@@ -310,5 +331,93 @@ describe('M1.2 / DELETE événement — cloisonnement inter-organisation', () =>
     ]);
     expect(store.__ids('evenements')).not.toContain('evt-org-b');
     expect(store.__eqCalls).toContainEqual(['organisation_id', ORG_B]);
+  });
+});
+
+/**
+ * Garde de PROPRIÉTÉ — §09 table `evenements`, colonne DELETE (tranché Val
+ * 2026-09-14). Frontière INTRA-organisation : le prédicat `organisation_id` du
+ * SELECT est passant dans tous les cas ci-dessous (même orga), donc le seul
+ * rempart testé est `created_by === auth.ctx.userId`. Comme la route tourne en
+ * service-role, aucune policy RLS ne prend le relais : ce bloc est l'oracle.
+ *
+ * ORACLE / ANTI-VACUITÉ : chaque rôle a SON cas passant (204 sur son propre
+ * brouillon) en regard de son cas refusé (403 sur celui du collègue) — sans quoi un
+ * 403 systématique (rôle mal orthographié dans la liste, garde trop large) passerait
+ * au vert. Mutations vérifiées, chacune ROUGE :
+ *   - retrait de `agence` de `DELETE_ROLES_PROPRIETAIRE`            → 403 devient 204
+ *   - retrait de `gestionnaire_lieux` de `DELETE_ROLES_PROPRIETAIRE` → 403 devient 204
+ *   - garde inversée (`===` au lieu de `!==`)                        → les 204 tombent
+ */
+describe('M1.2 / DELETE événement — garde de propriété intra-organisation (§09)', () => {
+  // Les 3 rôles que la matrice borne à leurs propres créations.
+  const ROLES_PROPRIETAIRE = [
+    'traiteur_commercial',
+    'agence',
+    'gestionnaire_lieux',
+  ] as const;
+
+  it.each(ROLES_PROPRIETAIRE)(
+    'M1.2 — %s supprime SON propre brouillon → 204 (contre-épreuve du 403 ci-dessous)',
+    async (role) => {
+      setupAuth(role, ORG_A, USER_A1);
+
+      const res = await deleteEvenement('evt-org-a');
+
+      expect(res.status).toBe(204);
+      expect(store.__rpcCalls).toEqual([
+        ['fn_supprimer_brouillon', { p_evenement_id: 'evt-org-a' }],
+      ]);
+      expect(store.__ids('evenements')).not.toContain('evt-org-a');
+    },
+  );
+
+  it.each(ROLES_PROPRIETAIRE)(
+    "M1.2 — %s ne supprime PAS le brouillon d'un collègue de sa propre organisation → 403, aucune suppression",
+    async (role) => {
+      setupAuth(role, ORG_A, USER_A1);
+
+      const res = await deleteEvenement('evt-collegue');
+
+      expect(res.status).toBe(403);
+      expect(await res.json()).toEqual({ error: 'Suppression non autorisée' });
+      // Le 403 doit tomber AVANT la RPC : un hard delete est irréversible, une
+      // réponse 403 sur une ligne déjà supprimée serait le pire des deux mondes.
+      expect(store.__rpcCalls).toEqual([]);
+      expect(store.__ids('evenements')).toContain('evt-collegue');
+      // Et le refus vient bien de la propriété, pas d'un 404 d'org : l'événement
+      // du collègue est dans l'orga de l'appelant, donc visible du SELECT.
+      expect(store.__eqCalls).toContainEqual(['organisation_id', ORG_A]);
+    },
+  );
+
+  // Le manager n'est PAS borné à ses créations (matrice §09 : périmètre
+  // organisation). Sans ce cas, élargir la garde aux 4 rôles clients — durcissement
+  // apparemment « plus sûr » — passerait inaperçu alors qu'il casserait le seul
+  // rôle habilité à nettoyer les brouillons de son organisation.
+  it("M1.2 — traiteur_manager supprime le brouillon d'un collègue de son organisation → 204 (périmètre organisation, pas created_by)", async () => {
+    setupAuth('traiteur_manager', ORG_A, USER_A1);
+
+    const res = await deleteEvenement('evt-collegue');
+
+    expect(res.status).toBe(204);
+    expect(store.__rpcCalls).toEqual([
+      ['fn_supprimer_brouillon', { p_evenement_id: 'evt-collegue' }],
+    ]);
+    expect(store.__ids('evenements')).not.toContain('evt-collegue');
+  });
+
+  // Staff = périmètre global (le SELECT retire même le prédicat org). Il supprime
+  // donc un brouillon qu'il n'a pas créé, dans une orga qui n'est pas la sienne.
+  it("M1.2 — admin_savr supprime le brouillon d'un client (mode support) → 204 (périmètre global)", async () => {
+    setupAuth('admin_savr', 'org_savr', 'user-admin');
+
+    const res = await deleteEvenement('evt-collegue');
+
+    expect(res.status).toBe(204);
+    expect(store.__rpcCalls).toEqual([
+      ['fn_supprimer_brouillon', { p_evenement_id: 'evt-collegue' }],
+    ]);
+    expect(store.__eqCalls).not.toContainEqual(['organisation_id', 'org_savr']);
   });
 });

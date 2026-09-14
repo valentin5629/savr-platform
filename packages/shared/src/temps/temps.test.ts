@@ -19,6 +19,7 @@ import {
   lundiDeLaSemaine,
   premierDuMois,
   formatJour,
+  anneeParis,
 } from './index.js';
 
 describe('temps — jourParis', () => {
@@ -198,5 +199,61 @@ describe('temps — formatJour (valeur date-seule)', () => {
 
   it('entrée invalide → valeur brute', () => {
     expect(formatJour('bof', { day: '2-digit' })).toBe('bof');
+  });
+});
+
+describe('temps — durcissement (burn-down revue #287)', () => {
+  it("decalerJour : un décalage non fini rend '', il ne LÈVE pas", () => {
+    // `new Date(NaN).toISOString()` lève une RangeError : le contrat du module
+    // (chaîne vide sur entrée invalide) ne tenait pas pour l'appelant.
+    expect(() => decalerJour('2026-07-14', NaN)).not.toThrow();
+    expect(decalerJour('2026-07-14', NaN)).toBe('');
+    expect(decalerJour('2026-07-14', Infinity)).toBe('');
+    expect(decalerJour('2026-07-14', -Infinity)).toBe('');
+    // Fini mais hors de la plage représentable par Date.
+    expect(decalerJour('2026-07-14', 1e12)).toBe('');
+    // Un décalage fractionnaire reste accepté (tronqué au jour UTC atteint).
+    expect(decalerJour('2026-07-14', 1.5)).toBe('2026-07-15');
+  });
+
+  it('un jour inexistant au calendrier est rejeté, jamais reporté en silence', () => {
+    // La forme seule laissait passer « 2026-02-30 », que Date.UTC reporte au 2 mars.
+    expect(decalerJour('2026-02-30', 0)).toBe('');
+    expect(jourParis('2026-02-30')).toBe('');
+    expect(jourDeSemaine('2026-02-30')).toBe(-1);
+    expect(premierDuMois('2026-02-30')).toBe('2026-02-30'); // brut, pas '2026-02-01'
+    expect(formatJour('2026-02-30', { day: '2-digit' })).toBe('2026-02-30');
+    expect(formatDateParis('2026-02-30')).toBe('2026-02-30'); // brut, pas 30/02/2026
+    expect(decalerJour('2026-13-01', 0)).toBe('');
+    expect(decalerJour('2025-02-29', 0)).toBe(''); // 2025 n'est pas bissextile
+  });
+
+  it('le calendrier réel reste accepté', () => {
+    expect(decalerJour('2024-02-29', 1)).toBe('2024-03-01'); // année bissextile
+    expect(jourParis('2026-02-28')).toBe('2026-02-28');
+    expect(premierDuMois('2026-12-31')).toBe('2026-12-01');
+  });
+
+  it('instantParis : les sous-secondes ne décalent pas l’instant', () => {
+    // L'offset est mesuré à la seconde : le calculer sur l'instant brut le
+    // rognait des millisecondes, appliquées deux fois par la fonction.
+    expect(instantParis('2026-07-14', '23:30:00.500').toISOString()).toBe(
+      '2026-07-14T21:30:00.500Z',
+    );
+    expect(instantParis('2026-01-14', '08:15:30.123').toISOString()).toBe(
+      '2026-01-14T07:15:30.123Z',
+    );
+    // Même heure murale à la seconde près : seule la fraction doit différer.
+    const avec = instantParis('2026-07-14', '23:30:00.750').getTime();
+    const sans = instantParis('2026-07-14', '23:30:00').getTime();
+    expect(avec - sans).toBe(750);
+  });
+
+  it('anneeParis : l’année du jour PARISIEN', () => {
+    // 31/12 22h30 UTC = 1er janvier 00h30 à Paris → année suivante.
+    expect(anneeParis(new Date('2025-12-31T23:30:00Z'))).toBe(2026);
+    expect(anneeParis(new Date('2026-07-14T10:00:00Z'))).toBe(2026);
+    expect(anneeParis('2026-01-01')).toBe(2026);
+    expect(Number.isNaN(anneeParis('bof'))).toBe(true);
   });
 });

@@ -12,7 +12,7 @@ import {
   fatalSiAucuneProduite,
   logCollecteEnEchec,
 } from './batch-fatal.js';
-import { jourParis } from '@savr/shared/src/temps/index.js';
+import { anneeParis, jourParis } from '@savr/shared/src/temps/index.js';
 
 export interface BatchPdfJ1AgResult {
   enqueued: number;
@@ -168,7 +168,8 @@ export async function runBatchPdfJ1Ag(
     ((entites ?? []) as EntiteFacturation[]).map((e) => [e.organisation_id, e]),
   );
 
-  const annee = new Date().getFullYear();
+  // Année PARISIENNE (cf. bordereaux) : séquence gapless annuelle.
+  const annee = anneeParis();
 
   for (const collecte of toProcess) {
     try {

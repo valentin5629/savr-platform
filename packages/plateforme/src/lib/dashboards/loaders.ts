@@ -25,6 +25,7 @@ import {
   type FacteursCo2,
 } from '@/lib/dashboards/cockpit-derive.js';
 import {
+  decalerJour,
   jourParis,
   lundiDeLaSemaine,
   premierDuMois,
@@ -637,10 +638,6 @@ function paxDistinct(rows: BlocsCollecteRow[]): number {
   return total;
 }
 
-function isoDate(d: Date): string {
-  return jourParis(d);
-}
-
 export interface LieuRow {
   lieu_id: string;
   lieu_nom: string;
@@ -1042,9 +1039,11 @@ export async function loadBlocs(
   if (from) qHist = qHist.gte('date_collecte', from);
   if (to) qHist = qHist.lte('date_collecte', to);
 
-  const today = new Date();
-  const in30 = new Date(today.getTime());
-  in30.setDate(in30.getDate() + PROCHAINES_FENETRE_JOURS);
+  // Fenêtre en jours CALENDAIRES parisiens : `setDate` sur une Date ajoutait
+  // 30 × 24 h à un instant, donc la borne haute tombait la veille dès que
+  // l'appel avait lieu en soirée ou traversait un changement d'heure.
+  const aujourdhui = jourParis();
+  const dans30j = decalerJour(aujourdhui, PROCHAINES_FENETRE_JOURS);
 
   let qProch = supabase
     .from('collectes')
@@ -1056,8 +1055,8 @@ export async function loadBlocs(
     )
     .eq('type', type)
     .in('statut', [...STATUTS_A_VENIR])
-    .gte('date_collecte', isoDate(today))
-    .lte('date_collecte', isoDate(in30));
+    .gte('date_collecte', aujourdhui)
+    .lte('date_collecte', dans30j);
   qProch = scoped(qProch);
   qProch = qProch
     .order('date_collecte', { ascending: true })

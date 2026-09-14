@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { type SupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 import { createSupabaseServerClient } from '@/lib/api-auth.js';
 import { getObjectBytes } from '@/lib/pdf/r2-client.js';
@@ -89,8 +90,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       now: new Date(),
     });
 
-    const now = new Date();
-    const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+    // Jour PARISIEN (cf. csvFilename) : les getters locaux dataient l'archive
+    // dans le fuseau du process, donc de la veille pour tout export tardif.
+    const stamp = jourParis().replace(/-/g, '');
     return new NextResponse(new Uint8Array(zip), {
       headers: {
         'Content-Type': 'application/zip',

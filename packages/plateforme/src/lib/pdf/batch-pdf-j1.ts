@@ -14,7 +14,7 @@ import { resolveRapportBenchmark } from './rapport-benchmark.js';
 import { resolveRapportLogo } from './logo-cascade.js';
 import { makeLogoResolver } from './logo-inline.js';
 import { logger } from '@savr/shared/src/logger/index.js';
-import { jourParis } from '@savr/shared/src/temps/index.js';
+import { anneeParis, jourParis } from '@savr/shared/src/temps/index.js';
 
 export interface BatchPdfJ1Result {
   enqueued: number;
@@ -275,7 +275,10 @@ export async function runBatchPdfJ1(
       );
 
       // 5. Allouer le numéro BSAV (gapless)
-      const annee = new Date().getFullYear();
+      // Année PARISIENNE : le batch tourne à 6h, mais une reprise manuelle juste
+      // après minuit le 1er janvier aurait tiré le numéro sur la séquence de
+      // l'année écoulée (process UTC).
+      const annee = anneeParis();
       const { data: numeroData } = await supabase
         .rpc('f_next_numero_bordereau', { p_annee: annee })
         .single();

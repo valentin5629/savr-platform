@@ -27,7 +27,11 @@ import { CancelWindowClosedError, LogistiquePermanentError } from '../index.js';
 import type { CreateOrderPayload, CreateTourPayload } from './client.js';
 import { Mts1Client } from './client.js';
 import type { Mts1Tour } from './mock.js';
-import { jourParis } from '@savr/shared/src/temps/index.js';
+import {
+  decalerJour,
+  instantParis,
+  jourParis,
+} from '@savr/shared/src/temps/index.js';
 
 interface TourneeRow {
   id: string;
@@ -1024,10 +1028,23 @@ export class AdapterMts1 implements LogistiqueProvider {
     collecte: Collecte,
     rang: number,
   ): Promise<string | null> {
-    const minDate = new Date(collecte.date_collecte);
-    minDate.setDate(minDate.getDate() - 1);
-    const maxDate = new Date(collecte.date_collecte);
-    maxDate.setDate(maxDate.getDate() + 1);
+    // Bornes à MINUIT PARIS. `date_collecte` est une date-seule : la convertir
+    // en Date puis décaler avec `setDate` ancrait les bornes sur minuit UTC
+    // (soit 02h00 à Paris l'été), et les collectes ont lieu de nuit — la borne
+    // doit être le jour métier, pas l'instant que le fuseau du process a donné
+    // à la chaîne.
+    //
+    // Borne haute à J+2 et non J+1 : la sémantique exacte de maxDate côté MTS-1
+    // n'est pas documentée (instant ? date tronquée, incluse ou exclue ?), et à
+    // J+1 le jour de collecte tomberait pile sur la borne sous la lecture la
+    // plus stricte. Manquer l'ordre ferait re-POSTer un doublon sur une API
+    // présumée non idempotente (§2). Élargir n'ouvre aucun faux positif — la
+    // correspondance se fait ensuite sur `externalReference` (UUID de collecte +
+    // rang) — au prix d'une marge en moins sous le plafond non paginé de 200
+    // résultats du scan, très au-dessus des volumes V1.
+    const jour = collecte.date_collecte;
+    const minDate = instantParis(decalerJour(jour, -1));
+    const maxDate = instantParis(decalerJour(jour, 2));
 
     const orders = await this.client.scanOrdersByDateRange(
       minDate.toISOString(),

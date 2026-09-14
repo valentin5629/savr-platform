@@ -1,5 +1,6 @@
 import type { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
+import { instantParis } from '@savr/shared/src/temps/index.js';
 
 type AdminSupabase = ReturnType<typeof createAdminSupabaseClient>;
 
@@ -276,8 +277,11 @@ export function estAnnulationTardive(
   nowMs: number,
 ): boolean {
   if (!dateCollecte) return false;
-  const creneau = new Date(
-    `${dateCollecte}T${heureCollecte && heureCollecte.length ? heureCollecte : '00:00:00'}`,
+  // Heure murale parisienne, comme le trigger SQL de débit du pack : sinon
+  // l'alerte Admin peut annoncer « 12h ou plus » alors que le crédit a été débité.
+  const creneau = instantParis(
+    dateCollecte,
+    heureCollecte && heureCollecte.length ? heureCollecte : '00:00:00',
   ).getTime();
   if (Number.isNaN(creneau)) return false;
   return creneau - nowMs < 12 * HEURE_MS;

@@ -16,6 +16,7 @@ import {
 } from '@testing-library/react';
 
 import DashboardAdminPage from '@/app/(admin)/admin/dashboard/page.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 function jsonResponse(obj: unknown): Promise<Response> {
   return Promise.resolve({
@@ -87,7 +88,7 @@ beforeEach(() => {
 // mois — identique à defaultPeriode() de la page.
 function defaultWindow(): { from: string; to: string } {
   const now = new Date();
-  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  const iso = (d: Date) => jourParis(d);
   return {
     from: iso(new Date(now.getFullYear(), now.getMonth() - 11, 1)),
     to: iso(now),

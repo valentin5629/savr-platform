@@ -17,6 +17,7 @@ import {
   notifierTraiteurOperationnel,
   notifierAdminAnnulation,
 } from './traiteur-operationnel.js';
+import { instantParis } from '@savr/shared/src/temps/index.js';
 
 // ── Mock Supabase chaînable ────────────────────────────────────────────────
 // Répond selon (table, select). Les requêtes tableau (équipe, flux) sont
@@ -252,7 +253,7 @@ describe('M0.7/bl-p2-22-emission-admin-annulee — template 22', () => {
       lieuNom: 'Salle des fêtes',
       acteurUserId: 'user-x',
       acteurRole: 'agence',
-      nowMs: new Date('2026-07-20T10:00:00').getTime(), // 8h avant → tardive
+      nowMs: instantParis('2026-07-20', '10:00').getTime(), // 8h avant (Paris) → tardive
     });
     expect(emails).toHaveLength(1);
     expect(emails[0]!.slug).toBe('admin_collecte_annulee');
@@ -272,7 +273,7 @@ describe('M0.7/bl-p2-22-annulation-tardive — estAnnulationTardive (pure)', () 
       estAnnulationTardive(
         creneau,
         heure,
-        new Date('2026-07-20T10:00:00').getTime(),
+        instantParis('2026-07-20', '10:00').getTime(),
       ),
     ).toBe(true);
   });
@@ -281,7 +282,7 @@ describe('M0.7/bl-p2-22-annulation-tardive — estAnnulationTardive (pure)', () 
       estAnnulationTardive(
         creneau,
         heure,
-        new Date('2026-07-19T10:00:00').getTime(),
+        instantParis('2026-07-19', '10:00').getTime(),
       ),
     ).toBe(false);
   });

@@ -13,6 +13,8 @@
 // rester testable et réutilisable côté serveur. Le wrapper NextResponse vit côté
 // `plateforme` (lib/csv.ts).
 
+import { jourParis } from '../temps/index.js';
+
 export const CSV_SEP = ';';
 export const CSV_EOL = '\r\n';
 export const CSV_BOM = '﻿';
@@ -141,8 +143,7 @@ export function formatPoidsKg(kg: number | string | null | undefined): string {
  * pour rester pur et testable).
  */
 export function csvFilename(prefixe: string, now: Date): string {
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  const d = String(now.getDate()).padStart(2, '0');
-  return `${prefixe}-savr-${y}${m}${d}.csv`;
+  // Jour à PARIS : les getters locaux dataient le fichier dans le fuseau du
+  // process (UTC sur Vercel), donc de la veille pour tout export tardif.
+  return `${prefixe}-savr-${jourParis(now).replace(/-/g, '')}.csv`;
 }

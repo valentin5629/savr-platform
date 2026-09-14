@@ -132,7 +132,9 @@ export async function regenerateCollecteDocument(
   const frozen = (lastJob as { payload: Record<string, unknown> }).payload;
   const payload: Record<string, unknown> = {
     ...frozen,
-    regenere_le: new Date().toLocaleDateString('fr-FR'),
+    regenere_le: new Date().toLocaleDateString('fr-FR', {
+      timeZone: 'Europe/Paris',
+    }),
   };
 
   // Rapport RSE : le demandeur peut surcharger les filtres benchmark à la régénération

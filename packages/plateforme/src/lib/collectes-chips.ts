@@ -1,3 +1,4 @@
+import { jourParis } from '@savr/shared/src/temps/index.js';
 // Prédicats des chips de filtre prédéfinis de la liste collectes (§06.06 §3).
 // Source unique partagée par la liste (GET /admin/collectes) et le comptage
 // (GET /admin/collectes/chip-counts) → les compteurs ne peuvent pas diverger du
@@ -47,10 +48,8 @@ export function applyChipPredicate(
   chip: string,
   now: Date,
 ): ChipQuery {
-  const today = now.toISOString().slice(0, 10);
-  const in48h = new Date(now.getTime() + 48 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10);
+  const today = jourParis(now);
+  const in48h = jourParis(new Date(now.getTime() + 48 * 60 * 60 * 1000));
 
   switch (chip) {
     case 'non_transmises':

@@ -54,6 +54,11 @@ COPY --from=builder /app/dist ./dist
 
 ENV NODE_ENV=production
 ENV PORT=3001
+# Fuseau métier unique (Europe/Paris) : sans TZ, le conteneur tourne en UTC et
+# toute date formatée sans `timeZone` explicite sort 1 à 2h en arrière sur les
+# PDF. Les dates viennent déjà formatées de la Plateforme (helpers @savr/shared
+# temps/), ceci est la ceinture en plus des bretelles.
+ENV TZ=Europe/Paris
 
 # Utilisateur non privilégié fourni par l'image node (uid 1000). /app reste à
 # root, en lecture seule pour lui. @sparticuz/chromium décompresse son binaire

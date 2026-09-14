@@ -90,7 +90,9 @@ export function OngletCollectes({
       header: 'Date',
       render: (row) =>
         row.date_collecte
-          ? new Date(row.date_collecte).toLocaleDateString('fr-FR')
+          ? new Date(row.date_collecte).toLocaleDateString('fr-FR', {
+              timeZone: 'Europe/Paris',
+            })
           : '—',
     },
     {
@@ -247,7 +249,9 @@ export function OngletFactures({
       header: 'Émise le',
       render: (row) =>
         row.date_emission
-          ? new Date(row.date_emission).toLocaleDateString('fr-FR')
+          ? new Date(row.date_emission).toLocaleDateString('fr-FR', {
+              timeZone: 'Europe/Paris',
+            })
           : '—',
     },
   ];
@@ -726,7 +730,9 @@ export function OngletCoefficients({
                     : '—'}
                 </td>
                 <td className="py-2 text-savr-neutral-500">
-                  {new Date(c.saisi_le).toLocaleDateString('fr-FR')}
+                  {new Date(c.saisi_le).toLocaleDateString('fr-FR', {
+                    timeZone: 'Europe/Paris',
+                  })}
                 </td>
                 {canEdit && (
                   <td className="py-2 text-right">
@@ -976,11 +982,15 @@ export function OngletRemises({
                   %
                 </td>
                 <td className="py-2 text-savr-neutral-500">
-                  {new Date(r.valide_du).toLocaleDateString('fr-FR')}
+                  {new Date(r.valide_du).toLocaleDateString('fr-FR', {
+                    timeZone: 'Europe/Paris',
+                  })}
                 </td>
                 <td className="py-2 text-savr-neutral-500">
                   {r.valide_jusqu_au ? (
-                    new Date(r.valide_jusqu_au).toLocaleDateString('fr-FR')
+                    new Date(r.valide_jusqu_au).toLocaleDateString('fr-FR', {
+                      timeZone: 'Europe/Paris',
+                    })
                   ) : (
                     <Badge variant="success" className="text-xs">
                       Active
@@ -1163,7 +1173,9 @@ export function PackAjustementsHistorique({
           {rows.map((a) => (
             <tr key={a.id} className="border-t border-savr-neutral-100">
               <td className="py-2 text-savr-neutral-500">
-                {new Date(a.created_at).toLocaleDateString('fr-FR')}
+                {new Date(a.created_at).toLocaleDateString('fr-FR', {
+                  timeZone: 'Europe/Paris',
+                })}
               </td>
               <td className="py-2">
                 {a.action === 'annulation_pack'

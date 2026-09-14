@@ -6,6 +6,7 @@ import { envoyerRecapProgrammation } from '@/lib/programmation/recap-email.js';
 import { notifierOverrideLieu } from '@/lib/programmation/lieu-override.js';
 import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
 import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireProgrammateurOuAdmin(req);
@@ -146,7 +147,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   // Validation date_collecte >= aujourd'hui
-  const today = new Date().toISOString().slice(0, 10);
+  const today = jourParis();
   for (const c of body.collectes) {
     if (!c.date_collecte || !c.heure_collecte || !c.type) {
       return NextResponse.json(

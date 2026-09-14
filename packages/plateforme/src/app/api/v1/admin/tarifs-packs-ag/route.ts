@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff, requireAdmin } from '@/lib/api-auth.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
   if (auth.error) return auth.error;
 
   const supabase = createAdminSupabaseClient();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = jourParis();
 
   // Tarifs actifs : valide_du <= aujourd'hui ET (valide_jusqu_au IS NULL OR valide_jusqu_au >= aujourd'hui)
   const { data, error } = await supabase
@@ -63,7 +64,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = jourParis();
   if (valide_du < today) {
     return NextResponse.json(
       { error: "valide_du doit être >= aujourd'hui" },
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // Fermer la ligne active pour ce type_pack
   const veilleDePriseEffet = new Date(valide_du);
   veilleDePriseEffet.setDate(veilleDePriseEffet.getDate() - 1);
-  const veilleStr = veilleDePriseEffet.toISOString().slice(0, 10);
+  const veilleStr = jourParis(veilleDePriseEffet);
 
   await supabase
     .from('tarifs_packs_ag')

@@ -10,6 +10,7 @@ import {
   type SyntheseParams,
   type SyntheseRole,
 } from '@/lib/dashboards/synthese-snapshot.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 /**
  * POST /api/v1/dashboards/synthese-pdf — Rapport de synthèse agrégé §12 §1.6
@@ -100,7 +101,7 @@ function asStringArray(v: unknown): string[] {
 }
 
 function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  return jourParis();
 }
 
 // Horodatage de génération FR (DD/MM/YYYY HH:MM), indépendant de la locale serveur.

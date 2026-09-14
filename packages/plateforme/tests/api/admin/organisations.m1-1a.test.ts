@@ -4,6 +4,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 
@@ -191,7 +192,7 @@ describe('M1.1a / Organisations / Liste', () => {
     // Fenêtre glissante : `depuis` ≈ aujourd'hui − 1 an.
     const attendu = new Date();
     attendu.setFullYear(attendu.getFullYear() - 1);
-    expect(rpcCalls[0]?.[1].depuis).toBe(attendu.toISOString().slice(0, 10));
+    expect(rpcCalls[0]?.[1].depuis).toBe(jourParis(attendu));
   });
 
   it('M1.1a/orgas/liste — pack actif par organisation (statut=actif, scopé aux orgs de la page, — si aucun)', async () => {

@@ -6,6 +6,7 @@ import { Modal } from '@/components/ui/modal';
 import { MultiSelectFilter, type MultiOption } from './MultiSelectFilter.js';
 import type { CollecteType } from './CollecteTypeTabs.js';
 import type { DashboardFilters } from './DashboardFilterBar.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 /**
  * Bloc 8 — « Exporter une synthèse PDF » (§06.04 / §06.05 / §06.11 Bloc 8 ZD/AG).
@@ -32,7 +33,7 @@ const PRESET_LABELS: { key: Preset; label: string }[] = [
 ];
 
 function iso(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  return jourParis(d);
 }
 
 function presetRange(

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff, requireAdmin } from '@/lib/api-auth.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -90,7 +91,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     p_description: description ?? undefined,
     p_mode: mode,
     p_est_defaut: est_defaut ?? false,
-    p_valide_du: valide_du ?? new Date().toISOString().slice(0, 10),
+    p_valide_du: valide_du ?? jourParis(),
     p_paliers: paliers,
   });
 

@@ -169,7 +169,10 @@ export default async function SanteSystemePage() {
               <div className="flex justify-between">
                 <span className="text-savr-neutral-500">Plus ancien</span>
                 <span className="font-medium text-xs">
-                  {new Date(data.outbox.plus_ancien_at).toLocaleString('fr-FR')}
+                  {new Date(data.outbox.plus_ancien_at).toLocaleString(
+                    'fr-FR',
+                    { timeZone: 'Europe/Paris' },
+                  )}
                 </span>
               </div>
             )}
@@ -271,7 +274,9 @@ export default async function SanteSystemePage() {
                   <td className="py-1.5 font-medium uppercase">{i.service}</td>
                   <td className="py-1.5 text-savr-neutral-500">
                     {i.dernier_appel_at
-                      ? new Date(i.dernier_appel_at).toLocaleString('fr-FR')
+                      ? new Date(i.dernier_appel_at).toLocaleString('fr-FR', {
+                          timeZone: 'Europe/Paris',
+                        })
                       : '—'}
                   </td>
                   <td className="py-1.5">
@@ -313,7 +318,9 @@ export default async function SanteSystemePage() {
                   <td className="py-1.5 font-mono text-xs">{b.job_name}</td>
                   <td className="py-1.5 text-savr-neutral-500">
                     {b.dernier_run_at
-                      ? new Date(b.dernier_run_at).toLocaleString('fr-FR')
+                      ? new Date(b.dernier_run_at).toLocaleString('fr-FR', {
+                          timeZone: 'Europe/Paris',
+                        })
                       : '—'}
                   </td>
                   <td className="py-1.5">

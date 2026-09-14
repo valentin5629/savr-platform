@@ -7,6 +7,7 @@ import { PackAGIndicator } from '@/components/ui/pack-ag-indicator';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { FormField } from '@/components/ui/form-field';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 export interface CollecteFormData {
   type: 'zd' | 'ag';
@@ -43,13 +44,12 @@ export function SousBlocCollecte({
   pack,
   className,
 }: SousBlocCollecteProps) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = jourParis();
 
   const twoDaysFromNow = new Date();
   twoDaysFromNow.setDate(twoDaysFromNow.getDate() + 2);
   const isLessThan48h =
-    data.date_collecte !== '' &&
-    data.date_collecte < twoDaysFromNow.toISOString().slice(0, 10);
+    data.date_collecte !== '' && data.date_collecte < jourParis(twoDaysFromNow);
 
   return (
     <div

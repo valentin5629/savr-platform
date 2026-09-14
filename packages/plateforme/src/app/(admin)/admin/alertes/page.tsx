@@ -135,7 +135,10 @@ export default function AlertesPage() {
     {
       key: 'created_at',
       header: 'Créée le',
-      render: (row) => new Date(row.created_at).toLocaleString('fr-FR'),
+      render: (row) =>
+        new Date(row.created_at).toLocaleString('fr-FR', {
+          timeZone: 'Europe/Paris',
+        }),
     },
     {
       key: 'action',

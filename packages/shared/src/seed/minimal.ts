@@ -19,6 +19,7 @@ import type pg from 'pg';
 import { seedUuid } from './uuid.js';
 import { upsert, lookupMap, jsonb, type Row } from './db.js';
 import { SEED_REF_DATE, fakePhone, seedEmail } from './constants.js';
+import { jourParis } from '../temps/index.js';
 
 const U = seedUuid;
 
@@ -29,7 +30,7 @@ type ColSpec = Row & { slug: string; ev: string };
 function d(offsetDays: number): string {
   const ref = new Date(SEED_REF_DATE + 'T00:00:00Z');
   ref.setUTCDate(ref.getUTCDate() + offsetDays);
-  return ref.toISOString().slice(0, 10);
+  return jourParis(ref);
 }
 function ts(offsetDays: number, hour = 22): string {
   const ref = new Date(SEED_REF_DATE + 'T00:00:00Z');

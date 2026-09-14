@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -9,8 +10,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const supabase = createAdminSupabaseClient();
   const now = new Date();
   const in48h = new Date(now.getTime() + 48 * 60 * 60 * 1000);
-  const nowStr = now.toISOString().slice(0, 10);
-  const in48hStr = in48h.toISOString().slice(0, 10);
+  const nowStr = jourParis(now);
+  const in48hStr = jourParis(in48h);
 
   const [
     nonTransmisesZD,

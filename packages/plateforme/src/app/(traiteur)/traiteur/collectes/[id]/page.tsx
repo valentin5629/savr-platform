@@ -423,7 +423,9 @@ export default function FicheCollectePage({
                     ? (TYPE_VEHICULE_LABEL[t.type_vehicule] ?? t.type_vehicule)
                     : null;
                   const dateMaj = t.plaque_saisie_at
-                    ? new Date(t.plaque_saisie_at).toLocaleDateString('fr-FR')
+                    ? new Date(t.plaque_saisie_at).toLocaleDateString('fr-FR', {
+                        timeZone: 'Europe/Paris',
+                      })
                     : null;
                   return (
                     <li key={i} className="space-y-1">

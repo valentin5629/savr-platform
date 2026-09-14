@@ -20,6 +20,7 @@ vi.mock('next/navigation', () => ({
 import { TraiteurDashboardClient } from '@/app/(traiteur)/traiteur/traiteur-dashboard-client';
 import { FACTEURS_CO2_DEFAUT } from '@/lib/dashboards/cockpit-derive';
 import type { TraiteurDashboardPayload } from '@/lib/dashboards/loaders';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 function jsonResponse(obj: unknown): Promise<Response> {
   return Promise.resolve({
@@ -35,8 +36,8 @@ function defaultPeriod(): { from: string; to: string } {
   const from = new Date();
   from.setMonth(from.getMonth() - 12);
   return {
-    from: from.toISOString().slice(0, 10),
-    to: to.toISOString().slice(0, 10),
+    from: jourParis(from),
+    to: jourParis(to),
   };
 }
 const PERIOD = defaultPeriod();

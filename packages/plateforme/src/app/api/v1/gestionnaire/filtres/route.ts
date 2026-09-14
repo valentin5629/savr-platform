@@ -4,6 +4,7 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
@@ -42,7 +43,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // Traiteurs intervenus (fenêtre 24 mois, cohérente avec la liste Traiteurs §06.05 §5).
   const since24m = new Date();
   since24m.setMonth(since24m.getMonth() - 24);
-  const since24mStr = since24m.toISOString().slice(0, 10);
+  const since24mStr = jourParis(since24m);
 
   const { data: collectes } = await supabase
     .from('collectes')

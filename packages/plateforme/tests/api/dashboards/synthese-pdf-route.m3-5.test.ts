@@ -9,6 +9,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest, NextResponse } from 'next/server';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 const generatePdf = vi.fn();
 const uploadPdf = vi.fn();
@@ -123,7 +124,7 @@ describe('M3.5 / route synthèse PDF — génération synchrone', () => {
   });
 
   it('borne future interdite : `to` ramené à aujourd’hui (§1.6)', async () => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = jourParis();
     await callPost(post({ from: '2026-01-01', to: '2999-01-01' }));
     const params = buildSyntheseSnapshot.mock.calls[0]?.[2] as { to: string };
     expect(params.to).toBe(today);

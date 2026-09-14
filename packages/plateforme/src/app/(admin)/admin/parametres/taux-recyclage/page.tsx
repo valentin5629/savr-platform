@@ -298,7 +298,9 @@ export default function TauxRecyclagePage() {
                     {hist.rows.map((r) => (
                       <tr key={r.id}>
                         <td className="py-2 pr-3 text-savr-neutral-600 whitespace-nowrap">
-                          {new Date(r.modifie_le).toLocaleDateString('fr-FR')}
+                          {new Date(r.modifie_le).toLocaleDateString('fr-FR', {
+                            timeZone: 'Europe/Paris',
+                          })}
                         </td>
                         <td className="py-2 pr-3 text-savr-neutral-700">
                           {r.modifie_par_nom}

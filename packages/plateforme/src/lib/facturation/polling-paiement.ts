@@ -3,6 +3,7 @@
 
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { getInvoice } from '../pennylane/client.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 export interface PollingPaiementResult {
   checked: number;
@@ -49,7 +50,7 @@ export async function runPollingPaiement(
             statut: 'payee',
             date_paiement: r.invoice.paid_at
               ? r.invoice.paid_at.split('T')[0]
-              : new Date().toISOString().split('T')[0],
+              : jourParis(),
             updated_at: new Date().toISOString(),
           })
           .eq('id', facture.id)

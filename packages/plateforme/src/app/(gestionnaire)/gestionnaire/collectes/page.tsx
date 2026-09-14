@@ -127,7 +127,9 @@ function GestionnaireCollectesContent() {
                 >
                   <td className="px-3 py-2">
                     {c.date_collecte
-                      ? new Date(c.date_collecte).toLocaleDateString('fr-FR')
+                      ? new Date(c.date_collecte).toLocaleDateString('fr-FR', {
+                          timeZone: 'Europe/Paris',
+                        })
                       : '—'}
                   </td>
                   <td className="px-3 py-2">{c.lieu_nom ?? '—'}</td>

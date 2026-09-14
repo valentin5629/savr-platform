@@ -1,3 +1,4 @@
+import { jourParis } from '@savr/shared/src/temps/index.js';
 // Helpers d'affichage SLA Pennylane facture (§06.08 §2.3 / §4). Fonctions PURES
 // (aucune dépendance React / horloge implicite) → testables en isolation avec un
 // `nowMs` injecté (oracle pastille_orange_borne_2h, borne stricte). Utilisées par la
@@ -56,6 +57,6 @@ export function estEnRetard(
   if (statut !== 'emise') return false;
   if (!dateEcheanceIso) return false;
   const echeanceJour = dateEcheanceIso.slice(0, 10);
-  const aujourdHui = new Date(nowMs).toISOString().slice(0, 10);
+  const aujourdHui = jourParis(new Date(nowMs));
   return echeanceJour < aujourdHui;
 }

@@ -4,6 +4,7 @@ import { logger } from '@savr/shared/src/logger/index.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { sanitizeOrTerm } from '@/lib/api-helpers.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -51,9 +52,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const ids = rows.map((r) => r.id);
   const counts = new Map<string, number>();
   if (ids.length > 0) {
-    const cutoff30j = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .slice(0, 10);
+    const cutoff30j = jourParis(
+      new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+    );
     const { data: attrs, error: kpiError } = await supabase
       .from('attributions_antgaspi')
       .select('association_id, collectes!inner(statut,date_collecte,type)')

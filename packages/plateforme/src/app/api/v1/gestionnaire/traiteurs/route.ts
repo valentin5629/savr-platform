@@ -4,6 +4,7 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
@@ -27,11 +28,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // Fenêtre 24 mois (fixe, indépendante du filtre période)
   const since24m = new Date();
   since24m.setMonth(since24m.getMonth() - 24);
-  const since24mStr = since24m.toISOString().slice(0, 10);
+  const since24mStr = jourParis(since24m);
 
   const since12m = new Date();
   since12m.setMonth(since12m.getMonth() - 12);
-  const since12mStr = since12m.toISOString().slice(0, 10);
+  const since12mStr = jourParis(since12m);
 
   const { data: collectes, error } = await supabase
     .from('collectes')

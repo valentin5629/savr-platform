@@ -186,6 +186,7 @@ export function RevenusHistogramme({
                 const zdPct = total > 0 ? (zdVal / maxVal) * 100 : 0;
                 const agPct = total > 0 ? (agVal / maxVal) * 100 : 0;
                 const label = new Date(mois).toLocaleDateString('fr-FR', {
+                  timeZone: 'Europe/Paris',
                   month: 'short',
                   year: '2-digit',
                 });
@@ -263,6 +264,7 @@ export function RevenusHistogramme({
                 className="flex-1 text-center text-[10px] text-savr-neutral-500"
               >
                 {new Date(mois).toLocaleDateString('fr-FR', {
+                  timeZone: 'Europe/Paris',
                   month: 'short',
                   year: '2-digit',
                 })}

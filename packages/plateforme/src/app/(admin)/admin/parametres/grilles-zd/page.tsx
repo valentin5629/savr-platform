@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useUserRole } from '@/lib/use-user-role';
 import { OpsReadOnlyBanner } from '@/components/ui/ops-read-only-banner';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 type Mode = 'paliers' | 'fixe_variable';
 
@@ -84,7 +85,7 @@ export default function GrillesZdPage() {
     setFNom('');
     setFMode('paliers');
     setFDefaut(false);
-    setFValideDu(new Date().toISOString().slice(0, 10));
+    setFValideDu(jourParis());
     setFPaliers([emptyPalier()]);
     setFormError(null);
     setModal(true);

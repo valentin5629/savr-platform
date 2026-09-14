@@ -17,6 +17,7 @@ import {
   type SerieFacturation,
 } from './numerotation.js';
 import { requireValidatedOrganisation } from '../onboarding-guards.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 export interface ValidationResult {
   ok: boolean;
@@ -248,11 +249,9 @@ export async function validerFacture(
   }
 
   const now = new Date();
-  const dateEmission = now.toISOString().split('T')[0]!;
+  const dateEmission = jourParis(now);
   const jours = ef.conditions_paiement_jours ?? 30;
-  const dateEcheance = new Date(now.getTime() + jours * 86400_000)
-    .toISOString()
-    .split('T')[0]!;
+  const dateEcheance = jourParis(new Date(now.getTime() + jours * 86400_000));
 
   // Passer en en_attente_pennylane + enregistrer le numéro
   await supabase

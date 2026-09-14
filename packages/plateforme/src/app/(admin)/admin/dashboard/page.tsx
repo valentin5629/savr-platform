@@ -14,6 +14,7 @@ import { RevenusHistogramme } from '@/components/dashboards/index.js';
 import { KpiCockpitCard } from '@/components/dashboards/charts/cockpit/KpiCockpitCard';
 import { ChartCard } from '@/components/dashboards/charts/cockpit/ChartCard';
 import { fmtInt } from '@/components/dashboards/charts/cockpit/fmt';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 interface KpiData {
   non_transmises_zd: number;
@@ -85,7 +86,7 @@ const dateFieldClass =
 // ET le tableau (filtre unique, revue E2E Val 2026-07-18) ; « Réinitialiser » y revient.
 function defaultPeriode(): { from: string; to: string } {
   const now = new Date();
-  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  const iso = (d: Date) => jourParis(d);
   return {
     from: iso(new Date(now.getFullYear(), now.getMonth() - 11, 1)),
     to: iso(now),

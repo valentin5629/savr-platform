@@ -7,6 +7,7 @@ import {
   applyChipPredicate,
   type ChipQuery,
 } from '@/lib/collectes-chips.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 // GET /api/v1/admin/collectes/chip-counts
 // Compteur par chip prédéfini (§06.06 §3) pour les pastilles de la liste. Un
@@ -66,7 +67,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
     // (`infos_acces_email_envoye_at` renseigné), la collecte sort du compteur.
     // « Infos à récupérer » = infos traiteur incomplètes. Le filtre liste
     // `controle_acces` DOIT matcher exactement cette définition (route.ts).
-    const today = now.toISOString().slice(0, 10);
+    const today = jourParis(now);
     const countAvenirType = async (t: string): Promise<number> => {
       const { count, error } = await supabase
         .from('collectes')

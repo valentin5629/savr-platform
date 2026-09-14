@@ -52,7 +52,9 @@ export function SecuriteAccesPanel(): React.JSX.Element {
                 className="flex items-center gap-2 text-sm text-savr-neutral-700"
               >
                 <span className="font-medium">
-                  {new Date(a.accede_le).toLocaleString('fr-FR')}
+                  {new Date(a.accede_le).toLocaleString('fr-FR', {
+                    timeZone: 'Europe/Paris',
+                  })}
                 </span>
                 <span className="text-savr-neutral-500">
                   Accès administrateur

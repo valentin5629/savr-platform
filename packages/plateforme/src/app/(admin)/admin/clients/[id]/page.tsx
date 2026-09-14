@@ -549,7 +549,10 @@ export default function ClientFichePage({
               Pack {packActif.type_pack} — {creditsRestants} crédit
               {creditsRestants !== 1 ? 's' : ''} restant
               {creditsRestants !== 1 ? 's' : ''}. Dernier achat :{' '}
-              {new Date(packActif.created_at).toLocaleDateString('fr-FR')}.
+              {new Date(packActif.created_at).toLocaleDateString('fr-FR', {
+                timeZone: 'Europe/Paris',
+              })}
+              .
             </AlertBar>
           )}
 
@@ -643,7 +646,9 @@ export default function ClientFichePage({
                         </Badge>
                       </td>
                       <td className="py-2 text-savr-neutral-500">
-                        {new Date(p.created_at).toLocaleDateString('fr-FR')}
+                        {new Date(p.created_at).toLocaleDateString('fr-FR', {
+                          timeZone: 'Europe/Paris',
+                        })}
                       </td>
                     </tr>
                   ))}

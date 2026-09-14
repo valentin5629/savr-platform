@@ -6,6 +6,7 @@ import {
   ParcMultiSelects,
   type ParcFilterOptions,
 } from './ParcMultiSelects.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 // Filtres de la liste Événements gestionnaire (§06.05 §2 l.280-293) :
 // 5 filtres globaux (Période + Lieux + Traiteurs + Type + Taille) + 2 spécifiques
@@ -33,8 +34,8 @@ export function defaultEvenementsFilters(): EvenementsListFilters {
   const from = new Date();
   from.setMonth(from.getMonth() - 12);
   return {
-    from: from.toISOString().slice(0, 10),
-    to: to.toISOString().slice(0, 10),
+    from: jourParis(from),
+    to: jourParis(to),
     lieu_ids: [],
     traiteur_ids: [],
     type_evenement_ids: [],

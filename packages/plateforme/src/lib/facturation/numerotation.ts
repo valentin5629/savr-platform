@@ -2,6 +2,7 @@
 // Appelée dans la transaction de validation Admin, AVANT le push Pennylane.
 
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 export type SerieFacturation = 'FZD' | 'FAG' | 'FPK' | 'AV';
 
@@ -10,7 +11,9 @@ export async function attribuerNumeroFacture(
   serie: SerieFacturation,
   annee?: number,
 ): Promise<string> {
-  const an = annee ?? new Date().getFullYear();
+  // Année du jour PARISIEN : sinon, entre 00h et 02h le 1er janvier, une facture
+  // datée 2027 recevrait un numéro de la série 2026 (jour UTC encore au 31/12).
+  const an = annee ?? Number(jourParis().slice(0, 4));
   const { data, error } = await supabase
     .rpc('f_attribuer_numero_facture', {
       p_serie: serie,

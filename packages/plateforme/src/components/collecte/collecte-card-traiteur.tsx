@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import { IconButton } from '@/components/ui/icon-button';
+import { formatJour } from '@savr/shared/src/temps/index.js';
 
 // Carte de la liste des collectes traiteur (BL-P2-14 + refonte liste 2026-07-05,
 // enrichie revue écran 2026-07-15, décisions Val). Reprend le langage visuel des
@@ -73,14 +74,11 @@ export function TraiteurCollecteCard({
   // collecte + le téléchargement du rapport, à gauche du badge.
   const estRealisee = c.statut === 'cloturee';
   const jour = (() => {
-    const d = new Date(`${c.date_collecte}T00:00:00`);
-    return isNaN(d.getTime())
-      ? c.date_collecte
-      : d.toLocaleDateString('fr-FR', {
-          weekday: 'short',
-          day: '2-digit',
-          month: 'short',
-        });
+    return formatJour(c.date_collecte, {
+      weekday: 'short',
+      day: '2-digit',
+      month: 'short',
+    });
   })();
   const heure = c.heure_collecte?.slice(0, 5) ?? '—';
   const lieuLigne = [c.lieu_nom, c.lieu_adresse].filter(Boolean).join(' · ');

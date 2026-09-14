@@ -13,6 +13,7 @@ import {
 import { KpiCockpitCard } from '@/components/dashboards/charts/cockpit/KpiCockpitCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 // Pastilles couleur des cartes KPI (palette data-viz DS §2.4, figée par sens —
 // identique traiteur/gestionnaire/agence).
@@ -91,7 +92,7 @@ export default function ClientOrganisateurDashboardPage() {
   // Bandeau de tête — synthèse RSE annuelle YTD (tous types confondus)
   useEffect(() => {
     const year = new Date().getFullYear();
-    const to = new Date().toISOString().slice(0, 10);
+    const to = jourParis();
     const qs = new URLSearchParams({ from: `${year}-01-01`, to });
     fetch(`/api/v1/dashboards/kpi-client-organisateur?${qs}`)
       .then((r) => r.json())

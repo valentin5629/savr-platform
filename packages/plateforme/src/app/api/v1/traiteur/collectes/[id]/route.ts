@@ -6,6 +6,7 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
+import { instantParis } from '@savr/shared/src/temps/index.js';
 
 const TRAITEUR_ROLES: ClientRole[] = [
   'traiteur_manager',
@@ -316,8 +317,11 @@ export async function PATCH(
   }
 
   // Flags modal/audit (§06.04 modal unique + cut-off 12h)
-  const creneau = new Date(
-    `${collecte.date_collecte}T${collecte.heure_collecte ?? '00:00:00'}`,
+  // Heure murale parisienne : le trigger SQL qui débite le crédit du pack ancre
+  // le seuil 12h en Europe/Paris — l'API doit tomber au même instant.
+  const creneau = instantParis(
+    collecte.date_collecte as string,
+    (collecte.heure_collecte as string) ?? '00:00:00',
   );
   const priorite_urgence = creneau.getTime() - Date.now() < 12 * 3600 * 1000;
   const dateHeureModifiee =

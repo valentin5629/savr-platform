@@ -44,6 +44,7 @@ import {
   type FacteursCo2,
   type TraiteurKpiRow,
 } from '@/lib/dashboards/cockpit-derive.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 type AdminDbClient = ReturnType<typeof createAdminSupabaseClient>;
 
@@ -94,7 +95,7 @@ const SELECT_PROCHAINES = `id, date_collecte, heure_collecte, statut, type,
      lieux!inner(id, nom))`;
 
 function isoDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  return jourParis(d);
 }
 
 // Les ids d'org sont interpolés dans une chaîne de filtre `.or()` PostgREST (non

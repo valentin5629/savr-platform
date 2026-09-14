@@ -15,6 +15,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 import { CollecteDetailModal } from './collecte-detail-modal';
+import { ATTENTE_UI } from '@/test-utils/attente-ui';
 
 // Collecte AG programmée (non terminale) → l'en-tête affiche « Forcer le statut ».
 const collecteAg = {
@@ -95,7 +96,7 @@ describe('M0.6 — CollecteDetailModal pop-up + garde Escape (BL-P1-BOA-06)', ()
     mockFetch();
     const onClose = vi.fn();
     render(<CollecteDetailModal collecteId="c1" onClose={onClose} />);
-    await screen.findByText('Prestataire & Dispatch');
+    await screen.findByText('Prestataire & Dispatch', undefined, ATTENTE_UI);
 
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledTimes(1);
@@ -105,11 +106,15 @@ describe('M0.6 — CollecteDetailModal pop-up + garde Escape (BL-P1-BOA-06)', ()
     mockFetch();
     const onClose = vi.fn();
     render(<CollecteDetailModal collecteId="c1" onClose={onClose} />);
-    await screen.findByText('Prestataire & Dispatch');
+    await screen.findByText('Prestataire & Dispatch', undefined, ATTENTE_UI);
 
     // Ouvre la sous-modale « Forcer le statut »
     fireEvent.click(screen.getByRole('button', { name: /Forcer le statut/ }));
-    await screen.findByText('Forcer le statut de la collecte');
+    await screen.findByText(
+      'Forcer le statut de la collecte',
+      undefined,
+      ATTENTE_UI,
+    );
 
     // Escape : la sous-modale gère sa propre fermeture, le panneau reste ouvert.
     fireEvent.keyDown(document, { key: 'Escape' });

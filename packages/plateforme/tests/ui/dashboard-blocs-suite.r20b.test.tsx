@@ -39,6 +39,7 @@ import GestionnaireDashboardPage from '@/app/(gestionnaire)/gestionnaire/page.js
 import { FACTEURS_CO2_DEFAUT } from '@/lib/dashboards/cockpit-derive';
 import type { TraiteurDashboardPayload } from '@/lib/dashboards/loaders';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { ATTENTE_UI } from '@/test-utils/attente-ui';
 
 function jsonResponse(obj: unknown): Promise<Response> {
   return Promise.resolve({
@@ -317,7 +318,9 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
   it('M3.1/blocs_traiteur_zd_montes_et_benchmark_reel', async () => {
     useTraiteurFetch(payloadAg(blocsAg()));
     renderTraiteur(blocsZd());
-    expect(await screen.findByTestId('bloc-5-prochaines')).toBeInTheDocument();
+    expect(
+      await screen.findByTestId('bloc-5-prochaines', undefined, ATTENTE_UI),
+    ).toBeInTheDocument();
     expect(screen.getByTestId('bloc-6-top-lieux')).toBeInTheDocument();
     expect(screen.getByTestId('bloc-7-top-acteurs')).toBeInTheDocument();
     // Bloc 3 ZD = VRAI benchmark (encart « Filtres benchmark »), pas le stub R20a.
@@ -337,11 +340,17 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
   it('M3.1/blocs_traiteur_ag_associations_et_top7', async () => {
     useTraiteurFetch(payloadAg(blocsAg()));
     renderTraiteur(blocsZd());
-    await screen.findByTestId('bloc-5-prochaines');
-    fireEvent.click(await screen.findByRole('tab', { name: /anti-gaspi/i }));
+    await screen.findByTestId('bloc-5-prochaines', undefined, ATTENTE_UI);
+    fireEvent.click(
+      await screen.findByRole('tab', { name: /anti-gaspi/i }, ATTENTE_UI),
+    );
     // Bloc 3 AG = top associations ; Bloc 7 commerciaux présent.
     expect(
-      await screen.findByTestId('bloc-3ag-top-associations'),
+      await screen.findByTestId(
+        'bloc-3ag-top-associations',
+        undefined,
+        ATTENTE_UI,
+      ),
     ).toBeInTheDocument();
     expect(screen.getByText('Asso Un')).toBeInTheDocument();
     // Colonnes CDC §06.04 Bloc 3 AG (Ville + Nb collectes) préservées (secondary).
@@ -352,7 +361,7 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
   it('M3.1/blocs_traiteur_kpi_cartes_non_cliquables', async () => {
     useTraiteurFetch(payloadAg(blocsAg()));
     renderTraiteur(blocsZd());
-    await screen.findByTestId('bloc-6-top-lieux');
+    await screen.findByTestId('bloc-6-top-lieux', undefined, ATTENTE_UI);
     // R24 Cockpit — décision Val GO-VISUAL 2026-07-10 : aucune carte KPI ne
     // NAVIGUE vers la liste Collectes filtrée (revient sur BL-P2-11/BL-P2-43).
     const liensCollectes = screen
@@ -365,7 +374,11 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
     expect(screen.queryByText("Détail de l'impact carbone")).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /CO₂ évité/ }));
     expect(
-      await screen.findByText("Détail de l'impact carbone"),
+      await screen.findByText(
+        "Détail de l'impact carbone",
+        undefined,
+        ATTENTE_UI,
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByText(/Comment ces chiffres sont-ils calculés/),
@@ -378,11 +391,19 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
     // une navigation (invariant R24). payloadAg porte co2_evite_kg = 300 > 0.
     useTraiteurFetch(payloadAg(blocsAg()));
     renderTraiteur(blocsZd());
-    await screen.findByTestId('bloc-5-prochaines');
-    fireEvent.click(await screen.findByRole('tab', { name: /anti-gaspi/i }));
-    fireEvent.click(await screen.findByRole('button', { name: /CO₂ évité/ }));
+    await screen.findByTestId('bloc-5-prochaines', undefined, ATTENTE_UI);
+    fireEvent.click(
+      await screen.findByRole('tab', { name: /anti-gaspi/i }, ATTENTE_UI),
+    );
+    fireEvent.click(
+      await screen.findByRole('button', { name: /CO₂ évité/ }, ATTENTE_UI),
+    );
     expect(
-      await screen.findByText("Détail de l'impact carbone"),
+      await screen.findByText(
+        "Détail de l'impact carbone",
+        undefined,
+        ATTENTE_UI,
+      ),
     ).toBeInTheDocument();
     // Méthode AG (singulier « ce chiffre ») + héros AG (« dons anti-gaspi ») ;
     // PAS la méthode ABC ZD (« ces chiffres » + tableau par matière).
@@ -409,13 +430,17 @@ describe('M3.1 / traiteur — blocs §11 restants', () => {
     };
     useTraiteurFetch(agZero);
     renderTraiteur(blocsZd());
-    await screen.findByTestId('bloc-5-prochaines');
-    fireEvent.click(await screen.findByRole('tab', { name: /anti-gaspi/i }));
+    await screen.findByTestId('bloc-5-prochaines', undefined, ATTENTE_UI);
+    fireEvent.click(
+      await screen.findByRole('tab', { name: /anti-gaspi/i }, ATTENTE_UI),
+    );
     // Onglet AG chargé (carte « Repas donnés » propre à l'AG), puis attente que
     // les données AG (Σ = 0) rendent la carte CO₂ non cliquable (plus de bouton).
-    await screen.findByText('Repas donnés');
-    await waitFor(() =>
-      expect(screen.queryByRole('button', { name: /CO₂ évité/ })).toBeNull(),
+    await screen.findByText('Repas donnés', undefined, ATTENTE_UI);
+    await waitFor(
+      () =>
+        expect(screen.queryByRole('button', { name: /CO₂ évité/ })).toBeNull(),
+      ATTENTE_UI,
     );
   });
 });
@@ -424,7 +449,9 @@ describe('M3.3 / agence — Bloc 7 retiré', () => {
   it('M3.3/blocs_agence_zd_sans_bloc7', async () => {
     useFetch(blocsZd());
     render(<AgenceDashboardPage />);
-    expect(await screen.findByTestId('bloc-5-prochaines')).toBeInTheDocument();
+    expect(
+      await screen.findByTestId('bloc-5-prochaines', undefined, ATTENTE_UI),
+    ).toBeInTheDocument();
     expect(screen.getByTestId('bloc-6-top-lieux')).toBeInTheDocument();
     // Bloc 7 « Top 5 commerciaux » RETIRÉ côté agence (§06.11 diff #8).
     expect(screen.queryByTestId('bloc-7-top-acteurs')).toBeNull();
@@ -437,10 +464,16 @@ describe('M3.3 / agence — Bloc 7 retiré', () => {
   it('M3.3/blocs_agence_ag_associations', async () => {
     useFetch(blocsAg());
     render(<AgenceDashboardPage />);
-    await screen.findByTestId('bloc-5-prochaines');
-    fireEvent.click(await screen.findByRole('tab', { name: /anti-gaspi/i }));
+    await screen.findByTestId('bloc-5-prochaines', undefined, ATTENTE_UI);
+    fireEvent.click(
+      await screen.findByRole('tab', { name: /anti-gaspi/i }, ATTENTE_UI),
+    );
     expect(
-      await screen.findByTestId('bloc-3ag-top-associations'),
+      await screen.findByTestId(
+        'bloc-3ag-top-associations',
+        undefined,
+        ATTENTE_UI,
+      ),
     ).toBeInTheDocument();
     expect(screen.queryByTestId('bloc-7-top-acteurs')).toBeNull();
   });
@@ -450,7 +483,9 @@ describe('M3.2 / gestionnaire — top traiteurs + colonne Traiteur', () => {
   it('M3.2/blocs_gestionnaire_zd_prochaines_colonne_traiteur', async () => {
     useFetch(blocsZd());
     render(<GestionnaireDashboardPage />);
-    expect(await screen.findByTestId('bloc-5-prochaines')).toBeInTheDocument();
+    expect(
+      await screen.findByTestId('bloc-5-prochaines', undefined, ATTENTE_UI),
+    ).toBeInTheDocument();
     // Bloc 5 gestionnaire : colonne « Traiteur » (§06.05 l.194) + valeur résolue.
     expect(
       screen.getByRole('columnheader', { name: 'Traiteur' }),
@@ -468,10 +503,16 @@ describe('M3.2 / gestionnaire — top traiteurs + colonne Traiteur', () => {
   it('M3.2/blocs_gestionnaire_ag_associations', async () => {
     useFetch(blocsAg());
     render(<GestionnaireDashboardPage />);
-    await screen.findByTestId('bloc-5-prochaines');
-    fireEvent.click(await screen.findByRole('tab', { name: /anti-gaspi/i }));
+    await screen.findByTestId('bloc-5-prochaines', undefined, ATTENTE_UI);
+    fireEvent.click(
+      await screen.findByRole('tab', { name: /anti-gaspi/i }, ATTENTE_UI),
+    );
     expect(
-      await screen.findByTestId('bloc-3ag-top-associations'),
+      await screen.findByTestId(
+        'bloc-3ag-top-associations',
+        undefined,
+        ATTENTE_UI,
+      ),
     ).toBeInTheDocument();
   });
 });

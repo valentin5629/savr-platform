@@ -46,6 +46,7 @@ vi.mock('@savr/shared/src/supabase-client.js', () => {
 import GestionnaireDashboardPage from '@/app/(gestionnaire)/gestionnaire/page.js';
 import NouveauProgrammationPage from '@/app/(programmation)/programmer/nouveau/page.js';
 import { BenchmarkFilterBar } from '@/components/dashboards/BenchmarkFilterBar.js';
+import { ATTENTE_UI } from '@/test-utils/attente-ui';
 
 const KPIS_ZD = {
   nb_collectes: 5,
@@ -148,9 +149,13 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
 
     // Le parcours métier principal du gestionnaire : bouton « Programmer un événement »
     // pointant vers le formulaire partagé.
-    const lien = await screen.findByRole('link', {
-      name: /Programmer un événement/i,
-    });
+    const lien = await screen.findByRole(
+      'link',
+      {
+        name: /Programmer un événement/i,
+      },
+      ATTENTE_UI,
+    );
     expect(lien).toHaveAttribute('href', '/programmer/nouveau');
   });
 
@@ -159,7 +164,9 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
 
     // Avant le fix (lecture de data.kpi singulier), kpi=null → EmptyState.
     // Après (data.kpis), les 4 cartes ZD s'affichent.
-    expect(await screen.findByText('Nombre de collectes')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Nombre de collectes', undefined, ATTENTE_UI),
+    ).toBeInTheDocument();
     expect(screen.getByText('Taux de recyclage')).toBeInTheDocument();
     // La valeur agrégée (nb_collectes = 5) est rendue, pas l'état vide.
     expect(screen.getByText('5')).toBeInTheDocument();
@@ -178,7 +185,7 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
     // L'encart des filtres du repère parc (§06.05 Bloc 3) est monté (imbriqué
     // dans la carte des jauges depuis R24b) avec ses 5 critères.
     expect(
-      await screen.findByTestId('benchmark-filter-bar'),
+      await screen.findByTestId('benchmark-filter-bar', undefined, ATTENTE_UI),
     ).toBeInTheDocument();
     expect(screen.getByText('Filtres du repère parc')).toBeInTheDocument();
     expect(screen.getByTestId('benchmark-reinitialiser')).toBeInTheDocument();
@@ -189,7 +196,11 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
     // Le filtre traiteurs n'apparaît qu'après chargement des listes parc (liste non
     // vide côté gestionnaire) → attente asynchrone.
     expect(
-      await screen.findByTestId('benchmark-filter-traiteurs'),
+      await screen.findByTestId(
+        'benchmark-filter-traiteurs',
+        undefined,
+        ATTENTE_UI,
+      ),
     ).toBeInTheDocument();
   });
 
@@ -197,7 +208,7 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
     const onChange = vi.fn();
     render(<BenchmarkFilterBar onChange={onChange} />);
     // Émission initiale (défaut 12 mois, tout « Tous »).
-    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    await waitFor(() => expect(onChange).toHaveBeenCalled(), ATTENTE_UI);
 
     // L'utilisateur ouvre le filtre Taille et coche « M ».
     fireEvent.click(
@@ -205,10 +216,12 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
     );
     fireEvent.click(screen.getByTestId('benchmark-filter-taille-opt-M'));
 
-    await waitFor(() =>
-      expect(onChange).toHaveBeenLastCalledWith(
-        expect.objectContaining({ taille_evenement_codes: ['M'] }),
-      ),
+    await waitFor(
+      () =>
+        expect(onChange).toHaveBeenLastCalledWith(
+          expect.objectContaining({ taille_evenement_codes: ['M'] }),
+        ),
+      ATTENTE_UI,
     );
   });
 
@@ -216,12 +229,16 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
     render(<NouveauProgrammationPage />);
 
     // Cas Gestionnaire : le sélecteur « Traiteur opérant » est monté (needsTraiteurSelector).
-    expect(await screen.findByText(/Traiteur opérant/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Traiteur opérant/i, undefined, ATTENTE_UI),
+    ).toBeInTheDocument();
 
     // Cocher Anti-Gaspi sans pack actif → soumission AG bloquée (alerte).
     fireEvent.click(screen.getByRole('checkbox', { name: /Anti-Gaspi/i }));
-    await waitFor(() =>
-      expect(screen.getByText(/Aucun pack AG actif/i)).toBeInTheDocument(),
+    await waitFor(
+      () =>
+        expect(screen.getByText(/Aucun pack AG actif/i)).toBeInTheDocument(),
+      ATTENTE_UI,
     );
   });
 });

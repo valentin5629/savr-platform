@@ -21,6 +21,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 import AgenceDashboardPage from '@/app/(agence)/agence/page.js';
+import { ATTENTE_UI } from '@/test-utils/attente-ui';
 
 function jsonResponse(obj: unknown): Promise<Response> {
   return Promise.resolve({
@@ -87,8 +88,12 @@ describe('M3.3 / dashboard agence — bouton renouvellement pack AG (BL-P1-AGENC
   it('M3.3/AGENCE01_bouton_renouvellement_onglet_ag — présent dans le bloc pack AG', async () => {
     render(<AgenceDashboardPage />);
     // Basculer sur l'onglet Anti-gaspi → bloc « Mon pack Anti-Gaspi ».
-    fireEvent.click(await screen.findByRole('tab', { name: /anti-gaspi/i }));
-    expect(await screen.findByText('Mon pack Anti-Gaspi')).toBeInTheDocument();
+    fireEvent.click(
+      await screen.findByRole('tab', { name: /anti-gaspi/i }, ATTENTE_UI),
+    );
+    expect(
+      await screen.findByText('Mon pack Anti-Gaspi', undefined, ATTENTE_UI),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /demander un renouvellement/i }),
     ).toBeInTheDocument();
@@ -96,20 +101,28 @@ describe('M3.3 / dashboard agence — bouton renouvellement pack AG (BL-P1-AGENC
 
   it('M3.3/AGENCE01_bouton_renouvellement_poste_endpoint — clic POST /traiteur/pack-ag/renouvellement', async () => {
     render(<AgenceDashboardPage />);
-    fireEvent.click(await screen.findByRole('tab', { name: /anti-gaspi/i }));
-    const bouton = await screen.findByRole('button', {
-      name: /demander un renouvellement/i,
-    });
+    fireEvent.click(
+      await screen.findByRole('tab', { name: /anti-gaspi/i }, ATTENTE_UI),
+    );
+    const bouton = await screen.findByRole(
+      'button',
+      {
+        name: /demander un renouvellement/i,
+      },
+      ATTENTE_UI,
+    );
     fetchMock.mockClear();
     fireEvent.click(bouton);
-    await waitFor(() =>
-      expect(
-        fetchMock.mock.calls.some(
-          ([u, init]) =>
-            String(u).includes('/traiteur/pack-ag/renouvellement') &&
-            (init as RequestInit | undefined)?.method === 'POST',
-        ),
-      ).toBe(true),
+    await waitFor(
+      () =>
+        expect(
+          fetchMock.mock.calls.some(
+            ([u, init]) =>
+              String(u).includes('/traiteur/pack-ag/renouvellement') &&
+              (init as RequestInit | undefined)?.method === 'POST',
+          ),
+        ).toBe(true),
+      ATTENTE_UI,
     );
   });
 });

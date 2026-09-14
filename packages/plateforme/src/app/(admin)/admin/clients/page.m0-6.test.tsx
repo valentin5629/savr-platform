@@ -29,6 +29,7 @@ vi.mock('next/link', () => ({
 }));
 
 import ClientsPage from './page';
+import { ATTENTE_UI } from '@/test-utils/attente-ui';
 
 const orgs = [
   {
@@ -82,8 +83,10 @@ afterEach(() => vi.restoreAllMocks());
 describe('M0.6 — liste clients : colonne Pack actif + retrait SIREN', () => {
   it('affiche le bandeau « Clients » et le CTA « Créer une organisation »', async () => {
     render(<ClientsPage />);
-    await waitFor(() =>
-      expect(screen.getAllByText('Fleur de Mets').length).toBeGreaterThan(0),
+    await waitFor(
+      () =>
+        expect(screen.getAllByText('Fleur de Mets').length).toBeGreaterThan(0),
+      ATTENTE_UI,
     );
     expect(
       screen.getByRole('heading', { name: 'Clients' }),
@@ -93,8 +96,10 @@ describe('M0.6 — liste clients : colonne Pack actif + retrait SIREN', () => {
 
   it('rend un avatar à initiales (première + dernière parole) devant le nom', async () => {
     render(<ClientsPage />);
-    await waitFor(() =>
-      expect(screen.getAllByText('Fleur de Mets').length).toBeGreaterThan(0),
+    await waitFor(
+      () =>
+        expect(screen.getAllByText('Fleur de Mets').length).toBeGreaterThan(0),
+      ATTENTE_UI,
     );
     expect(screen.getAllByText('FM').length).toBeGreaterThan(0); // Fleur … Mets
     expect(screen.getAllByText('KR').length).toBeGreaterThan(0); // Kaspia Réceptions
@@ -103,8 +108,10 @@ describe('M0.6 — liste clients : colonne Pack actif + retrait SIREN', () => {
 
   it('colonne Pack actif : badge rouge si < 5 restants, vert sinon, « — » si aucun', async () => {
     render(<ClientsPage />);
-    await waitFor(() =>
-      expect(screen.getAllByText('Fleur de Mets').length).toBeGreaterThan(0),
+    await waitFor(
+      () =>
+        expect(screen.getAllByText('Fleur de Mets').length).toBeGreaterThan(0),
+      ATTENTE_UI,
     );
     // 3 restants → rouge (error)
     const faible = screen.getAllByText(/Pack 30 · 3 restants/);
@@ -120,8 +127,10 @@ describe('M0.6 — liste clients : colonne Pack actif + retrait SIREN', () => {
 
   it('n’affiche plus la colonne SIREN (ni en-tête, ni numéros)', async () => {
     render(<ClientsPage />);
-    await waitFor(() =>
-      expect(screen.getAllByText('Fleur de Mets').length).toBeGreaterThan(0),
+    await waitFor(
+      () =>
+        expect(screen.getAllByText('Fleur de Mets').length).toBeGreaterThan(0),
+      ATTENTE_UI,
     );
     expect(screen.queryByText(/SIREN/i)).not.toBeInTheDocument();
     expect(screen.queryByText('43219876500012')).not.toBeInTheDocument();

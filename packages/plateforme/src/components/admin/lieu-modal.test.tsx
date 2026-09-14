@@ -8,6 +8,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 
 import { LieuModal } from '@/components/admin/lieu-modal';
+import { ATTENTE_UI } from '@/test-utils/attente-ui';
 
 const DETAIL = {
   nom: 'Château de Saint-Cloud',
@@ -123,11 +124,13 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
     fillRequired();
     fireEvent.click(screen.getByRole('button', { name: /Créer le lieu/ }));
 
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        '/api/v1/admin/lieux',
-        expect.objectContaining({ method: 'POST' }),
-      ),
+    await waitFor(
+      () =>
+        expect(fetchMock).toHaveBeenCalledWith(
+          '/api/v1/admin/lieux',
+          expect.objectContaining({ method: 'POST' }),
+        ),
+      ATTENTE_UI,
     );
     const call = postCall(fetchMock);
     const body = JSON.parse((call![1] as RequestInit).body as string) as {
@@ -137,7 +140,7 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
     expect(body.nom).toBe('Château de Saint-Cloud');
     expect(body.type_vehicule_max).toBe('fourgon');
 
-    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
     expect(onClose).toHaveBeenCalled();
   });
 
@@ -150,19 +153,27 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
     );
 
     // Le formulaire n'apparaît qu'après hydratation (GET détail), nom prérempli.
-    const nom = await screen.findByLabelText(/Nom du lieu/);
-    await waitFor(() =>
-      expect((nom as HTMLInputElement).value).toBe('Château de Saint-Cloud'),
+    const nom = await screen.findByLabelText(
+      /Nom du lieu/,
+      undefined,
+      ATTENTE_UI,
+    );
+    await waitFor(
+      () =>
+        expect((nom as HTMLInputElement).value).toBe('Château de Saint-Cloud'),
+      ATTENTE_UI,
     );
 
     fireEvent.change(nom, { target: { value: 'Château rénové' } });
     fireEvent.click(screen.getByRole('button', { name: /Enregistrer/ }));
 
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        '/api/v1/admin/lieux/lieu-42',
-        expect.objectContaining({ method: 'PATCH' }),
-      ),
+    await waitFor(
+      () =>
+        expect(fetchMock).toHaveBeenCalledWith(
+          '/api/v1/admin/lieux/lieu-42',
+          expect.objectContaining({ method: 'PATCH' }),
+        ),
+      ATTENTE_UI,
     );
     const call = fetchMock.mock.calls.find(
       ([u, o]) =>
@@ -173,7 +184,7 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
       nom: string;
     };
     expect(body.nom).toBe('Château rénové');
-    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
   });
 
   it('SIREN invalide bloque la soumission (pas de POST /lieux)', async () => {
@@ -189,7 +200,9 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /Créer le lieu/ }));
 
-    expect(await screen.findByText(/SIREN : 9 chiffres/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/SIREN : 9 chiffres/, undefined, ATTENTE_UI),
+    ).toBeInTheDocument();
     expect(postCall(fetchMock)).toBeUndefined();
   });
 
@@ -205,10 +218,12 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
     }
 
     // Laisse le fetch organisations se résoudre (évite un act() warning tardif).
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/admin/organisations'),
-      ),
+    await waitFor(
+      () =>
+        expect(fetchMock).toHaveBeenCalledWith(
+          expect.stringContaining('/api/v1/admin/organisations'),
+        ),
+      ATTENTE_UI,
     );
   });
 
@@ -221,9 +236,13 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
       <LieuModal open lieuId={null} onClose={vi.fn()} onSaved={vi.fn()} />,
     );
 
-    const option = await screen.findByRole('option', {
-      name: 'Traiteur Gestionnaire SARL',
-    });
+    const option = await screen.findByRole(
+      'option',
+      {
+        name: 'Traiteur Gestionnaire SARL',
+      },
+      ATTENTE_UI,
+    );
     expect(option).toHaveValue('org-1');
     expect(screen.getByLabelText(/Gestionnaire de lieux/)).toBeInTheDocument();
   });
@@ -242,7 +261,9 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /Créer le lieu/ }));
 
-    expect(await screen.findByText(/Nom obligatoire/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Nom obligatoire/, undefined, ATTENTE_UI),
+    ).toBeInTheDocument();
     expect(postCall(fetchMock)).toBeUndefined();
   });
 
@@ -256,6 +277,8 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
     // Round-trip GET → hydratation : chaque champ réintégré prend la valeur du détail.
     const region = (await screen.findByLabelText(
       /Région/,
+      undefined,
+      ATTENTE_UI,
     )) as HTMLSelectElement;
     expect(region.value).toBe('idf');
     expect(
@@ -280,11 +303,13 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Enregistrer/ }));
 
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        '/api/v1/admin/lieux/lieu-77',
-        expect.objectContaining({ method: 'PATCH' }),
-      ),
+    await waitFor(
+      () =>
+        expect(fetchMock).toHaveBeenCalledWith(
+          '/api/v1/admin/lieux/lieu-77',
+          expect.objectContaining({ method: 'PATCH' }),
+        ),
+      ATTENTE_UI,
     );
     const call = fetchMock.mock.calls.find(
       ([u, o]) =>

@@ -19,6 +19,7 @@ vi.mock('next/navigation', () => ({
 
 import LoginPage from '@/app/login/page.js';
 import { safeNextPath } from '@/lib/safe-next-path.js';
+import { ATTENTE_UI } from '@/test-utils/attente-ui';
 
 async function seConnecter(next: string | null): Promise<void> {
   params = new URLSearchParams(next === null ? '' : { next });
@@ -30,7 +31,7 @@ async function seConnecter(next: string | null): Promise<void> {
     target: { value: 'motdepasse' },
   });
   fireEvent.submit(container.querySelector('form')!);
-  await waitFor(() => expect(push).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(push).toHaveBeenCalledTimes(1), ATTENTE_UI);
 }
 
 const EXTERNES: Array<[string, string]> = [
@@ -95,7 +96,7 @@ describe('login — `next` externe refusé (open redirect)', () => {
     params = new URLSearchParams({ next: '/admin/collectes' });
     const { container, findByText } = render(<LoginPage />);
     fireEvent.submit(container.querySelector('form')!);
-    await findByText('Identifiants incorrects');
+    await findByText('Identifiants incorrects', undefined, ATTENTE_UI);
     expect(push).not.toHaveBeenCalled();
   });
 });

@@ -8,6 +8,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { LieuManuelForm } from './lieu-manuel-form';
+import { ATTENTE_UI } from '@/test-utils/attente-ui';
 
 describe('M0.6 — quick-add lieu manuel (BL-P1-BOA-03)', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -51,12 +52,12 @@ describe('M0.6 — quick-add lieu manuel (BL-P1-BOA-03)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Ajouter ce lieu/ }));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled(), ATTENTE_UI);
     const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
     const body = JSON.parse(options.body as string) as Record<string, unknown>;
     expect(body.type_vehicule_max).toBe('fourgon');
     expect(body.stationnement).toBeUndefined();
     expect(body.acces_office).toBeUndefined();
-    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    await waitFor(() => expect(onSave).toHaveBeenCalled(), ATTENTE_UI);
   });
 });

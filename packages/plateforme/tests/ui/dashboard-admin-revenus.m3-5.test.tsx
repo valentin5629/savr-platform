@@ -17,6 +17,7 @@ import {
 
 import DashboardAdminPage from '@/app/(admin)/admin/dashboard/page.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { ATTENTE_UI } from '@/test-utils/attente-ui';
 
 function jsonResponse(obj: unknown): Promise<Response> {
   return Promise.resolve({
@@ -99,7 +100,8 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
   it('M3.5/admin_revenus_7_colonnes — nom · type · nb/CA ZD · nb/CA AG · Total HT', async () => {
     render(<DashboardAdminPage />);
     expect(
-      (await screen.findAllByText('Traiteur Alpha')).length,
+      (await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI))
+        .length,
     ).toBeGreaterThan(0);
     for (const header of [
       'Organisation',
@@ -120,7 +122,7 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
 
   it('M3.5/admin_kpi_cartes_cliquables — chaque carte Bloc 1 lie vers /admin/collectes?chip= (miroir §11 §1.1)', async () => {
     render(<DashboardAdminPage />);
-    await screen.findAllByText('Traiteur Alpha'); // page hydratée (KPI chargés)
+    await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI); // page hydratée (KPI chargés)
     const hrefs = screen
       .getAllByRole('link')
       .map((l) => l.getAttribute('href'));
@@ -140,13 +142,13 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
   it('M3.5/admin_revenus_histogramme_monte — RevenusHistogramme n’est plus orphelin', async () => {
     render(<DashboardAdminPage />);
     expect(
-      await screen.findByTestId('revenus-histogramme'),
+      await screen.findByTestId('revenus-histogramme', undefined, ATTENTE_UI),
     ).toBeInTheDocument();
   });
 
   it('M3.5/admin_revenus_controls — titre bloc + champs de période présents, presets + export CSV retirés (revue E2E 2026-07-18)', async () => {
     render(<DashboardAdminPage />);
-    await screen.findAllByText('Traiteur Alpha');
+    await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
     expect(screen.getByText('Revenu par organisation')).toBeInTheDocument();
     expect(screen.getByTestId('revenus-from')).toBeInTheDocument();
     expect(screen.getByTestId('revenus-to')).toBeInTheDocument();
@@ -160,7 +162,7 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
 
   it('M3.5/admin_revenus_defaut_12_mois — période par défaut = 12 derniers mois glissants (alignés au 1er du mois)', async () => {
     render(<DashboardAdminPage />);
-    await screen.findAllByText('Traiteur Alpha');
+    await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
     const { from, to } = defaultWindow();
     // Les champs de date reflètent le défaut 12 mois…
     expect(screen.getByTestId('revenus-from')).toHaveValue(from);
@@ -180,7 +182,7 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
 
   it('M3.5/admin_revenus_filtre_commun_graph — le filtre Du/au pilote AUSSI l’histogramme (revue E2E Val 2026-07-18)', async () => {
     render(<DashboardAdminPage />);
-    await screen.findAllByText('Traiteur Alpha');
+    await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
     const { from, to } = defaultWindow();
     // Au montage, l'histogramme (kpi-admin) est requêté sur la MÊME fenêtre que le tableau.
     expect(
@@ -198,21 +200,24 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
     fireEvent.change(screen.getByTestId('revenus-from'), {
       target: { value: '2026-01-01' },
     });
-    await waitFor(() =>
-      expect(
-        fetchMock.mock.calls.some(([u]) => {
-          const s = String(u);
-          return (
-            s.includes('/dashboards/kpi-admin') && s.includes('from=2026-01-01')
-          );
-        }),
-      ).toBe(true),
+    await waitFor(
+      () =>
+        expect(
+          fetchMock.mock.calls.some(([u]) => {
+            const s = String(u);
+            return (
+              s.includes('/dashboards/kpi-admin') &&
+              s.includes('from=2026-01-01')
+            );
+          }),
+        ).toBe(true),
+      ATTENTE_UI,
     );
   });
 
   it('M3.5/admin_revenus_reinitialiser — « Réinitialiser » ramène au défaut 12 derniers mois', async () => {
     render(<DashboardAdminPage />);
-    await screen.findAllByText('Traiteur Alpha');
+    await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
     const { from, to } = defaultWindow();
     // On restreint d'abord à une fenêtre custom via saisie manuelle…
     fireEvent.change(screen.getByTestId('revenus-from'), {
@@ -227,16 +232,18 @@ describe('M3.5 / Dashboard Admin Bloc 2 Revenus (BL-P2-03)', () => {
 
   it('M3.5/admin_revenus_tri — clic sur une colonne triable relance le fetch trié', async () => {
     render(<DashboardAdminPage />);
-    await screen.findAllByText('Traiteur Alpha');
+    await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
     fetchMock.mockClear();
     // 1re occurrence = en-tête desktop <th> porteur du onClick de tri.
     fireEvent.click(screen.getAllByText('CA AG HT')[0]!);
-    await waitFor(() =>
-      expect(
-        fetchMock.mock.calls.some(([u]) =>
-          String(u).includes('sort=montant_ag_ht'),
-        ),
-      ).toBe(true),
+    await waitFor(
+      () =>
+        expect(
+          fetchMock.mock.calls.some(([u]) =>
+            String(u).includes('sort=montant_ag_ht'),
+          ),
+        ).toBe(true),
+      ATTENTE_UI,
     );
   });
 });

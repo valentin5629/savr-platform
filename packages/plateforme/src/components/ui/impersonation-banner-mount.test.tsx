@@ -13,6 +13,7 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
 }));
 
 import { ImpersonationBannerMount } from '@/components/ui/impersonation-banner-mount';
+import { ATTENTE_UI } from '@/test-utils/attente-ui';
 
 // Forge un access_token JWT (base64url, non paddé) avec les claims donnés.
 function makeToken(claims: Record<string, unknown>): string {
@@ -39,8 +40,9 @@ describe('M0.6 — bandeau impersonation (BL-P1-AUTH-01)', () => {
     });
 
     render(<ImpersonationBannerMount />);
-    await waitFor(() =>
-      expect(screen.getByText(/cible@traiteur\.fr/)).toBeInTheDocument(),
+    await waitFor(
+      () => expect(screen.getByText(/cible@traiteur\.fr/)).toBeInTheDocument(),
+      ATTENTE_UI,
     );
     expect(
       screen.getByRole('button', { name: /Quitter l'impersonation/i }),
@@ -56,7 +58,7 @@ describe('M0.6 — bandeau impersonation (BL-P1-AUTH-01)', () => {
 
     const { container } = render(<ImpersonationBannerMount />);
     // Laisse l'effet async se résoudre.
-    await waitFor(() => expect(mockGetSession).toHaveBeenCalled());
+    await waitFor(() => expect(mockGetSession).toHaveBeenCalled(), ATTENTE_UI);
     expect(container.querySelector('[role="alert"]')).toBeNull();
   });
 
@@ -91,16 +93,22 @@ describe('M0.6 — bandeau impersonation (BL-P1-AUTH-01)', () => {
     });
 
     render(<ImpersonationBannerMount />);
-    const btn = await screen.findByRole('button', {
-      name: /Quitter l'impersonation/i,
-    });
+    const btn = await screen.findByRole(
+      'button',
+      {
+        name: /Quitter l'impersonation/i,
+      },
+      ATTENTE_UI,
+    );
     fireEvent.click(btn);
 
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        '/api/auth/exit-impersonation',
-        expect.objectContaining({ method: 'POST' }),
-      ),
+    await waitFor(
+      () =>
+        expect(fetchMock).toHaveBeenCalledWith(
+          '/api/auth/exit-impersonation',
+          expect.objectContaining({ method: 'POST' }),
+        ),
+      ATTENTE_UI,
     );
   });
 });

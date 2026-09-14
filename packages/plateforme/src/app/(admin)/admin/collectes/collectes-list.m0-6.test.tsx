@@ -24,6 +24,7 @@ vi.mock('next/navigation', () => ({
 
 import CollectesPage from './page';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { ATTENTE_UI } from '@/test-utils/attente-ui';
 
 // ZD clôturée (terminale → vue Historique) : poids + taux + rapport, facturée.
 const collecteZd = {
@@ -197,7 +198,8 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
 
     // Traiteur (ligne 1) + lieu
     expect(
-      (await screen.findAllByText('Traiteur Alpha')).length,
+      (await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI))
+        .length,
     ).toBeGreaterThan(0);
     expect(screen.getAllByText('Salle Wagram').length).toBeGreaterThan(0);
     // Client organisateur (ligne 2) : raison sociale liée (ZD) OU texte libre (AG)
@@ -210,7 +212,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
   it('M0.6 — segment Historique repasse la requête sur les statuts terminaux', async () => {
     const fetchMock = mockCollectesFetch();
     render(<CollectesPage />);
-    await screen.findAllByText('Traiteur Alpha');
+    await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
 
     fireEvent.click(screen.getByRole('tab', { name: 'Historique' }));
 
@@ -224,7 +226,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
             u.includes('cloturee'),
         ),
       ).toBe(true);
-    });
+    }, ATTENTE_UI);
   });
 
   it('M0.6 — tuiles KPI « à dispatcher » AG/ZD affichent leur compteur', async () => {
@@ -235,12 +237,16 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
     // 0 avant résolution async de /chip-counts) → attendre la mise à jour du
     // texte, pas juste l'existence du bouton (sinon race avec setChipCounts,
     // flaky en CI).
-    const agTile = await screen.findByRole('button', {
-      name: /AG à dispatcher/,
-    });
+    const agTile = await screen.findByRole(
+      'button',
+      {
+        name: /AG à dispatcher/,
+      },
+      ATTENTE_UI,
+    );
     const zdTile = screen.getByRole('button', { name: /ZD à dispatcher/ });
-    await waitFor(() => expect(agTile).toHaveTextContent('2'));
-    await waitFor(() => expect(zdTile).toHaveTextContent('3'));
+    await waitFor(() => expect(agTile).toHaveTextContent('2'), ATTENTE_UI);
+    await waitFor(() => expect(zdTile).toHaveTextContent('3'), ATTENTE_UI);
   });
 
   it('M0.6 — cartes KPI « à venir » AG/ZD affichent leur volume (indicateurs)', async () => {
@@ -249,48 +255,66 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
 
     // Indicateurs statiques (pas des boutons) → requête par texte, compteur lu
     // sur le conteneur (count + libellé + sous-libellé sont frères).
-    const agVenir = await screen.findByText('AG à venir');
+    const agVenir = await screen.findByText(
+      'AG à venir',
+      undefined,
+      ATTENTE_UI,
+    );
     const zdVenir = screen.getByText('ZD à venir');
-    await waitFor(() => expect(agVenir.parentElement).toHaveTextContent('9'));
-    await waitFor(() => expect(zdVenir.parentElement).toHaveTextContent('7'));
+    await waitFor(
+      () => expect(agVenir.parentElement).toHaveTextContent('9'),
+      ATTENTE_UI,
+    );
+    await waitFor(
+      () => expect(zdVenir.parentElement).toHaveTextContent('7'),
+      ATTENTE_UI,
+    );
   });
 
   it('M0.6 — carte « Infos accès à envoyer » : compteur + filtre controle_acces=true', async () => {
     const fetchMock = mockCollectesFetch();
     render(<CollectesPage />);
 
-    const tile = await screen.findByRole('button', {
-      name: /Infos accès à envoyer/,
-    });
-    await waitFor(() => expect(tile).toHaveTextContent('4'));
+    const tile = await screen.findByRole(
+      'button',
+      {
+        name: /Infos accès à envoyer/,
+      },
+      ATTENTE_UI,
+    );
+    await waitFor(() => expect(tile).toHaveTextContent('4'), ATTENTE_UI);
 
     fireEvent.click(tile);
     await waitFor(() => {
       const urls = fetchMock.mock.calls.map((c) => String(c[0]));
       expect(urls.some((u) => u.includes('controle_acces=true'))).toBe(true);
-    });
+    }, ATTENTE_UI);
   });
 
   it('M0.6 — carte « Infos à récupérer » : compteur + filtre info_incomplete=true', async () => {
     const fetchMock = mockCollectesFetch();
     render(<CollectesPage />);
 
-    const tile = await screen.findByRole('button', {
-      name: /Infos à récupérer/,
-    });
-    await waitFor(() => expect(tile).toHaveTextContent('6'));
+    const tile = await screen.findByRole(
+      'button',
+      {
+        name: /Infos à récupérer/,
+      },
+      ATTENTE_UI,
+    );
+    await waitFor(() => expect(tile).toHaveTextContent('6'), ATTENTE_UI);
 
     fireEvent.click(tile);
     await waitFor(() => {
       const urls = fetchMock.mock.calls.map((c) => String(c[0]));
       expect(urls.some((u) => u.includes('info_incomplete=true'))).toBe(true);
-    });
+    }, ATTENTE_UI);
   });
 
   it('M0.6 — bouton de filtre par type « Anti-Gaspi » ajoute type=anti_gaspi', async () => {
     const fetchMock = mockCollectesFetch();
     render(<CollectesPage />);
-    await screen.findAllByText('Traiteur Alpha');
+    await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
 
     fireEvent.click(screen.getByRole('button', { name: 'Anti-Gaspi' }));
     await waitFor(() => {
@@ -302,7 +326,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
             u.includes('type=anti_gaspi'),
         ),
       ).toBe(true);
-    });
+    }, ATTENTE_UI);
   });
 
   it('M0.6 — chips prédéfinis affichent leur compteur (chip-counts)', async () => {
@@ -310,16 +334,24 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
     render(<CollectesPage />);
     // « En attente prestataire » = chip conservé dans la rangée par défaut
     // (« Non transmises ZD/AG » et « ZD/AG 48h » masqués — décision Val 2026-07-15).
-    const chip = await screen.findByRole('button', {
-      name: /En attente prestataire/,
-    });
-    await waitFor(() => expect(chip).toHaveTextContent('1'));
+    const chip = await screen.findByRole(
+      'button',
+      {
+        name: /En attente prestataire/,
+      },
+      ATTENTE_UI,
+    );
+    await waitFor(() => expect(chip).toHaveTextContent('1'), ATTENTE_UI);
   });
 
   it('M0.6 — chips masqués (Non transmises ZD/AG, ZD/AG 48h, AG en attente attribution) retirés de la rangée par défaut', async () => {
     mockCollectesFetch();
     render(<CollectesPage />);
-    await screen.findByRole('button', { name: /En attente prestataire/ });
+    await screen.findByRole(
+      'button',
+      { name: /En attente prestataire/ },
+      ATTENTE_UI,
+    );
     expect(
       screen.queryByRole('button', { name: /Non transmises ZD/ }),
     ).toBeNull();
@@ -338,20 +370,26 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
     const fetchMock = mockCollectesFetch();
     render(<CollectesPage />);
     // Chip pré-sélectionné à l'arrivée (miroir exact du compteur dashboard).
-    const chip = await screen.findByRole('button', {
-      name: /Non transmises ZD/,
-    });
+    const chip = await screen.findByRole(
+      'button',
+      {
+        name: /Non transmises ZD/,
+      },
+      ATTENTE_UI,
+    );
     expect(chip).toHaveAttribute('aria-pressed', 'true');
     // La requête liste porte le MÊME chip → prédicat serveur partagé.
-    await waitFor(() =>
-      expect(
-        fetchMock.mock.calls.some(
-          ([u]) =>
-            typeof u === 'string' &&
-            u.startsWith('/api/v1/admin/collectes?') &&
-            u.includes('chip=non_transmises_zd'),
-        ),
-      ).toBe(true),
+    await waitFor(
+      () =>
+        expect(
+          fetchMock.mock.calls.some(
+            ([u]) =>
+              typeof u === 'string' &&
+              u.startsWith('/api/v1/admin/collectes?') &&
+              u.includes('chip=non_transmises_zd'),
+          ),
+        ).toBe(true),
+      ATTENTE_UI,
     );
   });
 
@@ -361,26 +399,32 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
     render(<CollectesPage />);
     // Carte fusionnée « Collecte <48h non validée » (revue E2E 2026-07-15) : chip
     // masqué mais pré-sélectionné à l'arrivée (miroir exact du compteur dashboard).
-    const chip = await screen.findByRole('button', {
-      name: /Collecte <48 h non validée/,
-    });
+    const chip = await screen.findByRole(
+      'button',
+      {
+        name: /Collecte <48 h non validée/,
+      },
+      ATTENTE_UI,
+    );
     expect(chip).toHaveAttribute('aria-pressed', 'true');
-    await waitFor(() =>
-      expect(
-        fetchMock.mock.calls.some(
-          ([u]) =>
-            typeof u === 'string' &&
-            u.startsWith('/api/v1/admin/collectes?') &&
-            u.includes('chip=collectes_48h_non_validees'),
-        ),
-      ).toBe(true),
+    await waitFor(
+      () =>
+        expect(
+          fetchMock.mock.calls.some(
+            ([u]) =>
+              typeof u === 'string' &&
+              u.startsWith('/api/v1/admin/collectes?') &&
+              u.includes('chip=collectes_48h_non_validees'),
+          ),
+        ).toBe(true),
+      ATTENTE_UI,
     );
   });
 
   it('M0.6 — indicateurs Historique : poids/taux ZD + repas AG + rapport consulté', async () => {
     mockCollectesFetch();
     render(<CollectesPage />);
-    await screen.findAllByText('Traiteur Alpha');
+    await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
 
     // ZD clôturée : poids total (10 + 2,5 = 12,5 kg) + taux + rapport consulté
     expect(screen.getAllByText(/12,5 kg/).length).toBeGreaterThan(0);
@@ -393,7 +437,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
   it('M0.6 — carte AG à attribuer : badge Info incomplète + bouton Attribuer', async () => {
     mockCollectesFetch();
     render(<CollectesPage />);
-    await screen.findAllByText('Traiteur Alpha');
+    await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
 
     // agEnAttente : programmée, sans attribution, info incomplète
     expect(screen.getAllByText('Info incomplète').length).toBeGreaterThan(0);
@@ -455,7 +499,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
     vi.stubGlobal('fetch', fetchMock);
     render(<CollectesPage />);
 
-    await screen.findAllByText('Traiteur Alpha');
+    await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
     // Exactement 2 boutons (programmée + validée non transmises), pas sur la
     // transmise ni sur l'AG. Le bouton ouvre le drawer en place (?collecte=<id>)
     // → c'est un <button> (plus un lien). `/Dispatcher/` (D majuscule) ne matche
@@ -549,7 +593,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
     render(<CollectesPage />);
-    await screen.findAllByText('Traiteur Alpha');
+    await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
 
     // Drawer fermé au départ.
     expect(screen.queryByText('Prestataire & Dispatch')).toBeNull();
@@ -557,30 +601,33 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
     // Clic « Dispatcher » → ouvre le panneau latéral…
     fireEvent.click(screen.getByRole('button', { name: /Dispatcher/ }));
     expect(
-      await screen.findByText('Prestataire & Dispatch'),
+      await screen.findByText('Prestataire & Dispatch', undefined, ATTENTE_UI),
     ).toBeInTheDocument();
 
     // …et charge la fiche de CETTE collecte (appariement id↔bouton — remplace
     // l'ex-assertion href supprimée avec le passage lien → bouton drawer).
-    await waitFor(() =>
-      expect(
-        fetchMock.mock.calls.some(
-          (c) => String(c[0]) === '/api/v1/admin/collectes/zd-open',
-        ),
-      ).toBe(true),
+    await waitFor(
+      () =>
+        expect(
+          fetchMock.mock.calls.some(
+            (c) => String(c[0]) === '/api/v1/admin/collectes/zd-open',
+          ),
+        ).toBe(true),
+      ATTENTE_UI,
     );
 
     // Fermeture via la croix du Sheet → le panneau disparaît.
     fireEvent.click(screen.getByRole('button', { name: 'Fermer' }));
-    await waitFor(() =>
-      expect(screen.queryByText('Prestataire & Dispatch')).toBeNull(),
+    await waitFor(
+      () => expect(screen.queryByText('Prestataire & Dispatch')).toBeNull(),
+      ATTENTE_UI,
     );
   });
 
   it('M0.6 — recherche client filtre les cartes de la page chargée', async () => {
     mockCollectesFetch();
     render(<CollectesPage />);
-    await screen.findAllByText('Traiteur Alpha');
+    await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
 
     fireEvent.change(screen.getByLabelText('Rechercher'), {
       target: { value: 'Wagram' },
@@ -588,8 +635,9 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
 
     // Ne reste que la carte du lieu « Salle Wagram » (Traiteur Alpha) ;
     // « Traiteur Beta » (AG, lieu Pavillon) disparaît.
-    await waitFor(() =>
-      expect(screen.queryByText('Traiteur Beta')).not.toBeInTheDocument(),
+    await waitFor(
+      () => expect(screen.queryByText('Traiteur Beta')).not.toBeInTheDocument(),
+      ATTENTE_UI,
     );
     expect(screen.getAllByText('Salle Wagram').length).toBeGreaterThan(0);
   });
@@ -597,58 +645,66 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
   it('M0.6 — filtres avancés : traiteur/lieu peuplés + filtrage serveur', async () => {
     const fetchMock = mockCollectesFetch();
     render(<CollectesPage />);
-    await screen.findAllByText('Traiteur Alpha');
+    await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
 
     // Panneau replié par défaut → ouvrir
     fireEvent.click(screen.getByRole('button', { name: /Filtres avancés/ }));
 
     const traiteurSelect = (await screen.findByLabelText(
       'Filtrer par traiteur',
+      undefined,
+      ATTENTE_UI,
     )) as HTMLSelectElement;
     const lieuSelect = screen.getByLabelText(
       'Filtrer par lieu',
     ) as HTMLSelectElement;
     expect(traiteurSelect.tagName).toBe('SELECT');
 
-    await waitFor(() =>
-      expect(
-        screen.getByRole('option', { name: 'Traiteur Alpha' }),
-      ).toBeInTheDocument(),
+    await waitFor(
+      () =>
+        expect(
+          screen.getByRole('option', { name: 'Traiteur Alpha' }),
+        ).toBeInTheDocument(),
+      ATTENTE_UI,
     );
     expect(
       screen.getByRole('option', { name: 'Salle Wagram — Paris' }),
     ).toBeInTheDocument();
 
     fireEvent.change(traiteurSelect, { target: { value: 'org-1' } });
-    await waitFor(() =>
-      expect(
-        fetchMock.mock.calls.some(
-          (c) =>
-            typeof c[0] === 'string' &&
-            c[0].startsWith('/api/v1/admin/collectes') &&
-            // R24c : le filtre « Traiteur » = traiteur OPÉRATIONNEL (décision Val).
-            c[0].includes('traiteur_operationnel_id=org-1'),
-        ),
-      ).toBe(true),
+    await waitFor(
+      () =>
+        expect(
+          fetchMock.mock.calls.some(
+            (c) =>
+              typeof c[0] === 'string' &&
+              c[0].startsWith('/api/v1/admin/collectes') &&
+              // R24c : le filtre « Traiteur » = traiteur OPÉRATIONNEL (décision Val).
+              c[0].includes('traiteur_operationnel_id=org-1'),
+          ),
+        ).toBe(true),
+      ATTENTE_UI,
     );
 
     fireEvent.change(lieuSelect, { target: { value: 'lieu-1' } });
-    await waitFor(() =>
-      expect(
-        fetchMock.mock.calls.some(
-          (c) =>
-            typeof c[0] === 'string' &&
-            c[0].startsWith('/api/v1/admin/collectes') &&
-            c[0].includes('lieu_id=lieu-1'),
-        ),
-      ).toBe(true),
+    await waitFor(
+      () =>
+        expect(
+          fetchMock.mock.calls.some(
+            (c) =>
+              typeof c[0] === 'string' &&
+              c[0].startsWith('/api/v1/admin/collectes') &&
+              c[0].includes('lieu_id=lieu-1'),
+          ),
+        ).toBe(true),
+      ATTENTE_UI,
     );
   });
 
   it('M0.6 — filtre statut (multi-sélection) ajoute le paramètre statuts à la requête', async () => {
     const fetchMock = mockCollectesFetch();
     render(<CollectesPage />);
-    await screen.findAllByText('Traiteur Alpha');
+    await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
 
     fireEvent.click(screen.getByRole('button', { name: /Filtres avancés/ }));
     // Statut multi-sélection scopée à l'onglet Programmées (chip = bouton,
@@ -664,13 +720,13 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
             u.includes('statuts=validee'),
         ),
       ).toBe(true);
-    });
+    }, ATTENTE_UI);
   });
 
   it('M0.6 — filtre « Info incomplète » ajoute info_incomplete=true', async () => {
     const fetchMock = mockCollectesFetch();
     render(<CollectesPage />);
-    await screen.findAllByText('Traiteur Alpha');
+    await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
 
     fireEvent.click(screen.getByRole('button', { name: /Filtres avancés/ }));
     fireEvent.click(screen.getByLabelText('Info incomplète'));
@@ -678,13 +734,13 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
     await waitFor(() => {
       const urls = fetchMock.mock.calls.map((c) => String(c[0]));
       expect(urls.some((u) => u.includes('info_incomplete=true'))).toBe(true);
-    });
+    }, ATTENTE_UI);
   });
 
   it('M0.6 — filtre « Rapport non consulté » ajoute rapport_non_consulte=true', async () => {
     const fetchMock = mockCollectesFetch();
     render(<CollectesPage />);
-    await screen.findAllByText('Traiteur Alpha');
+    await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
 
     fireEvent.click(screen.getByRole('button', { name: /Filtres avancés/ }));
     fireEvent.click(screen.getByLabelText('Rapport non consulté'));
@@ -694,7 +750,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       expect(urls.some((u) => u.includes('rapport_non_consulte=true'))).toBe(
         true,
       );
-    });
+    }, ATTENTE_UI);
   });
 
   it('M0.6 — carte urgente (AG à attribuer < 48h) : badge Urgent affiché, pas sur la lointaine', async () => {
@@ -727,7 +783,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
     vi.stubGlobal('fetch', fetchMock);
     render(<CollectesPage />);
 
-    await screen.findAllByText('Traiteur Beta');
+    await screen.findAllByText('Traiteur Beta', undefined, ATTENTE_UI);
     expect(screen.getAllByText('Urgent')).toHaveLength(1);
   });
 });

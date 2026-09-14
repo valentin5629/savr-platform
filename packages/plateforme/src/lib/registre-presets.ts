@@ -1,17 +1,17 @@
+import { decalerJour, jourParis } from '@savr/shared/src/temps/index.js';
+
 // BL-P3-10 — Preset « 30 derniers jours » de la barre de filtres du registre
 // (CDC §06.03). Renvoie la fenêtre [aujourd'hui − 30 jours ; aujourd'hui] au
-// format YYYY-MM-DD attendu par les <input type="date">. Construction en date
-// LOCALE (pas toISOString/UTC) pour éviter un décalage de jour près de minuit.
+// format YYYY-MM-DD attendu par les <input type="date">.
+//
+// Jours PARISIENS : le preset s'exécute dans le navigateur, mais la fenêtre qu'il
+// pose part filtrer des dates métier côté serveur. Les getters locaux la
+// rendaient dépendante du poste — décalée d'un jour pour un utilisateur hors du
+// fuseau, et calculée en UTC lors du rendu serveur du composant.
 export function preset30JoursRange(now: Date = new Date()): {
   from: string;
   to: string;
 } {
-  const iso = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
-      d.getDate(),
-    ).padStart(2, '0')}`;
-  const to = new Date(now);
-  const from = new Date(now);
-  from.setDate(from.getDate() - 30);
-  return { from: iso(from), to: iso(to) };
+  const to = jourParis(now);
+  return { from: decalerJour(to, -30), to };
 }

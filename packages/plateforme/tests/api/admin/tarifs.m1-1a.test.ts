@@ -228,6 +228,23 @@ describe('M1.1a / Tarifs packs AG / Versionnement (POST)', () => {
     expect(mockSupabaseChain.rpc).not.toHaveBeenCalled();
   });
 
+  it('tarifs-packs-ag — 422 valide_du non STRING, aucune écriture', async () => {
+    // Le corps est du JSON arbitraire : ['2099-01-01'] se coerce en chaîne à
+    // travers `.test()` ET la comparaison lexicographique. Seul le `typeof` du
+    // handler l'arrête avant la RPC.
+    const { POST } =
+      await import('@/app/api/v1/admin/tarifs-packs-ag/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/tarifs-packs-ag', {
+        ...corpsValide,
+        valide_du: ['2099-01-01'],
+      }),
+    );
+
+    expect(res.status).toBe(422);
+    expect(mockSupabaseChain.rpc).not.toHaveBeenCalled();
+  });
+
   it('tarifs-packs-ag — 422 si la RPC refuse (aucun audit écrit)', async () => {
     mockSupabaseChain.rpc.mockResolvedValue({
       data: null,

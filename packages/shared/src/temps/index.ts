@@ -19,6 +19,28 @@ type Entree = Date | string | number | null | undefined;
 /** « YYYY-MM-DD » sans composante horaire → aucun décalage de fuseau possible. */
 const JOUR_SEUL = /^(\d{4})-(\d{2})-(\d{2})$/;
 
+/**
+ * Composantes [année, mois 1-12, jour] d'un « YYYY-MM-DD », ou null.
+ *
+ * La forme ne suffit pas : « 2026-02-30 » la respecte mais n'existe pas au
+ * calendrier, et `Date.UTC` la reporte silencieusement au 2 mars — un jour faux
+ * se propagerait alors sans erreur dans une fenêtre de filtre ou une date
+ * stockée. On rejette donc ce qui ne survit pas à l'aller-retour.
+ */
+function partiesJour(jour: string): [number, number, number] | null {
+  const m = JOUR_SEUL.exec(jour);
+  if (!m) return null;
+  const [a, mo, j] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const d = new Date(Date.UTC(a, mo - 1, j));
+  if (
+    d.getUTCFullYear() !== a ||
+    d.getUTCMonth() !== mo - 1 ||
+    d.getUTCDate() !== j
+  )
+    return null;
+  return [a, mo, j];
+}
+
 function versDate(input: Entree): Date | null {
   if (input == null || input === '') return null;
   const d = input instanceof Date ? input : new Date(input);
@@ -44,9 +66,10 @@ function parties(
  * quelle (déjà un jour, pas un instant). Une entrée invalide renvoie ''.
  */
 export function jourParis(input: Entree = new Date()): string {
-  if (typeof input === 'string') {
-    const jour = JOUR_SEUL.exec(input);
-    if (jour) return input;
+  if (typeof input === 'string' && JOUR_SEUL.test(input)) {
+    // Forme date-seule : rendue telle quelle si le jour existe, '' sinon. Ne PAS
+    // retomber sur `new Date` ici — V8 y reporte « 2026-02-30 » au 2 mars.
+    return partiesJour(input) ? input : '';
   }
   const d = versDate(input);
   if (!d) return '';
@@ -64,12 +87,25 @@ export function jourParisDecale(
   return jourParis(new Date(d.getTime() + jours * 86_400_000));
 }
 
+/**
+ * Année civile à Paris (séquences annuelles : numéros de bordereau BSAV et
+ * d'attestation de don). `new Date().getFullYear()` rendrait l'année PRÉCÉDENTE
+ * le 1er janvier entre minuit et 1h/2h du matin sur un process en UTC.
+ */
+export function anneeParis(input: Entree = new Date()): number {
+  const jour = jourParis(input);
+  return jour ? Number(jour.slice(0, 4)) : NaN;
+}
+
 /** « JJ/MM/AAAA » à Paris. '' si vide, valeur brute si non parsable. */
 export function formatDateParis(input: Entree): string {
   if (input == null || input === '') return '';
-  if (typeof input === 'string') {
-    const jour = JOUR_SEUL.exec(input);
-    if (jour) return `${jour[3]}/${jour[2]}/${jour[1]}`;
+  if (typeof input === 'string' && JOUR_SEUL.test(input)) {
+    const p = partiesJour(input);
+    // Jour inexistant → valeur brute, jamais le report de `new Date` au mois suivant.
+    return p
+      ? `${input.slice(8)}/${input.slice(5, 7)}/${input.slice(0, 4)}`
+      : input;
   }
   const d = versDate(input);
   if (!d) return String(input);
@@ -116,7 +152,11 @@ function decalageParis(d: Date): number {
     v('minute'),
     v('second'),
   );
-  return commeUtc - d.getTime();
+  // `formatToParts` s'arrête à la seconde : comparer `commeUtc` à l'instant BRUT
+  // amputerait l'offset de la partie fractionnaire de `d` (et instantParis, qui
+  // applique deux fois le résultat, dériverait du double). On compare donc à la
+  // même seconde, millisecondes remises à zéro des deux côtés.
+  return commeUtc - (d.getTime() - d.getUTCMilliseconds());
 }
 
 /**
@@ -153,21 +193,24 @@ export function instantParis(jour: string, heure = '00:00'): Date {
 
 /** Décale un jour « YYYY-MM-DD » de `jours` (négatif = passé). '' si invalide. */
 export function decalerJour(jour: string, jours: number): string {
-  const m = JOUR_SEUL.exec(jour);
-  if (!m) return '';
-  const t = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const p = partiesJour(jour);
+  // `jours` non fini donnerait un instant invalide, dont `toISOString` LÈVE une
+  // RangeError — le contrat de ce module est de rendre '' sur entrée invalide,
+  // jamais de faire tomber l'appelant.
+  if (!p || !Number.isFinite(jours)) return '';
+  const d = new Date(Date.UTC(p[0], p[1] - 1, p[2]) + jours * 86_400_000);
+  // Décalage assez grand pour sortir de la plage représentable (± ~273 000 ans).
+  if (Number.isNaN(d.getTime())) return '';
   // Calendrier pur : construit en UTC et relu en UTC, aucun fuseau n'intervient.
   // eslint-disable-next-line no-restricted-syntax -- cf. ci-dessus
-  return new Date(t + jours * 86_400_000).toISOString().slice(0, 10);
+  return d.toISOString().slice(0, 10);
 }
 
 /** Jour de la semaine d'un jour « YYYY-MM-DD » : 0 = lundi … 6 = dimanche. */
 export function jourDeSemaine(jour: string): number {
-  const m = JOUR_SEUL.exec(jour);
-  if (!m) return -1;
-  const d = new Date(
-    Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])),
-  ).getUTCDay();
+  const p = partiesJour(jour);
+  if (!p) return -1;
+  const d = new Date(Date.UTC(p[0], p[1] - 1, p[2])).getUTCDay();
   return (d + 6) % 7;
 }
 
@@ -179,8 +222,8 @@ export function lundiDeLaSemaine(jour: string): string {
 
 /** 1er jour du mois d'un jour « YYYY-MM-DD ». Le jour même si invalide. */
 export function premierDuMois(jour: string): string {
-  const m = JOUR_SEUL.exec(jour);
-  return m ? `${m[1]}-${m[2]}-01` : jour;
+  const p = partiesJour(jour);
+  return p ? `${jour.slice(0, 7)}-01` : jour;
 }
 
 /**
@@ -197,11 +240,9 @@ export function formatJour(
   jour: string,
   options: Intl.DateTimeFormatOptions,
 ): string {
-  const m = JOUR_SEUL.exec(jour);
-  if (!m) return jour;
-  const d = new Date(
-    Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12),
-  );
+  const p = partiesJour(jour);
+  if (!p) return jour;
+  const d = new Date(Date.UTC(p[0], p[1] - 1, p[2], 12));
   // Jour ancré à midi UTC et rendu en UTC : paire cohérente, insensible au
   // fuseau de la machine (cf. docstring) — seul endroit du code où c'est le cas.
   return new Intl.DateTimeFormat('fr-FR', {

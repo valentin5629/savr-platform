@@ -38,6 +38,25 @@ export default tseslint.config(
       // sur Vercel / Railway / CI, Europe/Paris sur un poste de dev — donc des
       // bugs invisibles en local (jour décalé entre 22h et minuit, heure affichée
       // 2h en arrière l'été).
+      //
+      // CE QUE CES RÈGLES NE FERMENT PAS (dit explicitement pour que personne ne
+      // lise « pas d'erreur de lint » comme « fuseau garanti ») :
+      //  1. Les getters locaux `.getDate()` / `.getMonth()` / `.getFullYear()` /
+      //     `.setDate()` sur une Date quelconque. Ils sont corrects sur une durée
+      //     relative (« il y a 12 mois ») et faux sur un jour métier ; seule
+      //     l'intention les départage, pas la syntaxe. Un selector qui les
+      //     bannirait tous serait désactivé partout et ne protégerait plus rien —
+      //     la revue reste le filtre, cf. l'audit de la PR « burn-down #287 ».
+      //  2. `new Date(x)` où `x` est une chaîne calculée ailleurs : la règle de
+      //     concaténation ci-dessous ne voit que le littéral écrit sur place.
+      //
+      // Variante typée (typescript-eslint + type checker, « argument de type
+      // string ») : écartée. Elle suppose (a) une règle custom dans un plugin
+      // local — aucune règle du catalogue ne dit « argument string de new Date »
+      // — et (b) `parserOptions.projectService` sur tout le monorepo, ce qui
+      // transforme chaque `pnpm lint` en type-check complet (~15 s → ~50 s ici,
+      // hook pre-commit inclus). Disproportionné pour une classe qui, aujourd'hui,
+      // n'a aucun site en vie ; à rouvrir si elle réapparaît.
       'no-restricted-syntax': [
         'error',
         {
@@ -74,6 +93,24 @@ export default tseslint.config(
             "Property[key.name='timeZone'][value.type='Literal'][value.value!='Europe/Paris']",
           message:
             "Fuseau autre qu'Europe/Paris : le projet n'en a qu'un (§16). Exception délibérée → eslint-disable avec justification.",
+        },
+        {
+          // Variante par CONCATÉNATION de `new Date(`${jour}T${heure}`)` — le
+          // template literal est déjà bloqué plus haut, la concaténation passait.
+          // Ancré sous `new Date(...)` / `Date.parse(...)` : ailleurs, « 'T' + i »
+          // est un identifiant quelconque, pas un instant. Un littéral « T… » qui
+          // porte un fuseau explicite (…Z, …+02:00) reste autorisé.
+          selector:
+            ":matches(NewExpression[callee.name='Date'], CallExpression[callee.object.name='Date'][callee.property.name='parse']) BinaryExpression > Literal[value=/^T(\\d|$)/]:not([value=/(Z|[+-]\\d\\d:?\\d\\d)$/])",
+          message:
+            "Instant construit par concaténation « jour + 'T' + heure » : interprété dans le fuseau du process (UTC en prod). Utiliser instantParis(jour, heure) de '@savr/shared/src/temps/index.js' — ou suffixer la chaîne d'un fuseau explicite (Z) si l'instant est bien en UTC.",
+        },
+        {
+          // `Date.parse` a les mêmes règles de lecture que `new Date(string)`.
+          selector:
+            "CallExpression[callee.object.name='Date'][callee.property.name='parse'] > TemplateLiteral:not(:has(TemplateElement[value.raw=/(Z|[+-]\\d\\d:?\\d\\d)/]))",
+          message:
+            "Date.parse d'une chaîne sans fuseau : interprétée dans le fuseau du process (UTC en prod). Ajouter un fuseau explicite (`...T00:00:00Z`) si l'instant est en UTC, sinon passer par instantParis de '@savr/shared/src/temps/index.js'.",
         },
         {
           selector:

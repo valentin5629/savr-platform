@@ -44,7 +44,7 @@ import {
   type FacteursCo2,
   type TraiteurKpiRow,
 } from '@/lib/dashboards/cockpit-derive.js';
-import { jourParis } from '@savr/shared/src/temps/index.js';
+import { decalerJour, jourParis } from '@savr/shared/src/temps/index.js';
 
 type AdminDbClient = ReturnType<typeof createAdminSupabaseClient>;
 
@@ -93,10 +93,6 @@ const SELECT_PROCHAINES = `id, date_collecte, heure_collecte, statut, type,
    evenements!inner(id, nom_evenement, lieu_id, pax, organisation_id,
      type_evenement_id, traiteur_operationnel_organisation_id, created_by,
      lieux!inner(id, nom))`;
-
-function isoDate(d: Date): string {
-  return jourParis(d);
-}
 
 // Les ids d'org sont interpolés dans une chaîne de filtre `.or()` PostgREST (non
 // paramétrée). Ils viennent d'un staff authentifié qui voit déjà tout — donc pas
@@ -191,16 +187,18 @@ export async function loadAdminDashboardClient(
   if (to) qHist = qHist.lte('date_collecte', to);
 
   // ── Prochaines (Bloc 5, fenêtre 30 j) ───────────────────────────────────────
-  const today = new Date();
-  const in30 = new Date(today.getTime());
-  in30.setDate(in30.getDate() + PROCHAINES_FENETRE_JOURS);
+  // Fenêtre en jours CALENDAIRES parisiens : `setDate` sur une Date ajoutait
+  // 30 × 24 h à un instant, donc la borne haute tombait la veille dès que
+  // l'appel avait lieu en soirée ou traversait un changement d'heure.
+  const aujourdhui = jourParis();
+  const dans30j = decalerJour(aujourdhui, PROCHAINES_FENETRE_JOURS);
   let qProch = admin
     .from('collectes')
     .select(SELECT_PROCHAINES)
     .eq('type', type)
     .in('statut', [...STATUTS_A_VENIR])
-    .gte('date_collecte', isoDate(today))
-    .lte('date_collecte', isoDate(in30));
+    .gte('date_collecte', aujourdhui)
+    .lte('date_collecte', dans30j);
   qProch = applyScope(qProch as never) as typeof qProch;
   // Tri (date puis heure) fait en JS après lecture — la liste « prochaines » est
   // bornée à 30 jours, l'ordre serveur n'apporte rien et évite un chaînage

@@ -699,6 +699,16 @@ describe('M1.5a / AdapterMts1 — erreurs et réconciliation', () => {
     expect(postOrder).not.toHaveBeenCalled();
     expect(scanOrdersByDateRange).toHaveBeenCalledOnce();
     expect(createTour).toHaveBeenCalledOnce();
+
+    // Bornes à MINUIT PARIS (22h00 UTC l'été), pas minuit UTC : les collectes ont
+    // lieu de nuit, la fenêtre doit encadrer le jour métier quel que soit le
+    // fuseau du process. Borne haute à J+2 pour que le jour de collecte reste
+    // franchement à l'intérieur quelle que soit la lecture de maxDate par MTS-1
+    // (un ordre manqué ferait re-POSTer un doublon).
+    expect(scanOrdersByDateRange).toHaveBeenCalledWith(
+      '2026-07-13T22:00:00.000Z',
+      '2026-07-16T22:00:00.000Z',
+    );
   });
 
   it('M1.5a / réconciliation — ordre introuvable → re-POST autorisé', async () => {

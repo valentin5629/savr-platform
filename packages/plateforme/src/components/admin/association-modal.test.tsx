@@ -17,6 +17,7 @@ import {
   AssociationModal,
   type AssociationRecord,
 } from '@/components/admin/association-modal';
+import { ATTENTE_UI } from '@/test-utils/attente-ui';
 
 const DESCRIPTION_OK =
   'Distribue des repas chauds aux personnes en situation de précarité à Paris.';
@@ -36,6 +37,7 @@ const EDIT_FIXTURE: AssociationRecord = {
   commentaires_internes: null,
   instructions_acces: null,
   siren: null,
+  numero_rup: 'W751234567',
   logo_url: null,
   id_point_collecte_mts1: null,
   habilitee_attestation_fiscale: false,
@@ -116,7 +118,7 @@ describe('M1.1 — Modale association (revue E2E)', () => {
     );
 
     expect(
-      await screen.findByText(/30 caractères minimum/),
+      await screen.findByText(/30 caractères minimum/, undefined, ATTENTE_UI),
     ).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -142,7 +144,9 @@ describe('M1.1 — Modale association (revue E2E)', () => {
       screen.getByRole('button', { name: /Créer l.association/ }),
     );
 
-    expect(await screen.findByText(/SIREN : 9 chiffres/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/SIREN : 9 chiffres/, undefined, ATTENTE_UI),
+    ).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -168,11 +172,13 @@ describe('M1.1 — Modale association (revue E2E)', () => {
       screen.getByRole('button', { name: /Créer l.association/ }),
     );
 
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        '/api/v1/admin/associations',
-        expect.objectContaining({ method: 'POST' }),
-      ),
+    await waitFor(
+      () =>
+        expect(fetchMock).toHaveBeenCalledWith(
+          '/api/v1/admin/associations',
+          expect.objectContaining({ method: 'POST' }),
+        ),
+      ATTENTE_UI,
     );
     const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
     const body = JSON.parse(options.body as string) as {
@@ -182,7 +188,7 @@ describe('M1.1 — Modale association (revue E2E)', () => {
     expect(body.region).toBe('idf');
     expect(body.capacite_max_beneficiaires).toBe(150);
 
-    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
     expect(onClose).toHaveBeenCalled();
   });
 
@@ -209,16 +215,18 @@ describe('M1.1 — Modale association (revue E2E)', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /Enregistrer/ }));
 
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        `/api/v1/admin/associations/${EDIT_FIXTURE.id}`,
-        expect.objectContaining({ method: 'PATCH' }),
-      ),
+    await waitFor(
+      () =>
+        expect(fetchMock).toHaveBeenCalledWith(
+          `/api/v1/admin/associations/${EDIT_FIXTURE.id}`,
+          expect.objectContaining({ method: 'PATCH' }),
+        ),
+      ATTENTE_UI,
     );
     const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
     const body = JSON.parse(options.body as string) as { nom: string };
     expect(body.nom).toBe('Association Alpha 2');
-    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
   });
 
   it('Désactiver → PATCH { actif:false } + onSaved/onClose', async () => {
@@ -240,16 +248,106 @@ describe('M1.1 — Modale association (revue E2E)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Désactiver/ }));
 
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        `/api/v1/admin/associations/${EDIT_FIXTURE.id}`,
-        expect.objectContaining({ method: 'PATCH' }),
-      ),
+    await waitFor(
+      () =>
+        expect(fetchMock).toHaveBeenCalledWith(
+          `/api/v1/admin/associations/${EDIT_FIXTURE.id}`,
+          expect.objectContaining({ method: 'PATCH' }),
+        ),
+      ATTENTE_UI,
     );
     const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
     const body = JSON.parse(options.body as string) as { actif: boolean };
     expect(body.actif).toBe(false);
-    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
     expect(onClose).toHaveBeenCalled();
+  });
+
+  // §04 associations.numero_rup + §06.06 §5 « N° RUP » (arbitrage Val 2026-09-14) :
+  // saisie dans la modale, facultative, source de l'instantané du Cerfa 2041-GE.
+  it('création → N° RUP saisi part dans le POST', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: 'asso-1' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(
+      <AssociationModal
+        open
+        association={null}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+
+    fillRequiredFields();
+    fireEvent.change(screen.getByLabelText(/N° RUP/), {
+      target: { value: ' W751234567 ' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: /Créer l.association/ }),
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled(), ATTENTE_UI);
+    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as {
+      numero_rup: string | null;
+    };
+    expect(body.numero_rup).toBe('W751234567');
+  });
+
+  it('création sans N° RUP → null dans le POST (champ facultatif)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: 'asso-1' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(
+      <AssociationModal
+        open
+        association={null}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+
+    fillRequiredFields();
+    fireEvent.click(
+      screen.getByRole('button', { name: /Créer l.association/ }),
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled(), ATTENTE_UI);
+    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as {
+      numero_rup: string | null;
+    };
+    expect(body.numero_rup).toBeNull();
+  });
+
+  it('édition → N° RUP prérempli depuis la fiche et renvoyé au PATCH', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: EDIT_FIXTURE.id }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(
+      <AssociationModal
+        open
+        association={EDIT_FIXTURE}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+
+    const champ = screen.getByLabelText(/N° RUP/) as HTMLInputElement;
+    expect(champ.value).toBe('W751234567');
+
+    fireEvent.change(champ, { target: { value: 'W920000001' } });
+    fireEvent.click(screen.getByRole('button', { name: /Enregistrer/ }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled(), ATTENTE_UI);
+    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as { numero_rup: string };
+    expect(body.numero_rup).toBe('W920000001');
   });
 });

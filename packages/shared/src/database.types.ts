@@ -86,6 +86,7 @@ export type Database = {
           instructions_acces: string | null
           logo_url: string | null
           siren: string | null
+          numero_rup: string | null
         }
         Insert: {
           actif?: boolean
@@ -113,6 +114,7 @@ export type Database = {
           instructions_acces?: string | null
           logo_url?: string | null
           siren?: string | null
+          numero_rup?: string | null
         }
         Update: {
           actif?: boolean
@@ -140,6 +142,7 @@ export type Database = {
           instructions_acces?: string | null
           logo_url?: string | null
           siren?: string | null
+          numero_rup?: string | null
         }
         Relationships: []
       }

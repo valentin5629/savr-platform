@@ -1,6 +1,71 @@
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
+// Sélecteurs « fuseau unique Europe/Paris » (#287/#291) — partagés par le bloc
+// global ET par le bloc des fichiers de test : en config plate, un second bloc
+// qui redéclare `no-restricted-syntax` REMPLACE la liste au lieu de l'étendre.
+const SELECTEURS_TEMPS = [
+  {
+    selector:
+      "CallExpression[callee.object.callee.property.name='toISOString'][callee.property.name=/^(slice|split|substring|substr)$/]",
+    message:
+      "Jour calculé en UTC : toISOString() renvoie la VEILLE entre 22h et minuit à Paris. Utiliser jourParis() de '@savr/shared/src/temps/index.js'.",
+  },
+  {
+    selector:
+      "CallExpression[callee.property.name=/^toLocale(Date|Time)String$/]:not(:has(ObjectExpression > Property[key.name='timeZone']))",
+    message:
+      "Date formatée dans le fuseau du process (UTC en prod). Ajouter { timeZone: 'Europe/Paris' } ou utiliser formatDateParis/formatHeureParis de '@savr/shared/src/temps/index.js'.",
+  },
+  {
+    selector:
+      "CallExpression[callee.property.name='toLocaleString']:has(ObjectExpression > Property[key.name=/^(day|month|year|weekday|hour|minute|second|dateStyle|timeStyle)$/]):not(:has(ObjectExpression > Property[key.name='timeZone']))",
+    message:
+      "Date formatée dans le fuseau du process (UTC en prod). Ajouter { timeZone: 'Europe/Paris' }.",
+  },
+  {
+    selector:
+      "NewExpression[callee.object.name='Intl'][callee.property.name='DateTimeFormat']:not(:has(Property[key.name='timeZone']))",
+    message:
+      "Intl.DateTimeFormat sans timeZone : suit le fuseau du process (UTC en prod). Ajouter timeZone: 'Europe/Paris' — ou utiliser les helpers de '@savr/shared/src/temps/index.js'.",
+  },
+  {
+    selector: "NewExpression[callee.name='Date'] > TemplateLiteral",
+    message:
+      "Instant construit depuis une chaîne : interprété dans le fuseau du process (UTC en prod). Utiliser instantParis(jour, heure) pour une heure murale, ou les helpers de calendrier (decalerJour, lundiDeLaSemaine, formatJour) pour une valeur date-seule — '@savr/shared/src/temps/index.js'.",
+  },
+  {
+    selector:
+      "Property[key.name='timeZone'][value.type='Literal'][value.value!='Europe/Paris']",
+    message:
+      "Fuseau autre qu'Europe/Paris : le projet n'en a qu'un (§16). Exception délibérée → eslint-disable avec justification.",
+  },
+  {
+    // Variante par CONCATÉNATION de `new Date(`${jour}T${heure}`)` — le
+    // template literal est déjà bloqué plus haut, la concaténation passait.
+    // Ancré sous `new Date(...)` / `Date.parse(...)` : ailleurs, « 'T' + i »
+    // est un identifiant quelconque, pas un instant. Un littéral « T… » qui
+    // porte un fuseau explicite (…Z, …+02:00) reste autorisé.
+    selector:
+      ":matches(NewExpression[callee.name='Date'], CallExpression[callee.object.name='Date'][callee.property.name='parse']) BinaryExpression > Literal[value=/^T(\\d|$)/]:not([value=/(Z|[+-]\\d\\d:?\\d\\d)$/])",
+    message:
+      "Instant construit par concaténation « jour + 'T' + heure » : interprété dans le fuseau du process (UTC en prod). Utiliser instantParis(jour, heure) de '@savr/shared/src/temps/index.js' — ou suffixer la chaîne d'un fuseau explicite (Z) si l'instant est bien en UTC.",
+  },
+  {
+    // `Date.parse` a les mêmes règles de lecture que `new Date(string)`.
+    selector:
+      "CallExpression[callee.object.name='Date'][callee.property.name='parse'] > TemplateLiteral:not(:has(TemplateElement[value.raw=/(Z|[+-]\\d\\d:?\\d\\d)/]))",
+    message:
+      "Date.parse d'une chaîne sans fuseau : interprétée dans le fuseau du process (UTC en prod). Ajouter un fuseau explicite (`...T00:00:00Z`) si l'instant est en UTC, sinon passer par instantParis de '@savr/shared/src/temps/index.js'.",
+  },
+  {
+    selector:
+      "CallExpression[callee.object.type='NewExpression'][callee.object.callee.name='Date'][callee.property.name='toLocaleString']:not(:has(ObjectExpression > Property[key.name='timeZone']))",
+    message:
+      "Horodatage formaté dans le fuseau du process (UTC en prod). Ajouter { timeZone: 'Europe/Paris' } ou utiliser formatDateHeureParis de '@savr/shared/src/temps/index.js'.",
+  },
+];
+
 export default tseslint.config(
   {
     ignores: [
@@ -57,68 +122,7 @@ export default tseslint.config(
       // transforme chaque `pnpm lint` en type-check complet (~15 s → ~50 s ici,
       // hook pre-commit inclus). Disproportionné pour une classe qui, aujourd'hui,
       // n'a aucun site en vie ; à rouvrir si elle réapparaît.
-      'no-restricted-syntax': [
-        'error',
-        {
-          selector:
-            "CallExpression[callee.object.callee.property.name='toISOString'][callee.property.name=/^(slice|split|substring|substr)$/]",
-          message:
-            "Jour calculé en UTC : toISOString() renvoie la VEILLE entre 22h et minuit à Paris. Utiliser jourParis() de '@savr/shared/src/temps/index.js'.",
-        },
-        {
-          selector:
-            "CallExpression[callee.property.name=/^toLocale(Date|Time)String$/]:not(:has(ObjectExpression > Property[key.name='timeZone']))",
-          message:
-            "Date formatée dans le fuseau du process (UTC en prod). Ajouter { timeZone: 'Europe/Paris' } ou utiliser formatDateParis/formatHeureParis de '@savr/shared/src/temps/index.js'.",
-        },
-        {
-          selector:
-            "CallExpression[callee.property.name='toLocaleString']:has(ObjectExpression > Property[key.name=/^(day|month|year|weekday|hour|minute|second|dateStyle|timeStyle)$/]):not(:has(ObjectExpression > Property[key.name='timeZone']))",
-          message:
-            "Date formatée dans le fuseau du process (UTC en prod). Ajouter { timeZone: 'Europe/Paris' }.",
-        },
-        {
-          selector:
-            "NewExpression[callee.object.name='Intl'][callee.property.name='DateTimeFormat']:not(:has(Property[key.name='timeZone']))",
-          message:
-            "Intl.DateTimeFormat sans timeZone : suit le fuseau du process (UTC en prod). Ajouter timeZone: 'Europe/Paris' — ou utiliser les helpers de '@savr/shared/src/temps/index.js'.",
-        },
-        {
-          selector: "NewExpression[callee.name='Date'] > TemplateLiteral",
-          message:
-            "Instant construit depuis une chaîne : interprété dans le fuseau du process (UTC en prod). Utiliser instantParis(jour, heure) pour une heure murale, ou les helpers de calendrier (decalerJour, lundiDeLaSemaine, formatJour) pour une valeur date-seule — '@savr/shared/src/temps/index.js'.",
-        },
-        {
-          selector:
-            "Property[key.name='timeZone'][value.type='Literal'][value.value!='Europe/Paris']",
-          message:
-            "Fuseau autre qu'Europe/Paris : le projet n'en a qu'un (§16). Exception délibérée → eslint-disable avec justification.",
-        },
-        {
-          // Variante par CONCATÉNATION de `new Date(`${jour}T${heure}`)` — le
-          // template literal est déjà bloqué plus haut, la concaténation passait.
-          // Ancré sous `new Date(...)` / `Date.parse(...)` : ailleurs, « 'T' + i »
-          // est un identifiant quelconque, pas un instant. Un littéral « T… » qui
-          // porte un fuseau explicite (…Z, …+02:00) reste autorisé.
-          selector:
-            ":matches(NewExpression[callee.name='Date'], CallExpression[callee.object.name='Date'][callee.property.name='parse']) BinaryExpression > Literal[value=/^T(\\d|$)/]:not([value=/(Z|[+-]\\d\\d:?\\d\\d)$/])",
-          message:
-            "Instant construit par concaténation « jour + 'T' + heure » : interprété dans le fuseau du process (UTC en prod). Utiliser instantParis(jour, heure) de '@savr/shared/src/temps/index.js' — ou suffixer la chaîne d'un fuseau explicite (Z) si l'instant est bien en UTC.",
-        },
-        {
-          // `Date.parse` a les mêmes règles de lecture que `new Date(string)`.
-          selector:
-            "CallExpression[callee.object.name='Date'][callee.property.name='parse'] > TemplateLiteral:not(:has(TemplateElement[value.raw=/(Z|[+-]\\d\\d:?\\d\\d)/]))",
-          message:
-            "Date.parse d'une chaîne sans fuseau : interprétée dans le fuseau du process (UTC en prod). Ajouter un fuseau explicite (`...T00:00:00Z`) si l'instant est en UTC, sinon passer par instantParis de '@savr/shared/src/temps/index.js'.",
-        },
-        {
-          selector:
-            "CallExpression[callee.object.type='NewExpression'][callee.object.callee.name='Date'][callee.property.name='toLocaleString']:not(:has(ObjectExpression > Property[key.name='timeZone']))",
-          message:
-            "Horodatage formaté dans le fuseau du process (UTC en prod). Ajouter { timeZone: 'Europe/Paris' } ou utiliser formatDateHeureParis de '@savr/shared/src/temps/index.js'.",
-        },
-      ],
+      'no-restricted-syntax': ['error', ...SELECTEURS_TEMPS],
       '@typescript-eslint/no-unused-vars': [
         'error',
         { argsIgnorePattern: '^_' },
@@ -149,5 +153,43 @@ export default tseslint.config(
   {
     files: ['**/*.test.ts', '**/*.test.tsx', '**/*.spec.ts'],
     rules: { 'no-console': 'off' },
+  },
+  // Attentes @testing-library : budget EXPLICITE obligatoire.
+  // Le défaut `asyncUtilTimeout` (1 000 ms) est un budget en temps d'horloge sur
+  // un travail CPU (effets React + mocks + re-rendus), et `vitest run` exécute
+  // les fichiers en parallèle : machine chargée → l'attente expire avant que le
+  // DOM ne se stabilise, sans aucune régression de code (flake du 2026-09-14).
+  // Toute attente passe donc ATTENTE_UI de '@/test-utils/attente-ui'.
+  // `findBy*`/`findAllBy*` = (matcher, queryOptions?, waitForOptions?) → 3e
+  // argument ; `waitFor` = (callback, waitForOptions?) → 2e argument.
+  // Périmètre = ce que `vitest run` exécute (include : `*.{test,spec}.{ts,tsx}`),
+  // `.spec.ts` compris : aucun ne fait de rendu testing-library aujourd'hui (les
+  // seuls sont des specs Playwright, exclues du runner), mais le gate doit
+  // couvrir la surface du runner, pas l'usage du jour.
+  {
+    files: ['**/*.test.tsx', '**/*.test.ts', '**/*.spec.tsx', '**/*.spec.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...SELECTEURS_TEMPS,
+        {
+          selector:
+            'CallExpression[callee.property.name=/^find(All)?By[A-Z]/][arguments.length<3]',
+          message:
+            "Attente @testing-library au timeout par défaut (1 000 ms) : flake sous charge. Passer ATTENTE_UI en 3e argument — findByText(texte, undefined, ATTENTE_UI) — depuis '@/test-utils/attente-ui'.",
+        },
+        {
+          selector:
+            'CallExpression[callee.name=/^find(All)?By[A-Z]/][arguments.length<3]',
+          message:
+            "Attente @testing-library au timeout par défaut (1 000 ms) : flake sous charge. Passer ATTENTE_UI en 3e argument — findByText(texte, undefined, ATTENTE_UI) — depuis '@/test-utils/attente-ui'.",
+        },
+        {
+          selector: "CallExpression[callee.name='waitFor'][arguments.length<2]",
+          message:
+            "waitFor au timeout par défaut (1 000 ms) : flake sous charge. Passer ATTENTE_UI en 2e argument, depuis '@/test-utils/attente-ui'.",
+        },
+      ],
+    },
   },
 );

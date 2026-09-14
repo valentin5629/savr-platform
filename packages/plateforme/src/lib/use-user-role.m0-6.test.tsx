@@ -12,6 +12,7 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
 }));
 
 import { useUserRole } from './use-user-role';
+import { ATTENTE_UI } from '@/test-utils/attente-ui';
 
 function makeToken(claims: Record<string, unknown>): string {
   const b64url = (o: unknown) =>
@@ -31,7 +32,7 @@ describe('M0.6 — useUserRole', () => {
       },
     });
     const { result } = renderHook(() => useUserRole());
-    await waitFor(() => expect(result.current).toBe('admin_savr'));
+    await waitFor(() => expect(result.current).toBe('admin_savr'), ATTENTE_UI);
   });
 
   it('lit le claim user_role (ops_savr)', async () => {
@@ -39,14 +40,14 @@ describe('M0.6 — useUserRole', () => {
       data: { session: { access_token: makeToken({ user_role: 'ops_savr' }) } },
     });
     const { result } = renderHook(() => useUserRole());
-    await waitFor(() => expect(result.current).toBe('ops_savr'));
+    await waitFor(() => expect(result.current).toBe('ops_savr'), ATTENTE_UI);
   });
 
   it('undefined sans session', async () => {
     mockGetSession.mockResolvedValue({ data: { session: null } });
     const { result } = renderHook(() => useUserRole());
     // Laisse l'effet se résoudre puis vérifie l'absence de rôle.
-    await waitFor(() => expect(mockGetSession).toHaveBeenCalled());
+    await waitFor(() => expect(mockGetSession).toHaveBeenCalled(), ATTENTE_UI);
     expect(result.current).toBeUndefined();
   });
 });

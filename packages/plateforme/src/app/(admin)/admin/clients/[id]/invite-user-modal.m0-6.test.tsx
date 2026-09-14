@@ -9,6 +9,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 
 import { ClientInviteUserModal, rolesForOrgType } from './invite-user-modal';
+import { ATTENTE_UI } from '@/test-utils/attente-ui';
 
 interface FetchCall {
   url: string;
@@ -82,7 +83,7 @@ describe('M0.6 — fiche organisation : ajouter un utilisateur', () => {
     });
     fireEvent.click(screen.getByText('Inviter'));
 
-    await waitFor(() => expect(onCreated).toHaveBeenCalled());
+    await waitFor(() => expect(onCreated).toHaveBeenCalled(), ATTENTE_UI);
     const post = calls.find(
       (c) => c.method === 'POST' && c.url === '/api/v1/admin/users',
     );
@@ -131,8 +132,9 @@ describe('M0.6 — fiche organisation : ajouter un utilisateur', () => {
     });
     fireEvent.click(screen.getByText('Inviter'));
 
-    await waitFor(() =>
-      expect(screen.getByText('Email déjà utilisé')).toBeInTheDocument(),
+    await waitFor(
+      () => expect(screen.getByText('Email déjà utilisé')).toBeInTheDocument(),
+      ATTENTE_UI,
     );
     expect(onCreated).not.toHaveBeenCalled();
   });

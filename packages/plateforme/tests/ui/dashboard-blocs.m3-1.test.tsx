@@ -21,6 +21,7 @@ import { TraiteurDashboardClient } from '@/app/(traiteur)/traiteur/traiteur-dash
 import { FACTEURS_CO2_DEFAUT } from '@/lib/dashboards/cockpit-derive';
 import type { TraiteurDashboardPayload } from '@/lib/dashboards/loaders';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { ATTENTE_UI } from '@/test-utils/attente-ui';
 
 function jsonResponse(obj: unknown): Promise<Response> {
   return Promise.resolve({
@@ -187,7 +188,9 @@ beforeEach(() => {
 describe('M3.1 / dashboard traiteur — Bloc 2/4 §11 (BL-P1-PARITE-01)', () => {
   it('M3.1/dash_bloc2_bloc4_zd_montes — Évolution + donut sur l’onglet ZD', async () => {
     renderClient(ZD_PAYLOAD);
-    expect(await screen.findByTestId('bloc-2-traiteur')).toBeInTheDocument();
+    expect(
+      await screen.findByTestId('bloc-2-traiteur', undefined, ATTENTE_UI),
+    ).toBeInTheDocument();
     expect(screen.getByTestId('bloc-4-traiteur')).toBeInTheDocument();
     // Le graphe ZD Cockpit (barres empilées flux) est monté dans le Bloc 2.
     expect(
@@ -197,10 +200,14 @@ describe('M3.1 / dashboard traiteur — Bloc 2/4 §11 (BL-P1-PARITE-01)', () => 
 
   it('M3.1/dash_bloc4_zd_only — pas de donut sur l’onglet AG (un seul flux)', async () => {
     renderClient(ZD_PAYLOAD);
-    await screen.findByTestId('bloc-2-traiteur');
-    fireEvent.click(await screen.findByRole('tab', { name: /anti-gaspi/i }));
+    await screen.findByTestId('bloc-2-traiteur', undefined, ATTENTE_UI);
+    fireEvent.click(
+      await screen.findByRole('tab', { name: /anti-gaspi/i }, ATTENTE_UI),
+    );
     // Bloc 2 AG toujours présent (courbe repas), Bloc 4 donut retiré.
-    expect(await screen.findByTestId('bloc-2-traiteur')).toBeInTheDocument();
+    expect(
+      await screen.findByTestId('bloc-2-traiteur', undefined, ATTENTE_UI),
+    ).toBeInTheDocument();
     expect(screen.queryByTestId('bloc-4-traiteur')).toBeNull();
     expect(screen.getByText(/Évolution Anti-Gaspi/)).toBeInTheDocument();
   });

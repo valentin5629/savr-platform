@@ -21,6 +21,7 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
 }));
 
 import NouveauProgrammationPage from './page';
+import { ATTENTE_UI } from '@/test-utils/attente-ui';
 
 function makeToken(claims: Record<string, unknown>): string {
   const b64url = (o: unknown) =>
@@ -85,16 +86,22 @@ describe('M1.2 — programmation formulaire : mode admin support', () => {
 
     // Le libellé du sélecteur est spécifique à l'admin (programmation de support).
     expect(
-      await screen.findByText('Traiteur (pour le compte de)'),
+      await screen.findByText(
+        'Traiteur (pour le compte de)',
+        undefined,
+        ATTENTE_UI,
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByText(/la collecte sera créée au nom de ce traiteur/i),
     ).toBeInTheDocument();
     // Le traiteur chargé apparaît comme option sélectionnable.
-    await waitFor(() =>
-      expect(
-        screen.getByRole('option', { name: 'Kaspia' }),
-      ).toBeInTheDocument(),
+    await waitFor(
+      () =>
+        expect(
+          screen.getByRole('option', { name: 'Kaspia' }),
+        ).toBeInTheDocument(),
+      ATTENTE_UI,
     );
   });
 
@@ -109,7 +116,11 @@ describe('M1.2 — programmation formulaire : mode admin support', () => {
     render(<NouveauProgrammationPage />);
 
     // Attendre que le rôle soit lu (le type d'événement est chargé dans tous les cas).
-    await screen.findByText("Informations sur l'événement");
+    await screen.findByText(
+      "Informations sur l'événement",
+      undefined,
+      ATTENTE_UI,
+    );
     expect(
       screen.queryByText('Traiteur (pour le compte de)'),
     ).not.toBeInTheDocument();

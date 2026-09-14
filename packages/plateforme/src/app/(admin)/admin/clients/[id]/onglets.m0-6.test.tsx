@@ -25,6 +25,7 @@ import {
   OngletRemises,
   PackAjustementsHistorique,
 } from './onglets';
+import { ATTENTE_UI } from '@/test-utils/attente-ui';
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -115,8 +116,9 @@ describe('M0.6 — onglet Collectes', () => {
   it('rend la liste des collectes de l’organisation', async () => {
     mockFetch({ '/api/v1/admin/collectes': { data: [collecte] } });
     render(<OngletCollectes organisationId="org-1" />);
-    await waitFor(() =>
-      expect(screen.getAllByText('Gala ZD').length).toBeGreaterThan(0),
+    await waitFor(
+      () => expect(screen.getAllByText('Gala ZD').length).toBeGreaterThan(0),
+      ATTENTE_UI,
     );
     // Filtre serveur par organisation appliqué.
     expect(
@@ -130,8 +132,9 @@ describe('M0.6 — onglet Collectes', () => {
   it('clic sur une ligne → navigue vers la fiche collecte', async () => {
     mockFetch({ '/api/v1/admin/collectes': { data: [collecte] } });
     render(<OngletCollectes organisationId="org-1" />);
-    await waitFor(() =>
-      expect(screen.getAllByText('Gala ZD').length).toBeGreaterThan(0),
+    await waitFor(
+      () => expect(screen.getAllByText('Gala ZD').length).toBeGreaterThan(0),
+      ATTENTE_UI,
     );
     fireEvent.click(screen.getAllByText('Gala ZD')[0] as HTMLElement);
     expect(mockPush).toHaveBeenCalledWith('/admin/collectes/col-1');
@@ -144,8 +147,10 @@ describe('M0.6 — onglet Factures', () => {
   it('rend la liste des factures de l’organisation', async () => {
     mockFetch({ '/api/v1/admin/factures': { data: [facture] } });
     render(<OngletFactures organisationId="org-1" />);
-    await waitFor(() =>
-      expect(screen.getAllByText('ZD-2026-0005').length).toBeGreaterThan(0),
+    await waitFor(
+      () =>
+        expect(screen.getAllByText('ZD-2026-0005').length).toBeGreaterThan(0),
+      ATTENTE_UI,
     );
     expect(
       calls.some((c) =>
@@ -158,8 +163,10 @@ describe('M0.6 — onglet Factures', () => {
   it('clic sur une ligne → navigue vers la fiche facture', async () => {
     mockFetch({ '/api/v1/admin/factures': { data: [facture] } });
     render(<OngletFactures organisationId="org-1" />);
-    await waitFor(() =>
-      expect(screen.getAllByText('ZD-2026-0005').length).toBeGreaterThan(0),
+    await waitFor(
+      () =>
+        expect(screen.getAllByText('ZD-2026-0005').length).toBeGreaterThan(0),
+      ATTENTE_UI,
     );
     fireEvent.click(screen.getAllByText('ZD-2026-0005')[0] as HTMLElement);
     expect(mockPush).toHaveBeenCalledWith('/admin/factures/fac-1');
@@ -179,8 +186,12 @@ describe('M0.6 — onglet Grille tarifaire ZD', () => {
         onUpdated={() => {}}
       />,
     );
-    await waitFor(() =>
-      expect(screen.getByLabelText('Grille tarifaire ZD')).toBeInTheDocument(),
+    await waitFor(
+      () =>
+        expect(
+          screen.getByLabelText('Grille tarifaire ZD'),
+        ).toBeInTheDocument(),
+      ATTENTE_UI,
     );
     expect(screen.queryByText(/Lecture seule/)).not.toBeInTheDocument();
     expect(screen.getByText(/450/)).toBeInTheDocument();
@@ -196,8 +207,9 @@ describe('M0.6 — onglet Grille tarifaire ZD', () => {
         onUpdated={() => {}}
       />,
     );
-    await waitFor(() =>
-      expect(screen.getByText(/Lecture seule/)).toBeInTheDocument(),
+    await waitFor(
+      () => expect(screen.getByText(/Lecture seule/)).toBeInTheDocument(),
+      ATTENTE_UI,
     );
     expect(
       screen.queryByLabelText('Grille tarifaire ZD'),
@@ -224,7 +236,7 @@ describe('M0.6 — onglet Tarif refacturé', () => {
     const input = screen.getByLabelText('Tarif refacturé (€/pax)');
     fireEvent.change(input, { target: { value: '2.25' } });
     fireEvent.click(screen.getByText('Enregistrer'));
-    await waitFor(() => expect(onUpdated).toHaveBeenCalled());
+    await waitFor(() => expect(onUpdated).toHaveBeenCalled(), ATTENTE_UI);
     const patch = calls.find((c) => c.method === 'PATCH');
     expect(patch?.body).toMatchObject({ tarif_refacture_pax_zd: 2.25 });
   });
@@ -254,7 +266,10 @@ describe('M0.6 — onglet Coefficient de perte labo', () => {
       },
     });
     render(<OngletCoefficients organisationId="org-1" canEdit={true} />);
-    await waitFor(() => expect(screen.getByText('2025')).toBeInTheDocument());
+    await waitFor(
+      () => expect(screen.getByText('2025')).toBeInTheDocument(),
+      ATTENTE_UI,
+    );
     // « Appliqué aux événements de » = 2026 (année réf + 1).
     expect(screen.getByText('2026')).toBeInTheDocument();
     expect(screen.getByText('Estimation labo')).toBeInTheDocument();
@@ -267,10 +282,12 @@ describe('M0.6 — onglet Coefficient de perte labo', () => {
       '/api/v1/admin/organisations/org-1/coefficients-perte-labo': { data: [] },
     });
     render(<OngletCoefficients organisationId="org-1" canEdit={true} />);
-    await waitFor(() =>
-      expect(
-        screen.getByText('Aucun coefficient communiqué'),
-      ).toBeInTheDocument(),
+    await waitFor(
+      () =>
+        expect(
+          screen.getByText('Aucun coefficient communiqué'),
+        ).toBeInTheDocument(),
+      ATTENTE_UI,
     );
     fireEvent.click(screen.getByText('Ajouter un coefficient'));
     fireEvent.change(
@@ -291,7 +308,7 @@ describe('M0.6 — onglet Coefficient de perte labo', () => {
       // Organisation portée par le PATH, plus dans le body (BL-P2-32).
       expect(post?.body).toMatchObject({ coefficient_kg_couvert: 0.17 });
       expect(post?.body).not.toHaveProperty('organisation_id');
-    });
+    }, ATTENTE_UI);
   });
 
   it('ops : bandeau read-only + pas de bouton Ajouter', async () => {
@@ -301,8 +318,9 @@ describe('M0.6 — onglet Coefficient de perte labo', () => {
       },
     });
     render(<OngletCoefficients organisationId="org-1" canEdit={false} />);
-    await waitFor(() =>
-      expect(screen.getByText(/Lecture seule/)).toBeInTheDocument(),
+    await waitFor(
+      () => expect(screen.getByText(/Lecture seule/)).toBeInTheDocument(),
+      ATTENTE_UI,
     );
     expect(
       screen.queryByText('Ajouter un coefficient'),
@@ -358,7 +376,7 @@ describe('M0.6 — onglet Remises négociées', () => {
       target: { value: '2026-01-01' },
     });
     fireEvent.click(screen.getByText('Créer'));
-    await waitFor(() => expect(onUpdated).toHaveBeenCalled());
+    await waitFor(() => expect(onUpdated).toHaveBeenCalled(), ATTENTE_UI);
     const post = calls.find(
       (c) => c.method === 'POST' && c.url === '/api/v1/admin/tarifs-negocie',
     );
@@ -383,7 +401,7 @@ describe('M0.6 — onglet Remises négociées', () => {
       />,
     );
     fireEvent.click(screen.getByText('Fermer'));
-    await waitFor(() => expect(onUpdated).toHaveBeenCalled());
+    await waitFor(() => expect(onUpdated).toHaveBeenCalled(), ATTENTE_UI);
     expect(
       calls.some(
         (c) =>
@@ -453,10 +471,12 @@ describe('M0.6 — historique ajustements pack', () => {
       '/api/v1/admin/packs-antgaspi/historique': { data: [packAudit] },
     });
     render(<PackAjustementsHistorique organisationId="org-1" />);
-    await waitFor(() =>
-      expect(
-        screen.getByText('Historique des ajustements de crédits'),
-      ).toBeInTheDocument(),
+    await waitFor(
+      () =>
+        expect(
+          screen.getByText('Historique des ajustements de crédits'),
+        ).toBeInTheDocument(),
+      ATTENTE_UI,
     );
     expect(screen.getByText('20 → 15')).toBeInTheDocument();
     expect(screen.getByText('Correction erreur de saisie')).toBeInTheDocument();
@@ -479,8 +499,9 @@ describe('M0.6 — historique ajustements pack', () => {
       '/api/v1/admin/packs-antgaspi/historique': { data: [annulation] },
     });
     render(<PackAjustementsHistorique organisationId="org-1" />);
-    await waitFor(() =>
-      expect(screen.getByText('Annulation du pack')).toBeInTheDocument(),
+    await waitFor(
+      () => expect(screen.getByText('Annulation du pack')).toBeInTheDocument(),
+      ATTENTE_UI,
     );
     expect(screen.getByText('Doublon de pack')).toBeInTheDocument();
     expect(screen.getByText('Ops Un')).toBeInTheDocument();
@@ -493,10 +514,12 @@ describe('M0.6 — historique ajustements pack', () => {
     const { container } = render(
       <PackAjustementsHistorique organisationId="org-1" />,
     );
-    await waitFor(() =>
-      expect(
-        calls.some((c) => c.url.includes('packs-antgaspi/historique')),
-      ).toBe(true),
+    await waitFor(
+      () =>
+        expect(
+          calls.some((c) => c.url.includes('packs-antgaspi/historique')),
+        ).toBe(true),
+      ATTENTE_UI,
     );
     expect(
       screen.queryByText('Historique des ajustements de crédits'),

@@ -14,6 +14,7 @@ import {
 } from '@testing-library/react';
 
 import AssociationsPage from './page';
+import { ATTENTE_UI } from '@/test-utils/attente-ui';
 
 const rows = [
   {
@@ -49,10 +50,12 @@ describe('M1.1 — Liste associations Admin (colonnes revue E2E)', () => {
     render(<AssociationsPage />);
     // En-têtes de colonnes = uniquement dans le <table> (la vue mobile n'a pas
     // de columnheader) → assertions non ambiguës.
-    await waitFor(() =>
-      expect(
-        screen.getByRole('columnheader', { name: 'Nom' }),
-      ).toBeInTheDocument(),
+    await waitFor(
+      () =>
+        expect(
+          screen.getByRole('columnheader', { name: 'Nom' }),
+        ).toBeInTheDocument(),
+      ATTENTE_UI,
     );
     for (const h of ['Nom', 'Adresse', 'Capacité max', 'Collectes (30 j)']) {
       expect(screen.getByRole('columnheader', { name: h })).toBeInTheDocument();
@@ -68,7 +71,10 @@ describe('M1.1 — Liste associations Admin (colonnes revue E2E)', () => {
     render(<AssociationsPage />);
     // DataTable rend un tableau desktop ET des cartes mobiles → on scope au
     // <table role="grid"> pour éviter les doublons de texte.
-    await waitFor(() => expect(screen.getByRole('grid')).toBeInTheDocument());
+    await waitFor(
+      () => expect(screen.getByRole('grid')).toBeInTheDocument(),
+      ATTENTE_UI,
+    );
     const table = within(screen.getByRole('grid'));
     expect(table.getByText('Association Alpha (fictif)')).toBeInTheDocument();
     expect(table.getByText('12 Rue Alpha')).toBeInTheDocument();
@@ -80,7 +86,10 @@ describe('M1.1 — Liste associations Admin (colonnes revue E2E)', () => {
 
   it('bouton « Nouvelle association » → modale de création', async () => {
     render(<AssociationsPage />);
-    await waitFor(() => expect(screen.getByRole('grid')).toBeInTheDocument());
+    await waitFor(
+      () => expect(screen.getByRole('grid')).toBeInTheDocument(),
+      ATTENTE_UI,
+    );
 
     // Pas de modale au chargement.
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -97,7 +106,10 @@ describe('M1.1 — Liste associations Admin (colonnes revue E2E)', () => {
 
   it('crayon d’une ligne → modale d’édition préremplie', async () => {
     render(<AssociationsPage />);
-    await waitFor(() => expect(screen.getByRole('grid')).toBeInTheDocument());
+    await waitFor(
+      () => expect(screen.getByRole('grid')).toBeInTheDocument(),
+      ATTENTE_UI,
+    );
 
     // DataTable rend un tableau desktop ET des cartes mobiles → le crayon existe
     // en double. On scope au <table role="grid"> pour cibler l'action desktop.

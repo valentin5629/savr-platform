@@ -10,7 +10,9 @@
     "mention pied de page présente uniquement si régénérée",
     "batch sans-excédent — génération (BL-P1-RPT-02)",
     "rapport « Événement sans excédent » §1.3-bis (BL-P1-RPT-02)",
-    "download rapport sans-excédent (BL-P1-RPT-02)"
+    "download rapport sans-excédent (BL-P1-RPT-02)",
+    "association AVEC n° RUP : instantané figé + mention transmise au Cerfa",
+    "association SANS n° RUP : instantané NULL, émission sans mention"
   ],
   "deliverables": [
     {
@@ -108,6 +110,14 @@
       "test": "M2.4/RM-10 — correction sans motif → 422 ; correction avec motif ≥10 → 200 + audit poids_repas_saisi_ops motivé ; 1re saisie sans motif → 200 ; régén attestation (correction volume → corrigee + version+1) : supabase/tests/rls_attestations_don_m2_4.test.sql (Section R9 T7/T8/T9)",
       "statut": "implemented",
       "libelle": "Correction volume aberrant AG : motif obligatoire sur correction (§06.09 l.183) + audit poids_repas_saisi_ops motivé ; régénération attestation (nouvelle version + re-enqueue jobs_pdf) assurée par trg_regenerer_attestation"
+    },
+    {
+      "id": "M2.4-numero-rup-instantane",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1377",
+      "artefact": "packages/plateforme/src/lib/pdf/batch-pdf-j1-ag.ts",
+      "test": "association AVEC n° RUP : instantané figé + mention transmise au Cerfa",
+      "statut": "implemented",
+      "libelle": "Instantané attestations_don.association_numero_rup alimenté par associations.numero_rup (colonne source créée 2026-09-14) ; NULL si l'association n'a pas de RUP → Cerfa 2041-GE émis sans la mention"
     }
   ],
   "cdc_source_hash": {

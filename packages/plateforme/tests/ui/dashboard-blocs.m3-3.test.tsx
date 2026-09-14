@@ -24,6 +24,7 @@ vi.mock('@/components/dashboards/charts/cockpit/TonnagesDonut', () => ({
 }));
 
 import AgenceDashboardPage from '@/app/(agence)/agence/page.js';
+import { ATTENTE_UI } from '@/test-utils/attente-ui';
 
 function jsonResponse(obj: unknown): Promise<Response> {
   return Promise.resolve({
@@ -100,16 +101,22 @@ beforeEach(() => {
 describe('M3.3 / dashboard agence — Bloc 2/4 §11 (BL-P1-PARITE-01)', () => {
   it('M3.3/dash_bloc2_bloc4_zd_montes — Évolution + donut sur l’onglet ZD', async () => {
     render(<AgenceDashboardPage />);
-    expect(await screen.findByTestId('bloc-2-agence')).toBeInTheDocument();
+    expect(
+      await screen.findByTestId('bloc-2-agence', undefined, ATTENTE_UI),
+    ).toBeInTheDocument();
     expect(screen.getByTestId('bloc-4-agence')).toBeInTheDocument();
     expect(screen.getByTestId('stub-flux')).toBeInTheDocument();
   });
 
   it('M3.3/dash_bloc4_zd_only — pas de donut sur l’onglet AG', async () => {
     render(<AgenceDashboardPage />);
-    await screen.findByTestId('bloc-2-agence');
-    fireEvent.click(await screen.findByRole('tab', { name: /anti-gaspi/i }));
-    expect(await screen.findByTestId('bloc-2-agence')).toBeInTheDocument();
+    await screen.findByTestId('bloc-2-agence', undefined, ATTENTE_UI);
+    fireEvent.click(
+      await screen.findByRole('tab', { name: /anti-gaspi/i }, ATTENTE_UI),
+    );
+    expect(
+      await screen.findByTestId('bloc-2-agence', undefined, ATTENTE_UI),
+    ).toBeInTheDocument();
     expect(screen.queryByTestId('bloc-4-agence')).toBeNull();
     expect(screen.getByTestId('stub-repas')).toBeInTheDocument();
   });

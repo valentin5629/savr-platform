@@ -14,6 +14,7 @@ import {
   cleanup,
 } from '@testing-library/react';
 import { DashboardClientView } from '@/app/(admin)/admin/dashboard-client/DashboardClientView.js';
+import { ATTENTE_UI } from '@/test-utils/attente-ui';
 
 // KpiCard utilise useRouter — pas de contexte router en jsdom.
 vi.mock('next/navigation', () => ({
@@ -108,7 +109,9 @@ describe('M3.6 / Dashboard Client / UI', () => {
 
     // Alors les KPI agrégés (totalité des collectes) s'affichent — cartes Cockpit
     // (R24c) : valeur et unité rendues séparément, format fr (« 72,5 » + « % »).
-    expect(await screen.findByText('72,5')).toBeInTheDocument();
+    expect(
+      await screen.findByText('72,5', undefined, ATTENTE_UI),
+    ).toBeInTheDocument();
     expect(screen.getByText('Taux de recyclage')).toBeInTheDocument();
     expect(screen.getByText('12')).toBeInTheDocument();
 
@@ -129,10 +132,16 @@ describe('M3.6 / Dashboard Client / UI', () => {
     ).toBeNull();
 
     // L'admin ouvre la cellule « Traiteurs » (liste déroulante) puis sélectionne o1
-    fireEvent.click(await screen.findByTestId('org-section-traiteur'));
-    fireEvent.click(await screen.findByTestId('org-option-o1'));
-    await waitFor(() =>
-      expect(localStorage.getItem(STORAGE_KEY)).toBe(JSON.stringify(['o1'])),
+    fireEvent.click(
+      await screen.findByTestId('org-section-traiteur', undefined, ATTENTE_UI),
+    );
+    fireEvent.click(
+      await screen.findByTestId('org-option-o1', undefined, ATTENTE_UI),
+    );
+    await waitFor(
+      () =>
+        expect(localStorage.getItem(STORAGE_KEY)).toBe(JSON.stringify(['o1'])),
+      ATTENTE_UI,
     );
 
     // Réouverture : on démonte puis remonte un composant neuf
@@ -143,12 +152,22 @@ describe('M3.6 / Dashboard Client / UI', () => {
     // La sélection est restaurée depuis localStorage : plus de badge « Toutes »
     // + le filtre organisation_ids est appliqué à la requête.
     expect(screen.queryByTestId('org-selection-toutes')).toBeNull();
-    await waitFor(() =>
-      expect(kpiCalls().some((u) => u.includes('organisation_ids'))).toBe(true),
+    await waitFor(
+      () =>
+        expect(kpiCalls().some((u) => u.includes('organisation_ids'))).toBe(
+          true,
+        ),
+      ATTENTE_UI,
     );
     // Et en ouvrant la cellule Traiteurs, o1 est bien coché.
-    fireEvent.click(await screen.findByTestId('org-section-traiteur'));
-    const cb = (await screen.findByTestId('org-option-o1')) as HTMLInputElement;
+    fireEvent.click(
+      await screen.findByTestId('org-section-traiteur', undefined, ATTENTE_UI),
+    );
+    const cb = (await screen.findByTestId(
+      'org-option-o1',
+      undefined,
+      ATTENTE_UI,
+    )) as HTMLInputElement;
     expect(cb.checked).toBe(true);
   });
 
@@ -157,7 +176,7 @@ describe('M3.6 / Dashboard Client / UI', () => {
 
     // Une cellule (liste déroulante) par type : traiteur / agence / gestionnaire.
     expect(
-      await screen.findByTestId('org-section-traiteur'),
+      await screen.findByTestId('org-section-traiteur', undefined, ATTENTE_UI),
     ).toBeInTheDocument();
     expect(screen.getByTestId('org-section-agence')).toBeInTheDocument();
     expect(
@@ -169,13 +188,17 @@ describe('M3.6 / Dashboard Client / UI', () => {
 
     // Ouvrir « Traiteurs » déroule sa liste (o1 = traiteur Alpha).
     fireEvent.click(screen.getByTestId('org-section-traiteur'));
-    expect(await screen.findByTestId('org-option-o1')).toBeInTheDocument();
+    expect(
+      await screen.findByTestId('org-option-o1', undefined, ATTENTE_UI),
+    ).toBeInTheDocument();
     // Une seule cellule ouverte à la fois → l'agence reste fermée.
     expect(screen.queryByTestId('org-option-o3')).toBeNull();
 
     // Ouvrir « Agences » ferme « Traiteurs » et déroule o3 (agence Gamma).
     fireEvent.click(screen.getByTestId('org-section-agence'));
-    expect(await screen.findByTestId('org-option-o3')).toBeInTheDocument();
+    expect(
+      await screen.findByTestId('org-option-o3', undefined, ATTENTE_UI),
+    ).toBeInTheDocument();
     expect(screen.queryByTestId('org-option-o1')).toBeNull();
   });
 });

@@ -16,8 +16,9 @@
 | `external_api.timeout` | appel sortant > 5 s | warn | `service, endpoint, duree_ms` | Wrapper HTTP sortant |
 | `external_api.5xx` | tiers retourne 5xx | error | `service, endpoint, http_status` | Wrapper HTTP sortant |
 | `job.cron.started` | batch démarré | info | `job_name, trace_id` | pg_cron / Vercel Cron |
-| `job.cron.completed` | batch terminé OK | info | `job_name, duree_ms, nb_traite` | Idem |
-| `job.cron.failed` | batch échoué | error | `job_name, error_code, etape` | Idem (→ alerte, cf. `03`) |
+| `job.cron.completed` | batch terminé OK — **éventuellement partiel** | info | `job_name, duree_ms, nb_traite` (+ `nb_errors` si batch par éléments) | Idem |
+| `job.cron.failed` | batch échoué — exception, **ou** échec **global** d'un batch par éléments : (a) `etape='selection'` — toute lecture préalable en échec (collectes éligibles, **documents déjà émis**, entités de facturation AG) : **fail-closed**, car continuer sans la liste des documents déjà émis ré-émettrait bordereaux et attestations fiscales en double, en consommant des numéros gapless ; (b) `etape='traitement'` — **≥ 1 élément tenté et 0 produit** (défaut systémique : colonne renommée, INSERT cassé) | error | `job_name, error_code, etape` (`error_code` = code PostgREST/Postgres réel) | Idem (→ alerte `eleve` + **HTTP 500**, cf. `03`) |
+| `pdf.batch.collecte_failed` | **une** collecte en échec dans un batch PDF J+1, les autres traitées (échec **partiel** : ≥ 1 produit et ≥ 1 en échec → le batch reste `completed` avec `nb_errors`) | warn | `job_name, collecte_id, error` | Batch J+1 6h — debug, **pas d'alerte Slack** : la collecte est re-sélectionnée au batch suivant (idempotence), anti-fatigue §07/03, et une panne sur *toutes* les collectes remonte déjà par `etape='traitement'` |
 | `migration.applied` | migration SQL appliquée | info | `migration_file, env` | CI/CD (déploiement) |
 | `webhook.signature_invalid` | HMAC/JWT entrant invalide | warn | `source, ip` | Endpoint webhook (V2 surtout ; V1 = polling) |
 
@@ -31,6 +32,7 @@ Liste alignée sur `CLAUDE.md` §12 (cron) :
 |---|---|---|
 | `attestations_batch` | J+1 06h00 | élevée (attestation fiscale AG) |
 | `bordereaux_rapports_batch` | J+1 06h00 | élevée (justificatif ZD) |
+| `rapport_sans_excedent_batch` | J+1 06h00 | élevée (rapport client AG sans excédent, §12 §1.3-bis — job créé R21b, monté dans le même cron 6h) |
 | `mts1_polling` | toutes les 15 min | élevée (statut/pesées collectes) |
 | `pennylane_polling` | J+1 | moyenne (statut paiement) |
 | `relance_factures` | quotidien | basse |

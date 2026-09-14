@@ -1,14 +1,4 @@
-# Rapport export dev-facing
+# Rapport export dev-facing — périmé
 
-Mode : AGGRESSIVE (T1+T2)
-**Total : 93206 -> 89597 octets (-3609, -3.9%)**
-
-
-## 04 - Espace client traiteur.md
-- octets : 93206 -> 89597 (-3609, -3.9%)
-- tokens estimes : ~23301 -> ~22399
-- tombstones supprimes : 0 | fragments barres retires : 12 | en-tetes debarres : 4
-- lignes historiques T2 supprimees : 2
-- ⚠ tombstones en prose a revoir a la main :
-    L56: **Retiré V1 (refonte formulaire unique 2026-05-21)** — l'entrée se fait désormais par un b
-    L359: - — **retiré 2026-05-07**, géré par le sélecteur de type ZD / AG en haut de page
+> Ce rapport date d'un export par sous-dossier (juillet 2026). L'export est désormais généré en une passe sur tout `01 - Cahier des charges App`.
+> **Rapport courant : `_DEV-FACING/01 - Cahier des charges App/_RAPPORT-EXPORT.md`.**

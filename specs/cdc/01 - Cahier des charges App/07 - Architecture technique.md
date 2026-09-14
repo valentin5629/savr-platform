@@ -153,10 +153,12 @@ Supabase est le cœur de l'architecture : base de données, authentification, st
 
 **Décision atelier 2026-04-23** : le code serveur tourne **principalement en Next.js API Routes sur Vercel** (pas en Supabase Edge Functions). Raisons : types TypeScript partagés via `packages/shared`, même runtime que les fronts, pas de quota Edge Functions à surveiller, tooling CI/CD unifié.
 
+**Région d'exécution des fonctions Vercel = `cdg1` (Paris)** — déclarée dans `packages/plateforme/vercel.json` (`"regions": ["cdg1"]`), co-localisée avec Supabase `eu-west-3`. **Ne jamais laisser la région par défaut (`iad1`, Washington)** : l'aller-retour transatlantique vers la base ajoute ~80-100 ms par requête, fait répondre `/api/health` en 503 en permanence (seuil DB 200 ms) et rend les SLA p95 de [[08 - Performance/02 - Cibles techniques]] inatteignables. Prérequis RGPD également (traitement serveur dans l'UE, cf. §15 §1). Test cliquet : `tests/api/cron/region-fonctions.test.ts`.
+
 | Endpoint / Cron | Hébergement | Déclencheur | Rôle |
 |---|---|---|---|
 | | | | **❌ NE PAS DÉVELOPPER V1 (audit RLS 2026-06-11, Bloc E)** — V1 = polling MTS-1 (§08 §3bis : « aucun endpoint entrant, surface d'attaque entrante nulle ») + Everest V1.1 + TMS V2. Seul webhook entrant V1 = `POST /webhooks/resend/events` (signé svix, §08 §4). Rangée conservée comme cible V1.1/V2 (HMAC, `integrations_inbox`). |
-| `POST /api/sync/poll` | Vercel (Next.js API Route) | Cron 15 min **24/7** | Polling MTS-1 (§08 §3bis.7) — *V1 c'est LE chemin entrant, pas un fallback* |
+| `GET /api/sync/poll` | Vercel (Next.js API Route) | Cron 15 min **24/7** | Polling MTS-1 (§08 §3bis.7) — *V1 c'est LE chemin entrant, pas un fallback* |
 | | | | **❌ Webhook V2 (TMS natif).** En V1, la même logique métier (bordereau/attestation, PDF, brouillon Pennylane, badge `realisee_sans_collecte`) est déclenchée **par le cron de polling** quand il détecte l'état terminal MTS-1 — pas par un endpoint entrant. La logique décrite reste valide, le déclencheur change. |
 | `on-pack-ag-epuise` | Vercel (trigger DB → webhook) | Trigger DB sur `plateforme.packs_antgaspi` | Bloque la programmation AG + notif Admin |
 | `on-statut-collecte-change` | Vercel (trigger DB → webhook) | Trigger DB sur `plateforme.collectes.statut` | Dispatch emails transactionnels via Resend |
@@ -169,7 +171,7 @@ Supabase est le cœur de l'architecture : base de données, authentification, st
 **Sécurité des routes serveur — doctrine V1 (ajout 2026-06-11, audit RLS Bloc E — 3 trous transverses bouchés)** :
 
 1. **Validation d'entrée systématique** : toute API route et tout webhook parse son payload via un **schéma Zod** défini dans `packages/shared` (un schéma par endpoint, typé, réutilisé front/back). Payload invalide → **422** + trace `integrations_logs` si route d'intégration. Aucune route ne lit `req.body` brut. (Le CDC ne le spécifiait nulle part — chaque route aurait improvisé.)
-2. **Protection des routes cron** : les URLs Vercel Cron (`/api/sync/poll`, `scheduler-attestations`, `scheduler-bordereaux`, poll Pennylane J+1 3h, worker outbox) sont **publiquement invocables** par défaut. Chaque route cron vérifie en tête `Authorization: Bearer ${CRON_SECRET}` (env var Vercel, transmise automatiquement par Vercel Cron) → sinon **401, aucun traitement**. Complété par les verrous applicatifs existants (`pg_try_advisory_lock` worker outbox, dédup `integrations_inbox` poll). Secret dans l'inventaire §6 (rotation annuelle).
+2. **Protection des routes cron** : les URLs Vercel Cron (`/api/sync/poll`, `scheduler-attestations`, `scheduler-bordereaux`, poll Pennylane J+1 3h, worker outbox) sont **publiquement invocables** par défaut. Chaque route cron vérifie en tête `Authorization: Bearer ${CRON_SECRET}` (env var Vercel, transmise automatiquement par Vercel Cron) → sinon **401, aucun traitement**. **⚠ Méthode HTTP (correctif 2026-09-11)** : Vercel Cron invoque les chemins déclarés dans `vercel.json` en **GET** (jamais en POST) — chaque route cron DOIT exporter un handler `GET` (le `POST` reste accepté pour un déclenchement manuel). **`CRON_SECRET` doit être défini dans le scope `Production` de Vercel** (les crons ne sont planifiés que sur les déploiements de production) : sans cela les routes répondent 401 fail-closed. Test cliquet : chaque `path` de `vercel.json` exporte `GET`. Complété par les verrous applicatifs existants (`pg_try_advisory_lock` worker outbox, dédup `integrations_inbox` poll). Secret dans l'inventaire §6 (rotation annuelle).
 3. **Auth du micro-service Puppeteer (Railway)** : le container n'est pas exposé sans contrôle — header `X-Internal-Token` (secret partagé Vercel ↔ Railway, Vault/env) vérifié sur chaque requête de rendu ; réseau privé Railway si disponible. Idem pour les routes appelées par triggers DB (`on-pack-ag-epuise`, `on-statut-collecte-change`) : appel `pg_net` avec header secret (`INTERNAL_WEBHOOK_SECRET` depuis Supabase Vault), vérifié côté route.
 
 ---
@@ -253,7 +255,7 @@ Si un bug critique est détecté en prod après déploiement : revert du commit 
 - **Plan** : gratuit (10 moniteurs)
 - **Ce qu'il surveille** :
   - `app.gosavr.io` (santé frontend)
-  - `api.gosavr.io/health` (santé API)
+  - `app.gosavr.io/api/health` (santé API — pas de sous-domaine `api.` en V1, les API Routes sont servies par le front)
   - `tms.gosavr.io` (santé TMS, si exposé)
   - Railway Puppeteer endpoint
 - **Fréquence** : ping toutes les 3 minutes

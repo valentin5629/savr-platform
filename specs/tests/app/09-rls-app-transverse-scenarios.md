@@ -200,6 +200,19 @@ Scénario : ops_ecriture_parametres_refusee (ops_admin_only_writes_denied — F2
   Quand `ops1` exécute UPDATE sur `parametres_algo`, `parametres_taux_recyclage`, `tarifs_zero_dechet`, `grilles_tarifaires_zd`, `tarifs_packs_ag`
   Alors chaque UPDATE affecte 0 ligne (écriture Paramètres §9 = admin_savr only)
 
+Scénario : catalogue_tarifaire_lecture_staff_only (SECU__catalogue_tarifaire_staff_only — arbitrage Val 2026-09-14, Option 1)
+  Étant donné une grille dédiée « Grille grands comptes — Kardamome » affectée à Kardamome (organisations.grille_tarifaire_zd_id)
+  Quand `manager_kaspia` exécute SELECT sur `grilles_tarifaires_zd`, `tarifs_zero_dechet` et `tarifs_packs_ag`
+  Alors 0 ligne est retournée sur les 3 tables (lecture staff only, prédicat plateforme.f_is_staff())
+    Et il ne lit donc ni le nom ni les paliers de la grille négociée de Kardamome
+  Et le prédicat n'est JAMAIS auth.role() = 'authenticated' (forme laxiste d'origine — cliquet anti-réouverture)
+
+Scénario : catalogue_tarifaire_staff_lecture_ok (non-régression)
+  Quand `admin_savr` puis `ops1` exécutent SELECT sur `grilles_tarifaires_zd`, `tarifs_zero_dechet`, `tarifs_packs_ag`
+  Alors toutes les lignes sont retournées pour les deux rôles
+  Et le moteur de tarif `calculer_tarif_zd` continue de résoudre le prix (il tourne en SERVICE_ROLE, non soumis à la RLS)
+  Et aucun écran client n'est impacté : le prix n'est pas affiché au formulaire (règle UI Sujet 5) et est restitué par factures_collectes.tarif_detail
+
 Scénario : ops_config_auto_accept_invisible (test_m09bis_config_auto_accept_ag_ops_deny)
   Quand `ops1` exécute SELECT sur `config_auto_accept_ag`
   Alors 0 ligne est retournée (table admin-only, hors surface staff lecture — exception explicite A9bis)

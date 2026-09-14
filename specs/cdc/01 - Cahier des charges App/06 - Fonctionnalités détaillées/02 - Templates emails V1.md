@@ -1,7 +1,5 @@
 # 06.02 - Templates emails V1
 
-**Statut** : Draft V1 (proposition Claude, à valider Val)
-**Dernière mise à jour** : 2026-06-07 (**Session test-scenarios §06.02 — 4 specs floues tranchées Val** : **F1** `email_templates` + `emails_envoyes` intégrées §04 + policies §09 (write SERVICE_ROLE seul, SELECT admin_savr) · **F2** 3 templates ajoutés (20 `collecte_programmee_tiers`, 21 `collecte_modifiee_tiers` — couvre aussi l'annulation par tiers via `type_changement`, 22 `admin_collecte_annulee`) pour solder l'écart matrice §05 §9 ↔ templates ; total 16 → **19 actifs** · **F3** cycle échecs spécifié §08 §4 (statut `echec`, 3 retries 1min/10min/1h, signature svix, event inconnu = 200 + log, variable manquante = refus + log) · **F4** alerte pack bas déclenchée **au franchissement seul** (transition > 10 % → ≤ 10 %, recrédit ré-arme). Scénarios : `tests/06.02-templates-emails-scenarios.md`.)
 *(historique 2026-06-03 ci-dessous)* (**Revue de sobriété §06.02 (skill `cdc-review-sobriete`) — 6 items appliqués zéro dette** : **A1** UI Admin d'édition des templates + colonne `version` reportées V1.1 (templates en seed DB V1, éditables via SQL/migration sans redéploiement) · **A2** template 2 `completion_profil_requise` retiré V1 (gate déjà in-app, modal §05 §888) · **A3** template 8 `admin_orga_a_valider` retiré V1 (alerte purement informative, onboarding 100% auto sans gating → liste back-office) · **B1** templates 9 `admin_pack_ag_bas` + 14bis `admin_pack_epuise` fusionnés en `admin_pack_ag_etat` (variable `niveau` `bas`/`epuise`) · **C1** compteur corrigé (13 → **16 templates actifs**, dérive jamais recomptée depuis 2026-05-04) · **D1** colonne `email_templates.destinataire_type` supprimée (enum descriptif, adresse résolue au déclenchement, aucun comportement applicatif distinct). **C2 écarté** (faux positif : template 13 `admin_demande_ajout_lieu` cohérent avec le workflow « Normaliser un lieu » toujours actif §06.06). **3 fichiers App édités** : §06.02 + §05 (matrice notifications) + §03 + §00 Index. Cross-CDC : 0 divergence (templates internes Plateforme).)
 
 ---
@@ -48,7 +46,6 @@ L'équipe Savr
 ## 2. Email rappel completion profil entreprise **Retiré V1 (revue de sobriété 2026-06-03, A2)**
 
 **Slug** : `completion_profil_requise`
-**Statut** : retiré V1
 **Motif** : le blocage de la programmation sans organisation complétée est déjà géré **in-app** (modal « Complétez votre profil entreprise » qui liste les champs manquants et redirige vers le formulaire de complétion — cf. [[../05 - Règles métier]] §9 UX). L'email doublait une information déjà affichée à l'instant T → confort. Décision Val 2026-06-03 : in-app uniquement, pas d'email V1.
 
 ---
@@ -134,7 +131,9 @@ L'équipe Savr
 ## 6. Email rapport post-collecte disponible
 
 **Slug** : `rapport_disponible`
-**Destinataire** : programmeur de la collecte
+**Destinataire** : programmeur de la collecte — adresse résolue sur **`organisations.email_principal`** de l'organisation programmatrice *(précisé 2026-09-14 : `evenements.contact_principal_email` n'existe pas en V1)*
+
+> ⚠ **Écart seed → code à corriger (divergence M1.6, tranché Val 2026-09-14)** : la base a été seedée avec le slug **`bordereau_disponible`**, que **rien n'appelle** ; le batch ZD envoie `rapport_disponible`, qui **n'existe dans aucune migration** → `TEMPLATE_NOT_FOUND`, **aucun email de rapport ZD n'est jamais parti**. Correctif retenu : `UPDATE plateforme.email_templates SET code = 'rapport_disponible' WHERE code = 'bordereau_disponible'` (dev + prod), alignement de `packages/shared/src/seed/constants.ts`, et **alignement des variables envoyées par `batch-pdf-j1.ts` sur celles listées ci-dessous** (il envoyait `nom_evenement` / `date_evenement`, absents du template → `sendEmail` refuserait l'envoi pour variables manquantes, contrôle §08 §4). **Le CDC fait foi, c'est le seed qui diverge.**
 **Objet** : Votre rapport RSE est disponible — {{date_collecte}} à {{lieu_nom}}
 
 ```
@@ -195,7 +194,6 @@ L'équipe Savr
 ## 8. Email alerte Admin — Nouvelle organisation à valider **Retiré V1 (revue de sobriété 2026-06-03, A3)**
 
 **Slug** : `admin_orga_a_valider`
-**Statut** : retiré V1
 **Motif** : alerte purement informative (l'email lui-même précisait « l'organisation est déjà active, cette alerte sert à vérifier a posteriori »). L'onboarding est 100% automatisé sans validation amont (§05 §851) → aucun gating, aucune action requise à l'instant T. Le push email génère du bruit à volume. La vérification de cohérence a posteriori se fait via le **filtre « nouvelles organisations » du back-office** (orgs déjà listées, revue à la cadence Admin). Décision Val 2026-06-03.
 
 ---
@@ -358,7 +356,6 @@ Un traiteur a soumis une demande de renouvellement de pack Anti-Gaspi.
 ## 15. Email relance facture en retard **Retiré V1 (revue de sobriété 2026-05-08)**
 
 **Slug** : `facture_relance`
-**Statut** : retiré V1
 **Motif** : les relances de factures en retard sont gérées **directement dans Pennylane** (décision 2026-04-28). Aucun flux relance V1 côté plateforme Savr — donc pas de template email Savr associé. Voir [[06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin)]] §8.
 
 ---
@@ -667,6 +664,7 @@ L'équipe Savr
 - **+1 template ajout 2026-05-04** : `admin_modification_collecte_traiteur` (n°19). Décision : variante "urgence" pilotée par flag, pas de slug séparé pour éviter duplication.
 - **Compteur corrigé 2026-06-03 (sobriété C1)** : l'ancien total « 13 templates actifs » était une dérive jamais recomptée depuis le 2026-05-04 (les templates 14bis, 16, 17, 18, 18ter, 19 ont été ajoutés ensuite). **Total V1 = 16 templates actifs** après la revue de sobriété 2026-06-03 :
   1. `bienvenue` · 3. `collecte_programmee` · 4. `collecte_modifiee` · 5. `collecte_annulee` · 6. `rapport_disponible` · 9. `admin_pack_ag_etat` *(fusion bas+épuisé)* · 10. `admin_incident_collecte` · 11. `reset_password` · 12. `verification_email` · 13. `admin_demande_ajout_lieu` · 14. `admin_demande_renouvellement_pack` · 16. `ag_attribution_association` · 17. `invitation_utilisateur` · 18. `ag_attribution_transporteur` · 18ter. `ag_a_toutes_indispo` · 19. `admin_modification_collecte_traiteur` · 20. `admin_demande_annulation` *(ajouté M3.1 2026-06-17)*. **Total réel = 20 slugs actifs** (vérifier SELECT count(*) WHERE actif=true en dev).
+- **+1 template ajouté au catalogue 2026-09-14 (régularisation, divergence M2.4)** : `attestation_don_disponible` — existait en base et était envoyé par le batch AG J+1 sans figurer dans ce catalogue. **Destinataire tranché Val 2026-09-14 : `organisations.email_principal` de l'organisation programmatrice**, par symétrie avec `rapport_disponible` (le batch lisait `evenements.contact_principal_email`, colonne inexistante → destinataire vide → **aucune attestation n'a jamais été envoyée**, sans trace). Déclencheur : émission de l'attestation de don AG au batch J+1 6h.
   - **Slots retirés** : 2 (`completion_profil_requise`, A2) · 7 (`plaque_chauffeur`) · 8 (`admin_orga_a_valider`, A3) · 14bis (`admin_pack_epuise`, fusionné → 9) · 15 (`facture_relance`) · 18bis (`ag_recalcul_branche`).
 - **+3 templates ajoutés 2026-06-07 (F2 tranchée Val, session test-scenarios)** : 20. `collecte_programmee_tiers` · 21. `collecte_modifiee_tiers` *(modification + annulation par tiers, variable `type_changement`)* · 22. `admin_collecte_annulee`. Ils soldent l'écart matrice §05 §9 (règle 2026-05-07 tiers + destinataire Admin annulation) ↔ templates. **Total V1 = 19 templates actifs.**
 - **+1 template ajouté 2026-07-15 (divergence PLAQUES, décision Val)** : 23. `infos_acces_collecte` — réintroduction V1 de la notification client des infos d'accès chauffeur (nom + téléphone + accompagnant), déclenchée à complétude par tournée, destinataire `evenements.created_by`. **Total V1 = 21 templates actifs** (20 slugs seed listés + `infos_acces_collecte`). *(NB : le compteur historique « 19 » ci-dessus est un résidu non recompté ; le seed §tests liste 20 slugs → 21 après ajout. Recompter en dev via `SELECT count(*) WHERE actif=true`.)*

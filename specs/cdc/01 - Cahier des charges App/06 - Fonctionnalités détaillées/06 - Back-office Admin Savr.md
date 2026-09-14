@@ -1,7 +1,5 @@
 # 06 - Back-office Admin Savr
 
-**Statut** : Validé V1
-**Dernière mise à jour** : 2026-06-07 (**Session `cdc-test-scenarios` lot ⑥ — 6 floues tranchées Val + 2 résidus corrigés** : **F1** table `audit_log` créée dans [[04 - Data Model]] (référencée ~40× sans définition ; résidu `audit_logs` §05 corrigé) · **F2** Packs AG : « Ajuster crédits » + « Annuler le pack » ouverts à `ops_savr` (alignement matrice §09 qui fait foi — ex admin-only §8) · **F3** Transporteurs : édition SIREN + désactivation `actif=false` ouvertes à `ops_savr` (alignement matrice §09 ; 2 tests pgTAP contraires retirés §09) · **F4** carte KPI « Collectes non transmises au TMS » volet AG **gardée telle quelle** (compte toutes les AG `non_envoye`, file d'attribution nominale comprise — assumé : pas un indicateur d'échec côté AG, ne pas re-proposer) · **F5** terminologie « émission S7 » (sens sortant App→TMS) renommée **« émission dispatch »** (E1 initial / réémission endpoint §08 §10.1) — S7 ne désigne plus que le webhook TMS→App `plaque-saisie` · **F6** bouton « Fusionner 2 organisations » **retiré V1** (opération exceptionnelle par script SQL assisté hors UI ; UI complète V1.1) · résidus : ligne matrice « Relancer facture » et récap #9 purgés (relances = Pennylane, décision 2026-04-28) ; compteur templates 18 → 19 actifs.)
 **Dernière mise à jour précédente** : 2026-05-30 (**Revue de sobriété §06.06 (skill `cdc-review-sobriete`) — 8 simplifications appliquées zéro dette** : **A1** champ association `nombre_convives_par_jour` supprimé (§5 — jamais utilisé ; matching par taille = `capacite_max_beneficiaires`) · **A2** axe histogramme revenus = montant HT unique (toggle nb/montant retiré, §1 Bloc 2.1) · **B2** alerte marge négative retirée (§1 Bloc 3 — pas de marge négative attendue V1, décision Val) · **A3/D1** statut pack `expire` retiré V1 (`actif`/`epuise`/`annule` — aucun mécanisme d'expiration V1 ; §8 + §04 enum) · **B1** modal création pack wizard 4 étapes → formulaire modal unique (§8) · **C1** logique SQL recrédit inline du Bloc 6 §3 retirée → source unique [[05 - Règles métier]] · **C2** description du flag `dirty_tms` centralisée (définition canonique = §3 Bloc 0, KPI §1 + chip §3 y renvoient) · **C3** récap « Actions manuelles critiques V1 » transformé en index non-normatif (pointeurs vers sections sources). 3 fichiers App édités (§06.06 + §04 Data Model + mockup admin) zéro dette. Cross-CDC : 0 divergence (toutes modifs internes Plateforme : UI dashboard, enum pack non partagée, récap).)
 **Dernière mise à jour précédente** : 2026-05-22 (§8 Clients > fiche organisation traiteur : ajout onglet Coefficient de perte labo — saisie admin par année, table `coefficients_perte_labo`. Cf. [[05 - Règles métier#R_dechets_labo_estimes]].)
 **Dernière mise à jour précédente** : 2026-05-08 (fusion ex-fichier 07 dans §8 Clients > onglet Packs AG + §9 Paramètres > Tarifs Anti-Gaspi (publics). Pack unique actif (suppression FIFO multi-packs). Cf. memory `project_fusion_07_packs_ag_2026_05_08`.)
@@ -71,9 +69,13 @@ Chaque carte est cliquable et redirige vers §3 Collectes avec le filtre prédé
 
 ### Bloc 2 — Section Revenus
 
-#### 2.1 Histogramme 12 derniers mois glissants
+> **Refonte revue E2E 2026-07-18 — Bloc 2 piloté par un filtre de période UNIQUE.** L'histogramme (2.1) et le tableau (2.2) sont affichés **côte à côte, 50/50 à partir de `lg`**, et partagent **une seule barre de filtre `Du`/`Au` + bouton « Réinitialiser »** placée au-dessus des deux. **Défaut = 12 derniers mois glissants, alignés au 1er du mois** (`new Date(année, mois−11, 1)`) pour que l'histogramme conserve 12 buckets mensuels pleins — aligné sur le défaut générique §11 §8 (l.180) et sur §06.04/§06.05, et non plus « mois en cours ».
+> **Retirés du Dashboard Admin uniquement** : les 5 presets de période (7 jours / 30 jours / Trimestre en cours / 12 derniers mois / Année civile, BL-P3-02) et le bouton **« Exporter CSV »** du tableau Revenus. L'endpoint d'export `GET /api/v1/admin/dashboard/revenus-organisations?format=csv` est **conservé** (plus de déclencheur UI). Les presets restent en place sur les autres dashboards (traiteur §06.04, gestionnaire §06.05, agence, registre) — ne pas les retirer là-bas.
+> NB : l'histogramme reflétant désormais la période sélectionnée, le libellé « 12 mois glissants » n'est exact que pour le défaut.
 
-- Axe X : 12 mois glissants (mois calendaires)
+#### 2.1 Histogramme (période du filtre commun — défaut 12 derniers mois glissants)
+
+- Axe X : mois calendaires de la période sélectionnée (12 buckets au défaut)
 - Axe Y : montant facturé HT *(toggle nb collectes / montant retiré — revue sobriété 2026-05-30 A2 : axe unique montant, le compte est dans le tableau « Revenus par organisation » ci-dessous)*
 - 1 barre empilée par mois : segment ZD + segment AG
 - Tooltip mensuel : nb ZD, nb AG, montant ZD, montant AG, total
@@ -81,15 +83,15 @@ Chaque carte est cliquable et redirige vers §3 Collectes avec le filtre prédé
 
 #### 2.2 Tableau "Revenus par organisation"
 
-Tableau filtrable. **Sélecteur de période** en haut (date_collecte from/to, défaut = mois en cours).
+Tableau filtrable. **Période = celle du filtre commun du Bloc 2** (`date_collecte` from/to, **défaut 12 derniers mois** — décision Val 2026-07-18, remplace l'ancien défaut « mois en cours »). Pas de presets ni de bouton Export CSV sur ce dashboard.
 
 | Colonne | Source |
 |---------|--------|
 | Nom de l'organisation | `organisations.nom` (organisation **programmatrice** = `evenements.organisation_id`) |
 | Type d'organisation | `organisations.type` (badge : traiteur / agence / gestionnaire_lieux / client_organisateur) |
-| Nb collectes ZD | Count `collectes` type=zd, `date_collecte ∈ période`, `evenement.organisation_id = org` |
+| Nb collectes ZD | Count `collectes` type=zd, `date_collecte ∈ période`, `evenement.organisation_id = org`, **statut hors `brouillon` et `annulee`** *(précisé 2026-09-01 — aligné `v_kpi_admin` §11 §1.1, sans quoi la liste Clients et le dashboard Revenus affichent deux nombres différents pour un même client)* |
 | Montant facturé ZD | Sum `factures_collectes.montant_ht` lié aux factures émises sur ces collectes ZD (statut facture ∈ `emise`, `payee`) |
-| Nb collectes AG | Count `collectes` type=ag, idem |
+| Nb collectes AG | Count `collectes` type=ag, idem (**statut hors `brouillon`/`annulee`**) |
 | Montant facturé AG | Idem côté AG |
 
 **Imputation V1** : ligne par organisation programmatrice (`evenements.organisation_id`), aucune ventilation traiteur opérationnel V1 (cf. memory règle programmateur=facturé).
@@ -209,9 +211,23 @@ Affiche en plus de la liste classique :
 - Bouton « Valider attribution » par ligne (déclenche workflow §09 Flux algo)
 - Tri par défaut : `date_collecte ASC` (priorité aux collectes les plus proches)
 
-### Vue détail d'une collecte (clic sur une ligne)
+### Vue détail d'une collecte — **modale** (clic sur une ligne)
 
-Page complète. Reprise des **4 blocs de l'espace traiteur §06.04** + **3 blocs Admin-only** en superset (cf. [[06 - Fonctionnalités détaillées/04 - Espace client traiteur]] §Vue détail d'une collecte).
+> **Refonte revue E2E 2026-07-21 / 2026-07-22 (décision Val).** La fiche collecte ne s'affiche plus sur une page dédiée mais dans un **pop-up centré (composant `Modal` du Design System, largeur `wide`)** ouvert au clic sur une carte de la liste (`/admin/collectes?collecte=<id>`). La route `/admin/collectes/[id]` **redirige** vers la liste avec la modale ouverte (les liens profonds emails / favoris / drill-down restent valides). Même pattern que les listes Transporteurs, Associations et Lieux.
+>
+> - **Cadre de la modale coloré par type de collecte** : orange (`anti_gaspi`) / vert (`zero_dechet`), aligné sur le rail de couleur des cartes de la liste.
+> - **Titre figé de l'en-tête**, visible au scroll : « Collecte {Anti-Gaspi|Zéro Déchet} · {date} · {heure} · {traiteur} · {lieu} ({ville}) · jusqu'à {N} pax ». La modale fournit son propre chrome (titre + croix), donc **`PageHero` n'est plus utilisé sur la fiche** (il reste en place sur la liste et les autres pages Admin).
+> - L'en-tête compact interne ne conserve qu'une **barre d'action** : `StatusCollecte` + badge « dirty TMS » + bouton « Forcer le statut ».
+>
+> **Organisation des blocs (2026-07-22)** :
+> 1. **« Prestataire & Dispatch »** (Bloc 0) et **« Attribution AG »** en tête, en grille 2 colonnes pour l'AG ; en ZD, « Prestataire & Dispatch » occupe la pleine largeur.
+> 2. **« Événement & Lieu » réduit à 4 champs** : **Client** · Type · Adresse · Contrôle accès. Retirés car déjà portés par le titre ou redondants : Traiteur, Événement (`nom_evenement`), PAX, Lieu, Volume estimé. « Client » = le **client organisateur** de l'événement (`evenements.client_organisateur?.raison_sociale ?? nom_client_organisateur ?? '—'`), distinct du traiteur du titre → embed `client_organisateur:organisations!client_organisateur_organisation_id(raison_sociale)` ajouté à `GET /api/v1/admin/collectes/[id]`.
+> 3. **Bloc « Logistique » supprimé** (date/heure remontées dans le titre, contrôle d'accès dans « Événement & Lieu »). **`evenements.informations_supplementaires` et `collectes.notes_internes` sont ré-exposés dans le bloc « Prestataire & Dispatch »** *(arbitrage Val 2026-09-14 — aucun champ ne disparaît de l'écran)*.
+> 4. **Bloc « Pack AG » supprimé de la fiche.** Le badge « Crédit recrédité automatiquement le {{date}} » est **ré-exposé dans le bloc Historique** *(arbitrage Val 2026-09-14 — traçabilité financière conservée)*.
+>
+> Aucune donnée n'est supprimée en base : seuls l'emplacement et l'ordre d'affichage changent. Les règles métier de la fiche (dispatch, forçage de statut, pesées, attribution) sont inchangées.
+
+Reprise des **4 blocs de l'espace traiteur §06.04** + **3 blocs Admin-only** en superset (cf. [[06 - Fonctionnalités détaillées/04 - Espace client traiteur]] §Vue détail d'une collecte).
 
 #### Bloc 0 — Attribution Prestataire (Admin-only, **en haut de page**)
 
@@ -246,7 +262,7 @@ Reprise stricte de la vue détail de l'espace traiteur (post-refonte 2026-05-04 
 - **Bloc 1 — Programmation/Événement** : nom, **date de l'événement (`evenements.date_evenement`)** et **date+heure de collecte (`collectes.date_collecte` + `heure_collecte`)** distinguées (refonte 2026-05-21), pax, type événement, client organisateur, contacts. Modifiable par Admin/Ops avec audit_log.
 - **Bloc 2 — Pesées + Photos** : poids saisi par flux, photos (TMS + imports manuels), badge « Anomalie pesée » ZD si applicable. Modifiable par Admin (motif obligatoire).
 - **Bloc 3 — Documents** : Rapport RSE (télécharger / consulter statut / régénérer), Bordereau ZD, Attestation de don (AG), galerie photos + bouton « Importer des photos » côté Admin.
-- **Bloc 4 — Pack AG** (si type AG) : pack rattaché, crédits restants, statut. Si la collecte est `annulee` après avoir été `realisee` : badge "Crédit recrédité automatiquement le {{date}}" (cf. [[05 - Règles métier#Annulation d'une collecte AG recrédit automatique]]).
+- **Bloc retiré de la fiche collecte Admin (2026-07-22)** — l'information pack reste dans la fiche organisation → onglet Packs AG (§8). Le badge "Crédit recrédité automatiquement le {{date}}" (collecte `annulee` après avoir été `realisee`, cf. [[05 - Règles métier#Annulation d'une collecte AG recrédit automatique]]) est **déplacé dans le bloc Historique** de la fiche. *(Le bloc reste en vigueur dans l'espace traiteur §06.04, non concerné.)*
 
 #### Bloc 5 — Attribution AG (résumé + lien, Admin-only, si type=AG)
 
@@ -386,9 +402,9 @@ Tableau filtrable :
 | Capacité max (repas) | `associations.capacite_max_beneficiaires` |
 | Actif (oui/non) | `associations.actif` |
 
-Clic sur une ligne → fiche détaillée.
+**Clic sur une ligne (ou sur « Nouvelle association ») → modale « Fiche association »** *(décision Val 2026-07-21, aligné pattern Transporteurs et Lieux)* : création, édition et désactivation se font dans la modale, sans quitter la liste. **Il n'existe plus de fiche détaillée pleine page ni de page d'édition dédiée** (`/admin/associations/[id]`, `/[id]/modifier`, `/nouvelle` supprimées). Les routes API `route.ts` (liste/POST) et `[id]/route.ts` (GET/PATCH — le PATCH `{actif}` porte le Désactiver/Réactiver depuis le pied de la modale) restent en service.
 
-### Formulaire de création / édition
+### Formulaire de création / édition *(contenu de la modale)*
 
 | Champ | Type | Obligatoire | Notes |
 |-------|------|-------------|-------|
@@ -403,6 +419,7 @@ Clic sur une ligne → fiche détaillée.
 | Zone de commentaire à usage interne | texte long | Non | |
 | SIREN | texte | Non | Validation INSEE (9 chiffres) — édition admin-only. **Non obligatoire — tranché Val 2026-07-02 (R17b) ; colonne `associations.siren` ajoutée (V1 + DDL cible).** |
 | Habilitation 2041-GE | booléen + date expiration | Non | Si `true`, attestation fiscale activée — édition admin-only |
+| **N° RUP** *(ajout 2026-09-14)* | texte | Non | N° de Reconnaissance d'Utilité Publique. **Source unique** de l'instantané `attestations_don.association_numero_rup` (cf. [[04 - Data Model]] table `associations`) — la mention RUP n'apparaît sur le Cerfa 2041-GE que s'il est renseigné. Édition admin-only. |
 | Capacité max bénéficiaires (repas) | integer | Oui | **Critère de matching par taille d'événement** : exclut l'asso si trop petite (`capacite_max_beneficiaires × 2 > volume_estimé`). C'est ce champ qui garantit qu'un gros événement (ex. 3000 pax) est attribué à une asso avec assez de bénéficiaires. || **Description pour le rapport d'impact (pour le client)** | texte long | **Oui** *(rendu obligatoire 2026-05-07)* | Copié dans rapport AG. Validation : ≥ 30 caractères. |
 | **Id du point de collecte dans MTS-1** *(ajout 2026-05-07, V1 only)* | texte | Non | Identifiant point de collecte côté MTS-1 — sert au pré-fill V1 lors de l'envoi vers MTS-1 (cf. §3 Bloc 0 Attribution Prestataire / fork V1). En V2 (TMS Savr natif), ce champ devient déprécié (gardé en lecture pour audit historique). |
 | Actif | booléen | Oui | Défaut `true` |
@@ -440,7 +457,9 @@ Stocké dans `associations.horaires_ouverture` au format JSON.
 *(Refonte 2026-05-08 — voir mémoire `project_refonte_back_office_admin_2026_05_08`)*
 
 ### Vue liste
-Tableau filtrable : nom, ville, véhicule(s), type de TMS, actif.
+Tableau filtrable : **nom (+ contact), ville, véhicule(s), type de TMS, types de collecte (badges ZD/AG), actif**, action *modifier* *(aligné maquette validée Val 2026-07-18)*.
+
+**Clic sur une ligne → modale « Fiche transporteur »** (création / édition / désactivation), sans quitter la liste. Les anciennes pages pleine écran `/admin/transporteurs/nouveau`, `/[id]` et `/[id]/modifier` sont **supprimées** *(décision Val — aligné Associations et Lieux ; manifeste `M1.1b` à réaligner)*. La colonne **« Code MTS-1 » n'apparaît pas dans la liste** (demande explicite Val) ; le champ reste éditable dans la modale.
 
 **Périmètre** : tous les transporteurs (IDF + province), pas de filtre zone par défaut. Strike, Marathon, A Toutes! et transporteurs province affichés dans la même liste.
 
@@ -457,7 +476,7 @@ Tableau filtrable : nom, ville, véhicule(s), type de TMS, actif.
 | **Type(s) de véhicule**          | multi-enum        | Oui         | **Refonte 2026-05-08** — sélection multiple (`text[]`) parmi `velo_cargo`, `camionnette`, `fourgon`, `vul`, `poids_lourd`. Enum aligné sur `lieux.type_vehicule_max`. |
 | **Type de TMS**                  | enum              | Oui         | **Refonte 2026-05-08** — `mts1` (Strike + Marathon V1, push API depuis Plateforme via fork V1) / `a_toutes` (workflow A Toutes! distinct) / `autre` (province → email + téléphone manuel) / `par_mail` / `par_telephone` (**ajout R17b 2026-07-02** — transporteurs hors TMS routés `provider_manual`, validation manuelle Admin). Détermine quel bouton apparaît au Bloc 0 Attribution Prestataire §3. Champs fusionnés (ex `process_creation_collecte`, `process_creation_collecte_detail`, `type_tms` regroupés en un seul). |
 | **Code transporteur MTS-1**      | texte             | Si `type_tms = mts1` | **Ajout 2026-05-29 (propagation §3bis)** — `carrierShareableCode` côté MTS-1 (récupérable via `GET /v3/carrier`), utilisé pour déléguer l'ordre au bon transporteur. Obligatoire si `type_tms = 'mts1'` (cf. [[05 - Règles métier#R_code_mts1_requis]]). Masqué si `type_tms ≠ mts1`. Déprécié V2. |
-| **Type(s) de collecte**          | multi-enum        | Oui         | **Ajout R17b 2026-07-02** — flux gérés par le transporteur (`text[]` parmi `anti_gaspi` / `zero_dechet`), sélection multiple. |
+| **Type(s) de collecte**          | multi-enum        | **Non**     | **Ajout R17b 2026-07-02** — flux gérés par le transporteur (`text[]` parmi `anti_gaspi` / `zero_dechet`), sélection multiple. **Optionnel — corrigé 2026-09-14** (le tableau le marquait « Oui » à tort : le formulaire, la route `POST/PATCH /api/v1/admin/transporteurs` et la colonne DB `types_collecte text[]` **nullable** le traitent comme optionnel depuis l'origine, décision Val 2026-07-02 « multi, optionnel »). |
 | **Description du process de collecte** | texte long | Non | **Ré-ajout R17b 2026-07-02** (ex `process_creation_collecte_detail`) — consignes métier de collecte propres au transporteur, champ dédié `description_process_collecte`. |
 | Actif                            | booléen           | Oui         | Défaut `true`                                                                                                                                                    |
 
@@ -489,9 +508,19 @@ L'Admin peut toujours override manuellement avec motif.
 Voir [[04 - Data Model]] table `lieux`.
 
 ### Vue liste
-Référentiel complet filtrable (nom, ville, gestionnaire, type, traiteurs opérants, actif).
+Référentiel complet, présenté en tableau avec onglets **Référentiel (N)** / **Modifs signalées (N)**. Colonnes : Nom (+ badge `Citeo` si `reference_citeo`), Ville, Gestionnaire, Accès office, Stationnement, Véhicule max, **Capacité max**, Contrôle accès, Statut (+ action _Normaliser_ inline si le lieu est `actif = false`), chevron d'ouverture de fiche. Pastilles couleur pour `acces_office` / `stationnement` (`facile` → success, `difficile` → warning, `tres_difficile` → error). Filtrable (nom, ville, gestionnaire, type, traiteurs opérants, actif).
 
-### Formulaire de création / édition
+### Fiche lieu — modale unique *(décision Val 2026-07-21, PR #256)*
+
+La fiche et l'édition d'un lieu se font dans **une modale unique**, ouverte au clic sur une ligne de la liste, sur « Nouveau lieu », ou par deep-link `?edit={id}` (cible de l'alerte « modif signalée »). **Il n'y a plus de page fiche `/admin/lieux/[id]`.**
+
+La modale porte **l'intégralité des champs du référentiel**, y compris les 7 champs autrefois visibles en lecture seule sur l'ex-fiche :
+
+- **Éditables** : `region` (select `idf` / `province`), `volume_max_bacs`, `contraintes_horaires`, `acces_details` (libellé « Carnet d'accès terrain »), `flux_autorises` (`text[]`, saisie libre séparée par des virgules), `commentaires_internes` (bloc Admin/Ops, libellé « Notes internes »), en plus des champs listés ci-dessous.
+- **Lecture seule** : `photos_urls` (upload géré hors formulaire, stockage R2 — liste de liens).
+- `POST /api/v1/admin/lieux` accepte `contraintes_horaires` et `commentaires_internes` au même titre que le `PATCH` (création et édition symétriques).
+
+### Champs du formulaire *(contenu de la modale)*
 
 **Champs visibles dans le formulaire de programmation §06.01** (pour traiteur/agence/gestionnaire/admin) :
 
@@ -542,7 +571,6 @@ Voir [[02 - Templates emails V1]] template `admin_demande_ajout_lieu`.
 
 > **Retiré V1 (Sujet 4, 2026-05-26)** : le mécanisme « Autre + texte libre + normalisation » est **supprimé** (pas seulement reporté). `types_evenements` est figé à 4 catégories de format de service (`cocktail_aperitif`, `cocktail_repas_complet`, `repas_assis`, `autre`) ; `autre` est un fourre-tout sélectionnable **sans saisie**. La colonne `evenements.type_evenement_libre` est supprimée (§04), la règle `R_type_evenement_libre` est retirée (§05), et le champ libre disparaît du formulaire §06.01. Plus aucune file de normalisation, ni en V1 ni en V1.1. Extension du référentiel = **ajout direct d'une ligne** dans `types_evenements` (Admin/Supabase), sans UI dédiée. Les événements `autre` sont comptés comme un bucket benchmark normal.
 >
-> Contenu historique conservé pour traçabilité :
 >
 
 ---
@@ -552,7 +580,10 @@ Voir [[02 - Templates emails V1]] template `admin_demande_ajout_lieu`.
 *(Section partiellement modifiée 2026-05-07 — ajout sous-section Packs AG fusionnée depuis ex-§3 Anti-Gaspi. Le reste sera revu dans la prochaine itération.)*
 
 ### Vue liste organisations
-Tableau : nom, type (traiteur / agence / gestionnaire_lieux / client_organisateur), SIREN, nb users, **nb collectes ZD 12 derniers mois**, **nb collectes AG 12 derniers mois**, actif.
+Tableau : nom (avatar à initiales), type (traiteur / agence / gestionnaire_lieux / client_organisateur), nb users, **nb collectes ZD 12 derniers mois**, **nb collectes AG 12 derniers mois**, **pack actif**, actif.
+
+- **Colonne « pack actif »** *(ajout revue E2E 2026-07-18)* : badge du pack `statut = 'actif'` de l'organisation (au plus 1, invariant `uniq_pack_actif_par_org`), format « Pack {N} · {crédits restants} restants ». Rouge (*error*) si crédits restants < 5, vert (*success*) sinon, « — » si aucun pack actif. `credits_restants = credits_initiaux − credits_consommes` (même sémantique que le bandeau d'alerte de la fiche organisation). Alimenté par `GET /api/v1/admin/organisations` → champ `pack_actif: { type_pack, credits_restants } | null`.
+- **SIREN retiré de la liste** *(revue E2E 2026-07-18)* — reste consultable dans la fiche organisation → onglet « Informations légales ». Le « pack actif », auparavant visible uniquement dans la fiche (onglet Packs AG), remonte en liste.
 
 > **Refonte 2026-05-08** : split de la colonne unique "nb collectes 12 derniers mois" en 2 colonnes distinctes ZD + AG. Tri possible sur chaque colonne. Pertinent pour identifier rapidement le profil d'usage d'un client (orienté ZD, AG ou mix).
 

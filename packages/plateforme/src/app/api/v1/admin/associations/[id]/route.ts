@@ -91,11 +91,13 @@ export async function PATCH(
   ];
   // Champs admin-only (§5 associations l.425-426 : SIREN + habilitation 2041-GE
   // (booléen + date d'expiration) + désactivation `actif`). Ajout Val 2026-07-02 :
-  // siren (col. créée) + date_expiration_habilitation.
+  // siren (col. créée) + date_expiration_habilitation. Ajout Val 2026-09-14 :
+  // numero_rup (§06.06 §5 « Édition admin-only »).
   const ADMIN_FIELDS = [
     'habilitee_attestation_fiscale',
     'date_expiration_habilitation',
     'siren',
+    'numero_rup',
     'id_point_collecte_mts1',
     'actif',
   ];
@@ -147,6 +149,9 @@ export async function PATCH(
       { status: 422 },
     );
   }
+
+  // N° RUP : texte libre facultatif, vide = effacement (NULL, pas de mention Cerfa).
+  if (updates.numero_rup === '') updates.numero_rup = null;
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json(

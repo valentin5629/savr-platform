@@ -167,6 +167,97 @@ describe('M1.1b / Associations / Champs protégés ops', () => {
     expect(res.status).toBe(200);
   });
 
+  // §06.06 §5 « N° RUP — Édition admin-only » (arbitrage Val 2026-09-14).
+  it('M1.1b/associations/patch — 403 si ops tente modifier numero_rup', async () => {
+    setupAuth('ops_savr');
+    const { PATCH } =
+      await import('@/app/api/v1/admin/associations/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/associations/asso-1', {
+        numero_rup: 'W751234567',
+      }),
+      { params: Promise.resolve({ id: 'asso-1' }) },
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it('M1.1b/associations/patch — admin persiste numero_rup, vide ⇒ NULL', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single
+      .mockResolvedValueOnce({
+        data: { id: 'asso-1', ...BASE_ASSO },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: { id: 'asso-1', ...BASE_ASSO },
+        error: null,
+      });
+    const { PATCH } =
+      await import('@/app/api/v1/admin/associations/[id]/route.js');
+
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/associations/asso-1', {
+        numero_rup: 'W751234567',
+      }),
+      { params: Promise.resolve({ id: 'asso-1' }) },
+    );
+    expect(res.status).toBe(200);
+    expect(mockSupabaseChain.update).toHaveBeenCalledWith(
+      expect.objectContaining({ numero_rup: 'W751234567' }),
+    );
+
+    // Champ vidé dans la modale ⇒ effacement (NULL), pas la chaîne vide :
+    // l'instantané du Cerfa doit valoir NULL, pas ''.
+    mockSupabaseChain.update.mockClear();
+    mockSupabaseChain.single
+      .mockResolvedValueOnce({
+        data: { id: 'asso-1', ...BASE_ASSO },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: { id: 'asso-1', ...BASE_ASSO },
+        error: null,
+      });
+    const res2 = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/associations/asso-1', {
+        numero_rup: '',
+      }),
+      { params: Promise.resolve({ id: 'asso-1' }) },
+    );
+    expect(res2.status).toBe(200);
+    expect(mockSupabaseChain.update).toHaveBeenCalledWith(
+      expect.objectContaining({ numero_rup: null }),
+    );
+  });
+
+  it('M1.1b/associations/create — numero_rup transmis à l’INSERT (vide ⇒ NULL)', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: { id: 'asso-1', ...BASE_ASSO },
+      error: null,
+    });
+    const { POST } = await import('@/app/api/v1/admin/associations/route.js');
+    await POST(
+      makeReq('POST', '/api/v1/admin/associations', {
+        ...BASE_ASSO,
+        numero_rup: 'W751234567',
+      }),
+    );
+    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ numero_rup: 'W751234567' }),
+    );
+
+    mockSupabaseChain.insert.mockClear();
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: { id: 'asso-2', ...BASE_ASSO },
+      error: null,
+    });
+    await POST(makeReq('POST', '/api/v1/admin/associations', BASE_ASSO));
+    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ numero_rup: null }),
+    );
+  });
+
   it('M1.1b/associations/patch — 422 si description modifiée < 30 chars', async () => {
     setupAuth('admin_savr');
     mockSupabaseChain.single.mockResolvedValueOnce({

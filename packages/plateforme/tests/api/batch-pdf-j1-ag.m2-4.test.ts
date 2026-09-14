@@ -448,18 +448,88 @@ function selectionCollectes(sb: { _chain: Record<string, unknown> }): string {
   );
 }
 
-// Régression (2026-09-11) : `associations` n'a PAS de colonne `numero_rup` (le CDC §04 ne
-// définit que l'instantané `attestations_don.association_numero_rup`). La sélectionner
-// fait échouer toute la requête → aucune attestation générée. Épinglé sur le texte.
+// §04 associations.numero_rup (arbitrage Val 2026-09-14, divergence M2.4
+// `numero-rup-source`) : la colonne source existe désormais (migration
+// 20260914180000). Le batch la LIT — elle doit donc figurer dans le select, et
+// n'y figurer que sous des noms de colonnes réels (une colonne inexistante fait
+// échouer TOUTE la requête → aucune attestation générée, régression 2026-09-11).
 describe('M2.4 / BatchPdfJ1Ag / requête de sélection', () => {
-  it("ne sélectionne que des colonnes réelles d'`associations` (pas de `numero_rup`)", async () => {
+  it('sélectionne `numero_rup` (source de l’instantané) sur `associations`', async () => {
     const sb = makeSupabase([{ data: [], error: null }]);
     await runBatchPdfJ1Ag(sb as never);
     const sel = selectionCollectes(sb);
     expect(sel).not.toBe('');
-    expect(sel).not.toContain('numero_rup');
     expect(sel).toMatch(
-      /associations\s*\(\s*nom, adresse, habilitee_attestation_fiscale\s*\)/,
+      /associations\s*\(\s*nom, adresse, habilitee_attestation_fiscale, numero_rup\s*\)/,
     );
+  });
+});
+
+// Instantané du n° RUP — §04 (`attestations_don.association_numero_rup` figé à
+// l'émission) + §06.06 §5 (mention Cerfa 2041-GE affichée seulement si renseigné).
+describe('M2.4 / BatchPdfJ1Ag / instantané association_numero_rup', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  /** Joue le batch pour une asso donnée et renvoie l'INSERT attestation + le job PDF. */
+  async function runAvecAsso(associations: Record<string, unknown>) {
+    const collecte = makeCollecteAg();
+    (collecte.attributions_antgaspi as Record<string, unknown>).associations =
+      associations;
+
+    const sb = makeSupabase([
+      { data: [collecte], error: null }, // select collectes AG
+      { data: [], error: null }, // attestations_don existantes
+      {
+        data: [
+          {
+            id: 'entite-1',
+            organisation_id: 'org-1',
+            raison_sociale: 'Kaspia SAS',
+            siret: '12345678900001',
+          },
+        ],
+        error: null,
+      }, // entites_facturation
+      { data: 'ATT-DON-2026-00042', error: null }, // rpc numéro
+      { data: { id: 'att-new' }, error: null }, // insert attestations_don
+      { data: null, error: null }, // insert jobs_pdf
+      { data: null, error: null }, // insert rapports_rse
+      { data: { contact_principal_email: 'chef@kaspia.fr' }, error: null },
+    ]);
+
+    const result = await runBatchPdfJ1Ag(sb as never);
+    expect(result.errors).toHaveLength(0);
+
+    const insertCalls = (sb._chain.insert as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[Record<string, unknown>]>;
+    const attInsert = insertCalls.find(
+      (c) => c[0].collecte_id !== undefined,
+    )![0];
+    const jobPayload = insertCalls.find(
+      (c) => c[0].type_document !== undefined,
+    )![0].payload as Record<string, unknown>;
+    return { attInsert, jobPayload };
+  }
+
+  it('association AVEC n° RUP : instantané figé + mention transmise au Cerfa', async () => {
+    const { attInsert, jobPayload } = await runAvecAsso({
+      nom: 'Les Restos du Cœur',
+      adresse: '42 rue du Don, Paris',
+      habilitee_attestation_fiscale: true,
+      numero_rup: 'W751234567',
+    });
+    expect(attInsert.association_numero_rup).toBe('W751234567');
+    expect(jobPayload.association_numero_rup).toBe('W751234567');
+  });
+
+  it('association SANS n° RUP : instantané NULL, émission sans mention', async () => {
+    const { attInsert, jobPayload } = await runAvecAsso({
+      nom: 'Croix-Rouge',
+      adresse: '1 place de la Croix, Lyon',
+      habilitee_attestation_fiscale: true,
+      numero_rup: null,
+    });
+    expect(attInsert.association_numero_rup).toBeNull();
+    expect(jobPayload.association_numero_rup).toBeNull();
   });
 });

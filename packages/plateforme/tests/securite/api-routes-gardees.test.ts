@@ -113,6 +113,15 @@ const EXCEPTIONS_HORS_API: Record<string, { garde: RegExp; raison: string }> = {
 };
 
 describe('routes API — garde propre obligatoire (middleware exclut /api)', () => {
+  it('le scan couvre les 4 noms de handler acceptés par Next', () => {
+    // Sans cette garde, un retour à /^route\.ts$/ resterait vert tant que tous
+    // les handlers du repo sont en .ts — soit exactement le trou corrigé ici.
+    const acceptes = ['route.ts', 'route.tsx', 'route.js', 'route.jsx'];
+    expect(acceptes.filter((n) => !FICHIER_ROUTE.test(n))).toEqual([]);
+    for (const n of ['routes.ts', 'route.d.ts', 'route.test.ts', 'route.mts'])
+      expect(FICHIER_ROUTE.test(n)).toBe(false);
+  });
+
   it('garde anti-vacuité : les routes sont bien énumérées', () => {
     expect(TOUTES.length).toBeGreaterThan(150);
   });

@@ -110,35 +110,30 @@ async function checkDemo(c: Pg, scalar: Scalar): Promise<void> {
       'select count(*) n from plateforme.associations where actif=false',
     )) >= 1,
   );
+  // Socle figé (478 de la matrice) + lot « pipeline vivant » calculé sur l'ancre :
+  // le total varie avec le jour d'exécution, on ne peut plus l'assertionner en dur.
   check(
-    'collectes = 478',
-    (await scalar('select count(*) n from plateforme.collectes')) === 478,
+    'collectes > 478 (matrice figée + pipeline vivant)',
+    (await scalar('select count(*) n from plateforme.collectes')) > 478,
   );
   check(
-    'collectes cloturee = 426',
+    'collectes cloturee >= 426',
     (await scalar(
       "select count(*) n from plateforme.collectes where statut='cloturee'",
-    )) === 426,
-  );
-  check(
-    'collectes realisee = 52',
-    (await scalar(
-      "select count(*) n from plateforme.collectes where statut='realisee'",
-    )) === 52,
+    )) >= 426,
   );
   check(
     'collecte_flux > 800',
     (await scalar('select count(*) n from plateforme.collecte_flux')) > 800,
   );
   check(
-    'attributions = 167',
-    (await scalar(
-      'select count(*) n from plateforme.attributions_antgaspi',
-    )) === 167,
+    'attributions >= 167',
+    (await scalar('select count(*) n from plateforme.attributions_antgaspi')) >=
+      167,
   );
   check(
-    'tournées = 63',
-    (await scalar('select count(*) n from plateforme.tournees')) === 63,
+    'tournées >= 63',
+    (await scalar('select count(*) n from plateforme.tournees')) >= 63,
   );
   check(
     'packs actifs = 7',
@@ -150,6 +145,59 @@ async function checkDemo(c: Pg, scalar: Scalar): Promise<void> {
     'factures > 50',
     (await scalar('select count(*) n from plateforme.factures')) > 50,
   );
+  console.log('1bis. Pipeline vivant (lot ancré sur le jour du seed)');
+  for (const [libelle, sql] of [
+    [
+      'collectes à venir',
+      'select count(*) n from plateforme.collectes where date_collecte > current_date',
+    ],
+    [
+      'collectes programmées',
+      "select count(*) n from plateforme.collectes where statut='programmee'",
+    ],
+    [
+      'collectes validées',
+      "select count(*) n from plateforme.collectes where statut='validee'",
+    ],
+    [
+      'collectes en cours',
+      "select count(*) n from plateforme.collectes where statut='en_cours'",
+    ],
+    [
+      'collectes réalisées en attente de clôture',
+      "select count(*) n from plateforme.collectes where statut='realisee'",
+    ],
+    [
+      'brouillons',
+      "select count(*) n from plateforme.collectes where statut='brouillon'",
+    ],
+    [
+      'collectes non dispatchées (bouton Dispatcher)',
+      "select count(*) n from plateforme.collectes where prestataire_logistique_id is null and statut in ('programmee','brouillon')",
+    ],
+    [
+      "AG en attente d'attribution",
+      "select count(*) n from plateforme.collectes c where c.type='anti_gaspi' and not exists (select 1 from plateforme.attributions_antgaspi a where a.collecte_id=c.id) and c.statut in ('programmee','brouillon')",
+    ],
+  ] as const) {
+    const n = await scalar(sql);
+    check(`${libelle} >= 1`, n >= 1, `${n} trouvée(s)`);
+  }
+  // Contiguïté : un trou de plus de 3 semaines dans les 12 derniers mois vide les
+  // graphes glissants par la droite — c'est exactement le symptôme corrigé ici.
+  const trou = await scalar(`
+    select coalesce(max(ecart), 0) n from (
+      select date_collecte - lag(date_collecte) over (order by date_collecte) as ecart
+      from (select distinct date_collecte from plateforme.collectes
+            where date_collecte between current_date - 365 and current_date) d
+    ) x`);
+  check(
+    'aucun trou > 21 jours sur les 12 derniers mois',
+    trou <= 21,
+    `plus grand écart = ${trou} jours`,
+  );
+
+  console.log('2. Documents et facturation');
   check(
     'bordereaux > 0',
     (await scalar('select count(*) n from plateforme.bordereaux_savr')) > 0,
@@ -231,10 +279,13 @@ async function main(): Promise<void> {
 
   try {
     // ── Détection du dataset chargé (par volumétrie collectes) ──────────────
+    // Seuil, PAS égalité : le total de seed_demo varie avec l'ancre du lot
+    // « pipeline vivant » (cf. pipeline-vivant.ts). seed_minimal en pose 20 ;
+    // seed_demo au moins les 478 de la matrice figée.
     const nCollectes = await scalar(
       'select count(*) n from plateforme.collectes',
     );
-    const dataset = nCollectes === 478 ? 'demo' : 'minimal';
+    const dataset = nCollectes >= 400 ? 'demo' : 'minimal';
     console.log(`Dataset détecté : ${dataset} (${nCollectes} collectes)\n`);
 
     if (dataset === 'demo') {

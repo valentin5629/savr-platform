@@ -4,7 +4,36 @@
 // (bloc8 + ajouts par lot) + auth ; les scripts de seed le RELISENT par clé
 // naturelle, jamais ils ne le réinsèrent.
 
+import { jourParis } from '../temps/index.js';
+
 export const SEED_REF_DATE = '2026-06-01';
+
+/**
+ * Ancre temporelle du lot « pipeline vivant » de seed_demo (cf. pipeline-vivant.ts).
+ *
+ * Par défaut = aujourd'hui à Paris, pour que `pnpm seed:demo` produise toujours des
+ * collectes récentes et à venir, quelle que soit la date d'exécution. `SEED_TODAY`
+ * épingle l'ancre sur un jour fixe : les tests et la CI restent déterministes, et on
+ * peut rejouer un dataset passé à l'identique.
+ *
+ * ⚠ La matrice CSV des 478 collectes historiques, elle, reste FIGÉE : elle porte la
+ * profondeur d'historique, l'ancre ne porte que la fraîcheur.
+ */
+export function ancreSeed(): string {
+  const fige = process.env['SEED_TODAY'];
+  if (fige) {
+    // On teste la FORME, pas la truthiness : `jourParis` laisse passer une année
+    // à plus de 4 chiffres (« 99999-01-01 »), que `decalerJour` rendrait ensuite
+    // en chaîne vide — l'échec surviendrait alors à l'INSERT, loin de la cause.
+    const jour = jourParis(fige);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(jour))
+      throw new Error(
+        `SEED_TODAY invalide : « ${fige} » (attendu « YYYY-MM-DD »).`,
+      );
+    return jour;
+  }
+  return jourParis();
+}
 export const SEED_PASSWORD = 'SavrTest2026!';
 export const SEED_EMAIL_DOMAIN = 'savr-test.local';
 // Ref dev hard-codée — garde-fou prod

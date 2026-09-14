@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import { champsAdminPoses } from '@/lib/associations-champs-admin.js';
 import { sanitizeOrTerm } from '@/lib/api-helpers.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
@@ -109,6 +110,27 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // Champs admin-only à la CRÉATION (§06.06 §5 l.425-426, symétrique du PATCH) :
+  // l'insert ci-dessous accepte `siren`, `habilitee_attestation_fiscale`,
+  // `date_expiration_habilitation` et `id_point_collecte_mts1` — tous réservés
+  // admin_savr. La route n'était gardée que par requireStaff : un `ops_savr`
+  // pouvait POSER à la création ce que le PATCH lui refuse (403), et aucune
+  // barrière DB ne rattrape (écriture en service_role → f_app_role() NULL →
+  // trg_ops_immutable_cols s'exempte ; et il est BEFORE UPDATE de toute façon).
+  // Autorisation AVANT toute validation de champ et tout appel externe : un rôle
+  // qui n'a pas le droit d'écrire ces colonnes n'a pas à en recevoir le détail de
+  // validation, et une requête rejetée ne doit pas appeler l'API adresse.
+  // Seule une valeur réellement posée bloque — cf. champsAdminPoses.
+  if (auth.ctx.role !== 'admin_savr') {
+    const poses = champsAdminPoses(body);
+    if (poses.length > 0) {
+      return NextResponse.json(
+        { error: 'Champs réservés admin : ' + poses.join(', ') },
+        { status: 403 },
+      );
+    }
+  }
+
   if (
     typeof description_rapport_impact === 'string' &&
     description_rapport_impact.length < 30
@@ -153,17 +175,27 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       horaires_ouverture: body.horaires_ouverture ?? null,
       contact_nom: body.contact_nom ?? null,
       contact_telephone: body.contact_telephone ?? null,
+      // `=== true` et non `?? false` : `''` est neutre pour la garde admin-only
+      // (cf. champsAdminPoses) donc il arrive jusqu'ici, et `''::boolean` remonterait
+      // un 500 PG brut au client. Seul le booléen `true` vaut habilitation posée.
       habilitee_attestation_fiscale:
-        body.habilitee_attestation_fiscale ?? false,
-      date_expiration_habilitation: body.date_expiration_habilitation ?? null,
+        body.habilitee_attestation_fiscale === true,
+      // `|| null` et non `?? null` sur les 3 colonnes admin-only textuelles/date :
+      // `''` n'est PAS une valeur posée (cf. champsAdminPoses) donc la garde le
+      // laisse passer — il doit alors devenir NULL, sinon ops écrirait bel et bien
+      // `''` dans une colonne admin-only et `''::date` renverrait un 500 PG brut.
+      // Même traitement que `numero_rup` (#299) et que « vide = effacement » du PATCH.
+      date_expiration_habilitation:
+        (body.date_expiration_habilitation as string | null) || null,
       commentaires_internes: body.commentaires_internes ?? null,
       instructions_acces: body.instructions_acces ?? null,
       logo_url: body.logo_url ?? null,
-      siren: body.siren ?? null,
+      siren: (body.siren as string | null) || null,
       // N° RUP facultatif (CDC §04 associations.numero_rup / §06.06 §5) — source de
       // l'instantané attestations_don.association_numero_rup. '' ⇒ NULL (pas de RUP).
       numero_rup: (body.numero_rup as string | null) || null,
-      id_point_collecte_mts1: body.id_point_collecte_mts1 ?? null,
+      id_point_collecte_mts1:
+        (body.id_point_collecte_mts1 as string | null) || null,
       latitude: coords?.latitude ?? null,
       longitude: coords?.longitude ?? null,
     })

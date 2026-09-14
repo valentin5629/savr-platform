@@ -118,12 +118,20 @@ export function aDispatcherZd(row: CollecteRow): boolean {
   );
 }
 
+// Créneau non renseigné (null ou chaîne vide) → minuit. Même garde que
+// estAnnulationTardive (lib/notifications/traiteur-operationnel) : `?? '00:00:00'`
+// laissait passer la chaîne vide, et instantParis('2026-07-08', '') rend une date
+// invalide — la collecte n'aurait alors jamais été urgente.
+function heureOuMinuit(heure: string | null | undefined): string {
+  return heure && heure.length ? heure : '00:00:00';
+}
+
 // Criticité (§06.09 §1 / ALGO-02) : à attribuer ET à moins de 48h.
 export function estUrgente(row: CollecteRow): boolean {
   if (!aAttribuer(row)) return false;
   const ts = instantParis(
     row.date_collecte,
-    row.heure_collecte ?? '00:00:00',
+    heureOuMinuit(row.heure_collecte),
   ).getTime();
   return Number.isFinite(ts) && ts < Date.now() + 48 * 60 * 60 * 1000;
 }
@@ -166,7 +174,7 @@ export function formatDateHeure(
   jour: string;
   heure: string;
 } {
-  const d = instantParis(date, heure ?? '00:00:00');
+  const d = instantParis(date, heureOuMinuit(heure));
   const jour = d
     .toLocaleDateString('fr-FR', {
       timeZone: 'Europe/Paris',

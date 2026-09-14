@@ -14,6 +14,31 @@
  * Les route handlers HORS `/api` (ex. `src/app/auth/**`) sont soumis à la même
  * règle : `/auth` est aussi exclu du middleware (PUBLIC_PREFIXES), ils n'ont donc
  * pas davantage de filet en amont (revue sécurité #281 — callback d'impersonation).
+ *
+ * Deux familles d'entrées HTTP ne s'écrivent PAS dans un fichier `route.*` et
+ * échappent donc par construction au scan ci-dessus (revue sécurité #286) :
+ *
+ *  • Server Actions (`'use server'`) — Next les expose en POST sur le pathname de
+ *    la page qui les appelle, adressées par identifiant d'action. Le middleware ne
+ *    les filtre donc que si ce pathname l'est : appelée depuis une page sous un
+ *    préfixe public (cf. `PUBLIC_PREFIXES` dans `src/middleware.ts` — ne pas en
+ *    recopier la liste ici, elle dériverait), une action n'a aucun filet amont,
+ *    exactement comme `/api`. Et sous une page NON publique le filet existe mais
+ *    reste grossier : le middleware ne vérifie qu'un rôle par préfixe
+ *    (`ROLE_PREFIXES`), jamais l'appartenance de l'objet visé — une action sous
+ *    `/traiteur` est atteignable par tous les traiteurs, organisations confondues.
+ *    Le repo n'en déclare aucune ; le 3e `describe` gèle ce statu quo pour que
+ *    l'introduction d'une action soit une décision consciente. Il couvre les trois
+ *    racines que Next compile (`plateforme/src`, `shared/src`, `adapters/src`) :
+ *    `.mts`/`.cts` restent hors portée, absents de `resolve.extensions` de Next.
+ *
+ *  • Fichiers de métadonnées Next (`sitemap.ts`, `robots.ts`, `manifest.ts`,
+ *    `opengraph-image.tsx`, `icon.tsx`…) — ce sont des GET servis par Next, hors
+ *    scan lui aussi. Le repo n'en a aucun. Atténuation réelle, contrairement à
+ *    `/api` : leurs chemins SONT couverts par le `matcher` du middleware, le filet
+ *    amont existe donc. Si l'un apparaît et sert de la donnée utilisateur (ou vit
+ *    sous un préfixe public), l'énumérer explicitement — élargir `FICHIER_ROUTE`
+ *    au nom concerné, ou lui ajouter son propre scan avec sa garde attendue.
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
@@ -112,6 +137,48 @@ const EXCEPTIONS_HORS_API: Record<string, { garde: RegExp; raison: string }> = {
   },
 };
 
+const PACKAGES = resolve(__dirname, '../../..');
+
+// Racines scannées = tout ce que le build Next compile, pas seulement `src/`.
+// `@savr/shared` est dans `transpilePackages` (next.config.ts) et consommé en
+// source TS ; `packages/adapters` est importé en source par des route handlers
+// (health/logistique, webhooks/everest, crons). Une directive `use server` y est
+// indiscernable au build d'une directive de `src/` : s'arrêter à `src/` laisserait
+// une action entrer sans faire rougir ce test (revue sécurité, sonde 4 directives).
+const RACINES = [
+  resolve(__dirname, '../../src'),
+  resolve(PACKAGES, 'shared/src'),
+  resolve(PACKAGES, 'adapters/src'),
+];
+
+// Toute extension que le loader SWC de Next traite — `.mjs`/`.cjs` compris, que
+// `/\.(?:t|j)sx?$/` ratait.
+const FICHIER_SOURCE = /\.[mc]?[tj]sx?$/;
+
+function sources(dir: string): string[] {
+  return readdirSync(dir).flatMap((nom) => {
+    const p = join(dir, nom);
+    if (statSync(p).isDirectory()) return sources(p);
+    return FICHIER_SOURCE.test(nom) ? [p] : [];
+  });
+}
+
+// Directive `use server` : en tête de fichier (tout ce qu'il exporte devient une
+// action) ou en tête de fonction (action inline). Dans les deux cas seule sur sa
+// ligne — l'ancrer à la ligne évite de matcher `log('use server')`. Le `//` final
+// est admis explicitement : `sansCommentaires` ne retire que les commentaires
+// occupant TOUTE la ligne, donc `'use server'; // …` — forme valide — casserait
+// l'ancre de fin, soit le même faux négatif silencieux que celui fermé en #286.
+const DIRECTIVE_USE_SERVER = /^\s*(['"])use server\1\s*;?\s*(?:\/\/.*)?$/m;
+
+const SOURCES = RACINES.flatMap(sources);
+const CHEMINS_SOURCES = SOURCES.map((p) =>
+  relative(PACKAGES, p).split(sep).join('/'),
+);
+const ACTIONS_SERVEUR = SOURCES.filter((p) =>
+  DIRECTIVE_USE_SERVER.test(sansCommentaires(readFileSync(p, 'utf8'))),
+).map((p) => relative(PACKAGES, p).split(sep).join('/'));
+
 describe('routes API — garde propre obligatoire (middleware exclut /api)', () => {
   it('le scan couvre les 4 noms de handler acceptés par Next', () => {
     // Sans cette garde, un retour à /^route\.ts$/ resterait vert tant que tous
@@ -198,6 +265,89 @@ describe('route handlers hors /api — garde propre obligatoire (middleware excl
       Object.keys(EXCEPTIONS_HORS_API).filter(
         (r) => !CHEMINS_HORS_API.includes(r),
       ),
+    ).toEqual([]);
+  });
+});
+
+describe("Server Actions — aucune, faute de filet en amont pour l'accueillir", () => {
+  it('garde anti-vacuité : le scan énumère bien toutes les racines', () => {
+    // Un plancher seul est un proxy faible : perdre `src/components` (hôte
+    // plausible d'une action inline) le laisserait vert. D'où l'assertion de
+    // représentation, sous-arbre par sous-arbre.
+    const attendus = [
+      'plateforme/src/app',
+      'plateforme/src/components',
+      'plateforme/src/lib',
+      'shared/src',
+      'adapters/src',
+    ];
+    expect(
+      attendus.filter(
+        (prefixe) => !CHEMINS_SOURCES.some((c) => c.startsWith(prefixe + '/')),
+      ),
+    ).toEqual([]);
+    expect(SOURCES.length).toBeGreaterThan(400);
+  });
+
+  it('le scan couvre les extensions traitées par le loader SWC', () => {
+    // Symétrique de la garde sur FICHIER_ROUTE : sans elle, un retour à
+    // /\.(?:t|j)sx?$/ resterait vert tant qu'aucune action n'est écrite en
+    // .mjs/.cjs — la régression silencieuse que ce fichier existe pour empêcher.
+    for (const n of [
+      'a.ts',
+      'a.tsx',
+      'a.js',
+      'a.jsx',
+      'a.mjs',
+      'a.cjs',
+      'a.mts',
+      'a.cts',
+    ])
+      expect(FICHIER_SOURCE.test(n)).toBe(true);
+    for (const n of ['a.css', 'a.json', 'a.md', 'a.tsbuildinfo', 'a.snap'])
+      expect(FICHIER_SOURCE.test(n)).toBe(false);
+  });
+
+  it('garde anti-vacuité : la directive est détectée sous ses formes réelles', () => {
+    for (const src of [
+      "'use server';\nexport async function enregistrer() {}",
+      '"use server"\nexport async function enregistrer() {}',
+      "export async function enregistrer() {\n  'use server';\n  return 1;\n}",
+      "'use server'; // action de la page\nexport async function enregistrer() {}",
+      "'use server' // sans point-virgule\nexport async function enregistrer() {}",
+    ])
+      // Même pipeline que le scan réel : `sansCommentaires` d'abord.
+      expect(DIRECTIVE_USE_SERVER.test(sansCommentaires(src))).toBe(true);
+    // …sans confondre une mention de la chaîne avec la directive.
+    for (const src of [
+      'const mode = "use server-side";',
+      "// 'use server'",
+      "logger.info('use server');",
+    ])
+      expect(DIRECTIVE_USE_SERVER.test(sansCommentaires(src))).toBe(false);
+  });
+
+  it('aucune racine compilée par Next ne déclare de Server Action', () => {
+    expect(
+      ACTIONS_SERVEUR,
+      "Server Action détectée. Next l'expose en POST sur le pathname de la page " +
+        "qui l'appelle : hors du scan `route.*` de ce fichier, et sans filtrage du " +
+        'middleware si cette page vit sous un préfixe public (cf. PUBLIC_PREFIXES ' +
+        'dans src/middleware.ts). Deux propriétés non intuitives : un `use server` ' +
+        'en tête de fichier rend adressable CHAQUE export, helpers compris ; et une ' +
+        "action reste appelable par son identifiant même si l'UI n'affiche jamais " +
+        "le bouton — masquer le bouton n'est pas un contrôle. À faire : (1) une " +
+        "garde (requireStaff / requireUser / …) en PREMIÈRE instruction de l'action, " +
+        "l'argument client n'étant jamais de confiance ; (2) une vérification " +
+        "d'AUTORISATION sur l'objet ciblé — l'authentification seule laisse passer " +
+        'le cross-organisation, qui est le risque dominant ici (cf. #244/#247) ; ' +
+        "(3) ne renvoyer que ce que l'appelant a le droit de voir, la valeur de " +
+        'retour étant sérialisée vers le client ; (4) passer par le client ' +
+        'utilisateur, RLS honorées — jamais le client service-role, qui les ' +
+        "contourne et prive pgTAP de tout rôle d'oracle. Puis remplacer cette " +
+        'assertion par ' +
+        'une énumération explicite (chemin → garde attendue + raison), sur le ' +
+        'modèle de EXCEPTIONS_HORS_API.',
     ).toEqual([]);
   });
 });

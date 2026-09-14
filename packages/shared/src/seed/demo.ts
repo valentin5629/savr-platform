@@ -16,7 +16,9 @@ import { dirname, resolve } from 'node:path';
 import type pg from 'pg';
 import { seedUuid } from './uuid.js';
 import { upsert, lookupMap, jsonb, type Row } from './db.js';
-import { fakePhone, seedEmail } from './constants.js';
+import { fakePhone, seedEmail, ancreSeed } from './constants.js';
+import { genererPipelineVivant } from './pipeline-vivant.js';
+import { instantParis } from '../temps/index.js';
 
 const U = seedUuid;
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -24,6 +26,25 @@ const REPO_ROOT = resolve(HERE, '..', '..', '..', '..');
 
 // Au-delà du 2026-05-01 (mois courant de la timeline) → realisee, sinon cloturee.
 const REALISEE_FROM = '2026-05-01';
+
+/**
+ * Statut d'une ligne de matrice. Les 478 lignes du CSV figé n'en portent pas :
+ * elles se déduisent de leur date. Le lot « pipeline vivant » pose le sien.
+ */
+function statutDe(r: CsvCollecte): string {
+  return r.statut ?? (r.date >= REALISEE_FROM ? 'realisee' : 'cloturee');
+}
+
+/** Passée sur le terrain : porte des pesées, un horodatage de réalisation. */
+function estExecutee(r: CsvCollecte): boolean {
+  const s = statutDe(r);
+  return s === 'realisee' || s === 'cloturee' || s === 'realisee_sans_collecte';
+}
+
+/** Clôturée : seul état qui porte bordereau, attestation, rapport et facture. */
+function estCloturee(r: CsvCollecte): boolean {
+  return statutDe(r) === 'cloturee';
+}
 
 function tsAt(dateStr: string, hour: number): string {
   const dd = new Date(dateStr + 'T00:00:00Z');
@@ -39,6 +60,13 @@ type CsvCollecte = {
   lieu: string;
   pax: number;
   camions: number;
+  // ── Champs portés uniquement par le lot « pipeline vivant » (pipeline-vivant.ts).
+  // Absents des 478 lignes du CSV figé, qui déduisent leur statut de leur date.
+  statut?: string;
+  statutTms?: string;
+  sansAttribution?: boolean;
+  sansPrestataire?: boolean;
+  motifAucunRepas?: string;
 };
 type CsvTournee = {
   slug: string;
@@ -606,11 +634,20 @@ export async function seedDemo(client: pg.Client): Promise<void> {
   );
   await upsert(client, 'plateforme.packs_antgaspi', packs, ['id']);
 
-  // ── Événements + collectes (478, 1:1 depuis la matrice) ───────────────────
-  const rows = parseCollectes();
+  // ── Événements + collectes (matrice figée + lot « pipeline vivant ») ──────
+  // La matrice CSV (478 lignes, 2025-06 → 2026-05) porte la profondeur d'historique ;
+  // le lot vivant comble le trou jusqu'à aujourd'hui puis pose le pipeline autour du
+  // jour J (récentes, en cours, à venir). Tout ce qui suit traite les deux à égalité.
+  const ancre = ancreSeed();
+  const vivantes = genererPipelineVivant(ancre);
+  const rows: CsvCollecte[] = [...parseCollectes(), ...vivantes];
+  console.log(
+    `[seed:demo] ancre = ${ancre} · 478 collectes figées + ${vivantes.length} vivantes = ${rows.length}.`,
+  );
   const mgr = (t: string) => U(`user_manager_${t}`);
   const evRows: Row[] = [];
   const colRows: Row[] = [];
+  const prestaParSlug = new Map<string, string>();
   rows.forEach((r, i) => {
     const t = r.traiteur.replace(/^org_tr_/, '');
     const evId = U('ev_' + r.slug);
@@ -632,33 +669,60 @@ export async function seedDemo(client: pg.Client): Promise<void> {
       contact_principal_nom: `Contact ${cap(t)}`,
       contact_principal_telephone: fakePhone(300 + (i % 90)),
     });
-    const realisee = r.date >= REALISEE_FROM;
-    const statut = realisee ? 'realisee' : 'cloturee';
+    const statut = statutDe(r);
     const presta =
       r.lieu === 'lieu_rouen_normandie'
         ? 'transnormandie'
         : i % 2 === 0
           ? 'strike'
           : 'marathon';
+    if (!r.sansPrestataire) prestaParSlug.set(r.slug, presta);
     const extra: Row = { nb_camions_demande: r.camions };
     if (isAg) {
-      extra.pack_antgaspi_id = t === 'nomad' ? null : U(`pack_${t}`);
+      // `pack_antgaspi_id` est écrit par `fn_trg_pack_debit_realisee` À LA
+      // TRANSITION vers `realisee` : en prod, une AG encore programmée ou en
+      // attente d'attribution l'a à NULL. Le poser d'avance donnerait une
+      // fixture infidèle sur les écrans que ce lot sert justement à peupler.
+      // `realisee_sans_collecte` est un état terminal ALTERNATIF : on n'y passe
+      // jamais par `realisee`, donc le trigger ne s'y déclenche pas non plus.
+      const passeeParRealisee = statut === 'realisee' || statut === 'cloturee';
+      extra.pack_antgaspi_id =
+        t === 'nomad' || !passeeParRealisee ? null : U(`pack_${t}`);
       extra.volume_estime_repas = Math.round(0.1 * r.pax);
-    } else {
+    } else if (estExecutee(r)) {
       extra.taux_recyclage = 70 + (i % 20);
     }
-    // Toute collecte de cette matrice est realisee OU cloturee = collecte réalisée :
-    // realisee_at doit TOUJOURS être posé (une cloturee est passée par realisee).
-    // Les dashboards (gestionnaire + admin/dashboard-client) filtrent la période sur realisee_at.
-    extra.realisee_at = tsAt(r.date, 23);
+    // `realisee_at` n'est posé que sur une collecte effectivement réalisée (une
+    // cloturee est passée par realisee). Les dashboards (gestionnaire +
+    // admin/dashboard-client) filtrent la période dessus : le poser sur une
+    // collecte à venir la ferait compter dans le réalisé.
+    if (estExecutee(r)) extra.realisee_at = tsAt(r.date, 23);
+    if (r.motifAucunRepas) {
+      extra.aucun_repas_motif = r.motifAucunRepas;
+      // URL factice interne : `picsum.photos` sert des photographies réelles
+      // arbitraires — sur une fixture censée prouver l'absence d'invendus, une
+      // image tierce non maîtrisée peut afficher des personnes identifiables en
+      // démo. Cohérent avec la convention @savr-test.local du reste du seed.
+      extra.aucun_repas_photo_url = `https://fichiers.savr-test.local/photos/${r.slug}.jpg`;
+    }
     colRows.push({
       id: U(r.slug),
       evenement_id: evId,
       type: r.type,
       statut,
+      // Le défaut 'acceptee' s'applique AUSSI aux 478 lignes de la matrice figée,
+      // qui prenaient jusqu'ici le DEFAULT 'non_envoye' de la colonne : une
+      // collecte clôturée est forcément passée par le TMS, et les compter comme
+      // « non transmises » faussait le chip Ops. Seule cette colonne dérivée
+      // change pour la matrice — ses lignes, dates et statuts métier sont intacts.
+      statut_tms: r.statutTms ?? 'acceptee',
       date_collecte: r.date,
       heure_collecte: '22:00:00',
-      prestataire_logistique_id: U('prest_' + presta),
+      // Une collecte pas encore dispatchée n'a pas de prestataire : c'est ce qui
+      // fait apparaître le bouton « Dispatcher » et la corbeille Ops.
+      prestataire_logistique_id: r.sansPrestataire
+        ? null
+        : U('prest_' + presta),
       ...extra,
     });
   });
@@ -669,7 +733,9 @@ export async function seedDemo(client: pg.Client): Promise<void> {
   // ── Collecte flux (ZD : 3 flux/collecte) ──────────────────────────────────
   const fluxRows: Row[] = [];
   rows
-    .filter((r) => r.type === 'zero_dechet')
+    // Une collecte à venir n'a pas de pesée : pas de flux tant qu'elle n'est pas
+    // passée sur le terrain.
+    .filter((r) => r.type === 'zero_dechet' && estExecutee(r))
     .forEach((r, i) => {
       const base = r.pax * 0.3;
       // Les 5 flux ZD présents sur chaque collecte (Bloc 2 barres empilées + Bloc 4 donut
@@ -728,7 +794,9 @@ export async function seedDemo(client: pg.Client): Promise<void> {
   // ── Attributions AG (1/collecte AG) ───────────────────────────────────────
   const assos = ['asso_alpha', 'asso_bravo', 'asso_charlie', 'asso_echo'];
   const attrRows: Row[] = rows
-    .filter((r) => r.type === 'anti_gaspi')
+    // `sansAttribution` = AG encore dans la corbeille d'attribution Admin : pas de
+    // ligne d'attribution, c'est précisément ce que l'écran doit montrer.
+    .filter((r) => r.type === 'anti_gaspi' && !r.sansAttribution)
     .map((r, i) => {
       const isProvince = r.lieu === 'lieu_rouen_normandie';
       const tr = isProvince ? 'transnor' : i % 2 === 0 ? 'marathon' : 'strike';
@@ -888,12 +956,65 @@ export async function seedDemo(client: pg.Client): Promise<void> {
     300,
   );
 
+  // ── Tournées du lot vivant ────────────────────────────────────────────────
+  // La matrice CSV des tournées ne couvre que l'historique figé. Sans ce bloc,
+  // toutes les collectes récentes et à venir s'afficheraient « non transmise »,
+  // y compris celles déjà acceptées par le prestataire.
+  const tourVivantes: Row[] = [];
+  const ctVivantes: Row[] = [];
+  for (const r of vivantes) {
+    const presta = prestaParSlug.get(r.slug);
+    if (!presta) continue; // pas encore dispatchée : aucune tournée
+    const st = statutDe(r);
+    const statutTournee = estExecutee(r)
+      ? 'terminee'
+      : st === 'en_cours'
+        ? 'en_cours'
+        : st === 'validee'
+          ? 'planifiee'
+          : null;
+    if (!statutTournee) continue;
+    const slug = `tour_${r.slug}`;
+    tourVivantes.push({
+      id: U(slug),
+      reference_interne: slug.toUpperCase(),
+      date_tournee: r.date,
+      creneau: 'nuit',
+      prestataire_logistique_id: U('prest_' + presta),
+      statut: statutTournee,
+      external_ref_commande: 'MTS1-' + slug,
+      tms_reference: 'TOUR-' + slug,
+      // Horaires réels seulement si la tournée a effectivement tourné.
+      heure_debut_reelle:
+        statutTournee === 'planifiee'
+          ? null
+          : instantParis(r.date, '22:00').toISOString(),
+      heure_fin_reelle:
+        statutTournee === 'terminee'
+          ? instantParis(r.date, '23:30').toISOString()
+          : null,
+    });
+    ctVivantes.push({
+      id: U(`ct_${r.slug}`),
+      collecte_id: U(r.slug),
+      tournee_id: U(slug),
+    });
+  }
+  await batchUpsert(client, 'plateforme.tournees', tourVivantes, ['id'], 200);
+  await batchUpsert(
+    client,
+    'plateforme.collecte_tournees',
+    ctVivantes,
+    ['id'],
+    300,
+  );
+
   // ── Factures ZD mensuelles groupées par traiteur + achats pack ────────────
   await seedFactures(client, rows);
 
   // ── Documents : bordereaux (ZD clôturée) + attestations (AG clôturée) ─────
   const bordRows: Row[] = rows
-    .filter((r) => r.type === 'zero_dechet' && r.date < REALISEE_FROM)
+    .filter((r) => r.type === 'zero_dechet' && estCloturee(r))
     .map((r) => bordereau(`bord_${r.slug}`, r.slug, r.date));
   await batchUpsert(
     client,
@@ -904,7 +1025,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
   );
 
   const attRows: Row[] = rows
-    .filter((r) => r.type === 'anti_gaspi' && r.date < REALISEE_FROM)
+    .filter((r) => r.type === 'anti_gaspi' && estCloturee(r))
     .map((r, i) => {
       const assoSlug = assos[i % assos.length]!;
       const habilitee =
@@ -931,7 +1052,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
 
   // ── Rapports RSE (échantillon) ────────────────────────────────────────────
   const zdClot = rows
-    .filter((r) => r.type === 'zero_dechet' && r.date < REALISEE_FROM)
+    .filter((r) => r.type === 'zero_dechet' && estCloturee(r))
     .slice(0, 12);
   await upsert(
     client,
@@ -1080,7 +1201,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
   );
 
   console.log(
-    `[seed:demo] 478 collectes + ${tournees.length} tournées injectées.`,
+    `[seed:demo] ${rows.length} collectes + ${tournees.length + tourVivantes.length} tournées injectées.`,
   );
 }
 
@@ -1096,8 +1217,10 @@ async function seedFactures(
     AVOIR: 0,
   };
   const next = (serie: string) => ++counters[serie]!;
-  const num = (serie: string, prefix: string) =>
-    `${prefix}-2026-${String(next(serie)).padStart(4, '0')}`;
+  const num = (serie: string, prefix: string, annee: number) =>
+    `${prefix}-${annee}-${String(next(serie)).padStart(4, '0')}`;
+  // Année de référence des séquences = celle des factures émises par ce seed.
+  const anneeSeq = Number(ancreSeed().slice(0, 4));
 
   const factures: Row[] = [];
   const lignes: Row[] = [];
@@ -1105,7 +1228,7 @@ async function seedFactures(
   // Groupes ZD clôturés par (traiteur, mois)
   const groups = new Map<string, CsvCollecte[]>();
   for (const r of rows) {
-    if (r.type !== 'zero_dechet' || r.date >= REALISEE_FROM) continue;
+    if (r.type !== 'zero_dechet' || !estCloturee(r)) continue;
     const key = `${r.traiteur}|${r.date.slice(0, 7)}`;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(r);
@@ -1120,7 +1243,7 @@ async function seedFactures(
         facSlug,
         `entite_${t}`,
         orgSlug!,
-        num('ZD_MENSUEL', 'ZD'),
+        num('ZD_MENSUEL', 'ZD', Number(mois!.slice(0, 4))),
         'payee',
         mois + '-28',
         ht,
@@ -1153,7 +1276,7 @@ async function seedFactures(
         facSlug,
         `entite_${t}`,
         `org_tr_${t}`,
-        num('AG_MENSUEL', 'AG'),
+        num('AG_MENSUEL', 'AG', 2025),
         'payee',
         '2025-09-05',
         2400,
@@ -1182,7 +1305,7 @@ async function seedFactures(
         id: U('fac_avoir_demo'),
         entite_facturation_id: U('entite_kaspia'),
         organisation_id: U('org_tr_kaspia'),
-        numero_facture: num('AVOIR', 'AVOIR'),
+        numero_facture: num('AVOIR', 'AVOIR', 2025),
         statut: 'payee',
         date_emission: '2025-10-01',
         montant_ht: -300,
@@ -1212,9 +1335,17 @@ async function seedFactures(
     client,
     'plateforme.sequences_facturation',
     [
-      { serie: 'ZD_MENSUEL', annee: 2026, dernier_numero: counters.ZD_MENSUEL },
-      { serie: 'AG_MENSUEL', annee: 2026, dernier_numero: counters.AG_MENSUEL },
-      { serie: 'AVOIR', annee: 2026, dernier_numero: counters.AVOIR },
+      {
+        serie: 'ZD_MENSUEL',
+        annee: anneeSeq,
+        dernier_numero: counters.ZD_MENSUEL,
+      },
+      {
+        serie: 'AG_MENSUEL',
+        annee: anneeSeq,
+        dernier_numero: counters.AG_MENSUEL,
+      },
+      { serie: 'AVOIR', annee: anneeSeq, dernier_numero: counters.AVOIR },
     ],
     ['serie', 'annee'],
   );

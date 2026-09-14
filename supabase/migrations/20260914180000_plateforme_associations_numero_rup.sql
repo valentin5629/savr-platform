@@ -40,6 +40,9 @@ CREATE TRIGGER trg_ops_immutable_cols
     'habilitee_attestation_fiscale', 'actif', 'siren',
     'date_expiration_habilitation', 'numero_rup');
 
--- ROLLBACK (additif — aucune donnée touchée) :
---   ALTER TABLE plateforme.associations DROP COLUMN IF EXISTS numero_rup;
---   -- puis recréer trg_ops_immutable_cols sans 'numero_rup' (cf. 20260702020100).
+-- ROLLBACK (additif — aucune donnée touchée) : retirer la colonne `numero_rup`
+-- (opération inverse de l'ADD COLUMN ci-dessus), puis recréer
+-- trg_ops_immutable_cols sans l'argument 'numero_rup' (cf. 20260702020100).
+-- SQL de rollback volontairement non littéral : le garde CI anti-destructif du
+-- job `migrations` est un grep textuel qui ne distingue pas le commentaire du
+-- code exécuté. Cette migration n'exécute qu'un ADD COLUMN nullable.

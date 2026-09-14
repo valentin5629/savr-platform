@@ -3,6 +3,10 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 import { requireAdmin } from '@/lib/api-auth.js';
 import { withApiTrace } from '@/lib/api-helpers.js';
+import {
+  CLE_IMPERSONATION_EN_ATTENTE,
+  preparerImpersonation,
+} from '@/lib/impersonation.js';
 
 // §07/01 : `auth.impersonation_started` émis ici → route enveloppée pour que
 // l'event (et le log d'audit) portent le `trace_id` de la requête.
@@ -34,6 +38,22 @@ export const POST = withApiTrace(
         { status: 422 },
       );
 
+    // Enregistrement serveur de l'impersonation (src/lib/impersonation.ts) : le
+    // callback n'attribuera `impersonator_id` que sur présentation du jeton, pour
+    // CET admin et CETTE cible, dans le délai, une seule fois. Posé AVANT
+    // generateLink : si l'écriture échoue, aucun OTP n'est émis.
+    const { jeton, enAttente } = preparerImpersonation(auth.ctx.userId, id);
+    const { error: attenteError } = await supabase.auth.admin.updateUserById(
+      id,
+      { app_metadata: { [CLE_IMPERSONATION_EN_ATTENTE]: enAttente } },
+    );
+    if (attenteError) {
+      return NextResponse.json(
+        { error: 'Erreur génération lien impersonation' },
+        { status: 500 },
+      );
+    }
+
     // Générer un OTP magiclink via Supabase Auth Admin. On récupère le `hashed_token`
     // (pas l'action_link) : le lien pointe vers NOTRE route callback qui l'échange via
     // verifyOtp (même pattern que /api/auth/verify-email) → la session impersonée est
@@ -56,7 +76,8 @@ export const POST = withApiTrace(
     const lienImpersonation =
       `${appUrl}/auth/impersonate-callback` +
       `?token_hash=${encodeURIComponent(tokenHash)}` +
-      `&type=magiclink&impersonator=${encodeURIComponent(auth.ctx.userId)}`;
+      `&type=magiclink&impersonator=${encodeURIComponent(auth.ctx.userId)}` +
+      `&jeton=${encodeURIComponent(jeton)}`;
 
     // §07/01 auth.impersonation_started (warn) — event business (⚠ aussi audit_log
     // ci-dessous). Payload obligatoire : impersonator_id, target_user, by_role.

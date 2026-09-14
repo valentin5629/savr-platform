@@ -24,7 +24,11 @@ import {
   FACTEURS_CO2_DEFAUT,
   type FacteursCo2,
 } from '@/lib/dashboards/cockpit-derive.js';
-import { jourParis } from '@savr/shared/src/temps/index.js';
+import {
+  jourParis,
+  lundiDeLaSemaine,
+  premierDuMois,
+} from '@savr/shared/src/temps/index.js';
 
 /** Client Supabase serveur (schéma `plateforme`, RLS sous l'identité appelant). */
 export type DbClient = ReturnType<typeof createSupabaseServerClient>;
@@ -371,16 +375,10 @@ export function granulariteFor(from: string, to: string): Granularite {
 
 // Clé de bucket (ISO date) selon la granularité. Le front formate l'étiquette.
 function bucketKey(dateStr: string, g: Granularite): string {
-  const d = new Date(`${dateStr.slice(0, 10)}T00:00:00Z`);
-  if (g === 'mois') {
-    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-01`;
-  }
-  if (g === 'semaine') {
-    const dow = (d.getUTCDay() + 6) % 7; // 0 = lundi
-    d.setUTCDate(d.getUTCDate() - dow);
-    return jourParis(d);
-  }
-  return jourParis(d);
+  const jour = dateStr.slice(0, 10);
+  if (g === 'mois') return premierDuMois(jour);
+  if (g === 'semaine') return lundiDeLaSemaine(jour);
+  return jour;
 }
 
 export interface EvolutionParams {

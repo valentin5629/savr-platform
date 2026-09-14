@@ -1,26 +1,14 @@
+import { formatJour } from '@savr/shared/src/temps/index.js';
+
 import type { Granularite } from './types.js';
 
 /** Étiquette d'axe X selon la granularité (§06.04 Bloc 2). */
 export function formatPeriode(periode: string, g: Granularite): string {
-  const d = new Date(`${periode.slice(0, 10)}T00:00:00Z`);
-  if (Number.isNaN(d.getTime())) return periode;
-  if (g === 'mois') {
-    return d.toLocaleDateString('fr-FR', {
-      month: 'short',
-      year: '2-digit',
-      // Valeur date-only (« YYYY-MM-DD » construite en T00:00:00Z) : UTC est ici
-      // le fuseau JUSTE, Europe/Paris décalerait l'étiquette d'un jour en arrière.
-      // eslint-disable-next-line no-restricted-syntax -- exception documentée
-      timeZone: 'UTC',
-    });
-  }
-  // jour / semaine → jj/mm (la semaine = lundi de la semaine)
-  return d.toLocaleDateString('fr-FR', {
-    day: '2-digit',
-    month: '2-digit',
-    // eslint-disable-next-line no-restricted-syntax -- cf. ci-dessus (date-only)
-    timeZone: 'UTC',
-  });
+  const jour = periode.slice(0, 10);
+  // Valeur date-seule : formatJour la rend sans jamais construire d'instant ici.
+  return g === 'mois'
+    ? formatJour(jour, { month: 'short', year: '2-digit' })
+    : formatJour(jour, { day: '2-digit', month: '2-digit' });
 }
 
 /** Formatage kg / t avec bascule automatique au-delà de 10 000 kg (§06.04 Bloc 2). */

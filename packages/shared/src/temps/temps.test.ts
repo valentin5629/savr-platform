@@ -14,6 +14,11 @@ import {
   formatDateParis,
   formatHeureParis,
   formatDateHeureParis,
+  decalerJour,
+  jourDeSemaine,
+  lundiDeLaSemaine,
+  premierDuMois,
+  formatJour,
 } from './index.js';
 
 describe('temps — jourParis', () => {
@@ -131,5 +136,67 @@ describe('temps — instantParis (heure murale parisienne → instant réel)', (
 
   it('entrée invalide → date invalide, jamais d’exception', () => {
     expect(Number.isNaN(instantParis('pas-une-date').getTime())).toBe(true);
+  });
+});
+
+describe('temps — calendrier pur (aucun instant, donc aucun fuseau)', () => {
+  it('decalerJour franchit mois, années et années bissextiles', () => {
+    expect(decalerJour('2026-01-01', -1)).toBe('2025-12-31');
+    expect(decalerJour('2026-02-28', 1)).toBe('2026-03-01');
+    expect(decalerJour('2028-02-28', 1)).toBe('2028-02-29'); // bissextile
+    expect(decalerJour('2026-07-14', 0)).toBe('2026-07-14');
+  });
+
+  it('decalerJour traverse les bascules d’heure sans perdre de jour', () => {
+    expect(decalerJour('2026-03-28', 1)).toBe('2026-03-29'); // passage heure d'été
+    expect(decalerJour('2026-10-24', 1)).toBe('2026-10-25'); // retour heure d'hiver
+  });
+
+  it('jourDeSemaine : 0 = lundi', () => {
+    expect(jourDeSemaine('2026-07-13')).toBe(0); // lundi
+    expect(jourDeSemaine('2026-07-19')).toBe(6); // dimanche
+  });
+
+  it('lundiDeLaSemaine ramène au lundi, et un lundi reste inchangé', () => {
+    expect(lundiDeLaSemaine('2026-07-16')).toBe('2026-07-13');
+    expect(lundiDeLaSemaine('2026-07-13')).toBe('2026-07-13');
+    expect(lundiDeLaSemaine('2026-07-19')).toBe('2026-07-13'); // dimanche
+  });
+
+  it('premierDuMois', () => {
+    expect(premierDuMois('2026-07-31')).toBe('2026-07-01');
+  });
+
+  it('entrée invalide : jamais d’exception', () => {
+    expect(decalerJour('bof', 1)).toBe('');
+    expect(jourDeSemaine('bof')).toBe(-1);
+    expect(lundiDeLaSemaine('bof')).toBe('bof');
+  });
+});
+
+describe('temps — formatJour (valeur date-seule)', () => {
+  it('rend le jour demandé, quel que soit le fuseau de la machine', () => {
+    expect(formatJour('2026-07-14', { day: '2-digit', month: 'short' })).toBe(
+      '14 juil.',
+    );
+    expect(formatJour('2026-01-01', { day: '2-digit', month: '2-digit' })).toBe(
+      '01/01',
+    );
+    expect(formatJour('2026-12-31', { month: 'short', year: '2-digit' })).toBe(
+      'déc. 26',
+    );
+  });
+
+  it('les bords de mois ne basculent pas', () => {
+    expect(formatJour('2026-07-01', { day: '2-digit', month: '2-digit' })).toBe(
+      '01/07',
+    );
+    expect(formatJour('2026-07-31', { day: '2-digit', month: '2-digit' })).toBe(
+      '31/07',
+    );
+  });
+
+  it('entrée invalide → valeur brute', () => {
+    expect(formatJour('bof', { day: '2-digit' })).toBe('bof');
   });
 });

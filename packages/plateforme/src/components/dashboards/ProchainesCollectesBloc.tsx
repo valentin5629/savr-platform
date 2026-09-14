@@ -3,6 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import type { ProchaineCollecte } from './blocs-types.js';
+import { formatJour } from '@savr/shared/src/temps/index.js';
 
 interface Props {
   items: ProchaineCollecte[];
@@ -16,9 +17,7 @@ interface Props {
 }
 
 function formatDateHeure(date: string, heure: string | null): string {
-  const d = new Date(`${date.slice(0, 10)}T00:00:00`);
-  const jour = d.toLocaleDateString('fr-FR', {
-    timeZone: 'Europe/Paris',
+  const jour = formatJour(date.slice(0, 10), {
     day: '2-digit',
     month: 'short',
     year: 'numeric',

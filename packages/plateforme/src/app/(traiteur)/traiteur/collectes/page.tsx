@@ -20,7 +20,11 @@ import {
   readCollecteFiltreLabel,
   periodeCourte,
 } from '@/lib/dashboards/collecte-filtre-label';
-import { jourParis } from '@savr/shared/src/temps/index.js';
+import {
+  decalerJour,
+  formatJour,
+  lundiDeLaSemaine,
+} from '@savr/shared/src/temps/index.js';
 
 // Refonte liste collectes traiteur (décision Val 2026-07-05, diverge du §04
 // actuel — voir _Divergences/M3.1_20260705_liste_collectes.md) : onglets
@@ -84,24 +88,13 @@ function parseJwt(token: string): Record<string, unknown> {
 
 // Groupe les cartes par semaine (lundi), semaines triées, cartes par date.
 function lundiDe(dateStr: string): string {
-  const d = new Date(`${dateStr}T00:00:00`);
-  if (isNaN(d.getTime())) return dateStr;
-  const jour = (d.getDay() + 6) % 7; // 0 = lundi
-  d.setDate(d.getDate() - jour);
-  return jourParis(d);
+  return lundiDeLaSemaine(dateStr);
 }
 function libelleSemaine(lundi: string): string {
-  const d = new Date(`${lundi}T00:00:00`);
-  if (isNaN(d.getTime())) return lundi;
-  const fin = new Date(d);
-  fin.setDate(fin.getDate() + 6);
-  const fmt = (x: Date) =>
-    x.toLocaleDateString('fr-FR', {
-      timeZone: 'Europe/Paris',
-      day: '2-digit',
-      month: 'short',
-    });
-  return `Semaine du ${fmt(d)} — ${fmt(fin)}`;
+  const fin = decalerJour(lundi, 6);
+  if (!fin) return lundi;
+  const fmt = (j: string) => formatJour(j, { day: '2-digit', month: 'short' });
+  return `Semaine du ${fmt(lundi)} — ${fmt(fin)}`;
 }
 
 function CollectesContent() {

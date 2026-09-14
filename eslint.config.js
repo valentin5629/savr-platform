@@ -65,6 +65,11 @@ export default tseslint.config(
             "Intl.DateTimeFormat sans timeZone : suit le fuseau du process (UTC en prod). Ajouter timeZone: 'Europe/Paris' — ou utiliser les helpers de '@savr/shared/src/temps/index.js'.",
         },
         {
+          selector: "NewExpression[callee.name='Date'] > TemplateLiteral",
+          message:
+            "Instant construit depuis une chaîne : interprété dans le fuseau du process (UTC en prod). Utiliser instantParis(jour, heure) pour une heure murale, ou les helpers de calendrier (decalerJour, lundiDeLaSemaine, formatJour) pour une valeur date-seule — '@savr/shared/src/temps/index.js'.",
+        },
+        {
           selector:
             "Property[key.name='timeZone'][value.type='Literal'][value.value!='Europe/Paris']",
           message:

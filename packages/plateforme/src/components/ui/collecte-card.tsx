@@ -21,8 +21,12 @@ import { StatusCollecte } from '@/components/ui/status-collecte';
 import { statutTmsDisplay } from '@/lib/statut-tms-labels';
 import type { StatutCollecte } from '@/components/ui/status-collecte';
 import { cn } from '@/lib/utils';
-import { jourParis } from '@savr/shared/src/temps/index.js';
-import { instantParis } from '@savr/shared/src/temps/index.js';
+import {
+  decalerJour,
+  formatJour,
+  instantParis,
+  lundiDeLaSemaine,
+} from '@savr/shared/src/temps/index.js';
 
 // ── Type de ligne collecte affichée par la carte (liste Admin, §06.06 §3) ──────
 // Superset du SELECT liste : les champs transporteur_nom / montant_ht / pack sont
@@ -117,8 +121,9 @@ export function aDispatcherZd(row: CollecteRow): boolean {
 // Criticité (§06.09 §1 / ALGO-02) : à attribuer ET à moins de 48h.
 export function estUrgente(row: CollecteRow): boolean {
   if (!aAttribuer(row)) return false;
-  const ts = new Date(
-    `${row.date_collecte}T${row.heure_collecte ?? '00:00:00'}`,
+  const ts = instantParis(
+    row.date_collecte,
+    row.heure_collecte ?? '00:00:00',
   ).getTime();
   return Number.isFinite(ts) && ts < Date.now() + 48 * 60 * 60 * 1000;
 }
@@ -187,36 +192,22 @@ export interface SemaineGroupe {
   items: CollecteRow[];
 }
 
-function lundiDe(d: Date): Date {
-  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const jour = (x.getDay() + 6) % 7; // 0 = lundi
-  x.setDate(x.getDate() - jour);
-  return x;
-}
-
 export function groupBySemaine(
   rows: CollecteRow[],
   ordre: 'asc' | 'desc',
 ): SemaineGroupe[] {
-  const fmt = (d: Date) =>
-    d
-      .toLocaleDateString('fr-FR', {
-        timeZone: 'Europe/Paris',
-        day: 'numeric',
-        month: 'short',
-      })
-      .replace(/\./g, '');
+  const fmt = (jour: string) =>
+    formatJour(jour, { day: 'numeric', month: 'short' }).replace(/\./g, '');
   const map = new Map<string, CollecteRow[]>();
   for (const r of rows) {
-    const key = jourParis(lundiDe(new Date(`${r.date_collecte}T00:00:00`)));
+    const key = lundiDeLaSemaine(r.date_collecte);
     const bucket = map.get(key);
     if (bucket) bucket.push(r);
     else map.set(key, [r]);
   }
   const groupes = [...map.entries()].map(([key, items]) => {
-    const lundi = new Date(`${key}T00:00:00`);
-    const dimanche = new Date(lundi);
-    dimanche.setDate(dimanche.getDate() + 6);
+    const lundi = key;
+    const dimanche = decalerJour(key, 6);
     items.sort((a, b) =>
       `${a.date_collecte}${a.heure_collecte ?? ''}`.localeCompare(
         `${b.date_collecte}${b.heure_collecte ?? ''}`,

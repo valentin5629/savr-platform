@@ -132,7 +132,10 @@ function decalageParis(d: Date): number {
  */
 export function instantParis(jour: string, heure = '00:00'): Date {
   const hms = heure.length === 5 ? `${heure}:00` : heure;
-  const naif = new Date(`${jour}T${hms}Z`); // lu comme UTC, puis recalé sur Paris
+  // Le `Z` force la lecture en UTC (pas le fuseau du process) ; l'instant est
+  // ensuite recalé sur Paris ci-dessous.
+  // eslint-disable-next-line no-restricted-syntax -- cf. ci-dessus
+  const naif = new Date(`${jour}T${hms}Z`);
   if (Number.isNaN(naif.getTime())) return naif;
   const premier = new Date(naif.getTime() - decalageParis(naif));
   const decale = decalageParis(premier);
@@ -140,4 +143,70 @@ export function instantParis(jour: string, heure = '00:00'): Date {
   return decale === decalageParis(naif)
     ? premier
     : new Date(naif.getTime() - decale);
+}
+
+// ── Calendrier pur : arithmétique sur des jours « YYYY-MM-DD » ────────────────
+// Une valeur date-seule n'est PAS un instant. La convertir en Date pour ajouter
+// des jours ou lire un jour de semaine fait entrer le fuseau du process dans un
+// calcul qui n'en a pas besoin — et `getDay()` d'un minuit parisien rend le jour
+// PRÉCÉDENT sur une machine en UTC. Ces helpers ne construisent aucun instant.
+
+/** Décale un jour « YYYY-MM-DD » de `jours` (négatif = passé). '' si invalide. */
+export function decalerJour(jour: string, jours: number): string {
+  const m = JOUR_SEUL.exec(jour);
+  if (!m) return '';
+  const t = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  // Calendrier pur : construit en UTC et relu en UTC, aucun fuseau n'intervient.
+  // eslint-disable-next-line no-restricted-syntax -- cf. ci-dessus
+  return new Date(t + jours * 86_400_000).toISOString().slice(0, 10);
+}
+
+/** Jour de la semaine d'un jour « YYYY-MM-DD » : 0 = lundi … 6 = dimanche. */
+export function jourDeSemaine(jour: string): number {
+  const m = JOUR_SEUL.exec(jour);
+  if (!m) return -1;
+  const d = new Date(
+    Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])),
+  ).getUTCDay();
+  return (d + 6) % 7;
+}
+
+/** Lundi de la semaine contenant ce jour « YYYY-MM-DD ». Le jour même si invalide. */
+export function lundiDeLaSemaine(jour: string): string {
+  const n = jourDeSemaine(jour);
+  return n < 0 ? jour : decalerJour(jour, -n);
+}
+
+/** 1er jour du mois d'un jour « YYYY-MM-DD ». Le jour même si invalide. */
+export function premierDuMois(jour: string): string {
+  const m = JOUR_SEUL.exec(jour);
+  return m ? `${m[1]}-${m[2]}-01` : jour;
+}
+
+/**
+ * Formate un jour « YYYY-MM-DD » avec les options d'`Intl` voulues (ex. `{ day:
+ * '2-digit', month: 'short' }` → « 14 juil. »).
+ *
+ * Seul endroit du code où un jour est transformé en instant : on l'ancre à midi
+ * UTC et on formate EN UTC. Les deux bouts sont dans le même fuseau, donc aucun
+ * décalage n'est possible — ni ici, ni selon la machine ou le navigateur. C'est
+ * la raison d'être de cette fonction : que personne n'ait à refaire ce montage
+ * (et à se tromper) dans un écran.
+ */
+export function formatJour(
+  jour: string,
+  options: Intl.DateTimeFormatOptions,
+): string {
+  const m = JOUR_SEUL.exec(jour);
+  if (!m) return jour;
+  const d = new Date(
+    Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12),
+  );
+  // Jour ancré à midi UTC et rendu en UTC : paire cohérente, insensible au
+  // fuseau de la machine (cf. docstring) — seul endroit du code où c'est le cas.
+  return new Intl.DateTimeFormat('fr-FR', {
+    // eslint-disable-next-line no-restricted-syntax -- cf. ci-dessus
+    timeZone: 'UTC',
+    ...options,
+  }).format(d);
 }

@@ -124,6 +124,13 @@ describe('M4.1 / formatNombreFr / formatPoidsKg', () => {
 });
 
 describe('M4.1 / csvFilename', () => {
+  it('daté du jour à Paris, pas du jour UTC (export tardif)', () => {
+    // 22h30 UTC le 18 = 00h30 à Paris le 19 → le fichier porte le 19.
+    expect(csvFilename('collectes', new Date('2026-06-18T22:30:00Z'))).toBe(
+      'collectes-savr-20260619.csv',
+    );
+  });
+
   it('format <prefixe>-savr-YYYYMMDD.csv', () => {
     expect(csvFilename('collectes', new Date('2026-06-19T10:00:00Z'))).toBe(
       'collectes-savr-20260619.csv',

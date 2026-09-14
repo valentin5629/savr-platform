@@ -93,7 +93,9 @@ function ConfirmationContent() {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch(`/api/v1/programmation/evenements/${id}`);
+        const res = await fetch(
+          `/api/v1/programmation/evenements/${encodeURIComponent(id)}`,
+        );
         const data = (await res.json()) as EvenementRecap & { error?: string };
         if (cancelled) return;
         if (!res.ok) {

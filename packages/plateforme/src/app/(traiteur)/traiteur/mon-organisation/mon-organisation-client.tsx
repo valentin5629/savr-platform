@@ -407,7 +407,7 @@ function EntitesCard({
   async function remove(id: string) {
     if (!confirm('Supprimer cette entité de facturation ?')) return;
     const res = await fetch(
-      `/api/v1/traiteur/mon-organisation/entites-facturation/${id}`,
+      `/api/v1/traiteur/mon-organisation/entites-facturation/${encodeURIComponent(id)}`,
       { method: 'DELETE' },
     );
     if (res.ok) onChanged();
@@ -597,7 +597,7 @@ function DomainesCard({
 
   async function remove(id: string) {
     const res = await fetch(
-      `/api/v1/traiteur/mon-organisation/domaines-email/${id}`,
+      `/api/v1/traiteur/mon-organisation/domaines-email/${encodeURIComponent(id)}`,
       { method: 'DELETE' },
     );
     if (res.ok) onChanged();
@@ -666,7 +666,7 @@ function EquipeTab() {
   useEffect(() => reload(), [reload]);
 
   async function changeRole(id: string, role: string) {
-    await fetch(`/api/v1/traiteur/equipe/${id}`, {
+    await fetch(`/api/v1/traiteur/equipe/${encodeURIComponent(id)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ role }),
@@ -675,7 +675,7 @@ function EquipeTab() {
   }
   async function suspend(id: string) {
     if (!confirm('Suspendre ce collaborateur ?')) return;
-    await fetch(`/api/v1/traiteur/equipe/${id}`, {
+    await fetch(`/api/v1/traiteur/equipe/${encodeURIComponent(id)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ actif: false }),

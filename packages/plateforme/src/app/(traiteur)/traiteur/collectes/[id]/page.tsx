@@ -107,7 +107,7 @@ export default function FicheCollectePage({
   const [regenEnCours, setRegenEnCours] = useState(false);
 
   function reload() {
-    fetch(`/api/v1/traiteur/collectes/${id}`)
+    fetch(`/api/v1/traiteur/collectes/${encodeURIComponent(id)}`)
       .then((r) => r.json())
       .then((j) => setC(j.data ?? null))
       .finally(() => setLoading(false));
@@ -133,11 +133,14 @@ export default function FicheCollectePage({
     setAnnulEnCours(true);
     setAnnulErreur(null);
     try {
-      const res = await fetch(`/api/v1/traiteur/collectes/${id}/annulation`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ motif: annulMotif }),
-      });
+      const res = await fetch(
+        `/api/v1/traiteur/collectes/${encodeURIComponent(id)}/annulation`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ motif: annulMotif }),
+        },
+      );
       if (res.ok) {
         setAnnulOpen(false);
         reload();
@@ -152,7 +155,7 @@ export default function FicheCollectePage({
 
   async function telechargerRapport() {
     const res = await fetch(
-      `/api/v1/traiteur/collectes/${id}/rapport-rse/download`,
+      `/api/v1/traiteur/collectes/${encodeURIComponent(id)}/rapport-rse/download`,
     );
     if (!res.ok) return;
     const { url } = (await res.json()) as { url?: string };
@@ -164,7 +167,7 @@ export default function FicheCollectePage({
     setRegenEnCours(true);
     try {
       const res = await fetch(
-        `/api/v1/traiteur/collectes/${id}/documents/rapport-recyclage-zd/regenerate`,
+        `/api/v1/traiteur/collectes/${encodeURIComponent(id)}/documents/rapport-recyclage-zd/regenerate`,
         { method: 'POST' },
       );
       if (res.ok) reload();
@@ -272,7 +275,7 @@ export default function FicheCollectePage({
               notes_internes: evt.notes_internes,
             },
           }}
-          collecteEndpoint={`/api/v1/traiteur/collectes/${c.id}`}
+          collecteEndpoint={`/api/v1/traiteur/collectes/${encodeURIComponent(c.id)}`}
           onSaved={() => {
             setEditing(false);
             reload();

@@ -213,7 +213,7 @@ export function AssociationModal({
 
     setSubmitting(true);
     const url = isEdition
-      ? `/api/v1/admin/associations/${association!.id}`
+      ? `/api/v1/admin/associations/${encodeURIComponent(association!.id)}`
       : '/api/v1/admin/associations';
     const res = await fetch(url, {
       method: isEdition ? 'PATCH' : 'POST',
@@ -242,11 +242,14 @@ export function AssociationModal({
     if (!association) return;
     setServerError(null);
     setSubmitting(true);
-    const res = await fetch(`/api/v1/admin/associations/${association.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ actif: !association.actif }),
-    });
+    const res = await fetch(
+      `/api/v1/admin/associations/${encodeURIComponent(association.id)}`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actif: !association.actif }),
+      },
+    );
     setSubmitting(false);
     if (!res.ok) {
       const body = (await res.json().catch(() => null)) as {

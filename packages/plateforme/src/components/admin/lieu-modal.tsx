@@ -169,7 +169,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
     setServerError(null);
     if (lieuId) {
       setHydrating(true);
-      void fetch(`/api/v1/admin/lieux/${lieuId}`)
+      void fetch(`/api/v1/admin/lieux/${encodeURIComponent(lieuId)}`)
         .then((r) => r.json())
         .then((d: LieuApi) => {
           setValues(toForm(d));
@@ -245,7 +245,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
 
     setSubmitting(true);
     const url = isEdition
-      ? `/api/v1/admin/lieux/${lieuId}`
+      ? `/api/v1/admin/lieux/${encodeURIComponent(lieuId!)}`
       : '/api/v1/admin/lieux';
     const res = await fetch(url, {
       method: isEdition ? 'PATCH' : 'POST',

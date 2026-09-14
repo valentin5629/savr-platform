@@ -150,11 +150,14 @@ export function EditerCollecteForm({
         evtUpdates.contact_secours_telephone = csTel || null;
 
       if (Object.keys(evtUpdates).length > 0) {
-        const res = await fetch(`/api/v1/programmation/evenements/${e.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(evtUpdates),
-        });
+        const res = await fetch(
+          `/api/v1/programmation/evenements/${encodeURIComponent(e.id)}`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(evtUpdates),
+          },
+        );
         if (!res.ok) {
           const j = (await res.json()) as { error?: string };
           throw new Error(j.error ?? "Échec de l'édition de l'événement");

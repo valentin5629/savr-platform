@@ -44,6 +44,9 @@ const GATES: { key: string; cmd: string[] }[] = [
   // Anti-récidive « mauvais nom d'enum sur collectes.type » (cluster C3 / #259) :
   { key: 'renamed-type-refs', cmd: ['check:renamed-type-refs'] }, // migration castant un type renommé
   { key: 'enum-collecte-type', cmd: ['check:enum-collecte-type'] }, // littéral 'zd'/'ag' sur .eq/.in('type')
+  // Anti-récidive « segment de chemin /api/ interpolé brut » (relevé rls-securite
+  // en revue #285) : une valeur d'URL en ../ adresse un autre endpoint same-origin.
+  { key: 'fetch-path-encoding', cmd: ['check:fetch-path-encoding'] },
 ];
 
 function runGate(cmd: string[]): number | null {

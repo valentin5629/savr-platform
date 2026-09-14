@@ -192,7 +192,7 @@ export default function ClientFichePage({
     // Durcir : vérifier res.ok AVANT de désérialiser. Sinon une réponse d'erreur
     // (404/400 → `{ error }`) était castée en OrgDetail → `org.entites_facturation`
     // undefined → `.length`/`.map` → exception client-side = écran blanc.
-    fetch(`/api/v1/admin/organisations/${id}`)
+    fetch(`/api/v1/admin/organisations/${encodeURIComponent(id)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         setOrg(data as OrgDetail | null);
@@ -236,7 +236,9 @@ export default function ClientFichePage({
     : 0;
 
   async function refreshOrg() {
-    const r = await fetch(`/api/v1/admin/organisations/${id}`);
+    const r = await fetch(
+      `/api/v1/admin/organisations/${encodeURIComponent(id)}`,
+    );
     if (!r.ok) return;
     setOrg((await r.json()) as OrgDetail);
   }
@@ -279,15 +281,18 @@ export default function ClientFichePage({
     setSubmitting(true);
     setFormError(null);
     try {
-      const r = await fetch(`/api/v1/admin/packs-antgaspi/${packActif.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'ajuster_credits',
-          credits_initiaux: fAjusterCredits,
-          motif: fAjusterMotif,
-        }),
-      });
+      const r = await fetch(
+        `/api/v1/admin/packs-antgaspi/${encodeURIComponent(packActif.id)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'ajuster_credits',
+            credits_initiaux: fAjusterCredits,
+            motif: fAjusterMotif,
+          }),
+        },
+      );
       const data = (await r.json()) as { error?: string };
       if (!r.ok) {
         setFormError(data.error ?? 'Erreur');
@@ -306,11 +311,14 @@ export default function ClientFichePage({
     setSubmitting(true);
     setFormError(null);
     try {
-      const r = await fetch(`/api/v1/admin/packs-antgaspi/${packActif.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'annuler', motif: fAnnulerMotif }),
-      });
+      const r = await fetch(
+        `/api/v1/admin/packs-antgaspi/${encodeURIComponent(packActif.id)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'annuler', motif: fAnnulerMotif }),
+        },
+      );
       const data = (await r.json()) as { error?: string };
       if (!r.ok) {
         setFormError(data.error ?? 'Erreur');

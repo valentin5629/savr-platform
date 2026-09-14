@@ -57,7 +57,7 @@ export default function FicheCollecteGestionnairePage({
   const [editing, setEditing] = useState(false);
 
   function reload() {
-    fetch(`/api/v1/gestionnaire/collectes/${id}`)
+    fetch(`/api/v1/gestionnaire/collectes/${encodeURIComponent(id)}`)
       .then((r) => r.json())
       .then((j) => setC(j.data ?? null))
       .finally(() => setLoading(false));
@@ -134,7 +134,7 @@ export default function FicheCollecteGestionnairePage({
               notes_internes: evt.notes_internes,
             },
           }}
-          collecteEndpoint={`/api/v1/gestionnaire/collectes/${c.id}`}
+          collecteEndpoint={`/api/v1/gestionnaire/collectes/${encodeURIComponent(c.id)}`}
           onSaved={() => {
             setEditing(false);
             reload();

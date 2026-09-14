@@ -42,7 +42,7 @@ export default function TraiteurDetailPage({
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/v1/gestionnaire/traiteurs/${id}`)
+    fetch(`/api/v1/gestionnaire/traiteurs/${encodeURIComponent(id)}`)
       .then((r) => {
         if (r.status === 404) {
           setNotFound(true);

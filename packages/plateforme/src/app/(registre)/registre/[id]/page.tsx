@@ -88,7 +88,7 @@ export default function RegistreDetailPage({
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/v1/registre/${id}`)
+    fetch(`/api/v1/registre/${encodeURIComponent(id)}`)
       .then((r) => {
         if (!r.ok) {
           setNotFound(true);
@@ -101,7 +101,9 @@ export default function RegistreDetailPage({
   }, [id]);
 
   async function downloadBordereau(bid: string) {
-    const res = await fetch(`/api/v1/registre/bordereaux/${bid}/download`);
+    const res = await fetch(
+      `/api/v1/registre/bordereaux/${encodeURIComponent(bid)}/download`,
+    );
     if (!res.ok) return;
     const j = (await res.json()) as { url?: string };
     if (j.url) window.open(j.url, '_blank');

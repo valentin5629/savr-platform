@@ -53,11 +53,14 @@ export default function AlertesPage() {
     async (id: string) => {
       setResolvingId(id);
       try {
-        const res = await fetch(`/api/v1/admin/alertes/${id}`, {
-          method: 'PATCH',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ action: 'resoudre' }),
-        });
+        const res = await fetch(
+          `/api/v1/admin/alertes/${encodeURIComponent(id)}`,
+          {
+            method: 'PATCH',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ action: 'resoudre' }),
+          },
+        );
         if (!res.ok) return;
         // Retrait optimiste de la vue « Ouvertes » ; sinon on rafraîchit le statut.
         if (statut === 'ouverte') {

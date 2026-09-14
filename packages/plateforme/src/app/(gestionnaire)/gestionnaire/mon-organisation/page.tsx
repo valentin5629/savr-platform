@@ -99,11 +99,14 @@ export default function MonOrganisationPage() {
 
   async function handleDesactiver(userId: string) {
     if (!confirm('Désactiver ce membre ?')) return;
-    await fetch(`/api/v1/gestionnaire/mon-organisation/users/${userId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ actif: false }),
-    });
+    await fetch(
+      `/api/v1/gestionnaire/mon-organisation/users/${encodeURIComponent(userId)}`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actif: false }),
+      },
+    );
     setUsers((u) =>
       u.map((m) => (m.id === userId ? { ...m, actif: false } : m)),
     );

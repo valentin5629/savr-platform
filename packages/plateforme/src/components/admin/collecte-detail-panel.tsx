@@ -356,19 +356,25 @@ export function CollecteDetailPanel({
   ];
 
   const refetch = useCallback(async () => {
-    const updated = await fetch(`/api/v1/admin/collectes/${collecteId}`);
+    const updated = await fetch(
+      `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}`,
+    );
     if (updated.ok) setCollecte((await updated.json()) as CollecteDetail);
   }, [collecteId]);
 
   // Bloc 3 — Documents (rapport / bordereau / attestation / photos).
   const refetchDocuments = useCallback(async () => {
-    const r = await fetch(`/api/v1/admin/collectes/${collecteId}/documents`);
+    const r = await fetch(
+      `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}/documents`,
+    );
     if (r.ok) setDocuments((await r.json()) as DocumentsData);
   }, [collecteId]);
 
   // Bloc 7 — Historique + audit log.
   const refetchAudit = useCallback(async () => {
-    const r = await fetch(`/api/v1/admin/collectes/${collecteId}/audit`);
+    const r = await fetch(
+      `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}/audit`,
+    );
     if (r.ok) {
       const j = (await r.json()) as { data: AuditEntry[] };
       setAudit(j.data);
@@ -385,7 +391,7 @@ export function CollecteDetailPanel({
     setRegenerating(type);
     setDocError(null);
     const res = await fetch(
-      `/api/v1/admin/collectes/${collecteId}/documents/${type}/regenerate`,
+      `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}/documents/${encodeURIComponent(type)}/regenerate`,
       { method: 'POST' },
     );
     if (res.ok) {
@@ -417,10 +423,13 @@ export function CollecteDetailPanel({
     setDocError(null);
     const fd = new FormData();
     fd.append('file', file);
-    const res = await fetch(`/api/v1/admin/collectes/${collecteId}/photos`, {
-      method: 'POST',
-      body: fd,
-    });
+    const res = await fetch(
+      `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}/photos`,
+      {
+        method: 'POST',
+        body: fd,
+      },
+    );
     if (res.ok) {
       await refetchDocuments();
     } else {
@@ -434,7 +443,7 @@ export function CollecteDetailPanel({
     // On vérifie res.ok AVANT de désérialiser : une réponse d'erreur (404/500)
     // renvoie un corps { error } — le poser dans `collecte` faisait crasher le
     // rendu (collecte.type.toUpperCase() sur undefined = exception client).
-    fetch(`/api/v1/admin/collectes/${collecteId}`)
+    fetch(`/api/v1/admin/collectes/${encodeURIComponent(collecteId)}`)
       .then(async (r) => {
         if (!r.ok) {
           const body = (await r.json().catch(() => ({}))) as {
@@ -475,7 +484,9 @@ export function CollecteDetailPanel({
       return;
     }
     let active = true;
-    fetch(`/api/v1/admin/attributions-ag/${collecteId}/recommandation`)
+    fetch(
+      `/api/v1/admin/attributions-ag/${encodeURIComponent(collecteId)}/recommandation`,
+    )
       .then((r) => (r.ok ? r.json() : null))
       .then((j: { data: RecoAlgo } | null) => {
         if (!active) return;
@@ -499,7 +510,7 @@ export function CollecteDetailPanel({
     setAnnulerCreditSubmitting(true);
     setAnnulerCreditError(null);
     const res = await fetch(
-      `/api/v1/admin/collectes/${collecteId}/annuler-credit`,
+      `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}/annuler-credit`,
       {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -507,7 +518,9 @@ export function CollecteDetailPanel({
       },
     );
     if (res.ok) {
-      const updated = await fetch(`/api/v1/admin/collectes/${collecteId}`);
+      const updated = await fetch(
+        `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}`,
+      );
       if (updated.ok) setCollecte((await updated.json()) as CollecteDetail);
       setAnnulerCreditModal(false);
     } else {
@@ -530,11 +543,14 @@ export function CollecteDetailPanel({
         body.motif_override_prestataire = motifOverride.trim();
       }
     }
-    const res = await fetch(`/api/v1/admin/collectes/${collecteId}/dispatch`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    const res = await fetch(
+      `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}/dispatch`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      },
+    );
     if (res.ok) {
       await refetch();
       setSelectedTransporteurId('');
@@ -551,14 +567,17 @@ export function CollecteDetailPanel({
     setForceStatutSubmitting(true);
     setForceStatutError(null);
     // L'API PATCH valide déjà motif ≥ 10 car. + audite `collecte_statut_force`.
-    const res = await fetch(`/api/v1/admin/collectes/${collecteId}`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        statut: forceStatutValue,
-        motif: forceStatutMotif,
-      }),
-    });
+    const res = await fetch(
+      `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}`,
+      {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          statut: forceStatutValue,
+          motif: forceStatutMotif,
+        }),
+      },
+    );
     if (res.ok) {
       await refetch();
       setForceStatutModal(false);
@@ -576,11 +595,14 @@ export function CollecteDetailPanel({
     e.preventDefault();
     setNbCamionsSubmitting(true);
     setNbCamionsError(null);
-    const res = await fetch(`/api/v1/admin/collectes/${collecteId}`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ nb_camions_demande: Number(nbCamionsValue) }),
-    });
+    const res = await fetch(
+      `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}`,
+      {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ nb_camions_demande: Number(nbCamionsValue) }),
+      },
+    );
     if (res.ok) {
       await refetch();
       setNbCamionsModal(false);
@@ -617,13 +639,18 @@ export function CollecteDetailPanel({
       flux_code: flux.code,
       poids_reel_kg: Number(peseesInput[flux.code]),
     }));
-    const res = await fetch(`/api/v1/admin/collectes/${collecteId}/flux`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ pesees, motif: peseesMotif }),
-    });
+    const res = await fetch(
+      `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}/flux`,
+      {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ pesees, motif: peseesMotif }),
+      },
+    );
     if (res.ok) {
-      const updated = await fetch(`/api/v1/admin/collectes/${collecteId}`);
+      const updated = await fetch(
+        `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}`,
+      );
       if (updated.ok) setCollecte((await updated.json()) as CollecteDetail);
       setEditPesees(false);
     } else {
@@ -664,7 +691,7 @@ export function CollecteDetailPanel({
       accompagnant_telephone: v.accompagnant_telephone,
     }));
     const res = await fetch(
-      `/api/v1/admin/collectes/${collecteId}/infos-acces`,
+      `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}/infos-acces`,
       {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
@@ -673,7 +700,9 @@ export function CollecteDetailPanel({
     );
     if (res.ok) {
       const body = (await res.json()) as { email_envoye: boolean };
-      const updated = await fetch(`/api/v1/admin/collectes/${collecteId}`);
+      const updated = await fetch(
+        `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}`,
+      );
       if (updated.ok) setCollecte((await updated.json()) as CollecteDetail);
       setInfosAccesFeedback(
         body.email_envoye
@@ -1506,7 +1535,7 @@ export function CollecteDetailPanel({
                 onClick={() =>
                   documents?.rapport &&
                   void handleDownload(
-                    `/api/v1/admin/rapports-rse/${documents.rapport.id}/download`,
+                    `/api/v1/admin/rapports-rse/${encodeURIComponent(documents.rapport.id)}/download`,
                   )
                 }
               >
@@ -1557,7 +1586,7 @@ export function CollecteDetailPanel({
                   onClick={() =>
                     documents?.bordereau &&
                     void handleDownload(
-                      `/api/v1/admin/bordereaux/${documents.bordereau.id}/download`,
+                      `/api/v1/admin/bordereaux/${encodeURIComponent(documents.bordereau.id)}/download`,
                     )
                   }
                 >
@@ -1607,7 +1636,7 @@ export function CollecteDetailPanel({
                   onClick={() =>
                     documents?.attestation &&
                     void handleDownload(
-                      `/api/v1/admin/attestations/${documents.attestation.id}/download`,
+                      `/api/v1/admin/attestations/${encodeURIComponent(documents.attestation.id)}/download`,
                     )
                   }
                 >

@@ -201,13 +201,19 @@ export default function NouveauProgrammationPage() {
   // (nouvelle date à choisir). Rien n'est créé tant que l'utilisateur ne valide
   // pas. Le sync-effect typesCollecte→collectes conserve la ligne pré-remplie
   // (même type). Erreur/absence = formulaire vierge (dégradation gracieuse).
+  //
+  // `from` vient de l'URL (donc de l'extérieur) : il est encodé avant d'être
+  // injecté comme SEGMENT de chemin, sinon `?from=../../autre-endpoint`
+  // adresse un autre endpoint same-origin avec la session de l'utilisateur
+  // (relevé revue rls-securite sur #285). Même garde que
+  // `(admin)/admin/collectes/[id]/page.tsx`.
   useEffect(() => {
     const from =
       typeof window !== 'undefined'
         ? new URLSearchParams(window.location.search).get('from')
         : null;
     if (!from) return;
-    void fetch(`/api/v1/traiteur/collectes/${from}`)
+    void fetch(`/api/v1/traiteur/collectes/${encodeURIComponent(from)}`)
       .then((r) =>
         r.ok ? (r.json() as Promise<{ data?: SourceCollecte }>) : null,
       )

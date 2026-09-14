@@ -17,6 +17,7 @@ const mockSupabaseChain = {
   or: vi.fn().mockReturnThis(),
   order: vi.fn().mockReturnThis(),
   single: vi.fn(),
+  rpc: vi.fn(),
 };
 
 vi.mock('@savr/shared/src/supabase-client.js', () => ({
@@ -125,6 +126,123 @@ describe('M1.1a / Tarifs packs AG / Lecture', () => {
       }),
     );
     expect(res.status).toBe(403);
+  });
+});
+
+describe('M1.1a / Tarifs packs AG / Versionnement (POST)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupAuth('admin_savr');
+    mockSupabaseChain.rpc.mockResolvedValue({
+      data: { id: 'tarif-neuf', type_pack: 'pack_10' },
+      error: null,
+    });
+  });
+
+  const corpsValide = {
+    type_pack: 'pack_10',
+    credits: 10,
+    prix_unitaire_ht: 480,
+    valide_du: '2099-01-01',
+  };
+
+  it('tarifs-packs-ag — 201 : une SEULE écriture, la RPC atomique', async () => {
+    const { POST } =
+      await import('@/app/api/v1/admin/tarifs-packs-ag/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/tarifs-packs-ag', corpsValide),
+    );
+
+    expect(res.status).toBe(201);
+    expect(mockSupabaseChain.rpc).toHaveBeenCalledTimes(1);
+    expect(mockSupabaseChain.rpc).toHaveBeenCalledWith(
+      'rpc_creer_tarif_pack_ag',
+      expect.objectContaining({
+        p_type_pack: 'pack_10',
+        p_credits: 10,
+        p_prix_unitaire_ht: 480,
+        p_valide_du: '2099-01-01',
+      }),
+    );
+    // Fermeture + insertion ne sont plus deux appels PostgREST séparés : un
+    // échec d'insertion laissait sinon le type_pack sans aucune ligne ouverte.
+    expect(mockSupabaseChain.update).not.toHaveBeenCalled();
+    expect(mockSupabaseChain.insert).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type_pack: 'pack_10' }),
+    );
+  });
+
+  it('tarifs-packs-ag — 422 credits négatif, aucune écriture', async () => {
+    const { POST } =
+      await import('@/app/api/v1/admin/tarifs-packs-ag/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/tarifs-packs-ag', {
+        ...corpsValide,
+        credits: -5,
+      }),
+    );
+
+    expect(res.status).toBe(422);
+    expect(mockSupabaseChain.rpc).not.toHaveBeenCalled();
+  });
+
+  it('tarifs-packs-ag — 422 prix_unitaire_ht négatif, aucune écriture', async () => {
+    const { POST } =
+      await import('@/app/api/v1/admin/tarifs-packs-ag/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/tarifs-packs-ag', {
+        ...corpsValide,
+        prix_unitaire_ht: -100,
+      }),
+    );
+
+    expect(res.status).toBe(422);
+    expect(mockSupabaseChain.rpc).not.toHaveBeenCalled();
+  });
+
+  it('tarifs-packs-ag — 422 type_pack hors référentiel', async () => {
+    const { POST } =
+      await import('@/app/api/v1/admin/tarifs-packs-ag/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/tarifs-packs-ag', {
+        ...corpsValide,
+        type_pack: 'pack_99',
+      }),
+    );
+
+    expect(res.status).toBe(422);
+    expect(mockSupabaseChain.rpc).not.toHaveBeenCalled();
+  });
+
+  it('tarifs-packs-ag — 422 valide_du non conforme à YYYY-MM-DD', async () => {
+    const { POST } =
+      await import('@/app/api/v1/admin/tarifs-packs-ag/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/tarifs-packs-ag', {
+        ...corpsValide,
+        valide_du: '2099-1-1',
+      }),
+    );
+
+    expect(res.status).toBe(422);
+    expect(mockSupabaseChain.rpc).not.toHaveBeenCalled();
+  });
+
+  it('tarifs-packs-ag — 422 si la RPC refuse (aucun audit écrit)', async () => {
+    mockSupabaseChain.rpc.mockResolvedValue({
+      data: null,
+      error: {
+        message: 'un tarif pack_10 est en vigueur depuis le 2026-07-05',
+      },
+    });
+    const { POST } =
+      await import('@/app/api/v1/admin/tarifs-packs-ag/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/tarifs-packs-ag', corpsValide),
+    );
+
+    expect(res.status).toBe(422);
+    expect(mockSupabaseChain.insert).not.toHaveBeenCalled();
   });
 });
 

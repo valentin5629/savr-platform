@@ -71,6 +71,12 @@ VALUES
 
 -- NB : colonnes du schéma LIVE (type_pack/credits/prix_unitaire_ht) — le DDL de
 -- création bloc5 est périmé (nb_collectes/prix_ht n'existent plus).
+-- uniq_tarif_pack_ag_ouvert_par_type (20260914160000) n'autorise qu'UNE ligne
+-- ouverte par type_pack : on ferme la version seedée avant d'ouvrir celle de la
+-- fixture (fermeture au jour de prise d'effet = intervalle nul, borne autorisée).
+UPDATE plateforme.tarifs_packs_ag SET valide_jusqu_au = valide_du
+ WHERE type_pack = 'pack_10' AND valide_jusqu_au IS NULL;
+
 INSERT INTO plateforme.tarifs_packs_ag
   (id, type_pack, credits, prix_unitaire_ht, valide_du)
 VALUES

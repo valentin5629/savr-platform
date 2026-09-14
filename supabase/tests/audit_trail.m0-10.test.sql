@@ -73,6 +73,11 @@ INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, da
 VALUES ('a09f0007-0000-0000-0000-000000000001'::uuid, 'a09f0006-0000-0000-0000-000000000001'::uuid, 'zero_dechet', 'programmee', 'non_envoye', current_date + 7, '08:00');
 
 -- Tarif pack + pack AG (pour triggers pack)
+-- uniq_tarif_pack_ag_ouvert_par_type (20260914160000) n'autorise qu'UNE ligne
+-- ouverte par type_pack : on ferme la version seedée avant d'ouvrir celle de la
+-- fixture (fermeture au jour de prise d'effet = intervalle nul, borne autorisée).
+UPDATE plateforme.tarifs_packs_ag SET valide_jusqu_au = valide_du
+ WHERE type_pack = 'unitaire' AND valide_jusqu_au IS NULL;
 INSERT INTO plateforme.tarifs_packs_ag (id, valide_du, type_pack, credits, prix_unitaire_ht)
 VALUES ('a09f0008-0000-0000-0000-000000000001'::uuid, '2026-01-01', 'unitaire', 5, 250.00);
 

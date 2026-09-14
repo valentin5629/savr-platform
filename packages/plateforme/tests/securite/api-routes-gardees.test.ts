@@ -43,6 +43,8 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
 
+import type { NextConfig } from 'next';
+import * as constantesNext from 'next/constants';
 import { describe, it, expect } from 'vitest';
 
 const APP = resolve(__dirname, '../../src/app');
@@ -52,9 +54,12 @@ const API = join(APP, 'api');
 // utilisé (`pages`, `app`). Tous sont hors du scan ci-dessous ET hors middleware
 // (`api(?:/|$)` exclu) — un handler qui s'y glisse est un endpoint nu (#286).
 const RACINES_HORS_SCAN = ['src/pages', 'pages', 'app'] as const;
-// Next lit le PREMIER de ces trois fichiers : un `next.config.js` primerait sur
-// le `.ts` et y cacherait un `pageExtensions` (revue sécurité #288, R1).
-const CONFIGS_NEXT = ['next.config.js', 'next.config.mjs', 'next.config.ts'];
+const RACINE_PKG = resolve(__dirname, '../..');
+// Fichier de config chargé par le cliquet « configuration de déploiement » plus
+// bas (import statique, donc littéral). Next, lui, retient le PREMIER de
+// `CONFIG_FILES` qui existe : la liste est lue dans `next/constants` plutôt que
+// recopiée, pour rester juste si une version future en ajoute un (revue #289).
+const CONFIG_NEXT_CHARGEE = 'next.config.ts';
 
 // Gardes de session applicatives (src/lib/api-auth.ts, src/lib/registre/guard.ts).
 const GARDE_SESSION =
@@ -207,21 +212,6 @@ describe('routes API — garde propre obligatoire (middleware exclut /api)', () 
       existsSync(resolve(__dirname, '../..', r)),
     );
     expect(presents).toEqual([]);
-  });
-
-  it('les 4 extensions du scan restent celles que Next applique', () => {
-    // FICHIER_ROUTE dérive du défaut Next (tsx|ts|jsx|js). Définir `pageExtensions`
-    // changerait cette liste et désynchroniserait le scan en silence : soit on ne
-    // le définit pas, soit FICHIER_ROUTE doit en être dérivé. Contrôlé sur TOUS
-    // les fichiers de config présents, pas seulement celui que Next retiendra.
-    const presents = CONFIGS_NEXT.map((n) =>
-      resolve(__dirname, '../..', n),
-    ).filter((p) => existsSync(p));
-    expect(presents.length).toBeGreaterThan(0); // anti-vacuité
-    const fautifs = presents.filter((p) =>
-      /\bpageExtensions\b/.test(sansCommentaires(readFileSync(p, 'utf8'))),
-    );
-    expect(fautifs).toEqual([]);
   });
 
   it('garde anti-vacuité : les routes sont bien énumérées', () => {
@@ -384,5 +374,141 @@ describe("Server Actions — aucune, faute de filet en amont pour l'accueillir",
         'une énumération explicite (chemin → garde attendue + raison), sur le ' +
         'modèle de EXCEPTIONS_HORS_API.',
     ).toEqual([]);
+  });
+});
+
+/**
+ * Cliquet — aucune configuration ne crée de chemin HTTP hors des répertoires de
+ * routing scannés ci-dessus.
+ *
+ * Un `rewrites` (config Next ou vercel.json) sert un chemin qui n'existe sous
+ * aucun `route.ts` : il échappe donc aux deux cliquets précédents, et au
+ * middleware dès lors qu'il commence par `/api`. Vecteur concret : `tunnelRoute`
+ * de @sentry/nextjs est implémenté comme un rewrite (`setUpTunnelRewriteRules`)
+ * et ouvrirait un proxy non authentifié (revue sécurité #289).
+ *
+ * La config Next est ici *exécutée*, pas relue : la garde couvre donc aussi ce
+ * qu'aucun scan textuel ne verrait — composition (`import base from
+ * './next.base'`, spread) et plugins qui injectent la clé eux-mêmes, comme
+ * `withSentryConfig`. L'exécution a sa propre zone d'ombre, symétrique : une clé
+ * conditionnée par une variable d'environnement absente du test ne s'évalue pas.
+ * D'où la relecture textuelle CONSERVÉE en second contrôle, qui voit précisément
+ * celles-là. L'union n'est pas totale pour autant : une clé à la fois INDIRECTE
+ * et CONDITIONNÉE — posée dans un module importé, derrière un `process.env` —
+ * échappe aux deux, le textuel ne lisant que les `CONFIG_FILES`. Hors de portée
+ * également : les `NextResponse.rewrite()` du middleware, qui visent des routes
+ * déjà gardées.
+ */
+const PHASES_NEXT = Object.entries(constantesNext)
+  .filter(([cle, val]) => cle.startsWith('PHASE_') && typeof val === 'string')
+  .map(([, val]) => val as string);
+
+// Les quatre premières créent ou détournent un chemin HTTP ; `public` n'en crée
+// pas mais expose sources et logs du déploiement. `headers`, `functions`,
+// `crons` et `regions` sont sans effet sur les chemins servis.
+const CLES_VERCEL_INTERDITES = [
+  'rewrites',
+  'redirects',
+  'routes',
+  'builds',
+  'public',
+] as const;
+
+// Second contrôle, textuel : voit les clés que l'exécution n'évalue pas (mises
+// derrière une condition d'environnement), et couvre les fichiers de config que
+// Next NE retiendrait pas — sans lesquels l'un d'eux pourrait devenir actif à
+// la faveur d'un renommage.
+const CLES_NEXT_INTERDITES =
+  /\b(?:rewrites|redirects|pageExtensions|tunnelRoute)\b/g;
+const VERCEL_JSON = [
+  join(RACINE_PKG, 'vercel.json'),
+  resolve(RACINE_PKG, '../..', 'vercel.json'),
+];
+
+/** La config Next telle que Next l'appliquera, par phase si elle en dépend. */
+async function configsNextResolues(): Promise<
+  { phase: string; config: NextConfig }[]
+> {
+  const exporte = (await import('../../next.config')).default as
+    | NextConfig
+    | ((
+        phase: string,
+        ctx: { defaultConfig: NextConfig },
+      ) => Promise<NextConfig> | NextConfig);
+  if (typeof exporte !== 'function')
+    return [{ phase: CONFIG_NEXT_CHARGEE, config: exporte }];
+  return Promise.all(
+    PHASES_NEXT.map(async (phase) => ({
+      phase: `${CONFIG_NEXT_CHARGEE} (${phase})`,
+      config: await exporte(phase, { defaultConfig: {} }),
+    })),
+  );
+}
+
+describe('configuration de déploiement — aucun endpoint hors routing scanné', () => {
+  it('le cliquet charge la config que Next retiendrait', () => {
+    // Anti-vacuité : si Next changeait ses noms de config, `retenue` deviendrait
+    // `undefined` et l'import statique ci-dessus porterait sur un fichier mort.
+    const retenue = constantesNext.CONFIG_FILES.find((nom) =>
+      existsSync(join(RACINE_PKG, nom)),
+    );
+    expect(retenue).toBe(CONFIG_NEXT_CHARGEE);
+  });
+
+  it('les phases évaluées sont bien énumérées', () => {
+    // Anti-vacuité : sans plancher, un renommage des `PHASE_*` viderait la liste
+    // et les deux assertions sur la config résolue passeraient sur zéro phase.
+    expect(PHASES_NEXT.length).toBeGreaterThan(0);
+  });
+
+  it('aucun fichier de config Next ne mentionne de clé interdite', () => {
+    // Contrôle textuel : complémentaire de l'exécution, sur TOUS les fichiers de
+    // config présents et non le seul que Next retiendrait.
+    const presents = constantesNext.CONFIG_FILES.map((nom) =>
+      join(RACINE_PKG, nom),
+    ).filter((p) => existsSync(p));
+    expect(presents.length).toBeGreaterThan(0); // anti-vacuité
+    const fautifs = presents.flatMap((p) => {
+      const trouvees = [
+        ...new Set(
+          sansCommentaires(readFileSync(p, 'utf8')).match(
+            CLES_NEXT_INTERDITES,
+          ) ?? [],
+        ),
+      ];
+      return trouvees.map((cle) => `${relative(RACINE_PKG, p)} : ${cle}`);
+    });
+    expect(fautifs).toEqual([]);
+  });
+
+  it('la config Next résolue ne définit ni rewrites ni redirects', async () => {
+    const fautifs = (await configsNextResolues()).flatMap(({ phase, config }) =>
+      (['rewrites', 'redirects'] as const)
+        .filter((cle) => config[cle] !== undefined)
+        .map((cle) => `${phase} : ${cle} défini`),
+    );
+    expect(fautifs).toEqual([]);
+  });
+
+  it('la config Next résolue ne redéfinit pas pageExtensions', async () => {
+    // FICHIER_ROUTE dérive du défaut Next (tsx|ts|jsx|js) : redéfinir
+    // `pageExtensions` désynchroniserait le scan en silence. Soit on ne le
+    // définit pas, soit FICHIER_ROUTE doit en être dérivé.
+    const fautifs = (await configsNextResolues())
+      .filter(({ config }) => config.pageExtensions !== undefined)
+      .map(({ phase }) => `${phase} : pageExtensions défini`);
+    expect(fautifs).toEqual([]);
+  });
+
+  it('aucun vercel.json ne détourne de chemin HTTP', () => {
+    const presents = VERCEL_JSON.filter((p) => existsSync(p));
+    expect(presents.length).toBeGreaterThan(0); // anti-vacuité
+    const fautifs = presents.flatMap((p) => {
+      const cles = Object.keys(JSON.parse(readFileSync(p, 'utf8')) as object);
+      return CLES_VERCEL_INTERDITES.filter((c) => cles.includes(c)).map(
+        (c) => `${relative(RACINE_PKG, p)} : ${c}`,
+      );
+    });
+    expect(fautifs).toEqual([]);
   });
 });

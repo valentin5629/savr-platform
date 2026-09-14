@@ -309,6 +309,34 @@ describe('M2.4 / attestation de don 2041-GE — mention fiscale conditionnelle',
     expect(html).toContain('aucun avantage fiscal');
   });
 
+  // §04 associations.numero_rup + §06.06 §5 : la mention RUP n'apparaît QUE si le
+  // n° est renseigné (instantané facultatif, arbitrage Val 2026-09-14).
+  it('n° RUP renseigné → mention RUP dans l’identité asso ET dans le bloc fiscal', () => {
+    const html = renderByType(
+      'attestation-don',
+      attestationData({
+        association_numero_rup: 'W751234567',
+        mention_fiscale_2041ge: true,
+      }),
+    );
+    expect(html).toContain('RUP W751234567');
+    expect(html).toContain("Association reconnue d'utilité publique");
+  });
+
+  it('n° RUP absent → aucune mention RUP (Cerfa émis sans)', () => {
+    const html = renderByType(
+      'attestation-don',
+      attestationData({
+        association_numero_rup: null,
+        mention_fiscale_2041ge: true,
+      }),
+    );
+    expect(html).not.toContain('RUP');
+    expect(html).not.toContain("reconnue d'utilité publique");
+    // Contrôle : le reste de la mention fiscale est bien là (pas d'effet de bord).
+    expect(html).toContain('238 bis');
+  });
+
   it('contenu §12 §1.3 : adresse association + équivalence km voiture + méthodo FAO', () => {
     const html = renderByType('attestation-don', attestationData());
     // Nom ET adresse de l'association bénéficiaire (CDC §12 l.154).

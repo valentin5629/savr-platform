@@ -12,7 +12,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(11);
+SELECT plan(13);
 
 CREATE OR REPLACE FUNCTION test_set_jwt(
   p_role text,
@@ -130,6 +130,15 @@ SELECT lives_ok(
   $$ UPDATE plateforme.associations SET contact_telephone = '0600000000' WHERE id = 'a5500901-0000-0000-0000-0000000000a1'::uuid $$,
   'ops_savr PEUT éditer un contact d''association (pas de sur-blocage, §09 l.400)'
 );
+-- numero_rup : « Édition admin-only » (§06.06 §5, arbitrage Val 2026-09-14) — source
+-- de l'instantané fiscal attestations_don.association_numero_rup, donc protégé au même
+-- titre que l'habilitation 2041-GE (migration 20260914180000 : trg_ops_immutable_cols).
+SELECT throws_ok(
+  $$ UPDATE plateforme.associations SET numero_rup = 'W751234567' WHERE id = 'a5500901-0000-0000-0000-0000000000a1'::uuid $$,
+  '42501',
+  NULL,
+  'ops_savr NE PEUT PAS modifier associations.numero_rup (§06.06 §5, admin-only)'
+);
 
 -- =====================================================================
 -- 9-10 — ORGANISATIONS : tarif refacturé admin-only / infos ops-OK
@@ -143,6 +152,16 @@ SELECT throws_ok(
 SELECT lives_ok(
   $$ UPDATE plateforme.organisations SET nom = 'Org A (maj ops)' WHERE id = '0a900001-0000-0000-0000-0000000000a1'::uuid $$,
   'ops_savr PEUT modifier les infos générales d''une organisation (pas de sur-blocage, §09 l.406)'
+);
+
+-- =====================================================================
+-- 13 — Contrôle positif : admin_savr PEUT renseigner le n° RUP (pas de sur-blocage)
+-- =====================================================================
+SELECT test_set_jwt('admin_savr', '0a900001-0000-0000-0000-0000000000a1'::uuid,
+                    '05e70903-0000-0000-0000-0000000000a1'::uuid);
+SELECT lives_ok(
+  $$ UPDATE plateforme.associations SET numero_rup = 'W751234567' WHERE id = 'a5500901-0000-0000-0000-0000000000a1'::uuid $$,
+  'admin_savr PEUT renseigner associations.numero_rup (§06.06 §5)'
 );
 
 SELECT * FROM finish();

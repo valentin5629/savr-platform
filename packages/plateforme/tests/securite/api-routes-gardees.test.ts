@@ -15,13 +15,21 @@
  * règle : `/auth` est aussi exclu du middleware (PUBLIC_PREFIXES), ils n'ont donc
  * pas davantage de filet en amont (revue sécurité #281 — callback d'impersonation).
  */
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
 
 import { describe, it, expect } from 'vitest';
 
 const APP = resolve(__dirname, '../../src/app');
 const API = join(APP, 'api');
+// Répertoires de routing que Next sert sans passer par src/app : Pages Router
+// (`src/pages`), et les variantes à la racine du package quand `src/` n'est pas
+// utilisé (`pages`, `app`). Tous sont hors du scan ci-dessous ET hors middleware
+// (`api(?:/|$)` exclu) — un handler qui s'y glisse est un endpoint nu (#286).
+const RACINES_HORS_SCAN = ['src/pages', 'pages', 'app'] as const;
+// Next lit le PREMIER de ces trois fichiers : un `next.config.js` primerait sur
+// le `.ts` et y cacherait un `pageExtensions` (revue sécurité #288, R1).
+const CONFIGS_NEXT = ['next.config.js', 'next.config.mjs', 'next.config.ts'];
 
 // Gardes de session applicatives (src/lib/api-auth.ts, src/lib/registre/guard.ts).
 const GARDE_SESSION =
@@ -120,6 +128,31 @@ describe('routes API — garde propre obligatoire (middleware exclut /api)', () 
     expect(acceptes.filter((n) => !FICHIER_ROUTE.test(n))).toEqual([]);
     for (const n of ['routes.ts', 'route.d.ts', 'route.test.ts', 'route.mts'])
       expect(FICHIER_ROUTE.test(n)).toBe(false);
+  });
+
+  it("le scan n'est pas contourné par un autre répertoire de routing", () => {
+    // La convention V1 est App Router sous `src/` (CDC §07, 9.1.12) : on refuse
+    // ces répertoires plutôt que de dupliquer la garde. Si l'un devient
+    // nécessaire, étendre la racine du scan (routes()) en même temps.
+    const presents = RACINES_HORS_SCAN.filter((r) =>
+      existsSync(resolve(__dirname, '../..', r)),
+    );
+    expect(presents).toEqual([]);
+  });
+
+  it('les 4 extensions du scan restent celles que Next applique', () => {
+    // FICHIER_ROUTE dérive du défaut Next (tsx|ts|jsx|js). Définir `pageExtensions`
+    // changerait cette liste et désynchroniserait le scan en silence : soit on ne
+    // le définit pas, soit FICHIER_ROUTE doit en être dérivé. Contrôlé sur TOUS
+    // les fichiers de config présents, pas seulement celui que Next retiendra.
+    const presents = CONFIGS_NEXT.map((n) =>
+      resolve(__dirname, '../..', n),
+    ).filter((p) => existsSync(p));
+    expect(presents.length).toBeGreaterThan(0); // anti-vacuité
+    const fautifs = presents.filter((p) =>
+      /\bpageExtensions\b/.test(sansCommentaires(readFileSync(p, 'utf8'))),
+    );
+    expect(fautifs).toEqual([]);
   });
 
   it('garde anti-vacuité : les routes sont bien énumérées', () => {

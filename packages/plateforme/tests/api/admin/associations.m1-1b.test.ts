@@ -258,6 +258,129 @@ describe('M1.1b / Associations / Champs protégés ops', () => {
     );
   });
 
+  // ── CRÉATION — symétrie avec le PATCH (revue reviewer-rls-securite, PR #299) ──
+  // Le POST n'était gardé que par requireStaff alors que son insert accepte les
+  // colonnes admin-only (§06.06 §5 l.425-426) : un ops pouvait POSER à la création
+  // ce que ce PATCH lui refuse. Aucune barrière DB ne rattrape cette route (elle
+  // écrit en service_role : RLS bypassée, f_app_role() NULL → les triggers
+  // trg_ops_immutable_cols s'exemptent) — l'oracle est donc ici, pas en pgTAP.
+  it.each([
+    ['siren', { siren: '123456789' }],
+    ['numero_rup', { numero_rup: 'W751234567' }],
+    ['habilitee_attestation_fiscale', { habilitee_attestation_fiscale: true }],
+    [
+      'date_expiration_habilitation',
+      { date_expiration_habilitation: '2027-12-31' },
+    ],
+    ['id_point_collecte_mts1', { id_point_collecte_mts1: 'PC-42' }],
+  ])(
+    'M1.1b/associations/create — 403 si ops pose %s à la création',
+    async (champ, patch) => {
+      setupAuth('ops_savr');
+      const { POST } = await import('@/app/api/v1/admin/associations/route.js');
+      const res = await POST(
+        makeReq('POST', '/api/v1/admin/associations', {
+          ...BASE_ASSO,
+          ...patch,
+        }),
+      );
+      expect(res.status).toBe(403);
+      const body = (await res.json()) as { error: string };
+      expect(body.error).toContain(champ);
+      // Rien ne part en base, et l'API adresse n'est pas appelée pour une requête
+      // rejetée (la garde passe avant le géocodage).
+      expect(mockSupabaseChain.insert).not.toHaveBeenCalled();
+      const { geocodeAdresse } = await import('@/lib/geocoding.js');
+      expect(geocodeAdresse).not.toHaveBeenCalled();
+    },
+  );
+
+  it('M1.1b/associations/create — 201 pour ops quand le bloc admin est neutre (la modale envoie toujours ces clés)', async () => {
+    setupAuth('ops_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: { id: 'asso-1', ...BASE_ASSO },
+      error: null,
+    });
+    const { POST } = await import('@/app/api/v1/admin/associations/route.js');
+    // Forme exacte du payload de association-modal.tsx : les clés admin sont
+    // présentes mais vides/false. Les refuser sur leur seule PRÉSENCE rendrait
+    // toute création impossible à ops — la garde porte sur la valeur posée.
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/associations', {
+        ...BASE_ASSO,
+        siren: null,
+        numero_rup: null,
+        habilitee_attestation_fiscale: false,
+        date_expiration_habilitation: null,
+        id_point_collecte_mts1: null,
+      }),
+    );
+    expect(res.status).toBe(201);
+  });
+
+  it("M1.1b/associations/create — chaîne vide sur un champ admin-only ⇒ NULL en base (pas de '')", async () => {
+    setupAuth('ops_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: { id: 'asso-1', ...BASE_ASSO },
+      error: null,
+    });
+    const { POST } = await import('@/app/api/v1/admin/associations/route.js');
+    // `''` n'est pas une valeur posée (la garde laisse passer) : il doit donc être
+    // normalisé à l'insert — NULL pour les colonnes texte/date, `false` pour la
+    // colonne booléenne. Sinon ops écrirait bel et bien `''` dans une colonne
+    // admin-only, et `''::date` / `''::boolean` remonteraient un 500 PG brut.
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/associations', {
+        ...BASE_ASSO,
+        siren: '',
+        numero_rup: '',
+        date_expiration_habilitation: '',
+        id_point_collecte_mts1: '',
+        habilitee_attestation_fiscale: '',
+      }),
+    );
+    expect(res.status).toBe(201);
+    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        siren: null,
+        numero_rup: null,
+        date_expiration_habilitation: null,
+        id_point_collecte_mts1: null,
+        // Colonne booléenne : `''` ne doit pas atteindre PG (`''::boolean` = 500).
+        habilitee_attestation_fiscale: false,
+      }),
+    );
+  });
+
+  it('M1.1b/associations/create — admin persiste les champs admin-only', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: { id: 'asso-1', ...BASE_ASSO },
+      error: null,
+    });
+    const { POST } = await import('@/app/api/v1/admin/associations/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/associations', {
+        ...BASE_ASSO,
+        siren: '123456789',
+        numero_rup: 'W751234567',
+        habilitee_attestation_fiscale: true,
+        date_expiration_habilitation: '2027-12-31',
+        id_point_collecte_mts1: 'PC-42',
+      }),
+    );
+    expect(res.status).toBe(201);
+    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        siren: '123456789',
+        numero_rup: 'W751234567',
+        habilitee_attestation_fiscale: true,
+        date_expiration_habilitation: '2027-12-31',
+        id_point_collecte_mts1: 'PC-42',
+      }),
+    );
+  });
+
   it('M1.1b/associations/patch — 422 si description modifiée < 30 chars', async () => {
     setupAuth('admin_savr');
     mockSupabaseChain.single.mockResolvedValueOnce({

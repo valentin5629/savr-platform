@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import { ASSOCIATIONS_ADMIN_FIELDS } from '@/lib/associations-champs-admin.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 
@@ -92,15 +93,12 @@ export async function PATCH(
   // Champs admin-only (§5 associations l.425-426 : SIREN + habilitation 2041-GE
   // (booléen + date d'expiration) + désactivation `actif`). Ajout Val 2026-07-02 :
   // siren (col. créée) + date_expiration_habilitation. Ajout Val 2026-09-14 :
-  // numero_rup (§06.06 §5 « Édition admin-only »).
-  const ADMIN_FIELDS = [
-    'habilitee_attestation_fiscale',
-    'date_expiration_habilitation',
-    'siren',
-    'numero_rup',
-    'id_point_collecte_mts1',
-    'actif',
-  ];
+  // numero_rup (§06.06 §5 « Édition admin-only »). Liste PARTAGÉE avec la route
+  // de création (@/lib/associations-champs-admin.js) : elle vivait ici en local,
+  // le POST l'ignorait, et un ops pouvait poser à la création ce que ce PATCH lui
+  // refuse. Alias local typé `readonly string[]` : le tuple `as const` n'accepte
+  // pas `.includes(k: string)` tel quel.
+  const ADMIN_FIELDS: readonly string[] = ASSOCIATIONS_ADMIN_FIELDS;
 
   const allowedFields =
     auth.ctx.role === 'admin_savr'

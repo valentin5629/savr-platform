@@ -77,24 +77,33 @@ function sansCommentaires(src: string): string {
   return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 }
 
-function routes(racine: string, dir = racine): string[] {
+// Next.js reconnait un route handler sous ces quatre noms — le cliquet doit les
+// couvrir tous, sinon un handler `route.tsx` échappe silencieusement à la règle
+// (revue sécurité #284).
+const FICHIER_ROUTE = /^route\.(?:t|j)sx?$/;
+
+type Handler = { route: string; fichier: string };
+
+function routes(racine: string, dir = racine): Handler[] {
   return readdirSync(dir).flatMap((nom) => {
     const p = join(dir, nom);
     if (statSync(p).isDirectory()) {
       // Sous-arbre /api couvert par TOUTES, pas par HORS_API.
       return racine === APP && p === API ? [] : routes(racine, p);
     }
-    return nom === 'route.ts'
-      ? [relative(racine, dir).split(sep).join('/')]
+    return FICHIER_ROUTE.test(nom)
+      ? [{ route: relative(racine, dir).split(sep).join('/'), fichier: nom }]
       : [];
   });
 }
 
 const TOUTES = routes(API);
+const CHEMINS = TOUTES.map((h) => h.route);
 
 // Route handlers hors /api (chemin relatif à src/app). Aucune garde de session
 // possible ici : chacun doit être listé avec la garde qui le protège.
 const HORS_API = routes(APP);
+const CHEMINS_HORS_API = HORS_API.map((h) => h.route);
 const EXCEPTIONS_HORS_API: Record<string, { garde: RegExp; raison: string }> = {
   'auth/impersonate-callback': {
     garde: /\bverifyOtp\([\s\S]*\bverifierImpersonation\(/,
@@ -110,16 +119,16 @@ describe('routes API — garde propre obligatoire (middleware exclut /api)', () 
 
   it('chaque exception pointe une route existante', () => {
     const inconnues = Object.keys(EXCEPTIONS).filter(
-      (r) => !TOUTES.includes(r),
+      (r) => !CHEMINS.includes(r),
     );
     expect(inconnues).toEqual([]);
   });
 
   it('chaque handler exporté appelle une garde reconnue', () => {
     const fautives: string[] = [];
-    for (const route of TOUTES) {
+    for (const { route, fichier } of TOUTES) {
       const src = sansCommentaires(
-        readFileSync(join(API, route, 'route.ts'), 'utf8'),
+        readFileSync(join(API, route, fichier), 'utf8'),
       );
       const methodes = [...src.matchAll(METHODE)].map((m) => m[1]);
       const exception = EXCEPTIONS[route];
@@ -150,15 +159,15 @@ describe('routes API — garde propre obligatoire (middleware exclut /api)', () 
 
 describe('route handlers hors /api — garde propre obligatoire (middleware exclut /auth)', () => {
   it("garde anti-vacuité : le callback d'impersonation est énuméré", () => {
-    expect(HORS_API).toContain('auth/impersonate-callback');
+    expect(CHEMINS_HORS_API).toContain('auth/impersonate-callback');
   });
 
   it('chaque route hors /api appelle une garde reconnue', () => {
     const fautives: string[] = [];
-    for (const route of HORS_API) {
+    for (const { route, fichier } of HORS_API) {
       const exception = EXCEPTIONS_HORS_API[route];
       const src = sansCommentaires(
-        readFileSync(join(APP, route, 'route.ts'), 'utf8'),
+        readFileSync(join(APP, route, fichier), 'utf8'),
       );
       if (!exception) {
         const methodes = [...src.matchAll(METHODE)].length;
@@ -177,7 +186,9 @@ describe('route handlers hors /api — garde propre obligatoire (middleware excl
 
   it('chaque exception pointe une route existante', () => {
     expect(
-      Object.keys(EXCEPTIONS_HORS_API).filter((r) => !HORS_API.includes(r)),
+      Object.keys(EXCEPTIONS_HORS_API).filter(
+        (r) => !CHEMINS_HORS_API.includes(r),
+      ),
     ).toEqual([]);
   });
 });

@@ -390,21 +390,36 @@ describe("Server Actions — aucune, faute de filet en amont pour l'accueillir",
  * La config Next est ici *exécutée*, pas relue : la garde couvre donc aussi ce
  * qu'aucun scan textuel ne verrait — composition (`import base from
  * './next.base'`, spread) et plugins qui injectent la clé eux-mêmes, comme
- * `withSentryConfig`. Limites assumées : une clé conditionnée par une variable
- * d'environnement absente du test, et les `NextResponse.rewrite()` du middleware
- * (qui, eux, visent des routes déjà gardées) restent hors de portée.
+ * `withSentryConfig`. L'exécution a sa propre zone d'ombre, symétrique : une clé
+ * conditionnée par une variable d'environnement absente du test ne s'évalue pas.
+ * D'où la relecture textuelle CONSERVÉE en second contrôle, qui voit précisément
+ * celles-là. L'union n'est pas totale pour autant : une clé à la fois INDIRECTE
+ * et CONDITIONNÉE — posée dans un module importé, derrière un `process.env` —
+ * échappe aux deux, le textuel ne lisant que les `CONFIG_FILES`. Hors de portée
+ * également : les `NextResponse.rewrite()` du middleware, qui visent des routes
+ * déjà gardées.
  */
 const PHASES_NEXT = Object.entries(constantesNext)
   .filter(([cle, val]) => cle.startsWith('PHASE_') && typeof val === 'string')
   .map(([, val]) => val as string);
 
-// `headers`, `functions`, `crons` et `regions` ne créent aucun chemin nouveau.
-const CLES_ROUTAGE_VERCEL = [
+// Les quatre premières créent ou détournent un chemin HTTP ; `public` n'en crée
+// pas mais expose sources et logs du déploiement. `headers`, `functions`,
+// `crons` et `regions` sont sans effet sur les chemins servis.
+const CLES_VERCEL_INTERDITES = [
   'rewrites',
   'redirects',
   'routes',
   'builds',
+  'public',
 ] as const;
+
+// Second contrôle, textuel : voit les clés que l'exécution n'évalue pas (mises
+// derrière une condition d'environnement), et couvre les fichiers de config que
+// Next NE retiendrait pas — sans lesquels l'un d'eux pourrait devenir actif à
+// la faveur d'un renommage.
+const CLES_NEXT_INTERDITES =
+  /\b(?:rewrites|redirects|pageExtensions|tunnelRoute)\b/g;
 const VERCEL_JSON = [
   join(RACINE_PKG, 'vercel.json'),
   resolve(RACINE_PKG, '../..', 'vercel.json'),
@@ -440,6 +455,32 @@ describe('configuration de déploiement — aucun endpoint hors routing scanné'
     expect(retenue).toBe(CONFIG_NEXT_CHARGEE);
   });
 
+  it('les phases évaluées sont bien énumérées', () => {
+    // Anti-vacuité : sans plancher, un renommage des `PHASE_*` viderait la liste
+    // et les deux assertions sur la config résolue passeraient sur zéro phase.
+    expect(PHASES_NEXT.length).toBeGreaterThan(0);
+  });
+
+  it('aucun fichier de config Next ne mentionne de clé interdite', () => {
+    // Contrôle textuel : complémentaire de l'exécution, sur TOUS les fichiers de
+    // config présents et non le seul que Next retiendrait.
+    const presents = constantesNext.CONFIG_FILES.map((nom) =>
+      join(RACINE_PKG, nom),
+    ).filter((p) => existsSync(p));
+    expect(presents.length).toBeGreaterThan(0); // anti-vacuité
+    const fautifs = presents.flatMap((p) => {
+      const trouvees = [
+        ...new Set(
+          sansCommentaires(readFileSync(p, 'utf8')).match(
+            CLES_NEXT_INTERDITES,
+          ) ?? [],
+        ),
+      ];
+      return trouvees.map((cle) => `${relative(RACINE_PKG, p)} : ${cle}`);
+    });
+    expect(fautifs).toEqual([]);
+  });
+
   it('la config Next résolue ne définit ni rewrites ni redirects', async () => {
     const fautifs = (await configsNextResolues()).flatMap(({ phase, config }) =>
       (['rewrites', 'redirects'] as const)
@@ -464,7 +505,7 @@ describe('configuration de déploiement — aucun endpoint hors routing scanné'
     expect(presents.length).toBeGreaterThan(0); // anti-vacuité
     const fautifs = presents.flatMap((p) => {
       const cles = Object.keys(JSON.parse(readFileSync(p, 'utf8')) as object);
-      return CLES_ROUTAGE_VERCEL.filter((c) => cles.includes(c)).map(
+      return CLES_VERCEL_INTERDITES.filter((c) => cles.includes(c)).map(
         (c) => `${relative(RACINE_PKG, p)} : ${c}`,
       );
     });

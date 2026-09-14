@@ -173,7 +173,12 @@ const mockChain = {
   update: vi.fn().mockReturnThis(),
   eq: vi.fn().mockReturnThis(),
   single: vi.fn(),
-  auth: { admin: { generateLink: mockGenerateLink } },
+  auth: {
+    admin: {
+      generateLink: mockGenerateLink,
+      updateUserById: vi.fn().mockResolvedValue({ data: {}, error: null }),
+    },
+  },
 };
 vi.mock('@savr/shared/src/supabase-client.js', () => ({
   createAdminSupabaseClient: () => mockChain,

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 export class TarifZdError extends Error {
   constructor(
@@ -65,7 +66,7 @@ export async function calculer_tarif_zd(
     );
   }
 
-  const dateStr = date.toISOString().substring(0, 10);
+  const dateStr = jourParis(date);
 
   // 1. Résoudre la grille active pour cette organisation et cette date
   let grilleId: string | null = null;

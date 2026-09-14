@@ -8,6 +8,7 @@ import { describe, it, expect } from 'vitest';
 
 import {
   FUSEAU_SAVR,
+  instantParis,
   jourParis,
   jourParisDecale,
   formatDateParis,
@@ -84,5 +85,51 @@ describe('temps — formatage', () => {
 
   it('le fuseau métier est Europe/Paris', () => {
     expect(FUSEAU_SAVR).toBe('Europe/Paris');
+  });
+});
+
+describe('temps — instantParis (heure murale parisienne → instant réel)', () => {
+  it('été : 23h30 à Paris = 21h30 UTC', () => {
+    expect(instantParis('2026-07-14', '23:30').toISOString()).toBe(
+      '2026-07-14T21:30:00.000Z',
+    );
+  });
+
+  it('hiver : 23h30 à Paris = 22h30 UTC', () => {
+    expect(instantParis('2026-01-14', '23:30').toISOString()).toBe(
+      '2026-01-14T22:30:00.000Z',
+    );
+  });
+
+  it('accepte HH:MM:SS et se passe d’heure (minuit par défaut)', () => {
+    expect(instantParis('2026-07-14', '08:15:30').toISOString()).toBe(
+      '2026-07-14T06:15:30.000Z',
+    );
+    expect(instantParis('2026-07-14').toISOString()).toBe(
+      '2026-07-13T22:00:00.000Z',
+    );
+  });
+
+  it('jour de bascule : avant et après le changement d’heure', () => {
+    // 29/03/2026, passage à l'heure d'été à 02h00 → 03h00
+    expect(instantParis('2026-03-29', '01:30').toISOString()).toBe(
+      '2026-03-29T00:30:00.000Z',
+    ); // encore UTC+1
+    expect(instantParis('2026-03-29', '04:30').toISOString()).toBe(
+      '2026-03-29T02:30:00.000Z',
+    ); // déjà UTC+2
+    // 25/10/2026, retour à l'heure d'hiver à 03h00 → 02h00
+    expect(instantParis('2026-10-25', '04:30').toISOString()).toBe(
+      '2026-10-25T03:30:00.000Z',
+    ); // UTC+1
+  });
+
+  it('aller-retour : l’instant se relit bien comme le jour parisien attendu', () => {
+    expect(jourParis(instantParis('2026-07-14', '23:59'))).toBe('2026-07-14');
+    expect(formatHeureParis(instantParis('2026-07-14', '23:59'))).toBe('23:59');
+  });
+
+  it('entrée invalide → date invalide, jamais d’exception', () => {
+    expect(Number.isNaN(instantParis('pas-une-date').getTime())).toBe(true);
   });
 });

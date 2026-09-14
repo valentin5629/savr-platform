@@ -5,6 +5,7 @@
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { calculer_tarif_zd } from '../tarif-zd.js';
 import { calculer_tarif_ag } from './tarif-ag.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
@@ -110,8 +111,7 @@ export async function runBatchBrouillonsJ1(
     (c) => !dejaIds.has(c.id),
   );
 
-  const today = new Date();
-  const moisCourant = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+  const moisCourant = jourParis().slice(0, 7); // mois du jour parisien
 
   for (const collecte of aTraiter) {
     try {

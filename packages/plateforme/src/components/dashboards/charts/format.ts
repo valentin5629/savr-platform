@@ -8,6 +8,9 @@ export function formatPeriode(periode: string, g: Granularite): string {
     return d.toLocaleDateString('fr-FR', {
       month: 'short',
       year: '2-digit',
+      // Valeur date-only (« YYYY-MM-DD » construite en T00:00:00Z) : UTC est ici
+      // le fuseau JUSTE, Europe/Paris décalerait l'étiquette d'un jour en arrière.
+      // eslint-disable-next-line no-restricted-syntax -- exception documentée
       timeZone: 'UTC',
     });
   }
@@ -15,6 +18,7 @@ export function formatPeriode(periode: string, g: Granularite): string {
   return d.toLocaleDateString('fr-FR', {
     day: '2-digit',
     month: '2-digit',
+    // eslint-disable-next-line no-restricted-syntax -- cf. ci-dessus (date-only)
     timeZone: 'UTC',
   });
 }

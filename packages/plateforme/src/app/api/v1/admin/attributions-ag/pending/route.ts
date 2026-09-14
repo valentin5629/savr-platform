@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import { instantParis } from '@savr/shared/src/temps/index.js';
 
 // GET /api/v1/admin/attributions-ag/pending
 // File d'attente AG en attente d'attribution (statut='programmee', type='anti_gaspi', pas d'attribution)
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const r = row as Record<string, unknown>;
     const dateStr = r.date_collecte as string;
     const heureStr = (r.heure_collecte as string) ?? '00:00:00';
-    const ts = new Date(`${dateStr}T${heureStr}`).getTime();
+    const ts = instantParis(dateStr, heureStr).getTime();
     return {
       ...r,
       criticite: Number.isFinite(ts) ? ts < seuil48h : false,

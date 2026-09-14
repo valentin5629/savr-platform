@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Modal } from '@/components/ui/modal';
+import { instantParis } from '@savr/shared/src/temps/index.js';
 
 interface TypeEvenement {
   id: string;
@@ -106,7 +107,7 @@ export function EditerCollecteForm({
   const editable = STATUTS_EDITABLES.includes(collecte.statut);
 
   // Créneau < 12h → avertissement priorité (§05 l.316, §06.04 l.483).
-  const creneau = new Date(`${dateCollecte}T${heureCollecte || '00:00'}:00`);
+  const creneau = instantParis(dateCollecte, `${heureCollecte || '00:00'}:00`);
   const urgence = creneau.getTime() - Date.now() < 12 * 3600 * 1000;
   // Réacceptation prestataire (§06.04 l.505) : modif de créneau sur collecte
   // acceptée → le prestataire devra re-confirmer.

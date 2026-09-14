@@ -22,6 +22,7 @@ import { statutTmsDisplay } from '@/lib/statut-tms-labels';
 import type { StatutCollecte } from '@/components/ui/status-collecte';
 import { cn } from '@/lib/utils';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { instantParis } from '@savr/shared/src/temps/index.js';
 
 // ── Type de ligne collecte affichée par la carte (liste Admin, §06.06 §3) ──────
 // Superset du SELECT liste : les champs transporteur_nom / montant_ht / pack sont
@@ -160,7 +161,7 @@ export function formatDateHeure(
   jour: string;
   heure: string;
 } {
-  const d = new Date(`${date}T${heure ?? '00:00:00'}`);
+  const d = instantParis(date, heure ?? '00:00:00');
   const jour = d
     .toLocaleDateString('fr-FR', {
       timeZone: 'Europe/Paris',

@@ -93,3 +93,51 @@ export function formatDateHeureParis(input: Entree): string {
   if (!d) return String(input);
   return `${formatDateParis(d)} ${formatHeureParis(d)}`;
 }
+
+/** Décalage d'Europe/Paris par rapport à UTC, en ms, à l'instant `d` (DST inclus). */
+function decalageParis(d: Date): number {
+  const p = new Intl.DateTimeFormat('en-US', {
+    timeZone: FUSEAU_SAVR,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(d);
+  const v = (t: string): number => Number(p.find((x) => x.type === t)?.value);
+  const heure = v('hour') === 24 ? 0 : v('hour'); // en-US rend parfois « 24 » à minuit
+  const commeUtc = Date.UTC(
+    v('year'),
+    v('month') - 1,
+    v('day'),
+    heure,
+    v('minute'),
+    v('second'),
+  );
+  return commeUtc - d.getTime();
+}
+
+/**
+ * Instant réel correspondant à une heure MURALE parisienne — `instantParis(
+ * '2026-07-14', '23:30')` = le 14/07 à 23h30 à Paris, où que tourne le code.
+ *
+ * Remplace `new Date(\`${jour}T${heure}\`)`, qui interprète l'heure dans le fuseau
+ * du process : sur Vercel (UTC) le créneau d'une collecte était décalé de 1 à 2h,
+ * donc le seuil « moins de 12h avant la collecte » ne tombait pas au même moment
+ * côté API et côté SQL (trigger de débit du pack AG, ancré Europe/Paris).
+ *
+ * L'heure accepte « HH:MM » ou « HH:MM:SS ». Entrée invalide → date invalide.
+ */
+export function instantParis(jour: string, heure = '00:00'): Date {
+  const hms = heure.length === 5 ? `${heure}:00` : heure;
+  const naif = new Date(`${jour}T${hms}Z`); // lu comme UTC, puis recalé sur Paris
+  if (Number.isNaN(naif.getTime())) return naif;
+  const premier = new Date(naif.getTime() - decalageParis(naif));
+  const decale = decalageParis(premier);
+  // Près d'une bascule DST, le décalage de l'instant visé diffère de l'estimation.
+  return decale === decalageParis(naif)
+    ? premier
+    : new Date(naif.getTime() - decale);
+}

@@ -42,7 +42,7 @@ export default tseslint.config(
         'error',
         {
           selector:
-            "CallExpression[callee.object.callee.property.name='toISOString'][callee.property.name=/^(slice|split)$/]",
+            "CallExpression[callee.object.callee.property.name='toISOString'][callee.property.name=/^(slice|split|substring|substr)$/]",
           message:
             "Jour calculé en UTC : toISOString() renvoie la VEILLE entre 22h et minuit à Paris. Utiliser jourParis() de '@savr/shared/src/temps/index.js'.",
         },
@@ -51,6 +51,24 @@ export default tseslint.config(
             "CallExpression[callee.property.name=/^toLocale(Date|Time)String$/]:not(:has(ObjectExpression > Property[key.name='timeZone']))",
           message:
             "Date formatée dans le fuseau du process (UTC en prod). Ajouter { timeZone: 'Europe/Paris' } ou utiliser formatDateParis/formatHeureParis de '@savr/shared/src/temps/index.js'.",
+        },
+        {
+          selector:
+            "CallExpression[callee.property.name='toLocaleString']:has(ObjectExpression > Property[key.name=/^(day|month|year|weekday|hour|minute|second|dateStyle|timeStyle)$/]):not(:has(ObjectExpression > Property[key.name='timeZone']))",
+          message:
+            "Date formatée dans le fuseau du process (UTC en prod). Ajouter { timeZone: 'Europe/Paris' }.",
+        },
+        {
+          selector:
+            "NewExpression[callee.object.name='Intl'][callee.property.name='DateTimeFormat']:not(:has(Property[key.name='timeZone']))",
+          message:
+            "Intl.DateTimeFormat sans timeZone : suit le fuseau du process (UTC en prod). Ajouter timeZone: 'Europe/Paris' — ou utiliser les helpers de '@savr/shared/src/temps/index.js'.",
+        },
+        {
+          selector:
+            "Property[key.name='timeZone'][value.type='Literal'][value.value!='Europe/Paris']",
+          message:
+            "Fuseau autre qu'Europe/Paris : le projet n'en a qu'un (§16). Exception délibérée → eslint-disable avec justification.",
         },
         {
           selector:

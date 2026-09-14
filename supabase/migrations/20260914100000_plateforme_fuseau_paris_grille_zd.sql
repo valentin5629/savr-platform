@@ -81,3 +81,15 @@ $fn$;
 
 COMMENT ON FUNCTION plateforme.rpc_creer_grille_zd(text, plateforme.mode_grille_zd, boolean, date, jsonb, text) IS
   'Crée une grille tarifaire ZD versionnée. Date de prise d''effet par défaut = jour courant à Paris (fuseau métier), jamais le jour UTC.';
+
+-- Droits reposés à l'identique de la migration source, par IDEMPOTENCE : si la
+-- fonction n'existait pas dans la base cible, `CREATE OR REPLACE` dégénère en
+-- `CREATE` et Postgres rend EXECUTE à PUBLIC (le piège de la P0 #263) — une RPC
+-- SECURITY DEFINER qui écrit les grilles tarifaires serait alors appelable par
+-- `anon` via PostgREST. Rejouer REVOKE + GRANT coûte zéro et ferme le cas.
+REVOKE ALL ON FUNCTION
+  plateforme.rpc_creer_grille_zd(text, plateforme.mode_grille_zd, boolean, date, jsonb, text)
+  FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION
+  plateforme.rpc_creer_grille_zd(text, plateforme.mode_grille_zd, boolean, date, jsonb, text)
+  TO service_role;

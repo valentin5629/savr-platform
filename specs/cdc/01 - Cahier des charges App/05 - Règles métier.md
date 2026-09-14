@@ -899,7 +899,7 @@ Chaque séquence repart à 00001 au 1er janvier. La combinaison (préfixe + ann�
 
 ### R_code_mts1_requis — Code transporteur MTS-1 obligatoire si `type_tms = 'mts1'` *(ajout 2026-05-29, propagation §3bis)*
 
-**Objectif** : garantir qu'un transporteur dispatché via MTS-1 dispose bien de son `carrierShareableCode`, sans quoi le dispatch de la tournée `POST /v3/tours/{tourId}/dispatch` (payload `{ carrierShareableCode }`) échoue *(flux réconcilié sur le relevé as-built — propagation §08 §3bis 2026-06-06)*.
+**Objectif** : garantir qu'un transporteur dispatché via MTS-1 dispose bien de son `carrierShareableCode`, sans quoi le dispatch de la tournée `POST /v3/dispatch/{tourId}/toCarrier` (payload `{ carrierShareableCode }` — route corrigée 2026-09-04, l'ancienne `POST /v3/tours/{tourId}/dispatch` n'existe pas en V3) échoue *(flux réconcilié sur le relevé as-built — propagation §08 §3bis 2026-06-06)*.
 
 **Règle** :
 

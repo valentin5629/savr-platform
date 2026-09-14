@@ -181,16 +181,78 @@ Scénario : s11_collecte_rejetee_par_tms_alerte_admin
 Scénario : mts1_flux_nominal_creation_ordre_tournee_dispatch
   Étant donné une collecte AG Marathon province (transporteur.type_tms=mts1, branche=ag_province_proximite)
     Et la collecte vient d'être attribuée (statut_tms=non_envoye)
-    Et MTS-1 DEMO retourne 201 sur POST /v3/customerOrders avec customerOrderId=CO_42XZ
+    Et MTS-1 DEMO retourne 201 sur POST /v3/customerOrders avec la réponse {customerOrderId:CO_42XZ, orderNumber:.., customerOrderStatus:..}
     Et MTS-1 DEMO retourne 201 sur POST /v3/tours avec tourId=T_99AB
-    Et MTS-1 DEMO retourne 200 sur POST /v3/tours/T_99AB/dispatch
+    Et MTS-1 DEMO retourne 200 sur PUT /v3/tours/addCustomerOrder
+    Et MTS-1 DEMO retourne 200 sur POST /v3/dispatch/T_99AB/toCarrier
     Et MTS-1 DEMO retourne 200 sur PUT /v3/tours/T_99AB/validate
   Quand le flux de création MTS-1 est déclenché
   Alors collectes.statut_tms = attribuee_en_attente_acceptation
     Et attributions_antgaspi.confirmation_transporteur = {statut:.., reference_externe:CO_42XZ, tour_id:T_99AB, recu_at:.., brut:..}
     Et les headers MTS-1 contiennent Authorization: Bearer <token_vault>
-    Et le payload POST /v3/customerOrders contient orderNumber = collecte.reference (clé de corrélation)
-    Et 4 lignes integrations_logs sont créées (system=mts1, direction=sortant, actions: create_order, create_tour, dispatch, validate)
+    Et le payload POST /v3/customerOrders contient orderNumber = collecte.reference + '-' + rang (clé de corrélation)
+    Et tournees.external_ref_commande = CO_42XZ (id lu sur `customerOrderId` de la réponse, JAMAIS sur `id`)
+    Et le payload POST /v3/tours contient tourDate = date_collecte au format yyyy-MM-dd (champ obligatoire)
+    Et le payload POST /v3/tours ne contient NI customerOrderId, NI stuffs, NI deliveryPlace (ignorés par TourInput)
+    Et le rattachement passe par PUT /v3/tours/addCustomerOrder body {tourId:T_99AB, customerOrderId:CO_42XZ}
+    Et 5 lignes integrations_logs sont créées (system=mts1, direction=sortant, actions: create_order, create_tour, add_customer_order, dispatch, validate)
+```
+
+---
+
+```gherkin
+# Source : §08 §3bis.5 + as-built §4 — MTS-1 : tourDate obligatoire, routes V3 réelles (divergences MTS1 2026-09-04)
+# Couche : api
+# Priorité : P1-critique
+
+Scénario : mts1_routes_v3_reelles_cliquet
+  Étant donné l'adapter MTS-1 sortant
+  Quand il construit le payload de POST /v3/tours sans tourDate
+  Alors MTS-1 répond 400 {"reasons":["INVALID_REQUEST"],"message":"tourDate ... is mandatory"}
+  Et quand il appelle POST /v3/tours/{tourId}/dispatch (ancienne route du relevé Bubble)
+  Alors MTS-1 répond 404 {"reasons":["BAD_ROUTE"]} — la route n'existe pas en V3
+  Et quand il omet PUT /v3/tours/addCustomerOrder
+  Alors la tournée est dispatchée VIDE (aucune commande rattachée) — régression interdite
+  Et les URL réelles sont pinnées par des tests « wire » (niveau qui attrape un 404 invisible aux mocks de handlers)
+```
+
+---
+
+```gherkin
+# Source : as-built §4 — MTS-1 : contact singulier + créneau sur place.timeslots (divergence MTS1 order-contact-timeslots)
+# Couche : api
+# Priorité : P1-critique
+
+Scénario : mts1_payload_commande_contact_et_creneau
+  Étant donné une collecte dont l'événement porte contact_principal_nom="Paul Pol", contact_principal_telephone="+33600000001"
+    Et un contact de secours nommé "Marie Dubois", téléphone "+33600000002"
+    Et heure_collecte = 22:30
+  Quand l'adapter construit le payload POST /v3/customerOrders
+  Alors le payload contient contact = {firstname:"Paul", lastname:"Pol", phone:"+33600000001", phoneAlternatives:["+33600000002"]}
+    Et le payload NE contient PAS de tableau `contacts` ni de champ `timeslots` au niveau commande (champs inconnus, ignorés par MTS-1)
+    Et le créneau est porté par place.timeslots = [{start:"22:30", end:"22:30"}] au format HH:mm (schéma Timeslot), pas un datetime ISO
+    Et le nom du contact de secours "Marie Dubois" est concaténé dans `comment` (MTS-1 n'expose qu'un contact par commande)
+  Et au read-back GET /v3/customerOrders/CO_42XZ, `contact` est peuplé et `place.timeslots` non nul
+```
+
+---
+
+```gherkin
+# Source : as-built §4 — MTS-1 : point B porté par stuffs[].relatedAddress (divergences MTS1 delivery-point-zd / ag-delivery-stuff)
+# Couche : api
+# Priorité : P1-critique
+
+Scénario : mts1_point_b_relatedaddress
+  Étant donné une collecte ZD dispatchée vers MTS-1
+  Quand l'adapter construit le payload POST /v3/customerOrders
+  Alors `place` porte le point A (adresse d'enlèvement traiteur)
+    Et chaque stuff porte relatedAddress = {placeId: <MTS1_ENTREPOT_PLACE_ID>} (entrepôt Savr Saint-Denis, favoritePlace isDepot)
+    Et aucun `deliveryPlace` n'est envoyé sur la tournée (ignoré par TourInput)
+  Étant donné une collecte AG dispatchée vers MTS-1 avec une association porteuse de id_point_collecte_mts1
+  Quand l'adapter construit le payload POST /v3/customerOrders
+  Alors le payload contient exactement 1 stuff {name:"Don alimentaire", task:"PICKUP", quantity:0}
+    Et ce stuff porte relatedAddress = {placeId: association.id_point_collecte_mts1}
+    Et quantity vaut 0 : le poids du don est mesuré pendant la collecte et remonte au polling (comme les 5 flux ZD)
 ```
 
 ---

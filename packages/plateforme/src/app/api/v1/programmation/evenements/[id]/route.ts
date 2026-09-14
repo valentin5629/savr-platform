@@ -243,6 +243,17 @@ export async function PATCH(
   return NextResponse.json({ data: updated });
 }
 
+// Rôles clients dont le DELETE brouillon est borné à leurs PROPRES créations
+// (`created_by = auth.uid()`, matrice §09 tranchée Val 2026-09-14). Absent de cette
+// liste : `traiteur_manager`, dont la matrice accorde le périmètre organisation, et
+// le staff (`admin_savr`/`ops_savr`), global. La garde qui s'appuie dessus est
+// APPLICATIVE par nécessité : la route DELETE tourne en service-role.
+const DELETE_ROLES_PROPRIETAIRE: string[] = [
+  'traiteur_commercial',
+  'agence',
+  'gestionnaire_lieux',
+];
+
 // Suppression d'un événement brouillon (et ses collectes) par son propriétaire.
 // Ouverte à l'admin en mode support, comme la liste qui l'appelle : depuis que
 // celle-ci lui rend ses propres brouillons (GET ../evenements?statut=brouillon,
@@ -279,15 +290,19 @@ export async function DELETE(
     );
   }
 
-  // Périmètre d'ÉCRITURE — miroir de la policy `col_delete_brouillon` (§09), qui
-  // restreint `traiteur_commercial` à `evenements.created_by = auth.uid()` là où les
-  // autres rôles clients ont leur organisation. Le PATCH ci-dessus applique déjà ce
-  // raffinement ; le DELETE ne l'a jamais fait — sans conséquence tant qu'il échouait
-  // en 500 pour tout le monde, mais un commercial pourrait sinon supprimer le
-  // brouillon d'un collègue dès que la route fonctionne. RLS ne rattrape pas : cette
-  // route tourne sous service-role.
+  // Périmètre d'ÉCRITURE — matrice DELETE `evenements` §09 (tranché Val 2026-09-14,
+  // divergences `M1.2_20260717` / `M1.2_20260717_delete-service-role`) : « chacun
+  // supprime ses propres brouillons ». `traiteur_commercial`, `agence` et
+  // `gestionnaire_lieux` sont bornés à `created_by = auth.uid()` ; seul
+  // `traiteur_manager` garde le périmètre organisation (déjà posé par le SELECT
+  // ci-dessus), et le staff reste global. Le §09 exige explicitement que cette
+  // matrice soit posée en garde de rôle APPLICATIVE (403) et pas seulement en
+  // policy : la route tourne sous service-role, la RLS est bypassée et ne rattrape
+  // rien. Sans elle, le prédicat `organisation_id` seul laisserait un membre de
+  // l'orga hard-delete le brouillon d'un collègue — la suppression est un hard
+  // delete assumé (pas de colonne `supprime_le`), donc irréversible.
   if (
-    auth.ctx.role === 'traiteur_commercial' &&
+    DELETE_ROLES_PROPRIETAIRE.includes(auth.ctx.role) &&
     evt.created_by !== auth.ctx.userId
   ) {
     return NextResponse.json(

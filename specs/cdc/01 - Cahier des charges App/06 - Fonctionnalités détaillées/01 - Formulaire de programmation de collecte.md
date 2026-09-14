@@ -1,7 +1,5 @@
 # 06.01 - Formulaire de programmation de collecte
 
-**Statut** : Draft V1 (refonte formulaire unique événement-centré 2026-05-21)
-**Dernière mise à jour** : 2026-05-29 (revue de sobriété — A1/A2/B1/C1-C5)
 
 ---
 
@@ -14,7 +12,7 @@ Utilisé par les 3 types d'organisations programmatrices :
 - `traiteur_commercial`, `traiteur_manager` (programmation classique, traiteur=opérationnel)
 - `agence` (programmation pour le compte d'un traiteur identifié, périmètre ouvert traiteur+lieu)
 - `gestionnaire_lieux` (programmation sur ses propres lieux, pour un traiteur du référentiel Savr)
-- `admin_savr` (programmation de support, tous périmètres)
+- `admin_savr` **et `ops_savr`** (programmation de support, tous périmètres) *(ops_savr ajouté 2026-09-14 — alignement CDC ↔ production : les routes `/api/v1/programmation/*` (`requireProgrammateurOuAdmin`), le mode support du formulaire et le bouton « Programmer une collecte » de `/admin/collectes` l'autorisent depuis la PR #223 ; le middleware Next `src/middleware.ts` (`ROLE_PREFIXES` `/programmer`, `/brouillons`) est aligné en conséquence. Voir la matrice étendue §09.)*
 
 Les **clients finaux** n'accèdent pas au formulaire (lecture seule).
 
@@ -306,6 +304,9 @@ Si la case **Anti-Gaspi** est cochée en étape 1, le formulaire vérifie l'exis
 
 - Sauvegarde **manuelle** via le bouton "Enregistrer en brouillon" (étape 1, 2 et 3). **Retiré V1 (revue sobriété 2026-05-29, A2)** — l'autosave debounced (gestion de conflit + reprise d'état partiel multi-collectes) est du confort disproportionné pour un formulaire rempli en une passe. Le bouton manuel couvre le besoin. Autosave reportable V1.1 si retour terrain.
 - Brouillon récupérable depuis la liste des collectes (filtre "Brouillons"). Un brouillon d'événement multi-collectes est repris dans son état complet (étapes + types cochés).
+- **Périmètre de la liste des brouillons (décision Val 2026-07-17)** : rôles clients = les brouillons de leur **organisation** (miroir de la policy `evt_*_select` — un manager voit ceux de ses commerciaux). Staff (`admin_savr`, `ops_savr`) en mode support = **les brouillons qu'il a lui-même créés** (`created_by`), toutes organisations cibles confondues. Le staff n'ayant pas d'organisation cliente (son JWT porte l'org interne `org_savr`), un périmètre org ne le cloisonnerait pas : il masquerait tout. La liste n'est dans aucune navigation — on n'y atterrit que par la redirection qui suit « Enregistrer en brouillon » — donc le périmètre utile est celui qui rend ce qu'on vient d'enregistrer. Le « tous périmètres » ci-dessus porte sur les **organisations pour lesquelles le staff peut programmer**, pas sur une bannette globale des brouillons d'autrui.
+- **Confirmation et suppression d'un brouillon** sont ouvertes aux mêmes rôles que sa création, staff inclus (sans quoi un brouillon de support est orphelin dès sa création). L'organisation de rattachement est lue **sur l'événement**, jamais sur le JWT de l'appelant. Le **périmètre d'écriture** suit la matrice §09 : `traiteur_commercial`, `agence` et `gestionnaire_lieux` = **leurs propres créations** (`created_by`), `traiteur_manager` = son organisation. Confirmer et supprimer sont des écritures (émission E1 vers le TMS, débit pack AG, suppression) : un commercial ne confirme ni ne supprime donc jamais le brouillon d'un collègue.
+- **Idiomes `requireProgrammateurOuAdmin`** (à respecter sur toute route de programmation) : route de **collection** → l'organisation cible est déclarée en body/query ; route d'**item** (clé par PK) → l'organisation est lue **sur la ligne**. Ne jamais la déduire du JWT de l'appelant en mode support.
 - Suppression manuelle par l'utilisateur ("Supprimer ce brouillon"). Pas de suppression automatique par ancienneté V1.
 
 ### Validations bloquantes (à la confirmation)

@@ -4676,6 +4676,17 @@ export type Database = {
         }
         Returns: Json
       }
+      rpc_creer_tarif_pack_ag: {
+        Args: {
+          p_credits: number
+          p_mensualisable?: boolean
+          p_nb_mensualites?: number
+          p_prix_unitaire_ht: number
+          p_type_pack: string
+          p_valide_du: string
+        }
+        Returns: Json
+      }
       rpc_maj_co2_divers: {
         Args: { p_auteur: string; p_commentaire: string; p_divers: Json }
         Returns: Json

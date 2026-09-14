@@ -202,11 +202,9 @@ describe('M2.1 / Tarifs packs AG — versioning', () => {
 
   it('M2.1/tarifs-ag/creation-ok — admin crée un nouveau tarif (versioning)', async () => {
     setupAuth('admin_savr');
-    // update (fermeture ancienne ligne) → pas de retour attendu
-    mockSupabaseChain.update.mockReturnThis();
-    mockSupabaseChain.is.mockReturnThis();
-    // insert + single
-    mockSupabaseChain.single.mockResolvedValueOnce({
+    // Fermeture + insertion = UN seul appel, la RPC atomique
+    // rpc_creer_tarif_pack_ag (migration 20260914160000).
+    mockSupabaseChain.rpc.mockResolvedValueOnce({
       data: {
         id: 'tarif-2',
         type_pack: 'pack_10',
@@ -234,6 +232,10 @@ describe('M2.1 / Tarifs packs AG — versioning', () => {
       }),
     );
     expect(res.status).toBe(201);
+    expect(mockSupabaseChain.rpc).toHaveBeenCalledWith(
+      'rpc_creer_tarif_pack_ag',
+      expect.objectContaining({ p_type_pack: 'pack_10', p_credits: 10 }),
+    );
   });
 
   it('M2.1/tarifs-ag/422-date-passee — valide_du dans le passé → 422', async () => {

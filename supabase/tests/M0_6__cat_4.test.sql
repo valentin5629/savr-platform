@@ -119,6 +119,11 @@ VALUES
   ('fac00002-0000-0000-0000-000000000001'::uuid, '0a900002-0000-0000-0000-000000000001'::uuid, 'ee100002-0000-0000-0000-000000000001'::uuid, 'FAC-002', 150.00, 180.00, 'brouillon');
 
 -- Packs AG A et B
+-- uniq_tarif_pack_ag_ouvert_par_type (20260914160000) n'autorise qu'UNE ligne
+-- ouverte par type_pack : on ferme la version seedée avant d'ouvrir celle de la
+-- fixture (fermeture au jour de prise d'effet = intervalle nul, borne autorisée).
+UPDATE plateforme.tarifs_packs_ag SET valide_jusqu_au = valide_du
+ WHERE type_pack = 'pack_10' AND valide_jusqu_au IS NULL;
 INSERT INTO plateforme.tarifs_packs_ag (id, valide_du, type_pack, credits, prix_unitaire_ht)
 VALUES ('da100001-0000-0000-0000-000000000001'::uuid, '2026-01-01', 'pack_10', 10, 500.00);
 

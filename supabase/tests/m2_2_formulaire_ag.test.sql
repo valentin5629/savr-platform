@@ -53,6 +53,11 @@ VALUES (
 ) ON CONFLICT (id) DO NOTHING;
 
 -- Pack AG actif pour T2 et T3 (1 seul crédit restant pour T2)
+-- uniq_tarif_pack_ag_ouvert_par_type (20260914160000) n'autorise qu'UNE ligne
+-- ouverte par type_pack : on ferme la version seedée avant d'ouvrir celle de la
+-- fixture (fermeture au jour de prise d'effet = intervalle nul, borne autorisée).
+UPDATE plateforme.tarifs_packs_ag SET valide_jusqu_au = valide_du
+ WHERE type_pack = 'unitaire' AND valide_jusqu_au IS NULL;
 INSERT INTO plateforme.tarifs_packs_ag (
   id, valide_du,
   type_pack, credits, prix_unitaire_ht, montant_total_ht

@@ -168,6 +168,11 @@ VALUES
 
 -- Tarif pack AG
 -- M2.1 aligne: credits, prix_unitaire_ht, type_pack sont NOT NULL
+-- uniq_tarif_pack_ag_ouvert_par_type (20260914160000) n'autorise qu'UNE ligne
+-- ouverte par type_pack : on ferme la version seedée avant d'ouvrir celle de la
+-- fixture (fermeture au jour de prise d'effet = intervalle nul, borne autorisée).
+UPDATE plateforme.tarifs_packs_ag SET valide_jusqu_au = valide_du
+ WHERE type_pack = 'pack_10' AND valide_jusqu_au IS NULL;
 INSERT INTO plateforme.tarifs_packs_ag (id, valide_du, credits, prix_unitaire_ht, type_pack)
 VALUES ('cc000000-0000-0000-0000-000000000f0a'::uuid, '2026-01-01', 10, 150.00, 'pack_10');
 

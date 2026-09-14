@@ -34,6 +34,7 @@ interface AttributionRow {
     nom: string;
     adresse: string | null;
     habilitee_attestation_fiscale: boolean;
+    numero_rup: string | null;
   } | null;
 }
 
@@ -79,7 +80,7 @@ export async function runBatchPdfJ1Ag(
       evenements ( nom_evenement, date_evenement, organisation_id ),
       attributions_antgaspi (
         id, volume_repas_realise, poids_repas_kg, association_id,
-        associations ( nom, adresse, habilitee_attestation_fiscale )
+        associations ( nom, adresse, habilitee_attestation_fiscale, numero_rup )
       )
     `,
     )
@@ -223,9 +224,10 @@ export async function runBatchPdfJ1Ag(
           donateur_raison_sociale: entite?.raison_sociale ?? '',
           donateur_siret: entite?.siret ?? '',
           association_nom: asso?.nom ?? '',
-          // Aucune colonne source côté associations (CDC §04 : seul l'instantané existe)
-          // → null tant que le CDC ne définit pas où saisir le n° RUP (_Divergences M2.4).
-          association_numero_rup: null,
+          // Instantané figé du n° RUP à l'émission (CDC §04 associations.numero_rup,
+          // source unique saisie dans la modale association §06.06 §5). Facultatif :
+          // NULL ⇒ le Cerfa 2041-GE est émis sans la mention RUP.
+          association_numero_rup: asso?.numero_rup ?? null,
           association_habilitation: mentionFiscale
             ? 'habilitee'
             : 'non_habilitee',
@@ -283,7 +285,7 @@ export async function runBatchPdfJ1Ag(
         donateur_siret: entite?.siret ?? '',
         association_nom: asso?.nom ?? '',
         association_adresse: asso?.adresse ?? null,
-        association_numero_rup: null,
+        association_numero_rup: asso?.numero_rup ?? null,
         mention_fiscale_2041ge: mentionFiscale,
         volume_repas: attr.volume_repas_realise,
         poids_kg: attr.poids_repas_kg,

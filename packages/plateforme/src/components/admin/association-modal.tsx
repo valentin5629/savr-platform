@@ -41,6 +41,7 @@ export interface AssociationRecord {
   commentaires_internes: string | null;
   instructions_acces: string | null;
   siren: string | null;
+  numero_rup: string | null;
   logo_url: string | null;
   id_point_collecte_mts1: string | null;
   habilitee_attestation_fiscale: boolean;
@@ -63,6 +64,7 @@ interface FormValues {
   commentaires_internes: string;
   instructions_acces: string;
   siren: string;
+  numero_rup: string;
   logo_url: string;
   id_point_collecte_mts1: string;
   habilitee_attestation_fiscale: boolean;
@@ -85,6 +87,7 @@ function toForm(a: AssociationRecord | null): FormValues {
     commentaires_internes: a?.commentaires_internes ?? '',
     instructions_acces: a?.instructions_acces ?? '',
     siren: a?.siren ?? '',
+    numero_rup: a?.numero_rup ?? '',
     logo_url: a?.logo_url ?? '',
     id_point_collecte_mts1: a?.id_point_collecte_mts1 ?? '',
     habilitee_attestation_fiscale: a?.habilitee_attestation_fiscale ?? false,
@@ -199,6 +202,7 @@ export function AssociationModal({
       commentaires_internes: values.commentaires_internes.trim() || null,
       instructions_acces: values.instructions_acces.trim() || null,
       siren: values.siren.trim() || null,
+      numero_rup: values.numero_rup.trim() || null,
       logo_url: values.logo_url || null,
       id_point_collecte_mts1: values.id_point_collecte_mts1.trim() || null,
       habilitee_attestation_fiscale: values.habilitee_attestation_fiscale,
@@ -539,6 +543,17 @@ export function AssociationModal({
                 id="am_id_point_collecte_mts1"
                 value={values.id_point_collecte_mts1}
                 onChange={(e) => set('id_point_collecte_mts1', e.target.value)}
+              />
+            </FormField>
+            <FormField
+              label="N° RUP"
+              htmlFor="am_numero_rup"
+              hint="Reconnue d'utilité publique — optionnel, édition admin. Renseigné, il apparaît sur le Cerfa 2041-GE."
+            >
+              <Input
+                id="am_numero_rup"
+                value={values.numero_rup}
+                onChange={(e) => set('numero_rup', e.target.value)}
               />
             </FormField>
             <FormField

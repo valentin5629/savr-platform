@@ -160,6 +160,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       instructions_acces: body.instructions_acces ?? null,
       logo_url: body.logo_url ?? null,
       siren: body.siren ?? null,
+      // N° RUP facultatif (CDC §04 associations.numero_rup / §06.06 §5) — source de
+      // l'instantané attestations_don.association_numero_rup. '' ⇒ NULL (pas de RUP).
+      numero_rup: (body.numero_rup as string | null) || null,
       id_point_collecte_mts1: body.id_point_collecte_mts1 ?? null,
       latitude: coords?.latitude ?? null,
       longitude: coords?.longitude ?? null,

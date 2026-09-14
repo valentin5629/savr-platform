@@ -100,7 +100,9 @@
     "M1.1b/flux/manuel — 422 si motif < 5 caractères",
     "M1.1b/flux/manuel — 422 si poids négatif",
     "M1.1b/flux/manuel — 403 si rôle client (traiteur_manager)",
-    "M1.1b/flux/manuel — 200 pour ops_savr (2e rôle staff autorisé)"
+    "M1.1b/flux/manuel — 200 pour ops_savr (2e rôle staff autorisé)",
+    "M1.1b/associations/patch — 403 si ops tente modifier numero_rup",
+    "M1.1b/associations/patch — admin persiste numero_rup, vide ⇒ NULL"
   ],
   "deliverables": [
     {
@@ -310,6 +312,14 @@
       "test": "M1.1b/admin_evenement_edit_emet_e2 — PATCH passe par fn_modifier_evenement",
       "statut": "implemented",
       "libelle": "PATCH /admin/evenements via fn_modifier_evenement (émet E2 par collecte dispatchée — fix trou Admin, ex .update() silencieux)"
+    },
+    {
+      "id": "M1.1b-numero-rup",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:422",
+      "artefact": "packages/plateforme/src/components/admin/association-modal.tsx",
+      "test": "M1.1b/associations/patch — admin persiste numero_rup, vide ⇒ NULL",
+      "statut": "implemented",
+      "libelle": "Champ « N° RUP » de la modale association (facultatif, édition admin-only) : POST/PATCH /admin/associations, vide ⇒ NULL, 403 pour ops_savr (route + trigger trg_ops_immutable_cols, pgTAP M0_6__rls_ops_column_level)"
     }
   ],
   "cdc_source_hash": {

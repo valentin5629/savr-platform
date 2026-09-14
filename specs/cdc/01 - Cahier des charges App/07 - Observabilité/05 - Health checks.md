@@ -31,7 +31,7 @@
 ### Endpoints surveillés par Better Uptime
 Aligné `07 - Architecture` §5 :
 - `app.gosavr.io` (frontend)
-- `api.gosavr.io/health` (API)
+- `app.gosavr.io/api/health` (API)
 - endpoint Railway PDF (santé worker Puppeteer)
 
 *(`tms.gosavr.io` réservé V2, non surveillé en V1.)*

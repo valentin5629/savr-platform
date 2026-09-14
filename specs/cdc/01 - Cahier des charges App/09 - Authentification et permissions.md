@@ -176,13 +176,19 @@ Principe : chaque table sensible a une policy qui filtre les lignes visibles sel
 
 ### Table `evenements`
 
+> **Périmètre du DELETE — tranché Val 2026-09-14** (divergences `M1.2_20260717` / `M1.2_20260717_delete-service-role`). Deux corrections à la colonne DELETE ci-dessous :
+> 1. **Chacun supprime ses propres brouillons.** `traiteur_commercial`, `agence` et `gestionnaire_lieux` passent de `—` à `created_by = auth.uid()` ; `traiteur_manager` conserve son organisation ; `admin_savr`/`ops_savr` restent globaux. Dans tous les cas la garde **« brouillon uniquement »** (événement jamais dispatché, sans collecte dépendante) s'applique — aucun rôle client ne supprime une collecte confirmée. La route `DELETE /api/v1/programmation/evenements/[id]` tournant en **service-role** (RLS bypassée), cette matrice doit être posée en **garde de rôle applicative** (403), pas seulement en policy.
+> 2. **Mention « (soft) » retirée.** La suppression d'un brouillon est un **hard delete** assumé : l'objet n'a jamais eu de vie opérationnelle, il n'existe pas de colonne `supprime_le` et aucune n'est prévue en V1. La suppression d'un événement ayant eu une vie opérationnelle n'est simplement pas offerte.
+>
+> ⚠ Rappel de mise en œuvre : les FK `collectes_evenement_id_fkey` et `rapports_rse_evenement_id_fkey` sont en **NO ACTION** (pas de cascade) — la suppression passe par `fn_supprimer_brouillon`, pas par un `DELETE FROM evenements` nu.
+
 | Rôle | SELECT | INSERT | UPDATE | DELETE |
 |------|--------|--------|--------|--------|
 | admin_savr | ALL | ALL | ALL | ALL |
-| traiteur_manager | `organisation_id = auth.jwt()->>'organisation_id'` | `organisation_id = auth.jwt()->>'organisation_id'` | `organisation_id = auth.jwt()->>'organisation_id' AND f_collecte_editable(evenements.id)` (y compris collectes créées par commerciaux de l'orga ; garde fenêtre d'édition ajoutée — décision F3 test-scenarios §09 lot ⑪ 2026-06-07, cohérence 4 rôles clients, le forçage post-réalisation reste staff via back-office) | `organisation_id = auth.jwt()->>'organisation_id'` (soft) |
-| traiteur_commercial | `organisation_id = auth.jwt()->>'organisation_id'` *(révision 2026-05-29 — lecture org-wide alignée manager, ex `created_by = auth.uid()`)* | `true` | `created_by = auth.uid() AND f_collecte_editable(evenements.id)` *(écriture limitée à ses propres créations. Fenêtre d'édition = fonction canonique unique `f_collecte_editable`, définie [[05 - Règles métier#Modification d'une collecte à venir (refonte 2026-05-04)]] — sobriété 2026-06-03 C2, ex-`EXISTS … statut IN (…)` inliné. Corrigé Sujet 2 2026-05-26 : `evenements.statut` supprimé (D2 2026-05-25) + `validee_pre_prestation` valeur fantôme.)* | — |
-| agence | `organisation_id = auth.jwt()->>'organisation_id'` | `organisation_id = auth.jwt()->>'organisation_id'` (programmation libre, périmètre lieu + traiteur ouvert) | `organisation_id = auth.jwt()->>'organisation_id' AND f_collecte_editable(evenements.id)` *(garde fenêtre d'édition ajoutée — décision F3 test-scenarios §09 lot ⑪ 2026-06-07)* | — |
-| gestionnaire_lieux | `(lieu_id IN (SELECT lieu_id FROM organisations_lieux WHERE organisation_id = auth.jwt()->>'organisation_id') AND date_evenement IS NOT NULL) OR organisation_id = auth.jwt()->>'organisation_id'` *(décision F3 test-scenarios §06.05 2026-06-07 — les brouillons tiers, `date_evenement` NULL depuis lot ① F1, sont exclus de la visibilité par lieu : anti-fuite d'intention commerciale ; ses propres brouillons restent visibles)* | `organisation_id = auth.jwt()->>'organisation_id' AND lieu_id IN (SELECT lieu_id FROM organisations_lieux WHERE organisation_id = auth.jwt()->>'organisation_id') AND traiteur_operationnel_organisation_id IN (SELECT id FROM organisations WHERE type='traiteur' AND est_shadow=false)` (programmation restreinte à ses lieux + traiteur référencé non-shadow — extension 2026-05-07) | `organisation_id = auth.jwt()->>'organisation_id' AND f_collecte_editable(evenements.id)` *(décision F4 test-scenarios §06.05 2026-06-07 — fenêtre d'édition canonique ajoutée, §06.05 « workflow d'édition identique au traiteur » ; sur ses propres événements programmés uniquement, pas sur ceux des traiteurs intervenants)* | — |
+| traiteur_manager | `organisation_id = auth.jwt()->>'organisation_id'` | `organisation_id = auth.jwt()->>'organisation_id'` | `organisation_id = auth.jwt()->>'organisation_id' AND f_collecte_editable(evenements.id)` (y compris collectes créées par commerciaux de l'orga ; garde fenêtre d'édition ajoutée — décision F3 test-scenarios §09 lot ⑪ 2026-06-07, cohérence 4 rôles clients, le forçage post-réalisation reste staff via back-office) | `organisation_id = auth.jwt()->>'organisation_id'` |
+| traiteur_commercial | `organisation_id = auth.jwt()->>'organisation_id'` *(révision 2026-05-29 — lecture org-wide alignée manager, ex `created_by = auth.uid()`)* | `true` | `created_by = auth.uid() AND f_collecte_editable(evenements.id)` *(écriture limitée à ses propres créations. Fenêtre d'édition = fonction canonique unique `f_collecte_editable`, définie [[05 - Règles métier#Modification d'une collecte à venir (refonte 2026-05-04)]] — sobriété 2026-06-03 C2, ex-`EXISTS … statut IN (…)` inliné. Corrigé Sujet 2 2026-05-26 : `evenements.statut` supprimé (D2 2026-05-25) + `validee_pre_prestation` valeur fantôme.)* || `created_by = auth.uid()` **+ brouillon uniquement** *(tranché Val 2026-09-14)* |
+| agence | `organisation_id = auth.jwt()->>'organisation_id'` | `organisation_id = auth.jwt()->>'organisation_id'` (programmation libre, périmètre lieu + traiteur ouvert) | `organisation_id = auth.jwt()->>'organisation_id' AND f_collecte_editable(evenements.id)` *(garde fenêtre d'édition ajoutée — décision F3 test-scenarios §09 lot ⑪ 2026-06-07)* || `created_by = auth.uid()` **+ brouillon uniquement** *(tranché Val 2026-09-14)* |
+| gestionnaire_lieux | `(lieu_id IN (SELECT lieu_id FROM organisations_lieux WHERE organisation_id = auth.jwt()->>'organisation_id') AND date_evenement IS NOT NULL) OR organisation_id = auth.jwt()->>'organisation_id'` *(décision F3 test-scenarios §06.05 2026-06-07 — les brouillons tiers, `date_evenement` NULL depuis lot ① F1, sont exclus de la visibilité par lieu : anti-fuite d'intention commerciale ; ses propres brouillons restent visibles)* | `organisation_id = auth.jwt()->>'organisation_id' AND lieu_id IN (SELECT lieu_id FROM organisations_lieux WHERE organisation_id = auth.jwt()->>'organisation_id') AND traiteur_operationnel_organisation_id IN (SELECT id FROM organisations WHERE type='traiteur' AND est_shadow=false)` (programmation restreinte à ses lieux + traiteur référencé non-shadow — extension 2026-05-07) | `organisation_id = auth.jwt()->>'organisation_id' AND f_collecte_editable(evenements.id)` *(décision F4 test-scenarios §06.05 2026-06-07 — fenêtre d'édition canonique ajoutée, §06.05 « workflow d'édition identique au traiteur » ; sur ses propres événements programmés uniquement, pas sur ceux des traiteurs intervenants)* || `created_by = auth.uid()` **+ brouillon uniquement** *(tranché Val 2026-09-14)* |
 | **traiteur_manager** *(extension 2026-05-07 — visibilité traiteur opérationnel)* | OU `traiteur_operationnel_organisation_id = auth.jwt()->>'organisation_id'` (collectes programmées par tiers chez ce traiteur) | — | UPDATE limité aux événements `organisation_id = self` (modification des propres programmations seulement, pas de droit sur les programmations tierces) | — |
 | **traiteur_commercial** *(extension 2026-05-07, élargie 2026-05-29)* | SELECT déjà org-wide (`organisation_id = self`) + OU `traiteur_operationnel_organisation_id = auth.jwt()->>'organisation_id'` (collectes programmées par tiers chez son traiteur opérationnel) | — | — | — |
 | client_organisateur | `client_organisateur_organisation_id = auth.jwt()->>'organisation_id'` | — | — | — |
@@ -387,6 +393,7 @@ Synthèse des permissions Ops Savr appliquées au back-office (détail écran pa
 | Domaine | Action | `admin_savr` | `ops_savr` |
 |---------|--------|--------------|------------|
 | **Collectes** | Lecture | Oui | Oui |
+| | **Programmer (support, tous périmètres)** *(ajout 2026-09-14 — alignement CDC ↔ production, cf. §06.01)* | Oui | **Oui** |
 | | Modifier infos / pesées / photos | Oui | Oui |
 | | Renvoyer S7 (sans override prestataire) | Oui | Oui |
 | | Override prestataire AG avec motif | **Oui** | **Non** (403) |
@@ -541,7 +548,13 @@ CREATE POLICY fc_write_admin ON plateforme.factures_collectes
 
 ### A5 — `grilles_tarifaires_zd` + `tarifs_zero_dechet` + `tarifs_packs_ag`
 
-Catalogue tarifaire. Base de calcul du prix. Lecture **authentifiée** (le moteur de tarif résout `base × Π(1−remises)` côté backend ; aucune donnée sensible par orga dans la grille publique), **écriture `admin_savr` only**.
+Catalogue tarifaire. Base de calcul du prix. **Lecture `staff` (`admin_savr`, `ops_savr`), écriture `admin_savr` only** *(révision 2026-09-14, arbitrage Val — remplace la « lecture authentifiée » de l'audit RLS V1 2026-06-05)*.
+
+> **Pourquoi la révision.** La justification d'origine (« aucune donnée sensible par orga dans la grille publique ») est contredite par le CDC lui-même : depuis la refonte 2026-05-26, **une base négociée se matérialise par une grille dédiée du catalogue affectée à une organisation** (cf. [[04 - Data Model]] table `tarifs_negocie` → bloc Migration ; rattachement par `organisations.grille_tarifaire_zd_id`, **pas** par `tarifs_negocie`). Le catalogue porte donc de la donnée commerciale par client — un traiteur A pouvait énumérer via PostgREST la grille et les paliers négociés du traiteur B, nom de grille compris. Ce n'est pas une fuite de donnée client (ni collecte, ni PII) mais une divulgation de la politique commerciale de Savr.
+>
+> **Zéro régression** : le recensement du 2026-09-14 montre que **100 % des consommateurs de ces tables sont en `service_role`** — moteur de tarif `calculer_tarif_zd` (appelé par le cron `batch-brouillons-j1` et par `recap-email`), routes `GET/POST /api/v1/admin/grilles-tarifaires-zd` (`requireStaff`/`requireAdmin`), écrans `/admin/parametres/grilles-zd` et onglet grille de la fiche client. Le formulaire de programmation **n'affiche aucun tarif** (règle UI « Sujet 5 ») et le client navigateur ne lit jamais ces tables. Le prix résolu est restitué au client via `factures_collectes.tarif_detail` (A4).
+>
+> `tarifs_packs_ag` suit **la même règle dans le même mouvement** (le CDC prévoit des packs `personnalise` par client).
 
 ```sql
 ALTER TABLE plateforme.grilles_tarifaires_zd ENABLE ROW LEVEL SECURITY;
@@ -549,13 +562,17 @@ ALTER TABLE plateforme.tarifs_zero_dechet   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE plateforme.tarifs_packs_ag      ENABLE ROW LEVEL SECURITY;
 -- même politique pour les 3 :
 CREATE POLICY tarif_cat_read  ON plateforme.<table> FOR SELECT
-  USING (auth.role() = 'authenticated');
+  USING (plateforme.f_is_staff());   -- révision 2026-09-14 : staff only.
+  -- Prédicat = f_is_staff() (→ f_app_role(), claim user_role), JAMAIS auth.role()
+  -- qui est précisément la forme laxiste d'origine.
 CREATE POLICY tarif_cat_write ON plateforme.<table> FOR ALL
   USING (auth.jwt()->>'role' = 'admin_savr')
   WITH CHECK (auth.jwt()->>'role' = 'admin_savr');
 ```
 
-> Le prix résolu n'est jamais affiché au formulaire (Sujet 5) — c'est une règle UI, pas RLS. La grille reste lisible (référentiel partagé). Le **détail négocié** (remises par orga) vit dans `tarifs_negocie` (§3, déjà restreint) et `factures_collectes.tarif_detail` (A4).
+> Le prix résolu n'est jamais affiché au formulaire (Sujet 5) — c'est une règle UI, pas RLS. **Le catalogue n'est PAS un référentiel partagé** (cf. encadré ci-dessus). Le **détail négocié** vit à deux endroits : les remises % dans `tarifs_negocie` (§3, déjà restreint) **et la base négociée elle-même dans le catalogue**, d'où la fermeture ; le prix résolu est restitué par `factures_collectes.tarif_detail` (A4).
+>
+> ⚠ **Dette de sécurité à arbitrer avant go-live (ouverte 2026-09-14, lot dédié)** : quatre policies restent en `auth.role() = 'authenticated'` — `associations.asso_read`, `flux_dechets.fd_read`, `transporteurs.transp_read`, `types_evenements.te_read`. `transporteurs` et `types_evenements` servent plausiblement le formulaire de programmation (une fermeture hâtive le casserait) ; `associations` et `transporteurs` exposent noms, coordonnées et rattachements à tout utilisateur connecté. **Recenser les consommateurs réels avant de trancher.**
 
 ### A6/A7 — `collecte_flux` + `attributions_antgaspi`
 

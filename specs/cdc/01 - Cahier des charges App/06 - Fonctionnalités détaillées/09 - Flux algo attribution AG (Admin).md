@@ -98,7 +98,16 @@ Actif uniquement si une association est sélectionnée ET un transporteur est s�
 2. `attributions_antgaspi.mode_validation` = `'manuel_top1'` si reco non modifiée, `'manuel_override'` si override (voir §8 enum)
 3. **La collecte passe au statut `programmee`** (et **non** `validee`). **Alignement machine à états ZD/AG (Sujet AG statuts, 2026-05-29)** : la validation d'attribution Admin = décision de dispatch (choix asso + transporteur), équivalent fonctionnel de l'envoi prestataire en ZD — donc `programmee`, pas `validee`. `statut_tms` reste `non_envoye` à ce stade (l'ordre n'est pas encore parti : étape 5, asynchrone). Le passage `programmee → validee` est dérivé **ultérieurement** par le trigger `fn_sync_statut_collecte_from_tms` à l'acceptation transporteur (cf. cascade ci-dessous + [[05 - Règles métier]] §4). Aucune écriture applicative directe de `statut` sur la plage `programmee ↔ validee`.
 4. Débit du pack AG (voir [[05 - Règles métier#3. Packs Anti-Gaspi — Décrémentation et blocage]])
-5. **Publication d'un événement applicatif `attribution_validee`** (job queue Supabase) qui déclenche **asynchrone** : envoi email association (Resend), envoi email transporteur (Resend), envoi de l'ordre transporteur (cf. cascade V1/V2 ci-dessous).
+5. **Publication d'un événement applicatif `attribution.validee`** qui déclenche **asynchrone** : envoi email association (Resend, template n°16), envoi email transporteur (Resend, template n°18), envoi de l'ordre transporteur (cf. cascade V1/V2 ci-dessous).
+
+   > **Mise en œuvre figée 2026-09-11 (Option A tranchée Val — divergence M2.3).** `fn_valider_attribution_ag` insère dans la **même transaction deux events sur le même agrégat** (la collecte) : `attribution.validee` (consumer **`attribution_job`**) puis `collecte.creee` (famille logistique). Les deux vivent dans `plateforme.outbox_events` mais sont **isolés par famille de consumer** :
+   > - le worker logistique (`fn_claim_outbox_batch`) **exclut `attribution_job`** et calcule son head-of-line dans sa seule famille ;
+   > - le cron `process-attributions-ag` utilise son propre claim `fn_claim_outbox_attribution_batch` (même lease/claim + garde `txid`, retry 5 min / 1 h / 24 h puis `dead`) ;
+   > - **le head-of-line ne traverse jamais les familles** : un email d'attribution en échec ne bloque pas le dispatch MTS-1/Everest de la collecte ;
+   > - les emails partent par `sendEmail` (la RPC `fn_envoyer_email_template` n'a jamais existé) ;
+   > - un event `dead` de la famille `attribution_job` déclenche l'**alerte Slack critique** au même titre que la famille logistique.
+   >
+   > Détail complet : [[04 - Data Model#Table : `outbox_events`]].
 
 **Justification cascade asynchrone** : un échec Everest (timeout, 5xx) ne bloque pas la validation Admin ni la cohérence interne (statut collecte, pack, attribution). Le job retry indépendamment selon politique standard (3 paliers, cf. §08). Resend journalise les envois côté Resend (suppression timestamps `email_*_envoye_at` colonnes Plateforme — refonte 2026-05-09 sobriété A3).
 

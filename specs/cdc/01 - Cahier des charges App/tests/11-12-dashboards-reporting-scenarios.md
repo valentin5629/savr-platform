@@ -2,7 +2,6 @@
 
 **Source CDC** : [[11 - Dashboards]] + [[12 - Reporting et exports]] + [[05 - Règles métier]] (R_taux_recyclage, R_co2_calcul, R_co2_ag, R_co2_snapshot_fige, R_marge_zd_traiteur, R_revenus_imputation_organisation) + [[04 - Data Model]] (`rapports_rse`, `bordereaux_savr`, `attestations_don`, `exports_registre`, `documents_generaux_savr`, `f_benchmark_kg_pax_zd`, vues `v_kpi_*`, `v_registre_dechets`) + [[09 - Authentification et permissions]] (A8, A9, A10, matrices bordereaux/attestations)
 **Généré le** : 2026-06-07
-**Statut** : À implémenter par Claude Code
 
 > **Instructions Claude Code** : ces scénarios sont la source de vérité pour les tests des modules §11 Dashboards et §12 Reporting/exports.
 > Pour chaque scénario :
@@ -43,6 +42,23 @@ Scénario : dashboard_admin_cinq_cartes_actions
   Quand un admin_savr charge le Dashboard Admin
   Alors les 5 cartes « Non transmises ZD » / « Non transmises AG » / « En attente prestataire » / « Modifiées sans renvoi TMS » / « Collectes <48h non validées » affichent respectivement 1 / 1 / 1 / 1 / 1 (rangée refondue 2026-07-15 : split Non transmises M3.5 + fusion 48h M3.6)
   Et le clic sur chaque carte redirige vers la liste Collectes §3 avec le chip miroir pré-appliqué (`non_transmises_zd` / `non_transmises_ag` / `attente_prestataire` / `dirty_tms` / `collectes_48h_non_validees`), sans page intermédiaire
+  Et la carte « non transmises » et son chip miroir comptent exactement le même ensemble : statut_tms='non_envoye' ET tms_reference IS NULL ET statut IN ('programmee','validee') — prédicat canonique tranché Val 2026-09-14
+```
+
+```gherkin
+# Source : §11 Bloc 2 Revenus — filtre unique et défaut de période (décisions Val 2026-07-18, divergences M3.5 / M35)
+# Couche : ui | Priorité : P2-important
+Scénario : dashboard_admin_revenus_defaut_12_mois
+  Étant donné un `admin_savr` qui ouvre /admin/dashboard
+  Alors le Bloc 2 Revenus affiche l'histogramme et le tableau côte à côte (50/50 à partir de lg)
+    Et une SEULE barre de filtre Du/Au pilote les deux blocs
+    Et la période par défaut est les 12 derniers mois glissants, alignés au 1er du mois (12 buckets mensuels pleins)
+    Et ce n'est PAS le mois en cours (l'ancien défaut isolé du §11 est supprimé)
+    Et aucun preset de période (7j / 30j / Trimestre / 12 mois / Année civile) n'est affiché sur CE dashboard
+    Et aucun bouton « Exporter CSV » n'est affiché (l'endpoint ?format=csv reste servi, sans déclencheur UI)
+  Quand l'admin clique « Réinitialiser »
+  Alors la période revient aux 12 derniers mois, pas au mois en cours
+  Et les presets restent présents sur les autres dashboards (traiteur §06.04, gestionnaire §06.05, agence, registre) — non concernés
 ```
 
 ```gherkin

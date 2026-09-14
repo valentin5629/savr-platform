@@ -57,10 +57,28 @@
 |---|---|---|
 | Create customer order | `POST /v3/customerOrders` | `orderDate, timezone, serviceTime, transportersNeededCount, orderCategories (["Alimentaire"] ou ["Déchets"]), orderNumber = collecte_id, place{address.addressSingleLine}, timeslots[{start,end}]`, contacts. |
 | Create customer order **dechet** | `POST /v3/customerOrders` | Variante ZD : `orderCategories: ["Déchets"]`. **Stuffs relevés (lecture éditeur 2026-06-10, QO pesées par flux SOLDÉE)** : 1 stuff par flux, `task: PICKUP`, `relatedAddress.placeId = <MTS_1_delivery_place_id>` (exutoire), `quantity: 0` — libellés exacts : `<volume_du_camion>` (qty 1, stuff camion), `Bio-déchets (en kg)`, `Carton (en kg)`, `D.I.B (en kg)`, `Film plastique (en kg)`, `Verre (en kg)`. Mapping → `flux_dechets` figé dans §08 §3bis.7. |
-| Create tour **dechet** *(DRAFT)* | POST | Crée la tournée ZD ; ajoute **`volume_du_camion` (ex 9m3)** + **`MTS_1_delivery_place` (exutoire, ex BlueSpaceIvry)**. |
-| Create tour alimentaire | POST | Idem pour AG. |
-| Dispatch tour | POST `…/tours/…/dispatch` | Body `{ carrierShareableCode }` (= `transporteurs.code_transporteur_mts1`, ex `CA_49TWSU`) → assigne Strike/Marathon. |
+| Create tour **dechet** *(DRAFT)* | `POST /v3/tours` | Crée la tournée ZD. **Corrigé 2026-09-04 (doc OpenAPI V3)** : `TourInput` = `{ tourDate*, tourNumber?, customerOrders?[], comments? }`. `tourDate` (string `yyyy-MM-dd`) est **obligatoire** (400 `INVALID_REQUEST` sinon) ; `customerOrderId`, `stuffs` et `deliveryPlace` y sont **ignorés** → `volume_du_camion` et point B se portent sur les `stuffs` de la COMMANDE. Réponse `TourCreateResponse = { tourId, … }`. |
+| Create tour alimentaire | `POST /v3/tours` | Idem pour AG. |
+| **Rattacher commande ↔ tournée** | `PUT /v3/tours/addCustomerOrder` | **Étape ajoutée 2026-09-04** — body `{ tourId, customerOrderId }` (`AddCustomerOrderToTourInput`). Sans elle la tournée reste VIDE. Rejouée inconditionnellement tant que la tournée est `planifiee`. |
+| Dispatch tour | `POST /v3/dispatch/{tourId}/toCarrier` | **Route corrigée 2026-09-04** — l'ancienne `POST /v3/tours/{tourId}/dispatch` du relevé Bubble renvoie **404 `BAD_ROUTE`**, elle n'existe pas dans la spec V3. Body `DispatchToCarrierInput { carrierShareableCode?, transporterShareableCode?, vehicleShareableCode? }` — on envoie `{ carrierShareableCode }` (= `transporteurs.code_transporteur_mts1`, ex `CA_49TWSU`) → assigne Strike/Marathon. |
 | Validate tour | PUT | Body vide → passe `status.validation` à `VALIDATED`. |
+
+**Réponse de `POST /v3/customerOrders`** (corrigée 2026-09-04, doc OpenAPI) : schéma `CreateCustomerOrderResponse = { customerOrderId*, orderNumber*, customerOrderStatus, customerOrderMergedParentId, price, trackingUrl }`. L'id technique s'appelle **`customerOrderId`**, pas `id` — c'est lui qui est stocké dans `tournees.external_ref_commande` (lire `id` renvoyait `undefined` → 400 à l'étape `addCustomerOrder`).
+
+**Point A / point B (règle métier confirmée Val 2026-09-04)** : point A = adresse d'enlèvement traiteur (`place` de la commande) ; **point B = `stuffs[].relatedAddress = { placeId }` de la COMMANDE** (`CustomerOrderPlaceInput`), jamais `deliveryPlace` de la tournée. ZD → **entrepôt Savr Saint-Denis** (favoritePlace `isDepot`, placeId en config `MTS1_ENTREPOT_PLACE_ID`) ; AG → association destinataire (favoritePlace `id_point_collecte_mts1`). ⚠ **Gap AG tracé** : en V1 l'AG n'envoie aucun `stuff`, donc rien ne porte son point B — décision « stuff de livraison AG » à trancher (lot dédié).
+
+**Stuffs par type de collecte** *(figé 2026-09-14)* — le point B se portant sur `stuffs[].relatedAddress`, toute commande doit porter au moins un stuff :
+- **ZD** : 1 stuff par flux (`task: PICKUP`, `quantity: 0`, pesé au polling) + 1 stuff camion `<volume_du_camion>` (qty 1). Libellés exacts au §4 ci-dessus. `relatedAddress.placeId` = entrepôt Savr.
+- **AG** : **1 seul stuff `{ name: 'Don alimentaire', task: 'PICKUP', quantity: 0, relatedAddress: { placeId: association.id_point_collecte_mts1 } }`** *(validé Val 2026-09-14)*. `quantity: 0` au dispatch : le poids réel du don n'est pas connu à la programmation (mesuré pendant la collecte), exactement comme les 5 flux ZD — poids et photos remontent ensuite par le polling. Cohérent avec `orderCategories: ['Alimentaire']`.
+  ⚠ Re-validation live AG à faire au 1er dispatch AG-via-MTS1 réel (read-back `GET /v3/customerOrders/{id}`) : le mécanisme `relatedAddress` → point B n'est prouvé en réel que pour le ZD.
+
+**Contact et créneau de la commande** *(corrigé 2026-09-04, confirmé sur `CustomerOrderInput` et par read-back ; validé Val)* — le POST renvoyait 201 mais MTS-1 stockait `contact: {}` et `timeslots: null` : ni le contact terrain ni le créneau ne parvenaient au chauffeur.
+- **`contact` est un objet UNIQUE** (`CustomerOrderContactInput` : `firstname`, `lastname`, `phone`, `phoneAlternatives`, `email`), **pas** un tableau `contacts` `{name, role}`.
+- **Le créneau est porté par `place.timeslots`** (`Timeslot[{start, end}]`, format **`HH:mm`** — pas un datetime ISO), **pas** au niveau commande. Point fixe V1 : `start = end = heure_collecte` tronquée en `HH:mm`.
+- **Mapping du nom** : Savr n'a qu'un `contact_principal_nom` (nom complet) → **1er mot = `firstname`, reste = `lastname`** (« Paul Pol » → firstname « Paul », lastname « Pol »).
+- **Contact de secours** : MTS-1 n'expose qu'un contact par commande → son **téléphone** va dans `phoneAlternatives`, et **son nom est concaténé dans le champ `comment`** de la commande *(arbitrage Val 2026-09-14 — sans quoi le chauffeur a un numéro de secours sans savoir qui appeler)*.
+
+**Flux nominal V3 corrigé** : `POST /v3/customerOrders` → `POST /v3/tours {tourDate}` → `PUT /v3/tours/addCustomerOrder` → `POST /v3/dispatch/{tourId}/toCarrier` → `PUT /v3/tours/{tourId}/validate`.
 
 **Clé de corrélation** : `orderNumber = collecte.reference` (`#1601…`) — sert à rapprocher commandes/tournées MTS-1 ↔ collectes Plateforme.
 

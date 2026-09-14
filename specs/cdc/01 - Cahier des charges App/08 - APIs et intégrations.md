@@ -359,8 +359,8 @@ En V2, ce pilotage bascule vers le Savr TMS et MTS-1 est coupé (cf. 3bis.11 + �
 
 | Référentiel MTS-1 | Endpoint | Usage Plateforme |
 |---|---|---|
-| Transporteurs (carriers) | `GET /v3/carrier` | Récupère la liste des `carrierShareableCode`. C'est le code qui identifie Strike / Marathon côté MTS-1 lors du **dispatch de la tournée** (`POST /v3/tours/{tourId}/dispatch`). Stocké sur `transporteurs.code_transporteur_mts1` (cf. §04 propagation 3bis). |
-| Lieux favoris (favoritePlaces) | `PUT /v3/favoritePlaces`, `GET /v3/favoritePlaces` | Pré-enregistre les points récurrents (associations destinataires AG). `placeId` fonctionnel stocké sur `associations.id_point_collecte_mts1`. Le lieu d'enlèvement (traiteur) peut être passé en adresse inline (pas de pré-enregistrement requis). |
+| Transporteurs (carriers) | `GET /v3/carrier` | Récupère la liste des `carrierShareableCode`. C'est le code qui identifie Strike / Marathon côté MTS-1 lors du **dispatch de la tournée** (`POST /v3/dispatch/{tourId}/toCarrier`). Stocké sur `transporteurs.code_transporteur_mts1` (cf. §04 propagation 3bis). |
+| Lieux favoris (favoritePlaces) | `PUT /v3/favoritePlaces`, `GET /v3/favoritePlaces` | Pré-enregistre les points récurrents : **entrepôt Savr Saint-Denis** (3 Rue du Fort de la Briche, 93200 — favoritePlace `isDepot=true`, placeId en config `MTS1_ENTREPOT_PLACE_ID`, à poser par environnement) et **associations destinataires AG** (`placeId` fonctionnel stocké sur `associations.id_point_collecte_mts1`). Le lieu d'enlèvement (traiteur) peut être passé en adresse inline (pas de pré-enregistrement requis). |
 
 ### 3bis.5 Flux nominal V1 (création commande + tournée + dispatch)
 
@@ -383,20 +383,55 @@ Plateforme (validation attribution AG IDF/province par Admin Savr ou auto-accept
         payload : orderDate (date de collecte), timezone, serviceTime,
                   orderCategories (["Alimentaire"] AG | ["Déchets"] ZD),
                   orderNumber = collecte.reference + '-' + rang (clé fonctionnelle de corrélation, UNIQUE par camion ; rang=1 si mono-camion),
-                  place (lieu d'enlèvement : address.addressSingleLine inline ou placeId favori),
-                  contact (contact_principal de l'événement),
-                  timeslots[{ start, end }], stuffs (volume estimé repas / poids),
-                  comment (informations_supplementaires)
-      → réponse : { customerOrderId, customerOrderStatus, trackingUrl }
+                  place (lieu d'enlèvement : address.addressSingleLine inline ou placeId favori)
+                        + place.timeslots[{ start, end }]  ← LE CRÉNEAU EST ICI, pas au niveau commande
+                          (schéma Timeslot, format `HH:mm` ; point fixe V1 : start = end = heure_collecte),
+                  contact  ← OBJET UNIQUE `CustomerOrderContactInput`, PAS un tableau `contacts`
+                          { firstname, lastname, phone, phoneAlternatives }
+                          — nom complet `evenements.contact_principal_nom` scindé : 1er mot = firstname,
+                            reste = lastname ; téléphone du contact de SECOURS → `phoneAlternatives`,
+                            et son NOM concaténé dans `comment` (MTS-1 n'a qu'un contact par commande),
+                  stuffs (ZD : 1 par flux + stuff camion `<volume_du_camion>` ;
+                          AG : 1 seul `{ name: 'Don alimentaire', task: 'PICKUP', quantity: 0 }`
+                          — quantity 0 partout : le poids est mesuré pendant la collecte, remonté au polling),
+                  comment (informations_supplementaires + nom du contact de secours)
+        ⚠ POINT B / lieu de livraison (correctif 2026-09-04) : il se porte sur
+          `stuffs[].relatedAddress = { placeId }` de la COMMANDE (schéma `CustomerOrderPlaceInput`),
+          JAMAIS sur `deliveryPlace` de la tournée (ignoré par `TourInput`).
+          Point A = `place` (adresse d'enlèvement traiteur) ; point B = ZD → entrepôt Savr
+          Saint-Denis (favoritePlace `isDepot`, placeId en config `MTS1_ENTREPOT_PLACE_ID`)
+          | AG → association destinataire (favoritePlace `associations.id_point_collecte_mts1`).
+          ⚠ Gap AG tracé : en V1 l'AG n'envoie aucun `stuff`, donc rien ne porte son point B
+          (décision « stuff de livraison AG » à trancher, lot dédié).
+      → réponse : `CreateCustomerOrderResponse` = { customerOrderId*, orderNumber*, customerOrderStatus,
+                  customerOrderMergedParentId, price, trackingUrl }
+        ⚠ L'id technique s'appelle **`customerOrderId`**, PAS `id` (correctif 2026-09-04) —
+          c'est lui qu'on stocke dans `tournees.external_ref_commande`.
 
-  ── 2. Créer la tournée (DRAFT) qui porte la commande ─────────────────
+  ── 2. Créer la tournée (DRAFT) ───────────────────────────────────────
     → POST /v3/tours   (statut DRAFT)
-        payload : la commande créée + (ZD) volume_du_camion (ex 9m3)
-                  + MTS_1_delivery_place (exutoire, ex BlueSpaceIvry)
-      → réponse : { tourId, status{ dispatch, payment, validation } }
+        payload : tourDate (string `yyyy-MM-dd`, **OBLIGATOIRE**, = date de collecte,
+                  identique à `orderDate` — MTS-1 rejette en 400 `INVALID_REQUEST` sinon,
+                  constaté sandbox 2026-09-04)
+                  + tourNumber, comments (optionnels)
+        ⚠ `TourInput` = { tourDate*, tourNumber?, customerOrders?[], comments? } :
+          `customerOrderId` (singulier), `stuffs` et `deliveryPlace` y sont **ignorés** —
+          ne pas les envoyer (le `volume_du_camion` et le point B se portent sur les
+          `stuffs` de la COMMANDE, cf. étape 1).
+      → réponse : `TourCreateResponse` = { tourId, status{ dispatch, payment, validation } }
+
+  ── 2bis. Rattacher la commande à la tournée ──────────────────────────
+    → PUT /v3/tours/addCustomerOrder
+        payload : { tourId, customerOrderId }   // schéma `AddCustomerOrderToTourInput`
+        **Étape obligatoire** (correctif 2026-09-04) : `POST /v3/tours` ne rattache rien,
+        sans elle la tournée est créée VIDE et on dispatche une tournée sans commande.
+        Rejouée **inconditionnellement** tant que la tournée est `planifiee` (comme
+        dispatch/validate), pour qu'une reprise après échec transitoire rattache toujours
+        la commande AVANT le dispatch. Idempotence non garantie par la spec OpenAPI →
+        si le rejeu échoue, il échoue bruyamment (retry/DLQ + alerte), jamais en silence.
 
   ── 3. Dispatcher la tournée au transporteur ─────────────────────────
-    → POST /v3/tours/{tourId}/dispatch
+    → POST /v3/dispatch/{tourId}/toCarrier
         payload : { carrierShareableCode = transporteur.code_transporteur_mts1 }   // ex CA_49TWSU
         → `collectes.statut_tms = 'attribuee_en_attente_acceptation'`
         → réponse stockée dans `attributions_antgaspi.confirmation_transporteur`

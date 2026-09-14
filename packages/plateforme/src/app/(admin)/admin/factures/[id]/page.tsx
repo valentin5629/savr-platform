@@ -96,7 +96,7 @@ export default function FactureDetailPage() {
 
   const load = useCallback(() => {
     setLoading(true);
-    fetch(`/api/v1/admin/factures/${id}`)
+    fetch(`/api/v1/admin/factures/${encodeURIComponent(id)}`)
       .then((r) => r.json())
       .then((d: { data: FactureDetail }) => {
         setFacture(d.data);
@@ -117,11 +117,14 @@ export default function FactureDetailPage() {
     setActionLoading(action);
     setError(null);
     try {
-      const res = await fetch(`/api/v1/admin/factures/${id}/${action}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: body ? JSON.stringify(body) : undefined,
-      });
+      const res = await fetch(
+        `/api/v1/admin/factures/${encodeURIComponent(id)}/${encodeURIComponent(action)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: body ? JSON.stringify(body) : undefined,
+        },
+      );
       const data = (await res.json()) as {
         ok?: boolean;
         erreur?: string;
@@ -143,7 +146,9 @@ export default function FactureDetailPage() {
   // Télécharge la copie de travail PDF (§06.08 §1) via URL pré-signée R2.
   async function downloadPdfSavr() {
     setError(null);
-    const res = await fetch(`/api/v1/admin/factures/${id}/pdf-savr/download`);
+    const res = await fetch(
+      `/api/v1/admin/factures/${encodeURIComponent(id)}/pdf-savr/download`,
+    );
     if (!res.ok) {
       setError('PDF de travail indisponible.');
       return;
@@ -153,20 +158,28 @@ export default function FactureDetailPage() {
   }
 
   // Appels d'édition (PATCH/POST/DELETE) — affichent l'erreur API + rechargent.
+  // `segments` = les segments de chemin APRÈS l'id de facture, jamais un chemin
+  // déjà composé : c'est ici — et ici seulement — qu'ils sont encodés, sinon un
+  // `../` dans un id adresserait un autre endpoint same-origin (cf. gate
+  // `pnpm check:fetch-path-encoding`).
   async function callEdit(
-    path: string,
+    segments: string[],
     method: 'PATCH' | 'POST' | 'DELETE',
     body?: Record<string, unknown>,
     key = 'edit',
   ) {
     setActionLoading(key);
     setError(null);
+    const suffixe = segments.map((s) => `/${encodeURIComponent(s)}`).join('');
     try {
-      const res = await fetch(`/api/v1/admin/factures/${id}${path}`, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: body ? JSON.stringify(body) : undefined,
-      });
+      const res = await fetch(
+        `/api/v1/admin/factures/${encodeURIComponent(id)}${suffixe}`,
+        {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: body ? JSON.stringify(body) : undefined,
+        },
+      );
       if (!res.ok) {
         const d = (await res.json()) as { error?: string };
         setError(d.error ?? `Erreur ${res.status}`);
@@ -184,7 +197,7 @@ export default function FactureDetailPage() {
 
   async function saveHeader() {
     await callEdit(
-      '',
+      [],
       'PATCH',
       {
         date_emission: dateEmission || null,
@@ -196,13 +209,13 @@ export default function FactureDetailPage() {
   }
 
   async function saveLigne(ligne: Ligne, patch: Record<string, unknown>) {
-    await callEdit(`/lignes/${ligne.id}`, 'PATCH', patch, `ligne-${ligne.id}`);
+    await callEdit(['lignes', ligne.id], 'PATCH', patch, `ligne-${ligne.id}`);
   }
 
   async function deleteLigne(ligne: Ligne) {
     if (!window.confirm('Supprimer cette ligne ?')) return;
     await callEdit(
-      `/lignes/${ligne.id}`,
+      ['lignes', ligne.id],
       'DELETE',
       undefined,
       `del-${ligne.id}`,
@@ -216,7 +229,7 @@ export default function FactureDetailPage() {
       return;
     }
     const ok = await callEdit(
-      '/lignes',
+      ['lignes'],
       'POST',
       { designation: newDesignation.trim(), montant_ligne_ht: montant },
       'add',

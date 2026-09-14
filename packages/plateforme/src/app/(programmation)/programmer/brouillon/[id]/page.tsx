@@ -27,7 +27,7 @@ export default function RepriseBrouillonPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    void fetch(`/api/v1/programmation/evenements/${id}`)
+    void fetch(`/api/v1/programmation/evenements/${encodeURIComponent(id)}`)
       .then((r) => r.json() as Promise<BrouillonDetail>)
       .then((d) => setEvt(d))
       .catch(() => setError('Impossible de charger ce brouillon.'))
@@ -39,7 +39,7 @@ export default function RepriseBrouillonPage() {
     setError(null);
     try {
       const res = await fetch(
-        `/api/v1/programmation/evenements/${id}/confirmer`,
+        `/api/v1/programmation/evenements/${encodeURIComponent(id)}/confirmer`,
         { method: 'PATCH' },
       );
       const json = (await res.json()) as { statut?: string; error?: string };

@@ -147,13 +147,15 @@ const EXCEPTIONS_HORS_API: Record<string, { garde: RegExp; raison: string }> = {
 
 const PACKAGES = resolve(__dirname, '../../..');
 
-// Racines scannées = tout ce que le build Next compile, pas seulement `src/`.
+// Racines scannées pour la détection `use server` — à ne pas confondre avec
+// RACINES_HORS_SCAN ci-dessus, qui interdit des répertoires. Ici : tout ce que le
+// build Next compile, pas seulement `src/`.
 // `@savr/shared` est dans `transpilePackages` (next.config.ts) et consommé en
 // source TS ; `packages/adapters` est importé en source par des route handlers
 // (health/logistique, webhooks/everest, crons). Une directive `use server` y est
 // indiscernable au build d'une directive de `src/` : s'arrêter à `src/` laisserait
 // une action entrer sans faire rougir ce test (revue sécurité, sonde 4 directives).
-const RACINES = [
+const RACINES_COMPILEES = [
   resolve(__dirname, '../../src'),
   resolve(PACKAGES, 'shared/src'),
   resolve(PACKAGES, 'adapters/src'),
@@ -179,7 +181,7 @@ function sources(dir: string): string[] {
 // l'ancre de fin, soit le même faux négatif silencieux que celui fermé en #286.
 const DIRECTIVE_USE_SERVER = /^\s*(['"])use server\1\s*;?\s*(?:\/\/.*)?$/m;
 
-const SOURCES = RACINES.flatMap(sources);
+const SOURCES = RACINES_COMPILEES.flatMap(sources);
 const CHEMINS_SOURCES = SOURCES.map((p) =>
   relative(PACKAGES, p).split(sep).join('/'),
 );

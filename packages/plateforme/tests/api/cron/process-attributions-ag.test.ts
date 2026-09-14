@@ -7,6 +7,13 @@
  * Elle passe désormais par le claim dédié (fn_claim_outbox_attribution_batch,
  * isolation testée en pgTAP : outbox_isolation_consumers.test.sql) et par
  * fn_result_outbox avec la politique de retry du worker logistique.
+ *
+ * Régression 2026-09-14 (§07/03 l.24) : l'isolation par famille de consumer avait
+ * créé une DLQ SILENCIEUSE — la route passait un event en `dead` sans alerte Slack
+ * (« non catalogué §07/02 »), alors que le catalogue d'alertes prescrit le canal
+ * critique sur `statut = 'dead'` TOUTES familles confondues, `attribution_job`
+ * inclus. Un email d'attribution AG définitivement perdu = association ou
+ * transporteur jamais prévenu.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
@@ -21,6 +28,10 @@ vi.mock('@/lib/attribution-ag/job.js', () => ({
 }));
 
 import { logger } from '@savr/shared/src/logger/index.js';
+import {
+  setSlackSink,
+  type SlackPayload,
+} from '@savr/shared/src/alerting/slack.js';
 
 import { GET } from '../../../src/app/api/cron/process-attributions-ag/route.js';
 
@@ -46,6 +57,9 @@ function claimRenvoie(events: unknown[]): void {
   );
 }
 
+/** Alertes Slack capturées sur le run (sink injecté, aucun HTTP). */
+const alertes: SlackPayload[] = [];
+
 const resultats = () =>
   rpc.mock.calls
     .filter((c) => c[0] === 'fn_result_outbox')
@@ -54,9 +68,14 @@ const resultats = () =>
 describe('cron process-attributions-ag — famille outbox attribution_job', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    alertes.length = 0;
+    setSlackSink(async (p) => {
+      alertes.push(p);
+    });
     process.env['CRON_SECRET'] = 'test-secret';
   });
   afterEach(() => {
+    setSlackSink(async () => undefined);
     delete process.env['CRON_SECRET'];
   });
 
@@ -110,6 +129,50 @@ describe('cron process-attributions-ag — famille outbox attribution_job', () =
     expect(resultats()).toEqual([
       { p_id: 'ev-3', p_statut: 'dead', p_last_error: 'boom' },
     ]);
+  });
+
+  it('« dead » sur la famille attribution_job → alerte Slack critique (§07/03 l.24, jamais de DLQ silencieuse)', async () => {
+    claimRenvoie([
+      {
+        id: 'ev-4',
+        event_type: 'attribution.validee',
+        aggregate_id: 'col-1',
+        payload: PAYLOAD,
+        attempts: 4,
+      },
+    ]);
+    processAttributionValidee.mockRejectedValue(new Error('resend HS'));
+
+    await appel();
+
+    // Forme produite par la primitive partagée `alertOutboxDead` (outbox-worker) :
+    // le message est donc identique à celui de la famille logistique.
+    expect(alertes).toEqual([
+      {
+        canal: 'critique',
+        titre: '[DLQ] Outbox event mort — attribution.validee',
+        message: 'aggregate_id=col-1 attempts=4',
+        metadata: { event_id: 'ev-4', error: 'Error: resend HS' },
+      },
+    ]);
+  });
+
+  it("palier restant → aucune alerte Slack (l'alerte DLQ ne se déclenche qu'au `dead`)", async () => {
+    claimRenvoie([
+      {
+        id: 'ev-5',
+        event_type: 'attribution.validee',
+        aggregate_id: 'col-1',
+        payload: PAYLOAD,
+        attempts: 1,
+      },
+    ]);
+    processAttributionValidee.mockRejectedValue(new Error('boom'));
+
+    await appel();
+
+    expect(resultats()[0]).toMatchObject({ p_statut: 'failed' });
+    expect(alertes).toEqual([]);
   });
 
   it('claim en erreur (PostgrestError) → 500 et message lisible, pas « [object Object] »', async () => {

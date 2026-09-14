@@ -43,7 +43,10 @@ function evolutionMensuelle(
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     buckets.push({
       key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
-      mois: d.toLocaleDateString('fr-FR', { month: 'short' }),
+      mois: d.toLocaleDateString('fr-FR', {
+        timeZone: 'Europe/Paris',
+        month: 'short',
+      }),
       kg: 0,
     });
   }

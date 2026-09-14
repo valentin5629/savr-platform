@@ -9,6 +9,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 type Result = { data: unknown; error: unknown };
 
@@ -370,7 +371,7 @@ describe('M3.2 / P2 liste traiteurs', () => {
           id: 'c1',
           type: 'zero_dechet',
           statut: 'cloturee',
-          date_collecte: new Date().toISOString().slice(0, 10),
+          date_collecte: jourParis(),
           taux_recyclage: 0.9,
           evenements: {
             lieu_id: 'lieu-1',

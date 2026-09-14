@@ -27,6 +27,7 @@ import { CancelWindowClosedError, LogistiquePermanentError } from '../index.js';
 import type { CreateOrderPayload, CreateTourPayload } from './client.js';
 import { Mts1Client } from './client.js';
 import type { Mts1Tour } from './mock.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 interface TourneeRow {
   id: string;
@@ -364,7 +365,7 @@ export class AdapterMts1 implements LogistiqueProvider {
       `,
       )
       .eq('evenements.lieu_id', lieu.id)
-      .gte('date_collecte', new Date().toISOString().split('T')[0])
+      .gte('date_collecte', jourParis())
       .not(
         'statut',
         'in',

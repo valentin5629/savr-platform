@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireAdmin } from '@/lib/api-auth.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 export async function POST(
   req: NextRequest,
@@ -10,7 +11,7 @@ export async function POST(
   if (auth.error) return auth.error;
 
   const { id } = await params;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = jourParis();
   const supabase = createAdminSupabaseClient();
 
   const { data, error } = await supabase

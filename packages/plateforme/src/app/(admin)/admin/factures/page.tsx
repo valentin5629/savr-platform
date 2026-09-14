@@ -139,7 +139,9 @@ const columns: Column<Facture>[] = [
     header: 'Créée le',
     render: (row) =>
       row.created_at
-        ? new Date(row.created_at).toLocaleDateString('fr-FR')
+        ? new Date(row.created_at).toLocaleDateString('fr-FR', {
+            timeZone: 'Europe/Paris',
+          })
         : '—',
   },
   {
@@ -147,7 +149,9 @@ const columns: Column<Facture>[] = [
     header: 'Émission',
     render: (row) =>
       row.date_emission
-        ? new Date(row.date_emission).toLocaleDateString('fr-FR')
+        ? new Date(row.date_emission).toLocaleDateString('fr-FR', {
+            timeZone: 'Europe/Paris',
+          })
         : '—',
   },
   {

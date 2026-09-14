@@ -21,6 +21,7 @@ import { StatusCollecte } from '@/components/ui/status-collecte';
 import { statutTmsDisplay } from '@/lib/statut-tms-labels';
 import type { StatutCollecte } from '@/components/ui/status-collecte';
 import { cn } from '@/lib/utils';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 // ── Type de ligne collecte affichée par la carte (liste Admin, §06.06 §3) ──────
 // Superset du SELECT liste : les champs transporteur_nom / montant_ht / pack sont
@@ -162,6 +163,7 @@ export function formatDateHeure(
   const d = new Date(`${date}T${heure ?? '00:00:00'}`);
   const jour = d
     .toLocaleDateString('fr-FR', {
+      timeZone: 'Europe/Paris',
       weekday: 'short',
       day: '2-digit',
       month: 'short',
@@ -197,13 +199,15 @@ export function groupBySemaine(
 ): SemaineGroupe[] {
   const fmt = (d: Date) =>
     d
-      .toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+      .toLocaleDateString('fr-FR', {
+        timeZone: 'Europe/Paris',
+        day: 'numeric',
+        month: 'short',
+      })
       .replace(/\./g, '');
   const map = new Map<string, CollecteRow[]>();
   for (const r of rows) {
-    const key = lundiDe(new Date(`${r.date_collecte}T00:00:00`))
-      .toISOString()
-      .slice(0, 10);
+    const key = jourParis(lundiDe(new Date(`${r.date_collecte}T00:00:00`)));
     const bucket = map.get(key);
     if (bucket) bucket.push(r);
     else map.set(key, [r]);

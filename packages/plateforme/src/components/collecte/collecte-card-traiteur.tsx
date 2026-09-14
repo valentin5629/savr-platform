@@ -77,6 +77,7 @@ export function TraiteurCollecteCard({
     return isNaN(d.getTime())
       ? c.date_collecte
       : d.toLocaleDateString('fr-FR', {
+          timeZone: 'Europe/Paris',
           weekday: 'short',
           day: '2-digit',
           month: 'short',

@@ -692,7 +692,9 @@ export function CollecteDetailPanel({
   // chargée (en-tête figé « Collecte AG · … · jusqu'à N pax » + cadre coloré).
   useEffect(() => {
     if (!collecte) return;
-    const d = new Date(collecte.date_collecte).toLocaleDateString('fr-FR');
+    const d = new Date(collecte.date_collecte).toLocaleDateString('fr-FR', {
+      timeZone: 'Europe/Paris',
+    });
     const h = collecte.heure_collecte
       ? ` · ${collecte.heure_collecte.slice(0, 5)}`
       : '';
@@ -815,7 +817,11 @@ export function CollecteDetailPanel({
                 </Badge>
                 {collecte.statut_tms_at && (
                   <span className="ml-1 text-xs text-savr-neutral-400">
-                    ({new Date(collecte.statut_tms_at).toLocaleString('fr-FR')})
+                    (
+                    {new Date(collecte.statut_tms_at).toLocaleString('fr-FR', {
+                      timeZone: 'Europe/Paris',
+                    })}
+                    )
                   </span>
                 )}
               </dd>
@@ -1024,7 +1030,9 @@ export function CollecteDetailPanel({
                       {collecte.attributions_antgaspi.mode_validation} —{' '}
                       {new Date(
                         collecte.attributions_antgaspi.valide_at,
-                      ).toLocaleDateString('fr-FR')}
+                      ).toLocaleDateString('fr-FR', {
+                        timeZone: 'Europe/Paris',
+                      })}
                     </>
                   ) : (
                     <Badge variant="warning" className="text-xs">
@@ -1113,7 +1121,7 @@ export function CollecteDetailPanel({
               Email envoyé au programmateur le{' '}
               {new Date(
                 collecte.infos_acces_email_envoye_at,
-              ).toLocaleDateString('fr-FR')}
+              ).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' })}
             </div>
           ) : (
             <div className="flex items-center gap-2 text-sm text-savr-neutral-600">
@@ -1466,7 +1474,9 @@ export function CollecteDetailPanel({
                           documents.rapport.regenere_at
                             ? ` — mis à jour le ${new Date(
                                 documents.rapport.regenere_at,
-                              ).toLocaleDateString('fr-FR')}`
+                              ).toLocaleDateString('fr-FR', {
+                                timeZone: 'Europe/Paris',
+                              })}`
                             : ''
                         }`}
                         className="inline-flex items-center text-savr-primary-600"
@@ -1483,7 +1493,9 @@ export function CollecteDetailPanel({
                       : documents.rapport.consulte_par_user_at
                         ? `Consulté le ${new Date(
                             documents.rapport.consulte_par_user_at,
-                          ).toLocaleDateString('fr-FR')}`
+                          ).toLocaleDateString('fr-FR', {
+                            timeZone: 'Europe/Paris',
+                          })}`
                         : 'Disponible'}
                 </p>
               </div>
@@ -1751,7 +1763,9 @@ export function CollecteDetailPanel({
                     )}
                   </p>
                   <p className="text-xs text-savr-neutral-500">
-                    {new Date(e.created_at).toLocaleString('fr-FR')}
+                    {new Date(e.created_at).toLocaleString('fr-FR', {
+                      timeZone: 'Europe/Paris',
+                    })}
                     {e.role ? ` · ${e.role}` : ''}
                     {e.impersonator_id ? ' · (impersonation)' : ''}
                   </p>

@@ -186,6 +186,7 @@ export async function runBatchSansExcedent(
 
       const presentationDatetime = tournee?.heure_debut_reelle
         ? new Date(tournee.heure_debut_reelle).toLocaleString('fr-FR', {
+            timeZone: 'Europe/Paris',
             day: '2-digit',
             month: '2-digit',
             year: 'numeric',
@@ -229,7 +230,10 @@ export async function runBatchSansExcedent(
 
       const payload = {
         nom_evenement: ev.nom_evenement,
-        date_evenement: new Date(ev.date_evenement).toLocaleDateString('fr-FR'),
+        date_evenement: new Date(ev.date_evenement).toLocaleDateString(
+          'fr-FR',
+          { timeZone: 'Europe/Paris' },
+        ),
         lieu_nom: lieu?.nom ?? '',
         lieu_adresse: adresseLieu,
         traiteur_nom: traiteurNom,

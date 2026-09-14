@@ -10,6 +10,7 @@ import {
   is429,
 } from '../pennylane/client.js';
 import { attribuerNumeroFacture } from './numerotation.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 export interface AvoirResult {
   ok: boolean;
@@ -89,7 +90,7 @@ export async function creerAvoir(
   // laisserait un trou dans la séquence gapless. L'avoir est créé en brouillon
   // sans numéro.
   const now = new Date();
-  const dateStr = now.toISOString().split('T')[0]!;
+  const dateStr = jourParis(now);
 
   // 3. Créer la facture avoir (montants négatifs)
   const { data: avoir, error: avoirErr } = await supabase

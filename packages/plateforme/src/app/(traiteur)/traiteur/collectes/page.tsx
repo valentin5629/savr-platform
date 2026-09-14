@@ -20,6 +20,7 @@ import {
   readCollecteFiltreLabel,
   periodeCourte,
 } from '@/lib/dashboards/collecte-filtre-label';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 // Refonte liste collectes traiteur (décision Val 2026-07-05, diverge du §04
 // actuel — voir _Divergences/M3.1_20260705_liste_collectes.md) : onglets
@@ -87,7 +88,7 @@ function lundiDe(dateStr: string): string {
   if (isNaN(d.getTime())) return dateStr;
   const jour = (d.getDay() + 6) % 7; // 0 = lundi
   d.setDate(d.getDate() - jour);
-  return d.toISOString().slice(0, 10);
+  return jourParis(d);
 }
 function libelleSemaine(lundi: string): string {
   const d = new Date(`${lundi}T00:00:00`);
@@ -95,7 +96,11 @@ function libelleSemaine(lundi: string): string {
   const fin = new Date(d);
   fin.setDate(fin.getDate() + 6);
   const fmt = (x: Date) =>
-    x.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
+    x.toLocaleDateString('fr-FR', {
+      timeZone: 'Europe/Paris',
+      day: '2-digit',
+      month: 'short',
+    });
   return `Semaine du ${fmt(d)} — ${fmt(fin)}`;
 }
 

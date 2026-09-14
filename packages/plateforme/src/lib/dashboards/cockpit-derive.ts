@@ -1,3 +1,4 @@
+import { jourParis } from '@savr/shared/src/temps/index.js';
 /**
  * Dérivations pures du dashboard « Cockpit » (R24) — agrégats KPI, séries
  * sparkline, variation N-1, totaux/équivalences CO₂, items de jauges benchmark.
@@ -47,7 +48,7 @@ export function previousWindow(
   const DAY = 86_400_000;
   const prevTo = f - DAY;
   const prevFrom = prevTo - (t - f);
-  const iso = (ms: number): string => new Date(ms).toISOString().slice(0, 10);
+  const iso = (ms: number): string => jourParis(new Date(ms));
   return { from: iso(prevFrom), to: iso(prevTo) };
 }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 /**
  * GET /api/v1/admin/dashboard/revenus-organisations — Bloc 2 « Revenus par
@@ -64,10 +65,10 @@ const SORT_KEYS: SortKey[] = [
 // Fallback serveur cohérent avec le défaut UI (le tableau envoie toujours from/to).
 function defaultPeriodeRange(): { from: string; to: string } {
   const now = new Date();
-  const to = now.toISOString().slice(0, 10);
+  const to = jourParis(now);
   const fromDate = new Date(now);
   fromDate.setUTCMonth(fromDate.getUTCMonth() - 12);
-  return { from: fromDate.toISOString().slice(0, 10), to };
+  return { from: jourParis(fromDate), to };
 }
 
 // Récupère toutes les lignes d'une requête paginée (au-delà du plafond 1000 lignes).

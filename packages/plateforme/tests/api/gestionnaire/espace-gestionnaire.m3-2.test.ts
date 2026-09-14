@@ -8,6 +8,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 // ── Mock chain ───────────────────────────────────────────────────────────────
 type Result = { data: unknown; error: unknown };
@@ -584,9 +585,9 @@ describe('M3.2 / traiteurs', () => {
           id: 'c1',
           type: 'zero_dechet',
           statut: 'cloturee',
-          date_collecte: new Date(Date.now() - 6 * 30 * 24 * 3600 * 1000)
-            .toISOString()
-            .slice(0, 10),
+          date_collecte: jourParis(
+            new Date(Date.now() - 6 * 30 * 24 * 3600 * 1000),
+          ),
           taux_recyclage: 0.88,
           evenements: {
             lieu_id: 'lieu-1',
@@ -650,9 +651,9 @@ describe('M3.2 / traiteurs', () => {
           id: 'c1',
           type: 'anti_gaspi',
           statut: 'cloturee',
-          date_collecte: new Date(Date.now() - 30 * 24 * 3600 * 1000)
-            .toISOString()
-            .slice(0, 10),
+          date_collecte: jourParis(
+            new Date(Date.now() - 30 * 24 * 3600 * 1000),
+          ),
           evenements: {
             lieu_id: 'lieu-1',
             traiteur_operationnel_organisation_id: 'org-kaspia',
@@ -693,9 +694,9 @@ describe('M3.2 / traiteurs', () => {
           id: 'c1',
           type: 'anti_gaspi',
           statut: 'cloturee',
-          date_collecte: new Date(Date.now() - 30 * 24 * 3600 * 1000)
-            .toISOString()
-            .slice(0, 10),
+          date_collecte: jourParis(
+            new Date(Date.now() - 30 * 24 * 3600 * 1000),
+          ),
           collecte_flux: [],
           attributions_antgaspi: { volume_repas_realise: 33 },
         },

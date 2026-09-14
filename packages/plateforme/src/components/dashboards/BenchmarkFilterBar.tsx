@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MultiSelectFilter, type MultiOption } from './MultiSelectFilter.js';
 import { TAILLE_OPTIONS } from './taille-options.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 // Filtres du « point rouge » benchmark (§06.05 Bloc 3 ZD) — distincts des filtres
 // globaux du dashboard : ils n'affectent QUE la moyenne parc, pas les jauges.
@@ -22,8 +23,8 @@ function isoDaysAgoMonths(months: number): { debut: string; fin: string } {
   const debut = new Date();
   debut.setMonth(debut.getMonth() - months);
   return {
-    debut: debut.toISOString().slice(0, 10),
-    fin: fin.toISOString().slice(0, 10),
+    debut: jourParis(debut),
+    fin: jourParis(fin),
   };
 }
 

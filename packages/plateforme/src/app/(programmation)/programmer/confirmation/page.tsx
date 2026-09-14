@@ -51,6 +51,7 @@ function formatDate(date: string | null): string {
   const parsed = new Date(date);
   if (Number.isNaN(parsed.getTime())) return date;
   return parsed.toLocaleDateString('fr-FR', {
+    timeZone: 'Europe/Paris',
     day: '2-digit',
     month: 'long',
     year: 'numeric',

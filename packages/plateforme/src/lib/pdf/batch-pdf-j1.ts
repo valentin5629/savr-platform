@@ -14,6 +14,7 @@ import { resolveRapportBenchmark } from './rapport-benchmark.js';
 import { resolveRapportLogo } from './logo-cascade.js';
 import { makeLogoResolver } from './logo-inline.js';
 import { logger } from '@savr/shared/src/logger/index.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 export interface BatchPdfJ1Result {
   enqueued: number;
@@ -308,11 +309,16 @@ export async function runBatchPdfJ1(
         }
       }
 
-      const dateCollecteStr = new Date().toLocaleDateString('fr-FR');
+      const dateCollecteStr = new Date().toLocaleDateString('fr-FR', {
+        timeZone: 'Europe/Paris',
+      });
       const dateEvenementStr = new Date(ev.date_evenement).toLocaleDateString(
         'fr-FR',
+        { timeZone: 'Europe/Paris' },
       );
-      const dateEmissionStr = new Date().toLocaleDateString('fr-FR');
+      const dateEmissionStr = new Date().toLocaleDateString('fr-FR', {
+        timeZone: 'Europe/Paris',
+      });
 
       const bordereauPayload = {
         numero,
@@ -392,8 +398,8 @@ export async function runBatchPdfJ1(
         .insert({
           collecte_id: collecte.id,
           numero,
-          date_emission: new Date().toISOString().split('T')[0],
-          date_collecte: new Date().toISOString().split('T')[0],
+          date_emission: jourParis(),
+          date_collecte: jourParis(),
           producteur_raison_sociale: organisationProd?.raison_sociale ?? '',
           producteur_siret: organisationProd?.siret ?? null,
           producteur_adresse: organisationProd?.adresse ?? '',

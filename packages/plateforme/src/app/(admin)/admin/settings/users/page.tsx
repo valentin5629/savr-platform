@@ -52,7 +52,9 @@ const columns: Column<StaffUser>[] = [
     header: 'Dernière connexion',
     render: (row) =>
       row.derniere_connexion
-        ? new Date(row.derniere_connexion).toLocaleDateString('fr-FR')
+        ? new Date(row.derniere_connexion).toLocaleDateString('fr-FR', {
+            timeZone: 'Europe/Paris',
+          })
         : '—',
   },
 ];

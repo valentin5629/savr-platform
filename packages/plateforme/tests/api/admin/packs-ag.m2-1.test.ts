@@ -4,6 +4,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 
@@ -222,7 +223,7 @@ describe('M2.1 / Tarifs packs AG — versioning', () => {
       await import('@/app/api/v1/admin/tarifs-packs-ag/route.js');
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    const valide_du = tomorrow.toISOString().slice(0, 10);
+    const valide_du = jourParis(tomorrow);
 
     const res = await POST(
       makeReq('POST', '/api/v1/admin/tarifs-packs-ag', {

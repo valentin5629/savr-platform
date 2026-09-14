@@ -24,6 +24,7 @@ import {
   FACTEURS_CO2_DEFAUT,
   type FacteursCo2,
 } from '@/lib/dashboards/cockpit-derive.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 /** Client Supabase serveur (schéma `plateforme`, RLS sous l'identité appelant). */
 export type DbClient = ReturnType<typeof createSupabaseServerClient>;
@@ -377,9 +378,9 @@ function bucketKey(dateStr: string, g: Granularite): string {
   if (g === 'semaine') {
     const dow = (d.getUTCDay() + 6) % 7; // 0 = lundi
     d.setUTCDate(d.getUTCDate() - dow);
-    return d.toISOString().slice(0, 10);
+    return jourParis(d);
   }
-  return d.toISOString().slice(0, 10);
+  return jourParis(d);
 }
 
 export interface EvolutionParams {
@@ -639,7 +640,7 @@ function paxDistinct(rows: BlocsCollecteRow[]): number {
 }
 
 function isoDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  return jourParis(d);
 }
 
 export interface LieuRow {

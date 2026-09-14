@@ -11,6 +11,7 @@
 // est supprimé : tout vient désormais du référentiel (BL-P1-FACT-02/03).
 
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 export class TarifAgError extends Error {
   constructor(
@@ -62,7 +63,7 @@ export async function calculer_tarif_ag(
     date: Date;
   },
 ): Promise<TarifAgResult> {
-  const dateStr = params.date.toISOString().slice(0, 10);
+  const dateStr = jourParis(params.date);
 
   // ── Cas 1 : la collecte décrémente un pack ──────────────────────────────────
   if (params.packAntgaspiId) {

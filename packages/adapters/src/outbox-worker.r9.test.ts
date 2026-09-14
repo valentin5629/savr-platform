@@ -21,6 +21,7 @@ import {
 import { runOutboxWorker } from './outbox-worker.js';
 import { AdapterMts1 } from './mts1/adapter.js';
 import { LogistiqueTransientError } from './index.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 interface RpcCall {
   name: string;
@@ -177,9 +178,7 @@ describe('R9 / worker outbox — vrai chemin reaper / alertes / DLQ (BL-P1-OUTBO
     vi.spyOn(AdapterMts1.prototype, 'dispatchCollecte').mockRejectedValue(
       new LogistiqueTransientError('503 MTS-1'),
     );
-    const demain = new Date(Date.now() + 12 * 60 * 60 * 1000)
-      .toISOString()
-      .split('T')[0]!;
+    const demain = jourParis(new Date(Date.now() + 12 * 60 * 60 * 1000));
     const supabase = makeSupabase({ attempts: 2, dateCollecte: demain });
 
     const result = await runOutboxWorker(supabase);

@@ -18,6 +18,7 @@ interface Props {
 function formatDateHeure(date: string, heure: string | null): string {
   const d = new Date(`${date.slice(0, 10)}T00:00:00`);
   const jour = d.toLocaleDateString('fr-FR', {
+    timeZone: 'Europe/Paris',
     day: '2-digit',
     month: 'short',
     year: 'numeric',

@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { useUserRole } from '@/lib/use-user-role';
 import { OpsReadOnlyBanner } from '@/components/ui/ops-read-only-banner';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 interface TarifPackAG {
   id: string;
@@ -134,7 +135,7 @@ export default function TarifsPacksAGPage() {
     setFNbMensualites(12);
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    setFValideDu(tomorrow.toISOString().slice(0, 10));
+    setFValideDu(jourParis(tomorrow));
     setFormError(null);
     setModal(true);
   };
@@ -183,7 +184,9 @@ export default function TarifsPacksAGPage() {
               {tarif ? (
                 <Badge variant="success" className="text-xs">
                   Actif depuis{' '}
-                  {new Date(tarif.valide_du).toLocaleDateString('fr-FR')}
+                  {new Date(tarif.valide_du).toLocaleDateString('fr-FR', {
+                    timeZone: 'Europe/Paris',
+                  })}
                 </Badge>
               ) : (
                 <Badge variant="neutral" className="text-xs">
@@ -477,14 +480,18 @@ export default function TarifsPacksAGPage() {
                             : 'Non'}
                         </td>
                         <td className="py-2 pr-3 whitespace-nowrap">
-                          {new Date(r.valide_du).toLocaleDateString('fr-FR')}
+                          {new Date(r.valide_du).toLocaleDateString('fr-FR', {
+                            timeZone: 'Europe/Paris',
+                          })}
                           {r.valide_jusqu_au
-                            ? ` → ${new Date(r.valide_jusqu_au).toLocaleDateString('fr-FR')}`
+                            ? ` → ${new Date(r.valide_jusqu_au).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' })}`
                             : ' → …'}
                         </td>
                         <td className="py-2 pr-3">{r.modifie_par_nom}</td>
                         <td className="py-2 whitespace-nowrap">
-                          {new Date(r.date_modif).toLocaleDateString('fr-FR')}
+                          {new Date(r.date_modif).toLocaleDateString('fr-FR', {
+                            timeZone: 'Europe/Paris',
+                          })}
                         </td>
                       </tr>
                     ))}

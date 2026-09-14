@@ -12,6 +12,7 @@ import {
   fatalSiAucuneProduite,
   logCollecteEnEchec,
 } from './batch-fatal.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 export interface BatchPdfJ1AgResult {
   enqueued: number;
@@ -184,9 +185,10 @@ export async function runBatchPdfJ1Ag(
         .single();
       const numero = numeroData as string;
 
-      const today = new Date().toISOString().split('T')[0]!;
+      const today = jourParis();
       const dateEvenementStr = new Date(ev.date_evenement).toLocaleDateString(
         'fr-FR',
+        { timeZone: 'Europe/Paris' },
       );
       const co2Snapshot = collecte.co2_facteurs_snapshot ?? {};
       const co2FacteursVersion = (co2Snapshot as Record<string, unknown>)
@@ -267,9 +269,12 @@ export async function runBatchPdfJ1Ag(
       // 7. Payload PDF pour Railway/Puppeteer
       const attestationPayload = {
         numero,
-        date_emission: new Date().toLocaleDateString('fr-FR'),
+        date_emission: new Date().toLocaleDateString('fr-FR', {
+          timeZone: 'Europe/Paris',
+        }),
         date_collecte: new Date(collecte.date_collecte).toLocaleDateString(
           'fr-FR',
+          { timeZone: 'Europe/Paris' },
         ),
         nom_evenement: ev.nom_evenement,
         date_evenement: dateEvenementStr,

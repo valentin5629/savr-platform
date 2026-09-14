@@ -7,6 +7,7 @@ import {
   isChipKey,
   type ChipQuery,
 } from '@/lib/collectes-chips.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 async function getHandler(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -118,7 +119,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
     // Miroir EXACT du compteur KPI `controle_acces_a_envoyer` (chip-counts) :
     // requis ET email récap non encore envoyé ET à venir → compteur = liste.
     if (controle_acces === 'true') {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = jourParis();
       query = query
         .eq('controle_acces_requis', true)
         .is('infos_acces_email_envoye_at', null)

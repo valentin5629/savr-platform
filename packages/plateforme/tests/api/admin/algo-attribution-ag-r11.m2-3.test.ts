@@ -8,6 +8,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { NextRequest } from 'next/server';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 // ── Mock Supabase : chaîne thenable (awaitable) + rpc ──────────────────────────
 
@@ -107,12 +108,8 @@ beforeEach(() => {
 describe('M2.3 / R11 ALGO-02 file criticité', () => {
   it('marque criticite=true si collecte < 48h, false sinon', async () => {
     setupAuth('ops_savr');
-    const proche = new Date(Date.now() + 12 * 3600 * 1000)
-      .toISOString()
-      .slice(0, 10);
-    const lointain = new Date(Date.now() + 10 * 24 * 3600 * 1000)
-      .toISOString()
-      .slice(0, 10);
+    const proche = jourParis(new Date(Date.now() + 12 * 3600 * 1000));
+    const lointain = jourParis(new Date(Date.now() + 10 * 24 * 3600 * 1000));
     chainResult = {
       data: [
         {

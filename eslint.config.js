@@ -33,6 +33,32 @@ export default tseslint.config(
       // (§07/01, sanitizePayload). Les `console.*` ad-hoc sont interdits — sauf
       // les puits sanctionnés + l'outillage CLI ci-dessous (overrides).
       'no-console': 'error',
+      // Fuseau métier unique (Europe/Paris) — voir packages/shared/src/temps/.
+      // Sans ces règles, le jour et l'heure dépendent du fuseau du process : UTC
+      // sur Vercel / Railway / CI, Europe/Paris sur un poste de dev — donc des
+      // bugs invisibles en local (jour décalé entre 22h et minuit, heure affichée
+      // 2h en arrière l'été).
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "CallExpression[callee.object.callee.property.name='toISOString'][callee.property.name=/^(slice|split)$/]",
+          message:
+            "Jour calculé en UTC : toISOString() renvoie la VEILLE entre 22h et minuit à Paris. Utiliser jourParis() de '@savr/shared/src/temps/index.js'.",
+        },
+        {
+          selector:
+            "CallExpression[callee.property.name=/^toLocale(Date|Time)String$/]:not(:has(ObjectExpression > Property[key.name='timeZone']))",
+          message:
+            "Date formatée dans le fuseau du process (UTC en prod). Ajouter { timeZone: 'Europe/Paris' } ou utiliser formatDateParis/formatHeureParis de '@savr/shared/src/temps/index.js'.",
+        },
+        {
+          selector:
+            "CallExpression[callee.object.type='NewExpression'][callee.object.callee.name='Date'][callee.property.name='toLocaleString']:not(:has(ObjectExpression > Property[key.name='timeZone']))",
+          message:
+            "Horodatage formaté dans le fuseau du process (UTC en prod). Ajouter { timeZone: 'Europe/Paris' } ou utiliser formatDateHeureParis de '@savr/shared/src/temps/index.js'.",
+        },
+      ],
       '@typescript-eslint/no-unused-vars': [
         'error',
         { argsIgnorePattern: '^_' },

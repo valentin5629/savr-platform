@@ -15,7 +15,7 @@
     },
     {
       "path": "/api/cron/batch-pdf-j1",
-      "schedule": "0 6 * * *"
+      "schedule": "0 4 * * *"
     },
     {
       "path": "/api/cron/pdf-worker",
@@ -23,7 +23,7 @@
     },
     {
       "path": "/api/cron/batch-brouillons-j1",
-      "schedule": "0 6 * * *"
+      "schedule": "0 4 * * *"
     },
     {
       "path": "/api/cron/pennylane-retry",
@@ -43,11 +43,11 @@
     },
     {
       "path": "/api/cron/polling-pennylane",
-      "schedule": "0 3 * * *"
+      "schedule": "0 1 * * *"
     },
     {
       "path": "/api/cron/refresh-benchmark",
-      "schedule": "0 2 * * *"
+      "schedule": "0 0 * * *"
     },
     {
       "path": "/api/cron/notify-pack-etat",
@@ -55,7 +55,7 @@
     },
     {
       "path": "/api/cron/purge-logs",
-      "schedule": "0 4 * * *"
+      "schedule": "0 2 * * *"
     }
   ]
 }

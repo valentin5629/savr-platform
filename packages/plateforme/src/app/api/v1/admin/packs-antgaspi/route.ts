@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { serverError, writeError, withApiTrace } from '@/lib/api-helpers.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 async function getHandler(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -147,7 +148,7 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
       idempotency_key: idempotencyKey,
       cree_par_user_id: auth.ctx.userId,
       // date_achat = date d'achat du pack (champ §04 Data Model, NOT NULL).
-      date_achat: new Date().toISOString().slice(0, 10),
+      date_achat: jourParis(),
     })
     .select('*')
     .single();

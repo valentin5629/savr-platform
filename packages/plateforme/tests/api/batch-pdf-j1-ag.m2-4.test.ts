@@ -151,7 +151,9 @@ describe('M2.4 / BatchPdfJ1Ag / Happy path', () => {
     ).toBe(true);
     // ECR-4 : date_collecte dans le payload PDF ≠ today
     expect((jobInsert!.payload as Record<string, unknown>).date_collecte).toBe(
-      new Date('2026-06-01').toLocaleDateString('fr-FR'),
+      new Date('2026-06-01').toLocaleDateString('fr-FR', {
+        timeZone: 'Europe/Paris',
+      }),
     );
   });
 });

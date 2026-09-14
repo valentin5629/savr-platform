@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 import type { RegistreFilters } from './registre.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 // Traçabilité des exports (§04 exports_registre) : chaque export client est
 // enregistré (qui, quoi, quand, filtres). Le staff (organisation_id null,
@@ -26,7 +27,7 @@ export async function traceExport(
 ): Promise<void> {
   if (p.isStaff || !p.organisationId) return;
 
-  const today = p.now.toISOString().slice(0, 10);
+  const today = jourParis(p.now);
   const sorted = p.dates.filter((d): d is string => !!d).sort();
   const debut = p.filters.from ?? sorted[0] ?? today;
   let fin = p.filters.to ?? sorted[sorted.length - 1] ?? today;

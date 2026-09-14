@@ -3,6 +3,7 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 export async function GET(
   req: NextRequest,
@@ -33,9 +34,7 @@ export async function GET(
   // (1 attribution par collecte AG, collecte_id UNIQUE). « Réalisées » = statuts
   // terminaux avec collecte effective (realisee + cloturee) ; realisee_sans_collecte
   // est exclu (aucun don parvenu à l'association). Décision Val — revue E2E 2026-07-15.
-  const cutoff30j = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10);
+  const cutoff30j = jourParis(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
   const { count: collectesRealisees30j, error: kpiError } = await supabase
     .from('attributions_antgaspi')
     .select('collecte_id, collectes!inner(statut,date_collecte,type)', {

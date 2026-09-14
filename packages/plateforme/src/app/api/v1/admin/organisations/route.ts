@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { serverError, writeError, withApiTrace } from '@/lib/api-helpers.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 async function getHandler(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -55,7 +56,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
   if (orgIds.length > 0) {
     const depuis12m = new Date();
     depuis12m.setFullYear(depuis12m.getFullYear() - 1);
-    const depuis12mStr = depuis12m.toISOString().slice(0, 10);
+    const depuis12mStr = jourParis(depuis12m);
 
     const [zdRes, agRes, packsRes] = await Promise.all([
       supabase.rpc('count_collectes_par_org', {

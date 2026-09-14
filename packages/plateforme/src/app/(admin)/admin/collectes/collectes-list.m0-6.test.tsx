@@ -23,6 +23,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 import CollectesPage from './page';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 // ZD clôturée (terminale → vue Historique) : poids + taux + rapport, facturée.
 const collecteZd = {
@@ -699,9 +700,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
   it('M0.6 — carte urgente (AG à attribuer < 48h) : badge Urgent affiché, pas sur la lointaine', async () => {
     const urgente = ag({
       id: 'ag-urgente',
-      date_collecte: new Date(Date.now() + 2 * 60 * 60 * 1000)
-        .toISOString()
-        .slice(0, 10),
+      date_collecte: jourParis(new Date(Date.now() + 2 * 60 * 60 * 1000)),
       heure_collecte: '10:00:00',
     });
     // AG à attribuer, mais loin (> 48h) : pas urgente.

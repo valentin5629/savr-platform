@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -14,10 +15,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   // Action cards Bloc 1 — données live
   const now = new Date();
-  const nowStr = now.toISOString().slice(0, 10);
-  const in48hStr = new Date(now.getTime() + 48 * 3600 * 1000)
-    .toISOString()
-    .slice(0, 10);
+  const nowStr = jourParis(now);
+  const in48hStr = jourParis(new Date(now.getTime() + 48 * 3600 * 1000));
 
   const [
     nonTransmisesZD,

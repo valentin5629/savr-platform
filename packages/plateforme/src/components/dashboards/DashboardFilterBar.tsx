@@ -6,6 +6,7 @@ import {
   type ParcFilterOptions,
   type ParcFilterValue,
 } from './ParcMultiSelects.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 export interface DashboardFilters {
   from: string; // YYYY-MM-DD
@@ -34,8 +35,8 @@ function defaultFilters(): DashboardFilters {
   const from = new Date();
   from.setMonth(from.getMonth() - 12);
   return {
-    from: from.toISOString().slice(0, 10),
-    to: to.toISOString().slice(0, 10),
+    from: jourParis(from),
+    to: jourParis(to),
     lieu_ids: [],
     traiteur_ids: [],
     type_evenement_ids: [],
@@ -52,7 +53,7 @@ function parcValue(f: DashboardFilters): ParcFilterValue {
   };
 }
 
-const iso = (d: Date) => d.toISOString().slice(0, 10);
+const iso = (d: Date) => jourParis(d);
 
 // Presets de période (BL-P3-02) — liste CDC EXACTE §06.04 l.73 / §06.05 l.105 :
 // 7j / 30j / Trimestre en cours / 12 derniers mois (défaut) / Année civile /

@@ -28,8 +28,17 @@ const RACINES_PROD = ['packages/plateforme/src', 'packages/adapters/src'].map(
   (p) => join(RACINE, p),
 );
 
-/** Écriture du statut terminal via `fn_result_outbox` — tolère le retour à la ligne de Prettier. */
-const ECRIT_DEAD = /p_statut:\s*'dead'/;
+/** Toute écriture d'un statut via `fn_result_outbox` (les 3 quotes, retour à la ligne de Prettier toléré). */
+const STATUT_ECRIT = /p_statut:\s*([^,\n}]+)/g;
+/** Statuts littéraux que ce cliquet sait interpréter (cf. `outbox_statut_enum`). */
+const LITTERAUX = new Set(
+  ["'done'", "'failed'", "'dead'"].flatMap((v) => [
+    v,
+    v.replace(/'/g, '"'),
+    v.replace(/'/g, '`'),
+  ]),
+);
+const estDead = (v: string) => /^['"`]dead['"`]$/.test(v);
 /** Primitive d'alerte DLQ partagée (définie dans packages/adapters/src/outbox-worker.ts). */
 const ALERTE_DLQ = /\balertOutboxDead\b/;
 
@@ -48,9 +57,19 @@ function sourcesProd(dir: string): string[] {
   return out;
 }
 
-const ecrivainsDead = RACINES_PROD.flatMap(sourcesProd)
-  .map((f) => ({ f, src: readFileSync(f, 'utf8') }))
-  .filter(({ src }) => ECRIT_DEAD.test(src));
+/** Statuts écrits par un fichier, tels qu'ils apparaissent dans la source. */
+function statutsEcrits(src: string): string[] {
+  return [...src.matchAll(STATUT_ECRIT)].map((m) => m[1]!.trim());
+}
+
+const appelants = RACINES_PROD.flatMap(sourcesProd)
+  .map((f) => ({ f, src: readFileSync(f, 'utf8'), rel: '' }))
+  .filter(({ src }) => src.includes('fn_result_outbox'))
+  .map((e) => ({ ...e, rel: e.f.slice(RACINE.length + 1) }));
+
+const ecrivainsDead = appelants.filter(({ src }) =>
+  statutsEcrits(src).some(estDead),
+);
 
 describe('DLQ outbox — alerte critique sur toutes les familles de consumer', () => {
   it('au moins les 2 consommateurs connus écrivent `dead` (garde anti-vacuité)', () => {
@@ -60,8 +79,16 @@ describe('DLQ outbox — alerte critique sur toutes les familles de consumer', (
     );
   });
 
-  for (const { f, src } of ecrivainsDead) {
-    const rel = f.slice(RACINE.length + 1);
+  // Le cliquet ne conclut que sur des statuts LITTÉRAUX : un `p_statut` calculé
+  // (variable, ternaire) le rendrait aveugle en silence — il échoue alors en le disant.
+  for (const { rel, src } of appelants) {
+    const opaques = statutsEcrits(src).filter((v) => !LITTERAUX.has(v));
+    it(`${rel} : écrit fn_result_outbox avec des statuts littéraux (sinon ce cliquet est aveugle)`, () => {
+      expect(opaques).toEqual([]);
+    });
+  }
+
+  for (const { rel, src } of ecrivainsDead) {
     it(`${rel} : passe un event en \`dead\` → doit émettre l'alerte DLQ (§07/03 l.24)`, () => {
       expect(ALERTE_DLQ.test(src)).toBe(true);
     });

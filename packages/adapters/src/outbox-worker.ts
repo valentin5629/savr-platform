@@ -132,7 +132,7 @@ export async function runOutboxWorker(
       const status = await handleError(supabase, event, err);
       if (status === 'dead') {
         result.dead++;
-        await alertDlq(event, err);
+        await alertOutboxDead(event, err);
       } else {
         result.failed++;
         await maybeAlertEarlyCollecte(supabase, event);
@@ -336,7 +336,21 @@ export function getNextRetryAt(attempts: number): Date | null {
 
 // ─── Alertes ─────────────────────────────────────────────────────────────────
 
-async function alertDlq(event: ClaimedEvent, err: unknown): Promise<void> {
+/**
+ * Alerte DLQ (§07/03 l.24) — `outbox_events.statut = 'dead'` après épuisement des
+ * paliers, **toutes familles de `consumer` confondues, `attribution_job` inclus**
+ * (précisé CDC 2026-09-14) : l'isolation par famille ne doit pas créer de DLQ
+ * silencieuse — un email d'attribution AG définitivement perdu = association ou
+ * transporteur jamais prévenu.
+ *
+ * Exportée : le cron `process-attributions-ag` (seul autre consommateur de
+ * l'outbox, famille `attribution_job`) émet la MÊME alerte via cette primitive
+ * plutôt qu'une copie du message.
+ */
+export async function alertOutboxDead(
+  event: Pick<ClaimedEvent, 'id' | 'event_type' | 'aggregate_id' | 'attempts'>,
+  err: unknown,
+): Promise<void> {
   await sendAlert({
     canal: 'critique',
     titre: `[DLQ] Outbox event mort — ${event.event_type}`,

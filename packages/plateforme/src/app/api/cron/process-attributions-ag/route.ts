@@ -1,4 +1,7 @@
-import { getNextRetryAt } from '@savr/adapters/src/outbox-worker.js';
+import {
+  alertOutboxDead,
+  getNextRetryAt,
+} from '@savr/adapters/src/outbox-worker.js';
 
 import { processAttributionValidee } from '@/lib/attribution-ag/job.js';
 import type { AttributionValideePayload } from '@/lib/attribution-ag/job.js';
@@ -11,8 +14,13 @@ import { withCronObservability } from '@/lib/cron-observabilite.js';
 // `fn_claim_outbox_attribution_batch`, head-of-line calculé dans la famille seule
 // → un email en échec ne bloque jamais le dispatch de la collecte. Même pattern
 // lease/claim que l'outbox logistique ; résultat via `fn_result_outbox` et même
-// politique de retry (`getNextRetryAt` : 5 min / 1 h / 24 h puis `dead`).
-// Non catalogué §07/02 → pas de canal Slack.
+// politique de retry (`getNextRetryAt` : 5 min / 1 h / 24 h puis `dead`) — et,
+// depuis 2026-09-14, la MÊME alerte DLQ : §07/03 l.24 prescrit l'alerte critique
+// sur `statut = 'dead'` **toutes familles de consumer confondues, `attribution_job`
+// inclus** (une DLQ silencieuse ici = email d'attribution AG perdu, association ou
+// transporteur jamais prévenu). Seul l'échec du BATCH lui-même reste hors Slack
+// (`withCronObservability` sans canal : anti-doublon §13, l'alerte actionnable vit
+// au niveau event).
 export const POST = withCronObservability(
   'process_attributions_ag',
   async ({ supabase }) => {
@@ -31,6 +39,8 @@ export const POST = withCronObservability(
 
     const claimed = (events ?? []) as Array<{
       id: string;
+      event_type: string;
+      aggregate_id: string;
       payload: AttributionValideePayload;
       attempts: number;
     }>;
@@ -59,6 +69,9 @@ export const POST = withCronObservability(
               }
             : { p_id: ev.id, p_statut: 'dead', p_last_error: msg },
         );
+        // Ordre identique au worker logistique : résultat persisté d'abord, alerte
+        // ensuite (une alerte perdue ne doit jamais laisser l'event en `processing`).
+        if (!nextRetry) await alertOutboxDead(ev, err);
         errors.push({ id: ev.id, error: msg });
       }
     }

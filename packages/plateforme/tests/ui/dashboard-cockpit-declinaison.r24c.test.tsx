@@ -20,6 +20,7 @@ vi.mock('next/navigation', () => ({
 import AgenceDashboardPage from '@/app/(agence)/agence/page.js';
 import ClientOrganisateurDashboardPage from '@/app/(client-organisateur)/organisateur/page.js';
 import { DashboardClientView } from '@/app/(admin)/admin/dashboard-client/DashboardClientView.js';
+import { ATTENTE_UI } from '@/test-utils/attente-ui';
 
 function jsonResponse(obj: unknown): Promise<Response> {
   return Promise.resolve({
@@ -112,7 +113,9 @@ describe('M3.3 / agence — déclinaison Cockpit', () => {
     render(<AgenceDashboardPage />);
 
     // KPI Cockpit (rangée KpiCockpitCard).
-    expect(await screen.findByText('Nombre de collectes')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Nombre de collectes', undefined, ATTENTE_UI),
+    ).toBeInTheDocument();
     // Benchmark Cockpit (BenchmarkBulletGauges — titre propre à la lib figée).
     expect(screen.getByText(/Intensité par flux/)).toBeInTheDocument();
     // Top listes Cockpit (TopRankList).
@@ -125,7 +128,7 @@ describe('M3.3 / agence — déclinaison Cockpit', () => {
   it('M3.3/cockpit_drilldown_top_lieux_url — clic ligne Top lieux → router.push liste Collectes filtrée', async () => {
     vi.stubGlobal('fetch', agenceFetch());
     render(<AgenceDashboardPage />);
-    await screen.findByText('Lieu A');
+    await screen.findByText('Lieu A', undefined, ATTENTE_UI);
 
     const rows = screen.getAllByRole('button', { name: /Voir les collectes/ });
     expect(rows.length).toBeGreaterThan(0);
@@ -173,7 +176,9 @@ describe('M3.4 / organisateur — déclinaison Cockpit', () => {
     expect(screen.getByText('Mon impact RSE')).toBeInTheDocument();
     expect(screen.getByText('Événements collectés')).toBeInTheDocument();
     // Onglet ZD : cadrans Cockpit (dont CO₂ évité en headline, §11 §7).
-    expect(await screen.findByText('Événements ZD')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Événements ZD', undefined, ATTENTE_UI),
+    ).toBeInTheDocument();
     expect(screen.getByText('CO₂ évité')).toBeInTheDocument();
     expect(screen.getByText('Taux de recyclage')).toBeInTheDocument();
   });
@@ -300,14 +305,20 @@ describe('M3.6 / dashboard-client — déclinaison Cockpit', () => {
     render(<DashboardClientView />);
 
     // KPI Cockpit read-only (valeur/unité séparées : « 72,5 » + « % »).
-    expect(await screen.findByText('Nombre de collectes')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Nombre de collectes', undefined, ATTENTE_UI),
+    ).toBeInTheDocument();
     expect(screen.getByText('72,5')).toBeInTheDocument();
     // 5e carte KPI « CO₂ évité » cliquable → modale « Impact carbone ».
     expect(screen.getByText('CO₂ évité')).toBeInTheDocument();
     expect(screen.queryByText("Détail de l'impact carbone")).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /CO₂ évité/ }));
     expect(
-      await screen.findByText("Détail de l'impact carbone"),
+      await screen.findByText(
+        "Détail de l'impact carbone",
+        undefined,
+        ATTENTE_UI,
+      ),
     ).toBeInTheDocument();
     // Graphes Cockpit : jauges bullet (« Intensité par flux »), Top listes.
     expect(screen.getByText(/Intensité par flux/)).toBeInTheDocument();
@@ -323,7 +334,7 @@ describe('M3.6 / dashboard-client — déclinaison Cockpit', () => {
   it('M3.6/cockpit_declinaison_drilldown — Top lieux/traiteurs cliquables → /admin/collectes filtrée (miroir)', async () => {
     vi.stubGlobal('fetch', adminFetch());
     render(<DashboardClientView />);
-    await screen.findByText('Lieu A');
+    await screen.findByText('Lieu A', undefined, ATTENTE_UI);
 
     const rows = screen.getAllByRole('button', { name: /Voir les collectes/ });
     expect(rows.length).toBeGreaterThan(0);
@@ -345,7 +356,7 @@ describe('M3.6 / dashboard-client — déclinaison Cockpit', () => {
     );
     vi.stubGlobal('fetch', adminFetch());
     render(<DashboardClientView />);
-    await screen.findByText('Lieu A');
+    await screen.findByText('Lieu A', undefined, ATTENTE_UI);
 
     fireEvent.click(
       screen.getAllByRole('button', { name: /Voir les collectes/ })[0]!,
@@ -359,19 +370,29 @@ describe('M3.6 / dashboard-client — déclinaison Cockpit', () => {
   it('M3.6/cockpit_declinaison_onglet_ag — onglet Anti-Gaspi : Top associations bénéficiaires', async () => {
     vi.stubGlobal('fetch', adminFetch());
     render(<DashboardClientView />);
-    await screen.findByText('Nombre de collectes');
+    await screen.findByText('Nombre de collectes', undefined, ATTENTE_UI);
 
-    fireEvent.click(await screen.findByRole('tab', { name: /anti-gaspi/i }));
+    fireEvent.click(
+      await screen.findByRole('tab', { name: /anti-gaspi/i }, ATTENTE_UI),
+    );
 
     expect(
-      await screen.findByText('Top associations bénéficiaires'),
+      await screen.findByText(
+        'Top associations bénéficiaires',
+        undefined,
+        ATTENTE_UI,
+      ),
     ).toBeInTheDocument();
     expect(screen.getByText('Les Restos du Cœur')).toBeInTheDocument();
 
     // Carte CO₂ AG cliquable → modale « Impact carbone » variante AG.
     fireEvent.click(screen.getByRole('button', { name: /CO₂ évité/ }));
     expect(
-      await screen.findByText("Détail de l'impact carbone"),
+      await screen.findByText(
+        "Détail de l'impact carbone",
+        undefined,
+        ATTENTE_UI,
+      ),
     ).toBeInTheDocument();
   });
 });

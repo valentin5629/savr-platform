@@ -32,6 +32,7 @@ import GestionnaireDashboardPage from '@/app/(gestionnaire)/gestionnaire/page.js
 import GestionnaireEvenementsPage from '@/app/(gestionnaire)/gestionnaire/evenements/page.js';
 import GestionnaireLieuxPage from '@/app/(gestionnaire)/gestionnaire/lieux/page.js';
 import GestionnaireTraiteursPage from '@/app/(gestionnaire)/gestionnaire/traiteurs/page.js';
+import { ATTENTE_UI } from '@/test-utils/attente-ui';
 
 const KPIS_ZD = {
   nb_collectes: 5,
@@ -183,7 +184,11 @@ describe('M3.2 / P2 dashboard filtres globaux', () => {
   it('M3.2/P2_dashboard_barre_5_filtres — Lieux/Traiteurs/Type/Taille montés', async () => {
     render(<GestionnaireDashboardPage />);
     expect(
-      await screen.findByTestId('dashboard-filter-lieux'),
+      await screen.findByTestId(
+        'dashboard-filter-lieux',
+        undefined,
+        ATTENTE_UI,
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByTestId('dashboard-filter-traiteurs'),
@@ -197,13 +202,21 @@ describe('M3.2 / P2 dashboard filtres globaux', () => {
 
   it('M3.2/P2_dashboard_compteur_collectes — « X collectes correspondent »', async () => {
     render(<GestionnaireDashboardPage />);
-    const count = await screen.findByTestId('dashboard-collectes-count');
+    const count = await screen.findByTestId(
+      'dashboard-collectes-count',
+      undefined,
+      ATTENTE_UI,
+    );
     expect(count).toHaveTextContent(/5 collectes correspondent/i);
   });
 
   it('M3.2/P2_dashboard_carte_kpi_non_cliquable — cartes KPI non cliquables (Val 2026-07-10)', async () => {
     render(<GestionnaireDashboardPage />);
-    const carte = await screen.findByText('Nombre de collectes');
+    const carte = await screen.findByText(
+      'Nombre de collectes',
+      undefined,
+      ATTENTE_UI,
+    );
     routerPush.mockClear();
     fireEvent.click(carte);
     // R24 Cockpit — décision Val GO-VISUAL 2026-07-10 : les cartes KPI ne sont
@@ -229,7 +242,7 @@ describe('M3.2 / P2 encart héritage', () => {
         initialTailleCodes={['M']}
       />,
     );
-    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    await waitFor(() => expect(onChange).toHaveBeenCalled(), ATTENTE_UI);
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({
         type_evenement_ids: ['ty1'],
@@ -244,9 +257,11 @@ describe('M3.2 / P2 listes colonnes', () => {
   it('M3.2/P2_evenements_colonnes_rendues — Tonnage/Déchets labo/Repas + barre de filtres', async () => {
     render(<GestionnaireEvenementsPage />);
     expect(
-      await screen.findByTestId('evenements-filter-bar'),
+      await screen.findByTestId('evenements-filter-bar', undefined, ATTENTE_UI),
     ).toBeInTheDocument();
-    expect(await screen.findByText('Tonnage total')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Tonnage total', undefined, ATTENTE_UI),
+    ).toBeInTheDocument();
     expect(screen.getByText('Déchets labo est.')).toBeInTheDocument();
     expect(screen.getByText('Repas donnés')).toBeInTheDocument();
     // Valeurs rendues (data prête côté route).
@@ -256,13 +271,17 @@ describe('M3.2 / P2 listes colonnes', () => {
 
   it('M3.2/P2_lieux_colonne_capacite — Capacité rendue', async () => {
     render(<GestionnaireLieuxPage />);
-    expect(await screen.findByText('Capacité')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Capacité', undefined, ATTENTE_UI),
+    ).toBeInTheDocument();
     expect(screen.getByText('3500 pers.')).toBeInTheDocument();
   });
 
   it("M3.2/P2_traiteurs_colonne_lieux — Lieux d'intervention rendus", async () => {
     render(<GestionnaireTraiteursPage />);
-    expect(await screen.findByText("Lieux d'intervention")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Lieux d'intervention", undefined, ATTENTE_UI),
+    ).toBeInTheDocument();
     expect(screen.getByText('Palais des Congrès')).toBeInTheDocument();
   });
 });

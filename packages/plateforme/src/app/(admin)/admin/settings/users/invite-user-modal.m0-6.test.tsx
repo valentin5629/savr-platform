@@ -8,6 +8,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 
 import { InviteUserModal } from './invite-user-modal';
+import { ATTENTE_UI } from '@/test-utils/attente-ui';
 
 interface FetchCall {
   url: string;
@@ -57,7 +58,7 @@ afterEach(() => {
 async function pickOrg() {
   const search = screen.getByLabelText('Organisation');
   fireEvent.change(search, { target: { value: 'Kaspia' } });
-  await waitFor(() => screen.getByText('Kaspia SAS'));
+  await waitFor(() => screen.getByText('Kaspia SAS'), ATTENTE_UI);
   fireEvent.click(screen.getByText('Kaspia SAS'));
 }
 
@@ -88,7 +89,7 @@ describe('M0.6 — modale invitation', () => {
 
     fireEvent.click(screen.getByText('Inviter'));
 
-    await waitFor(() => expect(onCreated).toHaveBeenCalled());
+    await waitFor(() => expect(onCreated).toHaveBeenCalled(), ATTENTE_UI);
     const post = calls.find(
       (c) => c.method === 'POST' && c.url === '/api/v1/admin/users',
     );
@@ -166,8 +167,9 @@ describe('M0.6 — modale invitation', () => {
     await pickOrg();
     fireEvent.click(screen.getByText('Inviter'));
 
-    await waitFor(() =>
-      expect(screen.getByText('Email déjà utilisé')).toBeInTheDocument(),
+    await waitFor(
+      () => expect(screen.getByText('Email déjà utilisé')).toBeInTheDocument(),
+      ATTENTE_UI,
     );
     expect(onCreated).not.toHaveBeenCalled();
   });

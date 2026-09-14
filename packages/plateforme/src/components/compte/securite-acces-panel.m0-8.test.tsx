@@ -7,6 +7,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 
 import { SecuriteAccesPanel } from './securite-acces-panel';
+import { ATTENTE_UI } from '@/test-utils/attente-ui';
 
 function stubFetch(data: unknown) {
   vi.stubGlobal(
@@ -24,8 +25,9 @@ describe('M0.8-61 — Sécurité du compte : historique self des accès admin (B
     ]);
     render(<SecuriteAccesPanel />);
 
-    await waitFor(() =>
-      expect(screen.getByTestId('acces-liste')).toBeInTheDocument(),
+    await waitFor(
+      () => expect(screen.getByTestId('acces-liste')).toBeInTheDocument(),
+      ATTENTE_UI,
     );
     expect(screen.getByText('Sécurité du compte')).toBeInTheDocument();
     expect(screen.getAllByText('Accès administrateur').length).toBeGreaterThan(
@@ -39,8 +41,9 @@ describe('M0.8-61 — Sécurité du compte : historique self des accès admin (B
     stubFetch([]);
     render(<SecuriteAccesPanel />);
 
-    await waitFor(() =>
-      expect(screen.getByTestId('acces-vide')).toBeInTheDocument(),
+    await waitFor(
+      () => expect(screen.getByTestId('acces-vide')).toBeInTheDocument(),
+      ATTENTE_UI,
     );
     expect(
       screen.getByText('Aucun accès administrateur enregistré.'),

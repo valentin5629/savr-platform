@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 
 import TemplatesEmailPage from './page';
+import { ATTENTE_UI } from '@/test-utils/attente-ui';
 
 const templates = [
   {
@@ -43,8 +44,9 @@ describe('M0.6 — Templates emails page', () => {
   it('M0.6/templates/page — rend la liste + le compteur de templates actifs', async () => {
     render(<TemplatesEmailPage />);
     // facture_emise n'est pas sélectionné → n'apparaît que dans la liste (unique).
-    await waitFor(() =>
-      expect(screen.getByText('facture_emise')).toBeDefined(),
+    await waitFor(
+      () => expect(screen.getByText('facture_emise')).toBeDefined(),
+      ATTENTE_UI,
     );
     expect(screen.getByText(/2 templates actifs/)).toBeDefined();
     // confirmation_collecte (sélectionné) apparaît en liste + aperçu.
@@ -56,7 +58,10 @@ describe('M0.6 — Templates emails page', () => {
   it('M0.6/templates/page — affiche variables + aperçu iframe du template sélectionné', async () => {
     render(<TemplatesEmailPage />);
     // variables du 1er template (sélectionné par défaut) — uniques à l'aperçu
-    await waitFor(() => expect(screen.getByText('prenom')).toBeDefined());
+    await waitFor(
+      () => expect(screen.getByText('prenom')).toBeDefined(),
+      ATTENTE_UI,
+    );
     expect(screen.getByText('date_collecte')).toBeDefined();
     // aperçu = iframe read-only sandboxée
     const iframe = screen.getByTitle('Aperçu confirmation_collecte');

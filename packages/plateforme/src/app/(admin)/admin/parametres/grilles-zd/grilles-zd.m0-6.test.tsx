@@ -12,6 +12,7 @@ vi.mock('@/lib/use-user-role', () => ({
 }));
 
 import GrillesZdPage from './page';
+import { ATTENTE_UI } from '@/test-utils/attente-ui';
 
 interface FetchCall {
   url: string;
@@ -59,8 +60,9 @@ afterEach(() => vi.restoreAllMocks());
 describe('M0.6 — Grilles ZD catalogue', () => {
   it('M0.6/grilles-zd/catalogue — rend le mode, le nb d’organisations et le badge défaut', async () => {
     render(<GrillesZdPage />);
-    await waitFor(() =>
-      expect(screen.getByText('Grille standard V1')).toBeDefined(),
+    await waitFor(
+      () => expect(screen.getByText('Grille standard V1')).toBeDefined(),
+      ATTENTE_UI,
     );
     expect(screen.getByText('Paliers (montant fixe)')).toBeDefined();
     expect(screen.getByText('4')).toBeDefined();
@@ -69,12 +71,15 @@ describe('M0.6 — Grilles ZD catalogue', () => {
 
   it('M0.6/grilles-zd/catalogue — crée une grille (POST { nom, mode, paliers })', async () => {
     render(<GrillesZdPage />);
-    await waitFor(() =>
-      expect(screen.getByText('Grille standard V1')).toBeDefined(),
+    await waitFor(
+      () => expect(screen.getByText('Grille standard V1')).toBeDefined(),
+      ATTENTE_UI,
     );
     fireEvent.click(screen.getByText('Créer une grille'));
-    await waitFor(() =>
-      expect(screen.getByText('Nouvelle grille tarifaire ZD')).toBeDefined(),
+    await waitFor(
+      () =>
+        expect(screen.getByText('Nouvelle grille tarifaire ZD')).toBeDefined(),
+      ATTENTE_UI,
     );
     // nom
     const nom = screen
@@ -89,7 +94,7 @@ describe('M0.6 — Grilles ZD catalogue', () => {
     await waitFor(() => {
       const post = calls.find((c) => c.method === 'POST');
       expect(post).toBeDefined();
-    });
+    }, ATTENTE_UI);
     const post = calls.find((c) => c.method === 'POST');
     const body = post?.body as {
       nom: string;
@@ -104,8 +109,9 @@ describe('M0.6 — Grilles ZD catalogue', () => {
   it('M0.6/grilles-zd/catalogue — bandeau lecture seule + création masquée si ops_savr', async () => {
     roleRef.current = 'ops_savr';
     render(<GrillesZdPage />);
-    await waitFor(() =>
-      expect(screen.getByText('Grille standard V1')).toBeDefined(),
+    await waitFor(
+      () => expect(screen.getByText('Grille standard V1')).toBeDefined(),
+      ATTENTE_UI,
     );
     expect(
       screen.getByText('Lecture seule — édition réservée admin.'),

@@ -19,6 +19,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 import { CollecteDetailPanel } from './collecte-detail-panel';
+import { ATTENTE_UI } from '@/test-utils/attente-ui';
 
 const collecteAg = {
   id: 'c1',
@@ -157,7 +158,8 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
     // Recommandation algo affichée (§06.09) : prestataire top-1 + association.
     // findAllByText : l'association apparaît en Bloc 0 (reco) ET Bloc 5 (top-3) — BOA-07.
     expect(
-      (await screen.findAllByText('Les Restos du Cœur')).length,
+      (await screen.findAllByText('Les Restos du Cœur', undefined, ATTENTE_UI))
+        .length,
     ).toBeGreaterThan(0);
     expect(screen.getByText('Recommandation algo')).toBeInTheDocument();
     expect(screen.getByText('Strike (mts1)')).toBeInTheDocument();
@@ -167,7 +169,11 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
     // Pré-sélection du top-1 recommandé → bouton « Envoyer à MTS-1 », et AUCUN
     // motif override requis (on valide la reco).
     expect(
-      await screen.findByRole('button', { name: /Envoyer à MTS-1/ }),
+      await screen.findByRole(
+        'button',
+        { name: /Envoyer à MTS-1/ },
+        ATTENTE_UI,
+      ),
     ).toBeInTheDocument();
     expect(screen.queryByLabelText(/Motif override/)).not.toBeInTheDocument();
   });
@@ -176,7 +182,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
     mockFetch();
     render(<CollecteDetailPanel collecteId="c1" />);
     // Attendre la pré-sélection du top-1 (bouton MTS-1)
-    await screen.findByRole('button', { name: /Envoyer à MTS-1/ });
+    await screen.findByRole('button', { name: /Envoyer à MTS-1/ }, ATTENTE_UI);
 
     // Choisir A Toutes! (≠ top-1 Strike) → override → motif obligatoire
     fireEvent.change(screen.getByLabelText('Prestataire à attribuer'), {
@@ -200,7 +206,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   it('M0.6 — modale forçage statut : PATCH exige un motif ≥ 10 caractères', async () => {
     const fetchMock = mockFetch();
     render(<CollecteDetailPanel collecteId="c1" />);
-    await screen.findByText('Prestataire actuel');
+    await screen.findByText('Prestataire actuel', undefined, ATTENTE_UI);
 
     // Ouvre la modale (déclencheur d'en-tête)
     fireEvent.click(screen.getByRole('button', { name: /Forcer le statut/ }));
@@ -237,7 +243,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       };
       expect(body.statut).toBe('validee');
       expect(body.motif.length).toBeGreaterThanOrEqual(10);
-    });
+    }, ATTENTE_UI);
   });
 
   // Régression BL-P0 : le GET fiche référençait des colonnes DB inexistantes
@@ -246,7 +252,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   it('M0.6 — rend type d’événement (libelle), tournée (statut) et facture (factures.statut)', async () => {
     mockFetch();
     render(<CollecteDetailPanel collecteId="c1" />);
-    await screen.findByText('Prestataire actuel');
+    await screen.findByText('Prestataire actuel', undefined, ATTENTE_UI);
 
     // types_evenements.libelle (Bloc 1)
     expect(screen.getByText('Cocktail apéritif')).toBeInTheDocument();
@@ -259,7 +265,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   it('M0.6 — modale N camions : PATCH nb_camions_demande (RM-02)', async () => {
     const fetchMock = mockFetch();
     render(<CollecteDetailPanel collecteId="c1" />);
-    await screen.findByText('Prestataire actuel');
+    await screen.findByText('Prestataire actuel', undefined, ATTENTE_UI);
 
     // Bouton « Modifier » à côté de Nb camions (statut programmee = éditable).
     fireEvent.click(screen.getByRole('button', { name: 'Modifier' }));
@@ -284,7 +290,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         nb_camions_demande: number;
       };
       expect(body.nb_camions_demande).toBe(3);
-    });
+    }, ATTENTE_UI);
   });
 });
 
@@ -463,7 +469,9 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     render(<CollecteDetailPanel collecteId="c1" />);
 
     // Bloc Documents rendu + rapport + attestation (AG).
-    expect(await screen.findByText('Documents')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Documents', undefined, ATTENTE_UI),
+    ).toBeInTheDocument();
     expect(screen.getByText('Rapport RSE')).toBeInTheDocument();
     expect(screen.getByText('Attestation de don')).toBeInTheDocument();
     expect(screen.getByText('ATT-DON-2026-00001')).toBeInTheDocument();
@@ -481,14 +489,16 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
           (c[1] as { method?: string } | undefined)?.method === 'POST',
       );
       expect(call).toBeTruthy();
-    });
+    }, ATTENTE_UI);
   });
 
   it('M0.6 — Bloc 3 : picto « régénéré » affiché quand version ≠ initiale', async () => {
     installMock({});
     render(<CollecteDetailPanel collecteId="c1" />);
     // rapport.version = 2 + regenere_at → picto ⟳ avec title « Rapport régénéré ».
-    expect(await screen.findByTitle(/Rapport régénéré/)).toBeInTheDocument();
+    expect(
+      await screen.findByTitle(/Rapport régénéré/, undefined, ATTENTE_UI),
+    ).toBeInTheDocument();
   });
 
   // (Bloc « Pack AG » retiré de la fiche — décision Val ; ex-tests Bloc 4 supprimés.)
@@ -497,7 +507,9 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     installMock({});
     render(<CollecteDetailPanel collecteId="c1" />);
 
-    expect(await screen.findByText('Attribution AG')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Attribution AG', undefined, ATTENTE_UI),
+    ).toBeInTheDocument();
     // Association + transporteur retenus (embed attributions_antgaspi).
     expect(screen.getAllByText('Les Restos du Cœur').length).toBeGreaterThan(0);
     expect(screen.getByText('A Toutes!')).toBeInTheDocument();
@@ -513,7 +525,9 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   it('M0.6 — Bloc 7 Timeline : les entrées d’audit sont rendues (action + transition de statut)', async () => {
     installMock({});
     render(<CollecteDetailPanel collecteId="c1" />);
-    expect(await screen.findByText('Historique & audit')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Historique & audit', undefined, ATTENTE_UI),
+    ).toBeInTheDocument();
     expect(screen.getByText('collecte_statut_force')).toBeInTheDocument();
     // Transition old → new statut.
     expect(screen.getByText(/validee → realisee/)).toBeInTheDocument();
@@ -525,7 +539,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   it('M0.6 — Bloc 3 : « Importer des photos » envoie un POST multipart /photos', async () => {
     const fetchMock = installMock({});
     const { container } = render(<CollecteDetailPanel collecteId="c1" />);
-    await screen.findByText('Documents');
+    await screen.findByText('Documents', undefined, ATTENTE_UI);
 
     const input = container.querySelector(
       'input[type="file"]',
@@ -544,13 +558,15 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       expect((call![1] as { body?: unknown }).body instanceof FormData).toBe(
         true,
       );
-    });
+    }, ATTENTE_UI);
   });
 
   it('M0.6 — Bloc 3 : bordereau ZD affiché pour une collecte ZD (numéro + statut) ; pas d’attestation AG', async () => {
     installMock({ collecte: baseZd, documents: documentsZd });
     render(<CollecteDetailPanel collecteId="c1" />);
-    expect(await screen.findByText('Bordereau ZD')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Bordereau ZD', undefined, ATTENTE_UI),
+    ).toBeInTheDocument();
     expect(screen.getByText('BSAV-2026-00001')).toBeInTheDocument();
     expect(screen.getByText(/Statut : emis/)).toBeInTheDocument();
     // Une collecte ZD n'a pas d'attestation de don (bloc AG masqué).
@@ -575,7 +591,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       },
     });
     const { container } = render(<CollecteDetailPanel collecteId="c1" />);
-    await screen.findByText('Documents');
+    await screen.findByText('Documents', undefined, ATTENTE_UI);
     expect(screen.getByText('Photos (1)')).toBeInTheDocument();
     const img = container.querySelector(
       'img[alt="Photo collecte"]',
@@ -588,14 +604,18 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     // Collecte AG NON terminale → l'algo (reco) est appelé → top 3 + scores rendus.
     installMock({ collecte: { ...baseAg, statut: 'programmee' } });
     render(<CollecteDetailPanel collecteId="c1" />);
-    expect(await screen.findByText(/3\.2 km/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/3\.2 km/, undefined, ATTENTE_UI),
+    ).toBeInTheDocument();
     expect(screen.getByText(/capacité 200/)).toBeInTheDocument();
   });
 
   it('M0.6 — Événement & Lieu réduit (Client/Type/Adresse/Contrôle accès), Logistique retiré (retour Val)', async () => {
     installMock({ collecte: baseAg });
     render(<CollecteDetailPanel collecteId="c1" />);
-    expect(await screen.findByText('Événement & Lieu')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Événement & Lieu', undefined, ATTENTE_UI),
+    ).toBeInTheDocument();
     // Client = client_organisateur résolu (priorité sur nom_client_organisateur).
     expect(screen.getByText('Client')).toBeInTheDocument();
     expect(screen.getByText('Org Cliente SA')).toBeInTheDocument();
@@ -614,7 +634,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     const onLoaded = vi.fn();
     installMock({ collecte: baseAg });
     render(<CollecteDetailPanel collecteId="c1" onLoaded={onLoaded} />);
-    await waitFor(() => expect(onLoaded).toHaveBeenCalled());
+    await waitFor(() => expect(onLoaded).toHaveBeenCalled(), ATTENTE_UI);
     const arg = onLoaded.mock.calls.at(-1)?.[0] as {
       type: string;
       title: string;

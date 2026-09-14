@@ -13,6 +13,7 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
 }));
 
 import { TopBar } from './top-bar';
+import { ATTENTE_UI } from '@/test-utils/attente-ui';
 
 const originalLocation = window.location;
 
@@ -44,8 +45,14 @@ describe('TopBar — déconnexion', () => {
   it('clic → signOut() puis redirection vers /login', async () => {
     render(<TopBar title="Espace traiteur" userName="a@b.c" />);
     fireEvent.click(screen.getByRole('button', { name: 'Se déconnecter' }));
-    await waitFor(() => expect(mockSignOut).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(window.location.href).toBe('/login'));
+    await waitFor(
+      () => expect(mockSignOut).toHaveBeenCalledTimes(1),
+      ATTENTE_UI,
+    );
+    await waitFor(
+      () => expect(window.location.href).toBe('/login'),
+      ATTENTE_UI,
+    );
   });
 
   it('un onLogout explicite prend le dessus (pas de signOut auto)', () => {

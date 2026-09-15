@@ -249,6 +249,77 @@ describe('bornes texte libre — POST /programmation/evenements', () => {
   });
 });
 
+// ── Contacts PRINCIPAUX (ajoutés au module par 20260915190000) ───────────────
+// Ces deux champs partent dans le champ NATIF de contact de la commande, pas dans
+// le canal libre : pas de risque d'ÉVICTION, mais un nom de 5 000 caractères reste
+// une donnée aberrante transmise au transporteur. Ils sont `obligatoire` : le
+// contrôle de présence en tête de route ne teste que `!body.x`, il laisse passer
+// `'   '`, un objet, ou 5 000 caractères.
+describe('bornes texte libre — contacts principaux', () => {
+  beforeEach(resetChain);
+
+  it('POST : refuse le nom principal de 5 000 caractères — sans créer d’événement', async () => {
+    setupAuth('traiteur_commercial');
+
+    const res = await postProgrammation({
+      contact_principal_nom: NOM_DEMESURE,
+    });
+
+    expect(await champsInvalides(res)).toEqual(['contact_principal_nom']);
+    aucuneEcriture();
+  });
+
+  it('POST : refuse un contact principal BLANC — le « truthy » de la route le laissait passer', async () => {
+    setupAuth('traiteur_commercial');
+
+    const res = await postProgrammation({ contact_principal_nom: '   ' });
+
+    expect(await champsInvalides(res)).toEqual(['contact_principal_nom']);
+    aucuneEcriture();
+  });
+
+  it('POST : stocke le contact principal NORMALISÉ (trim) — la valeur brute n’atteint pas l’INSERT', async () => {
+    setupAuth('traiteur_commercial');
+    mockMaybeSingle
+      .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null }) // SIRET
+      .mockResolvedValueOnce({ data: { email: 'prog@x.fr' }, error: null }); // récap
+    mockSingle.mockResolvedValueOnce({
+      data: { id: 'evt-1', nom_evenement: 'Gala' },
+      error: null,
+    });
+    mockRpc.mockResolvedValueOnce({ data: 'collecte-zd-1', error: null });
+
+    const res = await postProgrammation({
+      contact_principal_nom: '  Jean Martin  ',
+      contact_principal_telephone: '  06 12 34 56 78  ',
+    });
+
+    expect(res.status).toBe(201);
+    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contact_principal_nom: 'Jean Martin',
+        contact_principal_telephone: '06 12 34 56 78',
+      }),
+    );
+  });
+
+  it('PATCH /programmation/evenements/[id] : refuse d’EFFACER un contact principal (colonne NOT NULL)', async () => {
+    setupAuth('traiteur_manager', 'org-traiteur-1', 'user-1');
+
+    const { PATCH } =
+      await import('@/app/api/v1/programmation/evenements/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/programmation/evenements/evt-1', {
+        contact_principal_nom: '',
+      }),
+      { params: Promise.resolve({ id: 'evt-1' }) },
+    );
+
+    expect(await champsInvalides(res)).toEqual(['contact_principal_nom']);
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+});
+
 // ── Édition événement (programmateur + back-office) ───────────────────────────
 describe('bornes texte libre — PATCH événement', () => {
   beforeEach(resetChain);
@@ -305,6 +376,41 @@ describe('bornes texte libre — PATCH événement', () => {
 
     expect(await champsInvalides(res)).toEqual(['contact_secours_telephone']);
     aucuneEcriture();
+  });
+
+  // Le cas ci-dessus prouve que le validateur est APPELÉ sur cette route ; celui-ci
+  // prouve que ses valeurs sont CONSOMMÉES. Relevé par sonde en revue sécurité :
+  // réinjecter le body brut dans l'INSERT laissait toute la suite verte. La base
+  // n'est pas un filet ici — le CHECK ne contraint pas le « trimé » (seul le blanc
+  // intégral est refusé), donc `'  Jean  '` partirait tel quel au transporteur.
+  it('POST /admin/evenements : stocke les contacts principaux NORMALISÉS, pas le body brut', async () => {
+    setupAuth('admin_savr');
+    mockSingle.mockResolvedValueOnce({ data: { id: 'evt-1' }, error: null });
+
+    const { POST } = await import('@/app/api/v1/admin/evenements/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/evenements', {
+        organisation_id: 'org-1',
+        traiteur_operationnel_organisation_id: 'org-1',
+        entite_facturation_id: 'ent-1',
+        lieu_id: 'lieu-1',
+        type_evenement_id: 'type-1',
+        pax: 80,
+        contact_principal_nom: '  Jean Martin  ',
+        contact_principal_telephone: '  06 12 34 56 78  ',
+        contact_secours_nom: '   ',
+      }),
+    );
+
+    expect(res.status).toBe(201);
+    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contact_principal_nom: 'Jean Martin',
+        contact_principal_telephone: '06 12 34 56 78',
+        // Facultatif : une saisie qui n'est que des blancs devient `null`, pas `''`.
+        contact_secours_nom: null,
+      }),
+    );
   });
 
   // ── Contre-épreuve des trois cas de refus ci-dessus ─────────────────────────

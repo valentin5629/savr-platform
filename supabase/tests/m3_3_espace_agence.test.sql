@@ -333,13 +333,19 @@ SELECT throws_ok(
   'agence_pack_ag_insert_denied'
 );
 
--- UPDATE événement hors fenêtre d'édition (collecte cloturee) : refusé (f_collecte_editable=false)
-UPDATE plateforme.evenements SET nom_evenement = 'PIRATÉ'
-WHERE id = 'a3000000-0000-0000-0000-0000000000f1'::uuid;
-SELECT isnt(
-  (SELECT nom_evenement FROM plateforme.evenements WHERE id = 'a3000000-0000-0000-0000-0000000000f1'::uuid),
-  'PIRATÉ',
-  'agence_update_evenement_hors_fenetre_denied'
+-- UPDATE événement par PATCH direct : refusé.
+-- Le refus a CHANGÉ DE NATURE le 2026-09-15 (migration 20260915190000) : il était
+-- porté par la fenêtre d'édition (f_collecte_editable=false dans le USING de
+-- evt_agence_update → UPDATE silencieux à 0 ligne), il est désormais porté par le
+-- PRIVILÈGE — `authenticated` n'a plus UPDATE sur `evenements`, donc 42501 levé
+-- avant toute évaluation RLS, fenêtre ouverte ou non. La fenêtre d'édition
+-- elle-même reste gardée par la route (§05 l.304) et couverte par
+-- packages/plateforme/tests/api/programmation/edition-evenement.m1-2.test.ts.
+SELECT throws_ok(
+  $$UPDATE plateforme.evenements SET nom_evenement = 'PIRATÉ'
+     WHERE id = 'a3000000-0000-0000-0000-0000000000f1'::uuid$$,
+  '42501', NULL,
+  'agence_update_evenement_denied (privilege retire)'
 );
 
 -- Réciproque §09 : le traiteur opérationnel (Kaspia) voit la collecte programmée par

@@ -168,17 +168,48 @@ SELECT lives_ok(
 -- 3. DELETE collectes restreint à statut 'brouillon' (F5)
 -- ════════════════════════════════════════════════════════════════════════════
 
--- T9 : manager DELETE collecte brouillon → 1 ligne supprimée
--- (CTE data-modifying obligatoirement au TOP level — leçon M2.4)
+-- T9 / T10 — EFFET DE BORD ASSUMÉ de la migration 20260915190000.
+--
+-- Ces deux cas prouvaient que `col_delete_brouillon` laissait un manager supprimer
+-- SA collecte brouillon par DELETE PostgREST direct (T9), et pas une collecte
+-- `programmee` (T10). #318 avait délibérément CONSERVÉ le privilège DELETE sur
+-- `collectes` pour cette raison.
+--
+-- Le retrait d'UPDATE sur `evenements` le rend malgré tout inatteignable : le
+-- trigger `trg_set_date_evenement` (AFTER DELETE sur `collectes`) recalcule
+-- `evenements.date_evenement`, et sa fonction `fn_set_date_evenement` n'est PAS
+-- SECURITY DEFINER — elle s'exécute donc avec les droits de l'appelant. Sous
+-- `authenticated`, son `UPDATE plateforme.evenements` lève désormais 42501, et le
+-- DELETE de la collecte échoue avec lui.
+--
+-- Aucun chemin de production n'est touché : le seul `.from('collectes').delete()`
+-- du code tourne sous service_role (rollback de POST /programmation/evenements), et
+-- la suppression de brouillon passe par `fn_supprimer_brouillon` (SECURITY DEFINER,
+-- EXECUTE révoqué de PUBLIC). `col_delete_brouillon` était déjà sans appelant.
+--
+-- On ne contourne PAS en passant `fn_set_date_evenement` en SECURITY DEFINER (elle
+-- ferait alors un UPDATE inconditionnel sur `evenements` en bypassant la RLS), ni
+-- en ré-accordant `UPDATE (date_evenement)` en colonne-level (ce serait rouvrir une
+-- colonne écrivable sans émission d'outbox — la classe de défaut qu'on ferme).
+-- Le comportement est donc verrouillé tel quel. La borne « brouillon uniquement »
+-- reste prouvée par T10 ci-dessous (la policy écarte la ligne avant le DELETE, donc
+-- sans déclencher le trigger) et par la RPC qui la porte en production
+-- (`fn_supprimer_brouillon`, M1_2__programmation).
 SELECT test_set_jwt('traiteur_manager', 'bb000000-0000-0000-0000-00000000000a'::uuid,
                     'bb000000-0000-0000-0000-000000000a01'::uuid);
-WITH d AS (
-  DELETE FROM plateforme.collectes
-  WHERE id = 'bb000000-0000-0000-0000-0000000000c2'::uuid RETURNING 1
-)
-SELECT is(count(*)::int, 1, 'T9 : DELETE collecte brouillon autorisé') FROM d;
+SELECT throws_ok(
+  $$DELETE FROM plateforme.collectes
+     WHERE id = 'bb000000-0000-0000-0000-0000000000c2'::uuid$$,
+  '42501', NULL,
+  'T9 : DELETE direct d''une collecte refuse (trg_set_date_evenement → UPDATE evenements)'
+);
 
--- T10 : manager DELETE collecte programmee → 0 ligne (RLS bloque, pas d'erreur)
+-- T10 : collecte `programmee` → toujours 0 ligne, SANS erreur, et la nuance compte.
+-- Le USING de `col_delete_brouillon` écarte la ligne AVANT le DELETE : aucune ligne
+-- n'est touchée, donc `trg_set_date_evenement` ne se déclenche pas et le 42501 de T9
+-- ne peut pas survenir. Ce cas prouve donc toujours la borne « brouillon uniquement »
+-- de la policy — c'est le seul des deux qui l'a jamais prouvée.
+-- (CTE data-modifying obligatoirement au TOP level — leçon M2.4)
 WITH d AS (
   DELETE FROM plateforme.collectes
   WHERE id = 'bb000000-0000-0000-0000-0000000000c3'::uuid RETURNING 1

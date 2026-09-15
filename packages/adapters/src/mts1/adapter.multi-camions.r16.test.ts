@@ -71,7 +71,8 @@ function makeSupabase(
     single: vi.fn().mockResolvedValue({ data: null, error: null }),
     then: (resolve: (v: unknown) => void) =>
       resolve({
-        data: tournees.map((t) => ({ rang: t.rang, tournees: [t] })),
+        // FK sortante `collecte_tournees.tournee_id` → embed OBJET.
+        data: tournees.map((t) => ({ rang: t.rang, tournees: t })),
         error: null,
       }),
   });

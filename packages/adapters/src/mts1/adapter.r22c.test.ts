@@ -64,14 +64,12 @@ function makeMockSupabaseDispatched() {
       data: [
         {
           rang: 1,
-          tournees: [
-            {
-              id: 'tournee-r22c',
-              external_ref_commande: 'MTS1-ORDER-R22C',
-              tms_reference: 'MTS1-TOUR-R22C',
-              statut: 'en_cours',
-            },
-          ],
+          tournees: {
+            id: 'tournee-r22c',
+            external_ref_commande: 'MTS1-ORDER-R22C',
+            tms_reference: 'MTS1-TOUR-R22C',
+            statut: 'en_cours',
+          },
         },
       ],
       error: null,

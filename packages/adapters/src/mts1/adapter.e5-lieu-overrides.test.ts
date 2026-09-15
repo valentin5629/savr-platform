@@ -73,14 +73,13 @@ function makeSupabase(
             {
               tournee_id: `T-${c.id}`,
               rang: 1,
-              tournees: [
-                {
-                  id: `T-${c.id}`,
-                  external_ref_commande: `MTS1-ORDER-${c.id}`,
-                  tms_reference: `MTS1-TOUR-${c.id}`,
-                  statut: 'en_cours',
-                },
-              ],
+              // FK sortante `collecte_tournees.tournee_id` → embed OBJET.
+              tournees: {
+                id: `T-${c.id}`,
+                external_ref_commande: `MTS1-ORDER-${c.id}`,
+                tms_reference: `MTS1-TOUR-${c.id}`,
+                statut: 'en_cours',
+              },
             },
           ],
         })),

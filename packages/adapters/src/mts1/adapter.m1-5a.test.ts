@@ -13,6 +13,10 @@ import { ProviderManual } from '../manual/provider.js';
 import { AdapterMts1 } from './adapter.js';
 import type { Mts1CreatedTour } from './mock.js';
 import { _setMts1Handlers, setupMts1Mock } from './mock.js';
+import {
+  PRESTA_MTS1,
+  builderTransporteurs,
+} from '../mock-referentiel-transporteurs.js';
 
 // ─── Fixtures de test ─────────────────────────────────────────────────────────
 
@@ -62,7 +66,7 @@ const TRANSPORTEUR: Transporteur = {
   id: 'presta-001',
   type_tms: 'mts1',
   code_transporteur_mts1: 'STRIKE-IDF',
-  prestataire_logistique_id: 'presta-uuid-001',
+  prestataire_logistique_id: PRESTA_MTS1,
 };
 
 const TRANSPORTEUR_AUTRE: Transporteur = {
@@ -80,6 +84,10 @@ function makeMockSupabase(
       external_ref_commande: string | null;
       tms_reference: string | null;
       statut: string;
+      // Explicite dans CHAQUE fixture, jamais posé par défaut par le helper :
+      // une valeur injectée d'office par le mock rendrait le filtre provider
+      // vrai par construction.
+      prestataire_logistique_id: string | null;
     } | null;
     upsertError?: boolean;
   } = {},
@@ -92,8 +100,15 @@ function makeMockSupabase(
   const mockQuery = {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
+    // findTournees lit la LISTE des liens de la collecte (plus de maybeSingle :
+    // rien n'impose l'unicité de (collecte_id, rang)) → builder thenable.
+    // FK sortante `collecte_tournees.tournee_id` → embed OBJET.
+    then: (resolve: (v: unknown) => void) =>
+      resolve({
+        data: tourneeRow ? [{ rang: 1, tournees: tourneeRow }] : [],
+        error: null,
+      }),
     maybeSingle: vi.fn().mockResolvedValue({
-      // FK sortante `collecte_tournees.tournee_id` → embed OBJET.
       data: tourneeRow ? { rang: 1, tournees: tourneeRow } : null,
       error: null,
     }),
@@ -119,7 +134,12 @@ function makeMockSupabase(
   };
 
   const supabase = {
-    from: vi.fn().mockReturnValue(mockQuery),
+    // Routage PAR TABLE : le référentiel transporteurs ne doit jamais être servi
+    // par le builder des tournées (sinon le filtre provider devient un no-op).
+    from: vi.fn((table: string) =>
+      table === 'transporteurs' ? builderTransporteurs() : mockQuery,
+    ),
+    rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
     _upserted: upserted,
     _updated: updated,
     _mockQuery: mockQuery,
@@ -506,6 +526,7 @@ describe('M1.5a / AdapterMts1 — curseur de reprise', () => {
         external_ref_commande: 'MTS1-ORDER-EXISTING',
         tms_reference: 'MTS1-TOUR-EXISTING',
         statut: 'en_cours',
+        prestataire_logistique_id: PRESTA_MTS1,
       },
     });
 
@@ -543,6 +564,7 @@ describe('M1.5a / AdapterMts1 — curseur de reprise', () => {
         external_ref_commande: 'MTS1-ORDER-EXISTING',
         tms_reference: null,
         statut: 'planifiee',
+        prestataire_logistique_id: PRESTA_MTS1,
       },
     });
 
@@ -583,6 +605,7 @@ describe('M1.5a / AdapterMts1 — curseur de reprise', () => {
         external_ref_commande: 'MTS1-ORDER-EXISTING',
         tms_reference: 'MTS1-TOUR-EXISTING',
         statut: 'planifiee',
+        prestataire_logistique_id: PRESTA_MTS1,
       },
     });
 
@@ -804,6 +827,7 @@ describe('M1.5a / AdapterMts1 — cancelCollecte E3', () => {
               external_ref_commande: 'MTS1-ORDER-001',
               tms_reference: 'MTS1-TOUR-001',
               statut: 'en_cours',
+              prestataire_logistique_id: PRESTA_MTS1,
             },
           },
         ],
@@ -811,7 +835,10 @@ describe('M1.5a / AdapterMts1 — cancelCollecte E3', () => {
       }),
     };
     const supabase = {
-      from: vi.fn().mockReturnValue(mockQuery),
+      from: vi.fn((table: string) =>
+        table === 'transporteurs' ? builderTransporteurs() : mockQuery,
+      ),
+      rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
     } as unknown as import('@supabase/supabase-js').SupabaseClient;
 
     await expect(

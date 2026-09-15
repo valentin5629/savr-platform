@@ -4,6 +4,10 @@ import { LogistiquePermanentError } from '../index.js';
 import type { Collecte, Lieu, Transporteur } from '../index.js';
 import { AdapterMts1 } from './adapter.js';
 import { _setMts1Handlers } from './mock.js';
+import {
+  PRESTA_MTS1,
+  builderTransporteurs,
+} from '../mock-referentiel-transporteurs.js';
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 const LIEU: Lieu = {
@@ -42,7 +46,7 @@ const TRANSPORTEUR: Transporteur = {
   id: 'presta-001',
   type_tms: 'mts1',
   code_transporteur_mts1: 'STRIKE-IDF',
-  prestataire_logistique_id: 'presta-uuid-001',
+  prestataire_logistique_id: PRESTA_MTS1,
 };
 
 type TRow = {
@@ -51,6 +55,7 @@ type TRow = {
   external_ref_commande: string | null;
   tms_reference: string | null;
   statut: string;
+  prestataire_logistique_id: string | null;
 };
 
 // Mock supabase : le builder est thenable → `await from().select().eq()` résout
@@ -77,7 +82,12 @@ function makeSupabase(
       }),
   });
   return {
-    from: vi.fn(() => builder),
+    // Routage par table : un builder unique ferait répondre le lot de tournées à
+    // la requête `transporteurs` — le filtre provider deviendrait un no-op.
+    from: vi.fn((table: string) =>
+      table === 'transporteurs' ? builderTransporteurs() : builder,
+    ),
+    rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
   } as unknown as import('@supabase/supabase-js').SupabaseClient;
 }
 
@@ -88,6 +98,7 @@ function row(rang: number): TRow {
     external_ref_commande: `MTS1-ORDER-00${rang}`,
     tms_reference: `MTS1-TOUR-00${rang}`,
     statut: 'en_cours',
+    prestataire_logistique_id: PRESTA_MTS1,
   };
 }
 

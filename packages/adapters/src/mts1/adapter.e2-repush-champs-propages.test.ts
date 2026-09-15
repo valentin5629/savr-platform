@@ -7,6 +7,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Collecte, Lieu, Transporteur } from '../index.js';
 import { AdapterMts1 } from './adapter.js';
 import type { Mts1CreatedTour } from './mock.js';
+import {
+  PRESTA_MTS1,
+  builderTransporteurs,
+} from '../mock-referentiel-transporteurs.js';
 import { _setMts1Handlers } from './mock.js';
 
 // =============================================================================
@@ -60,7 +64,7 @@ const TRANSPORTEUR: Transporteur = {
   id: 'presta-001',
   type_tms: 'mts1',
   code_transporteur_mts1: 'STRIKE-IDF',
-  prestataire_logistique_id: 'presta-uuid-001',
+  prestataire_logistique_id: PRESTA_MTS1,
 };
 
 // Mock Supabase : une tournée rang 1 déjà commandée chez MTS-1 → updateCollecte
@@ -82,6 +86,10 @@ function mockSupabaseDispatched() {
             external_ref_commande: 'MTS1-ORDER-E2-001',
             tms_reference: 'MTS1-TOUR-E2-001',
             statut: 'en_cours',
+            // Les lectures de tournées sont cloisonnées par provider : sans
+            // cette colonne, la tournée serait écartée et E2 sortirait en
+            // `noop_no_remote` sans qu'aucun PUT ne parte.
+            prestataire_logistique_id: PRESTA_MTS1,
           },
         },
       ],
@@ -90,7 +98,12 @@ function mockSupabaseDispatched() {
     insert: vi.fn().mockResolvedValue({ error: null }),
   };
   return {
-    from: vi.fn().mockReturnValue(mockQuery),
+    // Routage par table : servir le lot de tournées à `from('transporteurs')`
+    // rendrait le Set des prestataires vide, donc le filtre provider vacuux.
+    from: vi.fn((table: string) =>
+      table === 'transporteurs' ? builderTransporteurs() : mockQuery,
+    ),
+    rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
   } as unknown as import('@supabase/supabase-js').SupabaseClient;
 }
 
@@ -114,9 +127,14 @@ function mockSupabaseVierge() {
     insert: vi.fn().mockReturnThis(),
     not: vi.fn().mockReturnThis(),
     gte: vi.fn().mockReturnThis(),
+    // findTournees lit une LISTE (plus de maybeSingle) → builder thenable.
+    then: (resolve: (v: unknown) => void) => resolve({ data: [], error: null }),
   };
   return {
-    from: vi.fn().mockReturnValue(mockQuery),
+    from: vi.fn((table: string) =>
+      table === 'transporteurs' ? builderTransporteurs() : mockQuery,
+    ),
+    rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
   } as unknown as import('@supabase/supabase-js').SupabaseClient;
 }
 

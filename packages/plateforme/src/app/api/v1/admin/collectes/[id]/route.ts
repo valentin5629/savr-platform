@@ -8,6 +8,7 @@ import {
 import { requireStaff } from '@/lib/api-auth.js';
 import { readJsonBody, serverError, withApiTrace } from '@/lib/api-helpers.js';
 import { validerLieuOverrides } from '@/lib/programmation/lieu-override.js';
+import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 
 async function getHandler(
   req: NextRequest,
@@ -95,6 +96,13 @@ async function patchHandler(
     if ('error' in overridesValides) return overridesValides.error;
     updates.lieu_overrides = overridesValides.overrides;
   }
+
+  // Même logique pour le texte libre : `fn_modifier_collecte` écrit
+  // `p_updates->>'informations_supplementaires'` tel quel, et cette valeur part au
+  // transporteur dans le canal où sont concaténées toutes les infos d'exploitation.
+  const texteValide = validerChampsTexteLibre(updates);
+  if ('error' in texteValide) return texteValide.error;
+  Object.assign(updates, texteValide.valeurs);
 
   // §07/06 collecte_statut_force — une bascule MANUELLE de statut exige un motif
   // (≥ 10 car., §07/06 pt2). Les éditions de routine (date, notes, camions…)

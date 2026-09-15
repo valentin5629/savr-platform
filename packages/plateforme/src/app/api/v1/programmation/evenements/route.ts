@@ -7,6 +7,7 @@ import {
   notifierOverrideLieu,
   validerLieuOverrides,
 } from '@/lib/programmation/lieu-override.js';
+import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
 import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
@@ -55,7 +56,7 @@ interface CollecteInput {
   type: 'zd' | 'ag';
   date_collecte: string;
   heure_collecte: string;
-  informations_supplementaires?: string;
+  informations_supplementaires?: string | null;
 }
 
 // Normalisation alias d'entrée → valeurs de l'enum `collecte_type`, miroir exact du
@@ -86,8 +87,8 @@ interface ProgrammationBody {
   controle_acces_requis: boolean;
   contact_principal_nom: string;
   contact_principal_telephone: string;
-  contact_secours_nom?: string;
-  contact_secours_telephone?: string;
+  contact_secours_nom?: string | null;
+  contact_secours_telephone?: string | null;
   // Rôles agence/gestionnaire uniquement
   traiteur_operationnel_organisation_id?: string;
   // Admin support : organisation cible
@@ -157,9 +158,24 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if ('error' in overridesValides) return overridesValides.error;
   const lieuOverrides = overridesValides.overrides;
 
+  // Même borne d'entrée sur les champs texte libre qui partent au transporteur :
+  // le contact de secours est au niveau ÉVÉNEMENT, les informations
+  // supplémentaires au niveau de CHAQUE collecte (validées dans la boucle
+  // ci-dessous). Vérifié AVANT toute écriture, pour la même raison que les
+  // overrides : un refus ne doit pas laisser un événement orphelin derrière lui.
+  const contactsValides = validerChampsTexteLibre(body);
+  if ('error' in contactsValides) return contactsValides.error;
+  body.contact_secours_nom =
+    contactsValides.valeurs.contact_secours_nom ?? null;
+  body.contact_secours_telephone =
+    contactsValides.valeurs.contact_secours_telephone ?? null;
+
   // Validation date_collecte >= aujourd'hui
   const today = jourParis();
   for (const c of body.collectes) {
+    // Le contrôle de forme reste EN PREMIER : sur un élément qui n'est pas un
+    // objet, écrire la valeur normalisée lèverait un TypeError (module ES =
+    // mode strict) et sortirait en 500, là où ce 422 est la bonne réponse.
     if (!c.date_collecte || !c.heure_collecte || !c.type) {
       return NextResponse.json(
         {
@@ -169,6 +185,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         { status: 422 },
       );
     }
+
+    const infosValides = validerChampsTexteLibre(c);
+    if ('error' in infosValides) return infosValides.error;
+    c.informations_supplementaires =
+      infosValides.valeurs.informations_supplementaires ?? null;
+
     if (c.date_collecte < today) {
       return NextResponse.json(
         { error: `Date de collecte dans le passé : ${c.date_collecte}` },

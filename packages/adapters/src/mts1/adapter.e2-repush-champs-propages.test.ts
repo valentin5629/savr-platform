@@ -5,6 +5,10 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { Collecte, Lieu, Transporteur } from '../index.js';
+import {
+  PRESTA_MTS1,
+  builderTransporteurs,
+} from '../mock-referentiel-transporteurs.js';
 import { AdapterMts1 } from './adapter.js';
 import type { Mts1CreatedTour } from './mock.js';
 import { _setMts1Handlers } from './mock.js';
@@ -60,7 +64,7 @@ const TRANSPORTEUR: Transporteur = {
   id: 'presta-001',
   type_tms: 'mts1',
   code_transporteur_mts1: 'STRIKE-IDF',
-  prestataire_logistique_id: 'presta-uuid-001',
+  prestataire_logistique_id: PRESTA_MTS1,
 };
 
 // Mock Supabase : une tournée rang 1 déjà commandée chez MTS-1 → updateCollecte
@@ -82,6 +86,7 @@ function mockSupabaseDispatched() {
             external_ref_commande: 'MTS1-ORDER-E2-001',
             tms_reference: 'MTS1-TOUR-E2-001',
             statut: 'en_cours',
+            prestataire_logistique_id: PRESTA_MTS1,
           },
         },
       ],
@@ -90,7 +95,13 @@ function mockSupabaseDispatched() {
     insert: vi.fn().mockResolvedValue({ error: null }),
   };
   return {
-    from: vi.fn().mockReturnValue(mockQuery),
+    // `transporteurs` sert le référentiel COMPLET (le filtre provider de
+    // findTournees est donc réellement exercé) ; les autres tables passent par
+    // le builder des tournées.
+    from: vi.fn((table: string) =>
+      table === 'transporteurs' ? builderTransporteurs() : mockQuery,
+    ),
+    rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
   } as unknown as import('@supabase/supabase-js').SupabaseClient;
 }
 
@@ -106,6 +117,7 @@ function mockSupabaseVierge() {
         external_ref_commande: 'MTS1-ORDER-NEW-E2',
         tms_reference: null,
         statut: 'planifiee',
+        prestataire_logistique_id: PRESTA_MTS1,
       },
       error: null,
     }),
@@ -116,7 +128,10 @@ function mockSupabaseVierge() {
     gte: vi.fn().mockReturnThis(),
   };
   return {
-    from: vi.fn().mockReturnValue(mockQuery),
+    from: vi.fn((table: string) =>
+      table === 'transporteurs' ? builderTransporteurs() : mockQuery,
+    ),
+    rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
   } as unknown as import('@supabase/supabase-js').SupabaseClient;
 }
 

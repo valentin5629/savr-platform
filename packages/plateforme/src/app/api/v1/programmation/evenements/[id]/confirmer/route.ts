@@ -6,6 +6,7 @@ import { envoyerRecapProgrammation } from '@/lib/programmation/recap-email.js';
 import { notifierOverrideLieu } from '@/lib/programmation/lieu-override.js';
 import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
 import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 // Confirmation d'un brouillon. Ouverte à l'admin en mode support (§06.01 l.17
 // « admin_savr : programmation de support, tous périmètres ») comme le POST de
@@ -110,7 +111,7 @@ export async function PATCH(
   );
 
   if (rpcErr)
-    return NextResponse.json({ error: rpcErr.message }, { status: 500 });
+    return serverError(rpcErr, 'programmation.evenements.confirmer.update');
 
   // PROG-01 : override lieu persisté au brouillon → signalement Admin à la confirmation.
   const overrideCollecte = collectes.find(

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff, requireAdmin } from '@/lib/api-auth.js';
+import { writeError, serverError } from '@/lib/api-helpers.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -30,8 +31,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     );
 
   const { data, error } = await query;
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'admin.tarifs_negocie.list');
 
   return NextResponse.json({ data: data ?? [] });
 }
@@ -109,8 +109,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .select('*')
     .single();
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 422 });
+  if (error) return writeError(error, 'admin.tarifs_negocie.create');
 
   try {
     await supabase.from('audit_log').insert({

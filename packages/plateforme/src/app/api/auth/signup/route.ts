@@ -10,6 +10,7 @@ import {
 } from '@/lib/signup-rate-limit.js';
 import { validatePasswordStrength } from '@/lib/password.js';
 import { CGU_VERSION_COURANTE } from '@/lib/cgu.js';
+import { writeError, authAccountError } from '@/lib/api-helpers.js';
 
 const TYPE_PROFIL = ['traiteur', 'agence', 'gestionnaire_lieux'] as const;
 type TypeProfil = (typeof TYPE_PROFIL)[number];
@@ -271,10 +272,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (authError || !authData.user) {
     // Rollback organisation si nouvellement créée (best-effort)
     if (orgCreee) await rollbackOrganisation(supabase, organisationId);
-    return NextResponse.json(
-      { error: authError?.message ?? 'Erreur création compte' },
-      { status: 422 },
-    );
+    return authAccountError(authError, 'auth.signup.create_compte');
   }
 
   const userId = authData.user.id;
@@ -298,7 +296,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // Rollback : compte Auth + organisation nouvellement créée (best-effort)
     await supabase.auth.admin.deleteUser(userId).catch(() => null);
     if (orgCreee) await rollbackOrganisation(supabase, organisationId);
-    return NextResponse.json({ error: userError.message }, { status: 422 });
+    return writeError(userError, 'auth.signup.create');
   }
 
   // Générer le lien de vérification et envoyer via Resend

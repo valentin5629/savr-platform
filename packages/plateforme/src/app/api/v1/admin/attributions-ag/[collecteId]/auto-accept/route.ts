@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/api-auth.js';
 import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 // POST /api/v1/admin/attributions-ag/[collecteId]/auto-accept
 // BL-P1-ALGO-06 — Déclenche l'évaluation auto-accept (CDC §06.09 §6) pour une
@@ -21,13 +22,15 @@ export async function POST(
     const result = await evaluerAutoAcceptAg(collecteId);
     return NextResponse.json({ data: result });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Erreur auto-accept';
-    if (msg.includes('P0030') || msg.includes('introuvable')) {
+    // P0030 = `RAISE EXCEPTION … USING ERRCODE = 'P0030'` de la RPC. Le CODE est
+    // l'oracle (le message, lui, est neutralisé par `erreurInterne`).
+    const code = (err as { code?: string } | null)?.code;
+    if (code === 'P0030') {
       return NextResponse.json(
         { error: 'Collecte AG introuvable' },
         { status: 404 },
       );
     }
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return serverError(err, 'admin.attributions_ag.auto_accept');
   }
 }

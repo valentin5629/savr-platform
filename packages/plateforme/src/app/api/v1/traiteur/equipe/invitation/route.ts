@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
 import { requireUser, type ClientRole } from '@/lib/api-auth.js';
+import { writeError, authAccountError } from '@/lib/api-helpers.js';
 
 // Invitation de collaborateur = Manager only (§06.04 §6). Le commercial n'a pas
 // la gestion des utilisateurs.
@@ -70,9 +71,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     });
 
   if (authError || !authData.user) {
-    return NextResponse.json(
-      { error: authError?.message ?? 'Erreur création compte' },
-      { status: 422 },
+    return authAccountError(
+      authError,
+      'traiteur.equipe.invitation.create_compte',
     );
   }
 
@@ -90,7 +91,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (userError) {
     // Rollback compte Auth (best-effort) pour ne pas laisser un user orphelin.
     await admin.auth.admin.deleteUser(userId).catch(() => null);
-    return NextResponse.json({ error: userError.message }, { status: 422 });
+    return writeError(userError, 'traiteur.equipe.invitation.create');
   }
 
   // Lien d'activation (validité gérée par Supabase Auth) → écran set password.

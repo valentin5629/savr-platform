@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { instantParis } from '@savr/shared/src/temps/index.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 // GET /api/v1/admin/attributions-ag/pending
 // File d'attente AG en attente d'attribution (statut='programmee', type='anti_gaspi', pas d'attribution)
@@ -37,8 +38,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .order('date_collecte', { ascending: true })
     .range(offset, offset + limit - 1);
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'admin.attributions_ag.pending.list');
 
   // BL-P1-ALGO-02 — Indicateur criticité (CDC §06.09 §1) : rouge si la collecte
   // est à moins de 48h ET non encore attribuée. Le tri SQL date_collecte ASC place

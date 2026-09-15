@@ -10,6 +10,7 @@ import {
 import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
 import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireProgrammateurOuAdmin(req);
@@ -45,8 +46,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
 
   const { data, error } = await query;
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'programmation.evenements.list');
 
   return NextResponse.json({ data: data ?? [] });
 }
@@ -289,8 +289,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .select('id, nom_evenement')
     .single();
 
-  if (evtErr)
-    return NextResponse.json({ error: evtErr.message }, { status: 500 });
+  if (evtErr) return serverError(evtErr, 'programmation.evenements.create');
 
   const evenementId = evt.id;
   const collecteIds: string[] = [];
@@ -332,7 +331,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       if (cErr) {
         // Rollback partiel : supprimer l'événement déjà créé
         await supabase.from('evenements').delete().eq('id', evenementId);
-        return NextResponse.json({ error: cErr.message }, { status: 500 });
+        return serverError(cErr, 'programmation.evenements.collecte.confirmer');
       }
 
       collecteIds.push(collecteId as string);
@@ -423,7 +422,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
       if (cErr) {
         await supabase.from('evenements').delete().eq('id', evenementId);
-        return NextResponse.json({ error: cErr.message }, { status: 500 });
+        return serverError(cErr, 'programmation.evenements.collecte.brouillon');
       }
 
       collecteIds.push(newCollecte.id);

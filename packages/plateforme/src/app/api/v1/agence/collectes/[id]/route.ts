@@ -6,6 +6,7 @@ import {
   type ClientRole,
 } from '@/lib/api-auth.js';
 import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 const AGENCE_ROLES: ClientRole[] = ['agence'];
 
@@ -91,8 +92,7 @@ export async function GET(
     .eq('id', id)
     .maybeSingle();
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'agence.collectes.get');
   if (!data)
     return NextResponse.json(
       { error: 'Collecte introuvable' },
@@ -179,8 +179,7 @@ export async function PATCH(
     p_updates: updates,
     p_champs_modifies: Object.keys(updates),
   });
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'agence.collectes.update');
 
   if (reacceptation_requise) {
     await admin

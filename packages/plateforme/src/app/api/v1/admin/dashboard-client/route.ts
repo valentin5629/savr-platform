@@ -3,6 +3,7 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import type { DashboardCollecteType } from '@/lib/dashboard-kpi.js';
 import { loadAdminDashboardClient } from '@/lib/dashboards/admin-dashboard-client.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 // GET /api/v1/admin/dashboard-client
 // §06.06 §2 — Dashboard Client : réplique LECTURE SEULE du dashboard gestionnaire
@@ -42,7 +43,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     });
     return NextResponse.json({ data: payload });
   } catch (e) {
-    const message = e instanceof Error ? e.message : 'Erreur inconnue';
-    return NextResponse.json({ error: message }, { status: 500 });
+    // Le message est déjà neutralisé à la source (`erreurInterne`), mais le
+    // renvoyer via une variable intermédiaire rendait le cliquet aveugle à ce
+    // chemin (contre-revue sécurité) : on passe par le helper, comme partout.
+    return serverError(e, 'admin.dashboard_client.handler');
   }
 }

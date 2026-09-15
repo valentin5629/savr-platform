@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireProgrammateurOuAdmin } from '@/lib/api-auth.js';
-import { sanitizeOrTerm } from '@/lib/api-helpers.js';
+import { sanitizeOrTerm, serverError } from '@/lib/api-helpers.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireProgrammateurOuAdmin(req);
@@ -33,8 +33,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
 
   const { data, error } = await query;
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'programmation.contacts.list');
 
   return NextResponse.json(data ?? []);
 }
@@ -86,8 +85,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .select('id, prenom, nom, telephone, email, fonction')
     .single();
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'programmation.contacts.create');
 
   return NextResponse.json(data, { status: 201 });
 }

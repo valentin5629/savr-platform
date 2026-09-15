@@ -4,6 +4,7 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
+import { writeError, serverError } from '@/lib/api-helpers.js';
 
 // CDC §06.04 §6 (l.662) — Domaines email autorisés (onboarding auto des
 // collaborateurs) : ajout/suppression par le MANAGER. Lecture own-org : manager
@@ -28,7 +29,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .order('domaine');
 
   if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error, 'traiteur.mon_organisation.domaines_email.list');
   return NextResponse.json({ data: data ?? [] });
 }
 
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         { error: 'Ce domaine est déjà rattaché à une organisation.' },
         { status: 409 },
       );
-    return NextResponse.json({ error: error.message }, { status: 422 });
+    return writeError(error, 'traiteur.mon_organisation.domaines_email.create');
   }
 
   return NextResponse.json({ data }, { status: 201 });

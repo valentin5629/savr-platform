@@ -19,6 +19,7 @@
 // (décision Val 2026-07-07) : la route omet flux/co2/évolution hors ZD, assos hors AG.
 
 import type { createSupabaseServerClient } from '@/lib/api-auth.js';
+import { erreurInterne } from '@/lib/api-helpers.js';
 
 type Supa = ReturnType<typeof createSupabaseServerClient>;
 
@@ -375,7 +376,7 @@ async function fetchScopedRows(
       data: unknown;
       error: { message: string } | null;
     }>);
-    if (error) throw new Error(error.message);
+    if (error) throw erreurInterne(error, 'dashboards.synthese_snapshot');
     return (data ?? []) as unknown as CollecteRow[];
   };
 

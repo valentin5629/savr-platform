@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/api-auth.js';
-import { withApiTrace } from '@/lib/api-helpers.js';
+import { withApiTrace, businessError, serverError } from '@/lib/api-helpers.js';
 import {
   validerAttributionAg,
   logAttributionAucuneReco,
@@ -84,14 +84,24 @@ async function postHandler(
     return NextResponse.json({ data: result }, { status: 201 });
   } catch (err) {
     const error = err as Error & { code?: string };
+    // Codes applicatifs levés par nos propres validations (lib/attribution-ag) :
+    // message écrit par nous → conservé. Toute AUTRE erreur (dont une
+    // PostgrestError remontée par ce même catch) retombe sur un message neutre.
     if (error.code === 'DUPLICATE')
-      return NextResponse.json({ error: error.message }, { status: 409 });
+      return businessError(
+        error,
+        'admin.attributions_ag.valider.duplicate',
+        ['DUPLICATE'],
+        409,
+      );
     if (error.code === 'INVALID_STATUS' || error.code === 'MISSING_MOTIF')
-      return NextResponse.json({ error: error.message }, { status: 422 });
-    return NextResponse.json(
-      { error: error.message ?? 'Erreur interne' },
-      { status: 500 },
-    );
+      return businessError(
+        error,
+        'admin.attributions_ag.valider.create',
+        ['INVALID_STATUS', 'MISSING_MOTIF'],
+        422,
+      );
+    return serverError(error, 'admin.attributions_ag.valider.handler');
   }
 }
 

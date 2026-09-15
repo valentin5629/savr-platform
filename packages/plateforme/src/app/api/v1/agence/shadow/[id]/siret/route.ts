@@ -4,6 +4,7 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
+import { businessError } from '@/lib/api-helpers.js';
 
 const AGENCE_ROLES: ClientRole[] = ['agence'];
 
@@ -37,8 +38,11 @@ export async function PATCH(
   });
 
   if (error) {
-    // Les gardes RPC (rôle/créateur/non-shadow/écrasement) remontent en 422 métier
-    return NextResponse.json({ error: error.message }, { status: 422 });
+    // Les gardes RPC (non-shadow / écrasement / format) lèvent `RAISE EXCEPTION
+    // '<libellé métier>' USING ERRCODE = '22023'` : message écrit par nous, affiché
+    // à l'agence. Tout autre code — dont 42501, qui est aussi celui d'un deny RLS
+    // système (« permission denied for table … ») — retombe sur un message neutre.
+    return businessError(error, 'agence.shadow.siret.update', ['22023'], 422);
   }
 
   return NextResponse.json({ data: { id, siret } });

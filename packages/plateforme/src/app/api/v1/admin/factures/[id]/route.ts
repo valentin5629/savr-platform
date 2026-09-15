@@ -5,6 +5,7 @@ import {
   patchFactureHeader,
   type FactureHeaderPatch,
 } from '@/lib/facturation/edition-facture.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 export async function GET(
   req: NextRequest,
@@ -41,8 +42,14 @@ export async function GET(
     .single();
 
   if (error) {
-    const status = error.code === 'PGRST116' ? 404 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    // PGRST116 = 0 ligne renvoyée par `.single()` → 404 métier (libellé fixe) ;
+    // toute autre erreur → 500 générique (message réel loggé, jamais renvoyé).
+    if (error.code === 'PGRST116')
+      return NextResponse.json(
+        { error: 'Facture introuvable' },
+        { status: 404 },
+      );
+    return serverError(error, 'admin.factures.get');
   }
 
   return NextResponse.json({ data });

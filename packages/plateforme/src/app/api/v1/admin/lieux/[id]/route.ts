@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 export async function GET(
   req: NextRequest,
@@ -21,8 +22,7 @@ export async function GET(
   if (error?.code === 'PGRST116') {
     return NextResponse.json({ error: 'Lieu introuvable' }, { status: 404 });
   }
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'admin.lieux.get');
 
   // Gestionnaire rattaché (organisations_lieux) — exposé pour pré-remplir la fiche
   // (id) + affichage lecture (nom via jointure organisations).
@@ -139,8 +139,7 @@ export async function PATCH(
     .select()
     .single();
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'admin.lieux.update');
 
   // Rattachement gestionnaire (organisations_lieux) — remplacement single :
   // on retire le lien existant du lieu puis on pose le nouveau (si fourni).

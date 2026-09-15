@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff, requireAdmin } from '@/lib/api-auth.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { serverError, businessError } from '@/lib/api-helpers.js';
 
 // Valeurs acceptées par chk_tarif_type_pack (migration 20260615200000). La base
 // reste l'autorité ; ce garde-fou applicatif n'est là que pour rendre un 422
@@ -25,8 +26,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .or(`valide_jusqu_au.is.null,valide_jusqu_au.gte.${today}`)
     .order('type_pack');
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'admin.tarifs_packs_ag.list');
 
   return NextResponse.json({ data: data ?? [] });
 }
@@ -131,8 +131,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     p_nb_mensualites: nb_mensualites,
   });
 
+  // La RPC valide les entrées par `RAISE EXCEPTION '<libellé>' USING errcode =
+  // '22023'` (ex. « nom obligatoire ») : libellé métier écrit par nous, affiché à
+  // l'Admin. Tout autre code (contrainte, RLS…) retombe sur un message neutre.
   if (error)
-    return NextResponse.json({ error: error.message }, { status: 422 });
+    return businessError(error, 'admin.tarifs_packs_ag.create', ['22023'], 422);
 
   const tarif = data as { id?: string } | null;
 

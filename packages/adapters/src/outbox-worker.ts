@@ -30,9 +30,11 @@ import {
   CancelWindowClosedError,
   LogistiqueAmbiguousError,
   LogistiquePermanentError,
+  LogistiqueTransientError,
   getLogistiqueProvider,
 } from './index.js';
 import type { Collecte, ConsumerTag, Lieu, Transporteur } from './index.js';
+import { applyLieuOverrides } from './lieu-overrides.js';
 import type { AdapterMts1 } from './mts1/adapter.js';
 
 interface ClaimedEvent {
@@ -211,14 +213,30 @@ async function processEvent(
     const lieuId =
       (event.payload['lieu_id'] as string | undefined) ?? aggregate_id;
     const lieu = await fetchLieu(supabase, lieuId);
-    // Pour updateLieu, on utilise n'importe quel provider mts1 disponible
-    // (le lieu peut être associé à plusieurs transporteurs — l'adapter
-    //  filtre lui-même les collectes futures du lieu concerné)
-    const { data: transporteurs } = await supabase
+    // Pour updateLieu, n'importe quel transporteur mts1 fait l'affaire : il ne
+    // sert qu'à instancier le client MTS-1 (credentials au niveau du compte, pas
+    // du transporteur). Le périmètre poussé, lui, est décidé par l'adapter, qui
+    // restreint aux tournées du lieu effectivement dispatchées via MTS-1 —
+    // `AdapterMts1.prestatairesMts1()`. Ce filtre n'est PAS optionnel : les
+    // tournées Everest du même lieu portent elles aussi un
+    // `external_ref_commande` (leur id de mission Everest).
+    const { data: transporteurs, error: errTransporteurs } = await supabase
       .from('transporteurs')
       .select('id, type_tms, code_transporteur_mts1, prestataire_logistique_id')
       .eq('type_tms', 'mts1')
       .limit(1);
+
+    // Cette lecture est la PREMIÈRE des trois du chemin E5 : sans ce throw, un
+    // blip PostgREST la fait échouer avant les gardes de l'adapter, `data` vaut
+    // null, et l'event est marqué `done` en `noop_no_remote` — « rien à pousser »
+    // alors que la nouvelle adresse n'a atteint personne, sans retry ni alerte.
+    // Même doctrine que `AdapterMts1.updateLieu` : Transient, donc les 3 paliers
+    // du worker plutôt qu'un dead immédiat.
+    if (errTransporteurs) {
+      throw new LogistiqueTransientError(
+        `E5 : référentiel transporteurs illisible — ${errTransporteurs.message}`,
+      );
+    }
 
     if (transporteurs?.length) {
       const provider = getLogistiqueProvider(
@@ -407,7 +425,7 @@ async function fetchCollecte(
       `
       id, type, date_collecte, heure_collecte, nb_camions_demande,
       statut_tms, controle_acces_requis, informations_supplementaires, notes_internes,
-      prestataire_logistique_id,
+      prestataire_logistique_id, lieu_overrides,
       evenement:evenements!inner(
         contact_principal_nom, contact_principal_telephone,
         contact_secours_nom, contact_secours_telephone,
@@ -437,10 +455,17 @@ async function fetchCollecte(
     | 'contact_principal_telephone'
     | 'contact_secours_nom'
     | 'contact_secours_telephone'
-  > & { evenement: EvenementJoin | EvenementJoin[] };
+  > & {
+    evenement: EvenementJoin | EvenementJoin[];
+    lieu_overrides: Record<string, unknown> | null;
+  };
 
   const evt = Array.isArray(raw.evenement) ? raw.evenement[0]! : raw.evenement;
-  const lieu = Array.isArray(evt.lieux) ? evt.lieux[0]! : evt.lieux;
+  const lieuOfficiel = Array.isArray(evt.lieux) ? evt.lieux[0]! : evt.lieux;
+  // PROG-01/PROG-03 — l'adresse d'accès corrigée par collecte (lieu_overrides,
+  // §06.01) doit parvenir au transporteur. Sans ce merge, le worker re-fetch le
+  // lieu officiel et le camion se présente à la mauvaise adresse.
+  const lieu = applyLieuOverrides(lieuOfficiel, raw.lieu_overrides);
 
   // BL-P1-API-02 — lieu de dépôt AG : l'association destinataire est attribuée
   // APRÈS la création de la collecte (§08 l.154), donc connue au moment où le

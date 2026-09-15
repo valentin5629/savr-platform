@@ -5,6 +5,7 @@ import {
   type ClientRole,
 } from '@/lib/api-auth.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
@@ -29,8 +30,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .eq('actif', true)
     .order('nom');
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'gestionnaire.lieux.list');
 
   // Indicateurs 12 mois : nb collectes + tonnage ZD
   const lieuIds = (lieux ?? []).map((l) => l.id as string);

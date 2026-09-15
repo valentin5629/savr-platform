@@ -7,6 +7,7 @@ import {
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { verifySiret, isValidSiretFormat } from '@savr/shared/src/api/siret.js';
 import { enqueueSiretRevalidation } from '@savr/shared/src/siret/revalidation.js';
+import { writeError, serverError } from '@/lib/api-helpers.js';
 
 // CDC §06.04 §6 (l.661) — Entités de facturation (multi-SIRET) : ajout/modif/
 // suppression par le MANAGER. Chaque SIRET déclenche une re-vérification INSEE
@@ -35,7 +36,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .order('created_at', { ascending: true });
 
   if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(
+      error,
+      'traiteur.mon_organisation.entites_facturation.list',
+    );
   return NextResponse.json({ data: data ?? [] });
 }
 
@@ -135,7 +139,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .maybeSingle();
 
   if (error)
-    return NextResponse.json({ error: error.message }, { status: 422 });
+    return writeError(
+      error,
+      'traiteur.mon_organisation.entites_facturation.create',
+    );
 
   // INSEE injoignable → planifier la revalidation async (3 paliers 15min/1h/24h).
   if (verdict === 'down' && data)

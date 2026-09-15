@@ -4,6 +4,7 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
+import { writeError } from '@/lib/api-helpers.js';
 
 // CDC §06.04 §6 (l.662) — suppression d'un domaine email autorisé par le MANAGER
 // (own-org, RLS ode_manager_write). Hard-delete : la table n'est référencée par
@@ -28,7 +29,7 @@ export async function DELETE(
     .maybeSingle();
 
   if (error)
-    return NextResponse.json({ error: error.message }, { status: 422 });
+    return writeError(error, 'traiteur.mon_organisation.domaines_email.delete');
   if (!data)
     return NextResponse.json(
       { error: 'Domaine non trouvé ou hors de votre organisation' },

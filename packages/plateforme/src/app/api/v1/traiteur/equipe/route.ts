@@ -4,6 +4,7 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 // CDC §06.04 §6 « Équipe » (l.665-671) — liste des utilisateurs rattachés :
 // nom, email, rôle, dernière connexion. Section MANAGER only (l.653 « Équipe
@@ -23,7 +24,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     )
     .order('nom');
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'traiteur.equipe.list');
   return NextResponse.json({ data: data ?? [] });
 }

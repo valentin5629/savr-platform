@@ -4,6 +4,7 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
@@ -58,8 +59,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .limit(1)
     .maybeSingle();
 
-  if (packErr)
-    return NextResponse.json({ error: packErr.message }, { status: 500 });
+  if (packErr) return serverError(packErr, 'gestionnaire.pack_ag.list');
 
   // Historique packs (tous statuts, 3 derniers)
   const { data: historique } = await supabase

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser, type ClientRole } from '@/lib/api-auth.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { writeError } from '@/lib/api-helpers.js';
 
 // CDC §06.04 §6 « Équipe » (l.671) — Transférer les collectes d'un commercial
 // vers un autre (en cas de départ). MANAGER only.
@@ -84,8 +85,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .eq('created_by', source)
     .select('id');
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 422 });
+  if (error) return writeError(error, 'traiteur.equipe.transfert.create');
 
   return NextResponse.json({
     data: { transferes: (transferes ?? []).length },

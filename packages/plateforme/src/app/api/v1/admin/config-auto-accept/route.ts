@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireAdmin } from '@/lib/api-auth.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 // GET /api/v1/admin/config-auto-accept
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -25,8 +26,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (organisation_id) query = query.eq('organisation_id', organisation_id);
 
   const { data, error } = await query;
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'admin.config_auto_accept.list');
   return NextResponse.json({ data: data ?? [] });
 }
 
@@ -64,8 +64,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .select('id')
     .single();
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'admin.config_auto_accept.create');
   return NextResponse.json({ data }, { status: 201 });
 }
 
@@ -118,7 +117,7 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
         { error: 'Config introuvable' },
         { status: 404 },
       );
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error, 'admin.config_auto_accept.update');
   }
 
   return NextResponse.json({ data });

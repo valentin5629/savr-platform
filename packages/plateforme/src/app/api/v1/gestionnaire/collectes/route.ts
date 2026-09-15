@@ -4,6 +4,7 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
@@ -51,8 +52,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     q = q.eq('evenements.traiteur_operationnel_organisation_id', traiteurId);
 
   const { data, error } = await q;
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'gestionnaire.collectes.list');
 
   // Aplatissement des noms (to-one PostgREST = objet ou tableau selon le cache).
   const rows = (data ?? []).map((c) => {

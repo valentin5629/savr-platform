@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
 import { requireProgrammateurOuAdmin } from '@/lib/api-auth.js';
-import { sanitizeOrTerm } from '@/lib/api-helpers.js';
+import { sanitizeOrTerm, serverError } from '@/lib/api-helpers.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -65,8 +65,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
 
   const { data, error } = await query;
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'programmation.lieux.list');
 
   return NextResponse.json(data ?? []);
 }
@@ -112,8 +111,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .select('id, nom, adresse_acces, code_postal, ville, actif')
     .single();
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'programmation.lieux.create');
 
   // Action "Normaliser un lieu" (§06 Back-office Admin) : le lieu saisi manuellement
   // est créé actif=false, l'Admin est notifié pour vérifier/compléter/valider.

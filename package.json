@@ -40,6 +40,8 @@
     "check:coverage": "tsx scripts/check-coverage.ts",
     "check:enum-collecte-type": "bash scripts/check-enum-collecte-type.sh",
     "check:fetch-path-encoding": "tsx scripts/check-fetch-path-encoding.ts",
+    "check:api-error-leak": "tsx scripts/check-api-error-leak.ts",
+    "check:types-snapshot": "tsx scripts/check-types-snapshot.ts",
     "check:renamed-type-refs": "tsx scripts/check-renamed-type-refs.ts",
     "test:e2e": "playwright test",
     "seed:minimal": "tsx packages/shared/src/seed/index.ts minimal",

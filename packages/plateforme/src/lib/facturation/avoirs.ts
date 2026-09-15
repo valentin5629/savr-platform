@@ -11,6 +11,7 @@ import {
 } from '../pennylane/client.js';
 import { attribuerNumeroFacture } from './numerotation.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { messageEchecEcriture, messageEchecTiers } from '@/lib/api-helpers.js';
 
 export interface AvoirResult {
   ok: boolean;
@@ -115,7 +116,10 @@ export async function creerAvoir(
     .single();
 
   if (avoirErr || !avoir) {
-    return { ok: false, erreur: `INSERT avoir : ${avoirErr?.message}` };
+    return {
+      ok: false,
+      erreur: messageEchecEcriture(avoirErr, 'facturation.avoir.insert'),
+    };
   }
 
   const avoir_id = (avoir as { id: string }).id;
@@ -204,7 +208,7 @@ export async function creerAvoir(
       ok: false,
       avoir_id,
       numero_avoir: numeroAvoir,
-      erreur: createRes.message,
+      erreur: messageEchecTiers(createRes.message, 'pennylane.avoir.create'),
     };
   }
 
@@ -229,7 +233,10 @@ export async function creerAvoir(
       ok: false,
       avoir_id,
       numero_avoir: numeroAvoir,
-      erreur: finalizeRes.message,
+      erreur: messageEchecTiers(
+        finalizeRes.message,
+        'pennylane.avoir.finalize',
+      ),
     };
   }
 

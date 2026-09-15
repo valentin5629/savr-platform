@@ -30,7 +30,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(15);
+SELECT plan(17);
 
 -- ─── Fixtures ────────────────────────────────────────────────────────────────
 INSERT INTO plateforme.organisations (id, nom, type, actif, siret, email_principal)
@@ -107,22 +107,45 @@ SELECT lives_ok(
        '{"flux_autorises": ["biodechets", "carton"]}'::jsonb) $$,
   'tableau de chaînes accepté — flux_autorises est bien un text[]');
 
-SELECT lives_ok(
+-- RECALÉ par 20260915160000 : la seconde contrainte
+-- `collectes_lieu_overrides_valide_chk` connaît les CLÉS, et refuse `null` sur les
+-- trois champs NOT NULL de `plateforme.lieux` (`adresse_acces`, `code_postal`,
+-- `ville`) — un override qui efface l'adresse produit exactement l'adresse
+-- impossible que tout ceci cherche à empêcher. `null` reste accepté sur les champs
+-- FACULTATIFS (cas suivant) : c'est là qu'il veut dire « pas de surcharge ».
+-- La route le refusait déjà (#308, `obligatoire: true`) ; la base s'aligne.
+SELECT throws_ok(
   $$ SELECT pg_temp.ins_lov('10ac0c01-0000-0000-0000-000000000004'::uuid,
        '{"ville": null}'::jsonb) $$,
-  'null accepté — ignoré en aval, jamais une surcharge');
+  '23514', NULL,
+  'null REFUSÉ sur un champ obligatoire — effacer l''adresse n''est pas une surcharge');
+
+SELECT lives_ok(
+  $$ SELECT pg_temp.ins_lov('10ac0c01-0000-0000-0000-00000000000a'::uuid,
+       '{"acces_details": null}'::jsonb) $$,
+  'null accepté sur un champ facultatif — ignoré en aval, jamais une surcharge');
 
 SELECT lives_ok(
   $$ SELECT pg_temp.ins_lov('10ac0c01-0000-0000-0000-000000000005'::uuid, NULL) $$,
   'absence totale d''override acceptée');
 
--- Une adresse très longue passe la contrainte : la borne de longueur est un
--- arbitrage produit appliqué à l'écriture applicative (LONGUEUR_MAX_CHAMP_LIEU),
--- pas une règle de structure — la recopier ici garantirait le drift.
-SELECT lives_ok(
+-- RECALÉ par 20260915160000. Ce cas documentait une décision de conception —
+-- « la base borne la STRUCTURE, l'applicatif borne les VALEURS », pour éviter le
+-- drift entre deux jeux de bornes. L'arbitrage Val du 2026-09-15 a tranché
+-- l'inverse : les bornes sont AUSSI en base, parce que la validation applicative
+-- est contournable et que `fetchCollecte` relit la ligne courante.
+--
+-- ⚠ Le risque de drift nommé ici était réel et s'est matérialisé une fois : le
+-- CHECK s'appuie sur `[[:cntrl:]]`, qui couvre C1 (U+0080-U+009F), quand le filtre
+-- applicatif s'arrêtait à C0+DEL — un U+0085 sortait en 500 au lieu de 422
+-- (corrigé dans le même lot). Le sens du drift importe : applicatif PLUS strict
+-- que la base est sans conséquence, l'inverse produit un 500. C'est `[[:cntrl:]]`
+-- qui fait foi.
+SELECT throws_ok(
   $$ SELECT pg_temp.ins_lov('10ac0c01-0000-0000-0000-000000000006'::uuid,
        jsonb_build_object('adresse_acces', repeat('a', 5000))) $$,
-  'la contrainte porte sur le TYPE, pas sur la longueur');
+  '23514', NULL,
+  'la borne de longueur est AUSSI en base (arbitrage Val 2026-09-15)');
 
 -- ─── 3. Valeurs non textuelles rejetées ──────────────────────────────────────
 
@@ -161,12 +184,20 @@ SELECT throws_ok(
   NULL,
   'fn_modifier_collecte ne peut pas poser un override non textuel après coup');
 
--- ─── 5. Sous le rôle `authenticated` — la contrainte mord sans casser l'écriture
--- `authenticated` porte un GRANT UPDATE table-level sur `plateforme.collectes`
--- (20260611180000) et la policy `col_update_client` (20260617180000) laisse un
--- traiteur modifier sa propre collecte non terminale en PostgREST direct, sans
--- passer par aucune route Next. Le worker relit `lieu_overrides` sur la LIGNE au
--- moment de consommer l'event : ce qui est écrit par là atteint le transporteur.
+-- ─── 5. Sous un rôle NON-superuser — la contrainte mord sans casser l'écriture
+-- RECALÉ par 20260915160000. Ce volet visait `authenticated`, qui portait alors un
+-- GRANT UPDATE table-level sur `plateforme.collectes` (20260611180000) + la policy
+-- `col_update_client` (20260617180000) : un traiteur pouvait modifier sa collecte
+-- en PostgREST direct. Ce chemin est FERMÉ (REVOKE UPDATE, INSERT) — on l'asserte
+-- désormais en 42501 plus bas, et le détail par rôle vit dans
+-- SECU__collectes_ecriture_client_fermee.test.sql.
+--
+-- Le cliquet, lui, garde tout son sens et migre sur `service_role` : c'est le rôle
+-- sous lequel les routes API écrivent réellement, et il n'est PAS superuser
+-- (`rolsuper = false`, seulement `rolbypassrls`) — un REVOKE « d'hygiène » sur
+-- l'EXECUTE du prédicat le ferait donc bien rougir en 42501, ce qu'un run sous
+-- `postgres` ne verrait jamais. C'est exactement le faux-vert que ce volet existe
+-- pour attraper ; seul le rôle change, pas la propriété prouvée.
 
 CREATE OR REPLACE FUNCTION pg_temp.jwt_traiteur()
 RETURNS void LANGUAGE plpgsql AS $$
@@ -187,16 +218,31 @@ BEGIN
   PERFORM set_config('request.jwt.claims', NULL, true);
 END $$;
 
+-- Le chemin que ce volet exerçait est désormais fermé au client : c'est le
+-- privilège qui refuse, avant même d'atteindre la contrainte.
 SELECT pg_temp.jwt_traiteur();
 
--- L'écriture LÉGITIME passe. C'est le test qui rougirait si l'EXECUTE de
--- `f_lieu_overrides_textuel` était retiré à `authenticated` : 42501 au lieu du
--- succès, la contrainte devenant inatteignable plutôt que protectrice.
+SELECT throws_ok(
+  $$ UPDATE plateforme.collectes
+        SET lieu_overrides = '{"adresse_acces": "Entrée livraisons"}'::jsonb
+      WHERE id = '10ac0c01-0000-0000-0000-000000000001'::uuid $$,
+  '42501', NULL,
+  'authenticated : l''UPDATE PostgREST direct est refusé par le privilège (20260915160000)');
+
+SELECT pg_temp.as_superuser();
+
+-- Le cliquet EXECUTE, reporté sur le rôle qui écrit vraiment.
+SET LOCAL ROLE service_role;
+
+-- L'écriture LÉGITIME passe. C'est l'assertion qui rougirait si l'EXECUTE de
+-- `f_lieu_overrides_textuel` (ou de `f_lieu_overrides_valide`) était retiré :
+-- 42501 au lieu du succès, la contrainte devenant inatteignable plutôt que
+-- protectrice.
 SELECT lives_ok(
   $$ UPDATE plateforme.collectes
         SET lieu_overrides = '{"adresse_acces": "Entrée livraisons"}'::jsonb
       WHERE id = '10ac0c01-0000-0000-0000-000000000001'::uuid $$,
-  'authenticated : un override textuel légitime passe (EXECUTE du prédicat conservé)');
+  'service_role : un override textuel légitime passe (EXECUTE des prédicats conservé)');
 
 SELECT throws_ok(
   $$ UPDATE plateforme.collectes
@@ -204,15 +250,16 @@ SELECT throws_ok(
       WHERE id = '10ac0c01-0000-0000-0000-000000000001'::uuid $$,
   '23514',
   NULL,
-  'authenticated : un override non textuel est REJETÉ — 23514, pas 42501');
+  'service_role : un override non textuel est REJETÉ — 23514, pas 42501');
 
 SELECT is(
   (SELECT lieu_overrides->>'adresse_acces'
      FROM plateforme.collectes
     WHERE id = '10ac0c01-0000-0000-0000-000000000001'::uuid),
   'Entrée livraisons',
-  'authenticated : la valeur refusée n''a rien écrasé');
+  'service_role : la valeur refusée n''a rien écrasé');
 
+RESET ROLE;
 SELECT pg_temp.as_superuser();
 
 SELECT * FROM finish();

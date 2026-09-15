@@ -4,7 +4,7 @@
 -- Tests exécutés sous rôle authenticated (admin_savr) + test RLS cross-org.
 
 BEGIN;
-SELECT plan(10);
+SELECT plan(11);
 
 -- ── Helpers JWT ──────────────────────────────────────────────────────────────
 
@@ -153,8 +153,11 @@ VALUES ('aa000000-0000-0000-0004-000000000001'::uuid,
 
 -- ── T1 : Transition realisee → cloturee sous rôle admin_savr ─────────────
 
-SELECT test_set_jwt('admin_savr', 'aa000000-0000-0000-0000-000000000001'::uuid,
-                    'aa000000-0000-0000-0000-000000000002'::uuid);
+-- Clôture sous rôle privilégié : en production, l'écran Admin clôture via une
+-- route API sous service_role. `authenticated` n'a plus le privilège UPDATE sur
+-- `collectes` (migration 20260915160000), et le trigger CO2 testé ici ne dépend
+-- d'aucun claim — seul le passage realisee → cloturee compte.
+SELECT test_as_superuser();
 UPDATE plateforme.collectes
 SET statut = 'cloturee', updated_at = now()
 WHERE id = 'aa000000-0000-0000-0001-000000000001'::uuid;
@@ -203,8 +206,11 @@ SELECT is(
 
 -- ── T3 : Collecte ZD → trigger non déclenché ─────────────────────────────
 
-SELECT test_set_jwt('admin_savr', 'aa000000-0000-0000-0000-000000000001'::uuid,
-                    'aa000000-0000-0000-0000-000000000002'::uuid);
+-- Clôture sous rôle privilégié : en production, l'écran Admin clôture via une
+-- route API sous service_role. `authenticated` n'a plus le privilège UPDATE sur
+-- `collectes` (migration 20260915160000), et le trigger CO2 testé ici ne dépend
+-- d'aucun claim — seul le passage realisee → cloturee compte.
+SELECT test_as_superuser();
 UPDATE plateforme.collectes
 SET statut = 'cloturee', updated_at = now()
 WHERE id = 'aa000000-0000-0000-0002-000000000001'::uuid;
@@ -219,8 +225,11 @@ SELECT is(
 
 -- ── T4 : AG sans attribution → co2_evite_kg = 0 ─────────────────────────
 
-SELECT test_set_jwt('admin_savr', 'aa000000-0000-0000-0000-000000000001'::uuid,
-                    'aa000000-0000-0000-0000-000000000002'::uuid);
+-- Clôture sous rôle privilégié : en production, l'écran Admin clôture via une
+-- route API sous service_role. `authenticated` n'a plus le privilège UPDATE sur
+-- `collectes` (migration 20260915160000), et le trigger CO2 testé ici ne dépend
+-- d'aucun claim — seul le passage realisee → cloturee compte.
+SELECT test_as_superuser();
 UPDATE plateforme.collectes
 SET statut = 'cloturee', updated_at = now()
 WHERE id = 'aa000000-0000-0000-0003-000000000001'::uuid;
@@ -234,14 +243,19 @@ SELECT is(
 );
 
 -- ── T_RLS : traiteur_manager cross-org ne peut pas clôturer ──────────────
--- RLS col_update_client : UPDATE exige statut IN ('programmee','validee')
--- et organisation_id du JWT = organisation de l'événement.
--- Un traiteur_manager d'une autre org ne peut ni clôturer cette collecte.
+-- Fermé à deux niveaux : la policy col_update_client exigeait déjà
+-- statut IN ('programmee','validee') ET organisation_id du JWT = organisation de
+-- l'événement ; depuis la migration 20260915160000 le privilège UPDATE lui-même a
+-- été retiré à `authenticated`, donc l'ordre échoue en 42501 avant la RLS. On
+-- asserte les deux : le refus explicite, puis le statut resté intact.
 
 SELECT test_set_jwt('traiteur_manager', 'bb000000-0000-0000-0000-000000000001'::uuid);
-UPDATE plateforme.collectes
-SET statut = 'cloturee', updated_at = now()
-WHERE id = 'aa000000-0000-0000-0004-000000000001'::uuid;
+SELECT throws_ok(
+  $$UPDATE plateforme.collectes
+      SET statut = 'cloturee', updated_at = now()
+    WHERE id = 'aa000000-0000-0000-0004-000000000001'::uuid$$,
+  '42501', NULL,
+  'T_RLS_b : la cloture par un traiteur_manager leve 42501 (privilege UPDATE retire)');
 SELECT test_as_superuser();
 
 SELECT is(

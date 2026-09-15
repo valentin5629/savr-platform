@@ -17,11 +17,20 @@
 --   (2) objet imbriqué, nombre, booléen et tableau non textuel sont REJETÉS,
 --       à l'INSERT comme à l'UPDATE (un override peut être posé après coup) ;
 --   (3) le chemin RPC lui-même — fn_modifier_collecte écrit p_updates->
---       'lieu_overrides' tel quel — bute sur la contrainte.
+--       'lieu_overrides' tel quel — bute sur la contrainte ;
+--   (4) SOUS LE RÔLE `authenticated` — le volet décisif. Le prédicat du CHECK est
+--       une fonction, et un CHECK s'évalue avec les droits de CELUI QUI ÉCRIT :
+--       son EXECUTE doit donc rester ouvert. Un REVOKE « d'hygiène » (le réflexe
+--       du repo, cf. faille P0 #263 sur les SECURITY DEFINER) rendrait la
+--       contrainte INATTEIGNABLE pour un client — l'UPDATE sortirait en 42501
+--       « permission denied for function », et non en 23514. Joué en `postgres`
+--       seul, ce fichier resterait vert dans cet état cassé : il ne saurait pas
+--       distinguer « la contrainte protège le client » de « le client ne peut
+--       plus écrire du tout ». D'où ces trois cas sous rôle réel.
 -- =============================================================================
 
 BEGIN;
-SELECT plan(12);
+SELECT plan(15);
 
 -- ─── Fixtures ────────────────────────────────────────────────────────────────
 INSERT INTO plateforme.organisations (id, nom, type, actif, siret, email_principal)
@@ -151,6 +160,60 @@ SELECT throws_ok(
   '23514',
   NULL,
   'fn_modifier_collecte ne peut pas poser un override non textuel après coup');
+
+-- ─── 5. Sous le rôle `authenticated` — la contrainte mord sans casser l'écriture
+-- `authenticated` porte un GRANT UPDATE table-level sur `plateforme.collectes`
+-- (20260611180000) et la policy `col_update_client` (20260617180000) laisse un
+-- traiteur modifier sa propre collecte non terminale en PostgREST direct, sans
+-- passer par aucune route Next. Le worker relit `lieu_overrides` sur la LIGNE au
+-- moment de consommer l'event : ce qui est écrit par là atteint le transporteur.
+
+CREATE OR REPLACE FUNCTION pg_temp.jwt_traiteur()
+RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  PERFORM set_config('request.jwt.claims', json_build_object(
+    'sub', '10ac0002-0000-0000-0000-000000000001'::uuid,
+    'user_role', 'traiteur_manager',
+    'organisation_id', '10ac0001-0000-0000-0000-000000000001'::uuid,
+    'app_domain', 'plateforme'
+  )::text, true);
+  PERFORM set_config('role', 'authenticated', true);
+END $$;
+
+CREATE OR REPLACE FUNCTION pg_temp.as_superuser()
+RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  PERFORM set_config('role', 'postgres', true);
+  PERFORM set_config('request.jwt.claims', NULL, true);
+END $$;
+
+SELECT pg_temp.jwt_traiteur();
+
+-- L'écriture LÉGITIME passe. C'est le test qui rougirait si l'EXECUTE de
+-- `f_lieu_overrides_textuel` était retiré à `authenticated` : 42501 au lieu du
+-- succès, la contrainte devenant inatteignable plutôt que protectrice.
+SELECT lives_ok(
+  $$ UPDATE plateforme.collectes
+        SET lieu_overrides = '{"adresse_acces": "Entrée livraisons"}'::jsonb
+      WHERE id = '10ac0c01-0000-0000-0000-000000000001'::uuid $$,
+  'authenticated : un override textuel légitime passe (EXECUTE du prédicat conservé)');
+
+SELECT throws_ok(
+  $$ UPDATE plateforme.collectes
+        SET lieu_overrides = '{"adresse_acces": {"a": 1}}'::jsonb
+      WHERE id = '10ac0c01-0000-0000-0000-000000000001'::uuid $$,
+  '23514',
+  NULL,
+  'authenticated : un override non textuel est REJETÉ — 23514, pas 42501');
+
+SELECT is(
+  (SELECT lieu_overrides->>'adresse_acces'
+     FROM plateforme.collectes
+    WHERE id = '10ac0c01-0000-0000-0000-000000000001'::uuid),
+  'Entrée livraisons',
+  'authenticated : la valeur refusée n''a rien écrasé');
+
+SELECT pg_temp.as_superuser();
 
 SELECT * FROM finish();
 ROLLBACK;

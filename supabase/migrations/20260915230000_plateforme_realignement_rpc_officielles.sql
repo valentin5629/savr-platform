@@ -19,14 +19,30 @@
 --
 -- POURQUOI REVENIR EN ARRIÈRE PLUTÔT QUE D'ENTÉRINER
 -- 20260915220000 restreint le prédicat d'émission de E2 aux commandes passées
--- chez le provider VERS LEQUEL la collecte est actuellement dispatchée. Sur une
--- collecte re-dispatchée d'un transporteur à l'autre, E2 n'est alors plus émise
--- du tout — et c'est précisément le cas où l'adapter doit être réveillé : son
--- filtre par provider (#323) écarte la tournée de l'autre transporteur et lève
--- l'alerte Ops `tournee_autre_provider`, qui signale une commande restée vivante
--- là-bas. Le prédicat restreint supprime cette alerte en même temps que l'event.
--- Le prédicat large est donc le bon : il émet, et c'est le consommateur qui
--- décide — en alertant s'il y a lieu.
+-- chez le provider VERS LEQUEL la collecte est dispatchée. Deux chemins, deux
+-- effets — mesurés en transaction annulée, pas déduits :
+--
+--   • `fn_modifier_collecte` (PATCH qui change `prestataire_logistique_id`) :
+--     sous le prédicat restreint, AUCUN event n'est écrit — ni E1 ni E2. L'adapter
+--     n'est jamais réveillé, l'alerte Ops `tournee_autre_provider` (#323) ne part
+--     pas, et la commande reste vivante chez l'ancien transporteur sans trace.
+--     Perte silencieuse : c'est ce qui justifie le retour au prédicat large.
+--
+--   • `fn_dispatcher_collecte` (re-dispatch Ops) : le prédicat restreint émet E1,
+--     pas rien. Le worker instancie l'adapter CIBLE et `dispatchCollecte` lève
+--     l'alerte de toute façon. Sur CE chemin, le prédicat restreint n'était donc
+--     pas fautif — et le prédicat large qu'on rétablit y a, lui, un défaut connu :
+--     il émet E2, `updateCollecte` écarte la tournée de l'autre provider, sort en
+--     `noop_no_remote`, et AUCUNE commande n'est créée chez le nouveau
+--     transporteur. La collecte paraît re-dispatchée, rien n'est commandé.
+--
+-- Ce défaut est ANTÉRIEUR à l'incident : c'est le comportement de `main`
+-- (140000 + #323), relu et mergé. Le rétablir est le choix assumé — réaligner la
+-- prod sur ce qui a été relu, plutôt que garder un correctif jamais revu qui règle
+-- un chemin en cassant l'autre. Il est tracé en divergence
+-- (`M1.5a_20260915_predicat_e2_ternaire_redispatch`) : la cible est un prédicat
+-- TERNAIRE — pas de commande → E1 ; commande chez le provider courant → E2 ;
+-- commande chez un AUTRE provider → E1 *et* alerte. Ni 140000 ni 220000 ne le font.
 --
 -- NATURE : non destructive. Aucun DROP, aucun backfill, aucune ouverture
 -- d'accès : les REVOKE/GRANT repris sont identiques à ceux déjà en vigueur.

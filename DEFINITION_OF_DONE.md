@@ -32,7 +32,7 @@ Un module n'est "fini" que si TOUS les items applicables sont cochés.
 - [ ] Backward-compat (ADD COLUMN nullable/default, pas de DROP destructif)
 - [ ] Nommage conforme + down-migration / rollback documenté
 - [ ] Préfixe `YYYYMMDDHHMMSS` libre **sur tous les refs distants**, pas seulement sur sa branche : `bash scripts/check-migration-timestamp.sh --branch` (gate CI `migration-timestamp`). Une branche en vol non mergée peut avoir pris le numéro — le hook pré-commit ne la voit pas.
-- [ ] Si le préfixe a déjà été appliqué quelque part puis renommé : ancienne `version` **rendue** (`DELETE` + `INSERT` dans `supabase_migrations.schema_migrations`) dans chaque base concernée — sinon le numéro reste brûlé et la migration de l'autre lot sera sautée en silence.
+- [ ] Si le préfixe a déjà été appliqué quelque part puis renommé : ancienne `version` **rendue** (`DELETE` + `INSERT` dans `supabase_migrations.schema_migrations`) dans chaque base concernée — sinon le numéro reste brûlé et la migration de l'autre lot sera sautée en silence. ⚠ C'est une écriture **hors du système de migrations** : en dev, la faire et la tracer ; **en prod, STOP et demander à Val** (CLAUDE.md §12, opération non couverte par le régime prod temporaire).
 
 ## Merge & nettoyage (fusion vers main — anti-dette de branches/worktrees)
 > Cause de la dette : le squash-merge coupe le lien d'ancêtre (`git branch --merged` ne voit pas les branches mergées) → sans nettoyage, chaque lot laisse une branche locale ET distante. Trois mécanismes, du plus structurant au filet de sécurité.

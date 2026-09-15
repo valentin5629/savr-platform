@@ -57,7 +57,8 @@ rappels_apres_collision() {
        il reste BRÛLÉ : au merge de l'autre lot, `db push` verra la version déjà
        présente et sautera SA migration en silence. Correctif complet =
        DELETE de l'ancienne version + INSERT de la nouvelle, dans chaque base
-       où l'ancienne a été appliquée.
+       où l'ancienne a été appliquée. En PROD, cette écriture sort du système de
+       migrations : STOP, demander à Val (CLAUDE.md §12).
 
     ⚠  Qui bouge ? Celui qui a déjà écrit le numéro dans un schema_migrations
        (c'est lui qui a armé l'ambiguïté), et à défaut celui dont la PR n'est
@@ -111,7 +112,9 @@ controle_local() {
     ref_prefixes=$(git ls-tree -r --name-only "$BASE_REF" -- "$MIG_DIR" 2>/dev/null | sed 's#.*/##; s#_.*##' || true)
   fi
 
-  new_ts=$(for f in $mes; do prefixe "$f"; done | sort -u)
+  new_ts=$(printf '%s\n' "$mes" | while IFS= read -r f; do
+    [ -n "$f" ] && prefixe "$f"
+  done | sort -u)
 
   max_other=$(
     ls "${MIG_DIR}"/*.sql 2>/dev/null \
@@ -196,13 +199,18 @@ controle_inter_branches() {
 
   local ref
   for ref in $(refs_candidats); do
+    # Le nom du ref passe par `awk -v` (affectation de variable), jamais dans un
+    # script `sed` : `#` est un caractère LÉGAL dans un nom de branche (`fix/issue#322`)
+    # et cassait le délimiteur, rendant ce ref invisible au contrôle — un garde
+    # d'intégrité muet, soit la panne même qu'il corrige.
     git ls-tree -r --name-only "$ref" -- "$MIG_DIR" 2>/dev/null \
       | grep -E "^${MIG_DIR}/[0-9]{14}_.*\.sql$" \
-      | sed "s#^#${ref} #" >> "$catalogue"
+      | awk -v r="$ref" '{print r " " $0}' >> "$catalogue"
   done
 
   local f ts mien conflits
-  for f in $mes; do
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
     ts=$(prefixe "$f")
     mien=$(basename "$f")
     # Collision = même préfixe SOUS UN AUTRE NOM DE FICHIER. Le même nom sur un
@@ -224,7 +232,9 @@ controle_inter_branches() {
       rappels_apres_collision
       fail=true
     fi
-  done
+  done <<EOF
+$mes
+EOF
 
   [ "$fail" = true ] && return 1
   return 0
@@ -235,12 +245,17 @@ controle_inter_branches() {
 # et ne se signale pas lui-même une fois la branche poussée. Sans ça le gate
 # pourrait être inerte et personne ne le saurait.
 # ---------------------------------------------------------------------------
-self_test() {
+# NB : corps entre parenthèses = SOUS-SHELL. Aucun `cd` ne peut fuir vers
+# l'appelant, et si le clone échoue le script ne peut pas se mettre à muter le
+# dépôt réel (les `git reset --hard` / `git push` des cas suivants y frapperaient).
+# `set -e` ne protège pas ici : `self_test` est appelée en partie gauche d'un `||`,
+# ce qui le neutralise dans tout le corps — d'où les gardes explicites.
+self_test() (
   local script_abs tmp origine clone rc echec=false
   script_abs="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
-  tmp=$(mktemp -d)
-  # shellcheck disable=SC2064
-  trap "rm -rf '$tmp'" RETURN
+  tmp=$(mktemp -d) || { echo "🔴 AUTO-TEST : mktemp -d impossible." >&2; return 2; }
+  [ -n "$tmp" ] && [ -d "$tmp" ] || { echo "🔴 AUTO-TEST : répertoire jetable invalide." >&2; return 2; }
+  trap 'rm -rf "$tmp"' EXIT
   origine="$tmp/origine.git"
   clone="$tmp/clone"
 
@@ -261,8 +276,14 @@ self_test() {
     git push --quiet origin concurrente
   ) >/dev/null 2>&1
 
-  git clone --quiet "$origine" "$clone"
-  cd "$clone"
+  # Gardes non négociables : sans elles, un clone en échec (par ex. sous
+  # `protocol.file.allow=never`, le durcissement post-CVE-2022-39253) laisse les
+  # commandes mutantes de ce test s'appliquer au dépôt RÉEL. Cas 8 le prouve.
+  if ! git clone --quiet "$origine" "$clone"; then
+    echo "🔴 AUTO-TEST : clone du dépôt jetable impossible — test non joué." >&2
+    return 2
+  fi
+  cd "$clone" || { echo "🔴 AUTO-TEST : accès au dépôt jetable impossible." >&2; return 2; }
   git config user.email t@t.t && git config user.name t && git config commit.gpgsign false
   git checkout --quiet -b mon-lot
 
@@ -384,10 +405,71 @@ self_test() {
     echec=true
   fi
 
+  # Cas 9 — un ref dont le NOM contient « # » (caractère légal : `fix/issue#322`)
+  # doit rester vu. Construire un script `sed` à partir du nom de ref le rendait
+  # invisible au contrôle (B) : un garde d'intégrité muet, soit la panne même
+  # qu'il corrige.
+  git checkout --quiet -B pousse-diese "$BASE_REF" >/dev/null 2>&1
+  echo "-- diese" > "$MIG_DIR/20260101160000_plateforme_diese.sql"
+  git add -A
+  git -c core.hooksPath=/dev/null commit --quiet --no-verify -m diese >/dev/null 2>&1
+  git push --quiet origin 'pousse-diese:refs/heads/fix/issue#9' >/dev/null 2>&1
+  git checkout --quiet -B cas9 "$BASE_REF" >/dev/null 2>&1
+  echo "-- mien" > "$MIG_DIR/20260101160000_plateforme_mon_lot.sql"
+  git add -A
+  rc=0; bash "$script_abs" >/dev/null 2>&1 || rc=$?
+  if [ "$rc" -ne 2 ]; then
+    echo "🔴 AUTO-TEST : collision non détectée face à un ref contenant « # » (exit $rc, attendu 2)." >&2
+    echec=true
+  fi
+
+  # Cas 8 — un clone impossible ne doit RIEN muter dans le dépôt APPELANT.
+  # Sauté dans le sous-test qu'il lance lui-même : sans ce garde-fou, un script
+  # dont les gardes ont sauté relance le cas 8 en boucle au lieu de rougir.
+  if [ -n "${MIGRATION_SELFTEST_INTERNE:-}" ]; then
+    [ "$echec" = true ] && return 1
+    return 0
+  fi
+  # Sans les gardes sur `clone`/`cd`, les commandes mutantes des cas précédents
+  # (`git reset --hard`, `git push`…) s'appliquent au dépôt courant : démontré en
+  # revue sécurité, fichier non commité détruit et branche poussée.
+  local appelant faux_bin temoin git_reel
+  appelant="$tmp/appelant"
+  faux_bin="$tmp/faux-bin"
+  git_reel=$(command -v git)
+  mkdir -p "$appelant/$MIG_DIR" "$faux_bin"
+  printf '#!/bin/sh\nfor a in "$@"; do [ "$a" = clone ] && exit 128; done\nexec %s "$@"\n' "$git_reel" > "$faux_bin/git"
+  chmod +x "$faux_bin/git"
+  (
+    cd "$appelant" \
+      && git init --quiet --initial-branch=main . \
+      && git config user.email t@t.t && git config user.name t \
+      && echo "-- socle" > "$MIG_DIR/20260101100000_plateforme_socle.sql" \
+      && git add -A \
+      && git -c core.hooksPath=/dev/null commit --quiet --no-verify -m socle
+  ) >/dev/null 2>&1
+  echo "TRAVAIL NON COMMITE" > "$appelant/temoin.txt"
+  rc=0
+  ( cd "$appelant" && PATH="$faux_bin:$PATH" MIGRATION_SELFTEST_INTERNE=1 \
+      bash "$script_abs" --self-test ) >/dev/null 2>&1 || rc=$?
+  temoin=$(cat "$appelant/temoin.txt" 2>/dev/null || echo MANQUANT)
+  if [ "$temoin" != "TRAVAIL NON COMMITE" ]; then
+    echo "🔴 AUTO-TEST : un clone en échec a DÉTRUIT un fichier du dépôt appelant." >&2
+    echec=true
+  fi
+  if [ -n "$( (cd "$appelant" && git branch --format='%(refname:short)' 2>/dev/null | grep -vx main) || true )" ]; then
+    echo "🔴 AUTO-TEST : un clone en échec a créé des branches dans le dépôt appelant." >&2
+    echec=true
+  fi
+  if [ "$rc" -eq 0 ]; then
+    echo "🔴 AUTO-TEST : clone en échec non signalé (exit 0) — le test se croit joué." >&2
+    echec=true
+  fi
+
   [ "$echec" = true ] && return 1
-  echo "✅ check-migration-timestamp : auto-test OK (collision en vol, doublon local, renommage staged + branch ; 0 faux positif)."
+  echo "✅ check-migration-timestamp : auto-test OK (collision en vol, doublon local, renommage staged + branch, ref « # », dépôt appelant intact)."
   return 0
-}
+)
 
 # ---------------------------------------------------------------------------
 if [ "$SELF_TEST" = true ]; then

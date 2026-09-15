@@ -159,12 +159,24 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const lieuOverrides = overridesValides.overrides;
 
   // Même borne d'entrée sur les champs texte libre qui partent au transporteur :
-  // le contact de secours est au niveau ÉVÉNEMENT, les informations
+  // les contacts (principal ET secours) sont au niveau ÉVÉNEMENT, les informations
   // supplémentaires au niveau de CHAQUE collecte (validées dans la boucle
   // ci-dessous). Vérifié AVANT toute écriture, pour la même raison que les
   // overrides : un refus ne doit pas laisser un événement orphelin derrière lui.
+  //
+  // Le contrôle « obligatoire » ci-dessus ne teste que la présence (`!body.x`) :
+  // il laisse passer `'   '`, un objet ou 5 000 caractères. C'est ici que les deux
+  // contacts PRINCIPAUX sont réellement bornés, et que leur valeur est trimée avant
+  // d'atteindre l'INSERT — `obligatoire: true` fait du vide un 422, jamais un `null`
+  // (la colonne est NOT NULL : un `null` sortirait en 23502, donc en 500).
   const contactsValides = validerChampsTexteLibre(body);
   if ('error' in contactsValides) return contactsValides.error;
+  // Non-null asserté : `obligatoire: true` garantit que le validateur a rendu une
+  // chaîne non vide pour ces deux clés, que le contrôle de présence ci-dessus a
+  // rendues obligatoirement présentes.
+  body.contact_principal_nom = contactsValides.valeurs.contact_principal_nom!;
+  body.contact_principal_telephone =
+    contactsValides.valeurs.contact_principal_telephone!;
   body.contact_secours_nom =
     contactsValides.valeurs.contact_secours_nom ?? null;
   body.contact_secours_telephone =

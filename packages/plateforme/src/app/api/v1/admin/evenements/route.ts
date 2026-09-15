@@ -75,6 +75,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // texte libre. La création back-office écrivait le corps de requête tel quel.
   const texteValide = validerChampsTexteLibre(body);
   if ('error' in texteValide) return texteValide.error;
+  // Les deux contacts PRINCIPAUX sont repris NORMALISÉS (trimés) : le contrôle de
+  // présence ci-dessus ne teste que `!x`, il laisse passer `'   '` ou un objet.
+  // `obligatoire: true` garantit une chaîne non vide ici — la colonne est NOT NULL.
+  const contactPrincipalNom = texteValide.valeurs.contact_principal_nom!;
+  const contactPrincipalTelephone =
+    texteValide.valeurs.contact_principal_telephone!;
 
   const supabase = createAdminSupabaseClient();
   const { data, error } = await supabase
@@ -86,8 +92,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       lieu_id,
       type_evenement_id,
       pax,
-      contact_principal_nom,
-      contact_principal_telephone,
+      contact_principal_nom: contactPrincipalNom,
+      contact_principal_telephone: contactPrincipalTelephone,
       created_by: auth.ctx.userId,
       nom_evenement: body.nom_evenement ?? null,
       date_evenement: body.date_evenement ?? null,

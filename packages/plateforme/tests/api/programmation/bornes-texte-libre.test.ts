@@ -576,7 +576,11 @@ describe('bornes texte libre — PATCH événement', () => {
     );
   });
 
-  it('POST /admin/evenements : insère les valeurs NORMALISÉES, pas le corps de requête', async () => {
+  // Jumeau de l'oracle « contacts principaux » de #328, sur les contacts de
+  // SECOURS : même route, même spy `insert`, champs disjoints. Les valeurs des
+  // deux cas doivent rester distinctes — `toHaveBeenCalledWith` est satisfait par
+  // n'importe quel appel enregistré sur le spy.
+  it('POST /admin/evenements : insère le contact de SECOURS normalisé, pas le corps de requête', async () => {
     setupAuth('admin_savr');
     mockSingle.mockResolvedValueOnce({ data: { id: 'evt-neuf' }, error: null });
 

@@ -112,7 +112,7 @@ export async function PATCH(
       .select('id, statut, credits_consommes')
       .single();
 
-    if (error) return writeError(error, 'admin.packs_antgaspi.update_2');
+    if (error) return writeError(error, 'admin.packs_antgaspi.annuler');
 
     try {
       await supabase.from('audit_log').insert({

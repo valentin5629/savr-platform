@@ -320,7 +320,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       if (cErr) {
         // Rollback partiel : supprimer l'événement déjà créé
         await supabase.from('evenements').delete().eq('id', evenementId);
-        return serverError(cErr, 'programmation.evenements.create.c_err');
+        return serverError(cErr, 'programmation.evenements.collecte.confirmer');
       }
 
       collecteIds.push(collecteId as string);
@@ -411,7 +411,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
       if (cErr) {
         await supabase.from('evenements').delete().eq('id', evenementId);
-        return serverError(cErr, 'programmation.evenements.create.c_err_2');
+        return serverError(cErr, 'programmation.evenements.collecte.brouillon');
       }
 
       collecteIds.push(newCollecte.id);

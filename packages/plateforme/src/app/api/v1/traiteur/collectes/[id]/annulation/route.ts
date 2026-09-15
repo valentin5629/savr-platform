@@ -81,7 +81,7 @@ export async function POST(
       p_champs_modifies: ['statut'],
     });
     if (error)
-      return serverError(error, 'traiteur.collectes.annulation.create');
+      return serverError(error, 'traiteur.collectes.annulation.directe');
 
     await sendEmail('annulation_collecte', 'hello@gosavr.io', {
       organisation_nom: orgNom ?? '',
@@ -121,7 +121,7 @@ export async function POST(
       p_champs_modifies: ['statut'],
     });
     if (error)
-      return serverError(error, 'traiteur.collectes.annulation.create_2');
+      return serverError(error, 'traiteur.collectes.annulation.demande');
 
     await sendEmail('admin_demande_annulation', 'hello@gosavr.io', {
       organisation_nom: orgNom ?? '',

@@ -58,7 +58,7 @@ export async function POST(
         ['P0003', 'P0004', 'P0005'],
         409,
       );
-    return serverError(error, 'admin.collectes.annuler_credit.create_2');
+    return serverError(error, 'admin.collectes.annuler_credit.inattendu');
   }
 
   return NextResponse.json(data);

@@ -72,6 +72,19 @@ export type ChampLieuSurchargeable =
 const CHAMPS_LIEU_LISTE = new Set<ChampLieuSurchargeable>(['flux_autorises']);
 
 /**
+ * Plafond de CARDINALITÉ d'une valeur liste, à la lecture.
+ *
+ * Même raison d'être que `LONGUEUR_MAX_SURCHARGE_LUE` et même dimensionnement :
+ * il vaut plus que la borne d'écriture (#308 : 20 items), si bien qu'aucune
+ * valeur passée par une route ne le touche jamais. Il ne tient que le chemin qui
+ * échappe aux routes — PostgREST direct sous le `GRANT UPDATE` d'`authenticated`
+ * — où un tableau de 10 000 entrées serait relu tel quel par `fetchCollecte`.
+ * Rien de démesuré n'atteignait le transporteur (le canal libre plafonne à
+ * 1000 car.), mais le worker chargeait le tableau entier en mémoire.
+ */
+export const MAX_ENTREES_SURCHARGE_LUE = 50;
+
+/**
  * Champs qui composent l'adresse réellement poussée au transporteur (E1 comme E5).
  * Sous-ensemble de l'allowlist : le reste du lieu ne touche pas l'adresse.
  */
@@ -166,6 +179,7 @@ export function lieuChampSurcharge(
     return (
       Array.isArray(value) &&
       value.length > 0 &&
+      value.length <= MAX_ENTREES_SURCHARGE_LUE &&
       value.every(surchargeTexteValide)
     );
   }
@@ -203,7 +217,18 @@ export function applyLieuOverrides<T extends object>(
   if (!overrides) return merged;
   for (const champ of CHAMPS_LIEU_SURCHARGEABLES) {
     if (!lieuChampSurcharge(overrides, champ)) continue;
-    (merged as unknown as Record<string, unknown>)[champ] = overrides[champ];
+    // Copie du TABLEAU, pas sa référence : `{ ...lieu }` est superficiel, et ce
+    // module promet de ne jamais rendre l'entrée par référence — sinon un
+    // appelant qui muterait `flux_autorises` corromprait le lieu partagé par
+    // toutes les collectes de la boucle E5, donc entre organisations. Les 8
+    // autres champs sont des chaînes, immuables : le cas n'existait pas avant
+    // l'entrée d'un champ liste dans l'allowlist.
+    const valeur = overrides[champ];
+    (merged as unknown as Record<string, unknown>)[champ] = Array.isArray(
+      valeur,
+    )
+      ? [...valeur]
+      : valeur;
   }
   return merged;
 }

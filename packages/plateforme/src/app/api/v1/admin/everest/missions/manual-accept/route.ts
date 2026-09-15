@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 
 import { requireStaff } from '@/lib/api-auth.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -75,13 +76,55 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       },
     });
   } else {
-    // Mission jamais créée (push n'a même pas créé la ligne) — lookup tournée
-    const { data: tournee } = await supabase
+    // Mission jamais créée (push n'a même pas créé la ligne) — lookup tournée.
+    //
+    // La tournée est cherchée CHEZ EVEREST (`type_tms='a_toutes'`) et au rang le
+    // plus bas. Un `.limit(1)` sans filtre ni tri rattachait la ligne
+    // `everest_missions` à n'importe quelle tournée de la collecte — y compris
+    // une tournée MTS-1 résiduelle sur une collecte re-dispatchée. L'adapter
+    // Everest cherche ensuite sa mission par `findMission(tournee.id)` sur une
+    // tournée, elle, filtrée par provider : il ne l'aurait pas trouvée et aurait
+    // re-créé une mission. Autrement dit, l'acceptation téléphonique protégeait
+    // la mauvaise tournée.
+    // Il n'existe pas de FK `tournees` → `transporteurs` : le provider se résout
+    // en deux temps, via `prestataire_logistique_id` → `transporteurs.type_tms`
+    // — même résolution que les adapters (`prestatairesDuType`).
+    const { data: prestataires, error: errPresta } = await supabase
+      .from('transporteurs')
+      .select('prestataire_logistique_id')
+      .eq('type_tms', 'a_toutes');
+
+    if (errPresta) {
+      return serverError(errPresta, 'admin.everest.manual_accept.referentiel');
+    }
+
+    const prestatairesEverest = (
+      (prestataires ?? []) as Array<{
+        prestataire_logistique_id: string | null;
+      }>
+    )
+      .map((t) => t.prestataire_logistique_id)
+      .filter((id): id is string => typeof id === 'string' && id !== '');
+
+    if (prestatairesEverest.length === 0) {
+      return NextResponse.json(
+        { error: 'Aucun transporteur Everest au référentiel' },
+        { status: 409 },
+      );
+    }
+
+    const { data: tournee, error: errTournee } = await supabase
       .from('collecte_tournees')
-      .select('tournee_id')
+      .select('tournee_id, rang, tournees!inner(prestataire_logistique_id)')
       .eq('collecte_id', collecte_id)
+      .in('tournees.prestataire_logistique_id', prestatairesEverest)
+      .order('rang', { ascending: true })
       .limit(1)
       .maybeSingle();
+
+    if (errTournee) {
+      return serverError(errTournee, 'admin.everest.manual_accept.tournee');
+    }
 
     const tourneeId = (tournee as { tournee_id: string } | null)?.tournee_id;
 

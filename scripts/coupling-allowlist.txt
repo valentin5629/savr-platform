@@ -200,3 +200,10 @@ supabase/tests/r22c_evenement_e2_en_cours.test.sql
 # transporteur du harnais pgTAP `tests.outbox_fixture_collecte`. Aucune logique
 # adapter, aucun appel HTTP. 'customerOrders' reste banni.
 supabase/migrations/20260915220000_plateforme_gate_e2_dimension_provider.sql
+# Test de la route d'acceptation manuelle Everest (2026-09-15) — même nature
+# d'exception que la route qu'il couvre (déjà allowlistée) : 'everest' est le nom
+# de la table `everest_missions` et du segment d'URL, 'mts1'/'a_toutes' sont des
+# valeurs de l'enum transporteurs.type_tms dans les fixtures. Le test prouve que
+# le rattachement de la mission vise la tournée du BON provider. Aucun appel HTTP.
+# 'customerOrders' reste banni.
+packages/plateforme/tests/api/admin/everest-manual-accept.m2-5.test.ts

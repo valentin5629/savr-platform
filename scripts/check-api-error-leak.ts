@@ -443,12 +443,38 @@ function regleD(source: string): Trouve[] {
  */
 function regleE(source: string): Trouve[] {
   const src = parse('e.ts', source);
-  // Clé = `<fonction englobante>::<nom>` : sans le scope, deux fonctions d'un même
-  // fichier qui nomment toutes deux leur variable `message` se contaminent (faux
-  // positif observé entre `messageEchecEcriture` et `businessError`).
-  const teintees = new Map<string, number>();
-  const cle = (nom: string, n: ts.Node): string =>
-    `${fonctionEnglobante(n) ?? '<module>'}::${nom}`;
+  // La teinte est portée par la PORTÉE LEXICALE de la déclaration, pas par le nom
+  // de la fonction englobante : une variable déclarée au niveau module et rendue
+  // dans `export const GET = async () => …` reste la même variable (faux négatif
+  // d'une première version, relevé en revue). À l'inverse, deux fonctions
+  // distinctes qui nomment toutes deux leur variable `message` ne se contaminent
+  // pas, puisqu'aucune n'est un ancêtre de l'autre.
+  const teintees: { nom: string; portee: ts.Node; ligne: number }[] = [];
+  const porteeDe = (n: ts.Node): ts.Node => {
+    let p: ts.Node | undefined = n.parent;
+    while (p) {
+      if (
+        ts.isBlock(p) ||
+        ts.isSourceFile(p) ||
+        ts.isModuleBlock(p) ||
+        ts.isCaseClause(p)
+      )
+        return p;
+      p = p.parent;
+    }
+    return src;
+  };
+  const estTeinte = (nom: string, usage: ts.Node): number | null => {
+    for (const t of teintees) {
+      if (t.nom !== nom) continue;
+      let p: ts.Node | undefined = usage;
+      while (p) {
+        if (p === t.portee) return t.ligne;
+        p = p.parent;
+      }
+    }
+    return null;
+  };
   const marquer = (n: ts.Node): void => {
     if (
       ts.isVariableDeclaration(n) &&
@@ -470,22 +496,27 @@ function regleE(source: string): Trouve[] {
       };
       chercher(n.initializer);
       if (lit)
-        teintees.set(
-          cle(n.name.text, n),
-          src.getLineAndCharacterOfPosition(n.getStart()).line + 1,
-        );
+        teintees.push({
+          nom: n.name.text,
+          portee: porteeDe(n),
+          ligne: src.getLineAndCharacterOfPosition(n.getStart()).line + 1,
+        });
     }
     ts.forEachChild(n, marquer);
   };
   marquer(src);
-  if (teintees.size === 0) return [];
+  if (teintees.length === 0) return [];
 
   const out: Trouve[] = [];
   const visit = (n: ts.Node): void => {
-    if (ts.isIdentifier(n) && teintees.has(cle(n.text, n))) {
+    const ligneTeinte = ts.isIdentifier(n) ? estTeinte(n.text, n) : null;
+    if (ligneTeinte !== null && ts.isIdentifier(n)) {
       const estDeclaration =
         ts.isVariableDeclaration(n.parent) && n.parent.name === n;
-      const versLog = sousAppel(n, src, /^(logger|console)\./);
+      const englobante = fonctionEnglobante(n);
+      const versLog =
+        sousAppel(n, src, /^(logger|console)\./) ||
+        (englobante !== null && NEUTRALISEURS.has(englobante));
       let rendu = sousAppel(n, src, /^(NextResponse|Response)\.json$/);
       if (!rendu) {
         let p: ts.Node | undefined = n.parent;
@@ -505,7 +536,7 @@ function regleE(source: string): Trouve[] {
       if (rendu && !estDeclaration && !versLog) {
         out.push({
           ligne: src.getLineAndCharacterOfPosition(n.getStart()).line + 1,
-          expr: `${n.text} (teintée l.${teintees.get(cle(n.text, n))})`,
+          expr: `${n.text} (teintée l.${ligneTeinte})`,
         });
       }
     }
@@ -720,6 +751,30 @@ const SONDES: {
     regle: 'E',
     source: `const motif = cond ? 'Libellé A' : err.message;\nreturn NextResponse.json({ error: motif }, { status: 401 });`,
     attendus: 1,
+  },
+  {
+    // Teinte au niveau MODULE, rendue dans un handler fléché exporté : forme de
+    // route Next tout à fait ordinaire, que la clé « par nom de fonction »
+    // perdait (revue sécurité).
+    regle: 'E',
+    source: `let msg = '';\nexport const GET = async () => {\n  msg = err.message;\n  return NextResponse.json({ error: msg });\n};`,
+    attendus: 0,
+  },
+  {
+    regle: 'E',
+    source: `const m = err.message;\nexport const GET = async () => NextResponse.json({ error: m });`,
+    attendus: 1,
+  },
+  {
+    regle: 'E',
+    source: `const m = err.message;\nfunction rendre() {\n  return NextResponse.json({ error: m });\n}`,
+    attendus: 1,
+  },
+  {
+    // Deux fonctions sœurs qui nomment leur variable pareil ne se contaminent pas.
+    regle: 'E',
+    source: `function a() {\n  const message = err.message;\n  logger.warn('x', { message });\n}\nfunction b() {\n  return NextResponse.json({ error: message });\n}`,
+    attendus: 0,
   },
 ];
 

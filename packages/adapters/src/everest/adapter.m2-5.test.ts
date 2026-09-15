@@ -581,6 +581,7 @@ describe('M1.5 / infos d’accès du lieu → notes Everest', () => {
           informations_supplementaires: composerInformationsSupplementaires(
             LIEU_ACCES,
             'Demander Karim à la plonge',
+            null,
           ),
         },
         1,

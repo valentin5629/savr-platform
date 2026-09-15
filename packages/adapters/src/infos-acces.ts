@@ -13,6 +13,14 @@
 // « stationnement : cour intérieure, quai 3 » est saisi, stocké, affiché, audité
 // — et le chauffeur arrive avec la seule adresse postale.
 //
+// Même mécanique pour le NOM DU CONTACT DE SECOURS (arbitrage Val 2026-09-14,
+// relevé as-built MTS-1 l.79 + §08 l.393-397) : MTS-1 n'expose qu'UN contact par
+// commande, son téléphone part donc en `phoneAlternatives` et son nom n'a nulle
+// part où aller — « sans quoi le chauffeur a un numéro de secours sans savoir
+// qui appeler ». Everest est plus pauvre encore : `pickup.contact` est un objet
+// `{ name, phone }` unique, sans alternative — le nom passe par `notes` comme
+// ici, et son téléphone reste sans canal (divergence M1.5_20260915bis).
+//
 // ⚠ Appelé par `fetchCollecte` (outbox-worker), donc UNE fois pour les deux
 // adapters — jamais par un adapter. Garde-fou 2 (CLAUDE.md §3bis) : l'adapter V1
 // et le TMS natif V2 doivent alimenter les mêmes champs avec la même sémantique ;
@@ -70,6 +78,24 @@ function libelle(valeur: unknown, table: Record<string, string>): string {
   return table[brut] ?? brut;
 }
 
+// Borne du nom de secours. `evenements.contact_secours_nom` est un `text` SANS
+// contrainte (ni CHECK en base, ni borne de longueur sur la route d'édition) :
+// sans ce plafond, un nom démesuré évincerait à lui seul TOUTES les informations
+// d'accès qui le suivent — y compris l'adresse corrigée de #304 — puisqu'il ouvre
+// l'agrégat. 120 caractères couvrent très largement un nom de personne.
+const LIMITE_NOM_SECOURS = 120;
+
+/**
+ * Nom de contact rendu sûr pour une ligne du canal libre : blancs repliés (les
+ * sauts de ligne d'abord — un nom multiligne forgerait sinon une fausse ligne
+ * « Accès : … » lue comme telle par le chauffeur) puis longueur bornée.
+ */
+function nomContact(valeur: unknown): string {
+  const brut = texte(valeur).replace(/\s+/g, ' ');
+  if (brut.length <= LIMITE_NOM_SECOURS) return brut;
+  return `${brut.slice(0, LIMITE_NOM_SECOURS - 1).trimEnd()}…`;
+}
+
 /** `flux_autorises` = `text[]` en base → liste lisible ; entrées non-chaînes écartées. */
 function liste(valeur: unknown): string {
   if (!Array.isArray(valeur)) return '';
@@ -80,13 +106,24 @@ function liste(valeur: unknown): string {
 }
 
 /**
- * Lignes d'accès, DANS L'ORDRE DE PRIORITÉ (= ordre de lecture, et ordre inverse
- * d'abandon en cas de troncature) : détails d'accès > stationnement > horaires >
- * reste. Un champ vide n'émet aucune ligne — jamais de « Stationnement : »
- * orphelin.
+ * Lignes du canal libre, DANS L'ORDRE DE PRIORITÉ (= ordre de lecture, et ordre
+ * inverse d'abandon en cas de troncature) : contact de secours > détails d'accès
+ * > stationnement > horaires > reste. Un champ vide n'émet aucune ligne — jamais
+ * de « Stationnement : » orphelin.
+ *
+ * Le contact de secours passe EN TÊTE : c'est la seule ligne dont l'absence rend
+ * inexploitable une donnée par ailleurs transmise nativement (le téléphone de
+ * secours, envoyé en `phoneAlternatives` par MTS-1). L'abandonner à la troncature
+ * reproduirait exactement le défaut visé par l'arbitrage — « un numéro de secours
+ * sans savoir qui appeler ». C'est aussi la plus courte : la placer en tête ne
+ * coûte quasiment rien aux informations d'accès qui suivent.
  */
-function lignesAcces(lieu: Lieu): string[] {
+function lignesCanalLibre(
+  lieu: Lieu,
+  contactSecoursNom: string | null | undefined,
+): string[] {
   const candidates: Array<[string, string]> = [
+    ['Contact de secours', nomContact(contactSecoursNom)],
     ['Accès', texte(lieu.acces_details)],
     ['Stationnement', libelle(lieu.stationnement, LIBELLE_DIFFICULTE)],
     ['Contraintes horaires', texte(lieu.contraintes_horaires)],
@@ -101,14 +138,18 @@ function lignesAcces(lieu: Lieu): string[] {
 
 /**
  * Compose le champ libre transmis au transporteur : les informations
- * supplémentaires saisies par le traiteur, PUIS les informations d'accès du lieu
- * (une par ligne).
+ * supplémentaires saisies par le traiteur, PUIS le nom du contact de secours et
+ * les informations d'accès du lieu (une par ligne).
  *
  * @param lieu Lieu **FUSIONNÉ** (sortie de `applyLieuOverrides`), jamais le lieu
  *   officiel : les corrections saisies par collecte sont précisément ce qui doit
  *   atteindre le chauffeur (PROG-01/PROG-03, #304).
  * @param informationsSupplementaires Saisie du traiteur. Elle est PRÉSERVÉE et
  *   placée en tête — l'agrégat s'y ajoute, il ne la remplace pas.
+ * @param contactSecoursNom `evenements.contact_secours_nom`. Paramètre
+ *   **obligatoire** (quitte à passer `null`) : le défaut corrigé ici est
+ *   précisément une donnée portée jusqu'au worker que personne ne lisait — un
+ *   paramètre optionnel rouvrirait l'oubli silencieux au prochain appelant.
  * @returns Le champ libre, ou `null` si rien à transmettre (aucune ligne ne doit
  *   être créée pour une collecte sans information : `null` = pas de `comment`
  *   MTS-1, pas de `notes` Everest).
@@ -116,9 +157,10 @@ function lignesAcces(lieu: Lieu): string[] {
 export function composerInformationsSupplementaires(
   lieu: Lieu,
   informationsSupplementaires: string | null | undefined,
+  contactSecoursNom: string | null | undefined,
 ): string | null {
   const base = texte(informationsSupplementaires);
-  const lignes = lignesAcces(lieu);
+  const lignes = lignesCanalLibre(lieu, contactSecoursNom);
 
   if (!base && lignes.length === 0) return null;
 

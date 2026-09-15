@@ -981,6 +981,7 @@ describe('M1.5a / PROG-03 comment MTS-1', () => {
           informations_supplementaires: composerInformationsSupplementaires(
             lieuAcces,
             'Demander Karim à la plonge',
+            null,
           ),
         },
         1,
@@ -995,6 +996,46 @@ describe('M1.5a / PROG-03 comment MTS-1', () => {
       expect(orderPayload['comment']).toContain('Demander Karim à la plonge');
     },
   );
+
+  // ─── Contact de secours : téléphone natif + NOM dans `comment` ─────────────
+  // Règle complète du §08 l.393-397 (relevé as-built MTS-1 l.79, arbitrage Val
+  // 2026-09-14) : MTS-1 n'expose qu'un contact par commande, donc le téléphone du
+  // secours part en `phoneAlternatives` ET son nom est concaténé au `comment` —
+  // « sans quoi le chauffeur a un numéro de secours sans savoir qui appeler ».
+  // Seule la 1re moitié était implémentée. Le nom est agrégé en amont par
+  // fetchCollecte (composerInformationsSupplementaires, partagé avec Everest) :
+  // ce test ferme le maillon aval, sur le fil.
+  it('M1.5 / le nom du secours est dans comment, son téléphone en phoneAlternatives', async () => {
+    const postOrder = setupHandlers();
+    const supabase = makeMockSupabase({ tourneeExistante: null });
+
+    const collecte: Collecte = {
+      ...COLLECTE_ZD,
+      contact_secours_nom: 'Bruno Secours',
+      contact_secours_telephone: '+33600000002',
+    };
+
+    await new AdapterMts1(TRANSPORTEUR, supabase).dispatchCollecte(
+      {
+        ...collecte,
+        informations_supplementaires: composerInformationsSupplementaires(
+          collecte.lieu,
+          null,
+          collecte.contact_secours_nom,
+        ),
+      },
+      1,
+    );
+
+    const orderPayload = postOrder.mock.calls[0]![0] as {
+      comment?: string;
+      contact?: { phoneAlternatives?: string[] };
+    };
+    expect(orderPayload.comment).toContain(
+      'Contact de secours : Bruno Secours',
+    );
+    expect(orderPayload.contact?.phoneAlternatives).toEqual(['+33600000002']);
+  });
 
   it('M1.5a / buildOrderPayload sans informations_supplementaires — pas de comment', async () => {
     const postOrder = setupHandlers();

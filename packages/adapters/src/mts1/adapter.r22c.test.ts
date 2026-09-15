@@ -3,6 +3,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Collecte, Lieu, Transporteur } from '../index.js';
 import { AdapterMts1 } from './adapter.js';
 import { _setMts1Handlers } from './mock.js';
+import {
+  PRESTA_MTS1,
+  builderTransporteurs,
+} from '../mock-referentiel-transporteurs.js';
 
 // =============================================================================
 // R22c / BL-P2-10 — buildUpdatePayload (E2 collecte.modifiee) doit repousser les
@@ -52,7 +56,7 @@ const TRANSPORTEUR: Transporteur = {
   id: 'presta-001',
   type_tms: 'mts1',
   code_transporteur_mts1: 'STRIKE-IDF',
-  prestataire_logistique_id: 'presta-uuid-001',
+  prestataire_logistique_id: PRESTA_MTS1,
 };
 
 // Mock supabase : findTournees('collecte_tournees') renvoie 1 tournée dispatchée
@@ -69,6 +73,7 @@ function makeMockSupabaseDispatched() {
             external_ref_commande: 'MTS1-ORDER-R22C',
             tms_reference: 'MTS1-TOUR-R22C',
             statut: 'en_cours',
+            prestataire_logistique_id: PRESTA_MTS1,
           },
         },
       ],
@@ -78,7 +83,12 @@ function makeMockSupabaseDispatched() {
     insert: vi.fn().mockResolvedValue({ error: null }),
   };
   return {
-    from: vi.fn().mockReturnValue(mockQuery),
+    // `transporteurs` sert le référentiel complet (filtre provider réellement
+    // exercé) ; tout le reste passe par le builder des tournées.
+    from: vi.fn((table: string) =>
+      table === 'transporteurs' ? builderTransporteurs() : mockQuery,
+    ),
+    rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
   } as unknown as import('@supabase/supabase-js').SupabaseClient;
 }
 

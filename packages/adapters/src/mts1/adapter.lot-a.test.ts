@@ -14,12 +14,16 @@ import type { Collecte, Lieu, Transporteur } from '../index.js';
 import { AdapterMts1 } from './adapter.js';
 import type { Mts1CustomerOrder } from './mock.js';
 import { _setMts1Handlers } from './mock.js';
+import {
+  PRESTA_MTS1,
+  builderTransporteurs,
+} from '../mock-referentiel-transporteurs.js';
 
 const TRANSPORTEUR: Transporteur = {
   id: 'presta-lota',
   type_tms: 'mts1',
   code_transporteur_mts1: 'STRIKE',
-  prestataire_logistique_id: 'presta-lota',
+  prestataire_logistique_id: PRESTA_MTS1,
 };
 
 const LIEU: Lieu = {
@@ -340,6 +344,7 @@ describe('Lot A / A4 — annulation E3 idempotente', () => {
               external_ref_commande: 'MTS1-ORDER-A4',
               tms_reference: 'MTS1-TOUR-A4',
               statut: 'en_cours',
+              prestataire_logistique_id: PRESTA_MTS1,
             },
           },
         ],
@@ -347,7 +352,12 @@ describe('Lot A / A4 — annulation E3 idempotente', () => {
       }),
     };
     return {
-      from: vi.fn().mockReturnValue(mockQuery),
+      // Routage par table : `transporteurs` sert le référentiel complet, filtré
+      // pour de vrai — sinon le filtre provider de findTournees serait vacuux.
+      from: vi.fn((table: string) =>
+        table === 'transporteurs' ? builderTransporteurs() : mockQuery,
+      ),
+      rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
     } as unknown as import('@supabase/supabase-js').SupabaseClient;
   }
 

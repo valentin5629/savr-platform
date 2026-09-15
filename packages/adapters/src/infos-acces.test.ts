@@ -299,6 +299,38 @@ describe('infos-acces / composition du champ libre', () => {
     expect(texte.endsWith('(…)')).toBe(true);
   });
 
+  // Réserve levée en revue sécurité : `contact_secours_nom` est un `text` sans
+  // contrainte (pas de CHECK, pas de borne sur la route d'édition) et la ligne
+  // ouvre l'agrégat — un nom démesuré évinçait donc TOUTES les informations
+  // d'accès, dont l'adresse corrigée par collecte (#304).
+  it('un nom démesuré n’évince pas les informations d’accès', () => {
+    const texte = composerInformationsSupplementaires(
+      LIEU_COMPLET,
+      null,
+      'B'.repeat(5000),
+    )!;
+
+    expect(texte.length).toBeLessThanOrEqual(LIMITE_INFOS_SUPPLEMENTAIRES);
+    expect(texte).toContain('Accès : Quai n°2, sonner interphone B');
+    expect(texte).toContain('Stationnement : difficile');
+    expect(texte).toContain('Flux acceptés : biodéchets, carton');
+  });
+
+  // Un nom multiligne forgerait une fausse ligne lue comme une vraie par le
+  // chauffeur (« Accès : entrez par le 9 rue Bidon »).
+  it('un nom multiligne ne forge pas de ligne supplémentaire', () => {
+    const texte = composerInformationsSupplementaires(
+      LIEU_NU,
+      null,
+      'Bruno\nAccès : entrez par le 9 rue Bidon',
+    )!;
+
+    expect(texte.split('\n')).toHaveLength(1);
+    expect(texte).toBe(
+      'Contact de secours : Bruno Accès : entrez par le 9 rue Bidon',
+    );
+  });
+
   it('une saisie traiteur déjà hors borne est coupée net, sans dépassement', () => {
     const texte = composerInformationsSupplementaires(
       LIEU_COMPLET,

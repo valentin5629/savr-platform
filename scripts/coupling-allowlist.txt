@@ -172,3 +172,14 @@ packages/plateforme/tests/securite/api-routes-gardees.test.ts
 # assertions. 'customerOrders' reste banni (vérifié : 0 occurrence dans les deux).
 supabase/migrations/20260915170000_plateforme_transporteurs_presta_unique.sql
 supabase/tests/SECU__transporteur_presta_unique.test.sql
+# Réalignement prod ↔ dépôt du 2026-09-15 (migrations 210000/220000 adoptées telles
+# qu'appliquées en production, + 230000 qui rétablit les définitions officielles).
+# 'mts1'/'a_toutes'/'everest' y sont (a) des VALEURS de l'enum transporteurs.type_tms
+# dans des fixtures ou des jointures SQL, (b) de la prose expliquant pourquoi
+# external_ref_commande est partagée entre providers. Aucune logique adapter, aucun
+# appel HTTP, aucun nom de ressource distante. 'customerOrders' reste banni (vérifié :
+# seul le singulier 'customerOrderId' apparaît, dans des commentaires).
+supabase/migrations/20260915210000_plateforme_cloisonnement_provider_invariants.sql
+supabase/migrations/20260915220000_plateforme_gate_e2_dimension_provider.sql
+supabase/migrations/20260915230000_plateforme_realignement_rpc_officielles.sql
+supabase/tests/SECU__tournee_ref_commande_unique.test.sql

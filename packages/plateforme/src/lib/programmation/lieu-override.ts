@@ -35,10 +35,16 @@ const TYPE_VEHICULE = [
  * ressort en 500 — alors que c'est une valeur invalide, donc un 422. Les autres
  * caractères de contrôle n'ont aucun sens dans une adresse et brouilleraient
  * l'affichage du diff override/officiel.
+ *
+ * La plage couvre C0 (`\u0000`-`\u001F`), DEL (`\u007F`) ET C1
+ * (`\u0080`-`\u009F`) : le CHECK `collectes_lieu_overrides_valide_chk` s'appuie sur
+ * `[[:cntrl:]]`, qui rejette C1. Sans ce même périmètre ici, un `\u0085` passerait
+ * la validation applicative pour se faire refuser par la base en 23514 — un 500
+ * là où l'on veut un 422, exactement ce que ce filtre existe pour éviter.
  */
 function contientCaractereDeControle(valeur: string): boolean {
   // eslint-disable-next-line no-control-regex
-  return /[\u0000-\u001F\u007F]/.test(valeur);
+  return /[\u0000-\u001F\u007F-\u009F]/.test(valeur);
 }
 
 type RegleChamp =

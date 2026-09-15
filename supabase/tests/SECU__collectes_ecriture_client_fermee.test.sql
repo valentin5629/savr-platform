@@ -18,7 +18,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(27);
+SELECT plan(28);
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
@@ -188,6 +188,18 @@ SELECT throws_ok(
             '{"adresse_acces":{"$ne":1}}'::jsonb)$$,
   '42501', NULL,
   'B5 traiteur_manager : INSERT direct refuse (42501) malgre col_insert'
+);
+
+-- B7 la fermeture est TOTALE, pas seulement « côté client » : `admin_savr` et
+-- `ops_savr` sont des claims JWT, le rôle Postgres reste `authenticated`. Leurs
+-- policies col_admin / col_ops sont donc inertes elles aussi — le staff écrit via
+-- les routes API sous service_role, jamais en PostgREST direct.
+SELECT test_set_jwt('admin_savr', NULL, '5ec00000-0000-0000-0000-0000000000a1'::uuid);
+SELECT throws_ok(
+  $$UPDATE plateforme.collectes SET notes_internes = 'admin-direct'
+     WHERE id = '5ec00000-0000-0000-0000-0000000000c1'::uuid$$,
+  '42501', NULL,
+  'B7 admin_savr : UPDATE direct refuse (42501) — la fermeture est totale, pas client-only'
 );
 
 -- B6 non-régression : la lecture de ses propres collectes fonctionne toujours.

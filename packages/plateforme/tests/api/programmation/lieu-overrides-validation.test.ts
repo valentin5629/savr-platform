@@ -219,6 +219,22 @@ describe('lieu_overrides — validation d’entrée (POST /programmation/eveneme
     expect(mockRpc).not.toHaveBeenCalled();
   });
 
+  it('refuse un caractère de contrôle C1 — le CHECK en base rejette [[:cntrl:]], on veut le 422 pas le 23514', async () => {
+    setupAuth('traiteur_commercial');
+
+    // U+0085 (NEL) est dans [[:cntrl:]] côté Postgres : sans le même périmètre
+    // côté applicatif, il traverserait la validation pour se faire refuser par
+    // la contrainte collectes_lieu_overrides_valide_chk — un 500 au lieu d'un 422.
+    const res = await postProgrammation({
+      acces_details: 'Porte B\u0085sonner',
+    });
+
+    expect(res.status).toBe(422);
+    const body = (await res.json()) as { champs_invalides: string[] };
+    expect(body.champs_invalides).toEqual(['acces_details']);
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
   it('refuse un lieu_overrides qui n’est pas un objet', async () => {
     setupAuth('traiteur_commercial');
 

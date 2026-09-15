@@ -94,6 +94,22 @@ const CONTROLE_HORS_BLANCS =
 /* eslint-enable no-control-regex */
 
 /**
+ * Demi-surrogate orphelin — une unité UTF-16 de la plage D800-DFFF sans sa paire.
+ *
+ * Il ne bute sur AUCUN des CHECK : il meurt une couche plus tôt, à l'analyse du
+ * `jsonb` que reçoivent les RPC (« invalid input syntax for type json »), donc en
+ * 500 alors que la valeur est invalide et mérite un 422. Défaut PRÉ-EXISTANT et
+ * plus large que ce lot (il vaut pour tout champ passant par `p_updates`) ; on le
+ * ferme ici pour les trois colonnes bornées, à une ligne près.
+ *
+ * Le drapeau `u` est indispensable : sans lui, la plage D800-DFFF matcherait aussi
+ * la moitié haute d'une paire LÉGITIME et un emoji serait refusé. Avec lui, la
+ * regex raisonne en points de code — une paire bien formée en est un seul, qui
+ * n'est pas un surrogate.
+ */
+const SURROGATE_ORPHELIN = /\p{Surrogate}/u;
+
+/**
  * Valide et normalise les champs texte libre PRÉSENTS dans `source`. Les clés
  * absentes ne sont pas touchées : la fonction sert aussi bien un corps de création
  * (tous les champs) qu'un `updates` d'édition partielle (un seul).
@@ -101,6 +117,12 @@ const CONTROLE_HORS_BLANCS =
  * Normalisation : `trim()`, puis chaîne vide → `null`. Effacer un champ facultatif
  * se fait donc indifféremment par `null` ou par `""`, et une saisie qui n'est que
  * des blancs ne laisse pas une ligne fantôme dans le message du chauffeur.
+ *
+ * Effet de bord assumé, relevé en revue : resoumettre `""` sur une collecte dont
+ * `informations_supplementaires` valait déjà `""` était un no-op ; c'est désormais
+ * un passage à `null`, que `fn_set_collectes_dirty_tms` voit comme un changement
+ * (`IS DISTINCT FROM`) — donc une propagation TMS de plus. Portée mesurée nulle :
+ * aucune ligne n'a cette colonne renseignée, ni en dev ni en prod.
  *
  * Convention de retour identique à `validerLieuOverrides` (#308) : `{ valeurs }`,
  * ou `{ error }` portant un 422 `champs_invalides`.
@@ -138,7 +160,11 @@ export function validerChampsTexteLibre(
 
     const propre = brut.trim();
     const interdits = borne.multiligne ? CONTROLE_HORS_BLANCS : CONTROLE;
-    if (propre.length > borne.max || interdits.test(propre)) {
+    if (
+      propre.length > borne.max ||
+      interdits.test(propre) ||
+      SURROGATE_ORPHELIN.test(propre)
+    ) {
       invalides.push(champ);
       continue;
     }

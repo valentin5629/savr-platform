@@ -5,11 +5,14 @@
 --   chk_collectes_informations_supplementaires_borne
 -- =============================================================================
 -- Oracle : ces trois colonnes sont des `text` SANS aucune contrainte — 5 000
--- caractères y passaient, mesuré. Elles partent au transporteur, et deux d'entre
--- elles par le canal de texte libre où toutes les informations d'exploitation
--- sont concaténées : un nom démesuré y évince les lignes suivantes (dont
--- l'adresse d'accès) du message lu par le chauffeur, un nom multiligne y forge
--- une fausse ligne d'en-tête.
+-- caractères y passaient, mesuré. Elles sont destinées au transporteur, avec des
+-- expositions différentes : `informations_supplementaires` transite AUJOURD'HUI
+-- par le canal de texte libre, où les informations d'exploitation sont
+-- concaténées et où une valeur démesurée évince les lignes voisines (dont
+-- l'adresse d'accès) ; `contact_secours_telephone` part dans un champ natif ; et
+-- `contact_secours_nom` n'est émis nulle part à ce jour — la PR qui le transmet
+-- (encore ouverte) le concatène dans le canal libre, où un nom multiligne
+-- forgerait une fausse ligne d'en-tête. Borne posée par anticipation pour lui.
 --
 -- La garde applicative (422 de `validerChampsTexteLibre` sur les 10 routes qui
 -- écrivent ces colonnes) ne couvre PAS les écritures hors routes Next :
@@ -35,7 +38,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(19);
+SELECT plan(21);
 
 -- ─── Fixtures ────────────────────────────────────────────────────────────────
 INSERT INTO plateforme.organisations (id, nom, type, actif, siret, email_principal)
@@ -150,6 +153,11 @@ SELECT throws_ok(
   '23514', NULL,
   'téléphone de 41 caractères REJETÉ');
 
+SELECT throws_ok(
+  $$ SELECT pg_temp.set_tel('06' || chr(9) || '12345678') $$,
+  '23514', NULL,
+  'caractère de contrôle REJETÉ dans le téléphone — la borne n''est pas que la longueur');
+
 -- ─── 4. informations_supplementaires — 1000 caractères (§06.01 l.167 / §08 E1) ─
 
 SELECT lives_ok(
@@ -244,6 +252,15 @@ SELECT is(
     WHERE id = 'b0c0ea06-0000-0000-0000-000000000001'::uuid),
   'Marie Durand',
   'authenticated : la valeur refusée n''a rien écrasé');
+
+-- L'exception `<textarea>` rejouée SOUS LE RÔLE RÉEL : le cas 12 la prouve en
+-- `postgres`, ce qui ne dit rien de ce que subit un client. C'est pourtant lui qui
+-- saisit le formulaire.
+SELECT lives_ok(
+  $$ UPDATE plateforme.collectes
+        SET informations_supplementaires = 'Quai N°2 fermé' || chr(10) || 'Interphone B'
+      WHERE id = 'b0c0ea07-0000-0000-0000-000000000001'::uuid $$,
+  'authenticated : une saisie multiligne légitime passe aussi en PostgREST direct');
 
 SELECT pg_temp.as_superuser();
 

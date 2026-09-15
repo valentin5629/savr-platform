@@ -93,6 +93,13 @@ describe('validerChampsTexteLibre — refus', () => {
     ).toEqual(['informations_supplementaires']);
   });
 
+  it('refuse un demi-surrogate orphelin — il sortait en 500 à l’analyse jsonb, pas en 422', async () => {
+    const orphelin = String.fromCharCode(0xd800) + 'Jean';
+    expect(await refus({ contact_secours_nom: orphelin })).toEqual([
+      'contact_secours_nom',
+    ]);
+  });
+
   it('nomme TOUS les champs fautifs, pas seulement le premier', async () => {
     expect(
       await refus({
@@ -112,6 +119,12 @@ describe('validerChampsTexteLibre — acceptations et normalisation', () => {
     ).toEqual({
       informations_supplementaires: 'Quai N°2 fermé\nSonner interphone\tB',
     });
+  });
+
+  it('accepte un emoji — une paire de surrogates BIEN FORMÉE n’est pas un orphelin', () => {
+    expect(
+      valeurs({ informations_supplementaires: 'Quai 2 😀 côté cour' }),
+    ).toEqual({ informations_supplementaires: 'Quai 2 😀 côté cour' });
   });
 
   it('accepte les accents et l’espace insécable — U+00E9 et U+00A0 ne sont pas des contrôles', () => {

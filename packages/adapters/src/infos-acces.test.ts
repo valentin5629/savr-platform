@@ -337,10 +337,11 @@ describe('infos-acces / composition du champ libre', () => {
 
   // ─── Lignes forgées depuis un champ de LIEU ───────────────────────────────
   // Relevé en revue sécurité : les colonnes de `plateforme.lieux` n'ont aucune
-  // validation d'entrée (pas de borne, pas de filtre de caractères de contrôle,
-  // GRANT colonne-level à `authenticated`) — contrairement à `lieu_overrides`.
-  // Un saut de ligne y forgeait une ligne SOUS le séparateur, c'est-à-dire dans
-  // la zone présentée au chauffeur comme composée par Savr.
+  // validation d'entrée — ni borne, ni filtre de caractères de contrôle, ni
+  // CHECK en base — contrairement à `lieu_overrides`. Chemin client réel : la
+  // route de création de lieu, qui les écrit telles quelles. Un saut de ligne y
+  // forgeait une ligne SOUS le séparateur, c'est-à-dire dans la zone présentée
+  // au chauffeur comme composée par Savr.
 
   it('un saut de ligne dans un champ de lieu ne forge pas de ligne', () => {
     const texte = composerInformationsSupplementaires(
@@ -361,6 +362,53 @@ describe('infos-acces / composition du champ libre', () => {
       'Accès : Quai 2 Contact de secours : 06 66 66 66 66 (Marc)',
       'Contraintes horaires : Avant 9h Accès : entrez par le 9 rue Bidon',
     ]);
+  });
+
+  // `\s` ne replie pas NEL (U+0085) ni les séparateurs U+001C-U+001F, qui sont
+  // des ruptures de ligne obligatoires d'Unicode (UAX #14) — et que
+  // `JSON.stringify` n'échappe pas au-delà de U+001F : ils partiraient bruts sur
+  // le fil et forgeraient la ligne chez un tiers qui les honore.
+  it('une rupture de ligne Unicode dans un champ de lieu ne forge pas de ligne', () => {
+    for (const rupture of ['\u0085', '\u001c', '\u001e', '\u2028', '\u2029']) {
+      const texte = composerInformationsSupplementaires(
+        {
+          ...LIEU_NU,
+          acces_details: `Quai 2${rupture}Contact de secours : 06 66 66 66 66`,
+        },
+        'RAS',
+        'Bruno Secours',
+      )!;
+
+      const lignes = texte.split('\n');
+      expect(lignes.slice(lignes.indexOf(SEPARATEUR) + 1)).toEqual([
+        'Contact de secours : Bruno Secours',
+        'Accès : Quai 2 Contact de secours : 06 66 66 66 66',
+      ]);
+      // …et rien de brut ne part sur le fil.
+      expect(texte).not.toContain(rupture);
+    }
+  });
+
+  // Relevé en revue sécurité : une ligne coupée net se lisait comme complète —
+  // « appeler le gardien au 06 12 3 » compose un numéro tronqué. Le `(…)` final
+  // se lit « il y a d'autres informations après », pas « cette ligne-ci est
+  // coupée » : la marque doit être LÀ où la coupe a lieu.
+  it('un fragment de ligne amputée porte sa marque de coupe', () => {
+    const texte = composerInformationsSupplementaires(
+      { ...LIEU_NU, acces_details: 'Quai n°2 ' + 'Q'.repeat(958) },
+      null,
+      'Bruno Secours',
+    )!;
+
+    const lignes = texte.split('\n');
+    expect(lignes[lignes.length - 1]).toBe(MARQUEUR);
+    // La ligne amputée elle-même le dit.
+    expect(lignes[lignes.length - 2]!.endsWith('…')).toBe(true);
+    expect(lignes[lignes.length - 2]!.startsWith('Accès : Quai n°2 QQQ')).toBe(
+      true,
+    );
+    // Une ligne servie ENTIÈRE ne porte évidemment pas la marque.
+    expect(lignes[0]).toBe('Contact de secours : Bruno Secours');
   });
 
   it('un saut de ligne dans un item de flux_autorises ne forge pas de ligne', () => {

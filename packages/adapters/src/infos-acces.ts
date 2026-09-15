@@ -76,7 +76,8 @@ const BUDGET_AGREGAT = 500;
  * ⚠ Ce qu'il garantit exactement, mesuré — pas plus : la saisie du traiteur ne
  * peut plus se faire passer pour du contenu Savr PAR SA SEULE POSITION, et
  * aucune ligne située SOUS le séparateur ne peut être forgée (les valeurs de
- * lieu passent par `valeurLigne`, qui replie les blancs). Il ne garantit PAS
+ * lieu passent par `valeurLigne`, qui replie toute rupture de ligne — y compris
+ * NEL et les séparateurs C1, pas seulement `\s`). Il ne garantit PAS
  * l'authenticité de la frontière elle-même : `informations_supplementaires`
  * étant multiligne et #322 ne refusant que les caractères de contrôle, une note
  * peut contenir la chaîne ci-dessous et poser un FAUX séparateur au-dessus du
@@ -146,7 +147,11 @@ function texte(valeur: unknown): string {
  * valider ; (2) `authenticated` détient INSERT/UPDATE **table-level** sur
  * `plateforme.lieux` par le grant de schéma de 0.4a (`20260611180000`, `GRANT
  * SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA plateforme`), donc
- * PostgREST direct sous RLS. ⚠ Ne pas créditer `20260617170000` d'une borne
+ * PostgREST direct — mais les policies `lieux_admin` / `lieux_ops_write` ne
+ * l'ouvrent qu'à `admin_savr` / `ops_savr`, les rôles clients n'ayant que
+ * `lieux_clients_select` : ce second chemin est donc STAFF-ONLY, et le chemin
+ * réellement atteignable par un client reste la route (1). ⚠ Ne pas créditer
+ * `20260617170000` d'une borne
  * qu'elle ne pose pas : sa liste blanche colonne-level est un `GRANT SELECT`,
  * elle n'a révoqué que le SELECT et ne restreint aucune écriture. Et aucune
  * migration ne pose de CHECK sur ces trois colonnes (vérifié sur l'ensemble de
@@ -157,9 +162,22 @@ function texte(valeur: unknown): string {
  * (`Libellé : valeur`) — un saut de ligne dans la valeur cassait déjà ce format.
  * La note du traiteur, elle, reste multiligne : elle est légitimement saisie en
  * `<textarea>` (#322) et n'est pas passée par ici.
+ *
+ * La classe replie TOUT ce qui peut rompre une ligne, pas seulement `\s` : ce
+ * dernier laisse passer NEL (U+0085) et les séparateurs U+001C-U+001F, qui sont
+ * des ruptures de ligne obligatoires d'Unicode (UAX #14) et que `JSON.stringify`
+ * n'échappe même pas au-delà de U+001F — ils partiraient bruts sur le fil et
+ * forgeraient la ligne chez un tiers qui les honore. `\p{Cc}` les couvre tous
+ * (C0 + DEL + C1), `\p{Zl}`/`\p{Zp}` nomment explicitement U+2028/U+2029. Le
+ * drapeau `u` est requis pour que les classes de propriété existent.
+ *
+ * Ce qui n'est PAS traité ici, faute de rapport avec le forgeage d'une ligne :
+ * les overrides bidirectionnels (U+202E…) peuvent inverser le rendu À
+ * L'INTÉRIEUR d'une ligne sans jamais en créer une seconde. Autre forme, autre
+ * lot — ne pas l'agréger ici sous prétexte que c'est « aussi de l'Unicode ».
  */
 function valeurLigne(valeur: unknown): string {
-  return texte(valeur).replace(/\s+/g, ' ');
+  return texte(valeur).replace(/[\s\p{Cc}\p{Zl}\p{Zp}]+/gu, ' ');
 }
 
 function libelle(valeur: unknown, table: Record<string, string>): string {
@@ -311,11 +329,17 @@ function assemblerAgregat(
   }
 
   // La première ligne écartée est servie amputée si la place restante porte
-  // autre chose que son seul libellé.
+  // autre chose que son seul libellé. Le `…` est collé AU FRAGMENT, pas reporté
+  // sur le marqueur final : `(…)` en fin de message se lit « il y a d'autres
+  // informations après », jamais « cette ligne-ci est coupée ». Sans cette
+  // marque en ligne, « appeler le gardien au 06 12 3 » se lit comme un numéro
+  // complet et le chauffeur compose un numéro tronqué (relevé en revue
+  // sécurité). Même idiome que `nomContact`.
   if (rang < lignes.length) {
     const reste = dispo - taille - (gardees.length > 0 ? 1 : 0);
     if (reste >= MIN_FRAGMENT_LIGNE) {
-      gardees.push(couper(lignes[rang]!, reste));
+      const fragment = couper(lignes[rang]!, reste - 1).trimEnd();
+      gardees.push(`${fragment}…`);
     }
   }
 

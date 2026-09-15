@@ -490,13 +490,26 @@ function regleE(source: string): Trouve[] {
       let trouve = false;
       const visiter = (x: ts.Node): void => {
         if (trouve) return;
-        if (
-          (ts.isVariableDeclaration(x) || ts.isParameter(x)) &&
-          ts.isIdentifier(x.name) &&
-          x.name.text === nom
-        ) {
-          trouve = true;
-          return;
+        if (ts.isVariableDeclaration(x) || ts.isParameter(x)) {
+          // Nom simple, mais AUSSI liaison déstructurée (`let { detail } = …`,
+          // `let [a, msg] = …`, paramètre `function h({ detail })`) : ne
+          // reconnaître que `isIdentifier` laissait ces variables sans portée,
+          // donc sans teinte — un fail-open (relevé en revue).
+          const lieLeNom = (nomN: ts.Node): boolean => {
+            if (ts.isIdentifier(nomN)) return nomN.text === nom;
+            if (
+              ts.isObjectBindingPattern(nomN) ||
+              ts.isArrayBindingPattern(nomN)
+            )
+              return nomN.elements.some(
+                (el) => ts.isBindingElement(el) && lieLeNom(el.name),
+              );
+            return false;
+          };
+          if (lieLeNom(x.name)) {
+            trouve = true;
+            return;
+          }
         }
         // Ne pas descendre dans une fonction imbriquée : sa portée est distincte.
         if (
@@ -845,6 +858,12 @@ const SONDES: {
   {
     regle: 'E',
     source: `const m = err.message;\nfunction rendre() {\n  return NextResponse.json({ error: m });\n}`,
+    attendus: 1,
+  },
+  {
+    // Liaison déstructurée réaffectée depuis une lecture d'erreur.
+    regle: 'E',
+    source: `function GET() {\n  let { detail } = init();\n  try { run(); } catch (e) { detail = e.message; }\n  return NextResponse.json({ error: detail });\n}`,
     attendus: 1,
   },
   {

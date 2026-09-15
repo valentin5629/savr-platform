@@ -251,6 +251,7 @@ self_test() {
     git config user.email t@t.t && git config user.name t && git config commit.gpgsign false
     mkdir -p "$MIG_DIR"
     echo "-- socle" > "$MIG_DIR/20260101100000_plateforme_socle.sql"
+    echo "-- socle 2" > "$MIG_DIR/20260101120000_plateforme_socle_deux.sql"
     git add -A && git -c core.hooksPath=/dev/null commit --quiet --no-verify -m socle
     git remote add origin "$origine" && git push --quiet origin main
     # Branche concurrente EN VOL : jamais mergée dans main.
@@ -349,8 +350,42 @@ self_test() {
     echec=true
   fi
 
+  # Cas 7 — l'exemption de renommage EN MODE --branch (celui de la CI), ses deux
+  # faces. Sans elles, lire `ref_prefixes` sur HEAD au lieu de la cible passerait
+  # inaperçu : en mode branch la migration examinée appartient TOUJOURS à HEAD,
+  # donc tout nouveau timestamp serait exempté et le contrôle « > max » n'existerait
+  # plus en CI — en silence.
+  git reset --quiet --hard HEAD >/dev/null 2>&1
+
+  # 7a — VERT : renommage cosmétique d'une migration déjà sur la cible.
+  git checkout --quiet -B cas7a "$BASE_REF" >/dev/null 2>&1
+  git mv "$MIG_DIR/20260101100000_plateforme_socle.sql" "$MIG_DIR/20260101100000_plateforme_socle_corrige.sql"
+  git -c core.hooksPath=/dev/null commit --quiet --no-verify -m "renommage cosmetique" >/dev/null 2>&1
+  if ! git ls-tree -r --name-only HEAD -- "$MIG_DIR" | grep -q 'socle_corrige'; then
+    echo "🔴 AUTO-TEST : cas 7a VACANT — le renommage n'est pas sur HEAD." >&2
+    echec=true
+  fi
+  rc=0; bash "$script_abs" --branch --no-remote >/dev/null 2>&1 || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    echo "🔴 AUTO-TEST : faux positif en mode --branch sur un renommage préservant le préfixe (exit $rc, attendu 0)." >&2
+    echec=true
+  fi
+
+  # 7b — ROUGE : une migration RÉELLEMENT neuve et mal ordonnée reste refusée.
+  # C'est cette face qui tombe si `ref_prefixes` est lu sur HEAD en mode branch.
+  git checkout --quiet -B cas7b "$BASE_REF" >/dev/null 2>&1
+  echo "-- neuve" > "$MIG_DIR/20260101090000_plateforme_neuve.sql"
+  git add -A
+  git -c core.hooksPath=/dev/null commit --quiet --no-verify -m "migration neuve mal ordonnee" >/dev/null 2>&1
+  rc=0; bash "$script_abs" --branch --no-remote >/dev/null 2>&1 || rc=$?
+  if [ "$rc" -ne 2 ]; then
+    echo "🔴 AUTO-TEST : migration neuve mal ordonnée acceptée en mode --branch (exit $rc, attendu 2)." >&2
+    echo "   L'exemption de renommage déborde : le contrôle « > max » ne tient plus en CI." >&2
+    echec=true
+  fi
+
   [ "$echec" = true ] && return 1
-  echo "✅ check-migration-timestamp : auto-test OK (collision en vol, doublon local, renommage ; 0 faux positif)."
+  echo "✅ check-migration-timestamp : auto-test OK (collision en vol, doublon local, renommage staged + branch ; 0 faux positif)."
   return 0
 }
 

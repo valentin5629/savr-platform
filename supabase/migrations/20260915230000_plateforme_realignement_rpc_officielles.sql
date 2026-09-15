@@ -283,3 +283,19 @@ COMMENT ON FUNCTION plateforme.fn_collecte_commandee_chez_provider(uuid) IS
   'Restreindre ce predicat au provider courant supprimerait l''alerte avec l''event. '
   'Ne JAMAIS regater sur collectes.tms_reference (valeur d''affichage, cf. COMMENT '
   'de la colonne).';
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Commentaire de l'index dupliqué : garder la version la plus complète
+-- ─────────────────────────────────────────────────────────────────────────────
+-- `uniq_transporteur_par_prestataire` est créé par DEUX migrations indépendantes
+-- qui documentent le même invariant : 20260915170000 (#323) et 20260915210000
+-- (adoptée ci-dessus). L'index lui-même est identique — le second CREATE est un
+-- no-op (`IF NOT EXISTS`) — mais le COMMENT du dernier fichier appliqué gagne.
+-- À l'ordre d'application (210000 déjà en prod, puis 170000 rejouée par
+-- `--include-all`), la prod hériterait de la version la moins complète. On
+-- repose donc ici, en dernier, le texte le plus informatif des deux.
+COMMENT ON INDEX plateforme.uniq_transporteur_par_prestataire IS
+  'Un prestataire logistique est execute par AU PLUS un transporteur, donc rattache '
+  'a un seul type_tms. Garantit le cloisonnement par provider des adapters '
+  '(findTournee/findTournees/findTourneeByOrderId/updateLieu resolvent le provider '
+  'via ce lien) et l''hypothese .single() de fetchTransporteur. V1-only, comme la colonne.';

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
+import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -70,6 +71,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // Borne d'entrée du contact de secours — il part au transporteur par le canal de
+  // texte libre. La création back-office écrivait le corps de requête tel quel.
+  const texteValide = validerChampsTexteLibre(body);
+  if ('error' in texteValide) return texteValide.error;
+
   const supabase = createAdminSupabaseClient();
   const { data, error } = await supabase
     .from('evenements')
@@ -85,8 +91,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       created_by: auth.ctx.userId,
       nom_evenement: body.nom_evenement ?? null,
       date_evenement: body.date_evenement ?? null,
-      contact_secours_nom: body.contact_secours_nom ?? null,
-      contact_secours_telephone: body.contact_secours_telephone ?? null,
+      contact_secours_nom: texteValide.valeurs.contact_secours_nom ?? null,
+      contact_secours_telephone:
+        texteValide.valeurs.contact_secours_telephone ?? null,
       nom_client_organisateur: body.nom_client_organisateur ?? null,
       reference_affaire: body.reference_affaire ?? null,
       notes_internes: body.notes_internes ?? null,

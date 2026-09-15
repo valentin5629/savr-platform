@@ -7,6 +7,7 @@ import {
   isChipKey,
   type ChipQuery,
 } from '@/lib/collectes-chips.js';
+import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 
 async function getHandler(req: NextRequest): Promise<NextResponse> {
@@ -253,6 +254,11 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // Borne d'entrée du texte libre transmis au transporteur : `fn_creer_collecte`
+  // stocke `p_info_suppl` tel quel, sans rien vérifier.
+  const texteValide = validerChampsTexteLibre(body);
+  if ('error' in texteValide) return texteValide.error;
+
   const supabase = createAdminSupabaseClient();
 
   // fn_creer_collecte : INSERT collecte + outbox E1 dans la même transaction (G4)
@@ -266,7 +272,7 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
       p_nb_camions: body.nb_camions_demande ?? 1,
       p_controle_acces: body.controle_acces_requis ?? false,
       p_notes: body.notes_internes ?? null,
-      p_info_suppl: body.informations_supplementaires ?? null,
+      p_info_suppl: texteValide.valeurs.informations_supplementaires ?? null,
     },
   );
 

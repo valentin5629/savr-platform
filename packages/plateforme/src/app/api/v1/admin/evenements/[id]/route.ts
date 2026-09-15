@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
+import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 
 export async function GET(
   req: NextRequest,
@@ -70,6 +71,12 @@ export async function PATCH(
       { status: 422 },
     );
   }
+
+  // Borne d'entrée du contact de secours (canal de texte libre transmis au
+  // transporteur) : `fn_modifier_evenement` écrit `p_updates->>'champ'` tel quel.
+  const texteValide = validerChampsTexteLibre(updates);
+  if ('error' in texteValide) return texteValide.error;
+  Object.assign(updates, texteValide.valeurs);
 
   // Écriture via fn_modifier_evenement : émet E2 (collecte.modifiee) par collecte
   // dispatchée + recalcule volume_estime_repas si pax change (fix trou Admin —

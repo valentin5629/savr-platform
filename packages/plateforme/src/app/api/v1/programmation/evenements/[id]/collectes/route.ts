@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireProgrammateurOuAdmin } from '@/lib/api-auth.js';
 import { envoyerRecapProgrammation } from '@/lib/programmation/recap-email.js';
+import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
 import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
@@ -29,6 +30,12 @@ export async function POST(
       { status: 422 },
     );
   }
+
+  // Borne d'entrée du texte libre transmis au transporteur (voir la route de
+  // programmation initiale) : la RPC stocke `p_info_suppl` sans rien vérifier.
+  const texteValide = validerChampsTexteLibre(body);
+  if ('error' in texteValide) return texteValide.error;
+  const infoSuppl = texteValide.valeurs.informations_supplementaires ?? null;
 
   const today = jourParis();
   if (String(date_collecte) < today) {
@@ -98,7 +105,7 @@ export async function POST(
       p_date_collecte: String(date_collecte),
       p_heure_collecte: String(heure_collecte),
       p_controle_acces: body.controle_acces_requis ?? false,
-      p_info_suppl: body.informations_supplementaires ?? null,
+      p_info_suppl: infoSuppl,
     },
   );
 

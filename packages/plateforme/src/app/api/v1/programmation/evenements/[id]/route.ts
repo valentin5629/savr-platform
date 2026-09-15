@@ -5,6 +5,7 @@ import {
   requireProgrammateurOuAdmin,
   createSupabaseServerClient,
 } from '@/lib/api-auth.js';
+import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
 import { typedRpcError, serverError } from '@/lib/api-helpers.js';
 
@@ -118,6 +119,14 @@ export async function PATCH(
       { status: 422 },
     );
   }
+
+  // Borne d'entrée des champs texte libre transmis au transporteur : sans elle,
+  // `fn_modifier_evenement` écrit `p_updates->>'contact_secours_nom'` tel quel, y
+  // compris un texte démesuré ou multiligne qui évince les autres informations du
+  // message lu par le chauffeur.
+  const texteValide = validerChampsTexteLibre(updates);
+  if ('error' in texteValide) return texteValide.error;
+  Object.assign(updates, texteValide.valeurs);
 
   // Lecture RLS-scopée (cloisonnement org : si invisible → 404).
   const rls = createSupabaseServerClient();

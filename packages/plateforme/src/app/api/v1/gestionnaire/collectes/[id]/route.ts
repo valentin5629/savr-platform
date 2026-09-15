@@ -7,6 +7,7 @@ import {
 } from '@/lib/api-auth.js';
 import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
 import { serverError } from '@/lib/api-helpers.js';
+import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 
 const GESTIONNAIRE_ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
@@ -114,6 +115,13 @@ export async function PATCH(
       { status: 422 },
     );
   }
+
+  // Borne d'entrée du texte libre transmis au transporteur : `fn_modifier_collecte`
+  // écrit `p_updates->>'informations_supplementaires'` tel quel, et cette valeur
+  // part dans le canal où sont concaténées toutes les infos d'exploitation.
+  const texteValide = validerChampsTexteLibre(updates);
+  if ('error' in texteValide) return texteValide.error;
+  Object.assign(updates, texteValide.valeurs);
 
   const collecte = await loadCollecteForUser(id);
   if (!collecte)

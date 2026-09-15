@@ -91,7 +91,7 @@ VALUES
 -- (mts1, a_toutes, autre). C'est exactement la configuration qui rouvre la fuite
 -- inter-providers : le prestataire entre alors dans l'ensemble MTS-1 ET dans
 -- l'ensemble Everest, et l'adapter MTS-1 repousse un id de mission Everest.
--- L'index `uniq_transporteur_par_prestataire` (20260915180000) l'interdit
+-- L'index `uniq_transporteur_par_prestataire` (20260915210000) l'interdit
 -- desormais en base ; ces fixtures modelisent donc le lien 1:1 reel.
 INSERT INTO shared.prestataires (id, nom, code, type_prestation, mode_integration, siret, statut)
 VALUES

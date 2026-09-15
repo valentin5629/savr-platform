@@ -1,6 +1,6 @@
 -- =============================================================================
 -- Tests pgTAP — invariants DB du cloisonnement par provider
--- Migration prouvée : 20260915180000_plateforme_cloisonnement_provider_invariants
+-- Migration prouvée : 20260915210000_plateforme_cloisonnement_provider_invariants
 -- =============================================================================
 -- Oracle : le cloisonnement par provider des adapters repose sur deux liens
 -- que rien n'imposait en base.

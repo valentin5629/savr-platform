@@ -1,43 +1,490 @@
 #!/usr/bin/env bash
-# R0d — anti-collision de timestamp de migration (pré-commit).
-# Bug déjà vécu : une nouvelle migration avec un timestamp <= au max du DOSSIER
-# passe `psql -f` en local mais provoque un duplicate key schema_migrations en CI
-# (invisible localement). Règle : toute migration AJOUTÉE doit avoir le timestamp
-# le PLUS GRAND du dossier supabase/migrations/.
+# R0d — anti-collision de timestamp de migration.
+#
+# Supabase dérive la `version` (PK de supabase_migrations.schema_migrations) du
+# préfixe 14 chiffres du nom de fichier. Deux migrations qui partagent ce préfixe
+# ne peuvent pas coexister : selon le chemin, soit `supabase db reset` meurt sur
+# un duplicate key (CI rouge), soit — bien pire — `db push` voit la version déjà
+# présente et SAUTE la seconde migration EN SILENCE (jamais appliquée, ni en dev
+# ni en prod).
+#
+# DEUX contrôles, de portées différentes :
+#
+#   (A) LOCAL — la migration ajoutée doit porter le timestamp le plus grand du
+#       dossier de la BRANCHE COURANTE, et aucun préfixe du dossier ne doit être
+#       dupliqué. Nécessaire, PAS suffisant : aveugle à tout ce qui n'est pas sur
+#       la branche.
+#
+#   (B) INTER-BRANCHES — aucun autre ref distant ne doit porter le même préfixe
+#       sous un autre nom de fichier. SEUL contrôle complet : c'est le seul qui
+#       voie une branche EN VOL, ni mergée ni sur `main` (5e occurrence de la
+#       famille, PR #322 : la collision était avec `fix/filtre-provider-find-
+#       tournees`, et (A) ne pouvait structurellement pas la voir — il compare au
+#       max du dossier de sa propre branche).
+#
+# Usage :
+#   check-migration-timestamp.sh              # pré-commit : migrations STAGÉES (A + B)
+#   check-migration-timestamp.sh --branch     # CI / pré-push : migrations de HEAD absentes d'origin/main (A + B)
+#   check-migration-timestamp.sh --no-remote  # (A) seul — sans réseau
+#   check-migration-timestamp.sh --self-test  # prouve que (A) ET (B) rougissent vraiment (non-vacuité)
 set -euo pipefail
 
 MIG_DIR="supabase/migrations"
-[ -d "$MIG_DIR" ] || exit 0
+BASE_REF="${MIGRATION_BASE_REF:-origin/main}"
+MODE="staged"
+WITH_REMOTE=true
+SELF_TEST=false
 
-# Migrations nouvellement ajoutées et stagées dans ce commit.
-STAGED=$(git diff --cached --name-only --diff-filter=A \
-  | grep -E "^${MIG_DIR}/[0-9]{14}_.*\.sql$" || true)
-[ -z "$STAGED" ] && exit 0
-
-# Timestamps des nouvelles migrations stagées.
-NEW_TS=$(for f in $STAGED; do basename "$f" | grep -oE '^[0-9]{14}'; done | sort -u)
-
-# Max timestamp parmi les migrations EXISTANTES (hors les nouvelles).
-MAX_OTHER=$(
-  ls "${MIG_DIR}"/*.sql 2>/dev/null \
-    | xargs -n1 basename 2>/dev/null \
-    | grep -oE '^[0-9]{14}' \
-    | grep -vxF "$(printf '%s\n' "$NEW_TS")" \
-    | sort | tail -1
-)
-
-FAIL=false
-for ts in $NEW_TS; do
-  # Comparaison lexicographique = numérique (timestamps 14 chiffres, même longueur).
-  if [ -n "$MAX_OTHER" ] && ! [[ "$ts" > "$MAX_OTHER" ]]; then
-    echo "" >&2
-    echo "❌  Migration $ts <= max du dossier ($MAX_OTHER) — collision schema_migrations en CI." >&2
-    echo "    Renomme la migration avec un timestamp > $MAX_OTHER (ex: $(date -u +%Y%m%d%H%M%S 2>/dev/null || echo '<maintenant>'))." >&2
-    echo "    (Le max LOCAL appliqué peut être périmé : c'est le max du DOSSIER qui compte.)" >&2
-    echo "" >&2
-    FAIL=true
-  fi
+for arg in "$@"; do
+  case "$arg" in
+    --branch)    MODE="branch" ;;
+    --no-remote) WITH_REMOTE=false ;;
+    --self-test) SELF_TEST=true ;;
+    *) echo "Argument inconnu : $arg" >&2; exit 64 ;;
+  esac
 done
 
-[ "$FAIL" = true ] && exit 2
-exit 0
+prefixe() { basename "$1" | cut -c1-14; }
+
+# ---------------------------------------------------------------------------
+# Rappels affichés sur collision : les deux pièges qui restent APRÈS la détection.
+# ---------------------------------------------------------------------------
+rappels_apres_collision() {
+  cat >&2 <<'TXT'
+
+    ⚠  Renommer ne suffit PAS si le numéro a déjà été appliqué quelque part.
+       Si l'ancien préfixe a été écrit dans un schema_migrations (dev OU prod),
+       il reste BRÛLÉ : au merge de l'autre lot, `db push` verra la version déjà
+       présente et sautera SA migration en silence. Correctif complet =
+       DELETE de l'ancienne version + INSERT de la nouvelle, dans chaque base
+       où l'ancienne a été appliquée. En PROD, cette écriture sort du système de
+       migrations : STOP, demander à Val (CLAUDE.md §12).
+
+    ⚠  Qui bouge ? Celui qui a déjà écrit le numéro dans un schema_migrations
+       (c'est lui qui a armé l'ambiguïté), et à défaut celui dont la PR n'est
+       pas encore ouverte. Ne pas laisser « le second au merge » trancher :
+       à ce moment-là l'échec est silencieux, pas bloquant.
+
+    ⚠  Viser un timestamp POSTÉRIEUR au max de la cible, pas simplement « libre » :
+       s'insérer dans un trou change l'ordre d'application sur base vierge.
+TXT
+}
+
+# ---------------------------------------------------------------------------
+# Périmètre : les migrations « à moi », celles dont je choisis le timestamp.
+# ---------------------------------------------------------------------------
+mes_migrations() {
+  if [ "$MODE" = "staged" ]; then
+    # `R` autant que `A` : renommer une migration est précisément le remède que ce
+    # script conseille en cas de collision, et un `git mv` pur est classé R100 —
+    # sans lui, le commit de correction ne serait re-contrôlé par personne en local.
+    # (--name-only rend le nom de DESTINATION pour un R, donc le nouveau préfixe.)
+    git diff --cached --name-only --diff-filter=AR \
+      | grep -E "^${MIG_DIR}/[0-9]{14}_.*\.sql$" || true
+  else
+    # Migrations portées par HEAD dont le nom de fichier est absent de la cible.
+    local base_names
+    base_names=$(git ls-tree -r --name-only "$BASE_REF" -- "$MIG_DIR" 2>/dev/null | sed 's#.*/##' || true)
+    git ls-tree -r --name-only HEAD -- "$MIG_DIR" 2>/dev/null \
+      | grep -E "^${MIG_DIR}/[0-9]{14}_.*\.sql$" \
+      | while read -r f; do
+          printf '%s\n' "$base_names" | grep -qxF "$(basename "$f")" || echo "$f"
+        done
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# (A) Contrôle LOCAL — max du dossier + aucun préfixe dupliqué sur la branche.
+# ---------------------------------------------------------------------------
+controle_local() {
+  local mes="$1" fail=false
+  local new_ts max_other
+
+  # Préfixes DÉJÀ acceptés dans la référence (HEAD en pré-commit, la cible en CI).
+  # Un renommage cosmétique — corriger le slug sans toucher au préfixe — ne doit
+  # pas être traité comme une migration nouvelle : son timestamp a déjà été admis,
+  # et lui conseiller « prends un timestamp > max » le décalerait à tort. Il reste
+  # soumis au contrôle de doublon ci-dessous, et au contrôle inter-branches.
+  local ref_prefixes
+  if [ "$MODE" = "staged" ]; then
+    ref_prefixes=$(git ls-tree -r --name-only HEAD -- "$MIG_DIR" 2>/dev/null | sed 's#.*/##; s#_.*##' || true)
+  else
+    ref_prefixes=$(git ls-tree -r --name-only "$BASE_REF" -- "$MIG_DIR" 2>/dev/null | sed 's#.*/##; s#_.*##' || true)
+  fi
+
+  new_ts=$(printf '%s\n' "$mes" | while IFS= read -r f; do
+    [ -n "$f" ] && prefixe "$f"
+  done | sort -u)
+
+  max_other=$(
+    ls "${MIG_DIR}"/*.sql 2>/dev/null \
+      | xargs -n1 basename 2>/dev/null \
+      | grep -oE '^[0-9]{14}' \
+      | grep -vxF "$(printf '%s\n' "$new_ts")" \
+      | sort | tail -1
+  )
+
+  local ts
+  for ts in $new_ts; do
+    # Préfixe déjà présent dans la référence => renommage, pas une migration neuve.
+    if printf '%s\n' "$ref_prefixes" | grep -qxF "$ts"; then continue; fi
+    # Comparaison lexicographique = numérique (14 chiffres, même longueur).
+    if [ -n "$max_other" ] && ! [[ "$ts" > "$max_other" ]]; then
+      echo "" >&2
+      echo "❌  Migration $ts <= max du dossier ($max_other) — collision ou ré-ordonnancement." >&2
+      echo "    Renomme avec un timestamp > $max_other (ex: $(date -u +%Y%m%d%H%M%S 2>/dev/null || echo '<maintenant>'))." >&2
+      echo "    (Le max LOCAL appliqué peut être périmé : c'est le max du DOSSIER qui compte.)" >&2
+      fail=true
+    fi
+  done
+
+  # Doublon déjà présent dans le dossier (typiquement révélé par un merge de main).
+  local dups d
+  dups=$(ls "${MIG_DIR}"/*.sql 2>/dev/null | sed 's#.*/##; s#_.*##' | sort | uniq -d || true)
+  if [ -n "$dups" ]; then
+    echo "" >&2
+    echo "❌  Préfixe(s) dupliqué(s) DANS ${MIG_DIR}/ sur cette branche :" >&2
+    for d in $dups; do
+      echo "      $d :" >&2
+      ls "${MIG_DIR}"/"${d}"_*.sql 2>/dev/null | sed 's#.*/#        #' >&2
+    done
+    fail=true
+  fi
+
+  [ "$fail" = true ] && return 1
+  return 0
+}
+
+# ---------------------------------------------------------------------------
+# (B) Contrôle INTER-BRANCHES — le seul complet.
+#
+# Un ref distant est CANDIDAT s'il n'est pas déjà contenu dans la cible (une
+# branche dont le HEAD est ancêtre de origin/main n'apporte rien). Attention :
+# le repo squash-merge, donc ce filtre ne purge presque rien — c'est la
+# comparaison par NOM DE FICHIER qui évite le bruit : deux refs portant le
+# MÊME fichier portent la même migration, pas une collision.
+# ---------------------------------------------------------------------------
+refs_candidats() {
+  git for-each-ref --format='%(refname:short)' "${MIGRATION_SCAN_REFS:-refs/remotes}" \
+    | grep -v '/HEAD$' \
+    | grep '/' \
+    | while read -r ref; do
+        git rev-parse --verify -q "${ref}^{commit}" >/dev/null 2>&1 || continue
+        if [ "$ref" != "$BASE_REF" ] \
+           && git merge-base --is-ancestor "$ref" "$BASE_REF" 2>/dev/null; then
+          continue
+        fi
+        echo "$ref"
+      done
+}
+
+controle_inter_branches() {
+  local mes="$1" fail=false
+
+  [ "$WITH_REMOTE" = true ] || return 0
+
+  if [ -z "${MIGRATION_SCAN_REFS:-}" ]; then
+    if ! git fetch --quiet --prune origin '+refs/heads/*:refs/remotes/origin/*' 2>/dev/null; then
+      echo "" >&2
+      echo "⚠️  git fetch impossible (hors ligne ?) — contrôle INTER-BRANCHES non joué." >&2
+      echo "    Le contrôle local ne voit PAS les branches en vol : rejouer avant de pousser." >&2
+      return 0
+    fi
+  fi
+
+  local catalogue
+  catalogue=$(mktemp)
+  # Quotes SIMPLES : la commande du trap ne doit pas être construite par
+  # interpolation à la définition (une apostrophe dans le chemin s'en échapperait).
+  trap 'rm -f "$catalogue"' RETURN
+
+  local ref
+  for ref in $(refs_candidats); do
+    # Le nom du ref passe par `awk -v` (affectation de variable), jamais dans un
+    # script `sed` : `#` est un caractère LÉGAL dans un nom de branche (`fix/issue#322`)
+    # et cassait le délimiteur, rendant ce ref invisible au contrôle — un garde
+    # d'intégrité muet, soit la panne même qu'il corrige.
+    git ls-tree -r --name-only "$ref" -- "$MIG_DIR" 2>/dev/null \
+      | grep -E "^${MIG_DIR}/[0-9]{14}_.*\.sql$" \
+      | awk -v r="$ref" '{print r " " $0}' >> "$catalogue"
+  done
+
+  local f ts mien conflits
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    ts=$(prefixe "$f")
+    mien=$(basename "$f")
+    # Collision = même préfixe SOUS UN AUTRE NOM DE FICHIER. Le même nom sur un
+    # autre ref (ma branche déjà poussée, une branche squash-mergée) désigne LA
+    # MÊME migration : une seule `version`, donc rien à signaler — même si son
+    # contenu diffère, ce qui relève du merge, pas de schema_migrations.
+    conflits=$(awk -v ts="$ts" -v mien="$mien" \
+      '{n=split($2,a,"/"); b=a[n];
+        if (substr(b,1,14)==ts && b!=mien) print "      " $1 "  →  " b}' \
+      "$catalogue" | sort -u)
+    if [ -n "$conflits" ]; then
+      echo "" >&2
+      echo "❌  Collision de timestamp $ts avec une branche NON MERGÉE :" >&2
+      echo "      (à moi)  $mien" >&2
+      echo "$conflits" >&2
+      echo "" >&2
+      echo "    Ce cas est INVISIBLE au contrôle local et au merge d'essai avec ${BASE_REF} :" >&2
+      echo "    la branche concurrente n'est ni sur ${BASE_REF}, ni sur la mienne." >&2
+      rappels_apres_collision
+      fail=true
+    fi
+  done <<EOF
+$mes
+EOF
+
+  [ "$fail" = true ] && return 1
+  return 0
+}
+
+# ---------------------------------------------------------------------------
+# Auto-test : prouve que (B) rougit sur une vraie collision, reste vert sinon,
+# et ne se signale pas lui-même une fois la branche poussée. Sans ça le gate
+# pourrait être inerte et personne ne le saurait.
+# ---------------------------------------------------------------------------
+# NB : corps entre parenthèses = SOUS-SHELL. Aucun `cd` ne peut fuir vers
+# l'appelant, et si le clone échoue le script ne peut pas se mettre à muter le
+# dépôt réel (les `git reset --hard` / `git push` des cas suivants y frapperaient).
+# `set -e` ne protège pas ici : `self_test` est appelée en partie gauche d'un `||`,
+# ce qui le neutralise dans tout le corps — d'où les gardes explicites.
+self_test() (
+  local script_abs tmp origine clone rc echec=false
+  script_abs="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+  tmp=$(mktemp -d) || { echo "🔴 AUTO-TEST : mktemp -d impossible." >&2; return 2; }
+  [ -n "$tmp" ] && [ -d "$tmp" ] || { echo "🔴 AUTO-TEST : répertoire jetable invalide." >&2; return 2; }
+  trap 'rm -rf "$tmp"' EXIT
+  origine="$tmp/origine.git"
+  clone="$tmp/clone"
+
+  git init --quiet --bare --initial-branch=main "$origine"
+  git init --quiet --initial-branch=main "$tmp/amorce"
+  (
+    cd "$tmp/amorce"
+    git config user.email t@t.t && git config user.name t && git config commit.gpgsign false
+    mkdir -p "$MIG_DIR"
+    echo "-- socle" > "$MIG_DIR/20260101100000_plateforme_socle.sql"
+    echo "-- socle 2" > "$MIG_DIR/20260101120000_plateforme_socle_deux.sql"
+    git add -A && git -c core.hooksPath=/dev/null commit --quiet --no-verify -m socle
+    git remote add origin "$origine" && git push --quiet origin main
+    # Branche concurrente EN VOL : jamais mergée dans main.
+    git checkout --quiet -b concurrente
+    echo "-- concurrente" > "$MIG_DIR/20260101130000_plateforme_concurrente.sql"
+    git add -A && git -c core.hooksPath=/dev/null commit --quiet --no-verify -m concurrente
+    git push --quiet origin concurrente
+  ) >/dev/null 2>&1
+
+  # Gardes non négociables : sans elles, un clone en échec (par ex. sous
+  # `protocol.file.allow=never`, le durcissement post-CVE-2022-39253) laisse les
+  # commandes mutantes de ce test s'appliquer au dépôt RÉEL. Cas 8 le prouve.
+  if ! git clone --quiet "$origine" "$clone"; then
+    echo "🔴 AUTO-TEST : clone du dépôt jetable impossible — test non joué." >&2
+    return 2
+  fi
+  cd "$clone" || { echo "🔴 AUTO-TEST : accès au dépôt jetable impossible." >&2; return 2; }
+  git config user.email t@t.t && git config user.name t && git config commit.gpgsign false
+  git checkout --quiet -b mon-lot
+
+  # Cas 1 — ROUGE attendu : même préfixe que la branche en vol.
+  echo "-- mien" > "$MIG_DIR/20260101130000_plateforme_mon_lot.sql"
+  git add -A
+  rc=0; bash "$script_abs" >/dev/null 2>&1 || rc=$?
+  if [ "$rc" -ne 2 ]; then
+    echo "🔴 AUTO-TEST : collision inter-branches NON détectée (exit $rc, attendu 2)." >&2
+    echo "   Le gate ne prouve plus rien." >&2
+    echec=true
+  fi
+
+  # Cas 1bis — le contrôle LOCAL seul doit rester VERT sur ce même cas :
+  # c'est exactement ce qui rendait la 5e occurrence invisible.
+  rc=0; bash "$script_abs" --no-remote >/dev/null 2>&1 || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    echo "🔴 AUTO-TEST : le contrôle local rougit sur le cas inter-branches (exit $rc)." >&2
+    echo "   Prémisse cassée : le cas de test ne démontre plus le trou qu'il documente." >&2
+    echec=true
+  fi
+
+  # Cas 2 — VERT attendu : préfixe libre et postérieur au max.
+  git rm --quiet -f "$MIG_DIR/20260101130000_plateforme_mon_lot.sql"
+  echo "-- mien" > "$MIG_DIR/20260101140000_plateforme_mon_lot.sql"
+  git add -A
+  rc=0; bash "$script_abs" >/dev/null 2>&1 || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    echo "🔴 AUTO-TEST : faux positif sur un timestamp libre (exit $rc, attendu 0)." >&2
+    echec=true
+  fi
+
+  # Cas 3 — VERT attendu : ma branche poussée ne doit pas se dénoncer elle-même,
+  # y compris après avoir RETOUCHÉ ma migration (le contenu diffère alors de
+  # celui du ref distant, seul le filtre « branche courante » évite le faux positif).
+  git -c core.hooksPath=/dev/null commit --quiet --no-verify -m "mon lot" >/dev/null 2>&1
+  git push --quiet origin mon-lot >/dev/null 2>&1
+  echo "-- mien, corrigé après le premier push" > "$MIG_DIR/20260101140000_plateforme_mon_lot.sql"
+  git add -A
+  git -c core.hooksPath=/dev/null commit --quiet --no-verify -m "mon lot, suite" >/dev/null 2>&1
+  rc=0; bash "$script_abs" --branch >/dev/null 2>&1 || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    echo "🔴 AUTO-TEST : faux positif — la branche se signale contre son propre ref distant (exit $rc)." >&2
+    echec=true
+  fi
+
+  # Cas 4 — ROUGE attendu SANS RÉSEAU : deux préfixes identiques dans le dossier
+  # (ce qu'un merge de la cible fait apparaître). Couvre le contrôle (A), que les
+  # cas 1 à 3 laissaient hors de portée de toute mutation.
+  echo "-- jumeau" > "$MIG_DIR/20260101140000_plateforme_jumeau.sql"
+  git add -A
+  rc=0; bash "$script_abs" --no-remote >/dev/null 2>&1 || rc=$?
+  if [ "$rc" -ne 2 ]; then
+    echo "🔴 AUTO-TEST : préfixe dupliqué DANS le dossier non détecté (exit $rc, attendu 2)." >&2
+    echec=true
+  fi
+  git rm --quiet -f "$MIG_DIR/20260101140000_plateforme_jumeau.sql"
+
+  # Cas 5 — ROUGE attendu : la migration RENOMMÉE doit rester contrôlée. Un `git mv`
+  # pur est classé R100, pas A : filtré, il sortirait du périmètre et le commit de
+  # correction ne serait vérifié par personne en local. On renomme vers un préfixe
+  # antérieur au socle restant (20260101100000) : le contrôle (A) doit le refuser.
+  git mv "$MIG_DIR/20260101140000_plateforme_mon_lot.sql" "$MIG_DIR/20260101090000_plateforme_mon_lot.sql"
+  rc=0; bash "$script_abs" --no-remote >/dev/null 2>&1 || rc=$?
+  if [ "$rc" -ne 2 ]; then
+    echo "🔴 AUTO-TEST : migration RENOMMÉE hors périmètre (exit $rc, attendu 2) — un git mv échappe au contrôle." >&2
+    echec=true
+  fi
+
+  # Cas 6 — VERT attendu : renommage COSMÉTIQUE (slug corrigé, préfixe inchangé)
+  # d'une migration qui n'est pas la plus récente. Le timestamp a déjà été admis :
+  # le refuser afficherait « prends un timestamp > max », conseil qui décalerait
+  # à tort une migration déjà ordonnée.
+  git reset --quiet --hard HEAD >/dev/null 2>&1
+  git mv "$MIG_DIR/20260101100000_plateforme_socle.sql" "$MIG_DIR/20260101100000_plateforme_socle_corrige.sql"
+  # Garde anti-fixture-vacante : sans renommage dans le périmètre, ce cas passerait
+  # au vert quoi que fasse le script — il ne prouverait plus rien.
+  if ! git diff --cached --name-only --diff-filter=AR | grep -q 'socle_corrige'; then
+    echo "🔴 AUTO-TEST : cas 6 VACANT — le renommage n'est pas dans le périmètre, l'assertion ne prouve rien." >&2
+    echec=true
+  fi
+  rc=0; bash "$script_abs" --no-remote >/dev/null 2>&1 || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    echo "🔴 AUTO-TEST : faux positif sur un renommage préservant le préfixe (exit $rc, attendu 0)." >&2
+    echec=true
+  fi
+
+  # Cas 7 — l'exemption de renommage EN MODE --branch (celui de la CI), ses deux
+  # faces. Sans elles, lire `ref_prefixes` sur HEAD au lieu de la cible passerait
+  # inaperçu : en mode branch la migration examinée appartient TOUJOURS à HEAD,
+  # donc tout nouveau timestamp serait exempté et le contrôle « > max » n'existerait
+  # plus en CI — en silence.
+  git reset --quiet --hard HEAD >/dev/null 2>&1
+
+  # 7a — VERT : renommage cosmétique d'une migration déjà sur la cible.
+  git checkout --quiet -B cas7a "$BASE_REF" >/dev/null 2>&1
+  git mv "$MIG_DIR/20260101100000_plateforme_socle.sql" "$MIG_DIR/20260101100000_plateforme_socle_corrige.sql"
+  git -c core.hooksPath=/dev/null commit --quiet --no-verify -m "renommage cosmetique" >/dev/null 2>&1
+  if ! git ls-tree -r --name-only HEAD -- "$MIG_DIR" | grep -q 'socle_corrige'; then
+    echo "🔴 AUTO-TEST : cas 7a VACANT — le renommage n'est pas sur HEAD." >&2
+    echec=true
+  fi
+  rc=0; bash "$script_abs" --branch --no-remote >/dev/null 2>&1 || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    echo "🔴 AUTO-TEST : faux positif en mode --branch sur un renommage préservant le préfixe (exit $rc, attendu 0)." >&2
+    echec=true
+  fi
+
+  # 7b — ROUGE : une migration RÉELLEMENT neuve et mal ordonnée reste refusée.
+  # C'est cette face qui tombe si `ref_prefixes` est lu sur HEAD en mode branch.
+  git checkout --quiet -B cas7b "$BASE_REF" >/dev/null 2>&1
+  echo "-- neuve" > "$MIG_DIR/20260101090000_plateforme_neuve.sql"
+  git add -A
+  git -c core.hooksPath=/dev/null commit --quiet --no-verify -m "migration neuve mal ordonnee" >/dev/null 2>&1
+  rc=0; bash "$script_abs" --branch --no-remote >/dev/null 2>&1 || rc=$?
+  if [ "$rc" -ne 2 ]; then
+    echo "🔴 AUTO-TEST : migration neuve mal ordonnée acceptée en mode --branch (exit $rc, attendu 2)." >&2
+    echo "   L'exemption de renommage déborde : le contrôle « > max » ne tient plus en CI." >&2
+    echec=true
+  fi
+
+  # Cas 9 — un ref dont le NOM contient « # » (caractère légal : `fix/issue#322`)
+  # doit rester vu. Construire un script `sed` à partir du nom de ref le rendait
+  # invisible au contrôle (B) : un garde d'intégrité muet, soit la panne même
+  # qu'il corrige.
+  git checkout --quiet -B pousse-diese "$BASE_REF" >/dev/null 2>&1
+  echo "-- diese" > "$MIG_DIR/20260101160000_plateforme_diese.sql"
+  git add -A
+  git -c core.hooksPath=/dev/null commit --quiet --no-verify -m diese >/dev/null 2>&1
+  git push --quiet origin 'pousse-diese:refs/heads/fix/issue#9' >/dev/null 2>&1
+  git checkout --quiet -B cas9 "$BASE_REF" >/dev/null 2>&1
+  echo "-- mien" > "$MIG_DIR/20260101160000_plateforme_mon_lot.sql"
+  git add -A
+  rc=0; bash "$script_abs" >/dev/null 2>&1 || rc=$?
+  if [ "$rc" -ne 2 ]; then
+    echo "🔴 AUTO-TEST : collision non détectée face à un ref contenant « # » (exit $rc, attendu 2)." >&2
+    echec=true
+  fi
+
+  # Cas 8 — un clone impossible ne doit RIEN muter dans le dépôt APPELANT.
+  # Sauté dans le sous-test qu'il lance lui-même : sans ce garde-fou, un script
+  # dont les gardes ont sauté relance le cas 8 en boucle au lieu de rougir.
+  if [ -n "${MIGRATION_SELFTEST_INTERNE:-}" ]; then
+    [ "$echec" = true ] && return 1
+    return 0
+  fi
+  # Sans les gardes sur `clone`/`cd`, les commandes mutantes des cas précédents
+  # (`git reset --hard`, `git push`…) s'appliquent au dépôt courant : démontré en
+  # revue sécurité, fichier non commité détruit et branche poussée.
+  local appelant faux_bin temoin git_reel
+  appelant="$tmp/appelant"
+  faux_bin="$tmp/faux-bin"
+  git_reel=$(command -v git)
+  mkdir -p "$appelant/$MIG_DIR" "$faux_bin"
+  printf '#!/bin/sh\nfor a in "$@"; do [ "$a" = clone ] && exit 128; done\nexec "%s" "$@"\n' "$git_reel" > "$faux_bin/git"
+  chmod +x "$faux_bin/git"
+  (
+    cd "$appelant" \
+      && git init --quiet --initial-branch=main . \
+      && git config user.email t@t.t && git config user.name t \
+      && echo "-- socle" > "$MIG_DIR/20260101100000_plateforme_socle.sql" \
+      && git add -A \
+      && git -c core.hooksPath=/dev/null commit --quiet --no-verify -m socle
+  ) >/dev/null 2>&1
+  echo "TRAVAIL NON COMMITE" > "$appelant/temoin.txt"
+  rc=0
+  ( cd "$appelant" && PATH="$faux_bin:$PATH" MIGRATION_SELFTEST_INTERNE=1 \
+      bash "$script_abs" --self-test ) >/dev/null 2>&1 || rc=$?
+  temoin=$(cat "$appelant/temoin.txt" 2>/dev/null || echo MANQUANT)
+  if [ "$temoin" != "TRAVAIL NON COMMITE" ]; then
+    echo "🔴 AUTO-TEST : un clone en échec a DÉTRUIT un fichier du dépôt appelant." >&2
+    echec=true
+  fi
+  if [ -n "$( (cd "$appelant" && git branch --format='%(refname:short)' 2>/dev/null | grep -vx main) || true )" ]; then
+    echo "🔴 AUTO-TEST : un clone en échec a créé des branches dans le dépôt appelant." >&2
+    echec=true
+  fi
+  if [ "$rc" -eq 0 ]; then
+    echo "🔴 AUTO-TEST : clone en échec non signalé (exit 0) — le test se croit joué." >&2
+    echec=true
+  fi
+
+  [ "$echec" = true ] && return 1
+  echo "✅ check-migration-timestamp : auto-test OK (collision en vol, doublon local, renommage staged + branch, ref « # », dépôt appelant intact)."
+  return 0
+)
+
+# ---------------------------------------------------------------------------
+if [ "$SELF_TEST" = true ]; then
+  self_test || exit 2
+  exit 0
+fi
+
+[ -d "$MIG_DIR" ] || exit 0
+
+MES=$(mes_migrations)
+[ -z "$MES" ] && exit 0
+
+RC=0
+controle_local "$MES"          || RC=2
+controle_inter_branches "$MES" || RC=2
+[ "$RC" -ne 0 ] && echo "" >&2
+exit "$RC"

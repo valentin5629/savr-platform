@@ -17,11 +17,18 @@
 -- que l'assertion E2 de `outbox_par_mutation.test.sql` passait au vert alors que
 -- le predicat etait TOUJOURS faux en production.
 --
+-- 2026-09-15 (second volet) — le predicat porte desormais la DIMENSION PROVIDER :
+-- « commandee » veut dire « chez un prestataire du meme type_tms que celui porte
+-- par la collecte ». Les fixtures posent donc `collectes.prestataire_logistique_id`
+-- comme le fait `fn_dispatcher_collecte` en production : une collecte dispatchee
+-- a TOUJOURS un prestataire. Les cas G11-G13 couvrent le basculement d'un
+-- transporteur vers l'autre.
+--
 -- Les 3 RPC sont SECURITY DEFINER / service_role → appelees ici en superuser.
 -- =============================================================================
 
 BEGIN;
-SELECT plan(10);
+SELECT plan(13);
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
@@ -42,9 +49,28 @@ INSERT INTO plateforme.lieux (id, nom, adresse_acces, code_postal, ville, type_v
   ('e29a0000-0000-0000-0000-0000000000b0'::uuid, 'Salle E2Gate', '1 rue', '75001', 'Paris', 'fourgon');
 
 INSERT INTO shared.prestataires (id, nom, code, type_prestation, mode_integration, statut) VALUES
-  ('e29a0000-0000-0000-0000-0000000000d0'::uuid, 'Presta E2Gate', 'E2GATE', ARRAY['zd','ag'], 'manuel', 'actif');
+  ('e29a0000-0000-0000-0000-0000000000d0'::uuid, 'Presta E2Gate', 'E2GATE', ARRAY['zd','ag'], 'manuel', 'actif'),
+  ('e29a0000-0000-0000-0000-0000000000d1'::uuid, 'Presta E2Gate Velo', 'E2GATE-VELO', ARRAY['ag'], 'manuel', 'actif');
 
--- 7 evenements (1 par collecte testee).
+-- Le predicat resout le provider par `prestataire_logistique_id` -> `type_tms` :
+-- chaque prestataire des fixtures doit donc porter son transporteur, sinon le
+-- gate serait ferme partout et les cas G3-G7 passeraient au vert pour la
+-- mauvaise raison (aucune tournee « du bon provider », plutot qu'aucune commande).
+INSERT INTO plateforme.transporteurs
+  (id, nom, siren, adresse, code_postal, ville, types_vehicules, type_tms,
+   contact_nom, contact_email, contact_telephone, prestataire_logistique_id,
+   code_transporteur_mts1)
+VALUES
+  ('e29a0000-0000-0000-0000-00000000001a'::uuid, 'Camion E2Gate', '910000001',
+   '1 rue', '75001', 'Paris', ARRAY['fourgon'], 'mts1',
+   'C', 'camion@e2gate.invalid', '+33600000000',
+   'e29a0000-0000-0000-0000-0000000000d0'::uuid, 'E2GATE-CODE'),
+  ('e29a0000-0000-0000-0000-00000000001b'::uuid, 'Velo E2Gate', '910000002',
+   '2 rue', '75001', 'Paris', ARRAY['velo_cargo'], 'a_toutes',
+   'V', 'velo@e2gate.invalid', '+33600000001',
+   'e29a0000-0000-0000-0000-0000000000d1'::uuid, NULL);
+
+-- 8 evenements (1 par collecte testee).
 INSERT INTO plateforme.evenements (
   id, organisation_id, lieu_id, traiteur_operationnel_organisation_id,
   entite_facturation_id, created_by, type_evenement_id, date_evenement, pax,
@@ -59,7 +85,7 @@ SELECT
   'e29a0000-0000-0000-0000-0000000000a0'::uuid,
   'e29a0000-0000-0000-0000-0000000000e0'::uuid,
   current_date + 10, 100, 'Contact ' || n, '060' || n
-FROM generate_series(1, 7) AS n;
+FROM generate_series(1, 8) AS n;
 
 -- Collectes — `tms_reference` laissee a NULL PARTOUT (defaut), volontairement.
 --   c1 aucune tournee                         → gate ferme
@@ -69,12 +95,24 @@ FROM generate_series(1, 7) AS n;
 --   c5 tournee AVEC commande                  → fn_dispatcher_collecte = renvoi
 --   c6 aucune tournee                         → fn_dispatcher_collecte = 1er envoi
 --   c7 tournee AVEC commande                  → annulation : E3 et pas E2
-INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte)
+--   c8 tournee AVEC commande chez le VELO, collecte re-dispatchee vers le CAMION
+--                                             → gate ferme (rien chez le camion)
+INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, prestataire_logistique_id)
 SELECT
   ('e29a0000-0000-0000-0000-0000000000c' || n)::uuid,
   ('e29a0000-0000-0000-0000-0000000000e' || n)::uuid,
-  'zero_dechet', 'validee', 'acceptee', current_date + 10, '08:00'
+  'zero_dechet', 'validee', 'acceptee', current_date + 10, '08:00',
+  'e29a0000-0000-0000-0000-0000000000d0'::uuid
 FROM generate_series(1, 7) AS n;
+
+-- c8 : dispatchee chez le VELO (l'autre provider) — c'est son etat AVANT le
+-- basculement teste par G11/G12.
+INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, prestataire_logistique_id)
+VALUES (
+  'e29a0000-0000-0000-0000-0000000000c8'::uuid,
+  'e29a0000-0000-0000-0000-0000000000e8'::uuid,
+  'zero_dechet', 'validee', 'acceptee', current_date + 10, '08:00',
+  'e29a0000-0000-0000-0000-0000000000d1'::uuid);
 
 -- Tournees : ce que l'adapter ecrit reellement au dispatch.
 INSERT INTO plateforme.tournees (id, reference_interne, date_tournee, creneau, prestataire_logistique_id, statut, external_ref_commande) VALUES
@@ -85,7 +123,9 @@ INSERT INTO plateforme.tournees (id, reference_interne, date_tournee, creneau, p
   ('e29a0000-0000-0000-0000-0000000000a4'::uuid, 'E2GATE-T4R1', current_date + 10, 'nuit', 'e29a0000-0000-0000-0000-0000000000d0'::uuid, 'planifiee', NULL),
   ('e29a0000-0000-0000-0000-0000000000ab'::uuid, 'E2GATE-T4R2', current_date + 10, 'nuit', 'e29a0000-0000-0000-0000-0000000000d0'::uuid, 'en_cours',  'CMD-T4R2'),
   ('e29a0000-0000-0000-0000-0000000000a5'::uuid, 'E2GATE-T5',   current_date + 10, 'nuit', 'e29a0000-0000-0000-0000-0000000000d0'::uuid, 'en_cours',  'CMD-T5'),
-  ('e29a0000-0000-0000-0000-0000000000a7'::uuid, 'E2GATE-T7',   current_date + 10, 'nuit', 'e29a0000-0000-0000-0000-0000000000d0'::uuid, 'en_cours',  'CMD-T7');
+  ('e29a0000-0000-0000-0000-0000000000a7'::uuid, 'E2GATE-T7',   current_date + 10, 'nuit', 'e29a0000-0000-0000-0000-0000000000d0'::uuid, 'en_cours',  'CMD-T7'),
+  -- c8 : commande posee chez le VELO (autre type_tms que le camion)
+  ('e29a0000-0000-0000-0000-0000000000a8'::uuid, 'E2GATE-T8',   current_date + 10, 'soir', 'e29a0000-0000-0000-0000-0000000000d1'::uuid, 'planifiee', 'MISSION-T8');
 
 INSERT INTO plateforme.collecte_tournees (collecte_id, tournee_id, rang) VALUES
   ('e29a0000-0000-0000-0000-0000000000c2'::uuid, 'e29a0000-0000-0000-0000-0000000000a2'::uuid, 1),
@@ -93,7 +133,8 @@ INSERT INTO plateforme.collecte_tournees (collecte_id, tournee_id, rang) VALUES
   ('e29a0000-0000-0000-0000-0000000000c4'::uuid, 'e29a0000-0000-0000-0000-0000000000a4'::uuid, 1),
   ('e29a0000-0000-0000-0000-0000000000c4'::uuid, 'e29a0000-0000-0000-0000-0000000000ab'::uuid, 2),
   ('e29a0000-0000-0000-0000-0000000000c5'::uuid, 'e29a0000-0000-0000-0000-0000000000a5'::uuid, 1),
-  ('e29a0000-0000-0000-0000-0000000000c7'::uuid, 'e29a0000-0000-0000-0000-0000000000a7'::uuid, 1);
+  ('e29a0000-0000-0000-0000-0000000000c7'::uuid, 'e29a0000-0000-0000-0000-0000000000a7'::uuid, 1),
+  ('e29a0000-0000-0000-0000-0000000000c8'::uuid, 'e29a0000-0000-0000-0000-0000000000a8'::uuid, 1);
 
 -- ── G1 : aucune commande chez le prestataire → pas d'E2 ──────────────────────
 SELECT plateforme.fn_modifier_collecte(
@@ -175,6 +216,54 @@ SELECT is(
           ORDER BY event_type),
   ARRAY['collecte.annulee'],
   'G8 passage a annulee sur collecte commandee -> E3 seule, jamais E2');
+
+-- ── G11 : re-dispatch vers l'AUTRE provider → E1, jamais E2 ──────────────────
+-- LE cas du second volet. La commande existante est chez le velo ; Ops bascule
+-- la collecte sur le camion. Un E2 serait absorbe en no-op par l'adapter du
+-- camion (qui ne voit aucune tournee a lui) : la collecte apparaitrait
+-- « renvoyee au TMS » sans etre commandee nulle part.
+SELECT is(
+  plateforme.fn_dispatcher_collecte(
+    'e29a0000-0000-0000-0000-0000000000c8'::uuid,
+    'e29a0000-0000-0000-0000-0000000000d0'::uuid,
+    'bascule camion'),
+  'collecte.creee',
+  'G11 bascule vers un transporteur de l''autre type -> collecte.creee (la commande du premier ne compte pas)');
+
+-- ── G12 : le gate est lu APRES l'UPDATE du prestataire ───────────────────────
+-- Sans ce deplacement, G11 lirait l'ANCIEN prestataire (le velo), y trouverait
+-- la commande et retomberait sur 'collecte.modifiee'. On verifie que l'UPDATE a
+-- bien eu lieu : c'est ce qui rend l'assertion G11 non triviale.
+SELECT is(
+  (SELECT prestataire_logistique_id FROM plateforme.collectes
+     WHERE id = 'e29a0000-0000-0000-0000-0000000000c8'::uuid),
+  'e29a0000-0000-0000-0000-0000000000d0'::uuid,
+  'G12 l''override a bien pose le prestataire cible sur la collecte');
+
+-- ── G13 : le predicat est insensible au PRESTATAIRE, sensible au TYPE ────────
+-- Deux transporteurs MTS-1 sont interchangeables pour l'adapter (le worker
+-- l'instancie avec « n'importe quel » transporteur du type) : une commande chez
+-- l'un compte pour l'autre. Discriminer sur le prestataire rendrait Marathon
+-- muet des qu'il tire Strike.
+INSERT INTO shared.prestataires (id, nom, code, type_prestation, mode_integration, statut) VALUES
+  ('e29a0000-0000-0000-0000-0000000000d2'::uuid, 'Presta E2Gate Camion 2', 'E2GATE-CAM2', ARRAY['zd'], 'manuel', 'actif');
+INSERT INTO plateforme.transporteurs
+  (id, nom, siren, adresse, code_postal, ville, types_vehicules, type_tms,
+   contact_nom, contact_email, contact_telephone, prestataire_logistique_id,
+   code_transporteur_mts1)
+VALUES
+  ('e29a0000-0000-0000-0000-00000000001c'::uuid, 'Camion E2Gate bis', '910000003',
+   '3 rue', '75001', 'Paris', ARRAY['fourgon'], 'mts1',
+   'C2', 'camion2@e2gate.invalid', '+33600000002',
+   'e29a0000-0000-0000-0000-0000000000d2'::uuid, 'E2GATE-CODE-2');
+
+SELECT is(
+  plateforme.fn_dispatcher_collecte(
+    'e29a0000-0000-0000-0000-0000000000c3'::uuid,
+    'e29a0000-0000-0000-0000-0000000000d2'::uuid,
+    'bascule camion bis'),
+  'collecte.modifiee',
+  'G13 bascule vers un AUTRE transporteur du meme type -> collecte.modifiee (commande deja passee chez ce provider)');
 
 -- ── G9 : le predicat n'est pas appelable par un role client ──────────────────
 SELECT is(

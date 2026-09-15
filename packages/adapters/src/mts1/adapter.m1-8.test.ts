@@ -140,12 +140,11 @@ function makeSyncSupabaseM18(opts: {
               collecte_tournees: [
                 {
                   collecte_id: tourneeInfo.collecteId,
-                  collectes: [
-                    {
-                      id: tourneeInfo.collecteId,
-                      statut: tourneeInfo.collecteStatut,
-                    },
-                  ],
+                  // FK sortante `collecte_tournees.collecte_id` → OBJET.
+                  collectes: {
+                    id: tourneeInfo.collecteId,
+                    statut: tourneeInfo.collecteStatut,
+                  },
                 },
               ],
             },

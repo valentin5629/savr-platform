@@ -136,12 +136,11 @@ function makeSyncSupabase(opts: {
               collecte_tournees: [
                 {
                   collecte_id: tourneeInfo.collecteId,
-                  collectes: [
-                    {
-                      id: tourneeInfo.collecteId,
-                      statut: tourneeInfo.collecteStatut,
-                    },
-                  ],
+                  // FK sortante `collecte_tournees.collecte_id` → OBJET.
+                  collectes: {
+                    id: tourneeInfo.collecteId,
+                    statut: tourneeInfo.collecteStatut,
+                  },
                 },
               ],
             },
@@ -336,14 +335,12 @@ describe('Lot A / A4 — annulation E3 idempotente', () => {
         data: [
           {
             rang: 1,
-            tournees: [
-              {
-                id: 'T1',
-                external_ref_commande: 'MTS1-ORDER-A4',
-                tms_reference: 'MTS1-TOUR-A4',
-                statut: 'en_cours',
-              },
-            ],
+            tournees: {
+              id: 'T1',
+              external_ref_commande: 'MTS1-ORDER-A4',
+              tms_reference: 'MTS1-TOUR-A4',
+              statut: 'en_cours',
+            },
           },
         ],
         error: null,

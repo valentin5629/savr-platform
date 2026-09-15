@@ -440,10 +440,14 @@ export class AdapterMts1 implements LogistiqueProvider {
       }
       const lieuEffectif = applyLieuOverrides(lieu, overrides);
 
-      // Supabase renvoie les relations !inner comme tableau — on prend [0]
-      type CtRow = { rang: number; tournees: TourneeRowE5[] };
+      // Cardinalité PostgREST : la FK est portée par la table SOURCE
+      // (`collecte_tournees.tournee_id` → `tournees.id`) → l'embed `tournees`
+      // est un OBJET, jamais un tableau. Seul le sens inverse (`collectes` →
+      // `collecte_tournees`, FK entrante) donne un tableau. Ancrage statique :
+      // `embed-cardinalite.test.ts`.
+      type CtRow = { rang: number; tournees: TourneeRowE5 };
       const tournees = ((c.collecte_tournees ?? []) as unknown as CtRow[]).map(
-        (ct) => ({ ...ct.tournees[0]!, rang: ct.rang }),
+        (ct) => ({ ...ct.tournees, rang: ct.rang }),
       );
       for (const t of tournees.filter(
         (
@@ -996,15 +1000,17 @@ export class AdapterMts1 implements LogistiqueProvider {
     type Raw = {
       id: string;
       tms_reference: string | null;
+      // `collecte_tournees` embarqué depuis `tournees` = FK entrante → TABLEAU.
+      // `collectes` embarqué depuis `collecte_tournees` = FK sortante → OBJET.
       collecte_tournees: Array<{
         collecte_id: string;
-        collectes: Array<{ id: string; statut: string }>;
+        collectes: { id: string; statut: string };
       }>;
     };
     const raw = data as unknown as Raw;
     const ct = raw.collecte_tournees[0];
     if (!ct) return null;
-    const collecte = ct.collectes[0];
+    const collecte = ct.collectes;
     if (!collecte) return null;
 
     return {
@@ -1051,9 +1057,9 @@ export class AdapterMts1 implements LogistiqueProvider {
       .maybeSingle();
 
     if (!data) return null;
-    // Supabase renvoie les relations !inner comme tableau — on prend [0]
-    const raw = data as unknown as { rang: number; tournees: TourneeRow[] };
-    const t = raw.tournees[0];
+    // FK sortante `collecte_tournees.tournee_id` → embed OBJET (cf. updateLieu).
+    const raw = data as unknown as { rang: number; tournees: TourneeRow };
+    const t = raw.tournees;
     if (!t) return null;
     return { ...t, rang: raw.rang };
   }
@@ -1069,9 +1075,9 @@ export class AdapterMts1 implements LogistiqueProvider {
     if (!data) return [];
     const rows = data as unknown as Array<{
       rang: number;
-      tournees: TourneeRow[];
+      tournees: TourneeRow;
     }>;
-    return rows.map((d) => ({ ...d.tournees[0]!, rang: d.rang }));
+    return rows.map((d) => ({ ...d.tournees, rang: d.rang }));
   }
 
   private async upsertTournee(

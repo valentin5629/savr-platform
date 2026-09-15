@@ -65,6 +65,13 @@ INSERT INTO plateforme.lieux (id, nom, adresse_acces, code_postal, ville, type_v
 -- Un événement par rôle testé : chacun est DANS le périmètre de son rôle, donc la
 -- RLS (col_update_client / col_update_commercial / col_insert) l'AUTORISERAIT.
 -- Le refus attendu ne peut donc venir que du privilège retiré — c'est le point.
+--
+-- ⚠ PIÈGE DE LECTURE : les trois événements portent volontairement
+-- `traiteur_operationnel_organisation_id` = l'org du traiteur. Une lecture qui
+-- paraît « cross-org » depuis ce fichier est donc LÉGITIME (f_collecte_visible
+-- autorise le traiteur opérationnel) — ce n'est pas une fuite. Ce fichier ne
+-- prouve RIEN sur le cloisonnement : il porte sur la fermeture par privilège.
+-- Le cloisonnement vit dans rls_0_4_smoke T10 et m3_2_gestionnaire_lieux T1-T3.
 INSERT INTO plateforme.evenements (
   id, organisation_id, lieu_id, traiteur_operationnel_organisation_id,
   entite_facturation_id, created_by, type_evenement_id, date_evenement, pax,

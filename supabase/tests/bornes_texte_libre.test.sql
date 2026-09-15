@@ -5,24 +5,24 @@
 --   chk_collectes_informations_supplementaires_borne
 -- =============================================================================
 -- Oracle : ces trois colonnes sont des `text` SANS aucune contrainte — 5 000
--- caractères y passaient, mesuré. Elles sont destinées au transporteur, avec des
--- expositions différentes : `informations_supplementaires` transite AUJOURD'HUI
--- par le canal de texte libre, où les informations d'exploitation sont
--- concaténées et où une valeur démesurée évince les lignes voisines (dont
--- l'adresse d'accès) ; `contact_secours_telephone` part dans un champ natif ; et
--- `contact_secours_nom` n'est émis nulle part à ce jour — la PR qui le transmet
--- (encore ouverte) le concatène dans le canal libre, où un nom multiligne
--- forgerait une fausse ligne d'en-tête. Borne posée par anticipation pour lui.
+-- caractères y passaient, mesuré. `informations_supplementaires` ET
+-- `contact_secours_nom` transitent par le canal de texte libre agrégé pour le
+-- chauffeur : une valeur démesurée y évince les lignes voisines, et le nom OUVRE
+-- l'agrégat, donc il évince tout ce qui suit — adresse d'accès comprise ; un nom
+-- multiligne y forge une fausse ligne d'en-tête.
 --
 -- La garde applicative (422 de `validerChampsTexteLibre` sur les 10 routes qui
 -- écrivent ces colonnes) ne couvre PAS les écritures hors routes Next :
 --   · `fn_modifier_evenement` / `fn_modifier_collecte` appelées sous service_role
 --     (script, seed, session psql) — elles écrivent `p_updates->>'champ'` tel
 --     quel, sans rien vérifier ;
---   · UPDATE PostgREST direct : `authenticated` porte un GRANT UPDATE
---     table-level (20260611180000) et les policies `evt_manager_update` /
---     `col_update_client` laissent un traiteur modifier son propre événement ou
---     sa propre collecte non terminale.
+--   · UPDATE PostgREST direct sur `evenements` : `authenticated` y garde un GRANT
+--     UPDATE table-level (20260611180000, jamais révoqué) et `evt_manager_update`
+--     laisse un traiteur modifier son propre événement non terminal. C'est le
+--     vecteur VIVANT, et les deux champs de contact y sont exposés.
+--     (Sur `collectes`, 20260915160000 / #318 a révoqué UPDATE et INSERT à
+--     `authenticated` : voie coupée en amont — le cas correspondant plus bas
+--     l'atteste en 42501 et non en 23514.)
 -- Le worker relit ces colonnes SUR LA LIGNE à la consommation de l'event : ce qui
 -- est écrit par là atteint bien le transporteur.
 --
@@ -31,14 +31,14 @@
 --   (a) une saisie multiligne dans `informations_supplementaires` PASSE. C'est un
 --       `<textarea>` : une contrainte qui refuserait les sauts de ligne casserait
 --       le formulaire pour tout le monde, et ce fichier resterait vert sans ce cas.
---   (b) sous le rôle `authenticated`, un UPDATE légitime PASSE et un UPDATE hors
---       borne sort en 23514 — pas en 42501. Joué en `postgres` seul, ce fichier ne
---       saurait pas distinguer « la contrainte protège le client » de « le client
---       ne peut plus écrire du tout ».
+--   (b) sous le rôle `authenticated`, sur `evenements`, un UPDATE légitime PASSE
+--       et un UPDATE hors borne sort en 23514 — pas en 42501. Joué en `postgres`
+--       seul, ce fichier ne saurait pas distinguer « la contrainte protège le
+--       client » de « le client ne peut plus écrire du tout ».
 -- =============================================================================
 
 BEGIN;
-SELECT plan(21);
+SELECT plan(20);
 
 -- ─── Fixtures ────────────────────────────────────────────────────────────────
 INSERT INTO plateforme.organisations (id, nom, type, actif, siret, email_principal)
@@ -240,12 +240,22 @@ SELECT throws_ok(
   '23514', NULL,
   'authenticated : un nom de 5 000 caractères est REJETÉ — 23514, pas 42501');
 
+-- RECALÉ par 20260915160000 (#318), mergée pendant ce lot : `authenticated` n'a
+-- plus de GRANT UPDATE sur `plateforme.collectes`. L'écriture directe y est donc
+-- fermée EN AMONT de la contrainte — 42501, et non 23514. Ce cas ne teste plus la
+-- borne, il documente que la voie est coupée : sur `collectes`, le CHECK ne
+-- couvre plus que les chemins service_role (prouvés au cas
+-- `fn_modifier_collecte` ci-dessus) et psql/seed.
+-- ⚠ Rien d'équivalent sur `evenements` : `authenticated` y garde UPDATE
+-- table-level (aucune migration ne l'a jamais révoqué, vérifié sur dev). Les deux
+-- cas précédents sont donc les SEULS à prouver qu'un client ne peut pas écrire un
+-- contact de secours hors borne — et ils portent sur la table qui reste ouverte.
 SELECT throws_ok(
   format($$ UPDATE plateforme.collectes
                SET informations_supplementaires = %L
              WHERE id = 'b0c0ea07-0000-0000-0000-000000000001'::uuid $$, repeat('x', 1001)),
-  '23514', NULL,
-  'authenticated : 1001 caractères d''informations REJETÉS en PostgREST direct');
+  '42501', NULL,
+  'authenticated : l''écriture directe de collectes est fermée en amont (#318) — 42501');
 
 SELECT is(
   (SELECT contact_secours_nom FROM plateforme.evenements
@@ -253,14 +263,6 @@ SELECT is(
   'Marie Durand',
   'authenticated : la valeur refusée n''a rien écrasé');
 
--- L'exception `<textarea>` rejouée SOUS LE RÔLE RÉEL : le cas 12 la prouve en
--- `postgres`, ce qui ne dit rien de ce que subit un client. C'est pourtant lui qui
--- saisit le formulaire.
-SELECT lives_ok(
-  $$ UPDATE plateforme.collectes
-        SET informations_supplementaires = 'Quai N°2 fermé' || chr(10) || 'Interphone B'
-      WHERE id = 'b0c0ea07-0000-0000-0000-000000000001'::uuid $$,
-  'authenticated : une saisie multiligne légitime passe aussi en PostgREST direct');
 
 SELECT pg_temp.as_superuser();
 

@@ -10,19 +10,17 @@
 -- filtraient que par une allowlist de CLÉS, jamais sur la valeur.
 --
 -- Pourquoi ces trois colonnes et pas « les colonnes text » en général : elles
--- sont destinées au transporteur. Mais leur exposition réelle diffère — relevé
--- sur le code d'émission des adapters, pas déduit du nom des colonnes :
---   · `informations_supplementaires` est le SEUL des trois à transiter AUJOURD'HUI
---     par le canal de TEXTE LIBRE de l'adapter logistique, où les informations
---     d'exploitation sont concaténées en un seul message : une valeur démesurée y
---     évince les lignes voisines, dont l'adresse d'accès ;
---   · `contact_secours_telephone` part dans un champ NATIF de la commande, pas
---     dans le texte libre : aucune éviction possible, mais un numéro de 5 000
---     caractères reste une donnée aberrante transmise telle quelle ;
---   · `contact_secours_nom` n'est émis NULLE PART à ce jour — sa transmission fait
---     l'objet d'une PR encore ouverte, qui le concatène dans le canal de texte
---     libre. Le borner ici est une anticipation assumée : la contrainte est en
---     place avant que le champ ne circule, elle ne ferme pas une fuite en cours.
+-- partent au transporteur. Relevé sur le code d'émission des adapters, pas déduit
+-- du nom des colonnes :
+--   · `informations_supplementaires` ET `contact_secours_nom` transitent par le
+--     canal de TEXTE LIBRE, agrégé par `composerInformationsSupplementaires`, où
+--     les informations d'exploitation sont concaténées en un seul message. Une
+--     valeur démesurée y évince les lignes voisines — et le nom de secours OUVRE
+--     l'agrégat, donc il évince tout ce qui suit, adresse d'accès comprise ; un
+--     nom multiligne y forge une fausse ligne d'en-tête ;
+--   · `contact_secours_telephone` part dans un champ NATIF de la commande : pas
+--     d'éviction possible, mais un numéro de 5 000 caractères reste une donnée
+--     aberrante transmise telle quelle.
 --
 -- Le correctif porte à deux niveaux, et celui-ci est le second :
 --   1. ÉCRITURE applicative — `validerChampsTexteLibre`
@@ -34,11 +32,16 @@
 --          appelées directement sous service_role (script, seed, session psql) —
 --          elles écrivent `p_updates->>'champ'`, qui coerce en texte n'importe
 --          quel jsonb reçu, sans rien vérifier ;
---        · PostgREST direct — `authenticated` porte un GRANT UPDATE table-level
---          sur `plateforme.evenements` et `plateforme.collectes` (20260611180000)
---          et les policies clients laissent modifier une collecte / un événement
---          non terminal. Le worker relit ces colonnes SUR LA LIGNE au moment de
---          consommer l'event : ce qui est écrit par là atteint le transporteur.
+--        · PostgREST direct sur `plateforme.evenements` — `authenticated` y garde
+--          un GRANT UPDATE table-level (20260611180000, jamais révoqué : vérifié
+--          sur dev) et `evt_manager_update` laisse un traiteur modifier son propre
+--          événement non terminal. Les deux champs de contact sont donc écrivables
+--          en direct, et le worker les relit SUR LA LIGNE au moment de consommer
+--          l'event : ce qui est écrit par là atteint le transporteur. C'est le
+--          vecteur que ces contraintes ferment.
+--          Sur `plateforme.collectes`, 20260915160000 (#318) a révoqué UPDATE et
+--          INSERT à `authenticated` : cette voie-là est déjà coupée en amont, et
+--          le CHECK n'y couvre plus que les RPC, scripts et seed.
 --      Cette migration NE touche AUCUN GRANT ni aucune policy (CLAUDE.md §12
 --      pt 2bis) : restreindre le GRANT UPDATE d'`authenticated` à une liste
 --      blanche de colonnes reste un arbitrage Val. Les contraintes, elles, sont
@@ -110,7 +113,7 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 COMMENT ON CONSTRAINT chk_evenements_contact_secours_nom_borne
   ON plateforme.evenements IS
-  'Borne d''intégrité : 120 caractères max, aucun caractère de contrôle. Le nom du contact de secours n''est émis vers aucun transporteur à ce jour ; la PR qui le transmet le concatène dans le canal de texte libre, où une valeur démesurée ou multiligne évince les autres informations d''exploitation — borne posée par anticipation. Miroir de BORNES_TEXTE_LIBRE (packages/plateforme/src/lib/champs-texte-libre.ts).';
+  'Borne d''intégrité : 120 caractères max, aucun caractère de contrôle. Le nom du contact de secours OUVRE l''agrégat du canal de texte libre transmis au chauffeur : une valeur démesurée y évince toutes les lignes suivantes, dont l''adresse d''accès, et une valeur multiligne y forge une fausse ligne d''en-tête. Même nombre que LIMITE_NOM_SECOURS côté adapters. Miroir de BORNES_TEXTE_LIBRE (packages/plateforme/src/lib/champs-texte-libre.ts).';
 
 -- ─── 2. evenements.contact_secours_telephone — 40 caractères ─────────────────
 -- Téléphone « format libre V1 » (§08 common.schema.json, normalisation E.164

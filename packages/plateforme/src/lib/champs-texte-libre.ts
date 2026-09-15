@@ -8,23 +8,23 @@ import { NextResponse } from 'next/server';
 // filtraient que les CLÉS (allowlist de champs éditables) — jamais les VALEURS,
 // si bien que la colonne acceptait 5 000 caractères (mesuré).
 //
-// Ce que chacune coûte AUJOURD'HUI — relevé sur le code d'émission des adapters,
-// pas déduit du nom des colonnes ; les trois cas sont différents :
-//   · `informations_supplementaires` est le SEUL des trois à transiter par le
-//     canal de TEXTE LIBRE de l'adapter logistique, où les informations
-//     d'exploitation sont concaténées en un seul message pour le chauffeur : une
-//     valeur démesurée y évince les lignes voisines — dont l'adresse d'accès. Son
-//     plafond est pourtant écrit au CDC (1000 car.) ; il n'était appliqué à AUCUNE
-//     écriture, seul le compteur du formulaire tronquait, côté client.
-//   · `contact_secours_telephone` part dans un champ NATIF de la commande, pas
-//     dans le texte libre : aucune éviction possible, mais un numéro de 5 000
-//     caractères reste une donnée aberrante transmise telle quelle.
-//   · `contact_secours_nom` n'est émis NULLE PART à ce jour. Sa transmission fait
-//     l'objet d'une PR encore ouverte, qui le concatène précisément dans le canal
-//     de texte libre — il rejoindra donc le premier cas, où un nom démesuré évince
-//     les lignes suivantes et un nom multiligne forge une fausse ligne d'en-tête.
-//     Le borner ici est une anticipation assumée, pas la fermeture d'une fuite en
-//     cours : la borne est simplement en place avant que le champ ne circule.
+// Ce que chacune coûte — relevé sur le code d'émission des adapters de CETTE
+// branche (main mergé), pas déduit du nom des colonnes :
+//   · `informations_supplementaires` ET `contact_secours_nom` transitent par le
+//     canal de TEXTE LIBRE, agrégé par `composerInformationsSupplementaires`
+//     (packages/adapters/src/infos-acces.ts), où les informations d'exploitation
+//     sont concaténées en un seul message pour le chauffeur. Une valeur démesurée
+//     y évince les lignes voisines — et le nom de secours OUVRE l'agrégat, donc il
+//     évince tout ce qui suit, adresse d'accès comprise. Un nom multiligne, lui,
+//     y forge une fausse ligne d'en-tête indiscernable d'une vraie.
+//   · `contact_secours_telephone` part dans un champ NATIF de la commande : pas
+//     d'éviction possible, mais un numéro de 5 000 caractères reste une donnée
+//     aberrante transmise telle quelle.
+//
+// L'amont borne déjà la MISE EN FORME (`nomContact`, 120 car., blancs repliés) —
+// et son propre commentaire constate que la colonne n'a « ni CHECK en base, ni
+// borne de longueur sur la route d'édition ». C'est précisément ce que ce module
+// et la migration 20260915170000 ferment.
 //
 // La borne posée ici est celle de l'INTÉGRITÉ DE LA DONNÉE, en 422 à l'écriture.
 // Elle est doublée :
@@ -32,9 +32,12 @@ import { NextResponse } from 'next/server';
 //     blancs et tronque à l'émission — nécessaire indépendamment, puisqu'elle
 //     couvre l'historique et tout autre chemin d'écriture ;
 //   - en base, par les CHECK de la migration 20260915170000, seul niveau qui
-//     tienne une écriture PostgREST directe (`authenticated` porte un GRANT UPDATE
-//     table-level sur `plateforme.*`, cf. #308 : borner les routes ne borne pas la
-//     colonne).
+//     tienne une écriture ne passant par aucune route Next. Le cas décisif est
+//     `evenements` : `authenticated` y garde un GRANT UPDATE table-level (aucune
+//     migration ne l'a jamais révoqué), donc les deux champs de contact restent
+//     écrivables en PostgREST direct — c'est la leçon de #308, borner les routes
+//     ne borne pas la colonne. Sur `collectes`, #318 a fermé cette voie ; le CHECK
+//     y couvre encore les RPC sous service_role, les scripts et le seed.
 // Les bornes ci-dessous et celles de cette migration DOIVENT rester identiques ;
 // `champs-texte-libre.bornes-db.test.ts` relit le fichier SQL et le vérifie.
 
@@ -56,9 +59,10 @@ interface BorneChamp {
  * libre V1, normalisation E.164 reportée »). Les valeurs retenues sont donc
  * applicatives, dimensionnées sur une saisie de terrain plausible : 120 pour un
  * nom, 40 pour un numéro au format libre — « +33 6 12 34 56 78 poste 1234 » en
- * fait 28. Le 120 reprend le plafond que la PR d'émission du nom de secours
- * (encore ouverte) applique à la mise en forme du canal libre, pour que les deux
- * niveaux ne puissent pas se contredire le jour où elle sera mergée.
+ * fait 28. Le 120 est exactement `LIMITE_NOM_SECOURS`
+ * (packages/adapters/src/infos-acces.ts) : la borne d'entrée et le plafond de mise
+ * en forme du canal libre sont volontairement le même nombre, pour qu'un nom
+ * accepté à la saisie ne puisse jamais être tronqué à l'émission.
  */
 export const BORNES_TEXTE_LIBRE = {
   contact_secours_nom: { max: 120, multiligne: false },

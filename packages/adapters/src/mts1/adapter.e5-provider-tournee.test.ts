@@ -363,7 +363,14 @@ describe('E5 updateLieu — seules les tournées dispatchées via MTS-1 reçoive
       rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
     } as unknown as import('@supabase/supabase-js').SupabaseClient;
 
-    await new AdapterMts1(TRANSPORTEUR_MTS1, supabase).updateLieu(LIEU);
+    // Le Set du référentiel est alors VIDE (aucune ligne ne porte la colonne) :
+    // rendre ce Set écarterait TOUTES les tournées, donc se tairait au lieu de
+    // fermer — l'event serait marqué `done` sans qu'aucun PUT ne parte, et sans
+    // alerte. `prestatairesDuType` lève désormais dans ce cas : le worker rejoue
+    // ses 3 paliers puis alerte.
+    await expect(
+      new AdapterMts1(TRANSPORTEUR_MTS1, supabase).updateLieu(LIEU),
+    ).rejects.toBeInstanceOf(LogistiqueTransientError);
 
     expect(updateOrder).not.toHaveBeenCalled();
   });

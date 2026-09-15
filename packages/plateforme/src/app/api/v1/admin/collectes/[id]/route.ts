@@ -69,7 +69,14 @@ async function patchHandler(
     'controle_acces_requis',
     'notes_internes',
     'informations_supplementaires',
-    'prestataire_logistique_id',
+    // `prestataire_logistique_id` est VOLONTAIREMENT absent : le changement de
+    // prestataire passe par `POST …/dispatch` (fn_dispatcher_collecte), seul
+    // chemin qui décide ensuite du bon event — `collecte.creee` quand la bascule
+    // traverse la frontière de provider. `fn_modifier_collecte`, elle, n'a pas de
+    // branche E1 : un PATCH qui bascule le prestataire n'émettrait AUCUN event,
+    // et la collecte pointerait sur un transporteur chez qui rien n'est commandé.
+    // L'UI (collecte-detail-panel) passe déjà par /dispatch ; ce champ n'était
+    // atteignable que par appel direct de l'API.
     'motif_override_prestataire',
     'statut',
     'annulee_cote_savr',

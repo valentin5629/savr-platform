@@ -503,8 +503,9 @@ export class AdapterMts1 implements LogistiqueProvider {
    * Chargé une fois par instance d'adapter : le référentiel est stable sur la
    * durée d'un event, que celui-ci lise les tournées une fois (E3) ou plusieurs
    * (E2 → findTournees puis dispatchCollecte des rangs manquants ; E5 → une
-   * lecture par collecte du lieu). Seul un succès est mémorisé — une lecture en
-   * échec lève (Transient) et sera rejouée par le worker.
+   * lecture par collecte du lieu). Seul un Set NON VIDE est mémorisé : une
+   * lecture en échec comme un référentiel vide lèvent (Transient) et seront
+   * rejoués par le worker — mémoïser un Set vide ferait taire le filtre.
    */
   private async prestatairesMts1(): Promise<Set<string>> {
     this.prestatairesMts1Cache ??= await prestatairesDuType(
@@ -997,16 +998,10 @@ export class AdapterMts1 implements LogistiqueProvider {
     tmsReference: string | null;
     collecteStatut: string;
   } | null> {
+    // `prestatairesDuType` garantit un Set NON VIDE (elle lève sinon) : le `.in()`
+    // ci-dessous ne peut donc jamais dégénérer en requête toujours fausse, qui
+    // ferait passer tous les ordres pour inconnus.
     const prestatairesMts1 = await this.prestatairesMts1();
-    // Référentiel vide (aucun transporteur `mts1`) : `.in()` sur une liste vide
-    // est une requête toujours fausse côté PostgREST — jamais un filtre neutre.
-    // On s'arrête explicitement pour ne pas confondre « rien à rapprocher » et
-    // « référentiel absent » ; l'event entrant sera rejoué au poll suivant.
-    if (prestatairesMts1.size === 0) {
-      throw new LogistiqueTransientError(
-        `Aucun transporteur type_tms='mts1' : impossible de rapprocher l'ordre ${customerOrderId}`,
-      );
-    }
 
     const { data, error } = await this.supabase
       .from('tournees')

@@ -20,6 +20,8 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { builderTransporteurs } from './mock-referentiel-transporteurs.js';
+
 import type { Collecte, Lieu, Transporteur } from './index.js';
 import { AdapterMts1 } from './mts1/adapter.js';
 import { _setMts1Handlers } from './mts1/mock.js';
@@ -140,10 +142,14 @@ function makeTracingSupabase(opts: { brancheAttribution?: string } = {}) {
 
   const tables: Record<string, ReturnType<typeof makeTableQuery>> = {};
   const supabase = {
+    // Le référentiel transporteurs est servi à part : les adapters y résolvent le
+    // provider des tournées (cf. provider-tournees.ts) avant toute lecture.
     from: vi.fn((table: string) => {
+      if (table === 'transporteurs') return builderTransporteurs();
       if (!tables[table]) tables[table] = makeTableQuery(table);
       return tables[table]!;
     }),
+    rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
   };
   return {
     supabase:

@@ -73,7 +73,12 @@ interface SupabaseMockOpts {
     // la colonne sur laquelle findTournees cloisonne par provider.
     prestataire_logistique_id: string | null;
   } | null;
-  missionExistante?: { id: string; statut_everest: string } | null;
+  missionExistante?: {
+    id: string;
+    statut_everest: string;
+    /** Identifiant chez Everest — présent dès que le POST a abouti. */
+    everest_mission_id?: string | null;
+  } | null;
   brancheAttribution?: string | null;
   insertTourneeError?: boolean;
   /** L'INSERT du lien collecte_tournees est refusé (rang déjà pris — 23505). */
@@ -512,14 +517,14 @@ describe('M2.5 / AdapterEverest — écritures DB refusées', () => {
     expect(supabase._upserted['everest_missions']).toBeUndefined();
   });
 
-  it('commit de la référence de mission refusé → Transient (le worker rejoue), jamais un succès silencieux', async () => {
+  it('commit de la référence refusé en 23505 → Permanent (une unicité ne se résout pas en rejouant)', async () => {
     setupEverestMock();
     const supabase = makeMockSupabase({ updateRefError: true });
     const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
 
     await expect(
       adapter.dispatchCollecte(COLLECTE_AG, 1),
-    ).rejects.toBeInstanceOf(LogistiqueTransientError);
+    ).rejects.toBeInstanceOf(LogistiquePermanentError);
 
     // La collecte n'est surtout pas annoncée « attribuée » : sans référence en
     // base, plus personne ne peut rapprocher ni annuler la mission.
@@ -531,6 +536,66 @@ describe('M2.5 / AdapterEverest — écritures DB refusées', () => {
         (u) => u['statut_tms'] === 'attribuee_en_attente_acceptation',
       ),
     ).toBe(false);
+  });
+
+  it('la mission créée est enregistrée AVANT le commit de sa référence — jamais « creation_failed » sur une mission vivante', async () => {
+    setupEverestMock();
+    const supabase = makeMockSupabase({ updateRefError: true });
+
+    await expect(
+      new AdapterEverest(TRANSPORTEUR_EVEREST, supabase).dispatchCollecte(
+        COLLECTE_AG,
+        1,
+      ),
+    ).rejects.toBeInstanceOf(LogistiquePermanentError);
+
+    const missions = (supabase._upserted['everest_missions'] ?? []) as Array<
+      Record<string, unknown>
+    >;
+    // `creation_failed` signifie « rien chez Everest » et autorise un re-POST :
+    // l'écrire sur une mission vivante ferait partir un second vélo au rejeu.
+    expect(
+      missions.some((m) => m['statut_everest'] === 'creation_failed'),
+    ).toBe(false);
+    const creee = missions.find((m) => m['statut_everest'] === 'created');
+    expect(creee).toBeDefined();
+    expect(creee!['everest_mission_id']).toBeTruthy();
+  });
+
+  it('rejeu après un commit de référence manqué : AUCUN second createMission, et la référence est réparée', async () => {
+    const { missions } = setupEverestMock();
+    // État laissé par le passage précédent : la mission existe chez Everest et
+    // est tracée, mais `tournees.external_ref_commande` est restée NULL.
+    const supabase = makeMockSupabase({
+      tourneeExistante: {
+        id: 'tournee-existing-001',
+        external_ref_commande: null,
+        statut: 'planifiee',
+        prestataire_logistique_id: PRESTA_EVEREST,
+      },
+      missionExistante: {
+        id: 'em-001',
+        statut_everest: 'created',
+        everest_mission_id: 'EVR-DEJA-CREEE',
+      },
+    });
+
+    const consumer = await new AdapterEverest(
+      TRANSPORTEUR_EVEREST,
+      supabase,
+    ).dispatchCollecte(COLLECTE_AG, 1);
+
+    expect(consumer).toBe('adapter_everest');
+    // LE point : aucun second vélo dépêché.
+    expect(missions.size).toBe(0);
+    // Et la référence manquante est reposée depuis everest_missions, sans quoi
+    // `cancelCollecte` ne saurait plus quoi annuler.
+    const refs = (supabase._updated['tournees'] ?? []) as Array<
+      Record<string, unknown>
+    >;
+    expect(
+      refs.some((u) => u['external_ref_commande'] === 'EVR-DEJA-CREEE'),
+    ).toBe(true);
   });
 });
 

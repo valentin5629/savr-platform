@@ -475,7 +475,45 @@ function regleE(source: string): Trouve[] {
     }
     return null;
   };
+  /** Portée de la DÉCLARATION d'un nom, pour teinter une affectation ultérieure. */
+  const porteeDeclaration = (nom: string): ts.Node | null => {
+    let trouvee: ts.Node | null = null;
+    const chercher = (x: ts.Node): void => {
+      if (
+        !trouvee &&
+        ts.isVariableDeclaration(x) &&
+        ts.isIdentifier(x.name) &&
+        x.name.text === nom
+      )
+        trouvee = porteeDe(x);
+      ts.forEachChild(x, chercher);
+    };
+    chercher(src);
+    return trouvee;
+  };
+
   const marquer = (n: ts.Node): void => {
+    // `let m = ''; … m = e.message` : la teinte n'arrive pas par l'initialiseur
+    // mais par une affectation (typiquement dans un `catch`). Portée = celle de la
+    // déclaration du nom, sinon le module.
+    if (
+      ts.isBinaryExpression(n) &&
+      n.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+      ts.isIdentifier(n.left)
+    ) {
+      let lit = false;
+      const chercher = (x: ts.Node): void => {
+        if (litUneErreur(x, src)) lit = true;
+        ts.forEachChild(x, chercher);
+      };
+      chercher(n.right);
+      if (lit)
+        teintees.push({
+          nom: n.left.text,
+          portee: porteeDeclaration(n.left.text) ?? src,
+          ligne: src.getLineAndCharacterOfPosition(n.getStart()).line + 1,
+        });
+    }
     if (
       ts.isVariableDeclaration(n) &&
       ts.isIdentifier(n.name) &&
@@ -753,12 +791,13 @@ const SONDES: {
     attendus: 1,
   },
   {
-    // Teinte au niveau MODULE, rendue dans un handler fléché exporté : forme de
-    // route Next tout à fait ordinaire, que la clé « par nom de fonction »
-    // perdait (revue sécurité).
+    // Teinte par AFFECTATION, pas par initialiseur : `let m = ''` puis `m = e.message`
+    // dans un `catch`. Le commentaire de cette sonde disait « forme corrigée » avec
+    // un `attendus: 0` qui épinglait en réalité une fuite comme acceptable — écart
+    // relevé en revue, et exactement la fausse confiance que ce cliquet combat.
     regle: 'E',
     source: `let msg = '';\nexport const GET = async () => {\n  msg = err.message;\n  return NextResponse.json({ error: msg });\n};`,
-    attendus: 0,
+    attendus: 1,
   },
   {
     regle: 'E',

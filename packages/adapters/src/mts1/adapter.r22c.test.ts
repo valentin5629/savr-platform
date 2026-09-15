@@ -64,14 +64,12 @@ function makeMockSupabaseDispatched() {
       data: [
         {
           rang: 1,
-          tournees: [
-            {
-              id: 'tournee-r22c',
-              external_ref_commande: 'MTS1-ORDER-R22C',
-              tms_reference: 'MTS1-TOUR-R22C',
-              statut: 'en_cours',
-            },
-          ],
+          tournees: {
+            id: 'tournee-r22c',
+            external_ref_commande: 'MTS1-ORDER-R22C',
+            tms_reference: 'MTS1-TOUR-R22C',
+            statut: 'en_cours',
+          },
         },
       ],
       error: null,
@@ -161,10 +159,17 @@ describe('M1.4/r22c — AdapterMts1 buildUpdatePayload repousse les contacts (E2
 
     const payload = updateOrder.mock.calls[0]![1] as Record<string, unknown>;
     expect(payload['orderDate']).toBe('2026-07-15');
+    // `place` porte désormais l'adresse ET le créneau : ce test épinglait un
+    // `place` réduit à l'adresse, c'est-à-dire l'omission du créneau au PUT —
+    // une modification d'horaire d'une collecte dispatchée n'atteignait pas le
+    // chauffeur (cf. adapter.e2-repush-champs-propages.test.ts). Ce qu'il doit
+    // épingler, et qu'il continue d'épingler, c'est que le PUT ne perd NI
+    // l'adresse NI la date en repoussant le contact.
     expect(payload['place']).toEqual({
       address: {
         addressSingleLine: '252 Rue du Faubourg Saint-Honoré, 75008 Paris',
       },
+      timeslots: [{ start: '22:00', end: '22:00' }],
     });
   });
 });

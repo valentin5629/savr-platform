@@ -359,8 +359,9 @@ export class AdapterEverest implements LogistiqueProvider {
       .maybeSingle();
 
     if (!data) return null;
-    const raw = data as unknown as { rang: number; tournees: TourneeRow[] };
-    const t = raw.tournees[0];
+    // FK sortante `collecte_tournees.tournee_id` → embed OBJET, pas tableau.
+    const raw = data as unknown as { rang: number; tournees: TourneeRow };
+    const t = raw.tournees;
     if (!t) return null;
     return { ...t, rang: raw.rang };
   }
@@ -374,9 +375,9 @@ export class AdapterEverest implements LogistiqueProvider {
     if (!data) return [];
     const rows = data as unknown as Array<{
       rang: number;
-      tournees: TourneeRow[];
+      tournees: TourneeRow;
     }>;
-    return rows.map((d) => ({ ...d.tournees[0]!, rang: d.rang }));
+    return rows.map((d) => ({ ...d.tournees, rang: d.rang }));
   }
 
   private async upsertTournee(

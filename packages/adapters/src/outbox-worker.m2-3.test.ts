@@ -19,6 +19,12 @@ interface WorkerMockOpts {
   prestataireLogistiqueId: string | null;
   eventType?: 'collecte.creee' | 'collecte.modifiee' | 'collecte.annulee';
   lieuOverrides?: Record<string, unknown> | null;
+  /** Valeurs du lieu OFFICIEL (référentiel), avant application des overrides. */
+  lieuOfficiel?: Record<string, unknown>;
+  /** `collectes.informations_supplementaires` — saisie du traiteur. */
+  infosSuppl?: string | null;
+  /** `evenements.contact_secours_nom` — porté par l'événement parent. */
+  contactSecoursNom?: string | null;
 }
 
 const COLLECTE_ID = 'col-ag-dispatch-001';
@@ -51,7 +57,7 @@ function makeWorkerSupabase(opts: WorkerMockOpts) {
     nb_camions_demande: 1,
     statut_tms: 'non_envoye',
     controle_acces_requis: false,
-    informations_supplementaires: null,
+    informations_supplementaires: opts.infosSuppl ?? null,
     notes_internes: null,
     prestataire_logistique_id: opts.prestataireLogistiqueId,
     lieu_overrides: opts.lieuOverrides ?? null,
@@ -59,7 +65,7 @@ function makeWorkerSupabase(opts: WorkerMockOpts) {
       {
         contact_principal_nom: 'Alice',
         contact_principal_telephone: '+33600000001',
-        contact_secours_nom: null,
+        contact_secours_nom: opts.contactSecoursNom ?? null,
         contact_secours_telephone: null,
         lieux: [
           {
@@ -73,6 +79,10 @@ function makeWorkerSupabase(opts: WorkerMockOpts) {
             acces_details: null,
             type_vehicule_max: 'velo_cargo',
             contraintes_horaires: null,
+            stationnement: null,
+            acces_office: null,
+            flux_autorises: null,
+            ...(opts.lieuOfficiel ?? {}),
           },
         ],
       },
@@ -86,9 +96,19 @@ function makeWorkerSupabase(opts: WorkerMockOpts) {
     prestataire_logistique_id: opts.prestataireLogistiqueId,
   };
 
+  // Trace des `select(...)` par table : seul moyen de verrouiller que les
+  // colonnes lues par la composition sont bien DEMANDÉES à PostgREST (un mock ne
+  // filtre pas sur le select — une colonne oubliée passerait `undefined` en
+  // silence, exactement l'étage 1 du bug M1.5).
+  const selects: Record<string, string[]> = {};
+
   const makeTableQuery = (table: string) => {
     const q: Record<string, unknown> = {};
-    q['select'] = vi.fn(() => q);
+    q['select'] = vi.fn((fields?: string) => {
+      if (!selects[table]) selects[table] = [];
+      selects[table]!.push(fields ?? '');
+      return q;
+    });
     q['eq'] = vi.fn(() => q);
     q['single'] = vi.fn(async () => {
       if (table === 'collectes') return { data: collecteRow, error: null };
@@ -113,9 +133,12 @@ function makeWorkerSupabase(opts: WorkerMockOpts) {
   const supabase = {
     rpc,
     from: vi.fn((table: string) => makeTableQuery(table)),
+    _selects: selects,
   };
 
-  return supabase as unknown as import('@supabase/supabase-js').SupabaseClient;
+  return supabase as unknown as import('@supabase/supabase-js').SupabaseClient & {
+    _selects: Record<string, string[]>;
+  };
 }
 
 // ─── Tests routing par type_tms ───────────────────────────────────────────────
@@ -284,6 +307,13 @@ describe('M2.3 / worker outbox — routing dispatch AG par type_tms (C10)', () =
     ['acces_details', 'Sonner interphone Cuisine'],
     ['contraintes_horaires', 'Livraison après 22h uniquement'],
     ['type_vehicule_max', '20m3'],
+    // Ajoutés 2026-09-15 (arbitrage Val, agrégation dans le champ libre) : ces
+    // 3 champs étaient éditables au formulaire mais absents de l'interface
+    // `Lieu`, donc hors de portée de l'allowlist — l'intersection
+    // `LieuEdits` ∩ `Lieu` est désormais la parité, 9 champs.
+    ['stationnement', 'tres_difficile'],
+    ['acces_office', 'difficile'],
+    ['flux_autorises', ['biodéchets', 'carton']],
   ])('le champ surchargeable %s est bien transmis', async (champ, valeur) => {
     const everestSpy = vi
       .spyOn(AdapterEverest.prototype, 'dispatchCollecte')
@@ -292,14 +322,14 @@ describe('M2.3 / worker outbox — routing dispatch AG par type_tms (C10)', () =
     const supabase = makeWorkerSupabase({
       typeTms: 'a_toutes',
       prestataireLogistiqueId: PRESTA_ID,
-      lieuOverrides: { [champ]: valeur },
+      lieuOverrides: { [champ as string]: valeur },
     });
     await runOutboxWorker(supabase);
 
     const collecte = everestSpy.mock.calls[0]![0] as unknown as {
       lieu: Record<string, unknown>;
     };
-    expect(collecte.lieu[champ]).toBe(valeur);
+    expect(collecte.lieu[champ as string]).toEqual(valeur);
   });
 
   // Défense en profondeur : une lecture nue `overrides[key]` traverse la chaîne
@@ -452,5 +482,232 @@ describe('M2.3 / worker outbox — routing dispatch AG par type_tms (C10)', () =
       lieu: { adresse_acces: string };
     };
     expect(collecte.lieu.adresse_acces).toBe('1 rue Test');
+  });
+});
+
+// ─── Agrégation des infos d'accès dans le canal libre (Val 2026-09-15) ────────
+//
+// Les 6 informations d'accès du lieu n'ont pas de champ natif MTS-1/Everest :
+// elles sont agrégées dans `informations_supplementaires`, seul champ libre
+// routé (`comment` MTS-1 / `notes` Everest). L'agrégation est faite UNE fois
+// dans fetchCollecte — garde-fou 2 : même sémantique pour l'adapter V1 et le TMS
+// V2, et le drift par adapter a déjà été vécu sur `dirty_tms` (#196). Ces tests
+// verrouillent donc le caractère PARTAGÉ de la composition, provider par
+// provider ; la présence sur le fil (`comment` / `notes`) est vérifiée dans
+// mts1/adapter.m1-5a.test.ts et everest/adapter.m2-5.test.ts.
+
+const LIEU_ACCES_COMPLET = {
+  acces_details: 'Quai n°2, sonner interphone B',
+  stationnement: 'difficile',
+  contraintes_horaires: 'Livraison avant 9h uniquement',
+  acces_office: 'tres_difficile',
+  type_vehicule_max: 'camionnette',
+  flux_autorises: ['biodéchets', 'carton'],
+};
+
+// Ce que le chauffeur doit lire pour chacun des 6 champs.
+const ATTENDU_PAR_CHAMP: Array<[string, string]> = [
+  ['acces_details', 'Accès : Quai n°2, sonner interphone B'],
+  ['stationnement', 'Stationnement : difficile'],
+  [
+    'contraintes_horaires',
+    'Contraintes horaires : Livraison avant 9h uniquement',
+  ],
+  ['acces_office', 'Accès office : très difficile'],
+  ['type_vehicule_max', 'Véhicule max : camionnette'],
+  ['flux_autorises', 'Flux acceptés : biodéchets, carton'],
+];
+
+describe('M1.5 / infos d’accès agrégées dans le canal libre — les 2 adapters', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each([
+    ['a_toutes', AdapterEverest] as const,
+    ['mts1', AdapterMts1] as const,
+  ])(
+    'type_tms=%s — les 6 infos d’accès du lieu atteignent l’adapter',
+    async (typeTms, Adapter) => {
+      const spy = vi
+        .spyOn(Adapter.prototype, 'dispatchCollecte')
+        .mockResolvedValue('noop_no_remote');
+
+      const supabase = makeWorkerSupabase({
+        typeTms,
+        prestataireLogistiqueId: PRESTA_ID,
+        lieuOfficiel: LIEU_ACCES_COMPLET,
+      });
+      await runOutboxWorker(supabase);
+
+      const collecte = spy.mock.calls[0]![0] as {
+        informations_supplementaires: string | null;
+      };
+      for (const [champ, ligne] of ATTENDU_PAR_CHAMP) {
+        expect(
+          collecte.informations_supplementaires,
+          `champ ${champ} absent du canal libre`,
+        ).toContain(ligne);
+      }
+    },
+  );
+
+  // Le piège exact de #304 : re-fetcher le lieu OFFICIEL au lieu du lieu fusionné
+  // retransmettrait la valeur du référentiel, pas la correction saisie.
+  it('l’agrégat part du lieu FUSIONNÉ, jamais du lieu officiel', async () => {
+    const everestSpy = vi
+      .spyOn(AdapterEverest.prototype, 'dispatchCollecte')
+      .mockResolvedValue('adapter_everest');
+
+    const supabase = makeWorkerSupabase({
+      typeTms: 'a_toutes',
+      prestataireLogistiqueId: PRESTA_ID,
+      lieuOfficiel: { stationnement: 'facile' },
+      lieuOverrides: { stationnement: 'tres_difficile' },
+    });
+    await runOutboxWorker(supabase);
+
+    const collecte = everestSpy.mock.calls[0]![0] as {
+      informations_supplementaires: string | null;
+    };
+    expect(collecte.informations_supplementaires).toContain(
+      'Stationnement : très difficile',
+    );
+    expect(collecte.informations_supplementaires).not.toContain(
+      'Stationnement : facile',
+    );
+  });
+
+  it('la saisie du traiteur est conservée — l’agrégat s’y ajoute', async () => {
+    const everestSpy = vi
+      .spyOn(AdapterEverest.prototype, 'dispatchCollecte')
+      .mockResolvedValue('adapter_everest');
+
+    const supabase = makeWorkerSupabase({
+      typeTms: 'a_toutes',
+      prestataireLogistiqueId: PRESTA_ID,
+      infosSuppl: 'Demander Karim à la plonge',
+      lieuOfficiel: { acces_details: 'Quai n°2' },
+    });
+    await runOutboxWorker(supabase);
+
+    const collecte = everestSpy.mock.calls[0]![0] as {
+      informations_supplementaires: string | null;
+    };
+    expect(collecte.informations_supplementaires).toContain(
+      'Demander Karim à la plonge',
+    );
+    expect(collecte.informations_supplementaires).toContain('Accès : Quai n°2');
+  });
+
+  // Une collecte sans aucune information ne doit pas produire un champ libre
+  // vide (pas de `comment` MTS-1 / `notes` Everest fabriqués de toutes pièces).
+  it('lieu sans info d’accès et sans saisie → champ libre nul', async () => {
+    const everestSpy = vi
+      .spyOn(AdapterEverest.prototype, 'dispatchCollecte')
+      .mockResolvedValue('adapter_everest');
+
+    const supabase = makeWorkerSupabase({
+      typeTms: 'a_toutes',
+      prestataireLogistiqueId: PRESTA_ID,
+      lieuOfficiel: { type_vehicule_max: '' },
+    });
+    await runOutboxWorker(supabase);
+
+    const collecte = everestSpy.mock.calls[0]![0] as {
+      informations_supplementaires: string | null;
+    };
+    expect(collecte.informations_supplementaires).toBeNull();
+  });
+});
+
+// Le nom du contact de secours suit le même chemin que les infos d'accès : ni
+// MTS-1 ni Everest n'ont de champ pour un SECOND contact (MTS-1 = un `contact`
+// unique + `phoneAlternatives` ; Everest = `pickup.contact` = objet unique). Le
+// nom n'était lu par personne alors qu'il était déjà porté jusqu'au worker —
+// c'est le maillon que ces tests verrouillent, provider par provider.
+describe('M1.5 / nom du contact de secours agrégé dans le canal libre', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each([
+    ['a_toutes', AdapterEverest] as const,
+    ['mts1', AdapterMts1] as const,
+  ])(
+    'type_tms=%s — le nom du secours atteint l’adapter',
+    async (typeTms, Adapter) => {
+      const spy = vi
+        .spyOn(Adapter.prototype, 'dispatchCollecte')
+        .mockResolvedValue('noop_no_remote');
+
+      const supabase = makeWorkerSupabase({
+        typeTms,
+        prestataireLogistiqueId: PRESTA_ID,
+        contactSecoursNom: 'Bruno Secours',
+      });
+      await runOutboxWorker(supabase);
+
+      const collecte = spy.mock.calls[0]![0] as {
+        informations_supplementaires: string | null;
+        contact_secours_nom: string | null;
+      };
+      expect(collecte.informations_supplementaires).toContain(
+        'Contact de secours : Bruno Secours',
+      );
+      // Le champ structuré reste porté tel quel (il alimente déjà E1/§08 côté V2).
+      expect(collecte.contact_secours_nom).toBe('Bruno Secours');
+    },
+  );
+
+  it('collecte sans contact de secours → pas de ligne fabriquée', async () => {
+    const spy = vi
+      .spyOn(AdapterEverest.prototype, 'dispatchCollecte')
+      .mockResolvedValue('adapter_everest');
+
+    const supabase = makeWorkerSupabase({
+      typeTms: 'a_toutes',
+      prestataireLogistiqueId: PRESTA_ID,
+      lieuOfficiel: { acces_details: 'Quai n°2' },
+    });
+    await runOutboxWorker(supabase);
+
+    const collecte = spy.mock.calls[0]![0] as {
+      informations_supplementaires: string | null;
+    };
+    expect(collecte.informations_supplementaires).not.toContain(
+      'Contact de secours',
+    );
+    // …sans rien retirer aux autres lignes.
+    expect(collecte.informations_supplementaires).toContain('Accès : Quai n°2');
+  });
+});
+
+// Étage 1 du bug M1.5 : `stationnement`, `acces_office` et `flux_autorises`
+// n'étaient pas lus par fetchCollecte — ils n'arrivaient même pas au worker. Une
+// colonne retirée du `select` ne casse rien de visible (PostgREST renvoie la
+// ligne sans elle, la composition lit `undefined` et omet la ligne), donc aucun
+// test de comportement ne l'attraperait : ce cliquet lit le `select` lui-même.
+describe('M1.5 / fetchCollecte demande bien les colonnes d’accès du lieu', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each([
+    'acces_details',
+    'contraintes_horaires',
+    'type_vehicule_max',
+    'stationnement',
+    'acces_office',
+    'flux_autorises',
+  ])('la colonne %s est dans le select de collectes', async (colonne) => {
+    vi.spyOn(AdapterEverest.prototype, 'dispatchCollecte').mockResolvedValue(
+      'adapter_everest',
+    );
+
+    const supabase = makeWorkerSupabase({
+      typeTms: 'a_toutes',
+      prestataireLogistiqueId: PRESTA_ID,
+    });
+    await runOutboxWorker(supabase);
+
+    const selects = (
+      supabase as unknown as { _selects: Record<string, string[]> }
+    )._selects['collectes'];
+    expect(selects?.join(' ')).toContain(colonne);
   });
 });

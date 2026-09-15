@@ -1232,15 +1232,32 @@ export class AdapterMts1 implements LogistiqueProvider {
     };
   }
 
+  // Point A (enlèvement) = adresse du lieu + créneau d'arrivée souhaité, dans le
+  // MÊME objet `place` (`CustomerOrderPlaceInput`). Partagé E1/E2 : le créneau est
+  // l'un des champs qui arment `dirty_tms` (cf. trigger `fn_set_collectes_dirty_tms`,
+  // §04 l.1512 « date, heure, lieu, … ») et la §08 3bis.8 le nomme en tête des champs
+  // re-poussés (« créneau, volume, contact ») — le construire deux fois, c'est laisser
+  // les deux payloads diverger, ce qui vient d'arriver au créneau.
+  private buildPlace(collecte: Collecte): CreateOrderPayload['place'] {
+    const adresse = `${collecte.lieu.adresse_acces}, ${collecte.lieu.code_postal} ${collecte.lieu.ville}`;
+    // MTS-1 `Timeslot.start`/`end` = format **HH:mm**. `heure_collecte` est un
+    // `time` Postgres (« HH:mm:ss ») → on tronque à HH:mm. Point fixe V1 : start=end.
+    const heureHHmm = (collecte.heure_collecte ?? '').slice(0, 5);
+    return {
+      address: { addressSingleLine: adresse },
+      // Créneau d'arrivée souhaité (point fixe V1 : start=end) — porté par le lieu
+      // (CustomerOrderPlaceInput.timeslots, format HH:mm), pas par la commande.
+      ...(heureHHmm
+        ? { timeslots: [{ start: heureHHmm, end: heureHHmm }] }
+        : {}),
+    };
+  }
+
   private buildOrderPayload(
     collecte: Collecte,
     rang: number,
   ): CreateOrderPayload {
     const isZd = collecte.type === 'zero_dechet';
-    const adresse = `${collecte.lieu.adresse_acces}, ${collecte.lieu.code_postal} ${collecte.lieu.ville}`;
-    // MTS-1 `Timeslot.start`/`end` = format **HH:mm**. `heure_collecte` est un
-    // `time` Postgres (« HH:mm:ss ») → on tronque à HH:mm. Point fixe V1 : start=end.
-    const heureHHmm = (collecte.heure_collecte ?? '').slice(0, 5);
 
     const contact = this.buildContact(collecte);
 
@@ -1289,14 +1306,7 @@ export class AdapterMts1 implements LogistiqueProvider {
       serviceTime: 60,
       transportersNeededCount: 1,
       orderCategories: isZd ? ['Déchets'] : ['Alimentaire'],
-      place: {
-        address: { addressSingleLine: adresse },
-        // Créneau d'arrivée souhaité (point fixe V1 : start=end) — porté par le lieu
-        // (CustomerOrderPlaceInput.timeslots, format HH:mm), pas par la commande.
-        ...(heureHHmm
-          ? { timeslots: [{ start: heureHHmm, end: heureHHmm }] }
-          : {}),
-      },
+      place: this.buildPlace(collecte),
       ...(contact ? { contact } : {}),
       stuffs,
       // BL-P1-PROG-03 : informations_supplementaires → `comment` MTS-1 (§08 l.389),
@@ -1325,22 +1335,49 @@ export class AdapterMts1 implements LogistiqueProvider {
     };
   }
 
-  private buildUpdatePayload(collecte: Collecte): Record<string, unknown> {
-    const adresse = `${collecte.lieu.adresse_acces}, ${collecte.lieu.code_postal} ${collecte.lieu.ville}`;
-    // R22c/BL-P2-10 : PUT /v3/customerOrders = merge partiel MTS-1 (seuls les champs
-    // listés sont mis à jour ; stuffs/pesées/timeslots non listés sont préservés — le
-    // code n'envoyait déjà que place+orderDate en comptant dessus). On repousse le
-    // contact pour qu'une édition de contact d'un événement déjà dispatché (E2
-    // immédiat, §05 l.325) atteigne réellement le prestataire. buildOrderPayload (E1)
-    // et buildUpdatePayload (E2) restent alignés via buildContact() — objet UNIQUE
-    // CustomerOrderContactInput (firstname/lastname/phone). pax : MTS-1 n'a aucun
-    // champ dédié (§08 l.173, push silencieux ignoré) → jamais dans le payload
+  // Type de retour = `Partial<CreateOrderPayload>` et NON `Record<string, unknown>` :
+  // c'est le compilateur qui interdit d'ajouter au payload sortant une clé qui n'existe
+  // pas chez MTS-1 — au premier rang desquelles `collectes.notes_internes`, que le worker
+  // charge et que le type `Collecte` porte jusqu'ici. E1 bénéficiait déjà de cette garde
+  // en étant typé `CreateOrderPayload` ; E2 était le seul payload sortant non typé, donc
+  // le seul où une fuite interne passait typecheck ET tests (relevé reviewer-rls-securite).
+  private buildUpdatePayload(collecte: Collecte): Partial<CreateOrderPayload> {
+    // R22c/BL-P2-10 : PUT /v3/customerOrders = merge partiel MTS-1 — seuls les champs
+    // de PREMIER NIVEAU listés ici sont touchés (`stuffs`, pesées, statut : absents du
+    // payload, donc préservés). ⚠ La profondeur du merge n'est PAS spécifiée : `place`
+    // étant listé, rien ne garantit que MTS-1 fusionne À L'INTÉRIEUR de l'objet. Le
+    // créneau est donc envoyé dans le MÊME `place` que l'adresse — correct dans les
+    // deux hypothèses (merge profond : il est mis à jour ; remplacement de `place` :
+    // il est reposé au lieu d'être effacé). L'omettre n'était sûr que sous la
+    // seconde moitié de l'hypothèse, jamais vérifiée. (À confirmer en DEMO par
+    // read-back, comme l'a été `contact: {}` / `timeslots: null` au POST — relevé
+    // as-built §« Contact et créneau de la commande », 2026-09-04.)
+    //
+    // Le payload E2 doit couvrir TOUT champ qui arme `dirty_tms`
+    // (`fn_set_collectes_dirty_tms` : date, heure, lieu, contrôle d'accès, infos
+    // supplémentaires) — c'est la définition même de « champ propagé au TMS » (§04
+    // l.1512) et la §08 3bis.8 le redit (« re-push des champs modifiés »). Deux des
+    // cinq n'atteignaient pas le fil : le créneau (`heure_collecte`) et le canal
+    // libre (`informations_supplementaires`). `controle_acces_requis` reste le seul
+    // exclu assumé : MTS-1 n'a aucun champ natif (concern V2 TMS via
+    // validate_tournee_controle_acces). Le « volume » que nomme la 3bis.8 n'est pas
+    // repoussé non plus : il vit dans `stuffs`, dont un re-push écraserait les
+    // quantités pesées (divergence tracée, type ambigu).
+    //
+    // buildOrderPayload (E1) et buildUpdatePayload (E2) restent alignés par
+    // CONSTRUCTION via buildPlace()/buildContact(), pas par recopie. pax : MTS-1 n'a
+    // aucun champ dédié (§08 l.173, push silencieux ignoré) → jamais dans le payload
     // sortant V1 ; le signal part dans l'outbox E2, consommé par le TMS V2.
     const contact = this.buildContact(collecte);
     return {
-      place: { address: { addressSingleLine: adresse } },
+      place: this.buildPlace(collecte),
       orderDate: collecte.date_collecte,
       ...(contact ? { contact } : {}),
+      // `?? ''` et non l'omission conditionnelle de E1 : sur une MODIFICATION, un
+      // canal libre vidé par le traiteur doit effacer la consigne chez MTS-1. Omettre
+      // la clé laisserait le chauffeur avec des instructions d'accès périmées — le
+      // cas exact que ce correctif adresse, à l'envers.
+      comment: collecte.informations_supplementaires ?? '',
     };
   }
 }

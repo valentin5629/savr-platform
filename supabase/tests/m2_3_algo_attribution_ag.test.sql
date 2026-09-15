@@ -86,21 +86,33 @@ VALUES
   ('a0000000-0000-0000-0000-000000000040'::uuid, 'Marathon Test', '123456789', '22 Rue Marathon', '75020', 'Paris', 'mts1', true, 'Contact Marathon', 'marathon@test.test', '0600000001', ARRAY['fourgon','poids_lourd'], 48.8616, 2.3722),
   ('a0000000-0000-0000-0000-000000000041'::uuid, 'A Toutes Test', '987654321', '3 Rue Velo', '75011', 'Paris', 'a_toutes', true, 'Contact A Toutes', 'atoutes@test.test', '0600000002', ARRAY['velo_cargo'], 48.8536, 2.3622);
 
--- Prestataire shared pour Marathon (requis pour algo province)
+-- Un prestataire shared PAR transporteur. L'unique partiel
+-- `uniq_transporteur_par_prestataire` interdit d'en partager un : un prestataire
+-- rattaché à la fois à un transporteur `mts1` et à un `a_toutes` entrerait dans
+-- les deux ensembles de résolution des adapters, et un id de mission Everest
+-- repartirait vers MTS-1. Cette fixture posait exactement cet état (un seul
+-- prestataire pour Marathon + A Toutes + Manuel) ; le partage n'était utile à
+-- aucune assertion — seul T21c lit le prestataire, et seulement pour Marathon.
 INSERT INTO shared.prestataires (id, nom, code, type_prestation, mode_integration, siret, statut)
-VALUES ('a0000000-0000-0000-0000-000000000050'::uuid, 'Marathon Test', 'MARATHON_TEST', ARRAY['ag'], 'mts1', '123456789012345', 'actif')
+VALUES
+  ('a0000000-0000-0000-0000-000000000050'::uuid, 'Marathon Test', 'MARATHON_TEST', ARRAY['ag'], 'mts1', '123456789012345', 'actif'),
+  ('a0000000-0000-0000-0000-000000000051'::uuid, 'A Toutes Test', 'ATOUTES_TEST', ARRAY['ag'], 'everest', '987654321012345', 'actif'),
+  ('a0000000-0000-0000-0000-000000000052'::uuid, 'Manuel Test', 'MANUEL_TEST', ARRAY['ag'], 'manuel', '555555555012345', 'actif')
 ON CONFLICT (id) DO NOTHING;
 
 -- R5/BL-P0-08 : pont transporteur → shared.prestataires (V1-only). Permet au
 -- dispatch AG de poser collectes/tournees.prestataire_logistique_id.
 UPDATE plateforme.transporteurs
   SET prestataire_logistique_id = 'a0000000-0000-0000-0000-000000000050'::uuid
-  WHERE id IN ('a0000000-0000-0000-0000-000000000040'::uuid,
-               'a0000000-0000-0000-0000-000000000041'::uuid);
+  WHERE id = 'a0000000-0000-0000-0000-000000000040'::uuid;
+
+UPDATE plateforme.transporteurs
+  SET prestataire_logistique_id = 'a0000000-0000-0000-0000-000000000051'::uuid
+  WHERE id = 'a0000000-0000-0000-0000-000000000041'::uuid;
 
 -- Transporteur type_tms=autre (route provider_manual) avec pont prestataire
 INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, ville, type_tms, actif, contact_nom, contact_email, contact_telephone, types_vehicules, latitude, longitude, prestataire_logistique_id)
-VALUES ('a0000000-0000-0000-0000-000000000043'::uuid, 'Manuel Test', '555555555', '9 Rue Manuel', '75009', 'Paris', 'autre', true, 'Contact Manuel', 'manuel@test.test', '0600000003', ARRAY['fourgon'], 48.8716, 2.3322, 'a0000000-0000-0000-0000-000000000050'::uuid);
+VALUES ('a0000000-0000-0000-0000-000000000043'::uuid, 'Manuel Test', '555555555', '9 Rue Manuel', '75009', 'Paris', 'autre', true, 'Contact Manuel', 'manuel@test.test', '0600000003', ARRAY['fourgon'], 48.8716, 2.3322, 'a0000000-0000-0000-0000-000000000052'::uuid);
 
 -- Mettre les params algo en mode A Toutes disponible pour certains tests
 -- (on les restaurera après)

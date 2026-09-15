@@ -81,6 +81,19 @@ export interface Lieu {
   readonly acces_details?: string | null;
   readonly type_vehicule_max: string;
   readonly contraintes_horaires?: string | null;
+  // Informations d'accès éditables par collecte (`LieuEdits`, §06.01 §2.a) et
+  // transmises au transporteur — agrégées dans le champ libre par
+  // `composerInformationsSupplementaires` (infos-acces.ts), faute de champ natif
+  // MTS-1/Everest. Sans leur présence ICI, elles ne sont ni fusionnables
+  // (`CHAMPS_LIEU_SURCHARGEABLES` = intersection `LieuEdits` ∩ `Lieu`) ni même
+  // visibles du worker. Typage volontairement large (`string`), comme
+  // `type_vehicule_max` : ce sont des enums DB (`acces_difficulte`) dont les
+  // libellés lisibles sont résolus à la composition, avec repli sur la valeur brute.
+  readonly stationnement?: string | null;
+  readonly acces_office?: string | null;
+  // `lieux.flux_autorises` = `text[]` en base ; saisi au formulaire en liste
+  // séparée par des virgules, stocké en tableau dans l'override.
+  readonly flux_autorises?: readonly string[] | null;
 }
 
 export interface Collecte {

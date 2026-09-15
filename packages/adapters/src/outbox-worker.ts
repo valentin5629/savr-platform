@@ -34,6 +34,7 @@ import {
   getLogistiqueProvider,
 } from './index.js';
 import type { Collecte, ConsumerTag, Lieu, Transporteur } from './index.js';
+import { composerInformationsSupplementaires } from './infos-acces.js';
 import { applyLieuOverrides } from './lieu-overrides.js';
 import type { AdapterMts1 } from './mts1/adapter.js';
 
@@ -77,6 +78,9 @@ interface CollecteRow {
     acces_details: string | null;
     type_vehicule_max: string;
     contraintes_horaires: string | null;
+    stationnement: string | null;
+    acces_office: string | null;
+    flux_autorises: string[] | null;
   };
 }
 
@@ -429,7 +433,7 @@ async function fetchCollecte(
       evenement:evenements!inner(
         contact_principal_nom, contact_principal_telephone,
         contact_secours_nom, contact_secours_telephone,
-        lieux:lieux!lieu_id(id, nom, adresse_acces, code_postal, ville, latitude, longitude, acces_details, type_vehicule_max, contraintes_horaires)
+        lieux:lieux!lieu_id(id, nom, adresse_acces, code_postal, ville, latitude, longitude, acces_details, type_vehicule_max, contraintes_horaires, stationnement, acces_office, flux_autorises)
       )
     `,
     )
@@ -487,7 +491,15 @@ async function fetchCollecte(
     nb_camions_demande: raw.nb_camions_demande,
     statut_tms: raw.statut_tms,
     controle_acces_requis: raw.controle_acces_requis,
-    informations_supplementaires: raw.informations_supplementaires,
+    // Arbitrage Val 2026-09-15 — les 6 informations d'accès du lieu n'ont pas de
+    // champ natif MTS-1/Everest : elles sont agrégées dans le seul canal libre
+    // routé (`comment` / `notes`). Composé ICI, donc une seule fois pour les deux
+    // adapters (garde-fou 2), et à partir du lieu FUSIONNÉ — le lieu officiel
+    // retransmettrait précisément l'erreur corrigée par #304.
+    informations_supplementaires: composerInformationsSupplementaires(
+      lieu,
+      raw.informations_supplementaires,
+    ),
     notes_internes: raw.notes_internes,
     prestataire_logistique_id: raw.prestataire_logistique_id,
     association_id_point_collecte_mts1: idPointCollecteMts1,

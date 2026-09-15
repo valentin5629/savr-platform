@@ -15,6 +15,7 @@ import {
   applyLieuOverrides,
   lieuChampSurcharge,
   LONGUEUR_MAX_SURCHARGE_LUE,
+  MAX_ENTREES_SURCHARGE_LUE,
 } from './lieu-overrides.js';
 
 const LIEU = {
@@ -119,6 +120,146 @@ describe('lieuChampSurcharge — seule une chaîne non vide est une surcharge', 
     expect(lieuChampSurcharge({}, 'ville')).toBe(false);
     expect(lieuChampSurcharge({ ville: null }, 'ville')).toBe(false);
     expect(lieuChampSurcharge({ ville: undefined }, 'ville')).toBe(false);
+  });
+});
+
+// `flux_autorises` est la seule entrée de l'allowlist dont la colonne est un
+// `text[]`. La garde de type ci-dessus, écrite pour des champs textuels, la
+// rejetait en bloc : conflit sémantique entre #312 (garde « chaîne ») et
+// l'élargissement de l'allowlist à 9 champs — chacun correct isolément, les deux
+// ensemble rendant IMPOSSIBLE tout override de ce champ. Le formulaire le
+// propose, #308 le valide et le stocke en tableau, et rien n'arrivait au
+// transporteur.
+describe('lieuChampSurcharge — champ liste (flux_autorises, colonne text[])', () => {
+  it('accepte un tableau de chaînes et le transmet', () => {
+    expect(
+      lieuChampSurcharge(
+        { flux_autorises: ['biodéchets', 'carton'] },
+        'flux_autorises',
+      ),
+    ).toBe(true);
+
+    expect(
+      applyLieuOverrides(
+        { ...LIEU, flux_autorises: ['verre'] },
+        { flux_autorises: ['biodéchets', 'carton'] },
+      ).flux_autorises,
+    ).toEqual(['biodéchets', 'carton']);
+  });
+
+  it('refuse une CHAÎNE sur un champ liste — la forme dépend du champ', () => {
+    // Le symétrique du test suivant : c'est le CHAMP qui décide de la forme
+    // attendue, jamais ce que la donnée se trouve porter.
+    expect(
+      lieuChampSurcharge({ flux_autorises: 'biodéchets' }, 'flux_autorises'),
+    ).toBe(false);
+    expect(
+      applyLieuOverrides(
+        { ...LIEU, flux_autorises: ['verre'] },
+        { flux_autorises: 'biodéchets, carton' },
+      ).flux_autorises,
+    ).toEqual(['verre']);
+  });
+
+  it('refuse un TABLEAU sur un champ texte — la garde #312 tient toujours', () => {
+    expect(lieuChampSurcharge({ ville: ['a', 'b'] }, 'ville')).toBe(false);
+    expect(applyLieuOverrides(LIEU, { ville: ['a', 'b'] }).ville).toBe('Paris');
+  });
+
+  it('une seule entrée invalide disqualifie la liste entière', () => {
+    // Transmettre une liste amputée serait pire qu'un repli sur le référentiel :
+    // le chauffeur ne peut pas deviner qu'il en manque un.
+    for (const invalide of [
+      ['biodéchets', 42],
+      ['biodéchets', null],
+      ['biodéchets', { a: 1 }],
+      ['biodéchets', '   '],
+      ['biodéchets', 'x'.repeat(LONGUEUR_MAX_SURCHARGE_LUE + 1)],
+    ]) {
+      expect(
+        lieuChampSurcharge({ flux_autorises: invalide }, 'flux_autorises'),
+      ).toBe(false);
+    }
+
+    expect(
+      applyLieuOverrides(
+        { ...LIEU, flux_autorises: ['verre'] },
+        { flux_autorises: ['biodéchets', 42] },
+      ).flux_autorises,
+    ).toEqual(['verre']);
+  });
+
+  // Relevé en revue sécurité : le chemin PostgREST direct (GRANT UPDATE
+  // `authenticated`, dette #308) laissait écrire un tableau de 10 000 entrées,
+  // relu tel quel par `fetchCollecte`. Rien de démesuré n'atteignait le
+  // transporteur (le canal libre plafonne à 1000 car.), mais le worker chargeait
+  // le tableau entier.
+  it('refuse une liste démesurée, accepte le plafond pile', () => {
+    const entree = 'biodéchets';
+    const pile = Array.from(
+      { length: MAX_ENTREES_SURCHARGE_LUE },
+      () => entree,
+    );
+
+    expect(lieuChampSurcharge({ flux_autorises: pile }, 'flux_autorises')).toBe(
+      true,
+    );
+    expect(
+      lieuChampSurcharge(
+        { flux_autorises: [...pile, entree] },
+        'flux_autorises',
+      ),
+    ).toBe(false);
+    // La borne d'écriture (#308, 20 items) est plus basse : aucune valeur passée
+    // par une route ne touche ce plafond.
+    expect(MAX_ENTREES_SURCHARGE_LUE).toBeGreaterThan(20);
+  });
+
+  // `{ ...lieu }` est superficiel : sans copie, la fusion rendait le tableau de
+  // l'override PAR RÉFÉRENCE, ce que ce module promet de ne jamais faire (la
+  // boucle E5 partage le lieu entre collectes, donc entre organisations).
+  it('le tableau fusionné est une copie, jamais la référence de l’override', () => {
+    const overrides = { flux_autorises: ['biodéchets', 'carton'] };
+    const fusionne = applyLieuOverrides(
+      { ...LIEU, flux_autorises: ['verre'] },
+      overrides,
+    );
+
+    expect(fusionne.flux_autorises).toEqual(['biodéchets', 'carton']);
+    expect(fusionne.flux_autorises).not.toBe(overrides.flux_autorises);
+
+    (fusionne.flux_autorises as string[]).push('polluant');
+    expect(overrides.flux_autorises).toEqual(['biodéchets', 'carton']);
+  });
+
+  // Le cas SANS override est le plus fréquent dans la boucle E5, où un même lieu
+  // sert toutes ses collectes : sans copie, `merged.flux_autorises` EST le
+  // tableau du lieu partagé, et une mutation sur une collecte contaminerait
+  // celles des autres organisations.
+  it('le tableau du lieu officiel est copié même sans override', () => {
+    const lieuPartage = { ...LIEU, flux_autorises: ['verre'] };
+
+    const sansOverride = applyLieuOverrides(lieuPartage, null);
+    const autreCollecte = applyLieuOverrides(lieuPartage, { ville: 'Lyon' });
+
+    expect(sansOverride.flux_autorises).not.toBe(lieuPartage.flux_autorises);
+    expect(autreCollecte.flux_autorises).not.toBe(lieuPartage.flux_autorises);
+
+    (sansOverride.flux_autorises as string[]).push('polluant');
+    expect(lieuPartage.flux_autorises).toEqual(['verre']);
+    expect(autreCollecte.flux_autorises).toEqual(['verre']);
+  });
+
+  it('un tableau vide vaut « non renseigné », pas « efface »', () => {
+    expect(lieuChampSurcharge({ flux_autorises: [] }, 'flux_autorises')).toBe(
+      false,
+    );
+    expect(
+      applyLieuOverrides(
+        { ...LIEU, flux_autorises: ['verre'] },
+        { flux_autorises: [] },
+      ).flux_autorises,
+    ).toEqual(['verre']);
   });
 });
 

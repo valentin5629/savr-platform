@@ -27,15 +27,19 @@
  *
  * Périmètre exact : l'INTERSECTION des champs que le formulaire offre à l'édition
  * par collecte (`LieuEdits`, lieu-champs-editables.tsx) et de ceux que porte
- * l'interface `Lieu` des adapters. Ce n'est donc PAS la parité avec le formulaire :
- * `stationnement`, `acces_office` et `flux_autorises` y sont éditables mais
- * n'existent pas dans `Lieu`, ils ne peuvent pas être fusionnés ici — écart connu,
- * en attente d'arbitrage sur le périmètre des API MTS-1/Everest.
+ * l'interface `Lieu` des adapters. Depuis l'arbitrage Val 2026-09-15 (agrégation
+ * des infos d'accès dans le champ libre), `Lieu` porte aussi `stationnement`,
+ * `acces_office` et `flux_autorises` : l'intersection est donc désormais la
+ * PARITÉ avec `LieuEdits`, les 9 champs éditables par collecte. Élargir l'un sans
+ * l'autre ne sert à rien — un champ absent de `Lieu` n'est pas surchargeable, un
+ * champ absent d'ici n'est pas fusionné.
  *
- * La liste est volontairement plus large que ce que les adapters V1 transmettent
- * réellement (seuls `adresse_acces`, `code_postal` et `ville` atteignent le wire) :
- * le garde-fou 2 exige la même sémantique de fusion pour l'adapter V1 et le TMS V2,
- * et un miroir des consommateurs actuels garantirait le drift au premier ajouté.
+ * La liste reste plus large que ce que les adapters V1 portent dans un champ
+ * NATIF (seuls `adresse_acces`, `code_postal` et `ville` composent l'adresse sur
+ * le fil ; les 6 informations d'accès passent par le champ libre, cf.
+ * infos-acces.ts) : le garde-fou 2 exige la même sémantique de fusion pour
+ * l'adapter V1 et le TMS V2, et un miroir des consommateurs actuels garantirait
+ * le drift au premier ajouté.
  *
  * ⚠ Aucun lien structurel ne maintient cette liste synchronisée avec `LieuEdits`
  * (packages distincts). Tout champ ajouté au formulaire ET à `Lieu` doit être
@@ -48,10 +52,36 @@ export const CHAMPS_LIEU_SURCHARGEABLES = [
   'acces_details',
   'contraintes_horaires',
   'type_vehicule_max',
+  'stationnement',
+  'acces_office',
+  'flux_autorises',
 ] as const;
 
 export type ChampLieuSurchargeable =
   (typeof CHAMPS_LIEU_SURCHARGEABLES)[number];
+
+/**
+ * Champs dont la colonne `plateforme.lieux` est un `text[]`, donc dont l'override
+ * est un TABLEAU de chaînes et non une chaîne.
+ *
+ * Ensemble explicite plutôt qu'un `Array.isArray(value)` opportuniste : la forme
+ * attendue doit dépendre du CHAMP, jamais de ce que la donnée se trouve porter —
+ * sinon un tableau écrit par erreur sur `ville` redeviendrait une surcharge
+ * valide et repartirait en « a,b » dans l'adresse (le cas que #312 ferme).
+ */
+const CHAMPS_LIEU_LISTE = new Set<ChampLieuSurchargeable>(['flux_autorises']);
+
+/**
+ * Plafond de CARDINALITÉ d'une valeur liste, à la lecture.
+ *
+ * Même raison d'être que `LONGUEUR_MAX_SURCHARGE_LUE` et même dimensionnement :
+ * il vaut plus que la borne d'écriture (#308 : 20 items), si bien qu'aucune
+ * valeur passée par une route ne le touche jamais. Sans lui, un tableau de
+ * 10 000 entrées serait relu tel quel par `fetchCollecte` : rien de démesuré
+ * n'atteignait le transporteur (le canal libre plafonne à 1000 car.), mais le
+ * worker chargeait le tableau entier en mémoire.
+ */
+export const MAX_ENTREES_SURCHARGE_LUE = 50;
 
 /**
  * Champs qui composent l'adresse réellement poussée au transporteur (E1 comme E5).
@@ -73,13 +103,16 @@ export const CHAMPS_ADRESSE_TMS = [
  * dériveraient au premier ajustement. Il vaut la PLUS GRANDE d'entre elles, si
  * bien qu'aucune valeur passée par une route ne le touche jamais.
  *
- * Il n'existe que pour le chemin qui échappe aux routes : `authenticated` porte
- * un `GRANT UPDATE` sur `plateforme.collectes` et la policy `col_update_client`
- * laisse un traiteur modifier sa propre collecte non terminale en PostgREST
- * direct — et `fetchCollecte` relit `lieu_overrides` sur la ligne au moment de
- * consommer l'event, pas dans le payload. Fermer ce GRANT relève de l'arbitrage
- * Val (CLAUDE.md §12 pt 2bis, cf. « Reste ouvert » de #308) ; en attendant, une
- * valeur démesurée écrite par là n'atteint pas le transporteur.
+ * Ce plafond, comme `MAX_ENTREES_SURCHARGE_LUE`, visait d'abord le chemin qui
+ * échappait aux routes : `authenticated` portait un `GRANT UPDATE` table-level
+ * sur `plateforme.collectes`, et `fetchCollecte` relit `lieu_overrides` sur la
+ * LIGNE au moment de consommer l'event, pas dans le payload de l'event.
+ * **#318 a fermé ce chemin** (REVOKE UPDATE + INSERT sans re-GRANT) et posé un
+ * CHECK en base miroir de l'allowlist d'écriture. Les deux plafonds restent
+ * néanmoins la dernière ligne : ils couvrent les lignes écrites AVANT ces
+ * bornes, tout futur ré-octroi du privilège, et les écrivains qui ne passent
+ * pas par les routes (migrations, seed, import Bubble, service_role). Une garde
+ * de fusion ne coûte rien et ne dépend d'aucun état de la base.
  */
 export const LONGUEUR_MAX_SURCHARGE_LUE = 1000;
 
@@ -111,10 +144,11 @@ export function lieuChampSurcharge(
   // injection (le corps part en JSON.stringify), mais un camion envoyé nulle
   // part, de nuit.
   //
-  // #308 refuse désormais ces valeurs à l'ÉCRITURE sur les deux routes ; cette
-  // garde-ci tient le chemin qui les contourne (PostgREST direct sous le GRANT
-  // UPDATE d'`authenticated`, cf. LONGUEUR_MAX_SURCHARGE_LUE), et vaut règle de
-  // fusion pour tout futur appelant.
+  // #308 refuse désormais ces valeurs à l'ÉCRITURE sur les deux routes, et #318
+  // en base (CHECK + REVOKE UPDATE/INSERT à `authenticated`). Cette garde-ci
+  // reste la dernière ligne — lignes antérieures à ces bornes, écrivains hors
+  // routes, futur ré-octroi du privilège (cf. LONGUEUR_MAX_SURCHARGE_LUE) — et
+  // vaut règle de fusion pour tout futur appelant.
   //
   // Une valeur invalide n'est PAS une surcharge : la fusion retombe sur le lieu
   // officiel — une adresse valide vaut mieux qu'un artefact de coercition. Et
@@ -131,6 +165,36 @@ export function lieuChampSurcharge(
   // et comme la normalisation que #308 applique déjà aux trois selects. Sans
   // effet observable en V1 (ni `acces_details` ni `contraintes_horaires` n'est
   // lu par un adapter), mais la sémantique vaut pour la fusion V2.
+  // `flux_autorises` est une LISTE, pas une chaîne : la colonne `lieux` est un
+  // `text[]` et la validation d'entrée (#308, `liste_texte` 20 items × 64 car.)
+  // la stocke en tableau. Lui appliquer la règle « chaîne » ci-dessous écartait
+  // silencieusement TOUT override légitime de ce champ — saisi, stocké, audité,
+  // et jamais transmis, très exactement le défaut que l'agrégation du canal
+  // libre répare. Conflit sémantique révélé au merge de #312 (garde de type) et
+  // de l'élargissement de l'allowlist à 9 champs : les deux sont corrects pris
+  // séparément.
+  if (CHAMPS_LIEU_LISTE.has(champ)) {
+    // Tableau vide = « non renseigné », jamais « efface pour cette collecte » —
+    // même sémantique que la chaîne vide juste en dessous. Une seule entrée
+    // invalide disqualifie l'override entier : transmettre une liste amputée
+    // serait pire qu'un repli sur le référentiel, le chauffeur ne pouvant pas
+    // deviner qu'il en manque.
+    return (
+      Array.isArray(value) &&
+      value.length > 0 &&
+      value.length <= MAX_ENTREES_SURCHARGE_LUE &&
+      value.every(surchargeTexteValide)
+    );
+  }
+
+  return surchargeTexteValide(value);
+}
+
+/**
+ * Règle de validité d'une valeur TEXTUELLE surchargée — extraite pour être
+ * appliquée telle quelle à chaque entrée d'un champ liste.
+ */
+function surchargeTexteValide(value: unknown): boolean {
   return (
     typeof value === 'string' &&
     value.trim() !== '' &&
@@ -153,10 +217,33 @@ export function applyLieuOverrides<T extends object>(
   // partagé pour toutes les collectes de la boucle E5 — donc potentiellement
   // entre organisations. Le `{ ...lieu }` inconditionnel supprime la classe.
   const merged: T = { ...lieu };
+
+  // `{ ...lieu }` est SUPERFICIEL : une valeur tableau du lieu OFFICIEL reste
+  // partagée avec l'appelant, et donc — dans la boucle E5, où un même lieu sert
+  // toutes ses collectes — entre organisations. La copie de la valeur surchargée
+  // plus bas ne couvre que les collectes QUI surchargent ; le cas le plus
+  // fréquent est justement l'autre. On copie donc les champs liste d'entrée de
+  // jeu, pour que la promesse « jamais l'entrée par référence » vaille des deux
+  // côtés, override ou pas.
+  for (const champ of CHAMPS_LIEU_LISTE) {
+    const officielle = (merged as unknown as Record<string, unknown>)[champ];
+    if (Array.isArray(officielle)) {
+      (merged as unknown as Record<string, unknown>)[champ] = [...officielle];
+    }
+  }
+
   if (!overrides) return merged;
   for (const champ of CHAMPS_LIEU_SURCHARGEABLES) {
     if (!lieuChampSurcharge(overrides, champ)) continue;
-    (merged as unknown as Record<string, unknown>)[champ] = overrides[champ];
+    // Copie du TABLEAU, pas sa référence — même raison que ci-dessus, côté
+    // override cette fois. Les 8 autres champs sont des chaînes, immuables : le
+    // cas n'existait pas avant l'entrée d'un champ liste dans l'allowlist.
+    const valeur = overrides[champ];
+    (merged as unknown as Record<string, unknown>)[champ] = Array.isArray(
+      valeur,
+    )
+      ? [...valeur]
+      : valeur;
   }
   return merged;
 }

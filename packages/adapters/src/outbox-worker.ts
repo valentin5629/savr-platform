@@ -477,9 +477,13 @@ async function fetchCollecte(
     // routé (`comment` / `notes`). Composé ICI, donc une seule fois pour les deux
     // adapters (garde-fou 2), et à partir du lieu FUSIONNÉ — le lieu officiel
     // retransmettrait précisément l'erreur corrigée par #304.
+    // Le nom du contact de secours y est joint (arbitrage Val 2026-09-14) : son
+    // téléphone part nativement (`phoneAlternatives` MTS-1), son nom n'a aucun
+    // champ d'accueil chez MTS-1 comme chez Everest.
     informations_supplementaires: composerInformationsSupplementaires(
       lieu,
       raw.informations_supplementaires,
+      evt.contact_secours_nom,
     ),
     notes_internes: raw.notes_internes,
     prestataire_logistique_id: raw.prestataire_logistique_id,

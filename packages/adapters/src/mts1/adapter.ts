@@ -1094,15 +1094,20 @@ export class AdapterMts1 implements LogistiqueProvider {
     return `${collecte.id}-${rang}`;
   }
 
-  // Contacts propagés au TMS : principal (toujours) + secours (si nom ET téléphone).
+  // Contacts propagés au TMS : principal (toujours) + téléphone du secours (dès
+  // qu'il existe, indépendamment du nom).
   // Partagé par buildOrderPayload (E1) ET buildUpdatePayload (E2) — R22c/BL-P2-10 :
   // les deux DOIVENT rester alignés, sinon une édition de contact post-dispatch ne
   // remonte jamais au prestataire (buildUpdatePayload ne poussait que place+orderDate).
   // Contact terrain → CustomerOrderContactInput (objet UNIQUE). MTS-1 n'expose
   // qu'UN `contact` sur la commande : on y met le contact PRINCIPAL, et le
-  // téléphone du contact de SECOURS va en `phoneAlternatives` (le nom du secours
-  // n'a pas de champ dédié — divergence tracée). On ne dispose que d'un `nom`
-  // complet → 1er mot = firstname, reste = lastname.
+  // téléphone du contact de SECOURS va en `phoneAlternatives`. Le NOM du secours
+  // n'a pas de champ dédié → il est concaténé au `comment` de la commande
+  // (arbitrage Val 2026-09-14, §08 l.393-397 : « sans quoi le chauffeur a un
+  // numéro de secours sans savoir qui appeler »). Cette concaténation a lieu en
+  // AMONT, dans `composerInformationsSupplementaires` (fetchCollecte), donc pour
+  // les DEUX adapters — garde-fou 2 : ne pas la refaire ici. On ne dispose que
+  // d'un `nom` complet → 1er mot = firstname, reste = lastname.
   private buildContact(
     collecte: Collecte,
   ): CreateOrderPayload['contact'] | undefined {
@@ -1191,7 +1196,10 @@ export class AdapterMts1 implements LogistiqueProvider {
       stuffs,
       // BL-P1-PROG-03 : informations_supplementaires → `comment` MTS-1 (§08 l.389),
       // pour que les instructions logistiques du programmeur atteignent le prestataire
-      // (M01/M03/M05). controle_acces_requis n'a pas de champ natif MTS-1 (concern V2 TMS
+      // (M01/M03/M05). Le champ porte l'agrégat composé par fetchCollecte : saisie du
+      // traiteur + nom du contact de secours + informations d'accès du lieu — §08 l.397
+      // « comment (informations_supplementaires + nom du contact de secours) ».
+      // controle_acces_requis n'a pas de champ natif MTS-1 (concern V2 TMS
       // via validate_tournee_controle_acces) → hors payload sortant V1.
       ...(collecte.informations_supplementaires
         ? { comment: collecte.informations_supplementaires }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 export async function GET(
   req: NextRequest,
@@ -19,7 +20,7 @@ export async function GET(
     .order('domaine');
 
   if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error, 'admin.organisations.domaines_email.list');
 
   return NextResponse.json({ data: data ?? [] });
 }

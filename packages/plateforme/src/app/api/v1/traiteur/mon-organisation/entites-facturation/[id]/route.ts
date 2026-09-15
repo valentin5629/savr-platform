@@ -7,6 +7,7 @@ import {
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { verifySiret, isValidSiretFormat } from '@savr/shared/src/api/siret.js';
 import { enqueueSiretRevalidation } from '@savr/shared/src/siret/revalidation.js';
+import { writeError } from '@/lib/api-helpers.js';
 
 // CDC §06.04 §6 (l.661) — modification / suppression d'une entité de facturation
 // par le MANAGER (own-org, RLS ef_manager_write). Un changement de SIRET relance
@@ -111,7 +112,10 @@ export async function PATCH(
     .maybeSingle();
 
   if (error)
-    return NextResponse.json({ error: error.message }, { status: 422 });
+    return writeError(
+      error,
+      'traiteur.mon_organisation.entites_facturation.update',
+    );
   if (!data)
     return NextResponse.json(
       { error: 'Entité non trouvée ou hors de votre organisation' },
@@ -165,7 +169,10 @@ export async function DELETE(
     .maybeSingle();
 
   if (error)
-    return NextResponse.json({ error: error.message }, { status: 422 });
+    return writeError(
+      error,
+      'traiteur.mon_organisation.entites_facturation.delete',
+    );
   if (!data)
     return NextResponse.json(
       { error: 'Entité non trouvée ou hors de votre organisation' },

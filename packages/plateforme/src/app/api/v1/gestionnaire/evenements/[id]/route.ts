@@ -5,6 +5,7 @@ import {
   type ClientRole,
 } from '@/lib/api-auth.js';
 import { statutCollecteDisplay } from '@/lib/statut-collecte-labels';
+import { serverError } from '@/lib/api-helpers.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
@@ -48,8 +49,7 @@ export async function GET(
     .eq('id', id)
     .maybeSingle();
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'gestionnaire.evenements.get');
   if (!evt)
     return NextResponse.json(
       { error: 'Événement non trouvé' },

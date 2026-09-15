@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
-import { sanitizeOrTerm } from '@/lib/api-helpers.js';
+import { sanitizeOrTerm, serverError } from '@/lib/api-helpers.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -32,8 +32,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     );
 
   const { data, error, count } = await query;
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'admin.lieux.list');
 
   // Enrichissement gestionnaire (organisations_lieux → organisations) en un seul
   // aller-retour batché, pour la colonne « Gestionnaire » de la liste (§06.06 §7).
@@ -135,8 +134,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .select()
     .single();
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'admin.lieux.create');
 
   const lieuId = (data as { id: string }).id;
 

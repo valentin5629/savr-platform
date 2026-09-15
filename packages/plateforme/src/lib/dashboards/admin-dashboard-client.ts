@@ -45,6 +45,7 @@ import {
   type TraiteurKpiRow,
 } from '@/lib/dashboards/cockpit-derive.js';
 import { decalerJour, jourParis } from '@savr/shared/src/temps/index.js';
+import { erreurInterne } from '@/lib/api-helpers.js';
 
 type AdminDbClient = ReturnType<typeof createAdminSupabaseClient>;
 
@@ -212,8 +213,10 @@ export async function loadAdminDashboardClient(
     lireFacteursCo2(),
     lireMethodeCo2(),
   ]);
-  if (histRes.error) throw new Error(histRes.error.message);
-  if (prochRes.error) throw new Error(prochRes.error.message);
+  if (histRes.error)
+    throw erreurInterne(histRes.error, 'admin.dashboard_client.historique');
+  if (prochRes.error)
+    throw erreurInterne(prochRes.error, 'admin.dashboard_client.prochaines');
 
   // Filtre taille (pax) en JS — parité §06.05.
   const tailleOk = (evt: { pax?: number | null } | null): boolean => {

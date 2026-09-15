@@ -15,6 +15,8 @@
  * scope org en défense en profondeur que les routes d'origine.
  */
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { logger } from '@savr/shared/src/logger/index.js';
+import { messageErreur } from '@/lib/api-helpers.js';
 import {
   createSupabaseServerClient,
   type UserAuthContext,
@@ -48,6 +50,22 @@ export class LoaderError extends Error {
     this.name = 'LoaderError';
     this.status = status;
   }
+}
+
+/**
+ * Erreur DB d'un loader → `LoaderError` au message NEUTRE. Les routes dashboards
+ * renvoient `e.message` au client (`{ error: e.message }, { status: e.status }`) :
+ * un `new LoaderError(pgError.message)` y faisait donc fuiter la structure interne
+ * (table/colonne/contrainte), la classe fermée par la PR #276. Le message réel est
+ * loggé côté serveur (`api_route.error`, §07/02) et ne quitte jamais le serveur.
+ * Les `LoaderError` construits avec un libellé métier écrit par nous (ex. le 403
+ * « filtre traiteur_ids interdit ») restent légitimes et inchangés.
+ */
+function loaderDbError(err: unknown, event: string): LoaderError {
+  const message = messageErreur(err);
+  const error_code = (err as { code?: string } | null)?.code ?? 'UNKNOWN';
+  logger.error('api_route.error', { route: event, error_code, error: message });
+  return new LoaderError('Erreur serveur');
 }
 
 // ─── Helpers partagés (bruts PostgREST : relations to-one = objet ou tableau) ──
@@ -257,7 +275,12 @@ export async function loadKpiTraiteur(
   const runFenetre = async (
     f: string | null,
     t: string | null,
-  ): Promise<{ rows: unknown[] | null; error: string | null }> => {
+    // L'erreur PostgREST circule TELLE QUELLE (et non son `.message`) : elle n'est
+    // dénaturée qu'au throw, par `loaderDbError`, seul point qui la logge.
+  ): Promise<{
+    rows: unknown[] | null;
+    error: { message: string; code?: string } | null;
+  }> => {
     let query = supabase
       .from('v_kpi_traiteur')
       .select('*')
@@ -269,7 +292,7 @@ export async function loadKpiTraiteur(
     }
     query = query.order('mois', { ascending: false });
     const { data, error } = await query;
-    return { rows: data, error: error ? error.message : null };
+    return { rows: data, error };
   };
 
   // N-1 (Cockpit R24) : variation vs période précédente équivalente, déclenchée
@@ -287,7 +310,7 @@ export async function loadKpiTraiteur(
     lireMethodeCo2(),
   ]);
 
-  if (union.error) throw new LoaderError(union.error);
+  if (union.error) throw loaderDbError(union.error, 'dashboards.kpi_traiteur');
 
   // tarif_refacture_pax_zd (BL-P3-02) — tooltip formule du KPI Marge. Lecture
   // traiteur autorisée (§04 l.928). Non exposé à l'agence (pas de carte Marge).
@@ -459,7 +482,7 @@ export async function loadEvolution(
     q = q.in('evenements.type_evenement_id', typeEvtIds);
 
   const { data, error } = await q;
-  if (error) throw new LoaderError(error.message);
+  if (error) throw loaderDbError(error, 'dashboards.evolution');
 
   const rows = ((data ?? []) as unknown as EvoCollecteRow[]).filter((c) => {
     const evt = firstOf(c.evenements);
@@ -1064,9 +1087,9 @@ export async function loadBlocs(
 
   const [histRes, prochRes] = await Promise.all([qHist, qProch]);
   const { data: histData, error: histErr } = histRes;
-  if (histErr) throw new LoaderError(histErr.message);
+  if (histErr) throw loaderDbError(histErr, 'dashboards.blocs.hist_err');
   const { data: prochData, error: prochErr } = prochRes;
-  if (prochErr) throw new LoaderError(prochErr.message);
+  if (prochErr) throw loaderDbError(prochErr, 'dashboards.blocs.proch_err');
 
   const histRows = ((histData ?? []) as unknown as BlocsCollecteRow[]).filter(
     (c) => tailleOk(firstOf(c.evenements)),
@@ -1177,7 +1200,7 @@ export async function loadMargeAttente(
   if (to) q = q.lte('date_collecte', to);
 
   const { data, error } = await q;
-  if (error) throw new LoaderError(error.message);
+  if (error) throw loaderDbError(error, 'dashboards.marge_attente');
 
   type FactureLien = {
     factures: { statut: string } | { statut: string }[] | null;
@@ -1223,7 +1246,7 @@ export async function loadPackAg(ctx: LoaderCtx): Promise<PackAgResult> {
     .eq('statut', 'actif')
     .maybeSingle();
 
-  if (error) throw new LoaderError(error.message);
+  if (error) throw loaderDbError(error, 'dashboards.pack_ag');
   if (!data) return { pack_actif: false };
 
   return {
@@ -1296,7 +1319,7 @@ export async function loadBenchmark(
   };
 
   const { data, error } = await supabase.rpc('f_benchmark_kg_pax_zd', args);
-  if (error) throw new LoaderError(error.message);
+  if (error) throw loaderDbError(error, 'dashboards.benchmark');
   return data ?? [];
 }
 
@@ -1333,7 +1356,8 @@ export async function loadBenchmarkFiltres(
   ]);
 
   const firstError = lieux.error ?? traiteurs.error ?? types.error;
-  if (firstError) throw new LoaderError(firstError.message);
+  if (firstError)
+    throw loaderDbError(firstError, 'dashboards.benchmark_filtres');
 
   return {
     lieux: lieux.data ?? [],

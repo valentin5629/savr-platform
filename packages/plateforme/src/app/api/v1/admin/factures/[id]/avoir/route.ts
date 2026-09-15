@@ -52,8 +52,29 @@ async function postHandler(
     });
   }
 
-  const status = result.ok ? 201 : 422;
-  return NextResponse.json(result, { status });
+  // Le résultat n'est JAMAIS renvoyé en bloc : il porte des champs de diagnostic
+  // (`erreur_synchro` = corps d'erreur Pennylane) qui n'ont rien à faire dans une
+  // réponse. On ne rend que les champs du contrat ; `erreur` est déjà neutralisé
+  // à la construction (`messageEchecEcriture` / `messageEchecTiers`).
+  if (result.ok) {
+    return NextResponse.json(
+      {
+        ok: true,
+        avoir_id: result.avoir_id,
+        numero_avoir: result.numero_avoir,
+      },
+      { status: 201 },
+    );
+  }
+  return NextResponse.json(
+    {
+      ok: false,
+      avoir_id: result.avoir_id,
+      numero_avoir: result.numero_avoir,
+      erreur: result.erreur ?? 'Création de l’avoir impossible',
+    },
+    { status: 422 },
+  );
 }
 
 export const POST = withApiTrace(postHandler);

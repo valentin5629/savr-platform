@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -27,8 +28,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (q) query = query.ilike('nom', `%${q}%`);
 
   const { data, error, count } = await query;
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'admin.transporteurs.list');
 
   return NextResponse.json({ data: data ?? [], total: count ?? 0 });
 }
@@ -112,8 +112,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .select()
     .single();
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'admin.transporteurs.create');
 
   await supabase.from('audit_log').insert({
     table_name: 'transporteurs',

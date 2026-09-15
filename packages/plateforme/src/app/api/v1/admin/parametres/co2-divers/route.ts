@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff, requireAdmin } from '@/lib/api-auth.js';
-import { typedRpcError, withApiTrace } from '@/lib/api-helpers.js';
+import { typedRpcError, withApiTrace, serverError } from '@/lib/api-helpers.js';
 import {
   idempotencyKeyOrError,
   findIdempotentReplay,
@@ -21,8 +21,7 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
     .select('id, cle, valeur, unite, description, source_donnee')
     .order('cle');
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'admin.parametres.co2_divers.list');
 
   return NextResponse.json({ data: data ?? [] });
 }

@@ -13,6 +13,7 @@ import {
   sommePoidsFlux,
   unwrap,
 } from './shared.js';
+import { erreurInterne } from '@/lib/api-helpers.js';
 
 // Export Événements — grain ÉVÉNEMENT (1 ligne = 1 événement, données agrégées).
 // Colonnes FIGÉES par §12 §2. Module partagé entre l'endpoint unifié (tous rôles
@@ -193,7 +194,7 @@ export async function buildEvenementsExport(
   if (to) q = q.lte('date_evenement', to);
 
   const { data, error } = await q;
-  if (error) throw new Error(error.message);
+  if (error) throw erreurInterne(error, 'exports.evenements');
 
   const csv = await evenementsToCsv(
     ctx.supabase,

@@ -329,9 +329,10 @@ describe('bornes texte libre — PATCH événement', () => {
   // Ce que chacune des deux propriétés protège, mesuré sur le code d'émission —
   // et NON « une ligne orpheline dans le canal libre », qui ne peut pas se
   // produire : `lignesCanalLibre` (packages/adapters/src/infos-acces.ts) passe le
-  // nom par `nomContact` → `texte()` → `.trim()`, puis filtre
+  // nom par `nomContact` → `valeurLigne` → `texte()` → `.trim()`, puis filtre
   // `valeur !== ''`, si bien que l'aval rattrape déjà `''` comme `'   '` pour le
-  // NOM (motif corrigé en revue sécurité, l'énoncé initial était faux) :
+  // NOM (motif corrigé en revue sécurité, l'énoncé initial était faux ; chaîne
+  // re-vérifiée après #324, qui a inséré `valeurLigne` sans changer ce point) :
   //   · `contact_secours_telephone: '' → null` est le SEUL rempart contre un
   //     numéro blanc parti verbatim sur le fil. `buildContact`, dans l'adapter
   //     camion de `packages/adapters/`, lit la colonne SANS trim et émet

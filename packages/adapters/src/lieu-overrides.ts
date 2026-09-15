@@ -214,15 +214,27 @@ export function applyLieuOverrides<T extends object>(
   // partagé pour toutes les collectes de la boucle E5 — donc potentiellement
   // entre organisations. Le `{ ...lieu }` inconditionnel supprime la classe.
   const merged: T = { ...lieu };
+
+  // `{ ...lieu }` est SUPERFICIEL : une valeur tableau du lieu OFFICIEL reste
+  // partagée avec l'appelant, et donc — dans la boucle E5, où un même lieu sert
+  // toutes ses collectes — entre organisations. La copie de la valeur surchargée
+  // plus bas ne couvre que les collectes QUI surchargent ; le cas le plus
+  // fréquent est justement l'autre. On copie donc les champs liste d'entrée de
+  // jeu, pour que la promesse « jamais l'entrée par référence » vaille des deux
+  // côtés, override ou pas.
+  for (const champ of CHAMPS_LIEU_LISTE) {
+    const officielle = (merged as unknown as Record<string, unknown>)[champ];
+    if (Array.isArray(officielle)) {
+      (merged as unknown as Record<string, unknown>)[champ] = [...officielle];
+    }
+  }
+
   if (!overrides) return merged;
   for (const champ of CHAMPS_LIEU_SURCHARGEABLES) {
     if (!lieuChampSurcharge(overrides, champ)) continue;
-    // Copie du TABLEAU, pas sa référence : `{ ...lieu }` est superficiel, et ce
-    // module promet de ne jamais rendre l'entrée par référence — sinon un
-    // appelant qui muterait `flux_autorises` corromprait le lieu partagé par
-    // toutes les collectes de la boucle E5, donc entre organisations. Les 8
-    // autres champs sont des chaînes, immuables : le cas n'existait pas avant
-    // l'entrée d'un champ liste dans l'allowlist.
+    // Copie du TABLEAU, pas sa référence — même raison que ci-dessus, côté
+    // override cette fois. Les 8 autres champs sont des chaînes, immuables : le
+    // cas n'existait pas avant l'entrée d'un champ liste dans l'allowlist.
     const valeur = overrides[champ];
     (merged as unknown as Record<string, unknown>)[champ] = Array.isArray(
       valeur,

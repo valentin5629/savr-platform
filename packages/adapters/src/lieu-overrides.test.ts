@@ -232,6 +232,24 @@ describe('lieuChampSurcharge — champ liste (flux_autorises, colonne text[])', 
     expect(overrides.flux_autorises).toEqual(['biodéchets', 'carton']);
   });
 
+  // Le cas SANS override est le plus fréquent dans la boucle E5, où un même lieu
+  // sert toutes ses collectes : sans copie, `merged.flux_autorises` EST le
+  // tableau du lieu partagé, et une mutation sur une collecte contaminerait
+  // celles des autres organisations.
+  it('le tableau du lieu officiel est copié même sans override', () => {
+    const lieuPartage = { ...LIEU, flux_autorises: ['verre'] };
+
+    const sansOverride = applyLieuOverrides(lieuPartage, null);
+    const autreCollecte = applyLieuOverrides(lieuPartage, { ville: 'Lyon' });
+
+    expect(sansOverride.flux_autorises).not.toBe(lieuPartage.flux_autorises);
+    expect(autreCollecte.flux_autorises).not.toBe(lieuPartage.flux_autorises);
+
+    (sansOverride.flux_autorises as string[]).push('polluant');
+    expect(lieuPartage.flux_autorises).toEqual(['verre']);
+    expect(autreCollecte.flux_autorises).toEqual(['verre']);
+  });
+
   it('un tableau vide vaut « non renseigné », pas « efface »', () => {
     expect(lieuChampSurcharge({ flux_autorises: [] }, 'flux_autorises')).toBe(
       false,

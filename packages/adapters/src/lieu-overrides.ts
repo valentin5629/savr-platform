@@ -76,11 +76,10 @@ const CHAMPS_LIEU_LISTE = new Set<ChampLieuSurchargeable>(['flux_autorises']);
  *
  * Même raison d'être que `LONGUEUR_MAX_SURCHARGE_LUE` et même dimensionnement :
  * il vaut plus que la borne d'écriture (#308 : 20 items), si bien qu'aucune
- * valeur passée par une route ne le touche jamais. Il ne tient que le chemin qui
- * échappe aux routes — PostgREST direct sous le `GRANT UPDATE` d'`authenticated`
- * — où un tableau de 10 000 entrées serait relu tel quel par `fetchCollecte`.
- * Rien de démesuré n'atteignait le transporteur (le canal libre plafonne à
- * 1000 car.), mais le worker chargeait le tableau entier en mémoire.
+ * valeur passée par une route ne le touche jamais. Sans lui, un tableau de
+ * 10 000 entrées serait relu tel quel par `fetchCollecte` : rien de démesuré
+ * n'atteignait le transporteur (le canal libre plafonne à 1000 car.), mais le
+ * worker chargeait le tableau entier en mémoire.
  */
 export const MAX_ENTREES_SURCHARGE_LUE = 50;
 
@@ -104,13 +103,16 @@ export const CHAMPS_ADRESSE_TMS = [
  * dériveraient au premier ajustement. Il vaut la PLUS GRANDE d'entre elles, si
  * bien qu'aucune valeur passée par une route ne le touche jamais.
  *
- * Il n'existe que pour le chemin qui échappe aux routes : `authenticated` porte
- * un `GRANT UPDATE` sur `plateforme.collectes` et la policy `col_update_client`
- * laisse un traiteur modifier sa propre collecte non terminale en PostgREST
- * direct — et `fetchCollecte` relit `lieu_overrides` sur la ligne au moment de
- * consommer l'event, pas dans le payload. Fermer ce GRANT relève de l'arbitrage
- * Val (CLAUDE.md §12 pt 2bis, cf. « Reste ouvert » de #308) ; en attendant, une
- * valeur démesurée écrite par là n'atteint pas le transporteur.
+ * Ce plafond, comme `MAX_ENTREES_SURCHARGE_LUE`, visait d'abord le chemin qui
+ * échappait aux routes : `authenticated` portait un `GRANT UPDATE` table-level
+ * sur `plateforme.collectes`, et `fetchCollecte` relit `lieu_overrides` sur la
+ * LIGNE au moment de consommer l'event, pas dans le payload de l'event.
+ * **#318 a fermé ce chemin** (REVOKE UPDATE + INSERT sans re-GRANT) et posé un
+ * CHECK en base miroir de l'allowlist d'écriture. Les deux plafonds restent
+ * néanmoins la dernière ligne : ils couvrent les lignes écrites AVANT ces
+ * bornes, tout futur ré-octroi du privilège, et les écrivains qui ne passent
+ * pas par les routes (migrations, seed, import Bubble, service_role). Une garde
+ * de fusion ne coûte rien et ne dépend d'aucun état de la base.
  */
 export const LONGUEUR_MAX_SURCHARGE_LUE = 1000;
 
@@ -142,10 +144,11 @@ export function lieuChampSurcharge(
   // injection (le corps part en JSON.stringify), mais un camion envoyé nulle
   // part, de nuit.
   //
-  // #308 refuse désormais ces valeurs à l'ÉCRITURE sur les deux routes ; cette
-  // garde-ci tient le chemin qui les contourne (PostgREST direct sous le GRANT
-  // UPDATE d'`authenticated`, cf. LONGUEUR_MAX_SURCHARGE_LUE), et vaut règle de
-  // fusion pour tout futur appelant.
+  // #308 refuse désormais ces valeurs à l'ÉCRITURE sur les deux routes, et #318
+  // en base (CHECK + REVOKE UPDATE/INSERT à `authenticated`). Cette garde-ci
+  // reste la dernière ligne — lignes antérieures à ces bornes, écrivains hors
+  // routes, futur ré-octroi du privilège (cf. LONGUEUR_MAX_SURCHARGE_LUE) — et
+  // vaut règle de fusion pour tout futur appelant.
   //
   // Une valeur invalide n'est PAS une surcharge : la fusion retombe sur le lieu
   // officiel — une adresse valide vaut mieux qu'un artefact de coercition. Et

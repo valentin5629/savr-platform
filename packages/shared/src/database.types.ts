@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
   plateforme: {
     Tables: {
       alertes_admin: {
@@ -69,24 +74,24 @@ export type Database = {
           contact_nom: string | null
           contact_telephone: string | null
           created_at: string
+          date_expiration_habilitation: string | null
           derniere_verification: string | null
           description_rapport_impact: string
           habilitee_attestation_fiscale: boolean
           horaires_ouverture: Json | null
           id: string
           id_point_collecte_mts1: string | null
+          instructions_acces: string | null
           latitude: number | null
+          logo_url: string | null
           longitude: number | null
           nom: string
+          numero_rup: string | null
           region: Database["plateforme"]["Enums"]["region"]
+          siren: string | null
           types_aliments_acceptes: string[] | null
           updated_at: string
           ville: string
-          date_expiration_habilitation: string | null
-          instructions_acces: string | null
-          logo_url: string | null
-          siren: string | null
-          numero_rup: string | null
         }
         Insert: {
           actif?: boolean
@@ -97,24 +102,24 @@ export type Database = {
           contact_nom?: string | null
           contact_telephone?: string | null
           created_at?: string
+          date_expiration_habilitation?: string | null
           derniere_verification?: string | null
           description_rapport_impact?: string
           habilitee_attestation_fiscale?: boolean
           horaires_ouverture?: Json | null
           id?: string
           id_point_collecte_mts1?: string | null
+          instructions_acces?: string | null
           latitude?: number | null
+          logo_url?: string | null
           longitude?: number | null
           nom: string
+          numero_rup?: string | null
           region: Database["plateforme"]["Enums"]["region"]
+          siren?: string | null
           types_aliments_acceptes?: string[] | null
           updated_at?: string
           ville: string
-          date_expiration_habilitation?: string | null
-          instructions_acces?: string | null
-          logo_url?: string | null
-          siren?: string | null
-          numero_rup?: string | null
         }
         Update: {
           actif?: boolean
@@ -125,24 +130,24 @@ export type Database = {
           contact_nom?: string | null
           contact_telephone?: string | null
           created_at?: string
+          date_expiration_habilitation?: string | null
           derniere_verification?: string | null
           description_rapport_impact?: string
           habilitee_attestation_fiscale?: boolean
           horaires_ouverture?: Json | null
           id?: string
           id_point_collecte_mts1?: string | null
+          instructions_acces?: string | null
           latitude?: number | null
+          logo_url?: string | null
           longitude?: number | null
           nom?: string
+          numero_rup?: string | null
           region?: Database["plateforme"]["Enums"]["region"]
+          siren?: string | null
           types_aliments_acceptes?: string[] | null
           updated_at?: string
           ville?: string
-          date_expiration_habilitation?: string | null
-          instructions_acces?: string | null
-          logo_url?: string | null
-          siren?: string | null
-          numero_rup?: string | null
         }
         Relationships: []
       }
@@ -449,6 +454,261 @@ export type Database = {
         ]
       }
       audit_log_2026: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          id: number
+          impersonator_id: string | null
+          ip_address: unknown
+          motif: string | null
+          new_values: Json | null
+          old_values: Json | null
+          record_id: string | null
+          role: string | null
+          table_name: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          id?: number
+          impersonator_id?: string | null
+          ip_address?: unknown
+          motif?: string | null
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          role?: string | null
+          table_name: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          id?: number
+          impersonator_id?: string | null
+          ip_address?: unknown
+          motif?: string | null
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          role?: string | null
+          table_name?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      audit_log_2027: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          id: number
+          impersonator_id: string | null
+          ip_address: unknown
+          motif: string | null
+          new_values: Json | null
+          old_values: Json | null
+          record_id: string | null
+          role: string | null
+          table_name: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          id?: number
+          impersonator_id?: string | null
+          ip_address?: unknown
+          motif?: string | null
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          role?: string | null
+          table_name: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          id?: number
+          impersonator_id?: string | null
+          ip_address?: unknown
+          motif?: string | null
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          role?: string | null
+          table_name?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      audit_log_2028: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          id: number
+          impersonator_id: string | null
+          ip_address: unknown
+          motif: string | null
+          new_values: Json | null
+          old_values: Json | null
+          record_id: string | null
+          role: string | null
+          table_name: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          id?: number
+          impersonator_id?: string | null
+          ip_address?: unknown
+          motif?: string | null
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          role?: string | null
+          table_name: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          id?: number
+          impersonator_id?: string | null
+          ip_address?: unknown
+          motif?: string | null
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          role?: string | null
+          table_name?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      audit_log_2029: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          id: number
+          impersonator_id: string | null
+          ip_address: unknown
+          motif: string | null
+          new_values: Json | null
+          old_values: Json | null
+          record_id: string | null
+          role: string | null
+          table_name: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          id?: number
+          impersonator_id?: string | null
+          ip_address?: unknown
+          motif?: string | null
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          role?: string | null
+          table_name: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          id?: number
+          impersonator_id?: string | null
+          ip_address?: unknown
+          motif?: string | null
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          role?: string | null
+          table_name?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      audit_log_2030: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          id: number
+          impersonator_id: string | null
+          ip_address: unknown
+          motif: string | null
+          new_values: Json | null
+          old_values: Json | null
+          record_id: string | null
+          role: string | null
+          table_name: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          id?: number
+          impersonator_id?: string | null
+          ip_address?: unknown
+          motif?: string | null
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          role?: string | null
+          table_name: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          id?: number
+          impersonator_id?: string | null
+          ip_address?: unknown
+          motif?: string | null
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          role?: string | null
+          table_name?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      audit_log_2031: {
         Row: {
           action: string
           created_at: string
@@ -1096,6 +1356,51 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "v_referentiel_traiteurs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      demandes_suppression: {
+        Row: {
+          demande_le: string
+          id: string
+          justification: string | null
+          statut: Database["plateforme"]["Enums"]["statut_demande_suppression_enum"]
+          traitee_le: string | null
+          traitee_par: string | null
+          user_id: string
+        }
+        Insert: {
+          demande_le?: string
+          id?: string
+          justification?: string | null
+          statut?: Database["plateforme"]["Enums"]["statut_demande_suppression_enum"]
+          traitee_le?: string | null
+          traitee_par?: string | null
+          user_id: string
+        }
+        Update: {
+          demande_le?: string
+          id?: string
+          justification?: string | null
+          statut?: Database["plateforme"]["Enums"]["statut_demande_suppression_enum"]
+          traitee_le?: string | null
+          traitee_par?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demandes_suppression_traitee_par_fkey"
+            columns: ["traitee_par"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demandes_suppression_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -1914,6 +2219,47 @@ export type Database = {
           },
         ]
       }
+      file_revalidation_siret: {
+        Row: {
+          created_at: string
+          derniere_erreur: string | null
+          entite_facturation_id: string
+          id: string
+          prochaine_tentative_le: string
+          statut: string
+          tentatives: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          derniere_erreur?: string | null
+          entite_facturation_id: string
+          id?: string
+          prochaine_tentative_le?: string
+          statut?: string
+          tentatives?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          derniere_erreur?: string | null
+          entite_facturation_id?: string
+          id?: string
+          prochaine_tentative_le?: string
+          statut?: string
+          tentatives?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_revalidation_siret_entite_fkey"
+            columns: ["entite_facturation_id"]
+            isOneToOne: false
+            referencedRelation: "entites_facturation"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       flux_dechets: {
         Row: {
           actif: boolean
@@ -1966,7 +2312,7 @@ export type Database = {
           description: string | null
           est_defaut: boolean
           id: string
-          mode: "fixe_variable" | "paliers"
+          mode: Database["plateforme"]["Enums"]["mode_grille_zd"]
           nom: string
           updated_at: string
           valide_du: string
@@ -1978,7 +2324,7 @@ export type Database = {
           description?: string | null
           est_defaut?: boolean
           id?: string
-          mode: "fixe_variable" | "paliers"
+          mode: Database["plateforme"]["Enums"]["mode_grille_zd"]
           nom: string
           updated_at?: string
           valide_du: string
@@ -1990,7 +2336,7 @@ export type Database = {
           description?: string | null
           est_defaut?: boolean
           id?: string
-          mode?: "fixe_variable" | "paliers"
+          mode?: Database["plateforme"]["Enums"]["mode_grille_zd"]
           nom?: string
           updated_at?: string
           valide_du?: string
@@ -2124,6 +2470,51 @@ export type Database = {
         }
         Relationships: []
       }
+      integrations_logs_2027: {
+        Row: {
+          correlation_id: string | null
+          created_at: string
+          direction: string
+          duree_ms: number | null
+          endpoint: string | null
+          erreur: string | null
+          id: string
+          integration: string
+          methode: string | null
+          payload_in: Json | null
+          payload_out: Json | null
+          statut_http: number | null
+        }
+        Insert: {
+          correlation_id?: string | null
+          created_at?: string
+          direction: string
+          duree_ms?: number | null
+          endpoint?: string | null
+          erreur?: string | null
+          id?: string
+          integration: string
+          methode?: string | null
+          payload_in?: Json | null
+          payload_out?: Json | null
+          statut_http?: number | null
+        }
+        Update: {
+          correlation_id?: string | null
+          created_at?: string
+          direction?: string
+          duree_ms?: number | null
+          endpoint?: string | null
+          erreur?: string | null
+          id?: string
+          integration?: string
+          methode?: string | null
+          payload_in?: Json | null
+          payload_out?: Json | null
+          statut_http?: number | null
+        }
+        Relationships: []
+      }
       jobs_pdf: {
         Row: {
           attempts: number
@@ -2177,6 +2568,7 @@ export type Database = {
             | null
           actif: boolean
           adresse_acces: string
+          capacite_maximum: number | null
           code_postal: string
           commentaire_lieu: string | null
           commentaires_internes: string | null
@@ -2202,7 +2594,6 @@ export type Database = {
           updated_at: string
           ville: string
           volume_max_bacs: number | null
-          capacite_maximum: number | null
         }
         Insert: {
           acces_details?: string | null
@@ -2211,6 +2602,7 @@ export type Database = {
             | null
           actif?: boolean
           adresse_acces: string
+          capacite_maximum?: number | null
           code_postal: string
           commentaire_lieu?: string | null
           commentaires_internes?: string | null
@@ -2236,7 +2628,6 @@ export type Database = {
           updated_at?: string
           ville: string
           volume_max_bacs?: number | null
-          capacite_maximum?: number | null
         }
         Update: {
           acces_details?: string | null
@@ -2245,6 +2636,7 @@ export type Database = {
             | null
           actif?: boolean
           adresse_acces?: string
+          capacite_maximum?: number | null
           code_postal?: string
           commentaire_lieu?: string | null
           commentaires_internes?: string | null
@@ -2270,7 +2662,6 @@ export type Database = {
           updated_at?: string
           ville?: string
           volume_max_bacs?: number | null
-          capacite_maximum?: number | null
         }
         Relationships: []
       }
@@ -3540,6 +3931,7 @@ export type Database = {
           contact_telephone: string
           created_at: string
           derniere_verification: string | null
+          description_process_collecte: string | null
           id: string
           latitude: number | null
           longitude: number | null
@@ -3548,10 +3940,9 @@ export type Database = {
           siren: string
           tarif_par_course: number | null
           type_tms: Database["plateforme"]["Enums"]["type_tms"]
+          types_collecte: string[] | null
           types_vehicules: string[]
           ville: string
-          description_process_collecte: string | null
-          types_collecte: string[] | null
         }
         Insert: {
           actif?: boolean
@@ -3564,6 +3955,7 @@ export type Database = {
           contact_telephone: string
           created_at?: string
           derniere_verification?: string | null
+          description_process_collecte?: string | null
           id?: string
           latitude?: number | null
           longitude?: number | null
@@ -3572,10 +3964,9 @@ export type Database = {
           siren: string
           tarif_par_course?: number | null
           type_tms: Database["plateforme"]["Enums"]["type_tms"]
+          types_collecte?: string[] | null
           types_vehicules: string[]
           ville: string
-          description_process_collecte?: string | null
-          types_collecte?: string[] | null
         }
         Update: {
           actif?: boolean
@@ -3588,6 +3979,7 @@ export type Database = {
           contact_telephone?: string
           created_at?: string
           derniere_verification?: string | null
+          description_process_collecte?: string | null
           id?: string
           latitude?: number | null
           longitude?: number | null
@@ -3596,10 +3988,9 @@ export type Database = {
           siren?: string
           tarif_par_course?: number | null
           type_tms?: Database["plateforme"]["Enums"]["type_tms"]
+          types_collecte?: string[] | null
           types_vehicules?: string[]
           ville?: string
-          description_process_collecte?: string | null
-          types_collecte?: string[] | null
         }
         Relationships: []
       }
@@ -3632,51 +4023,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
-      }
-      demandes_suppression: {
-        Row: {
-          demande_le: string
-          id: string
-          justification: string | null
-          statut: "en_attente" | "validee" | "refusee"
-          traitee_le: string | null
-          traitee_par: string | null
-          user_id: string
-        }
-        Insert: {
-          demande_le?: string
-          id?: string
-          justification?: string | null
-          statut?: "en_attente" | "validee" | "refusee"
-          traitee_le?: string | null
-          traitee_par?: string | null
-          user_id: string
-        }
-        Update: {
-          demande_le?: string
-          id?: string
-          justification?: string | null
-          statut?: "en_attente" | "validee" | "refusee"
-          traitee_le?: string | null
-          traitee_par?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "demandes_suppression_traitee_par_fkey"
-            columns: ["traitee_par"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "demandes_suppression_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       users: {
         Row: {
@@ -3745,13 +4091,13 @@ export type Database = {
     Views: {
       mv_benchmark_kg_pax_zd_base: {
         Row: {
-          flux_id: string | null
           flux_code: string | null
-          type_evenement_id: string | null
-          taille_evenement: string | null
+          flux_id: string | null
           kg_par_pax_moyen: number | null
           nb_collectes_segment: number | null
           nb_organisations_distinctes: number | null
+          taille_evenement: string | null
+          type_evenement_id: string | null
         }
         Relationships: []
       }
@@ -4108,6 +4454,7 @@ export type Database = {
             | null
           actif: boolean | null
           adresse_acces: string | null
+          capacite_maximum: number | null
           code_postal: string | null
           contraintes_horaires: string | null
           controle_acces_requis_default: boolean | null
@@ -4138,6 +4485,7 @@ export type Database = {
             | null
           actif?: boolean | null
           adresse_acces?: string | null
+          capacite_maximum?: number | null
           code_postal?: string | null
           contraintes_horaires?: string | null
           controle_acces_requis_default?: boolean | null
@@ -4168,6 +4516,7 @@ export type Database = {
             | null
           actif?: boolean | null
           adresse_acces?: string | null
+          capacite_maximum?: number | null
           code_postal?: string | null
           contraintes_horaires?: string | null
           controle_acces_requis_default?: boolean | null
@@ -4387,9 +4736,47 @@ export type Database = {
       }
     }
     Functions: {
+      _f_assert_outbox_dead: {
+        Args: { p_event_id: string }
+        Returns: {
+          aggregate_id: string
+          aggregate_type: string
+          attempts: number
+          claimed_until: string | null
+          consumer: string | null
+          created_at: string
+          event_type: string
+          id: string
+          last_error: string | null
+          next_retry_at: string | null
+          payload: Json
+          processed_at: string | null
+          requires_reconciliation: boolean
+          seq: number
+          statut: Database["plateforme"]["Enums"]["outbox_statut_enum"]
+          txid: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "outbox_events"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       count_collectes_par_org: {
-        Args: { type_collecte: string; depuis: string }
-        Returns: { organisation_id: string; nb: number }[]
+        Args: { depuis: string; type_collecte: string }
+        Returns: {
+          nb: number
+          organisation_id: string
+        }[]
+      }
+      f_alerte_pack_bas: {
+        Args: {
+          p_consommes_apres: number
+          p_initiaux: number
+          p_pack_id: string
+        }
+        Returns: undefined
       }
       f_app_role: { Args: never; Returns: string }
       f_assert_audit_context: {
@@ -4404,30 +4791,29 @@ export type Database = {
       f_benchmark_kg_pax_zd: {
         Args: {
           p_flux_id?: string
-          p_type_evenement_ids?: string[]
-          p_taille_evenement_codes?: string[]
+          p_lieu_ids?: string[]
           p_periode_debut?: string
           p_periode_fin?: string
-          p_lieu_ids?: string[]
+          p_taille_evenement_codes?: string[]
           p_traiteur_ids?: string[]
+          p_type_evenement_ids?: string[]
         }
         Returns: {
-          flux_id: string
           flux_code: string
-          type_evenement_id: string
-          taille_evenement: string
+          flux_id: string
           kg_par_pax_moyen: number
           nb_collectes_segment: number
           nb_organisations_distinctes: number
+          taille_evenement: string
+          type_evenement_id: string
         }[]
       }
       f_benchmark_lieux_parc: {
-        Args: Record<PropertyKey, never>
-        Returns: { id: string; nom: string }[]
-      }
-      f_benchmark_traiteurs_parc: {
-        Args: Record<PropertyKey, never>
-        Returns: { id: string; nom: string }[]
+        Args: never
+        Returns: {
+          id: string
+          nom: string
+        }[]
       }
       f_benchmark_single_collecte: {
         Args: { p_collecte_id: string }
@@ -4437,6 +4823,13 @@ export type Database = {
           median_kg_pax: number
           nb_collectes: number
           valeur_kg_pax: number
+        }[]
+      }
+      f_benchmark_traiteurs_parc: {
+        Args: never
+        Returns: {
+          id: string
+          nom: string
         }[]
       }
       f_collecte_editable: {
@@ -4452,11 +4845,11 @@ export type Database = {
         Args: { p_evenement_id: string }
         Returns: number
       }
-      f_is_staff: { Args: never; Returns: boolean }
-      f_mes_acces_compte: {
-        Args: never
-        Returns: { accede_le: string; type_acces: string }[]
+      f_ensure_partition_annee: {
+        Args: { p_annee: number; p_parent: string }
+        Returns: undefined
       }
+      f_is_staff: { Args: never; Returns: boolean }
       f_log_audit: {
         Args: {
           p_action: string
@@ -4472,48 +4865,59 @@ export type Database = {
         }
         Returns: undefined
       }
+      f_mes_acces_compte: {
+        Args: never
+        Returns: {
+          accede_le: string
+          type_acces: string
+        }[]
+      }
       f_next_numero_attestation: { Args: { p_annee?: number }; Returns: string }
       f_next_numero_bordereau: { Args: { p_annee?: number }; Returns: string }
       f_next_numero_facture: {
         Args: { p_annee: number; p_serie: string }
         Returns: number
       }
+      f_purge_logs: { Args: { p_now?: string }; Returns: Json }
+      f_rapport_benchmark_zd: {
+        Args: {
+          p_collecte_id: string
+          p_lieu_ids?: string[]
+          p_periode_debut?: string
+          p_periode_fin?: string
+          p_taille_evenement_codes?: string[]
+          p_type_evenement_ids?: string[]
+        }
+        Returns: {
+          benchmark_kg_pax: number
+          collecte_kg_pax: number
+          flux_code: string
+          flux_id: string
+          flux_nom: string
+          nb_collectes_segment: number
+          taille_evenement: string
+        }[]
+      }
+      f_rearm_alerte_pack: {
+        Args: { p_consommes: number; p_initiaux: number; p_pack_id: string }
+        Returns: undefined
+      }
+      f_taux_recyclage_moyen_parc: {
+        Args: {
+          p_nb_acteurs_min?: number
+          p_periode_debut?: string
+          p_periode_fin?: string
+        }
+        Returns: {
+          nb_collectes: number
+          nb_organisations: number
+          taux_moyen_pondere: number
+        }[]
+      }
       f_traiteur_intervenu_lieux_gestionnaire: {
         Args: { p_traiteur_id: string }
         Returns: boolean
       }
-      f_rapport_benchmark_zd: {
-        Args: {
-          p_collecte_id: string
-          p_periode_debut?: string
-          p_periode_fin?: string
-          p_lieu_ids?: string[]
-          p_type_evenement_ids?: string[]
-          p_taille_evenement_codes?: string[]
-        }
-        Returns: {
-          flux_id: string
-          flux_code: string
-          flux_nom: string
-          taille_evenement: string
-          collecte_kg_pax: number
-          benchmark_kg_pax: number
-          nb_collectes_segment: number
-        }[]
-      }
-      f_taux_recyclage_moyen_parc: {
-        Args: {
-          p_periode_debut?: string
-          p_periode_fin?: string
-          p_nb_acteurs_min?: number
-        }
-        Returns: {
-          taux_moyen_pondere: number
-          nb_organisations: number
-          nb_collectes: number
-        }[]
-      }
-      f_purge_logs: { Args: { p_now?: string }; Returns: Json }
       f_upsert_alerte_admin: {
         Args: {
           p_code: string
@@ -4528,11 +4932,22 @@ export type Database = {
         Args: { p_collecte_id: string }
         Returns: number
       }
+      fn_admin_requeue_outbox: {
+        Args: { p_auteur: string; p_event_id: string; p_motif: string }
+        Returns: Json
+      }
+      fn_admin_resolve_outbox: {
+        Args: { p_auteur: string; p_event_id: string; p_motif: string }
+        Returns: Json
+      }
+      fn_admin_skip_outbox: {
+        Args: { p_auteur: string; p_event_id: string; p_motif: string }
+        Returns: Json
+      }
       fn_agreger_terminal_collecte: {
         Args: { p_collecte_id: string }
         Returns: string
       }
-      fn_cloturer_collectes_embargo: { Args: never; Returns: number }
       fn_ajouter_collecte_evenement: {
         Args: {
           p_controle_acces?: boolean
@@ -4543,6 +4958,15 @@ export type Database = {
           p_type: string
         }
         Returns: string
+      }
+      fn_anonymize_user: {
+        Args: {
+          p_acteur: string
+          p_demande_id?: string
+          p_justification: string
+          p_user_id: string
+        }
+        Returns: undefined
       }
       fn_audit_insert: {
         Args: {
@@ -4560,14 +4984,18 @@ export type Database = {
         Args: { p_collecte_id: string }
         Returns: Json
       }
-      fn_anonymize_user: {
-        Args: {
-          p_acteur: string
-          p_demande_id?: string
-          p_justification: string
-          p_user_id: string
-        }
-        Returns: undefined
+      fn_claim_outbox_attribution_batch: {
+        Args: { p_lease_duration?: string; p_limit?: number }
+        Returns: {
+          aggregate_id: string
+          aggregate_type: string
+          attempts: number
+          consumer: string
+          event_type: string
+          id: string
+          payload: Json
+          requires_reconciliation: boolean
+        }[]
       }
       fn_claim_outbox_batch: {
         Args: { p_lease_duration?: string; p_limit?: number }
@@ -4582,6 +5010,7 @@ export type Database = {
           requires_reconciliation: boolean
         }[]
       }
+      fn_cloturer_collectes_embargo: { Args: never; Returns: number }
       fn_confirmer_programmation_brouillon: {
         Args: { p_evenement_id: string }
         Returns: undefined
@@ -4672,7 +5101,7 @@ export type Database = {
         Args: {
           p_description?: string
           p_est_defaut: boolean
-          p_mode: "fixe_variable" | "paliers"
+          p_mode: Database["plateforme"]["Enums"]["mode_grille_zd"]
           p_nom: string
           p_paliers: Json
           p_valide_du: string
@@ -4689,6 +5118,18 @@ export type Database = {
           p_valide_du: string
         }
         Returns: Json
+      }
+      rpc_evaluer_auto_accept_ag: {
+        Args: { p_collecte_id: string }
+        Returns: Json
+      }
+      rpc_log_attribution_aucune_reco: {
+        Args: {
+          p_attribution_id: string
+          p_collecte_id: string
+          p_user_id: string
+        }
+        Returns: undefined
       }
       rpc_maj_co2_divers: {
         Args: { p_auteur: string; p_commentaire: string; p_divers: Json }
@@ -4719,18 +5160,6 @@ export type Database = {
           p_taux: number
         }
         Returns: Json
-      }
-      rpc_evaluer_auto_accept_ag: {
-        Args: { p_collecte_id: string }
-        Returns: Json
-      }
-      rpc_log_attribution_aucune_reco: {
-        Args: {
-          p_attribution_id: string
-          p_collecte_id: string
-          p_user_id: string
-        }
-        Returns: undefined
       }
       rpc_valider_attribution_ag: {
         Args: {
@@ -4819,6 +5248,7 @@ export type Database = {
         | "savr"
         | "externe"
       mode_facturation_zd_enum: "par_collecte" | "mensuelle"
+      mode_grille_zd: "paliers" | "fixe_variable"
       mode_paiement: "virement" | "prelevement" | "cb" | "cheque"
       mode_validation: "manuel_top1" | "manuel_override" | "auto_accept"
       organisation_type:
@@ -4830,6 +5260,7 @@ export type Database = {
       pack_statut: "actif" | "epuise" | "annule"
       region: "idf" | "province"
       scope_remise: "organisation" | "gestionnaire"
+      statut_demande_suppression_enum: "en_attente" | "validee" | "refusee"
       statut_mission_everest:
         | "created"
         | "assigned"
@@ -5040,12 +5471,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -5069,11 +5500,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -5094,11 +5525,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -5119,11 +5550,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -5136,11 +5567,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -5231,6 +5662,7 @@ export const Constants = {
         "externe",
       ],
       mode_facturation_zd_enum: ["par_collecte", "mensuelle"],
+      mode_grille_zd: ["paliers", "fixe_variable"],
       mode_paiement: ["virement", "prelevement", "cb", "cheque"],
       mode_validation: ["manuel_top1", "manuel_override", "auto_accept"],
       organisation_type: [
@@ -5243,6 +5675,7 @@ export const Constants = {
       pack_statut: ["actif", "epuise", "annule"],
       region: ["idf", "province"],
       scope_remise: ["organisation", "gestionnaire"],
+      statut_demande_suppression_enum: ["en_attente", "validee", "refusee"],
       statut_mission_everest: [
         "created",
         "assigned",
@@ -5298,4 +5731,3 @@ export const Constants = {
     },
   },
 } as const
-

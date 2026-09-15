@@ -7,6 +7,7 @@ import {
 } from '@/lib/notifications/traiteur-operationnel.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { readJsonBody, serverError, withApiTrace } from '@/lib/api-helpers.js';
+import { validerLieuOverrides } from '@/lib/programmation/lieu-override.js';
 
 async function getHandler(
   req: NextRequest,
@@ -84,6 +85,15 @@ async function patchHandler(
       { error: 'Aucun champ modifiable fourni' },
       { status: 422 },
     );
+  }
+
+  // Même borne d'entrée que la route de programmation : `lieu_overrides` est un jsonb
+  // libre dont les valeurs finissent dans l'adresse transmise au transporteur. Clés
+  // limitées aux champs éditables §06.01 l.104, valeurs typées et bornées.
+  if ('lieu_overrides' in updates) {
+    const overridesValides = validerLieuOverrides(updates.lieu_overrides);
+    if ('error' in overridesValides) return overridesValides.error;
+    updates.lieu_overrides = overridesValides.overrides;
   }
 
   // §07/06 collecte_statut_force — une bascule MANUELLE de statut exige un motif

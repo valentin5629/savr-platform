@@ -99,7 +99,13 @@ vi.mock('@/lib/onboarding-guards.js', () => ({
 vi.mock('@/lib/programmation/recap-email.js', () => ({
   envoyerRecapProgrammation: () => Promise.resolve(),
 }));
-vi.mock('@/lib/programmation/lieu-override.js', () => ({
+// Mock PARTIEL : seule la notification est neutralisée. `validerLieuOverrides` doit
+// rester la vraie implémentation — un stub ferait passer ces tests avec une route
+// qui ne valide plus rien.
+vi.mock('@/lib/programmation/lieu-override.js', async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import('@/lib/programmation/lieu-override.js')
+  >()),
   notifierOverrideLieu: () => Promise.resolve(),
 }));
 const notifier = vi.fn(() => Promise.resolve());

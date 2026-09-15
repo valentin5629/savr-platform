@@ -23,7 +23,11 @@ import type {
   LogistiqueProvider,
   Transporteur,
 } from '../index.js';
-import { CancelWindowClosedError, LogistiquePermanentError } from '../index.js';
+import {
+  CancelWindowClosedError,
+  LogistiquePermanentError,
+  LogistiqueTransientError,
+} from '../index.js';
 import {
   CHAMPS_ADRESSE_TMS,
   applyLieuOverrides,
@@ -49,6 +53,14 @@ interface TourneeRow {
   tms_reference: string | null;
   statut: string;
   rang: number;
+}
+
+// E5 lit en plus le prestataire exécutant de la tournée : `external_ref_commande`
+// ne dit PAS par quel provider la tournée a été dispatchée (l'adapter Everest y
+// stocke son id de mission), c'est `prestataire_logistique_id` qui le dit, via
+// `transporteurs.type_tms`.
+interface TourneeRowE5 extends TourneeRow {
+  prestataire_logistique_id: string | null;
 }
 
 // Bucket R2 des photos de collecte (shared.fichiers.bucket). La clé porte le préfixe
@@ -207,6 +219,18 @@ export class AdapterMts1 implements LogistiqueProvider {
       .update({ statut: 'en_cours' })
       .eq('id', tournee!.id)
       .eq('statut', 'planifiee');
+
+    // Référence d'AFFICHAGE de la collecte (§04 Data Model l.1509, §06.06 bouton
+    // « Renvoyer au TMS », §11 carte « Collectes non transmises »). Posée au rang 1
+    // seulement : une collecte multi-camions a N tours, le CDC ne prévoit qu'un
+    // identifiant de rapprochement. JAMAIS un prédicat : l'émission de E2 se décide
+    // sur l'existence d'une commande (fn_collecte_commandee_chez_provider).
+    // Posée ICI, après validate (et non dès que tourId est connu) : sinon un échec
+    // en étape 2bis/3/4 laisserait la fiche afficher « Renvoyer au TMS » sur une
+    // collecte dont le camion n'est pas commandé (revue sécurité 2026-09-15).
+    if (rang === 1) {
+      await this.updateCollecteRef(collecte.id, tourId);
+    }
 
     // Mise à jour statut_tms (trigger dérive collectes.statut)
     await this.updateStatutTms(collecte.id, 'attribuee_en_attente_acceptation');
@@ -368,14 +392,14 @@ export class AdapterMts1 implements LogistiqueProvider {
     // Le lieu est porté par l'événement parent (collectes n'a pas de lieu_id) →
     // filtre via la jointure evenements.lieu_id (fix M1.5a 2026-06-26). Les contacts
     // ne servent pas ici (le payload updateOrder ne pousse que l'adresse).
-    const { data: collectes } = await this.supabase
+    const { data: collectes, error: errCollectes } = await this.supabase
       .from('collectes')
       .select(
         `
         id, nb_camions_demande, date_collecte, heure_collecte, type,
         controle_acces_requis, informations_supplementaires, lieu_overrides,
         evenements!inner(lieu_id),
-        collecte_tournees!inner(tournee_id, rang, tournees!inner(id, external_ref_commande, tms_reference, statut))
+        collecte_tournees!inner(tournee_id, rang, tournees!inner(id, external_ref_commande, tms_reference, statut, prestataire_logistique_id))
       `,
       )
       .eq('evenements.lieu_id', lieu.id)
@@ -386,7 +410,24 @@ export class AdapterMts1 implements LogistiqueProvider {
         '(realisee,cloturee,annulee,rejetee_par_prestataire)',
       );
 
+    // Une erreur de lecture n'est PAS « rien à propager » : sans ce throw, l'event
+    // E5 serait marqué `done` avec le consumer `adapter_mts1` (outbox-worker
+    // `markDone`) alors qu'aucun transporteur n'a reçu la nouvelle adresse — un
+    // no-op indistinguable d'un dispatch réussi, sans retry ni alerte, et le
+    // camion se présente à l'ancienne adresse. Transient (et non Permanent) : le
+    // worker rejoue alors ses 3 paliers plutôt qu'un dead immédiat sur un blip.
+    if (errCollectes) {
+      throw new LogistiqueTransientError(
+        `E5 : lecture des collectes du lieu ${lieu.id} échouée — ${errCollectes.message}`,
+      );
+    }
+
     if (!collectes?.length) return;
+
+    // Un lieu est partagé par toutes les collectes qui s'y tiennent, quel que soit
+    // leur transporteur : ce lot peut donc mélanger des tournées MTS-1 et des
+    // tournées Everest (collecte AG en vélo cargo). On ne pousse qu'aux premières.
+    const prestatairesMts1 = await this.prestatairesMts1();
 
     for (const c of collectes) {
       // §05 R_lieu_modif_pending point 4 — le snapshot d'une collecte qui porte
@@ -412,16 +453,27 @@ export class AdapterMts1 implements LogistiqueProvider {
       const lieuEffectif = applyLieuOverrides(lieu, overrides);
 
       // Supabase renvoie les relations !inner comme tableau — on prend [0]
-      type CtRow = { rang: number; tournees: TourneeRow[] };
+      type CtRow = { rang: number; tournees: TourneeRowE5[] };
       const tournees = ((c.collecte_tournees ?? []) as unknown as CtRow[]).map(
         (ct) => ({ ...ct.tournees[0]!, rang: ct.rang }),
       );
       for (const t of tournees.filter(
-        (t: TourneeRow) => t.external_ref_commande,
+        (
+          t: TourneeRowE5,
+        ): t is TourneeRowE5 & { external_ref_commande: string } =>
+          // `typeof === 'string'` et pas `!== null` : une colonne absente du
+          // `select` remonte `undefined`, qui passerait un test de nullité et
+          // rouvrirait la fuite en silence. Même traitement pour les DEUX
+          // champs — un `!== null` sur la seule référence de commande laisserait
+          // passer `undefined`/`''` jusqu'au `updateOrder`.
+          typeof t.external_ref_commande === 'string' &&
+          t.external_ref_commande !== '' &&
+          typeof t.prestataire_logistique_id === 'string' &&
+          prestatairesMts1.has(t.prestataire_logistique_id),
       )) {
         const orderNumber = `${c.id}-${t.rang}`;
         await this.client.updateOrder(
-          t.external_ref_commande!,
+          t.external_ref_commande,
           {
             place: {
               address: {
@@ -433,6 +485,50 @@ export class AdapterMts1 implements LogistiqueProvider {
         );
       }
     }
+  }
+
+  /**
+   * Prestataires logistiques joignables par MTS-1 (`transporteurs.type_tms='mts1'`).
+   *
+   * Le provider d'une tournée n'est pas déductible de `external_ref_commande` :
+   * l'adapter Everest y stocke son propre id de mission (cf. everest/adapter.ts,
+   * `update({ external_ref_commande: missionId })`). La seule marque de provider
+   * portée par une tournée est `prestataire_logistique_id`, que le dispatch
+   * recopie depuis le transporteur choisi — et c'est `transporteurs.type_tms` qui
+   * tranche le provider (même résolution que le worker, `fetchTransporteur`).
+   *
+   * Sans ce filtre, un lieu portant à la fois une collecte MTS-1 et une collecte
+   * Everest fait partir un `PUT /v3/customerOrders/{id_mission_everest}` : un
+   * identifiant Everest divulgué à MTS-1, puis un 404 → `LogistiquePermanentError`
+   * → l'event E5 part en DLQ et l'adresse ne se propage sur AUCUNE collecte.
+   */
+  private async prestatairesMts1(): Promise<Set<string>> {
+    const { data, error } = await this.supabase
+      .from('transporteurs')
+      .select('prestataire_logistique_id')
+      .eq('type_tms', 'mts1');
+
+    // Sur erreur, `data` est null → Set vide → aucun PUT émis, et l'event serait
+    // marqué `done`. Fail-closed sur la fuite, mais fail-SILENT sur la
+    // propagation : c'est le bug métier de la #304 par un autre chemin. On lève
+    // pour rendre la main au retry du worker.
+    if (error) {
+      throw new LogistiqueTransientError(
+        `E5 : référentiel transporteurs MTS-1 illisible — ${error.message}`,
+      );
+    }
+
+    const rows = (data ?? []) as Array<{
+      prestataire_logistique_id: string | null;
+    }>;
+    // Même raison qu'au filtre appelant : un `undefined` (colonne absente,
+    // ligne partielle) ne doit jamais devenir une clé du Set — il autoriserait
+    // alors toute tournée dont le prestataire est lui aussi `undefined`.
+    return new Set(
+      rows
+        .map((t) => t.prestataire_logistique_id)
+        .filter((id): id is string => typeof id === 'string' && id !== ''),
+    );
   }
 
   // ─── sync — polling entrant MTS-1 (M1.5b) ───────────────────────────────────
@@ -1042,6 +1138,20 @@ export class AdapterMts1 implements LogistiqueProvider {
       .from('tournees')
       .update({ tms_reference: tourId })
       .eq('id', tourneeId);
+  }
+
+  // Référence lisible de la collecte pour l'affichage Admin / le rapprochement.
+  // Réécriture inconditionnelle : la valeur est stable par construction (le tourId
+  // du rang 1, lu depuis la tournée déjà committée sur reprise ; le rang 1 n'est
+  // jamais supprimé par une réduction de N) → un rejeu réécrit la même chaîne.
+  private async updateCollecteRef(
+    collecteId: string,
+    reference: string,
+  ): Promise<void> {
+    await this.supabase
+      .from('collectes')
+      .update({ tms_reference: reference })
+      .eq('id', collecteId);
   }
 
   private async updateStatutTms(

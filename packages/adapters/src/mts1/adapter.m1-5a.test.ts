@@ -92,7 +92,8 @@ function makeMockSupabase(
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     maybeSingle: vi.fn().mockResolvedValue({
-      data: tourneeRow ? { rang: 1, tournees: [tourneeRow] } : null,
+      // FK sortante `collecte_tournees.tournee_id` → embed OBJET.
+      data: tourneeRow ? { rang: 1, tournees: tourneeRow } : null,
       error: null,
     }),
     single: vi.fn().mockResolvedValue({
@@ -797,14 +798,12 @@ describe('M1.5a / AdapterMts1 — cancelCollecte E3', () => {
         data: [
           {
             rang: 1,
-            tournees: [
-              {
-                id: 'T1',
-                external_ref_commande: 'MTS1-ORDER-001',
-                tms_reference: 'MTS1-TOUR-001',
-                statut: 'en_cours',
-              },
-            ],
+            tournees: {
+              id: 'T1',
+              external_ref_commande: 'MTS1-ORDER-001',
+              tms_reference: 'MTS1-TOUR-001',
+              statut: 'en_cours',
+            },
           },
         ],
         error: null,

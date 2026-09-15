@@ -66,11 +66,10 @@ const TRANSPORTEUR: Transporteur = {
 // Mock Supabase : une tournée rang 1 déjà commandée chez MTS-1 → updateCollecte
 // procède au PUT (sinon `avecRef.length === 0` → no-op `noop_no_remote`).
 //
-// ⚠ `tournees` est servi en TABLEAU pour rester aligné sur la lecture actuelle
-// de `findTournees` (`ct.tournees[0]`). La cardinalité réelle de cet embed
-// PostgREST (FK sortante `collecte_tournees.tournee_id` → OBJET) est le sujet
-// d'une correction dédiée ; ce fichier épingle le CONTENU du payload, pas la
-// forme de l'embed, et suivra cette correction-là.
+// `tournees` est servi en OBJET : la FK est portée par la table source
+// (`collecte_tournees.tournee_id` → `tournees.id`), donc PostgREST renvoie un
+// objet, jamais un tableau. Ce fichier épingle le CONTENU du payload ; la forme
+// de l'embed est ancrée par `embed-cardinalite.test.ts`.
 function mockSupabaseDispatched() {
   const mockQuery = {
     select: vi.fn().mockReturnThis(),
@@ -78,14 +77,12 @@ function mockSupabaseDispatched() {
       data: [
         {
           rang: 1,
-          tournees: [
-            {
-              id: 'tournee-e2-001',
-              external_ref_commande: 'MTS1-ORDER-E2-001',
-              tms_reference: 'MTS1-TOUR-E2-001',
-              statut: 'en_cours',
-            },
-          ],
+          tournees: {
+            id: 'tournee-e2-001',
+            external_ref_commande: 'MTS1-ORDER-E2-001',
+            tms_reference: 'MTS1-TOUR-E2-001',
+            statut: 'en_cours',
+          },
         },
       ],
       error: null,

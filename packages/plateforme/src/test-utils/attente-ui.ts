@@ -28,3 +28,28 @@
 export const ATTENTE_UI_MS = 4_000;
 
 export const ATTENTE_UI = { timeout: ATTENTE_UI_MS } as const;
+
+/**
+ * Budget d'horloge d'un CAS de test (3e argument de `it`) qui contient au moins
+ * une attente `ATTENTE_UI`.
+ *
+ * POURQUOI — `ATTENTE_UI` ne borne que le temps passé À ATTENDRE le DOM. Le
+ * reste du cas (rendu initial, re-rendu après une interaction, montage des
+ * sous-composants) est du travail synchrone que rien ne protège, et il compte
+ * dans le `testTimeout` de Vitest — 5 000 ms par défaut. Un cas qui enchaîne
+ * une attente et un clic coûteux voit donc son budget d'attente EXPLICITE
+ * tronqué par le plafond : il meurt en « Test timed out in 5000ms » avant
+ * d'avoir dépensé ses 4 000 ms (constaté le 2026-09-15 sur le cas « Escape NE
+ * ferme PAS le panneau… » de collecte-detail-modal : ~470 ms à vide, rouge à
+ * ~6,8 s quand la suite complète sature les 10 cœurs).
+ *
+ * Valeur : 3 × `ATTENTE_UI_MS`. Un cas ne chaîne jamais plus de deux attentes ;
+ * le 3e budget couvre le travail synchrone entre elles. Relever le plafond du
+ * CAS ne relâche rien sur la détection de régression : c'est toujours
+ * `ATTENTE_UI` (4 000 ms) qui expire en premier sur une vraie régression, avec
+ * le message utile de Testing Library.
+ *
+ * À passer en 3e argument de `it`, jamais en `testTimeout` global : la lenteur
+ * doit rester visible cas par cas.
+ */
+export const ATTENTE_CAS_MS = 3 * ATTENTE_UI_MS;

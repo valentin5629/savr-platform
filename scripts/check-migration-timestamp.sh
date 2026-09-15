@@ -194,8 +194,9 @@ controle_inter_branches() {
 
   local catalogue
   catalogue=$(mktemp)
-  # shellcheck disable=SC2064
-  trap "rm -f '$catalogue'" RETURN
+  # Quotes SIMPLES : la commande du trap ne doit pas être construite par
+  # interpolation à la définition (une apostrophe dans le chemin s'en échapperait).
+  trap 'rm -f "$catalogue"' RETURN
 
   local ref
   for ref in $(refs_candidats); do
@@ -438,7 +439,7 @@ self_test() (
   faux_bin="$tmp/faux-bin"
   git_reel=$(command -v git)
   mkdir -p "$appelant/$MIG_DIR" "$faux_bin"
-  printf '#!/bin/sh\nfor a in "$@"; do [ "$a" = clone ] && exit 128; done\nexec %s "$@"\n' "$git_reel" > "$faux_bin/git"
+  printf '#!/bin/sh\nfor a in "$@"; do [ "$a" = clone ] && exit 128; done\nexec "%s" "$@"\n' "$git_reel" > "$faux_bin/git"
   chmod +x "$faux_bin/git"
   (
     cd "$appelant" \

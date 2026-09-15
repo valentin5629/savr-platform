@@ -36,6 +36,8 @@ const REFERENTIEL = [
 ];
 
 let insertedMissions: Array<Record<string, unknown>> = [];
+/** Chaînes passées à `.select()`, par table — le `!inner` est porteur (cf. test). */
+let selects: Array<{ table: string; cols: string }> = [];
 
 /**
  * Builder appliquant RÉELLEMENT les `.eq()` / `.in()` reçus : servir une liste
@@ -78,7 +80,10 @@ function makeClient() {
     };
 
     Object.assign(self, {
-      select: () => self,
+      select: (cols?: string) => {
+        if (typeof cols === 'string') selects.push({ table, cols });
+        return self;
+      },
       eq: (col: string, val: unknown) => {
         egalites.push([col, val]);
         return self;
@@ -130,6 +135,7 @@ function postReq(body: unknown): NextRequest {
 beforeEach(() => {
   vi.clearAllMocks();
   insertedMissions = [];
+  selects = [];
 });
 
 describe('M2.5 — acceptation manuelle : la mission vise la tournée EVEREST', () => {
@@ -146,5 +152,21 @@ describe('M2.5 — acceptation manuelle : la mission vise la tournée EVEREST', 
     // Le rang 1 est MTS-1 : un `.limit(1)` non filtré l'aurait choisie.
     expect(insertedMissions[0]!['tournee_id']).toBe('T-everest');
     expect(insertedMissions[0]!['statut_everest']).toBe('created_manually');
+  });
+
+  it('l’embed des tournées est en `!inner` — sans quoi le filtre provider serait inopérant', async () => {
+    // Vérifié contre le VRAI PostgREST de dev : `…&tournees.prestataire_logistique_id=in.(…)`
+    // avec un embed SANS `!inner` ne supprime pas la ligne parente, il met
+    // seulement l'embed à `null`. La route ne lisant que `tournee_id`, elle
+    // retomberait SILENCIEUSEMENT sur le comportement non filtré. Le mock ne
+    // peut pas rejouer cette subtilité : on épingle donc la chaîne du select.
+    const { POST } =
+      await import('@/app/api/v1/admin/everest/missions/manual-accept/route.js');
+
+    await POST(postReq({ collecte_id: 'col-mixte' }));
+
+    const selectTournees = selects.find((s) => s.table === 'collecte_tournees');
+    expect(selectTournees).toBeDefined();
+    expect(selectTournees!.cols).toContain('tournees!inner');
   });
 });

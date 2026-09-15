@@ -78,6 +78,24 @@ function libelle(valeur: unknown, table: Record<string, string>): string {
   return table[brut] ?? brut;
 }
 
+// Borne du nom de secours. `evenements.contact_secours_nom` est un `text` SANS
+// contrainte (ni CHECK en base, ni borne de longueur sur la route d'édition) :
+// sans ce plafond, un nom démesuré évincerait à lui seul TOUTES les informations
+// d'accès qui le suivent — y compris l'adresse corrigée de #304 — puisqu'il ouvre
+// l'agrégat. 120 caractères couvrent très largement un nom de personne.
+const LIMITE_NOM_SECOURS = 120;
+
+/**
+ * Nom de contact rendu sûr pour une ligne du canal libre : blancs repliés (les
+ * sauts de ligne d'abord — un nom multiligne forgerait sinon une fausse ligne
+ * « Accès : … » lue comme telle par le chauffeur) puis longueur bornée.
+ */
+function nomContact(valeur: unknown): string {
+  const brut = texte(valeur).replace(/\s+/g, ' ');
+  if (brut.length <= LIMITE_NOM_SECOURS) return brut;
+  return `${brut.slice(0, LIMITE_NOM_SECOURS - 1).trimEnd()}…`;
+}
+
 /** `flux_autorises` = `text[]` en base → liste lisible ; entrées non-chaînes écartées. */
 function liste(valeur: unknown): string {
   if (!Array.isArray(valeur)) return '';
@@ -105,7 +123,7 @@ function lignesCanalLibre(
   contactSecoursNom: string | null | undefined,
 ): string[] {
   const candidates: Array<[string, string]> = [
-    ['Contact de secours', texte(contactSecoursNom)],
+    ['Contact de secours', nomContact(contactSecoursNom)],
     ['Accès', texte(lieu.acces_details)],
     ['Stationnement', libelle(lieu.stationnement, LIBELLE_DIFFICULTE)],
     ['Contraintes horaires', texte(lieu.contraintes_horaires)],

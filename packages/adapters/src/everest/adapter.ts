@@ -119,6 +119,15 @@ export class AdapterEverest implements LogistiqueProvider {
         .update({ external_ref_commande: missionId })
         .eq('id', tournee.id);
 
+      // Référence d'AFFICHAGE de la collecte (§04 Data Model l.1509, §06.06 bouton
+      // « Renvoyer au TMS », §11 carte « Collectes non transmises »). Ce provider n'a
+      // pas de notion de tour : la référence de rapprochement est le missionId. Posée
+      // au rang 1 seulement (V1 : 1 collecte AG = 1 mission, rang toujours 1). JAMAIS
+      // un prédicat d'émission — cf. fn_collecte_commandee_chez_provider.
+      if (rang === 1) {
+        await this.updateCollecteRef(collecte.id, missionId);
+      }
+
       // INSERT everest_missions (statut 'created')
       await this.upsertEverestMission(tournee.id, collecte.id, {
         everest_mission_id: missionId,
@@ -463,6 +472,18 @@ export class AdapterEverest implements LogistiqueProvider {
     await this.supabase
       .from('everest_missions')
       .upsert(row, { onConflict: 'tournee_id' });
+  }
+
+  // Miroir de l'homologue camion. Réécriture inconditionnelle : la valeur est
+  // stable (le missionId de la mission du rang 1, relu sur reprise).
+  private async updateCollecteRef(
+    collecteId: string,
+    reference: string,
+  ): Promise<void> {
+    await this.supabase
+      .from('collectes')
+      .update({ tms_reference: reference })
+      .eq('id', collecteId);
   }
 
   private async updateStatutTms(

@@ -168,6 +168,15 @@ export class AdapterMts1 implements LogistiqueProvider {
       await this.updateTourneeRef(tournee!.id, tourId);
     }
 
+    // Référence d'AFFICHAGE de la collecte (§04 Data Model l.1509, §06.06 bouton
+    // « Renvoyer au TMS », §11 carte « Collectes non transmises »). Posée au rang 1
+    // seulement : une collecte multi-camions a N tours, le CDC ne prévoit qu'un
+    // identifiant de rapprochement. JAMAIS un prédicat : l'émission de E2 se décide
+    // sur l'existence d'une commande (fn_collecte_commandee_chez_provider).
+    if (rang === 1) {
+      await this.updateCollecteRef(collecte.id, tourId);
+    }
+
     const orderNumber = this.orderNumber(collecte, rang);
 
     // ── Étape 2bis : rattacher la commande à la tournée ─────────────────────────
@@ -1042,6 +1051,20 @@ export class AdapterMts1 implements LogistiqueProvider {
       .from('tournees')
       .update({ tms_reference: tourId })
       .eq('id', tourneeId);
+  }
+
+  // Référence lisible de la collecte pour l'affichage Admin / le rapprochement.
+  // Réécriture inconditionnelle : la valeur est stable par construction (le tourId
+  // du rang 1, lu depuis la tournée déjà committée sur reprise ; le rang 1 n'est
+  // jamais supprimé par une réduction de N) → un rejeu réécrit la même chaîne.
+  private async updateCollecteRef(
+    collecteId: string,
+    reference: string,
+  ): Promise<void> {
+    await this.supabase
+      .from('collectes')
+      .update({ tms_reference: reference })
+      .eq('id', collecteId);
   }
 
   private async updateStatutTms(

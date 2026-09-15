@@ -24,10 +24,17 @@
 --       Modele d'emission acte (Val 2026-06-08, cf. 04 - Data Model) : E1/E2/E3
 --         emis par les RPC metier (soumission/renvoi/annulation), E5 par trigger
 --         lieux. L'edition brute d'un champ collecte ne fait que dirty_tms=true.
---         → Pour E2, le helper (ou un setup dedie) doit : creer la collecte,
---           la DISPATCHER (statut_tms acceptee/en_attente_execution), modifier un
---           champ critique (dirty_tms=true), puis appeler le RPC de renvoi qui
---           emet E2. Cf. §08 F3 (non_envoye→E1 / dirty→E2 / rejetee→E1).
+--       ⚠ Le helper monte l'etat POST-DISPATCH (une tournee portant
+--         `external_ref_commande`, liee par `collecte_tournees`) mais N'EMET AUCUN
+--         event de dispatch, et ne pose PAS `collectes.tms_reference` : le seul
+--         event qu'il ecrit est le E1 de fn_creer_collecte. C'est au test de
+--         provoquer E2 lui-meme via la RPC metier.
+--         Historique (corrige le 2026-09-15) : le helper posait `tms_reference` a
+--         la main puis appelait fn_dispatcher_collecte, si bien que l'assertion E2
+--         ci-dessous comptait l'event du DISPATCH. Elle etait donc verte alors que
+--         le predicat d'emission E2 etait TOUJOURS faux en production (la colonne
+--         n'est ecrite par aucun code applicatif). Ne jamais reintroduire une
+--         fixture qui pose a la main la valeur dont depend l'assertion.
 --   tests.outbox_fixture_lieu() RETURNS uuid
 --       Insere un lieu minimal valide et RETOURNE son id.
 -- =============================================================================
@@ -72,13 +79,16 @@ BEGIN
     1::bigint,
     'E1 collecte.creee : 1 event ecrit dans la transaction de l''INSERT collecte');
 
-  -- E2 — collecte.modifiee : sur collecte DEJA DISPATCHEE, la modif d'un champ
-  -- critique + renvoi emet 1 event (cf. contrat helper ci-dessus, modele RPC).
-  -- NB impl : le simple UPDATE ci-dessous pose dirty_tms ; l'event E2 est emis par
-  -- le RPC de renvoi → le helper doit encapsuler dispatch + renvoi pour ce bloc.
-  UPDATE plateforme.collectes
-     SET date_collecte = date_collecte + 1
-   WHERE id = v_coll;
+  -- E2 — collecte.modifiee : sur collecte DEJA COMMANDEE chez le prestataire, la
+  -- modif d'un champ critique emet 1 event. Passe par la RPC metier : un UPDATE
+  -- brut ne pose que dirty_tms et n'emet RIEN (modele d'emission par RPC, cf.
+  -- en-tete). L'ancienne version de ce bloc faisait justement cet UPDATE brut et
+  -- comptait l'event qu'un dispatch cache dans le helper avait laisse — d'ou une
+  -- assertion verte sans rapport avec ce qu'elle annonce.
+  PERFORM plateforme.fn_modifier_collecte(
+    v_coll,
+    jsonb_build_object('date_collecte', (CURRENT_DATE + 31)::text),
+    ARRAY['date_collecte']);
   RETURN NEXT is(
     (SELECT count(*) FROM plateforme.outbox_events
        WHERE aggregate_id = v_coll AND event_type = 'collecte.modifiee')::bigint,

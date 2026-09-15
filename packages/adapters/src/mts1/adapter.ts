@@ -24,6 +24,11 @@ import type {
   Transporteur,
 } from '../index.js';
 import { CancelWindowClosedError, LogistiquePermanentError } from '../index.js';
+import {
+  CHAMPS_ADRESSE_TMS,
+  applyLieuOverrides,
+  lieuChampSurcharge,
+} from '../lieu-overrides.js';
 import type { CreateOrderPayload, CreateTourPayload } from './client.js';
 import { Mts1Client } from './client.js';
 import type { Mts1Tour } from './mock.js';
@@ -32,6 +37,11 @@ import {
   instantParis,
   jourParis,
 } from '@savr/shared/src/temps/index.js';
+
+// `collectes.lieu_overrides` — jsonb libre porté par la collecte (§06.01).
+interface CollecteLieuOverridesRow {
+  lieu_overrides: Record<string, unknown> | null;
+}
 
 interface TourneeRow {
   id: string;
@@ -363,7 +373,7 @@ export class AdapterMts1 implements LogistiqueProvider {
       .select(
         `
         id, nb_camions_demande, date_collecte, heure_collecte, type,
-        controle_acces_requis, informations_supplementaires,
+        controle_acces_requis, informations_supplementaires, lieu_overrides,
         evenements!inner(lieu_id),
         collecte_tournees!inner(tournee_id, rang, tournees!inner(id, external_ref_commande, tms_reference, statut))
       `,
@@ -379,6 +389,28 @@ export class AdapterMts1 implements LogistiqueProvider {
     if (!collectes?.length) return;
 
     for (const c of collectes) {
+      // §05 R_lieu_modif_pending point 4 — le snapshot d'une collecte qui porte
+      // un override est FIGÉ sur les champs surchargés : une édition Admin
+      // ultérieure du lieu officiel ne doit pas écraser la correction saisie par
+      // le traiteur, sinon le camion repart à l'adresse de référence.
+      //
+      // Le figeage est PAR CHAMP, pas par collecte : une correction de l'entrée
+      // logistique (`adresse_acces`) ne doit pas bloquer la propagation d'un
+      // code postal corrigé au référentiel. On recompose donc l'adresse en
+      // fusionnant le lieu officiel à jour avec les seuls champs surchargés.
+      const overrides = (c as unknown as CollecteLieuOverridesRow)
+        .lieu_overrides;
+      // Adresse intégralement surchargée → la valeur recomposée est identique à
+      // celle déjà transmise en E1 : rien à propager, pas de PUT inutile.
+      if (
+        CHAMPS_ADRESSE_TMS.every((champ) =>
+          lieuChampSurcharge(overrides, champ),
+        )
+      ) {
+        continue;
+      }
+      const lieuEffectif = applyLieuOverrides(lieu, overrides);
+
       // Supabase renvoie les relations !inner comme tableau — on prend [0]
       type CtRow = { rang: number; tournees: TourneeRow[] };
       const tournees = ((c.collecte_tournees ?? []) as unknown as CtRow[]).map(
@@ -393,7 +425,7 @@ export class AdapterMts1 implements LogistiqueProvider {
           {
             place: {
               address: {
-                addressSingleLine: `${lieu.adresse_acces}, ${lieu.code_postal} ${lieu.ville}`,
+                addressSingleLine: `${lieuEffectif.adresse_acces}, ${lieuEffectif.code_postal} ${lieuEffectif.ville}`,
               },
             },
           },

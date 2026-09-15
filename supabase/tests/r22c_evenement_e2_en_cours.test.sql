@@ -6,7 +6,11 @@
 --   • contacts/pax propagés au TMS via le modèle IMMÉDIAT M1.2 (§05 l.325), PAS via
 --     un trigger dirty_tms (qui provoquerait un double-push).
 --   • fenêtre d'émission E2 = programmee / validee / EN_COURS (ordre MTS-1 vivant),
---     garde `tms_reference IS NOT NULL` ; états terminaux exclus.
+--     garde « une commande existe chez le prestataire » ; états terminaux exclus.
+-- ⚠ Fixtures mises à jour le 2026-09-15 : le « dispatché » se matérialise désormais
+--   par une tournée portant `external_ref_commande` (ce que l'adapter écrit), plus
+--   par `collectes.tms_reference` posée à la main — colonne qu'aucun code de
+--   production n'écrit, et sur laquelle le gate E2 portait à tort.
 -- fn_modifier_evenement est SECURITY DEFINER / service_role → appelée ici en superuser.
 -- =============================================================================
 
@@ -46,15 +50,31 @@ INSERT INTO plateforme.evenements (
 
 -- Collectes : cc1 en_cours dispatchée (contact) · cc2 programmee dispatchée (contact,
 -- régression) · cc3 en_cours dispatchée AG (pax → E2 + volume) · cc4 en_cours NON
--- dispatchée (tms_reference NULL) · cc5 cloturee dispatchée (terminal exclu) ·
+-- dispatchée (aucune commande) · cc5 cloturee dispatchée (terminal exclu) ·
 -- cc6 en_cours dispatchée (champ non-TMS).
-INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, tms_reference) VALUES
-  ('c22c0000-0000-0000-0000-0000000000c1'::uuid, 'c22c0000-0000-0000-0000-0000000000e1'::uuid, 'zero_dechet', 'en_cours',   'acceptee',   current_date + 10, '08:00', 'MTS-EC-1'),
-  ('c22c0000-0000-0000-0000-0000000000c2'::uuid, 'c22c0000-0000-0000-0000-0000000000e2'::uuid, 'zero_dechet', 'programmee', 'acceptee',   current_date + 10, '08:00', 'MTS-PR-2'),
-  ('c22c0000-0000-0000-0000-0000000000c3'::uuid, 'c22c0000-0000-0000-0000-0000000000e3'::uuid, 'anti_gaspi', 'en_cours',   'acceptee',   current_date + 10, '08:00', 'MTS-EC-3'),
-  ('c22c0000-0000-0000-0000-0000000000c4'::uuid, 'c22c0000-0000-0000-0000-0000000000e4'::uuid, 'zero_dechet', 'en_cours',   'non_envoye', current_date + 10, '08:00', NULL),
-  ('c22c0000-0000-0000-0000-0000000000c5'::uuid, 'c22c0000-0000-0000-0000-0000000000e5'::uuid, 'zero_dechet', 'cloturee',   'acceptee',   current_date + 10, '08:00', 'MTS-CL-5'),
-  ('c22c0000-0000-0000-0000-0000000000c6'::uuid, 'c22c0000-0000-0000-0000-0000000000e6'::uuid, 'zero_dechet', 'en_cours',   'acceptee',   current_date + 10, '08:00', 'MTS-EC-6');
+INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte) VALUES
+  ('c22c0000-0000-0000-0000-0000000000c1'::uuid, 'c22c0000-0000-0000-0000-0000000000e1'::uuid, 'zero_dechet', 'en_cours',   'acceptee',   current_date + 10, '08:00'),
+  ('c22c0000-0000-0000-0000-0000000000c2'::uuid, 'c22c0000-0000-0000-0000-0000000000e2'::uuid, 'zero_dechet', 'programmee', 'acceptee',   current_date + 10, '08:00'),
+  ('c22c0000-0000-0000-0000-0000000000c3'::uuid, 'c22c0000-0000-0000-0000-0000000000e3'::uuid, 'anti_gaspi', 'en_cours',   'acceptee',   current_date + 10, '08:00'),
+  ('c22c0000-0000-0000-0000-0000000000c4'::uuid, 'c22c0000-0000-0000-0000-0000000000e4'::uuid, 'zero_dechet', 'en_cours',   'non_envoye', current_date + 10, '08:00'),
+  ('c22c0000-0000-0000-0000-0000000000c5'::uuid, 'c22c0000-0000-0000-0000-0000000000e5'::uuid, 'zero_dechet', 'cloturee',   'acceptee',   current_date + 10, '08:00'),
+  ('c22c0000-0000-0000-0000-0000000000c6'::uuid, 'c22c0000-0000-0000-0000-0000000000e6'::uuid, 'zero_dechet', 'en_cours',   'acceptee',   current_date + 10, '08:00');
+
+-- « Dispatchée » = une commande existe chez le prestataire, soit une tournée avec
+-- `external_ref_commande` liée par `collecte_tournees` (état que l'adapter écrit).
+-- cc4 n'en a AUCUNE → c'est elle, et elle seule, qui reste hors du gate (cas R22c-5).
+INSERT INTO shared.prestataires (id, nom, code, type_prestation, mode_integration, statut) VALUES
+  ('c22c0000-0000-0000-0000-0000000000d0'::uuid, 'Presta R22c', 'R22C', ARRAY['zd','ag'], 'manuel', 'actif');
+
+INSERT INTO plateforme.tournees (id, reference_interne, date_tournee, creneau, prestataire_logistique_id, statut, external_ref_commande)
+SELECT ('c22c0000-0000-0000-0000-0000000000' || n)::uuid, 'R22C-TOUR-' || n, current_date + 10, 'nuit',
+       'c22c0000-0000-0000-0000-0000000000d0'::uuid, 'en_cours', 'CMD-R22C-' || n
+FROM unnest(ARRAY['a1','a2','a3','a5','a6']) AS n;
+
+INSERT INTO plateforme.collecte_tournees (collecte_id, tournee_id, rang)
+SELECT ('c22c0000-0000-0000-0000-0000000000c' || right(n,1))::uuid,
+       ('c22c0000-0000-0000-0000-0000000000' || n)::uuid, 1
+FROM unnest(ARRAY['a1','a2','a3','a5','a6']) AS n;
 
 -- ── R22c-1 : contact sur collecte EN_COURS dispatchée → E2 émis (le fix) ──────
 SELECT plateforme.fn_modifier_evenement(
@@ -98,7 +118,7 @@ SELECT is(
   (SELECT volume_estime_repas FROM plateforme.collectes WHERE id='c22c0000-0000-0000-0000-0000000000c3'::uuid),
   30, 'R22c-4 recalcul volume_estime_repas sur pax en_cours (ROUND(0.10*300)=30)');
 
--- ── R22c-5 : contact sur collecte EN_COURS NON dispatchée → pas d'E2 ──────────
+-- ── R22c-5 : contact sur collecte EN_COURS NON dispatchée (0 commande) → pas d'E2 ─
 SELECT plateforme.fn_modifier_evenement(
   'c22c0000-0000-0000-0000-0000000000e4'::uuid,
   '{"contact_principal_nom": "Dina Modifiee"}'::jsonb, ARRAY['contact_principal_nom']);
@@ -106,7 +126,7 @@ SELECT is(
   (SELECT count(*)::int FROM plateforme.outbox_events
      WHERE aggregate_id = 'c22c0000-0000-0000-0000-0000000000c4'::uuid
        AND event_type = 'collecte.modifiee'),
-  0, 'R22c-5 modif contact sur collecte non dispatchee (tms_reference NULL) -> pas d''E2');
+  0, 'R22c-5 modif contact sur collecte non dispatchee (aucune commande) -> pas d''E2');
 
 -- ── R22c-6 : contact sur collecte CLOTUREE (terminal) → pas d'E2 ──────────────
 SELECT plateforme.fn_modifier_evenement(

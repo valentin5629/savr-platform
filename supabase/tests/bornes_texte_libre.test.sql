@@ -22,13 +22,13 @@
 --   · `fn_modifier_evenement` / `fn_modifier_collecte` appelées sous service_role
 --     (script, seed, session psql) — elles écrivent `p_updates->>'champ'` tel
 --     quel, sans rien vérifier ;
---   · UPDATE PostgREST direct sur `evenements` : `authenticated` y garde un GRANT
---     UPDATE table-level (20260611180000, jamais révoqué) et `evt_manager_update`
---     laisse un traiteur modifier son propre événement non terminal. C'est le
---     vecteur VIVANT, et les deux champs de contact y sont exposés.
---     (Sur `collectes`, 20260915160000 / #318 a révoqué UPDATE et INSERT à
---     `authenticated` : voie coupée en amont — le cas correspondant plus bas
---     l'atteste en 42501 et non en 23514.)
+--   · ⚠ L'UPDATE PostgREST direct sur `evenements` n'est PLUS un vecteur. Cet
+--     en-tête annonçait « le vecteur VIVANT » parce qu'`authenticated` y gardait
+--     un GRANT UPDATE table-level ; 20260915190000 l'a révoqué, comme
+--     20260915160000 / #318 l'avait fait sur `collectes`. Les DEUX voies sont
+--     désormais coupées en amont — les cas de la section 6 l'attestent en 42501
+--     et non en 23514. Ne pas ré-invoquer cet argument : il ne reste vrai pour
+--     aucune des deux tables.
 -- Le worker relit ces colonnes SUR LA LIGNE à la consommation de l'event : ce qui
 -- est écrit par là atteint bien le transporteur.
 --

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-// ─── Bornes d'ENTRÉE de trois champs texte libre destinés au transporteur ─────
+// ─── Bornes d'ENTRÉE de cinq champs texte libre destinés au transporteur ─────
 //
 // Cinq colonnes `text` sans aucune contrainte de longueur ni de type :
 // `evenements.contact_principal_nom`, `evenements.contact_principal_telephone`,
@@ -39,13 +39,17 @@ import { NextResponse } from 'next/server';
 //   - en aval, par la mise en forme du canal libre côté adapters, qui replie les
 //     blancs et tronque à l'émission — nécessaire indépendamment, puisqu'elle
 //     couvre l'historique et tout autre chemin d'écriture ;
-//   - en base, par les CHECK de la migration 20260915180000, seul niveau qui
-//     tienne une écriture ne passant par aucune route Next. Le cas décisif est
-//     `evenements` : `authenticated` y garde un GRANT UPDATE table-level (aucune
-//     migration ne l'a jamais révoqué), donc les deux champs de contact restent
-//     écrivables en PostgREST direct — c'est la leçon de #308, borner les routes
-//     ne borne pas la colonne. Sur `collectes`, #318 a fermé cette voie ; le CHECK
-//     y couvre encore les RPC sous service_role, les scripts et le seed.
+//   - en base, par les CHECK des migrations 20260915180000 et 20260915190000,
+//     seul niveau qui tienne une écriture ne passant par aucune route Next.
+//     ⚠ Mis à jour : ce commentaire désignait `evenements` comme « le cas
+//     décisif », au motif qu'`authenticated` y gardait un GRANT UPDATE
+//     table-level. 20260915190000 l'a révoqué (comme #318 sur `collectes`) : le
+//     PostgREST direct n'est plus un vecteur sur AUCUNE des deux tables, et cet
+//     argument ne doit pas être ré-invoqué. Ce que les CHECK couvrent encore, et
+//     qui suffit à les justifier : les RPC `SECURITY DEFINER` appelées sous
+//     service_role par les routes, le seed, une session psql, et toute route
+//     future qui oublierait `validerChampsTexteLibre` — c'est-à-dire la leçon de
+//     #308 sous sa forme durable, borner les routes ne borne pas la colonne.
 // Les bornes ci-dessous et celles de cette migration DOIVENT rester identiques ;
 // `champs-texte-libre.bornes-db.test.ts` relit le fichier SQL et le vérifie.
 

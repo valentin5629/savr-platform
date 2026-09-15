@@ -365,10 +365,23 @@ describe('M1.1a / Organisations / Création', () => {
       makeReq('POST', '/api/v1/admin/organisations', {
         raison_sociale: 'Nouvelle Orga',
         type: 'traiteur',
-        // Champs qu'un client peut légitimement envoyer : ils ne doivent pas
-        // atteindre l'INSERT (ils vivent sur `entites_facturation`).
+        // (a) Champs qu'un client peut légitimement envoyer : ils ne doivent
+        // pas atteindre l'INSERT (ils vivent sur `entites_facturation`).
         code_postal: '75002',
         ville: 'Paris',
+        // (b) Colonnes RÉELLES mais système / admin-only : elles ne doivent pas
+        // davantage atteindre l'INSERT. C'est la classe de régression #302
+        // (volet CRÉATION), et elle est invisible au filtre « colonne fantôme »
+        // comme à `check:column-db` — ces colonnes existent, tsc les accepte, et
+        // sous service_role le trigger anti-escalade EXEMPTE l'appelant
+        // (`f_app_role()` NULL) : l'allowlist applicative est la seule barrière.
+        est_shadow: true,
+        actif: false,
+        notes_internes: 'interne',
+        tarif_refacture_pax_zd: 99,
+        grille_tarifaire_zd_id: 'grille-x',
+        cree_par_organisation_id: 'org-pirate',
+        id: 'id-force',
       }),
     );
     expect(res.status).toBe(201);
@@ -388,6 +401,24 @@ describe('M1.1a / Organisations / Création', () => {
     // 1. Aucune colonne fantôme (le message nomme les coupables).
     const fantomes = Object.keys(payload).filter((k) => !toutes.has(k));
     expect(fantomes).toEqual([]);
+
+    // 1bis. ALLOWLIST FERMÉE — ensemble EXACT, pas une simple inclusion.
+    //    Un `...rest` ou une clé recopiée du body ferait entrer une colonne
+    //    RÉELLE mais système/admin-only (`est_shadow`, `tarif_refacture_pax_zd`,
+    //    `cree_par_organisation_id`…) : invisible au filtre « fantôme » ci-dessus
+    //    ET à `check:column-db`. Toute colonne ajoutée ici doit être un choix
+    //    délibéré, donc passer par cette liste (relevé reviewer-rls-securite).
+    expect(Object.keys(payload).sort()).toEqual(
+      [
+        'adresse',
+        'email_principal',
+        'nom',
+        'raison_sociale',
+        'siret',
+        'telephone',
+        'type',
+      ].sort(),
+    );
 
     // 2. Toutes les colonnes NOT NULL sans default sont fournies et non vides
     //    (sans `nom`, l'INSERT violerait 23502 même après retrait des fantômes).

@@ -377,6 +377,41 @@ describe('bornes texte libre — PATCH événement', () => {
     expect(await champsInvalides(res)).toEqual(['contact_secours_telephone']);
     aucuneEcriture();
   });
+
+  // Le cas ci-dessus prouve que le validateur est APPELÉ sur cette route ; celui-ci
+  // prouve que ses valeurs sont CONSOMMÉES. Relevé par sonde en revue sécurité :
+  // réinjecter le body brut dans l'INSERT laissait toute la suite verte. La base
+  // n'est pas un filet ici — le CHECK ne contraint pas le « trimé » (seul le blanc
+  // intégral est refusé), donc `'  Jean  '` partirait tel quel au transporteur.
+  it('POST /admin/evenements : stocke les contacts principaux NORMALISÉS, pas le body brut', async () => {
+    setupAuth('admin_savr');
+    mockSingle.mockResolvedValueOnce({ data: { id: 'evt-1' }, error: null });
+
+    const { POST } = await import('@/app/api/v1/admin/evenements/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/evenements', {
+        organisation_id: 'org-1',
+        traiteur_operationnel_organisation_id: 'org-1',
+        entite_facturation_id: 'ent-1',
+        lieu_id: 'lieu-1',
+        type_evenement_id: 'type-1',
+        pax: 80,
+        contact_principal_nom: '  Jean Martin  ',
+        contact_principal_telephone: '  06 12 34 56 78  ',
+        contact_secours_nom: '   ',
+      }),
+    );
+
+    expect(res.status).toBe(201);
+    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contact_principal_nom: 'Jean Martin',
+        contact_principal_telephone: '06 12 34 56 78',
+        // Facultatif : une saisie qui n'est que des blancs devient `null`, pas `''`.
+        contact_secours_nom: null,
+      }),
+    );
+  });
 });
 
 // ── Écriture de `informations_supplementaires` au niveau collecte ─────────────

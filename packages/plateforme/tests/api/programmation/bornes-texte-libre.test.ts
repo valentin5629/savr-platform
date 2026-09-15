@@ -7,13 +7,26 @@
  * transporteur, deux d'entre elles par le canal de texte libre où toutes les
  * informations d'exploitation sont concaténées.
  *
- * Ce que l'aval rattrape aujourd'hui, à ne PAS revendiquer ici (énoncés corrigés
- * en revue, ils étaient faux) : le NOM de secours passe par `nomContact` (blancs
- * repliés, puis troncature à 120), et depuis #324 la note du traiteur et le bloc
- * composé par Savr se partagent l'enveloppe sans pouvoir s'évincer — le bloc
- * Savr est servi le premier dans la limite de `BUDGET_AGREGAT`, la note prend le
- * reste. Ni l'un ni l'autre ne peut donc chasser l'adresse d'accès du message lu
- * par le chauffeur, ni y forger une fausse ligne d'en-tête.
+ * ÉVICTION : fermée pour les DEUX champs, à ne pas revendiquer ici (l'énoncé
+ * était faux et a été corrigé deux fois en revue). Le NOM passe par `nomContact`
+ * (blancs repliés, puis troncature à 120) ; et depuis #324 la note du traiteur et
+ * le bloc composé par Savr se partagent l'enveloppe sans pouvoir s'évincer — le
+ * bloc Savr est servi le premier dans la limite de `BUDGET_AGREGAT`, la note
+ * prend le reste. Aucun des deux ne peut donc chasser l'adresse d'accès du
+ * message lu par le chauffeur.
+ *
+ * FAUSSE LIGNE D'EN-TÊTE : deux moitiés, une seule est close — ne pas nier le
+ * tout (défaut relevé en revue sécurité sur ce fichier même). Par le NOM, c'est
+ * impossible : `valeurLigne` replie toute rupture de ligne, y compris NEL et les
+ * séparateurs C1, et pas seulement `\s` (mesuré : un nom multiligne ressort en
+ * UNE ligne). Par la NOTE, c'est possible et ASSUMÉ : elle est légitimement
+ * multiligne, #322 n'y refuse que les caractères de contrôle, et elle ouvre le
+ * message — elle peut donc poser un faux `SEPARATEUR_AGREGAT` au-dessus du vrai,
+ * que le chauffeur rencontre en premier (mesuré). Val a tranché de NE PAS fermer
+ * ce vecteur (2026-09-15), le cas reproduit sous les yeux ; le raisonnement
+ * complet est dans le commentaire de `SEPARATEUR_AGREGAT`
+ * (packages/adapters/src/infos-acces.ts). Rien ici ne doit laisser croire le
+ * contraire.
  *
  * Ce que la borne d'entrée tient, elle, c'est l'INTÉGRITÉ DE LA DONNÉE : la
  * colonne, les exports, le rendu des fiches — plus une propriété qui ne tient
@@ -211,7 +224,12 @@ describe('bornes texte libre — POST /programmation/evenements', () => {
     aucuneEcriture();
   });
 
-  it('refuse un nom de secours multiligne — il forgerait une fausse ligne chez le chauffeur', async () => {
+  // Motif corrigé : un nom multiligne ne forge AUCUNE ligne chez le chauffeur —
+  // `valeurLigne` replie les ruptures avant l'agrégat (mesuré). Ce que le 422
+  // tient ici, c'est la PARITÉ avec le CHECK : `\n` est un `[[:cntrl:]]`, donc
+  // sans ce refus la valeur buterait sur `chk_evenements_contact_secours_nom_borne`
+  // et ressortirait en 500 (23514) au lieu du 422 dû.
+  it('refuse un nom de secours multiligne — sans lui, le CHECK le rendrait en 500', async () => {
     setupAuth('traiteur_commercial');
 
     const res = await postProgrammation({

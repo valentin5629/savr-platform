@@ -1,5 +1,5 @@
 -- =============================================================================
--- Tests pgTAP — bornes des champs texte libre (migration 20260915170000)
+-- Tests pgTAP — bornes des champs texte libre (migration 20260915180000)
 --   chk_evenements_contact_secours_nom_borne
 --   chk_evenements_contact_secours_telephone_borne
 --   chk_collectes_informations_supplementaires_borne

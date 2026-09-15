@@ -24,14 +24,14 @@ import { NextResponse } from 'next/server';
 // L'amont borne déjà la MISE EN FORME (`nomContact`, 120 car., blancs repliés) —
 // et son propre commentaire constate que la colonne n'a « ni CHECK en base, ni
 // borne de longueur sur la route d'édition ». C'est précisément ce que ce module
-// et la migration 20260915170000 ferment.
+// et la migration 20260915180000 ferment.
 //
 // La borne posée ici est celle de l'INTÉGRITÉ DE LA DONNÉE, en 422 à l'écriture.
 // Elle est doublée :
 //   - en aval, par la mise en forme du canal libre côté adapters, qui replie les
 //     blancs et tronque à l'émission — nécessaire indépendamment, puisqu'elle
 //     couvre l'historique et tout autre chemin d'écriture ;
-//   - en base, par les CHECK de la migration 20260915170000, seul niveau qui
+//   - en base, par les CHECK de la migration 20260915180000, seul niveau qui
 //     tienne une écriture ne passant par aucune route Next. Le cas décisif est
 //     `evenements` : `authenticated` y garde un GRANT UPDATE table-level (aucune
 //     migration ne l'a jamais révoqué), donc les deux champs de contact restent

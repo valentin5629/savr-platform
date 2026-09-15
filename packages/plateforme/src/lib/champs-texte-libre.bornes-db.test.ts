@@ -1,6 +1,6 @@
 /**
  * Cliquet anti-drift entre la borne APPLICATIVE (`BORNES_TEXTE_LIBRE`) et la borne
- * en BASE (CHECK de la migration 20260915170000).
+ * en BASE (CHECK de la migration 20260915180000).
  *
  * #312 avait refusé de recopier des longueurs en SQL au motif que « les recopier
  * garantirait le drift entre des nombres SQL et des nombres TS ». L'objection est
@@ -26,7 +26,7 @@ import {
 const MIGRATION = resolve(
   dirname(fileURLToPath(import.meta.url)),
   '../../../../supabase/migrations',
-  '20260915170000_plateforme_bornes_texte_libre_contact_secours_infos_suppl.sql',
+  '20260915180000_plateforme_bornes_texte_libre_contact_secours_infos_suppl.sql',
 );
 
 /**

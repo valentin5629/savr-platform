@@ -27,15 +27,19 @@
  *
  * Périmètre exact : l'INTERSECTION des champs que le formulaire offre à l'édition
  * par collecte (`LieuEdits`, lieu-champs-editables.tsx) et de ceux que porte
- * l'interface `Lieu` des adapters. Ce n'est donc PAS la parité avec le formulaire :
- * `stationnement`, `acces_office` et `flux_autorises` y sont éditables mais
- * n'existent pas dans `Lieu`, ils ne peuvent pas être fusionnés ici — écart connu,
- * en attente d'arbitrage sur le périmètre des API MTS-1/Everest.
+ * l'interface `Lieu` des adapters. Depuis l'arbitrage Val 2026-09-15 (agrégation
+ * des infos d'accès dans le champ libre), `Lieu` porte aussi `stationnement`,
+ * `acces_office` et `flux_autorises` : l'intersection est donc désormais la
+ * PARITÉ avec `LieuEdits`, les 9 champs éditables par collecte. Élargir l'un sans
+ * l'autre ne sert à rien — un champ absent de `Lieu` n'est pas surchargeable, un
+ * champ absent d'ici n'est pas fusionné.
  *
- * La liste est volontairement plus large que ce que les adapters V1 transmettent
- * réellement (seuls `adresse_acces`, `code_postal` et `ville` atteignent le wire) :
- * le garde-fou 2 exige la même sémantique de fusion pour l'adapter V1 et le TMS V2,
- * et un miroir des consommateurs actuels garantirait le drift au premier ajouté.
+ * La liste reste plus large que ce que les adapters V1 portent dans un champ
+ * NATIF (seuls `adresse_acces`, `code_postal` et `ville` composent l'adresse sur
+ * le fil ; les 6 informations d'accès passent par le champ libre, cf.
+ * infos-acces.ts) : le garde-fou 2 exige la même sémantique de fusion pour
+ * l'adapter V1 et le TMS V2, et un miroir des consommateurs actuels garantirait
+ * le drift au premier ajouté.
  *
  * ⚠ Aucun lien structurel ne maintient cette liste synchronisée avec `LieuEdits`
  * (packages distincts). Tout champ ajouté au formulaire ET à `Lieu` doit être
@@ -48,6 +52,9 @@ export const CHAMPS_LIEU_SURCHARGEABLES = [
   'acces_details',
   'contraintes_horaires',
   'type_vehicule_max',
+  'stationnement',
+  'acces_office',
+  'flux_autorises',
 ] as const;
 
 export type ChampLieuSurchargeable =

@@ -1,6 +1,11 @@
 pnpm exec lint-staged
 bash scripts/check-coupling.sh
 bash scripts/check-specs-freshness.sh
+# Anti-collision de timestamp de migration. Sort immediatement si le commit
+# n'ajoute aucune migration : le `git fetch` du controle inter-branches (seul
+# capable de voir une branche en vol) ne coute donc rien sur un commit ordinaire.
+# Hors ligne, ce controle s'avertit et laisse passer — la CI (job
+# migration-timestamp) est le filet bloquant.
 bash scripts/check-migration-timestamp.sh
 
 # G11 (R0c) — drift CDC ↔ manifeste, en AVERTISSEMENT (mode rapport T0). Scopé :

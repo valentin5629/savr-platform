@@ -58,6 +58,25 @@ jobs:
       - uses: actions/checkout@v4
       - run: bash scripts/check-coupling.sh
 
+  # Anti-collision de timestamp de migration (R0d) — 5 occurrences vecues.
+  # Le hook pre-commit ne voit que le dossier de SA branche : aveugle a une
+  # migration portee par une branche EN VOL (ni mergee, ni sur main). Ce job est
+  # le seul endroit ou l'on compare a TOUS les refs distants, d'ou fetch-depth: 0
+  # + fetch explicite des heads (le checkout d'une PR ne ramene que la merge ref).
+  # Le --self-test tourne AVANT le controle reel : un detecteur inerte doit rougir
+  # de lui-meme plutot que de laisser passer une collision en silence.
+  migration-timestamp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Recuperer toutes les branches distantes
+        run: git fetch --quiet --prune origin '+refs/heads/*:refs/remotes/origin/*'
+      - name: Auto-test du detecteur (non-vacuite)
+        run: bash scripts/check-migration-timestamp.sh --self-test
+      - name: Collision de timestamp, y compris avec une branche non mergee
+        run: bash scripts/check-migration-timestamp.sh --branch
+
   # Contrat d'integration worker <-> renderer PDF (R2 / BL-P0-03). Le renderer
   # (apps/pdf-renderer) est auto-suffisant (build Docker hors workspace) et ne peut
   # importer le contrat partage @savr/shared : il duplique la liste des type_document.

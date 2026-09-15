@@ -4,6 +4,7 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 const AGENCE_ROLES: ClientRole[] = ['agence'];
 
@@ -33,7 +34,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (type) query = query.eq('type', type);
 
   const { data, error } = await query;
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'agence.factures.list');
   return NextResponse.json({ data: data ?? [] });
 }

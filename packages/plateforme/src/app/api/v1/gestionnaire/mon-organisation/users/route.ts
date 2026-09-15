@@ -6,6 +6,11 @@ import {
 } from '@/lib/api-auth.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
+import {
+  writeError,
+  serverError,
+  authAccountError,
+} from '@/lib/api-helpers.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
@@ -26,7 +31,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .order('nom');
 
   if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error, 'gestionnaire.mon_organisation.users.list');
 
   return NextResponse.json({ data: data ?? [] });
 }
@@ -100,9 +105,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     });
 
   if (authError || !authData.user)
-    return NextResponse.json(
-      { error: authError?.message ?? 'Erreur création compte' },
-      { status: 422 },
+    return authAccountError(
+      authError,
+      'gestionnaire.mon_organisation.users.create_compte',
     );
 
   const userId = authData.user.id;
@@ -121,7 +126,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (userError) {
     // Rollback compte Auth (best-effort) pour ne pas laisser un user orphelin.
     await admin.auth.admin.deleteUser(userId).catch(() => null);
-    return NextResponse.json({ error: userError.message }, { status: 422 });
+    return writeError(userError, 'gestionnaire.mon_organisation.users.create');
   }
 
   // Lien d'activation (validité 7 jours, gérée par Supabase Auth) → écran set password.

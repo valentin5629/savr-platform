@@ -11,6 +11,7 @@ import {
   EVENEMENTS_SELECT,
   evenementsToCsv,
 } from '@/lib/exports/evenements.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
@@ -65,7 +66,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const { data: evts, error } = await q;
   if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error, 'gestionnaire.evenements.export_csv.list');
 
   // Filtres post-fetch (identiques à la liste) : Taille (pax), Type de collecte,
   // Statut consolidé — l'export « respecte les filtres actifs » (§06.05 l.338).

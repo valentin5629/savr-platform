@@ -5,6 +5,7 @@ import {
   type ClientRole,
 } from '@/lib/api-auth.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
@@ -48,8 +49,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .in('evenements.lieu_id', lieuIds)
     .gte('date_collecte', since24mStr);
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'gestionnaire.traiteurs.list');
 
   // Agréger par traiteur. lieux = Map lieu_id → nom (colonne « Lieux d'intervention »
   // §06.05 §5 l.432 : liste des lieux où le traiteur est intervenu).

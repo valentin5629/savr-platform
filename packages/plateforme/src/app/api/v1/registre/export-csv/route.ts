@@ -15,6 +15,7 @@ import {
 } from '@/lib/registre/registre.js';
 import { fetchFluxDetail, buildRegistreCsv } from '@/lib/registre/csv.js';
 import { traceExport } from '@/lib/registre/trace.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -48,7 +49,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     return csvResponse(csvFilename('registre', new Date()), csv);
   } catch (e) {
-    const message = e instanceof Error ? e.message : 'Erreur export registre';
-    return NextResponse.json({ error: message }, { status: 500 });
+    // Le message est déjà neutralisé à la source (`erreurInterne`), mais le
+    // renvoyer via une variable intermédiaire rendait le cliquet aveugle à ce
+    // chemin (contre-revue sécurité) : on passe par le helper, comme partout.
+    return serverError(e, 'registre.export_csv');
   }
 }

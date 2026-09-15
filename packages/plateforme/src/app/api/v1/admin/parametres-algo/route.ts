@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireAdmin, requireStaff } from '@/lib/api-auth.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 // GET /api/v1/admin/parametres-algo — lecture (ops + admin)
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -13,8 +14,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .select('cle, valeur, type_valeur, description, updated_at')
     .order('cle');
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'admin.parametres_algo.list');
   return NextResponse.json({ data: data ?? [] });
 }
 
@@ -51,7 +51,7 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
         { error: `Paramètre inconnu: ${body.cle}` },
         { status: 404 },
       );
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error, 'admin.parametres_algo.update');
   }
 
   return NextResponse.json({ data });

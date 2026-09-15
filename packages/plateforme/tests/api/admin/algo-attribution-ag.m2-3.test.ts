@@ -115,7 +115,12 @@ describe('M2.3 / GET /attributions-ag/:id/recommandation', () => {
   it('retourne 404 si collecte introuvable', async () => {
     mockRpc.mockResolvedValue({
       data: null,
-      error: { message: 'P0030 Collecte AG introuvable' },
+      // PostgREST remonte l'errcode dans `code`, pas dans le texte du message :
+      // `RAISE EXCEPTION 'Collecte AG introuvable…' USING ERRCODE = 'P0030'`.
+      error: {
+        code: 'P0030',
+        message: 'Collecte AG introuvable ou type incorrect',
+      },
     });
 
     const { GET } =

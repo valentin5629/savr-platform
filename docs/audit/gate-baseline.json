@@ -9,5 +9,6 @@
   "renamed-type-refs": 0,
   "enum-collecte-type": 0,
   "fetch-path-encoding": 0,
+  "api-error-leak": 0,
   "types-snapshot": 0
 }

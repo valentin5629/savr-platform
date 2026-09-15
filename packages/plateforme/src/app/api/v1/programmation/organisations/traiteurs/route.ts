@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireProgrammateurOuAdmin } from '@/lib/api-auth.js';
-import { sanitizeOrTerm } from '@/lib/api-helpers.js';
+import { sanitizeOrTerm, serverError } from '@/lib/api-helpers.js';
 
 // Accessible aux rôles qui programment pour le compte d'un traiteur tiers
 // (agence, gestionnaire_lieux) + admin_savr/ops_savr en programmation de support
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const { data, error } = await query;
   if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error, 'programmation.organisations.traiteurs.list');
 
   return NextResponse.json(data ?? []);
 }

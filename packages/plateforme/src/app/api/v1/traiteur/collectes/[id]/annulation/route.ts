@@ -10,6 +10,7 @@ import {
   notifierAdminAnnulation,
   notifierTraiteurOperationnel,
 } from '@/lib/notifications/traiteur-operationnel.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 const TRAITEUR_ROLES: ClientRole[] = [
   'traiteur_manager',
@@ -80,7 +81,7 @@ export async function POST(
       p_champs_modifies: ['statut'],
     });
     if (error)
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return serverError(error, 'traiteur.collectes.annulation.directe');
 
     await sendEmail('annulation_collecte', 'hello@gosavr.io', {
       organisation_nom: orgNom ?? '',
@@ -120,7 +121,7 @@ export async function POST(
       p_champs_modifies: ['statut'],
     });
     if (error)
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return serverError(error, 'traiteur.collectes.annulation.demande');
 
     await sendEmail('admin_demande_annulation', 'hello@gosavr.io', {
       organisation_nom: orgNom ?? '',

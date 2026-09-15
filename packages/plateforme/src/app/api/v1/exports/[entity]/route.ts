@@ -12,6 +12,7 @@ import {
   isExportEntity,
   type ExportContext,
 } from '@/lib/exports/index.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 // GET /api/v1/exports/[entity] — export tabulaire CSV (transverse D, §12 §2).
 // Une seule route paramétrée : authentifie (staff OU client), applique la
@@ -59,7 +60,9 @@ export async function GET(
     const { filenamePrefix, csv } = await EXPORT_BUILDERS[entity](ctx, sp);
     return csvResponse(csvFilename(filenamePrefix, new Date()), csv);
   } catch (e) {
-    const message = e instanceof Error ? e.message : 'Erreur export';
-    return NextResponse.json({ error: message }, { status: 500 });
+    // Le message est déjà neutralisé à la source (`erreurInterne`), mais le
+    // renvoyer via une variable intermédiaire rendait le cliquet aveugle à ce
+    // chemin (contre-revue sécurité) : on passe par le helper, comme partout.
+    return serverError(e, 'exports.handler');
   }
 }

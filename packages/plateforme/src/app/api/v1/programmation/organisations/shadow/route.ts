@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireProgrammateur } from '@/lib/api-auth.js';
+import { writeError } from '@/lib/api-helpers.js';
 
 // Création d'un traiteur shadow — réservé aux agences (R13)
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -51,8 +52,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .select('id, nom, raison_sociale, siret, est_shadow')
     .single();
 
+  // Fuite fermée (classe PR #276) : le message Postgres brut exposait la structure
+  // interne (table/colonne/contrainte). `writeError` logge l'erreur réelle côté
+  // serveur (`api_route.error`) et renvoie un libellé neutre en 422 — convention
+  // des autres routes d'écriture du back-office. Aucun cas métier n'est porté par
+  // ce message : `organisations.siret` n'a pas de contrainte d'unicité (l'unicité
+  // SIRET est sur `entites_facturation`), donc rien à distinguer côté UI.
   if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return writeError(error, 'programmation.organisations.shadow.create');
 
   // Notification Admin in-app info-only (décision F3 — aucun email, catalogue
   // §06.02 inchangé). Dédupliquée via f_upsert_alerte_admin (service_role).

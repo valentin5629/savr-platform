@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 export async function GET(
   req: NextRequest,
@@ -24,8 +25,7 @@ export async function GET(
       { status: 404 },
     );
   }
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'admin.transporteurs.get');
 
   // Nom du prestataire logistique (pont V1 shared.prestataires) — exposé en
   // lecture pour la fiche (« toutes les informations », Val 2026-07-02).
@@ -156,8 +156,7 @@ export async function PATCH(
     .select()
     .single();
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'admin.transporteurs.update');
 
   await supabase.from('audit_log').insert({
     table_name: 'transporteurs',

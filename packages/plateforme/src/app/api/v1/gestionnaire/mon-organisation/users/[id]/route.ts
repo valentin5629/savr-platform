@@ -4,6 +4,7 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
@@ -50,7 +51,7 @@ export async function PATCH(
     .maybeSingle();
 
   if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error, 'gestionnaire.mon_organisation.users.update');
   if (!data)
     return NextResponse.json(
       { error: 'Utilisateur non trouvé ou non autorisé' },

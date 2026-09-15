@@ -19,12 +19,31 @@ import {
  *   (code 42501 insufficient_privilege), on émet EN PLUS l'event deny qui alimente
  *   l'alerte sécurité §07/03 (> 10/h même rôle+table, agrégée côté plateforme).
  */
+/**
+ * Message lisible d'une erreur, quelle que soit sa forme. Une `PostgrestError` est
+ * un objet PLAIN (pas une instance d'`Error`) : un simple `String(error)` la
+ * réduisait à « [object Object] » et le log ne disait plus rien de la panne —
+ * neutraliser la réponse SANS tracer côté serveur est pire que la fuite d'origine.
+ */
+export function messageErreur(err: unknown): string {
+  if (err == null) return '';
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'string') return err;
+  const objet = err as { message?: unknown };
+  if (typeof objet.message === 'string') return objet.message;
+  try {
+    return JSON.stringify(err);
+  } catch {
+    return String(err);
+  }
+}
+
 function logApiError(
   error: unknown,
   route: string,
   operation: 'read' | 'write',
 ): void {
-  const message = error instanceof Error ? error.message : String(error);
+  const message = messageErreur(error);
   const error_code = (error as { code?: string } | null)?.code ?? 'UNKNOWN';
   logger.error('api_route.error', { route, error_code, error: message });
 
@@ -145,4 +164,64 @@ export function withApiTrace<R extends Request, A extends unknown[]>(
  */
 export function sanitizeOrTerm(q: string): string {
   return q.replace(/[,()"\\]/g, ' ').trim();
+}
+/**
+ * Erreur dont le MESSAGE est un libellé métier écrit par nous — `RAISE EXCEPTION
+ * '<libellé>' USING ERRCODE = 'P0003'` côté RPC, ou `Object.assign(new Error(…),
+ * { code: 'DUPLICATE' })` côté TS. Contrairement à une erreur Postgres système
+ * (contrainte, colonne, table), un tel message ne décrit aucune structure interne :
+ * il est destiné à l'utilisateur et peut être renvoyé tel quel.
+ *
+ * `codesMetier` est une ALLOWLIST FERMÉE : tout code hors liste (y compris une
+ * PostgrestError qui remonterait par le même `catch`) retombe sur le message
+ * neutre de `writeError`, JAMAIS sur le message brut. L'erreur réelle est loggée
+ * dans les deux cas.
+ */
+export function businessError(
+  error: { code?: string; message?: string } | null,
+  event: string,
+  codesMetier: readonly string[],
+  status: number,
+): NextResponse {
+  const code = error?.code ?? '';
+  if (!codesMetier.includes(code)) return writeError(error, event);
+  logApiError(error, event, 'write');
+  return NextResponse.json({ error: error?.message ?? '' }, { status });
+}
+
+/**
+ * Échec de création d'un compte Supabase Auth (`auth.admin.createUser`). Le
+ * message GoTrue brut n'est jamais renvoyé (il peut porter du détail interne) :
+ * on mappe les CAS MÉTIER connus vers un libellé FR fixe, pour que l'utilisateur
+ * garde l'information utile (email déjà pris, mot de passe trop faible) sans
+ * qu'aucun texte d'origine tierce n'atteigne le client. `code` n'étant pas
+ * garanti selon la version GoTrue, le message sert de repli de DÉTECTION — il est
+ * lu, jamais retourné.
+ */
+export function authAccountError(
+  error: { code?: string; message?: string } | null,
+  event: string,
+): NextResponse {
+  logApiError(error, event, 'write');
+  const code = error?.code ?? '';
+  const msg = (error?.message ?? '').toLowerCase();
+  if (
+    code === 'email_exists' ||
+    code === 'user_already_exists' ||
+    msg.includes('already registered') ||
+    msg.includes('already been registered')
+  )
+    return NextResponse.json(
+      { error: 'Cette adresse email est déjà utilisée.' },
+      { status: 422 },
+    );
+  if (code === 'weak_password' || msg.includes('password'))
+    return NextResponse.json(
+      { error: 'Mot de passe trop faible (8 caractères minimum).' },
+      { status: 422 },
+    );
+  return NextResponse.json(
+    { error: 'Création du compte impossible.' },
+    { status: 422 },
+  );
 }

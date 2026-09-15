@@ -7,6 +7,7 @@ import {
   type ClientRole,
 } from '@/lib/api-auth.js';
 import { instantParis } from '@savr/shared/src/temps/index.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 const TRAITEUR_ROLES: ClientRole[] = [
   'traiteur_manager',
@@ -108,8 +109,7 @@ export async function GET(
     .eq('id', id)
     .maybeSingle();
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'traiteur.collectes.get');
   if (!data)
     return NextResponse.json(
       { error: 'Collecte introuvable' },
@@ -347,8 +347,7 @@ export async function PATCH(
     p_updates: updates,
     p_champs_modifies: Object.keys(updates),
   });
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'traiteur.collectes.update');
 
   if (reacceptation_requise) {
     await admin

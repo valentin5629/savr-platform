@@ -4,6 +4,7 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
@@ -39,7 +40,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .maybeSingle();
 
   if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error, 'gestionnaire.mon_organisation.profil.list');
   if (!data)
     return NextResponse.json(
       { error: 'Organisation non trouvée' },
@@ -84,7 +85,7 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
     .maybeSingle();
 
   if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error, 'gestionnaire.mon_organisation.profil.update');
 
   return NextResponse.json({ data });
 }

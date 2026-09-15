@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff, requireAdmin } from '@/lib/api-auth.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { serverError, businessError } from '@/lib/api-helpers.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -21,8 +22,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .order('est_defaut', { ascending: false })
     .order('nom');
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'admin.grilles_tarifaires_zd.list');
 
   // Aplatit organisations(count) → nb_organisations (champ propre pour le catalogue).
   const rows = (data ?? []).map((g) => {
@@ -95,8 +95,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     p_paliers: paliers,
   });
 
+  // La RPC valide les entrées par `RAISE EXCEPTION '<libellé>' USING errcode =
+  // '22023'` (ex. « nom obligatoire ») : libellé métier écrit par nous, affiché à
+  // l'Admin. Tout autre code (contrainte, RLS…) retombe sur un message neutre.
   if (error)
-    return NextResponse.json({ error: error.message }, { status: 422 });
+    return businessError(
+      error,
+      'admin.grilles_tarifaires_zd.create',
+      ['22023'],
+      422,
+    );
 
   return NextResponse.json(data, { status: 201 });
 }

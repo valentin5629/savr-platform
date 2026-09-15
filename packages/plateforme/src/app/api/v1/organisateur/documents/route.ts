@@ -4,6 +4,7 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 const ORGANISATEUR_ROLES: ClientRole[] = ['client_organisateur'];
 
@@ -69,8 +70,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   ]);
 
   const firstError = rapports.error ?? bordereaux.error ?? attestations.error;
-  if (firstError)
-    return NextResponse.json({ error: firstError.message }, { status: 500 });
+  if (firstError) return serverError(firstError, 'organisateur.documents.list');
 
   const items: DocItem[] = [];
 

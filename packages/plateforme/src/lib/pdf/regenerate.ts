@@ -13,6 +13,8 @@
 // le picto ⟳ « Rapport régénéré » (§06.06 l.170 : version actuelle ≠ initiale).
 
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { logger } from '@savr/shared/src/logger/index.js';
+import { messageErreur } from '@/lib/api-helpers.js';
 import {
   isPdfDocumentType,
   type PdfDocumentType,
@@ -56,6 +58,23 @@ export type RegenerateResult =
       message: string;
     };
 
+/**
+ * Échec DB de la régénération → message NEUTRE. Les routes `…/regenerate`
+ * renvoient `result.message` au client : y placer `pgError.message` faisait fuiter
+ * la structure interne (classe fermée par la PR #276). Le message réel est loggé
+ * côté serveur (`api_route.error`, §07/02). Les autres codes (`UNKNOWN_TYPE`,
+ * `NO_DOCUMENT`, `NO_PRIOR_JOB`) portent un libellé métier écrit par nous et
+ * restent renvoyés tels quels.
+ */
+function dbError(err: unknown, event: string): RegenerateResult {
+  logger.error('api_route.error', {
+    route: event,
+    error_code: (err as { code?: string } | null)?.code ?? 'UNKNOWN',
+    error: messageErreur(err),
+  });
+  return { ok: false, code: 'DB_ERROR', message: 'Erreur serveur' };
+}
+
 export async function regenerateCollecteDocument(
   supabase: SupabaseClient,
   collecteId: string,
@@ -94,7 +113,7 @@ export async function regenerateCollecteDocument(
     .maybeSingle();
 
   if (docErr) {
-    return { ok: false, code: 'DB_ERROR', message: docErr.message };
+    return dbError(docErr, 'pdf.regenerate.lecture_document');
   }
   if (!docRow) {
     // Document jamais généré (batch J+1 pas encore passé / collecte non éligible).
@@ -117,7 +136,7 @@ export async function regenerateCollecteDocument(
     .maybeSingle();
 
   if (jobErr) {
-    return { ok: false, code: 'DB_ERROR', message: jobErr.message };
+    return dbError(jobErr, 'pdf.regenerate.lecture_job');
   }
   if (!lastJob) {
     return {
@@ -169,11 +188,7 @@ export async function regenerateCollecteDocument(
     .single();
 
   if (insErr || !newJob) {
-    return {
-      ok: false,
-      code: 'DB_ERROR',
-      message: insErr?.message ?? 'Échec de la mise en file du job PDF',
-    };
+    return dbError(insErr, 'pdf.regenerate.mise_en_file');
   }
 
   // 6. Rapport RSE : marquer la régénération (picto ⟳ « Rapport régénéré », §06.06

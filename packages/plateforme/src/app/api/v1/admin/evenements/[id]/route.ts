@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 export async function GET(
   req: NextRequest,
@@ -28,8 +29,7 @@ export async function GET(
       { status: 404 },
     );
   }
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'admin.evenements.get');
 
   return NextResponse.json(data);
 }
@@ -87,8 +87,7 @@ export async function PATCH(
       { status: 404 },
     );
   }
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'admin.evenements.update');
 
   return NextResponse.json(data);
 }

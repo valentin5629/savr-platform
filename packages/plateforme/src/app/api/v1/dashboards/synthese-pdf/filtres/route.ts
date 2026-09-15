@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser, createSupabaseServerClient } from '@/lib/api-auth.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 /**
  * GET /api/v1/dashboards/synthese-pdf/filtres — options des filtres de la modale
@@ -55,7 +56,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .eq(scopeCol, org)
     .not('client_organisateur_organisation_id', 'is', null);
   if (cliErr)
-    return NextResponse.json({ error: cliErr.message }, { status: 500 });
+    return serverError(cliErr, 'dashboards.synthese_pdf.filtres.list');
 
   const clientsMap = new Map<string, string>();
   for (const r of (cliRows ?? []) as {
@@ -80,7 +81,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       .eq(scopeCol, org)
       .not('created_by', 'is', null);
     if (evErr)
-      return NextResponse.json({ error: evErr.message }, { status: 500 });
+      return serverError(evErr, 'dashboards.synthese_pdf.filtres.list.ev_err');
     const ids = [
       ...new Set(
         (evRows ?? [])

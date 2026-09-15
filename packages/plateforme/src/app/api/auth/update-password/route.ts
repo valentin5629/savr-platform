@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { validatePasswordStrength } from '@/lib/password.js';
+import { writeError } from '@/lib/api-helpers.js';
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   let body: Record<string, unknown>;
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const { error } = await supabase.auth.updateUser({ password: mot_de_passe });
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 422 });
+    return writeError(error, 'auth.update_password.create');
   }
 
   return NextResponse.json(

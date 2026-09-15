@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 export async function POST(
   req: NextRequest,
@@ -29,8 +30,7 @@ export async function POST(
     .select()
     .single();
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'admin.lieux.normaliser.create');
 
   await supabase.from('audit_log').insert({
     table_name: 'lieux',

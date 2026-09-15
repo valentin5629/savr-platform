@@ -4,6 +4,7 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
@@ -40,7 +41,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const { data, error } = await q;
   if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error, 'gestionnaire.mon_organisation.factures.list');
 
   return NextResponse.json({ data: data ?? [] });
 }

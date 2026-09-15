@@ -10,6 +10,7 @@ import {
   notifierAdminAnnulation,
   notifierTraiteurOperationnel,
 } from '@/lib/notifications/traiteur-operationnel.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 const AGENCE_ROLES: ClientRole[] = ['agence'];
 
@@ -59,8 +60,7 @@ export async function POST(
       p_updates: { statut: 'annulee', annulee_cote_savr_motif: motif },
       p_champs_modifies: ['statut'],
     });
-    if (error)
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return serverError(error, 'agence.collectes.annulation.create');
 
     await sendEmail('annulation_collecte', 'hello@gosavr.io', {
       organisation_nom: orgNom ?? '',
@@ -99,7 +99,7 @@ export async function POST(
       p_champs_modifies: ['statut'],
     });
     if (error)
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return serverError(error, 'agence.collectes.annulation.create_2');
 
     await sendEmail('admin_demande_annulation', 'hello@gosavr.io', {
       organisation_nom: orgNom ?? '',

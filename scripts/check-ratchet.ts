@@ -47,6 +47,8 @@ const GATES: { key: string; cmd: string[] }[] = [
   // Anti-récidive « segment de chemin /api/ interpolé brut » (relevé rls-securite
   // en revue #285) : une valeur d'URL en ../ adresse un autre endpoint same-origin.
   { key: 'fetch-path-encoding', cmd: ['check:fetch-path-encoding'] },
+  // message d'erreur DB/tierce renvoyé au client depuis app/api (#276 généralisé)
+  { key: 'api-error-leak', cmd: ['check:api-error-leak'] },
 ];
 
 function runGate(cmd: string[]): number | null {

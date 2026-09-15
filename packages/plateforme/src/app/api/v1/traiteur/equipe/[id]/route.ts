@@ -4,6 +4,7 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
+import { writeError } from '@/lib/api-helpers.js';
 
 // CDC §06.04 §6 « Équipe » (l.669-670) — MANAGER only :
 //   - Modifier le rôle d'un collaborateur (traiteur_commercial ↔ traiteur_manager) ;
@@ -75,8 +76,7 @@ export async function PATCH(
     .select('id, prenom, nom, email, role, actif')
     .maybeSingle();
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 422 });
+  if (error) return writeError(error, 'traiteur.equipe.update');
   if (!data)
     return NextResponse.json(
       { error: 'Utilisateur non trouvé ou hors de votre organisation' },

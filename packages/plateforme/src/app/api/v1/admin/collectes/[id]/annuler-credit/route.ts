@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import { serverError, businessError } from '@/lib/api-helpers.js';
 
 // POST /api/v1/admin/collectes/:id/annuler-credit
 // Annule le crédit pack AG d'une collecte réalisée sans changer son statut (Bloc 6)
@@ -36,16 +37,28 @@ export async function POST(
 
   if (error) {
     const code = error.code ?? '';
+    // P0001/P0003-5 = `RAISE EXCEPTION '<libellé métier>'` de la RPC : message
+    // écrit par nous, destiné à l'Admin, sans structure interne → conservé.
     if (code === 'P0001')
-      return NextResponse.json({ error: error.message }, { status: 422 });
+      return businessError(
+        error,
+        'admin.collectes.annuler_credit.motif',
+        ['P0001'],
+        422,
+      );
     if (code === 'P0002')
       return NextResponse.json(
         { error: 'Collecte non trouvée' },
         { status: 404 },
       );
     if (['P0003', 'P0004', 'P0005'].includes(code))
-      return NextResponse.json({ error: error.message }, { status: 409 });
-    return NextResponse.json({ error: error.message }, { status: 500 });
+      return businessError(
+        error,
+        'admin.collectes.annuler_credit.conflit',
+        ['P0003', 'P0004', 'P0005'],
+        409,
+      );
+    return serverError(error, 'admin.collectes.annuler_credit.create_2');
   }
 
   return NextResponse.json(data);

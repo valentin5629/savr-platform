@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 // GET /api/v1/admin/dashboard-client/organisations
 // §06.06 §2 — liste légère des organisations pour l'autocomplete du sélecteur
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .order('nom');
 
   if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error, 'admin.dashboard_client.organisations.list');
 
   return NextResponse.json({ data: data ?? [] });
 }

@@ -52,6 +52,25 @@
 --     pas RLS. Elles redeviendraient actives si un besoin JWT-scopé réapparaissait.
 -- =============================================================================
 
+-- COEXISTENCE AVEC #312 (`20260915120000_plateforme_lieu_overrides_valeurs_textuelles`)
+-- ------------------------------------------------------------------------------
+-- Une session parallèle a livré `chk_collectes_lieu_overrides_textuel` sur la même
+-- colonne (prédicat `f_lieu_overrides_textuel`) : elle borne les TYPES (string /
+-- null / array de string) sans connaître les clés. L'en-tête de cette migration-là
+-- annonçait explicitement que « restreindre le GRANT UPDATE d'`authenticated` à une
+-- liste blanche de colonnes relève de l'arbitrage Val §12 pt 2bis » — c'est
+-- précisément l'objet de la présente migration, qui en est la suite.
+--
+-- Les deux contraintes COEXISTENT volontairement. Celle-ci est un sur-ensemble
+-- strict (mêmes types, PLUS l'allowlist des 9 clés, les bornes par champ et les
+-- valeurs d'enum) : tout ce qu'elle accepte est déjà accepté par #312, donc aucune
+-- écriture légitime ne peut être refusée par l'une et pas par l'autre. On ne
+-- supprime pas #312 pour autant : son fichier pgTAP (219 lignes) porte un cliquet
+-- utile — un UPDATE légitime rejoué sous rôle `authenticated`, qui attrape le cas
+-- où un REVOKE sur le prédicat rendrait la contrainte inatteignable (42501 au lieu
+-- de 23514). La supprimer ferait rougir ce cliquet pour un gain nul : deux appels
+-- de fonction pure par écriture.
+
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 1. CHECK `lieu_overrides` — miroir en base de l'allowlist applicative
 -- ─────────────────────────────────────────────────────────────────────────────

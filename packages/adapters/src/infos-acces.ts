@@ -82,10 +82,15 @@ const BUDGET_AGREGAT = 500;
  * peut contenir la chaîne ci-dessous et poser un FAUX séparateur au-dessus du
  * vrai — le chauffeur rencontre alors le faux en premier (relevé en revue
  * sécurité, reproduit). Fermer ce vecteur supposerait de réécrire la saisie à
- * l'émission, ce que l'arbitrage Val 2026-09-15 a explicitement écarté. Le
- * vecteur reste donc ouvert, et connu : ingénierie sociale d'un utilisateur
- * légitime de l'organisation sur la collecte de cette même organisation — ni
- * fuite, ni franchissement d'organisation.
+ * l'émission — décaler toute ligne imitant exactement le séparateur.
+ *
+ * Val a tranché de NE PAS le fermer (2026-09-15), le cas reproduit sous les
+ * yeux : ce n'est donc pas un oubli ni une déduction de l'arbitrage du matin,
+ * mais un risque accepté en connaissance de cause. Portée mesurée : ingénierie
+ * sociale d'un utilisateur déjà habilité à programmer CETTE collecte, sur sa
+ * propre collecte — ni fuite de donnée, ni franchissement d'organisation, et
+ * inatteignable par accident (il faut taper le tiret cadratin à l'identique).
+ * Rouvrir la décision suppose de revenir à Val, pas de « corriger » ce code.
  */
 const SEPARATEUR_AGREGAT = '— Infos Savr —';
 

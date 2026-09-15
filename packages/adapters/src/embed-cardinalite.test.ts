@@ -38,6 +38,11 @@ import { AdapterMts1 } from './mts1/adapter.js';
 import { AdapterEverest } from './everest/adapter.js';
 import { _setMts1Handlers } from './mts1/mock.js';
 import { _setEverestHandlers, setupEverestMock } from './everest/mock.js';
+import {
+  PRESTA_EVEREST,
+  PRESTA_MTS1,
+  builderTransporteurs,
+} from './mock-referentiel-transporteurs.js';
 
 // ─── Ancrage statique sur les types générés ──────────────────────────────────
 
@@ -50,7 +55,7 @@ async function formeInfereeParSupabaseJs() {
   const { data } = await sbTypeOnly
     .from('collecte_tournees')
     .select(
-      'rang, tournees!inner(id, external_ref_commande, tms_reference, statut)',
+      'rang, tournees!inner(id, external_ref_commande, tms_reference, statut, prestataire_logistique_id)',
     );
   return data![0]!;
 }
@@ -69,24 +74,21 @@ type EmbedTournee = LigneCollecteTournee['tournees'] extends readonly unknown[]
   ? never
   : LigneCollecteTournee['tournees'];
 
-const TOURNEE_EMBED: EmbedTournee = {
-  id: 'T-ancrage',
-  external_ref_commande: 'ORDER-ancrage',
-  tms_reference: 'TOUR-ancrage',
-  statut: 'en_cours',
-};
+// Les quatre chemins filtrent sur le provider exécutant (#313 pour E5, puis
+// E1/E2/E3) : la tournée ancrée doit être dispatchée par le provider testé,
+// sinon elle serait écartée pour une autre raison que la cardinalité et le test
+// ne prouverait plus rien.
+function tourneeEmbed(prestataire: string): EmbedTournee {
+  return {
+    id: 'T-ancrage',
+    external_ref_commande: 'ORDER-ancrage',
+    tms_reference: 'TOUR-ancrage',
+    statut: 'en_cours',
+    prestataire_logistique_id: prestataire,
+  };
+}
 
-// E5 filtre en plus sur le provider exécutant (#313) : la tournée ancrée est
-// dispatchée MTS-1, sinon `updateLieu` l'écarterait pour une autre raison que
-// la cardinalité et le test ne prouverait plus rien.
-const TOURNEE_EMBED_E5 = {
-  ...TOURNEE_EMBED,
-  prestataire_logistique_id: 'presta-uuid-001',
-};
-
-// La ligne complète, telle que PostgREST la renvoie.
-const LIGNE_COLLECTE_TOURNEE = { rang: 1, tournees: TOURNEE_EMBED };
-const LIGNE_COLLECTE_TOURNEE_E5 = { rang: 1, tournees: TOURNEE_EMBED_E5 };
+const TOURNEE_EMBED = tourneeEmbed(PRESTA_MTS1);
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -124,21 +126,22 @@ const TRANSPORTEUR_MTS1: Transporteur = {
   id: 'presta-001',
   type_tms: 'mts1',
   code_transporteur_mts1: 'STRIKE-IDF',
-  prestataire_logistique_id: 'presta-uuid-001',
+  prestataire_logistique_id: PRESTA_MTS1,
 };
 
 const TRANSPORTEUR_EVEREST: Transporteur = {
   id: 'presta-002',
   type_tms: 'a_toutes',
-  prestataire_logistique_id: 'presta-uuid-002',
+  prestataire_logistique_id: PRESTA_EVEREST,
 };
 
 // Mock Supabase minimal : `collecte_tournees` sert la ligne ancrée (thenable pour
 // findTournees, maybeSingle pour findTournee), `collectes` sert la jointure E5.
-function makeSupabase(): SupabaseClient {
+function makeSupabase(prestataire: string = PRESTA_MTS1): SupabaseClient {
   const builder: Record<string, unknown> = {};
   const chain = () => builder;
   let table = '';
+  const ligne = { rang: 1, tournees: tourneeEmbed(prestataire) };
 
   Object.assign(builder, {
     select: vi.fn(chain),
@@ -149,23 +152,12 @@ function makeSupabase(): SupabaseClient {
     insert: vi.fn().mockResolvedValue({ data: null, error: null }),
     maybeSingle: vi.fn(async () =>
       table === 'collecte_tournees'
-        ? { data: LIGNE_COLLECTE_TOURNEE, error: null }
+        ? { data: ligne, error: null }
         : { data: null, error: null },
     ),
     then: (resolve: (v: unknown) => void) => {
       if (table === 'collecte_tournees') {
-        return resolve({ data: [LIGNE_COLLECTE_TOURNEE], error: null });
-      }
-      if (table === 'transporteurs') {
-        return resolve({
-          data: [
-            {
-              prestataire_logistique_id:
-                TOURNEE_EMBED_E5.prestataire_logistique_id,
-            },
-          ],
-          error: null,
-        });
+        return resolve({ data: [ligne], error: null });
       }
       if (table === 'collectes') {
         return resolve({
@@ -180,9 +172,7 @@ function makeSupabase(): SupabaseClient {
               informations_supplementaires: null,
               lieu_overrides: null,
               // FK entrante `collecte_tournees.collecte_id` → TABLEAU.
-              collecte_tournees: [
-                { tournee_id: TOURNEE_EMBED.id, ...LIGNE_COLLECTE_TOURNEE_E5 },
-              ],
+              collecte_tournees: [{ tournee_id: TOURNEE_EMBED.id, ...ligne }],
             },
           ],
           error: null,
@@ -195,8 +185,11 @@ function makeSupabase(): SupabaseClient {
   return {
     from: vi.fn((t: string) => {
       table = t;
-      return builder;
+      // Le référentiel transporteurs a son propre builder (filtré pour de vrai) :
+      // le servir depuis le builder partagé rendrait le filtre provider vacuux.
+      return t === 'transporteurs' ? builderTransporteurs() : builder;
     }),
+    rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
   } as unknown as SupabaseClient;
 }
 
@@ -256,7 +249,7 @@ describe("cardinalité de l'embed collecte_tournees → tournees", () => {
 
     const consumer = await new AdapterEverest(
       TRANSPORTEUR_EVEREST,
-      makeSupabase(),
+      makeSupabase(PRESTA_EVEREST),
     ).cancelCollecte(COLLECTE);
 
     expect(consumer).not.toBe('noop_no_remote');

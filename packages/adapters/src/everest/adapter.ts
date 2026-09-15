@@ -24,7 +24,14 @@ import type {
   LogistiqueProvider,
   Transporteur,
 } from '../index.js';
-import { LogistiquePermanentError } from '../index.js';
+import {
+  LogistiquePermanentError,
+  LogistiqueTransientError,
+} from '../index.js';
+import {
+  prestatairesDuType,
+  retenirTourneesDuProvider,
+} from '../provider-tournees.js';
 import type { CreateMissionPayload } from './client.js';
 import { EverestClient } from './client.js';
 
@@ -47,11 +54,15 @@ const SERVICE_SLOT_MINUTES: Record<number, number> = {
   91: 30,
 };
 
+// `prestataire_logistique_id` : seule marque du provider exécutant portée par une
+// tournée — `external_ref_commande` est partagée (MTS-1 y stocke son
+// customerOrderId, Everest son mission_id). Cf. provider-tournees.ts.
 interface TourneeRow {
   id: string;
   external_ref_commande: string | null;
   statut: string;
   rang: number;
+  prestataire_logistique_id: string | null;
 }
 
 interface AttributionRow {
@@ -347,38 +358,80 @@ export class AdapterEverest implements LogistiqueProvider {
 
   // ─── Helpers DB ───────────────────────────────────────────────────────────────
 
+  /**
+   * Tournée d'un rang donné — restreinte au provider courant (cf. findTournees).
+   *
+   * Passe par findTournees plutôt que par sa propre requête : le cloisonnement
+   * par provider et la lecture de `error` n'ont ainsi qu'une implémentation.
+   */
   private async findTournee(
     collecteId: string,
     rang: number,
   ): Promise<TourneeRow | null> {
-    const { data } = await this.supabase
-      .from('collecte_tournees')
-      .select('rang, tournees!inner(id, external_ref_commande, statut)')
-      .eq('collecte_id', collecteId)
-      .eq('rang', rang)
-      .maybeSingle();
-
-    if (!data) return null;
-    // FK sortante `collecte_tournees.tournee_id` → embed OBJET, pas tableau.
-    const raw = data as unknown as { rang: number; tournees: TourneeRow };
-    const t = raw.tournees;
-    if (!t) return null;
-    return { ...t, rang: raw.rang };
+    const tournees = await this.findTournees(collecteId);
+    return tournees.find((t) => t.rang === rang) ?? null;
   }
 
+  /**
+   * Tournées d'une collecte **exécutées par A Toutes! (Everest)**.
+   *
+   * Symétrique de l'adapter MTS-1 : sans ce filtre, une tournée MTS-1
+   * résiduelle faisait partir un `POST /missions/cancel` vers Everest avec un
+   * customerOrderId MTS-1 — `cancelCollecte` ne regardait que la présence
+   * d'une référence.
+   *
+   * Dans ce sens, la tournée résiduelle n'est pas transitoire : `upsertTournee`
+   * lie la tournée Everest par un INSERT dont l'`error` n'est pas lue, et le
+   * rang est déjà pris (`uniq_collecte_tournee_rang`). Le lien reste donc sur
+   * la tournée MTS-1, et c'est elle que toute lecture ultérieure renvoie.
+   */
   private async findTournees(collecteId: string): Promise<TourneeRow[]> {
-    const { data } = await this.supabase
+    const { data, error } = await this.supabase
       .from('collecte_tournees')
-      .select('rang, tournees!inner(id, external_ref_commande, statut)')
+      .select(
+        'rang, tournees!inner(id, external_ref_commande, statut, prestataire_logistique_id)',
+      )
       .eq('collecte_id', collecteId);
 
-    if (!data) return [];
-    const rows = data as unknown as Array<{
+    // Une lecture DB en échec n'est pas « aucune tournée » : elle ferait
+    // re-créer une mission déjà passée chez Everest (E1) ou conclure à un no-op
+    // d'annulation (E3) sur une collecte pourtant dispatchée, event marqué
+    // `done` sans retry ni alerte.
+    if (error) {
+      throw new LogistiqueTransientError(
+        `Lecture des tournées de la collecte ${collecteId} échouée — ${error.message}`,
+      );
+    }
+
+    // FK sortante `collecte_tournees.tournee_id` → embed OBJET, pas tableau.
+    const rows = (data ?? []) as unknown as Array<{
       rang: number;
       tournees: TourneeRow;
     }>;
-    return rows.map((d) => ({ ...d.tournees, rang: d.rang }));
+
+    return retenirTourneesDuProvider({
+      supabase: this.supabase,
+      typeTms: 'a_toutes',
+      prestataires: await this.prestatairesEverest(),
+      collecteId,
+      tournees: rows.map((d) => ({ ...d.tournees, rang: d.rang })),
+    });
   }
+
+  /**
+   * Prestataires joignables par Everest (`transporteurs.type_tms='a_toutes'`) —
+   * cf. provider-tournees.ts. Chargé une fois par instance (référentiel stable
+   * sur la durée d'un event) ; seul un succès est mémorisé.
+   */
+  private async prestatairesEverest(): Promise<Set<string>> {
+    this.prestatairesEverestCache ??= await prestatairesDuType(
+      this.supabase,
+      'a_toutes',
+    );
+    return this.prestatairesEverestCache;
+  }
+
+  private prestatairesEverestCache?: Set<string>;
 
   private async upsertTournee(
     collecte: Collecte,

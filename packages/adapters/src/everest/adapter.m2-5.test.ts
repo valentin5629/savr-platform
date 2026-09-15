@@ -17,6 +17,10 @@ import {
 import type { Collecte, Lieu, Transporteur } from '../index.js';
 import { AdapterEverest } from './adapter.js';
 import { _setEverestHandlers, setupEverestMock } from './mock.js';
+import {
+  PRESTA_EVEREST,
+  builderTransporteurs,
+} from '../mock-referentiel-transporteurs.js';
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -54,7 +58,7 @@ const TRANSPORTEUR_EVEREST: Transporteur = {
   id: 'presta-everest-001',
   type_tms: 'a_toutes',
   code_transporteur_mts1: null,
-  prestataire_logistique_id: 'shared-presta-uuid-001',
+  prestataire_logistique_id: PRESTA_EVEREST,
 };
 
 // ─── Mock Supabase ────────────────────────────────────────────────────────────
@@ -64,6 +68,9 @@ interface SupabaseMockOpts {
     id: string;
     external_ref_commande: string | null;
     statut: string;
+    // Explicite dans chaque fixture (jamais posé d'office par le mock) : c'est
+    // la colonne sur laquelle findTournees cloisonne par provider.
+    prestataire_logistique_id: string | null;
   } | null;
   missionExistante?: { id: string; statut_everest: string } | null;
   brancheAttribution?: string | null;
@@ -209,9 +216,14 @@ function makeMockSupabase(opts: SupabaseMockOpts = {}) {
 
   const supabase = {
     from: vi.fn((table: string) => {
+      // Le référentiel transporteurs répond le lot COMPLET, réellement filtré
+      // par `.eq('type_tms', …)` : c'est lui qui rend le cloisonnement par
+      // provider de findTournees testable au lieu d'être vrai par construction.
+      if (table === 'transporteurs') return builderTransporteurs();
       if (!tables[table]) tables[table] = makeTableQuery(table);
       return tables[table];
     }),
+    rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
     _inserted: insertedRows,
     _updated: updatedRows,
     _upserted: upsertedRows,
@@ -331,6 +343,7 @@ describe('M2.5 / AdapterEverest — dispatchCollecte', () => {
         id: 'tournee-existing-001',
         external_ref_commande: 'EVR-MOCK-EXISTING',
         statut: 'planifiee',
+        prestataire_logistique_id: PRESTA_EVEREST,
       },
       missionExistante: { id: 'em-001', statut_everest: 'created' },
     });
@@ -442,6 +455,7 @@ describe('M2.5 / AdapterEverest — cancelCollecte', () => {
         id: 'tournee-001',
         external_ref_commande: 'EVR-MOCK-CANCEL-001',
         statut: 'planifiee',
+        prestataire_logistique_id: PRESTA_EVEREST,
       },
       missionExistante: { id: 'em-001', statut_everest: 'created' },
     });
@@ -469,6 +483,7 @@ describe('M2.5 / AdapterEverest — cancelCollecte', () => {
         id: 'tournee-001',
         external_ref_commande: 'EVR-MOCK-ALREADY',
         statut: 'planifiee',
+        prestataire_logistique_id: PRESTA_EVEREST,
       },
       missionExistante: { id: 'em-001', statut_everest: 'cancelled' },
     });

@@ -33,6 +33,10 @@ import {
   applyLieuOverrides,
   lieuChampSurcharge,
 } from '../lieu-overrides.js';
+import {
+  prestatairesDuType,
+  retenirTourneesDuProvider,
+} from '../provider-tournees.js';
 import type { CreateOrderPayload, CreateTourPayload } from './client.js';
 import { Mts1Client } from './client.js';
 import type { Mts1Tour } from './mock.js';
@@ -47,19 +51,16 @@ interface CollecteLieuOverridesRow {
   lieu_overrides: Record<string, unknown> | null;
 }
 
+// Toute lecture de tournée porte le prestataire exécutant : `external_ref_commande`
+// ne dit PAS par quel provider la tournée a été dispatchée (l'adapter Everest y
+// stocke son id de mission), c'est `prestataire_logistique_id` qui le dit, via
+// `transporteurs.type_tms`. Cf. provider-tournees.ts.
 interface TourneeRow {
   id: string;
   external_ref_commande: string | null;
   tms_reference: string | null;
   statut: string;
   rang: number;
-}
-
-// E5 lit en plus le prestataire exécutant de la tournée : `external_ref_commande`
-// ne dit PAS par quel provider la tournée a été dispatchée (l'adapter Everest y
-// stocke son id de mission), c'est `prestataire_logistique_id` qui le dit, via
-// `transporteurs.type_tms`.
-interface TourneeRowE5 extends TourneeRow {
   prestataire_logistique_id: string | null;
 }
 
@@ -457,23 +458,27 @@ export class AdapterMts1 implements LogistiqueProvider {
       // est un OBJET, jamais un tableau. Seul le sens inverse (`collectes` →
       // `collecte_tournees`, FK entrante) donne un tableau. Ancrage statique :
       // `embed-cardinalite.test.ts`.
-      type CtRow = { rang: number; tournees: TourneeRowE5 };
-      const tournees = ((c.collecte_tournees ?? []) as unknown as CtRow[]).map(
-        (ct) => ({ ...ct.tournees, rang: ct.rang }),
-      );
-      for (const t of tournees.filter(
-        (
-          t: TourneeRowE5,
-        ): t is TourneeRowE5 & { external_ref_commande: string } =>
+      type CtRow = { rang: number; tournees: TourneeRow };
+      const tourneesCollecte = (
+        (c.collecte_tournees ?? []) as unknown as CtRow[]
+      ).map((ct) => ({ ...ct.tournees, rang: ct.rang }));
+      // Même cloisonnement que findTournees (E1/E2/E3) : une seule
+      // implémentation du filtre provider pour les quatre chemins.
+      const tourneesMts1 = await retenirTourneesDuProvider({
+        supabase: this.supabase,
+        typeTms: 'mts1',
+        prestataires: prestatairesMts1,
+        collecteId: c.id as string,
+        tournees: tourneesCollecte,
+      });
+      for (const t of tourneesMts1.filter(
+        (t: TourneeRow): t is TourneeRow & { external_ref_commande: string } =>
           // `typeof === 'string'` et pas `!== null` : une colonne absente du
           // `select` remonte `undefined`, qui passerait un test de nullité et
-          // rouvrirait la fuite en silence. Même traitement pour les DEUX
-          // champs — un `!== null` sur la seule référence de commande laisserait
-          // passer `undefined`/`''` jusqu'au `updateOrder`.
+          // ferait partir un `updateOrder` sur `undefined`/`''`. (Le volet
+          // provider du filtre est dans retenirTourneesDuProvider.)
           typeof t.external_ref_commande === 'string' &&
-          t.external_ref_commande !== '' &&
-          typeof t.prestataire_logistique_id === 'string' &&
-          prestatairesMts1.has(t.prestataire_logistique_id),
+          t.external_ref_commande !== '',
       )) {
         const orderNumber = `${c.id}-${t.rang}`;
         await this.client.updateOrder(
@@ -492,48 +497,24 @@ export class AdapterMts1 implements LogistiqueProvider {
   }
 
   /**
-   * Prestataires logistiques joignables par MTS-1 (`transporteurs.type_tms='mts1'`).
+   * Prestataires logistiques joignables par MTS-1 (`transporteurs.type_tms='mts1'`)
+   * — cf. provider-tournees.ts.
    *
-   * Le provider d'une tournée n'est pas déductible de `external_ref_commande` :
-   * l'adapter Everest y stocke son propre id de mission (cf. everest/adapter.ts,
-   * `update({ external_ref_commande: missionId })`). La seule marque de provider
-   * portée par une tournée est `prestataire_logistique_id`, que le dispatch
-   * recopie depuis le transporteur choisi — et c'est `transporteurs.type_tms` qui
-   * tranche le provider (même résolution que le worker, `fetchTransporteur`).
-   *
-   * Sans ce filtre, un lieu portant à la fois une collecte MTS-1 et une collecte
-   * Everest fait partir un `PUT /v3/customerOrders/{id_mission_everest}` : un
-   * identifiant Everest divulgué à MTS-1, puis un 404 → `LogistiquePermanentError`
-   * → l'event E5 part en DLQ et l'adresse ne se propage sur AUCUNE collecte.
+   * Chargé une fois par instance d'adapter : le référentiel est stable sur la
+   * durée d'un event, que celui-ci lise les tournées une fois (E3) ou plusieurs
+   * (E2 → findTournees puis dispatchCollecte des rangs manquants ; E5 → une
+   * lecture par collecte du lieu). Seul un succès est mémorisé — une lecture en
+   * échec lève (Transient) et sera rejouée par le worker.
    */
   private async prestatairesMts1(): Promise<Set<string>> {
-    const { data, error } = await this.supabase
-      .from('transporteurs')
-      .select('prestataire_logistique_id')
-      .eq('type_tms', 'mts1');
-
-    // Sur erreur, `data` est null → Set vide → aucun PUT émis, et l'event serait
-    // marqué `done`. Fail-closed sur la fuite, mais fail-SILENT sur la
-    // propagation : c'est le bug métier de la #304 par un autre chemin. On lève
-    // pour rendre la main au retry du worker.
-    if (error) {
-      throw new LogistiqueTransientError(
-        `E5 : référentiel transporteurs MTS-1 illisible — ${error.message}`,
-      );
-    }
-
-    const rows = (data ?? []) as Array<{
-      prestataire_logistique_id: string | null;
-    }>;
-    // Même raison qu'au filtre appelant : un `undefined` (colonne absente,
-    // ligne partielle) ne doit jamais devenir une clé du Set — il autoriserait
-    // alors toute tournée dont le prestataire est lui aussi `undefined`.
-    return new Set(
-      rows
-        .map((t) => t.prestataire_logistique_id)
-        .filter((id): id is string => typeof id === 'string' && id !== ''),
+    this.prestatairesMts1Cache ??= await prestatairesDuType(
+      this.supabase,
+      'mts1',
     );
+    return this.prestatairesMts1Cache;
   }
+
+  private prestatairesMts1Cache?: Set<string>;
 
   // ─── sync — polling entrant MTS-1 (M1.5b) ───────────────────────────────────
 
@@ -1055,41 +1036,68 @@ export class AdapterMts1 implements LogistiqueProvider {
 
   // ─── Helpers DB ──────────────────────────────────────────────────────────────
 
+  /**
+   * Tournée d'un rang donné — restreinte au provider courant (cf. findTournees).
+   *
+   * Passe par findTournees plutôt que par un `.eq('rang').maybeSingle()` : rien
+   * en base n'impose l'unicité de (collecte_id, rang) — seule
+   * `uniq_collecte_tournee (collecte_id, tournee_id)` existe — et une collecte
+   * re-dispatchée d'un transporteur à l'autre porte deux tournées au même rang.
+   * `maybeSingle()` renverrait alors une erreur, avalée faute de lire `error`,
+   * donc un `null` indistinguable de « jamais dispatchée » : customerOrder
+   * re-POSTé et second camion commandé.
+   */
   private async findTournee(
     collecteId: string,
     rang: number,
   ): Promise<TourneeRow | null> {
-    const { data } = await this.supabase
-      .from('collecte_tournees')
-      .select(
-        'rang, tournees!inner(id, external_ref_commande, tms_reference, statut)',
-      )
-      .eq('collecte_id', collecteId)
-      .eq('rang', rang)
-      .maybeSingle();
-
-    if (!data) return null;
-    // FK sortante `collecte_tournees.tournee_id` → embed OBJET (cf. updateLieu).
-    const raw = data as unknown as { rang: number; tournees: TourneeRow };
-    const t = raw.tournees;
-    if (!t) return null;
-    return { ...t, rang: raw.rang };
+    const tournees = await this.findTournees(collecteId);
+    return tournees.find((t) => t.rang === rang) ?? null;
   }
 
+  /**
+   * Tournées d'une collecte **exécutées par MTS-1**.
+   *
+   * Le filtre provider est posé ICI, à la source, et non dans chaque handler :
+   * E1 (dispatch), E2 (update) et E3 (cancel) lisent tous les tournées par là
+   * — #313 ne l'avait fermé que sur E5. Sans lui, une tournée Everest
+   * résiduelle (refus Everest puis re-dispatch MTS-1 :
+   * `collectes.prestataire_logistique_id` change, les tournées déjà créées
+   * restent) ferait partir un `PUT`/`DELETE /v3/customerOrders/{id}` vers MTS-1
+   * avec un identifiant de mission Everest. Arbitrage « écarter en silence vs
+   * alerter Ops » : cf. provider-tournees.ts.
+   */
   private async findTournees(collecteId: string): Promise<TourneeRow[]> {
-    const { data } = await this.supabase
+    const { data, error } = await this.supabase
       .from('collecte_tournees')
       .select(
-        'rang, tournees!inner(id, external_ref_commande, tms_reference, statut)',
+        'rang, tournees!inner(id, external_ref_commande, tms_reference, statut, prestataire_logistique_id)',
       )
       .eq('collecte_id', collecteId);
 
-    if (!data) return [];
-    const rows = data as unknown as Array<{
+    // Une lecture DB en échec n'est PAS « aucune tournée » : rendue telle
+    // quelle, elle ferait re-POSTer un customerOrder déjà créé (E1) ou conclure
+    // à un no-op `noop_no_remote` (E2/E3) sur une collecte pourtant dispatchée,
+    // event marqué `done` sans retry ni alerte. Transient → 3 paliers du worker.
+    if (error) {
+      throw new LogistiqueTransientError(
+        `Lecture des tournées de la collecte ${collecteId} échouée — ${error.message}`,
+      );
+    }
+
+    // FK sortante `collecte_tournees.tournee_id` → embed OBJET (cf. updateLieu).
+    const rows = (data ?? []) as unknown as Array<{
       rang: number;
       tournees: TourneeRow;
     }>;
-    return rows.map((d) => ({ ...d.tournees, rang: d.rang }));
+
+    return retenirTourneesDuProvider({
+      supabase: this.supabase,
+      typeTms: 'mts1',
+      prestataires: await this.prestatairesMts1(),
+      collecteId,
+      tournees: rows.map((d) => ({ ...d.tournees, rang: d.rang })),
+    });
   }
 
   private async upsertTournee(

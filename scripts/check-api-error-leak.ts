@@ -122,11 +122,12 @@ const ALLOWLIST_SOURCE: { fichier: RegExp; raison: string }[] = [
   {
     fichier: /^packages\/adapters\//,
     raison:
-      'DETTE TRACÉE — les messages des adapters logistiques (« … auth timeout : … ») ' +
-      'sont écrits par nous et alimentent `integrations_logs` + les alertes Slack, pas ' +
-      "une réponse HTTP (vérifié en contre-revue sécurité : aucun n'atteint un client). " +
-      'Le graphe les atteint depuis les routes de dispatch ; les neutraliser un par un ' +
-      "dégraderait le diagnostic d'intégration et sort du périmètre de ce lot.",
+      'DETTE TRACÉE — libellés d’état écrits par nous (« … auth timeout », « HTTP 502 », ' +
+      '« Configuration manquante : <NOMS de variables> ») : jamais un message Postgres, ' +
+      'jamais de PII, jamais une VALEUR de secret. Ils alimentent `integrations_logs` et ' +
+      'les alertes ; le seul chemin HTTP est `/api/health/logistique` (spread du ' +
+      'HealthCheckResult), STAFF-ONLY — admin_savr ou HEALTH_INTERNAL_TOKEN. Site à ' +
+      'surveiller : le client HTTP de l’adapter (`erreur: String(err)`).',
   },
   {
     fichier: /^packages\/shared\/src\/email\//,
@@ -295,10 +296,13 @@ function sousAppel(n: ts.Node, src: ts.SourceFile, motif: RegExp): boolean {
 function fonctionEnglobante(n: ts.Node): string | null {
   let p: ts.Node | undefined = n.parent;
   while (p) {
+    if (ts.isFunctionDeclaration(p) && p.name) return p.name.text;
     if (
-      (ts.isFunctionDeclaration(p) || ts.isVariableDeclaration(p)) &&
-      p.name &&
-      ts.isIdentifier(p.name)
+      ts.isVariableDeclaration(p) &&
+      ts.isIdentifier(p.name) &&
+      p.initializer &&
+      (ts.isArrowFunction(p.initializer) ||
+        ts.isFunctionExpression(p.initializer))
     )
       return p.name.text;
     p = p.parent;
@@ -399,6 +403,113 @@ function regleB(source: string): Trouve[] {
   return out;
 }
 
+/**
+ * RÈGLE D — `messageErreur(...)` RETOURNE le message brut : c'est un helper, pas une
+ * neutralisation. Enveloppée dans un appel, la fuite d'origine redevient invisible
+ * aux règles A/B (le call-site ne porte aucun `.message` à voir) — démontré par
+ * sonde en contre-revue. Seul usage légitime : alimenter un `logger.*`, ou être
+ * appelée DEPUIS une fonction de neutralisation.
+ */
+function regleD(source: string): Trouve[] {
+  const src = parse('d.ts', source);
+  const out: Trouve[] = [];
+  const visit = (n: ts.Node): void => {
+    if (
+      ts.isCallExpression(n) &&
+      n.expression.getText(src) === 'messageErreur'
+    ) {
+      const englobante = fonctionEnglobante(n);
+      const versLog = sousAppel(n, src, /^(logger|console)\./);
+      if (!versLog && !(englobante !== null && NEUTRALISEURS.has(englobante))) {
+        out.push({
+          ligne: src.getLineAndCharacterOfPosition(n.getStart()).line + 1,
+          expr: n.getText(src).slice(0, 60),
+        });
+      }
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(src);
+  return out;
+}
+
+/**
+ * RÈGLE E — variable intermédiaire. `const m = e.message; json({ error: m })` :
+ * le `.message` n'est lexicalement ni sous `NextResponse.json` (règle A) ni dans
+ * un champ rendu (règle B). C'est le réflexe naturel d'un dev face à une règle A
+ * rouge — extraire une variable rendait le cliquet vert (contre-revue sécurité).
+ * On tient donc les variables TEINTÉES : toute locale initialisée par une lecture
+ * d'erreur, puis rendue dans une réponse ou un champ.
+ */
+function regleE(source: string): Trouve[] {
+  const src = parse('e.ts', source);
+  const teintees = new Map<string, number>();
+  const marquer = (n: ts.Node): void => {
+    if (
+      ts.isVariableDeclaration(n) &&
+      ts.isIdentifier(n.name) &&
+      n.initializer
+    ) {
+      let lit = false;
+      const chercher = (x: ts.Node): void => {
+        // `cond ? 'libellé A' : 'libellé B'` : la lecture d'erreur sert de TEST,
+        // la valeur retenue est un littéral — la variable n'est pas teintée.
+        if (
+          ts.isConditionalExpression(x) &&
+          ts.isStringLiteral(x.whenTrue) &&
+          ts.isStringLiteral(x.whenFalse)
+        )
+          return;
+        if (litUneErreur(x, src)) lit = true;
+        ts.forEachChild(x, chercher);
+      };
+      chercher(n.initializer);
+      if (lit)
+        teintees.set(
+          n.name.text,
+          src.getLineAndCharacterOfPosition(n.getStart()).line + 1,
+        );
+    }
+    ts.forEachChild(n, marquer);
+  };
+  marquer(src);
+  if (teintees.size === 0) return [];
+
+  const out: Trouve[] = [];
+  const visit = (n: ts.Node): void => {
+    if (ts.isIdentifier(n) && teintees.has(n.text)) {
+      const estDeclaration =
+        ts.isVariableDeclaration(n.parent) && n.parent.name === n;
+      const versLog = sousAppel(n, src, /^(logger|console)\./);
+      let rendu = sousAppel(n, src, /^(NextResponse|Response)\.json$/);
+      if (!rendu) {
+        let p: ts.Node | undefined = n.parent;
+        while (p) {
+          if (
+            (ts.isPropertyAssignment(p) &&
+              CHAMPS_RENDUS.test(p.name.getText(src))) ||
+            (ts.isShorthandPropertyAssignment(p) &&
+              CHAMPS_RENDUS.test(p.name.getText(src)))
+          ) {
+            rendu = true;
+            break;
+          }
+          p = p.parent;
+        }
+      }
+      if (rendu && !estDeclaration && !versLog) {
+        out.push({
+          ligne: src.getLineAndCharacterOfPosition(n.getStart()).line + 1,
+          expr: `${n.text} (teintée l.${teintees.get(n.text)})`,
+        });
+      }
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(src);
+  return out;
+}
+
 /** RÈGLE C — `NextResponse.json(result)` : objet de résultat applicatif rendu en bloc. */
 function regleC(source: string): Trouve[] {
   const src = parse('c.tsx', source);
@@ -426,7 +537,11 @@ function regleC(source: string): Trouve[] {
   return out;
 }
 
-const SONDES: { regle: 'A' | 'B' | 'C'; source: string; attendus: number }[] = [
+const SONDES: {
+  regle: 'A' | 'B' | 'C' | 'D' | 'E';
+  source: string;
+  attendus: number;
+}[] = [
   // ── Règle A : la forme d'origine, et ses contournements ──
   {
     regle: 'A',
@@ -552,10 +667,65 @@ const SONDES: { regle: 'A' | 'B' | 'C'; source: string; attendus: number }[] = [
     source: `return NextResponse.json({ data: result }, { status: 201 });`,
     attendus: 0,
   },
+  // ── Règle D : le helper qui rend le message brut ──
+  {
+    regle: 'D',
+    source: `return NextResponse.json({ error: messageErreur(err) }, { status: 500 });`,
+    attendus: 1,
+  },
+  {
+    regle: 'D',
+    source: `return { ok: false, erreur: messageErreur(err) };`,
+    attendus: 1,
+  },
+  {
+    regle: 'D',
+    source: `logger.error('api_route.error', { error: messageErreur(err) });`,
+    attendus: 0,
+  },
+  // ── Règle E : la variable intermédiaire ──
+  {
+    regle: 'E',
+    source: `const message = e instanceof Error ? e.message : 'x';\nreturn NextResponse.json({ error: message }, { status: 500 });`,
+    attendus: 1,
+  },
+  {
+    regle: 'E',
+    source: `const msg = err.message;\nreturn { ok: false, erreur: msg };`,
+    attendus: 1,
+  },
+  {
+    regle: 'E',
+    source: `const msg = err.message;\nlogger.warn('x', { error: msg });`,
+    attendus: 0,
+  },
+  {
+    regle: 'E',
+    source: `const nb = data.total;\nreturn NextResponse.json({ error: nb });`,
+    attendus: 0,
+  },
+  {
+    // La lecture d'erreur sert de TEST, la valeur rendue est un littéral.
+    regle: 'E',
+    source: `const motif = err.message.includes('x') ? 'Libellé A' : 'Libellé B';\nreturn NextResponse.json({ error: motif }, { status: 401 });`,
+    attendus: 0,
+  },
+  {
+    // …mais un repli qui laisse passer le message reste teinté.
+    regle: 'E',
+    source: `const motif = cond ? 'Libellé A' : err.message;\nreturn NextResponse.json({ error: motif }, { status: 401 });`,
+    attendus: 1,
+  },
 ];
 
 function autoTest(): void {
-  const moteur = { A: regleA, B: regleB, C: regleC } as const;
+  const moteur = {
+    A: regleA,
+    B: regleB,
+    C: regleC,
+    D: regleD,
+    E: regleE,
+  } as const;
   const echecs = SONDES.filter(
     (s) => moteur[s.regle](s.source).length !== s.attendus,
   );
@@ -588,6 +758,16 @@ function violations(): Violation[] {
       if (!autorise)
         trouvees.push({ fichier: f, ligne, code: ligneDe(source, ligne) });
     }
+    // Les crons sont derrière CRON_SECRET : leurs `errors[]` de diagnostic ne sont
+    // pas exposés (même exclusion que pour la règle B, via le graphe).
+    if (f.includes('/api/cron/')) continue;
+    for (const { ligne, expr } of regleD(source).concat(regleE(source))) {
+      trouvees.push({
+        fichier: f,
+        ligne,
+        code: `[message rendu indirectement] ${expr} — ${ligneDe(source, ligne)}`,
+      });
+    }
     for (const { ligne, expr } of regleC(source)) {
       if (ALLOWLIST_BLOC.some((r) => r.test(f))) continue;
       trouvees.push({
@@ -607,6 +787,13 @@ function violations(): Violation[] {
     // (vecteur (e), contre-revue sécurité).
     if (ALLOWLIST_SOURCE.some((a) => a.fichier.test(f))) continue;
     const source = readFileSync(f, 'utf8');
+    for (const { ligne, expr } of regleD(source)) {
+      trouvees.push({
+        fichier: f,
+        ligne,
+        code: `[messageErreur hors logger] ${expr} — ${ligneDe(source, ligne)}`,
+      });
+    }
     for (const { ligne, expr } of regleB(source)) {
       // Même justification que pour la règle A : ces expressions portent une erreur
       // applicative dont le message est neutralisé à la construction.
@@ -637,7 +824,7 @@ if (trouvees.length > 0) {
   );
 } else {
   console.log(
-    "✅ check-api-error-leak : 0 message d'erreur exposable au client (règles A/B/C).",
+    "✅ check-api-error-leak : 0 message d'erreur exposable au client (règles A→E).",
   );
 }
 console.log(`RATCHET_COUNT=${trouvees.length}`);

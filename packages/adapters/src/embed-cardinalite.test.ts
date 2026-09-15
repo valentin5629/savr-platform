@@ -76,8 +76,17 @@ const TOURNEE_EMBED: EmbedTournee = {
   statut: 'en_cours',
 };
 
+// E5 filtre en plus sur le provider exécutant (#313) : la tournée ancrée est
+// dispatchée MTS-1, sinon `updateLieu` l'écarterait pour une autre raison que
+// la cardinalité et le test ne prouverait plus rien.
+const TOURNEE_EMBED_E5 = {
+  ...TOURNEE_EMBED,
+  prestataire_logistique_id: 'presta-uuid-001',
+};
+
 // La ligne complète, telle que PostgREST la renvoie.
 const LIGNE_COLLECTE_TOURNEE = { rang: 1, tournees: TOURNEE_EMBED };
+const LIGNE_COLLECTE_TOURNEE_E5 = { rang: 1, tournees: TOURNEE_EMBED_E5 };
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -147,6 +156,17 @@ function makeSupabase(): SupabaseClient {
       if (table === 'collecte_tournees') {
         return resolve({ data: [LIGNE_COLLECTE_TOURNEE], error: null });
       }
+      if (table === 'transporteurs') {
+        return resolve({
+          data: [
+            {
+              prestataire_logistique_id:
+                TOURNEE_EMBED_E5.prestataire_logistique_id,
+            },
+          ],
+          error: null,
+        });
+      }
       if (table === 'collectes') {
         return resolve({
           data: [
@@ -161,7 +181,7 @@ function makeSupabase(): SupabaseClient {
               lieu_overrides: null,
               // FK entrante `collecte_tournees.collecte_id` → TABLEAU.
               collecte_tournees: [
-                { tournee_id: TOURNEE_EMBED.id, ...LIGNE_COLLECTE_TOURNEE },
+                { tournee_id: TOURNEE_EMBED.id, ...LIGNE_COLLECTE_TOURNEE_E5 },
               ],
             },
           ],

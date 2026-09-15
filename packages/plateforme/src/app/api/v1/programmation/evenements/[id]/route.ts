@@ -6,7 +6,7 @@ import {
   createSupabaseServerClient,
 } from '@/lib/api-auth.js';
 import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
-import { typedRpcError } from '@/lib/api-helpers.js';
+import { typedRpcError, serverError } from '@/lib/api-helpers.js';
 
 // Champs métier ÉVÉNEMENT éditables par les rôles programmateurs (§06.04 l.444,
 // §05 l.307). lieu_id et type_collecte = verrouillés (§05 l.314 / §06.04 l.459) :
@@ -174,8 +174,7 @@ export async function PATCH(
     p_updates: updates,
     p_champs_modifies: Object.keys(updates),
   });
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'programmation.evenements.update');
 
   // Audit (§05 l.330 audit_log global — accessible Admin only).
   await admin.from('audit_log').insert({

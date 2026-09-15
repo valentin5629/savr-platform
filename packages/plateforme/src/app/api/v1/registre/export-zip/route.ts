@@ -15,6 +15,7 @@ import {
 } from '@/lib/registre/registre.js';
 import { traceExport } from '@/lib/registre/trace.js';
 import { createStoreZip, type ZipEntry } from '@/lib/registre/zip.js';
+import { erreurInterne, serverError } from '@/lib/api-helpers.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -50,7 +51,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       .select('numero, fichiers:pdf_fichier_id(url)')
       .in('collecte_id', collecteIds)
       .in('statut', ['emis', 'corrige']);
-    if (error) throw new Error(error.message);
+    if (error) throw erreurInterne(error, 'registre.export_zip');
 
     const bordereaux = (data ?? []) as unknown as BordereauPdf[];
     if (bordereaux.length === 0) {
@@ -101,7 +102,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       },
     });
   } catch (e) {
-    const message = e instanceof Error ? e.message : 'Erreur export ZIP';
-    return NextResponse.json({ error: message }, { status: 500 });
+    // Le message est déjà neutralisé à la source (`erreurInterne`), mais le
+    // renvoyer via une variable intermédiaire rendait le cliquet aveugle à ce
+    // chemin (contre-revue sécurité) : on passe par le helper, comme partout.
+    return serverError(e, 'registre.export_zip.handler');
   }
 }

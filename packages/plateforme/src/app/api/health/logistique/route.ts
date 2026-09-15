@@ -22,6 +22,8 @@ import {
   type TypeTms,
 } from '@savr/adapters/src/index.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { logger } from '@savr/shared/src/logger/index.js';
+import { messageErreur } from '@/lib/api-helpers.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -93,8 +95,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .select('id, type_tms, prestataire_logistique_id');
 
   if (error) {
+    // §07/05 : le health check dit CE QUI est KO, le détail reste dans les logs.
+    logger.error('api_route.error', {
+      route: 'health.logistique.transporteurs',
+      error_code: error.code ?? 'UNKNOWN',
+      error: error.message,
+    });
     return NextResponse.json(
-      { status: 'ko', erreur: `lecture transporteurs : ${error.message}` },
+      { status: 'ko', erreur: 'lecture transporteurs impossible' },
       { status: 503 },
     );
   }
@@ -134,7 +142,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       ).healthCheck();
     } catch (err) {
       // healthCheck ne devrait jamais lever, mais on reste fail-safe.
-      result = { ok: false, etat: 'ko', message: String(err) };
+      logger.error('api_route.error', {
+        route: 'health.logistique.provider',
+        error_code: (err as { code?: string } | null)?.code ?? 'UNKNOWN',
+        error: messageErreur(err),
+      });
+      result = { ok: false, etat: 'ko', message: 'health check en échec' };
     }
     providers.push({ type_tms: type, ...result });
   }

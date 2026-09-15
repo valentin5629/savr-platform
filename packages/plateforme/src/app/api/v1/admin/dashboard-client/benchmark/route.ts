@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 // GET /api/v1/admin/dashboard-client/benchmark
 // §06.06 §2 — jauges benchmark parc (Bloc 3 ZD) côté Dashboard Client Admin.
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error, 'admin.dashboard_client.benchmark.list');
   }
 
   return NextResponse.json(

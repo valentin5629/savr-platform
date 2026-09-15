@@ -5,6 +5,7 @@ import {
   type ClientRole,
 } from '@/lib/api-auth.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { writeError, serverError } from '@/lib/api-helpers.js';
 
 // CDC §06.04 §6 « Mon organisation » (l.646-664).
 // GET : lecture des informations légales de SA propre organisation (manager +
@@ -52,8 +53,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .eq('id', auth.ctx.organisationId)
     .maybeSingle();
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'traiteur.mon_organisation.profil.list');
   if (!data)
     return NextResponse.json(
       { error: 'Organisation non trouvée' },
@@ -105,7 +105,7 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
     .maybeSingle();
 
   if (error)
-    return NextResponse.json({ error: error.message }, { status: 422 });
+    return writeError(error, 'traiteur.mon_organisation.profil.update');
   if (!data)
     return NextResponse.json(
       { error: 'Organisation non trouvée' },

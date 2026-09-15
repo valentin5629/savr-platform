@@ -3,7 +3,7 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { champsAdminPoses } from '@/lib/associations-champs-admin.js';
-import { sanitizeOrTerm } from '@/lib/api-helpers.js';
+import { sanitizeOrTerm, serverError } from '@/lib/api-helpers.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 
@@ -43,8 +43,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     query = query.eq('habilitee_attestation_fiscale', true);
 
   const { data, error, count } = await query;
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'admin.associations.list');
 
   // KPI par ligne — collectes AG réalisées (realisee + cloturee) rattachées via
   // attributions_antgaspi.association_id, sur les 30 derniers jours. Une seule
@@ -202,8 +201,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .select()
     .single();
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'admin.associations.create');
 
   await supabase.from('audit_log').insert({
     table_name: 'associations',

@@ -9,6 +9,7 @@ import { randomUUID } from 'node:crypto';
 import { uploadObject } from '@savr/shared/src/r2/upload.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -109,9 +110,9 @@ export async function POST(
     .single();
 
   if (insErr || !fichier) {
-    return NextResponse.json(
-      { error: insErr?.message ?? 'Échec de l’enregistrement du fichier' },
-      { status: 500 },
+    return serverError(
+      insErr ?? new Error('insert shared.fichiers sans ligne'),
+      'admin.collectes.photos.create',
     );
   }
 

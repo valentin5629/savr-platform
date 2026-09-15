@@ -4,6 +4,7 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 const ORGANISATEUR_ROLES: ClientRole[] = ['client_organisateur'];
 
@@ -49,8 +50,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (to) query = query.lte('date_collecte', to);
 
   const { data, error } = await query;
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'organisateur.collectes.list');
 
   const rows = (data ?? []) as Array<Record<string, unknown>>;
 

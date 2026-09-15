@@ -10,21 +10,57 @@ import {
 /**
  * Émission d'observabilité commune aux erreurs API serveur (§07/02).
  * - `api_route.error` (error) : l'erreur réelle est loggée côté serveur, jamais
- *   renvoyée au client. NB : le message peut échoir un détail Postgres (SIRET,
- *   nom de contrainte) → le logger applique `sanitizePayload`, mais la redaction
- *   se fait par NOM DE CLÉ ; on isole donc le `error_code` et laisse le message
- *   brut sous la clé neutre `error` (le détail sensible reste hors clés « siret »
- *   /« email »). Pas d'aggravation vs le comportement historique.
+ *   renvoyée au client. Le message peut porter un détail Postgres (nom de
+ *   contrainte, et sur une erreur de CAST la valeur saisie elle-même) → le logger
+ *   applique `sanitizePayload`, mais la redaction se fait par NOM DE CLÉ : une
+ *   chaîne sous la clé neutre `error` n'est PAS filtrée.
+ *   C'est un arbitrage assumé, pas un angle mort : avant ce lot, `String(error)`
+ *   réduisait toute `PostgrestError` à « [object Object] » — ces messages entrent
+ *   donc dans les logs pour la PREMIÈRE fois. Neutraliser la réponse sans rien
+ *   tracer serait pire que la fuite d'origine (plus aucun diagnostic de panne).
+ *   Contrepartie §15 : `messageErreur` ne lit QUE `message`, jamais `details`
+ *   (« Key (email)=(…) already exists ») ni `hint` ; la rétention reste bornée
+ *   par `f_purge_logs`.
  * - `rls.policy.deny` (warn, §07/02) : si Postgres refuse par une policy RLS
  *   (code 42501 insufficient_privilege), on émet EN PLUS l'event deny qui alimente
  *   l'alerte sécurité §07/03 (> 10/h même rôle+table, agrégée côté plateforme).
  */
+/**
+ * Message lisible d'une erreur, quelle que soit sa forme. Une `PostgrestError` est
+ * un objet PLAIN (pas une instance d'`Error`) : un simple `String(error)` la
+ * réduisait à « [object Object] » et le log ne disait plus rien de la panne —
+ * neutraliser la réponse SANS tracer côté serveur est pire que la fuite d'origine.
+ */
+export function messageErreur(err: unknown): string {
+  /* NB : cette fonction RETOURNE le message brut — elle ne neutralise rien. Son
+     seul usage légitime est d'alimenter un `logger.*` ; le cliquet
+     `check-api-error-leak` l'impose (règle D). */
+  if (err == null) return '';
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'string') return err;
+  const objet = err as { message?: unknown };
+  if (typeof objet.message === 'string') return objet.message;
+  // Repli : on sérialise l'objet SANS `details`/`hint`, qui sont les champs où
+  // PostgREST place la valeur en cause (« Key (email)=(…) already exists ») —
+  // c'est précisément la PII que le reste du helper évite de faire entrer en logs.
+  try {
+    const reste = Object.fromEntries(
+      Object.entries(err as Record<string, unknown>).filter(
+        ([cle]) => cle !== 'details' && cle !== 'hint',
+      ),
+    );
+    return JSON.stringify(reste);
+  } catch {
+    return String(err);
+  }
+}
+
 function logApiError(
   error: unknown,
   route: string,
   operation: 'read' | 'write',
 ): void {
-  const message = error instanceof Error ? error.message : String(error);
+  const message = messageErreur(error);
   const error_code = (error as { code?: string } | null)?.code ?? 'UNKNOWN';
   logger.error('api_route.error', { route, error_code, error: message });
 
@@ -145,4 +181,127 @@ export function withApiTrace<R extends Request, A extends unknown[]>(
  */
 export function sanitizeOrTerm(q: string): string {
   return q.replace(/[,()"\\]/g, ' ').trim();
+}
+/**
+ * Erreur dont le MESSAGE est un libellé métier écrit par nous — `RAISE EXCEPTION
+ * '<libellé>' USING ERRCODE = 'P0003'` côté RPC, ou `Object.assign(new Error(…),
+ * { code: 'DUPLICATE' })` côté TS. Contrairement à une erreur Postgres système
+ * (contrainte, colonne, table), un tel message ne décrit aucune structure interne :
+ * il est destiné à l'utilisateur et peut être renvoyé tel quel.
+ *
+ * `codesMetier` est une ALLOWLIST FERMÉE : tout code hors liste (y compris une
+ * PostgrestError qui remonterait par le même `catch`) retombe sur le message
+ * neutre de `writeError`, JAMAIS sur le message brut. L'erreur réelle est loggée
+ * dans les deux cas.
+ */
+export function businessError(
+  error: { code?: string; message?: string } | null,
+  event: string,
+  codesMetier: readonly string[],
+  status: number,
+): NextResponse {
+  const code = error?.code ?? '';
+  if (!codesMetier.includes(code)) return writeError(error, event);
+  logApiError(error, event, 'write');
+  return NextResponse.json({ error: error?.message ?? '' }, { status });
+}
+
+/**
+ * Échec de création d'un compte Supabase Auth (`auth.admin.createUser`). Le
+ * message GoTrue brut n'est jamais renvoyé (il peut porter du détail interne) :
+ * on mappe les CAS MÉTIER connus vers un libellé FR fixe, pour que l'utilisateur
+ * garde l'information utile (email déjà pris, mot de passe trop faible) sans
+ * qu'aucun texte d'origine tierce n'atteigne le client. `code` n'étant pas
+ * garanti selon la version GoTrue, le message sert de repli de DÉTECTION — il est
+ * lu, jamais retourné.
+ */
+export function authAccountError(
+  error: { code?: string; message?: string } | null,
+  event: string,
+  repli = 'Création du compte impossible.',
+): NextResponse {
+  logApiError(error, event, 'write');
+  const code = error?.code ?? '';
+  const msg = (error?.message ?? '').toLowerCase();
+  if (
+    code === 'email_exists' ||
+    code === 'user_already_exists' ||
+    msg.includes('already registered') ||
+    msg.includes('already been registered')
+  )
+    return NextResponse.json(
+      { error: 'Cette adresse email est déjà utilisée.' },
+      { status: 422 },
+    );
+  if (code === 'same_password' || msg.includes('should be different'))
+    return NextResponse.json(
+      { error: 'Le nouveau mot de passe doit être différent de l’ancien.' },
+      { status: 422 },
+    );
+  if (code === 'weak_password' || msg.includes('password'))
+    return NextResponse.json(
+      { error: 'Mot de passe trop faible (8 caractères minimum).' },
+      { status: 422 },
+    );
+  return NextResponse.json({ error: repli }, { status: 422 });
+}
+
+/**
+ * Erreur interne à relancer depuis un module `lib/` dont le `throw` est rattrapé
+ * par un route handler qui renvoie `e.message` au client.
+ *
+ * `throw new Error(pgError.message)` est la MÊME fuite que
+ * `NextResponse.json({ error: error.message })`, avec une indirection de plus :
+ * `new Error(…)` EST une instance d'`Error`, donc le `catch (e) { … e.message }`
+ * du handler la renvoie telle quelle. Vecteur démontré en revue sécurité :
+ * `GET /api/v1/exports/collectes?statut=foo` répondait
+ * « invalid input value for enum plateforme.collecte_statut: "foo" » — schéma et
+ * nom du type interne divulgués à n'importe quel client authentifié.
+ *
+ * Le message réel est loggé (`api_route.error`, §07/02) ; l'`Error` relancée ne
+ * porte qu'un libellé neutre.
+ */
+export function erreurInterne(
+  err: unknown,
+  event: string,
+): Error & { code?: string } {
+  logApiError(err, event, 'read');
+  // Le MESSAGE est neutralisé, le CODE est conservé : c'est lui qui porte le sens
+  // métier (`P0030` = collecte AG introuvable → 404). Un handler qui distinguait
+  // ses cas en cherchant un texte dans le message doit tester ce code.
+  const code = (err as { code?: string } | null)?.code;
+  return Object.assign(new Error('Erreur serveur'), code ? { code } : {});
+}
+
+/**
+ * Libellé NEUTRE pour un champ `erreur` d'un résultat applicatif que le route
+ * handler renvoie au client (`{ ok: false, erreur }` de `lib/facturation/**`).
+ * Même classe que `writeError`, mais côté producteur : le message Postgres est
+ * loggé, jamais placé dans le champ rendu.
+ */
+export function messageEchecEcriture(
+  err: unknown,
+  event: string,
+  codesMetier: readonly string[] = [],
+): string {
+  logApiError(err, event, 'write');
+  // Symétrique de `businessError` côté producteur : un `RAISE EXCEPTION` dont le
+  // libellé est écrit par nous (et dont le code est explicitement listé) reste
+  // affiché ; tout le reste retombe sur le message neutre.
+  const code = (err as { code?: string } | null)?.code ?? '';
+  const message = (err as { message?: string } | null)?.message;
+  if (codesMetier.includes(code) && message) return message;
+  return 'Enregistrement impossible (données invalides ou doublon)';
+}
+
+/**
+ * Idem pour un échec d'API TIERCE (Pennylane) dont la réponse est rendue à
+ * l'Admin. Le corps d'erreur du tiers peut porter sa propre structure interne et
+ * des identifiants de compte : il va aux logs (`api.external.failed` est émis par
+ * le client Pennylane lui-même ; ici on trace la restitution) et l'Admin reçoit
+ * un libellé qui dit l'ÉTAPE en échec — l'information dont il a besoin pour agir.
+ */
+export function messageEchecTiers(message: unknown, event: string): string {
+  logApiError(message, event, 'write');
+  return `Échec de la synchronisation Pennylane (${event.split('.').slice(1).join(' ')})`;
 }

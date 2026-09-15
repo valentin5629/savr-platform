@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 // PATCH /api/v1/admin/attributions-ag/[collecteId]/poids
 // Saisie / correction du poids réel AG par Ops (§06.09 l.177/183).
@@ -75,7 +76,7 @@ export async function PATCH(
         { error: 'Attribution introuvable' },
         { status: 404 },
       );
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error, 'admin.attributions_ag.poids.update');
   }
 
   // Sur correction, tracer le MOTIF (le trigger DB audite déjà l'action

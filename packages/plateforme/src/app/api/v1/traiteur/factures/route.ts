@@ -4,6 +4,7 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 // Lecture seule, manager + commercial (§06.04 §6 Facturation, révision 2026-05-29).
 const TRAITEUR_ROLES: ClientRole[] = [
@@ -42,7 +43,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (dateFin) query = query.lte('date_emission', dateFin);
 
   const { data, error } = await query;
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'traiteur.factures.list');
   return NextResponse.json({ data });
 }

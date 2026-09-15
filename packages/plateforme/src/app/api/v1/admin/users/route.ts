@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
 import { requireStaff } from '@/lib/api-auth.js';
-import { serverError, writeError, withApiTrace } from '@/lib/api-helpers.js';
+import {
+  serverError,
+  writeError,
+  withApiTrace,
+  authAccountError,
+} from '@/lib/api-helpers.js';
 
 const ROLES_VALIDES = [
   'admin_savr',
@@ -104,10 +109,7 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
     });
 
   if (authError || !authData.user) {
-    return NextResponse.json(
-      { error: authError?.message ?? 'Erreur création compte' },
-      { status: 422 },
-    );
+    return authAccountError(authError, 'admin.users.create_compte');
   }
 
   const userId = authData.user.id;

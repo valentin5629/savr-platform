@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -84,8 +85,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     ag48h.error,
     kpiRows.error,
   ].filter(Boolean);
-  if (errors.length > 0)
-    return NextResponse.json({ error: errors[0]!.message }, { status: 500 });
+  if (errors.length > 0) return serverError(errors[0], 'dashboards.kpi_admin');
 
   return NextResponse.json(
     {

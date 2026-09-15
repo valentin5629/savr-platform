@@ -50,8 +50,8 @@ import { NextResponse } from 'next/server';
 //     service_role par les routes, le seed, une session psql, et toute route
 //     future qui oublierait `validerChampsTexteLibre` — c'est-à-dire la leçon de
 //     #308 sous sa forme durable, borner les routes ne borne pas la colonne.
-// Les bornes ci-dessous et celles de cette migration DOIVENT rester identiques ;
-// `champs-texte-libre.bornes-db.test.ts` relit le fichier SQL et le vérifie.
+// Les bornes ci-dessous et celles de ces DEUX migrations DOIVENT rester identiques ;
+// `champs-texte-libre.bornes-db.test.ts` relit les deux fichiers SQL et le vérifie.
 
 interface BorneChamp {
   /** Longueur maximale, en caractères, APRÈS `trim()`. */

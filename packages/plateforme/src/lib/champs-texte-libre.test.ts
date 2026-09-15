@@ -157,3 +157,66 @@ describe('validerChampsTexteLibre — acceptations et normalisation', () => {
     expect(valeurs(['12 rue Neuve'])).toEqual({});
   });
 });
+
+// ── Contacts PRINCIPAUX : ajoutés au module par 20260915190000 ───────────────
+// Mêmes bornes que leurs homologues de secours (120 / 40), une seule différence :
+// `obligatoire: true`. Les colonnes sont NOT NULL et le §06.01 l.320 les exige
+// « renseignés » — la normalisation `'' → null` du reste du module y produirait un
+// 23502 (violation NOT NULL) remonté en 500, là où l'utilisateur doit lire
+// « champ obligatoire ».
+describe('validerChampsTexteLibre — contacts principaux (obligatoires)', () => {
+  it('refuse un nom de 5 000 caractères — il part dans le champ NATIF de contact de la commande', async () => {
+    expect(await refus({ contact_principal_nom: 'a'.repeat(5000) })).toEqual([
+      'contact_principal_nom',
+    ]);
+  });
+
+  it('applique la même borne que le contact de secours : 120 refusé à 121, 40 refusé à 41', async () => {
+    expect(valeurs({ contact_principal_nom: 'n'.repeat(120) })).toEqual({
+      contact_principal_nom: 'n'.repeat(120),
+    });
+    expect(await refus({ contact_principal_nom: 'n'.repeat(121) })).toEqual([
+      'contact_principal_nom',
+    ]);
+    expect(valeurs({ contact_principal_telephone: '0'.repeat(40) })).toEqual({
+      contact_principal_telephone: '0'.repeat(40),
+    });
+    expect(
+      await refus({ contact_principal_telephone: '0'.repeat(41) }),
+    ).toEqual(['contact_principal_telephone']);
+  });
+
+  it('refuse le VIDE au lieu de le normaliser en null — la colonne est NOT NULL', async () => {
+    expect(await refus({ contact_principal_nom: '   ' })).toEqual([
+      'contact_principal_nom',
+    ]);
+    expect(await refus({ contact_principal_telephone: '' })).toEqual([
+      'contact_principal_telephone',
+    ]);
+  });
+
+  it('refuse `null` explicite — effacer un contact principal n’est pas un no-op', async () => {
+    expect(await refus({ contact_principal_nom: null })).toEqual([
+      'contact_principal_nom',
+    ]);
+  });
+
+  it('nomme le champ « obligatoire » dans le message, pour distinguer du dépassement', async () => {
+    const res = validerChampsTexteLibre({ contact_principal_nom: '  ' });
+    if (!('error' in res)) throw new Error('attendu : un refus 422');
+    const body = (await res.error.json()) as { error: string };
+    expect(body.error).toContain('obligatoire');
+  });
+
+  it('trime la saisie nominale — la valeur normalisée est celle qui atteint l’INSERT', () => {
+    expect(valeurs({ contact_principal_nom: '  Jean Martin  ' })).toEqual({
+      contact_principal_nom: 'Jean Martin',
+    });
+  });
+
+  it('laisse les contacts de SECOURS facultatifs — l’asymétrie est voulue', () => {
+    expect(valeurs({ contact_secours_nom: '   ' })).toEqual({
+      contact_secours_nom: null,
+    });
+  });
+});

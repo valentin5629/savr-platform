@@ -437,26 +437,26 @@ SELECT throws_ok(
 -- T27–T28 : programmation_lieu_autorise et interdit (Catégorie 1 + 3)
 -- ════════════════════════════════════════════════════════════════════════════
 
--- T27 : Viparis peut INSERT evenement sur son propre lieu
-SELECT lives_ok(
-  $$ INSERT INTO plateforme.evenements (
-       id, organisation_id, traiteur_operationnel_organisation_id,
-       entite_facturation_id, created_by, lieu_id, type_evenement_id,
-       nom_evenement, date_evenement, pax, contact_principal_nom, contact_principal_telephone
-     ) VALUES (
-       'cc000000-0000-0000-0000-0000000000e9'::uuid,
-       'cc000000-0000-0000-0000-00000000000a'::uuid,
-       'cc000000-0000-0000-0000-00000000000c'::uuid,
-       'cc000000-0000-0000-0000-0000000000f5'::uuid,
-       'cc000000-0000-0000-0000-000000000a01'::uuid,
-       'cc000000-0000-0000-0000-000000000b01'::uuid,
-       'cc000000-0000-0000-0000-000000000bee'::uuid,
-       'Evenement Viparis Test', '2026-09-01', 300, 'Contact9', '0600000009'
-     ) $$,
-  'T27 : gestionnaire peut programmer sur son propre lieu (INSERT evenements autorisé)'
+-- T27 : écriture directe de `evenements` fermée depuis 2026-09-15.
+-- Ce cas prouvait que evt_gestionnaire_insert laissait Viparis CRÉER un événement
+-- sur son propre lieu par POST PostgREST direct. La migration 20260915190000 a
+-- retiré INSERT/UPDATE/DELETE du GRANT table-level de `authenticated` : la policy
+-- subsiste mais est inerte, et la programmation passe par la route
+-- POST /api/v1/programmation/evenements (service_role), qui porte elle-même la
+-- garde « lieu dans le périmètre géré » (Gap A) et qui seule émet l'outbox.
+-- Le cliquet de privilège remplace l'ancien lives_ok ; le détail par rôle vit dans
+-- SECU__evenements_ecriture_client_fermee.test.sql.
+SELECT ok(
+  NOT has_table_privilege('authenticated', 'plateforme.evenements', 'INSERT'),
+  'T27 : programmation par INSERT direct fermee (privilege INSERT retire)'
 );
 
--- T28 : Viparis ne peut PAS INSERT evenement sur GL Arena (hors périmètre)
+-- T28 : Viparis ne peut PAS INSERT evenement sur GL Arena (hors périmètre).
+-- ⚠ Depuis 2026-09-15, le 42501 attendu ici ne prouve PLUS le prédicat
+-- `organisations_lieux` de evt_gestionnaire_insert : le privilège INSERT ayant été
+-- retiré (cf. T27), le refus tombe avant toute évaluation RLS et ce cas serait vert
+-- même sans la policy. Il reste utile comme cliquet de fermeture ; la garde de
+-- périmètre, elle, vit dans la route (Gap A) et est couverte côté applicatif.
 SELECT throws_ok(
   $$ INSERT INTO plateforme.evenements (
        id, organisation_id, traiteur_operationnel_organisation_id,

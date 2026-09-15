@@ -3,6 +3,12 @@
 --   chk_evenements_contact_secours_nom_borne
 --   chk_evenements_contact_secours_telephone_borne
 --   chk_collectes_informations_supplementaires_borne
+--
+-- Les deux contacts PRINCIPAUX sont bornés de la même façon par la migration
+-- 20260915190000 (chk_evenements_contact_principal_{nom,telephone}_borne) et
+-- prouvés dans SECU__evenements_ecriture_client_fermee.test.sql, qui porte aussi la
+-- fermeture de l'écriture directe d'`evenements` — celle qui recale la section 6
+-- ci-dessous.
 -- =============================================================================
 -- Oracle : ces trois colonnes sont des `text` SANS aucune contrainte — 5 000
 -- caractères y passaient, mesuré. `informations_supplementaires` ET
@@ -16,13 +22,13 @@
 --   · `fn_modifier_evenement` / `fn_modifier_collecte` appelées sous service_role
 --     (script, seed, session psql) — elles écrivent `p_updates->>'champ'` tel
 --     quel, sans rien vérifier ;
---   · UPDATE PostgREST direct sur `evenements` : `authenticated` y garde un GRANT
---     UPDATE table-level (20260611180000, jamais révoqué) et `evt_manager_update`
---     laisse un traiteur modifier son propre événement non terminal. C'est le
---     vecteur VIVANT, et les deux champs de contact y sont exposés.
---     (Sur `collectes`, 20260915160000 / #318 a révoqué UPDATE et INSERT à
---     `authenticated` : voie coupée en amont — le cas correspondant plus bas
---     l'atteste en 42501 et non en 23514.)
+--   · ⚠ L'UPDATE PostgREST direct sur `evenements` n'est PLUS un vecteur. Cet
+--     en-tête annonçait « le vecteur VIVANT » parce qu'`authenticated` y gardait
+--     un GRANT UPDATE table-level ; 20260915190000 l'a révoqué, comme
+--     20260915160000 / #318 l'avait fait sur `collectes`. Les DEUX voies sont
+--     désormais coupées en amont — les cas de la section 6 l'attestent en 42501
+--     et non en 23514. Ne pas ré-invoquer cet argument : il ne reste vrai pour
+--     aucune des deux tables.
 -- Le worker relit ces colonnes SUR LA LIGNE à la consommation de l'event : ce qui
 -- est écrit par là atteint bien le transporteur.
 --
@@ -225,31 +231,39 @@ END $$;
 
 SELECT pg_temp.jwt_traiteur();
 
--- L'écriture LÉGITIME passe : c'est le cas qui rougirait si la contrainte rendait
--- la colonne inécrivable pour un client (42501 au lieu du succès).
-SELECT lives_ok(
+-- RECALÉ UNE SECONDE FOIS — les deux tables sont désormais fermées à l'écriture
+-- directe, `collectes` par 20260915160000 (#318) et `evenements` par
+-- 20260915190000 (mergée après ce fichier). Sur les DEUX, `authenticated` n'a plus
+-- de GRANT UPDATE : l'écriture est refusée EN AMONT de la contrainte, donc 42501
+-- et jamais 23514.
+--
+-- ⚠ La note précédente de ce bloc — « Rien d'équivalent sur `evenements` :
+-- `authenticated` y garde UPDATE table-level » — n'est PLUS vraie et ne doit pas
+-- être ré-invoquée. Elle justifiait les deux cas qui suivaient (une écriture
+-- légitime qui passe, un nom de 5 000 caractères qui tombe en 23514) : ils ne
+-- pouvaient plus tenir, ils sont remplacés ici.
+--
+-- Ce que les CHECK de cette migration couvrent encore, et qui reste prouvé PLUS
+-- HAUT dans ce fichier (sections 1 à 5, sous superuser) : tout écrivain qui n'est
+-- pas `authenticated` — les RPC `SECURITY DEFINER` appelées en service_role par les
+-- routes, les scripts de seed, une session psql, et toute route future qui
+-- oublierait `validerChampsTexteLibre`. C'est désormais leur SEULE justification,
+-- et elle suffit : c'est exactement celle que #318 laissait déjà à
+-- `chk_collectes_informations_supplementaires_borne`.
+SELECT throws_ok(
   $$ UPDATE plateforme.evenements
         SET contact_secours_nom = 'Marie Durand'
       WHERE id = 'b0c0ea06-0000-0000-0000-000000000001'::uuid $$,
-  'authenticated : un contact de secours légitime passe en PostgREST direct');
+  '42501', NULL,
+  'authenticated : l''écriture directe d''evenements est fermée en amont (20260915190000) — 42501');
 
 SELECT throws_ok(
   format($$ UPDATE plateforme.evenements
                SET contact_secours_nom = %L
              WHERE id = 'b0c0ea06-0000-0000-0000-000000000001'::uuid $$, repeat('a', 5000)),
-  '23514', NULL,
-  'authenticated : un nom de 5 000 caractères est REJETÉ — 23514, pas 42501');
+  '42501', NULL,
+  'authenticated : un nom de 5 000 caractères tombe désormais sur le privilège, pas sur le CHECK');
 
--- RECALÉ par 20260915160000 (#318), mergée pendant ce lot : `authenticated` n'a
--- plus de GRANT UPDATE sur `plateforme.collectes`. L'écriture directe y est donc
--- fermée EN AMONT de la contrainte — 42501, et non 23514. Ce cas ne teste plus la
--- borne, il documente que la voie est coupée : sur `collectes`, le CHECK ne
--- couvre plus que les chemins service_role (prouvés au cas
--- `fn_modifier_collecte` ci-dessus) et psql/seed.
--- ⚠ Rien d'équivalent sur `evenements` : `authenticated` y garde UPDATE
--- table-level (aucune migration ne l'a jamais révoqué, vérifié sur dev). Les deux
--- cas précédents sont donc les SEULS à prouver qu'un client ne peut pas écrire un
--- contact de secours hors borne — et ils portent sur la table qui reste ouverte.
 SELECT throws_ok(
   format($$ UPDATE plateforme.collectes
                SET informations_supplementaires = %L
@@ -257,11 +271,15 @@ SELECT throws_ok(
   '42501', NULL,
   'authenticated : l''écriture directe de collectes est fermée en amont (#318) — 42501');
 
+-- Non-vacuité du bloc : les trois refus ci-dessus ne doivent RIEN avoir écrit. La
+-- fixture laisse `contact_secours_nom` à NULL, donc un 42501 mal simulé (ou un
+-- privilège ré-accordé) se verrait ici — la valeur `'Marie Durand'` du premier cas
+-- apparaîtrait.
 SELECT is(
   (SELECT contact_secours_nom FROM plateforme.evenements
     WHERE id = 'b0c0ea06-0000-0000-0000-000000000001'::uuid),
-  'Marie Durand',
-  'authenticated : la valeur refusée n''a rien écrasé');
+  NULL,
+  'authenticated : aucune des écritures refusées n''a touché la ligne');
 
 
 SELECT pg_temp.as_superuser();

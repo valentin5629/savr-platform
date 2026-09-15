@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { builderTransporteurs } from '../mock-referentiel-transporteurs.js';
 import { AdapterMts1 } from './adapter.js';
 import type { Mts1CustomerOrder, Mts1Tour } from './mock.js';
 import { _setMts1Handlers } from './mock.js';
@@ -175,6 +176,10 @@ function makeSyncSupabaseM18(opts: {
 
   const supabase = {
     from: vi.fn((table: string) => {
+      // Référentiel provider — cf. findTourneeByOrderId (cloisonnement entrant).
+      if (table === 'transporteurs') {
+        return builderTransporteurs();
+      }
       if (table === 'flux_dechets') {
         return {
           select: vi.fn(() => ({

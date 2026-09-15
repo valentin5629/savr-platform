@@ -162,3 +162,12 @@ packages/plateforme/src/components/admin/transporteur-modal.test.tsx
 # Cliquet des gardes API (sécurité, 2026-09-11) : nomme la route du webhook logistique pour
 # vérifier sa garde propre (jeton X-Webhook-Token). Aucun appel HTTP ; 'customerOrders' reste banni.
 packages/plateforme/tests/securite/api-routes-gardees.test.ts
+# supabase/migrations/20260915180000_* + son pgTAP (invariants du cloisonnement
+# provider) — 'mts1'/'a_toutes'/'everest' n'apparaissent que (a) dans les commentaires
+# qui expliquent POURQUOI l'index existe et (b) comme valeurs de l'enum
+# transporteurs.type_tms dans les fixtures pgTAP. La migration ne pose que deux index
+# UNIQUE partiels : aucune logique adapter, aucun appel HTTP, aucun nom de ressource
+# distante. Même nature d'exception que 20260625000000 (bridge dispatch AG).
+# 'customerOrders' reste banni.
+supabase/migrations/20260915180000_plateforme_cloisonnement_provider_invariants.sql
+supabase/tests/SECU__cloisonnement_provider_invariants.test.sql

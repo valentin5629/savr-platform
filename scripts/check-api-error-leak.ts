@@ -443,7 +443,12 @@ function regleD(source: string): Trouve[] {
  */
 function regleE(source: string): Trouve[] {
   const src = parse('e.ts', source);
+  // Clé = `<fonction englobante>::<nom>` : sans le scope, deux fonctions d'un même
+  // fichier qui nomment toutes deux leur variable `message` se contaminent (faux
+  // positif observé entre `messageEchecEcriture` et `businessError`).
   const teintees = new Map<string, number>();
+  const cle = (nom: string, n: ts.Node): string =>
+    `${fonctionEnglobante(n) ?? '<module>'}::${nom}`;
   const marquer = (n: ts.Node): void => {
     if (
       ts.isVariableDeclaration(n) &&
@@ -466,7 +471,7 @@ function regleE(source: string): Trouve[] {
       chercher(n.initializer);
       if (lit)
         teintees.set(
-          n.name.text,
+          cle(n.name.text, n),
           src.getLineAndCharacterOfPosition(n.getStart()).line + 1,
         );
     }
@@ -477,7 +482,7 @@ function regleE(source: string): Trouve[] {
 
   const out: Trouve[] = [];
   const visit = (n: ts.Node): void => {
-    if (ts.isIdentifier(n) && teintees.has(n.text)) {
+    if (ts.isIdentifier(n) && teintees.has(cle(n.text, n))) {
       const estDeclaration =
         ts.isVariableDeclaration(n.parent) && n.parent.name === n;
       const versLog = sousAppel(n, src, /^(logger|console)\./);
@@ -500,7 +505,7 @@ function regleE(source: string): Trouve[] {
       if (rendu && !estDeclaration && !versLog) {
         out.push({
           ligne: src.getLineAndCharacterOfPosition(n.getStart()).line + 1,
-          expr: `${n.text} (teintée l.${teintees.get(n.text)})`,
+          expr: `${n.text} (teintée l.${teintees.get(cle(n.text, n))})`,
         });
       }
     }
@@ -787,11 +792,14 @@ function violations(): Violation[] {
     // (vecteur (e), contre-revue sécurité).
     if (ALLOWLIST_SOURCE.some((a) => a.fichier.test(f))) continue;
     const source = readFileSync(f, 'utf8');
-    for (const { ligne, expr } of regleD(source)) {
+    // D et E valent AUSSI côté producteur : `const m = error.message; return
+    // { ok: false, erreur: m }` dans `lib/facturation/**` est le même réflexe
+    // d'extraction de variable, juste de l'autre côté de la frontière HTTP.
+    for (const { ligne, expr } of regleD(source).concat(regleE(source))) {
       trouvees.push({
         fichier: f,
         ligne,
-        code: `[messageErreur hors logger] ${expr} — ${ligneDe(source, ligne)}`,
+        code: `[message rendu indirectement] ${expr} — ${ligneDe(source, ligne)}`,
       });
     }
     for (const { ligne, expr } of regleB(source)) {

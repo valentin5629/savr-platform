@@ -80,9 +80,13 @@ function makeReq(method: string, url: string, body?: unknown): NextRequest {
 // C'est ce qui a laissé passer `code_postal`/`ville` sur ce POST (route morte,
 // relevé revue #302). L'oracle ne peut donc PAS être écrit à la main à côté de
 // la route : il est lu dans `database.types.ts`, généré depuis le schéma réel.
-function colonnesInsert(
+// Le bloc lu est paramétrable : `Insert` pour un POST, `Update` pour un PATCH
+// (dans `Update`, toutes les colonnes sont optionnelles → `requises` est vide,
+// c'est normal : un UPDATE partiel n'a aucune colonne obligatoire).
+function colonnesTable(
   schema: string,
   table: string,
+  bloc: 'Insert' | 'Update' = 'Insert',
 ): {
   toutes: Set<string>;
   requises: Set<string>;
@@ -95,19 +99,19 @@ function colonnesInsert(
   const requises = new Set<string>();
   let sCur: string | null = null;
   let tCur: string | null = null;
-  let dansInsert = false;
+  let dansBloc = false;
   for (const l of src.split('\n')) {
     const ms = /^ {2}(\w+): \{$/.exec(l);
     if (ms) sCur = ms[1]!;
     const mt = /^ {6}(\w+): \{$/.exec(l);
     if (mt) tCur = mt[1]!;
-    if (/^ {8}Insert: \{$/.test(l)) {
-      dansInsert = sCur === schema && tCur === table;
+    if (new RegExp(`^ {8}${bloc}: \\{$`).test(l)) {
+      dansBloc = sCur === schema && tCur === table;
       continue;
     }
-    if (!dansInsert) continue;
+    if (!dansBloc) continue;
     if (/^ {8}\}$/.test(l)) {
-      dansInsert = false;
+      dansBloc = false;
       continue;
     }
     const mc = /^ {10}(\w+)(\??): /.exec(l);
@@ -386,7 +390,7 @@ describe('M1.1a / Organisations / Création', () => {
     );
     expect(res.status).toBe(201);
 
-    const { toutes, requises } = colonnesInsert('plateforme', 'organisations');
+    const { toutes, requises } = colonnesTable('plateforme', 'organisations');
     // Garde de l'oracle lui-même (fail-closed si le parseur dérive).
     expect(toutes.has('raison_sociale')).toBe(true);
     expect(toutes.has('code_postal')).toBe(false);
@@ -492,6 +496,181 @@ describe('M1.1a / Organisations / Modification', () => {
       },
     );
     expect(res.status).toBe(403);
+  });
+
+  it('M1.1a/orgas/grille-tarifaire-admin-only — 403 si ops_savr tente de modifier grille_tarifaire_zd_id', async () => {
+    // Symétrique de tarif_refacture_pax_zd : la grille tarifaire ZD engage le
+    // prix facturé, elle est réservée à admin_savr (la garde existait sans test).
+    setupAuth('ops_savr');
+    const { PATCH } =
+      await import('@/app/api/v1/admin/organisations/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/organisations/org-1', {
+        grille_tarifaire_zd_id: 'grille-x',
+      }),
+      { params: Promise.resolve({ id: 'org-1' }) },
+    );
+    expect(res.status).toBe(403);
+    // Fail-closed : rien ne part en base quand la garde a répondu 403.
+    expect(mockSupabaseChain.update).not.toHaveBeenCalled();
+  });
+
+  it("M1.1a/orgas/modification — l'UPDATE ne cite QUE les colonnes de l'allowlist EDITABLE_FIELDS", async () => {
+    // Garde anti-régression de la faille M8 : un `...rest` recopiait n'importe
+    // quelle clé du body dans l'UPDATE service_role (RLS bypassée) → un staff
+    // ops_savr écrivait des colonnes système (est_shadow,
+    // cree_par_organisation_id, id, created_at…). L'allowlist a fermé le trou
+    // mais RIEN ne l'épinglait (relevé reviewer-rls-securite, PR #303) : un
+    // futur `...rest` repasserait en silence. Rappel du contexte qui rend ce
+    // trou sérieux : sous service_role le trigger anti-escalade
+    // trg_block_org_staff_cols_insert EXEMPTE l'appelant (`f_app_role()` NULL)
+    // → la garde applicative est la SEULE barrière.
+    setupAuth('ops_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: {
+        id: 'org-1',
+        raison_sociale: 'Orga',
+        type: 'traiteur',
+        actif: true,
+        tarif_refacture_pax_zd: 1.5,
+      },
+      error: null,
+    });
+
+    const { PATCH } =
+      await import('@/app/api/v1/admin/organisations/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/organisations/org-1', {
+        // (a) Champs métier légitimes = l'allowlist complète.
+        nom: 'Kaspia',
+        raison_sociale: 'KASPIA RECEPTIONS SAS',
+        type: 'traiteur',
+        siret: '12345678901234',
+        email_principal: 'contact@kaspia.fr',
+        telephone: '0102030405',
+        adresse: '17 rue de Marignan',
+        logo_url: 'https://cdn/logo.png',
+        notes_internes: 'interne',
+        actif: true,
+        mode_facturation_zd: 'par_collecte',
+        // (b) Colonnes RÉELLES mais système : elles existent sur
+        // plateforme.organisations, tsc les accepte et `check:column-db` les
+        // valide — seule l'allowlist les arrête.
+        est_shadow: true,
+        cree_par_organisation_id: 'org-pirate',
+        id: 'id-force',
+        created_at: '1970-01-01T00:00:00Z',
+        updated_at: '1970-01-01T00:00:00Z',
+        // (c) Clés qui n'existent nulle part (typo, champ d'un autre écran).
+        code_postal: '75008',
+        champ_invente: 'x',
+      }),
+      { params: Promise.resolve({ id: 'org-1' }) },
+    );
+    expect(res.status).toBe(200);
+
+    const payload = mockSupabaseChain.update.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect(payload).toBeDefined();
+
+    // 1. Aucune colonne fantôme (PGRST204 en vrai) — le message nomme les coupables.
+    const { toutes } = colonnesTable('plateforme', 'organisations', 'Update');
+    expect(toutes.has('raison_sociale')).toBe(true); // garde de l'oracle lui-même
+    expect(toutes.has('code_postal')).toBe(false);
+    expect(Object.keys(payload).filter((k) => !toutes.has(k))).toEqual([]);
+
+    // 2. Aucune fuite nommée : si un `...rest` revient, l'échec cite la clé.
+    const interdits = [
+      'est_shadow',
+      'cree_par_organisation_id',
+      'id',
+      'created_at',
+      'updated_at',
+      'code_postal',
+      'champ_invente',
+    ];
+    const fuites = Object.keys(payload).filter((k) => interdits.includes(k));
+    expect(
+      fuites,
+      `clés interdites recopiées dans l'UPDATE : ${fuites.join(', ')}`,
+    ).toEqual([]);
+
+    // 3. ALLOWLIST FERMÉE — ensemble EXACT, pas une inclusion : toute colonne
+    //    ajoutée à l'UPDATE doit être un choix délibéré passant par ce test.
+    expect(Object.keys(payload).sort()).toEqual(
+      [
+        'nom',
+        'raison_sociale',
+        'type',
+        'siret',
+        'email_principal',
+        'telephone',
+        'adresse',
+        'logo_url',
+        'notes_internes',
+        'actif',
+        'mode_facturation_zd',
+      ].sort(),
+    );
+  });
+
+  it('M1.1a/orgas/modification — admin_savr : les 2 champs admin-only entrent, les colonnes système restent dehors', async () => {
+    // Le branchement admin_savr ajoute tarif_refacture_pax_zd et
+    // grille_tarifaire_zd_id APRÈS la boucle d'allowlist : il a son propre
+    // risque de `...rest`. Ensemble EXACT ici aussi.
+    setupAuth('admin_savr');
+    // §07/06 : pré-fetch de l'ancien tarif AVANT l'UPDATE (audit_log).
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: { tarif_refacture_pax_zd: 1.5 },
+      error: null,
+    });
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: {
+        id: 'org-1',
+        raison_sociale: 'Orga',
+        type: 'traiteur',
+        actif: true,
+        tarif_refacture_pax_zd: 2.5,
+      },
+      error: null,
+    });
+
+    const { PATCH } =
+      await import('@/app/api/v1/admin/organisations/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/organisations/org-1', {
+        raison_sociale: 'KASPIA RECEPTIONS SAS',
+        tarif_refacture_pax_zd: 2.5,
+        grille_tarifaire_zd_id: 'grille-x',
+        est_shadow: true,
+        cree_par_organisation_id: 'org-pirate',
+        id: 'id-force',
+        created_at: '1970-01-01T00:00:00Z',
+        updated_at: '1970-01-01T00:00:00Z',
+        champ_invente: 'x',
+      }),
+      { params: Promise.resolve({ id: 'org-1' }) },
+    );
+    expect(res.status).toBe(200);
+
+    const payload = mockSupabaseChain.update.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect(Object.keys(payload).sort()).toEqual(
+      [
+        'raison_sociale',
+        'tarif_refacture_pax_zd',
+        'grille_tarifaire_zd_id',
+      ].sort(),
+    );
+    // Non-vacuité : les 2 champs admin-only sont bien passés (valeur arrondie
+    // à 2 décimales pour le tarif), donc l'ensemble exact ci-dessus n'est pas
+    // vert « par accident » (par ex. si la branche admin sautait).
+    expect(payload.tarif_refacture_pax_zd).toBe(2.5);
+    expect(payload.grille_tarifaire_zd_id).toBe('grille-x');
   });
 
   it('M1.1a/orgas/modification — 200 si admin_savr modifie tarif_refacture_pax_zd', async () => {

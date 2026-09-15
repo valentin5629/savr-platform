@@ -56,6 +56,11 @@
       "description": "PATCH tarif_refacture_pax_zd par ops_savr → 403"
     },
     {
+      "id": "M1.1a/orgas/grille-tarifaire-admin-only",
+      "title": "M1.1a/orgas/grille-tarifaire-admin-only",
+      "description": "PATCH grille_tarifaire_zd_id par ops_savr → 403"
+    },
+    {
       "id": "M1.1a/users/liste",
       "description": "GET /api/v1/admin/users retourne la liste avec rôle, statut, dernière connexion"
     },
@@ -176,6 +181,14 @@
       "test": "M1.1a/orgas/tarif-refacture-admin-only",
       "statut": "implemented",
       "libelle": "PATCH tarif_refacture_pax_zd par ops_savr → 403"
+    },
+    {
+      "id": "M1.1a-25",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:599",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/organisations/[id]/route.ts",
+      "test": "M1.1a/orgas/grille-tarifaire-admin-only",
+      "statut": "implemented",
+      "libelle": "PATCH grille_tarifaire_zd_id par ops_savr → 403"
     },
     {
       "id": "M1.1a-07",

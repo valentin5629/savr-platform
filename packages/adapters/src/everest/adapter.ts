@@ -124,11 +124,21 @@ export class AdapterEverest implements LogistiqueProvider {
       const created = await this.client.createMission(payload, collecte.id);
       missionId = created.mission_id;
 
-      // Commit external_ref_commande immédiatement (pattern garde-fou 5)
-      await this.supabase
+      // Commit external_ref_commande immédiatement (pattern garde-fou 5).
+      // L'`error` est lue : la colonne porte désormais un index unique partiel
+      // (`uniq_tournee_par_external_ref`), donc ce commit peut échouer — et un
+      // échec avalé laisserait une mission VIVANTE chez Everest sans référence
+      // en base, donc jamais annulable ni rapprochable. On lève, le worker
+      // rejoue (l'idempotence du POST est portée par `client_ref = tournee.id`).
+      const { error: errRef } = await this.supabase
         .from('tournees')
         .update({ external_ref_commande: missionId })
         .eq('id', tournee.id);
+      if (errRef) {
+        throw new LogistiqueTransientError(
+          `Commit de la référence de mission ${missionId} échoué (tournée ${tournee.id}) — ${errRef.message}`,
+        );
+      }
 
       // Référence d'AFFICHAGE de la collecte (§04 Data Model l.1509, §06.06 bouton
       // « Renvoyer au TMS », §11 carte « Collectes non transmises »). Ce provider n'a
@@ -474,12 +484,24 @@ export class AdapterEverest implements LogistiqueProvider {
 
     const t = creee as unknown as TourneeRow;
 
-    // Lier collecte ↔ tournée
-    await this.supabase.from('collecte_tournees').insert({
-      collecte_id: collecte.id,
-      tournee_id: t.id,
-      rang,
-    });
+    // Lier collecte ↔ tournée. L'`error` est lue : `uniq_collecte_tournee_rang`
+    // rend cet INSERT faillible dès qu'un autre provider a déjà pris le rang
+    // (re-dispatch MTS-1 → Everest). Avalé, le 23505 laissait le lien pointer
+    // sur la tournée MTS-1 — et c'est elle que toute lecture ultérieure rendait,
+    // durablement. Permanent : un rang déjà pris ne se résout pas en rejouant,
+    // il demande un arbitrage Ops (l'event part en DLQ, avec alerte).
+    const { error: errLien } = await this.supabase
+      .from('collecte_tournees')
+      .insert({
+        collecte_id: collecte.id,
+        tournee_id: t.id,
+        rang,
+      });
+    if (errLien) {
+      throw new LogistiquePermanentError(
+        `Rattachement de la tournée ${t.id} au rang ${rang} de la collecte ${collecte.id} refusé — ${errLien.message}`,
+      );
+    }
 
     return { ...t, rang };
   }

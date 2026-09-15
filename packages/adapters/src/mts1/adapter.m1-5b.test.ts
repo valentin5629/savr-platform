@@ -8,6 +8,10 @@ vi.mock('@savr/shared/src/r2/upload.js', () => ({
 
 import { uploadObject } from '@savr/shared/src/r2/upload.js';
 
+import {
+  PRESTA_MTS1,
+  builderTransporteurs,
+} from '../mock-referentiel-transporteurs.js';
 import { AdapterMts1 } from './adapter.js';
 import type {
   Mts1Carrier,
@@ -115,6 +119,8 @@ function makeSyncSupabase(opts: {
     tourneeId: string;
     tmsReference: string | null;
     collecteStatut: string;
+    /** Prestataire exécutant — défaut : un prestataire `type_tms='mts1'`. */
+    prestataireId?: string;
   } | null;
   /** La photo existe déjà dans shared.fichiers ? */
   photoExistante?: boolean;
@@ -170,7 +176,10 @@ function makeSyncSupabase(opts: {
         filters[col] = val;
         return self;
       }),
-      in: vi.fn((_col: string, _vals: unknown) => self),
+      in: vi.fn((col: string, vals: unknown) => {
+        filters[col] = vals;
+        return self;
+      }),
       limit: vi.fn((_n: number) => {
         // integrations_inbox claim (upsert ON CONFLICT DO NOTHING) :
         //   - erreur DB simulée → propagée par l'adapter si code≠23505 (OUTBOX-04)
@@ -193,6 +202,19 @@ function makeSyncSupabase(opts: {
       maybeSingle: vi.fn(() => {
         if (table === 'tournees') {
           if (!tourneeInfo) return Promise.resolve({ data: null, error: null });
+          // Cloisonnement entrant : la requête restreint par
+          // `.in('prestataire_logistique_id', <prestataires mts1>)`. Le mock
+          // applique VRAIMENT ce filtre — retirer le `.in()` du code ne doit
+          // pas laisser la CI verte.
+          const prestasAdmis = filters['prestataire_logistique_id'] as
+            | string[]
+            | undefined;
+          if (
+            prestasAdmis &&
+            !prestasAdmis.includes(tourneeInfo.prestataireId ?? PRESTA_MTS1)
+          ) {
+            return Promise.resolve({ data: null, error: null });
+          }
           // Simule la relation avec collecte_tournees!inner et collectes!inner
           return Promise.resolve({
             data: {
@@ -257,6 +279,12 @@ function makeSyncSupabase(opts: {
   ];
 
   const fromFn = vi.fn((table: string) => {
+    // Référentiel provider : `findTourneeByOrderId` restreint le rapprochement
+    // aux prestataires `type_tms='mts1'`. Le builder applique réellement les
+    // `.eq()` reçus (cf. mock-referentiel-transporteurs).
+    if (table === 'transporteurs') {
+      return builderTransporteurs();
+    }
     const q = makeQuery(table);
     if (table === 'flux_dechets') {
       // Résout directement pour loadFluxCodes

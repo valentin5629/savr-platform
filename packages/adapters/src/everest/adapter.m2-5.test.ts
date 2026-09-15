@@ -76,6 +76,10 @@ interface SupabaseMockOpts {
   missionExistante?: { id: string; statut_everest: string } | null;
   brancheAttribution?: string | null;
   insertTourneeError?: boolean;
+  /** L'INSERT du lien collecte_tournees est refusé (rang déjà pris — 23505). */
+  insertLienError?: boolean;
+  /** Le commit de `external_ref_commande` est refusé (référence déjà prise). */
+  updateRefError?: boolean;
 }
 
 function makeMockSupabase(opts: SupabaseMockOpts = {}) {
@@ -84,6 +88,8 @@ function makeMockSupabase(opts: SupabaseMockOpts = {}) {
     missionExistante = null,
     brancheAttribution = 'ag_velo_programme',
     insertTourneeError = false,
+    insertLienError = false,
+    updateRefError = false,
   } = opts;
 
   const insertedRows: Record<string, unknown[]> = {};
@@ -107,6 +113,22 @@ function makeMockSupabase(opts: SupabaseMockOpts = {}) {
     q['insert'] = vi.fn((data: unknown) => {
       if (!insertedRows[table]) insertedRows[table] = [];
       insertedRows[table]!.push(data);
+      // Le lien de rang est INSERT-et-await (pas de .select()) : son résultat
+      // est lu directement, comme le fait l'adapter.
+      if (table === 'collecte_tournees') {
+        return Promise.resolve(
+          insertLienError
+            ? {
+                data: null,
+                error: {
+                  code: '23505',
+                  message:
+                    'duplicate key value violates unique constraint "uniq_collecte_tournee_rang"',
+                },
+              }
+            : { data: null, error: null },
+        );
+      }
       return {
         select: vi.fn().mockReturnThis(),
         single: vi.fn().mockResolvedValue(
@@ -126,7 +148,28 @@ function makeMockSupabase(opts: SupabaseMockOpts = {}) {
     q['update'] = vi.fn((data: unknown) => {
       if (!updatedRows[table]) updatedRows[table] = [];
       updatedRows[table]!.push(data);
-      return { eq: vi.fn().mockReturnThis() };
+      const refusee =
+        updateRefError &&
+        table === 'tournees' &&
+        (data as Record<string, unknown>)['external_ref_commande'] !==
+          undefined;
+      // `.update().eq()` est awaité : la chaîne doit être thenable.
+      return {
+        eq: vi.fn(() =>
+          Promise.resolve(
+            refusee
+              ? {
+                  data: null,
+                  error: {
+                    code: '23505',
+                    message:
+                      'duplicate key value violates unique constraint "uniq_tournee_par_external_ref"',
+                  },
+                }
+              : { data: null, error: null },
+          ),
+        ),
+      };
     });
     q['upsert'] = vi.fn((data: unknown) => {
       if (!upsertedRows[table]) upsertedRows[table] = [];
@@ -445,6 +488,51 @@ describe('M2.5 / AdapterEverest — dispatchCollecte', () => {
 });
 
 // ─── Tests cancelCollecte ─────────────────────────────────────────────────────
+
+// ─── Écritures DB refusées (invariants du cloisonnement provider) ────────────
+// Les deux écritures ci-dessous ignoraient leur `error`. Les index uniques posés
+// par 20260915180000 les rendent faillibles pour de bon : un échec avalé
+// laisserait une mission VIVANTE chez Everest sans référence en base (jamais
+// annulable ni rapprochable), ou un lien de rang resté sur la tournée de l'autre
+// provider — c'est-à-dire la fuite que ce lot ferme, par la porte de derrière.
+
+describe('M2.5 / AdapterEverest — écritures DB refusées', () => {
+  afterEach(() => _setEverestHandlers(null));
+
+  it('lien de rang refusé (rang déjà pris par un autre provider) → Permanent, mission jamais créée', async () => {
+    setupEverestMock();
+    const supabase = makeMockSupabase({ insertLienError: true });
+    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+
+    await expect(
+      adapter.dispatchCollecte(COLLECTE_AG, 1),
+    ).rejects.toBeInstanceOf(LogistiquePermanentError);
+
+    // Le refus survient AVANT le POST : aucune mission n'est ouverte chez Everest.
+    expect(supabase._upserted['everest_missions']).toBeUndefined();
+  });
+
+  it('commit de la référence de mission refusé → Transient (le worker rejoue), jamais un succès silencieux', async () => {
+    setupEverestMock();
+    const supabase = makeMockSupabase({ updateRefError: true });
+    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+
+    await expect(
+      adapter.dispatchCollecte(COLLECTE_AG, 1),
+    ).rejects.toBeInstanceOf(LogistiqueTransientError);
+
+    // La collecte n'est surtout pas annoncée « attribuée » : sans référence en
+    // base, plus personne ne peut rapprocher ni annuler la mission.
+    const statuts = (supabase._updated['collectes'] ?? []) as Array<
+      Record<string, unknown>
+    >;
+    expect(
+      statuts.some(
+        (u) => u['statut_tms'] === 'attribuee_en_attente_acceptation',
+      ),
+    ).toBe(false);
+  });
+});
 
 describe('M2.5 / AdapterEverest — cancelCollecte', () => {
   afterEach(() => _setEverestHandlers(null));

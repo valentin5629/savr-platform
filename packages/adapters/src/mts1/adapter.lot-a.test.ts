@@ -159,6 +159,11 @@ function makeSyncSupabase(opts: {
 
   const supabase = {
     from: vi.fn((table: string) => {
+      // Référentiel provider — `findTourneeByOrderId` ne rapproche que les
+      // tournées d'un prestataire `type_tms='mts1'`.
+      if (table === 'transporteurs') {
+        return builderTransporteurs();
+      }
       if (table === 'flux_dechets') {
         return {
           select: vi.fn(() => ({

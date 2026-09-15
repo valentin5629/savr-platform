@@ -172,3 +172,12 @@ packages/plateforme/tests/securite/api-routes-gardees.test.ts
 # assertions. 'customerOrders' reste banni (vérifié : 0 occurrence dans les deux).
 supabase/migrations/20260915170000_plateforme_transporteurs_presta_unique.sql
 supabase/tests/SECU__transporteur_presta_unique.test.sql
+# supabase/migrations/20260915180000_* + son pgTAP (invariants du cloisonnement
+# provider) — 'mts1'/'a_toutes'/'everest' n'apparaissent que (a) dans les commentaires
+# qui expliquent POURQUOI l'index existe et (b) comme valeurs de l'enum
+# transporteurs.type_tms dans les fixtures pgTAP. La migration ne pose que deux index
+# UNIQUE partiels : aucune logique adapter, aucun appel HTTP, aucun nom de ressource
+# distante. Même nature d'exception que 20260625000000 (bridge dispatch AG).
+# 'customerOrders' reste banni.
+supabase/migrations/20260915180000_plateforme_cloisonnement_provider_invariants.sql
+supabase/tests/SECU__cloisonnement_provider_invariants.test.sql

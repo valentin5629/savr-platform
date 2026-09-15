@@ -5,10 +5,11 @@ Rend l'enforcement indépendant de l'agent (re-vérif serveur, pas contournable 
 ## Règles sur `main`
 - [ ] Require a pull request before merging — **push direct interdit**
 - [ ] Require approvals : **1** minimum
-- [ ] Require status checks to pass : `lint-typecheck-test`, `anti-coupling`, `pgtap-rls-outbox`, `security`, `migrations`
+- [ ] Require status checks to pass : `lint-typecheck-test`, `anti-coupling`, `pgtap-rls-outbox`, `security`, `migrations`, `migration-timestamp`
       (ajouter `e2e`, `bundle-budget` quand stables)
       - `anti-coupling` = garde-fou 3 TMS-Ready (0 réf directe MTS-1/Everest hors `packages/adapters/`)
       - `pgtap-rls-outbox` = RLS (rôle `authenticated`) **+** garde-fou 4 TMS-Ready (outbox par mutation)
+      - `migration-timestamp` = anti-collision de préfixe `YYYYMMDDHHMMSS`, **y compris avec une branche en vol non mergée** — le hook pré-commit ne compare qu'au dossier de sa propre branche et ne peut pas voir ce cas
 - [ ] Require branches to be up to date before merging
 - [ ] Require conversation resolution before merging
 - [ ] Do not allow bypassing the above settings (inclure les admins)

@@ -15,9 +15,16 @@ import { NextResponse } from 'next/server';
 //     canal de TEXTE LIBRE, agrégé par `composerInformationsSupplementaires`
 //     (packages/adapters/src/infos-acces.ts), où les informations d'exploitation
 //     sont concaténées en un seul message pour le chauffeur. Une valeur démesurée
-//     y évince les lignes voisines — et le nom de secours OUVRE l'agrégat, donc il
-//     évince tout ce qui suit, adresse d'accès comprise. Un nom multiligne, lui,
+//     y évinçait les lignes voisines — et le nom de secours OUVRE le bloc, donc il
+//     évinçait tout ce qui suit, adresse d'accès comprise. Un nom multiligne, lui,
 //     y forge une fausse ligne d'en-tête indiscernable d'une vraie.
+//     ⚠ Mis à jour : l'éviction PAR `informations_supplementaires` est close
+//     depuis que le canal libre réserve un budget au bloc Savr — une note de
+//     1000 caractères, saisie parfaitement légale, ne fait plus disparaître ni
+//     l'adresse d'accès ni le contact de secours. La borne ci-dessous ne repose
+//     donc plus sur cet argument pour ce champ : elle vaut pour l'intégrité de
+//     la donnée (voir plus bas), et le plafond de mise en forme de l'agrégat
+//     reste nécessaire pour le nom de secours (historique + écritures hors route).
 //   · `contact_secours_telephone` part dans un champ NATIF de la commande : pas
 //     d'éviction possible, mais un numéro de 5 000 caractères reste une donnée
 //     aberrante transmise telle quelle.

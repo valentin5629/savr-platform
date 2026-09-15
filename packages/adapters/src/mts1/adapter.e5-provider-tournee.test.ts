@@ -140,6 +140,9 @@ function makeSupabase(
         ? makeBuilder(REFERENTIEL_TRANSPORTEURS, true)
         : makeBuilder(collecteRows, false),
     ),
+    // Une tournée écartée mais encore vivante chez l'autre provider lève une
+    // alerte Ops in-app (f_upsert_alerte_admin) — cf. provider-tournees.ts.
+    rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
   } as unknown as import('@supabase/supabase-js').SupabaseClient;
 }
 
@@ -193,6 +196,7 @@ function makeSupabaseEnErreur(
   };
   return {
     from: vi.fn((table: string) => makeBuilder(table === tableEnErreur)),
+    rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
   } as unknown as import('@supabase/supabase-js').SupabaseClient;
 }
 
@@ -356,6 +360,7 @@ describe('E5 updateLieu — seules les tournées dispatchées via MTS-1 reçoive
     });
     const supabase = {
       from: vi.fn(() => builder),
+      rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
     } as unknown as import('@supabase/supabase-js').SupabaseClient;
 
     await new AdapterMts1(TRANSPORTEUR_MTS1, supabase).updateLieu(LIEU);

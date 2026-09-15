@@ -1,35 +1,30 @@
 -- =============================================================================
--- Tests pgTAP — invariants DB du cloisonnement par provider
--- Migration prouvée : 20260915210000_plateforme_cloisonnement_provider_invariants
+-- Tests pgTAP — invariant DB : 1 reference de commande = AU PLUS 1 tournee
+-- Migration prouvee : 20260915210000_plateforme_cloisonnement_provider_invariants
 -- =============================================================================
--- Oracle : le cloisonnement par provider des adapters repose sur deux liens
--- que rien n'imposait en base.
+-- Oracle : `tournees.external_ref_commande` est la cle de rapprochement du
+-- polling entrant (`findTourneeByOrderId`, `.maybeSingle()`). Sans index, deux
+-- tournees pouvaient porter la meme reference : la requete remontait PGRST116,
+-- l'ordre passait pour « sans tournee Savr » et `markInboxDone(traite=true)`
+-- consommait la cle d'idempotence definitivement.
 --
---   1. `transporteurs.prestataire_logistique_id` -> un seul `type_tms`. Tant
---      que ce lien n'était qu'un index SIMPLE, deux transporteurs de types
---      différents pouvaient pointer le même prestataire : celui-ci entrait
---      alors dans l'ensemble MTS-1 ET dans l'ensemble Everest, et l'adapter
---      MTS-1 repoussait un id de mission Everest — sans qu'aucun test rougisse.
+-- L'autre invariant du cloisonnement — « 1 prestataire = au plus 1 transporteur »
+-- — est prouve par `SECU__transporteur_presta_unique.test.sql` (#323).
 --
---   2. `tournees.external_ref_commande` -> une seule tournée. Sans index, deux
---      tournées pouvaient porter la même référence : le rapprochement entrant
---      (`findTourneeByOrderId`, `.maybeSingle()`) remontait PGRST116, l'ordre
---      passait pour « sans tournée Savr » et `markInboxDone(traite=true)`
---      consommait la clé d'idempotence définitivement.
---
--- Ce fichier prouve la FERMETURE, pas seulement l'existence des index :
--- chaque violation est REJETÉE (23505), et les NULL restent multiples des deux
--- côtés (la contrainte ne sur-ferme pas).
+-- Ce fichier prouve la FERMETURE, pas seulement l'existence de l'index : chaque
+-- violation est REJETEE (23505), y compris le cas dangereux nommement (la meme
+-- reference chez un prestataire d'un AUTRE provider), et les NULL restent
+-- multiples (la contrainte ne sur-ferme pas).
 -- =============================================================================
 
 BEGIN;
-SELECT plan(12);
+SELECT plan(6);
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
 -- Fixtures. Codes/UUID improbables pour ne jamais entrer en collision avec le
--- seed. Les colonnes non nullables sont renseignées explicitement : un DEFAULT
--- ajouté plus tard ne doit pas rendre ce fichier dépendant de lui en silence.
+-- seed. Les colonnes non nullables sont renseignees explicitement : un DEFAULT
+-- ajoute plus tard ne doit pas rendre ce fichier dependant de lui en silence.
 INSERT INTO shared.prestataires
   (id, nom, code, type_prestation, mode_integration, statut)
 VALUES
@@ -38,84 +33,7 @@ VALUES
   ('d0000000-0000-0000-0000-0000000000a2', 'Presta Test Unique B',
    'TEST-UNIQ-B', ARRAY['ag'], 'mts1', 'actif');
 
--- ═══ 1. Un prestataire = un transporteur = un provider ═══════════════════════
-
-SELECT ok(
-  EXISTS (
-    SELECT 1 FROM pg_indexes
-    WHERE schemaname = 'plateforme'
-      AND tablename  = 'transporteurs'
-      AND indexname  = 'uniq_transporteur_par_prestataire'
-  ),
-  'index uniq_transporteur_par_prestataire présent'
-);
-
-SELECT ok(
-  (SELECT i.indisunique
-     FROM pg_class c JOIN pg_index i ON i.indexrelid = c.oid
-    WHERE c.relname = 'uniq_transporteur_par_prestataire'),
-  'transporteurs : index UNIQUE (un index simple ne fermerait rien)'
-);
-
-SELECT ok(
-  (SELECT pg_get_expr(i.indpred, i.indrelid) IS NOT NULL
-     FROM pg_class c JOIN pg_index i ON i.indexrelid = c.oid
-    WHERE c.relname = 'uniq_transporteur_par_prestataire'),
-  'transporteurs : index PARTIEL (les transporteurs sans prestataire restent multiples)'
-);
-
-INSERT INTO plateforme.transporteurs
-  (nom, siren, adresse, code_postal, ville, types_vehicules, type_tms,
-   contact_nom, contact_email, contact_telephone, prestataire_logistique_id)
-VALUES
-  ('Strike Test Unique', '900000001', '1 rue du Test', '75001', 'Paris',
-   ARRAY['fourgon'], 'mts1', 'Test', 'test-uniq@example.invalid', '+33600000000',
-   'd0000000-0000-0000-0000-0000000000a1');
-
-SELECT throws_ok(
-  $$INSERT INTO plateforme.transporteurs
-      (nom, siren, adresse, code_postal, ville, types_vehicules, type_tms,
-       contact_nom, contact_email, contact_telephone, prestataire_logistique_id)
-    VALUES ('Doublon MTS-1', '900000002', '2 rue du Test', '75001', 'Paris',
-            ARRAY['fourgon'], 'mts1', 'Test', 'dup-mts1@example.invalid',
-            '+33600000000', 'd0000000-0000-0000-0000-0000000000a1')$$,
-  '23505', NULL,
-  'second transporteur sur le même prestataire → violation unique'
-);
-
--- Le cas dangereux nommément : c'est CE scénario qui rouvrait la fuite, en
--- faisant entrer le prestataire dans l'ensemble `mts1` ET dans `a_toutes`.
-SELECT throws_ok(
-  $$INSERT INTO plateforme.transporteurs
-      (nom, siren, adresse, code_postal, ville, types_vehicules, type_tms,
-       contact_nom, contact_email, contact_telephone, prestataire_logistique_id)
-    VALUES ('A Toutes Test', '900000003', '3 rue du Test', '75001', 'Paris',
-            ARRAY['fourgon'], 'a_toutes', 'Test', 'dup-evr@example.invalid',
-            '+33600000000', 'd0000000-0000-0000-0000-0000000000a1')$$,
-  '23505', NULL,
-  'même prestataire avec un type_tms différent → rejeté (fuite provider fermée)'
-);
-
-INSERT INTO plateforme.transporteurs
-  (nom, siren, adresse, code_postal, ville, types_vehicules, type_tms,
-   contact_nom, contact_email, contact_telephone, prestataire_logistique_id)
-VALUES
-  ('Sans presta 1', '900000004', '4 rue du Test', '75001', 'Paris',
-   ARRAY['fourgon'], 'par_mail', 'Test', 'sp1@example.invalid',
-   '+33600000000', NULL);
-
-SELECT lives_ok(
-  $$INSERT INTO plateforme.transporteurs
-      (nom, siren, adresse, code_postal, ville, types_vehicules, type_tms,
-       contact_nom, contact_email, contact_telephone, prestataire_logistique_id)
-    VALUES ('Sans presta 2', '900000005', '5 rue du Test', '75001', 'Paris',
-            ARRAY['fourgon'], 'par_telephone', 'Test', 'sp2@example.invalid',
-            '+33600000000', NULL)$$,
-  'plusieurs transporteurs sans prestataire restent acceptés'
-);
-
--- ═══ 2. Une référence de commande = une tournée ══════════════════════════════
-
+-- ─── 1-3. Forme de l'index ───────────────────────────────────────────────────
 SELECT ok(
   EXISTS (
     SELECT 1 FROM pg_indexes
@@ -130,7 +48,7 @@ SELECT ok(
   (SELECT i.indisunique
      FROM pg_class c JOIN pg_index i ON i.indexrelid = c.oid
     WHERE c.relname = 'uniq_tournee_par_external_ref'),
-  'tournees : index UNIQUE'
+  'tournees : index UNIQUE (un index simple ne fermerait rien)'
 );
 
 SELECT ok(
@@ -140,6 +58,7 @@ SELECT ok(
   'tournees : index PARTIEL (une tournée non dispatchée n''a pas de référence)'
 );
 
+-- ─── 4. Une seconde tournée sur la même référence est rejetée ────────────────
 INSERT INTO plateforme.tournees
   (reference_interne, date_tournee, creneau, prestataire_logistique_id,
    statut, external_ref_commande)
@@ -158,9 +77,10 @@ SELECT throws_ok(
   'seconde tournée sur la même référence de commande → violation unique'
 );
 
--- Le cas dangereux nommément : la colonne est PARTAGÉE entre providers. Une
--- tournée Everest homonyme d'un customerOrder MTS-1 rendait le rapprochement
--- entrant ambigu (PGRST116 avalé → clé d'idempotence consommée).
+-- ─── 5. Le cas dangereux : la même référence chez un AUTRE prestataire ───────
+-- La colonne est PARTAGÉE entre providers. Une tournée Everest homonyme d'un
+-- customerOrder MTS-1 rendait le rapprochement entrant ambigu (PGRST116 avalé →
+-- clé d'idempotence consommée).
 SELECT throws_ok(
   $$INSERT INTO plateforme.tournees
       (reference_interne, date_tournee, creneau, prestataire_logistique_id,
@@ -172,6 +92,7 @@ SELECT throws_ok(
   'même référence chez un AUTRE prestataire → rejetée (rapprochement entrant non ambigu)'
 );
 
+-- ─── 6. La contrainte ne sur-ferme pas : plusieurs NULL restent permis ───────
 INSERT INTO plateforme.tournees
   (reference_interne, date_tournee, creneau, prestataire_logistique_id,
    statut, external_ref_commande)

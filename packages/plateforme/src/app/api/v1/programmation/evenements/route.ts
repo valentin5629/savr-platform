@@ -3,7 +3,10 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireProgrammateurOuAdmin } from '@/lib/api-auth.js';
 import { requireCompletedOrganisation } from '@/lib/onboarding-guards.js';
 import { envoyerRecapProgrammation } from '@/lib/programmation/recap-email.js';
-import { notifierOverrideLieu } from '@/lib/programmation/lieu-override.js';
+import {
+  notifierOverrideLieu,
+  validerLieuOverrides,
+} from '@/lib/programmation/lieu-override.js';
 import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
 import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
@@ -145,6 +148,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { status: 422 },
     );
   }
+
+  // `lieu_overrides` est un jsonb libre (aucun CHECK en base) et ses valeurs finissent
+  // concaténées dans l'adresse transmise au transporteur : on borne ici les clés
+  // (§06.01 l.104) ET le type/la longueur des valeurs, AVANT toute écriture — un
+  // override refusé ne doit pas laisser un événement orphelin derrière lui.
+  const overridesValides = validerLieuOverrides(body.lieu_overrides);
+  if ('error' in overridesValides) return overridesValides.error;
+  const lieuOverrides = overridesValides.overrides;
 
   // Validation date_collecte >= aujourd'hui
   const today = jourParis();
@@ -294,7 +305,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const hasOverride = !!(
-    body.lieu_overrides && Object.keys(body.lieu_overrides).length > 0
+    lieuOverrides && Object.keys(lieuOverrides).length > 0
   );
 
   if (body.confirmer) {
@@ -314,7 +325,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           p_controle_acces: body.controle_acces_requis,
           p_notes: null,
           p_info_suppl: c.informations_supplementaires ?? null,
-          p_lieu_overrides: hasOverride ? body.lieu_overrides : null,
+          p_lieu_overrides: hasOverride ? lieuOverrides : null,
         },
       );
 
@@ -344,7 +355,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       await notifierOverrideLieu(supabase, {
         evenementId,
         lieuId: body.lieu_id,
-        overrides: body.lieu_overrides as Record<string, unknown>,
+        overrides: lieuOverrides as Record<string, unknown>,
         userId: auth.ctx.userId,
         role: auth.ctx.role,
       });
@@ -404,7 +415,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           statut_tms: 'non_envoye',
           controle_acces_requis: body.controle_acces_requis,
           informations_supplementaires: c.informations_supplementaires ?? null,
-          lieu_overrides: hasOverride ? body.lieu_overrides : null,
+          lieu_overrides: hasOverride ? lieuOverrides : null,
           nb_camions_demande: 1,
         })
         .select('id')

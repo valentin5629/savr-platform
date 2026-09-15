@@ -387,7 +387,11 @@ SELECT set_config('request.jwt.claims', json_build_object(
   'impersonator_id', 'a09f00ad-0000-0000-0000-000000000001',
   'app_domain', 'plateforme'
 )::text, true);
-SELECT set_config('role', 'authenticated', true);
+-- Le rôle applicatif reste porté par les CLAIMS (c'est ce que lit le trigger
+-- d'audit) ; l'écriture, elle, se fait sous rôle privilégié — comme en production,
+-- où la route écrit `collectes` sous service_role. `authenticated` n'a plus le
+-- privilège UPDATE sur cette table depuis la migration 20260915160000.
+SELECT set_config('role', 'postgres', true);
 
 -- Action éditable par le traiteur_manager sur sa collecte → déclenche la cascade auditée.
 UPDATE plateforme.collectes

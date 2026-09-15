@@ -444,7 +444,9 @@ async function fetchCollecte(
     throw new LogistiquePermanentError(`collecte introuvable : ${collecteId}`);
   }
 
-  // Supabase renvoie les relations !inner comme tableau — on prend [0].
+  // Les deux embeds portent une FK SORTANTE (`collectes.evenement_id`,
+  // `evenements.lieu_id`) : PostgREST renvoie un OBJET. Le déballage reste
+  // défensif (Array.isArray) — il couvre les deux formes.
   type EvenementJoin = {
     contact_principal_nom: string;
     contact_principal_telephone: string;

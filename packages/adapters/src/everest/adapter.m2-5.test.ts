@@ -136,7 +136,8 @@ function makeMockSupabase(opts: SupabaseMockOpts = {}) {
       if (table === 'collecte_tournees') {
         if (tourneeExistante) {
           return {
-            data: { rang: 1, tournees: [tourneeExistante] },
+            // FK sortante `collecte_tournees.tournee_id` → embed OBJET.
+            data: { rang: 1, tournees: tourneeExistante },
             error: null,
           };
         }
@@ -194,7 +195,7 @@ function makeMockSupabase(opts: SupabaseMockOpts = {}) {
       let data: unknown;
       if (table === 'collecte_tournees') {
         data = tourneeExistante
-          ? [{ rang: 1, tournees: [tourneeExistante] }]
+          ? [{ rang: 1, tournees: tourneeExistante }]
           : [];
       } else {
         data = null;

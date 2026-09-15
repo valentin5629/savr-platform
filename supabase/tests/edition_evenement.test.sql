@@ -3,16 +3,17 @@
 -- Décision produit Val 2026-06-26. Prouve sous rôle `authenticated` :
 --   • evt_*_update : les 4 rôles éditent l'événement de leur périmètre (fenêtre
 --     f_collecte_editable), cloisonnement cross-org refusé, commercial = ses créations.
---   • col_update_client / col_update_commercial : édition collecte des 4 rôles +
---     cloisonnement (couvre la « lacune » agence/gestionnaire signalée au brief —
---     col_update_client couvre déjà les 3 rôles non-commercial).
+--   • écriture directe de `collectes` fermée à `authenticated` (2026-09-15) : les
+--     policies col_update_client / col_update_commercial subsistent mais sont
+--     inertes, le privilège UPDATE ayant été retiré — preuve par rôle dans
+--     SECU__collectes_ecriture_client_fermee.test.sql.
 --   • fn_modifier_evenement (service_role) : E2 par collecte dispatchée + recalcul
 --     volume_estime_repas sur changement de pax + pas d'E2 pour champ non-TMS / non
 --     dispatché (garde-fou 4 transactional outbox).
 -- =============================================================================
 
 BEGIN;
-SELECT plan(17);
+SELECT plan(14);
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
@@ -152,30 +153,26 @@ UPDATE plateforme.evenements SET reference_affaire = 'lock-hack' WHERE id = '0e0
 SELECT test_as_superuser();
 SELECT is((SELECT reference_affaire FROM plateforme.evenements WHERE id='0e000000-0000-0000-0000-0000000000e1'::uuid), 'orig-LOCK', 'T9 evt verrou des en_cours (f_collecte_editable=false)');
 
--- ── col_update_* : édition collecte par rôle + cloisonnement ─────────────────
--- T10 agence édite une collecte de son orga (col_update_client couvre agence).
-SELECT test_set_jwt('agence', 'a6330000-0000-0000-0000-000000000001'::uuid, '05e70000-0000-0000-0000-00000000000e'::uuid);
-UPDATE plateforme.collectes SET notes_internes = 'ag-col' WHERE id = 'cc000000-0000-0000-0000-0000000000c1'::uuid;
+-- ── Écriture directe de `collectes` : fermée depuis 2026-09-15 ───────────────
+-- Les ex-T10 à T13 prouvaient ici que col_update_client / col_update_commercial
+-- laissaient les 4 rôles éditer leur collecte par PATCH PostgREST direct. La
+-- migration 20260915160000 a retiré UPDATE et INSERT du GRANT table-level de
+-- `authenticated` : ces écritures lèvent désormais 42501 AVANT toute évaluation
+-- RLS, et toute édition de collecte passe par les routes API (service_role), qui
+-- seules émettent l'outbox, tracent l'audit_log et posent dirty_tms.
+--
+-- Les policies restent en place mais inertes ; le détail par rôle (les 4 refus
+-- 42501 + le refus d'INSERT + la non-régression de la lecture) est prouvé dans
+-- SECU__collectes_ecriture_client_fermee.test.sql. On garde ici le seul cliquet
+-- utile au périmètre de ce fichier : le privilège ne doit pas revenir.
+-- Le cloisonnement cross-org en lecture (ex-T12) reste couvert par col_select
+-- (rls_0_4_smoke) ; en écriture il est désormais sans objet, plus aucun rôle
+-- client ne pouvant écrire `collectes`.
 SELECT test_as_superuser();
-SELECT is((SELECT notes_internes FROM plateforme.collectes WHERE id='cc000000-0000-0000-0000-0000000000c1'::uuid), 'ag-col', 'T10 col_update_client agence');
-
--- T11 gestionnaire édite une collecte de son orga (col_update_client couvre gestionnaire).
-SELECT test_set_jwt('gestionnaire_lieux', '6e440000-0000-0000-0000-000000000001'::uuid, '05e70000-0000-0000-0000-00000000000f'::uuid);
-UPDATE plateforme.collectes SET notes_internes = 'g-col' WHERE id = 'cc000000-0000-0000-0000-0000000000d1'::uuid;
-SELECT test_as_superuser();
-SELECT is((SELECT notes_internes FROM plateforme.collectes WHERE id='cc000000-0000-0000-0000-0000000000d1'::uuid), 'g-col', 'T11 col_update_client gestionnaire');
-
--- T12 gestionnaire ne peut PAS éditer une collecte d'une autre orga.
-SELECT test_set_jwt('gestionnaire_lieux', '6e440000-0000-0000-0000-000000000001'::uuid, '05e70000-0000-0000-0000-00000000000f'::uuid);
-UPDATE plateforme.collectes SET notes_internes = 'g-hack' WHERE id = 'cc000000-0000-0000-0000-0000000000a1'::uuid;
-SELECT test_as_superuser();
-SELECT is((SELECT notes_internes FROM plateforme.collectes WHERE id='cc000000-0000-0000-0000-0000000000a1'::uuid), NULL, 'T12 col gestionnaire cross-org refuse');
-
--- T13 commercial édite une collecte de sa création (col_update_commercial).
-SELECT test_set_jwt('traiteur_commercial', 'a1110000-0000-0000-0000-000000000001'::uuid, '05e70000-0000-0000-0000-00000000000c'::uuid);
-UPDATE plateforme.collectes SET notes_internes = 'com-col' WHERE id = 'cc000000-0000-0000-0000-0000000000a1'::uuid;
-SELECT test_as_superuser();
-SELECT is((SELECT notes_internes FROM plateforme.collectes WHERE id='cc000000-0000-0000-0000-0000000000a1'::uuid), 'com-col', 'T13 col_update_commercial sa creation');
+SELECT ok(
+  NOT has_table_privilege('authenticated', 'plateforme.collectes', 'UPDATE'),
+  'T10 edition collecte par PATCH direct fermee (privilege UPDATE retire)'
+);
 
 -- ── fn_modifier_evenement (service_role / SECURITY DEFINER) ──────────────────
 -- T14 E2 émis pour la collecte AG dispatchée (une commande existe) sur édition pax.

@@ -122,15 +122,14 @@ function makeSupabase(
       {
         tournee_id: `T-${c.id}`,
         rang: 1,
-        tournees: [
-          {
-            id: `T-${c.id}`,
-            external_ref_commande: c.external_ref_commande,
-            tms_reference: `TOUR-${c.id}`,
-            statut: 'en_cours',
-            prestataire_logistique_id: c.prestataire_logistique_id,
-          },
-        ],
+        // FK sortante `collecte_tournees.tournee_id` → embed OBJET.
+        tournees: {
+          id: `T-${c.id}`,
+          external_ref_commande: c.external_ref_commande,
+          tms_reference: `TOUR-${c.id}`,
+          statut: 'en_cours',
+          prestataire_logistique_id: c.prestataire_logistique_id,
+        },
       },
     ],
   }));
@@ -175,15 +174,13 @@ function makeSupabaseEnErreur(
                       {
                         tournee_id: 'T-1',
                         rang: 1,
-                        tournees: [
-                          {
-                            id: 'T-1',
-                            external_ref_commande: 'MTS1-ORDER-1',
-                            tms_reference: 'TOUR-1',
-                            statut: 'en_cours',
-                            prestataire_logistique_id: PRESTA_MTS1,
-                          },
-                        ],
+                        tournees: {
+                          id: 'T-1',
+                          external_ref_commande: 'MTS1-ORDER-1',
+                          tms_reference: 'TOUR-1',
+                          statut: 'en_cours',
+                          prestataire_logistique_id: PRESTA_MTS1,
+                        },
                       },
                     ],
                   },
@@ -344,14 +341,12 @@ describe('E5 updateLieu — seules les tournées dispatchées via MTS-1 reçoive
                   tournee_id: 'T-1',
                   rang: 1,
                   // `prestataire_logistique_id` volontairement ABSENT.
-                  tournees: [
-                    {
-                      id: 'T-1',
-                      external_ref_commande: 'MTS1-ORDER-X',
-                      tms_reference: 'TOUR-1',
-                      statut: 'en_cours',
-                    },
-                  ],
+                  tournees: {
+                    id: 'T-1',
+                    external_ref_commande: 'MTS1-ORDER-X',
+                    tms_reference: 'TOUR-1',
+                    statut: 'en_cours',
+                  },
                 },
               ],
             },

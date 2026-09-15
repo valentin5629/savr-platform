@@ -306,6 +306,113 @@ describe('bornes texte libre — PATCH événement', () => {
     expect(await champsInvalides(res)).toEqual(['contact_secours_telephone']);
     aucuneEcriture();
   });
+
+  // ── Contre-épreuve des trois cas de refus ci-dessus ─────────────────────────
+  //
+  // Ils prouvent que la borne REJETTE ; aucun ne prouve que la valeur qui part en
+  // base est la valeur NORMALISÉE. Mesuré : neutraliser
+  // `Object.assign(updates, texteValide.valeurs)` dans les DEUX routes PATCH à la
+  // fois laissait la suite ENTIÈRE verte, sans un seul échec — `updates` repartait
+  // avec le corps brut et la normalisation était calculée pour rien. (Pas de compte
+  // de tests ici : il se périme à chaque lot et n'est vérifiable par personne.)
+  //
+  // La base ne rattrape pas ce chemin. Les deux CHECK de la migration
+  // 20260915180000 — `chk_evenements_contact_secours_nom_borne` et
+  // `chk_evenements_contact_secours_telephone_borne` — ne testent QUE deux
+  // choses : `length(col) <= 120|40` et `col !~ '[[:cntrl:]]'`. `'   '` n'est pas
+  // NULL, il est donc évalué par ce prédicat interne, qu'il satisfait : 3
+  // caractères, et l'espace U+0020 n'est pas un caractère de contrôle. La
+  // blancheur n'est regardée nulle part (aucun `btrim`, aucun `<> ''` sur ces
+  // colonnes dans TOUTES les migrations, vérifié). Ni le « trimé » ni le
+  // `'' → null` ne sont donc tenus en base.
+  //
+  // Ce que chacune des deux propriétés protège, mesuré sur le code d'émission —
+  // et NON « une ligne orpheline dans le canal libre », qui ne peut pas se
+  // produire : `lignesCanalLibre` (packages/adapters/src/infos-acces.ts) passe le
+  // nom par `nomContact` → `valeurLigne` → `texte()` → `.trim()`, puis filtre
+  // `valeur !== ''`, si bien que l'aval rattrape déjà `''` comme `'   '` pour le
+  // NOM (motif corrigé en revue sécurité, l'énoncé initial était faux ; chaîne
+  // re-vérifiée après #324, qui a inséré `valeurLigne` sans changer ce point) :
+  //   · `contact_secours_telephone: '' → null` est le SEUL rempart contre un
+  //     numéro blanc parti verbatim sur le fil. `buildContact`, dans l'adapter
+  //     camion de `packages/adapters/`, lit la colonne SANS trim et émet
+  //     `...(secoursPhone ? { phoneAlternatives: [secoursPhone] } : {})` — `''`
+  //     est falsy et tombe, `'   '` est TRUTHY et part tel quel à MTS-1.
+  //   · le `trim()` du NOM protège la donnée stockée et son rendu : la fiche
+  //     traiteur teste `evt?.contact_secours_nom &&`, donc `'   '` y affiche un
+  //     bloc « contact de secours » sans personne à appeler.
+  //
+  // Les deux tests portent des noms DISTINCTS l'un de l'autre et de tous leurs
+  // voisins : `toHaveBeenCalledWith` est satisfait par n'importe quel appel
+  // enregistré, donc une valeur partagée pourrait être fournie par le test d'à
+  // côté si le `beforeEach(resetChain)` de ce `describe` venait à disparaître.
+  it('PATCH /programmation/evenements/[id] : appelle fn_modifier_evenement avec les valeurs NORMALISÉES, pas le body brut', async () => {
+    setupAuth('traiteur_manager');
+    mockMaybeSingle
+      .mockResolvedValueOnce({
+        data: {
+          id: 'evt-1',
+          organisation_id: 'org-traiteur-1',
+          created_by: 'user-1',
+        },
+        error: null,
+      }) // lecture RLS-scopée de l'événement
+      .mockResolvedValueOnce({ data: null, error: null }); // collecte représentative (notif)
+    mockSingle.mockResolvedValueOnce({
+      data: { id: 'evt-1', nom_evenement: 'Gala' },
+      error: null,
+    }); // `before` de l'audit
+    mockRpc
+      .mockResolvedValueOnce({ data: true, error: null }) // f_collecte_editable
+      .mockResolvedValueOnce({ data: { id: 'evt-1' }, error: null }); // fn_modifier_evenement
+
+    const { PATCH } =
+      await import('@/app/api/v1/programmation/evenements/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/programmation/evenements/evt-1', {
+        contact_secours_nom: '  Claire Bonnet  ',
+        contact_secours_telephone: '   ',
+      }),
+      { params: Promise.resolve({ id: 'evt-1' }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_modifier_evenement',
+      expect.objectContaining({
+        p_updates: expect.objectContaining({
+          contact_secours_nom: 'Claire Bonnet',
+          contact_secours_telephone: null,
+        }),
+      }),
+    );
+  });
+
+  it('PATCH /admin/evenements/[id] : appelle fn_modifier_evenement avec les valeurs NORMALISÉES, pas le body brut', async () => {
+    setupAuth('admin_savr');
+    mockRpc.mockResolvedValueOnce({ data: { id: 'evt-1' }, error: null });
+
+    const { PATCH } =
+      await import('@/app/api/v1/admin/evenements/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/evenements/evt-1', {
+        contact_secours_nom: '  Hugo Petit  ',
+        contact_secours_telephone: '   ',
+      }),
+      { params: Promise.resolve({ id: 'evt-1' }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_modifier_evenement',
+      expect.objectContaining({
+        p_updates: expect.objectContaining({
+          contact_secours_nom: 'Hugo Petit',
+          contact_secours_telephone: null,
+        }),
+      }),
+    );
+  });
 });
 
 // ── Écriture de `informations_supplementaires` au niveau collecte ─────────────

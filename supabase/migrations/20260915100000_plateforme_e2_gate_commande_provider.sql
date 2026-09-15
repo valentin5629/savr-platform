@@ -50,6 +50,30 @@
 -- 1 UPDATE borne aux lignes actuellement NULL. Aucun DROP, RENAME, GRANT elargi,
 -- policy assouplie ni RLS desactivee.
 --
+-- ⚠ EFFET DE BORD DU BACKFILL (releve par la revue securite 2026-09-15) : 8 des 10
+-- triggers de `collectes` ne partent pas (7 sont `UPDATE OF <colonne>` sur des
+-- colonnes absentes du SET, les 2 CO2 sont conditionnes a statut='cloturee'), mais
+-- DEUX sont declares `BEFORE UPDATE` sans liste de colonnes et partent donc :
+--   • trg_set_collectes_dirty_tms : compare date/heure/controle acces/infos suppl./
+--     lieu_overrides — toutes inchangees par ce SET → no-op verifie ;
+--   • trg_set_volume_estime_repas : RECALCULE `volume_estime_repas` =
+--     ROUND(0.10 * evenements.pax) sur toute collecte AG en statut non terminal.
+--     Colonne entierement DERIVEE (aucun code de production ne l'ecrit ; le trigger
+--     part deja a chaque INSERT/UPDATE, et R22c-4 asserte cette derivation comme la
+--     semantique voulue) → le backfill la rafraichit, il ne corrompt aucune donnee
+--     metier. Rayon mesure sur savr-dev : 179 lignes backfillees, dont 4 AG non
+--     terminales → 4 recalculs.
+-- Compter ce rayon AVANT d'appliquer sur un autre environnement :
+--   SELECT count(*) FROM plateforme.collectes c
+--    WHERE c.tms_reference IS NULL AND c.type = 'anti_gaspi'
+--      AND c.statut NOT IN ('realisee','realisee_sans_collecte','cloturee')
+--      AND EXISTS (SELECT 1 FROM plateforme.collecte_tournees ct
+--                    JOIN plateforme.tournees t ON t.id = ct.tournee_id
+--                   WHERE ct.collecte_id = c.id AND ct.rang = 1
+--                     AND COALESCE(t.tms_reference, t.external_ref_commande) IS NOT NULL);
+-- Verifie par ailleurs sur base jetable : `updated_at` inchange, `dirty_tms`
+-- inchange, 0 outbox_event emis, aucun mouvement de pack, 2e passage = no-op strict.
+--
 -- ── ROLLBACK (down-migration, DoD §rollback) ────────────────────────────────
 --   psql -f supabase/migrations/20260614000001_plateforme_outbox_atomic_rpcs.sql  -- fn_dispatcher_collecte
 --   psql -f supabase/migrations/20260702000100_plateforme_r16a_fn_modifier_collecte_gardes.sql
@@ -550,7 +574,10 @@ BEGIN
   -- rester vert SANS elle, sinon il redeviendrait complaisant.
   INSERT INTO shared.prestataires (nom, code, type_prestation, mode_integration, statut, created_at, updated_at)
   VALUES ('FixturePresta-G4', 'FIXTURE_G4', ARRAY['zd','ag'], 'manuel', 'actif', now(), now())
-  ON CONFLICT (code) DO UPDATE SET nom = EXCLUDED.nom
+  -- DO UPDATE ... = shared.prestataires.nom : ne mute RIEN sur conflit (il faut un
+  -- DO UPDATE pour que RETURNING renvoie l'id existant). Un prestataire reel qui
+  -- porterait ce code ne serait jamais renomme par le harnais de test.
+  ON CONFLICT (code) DO UPDATE SET nom = shared.prestataires.nom
   RETURNING id INTO v_presta_id;
 
   INSERT INTO plateforme.tournees (

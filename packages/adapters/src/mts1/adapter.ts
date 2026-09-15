@@ -168,15 +168,6 @@ export class AdapterMts1 implements LogistiqueProvider {
       await this.updateTourneeRef(tournee!.id, tourId);
     }
 
-    // Référence d'AFFICHAGE de la collecte (§04 Data Model l.1509, §06.06 bouton
-    // « Renvoyer au TMS », §11 carte « Collectes non transmises »). Posée au rang 1
-    // seulement : une collecte multi-camions a N tours, le CDC ne prévoit qu'un
-    // identifiant de rapprochement. JAMAIS un prédicat : l'émission de E2 se décide
-    // sur l'existence d'une commande (fn_collecte_commandee_chez_provider).
-    if (rang === 1) {
-      await this.updateCollecteRef(collecte.id, tourId);
-    }
-
     const orderNumber = this.orderNumber(collecte, rang);
 
     // ── Étape 2bis : rattacher la commande à la tournée ─────────────────────────
@@ -216,6 +207,18 @@ export class AdapterMts1 implements LogistiqueProvider {
       .update({ statut: 'en_cours' })
       .eq('id', tournee!.id)
       .eq('statut', 'planifiee');
+
+    // Référence d'AFFICHAGE de la collecte (§04 Data Model l.1509, §06.06 bouton
+    // « Renvoyer au TMS », §11 carte « Collectes non transmises »). Posée au rang 1
+    // seulement : une collecte multi-camions a N tours, le CDC ne prévoit qu'un
+    // identifiant de rapprochement. JAMAIS un prédicat : l'émission de E2 se décide
+    // sur l'existence d'une commande (fn_collecte_commandee_chez_provider).
+    // Posée ICI, après validate (et non dès que tourId est connu) : sinon un échec
+    // en étape 2bis/3/4 laisserait la fiche afficher « Renvoyer au TMS » sur une
+    // collecte dont le camion n'est pas commandé (revue sécurité 2026-09-15).
+    if (rang === 1) {
+      await this.updateCollecteRef(collecte.id, tourId);
+    }
 
     // Mise à jour statut_tms (trigger dérive collectes.statut)
     await this.updateStatutTms(collecte.id, 'attribuee_en_attente_acceptation');

@@ -475,21 +475,58 @@ function regleE(source: string): Trouve[] {
     }
     return null;
   };
-  /** Portée de la DÉCLARATION d'un nom, pour teinter une affectation ultérieure. */
-  const porteeDeclaration = (nom: string): ts.Node | null => {
-    let trouvee: ts.Node | null = null;
-    const chercher = (x: ts.Node): void => {
-      if (
-        !trouvee &&
-        ts.isVariableDeclaration(x) &&
-        ts.isIdentifier(x.name) &&
-        x.name.text === nom
-      )
-        trouvee = porteeDe(x);
-      ts.forEachChild(x, chercher);
+  /**
+   * Portée d'une variable AFFECTÉE, résolue en remontant depuis le site
+   * d'affectation — la première portée englobante qui déclare le nom (ou le lie
+   * comme paramètre). Scanner le fichier de haut en bas, comme le faisait une
+   * première version, dépend de l'ORDRE du fichier : avec deux handlers déclarant
+   * chacun `let msg`, le gate pouvait désigner la ligne saine du premier pendant
+   * que la fuite du second passait — un dev « corrigeant » le site désigné rendait
+   * le gate vert sur une fuite vive (relevé en revue). Nom introuvable = pas de
+   * teinte : sans déclaration, on ne sait pas de quelle variable on parle.
+   */
+  const porteeAffectation = (nom: string, depuis: ts.Node): ts.Node | null => {
+    const declareLeNom = (portee: ts.Node): boolean => {
+      let trouve = false;
+      const visiter = (x: ts.Node): void => {
+        if (trouve) return;
+        if (
+          (ts.isVariableDeclaration(x) || ts.isParameter(x)) &&
+          ts.isIdentifier(x.name) &&
+          x.name.text === nom
+        ) {
+          trouve = true;
+          return;
+        }
+        // Ne pas descendre dans une fonction imbriquée : sa portée est distincte.
+        if (
+          x !== portee &&
+          (ts.isFunctionDeclaration(x) ||
+            ts.isFunctionExpression(x) ||
+            ts.isArrowFunction(x))
+        )
+          return;
+        ts.forEachChild(x, visiter);
+      };
+      ts.forEachChild(portee, visiter);
+      return trouve;
     };
-    chercher(src);
-    return trouvee;
+    let p: ts.Node | undefined = depuis.parent;
+    while (p) {
+      if (
+        ts.isBlock(p) ||
+        ts.isSourceFile(p) ||
+        ts.isModuleBlock(p) ||
+        ts.isCaseClause(p) ||
+        ts.isFunctionDeclaration(p) ||
+        ts.isFunctionExpression(p) ||
+        ts.isArrowFunction(p)
+      ) {
+        if (declareLeNom(p)) return p;
+      }
+      p = p.parent;
+    }
+    return null;
   };
 
   const marquer = (n: ts.Node): void => {
@@ -507,10 +544,11 @@ function regleE(source: string): Trouve[] {
         ts.forEachChild(x, chercher);
       };
       chercher(n.right);
-      if (lit)
+      const portee = lit ? porteeAffectation(n.left.text, n) : null;
+      if (portee)
         teintees.push({
           nom: n.left.text,
-          portee: porteeDeclaration(n.left.text) ?? src,
+          portee,
           ligne: src.getLineAndCharacterOfPosition(n.getStart()).line + 1,
         });
     }
@@ -807,6 +845,13 @@ const SONDES: {
   {
     regle: 'E',
     source: `const m = err.message;\nfunction rendre() {\n  return NextResponse.json({ error: m });\n}`,
+    attendus: 1,
+  },
+  {
+    // L'homonyme sain déclaré AVANT ne doit ni masquer la vraie fuite, ni être
+    // désigné à sa place (dépendance à l'ordre du fichier, relevée en revue).
+    regle: 'E',
+    source: `function POST() {\n  let msg = 'ok';\n  return NextResponse.json({ error: msg });\n}\nfunction GET() {\n  let msg = 'ok';\n  try { run(); } catch (e) { msg = e.message; }\n  return NextResponse.json({ error: msg });\n}`,
     attendus: 1,
   },
   {

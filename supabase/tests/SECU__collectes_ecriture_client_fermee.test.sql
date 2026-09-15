@@ -2,7 +2,7 @@
 -- SÉCURITÉ — écriture PostgREST directe de `plateforme.collectes` fermée aux
 -- clients + `lieu_overrides` borné EN BASE.
 --
--- Migration prouvée : 20260915120000_plateforme_collectes_ecriture_client_fermee.
+-- Migration prouvée : 20260915140000_plateforme_collectes_ecriture_client_fermee.
 -- Dette P1 laissée ouverte par #308 (validerLieuOverrides borne les deux ROUTES
 -- applicatives, pas la COLONNE). Arbitrage Val 2026-09-15 : fermeture totale
 -- UPDATE + INSERT sans re-GRANT, policies conservées.

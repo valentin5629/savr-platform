@@ -104,8 +104,12 @@ LANGUAGE sql
 IMMUTABLE
 SET search_path = pg_catalog
 AS $$
+  -- SQL NULL seulement : le scalaire JSON `null` (`'null'::jsonb`, distinct de SQL
+  -- NULL) n'est produit par aucun chemin applicatif — `validerLieuOverrides` rend
+  -- SQL NULL en l'absence de surcharge — et #312 le refuse déjà. L'accepter ici
+  -- serait du code mort qui, en prime, mettrait en défaut l'inclusion annoncée
+  -- ci-dessus vis-à-vis de `chk_collectes_lieu_overrides_textuel`.
   SELECT p_overrides IS NULL
-      OR jsonb_typeof(p_overrides) = 'null'
       OR (
         jsonb_typeof(p_overrides) = 'object'
         AND NOT EXISTS (

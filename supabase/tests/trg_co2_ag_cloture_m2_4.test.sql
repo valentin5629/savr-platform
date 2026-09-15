@@ -155,7 +155,7 @@ VALUES ('aa000000-0000-0000-0004-000000000001'::uuid,
 
 -- Clôture sous rôle privilégié : en production, l'écran Admin clôture via une
 -- route API sous service_role. `authenticated` n'a plus le privilège UPDATE sur
--- `collectes` (migration 20260915120000), et le trigger CO2 testé ici ne dépend
+-- `collectes` (migration 20260915140000), et le trigger CO2 testé ici ne dépend
 -- d'aucun claim — seul le passage realisee → cloturee compte.
 SELECT test_as_superuser();
 UPDATE plateforme.collectes
@@ -208,7 +208,7 @@ SELECT is(
 
 -- Clôture sous rôle privilégié : en production, l'écran Admin clôture via une
 -- route API sous service_role. `authenticated` n'a plus le privilège UPDATE sur
--- `collectes` (migration 20260915120000), et le trigger CO2 testé ici ne dépend
+-- `collectes` (migration 20260915140000), et le trigger CO2 testé ici ne dépend
 -- d'aucun claim — seul le passage realisee → cloturee compte.
 SELECT test_as_superuser();
 UPDATE plateforme.collectes
@@ -227,7 +227,7 @@ SELECT is(
 
 -- Clôture sous rôle privilégié : en production, l'écran Admin clôture via une
 -- route API sous service_role. `authenticated` n'a plus le privilège UPDATE sur
--- `collectes` (migration 20260915120000), et le trigger CO2 testé ici ne dépend
+-- `collectes` (migration 20260915140000), et le trigger CO2 testé ici ne dépend
 -- d'aucun claim — seul le passage realisee → cloturee compte.
 SELECT test_as_superuser();
 UPDATE plateforme.collectes
@@ -245,7 +245,7 @@ SELECT is(
 -- ── T_RLS : traiteur_manager cross-org ne peut pas clôturer ──────────────
 -- Fermé à deux niveaux : la policy col_update_client exigeait déjà
 -- statut IN ('programmee','validee') ET organisation_id du JWT = organisation de
--- l'événement ; depuis la migration 20260915120000 le privilège UPDATE lui-même a
+-- l'événement ; depuis la migration 20260915140000 le privilège UPDATE lui-même a
 -- été retiré à `authenticated`, donc l'ordre échoue en 42501 avant la RLS. On
 -- asserte les deux : le refus explicite, puis le statut resté intact.
 

@@ -390,7 +390,7 @@ SELECT set_config('request.jwt.claims', json_build_object(
 -- Le rôle applicatif reste porté par les CLAIMS (c'est ce que lit le trigger
 -- d'audit) ; l'écriture, elle, se fait sous rôle privilégié — comme en production,
 -- où la route écrit `collectes` sous service_role. `authenticated` n'a plus le
--- privilège UPDATE sur cette table depuis la migration 20260915120000.
+-- privilège UPDATE sur cette table depuis la migration 20260915140000.
 SELECT set_config('role', 'postgres', true);
 
 -- Action éditable par le traiteur_manager sur sa collecte → déclenche la cascade auditée.

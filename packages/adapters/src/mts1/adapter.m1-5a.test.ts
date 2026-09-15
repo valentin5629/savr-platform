@@ -8,6 +8,7 @@ import {
   getLogistiqueProvider,
 } from '../index.js';
 import type { Collecte, Lieu, Transporteur } from '../index.js';
+import { composerInformationsSupplementaires } from '../infos-acces.js';
 import { ProviderManual } from '../manual/provider.js';
 import { AdapterMts1 } from './adapter.js';
 import type { Mts1CreatedTour } from './mock.js';
@@ -942,6 +943,59 @@ describe('M1.5a / PROG-03 comment MTS-1', () => {
     const orderPayload = postOrder.mock.calls[0]![0] as Record<string, unknown>;
     expect(orderPayload['comment']).toBe('Sonner interphone B au RDC');
   });
+
+  // ─── Infos d'accès du lieu → `comment` MTS-1 (Val 2026-09-15) ──────────────
+  // Les 6 informations d'accès éditables par collecte n'ont pas de champ natif
+  // MTS-1 : elles sont agrégées en amont dans `informations_supplementaires`
+  // (composerInformationsSupplementaires, appelé par fetchCollecte pour les DEUX
+  // adapters). Ce test ferme le dernier maillon côté MTS-1 : ce qui est agrégé
+  // atteint bien le fil, dans `comment`.
+  it.each([
+    ['acces_details', 'Accès : Quai n°2, sonner interphone B'],
+    ['stationnement', 'Stationnement : difficile'],
+    [
+      'contraintes_horaires',
+      'Contraintes horaires : Livraison avant 9h uniquement',
+    ],
+    ['acces_office', 'Accès office : très difficile'],
+    ['type_vehicule_max', 'Véhicule max : camionnette'],
+    ['flux_autorises', 'Flux acceptés : biodéchets, carton'],
+  ])(
+    'M1.5 / %s est présent dans comment du payload customerOrders',
+    async (_champ, ligne) => {
+      const postOrder = setupHandlers();
+      const supabase = makeMockSupabase({ tourneeExistante: null });
+      const lieuAcces: Lieu = {
+        ...LIEU_FIXTURE,
+        acces_details: 'Quai n°2, sonner interphone B',
+        stationnement: 'difficile',
+        contraintes_horaires: 'Livraison avant 9h uniquement',
+        acces_office: 'tres_difficile',
+        type_vehicule_max: 'camionnette',
+        flux_autorises: ['biodéchets', 'carton'],
+      };
+
+      await new AdapterMts1(TRANSPORTEUR, supabase).dispatchCollecte(
+        {
+          ...COLLECTE_ZD,
+          lieu: lieuAcces,
+          informations_supplementaires: composerInformationsSupplementaires(
+            lieuAcces,
+            'Demander Karim à la plonge',
+          ),
+        },
+        1,
+      );
+
+      const orderPayload = postOrder.mock.calls[0]![0] as Record<
+        string,
+        unknown
+      >;
+      expect(orderPayload['comment']).toContain(ligne);
+      // La saisie du traiteur part avec, jamais remplacée.
+      expect(orderPayload['comment']).toContain('Demander Karim à la plonge');
+    },
+  );
 
   it('M1.5a / buildOrderPayload sans informations_supplementaires — pas de comment', async () => {
     const postOrder = setupHandlers();

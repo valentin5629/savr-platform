@@ -33,6 +33,7 @@ import {
   getLogistiqueProvider,
 } from './index.js';
 import type { Collecte, ConsumerTag, Lieu, Transporteur } from './index.js';
+import { composerInformationsSupplementaires } from './infos-acces.js';
 import type { AdapterMts1 } from './mts1/adapter.js';
 
 interface ClaimedEvent {
@@ -75,6 +76,9 @@ interface CollecteRow {
     acces_details: string | null;
     type_vehicule_max: string;
     contraintes_horaires: string | null;
+    stationnement: string | null;
+    acces_office: string | null;
+    flux_autorises: string[] | null;
   };
 }
 
@@ -410,15 +414,19 @@ async function maybeAlertEarlyCollecte(
  *
  * Périmètre exact : l'INTERSECTION des champs que le formulaire offre à l'édition
  * par collecte (`LieuEdits`, lieu-champs-editables.tsx) et de ceux que porte
- * l'interface `Lieu` des adapters. Ce n'est donc PAS la parité avec le formulaire :
- * `stationnement`, `acces_office` et `flux_autorises` y sont éditables mais
- * n'existent pas dans `Lieu`, ils ne peuvent pas être fusionnés ici — écart connu,
- * en attente d'arbitrage sur le périmètre des API MTS-1/Everest.
+ * l'interface `Lieu` des adapters. Depuis l'arbitrage Val 2026-09-15 (agrégation
+ * des infos d'accès dans le champ libre), `Lieu` porte aussi `stationnement`,
+ * `acces_office` et `flux_autorises` : l'intersection est donc désormais la
+ * PARITÉ avec `LieuEdits`, les 9 champs éditables par collecte. Élargir l'un sans
+ * l'autre ne sert à rien — un champ absent de `Lieu` n'est pas surchargeable, un
+ * champ absent d'ici n'est pas fusionné.
  *
- * La liste est volontairement plus large que ce que les adapters V1 transmettent
- * réellement (seuls `adresse_acces`, `code_postal` et `ville` atteignent le wire) :
- * le garde-fou 2 exige la même sémantique de fusion pour l'adapter V1 et le TMS V2,
- * et un miroir des consommateurs actuels garantirait le drift au premier ajouté.
+ * La liste reste plus large que ce que les adapters V1 portent dans un champ
+ * NATIF (seuls `adresse_acces`, `code_postal` et `ville` composent l'adresse sur
+ * le fil ; les 6 informations d'accès passent par le champ libre, cf.
+ * infos-acces.ts) : le garde-fou 2 exige la même sémantique de fusion pour
+ * l'adapter V1 et le TMS V2, et un miroir des consommateurs actuels garantirait
+ * le drift au premier ajouté.
  *
  * ⚠ Aucun lien structurel ne maintient cette liste synchronisée avec `LieuEdits`
  * (packages distincts). Tout champ ajouté au formulaire ET à `Lieu` doit être
@@ -431,6 +439,9 @@ const CHAMPS_LIEU_SURCHARGEABLES = [
   'acces_details',
   'contraintes_horaires',
   'type_vehicule_max',
+  'stationnement',
+  'acces_office',
+  'flux_autorises',
 ] as const;
 
 // PROG-01/PROG-03 — surcharge du lieu officiel par les valeurs saisies dans
@@ -475,7 +486,7 @@ async function fetchCollecte(
       evenement:evenements!inner(
         contact_principal_nom, contact_principal_telephone,
         contact_secours_nom, contact_secours_telephone,
-        lieux:lieux!lieu_id(id, nom, adresse_acces, code_postal, ville, latitude, longitude, acces_details, type_vehicule_max, contraintes_horaires)
+        lieux:lieux!lieu_id(id, nom, adresse_acces, code_postal, ville, latitude, longitude, acces_details, type_vehicule_max, contraintes_horaires, stationnement, acces_office, flux_autorises)
       )
     `,
     )
@@ -531,7 +542,15 @@ async function fetchCollecte(
     nb_camions_demande: raw.nb_camions_demande,
     statut_tms: raw.statut_tms,
     controle_acces_requis: raw.controle_acces_requis,
-    informations_supplementaires: raw.informations_supplementaires,
+    // Arbitrage Val 2026-09-15 — les 6 informations d'accès du lieu n'ont pas de
+    // champ natif MTS-1/Everest : elles sont agrégées dans le seul canal libre
+    // routé (`comment` / `notes`). Composé ICI, donc une seule fois pour les deux
+    // adapters (garde-fou 2), et à partir du lieu FUSIONNÉ — le lieu officiel
+    // retransmettrait précisément l'erreur corrigée par #304.
+    informations_supplementaires: composerInformationsSupplementaires(
+      lieu,
+      raw.informations_supplementaires,
+    ),
     notes_internes: raw.notes_internes,
     prestataire_logistique_id: raw.prestataire_logistique_id,
     association_id_point_collecte_mts1: idPointCollecteMts1,

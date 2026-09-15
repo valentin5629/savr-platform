@@ -130,12 +130,23 @@ function texte(valeur: unknown): string {
  *
  * `texte()` seul ne fait que `trim()`. Or les colonnes de `plateforme.lieux`
  * (`acces_details`, `contraintes_horaires`, `flux_autorises`) n'ont AUCUNE
- * validation d'entrée — ni borne, ni filtre de caractères de contrôle, et
- * `authenticated` y garde un GRANT colonne-level — contrairement à
- * `lieu_overrides`, dont `validerLieuOverrides` refuse tous les `[[:cntrl:]]`,
- * saut de ligne compris. Un `acces_details` porteur d'un `\n` forgeait donc une
- * ligne supplémentaire SOUS le séparateur, c'est-à-dire dans la zone présentée
- * au chauffeur comme composée par Savr (relevé en revue sécurité, reproduit).
+ * validation d'entrée — contrairement à `lieu_overrides`, dont
+ * `validerLieuOverrides` refuse tous les `[[:cntrl:]]`, saut de ligne compris.
+ * Un `acces_details` porteur d'un `\n` forgeait donc une ligne supplémentaire
+ * SOUS le séparateur, c'est-à-dire dans la zone présentée au chauffeur comme
+ * composée par Savr (relevé en revue sécurité, reproduit).
+ *
+ * Les deux chemins d'écriture, vérifiés plutôt que supposés : (1) la route
+ * `/api/v1/programmation/lieux` écrit `body.acces_details ?? null` sans rien
+ * valider ; (2) `authenticated` détient INSERT/UPDATE **table-level** sur
+ * `plateforme.lieux` par le grant de schéma de 0.4a (`20260611180000`, `GRANT
+ * SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA plateforme`), donc
+ * PostgREST direct sous RLS. ⚠ Ne pas créditer `20260617170000` d'une borne
+ * qu'elle ne pose pas : sa liste blanche colonne-level est un `GRANT SELECT`,
+ * elle n'a révoqué que le SELECT et ne restreint aucune écriture. Et aucune
+ * migration ne pose de CHECK sur ces trois colonnes (vérifié sur l'ensemble de
+ * `supabase/migrations/`). Le repli ci-dessous est donc le seul rempart à
+ * l'émission.
  *
  * Replier ne perd rien : le format du canal libre est UNE ligne par information
  * (`Libellé : valeur`) — un saut de ligne dans la valeur cassait déjà ce format.

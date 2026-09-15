@@ -40,7 +40,7 @@ const LIEU_COMPLET: Lieu = {
 
 describe('infos-acces / composition du champ libre', () => {
   it('les 6 informations d’accès sortent en clair, une par ligne', () => {
-    const texte = composerInformationsSupplementaires(LIEU_COMPLET, null);
+    const texte = composerInformationsSupplementaires(LIEU_COMPLET, null, null);
 
     expect(texte).toBe(
       [
@@ -59,6 +59,7 @@ describe('infos-acces / composition du champ libre', () => {
     const texte = composerInformationsSupplementaires(
       { ...LIEU_NU, stationnement: 'tres_difficile' },
       null,
+      null,
     );
     expect(texte).toBe('Stationnement : très difficile');
     expect(texte).not.toContain('tres_difficile');
@@ -69,6 +70,7 @@ describe('infos-acces / composition du champ libre', () => {
   it('une valeur d’enum inconnue est transmise brute, jamais perdue', () => {
     const texte = composerInformationsSupplementaires(
       { ...LIEU_NU, type_vehicule_max: 'camion_20m3' },
+      null,
       null,
     );
     expect(texte).toBe('Véhicule max : camion_20m3');
@@ -84,6 +86,7 @@ describe('infos-acces / composition du champ libre', () => {
         flux_autorises: ['', '  '],
       },
       null,
+      null,
     );
 
     expect(texte).toBe('Véhicule max : fourgon');
@@ -93,14 +96,17 @@ describe('infos-acces / composition du champ libre', () => {
   });
 
   it('aucune information du tout → null (ni comment MTS-1 ni notes Everest)', () => {
-    expect(composerInformationsSupplementaires(LIEU_NU, null)).toBeNull();
-    expect(composerInformationsSupplementaires(LIEU_NU, '   ')).toBeNull();
+    expect(composerInformationsSupplementaires(LIEU_NU, null, null)).toBeNull();
+    expect(
+      composerInformationsSupplementaires(LIEU_NU, '   ', null),
+    ).toBeNull();
   });
 
   it('la saisie du traiteur est conservée, en tête — l’agrégat s’y ajoute', () => {
     const texte = composerInformationsSupplementaires(
       LIEU_COMPLET,
       'Demander Karim à la plonge',
+      null,
     );
 
     expect(texte).toContain('Demander Karim à la plonge');
@@ -110,7 +116,7 @@ describe('infos-acces / composition du champ libre', () => {
 
   it('saisie traiteur seule (lieu sans info d’accès) → transmise inchangée', () => {
     expect(
-      composerInformationsSupplementaires(LIEU_NU, 'Sonner interphone B'),
+      composerInformationsSupplementaires(LIEU_NU, 'Sonner interphone B', null),
     ).toBe('Sonner interphone B');
   });
 
@@ -128,6 +134,7 @@ describe('infos-acces / composition du champ libre', () => {
         type_vehicule_max: 'vul',
       },
       null,
+      null,
     );
 
     expect(texte).toBe('Véhicule max : VUL');
@@ -143,6 +150,7 @@ describe('infos-acces / composition du champ libre', () => {
     const texte = composerInformationsSupplementaires(
       LIEU_COMPLET,
       'x'.repeat(LIMITE_INFOS_SUPPLEMENTAIRES),
+      null,
     );
     expect(texte!.length).toBeLessThanOrEqual(LIMITE_INFOS_SUPPLEMENTAIRES);
   });
@@ -159,7 +167,11 @@ describe('infos-acces / composition du champ libre', () => {
       LIMITE_INFOS_SUPPLEMENTAIRES - prioritaires.length - 10,
     );
 
-    const texte = composerInformationsSupplementaires(LIEU_COMPLET, base)!;
+    const texte = composerInformationsSupplementaires(
+      LIEU_COMPLET,
+      base,
+      null,
+    )!;
 
     expect(texte.length).toBeLessThanOrEqual(LIMITE_INFOS_SUPPLEMENTAIRES);
     // Priorité haute conservée…
@@ -182,6 +194,7 @@ describe('infos-acces / composition du champ libre', () => {
     const texte = composerInformationsSupplementaires(
       { ...LIEU_NU, acces_details: 'Quai n°2 ' + 'd'.repeat(1200) },
       null,
+      null,
     )!;
 
     expect(texte.length).toBeLessThanOrEqual(LIMITE_INFOS_SUPPLEMENTAIRES);
@@ -197,6 +210,7 @@ describe('infos-acces / composition du champ libre', () => {
     const texte = composerInformationsSupplementaires(
       LIEU_COMPLET,
       'y'.repeat(LIMITE_INFOS_SUPPLEMENTAIRES - 1),
+      null,
     )!;
 
     expect(texte.length).toBeLessThanOrEqual(LIMITE_INFOS_SUPPLEMENTAIRES);
@@ -209,6 +223,7 @@ describe('infos-acces / composition du champ libre', () => {
     const texte = composerInformationsSupplementaires(
       LIEU_COMPLET,
       'y'.repeat(LIMITE_INFOS_SUPPLEMENTAIRES - 200),
+      null,
     )!;
 
     const lignes = texte.split('\n');
@@ -226,10 +241,69 @@ describe('infos-acces / composition du champ libre', () => {
     }
   });
 
+  // ─── Nom du contact de secours (arbitrage Val 2026-09-14) ─────────────────
+  // MTS-1 n'expose qu'UN contact par commande : le téléphone du secours part en
+  // `phoneAlternatives`, son nom n'a aucun champ d'accueil — ni chez MTS-1, ni
+  // chez Everest (`pickup.contact` = objet unique). Sans cette ligne, le
+  // chauffeur a « un numéro de secours sans savoir qui appeler » (§08 l.393-397).
+
+  it('le nom du contact de secours sort dans le champ libre', () => {
+    const texte = composerInformationsSupplementaires(
+      LIEU_NU,
+      null,
+      'Bruno Secours',
+    );
+
+    expect(texte).toBe('Contact de secours : Bruno Secours');
+  });
+
+  it('pas de contact de secours → aucune ligne « Contact de secours »', () => {
+    expect(
+      composerInformationsSupplementaires(LIEU_COMPLET, null, null),
+    ).not.toContain('Contact de secours');
+    expect(
+      composerInformationsSupplementaires(LIEU_COMPLET, null, '  '),
+    ).not.toContain('Contact de secours');
+    // …et un lieu nu sans secours ne fabrique toujours pas de champ libre.
+    expect(composerInformationsSupplementaires(LIEU_NU, null, '')).toBeNull();
+  });
+
+  it('il précède les informations d’accès — il est lu en premier', () => {
+    const texte = composerInformationsSupplementaires(
+      LIEU_COMPLET,
+      'Demander Karim à la plonge',
+      'Bruno Secours',
+    )!;
+
+    const lignes = texte.split('\n');
+    // La saisie du traiteur garde la tête, le secours ouvre l'agrégat.
+    expect(lignes[0]).toBe('Demander Karim à la plonge');
+    expect(lignes[1]).toBe('Contact de secours : Bruno Secours');
+    expect(lignes[2]).toBe('Accès : Quai n°2, sonner interphone B');
+  });
+
+  // Le nom est la seule ligne dont l'absence rend inexploitable une donnée par
+  // ailleurs transmise nativement (le téléphone, en `phoneAlternatives`) : le
+  // perdre à la troncature reproduirait exactement le défaut visé par
+  // l'arbitrage. Il doit donc survivre là où les lignes d'accès tombent.
+  it('il survit à la troncature qui emporte les lignes d’accès', () => {
+    const texte = composerInformationsSupplementaires(
+      LIEU_COMPLET,
+      'y'.repeat(LIMITE_INFOS_SUPPLEMENTAIRES - 60),
+      'Bruno Secours',
+    )!;
+
+    expect(texte.length).toBeLessThanOrEqual(LIMITE_INFOS_SUPPLEMENTAIRES);
+    expect(texte).toContain('Contact de secours : Bruno Secours');
+    expect(texte).not.toContain('Flux acceptés');
+    expect(texte.endsWith('(…)')).toBe(true);
+  });
+
   it('une saisie traiteur déjà hors borne est coupée net, sans dépassement', () => {
     const texte = composerInformationsSupplementaires(
       LIEU_COMPLET,
       'z'.repeat(LIMITE_INFOS_SUPPLEMENTAIRES + 500),
+      null,
     );
     expect(texte!.length).toBe(LIMITE_INFOS_SUPPLEMENTAIRES);
   });

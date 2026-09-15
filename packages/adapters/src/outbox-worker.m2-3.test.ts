@@ -23,6 +23,8 @@ interface WorkerMockOpts {
   lieuOfficiel?: Record<string, unknown>;
   /** `collectes.informations_supplementaires` — saisie du traiteur. */
   infosSuppl?: string | null;
+  /** `evenements.contact_secours_nom` — porté par l'événement parent. */
+  contactSecoursNom?: string | null;
 }
 
 const COLLECTE_ID = 'col-ag-dispatch-001';
@@ -63,7 +65,7 @@ function makeWorkerSupabase(opts: WorkerMockOpts) {
       {
         contact_principal_nom: 'Alice',
         contact_principal_telephone: '+33600000001',
-        contact_secours_nom: null,
+        contact_secours_nom: opts.contactSecoursNom ?? null,
         contact_secours_telephone: null,
         lieux: [
           {
@@ -614,6 +616,66 @@ describe('M1.5 / infos d’accès agrégées dans le canal libre — les 2 adapt
       informations_supplementaires: string | null;
     };
     expect(collecte.informations_supplementaires).toBeNull();
+  });
+});
+
+// Le nom du contact de secours suit le même chemin que les infos d'accès : ni
+// MTS-1 ni Everest n'ont de champ pour un SECOND contact (MTS-1 = un `contact`
+// unique + `phoneAlternatives` ; Everest = `pickup.contact` = objet unique). Le
+// nom n'était lu par personne alors qu'il était déjà porté jusqu'au worker —
+// c'est le maillon que ces tests verrouillent, provider par provider.
+describe('M1.5 / nom du contact de secours agrégé dans le canal libre', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each([
+    ['a_toutes', AdapterEverest] as const,
+    ['mts1', AdapterMts1] as const,
+  ])(
+    'type_tms=%s — le nom du secours atteint l’adapter',
+    async (typeTms, Adapter) => {
+      const spy = vi
+        .spyOn(Adapter.prototype, 'dispatchCollecte')
+        .mockResolvedValue('noop_no_remote');
+
+      const supabase = makeWorkerSupabase({
+        typeTms,
+        prestataireLogistiqueId: PRESTA_ID,
+        contactSecoursNom: 'Bruno Secours',
+      });
+      await runOutboxWorker(supabase);
+
+      const collecte = spy.mock.calls[0]![0] as {
+        informations_supplementaires: string | null;
+        contact_secours_nom: string | null;
+      };
+      expect(collecte.informations_supplementaires).toContain(
+        'Contact de secours : Bruno Secours',
+      );
+      // Le champ structuré reste porté tel quel (il alimente déjà E1/§08 côté V2).
+      expect(collecte.contact_secours_nom).toBe('Bruno Secours');
+    },
+  );
+
+  it('collecte sans contact de secours → pas de ligne fabriquée', async () => {
+    const spy = vi
+      .spyOn(AdapterEverest.prototype, 'dispatchCollecte')
+      .mockResolvedValue('adapter_everest');
+
+    const supabase = makeWorkerSupabase({
+      typeTms: 'a_toutes',
+      prestataireLogistiqueId: PRESTA_ID,
+      lieuOfficiel: { acces_details: 'Quai n°2' },
+    });
+    await runOutboxWorker(supabase);
+
+    const collecte = spy.mock.calls[0]![0] as {
+      informations_supplementaires: string | null;
+    };
+    expect(collecte.informations_supplementaires).not.toContain(
+      'Contact de secours',
+    );
+    // …sans rien retirer aux autres lignes.
+    expect(collecte.informations_supplementaires).toContain('Accès : Quai n°2');
   });
 });
 

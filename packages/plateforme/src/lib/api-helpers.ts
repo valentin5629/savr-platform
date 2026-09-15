@@ -32,6 +32,9 @@ import {
  * neutraliser la réponse SANS tracer côté serveur est pire que la fuite d'origine.
  */
 export function messageErreur(err: unknown): string {
+  /* NB : cette fonction RETOURNE le message brut — elle ne neutralise rien. Son
+     seul usage légitime est d'alimenter un `logger.*` ; le cliquet
+     `check-api-error-leak` l'impose (règle D). */
   if (err == null) return '';
   if (err instanceof Error) return err.message;
   if (typeof err === 'string') return err;
@@ -276,8 +279,18 @@ export function erreurInterne(
  * Même classe que `writeError`, mais côté producteur : le message Postgres est
  * loggé, jamais placé dans le champ rendu.
  */
-export function messageEchecEcriture(err: unknown, event: string): string {
+export function messageEchecEcriture(
+  err: unknown,
+  event: string,
+  codesMetier: readonly string[] = [],
+): string {
   logApiError(err, event, 'write');
+  // Symétrique de `businessError` côté producteur : un `RAISE EXCEPTION` dont le
+  // libellé est écrit par nous (et dont le code est explicitement listé) reste
+  // affiché ; tout le reste retombe sur le message neutre.
+  const code = (err as { code?: string } | null)?.code ?? '';
+  const message = (err as { message?: string } | null)?.message;
+  if (codesMetier.includes(code) && message) return message;
   return 'Enregistrement impossible (données invalides ou doublon)';
 }
 

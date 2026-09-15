@@ -161,11 +161,16 @@ export async function ajouterLigne(
     tarif_applique_source: 'libre',
     tarif_detail: { source: 'ajout_manuel_admin' },
   });
-  // Le trigger fn_trg_fc_collecte_non_facturee peut rejeter (collecte déjà facturée).
+  // Le trigger fn_trg_fc_collecte_non_facturee rejette une collecte déjà facturée
+  // par `RAISE EXCEPTION 'La collecte % est déjà rattachée à une facture active'`
+  // (errcode P0001 par défaut) : libellé écrit par nous, destiné à l'Admin — il
+  // dit CE QU'IL FAUT FAIRE, un « données invalides ou doublon » ne le dirait pas.
   if (error)
     return {
       ok: false,
-      erreur: messageEchecEcriture(error, 'facturation.edition.ligne'),
+      erreur: messageEchecEcriture(error, 'facturation.edition.ligne', [
+        'P0001',
+      ]),
       statut: 409,
     };
 

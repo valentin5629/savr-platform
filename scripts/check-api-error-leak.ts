@@ -62,7 +62,9 @@ const CHAMPS_RENDUS = /^(message|msg|reason|detail|details)$|^(erreur|error)/;
  */
 const NEUTRALISEURS = new Set([
   'logApiError',
-  'messageErreur',
+  // `messageErreur` n'est DÉLIBÉRÉMENT pas listée : elle RETOURNE le message brut,
+  // elle ne neutralise rien. Son seul usage légitime est d'alimenter un `logger.*`
+  // — une exemption ici serait une arme chargée (contre-revue sécurité).
   'serverError',
   'writeError',
   'typedRpcError',
@@ -118,6 +120,21 @@ const ALLOWLIST_BLOC: RegExp[] = [
  */
 const ALLOWLIST_SOURCE: { fichier: RegExp; raison: string }[] = [
   {
+    fichier: /^packages\/adapters\//,
+    raison:
+      'DETTE TRACÉE — les messages des adapters logistiques (« … auth timeout : … ») ' +
+      'sont écrits par nous et alimentent `integrations_logs` + les alertes Slack, pas ' +
+      "une réponse HTTP (vérifié en contre-revue sécurité : aucun n'atteint un client). " +
+      'Le graphe les atteint depuis les routes de dispatch ; les neutraliser un par un ' +
+      "dégraderait le diagnostic d'intégration et sort du périmètre de ce lot.",
+  },
+  {
+    fichier: /^packages\/shared\/src\/email\//,
+    raison:
+      '`erreur: result.error.message` de Resend est stocké dans `emails_envoyes.erreur` ' +
+      '(diagnostic staff-only), jamais rendu à un client.',
+  },
+  {
     fichier: /\/lib\/pennylane\/mock\.ts$/,
     raison:
       'mock de développement (fixtures) — ne tourne jamais contre la vraie API',
@@ -157,6 +174,11 @@ function modulesAtteignables(): Set<string> {
     let base: string;
     if (spec.startsWith('@/')) base = path.join(SRC, spec.slice(2));
     else if (spec.startsWith('.')) base = path.join(path.dirname(depuis), spec);
+    // Frontière de package : `@savr/shared` et `@savr/adapters` vivent dans le même
+    // graphe d'exécution qu'une route. S'y arrêter rendait l'invariant faux hors de
+    // `packages/plateforme` (contre-revue sécurité).
+    else if (spec.startsWith('@savr/'))
+      base = path.join('packages', spec.slice('@savr/'.length));
     else return null;
     base = base.replace(/\.js$/, '');
     for (const ext of ['.ts', '.tsx', '/index.ts', '/index.tsx']) {
@@ -208,21 +230,48 @@ function parse(nom: string, source: string): ts.SourceFile {
   );
 }
 
-/** `x.message`, `x['message']`, ou le `message` d'un `const { message } = err`. */
-function litUnMessage(n: ts.Node, src: ts.SourceFile): boolean {
-  if (ts.isPropertyAccessExpression(n) && n.name.text === 'message')
+/**
+ * Toute lecture du TEXTE d'une erreur : `x.message` / `x['message']`, le binding
+ * `const { message } = err`, mais aussi `x.details` / `x.hint` (où PostgREST met
+ * la valeur en cause : « Key (email)=(…) already exists »), et les formes qui
+ * stringifient l'erreur entière — `String(err)`, `${err}`, `JSON.stringify(err)`.
+ * Ces trois-là étaient l'angle mort le plus gênant : le bug `message: String(err)`
+ * de `health/logistique` échappait au détecteur né pour l'empêcher (contre-revue
+ * sécurité).
+ */
+const CHAMPS_ERREUR = /^(message|details|hint)$/;
+const NOM_ERREUR = /^(err|error|e|ex)$|[eE]rr/;
+
+function litUneErreur(n: ts.Node, src: ts.SourceFile): boolean {
+  if (ts.isPropertyAccessExpression(n) && CHAMPS_ERREUR.test(n.name.text))
     return true;
   if (
     ts.isElementAccessExpression(n) &&
     n.argumentExpression &&
     ts.isStringLiteral(n.argumentExpression) &&
-    n.argumentExpression.text === 'message'
+    CHAMPS_ERREUR.test(n.argumentExpression.text)
   )
     return true;
   if (
     ts.isBindingElement(n) &&
     ts.isObjectBindingPattern(n.parent) &&
-    (n.propertyName ?? n.name).getText(src) === 'message'
+    CHAMPS_ERREUR.test((n.propertyName ?? n.name).getText(src))
+  )
+    return true;
+  if (
+    ts.isCallExpression(n) &&
+    /^(String|JSON\.stringify)$/.test(n.expression.getText(src)) &&
+    n.arguments[0] &&
+    NOM_ERREUR.test(n.arguments[0].getText(src))
+  )
+    return true;
+  // `${err}` : l'erreur ELLE-MÊME dans un gabarit. On exige un identifiant nu —
+  // `${err.message}` est déjà compté par le cas `PropertyAccess` ci-dessus, le
+  // compter deux fois ferait diverger l'auto-test (et le RATCHET_COUNT).
+  if (
+    ts.isTemplateSpan(n) &&
+    ts.isIdentifier(n.expression) &&
+    NOM_ERREUR.test(n.expression.getText(src))
   )
     return true;
   return false;
@@ -265,7 +314,7 @@ function regleA(source: string): Trouve[] {
   const out: Trouve[] = [];
   const visit = (n: ts.Node): void => {
     if (
-      litUnMessage(n, src) &&
+      litUneErreur(n, src) &&
       sousAppel(n, src, /^(NextResponse|Response)\.json$/)
     ) {
       out.push({
@@ -300,7 +349,15 @@ function regleB(source: string): Trouve[] {
   const src = parse('b.ts', source);
   const out: Trouve[] = [];
   const visit = (n: ts.Node): void => {
-    if (litUnMessage(n, src)) {
+    if (litUneErreur(n, src)) {
+      // `body.message` / `payload.message` : une donnée ENTRANTE, pas une erreur.
+      if (
+        ts.isPropertyAccessExpression(n) &&
+        /^(body|payload|input|params|form)$/.test(n.expression.getText(src))
+      ) {
+        ts.forEachChild(n, visit);
+        return;
+      }
       const englobante = fonctionEnglobante(n);
       // Lu DANS une fonction de neutralisation, ou PASSÉ EN ARGUMENT à l'une
       // d'elles (`erreur: messageEchecTiers(res.message, …)`) : c'est le chemin
@@ -313,7 +370,9 @@ function regleB(source: string): Trouve[] {
       // diagnostic, au même titre qu'un log — pas un rendu au client.
       const versStockage = sousAppel(n, src, /\.(update|insert|upsert)$/);
       if (!neutralise && !versLog && !versStockage) {
-        const versThrow = sousAppel(n, src, /^Error$/);
+        // `new LoaderError(...)` autant que `new Error(...)` : la sous-classe est la
+        // régression exacte que le docblock de `loaders.ts` dit prévenir.
+        const versThrow = sousAppel(n, src, /Error$/);
         let p: ts.Node | undefined = n.parent;
         let versChamp = false;
         while (p) {
@@ -405,6 +464,22 @@ const SONDES: { regle: 'A' | 'B' | 'C'; source: string; attendus: number }[] = [
     source: `logger.error('api_route.error', { route, error: error.message });`,
     attendus: 0,
   },
+  // Formes stringifiées et champs PostgREST (angles morts de la v1) :
+  {
+    regle: 'A',
+    source: `return NextResponse.json({ erreur: String(err) }, { status: 503 });`,
+    attendus: 1,
+  },
+  {
+    regle: 'A',
+    source: `return NextResponse.json({ error: \`échec : \${err}\` }, { status: 500 });`,
+    attendus: 1,
+  },
+  {
+    regle: 'A',
+    source: `return NextResponse.json({ error: error.details }, { status: 500 });`,
+    attendus: 1,
+  },
   // ── Règle B : le message fabriqué pour être rendu ──
   {
     regle: 'B',
@@ -430,6 +505,12 @@ const SONDES: { regle: 'A' | 'B' | 'C'; source: string; attendus: number }[] = [
     regle: 'B',
     source: `if (error) throw erreurInterne(error, 'exports.builders');`,
     attendus: 0,
+  },
+  {
+    // Sous-classe d'Error : la régression que le docblock de loaders.ts prévient.
+    regle: 'B',
+    source: `if (error) throw new LoaderError(error.message);`,
+    attendus: 1,
   },
   {
     regle: 'B',
@@ -520,12 +601,17 @@ function violations(): Violation[] {
   // Règle B — les fabricants de messages, sur le périmètre atteignable.
   for (const f of modulesAtteignables()) {
     if (/\.(test|spec)\.tsx?$/.test(f)) continue;
-    // Les route handlers sont couverts par les règles A et C : la règle B vise les
-    // modules qui FABRIQUENT le message en amont, hors de la couche HTTP.
-    if (f.startsWith(`${SRC}/app/`)) continue;
+    // Les routes ne sont PAS exclues : un `throw new Error(pgErr.message)` écrit
+    // dans le fichier de route lui-même, rattrapé par son propre `catch` puis rendu
+    // via une variable intermédiaire, échappait simultanément à A, B et C
+    // (vecteur (e), contre-revue sécurité).
     if (ALLOWLIST_SOURCE.some((a) => a.fichier.test(f))) continue;
     const source = readFileSync(f, 'utf8');
     for (const { ligne, expr } of regleB(source)) {
+      // Même justification que pour la règle A : ces expressions portent une erreur
+      // applicative dont le message est neutralisé à la construction.
+      if (ALLOWLIST_REPONSE.some((a) => a.fichiers.test(f) && a.expr === expr))
+        continue;
       trouvees.push({
         fichier: f,
         ligne,

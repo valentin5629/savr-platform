@@ -393,6 +393,70 @@ async function maybeAlertEarlyCollecte(
 
 // ─── Fetch helpers ────────────────────────────────────────────────────────────
 
+/**
+ * Champs du lieu qu'un override de collecte peut légitimement remplacer (§06.01).
+ *
+ * Allowlist EXPLICITE, et non un test `key in lieu` : `in` remonte la chaîne de
+ * prototypes, donc `'constructor' in lieu` et `'__proto__' in lieu` valent true —
+ * il ne borne rien. Comme `lieu_overrides` est un jsonb libre (pas de schéma, pas
+ * de CHECK, pas de validation de clés sur les routes qui l'écrivent), seule une
+ * liste fermée tient.
+ *
+ * Exclus volontairement :
+ *  - `nom` et `id` : identité du lieu. Le §06.01 fige le nom (« identifiant
+ *    lieu ») ; un override d'`id` serait un pivot vers le lieu d'une autre
+ *    organisation le jour où un chemin du dispatch s'en sert dans une requête.
+ *  - `latitude`/`longitude` : dérivées du géocodage, jamais saisies au formulaire.
+ *
+ * Périmètre exact : l'INTERSECTION des champs que le formulaire offre à l'édition
+ * par collecte (`LieuEdits`, lieu-champs-editables.tsx) et de ceux que porte
+ * l'interface `Lieu` des adapters. Ce n'est donc PAS la parité avec le formulaire :
+ * `stationnement`, `acces_office` et `flux_autorises` y sont éditables mais
+ * n'existent pas dans `Lieu`, ils ne peuvent pas être fusionnés ici — écart connu,
+ * en attente d'arbitrage sur le périmètre des API MTS-1/Everest.
+ *
+ * La liste est volontairement plus large que ce que les adapters V1 transmettent
+ * réellement (seuls `adresse_acces`, `code_postal` et `ville` atteignent le wire) :
+ * le garde-fou 2 exige la même sémantique de fusion pour l'adapter V1 et le TMS V2,
+ * et un miroir des consommateurs actuels garantirait le drift au premier ajouté.
+ *
+ * ⚠ Aucun lien structurel ne maintient cette liste synchronisée avec `LieuEdits`
+ * (packages distincts). Tout champ ajouté au formulaire ET à `Lieu` doit être
+ * ajouté ici, sinon il sera saisi, stocké, audité — et jamais transmis.
+ */
+const CHAMPS_LIEU_SURCHARGEABLES = [
+  'adresse_acces',
+  'code_postal',
+  'ville',
+  'acces_details',
+  'contraintes_horaires',
+  'type_vehicule_max',
+] as const;
+
+// PROG-01/PROG-03 — surcharge du lieu officiel par les valeurs saisies dans
+// lieu_overrides. Le lieu officiel est la base ; on n'itère que sur l'allowlist,
+// jamais sur les clés de l'override. Une valeur nulle est ignorée : un null ne
+// doit jamais écraser une valeur de référence, sinon une saisie partielle vide
+// l'adresse au lieu de la corriger.
+function applyLieuOverrides(
+  lieu: CollecteRow['lieux'],
+  overrides: Record<string, unknown> | null | undefined,
+): CollecteRow['lieux'] {
+  if (!overrides) return lieu;
+  const merged = { ...lieu };
+  for (const key of CHAMPS_LIEU_SURCHARGEABLES) {
+    // `hasOwn` et pas un simple accès : une lecture nue traverse la chaîne de
+    // prototypes, donc un `Object.prototype.ville` posé ailleurs dans le process
+    // serait transmis alors que l'override ne porte pas la clé.
+    if (!Object.hasOwn(overrides, key)) continue;
+    const value = overrides[key];
+    if (value !== null && value !== undefined) {
+      (merged as Record<string, unknown>)[key] = value;
+    }
+  }
+  return merged;
+}
+
 async function fetchCollecte(
   supabase: SupabaseClient,
   collecteId: string,
@@ -407,7 +471,7 @@ async function fetchCollecte(
       `
       id, type, date_collecte, heure_collecte, nb_camions_demande,
       statut_tms, controle_acces_requis, informations_supplementaires, notes_internes,
-      prestataire_logistique_id,
+      prestataire_logistique_id, lieu_overrides,
       evenement:evenements!inner(
         contact_principal_nom, contact_principal_telephone,
         contact_secours_nom, contact_secours_telephone,
@@ -437,10 +501,17 @@ async function fetchCollecte(
     | 'contact_principal_telephone'
     | 'contact_secours_nom'
     | 'contact_secours_telephone'
-  > & { evenement: EvenementJoin | EvenementJoin[] };
+  > & {
+    evenement: EvenementJoin | EvenementJoin[];
+    lieu_overrides: Record<string, unknown> | null;
+  };
 
   const evt = Array.isArray(raw.evenement) ? raw.evenement[0]! : raw.evenement;
-  const lieu = Array.isArray(evt.lieux) ? evt.lieux[0]! : evt.lieux;
+  const lieuOfficiel = Array.isArray(evt.lieux) ? evt.lieux[0]! : evt.lieux;
+  // PROG-01/PROG-03 — l'adresse d'accès corrigée par collecte (lieu_overrides,
+  // §06.01) doit parvenir au transporteur. Sans ce merge, le worker re-fetch le
+  // lieu officiel et le camion se présente à la mauvaise adresse.
+  const lieu = applyLieuOverrides(lieuOfficiel, raw.lieu_overrides);
 
   // BL-P1-API-02 — lieu de dépôt AG : l'association destinataire est attribuée
   // APRÈS la création de la collecte (§08 l.154), donc connue au moment où le

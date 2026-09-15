@@ -40,9 +40,15 @@
 -- (140000 + #323), relu et mergé. Le rétablir est le choix assumé — réaligner la
 -- prod sur ce qui a été relu, plutôt que garder un correctif jamais revu qui règle
 -- un chemin en cassant l'autre. Il est tracé en divergence
--- (`M1.5a_20260915_predicat_e2_ternaire_redispatch`) : la cible est un prédicat
--- TERNAIRE — pas de commande → E1 ; commande chez le provider courant → E2 ;
--- commande chez un AUTRE provider → E1 *et* alerte. Ni 140000 ni 220000 ne le font.
+-- (`M1.5a_20260915_predicat_e2_ternaire_redispatch`).
+--
+-- ⚠ Et la divergence va plus loin que ce chemin : le CDC (§08 « PATCH
+-- /collectes/:id » + §10.1 F3, §04 l.2395) prescrit un branchement E1/E2 sur
+-- `collectes.statut_tms`, PAS sur l'existence d'une commande. Aucune
+-- implémentation ne l'a jamais appliqué — ni celle d'origine (20260614000001),
+-- ni 140000 qui n'a changé que la source du booléen, ni 220000 qui a ajouté une
+-- dimension provider par-dessus. Le correctif du re-dispatch devra donc partir
+-- du critère prescrit avant d'y superposer quoi que ce soit.
 --
 -- NATURE : non destructive. Aucun DROP, aucun backfill, aucune ouverture
 -- d'accès : les REVOKE/GRANT repris sont identiques à ceux déjà en vigueur.

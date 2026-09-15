@@ -45,50 +45,71 @@ interface CollecteFixture {
   lieu_overrides: Record<string, unknown> | null;
 }
 
-// Mock supabase : le builder est thenable → `await from().select().eq().gte().not()`
-// résout vers les collectes du lieu. `insert` sert aux logs integrations_logs.
+// Mock supabase routé PAR TABLE : le builder est thenable → `await
+// from().select().eq().gte().not()` résout vers les lignes de la table demandée.
+// `insert` sert aux logs integrations_logs.
+//
+// `updateLieu` interroge DEUX tables : `collectes` (le lot à propager) et
+// `transporteurs` (les prestataires joignables en MTS-1, cf.
+// adapter.e5-provider-tournee.test.ts). Un builder unique partagé ferait répondre
+// le lot de collectes à la requête transporteurs — les tournées passeraient alors
+// le filtre provider par accident, et ce fichier testerait autre chose que ce
+// qu'il annonce.
 function makeSupabase(
   collectes: CollecteFixture[],
 ): import('@supabase/supabase-js').SupabaseClient {
-  const builder: Record<string, unknown> = {};
-  const chain = () => builder;
-  Object.assign(builder, {
-    select: vi.fn(chain),
-    eq: vi.fn(chain),
-    gte: vi.fn(chain),
-    not: vi.fn(chain),
-    insert: vi.fn().mockResolvedValue({ data: null, error: null }),
-    then: (resolve: (v: unknown) => void) =>
-      resolve({
-        data: collectes.map((c) => ({
-          id: c.id,
-          nb_camions_demande: 1,
-          date_collecte: '2026-07-15',
-          heure_collecte: '22:00:00',
-          type: 'zero_dechet',
-          controle_acces_requis: false,
-          informations_supplementaires: null,
-          lieu_overrides: c.lieu_overrides,
-          collecte_tournees: [
-            {
-              tournee_id: `T-${c.id}`,
-              rang: 1,
-              tournees: [
-                {
-                  id: `T-${c.id}`,
-                  external_ref_commande: `MTS1-ORDER-${c.id}`,
-                  tms_reference: `MTS1-TOUR-${c.id}`,
-                  statut: 'en_cours',
-                },
-              ],
-            },
-          ],
-        })),
-        error: null,
-      }),
-  });
+  const makeBuilder = (rows: unknown[]) => {
+    const builder: Record<string, unknown> = {};
+    const chain = () => builder;
+    Object.assign(builder, {
+      select: vi.fn(chain),
+      eq: vi.fn(chain),
+      gte: vi.fn(chain),
+      not: vi.fn(chain),
+      insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+      then: (resolve: (v: unknown) => void) =>
+        resolve({ data: rows, error: null }),
+    });
+    return builder;
+  };
+
+  const collecteRows = collectes.map((c) => ({
+    id: c.id,
+    nb_camions_demande: 1,
+    date_collecte: '2026-07-15',
+    heure_collecte: '22:00:00',
+    type: 'zero_dechet',
+    controle_acces_requis: false,
+    informations_supplementaires: null,
+    lieu_overrides: c.lieu_overrides,
+    collecte_tournees: [
+      {
+        tournee_id: `T-${c.id}`,
+        rang: 1,
+        tournees: [
+          {
+            id: `T-${c.id}`,
+            external_ref_commande: `MTS1-ORDER-${c.id}`,
+            tms_reference: `MTS1-TOUR-${c.id}`,
+            statut: 'en_cours',
+            // Toutes les collectes de ce fichier sont dispatchées MTS-1 : c'est
+            // la surcharge d'adresse qui est sous test, pas le cloisonnement
+            // par provider.
+            prestataire_logistique_id: TRANSPORTEUR.prestataire_logistique_id,
+          },
+        ],
+      },
+    ],
+  }));
+
+  const transporteurRows = [
+    { prestataire_logistique_id: TRANSPORTEUR.prestataire_logistique_id },
+  ];
+
   return {
-    from: vi.fn(() => builder),
+    from: vi.fn((table: string) =>
+      makeBuilder(table === 'transporteurs' ? transporteurRows : collecteRows),
+    ),
   } as unknown as import('@supabase/supabase-js').SupabaseClient;
 }
 

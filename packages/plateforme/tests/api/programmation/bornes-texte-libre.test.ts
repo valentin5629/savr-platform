@@ -20,8 +20,10 @@
  * impossible : `valeurLigne` replie toute rupture de ligne, y compris NEL et les
  * séparateurs C1, et pas seulement `\s` (mesuré : un nom multiligne ressort en
  * UNE ligne). Par la NOTE, c'est possible et ASSUMÉ : elle est légitimement
- * multiligne, #322 n'y refuse que les caractères de contrôle, et elle ouvre le
- * message — elle peut donc poser un faux `SEPARATEUR_AGREGAT` au-dessus du vrai,
+ * multiligne (#322 y refuse les caractères de contrôle HORS blancs, les
+ * demi-surrogates orphelins et le dépassement de 1000 caractères — mais pas le
+ * saut de ligne, c'est un `<textarea>`), et elle ouvre le message : elle peut
+ * donc poser un faux `SEPARATEUR_AGREGAT` au-dessus du vrai,
  * que le chauffeur rencontre en premier (mesuré). Val a tranché de NE PAS fermer
  * ce vecteur (2026-09-15), le cas reproduit sous les yeux ; le raisonnement
  * complet est dans le commentaire de `SEPARATEUR_AGREGAT`

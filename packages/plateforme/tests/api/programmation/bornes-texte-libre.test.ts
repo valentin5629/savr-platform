@@ -5,16 +5,19 @@
  * Ces trois colonnes sont des `text` sans aucune contrainte (5 000 caractères
  * acceptés, mesuré) et les routes ne filtraient que les CLÉS. Elles partent au
  * transporteur, deux d'entre elles par le canal de texte libre où toutes les
- * informations d'exploitation sont concaténées : `informations_supplementaires`
- * OUVRE cet agrégat, que la mise en forme coupe ensuite PAR LA FIN — une saisie
- * démesurée y évince donc les lignes suivantes, dont l'adresse d'accès, du
- * message lu par le chauffeur.
+ * informations d'exploitation sont concaténées.
  *
- * Le NOM de secours, lui, n'a plus cet effet depuis que l'aval le passe par
- * `nomContact` (blancs repliés, puis troncature à 120) : ni l'éviction ni la
- * fausse ligne d'en-tête ne sont atteignables par lui — énoncé corrigé ici, il
- * était faux. Ce que la borne d'entrée tient pour ce champ, ce sont la donnée
- * STOCKÉE et son rendu, pas le fil.
+ * Ce que l'aval rattrape aujourd'hui, à ne PAS revendiquer ici (énoncés corrigés
+ * en revue, ils étaient faux) : le NOM de secours passe par `nomContact` (blancs
+ * repliés, puis troncature à 120), et depuis #324 la note du traiteur et le bloc
+ * composé par Savr se partagent l'enveloppe sans pouvoir s'évincer — le bloc
+ * Savr est servi le premier dans la limite de `BUDGET_AGREGAT`, la note prend le
+ * reste. Ni l'un ni l'autre ne peut donc chasser l'adresse d'accès du message lu
+ * par le chauffeur, ni y forger une fausse ligne d'en-tête.
+ *
+ * Ce que la borne d'entrée tient, elle, c'est l'INTÉGRITÉ DE LA DONNÉE : la
+ * colonne, les exports, le rendu des fiches — plus une propriété qui ne tient
+ * qu'ici, `contact_secours_telephone: '' → null` (voir plus bas).
  *
  * Chaque cas vérifie DEUX choses : le 422, et l'ABSENCE d'écriture (ni insert ni
  * RPC) — c'est cette seconde assertion qui distingue « refusé » de « refusé après
@@ -367,7 +370,8 @@ describe('bornes texte libre — PATCH événement', () => {
   // produire : `lignesCanalLibre` (packages/adapters/src/infos-acces.ts) passe le
   // nom par `nomContact` → `texte()` → `.trim()`, puis filtre
   // `valeur !== ''`, si bien que l'aval rattrape déjà `''` comme `'   '` pour le
-  // NOM (motif corrigé en revue sécurité, l'énoncé initial était faux) :
+  // NOM (motif corrigé en revue sécurité, l'énoncé initial était faux — relu sur
+  // le code post-#324, ce filtre est inchangé) :
   //   · `contact_secours_telephone: '' → null` est le SEUL rempart contre un
   //     numéro blanc parti verbatim sur le fil. `buildContact`, dans l'adapter
   //     camion de `packages/adapters/`, lit la colonne SANS trim et émet
@@ -598,9 +602,10 @@ describe('bornes texte libre — routes collecte', () => {
   // Ce que le `trim()` protège ici, relevé sur le code d'émission et NON déduit :
   // l'aval rattrape déjà le cas BLANC pour ce champ — `composerInformations-
   // Supplementaires` (packages/adapters/src/infos-acces.ts) le passe par
-  // `texte()` → `.trim()`, puis `[base, ...lignes].filter(Boolean)`, si bien que
-  // `'   '` n'ouvre aucune ligne chez le chauffeur. Ce que le `trim()` tient, ce
-  // sont la donnée STOCKÉE, les exports et le rendu des fiches — pas le fil.
+  // `texte()` → `.trim()` et ne garde la note que si elle est non vide (`if
+  // (!base) return assemblerAgregat('', lignes, …)`, formulation post-#324), si
+  // bien que `'   '` n'ouvre aucune ligne chez le chauffeur. Ce que le `trim()`
+  // tient, ce sont la donnée STOCKÉE, les exports et le rendu — pas le fil.
   // (La propriété qui, elle, ne tient qu'ici est celle de
   // `contact_secours_telephone`, contre-éprouvée sur les routes événement.)
   //

@@ -562,6 +562,44 @@ describe('M2.5 / AdapterEverest — écritures DB refusées', () => {
     expect(creee!['everest_mission_id']).toBeTruthy();
   });
 
+  it('mission acceptée au TÉLÉPHONE (created_manually) : « Renvoyer au TMS » ne dépêche pas un second vélo', async () => {
+    // Chemin réel : Everest indisponible → Ops appelle A Toutes! → la route
+    // admin/everest/missions/manual-accept pose `created_manually` SANS
+    // `everest_mission_id` ni `external_ref_commande`. Le gate d'émission exige
+    // une référence de commande : il répond `false`, et un clic sur « Renvoyer
+    // au TMS » émet donc E1 — un dispatch, pas une modification.
+    const { missions } = setupEverestMock();
+    const supabase = makeMockSupabase({
+      tourneeExistante: {
+        id: 'tournee-existing-001',
+        external_ref_commande: null,
+        statut: 'planifiee',
+        prestataire_logistique_id: PRESTA_EVEREST,
+      },
+      missionExistante: {
+        id: 'em-manuel',
+        statut_everest: 'created_manually',
+        everest_mission_id: null,
+      },
+    });
+
+    const consumer = await new AdapterEverest(
+      TRANSPORTEUR_EVEREST,
+      supabase,
+    ).dispatchCollecte(COLLECTE_AG, 1);
+
+    expect(consumer).toBe('adapter_everest');
+    expect(missions.size).toBe(0);
+    // Rien à réparer ici : une mission acceptée au téléphone n'a pas d'id
+    // Everest. Le no-op suffit — on ne doit simplement pas en créer une autre.
+    const refs = (supabase._updated['tournees'] ?? []) as Array<
+      Record<string, unknown>
+    >;
+    expect(refs.some((u) => u['external_ref_commande'] !== undefined)).toBe(
+      false,
+    );
+  });
+
   it('rejeu après un commit de référence manqué : AUCUN second createMission, et la référence est réparée', async () => {
     const { missions } = setupEverestMock();
     // État laissé par le passage précédent : la mission existe chez Everest et

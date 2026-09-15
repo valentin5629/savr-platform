@@ -1039,13 +1039,10 @@ export class AdapterMts1 implements LogistiqueProvider {
   /**
    * Tournée d'un rang donné — restreinte au provider courant (cf. findTournees).
    *
-   * Passe par findTournees plutôt que par un `.eq('rang').maybeSingle()` : rien
-   * en base n'impose l'unicité de (collecte_id, rang) — seule
-   * `uniq_collecte_tournee (collecte_id, tournee_id)` existe — et une collecte
-   * re-dispatchée d'un transporteur à l'autre porte deux tournées au même rang.
-   * `maybeSingle()` renverrait alors une erreur, avalée faute de lire `error`,
-   * donc un `null` indistinguable de « jamais dispatchée » : customerOrder
-   * re-POSTé et second camion commandé.
+   * Passe par findTournees plutôt que par sa propre requête : le rang est un
+   * simple critère de sélection, et le cloisonnement par provider comme la
+   * lecture de `error` n'ont ainsi qu'une seule implémentation pour les deux
+   * accès (E1 lit par rang, E2/E3 lisent la liste).
    */
   private async findTournee(
     collecteId: string,
@@ -1060,12 +1057,19 @@ export class AdapterMts1 implements LogistiqueProvider {
    *
    * Le filtre provider est posé ICI, à la source, et non dans chaque handler :
    * E1 (dispatch), E2 (update) et E3 (cancel) lisent tous les tournées par là
-   * — #313 ne l'avait fermé que sur E5. Sans lui, une tournée Everest
-   * résiduelle (refus Everest puis re-dispatch MTS-1 :
-   * `collectes.prestataire_logistique_id` change, les tournées déjà créées
-   * restent) ferait partir un `PUT`/`DELETE /v3/customerOrders/{id}` vers MTS-1
-   * avec un identifiant de mission Everest. Arbitrage « écarter en silence vs
-   * alerter Ops » : cf. provider-tournees.ts.
+   * — #313 ne l'avait fermé que sur E5.
+   *
+   * Sans lui, une collecte re-dispatchée d'Everest vers MTS-1
+   * (`collectes.prestataire_logistique_id` change ; le lien
+   * `collecte_tournees` du rang, lui, pointe encore sur la tournée Everest
+   * tant qu'un E1 MTS-1 ne l'a pas écrasé — `upsertTournee`,
+   * `onConflict: 'collecte_id,rang'`) faisait partir vers MTS-1 un
+   * `PUT`/`DELETE /v3/customerOrders/{id_mission_everest}` sur E2/E3, et sur
+   * E1 la tournée Everest servait de curseur : `POST /v3/customerOrders`
+   * sauté, mission Everest rattachée au tour MTS-1, et `tms_reference` MTS-1
+   * écrit sur la tournée Everest.
+   *
+   * Arbitrage « écarter en silence vs alerter Ops » : cf. provider-tournees.ts.
    */
   private async findTournees(collecteId: string): Promise<TourneeRow[]> {
     const { data, error } = await this.supabase

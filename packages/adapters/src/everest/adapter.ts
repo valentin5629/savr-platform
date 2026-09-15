@@ -361,12 +361,8 @@ export class AdapterEverest implements LogistiqueProvider {
   /**
    * Tournée d'un rang donné — restreinte au provider courant (cf. findTournees).
    *
-   * Passe par findTournees plutôt que par un `.eq('rang').maybeSingle()` : rien
-   * en base n'impose l'unicité de (collecte_id, rang) — seule
-   * `uniq_collecte_tournee (collecte_id, tournee_id)` existe — et une collecte
-   * re-dispatchée d'un transporteur à l'autre porte deux tournées au même rang.
-   * `maybeSingle()` renverrait alors une erreur, avalée faute de lire `error`,
-   * donc un `null` indistinguable de « jamais dispatchée ».
+   * Passe par findTournees plutôt que par sa propre requête : le cloisonnement
+   * par provider et la lecture de `error` n'ont ainsi qu'une implémentation.
    */
   private async findTournee(
     collecteId: string,
@@ -380,9 +376,14 @@ export class AdapterEverest implements LogistiqueProvider {
    * Tournées d'une collecte **exécutées par A Toutes! (Everest)**.
    *
    * Symétrique de l'adapter MTS-1 : sans ce filtre, une tournée MTS-1
-   * résiduelle (collecte re-dispatchée d'un transporteur à l'autre) ferait
-   * partir un `POST /missions/cancel` vers Everest avec un customerOrderId
-   * MTS-1 — `cancelCollecte` ne regardait que la présence d'une référence.
+   * résiduelle faisait partir un `POST /missions/cancel` vers Everest avec un
+   * customerOrderId MTS-1 — `cancelCollecte` ne regardait que la présence
+   * d'une référence.
+   *
+   * Dans ce sens, la tournée résiduelle n'est pas transitoire : `upsertTournee`
+   * lie la tournée Everest par un INSERT dont l'`error` n'est pas lue, et le
+   * rang est déjà pris (`uniq_collecte_tournee_rang`). Le lien reste donc sur
+   * la tournée MTS-1, et c'est elle que toute lecture ultérieure renvoie.
    */
   private async findTournees(collecteId: string): Promise<TourneeRow[]> {
     const { data, error } = await this.supabase

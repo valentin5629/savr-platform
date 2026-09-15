@@ -5,9 +5,16 @@
  * Ces trois colonnes sont des `text` sans aucune contrainte (5 000 caractères
  * acceptés, mesuré) et les routes ne filtraient que les CLÉS. Elles partent au
  * transporteur, deux d'entre elles par le canal de texte libre où toutes les
- * informations d'exploitation sont concaténées : un nom démesuré y évince les
- * lignes suivantes — dont l'adresse d'accès — du message lu par le chauffeur, et
- * un nom multiligne y forge une fausse ligne d'en-tête.
+ * informations d'exploitation sont concaténées : `informations_supplementaires`
+ * OUVRE cet agrégat, que la mise en forme coupe ensuite PAR LA FIN — une saisie
+ * démesurée y évince donc les lignes suivantes, dont l'adresse d'accès, du
+ * message lu par le chauffeur.
+ *
+ * Le NOM de secours, lui, n'a plus cet effet depuis que l'aval le passe par
+ * `nomContact` (blancs repliés, puis troncature à 120) : ni l'éviction ni la
+ * fausse ligne d'en-tête ne sont atteignables par lui — énoncé corrigé ici, il
+ * était faux. Ce que la borne d'entrée tient pour ce champ, ce sont la donnée
+ * STOCKÉE et son rendu, pas le fil.
  *
  * Chaque cas vérifie DEUX choses : le 422, et l'ABSENCE d'écriture (ni insert ni
  * RPC) — c'est cette seconde assertion qui distingue « refusé » de « refusé après
@@ -94,6 +101,7 @@ function setupAuth(
 
 function resetChain(): void {
   vi.clearAllMocks();
+  argsRpcCaptures.length = 0;
   for (const m of [
     'from',
     'select',
@@ -127,6 +135,34 @@ async function champsInvalides(res: NextResponse): Promise<string[]> {
 function aucuneEcriture(): void {
   expect(mockSupabaseChain.insert).not.toHaveBeenCalled();
   expect(mockRpc).not.toHaveBeenCalled();
+}
+
+/**
+ * Arguments RPC capturés PAR COPIE, à l'instant de l'appel.
+ *
+ * `toHaveBeenCalledWith` ne suffit pas pour cet oracle-ci : le spy ne retient
+ * qu'une RÉFÉRENCE vers l'objet `updates` que les routes PATCH lui passent, et
+ * l'assertion est évaluée après le retour du handler. Déplacer
+ * `Object.assign(updates, texteValide.valeurs)` APRÈS l'appel — la valeur brute
+ * partirait alors réellement sur le fil — laissait le test vert (mesuré, défaut
+ * relevé en revue sécurité). La copie fige ce que la route a TRANSMIS, et non ce
+ * que l'objet est devenu ensuite.
+ */
+const argsRpcCaptures: Array<{ nom: string; args: unknown }> = [];
+
+/** Réponse de RPC à file d'ordre, qui capture ses arguments au passage. */
+function repondreRpc(valeur: unknown): void {
+  mockRpc.mockImplementationOnce((nom: string, args: unknown) => {
+    argsRpcCaptures.push({ nom, args: structuredClone(args) });
+    return Promise.resolve(valeur);
+  });
+}
+
+/** Arguments du premier appel capturé portant ce nom de RPC. */
+function argsRpc(nom: string): unknown {
+  const appel = argsRpcCaptures.find((a) => a.nom === nom);
+  expect(appel, `RPC ${nom} jamais appelée`).toBeDefined();
+  return appel?.args;
 }
 
 const NOM_DEMESURE = 'a'.repeat(5000);
@@ -361,9 +397,8 @@ describe('bornes texte libre — PATCH événement', () => {
       data: { id: 'evt-1', nom_evenement: 'Gala' },
       error: null,
     }); // `before` de l'audit
-    mockRpc
-      .mockResolvedValueOnce({ data: true, error: null }) // f_collecte_editable
-      .mockResolvedValueOnce({ data: { id: 'evt-1' }, error: null }); // fn_modifier_evenement
+    mockRpc.mockResolvedValueOnce({ data: true, error: null }); // f_collecte_editable
+    repondreRpc({ data: { id: 'evt-1' }, error: null }); // fn_modifier_evenement
 
     const { PATCH } =
       await import('@/app/api/v1/programmation/evenements/[id]/route.js');
@@ -376,8 +411,7 @@ describe('bornes texte libre — PATCH événement', () => {
     );
 
     expect(res.status).toBe(200);
-    expect(mockRpc).toHaveBeenCalledWith(
-      'fn_modifier_evenement',
+    expect(argsRpc('fn_modifier_evenement')).toEqual(
       expect.objectContaining({
         p_updates: expect.objectContaining({
           contact_secours_nom: 'Claire Bonnet',
@@ -389,7 +423,7 @@ describe('bornes texte libre — PATCH événement', () => {
 
   it('PATCH /admin/evenements/[id] : appelle fn_modifier_evenement avec les valeurs NORMALISÉES, pas le body brut', async () => {
     setupAuth('admin_savr');
-    mockRpc.mockResolvedValueOnce({ data: { id: 'evt-1' }, error: null });
+    repondreRpc({ data: { id: 'evt-1' }, error: null });
 
     const { PATCH } =
       await import('@/app/api/v1/admin/evenements/[id]/route.js');
@@ -402,8 +436,7 @@ describe('bornes texte libre — PATCH événement', () => {
     );
 
     expect(res.status).toBe(200);
-    expect(mockRpc).toHaveBeenCalledWith(
-      'fn_modifier_evenement',
+    expect(argsRpc('fn_modifier_evenement')).toEqual(
       expect.objectContaining({
         p_updates: expect.objectContaining({
           contact_secours_nom: 'Hugo Petit',
@@ -582,7 +615,7 @@ describe('bornes texte libre — routes collecte', () => {
       data: { id: 'col-1', statut: 'programmee' },
       error: null,
     }); // `before` de l'audit
-    mockRpc.mockResolvedValueOnce({
+    repondreRpc({
       data: { id: 'col-1', statut: 'programmee' },
       error: null,
     }); // fn_modifier_collecte
@@ -597,8 +630,7 @@ describe('bornes texte libre — routes collecte', () => {
     );
 
     expect(res.status).toBe(200);
-    expect(mockRpc).toHaveBeenCalledWith(
-      'fn_modifier_collecte',
+    expect(argsRpc('fn_modifier_collecte')).toEqual(
       expect.objectContaining({
         p_updates: expect.objectContaining({
           informations_supplementaires: 'Quai 7, badge 4512',
@@ -628,7 +660,7 @@ describe('bornes texte libre — routes collecte', () => {
       data: { id: 'col-1', statut: 'programmee' },
       error: null,
     }); // `before` de l'audit
-    mockRpc.mockResolvedValueOnce({ data: { id: 'col-1' }, error: null });
+    repondreRpc({ data: { id: 'col-1' }, error: null }); // fn_modifier_collecte
 
     const { PATCH } =
       await import('@/app/api/v1/traiteur/collectes/[id]/route.js');
@@ -640,8 +672,7 @@ describe('bornes texte libre — routes collecte', () => {
     );
 
     expect(res.status).toBe(200);
-    expect(mockRpc).toHaveBeenCalledWith(
-      'fn_modifier_collecte',
+    expect(argsRpc('fn_modifier_collecte')).toEqual(
       expect.objectContaining({
         p_updates: expect.objectContaining({
           informations_supplementaires: 'Portail arrière, code 8834',
@@ -669,7 +700,7 @@ describe('bornes texte libre — routes collecte', () => {
       data: { id: 'col-1', statut: 'validee' },
       error: null,
     }); // `before` de l'audit
-    mockRpc.mockResolvedValueOnce({ data: { id: 'col-1' }, error: null });
+    repondreRpc({ data: { id: 'col-1' }, error: null }); // fn_modifier_collecte
 
     const { PATCH } =
       await import('@/app/api/v1/gestionnaire/collectes/[id]/route.js');
@@ -681,8 +712,7 @@ describe('bornes texte libre — routes collecte', () => {
     );
 
     expect(res.status).toBe(200);
-    expect(mockRpc).toHaveBeenCalledWith(
-      'fn_modifier_collecte',
+    expect(argsRpc('fn_modifier_collecte')).toEqual(
       expect.objectContaining({
         p_updates: expect.objectContaining({
           informations_supplementaires: 'Monte-charge nord hors service',
@@ -706,7 +736,7 @@ describe('bornes texte libre — routes collecte', () => {
       },
       error: null,
     });
-    mockRpc.mockResolvedValueOnce({ data: { id: 'col-1' }, error: null });
+    repondreRpc({ data: { id: 'col-1' }, error: null }); // fn_modifier_collecte
 
     const { PATCH } =
       await import('@/app/api/v1/agence/collectes/[id]/route.js');
@@ -718,8 +748,7 @@ describe('bornes texte libre — routes collecte', () => {
     );
 
     expect(res.status).toBe(200);
-    expect(mockRpc).toHaveBeenCalledWith(
-      'fn_modifier_collecte',
+    expect(argsRpc('fn_modifier_collecte')).toEqual(
       expect.objectContaining({
         p_updates: expect.objectContaining({
           informations_supplementaires: 'Entrée par le 12 rue Lenoir',

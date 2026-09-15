@@ -38,6 +38,12 @@ const LIEU_COMPLET: Lieu = {
   flux_autorises: ['biodéchets', 'carton'],
 };
 
+// Constantes de FORMAT, redéclarées ici plutôt qu'importées : un test qui lit la
+// valeur produite par le module sous test ne prouverait rien du format réellement
+// envoyé au transporteur (il suivrait toute dérive silencieuse).
+const SEPARATEUR = '— Infos Savr —';
+const MARQUEUR = '(…)';
+
 describe('infos-acces / composition du champ libre', () => {
   it('les 6 informations d’accès sortent en clair, une par ligne', () => {
     const texte = composerInformationsSupplementaires(LIEU_COMPLET, null, null);
@@ -155,36 +161,140 @@ describe('infos-acces / composition du champ libre', () => {
     expect(texte!.length).toBeLessThanOrEqual(LIMITE_INFOS_SUPPLEMENTAIRES);
   });
 
-  it('la troncature abandonne les lignes les MOINS prioritaires et se signale', () => {
-    // Budget juste suffisant pour les 3 lignes prioritaires (accès,
-    // stationnement, horaires) + le marqueur, pas pour les 3 suivantes.
-    const prioritaires = [
+  // ─── Partage de l'enveloppe entre la note et le bloc Savr ─────────────────
+  // Arbitrage Val 2026-09-15. Le défaut : le budget de l'agrégat ET celui d'un
+  // seul de ses composants étaient le MÊME nombre (1000), la note étant
+  // simplement concaténée devant puis le tout coupé par la fin. Mesuré sur main :
+  // dès 924 caractères de note la ligne « Accès » disparaissait, dès 962 la ligne
+  // « Contact de secours » — et à 1000, le plafond du CDC (§06.01 l.167, appliqué
+  // à l'écriture par #322), le chauffeur ne recevait plus QUE la note. Ce sont
+  // des saisies parfaitement légitimes, qu'aucune borne ne refuse.
+
+  it('une note au plafond du CDC n’évince plus rien du bloc Savr', () => {
+    const texte = composerInformationsSupplementaires(
+      LIEU_COMPLET,
+      'y'.repeat(LIMITE_INFOS_SUPPLEMENTAIRES),
+      'Bruno Secours',
+    )!;
+
+    expect(texte.length).toBeLessThanOrEqual(LIMITE_INFOS_SUPPLEMENTAIRES);
+    expect(texte).toContain('Contact de secours : Bruno Secours');
+    expect(texte).toContain('Accès : Quai n°2, sonner interphone B');
+    expect(texte).toContain('Stationnement : difficile');
+    expect(texte).toContain('Flux acceptés : biodéchets, carton');
+    // C'est la note qui est amputée, et la coupe est signalée.
+    expect(texte.startsWith('yyy')).toBe(true);
+    expect(texte).toContain(MARQUEUR);
+  });
+
+  // Balayage des deux seuils mesurés : aucune longueur de note légale ne doit
+  // faire disparaître une ligne du bloc Savr.
+  it('aucune longueur de note légale ne fait disparaître une ligne', () => {
+    for (let n = 1; n <= LIMITE_INFOS_SUPPLEMENTAIRES; n++) {
+      const texte = composerInformationsSupplementaires(
+        LIEU_COMPLET,
+        'y'.repeat(n),
+        'Bruno Secours',
+      )!;
+
+      expect(texte.length).toBeLessThanOrEqual(LIMITE_INFOS_SUPPLEMENTAIRES);
+      expect(texte).toContain('Contact de secours : Bruno Secours');
+      expect(texte).toContain('Accès : Quai n°2, sonner interphone B');
+      expect(texte).toContain('Flux acceptés : biodéchets, carton');
+    }
+  });
+
+  // La note conserve une part substantielle : le bloc Savr prend ce dont il a
+  // besoin, pas une part fixe. Sur ce lieu (7 lignes, ~250 car.) il en reste
+  // largement plus de la moitié à la note.
+  it('le bloc Savr ne réserve que ce qu’il consomme', () => {
+    const texte = composerInformationsSupplementaires(
+      LIEU_COMPLET,
+      'y'.repeat(LIMITE_INFOS_SUPPLEMENTAIRES),
+      'Bruno Secours',
+    )!;
+
+    expect(texte.split('\n')[0]!.length).toBeGreaterThan(700);
+  });
+
+  // Réciproque : un lieu bavard ne doit pas évincer la note non plus. Le
+  // plancher garanti de la note est `LIMITE - BUDGET_AGREGAT - 1` = 499.
+  it('un lieu bavard n’évince pas la saisie du traiteur', () => {
+    const texte = composerInformationsSupplementaires(
+      { ...LIEU_COMPLET, acces_details: 'A'.repeat(1000) },
+      'y'.repeat(600),
+      'Bruno Secours',
+    )!;
+
+    expect(texte.length).toBeLessThanOrEqual(LIMITE_INFOS_SUPPLEMENTAIRES);
+    expect(texte.split('\n')[0]!.length).toBeGreaterThanOrEqual(490);
+    expect(texte).toContain('Contact de secours : Bruno Secours');
+  });
+
+  it('la troncature de la note est signalée, et le bloc Savr reste entier', () => {
+    const texte = composerInformationsSupplementaires(
+      LIEU_COMPLET,
+      'y'.repeat(LIMITE_INFOS_SUPPLEMENTAIRES - 1),
+      null,
+    )!;
+
+    const lignes = texte.split('\n');
+    expect(texte.length).toBeLessThanOrEqual(LIMITE_INFOS_SUPPLEMENTAIRES);
+    // Le marqueur suit immédiatement la note amputée…
+    expect(lignes[1]).toBe(MARQUEUR);
+    // …et les 6 lignes d'accès sortent au complet derrière le séparateur.
+    expect(lignes.slice(2)).toEqual([
+      SEPARATEUR,
       'Accès : Quai n°2, sonner interphone B',
       'Stationnement : difficile',
       'Contraintes horaires : Livraison avant 9h uniquement',
-    ].join('\n');
-    const base = 'y'.repeat(
-      LIMITE_INFOS_SUPPLEMENTAIRES - prioritaires.length - 10,
-    );
+      'Accès office : très difficile',
+      'Véhicule max : camionnette',
+      'Flux acceptés : biodéchets, carton',
+    ]);
+  });
 
+  // ─── Troncature DU BLOC SAVR (il dépasse à lui seul l'enveloppe) ──────────
+
+  it('la troncature du bloc abandonne les lignes les MOINS prioritaires', () => {
     const texte = composerInformationsSupplementaires(
-      LIEU_COMPLET,
-      base,
+      { ...LIEU_COMPLET, acces_details: 'Quai n°2 ' + 'd'.repeat(900) },
+      null,
       null,
     )!;
 
     expect(texte.length).toBeLessThanOrEqual(LIMITE_INFOS_SUPPLEMENTAIRES);
     // Priorité haute conservée…
-    expect(texte).toContain('Accès : Quai n°2, sonner interphone B');
     expect(texte).toContain('Stationnement : difficile');
     expect(texte).toContain('Contraintes horaires : Livraison avant 9h');
     // …priorité basse abandonnée…
     expect(texte).not.toContain('Flux acceptés');
     expect(texte).not.toContain('Véhicule max');
     // …et la coupe n'est pas silencieuse pour le chauffeur.
-    expect(texte).toContain('(…)');
-    // La saisie du traiteur reste intacte.
-    expect(texte.startsWith(base)).toBe(true);
+    expect(texte.endsWith(MARQUEUR)).toBe(true);
+  });
+
+  // Une coupe ne doit pas laisser de bout de ligne pendouillant quand il reste
+  // du contenu complet avant elle.
+  it('aucun fragment de ligne orphelin quand du contenu complet précède', () => {
+    const texte = composerInformationsSupplementaires(
+      { ...LIEU_COMPLET, acces_details: 'Quai n°2 ' + 'd'.repeat(900) },
+      null,
+      null,
+    )!;
+
+    const lignes = texte.split('\n');
+    expect(lignes[lignes.length - 1]).toBe(MARQUEUR);
+    // Chaque ligne conservée après la première est complète.
+    for (const ligne of lignes.slice(1, -1)) {
+      expect([
+        'Stationnement : difficile',
+        'Contraintes horaires : Livraison avant 9h uniquement',
+        'Accès office : très difficile',
+        'Véhicule max : camionnette',
+        'Flux acceptés : biodéchets, carton',
+      ]).toContain(ligne);
+    }
   });
 
   // Réserve levée en revue sécurité : une ligne prioritaire trop longue faisait
@@ -199,46 +309,122 @@ describe('infos-acces / composition du champ libre', () => {
 
     expect(texte.length).toBeLessThanOrEqual(LIMITE_INFOS_SUPPLEMENTAIRES);
     expect(texte.startsWith('Accès : Quai n°2 ddd')).toBe(true);
-    expect(texte).not.toBe('(…)');
-    expect(texte.endsWith('(…)')).toBe(true);
+    expect(texte).not.toBe(MARQUEUR);
+    expect(texte.endsWith(MARQUEUR)).toBe(true);
   });
 
-  // Réserve levée en revue sécurité : quand la saisie du traiteur occupait tout
-  // le budget, le marqueur se faisait manger par la coupe finale — la
-  // troncature redevenait invisible dans le cas même qu'il devait couvrir.
-  it('le marqueur survit quand la saisie du traiteur occupe tout le budget', () => {
+  // Variante avec séparateur : l'en-tête ne doit pas consommer la seule place
+  // disponible et laisser « — Infos Savr — » suivi du seul marqueur.
+  it('…y compris sous le séparateur, quand une note précède', () => {
     const texte = composerInformationsSupplementaires(
-      LIEU_COMPLET,
-      'y'.repeat(LIMITE_INFOS_SUPPLEMENTAIRES - 1),
+      { ...LIEU_NU, acces_details: 'Quai n°2 ' + 'd'.repeat(1200) },
+      'RAS',
       null,
     )!;
 
     expect(texte.length).toBeLessThanOrEqual(LIMITE_INFOS_SUPPLEMENTAIRES);
-    expect(texte.endsWith('(…)')).toBe(true);
+    expect(texte.split('\n')).toEqual([
+      'RAS',
+      SEPARATEUR,
+      expect.stringMatching(/^Accès : Quai n°2 ddd/),
+      MARQUEUR,
+    ]);
   });
 
-  // Une coupe ne doit pas laisser de bout de ligne pendouillant quand il reste
-  // du contenu complet avant elle.
-  it('aucun fragment de ligne orphelin quand du contenu complet précède', () => {
+  it('une saisie traiteur déjà hors borne est coupée net, sans dépassement', () => {
     const texte = composerInformationsSupplementaires(
       LIEU_COMPLET,
-      'y'.repeat(LIMITE_INFOS_SUPPLEMENTAIRES - 200),
+      'z'.repeat(LIMITE_INFOS_SUPPLEMENTAIRES + 500),
       null,
+    );
+    expect(texte!.length).toBeLessThanOrEqual(LIMITE_INFOS_SUPPLEMENTAIRES);
+  });
+
+  // ─── Coupe sur une frontière de point de code ─────────────────────────────
+  // Relevé en revue : la troncature scindait une paire de surrogates (40 cas
+  // atteignables), produisant un demi-surrogate orphelin — exactement ce que la
+  // validation d'entrée de #322 refuse en amont. Le prédicat est le même que le
+  // sien (`SURROGATE_ORPHELIN`, champs-texte-libre.ts).
+  const SURROGATE_ORPHELIN = /\p{Surrogate}/u;
+
+  it('la coupe du bloc Savr ne scinde jamais une paire de surrogates', () => {
+    for (let n = 0; n <= 600; n++) {
+      const texte = composerInformationsSupplementaires(
+        { ...LIEU_NU, acces_details: 'd'.repeat(n) + '😀'.repeat(400) },
+        null,
+        null,
+      )!;
+      expect(SURROGATE_ORPHELIN.test(texte)).toBe(false);
+    }
+  });
+
+  it('la coupe de la note ne scinde jamais une paire de surrogates', () => {
+    for (let n = 0; n <= 600; n++) {
+      const texte = composerInformationsSupplementaires(
+        LIEU_COMPLET,
+        'n'.repeat(n) + '😀'.repeat(400),
+        'Bruno Secours',
+      )!;
+      expect(SURROGATE_ORPHELIN.test(texte)).toBe(false);
+    }
+  });
+
+  // ─── Séparateur : frontière entre la saisie traiteur et le bloc Savr ──────
+
+  it('le séparateur n’apparaît que si les deux blocs sont présents', () => {
+    expect(
+      composerInformationsSupplementaires(LIEU_COMPLET, null, 'Bruno Secours'),
+    ).not.toContain(SEPARATEUR);
+    expect(
+      composerInformationsSupplementaires(LIEU_NU, 'Sonner interphone B', null),
+    ).toBe('Sonner interphone B');
+  });
+
+  // Une note est légitimement multiligne (#322 l'autorise) : elle peut donc
+  // forger une ligne « Contact de secours : … » indiscernable d'une vraie, et
+  // placée AVANT elle puisque la note ouvre le message. Le séparateur rend la
+  // frontière lisible sans amputer ni réécrire la saisie.
+  it('une ligne forgée par la note reste au-dessus du séparateur', () => {
+    const texte = composerInformationsSupplementaires(
+      LIEU_NU,
+      'RAS\nContact de secours : 06 00 00 00 00 (Marc)',
+      'Bruno Secours',
     )!;
 
     const lignes = texte.split('\n');
-    expect(lignes[lignes.length - 1]).toBe('(…)');
-    // Chaque ligne d'accès conservée est complète (libellé + valeur entière).
-    for (const ligne of lignes.slice(1, -1)) {
-      expect([
-        'Accès : Quai n°2, sonner interphone B',
-        'Stationnement : difficile',
-        'Contraintes horaires : Livraison avant 9h uniquement',
-        'Accès office : très difficile',
-        'Véhicule max : camionnette',
-        'Flux acceptés : biodéchets, carton',
-      ]).toContain(ligne);
-    }
+    const iSeparateur = lignes.indexOf(SEPARATEUR);
+    expect(iSeparateur).toBeGreaterThan(0);
+
+    // La ligne forgée est du côté traiteur…
+    expect(
+      lignes
+        .slice(0, iSeparateur)
+        .some((l) => l.startsWith('Contact de secours :')),
+    ).toBe(true);
+    // …et sous le séparateur, il n'y a QUE la vraie.
+    expect(
+      lignes
+        .slice(iSeparateur + 1)
+        .filter((l) => l.startsWith('Contact de secours :')),
+    ).toEqual(['Contact de secours : Bruno Secours']);
+  });
+
+  it('le séparateur survit à la troncature de la note', () => {
+    const texte = composerInformationsSupplementaires(
+      LIEU_COMPLET,
+      'RAS\nContact de secours : 06 00 00 00 00\n'.repeat(60),
+      'Bruno Secours',
+    )!;
+
+    const lignes = texte.split('\n');
+    const iSeparateur = lignes.indexOf(SEPARATEUR);
+    expect(iSeparateur).toBeGreaterThan(0);
+    expect(lignes[iSeparateur - 1]).toBe(MARQUEUR);
+    expect(
+      lignes
+        .slice(iSeparateur + 1)
+        .filter((l) => l.startsWith('Contact de secours :')),
+    ).toEqual(['Contact de secours : Bruno Secours']);
   });
 
   // ─── Nom du contact de secours (arbitrage Val 2026-09-14) ─────────────────
@@ -268,7 +454,7 @@ describe('infos-acces / composition du champ libre', () => {
     expect(composerInformationsSupplementaires(LIEU_NU, null, '')).toBeNull();
   });
 
-  it('il précède les informations d’accès — il est lu en premier', () => {
+  it('il ouvre le bloc Savr — il est lu avant les informations d’accès', () => {
     const texte = composerInformationsSupplementaires(
       LIEU_COMPLET,
       'Demander Karim à la plonge',
@@ -276,33 +462,35 @@ describe('infos-acces / composition du champ libre', () => {
     )!;
 
     const lignes = texte.split('\n');
-    // La saisie du traiteur garde la tête, le secours ouvre l'agrégat.
+    // La saisie du traiteur garde la tête, le séparateur ouvre le bloc Savr,
+    // le secours ouvre le bloc.
     expect(lignes[0]).toBe('Demander Karim à la plonge');
-    expect(lignes[1]).toBe('Contact de secours : Bruno Secours');
-    expect(lignes[2]).toBe('Accès : Quai n°2, sonner interphone B');
+    expect(lignes[1]).toBe(SEPARATEUR);
+    expect(lignes[2]).toBe('Contact de secours : Bruno Secours');
+    expect(lignes[3]).toBe('Accès : Quai n°2, sonner interphone B');
   });
 
   // Le nom est la seule ligne dont l'absence rend inexploitable une donnée par
   // ailleurs transmise nativement (le téléphone, en `phoneAlternatives`) : le
   // perdre à la troncature reproduirait exactement le défaut visé par
-  // l'arbitrage. Il doit donc survivre là où les lignes d'accès tombent.
-  it('il survit à la troncature qui emporte les lignes d’accès', () => {
+  // l'arbitrage. Il doit donc survivre à toute note, et aux lignes d'accès.
+  it('il survit à la troncature, y compris quand les lignes d’accès tombent', () => {
     const texte = composerInformationsSupplementaires(
-      LIEU_COMPLET,
-      'y'.repeat(LIMITE_INFOS_SUPPLEMENTAIRES - 60),
+      { ...LIEU_COMPLET, acces_details: 'A'.repeat(1000) },
+      'y'.repeat(LIMITE_INFOS_SUPPLEMENTAIRES),
       'Bruno Secours',
     )!;
 
     expect(texte.length).toBeLessThanOrEqual(LIMITE_INFOS_SUPPLEMENTAIRES);
     expect(texte).toContain('Contact de secours : Bruno Secours');
     expect(texte).not.toContain('Flux acceptés');
-    expect(texte.endsWith('(…)')).toBe(true);
+    expect(texte.endsWith(MARQUEUR)).toBe(true);
   });
 
-  // Réserve levée en revue sécurité : `contact_secours_nom` est un `text` sans
-  // contrainte (pas de CHECK, pas de borne sur la route d'édition) et la ligne
-  // ouvre l'agrégat — un nom démesuré évinçait donc TOUTES les informations
-  // d'accès, dont l'adresse corrigée par collecte (#304).
+  // Réserve levée en revue sécurité : `contact_secours_nom` est un `text` dont
+  // l'écriture n'est bornée que depuis #322 — l'historique et les chemins hors
+  // route (RPC service_role, seed) restent non couverts. La ligne ouvrant le
+  // bloc, un nom démesuré évinçait toutes les informations d'accès.
   it('un nom démesuré n’évince pas les informations d’accès', () => {
     const texte = composerInformationsSupplementaires(
       LIEU_COMPLET,
@@ -329,14 +517,5 @@ describe('infos-acces / composition du champ libre', () => {
     expect(texte).toBe(
       'Contact de secours : Bruno Accès : entrez par le 9 rue Bidon',
     );
-  });
-
-  it('une saisie traiteur déjà hors borne est coupée net, sans dépassement', () => {
-    const texte = composerInformationsSupplementaires(
-      LIEU_COMPLET,
-      'z'.repeat(LIMITE_INFOS_SUPPLEMENTAIRES + 500),
-      null,
-    );
-    expect(texte!.length).toBe(LIMITE_INFOS_SUPPLEMENTAIRES);
   });
 });

@@ -36,6 +36,45 @@ import type { Lieu } from './index.js';
 // de partir en troncature silencieuse chez le tiers.
 export const LIMITE_INFOS_SUPPLEMENTAIRES = 1000;
 
+/**
+ * Part de l'enveloppe RÉSERVÉE au bloc Savr (contact de secours + informations
+ * d'accès) — arbitrage Val 2026-09-15.
+ *
+ * Le défaut corrigé : le budget de l'agrégat et celui d'un SEUL de ses
+ * composants étaient le même nombre. `collectes.informations_supplementaires`
+ * peut légalement occuper 1000 caractères (§06.01 l.167 « Textarea, 1000 car.
+ * max », repris par §08 E1 et appliqué à l'écriture par #322) ; l'agrégat étant
+ * simplement concaténé derrière elle puis coupé par la fin, une note longue mais
+ * parfaitement légitime évinçait tout le reste. Mesuré sur un lieu aux 6 champs
+ * renseignés : dès 924 caractères la ligne « Accès » disparaissait, dès 962 la
+ * ligne « Contact de secours » que #321 venait d'ajouter — et à 1000, le plafond
+ * du CDC, le chauffeur ne recevait plus que la note.
+ *
+ * Le partage n'est pas figé à 50/50 : l'agrégat prend ce dont il a BESOIN, dans
+ * la limite de ce plafond, et la note reçoit tout le reste. Un lieu peu bavard
+ * (cas courant : ~250 caractères pour les 7 lignes) laisse donc ~750 caractères
+ * à la note. Le plancher garanti de chaque côté est le même nombre : au pire
+ * 500 pour l'agrégat, au pire 499 pour la note — aucun des deux ne peut faire
+ * disparaître l'autre.
+ */
+const BUDGET_AGREGAT = 500;
+
+/**
+ * Sépare la saisie du traiteur du bloc composé par Savr.
+ *
+ * `informations_supplementaires` est légitimement multiligne (`<textarea>`, #322
+ * l'autorise explicitement) : sans frontière, une note peut FORGER une ligne
+ * « Contact de secours : 06 00 00 00 00 » indiscernable d'une vraie — et placée
+ * AVANT elle, puisque la note ouvre le message (démontré en revue). Le
+ * séparateur rend la frontière lisible pour le chauffeur sans amputer ni
+ * réécrire la saisie : ce qui est au-dessus vient du traiteur, ce qui est en
+ * dessous vient de la fiche (arbitrage Val 2026-09-15).
+ *
+ * Il n'est émis que lorsque les DEUX blocs sont présents : sans note, il n'y a
+ * pas de frontière à marquer, et une ligne d'en-tête isolée serait du bruit.
+ */
+const SEPARATEUR_AGREGAT = '— Infos Savr —';
+
 // Marqueur de troncature : le chauffeur doit pouvoir voir qu'il manque quelque
 // chose (le reste est sur la fiche collecte), au lieu d'une coupe invisible.
 const MARQUEUR_TRONQUE = '(…)';
@@ -78,11 +117,33 @@ function libelle(valeur: unknown, table: Record<string, string>): string {
   return table[brut] ?? brut;
 }
 
-// Borne du nom de secours. `evenements.contact_secours_nom` est un `text` SANS
-// contrainte (ni CHECK en base, ni borne de longueur sur la route d'édition) :
-// sans ce plafond, un nom démesuré évincerait à lui seul TOUTES les informations
-// d'accès qui le suivent — y compris l'adresse corrigée de #304 — puisqu'il ouvre
-// l'agrégat. 120 caractères couvrent très largement un nom de personne.
+/**
+ * Coupe à `max` unités UTF-16 SANS scinder une paire de surrogates.
+ *
+ * `slice` raisonne en unités de code : couper au milieu d'un emoji laisse un
+ * demi-surrogate orphelin (40 cas atteignables mesurés en revue). C'est
+ * exactement ce que la validation d'entrée de #322 refuse en amont — la sortie
+ * ne doit pas le fabriquer en aval. Un demi-surrogate BAS en fin de coupe est
+ * légitime : sa moitié haute est juste avant, la paire est entière ; seule une
+ * moitié HAUTE finale signale une paire scindée, et c'est elle qu'on retire.
+ */
+function couper(valeur: string, max: number): string {
+  if (max <= 0) return '';
+  if (valeur.length <= max) return valeur;
+  const coupe = valeur.slice(0, max);
+  const derniere = coupe.charCodeAt(coupe.length - 1);
+  return derniere >= 0xd800 && derniere <= 0xdbff ? coupe.slice(0, -1) : coupe;
+}
+
+// Borne du nom de secours. `evenements.contact_secours_nom` est un `text` dont
+// l'écriture est bornée depuis #322 (route + CHECK), mais l'historique et tout
+// chemin d'écriture hors route (RPC service_role, seed, script) restent non
+// couverts : sans ce plafond, un nom démesuré évincerait à lui seul les
+// informations d'accès qui le suivent dans le bloc Savr — y compris l'adresse
+// corrigée de #304. 120 caractères couvrent très largement un nom de personne,
+// et c'est exactement la borne d'entrée `BORNES_TEXTE_LIBRE.contact_secours_nom`
+// (packages/plateforme/src/lib/champs-texte-libre.ts) : un nom accepté à la
+// saisie n'est donc jamais tronqué ici.
 const LIMITE_NOM_SECOURS = 120;
 
 /**
@@ -93,7 +154,7 @@ const LIMITE_NOM_SECOURS = 120;
 function nomContact(valeur: unknown): string {
   const brut = texte(valeur).replace(/\s+/g, ' ');
   if (brut.length <= LIMITE_NOM_SECOURS) return brut;
-  return `${brut.slice(0, LIMITE_NOM_SECOURS - 1).trimEnd()}…`;
+  return `${couper(brut, LIMITE_NOM_SECOURS - 1).trimEnd()}…`;
 }
 
 /** `flux_autorises` = `text[]` en base → liste lisible ; entrées non-chaînes écartées. */
@@ -106,10 +167,10 @@ function liste(valeur: unknown): string {
 }
 
 /**
- * Lignes du canal libre, DANS L'ORDRE DE PRIORITÉ (= ordre de lecture, et ordre
- * inverse d'abandon en cas de troncature) : contact de secours > détails d'accès
- * > stationnement > horaires > reste. Un champ vide n'émet aucune ligne — jamais
- * de « Stationnement : » orphelin.
+ * Lignes du bloc Savr, DANS L'ORDRE DE PRIORITÉ (= ordre de lecture, et ordre
+ * inverse d'abandon si le bloc lui-même doit être tronqué) : contact de secours
+ * > détails d'accès > stationnement > horaires > reste. Un champ vide n'émet
+ * aucune ligne — jamais de « Stationnement : » orphelin.
  *
  * Le contact de secours passe EN TÊTE : c'est la seule ligne dont l'absence rend
  * inexploitable une donnée par ailleurs transmise nativement (le téléphone de
@@ -137,15 +198,74 @@ function lignesCanalLibre(
 }
 
 /**
+ * Note du traiteur ramenée dans son budget, marqueur compris.
+ *
+ * C'est le contenu amputé EN PREMIER (arbitrage Val 2026-09-15) : c'est le seul
+ * des deux blocs dont l'amputation ne rend inexploitable aucune donnée par
+ * ailleurs transmise — le téléphone de secours part nativement en
+ * `phoneAlternatives`, et les corrections d'accès saisies par collecte (#304)
+ * n'ont pas d'autre chemin que ce message.
+ */
+function couperNote(note: string, budget: number): string {
+  if (note.length <= budget) return note;
+  const corps = couper(note, budget - MARQUEUR_TRONQUE.length - 1).trimEnd();
+  return corps ? `${corps}\n${MARQUEUR_TRONQUE}` : MARQUEUR_TRONQUE;
+}
+
+/**
+ * Bloc Savr ramené dans son budget : on abandonne les lignes ENTIÈRES par la
+ * fin, `lignes` étant ordonné par priorité.
+ *
+ * Une ligne prioritaire trop longue à elle seule est servie AMPUTÉE plutôt
+ * qu'escamotée : mieux vaut le début des détails d'accès que le seul marqueur.
+ * L'en-tête ne compte pas comme une ligne de contenu — sinon un `acces_details`
+ * démesuré produirait un séparateur suivi du seul marqueur, c'est-à-dire
+ * l'escamotage que la règle précédente interdit.
+ *
+ * `budget` vaut toujours au moins `min(taille du bloc, BUDGET_AGREGAT)` : quand
+ * la coupe est nécessaire il est donc ≥ 500, et `dispo` reste largement positif.
+ */
+function assemblerAgregat(
+  entete: string,
+  lignes: string[],
+  budget: number,
+): string {
+  const complet = (entete ? [entete, ...lignes] : lignes).join('\n');
+  if (complet.length <= budget) return complet;
+
+  const prefixe = entete ? `${entete}\n` : '';
+  const dispo = budget - prefixe.length - MARQUEUR_TRONQUE.length - 1; /* \n */
+
+  const gardees: string[] = [];
+  let taille = 0;
+  for (const ligne of lignes) {
+    const cout = (gardees.length > 0 ? 1 : 0) + ligne.length; /* \n + ligne */
+    if (taille + cout > dispo) break;
+    gardees.push(ligne);
+    taille += cout;
+  }
+
+  const corps =
+    gardees.length > 0 ? gardees.join('\n') : couper(lignes[0] ?? '', dispo);
+  return corps
+    ? `${prefixe}${corps}\n${MARQUEUR_TRONQUE}`
+    : `${prefixe}${MARQUEUR_TRONQUE}`;
+}
+
+/**
  * Compose le champ libre transmis au transporteur : les informations
- * supplémentaires saisies par le traiteur, PUIS le nom du contact de secours et
- * les informations d'accès du lieu (une par ligne).
+ * supplémentaires saisies par le traiteur, PUIS — sous un séparateur — le nom du
+ * contact de secours et les informations d'accès du lieu (une par ligne).
+ *
+ * Les deux blocs se partagent l'enveloppe de {@link LIMITE_INFOS_SUPPLEMENTAIRES}
+ * sans pouvoir s'évincer : le bloc Savr est servi le premier, dans la limite de
+ * {@link BUDGET_AGREGAT}, et la note prend tout le reste. La note est donc le
+ * contenu amputé en premier, et la coupe est signalée de chaque côté.
  *
  * @param lieu Lieu **FUSIONNÉ** (sortie de `applyLieuOverrides`), jamais le lieu
  *   officiel : les corrections saisies par collecte sont précisément ce qui doit
  *   atteindre le chauffeur (PROG-01/PROG-03, #304).
- * @param informationsSupplementaires Saisie du traiteur. Elle est PRÉSERVÉE et
- *   placée en tête — l'agrégat s'y ajoute, il ne la remplace pas.
+ * @param informationsSupplementaires Saisie du traiteur, placée en tête.
  * @param contactSecoursNom `evenements.contact_secours_nom`. Paramètre
  *   **obligatoire** (quitte à passer `null`) : le défaut corrigé ici est
  *   précisément une donnée portée jusqu'au worker que personne ne lisait — un
@@ -164,26 +284,27 @@ export function composerInformationsSupplementaires(
 
   if (!base && lignes.length === 0) return null;
 
-  const complet = [base, ...lignes].filter(Boolean).join('\n');
-  if (complet.length <= LIMITE_INFOS_SUPPLEMENTAIRES) return complet;
-
-  // Au-delà de la borne, on coupe par la FIN : `lignes` est ordonné par
-  // priorité, donc couper la queue revient à abandonner le moins important.
-  // Le budget réservé au marqueur garantit qu'il survit à la coupe — le cas que
-  // le marqueur doit couvrir est précisément celui où la place manque.
-  const budget =
-    LIMITE_INFOS_SUPPLEMENTAIRES - MARQUEUR_TRONQUE.length - 1; /* \n */
-  let coupe = complet.slice(0, budget);
-
-  // Si la coupe tombe en plein milieu d'une ligne, on retire le fragment : un
-  // « Stationnement : dif » orphelin est du bruit. SAUF s'il ne reste rien
-  // d'autre — une ligne prioritaire trop longue à elle seule doit être servie
-  // amputée plutôt qu'escamotée : mieux vaut le début des détails d'accès que
-  // le seul marqueur.
-  if (complet[coupe.length] !== '\n') {
-    const dernierSaut = coupe.lastIndexOf('\n');
-    if (dernierSaut > 0) coupe = coupe.slice(0, dernierSaut);
+  // Un seul bloc : il dispose de toute l'enveloppe, et aucune frontière n'est à
+  // marquer.
+  if (lignes.length === 0) {
+    return couperNote(base, LIMITE_INFOS_SUPPLEMENTAIRES);
+  }
+  if (!base) {
+    return assemblerAgregat('', lignes, LIMITE_INFOS_SUPPLEMENTAIRES);
   }
 
-  return `${coupe}\n${MARQUEUR_TRONQUE}`;
+  const tailleAgregat = [SEPARATEUR_AGREGAT, ...lignes].join('\n').length;
+  const reserve = Math.min(tailleAgregat, BUDGET_AGREGAT);
+
+  const note = couperNote(
+    base,
+    LIMITE_INFOS_SUPPLEMENTAIRES - reserve - 1 /* \n */,
+  );
+  const agregat = assemblerAgregat(
+    SEPARATEUR_AGREGAT,
+    lignes,
+    LIMITE_INFOS_SUPPLEMENTAIRES - note.length - 1 /* \n */,
+  );
+
+  return `${note}\n${agregat}`;
 }

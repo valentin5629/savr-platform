@@ -52,19 +52,35 @@ INSERT INTO plateforme.evenements (
 -- régression) · cc3 en_cours dispatchée AG (pax → E2 + volume) · cc4 en_cours NON
 -- dispatchée (aucune commande) · cc5 cloturee dispatchée (terminal exclu) ·
 -- cc6 en_cours dispatchée (champ non-TMS).
-INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte) VALUES
-  ('c22c0000-0000-0000-0000-0000000000c1'::uuid, 'c22c0000-0000-0000-0000-0000000000e1'::uuid, 'zero_dechet', 'en_cours',   'acceptee',   current_date + 10, '08:00'),
-  ('c22c0000-0000-0000-0000-0000000000c2'::uuid, 'c22c0000-0000-0000-0000-0000000000e2'::uuid, 'zero_dechet', 'programmee', 'acceptee',   current_date + 10, '08:00'),
-  ('c22c0000-0000-0000-0000-0000000000c3'::uuid, 'c22c0000-0000-0000-0000-0000000000e3'::uuid, 'anti_gaspi', 'en_cours',   'acceptee',   current_date + 10, '08:00'),
-  ('c22c0000-0000-0000-0000-0000000000c4'::uuid, 'c22c0000-0000-0000-0000-0000000000e4'::uuid, 'zero_dechet', 'en_cours',   'non_envoye', current_date + 10, '08:00'),
-  ('c22c0000-0000-0000-0000-0000000000c5'::uuid, 'c22c0000-0000-0000-0000-0000000000e5'::uuid, 'zero_dechet', 'cloturee',   'acceptee',   current_date + 10, '08:00'),
-  ('c22c0000-0000-0000-0000-0000000000c6'::uuid, 'c22c0000-0000-0000-0000-0000000000e6'::uuid, 'zero_dechet', 'en_cours',   'acceptee',   current_date + 10, '08:00');
+INSERT INTO shared.prestataires (id, nom, code, type_prestation, mode_integration, statut) VALUES
+  ('c22c0000-0000-0000-0000-0000000000d0'::uuid, 'Presta R22c', 'R22C', ARRAY['zd','ag'], 'manuel', 'actif');
+
+-- `prestataire_logistique_id` renseigne comme en production (fn_dispatcher_collecte
+-- le pose) : depuis le 2026-09-15, le gate E2 compare le `type_tms` du prestataire
+-- de la collecte a celui du prestataire de la tournee. Une collecte sans
+-- prestataire n'est « commandee » nulle part.
+INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, prestataire_logistique_id) VALUES
+  ('c22c0000-0000-0000-0000-0000000000c1'::uuid, 'c22c0000-0000-0000-0000-0000000000e1'::uuid, 'zero_dechet', 'en_cours',   'acceptee',   current_date + 10, '08:00', 'c22c0000-0000-0000-0000-0000000000d0'::uuid),
+  ('c22c0000-0000-0000-0000-0000000000c2'::uuid, 'c22c0000-0000-0000-0000-0000000000e2'::uuid, 'zero_dechet', 'programmee', 'acceptee',   current_date + 10, '08:00', 'c22c0000-0000-0000-0000-0000000000d0'::uuid),
+  ('c22c0000-0000-0000-0000-0000000000c3'::uuid, 'c22c0000-0000-0000-0000-0000000000e3'::uuid, 'anti_gaspi', 'en_cours',   'acceptee',   current_date + 10, '08:00', 'c22c0000-0000-0000-0000-0000000000d0'::uuid),
+  ('c22c0000-0000-0000-0000-0000000000c4'::uuid, 'c22c0000-0000-0000-0000-0000000000e4'::uuid, 'zero_dechet', 'en_cours',   'non_envoye', current_date + 10, '08:00', 'c22c0000-0000-0000-0000-0000000000d0'::uuid),
+  ('c22c0000-0000-0000-0000-0000000000c5'::uuid, 'c22c0000-0000-0000-0000-0000000000e5'::uuid, 'zero_dechet', 'cloturee',   'acceptee',   current_date + 10, '08:00', 'c22c0000-0000-0000-0000-0000000000d0'::uuid),
+  ('c22c0000-0000-0000-0000-0000000000c6'::uuid, 'c22c0000-0000-0000-0000-0000000000e6'::uuid, 'zero_dechet', 'en_cours',   'acceptee',   current_date + 10, '08:00', 'c22c0000-0000-0000-0000-0000000000d0'::uuid);
 
 -- « Dispatchée » = une commande existe chez le prestataire, soit une tournée avec
 -- `external_ref_commande` liée par `collecte_tournees` (état que l'adapter écrit).
 -- cc4 n'en a AUCUNE → c'est elle, et elle seule, qui reste hors du gate (cas R22c-5).
-INSERT INTO shared.prestataires (id, nom, code, type_prestation, mode_integration, statut) VALUES
-  ('c22c0000-0000-0000-0000-0000000000d0'::uuid, 'Presta R22c', 'R22C', ARRAY['zd','ag'], 'manuel', 'actif');
+-- Le prestataire porte son transporteur : c'est `transporteurs.type_tms` qui
+-- tranche le provider d'une tournee (cf. fn_collecte_commandee_chez_provider).
+INSERT INTO plateforme.transporteurs
+  (id, nom, siren, adresse, code_postal, ville, types_vehicules, type_tms,
+   contact_nom, contact_email, contact_telephone, prestataire_logistique_id,
+   code_transporteur_mts1)
+VALUES
+  ('c22c0000-0000-0000-0000-0000000000b0'::uuid, 'Transporteur R22c', '920000001',
+   '1 rue', '75001', 'Paris', ARRAY['fourgon'], 'mts1',
+   'C', 'r22c@example.invalid', '+33600000000',
+   'c22c0000-0000-0000-0000-0000000000d0'::uuid, 'R22C-CODE');
 
 INSERT INTO plateforme.tournees (id, reference_interne, date_tournee, creneau, prestataire_logistique_id, statut, external_ref_commande)
 SELECT ('c22c0000-0000-0000-0000-0000000000' || n)::uuid, 'R22C-TOUR-' || n, current_date + 10, 'nuit',

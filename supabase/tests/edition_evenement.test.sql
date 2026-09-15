@@ -76,22 +76,37 @@ INSERT INTO plateforme.evenements (
   ('0e000000-0000-0000-0000-0000000000f1'::uuid, 'a1110000-0000-0000-0000-000000000001'::uuid, '1ae00000-0000-0000-0000-000000000001'::uuid, 'a1110000-0000-0000-0000-000000000001'::uuid, 'eeff0000-0000-0000-0000-00000000000a'::uuid, '05e70000-0000-0000-0000-00000000000a'::uuid, '07e00000-0000-0000-0000-000000000001'::uuid, current_date + 10, 100, 'Fred', '0606', 'orig-DISP'),
   ('0e000000-0000-0000-0000-0000000000f2'::uuid, 'a1110000-0000-0000-0000-000000000001'::uuid, '1ae00000-0000-0000-0000-000000000001'::uuid, 'a1110000-0000-0000-0000-000000000001'::uuid, 'eeff0000-0000-0000-0000-00000000000a'::uuid, '05e70000-0000-0000-0000-00000000000a'::uuid, '07e00000-0000-0000-0000-000000000001'::uuid, current_date + 10, 100, 'Gail', '0607', 'orig-NODISP');
 
-INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, tms_reference) VALUES
-  ('cc000000-0000-0000-0000-0000000000a1'::uuid, '0e000000-0000-0000-0000-0000000000a1'::uuid, 'zero_dechet', 'programmee', 'non_envoye', current_date + 10, '08:00', NULL),
-  ('cc000000-0000-0000-0000-0000000000c1'::uuid, '0e000000-0000-0000-0000-0000000000c1'::uuid, 'zero_dechet', 'programmee', 'non_envoye', current_date + 10, '08:00', NULL),
-  ('cc000000-0000-0000-0000-0000000000d1'::uuid, '0e000000-0000-0000-0000-0000000000d1'::uuid, 'zero_dechet', 'programmee', 'non_envoye', current_date + 10, '08:00', NULL),
-  ('cc000000-0000-0000-0000-0000000000e1'::uuid, '0e000000-0000-0000-0000-0000000000e1'::uuid, 'zero_dechet', 'en_cours', 'acceptee', current_date + 10, '08:00', NULL),
-  ('cc000000-0000-0000-0000-0000000000f1'::uuid, '0e000000-0000-0000-0000-0000000000f1'::uuid, 'anti_gaspi', 'validee', 'acceptee', current_date + 10, '08:00', NULL),
-  ('cc000000-0000-0000-0000-0000000000f2'::uuid, '0e000000-0000-0000-0000-0000000000f2'::uuid, 'anti_gaspi', 'validee', 'acceptee', current_date + 10, '08:00', NULL);
+-- Le prestataire et son transporteur sont poses AVANT les collectes : depuis le
+-- 2026-09-15, le gate E2 compare le `type_tms` du prestataire porte par la
+-- collecte a celui du prestataire de la tournee (`external_ref_commande` etant
+-- partagee entre providers). Une collecte dispatchee porte donc toujours son
+-- prestataire, comme le fait `fn_dispatcher_collecte` en production.
+INSERT INTO shared.prestataires (id, nom, code, type_prestation, mode_integration, statut) VALUES
+  ('cc000000-0000-0000-0000-0000000000d0'::uuid, 'Presta EditionEvt', 'EDITEVT', ARRAY['zd','ag'], 'manuel', 'actif');
+
+INSERT INTO plateforme.transporteurs
+  (id, nom, siren, adresse, code_postal, ville, types_vehicules, type_tms,
+   contact_nom, contact_email, contact_telephone, prestataire_logistique_id,
+   code_transporteur_mts1)
+VALUES
+  ('cc000000-0000-0000-0000-0000000000b0'::uuid, 'Transporteur EditionEvt', '930000001',
+   '1 rue', '75001', 'Paris', ARRAY['fourgon'], 'mts1',
+   'C', 'editevt@example.invalid', '+33600000000',
+   'cc000000-0000-0000-0000-0000000000d0'::uuid, 'EDITEVT-CODE');
+
+INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, tms_reference, prestataire_logistique_id) VALUES
+  ('cc000000-0000-0000-0000-0000000000a1'::uuid, '0e000000-0000-0000-0000-0000000000a1'::uuid, 'zero_dechet', 'programmee', 'non_envoye', current_date + 10, '08:00', NULL, NULL),
+  ('cc000000-0000-0000-0000-0000000000c1'::uuid, '0e000000-0000-0000-0000-0000000000c1'::uuid, 'zero_dechet', 'programmee', 'non_envoye', current_date + 10, '08:00', NULL, NULL),
+  ('cc000000-0000-0000-0000-0000000000d1'::uuid, '0e000000-0000-0000-0000-0000000000d1'::uuid, 'zero_dechet', 'programmee', 'non_envoye', current_date + 10, '08:00', NULL, NULL),
+  ('cc000000-0000-0000-0000-0000000000e1'::uuid, '0e000000-0000-0000-0000-0000000000e1'::uuid, 'zero_dechet', 'en_cours', 'acceptee', current_date + 10, '08:00', NULL, NULL),
+  ('cc000000-0000-0000-0000-0000000000f1'::uuid, '0e000000-0000-0000-0000-0000000000f1'::uuid, 'anti_gaspi', 'validee', 'acceptee', current_date + 10, '08:00', NULL, 'cc000000-0000-0000-0000-0000000000d0'::uuid),
+  ('cc000000-0000-0000-0000-0000000000f2'::uuid, '0e000000-0000-0000-0000-0000000000f2'::uuid, 'anti_gaspi', 'validee', 'acceptee', current_date + 10, '08:00', NULL, 'cc000000-0000-0000-0000-0000000000d0'::uuid);
 
 -- « Dispatchée » (cas T14/T16) = une commande existe chez le prestataire, soit une
 -- tournée avec `external_ref_commande` liée par `collecte_tournees` — l'état que
 -- l'adapter écrit réellement. Depuis le 2026-09-15, c'est ce que lit le gate E2 ;
 -- `collectes.tms_reference` (ex-fixture 'MTS-DISP-1') n'est écrite par aucun code de
 -- production et ne gate plus rien. cc..f2 reste sans commande → c'est le cas T17.
-INSERT INTO shared.prestataires (id, nom, code, type_prestation, mode_integration, statut) VALUES
-  ('cc000000-0000-0000-0000-0000000000d0'::uuid, 'Presta EditionEvt', 'EDITEVT', ARRAY['zd','ag'], 'manuel', 'actif');
-
 INSERT INTO plateforme.tournees (id, reference_interne, date_tournee, creneau, prestataire_logistique_id, statut, external_ref_commande) VALUES
   ('cc000000-0000-0000-0000-0000000000a5'::uuid, 'EDITEVT-TOUR-F1', current_date + 10, 'nuit', 'cc000000-0000-0000-0000-0000000000d0'::uuid, 'en_cours', 'CMD-EDITEVT-F1');
 

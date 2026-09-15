@@ -181,3 +181,18 @@ supabase/tests/SECU__transporteur_presta_unique.test.sql
 # 'customerOrders' reste banni.
 supabase/migrations/20260915180000_plateforme_cloisonnement_provider_invariants.sql
 supabase/tests/SECU__cloisonnement_provider_invariants.test.sql
+# Fixtures pgTAP du gate E2 (2026-09-15) — 'mts1'/'a_toutes' = valeurs de l'enum
+# transporteurs.type_tms dans des INSERT de fixtures. Depuis que le gate compare le
+# type_tms du prestataire de la collecte a celui du prestataire de la tournee, ces
+# fixtures doivent poser le transporteur (sinon la collecte n'est « commandee » chez
+# aucun provider et les cas E2 passeraient au vert pour la mauvaise raison). Aucune
+# logique adapter, aucun appel HTTP. 'customerOrders' reste banni.
+supabase/tests/e2_gate_commande_provider.test.sql
+supabase/tests/edition_evenement.test.sql
+supabase/tests/r22c_evenement_e2_en_cours.test.sql
+# supabase/migrations/20260915200000_* (gate E2 provider-aware) — 'everest' apparait
+# dans le commentaire qui explique pourquoi le gate seul peut rattraper un mauvais
+# type d'event chez ce provider ; 'mts1' est la valeur de l'enum type_tms dans le
+# transporteur du harnais pgTAP `tests.outbox_fixture_collecte`. Aucune logique
+# adapter, aucun appel HTTP. 'customerOrders' reste banni.
+supabase/migrations/20260915200000_plateforme_gate_e2_dimension_provider.sql

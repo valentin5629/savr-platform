@@ -110,7 +110,7 @@ UPDATE plateforme.transporteurs
   SET prestataire_logistique_id = 'a0000000-0000-0000-0000-000000000051'::uuid
   WHERE id = 'a0000000-0000-0000-0000-000000000041'::uuid;
 
--- Transporteur type_tms=autre (route provider_manual) avec pont prestataire
+-- Transporteur type_tms=autre (route provider_manual) avec son propre prestataire
 INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, ville, type_tms, actif, contact_nom, contact_email, contact_telephone, types_vehicules, latitude, longitude, prestataire_logistique_id)
 VALUES ('a0000000-0000-0000-0000-000000000043'::uuid, 'Manuel Test', '555555555', '9 Rue Manuel', '75009', 'Paris', 'autre', true, 'Contact Manuel', 'manuel@test.test', '0600000003', ARRAY['fourgon'], 48.8716, 2.3322, 'a0000000-0000-0000-0000-000000000052'::uuid);
 

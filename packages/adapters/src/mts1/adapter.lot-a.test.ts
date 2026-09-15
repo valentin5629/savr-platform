@@ -12,6 +12,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CancelWindowClosedError, LogistiquePermanentError } from '../index.js';
 import type { Collecte, Lieu, Transporteur } from '../index.js';
 import { AdapterMts1 } from './adapter.js';
+import { builderTransporteurs } from '../testing/transporteurs.js';
 import type { Mts1CustomerOrder } from './mock.js';
 import { _setMts1Handlers } from './mock.js';
 
@@ -340,6 +341,9 @@ describe('Lot A / A4 — annulation E3 idempotente', () => {
               external_ref_commande: 'MTS1-ORDER-A4',
               tms_reference: 'MTS1-TOUR-A4',
               statut: 'en_cours',
+              // Tournée exécutée par le transporteur MTS-1 du test : sans ce
+              // prestataire, le cloisonnement par provider l'écarterait.
+              prestataire_logistique_id: TRANSPORTEUR.prestataire_logistique_id,
             },
           },
         ],
@@ -347,7 +351,17 @@ describe('Lot A / A4 — annulation E3 idempotente', () => {
       }),
     };
     return {
-      from: vi.fn().mockReturnValue(mockQuery),
+      from: vi.fn((table: string) =>
+        table === 'transporteurs'
+          ? builderTransporteurs([
+              {
+                type_tms: 'mts1',
+                prestataire_logistique_id:
+                  TRANSPORTEUR.prestataire_logistique_id,
+              },
+            ])
+          : mockQuery,
+      ),
     } as unknown as import('@supabase/supabase-js').SupabaseClient;
   }
 

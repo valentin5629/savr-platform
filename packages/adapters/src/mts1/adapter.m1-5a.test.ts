@@ -9,6 +9,7 @@ import {
 } from '../index.js';
 import type { Collecte, Lieu, Transporteur } from '../index.js';
 import { ProviderManual } from '../manual/provider.js';
+import { builderTransporteurs } from '../testing/transporteurs.js';
 import { AdapterMts1 } from './adapter.js';
 import type { Mts1CreatedTour } from './mock.js';
 import { _setMts1Handlers, setupMts1Mock } from './mock.js';
@@ -93,7 +94,17 @@ function makeMockSupabase(
     eq: vi.fn().mockReturnThis(),
     maybeSingle: vi.fn().mockResolvedValue({
       // FK sortante `collecte_tournees.tournee_id` → embed OBJET.
-      data: tourneeRow ? { rang: 1, tournees: tourneeRow } : null,
+      // La tournée porte son prestataire exécutant : c'est lui, via
+      // `transporteurs.type_tms`, qui dit si MTS-1 peut la toucher.
+      data: tourneeRow
+        ? {
+            rang: 1,
+            tournees: {
+              prestataire_logistique_id: TRANSPORTEUR.prestataire_logistique_id,
+              ...tourneeRow,
+            },
+          }
+        : null,
       error: null,
     }),
     single: vi.fn().mockResolvedValue({
@@ -118,7 +129,16 @@ function makeMockSupabase(
   };
 
   const supabase = {
-    from: vi.fn().mockReturnValue(mockQuery),
+    from: vi.fn((table: string) =>
+      table === 'transporteurs'
+        ? builderTransporteurs([
+            {
+              type_tms: 'mts1',
+              prestataire_logistique_id: TRANSPORTEUR.prestataire_logistique_id,
+            },
+          ])
+        : mockQuery,
+    ),
     _upserted: upserted,
     _updated: updated,
     _mockQuery: mockQuery,
@@ -768,7 +788,9 @@ describe('M1.5a / AdapterMts1 — updateCollecte E2', () => {
       eq: vi.fn().mockResolvedValue({ data: [], error: null }),
     };
     const supabase2 = {
-      from: vi.fn().mockReturnValue(mockQuery),
+      from: vi.fn((table: string) =>
+        table === 'transporteurs' ? builderTransporteurs() : mockQuery,
+      ),
     } as unknown as import('@supabase/supabase-js').SupabaseClient;
 
     await new AdapterMts1(TRANSPORTEUR, supabase2).updateCollecte(COLLECTE_ZD);
@@ -803,6 +825,7 @@ describe('M1.5a / AdapterMts1 — cancelCollecte E3', () => {
               external_ref_commande: 'MTS1-ORDER-001',
               tms_reference: 'MTS1-TOUR-001',
               statut: 'en_cours',
+              prestataire_logistique_id: TRANSPORTEUR.prestataire_logistique_id,
             },
           },
         ],
@@ -810,7 +833,17 @@ describe('M1.5a / AdapterMts1 — cancelCollecte E3', () => {
       }),
     };
     const supabase = {
-      from: vi.fn().mockReturnValue(mockQuery),
+      from: vi.fn((table: string) =>
+        table === 'transporteurs'
+          ? builderTransporteurs([
+              {
+                type_tms: 'mts1',
+                prestataire_logistique_id:
+                  TRANSPORTEUR.prestataire_logistique_id,
+              },
+            ])
+          : mockQuery,
+      ),
     } as unknown as import('@supabase/supabase-js').SupabaseClient;
 
     await expect(

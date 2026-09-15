@@ -76,18 +76,6 @@ const TOURNEE_EMBED: EmbedTournee = {
   statut: 'en_cours',
 };
 
-// E5 filtre en plus sur le provider exécutant (#313) : la tournée ancrée est
-// dispatchée MTS-1, sinon `updateLieu` l'écarterait pour une autre raison que
-// la cardinalité et le test ne prouverait plus rien.
-const TOURNEE_EMBED_E5 = {
-  ...TOURNEE_EMBED,
-  prestataire_logistique_id: 'presta-uuid-001',
-};
-
-// La ligne complète, telle que PostgREST la renvoie.
-const LIGNE_COLLECTE_TOURNEE = { rang: 1, tournees: TOURNEE_EMBED };
-const LIGNE_COLLECTE_TOURNEE_E5 = { rang: 1, tournees: TOURNEE_EMBED_E5 };
-
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
 const LIEU: Lieu = {
@@ -132,40 +120,49 @@ const TRANSPORTEUR_EVEREST: Transporteur = {
   type_tms: 'a_toutes',
   prestataire_logistique_id: 'presta-uuid-002',
 };
+// Le `select` d'E5 lit une colonne de plus — `prestataire_logistique_id`, seule
+// marque de provider portée par une tournée. Sans elle le filtre provider de
+// `updateLieu` écarterait la ligne, et ce fichier rougirait pour une raison
+// étrangère à la cardinalité qu'il ancre.
+// La ligne complète, telle que PostgREST la renvoie. Le prestataire exécutant
+// est paramétré : c'est lui qui décide quel adapter a le droit de toucher la
+// tournée, et ce fichier fait tourner les DEUX sur la même fixture.
+function ligneAvecProvider(prestataireId: string) {
+  return {
+    rang: 1,
+    tournees: { ...TOURNEE_EMBED, prestataire_logistique_id: prestataireId },
+  };
+}
 
 // Mock Supabase minimal : `collecte_tournees` sert la ligne ancrée (thenable pour
 // findTournees, maybeSingle pour findTournee), `collectes` sert la jointure E5.
-function makeSupabase(): SupabaseClient {
+function makeSupabase(
+  prestataireExecutant: string = TRANSPORTEUR_MTS1.prestataire_logistique_id,
+): SupabaseClient {
+  const ligneServie = ligneAvecProvider(prestataireExecutant);
   const builder: Record<string, unknown> = {};
   const chain = () => builder;
   let table = '';
+  let eqs: Array<[string, unknown]> = [];
 
   Object.assign(builder, {
     select: vi.fn(chain),
-    eq: vi.fn(chain),
+    eq: vi.fn((col: string, val: unknown) => {
+      eqs.push([col, val]);
+      return builder;
+    }),
     gte: vi.fn(chain),
     not: vi.fn(chain),
     update: vi.fn(chain),
     insert: vi.fn().mockResolvedValue({ data: null, error: null }),
     maybeSingle: vi.fn(async () =>
       table === 'collecte_tournees'
-        ? { data: LIGNE_COLLECTE_TOURNEE, error: null }
+        ? { data: ligneServie, error: null }
         : { data: null, error: null },
     ),
     then: (resolve: (v: unknown) => void) => {
       if (table === 'collecte_tournees') {
-        return resolve({ data: [LIGNE_COLLECTE_TOURNEE], error: null });
-      }
-      if (table === 'transporteurs') {
-        return resolve({
-          data: [
-            {
-              prestataire_logistique_id:
-                TOURNEE_EMBED_E5.prestataire_logistique_id,
-            },
-          ],
-          error: null,
-        });
+        return resolve({ data: [ligneServie], error: null });
       }
       if (table === 'collectes') {
         return resolve({
@@ -181,12 +178,35 @@ function makeSupabase(): SupabaseClient {
               lieu_overrides: null,
               // FK entrante `collecte_tournees.collecte_id` → TABLEAU.
               collecte_tournees: [
-                { tournee_id: TOURNEE_EMBED.id, ...LIGNE_COLLECTE_TOURNEE_E5 },
+                { tournee_id: TOURNEE_EMBED.id, ...ligneServie },
               ],
             },
           ],
           error: null,
         });
+      }
+      if (table === 'transporteurs') {
+        // Référentiel COMPLET (MTS-1 ET non-MTS-1), filtré ici comme le ferait
+        // PostgREST : servir une liste déjà réduite ne prouverait rien du
+        // prédicat que l'adapter envoie.
+        const referentiel = [
+          {
+            type_tms: 'mts1',
+            prestataire_logistique_id:
+              TRANSPORTEUR_MTS1.prestataire_logistique_id,
+          },
+          {
+            type_tms: 'a_toutes',
+            prestataire_logistique_id:
+              TRANSPORTEUR_EVEREST.prestataire_logistique_id,
+          },
+        ];
+        const filtre = referentiel.filter((r) =>
+          eqs.every(
+            ([col, val]) => (r as Record<string, unknown>)[col] === val,
+          ),
+        );
+        return resolve({ data: filtre, error: null });
       }
       return resolve({ data: null, error: null });
     },
@@ -195,6 +215,7 @@ function makeSupabase(): SupabaseClient {
   return {
     from: vi.fn((t: string) => {
       table = t;
+      eqs = [];
       return builder;
     }),
   } as unknown as SupabaseClient;
@@ -256,7 +277,7 @@ describe("cardinalité de l'embed collecte_tournees → tournees", () => {
 
     const consumer = await new AdapterEverest(
       TRANSPORTEUR_EVEREST,
-      makeSupabase(),
+      makeSupabase(TRANSPORTEUR_EVEREST.prestataire_logistique_id),
     ).cancelCollecte(COLLECTE);
 
     expect(consumer).not.toBe('noop_no_remote');

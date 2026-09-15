@@ -162,3 +162,13 @@ packages/plateforme/src/components/admin/transporteur-modal.test.tsx
 # Cliquet des gardes API (sécurité, 2026-09-11) : nomme la route du webhook logistique pour
 # vérifier sa garde propre (jeton X-Webhook-Token). Aucun appel HTTP ; 'customerOrders' reste banni.
 packages/plateforme/tests/securite/api-routes-gardees.test.ts
+# supabase/migrations/20260915140000_* + son pgTAP — index UNIQUE PARTIEL sur
+# transporteurs.prestataire_logistique_id (1 prestataire = au plus 1 transporteur).
+# 'mts1'/'a_toutes'/'Everest' y sont des VALEURS DE L'ENUM type_tms (INSERT de fixtures,
+# et prose expliquant POURQUOI le 1:1 est ce qui rend le cloisonnement par provider
+# possible). C'est le cas anticipé en tête de ce fichier : « la valeur d'enum
+# transporteurs.type_tms vit dans la migration qui crée le type + le seed ».
+# Aucune logique adapter, aucun appel HTTP — une contrainte d'intégrité et ses
+# assertions. 'customerOrders' reste banni (vérifié : 0 occurrence dans les deux).
+supabase/migrations/20260915140000_plateforme_transporteurs_presta_unique.sql
+supabase/tests/SECU__transporteur_presta_unique.test.sql

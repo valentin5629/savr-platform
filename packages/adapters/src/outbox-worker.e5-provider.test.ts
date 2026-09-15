@@ -4,12 +4,18 @@
 // G5 : on appelle le VRAI `runOutboxWorker` — ni lui, ni `handleError`, ni
 // `getNextRetryAt` ne sont mockés. Seule frontière mockée : le client Supabase.
 //
-// Le chemin E5 comporte trois lectures (`lieux`, `transporteurs` côté worker,
-// puis `transporteurs` + `collectes` côté adapter). La lecture `transporteurs`
-// du worker est la première à échouer sur un blip PostgREST : son `error` était
-// ignoré, `data` valait null, et l'event partait en `done` / `noop_no_remote` —
-// « rien à pousser » alors que la nouvelle adresse n'avait atteint personne, sans
-// retry ni alerte. Les gardes de l'adapter, eux, n'étaient jamais atteints.
+// Le chemin E5 enchaîne quatre lectures : `lieux` puis `transporteurs` côté
+// worker, puis `transporteurs` + `collectes` côté adapter. Leur `error` était
+// ignoré (ou traité en Permanent) : `data` valait null, et l'event partait en
+// `done` / `noop_no_remote` — « rien à pousser » alors que la nouvelle adresse
+// n'avait atteint personne, sans retry ni alerte, et le camion se présentait à
+// l'ancienne adresse.
+//
+// `fetchLieu` est la PREMIÈRE de la chaîne : tant qu'elle levait un Permanent sur
+// une simple erreur de lecture, un blip PostgREST envoyait E5 en DLQ sans un seul
+// retry, et aucune des gardes suivantes n'était même atteinte. La taxonomie est
+// désormais : PGRST116 (0 ligne) = Permanent (le lieu n'existe pas, rejouer n'y
+// changera rien) ; toute autre erreur = Transient (3 paliers).
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -39,8 +45,13 @@ const LIEU_ROW = {
 
 /**
  * @param transporteursEnErreur la lecture `transporteurs` du worker échoue.
+ * @param erreurLieu erreur rendue par la lecture `lieux` (`.single()`), pour
+ *   distinguer « lieu absent » (PGRST116) d'un blip réseau.
  */
-function makeSupabase(transporteursEnErreur: boolean) {
+function makeSupabase(
+  transporteursEnErreur: boolean,
+  erreurLieu?: { code?: string; message: string },
+) {
   const rpcCalls: RpcCall[] = [];
 
   const claimedEvent = {
@@ -63,11 +74,13 @@ function makeSupabase(transporteursEnErreur: boolean) {
     q['not'] = vi.fn(chain);
     q['limit'] = vi.fn(chain);
     q['insert'] = vi.fn(async () => ({ data: null, error: null }));
-    q['single'] = vi.fn(async () =>
-      table === 'lieux'
-        ? { data: LIEU_ROW, error: null }
-        : { data: null, error: null },
-    );
+    q['single'] = vi.fn(async () => {
+      if (table !== 'lieux') return { data: null, error: null };
+      // `.single()` remonte l'ABSENCE comme une erreur PGRST116, jamais comme
+      // `data: null` — d'où le besoin de distinguer les deux cas.
+      if (erreurLieu) return { data: null, error: erreurLieu };
+      return { data: LIEU_ROW, error: null };
+    });
     q['maybeSingle'] = vi.fn(async () => ({ data: null, error: null }));
     // Le worker lit `transporteurs` sans `.single()` → le builder est thenable.
     q['then'] = (resolve: (v: unknown) => void) => {
@@ -139,6 +152,39 @@ describe('E5 / worker outbox — une lecture en échec ne passe pas pour un no-o
     expect(args?.['p_next_retry_at']).toEqual(expect.any(String));
     // `dead` immédiat serait le mauvais mode sur un blip réseau.
     expect(args?.['p_statut']).not.toBe('dead');
+  });
+
+  it('lecture `lieux` en échec réseau → failed avec palier, jamais dead', async () => {
+    setSlackSink(async () => {});
+    // Erreur SANS code PGRST116 : la table est là, c'est le lien qui a lâché.
+    const supabase = makeSupabase(false, { message: 'connexion interrompue' });
+
+    const result = await runOutboxWorker(supabase);
+
+    expect(result.failed).toBe(1);
+    expect(result.done).toBe(0);
+
+    const args = resultatOutbox(supabase);
+    expect(args?.['p_statut']).toBe('failed');
+    expect(args?.['p_next_retry_at']).toEqual(expect.any(String));
+    // Le défaut corrigé : un Permanent envoyait l'event en DLQ sans un retry.
+    expect(args?.['p_statut']).not.toBe('dead');
+  });
+
+  it('lieu réellement absent (PGRST116) → dead immédiat, pas de retry inutile', async () => {
+    setSlackSink(async () => {});
+    const supabase = makeSupabase(false, {
+      code: 'PGRST116',
+      message: 'JSON object requested, multiple (or no) rows returned',
+    });
+
+    const result = await runOutboxWorker(supabase);
+
+    // Rejouer 3 paliers sur un lieu qui n'existe pas ne ferait que retarder
+    // l'alerte Ops de 24 h : la taxonomie doit rester Permanent ici.
+    expect(result.done).toBe(0);
+    expect(resultatOutbox(supabase)?.['p_statut']).toBe('dead');
+    expect(resultatOutbox(supabase)?.['p_next_retry_at']).toBeUndefined();
   });
 
   it('référentiel lisible → l’event est traité normalement', async () => {

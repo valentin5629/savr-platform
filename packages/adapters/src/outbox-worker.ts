@@ -533,7 +533,23 @@ async function fetchTransporteur(
     .eq('prestataire_logistique_id', prestaId)
     .single();
 
-  if (error || !data) {
+  // Distinguer « absent » de « illisible ». `.single()` remonte l'absence comme
+  // une ERREUR (PGRST116, 0 ligne), pas comme `data: null` — un `if (error)
+  // throw Transient` naïf ferait donc rejouer 3 paliers sur un transporteur
+  // réellement absent, et retarderait l'alerte Ops d'autant. À l'inverse, un
+  // blip PostgREST traité en Permanent envoie l'event en DLQ sans un seul
+  // retry, alors que rien n'est cassé côté données.
+  if (error) {
+    if (error.code === 'PGRST116') {
+      throw new LogistiquePermanentError(
+        `transporteur introuvable pour presta : ${prestaId}`,
+      );
+    }
+    throw new LogistiqueTransientError(
+      `transporteur illisible pour presta ${prestaId} — ${error.message}`,
+    );
+  }
+  if (!data) {
     throw new LogistiquePermanentError(
       `transporteur introuvable pour presta : ${prestaId}`,
     );
@@ -553,7 +569,18 @@ async function fetchLieu(
     .eq('id', lieuId)
     .single();
 
-  if (error || !data) {
+  // Même taxonomie que fetchTransporteur : seul PGRST116 (0 ligne) est un
+  // « lieu introuvable ». Un blip PostgREST envoyait jusqu'ici E5 en DLQ sans
+  // un seul retry — et l'adresse corrigée n'atteignait alors aucun transporteur.
+  if (error) {
+    if (error.code === 'PGRST116') {
+      throw new LogistiquePermanentError(`lieu introuvable : ${lieuId}`);
+    }
+    throw new LogistiqueTransientError(
+      `lieu ${lieuId} illisible — ${error.message}`,
+    );
+  }
+  if (!data) {
     throw new LogistiquePermanentError(`lieu introuvable : ${lieuId}`);
   }
   return data as Lieu;

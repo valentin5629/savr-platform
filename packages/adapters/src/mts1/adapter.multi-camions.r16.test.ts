@@ -38,6 +38,8 @@ function collecte(nb: number): Collecte {
   };
 }
 
+import { builderTransporteurs } from '../testing/transporteurs.js';
+
 const TRANSPORTEUR: Transporteur = {
   id: 'presta-001',
   type_tms: 'mts1',
@@ -51,6 +53,8 @@ type TRow = {
   external_ref_commande: string | null;
   tms_reference: string | null;
   statut: string;
+  // Prestataire exécutant : seule marque de provider portée par une tournée.
+  prestataire_logistique_id: string | null;
 };
 
 // Mock supabase : le builder est thenable → `await from().select().eq()` résout
@@ -77,7 +81,16 @@ function makeSupabase(
       }),
   });
   return {
-    from: vi.fn(() => builder),
+    from: vi.fn((table: string) =>
+      table === 'transporteurs'
+        ? builderTransporteurs([
+            {
+              type_tms: 'mts1',
+              prestataire_logistique_id: TRANSPORTEUR.prestataire_logistique_id,
+            },
+          ])
+        : builder,
+    ),
   } as unknown as import('@supabase/supabase-js').SupabaseClient;
 }
 
@@ -88,6 +101,7 @@ function row(rang: number): TRow {
     external_ref_commande: `MTS1-ORDER-00${rang}`,
     tms_reference: `MTS1-TOUR-00${rang}`,
     statut: 'en_cours',
+    prestataire_logistique_id: TRANSPORTEUR.prestataire_logistique_id,
   };
 }
 

@@ -48,6 +48,8 @@ const COLLECTE_AVEC_SECOURS: Collecte = {
   contact_secours_telephone: '+33600000002',
 };
 
+import { builderTransporteurs } from '../testing/transporteurs.js';
+
 const TRANSPORTEUR: Transporteur = {
   id: 'presta-001',
   type_tms: 'mts1',
@@ -69,6 +71,7 @@ function makeMockSupabaseDispatched() {
             external_ref_commande: 'MTS1-ORDER-R22C',
             tms_reference: 'MTS1-TOUR-R22C',
             statut: 'en_cours',
+            prestataire_logistique_id: TRANSPORTEUR.prestataire_logistique_id,
           },
         },
       ],
@@ -78,7 +81,16 @@ function makeMockSupabaseDispatched() {
     insert: vi.fn().mockResolvedValue({ error: null }),
   };
   return {
-    from: vi.fn().mockReturnValue(mockQuery),
+    from: vi.fn((table: string) =>
+      table === 'transporteurs'
+        ? builderTransporteurs([
+            {
+              type_tms: 'mts1',
+              prestataire_logistique_id: TRANSPORTEUR.prestataire_logistique_id,
+            },
+          ])
+        : mockQuery,
+    ),
   } as unknown as import('@supabase/supabase-js').SupabaseClient;
 }
 

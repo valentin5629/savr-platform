@@ -19,6 +19,10 @@ interface WorkerMockOpts {
   prestataireLogistiqueId: string | null;
   eventType?: 'collecte.creee' | 'collecte.modifiee' | 'collecte.annulee';
   lieuOverrides?: Record<string, unknown> | null;
+  /** Erreur rendue par la lecture `transporteurs` (`.single()`) du worker. */
+  erreurTransporteur?: { code?: string; message: string };
+  /** Capture les appels `fn_result_outbox` pour lire le statut décidé. */
+  capture?: Array<Record<string, unknown> | undefined>;
 }
 
 const COLLECTE_ID = 'col-ag-dispatch-001';
@@ -92,8 +96,15 @@ function makeWorkerSupabase(opts: WorkerMockOpts) {
     q['eq'] = vi.fn(() => q);
     q['single'] = vi.fn(async () => {
       if (table === 'collectes') return { data: collecteRow, error: null };
-      if (table === 'transporteurs')
+      if (table === 'transporteurs') {
+        // `.single()` remonte l'ABSENCE comme une erreur PGRST116, jamais comme
+        // `data: null` : la taxonomie doit lire le code, pas la seule présence
+        // d'une erreur.
+        if (opts.erreurTransporteur) {
+          return { data: null, error: opts.erreurTransporteur };
+        }
         return { data: transporteurRow, error: null };
+      }
       return { data: null, error: null };
     });
     q['maybeSingle'] = vi.fn(async () => ({ data: null, error: null }));
@@ -102,11 +113,14 @@ function makeWorkerSupabase(opts: WorkerMockOpts) {
     return q;
   };
 
-  const rpc = vi.fn(async (name: string) => {
+  const rpc = vi.fn(async (name: string, args?: Record<string, unknown>) => {
     if (name === 'fn_reap_outbox_claims') return { data: 0, error: null };
     if (name === 'fn_claim_outbox_batch')
       return { data: [claimedEvent], error: null };
-    if (name === 'fn_result_outbox') return { data: null, error: null };
+    if (name === 'fn_result_outbox') {
+      opts.capture?.push(args);
+      return { data: null, error: null };
+    }
     return { data: null, error: null };
   });
 
@@ -452,5 +466,49 @@ describe('M2.3 / worker outbox — routing dispatch AG par type_tms (C10)', () =
       lieu: { adresse_acces: string };
     };
     expect(collecte.lieu.adresse_acces).toBe('1 rue Test');
+  });
+});
+
+// ─── Taxonomie des erreurs de lecture du référentiel transporteurs ────────────
+
+describe('worker outbox — `transporteurs` illisible ≠ transporteur absent', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('erreur réseau → failed avec palier de retry, jamais dead', async () => {
+    const capture: Array<Record<string, unknown> | undefined> = [];
+    // Erreur SANS code PGRST116 : la ligne existe, c'est le lien qui a lâché.
+    // La traiter en Permanent envoyait l'event en DLQ sans un seul retry.
+    const supabase = makeWorkerSupabase({
+      typeTms: 'mts1',
+      prestataireLogistiqueId: PRESTA_ID,
+      erreurTransporteur: { message: 'connexion interrompue' },
+      capture,
+    });
+
+    const result = await runOutboxWorker(supabase);
+
+    expect(result.failed).toBe(1);
+    expect(capture[0]?.['p_statut']).toBe('failed');
+    expect(capture[0]?.['p_next_retry_at']).toEqual(expect.any(String));
+  });
+
+  it('transporteur réellement absent (PGRST116) → dead immédiat', async () => {
+    const capture: Array<Record<string, unknown> | undefined> = [];
+    const supabase = makeWorkerSupabase({
+      typeTms: 'mts1',
+      prestataireLogistiqueId: PRESTA_ID,
+      erreurTransporteur: {
+        code: 'PGRST116',
+        message: 'JSON object requested, multiple (or no) rows returned',
+      },
+      capture,
+    });
+
+    // Rejouer 3 paliers sur un transporteur inexistant ne ferait que retarder
+    // l'alerte Ops : la taxonomie doit rester Permanent ici.
+    await runOutboxWorker(supabase);
+
+    expect(capture[0]?.['p_statut']).toBe('dead');
+    expect(capture[0]?.['p_next_retry_at']).toBeUndefined();
   });
 });

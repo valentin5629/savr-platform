@@ -57,6 +57,8 @@ const TRANSPORTEUR_EVEREST: Transporteur = {
   prestataire_logistique_id: 'shared-presta-uuid-001',
 };
 
+import { builderTransporteurs } from '../testing/transporteurs.js';
+
 // ─── Mock Supabase ────────────────────────────────────────────────────────────
 
 interface SupabaseMockOpts {
@@ -77,6 +79,18 @@ function makeMockSupabase(opts: SupabaseMockOpts = {}) {
     brancheAttribution = 'ag_velo_programme',
     insertTourneeError = false,
   } = opts;
+
+  // Toute tournée servie par ce mock est exécutée par le transporteur Everest du
+  // test. Sans `prestataire_logistique_id`, le cloisonnement par provider
+  // l'écarterait : `external_ref_commande` est partagée entre providers, seule
+  // cette colonne dit qui exécute (via `transporteurs.type_tms`).
+  const tourneeServie = tourneeExistante
+    ? {
+        prestataire_logistique_id:
+          TRANSPORTEUR_EVEREST.prestataire_logistique_id,
+        ...tourneeExistante,
+      }
+    : null;
 
   const insertedRows: Record<string, unknown[]> = {};
   const updatedRows: Record<string, unknown[]> = {};
@@ -133,10 +147,10 @@ function makeMockSupabase(opts: SupabaseMockOpts = {}) {
     // Résolution dynamique : maybeSingle renvoie selon la table et les filtres
     q['maybeSingle'] = vi.fn().mockImplementation(async () => {
       if (table === 'collecte_tournees') {
-        if (tourneeExistante) {
+        if (tourneeServie) {
           return {
             // FK sortante `collecte_tournees.tournee_id` → embed OBJET.
-            data: { rang: 1, tournees: tourneeExistante },
+            data: { rang: 1, tournees: tourneeServie },
             error: null,
           };
         }
@@ -193,9 +207,7 @@ function makeMockSupabase(opts: SupabaseMockOpts = {}) {
     ) => {
       let data: unknown;
       if (table === 'collecte_tournees') {
-        data = tourneeExistante
-          ? [{ rang: 1, tournees: tourneeExistante }]
-          : [];
+        data = tourneeServie ? [{ rang: 1, tournees: tourneeServie }] : [];
       } else {
         data = null;
       }
@@ -209,6 +221,15 @@ function makeMockSupabase(opts: SupabaseMockOpts = {}) {
 
   const supabase = {
     from: vi.fn((table: string) => {
+      if (table === 'transporteurs') {
+        return builderTransporteurs([
+          {
+            type_tms: 'a_toutes',
+            prestataire_logistique_id:
+              TRANSPORTEUR_EVEREST.prestataire_logistique_id,
+          },
+        ]);
+      }
       if (!tables[table]) tables[table] = makeTableQuery(table);
       return tables[table];
     }),

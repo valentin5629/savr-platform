@@ -24,7 +24,10 @@ import type {
   LogistiqueProvider,
   Transporteur,
 } from '../index.js';
-import { LogistiquePermanentError } from '../index.js';
+import {
+  LogistiquePermanentError,
+  LogistiqueTransientError,
+} from '../index.js';
 import type { CreateMissionPayload } from './client.js';
 import { EverestClient } from './client.js';
 
@@ -53,6 +56,17 @@ interface TourneeRow {
   statut: string;
   rang: number;
 }
+
+// Même raison que côté MTS-1 (cf. mts1/adapter.ts) : `external_ref_commande` est
+// PARTAGÉE entre les providers — l'adapter MTS-1 y stocke son customerOrderId,
+// celui-ci son id de mission. Seul `prestataire_logistique_id` dit qui exécute,
+// via `transporteurs.type_tms`.
+interface TourneeRowAvecProvider extends TourneeRow {
+  prestataire_logistique_id: string | null;
+}
+
+const SELECT_TOURNEE_AVEC_PROVIDER =
+  'rang, tournees!inner(id, external_ref_commande, statut, prestataire_logistique_id)';
 
 interface AttributionRow {
   branche_attribution: string;
@@ -338,37 +352,119 @@ export class AdapterEverest implements LogistiqueProvider {
 
   // ─── Helpers DB ───────────────────────────────────────────────────────────────
 
+  /**
+   * Tournée du rang demandé — UNIQUEMENT si elle est exécutée par Everest.
+   *
+   * Miroir du cloisonnement MTS-1. Une AG peut avoir été dispatchée MTS-1 avant
+   * d'être ré-attribuée à A Toutes! : le rang pointe alors une tournée MTS-1 dont
+   * `external_ref_commande` porte un customerOrderId. Sans ce filtre, `findMission`
+   * ne trouverait rien (pas de ligne `everest_missions`) donc pas de no-op, et
+   * surtout `cancelCollecte` enverrait ce customerOrderId MTS-1 en
+   * `cancelMission` — un identifiant d'un autre prestataire divulgué à Everest.
+   */
   private async findTournee(
     collecteId: string,
     rang: number,
   ): Promise<TourneeRow | null> {
-    const { data } = await this.supabase
+    const { data, error } = await this.supabase
       .from('collecte_tournees')
-      .select('rang, tournees!inner(id, external_ref_commande, statut)')
+      .select(SELECT_TOURNEE_AVEC_PROVIDER)
       .eq('collecte_id', collecteId)
       .eq('rang', rang)
       .maybeSingle();
 
+    // Une erreur de lecture n'est PAS « pas de tournée » : rendre `null` ferait
+    // recréer une mission déjà créée. Transient → le worker rejoue ses paliers.
+    if (error) {
+      throw new LogistiqueTransientError(
+        `Lecture de la tournée rang ${rang} (collecte ${collecteId}) échouée — ${error.message}`,
+      );
+    }
+
     if (!data) return null;
     // FK sortante `collecte_tournees.tournee_id` → embed OBJET, pas tableau.
-    const raw = data as unknown as { rang: number; tournees: TourneeRow };
+    const raw = data as unknown as {
+      rang: number;
+      tournees: TourneeRowAvecProvider;
+    };
     const t = raw.tournees;
     if (!t) return null;
+    if (!this.estExecuteeParEverest(t, await this.prestatairesEverest())) {
+      return null;
+    }
     return { ...t, rang: raw.rang };
   }
 
+  /** Tournées de la collecte exécutées par Everest (cf. `findTournee`). */
   private async findTournees(collecteId: string): Promise<TourneeRow[]> {
-    const { data } = await this.supabase
+    const { data, error } = await this.supabase
       .from('collecte_tournees')
-      .select('rang, tournees!inner(id, external_ref_commande, statut)')
+      .select(SELECT_TOURNEE_AVEC_PROVIDER)
       .eq('collecte_id', collecteId);
+
+    // Un lot vide sur erreur ferait rendre `noop_no_remote` à E3 — « rien à
+    // annuler » alors que la mission est commandée, sans retry ni alerte.
+    if (error) {
+      throw new LogistiqueTransientError(
+        `Lecture des tournées de la collecte ${collecteId} échouée — ${error.message}`,
+      );
+    }
 
     if (!data) return [];
     const rows = data as unknown as Array<{
       rang: number;
-      tournees: TourneeRow;
+      tournees: TourneeRowAvecProvider;
     }>;
-    return rows.map((d) => ({ ...d.tournees, rang: d.rang }));
+    const prestatairesEverest = await this.prestatairesEverest();
+    return rows
+      .filter((d) =>
+        this.estExecuteeParEverest(d.tournees, prestatairesEverest),
+      )
+      .map((d) => ({ ...d.tournees, rang: d.rang }));
+  }
+
+  /**
+   * Prestataires logistiques joignables par Everest (`transporteurs.type_tms`
+   * = `a_toutes`) — même résolution que le routage du worker outbox.
+   */
+  private async prestatairesEverest(): Promise<Set<string>> {
+    const { data, error } = await this.supabase
+      .from('transporteurs')
+      .select('prestataire_logistique_id')
+      .eq('type_tms', 'a_toutes');
+
+    // Sur erreur, `data` est null → Set vide → aucune mission vue : fail-closed
+    // sur la fuite, mais fail-SILENT sur l'annulation. On lève pour rendre la
+    // main au retry du worker.
+    if (error) {
+      throw new LogistiqueTransientError(
+        `Référentiel transporteurs Everest illisible — ${error.message}`,
+      );
+    }
+
+    const rows = (data ?? []) as Array<{
+      prestataire_logistique_id: string | null;
+    }>;
+    return new Set(
+      rows
+        .map((t) => t.prestataire_logistique_id)
+        .filter((id): id is string => typeof id === 'string' && id !== ''),
+    );
+  }
+
+  /**
+   * `typeof === 'string'` et pas `!== null` : une colonne absente du `select`
+   * remonte `undefined`, qui passerait un test de nullité et rouvrirait la fuite
+   * en silence.
+   */
+  private estExecuteeParEverest(
+    t: TourneeRowAvecProvider | undefined,
+    prestatairesEverest: ReadonlySet<string>,
+  ): boolean {
+    return (
+      typeof t?.prestataire_logistique_id === 'string' &&
+      prestatairesEverest.has(t.prestataire_logistique_id)
+    );
   }
 
   private async upsertTournee(

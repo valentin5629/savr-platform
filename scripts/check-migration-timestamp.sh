@@ -98,6 +98,19 @@ mes_migrations() {
 controle_local() {
   local mes="$1" fail=false
   local new_ts max_other
+
+  # Préfixes DÉJÀ acceptés dans la référence (HEAD en pré-commit, la cible en CI).
+  # Un renommage cosmétique — corriger le slug sans toucher au préfixe — ne doit
+  # pas être traité comme une migration nouvelle : son timestamp a déjà été admis,
+  # et lui conseiller « prends un timestamp > max » le décalerait à tort. Il reste
+  # soumis au contrôle de doublon ci-dessous, et au contrôle inter-branches.
+  local ref_prefixes
+  if [ "$MODE" = "staged" ]; then
+    ref_prefixes=$(git ls-tree -r --name-only HEAD -- "$MIG_DIR" 2>/dev/null | sed 's#.*/##; s#_.*##' || true)
+  else
+    ref_prefixes=$(git ls-tree -r --name-only "$BASE_REF" -- "$MIG_DIR" 2>/dev/null | sed 's#.*/##; s#_.*##' || true)
+  fi
+
   new_ts=$(for f in $mes; do prefixe "$f"; done | sort -u)
 
   max_other=$(
@@ -110,6 +123,8 @@ controle_local() {
 
   local ts
   for ts in $new_ts; do
+    # Préfixe déjà présent dans la référence => renommage, pas une migration neuve.
+    if printf '%s\n' "$ref_prefixes" | grep -qxF "$ts"; then continue; fi
     # Comparaison lexicographique = numérique (14 chiffres, même longueur).
     if [ -n "$max_other" ] && ! [[ "$ts" > "$max_other" ]]; then
       echo "" >&2
@@ -309,11 +324,28 @@ self_test() {
   # pur est classé R100, pas A : filtré, il sortirait du périmètre et le commit de
   # correction ne serait vérifié par personne en local. On renomme vers un préfixe
   # antérieur au socle restant (20260101100000) : le contrôle (A) doit le refuser.
-  git -c core.hooksPath=/dev/null commit --quiet --no-verify -m "avant renommage" >/dev/null 2>&1
   git mv "$MIG_DIR/20260101140000_plateforme_mon_lot.sql" "$MIG_DIR/20260101090000_plateforme_mon_lot.sql"
   rc=0; bash "$script_abs" --no-remote >/dev/null 2>&1 || rc=$?
   if [ "$rc" -ne 2 ]; then
     echo "🔴 AUTO-TEST : migration RENOMMÉE hors périmètre (exit $rc, attendu 2) — un git mv échappe au contrôle." >&2
+    echec=true
+  fi
+
+  # Cas 6 — VERT attendu : renommage COSMÉTIQUE (slug corrigé, préfixe inchangé)
+  # d'une migration qui n'est pas la plus récente. Le timestamp a déjà été admis :
+  # le refuser afficherait « prends un timestamp > max », conseil qui décalerait
+  # à tort une migration déjà ordonnée.
+  git reset --quiet --hard HEAD >/dev/null 2>&1
+  git mv "$MIG_DIR/20260101100000_plateforme_socle.sql" "$MIG_DIR/20260101100000_plateforme_socle_corrige.sql"
+  # Garde anti-fixture-vacante : sans renommage dans le périmètre, ce cas passerait
+  # au vert quoi que fasse le script — il ne prouverait plus rien.
+  if ! git diff --cached --name-only --diff-filter=AR | grep -q 'socle_corrige'; then
+    echo "🔴 AUTO-TEST : cas 6 VACANT — le renommage n'est pas dans le périmètre, l'assertion ne prouve rien." >&2
+    echec=true
+  fi
+  rc=0; bash "$script_abs" --no-remote >/dev/null 2>&1 || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    echo "🔴 AUTO-TEST : faux positif sur un renommage préservant le préfixe (exit $rc, attendu 0)." >&2
     echec=true
   fi
 

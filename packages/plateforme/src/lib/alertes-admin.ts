@@ -31,6 +31,10 @@ const SEVERITE_PAR_CODE: Record<string, AlerteSeverite> = {
   reduction_camions_bloquee: 'attention',
   collecte_partiellement_servie: 'attention',
   collecte_aucun_repas: 'attention',
+  // Une tournée d'un autre transporteur reste rattachée à la collecte : un camion
+  // ou un vélo peut encore rouler dessus. Ni les regex de repli ni le défaut ne
+  // l'auraient teintée — elle se serait affichée en « Info » (gris).
+  tournee_autre_provider: 'attention',
   // Informatives — trace d'un événement à connaître.
   shadow_traiteur_cree: 'info',
   shadow_siret_complete: 'info',

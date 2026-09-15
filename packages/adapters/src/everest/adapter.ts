@@ -69,6 +69,16 @@ interface AttributionRow {
   branche_attribution: string;
 }
 
+// Statuts sous lesquels une mission court encore (ou a couru) chez Everest :
+// tant que l'un d'eux est enregistré, un second `createMission` enverrait un
+// SECOND vélo sur la même collecte.
+const MISSION_VIVANTE = new Set([
+  'created',
+  'assigned',
+  'in_progress',
+  'completed',
+]);
+
 export class AdapterEverest implements LogistiqueProvider {
   private readonly client: EverestClient;
   private readonly clientId: string;
@@ -96,15 +106,33 @@ export class AdapterEverest implements LogistiqueProvider {
     // V1 : 1 collecte AG = 1 mission Everest (rang toujours 1)
     const tourneeExistante = await this.findTournee(collecte.id, rang);
 
-    // Idempotence : mission déjà créée et en état actif → no-op
-    if (tourneeExistante?.external_ref_commande) {
+    // Idempotence : la vérité sur « une mission existe-t-elle chez Everest ? »
+    // est `everest_missions`, JAMAIS `tournees.external_ref_commande`. Gater la
+    // garde sur la référence rendait le no-op inatteignable dès que son commit
+    // avait échoué au passage précédent : le rejeu du worker re-POSTait
+    // `createMission` et un SECOND vélo partait, facturé, invisible en base.
+    if (tourneeExistante) {
       const mission = await this.findMission(tourneeExistante.id);
       if (
         mission?.statut_everest &&
-        ['created', 'assigned', 'in_progress', 'completed'].includes(
-          mission.statut_everest as string,
-        )
+        MISSION_VIVANTE.has(mission.statut_everest as string)
       ) {
+        // Réparation : la mission existe, seul son commit en base avait échoué.
+        // On repose la référence ici plutôt que de la laisser manquante à vie
+        // (sans elle, `cancelCollecte` ne sait plus quoi annuler). La garde sur
+        // `everest_mission_id` n'est pas décorative : `manual-accept` écrit une
+        // ligne sans identifiant (statut `created_manually`, hors du set).
+        if (
+          !tourneeExistante.external_ref_commande &&
+          mission.everest_mission_id
+        ) {
+          await this.commitReferenceMission(
+            tourneeExistante.id,
+            collecte.id,
+            rang,
+            mission.everest_mission_id,
+          );
+        }
         return 'adapter_everest';
       }
     }
@@ -124,32 +152,9 @@ export class AdapterEverest implements LogistiqueProvider {
       const created = await this.client.createMission(payload, collecte.id);
       missionId = created.mission_id;
 
-      // Commit external_ref_commande immédiatement (pattern garde-fou 5).
-      // L'`error` est lue : la colonne porte désormais un index unique partiel
-      // (`uniq_tournee_par_external_ref`), donc ce commit peut échouer — et un
-      // échec avalé laisserait une mission VIVANTE chez Everest sans référence
-      // en base, donc jamais annulable ni rapprochable. On lève, le worker
-      // rejoue (l'idempotence du POST est portée par `client_ref = tournee.id`).
-      const { error: errRef } = await this.supabase
-        .from('tournees')
-        .update({ external_ref_commande: missionId })
-        .eq('id', tournee.id);
-      if (errRef) {
-        throw new LogistiqueTransientError(
-          `Commit de la référence de mission ${missionId} échoué (tournée ${tournee.id}) — ${errRef.message}`,
-        );
-      }
-
-      // Référence d'AFFICHAGE de la collecte (§04 Data Model l.1509, §06.06 bouton
-      // « Renvoyer au TMS », §11 carte « Collectes non transmises »). Ce provider n'a
-      // pas de notion de tour : la référence de rapprochement est le missionId. Posée
-      // au rang 1 seulement (V1 : 1 collecte AG = 1 mission, rang toujours 1). JAMAIS
-      // un prédicat d'émission — cf. fn_collecte_commandee_chez_provider.
-      if (rang === 1) {
-        await this.updateCollecteRef(collecte.id, missionId);
-      }
-
-      // INSERT everest_missions (statut 'created')
+      // La mission EXISTE désormais chez Everest : on l'enregistre AVANT de
+      // committer sa référence. Dans l'ordre inverse, un échec du commit sortait
+      // par le catch avec `everest_missions` vide, donc sans trace de la mission.
       await this.upsertEverestMission(tournee.id, collecte.id, {
         everest_mission_id: missionId,
         everest_service_id: serviceId,
@@ -158,13 +163,25 @@ export class AdapterEverest implements LogistiqueProvider {
         payload_create: payload,
         push_create_at: pushAt,
       });
+
+      await this.commitReferenceMission(
+        tournee.id,
+        collecte.id,
+        rang,
+        missionId,
+      );
     } catch (err) {
-      // Enregistrer l'échec même si la mission n'a pas été créée côté Everest
-      await this.upsertEverestMission(tournee.id, collecte.id, {
-        everest_mission_id: missionId,
-        everest_service_id: serviceId,
-        statut_everest: 'creation_failed',
-      });
+      // `creation_failed` veut dire « aucune mission chez Everest » — le CDC M14
+      // §W1 prescrit un re-POST sur ce statut. Ne JAMAIS l'écrire quand le POST a
+      // abouti : l'échec porte alors sur une écriture locale, pas sur Everest, et
+      // le rejeu doit retrouver la mission au lieu d'en créer une seconde.
+      if (missionId === null) {
+        await this.upsertEverestMission(tournee.id, collecte.id, {
+          everest_mission_id: null,
+          everest_service_id: serviceId,
+          statut_everest: 'creation_failed',
+        });
+      }
       // BL-P1-ALGO-07 : rejet SYNCHRONE PERMANENT (4xx = refus prestataire) →
       // statut_tms = rejetee_par_prestataire (CDC 09 - Flux algo attribution AG
       // §3 « HTTP error sync »). Le trigger fn_sync ne dérive rien sur ce statut
@@ -431,7 +448,8 @@ export class AdapterEverest implements LogistiqueProvider {
   /**
    * Prestataires joignables par Everest (`transporteurs.type_tms='a_toutes'`) —
    * cf. provider-tournees.ts. Chargé une fois par instance (référentiel stable
-   * sur la durée d'un event) ; seul un succès est mémorisé.
+   * sur la durée d'un event) ; seul un Set NON VIDE est mémorisé (un Set vide
+   * ferait taire le filtre au lieu de le fermer).
    */
   private async prestatairesEverest(): Promise<Set<string>> {
     this.prestatairesEverestCache ??= await prestatairesDuType(
@@ -506,16 +524,61 @@ export class AdapterEverest implements LogistiqueProvider {
     return { ...t, rang };
   }
 
-  private async findMission(
+  /**
+   * Commit de la référence de mission (pattern garde-fou 5) + référence
+   * d'affichage de la collecte (§04 Data Model l.1509, §06.06 bouton « Renvoyer
+   * au TMS », §11 carte « Collectes non transmises »). Ce provider n'a pas de
+   * notion de tour : la référence de rapprochement EST le missionId. Posée au
+   * rang 1 seulement (V1 : 1 collecte AG = 1 mission). JAMAIS un prédicat
+   * d'émission — cf. fn_collecte_commandee_chez_provider.
+   *
+   * L'`error` est lue : `uniq_tournee_par_external_ref` rend ce commit faillible,
+   * et un échec avalé laisserait une mission vivante sans référence en base —
+   * ni annulable, ni rapprochable.
+   *
+   * Taxonomie : une violation d'unicité (23505) ne se résout JAMAIS en rejouant
+   * — Permanent, donc DLQ immédiate et alerte, plutôt que trois paliers aveugles.
+   * Tout le reste (blip réseau/DB) est Transient.
+   */
+  private async commitReferenceMission(
     tourneeId: string,
-  ): Promise<{ id: string; statut_everest: string } | null> {
+    collecteId: string,
+    rang: number,
+    missionId: string,
+  ): Promise<void> {
+    const { error } = await this.supabase
+      .from('tournees')
+      .update({ external_ref_commande: missionId })
+      .eq('id', tourneeId);
+
+    if (error) {
+      const message = `Commit de la référence de mission ${missionId} échoué (tournée ${tourneeId}) — ${error.message}`;
+      throw error.code === '23505'
+        ? new LogistiquePermanentError(message)
+        : new LogistiqueTransientError(message);
+    }
+
+    if (rang === 1) {
+      await this.updateCollecteRef(collecteId, missionId);
+    }
+  }
+
+  private async findMission(tourneeId: string): Promise<{
+    id: string;
+    statut_everest: string;
+    everest_mission_id: string | null;
+  } | null> {
     const { data } = await this.supabase
       .from('everest_missions')
-      .select('id, statut_everest')
+      .select('id, statut_everest, everest_mission_id')
       .eq('tournee_id', tourneeId)
       .maybeSingle();
 
-    return data as { id: string; statut_everest: string } | null;
+    return data as {
+      id: string;
+      statut_everest: string;
+      everest_mission_id: string | null;
+    } | null;
   }
 
   private async upsertEverestMission(

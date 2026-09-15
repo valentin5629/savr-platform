@@ -66,7 +66,10 @@ interface TourneeFixture {
 
 function makeSupabase(
   tournees: TourneeFixture[],
-  opts: { erreurLectureTournees?: { message: string } } = {},
+  opts: {
+    erreurLectureTournees?: { message: string };
+    erreurReferentiel?: { message: string };
+  } = {},
 ) {
   let table = '';
   const builder: Record<string, unknown> = {};
@@ -104,11 +107,23 @@ function makeSupabase(
   return {
     from: vi.fn((t: string) => {
       table = t;
-      return t === 'transporteurs'
-        ? builderTransporteurs([
-            { type_tms: 'a_toutes', prestataire_logistique_id: PRESTA_EVEREST },
-          ])
-        : builder;
+      if (t !== 'transporteurs') return builder;
+      if (opts.erreurReferentiel) {
+        // Référentiel illisible : sans throw, le Set serait vide → toutes les
+        // tournées écartées → `noop_no_remote`. Fail-closed sur la fuite, mais
+        // fail-SILENT sur l'annulation.
+        const ko: Record<string, unknown> = {};
+        Object.assign(ko, {
+          select: () => ko,
+          eq: () => ko,
+          then: (resolve: (v: unknown) => void) =>
+            resolve({ data: null, error: opts.erreurReferentiel }),
+        });
+        return ko;
+      }
+      return builderTransporteurs([
+        { type_tms: 'a_toutes', prestataire_logistique_id: PRESTA_EVEREST },
+      ]);
     }),
   } as unknown as SupabaseClient;
 }
@@ -159,7 +174,7 @@ describe('E3 cancelCollecte Everest — cloisonnement par provider', () => {
     expect([...cancelledIds]).toEqual([]);
   });
 
-  it('une erreur de lecture lève un Transient, jamais un « rien à annuler »', async () => {
+  it('une erreur de lecture des tournées lève un Transient, jamais un « rien à annuler »', async () => {
     setupEverestMock();
 
     const supabase = makeSupabase([], {
@@ -169,5 +184,31 @@ describe('E3 cancelCollecte Everest — cloisonnement par provider', () => {
     await expect(
       new AdapterEverest(A_TOUTES, supabase).cancelCollecte(COLLECTE),
     ).rejects.toBeInstanceOf(LogistiqueTransientError);
+  });
+
+  it('un référentiel transporteurs illisible lève un Transient, jamais un no-op silencieux', async () => {
+    const { cancelledIds } = setupEverestMock();
+
+    // Sur erreur, `data` est null → Set vide → toutes les tournées écartées.
+    // Sans le throw, `cancelCollecte` rendrait `noop_no_remote` : « rien à
+    // annuler » alors que la mission est commandée — sans retry ni alerte, et
+    // le vélo se présente. Miroir exact de la garde MTS-1.
+    const supabase = makeSupabase(
+      [
+        {
+          id: 'T-EVR',
+          rang: 1,
+          external_ref_commande: 'EVR-MISSION-1',
+          statut: 'planifiee',
+          prestataire_logistique_id: PRESTA_EVEREST,
+        },
+      ],
+      { erreurReferentiel: { message: 'connexion interrompue' } },
+    );
+
+    await expect(
+      new AdapterEverest(A_TOUTES, supabase).cancelCollecte(COLLECTE),
+    ).rejects.toBeInstanceOf(LogistiqueTransientError);
+    expect([...cancelledIds]).toEqual([]);
   });
 });

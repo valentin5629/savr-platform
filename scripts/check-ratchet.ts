@@ -47,6 +47,10 @@ const GATES: { key: string; cmd: string[] }[] = [
   // Anti-récidive « segment de chemin /api/ interpolé brut » (relevé rls-securite
   // en revue #285) : une valeur d'URL en ../ adresse un autre endpoint same-origin.
   { key: 'fetch-path-encoding', cmd: ['check:fetch-path-encoding'] },
+  // Anti-récidive « snapshot de types périmé » (relevé PR #303) : une table
+  // absente de `database.types.ts` est INVISIBLE à column-db, pas mal typée —
+  // ses écritures échappent entièrement au gate G7 ci-dessus.
+  { key: 'types-snapshot', cmd: ['check:types-snapshot'] },
 ];
 
 function runGate(cmd: string[]): number | null {

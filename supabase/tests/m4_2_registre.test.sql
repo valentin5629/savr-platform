@@ -8,7 +8,7 @@
 -- Rôle métier lu via user_role (f_app_role) — test_set_jwt pose le claim.
 
 BEGIN;
-SELECT plan(24);
+SELECT plan(25);
 
 -- ── Helpers JWT (identiques aux autres tests RLS) ───────────────────────────
 CREATE OR REPLACE FUNCTION test_set_jwt(p_role text, p_org_id uuid DEFAULT NULL, p_user_id uuid DEFAULT gen_random_uuid())
@@ -262,7 +262,12 @@ SELECT is(
 -- ════════════════════════════════════════════════════════════════════════════
 -- 5. historique_partiel non modifiable par le client (flag F3)
 -- ════════════════════════════════════════════════════════════════════════════
-UPDATE plateforme.collectes SET historique_partiel = true WHERE id = '42070000-0000-0000-0000-000000000001'::uuid;
+-- Depuis la migration 20260915160000, le refus est explicite (42501, privilège
+-- UPDATE retiré à `authenticated`) au lieu d'un UPDATE silencieux à 0 ligne : on
+-- l'asserte, sans quoi un jour où la fermeture sauterait le test resterait vert.
+SELECT throws_ok(
+  $$UPDATE plateforme.collectes SET historique_partiel = true WHERE id = '42070000-0000-0000-0000-000000000001'::uuid$$,
+  '42501', NULL, 'flag_historique_partiel_ecriture_client_refusee_42501');
 SELECT is(
   (SELECT historique_partiel FROM plateforme.v_registre_dechets WHERE collecte_id = '42070000-0000-0000-0000-000000000001'::uuid),
   false, 'flag_historique_partiel_non_modifiable_par_client');

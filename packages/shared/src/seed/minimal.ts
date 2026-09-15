@@ -400,6 +400,7 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
         'Paris',
         ['poids_lourd'],
         'STRIKE-MTS1',
+        'strike',
       ),
       transp(
         'transp_marathon',
@@ -410,6 +411,7 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
         'Paris',
         ['fourgon', 'poids_lourd'],
         'MARATHON-MTS1',
+        'marathon',
       ),
       transp(
         'transp_transnor',
@@ -420,6 +422,7 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
         'Rouen',
         ['fourgon'],
         'TRANSNOR-MTS1',
+        'transnormandie',
       ),
     ],
     ['id'],
@@ -1640,6 +1643,7 @@ function transp(
   ville: string,
   vehicules: string[],
   codeMts1: string,
+  prestSlug: string,
 ): Row {
   return {
     id: U(slug),
@@ -1654,6 +1658,14 @@ function transp(
     contact_nom: 'Ops ' + nom,
     contact_email: seedEmail('ops.' + slug),
     contact_telephone: fakePhone(200 + siren.length),
+    // Rattachement au prestataire exécutant, comme `seed_demo`. Sans lui, le
+    // référentiel `transporteurs` ne rattache AUCUN prestataire à un `type_tms`
+    // : les adapters, qui cloisonnent les tournées par ce lien, écartent alors
+    // toutes les tournées et E2/E3 deviennent universellement muettes sur une
+    // base seedée — panne silencieuse, puisque les tournées du seed sont
+    // terminales (donc écartées sans alerte). Un prestataire par transporteur :
+    // `uniq_transporteur_par_prestataire` l'impose désormais.
+    prestataire_logistique_id: U('prest_' + prestSlug),
     actif: true,
   };
 }

@@ -142,3 +142,75 @@ describe('upsert — construction SQL', () => {
     expect(params).toContain(JSON.stringify({ k: 1 }));
   });
 });
+
+// ─── Rattachement transporteur → prestataire (seed_minimal) ──────────────────
+//
+// Les adapters cloisonnent les tournées par
+// `tournees.prestataire_logistique_id` → `transporteurs.type_tms`. Si le seed
+// ne rattache aucun transporteur à son prestataire, le référentiel ne relie
+// AUCUN prestataire à un type de TMS : l'ensemble est vide, toutes les tournées
+// sont écartées, et E2/E3 deviennent universellement muettes sur une base
+// seedée — sans alerte, puisque les tournées du seed sont terminales (donc
+// écartées en silence). Panne invisible, d'où ce garde.
+//
+// Contrôle sur la SOURCE et non à l'exécution : `seedMinimal` exige une vraie
+// base (lookupMap, upsert). Ce qui est vérifié est l'appel, pas le SQL produit.
+describe('seed_minimal — un transporteur, un prestataire', () => {
+  const source = readFileSync(
+    resolve(REPO_ROOT, 'packages/shared/src/seed/minimal.ts'),
+    'utf8',
+  );
+
+  /** Arguments littéraux de chaque appel `transp(...)` (parenthèses équilibrées). */
+  function appelsTransp(): string[][] {
+    const appels: string[][] = [];
+    let i = source.indexOf('transp(');
+    while (i !== -1) {
+      // La déclaration `function transp(` n'est pas un appel.
+      if (!/function\s+$/.test(source.slice(Math.max(0, i - 12), i))) {
+        let profondeur = 0;
+        let j = i + 'transp'.length;
+        for (; j < source.length; j++) {
+          if (source[j] === '(') profondeur++;
+          else if (source[j] === ')') {
+            profondeur--;
+            if (profondeur === 0) break;
+          }
+        }
+        const args = source.slice(i, j);
+        appels.push([...args.matchAll(/'([^']*)'/g)].map((m) => m[1]!));
+      }
+      i = source.indexOf('transp(', i + 1);
+    }
+    return appels;
+  }
+
+  const prestatairesSeedes = [
+    ...source.matchAll(/prest\(\s*'prest_([a-z_]+)'/g),
+  ].map((m) => m[1]!);
+
+  it('M0.7-30 — le helper transp() pose prestataire_logistique_id', () => {
+    // Sans cette ligne, le seed produit des transporteurs orphelins et le
+    // cloisonnement par provider n'a plus aucun prestataire à reconnaître.
+    expect(source).toContain(
+      "prestataire_logistique_id: U('prest_' + prestSlug)",
+    );
+  });
+
+  it('M0.7-31 — chaque transporteur seedé nomme un prestataire réellement seedé', () => {
+    const appels = appelsTransp();
+    expect(appels.length).toBeGreaterThan(0);
+    for (const args of appels) {
+      const prestSlug = args[args.length - 1];
+      expect(prestatairesSeedes).toContain(prestSlug);
+    }
+  });
+
+  it('M0.7-32 — deux transporteurs ne partagent jamais un prestataire', () => {
+    // Invariant imposé en base par `uniq_transporteur_par_prestataire` : un
+    // prestataire rattaché à deux `type_tms` entrerait dans les deux ensembles
+    // et rouvrirait la fuite entre providers. Le seed doit pouvoir s'appliquer.
+    const slugs = appelsTransp().map((args) => args[args.length - 1]);
+    expect(new Set(slugs).size).toBe(slugs.length);
+  });
+});

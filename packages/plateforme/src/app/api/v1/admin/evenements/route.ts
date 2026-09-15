@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -32,8 +33,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (q) query = query.ilike('nom_evenement', `%${q}%`);
 
   const { data, error, count } = await query;
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'admin.evenements.list');
 
   return NextResponse.json({ data: data ?? [], total: count ?? 0 });
 }
@@ -94,8 +94,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .select()
     .single();
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'admin.evenements.create');
 
   return NextResponse.json(data, { status: 201 });
 }

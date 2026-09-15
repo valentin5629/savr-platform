@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 /**
  * Historique de la grille tarifaire AG publique pour un `type_pack` (CDC §9
@@ -33,8 +34,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .eq('type_pack', type_pack)
     .order('valide_du', { ascending: false });
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'admin.tarifs_packs_ag.history.list');
 
   const rows = versions ?? [];
   const ids = rows.map((v) => v.id);

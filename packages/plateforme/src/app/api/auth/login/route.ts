@@ -96,7 +96,14 @@ export const POST = withApiTrace(
         ip,
         reason: error.message,
       });
-      return NextResponse.json({ error: error.message }, { status: 401 });
+      // Le message GoTrue n'est jamais renvoyé : libellé fixe côté Savr (le
+      // détail réel reste dans `auth.login_failed` ci-dessus).
+      const motif =
+        error.code === 'email_not_confirmed' ||
+        error.message.toLowerCase().includes('not confirmed')
+          ? 'Adresse email non confirmée.'
+          : 'Email ou mot de passe incorrect.';
+      return NextResponse.json({ error: motif }, { status: 401 });
     }
 
     logger.info('auth.login_success', {

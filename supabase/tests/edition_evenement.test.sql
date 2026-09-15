@@ -80,8 +80,22 @@ INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, da
   ('cc000000-0000-0000-0000-0000000000c1'::uuid, '0e000000-0000-0000-0000-0000000000c1'::uuid, 'zero_dechet', 'programmee', 'non_envoye', current_date + 10, '08:00', NULL),
   ('cc000000-0000-0000-0000-0000000000d1'::uuid, '0e000000-0000-0000-0000-0000000000d1'::uuid, 'zero_dechet', 'programmee', 'non_envoye', current_date + 10, '08:00', NULL),
   ('cc000000-0000-0000-0000-0000000000e1'::uuid, '0e000000-0000-0000-0000-0000000000e1'::uuid, 'zero_dechet', 'en_cours', 'acceptee', current_date + 10, '08:00', NULL),
-  ('cc000000-0000-0000-0000-0000000000f1'::uuid, '0e000000-0000-0000-0000-0000000000f1'::uuid, 'anti_gaspi', 'validee', 'acceptee', current_date + 10, '08:00', 'MTS-DISP-1'),
+  ('cc000000-0000-0000-0000-0000000000f1'::uuid, '0e000000-0000-0000-0000-0000000000f1'::uuid, 'anti_gaspi', 'validee', 'acceptee', current_date + 10, '08:00', NULL),
   ('cc000000-0000-0000-0000-0000000000f2'::uuid, '0e000000-0000-0000-0000-0000000000f2'::uuid, 'anti_gaspi', 'validee', 'acceptee', current_date + 10, '08:00', NULL);
+
+-- « Dispatchée » (cas T14/T16) = une commande existe chez le prestataire, soit une
+-- tournée avec `external_ref_commande` liée par `collecte_tournees` — l'état que
+-- l'adapter écrit réellement. Depuis le 2026-09-15, c'est ce que lit le gate E2 ;
+-- `collectes.tms_reference` (ex-fixture 'MTS-DISP-1') n'est écrite par aucun code de
+-- production et ne gate plus rien. cc..f2 reste sans commande → c'est le cas T17.
+INSERT INTO shared.prestataires (id, nom, code, type_prestation, mode_integration, statut) VALUES
+  ('cc000000-0000-0000-0000-0000000000d0'::uuid, 'Presta EditionEvt', 'EDITEVT', ARRAY['zd','ag'], 'manuel', 'actif');
+
+INSERT INTO plateforme.tournees (id, reference_interne, date_tournee, creneau, prestataire_logistique_id, statut, external_ref_commande) VALUES
+  ('cc000000-0000-0000-0000-0000000000a5'::uuid, 'EDITEVT-TOUR-F1', current_date + 10, 'nuit', 'cc000000-0000-0000-0000-0000000000d0'::uuid, 'en_cours', 'CMD-EDITEVT-F1');
+
+INSERT INTO plateforme.collecte_tournees (collecte_id, tournee_id, rang) VALUES
+  ('cc000000-0000-0000-0000-0000000000f1'::uuid, 'cc000000-0000-0000-0000-0000000000a5'::uuid, 1);
 
 -- ── evt_*_update : édition événement par rôle + cloisonnement ────────────────
 -- T1 manager édite l'événement de son orga (fenêtre ouverte) → appliqué.
@@ -164,7 +178,7 @@ SELECT test_as_superuser();
 SELECT is((SELECT notes_internes FROM plateforme.collectes WHERE id='cc000000-0000-0000-0000-0000000000a1'::uuid), 'com-col', 'T13 col_update_commercial sa creation');
 
 -- ── fn_modifier_evenement (service_role / SECURITY DEFINER) ──────────────────
--- T14 E2 émis pour la collecte AG dispatchée (tms_reference non null) sur édition pax.
+-- T14 E2 émis pour la collecte AG dispatchée (une commande existe) sur édition pax.
 SELECT test_as_superuser();
 SELECT plateforme.fn_modifier_evenement(
   '0e000000-0000-0000-0000-0000000000f1'::uuid, '{"pax": 500}'::jsonb, ARRAY['pax']);
@@ -189,14 +203,14 @@ SELECT is(
        AND event_type = 'collecte.modifiee'),
   1, 'T16 pas d''E2 supplementaire pour un champ non-TMS (nom_evenement)');
 
--- T17 pas d'E2 pour une collecte non dispatchée (tms_reference NULL) malgré pax.
+-- T17 pas d'E2 pour une collecte non dispatchée (aucune commande) malgré pax.
 SELECT plateforme.fn_modifier_evenement(
   '0e000000-0000-0000-0000-0000000000f2'::uuid, '{"pax": 400}'::jsonb, ARRAY['pax']);
 SELECT is(
   (SELECT count(*)::int FROM plateforme.outbox_events
      WHERE aggregate_id = 'cc000000-0000-0000-0000-0000000000f2'::uuid
        AND event_type = 'collecte.modifiee'),
-  0, 'T17 pas d''E2 pour collecte non dispatchee (tms_reference NULL)');
+  0, 'T17 pas d''E2 pour collecte non dispatchee (aucune commande chez le prestataire)');
 
 SELECT * FROM finish();
 ROLLBACK;

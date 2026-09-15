@@ -30,6 +30,7 @@ import {
   CancelWindowClosedError,
   LogistiqueAmbiguousError,
   LogistiquePermanentError,
+  LogistiqueTransientError,
   getLogistiqueProvider,
 } from './index.js';
 import type { Collecte, ConsumerTag, Lieu, Transporteur } from './index.js';
@@ -216,14 +217,30 @@ async function processEvent(
     const lieuId =
       (event.payload['lieu_id'] as string | undefined) ?? aggregate_id;
     const lieu = await fetchLieu(supabase, lieuId);
-    // Pour updateLieu, on utilise n'importe quel provider mts1 disponible
-    // (le lieu peut être associé à plusieurs transporteurs — l'adapter
-    //  filtre lui-même les collectes futures du lieu concerné)
-    const { data: transporteurs } = await supabase
+    // Pour updateLieu, n'importe quel transporteur mts1 fait l'affaire : il ne
+    // sert qu'à instancier le client MTS-1 (credentials au niveau du compte, pas
+    // du transporteur). Le périmètre poussé, lui, est décidé par l'adapter, qui
+    // restreint aux tournées du lieu effectivement dispatchées via MTS-1 —
+    // `AdapterMts1.prestatairesMts1()`. Ce filtre n'est PAS optionnel : les
+    // tournées Everest du même lieu portent elles aussi un
+    // `external_ref_commande` (leur id de mission Everest).
+    const { data: transporteurs, error: errTransporteurs } = await supabase
       .from('transporteurs')
       .select('id, type_tms, code_transporteur_mts1, prestataire_logistique_id')
       .eq('type_tms', 'mts1')
       .limit(1);
+
+    // Cette lecture est la PREMIÈRE des trois du chemin E5 : sans ce throw, un
+    // blip PostgREST la fait échouer avant les gardes de l'adapter, `data` vaut
+    // null, et l'event est marqué `done` en `noop_no_remote` — « rien à pousser »
+    // alors que la nouvelle adresse n'a atteint personne, sans retry ni alerte.
+    // Même doctrine que `AdapterMts1.updateLieu` : Transient, donc les 3 paliers
+    // du worker plutôt qu'un dead immédiat.
+    if (errTransporteurs) {
+      throw new LogistiqueTransientError(
+        `E5 : référentiel transporteurs illisible — ${errTransporteurs.message}`,
+      );
+    }
 
     if (transporteurs?.length) {
       const provider = getLogistiqueProvider(

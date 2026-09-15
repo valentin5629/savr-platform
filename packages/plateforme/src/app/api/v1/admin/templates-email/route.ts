@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 /**
  * Catalogue LECTURE SEULE des templates emails actifs V1 (CDC §9 l.820-823).
@@ -19,8 +20,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .eq('actif', true)
     .order('code');
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'admin.templates_email.list');
 
   return NextResponse.json({ data: data ?? [] });
 }

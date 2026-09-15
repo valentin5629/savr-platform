@@ -1,4 +1,5 @@
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { erreurInterne } from '@/lib/api-helpers.js';
 
 /**
  * BL-P1-ALGO-06 — Résultat d'évaluation auto-accept (CDC §06.09 §6).
@@ -27,7 +28,7 @@ export async function evaluerAutoAcceptAg(
     p_collecte_id: collecteId,
   });
 
-  if (error) throw new Error(`rpc_evaluer_auto_accept_ag: ${error.message}`);
+  if (error) throw erreurInterne(error, 'attribution_ag.auto_accept');
 
   return data as AutoAcceptResult;
 }

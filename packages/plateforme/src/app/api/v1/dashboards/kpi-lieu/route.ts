@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { requireUser } from '@/lib/api-auth.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 const ALLOWED_ROLES = [
   'gestionnaire_lieux',
@@ -55,8 +56,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   query = query.order('mois', { ascending: false });
 
   const { data, error } = await query;
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'dashboards.kpi_lieu.list');
 
   return NextResponse.json(
     { data },

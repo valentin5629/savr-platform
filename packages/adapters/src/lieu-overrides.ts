@@ -71,6 +71,26 @@ export const CHAMPS_ADRESSE_TMS = [
 ] as const satisfies readonly ChampLieuSurchargeable[];
 
 /**
+ * Plafond de longueur d'une valeur surchargée, à la LECTURE (filet, #308 suite).
+ *
+ * Les bornes par champ sont posées à l'ÉCRITURE par `validerLieuOverrides`
+ * (packages/plateforme/src/lib/programmation/lieu-override.ts, #308) : 200 pour
+ * `adresse_acces`, 16 pour `code_postal`, 1000 pour `acces_details`, etc. Ce
+ * plafond unique ne les redit pas — six nombres recopiés d'un package à l'autre
+ * dériveraient au premier ajustement. Il vaut la PLUS GRANDE d'entre elles, si
+ * bien qu'aucune valeur passée par une route ne le touche jamais.
+ *
+ * Il n'existe que pour le chemin qui échappe aux routes : `authenticated` porte
+ * un `GRANT UPDATE` sur `plateforme.collectes` et la policy `col_update_client`
+ * laisse un traiteur modifier sa propre collecte non terminale en PostgREST
+ * direct — et `fetchCollecte` relit `lieu_overrides` sur la ligne au moment de
+ * consommer l'event, pas dans le payload. Fermer ce GRANT relève de l'arbitrage
+ * Val (CLAUDE.md §12 pt 2bis, cf. « Reste ouvert » de #308) ; en attendant, une
+ * valeur démesurée écrite par là n'atteint pas le transporteur.
+ */
+export const LONGUEUR_MAX_SURCHARGE_LUE = 1000;
+
+/**
  * Vrai si `champ` est effectivement surchargé par cette collecte, au sens EXACT
  * où `applyLieuOverrides` substituerait la valeur.
  *
@@ -89,7 +109,40 @@ export function lieuChampSurcharge(
   // serait transmis alors que l'override ne porte pas la clé.
   if (!overrides || !Object.hasOwn(overrides, champ)) return false;
   const value = overrides[champ];
-  return value !== null && value !== undefined;
+
+  // Garde de TYPE, et pas seulement de clé (#308 suite). `lieu_overrides` est un
+  // jsonb libre : une valeur non textuelle passait l'allowlist et finissait
+  // interpolée dans l'adresse envoyée au transporteur — `{"adresse_acces":
+  // {"a": 1}}` donnait `"[object Object], 75008 Paris"`, un tableau `"x,y, …"`,
+  // un nombre `"42, …"`, un objet à `toString` maison sa propre valeur. Aucune
+  // injection (le corps part en JSON.stringify), mais un camion envoyé nulle
+  // part, de nuit.
+  //
+  // #308 refuse désormais ces valeurs à l'ÉCRITURE sur les deux routes ; cette
+  // garde-ci tient le chemin qui les contourne (PostgREST direct sous le GRANT
+  // UPDATE d'`authenticated`, cf. LONGUEUR_MAX_SURCHARGE_LUE), et vaut règle de
+  // fusion pour tout futur appelant.
+  //
+  // Une valeur invalide n'est PAS une surcharge : la fusion retombe sur le lieu
+  // officiel — une adresse valide vaut mieux qu'un artefact de coercition. Et
+  // comme ce prédicat est aussi celui du figeage E5, le champ redevient
+  // propageable : une édition Admin du lieu officiel RÉPARE la collecte au lieu
+  // de laisser la valeur poubelle en place.
+  //
+  // `trim()` : une chaîne d'espaces n'est pas une correction d'adresse, et la
+  // logique existante refuse déjà qu'un override VIDE écrase une valeur de
+  // référence — un `"   "` est le même cas, écrit autrement.
+  //
+  // Corollaire assumé : un champ OPTIONNEL vidé au formulaire (`""`) ne vaut
+  // plus « efface pour cette collecte » mais « non renseigné », comme `null` —
+  // et comme la normalisation que #308 applique déjà aux trois selects. Sans
+  // effet observable en V1 (ni `acces_details` ni `contraintes_horaires` n'est
+  // lu par un adapter), mais la sémantique vaut pour la fusion V2.
+  return (
+    typeof value === 'string' &&
+    value.trim() !== '' &&
+    value.length <= LONGUEUR_MAX_SURCHARGE_LUE
+  );
 }
 
 // PROG-01/PROG-03 — surcharge du lieu officiel par les valeurs saisies dans
@@ -101,8 +154,13 @@ export function applyLieuOverrides<T extends object>(
   lieu: T,
   overrides: Record<string, unknown> | null | undefined,
 ): T {
-  if (!overrides) return lieu;
+  // Copie SYSTÉMATIQUE, y compris sans override. Rendre l'entrée telle quelle
+  // dans ce cas est inoffensif tant que les deux appelants lisent seulement,
+  // mais un appelant futur qui muterait le résultat corromprait alors le lieu
+  // partagé pour toutes les collectes de la boucle E5 — donc potentiellement
+  // entre organisations. Le `{ ...lieu }` inconditionnel supprime la classe.
   const merged: T = { ...lieu };
+  if (!overrides) return merged;
   for (const champ of CHAMPS_LIEU_SURCHARGEABLES) {
     if (!lieuChampSurcharge(overrides, champ)) continue;
     (merged as unknown as Record<string, unknown>)[champ] = overrides[champ];

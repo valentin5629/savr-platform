@@ -6,7 +6,7 @@ import {
   findIdempotentReplay,
   recordIdempotentResult,
 } from '@/lib/idempotency.js';
-import { typedRpcError, withApiTrace } from '@/lib/api-helpers.js';
+import { typedRpcError, withApiTrace, serverError } from '@/lib/api-helpers.js';
 
 async function putHandler(
   req: NextRequest,
@@ -106,8 +106,7 @@ async function getHandler(
     .eq('parametre_id', filiere_id)
     .order('modifie_le', { ascending: false });
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'admin.parametres.taux_recyclage.get');
 
   const rows = data ?? [];
 

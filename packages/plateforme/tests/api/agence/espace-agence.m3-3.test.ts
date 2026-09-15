@@ -396,7 +396,12 @@ describe('M3.3 / complétion SIRET shadow', () => {
 
   it('M3.3/siret_rpc_erreur_remontee_422 — garde RPC propagée', async () => {
     setupAuth('agence');
-    rls.push({ data: null, error: { message: 'SIRET déjà renseigné' } });
+    // La RPC lève `RAISE EXCEPTION 'SIRET déjà renseigné' USING ERRCODE = '22023'`
+    // (migration 20260617130000) : le code fait partie de l'erreur remontée.
+    rls.push({
+      data: null,
+      error: { code: '22023', message: 'SIRET déjà renseigné' },
+    });
     const { PATCH } =
       await import('@/app/api/v1/agence/shadow/[id]/siret/route.js');
     const res = await PATCH(

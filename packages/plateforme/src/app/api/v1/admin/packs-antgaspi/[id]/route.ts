@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import { writeError } from '@/lib/api-helpers.js';
 
 // Actions : ajuster_credits | annuler
 export async function PATCH(
@@ -77,8 +78,7 @@ export async function PATCH(
       .select('id, credits_initiaux, credits_consommes, statut')
       .single();
 
-    if (error)
-      return NextResponse.json({ error: error.message }, { status: 422 });
+    if (error) return writeError(error, 'admin.packs_antgaspi.update');
 
     try {
       await supabase.from('audit_log').insert({
@@ -112,8 +112,7 @@ export async function PATCH(
       .select('id, statut, credits_consommes')
       .single();
 
-    if (error)
-      return NextResponse.json({ error: error.message }, { status: 422 });
+    if (error) return writeError(error, 'admin.packs_antgaspi.annuler');
 
     try {
       await supabase.from('audit_log').insert({

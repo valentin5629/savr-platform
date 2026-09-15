@@ -15,7 +15,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 import { CollecteDetailModal } from './collecte-detail-modal';
-import { ATTENTE_UI } from '@/test-utils/attente-ui';
+import { ATTENTE_CAS_MS, ATTENTE_UI } from '@/test-utils/attente-ui';
 
 // Collecte AG programmée (non terminale) → l'en-tête affiche « Forcer le statut ».
 const collecteAg = {
@@ -92,33 +92,51 @@ describe('M0.6 — CollecteDetailModal pop-up + garde Escape (BL-P1-BOA-06)', ()
     expect(screen.queryByText('Prestataire & Dispatch')).toBeNull();
   });
 
-  it('M0.6 — Escape ferme le panneau quand aucune sous-modale n’est ouverte', async () => {
-    mockFetch();
-    const onClose = vi.fn();
-    render(<CollecteDetailModal collecteId="c1" onClose={onClose} />);
-    await screen.findByText('Prestataire & Dispatch', undefined, ATTENTE_UI);
+  it(
+    'M0.6 — Escape ferme le panneau quand aucune sous-modale n’est ouverte',
+    async () => {
+      mockFetch();
+      const onClose = vi.fn();
+      render(<CollecteDetailModal collecteId="c1" onClose={onClose} />);
+      await screen.findByText('Prestataire & Dispatch', undefined, ATTENTE_UI);
 
-    fireEvent.keyDown(document, { key: 'Escape' });
-    expect(onClose).toHaveBeenCalledTimes(1);
-  });
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(onClose).toHaveBeenCalledTimes(1);
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('M0.6 — Escape NE ferme PAS le panneau si une sous-modale (forçage statut) est ouverte', async () => {
-    mockFetch();
-    const onClose = vi.fn();
-    render(<CollecteDetailModal collecteId="c1" onClose={onClose} />);
-    await screen.findByText('Prestataire & Dispatch', undefined, ATTENTE_UI);
+  it(
+    'M0.6 — Escape NE ferme PAS le panneau si une sous-modale (forçage statut) est ouverte',
+    async () => {
+      mockFetch();
+      const onClose = vi.fn();
+      render(<CollecteDetailModal collecteId="c1" onClose={onClose} />);
 
-    // Ouvre la sous-modale « Forcer le statut »
-    fireEvent.click(screen.getByRole('button', { name: /Forcer le statut/ }));
-    await screen.findByText(
-      'Forcer le statut de la collecte',
-      undefined,
-      ATTENTE_UI,
-    );
+      // Condition réellement attendue avant le clic : le panneau a fini de charger
+      // (4 fetches) ET a rendu le bouton de forçage. On attend CE bouton — et on
+      // clique celui qu'on a attendu. L'ancien enchaînement « attendre un texte
+      // voisin, puis `getByRole` synchrone » n'attendait pas la bonne condition :
+      // le `getByRole` échouait sèchement si le bouton arrivait au rendu suivant.
+      const boutonForcer = await screen.findByRole(
+        'button',
+        { name: /Forcer le statut/ },
+        ATTENTE_UI,
+      );
+      fireEvent.click(boutonForcer);
 
-    // Escape : la sous-modale gère sa propre fermeture, le panneau reste ouvert.
-    fireEvent.keyDown(document, { key: 'Escape' });
-    expect(onClose).not.toHaveBeenCalled();
-    expect(screen.getByText('Prestataire & Dispatch')).toBeInTheDocument();
-  });
+      // Condition suivante : la sous-modale est ouverte (son titre est monté).
+      await screen.findByText(
+        'Forcer le statut de la collecte',
+        undefined,
+        ATTENTE_UI,
+      );
+
+      // Escape : la sous-modale gère sa propre fermeture, le panneau reste ouvert.
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(onClose).not.toHaveBeenCalled();
+      expect(screen.getByText('Prestataire & Dispatch')).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
 });

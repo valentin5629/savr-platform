@@ -5,6 +5,7 @@ import { requireStaff } from '@/lib/api-auth.js';
 import { ASSOCIATIONS_ADMIN_FIELDS } from '@/lib/associations-champs-admin.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 export async function GET(
   req: NextRequest,
@@ -27,8 +28,7 @@ export async function GET(
       { status: 404 },
     );
   }
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'admin.associations.get');
 
   // KPI fiche — collectes AG réalisées rattachées à cette association sur les
   // 30 derniers jours. Rattachement via attributions_antgaspi.association_id
@@ -195,8 +195,7 @@ export async function PATCH(
     .select()
     .single();
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'admin.associations.update');
 
   await supabase.from('audit_log').insert({
     table_name: 'associations',

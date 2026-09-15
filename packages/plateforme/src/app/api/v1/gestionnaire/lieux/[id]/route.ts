@@ -5,6 +5,7 @@ import {
   type ClientRole,
 } from '@/lib/api-auth.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
@@ -33,8 +34,7 @@ export async function GET(
     .eq('id', id)
     .maybeSingle();
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'gestionnaire.lieux.get');
   if (!lieu)
     return NextResponse.json({ error: 'Lieu non trouvé' }, { status: 404 });
 

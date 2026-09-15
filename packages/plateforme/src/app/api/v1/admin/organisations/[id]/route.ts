@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import { writeError } from '@/lib/api-helpers.js';
 
 export async function GET(
   req: NextRequest,
@@ -156,7 +157,7 @@ export async function PATCH(
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 422 });
+    return writeError(error, 'admin.organisations.update');
   }
   if (!org) {
     return NextResponse.json(

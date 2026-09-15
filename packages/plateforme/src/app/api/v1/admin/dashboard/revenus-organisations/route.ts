@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 /**
  * GET /api/v1/admin/dashboard/revenus-organisations — Bloc 2 « Revenus par
@@ -188,14 +189,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return { data: data as unknown[] | null, error };
   });
   if (collectesRes.error)
-    return NextResponse.json(
-      {
-        error: String(
-          (collectesRes.error as { message?: string }).message ??
-            collectesRes.error,
-        ),
-      },
-      { status: 500 },
+    return serverError(
+      collectesRes.error,
+      'admin.dashboard.revenus_organisations.collectes',
     );
 
   for (const r of collectesRes.rows as CollecteAggRow[]) {
@@ -245,14 +241,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return { data: data as unknown[] | null, error };
   });
   if (facturesRes.error)
-    return NextResponse.json(
-      {
-        error: String(
-          (facturesRes.error as { message?: string }).message ??
-            facturesRes.error,
-        ),
-      },
-      { status: 500 },
+    return serverError(
+      facturesRes.error,
+      'admin.dashboard.revenus_organisations.factures',
     );
 
   for (const r of facturesRes.rows as FactureAggRow[]) {

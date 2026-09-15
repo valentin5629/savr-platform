@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 import type { AnyRole } from '@/lib/api-auth.js';
+import { erreurInterne } from '@/lib/api-helpers.js';
 
 // ---------------------------------------------------------------------------
 // Registre réglementaire ZD (§06.03) — types, filtres, requête.
@@ -173,7 +174,7 @@ export async function fetchRegistre(
   }
 
   const { data, count, error } = await q;
-  if (error) throw new Error(error.message);
+  if (error) throw erreurInterne(error, 'registre.lecture');
   return {
     rows: (data ?? []) as unknown as RegistreRow[],
     total: count ?? 0,

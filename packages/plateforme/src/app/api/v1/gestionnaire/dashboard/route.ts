@@ -4,6 +4,7 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
@@ -65,8 +66,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     q = q.in('evenements.type_evenement_id', typeEvtIds);
 
   const { data: collectes, error } = await q;
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'gestionnaire.dashboard.list');
 
   const rows = (collectes ?? []).filter((c) => {
     const evt = Array.isArray(c.evenements) ? c.evenements[0] : c.evenements;

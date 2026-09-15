@@ -4,6 +4,7 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 const TRAITEUR_ROLES: ClientRole[] = [
   'traiteur_manager',
@@ -77,8 +78,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     query = query.eq('attributions_antgaspi.association_id', associationId);
 
   const { data, error } = await query;
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, 'traiteur.collectes.list');
 
   // Indicateur "programmée par tiers" : evenement.organisation_id != traiteur opérationnel
   const orgId = auth.ctx.organisationId;

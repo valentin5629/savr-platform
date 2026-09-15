@@ -1,5 +1,6 @@
 import { logger } from '@savr/shared/src/logger/index.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { erreurInterne } from '@/lib/api-helpers.js';
 
 export type ModeValidation = 'manuel_top1' | 'manuel_override' | 'auto_accept';
 
@@ -50,7 +51,7 @@ export async function validerAttributionAg(
       throw Object.assign(new Error('Motif override obligatoire'), {
         code: 'MISSING_MOTIF',
       });
-    throw new Error(`rpc_valider_attribution_ag: ${error.message}`);
+    throw erreurInterne(error, 'attribution_ag.valider');
   }
 
   return data as ValiderAttributionResult;

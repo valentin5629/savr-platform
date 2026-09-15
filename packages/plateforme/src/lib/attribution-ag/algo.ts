@@ -1,4 +1,5 @@
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { erreurInterne } from '@/lib/api-helpers.js';
 
 export interface AssociationSuggestion {
   id: string;
@@ -39,8 +40,7 @@ export async function calculerAlgoAttributionAg(
     },
   );
 
-  if (error)
-    throw new Error(`fn_calculer_algo_attribution_ag: ${error.message}`);
+  if (error) throw erreurInterne(error, 'attribution_ag.algo');
 
   return data as AlgoAttributionResult;
 }

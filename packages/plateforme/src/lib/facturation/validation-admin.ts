@@ -18,6 +18,7 @@ import {
 } from './numerotation.js';
 import { requireValidatedOrganisation } from '../onboarding-guards.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { messageEchecTiers } from '@/lib/api-helpers.js';
 
 export interface ValidationResult {
   ok: boolean;
@@ -292,7 +293,7 @@ export async function validerFacture(
         ok: false,
         statut: is4 ? 'brouillon' : 'en_attente_pennylane',
         numero_facture: numeroFacture,
-        erreur: custRes.message,
+        erreur: messageEchecTiers(custRes.message, 'pennylane.customer'),
       };
     }
     customerId = custRes.customer.id;
@@ -331,7 +332,7 @@ export async function validerFacture(
       ok: false,
       statut: is4 ? 'brouillon' : 'en_attente_pennylane',
       numero_facture: numeroFacture,
-      erreur: createRes.message,
+      erreur: messageEchecTiers(createRes.message, 'pennylane.facture.create'),
     };
   }
 
@@ -359,7 +360,10 @@ export async function validerFacture(
       statut: 'en_attente_pennylane',
       numero_facture: numeroFacture,
       pennylane_id: pennylaneId,
-      erreur: finalizeRes.message,
+      erreur: messageEchecTiers(
+        finalizeRes.message,
+        'pennylane.facture.finalize',
+      ),
     };
   }
 
@@ -384,7 +388,7 @@ export async function validerFacture(
       statut: 'en_attente_pennylane',
       numero_facture: numeroFacture,
       pennylane_id: pennylaneId,
-      erreur: emailRes.message,
+      erreur: messageEchecTiers(emailRes.message, 'pennylane.facture.email'),
     };
   }
 

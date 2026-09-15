@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { calculerAlgoAttributionAg } from '@/lib/attribution-ag/algo.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 const STATUTS_TERMINAUX = [
   'realisee',
@@ -123,7 +124,7 @@ export async function POST(
   );
 
   if (rpcErr) {
-    return NextResponse.json({ error: rpcErr.message }, { status: 500 });
+    return serverError(rpcErr, 'admin.collectes.dispatch.create');
   }
 
   await supabase.from('audit_log').insert({

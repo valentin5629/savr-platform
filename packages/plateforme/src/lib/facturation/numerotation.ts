@@ -3,6 +3,7 @@
 
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { erreurInterne } from '@/lib/api-helpers.js';
 
 export type SerieFacturation = 'FZD' | 'FAG' | 'FPK' | 'AV';
 
@@ -21,7 +22,7 @@ export async function attribuerNumeroFacture(
     })
     .single();
 
-  if (error) throw new Error(`Numérotation gapless échouée : ${error.message}`);
+  if (error) throw erreurInterne(error, 'facturation.numerotation');
 
   const numero = data as string;
 

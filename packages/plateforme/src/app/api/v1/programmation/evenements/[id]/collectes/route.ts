@@ -5,6 +5,7 @@ import { envoyerRecapProgrammation } from '@/lib/programmation/recap-email.js';
 import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
 import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 // Cible de l'action « Ajouter une collecte à cet événement » de l'écran de
 // confirmation (§06.01 étape 13) → ouverte à l'admin en mode support comme le POST
@@ -102,7 +103,7 @@ export async function POST(
   );
 
   if (rpcErr)
-    return NextResponse.json({ error: rpcErr.message }, { status: 500 });
+    return serverError(rpcErr, 'programmation.evenements.collectes.create');
 
   // PROG-05 : auto-accept si la collecte ajoutée est AG (§06.01 l.398 + §09 §6).
   if (String(type) === 'ag' && collecteId) {

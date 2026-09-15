@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import { serverError } from '@/lib/api-helpers.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -35,7 +36,7 @@ export async function GET(
     .limit(200);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error, 'admin.collectes.audit.list');
   }
 
   // Date de recrédit auto (Bloc 4 — §06.06 l.247). Le trigger fn_trg_pack_recredit

@@ -412,6 +412,35 @@ describe('bornes texte libre — PATCH événement', () => {
       }),
     );
   });
+
+  it('POST /admin/evenements : insère les valeurs NORMALISÉES, pas le corps de requête', async () => {
+    setupAuth('admin_savr');
+    mockSingle.mockResolvedValueOnce({ data: { id: 'evt-neuf' }, error: null });
+
+    const { POST } = await import('@/app/api/v1/admin/evenements/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/evenements', {
+        organisation_id: 'org-1',
+        traiteur_operationnel_organisation_id: 'org-1',
+        entite_facturation_id: 'ent-1',
+        lieu_id: 'lieu-1',
+        type_evenement_id: 'type-1',
+        pax: 80,
+        contact_principal_nom: 'Jean Martin',
+        contact_principal_telephone: '0612345678',
+        contact_secours_nom: '  Sonia Reyes  ',
+        contact_secours_telephone: '   ',
+      }),
+    );
+
+    expect(res.status).toBe(201);
+    expect(mockSupabaseChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contact_secours_nom: 'Sonia Reyes',
+        contact_secours_telephone: null,
+      }),
+    );
+  });
 });
 
 // ── Écriture de `informations_supplementaires` au niveau collecte ─────────────
@@ -516,4 +545,256 @@ describe('bornes texte libre — routes collecte', () => {
       expect(mockRpc).not.toHaveBeenCalled();
     });
   }
+
+  // ── Contre-épreuves : la valeur écrite est la valeur NORMALISÉE ──────────────
+  //
+  // Les cas ci-dessus prouvent que la borne REJETTE ; aucun ne prouve que ce qui
+  // part en base est la valeur normalisée. Sur les QUATRE routes PATCH, la
+  // consommation tient à une instruction isolée, `Object.assign(updates,
+  // texteValide.valeurs)`, supprimable sans rien casser d'autre : `updates`
+  // repartirait avec le corps brut et la normalisation serait calculée pour rien.
+  // Mesuré sur `/admin/collectes/[id]` avant ce lot — la neutraliser laissait la
+  // suite ENTIÈRE verte.
+  //
+  // La base ne rattrape pas ce chemin. Le seul CHECK posé sur
+  // `informations_supplementaires` (migration 20260915180000) teste
+  // `length(col) <= 1000` et l'absence de caractère de contrôle hors blancs :
+  // `'  Quai 7  '` comme `'   '` satisfont ce prédicat. Aucun `btrim`, aucun
+  // `<> ''` sur cette colonne dans TOUTES les migrations (vérifié).
+  //
+  // Ce que le `trim()` protège ici, relevé sur le code d'émission et NON déduit :
+  // l'aval rattrape déjà le cas BLANC pour ce champ — `composerInformations-
+  // Supplementaires` (packages/adapters/src/infos-acces.ts) le passe par
+  // `texte()` → `.trim()`, puis `[base, ...lignes].filter(Boolean)`, si bien que
+  // `'   '` n'ouvre aucune ligne chez le chauffeur. Ce que le `trim()` tient, ce
+  // sont la donnée STOCKÉE, les exports et le rendu des fiches — pas le fil.
+  // (La propriété qui, elle, ne tient qu'ici est celle de
+  // `contact_secours_telephone`, contre-éprouvée sur les routes événement.)
+  //
+  // Chaque cas porte une valeur DISTINCTE de toutes les autres du fichier :
+  // `toHaveBeenCalledWith` est satisfait par n'importe quel appel enregistré sur
+  // le spy, donc une valeur partagée pourrait être fournie par le test voisin si
+  // le `beforeEach(resetChain)` de ce `describe` venait à disparaître.
+
+  it('PATCH /admin/collectes/[id] : appelle fn_modifier_collecte avec la valeur NORMALISÉE, pas le body brut', async () => {
+    setupAuth('admin_savr');
+    mockSingle.mockResolvedValueOnce({
+      data: { id: 'col-1', statut: 'programmee' },
+      error: null,
+    }); // `before` de l'audit
+    mockRpc.mockResolvedValueOnce({
+      data: { id: 'col-1', statut: 'programmee' },
+      error: null,
+    }); // fn_modifier_collecte
+
+    const { PATCH } =
+      await import('@/app/api/v1/admin/collectes/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/collectes/col-1', {
+        informations_supplementaires: '  Quai 7, badge 4512  ',
+      }),
+      { params: Promise.resolve({ id: 'col-1' }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_modifier_collecte',
+      expect.objectContaining({
+        p_updates: expect.objectContaining({
+          informations_supplementaires: 'Quai 7, badge 4512',
+        }),
+      }),
+    );
+  });
+
+  it('PATCH /traiteur/collectes/[id] : appelle fn_modifier_collecte avec la valeur NORMALISÉE, pas le body brut', async () => {
+    setupAuth('traiteur_manager', 'org-traiteur-1', 'user-1');
+    mockMaybeSingle.mockResolvedValueOnce({
+      data: {
+        id: 'col-1',
+        statut: 'programmee',
+        statut_tms: 'non_envoye',
+        date_collecte: '2030-01-15',
+        heure_collecte: '08:00:00',
+        evenement: {
+          created_by: 'user-1',
+          organisation_id: 'org-traiteur-1',
+          organisation: { nom: 'Traiteur Dupont' },
+        },
+      },
+      error: null,
+    }); // lecture RLS-scopée (gate statut + autorisation acteur)
+    mockSingle.mockResolvedValueOnce({
+      data: { id: 'col-1', statut: 'programmee' },
+      error: null,
+    }); // `before` de l'audit
+    mockRpc.mockResolvedValueOnce({ data: { id: 'col-1' }, error: null });
+
+    const { PATCH } =
+      await import('@/app/api/v1/traiteur/collectes/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/traiteur/collectes/col-1', {
+        informations_supplementaires: '  Portail arrière, code 8834  ',
+      }),
+      { params: Promise.resolve({ id: 'col-1' }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_modifier_collecte',
+      expect.objectContaining({
+        p_updates: expect.objectContaining({
+          informations_supplementaires: 'Portail arrière, code 8834',
+        }),
+      }),
+    );
+  });
+
+  it('PATCH /gestionnaire/collectes/[id] : appelle fn_modifier_collecte avec la valeur NORMALISÉE, pas le body brut', async () => {
+    setupAuth('gestionnaire_lieux', 'org-gestionnaire-1', 'user-gest-1');
+    mockMaybeSingle.mockResolvedValueOnce({
+      data: {
+        id: 'col-1',
+        statut: 'validee',
+        statut_tms: 'non_envoye',
+        date_collecte: '2030-01-15',
+        heure_collecte: '08:00:00',
+        // Périmètre d'écriture gestionnaire : l'org de l'événement DOIT être la
+        // sienne, sinon la route rend 403 avant la RPC.
+        evenement: { organisation_id: 'org-gestionnaire-1' },
+      },
+      error: null,
+    });
+    mockSingle.mockResolvedValueOnce({
+      data: { id: 'col-1', statut: 'validee' },
+      error: null,
+    }); // `before` de l'audit
+    mockRpc.mockResolvedValueOnce({ data: { id: 'col-1' }, error: null });
+
+    const { PATCH } =
+      await import('@/app/api/v1/gestionnaire/collectes/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/gestionnaire/collectes/col-1', {
+        informations_supplementaires: '  Monte-charge nord hors service  ',
+      }),
+      { params: Promise.resolve({ id: 'col-1' }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_modifier_collecte',
+      expect.objectContaining({
+        p_updates: expect.objectContaining({
+          informations_supplementaires: 'Monte-charge nord hors service',
+        }),
+      }),
+    );
+  });
+
+  it('PATCH /agence/collectes/[id] : appelle fn_modifier_collecte avec la valeur NORMALISÉE, pas le body brut', async () => {
+    setupAuth('agence', 'org-agence-1', 'user-agence-1');
+    // Cette route n'a pas de relecture `before` : la lecture RLS-scopée est son
+    // seul SELECT avant la RPC.
+    mockMaybeSingle.mockResolvedValueOnce({
+      data: {
+        id: 'col-1',
+        statut: 'programmee',
+        statut_tms: 'non_envoye',
+        date_collecte: '2030-01-15',
+        heure_collecte: '08:00:00',
+        evenement: { organisation_id: 'org-agence-1' },
+      },
+      error: null,
+    });
+    mockRpc.mockResolvedValueOnce({ data: { id: 'col-1' }, error: null });
+
+    const { PATCH } =
+      await import('@/app/api/v1/agence/collectes/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/agence/collectes/col-1', {
+        informations_supplementaires: '  Entrée par le 12 rue Lenoir  ',
+      }),
+      { params: Promise.resolve({ id: 'col-1' }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_modifier_collecte',
+      expect.objectContaining({
+        p_updates: expect.objectContaining({
+          informations_supplementaires: 'Entrée par le 12 rue Lenoir',
+        }),
+      }),
+    );
+  });
+
+  // Les deux POST ci-dessous consomment par LECTURE DIRECTE
+  // (`texteValide.valeurs.informations_supplementaires ?? null`) : la valeur
+  // normalisée y est structurellement la seule qui puisse partir, on ne peut pas
+  // « oublier de la consommer », seulement réécrire la ligne pour relire le brut.
+  // Le risque de régression est donc plus faible que sur les PATCH — pas nul, et
+  // l'oracle manquait.
+  it('POST /admin/collectes : passe à fn_creer_collecte la valeur NORMALISÉE', async () => {
+    setupAuth('admin_savr');
+    mockRpc.mockResolvedValueOnce({ data: 'col-neuve', error: null }); // fn_creer_collecte
+    mockSingle.mockResolvedValueOnce({
+      data: { id: 'col-neuve' },
+      error: null,
+    }); // relecture de la collecte créée
+
+    const { POST } = await import('@/app/api/v1/admin/collectes/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/collectes', {
+        evenement_id: 'evt-1',
+        type: 'zero_dechet',
+        date_collecte: '2030-01-15',
+        heure_collecte: '08:00',
+        informations_supplementaires: '  Cuisine au sous-sol, ascenseur B  ',
+      }),
+    );
+
+    expect(res.status).toBe(201);
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_creer_collecte',
+      expect.objectContaining({
+        p_info_suppl: 'Cuisine au sous-sol, ascenseur B',
+      }),
+    );
+  });
+
+  it('POST /programmation/evenements/[id]/collectes : passe à fn_ajouter_collecte_evenement la valeur NORMALISÉE', async () => {
+    setupAuth('traiteur_manager');
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'evt-1',
+        organisation_id: 'org-traiteur-1',
+        nom_evenement: 'Gala',
+        pax: 80,
+      },
+      error: null,
+    }); // vérification propriété/éditabilité de l'événement
+    mockRpc
+      .mockResolvedValueOnce({ data: true, error: null }) // f_collecte_editable
+      .mockResolvedValueOnce({ data: 'col-neuve', error: null }); // fn_ajouter_collecte_evenement
+
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/[id]/collectes/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/programmation/evenements/evt-1/collectes', {
+        type: 'zd',
+        date_collecte: '2030-01-15',
+        heure_collecte: '08:00',
+        informations_supplementaires: '  Sonner au 3e, porte droite  ',
+      }),
+      { params: Promise.resolve({ id: 'evt-1' }) },
+    );
+
+    expect(res.status).toBe(201);
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_ajouter_collecte_evenement',
+      expect.objectContaining({
+        p_info_suppl: 'Sonner au 3e, porte droite',
+      }),
+    );
+  });
 });

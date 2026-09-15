@@ -39,6 +39,11 @@ export async function POST(
     const code = error.code ?? '';
     // P0001/P0003-5 = `RAISE EXCEPTION '<libellé métier>'` de la RPC : message
     // écrit par nous, destiné à l'Admin, sans structure interne → conservé.
+    // ⚠ `P0001` est l'errcode PAR DÉFAUT de tout `RAISE EXCEPTION` nu : cette
+    // allowlist suppose qu'aucun trigger de `collectes`/`packs_antgaspi` n'en
+    // lève (vérifié en base, revue sécurité). Un trigger futur sur ces tables
+    // ferait sortir son message ici — lui donner un ERRCODE dédié, ou retirer
+    // P0001 de la liste.
     if (code === 'P0001')
       return businessError(
         error,

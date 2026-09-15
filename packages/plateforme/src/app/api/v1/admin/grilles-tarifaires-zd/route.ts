@@ -98,6 +98,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // La RPC valide les entrées par `RAISE EXCEPTION '<libellé>' USING errcode =
   // '22023'` (ex. « nom obligatoire ») : libellé métier écrit par nous, affiché à
   // l'Admin. Tout autre code (contrainte, RLS…) retombe sur un message neutre.
+  // ⚠ `22023` est aussi un code CORE : `jsonb_array_length(p_paliers)` le lève sur
+  // un non-tableau (« cannot get array length of a non-array »). C'est la garde
+  // `Array.isArray(paliers)` ci-dessus qui rend ce chemin inatteignable — la
+  // retirer rouvrirait un message système ici (libellé core, sans nom de table).
   if (error)
     return businessError(
       error,

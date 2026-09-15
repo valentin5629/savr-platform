@@ -20,6 +20,7 @@ import {
   sommePoidsFlux,
   unwrap,
 } from './shared.js';
+import { erreurInterne } from '@/lib/api-helpers.js';
 
 type Row = Record<string, unknown>;
 
@@ -53,7 +54,7 @@ export async function buildCollectesExport(
   if (to) q = q.lte('date_collecte', to);
 
   const { data, error } = await q;
-  if (error) throw new Error(error.message);
+  if (error) throw erreurInterne(error, 'exports.builders');
   const rows = (data ?? []) as Row[];
 
   const traiteurNoms = await resolveTraiteurNoms(
@@ -158,7 +159,7 @@ export async function buildPeseesExport(
   if (to) q = q.lte('collectes.date_collecte', to);
 
   const { data, error } = await q;
-  if (error) throw new Error(error.message);
+  if (error) throw erreurInterne(error, 'exports.builders');
   const rows = (data ?? []) as Row[];
 
   const col = (r: Row) => unwrap(r.collectes);
@@ -247,7 +248,7 @@ export async function buildFacturesExport(
   if (to) q = q.lte('date_emission', to);
 
   const { data, error } = await q;
-  if (error) throw new Error(error.message);
+  if (error) throw erreurInterne(error, 'exports.builders');
   const rows = (data ?? []) as Row[];
 
   const columns: CsvColumn<Row>[] = [
@@ -303,7 +304,7 @@ export async function buildPacksAgExport(
        date_achat, date_expiration, statut`,
     )
     .order('created_at', { ascending: false });
-  if (error) throw new Error(error.message);
+  if (error) throw erreurInterne(error, 'exports.builders');
   const rows = (data ?? []) as Row[];
 
   const columns: CsvColumn<Row>[] = [
@@ -354,7 +355,7 @@ export async function buildAssociationsAgExport(
          habilitee_attestation_fiscale, actif`,
       )
       .order('nom');
-    if (error) throw new Error(error.message);
+    if (error) throw erreurInterne(error, 'exports.builders');
     const rows = (data ?? []) as Row[];
     const columns: CsvColumn<Row>[] = [
       { header: 'Association', value: (r) => r.nom as string },
@@ -381,7 +382,7 @@ export async function buildAssociationsAgExport(
          associations!association_id(nom, ville, region))`,
     )
     .eq('type', 'anti_gaspi');
-  if (error) throw new Error(error.message);
+  if (error) throw erreurInterne(error, 'exports.builders');
 
   interface Agg {
     nom: string;
@@ -458,7 +459,7 @@ export async function buildImpactRseExport(
   if (to) q = q.lte('date_collecte', to);
 
   const { data, error } = await q;
-  if (error) throw new Error(error.message);
+  if (error) throw erreurInterne(error, 'exports.builders');
   const rows = (data ?? []) as Row[];
 
   const traiteurNoms = await resolveTraiteurNoms(

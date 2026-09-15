@@ -11,6 +11,7 @@ import {
   bordereauDisponible,
   type RegistreRow,
 } from './registre.js';
+import { erreurInterne } from '@/lib/api-helpers.js';
 
 // ---------------------------------------------------------------------------
 // Export CSV du registre réglementaire (§06.03 Exports). Grain COLLECTE : une
@@ -43,7 +44,7 @@ export async function fetchFluxDetail(
       'collecte_id, poids_reel_kg, flux_dechets!flux_id(code, filiere_valorisation)',
     )
     .in('collecte_id', collecteIds);
-  if (error) throw new Error(error.message);
+  if (error) throw erreurInterne(error, 'registre.csv');
 
   for (const row of (data ?? []) as Record<string, unknown>[]) {
     const cid = row.collecte_id as string;

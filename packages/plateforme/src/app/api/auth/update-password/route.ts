@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { validatePasswordStrength } from '@/lib/password.js';
-import { writeError } from '@/lib/api-helpers.js';
+import { authAccountError } from '@/lib/api-helpers.js';
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   let body: Record<string, unknown>;
@@ -61,7 +61,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const { error } = await supabase.auth.updateUser({ password: mot_de_passe });
   if (error) {
-    return writeError(error, 'auth.update_password.create');
+    // Pas `writeError` : « Enregistrement impossible (données invalides ou
+    // doublon) » n'a aucun sens pour un changement de mot de passe. Les cas
+    // GoTrue utiles (trop faible, identique à l'ancien) sont mappés vers un
+    // libellé FR ; aucun texte tiers n'est renvoyé.
+    return authAccountError(
+      error,
+      'auth.update_password',
+      'Modification du mot de passe impossible.',
+    );
   }
 
   return NextResponse.json(

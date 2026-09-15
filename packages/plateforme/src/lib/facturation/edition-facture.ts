@@ -8,6 +8,7 @@
 // requireAdmin côté route.
 
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { messageEchecEcriture } from '@/lib/api-helpers.js';
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
@@ -110,7 +111,12 @@ export async function patchFactureHeader(
     .from('factures')
     .update(update)
     .eq('id', factureId);
-  if (error) return { ok: false, erreur: error.message, statut: 422 };
+  if (error)
+    return {
+      ok: false,
+      erreur: messageEchecEcriture(error, 'facturation.edition'),
+      statut: 422,
+    };
   return { ok: true };
 }
 
@@ -156,7 +162,12 @@ export async function ajouterLigne(
     tarif_detail: { source: 'ajout_manuel_admin' },
   });
   // Le trigger fn_trg_fc_collecte_non_facturee peut rejeter (collecte déjà facturée).
-  if (error) return { ok: false, erreur: error.message, statut: 409 };
+  if (error)
+    return {
+      ok: false,
+      erreur: messageEchecEcriture(error, 'facturation.edition.ligne'),
+      statut: 409,
+    };
 
   await recomputeFactureTotaux(supabase, factureId);
   return { ok: true };
@@ -223,7 +234,12 @@ export async function modifierLigne(
     .from('factures_collectes')
     .update(update)
     .eq('id', ligneId);
-  if (error) return { ok: false, erreur: error.message, statut: 422 };
+  if (error)
+    return {
+      ok: false,
+      erreur: messageEchecEcriture(error, 'facturation.edition'),
+      statut: 422,
+    };
 
   if (puOverride) {
     // FACT-05 — qui / quand / ancien / nouveau (non bloquant).
@@ -259,7 +275,12 @@ export async function supprimerLigne(
     .delete()
     .eq('id', ligneId)
     .eq('facture_id', factureId);
-  if (error) return { ok: false, erreur: error.message, statut: 422 };
+  if (error)
+    return {
+      ok: false,
+      erreur: messageEchecEcriture(error, 'facturation.edition'),
+      statut: 422,
+    };
 
   await recomputeFactureTotaux(supabase, factureId);
   return { ok: true };

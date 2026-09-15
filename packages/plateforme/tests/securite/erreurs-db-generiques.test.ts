@@ -339,3 +339,106 @@ describe('sources neutralisées à la construction', () => {
     expect(logsEmis()).toContain('organisations_siret_key');
   });
 });
+
+// ── Vecteur INDIRECT : le message fabriqué en amont, relancé, puis rendu ─────
+// Relevé en revue sécurité : `throw new Error(pgError.message)` dans `lib/` est la
+// MÊME fuite, avec une indirection — `new Error(…)` EST une instance d'`Error`,
+// donc le `catch (e) { … e.message }` du handler la renvoie telle quelle.
+describe('exports — fuite par throw new Error(pgError.message)', () => {
+  it('un filtre invalide ne révèle pas le type enum interne (le log, si)', async () => {
+    setupAuth('traiteur_manager');
+    // Ce que Postgres répond réellement sur `?statut=foo` : le schéma ET le nom du
+    // type interne. C'est ce que la route renvoyait au client avant correction.
+    const PG_ENUM =
+      'invalid input value for enum plateforme.collecte_statut: "foo"';
+    rls.push({ data: null, error: { code: '22P02', message: PG_ENUM } });
+    const { GET } = await import('@/app/api/v1/exports/[entity]/route.js');
+    const res = await GET(
+      makeReq('GET', '/api/v1/exports/collectes?statut=foo'),
+      { params: Promise.resolve({ entity: 'collectes' }) },
+    );
+    expect(res.status).toBe(500);
+    const corps = await res.text();
+    expect(corps).not.toContain('plateforme.collecte_statut');
+    expect(corps).not.toContain('invalid input value');
+    expect(logsEmis()).toContain('plateforme.collecte_statut');
+  });
+
+  it('un deny RLS ne nomme pas la table dans la réponse', async () => {
+    setupAuth('traiteur_manager');
+    rls.push({
+      data: null,
+      error: {
+        code: '42501',
+        message: 'permission denied for table collectes',
+      },
+    });
+    const { GET } = await import('@/app/api/v1/exports/[entity]/route.js');
+    const res = await GET(makeReq('GET', '/api/v1/exports/collectes'), {
+      params: Promise.resolve({ entity: 'collectes' }),
+    });
+    expect(await res.text()).not.toContain('permission denied');
+  });
+});
+
+// ── Le CODE reste l'oracle métier, même quand le message est neutralisé ──────
+describe('erreurInterne — le message part, le code reste', () => {
+  it('conserve le code pour que le handler garde son mapping (P0030 → 404)', async () => {
+    const { erreurInterne } = await import('@/lib/api-helpers.js');
+    const err = erreurInterne(
+      { code: 'P0030', message: SENTINELLE },
+      'attribution_ag.algo',
+    );
+    expect(err.message).toBe('Erreur serveur');
+    expect(err.code).toBe('P0030');
+    expect(logsEmis()).toContain('organisations_siret_key');
+  });
+});
+
+// ── Le libellé neutre doit rester COMPRÉHENSIBLE dans son contexte ──────────
+describe('authAccountError — libellé de repli contextuel', () => {
+  it("changement de mot de passe : pas le libellé « doublon » d'une écriture", async () => {
+    const { authAccountError } = await import('@/lib/api-helpers.js');
+    const res = authAccountError(
+      { code: 'unexpected_failure', message: SENTINELLE },
+      'auth.update_password',
+      'Modification du mot de passe impossible.',
+    );
+    const corps = await res.text();
+    expect(JSON.parse(corps)).toEqual({
+      error: 'Modification du mot de passe impossible.',
+    });
+    expect(corps).not.toContain('doublon');
+    expect(corps).not.toContain(SENTINELLE);
+  });
+
+  it('« identique à l’ancien » n’est pas rendu comme « trop faible »', async () => {
+    const { authAccountError } = await import('@/lib/api-helpers.js');
+    const res = authAccountError(
+      {
+        code: 'same_password',
+        message: 'New password should be different from the old password.',
+      },
+      'auth.update_password',
+      'Modification du mot de passe impossible.',
+    );
+    expect((await res.json()) as unknown).toEqual({
+      error: 'Le nouveau mot de passe doit être différent de l’ancien.',
+    });
+  });
+});
+
+// ── §15 : le repli de sérialisation ne fait pas entrer de PII dans les logs ──
+describe('messageErreur — repli sans details/hint', () => {
+  it('un objet sans `message` est sérialisé SANS details ni hint', async () => {
+    const { messageErreur } = await import('@/lib/api-helpers.js');
+    const rendu = messageErreur({
+      code: '23505',
+      details: 'Key (email)=(valentin@gosavr.io) already exists.',
+      hint: 'indice interne',
+    });
+    expect(rendu).toContain('23505');
+    expect(rendu).not.toContain('@gosavr.io');
+    expect(rendu).not.toContain('indice interne');
+  });
+});

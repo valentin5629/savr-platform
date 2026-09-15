@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
-import { withApiTrace } from '@/lib/api-helpers.js';
+import { withApiTrace, serverError } from '@/lib/api-helpers.js';
 import { calculerAlgoAttributionAg } from '@/lib/attribution-ag/algo.js';
 import { emettreAlertesAttributionSansOption } from '@/lib/attribution-ag/notif-alerte.js';
 
@@ -33,14 +33,16 @@ async function getHandler(
 
     return NextResponse.json({ data: result });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Erreur algorithme';
-    if (msg.includes('P0030') || msg.includes('introuvable')) {
+    // P0030 = `RAISE EXCEPTION … USING ERRCODE = 'P0030'` de la RPC. Le CODE est
+    // l'oracle (le message, lui, est neutralisé par `erreurInterne`).
+    const code = (err as { code?: string } | null)?.code;
+    if (code === 'P0030') {
       return NextResponse.json(
         { error: 'Collecte AG introuvable' },
         { status: 404 },
       );
     }
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return serverError(err, 'admin.attributions_ag.recommandation');
   }
 }
 

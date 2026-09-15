@@ -26,7 +26,7 @@
 #   check-migration-timestamp.sh              # pré-commit : migrations STAGÉES (A + B)
 #   check-migration-timestamp.sh --branch     # CI / pré-push : migrations de HEAD absentes d'origin/main (A + B)
 #   check-migration-timestamp.sh --no-remote  # (A) seul — sans réseau
-#   check-migration-timestamp.sh --self-test  # prouve que (B) rougit vraiment (non-vacuité)
+#   check-migration-timestamp.sh --self-test  # prouve que (A) ET (B) rougissent vraiment (non-vacuité)
 set -euo pipefail
 
 MIG_DIR="supabase/migrations"
@@ -74,7 +74,11 @@ TXT
 # ---------------------------------------------------------------------------
 mes_migrations() {
   if [ "$MODE" = "staged" ]; then
-    git diff --cached --name-only --diff-filter=A \
+    # `R` autant que `A` : renommer une migration est précisément le remède que ce
+    # script conseille en cas de collision, et un `git mv` pur est classé R100 —
+    # sans lui, le commit de correction ne serait re-contrôlé par personne en local.
+    # (--name-only rend le nom de DESTINATION pour un R, donc le nouveau préfixe.)
+    git diff --cached --name-only --diff-filter=AR \
       | grep -E "^${MIG_DIR}/[0-9]{14}_.*\.sql$" || true
   else
     # Migrations portées par HEAD dont le nom de fichier est absent de la cible.
@@ -289,8 +293,32 @@ self_test() {
     echec=true
   fi
 
+  # Cas 4 — ROUGE attendu SANS RÉSEAU : deux préfixes identiques dans le dossier
+  # (ce qu'un merge de la cible fait apparaître). Couvre le contrôle (A), que les
+  # cas 1 à 3 laissaient hors de portée de toute mutation.
+  echo "-- jumeau" > "$MIG_DIR/20260101140000_plateforme_jumeau.sql"
+  git add -A
+  rc=0; bash "$script_abs" --no-remote >/dev/null 2>&1 || rc=$?
+  if [ "$rc" -ne 2 ]; then
+    echo "🔴 AUTO-TEST : préfixe dupliqué DANS le dossier non détecté (exit $rc, attendu 2)." >&2
+    echec=true
+  fi
+  git rm --quiet -f "$MIG_DIR/20260101140000_plateforme_jumeau.sql"
+
+  # Cas 5 — ROUGE attendu : la migration RENOMMÉE doit rester contrôlée. Un `git mv`
+  # pur est classé R100, pas A : filtré, il sortirait du périmètre et le commit de
+  # correction ne serait vérifié par personne en local. On renomme vers un préfixe
+  # antérieur au socle restant (20260101100000) : le contrôle (A) doit le refuser.
+  git -c core.hooksPath=/dev/null commit --quiet --no-verify -m "avant renommage" >/dev/null 2>&1
+  git mv "$MIG_DIR/20260101140000_plateforme_mon_lot.sql" "$MIG_DIR/20260101090000_plateforme_mon_lot.sql"
+  rc=0; bash "$script_abs" --no-remote >/dev/null 2>&1 || rc=$?
+  if [ "$rc" -ne 2 ]; then
+    echo "🔴 AUTO-TEST : migration RENOMMÉE hors périmètre (exit $rc, attendu 2) — un git mv échappe au contrôle." >&2
+    echec=true
+  fi
+
   [ "$echec" = true ] && return 1
-  echo "✅ check-migration-timestamp : auto-test OK (détecte la collision en vol, 0 faux positif)."
+  echo "✅ check-migration-timestamp : auto-test OK (collision en vol, doublon local, renommage ; 0 faux positif)."
   return 0
 }
 

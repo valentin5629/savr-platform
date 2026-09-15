@@ -107,7 +107,7 @@ SELECT lives_ok(
        '{"flux_autorises": ["biodechets", "carton"]}'::jsonb) $$,
   'tableau de chaînes accepté — flux_autorises est bien un text[]');
 
--- RECALÉ par 20260915140000 : la seconde contrainte
+-- RECALÉ par 20260915160000 : la seconde contrainte
 -- `collectes_lieu_overrides_valide_chk` connaît les CLÉS, et refuse `null` sur les
 -- trois champs NOT NULL de `plateforme.lieux` (`adresse_acces`, `code_postal`,
 -- `ville`) — un override qui efface l'adresse produit exactement l'adresse
@@ -129,7 +129,7 @@ SELECT lives_ok(
   $$ SELECT pg_temp.ins_lov('10ac0c01-0000-0000-0000-000000000005'::uuid, NULL) $$,
   'absence totale d''override acceptée');
 
--- RECALÉ par 20260915140000. Ce cas documentait une décision de conception —
+-- RECALÉ par 20260915160000. Ce cas documentait une décision de conception —
 -- « la base borne la STRUCTURE, l'applicatif borne les VALEURS », pour éviter le
 -- drift entre deux jeux de bornes. L'arbitrage Val du 2026-09-15 a tranché
 -- l'inverse : les bornes sont AUSSI en base, parce que la validation applicative
@@ -185,7 +185,7 @@ SELECT throws_ok(
   'fn_modifier_collecte ne peut pas poser un override non textuel après coup');
 
 -- ─── 5. Sous un rôle NON-superuser — la contrainte mord sans casser l'écriture
--- RECALÉ par 20260915140000. Ce volet visait `authenticated`, qui portait alors un
+-- RECALÉ par 20260915160000. Ce volet visait `authenticated`, qui portait alors un
 -- GRANT UPDATE table-level sur `plateforme.collectes` (20260611180000) + la policy
 -- `col_update_client` (20260617180000) : un traiteur pouvait modifier sa collecte
 -- en PostgREST direct. Ce chemin est FERMÉ (REVOKE UPDATE, INSERT) — on l'asserte
@@ -227,7 +227,7 @@ SELECT throws_ok(
         SET lieu_overrides = '{"adresse_acces": "Entrée livraisons"}'::jsonb
       WHERE id = '10ac0c01-0000-0000-0000-000000000001'::uuid $$,
   '42501', NULL,
-  'authenticated : l''UPDATE PostgREST direct est refusé par le privilège (20260915140000)');
+  'authenticated : l''UPDATE PostgREST direct est refusé par le privilège (20260915160000)');
 
 SELECT pg_temp.as_superuser();
 

@@ -262,7 +262,7 @@ SELECT is(
 -- ════════════════════════════════════════════════════════════════════════════
 -- 5. historique_partiel non modifiable par le client (flag F3)
 -- ════════════════════════════════════════════════════════════════════════════
--- Depuis la migration 20260915140000, le refus est explicite (42501, privilège
+-- Depuis la migration 20260915160000, le refus est explicite (42501, privilège
 -- UPDATE retiré à `authenticated`) au lieu d'un UPDATE silencieux à 0 ligne : on
 -- l'asserte, sans quoi un jour où la fermeture sauterait le test resterait vert.
 SELECT throws_ok(

@@ -156,7 +156,7 @@ SELECT is((SELECT reference_affaire FROM plateforme.evenements WHERE id='0e00000
 -- ── Écriture directe de `collectes` : fermée depuis 2026-09-15 ───────────────
 -- Les ex-T10 à T13 prouvaient ici que col_update_client / col_update_commercial
 -- laissaient les 4 rôles éditer leur collecte par PATCH PostgREST direct. La
--- migration 20260915140000 a retiré UPDATE et INSERT du GRANT table-level de
+-- migration 20260915160000 a retiré UPDATE et INSERT du GRANT table-level de
 -- `authenticated` : ces écritures lèvent désormais 42501 AVANT toute évaluation
 -- RLS, et toute édition de collecte passe par les routes API (service_role), qui
 -- seules émettent l'outbox, tracent l'audit_log et posent dirty_tms.

@@ -175,6 +175,57 @@ describe('infos-acces / composition du champ libre', () => {
     expect(texte.startsWith(base)).toBe(true);
   });
 
+  // Réserve levée en revue sécurité : une ligne prioritaire trop longue faisait
+  // sortir « (…) » et RIEN d'autre — le chauffeur perdait tout, y compris le
+  // début de l'information la plus utile.
+  it('une ligne prioritaire trop longue est servie amputée, jamais escamotée', () => {
+    const texte = composerInformationsSupplementaires(
+      { ...LIEU_NU, acces_details: 'Quai n°2 ' + 'd'.repeat(1200) },
+      null,
+    )!;
+
+    expect(texte.length).toBeLessThanOrEqual(LIMITE_INFOS_SUPPLEMENTAIRES);
+    expect(texte.startsWith('Accès : Quai n°2 ddd')).toBe(true);
+    expect(texte).not.toBe('(…)');
+    expect(texte.endsWith('(…)')).toBe(true);
+  });
+
+  // Réserve levée en revue sécurité : quand la saisie du traiteur occupait tout
+  // le budget, le marqueur se faisait manger par la coupe finale — la
+  // troncature redevenait invisible dans le cas même qu'il devait couvrir.
+  it('le marqueur survit quand la saisie du traiteur occupe tout le budget', () => {
+    const texte = composerInformationsSupplementaires(
+      LIEU_COMPLET,
+      'y'.repeat(LIMITE_INFOS_SUPPLEMENTAIRES - 1),
+    )!;
+
+    expect(texte.length).toBeLessThanOrEqual(LIMITE_INFOS_SUPPLEMENTAIRES);
+    expect(texte.endsWith('(…)')).toBe(true);
+  });
+
+  // Une coupe ne doit pas laisser de bout de ligne pendouillant quand il reste
+  // du contenu complet avant elle.
+  it('aucun fragment de ligne orphelin quand du contenu complet précède', () => {
+    const texte = composerInformationsSupplementaires(
+      LIEU_COMPLET,
+      'y'.repeat(LIMITE_INFOS_SUPPLEMENTAIRES - 200),
+    )!;
+
+    const lignes = texte.split('\n');
+    expect(lignes[lignes.length - 1]).toBe('(…)');
+    // Chaque ligne d'accès conservée est complète (libellé + valeur entière).
+    for (const ligne of lignes.slice(1, -1)) {
+      expect([
+        'Accès : Quai n°2, sonner interphone B',
+        'Stationnement : difficile',
+        'Contraintes horaires : Livraison avant 9h uniquement',
+        'Accès office : très difficile',
+        'Véhicule max : camionnette',
+        'Flux acceptés : biodéchets, carton',
+      ]).toContain(ligne);
+    }
+  });
+
   it('une saisie traiteur déjà hors borne est coupée net, sans dépassement', () => {
     const texte = composerInformationsSupplementaires(
       LIEU_COMPLET,

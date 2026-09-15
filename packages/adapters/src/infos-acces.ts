@@ -122,38 +122,26 @@ export function composerInformationsSupplementaires(
 
   if (!base && lignes.length === 0) return null;
 
-  const retenues: string[] = [];
-  // Budget consommé : la base, puis chaque ligne précédée de son saut de ligne.
-  let taille = base.length;
-  let tronque = false;
+  const complet = [base, ...lignes].filter(Boolean).join('\n');
+  if (complet.length <= LIMITE_INFOS_SUPPLEMENTAIRES) return complet;
 
-  for (const ligne of lignes) {
-    const cout = ligne.length + (taille > 0 ? 1 : 0);
-    if (taille + cout > LIMITE_INFOS_SUPPLEMENTAIRES) {
-      // Ordre de priorité = ordre du tableau : on s'arrête, on ne va pas
-      // repêcher une ligne moins prioritaire parce qu'elle serait plus courte.
-      tronque = true;
-      break;
-    }
-    retenues.push(ligne);
-    taille += cout;
+  // Au-delà de la borne, on coupe par la FIN : `lignes` est ordonné par
+  // priorité, donc couper la queue revient à abandonner le moins important.
+  // Le budget réservé au marqueur garantit qu'il survit à la coupe — le cas que
+  // le marqueur doit couvrir est précisément celui où la place manque.
+  const budget =
+    LIMITE_INFOS_SUPPLEMENTAIRES - MARQUEUR_TRONQUE.length - 1; /* \n */
+  let coupe = complet.slice(0, budget);
+
+  // Si la coupe tombe en plein milieu d'une ligne, on retire le fragment : un
+  // « Stationnement : dif » orphelin est du bruit. SAUF s'il ne reste rien
+  // d'autre — une ligne prioritaire trop longue à elle seule doit être servie
+  // amputée plutôt qu'escamotée : mieux vaut le début des détails d'accès que
+  // le seul marqueur.
+  if (complet[coupe.length] !== '\n') {
+    const dernierSaut = coupe.lastIndexOf('\n');
+    if (dernierSaut > 0) coupe = coupe.slice(0, dernierSaut);
   }
 
-  if (tronque) {
-    // Faire de la place au marqueur, en abandonnant d'abord les lignes les
-    // moins prioritaires.
-    while (
-      retenues.length > 0 &&
-      taille + MARQUEUR_TRONQUE.length + 1 > LIMITE_INFOS_SUPPLEMENTAIRES
-    ) {
-      const retiree = retenues.pop()!;
-      taille -= retiree.length + 1;
-    }
-    retenues.push(MARQUEUR_TRONQUE);
-  }
-
-  const blocs = base ? [base, ...retenues] : retenues;
-  // Dernier rempart : la borne doit tenir même si la base dépasse déjà à elle
-  // seule (colonne `text` sans CHECK en base).
-  return blocs.join('\n').slice(0, LIMITE_INFOS_SUPPLEMENTAIRES);
+  return `${coupe}\n${MARQUEUR_TRONQUE}`;
 }

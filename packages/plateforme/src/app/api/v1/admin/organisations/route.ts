@@ -144,24 +144,32 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Corps JSON invalide' }, { status: 400 });
   }
 
+  // ALLOWLIST de colonnes RÉELLES de `plateforme.organisations` (18 colonnes,
+  // vérifiées contre information_schema). `code_postal` / `ville` étaient lus du
+  // body et poussés dans l'INSERT alors qu'ils N'EXISTENT PAS sur la table →
+  // PostgREST PGRST204 à CHAQUE création d'organisation par le staff (route
+  // morte, relevé revue #302). L'adresse postale détaillée a pour source de
+  // vérité `plateforme.entites_facturation` (`adresse_facturation`,
+  // `code_postal`, `ville`) ; le CDC §06.06 §8 ne la demande pas à la création
+  // d'organisation (elle se saisit dans l'onglet « Informations légales » via
+  // les entités de facturation) → les champs sont simplement ignorés ici.
+  // Même constat déjà documenté sur la route sœur `[id]/route.ts`.
   const {
     raison_sociale,
+    nom,
     type,
     siret,
     email_principal,
     telephone,
     adresse,
-    code_postal,
-    ville,
   } = body as {
     raison_sociale?: string;
+    nom?: string;
     type?: string;
     siret?: string;
     email_principal?: string;
     telephone?: string;
     adresse?: string;
-    code_postal?: string;
-    ville?: string;
   };
 
   if (!raison_sociale || !type) {
@@ -176,25 +184,34 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
     'agence',
     'gestionnaire_lieux',
     'client_organisateur',
-  ];
-  if (!TYPES_VALIDES.includes(type)) {
+  ] as const;
+  type OrganisationType = (typeof TYPES_VALIDES)[number];
+  // `as const` + garde de type : le payload d'INSERT est ainsi entièrement
+  // typable contre le schéma réel. Sans ce narrowing, `type: string` fait
+  // échouer l'assignation AVANT l'excess-property-check et rend le gate
+  // `check:column-db` AVEUGLE aux colonnes fantômes de cet INSERT — c'est
+  // exactement pourquoi il n'avait pas vu `code_postal`/`ville`.
+  if (!(TYPES_VALIDES as readonly string[]).includes(type)) {
     return NextResponse.json({ error: 'type invalide' }, { status: 422 });
   }
+  const typeOrga = type as OrganisationType;
 
   const supabase = createAdminSupabaseClient();
   const { data: org, error } = await supabase
     .from('organisations')
     .insert({
+      // `nom` = nom usuel, NOT NULL sans default : sans lui l'INSERT viole
+      // 23502. Le back-office ne collecte que la raison sociale → fallback
+      // `nom = raison_sociale` (même règle qu'à l'inscription, §04 Data Model).
+      nom: nom ?? raison_sociale,
       raison_sociale,
-      type,
+      type: typeOrga,
       siret,
       email_principal,
       telephone,
       adresse,
-      code_postal,
-      ville,
     })
-    .select('id, raison_sociale, type, actif')
+    .select('id, nom, raison_sociale, type, actif')
     .single();
 
   if (error) {

@@ -216,6 +216,41 @@ describe('E5 updateLieu — snapshot figé par champ surchargé (R_lieu_modif_pe
     );
   });
 
+  it('une adresse « surchargée » par des valeurs non textuelles n’est pas figée — l’officielle repart', async () => {
+    const updateOrder = vi.fn().mockResolvedValue(undefined);
+    _setMts1Handlers({
+      pollOrders: vi.fn(),
+      getTour: vi.fn(),
+      postOrder: vi.fn(),
+      updateOrder,
+    });
+
+    const supabase = makeSupabase([
+      {
+        id: 'col-poubelle',
+        // Les trois champs d'adresse sont « présents » : avant la garde de type,
+        // la collecte était tenue pour intégralement surchargée, donc sautée —
+        // elle restait chez MTS-1 avec l'adresse-poubelle transmise en E1.
+        lieu_overrides: {
+          adresse_acces: { a: 1 },
+          code_postal: 42,
+          ville: ['x', 'y'],
+        },
+      },
+    ]);
+
+    await new AdapterMts1(TRANSPORTEUR, supabase).updateLieu(
+      LIEU_OFFICIEL_EDITE,
+    );
+
+    // Les deux côtés du prédicat partagé restent d'accord : ce que la fusion
+    // n'a pas substitué, E5 ne le tient pas pour figé. L'édition Admin RÉPARE
+    // donc la collecte au lieu de la laisser en l'état.
+    expect(adresseTransmise(updateOrder, 'MTS1-ORDER-col-poubelle')).toBe(
+      '5 Avenue Gabriel, 75009 Paris',
+    );
+  });
+
   it('collectes mixtes sur le même lieu : chacune reçoit sa propre adresse', async () => {
     const updateOrder = vi.fn().mockResolvedValue(undefined);
     _setMts1Handlers({

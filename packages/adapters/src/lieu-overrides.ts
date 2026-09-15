@@ -61,6 +61,17 @@ export type ChampLieuSurchargeable =
   (typeof CHAMPS_LIEU_SURCHARGEABLES)[number];
 
 /**
+ * Champs dont la colonne `plateforme.lieux` est un `text[]`, donc dont l'override
+ * est un TABLEAU de chaînes et non une chaîne.
+ *
+ * Ensemble explicite plutôt qu'un `Array.isArray(value)` opportuniste : la forme
+ * attendue doit dépendre du CHAMP, jamais de ce que la donnée se trouve porter —
+ * sinon un tableau écrit par erreur sur `ville` redeviendrait une surcharge
+ * valide et repartirait en « a,b » dans l'adresse (le cas que #312 ferme).
+ */
+const CHAMPS_LIEU_LISTE = new Set<ChampLieuSurchargeable>(['flux_autorises']);
+
+/**
  * Champs qui composent l'adresse réellement poussée au transporteur (E1 comme E5).
  * Sous-ensemble de l'allowlist : le reste du lieu ne touche pas l'adresse.
  */
@@ -138,6 +149,35 @@ export function lieuChampSurcharge(
   // et comme la normalisation que #308 applique déjà aux trois selects. Sans
   // effet observable en V1 (ni `acces_details` ni `contraintes_horaires` n'est
   // lu par un adapter), mais la sémantique vaut pour la fusion V2.
+  // `flux_autorises` est une LISTE, pas une chaîne : la colonne `lieux` est un
+  // `text[]` et la validation d'entrée (#308, `liste_texte` 20 items × 64 car.)
+  // la stocke en tableau. Lui appliquer la règle « chaîne » ci-dessous écartait
+  // silencieusement TOUT override légitime de ce champ — saisi, stocké, audité,
+  // et jamais transmis, très exactement le défaut que l'agrégation du canal
+  // libre répare. Conflit sémantique révélé au merge de #312 (garde de type) et
+  // de l'élargissement de l'allowlist à 9 champs : les deux sont corrects pris
+  // séparément.
+  if (CHAMPS_LIEU_LISTE.has(champ)) {
+    // Tableau vide = « non renseigné », jamais « efface pour cette collecte » —
+    // même sémantique que la chaîne vide juste en dessous. Une seule entrée
+    // invalide disqualifie l'override entier : transmettre une liste amputée
+    // serait pire qu'un repli sur le référentiel, le chauffeur ne pouvant pas
+    // deviner qu'il en manque.
+    return (
+      Array.isArray(value) &&
+      value.length > 0 &&
+      value.every(surchargeTexteValide)
+    );
+  }
+
+  return surchargeTexteValide(value);
+}
+
+/**
+ * Règle de validité d'une valeur TEXTUELLE surchargée — extraite pour être
+ * appliquée telle quelle à chaque entrée d'un champ liste.
+ */
+function surchargeTexteValide(value: unknown): boolean {
   return (
     typeof value === 'string' &&
     value.trim() !== '' &&

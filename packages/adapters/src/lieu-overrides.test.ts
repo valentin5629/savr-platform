@@ -122,6 +122,85 @@ describe('lieuChampSurcharge — seule une chaîne non vide est une surcharge', 
   });
 });
 
+// `flux_autorises` est la seule entrée de l'allowlist dont la colonne est un
+// `text[]`. La garde de type ci-dessus, écrite pour des champs textuels, la
+// rejetait en bloc : conflit sémantique entre #312 (garde « chaîne ») et
+// l'élargissement de l'allowlist à 9 champs — chacun correct isolément, les deux
+// ensemble rendant IMPOSSIBLE tout override de ce champ. Le formulaire le
+// propose, #308 le valide et le stocke en tableau, et rien n'arrivait au
+// transporteur.
+describe('lieuChampSurcharge — champ liste (flux_autorises, colonne text[])', () => {
+  it('accepte un tableau de chaînes et le transmet', () => {
+    expect(
+      lieuChampSurcharge(
+        { flux_autorises: ['biodéchets', 'carton'] },
+        'flux_autorises',
+      ),
+    ).toBe(true);
+
+    expect(
+      applyLieuOverrides(
+        { ...LIEU, flux_autorises: ['verre'] },
+        { flux_autorises: ['biodéchets', 'carton'] },
+      ).flux_autorises,
+    ).toEqual(['biodéchets', 'carton']);
+  });
+
+  it('refuse une CHAÎNE sur un champ liste — la forme dépend du champ', () => {
+    // Le symétrique du test suivant : c'est le CHAMP qui décide de la forme
+    // attendue, jamais ce que la donnée se trouve porter.
+    expect(
+      lieuChampSurcharge({ flux_autorises: 'biodéchets' }, 'flux_autorises'),
+    ).toBe(false);
+    expect(
+      applyLieuOverrides(
+        { ...LIEU, flux_autorises: ['verre'] },
+        { flux_autorises: 'biodéchets, carton' },
+      ).flux_autorises,
+    ).toEqual(['verre']);
+  });
+
+  it('refuse un TABLEAU sur un champ texte — la garde #312 tient toujours', () => {
+    expect(lieuChampSurcharge({ ville: ['a', 'b'] }, 'ville')).toBe(false);
+    expect(applyLieuOverrides(LIEU, { ville: ['a', 'b'] }).ville).toBe('Paris');
+  });
+
+  it('une seule entrée invalide disqualifie la liste entière', () => {
+    // Transmettre une liste amputée serait pire qu'un repli sur le référentiel :
+    // le chauffeur ne peut pas deviner qu'il en manque un.
+    for (const invalide of [
+      ['biodéchets', 42],
+      ['biodéchets', null],
+      ['biodéchets', { a: 1 }],
+      ['biodéchets', '   '],
+      ['biodéchets', 'x'.repeat(LONGUEUR_MAX_SURCHARGE_LUE + 1)],
+    ]) {
+      expect(
+        lieuChampSurcharge({ flux_autorises: invalide }, 'flux_autorises'),
+      ).toBe(false);
+    }
+
+    expect(
+      applyLieuOverrides(
+        { ...LIEU, flux_autorises: ['verre'] },
+        { flux_autorises: ['biodéchets', 42] },
+      ).flux_autorises,
+    ).toEqual(['verre']);
+  });
+
+  it('un tableau vide vaut « non renseigné », pas « efface »', () => {
+    expect(lieuChampSurcharge({ flux_autorises: [] }, 'flux_autorises')).toBe(
+      false,
+    );
+    expect(
+      applyLieuOverrides(
+        { ...LIEU, flux_autorises: ['verre'] },
+        { flux_autorises: [] },
+      ).flux_autorises,
+    ).toEqual(['verre']);
+  });
+});
+
 describe('applyLieuOverrides — jamais l’entrée par référence', () => {
   it('rend une copie même sans override', () => {
     const sansOverride = applyLieuOverrides(LIEU, null);

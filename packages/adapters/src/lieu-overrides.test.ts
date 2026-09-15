@@ -71,6 +71,28 @@ describe('lieuChampSurcharge — seule une chaîne non vide est une surcharge', 
     expect(applyLieuOverrides(LIEU, { ville: '   ' }).ville).toBe('Paris');
   });
 
+  it('un champ optionnel vidé au formulaire n’efface pas la valeur officielle', () => {
+    // Changement de comportement assumé : avant, `""` était une surcharge
+    // effective et le champ officiel partait VIDE. Désormais `""` vaut `null`
+    // — « non renseigné », pas « efface » — ce qui aligne la chaîne vide sur la
+    // règle déjà en place pour `null` (« un null ne doit jamais écraser une
+    // valeur de référence »).
+    //
+    // Sans effet observable en V1 : ni `acces_details` ni `contraintes_horaires`
+    // n'est lu par un adapter (seuls adresse_acces / code_postal / ville
+    // atteignent le wire). La sémantique compte pour la fusion V2, où le TMS
+    // natif verra les mêmes champs.
+    expect(lieuChampSurcharge({ acces_details: '' }, 'acces_details')).toBe(
+      false,
+    );
+    expect(
+      applyLieuOverrides(
+        { ...LIEU, acces_details: 'Code portail 1234' },
+        { acces_details: '' },
+      ).acces_details,
+    ).toBe('Code portail 1234');
+  });
+
   it('refuse une valeur au-delà du plafond de lecture, accepte le plafond pile', () => {
     const max = LONGUEUR_MAX_SURCHARGE_LUE;
 

@@ -125,6 +125,12 @@ export function lieuChampSurcharge(
   // `trim()` : une chaîne d'espaces n'est pas une correction d'adresse, et la
   // logique existante refuse déjà qu'un override VIDE écrase une valeur de
   // référence — un `"   "` est le même cas, écrit autrement.
+  //
+  // Corollaire assumé : un champ OPTIONNEL vidé au formulaire (`""`) ne vaut
+  // plus « efface pour cette collecte » mais « non renseigné », comme `null` —
+  // et comme la normalisation que #308 applique déjà aux trois selects. Sans
+  // effet observable en V1 (ni `acces_details` ni `contraintes_horaires` n'est
+  // lu par un adapter), mais la sémantique vaut pour la fusion V2.
   return (
     typeof value === 'string' &&
     value.trim() !== '' &&

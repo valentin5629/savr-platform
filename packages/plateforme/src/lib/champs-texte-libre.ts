@@ -1,19 +1,30 @@
 import { NextResponse } from 'next/server';
 
-// ─── Bornes d'ENTRÉE des champs texte libre transmis au transporteur ──────────
+// ─── Bornes d'ENTRÉE de trois champs texte libre destinés au transporteur ─────
 //
 // Trois colonnes `text` sans aucune contrainte de longueur ni de type :
 // `evenements.contact_secours_nom`, `evenements.contact_secours_telephone` et
 // `collectes.informations_supplementaires`. Les routes qui les écrivent ne
-// filtraient que les CLÉS (allowlist de champs éditables) — jamais les VALEURS.
+// filtraient que les CLÉS (allowlist de champs éditables) — jamais les VALEURS,
+// si bien que la colonne acceptait 5 000 caractères (mesuré).
 //
-// Ce que cela coûtait concrètement : ces trois champs partent au transporteur, et
-// deux d'entre eux passent par le canal de texte libre de l'adapter logistique
-// (quel que soit le transporteur), où toutes les informations d'exploitation sont
-// concaténées en un seul message pour le chauffeur. Un nom de contact de 5 000
-// caractères (mesuré : la colonne les acceptait) évince les lignes suivantes —
-// dont l'adresse d'accès — de ce message. Un nom multiligne, lui, y forge une
-// fausse ligne d'en-tête indiscernable d'une vraie.
+// Ce que chacune coûte AUJOURD'HUI — relevé sur le code d'émission des adapters,
+// pas déduit du nom des colonnes ; les trois cas sont différents :
+//   · `informations_supplementaires` est le SEUL des trois à transiter par le
+//     canal de TEXTE LIBRE de l'adapter logistique, où les informations
+//     d'exploitation sont concaténées en un seul message pour le chauffeur : une
+//     valeur démesurée y évince les lignes voisines — dont l'adresse d'accès. Son
+//     plafond est pourtant écrit au CDC (1000 car.) ; il n'était appliqué à AUCUNE
+//     écriture, seul le compteur du formulaire tronquait, côté client.
+//   · `contact_secours_telephone` part dans un champ NATIF de la commande, pas
+//     dans le texte libre : aucune éviction possible, mais un numéro de 5 000
+//     caractères reste une donnée aberrante transmise telle quelle.
+//   · `contact_secours_nom` n'est émis NULLE PART à ce jour. Sa transmission fait
+//     l'objet d'une PR encore ouverte, qui le concatène précisément dans le canal
+//     de texte libre — il rejoindra donc le premier cas, où un nom démesuré évince
+//     les lignes suivantes et un nom multiligne forge une fausse ligne d'en-tête.
+//     Le borner ici est une anticipation assumée, pas la fermeture d'une fuite en
+//     cours : la borne est simplement en place avant que le champ ne circule.
 //
 // La borne posée ici est celle de l'INTÉGRITÉ DE LA DONNÉE, en 422 à l'écriture.
 // Elle est doublée :
@@ -44,9 +55,10 @@ interface BorneChamp {
  * contact principal, sans borne ; le JSON Schema §08 donne `telephone` en « format
  * libre V1, normalisation E.164 reportée »). Les valeurs retenues sont donc
  * applicatives, dimensionnées sur une saisie de terrain plausible : 120 pour un
- * nom (aligné sur le plafond de mise en forme du canal libre, pour que les deux
- * niveaux ne puissent pas se contredire), 40 pour un numéro au format libre —
- * « +33 6 12 34 56 78 poste 1234 » en fait 28.
+ * nom, 40 pour un numéro au format libre — « +33 6 12 34 56 78 poste 1234 » en
+ * fait 28. Le 120 reprend le plafond que la PR d'émission du nom de secours
+ * (encore ouverte) applique à la mise en forme du canal libre, pour que les deux
+ * niveaux ne puissent pas se contredire le jour où elle sera mergée.
  */
 export const BORNES_TEXTE_LIBRE = {
   contact_secours_nom: { max: 120, multiligne: false },

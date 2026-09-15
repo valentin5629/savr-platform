@@ -1,5 +1,5 @@
 -- =============================================================================
--- Bornes d'ENTRÉE des champs texte libre transmis au transporteur
+-- Bornes d'ENTRÉE de trois champs texte libre destinés au transporteur
 --   plateforme.evenements.contact_secours_nom        (<= 120 car.)
 --   plateforme.evenements.contact_secours_telephone  (<=  40 car.)
 --   plateforme.collectes.informations_supplementaires (<= 1000 car., §08 E1)
@@ -10,12 +10,19 @@
 -- filtraient que par une allowlist de CLÉS, jamais sur la valeur.
 --
 -- Pourquoi ces trois colonnes et pas « les colonnes text » en général : elles
--- partent au transporteur, et deux d'entre elles transitent par le canal de texte
--- libre de l'adapter logistique (quel que soit le transporteur), où toutes les
--- informations d'exploitation sont concaténées en un seul message. Un nom de
--- contact démesuré y évince les lignes suivantes — dont l'adresse d'accès — du
--- message que lit le chauffeur ; un nom multiligne y forge une fausse ligne
--- d'en-tête indiscernable d'une vraie.
+-- sont destinées au transporteur. Mais leur exposition réelle diffère — relevé
+-- sur le code d'émission des adapters, pas déduit du nom des colonnes :
+--   · `informations_supplementaires` est le SEUL des trois à transiter AUJOURD'HUI
+--     par le canal de TEXTE LIBRE de l'adapter logistique, où les informations
+--     d'exploitation sont concaténées en un seul message : une valeur démesurée y
+--     évince les lignes voisines, dont l'adresse d'accès ;
+--   · `contact_secours_telephone` part dans un champ NATIF de la commande, pas
+--     dans le texte libre : aucune éviction possible, mais un numéro de 5 000
+--     caractères reste une donnée aberrante transmise telle quelle ;
+--   · `contact_secours_nom` n'est émis NULLE PART à ce jour — sa transmission fait
+--     l'objet d'une PR encore ouverte, qui le concatène dans le canal de texte
+--     libre. Le borner ici est une anticipation assumée : la contrainte est en
+--     place avant que le champ ne circule, elle ne ferme pas une fuite en cours.
 --
 -- Le correctif porte à deux niveaux, et celui-ci est le second :
 --   1. ÉCRITURE applicative — `validerChampsTexteLibre`
@@ -103,7 +110,7 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 COMMENT ON CONSTRAINT chk_evenements_contact_secours_nom_borne
   ON plateforme.evenements IS
-  'Borne d''intégrité : 120 caractères max, aucun caractère de contrôle. Le nom du contact de secours est concaténé dans le canal de texte libre transmis au transporteur — miroir de BORNES_TEXTE_LIBRE (packages/plateforme/src/lib/champs-texte-libre.ts).';
+  'Borne d''intégrité : 120 caractères max, aucun caractère de contrôle. Le nom du contact de secours n''est émis vers aucun transporteur à ce jour ; la PR qui le transmet le concatène dans le canal de texte libre, où une valeur démesurée ou multiligne évince les autres informations d''exploitation — borne posée par anticipation. Miroir de BORNES_TEXTE_LIBRE (packages/plateforme/src/lib/champs-texte-libre.ts).';
 
 -- ─── 2. evenements.contact_secours_telephone — 40 caractères ─────────────────
 -- Téléphone « format libre V1 » (§08 common.schema.json, normalisation E.164

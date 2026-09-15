@@ -198,6 +198,18 @@ describe('bornes texte libre — POST /programmation/evenements', () => {
     aucuneEcriture();
   });
 
+  it('rend toujours 422 (et pas 500) sur une collecte qui n’est pas un objet', async () => {
+    setupAuth('traiteur_commercial');
+
+    // La normalisation écrit la valeur sur l'élément : sur une chaîne, en mode
+    // strict, l'affectation lèverait un TypeError → 500. Le contrôle de forme
+    // doit donc rester AVANT elle.
+    const res = await postProgrammation({ collectes: ['2030-01-15'] });
+
+    expect(res.status).toBe(422);
+    aucuneEcriture();
+  });
+
   it('accepte une saisie légitime et la stocke NORMALISÉE (trim, multiligne conservé)', async () => {
     setupAuth('traiteur_commercial');
     mockMaybeSingle

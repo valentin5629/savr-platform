@@ -173,11 +173,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // Validation date_collecte >= aujourd'hui
   const today = jourParis();
   for (const c of body.collectes) {
-    const infosValides = validerChampsTexteLibre(c);
-    if ('error' in infosValides) return infosValides.error;
-    c.informations_supplementaires =
-      infosValides.valeurs.informations_supplementaires ?? null;
-
+    // Le contrôle de forme reste EN PREMIER : sur un élément qui n'est pas un
+    // objet, écrire la valeur normalisée lèverait un TypeError (module ES =
+    // mode strict) et sortirait en 500, là où ce 422 est la bonne réponse.
     if (!c.date_collecte || !c.heure_collecte || !c.type) {
       return NextResponse.json(
         {
@@ -187,6 +185,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         { status: 422 },
       );
     }
+
+    const infosValides = validerChampsTexteLibre(c);
+    if ('error' in infosValides) return infosValides.error;
+    c.informations_supplementaires =
+      infosValides.valeurs.informations_supplementaires ?? null;
+
     if (c.date_collecte < today) {
       return NextResponse.json(
         { error: `Date de collecte dans le passé : ${c.date_collecte}` },

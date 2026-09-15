@@ -4,6 +4,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
+import { readFileSync } from 'node:fs';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
@@ -71,6 +72,51 @@ function makeReq(method: string, url: string, body?: unknown): NextRequest {
     body: body ? JSON.stringify(body) : undefined,
     headers: body ? { 'content-type': 'application/json' } : {},
   });
+}
+
+// ── Oracle « colonnes réelles » ────────────────────────────────────────────
+// Le mock Supabase avale n'importe quel payload : un `.insert()` qui cite une
+// colonne INEXISTANTE reste vert en test et renvoie 400 (PGRST204) en vrai.
+// C'est ce qui a laissé passer `code_postal`/`ville` sur ce POST (route morte,
+// relevé revue #302). L'oracle ne peut donc PAS être écrit à la main à côté de
+// la route : il est lu dans `database.types.ts`, généré depuis le schéma réel.
+function colonnesInsert(
+  schema: string,
+  table: string,
+): {
+  toutes: Set<string>;
+  requises: Set<string>;
+} {
+  const src = readFileSync(
+    new URL('../../../../shared/src/database.types.ts', import.meta.url),
+    'utf8',
+  );
+  const toutes = new Set<string>();
+  const requises = new Set<string>();
+  let sCur: string | null = null;
+  let tCur: string | null = null;
+  let dansInsert = false;
+  for (const l of src.split('\n')) {
+    const ms = /^ {2}(\w+): \{$/.exec(l);
+    if (ms) sCur = ms[1]!;
+    const mt = /^ {6}(\w+): \{$/.exec(l);
+    if (mt) tCur = mt[1]!;
+    if (/^ {8}Insert: \{$/.test(l)) {
+      dansInsert = sCur === schema && tCur === table;
+      continue;
+    }
+    if (!dansInsert) continue;
+    if (/^ {8}\}$/.test(l)) {
+      dansInsert = false;
+      continue;
+    }
+    const mc = /^ {10}(\w+)(\??): /.exec(l);
+    if (mc) {
+      toutes.add(mc[1]!);
+      if (mc[2] === '') requises.add(mc[1]!); // déclarée sans `?` = NOT NULL sans default
+    }
+  }
+  return { toutes, requises };
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────────
@@ -295,11 +341,18 @@ describe('M1.1a / Organisations / Liste', () => {
 describe('M1.1a / Organisations / Création', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('M1.1a/orgas/creation — 201 avec données valides', async () => {
+  it('M1.1a/orgas/creation — 201 + l’INSERT ne cite QUE des colonnes réelles de plateforme.organisations', async () => {
+    // Garde anti-régression de la route morte (#302) : le POST poussait
+    // `code_postal` + `ville`, absentes de `plateforme.organisations` (source de
+    // vérité de l'adresse postale détaillée = `entites_facturation`) → PGRST204
+    // à chaque création par le staff. Aucun test ne regardait le payload, d'où
+    // le silence. Oracle indépendant de la route : les colonnes `Insert` lues
+    // dans `database.types.ts` (généré depuis le schéma réel).
     setupAuth('admin_savr');
     mockSupabaseChain.single.mockResolvedValueOnce({
       data: {
         id: 'org-new',
+        nom: 'Nouvelle Orga',
         raison_sociale: 'Nouvelle Orga',
         type: 'traiteur',
         actif: true,
@@ -312,9 +365,62 @@ describe('M1.1a / Organisations / Création', () => {
       makeReq('POST', '/api/v1/admin/organisations', {
         raison_sociale: 'Nouvelle Orga',
         type: 'traiteur',
+        // Champs qu'un client peut légitimement envoyer : ils ne doivent pas
+        // atteindre l'INSERT (ils vivent sur `entites_facturation`).
+        code_postal: '75002',
+        ville: 'Paris',
       }),
     );
     expect(res.status).toBe(201);
+
+    const { toutes, requises } = colonnesInsert('plateforme', 'organisations');
+    // Garde de l'oracle lui-même (fail-closed si le parseur dérive).
+    expect(toutes.has('raison_sociale')).toBe(true);
+    expect(toutes.has('code_postal')).toBe(false);
+    expect([...requises].sort()).toEqual(['nom', 'type']);
+
+    const payload = mockSupabaseChain.insert.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect(payload).toBeDefined();
+
+    // 1. Aucune colonne fantôme (le message nomme les coupables).
+    const fantomes = Object.keys(payload).filter((k) => !toutes.has(k));
+    expect(fantomes).toEqual([]);
+
+    // 2. Toutes les colonnes NOT NULL sans default sont fournies et non vides
+    //    (sans `nom`, l'INSERT violerait 23502 même après retrait des fantômes).
+    for (const c of requises) {
+      expect(
+        payload[c],
+        `colonne requise « ${c} » absente du payload`,
+      ).toBeTruthy();
+    }
+    expect(payload.nom).toBe('Nouvelle Orga'); // fallback nom = raison_sociale
+  });
+
+  it('M1.1a/orgas/creation — `nom` explicite du body l’emporte sur la raison sociale', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: { id: 'org-new', actif: true },
+      error: null,
+    });
+    const { POST } = await import('@/app/api/v1/admin/organisations/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/organisations', {
+        nom: 'Kaspia',
+        raison_sociale: 'KASPIA RECEPTIONS SAS',
+        type: 'traiteur',
+      }),
+    );
+    expect(res.status).toBe(201);
+    const payload = mockSupabaseChain.insert.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect(payload.nom).toBe('Kaspia');
+    expect(payload.raison_sociale).toBe('KASPIA RECEPTIONS SAS');
   });
 
   it('M1.1a/orgas/creation — 422 si type invalide', async () => {

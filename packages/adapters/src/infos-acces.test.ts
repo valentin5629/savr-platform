@@ -274,9 +274,9 @@ describe('infos-acces / composition du champ libre', () => {
     expect(texte.endsWith(MARQUEUR)).toBe(true);
   });
 
-  // Une coupe ne doit pas laisser de bout de ligne pendouillant quand il reste
-  // du contenu complet avant elle.
-  it('aucun fragment de ligne orphelin quand du contenu complet précède', () => {
+  // Seule la DERNIÈRE ligne de contenu peut être un fragment (elle est alors
+  // servie amputée délibérément) : toutes celles qui la précèdent sont entières.
+  it('seule la dernière ligne de contenu peut être amputée', () => {
     const texte = composerInformationsSupplementaires(
       { ...LIEU_COMPLET, acces_details: 'Quai n°2 ' + 'd'.repeat(900) },
       null,
@@ -285,8 +285,8 @@ describe('infos-acces / composition du champ libre', () => {
 
     const lignes = texte.split('\n');
     expect(lignes[lignes.length - 1]).toBe(MARQUEUR);
-    // Chaque ligne conservée après la première est complète.
-    for (const ligne of lignes.slice(1, -1)) {
+    // Les lignes de contenu sauf la première (amputée ou non) et la dernière.
+    for (const ligne of lignes.slice(1, -2)) {
       expect([
         'Stationnement : difficile',
         'Contraintes horaires : Livraison avant 9h uniquement',
@@ -295,6 +295,84 @@ describe('infos-acces / composition du champ libre', () => {
         'Flux acceptés : biodéchets, carton',
       ]).toContain(ligne);
     }
+  });
+
+  // Réserve levée en revue sécurité : une ligne longue était escamotée dès
+  // qu'une ligne COURTE la précédait — la règle « amputée, jamais escamotée » ne
+  // s'appliquait qu'à la toute première. Mesuré : 38 caractères servis sur 1000,
+  // l'information d'accès entièrement perdue, 94 % de l'enveloppe inutilisée.
+  it('une ligne longue précédée d’une ligne courte est amputée, pas escamotée', () => {
+    const texte = composerInformationsSupplementaires(
+      { ...LIEU_NU, acces_details: 'Quai n°2 ' + 'Q'.repeat(958) },
+      null,
+      'Bruno Secours',
+    )!;
+
+    expect(texte.length).toBeLessThanOrEqual(LIMITE_INFOS_SUPPLEMENTAIRES);
+    // Le contact de secours (ligne courte) ouvre toujours le bloc…
+    expect(texte.startsWith('Contact de secours : Bruno Secours\n')).toBe(true);
+    // …et l'accès n'est plus escamoté : il est servi amputé, l'enveloppe remplie.
+    expect(texte).toContain('Accès : Quai n°2 QQQ');
+    expect(texte.length).toBeGreaterThan(900);
+    expect(texte.endsWith(MARQUEUR)).toBe(true);
+  });
+
+  // Un fragment plus court que son libellé serait du bruit : à ce compte-là, la
+  // ligne est abandonnée entière.
+  it('un fragment trop court pour porter autre chose qu’un libellé est abandonné', () => {
+    const texte = composerInformationsSupplementaires(
+      { ...LIEU_COMPLET, acces_details: 'Quai n°2 ' + 'd'.repeat(900) },
+      null,
+      null,
+    )!;
+
+    const lignes = texte.split('\n');
+    // La 4e ligne (« Accès office : … ») ne tenait pas, et la place restante
+    // (9 caractères) ne méritait pas un fragment.
+    expect(lignes.some((l) => l.startsWith('Accès office'))).toBe(false);
+    expect(lignes[lignes.length - 2]).toBe(
+      'Contraintes horaires : Livraison avant 9h uniquement',
+    );
+  });
+
+  // ─── Lignes forgées depuis un champ de LIEU ───────────────────────────────
+  // Relevé en revue sécurité : les colonnes de `plateforme.lieux` n'ont aucune
+  // validation d'entrée (pas de borne, pas de filtre de caractères de contrôle,
+  // GRANT colonne-level à `authenticated`) — contrairement à `lieu_overrides`.
+  // Un saut de ligne y forgeait une ligne SOUS le séparateur, c'est-à-dire dans
+  // la zone présentée au chauffeur comme composée par Savr.
+
+  it('un saut de ligne dans un champ de lieu ne forge pas de ligne', () => {
+    const texte = composerInformationsSupplementaires(
+      {
+        ...LIEU_NU,
+        acces_details: 'Quai 2\nContact de secours : 06 66 66 66 66 (Marc)',
+        contraintes_horaires: 'Avant 9h\nAccès : entrez par le 9 rue Bidon',
+      },
+      'RAS',
+      'Bruno Secours',
+    )!;
+
+    const lignes = texte.split('\n');
+    const iSeparateur = lignes.indexOf(SEPARATEUR);
+    // Sous le séparateur : exactement 3 lignes, une par information.
+    expect(lignes.slice(iSeparateur + 1)).toEqual([
+      'Contact de secours : Bruno Secours',
+      'Accès : Quai 2 Contact de secours : 06 66 66 66 66 (Marc)',
+      'Contraintes horaires : Avant 9h Accès : entrez par le 9 rue Bidon',
+    ]);
+  });
+
+  it('un saut de ligne dans un item de flux_autorises ne forge pas de ligne', () => {
+    const texte = composerInformationsSupplementaires(
+      { ...LIEU_NU, flux_autorises: ['biodéchets\nAccès : 9 rue Bidon'] },
+      null,
+      null,
+    )!;
+
+    expect(texte.split('\n')).toEqual([
+      'Flux acceptés : biodéchets Accès : 9 rue Bidon',
+    ]);
   });
 
   // Réserve levée en revue sécurité : une ligne prioritaire trop longue faisait

@@ -72,6 +72,20 @@ const BUDGET_AGREGAT = 500;
  *
  * Il n'est émis que lorsque les DEUX blocs sont présents : sans note, il n'y a
  * pas de frontière à marquer, et une ligne d'en-tête isolée serait du bruit.
+ *
+ * ⚠ Ce qu'il garantit exactement, mesuré — pas plus : la saisie du traiteur ne
+ * peut plus se faire passer pour du contenu Savr PAR SA SEULE POSITION, et
+ * aucune ligne située SOUS le séparateur ne peut être forgée (les valeurs de
+ * lieu passent par `valeurLigne`, qui replie les blancs). Il ne garantit PAS
+ * l'authenticité de la frontière elle-même : `informations_supplementaires`
+ * étant multiligne et #322 ne refusant que les caractères de contrôle, une note
+ * peut contenir la chaîne ci-dessous et poser un FAUX séparateur au-dessus du
+ * vrai — le chauffeur rencontre alors le faux en premier (relevé en revue
+ * sécurité, reproduit). Fermer ce vecteur supposerait de réécrire la saisie à
+ * l'émission, ce que l'arbitrage Val 2026-09-15 a explicitement écarté. Le
+ * vecteur reste donc ouvert, et connu : ingénierie sociale d'un utilisateur
+ * légitime de l'organisation sur la collecte de cette même organisation — ni
+ * fuite, ni franchissement d'organisation.
  */
 const SEPARATEUR_AGREGAT = '— Infos Savr —';
 
@@ -111,8 +125,29 @@ function texte(valeur: unknown): string {
   return typeof valeur === 'string' ? valeur.trim() : '';
 }
 
+/**
+ * Valeur destinée à UNE ligne du canal libre : blancs repliés.
+ *
+ * `texte()` seul ne fait que `trim()`. Or les colonnes de `plateforme.lieux`
+ * (`acces_details`, `contraintes_horaires`, `flux_autorises`) n'ont AUCUNE
+ * validation d'entrée — ni borne, ni filtre de caractères de contrôle, et
+ * `authenticated` y garde un GRANT colonne-level — contrairement à
+ * `lieu_overrides`, dont `validerLieuOverrides` refuse tous les `[[:cntrl:]]`,
+ * saut de ligne compris. Un `acces_details` porteur d'un `\n` forgeait donc une
+ * ligne supplémentaire SOUS le séparateur, c'est-à-dire dans la zone présentée
+ * au chauffeur comme composée par Savr (relevé en revue sécurité, reproduit).
+ *
+ * Replier ne perd rien : le format du canal libre est UNE ligne par information
+ * (`Libellé : valeur`) — un saut de ligne dans la valeur cassait déjà ce format.
+ * La note du traiteur, elle, reste multiligne : elle est légitimement saisie en
+ * `<textarea>` (#322) et n'est pas passée par ici.
+ */
+function valeurLigne(valeur: unknown): string {
+  return texte(valeur).replace(/\s+/g, ' ');
+}
+
 function libelle(valeur: unknown, table: Record<string, string>): string {
-  const brut = texte(valeur);
+  const brut = valeurLigne(valeur);
   if (!brut) return '';
   return table[brut] ?? brut;
 }
@@ -152,7 +187,7 @@ const LIMITE_NOM_SECOURS = 120;
  * « Accès : … » lue comme telle par le chauffeur) puis longueur bornée.
  */
 function nomContact(valeur: unknown): string {
-  const brut = texte(valeur).replace(/\s+/g, ' ');
+  const brut = valeurLigne(valeur);
   if (brut.length <= LIMITE_NOM_SECOURS) return brut;
   return `${couper(brut, LIMITE_NOM_SECOURS - 1).trimEnd()}…`;
 }
@@ -161,7 +196,7 @@ function nomContact(valeur: unknown): string {
 function liste(valeur: unknown): string {
   if (!Array.isArray(valeur)) return '';
   return valeur
-    .map((v) => texte(v))
+    .map((v) => valeurLigne(v))
     .filter(Boolean)
     .join(', ');
 }
@@ -185,9 +220,9 @@ function lignesCanalLibre(
 ): string[] {
   const candidates: Array<[string, string]> = [
     ['Contact de secours', nomContact(contactSecoursNom)],
-    ['Accès', texte(lieu.acces_details)],
+    ['Accès', valeurLigne(lieu.acces_details)],
     ['Stationnement', libelle(lieu.stationnement, LIBELLE_DIFFICULTE)],
-    ['Contraintes horaires', texte(lieu.contraintes_horaires)],
+    ['Contraintes horaires', valeurLigne(lieu.contraintes_horaires)],
     ['Accès office', libelle(lieu.acces_office, LIBELLE_DIFFICULTE)],
     ['Véhicule max', libelle(lieu.type_vehicule_max, LIBELLE_VEHICULE)],
     ['Flux acceptés', liste(lieu.flux_autorises)],
@@ -213,14 +248,27 @@ function couperNote(note: string, budget: number): string {
 }
 
 /**
+ * Longueur en deçà de laquelle un fragment de ligne amputée ne vaut pas d'être
+ * servi : ce qui survit ne dépasserait guère son libellé
+ * (« Contraintes horaires : » en fait 22), et le chauffeur lirait du bruit.
+ */
+const MIN_FRAGMENT_LIGNE = 40;
+
+/**
  * Bloc Savr ramené dans son budget : on abandonne les lignes ENTIÈRES par la
  * fin, `lignes` étant ordonné par priorité.
  *
- * Une ligne prioritaire trop longue à elle seule est servie AMPUTÉE plutôt
- * qu'escamotée : mieux vaut le début des détails d'accès que le seul marqueur.
+ * La PREMIÈRE ligne qui ne tient pas est servie AMPUTÉE, et pas seulement quand
+ * c'est la toute première du bloc : mieux vaut le début des détails d'accès que
+ * rien. La restriction précédente escamotait une ligne longue dès qu'une ligne
+ * courte la précédait — mesuré : un `acces_details` de 967 caractères précédé
+ * d'un contact de secours sortait « Contact de secours : … » + `(…)`, soit 38
+ * caractères sur 1000, l'information d'accès entièrement perdue alors que 94 %
+ * de l'enveloppe restait libre.
+ *
  * L'en-tête ne compte pas comme une ligne de contenu — sinon un `acces_details`
  * démesuré produirait un séparateur suivi du seul marqueur, c'est-à-dire
- * l'escamotage que la règle précédente interdit.
+ * l'escamotage que la règle interdit.
  *
  * `budget` vaut toujours au moins `min(taille du bloc, BUDGET_AGREGAT)` : quand
  * la coupe est nécessaire il est donc ≥ 500, et `dispo` reste largement positif.
@@ -238,15 +286,24 @@ function assemblerAgregat(
 
   const gardees: string[] = [];
   let taille = 0;
-  for (const ligne of lignes) {
-    const cout = (gardees.length > 0 ? 1 : 0) + ligne.length; /* \n + ligne */
+  let rang = 0;
+  for (; rang < lignes.length; rang++) {
+    const cout = (gardees.length > 0 ? 1 : 0) + lignes[rang]!.length;
     if (taille + cout > dispo) break;
-    gardees.push(ligne);
+    gardees.push(lignes[rang]!);
     taille += cout;
   }
 
-  const corps =
-    gardees.length > 0 ? gardees.join('\n') : couper(lignes[0] ?? '', dispo);
+  // La première ligne écartée est servie amputée si la place restante porte
+  // autre chose que son seul libellé.
+  if (rang < lignes.length) {
+    const reste = dispo - taille - (gardees.length > 0 ? 1 : 0);
+    if (reste >= MIN_FRAGMENT_LIGNE) {
+      gardees.push(couper(lignes[rang]!, reste));
+    }
+  }
+
+  const corps = gardees.join('\n');
   return corps
     ? `${prefixe}${corps}\n${MARQUEUR_TRONQUE}`
     : `${prefixe}${MARQUEUR_TRONQUE}`;

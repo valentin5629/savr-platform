@@ -85,6 +85,8 @@ interface SupabaseMockOpts {
   insertLienError?: boolean;
   /** Le commit de `external_ref_commande` est refusé (référence déjà prise). */
   updateRefError?: boolean;
+  /** La lecture de `everest_missions` échoue (blip PostgREST). */
+  findMissionError?: boolean;
 }
 
 function makeMockSupabase(opts: SupabaseMockOpts = {}) {
@@ -95,6 +97,7 @@ function makeMockSupabase(opts: SupabaseMockOpts = {}) {
     insertTourneeError = false,
     insertLienError = false,
     updateRefError = false,
+    findMissionError = false,
   } = opts;
 
   const insertedRows: Record<string, unknown[]> = {};
@@ -199,6 +202,12 @@ function makeMockSupabase(opts: SupabaseMockOpts = {}) {
         return { data: null, error: null };
       }
       if (table === 'everest_missions') {
+        if (findMissionError) {
+          return {
+            data: null,
+            error: { code: '08006', message: 'connexion interrompue' },
+          };
+        }
         if (missionExistante) {
           return { data: missionExistante, error: null };
         }
@@ -560,6 +569,59 @@ describe('M2.5 / AdapterEverest — écritures DB refusées', () => {
     const creee = missions.find((m) => m['statut_everest'] === 'created');
     expect(creee).toBeDefined();
     expect(creee!['everest_mission_id']).toBeTruthy();
+  });
+
+  it('course VIDE déjà effectuée (completed_incomplete) : aucun second vélo — le premier est sorti et facturé', async () => {
+    // Écrit en production par le webhook (`mission_failed` + course vide :
+    // « Pas de commande » / « Client absent », CLAUDE.md §7), puis
+    // `realisee_sans_collecte`. Le vélo EST sorti : c'est le jumeau de
+    // `completed`, pas une mission morte.
+    const { missions } = setupEverestMock();
+    const supabase = makeMockSupabase({
+      tourneeExistante: {
+        id: 'tournee-existing-001',
+        external_ref_commande: null,
+        statut: 'planifiee',
+        prestataire_logistique_id: PRESTA_EVEREST,
+      },
+      missionExistante: {
+        id: 'em-vide',
+        statut_everest: 'completed_incomplete',
+        everest_mission_id: 'EVR-COURSE-VIDE',
+      },
+    });
+
+    await new AdapterEverest(TRANSPORTEUR_EVEREST, supabase).dispatchCollecte(
+      COLLECTE_AG,
+      1,
+    );
+
+    expect(missions.size).toBe(0);
+  });
+
+  it('lecture de everest_missions en échec → Transient, jamais « aucune mission » (l’oracle ne se tait pas)', async () => {
+    // Sans la lecture de cette `error`, un blip PostgREST valait « pas de
+    // mission » : la garde n'était pas prise et un second vélo partait. Cette
+    // lecture est jouée à CHAQUE dispatch.
+    const { missions } = setupEverestMock();
+    const supabase = makeMockSupabase({
+      tourneeExistante: {
+        id: 'tournee-existing-001',
+        external_ref_commande: null,
+        statut: 'planifiee',
+        prestataire_logistique_id: PRESTA_EVEREST,
+      },
+      findMissionError: true,
+    });
+
+    await expect(
+      new AdapterEverest(TRANSPORTEUR_EVEREST, supabase).dispatchCollecte(
+        COLLECTE_AG,
+        1,
+      ),
+    ).rejects.toBeInstanceOf(LogistiqueTransientError);
+
+    expect(missions.size).toBe(0);
   });
 
   it('mission acceptée au TÉLÉPHONE (created_manually) : « Renvoyer au TMS » ne dépêche pas un second vélo', async () => {

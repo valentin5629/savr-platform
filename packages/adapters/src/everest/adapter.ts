@@ -87,6 +87,13 @@ const MISSION_VIVANTE = new Set([
   'assigned',
   'in_progress',
   'completed',
+  // `completed_incomplete` est le jumeau de `completed` : le vélo EST sorti et
+  // la course est facturée au tarif normal (V1). Le webhook l'écrit en
+  // production sur une course vide (« Pas de commande » / « Client absent »,
+  // CLAUDE.md §7), et enchaîne sur `realisee_sans_collecte`. Contrairement à la
+  // note du CDC (« transition jamais déclenchée V1 »), ce statut est donc bien
+  // atteint — l'exclure autorisait un re-POST sur une course déjà effectuée.
+  'completed_incomplete',
 ]);
 
 export class AdapterEverest implements LogistiqueProvider {
@@ -187,11 +194,14 @@ export class AdapterEverest implements LogistiqueProvider {
       // abouti : l'échec porte alors sur une écriture locale, pas sur Everest, et
       // le rejeu doit retrouver la mission au lieu d'en créer une seconde.
       if (missionId === null) {
+        // Trace best-effort : rien n'existe chez Everest, donc la perdre ne
+        // risque aucun doublon (le re-POST est légitime). Surtout, elle ne doit
+        // pas masquer `err`, qui porte la vraie cause du rejet.
         await this.upsertEverestMission(tournee.id, collecte.id, {
           everest_mission_id: null,
           everest_service_id: serviceId,
           statut_everest: 'creation_failed',
-        });
+        }).catch(() => undefined);
       }
       // BL-P1-ALGO-07 : rejet SYNCHRONE PERMANENT (4xx = refus prestataire) →
       // statut_tms = rejetee_par_prestataire (CDC 09 - Flux algo attribution AG
@@ -579,11 +589,22 @@ export class AdapterEverest implements LogistiqueProvider {
     statut_everest: string;
     everest_mission_id: string | null;
   } | null> {
-    const { data } = await this.supabase
+    const { data, error } = await this.supabase
       .from('everest_missions')
       .select('id, statut_everest, everest_mission_id')
       .eq('tournee_id', tourneeId)
       .maybeSingle();
+
+    // Cette lecture EST l'oracle d'idempotence du dispatch. Son `error` avalée
+    // rendait `data = null`, donc « aucune mission » : la garde n'était pas
+    // prise et `createMission` repartait — un second vélo pour un simple blip
+    // PostgREST, sur une lecture jouée à CHAQUE dispatch. On lève : rejouer
+    // coûte un palier, dépêcher deux vélos coûte une course.
+    if (error) {
+      throw new LogistiqueTransientError(
+        `Lecture de la mission de la tournée ${tourneeId} échouée — ${error.message}`,
+      );
+    }
 
     return data as {
       id: string;
@@ -592,6 +613,16 @@ export class AdapterEverest implements LogistiqueProvider {
     } | null;
   }
 
+  /**
+   * Enregistre la mission — l'AUTRE face de l'oracle d'idempotence.
+   *
+   * Son `error` n'était pas lue : un échec silencieux sur le chemin de succès
+   * laissait `everest_missions` vide alors que la mission tourne chez Everest,
+   * et le rejeu, ne trouvant rien, en créait une seconde. On lève donc
+   * (Transient). Le seul appel qui tolère l'échec est celui du `catch`, où
+   * `missionId === null` : il n'y a alors rien chez Everest, et perdre cette
+   * trace ne fait que laisser le re-POST légitime se rejouer.
+   */
   private async upsertEverestMission(
     tourneeId: string,
     collecteId: string,
@@ -619,9 +650,15 @@ export class AdapterEverest implements LogistiqueProvider {
     if (fields.push_create_at !== undefined)
       row['push_create_at'] = fields.push_create_at;
 
-    await this.supabase
+    const { error } = await this.supabase
       .from('everest_missions')
       .upsert(row, { onConflict: 'tournee_id' });
+
+    if (error) {
+      throw new LogistiqueTransientError(
+        `Enregistrement de la mission de la tournée ${tourneeId} échoué — ${error.message}`,
+      );
+    }
   }
 
   // Miroir de l'homologue camion. Réécriture inconditionnelle : la valeur est

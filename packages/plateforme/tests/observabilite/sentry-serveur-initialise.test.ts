@@ -168,6 +168,28 @@ describe('M0.9 — filtrage Sentry : breadcrumbs', () => {
     ]);
   });
 
+  it('breadcrumb console : Error et objets imbriqués assainis (message, stack)', () => {
+    const err = new Error(`échec POST ${URL_SLACK}`);
+    const b = filtrerBreadcrumb({
+      category: 'console',
+      data: {
+        arguments: [
+          err,
+          {
+            contexte: { url: `https://photos.example.com/p.jpg?sig=${JETON}` },
+          },
+        ],
+      },
+    });
+    const serialise = JSON.stringify(b);
+    expect(serialise).not.toContain(JETON);
+    const [e0] = b.data?.['arguments'] as Array<Record<string, unknown>>;
+    expect(e0?.['message']).toBe(
+      'échec POST https://hooks.slack.com/[Filtered]',
+    );
+    expect(typeof e0?.['stack']).toBe('string');
+  });
+
   it('SIRET / n° TVA dans le chemin INSEE / VIES : chemin masqué', () => {
     const siret = ['732', '829', '320', '00074'].join('');
     const b = filtrerBreadcrumb({

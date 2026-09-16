@@ -62,6 +62,36 @@ export function assainirTexte(texte: string): string {
   return texte.replace(URL_DANS_TEXTE, (url) => assainirUrl(url));
 }
 
+const PROFONDEUR_MAX = 5;
+
+/**
+ * Assainit récursivement les chaînes d'une valeur quelconque. Une `Error` (que
+ * Next passe telle quelle à `console.error`) est réduite à name/message/stack
+ * assainis : ses propriétés natives ne sont pas énumérables et échapperaient au
+ * parcours. Au-delà de PROFONDEUR_MAX, la valeur est masquée plutôt que copiée.
+ */
+export function assainirValeur(valeur: unknown, profondeur = 0): unknown {
+  if (typeof valeur === 'string') return assainirTexte(valeur);
+  if (valeur === null || typeof valeur !== 'object') return valeur;
+  if (profondeur >= PROFONDEUR_MAX) return VALEUR_FILTREE;
+  if (valeur instanceof Error) {
+    return {
+      name: valeur.name,
+      message: assainirTexte(valeur.message),
+      ...(valeur.stack ? { stack: assainirTexte(valeur.stack) } : {}),
+    };
+  }
+  if (Array.isArray(valeur)) {
+    return valeur.map((v) => assainirValeur(v, profondeur + 1));
+  }
+  return Object.fromEntries(
+    Object.entries(valeur).map(([k, v]) => [
+      k,
+      assainirValeur(v, profondeur + 1),
+    ]),
+  );
+}
+
 export function filtrerBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb {
   const b: Breadcrumb = { ...breadcrumb };
   if (b.data) {
@@ -74,9 +104,7 @@ export function filtrerBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb {
     }
     // `arguments` : breadcrumb console (arguments bruts du console.*).
     if (Array.isArray(data['arguments'])) {
-      data['arguments'] = data['arguments'].map((a: unknown) =>
-        typeof a === 'string' ? assainirTexte(a) : a,
-      );
+      data['arguments'] = assainirValeur(data['arguments']);
     }
     b.data = data;
   }

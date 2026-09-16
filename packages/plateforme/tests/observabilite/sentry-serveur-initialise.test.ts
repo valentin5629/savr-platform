@@ -48,11 +48,13 @@ describe('M0.9 — Sentry serveur via register() (SDK réel)', () => {
   const envAvant = {
     dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
     runtime: process.env.NEXT_RUNTIME,
+    environnement: process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT,
   };
 
   beforeAll(async () => {
     process.env.NEXT_PUBLIC_SENTRY_DSN = 'http://cle@127.0.0.1:9/1';
     process.env.NEXT_RUNTIME = 'nodejs';
+    process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT = 'preview';
     Sentry = await import('@sentry/nextjs');
     shared = await import('@savr/shared/src/alerting/sentry.js');
   });
@@ -63,6 +65,9 @@ describe('M0.9 — Sentry serveur via register() (SDK réel)', () => {
     else process.env.NEXT_PUBLIC_SENTRY_DSN = envAvant.dsn;
     if (envAvant.runtime === undefined) delete process.env.NEXT_RUNTIME;
     else process.env.NEXT_RUNTIME = envAvant.runtime;
+    if (envAvant.environnement === undefined)
+      delete process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT;
+    else process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT = envAvant.environnement;
   });
 
   it('M0.9-4 — Sentry Next.js intégration via sentry.client.config.ts + sentry.server.config.ts', async () => {
@@ -77,6 +82,8 @@ describe('M0.9 — Sentry serveur via register() (SDK réel)', () => {
     expect(client).toBeDefined();
     // Pas d'IP ni de cookies ajoutés par le SDK (intégration RequestData).
     expect(client!.getOptions().sendDefaultPii).toBe(false);
+    // Preview et Production distingués (NODE_ENV vaut production dans les deux).
+    expect(client!.getOptions().environment).toBe('preview');
     client!.on('beforeEnvelope', (env) => {
       enveloppes.push(JSON.stringify(env));
     });
@@ -116,6 +123,7 @@ describe('M0.9 — Sentry serveur via register() (SDK réel)', () => {
       'le sink partagé doit atteindre le client Sentry',
     ).toBeDefined();
     expect(evt).toContain('"role":"admin_savr"');
+    expect(evt).toContain('"environment":"preview"');
     expect(evt).toContain('hooks.slack.com/[Filtered]');
     expect(evt).not.toContain(JETON);
     expect(evt).not.toContain(ADRESSE);

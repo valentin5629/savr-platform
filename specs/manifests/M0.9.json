@@ -30,7 +30,8 @@
     "packages/shared/src/api/integrations-tiers-log.m0-9.test.ts",
     "packages/adapters/src/mts1/client-429.m0-9.test.ts",
     "packages/plateforme/tests/observabilite/sentry-serveur-initialise.test.ts",
-    "packages/plateforme/tests/observabilite/sentry-client-filtrage.test.ts"
+    "packages/plateforme/tests/observabilite/sentry-client-filtrage.test.ts",
+    "packages/plateforme/tests/observabilite/sentry-environnement.test.ts"
   ],
   "tests_pgtap": [
     "supabase/tests/health_ops_views.m0-9.test.sql",

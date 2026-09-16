@@ -7,7 +7,8 @@ const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
 if (dsn) {
   Sentry.init({
     dsn,
-    environment: process.env.NODE_ENV,
+    // production | preview | local — cf. next.config.ts (env).
+    environment: process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT,
     // Pas de session replay, pas de tracing — Error monitoring only (V1)
     integrations: [],
     sendDefaultPii: false,

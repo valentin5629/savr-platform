@@ -13,7 +13,8 @@ const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
 if (dsn) {
   Sentry.init({
     dsn,
-    environment: process.env.NODE_ENV,
+    // production | preview | local — cf. next.config.ts (env).
+    environment: process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT,
     // `integrations: []` ne désactive PAS les intégrations par défaut (v8+) :
     // breadcrumbs des fetch sortants et données de requête restent collectés.
     // D'où le filtrage ci-dessous, obligatoire (jeton Slack dans le chemin d'URL).

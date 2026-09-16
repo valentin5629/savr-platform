@@ -12,12 +12,16 @@ const JETON = ['JETON', 'CLIENT', '987'].join('');
 
 describe('M0.9 — Sentry navigateur : filtrage câblé dans sentry.client.config.ts', () => {
   const dsnAvant = process.env.NEXT_PUBLIC_SENTRY_DSN;
+  const environnementAvant = process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT;
 
   afterEach(() => {
     vi.doUnmock('@sentry/nextjs');
     vi.resetModules();
     if (dsnAvant === undefined) delete process.env.NEXT_PUBLIC_SENTRY_DSN;
     else process.env.NEXT_PUBLIC_SENTRY_DSN = dsnAvant;
+    if (environnementAvant === undefined)
+      delete process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT;
+    else process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT = environnementAvant;
   });
 
   it('init avec sendDefaultPii false, beforeBreadcrumb et beforeSend filtrants', async () => {
@@ -29,12 +33,14 @@ describe('M0.9 — Sentry navigateur : filtrage câblé dans sentry.client.confi
       captureException: vi.fn(),
     }));
     process.env.NEXT_PUBLIC_SENTRY_DSN = 'http://cle@127.0.0.1:9/1';
+    process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT = 'production';
 
     await import('../../sentry.client.config');
 
     expect(init).toHaveBeenCalledTimes(1);
     const options = init.mock.calls[0]![0] as BrowserOptions;
     expect(options.sendDefaultPii).toBe(false);
+    expect(options.environment).toBe('production');
 
     const crumb = options.beforeBreadcrumb!(
       {

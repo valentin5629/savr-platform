@@ -90,7 +90,7 @@
     "M1.1b/collectes/create — 422 si champs obligatoires manquants",
     "M1.1b/collectes/create — outbox E1 atomique via fn_creer_collecte",
     "M1.1b/collectes/liste — 200 avec chip non_transmises (filtre tms_reference IS NULL)",
-    "M1.1b/dashboard/kpi — 200 avec 6 cartes correctement structurées",
+    "M1.1b/dashboard/kpi — 200 avec 5 cartes correctement structurées",
     "M1.1b/dashboard/kpi — 401 si non authentifié",
     "M1.1b/dashboard/kpi — 403 si rôle traiteur",
     "M1.1b/taux-recyclage/get — 200 liste pour ops_savr (lecture OK)",
@@ -106,7 +106,7 @@
     "M1.1b/flux/manuel — 404 si collecte inconnue",
     "M1.1b/flux/manuel — 409 si collecte cloturee (correction via avoir)",
     "M1.1b/flux/manuel — 422 si flux_code inconnu",
-    "M1.1b/flux/manuel — 422 si motif < 5 caractères",
+    "M1.1b/flux/manuel — 422 si motif < 10 caractères (§07/06 pt2)",
     "M1.1b/flux/manuel — 422 si poids négatif",
     "M1.1b/flux/manuel — 403 si rôle client (traiteur_manager)",
     "M1.1b/flux/manuel — 200 pour ops_savr (2e rôle staff autorisé)",
@@ -244,11 +244,11 @@
     },
     {
       "id": "M1.1b-17",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
-      "artefact": "packages/plateforme/src/app/api/v1/admin/lieux/route.ts",
-      "test": "M1.1b/dashboard/kpi-6-cartes",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/dashboard/kpi/route.ts",
+      "test": "M1.1b/dashboard/kpi — 200 avec 5 cartes correctement structurées",
       "statut": "implemented",
-      "libelle": "GET /dashboard/kpi retourne les 6 cartes (non_transmises_zd, non_transmises_ag, attente_prestataire, dirty_tms, zd_48h, "
+      "libelle": "GET /dashboard/kpi retourne les compteurs des 5 cartes Bloc 1 (non_transmises_zd, non_transmises_ag, attente_prestataire, dirty_tms, collectes_48h_non_validees — fusion ex zd_48h + ag_48h, §11 Bloc 1, divergence M3.6 2026-07-15)"
     },
     {
       "id": "M1.1b-18",
@@ -356,6 +356,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "870a839c0f23b1323adfa0e12c8858f50181c5f77a03dca271fded8295b98ca3"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "870a839c0f23b1323adfa0e12c8858f50181c5f77a03dca271fded8295b98ca3",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "41cc7ea0cf5e68d671ad0ff900ee17e0843e006998cd977ebc2c43c2b3d6938a"
   }
 }

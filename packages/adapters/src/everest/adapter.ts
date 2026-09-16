@@ -73,14 +73,14 @@ interface AttributionRow {
 // tant que l'un d'eux est enregistré, un second `createMission` enverrait un
 // SECOND vélo sur la même collecte.
 //
-// `created_manually` en fait partie, et ce n'est pas théorique : quand Ops
-// accepte une mission au téléphone (route admin/everest/missions/manual-accept,
-// Everest indisponible), la ligne est posée SANS `everest_mission_id` ni
-// `tournees.external_ref_commande`. Le gate d'émission
-// (`fn_collecte_commandee_chez_provider`, qui exige une référence de commande)
-// répond donc `false`, et un clic ultérieur sur « Renvoyer au TMS » émet E1 —
-// c'est-à-dire un dispatch. Sans ce statut dans le set, un vélo partait sur une
-// collecte déjà servie. Cas reproduit par exécution en revue de conformité.
+// `created_manually` en fait partie : c'est le FILET conservé par le CDC
+// (§06.06 §3 Bloc 0, arbitrage Val 2026-09-16). Depuis cet arbitrage, la route
+// admin/everest/missions/manual-accept exige la référence de mission et l'écrit
+// comme au dispatch normal (`fn_accepter_mission_everest_manuelle`) : le gate
+// d'émission répond `true` et un renvoi émet E2, pas E1. Mais les lignes posées
+// AVANT (sans `everest_mission_id` ni `tournees.external_ref_commande`) existent,
+// et un E1 déjà en retry peut arriver après l'acceptation : sans ce statut dans le
+// set, un second vélo partirait sur une collecte déjà servie.
 const MISSION_VIVANTE = new Set([
   'created',
   'created_manually',

@@ -13,6 +13,7 @@ import {
   RotateCw,
   Upload,
   History,
+  PhoneCall,
   MapPin,
   Scale,
   HeartHandshake,
@@ -341,6 +342,16 @@ export function CollecteDetailPanel({
   const [nbCamionsValue, setNbCamionsValue] = useState('1');
   const [nbCamionsSubmitting, setNbCamionsSubmitting] = useState(false);
   const [nbCamionsError, setNbCamionsError] = useState<string | null>(null);
+  // §06.06 §3 Bloc 0 — acceptation manuelle Everest (A Toutes! indisponible).
+  const [acceptationModal, setAcceptationModal] = useState(false);
+  const [acceptationSaisie, setAcceptationSaisie] = useState({
+    reference_mission: '',
+    contact_joint: '',
+    heure_appel: '',
+    commentaire: '',
+  });
+  const [acceptationSubmitting, setAcceptationSubmitting] = useState(false);
+  const [acceptationError, setAcceptationError] = useState<string | null>(null);
   // Bloc 3 — Documents / Bloc 7 — Historique (BOA-07)
   const [documents, setDocuments] = useState<DocumentsData | null>(null);
   const [audit, setAudit] = useState<AuditEntry[]>([]);
@@ -613,6 +624,28 @@ export function CollecteDetailPanel({
     setNbCamionsSubmitting(false);
   };
 
+  // §06.06 §3 Bloc 0 — la référence de mission est OBLIGATOIRE : elle est écrite
+  // comme au dispatch normal (tournée + référence TMS), ce qui sort la collecte
+  // des « non transmises » et rend l'annulation possible.
+  const handleAcceptationManuelle = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAcceptationSubmitting(true);
+    setAcceptationError(null);
+    const res = await fetch('/api/v1/admin/everest/missions/manual-accept', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ collecte_id: collecteId, ...acceptationSaisie }),
+    });
+    if (res.ok) {
+      await refetch();
+      setAcceptationModal(false);
+    } else {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      setAcceptationError(body.error ?? 'Enregistrement impossible');
+    }
+    setAcceptationSubmitting(false);
+  };
+
   const openEditPesees = () => {
     if (!collecte) return;
     const prefill: Record<string, string> = {};
@@ -736,7 +769,10 @@ export function CollecteDetailPanel({
 
   // Miroir de l'état « sous-modale ouverte » pour le wrapper modale (garde Escape).
   const anySubModalOpen =
-    annulerCreditModal || forceStatutModal || nbCamionsModal;
+    annulerCreditModal ||
+    forceStatutModal ||
+    nbCamionsModal ||
+    acceptationModal;
   if (blockCloseRef) blockCloseRef.current = anySubModalOpen;
 
   if (loading) {
@@ -778,6 +814,17 @@ export function CollecteDetailPanel({
     selectedTransporteur.id !== recommendedTransporteurId;
   const overrideMotifManquant =
     overrideActif && motifOverride.trim().length < 5;
+  // Acceptation manuelle : collecte chez A Toutes!, non terminale, sans
+  // référence de mission encore enregistrée (sinon elle est déjà « transmise »).
+  const acceptationManuellePossible =
+    !isTerminal &&
+    currentTransporteur?.type_tms === 'a_toutes' &&
+    !collecte.tms_reference;
+  const referenceSaisie = acceptationSaisie.reference_mission.trim();
+  const acceptationIncomplete =
+    referenceSaisie === '' ||
+    /\s/.test(referenceSaisie) ||
+    acceptationSaisie.contact_joint.trim() === '';
 
   return (
     <div className="space-y-4">
@@ -982,8 +1029,27 @@ export function CollecteDetailPanel({
             </div>
           )}
 
-          {/* Bouton d'envoi TMS forké par type_tms */}
-          <div className="flex justify-end">
+          {/* Bouton d'envoi TMS forké par type_tms (+ acceptation manuelle
+              A Toutes! quand Everest est indisponible, §06.06 §3 Bloc 0) */}
+          <div className="flex flex-wrap justify-end gap-2">
+            {acceptationManuellePossible && (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setAcceptationSaisie({
+                    reference_mission: '',
+                    contact_joint: '',
+                    heure_appel: '',
+                    commentaire: '',
+                  });
+                  setAcceptationError(null);
+                  setAcceptationModal(true);
+                }}
+              >
+                <PhoneCall className="h-4 w-4 mr-2" />
+                Acceptation manuelle
+              </Button>
+            )}
             <Button
               disabled={isTerminal || dispatching || overrideMotifManquant}
               onClick={() => void handleDispatch()}
@@ -1944,6 +2010,132 @@ export function CollecteDetailPanel({
               }
             >
               {forceStatutSubmitting ? 'Application…' : 'Confirmer le forçage'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modale — Acceptation manuelle mission Everest (§06.06 §3 Bloc 0) */}
+      <Modal
+        open={acceptationModal}
+        title="Acceptation manuelle — A Toutes!"
+        onClose={() => setAcceptationModal(false)}
+      >
+        {acceptationError && (
+          <AlertBar variant="err" className="mb-4">
+            {acceptationError}
+          </AlertBar>
+        )}
+        <form
+          onSubmit={(e) => void handleAcceptationManuelle(e)}
+          className="space-y-4"
+        >
+          <p className="text-sm text-savr-neutral-500">
+            À utiliser quand Everest est indisponible et que la course a été
+            calée par téléphone avec A Toutes!. La référence de mission permet
+            ensuite de renvoyer une modification ou d&apos;annuler la course.
+          </p>
+          <div>
+            <label
+              htmlFor="acceptation-reference"
+              className="mb-1 block text-sm font-medium text-savr-neutral-700"
+            >
+              Référence de mission communiquée par A Toutes! (obligatoire)
+            </label>
+            <Input
+              id="acceptation-reference"
+              value={acceptationSaisie.reference_mission}
+              onChange={(e) =>
+                setAcceptationSaisie((s) => ({
+                  ...s,
+                  reference_mission: e.target.value,
+                }))
+              }
+              maxLength={64}
+              autoComplete="off"
+              className="font-mono"
+              required
+            />
+            <p className="mt-1 text-xs text-savr-neutral-500">
+              Sans espace, 64 caractères maximum.
+            </p>
+          </div>
+          <div>
+            <label
+              htmlFor="acceptation-contact"
+              className="mb-1 block text-sm font-medium text-savr-neutral-700"
+            >
+              Contact joint chez A Toutes! (obligatoire)
+            </label>
+            <Input
+              id="acceptation-contact"
+              value={acceptationSaisie.contact_joint}
+              onChange={(e) =>
+                setAcceptationSaisie((s) => ({
+                  ...s,
+                  contact_joint: e.target.value,
+                }))
+              }
+              maxLength={120}
+              required
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="acceptation-heure"
+              className="mb-1 block text-sm font-medium text-savr-neutral-700"
+            >
+              Heure de l&apos;appel
+            </label>
+            <Input
+              id="acceptation-heure"
+              type="time"
+              value={acceptationSaisie.heure_appel}
+              onChange={(e) =>
+                setAcceptationSaisie((s) => ({
+                  ...s,
+                  heure_appel: e.target.value,
+                }))
+              }
+              className="w-32"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="acceptation-commentaire"
+              className="mb-1 block text-sm font-medium text-savr-neutral-700"
+            >
+              Commentaire
+            </label>
+            <Textarea
+              id="acceptation-commentaire"
+              value={acceptationSaisie.commentaire}
+              onChange={(e) =>
+                setAcceptationSaisie((s) => ({
+                  ...s,
+                  commentaire: e.target.value,
+                }))
+              }
+              rows={3}
+              maxLength={1000}
+            />
+          </div>
+          <div className="flex justify-end gap-2 border-t border-savr-neutral-100 pt-4">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setAcceptationModal(false)}
+              disabled={acceptationSubmitting}
+            >
+              Retour
+            </Button>
+            <Button
+              type="submit"
+              disabled={acceptationSubmitting || acceptationIncomplete}
+            >
+              {acceptationSubmitting
+                ? 'Enregistrement…'
+                : "Enregistrer l'acceptation"}
             </Button>
           </div>
         </form>

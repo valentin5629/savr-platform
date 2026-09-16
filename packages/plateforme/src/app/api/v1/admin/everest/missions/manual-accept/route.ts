@@ -1,185 +1,79 @@
 // Failover Ops — acceptation manuelle mission Everest (M2.5, M14 W4).
 // Rôle : ops_savr ou admin_savr uniquement.
-// Déclenché quand Everest est down et que l'Ops a appelé A Toutes! par téléphone.
+// Déclenché quand Everest est down et que l'Ops a calé la course par téléphone
+// avec A Toutes!.
+//
+// §06.06 §3 Bloc 0 (arbitrage Val 2026-09-16) : la RÉFÉRENCE DE MISSION
+// communiquée par A Toutes! est OBLIGATOIRE et s'écrit dans
+// `tournees.external_ref_commande` exactement comme au dispatch normal. Sans
+// elle la mission était invisible au système : collecte « non transmise » alors
+// qu'un vélo est réservé, renvoi qui émettait un vrai dispatch, annulation qui
+// ne partait nulle part.
+//
+// Toutes les écritures (tournée, mission, collecte, audit) passent par UNE RPC
+// transactionnelle : la route en faisait quatre à la suite sans lire une seule
+// `error`, et répondait `{ ok: true }` même quand un CHECK avait tout refusé.
 
 import { NextRequest, NextResponse } from 'next/server';
 
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 
 import { requireStaff } from '@/lib/api-auth.js';
-import { serverError } from '@/lib/api-helpers.js';
+import {
+  businessError,
+  readJsonBody,
+  typedRpcError,
+} from '@/lib/api-helpers.js';
+import { validerAcceptationManuelle } from '@/lib/acceptation-manuelle-mission.js';
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
   if (auth.error) return auth.error;
 
-  const body = (await req.json()) as Record<string, unknown>;
-  const { collecte_id, contact_joint, heure_appel, commentaire } = body;
+  const parsed = await readJsonBody(req);
+  if ('error' in parsed) return parsed.error;
 
-  if (!collecte_id || typeof collecte_id !== 'string') {
-    return NextResponse.json({ error: 'collecte_id requis' }, { status: 400 });
-  }
+  const saisie = validerAcceptationManuelle(parsed.data);
+  if ('error' in saisie) return saisie.error;
+  const v = saisie.valeurs;
 
   const supabase = createAdminSupabaseClient();
+  const { data, error } = await supabase.rpc(
+    'fn_accepter_mission_everest_manuelle',
+    {
+      p_collecte_id: v.collecte_id,
+      p_reference: v.reference_mission,
+      p_contact: v.contact_joint,
+      p_commentaire: v.commentaire ?? undefined,
+      p_heure_appel: v.heure_appel ?? undefined,
+      p_user_id: auth.ctx.userId,
+      p_role: auth.ctx.role,
+    },
+  );
 
-  // Lookup mission Everest pour cette collecte
-  const { data: mission } = await supabase
-    .from('everest_missions')
-    .select(
-      'id, tournee_id, statut_everest, everest_mission_id, everest_service_id',
-    )
-    .eq('collecte_id', collecte_id)
-    .maybeSingle();
-
-  type MissionRow = {
-    id: string;
-    tournee_id: string;
-    statut_everest: string;
-    everest_mission_id: string | null;
-    everest_service_id: number;
-  };
-
-  const now = new Date().toISOString();
-  const contactJoint = typeof contact_joint === 'string' ? contact_joint : null;
-  const commentaireStr = typeof commentaire === 'string' ? commentaire : null;
-
-  if (mission) {
-    const m = mission as unknown as MissionRow;
-    await supabase
-      .from('everest_missions')
-      .update({
-        statut_everest: 'created_manually',
-        manual_acceptance_at: now,
-        manual_acceptance_by_user_id: auth.ctx.userId,
-        manual_acceptance_contact: contactJoint,
-        manual_acceptance_commentaire: commentaireStr,
-        payload_latest_update: {
-          manual: true,
-          heure_appel: typeof heure_appel === 'string' ? heure_appel : null,
-          ops_user_id: auth.ctx.userId,
-        },
-        derniere_sync_at: now,
-      })
-      .eq('id', m.id);
-
-    // Tracer dans audit_log
-    await supabase.from('audit_log').insert({
-      user_id: auth.ctx.userId,
-      role: auth.ctx.role,
-      action: 'UPDATE',
-      table_name: 'everest_missions',
-      record_id: m.id,
-      new_values: {
-        statut_everest: 'created_manually',
-        manual_acceptance_contact: contactJoint,
-        manual_acceptance_commentaire: commentaireStr,
-      },
-    });
-  } else {
-    // Mission jamais créée (push n'a même pas créé la ligne) — lookup tournée.
-    //
-    // La tournée est cherchée CHEZ EVEREST (`type_tms='a_toutes'`) et au rang le
-    // plus bas. Un `.limit(1)` sans filtre ni tri rattachait la ligne
-    // `everest_missions` à n'importe quelle tournée de la collecte — y compris
-    // une tournée MTS-1 résiduelle sur une collecte re-dispatchée. L'adapter
-    // Everest cherche ensuite sa mission par `findMission(tournee.id)` sur une
-    // tournée, elle, filtrée par provider : il ne l'aurait pas trouvée et aurait
-    // re-créé une mission. Autrement dit, l'acceptation téléphonique protégeait
-    // la mauvaise tournée.
-    // Il n'existe pas de FK `tournees` → `transporteurs` : le provider se résout
-    // en deux temps, via `prestataire_logistique_id` → `transporteurs.type_tms`
-    // — même résolution que les adapters (`prestatairesDuType`).
-    const { data: prestataires, error: errPresta } = await supabase
-      .from('transporteurs')
-      .select('prestataire_logistique_id')
-      .eq('type_tms', 'a_toutes');
-
-    if (errPresta) {
-      return serverError(errPresta, 'admin.everest.manual_accept.referentiel');
-    }
-
-    const prestatairesEverest = (
-      (prestataires ?? []) as Array<{
-        prestataire_logistique_id: string | null;
-      }>
-    )
-      .map((t) => t.prestataire_logistique_id)
-      .filter((id): id is string => typeof id === 'string' && id !== '');
-
-    if (prestatairesEverest.length === 0) {
-      return NextResponse.json(
-        { error: 'Aucun transporteur Everest au référentiel' },
-        { status: 409 },
+  if (error) {
+    const code = (error as { code?: string }).code;
+    // Refus métier (collecte terminée, pas chez A Toutes!, mission déjà créée par
+    // l'API, autre référence déjà posée, référence portée par une autre tournée —
+    // `uniq_tournee_par_external_ref`) : la RPC lève en P0003 un libellé FR écrit
+    // par nous — renvoyé tel quel, allowlist de code fermée.
+    if (code === 'P0003') {
+      return businessError(
+        error,
+        'admin.everest.manual_accept',
+        ['P0003'],
+        409,
       );
     }
-
-    const { data: tournee, error: errTournee } = await supabase
-      .from('collecte_tournees')
-      .select('tournee_id, rang, tournees!inner(prestataire_logistique_id)')
-      .eq('collecte_id', collecte_id)
-      .in('tournees.prestataire_logistique_id', prestatairesEverest)
-      .order('rang', { ascending: true })
-      .limit(1)
-      .maybeSingle();
-
-    if (errTournee) {
-      return serverError(errTournee, 'admin.everest.manual_accept.tournee');
-    }
-
-    const tourneeId = (tournee as { tournee_id: string } | null)?.tournee_id;
-
-    if (!tourneeId) {
-      return NextResponse.json(
-        { error: 'Aucune tournée Everest trouvée pour cette collecte' },
-        { status: 404 },
-      );
-    }
-
-    await supabase.from('everest_missions').insert({
-      tournee_id: tourneeId,
-      collecte_id,
-      everest_service_id: 71, // service par défaut si inconnu
-      statut_everest: 'created_manually',
-      manual_acceptance_at: now,
-      manual_acceptance_by_user_id: auth.ctx.userId,
-      manual_acceptance_contact: contactJoint,
-      manual_acceptance_commentaire: commentaireStr,
-      payload_latest_update: {
-        manual: true,
-        heure_appel: typeof heure_appel === 'string' ? heure_appel : null,
-        ops_user_id: auth.ctx.userId,
-      },
-      derniere_sync_at: now,
-    });
-
-    await supabase.from('audit_log').insert({
-      user_id: auth.ctx.userId,
-      role: auth.ctx.role,
-      action: 'CREATE',
-      table_name: 'everest_missions',
-      new_values: {
-        statut_everest: 'created_manually',
-        manual_acceptance_contact: contactJoint,
-        manual_acceptance_commentaire: commentaireStr,
-      },
+    return typedRpcError(error, 'admin.everest.manual_accept', {
+      message404: 'Collecte ou tournée A Toutes! introuvable.',
+      message422: 'Référence de mission et contact joint obligatoires.',
     });
   }
 
-  // Passer statut_tms → 'acceptee' (trigger dérive collectes.statut = 'validee')
-  const { data: collecte } = await supabase
-    .from('collectes')
-    .select('statut_tms')
-    .eq('id', collecte_id)
-    .maybeSingle();
-
-  const statut_tms_actuel = (collecte as { statut_tms: string } | null)
-    ?.statut_tms;
-  if (statut_tms_actuel === 'attribuee_en_attente_acceptation') {
-    await supabase
-      .from('collectes')
-      .update({ statut_tms: 'acceptee' })
-      .eq('id', collecte_id);
-  }
-
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({
+    ok: true,
+    reference_mission: v.reference_mission,
+    rejeu: (data as { rejeu?: boolean } | null)?.rejeu === true,
+  });
 }

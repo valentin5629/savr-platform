@@ -644,3 +644,158 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     expect(arg.title).toContain("jusqu'à 80 pax");
   });
 });
+
+// ============================================================================
+// §06.06 §3 Bloc 0 — acceptation manuelle d'une mission Everest (A Toutes!
+// indisponible, arbitrage Val 2026-09-16) : la référence de mission est
+// OBLIGATOIRE dans la modale, comme dans la route.
+// ============================================================================
+
+const collecteAToutes = {
+  ...collecteAg,
+  prestataire_logistique_id: 'presta-atoutes',
+  collecte_tournees: [],
+};
+
+function mockFetchAcceptation(
+  collecte: Record<string, unknown>,
+  reponse: { ok: boolean; body: unknown } = {
+    ok: true,
+    body: { ok: true, reference_mission: 'EVR-TEL-001', rejeu: false },
+  },
+) {
+  // Typage relâché : l'implémentation de base renvoie une union de réponses
+  // que `mockImplementation` refuse d'élargir.
+  const fetchMock = mockFetch() as unknown as ReturnType<typeof vi.fn>;
+  const base = fetchMock.getMockImplementation()!;
+  fetchMock.mockImplementation(
+    (url: string, opts?: { method?: string; body?: string }) => {
+      if (url === '/api/v1/admin/everest/missions/manual-accept') {
+        return Promise.resolve({
+          ok: reponse.ok,
+          json: async () => reponse.body,
+        });
+      }
+      if (url === '/api/v1/admin/collectes/c1' && !opts?.method) {
+        return Promise.resolve({ ok: true, json: async () => collecte });
+      }
+      return base(url, opts);
+    },
+  );
+  return fetchMock;
+}
+
+describe('§06.06 Bloc 0 — acceptation manuelle Everest', () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  it('collecte A Toutes! non transmise : la modale exige référence ET contact, puis POST la saisie', async () => {
+    const fetchMock = mockFetchAcceptation(collecteAToutes);
+    render(<CollecteDetailPanel collecteId="c1" />);
+
+    fireEvent.click(
+      await screen.findByRole(
+        'button',
+        { name: 'Acceptation manuelle' },
+        ATTENTE_UI,
+      ),
+    );
+    const dialog = screen.getByRole('dialog');
+    const enregistrer = within(dialog).getByRole('button', {
+      name: "Enregistrer l'acceptation",
+    });
+    const reference = within(dialog).getByLabelText(
+      /Référence de mission communiquée par A Toutes!/,
+    );
+    const contact = within(dialog).getByLabelText(
+      /Contact joint chez A Toutes!/,
+    );
+
+    // Contact seul : la référence manque → bouton désactivé.
+    fireEvent.change(contact, { target: { value: 'Mathieu' } });
+    expect(enregistrer).toBeDisabled();
+    // Référence avec une espace (dictée) : refusée côté client aussi.
+    fireEvent.change(reference, { target: { value: 'EVR 001' } });
+    expect(enregistrer).toBeDisabled();
+
+    fireEvent.change(reference, { target: { value: 'EVR-TEL-001' } });
+    expect(enregistrer).toBeEnabled();
+    fireEvent.click(enregistrer);
+
+    await waitFor(() => {
+      const post = fetchMock.mock.calls.find(
+        (c) => c[0] === '/api/v1/admin/everest/missions/manual-accept',
+      );
+      expect(post).toBeTruthy();
+      expect(JSON.parse((post![1] as { body: string }).body)).toEqual({
+        collecte_id: 'c1',
+        reference_mission: 'EVR-TEL-001',
+        contact_joint: 'Mathieu',
+        heure_appel: '',
+        commentaire: '',
+      });
+    }, ATTENTE_UI);
+    await waitFor(
+      () => expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+      ATTENTE_UI,
+    );
+  });
+
+  it('refus serveur (référence déjà enregistrée) : message affiché, modale conservée', async () => {
+    mockFetchAcceptation(collecteAToutes, {
+      ok: false,
+      body: {
+        error:
+          'Cette référence de mission est déjà enregistrée sur une autre collecte. Vérifiez la saisie.',
+      },
+    });
+    render(<CollecteDetailPanel collecteId="c1" />);
+
+    fireEvent.click(
+      await screen.findByRole(
+        'button',
+        { name: 'Acceptation manuelle' },
+        ATTENTE_UI,
+      ),
+    );
+    const dialog = screen.getByRole('dialog');
+    fireEvent.change(
+      within(dialog).getByLabelText(/Référence de mission communiquée/),
+      { target: { value: 'EVR-TEL-001' } },
+    );
+    fireEvent.change(within(dialog).getByLabelText(/Contact joint/), {
+      target: { value: 'Mathieu' },
+    });
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: "Enregistrer l'acceptation" }),
+    );
+
+    expect(
+      await within(dialog).findByText(
+        /déjà enregistrée sur une autre collecte/,
+        undefined,
+        ATTENTE_UI,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it.each([
+    [
+      'référence de mission déjà enregistrée',
+      { ...collecteAToutes, tms_reference: 'EVR-TEL-001' },
+    ],
+    [
+      'collecte chez un transporteur MTS-1',
+      { ...collecteAToutes, prestataire_logistique_id: 'presta-mts1' },
+    ],
+    ['collecte terminale', { ...collecteAToutes, statut: 'annulee' }],
+  ])('bouton absent : %s', async (_cas, collecte) => {
+    mockFetchAcceptation(collecte);
+    render(<CollecteDetailPanel collecteId="c1" />);
+    await screen.findByText('Prestataire actuel', undefined, ATTENTE_UI);
+
+    expect(
+      screen.queryByRole('button', { name: 'Acceptation manuelle' }),
+    ).not.toBeInTheDocument();
+  });
+});

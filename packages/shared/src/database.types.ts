@@ -4932,6 +4932,18 @@ export type Database = {
         Args: { p_collecte_id: string }
         Returns: number
       }
+      fn_accepter_mission_everest_manuelle: {
+        Args: {
+          p_collecte_id: string
+          p_commentaire?: string
+          p_contact: string
+          p_heure_appel?: string
+          p_reference: string
+          p_role: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       fn_admin_requeue_outbox: {
         Args: { p_auteur: string; p_event_id: string; p_motif: string }
         Returns: Json

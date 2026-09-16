@@ -12,7 +12,7 @@
     "packages/plateforme/src/app/api/webhooks/everest/route.ts",
     "packages/plateforme/src/app/api/v1/admin/everest/missions/manual-accept/route.ts",
     "packages/plateforme/tests/api/webhooks/everest.m2-5.test.ts",
-    "supabase/migrations/20260916140000_plateforme_everest_acceptation_manuelle_reference.sql",
+    "supabase/migrations/20260916160000_plateforme_everest_acceptation_manuelle_reference.sql",
     "packages/plateforme/src/lib/acceptation-manuelle-mission.ts",
     "packages/plateforme/tests/api/admin/everest-manual-accept.m2-5.test.ts",
     "supabase/tests/everest_acceptation_manuelle_reference.test.sql"
@@ -56,7 +56,7 @@
     {
       "id": "M2.5-acceptation-manuelle-reference",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:250-262",
-      "artefact": "supabase/migrations/20260916140000_plateforme_everest_acceptation_manuelle_reference.sql (fn_accepter_mission_everest_manuelle : tournees.external_ref_commande + collectes.tms_reference + everest_missions created_manually, atomique) ; packages/plateforme/src/app/api/v1/admin/everest/missions/manual-accept/route.ts + packages/plateforme/src/lib/acceptation-manuelle-mission.ts (référence obligatoire, bornée) ; packages/plateforme/src/components/admin/collecte-detail-panel.tsx (modale « Acceptation manuelle »)",
+      "artefact": "supabase/migrations/20260916160000_plateforme_everest_acceptation_manuelle_reference.sql (fn_accepter_mission_everest_manuelle : tournees.external_ref_commande + collectes.tms_reference + everest_missions created_manually, atomique) ; packages/plateforme/src/app/api/v1/admin/everest/missions/manual-accept/route.ts + packages/plateforme/src/lib/acceptation-manuelle-mission.ts (référence obligatoire, bornée) ; packages/plateforme/src/components/admin/collecte-detail-panel.tsx (modale « Acceptation manuelle »)",
       "test": "everest_acceptation_manuelle_reference.test.sql (A1 422 sans référence, A2 référence posée, A3 sort des non transmises, A4 renvoi = E2, A7 uniq_tournee_par_external_ref atomique, A9 annulation = E3, A11 tournée Everest visée) + adapter.m2-5.test.ts « mission acceptée manuellement AVEC référence » (cancelCollecte annule chez A Toutes!, E1 no-op) + everest-manual-accept.m2-5.test.ts + collecte-detail-panel.m0-6.test.tsx §06.06 Bloc 0",
       "statut": "implemented",
       "libelle": "Acceptation manuelle Everest (A Toutes! indisponible) : référence de mission obligatoire écrite dans tournees.external_ref_commande comme au dispatch normal (arbitrage Val 2026-09-16) ; filet created_manually conservé côté adapter."

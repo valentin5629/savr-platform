@@ -51,17 +51,14 @@ VALUES
   ('b1000000-0000-0000-0000-000000000052'::uuid, 'ProvC R11', 'PROVC_R11', ARRAY['ag'], 'mts1', '333333333012345', 'actif', 1)
 ON CONFLICT (id) DO NOTHING;
 
--- Marathon IDF (pour auto-accept nuit) + pont prestataire
-INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, ville, type_tms, actif, contact_nom, contact_email, contact_telephone, types_vehicules, latitude, longitude)
-VALUES ('b1000000-0000-0000-0000-000000000043'::uuid, 'Marathon R11', '444444444', '4 Rue', '75020', 'Paris', 'mts1', true, 'M', 'm@t.test', '0600000004', ARRAY['fourgon','poids_lourd'], 48.8616, 2.3722);
-
 INSERT INTO shared.prestataires (id, nom, code, type_prestation, mode_integration, siret, statut)
 VALUES ('b1000000-0000-0000-0000-000000000053'::uuid, 'Marathon R11', 'MARA_R11', ARRAY['ag'], 'mts1', '444444444012345', 'actif')
 ON CONFLICT (id) DO NOTHING;
 
-UPDATE plateforme.transporteurs
-  SET prestataire_logistique_id = 'b1000000-0000-0000-0000-000000000053'::uuid
-  WHERE id = 'b1000000-0000-0000-0000-000000000043'::uuid;
+-- Marathon IDF (pour auto-accept nuit) + pont prestataire, posé à la création
+-- (`trg_transporteur_cols_immuables` refuse tout rattachement tardif)
+INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, ville, type_tms, actif, contact_nom, contact_email, contact_telephone, types_vehicules, latitude, longitude, prestataire_logistique_id)
+VALUES ('b1000000-0000-0000-0000-000000000043'::uuid, 'Marathon R11', '444444444', '4 Rue', '75020', 'Paris', 'mts1', true, 'M', 'm@t.test', '0600000004', ARRAY['fourgon','poids_lourd'], 48.8616, 2.3722, 'b1000000-0000-0000-0000-000000000053'::uuid);
 
 -- §05 R2 filtres province : transporteur ZD-only (prestataire sans 'ag') au lieu
 -- Rouen (distance 0 → serait top1 SI éligible) — doit être EXCLU du top 3.

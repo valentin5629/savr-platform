@@ -194,6 +194,11 @@ supabase/tests/SECU__cloisonnement_provider_invariants.test.sql
 supabase/tests/e2_gate_commande_provider.test.sql
 supabase/tests/edition_evenement.test.sql
 supabase/tests/r22c_evenement_e2_en_cours.test.sql
+# supabase/tests/SECU__evenements_ecriture_client_fermee.test.sql — fixture : le
+# transporteur qui porte le prestataire de la collecte commandée (type_tms = valeur
+# d'enum). Requis depuis #327 : le gate E2 compare le type_tms des deux
+# transporteurs. Aucune logique d'adapter.
+supabase/tests/SECU__evenements_ecriture_client_fermee.test.sql
 # supabase/migrations/20260915220000_* (gate E2 provider-aware) — 'everest' apparait
 # dans le commentaire qui explique pourquoi le gate seul peut rattraper un mauvais
 # type d'event chez ce provider ; 'mts1' est la valeur de l'enum type_tms dans le
@@ -207,3 +212,26 @@ supabase/migrations/20260915220000_plateforme_gate_e2_dimension_provider.sql
 # le rattachement de la mission vise la tournée du BON provider. Aucun appel HTTP.
 # 'customerOrders' reste banni.
 packages/plateforme/tests/api/admin/everest-manual-accept.m2-5.test.ts
+
+# packages/plateforme/src/lib/transporteur-lien-prestataire.ts (lien transporteur →
+# prestataire logistique) — CONSTANTE d'enum `transporteurs.type_tms` : la liste
+# des types routés vers un adapter, pour lesquels le lien est obligatoire (sans
+# lui `prestatairesDuType` lève et tous les événements partent en DLQ). Partagée
+# par les routes admin transporteurs ET la modale (déjà exemptées) pour n'avoir
+# qu'une définition. Aucun appel à un transporteur, aucune logique d'adapter.
+packages/plateforme/src/lib/transporteur-lien-prestataire.ts
+
+# 20260916150000 transporteurs_cols_immuables (arbitrage Val 2026-09-16) — la
+# migration ne cite « mts1 » que dans son commentaire de mesure des données ; le
+# pgTAP porte les VALEURS d'enum transporteurs.type_tms / prestataires.mode_integration
+# dans ses fixtures et assertions. Deux triggers d'intégrité (immuabilité, garde
+# DELETE) : aucune logique adapter, aucun appel HTTP. 'customerOrders' reste banni.
+supabase/migrations/20260916150000_plateforme_transporteurs_cols_immuables.sql
+supabase/tests/SECU__transporteur_cols_immuables.test.sql
+# Acceptation manuelle d'une mission A Toutes! avec référence obligatoire (2026-09-16,
+# §06.06 §3 Bloc 0) — RPC `fn_accepter_mission_everest_manuelle` et son pgTAP : 'everest'
+# = nom de la table `everest_missions` / de la colonne `everest_mission_id` et du segment
+# d'URL de la route déjà allowlistée ; 'mts1' = valeur de l'enum type_tms dans les INSERT
+# de fixtures. Écritures DB uniquement, aucun appel HTTP transporteur. 'customerOrders' banni.
+supabase/migrations/20260916160000_plateforme_everest_acceptation_manuelle_reference.sql
+supabase/tests/everest_acceptation_manuelle_reference.test.sql

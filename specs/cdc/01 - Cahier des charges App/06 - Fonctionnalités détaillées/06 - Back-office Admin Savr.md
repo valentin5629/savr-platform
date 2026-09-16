@@ -247,11 +247,40 @@ Reprise des **4 blocs de l'espace traiteur §06.04** + **3 blocs Admin-only** en
 | **ZD** | Bouton **« Renvoyer au TMS »** (réémission dispatch idempotente, reset `dirty_tms` — endpoint §08 §10.1). **Pas d'attribution manuelle ZD V1** (la règle dispatch ZD est simple : prestataire fixe par lieu/zone). Override Admin uniquement via §8 Clients > tarifs négociés ou §7 Lieux. |
 | **AG** | Liste déroulante « Prestataire » (Strike / Marathon / A Toutes! / transporteur province) + champ « Motif override » obligatoire si choix ≠ top 1 algo. Bouton **« Envoyer au TMS »** (ou **« Renvoyer au TMS »** si `tms_reference IS NOT NULL`). Émet le dispatch avec `prestataire_id` choisi + `motif_override` audité. |
 
+##### Acceptation manuelle d'une mission Everest (A Toutes! indisponible) *(arbitrage Val 2026-09-16, divergence M2.5_20260915_mission-acceptee-au-telephone-sans-reference)*
+
+Quand l'API Everest est indisponible, Ops cale la course **par téléphone** avec A Toutes! et enregistre l'acceptation dans le back-office (`everest_missions.statut_everest = 'created_manually'`).
+
+**Champ obligatoire à la saisie : la référence de mission communiquée par A Toutes!** (même donnée oralement). Elle est écrite dans `tournees.external_ref_commande` **exactement comme au dispatch normal**. Conséquences — toutes acquises par ce seul champ :
+
+- la collecte **sort** de la carte §11 « Collectes non transmises » et le bouton bascule en « Renvoyer au TMS » ;
+- le gate d'émission `fn_collecte_commandee_chez_provider` redevient **vrai** → une modification ultérieure émet bien un E2, pas un second dispatch ;
+- **l'annulation redevient possible** : `cancelCollecte` filtre sur `external_ref_commande`, elle sait désormais quoi annuler.
+
+> **Pourquoi obligatoire.** Sans référence, la mission est **invisible au système** : la collecte apparaît « non transmise » alors qu'un vélo est réservé, un clic sur « Envoyer au TMS » émet un vrai dispatch, et le bouton Annuler ne part nulle part — un vélo peut se présenter sur une collecte annulée côté Savr. Un champ texte évite d'inventer un `statut_tms` dédié et une consigne Ops parallèle sur l'annulation.
+>
+> **Filet conservé côté adapter** : `created_manually` fait partie du jeu de statuts « mission vivante » qui fait sortir `AdapterEverest.dispatchCollecte` en **no-op idempotent** — un E1 reçu sur une collecte déjà servie manuellement ne dépêche jamais un second vélo, même si la référence venait à manquer.
+
 **Spec V1 fork (cdc-v1-scoping ultérieur)** : avec MTS-1 + Everest comme TMS V1, le bouton sera dérivé en **2 boutons distincts selon prestataire** :
 - « Envoyer à MTS-1 » — pour collectes Strike et Marathon (pousse vers MTS-1 via API V1)
 - « Envoyer à A Toutes! » — pour collectes A Toutes! (workflow distinct A Toutes!)
 
 **Routing du `consumer`/adapter (précision 2026-07-02, divergence M0.6)** : la dérivation de l'adapter au dispatch Bloc 0 doit suivre `transporteurs.type_tms` (`mts1 → adapter_mts1`, `a_toutes → adapter_everest`, `autre`/`par_mail`/`par_telephone` → `provider_manual`), exactement comme `fn_valider_attribution_ag`. La RPC `fn_dispatcher_collecte` ne doit PAS émettre l'outbox avec un `consumer = 'adapter_mts1'` fixe, sinon un dispatch A Toutes!/manuel serait routé vers l'adapter MTS-1.
+
+**Bascule de transporteur avec une commande déjà ouverte — règle V1** *(arbitrage Val 2026-09-16, divergence M1.5_20260915_bascule-transporteur-commande-ouverte)*
+
+La bascule d'une collecte d'un transporteur vers un autre est **autorisée sans condition**, y compris quand elle traverse la frontière de provider (MTS-1 ↔ Everest) — c'est le chemin nominal du vélo cargo (refus A Toutes! → report sur camion), et CLAUDE.md §7 acte que les deux providers coexistent en V1. **Aucune garde bloquante sur la route de dispatch** : refuser la bascule tant qu'une commande est ouverte chez l'autre provider interdirait l'opération que ce CDC prévoit, au pire moment.
+
+Ce que le système garantit :
+1. le gate d'émission porte la **dimension provider** → une bascule vers l'autre type émet `collecte.creee` (E1) et non `collecte.modifiee` (E2) : la collecte est **réellement commandée** chez le nouveau prestataire ;
+2. les adapters **écartent** la tournée résiduelle de l'autre provider au lieu de lui adresser des appels (cf. [[Interface logistique_provider V1#Cloisonnement par provider (V1)]]) ;
+3. si cette tournée résiduelle peut encore être vivante (référence de commande présente **ET** statut non terminal), **alerte Ops in-app `tournee_autre_provider`** sur la collecte (jamais Slack — CLAUDE.md §13).
+
+**Ce que le système NE fait PAS** : la commande passée chez le provider quitté **n'est pas annulée automatiquement**. Sa clôture est un **geste Ops manuel** auprès du transporteur sortant, déclenché par l'alerte. Le changement de transporteur ne purge pas non plus les tournées précédentes (leur trace est ce qui permet de savoir quoi annuler).
+
+> ⚠ **Risque assumé** : sans ce geste Ops, un camion ou un vélo peut se présenter sur une collecte confiée à quelqu'un d'autre. Le filet est l'alerte in-app — efficace seulement si Ops la traite.
+>
+> **Dette ouverte (annulation en cascade, non retenue V1)** : émettre un `collecte.annulee` (E3) vers le provider quitté avant l'E1 vers le nouveau suppose de router un event sur un prestataire **qui n'est plus celui de la collecte** — or l'outbox est mono-provider par event (le consumer est dérivé du prestataire porté par la collecte). Restent aussi à spécifier : l'ordre et l'atomicité des deux events, le comportement quand la fenêtre d'annulation est fermée (< 1 h côté MTS-1 : bascule refusée, ou double commande assumée ?), et qui porte le coût d'une course annulée hors délai. Lot à chiffrer, pas un patch de spec.
 
 Le contrat S7 unifié reste en V2 (TMS Savr natif). À matérialiser dans le fork V1 quand la skill `cdc-v1-scoping` sera lancée. Voir [[08 - APIs et intégrations]] §9 Bloc Attribution Prestataire (V1 + V2).
 
@@ -475,10 +504,21 @@ Tableau filtrable : **nom (+ contact), ville, véhicule(s), type de TMS, types d
 | Adresse                          | texte + géocodage | Oui         | Base calcul distance (`adresse`, `code_postal`, `ville` → `latitude`/`longitude` géocodés)                                                                        |
 | **Type(s) de véhicule**          | multi-enum        | Oui         | **Refonte 2026-05-08** — sélection multiple (`text[]`) parmi `velo_cargo`, `camionnette`, `fourgon`, `vul`, `poids_lourd`. Enum aligné sur `lieux.type_vehicule_max`. |
 | **Type de TMS**                  | enum              | Oui         | **Refonte 2026-05-08** — `mts1` (Strike + Marathon V1, push API depuis Plateforme via fork V1) / `a_toutes` (workflow A Toutes! distinct) / `autre` (province → email + téléphone manuel) / `par_mail` / `par_telephone` (**ajout R17b 2026-07-02** — transporteurs hors TMS routés `provider_manual`, validation manuelle Admin). Détermine quel bouton apparaît au Bloc 0 Attribution Prestataire §3. Champs fusionnés (ex `process_creation_collecte`, `process_creation_collecte_detail`, `type_tms` regroupés en un seul). |
+| **Prestataire logistique** | liste déroulante (`shared.prestataires`) | Si `type_tms ∈ {mts1, a_toutes}` | **Ajout 2026-09-16** — pont V1 `transporteurs.prestataire_logistique_id` (R5, décision Val 2026-06-25 option B). **Seul moyen pour les adapters de reconnaître les tournées d'un provider** (cf. [[Interface logistique_provider V1#Cloisonnement par provider (V1)]]) : sans lui, `prestatairesDuType` lève et **100 % des événements du transporteur partent en file d'erreur**. Un prestataire n'admet qu'un transporteur (index unique — déjà rattaché = grisé). **Posé à la création, JAMAIS modifiable ensuite** (cf. encadré immuabilité ci-dessous). Pas d'écran de création de prestataire en V1 : `shared.prestataires` reste alimenté par l'équipe technique. Déprécié V2 (le TMS natif résout ce lien). |
 | **Code transporteur MTS-1**      | texte             | Si `type_tms = mts1` | **Ajout 2026-05-29 (propagation §3bis)** — `carrierShareableCode` côté MTS-1 (récupérable via `GET /v3/carrier`), utilisé pour déléguer l'ordre au bon transporteur. Obligatoire si `type_tms = 'mts1'` (cf. [[05 - Règles métier#R_code_mts1_requis]]). Masqué si `type_tms ≠ mts1`. Déprécié V2. |
 | **Type(s) de collecte**          | multi-enum        | **Non**     | **Ajout R17b 2026-07-02** — flux gérés par le transporteur (`text[]` parmi `anti_gaspi` / `zero_dechet`), sélection multiple. **Optionnel — corrigé 2026-09-14** (le tableau le marquait « Oui » à tort : le formulaire, la route `POST/PATCH /api/v1/admin/transporteurs` et la colonne DB `types_collecte text[]` **nullable** le traitent comme optionnel depuis l'origine, décision Val 2026-07-02 « multi, optionnel »). |
 | **Description du process de collecte** | texte long | Non | **Ré-ajout R17b 2026-07-02** (ex `process_creation_collecte_detail`) — consignes métier de collecte propres au transporteur, champ dédié `description_process_collecte`. |
 | Actif                            | booléen           | Oui         | Défaut `true`                                                                                                                                                    |
+
+> **Immuabilité : `type_tms` et `prestataire_logistique_id`** *(arbitrage Val 2026-09-16, divergence M1.1b_20260916)*
+>
+> Ces deux colonnes sont **posées à la création et jamais modifiables**, quel que soit le rôle et **quel que soit le chemin** (écran, PostgREST, SQL) — trigger `trg_transporteur_cols_immuables`. Pour changer l'un ou l'autre : **créer un nouveau transporteur**.
+>
+> *Motif `type_tms`* : un transporteur garde le même type de TMS jusqu'au développement du TMS Savr natif (décision Val) — le besoin de le changer n'existe pas en V1. *Motif `prestataire_logistique_id`* : cette colonne **est** l'identité du transporteur côté provider ; la repointer reviendrait à réattribuer rétroactivement toutes ses tournées passées.
+>
+> Ce que l'immuabilité évite : un changement en cours de route rend les E2/E3 des collectes concernées **silencieuses** (`noop_no_remote` marqué `done` — pas d'erreur, pas d'alerte, la modification se perd), casse le rapprochement des pesées MTS-1, et — pour `type_tms` — **rouvre la fuite inter-provider** fermée par le cloisonnement.
+>
+> **`DELETE` refusé** dès qu'une tournée référence le transporteur (une suppression orphelinerait les tournées et casserait le rapprochement). **`actif = false` reste LIBRE** : c'est le geste Ops normal pour sortir un transporteur du dispatch — il n'empêche que les nouvelles attributions, les collectes en cours continuent.
 
 **Champs supprimés (refonte 2026-05-08)** :
 - (enum email/API/téléphone) — fusionné dans `type_tms`
@@ -498,6 +538,7 @@ L'Admin peut toujours override manuellement avec motif.
 
 - `admin_savr` : ALL (création, édition, désactivation, SIREN)
 - `ops_savr` : ALL également *(tranché Val 2026-06-07 F3 — alignement matrice §09 « Lieux / Transporteurs : lecture / écriture / désactivation : ops Oui » ; les ex-restrictions SIREN + `actif=false` sont levées, les 2 tests pgTAP contraires retirés §09)*
+- **Garde en base, quel que soit le rôle et le chemin (écran, PostgREST, SQL)** *(2026-09-16)* : `type_tms` et `prestataire_logistique_id` **immuables après création** ; `DELETE` refusé dès qu'une tournée référence le transporteur. `actif = false` reste ouvert aux deux rôles.
 
 ---
 
@@ -581,6 +622,24 @@ Voir [[02 - Templates emails V1]] template `admin_demande_ajout_lieu`.
 
 ### Vue liste organisations
 Tableau : nom (avatar à initiales), type (traiteur / agence / gestionnaire_lieux / client_organisateur), nb users, **nb collectes ZD 12 derniers mois**, **nb collectes AG 12 derniers mois**, **pack actif**, actif.
+
+**Bouton « Nouvelle organisation »** *(ajout 2026-09-16 — arbitrage Val, divergence M1.1_20260915 : la route `POST /api/v1/admin/organisations` existait sans écran ni ligne de CDC)*. Ouvre une modale de création. Ouvert à **`admin_savr` ET `ops_savr`** (cf. [[09 - Authentification et permissions#Matrice étendue `ops_savr` — back-office Plateforme]]).
+
+| Champ | Obligatoire | Note |
+|---|---|---|
+| Nom | Oui | — |
+| Raison sociale | Oui | — |
+| Type | Oui | enum `traiteur` / `agence` / `gestionnaire_lieux` / `client_organisateur` |
+| SIRET | Non | validation INSEE au même titre que la fiche |
+| Email principal | Oui | — |
+| Téléphone | Non | — |
+| Adresse | Non | — |
+
+> **Allowlist fermée de 7 colonnes.** Les champs **admin-only** (`tarif_refacture_pax_zd`, `grille_tarifaire_zd_id`, `notes_internes`) et **système** (`est_shadow`, `cree_par_organisation_id`, `actif`, `id`) ne sont **pas saisissables ici** : ils se règlent ensuite dans la fiche (où la matrice `ops_savr` s'applique) ou relèvent du flux shadow §06.01. Une organisation créée ici n'est **jamais** shadow — une fiche shadow naît du formulaire de programmation, pas du back-office.
+>
+> La route tourne sous `service_role` (RLS bypassée, trigger anti-escalade `trg_block_org_staff_cols_insert` exempté) : **seules la garde applicative et l'allowlist protègent**. Cliquet de test sur l'ensemble EXACT des 7 colonnes.
+>
+> Même règle pour la **création d'association** (§5 ci-dessus, `POST /api/v1/admin/associations`, ouverte à `ops_savr` par la PR #302) : colonnes admin-only (SIREN, habilitation 2041-GE, `actif`) exclues du payload de création.
 
 - **Colonne « pack actif »** *(ajout revue E2E 2026-07-18)* : badge du pack `statut = 'actif'` de l'organisation (au plus 1, invariant `uniq_pack_actif_par_org`), format « Pack {N} · {crédits restants} restants ». Rouge (*error*) si crédits restants < 5, vert (*success*) sinon, « — » si aucun pack actif. `credits_restants = credits_initiaux − credits_consommes` (même sémantique que le bandeau d'alerte de la fiche organisation). Alimenté par `GET /api/v1/admin/organisations` → champ `pack_actif: { type_pack, credits_restants } | null`.
 - **SIREN retiré de la liste** *(revue E2E 2026-07-18)* — reste consultable dans la fiche organisation → onglet « Informations légales ». Le « pack actif », auparavant visible uniquement dans la fiche (onglet Packs AG), remonte en liste.

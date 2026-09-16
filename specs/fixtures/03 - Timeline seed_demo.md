@@ -1,6 +1,16 @@
 # 03 - Timeline seed_demo — 12 mois (juin 2025 → mai 2026)
 
-**Créé** : 2026-06-07. **Référence temporelle figée** : `SEED_REF_DATE = 2026-06-01`. Toutes les dates sont calculées en relatif à cette constante puis **figées dans le script** (pas de `NOW()`), pour des tests non flaky.
+**Créé** : 2026-06-07. **Révisé 2026-09-16 (divergence M0.7_20260914).**
+
+**Deux couches temporelles.**
+1. *Socle figé* — la matrice CSV committée (`fixtures/data/matrix_collectes.csv`, 478 collectes, 2025-06 → 2026-05) porte la profondeur d'historique ; ses dates sont absolues et ne bougent jamais. `seed:check` garde des **comptes exacts** dessus.
+2. *Lot « pipeline vivant »* — les collectes récentes, en cours et à venir sont calculées relativement à une **ancre** = le jour d'exécution du seed (helper `ancreSeed()`, override `SEED_TODAY=YYYY-MM-DD` pour épingler la CI et les tests). Le déterminisme est garanti **à ancre donnée** (PRNG de graine l'ancre), ce que la constante figée visait, sans payer la péremption.
+
+> ⚠ Un état transitoire (`realisee` en attente de clôture, `en_cours`, `programmee`) **ne peut pas** être figé dans le passé : les crons le consomment (embargo H+24). C'est ce qui faisait échouer `pnpm seed:check` (attendu 426 `cloturee` / 52 `realisee`, base réelle 478 / 0).
+
+> **Volumétries : ordres de grandeur, pas contrat** *(arbitrage Val 2026-09-16)*. Les nombres cités ci-dessous décrivent un instantané, pas un engagement du générateur. `seed:check` vérifie sur la partie variable la **présence** de chaque état (`>= 1`) et l'**absence de trou > 21 jours** sur 12 mois glissants — pas des fourchettes de volume.
+
+~~**Référence temporelle figée** : `SEED_REF_DATE = 2026-06-01`. Toutes les dates sont calculées en relatif à cette constante puis **figées dans le script** (pas de `NOW()`), pour des tests non flaky.~~
 
 ---
 
@@ -67,7 +77,9 @@
 | Attestations de don AG | J+10 après collecte | 80 sur l'année |
 | Rapports RSE | 1/mois (12), dont 1 « sans excédent » (août) et 1 régénéré | |
 
-## États « courants » au SEED_REF_DATE (2026-06-01)
+## États « courants » à l'ancre (jour d'exécution du seed)
+
+> Fenêtres exprimées en relatif à l'ancre J. Volumes indicatifs (cf. encadré en tête).
 
 - 30 événements à venir (juin → août 2026), dont les cas limites du catalogue (date NULL, AG bloqué, palier haut).
 - 25 collectes `realisee` non clôturées (mai 2026) — pipeline de clôture vivant.
@@ -107,7 +119,9 @@
 - Fenêtre : **avril 2026**, `migration_mode_active = true` sur la période.
 - 5 tournées + 2 `factures_prestataires` avec `migration_test = true`, datées pour que la purge J+30 (`m13_cleanup_legacy`) soit **testable autour de REF_DATE** (1 lot purgeable, 1 lot encore dans la fenêtre).
 
-## États « courants » TMS au SEED_REF_DATE (2026-06-01)
+## États « courants » TMS à l'ancre (jour d'exécution du seed)
+
+> Miroir 1:1 du lot vivant Plateforme sur `collectes_tms` (V2) — même règle d'ancrage, rien de figé sur une date absolue.
 
 - 14 collectes_tms en pipeline : 3 `a_attribuer`, 3 attribuées (dont 1 stale 48 h), 4 acceptées, reste en exécution — miroir des 20 programmées/acceptées App + manuelles.
 - 6 tournées à venir (juin) : ≥ 1 par statut non terminal, dont 1 province directe `acceptee`, 1 `en_cours` oubliée depuis J-1 (cron 8 h).

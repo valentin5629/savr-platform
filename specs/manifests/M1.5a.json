@@ -186,6 +186,14 @@
       "libelle": "fetchCollecte / updateLieu lisent contacts + lieu via la jointure événement (§06.04 l.375, §08 l.411) — l'édition des champs ÉVÉNEMENT se propage réellement au TMS sur E2 (fix B1)"
     },
     {
+      "id": "M1.5a-e5-exclut-terminaux",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:255",
+      "artefact": "packages/adapters/src/statuts-collecte.ts",
+      "test": "E5 updateLieu : aucune collecte terminale (realisee, realisee_sans_collecte, cloturee, annulee, rejetee_par_prestataire) ne reçoit de PUT d'adresse ; une collecte en_cours du même lieu si — mock appliquant réellement le not-in PostgREST [adapter.e5-statuts-terminaux.test.ts]",
+      "statut": "implemented",
+      "libelle": "E5 lieu.champ_critique_modifie ne vise que les collectes futures NON TERMINALES du lieu (§04 outbox_events l.2426) — realisee_sans_collecte (terminal AG, §05 l.255) manquait au filtre"
+    },
+    {
       "id": "BL-P1-OUTBOX-01",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:473",
       "artefact": "supabase/migrations/20260629100000_plateforme_r9_outbox_concurrence.sql",
@@ -208,6 +216,14 @@
       "test": "R9 worker reaper + alerte anticipée J-1 + DLQ critique (vrai runOutboxWorker, SANS mock du worker — G5) [outbox-worker.r9.test.ts] + OUTBOX-03 reaper [outbox_concurrence_r9.test.sql]",
       "statut": "implemented",
       "libelle": "vrai chemin worker testé : fn_reap_outbox_claims (requeue + requires_reconciliation), alerte anticipée attempts>=2 & date_collecte<now+24h, alerte DLQ critique — interdiction de mocker le worker (G5)"
+    },
+    {
+      "id": "M1.5a-alerte-anticipee-lieu",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2426",
+      "artefact": "packages/adapters/src/outbox-worker.ts",
+      "test": "alerte anticipée events lieu (E5) : date de référence = plus proche collecte future non terminale du lieu, seuil/canal inchangés, 1 alerte par event, pas de doublon DLQ (vrai runOutboxWorker — G5) [outbox-worker.alerte-anticipee-lieu.test.ts]",
+      "statut": "implemented",
+      "libelle": "Alerte anticipée outbox étendue aux events aggregate_type='lieu' (E5 lieu.champ_critique_modifie) : plus proche date_collecte des collectes futures non terminales du lieu via evenements.lieu_id — arbitrage Val 2026-09-16"
     },
     {
       "id": "BL-P2-34",
@@ -252,9 +268,9 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "02d50acbd6be78ace8acbaf38719d0e1e907ceb61fe16baa4aa262e2de8fa2fb",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "290edbd09a1b7f4c4567682a80378006efe91aa1c315b1cb6614b074a6f82c09",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "8b57bc182e205c30ac33bd65312da12b054001a9b41f2cc1c1686348d2ac405f",
-    "specs/cdc/01 - Cahier des charges App/Interface logistique_provider V1.md": "4be718d5d7e2ba42d7522bddbad8add381ceaa636527565f1fd521bd98fc155d"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "4a6e04326681ed507c4e1fc801ccdee8e53f69ba3fa48eb235710a83a40341b2",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "a3b25d8200b577f66006388a15efca739c2ea6278a3ea958889f1c34a583c947",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "d83ee5ce7201ac91f1c188bf2f50e83b63ee4b2827fa1a41a58ad8942a148b9b",
+    "specs/cdc/01 - Cahier des charges App/Interface logistique_provider V1.md": "4f01f41edc935ce46ee8eae438e27608d2ae5e0da9fd5534fe767aa78429c7b0"
   }
 }

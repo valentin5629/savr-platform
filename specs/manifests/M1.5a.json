@@ -210,6 +210,14 @@
       "libelle": "vrai chemin worker testé : fn_reap_outbox_claims (requeue + requires_reconciliation), alerte anticipée attempts>=2 & date_collecte<now+24h, alerte DLQ critique — interdiction de mocker le worker (G5)"
     },
     {
+      "id": "M1.5a-alerte-anticipee-lieu",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2426",
+      "artefact": "packages/adapters/src/outbox-worker.ts",
+      "test": "alerte anticipée events lieu (E5) : date de référence = plus proche collecte future non terminale du lieu, seuil/canal inchangés, 1 alerte par event, pas de doublon DLQ (vrai runOutboxWorker — G5) [outbox-worker.alerte-anticipee-lieu.test.ts]",
+      "statut": "implemented",
+      "libelle": "Alerte anticipée outbox étendue aux events aggregate_type='lieu' (E5 lieu.champ_critique_modifie) : plus proche date_collecte des collectes futures non terminales du lieu via evenements.lieu_id — arbitrage Val 2026-09-16"
+    },
+    {
       "id": "BL-P2-34",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
       "artefact": "packages/adapters/src/outbox-worker.ts",

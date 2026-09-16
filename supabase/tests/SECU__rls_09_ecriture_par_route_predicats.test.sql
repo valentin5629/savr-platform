@@ -336,14 +336,14 @@ SELECT lives_ok(
        VALUES ('evenements', '09f80000-0000-0000-0000-00000000e0e1'::uuid, 'UPDATE',
                '09f80000-0000-0000-0000-0000000000a1'::uuid, '09f80000-0000-0000-0000-0000000000f1'::uuid,
                '{}'::jsonb, '{"updates": {"pax": 160}}'::jsonb) $$,
-  'C9h route (service_role) — l''INSERT audit_log accepte user_id + impersonator_id');
+  'C9h schema — audit_log accepte user_id + impersonator_id sous service_role (la valeur ecrite par la route est prouvee par le test de route, pas ici)');
 RESET role;
 SELECT test_set_jwt('admin_savr', '09f80000-0000-0000-0000-000000000005'::uuid, '09f80000-0000-0000-0000-0000000000f1'::uuid);
 SELECT is(
   (SELECT user_id::text || '|' || impersonator_id::text FROM plateforme.audit_log
     WHERE table_name = 'evenements' AND record_id = '09f80000-0000-0000-0000-00000000e0e1'::uuid),
   '09f80000-0000-0000-0000-0000000000a1|09f80000-0000-0000-0000-0000000000f1',
-  'C9i val (admin) relit l''entree : user_id = manager_kaspia ET impersonator_id = val');
+  'C9i schema — val (admin) relit les deux colonnes distinctes (lecture staff de audit_log)');
 
 -- impersonator_id est une vraie référence utilisateur : un identifiant forgé
 -- ne peut pas être journalisé.

@@ -61,6 +61,26 @@ describe('api-auth — chemin nominal getClaims (vérif locale, sans getUser ré
     expect(mockGetUser).not.toHaveBeenCalled();
   });
 
+  it('requireUser : claim impersonator_id porté par getClaims → ctx.impersonatorId (journalisé dans audit_log)', async () => {
+    mockGetClaims.mockResolvedValue({
+      data: {
+        claims: {
+          sub: 'u-1',
+          user_role: 'traiteur_manager',
+          organisation_id: 'org-1',
+          impersonator_id: 'admin-1',
+        },
+      },
+      error: null,
+    });
+    const { requireUser } = await import('@/lib/api-auth.js');
+    const res = await requireUser(req(), ['traiteur_manager']);
+    // Assertion explicite : `toEqual` ignore une propriété `undefined`, il ne
+    // verrait pas la perte du claim sur ce chemin (celui de la prod).
+    expect(res.ctx?.impersonatorId).toBe('admin-1');
+    expect(mockGetUser).not.toHaveBeenCalled();
+  });
+
   it('requireStaff : getClaims valide staff → ctx (organisationId null)', async () => {
     mockGetClaims.mockResolvedValue({
       data: {

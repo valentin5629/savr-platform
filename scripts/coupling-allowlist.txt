@@ -235,3 +235,10 @@ supabase/tests/SECU__transporteur_cols_immuables.test.sql
 # de fixtures. Écritures DB uniquement, aucun appel HTTP transporteur. 'customerOrders' banni.
 supabase/migrations/20260916160000_plateforme_everest_acceptation_manuelle_reference.sql
 supabase/tests/everest_acceptation_manuelle_reference.test.sql
+# CHECK `chk_everest_created_manually` passé en implication (2026-09-16, divergence M2.5)
+# + son pgTAP de cycle de vie : 'everest' = nom de la table `everest_missions`, de la
+# contrainte et de la colonne `everest_mission_id`, et mot « webhook Everest » dans les
+# commentaires. Une contrainte CHECK et des UPDATE de statut en SQL : aucune logique
+# adapter, aucun appel HTTP transporteur. 'customerOrders' banni.
+supabase/migrations/20260916170000_plateforme_everest_created_manually_implication.sql
+supabase/tests/everest_created_manually_cycle_de_vie.test.sql

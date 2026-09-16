@@ -23,25 +23,42 @@ import {
   type ChampTexteLibre,
 } from './champs-texte-libre.js';
 
-const MIGRATION = resolve(
+const DOSSIER_MIGRATIONS = resolve(
   dirname(fileURLToPath(import.meta.url)),
   '../../../../supabase/migrations',
-  '20260915180000_plateforme_bornes_texte_libre_contact_secours_infos_suppl.sql',
 );
 
 /**
- * Contrainte portant chaque champ. Ajouter une borne à `BORNES_TEXTE_LIBRE` sans
- * la contrainte correspondante fait rougir le premier test ci-dessous : une borne
- * applicative seule est contournable en PostgREST direct (#308).
+ * Contrainte portant chaque champ, ET le fichier de migration qui la pose. Ajouter
+ * une borne à `BORNES_TEXTE_LIBRE` sans la contrainte correspondante fait rougir le
+ * premier test ci-dessous : une borne applicative seule est contournable en
+ * PostgREST direct (#308).
+ *
+ * Deux migrations plutôt qu'une : les trois champs d'origine viennent de
+ * `…180000`, les deux contacts PRINCIPAUX ont été ajoutés ensuite par
+ * `…190000_plateforme_evenements_ecriture_client_fermee`, qui ferme par ailleurs
+ * l'écriture PostgREST directe d'`evenements`. Le cliquet lit les deux fichiers
+ * concaténés : peu importe laquelle porte quelle contrainte, ce qui compte est que
+ * CHAQUE champ borné en TS en ait une.
  */
 const CONTRAINTES: Record<ChampTexteLibre, string> = {
+  contact_principal_nom: 'chk_evenements_contact_principal_nom_borne',
+  contact_principal_telephone:
+    'chk_evenements_contact_principal_telephone_borne',
   contact_secours_nom: 'chk_evenements_contact_secours_nom_borne',
   contact_secours_telephone: 'chk_evenements_contact_secours_telephone_borne',
   informations_supplementaires:
     'chk_collectes_informations_supplementaires_borne',
 };
 
-const sql = readFileSync(MIGRATION, 'utf8');
+const MIGRATIONS = [
+  '20260915180000_plateforme_bornes_texte_libre_contact_secours_infos_suppl.sql',
+  '20260915190000_plateforme_evenements_ecriture_client_fermee.sql',
+];
+
+const sql = MIGRATIONS.map((f) =>
+  readFileSync(resolve(DOSSIER_MIGRATIONS, f), 'utf8'),
+).join('\n');
 
 /** Le corps du CHECK, hors en-tête de commentaires (`--` en début de ligne). */
 const sqlActif = sql
@@ -85,6 +102,22 @@ describe('bornes texte libre — parité TS / CHECK en base', () => {
         clause.includes('translate('),
         `exception blancs sur ${champ}`,
       ).toBe(borne.multiligne);
+    }
+  });
+
+  it("un champ OBLIGATOIRE refuse aussi le vide en base (btrim <> '')", () => {
+    // Sans cette parité, un champ obligatoire côté route resterait « effaçable en
+    // blanc » par PostgREST direct sur une table encore ouverte à l'écriture — et
+    // la colonne étant NOT NULL, le vide passerait sans rien déclencher.
+    for (const [champ, borne] of Object.entries(BORNES_TEXTE_LIBRE)) {
+      const bloc = sqlActif.slice(sqlActif.indexOf(`length(${champ})`));
+      const finBloc = bloc.indexOf('EXCEPTION WHEN duplicate_object');
+      const clause = bloc.slice(0, finBloc === -1 ? undefined : finBloc);
+
+      expect(
+        clause.includes(`btrim(${champ}) <> ''`),
+        `garde de non-vacuité sur ${champ}`,
+      ).toBe(borne.obligatoire);
     }
   });
 });

@@ -193,17 +193,20 @@ SELECT throws_ok(
   '42501', NULL, 'T28 Erreur : cross-org INSERT shared.fichiers denied'
 );
 
--- T29 : Agence UPDATE evenement cross-org (USING denied, evt appartient à Kaspia ≠ Agence D) → 0 lignes
+-- T29 : Agence UPDATE evenement cross-org → refusé.
+-- Le refus a CHANGÉ DE NATURE le 2026-09-15 (migration 20260915190000) : il était
+-- porté par le USING de evt_agence_update (UPDATE silencieux à 0 ligne), il est
+-- désormais porté par le PRIVILÈGE — `authenticated` n'a plus UPDATE sur
+-- `evenements`, donc 42501 levé AVANT toute évaluation RLS. La policy subsiste mais
+-- est inerte. Ce cas ne prouve donc PLUS le cloisonnement cross-org (qui vit dans
+-- la route, cf. get-evenement-cloisonnement.m1-2.test.ts) : il prouve la fermeture.
 SELECT test_set_jwt('agence', 'cccccccc-0000-0000-0000-000000000001'::uuid);
-SELECT results_eq(
-  $$WITH u AS (
-    UPDATE plateforme.evenements
-    SET pax = 200
-    WHERE id = 'e0e00001-0000-0000-0000-000000000001'
-    RETURNING 1
-  ) SELECT count(*)::int FROM u$$,
-  $$VALUES (0)$$,
-  'T29 Erreur : agence UPDATE evenement denied'
+SELECT throws_ok(
+  $$UPDATE plateforme.evenements
+      SET pax = 200
+    WHERE id = 'e0e00001-0000-0000-0000-000000000001'$$,
+  '42501', NULL,
+  'T29 Erreur : agence UPDATE evenement denied (privilege retire)'
 );
 
 -- T30 : Attributions cross-org denied (client_organisateur can't see) → SELECT 0

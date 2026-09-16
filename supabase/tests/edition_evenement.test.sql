@@ -1,11 +1,10 @@
 -- =============================================================================
 -- M1.2 / M1.5a — Édition événement + collecte par les rôles programmateurs.
 -- Décision produit Val 2026-06-26. Prouve sous rôle `authenticated` :
---   • evt_*_update : les 4 rôles éditent l'événement de leur périmètre (fenêtre
---     f_collecte_editable), cloisonnement cross-org refusé, commercial = ses créations.
---   • écriture directe de `collectes` fermée à `authenticated` (2026-09-15) : les
---     policies col_update_client / col_update_commercial subsistent mais sont
---     inertes, le privilège UPDATE ayant été retiré — preuve par rôle dans
+--   • écriture directe de `evenements` ET de `collectes` fermée à `authenticated`
+--     (2026-09-15) : les policies evt_*_update / col_update_* subsistent mais sont
+--     inertes, le privilège UPDATE ayant été retiré des deux tables — preuve par
+--     rôle dans SECU__evenements_ecriture_client_fermee.test.sql et
 --     SECU__collectes_ecriture_client_fermee.test.sql.
 --   • fn_modifier_evenement (service_role) : E2 par collecte dispatchée + recalcul
 --     volume_estime_repas sur changement de pax + pas d'E2 pour champ non-TMS / non
@@ -13,7 +12,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(14);
+SELECT plan(6);
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
@@ -113,60 +112,30 @@ INSERT INTO plateforme.tournees (id, reference_interne, date_tournee, creneau, p
 INSERT INTO plateforme.collecte_tournees (collecte_id, tournee_id, rang) VALUES
   ('cc000000-0000-0000-0000-0000000000f1'::uuid, 'cc000000-0000-0000-0000-0000000000a5'::uuid, 1);
 
--- ── evt_*_update : édition événement par rôle + cloisonnement ────────────────
--- T1 manager édite l'événement de son orga (fenêtre ouverte) → appliqué.
-SELECT test_set_jwt('traiteur_manager', 'a1110000-0000-0000-0000-000000000001'::uuid, '05e70000-0000-0000-0000-00000000000a'::uuid);
-UPDATE plateforme.evenements SET reference_affaire = 'mgr-ok' WHERE id = '0e000000-0000-0000-0000-0000000000a1'::uuid;
+-- ── Écriture directe de `evenements` : fermée depuis 2026-09-15 ─────────────
+-- Les ex-T1 à T9 prouvaient ici que evt_manager_update / evt_commercial_update /
+-- evt_agence_update / evt_gestionnaire_update laissaient les 4 rôles éditer
+-- l'événement de leur périmètre par PATCH PostgREST direct, et que la fenêtre
+-- f_collecte_editable fermait l'édition dès `en_cours`. La migration
+-- 20260915190000 a retiré INSERT, UPDATE et DELETE du GRANT table-level de
+-- `authenticated` : ces écritures lèvent désormais 42501 AVANT toute évaluation
+-- RLS, et toute édition d'événement passe par les routes API (service_role), qui
+-- seules émettent l'outbox E2 via fn_modifier_evenement, tracent l'audit_log et
+-- appliquent la matrice de rôles §09.
+--
+-- Même traitement que les ex-T10 à T13 ci-dessous (migration 20260915160000 sur
+-- `collectes`) : les policies restent en place mais inertes, le détail par rôle
+-- (les 4 refus 42501 + le refus d'INSERT + de DELETE + la non-régression de la
+-- lecture) est prouvé dans SECU__evenements_ecriture_client_fermee.test.sql, et
+-- on garde ici le seul cliquet utile au périmètre de ce fichier : le privilège ne
+-- doit pas revenir. Les GARDES fonctionnelles correspondantes (périmètre par rôle,
+-- fenêtre d'édition) vivent désormais dans la route et sont couvertes par
+-- packages/plateforme/tests/api/programmation/edition-evenement.m1-2.test.ts.
 SELECT test_as_superuser();
-SELECT is((SELECT reference_affaire FROM plateforme.evenements WHERE id='0e000000-0000-0000-0000-0000000000a1'::uuid), 'mgr-ok', 'T1 evt_manager_update applique (orga + fenetre)');
-
--- T2 manager ne peut PAS éditer un événement d'une autre orga.
-SELECT test_set_jwt('traiteur_manager', 'a1110000-0000-0000-0000-000000000001'::uuid, '05e70000-0000-0000-0000-00000000000a'::uuid);
-UPDATE plateforme.evenements SET reference_affaire = 'mgr-hack' WHERE id = '0e000000-0000-0000-0000-0000000000b1'::uuid;
-SELECT test_as_superuser();
-SELECT is((SELECT reference_affaire FROM plateforme.evenements WHERE id='0e000000-0000-0000-0000-0000000000b1'::uuid), 'orig-B', 'T2 evt_manager cross-org refuse');
-
--- T3 commercial édite SA création.
-SELECT test_set_jwt('traiteur_commercial', 'a1110000-0000-0000-0000-000000000001'::uuid, '05e70000-0000-0000-0000-00000000000c'::uuid);
-UPDATE plateforme.evenements SET reference_affaire = 'com-ok' WHERE id = '0e000000-0000-0000-0000-0000000000a1'::uuid;
-SELECT test_as_superuser();
-SELECT is((SELECT reference_affaire FROM plateforme.evenements WHERE id='0e000000-0000-0000-0000-0000000000a1'::uuid), 'com-ok', 'T3 evt_commercial_update sa creation');
-
--- T4 commercial NON créateur (même orga) → refusé.
-SELECT test_set_jwt('traiteur_commercial', 'a1110000-0000-0000-0000-000000000001'::uuid, '05e70000-0000-0000-0000-00000000000d'::uuid);
-UPDATE plateforme.evenements SET reference_affaire = 'com2-hack' WHERE id = '0e000000-0000-0000-0000-0000000000a1'::uuid;
-SELECT test_as_superuser();
-SELECT is((SELECT reference_affaire FROM plateforme.evenements WHERE id='0e000000-0000-0000-0000-0000000000a1'::uuid), 'com-ok', 'T4 evt_commercial non-createur refuse');
-
--- T5 agence édite l'événement de son orga.
-SELECT test_set_jwt('agence', 'a6330000-0000-0000-0000-000000000001'::uuid, '05e70000-0000-0000-0000-00000000000e'::uuid);
-UPDATE plateforme.evenements SET reference_affaire = 'ag-ok' WHERE id = '0e000000-0000-0000-0000-0000000000c1'::uuid;
-SELECT test_as_superuser();
-SELECT is((SELECT reference_affaire FROM plateforme.evenements WHERE id='0e000000-0000-0000-0000-0000000000c1'::uuid), 'ag-ok', 'T5 evt_agence_update son orga');
-
--- T6 agence cross-org refusé.
-SELECT test_set_jwt('agence', 'a6330000-0000-0000-0000-000000000001'::uuid, '05e70000-0000-0000-0000-00000000000e'::uuid);
-UPDATE plateforme.evenements SET reference_affaire = 'ag-hack' WHERE id = '0e000000-0000-0000-0000-0000000000a1'::uuid;
-SELECT test_as_superuser();
-SELECT is((SELECT reference_affaire FROM plateforme.evenements WHERE id='0e000000-0000-0000-0000-0000000000a1'::uuid), 'com-ok', 'T6 evt_agence cross-org refuse');
-
--- T7 gestionnaire édite l'événement de son orga.
-SELECT test_set_jwt('gestionnaire_lieux', '6e440000-0000-0000-0000-000000000001'::uuid, '05e70000-0000-0000-0000-00000000000f'::uuid);
-UPDATE plateforme.evenements SET reference_affaire = 'g-ok' WHERE id = '0e000000-0000-0000-0000-0000000000d1'::uuid;
-SELECT test_as_superuser();
-SELECT is((SELECT reference_affaire FROM plateforme.evenements WHERE id='0e000000-0000-0000-0000-0000000000d1'::uuid), 'g-ok', 'T7 evt_gestionnaire_update son orga');
-
--- T8 gestionnaire cross-org refusé.
-SELECT test_set_jwt('gestionnaire_lieux', '6e440000-0000-0000-0000-000000000001'::uuid, '05e70000-0000-0000-0000-00000000000f'::uuid);
-UPDATE plateforme.evenements SET reference_affaire = 'g-hack' WHERE id = '0e000000-0000-0000-0000-0000000000a1'::uuid;
-SELECT test_as_superuser();
-SELECT is((SELECT reference_affaire FROM plateforme.evenements WHERE id='0e000000-0000-0000-0000-0000000000a1'::uuid), 'com-ok', 'T8 evt_gestionnaire cross-org refuse');
-
--- T9 fenêtre fermée : événement dont la seule collecte est en_cours → refus (verrou).
-SELECT test_set_jwt('traiteur_manager', 'a1110000-0000-0000-0000-000000000001'::uuid, '05e70000-0000-0000-0000-00000000000a'::uuid);
-UPDATE plateforme.evenements SET reference_affaire = 'lock-hack' WHERE id = '0e000000-0000-0000-0000-0000000000e1'::uuid;
-SELECT test_as_superuser();
-SELECT is((SELECT reference_affaire FROM plateforme.evenements WHERE id='0e000000-0000-0000-0000-0000000000e1'::uuid), 'orig-LOCK', 'T9 evt verrou des en_cours (f_collecte_editable=false)');
+SELECT ok(
+  NOT has_table_privilege('authenticated', 'plateforme.evenements', 'UPDATE'),
+  'T1 edition evenement par PATCH direct fermee (privilege UPDATE retire)'
+);
 
 -- ── Écriture directe de `collectes` : fermée depuis 2026-09-15 ───────────────
 -- Les ex-T10 à T13 prouvaient ici que col_update_client / col_update_commercial

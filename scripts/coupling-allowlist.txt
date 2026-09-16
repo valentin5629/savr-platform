@@ -207,3 +207,10 @@ supabase/migrations/20260915220000_plateforme_gate_e2_dimension_provider.sql
 # le rattachement de la mission vise la tournée du BON provider. Aucun appel HTTP.
 # 'customerOrders' reste banni.
 packages/plateforme/tests/api/admin/everest-manual-accept.m2-5.test.ts
+# Acceptation manuelle d'une mission A Toutes! avec référence obligatoire (2026-09-16,
+# §06.06 §3 Bloc 0) — RPC `fn_accepter_mission_everest_manuelle` et son pgTAP : 'everest'
+# = nom de la table `everest_missions` / de la colonne `everest_mission_id` et du segment
+# d'URL de la route déjà allowlistée ; 'mts1' = valeur de l'enum type_tms dans les INSERT
+# de fixtures. Écritures DB uniquement, aucun appel HTTP transporteur. 'customerOrders' banni.
+supabase/migrations/20260916140000_plateforme_everest_acceptation_manuelle_reference.sql
+supabase/tests/everest_acceptation_manuelle_reference.test.sql

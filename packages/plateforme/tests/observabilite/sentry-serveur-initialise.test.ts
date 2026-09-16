@@ -216,6 +216,37 @@ describe('M0.9 — filtrage Sentry : breadcrumbs', () => {
     expect(args[3]).toEqual({ url: '[Filtered]' });
   });
 
+  it('arguments console : primitives au budget, __proto__ conservé, Proxy qui lève masqué', () => {
+    const urls = Array.from({ length: 1_000_000 }, () => URL_SLACK);
+    const json = JSON.parse(
+      `{"__proto__": {"url": "${URL_SLACK}"}}`,
+    ) as unknown;
+    const proxy = new Proxy(
+      {},
+      {
+        ownKeys() {
+          throw new Error(URL_SLACK);
+        },
+      },
+    );
+
+    const debut = performance.now();
+    const b = filtrerBreadcrumb({
+      category: 'console',
+      data: { arguments: [urls, json, proxy] },
+    });
+    const duree = performance.now() - debut;
+
+    expect(duree).toBeLessThan(200);
+    expect(JSON.stringify(b)).not.toContain(JETON);
+    const args = b.data?.['arguments'] as unknown[];
+    expect((args[0] as unknown[]).length).toBeLessThanOrEqual(501);
+    expect(JSON.stringify(args[1])).toBe(
+      '{"__proto__":{"url":"https://hooks.slack.com/[Filtered]"}}',
+    );
+    expect(args[2]).toBe('[Filtered]');
+  });
+
   it('SIRET / n° TVA dans le chemin INSEE / VIES : chemin masqué', () => {
     const siret = ['732', '829', '320', '00074'].join('');
     const b = filtrerBreadcrumb({

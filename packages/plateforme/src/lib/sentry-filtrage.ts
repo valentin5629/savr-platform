@@ -77,9 +77,11 @@ const NOEUDS_MAX = 500;
 export function assainirValeur(valeur: unknown): unknown {
   let budget = NOEUDS_MAX;
   const visiter = (v: unknown): unknown => {
+    // Chaque nœud visité consomme le budget, primitives comprises : sinon un
+    // tableau d'un million d'URL serait copié en entier (≈ 600 ms).
+    if (--budget < 0) return VALEUR_FILTREE;
     if (typeof v === 'string') return assainirTexte(v);
     if (v === null || typeof v !== 'object') return v;
-    if (--budget < 0) return VALEUR_FILTREE;
     if (ArrayBuffer.isView(v) || v instanceof ArrayBuffer)
       return VALEUR_FILTREE;
     if (v instanceof Error) {
@@ -100,7 +102,9 @@ export function assainirValeur(valeur: unknown): unknown {
       }
       return copie;
     }
-    const copie: Record<string, unknown> = {};
+    // Sans prototype : une clé propre `__proto__` (issue d'un JSON.parse) reste
+    // une clé au lieu de modifier le prototype de la copie.
+    const copie: Record<string, unknown> = Object.create(null);
     for (const cle in v) {
       if (!Object.prototype.hasOwnProperty.call(v, cle)) continue;
       if (budget <= 0) {

@@ -4,6 +4,8 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
+import { logger } from '@savr/shared/src/logger/index.js';
+
 // Mock EverestClient réutilisé (BL-P0-07) — même specifier que la route
 // (@savr/adapters/src/index.js) → singleton de handlers partagé : le re-fetch
 // getMission de la route passe par CE mock, jamais par une vraie API Everest.
@@ -28,6 +30,28 @@ const updatedRows: Record<string, unknown[]> = {};
 const insertedLogs: unknown[] = [];
 const rpcCalls: Array<{ name: string; args: unknown }> = [];
 
+// Échecs injectables (écritures/lectures refusées : CHECK, blip PostgREST).
+// Réinitialisés avant CHAQUE test (beforeEach racine ci-dessous).
+type ErreurMock = { code?: string; message: string };
+let updateErrors: Record<
+  string,
+  (data: Record<string, unknown>) => ErreurMock | null
+> = {};
+let readErrors: Record<string, ErreurMock> = {};
+let rpcError: ErreurMock | null = null;
+// Relecture de la ligne inbox existante sur conflit 23505.
+let mockInboxExistant: { data: unknown; error: unknown } = {
+  data: null,
+  error: null,
+};
+
+beforeEach(() => {
+  updateErrors = {};
+  readErrors = {};
+  rpcError = null;
+  mockInboxExistant = { data: null, error: null };
+});
+
 const makeQuery = (table: string) => {
   const q: Record<string, unknown> = {};
 
@@ -49,13 +73,16 @@ const makeQuery = (table: string) => {
     return { eq: vi.fn().mockReturnThis() };
   });
 
-  q['update'] = vi.fn((data: unknown) => {
+  q['update'] = vi.fn((data: Record<string, unknown>) => {
     if (!updatedRows[table]) updatedRows[table] = [];
     updatedRows[table]!.push(data);
-    return { eq: vi.fn().mockReturnThis() };
+    const error = updateErrors[table]?.(data) ?? null;
+    return { eq: vi.fn(async () => ({ data: null, error })) };
   });
 
   q['maybeSingle'] = vi.fn().mockImplementation(async () => {
+    if (readErrors[table]) return { data: null, error: readErrors[table] };
+    if (table === 'integrations_inbox') return mockInboxExistant;
     if (table === 'everest_missions')
       return { data: mockMissionRow, error: null };
     if (table === 'collectes') return { data: mockCollecteRow, error: null };
@@ -79,7 +106,7 @@ const mockSupabase = {
   }),
   rpc: vi.fn(async (name: string, args?: unknown) => {
     rpcCalls.push({ name, args });
-    return { data: null, error: null };
+    return { data: null, error: rpcError };
   }),
 };
 
@@ -168,10 +195,14 @@ describe('M2.5 / webhook Everest — déduplication inbox', () => {
     vi.stubEnv('EVEREST_WEBHOOK_TOKEN', '');
   });
 
-  it('conflit unique inbox (code 23505) → 200 deduplicated', async () => {
+  it('conflit unique inbox (code 23505) sur un event déjà traité → 200 deduplicated', async () => {
     mockInboxInsertResult = {
       data: null,
       error: { code: '23505', message: 'unique_violation' },
+    };
+    mockInboxExistant = {
+      data: { id: 'inbox-001', traite: true },
+      error: null,
     };
     const req = makeWebhookRequest({
       mission_id: 'EVR-DUP',
@@ -633,5 +664,438 @@ describe('M2.5 / webhook Everest — rejet async avant acceptation (BL-P1-API-04
         (u) => u['statut_tms'] === 'rejetee_par_prestataire',
       ),
     ).toBe(false);
+  });
+});
+
+// ─── Échec d'écriture/lecture de l'état métier (erreurs Supabase lues) ──────────
+// Une écriture refusée (CHECK, blip PostgREST) ne doit JAMAIS passer inaperçue :
+// alerte Ops in-app, 500, inbox NON marquée `traite` → le rejeu reste possible.
+
+const ERREUR_CHECK: ErreurMock = {
+  code: '23514',
+  message: 'new row violates check constraint',
+};
+
+function inboxMarqueeTraitee(): boolean {
+  return (
+    (updatedRows['integrations_inbox'] ?? []) as Array<Record<string, unknown>>
+  ).some((u) => u['traite'] === true);
+}
+
+function alerteNonEnregistre(collecteId: string): unknown {
+  return rpcCalls.find(
+    (c) =>
+      c.name === 'f_upsert_alerte_admin' &&
+      (c.args as { p_code?: string }).p_code ===
+        'everest_webhook_non_enregistre' &&
+      (c.args as { p_entity_id?: string }).p_entity_id === collecteId,
+  );
+}
+
+function missionEcriteAvec(statut: string): boolean {
+  return (
+    (updatedRows['everest_missions'] ?? []) as Array<Record<string, unknown>>
+  ).some((u) => u['statut_everest'] === statut);
+}
+
+describe('M2.5 / webhook Everest — échec d’écriture de l’état métier', () => {
+  let mockState: ReturnType<typeof setupEverestMock>;
+
+  beforeEach(() => {
+    Object.keys(insertedRows).forEach((k) => delete insertedRows[k]);
+    Object.keys(updatedRows).forEach((k) => delete updatedRows[k]);
+    insertedLogs.length = 0;
+    rpcCalls.length = 0;
+    Object.keys(mockTables).forEach((k) => delete mockTables[k]);
+    mockInboxInsertResult = { data: { id: 'inbox-001' }, error: null };
+    mockAuditRow = null;
+    mockCollecteRow = null;
+    vi.stubEnv('EVEREST_WEBHOOK_TOKEN', '');
+    mockMissionRow = {
+      id: 'em-err',
+      tournee_id: 'tour-err',
+      collecte_id: 'col-err',
+      statut_everest: 'created',
+    };
+    mockState = setupEverestMock();
+  });
+
+  afterEach(() => {
+    _setEverestHandlers(null);
+    vi.restoreAllMocks();
+  });
+
+  it('UPDATE everest_missions refusé → 500 + alerte Ops in-app + inbox NON traitée (motif posé)', async () => {
+    updateErrors['everest_missions'] = () => ERREUR_CHECK;
+
+    const resp = await POST(
+      makeWebhookRequest({
+        mission_id: 'EVR-ERR-1',
+        event_type: 'mission_pickedup',
+        occurred_at: '2026-07-20T23:00:00Z',
+      }),
+    );
+
+    expect(resp.status).toBe(500);
+    // Jamais le détail Postgres au client.
+    expect(JSON.stringify(await resp.json())).not.toContain('check constraint');
+    expect(alerteNonEnregistre('col-err')).toBeDefined();
+    expect(inboxMarqueeTraitee()).toBe(false);
+    expect(
+      (
+        (updatedRows['integrations_inbox'] ?? []) as Array<
+          Record<string, unknown>
+        >
+      ).some((u) =>
+        String(u['erreur'] ?? '').startsWith('etat_non_enregistre'),
+      ),
+    ).toBe(true);
+  });
+
+  it('UPDATE everest_missions refusé sur mission terminale → 500 + inbox NON traitée', async () => {
+    mockMissionRow = {
+      id: 'em-err',
+      tournee_id: 'tour-err',
+      collecte_id: 'col-err',
+      statut_everest: 'completed',
+    };
+    updateErrors['everest_missions'] = () => ERREUR_CHECK;
+
+    const resp = await POST(
+      makeWebhookRequest({
+        mission_id: 'EVR-ERR-T',
+        event_type: 'mission_late',
+        occurred_at: '2026-07-20T23:00:00Z',
+      }),
+    );
+
+    expect(resp.status).toBe(500);
+    expect(alerteNonEnregistre('col-err')).toBeDefined();
+    expect(inboxMarqueeTraitee()).toBe(false);
+  });
+
+  it('mission_dispatched : UPDATE collectes.statut_tms=acceptee refusé → 500 + alerte + inbox NON traitée', async () => {
+    mockCollecteRow = { statut_tms: 'attribuee_en_attente_acceptation' };
+    updateErrors['collectes'] = (d) =>
+      d['statut_tms'] === 'acceptee' ? ERREUR_CHECK : null;
+
+    const resp = await POST(
+      makeWebhookRequest({
+        mission_id: 'EVR-ERR-2',
+        event_type: 'mission_dispatched',
+        occurred_at: '2026-07-20T22:05:00Z',
+      }),
+    );
+
+    expect(resp.status).toBe(500);
+    expect(alerteNonEnregistre('col-err')).toBeDefined();
+    expect(inboxMarqueeTraitee()).toBe(false);
+  });
+
+  it('mission_dispatched : lecture collecte en échec → 500, jamais « déjà acceptée » par défaut', async () => {
+    readErrors['collectes'] = { message: 'fetch failed' };
+
+    const resp = await POST(
+      makeWebhookRequest({
+        mission_id: 'EVR-ERR-3',
+        event_type: 'mission_dispatched',
+        occurred_at: '2026-07-20T22:05:00Z',
+      }),
+    );
+
+    expect(resp.status).toBe(500);
+    expect(alerteNonEnregistre('col-err')).toBeDefined();
+    expect(inboxMarqueeTraitee()).toBe(false);
+  });
+
+  it('mission_failed : UPDATE statut_tms=rejetee_par_prestataire refusé → 500, mission PAS encore passée failed (rejeu possible)', async () => {
+    mockCollecteRow = {
+      type: 'anti_gaspi',
+      statut: 'programmee',
+      statut_tms: 'attribuee_en_attente_acceptation',
+    };
+    updateErrors['collectes'] = (d) =>
+      d['statut_tms'] === 'rejetee_par_prestataire' ? ERREUR_CHECK : null;
+
+    const resp = await POST(
+      makeWebhookRequest({
+        mission_id: 'EVR-ERR-4',
+        event_type: 'mission_failed',
+        occurred_at: '2026-07-20T22:30:00Z',
+      }),
+    );
+
+    expect(resp.status).toBe(500);
+    expect(alerteNonEnregistre('col-err')).toBeDefined();
+    expect(inboxMarqueeTraitee()).toBe(false);
+    // Mission terminale écrite en dernier : sinon le rejeu buterait sur la
+    // garde statut terminal et la collecte ne serait jamais rejetée.
+    expect(missionEcriteAvec('failed')).toBe(false);
+    // Pas d'alerte « rejetée » sur une transition non écrite.
+    expect(
+      rpcCalls.some(
+        (c) =>
+          (c.args as { p_code?: string }).p_code ===
+          'collecte_rejetee_prestataire',
+      ),
+    ).toBe(false);
+  });
+
+  it('mission_cancelled externe : UPDATE rejet refusé → 500, mission PAS encore passée cancelled_externally', async () => {
+    mockCollecteRow = {
+      type: 'anti_gaspi',
+      statut: 'programmee',
+      statut_tms: 'attribuee_en_attente_acceptation',
+    };
+    updateErrors['collectes'] = () => ERREUR_CHECK;
+
+    const resp = await POST(
+      makeWebhookRequest({
+        mission_id: 'EVR-ERR-4B',
+        event_type: 'mission_cancelled',
+        occurred_at: '2026-07-20T22:30:00Z',
+      }),
+    );
+
+    expect(resp.status).toBe(500);
+    expect(inboxMarqueeTraitee()).toBe(false);
+    expect(missionEcriteAvec('cancelled_externally')).toBe(false);
+  });
+
+  it('course sans marchandise : UPDATE realisee_sans_collecte refusé → 500, mission PAS encore passée terminale', async () => {
+    mockCollecteRow = {
+      type: 'anti_gaspi',
+      statut: 'en_cours',
+      statut_tms: 'acceptee',
+    };
+    mockState.details.set('EVR-ERR-5', {
+      mission_id: 'EVR-ERR-5',
+      status: 'Pas de commande',
+      cout_ht: 18.0,
+      preuve_url: null,
+      coursier_nom: null,
+      coursier_telephone: null,
+      vehicule_type: null,
+    });
+    updateErrors['collectes'] = (d) =>
+      d['statut'] === 'realisee_sans_collecte' ? ERREUR_CHECK : null;
+
+    const resp = await POST(
+      makeWebhookRequest({
+        mission_id: 'EVR-ERR-5',
+        event_type: 'mission_finished',
+        occurred_at: '2026-07-20T23:30:00Z',
+      }),
+    );
+
+    expect(resp.status).toBe(500);
+    expect(alerteNonEnregistre('col-err')).toBeDefined();
+    expect(inboxMarqueeTraitee()).toBe(false);
+    expect(missionEcriteAvec('completed')).toBe(false);
+    expect(
+      rpcCalls.some(
+        (c) =>
+          (c.args as { p_code?: string }).p_code === 'collecte_aucun_repas',
+      ),
+    ).toBe(false);
+  });
+
+  it('lecture de l’état collecte (rejet/course vide) en échec → 500 + inbox NON traitée', async () => {
+    readErrors['collectes'] = { message: 'fetch failed' };
+
+    const resp = await POST(
+      makeWebhookRequest({
+        mission_id: 'EVR-ERR-6',
+        event_type: 'mission_failed',
+        occurred_at: '2026-07-20T22:30:00Z',
+      }),
+    );
+
+    expect(resp.status).toBe(500);
+    expect(alerteNonEnregistre('col-err')).toBeDefined();
+    expect(inboxMarqueeTraitee()).toBe(false);
+  });
+
+  it('mission_cancelled : lecture audit_log en échec → 500, jamais conclue « annulation externe »', async () => {
+    mockCollecteRow = {
+      type: 'anti_gaspi',
+      statut: 'programmee',
+      statut_tms: 'attribuee_en_attente_acceptation',
+    };
+    readErrors['audit_log'] = { message: 'fetch failed' };
+
+    const resp = await POST(
+      makeWebhookRequest({
+        mission_id: 'EVR-ERR-7',
+        event_type: 'mission_cancelled',
+        occurred_at: '2026-07-20T22:40:00Z',
+      }),
+    );
+
+    expect(resp.status).toBe(500);
+    expect(alerteNonEnregistre('col-err')).toBeDefined();
+    expect(inboxMarqueeTraitee()).toBe(false);
+    expect(missionEcriteAvec('cancelled_externally')).toBe(false);
+    expect(
+      ((updatedRows['collectes'] ?? []) as Array<Record<string, unknown>>).some(
+        (u) => u['statut_tms'] === 'rejetee_par_prestataire',
+      ),
+    ).toBe(false);
+  });
+
+  it('lecture everest_missions en échec → 500, jamais « mission inconnue » traitée', async () => {
+    readErrors['everest_missions'] = { message: 'fetch failed' };
+
+    const resp = await POST(
+      makeWebhookRequest({
+        mission_id: 'EVR-ERR-8',
+        event_type: 'mission_pickedup',
+        occurred_at: '2026-07-20T23:00:00Z',
+      }),
+    );
+
+    expect(resp.status).toBe(500);
+    expect(inboxMarqueeTraitee()).toBe(false);
+  });
+
+  it('UPDATE inbox traite refusé après écriture métier → 500 (rejeu sans effet, mais signalé)', async () => {
+    updateErrors['integrations_inbox'] = (d) =>
+      d['traite'] === true ? { message: 'fetch failed' } : null;
+
+    const resp = await POST(
+      makeWebhookRequest({
+        mission_id: 'EVR-ERR-9',
+        event_type: 'mission_pickedup',
+        occurred_at: '2026-07-20T23:00:00Z',
+      }),
+    );
+
+    expect(missionEcriteAvec('in_progress')).toBe(true);
+    expect(resp.status).toBe(500);
+  });
+
+  it('mission inconnue : UPDATE inbox traite refusé → 500', async () => {
+    mockMissionRow = null;
+    updateErrors['integrations_inbox'] = () => ({ message: 'fetch failed' });
+
+    const resp = await POST(
+      makeWebhookRequest({
+        mission_id: 'EVR-ERR-10',
+        event_type: 'mission_pickedup',
+        occurred_at: '2026-07-20T23:00:00Z',
+      }),
+    );
+
+    expect(resp.status).toBe(500);
+  });
+
+  it('alerte « aucun repas » non posée après transition écrite → 200 (best-effort) mais tracée en erreur serveur', async () => {
+    const logErr = vi.spyOn(logger, 'error');
+    mockCollecteRow = {
+      type: 'anti_gaspi',
+      statut: 'en_cours',
+      statut_tms: 'acceptee',
+    };
+    mockState.details.set('EVR-ERR-11', {
+      mission_id: 'EVR-ERR-11',
+      status: 'Pas de commande',
+      cout_ht: null,
+      preuve_url: null,
+      coursier_nom: null,
+      coursier_telephone: null,
+      vehicule_type: null,
+    });
+    rpcError = { message: 'fetch failed' };
+
+    const resp = await POST(
+      makeWebhookRequest({
+        mission_id: 'EVR-ERR-11',
+        event_type: 'mission_finished',
+        occurred_at: '2026-07-20T23:30:00Z',
+      }),
+    );
+
+    expect(resp.status).toBe(200);
+    expect(inboxMarqueeTraitee()).toBe(true);
+    expect(logErr).toHaveBeenCalledWith(
+      'webhooks.everest.alerte_non_posee',
+      expect.objectContaining({ code: 'collecte_aucun_repas' }),
+    );
+  });
+});
+
+describe('M2.5 / webhook Everest — rejeu d’un event non traité', () => {
+  beforeEach(() => {
+    Object.keys(insertedRows).forEach((k) => delete insertedRows[k]);
+    Object.keys(updatedRows).forEach((k) => delete updatedRows[k]);
+    insertedLogs.length = 0;
+    rpcCalls.length = 0;
+    Object.keys(mockTables).forEach((k) => delete mockTables[k]);
+    mockAuditRow = null;
+    mockCollecteRow = null;
+    vi.stubEnv('EVEREST_WEBHOOK_TOKEN', '');
+    mockMissionRow = {
+      id: 'em-rejeu',
+      tournee_id: 'tour-rejeu',
+      collecte_id: 'col-rejeu',
+      statut_everest: 'assigned',
+    };
+    mockInboxInsertResult = {
+      data: null,
+      error: { code: '23505', message: 'unique_violation' },
+    };
+  });
+
+  it('conflit 23505 sur une ligne inbox traite=false → event RETRAITÉ et ligne existante marquée traitée', async () => {
+    mockInboxExistant = {
+      data: { id: 'inbox-existante', traite: false },
+      error: null,
+    };
+
+    const resp = await POST(
+      makeWebhookRequest({
+        mission_id: 'EVR-REJEU-1',
+        event_type: 'mission_pickedup',
+        occurred_at: '2026-07-20T23:00:00Z',
+      }),
+    );
+
+    expect(resp.status).toBe(200);
+    const body = (await resp.json()) as { deduplicated?: boolean };
+    expect(body.deduplicated).toBeUndefined();
+    expect(missionEcriteAvec('in_progress')).toBe(true);
+    expect(inboxMarqueeTraitee()).toBe(true);
+    const eqInbox = mockTables['integrations_inbox']!['eq'] as ReturnType<
+      typeof vi.fn
+    >;
+    expect(eqInbox).toHaveBeenCalledWith(
+      'event_id_externe',
+      'EVR-REJEU-1-mission_pickedup-2026-07-20T23:00:00Z',
+    );
+  });
+
+  it('conflit 23505 et relecture inbox en échec → 500, aucun traitement, erreur de RELECTURE loggée', async () => {
+    const logErr = vi.spyOn(logger, 'error');
+    readErrors['integrations_inbox'] = { message: 'fetch failed' };
+
+    const resp = await POST(
+      makeWebhookRequest({
+        mission_id: 'EVR-REJEU-2',
+        event_type: 'mission_pickedup',
+        occurred_at: '2026-07-20T23:00:00Z',
+      }),
+    );
+
+    expect(resp.status).toBe(500);
+    expect(missionEcriteAvec('in_progress')).toBe(false);
+    // L'erreur diagnostiquée est celle de la relecture, pas le 23505 attendu.
+    expect(logErr).toHaveBeenCalledWith(
+      'api_route.error',
+      expect.objectContaining({
+        route: 'webhooks.everest.inbox_relecture',
+        error: 'fetch failed',
+      }),
+    );
+    logErr.mockRestore();
   });
 });

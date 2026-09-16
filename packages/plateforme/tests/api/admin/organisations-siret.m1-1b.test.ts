@@ -6,6 +6,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
+import { readFileSync } from 'node:fs';
 
 const mockSupabaseChain = {
   from: vi.fn().mockReturnThis(),
@@ -18,18 +19,6 @@ const mockSupabaseChain = {
 
 vi.mock('@savr/shared/src/supabase-client.js', () => ({
   createAdminSupabaseClient: () => mockSupabaseChain,
-}));
-
-// Aucun appel INSEE : si une route importait la vérification, l'appel échouerait
-// ici bruyamment au lieu de partir sur le réseau.
-const mockVerifySiret = vi.fn(() => {
-  throw new Error(
-    'verifySiret ne doit pas être appelé sur organisations.siret',
-  );
-});
-vi.mock('@savr/shared/src/api/siret.js', async (orig) => ({
-  ...(await orig<object>()),
-  verifySiret: mockVerifySiret,
 }));
 
 const mockGetUser = vi.fn();
@@ -140,7 +129,6 @@ describe('M1.1b / Organisations / SIRET — création (POST)', () => {
     const res = await post(undefined);
     expect(res.status).toBe(201);
     expect(insertPayload().siret).toBeUndefined();
-    expect(mockVerifySiret).not.toHaveBeenCalled();
   });
 });
 
@@ -154,7 +142,6 @@ describe('M1.1b / Organisations / SIRET — fiche (PATCH)', () => {
     const res = await patch({ siret: ' 12345678900012 ' });
     expect(res.status).toBe(200);
     expect(updatePayload().siret).toBe('12345678900012');
-    expect(mockVerifySiret).not.toHaveBeenCalled();
   });
 
   it.each(HORS_FORMAT)(
@@ -178,5 +165,39 @@ describe('M1.1b / Organisations / SIRET — fiche (PATCH)', () => {
     const res = await patch({ raison_sociale: 'Autre' });
     expect(res.status).toBe(200);
     expect(updatePayload()).not.toHaveProperty('siret');
+  });
+});
+
+describe('M1.1b / Organisations / SIRET — null et absence d’INSEE', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupAuth('admin_savr');
+  });
+
+  it('M1.1b/orgas/siret — POST : null ⇒ null', async () => {
+    const res = await post(null);
+    expect(res.status).toBe(201);
+    expect(insertPayload().siret).toBeNull();
+  });
+
+  it('M1.1b/orgas/siret — PATCH : null ⇒ null (effacement)', async () => {
+    const res = await patch({ siret: null });
+    expect(res.status).toBe(200);
+    expect(updatePayload()).toEqual({ siret: null });
+  });
+
+  it('M1.1b/orgas/siret — aucune des deux routes n’importe la vérification INSEE', () => {
+    // Contrôle statique : un mock « jamais appelé » serait vrai d'office tant
+    // que la route n'importe pas le module. On lit donc les sources.
+    for (const chemin of [
+      '../../../src/app/api/v1/admin/organisations/route.ts',
+      '../../../src/app/api/v1/admin/organisations/[id]/route.ts',
+    ]) {
+      const src = readFileSync(new URL(chemin, import.meta.url), 'utf8');
+      expect(src, chemin).toContain('normaliserSiretOrganisation');
+      expect(src, chemin).not.toMatch(
+        /api\/siret|verifySiret|SiretRevalidation/,
+      );
+    }
   });
 });

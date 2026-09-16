@@ -7,6 +7,9 @@ describe('normaliserSiretOrganisation', () => {
     ['123 456 789 00012', '12345678900012'],
     ['123 456 789\t00012', '12345678900012'],
     ['00000000000000', '00000000000000'],
+    // Choix assumé : tout blanc `\s` est retiré, saut de ligne compris
+    // (copier-coller depuis un PDF ou un tableur).
+    ['1234567\n8900012', '12345678900012'],
   ])('%j ⇒ %j', (entree, attendu) => {
     expect(normaliserSiretOrganisation(entree)).toEqual({
       valide: true,

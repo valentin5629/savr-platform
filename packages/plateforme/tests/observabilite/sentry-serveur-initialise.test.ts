@@ -75,6 +75,8 @@ describe('M0.9 — Sentry serveur via register() (SDK réel)', () => {
 
     const client = Sentry.getClient();
     expect(client).toBeDefined();
+    // Pas d'IP ni de cookies ajoutés par le SDK (intégration RequestData).
+    expect(client!.getOptions().sendDefaultPii).toBe(false);
     client!.on('beforeEnvelope', (env) => {
       enveloppes.push(JSON.stringify(env));
     });
@@ -152,6 +154,35 @@ describe('M0.9 — filtrage Sentry : breadcrumbs', () => {
     expect(b.data).toEqual({ from: '/login', to: '/reset' });
   });
 
+  it('breadcrumb console : arguments bruts assainis comme le message', () => {
+    const b = filtrerBreadcrumb({
+      category: 'console',
+      message: `envoi ${URL_SLACK}`,
+      data: { arguments: ['envoi', URL_SLACK, 42], logger: 'console' },
+    });
+    expect(JSON.stringify(b)).not.toContain(JETON);
+    expect(b.data?.['arguments']).toEqual([
+      'envoi',
+      'https://hooks.slack.com/[Filtered]',
+      42,
+    ]);
+  });
+
+  it('SIRET / n° TVA dans le chemin INSEE / VIES : chemin masqué', () => {
+    const siret = ['732', '829', '320', '00074'].join('');
+    const b = filtrerBreadcrumb({
+      data: {
+        url: `https://api.insee.fr/entreprises/sirene/V3.11/siret/${siret}`,
+      },
+    });
+    expect(b.data?.['url']).toBe('https://api.insee.fr/[Filtered]');
+    expect(
+      assainirUrl(
+        `https://ec.europa.eu/taxation_customs/vies/rest-api/ms/FR/vat/${siret}`,
+      ),
+    ).toBe('https://ec.europa.eu/[Filtered]');
+  });
+
   it('message console contenant une URL Slack : chemin masqué', () => {
     const b = filtrerBreadcrumb({ message: `POST ${URL_SLACK} -> 404` });
     expect(b.message).toBe('POST https://hooks.slack.com/[Filtered] -> 404');
@@ -191,6 +222,32 @@ describe('M0.9 — filtrage Sentry : events', () => {
       exception: { values: [{ type: 'Error', value: `y ${URL_SLACK}` }] },
     } as ErrorEvent);
     expect(JSON.stringify(e)).not.toContain(JETON);
+  });
+
+  it('breadcrumbs portés par l’event : refiltrés à l’envoi (beforeSend)', () => {
+    const e = filtrerEvenement({
+      type: undefined,
+      breadcrumbs: [{ category: 'http', data: { url: URL_SLACK } }],
+    } as ErrorEvent);
+    expect(e.breadcrumbs?.[0]?.data?.['url']).toBe(
+      'https://hooks.slack.com/[Filtered]',
+    );
+  });
+
+  it('texte libre : port, identifiants, casse et query de toute URL', () => {
+    const texte = [
+      `a https://hooks.slack.com:443/services/T/B/${JETON}`,
+      `b https://u:p@HOOKS.slack.com/services/T/B/${JETON}`,
+      `c https://photos.example.com/p/1.jpg?X-Amz-Signature=${JETON}`,
+    ].join('\n');
+    const e = filtrerEvenement({
+      type: undefined,
+      exception: { values: [{ type: 'Error', value: texte }] },
+    } as ErrorEvent);
+    const valeur = e.exception?.values?.[0]?.value ?? '';
+    expect(valeur).not.toContain(JETON);
+    expect(valeur).not.toContain('u:p@');
+    expect(valeur).toContain('https://photos.example.com/p/1.jpg');
   });
 
   it('assainirUrl : sous-domaine Slack, identifiants et URL non parsable', () => {

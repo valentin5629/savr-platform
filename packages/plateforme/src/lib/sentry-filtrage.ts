@@ -19,40 +19,47 @@ import type { Breadcrumb, ErrorEvent } from '@sentry/nextjs';
 
 export const VALEUR_FILTREE = '[Filtered]';
 
-// Hôtes dont le chemin d'URL est un secret. Tout hôte ajouté ici voit son chemin
-// entier masqué, où qu'il apparaisse (breadcrumb, message, exception).
-const HOTES_SECRET_EN_CHEMIN = ['hooks.slack.com'];
+// Hôtes dont le chemin d'URL porte un secret ou une donnée personnelle : chemin
+// entier masqué, où qu'il apparaisse (breadcrumb, message, exception, console).
+//  - hooks.slack.com : le chemin EST le jeton du webhook ;
+//  - api.insee.fr / ec.europa.eu : SIRET et n° de TVA interpolés dans le chemin
+//    (un SIRET d'entreprise individuelle est une donnée personnelle ; le logger
+//    le masque déjà par clé, cf. sanitizePayload).
+const HOTES_CHEMIN_MASQUE = ['hooks.slack.com', 'api.insee.fr', 'ec.europa.eu'];
 
-function estHoteSecret(hote: string): boolean {
+function estHoteMasque(hote: string): boolean {
   const h = hote.toLowerCase();
-  return HOTES_SECRET_EN_CHEMIN.some((s) => h === s || h.endsWith(`.${s}`));
-}
-
-const URL_HOTE_SECRET = new RegExp(
-  `(https?://(?:[^\\s/"'<>]*\\.)?(?:${HOTES_SECRET_EN_CHEMIN.map((h) =>
-    h.replace(/\./g, '\\.'),
-  ).join('|')}))(?:[/?#][^\\s"'<>]*)?`,
-  'gi',
-);
-
-/** Masque, dans un texte libre, le chemin de toute URL d'hôte à secret. */
-export function masquerUrlsSecretes(texte: string): string {
-  return texte.replace(URL_HOTE_SECRET, `$1/${VALEUR_FILTREE}`);
+  return HOTES_CHEMIN_MASQUE.some((s) => h === s || h.endsWith(`.${s}`));
 }
 
 /**
- * URL sans query, fragment ni identifiants ; chemin masqué pour un hôte à
- * secret. Une URL relative (`/api/x?token=…`) perd sa query de la même façon.
+ * URL sans query, fragment ni identifiants ; chemin masqué pour un hôte de
+ * `HOTES_CHEMIN_MASQUE`. Une URL relative (`/api/x?token=…`) perd sa query de
+ * la même façon.
  */
 export function assainirUrl(url: string): string {
   let u: URL;
   try {
     u = new URL(url);
   } catch {
-    return masquerUrlsSecretes(url.split(/[?#]/, 1)[0] ?? '');
+    // Non parsable : pas de récursion vers assainirTexte (elle rappellerait
+    // cette fonction sur la même chaîne). Query coupée ; tout masqué si un hôte
+    // de la liste y figure.
+    const brut = url.split(/[?#]/, 1)[0] ?? '';
+    const h = brut.toLowerCase();
+    return HOTES_CHEMIN_MASQUE.some((s) => h.includes(s))
+      ? VALEUR_FILTREE
+      : brut;
   }
-  const chemin = estHoteSecret(u.hostname) ? `/${VALEUR_FILTREE}` : u.pathname;
+  const chemin = estHoteMasque(u.hostname) ? `/${VALEUR_FILTREE}` : u.pathname;
   return `${u.protocol}//${u.host}${chemin}`;
+}
+
+const URL_DANS_TEXTE = /https?:\/\/[^\s"'<>]+/gi;
+
+/** Applique `assainirUrl` à toute URL absolue contenue dans un texte libre. */
+export function assainirTexte(texte: string): string {
+  return texte.replace(URL_DANS_TEXTE, (url) => assainirUrl(url));
 }
 
 export function filtrerBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb {
@@ -65,9 +72,15 @@ export function filtrerBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb {
     for (const cle of ['url', 'from', 'to']) {
       if (typeof data[cle] === 'string') data[cle] = assainirUrl(data[cle]);
     }
+    // `arguments` : breadcrumb console (arguments bruts du console.*).
+    if (Array.isArray(data['arguments'])) {
+      data['arguments'] = data['arguments'].map((a: unknown) =>
+        typeof a === 'string' ? assainirTexte(a) : a,
+      );
+    }
     b.data = data;
   }
-  if (typeof b.message === 'string') b.message = masquerUrlsSecretes(b.message);
+  if (typeof b.message === 'string') b.message = assainirTexte(b.message);
   return b;
 }
 
@@ -90,13 +103,13 @@ export function filtrerEvenement(event: ErrorEvent): ErrorEvent {
     };
   }
 
-  if (typeof e.message === 'string') e.message = masquerUrlsSecretes(e.message);
+  if (typeof e.message === 'string') e.message = assainirTexte(e.message);
   if (e.exception?.values) {
     e.exception = {
       ...e.exception,
       values: e.exception.values.map((v) =>
         typeof v.value === 'string'
-          ? { ...v, value: masquerUrlsSecretes(v.value) }
+          ? { ...v, value: assainirTexte(v.value) }
           : v,
       ),
     };

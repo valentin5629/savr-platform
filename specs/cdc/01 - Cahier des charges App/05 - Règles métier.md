@@ -1143,7 +1143,11 @@ Issu de la refonte du formulaire de programmation §06.01. Les règles ci-dessou
 
 **Worklist Admin** : vue filtrée sur les collectes récentes dont `lieu_overrides IS NOT NULL` et dont une valeur diffère encore du `lieux` officiel (auto-résolutive — l'écart disparaît dès que l'Admin aligne le lieu). Pas de flag d'état à maintenir.
 
-**Cas particulier — collecte en attente d'envoi TMS** : le snapshot lieu envoyé au TMS (E1) reflète toujours les valeurs override de la collecte (par construction, via `lieu_overrides`). Une édition Admin ultérieure du lieu officiel ne re-propage pas au TMS pour la collecte courante (snapshot figé) — elle s'applique aux futures collectes.
+**Cas particulier — collecte en attente d'envoi TMS** : le snapshot lieu envoyé au TMS (E1) reflète toujours les valeurs override de la collecte (par construction, via `lieu_overrides`). Une édition Admin ultérieure du lieu officiel ne re-propage pas au TMS **les champs effectivement surchargés** de la collecte courante (snapshot figé **par champ**, pas par collecte — *arbitrage Val 2026-09-16, divergence M1.5a_20260915_snapshot-lieu-fige-grain*). Les champs que la collecte **ne surcharge pas** continuent de suivre le référentiel : une correction du traiteur sur l'entrée logistique (`adresse_acces`) ne doit pas figer un `code_postal` erroné au référentiel, que plus personne ne pourrait alors rattraper. L'édition s'applique intégralement aux futures collectes.
+
+> *Cas limite* : une collecte dont les 3 champs d'adresse (`adresse_acces`, `code_postal`, `ville`) sont TOUS surchargés ne reçoit aucun appel E5 — l'adresse recomposée serait identique à celle déjà transmise en E1.
+>
+> *Portée V2 (garde-fou 2)* : le TMS natif applique le même grain, la fusion étant portée par le module partagé `packages/adapters/src/lieu-overrides.ts` et non par adapter.
 
 **SLA cible** : revue quotidienne par Admin (pas de SLA contractuel V1).
 

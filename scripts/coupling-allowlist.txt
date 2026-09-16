@@ -194,6 +194,11 @@ supabase/tests/SECU__cloisonnement_provider_invariants.test.sql
 supabase/tests/e2_gate_commande_provider.test.sql
 supabase/tests/edition_evenement.test.sql
 supabase/tests/r22c_evenement_e2_en_cours.test.sql
+# supabase/tests/SECU__evenements_ecriture_client_fermee.test.sql — fixture : le
+# transporteur qui porte le prestataire de la collecte commandée (type_tms = valeur
+# d'enum). Requis depuis #327 : le gate E2 compare le type_tms des deux
+# transporteurs. Aucune logique d'adapter.
+supabase/tests/SECU__evenements_ecriture_client_fermee.test.sql
 # supabase/migrations/20260915220000_* (gate E2 provider-aware) — 'everest' apparait
 # dans le commentaire qui explique pourquoi le gate seul peut rattraper un mauvais
 # type d'event chez ce provider ; 'mts1' est la valeur de l'enum type_tms dans le

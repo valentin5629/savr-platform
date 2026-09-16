@@ -1,6 +1,8 @@
 /**
  * M1.1b — Tests API /admin/transporteurs
- * Règle critique : code_transporteur_mts1 obligatoire si type_tms=mts1.
+ * Règles critiques : code_transporteur_mts1 obligatoire si type_tms=mts1 ;
+ * prestataire_logistique_id obligatoire si type_tms ∈ {mts1, a_toutes} ;
+ * type_tms et prestataire_logistique_id immuables après création.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
@@ -149,15 +151,18 @@ describe('M1.1b / Transporteurs / Validation MTS-1', () => {
 });
 
 describe('M1.1b / Transporteurs / Modification', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSupabaseChain.single.mockReset();
+  });
 
-  it('M1.1b/transporteurs/patch — 422 si changement type_tms=mts1 sans code existant', async () => {
+  it('M1.1b/transporteurs/patch — 422 si un transporteur mts1 perd son code (type lu en base)', async () => {
     setupAuth('admin_savr');
     mockSupabaseChain.single.mockResolvedValueOnce({
       data: {
         id: 'tr-1',
-        type_tms: 'autre',
-        code_transporteur_mts1: null,
+        type_tms: 'mts1',
+        code_transporteur_mts1: 'CODE-OLD',
         nom: 'Test',
       },
       error: null,
@@ -166,11 +171,12 @@ describe('M1.1b / Transporteurs / Modification', () => {
       await import('@/app/api/v1/admin/transporteurs/[id]/route.js');
     const res = await PATCH(
       makeReq('PATCH', '/api/v1/admin/transporteurs/tr-1', {
-        type_tms: 'mts1',
+        code_transporteur_mts1: '',
       }),
       { params: Promise.resolve({ id: 'tr-1' }) },
     );
     expect(res.status).toBe(422);
+    expect(mockSupabaseChain.update).not.toHaveBeenCalled();
   });
 });
 
@@ -265,43 +271,53 @@ describe('Transporteurs / Lien prestataire logistique', () => {
     expect(body.error).not.toContain('uniq_transporteur_par_prestataire');
   });
 
-  it('patch — prestataire_logistique_id est dans la liste blanche et part en base', async () => {
-    setupAuth('admin_savr');
-    mockSupabaseChain.single
-      .mockResolvedValueOnce({
+  // type_tms et prestataire_logistique_id : posés à la création, JAMAIS
+  // modifiables (arbitrage Val 2026-09-16). Le PATCH les refuse explicitement ;
+  // la garde en base (trg_transporteur_cols_immuables) couvre PostgREST et SQL.
+  it.each([
+    ['type_tms', { type_tms: 'a_toutes' }],
+    ['prestataire_logistique_id', { prestataire_logistique_id: PRESTA_ID }],
+    ['prestataire_logistique_id', { prestataire_logistique_id: null }],
+  ])(
+    "patch — %s dans le corps → 422 « créez un nouveau transporteur », rien n'est écrit",
+    async (champ, corps) => {
+      setupAuth('admin_savr');
+      mockSupabaseChain.single.mockResolvedValue({
         data: {
           id: 'tr-1',
           type_tms: 'autre',
           prestataire_logistique_id: null,
         },
         error: null,
-      })
-      .mockResolvedValueOnce({ data: { id: 'tr-1' }, error: null });
-    const { PATCH } =
-      await import('@/app/api/v1/admin/transporteurs/[id]/route.js');
-    const res = await PATCH(
-      makeReq('PATCH', '/api/v1/admin/transporteurs/tr-1', {
-        prestataire_logistique_id: PRESTA_ID,
-      }),
-      { params: Promise.resolve({ id: 'tr-1' }) },
-    );
-    expect(res.status).toBe(200);
-    expect(mockSupabaseChain.update).toHaveBeenCalledWith(
-      expect.objectContaining({ prestataire_logistique_id: PRESTA_ID }),
-    );
-  });
+      });
+      const { PATCH } =
+        await import('@/app/api/v1/admin/transporteurs/[id]/route.js');
+      const res = await PATCH(
+        makeReq('PATCH', '/api/v1/admin/transporteurs/tr-1', {
+          nom: 'Renommé',
+          ...corps,
+        }),
+        { params: Promise.resolve({ id: 'tr-1' }) },
+      );
+      expect(res.status).toBe(422);
+      const body = (await res.json()) as { error: string };
+      expect(body.error).toContain(champ);
+      expect(body.error).toContain('créez un nouveau transporteur');
+      expect(mockSupabaseChain.update).not.toHaveBeenCalled();
+    },
+  );
 
-  it("patch — passage à a_toutes sans prestataire existant → 422, rien n'est écrit", async () => {
-    setupAuth('admin_savr');
-    mockSupabaseChain.single.mockResolvedValueOnce({
-      data: { id: 'tr-1', type_tms: 'autre', prestataire_logistique_id: null },
+  it("patch — refus même quand la valeur envoyée est identique à l'existant", async () => {
+    setupAuth('ops_savr');
+    mockSupabaseChain.single.mockResolvedValue({
+      data: { id: 'tr-1', type_tms: 'mts1', code_transporteur_mts1: 'C' },
       error: null,
     });
     const { PATCH } =
       await import('@/app/api/v1/admin/transporteurs/[id]/route.js');
     const res = await PATCH(
       makeReq('PATCH', '/api/v1/admin/transporteurs/tr-1', {
-        type_tms: 'a_toutes',
+        type_tms: 'mts1',
       }),
       { params: Promise.resolve({ id: 'tr-1' }) },
     );
@@ -309,32 +325,8 @@ describe('Transporteurs / Lien prestataire logistique', () => {
     expect(mockSupabaseChain.update).not.toHaveBeenCalled();
   });
 
-  it('patch — passage à a_toutes quand le prestataire est DÉJÀ posé en base → accepté', async () => {
-    setupAuth('admin_savr');
-    mockSupabaseChain.single
-      .mockResolvedValueOnce({
-        data: {
-          id: 'tr-1',
-          type_tms: 'autre',
-          prestataire_logistique_id: PRESTA_ID,
-        },
-        error: null,
-      })
-      .mockResolvedValueOnce({ data: { id: 'tr-1' }, error: null });
-    const { PATCH } =
-      await import('@/app/api/v1/admin/transporteurs/[id]/route.js');
-    const res = await PATCH(
-      makeReq('PATCH', '/api/v1/admin/transporteurs/tr-1', {
-        type_tms: 'a_toutes',
-      }),
-      { params: Promise.resolve({ id: 'tr-1' }) },
-    );
-    // Le lien s'évalue sur l'état EFFECTIF (base + appel), pas sur le seul corps.
-    expect(res.status).toBe(200);
-  });
-
-  it("patch — « Désactiver » un transporteur mts1 antérieur au contrôle (sans prestataire) n'est PAS bloqué", async () => {
-    setupAuth('admin_savr');
+  it("patch — « Désactiver » un transporteur mts1 sans prestataire reste LIBRE, et n'écrit que actif", async () => {
+    setupAuth('ops_savr');
     mockSupabaseChain.single
       .mockResolvedValueOnce({
         data: {
@@ -353,38 +345,6 @@ describe('Transporteurs / Lien prestataire logistique', () => {
       { params: Promise.resolve({ id: 'tr-1' }) },
     );
     expect(res.status).toBe(200);
-  });
-
-  it('patch — refus de la garde en base (23001) → 409 lisible, sans message Postgres', async () => {
-    setupAuth('ops_savr');
-    mockSupabaseChain.single
-      .mockResolvedValueOnce({
-        data: {
-          id: 'tr-1',
-          type_tms: 'a_toutes',
-          prestataire_logistique_id: PRESTA_ID,
-        },
-        error: null,
-      })
-      .mockResolvedValueOnce({
-        data: null,
-        error: {
-          code: '23001',
-          message:
-            'transporteur tr-1 : prestataire logistique ou type TMS non modifiable, 3 collecte(s) non clôturée(s) en dépendent',
-        },
-      });
-    const { PATCH } =
-      await import('@/app/api/v1/admin/transporteurs/[id]/route.js');
-    const res = await PATCH(
-      makeReq('PATCH', '/api/v1/admin/transporteurs/tr-1', {
-        prestataire_logistique_id: '11111111-1111-4111-8111-111111111111',
-      }),
-      { params: Promise.resolve({ id: 'tr-1' }) },
-    );
-    expect(res.status).toBe(409);
-    const body = (await res.json()) as { error: string };
-    expect(body.error).toContain('collectes non clôturées');
-    expect(body.error).not.toContain('tr-1');
+    expect(mockSupabaseChain.update).toHaveBeenCalledWith({ actif: false });
   });
 });

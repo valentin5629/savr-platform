@@ -161,7 +161,10 @@ export function TransporteurModal({
     if (values.type_tms === 'mts1' && !values.code_transporteur_mts1.trim())
       next.code_transporteur_mts1 =
         'Code transporteur MTS-1 obligatoire pour type_tms = mts1';
+    // Exigé à la création seulement : en édition le lien n'est plus modifiable,
+    // et un transporteur antérieur à ce contrôle doit rester éditable.
     if (
+      !isEdition &&
       TYPES_TMS_AVEC_PRESTATAIRE.includes(values.type_tms) &&
       !values.prestataire_logistique_id
     )
@@ -184,14 +187,20 @@ export function TransporteurModal({
       types_vehicules: values.types_vehicules,
       types_collecte:
         values.types_collecte.length > 0 ? values.types_collecte : null,
-      type_tms: values.type_tms,
       description_process_collecte:
         values.description_process_collecte.trim() || null,
       code_transporteur_mts1:
         values.type_tms === 'mts1'
           ? values.code_transporteur_mts1.trim()
           : null,
-      prestataire_logistique_id: values.prestataire_logistique_id || null,
+      // Immuables après création (trg_transporteur_cols_immuables) : envoyés au
+      // POST seulement, le PATCH les refuse.
+      ...(isEdition
+        ? {}
+        : {
+            type_tms: values.type_tms,
+            prestataire_logistique_id: values.prestataire_logistique_id || null,
+          }),
     };
   }
 
@@ -465,13 +474,18 @@ export function TransporteurModal({
             htmlFor="tm_type_tms"
             required
             error={errors.type_tms}
-            hint="Détermine l'adapter logistique (dispatch)"
+            hint={
+              isEdition
+                ? 'Non modifiable après création — pour en changer, créez un nouveau transporteur'
+                : "Détermine l'adapter logistique (dispatch). Non modifiable après création."
+            }
           >
             <Select
               id="tm_type_tms"
               value={values.type_tms}
               onChange={(e) => set('type_tms', e.target.value)}
               error={Boolean(errors.type_tms)}
+              disabled={isEdition}
             >
               <option value="">Sélectionner…</option>
               <option value="mts1">MTS-1 (Strike / Marathon)</option>
@@ -509,9 +523,11 @@ export function TransporteurModal({
           required={TYPES_TMS_AVEC_PRESTATAIRE.includes(values.type_tms)}
           error={errors.prestataire_logistique_id}
           hint={
-            prestataires.length === 0
-              ? 'Aucun prestataire logistique enregistré — à créer par l’équipe technique'
-              : 'Société qui exécute les courses : c’est ce lien qui rattache les tournées au bon transporteur. Non modifiable tant que des collectes non clôturées en dépendent.'
+            isEdition
+              ? 'Non modifiable après création — pour en changer, créez un nouveau transporteur'
+              : prestataires.length === 0
+                ? 'Aucun prestataire logistique enregistré — à créer par l’équipe technique'
+                : 'Société qui exécute les courses : c’est ce lien qui rattache les tournées au bon transporteur. Non modifiable après création.'
           }
         >
           <Select
@@ -519,6 +535,7 @@ export function TransporteurModal({
             value={values.prestataire_logistique_id}
             onChange={(e) => set('prestataire_logistique_id', e.target.value)}
             error={Boolean(errors.prestataire_logistique_id)}
+            disabled={isEdition}
           >
             <option value="">Aucun</option>
             {prestataires.map((p) => {

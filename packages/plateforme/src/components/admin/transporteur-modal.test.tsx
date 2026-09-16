@@ -369,24 +369,93 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
     expect(body.prestataire_logistique_id).toBeNull();
   });
 
-  it('grise un prestataire rattaché à un AUTRE transporteur, pas celui du transporteur édité', () => {
+  it('création : grise les prestataires déjà rattachés à un transporteur', () => {
     render(
       <TransporteurModal
         open
-        transporteur={EDIT_FIXTURE}
+        transporteur={null}
         onClose={vi.fn()}
         onSaved={vi.fn()}
         prestataires={PRESTATAIRES}
       />,
     );
 
-    const libre = screen.getByRole('option', { name: 'A Toutes!' });
-    const autre = screen.getByRole('option', {
-      name: /Strike — déjà rattaché à Strike Paris/,
+    expect(
+      screen.getByRole('option', { name: 'A Toutes!' }),
+    ).not.toBeDisabled();
+    expect(
+      screen.getByRole('option', {
+        name: /Strike — déjà rattaché à Strike Paris/,
+      }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('option', {
+        name: /Marathon — déjà rattaché à Strike Logistique/,
+      }),
+    ).toBeDisabled();
+  });
+
+  // ── Immuabilité (arbitrage Val 2026-09-16) ─────────────────────────────────
+  // type_tms et prestataire_logistique_id sont posés à la création et jamais
+  // modifiables : verrouillés à l'écran, jamais envoyés au PATCH (qui les refuse).
+
+  it('édition : Type de TMS et Prestataire logistique verrouillés, affichant la valeur posée', () => {
+    render(
+      <TransporteurModal
+        open
+        transporteur={{
+          ...EDIT_FIXTURE,
+          type_tms: 'a_toutes',
+          prestataire_logistique_id: PRESTATAIRES[2]!.id,
+        }}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+        prestataires={PRESTATAIRES}
+      />,
+    );
+
+    const typeTms = screen.getByLabelText(/Type de TMS/) as HTMLSelectElement;
+    const presta = screen.getByLabelText(
+      /Prestataire logistique/,
+    ) as HTMLSelectElement;
+    expect(typeTms).toBeDisabled();
+    expect(typeTms.value).toBe('a_toutes');
+    expect(presta).toBeDisabled();
+    expect(presta.value).toBe(PRESTATAIRES[2]!.id);
+    expect(
+      screen.getAllByText(/créez un nouveau transporteur/).length,
+    ).toBeGreaterThanOrEqual(2);
+  });
+
+  it("édition : le PATCH n'envoie ni type_tms ni prestataire_logistique_id, même sans lien posé", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: EDIT_FIXTURE.id }),
     });
-    const sien = screen.getByRole('option', { name: 'Marathon' });
-    expect(libre).not.toBeDisabled();
-    expect(autre).toBeDisabled();
-    expect(sien).not.toBeDisabled();
+    vi.stubGlobal('fetch', fetchMock);
+    render(
+      <TransporteurModal
+        open
+        // a_toutes SANS lien : un transporteur antérieur au contrôle doit rester
+        // éditable (l'obligation ne vaut qu'à la création).
+        transporteur={{ ...EDIT_FIXTURE, type_tms: 'a_toutes' }}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+        prestataires={PRESTATAIRES}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/Nom du transporteur/), {
+      target: { value: 'Renommé' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Enregistrer/ }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled(), ATTENTE_UI);
+    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as Record<string, unknown>;
+    expect(options.method).toBe('PATCH');
+    expect(body.nom).toBe('Renommé');
+    expect(body).not.toHaveProperty('type_tms');
+    expect(body).not.toHaveProperty('prestataire_logistique_id');
   });
 });

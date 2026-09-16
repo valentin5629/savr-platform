@@ -215,3 +215,11 @@ packages/plateforme/tests/api/admin/everest-manual-accept.m2-5.test.ts
 # par les routes admin transporteurs ET la modale (déjà exemptées) pour n'avoir
 # qu'une définition. Aucun appel à un transporteur, aucune logique d'adapter.
 packages/plateforme/src/lib/transporteur-lien-prestataire.ts
+
+# 20260916150000 transporteurs_cols_immuables (arbitrage Val 2026-09-16) — la
+# migration ne cite « mts1 » que dans son commentaire de mesure des données ; le
+# pgTAP porte les VALEURS d'enum transporteurs.type_tms / prestataires.mode_integration
+# dans ses fixtures et assertions. Deux triggers d'intégrité (immuabilité, garde
+# DELETE) : aucune logique adapter, aucun appel HTTP. 'customerOrders' reste banni.
+supabase/migrations/20260916150000_plateforme_transporteurs_cols_immuables.sql
+supabase/tests/SECU__transporteur_cols_immuables.test.sql

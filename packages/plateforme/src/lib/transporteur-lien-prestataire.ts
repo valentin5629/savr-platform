@@ -9,6 +9,10 @@
  * l'obligation, pour ces deux types-là seulement — les types manuels ne passent
  * par aucun adapter.
  *
+ * Le lien et le type sont posés à la création et JAMAIS modifiables ensuite
+ * (arbitrage Val 2026-09-16) : garde en base `trg_transporteur_cols_immuables`,
+ * quel que soit le chemin. Pour en changer, créer un nouveau transporteur.
+ *
  * Module neutre (ni `next/server` ni client Supabase) : la modale l'importe
  * côté navigateur pour appliquer la même règle que les routes.
  */
@@ -16,6 +20,12 @@ export const TYPES_TMS_AVEC_PRESTATAIRE: readonly string[] = [
   'mts1',
   'a_toutes',
 ];
+
+/** Colonnes refusées par le PATCH : posées à la création, jamais modifiées. */
+export const COLONNES_IMMUABLES = [
+  'type_tms',
+  'prestataire_logistique_id',
+] as const;
 
 export interface RefusLienPrestataire {
   status: 409 | 422;
@@ -52,21 +62,14 @@ export function validerLienPrestataire(
 }
 
 /**
- * Traduit les refus de la base propres à ce lien. `null` = autre erreur, à
- * laisser à `serverError`. Les messages sont écrits ici, jamais recopiés de
- * Postgres (cliquet `check-api-error-leak`).
+ * Traduit les refus de la base propres à ce lien, à la création (POST).
+ * `null` = autre erreur, à laisser à `serverError`. Les messages sont écrits
+ * ici, jamais recopiés de Postgres (cliquet `check-api-error-leak`).
  */
 export function refusLienPrestataireDepuisDb(
   error: { code?: string } | null,
 ): RefusLienPrestataire | null {
   switch (error?.code) {
-    // trg_garde_lien_prestataire_transporteur (migration 20260916100000)
-    case '23001':
-      return {
-        status: 409,
-        error:
-          'Prestataire logistique ou type de TMS non modifiable : des collectes non clôturées dépendent de ce transporteur. Pour changer de prestataire, créez un nouveau transporteur.',
-      };
     // uniq_transporteur_par_prestataire (#323) — la clé primaire, seul autre
     // index unique de la table, n'est jamais écrite par ces routes.
     case '23505':

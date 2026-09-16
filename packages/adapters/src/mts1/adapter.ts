@@ -37,6 +37,7 @@ import {
   prestatairesDuType,
   retenirTourneesDuProvider,
 } from '../provider-tournees.js';
+import { FILTRE_STATUTS_COLLECTE_TERMINAUX } from '../statuts-collecte.js';
 import type { CreateOrderPayload, CreateTourPayload } from './client.js';
 import { Mts1Client } from './client.js';
 import type { Mts1Tour } from './mock.js';
@@ -405,11 +406,7 @@ export class AdapterMts1 implements LogistiqueProvider {
       )
       .eq('evenements.lieu_id', lieu.id)
       .gte('date_collecte', jourParis())
-      .not(
-        'statut',
-        'in',
-        '(realisee,cloturee,annulee,rejetee_par_prestataire)',
-      );
+      .not('statut', 'in', FILTRE_STATUTS_COLLECTE_TERMINAUX);
 
     // Une erreur de lecture n'est PAS « rien à propager » : sans ce throw, l'event
     // E5 serait marqué `done` avec le consumer `adapter_mts1` (outbox-worker

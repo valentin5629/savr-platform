@@ -25,6 +25,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { sendAlert } from '@savr/shared/src/alerting/slack.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 import {
   CancelWindowClosedError,
@@ -388,8 +389,46 @@ async function maybeAlertEarlyCollecte(
   // Seuil §04 l.2337 : alerte anticipée dès attempts ≥ 2 (attempts compte la
   // tentative au claim — cf. §04 l.2328).
   if (event.attempts < 2) return;
-  if (event.aggregate_type !== 'collecte') return;
 
+  // Date de référence selon aggregate_type (§07/03, étendu aux events `lieu` le
+  // 2026-09-16) : un E5 `lieu.champ_critique_modifie` en échec avant une collecte
+  // du soir resterait sinon silencieux ~25 h (DLQ seule), camion à l'ancienne
+  // adresse. Tout autre aggregate_type n'a pas de collecte de référence.
+  const reference =
+    event.aggregate_type === 'collecte'
+      ? await fetchDateCollecte(supabase, event)
+      : event.aggregate_type === 'lieu'
+        ? await fetchProchaineCollecteDuLieu(supabase, event)
+        : null;
+  if (!reference) return;
+
+  const dateCollecte = new Date(reference.date_collecte);
+  const seuil = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  if (dateCollecte > seuil) return;
+
+  // Une seule alerte par event (la collecte la plus proche), même canal que le
+  // cas collecte — jamais une alerte par collecte du lieu.
+  const cible =
+    event.aggregate_type === 'lieu'
+      ? `lieu_id=${event.aggregate_id} collecte_id=${reference.id}`
+      : `collecte_id=${reference.id}`;
+  await sendAlert({
+    canal: 'critique',
+    titre: `[ALERTE] Collecte J-1 en échec d'envoi MTS-1`,
+    message: `${cible} date=${reference.date_collecte} attempts=${event.attempts}`,
+    metadata: { event_id: event.id, event_type: event.event_type },
+  });
+}
+
+interface CollecteDeReference {
+  id: string;
+  date_collecte: string;
+}
+
+async function fetchDateCollecte(
+  supabase: SupabaseClient,
+  event: ClaimedEvent,
+): Promise<CollecteDeReference | null> {
   const collecteId =
     (event.payload['collecte_id'] as string | undefined) ?? event.aggregate_id;
   const { data } = await supabase
@@ -397,20 +436,37 @@ async function maybeAlertEarlyCollecte(
     .select('date_collecte')
     .eq('id', collecteId)
     .maybeSingle();
+  if (!data) return null;
+  return { id: collecteId, date_collecte: data.date_collecte as string };
+}
 
-  if (!data) return;
+// Statuts terminaux de la machine à états collecte (CLAUDE.md §3) + sorties
+// annulee / rejetee_par_prestataire : plus rien à envoyer au transporteur.
+const STATUTS_COLLECTE_TERMINAUX =
+  '(realisee,realisee_sans_collecte,cloturee,annulee,rejetee_par_prestataire)';
 
-  const dateCollecte = new Date(data.date_collecte as string);
-  const seuil = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-  if (dateCollecte <= seuil) {
-    await sendAlert({
-      canal: 'critique',
-      titre: `[ALERTE] Collecte J-1 en échec d'envoi MTS-1`,
-      message: `collecte_id=${collecteId} date=${data.date_collecte} attempts=${event.attempts}`,
-      metadata: { event_id: event.id, event_type: event.event_type },
-    });
-  }
+/**
+ * Plus proche collecte FUTURE NON TERMINALE du lieu (§07/03). Le lieu est porté
+ * par l'événement parent (collectes n'a pas de lieu_id) → jointure
+ * `evenements.lieu_id`, comme `AdapterMts1.updateLieu`.
+ */
+async function fetchProchaineCollecteDuLieu(
+  supabase: SupabaseClient,
+  event: ClaimedEvent,
+): Promise<CollecteDeReference | null> {
+  const lieuId =
+    (event.payload['lieu_id'] as string | undefined) ?? event.aggregate_id;
+  const { data } = await supabase
+    .from('collectes')
+    .select('id, date_collecte, evenements!inner(lieu_id)')
+    .eq('evenements.lieu_id', lieuId)
+    .gte('date_collecte', jourParis())
+    .not('statut', 'in', STATUTS_COLLECTE_TERMINAUX)
+    .order('date_collecte', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (!data) return null;
+  return { id: data.id as string, date_collecte: data.date_collecte as string };
 }
 
 // ─── Fetch helpers ────────────────────────────────────────────────────────────

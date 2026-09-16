@@ -174,9 +174,10 @@ supabase/migrations/20260915170000_plateforme_transporteurs_presta_unique.sql
 supabase/tests/SECU__transporteur_presta_unique.test.sql
 # supabase/migrations/20260915210000_* + son pgTAP (invariants du cloisonnement
 # provider) — 'mts1'/'a_toutes'/'everest' n'apparaissent que (a) dans les commentaires
-# qui expliquent POURQUOI l'index existe et (b) comme valeurs de l'enum
-# transporteurs.type_tms dans les fixtures pgTAP. La migration ne pose que deux index
-# UNIQUE partiels : aucune logique adapter, aucun appel HTTP, aucun nom de ressource
+# et le COMMENT ON INDEX qui expliquent POURQUOI l'index existe et (b) comme valeurs de
+# l'enum transporteurs.type_tms dans les fixtures pgTAP. La migration ne pose qu'un index
+# UNIQUE partiel (uniq_tournee_par_external_ref ; celui du 1:1 prestataire vit dans
+# 20260915170000) : aucune logique adapter, aucun appel HTTP, aucun nom de ressource
 # distante. Même nature d'exception que 20260625000000 (bridge dispatch AG).
 # 'customerOrders' reste banni.
 supabase/migrations/20260915210000_plateforme_cloisonnement_provider_invariants.sql

@@ -3,6 +3,7 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
 import { serverError } from '@/lib/api-helpers.js';
+import { COLONNES_IMMUABLES } from '@/lib/transporteur-lien-prestataire.js';
 
 export async function GET(
   req: NextRequest,
@@ -59,6 +60,20 @@ export async function PATCH(
   const { id } = await params;
   const body = (await req.json()) as Record<string, unknown>;
 
+  // `type_tms` et `prestataire_logistique_id` sont posés à la création et jamais
+  // modifiables (arbitrage Val 2026-09-16, trigger trg_transporteur_cols_immuables).
+  // Refus explicite plutôt que filtrage silencieux : l'appelant doit savoir que
+  // sa modification n'a pas été écrite.
+  const immuables = COLONNES_IMMUABLES.filter((k) => k in body);
+  if (immuables.length > 0) {
+    return NextResponse.json(
+      {
+        error: `${immuables.join(', ')} non modifiable après création — créez un nouveau transporteur`,
+      },
+      { status: 422 },
+    );
+  }
+
   const ALLOWED_FIELDS = [
     'nom',
     'siren',
@@ -69,7 +84,6 @@ export async function PATCH(
     'longitude',
     'types_vehicules',
     'types_collecte',
-    'type_tms',
     'description_process_collecte',
     'code_transporteur_mts1',
     'contact_nom',
@@ -91,14 +105,6 @@ export async function PATCH(
     );
   }
 
-  const finalTypeTms = updates.type_tms ?? undefined;
-  if (finalTypeTms === 'mts1' && !updates.code_transporteur_mts1) {
-    return NextResponse.json(
-      { error: 'code_transporteur_mts1 requis pour type_tms=mts1' },
-      { status: 422 },
-    );
-  }
-
   const supabase = createAdminSupabaseClient();
   const { data: before, error: fetchErr } = await supabase
     .from('transporteurs')
@@ -113,13 +119,12 @@ export async function PATCH(
     );
   }
 
-  const effectiveTypeTms = (updates.type_tms ??
-    (before as { type_tms: string }).type_tms) as string;
+  const typeTms = (before as { type_tms: string }).type_tms;
   const effectiveCode =
     updates.code_transporteur_mts1 ??
     (before as { code_transporteur_mts1: string | null })
       .code_transporteur_mts1;
-  if (effectiveTypeTms === 'mts1' && !effectiveCode) {
+  if (typeTms === 'mts1' && !effectiveCode) {
     return NextResponse.json(
       { error: 'code_transporteur_mts1 requis pour type_tms=mts1' },
       { status: 422 },

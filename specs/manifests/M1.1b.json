@@ -49,7 +49,11 @@
     "packages/plateforme/tests/api/admin/parametres-taux-recyclage.m1-1b.test.ts",
     "e2e/m1-1b-lieu-collecte.spec.ts",
     "specs/manifests/M1.1b.json",
-    ".claude/brief-ack-feat-m1.1-backoffice-admin"
+    ".claude/brief-ack-feat-m1.1-backoffice-admin",
+    "packages/plateforme/src/lib/transporteur-lien-prestataire.ts",
+    "packages/plateforme/src/app/api/v1/admin/prestataires/route.ts",
+    "packages/plateforme/src/components/admin/transporteur-modal.tsx",
+    "supabase/migrations/20260916150000_plateforme_transporteurs_cols_immuables.sql"
   ],
   "scenarios": [
     "M1.1b/lieux/liste — 200 avec data pour admin_savr",
@@ -71,7 +75,12 @@
     "M1.1b/transporteurs/create — 201 si type_tms=mts1 avec code",
     "M1.1b/transporteurs/create — 403 si rôle client",
     "M1.1b/transporteurs/create — 422 si type_tms=mts1 sans code",
-    "M1.1b/transporteurs/patch — 422 si changement type_tms=mts1 sans code existant",
+    "M1.1b/transporteurs/patch — 422 si un transporteur mts1 perd son code (type lu en base)",
+    "create — 422 si type_tms=a_toutes sans prestataire logistique, rien n'est écrit",
+    "create — a_toutes avec prestataire : le lien est ÉCRIT",
+    "patch — refus même quand la valeur envoyée est identique à l'existant",
+    "patch — « Désactiver » un transporteur mts1 sans prestataire reste LIBRE, et n'écrit que actif",
+    "édition : Type de TMS et Prestataire logistique verrouillés, affichant la valeur posée",
     "M1.1b/dispatch — 403 si ops tente override prestataire",
     "M1.1b/dispatch — 404 si collecte inconnue",
     "M1.1b/dispatch — 422 si override sans motif du tout",
@@ -320,6 +329,30 @@
       "test": "M1.1b/associations/patch — admin persiste numero_rup, vide ⇒ NULL",
       "statut": "implemented",
       "libelle": "Champ « N° RUP » de la modale association (facultatif, édition admin-only) : POST/PATCH /admin/associations, vide ⇒ NULL, 403 pour ops_savr (route + trigger trg_ops_immutable_cols, pgTAP M0_6__rls_ops_column_level)"
+    },
+    {
+      "id": "M1.1b-transporteur-lien-requis",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/transporteurs/route.ts",
+      "test": "create — 422 si type_tms=a_toutes sans prestataire logistique, rien n'est écrit",
+      "statut": "implemented",
+      "libelle": "§6 Prestataire logistique : saisi à la création, requis si type_tms ∈ {mts1, a_toutes}, prestataire déjà rattaché grisé/refusé (UNIQUE)"
+    },
+    {
+      "id": "M1.1b-transporteur-cols-immuables",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "supabase/migrations/20260916150000_plateforme_transporteurs_cols_immuables.sql",
+      "test": "supabase/tests/SECU__transporteur_cols_immuables.test.sql",
+      "statut": "implemented",
+      "libelle": "§6 Immuabilité : type_tms et prestataire_logistique_id jamais modifiables (écran, PostgREST, SQL) — trg_transporteur_cols_immuables ; actif=false libre"
+    },
+    {
+      "id": "M1.1b-transporteur-delete-sous-tournees",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
+      "artefact": "supabase/migrations/20260916150000_plateforme_transporteurs_cols_immuables.sql",
+      "test": "supabase/tests/SECU__transporteur_cols_immuables.test.sql",
+      "statut": "implemented",
+      "libelle": "§6 Immuabilité : DELETE refusé dès qu'une tournée référence le transporteur"
     }
   ],
   "cdc_source_hash": {

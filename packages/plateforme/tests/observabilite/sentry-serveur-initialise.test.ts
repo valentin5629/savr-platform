@@ -1,0 +1,205 @@
+/**
+ * Sentry serveur réellement initialisé + filtrage des secrets (revue #338).
+ *
+ * Constat 2026-09-16 : aucun `instrumentation.ts` → `sentry.server.config.ts`
+ * jamais chargé par Next 15 / @sentry/nextjs 10 → le sink restait le no-op et
+ * tout `captureException` serveur (emitCronFailed, slack.send_failed…) était perdu.
+ *
+ * Le test passe par le VRAI SDK : `register()` est appelé comme Next le fait, et
+ * l'enveloppe est lue au hook `beforeEnvelope` du client, juste avant l'envoi.
+ * Le DSN vise un port local fermé : rien ne sort de la machine.
+ */
+import fs from 'node:fs';
+import path from 'node:path';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import type { Breadcrumb, ErrorEvent } from '@sentry/nextjs';
+
+import {
+  assainirUrl,
+  filtrerBreadcrumb,
+  filtrerEvenement,
+} from '@/lib/sentry-filtrage';
+
+const RACINE_PKG = path.resolve(__dirname, '../..');
+// Valeurs sensibles construites au runtime : l'intégration ContextLines du SDK
+// recopie les lignes de source autour des frames, un littéral écrit près de
+// l'appel apparaîtrait dans l'enveloppe et fausserait l'assertion.
+const JETON = ['JETON', 'SECRET', 'xyz123'].join('');
+const ADRESSE = ['rue', 'de', 'Paris'].join('+');
+const URL_SLACK = `https://hooks.slack.com/services/T0AAA/B0BBB/${JETON}`;
+
+describe('M0.9 — instrumentation.ts : emplacement chargé par Next', () => {
+  it('vit dans src/ (app dans src/app), jamais à la racine du package', () => {
+    expect(fs.existsSync(path.join(RACINE_PKG, 'src/instrumentation.ts'))).toBe(
+      true,
+    );
+    for (const ext of ['ts', 'js', 'mjs']) {
+      expect(
+        fs.existsSync(path.join(RACINE_PKG, `instrumentation.${ext}`)),
+      ).toBe(false);
+    }
+  });
+});
+
+describe('M0.9 — Sentry serveur via register() (SDK réel)', () => {
+  const enveloppes: string[] = [];
+  let Sentry: typeof import('@sentry/nextjs');
+  let shared: typeof import('@savr/shared/src/alerting/sentry.js');
+  const envAvant = {
+    dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+    runtime: process.env.NEXT_RUNTIME,
+  };
+
+  beforeAll(async () => {
+    process.env.NEXT_PUBLIC_SENTRY_DSN = 'http://cle@127.0.0.1:9/1';
+    process.env.NEXT_RUNTIME = 'nodejs';
+    Sentry = await import('@sentry/nextjs');
+    shared = await import('@savr/shared/src/alerting/sentry.js');
+  });
+
+  afterAll(async () => {
+    await Sentry.close(0).catch(() => undefined);
+    if (envAvant.dsn === undefined) delete process.env.NEXT_PUBLIC_SENTRY_DSN;
+    else process.env.NEXT_PUBLIC_SENTRY_DSN = envAvant.dsn;
+    if (envAvant.runtime === undefined) delete process.env.NEXT_RUNTIME;
+    else process.env.NEXT_RUNTIME = envAvant.runtime;
+  });
+
+  it('M0.9-4 — Sentry Next.js intégration via sentry.client.config.ts + sentry.server.config.ts', async () => {
+    // Avant register() : aucun client, le sink partagé est le no-op.
+    expect(Sentry.getClient()).toBeUndefined();
+
+    const instrumentation = await import('@/instrumentation');
+    expect(instrumentation.onRequestError).toBe(Sentry.captureRequestError);
+    await instrumentation.register();
+
+    const client = Sentry.getClient();
+    expect(client).toBeDefined();
+    client!.on('beforeEnvelope', (env) => {
+      enveloppes.push(JSON.stringify(env));
+    });
+
+    // Breadcrumb tel que le produit l'intégration fetch sur un envoi Slack.
+    Sentry.addBreadcrumb({
+      category: 'http',
+      type: 'http',
+      data: {
+        url: URL_SLACK,
+        'http.method': 'POST',
+        'http.query': `?adresse=12+${ADRESSE}`,
+        status_code: 500,
+      },
+    });
+
+    // Filtré dès l'enregistrement (beforeBreadcrumb), pas seulement à l'envoi :
+    // beforeSend refiltre aussi les breadcrumbs, l'enveloppe seule ne
+    // distinguerait pas les deux gardes.
+    const enregistres = Sentry.getIsolationScope().getScopeData().breadcrumbs;
+    expect(enregistres.at(-1)?.data).toEqual({
+      url: 'https://hooks.slack.com/[Filtered]',
+      'http.method': 'POST',
+      status_code: 500,
+    });
+
+    // Passe par le sink PARTAGÉ (celui des call-sites serveur), pas par Sentry.
+    shared.captureException(new Error(`échec POST ${URL_SLACK}`), {
+      role: 'admin_savr',
+      organisation_id: 'org-1',
+    });
+    await Sentry.flush(2000);
+
+    const evt = enveloppes.find((e) => e.includes('"type":"event"'));
+    expect(
+      evt,
+      'le sink partagé doit atteindre le client Sentry',
+    ).toBeDefined();
+    expect(evt).toContain('"role":"admin_savr"');
+    expect(evt).toContain('hooks.slack.com/[Filtered]');
+    expect(evt).not.toContain(JETON);
+    expect(evt).not.toContain(ADRESSE);
+  });
+});
+
+describe('M0.9 — filtrage Sentry : breadcrumbs', () => {
+  it('masque le chemin d’un webhook Slack et retire query + fragment', () => {
+    const b = filtrerBreadcrumb({
+      category: 'http',
+      data: {
+        url: URL_SLACK,
+        'http.query': '?a=1',
+        'http.fragment': '#f',
+        status_code: 200,
+      },
+    });
+    expect(b.data).toEqual({
+      url: 'https://hooks.slack.com/[Filtered]',
+      status_code: 200,
+    });
+  });
+
+  it('garde le chemin d’un hôte ordinaire mais jamais sa query', () => {
+    const b = filtrerBreadcrumb({
+      data: { url: 'https://s3.example.com/photos/p.jpg?X-Amz-Signature=abc' },
+    });
+    expect(b.data?.['url']).toBe('https://s3.example.com/photos/p.jpg');
+  });
+
+  it('navigation : fragment #access_token retiré de from/to', () => {
+    const b: Breadcrumb = filtrerBreadcrumb({
+      category: 'navigation',
+      data: { from: '/login', to: '/reset#access_token=eyJ.secret' },
+    });
+    expect(b.data).toEqual({ from: '/login', to: '/reset' });
+  });
+
+  it('message console contenant une URL Slack : chemin masqué', () => {
+    const b = filtrerBreadcrumb({ message: `POST ${URL_SLACK} -> 404` });
+    expect(b.message).toBe('POST https://hooks.slack.com/[Filtered] -> 404');
+  });
+});
+
+describe('M0.9 — filtrage Sentry : events', () => {
+  it('requête entrante : en-têtes, cookies, query et corps retirés', () => {
+    const e = filtrerEvenement({
+      type: undefined,
+      request: {
+        url: 'https://app.gosavr.io/api/webhooks/transporteur?token=SECRET',
+        method: 'POST',
+        headers: { 'x-webhook-token': 'SECRET', 'x-internal-token': 'SECRET' },
+        cookies: { 'sb-access-token': 'SECRET' },
+        query_string: 'token=SECRET',
+        data: 'mission_id=1',
+      },
+      contexts: {
+        nextjs: { request_path: '/api/webhooks/transporteur?token=SECRET' },
+      },
+    } as ErrorEvent);
+    expect(JSON.stringify(e)).not.toContain('SECRET');
+    expect(e.request).toEqual({
+      url: 'https://app.gosavr.io/api/webhooks/transporteur',
+      method: 'POST',
+    });
+    expect(e.contexts?.['nextjs']?.['request_path']).toBe(
+      '/api/webhooks/transporteur',
+    );
+  });
+
+  it('message et valeur d’exception : URL Slack masquée', () => {
+    const e = filtrerEvenement({
+      type: undefined,
+      message: `x ${URL_SLACK}`,
+      exception: { values: [{ type: 'Error', value: `y ${URL_SLACK}` }] },
+    } as ErrorEvent);
+    expect(JSON.stringify(e)).not.toContain(JETON);
+  });
+
+  it('assainirUrl : sous-domaine Slack, identifiants et URL non parsable', () => {
+    expect(assainirUrl('https://u:p@x.hooks.slack.com/a/b?c')).toBe(
+      'https://x.hooks.slack.com/[Filtered]',
+    );
+    expect(assainirUrl('https://u:p@api.example.com/v3/tours?x=1')).toBe(
+      'https://api.example.com/v3/tours',
+    );
+    expect(assainirUrl(`::: ${URL_SLACK}`)).not.toContain(JETON);
+  });
+});

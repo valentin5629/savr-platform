@@ -1,5 +1,6 @@
 import * as Sentry from '@sentry/nextjs';
 import { setSentrySink } from '@savr/shared/src/alerting/sentry.js';
+import { filtrerBreadcrumb, filtrerEvenement } from './src/lib/sentry-filtrage';
 
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
 
@@ -9,7 +10,12 @@ if (dsn) {
     environment: process.env.NODE_ENV,
     // Pas de session replay, pas de tracing — Error monitoring only (V1)
     integrations: [],
+    sendDefaultPii: false,
     tracesSampleRate: 0,
+    // Même filtrage que le serveur : les breadcrumbs de navigation gardent
+    // l'URL complète, fragment compris (`#access_token=` d'un lien Supabase).
+    beforeBreadcrumb: (breadcrumb) => filtrerBreadcrumb(breadcrumb),
+    beforeSend: (event) => filtrerEvenement(event),
     replaysSessionSampleRate: 0,
     replaysOnErrorSampleRate: 0,
   });

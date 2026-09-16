@@ -9,6 +9,8 @@
     "packages/shared/src/alerting/slack.ts",
     "packages/plateforme/sentry.client.config.ts",
     "packages/plateforme/sentry.server.config.ts",
+    "packages/plateforme/src/lib/sentry-filtrage.ts",
+    "packages/plateforme/src/instrumentation.ts",
     "packages/plateforme/src/app/api/health/route.ts",
     "packages/plateforme/src/app/api/health/full/route.ts",
     "packages/plateforme/src/app/(admin)/admin/sante-systeme/page.tsx",
@@ -26,7 +28,8 @@
     "packages/shared/src/alerting/alerting.m0-9.test.ts",
     "packages/shared/src/rate-limit/outbound-throttle.m0-9.test.ts",
     "packages/shared/src/api/integrations-tiers-log.m0-9.test.ts",
-    "packages/adapters/src/mts1/client-429.m0-9.test.ts"
+    "packages/adapters/src/mts1/client-429.m0-9.test.ts",
+    "packages/plateforme/tests/observabilite/sentry-serveur-initialise.test.ts"
   ],
   "tests_pgtap": [
     "supabase/tests/health_ops_views.m0-9.test.sql",
@@ -93,7 +96,7 @@
     {
       "id": "M0.9-04",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/07 - Observabilité/01 - Logs business.md",
-      "artefact": null,
+      "artefact": "packages/plateforme/src/instrumentation.ts",
       "test": "M0.9-4 — Sentry Next.js intégration via sentry.client.config.ts + sentry.server.config.ts",
       "statut": "implemented",
       "libelle": "M0.9-4 — Sentry Next.js intégration via sentry.client.config.ts + sentry.server.config.ts"

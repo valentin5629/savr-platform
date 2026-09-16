@@ -3,6 +3,10 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
 import { serverError } from '@/lib/api-helpers.js';
+import {
+  refusLienPrestataireDepuisDb,
+  validerLienPrestataire,
+} from '@/lib/transporteur-lien-prestataire.js';
 
 export async function GET(
   req: NextRequest,
@@ -72,6 +76,9 @@ export async function PATCH(
     'type_tms',
     'description_process_collecte',
     'code_transporteur_mts1',
+    // Modifiable, mais gardé en base : refusé sous des collectes non clôturées
+    // (trg_garde_lien_prestataire_transporteur).
+    'prestataire_logistique_id',
     'contact_nom',
     'contact_email',
     'contact_telephone',
@@ -126,6 +133,25 @@ export async function PATCH(
     );
   }
 
+  // Contrôlé seulement si l'appel touche au type ou au lien : « Désactiver »
+  // n'envoie que `actif`, et ne doit pas être bloqué sur un transporteur
+  // antérieur à ce contrôle.
+  if ('type_tms' in updates || 'prestataire_logistique_id' in updates) {
+    const lienInvalide = validerLienPrestataire(
+      effectiveTypeTms,
+      'prestataire_logistique_id' in updates
+        ? updates.prestataire_logistique_id
+        : (before as { prestataire_logistique_id: string | null })
+            .prestataire_logistique_id,
+    );
+    if (lienInvalide) {
+      return NextResponse.json(
+        { error: lienInvalide.error },
+        { status: lienInvalide.status },
+      );
+    }
+  }
+
   // Géocodage en background au save, relancé si adresse/code_postal/ville change
   // — fail-open, cf. packages/plateforme/src/lib/geocoding.ts.
   if (
@@ -156,7 +182,16 @@ export async function PATCH(
     .select()
     .single();
 
-  if (error) return serverError(error, 'admin.transporteurs.update');
+  if (error) {
+    const refus = refusLienPrestataireDepuisDb(error);
+    if (refus) {
+      return NextResponse.json(
+        { error: refus.error },
+        { status: refus.status },
+      );
+    }
+    return serverError(error, 'admin.transporteurs.update');
+  }
 
   await supabase.from('audit_log').insert({
     table_name: 'transporteurs',

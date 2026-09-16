@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { Building2, Plus, Search } from 'lucide-react';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, type Column } from '@/components/ui/data-table';
@@ -10,6 +9,10 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ImpersonationLauncher } from '@/components/ui/impersonation-launcher';
 import { PageHero } from '@/components/ui/page-hero';
+import {
+  OrganisationModal,
+  TYPE_ORGANISATION_LABELS as TYPE_LABELS,
+} from '@/components/admin/organisation-modal';
 
 interface PackActif {
   type_pack: string;
@@ -27,13 +30,6 @@ interface Organisation {
   nb_collectes_ag_12m: number;
   pack_actif: PackActif | null;
 }
-
-const TYPE_LABELS: Record<string, string> = {
-  traiteur: 'Traiteur',
-  agence: 'Agence',
-  gestionnaire_lieux: 'Gestionnaire lieux',
-  client_organisateur: 'Client organisateur',
-};
 
 // Libellé compact du type de pack pour la colonne (ex. pack_30 → « Pack 30 »).
 const PACK_LABELS: Record<string, string> = {
@@ -123,6 +119,7 @@ export default function ClientsPage() {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [actifFilter, setActifFilter] = useState('');
+  const [modalOpen, setModalOpen] = useState(false);
 
   const fetchOrgs = useCallback(async () => {
     setLoading(true);
@@ -163,12 +160,12 @@ export default function ClientsPage() {
             : `${total} organisation${total !== 1 ? 's' : ''}`
         }
         actions={
-          <Link href="/admin/clients/nouveau">
-            <Button variant="accent">
-              <Plus className="w-4 h-4" />
-              Créer une organisation
-            </Button>
-          </Link>
+          // admin_savr ET ops_savr (§06.06 + matrice ops §09) : le layout
+          // (admin) et requireStaff bornent déjà aux 2 rôles staff.
+          <Button variant="accent" onClick={() => setModalOpen(true)}>
+            <Plus className="w-4 h-4" />
+            Nouvelle organisation
+          </Button>
         }
       />
 
@@ -233,6 +230,12 @@ export default function ClientsPage() {
           keyExtractor={(row) => row.id}
         />
       )}
+
+      <OrganisationModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onCreated={() => void fetchOrgs()}
+      />
     </div>
   );
 }

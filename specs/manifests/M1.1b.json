@@ -320,6 +320,14 @@
       "test": "M1.1b/associations/patch — admin persiste numero_rup, vide ⇒ NULL",
       "statut": "implemented",
       "libelle": "Champ « N° RUP » de la modale association (facultatif, édition admin-only) : POST/PATCH /admin/associations, vide ⇒ NULL, 403 pour ops_savr (route + trigger trg_ops_immutable_cols, pgTAP M0_6__rls_ops_column_level)"
+    },
+    {
+      "id": "M1.1b-organisation-creation-modale",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:626",
+      "artefact": "packages/plateforme/src/components/admin/organisation-modal.tsx",
+      "test": "M1.1b — Modale Nouvelle organisation (§06.06) + M1.1b — le CTA ouvre la modale",
+      "statut": "implemented",
+      "libelle": "Bouton « Nouvelle organisation » (liste Clients, admin_savr + ops_savr) → modale de création : 7 champs de l'allowlist POST /api/v1/admin/organisations (nom, raison sociale, type, email obligatoires ; SIRET 14 chiffres, téléphone, adresse optionnels), aucun champ admin-only ni système"
     }
   ],
   "cdc_source_hash": {

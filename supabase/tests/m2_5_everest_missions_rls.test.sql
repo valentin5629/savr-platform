@@ -2,10 +2,12 @@
 -- Tests pgTAP M2.5 — RLS plateforme.everest_missions
 -- =============================================================================
 -- Périmètre : 9 tests RLS — admin_savr/ops_savr (allow) vs autres rôles (deny)
+-- + T_M14.5 (3 tests) : CHECK chk_everest_created_manually en IMPLICATION
+--   (arbitrage Val 2026-09-16, migration 20260916170000), sous admin_savr.
 -- =============================================================================
 
 BEGIN;
-SELECT plan(9);
+SELECT plan(12);
 
 -- ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -265,6 +267,53 @@ SELECT is(
   (SELECT count(*)::int FROM plateforme.everest_missions),
   0,
   'T9 gestionnaire_lieux — SELECT everest_missions : 0 ligne (R9, deny tous rôles non-staff)'
+);
+
+-- ─── T_M14.5 : CHECK created_manually = implication ─────────────────────────
+-- Avant 20260916170000, le CHECK était une ÉQUIVALENCE : T11 levait 23514.
+-- La mission ed250001 est passée en created_manually AVEC sa référence et ses 3
+-- champs par le superuser (état que pose fn_accepter_mission_everest_manuelle).
+
+SELECT test_as_superuser();
+UPDATE plateforme.everest_missions
+   SET statut_everest = 'created_manually',
+       everest_mission_id = 'EVR-TEL-M25',
+       manual_acceptance_at = now(),
+       manual_acceptance_by_user_id = '05250004-0000-0000-0000-000000000001'::uuid,
+       manual_acceptance_contact = 'Mathieu (A Toutes!)'
+ WHERE id = 'ed250001-0000-0000-0000-000000000001'::uuid;
+
+SELECT test_set_jwt(
+  'admin_savr',
+  '0a250001-0000-0000-0000-000000000001'::uuid,
+  '05250001-0000-0000-0000-000000000001'::uuid
+);
+
+SELECT throws_ok(
+  $$UPDATE plateforme.everest_missions
+    SET statut_everest = 'created_manually', manual_acceptance_contact = 'Mathieu'
+    WHERE tournee_id = 'b0250002-0000-0000-0000-000000000001'::uuid$$,
+  '23514',
+  NULL,
+  'T10 T_M14.5 created_manually avec un seul champ manual_acceptance_* -> 23514'
+);
+
+SELECT lives_ok(
+  $$UPDATE plateforme.everest_missions
+    SET statut_everest = 'cancelled'
+    WHERE id = 'ed250001-0000-0000-0000-000000000001'::uuid$$,
+  'T11 T_M14.5 created_manually -> cancelled : autorise (implication)'
+);
+
+SELECT is(
+  (SELECT count(*)::int FROM plateforme.everest_missions
+    WHERE id = 'ed250001-0000-0000-0000-000000000001'::uuid
+      AND statut_everest = 'cancelled'
+      AND manual_acceptance_at IS NOT NULL
+      AND manual_acceptance_by_user_id IS NOT NULL
+      AND manual_acceptance_contact IS NOT NULL),
+  1,
+  'T12 T_M14.5 apres sortie de created_manually, les 3 champs manual_acceptance_* sont conserves'
 );
 
 SELECT * FROM finish();

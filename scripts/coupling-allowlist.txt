@@ -242,3 +242,10 @@ supabase/tests/everest_acceptation_manuelle_reference.test.sql
 # adapter, aucun appel HTTP transporteur. 'customerOrders' banni.
 supabase/migrations/20260916170000_plateforme_everest_created_manually_implication.sql
 supabase/tests/everest_created_manually_cycle_de_vie.test.sql
+# Acceptation manuelle A Toutes! : refus depuis rejetee_par_prestataire (2026-09-16,
+# plan acceptation_manuelle_everest_statut_depart) + pgTAP des plans du scénario :
+# 'everest' = nom de la RPC `fn_accepter_mission_everest_manuelle`, de la table
+# `everest_missions` et de la colonne `everest_mission_id`. Écritures DB uniquement,
+# aucun appel HTTP transporteur. 'customerOrders' banni.
+supabase/migrations/20260916180000_plateforme_everest_acceptation_manuelle_refus_rejetee.sql
+supabase/tests/everest_acceptation_manuelle_plans.test.sql

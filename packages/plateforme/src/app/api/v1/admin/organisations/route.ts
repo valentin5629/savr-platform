@@ -172,9 +172,25 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
     adresse?: string;
   };
 
-  if (!raison_sociale || !type) {
+  // Champs obligatoires du CDC §06.06 (bouton « Nouvelle organisation ») :
+  // nom, raison sociale, type, email principal. Imposés ICI et pas seulement
+  // dans la modale : la route tourne sous service_role, un appel direct
+  // contournerait sinon la règle. Une chaîne blanche compte comme absente.
+  const texte = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
+  const manquants = (
+    [
+      ['nom', 'nom', nom],
+      ['raison_sociale', 'raison sociale', raison_sociale],
+      ['type', 'type', type],
+      ['email_principal', 'email principal', email_principal],
+    ] as const
+  ).filter(([, , v]) => texte(v) === '');
+  if (manquants.length > 0) {
     return NextResponse.json(
-      { error: 'raison_sociale et type sont obligatoires' },
+      {
+        error: `Champ(s) obligatoire(s) manquant(s) : ${manquants.map(([, libelle]) => libelle).join(', ')}`,
+        champs_invalides: manquants.map(([champ]) => champ),
+      },
       { status: 422 },
     );
   }
@@ -191,7 +207,7 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
   // échouer l'assignation AVANT l'excess-property-check et rend le gate
   // `check:column-db` AVEUGLE aux colonnes fantômes de cet INSERT — c'est
   // exactement pourquoi il n'avait pas vu `code_postal`/`ville`.
-  if (!(TYPES_VALIDES as readonly string[]).includes(type)) {
+  if (!(TYPES_VALIDES as readonly string[]).includes(type as string)) {
     return NextResponse.json({ error: 'type invalide' }, { status: 422 });
   }
   const typeOrga = type as OrganisationType;
@@ -200,14 +216,11 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
   const { data: org, error } = await supabase
     .from('organisations')
     .insert({
-      // `nom` = nom usuel, NOT NULL sans default : sans lui l'INSERT viole
-      // 23502. Le back-office ne collecte que la raison sociale → fallback
-      // `nom = raison_sociale` (même règle qu'à l'inscription, §04 Data Model).
-      nom: nom ?? raison_sociale,
-      raison_sociale,
+      nom: texte(nom),
+      raison_sociale: texte(raison_sociale),
       type: typeOrga,
       siret,
-      email_principal,
+      email_principal: texte(email_principal),
       telephone,
       adresse,
     })

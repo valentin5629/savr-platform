@@ -353,6 +353,14 @@
       "test": "supabase/tests/SECU__transporteur_cols_immuables.test.sql",
       "statut": "implemented",
       "libelle": "§6 Immuabilité : DELETE refusé dès qu'une tournée référence le transporteur"
+    },
+    {
+      "id": "M1.1b-organisation-creation-modale",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:626",
+      "artefact": "packages/plateforme/src/components/admin/organisation-modal.tsx",
+      "test": "M1.1b — Modale Nouvelle organisation (§06.06) + M1.1b — le CTA ouvre la modale",
+      "statut": "implemented",
+      "libelle": "Bouton « Nouvelle organisation » (liste Clients, admin_savr + ops_savr) → modale de création : 7 champs de l'allowlist POST /api/v1/admin/organisations (nom, raison sociale, type, email obligatoires ; SIRET 14 chiffres, téléphone, adresse optionnels), aucun champ admin-only ni système"
     }
   ],
   "cdc_source_hash": {

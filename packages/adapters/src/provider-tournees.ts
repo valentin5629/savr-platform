@@ -74,11 +74,26 @@ export async function prestatairesDuType(
   // (ou une ligne partielle) remonte `undefined`. Laisser `undefined` entrer
   // dans le Set le rendrait vrai pour toute tournée dont le prestataire est lui
   // aussi `undefined` — le filtre dégénérerait en « tout passe » (#313).
-  return new Set(
+  const prestataires = new Set(
     rows
       .map((t) => t.prestataire_logistique_id)
       .filter((id): id is string => typeof id === 'string' && id !== ''),
   );
+
+  // Un Set VIDE n'est pas un résultat exploitable : il écarterait toutes les
+  // tournées, donc ferait taire le provider en silence (l'event serait marqué
+  // `done` sans qu'aucun appel ne parte). Ce n'est pas théorique — sur dev, un
+  // transporteur `mts1` sur quatre n'a aucun prestataire, et E5/sync prennent
+  // « n'importe quel » transporteur du type. On lève, comme sur une erreur de
+  // lecture ; l'appelant le mémoïse alors sans risque, puisqu'il ne reçoit
+  // jamais de Set vide.
+  if (prestataires.size === 0) {
+    throw new LogistiqueTransientError(
+      `Aucun prestataire rattaché à un transporteur ${typeTms} : le cloisonnement par provider écarterait toutes les tournées`,
+    );
+  }
+
+  return prestataires;
 }
 
 /**

@@ -61,6 +61,68 @@ function makeReq(method: string, url: string, body?: unknown): NextRequest {
   });
 }
 
+// ── Le PATCH n'est PAS un chemin de dispatch ─────────────────────────────────
+// `fn_modifier_collecte` n'a pas de branche `collecte.creee`. Depuis que le gate
+// E2 porte la dimension provider, un PATCH qui bascule `prestataire_logistique_id`
+// vers un transporteur de l'autre type n'émettrait AUCUN event : la collecte
+// pointerait sur un prestataire chez qui rien n'est commandé, sans même la ligne
+// outbox consommée en no-op. Le champ est donc hors de l'allowlist — la bascule
+// passe par `POST …/dispatch` (fn_dispatcher_collecte), qui décide du bon event.
+describe('M1.4 / le PATCH ne bascule pas le prestataire', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('un PATCH ne portant QUE prestataire_logistique_id est refusé (422, aucune RPC)', async () => {
+    setupAuth('admin_savr');
+
+    const { PATCH } =
+      await import('@/app/api/v1/admin/collectes/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/collectes/col-1', {
+        prestataire_logistique_id: 'presta-autre-provider',
+      }),
+      { params: Promise.resolve({ id: 'col-1' }) },
+    );
+
+    expect(res.status).toBe(422);
+    expect(mockSupabaseChain.rpc).not.toHaveBeenCalledWith(
+      'fn_modifier_collecte',
+      expect.anything(),
+    );
+  });
+
+  it('le champ est ignoré quand il accompagne un champ légitime (jamais propagé à la RPC)', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: { id: 'col-1', statut: 'programmee' },
+      error: null,
+    });
+    mockSupabaseChain.rpc.mockResolvedValueOnce({
+      data: { id: 'col-1', statut: 'programmee' },
+      error: null,
+    });
+
+    const { PATCH } =
+      await import('@/app/api/v1/admin/collectes/[id]/route.js');
+    await PATCH(
+      makeReq('PATCH', '/api/v1/admin/collectes/col-1', {
+        heure_collecte: '09:30',
+        prestataire_logistique_id: 'presta-autre-provider',
+      }),
+      { params: Promise.resolve({ id: 'col-1' }) },
+    );
+
+    const appel = mockSupabaseChain.rpc.mock.calls.find(
+      ([nom]) => nom === 'fn_modifier_collecte',
+    );
+    expect(appel).toBeDefined();
+    const updates = (appel![1] as Record<string, unknown>)[
+      'p_updates'
+    ] as Record<string, unknown>;
+    expect(updates).toHaveProperty('heure_collecte');
+    expect(updates).not.toHaveProperty('prestataire_logistique_id');
+  });
+});
+
 // ── RM-02 / RM-05 : gardes fn_modifier_collecte via PATCH /admin/collectes ────
 describe('M1.4 / machine à états / gardes nb_camions (RM-02/05)', () => {
   beforeEach(() => vi.clearAllMocks());

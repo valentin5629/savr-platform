@@ -792,7 +792,13 @@ describe('M1.5a / AdapterMts1 — updateCollecte E2', () => {
       eq: vi.fn().mockResolvedValue({ data: [], error: null }),
     };
     const supabase2 = {
-      from: vi.fn().mockReturnValue(mockQuery),
+      // `transporteurs` sert le référentiel : sans lui, la lecture du provider
+      // échoue et l'on ne testerait plus le no-op mais l'indisponibilité du
+      // référentiel.
+      from: vi.fn((table: string) =>
+        table === 'transporteurs' ? builderTransporteurs() : mockQuery,
+      ),
+      rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
     } as unknown as import('@supabase/supabase-js').SupabaseClient;
 
     await new AdapterMts1(TRANSPORTEUR, supabase2).updateCollecte(COLLECTE_ZD);

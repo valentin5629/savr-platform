@@ -503,8 +503,9 @@ export class AdapterMts1 implements LogistiqueProvider {
    * Chargé une fois par instance d'adapter : le référentiel est stable sur la
    * durée d'un event, que celui-ci lise les tournées une fois (E3) ou plusieurs
    * (E2 → findTournees puis dispatchCollecte des rangs manquants ; E5 → une
-   * lecture par collecte du lieu). Seul un succès est mémorisé — une lecture en
-   * échec lève (Transient) et sera rejouée par le worker.
+   * lecture par collecte du lieu). Seul un Set NON VIDE est mémorisé : une
+   * lecture en échec comme un référentiel vide lèvent (Transient) et seront
+   * rejoués par le worker — mémoïser un Set vide ferait taire le filtre.
    */
   private async prestatairesMts1(): Promise<Set<string>> {
     this.prestatairesMts1Cache ??= await prestatairesDuType(
@@ -974,19 +975,55 @@ export class AdapterMts1 implements LogistiqueProvider {
     };
   }
 
+  /**
+   * Tournée portant ce customerOrderId — volet ENTRANT du cloisonnement.
+   *
+   * Symétrique du filtre sortant (`findTournees`) : `external_ref_commande` est
+   * une colonne PARTAGÉE entre providers (Everest y stocke son mission_id), donc
+   * la seule clé d'identification d'une tournée MTS-1 est le couple
+   * (référence, prestataire de type `mts1`). Sans le volet provider, un poll
+   * MTS-1 dont l'ordre porte la même référence qu'une mission Everest écrirait
+   * `statut_tms`, `collectes.statut` et l'agrégation terminale sur la collecte
+   * de l'AUTRE transporteur.
+   *
+   * Les deux gardes sont posées dans la REQUÊTE (jointure `transporteurs` +
+   * `.eq('type_tms','mts1')`) et non après coup : une tournée d'un autre
+   * provider n'est alors pas « trouvée puis écartée », elle n'entre jamais dans
+   * le résultat — et le `.maybeSingle()` ne peut plus voir deux lignes du seul
+   * fait qu'un homonyme existe chez l'autre provider.
+   */
   private async findTourneeByOrderId(customerOrderId: string): Promise<{
     collecteId: string;
     tourneeId: string;
     tmsReference: string | null;
     collecteStatut: string;
   } | null> {
-    const { data } = await this.supabase
+    // `prestatairesDuType` garantit un Set NON VIDE (elle lève sinon) : le `.in()`
+    // ci-dessous ne peut donc jamais dégénérer en requête toujours fausse, qui
+    // ferait passer tous les ordres pour inconnus.
+    const prestatairesMts1 = await this.prestatairesMts1();
+
+    const { data, error } = await this.supabase
       .from('tournees')
       .select(
         'id, tms_reference, collecte_tournees!inner(collecte_id, collectes!inner(id, statut))',
       )
       .eq('external_ref_commande', customerOrderId)
+      .in('prestataire_logistique_id', [...prestatairesMts1])
       .maybeSingle();
+
+    // L'`error` n'était pas lue : `data` valait alors `null`, l'ordre passait
+    // pour « sans tournée Savr » et `markInboxDone(traite=true)` consommait la
+    // clé d'idempotence DÉFINITIVEMENT — pesées, statuts et agrégation terminale
+    // perdus sans trace. Une collision sur `external_ref_commande` (plusieurs
+    // lignes → PGRST116 sur `.maybeSingle()`) tombait dans le même trou. On lève
+    // : le catch de processOrder écrit l'erreur sur la ligne d'inbox, laisse
+    // `traite=false`, et le poll suivant (15 min) rejoue.
+    if (error) {
+      throw new LogistiqueTransientError(
+        `Rapprochement de l'ordre ${customerOrderId} échoué — ${error.message}`,
+      );
+    }
 
     if (!data) return null;
 

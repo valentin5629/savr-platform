@@ -162,6 +162,7 @@ packages/plateforme/src/components/admin/transporteur-modal.test.tsx
 # Cliquet des gardes API (sécurité, 2026-09-11) : nomme la route du webhook logistique pour
 # vérifier sa garde propre (jeton X-Webhook-Token). Aucun appel HTTP ; 'customerOrders' reste banni.
 packages/plateforme/tests/securite/api-routes-gardees.test.ts
+<<<<<<< HEAD
 # supabase/migrations/20260915170000_* + son pgTAP — index UNIQUE PARTIEL sur
 # transporteurs.prestataire_logistique_id (1 prestataire = au plus 1 transporteur).
 # 'mts1'/'a_toutes'/'Everest' y sont des VALEURS DE L'ENUM type_tms (INSERT de fixtures,
@@ -172,3 +173,37 @@ packages/plateforme/tests/securite/api-routes-gardees.test.ts
 # assertions. 'customerOrders' reste banni (vérifié : 0 occurrence dans les deux).
 supabase/migrations/20260915170000_plateforme_transporteurs_presta_unique.sql
 supabase/tests/SECU__transporteur_presta_unique.test.sql
+# supabase/migrations/20260915180000_* + son pgTAP (invariants du cloisonnement
+=======
+# supabase/migrations/20260915210000_* + son pgTAP (invariants du cloisonnement
+>>>>>>> 3e0bad2 (chore(db): renumérote les deux migrations — 20260915180000 est déjà pris sur dev)
+# provider) — 'mts1'/'a_toutes'/'everest' n'apparaissent que (a) dans les commentaires
+# qui expliquent POURQUOI l'index existe et (b) comme valeurs de l'enum
+# transporteurs.type_tms dans les fixtures pgTAP. La migration ne pose que deux index
+# UNIQUE partiels : aucune logique adapter, aucun appel HTTP, aucun nom de ressource
+# distante. Même nature d'exception que 20260625000000 (bridge dispatch AG).
+# 'customerOrders' reste banni.
+supabase/migrations/20260915210000_plateforme_cloisonnement_provider_invariants.sql
+supabase/tests/SECU__cloisonnement_provider_invariants.test.sql
+# Fixtures pgTAP du gate E2 (2026-09-15) — 'mts1'/'a_toutes' = valeurs de l'enum
+# transporteurs.type_tms dans des INSERT de fixtures. Depuis que le gate compare le
+# type_tms du prestataire de la collecte a celui du prestataire de la tournee, ces
+# fixtures doivent poser le transporteur (sinon la collecte n'est « commandee » chez
+# aucun provider et les cas E2 passeraient au vert pour la mauvaise raison). Aucune
+# logique adapter, aucun appel HTTP. 'customerOrders' reste banni.
+supabase/tests/e2_gate_commande_provider.test.sql
+supabase/tests/edition_evenement.test.sql
+supabase/tests/r22c_evenement_e2_en_cours.test.sql
+# supabase/migrations/20260915220000_* (gate E2 provider-aware) — 'everest' apparait
+# dans le commentaire qui explique pourquoi le gate seul peut rattraper un mauvais
+# type d'event chez ce provider ; 'mts1' est la valeur de l'enum type_tms dans le
+# transporteur du harnais pgTAP `tests.outbox_fixture_collecte`. Aucune logique
+# adapter, aucun appel HTTP. 'customerOrders' reste banni.
+supabase/migrations/20260915220000_plateforme_gate_e2_dimension_provider.sql
+# Test de la route d'acceptation manuelle Everest (2026-09-15) — même nature
+# d'exception que la route qu'il couvre (déjà allowlistée) : 'everest' est le nom
+# de la table `everest_missions` et du segment d'URL, 'mts1'/'a_toutes' sont des
+# valeurs de l'enum transporteurs.type_tms dans les fixtures. Le test prouve que
+# le rattachement de la mission vise la tournée du BON provider. Aucun appel HTTP.
+# 'customerOrders' reste banni.
+packages/plateforme/tests/api/admin/everest-manual-accept.m2-5.test.ts

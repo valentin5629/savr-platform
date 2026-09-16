@@ -113,7 +113,11 @@ describe('Slack sendAlert — envoi HTTP réel (sans sink)', () => {
     message: 'aggregate_id=col-1 attempts=4',
   };
 
+  const sentry = { captureException: vi.fn() };
+
   beforeEach(() => {
+    sentry.captureException.mockClear();
+    setSentrySink(sentry);
     setSlackSink(null);
     vi.stubEnv('SLACK_WEBHOOK_CRITIQUE', 'https://hooks.slack.test/critique');
     vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -147,6 +151,12 @@ describe('Slack sendAlert — envoi HTTP réel (sans sink)', () => {
         payload: { canal: 'critique', status: null, erreur: 'TypeError' },
       }),
     ]);
+    expect(sentry.captureException).toHaveBeenCalledTimes(1);
+    const capturee = sentry.captureException.mock.calls[0]![0] as Error;
+    expect(capturee.message).toBe(
+      'slack.send_failed canal=critique status=null erreur=TypeError',
+    );
+    expect(capturee.message).not.toContain('fetch failed');
   });
 
   it("Slack ne répond pas : la requête porte un signal d'abandon borné", async () => {
@@ -154,12 +164,15 @@ describe('Slack sendAlert — envoi HTTP réel (sans sink)', () => {
       .fn()
       .mockResolvedValue(new Response('ok', { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
+    const timeoutSpy = vi.spyOn(AbortSignal, 'timeout');
 
     await sendAlert(payload);
 
+    expect(timeoutSpy).toHaveBeenCalledWith(5_000);
     const init = fetchMock.mock.calls[0]![1] as RequestInit;
     expect(init.signal).toBeInstanceOf(AbortSignal);
     expect(lignesSendFailed()).toEqual([]);
+    expect(sentry.captureException).not.toHaveBeenCalled();
   });
 
   it("délai dépassé (AbortSignal.timeout) : ne lève pas, journalise le nom de l'erreur", async () => {
@@ -190,5 +203,6 @@ describe('Slack sendAlert — envoi HTTP réel (sans sink)', () => {
         payload: { canal: 'critique', status: 500, erreur: null },
       }),
     ]);
+    expect(sentry.captureException).toHaveBeenCalledTimes(1);
   });
 });

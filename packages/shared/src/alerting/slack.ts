@@ -1,3 +1,5 @@
+import { captureException } from './sentry.js';
+
 export type SlackCanal = 'critique' | 'eleve' | 'info';
 
 export interface SlackPayload {
@@ -65,6 +67,15 @@ async function httpSend(payload: SlackPayload): Promise<void> {
     erreur = err instanceof Error ? err.name : 'unknown';
   }
 
+  // Slack est le canal d'alerte : s'il tombe, l'échec doit atteindre un AUTRE
+  // canal. Sentry ne capture pas les console.error (integrations: []) → envoi
+  // explicite, avec un message construit ici (jamais `err`, dont la `cause`
+  // porte l'hôte et d'autres détails réseau).
+  captureException(
+    new Error(
+      `slack.send_failed canal=${payload.canal} status=${status} erreur=${erreur}`,
+    ),
+  );
   console.error(
     JSON.stringify({
       ts: new Date().toISOString(),

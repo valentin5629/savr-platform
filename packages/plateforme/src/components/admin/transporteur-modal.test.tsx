@@ -458,4 +458,47 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
     expect(body).not.toHaveProperty('type_tms');
     expect(body).not.toHaveProperty('prestataire_logistique_id');
   });
+
+  it("liste des prestataires non chargée : l'édition affiche quand même le lien posé, jamais « Aucun »", () => {
+    render(
+      <TransporteurModal
+        open
+        transporteur={{
+          ...EDIT_FIXTURE,
+          type_tms: 'a_toutes',
+          prestataire_logistique_id: PRESTATAIRES[0]!.id,
+        }}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+        prestataires={null}
+      />,
+    );
+
+    const presta = screen.getByLabelText(
+      /Prestataire logistique/,
+    ) as HTMLSelectElement;
+    expect(presta.value).toBe(PRESTATAIRES[0]!.id);
+    expect(presta.selectedOptions[0]!.textContent).toMatch(
+      /Prestataire rattaché/,
+    );
+  });
+
+  it('liste des prestataires en échec : la création le dit, sans prétendre le référentiel vide', () => {
+    render(
+      <TransporteurModal
+        open
+        transporteur={null}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+        prestataires={null}
+      />,
+    );
+
+    expect(
+      screen.getByText(/Liste des prestataires indisponible/),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Aucun prestataire logistique enregistré/),
+    ).not.toBeInTheDocument();
+  });
 });

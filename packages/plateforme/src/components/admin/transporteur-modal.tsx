@@ -100,8 +100,12 @@ interface TransporteurModalProps {
   onClose: () => void;
   /** Appelé après un enregistrement/désactivation réussi (rafraîchir la liste). */
   onSaved: () => void;
-  /** Référentiel des prestataires logistiques (GET /api/v1/admin/prestataires). */
-  prestataires?: PrestataireOption[];
+  /**
+   * Référentiel des prestataires logistiques (GET /api/v1/admin/prestataires).
+   * `null` = pas (encore) chargé ou en échec — à ne pas confondre avec un
+   * référentiel vide.
+   */
+  prestataires?: PrestataireOption[] | null;
 }
 
 export function TransporteurModal({
@@ -109,7 +113,7 @@ export function TransporteurModal({
   transporteur,
   onClose,
   onSaved,
-  prestataires = [],
+  prestataires = null,
 }: TransporteurModalProps) {
   const isEdition = Boolean(transporteur);
   const [values, setValues] = React.useState<FormValues>(() =>
@@ -118,6 +122,12 @@ export function TransporteurModal({
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [serverError, setServerError] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
+  const optionsPrestataires = prestataires ?? [];
+  // Lien posé mais absent de la liste (non chargée, en échec) : on l'affiche
+  // quand même, sinon le select verrouillé montrerait « Aucun » à tort.
+  const lienHorsListe =
+    Boolean(values.prestataire_logistique_id) &&
+    !optionsPrestataires.some((p) => p.id === values.prestataire_logistique_id);
 
   // (Ré)initialise le formulaire à chaque ouverture / changement de cible.
   React.useEffect(() => {
@@ -525,9 +535,11 @@ export function TransporteurModal({
           hint={
             isEdition
               ? 'Non modifiable après création — pour en changer, créez un nouveau transporteur'
-              : prestataires.length === 0
-                ? 'Aucun prestataire logistique enregistré — à créer par l’équipe technique'
-                : 'Société qui exécute les courses : c’est ce lien qui rattache les tournées au bon transporteur. Non modifiable après création.'
+              : prestataires === null
+                ? 'Liste des prestataires indisponible — rechargez la page'
+                : prestataires.length === 0
+                  ? 'Aucun prestataire logistique enregistré — à créer par l’équipe technique'
+                  : 'Société qui exécute les courses : c’est ce lien qui rattache les tournées au bon transporteur. Non modifiable après création.'
           }
         >
           <Select
@@ -538,7 +550,12 @@ export function TransporteurModal({
             disabled={isEdition}
           >
             <option value="">Aucun</option>
-            {prestataires.map((p) => {
+            {lienHorsListe && (
+              <option value={values.prestataire_logistique_id}>
+                Prestataire rattaché (liste indisponible)
+              </option>
+            )}
+            {optionsPrestataires.map((p) => {
               // Rattaché à un AUTRE transporteur : grisé (l'index unique le
               // refuserait). Le sien reste choisissable.
               const pris =

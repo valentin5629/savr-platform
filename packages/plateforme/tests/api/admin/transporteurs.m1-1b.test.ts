@@ -271,6 +271,30 @@ describe('Transporteurs / Lien prestataire logistique', () => {
     expect(body.error).not.toContain('uniq_transporteur_par_prestataire');
   });
 
+  it('create — prestataire inexistant (23503) → 422 lisible, sans message Postgres', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: null,
+      error: {
+        code: '23503',
+        message:
+          'insert or update on table "transporteurs" violates foreign key constraint "transporteurs_prestataire_logistique_id_fkey"',
+      },
+    });
+    const { POST } = await import('@/app/api/v1/admin/transporteurs/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/transporteurs', {
+        ...BASE_TRANSPORTEUR,
+        type_tms: 'par_telephone',
+        prestataire_logistique_id: PRESTA_ID,
+      }),
+    );
+    expect(res.status).toBe(422);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toContain('introuvable');
+    expect(body.error).not.toContain('foreign key');
+  });
+
   // type_tms et prestataire_logistique_id : posés à la création, JAMAIS
   // modifiables (arbitrage Val 2026-09-16). Le PATCH les refuse explicitement ;
   // la garde en base (trg_transporteur_cols_immuables) couvre PostgREST et SQL.
@@ -316,12 +340,17 @@ describe('Transporteurs / Lien prestataire logistique', () => {
     const { PATCH } =
       await import('@/app/api/v1/admin/transporteurs/[id]/route.js');
     const res = await PATCH(
+      // `nom` rend le corps modifiable par ailleurs : sans lui, le 422 viendrait
+      // de « Aucun champ modifiable » et le test passerait sans la règle.
       makeReq('PATCH', '/api/v1/admin/transporteurs/tr-1', {
+        nom: 'Renommé',
         type_tms: 'mts1',
       }),
       { params: Promise.resolve({ id: 'tr-1' }) },
     );
     expect(res.status).toBe(422);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toContain('créez un nouveau transporteur');
     expect(mockSupabaseChain.update).not.toHaveBeenCalled();
   });
 

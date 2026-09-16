@@ -50,7 +50,9 @@ export default function TransporteursPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Transporteur | null>(null);
-  const [prestataires, setPrestataires] = useState<PrestataireOption[]>([]);
+  const [prestataires, setPrestataires] = useState<PrestataireOption[] | null>(
+    null,
+  ); // null = non chargé ou en échec (≠ référentiel vide)
 
   const fetchTransporteurs = useCallback(async () => {
     setLoading(true);
@@ -75,10 +77,13 @@ export default function TransporteursPage() {
   }, [fetchTransporteurs]);
 
   const fetchPrestataires = useCallback(async () => {
-    const res = await fetch('/api/v1/admin/prestataires');
-    if (res.ok) {
+    try {
+      const res = await fetch('/api/v1/admin/prestataires');
+      if (!res.ok) return;
       const json = (await res.json()) as { data: PrestataireOption[] };
       setPrestataires(json.data);
+    } catch {
+      // Réseau : la modale signale la liste indisponible (prestataires null).
     }
   }, []);
 

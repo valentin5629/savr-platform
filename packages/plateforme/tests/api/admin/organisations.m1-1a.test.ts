@@ -143,6 +143,31 @@ describe('M1.1a / Organisations / Authentification', () => {
     const res = await GET(makeReq('GET', '/api/v1/admin/organisations'));
     expect(res.status).toBe(403);
   });
+
+  // La garde de rôle passe AVANT la garde des champs obligatoires : un
+  // non-staff ne voit jamais `champs_invalides` et rien n'est écrit.
+  it('M1.1a/orgas/creation — 401 si non authentifié, sans champs_invalides ni INSERT', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+    mockGetSession.mockResolvedValue({ data: { session: null }, error: null });
+    const { POST } = await import('@/app/api/v1/admin/organisations/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/organisations', { type: 'traiteur' }),
+    );
+    expect(res.status).toBe(401);
+    expect(await res.json()).not.toHaveProperty('champs_invalides');
+    expect(mockSupabaseChain.insert).not.toHaveBeenCalled();
+  });
+
+  it('M1.1a/orgas/creation — 403 si rôle traiteur_manager, sans champs_invalides ni INSERT', async () => {
+    setupAuth('traiteur_manager');
+    const { POST } = await import('@/app/api/v1/admin/organisations/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/organisations', { type: 'traiteur' }),
+    );
+    expect(res.status).toBe(403);
+    expect(await res.json()).not.toHaveProperty('champs_invalides');
+    expect(mockSupabaseChain.insert).not.toHaveBeenCalled();
+  });
 });
 
 describe('M1.1a / Organisations / Liste', () => {

@@ -232,7 +232,8 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
     // Conflit unique : doublon SEULEMENT si le premier passage a abouti. Une
     // ligne restée `traite=false` = état métier non écrit au premier passage →
     // on la reprend. Deux livraisons simultanées du même event peuvent alors se
-    // chevaucher : sans risque, chaque écriture est gardée par l'état courant.
+    // chevaucher : elles écrivent les mêmes valeurs (les transitions sont décidées
+    // sur l'état relu, pas gardées dans l'UPDATE — même résultat final).
     const { data: existant, error: existantErr } = await supabase
       .from('integrations_inbox')
       .select('id, traite')
@@ -337,8 +338,8 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
   }
 
   // ── 6. Marquer inbox traité ───────────────────────────────────────────────
-  // État métier écrit mais inbox non marquée → 500 : le rejeu retraite l'event,
-  // sans effet puisque chaque écriture est gardée par l'état courant.
+  // État métier écrit mais inbox non marquée → 500 : le rejeu retraite l'event
+  // et réécrit les mêmes valeurs (transitions décidées sur l'état relu).
   const { error: traiteErr } = await supabase
     .from('integrations_inbox')
     .update({ traite: true, traite_at: new Date().toISOString() })

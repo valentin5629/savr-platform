@@ -186,6 +186,14 @@
       "libelle": "fetchCollecte / updateLieu lisent contacts + lieu via la jointure événement (§06.04 l.375, §08 l.411) — l'édition des champs ÉVÉNEMENT se propage réellement au TMS sur E2 (fix B1)"
     },
     {
+      "id": "M1.5a-e5-exclut-terminaux",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:255",
+      "artefact": "packages/adapters/src/statuts-collecte.ts",
+      "test": "E5 updateLieu : aucune collecte terminale (realisee, realisee_sans_collecte, cloturee, annulee, rejetee_par_prestataire) ne reçoit de PUT d'adresse ; une collecte en_cours du même lieu si — mock appliquant réellement le not-in PostgREST [adapter.e5-statuts-terminaux.test.ts]",
+      "statut": "implemented",
+      "libelle": "E5 lieu.champ_critique_modifie ne vise que les collectes futures NON TERMINALES du lieu (§04 outbox_events l.2426) — realisee_sans_collecte (terminal AG, §05 l.255) manquait au filtre"
+    },
+    {
       "id": "BL-P1-OUTBOX-01",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:473",
       "artefact": "supabase/migrations/20260629100000_plateforme_r9_outbox_concurrence.sql",

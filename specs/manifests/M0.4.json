@@ -123,6 +123,14 @@
       "test": "packages/plateforme/tests/api/me/rgpd.test.ts « M0.4 — RGPD … PATCH profil rectifie prenom/nom et rejette les champs hors allowlist »",
       "statut": "implemented",
       "libelle": "RGPD rectification self-service profil"
+    },
+    {
+      "id": "M0.4-ecriture-directe-collectes-evenements-revoke",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:968",
+      "artefact": "supabase/migrations/20260915160000_plateforme_collectes_ecriture_client_fermee.sql (REVOKE INSERT, UPDATE sur collectes) ; supabase/migrations/20260915190000_plateforme_evenements_ecriture_client_fermee.sql (REVOKE INSERT, UPDATE, DELETE sur evenements) ; packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts (écriture par fn_modifier_evenement sous service_role)",
+      "test": "SECU__rls_09_ecriture_directe_revoke.test.sql (A1-A5 : 5 rôles clients × INSERT/UPDATE/DELETE evenements + INSERT/UPDATE collectes → 42501 « permission denied for table » ; A6 SELECT filtré ; A7 service_role écrit ; A8 policies conservées ; B1-B5 manager_update_dans_fenetre_edition_ok moitié DB) + edition-evenement.m1-2.test.ts « manager_update_dans_fenetre_edition_ok — la route réussit et n’écrit JAMAIS par le client de session »",
+      "statut": "partial",
+      "libelle": "Scénarios §09 ecriture_directe_collectes_evenements_revoke_42501 et manager_update_dans_fenetre_edition_ok (révision 2026-09-16). Partiel : la cellule DELETE direct sur collectes (attendue 42501, non révoquée en base) attend l'arbitrage de la divergence ambiguë. (_Divergences/M0.4_20260916_delete-direct-collectes-revoke.md)"
     }
   ],
   "cdc_source_hash": {

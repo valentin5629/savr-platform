@@ -507,10 +507,33 @@ Spécificités MTS-1 (mapping concret de la règle §3) :
 
 | Action Plateforme | Endpoint MTS-1 | Contrainte |
 |---|---|---|
-| Modifier une commande | `PUT /v3/customerOrders/{customerOrderId}` | Re-push des champs modifiés (créneau, volume, contact). |
+| Modifier une commande | `PUT /v3/customerOrders/{customerOrderId}` | **Re-push de tout champ armant `dirty_tms`** (cf. [[04 - Data Model#Table : `collectes`]], trigger `fn_set_collectes_dirty_tms`) **ayant une contrepartie MTS-1** : `orderDate`, `place.address`, `place.timeslots`, `comment` — plus le `contact` de l'événement (modèle immédiat, R22c). *(Oracle figé 2026-09-16, divergence M1.5_20260915_e2-payload-champs-propages — remplace « créneau, volume, contact », liste dont on ne savait pas si elle était exhaustive : le créneau et le canal libre n'atteignaient en fait jamais le prestataire.)* |
 | Annuler une commande | `DELETE /v3/customerOrders/{customerOrderId}` | **Bloqué si < 1h avant le début de la mission** (règle MTS-1). Au-delà : contact opérationnel direct transporteur. La tournée associée (3bis.5 étape 2) est annulée avec la commande. |
 
 Toute modification d'une collecte côté Plateforme déjà poussée à MTS-1 (`statut_tms ∈ {attribuee_en_attente_acceptation, acceptee}`) déclenche un re-push `PUT` (cf. règle existante `PATCH /collectes/:id` E2 + flag `dirty_tms`).
+
+> **Règles de composition du payload E2** *(2026-09-16)*
+>
+> - **Exclusions assumées V1** : `controle_acces_requis` (aucun champ natif MTS-1) et le **volume** — porté par les `stuffs` de la commande, qu'un re-push reposerait **à 0** sur des quantités que le polling alimente avec les pesées réelles. Le mot « volume » de l'ancienne rédaction était donc trompeur : il n'est pas re-poussé.
+> - **`place` est envoyé COMPLET** (adresse + créneau) : le merge partiel n'est garanti qu'au **premier niveau**, un `place` amputé de ses `timeslots` risquerait de les effacer côté MTS-1. Correct sous les deux hypothèses de merge. *(À vérifier en DEMO par read-back — le POST a déjà démenti une hypothèse de ce genre : MTS-1 renvoyait 201 en stockant `contact: {}` et `timeslots: null`.)*
+> - **Un champ VIDÉ côté Plateforme est propagé comme valeur VIDE, jamais omis** : l'omission laisserait au chauffeur la consigne périmée du dispatch initial. `comment` est donc toujours présent au PUT.
+> - **Parité E1/E2** : `place` est construit par un **helper unique partagé** entre création et modification — la parité n'est plus une recopie à maintenir. Un test-cliquet lit la liste de champs du trigger dans la migration et rougit si un champ y est ajouté sans contrepartie dans le payload.
+> - **Côté Everest** : `updateCollecte` reste un **no-op** qui lève une alerte Ops in-app canal `info` (DIV-4 2026-06-15). `notes` n'est posé qu'à la création ; si A Toutes! confirme un jour un endpoint de modification, il devra suivre le même oracle.
+
+#### Informations d'accès du lieu et contact de secours — canal libre *(arbitrage Val 2026-09-15, divergence M1.5_20260915_infos-acces-non-transmises)*
+
+Les champs d'accès du lieu — `acces_details`, `stationnement`, `acces_office`, `contraintes_horaires`, `type_vehicule_max`, `flux_autorises` — **n'ont aucune contrepartie native** dans les API MTS-1 et Everest, au même titre que `controle_acces_requis`. Ils sont **agrégés dans le champ libre** `informations_supplementaires`, transmis en `comment` (MTS-1) et `notes` (Everest), par un composeur **partagé** (`composerInformationsSupplementaires`, appelé une seule fois par `fetchCollecte` — garde-fou 2), jamais par adapter.
+
+- Les valeurs prises sont celles du lieu **APRÈS** application de `collectes.lieu_overrides` (lieu fusionné, jamais le lieu officiel).
+- Le **nom ET le téléphone du contact de secours** ouvrent l'agrégat *(arbitrage Val 2026-09-16, divergence M1.5_20260915_everest-telephone-secours-sans-canal)* — format : `Contact de secours : Bruno Secours — +33 6 00 00 00 02` (bornes §06.01 : 120 car. / 40 car.).
+
+  > **Pourquoi le téléphone y figure aussi.** Everest n'expose qu'un `pickup.contact = { name, phone }` **unique** : un seul nom, un seul téléphone, **aucun équivalent de `phoneAlternatives`** (MTS-1). Le contact PRINCIPAL occupe ce champ natif ; le contact de SECOURS n'a donc **aucun champ natif** chez A Toutes!. Sans cette règle, le chauffeur vélo cargo lisait « Contact de secours : Bruno Secours » **sans numéro** — il savait qui était le recours sans pouvoir l'appeler.
+  >
+  > **Coût assumé : duplication chez MTS-1.** Le composeur du canal libre est **partagé entre les deux adapters** (garde-fou 2 : une seule implémentation, jamais une composition par provider — deux compositions finiraient par diverger). MTS-1 reçoit donc le numéro du secours **deux fois** : une en `phoneAlternatives` (natif, arbitrage du 2026-09-14) et une en clair dans `comment`. Inconvénient cosmétique dans un champ de commentaire libre, contre une perte opérationnelle réelle chez A Toutes!.
+  >
+  > **Sans objet en V2** : le contrat §08 E1 porte `contacts.secours` structurellement. Cette règle est strictement V1, liée à la pauvreté des API tierces.
+- ⚠ **Longueur** : vérifier les bornes de `comment` (MTS-1) et `notes` (Everest) avant concaténation — risque de troncature silencieuse.
+- Contexte du correctif : un traiteur saisissait « stationnement : cour intérieure, quai 3 », la valeur était stockée, affichée, auditée, notifiée à l'Admin, la collecte badgée `informations_completes=false` — et le chauffeur arrivait avec la seule adresse postale.
 
 ### 3bis.9 Gestion des erreurs, retry, idempotence
 
@@ -1004,10 +1027,19 @@ REST + JSON. Auth JWT Supabase. Réservé `admin_savr` + `ops_savr` selon endpoi
 ```
 
 **Comportement** :
-- Si `prestataire_id` non fourni : branche selon `collectes.statut_tms` *(tranchée F3 2026-06-07)* :
-  - `statut_tms = non_envoye` → émet **E1** (`POST /collectes` TMS ou création MTS-1) + passe `statut_tms = a_attribuer` au succès.
-  - `statut_tms ∈ {a_attribuer, attribuee_en_attente_acceptation}` avec `dirty_tms = true` → émet **E2** (`PATCH /collectes/:id`) + reset `dirty_tms = false`.
-  - `statut_tms = rejetee_par_tms` → émet **E1** (recréation — le TMS a définitivement rejeté l'ordre, il faut recréer l'entité côté TMS). Permis admin + ops.
+- Si `prestataire_id` non fourni : branche selon `collectes.statut_tms` *(tranchée F3 2026-06-07 ; `a_attribuer` purgé et `rejetee_par_prestataire` ajouté le 2026-09-16 — arbitrages Val B6/B7, divergences M1.5_20260915_gate-e2-et-statut-a-attribuer et M1.5a_20260915_predicat_e2_ternaire_redispatch)* :
+ - `statut_tms = non_envoye` → émet **E1** (`POST /collectes` TMS ou création MTS-1) + passe `statut_tms = attribuee_en_attente_acceptation` au succès. *( — valeur **purgée du vocabulaire V1** : aucun code de production ne l'écrit, l'adapter enchaîne les étapes 1→4 dans le même appel, il n'existe aucun instant observable entre les deux états. Un état sans acteur qui le pose ni transition qui le fait évoluer est du bug en réserve.)*
+  - `statut_tms = attribuee_en_attente_acceptation` avec `dirty_tms = true` → émet **E2** (`PATCH /collectes/:id`) + reset `dirty_tms = false`.
+  - `statut_tms = rejetee_par_prestataire` → émet **E1** (recréation chez le nouveau transporteur). **C'est l'état V1 RÉEL après un refus transporteur** (cf. [[05 - Règles métier]]) et le cas le plus fréquent de re-dispatch ; il manquait à cette table, qui ne citait que son homologue V2.
+  - `statut_tms = rejetee_par_tms` → émet **E1** (recréation — le TMS a définitivement rejeté l'ordre). **État V2 uniquement** (webhook S11, hors périmètre V1). Permis admin + ops.
+
+> ⚠ **DETTE OUVERTE — le critère d'émission réel diverge de cette table depuis l'origine** *(relevée 2026-09-16, lot dédié ouvert)*
+>
+> Les trois RPC émettrices (`fn_dispatcher_collecte`, `fn_modifier_collecte`, `fn_modifier_evenement`) ne branchent **pas** sur `statut_tms` : elles branchent sur **l'existence d'une `tournees.external_ref_commande`**, et ce depuis la migration fondatrice `20260614000001`. Les lots de septembre 2026 n'ont changé que la *source* du booléen, jamais sa nature. La dérive est donc antérieure à ces lots et n'avait jamais été tracée.
+>
+> **Symptôme mesuré** : sur un re-dispatch vers un transporteur de l'AUTRE provider, la collecte est « commandée » (une tournée porte une référence) mais pas chez le bon → le prédicat large émet un **E2**, l'adapter écarte la tournée de l'autre provider (cloisonnement, cf. [[Interface logistique_provider V1#Cloisonnement par provider (V1)]]), sort en `noop_no_remote` — et **aucune commande n'est créée chez le nouveau transporteur**, alors que la fiche l'affiche comme attribué. L'alerte levée (`tournee_autre_provider`) dit seulement « vérifier que la commande est close chez l'autre », pas « rien n'est commandé ici ».
+>
+> **Lot dédié à chiffrer** : évaluer d'abord un **retour au branchement `statut_tms`** prescrit ici, PUIS vérifier s'il couvre le re-dispatch inter-provider. Ne PAS empiler une dimension provider sur un mécanisme déjà hors-CDC — ce serait graver la dérive au lieu de la corriger. Portée : les 3 RPC + les 10 assertions de `supabase/tests/e2_gate_commande_provider.test.sql` qui codent aujourd'hui la règle binaire.
 - Si `prestataire_id` fourni (override AG) : valide rôle `admin_savr` (403 si ops_savr), valide `motif_override` ≥ 5 caractères, met à jour `collectes.prestataire_logistique_id` + `collectes.motif_override_prestataire`, émet le dispatch avec nouveau prestataire selon la même logique de branche ci-dessus. Audit_log automatique.
 
 **Erreurs** :

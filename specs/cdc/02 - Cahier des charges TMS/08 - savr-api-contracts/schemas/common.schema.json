@@ -52,7 +52,8 @@
     "telephone": {
       "type": "string",
       "minLength": 1,
-      "description": "Numéro de téléphone (format libre V1, normalisation E.164 reportée)."
+      "maxLength": 40,
+      "description": "Numéro de téléphone (format libre V1, normalisation E.164 reportée ; borne de longueur seule, aucun format imposé)."
     },
 
     "envelope_base": {
@@ -83,7 +84,7 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "nom": { "type": "string" },
+        "nom": { "type": "string", "maxLength": 120 },
         "telephone": { "$ref": "#/$defs/telephone" }
       },
       "required": ["nom", "telephone"]

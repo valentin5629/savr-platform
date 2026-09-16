@@ -79,6 +79,22 @@
 --   cf. _Divergences/PLAQUES_20260715.md) : + plateforme.tournees.accompagnant_nom / accompagnant_telephone,
 --   + plateforme.collectes.infos_acces_email_envoye_at. Ajout de COLONNES sur des CREATE TABLE
 --   existants → comptes inchangés (93 tables / 56 enums / 162 FK / 320 statements).
+-- Regelé le : 2026-09-16 (cdc-patch-divergences — arbitrages Val B9 + M2.4) :
+--   + colonne plateforme.associations.numero_rup (text nullable — sync #296, dérivé en retard ;
+--     lève le faux positif G6 « colonne V1 absente de la cible »),
+--   + index UNIQUE partiel uniq_tournee_par_external_ref sur plateforme.tournees.external_ref_commande
+--     (invariant V1 migration 20260915210000, absent de la cible alors que le README déclare inclure
+--     les UNIQUE → garde-fou 1 en défaut ; porté dans la cible plutôt qu'allowlisté, le TMS natif V2
+--     rapprochant ses ordres de la même façon).
+--   Une colonne sur un CREATE TABLE existant n'ajoute aucun statement ; l'index en ajoute UN.
+--   Comptes : 93 tables / 56 enums / 162 FK / **321 statements** (+1).
+--   ⚠ DETTE TRACÉE — écarts du même type NON traités, faute de divergence dédiée :
+--     · plateforme.collecte_tournees.rang et sa contrainte uniq_collecte_tournee_rang existent dans
+--       les migrations V1 mais PAS dans ce fichier (le CREATE TABLE ci-dessous n'a que
+--       UNIQUE (collecte_id, tournee_id)) ;
+--     · scripts/check-schema-vs-cible.ts (G6) ne compare que les COLONNES via pg_attribute — il ne
+--       voit ni les contraintes ni les index, donc ce type d'écart continuera de passer inaperçu.
+--       Élargir G6 aux contraintes et index = lot dédié.
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
@@ -417,6 +433,7 @@ CREATE TABLE plateforme.tournees (
   statut                   plateforme.tournee_statut NOT NULL,
   tms_reference            text,
   external_ref_commande    text,                           -- neutre TMS-Ready (idempotence retry)
+                                                           -- UNIQUE partiel : cf. uniq_tournee_par_external_ref ci-dessous
   notes_internes           text,
   created_at               timestamptz NOT NULL DEFAULT now(),
   updated_at               timestamptz NOT NULL DEFAULT now()
@@ -621,6 +638,7 @@ CREATE TABLE plateforme.associations (
   contact_email                 text NOT NULL,
   contact_telephone             text,
   habilitee_attestation_fiscale boolean NOT NULL DEFAULT false,
+  numero_rup                    text,
   date_expiration_habilitation  date,
   actif                         boolean NOT NULL DEFAULT true,
   derniere_verification         date,
@@ -1919,6 +1937,18 @@ CREATE UNIQUE INDEX uniq_entites_facturation_siret
 CREATE UNIQUE INDEX uq_file_revalidation_siret_active
   ON plateforme.file_revalidation_siret (entite_facturation_id)
   WHERE statut = 'en_attente';
+
+-- Partial unique index (rapprochement entrant par référence de commande prestataire
+--   — divergence M1.5a_20260915_unique_external_ref_commande_ddl_cible, arbitrage Val 2026-09-16)
+--   Une référence de commande prestataire désigne AU PLUS une tournée : le rapprochement entrant
+--   apparie dessus (AdapterMts1.findTourneeByOrderId, .maybeSingle()), et la colonne est PARTAGÉE
+--   entre providers (customerOrderId MTS-1 / mission_id Everest) — la collision n'est pas théorique.
+--   Sans unicité : deux tournées homonymes → PGRST116 → l'ordre passe pour inconnu → markInboxDone
+--   consomme la clé d'idempotence → l'événement entrant est perdu DÉFINITIVEMENT.
+--   Partiel : une tournée non dispatchée n'a pas de référence (NULL multiples autorisés).
+CREATE UNIQUE INDEX uniq_tournee_par_external_ref
+  ON plateforme.tournees (external_ref_commande)
+  WHERE external_ref_commande IS NOT NULL;
 
 -- ---------------------------------------------------------------------
 -- 5. FOREIGN KEYS  (toutes différées en fin de fichier — ordre-indépendant)

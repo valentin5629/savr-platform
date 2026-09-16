@@ -3,6 +3,10 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { serverError, writeError, withApiTrace } from '@/lib/api-helpers.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import {
+  MESSAGE_SIRET_INVALIDE,
+  normaliserSiretOrganisation,
+} from '@/lib/siret-organisation.js';
 
 async function getHandler(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -166,7 +170,7 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
     raison_sociale?: string;
     nom?: string;
     type?: string;
-    siret?: string;
+    siret?: unknown;
     email_principal?: string;
     telephone?: string;
     adresse?: string;
@@ -196,6 +200,19 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
   }
   const typeOrga = type as OrganisationType;
 
+  // SIRET facultatif : format seul, aucun appel INSEE (§06.06).
+  let siretNormalise: string | null | undefined;
+  if (siret !== undefined) {
+    const n = normaliserSiretOrganisation(siret);
+    if (!n.valide) {
+      return NextResponse.json(
+        { error: MESSAGE_SIRET_INVALIDE, champs_invalides: ['siret'] },
+        { status: 422 },
+      );
+    }
+    siretNormalise = n.siret;
+  }
+
   const supabase = createAdminSupabaseClient();
   const { data: org, error } = await supabase
     .from('organisations')
@@ -206,7 +223,7 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
       nom: nom ?? raison_sociale,
       raison_sociale,
       type: typeOrga,
-      siret,
+      siret: siretNormalise,
       email_principal,
       telephone,
       adresse,

@@ -353,6 +353,14 @@
       "test": "supabase/tests/SECU__transporteur_cols_immuables.test.sql",
       "statut": "implemented",
       "libelle": "§6 Immuabilité : DELETE refusé dès qu'une tournée référence le transporteur"
+    },
+    {
+      "id": "M1.1b-organisation-siret-format",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:633",
+      "artefact": "packages/plateforme/src/lib/siret-organisation.ts, packages/plateforme/src/app/api/v1/admin/organisations/route.ts, packages/plateforme/src/app/api/v1/admin/organisations/[id]/route.ts",
+      "test": "M1.1b/orgas/siret — POST : espaces retirés avant INSERT (14 chiffres)",
+      "statut": "implemented",
+      "libelle": "SIRET organisation (modale Nouvelle organisation + fiche) : contrôle de format seul côté API — blancs retirés, 14 chiffres, vide ⇒ NULL, 422 champs_invalides [siret] sur POST et PATCH /admin/organisations ; aucun appel INSEE sur organisations.siret"
     }
   ],
   "cdc_source_hash": {

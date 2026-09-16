@@ -17,6 +17,21 @@
 
 **Factory** : `getLogistiqueProvider(transporteur)` → lit `type_tms`, retourne l'implémentation. Seul endroit (hors adapters) où les valeurs de l'enum apparaissent — allowlisté.
 
+### Cloisonnement par provider (V1) *(ajout 2026-09-16, divergence M1.5a_20260915_tournee-residuelle-autre-provider)*
+
+Une collecte peut porter des tournées créées par un **autre provider qu'elle** : après un re-dispatch (refus transporteur → ré-attribution à l'autre provider), la collecte change de `prestataire_logistique_id`, mais ses lignes `tournees` / `collecte_tournees` déjà créées **restent** — rien ne les purge.
+
+- `tournees.external_ref_commande` **ne dit pas qui a dispatché** : la colonne est partagée (customerOrderId MTS-1 / mission_id Everest). La marque de provider est **`tournees.prestataire_logistique_id`**, résolu par `transporteurs.type_tms`.
+- **Un adapter ne lit, ne modifie et n'annule QUE les tournées de son propre `type_tms`**, sur les 4 chemins (E1, E2, E3, E5). À défaut il divulgue un identifiant à un tiers et prend un 404 qui envoie l'event en DLQ ; sur E1, MTS-1 utilisait même la tournée Everest comme curseur de reprise et sautait le `POST`.
+- Une tournée écartée qui porte **encore une référence de commande ET un statut non terminal** (`planifiee`, `en_cours`) signale une commande possiblement active chez le transporteur précédent : elle déclenche une **alerte Ops in-app** `tournee_autre_provider` (entité = la collecte, dédupliquée par `f_upsert_alerte_admin` sur (code, entité, statut='ouverte')), invitant à vérifier sa clôture. **Canal in-app, jamais Slack** (CLAUDE.md §13 : anomalie fonctionnelle).
+- Écartée **en silence** si plus rien ne peut être vivant chez l'autre provider : `external_ref_commande` vide **ou** statut de tournée terminal (`terminee`, `annulee`).
+- L'adapter **n'annule pas** la commande résiduelle et **ne purge pas** la tournée : annuler chez l'autre provider supposerait d'instancier un second adapter au milieu d'un event (hors contrat — un adapter = un provider), et purger la ligne effacerait la trace de la commande à annuler.
+
+> Dette ouverte : `AdapterEverest.upsertTournee` insère le lien `collecte_tournees` sans lire l'`error` → sur un rang déjà pris, la violation `23505` est avalée et la tournée Everest reste **sans lien** vers sa collecte.
+>
+> Candidat V1.1 (non tranché) : index unique partiel interdisant qu'un même `shared.prestataires.id` soit référencé par deux transporteurs de `type_tms` différents — rien ne l'empêche aujourd'hui, et cela rouvrirait le cloisonnement.
+
+
 ## 2. Contrat — côté sortant (consommation outbox)
 
 Le worker outbox (**lease/claim — l'advisory lock est supprimé**, incompatible PgBouncer transaction mode + serverless ; cf. §04 `outbox_events`, refonte 2026-06-11 revue adversariale R2) claim les events éligibles et appelle le provider de la collecte/du lieu concerné. **Une méthode par event_type** :
@@ -24,7 +39,7 @@ Le worker outbox (**lease/claim — l'advisory lock est supprimé**, incompatibl
 | Event outbox | Méthode | Effet attendu (postconditions Plateforme) |
 |---|---|---|
 | E1 `collecte.creee` | `dispatchCollecte(collecte, rang→N)` | Pour chaque camion `rang=1..nb_camions_demande` : commande créée chez le provider, ligne `tournees` créée (`external_ref_commande`, `tms_reference`, `type_vehicule`, plaque si résoluble) + ligne `collecte_tournees` ; `statut_tms = attribuee_en_attente_acceptation` |
-| E2 `collecte.modifiee` | `updateCollecte(collecte)` | Re-push des champs modifiés sur les commandes existantes (corrélation `external_ref_commande`) ; reset `dirty_tms = false` (fait par la RPC émettrice). **`adapter_everest` V1 : no-op + warning `#savr-alerts-info`** (endpoint de modification Everest non documenté — à confirmer avec Mathieu Lomazzi lors de l'envoi de l'URL webhook ; si endpoint confirmé → implémenter en M2.6, sinon no-op figé V1, DIV-4 2026-06-15) |
+| E2 `collecte.modifiee` | `updateCollecte(collecte)` | Re-push des champs modifiés sur les commandes existantes — **périmètre exact = [[08 - APIs et intégrations]] §3bis.8 : tout champ armant `dirty_tms` ayant une contrepartie chez le provider** *(2026-09-16)*. **Invariant transverse** : le payload de création (E1) et le payload de modification (E2) décrivent **le même enlèvement** ; tout champ construit deux fois est un champ qui finira par diverger → helper de construction partagé, jamais deux recopies. (corrélation `external_ref_commande`) ; reset `dirty_tms = false` (fait par la RPC émettrice). **`adapter_everest` V1 : no-op + warning `#savr-alerts-info`** (endpoint de modification Everest non documenté — à confirmer avec Mathieu Lomazzi lors de l'envoi de l'URL webhook ; si endpoint confirmé → implémenter en M2.6, sinon no-op figé V1, DIV-4 2026-06-15) |
 | E3 `collecte.annulee` | `cancelCollecte(collecte)` | Commandes/tournées annulées chez le provider (contrainte < 1h MTS-1 → erreur typée `CANCEL_WINDOW_CLOSED`, traitement Ops manuel) |
 | E5 `lieu.champ_critique_modifie` | `updateLieu(lieu)` | Répercussion adresse/coords sur les commandes **futures** (lecture DB à la consommation — pas de re-push des commandes en vol sauf si E2 suit) |
 
@@ -33,6 +48,8 @@ Le worker outbox (**lease/claim — l'advisory lock est supprimé**, incompatibl
 - **Commit par rang** : chaque création réussie persiste immédiatement sa ligne `tournees` (`external_ref_commande`) avant le rang/l'étape suivante — jamais de persistance groupée en fin d'event. Reprise au **curseur par rang** (§08 §3bis.5).
 - **Réconciliation avant re-POST** : event repris avec `requires_reconciliation=true` (crash/timeout ambigu) → vérification d'existence distante (§3bis.9) **obligatoire avant** toute création.
 - **Erreurs typées** (l'interface expose, le worker route) : `PERMANENT` (4xx données → pas de retry, notif Admin), `TRANSIENT` (5xx/réseau → retry paliers), `AMBIGUOUS` (timeout sans réponse → pas de retry auto, réconciliation au prochain run avant tout re-POST).
+- **Erreurs d'infrastructure LOCALE** (lecture/écriture DB à l'intérieur d'un handler — PostgREST/Supabase, pas le provider distant) *(ajout 2026-09-16, divergence M1.5a_20260915_taxonomie-erreurs-lecture-locale)* : une lecture DB qui échoue n'est **JAMAIS** un « rien à propager ». Le handler **DOIT lever** plutôt que retourner un succès — un event marqué `done` sans effet distant est indistinguable d'un dispatch réussi et perd la mutation métier en silence (constaté sur E5 : 3 des 4 lectures avalaient leur `error`, `data = null` → lot vide → `markDone`, et le camion se présentait à l'ancienne adresse). Le type est **`TRANSIENT`** (blip réseau/pooler → les 3 paliers 5 min / 1 h / 24 h), **jamais** `PERMANENT`, qui réserverait un `dead` immédiat à une panne passagère. `PERMANENT` reste réservé à un état **déterministe et vrai** (entité réellement introuvable), jamais à « lecture impossible ».
+  > ⚠ Dette ouverte : `fetchLieu` et `fetchTransporteur` (`packages/adapters/src/outbox-worker.ts`) lèvent aujourd'hui `PERMANENT` sur une simple erreur de lecture → E5 part en DLQ sans un seul retry. À corriger.
 - **No-op succès** : `updateCollecte`/`cancelCollecte` sur une collecte sans aucune `external_ref_commande` (E1 skippé DLQ ou jamais parti) = consumed `consumer='noop_no_remote'`, log info — jamais d'erreur (symétrique `provider_manual`).
 - **État courant DB** : le provider lit l'état DB **à la consommation** (le payload outbox sert au routage + contrat V2) — anti-staleness vs éditions concurrentes (R11).
 - Le provider **ne touche jamais** à `collectes.statut` (dérivé par trigger de `statut_tms` — exception unique : l'effet terminal agrégé du `sync`, §3).

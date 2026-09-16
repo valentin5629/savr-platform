@@ -409,7 +409,7 @@ AND em.statut_everest NOT IN ('cancelled','cancelled_externally','completed','co
 
 > **Suppression V1** : endpoint Everest exact non confirmé (Q1 ouverte). Développer un worker sur API non spécifiée = risque de refacto V1.1. Cas rare (AG `realisee_sans_collecte` ≈ quelques % des AG × % A Toutes! = très peu).
 >
-> **V1 fallback opérationnel** : à la déclaration `realisee_sans_collecte` chauffeur (M05 E5), le webhook S5 `collecte-terminee` part normalement vers la Plateforme. **Ops appelle A Toutes! manuellement** au moment de la clôture pour signaler la course incomplète. Le statut Everest reste `in_progress` côté `everest_missions` jusqu'au prochain webhook entrant Everest (`mission_finished` ou `mission_cancelled`) qui mute selon W2. La valeur enum `completed_incomplete` reste seedée (jamais atteinte V1, réservée V1.1).
+> **V1 fallback opérationnel** : à la déclaration `realisee_sans_collecte` chauffeur (M05 E5), le webhook S5 `collecte-terminee` part normalement vers la Plateforme. **Ops appelle A Toutes! manuellement** au moment de la clôture pour signaler la course incomplète. Le statut Everest reste `in_progress` côté `everest_missions` jusqu'au prochain webhook entrant Everest (`mission_finished` ou `mission_cancelled`) qui mute selon W2. ⚠ **Corrigé 2026-09-15** : la valeur enum `completed_incomplete` **est atteinte en V1** — non pas par W5 (toujours reporté V1.1), mais par le **webhook entrant** : `mission_failed` combiné à une course vide (statuts Everest « Pas de commande » / « Client absent / Marchandise refusée », cf. §08 §3 V1) pose `statut_everest = 'completed_incomplete'`, puis la collecte bascule en `realisee_sans_collecte`. La course a eu lieu et est **facturée au tarif normal** : ce statut compte comme une mission EFFECTUÉE, au même titre que `completed` — jamais comme une mission à re-créer ou à re-dispatcher.
 >
 > **À réactiver V1.1** dès que Q1 (endpoint exact côté dev Everest) est fermée. Spec V1.1 ci-dessous conservée pour mémoire.
 
@@ -417,7 +417,7 @@ AND em.statut_everest NOT IN ('cancelled','cancelled_externally','completed','co
 - Endpoint `/api/internal/m14/missions/notify_incomplete` retiré V1 (cf. §07 + §08 internal API).
 - EC10 retiré V1 (cf. §6 ci-dessous).
 - Code alerte `m14_everest_incomplete_notify_failed` retiré du catalogue M11 V1.
-- Transition `in_progress → completed_incomplete` jamais déclenchée V1.
+- Transition `in_progress → completed_incomplete` **par W5** jamais déclenchée V1 (W5 reporté V1.1). ⚠ **La valeur est néanmoins atteinte en V1 par le webhook entrant** (`mission_failed` + course vide) — cf. note W5 ci-dessus. `completed_incomplete` est un état de mission EFFECTUÉE : il fait sortir le dispatch en no-op idempotent au même titre que `completed`.
 
 ---
 
@@ -566,7 +566,7 @@ Endpoint Everest exact non confirmé (Q1). Worker `m14_notify_incomplete` retir�
                                 │       └──→ in_progress  (W2 mission_pickedup)
                                 │              │
                                 │              ├──→ completed             (W2 mission_finished/success)
-                                │              ├──→ completed_incomplete  (W5 notify_incomplete OK — réservé V1.1, jamais déclenché V1, revue sobriété §05 2026-05-01 A5)
+                                │              ├──→ completed_incomplete  (ATTEINT EN V1 via webhook entrant mission_failed + course vide → realisee_sans_collecte, facturé ; W5 notify_incomplete sortant reste réservé V1.1)
                                 │              ├──→ failed                (W2 mission_failed)
                                 │              └──→ cancelled_externally  (W2 mission_cancelled non-TMS)
                                 │
@@ -592,6 +592,7 @@ Endpoint Everest exact non confirmé (Q1). Worker `m14_notify_incomplete` retir�
 | `created → assigned` | W2 dispatched | Système (webhook) |
 | `assigned → in_progress` | W2 pickedup | Système |
 | `in_progress → completed` | W2 finished/success | Système |
+| `in_progress → completed_incomplete` | **Webhook entrant W2** (`mission_failed` + course vide) | **ATTEINTE en V1** *(corrigé 2026-09-15 — la note « inatteignable V1 » de la revue sobriété §05 2026-05-01 A5 était erronée)*. W5 (notification sortante) reste reporté V1.1, mais le webhook entrant pose le statut sur les cas Everest « Pas de commande » / « Client absent ». Mission **effectuée et facturée** → jamais re-dispatchable. |
 | `in_progress → failed` | W2 failed | Système |
 | `* → cancelled` | W3 TMS-initiated | Système ou Admin |
 | `* → cancelled_externally` | W2 cancelled non-TMS | Système |

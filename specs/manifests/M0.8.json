@@ -555,12 +555,12 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "290edbd09a1b7f4c4567682a80378006efe91aa1c315b1cb6614b074a6f82c09",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "a3b25d8200b577f66006388a15efca739c2ea6278a3ea958889f1c34a583c947",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "d797c7ba3acdddf1427970109ccc74d34ce7ee65155d1dbb22b9c6c18d09f5dd",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md": "55a8a9d4ff48aecb225abd315a8727a152a1c4efd38d18e7940f866898de99dc",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "aa522fd3b0d3573a2e40d81e6a306201e944f0d2889c281cd77ae96f40fb23d3",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "bf5ebf4b8e02cd105ae0edc5b649714f627bc034bbffc0f2c9695f58166edd84",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "69f4ae06d2feadd2ccea216395f009db60a511adafeab7fa76aeba1961a5c665",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "870a839c0f23b1323adfa0e12c8858f50181c5f77a03dca271fded8295b98ca3",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "326d61ea7c02a3492bd12b15be66f7d039d72715fd12cf263fdcdf79e893d8b1",
     "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "244d0bd3d9c3388722ed4dd3fb0505c178e8919c5b2a2e29edd5e8c48eded5c1",
     "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "41cc7ea0cf5e68d671ad0ff900ee17e0843e006998cd977ebc2c43c2b3d6938a",
     "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "395550f99b433f9779bea4e570fb6c3acd28ffbae4bdf3c6cb0a653f96b7a124",

@@ -101,7 +101,11 @@ Ces informations sont **communes à l'événement** : saisies une fois, hérité
 
 Le lieu saisi manuellement est créé avec `actif = false` côté référentiel : utilisable immédiatement pour les collectes en cours, puis validé/normalisé par l'Admin Savr en asynchrone (notification dédiée).
 
-**Cas "lieu existant"** : à la sélection d'un lieu via la combobox, **tous les champs associés au lieu (sauf le nom du lieu) s'affichent en autocomplete pré-remplis et éditables**. Champs concernés : adresse accès livraison, code postal, ville, stationnement, type de véhicule max, accès office, contraintes horaires, flux acceptés (lecture/édition selon RLS).
+**Cas "lieu existant"** : à la sélection d'un lieu via la combobox, **tous les champs associés au lieu (sauf le nom du lieu) s'affichent en autocomplete pré-remplis et éditables**. Champs concernés (**9** — `acces_details` ajouté 2026-09-16, arbitrage Val, divergence M1.5a_20260915_acces-details-editable-client : l'énumération était incomplète face à la phrase-chapeau, et le code l'autorisait depuis #193) : adresse accès livraison, code postal, ville, stationnement, type de véhicule max, accès office, contraintes horaires, flux acceptés, **détails d'accès** (`acces_details` — carnet d'accès terrain : badge, code, interphone, contact gardien, digicode/bip parking) (lecture/édition selon RLS).
+
+> **`acces_details` — surcharge per-collecte assumée.** §04 marque ce champ « RW Admin Savr » : cet ownership porte sur la **valeur de RÉFÉRENCE** dans `lieux`, et n'empêche pas une surcharge per-collecte via `collectes.lieu_overrides` — le programmeur connaît son site mieux que le référentiel. Le `lieux` officiel n'est **jamais** modifié (les autres programmeurs continuent de voir la référence), la surcharge est tracée (`audit_log` + notification Admin) et bornée (1000 car., CHECK `collectes_lieu_overrides_valide_chk`). `acces_details` **ne rejoint pas** `R_lieux_admin_only_fields`, qui reste à 4 champs (`commentaire_lieu`, `siren`, `email_gestionnaire`, `reference_citeo`).
+>
+> ⚠ Dette à vérifier : `CHAMPS_LIEU_OVERRIDABLES` (allowlist d'ENTRÉE, `lieu-override.ts`) et `CHAMPS_LIEU_SURCHARGEABLES` (allowlist de SORTIE vers le transporteur, `packages/adapters`) doivent rester cohérentes — l'allowlist effective est leur intersection.
 
 **Champs admin/ops only NON visibles côté traiteur/agence/gestionnaire** : `commentaire_lieu`, `siren`, `email_gestionnaire`, `reference_citeo` (cf. [[05 - Règles métier#R_lieux_admin_only_fields]]).
 
@@ -111,6 +115,16 @@ Le **nom du lieu** reste figé (identifiant lieu). Tout autre champ modifié dé
 2. **Notification Admin Savr** (signalement léger — le diff avant/après est lisible via `lieu_overrides` vs `lieux` officiel + tracé `audit_log`). Plus de table `lieux_modifications_en_attente` (supprimée — audit sobriété §04 2026-05-25 B1).
 3. Le `lieux` officiel **n'est pas mis à jour** automatiquement (les autres programmeurs voient la valeur de référence) ; l'Admin l'édite ensuite directement dans le back-office lieux s'il juge la correction pérenne.
 
+> **Forme admise de `collectes.lieu_overrides`** *(arbitrage Val 2026-09-15, documenté 2026-09-16 — divergence M1.5a_20260915_lieu-overrides-typage-bornes)*
+>
+> Les valeurs de `lieu_overrides` sont du **texte** : chaîne (la chaîne vide vaut « non renseigné »), tableau de chaînes pour `flux_autorises`, ou `null` (équivaut à l'absence de surcharge). Toute autre valeur, toute clé hors des champs éditables et toute valeur au-delà des longueurs admises sont **refusées en `422`**.
+>
+> Les bornes sont posées **aux deux niveaux — route ET base** (CHECK `collectes_lieu_overrides_valide_chk` + `chk_collectes_lieu_overrides_textuel`, migration `20260915160000`), la validation applicative seule étant contournable. C'est `[[:cntrl:]]` (SQL) qui fait foi sur les caractères de contrôle : l'applicatif peut être plus strict, jamais plus permissif (sinon 500 au lieu de 422).
+>
+> **Valeur invalide déjà stockée** (écriture hors API) : elle **n'est pas une surcharge** — le lieu officiel est transmis au transporteur à sa place, et le champ redevient propageable par E5, de sorte qu'une édition Admin du lieu **répare** la collecte. Motif : une valeur non textuelle était interpolée telle quelle dans l'adresse poussée au transporteur (`{"adresse_acces": {"a": 1}}` → `"[object Object], 75008 Paris"`) — un camion envoyé nulle part, de nuit.
+>
+> *Question ouverte MTS-1* : longueur réellement admise sur `place.address.addressSingleLine`. Si < 200, resserrer les bornes d'entrée **et** le CHECK.
+
 (Voir règle [[05 - Règles métier#R_lieu_modif_pending]].)
 
 ### 2.b — Contacts sur place
@@ -119,8 +133,8 @@ Référentiel autocomplete depuis `contacts_traiteurs` (scoped organisation). Ni
 
 | Champ             | Obligatoire | Composant                                                                              | Règle                               |
 | ----------------- | ----------- | -------------------------------------------------------------------------------------- | ----------------------------------- |
-| Contact principal | Oui         | Combobox autocomplete (prenom + nom + téléphone) + option "Ajouter un nouveau contact" | Référentiel filtré par organisation |
-| Contact secours   | Non         | Idem                                                                                   |                                     |
+| Contact principal | Oui         | Combobox autocomplete (prenom + nom + téléphone) + option "Ajouter un nouveau contact" | Référentiel filtré par organisation. **Bornes (2026-09-16)** — nom : texte libre, **120 car. max**, mono-ligne, **non vide** ; téléphone : texte libre, **40 car. max**, **non vide**, aucun format imposé (E.164 reporté). Ces deux champs alimentent les champs natifs de contact de la commande (`contact` MTS-1 / `pickup.contact` Everest) ; ils sont obligatoires (cf. validations bloquantes) et leurs colonnes sont `NOT NULL` → une saisie faite de blancs (`'   '`) rend **422**, jamais un 500. |
+| Contact secours   | Non         | Idem                                                                                   | **Bornes (2026-09-16)** — nom : texte libre, **120 car. max**, mono-ligne ; téléphone : texte libre, **40 car. max**. Ces deux champs sont **concaténés dans le canal de texte libre** transmis au transporteur (`comment` MTS-1 / `notes` Everest) et le **nom ouvre l'agrégat** : une saisie démesurée y évince toutes les lignes suivantes (dont l'adresse d'accès) et une valeur multiligne y forge une fausse ligne d'en-tête. Bornes posées route (422) **et** base (CHECK, migration `20260915180000`). |
 
 **Comportement "Ajouter un nouveau contact"** : sous-formulaire inline (prenom / nom / téléphone / fonction optionnelle) → enregistré dans `contacts_traiteurs` à la validation. Chaque sélection incrémente `contacts_traiteurs.utilise_nb_fois`.
 
@@ -164,7 +178,7 @@ Pour **chaque type de collecte coché** en étape 1, un sous-bloc dédié est af
 | ----- | ----------- | --------- | ----- |
 | **Date de collecte** | Oui | Date picker | **Sans défaut (refonte 2026-05-29)** — saisie obligatoire, aucune valeur pré-remplie. (supprimé : `date_evenement` est désormais dérivé de cette date, pas l'inverse). ≥ aujourd'hui. Stockée dans `collectes.date_collecte`. |
 | **Heure de collecte** | Oui | Time picker (pas de 15min) | Heure unique de présence prestataire (point fixe V1, pas de fenêtre). Stockée dans `collectes.heure_collecte`. Propre à chaque collecte. |
-| **Informations supplémentaires concernant la collecte** | Non | Textarea (1000 car. max) | Texte libre, niveau **collecte**. Ex: "Sonner interphone B au RDC", "Quai N°2 fermé le lundi". Stocké sur `collectes.informations_supplementaires`. Chaque collecte (ZD/AG) porte les siennes. |
+| **Informations supplémentaires concernant la collecte** | Non | Textarea (1000 car. max) | Texte libre, niveau **collecte**. Ex: "Sonner interphone B au RDC", "Quai N°2 fermé le lundi". Stocké sur `collectes.informations_supplementaires`. Chaque collecte (ZD/AG) porte les siennes. **Plafond 1000 car. désormais appliqué en ÉCRITURE (2026-09-16)** — route (422) + CHECK base (migration `20260915180000`) ; auparavant seul le compteur client tronquait. Sauts de ligne et tabulation admis. ⚠ **Ce champ est le SEUL canal routé vers les deux transporteurs** (`comment` MTS-1 / `notes` Everest) : il agrège aussi le nom du contact de secours et les informations d'accès du lieu (cf. [[08 - APIs et intégrations]]). |
 
 **Visibilité aval des informations supplémentaires** :
 

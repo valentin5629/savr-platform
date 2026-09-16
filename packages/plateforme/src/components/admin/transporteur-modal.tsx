@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select } from '@/components/ui/select';
 import { FormField } from '@/components/ui/form-field';
 import { cn } from '@/lib/utils';
+import { TYPES_TMS_AVEC_PRESTATAIRE } from '@/lib/transporteur-lien-prestataire';
 
 // Enregistrement transporteur complet, aligné sur le select('*') de l'API liste —
 // sert à préremplir la modale d'édition sans re-fetch (toutes les colonnes sont
@@ -27,7 +28,19 @@ export interface TransporteurRecord {
   type_tms: string;
   description_process_collecte: string | null;
   code_transporteur_mts1: string | null;
+  prestataire_logistique_id: string | null;
   actif: boolean;
+}
+
+// Entrée de GET /api/v1/admin/prestataires.
+export interface PrestataireOption {
+  id: string;
+  nom: string;
+  code: string;
+  statut: string;
+  /** Transporteur déjà rattaché — un prestataire n'en admet qu'un (#323). */
+  transporteur_id: string | null;
+  transporteur_nom: string | null;
 }
 
 const TYPES_VEHICULES = [
@@ -58,6 +71,7 @@ interface FormValues {
   type_tms: string;
   description_process_collecte: string;
   code_transporteur_mts1: string;
+  prestataire_logistique_id: string;
 }
 
 function toForm(t: TransporteurRecord | null): FormValues {
@@ -75,6 +89,7 @@ function toForm(t: TransporteurRecord | null): FormValues {
     type_tms: t?.type_tms ?? '',
     description_process_collecte: t?.description_process_collecte ?? '',
     code_transporteur_mts1: t?.code_transporteur_mts1 ?? '',
+    prestataire_logistique_id: t?.prestataire_logistique_id ?? '',
   };
 }
 
@@ -85,6 +100,8 @@ interface TransporteurModalProps {
   onClose: () => void;
   /** Appelé après un enregistrement/désactivation réussi (rafraîchir la liste). */
   onSaved: () => void;
+  /** Référentiel des prestataires logistiques (GET /api/v1/admin/prestataires). */
+  prestataires?: PrestataireOption[];
 }
 
 export function TransporteurModal({
@@ -92,6 +109,7 @@ export function TransporteurModal({
   transporteur,
   onClose,
   onSaved,
+  prestataires = [],
 }: TransporteurModalProps) {
   const isEdition = Boolean(transporteur);
   const [values, setValues] = React.useState<FormValues>(() =>
@@ -143,6 +161,12 @@ export function TransporteurModal({
     if (values.type_tms === 'mts1' && !values.code_transporteur_mts1.trim())
       next.code_transporteur_mts1 =
         'Code transporteur MTS-1 obligatoire pour type_tms = mts1';
+    if (
+      TYPES_TMS_AVEC_PRESTATAIRE.includes(values.type_tms) &&
+      !values.prestataire_logistique_id
+    )
+      next.prestataire_logistique_id =
+        'Prestataire logistique obligatoire pour ce type de TMS';
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -167,6 +191,7 @@ export function TransporteurModal({
         values.type_tms === 'mts1'
           ? values.code_transporteur_mts1.trim()
           : null,
+      prestataire_logistique_id: values.prestataire_logistique_id || null,
     };
   }
 
@@ -477,6 +502,41 @@ export function TransporteurModal({
             </FormField>
           )}
         </div>
+
+        <FormField
+          label="Prestataire logistique"
+          htmlFor="tm_prestataire_logistique_id"
+          required={TYPES_TMS_AVEC_PRESTATAIRE.includes(values.type_tms)}
+          error={errors.prestataire_logistique_id}
+          hint={
+            prestataires.length === 0
+              ? 'Aucun prestataire logistique enregistré — à créer par l’équipe technique'
+              : 'Société qui exécute les courses : c’est ce lien qui rattache les tournées au bon transporteur. Non modifiable tant que des collectes non clôturées en dépendent.'
+          }
+        >
+          <Select
+            id="tm_prestataire_logistique_id"
+            value={values.prestataire_logistique_id}
+            onChange={(e) => set('prestataire_logistique_id', e.target.value)}
+            error={Boolean(errors.prestataire_logistique_id)}
+          >
+            <option value="">Aucun</option>
+            {prestataires.map((p) => {
+              // Rattaché à un AUTRE transporteur : grisé (l'index unique le
+              // refuserait). Le sien reste choisissable.
+              const pris =
+                p.transporteur_id !== null &&
+                p.transporteur_id !== transporteur?.id;
+              return (
+                <option key={p.id} value={p.id} disabled={pris}>
+                  {p.nom}
+                  {p.statut !== 'actif' ? ` (${p.statut})` : ''}
+                  {pris ? ` — déjà rattaché à ${p.transporteur_nom}` : ''}
+                </option>
+              );
+            })}
+          </Select>
+        </FormField>
 
         <FormField
           label="Type(s) de collecte"

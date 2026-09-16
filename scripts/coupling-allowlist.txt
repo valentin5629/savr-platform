@@ -207,3 +207,11 @@ supabase/migrations/20260915220000_plateforme_gate_e2_dimension_provider.sql
 # le rattachement de la mission vise la tournée du BON provider. Aucun appel HTTP.
 # 'customerOrders' reste banni.
 packages/plateforme/tests/api/admin/everest-manual-accept.m2-5.test.ts
+
+# packages/plateforme/src/lib/transporteur-lien-prestataire.ts (lien transporteur →
+# prestataire logistique) — CONSTANTE d'enum `transporteurs.type_tms` : la liste
+# des types routés vers un adapter, pour lesquels le lien est obligatoire (sans
+# lui `prestatairesDuType` lève et tous les événements partent en DLQ). Partagée
+# par les routes admin transporteurs ET la modale (déjà exemptées) pour n'avoir
+# qu'une définition. Aucun appel à un transporteur, aucune logique d'adapter.
+packages/plateforme/src/lib/transporteur-lien-prestataire.ts

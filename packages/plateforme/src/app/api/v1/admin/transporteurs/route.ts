@@ -3,6 +3,10 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
 import { serverError } from '@/lib/api-helpers.js';
+import {
+  refusLienPrestataireDepuisDb,
+  validerLienPrestataire,
+} from '@/lib/transporteur-lien-prestataire.js';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireStaff(req);
@@ -79,6 +83,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  const prestataireId = body.prestataire_logistique_id ?? null;
+  const lienInvalide = validerLienPrestataire(type_tms, prestataireId);
+  if (lienInvalide) {
+    return NextResponse.json(
+      { error: lienInvalide.error },
+      { status: lienInvalide.status },
+    );
+  }
+
   // Géocodage en background au save (§6 Transporteurs « Adresse + géocodage »),
   // fail-open — cf. packages/plateforme/src/lib/geocoding.ts.
   const coords = await geocodeAdresse(
@@ -104,6 +117,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       contact_email,
       contact_telephone,
       code_transporteur_mts1: body.code_transporteur_mts1 ?? null,
+      prestataire_logistique_id: prestataireId,
       tarif_par_course: body.tarif_par_course ?? null,
       commentaires_internes: body.commentaires_internes ?? null,
       latitude: coords?.latitude ?? null,
@@ -112,7 +126,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .select()
     .single();
 
-  if (error) return serverError(error, 'admin.transporteurs.create');
+  if (error) {
+    const refus = refusLienPrestataireDepuisDb(error);
+    if (refus) {
+      return NextResponse.json(
+        { error: refus.error },
+        { status: refus.status },
+      );
+    }
+    return serverError(error, 'admin.transporteurs.create');
+  }
 
   await supabase.from('audit_log').insert({
     table_name: 'transporteurs',

@@ -62,34 +62,66 @@ export function assainirTexte(texte: string): string {
   return texte.replace(URL_DANS_TEXTE, (url) => assainirUrl(url));
 }
 
-const PROFONDEUR_MAX = 5;
+// Budget TOTAL de nœuds visités par valeur : le parcours tourne à chaque appel
+// console, de façon synchrone. Il borne à la fois la largeur (Buffer de 5 Mo
+// ≈ 4 s sans borne), la profondeur et les références circulaires.
+const NOEUDS_MAX = 500;
 
 /**
  * Assainit récursivement les chaînes d'une valeur quelconque. Une `Error` (que
  * Next passe telle quelle à `console.error`) est réduite à name/message/stack
  * assainis : ses propriétés natives ne sont pas énumérables et échapperaient au
- * parcours. Au-delà de PROFONDEUR_MAX, la valeur est masquée plutôt que copiée.
+ * parcours. Binaire ou budget dépassé : valeur masquée, jamais
+ * copiée telle quelle.
  */
-export function assainirValeur(valeur: unknown, profondeur = 0): unknown {
-  if (typeof valeur === 'string') return assainirTexte(valeur);
-  if (valeur === null || typeof valeur !== 'object') return valeur;
-  if (profondeur >= PROFONDEUR_MAX) return VALEUR_FILTREE;
-  if (valeur instanceof Error) {
-    return {
-      name: valeur.name,
-      message: assainirTexte(valeur.message),
-      ...(valeur.stack ? { stack: assainirTexte(valeur.stack) } : {}),
-    };
+export function assainirValeur(valeur: unknown): unknown {
+  let budget = NOEUDS_MAX;
+  const visiter = (v: unknown): unknown => {
+    if (typeof v === 'string') return assainirTexte(v);
+    if (v === null || typeof v !== 'object') return v;
+    if (--budget < 0) return VALEUR_FILTREE;
+    if (ArrayBuffer.isView(v) || v instanceof ArrayBuffer)
+      return VALEUR_FILTREE;
+    if (v instanceof Error) {
+      return {
+        name: v.name,
+        message: assainirTexte(v.message),
+        ...(v.stack ? { stack: assainirTexte(v.stack) } : {}),
+      };
+    }
+    if (Array.isArray(v)) {
+      const copie: unknown[] = [];
+      for (const el of v) {
+        if (budget <= 0) {
+          copie.push(VALEUR_FILTREE);
+          break;
+        }
+        copie.push(visiter(el));
+      }
+      return copie;
+    }
+    const copie: Record<string, unknown> = {};
+    for (const cle in v) {
+      if (!Object.prototype.hasOwnProperty.call(v, cle)) continue;
+      if (budget <= 0) {
+        copie['…'] = VALEUR_FILTREE;
+        break;
+      }
+      try {
+        copie[cle] = visiter((v as Record<string, unknown>)[cle]);
+      } catch {
+        // Getter ou Proxy qui lève : cette clé seule est masquée.
+        copie[cle] = VALEUR_FILTREE;
+      }
+    }
+    return copie;
+  };
+  try {
+    return visiter(valeur);
+  } catch {
+    // Proxy qui lève dès l'inspection : masquer plutôt que laisser partir le brut.
+    return VALEUR_FILTREE;
   }
-  if (Array.isArray(valeur)) {
-    return valeur.map((v) => assainirValeur(v, profondeur + 1));
-  }
-  return Object.fromEntries(
-    Object.entries(valeur).map(([k, v]) => [
-      k,
-      assainirValeur(v, profondeur + 1),
-    ]),
-  );
 }
 
 export function filtrerBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb {
@@ -104,7 +136,11 @@ export function filtrerBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb {
     }
     // `arguments` : breadcrumb console (arguments bruts du console.*).
     if (Array.isArray(data['arguments'])) {
-      data['arguments'] = assainirValeur(data['arguments']);
+      // Budget par argument : un premier argument volumineux ne doit pas
+      // priver les suivants d'assainissement (ils seraient masqués en bloc).
+      data['arguments'] = data['arguments'].map((a: unknown) =>
+        assainirValeur(a),
+      );
     }
     b.data = data;
   }

@@ -190,6 +190,32 @@ describe('M0.9 — filtrage Sentry : breadcrumbs', () => {
     expect(typeof e0?.['stack']).toBe('string');
   });
 
+  it('arguments console : cycle, largeur et binaire bornés, getter qui lève masqué', () => {
+    const cyclique: Record<string, unknown> = { url: URL_SLACK };
+    for (let i = 0; i < 30; i++) cyclique[`k${i}`] = cyclique;
+    const largeur = Array.from({ length: 100_000 }, (_, i) => ({ i }));
+    const binaire = Buffer.alloc(5 * 1024 * 1024, 1);
+    const piege = {
+      get url(): string {
+        throw new Error(URL_SLACK);
+      },
+    };
+
+    const debut = performance.now();
+    const b = filtrerBreadcrumb({
+      category: 'console',
+      data: { arguments: [cyclique, largeur, binaire, piege] },
+    });
+    const duree = performance.now() - debut;
+
+    expect(duree).toBeLessThan(200);
+    expect(JSON.stringify(b)).not.toContain(JETON);
+    const args = b.data?.['arguments'] as unknown[];
+    expect(args[2]).toBe('[Filtered]');
+    expect((args[1] as unknown[]).length).toBeLessThan(1000);
+    expect(args[3]).toEqual({ url: '[Filtered]' });
+  });
+
   it('SIRET / n° TVA dans le chemin INSEE / VIES : chemin masqué', () => {
     const siret = ['732', '829', '320', '00074'].join('');
     const b = filtrerBreadcrumb({

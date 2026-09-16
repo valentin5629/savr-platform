@@ -37,8 +37,8 @@ const VIDE: FormValues = {
   adresse: '',
 };
 
-// Garde de saisie seulement : l'email réel est confirmé par l'usage.
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// SIRET saisi avec ou sans espaces : on les retire avant contrôle et envoi.
+const sansEspaces = (s: string) => s.replace(/\s/g, '');
 
 // Bloc thématique — même gabarit Design System que la modale association
 // (carte bordée + pastille primary + titre extrabold, §10).
@@ -107,11 +107,9 @@ export function OrganisationModal({
     if (!values.raison_sociale.trim())
       next.raison_sociale = 'Raison sociale obligatoire';
     if (!values.type) next.type = 'Type obligatoire';
-    const email = values.email_principal.trim();
-    if (!email) next.email_principal = 'Email principal obligatoire';
-    else if (!EMAIL_RE.test(email))
-      next.email_principal = 'Email principal invalide';
-    const siret = values.siret.replace(/\s/g, '');
+    if (!values.email_principal.trim())
+      next.email_principal = 'Email principal obligatoire';
+    const siret = sansEspaces(values.siret);
     if (siret !== '' && !/^\d{14}$/.test(siret))
       next.siret = 'SIRET : 14 chiffres';
     setErrors(next);
@@ -126,7 +124,7 @@ export function OrganisationModal({
       nom: values.nom.trim(),
       raison_sociale: values.raison_sociale.trim(),
       type: values.type,
-      siret: values.siret.replace(/\s/g, '') || undefined,
+      siret: sansEspaces(values.siret) || undefined,
       email_principal: values.email_principal.trim(),
       telephone: opt(values.telephone),
       adresse: opt(values.adresse),

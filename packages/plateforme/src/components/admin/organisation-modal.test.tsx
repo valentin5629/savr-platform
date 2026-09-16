@@ -105,7 +105,7 @@ describe('M1.1b — Modale Nouvelle organisation (§06.06)', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('refuse un SIRET renseigné qui ne fait pas 14 chiffres et un email invalide', async () => {
+  it('refuse un SIRET renseigné qui ne fait pas 14 chiffres', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
     renderModal();
@@ -114,15 +114,11 @@ describe('M1.1b — Modale Nouvelle organisation (§06.06)', () => {
     fireEvent.change(screen.getByLabelText(/^SIRET/), {
       target: { value: '1234' },
     });
-    fireEvent.change(screen.getByLabelText(/^Email principal/), {
-      target: { value: 'pas-un-email' },
-    });
     submit();
 
     expect(
       await screen.findByText('SIRET : 14 chiffres', undefined, ATTENTE_UI),
     ).toBeInTheDocument();
-    expect(screen.getByText('Email principal invalide')).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

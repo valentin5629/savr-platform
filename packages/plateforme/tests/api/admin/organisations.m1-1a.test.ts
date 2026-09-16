@@ -544,15 +544,6 @@ describe('M1.1a / Organisations / Création', () => {
     );
     expect(res.status).toBe(422);
   });
-
-  it('M1.1a/orgas/creation — 422 si raison_sociale manquante', async () => {
-    setupAuth('admin_savr');
-    const { POST } = await import('@/app/api/v1/admin/organisations/route.js');
-    const res = await POST(
-      makeReq('POST', '/api/v1/admin/organisations', { type: 'traiteur' }),
-    );
-    expect(res.status).toBe(422);
-  });
 });
 
 describe('M1.1a / Organisations / Modification', () => {

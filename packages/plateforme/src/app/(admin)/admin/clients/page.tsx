@@ -11,7 +11,7 @@ import { ImpersonationLauncher } from '@/components/ui/impersonation-launcher';
 import { PageHero } from '@/components/ui/page-hero';
 import {
   OrganisationModal,
-  TYPE_ORGANISATION_LABELS as TYPE_LABELS,
+  TYPE_ORGANISATION_LABELS,
 } from '@/components/admin/organisation-modal';
 
 interface PackActif {
@@ -74,7 +74,9 @@ const columns: Column<Organisation>[] = [
     key: 'type',
     header: 'Type',
     render: (row) => (
-      <Badge variant="neutral">{TYPE_LABELS[row.type] ?? row.type}</Badge>
+      <Badge variant="neutral">
+        {TYPE_ORGANISATION_LABELS[row.type] ?? row.type}
+      </Badge>
     ),
   },
   { key: 'nb_users', header: 'Users' },
@@ -190,7 +192,7 @@ export default function ClientsPage() {
           className="px-3 py-2 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-savr-primary-500"
         >
           <option value="">Tous les types</option>
-          {Object.entries(TYPE_LABELS).map(([k, v]) => (
+          {Object.entries(TYPE_ORGANISATION_LABELS).map(([k, v]) => (
             <option key={k} value={k}>
               {v}
             </option>

@@ -69,8 +69,8 @@ function Bloc({
 interface OrganisationModalProps {
   open: boolean;
   onClose: () => void;
-  /** Appelé avec l'id de l'organisation créée (rafraîchir la liste). */
-  onCreated: (id: string) => void;
+  /** Appelé après une création réussie (rafraîchir la liste). */
+  onCreated: () => void;
 }
 
 // Modale « Nouvelle organisation » (§06.06 liste Clients, ajout 2026-09-16) —
@@ -93,6 +93,7 @@ export function OrganisationModal({
       setValues(VIDE);
       setErrors({});
       setServerError(null);
+      setSubmitting(false);
     }
   }, [open]);
 
@@ -151,8 +152,9 @@ export function OrganisationModal({
       setServerError(body?.error ?? 'Erreur lors de la création');
       return;
     }
-    const org = (await res.json()) as { id: string };
-    onCreated(org.id);
+    // Corps de succès non relu : la liste se recharge, l'id est inutile ici
+    // (et un corps illisible ne doit pas bloquer une création déjà faite).
+    onCreated();
     onClose();
   }
 
@@ -160,6 +162,12 @@ export function OrganisationModal({
     e.preventDefault();
     void submitForm();
   }
+
+  // Pas de fermeture (Échap, fond, croix) pendant l'envoi : la réponse
+  // arriverait sur une modale fermée ou rouverte vide.
+  const fermer = () => {
+    if (!submitting) onClose();
+  };
 
   const footer = (
     <>
@@ -184,7 +192,7 @@ export function OrganisationModal({
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={fermer}
       wide
       title="Nouvelle organisation"
       footer={footer}
@@ -197,7 +205,7 @@ export function OrganisationModal({
               htmlFor="om_nom"
               required
               error={errors.nom}
-              hint="Nom usuel affiché dans l'app"
+              hint="Nom usuel affiché dans l’app"
             >
               <Input
                 id="om_nom"
@@ -287,7 +295,7 @@ export function OrganisationModal({
           <FormField
             label="Adresse"
             htmlFor="om_adresse"
-            hint="Optionnel — l'adresse de facturation se saisit dans la fiche"
+            hint="Optionnel — l’adresse de facturation se saisit dans la fiche"
           >
             <Input
               id="om_adresse"

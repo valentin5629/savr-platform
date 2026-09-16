@@ -140,10 +140,7 @@ describe('M1.1b — Modale Nouvelle organisation (§06.06)', () => {
     });
     submit();
 
-    await waitFor(
-      () => expect(onCreated).toHaveBeenCalledWith('org-new'),
-      ATTENTE_UI,
-    );
+    await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1), ATTENTE_UI);
     expect(onClose).toHaveBeenCalled();
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
@@ -212,5 +209,93 @@ describe('M1.1b — Modale Nouvelle organisation (§06.06)', () => {
     ).toBeInTheDocument();
     expect(onCreated).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['fetch rejeté (réseau)', () => Promise.reject(new Error('offline'))],
+    [
+      'erreur au corps illisible',
+      () =>
+        Promise.resolve({
+          ok: false,
+          json: async () => {
+            throw new SyntaxError('pas du JSON');
+          },
+        }),
+    ],
+  ])('message neutre et modale ouverte si %s', async (_cas, reponse) => {
+    vi.stubGlobal('fetch', vi.fn(reponse));
+    const { onClose, onCreated } = renderModal();
+
+    fillRequired();
+    submit();
+
+    expect(
+      await screen.findByText(
+        'Erreur lors de la création',
+        undefined,
+        ATTENTE_UI,
+      ),
+    ).toBeInTheDocument();
+    expect(onCreated).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('création réussie même si le corps de succès est illisible', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => {
+          throw new SyntaxError('pas du JSON');
+        },
+      }),
+    );
+    const { onClose, onCreated } = renderModal();
+
+    fillRequired();
+    submit();
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1), ATTENTE_UI);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('pendant l’envoi, Échap ne ferme pas la modale', async () => {
+    let resoudre: (v: unknown) => void = () => {};
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => new Promise((r) => (resoudre = r))),
+    );
+    const { onClose } = renderModal();
+
+    fillRequired();
+    submit();
+    expect(
+      await screen.findByRole('button', { name: 'Création…' }, ATTENTE_UI),
+    ).toBeDisabled();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent.click(screen.getByRole('button', { name: 'Fermer' }));
+    expect(onClose).not.toHaveBeenCalled();
+
+    resoudre({ ok: true, json: async () => ({}) });
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1), ATTENTE_UI);
+  });
+
+  it('à la réouverture, le formulaire est vierge', async () => {
+    const props = { onClose: vi.fn(), onCreated: vi.fn() };
+    const { rerender } = render(<OrganisationModal open {...props} />);
+    fireEvent.change(screen.getByLabelText(/^Nom/), {
+      target: { value: 'Brouillon' },
+    });
+    rerender(<OrganisationModal open={false} {...props} />);
+    rerender(<OrganisationModal open {...props} />);
+    expect(
+      (await screen.findByLabelText(
+        /^Nom/,
+        undefined,
+        ATTENTE_UI,
+      )) as HTMLInputElement,
+    ).toHaveValue('');
   });
 });

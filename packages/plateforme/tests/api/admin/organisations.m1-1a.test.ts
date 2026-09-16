@@ -517,8 +517,16 @@ describe('M1.1a / Organisations / Création', () => {
         makeReq('POST', '/api/v1/admin/organisations', body),
       );
       expect(res.status).toBe(422);
-      const json = (await res.json()) as { champs_invalides: string[] };
+      const json = (await res.json()) as {
+        error: string;
+        champs_invalides: string[];
+      };
       expect(json.champs_invalides).toEqual([champ]);
+      // Message métier en français, sans nom de colonne technique.
+      expect(json.error).toMatch(
+        /^Champ\(s\) obligatoire\(s\) manquant\(s\) : /,
+      );
+      expect(json.error).not.toContain('_');
       expect(mockSupabaseChain.insert).not.toHaveBeenCalled();
     },
   );

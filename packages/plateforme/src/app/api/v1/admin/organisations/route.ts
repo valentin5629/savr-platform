@@ -179,19 +179,17 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
   const texte = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
   const manquants = (
     [
-      ['nom', nom],
-      ['raison_sociale', raison_sociale],
-      ['type', type],
-      ['email_principal', email_principal],
+      ['nom', 'nom', nom],
+      ['raison_sociale', 'raison sociale', raison_sociale],
+      ['type', 'type', type],
+      ['email_principal', 'email principal', email_principal],
     ] as const
-  )
-    .filter(([, v]) => texte(v) === '')
-    .map(([k]) => k);
+  ).filter(([, , v]) => texte(v) === '');
   if (manquants.length > 0) {
     return NextResponse.json(
       {
-        error: 'nom, raison_sociale, type et email_principal sont obligatoires',
-        champs_invalides: manquants,
+        error: `Champ(s) obligatoire(s) manquant(s) : ${manquants.map(([, libelle]) => libelle).join(', ')}`,
+        champs_invalides: manquants.map(([champ]) => champ),
       },
       { status: 422 },
     );

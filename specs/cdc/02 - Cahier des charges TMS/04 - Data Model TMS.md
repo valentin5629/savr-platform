@@ -404,7 +404,7 @@ L'enum `statut_everest` existant (`created`, `assigned`, `in_progress`, `complet
 
 **Index ajouté** : `(statut_everest, derniere_sync_at DESC) WHERE statut_everest IN ('creation_failed','cancelled_externally','failed')` pour dashboard E1 alertes.
 
-**CHECK constraint ajouté** : `((statut_everest = 'created_manually') = (manual_acceptance_at IS NOT NULL AND manual_acceptance_by_user_id IS NOT NULL AND manual_acceptance_contact IS NOT NULL))` — cohérence statut/colonnes manual.
+**CHECK constraint ajouté** : `(statut_everest <> 'created_manually' OR (manual_acceptance_at IS NOT NULL AND manual_acceptance_by_user_id IS NOT NULL AND manual_acceptance_contact IS NOT NULL))` — **implication, révisé 2026-09-16 (divergence M2.5, arbitrage Val)** : `created_manually` **exige** les 3 champs de traçabilité, mais ceux-ci sont **conservés** quand la mission reprend le cycle normal (`assigned`, `in_progress`, `completed`, `cancelled`…). — l'ancienne équivalence bloquait en base toute sortie de `created_manually` (annulation `cancelCollecte` et webhooks Everest en erreur 23514), ou imposait d'effacer l'audit de l'acceptation téléphonique à chaque transition.
 
 **Cardinalité `collecte_tms_id` (généralisation multi-vélo 2026-05-29)** : `collecte_tms_id` n'a **pas** de contrainte d'unicité seule. En **multi-vélo AG** (D8bis M04), une collecte servie par N vélos = N tournées sœurs = **N missions Everest** avec le même `collecte_tms_id` (et `tournee_id` distinct par mission). Seul `everest_mission_id` est UNIQUE. L'index existant `(collecte_tms_id)` (cf. A6) reste un index non-unique de lookup. La distinction de chaque mission se fait par `tournee_id` (= `client_ref` Everest, idempotence push W1 keyée `(tournee_id, service_id)`). Aucune migration de schéma requise (la structure supportait déjà N lignes).
 
@@ -3157,7 +3157,7 @@ Mapping 1:1 ↔ N entre tournées TMS et missions Everest (A Toutes!). Permet de
 
 **Index** : `(tournee_id)`, `(collecte_tms_id)`, `(everest_mission_id)` UNIQUE, `(statut_everest, derniere_sync_at DESC)`, `(statut_everest, derniere_sync_at DESC) WHERE statut_everest IN ('creation_failed','cancelled_externally','failed')` (propagation M14 2026-04-25 — alertes E1).
 
-**CHECK constraint** (propagation M14 2026-04-25) : `((statut_everest = 'created_manually') = (manual_acceptance_at IS NOT NULL AND manual_acceptance_by_user_id IS NOT NULL AND manual_acceptance_contact IS NOT NULL))` — cohérence statut/colonnes manual.
+**CHECK constraint** (propagation M14 2026-04-25) : `(statut_everest <> 'created_manually' OR (manual_acceptance_at IS NOT NULL AND manual_acceptance_by_user_id IS NOT NULL AND manual_acceptance_contact IS NOT NULL))` — **implication, révisé 2026-09-16 (divergence M2.5, arbitrage Val)** : `created_manually` **exige** les 3 champs de traçabilité, mais ceux-ci sont **conservés** quand la mission reprend le cycle normal (`assigned`, `in_progress`, `completed`, `cancelled`…). — l'ancienne équivalence bloquait en base toute sortie de `created_manually` (annulation `cancelCollecte` et webhooks Everest en erreur 23514), ou imposait d'effacer l'audit de l'acceptation téléphonique à chaque transition.
 
 **CHECK constraint** (test-scenarios M14 2026-06-07, floue #3 tranchée Val) : `((statut_everest IN ('creation_failed','created_manually')) OR everest_mission_id IS NOT NULL)` — seuls les états sans réponse Everest (échec création W1, acceptation manuelle W4 pré-dispatch) peuvent avoir `everest_mission_id` NULL.
 

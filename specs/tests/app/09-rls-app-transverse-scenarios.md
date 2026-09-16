@@ -14,6 +14,9 @@
 > **Périmètre** : ce lot consolide la suite pgTAP **transverse** (couverture critique V1, sobriété 2026-06-03 B2). Les scénarios RLS spécifiques à un module (cat. 4 des lots ①–⑩) restent dans leurs fichiers — pas de doublon ici : ce fichier porte les tests **multi-tables, helpers, prédicats canoniques et chemins d'accès croisés**. Couverture 100 % des policies = V1.1.
 >
 > **4 décisions Val 2026-06-07 (lot ⑪)** intégrées : F1 `cf_update_staff` (pesées admin+ops), F2 règle staff canonique `f_is_staff()`, F3 `f_collecte_editable` sur UPDATE manager+agence, F4 `users` SELECT org-wide commercial.
+>
+> **⚠ NORMATIF — écriture directe client fermée (révision 2026-09-16, divergences REVOKE `collectes` + `evenements`)** : l'INSERT/UPDATE/DELETE **direct via PostgREST** est **révoqué au niveau table** pour tous les rôles clients (`traiteur_manager`, `traiteur_commercial`, `gestionnaire_lieux`, `agence`, `client_organisateur`) sur **`collectes`** (migration `20260915160000`) **et sur `evenements`** (migration `20260915190000`, PR #328) — les deux appliquées dev + prod. Les policies d'écriture (`col_insert`, `col_update_client`, `col_update_commercial`, policies `evenements`) **subsistent mais sont inertes** : l'erreur est **`42501` levée AVANT l'évaluation RLS**, pas « 0 ligne affectée ». Toute écriture légitime passe par les **routes API sous `service_role`**.
+> **Conséquence de lecture des scénarios ci-dessous** : un scénario d'écriture sur `collectes` / `evenements` rédigé « 0 ligne est affectée » ou « l'INSERT échoue » reste **valide dans son intention** (le périmètre RLS testé est le bon) mais, exécuté en direct sous `authenticated`, il **lève 42501**. Ces scénarios doivent être implémentés **via la route API** (couche `api`) pour tester le prédicat métier, et le REVOKE lui-même est couvert par le scénario dédié `ecriture_directe_collectes_evenements_revoke_42501` (catégorie 5). Les scénarios de **SELECT** sont inchangés.
 
 ---
 
@@ -106,10 +109,12 @@ Scénario : gestionnaire_brouillon_tiers_exclu (evenements_brouillon_tiers_denie
   Alors le brouillon n'apparaît pas (anti-fuite d'intention commerciale — décision F3 lot ⑤)
   Et son propre brouillon (organisation_id = Viparis, date NULL) reste visible
 
-Scénario : manager_update_dans_fenetre_edition_ok (F3 lot ⑪)
+Scénario : manager_update_dans_fenetre_edition_ok (F3 lot ⑪ — révisé 2026-09-16, REVOKE evenements)
   Étant donné un événement Kaspia dont une collecte est au statut `programmee`
-  Quand `manager_kaspia` exécute UPDATE sur cet événement
+  Quand `manager_kaspia` appelle la route API de modification d'événement (sous `service_role`)
   Alors la mise à jour réussit (f_collecte_editable = TRUE)
+  Quand `manager_kaspia` exécute le même UPDATE en direct via PostgREST
+  Alors l'erreur `42501` est levée avant RLS (REVOKE table-level `20260915190000`) — l'écriture directe n'est plus un chemin valide
 
 Scénario : manager_update_hors_fenetre_denied (evenements_update_manager_fenetre_denied — F3 lot ⑪)
   Étant donné un événement Kaspia dont toutes les collectes sont `realisee` ou `cloturee`
@@ -389,6 +394,17 @@ Scénario : demande_suppression_statut_non_falsifiable_client
 ```gherkin
 # Source : §09 addendum app_domain + A2/A3 + §3 collecte_tournees
 # Couche : db | Priorité : P1-critique sauf mention
+
+Scénario : ecriture_directe_collectes_evenements_revoke_42501 (ajout 2026-09-16 — divergences REVOKE `collectes` + `evenements`)
+  # Couche : db | Priorité : P1-critique
+  Étant donné les rôles clients `manager_kaspia`, `commercial1_kaspia`, `gest_viparis`, `agence_d`, `client_e` sous `authenticated`
+  Quand chacun tente un INSERT, un UPDATE puis un DELETE **direct via PostgREST** sur `collectes`
+  Alors chaque tentative lève `42501` (REVOKE table-level `20260915160000`), jamais « 0 ligne affectée »
+  Quand chacun tente un INSERT, un UPDATE puis un DELETE **direct via PostgREST** sur `evenements`
+  Alors chaque tentative lève `42501` (REVOKE table-level `20260915190000`, PR #328)
+  Et le SELECT sur les deux tables reste autorisé et filtré par RLS pour chaque rôle (non-régression de la lecture)
+  Et `service_role` écrit sur les deux tables sans entrave (les routes API restent le seul chemin d'écriture)
+  Et les policies d'écriture `col_insert` / `col_update_client` / `col_update_commercial` et celles d'`evenements` existent toujours en base (inertes, non supprimées)
 
 Scénario : service_role_bypasse_rls_ecritures_systeme
   Quand le SERVICE_ROLE (adapter MTS-1 / webhook tournee-upsert) exécute INSERT sur `collecte_tournees`, `outbox_events`, `integrations_inbox`, `emails_envoyes`

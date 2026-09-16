@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   captureException,
   setSentrySink,
@@ -103,5 +103,92 @@ describe('M0.9 — Slack sendAlert', () => {
       message: 'Event E1 en DLQ après 4 tentatives',
       metadata: { outbox_id: 'evt-999', collecte_id: 'col-42' },
     });
+  });
+});
+
+describe('Slack sendAlert — envoi HTTP réel (sans sink)', () => {
+  const payload: SlackPayload = {
+    canal: 'critique',
+    titre: '[DLQ] Outbox event mort — collecte.creee',
+    message: 'aggregate_id=col-1 attempts=4',
+  };
+
+  beforeEach(() => {
+    setSlackSink(null);
+    vi.stubEnv('SLACK_WEBHOOK_CRITIQUE', 'https://hooks.slack.test/critique');
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  function lignesSendFailed(): Record<string, unknown>[] {
+    return vi
+      .mocked(console.error)
+      .mock.calls.map(
+        (c) => JSON.parse(String(c[0])) as Record<string, unknown>,
+      )
+      .filter((l) => l['event'] === 'slack.send_failed');
+  }
+
+  it('Slack injoignable (fetch rejette) : ne lève pas, journalise slack.send_failed', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockRejectedValue(new TypeError('fetch failed')),
+    );
+
+    await expect(sendAlert(payload)).resolves.toBeUndefined();
+
+    expect(lignesSendFailed()).toEqual([
+      expect.objectContaining({
+        payload: { canal: 'critique', status: null, erreur: 'TypeError' },
+      }),
+    ]);
+  });
+
+  it("Slack ne répond pas : la requête porte un signal d'abandon borné", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response('ok', { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await sendAlert(payload);
+
+    const init = fetchMock.mock.calls[0]![1] as RequestInit;
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+    expect(lignesSendFailed()).toEqual([]);
+  });
+
+  it("délai dépassé (AbortSignal.timeout) : ne lève pas, journalise le nom de l'erreur", async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockRejectedValue(new DOMException('aborted', 'TimeoutError')),
+    );
+
+    await expect(sendAlert(payload)).resolves.toBeUndefined();
+
+    expect(lignesSendFailed()).toEqual([
+      expect.objectContaining({
+        payload: { canal: 'critique', status: null, erreur: 'TimeoutError' },
+      }),
+    ]);
+  });
+
+  it('réponse HTTP non 2xx : ne lève pas, journalise le statut', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('no', { status: 500 })),
+    );
+
+    await expect(sendAlert(payload)).resolves.toBeUndefined();
+
+    expect(lignesSendFailed()).toEqual([
+      expect.objectContaining({
+        payload: { canal: 'critique', status: 500, erreur: null },
+      }),
+    ]);
   });
 });

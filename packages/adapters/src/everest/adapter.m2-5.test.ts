@@ -681,11 +681,10 @@ describe('M2.5 / AdapterEverest — écritures DB refusées', () => {
   });
 
   it('mission acceptée au TÉLÉPHONE (created_manually) : « Renvoyer au TMS » ne dépêche pas un second vélo', async () => {
-    // Chemin réel : Everest indisponible → Ops appelle A Toutes! → la route
-    // admin/everest/missions/manual-accept pose `created_manually` SANS
-    // `everest_mission_id` ni `external_ref_commande`. Le gate d'émission exige
-    // une référence de commande : il répond `false`, et un clic sur « Renvoyer
-    // au TMS » émet donc E1 — un dispatch, pas une modification.
+    // Lignes posées AVANT l'arbitrage du 2026-09-16 (référence obligatoire) :
+    // `created_manually` SANS `everest_mission_id` ni `external_ref_commande`.
+    // Le gate d'émission exige une référence de commande : il répond `false`, et
+    // un clic sur « Renvoyer au TMS » émet donc E1 — le filet doit tenir.
     const { missions } = setupEverestMock();
     const supabase = makeMockSupabase({
       tourneeExistante: {
@@ -802,6 +801,85 @@ describe('M2.5 / AdapterEverest — cancelCollecte', () => {
     await adapter.cancelCollecte(COLLECTE_AG);
 
     expect(cancelledIds.size).toBe(0);
+  });
+});
+
+// ─── Acceptation manuelle (Everest indisponible) — §06.06 §3 Bloc 0 ──────────
+//
+// Arbitrage Val 2026-09-16 : la référence de mission communiquée par A Toutes!
+// est obligatoire et écrite comme au dispatch normal
+// (`fn_accepter_mission_everest_manuelle`). Les fixtures ci-dessous reproduisent
+// l'état EXACT que laisse cette RPC — vérifié par pgTAP
+// (everest_acceptation_manuelle_reference.test.sql A2a/A2b) : tournée avec
+// `external_ref_commande`, mission `created_manually` avec `everest_mission_id`.
+
+describe('M2.5 / AdapterEverest — mission acceptée manuellement AVEC référence', () => {
+  afterEach(() => _setEverestHandlers(null));
+
+  const ETAT_APRES_ACCEPTATION = {
+    tourneeExistante: {
+      id: 'tournee-manuelle-001',
+      external_ref_commande: 'EVR-TEL-001',
+      statut: 'planifiee',
+      prestataire_logistique_id: PRESTA_EVEREST,
+    },
+    missionExistante: {
+      id: 'em-manuelle-001',
+      statut_everest: 'created_manually',
+      everest_mission_id: 'EVR-TEL-001',
+    },
+  };
+
+  it('annulation : cancelCollecte RETROUVE la mission et l’annule chez A Toutes! avec la référence saisie', async () => {
+    const { cancelledIds } = setupEverestMock();
+    const supabase = makeMockSupabase(ETAT_APRES_ACCEPTATION);
+
+    const consumer = await new AdapterEverest(
+      TRANSPORTEUR_EVEREST,
+      supabase,
+    ).cancelCollecte(COLLECTE_AG);
+
+    expect(consumer).toBe('adapter_everest');
+    expect([...cancelledIds]).toEqual(['EVR-TEL-001']);
+  });
+
+  it('contre-épreuve — acceptation SANS référence (état d’avant l’arbitrage) : l’annulation ne part nulle part', async () => {
+    // C'est le défaut que le champ obligatoire ferme : un vélo réservé au
+    // téléphone et un Annuler qui sort en no-op — le vélo se présente.
+    const { cancelledIds } = setupEverestMock();
+    const supabase = makeMockSupabase({
+      tourneeExistante: {
+        ...ETAT_APRES_ACCEPTATION.tourneeExistante,
+        external_ref_commande: null,
+      },
+      missionExistante: {
+        ...ETAT_APRES_ACCEPTATION.missionExistante,
+        everest_mission_id: null,
+      },
+    });
+
+    const consumer = await new AdapterEverest(
+      TRANSPORTEUR_EVEREST,
+      supabase,
+    ).cancelCollecte(COLLECTE_AG);
+
+    expect(consumer).toBe('noop_no_remote');
+    expect(cancelledIds.size).toBe(0);
+  });
+
+  it('E1 reçu malgré tout (event en retry) : no-op idempotent — aucun second vélo, référence intacte', async () => {
+    const { missions } = setupEverestMock();
+    const supabase = makeMockSupabase(ETAT_APRES_ACCEPTATION);
+
+    const consumer = await new AdapterEverest(
+      TRANSPORTEUR_EVEREST,
+      supabase,
+    ).dispatchCollecte(COLLECTE_AG, 1);
+
+    expect(consumer).toBe('adapter_everest');
+    expect(missions.size).toBe(0);
+    expect(supabase._updated['tournees'] ?? []).toEqual([]);
+    expect(supabase._updated['collectes'] ?? []).toEqual([]);
   });
 });
 

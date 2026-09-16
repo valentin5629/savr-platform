@@ -228,3 +228,10 @@ packages/plateforme/src/lib/transporteur-lien-prestataire.ts
 # DELETE) : aucune logique adapter, aucun appel HTTP. 'customerOrders' reste banni.
 supabase/migrations/20260916150000_plateforme_transporteurs_cols_immuables.sql
 supabase/tests/SECU__transporteur_cols_immuables.test.sql
+# Acceptation manuelle d'une mission A Toutes! avec référence obligatoire (2026-09-16,
+# §06.06 §3 Bloc 0) — RPC `fn_accepter_mission_everest_manuelle` et son pgTAP : 'everest'
+# = nom de la table `everest_missions` / de la colonne `everest_mission_id` et du segment
+# d'URL de la route déjà allowlistée ; 'mts1' = valeur de l'enum type_tms dans les INSERT
+# de fixtures. Écritures DB uniquement, aucun appel HTTP transporteur. 'customerOrders' banni.
+supabase/migrations/20260916160000_plateforme_everest_acceptation_manuelle_reference.sql
+supabase/tests/everest_acceptation_manuelle_reference.test.sql

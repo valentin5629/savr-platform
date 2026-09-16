@@ -433,7 +433,9 @@ SELECT lives_ok(
 -- direct n'en émettait aucun. R22c a explicitement écarté un trigger `dirty_tms`
 -- sur `evenements` (double push E2) — rien ne rattrape ce chemin.
 --
--- c1 est commandée (tournee avec external_ref_commande) : le gate d'émission est
+-- c1 est commandée chez son provider : une tournée avec external_ref_commande,
+-- ET la collecte comme la tournée résolvent, via leur transporteur, au même
+-- type_tms (gate provider-aware depuis #327). Le gate d'émission est donc
 -- ouvert. Mesuré sous superuser, la RLS de `outbox_events` ne masquant alors rien.
 SELECT test_as_superuser();
 

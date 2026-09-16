@@ -23,11 +23,23 @@ let rpcResult: {
 } = { data: { rejeu: false }, error: null };
 let fromCalls: string[] = [];
 
-vi.mock('@/lib/api-auth.js', () => ({
-  requireStaff: vi.fn(async () => ({
-    ctx: { userId: 'ops-1', role: 'ops_savr', organisationId: null },
-  })),
-}));
+let authRefus: number | null = null;
+
+vi.mock('@/lib/api-auth.js', async () => {
+  const { NextResponse } = await import('next/server');
+  return {
+    requireStaff: vi.fn(async () =>
+      authRefus
+        ? {
+            error: NextResponse.json(
+              { error: 'Rôle insuffisant' },
+              { status: authRefus },
+            ),
+          }
+        : { ctx: { userId: 'ops-1', role: 'ops_savr', organisationId: null } },
+    ),
+  };
+});
 vi.mock('@savr/shared/src/supabase-client.js', () => ({
   createAdminSupabaseClient: () => ({
     rpc: (fn: string, args: Record<string, unknown>) => {
@@ -75,6 +87,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   rpcCalls = [];
   fromCalls = [];
+  authRefus = null;
   rpcResult = { data: { rejeu: false }, error: null };
 });
 
@@ -94,6 +107,8 @@ describe('M2.5 — acceptation manuelle : la référence de mission est obligato
     ['blancs seuls', '   '],
     ['espace interne (dictée au téléphone)', 'EVR 001'],
     ['saut de ligne', 'EVR-001\nx'],
+    ['espace de largeur nulle (collée depuis un SMS)', 'EVR-\u200B001'],
+    ['contrôle bidirectionnel', 'EVR-\u202E001'],
     ['nombre au lieu d’une chaîne', 12345],
     ['65 caractères', 'A'.repeat(65)],
   ])('référence %s → 422', async (_cas, valeur) => {
@@ -134,6 +149,33 @@ describe('M2.5 — acceptation manuelle : la référence de mission est obligato
     const r = await post('{pas du json');
     expect(r.status).toBe(400);
     expect(rpcCalls).toHaveLength(0);
+  });
+});
+
+describe('M2.5 — acceptation manuelle : réservée au staff', () => {
+  it.each([401, 403])(
+    'requireStaff refuse (%s) → aucune RPC',
+    async (status) => {
+      authRefus = status;
+      const r = await post(SAISIE);
+
+      expect(r.status).toBe(status);
+      expect(rpcCalls).toHaveLength(0);
+    },
+  );
+
+  it('l’auteur vient TOUJOURS du contexte d’auth, jamais du corps', async () => {
+    const r = await post({
+      ...SAISIE,
+      user_id: 'attaquant',
+      p_user_id: 'attaquant',
+      role: 'admin_savr',
+      p_role: 'admin_savr',
+    });
+
+    expect(r.status).toBe(200);
+    expect(rpcCalls[0]!.args['p_user_id']).toBe('ops-1');
+    expect(rpcCalls[0]!.args['p_role']).toBe('ops_savr');
   });
 });
 

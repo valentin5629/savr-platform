@@ -17,7 +17,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(28);
+SELECT plan(30);
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
@@ -316,6 +316,29 @@ SELECT ok(
   AND NOT has_function_privilege('anon',
     'plateforme.fn_accepter_mission_everest_manuelle(uuid,text,text,uuid,text,text,text)', 'EXECUTE'),
   'A10 ni authenticated ni anon n''ont EXECUTE');
+
+-- ── A10b/c : refus EFFECTIF a l'execution sous un role client ────────────────
+-- A10 lit les droits ; ceci prouve l'appel refuse, meme avec un JWT staff (la
+-- route, sous service_role, est le seul chemin). Le MESSAGE est asserte : un
+-- refus sur une TABLE (authenticated n'a plus UPDATE sur collectes) leve aussi
+-- 42501 et rendrait le cas vert meme si la fonction etait ouverte.
+SET LOCAL role = 'authenticated';
+SET LOCAL request.jwt.claims = '{"sub":"e5a40000-0000-0000-0000-0000000000a1","role":"authenticated","user_role":"ops_savr"}';
+SELECT throws_ok(
+  $$ SELECT plateforme.fn_accepter_mission_everest_manuelle(
+       'e5a40000-0000-0000-0000-0000000000c4'::uuid, 'EVR-TEL-CLIENT', 'Mathieu',
+       'e5a40000-0000-0000-0000-0000000000a1'::uuid, 'ops_savr', NULL, NULL) $$,
+  '42501', 'permission denied for function fn_accepter_mission_everest_manuelle',
+  'A10b authenticated (JWT ops_savr) -> permission denied a l''execution');
+RESET role;
+SET LOCAL role = 'anon';
+SELECT throws_ok(
+  $$ SELECT plateforme.fn_accepter_mission_everest_manuelle(
+       'e5a40000-0000-0000-0000-0000000000c4'::uuid, 'EVR-TEL-ANON', 'Mathieu',
+       'e5a40000-0000-0000-0000-0000000000a1'::uuid, 'ops_savr', NULL, NULL) $$,
+  '42501', 'permission denied for function fn_accepter_mission_everest_manuelle',
+  'A10c anon -> permission denied a l''execution');
+RESET role;
 
 SELECT * FROM finish();
 ROLLBACK;

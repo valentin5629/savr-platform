@@ -13,7 +13,7 @@ import { NextResponse } from 'next/server';
 // La référence n'a pas de format documenté côté A Toutes! (le client API la lit
 // en `String(raw.mission_id ?? raw.id)`). On ne présume donc pas d'alphabet : on
 // refuse seulement ce qui ne peut PAS être un identifiant — blancs internes,
-// caractères de contrôle, demi-surrogate. Elle repart telle quelle comme
+// caractères de contrôle ou de format invisibles, demi-surrogate. Elle repart telle quelle comme
 // `mission_id` dans l'appel d'annulation : une espace dictée au téléphone y
 // produirait un 404 chez le transporteur, donc une annulation qui n'annule rien.
 // 64 caractères : bien au-delà d'un identifiant de mission plausible, assez bas
@@ -31,7 +31,11 @@ const CONTROLE_HORS_BLANCS =
   /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/;
 /* eslint-enable no-control-regex */
 const SURROGATE_ORPHELIN = /\p{Surrogate}/u;
-const BLANC = /\s/;
+// Blancs, et caractères de FORMAT invisibles (U+200B, U+2060, contrôles
+// bidirectionnels U+202A-U+202E…) que `\s` ne couvre pas : collés depuis un SMS
+// ou un mail, ils rendraient la référence inconnue du transporteur sans que
+// l'Ops ne voie rien à l'écran.
+const BLANC = /[\s\p{Cf}]/u;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const HEURE = /^([01]\d|2[0-3]):[0-5]\d$/;
 

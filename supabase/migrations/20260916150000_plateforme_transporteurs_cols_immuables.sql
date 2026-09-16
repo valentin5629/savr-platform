@@ -30,8 +30,8 @@
 --
 -- CE QUI RESTE LIBRE. Tout le reste, dont `actif` (désactiver est le geste Ops
 -- normal). Une mise à jour qui réécrit la MÊME valeur passe (IS DISTINCT FROM) :
--- les seeds upsertent le référentiel. TRUNCATE (reset dev) ne déclenche pas les
--- triggers de ligne.
+-- les seeds upsertent le référentiel. Le vidage de table du reset dev
+-- (`packages/shared/src/seed/reset.ts`) ne déclenche pas les triggers de ligne.
 --
 -- DELETE. Refusé si une tournée porte le prestataire du transporteur : la
 -- suppression orphelinerait ces tournées (plus de `type_tms` pour les résoudre).

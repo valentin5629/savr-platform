@@ -199,6 +199,9 @@ Policy héritée de `evenements` via `evenement_id`. Même logique de filtrage. 
 
 > **Note d'implémentation M1.2 (2026-06-26)** : pour la policy UPDATE collectes, les 3 rôles `traiteur_manager`, `agence`, `gestionnaire_lieux` partagent une policy unique `col_update_client` (scope organisation, champs whitelistés). `traiteur_commercial` a une policy distincte `col_update_commercial` (scope `created_by` uniquement). Il n'y a pas de policy par rôle distincte pour les 3 premiers rôles. Patch M1.2_20260626.
 
+> ⚠ **Depuis le 2026-09-15 (migration `20260915160000`), `authenticated` n'a plus les privilèges `UPDATE` ni `INSERT` sur `plateforme.collectes`** (REVOKE table-level, sans re-GRANT — arbitrage Val). Les policies `col_update_client`, `col_update_commercial` et `col_insert` sont **conservées mais inertes** : un appel PostgREST direct lève `42501` (insufficient_privilege) avant l'évaluation RLS. Toute écriture de `collectes` passe par les routes API Next sous `service_role`, seules à émettre l'outbox E1/E2, tracer `audit_log` et poser `dirty_tms`. `SELECT` (`col_select`) et `DELETE` (`col_delete_brouillon`) restent accordés.
+> Motif : la RLS filtre les LIGNES, jamais les COLONNES — un client légitime pouvait écrire n'importe quelle colonne de sa propre collecte, dont `lieu_overrides`, et la valeur atteignait le transporteur via l'outbox. Preuve : `supabase/tests/SECU__collectes_ecriture_client_fermee.test.sql` (28 assertions).
+
 > **Restriction DELETE 2026-06-07 (test scenarios §06.04 F5, arbitrage Val)** : la policy DELETE `collectes` est limitée à `statut = 'brouillon'` pour les rôles traiteur (créateur ou manager) — une collecte poussée TMS ne peut être que **annulée** (statut `annulee` → E3 `DELETE /collectes/:id` systématique vers TMS si `statut_tms ≠ non_envoye`, tous acteurs : traiteur, Ops, Admin). pgTAP : `test_collectes_delete_brouillon_only` (allow brouillon créateur, deny programmee+ manager et commercial). Cf. §06.04 policy ÉCRITURE + §05 §Annulation.
 
 ### Table `factures`
@@ -411,9 +414,16 @@ Synthèse des permissions Ops Savr appliquées au back-office (détail écran pa
 | | Désactiver (`actif=false`) | **Oui** | **Non** |
 | **Lieux / Transporteurs** | Lecture / écriture / désactivation | Oui | Oui (V1, à raffiner V2) |
 | **Organisations** | Lecture | Oui | Oui |
+| | **Créer une organisation** *(ajout 2026-09-16 — arbitrage Val, divergence M1.1_20260915_creation-organisation-admin : la route `POST /api/v1/admin/organisations` existait sans ligne de matrice)* | **Oui** | **Oui** |
 | | Modifier infos générales (logo, contacts) | Oui | Oui |
 | | Modifier `tarif_refacture_pax_zd` | **Oui** | **Non** |
 | | *(retiré V1 — F6 2026-06-07, fusion = script SQL hors UI, cf. §06.06 §8)* | — | — |
+> **Création d'organisation — périmètre du payload** *(2026-09-16)* : `POST /api/v1/admin/organisations` accepte une **allowlist fermée de 7 colonnes d'identité** — `nom`, `raison_sociale`, `type`, `siret`, `email_principal`, `telephone`, `adresse` — sous cliquet de test (ensemble EXACT). Les champs **admin-only** (`tarif_refacture_pax_zd`, `grille_tarifaire_zd_id`, `notes_internes`) et les champs **système** (`est_shadow`, `cree_par_organisation_id`, `actif`, `id`) ne sont **pas saisissables à la création** : ils relèvent de la fiche (édition, où la matrice ci-dessus s'applique) ou du flux shadow §06.01. `ops_savr` ne peut donc rien poser ici qu'il ne pourrait déjà poser via le PATCH de la fiche.
+>
+> ⚠ La route tourne sous `service_role` (RLS bypassée) et le trigger anti-escalade `trg_block_org_staff_cols_insert` **exempte** l'appelant sous `service_role` (`f_app_role()` renvoie NULL) : **seule la garde applicative `requireStaff` + l'allowlist décident**.
+>
+> **Même règle pour `POST /api/v1/admin/associations`** (zone jumelle, ouverte à `ops_savr` par la PR #302, également absente des matrices) : création autorisée `admin_savr` + `ops_savr`, colonnes admin-only (SIREN, habilitation 2041-GE, `actif`) exclues du payload de création — cf. les 3 lignes Associations ci-dessus.
+
 | **Users** | Créer / inviter / suspendre | Oui | Oui |
 | | Changer rôle (sauf promotion `admin_savr`) | Oui | Oui |
 | | Promouvoir un user en `admin_savr` | **Oui** | **Non** |
@@ -955,7 +965,7 @@ Deux niveaux possibles, dans cet ordre :
 - **Impersonation Admin Savr** : bandeau orange UI, logs `audit_log` avec `impersonator_id`
 - **Suppression comptes 2 niveaux** : soft delete (défaut, 48h validation Admin) + hard delete / anonymisation PII sur demande user ou Admin
 - **RLS activé sur toutes les tables sensibles** (enforcement DB-level)
-- **Extension transactionnelle agence + gestionnaire_lieux (2026-05-07)** : INSERT/UPDATE `evenements` + `collectes` ouvert aux 2 rôles. Périmètre agence = ouvert. Périmètre gestionnaire = fermé via `organisations_lieux` + filtre traiteur opérationnel non-shadow. Pas de nouveau rôle créé (extension périmètre des rôles existants).
+- **Extension transactionnelle agence + gestionnaire_lieux (2026-05-07)** : INSERT/UPDATE `evenements` + `collectes` ouvert aux 2 rôles. Périmètre agence = ouvert. Périmètre gestionnaire = fermé via `organisations_lieux` + filtre traiteur opérationnel non-shadow. Pas de nouveau rôle créé (extension périmètre des rôles existants). **⚠ Révisé 2026-09-15 : l'INSERT/UPDATE direct sur `collectes` via PostgREST est fermé pour tous les rôles clients (REVOKE table-level, migration `20260915160000`) — les policies `col_insert` / `col_update_client` / `col_update_commercial` subsistent mais sont inertes (42501 avant RLS). Toute écriture passe par les routes API sous `service_role`. `evenements` n'est pas concerné par ce REVOKE.**
 - **Visibilité étendue côté traiteur (2026-05-07)** : `traiteur_manager` et `traiteur_commercial` voient les collectes où leur orga est `traiteur_operationnel_organisation_id`, peu importe le programmateur. Pas de droit d'écriture sur ces collectes (sauf annulation via workflow standard).
 - **Policies fiches shadow (2026-05-07)** : INSERT `organisations` `est_shadow=true type='traiteur'` ouvert au rôle `agence` uniquement (pas gestionnaire). Cycle de vie shadow géré par Admin Savr (promotion / fusion / suppression).
 - **Lecture pack AG ouverte aux 3 types (2026-05-07)** : SELECT `packs_antgaspi` `organisation_id = self` pour traiteur_manager + agence + gestionnaire_lieux. INSERT reste Admin only (négociation commerciale).

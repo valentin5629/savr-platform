@@ -92,9 +92,67 @@ Scénario : e2_modification_date_collecte_acceptee_declenche_reacceptation_tms
     Et un manager traiteur modifie la date_collecte de 2026-07-15 à 2026-07-16
     Et le TMS retourne 200
   Quand le trigger PATCH /collectes/:id est émis
-  Alors le payload diff contient uniquement date_collecte: {ancien: "2026-07-15", nouveau: "2026-07-16"}
+  Alors le payload PUT porte orderDate mis à jour
+    Et place est envoyé COMPLET (address + timeslots), jamais amputé de ses timeslots
     Et collectes.dirty_tms = false après succès
     Et une ligne integrations_logs est créée (system=tms, direction=sortant, statut=succes)
+```
+
+```gherkin
+# Source : §08 §3bis.8 — oracle « tout champ armant dirty_tms » (divergence M1.5_20260915_e2-payload-champs-propages)
+# Couche : api
+# Priorité : P1-critique
+
+Scénario : e2_repush_creneau_et_canal_libre
+  Étant donné une collecte déjà poussée à MTS-1 (au moins une tournée avec external_ref_commande)
+  Quand heure_collecte passe de 22:00 à 23:30
+  Alors le PUT porte place.timeslots mis à jour (le créneau n'était jamais transmis avant ce lot)
+  Quand informations_supplementaires est modifiée
+  Alors le PUT porte comment mis à jour
+  Quand informations_supplementaires est VIDÉE
+  Alors le PUT porte comment = valeur vide, JAMAIS omis (l'omission laisserait au chauffeur la consigne périmée du dispatch initial)
+  Et les stuffs ne sont PAS re-poussés (un re-push reposerait à 0 les quantités alimentées par le polling)
+  Et controle_acces_requis n'est PAS transmis (aucun champ natif MTS-1, exclusion assumée V1)
+  Et place est construit par le helper UNIQUE partagé E1/E2 (parité non recopiée)
+```
+
+```gherkin
+# Source : Interface logistique_provider V1 §1 Cloisonnement par provider + §2 taxonomie erreurs locales (2026-09-16)
+# Couche : api
+# Priorité : P1-critique
+
+Scénario : adapter_ignore_tournee_autre_provider
+  Étant donné une collecte re-dispatchée d'Everest vers MTS-1
+    Et une tournée résiduelle Everest liée à la collecte (external_ref_commande = mission_id Everest)
+  Quand l'adapter MTS-1 consomme un event E2 ou E3
+  Alors aucun appel n'est adressé avec l'identifiant Everest (pas de PUT/DELETE /v3/customerOrders/{mission_id})
+  Et si la tournée résiduelle porte une référence ET un statut non terminal (planifiee, en_cours)
+    Alors une alerte Ops IN-APP tournee_autre_provider est levée sur la collecte, jamais Slack
+    Et elle est dédupliquée par f_upsert_alerte_admin sur (code, entité, statut='ouverte')
+  Et si la référence est vide OU le statut terminal (terminee, annulee), la tournée est écartée en silence
+  Et l'adapter n'annule ni ne purge la tournée résiduelle (un adapter = un provider)
+  Quand une lecture DB du handler échoue (blip PostgREST, data = null)
+  Alors le handler LÈVE une erreur TRANSIENT (3 paliers 5 min / 1 h / 24 h)
+  Et l'event n'est JAMAIS marqué done (un done sans effet distant est indistinguable d'un dispatch réussi)
+```
+
+```gherkin
+# Source : §08 §3bis.8 canal libre (contacts) + §04 outbox_events alerte anticipée events lieu (arbitrages Val 2026-09-16, divergences M1.5_20260915_everest-telephone-secours-sans-canal et OBS_20260915_alerte-anticipee-events-lieu)
+# Couche : api
+# Priorité : P2-important
+
+Scénario : contact_secours_et_alerte_anticipee_lieu
+  Étant donné une collecte AG servie par A Toutes! avec un contact de secours renseigné
+  Quand le payload Everest est composé
+  Alors pickup.contact porte le contact PRINCIPAL (nom + telephone)
+  Et notes ouvre par « Contact de secours : {nom} — {telephone} »
+  Et le même composeur PARTAGÉ produit comment pour MTS-1, qui porte donc le numéro deux fois
+    (phoneAlternatives natif + comment en clair) — duplication assumée, garde-fou 2
+  Étant donné un event E5 lieu.champ_critique_modifie en échec, attempts = 2
+  Et une collecte future non terminale du lieu dans moins de 24 h
+  Alors une alerte Slack #savr-alerts-critique part immédiatement, sans attendre la DLQ
+  Et la date de référence est la plus proche date_collecte du lieu (jointure evenements.lieu_id)
+  Et sans cette règle le signal arriverait après ~25 h (3 paliers complets), donc APRÈS la collecte
 ```
 
 ---

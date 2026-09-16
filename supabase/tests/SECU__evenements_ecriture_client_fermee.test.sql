@@ -83,6 +83,22 @@ INSERT INTO plateforme.lieux (id, nom, adresse_acces, code_postal, ville, type_v
 INSERT INTO shared.prestataires (id, nom, code, type_prestation, mode_integration, statut) VALUES
   ('5e4e0000-0000-0000-0000-0000000000d0'::uuid, 'Presta EVT', 'EVTSECU', ARRAY['zd','ag'], 'manuel', 'actif');
 
+-- Le transporteur qui porte ce prestataire. Depuis #327, le gate d'émission E2
+-- (`fn_collecte_commandee_chez_provider`) ne tient une collecte pour commandée
+-- que si le prestataire de la collecte ET celui de sa tournée résolvent, via
+-- leur transporteur, au MÊME `type_tms`. Sans ce rattachement — qu'un dispatch
+-- réel ne laisse jamais absent —, D2 n'émet rien et D3 devient vacuous.
+INSERT INTO plateforme.transporteurs (
+  id, nom, siren, adresse, code_postal, ville, types_vehicules, type_tms,
+  code_transporteur_mts1, contact_nom, contact_email, contact_telephone,
+  prestataire_logistique_id
+) VALUES (
+  '5e4e0000-0000-0000-0000-0000000000d1'::uuid, 'Transporteur EVT', '999000555',
+  '1 rue', '75001', 'Paris', ARRAY['fourgon'], 'mts1', 'EVTSECU-CODE',
+  'Ops EVT', 'ops-evt@test.internal', '0600000000',
+  '5e4e0000-0000-0000-0000-0000000000d0'::uuid
+);
+
 -- Un événement par rôle testé, chacun DANS le périmètre de son rôle : la RLS
 -- (evt_manager_update / evt_agence_update / evt_gestionnaire_update /
 -- evt_commercial_update) l'AUTORISERAIT. Le refus attendu ne peut donc venir que
@@ -106,10 +122,12 @@ INSERT INTO plateforme.evenements (
   -- autres). Il sert le cas B6.
   ('5e4e0000-0000-0000-0000-0000000000e4'::uuid, '5e4e0000-0000-0000-0000-000000000001'::uuid, '5e4e0000-0000-0000-0000-00000000011e'::uuid, '5e4e0000-0000-0000-0000-000000000001'::uuid, '5e4e0000-0000-0000-0000-0000000000f0'::uuid, '5e4e0000-0000-0000-0000-0000000000a1'::uuid, '5e4e0000-0000-0000-0000-00000000007e'::uuid, current_date + 10, 60, 'Eve', '0605', 'evt-D');
 
-INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte) VALUES
-  ('5e4e0000-0000-0000-0000-0000000000c1'::uuid, '5e4e0000-0000-0000-0000-0000000000e1'::uuid, 'zero_dechet', 'validee', 'acceptee', current_date + 10, '08:00'),
-  ('5e4e0000-0000-0000-0000-0000000000c2'::uuid, '5e4e0000-0000-0000-0000-0000000000e2'::uuid, 'zero_dechet', 'programmee', 'non_envoye', current_date + 10, '08:00'),
-  ('5e4e0000-0000-0000-0000-0000000000c3'::uuid, '5e4e0000-0000-0000-0000-0000000000e3'::uuid, 'zero_dechet', 'programmee', 'non_envoye', current_date + 10, '08:00');
+-- c1 porte le prestataire posé par son dispatch (fn_dispatcher_collecte) ; c2/c3,
+-- jamais dispatchées, n'en ont pas.
+INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, prestataire_logistique_id) VALUES
+  ('5e4e0000-0000-0000-0000-0000000000c1'::uuid, '5e4e0000-0000-0000-0000-0000000000e1'::uuid, 'zero_dechet', 'validee', 'acceptee', current_date + 10, '08:00', '5e4e0000-0000-0000-0000-0000000000d0'::uuid),
+  ('5e4e0000-0000-0000-0000-0000000000c2'::uuid, '5e4e0000-0000-0000-0000-0000000000e2'::uuid, 'zero_dechet', 'programmee', 'non_envoye', current_date + 10, '08:00', NULL),
+  ('5e4e0000-0000-0000-0000-0000000000c3'::uuid, '5e4e0000-0000-0000-0000-0000000000e3'::uuid, 'zero_dechet', 'programmee', 'non_envoye', current_date + 10, '08:00', NULL);
 
 -- c1 est COMMANDÉE chez un prestataire : l'état que l'adapter produit réellement au
 -- dispatch (une `tournees` portant `external_ref_commande`, liée par
@@ -415,7 +433,9 @@ SELECT lives_ok(
 -- direct n'en émettait aucun. R22c a explicitement écarté un trigger `dirty_tms`
 -- sur `evenements` (double push E2) — rien ne rattrape ce chemin.
 --
--- c1 est commandée (tournee avec external_ref_commande) : le gate d'émission est
+-- c1 est commandée chez son provider : une tournée avec external_ref_commande,
+-- ET la collecte comme la tournée résolvent, via leur transporteur, au même
+-- type_tms (gate provider-aware depuis #327). Le gate d'émission est donc
 -- ouvert. Mesuré sous superuser, la RLS de `outbox_events` ne masquant alors rien.
 SELECT test_as_superuser();
 

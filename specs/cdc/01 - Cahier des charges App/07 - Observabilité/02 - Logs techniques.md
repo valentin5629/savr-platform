@@ -26,7 +26,7 @@
 
 ## 2. Jobs cron à instrumenter (`job.cron.*`)
 
-Liste alignée sur `CLAUDE.md` §12 (cron) :
+Liste alignée sur `CLAUDE.md` §12 (cron) **et sur les crons réellement déployés** (`packages/plateforme/vercel.json`) — **EXHAUSTIVE : tout cron ajouté s'ajoute ici avec sa criticité, sinon son échec n'a pas d'oracle d'alerte** *(complétée 2026-09-16, divergence OBS_20260914_jobs-cron-catalogue — 7 job_name listés pour 16 réellement émis)*.
 
 | `job_name` | Fréquence | Criticité si échec |
 |---|---|---|
@@ -34,11 +34,27 @@ Liste alignée sur `CLAUDE.md` §12 (cron) :
 | `bordereaux_rapports_batch` | J+1 06h00 | élevée (justificatif ZD) |
 | `rapport_sans_excedent_batch` | J+1 06h00 | élevée (rapport client AG sans excédent, §12 §1.3-bis — job créé R21b, monté dans le même cron 6h) |
 | `mts1_polling` | toutes les 15 min | élevée (statut/pesées collectes) |
+| `outbox_worker` | toutes les 15 min | élevée (dispatch de la collecte vers le transporteur) |
 | `pennylane_polling` | J+1 | moyenne (statut paiement) |
-| `relance_factures` | quotidien | basse |
+| `pennylane_retry` | toutes les 30 min | moyenne (retry push facture) |
+| `pdf_worker` | toutes les 5 min | moyenne (file `jobs_pdf`) |
+| `batch_brouillons_j1` | J+1 | moyenne (brouillons de facture) |
+| `email_retry` | toutes les 5 min | moyenne (retry Resend) |
+| `process_attributions_ag` | toutes les 5 min | moyenne (emails association + transporteur après validation d'attribution) |
+| `cloture_embargo` | horaire | moyenne (passage `realisee` → `cloturee` après H+24) |
+| `siret_revalidation` | toutes les 15 min | moyenne (gating facturation INSEE) |
+| `notify_pack_etat` | toutes les 15 min | basse (notification état pack AG) |
+| `refresh_benchmark` | quotidien | basse (benchmark dashboards) |
 | `purge_logs` | quotidien | basse |
 
-Chaque job émet `started` → `completed`|`failed`. Un `failed` sur les jobs de criticité élevée/moyenne déclenche une alerte Slack (cf. `03`).
+> `relance_factures` **retiré** de la liste : aucun cron ni code correspondant en V1. S'il redevient un livrable attendu, le remettre en le marquant explicitement « non déployé — V1.1 » plutôt que de le laisser passer pour instrumenté.
+
+**Règle d'alerte** — chaque job émet `started` → `completed`|`failed`.
+
+- `failed` **du batch** sur un job de criticité **élevée** → alerte Slack `eleve`.
+- Criticité **moyenne / basse** → **pas** d'alerte de batch **dès lors que le job porte déjà une alerte actionnable au niveau EVENT** (DLQ outbox `03` l.24 — toutes familles de `consumer` confondues, `echec_final` Pennylane, PDF mort) : anti-doublon §13, on alerte sur l'élément **définitivement perdu**, pas sur le passage de batch qui sera rejoué.
+- Un job de criticité moyenne **sans** alerte au niveau event pousse un `info` (cf. `pennylane_polling`).
+- **L'absence d'un job de cette liste ne vaut JAMAIS « pas d'alerte » : elle vaut « criticité à trancher ».** C'est exactement ce vide qui a servi d'argument à une DLQ silencieuse sur `process_attributions_ag`.
 
 ---
 

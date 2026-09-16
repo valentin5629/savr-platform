@@ -62,8 +62,10 @@ async function post(siret: unknown) {
   const { POST } = await import('@/app/api/v1/admin/organisations/route.js');
   return POST(
     makeReq('POST', '/api/v1/admin/organisations', {
+      nom: 'Kaspia',
       raison_sociale: 'Kaspia Réceptions',
       type: 'traiteur',
+      email_principal: 'contact@kaspia.fr',
       ...(siret === undefined ? {} : { siret }),
     }),
   );

@@ -212,6 +212,22 @@ supabase/migrations/20260915220000_plateforme_gate_e2_dimension_provider.sql
 # le rattachement de la mission vise la tournée du BON provider. Aucun appel HTTP.
 # 'customerOrders' reste banni.
 packages/plateforme/tests/api/admin/everest-manual-accept.m2-5.test.ts
+
+# packages/plateforme/src/lib/transporteur-lien-prestataire.ts (lien transporteur →
+# prestataire logistique) — CONSTANTE d'enum `transporteurs.type_tms` : la liste
+# des types routés vers un adapter, pour lesquels le lien est obligatoire (sans
+# lui `prestatairesDuType` lève et tous les événements partent en DLQ). Partagée
+# par les routes admin transporteurs ET la modale (déjà exemptées) pour n'avoir
+# qu'une définition. Aucun appel à un transporteur, aucune logique d'adapter.
+packages/plateforme/src/lib/transporteur-lien-prestataire.ts
+
+# 20260916150000 transporteurs_cols_immuables (arbitrage Val 2026-09-16) — la
+# migration ne cite « mts1 » que dans son commentaire de mesure des données ; le
+# pgTAP porte les VALEURS d'enum transporteurs.type_tms / prestataires.mode_integration
+# dans ses fixtures et assertions. Deux triggers d'intégrité (immuabilité, garde
+# DELETE) : aucune logique adapter, aucun appel HTTP. 'customerOrders' reste banni.
+supabase/migrations/20260916150000_plateforme_transporteurs_cols_immuables.sql
+supabase/tests/SECU__transporteur_cols_immuables.test.sql
 # Acceptation manuelle d'une mission A Toutes! avec référence obligatoire (2026-09-16,
 # §06.06 §3 Bloc 0) — RPC `fn_accepter_mission_everest_manuelle` et son pgTAP : 'everest'
 # = nom de la table `everest_missions` / de la colonne `everest_mission_id` et du segment

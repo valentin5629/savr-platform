@@ -80,12 +80,6 @@ VALUES
   -- asso avec capacite 501 → incluse (501×2=1002 > 1000)
   ('a0000000-0000-0000-0000-000000000034'::uuid, 'Asso Capacite 501 IDF', '50 Rue Ok', 'Paris', 'idf', 'ok@asso.test', 501, true, 'Association IDF capacité 501, incluse dans le top-3 algo.', 48.8456, 2.3122);
 
--- Transporteur Marathon (MTS-1, IDF)
-INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, ville, type_tms, actif, contact_nom, contact_email, contact_telephone, types_vehicules, latitude, longitude)
-VALUES
-  ('a0000000-0000-0000-0000-000000000040'::uuid, 'Marathon Test', '123456789', '22 Rue Marathon', '75020', 'Paris', 'mts1', true, 'Contact Marathon', 'marathon@test.test', '0600000001', ARRAY['fourgon','poids_lourd'], 48.8616, 2.3722),
-  ('a0000000-0000-0000-0000-000000000041'::uuid, 'A Toutes Test', '987654321', '3 Rue Velo', '75011', 'Paris', 'a_toutes', true, 'Contact A Toutes', 'atoutes@test.test', '0600000002', ARRAY['velo_cargo'], 48.8536, 2.3622);
-
 -- Un prestataire shared PAR transporteur. L'unique partiel
 -- `uniq_transporteur_par_prestataire` interdit d'en partager un : un prestataire
 -- rattaché à la fois à un transporteur `mts1` et à un `a_toutes` entrerait dans
@@ -100,15 +94,14 @@ VALUES
   ('a0000000-0000-0000-0000-000000000052'::uuid, 'Manuel Test', 'MANUEL_TEST', ARRAY['ag'], 'manuel', '555555555012345', 'actif')
 ON CONFLICT (id) DO NOTHING;
 
--- R5/BL-P0-08 : pont transporteur → shared.prestataires (V1-only). Permet au
--- dispatch AG de poser collectes/tournees.prestataire_logistique_id.
-UPDATE plateforme.transporteurs
-  SET prestataire_logistique_id = 'a0000000-0000-0000-0000-000000000050'::uuid
-  WHERE id = 'a0000000-0000-0000-0000-000000000040'::uuid;
-
-UPDATE plateforme.transporteurs
-  SET prestataire_logistique_id = 'a0000000-0000-0000-0000-000000000051'::uuid
-  WHERE id = 'a0000000-0000-0000-0000-000000000041'::uuid;
+-- R5/BL-P0-08 : pont transporteur → shared.prestataires (V1-only), posé À LA
+-- CRÉATION : `trg_transporteur_cols_immuables` refuse tout rattachement tardif
+-- (arbitrage Val 2026-09-16), d'où les prestataires insérés avant les transporteurs.
+-- Transporteur Marathon (MTS-1, IDF)
+INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, ville, type_tms, actif, contact_nom, contact_email, contact_telephone, types_vehicules, latitude, longitude, prestataire_logistique_id)
+VALUES
+  ('a0000000-0000-0000-0000-000000000040'::uuid, 'Marathon Test', '123456789', '22 Rue Marathon', '75020', 'Paris', 'mts1', true, 'Contact Marathon', 'marathon@test.test', '0600000001', ARRAY['fourgon','poids_lourd'], 48.8616, 2.3722, 'a0000000-0000-0000-0000-000000000050'::uuid),
+  ('a0000000-0000-0000-0000-000000000041'::uuid, 'A Toutes Test', '987654321', '3 Rue Velo', '75011', 'Paris', 'a_toutes', true, 'Contact A Toutes', 'atoutes@test.test', '0600000002', ARRAY['velo_cargo'], 48.8536, 2.3622, 'a0000000-0000-0000-0000-000000000051'::uuid);
 
 -- Transporteur type_tms=autre (route provider_manual) avec son propre prestataire
 INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, ville, type_tms, actif, contact_nom, contact_email, contact_telephone, types_vehicules, latitude, longitude, prestataire_logistique_id)

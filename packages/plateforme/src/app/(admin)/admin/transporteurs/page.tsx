@@ -10,6 +10,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   TransporteurModal,
+  type PrestataireOption,
   type TransporteurRecord,
 } from '@/components/admin/transporteur-modal';
 
@@ -49,6 +50,9 @@ export default function TransporteursPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Transporteur | null>(null);
+  const [prestataires, setPrestataires] = useState<PrestataireOption[] | null>(
+    null,
+  ); // null = non chargé ou en échec (≠ référentiel vide)
 
   const fetchTransporteurs = useCallback(async () => {
     setLoading(true);
@@ -71,6 +75,21 @@ export default function TransporteursPage() {
   useEffect(() => {
     void fetchTransporteurs();
   }, [fetchTransporteurs]);
+
+  const fetchPrestataires = useCallback(async () => {
+    try {
+      const res = await fetch('/api/v1/admin/prestataires');
+      if (!res.ok) return;
+      const json = (await res.json()) as { data: PrestataireOption[] };
+      setPrestataires(json.data);
+    } catch {
+      // Réseau : la modale signale la liste indisponible (prestataires null).
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchPrestataires();
+  }, [fetchPrestataires]);
 
   function openEdit(row: Transporteur) {
     setEditing(row);
@@ -271,7 +290,12 @@ export default function TransporteursPage() {
         open={modalOpen}
         transporteur={editing}
         onClose={() => setModalOpen(false)}
-        onSaved={() => void fetchTransporteurs()}
+        onSaved={() => {
+          void fetchTransporteurs();
+          // Un rattachement change les prestataires à griser.
+          void fetchPrestataires();
+        }}
+        prestataires={prestataires}
       />
     </div>
   );

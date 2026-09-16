@@ -9,12 +9,15 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 
 import {
   TransporteurModal,
+  type PrestataireOption,
   type TransporteurRecord,
 } from '@/components/admin/transporteur-modal';
 import { ATTENTE_UI } from '@/test-utils/attente-ui';
 
+const EDIT_FIXTURE_ID = 'transp-42';
+
 const EDIT_FIXTURE: TransporteurRecord = {
-  id: 'transp-42',
+  id: EDIT_FIXTURE_ID,
   nom: 'Strike Logistique',
   siren: '123456789',
   contact_nom: 'Alex Martin',
@@ -28,8 +31,36 @@ const EDIT_FIXTURE: TransporteurRecord = {
   type_tms: 'autre',
   description_process_collecte: null,
   code_transporteur_mts1: null,
+  prestataire_logistique_id: null,
   actif: true,
 };
+
+const PRESTATAIRES: PrestataireOption[] = [
+  {
+    id: '11111111-1111-4111-8111-111111111111',
+    nom: 'A Toutes!',
+    code: 'ATOUTES',
+    statut: 'actif',
+    transporteur_id: null,
+    transporteur_nom: null,
+  },
+  {
+    id: '22222222-2222-4222-8222-222222222222',
+    nom: 'Strike',
+    code: 'STRIKE',
+    statut: 'actif',
+    transporteur_id: 'transp-autre',
+    transporteur_nom: 'Strike Paris',
+  },
+  {
+    id: '33333333-3333-4333-8333-333333333333',
+    nom: 'Marathon',
+    code: 'MARATHON',
+    statut: 'actif',
+    transporteur_id: EDIT_FIXTURE_ID,
+    transporteur_nom: 'Strike Logistique',
+  },
+];
 
 function fillCommonFields() {
   fireEvent.change(screen.getByLabelText(/Nom du transporteur/), {
@@ -233,5 +264,241 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
     expect(body.actif).toBe(false);
     await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
     expect(onClose).toHaveBeenCalled();
+  });
+
+  // ── Lien prestataire logistique ─────────────────────────────────────────────
+  // Sans ce lien, un transporteur routé vers un adapter écarte toutes ses
+  // tournées : 100 % de ses événements finissent en file d'erreur.
+
+  it('bloque la soumission si type_tms=a_toutes sans prestataire logistique', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    render(
+      <TransporteurModal
+        open
+        transporteur={null}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+        prestataires={PRESTATAIRES}
+      />,
+    );
+
+    fillCommonFields();
+    fireEvent.change(screen.getByLabelText(/Type de TMS/), {
+      target: { value: 'a_toutes' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: /Créer le transporteur/ }),
+    );
+
+    expect(
+      await screen.findByText(
+        /Prestataire logistique obligatoire/,
+        undefined,
+        ATTENTE_UI,
+      ),
+    ).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('création a_toutes → POST porte le prestataire logistique choisi', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: 'transp-1' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(
+      <TransporteurModal
+        open
+        transporteur={null}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+        prestataires={PRESTATAIRES}
+      />,
+    );
+
+    fillCommonFields();
+    fireEvent.change(screen.getByLabelText(/Type de TMS/), {
+      target: { value: 'a_toutes' },
+    });
+    fireEvent.change(screen.getByLabelText(/Prestataire logistique/), {
+      target: { value: PRESTATAIRES[0]!.id },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: /Créer le transporteur/ }),
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled(), ATTENTE_UI);
+    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as {
+      prestataire_logistique_id: string | null;
+    };
+    expect(body.prestataire_logistique_id).toBe(PRESTATAIRES[0]!.id);
+  });
+
+  it('type manuel sans prestataire → POST avec prestataire_logistique_id null (jamais chaîne vide)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: 'transp-1' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(
+      <TransporteurModal
+        open
+        transporteur={null}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+        prestataires={PRESTATAIRES}
+      />,
+    );
+
+    fillCommonFields();
+    fireEvent.change(screen.getByLabelText(/Type de TMS/), {
+      target: { value: 'par_mail' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: /Créer le transporteur/ }),
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled(), ATTENTE_UI);
+    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as {
+      prestataire_logistique_id: string | null;
+    };
+    // '' serait refusé par la route (UUID invalide) : l'écran doit envoyer null.
+    expect(body.prestataire_logistique_id).toBeNull();
+  });
+
+  it('création : grise les prestataires déjà rattachés à un transporteur', () => {
+    render(
+      <TransporteurModal
+        open
+        transporteur={null}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+        prestataires={PRESTATAIRES}
+      />,
+    );
+
+    expect(
+      screen.getByRole('option', { name: 'A Toutes!' }),
+    ).not.toBeDisabled();
+    expect(
+      screen.getByRole('option', {
+        name: /Strike — déjà rattaché à Strike Paris/,
+      }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('option', {
+        name: /Marathon — déjà rattaché à Strike Logistique/,
+      }),
+    ).toBeDisabled();
+  });
+
+  // ── Immuabilité (arbitrage Val 2026-09-16) ─────────────────────────────────
+  // type_tms et prestataire_logistique_id sont posés à la création et jamais
+  // modifiables : verrouillés à l'écran, jamais envoyés au PATCH (qui les refuse).
+
+  it('édition : Type de TMS et Prestataire logistique verrouillés, affichant la valeur posée', () => {
+    render(
+      <TransporteurModal
+        open
+        transporteur={{
+          ...EDIT_FIXTURE,
+          type_tms: 'a_toutes',
+          prestataire_logistique_id: PRESTATAIRES[2]!.id,
+        }}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+        prestataires={PRESTATAIRES}
+      />,
+    );
+
+    const typeTms = screen.getByLabelText(/Type de TMS/) as HTMLSelectElement;
+    const presta = screen.getByLabelText(
+      /Prestataire logistique/,
+    ) as HTMLSelectElement;
+    expect(typeTms).toBeDisabled();
+    expect(typeTms.value).toBe('a_toutes');
+    expect(presta).toBeDisabled();
+    expect(presta.value).toBe(PRESTATAIRES[2]!.id);
+    expect(
+      screen.getAllByText(/créez un nouveau transporteur/).length,
+    ).toBeGreaterThanOrEqual(2);
+  });
+
+  it("édition : le PATCH n'envoie ni type_tms ni prestataire_logistique_id, même sans lien posé", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: EDIT_FIXTURE.id }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(
+      <TransporteurModal
+        open
+        // a_toutes SANS lien : un transporteur antérieur au contrôle doit rester
+        // éditable (l'obligation ne vaut qu'à la création).
+        transporteur={{ ...EDIT_FIXTURE, type_tms: 'a_toutes' }}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+        prestataires={PRESTATAIRES}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/Nom du transporteur/), {
+      target: { value: 'Renommé' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Enregistrer/ }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled(), ATTENTE_UI);
+    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as Record<string, unknown>;
+    expect(options.method).toBe('PATCH');
+    expect(body.nom).toBe('Renommé');
+    expect(body).not.toHaveProperty('type_tms');
+    expect(body).not.toHaveProperty('prestataire_logistique_id');
+  });
+
+  it("liste des prestataires non chargée : l'édition affiche quand même le lien posé, jamais « Aucun »", () => {
+    render(
+      <TransporteurModal
+        open
+        transporteur={{
+          ...EDIT_FIXTURE,
+          type_tms: 'a_toutes',
+          prestataire_logistique_id: PRESTATAIRES[0]!.id,
+        }}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+        prestataires={null}
+      />,
+    );
+
+    const presta = screen.getByLabelText(
+      /Prestataire logistique/,
+    ) as HTMLSelectElement;
+    expect(presta.value).toBe(PRESTATAIRES[0]!.id);
+    expect(presta.selectedOptions[0]!.textContent).toMatch(
+      /Prestataire rattaché/,
+    );
+  });
+
+  it('liste des prestataires en échec : la création le dit, sans prétendre le référentiel vide', () => {
+    render(
+      <TransporteurModal
+        open
+        transporteur={null}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+        prestataires={null}
+      />,
+    );
+
+    expect(
+      screen.getByText(/Liste des prestataires indisponible/),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Aucun prestataire logistique enregistré/),
+    ).not.toBeInTheDocument();
   });
 });

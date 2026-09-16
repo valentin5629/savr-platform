@@ -17,7 +17,16 @@
     "entité verifie + file resolu",
     "invitation admin appelle sendEmail",
     "requireCompletedOrganisation",
-    "requireValidatedOrganisation"
+    "requireValidatedOrganisation",
+    "traiteur_operationnel_ne_peut_pas_modifier_programmation_tierce — 403, rien n’est écrit",
+    "manager_update_hors_fenetre_denied — 422, rien n’est écrit",
+    "agence_update_hors_fenetre_denied — 422, rien n’est écrit",
+    "admin_update_hors_fenetre_reste_possible — la route back-office écrit sans garde de fenêtre",
+    "commercial_update_sa_collecte_dans_fenetre — 200, écriture par la RPC service_role",
+    "gestionnaire_insert_evenement_lieu_hors_perimetre_refuse — 403, aucun INSERT",
+    "gestionnaire_insert_evenement_traiteur_shadow_refuse — 403, aucun INSERT",
+    "commercial_update_collecte_d_un_collegue_refuse — 403 malgré la même organisation, rien n’est écrit",
+    "impersonation_journalisee — audit_log porte user_id = identité assumée ET impersonator_id = admin"
   ],
   "deliverables": [
     {
@@ -131,6 +140,14 @@
       "test": "SECU__rls_09_ecriture_directe_revoke.test.sql (A1-A5 : 5 rôles clients × INSERT/UPDATE/DELETE evenements + INSERT/UPDATE collectes → 42501 « permission denied for table » ; A6 SELECT filtré ; A7 service_role écrit ; A8 policies conservées ; B1-B5 manager_update_dans_fenetre_edition_ok moitié DB) + edition-evenement.m1-2.test.ts « manager_update_dans_fenetre_edition_ok — la route réussit et n’écrit JAMAIS par le client de session »",
       "statut": "partial",
       "libelle": "Scénarios §09 ecriture_directe_collectes_evenements_revoke_42501 et manager_update_dans_fenetre_edition_ok (révision 2026-09-16). Partiel : la cellule DELETE direct sur collectes (attendue 42501, non révoquée en base) attend l'arbitrage de la divergence ambiguë. (_Divergences/M0.4_20260916_delete-direct-collectes-revoke.md)"
+    },
+    {
+      "id": "M0.4-ecriture-evenements-predicats-par-route",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:188-191",
+      "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts (PATCH : périmètre org / created_by commercial → 403, f_collecte_editable → 422, écriture fn_modifier_evenement service_role, audit_log user_id + impersonator_id) ; packages/plateforme/src/app/api/v1/programmation/evenements/route.ts (POST gestionnaire_lieux : lieu du parc → 403, traiteur opérant obligatoire actif/traiteur/non shadow → 422/403) ; packages/plateforme/src/app/api/v1/admin/evenements/[id]/route.ts (forçage staff sans garde de fenêtre) ; packages/plateforme/src/lib/api-auth.ts (claim impersonator_id exposé au contexte)",
+      "test": "supabase/tests/SECU__rls_09_ecriture_par_route_predicats.test.sql (C0 RPC d'écriture non exécutable par la session ; C1-C9 prédicats sur vrais statuts sous authenticated + lookups/écriture service_role + audit_log impersonator_id) + edition-evenement.m1-2.test.ts « traiteur_operationnel_ne_peut_pas_modifier_programmation_tierce — 403, rien n’est écrit », « manager_update_hors_fenetre_denied — 422, rien n’est écrit », « agence_update_hors_fenetre_denied — 422, rien n’est écrit », « admin_update_hors_fenetre_reste_possible — la route back-office écrit sans garde de fenêtre », « commercial_update_sa_collecte_dans_fenetre — 200, écriture par la RPC service_role », « gestionnaire_insert_evenement_lieu_hors_perimetre_refuse — 403, aucun INSERT », « gestionnaire_insert_evenement_traiteur_shadow_refuse — 403, aucun INSERT », « commercial_update_collecte_d_un_collegue_refuse — 403 malgré la même organisation, rien n’est écrit », « impersonation_journalisee — audit_log porte user_id = identité assumée ET impersonator_id = admin »",
+      "statut": "implemented",
+      "libelle": "Scénarios §09 d'écriture evenements exprimés par la route depuis le REVOKE (révision 2026-09-16) : traiteur_operationnel_ne_peut_pas_modifier_programmation_tierce, manager/agence_update_hors_fenetre_denied, admin_update_hors_fenetre_reste_possible, commercial_update_sa_collecte_dans_fenetre, commercial_update_collecte_d_un_collegue_refuse, gestionnaire_insert_evenement_lieu_hors_perimetre_refuse, gestionnaire_insert_evenement_traiteur_shadow_refuse, impersonation_journalisee"
     }
   ],
   "cdc_source_hash": {

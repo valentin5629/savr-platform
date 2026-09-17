@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { FormField } from '@/components/ui/form-field';
+import { normaliserSiretOrganisation } from '@/lib/siret-organisation';
 
 // Libellés des 4 types d'organisation (enum `organisation_type`), mêmes
 // libellés que le filtre de la liste Clients.
@@ -36,9 +37,6 @@ const VIDE: FormValues = {
   telephone: '',
   adresse: '',
 };
-
-// SIRET saisi avec ou sans espaces : on les retire avant contrôle et envoi.
-const sansEspaces = (s: string) => s.replace(/\s/g, '');
 
 // Bloc thématique — même gabarit Design System que la modale association
 // (carte bordée + pastille primary + titre extrabold, §10).
@@ -109,8 +107,9 @@ export function OrganisationModal({
     if (!values.type) next.type = 'Type obligatoire';
     if (!values.email_principal.trim())
       next.email_principal = 'Email principal obligatoire';
-    const siret = sansEspaces(values.siret);
-    if (siret !== '' && !/^\d{14}$/.test(siret))
+    // Même normalisation que POST/PATCH /admin/organisations (§06.06) : le
+    // contrôle client ne peut pas diverger du contrôle serveur.
+    if (!normaliserSiretOrganisation(values.siret).valide)
       next.siret = 'SIRET : 14 chiffres';
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -120,11 +119,12 @@ export function OrganisationModal({
   // une chaîne vide persistée en base.
   function buildPayload() {
     const opt = (s: string) => s.trim() || undefined;
+    const siret = normaliserSiretOrganisation(values.siret);
     return {
       nom: values.nom.trim(),
       raison_sociale: values.raison_sociale.trim(),
       type: values.type,
-      siret: sansEspaces(values.siret) || undefined,
+      siret: (siret.valide && siret.siret) || undefined,
       email_principal: values.email_principal.trim(),
       telephone: opt(values.telephone),
       adresse: opt(values.adresse),

@@ -275,7 +275,7 @@ describe('Remises négociées — scope gestionnaire de lieux', () => {
           dateStr: DATE,
         },
       ),
-    ).rejects.toThrow('timeout');
+    ).rejects.toThrow('Erreur serveur');
   });
 });
 

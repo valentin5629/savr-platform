@@ -8,10 +8,11 @@
 // parmi toutes les remises éligibles, seule la plus élevée s'applique —
 // prix = base × (1 − max(remise_pct)).
 //
-// Une erreur de lecture est levée (jamais avalée) : ignorer une remise éligible
+// Une erreur de lecture est levée (jamais avalée, message neutralisé + loggé) : ignorer une remise éligible
 // facturerait plein tarif sans signal. Les appelants rattrapent déjà par collecte.
 
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { erreurInterne } from '@/lib/api-helpers.js';
 
 export async function facteurRemisesNegociees(
   supabase: SupabaseClient,
@@ -34,8 +35,7 @@ export async function facteurRemisesNegociees(
       .eq('organisation_id', organisationId)
       .lte('valide_du', dateStr)
       .or(`valide_jusqu_au.is.null,valide_jusqu_au.gte.${dateStr}`);
-    if (error)
-      throw new Error(`Lecture remises organisation : ${error.message}`);
+    if (error) throw erreurInterne(error, 'tarifs.remises_organisation');
     for (const r of (data ?? []) as { remise_pct: number }[])
       taux.push(Number(r.remise_pct));
   }
@@ -45,7 +45,7 @@ export async function facteurRemisesNegociees(
       .from('organisations_lieux')
       .select('organisation_id')
       .eq('lieu_id', lieuId);
-    if (lErr) throw new Error(`Lecture gestionnaire du lieu : ${lErr.message}`);
+    if (lErr) throw erreurInterne(lErr, 'tarifs.gestionnaire_du_lieu');
     const gestionnaires = ((liens ?? []) as { organisation_id: string }[]).map(
       (l) => l.organisation_id,
     );
@@ -59,8 +59,7 @@ export async function facteurRemisesNegociees(
         .in('gestionnaire_organisation_id', gestionnaires)
         .lte('valide_du', dateStr)
         .or(`valide_jusqu_au.is.null,valide_jusqu_au.gte.${dateStr}`);
-      if (error)
-        throw new Error(`Lecture remises gestionnaire : ${error.message}`);
+      if (error) throw erreurInterne(error, 'tarifs.remises_gestionnaire');
       for (const r of (data ?? []) as {
         remise_pct: number;
         lieu_id: string | null;

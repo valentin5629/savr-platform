@@ -24,6 +24,8 @@ export async function GET(
   //    (`organisation_id` + `gestionnaire_organisation_id`) → HTTP 300 PGRST201.
   //    Désambiguïsé sur `!organisation_id` (les remises propres à l'orga).
   //  - `tarifs_negocie.type_remise` : colonne INEXISTANTE, réelle = `activite`.
+  // Fiche gestionnaire de lieux : remises qu'il porte sur ses lieux
+  // (`!gestionnaire_organisation_id`, alias remises_gestionnaire) + ses lieux.
   // Vérifié : HTTP 200 (1 entité, 2 users, 1 pack, 1 remise pour Kaspia).
   const { data: org, error } = await supabase
     .from('organisations')
@@ -36,7 +38,9 @@ export async function GET(
       organisations_domaines_email(domaine),
       users(id, prenom, nom, email, role, actif, derniere_connexion),
       packs_antgaspi(id, type_pack, credits_initiaux, credits_consommes, statut, mode_facturation, commentaires, created_at),
-      tarifs_negocie!organisation_id(id, activite, remise_pct, valide_du, valide_jusqu_au, scope, commentaires)
+      tarifs_negocie!organisation_id(id, activite, remise_pct, valide_du, valide_jusqu_au, scope, commentaires),
+      remises_gestionnaire:tarifs_negocie!gestionnaire_organisation_id(id, activite, remise_pct, valide_du, valide_jusqu_au, scope, commentaires, lieu_id, lieux(nom)),
+      organisations_lieux(lieux(id, nom))
     `,
     )
     .eq('id', id)

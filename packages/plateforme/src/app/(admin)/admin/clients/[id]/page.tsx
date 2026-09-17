@@ -85,6 +85,19 @@ interface OrgDetail {
     scope: string;
     commentaires: string | null;
   }[];
+  // Fiche gestionnaire de lieux : remises portées sur ses lieux + ses lieux.
+  remises_gestionnaire?: {
+    id: string;
+    activite: string;
+    remise_pct: number;
+    valide_du: string;
+    valide_jusqu_au: string | null;
+    scope: string;
+    commentaires: string | null;
+    lieu_id: string | null;
+    lieux: { nom: string } | null;
+  }[];
+  organisations_lieux?: { lieux: { id: string; nom: string } | null }[];
 }
 
 // Libellé lisible du type d'organisation (aligné sur la liste Clients).
@@ -673,7 +686,15 @@ export default function ClientFichePage({
         <TabsContent value="remises">
           <OngletRemises
             organisationId={id}
-            remises={org.tarifs_negocie}
+            organisationType={org.type}
+            lieuxGestionnaire={(org.organisations_lieux ?? [])
+              .map((ol) => ol.lieux)
+              .filter((l): l is { id: string; nom: string } => l !== null)
+              .sort((a, b) => a.nom.localeCompare(b.nom, 'fr'))}
+            remises={[
+              ...(org.remises_gestionnaire ?? []),
+              ...org.tarifs_negocie,
+            ]}
             canEdit={canEditAdminOnly}
             onUpdated={() => void refreshOrg()}
           />

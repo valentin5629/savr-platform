@@ -687,16 +687,9 @@ describe('M1.7 / BatchBrouillons / ZD par_collecte', () => {
     const sb = makeSupabase([
       { data: [COLLECTE_ZD_CLOTUREE], error: null }, // select collectes
       { data: [], error: null }, // select factures_collectes (dejaIds)
-      // calculer_tarif_zd appels Supabase :
-      {
-        data: {
-          montant_ht: 590,
-          montant_brut_ht: 650,
-          tarif_id: 'tar-1',
-          remise_pct_cumulee: 0,
-        },
-        error: null,
-      },
+      // calculer_tarif_zd : seule requête non-single = remises organisation
+      // (liste, jamais un objet — les .single() sont mockés plus bas).
+      { data: [], error: null },
       { data: { id: 'fac-new' }, error: null }, // insert facture
       { data: null, error: null }, // insert facture_collecte
     ]);

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { facteurRemisesNegociees } from '@/lib/facturation/remises-negociees.js';
 
 export class TarifZdError extends Error {
   constructor(
@@ -58,6 +59,7 @@ export async function calculer_tarif_zd(
   organisationId: string | null,
   date: Date,
   supabase: SupabaseClient,
+  lieuId: string | null = null,
 ): Promise<TarifZdResult> {
   if (!Number.isInteger(pax) || pax < 1) {
     throw new TarifZdError(
@@ -118,28 +120,14 @@ export async function calculer_tarif_zd(
       ? Number(tarif.prix_par_couvert_ht) * pax
       : 0);
 
-  // 3. Remises applicables pour l'organisation (scope = organisation, activite = zd)
-  let facteurRemise = 1;
-
-  if (organisationId) {
-    const { data: remises } = await supabase
-      .from('tarifs_negocie')
-      .select('remise_pct')
-      .eq('activite', 'zd')
-      .eq('scope', 'organisation')
-      .eq('organisation_id', organisationId)
-      .lte('valide_du', dateStr)
-      .or(`valide_jusqu_au.is.null,valide_jusqu_au.gte.${dateStr}`);
-
-    if (remises && remises.length > 0) {
-      // Cumul multiplicatif : Π(1 - remise_pct)
-      facteurRemise = remises.reduce(
-        (acc: number, r: { remise_pct: number }) =>
-          acc * (1 - Number(r.remise_pct)),
-        1,
-      );
-    }
-  }
+  // 3. Remises négociées éligibles : organisation programmatrice + gestionnaire
+  //    du lieu de l'événement (§05 résolution du prix, étape 3).
+  const facteurRemise = await facteurRemisesNegociees(supabase, {
+    activite: 'zd',
+    organisationId,
+    lieuId,
+    dateStr,
+  });
 
   const remisePctCumulee = 1 - facteurRemise;
   const montantHt = Math.round(montantBrut * facteurRemise * 100) / 100;

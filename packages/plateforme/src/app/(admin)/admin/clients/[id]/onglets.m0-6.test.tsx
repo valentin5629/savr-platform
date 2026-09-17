@@ -346,6 +346,8 @@ describe('M0.6 — onglet Remises négociées', () => {
     mockFetch({});
     render(
       <OngletRemises
+        organisationType="traiteur"
+        lieuxGestionnaire={[]}
         organisationId="org-1"
         remises={[remise]}
         canEdit={true}
@@ -362,6 +364,8 @@ describe('M0.6 — onglet Remises négociées', () => {
     const onUpdated = vi.fn();
     render(
       <OngletRemises
+        organisationType="traiteur"
+        lieuxGestionnaire={[]}
         organisationId="org-1"
         remises={[]}
         canEdit={true}
@@ -389,11 +393,107 @@ describe('M0.6 — onglet Remises négociées', () => {
     });
   });
 
+  it('fiche gestionnaire de lieux : remise portée sur un lieu précis → POST scope gestionnaire + lieu_id', async () => {
+    mockFetch({ '/api/v1/admin/tarifs-negocie': { id: 'new' } });
+    const onUpdated = vi.fn();
+    render(
+      <OngletRemises
+        organisationType="gestionnaire_lieux"
+        lieuxGestionnaire={[
+          { id: 'lieu-pv', nom: 'Paris Expo Porte de Versailles' },
+          { id: 'lieu-pn', nom: 'Paris Nord Villepinte' },
+        ]}
+        organisationId="org-viparis"
+        remises={[]}
+        canEdit={true}
+        onUpdated={onUpdated}
+      />,
+    );
+    fireEvent.click(screen.getByText('Créer une remise'));
+    fireEvent.change(screen.getByLabelText('Lieux concernés'), {
+      target: { value: 'lieu-pn' },
+    });
+    fireEvent.change(screen.getByLabelText('Remise (%)'), {
+      target: { value: '10' },
+    });
+    fireEvent.change(screen.getByLabelText('Valide du'), {
+      target: { value: '2026-09-17' },
+    });
+    fireEvent.click(screen.getByText('Créer'));
+    await waitFor(() => expect(onUpdated).toHaveBeenCalled(), ATTENTE_UI);
+    const post = calls.find(
+      (c) => c.method === 'POST' && c.url === '/api/v1/admin/tarifs-negocie',
+    );
+    expect(post?.body).toMatchObject({
+      scope: 'gestionnaire',
+      gestionnaire_organisation_id: 'org-viparis',
+      lieu_id: 'lieu-pn',
+      activite: 'zd',
+      remise_pct: 0.1,
+      valide_du: '2026-09-17',
+    });
+    expect(post?.body).not.toHaveProperty('organisation_id');
+  });
+
+  it('fiche gestionnaire de lieux : « Tous les lieux » par défaut → lieu_id null ; portée affichée par ligne', async () => {
+    mockFetch({ '/api/v1/admin/tarifs-negocie': { id: 'new' } });
+    const onUpdated = vi.fn();
+    render(
+      <OngletRemises
+        organisationType="gestionnaire_lieux"
+        lieuxGestionnaire={[{ id: 'lieu-pv', nom: 'Paris Expo' }]}
+        organisationId="org-viparis"
+        remises={[
+          {
+            ...remise,
+            id: 'g-1',
+            scope: 'gestionnaire',
+            lieu_id: null,
+            lieux: null,
+          },
+          {
+            ...remise,
+            id: 'g-2',
+            scope: 'gestionnaire',
+            lieu_id: 'lieu-pv',
+            lieux: { nom: 'Paris Expo' },
+          },
+          { ...remise, id: 'o-1' },
+        ]}
+        canEdit={true}
+        onUpdated={onUpdated}
+      />,
+    );
+    expect(screen.getByText('Tous ses lieux')).toBeInTheDocument();
+    expect(screen.getByText('Paris Expo')).toBeInTheDocument();
+    expect(screen.getByText('Organisation (en direct)')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Créer une remise'));
+    fireEvent.change(screen.getByLabelText('Remise (%)'), {
+      target: { value: '10' },
+    });
+    fireEvent.change(screen.getByLabelText('Valide du'), {
+      target: { value: '2026-09-17' },
+    });
+    fireEvent.click(screen.getByText('Créer'));
+    await waitFor(() => expect(onUpdated).toHaveBeenCalled(), ATTENTE_UI);
+    const post = calls.find(
+      (c) => c.method === 'POST' && c.url === '/api/v1/admin/tarifs-negocie',
+    );
+    expect(post?.body).toMatchObject({
+      scope: 'gestionnaire',
+      gestionnaire_organisation_id: 'org-viparis',
+      lieu_id: null,
+    });
+  });
+
   it('admin : Fermer → POST fermer', async () => {
     mockFetch({ '/api/v1/admin/tarifs-negocie/rem-1/fermer': { id: 'rem-1' } });
     const onUpdated = vi.fn();
     render(
       <OngletRemises
+        organisationType="traiteur"
+        lieuxGestionnaire={[]}
         organisationId="org-1"
         remises={[remise]}
         canEdit={true}
@@ -415,6 +515,8 @@ describe('M0.6 — onglet Remises négociées', () => {
     mockFetch({});
     render(
       <OngletRemises
+        organisationType="traiteur"
+        lieuxGestionnaire={[]}
         organisationId="org-1"
         remises={[remise]}
         canEdit={false}
@@ -437,6 +539,8 @@ describe('M0.6 — onglet Remises négociées', () => {
     };
     render(
       <OngletRemises
+        organisationType="traiteur"
+        lieuxGestionnaire={[]}
         organisationId="org-1"
         remises={[remise, fermee]}
         canEdit={true}

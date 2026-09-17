@@ -848,21 +848,32 @@ interface Remise {
   valide_jusqu_au: string | null;
   scope: string;
   commentaires: string | null;
+  lieu_id?: string | null;
+  lieux?: { nom: string } | null;
 }
 
+// Fiche gestionnaire de lieux : la remise est portée par le gestionnaire
+// (scope=gestionnaire) et s'applique à toutes les collectes sur ses lieux, quel
+// que soit le traiteur (§05 résolution du prix). Autres fiches : scope=organisation.
 export function OngletRemises({
   organisationId,
+  organisationType,
+  lieuxGestionnaire,
   remises,
   canEdit,
   onUpdated,
 }: {
   organisationId: string;
+  organisationType: string;
+  lieuxGestionnaire: { id: string; nom: string }[];
   remises: Remise[];
   canEdit: boolean;
   onUpdated: () => void;
 }): React.ReactElement {
+  const estGestionnaire = organisationType === 'gestionnaire_lieux';
   const [modal, setModal] = React.useState(false);
   const [fActivite, setFActivite] = React.useState('zd');
+  const [fLieuId, setFLieuId] = React.useState('');
   const [fPct, setFPct] = React.useState('');
   const [fValideDu, setFValideDu] = React.useState('');
   const [fCommentaires, setFCommentaires] = React.useState('');
@@ -878,6 +889,7 @@ export function OngletRemises({
   function openCreer() {
     setModal(true);
     setFActivite('zd');
+    setFLieuId('');
     setFPct('');
     setFValideDu('');
     setFCommentaires('');
@@ -902,8 +914,13 @@ export function OngletRemises({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          scope: 'organisation',
-          organisation_id: organisationId,
+          ...(estGestionnaire
+            ? {
+                scope: 'gestionnaire',
+                gestionnaire_organisation_id: organisationId,
+                lieu_id: fLieuId || null,
+              }
+            : { scope: 'organisation', organisation_id: organisationId }),
           activite: fActivite,
           remise_pct: pct / 100, // % → fraction 0..1
           valide_du: fValideDu,
@@ -964,13 +981,18 @@ export function OngletRemises({
         <EmptyState
           icon={<Percent />}
           title="Aucune remise négociée"
-          description="Aucune remise n'a été accordée à cette organisation."
+          description={
+            estGestionnaire
+              ? "Aucune remise n'est appliquée aux collectes sur les lieux de ce gestionnaire."
+              : "Aucune remise n'a été accordée à cette organisation."
+          }
         />
       ) : (
         <table className="w-full text-sm">
           <thead className="text-left text-savr-neutral-500">
             <tr>
               <th className="pb-2">Activité</th>
+              {estGestionnaire && <th className="pb-2">Lieux concernés</th>}
               <th className="pb-2">Remise</th>
               <th className="pb-2">Valide du</th>
               <th className="pb-2">Jusqu'au</th>
@@ -984,6 +1006,13 @@ export function OngletRemises({
                 <td className="py-2">
                   {r.activite ? r.activite.toUpperCase() : '—'}
                 </td>
+                {estGestionnaire && (
+                  <td className="py-2">
+                    {r.scope === 'gestionnaire'
+                      ? (r.lieux?.nom ?? 'Tous ses lieux')
+                      : 'Organisation (en direct)'}
+                  </td>
+                )}
                 <td className="py-2 font-medium">
                   {(r.remise_pct * 100).toLocaleString('fr-FR', {
                     maximumFractionDigits: 2,
@@ -1072,6 +1101,29 @@ export function OngletRemises({
                 <option value="ag">Anti-gaspi (AG)</option>
               </Select>
             </div>
+            {estGestionnaire && (
+              <div>
+                <Label htmlFor="remise-lieu">Lieux concernés</Label>
+                <Select
+                  id="remise-lieu"
+                  aria-label="Lieux concernés"
+                  value={fLieuId}
+                  onChange={(e) => setFLieuId(e.target.value)}
+                >
+                  <option value="">Tous les lieux du gestionnaire</option>
+                  {lieuxGestionnaire.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.nom}
+                    </option>
+                  ))}
+                </Select>
+                <p className="mt-1 text-xs text-savr-neutral-500">
+                  S&apos;applique à toutes les collectes réalisées sur ces
+                  lieux, quel que soit le traiteur, en plus de ses propres
+                  remises.
+                </p>
+              </div>
+            )}
             <div>
               <Label htmlFor="remise-pct">Remise (%)</Label>
               <Input

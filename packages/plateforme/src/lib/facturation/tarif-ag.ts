@@ -5,13 +5,15 @@
 //     (`packs_antgaspi.prix_unitaire_ht`) ; `personnalise` → montant_total_ht / credits_initiaux.
 //   - Aucun pack (hors pack)     → base = tarif unitaire public (`tarifs_packs_ag`
 //     type_pack='unitaire', 590 €) MOINS les remises AG éligibles
-//     (`tarifs_negocie` activite='ag', scope='organisation', cumul multiplicatif).
+//     (`tarifs_negocie` activite='ag', scopes organisation + gestionnaire du lieu,
+//     cumul multiplicatif).
 //   - Pack `globale_achat`       → facturé au pack (FPK), pas à la collecte → skip.
 // Le 590 € en dur de l'ancien batch (surfacturation Pack 30/60 + remises AG ignorées)
 // est supprimé : tout vient désormais du référentiel (BL-P1-FACT-02/03).
 
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
+import { facteurRemisesNegociees } from './remises-negociees.js';
 
 export class TarifAgError extends Error {
   constructor(
@@ -60,6 +62,7 @@ export async function calculer_tarif_ag(
   params: {
     packAntgaspiId: string | null;
     organisationId: string;
+    lieuId?: string | null;
     date: Date;
   },
 ): Promise<TarifAgResult> {
@@ -133,25 +136,14 @@ export async function calculer_tarif_ag(
 
   const base = Number(tarifUnitaire.prix_unitaire_ht);
 
-  // Remises AG : scope=organisation uniquement (la remise gestionnaire est ZD).
-  // Cumul multiplicatif Π(1 − remise_pct), comme le chemin ZD.
-  const { data: remises } = await supabase
-    .from('tarifs_negocie')
-    .select('remise_pct')
-    .eq('activite', 'ag')
-    .eq('scope', 'organisation')
-    .eq('organisation_id', params.organisationId)
-    .lte('valide_du', dateStr)
-    .or(`valide_jusqu_au.is.null,valide_jusqu_au.gte.${dateStr}`);
-
-  let facteurRemise = 1;
-  if (remises && remises.length > 0) {
-    facteurRemise = remises.reduce(
-      (acc: number, r: { remise_pct: number }) =>
-        acc * (1 - Number(r.remise_pct)),
-      1,
-    );
-  }
+  // Remises AG éligibles (organisation programmatrice + gestionnaire du lieu),
+  // cumul multiplicatif Π(1 − remise_pct), comme le chemin ZD.
+  const facteurRemise = await facteurRemisesNegociees(supabase, {
+    activite: 'ag',
+    organisationId: params.organisationId,
+    lieuId: params.lieuId ?? null,
+    dateStr,
+  });
 
   const montant = round2(base * facteurRemise);
   return {

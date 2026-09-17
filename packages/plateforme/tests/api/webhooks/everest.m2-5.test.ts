@@ -751,7 +751,7 @@ describe('M2.5 / webhook Everest — rejet async avant acceptation (BL-P1-API-04
     _setEverestHandlers(null);
   });
 
-  it('mission_failed + statut_tms=attribuee_en_attente_acceptation → rejetee_par_prestataire + retour file', async () => {
+  it('mission_failed + statut_tms=attribuee_en_attente_acceptation → statut_tms ET statut rejetee_par_prestataire + alerte', async () => {
     mockCollecteRow = {
       type: 'anti_gaspi',
       statut: 'programmee',
@@ -774,6 +774,10 @@ describe('M2.5 / webhook Everest — rejet async avant acceptation (BL-P1-API-04
         (u) => u['statut_tms'] === 'rejetee_par_prestataire',
       ),
     ).toBe(true);
+    // §08 §3 : le statut métier suit (visibilité dashboard, décision Val
+    // 2026-06-15) — le trigger fn_sync ne le dérive pas.
+    expect(collecteLive?.['statut']).toBe('rejetee_par_prestataire');
+    expect(collecteLive?.['statut_tms']).toBe('rejetee_par_prestataire');
     const alerte = rpcCalls.find(
       (c) =>
         c.name === 'f_upsert_alerte_admin' &&
@@ -1615,6 +1619,25 @@ describe('M2.5 / webhook Everest — gardes dans le WHERE (écritures concurrent
     expect(collecteLive?.['statut_tms']).toBe(
       'attribuee_en_attente_acceptation',
     );
+    expect(alertePosee('collecte_rejetee_prestataire')).toBe(false);
+  });
+
+  it('mission_cancelled externe : collecte annulée entre la lecture et l’UPDATE → 0 ligne, jamais « rejetee »', async () => {
+    apresLectureCollecte = (live) => {
+      live['statut'] = 'annulee';
+    };
+
+    const resp = await POST(
+      makeWebhookRequest({
+        mission_id: 'EVR-CONC-5',
+        event_type: 'mission_cancelled',
+        occurred_at: '2026-07-20T22:30:00Z',
+      }),
+    );
+
+    expect(resp.status).toBe(200);
+    expect(collecteAppliquee()).toEqual([]);
+    expect(collecteLive?.['statut']).toBe('annulee');
     expect(alertePosee('collecte_rejetee_prestataire')).toBe(false);
   });
 

@@ -596,7 +596,7 @@ async function handleEventType(
         correlation_id: String(params.get('mission_id')),
       });
       // BL-P1-API-04 (c) : échec AVANT acceptation = rejet prestataire (webhook
-      // async, §08 §3 l.276) → statut_tms=rejetee_par_prestataire + retour file.
+      // async, §08 §3) → collecte rejetee_par_prestataire + réattribution Ops.
       await rejeterSiPreAcceptation(
         supabase,
         mission,
@@ -655,7 +655,7 @@ async function handleEventType(
           correlation_id: String(params.get('mission_id')),
         });
         // BL-P1-API-04 (c) : annulation externe AVANT acceptation = refus
-        // transporteur (§08 §3 l.276) → rejetee_par_prestataire + retour file.
+        // transporteur (§08 §3) → rejetee_par_prestataire + réattribution Ops.
         await rejeterSiPreAcceptation(
           supabase,
           mission,
@@ -929,12 +929,14 @@ async function transitionRealiseeSansCollecte(
   });
 }
 
-// (c) Rejet prestataire (webhook async Everest, §08 §3 l.276). Un échec / une
+// (c) Rejet prestataire (webhook async Everest, §08 §3). Un échec / une
 // annulation externe AVANT acceptation (statut_tms encore en attente) = refus du
-// transporteur → statut_tms=rejetee_par_prestataire (le statut métier reste
-// `programmee` : le trigger fn_sync ne dérive rien sur ce statut) + retour file
-// (alerte Ops). Après acceptation (acceptee/en_cours), un échec est un incident,
-// pas un rejet → on n'y touche pas.
+// transporteur → statut_tms ET statut = rejetee_par_prestataire (visibilité
+// dashboard, décision Val 2026-06-15) + alerte « réattribution requise ». Le
+// trigger fn_sync ne dérive rien de ce statut : l'écriture est explicite. La
+// réattribution (fn_dispatcher_collecte) remet la collecte en `programmee`.
+// Après acceptation (acceptee/en_cours), un échec est un incident, pas un rejet
+// → on n'y touche pas.
 async function rejeterSiPreAcceptation(
   supabase: SupabaseAdmin,
   mission: { id: string; tournee_id: string; collecte_id: string },
@@ -959,16 +961,20 @@ async function rejeterSiPreAcceptation(
     supabase,
     supabase
       .from('collectes')
-      .update({ statut_tms: 'rejetee_par_prestataire' })
+      .update({
+        statut_tms: 'rejetee_par_prestataire',
+        statut: 'rejetee_par_prestataire',
+      })
       .eq('id', mission.collecte_id)
       .eq('statut_tms', 'attribuee_en_attente_acceptation')
+      .eq('statut', 'programmee')
       .eq('prestataire_logistique_id', lue.prestataire)
       .select('id'),
     {
       evenement: 'collecte_rejetee',
       collecteId: mission.collecte_id,
       missionId,
-      quoi: `rejet de la course ${motifCourt} avant acceptation (statut transporteur « rejetee_par_prestataire »)`,
+      quoi: `rejet de la course ${motifCourt} avant acceptation (collecte « rejetee_par_prestataire »)`,
     },
   );
   if (!modifiee) return;
@@ -976,7 +982,7 @@ async function rejeterSiPreAcceptation(
   await alerteApresTransition(supabase, {
     p_code: 'collecte_rejetee_prestataire',
     p_titre: 'Course Everest rejetée par le prestataire',
-    p_message: `Mission Everest ${motifCourt} avant acceptation (${missionId}) — collecte ${mission.collecte_id} repassée en file d'attente (rejetee_par_prestataire). Réattribuer (§08 §3).`,
+    p_message: `Mission Everest ${motifCourt} avant acceptation (${missionId}) — collecte ${mission.collecte_id} passée en rejetee_par_prestataire. Réattribution requise (§08 §3).`,
     p_entity_type: 'collectes',
     p_entity_id: mission.collecte_id,
   });

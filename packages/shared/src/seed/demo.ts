@@ -16,7 +16,13 @@ import { dirname, resolve } from 'node:path';
 import type pg from 'pg';
 import { seedUuid } from './uuid.js';
 import { upsert, lookupMap, jsonb, type Row } from './db.js';
-import { fakePhone, seedEmail, ancreSeed } from './constants.js';
+import {
+  fakePhone,
+  seedEmail,
+  ancreSeed,
+  horairesAssociationSeed,
+  type ProfilHorairesSeed,
+} from './constants.js';
 import { genererPipelineVivant } from './pipeline-vivant.js';
 import { instantParis } from '../temps/index.js';
 
@@ -482,11 +488,53 @@ export async function seedDemo(client: pg.Client): Promise<void> {
     client,
     'plateforme.associations',
     [
-      asso('asso_alpha', 'Association Alpha (fictif)', 'idf', true, true),
-      asso('asso_bravo', 'Association Bravo (fictif)', 'idf', false, true),
-      asso('asso_charlie', 'Association Charlie (fictif)', 'idf', true, true),
-      asso('asso_delta', 'Association Delta (fictif)', 'idf', true, false), // désactivée
-      asso('asso_echo', 'Association Echo (fictif)', 'province', false, true),
+      // Capacité + horaires variés : l'algo AG en propose selon le créneau
+      // (Alpha 24h/24, Bravo jours ouvrés, Charlie soir/nuit, Echo province).
+      asso(
+        'asso_alpha',
+        'Association Alpha (fictif)',
+        'idf',
+        true,
+        true,
+        300,
+        '24h',
+      ),
+      asso(
+        'asso_bravo',
+        'Association Bravo (fictif)',
+        'idf',
+        false,
+        true,
+        150,
+        'jour_semaine',
+      ),
+      asso(
+        'asso_charlie',
+        'Association Charlie (fictif)',
+        'idf',
+        true,
+        true,
+        500,
+        'soir_nuit',
+      ),
+      asso(
+        'asso_delta',
+        'Association Delta (fictif)',
+        'idf',
+        true,
+        false,
+        100,
+        '24h',
+      ), // désactivée
+      asso(
+        'asso_echo',
+        'Association Echo (fictif)',
+        'province',
+        false,
+        true,
+        200,
+        '24h',
+      ),
     ],
     ['id'],
   );
@@ -1458,10 +1506,14 @@ function asso(
   region: string,
   habilitee: boolean,
   actif: boolean,
+  capacite: number,
+  horaires: ProfilHorairesSeed,
 ): Row {
   return {
     id: U(slug),
     nom,
+    capacite_max_beneficiaires: capacite,
+    horaires_ouverture: jsonb(horairesAssociationSeed(horaires)),
     adresse: '1 Rue Asso',
     ville: region === 'province' ? 'Rouen' : 'Paris',
     region,

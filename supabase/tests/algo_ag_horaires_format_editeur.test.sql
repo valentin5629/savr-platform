@@ -5,7 +5,7 @@
 -- Date pivot : 2030-01-07 = LUNDI.
 
 BEGIN;
-SELECT plan(14);
+SELECT plan(16);
 
 SELECT set_config('role', 'postgres', true);
 SELECT set_config('request.jwt.claims', NULL, true);
@@ -96,6 +96,30 @@ SELECT ok(
     'plateforme.fn_calculer_algo_attribution_ag(uuid)', 'EXECUTE'),
   'H12 : ACL de l''algo conservée par le CREATE OR REPLACE (service_role only)'
 );
+
+-- Refus réel sous un client authenticated (JWT admin_savr) : 42501 avant exécution.
+SELECT set_config('request.jwt.claims', json_build_object(
+  'sub', 'c7e00000-0000-0000-0000-0000000000aa',
+  'user_role', 'admin_savr',
+  'organisation_id', 'c7e00000-0000-0000-0000-0000000000ab',
+  'app_domain', 'plateforme'
+)::text, true);
+SELECT set_config('role', 'authenticated', true);
+
+SELECT throws_ok(
+  $$ SELECT plateforme.fn_association_ouverte(NULL, '2030-01-07', '10:00') $$,
+  '42501', NULL::text,
+  'H12b : authenticated — fn_association_ouverte : permission denied'
+);
+
+SELECT throws_ok(
+  $$ SELECT plateforme.fn_calculer_algo_attribution_ag('c7e00000-0000-0000-0000-000000000030'::uuid) $$,
+  '42501', NULL::text,
+  'H12c : authenticated — fn_calculer_algo_attribution_ag : permission denied'
+);
+
+SELECT set_config('role', 'postgres', true);
+SELECT set_config('request.jwt.claims', NULL, true);
 
 -- ── Bout en bout : l'algo propose l'association saisie à l'écran ───────────
 

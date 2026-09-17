@@ -2,7 +2,8 @@
  * Remises négociées éligibles à une collecte — §05 « Tarifs et remises —
  * résolution du prix », étape 3 : scope organisation (programmateur) + scope
  * gestionnaire (gestionnaire du lieu via organisations_lieux, lieu_id = ce lieu
- * OU null), cumul multiplicatif.
+ * OU null). Pas de cumul : seule la remise la plus élevée s'applique
+ * (arbitrage Val 2026-09-17, diverge du « cumul multiplicatif » §05).
  *
  * Le fake applique réellement les filtres eq/in posés par le code : une remise
  * d'un autre scope, d'une autre activité ou d'un autre gestionnaire n'est rendue
@@ -93,7 +94,7 @@ describe('Remises négociées — scope gestionnaire de lieux', () => {
     expect(f).toBeCloseTo(0.9, 10);
   });
 
-  it('cumul multiplicatif remise traiteur × remise gestionnaire (15 % puis 10 % → 0,765)', async () => {
+  it('traiteur 15 % + gestionnaire 10 % : pas de cumul, la plus élevée (15 %) → 0,85', async () => {
     const f = await facteurRemisesNegociees(
       fakeSb({
         organisations_lieux: LIENS,
@@ -117,7 +118,40 @@ describe('Remises négociées — scope gestionnaire de lieux', () => {
         dateStr: DATE,
       },
     );
-    expect(f).toBeCloseTo(0.765, 10);
+    expect(f).toBeCloseTo(0.85, 10);
+  });
+
+  it('traiteur 5 % + gestionnaire 10 % et 8 % : la plus élevée (10 %) s’applique → 0,9', async () => {
+    const f = await facteurRemisesNegociees(
+      fakeSb({
+        organisations_lieux: LIENS,
+        tarifs_negocie: [
+          remise({
+            scope: 'organisation',
+            organisation_id: TRAITEUR,
+            remise_pct: 0.05,
+          }),
+          remise({
+            scope: 'gestionnaire',
+            gestionnaire_organisation_id: VIPARIS,
+            remise_pct: 0.1,
+          }),
+          remise({
+            scope: 'gestionnaire',
+            gestionnaire_organisation_id: VIPARIS,
+            lieu_id: LIEU_VIPARIS,
+            remise_pct: 0.08,
+          }),
+        ],
+      }),
+      {
+        activite: 'zd',
+        organisationId: TRAITEUR,
+        lieuId: LIEU_VIPARIS,
+        dateStr: DATE,
+      },
+    );
+    expect(f).toBeCloseTo(0.9, 10);
   });
 
   it('remise gestionnaire sur un lieu précis : appliquée à ce lieu, pas aux autres lieux du gestionnaire', async () => {

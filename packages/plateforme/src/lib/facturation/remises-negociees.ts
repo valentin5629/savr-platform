@@ -4,7 +4,9 @@
 //   - scope=gestionnaire : `gestionnaire_organisation_id` = gestionnaire du lieu
 //     de l'événement (via `organisations_lieux`), `lieu_id` = ce lieu OU null
 //     (null = tous les lieux du gestionnaire), quel que soit le traiteur.
-// Les deux scopes s'additionnent : prix = base × Π(1 − remise_pct).
+// Pas de cumul (arbitrage Val 2026-09-17, diverge du « cumul multiplicatif » §05) :
+// parmi toutes les remises éligibles, seule la plus élevée s'applique —
+// prix = base × (1 − max(remise_pct)).
 //
 // Une erreur de lecture est levée (jamais avalée) : ignorer une remise éligible
 // facturerait plein tarif sans signal. Les appelants rattrapent déjà par collecte.
@@ -69,5 +71,5 @@ export async function facteurRemisesNegociees(
     }
   }
 
-  return taux.reduce((acc, pct) => acc * (1 - pct), 1);
+  return 1 - Math.max(0, ...taux);
 }

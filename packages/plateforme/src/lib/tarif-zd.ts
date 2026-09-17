@@ -120,8 +120,9 @@ export async function calculer_tarif_zd(
       ? Number(tarif.prix_par_couvert_ht) * pax
       : 0);
 
-  // 3. Remises négociées éligibles : organisation programmatrice + gestionnaire
-  //    du lieu de l'événement (§05 résolution du prix, étape 3).
+  // 3. Remise négociée : la plus élevée des remises éligibles (organisation
+  //    programmatrice + gestionnaire du lieu de l'événement, §05 étape 3), sans
+  //    cumul — arbitrage Val 2026-09-17.
   const facteurRemise = await facteurRemisesNegociees(supabase, {
     activite: 'zd',
     organisationId,

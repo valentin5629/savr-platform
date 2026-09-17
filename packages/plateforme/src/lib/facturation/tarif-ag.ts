@@ -6,7 +6,7 @@
 //   - Aucun pack (hors pack)     → base = tarif unitaire public (`tarifs_packs_ag`
 //     type_pack='unitaire', 590 €) MOINS les remises AG éligibles
 //     (`tarifs_negocie` activite='ag', scopes organisation + gestionnaire du lieu,
-//     cumul multiplicatif).
+//     seule la plus élevée s'applique).
 //   - Pack `globale_achat`       → facturé au pack (FPK), pas à la collecte → skip.
 // Le 590 € en dur de l'ancien batch (surfacturation Pack 30/60 + remises AG ignorées)
 // est supprimé : tout vient désormais du référentiel (BL-P1-FACT-02/03).
@@ -137,7 +137,7 @@ export async function calculer_tarif_ag(
   const base = Number(tarifUnitaire.prix_unitaire_ht);
 
   // Remises AG éligibles (organisation programmatrice + gestionnaire du lieu),
-  // cumul multiplicatif Π(1 − remise_pct), comme le chemin ZD.
+  // seule la plus élevée s'applique, comme le chemin ZD.
   const facteurRemise = await facteurRemisesNegociees(supabase, {
     activite: 'ag',
     organisationId: params.organisationId,

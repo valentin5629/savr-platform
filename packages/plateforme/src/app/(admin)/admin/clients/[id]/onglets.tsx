@@ -1119,8 +1119,8 @@ export function OngletRemises({
                 </Select>
                 <p className="mt-1 text-xs text-savr-neutral-500">
                   S&apos;applique à toutes les collectes réalisées sur ces
-                  lieux, quel que soit le traiteur, en plus de ses propres
-                  remises.
+                  lieux, quel que soit le traiteur. Si le traiteur a sa propre
+                  remise, seule la plus élevée des deux s&apos;applique.
                 </p>
               </div>
             )}

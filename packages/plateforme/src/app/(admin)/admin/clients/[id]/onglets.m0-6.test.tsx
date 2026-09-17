@@ -487,6 +487,94 @@ describe('M0.6 — onglet Remises négociées', () => {
     });
   });
 
+  it('admin : clic sur une remise active → modale pré-remplie → POST modifier (fermeture + nouvelle ligne côté serveur)', async () => {
+    mockFetch({ '/api/v1/admin/tarifs-negocie/g-1/modifier': { id: 'g-2' } });
+    const onUpdated = vi.fn();
+    render(
+      <OngletRemises
+        organisationType="gestionnaire_lieux"
+        lieuxGestionnaire={[{ id: 'lieu-pv', nom: 'Paris Expo' }]}
+        organisationId="org-viparis"
+        remises={[
+          {
+            ...remise,
+            id: 'g-1',
+            scope: 'gestionnaire',
+            remise_pct: 0.05,
+            lieu_id: null,
+            lieux: null,
+            commentaires: 'Accord 2025',
+          },
+        ]}
+        canEdit={true}
+        onUpdated={onUpdated}
+      />,
+    );
+    fireEvent.click(screen.getByText('Tous ses lieux'));
+    expect(screen.getByText('Modifier la remise')).toBeInTheDocument();
+    // Pré-remplissage : 0.05 → « 5 », commentaire repris, activité figée.
+    expect(screen.getByLabelText('Remise (%)')).toHaveValue(5);
+    expect(screen.getByLabelText('Activité')).toBeDisabled();
+    expect(screen.getByDisplayValue('Accord 2025')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Remise (%)'), {
+      target: { value: '10' },
+    });
+    fireEvent.change(screen.getByLabelText('Lieux concernés'), {
+      target: { value: 'lieu-pv' },
+    });
+    fireEvent.change(screen.getByLabelText('À partir du'), {
+      target: { value: '2099-01-01' },
+    });
+    fireEvent.click(screen.getByText('Enregistrer'));
+    await waitFor(() => expect(onUpdated).toHaveBeenCalled(), ATTENTE_UI);
+    const post = calls.find(
+      (c) =>
+        c.method === 'POST' &&
+        c.url === '/api/v1/admin/tarifs-negocie/g-1/modifier',
+    );
+    expect(post?.body).toEqual({
+      lieu_id: 'lieu-pv',
+      remise_pct: 0.1,
+      valide_du: '2099-01-01',
+      commentaires: 'Accord 2025',
+    });
+    // Pas de création parallèle d'une remise supplémentaire.
+    expect(
+      calls.some(
+        (c) => c.method === 'POST' && c.url === '/api/v1/admin/tarifs-negocie',
+      ),
+    ).toBe(false);
+  });
+
+  it('remise fermée ou ops : ligne non cliquable (pas de modale)', () => {
+    mockFetch({});
+    const { rerender } = render(
+      <OngletRemises
+        organisationType="traiteur"
+        lieuxGestionnaire={[]}
+        organisationId="org-1"
+        remises={[{ ...remise, valide_jusqu_au: '2026-01-01' }]}
+        canEdit={true}
+        onUpdated={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByText('Geste commercial'));
+    expect(screen.queryByText('Modifier la remise')).not.toBeInTheDocument();
+    rerender(
+      <OngletRemises
+        organisationType="traiteur"
+        lieuxGestionnaire={[]}
+        organisationId="org-1"
+        remises={[remise]}
+        canEdit={false}
+        onUpdated={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByText('Geste commercial'));
+    expect(screen.queryByText('Modifier la remise')).not.toBeInTheDocument();
+  });
+
   it('admin : Fermer → POST fermer', async () => {
     mockFetch({ '/api/v1/admin/tarifs-negocie/rem-1/fermer': { id: 'rem-1' } });
     const onUpdated = vi.fn();
@@ -502,6 +590,7 @@ describe('M0.6 — onglet Remises négociées', () => {
     );
     fireEvent.click(screen.getByText('Fermer'));
     await waitFor(() => expect(onUpdated).toHaveBeenCalled(), ATTENTE_UI);
+    expect(screen.queryByText('Modifier la remise')).not.toBeInTheDocument();
     expect(
       calls.some(
         (c) =>

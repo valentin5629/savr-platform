@@ -10,7 +10,13 @@
  * assertions en getAllBy*.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import {
+  render,
+  screen,
+  waitFor,
+  fireEvent,
+  within,
+} from '@testing-library/react';
 
 // Impersonation : dépend d'une session Supabase navigateur → hors périmètre.
 vi.mock('@/components/ui/impersonation-launcher', () => ({
@@ -81,7 +87,7 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe('M0.6 — liste clients : colonne Pack actif + retrait SIREN', () => {
-  it('affiche le bandeau « Clients » et le CTA « Créer une organisation »', async () => {
+  it('affiche le bandeau « Clients » et le CTA « Nouvelle organisation »', async () => {
     render(<ClientsPage />);
     await waitFor(
       () =>
@@ -91,7 +97,68 @@ describe('M0.6 — liste clients : colonne Pack actif + retrait SIREN', () => {
     expect(
       screen.getByRole('heading', { name: 'Clients' }),
     ).toBeInTheDocument();
-    expect(screen.getByText('Créer une organisation')).toBeInTheDocument();
+    // Bouton (pas un lien vers /admin/clients/nouveau, route inexistante).
+    expect(
+      screen.getByRole('button', { name: /Nouvelle organisation/ }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('M1.1b — le CTA ouvre la modale ; une création réussie recharge la liste', async () => {
+    render(<ClientsPage />);
+    await waitFor(
+      () =>
+        expect(screen.getAllByText('Fleur de Mets').length).toBeGreaterThan(0),
+      ATTENTE_UI,
+    );
+    const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>;
+    const listCalls = () =>
+      fetchMock.mock.calls.filter(
+        ([u, init]) =>
+          String(u).startsWith('/api/v1/admin/organisations?') &&
+          !(init as RequestInit | undefined)?.method,
+      ).length;
+    const avant = listCalls();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /Nouvelle organisation/ }),
+    );
+    const dialog = screen.getByRole('dialog');
+    expect(
+      within(dialog).getByText('Nouvelle organisation'),
+    ).toBeInTheDocument();
+
+    fetchMock.mockImplementationOnce(() =>
+      Promise.resolve({ ok: true, json: async () => ({ id: 'org-new' }) }),
+    );
+    fireEvent.change(within(dialog).getByLabelText(/^Nom/), {
+      target: { value: 'Nouvel Org' },
+    });
+    fireEvent.change(within(dialog).getByLabelText(/^Raison sociale/), {
+      target: { value: 'Nouvel Org SAS' },
+    });
+    fireEvent.change(within(dialog).getByLabelText(/^Type/), {
+      target: { value: 'agence' },
+    });
+    fireEvent.change(within(dialog).getByLabelText(/^Email principal/), {
+      target: { value: 'a@b.fr' },
+    });
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: /Créer l.organisation/ }),
+    );
+
+    await waitFor(
+      () => expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+      ATTENTE_UI,
+    );
+    expect(
+      fetchMock.mock.calls.some(
+        ([u, init]) =>
+          u === '/api/v1/admin/organisations' &&
+          (init as RequestInit | undefined)?.method === 'POST',
+      ),
+    ).toBe(true);
+    await waitFor(() => expect(listCalls()).toBeGreaterThan(avant), ATTENTE_UI);
   });
 
   it('rend un avatar à initiales (première + dernière parole) devant le nom', async () => {

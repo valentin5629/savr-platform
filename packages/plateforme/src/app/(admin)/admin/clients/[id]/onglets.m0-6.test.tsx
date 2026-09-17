@@ -393,7 +393,7 @@ describe('M0.6 — onglet Remises négociées', () => {
     });
   });
 
-  it('fiche gestionnaire de lieux : remise portée sur un lieu précis → POST scope gestionnaire + lieu_id', async () => {
+  it('fiche gestionnaire de lieux : plusieurs lieux cochés → POST scope gestionnaire + lieu_ids', async () => {
     mockFetch({ '/api/v1/admin/tarifs-negocie': { id: 'new' } });
     const onUpdated = vi.fn();
     render(
@@ -402,6 +402,7 @@ describe('M0.6 — onglet Remises négociées', () => {
         lieuxGestionnaire={[
           { id: 'lieu-pv', nom: 'Paris Expo Porte de Versailles' },
           { id: 'lieu-pn', nom: 'Paris Nord Villepinte' },
+          { id: 'lieu-lb', nom: 'Paris Le Bourget' },
         ]}
         organisationId="org-viparis"
         remises={[]}
@@ -410,9 +411,18 @@ describe('M0.6 — onglet Remises négociées', () => {
       />,
     );
     fireEvent.click(screen.getByText('Créer une remise'));
-    fireEvent.change(screen.getByLabelText('Lieux concernés'), {
-      target: { value: 'lieu-pn' },
+    const tous = screen.getByRole('checkbox', {
+      name: 'Tous les lieux du gestionnaire',
     });
+    expect(tous).toBeChecked();
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: 'Paris Nord Villepinte' }),
+    );
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Paris Le Bourget' }));
+    expect(tous).not.toBeChecked();
+    expect(
+      screen.getByText(/Une remise sera enregistrée par lieu \(2\)/),
+    ).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Remise (%)'), {
       target: { value: '10' },
     });
@@ -427,7 +437,7 @@ describe('M0.6 — onglet Remises négociées', () => {
     expect(post?.body).toMatchObject({
       scope: 'gestionnaire',
       gestionnaire_organisation_id: 'org-viparis',
-      lieu_id: 'lieu-pn',
+      lieu_ids: ['lieu-pn', 'lieu-lb'],
       activite: 'zd',
       remise_pct: 0.1,
       valide_du: '2026-09-17',
@@ -435,7 +445,7 @@ describe('M0.6 — onglet Remises négociées', () => {
     expect(post?.body).not.toHaveProperty('organisation_id');
   });
 
-  it('fiche gestionnaire de lieux : « Tous les lieux » par défaut → lieu_id null ; portée affichée par ligne', async () => {
+  it('fiche gestionnaire de lieux : « Tous les lieux » par défaut → lieu_ids vide ; portée affichée par ligne', async () => {
     mockFetch({ '/api/v1/admin/tarifs-negocie': { id: 'new' } });
     const onUpdated = vi.fn();
     render(
@@ -483,7 +493,7 @@ describe('M0.6 — onglet Remises négociées', () => {
     expect(post?.body).toMatchObject({
       scope: 'gestionnaire',
       gestionnaire_organisation_id: 'org-viparis',
-      lieu_id: null,
+      lieu_ids: [],
     });
   });
 
@@ -520,9 +530,7 @@ describe('M0.6 — onglet Remises négociées', () => {
     fireEvent.change(screen.getByLabelText('Remise (%)'), {
       target: { value: '10' },
     });
-    fireEvent.change(screen.getByLabelText('Lieux concernés'), {
-      target: { value: 'lieu-pv' },
-    });
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Paris Expo' }));
     fireEvent.change(screen.getByLabelText('À partir du'), {
       target: { value: '2099-01-01' },
     });
@@ -534,7 +542,7 @@ describe('M0.6 — onglet Remises négociées', () => {
         c.url === '/api/v1/admin/tarifs-negocie/g-1/modifier',
     );
     expect(post?.body).toEqual({
-      lieu_id: 'lieu-pv',
+      lieu_ids: ['lieu-pv'],
       remise_pct: 0.1,
       valide_du: '2099-01-01',
       commentaires: 'Accord 2025',

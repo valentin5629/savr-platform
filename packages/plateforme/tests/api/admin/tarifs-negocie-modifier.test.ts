@@ -43,19 +43,24 @@ function builder(table: string) {
       if (patch) for (const r of rs) Object.assign(r, patch);
       return Promise.resolve({ data: rs, error: null }).then(onF);
     },
-    insert: (row: Row) => {
+    in: (col: string, vals: unknown[]) => {
+      filtres.push((r) => vals.includes(r[col]));
+      return b;
+    },
+    insert: (payload: Row | Row[]) => {
+      const lignes = (Array.isArray(payload) ? payload : [payload]).map(
+        (row, i) => ({ id: `new-${(tables[table] ?? []).length + i}`, ...row }),
+      );
       const ib: Record<string, unknown> = {
         select: () => ib,
-        single: () => {
-          if (table === 'tarifs_negocie' && echecInsertRemise)
-            return Promise.resolve({ data: null, error: { code: '23514' } });
-          const ligne = { id: `new-${(tables[table] ?? []).length}`, ...row };
-          (tables[table] ??= []).push(ligne);
-          return Promise.resolve({ data: ligne, error: null });
-        },
         then: (onF: (v: unknown) => unknown) => {
-          (tables[table] ??= []).push(row);
-          return Promise.resolve({ data: null, error: null }).then(onF);
+          if (table === 'tarifs_negocie' && echecInsertRemise)
+            return Promise.resolve({
+              data: null,
+              error: { code: '23514' },
+            }).then(onF);
+          (tables[table] ??= []).push(...lignes);
+          return Promise.resolve({ data: lignes, error: null }).then(onF);
         },
       };
       return ib;
@@ -99,6 +104,7 @@ function setupRole(role: string) {
 const ID = '11111111-1111-4111-8111-111111111111';
 const LIEU_PV = '22222222-2222-4222-8222-222222222222';
 const LIEU_AUTRE = '33333333-3333-4333-8333-333333333333';
+const LIEU_PN = '44444444-4444-4444-8444-444444444444';
 
 function req(
   body: unknown,
@@ -142,6 +148,7 @@ describe('POST tarifs-negocie/[id]/modifier', () => {
       ],
       organisations_lieux: [
         { id: 'ol-1', organisation_id: 'org-viparis', lieu_id: LIEU_PV },
+        { id: 'ol-2', organisation_id: 'org-viparis', lieu_id: LIEU_PN },
       ],
       audit_log: [],
     };
@@ -218,6 +225,39 @@ describe('POST tarifs-negocie/[id]/modifier', () => {
     expect(res.status).toBe(422);
     expect(ancienne().valide_jusqu_au).toBeNull();
     expect(remises()).toHaveLength(1);
+  });
+
+  it('201 : « tous les lieux » remplacée par 2 lieux cochés → ancienne close, 2 nouvelles lignes', async () => {
+    const { POST } =
+      await import('@/app/api/v1/admin/tarifs-negocie/[id]/modifier/route.js');
+    const res = await POST(
+      ...req({
+        remise_pct: 0.1,
+        valide_du: '2026-09-17',
+        lieu_ids: [LIEU_PV, LIEU_PN],
+      }),
+    );
+    expect(res.status).toBe(201);
+    expect(ancienne().valide_jusqu_au).toBe('2026-09-16');
+    const nouvelles = remises().filter((r) => r.id !== ID);
+    expect(nouvelles.map((r) => r.lieu_id).sort()).toEqual(
+      [LIEU_PV, LIEU_PN].sort(),
+    );
+    for (const r of nouvelles)
+      expect(r).toMatchObject({ remise_pct: 0.1, scope: 'gestionnaire' });
+  });
+
+  it('lieux absents du corps → lieu de la remise conservé', async () => {
+    ancienne().lieu_id = LIEU_PV;
+    const { POST } =
+      await import('@/app/api/v1/admin/tarifs-negocie/[id]/modifier/route.js');
+    const res = await POST(
+      ...req({ remise_pct: 0.1, valide_du: '2026-09-17' }),
+    );
+    expect(res.status).toBe(201);
+    const nouvelles = remises().filter((r) => r.id !== ID);
+    expect(nouvelles).toHaveLength(1);
+    expect(nouvelles[0]?.lieu_id).toBe(LIEU_PV);
   });
 
   it('409 : remise déjà fermée → rien ne change', async () => {

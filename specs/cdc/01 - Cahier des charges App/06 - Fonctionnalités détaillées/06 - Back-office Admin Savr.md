@@ -60,8 +60,7 @@ Vue de pilotage global Savr (toutes données, pas de filtre RLS Admin).
 | **Collectes non transmises au TMS** (split ZD / AG en deux chiffres sur la carte) *(renommée Sujet 2 2026-05-26 — ex « Collectes à valider »)* | Collectes en statut `programmee` dont l'**envoi E1 `POST /collectes` n'a pas encore réussi** (`tms_reference IS NULL` ET `statut_tms = 'non_envoye'` — *corrigé 2026-05-29 : ex `statut_dispatch IS NULL`, champ TMS ; côté Plateforme le miroir `statut_tms` a pour défaut `non_envoye`*). **Pas de validation Admin à la création** : l'envoi au TMS est automatique à la soumission (cf. §05 §4) ; cette carte est un **monitoring d'échec d'envoi** (E1 en erreur/retry), normalement à 0 **côté ZD**. **Volet AG (tranché Val 2026-06-07 F4 — ne pas re-proposer)** : le chiffre AG compte **toutes** les AG `non_envoye`, y compris la file d'attribution nominale — assumé, ce n'est pas un indicateur d'échec côté AG (recouvre volontairement le chip « AG en attente attribution »). | `collectes` |
 | **Collectes en attente de validation prestataire** | Collectes envoyées au TMS mais non encore acceptées par le prestataire (`statut_tms = 'attribuee_en_attente_acceptation'` — *corrigé 2026-05-29 : ex `statut_dispatch`*) | `collectes` (via webhook S2 TMS — *réf « S7 » retirée 2026-06-07 F5 : S7 = plaque-saisie, sans rapport*) |
 | **Collectes modifiées sans renvoi TMS** | Collectes avec `collectes.dirty_tms = true` (définition canonique du flag : §3 Bloc 0 Attribution Prestataire) | `collectes` |
-| **Collectes ZD prévues dans les 48h** | `type = 'zd'` ET `date_collecte BETWEEN now() AND now() + interval '48 hours'` ET `statut ∈ ('programmee', 'validee')` | `collectes` |
-| **Collectes AG prévues dans les 48h** | `type = 'ag'` ET `date_collecte BETWEEN now() AND now() + interval '48 hours'` ET `statut ∈ ('programmee', 'validee')` | `collectes` |
+| **Collectes <48h non validées** | `type ∈ ('zd', 'ag')` ET `date_collecte BETWEEN now() AND now() + interval '48 hours'` ET `statut ∈ ('programmee', 'validee')` ET `statut_tms NOT IN ('acceptee', 'en_attente_execution')` *(fusion ex « ZD prévues 48h » + « AG prévues 48h » — revue E2E 2026-07-15, divergence M3.6 ; définition canonique : [[11 - Dashboards]] §1.1 Bloc 1. Route : `collectes_48h_non_validees`.)* | `collectes` |
 
 Chaque carte est cliquable et redirige vers §3 Collectes avec le filtre prédéfini correspondant.
 
@@ -256,6 +255,14 @@ Quand l'API Everest est indisponible, Ops cale la course **par téléphone** ave
 - la collecte **sort** de la carte §11 « Collectes non transmises » et le bouton bascule en « Renvoyer au TMS » ;
 - le gate d'émission `fn_collecte_commandee_chez_provider` redevient **vrai** → une modification ultérieure émet bien un E2, pas un second dispatch ;
 - **l'annulation redevient possible** : `cancelCollecte` filtre sur `external_ref_commande`, elle sait désormais quoi annuler.
+
+**Détails de mise en œuvre** *(précisés 2026-09-16, divergence M2.5 — RPC `fn_accepter_mission_everest_manuelle`)* :
+
+- **Écriture atomique de la référence** dans les trois colonnes : `tournees.external_ref_commande`, `collectes.tms_reference` (sans elle la collecte ne sort pas de la carte « non transmises ») et `everest_missions.everest_mission_id` (l'adapter annule avec `mission_id = external_ref_commande`, le webhook retrouve la mission par cette colonne).
+- **`statut_tms` → `acceptee`**, depuis `non_envoye`, `a_attribuer` ou `attribuee_en_attente_acceptation` — l'acceptation téléphonique est un signal positif explicite du transporteur (cf. [[04 - Data Model]] `statut_tms`). Le cas nominal est `non_envoye` (Everest indisponible ⇒ l'E1 a échoué en TRANSIENT). **Jamais** depuis `rejetee_par_prestataire`.
+- **Contact joint obligatoire** (422 sinon) — déjà exigé par `chk_everest_created_manually`.
+- **Format de la référence** : trim, 1 à 64 caractères, sans blanc ni caractère de contrôle.
+- **Cas de refus (409)** : collecte terminale ou annulée ; collecte non attribuée à un transporteur `a_toutes` ; mission déjà créée par l'API (statut ≠ `creation_failed` / `created_manually`) ; autre référence déjà posée ; référence déjà portée par une autre tournée (`uniq_tournee_par_external_ref`). **Rejeu avec la même référence = no-op.**
 
 > **Pourquoi obligatoire.** Sans référence, la mission est **invisible au système** : la collecte apparaît « non transmise » alors qu'un vélo est réservé, un clic sur « Envoyer au TMS » émet un vrai dispatch, et le bouton Annuler ne part nulle part — un vélo peut se présenter sur une collecte annulée côté Savr. Un champ texte évite d'inventer un `statut_tms` dédié et une consigne Ops parallèle sur l'annulation.
 >
@@ -630,7 +637,7 @@ Tableau : nom (avatar à initiales), type (traiteur / agence / gestionnaire_lieu
 | Nom | Oui | — |
 | Raison sociale | Oui | — |
 | Type | Oui | enum `traiteur` / `agence` / `gestionnaire_lieux` / `client_organisateur` |
-| SIRET | Non | validation INSEE au même titre que la fiche |
+| SIRET | Non | contrôle de **format** seul (14 chiffres, espaces tolérés puis retirés), comme la fiche organisation — **aucun appel INSEE** sur `organisations.siret`. La vérification INSEE porte exclusivement sur le SIRET des **entités de facturation** (`entites_facturation.siret` / `siret_verification`), qui est celui qui gate la facturation. *(Corrigé 2026-09-16, divergence M1.1b — l'ancien libellé « validation INSEE au même titre que la fiche » laissait croire à un contrôle INSEE qui n'a jamais existé sur cette colonne.)* |
 | Email principal | Oui | — |
 | Téléphone | Non | — |
 | Adresse | Non | — |

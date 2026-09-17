@@ -41,10 +41,9 @@
 --     retour `programmee`.
 --   • Une tournée vivante (planifiee / en_cours / terminee, mission vivante)
 --     n'est jamais touchée.
---   • Une tournée refusée qui porte déjà des pesées bloque la réattribution
---     (exception `reattribution_tournee_refusee_avec_pesees`) : l'effacer
---     ferait perdre des poids réels, la garder ferait compter ces poids dans la
---     nouvelle commande. Cas non observé ; il demande une décision Ops.
+--   • Pas de garde sur les pesées : une commande refusée n'en porte jamais —
+--     une collecte pesée a été acceptée puis réalisée par le prestataire
+--     (Val 2026-09-17).
 --   • `collectes.tms_reference` (référence d'affichage du rang 1) est remise à
 --     NULL si la tournée du rang 1 est réinitialisée : la collecte réapparaît
 --     comme « non transmise » tant que la nouvelle commande n'est pas validée.
@@ -106,27 +105,6 @@ BEGIN
   -- Réattribution : les tournées dont la commande est morte sont réinitialisées
   -- en place (arbitrage Val 2026-09-17), pour que la commande reparte.
   IF v_rejetee THEN
-    IF EXISTS (
-      SELECT 1
-      FROM plateforme.collecte_tournees ct
-      JOIN plateforme.tournees t ON t.id = ct.tournee_id
-      JOIN plateforme.pesees_tournees p ON p.tournee_id = t.id
-      WHERE ct.collecte_id = p_id
-        AND t.external_ref_commande IS NOT NULL
-        AND (
-          t.statut = 'annulee'
-          OR EXISTS (
-            SELECT 1 FROM plateforme.everest_missions em
-            WHERE em.tournee_id = t.id
-              AND em.statut_everest IN ('failed', 'cancelled_externally')
-          )
-        )
-    ) THEN
-      RAISE EXCEPTION 'reattribution_tournee_refusee_avec_pesees'
-        USING ERRCODE = 'P0001',
-              HINT = 'Une tournée refusée porte des pesées : à traiter par Ops avant réattribution.';
-    END IF;
-
     WITH reinit AS (
       UPDATE plateforme.tournees t
       SET

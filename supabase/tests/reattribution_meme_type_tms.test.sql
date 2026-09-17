@@ -16,7 +16,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(17);
+SELECT plan(15);
 
 -- ── Référentiel ──────────────────────────────────────────────────────────────
 INSERT INTO plateforme.organisations (id, nom, type, actif, est_shadow, siret, email_principal) VALUES
@@ -39,7 +39,7 @@ INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, vill
   ('e3aa0000-0000-0000-0000-00000000001b', 'Velo',     '920000002', '1 rue', '75001', 'Paris', ARRAY['velo_cargo'], 'a_toutes', 'V', 'v@reatt.invalid', '+33600000001', 'e3aa0000-0000-0000-0000-0000000000d1', NULL);
 INSERT INTO plateforme.evenements (id, organisation_id, lieu_id, traiteur_operationnel_organisation_id, entite_facturation_id, created_by, type_evenement_id, date_evenement, pax, contact_principal_nom, contact_principal_telephone)
 SELECT ('e3aa0000-0000-0000-0000-0000000000e' || n)::uuid, 'e3aa0000-0000-0000-0000-000000000001', 'e3aa0000-0000-0000-0000-0000000000b0', 'e3aa0000-0000-0000-0000-000000000001', 'e3aa0000-0000-0000-0000-0000000000f0', 'e3aa0000-0000-0000-0000-0000000000a0', 'e3aa0000-0000-0000-0000-0000000000e0', current_date + 10, 100, 'Contact', '0600000000'
-FROM generate_series(1, 6) n;
+FROM generate_series(1, 5) n;
 
 -- ── Collectes ────────────────────────────────────────────────────────────────
 --   c1 AG refusée par A Toutes! (webhook mission_failed)      → réattribuée vélo
@@ -47,14 +47,12 @@ FROM generate_series(1, 6) n;
 --   c3 AG refusée par A Toutes! (annulation externe)           → réattribuée camion
 --   c4 ZD MTS-1 2 camions, rang 1 KO, rang 2 vivant (rejet posé par le rang 1)
 --   c5 ZD validee, rang 1 annulee — renvoi Ops, PAS une réattribution
---   c6 ZD MTS-1 tous tours KO, mais pesées déjà enregistrées sur la tournée
 INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, prestataire_logistique_id, nb_camions_demande, tms_reference) VALUES
   ('e3aa0000-0000-0000-0000-0000000000c1', 'e3aa0000-0000-0000-0000-0000000000e1', 'anti_gaspi',  'rejetee_par_prestataire', 'rejetee_par_prestataire', current_date + 10, '20:00', 'e3aa0000-0000-0000-0000-0000000000d1', 1, 'MISSION-REATT-1'),
   ('e3aa0000-0000-0000-0000-0000000000c2', 'e3aa0000-0000-0000-0000-0000000000e2', 'zero_dechet', 'rejetee_par_prestataire', 'rejetee_par_prestataire', current_date + 10, '02:00', 'e3aa0000-0000-0000-0000-0000000000d0', 1, 'TOUR-REATT-2'),
   ('e3aa0000-0000-0000-0000-0000000000c3', 'e3aa0000-0000-0000-0000-0000000000e3', 'anti_gaspi',  'rejetee_par_prestataire', 'rejetee_par_prestataire', current_date + 10, '20:00', 'e3aa0000-0000-0000-0000-0000000000d1', 1, 'MISSION-REATT-3'),
   ('e3aa0000-0000-0000-0000-0000000000c4', 'e3aa0000-0000-0000-0000-0000000000e4', 'zero_dechet', 'programmee',              'rejetee_par_prestataire', current_date + 10, '02:00', 'e3aa0000-0000-0000-0000-0000000000d0', 2, 'TOUR-REATT-4R1'),
-  ('e3aa0000-0000-0000-0000-0000000000c5', 'e3aa0000-0000-0000-0000-0000000000e5', 'zero_dechet', 'validee',                 'acceptee',                current_date + 10, '02:00', 'e3aa0000-0000-0000-0000-0000000000d0', 1, 'TOUR-REATT-5'),
-  ('e3aa0000-0000-0000-0000-0000000000c6', 'e3aa0000-0000-0000-0000-0000000000e6', 'zero_dechet', 'rejetee_par_prestataire', 'rejetee_par_prestataire', current_date + 10, '02:00', 'e3aa0000-0000-0000-0000-0000000000d0', 1, 'TOUR-REATT-6');
+  ('e3aa0000-0000-0000-0000-0000000000c5', 'e3aa0000-0000-0000-0000-0000000000e5', 'zero_dechet', 'validee',                 'acceptee',                current_date + 10, '02:00', 'e3aa0000-0000-0000-0000-0000000000d0', 1, 'TOUR-REATT-5');
 
 INSERT INTO plateforme.tournees (id, reference_interne, date_tournee, creneau, prestataire_logistique_id, statut, external_ref_commande, tms_reference, plaque_immatriculation, chauffeur_nom) VALUES
   ('e3aa0000-0000-0000-0000-0000000000a1', 'EVR-e3aa0000-0000-0000-0000-0000000000c1-1', current_date + 10, 'soir', 'e3aa0000-0000-0000-0000-0000000000d1', 'planifiee', 'MISSION-REATT-1', NULL, NULL, NULL),
@@ -62,8 +60,7 @@ INSERT INTO plateforme.tournees (id, reference_interne, date_tournee, creneau, p
   ('e3aa0000-0000-0000-0000-0000000000a3', 'EVR-e3aa0000-0000-0000-0000-0000000000c3-1', current_date + 10, 'soir', 'e3aa0000-0000-0000-0000-0000000000d1', 'planifiee', 'MISSION-REATT-3', NULL, NULL, NULL),
   ('e3aa0000-0000-0000-0000-0000000000a4', 'TMS-e3aa0000-0000-0000-0000-0000000000c4-1', current_date + 10, 'nuit', 'e3aa0000-0000-0000-0000-0000000000d0', 'annulee',   'CO-REATT-4R1', 'TOUR-REATT-4R1', NULL, NULL),
   ('e3aa0000-0000-0000-0000-0000000000b4', 'TMS-e3aa0000-0000-0000-0000-0000000000c4-2', current_date + 10, 'nuit', 'e3aa0000-0000-0000-0000-0000000000d0', 'en_cours',  'CO-REATT-4R2', 'TOUR-REATT-4R2', NULL, NULL),
-  ('e3aa0000-0000-0000-0000-0000000000a5', 'TMS-e3aa0000-0000-0000-0000-0000000000c5-1', current_date + 10, 'nuit', 'e3aa0000-0000-0000-0000-0000000000d0', 'annulee',   'CO-REATT-5', 'TOUR-REATT-5', NULL, NULL),
-  ('e3aa0000-0000-0000-0000-0000000000a6', 'TMS-e3aa0000-0000-0000-0000-0000000000c6-1', current_date + 10, 'nuit', 'e3aa0000-0000-0000-0000-0000000000d0', 'annulee',   'CO-REATT-6', 'TOUR-REATT-6', NULL, NULL);
+  ('e3aa0000-0000-0000-0000-0000000000a5', 'TMS-e3aa0000-0000-0000-0000-0000000000c5-1', current_date + 10, 'nuit', 'e3aa0000-0000-0000-0000-0000000000d0', 'annulee',   'CO-REATT-5', 'TOUR-REATT-5', NULL, NULL);
 
 INSERT INTO plateforme.collecte_tournees (collecte_id, tournee_id, rang) VALUES
   ('e3aa0000-0000-0000-0000-0000000000c1', 'e3aa0000-0000-0000-0000-0000000000a1', 1),
@@ -71,16 +68,11 @@ INSERT INTO plateforme.collecte_tournees (collecte_id, tournee_id, rang) VALUES
   ('e3aa0000-0000-0000-0000-0000000000c3', 'e3aa0000-0000-0000-0000-0000000000a3', 1),
   ('e3aa0000-0000-0000-0000-0000000000c4', 'e3aa0000-0000-0000-0000-0000000000a4', 1),
   ('e3aa0000-0000-0000-0000-0000000000c4', 'e3aa0000-0000-0000-0000-0000000000b4', 2),
-  ('e3aa0000-0000-0000-0000-0000000000c5', 'e3aa0000-0000-0000-0000-0000000000a5', 1),
-  ('e3aa0000-0000-0000-0000-0000000000c6', 'e3aa0000-0000-0000-0000-0000000000a6', 1);
+  ('e3aa0000-0000-0000-0000-0000000000c5', 'e3aa0000-0000-0000-0000-0000000000a5', 1);
 
 INSERT INTO plateforme.everest_missions (tournee_id, collecte_id, everest_mission_id, everest_service_id, statut_everest) VALUES
   ('e3aa0000-0000-0000-0000-0000000000a1', 'e3aa0000-0000-0000-0000-0000000000c1', 'MISSION-REATT-1', 71, 'failed'),
   ('e3aa0000-0000-0000-0000-0000000000a3', 'e3aa0000-0000-0000-0000-0000000000c3', 'MISSION-REATT-3', 71, 'cancelled_externally');
-
-INSERT INTO plateforme.pesees_tournees (tournee_id, stop_id, flux_id, poids_kg)
-SELECT 'e3aa0000-0000-0000-0000-0000000000a6', 'STOP-REATT-6', id, 12.5
-FROM plateforme.flux_dechets LIMIT 1;
 
 -- ─── 1-4. A : refus A Toutes! (webhook) → réattribué à A Toutes! ─────────────
 SELECT is(
@@ -177,24 +169,7 @@ SELECT is(
   'collecte validee : la tournée annulee et la référence d''affichage ne sont pas touchées'
 );
 
--- ─── 14-15. Tournée refusée avec pesées : réattribution refusée, rien écrit ──
-SELECT throws_ok(
-  $$ SELECT plateforme.fn_dispatcher_collecte('e3aa0000-0000-0000-0000-0000000000c6', 'e3aa0000-0000-0000-0000-0000000000d2', 'reattribution') $$,
-  'P0001',
-  'reattribution_tournee_refusee_avec_pesees',
-  'tournée refusée portant des pesées → réattribution refusée (décision Ops)'
-);
-
-SELECT is(
-  (SELECT row(c.statut::text, t.external_ref_commande,
-              (SELECT count(*) FROM plateforme.outbox_events WHERE aggregate_id = c.id AND payload->>'dispatch_manuel' = 'true'))::text
-     FROM plateforme.collectes c, plateforme.tournees t
-    WHERE c.id = 'e3aa0000-0000-0000-0000-0000000000c6' AND t.id = 'e3aa0000-0000-0000-0000-0000000000a6'),
-  row('rejetee_par_prestataire', 'CO-REATT-6', 0::bigint)::text,
-  'pesées présentes : collecte, tournée et outbox inchangées (transaction annulée)'
-);
-
--- ─── 16-17. Droits : fonction SECURITY DEFINER fermée ────────────────────────
+-- ─── 14-15. Droits : fonction SECURITY DEFINER fermée ────────────────────────
 SELECT ok(
   NOT has_function_privilege('authenticated', 'plateforme.fn_dispatcher_collecte(uuid, uuid, text)', 'EXECUTE'),
   'authenticated n''exécute pas fn_dispatcher_collecte'

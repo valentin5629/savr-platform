@@ -65,7 +65,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('Attribution AG — liste déroulante transporteur', () => {
+describe('M2.3 / Attribution AG — liste déroulante transporteur', () => {
   it('liste tous les transporteurs actifs, recommandé pré-sélectionné, sans motif', async () => {
     const fetchMock = installFetch();
     render(<AttributionDetailPage />);

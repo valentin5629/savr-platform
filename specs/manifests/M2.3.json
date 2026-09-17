@@ -284,7 +284,7 @@
       "id": "BL-P1-ALGO-04",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:86-92",
       "artefact": "packages/plateforme/src/app/(admin)/admin/attributions-ag/[collecteId]/page.tsx (liste déroulante de tous les transporteurs actifs, recommandé pré-sélectionné — décision Val 2026-09-17 remplaçant la recherche libre, divergence M2.3_20260917_attribution-ag-liste-transporteurs.md ; motif obligatoire si ≠ reco) ; packages/plateforme/src/app/api/v1/admin/transporteurs/route.ts (filtre actif)",
-      "test": "Attribution AG — liste déroulante transporteur (attribution-transporteur-select.test.tsx) — liste tous les transporteurs actifs, reco pré-sélectionné sans motif ; autre transporteur → motif obligatoire puis POST transporteur choisi",
+      "test": "M2.3 / Attribution AG — liste déroulante transporteur (attribution-transporteur-select.test.tsx) — liste tous les transporteurs actifs, reco pré-sélectionné sans motif ; autre transporteur → motif obligatoire puis POST transporteur choisi. Rendu liste déroulante = preuve-visuelle (GO-VISUAL)",
       "statut": "implemented",
       "libelle": "Choix du transporteur par liste déroulante (tous les transporteurs actifs) + motif obligatoire si ≠ recommandation"
     },

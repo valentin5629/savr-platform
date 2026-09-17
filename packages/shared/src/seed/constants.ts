@@ -92,3 +92,49 @@ export function fakePhone(n: number): string {
 export function seedEmail(slug: string): string {
   return `${slug.replace(/_/g, '.')}@${SEED_EMAIL_DOMAIN}`;
 }
+
+/**
+ * Horaires d'ouverture d'association au format écrit par l'éditeur Admin
+ * (`horaires-ouverture-editor.tsx`, CDC §06.06) et lu par l'algo AG
+ * (`fn_association_ouverte`) : 7 jours `{ jour, ouvert, creneaux }`.
+ * 00:00→00:00 = ouvert 24h/24 ; fin ≤ début = créneau qui passe minuit.
+ * Sans capacité ni horaires, aucune association seedée n'était proposée par l'algo.
+ */
+export type ProfilHorairesSeed = '24h' | 'jour_semaine' | 'soir_nuit';
+
+const JOURS_SEMAINE = [
+  'lundi',
+  'mardi',
+  'mercredi',
+  'jeudi',
+  'vendredi',
+  'samedi',
+  'dimanche',
+] as const;
+
+export function horairesAssociationSeed(profil: ProfilHorairesSeed): {
+  jour: string;
+  ouvert: boolean;
+  creneaux: { debut: string; fin: string }[];
+}[] {
+  return JOURS_SEMAINE.map((jour) => {
+    if (profil === '24h')
+      return {
+        jour,
+        ouvert: true,
+        creneaux: [{ debut: '00:00', fin: '00:00' }],
+      };
+    if (profil === 'soir_nuit')
+      return {
+        jour,
+        ouvert: true,
+        creneaux: [{ debut: '18:00', fin: '02:00' }],
+      };
+    // Jour ouvré : lundi → vendredi 08:00-20:00, fermé le week-end.
+    return {
+      jour,
+      ouvert: jour !== 'samedi' && jour !== 'dimanche',
+      creneaux: [{ debut: '08:00', fin: '20:00' }],
+    };
+  });
+}

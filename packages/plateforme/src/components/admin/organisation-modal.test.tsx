@@ -4,6 +4,17 @@
  * nom, raison sociale, type, email principal. Aucun champ admin-only ni système.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+// Espion AUTOUR de l'implémentation réelle : prouve que la modale délègue au
+// helper partagé avec POST/PATCH /admin/organisations (pas une copie locale).
+vi.mock('@/lib/siret-organisation', async (importOriginal) => {
+  const reel =
+    await importOriginal<typeof import('@/lib/siret-organisation')>();
+  return {
+    ...reel,
+    normaliserSiretOrganisation: vi.fn(reel.normaliserSiretOrganisation),
+  };
+});
 import {
   render,
   screen,
@@ -13,6 +24,7 @@ import {
 } from '@testing-library/react';
 
 import { OrganisationModal } from '@/components/admin/organisation-modal';
+import * as siretOrganisation from '@/lib/siret-organisation';
 import { ATTENTE_UI } from '@/test-utils/attente-ui';
 
 function renderModal(
@@ -119,6 +131,32 @@ describe('M1.1b — Modale Nouvelle organisation (§06.06)', () => {
     expect(
       await screen.findByText('SIRET : 14 chiffres', undefined, ATTENTE_UI),
     ).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('délègue le contrôle SIRET au helper serveur : son verdict fait foi', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    // 14 chiffres, valide pour une regex locale — refusé ici par le helper.
+    vi.mocked(
+      siretOrganisation.normaliserSiretOrganisation,
+    ).mockReturnValueOnce({
+      valide: false,
+    });
+    renderModal();
+
+    fillRequired();
+    fireEvent.change(screen.getByLabelText(/^SIRET/), {
+      target: { value: '43219876500012' },
+    });
+    submit();
+
+    expect(
+      await screen.findByText('SIRET : 14 chiffres', undefined, ATTENTE_UI),
+    ).toBeInTheDocument();
+    expect(siretOrganisation.normaliserSiretOrganisation).toHaveBeenCalledWith(
+      '43219876500012',
+    );
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

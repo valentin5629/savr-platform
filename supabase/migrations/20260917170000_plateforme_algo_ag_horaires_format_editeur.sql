@@ -14,8 +14,11 @@
 --     (comportement inchangé pour NULL) ;
 --   * sinon : le jour de la collecte est coché « Ouvert » ET l'heure de collecte
 --     tombe dans l'un de ses créneaux [debut, fin[ ;
---   * créneau dont la fin ≤ début = passe minuit (22:00→02:00) ; 00:00→00:00 = 24h/24 ;
---   * créneau mal formé (heure non HH:mm) → ignoré, jamais d'exception runtime.
+--   * créneau dont la fin ≤ début = passe minuit (lundi 22:00→02:00 couvre lundi soir
+--     ET mardi 00:00-02:00) ; 00:00→00:00 = ouvert 24h/24 ce jour-là ;
+--   * créneau incomplet ou mal formé (début/fin absent, null, non HH:mm) → ignoré,
+--     jamais d'exception runtime.
+-- Interprétations tracées : _Divergences/M2.3_20260917_algo-ag-horaires-semantique.md.
 --
 -- fn_calculer_algo_attribution_ag : CREATE OR REPLACE du corps r11
 -- (20260630120000, identique à savr-dev vérifié par pg_get_functiondef) — seul le
@@ -29,31 +32,49 @@ CREATE OR REPLACE FUNCTION plateforme.fn_association_ouverte(
   p_date     date,
   p_heure    time
 ) RETURNS boolean LANGUAGE sql IMMUTABLE AS $$
+  WITH jours(nom) AS (
+    SELECT ARRAY['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi']
+  ),
+  creneaux AS (
+    SELECT
+      j.jour->>'jour' AS jour,
+      -- Casts gardés par CASE : le planificateur peut réordonner les prédicats
+      -- (pushdown), le CASE garantit qu'aucun texte non HH:mm n'est casté.
+      CASE WHEN (c.creneau->>'debut') ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+           THEN (c.creneau->>'debut')::time END AS debut,
+      CASE WHEN (c.creneau->>'fin') ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+           THEN (c.creneau->>'fin')::time END   AS fin
+    FROM jsonb_array_elements(p_horaires) AS j(jour)
+    CROSS JOIN LATERAL jsonb_array_elements(
+      CASE WHEN jsonb_typeof(j.jour) = 'object'
+            AND jsonb_typeof(j.jour->'creneaux') = 'array'
+           THEN j.jour->'creneaux' ELSE '[]'::jsonb END
+    ) AS c(creneau)
+    WHERE jsonb_typeof(j.jour) = 'object'
+      AND j.jour->'ouvert' = 'true'::jsonb
+      -- Créneau exploitable seulement si début ET fin sont des heures HH:mm :
+      -- clé absente / null / texte libre → créneau ignoré.
+      AND jsonb_typeof(c.creneau) = 'object'
+      AND COALESCE((c.creneau->>'debut') ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$', false)
+      AND COALESCE((c.creneau->>'fin')   ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$', false)
+  )
   SELECT CASE
     WHEN p_horaires IS NULL OR jsonb_typeof(p_horaires) <> 'array' THEN true
     ELSE EXISTS (
-      SELECT 1
-      FROM jsonb_array_elements(p_horaires) AS j(jour)
-      CROSS JOIN LATERAL jsonb_array_elements(
-        CASE WHEN jsonb_typeof(j.jour->'creneaux') = 'array'
-             THEN j.jour->'creneaux' ELSE '[]'::jsonb END
-      ) AS c(creneau)
-      WHERE jsonb_typeof(j.jour) = 'object'
-        AND j.jour->>'jour' = (ARRAY[
-              'dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'
-            ])[EXTRACT(DOW FROM p_date)::int + 1]
-        AND j.jour->'ouvert' = 'true'::jsonb
-        AND CASE
-          WHEN jsonb_typeof(c.creneau) <> 'object'
-            OR NOT (c.creneau->>'debut') ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
-            OR NOT (c.creneau->>'fin')   ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
-            THEN false
-          WHEN (c.creneau->>'fin')::time > (c.creneau->>'debut')::time
-            THEN p_heure >= (c.creneau->>'debut')::time
-             AND p_heure <  (c.creneau->>'fin')::time
-          ELSE p_heure >= (c.creneau->>'debut')::time
-            OR p_heure <  (c.creneau->>'fin')::time
-        END
+      SELECT 1 FROM creneaux cr, jours
+      WHERE
+        -- Créneau dans la journée : [debut, fin[ le jour de la collecte.
+        (cr.fin > cr.debut
+          AND cr.jour = jours.nom[EXTRACT(DOW FROM p_date)::int + 1]
+          AND p_heure >= cr.debut AND p_heure < cr.fin)
+        -- Créneau passant minuit (fin ≤ début) : la partie du soir appartient au
+        -- jour du créneau, la partie après minuit au LENDEMAIN de ce jour.
+        OR (cr.fin <= cr.debut
+          AND cr.jour = jours.nom[EXTRACT(DOW FROM p_date)::int + 1]
+          AND p_heure >= cr.debut)
+        OR (cr.fin <= cr.debut
+          AND cr.jour = jours.nom[EXTRACT(DOW FROM (p_date - 1))::int + 1]
+          AND p_heure < cr.fin)
     )
   END;
 $$;

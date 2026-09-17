@@ -125,6 +125,7 @@ export default function AttributionDetailPage() {
   const [assoResults, setAssoResults] = useState<AssoRef[]>([]);
   // Liste déroulante transporteur (BL-P1-ALGO-04) : tous les transporteurs actifs.
   const [transporteurs, setTransporteurs] = useState<TranspRef[]>([]);
+  const [transpErreur, setTranspErreur] = useState(false);
 
   const loadAlgo = useCallback(async () => {
     setLoading(true);
@@ -161,15 +162,23 @@ export default function AttributionDetailPage() {
     void loadAlgo();
   }, [loadAlgo]);
 
-  useEffect(() => {
-    void (async () => {
+  // Erreur dédiée (pas `error`, remis à null par loadAlgo) : la liste est le seul
+  // moyen de choisir un transporteur quand l'algo n'en recommande aucun.
+  const chargerTransporteurs = useCallback(async () => {
+    setTranspErreur(false);
+    try {
       const res = await fetch('/api/v1/admin/transporteurs?actif=true');
-      if (res.ok) {
-        const json = (await res.json()) as { data: TranspRef[] };
-        setTransporteurs(json.data);
-      }
-    })();
+      if (!res.ok) throw new Error('chargement transporteurs');
+      const json = (await res.json()) as { data: TranspRef[] };
+      setTransporteurs(json.data);
+    } catch {
+      setTranspErreur(true);
+    }
   }, []);
+
+  useEffect(() => {
+    void chargerTransporteurs();
+  }, [chargerTransporteurs]);
 
   // Override = choix asso hors top 1 OU transporteur hors recommandation OU
   // recherche libre transporteur (impasse aucun_prestataire). Motif alors obligatoire.
@@ -244,12 +253,24 @@ export default function AttributionDetailPage() {
   const transpList = algo?.transporteurs ?? [];
   const showTranspList = transpList.length > 1; // province → choix multiple
 
+  // Options = transporteurs actifs + recommandés absents de la liste chargée
+  // (chargement en échec / en cours, au-delà de la 1re page) : le <select> affiche
+  // toujours le transporteur réellement sélectionné.
+  const optionsTransp: TranspRef[] = [
+    ...transporteurs,
+    ...transpList
+      .filter((r) => !transporteurs.some((t) => t.id === r.id))
+      .map((r) => ({ id: r.id, nom: r.nom, type_tms: r.type_tms, ville: '' })),
+  ];
+
   const choisirTransporteur = (id: string) => {
-    const t = transporteurs.find((x) => x.id === id);
-    setSelectedTransp(id || null);
+    const t = optionsTransp.find((x) => x.id === id);
+    setSelectedTransp(t ? id : null);
     setSelectedTranspNom(t?.nom ?? null);
-    // Un transporteur recommandé choisi dans la liste reste « reco » (pas de motif).
-    setTranspSource(transpList.some((x) => x.id === id) ? 'reco' : 'libre');
+    // Recommandé (ou aucun choix) = pas de motif ; tout autre transporteur = override.
+    setTranspSource(
+      !t || transpList.some((x) => x.id === id) ? 'reco' : 'libre',
+    );
   };
 
   return (
@@ -454,7 +475,7 @@ export default function AttributionDetailPage() {
                 onChange={(e) => choisirTransporteur(e.target.value)}
               >
                 <option value="">Choisir un transporteur…</option>
-                {transporteurs.map((t) => (
+                {optionsTransp.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.nom}
                     {t.ville ? ` · ${t.ville}` : ''}
@@ -464,6 +485,18 @@ export default function AttributionDetailPage() {
                   </option>
                 ))}
               </Select>
+              {transpErreur && (
+                <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  <span>Impossible de charger la liste des transporteurs.</span>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => void chargerTransporteurs()}
+                  >
+                    Réessayer
+                  </Button>
+                </div>
+              )}
             </div>
 
             {/* Récapitulatif sélection */}

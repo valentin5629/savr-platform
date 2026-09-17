@@ -5,7 +5,7 @@
 -- Date pivot : 2030-01-07 = LUNDI.
 
 BEGIN;
-SELECT plan(16);
+SELECT plan(18);
 
 SELECT set_config('role', 'postgres', true);
 SELECT set_config('request.jwt.claims', NULL, true);
@@ -81,6 +81,26 @@ SELECT lives_ok(
        '[{"jour":"lundi","ouvert":true,"creneaux":[{"debut":"abc","fin":"25:99"}]}, 42]',
        '2030-01-07', '10:00') $$,
   'H10 : créneau / élément mal formé → aucune exception'
+);
+
+SELECT ok(
+  NOT plateforme.fn_association_ouverte(
+    '[{"jour":"lundi","ouvert":true,"creneaux":[{"fin":"18:00"},{"debut":"09:00"},{"debut":null,"fin":"18:00"},{"debut":"abc","fin":"25:99"}]}, 42, {"jour":"lundi","ouvert":true,"creneaux":"x"}]',
+    '2030-01-07', '03:00')
+  AND NOT plateforme.fn_association_ouverte(
+    '[{"jour":"lundi","ouvert":true,"creneaux":[{"fin":"18:00"},{"debut":"09:00"}]}]',
+    '2030-01-07', '23:00'),
+  'H10b : créneau incomplet (début/fin absent ou null) ou mal formé → ignoré, association fermée'
+);
+
+SELECT ok(
+  plateforme.fn_association_ouverte(
+    '[{"jour":"lundi","ouvert":true,"creneaux":[{"debut":"22:00","fin":"02:00"}]}]',
+    '2030-01-08', '01:00')
+  AND NOT plateforme.fn_association_ouverte(
+    '[{"jour":"mardi","ouvert":true,"creneaux":[{"debut":"22:00","fin":"02:00"}]}]',
+    '2030-01-08', '01:00'),
+  'H7b : après minuit, le créneau lundi 22:00→02:00 couvre mardi 01:00 ; le créneau du mardi soir non'
 );
 
 SELECT ok(

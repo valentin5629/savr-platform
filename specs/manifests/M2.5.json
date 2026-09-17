@@ -15,7 +15,11 @@
     "supabase/migrations/20260916160000_plateforme_everest_acceptation_manuelle_reference.sql",
     "packages/plateforme/src/lib/acceptation-manuelle-mission.ts",
     "packages/plateforme/tests/api/admin/everest-manual-accept.m2-5.test.ts",
-    "supabase/tests/everest_acceptation_manuelle_reference.test.sql"
+    "supabase/tests/everest_acceptation_manuelle_reference.test.sql",
+    "supabase/migrations/20260916170000_plateforme_everest_created_manually_implication.sql",
+    "supabase/tests/everest_created_manually_cycle_de_vie.test.sql",
+    "supabase/migrations/20260916180000_plateforme_everest_acceptation_manuelle_refus_rejetee.sql",
+    "supabase/tests/everest_acceptation_manuelle_plans.test.sql"
   ],
   "tables": [
     "plateforme.everest_missions",
@@ -60,10 +64,27 @@
       "test": "everest_acceptation_manuelle_reference.test.sql (A1 422 sans référence, A2 référence posée, A3 sort des non transmises, A4 renvoi = E2, A7 uniq_tournee_par_external_ref atomique, A9 annulation = E3, A11 tournée Everest visée) + adapter.m2-5.test.ts « mission acceptée manuellement AVEC référence » (cancelCollecte annule chez A Toutes!, E1 no-op) + everest-manual-accept.m2-5.test.ts + collecte-detail-panel.m0-6.test.tsx §06.06 Bloc 0",
       "statut": "implemented",
       "libelle": "Acceptation manuelle Everest (A Toutes! indisponible) : référence de mission obligatoire écrite dans tournees.external_ref_commande comme au dispatch normal (arbitrage Val 2026-09-16) ; filet created_manually conservé côté adapter."
+    },
+    {
+      "id": "M2.5-created-manually-cycle-de-vie",
+      "ref_cdc": "specs/cdc/02 - Cahier des charges TMS/04 - Data Model TMS.md:407",
+      "artefact": "supabase/migrations/20260916170000_plateforme_everest_created_manually_implication.sql (chk_everest_created_manually en implication) ; packages/adapters/src/everest/adapter.ts (echecEcritureLocale : écriture locale refusée après A Toutes! → alerte Ops in-app f_upsert_alerte_admin + levée)",
+      "test": "everest_created_manually_cycle_de_vie.test.sql (B2-B9 cancelled/assigned/in_progress/completed avec manual_* conservés, B10-B14 23514 si un seul champ) + m2_5_everest_missions_rls.test.sql T10-T12 (T_M14.5 sous admin_savr) + adapter.m2-5.test.ts « écritures locales refusées après A Toutes! » (UPDATE everest_missions en 23514 → Permanent + alerte, jamais Slack)",
+      "statut": "implemented",
+      "libelle": "Scénario 06.06 mission_created_manually_reprend_le_cycle_de_vie : une mission acceptée par téléphone reprend le cycle normal en conservant sa traçabilité ; l'échec de l'UPDATE local dans cancelCollecte remonte et alerte (arbitrage Val 2026-09-16)."
+    },
+    {
+      "id": "M2.5-acceptation-manuelle-plans",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:259-265",
+      "artefact": "supabase/migrations/20260916180000_plateforme_everest_acceptation_manuelle_refus_rejetee.sql (refus P0003 depuis rejetee_par_prestataire)",
+      "test": "everest_acceptation_manuelle_plans.test.sql (statut_depart : a_attribuer / attribuee_en_attente_acceptation → acceptee, rejetee_par_prestataire → refus ; refus_409 : realisee / cloturee / annulee, aucune écriture) + everest_acceptation_manuelle_reference.test.sql (non_envoye A2c, non a_toutes A8b, mission API A8, autre référence A5c, référence d'une autre tournée A7) + everest-manual-accept.m2-5.test.ts (P0003 → 409, formats 422)",
+      "statut": "implemented",
+      "libelle": "Plans du scénario acceptation_manuelle_everest_statut_depart (4 départs) et acceptation_manuelle_everest_refus_409 (5 contextes)."
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "870a839c0f23b1323adfa0e12c8858f50181c5f77a03dca271fded8295b98ca3",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "d83ee5ce7201ac91f1c188bf2f50e83b63ee4b2827fa1a41a58ad8942a148b9b"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "5fec9c8046a66b4d58095a2f2cd2fdf6ee7f86d350539e1e4494e9b7864e9aa6",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "d83ee5ce7201ac91f1c188bf2f50e83b63ee4b2827fa1a41a58ad8942a148b9b",
+    "specs/cdc/02 - Cahier des charges TMS/04 - Data Model TMS.md": "f27893604204edd42c80f59795ff3e93e81eecf9557ccd9904f3dbac6c071cde"
   }
 }

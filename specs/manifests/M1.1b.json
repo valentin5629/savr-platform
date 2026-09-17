@@ -353,10 +353,26 @@
       "test": "supabase/tests/SECU__transporteur_cols_immuables.test.sql",
       "statut": "implemented",
       "libelle": "§6 Immuabilité : DELETE refusé dès qu'une tournée référence le transporteur"
+    },
+    {
+      "id": "M1.1b-organisation-siret-format",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:633",
+      "artefact": "packages/plateforme/src/lib/siret-organisation.ts, packages/plateforme/src/app/api/v1/admin/organisations/route.ts, packages/plateforme/src/app/api/v1/admin/organisations/[id]/route.ts",
+      "test": "M1.1b/orgas/siret — POST : espaces retirés avant INSERT (14 chiffres)",
+      "statut": "implemented",
+      "libelle": "SIRET organisation (modale Nouvelle organisation + fiche) : contrôle de format seul côté API — blancs retirés, 14 chiffres, vide ⇒ NULL, 422 champs_invalides [siret] sur POST et PATCH /admin/organisations ; aucun appel INSEE sur organisations.siret (libellé CDC corrigé 2026-09-16, porté par la branche specs/sync-20260916-patch-divergences l.640 ; sur main l.633 garde l'ancien texte « validation INSEE »)"
+    },
+    {
+      "id": "M1.1b-organisation-creation-modale",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:626",
+      "artefact": "packages/plateforme/src/components/admin/organisation-modal.tsx",
+      "test": "M1.1b — Modale Nouvelle organisation (§06.06) + M1.1b — le CTA ouvre la modale",
+      "statut": "implemented",
+      "libelle": "Bouton « Nouvelle organisation » (liste Clients, admin_savr + ops_savr) → modale de création : 7 champs de l'allowlist POST /api/v1/admin/organisations (nom, raison sociale, type, email obligatoires ; SIRET 14 chiffres, téléphone, adresse optionnels), aucun champ admin-only ni système"
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "870a839c0f23b1323adfa0e12c8858f50181c5f77a03dca271fded8295b98ca3",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "5fec9c8046a66b4d58095a2f2cd2fdf6ee7f86d350539e1e4494e9b7864e9aa6",
     "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "41cc7ea0cf5e68d671ad0ff900ee17e0843e006998cd977ebc2c43c2b3d6938a"
   }
 }

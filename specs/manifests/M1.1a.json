@@ -333,9 +333,17 @@
       "test": "M1.1a/tarifs/negocie-creation",
       "statut": "implemented",
       "libelle": "POST /api/v1/admin/tarifs-negocie crée une remise % + audit_log"
+    },
+    {
+      "id": "M1.1a-orgas-creation-champs-obligatoires",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:626",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/organisations/route.ts",
+      "test": "M1.1a/orgas/creation — 422 + champs_invalides",
+      "statut": "implemented",
+      "libelle": "POST /api/v1/admin/organisations impose côté serveur nom, raison_sociale, type et email_principal (absent ou blanc → 422 + champs_invalides, aucun INSERT) ; plus de repli nom = raison_sociale"
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "870a839c0f23b1323adfa0e12c8858f50181c5f77a03dca271fded8295b98ca3"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "5fec9c8046a66b4d58095a2f2cd2fdf6ee7f86d350539e1e4494e9b7864e9aa6"
   }
 }

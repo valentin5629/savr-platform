@@ -185,12 +185,15 @@ export async function PATCH(
   });
   if (error) return serverError(error, 'programmation.evenements.update');
 
-  // Audit (§05 l.330 audit_log global — accessible Admin only).
+  // Audit (§05 l.330 audit_log global — accessible Admin only). Session impersonée :
+  // user_id = identité assumée ET impersonator_id = admin réel (§09 §7) — écrit ici
+  // car l'INSERT part sous service_role, sans le JWT de la session.
   await admin.from('audit_log').insert({
     table_name: 'evenements',
     record_id: id,
     action: 'UPDATE',
     user_id: auth.ctx.userId,
+    impersonator_id: auth.ctx.impersonatorId ?? null,
     old_values: before ?? {},
     new_values: { updates },
   });

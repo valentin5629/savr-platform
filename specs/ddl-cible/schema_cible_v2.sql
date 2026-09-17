@@ -1916,7 +1916,8 @@ CREATE TABLE tms.everest_missions (
   derniere_sync_at    timestamptz NOT NULL,
   created_at          timestamptz NOT NULL DEFAULT now(),
   updated_at          timestamptz NOT NULL DEFAULT now(),
-  CHECK ((statut_everest = 'created_manually') = (manual_acceptance_at IS NOT NULL AND manual_acceptance_by_user_id IS NOT NULL AND manual_acceptance_contact IS NOT NULL)),
+  -- Implication (révisé 2026-09-16, divergence M2.5) : created_manually exige les 3 champs manual_*, qui restent renseignés après reprise du cycle normal.
+  CHECK (statut_everest <> 'created_manually' OR (manual_acceptance_at IS NOT NULL AND manual_acceptance_by_user_id IS NOT NULL AND manual_acceptance_contact IS NOT NULL)),
   CHECK ((statut_everest IN ('creation_failed','created_manually')) OR everest_mission_id IS NOT NULL)
 );
 

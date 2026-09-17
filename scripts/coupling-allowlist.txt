@@ -249,3 +249,9 @@ supabase/tests/everest_created_manually_cycle_de_vie.test.sql
 # aucun appel HTTP transporteur. 'customerOrders' banni.
 supabase/migrations/20260916180000_plateforme_everest_acceptation_manuelle_refus_rejetee.sql
 supabase/tests/everest_acceptation_manuelle_plans.test.sql
+# Algo attribution AG — lecture des horaires au format de l'éditeur Admin (revue écran
+# 2026-09-17) : CREATE OR REPLACE de fn_calculer_algo_attribution_ag, corps r11
+# (20260630120000) recopié VERBATIM hors calcul horaires_ok. 'mts1'/'Everest' = valeur
+# enum type_tms + libellés de branches/commentaires existants ; aucun appel HTTP
+# transporteur. 'customerOrders' banni.
+supabase/migrations/20260917170000_plateforme_algo_ag_horaires_format_editeur.sql

@@ -16,6 +16,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Label } from '@/components/ui/label';
+import { Select } from '@/components/ui/select';
 
 interface AssociationSuggestion {
   id: string;
@@ -121,9 +123,8 @@ export default function AttributionDetailPage() {
   const [assoCapMin, setAssoCapMin] = useState('');
   const [assoHabilitee, setAssoHabilitee] = useState(false);
   const [assoResults, setAssoResults] = useState<AssoRef[]>([]);
-  // Recherche libre transporteur (BL-P1-ALGO-04)
-  const [transpQuery, setTranspQuery] = useState('');
-  const [transpResults, setTranspResults] = useState<TranspRef[]>([]);
+  // Liste déroulante transporteur (BL-P1-ALGO-04) : tous les transporteurs actifs.
+  const [transporteurs, setTransporteurs] = useState<TranspRef[]>([]);
 
   const loadAlgo = useCallback(async () => {
     setLoading(true);
@@ -160,6 +161,16 @@ export default function AttributionDetailPage() {
     void loadAlgo();
   }, [loadAlgo]);
 
+  useEffect(() => {
+    void (async () => {
+      const res = await fetch('/api/v1/admin/transporteurs?actif=true');
+      if (res.ok) {
+        const json = (await res.json()) as { data: TranspRef[] };
+        setTransporteurs(json.data);
+      }
+    })();
+  }, []);
+
   // Override = choix asso hors top 1 OU transporteur hors recommandation OU
   // recherche libre transporteur (impasse aucun_prestataire). Motif alors obligatoire.
   const assoIsTop1 =
@@ -187,16 +198,6 @@ export default function AttributionDetailPage() {
     if (res.ok) {
       const json = (await res.json()) as { data: AssoRef[] };
       setAssoResults(json.data);
-    }
-  };
-
-  const searchTransps = async () => {
-    const p = new URLSearchParams({ actif: 'true' });
-    if (transpQuery) p.set('q', transpQuery);
-    const res = await fetch(`/api/v1/admin/transporteurs?${p.toString()}`);
-    if (res.ok) {
-      const json = (await res.json()) as { data: TranspRef[] };
-      setTranspResults(json.data);
     }
   };
 
@@ -242,6 +243,14 @@ export default function AttributionDetailPage() {
   // Liste transporteurs à présenter : top 3 (province) ou unique (IDF).
   const transpList = algo?.transporteurs ?? [];
   const showTranspList = transpList.length > 1; // province → choix multiple
+
+  const choisirTransporteur = (id: string) => {
+    const t = transporteurs.find((x) => x.id === id);
+    setSelectedTransp(id || null);
+    setSelectedTranspNom(t?.nom ?? null);
+    // Un transporteur recommandé choisi dans la liste reste « reco » (pas de motif).
+    setTranspSource(transpList.some((x) => x.id === id) ? 'reco' : 'libre');
+  };
 
   return (
     <div className="space-y-6">
@@ -403,7 +412,7 @@ export default function AttributionDetailPage() {
             {algo.no_prestataire && (
               <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
                 Aucun prestataire éligible — traitement manuel. Sélectionnez un
-                transporteur via la recherche libre ci-dessous.
+                transporteur dans la liste ci-dessous.
               </div>
             )}
 
@@ -436,54 +445,26 @@ export default function AttributionDetailPage() {
               </Card>
             ))}
 
-            {/* BL-P1-ALGO-04 — Recherche libre transporteur (impasse aucun_prestataire ou override) */}
-            <details
-              className="rounded-md border border-savr-neutral-200 p-3"
-              open={algo.no_prestataire}
-            >
-              <summary className="cursor-pointer text-sm font-medium text-savr-neutral-700">
-                <Search className="mr-1 inline h-3.5 w-3.5" />
-                Choisir un autre transporteur (recherche libre)
-              </summary>
-              <div className="mt-3 space-y-2">
-                <div className="flex gap-2">
-                  <input
-                    className="flex-1 rounded border border-savr-neutral-200 px-2 py-1 text-sm"
-                    placeholder="Nom du transporteur…"
-                    value={transpQuery}
-                    onChange={(e) => setTranspQuery(e.target.value)}
-                  />
-                  <Button size="sm" variant="secondary" onClick={searchTransps}>
-                    Rechercher
-                  </Button>
-                </div>
-                {transpResults.map((t) => (
-                  <button
-                    key={t.id}
-                    className={`flex w-full items-center justify-between rounded border px-2 py-1 text-left text-sm ${
-                      selectedTransp === t.id
-                        ? 'border-savr-primary-500 bg-savr-primary-50'
-                        : 'border-savr-neutral-200'
-                    }`}
-                    onClick={() => {
-                      setSelectedTransp(t.id);
-                      setSelectedTranspNom(t.nom);
-                      setTranspSource('libre');
-                    }}
-                  >
-                    <span>
-                      {t.nom}{' '}
-                      <span className="text-xs text-savr-neutral-500">
-                        · {t.ville}
-                      </span>
-                    </span>
-                    <Badge variant="neutral" dot={false}>
-                      {t.type_tms}
-                    </Badge>
-                  </button>
+            {/* BL-P1-ALGO-04 — Choix du transporteur parmi tous les transporteurs actifs */}
+            <div>
+              <Label htmlFor="transporteur-select">Transporteur</Label>
+              <Select
+                id="transporteur-select"
+                value={selectedTransp ?? ''}
+                onChange={(e) => choisirTransporteur(e.target.value)}
+              >
+                <option value="">Choisir un transporteur…</option>
+                {transporteurs.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.nom}
+                    {t.ville ? ` · ${t.ville}` : ''}
+                    {transpList.some((x) => x.id === t.id)
+                      ? ' (recommandé)'
+                      : ''}
+                  </option>
                 ))}
-              </div>
-            </details>
+              </Select>
+            </div>
 
             {/* Récapitulatif sélection */}
             <div className="rounded-md border border-savr-neutral-200 bg-savr-neutral-50 p-3 text-xs text-savr-neutral-600">

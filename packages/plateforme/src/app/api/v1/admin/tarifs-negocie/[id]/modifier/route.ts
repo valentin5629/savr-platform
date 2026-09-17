@@ -3,6 +3,7 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireAdmin } from '@/lib/api-auth.js';
 import { serverError, writeError } from '@/lib/api-helpers.js';
 import { decalerJour, jourParis } from '@savr/shared/src/temps/index.js';
+import { logger } from '@savr/shared/src/logger/index.js';
 
 // Modification d'une remise négociée — §06.06 « Remises négociées » : « fermeture
 // de la ligne active + création nouvelle ligne (jamais de modification
@@ -97,6 +98,18 @@ export async function POST(
     );
   }
 
+  // Une remise pas encore commencée ne peut pas être remplacée avant son début :
+  // la ligne existante serait close avant d'avoir commencé.
+  if (valide_du < old.valide_du) {
+    return NextResponse.json(
+      {
+        error:
+          'La date d’effet ne peut pas précéder le début de la remise actuelle',
+      },
+      { status: 422 },
+    );
+  }
+
   // Lieu : absent du corps = inchangé ; null = tous les lieux du gestionnaire.
   let lieuId = old.lieu_id;
   if ('lieu_id' in body) {
@@ -164,11 +177,20 @@ export async function POST(
     .select('*')
     .single();
   if (insErr || !data) {
-    await supabase
+    const { error: rbErr } = await supabase
       .from('tarifs_negocie')
       .update({ valide_jusqu_au: null })
       .eq('id', id)
       .eq('valide_jusqu_au', fin);
+    // Rollback raté = remise close sans remplaçante (facturation plein tarif) :
+    // jamais silencieux.
+    if (rbErr) {
+      logger.error('admin.tarifs_negocie.modifier.rollback_echec', {
+        tarif_negocie_id: id,
+        valide_jusqu_au: fin,
+        code: (rbErr as { code?: string }).code ?? null,
+      });
+    }
     return writeError(insErr, 'admin.tarifs_negocie.modifier');
   }
 

@@ -185,6 +185,41 @@ describe('POST tarifs-negocie/[id]/modifier', () => {
     expect(remises()).toHaveLength(1);
   });
 
+  it('porteur, scope et activité du corps ignorés : repris de la ligne existante', async () => {
+    const { POST } =
+      await import('@/app/api/v1/admin/tarifs-negocie/[id]/modifier/route.js');
+    const res = await POST(
+      ...req({
+        remise_pct: 0.1,
+        valide_du: '2026-09-17',
+        scope: 'organisation',
+        organisation_id: 'org-pirate',
+        gestionnaire_organisation_id: 'org-pirate',
+        activite: 'ag',
+      }),
+    );
+    expect(res.status).toBe(201);
+    const nouvelle = remises().find((r) => r.id !== ID);
+    expect(nouvelle).toMatchObject({
+      scope: 'gestionnaire',
+      organisation_id: null,
+      gestionnaire_organisation_id: 'org-viparis',
+      activite: 'zd',
+    });
+  });
+
+  it('422 : date d’effet antérieure au début d’une remise future → rien ne change', async () => {
+    ancienne().valide_du = '2026-10-01';
+    const { POST } =
+      await import('@/app/api/v1/admin/tarifs-negocie/[id]/modifier/route.js');
+    const res = await POST(
+      ...req({ remise_pct: 0.1, valide_du: '2026-09-20' }),
+    );
+    expect(res.status).toBe(422);
+    expect(ancienne().valide_jusqu_au).toBeNull();
+    expect(remises()).toHaveLength(1);
+  });
+
   it('409 : remise déjà fermée → rien ne change', async () => {
     ancienne().valide_jusqu_au = '2026-01-01';
     const { POST } =

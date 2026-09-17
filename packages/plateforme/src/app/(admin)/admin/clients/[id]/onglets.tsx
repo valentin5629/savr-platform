@@ -907,9 +907,16 @@ export function OngletRemises({
     setFActivite(r.activite);
     setFLieuId(r.lieu_id ?? '');
     setFPct(String(Math.round(r.remise_pct * 10000) / 100));
-    setFValideDu(jourParis());
+    setFValideDu(dateEffetMin(r));
     setFCommentaires(r.commentaires ?? '');
     setError(null);
+  }
+
+  // Date d'effet d'une modification : jamais passée, jamais avant le début de la
+  // remise remplacée (contrôlé aussi côté serveur).
+  function dateEffetMin(r: Remise): string {
+    const today = jourParis();
+    return r.valide_du > today ? r.valide_du : today;
   }
 
   // Lieu modifiable uniquement pour une remise portée par le gestionnaire.
@@ -1212,7 +1219,7 @@ export function OngletRemises({
                 id="remise-valide-du"
                 type="date"
                 value={fValideDu}
-                min={edition ? jourParis() : undefined}
+                min={edition ? dateEffetMin(edition) : undefined}
                 aria-label={edition ? 'À partir du' : 'Valide du'}
                 onChange={(e) => setFValideDu(e.target.value)}
                 required

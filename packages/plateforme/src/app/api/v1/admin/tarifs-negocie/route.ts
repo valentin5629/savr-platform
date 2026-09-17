@@ -19,7 +19,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   let query = supabase
     .from('tarifs_negocie')
     .select(
-      'id, scope, organisation_id, gestionnaire_organisation_id, activite, remise_pct, valide_du, valide_jusqu_au, commentaires, created_at',
+      'id, scope, organisation_id, gestionnaire_organisation_id, lieu_id, activite, remise_pct, valide_du, valide_jusqu_au, commentaires, created_at',
     )
     .order('created_at', { ascending: false });
 

@@ -204,17 +204,12 @@ export class AdapterEverest implements LogistiqueProvider {
         }).catch(() => undefined);
       }
       // BL-P1-ALGO-07 : rejet SYNCHRONE PERMANENT (4xx = refus prestataire) →
-      // statut_tms = rejetee_par_prestataire (CDC 09 - Flux algo attribution AG
-      // §3 « HTTP error sync »). Le trigger fn_sync ne dérive rien sur ce statut
-      // → la collecte reste programmee (retour file d'attente + monitoring Ops).
+      // collecte rejetee_par_prestataire (§08 §3 « HTTP error synchrone »).
       // Un TRANSIENT (5xx/timeout) ne rejette PAS : le worker retente (paliers).
       if (err instanceof LogistiquePermanentError) {
-        // Un échec de cette écriture est déjà alerté par updateStatutTms ; il ne
+        // Un échec de cette écriture est déjà alerté par rejeterCollecte ; il ne
         // doit pas remplacer `err`, qui porte le refus du transporteur.
-        await this.updateStatutTms(
-          collecte.id,
-          'rejetee_par_prestataire',
-        ).catch(() => undefined);
+        await this.rejeterCollecte(collecte.id).catch(() => undefined);
       }
       throw err;
     }
@@ -708,6 +703,51 @@ export class AdapterEverest implements LogistiqueProvider {
           `(${error.message}). La collecte apparaît encore « non transmise ».`,
       });
     }
+  }
+
+  /**
+   * Refus d'A Toutes! : `statut_tms` ET `statut` = rejetee_par_prestataire
+   * (visibilité dashboard, décision Val 2026-06-15 — §08 §3). Le trigger fn_sync
+   * ne dérive rien de ce statut : l'écriture est explicite. Gardée sur
+   * `programmee` (seul statut d'une collecte pas encore acceptée) : une collecte
+   * sortie du dispatch entre-temps (annulée…) n'est pas requalifiée. La
+   * réattribution (fn_dispatcher_collecte) la remet en `programmee`.
+   */
+  private async rejeterCollecte(collecteId: string): Promise<void> {
+    const { data, error } = await this.supabase
+      .from('collectes')
+      .update({
+        statut_tms: 'rejetee_par_prestataire',
+        statut: 'rejetee_par_prestataire',
+      })
+      .eq('id', collecteId)
+      .eq('statut', 'programmee')
+      .select('id');
+    if (error) {
+      await this.echecEcritureLocale(collecteId, error, {
+        code: 'everest_dispatch_non_enregistre',
+        titre: 'Refus A Toutes! non enregistré sur la collecte',
+        message:
+          `A Toutes! a refusé la course, mais le refus n'a pas pu être écrit sur la collecte ` +
+          `(${error.message}). La collecte apparaît encore « programmée » : réattribuez-la.`,
+      });
+    }
+    if (!data?.length) return;
+
+    // Best-effort, comme echecEcritureLocale : l'erreur levée ensuite (event
+    // `dead`) reste le signal de repli.
+    await this.supabase
+      .rpc('f_upsert_alerte_admin', {
+        p_code: 'collecte_rejetee_prestataire',
+        p_titre: 'Course Everest rejetée par le prestataire',
+        p_message: `A Toutes! a refusé la course à sa création — collecte ${collecteId} passée en rejetee_par_prestataire. Réattribution requise (§08 §3).`,
+        p_entity_type: 'collectes',
+        p_entity_id: collecteId,
+      })
+      .then(
+        () => undefined,
+        () => undefined,
+      );
   }
 
   private async updateStatutTms(

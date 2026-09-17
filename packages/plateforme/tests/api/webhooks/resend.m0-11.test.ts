@@ -6,20 +6,41 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
+import { logger } from '@savr/shared/src/logger/index.js';
+
 import { computeSvixSignature } from '@/lib/webhooks/svix.js';
 
 const SECRET =
   'whsec_' + Buffer.from('r10b-resend-test-secret-key').toString('base64');
 
 // ─── Mock Supabase ────────────────────────────────────────────────────────────
+type ErreurMock = { code?: string; message: string };
+
 let mockInboxInsertResult: { data: unknown; error: unknown } = {
   data: { id: 'inbox-001' },
   error: null,
 };
 let mockEmailRow: unknown = { id: 'em-001', statut: 'sent' };
+// Relecture de la ligne inbox existante sur conflit 23505.
+let mockInboxExistant: { data: unknown; error: unknown } = {
+  data: null,
+  error: null,
+};
+
+// Échecs injectables (lecture/écriture refusée : CHECK, blip PostgREST).
+let readErrors: Record<string, ErreurMock> = {};
+let insertErrors: Record<string, ErreurMock> = {};
+let updateErrors: Record<
+  string,
+  (data: Record<string, unknown>) => ErreurMock | null
+> = {};
 
 const insertedRows: Record<string, unknown[]> = {};
-const updatedRows: Record<string, unknown[]> = {};
+// Chaque UPDATE avec l'id ciblé par .eq('id', …).
+const updatedRows: Record<
+  string,
+  Array<{ data: Record<string, unknown>; id: unknown }>
+> = {};
 
 const makeQuery = (table: string) => {
   const q: Record<string, unknown> = {};
@@ -34,15 +55,22 @@ const makeQuery = (table: string) => {
         single: vi.fn().mockResolvedValue(mockInboxInsertResult),
       };
     }
-    return { eq: vi.fn().mockReturnThis() };
+    return Promise.resolve({ data: null, error: insertErrors[table] ?? null });
   });
-  q['update'] = vi.fn((data: unknown) => {
-    if (!updatedRows[table]) updatedRows[table] = [];
-    updatedRows[table]!.push(data);
-    return { eq: vi.fn().mockReturnThis() };
+  q['update'] = vi.fn((data: Record<string, unknown>) => {
+    const error = updateErrors[table]?.(data) ?? null;
+    return {
+      eq: vi.fn(async (_col: string, id: unknown) => {
+        if (!updatedRows[table]) updatedRows[table] = [];
+        updatedRows[table]!.push({ data, id });
+        return { data: null, error };
+      }),
+    };
   });
   q['maybeSingle'] = vi.fn().mockImplementation(async () => {
+    if (readErrors[table]) return { data: null, error: readErrors[table] };
     if (table === 'emails_envoyes') return { data: mockEmailRow, error: null };
+    if (table === 'integrations_inbox') return mockInboxExistant;
     return { data: null, error: null };
   });
   return q;
@@ -61,6 +89,14 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
 }));
 
 const { POST } = await import('@/app/api/webhooks/resend/route.js');
+
+const ERREUR_DB: ErreurMock = { code: 'XX000', message: 'blip PostgREST' };
+
+// Mises à jour de l'inbox qui la marquent traitée.
+const inboxTraitee = () =>
+  (updatedRows['integrations_inbox'] ?? []).filter(
+    (u) => u.data['traite'] === true,
+  );
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function makeResendRequest(
@@ -105,6 +141,10 @@ describe('M0.11 / webhook Resend — validation svix', () => {
     Object.keys(mockTables).forEach((k) => delete mockTables[k]);
     mockInboxInsertResult = { data: { id: 'inbox-001' }, error: null };
     mockEmailRow = { id: 'em-001', statut: 'sent' };
+    mockInboxExistant = { data: null, error: null };
+    readErrors = {};
+    insertErrors = {};
+    updateErrors = {};
     process.env['RESEND_WEBHOOK_SECRET'] = SECRET;
   });
 
@@ -112,8 +152,9 @@ describe('M0.11 / webhook Resend — validation svix', () => {
     const res = await POST(makeResendRequest(deliveredEvent()));
     expect(res.status).toBe(200);
     expect(insertedRows['integrations_inbox']).toHaveLength(1);
-    const upd = updatedRows['emails_envoyes']?.[0] as Record<string, unknown>;
+    const upd = updatedRows['emails_envoyes']?.[0]?.data;
     expect(upd?.['statut']).toBe('delivered');
+    expect(inboxTraitee()).toHaveLength(1);
   });
 
   it('signature absente → 401, aucune écriture inbox', async () => {
@@ -132,8 +173,12 @@ describe('M0.11 / webhook Resend — validation svix', () => {
     expect(insertedRows['integrations_inbox']).toBeUndefined();
   });
 
-  it('svix-id déjà vu (23505) → 200 deduplicated, aucune MAJ email', async () => {
+  it('svix-id déjà vu et traité (23505) → 200 deduplicated, aucune MAJ email', async () => {
     mockInboxInsertResult = { data: null, error: { code: '23505' } };
+    mockInboxExistant = {
+      data: { id: 'inbox-existant', traite: true },
+      error: null,
+    };
     const res = await POST(makeResendRequest(deliveredEvent()));
     const json = (await res.json()) as { deduplicated?: boolean };
     expect(res.status).toBe(200);
@@ -171,7 +216,137 @@ describe('M0.11 / webhook Resend — validation svix', () => {
       }),
     );
     expect(res.status).toBe(200);
-    const upd = updatedRows['emails_envoyes']?.[0] as Record<string, unknown>;
+    const upd = updatedRows['emails_envoyes']?.[0]?.data;
     expect(upd?.['statut']).toBe('bounced');
+  });
+});
+
+// Chaque lecture/écriture critique lit son `error` : 500 générique et inbox
+// laissée `traite=false` pour que le rejeu Resend (svix relance sur non-2xx)
+// retraite l'event.
+describe('M0.11 / webhook Resend — échecs de lecture/écriture et rejeu', () => {
+  beforeEach(() => {
+    Object.keys(insertedRows).forEach((k) => delete insertedRows[k]);
+    Object.keys(updatedRows).forEach((k) => delete updatedRows[k]);
+    Object.keys(mockTables).forEach((k) => delete mockTables[k]);
+    mockInboxInsertResult = { data: { id: 'inbox-001' }, error: null };
+    mockEmailRow = { id: 'em-001', statut: 'sent' };
+    mockInboxExistant = { data: null, error: null };
+    readErrors = {};
+    insertErrors = {};
+    updateErrors = {};
+    process.env['RESEND_WEBHOOK_SECRET'] = SECRET;
+  });
+
+  it('lecture emails_envoyes en échec → 500, jamais prise pour un resend_id inconnu', async () => {
+    readErrors['emails_envoyes'] = ERREUR_DB;
+    const res = await POST(makeResendRequest(deliveredEvent()));
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: 'Erreur serveur' });
+    expect(inboxTraitee()).toHaveLength(0);
+    const logs = (insertedRows['integrations_logs'] ?? []) as Array<
+      Record<string, unknown>
+    >;
+    expect(
+      logs.some((l) => String(l['erreur']).includes('resend_id_inconnu')),
+    ).toBe(false);
+    expect(updatedRows['integrations_inbox']?.[0]).toEqual({
+      data: { erreur: 'non_enregistre: email_lecture' },
+      id: 'inbox-001',
+    });
+  });
+
+  it('MAJ du statut emails_envoyes refusée → 500, inbox non marquée traitée', async () => {
+    updateErrors['emails_envoyes'] = () => ERREUR_DB;
+    const res = await POST(makeResendRequest(deliveredEvent()));
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: 'Erreur serveur' });
+    expect(updatedRows['emails_envoyes']).toHaveLength(1);
+    expect(inboxTraitee()).toHaveLength(0);
+    expect(updatedRows['integrations_inbox']?.[0]?.data).toEqual({
+      erreur: 'non_enregistre: email_statut',
+    });
+  });
+
+  it('resend_id inconnu mais anomalie non tracée → 500, inbox non marquée traitée', async () => {
+    mockEmailRow = null;
+    insertErrors['integrations_logs'] = ERREUR_DB;
+    const res = await POST(makeResendRequest(deliveredEvent('re_inconnu')));
+    expect(res.status).toBe(500);
+    expect(inboxTraitee()).toHaveLength(0);
+    expect(updatedRows['integrations_inbox']?.[0]?.data).toEqual({
+      erreur: 'non_enregistre: anomalie_resend_id_inconnu',
+    });
+  });
+
+  it('resend_id inconnu, marquage inbox refusé → 500', async () => {
+    mockEmailRow = null;
+    updateErrors['integrations_inbox'] = (d) =>
+      d['traite'] === true ? ERREUR_DB : null;
+    const res = await POST(makeResendRequest(deliveredEvent('re_inconnu')));
+    expect(res.status).toBe(500);
+  });
+
+  it('statut écrit, marquage inbox refusé → 500 (le rejeu réécrit le même statut)', async () => {
+    updateErrors['integrations_inbox'] = (d) =>
+      d['traite'] === true ? ERREUR_DB : null;
+    const res = await POST(makeResendRequest(deliveredEvent()));
+    expect(res.status).toBe(500);
+    expect(updatedRows['emails_envoyes']?.[0]?.data['statut']).toBe(
+      'delivered',
+    );
+  });
+
+  it('trace systématique integrations_logs en échec → best-effort, 200 et inbox traitée', async () => {
+    insertErrors['integrations_logs'] = ERREUR_DB;
+    const spy = vi.spyOn(logger, 'error');
+    const res = await POST(makeResendRequest(deliveredEvent()));
+    expect(res.status).toBe(200);
+    expect(inboxTraitee()).toHaveLength(1);
+    expect(spy).toHaveBeenCalledWith('webhooks.resend.trace_non_ecrite', {
+      event_type: 'email.delivered',
+      error_code: 'XX000',
+    });
+    spy.mockRestore();
+  });
+
+  it('insertion inbox en échec (hors 23505) → 500, aucune lecture ni MAJ email', async () => {
+    mockInboxInsertResult = { data: null, error: ERREUR_DB };
+    const res = await POST(makeResendRequest(deliveredEvent()));
+    expect(res.status).toBe(500);
+    expect(mockTables['emails_envoyes']).toBeUndefined();
+  });
+
+  it('rejeu : 23505 sur une ligne inbox traite=false → event retraité, ligne existante marquée traitée', async () => {
+    mockInboxInsertResult = { data: null, error: { code: '23505' } };
+    mockInboxExistant = {
+      data: { id: 'inbox-existant', traite: false },
+      error: null,
+    };
+    const res = await POST(makeResendRequest(deliveredEvent()));
+    const json = (await res.json()) as { deduplicated?: boolean };
+    expect(res.status).toBe(200);
+    expect(json.deduplicated).toBeUndefined();
+    expect(updatedRows['emails_envoyes']?.[0]?.data['statut']).toBe(
+      'delivered',
+    );
+    expect(inboxTraitee()).toEqual([
+      expect.objectContaining({ id: 'inbox-existant' }),
+    ]);
+  });
+
+  it('23505 et relecture de la ligne inbox en échec → 500, aucune MAJ email', async () => {
+    mockInboxInsertResult = { data: null, error: { code: '23505' } };
+    readErrors['integrations_inbox'] = ERREUR_DB;
+    const res = await POST(makeResendRequest(deliveredEvent()));
+    expect(res.status).toBe(500);
+    expect(updatedRows['emails_envoyes']).toBeUndefined();
+  });
+
+  it('23505 et ligne inbox introuvable à la relecture → 500, aucune MAJ email', async () => {
+    mockInboxInsertResult = { data: null, error: { code: '23505' } };
+    const res = await POST(makeResendRequest(deliveredEvent()));
+    expect(res.status).toBe(500);
+    expect(updatedRows['emails_envoyes']).toBeUndefined();
   });
 });

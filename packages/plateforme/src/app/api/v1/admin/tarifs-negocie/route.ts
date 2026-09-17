@@ -19,7 +19,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   let query = supabase
     .from('tarifs_negocie')
     .select(
-      'id, scope, organisation_id, gestionnaire_organisation_id, activite, remise_pct, valide_du, valide_jusqu_au, commentaires, created_at',
+      'id, scope, organisation_id, gestionnaire_organisation_id, lieu_id, activite, remise_pct, valide_du, valide_jusqu_au, commentaires, created_at',
     )
     .order('created_at', { ascending: false });
 
@@ -51,6 +51,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     scope,
     organisation_id,
     gestionnaire_organisation_id,
+    lieu_id,
     activite,
     remise_pct,
     valide_du,
@@ -59,6 +60,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     scope?: string;
     organisation_id?: string;
     gestionnaire_organisation_id?: string;
+    lieu_id?: string | null;
     activite?: string;
     remise_pct?: number;
     valide_du?: string;
@@ -93,7 +95,51 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // lieu_id n'a de sens que pour scope=gestionnaire (§04 : null = tous les lieux
+  // du gestionnaire) — le calcul du prix l'ignore en scope organisation.
+  if (lieu_id && scope !== 'gestionnaire') {
+    return NextResponse.json(
+      { error: 'lieu_id réservé au scope gestionnaire' },
+      { status: 422 },
+    );
+  }
+
   const supabase = createAdminSupabaseClient();
+
+  if (scope === 'gestionnaire') {
+    const { data: gest, error: gErr } = await supabase
+      .from('organisations')
+      .select('type')
+      .eq('id', gestionnaire_organisation_id as string)
+      .maybeSingle();
+    if (gErr) return serverError(gErr, 'admin.tarifs_negocie.create');
+    if ((gest as { type?: string } | null)?.type !== 'gestionnaire_lieux') {
+      return NextResponse.json(
+        {
+          error:
+            'gestionnaire_organisation_id doit désigner un gestionnaire de lieux',
+        },
+        { status: 422 },
+      );
+    }
+    // Un lieu précis doit être rattaché à ce gestionnaire, sinon la remise ne
+    // s'appliquerait jamais (résolution via organisations_lieux).
+    if (lieu_id) {
+      const { data: lien, error: lErr } = await supabase
+        .from('organisations_lieux')
+        .select('id')
+        .eq('organisation_id', gestionnaire_organisation_id as string)
+        .eq('lieu_id', lieu_id)
+        .maybeSingle();
+      if (lErr) return serverError(lErr, 'admin.tarifs_negocie.create');
+      if (!lien) {
+        return NextResponse.json(
+          { error: "Ce lieu n'est pas rattaché à ce gestionnaire" },
+          { status: 422 },
+        );
+      }
+    }
+  }
 
   const { data, error } = await supabase
     .from('tarifs_negocie')
@@ -101,6 +147,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       scope,
       organisation_id,
       gestionnaire_organisation_id,
+      lieu_id: lieu_id || null,
       activite,
       remise_pct,
       valide_du,
@@ -117,7 +164,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       record_id: data.id,
       action: 'creation_remise',
       user_id: auth.ctx.userId,
-      new_values: { scope, organisation_id, activite, remise_pct, valide_du },
+      new_values: {
+        scope,
+        organisation_id,
+        gestionnaire_organisation_id,
+        lieu_id: lieu_id || null,
+        activite,
+        remise_pct,
+        valide_du,
+      },
     });
   } catch {
     /* audit failure non-bloquante */

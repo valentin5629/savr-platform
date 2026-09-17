@@ -28,6 +28,7 @@ interface CollecteAFacturer {
   evenements: {
     id: string;
     organisation_id: string;
+    lieu_id: string | null;
     pax: number | null;
     date_evenement: string;
     organisations: {
@@ -71,7 +72,7 @@ export async function runBatchBrouillonsJ1(
     .select(
       `id, type, statut, annulee_cote_savr, pack_antgaspi_id,
        evenements!inner (
-         id, organisation_id, pax, date_evenement,
+         id, organisation_id, lieu_id, pax, date_evenement,
          organisations!organisation_id (
            mode_facturation_zd, grille_tarifaire_zd_id,
            entites_facturation ( id, siret_verification )
@@ -168,6 +169,7 @@ async function traiterCollecteZd(
     ev.organisation_id,
     dateFacturation,
     supabase,
+    ev.lieu_id,
   );
 
   const tarif_detail = {
@@ -339,6 +341,7 @@ async function traiterCollecteAg(
   const tarif = await calculer_tarif_ag(supabase, {
     packAntgaspiId: collecte.pack_antgaspi_id,
     organisationId: ev.organisation_id,
+    lieuId: ev.lieu_id,
     date: new Date(ev.date_evenement),
   });
   if (tarif.skip) return; // pack globale_achat : brouillon FPK déjà créé au pack

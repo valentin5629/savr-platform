@@ -37,6 +37,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { jourParis } from '@savr/shared/src/temps/index.js';
 
 // ── Bandeau lecture seule ops ────────────────────────────────────────────────
 // OpsReadOnlyBanner extrait en composant partagé (R18, importé en tête) —
@@ -848,21 +849,35 @@ interface Remise {
   valide_jusqu_au: string | null;
   scope: string;
   commentaires: string | null;
+  lieu_id?: string | null;
+  lieux?: { nom: string } | null;
 }
 
+// Fiche gestionnaire de lieux : la remise est portée par le gestionnaire
+// (scope=gestionnaire) et s'applique à toutes les collectes sur ses lieux, quel
+// que soit le traiteur (§05 résolution du prix). Autres fiches : scope=organisation.
 export function OngletRemises({
   organisationId,
+  organisationType,
+  lieuxGestionnaire,
   remises,
   canEdit,
   onUpdated,
 }: {
   organisationId: string;
+  organisationType: string;
+  lieuxGestionnaire: { id: string; nom: string }[];
   remises: Remise[];
   canEdit: boolean;
   onUpdated: () => void;
 }): React.ReactElement {
+  const estGestionnaire = organisationType === 'gestionnaire_lieux';
   const [modal, setModal] = React.useState(false);
+  // Remise en cours de modification (null = création). Modifier = fermer la
+  // ligne active + créer la suivante côté serveur (§06.06, jamais rétroactif).
+  const [edition, setEdition] = React.useState<Remise | null>(null);
   const [fActivite, setFActivite] = React.useState('zd');
+  const [fLieuId, setFLieuId] = React.useState('');
   const [fPct, setFPct] = React.useState('');
   const [fValideDu, setFValideDu] = React.useState('');
   const [fCommentaires, setFCommentaires] = React.useState('');
@@ -877,12 +892,37 @@ export function OngletRemises({
 
   function openCreer() {
     setModal(true);
+    setEdition(null);
     setFActivite('zd');
+    setFLieuId('');
     setFPct('');
     setFValideDu('');
     setFCommentaires('');
     setError(null);
   }
+
+  function openModifier(r: Remise) {
+    setModal(true);
+    setEdition(r);
+    setFActivite(r.activite);
+    setFLieuId(r.lieu_id ?? '');
+    setFPct(String(Math.round(r.remise_pct * 10000) / 100));
+    setFValideDu(dateEffetMin(r));
+    setFCommentaires(r.commentaires ?? '');
+    setError(null);
+  }
+
+  // Date d'effet d'une modification : jamais passée, jamais avant le début de la
+  // remise remplacée (contrôlé aussi côté serveur).
+  function dateEffetMin(r: Remise): string {
+    const today = jourParis();
+    return r.valide_du > today ? r.valide_du : today;
+  }
+
+  // Lieu modifiable uniquement pour une remise portée par le gestionnaire.
+  const afficherLieu = edition
+    ? edition.scope === 'gestionnaire'
+    : estGestionnaire;
 
   async function creer(e: React.FormEvent) {
     e.preventDefault();
@@ -898,18 +938,39 @@ export function OngletRemises({
     setSaving(true);
     setError(null);
     try {
-      const r = await fetch('/api/v1/admin/tarifs-negocie', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          scope: 'organisation',
-          organisation_id: organisationId,
-          activite: fActivite,
-          remise_pct: pct / 100, // % → fraction 0..1
-          valide_du: fValideDu,
-          commentaires: fCommentaires || undefined,
-        }),
-      });
+      const r = edition
+        ? await fetch(
+            `/api/v1/admin/tarifs-negocie/${encodeURIComponent(edition.id)}/modifier`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                ...(edition.scope === 'gestionnaire'
+                  ? { lieu_id: fLieuId || null }
+                  : {}),
+                remise_pct: pct / 100,
+                valide_du: fValideDu,
+                commentaires: fCommentaires || null,
+              }),
+            },
+          )
+        : await fetch('/api/v1/admin/tarifs-negocie', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ...(estGestionnaire
+                ? {
+                    scope: 'gestionnaire',
+                    gestionnaire_organisation_id: organisationId,
+                    lieu_id: fLieuId || null,
+                  }
+                : { scope: 'organisation', organisation_id: organisationId }),
+              activite: fActivite,
+              remise_pct: pct / 100, // % → fraction 0..1
+              valide_du: fValideDu,
+              commentaires: fCommentaires || undefined,
+            }),
+          });
       const j = (await r.json().catch(() => ({}))) as { error?: string };
       if (!r.ok) {
         setError(j.error ?? 'Erreur');
@@ -964,13 +1025,18 @@ export function OngletRemises({
         <EmptyState
           icon={<Percent />}
           title="Aucune remise négociée"
-          description="Aucune remise n'a été accordée à cette organisation."
+          description={
+            estGestionnaire
+              ? "Aucune remise n'est appliquée aux collectes sur les lieux de ce gestionnaire."
+              : "Aucune remise n'a été accordée à cette organisation."
+          }
         />
       ) : (
         <table className="w-full text-sm">
           <thead className="text-left text-savr-neutral-500">
             <tr>
               <th className="pb-2">Activité</th>
+              {estGestionnaire && <th className="pb-2">Lieux concernés</th>}
               <th className="pb-2">Remise</th>
               <th className="pb-2">Valide du</th>
               <th className="pb-2">Jusqu'au</th>
@@ -979,52 +1045,87 @@ export function OngletRemises({
             </tr>
           </thead>
           <tbody>
-            {displayed.map((r) => (
-              <tr key={r.id} className="border-t border-savr-neutral-100">
-                <td className="py-2">
-                  {r.activite ? r.activite.toUpperCase() : '—'}
-                </td>
-                <td className="py-2 font-medium">
-                  {(r.remise_pct * 100).toLocaleString('fr-FR', {
-                    maximumFractionDigits: 2,
-                  })}{' '}
-                  %
-                </td>
-                <td className="py-2 text-savr-neutral-500">
-                  {new Date(r.valide_du).toLocaleDateString('fr-FR', {
-                    timeZone: 'Europe/Paris',
-                  })}
-                </td>
-                <td className="py-2 text-savr-neutral-500">
-                  {r.valide_jusqu_au ? (
-                    new Date(r.valide_jusqu_au).toLocaleDateString('fr-FR', {
-                      timeZone: 'Europe/Paris',
-                    })
-                  ) : (
-                    <Badge variant="success" className="text-xs">
-                      Active
-                    </Badge>
+            {displayed.map((r) => {
+              const modifiable = canEdit && !r.valide_jusqu_au;
+              return (
+                <tr
+                  key={r.id}
+                  className={
+                    modifiable
+                      ? 'border-t border-savr-neutral-100 cursor-pointer hover:bg-savr-neutral-50 transition-colors'
+                      : 'border-t border-savr-neutral-100'
+                  }
+                  {...(modifiable
+                    ? {
+                        role: 'button',
+                        tabIndex: 0,
+                        'aria-label': 'Modifier la remise',
+                        onClick: () => openModifier(r),
+                        onKeyDown: (e: React.KeyboardEvent) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            openModifier(r);
+                          }
+                        },
+                      }
+                    : {})}
+                >
+                  <td className="py-2">
+                    {r.activite ? r.activite.toUpperCase() : '—'}
+                  </td>
+                  {estGestionnaire && (
+                    <td className="py-2">
+                      {r.scope === 'gestionnaire'
+                        ? (r.lieux?.nom ?? 'Tous ses lieux')
+                        : 'Organisation (en direct)'}
+                    </td>
                   )}
-                </td>
-                <td className="py-2 text-savr-neutral-500">
-                  {r.commentaires ?? '—'}
-                </td>
-                {canEdit && (
-                  <td className="py-2 text-right">
-                    {!r.valide_jusqu_au && (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        disabled={closingId === r.id}
-                        onClick={() => void fermer(r.id)}
-                      >
-                        {closingId === r.id ? 'Fermeture…' : 'Fermer'}
-                      </Button>
+                  <td className="py-2 font-medium">
+                    {(r.remise_pct * 100).toLocaleString('fr-FR', {
+                      maximumFractionDigits: 2,
+                    })}{' '}
+                    %
+                  </td>
+                  <td className="py-2 text-savr-neutral-500">
+                    {new Date(r.valide_du).toLocaleDateString('fr-FR', {
+                      timeZone: 'Europe/Paris',
+                    })}
+                  </td>
+                  <td className="py-2 text-savr-neutral-500">
+                    {r.valide_jusqu_au ? (
+                      new Date(r.valide_jusqu_au).toLocaleDateString('fr-FR', {
+                        timeZone: 'Europe/Paris',
+                      })
+                    ) : (
+                      <Badge variant="success" className="text-xs">
+                        Active
+                      </Badge>
                     )}
                   </td>
-                )}
-              </tr>
-            ))}
+                  <td className="py-2 text-savr-neutral-500">
+                    {r.commentaires ?? '—'}
+                  </td>
+                  {canEdit && (
+                    <td className="py-2 text-right">
+                      {!r.valide_jusqu_au && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={closingId === r.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void fermer(r.id);
+                          }}
+                          onKeyDown={(e) => e.stopPropagation()}
+                        >
+                          {closingId === r.id ? 'Fermeture…' : 'Fermer'}
+                        </Button>
+                      )}
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}
@@ -1032,7 +1133,7 @@ export function OngletRemises({
       {modal && (
         <Modal
           open
-          title="Créer une remise"
+          title={edition ? 'Modifier la remise' : 'Créer une remise'}
           onClose={() => setModal(false)}
           footer={
             <>
@@ -1045,7 +1146,7 @@ export function OngletRemises({
                 Annuler
               </Button>
               <Button type="submit" form="remise-form" disabled={saving}>
-                {saving ? 'Création…' : 'Créer'}
+                {saving ? 'Enregistrement…' : edition ? 'Enregistrer' : 'Créer'}
               </Button>
             </>
           }
@@ -1066,12 +1167,36 @@ export function OngletRemises({
                 id="remise-activite"
                 aria-label="Activité"
                 value={fActivite}
+                disabled={edition !== null}
                 onChange={(e) => setFActivite(e.target.value)}
               >
                 <option value="zd">Zéro déchet (ZD)</option>
                 <option value="ag">Anti-gaspi (AG)</option>
               </Select>
             </div>
+            {afficherLieu && (
+              <div>
+                <Label htmlFor="remise-lieu">Lieux concernés</Label>
+                <Select
+                  id="remise-lieu"
+                  aria-label="Lieux concernés"
+                  value={fLieuId}
+                  onChange={(e) => setFLieuId(e.target.value)}
+                >
+                  <option value="">Tous les lieux du gestionnaire</option>
+                  {lieuxGestionnaire.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.nom}
+                    </option>
+                  ))}
+                </Select>
+                <p className="mt-1 text-xs text-savr-neutral-500">
+                  S&apos;applique à toutes les collectes réalisées sur ces
+                  lieux, quel que soit le traiteur. Si le traiteur a sa propre
+                  remise, seule la plus élevée des deux s&apos;applique.
+                </p>
+              </div>
+            )}
             <div>
               <Label htmlFor="remise-pct">Remise (%)</Label>
               <Input
@@ -1087,15 +1212,24 @@ export function OngletRemises({
               />
             </div>
             <div>
-              <Label htmlFor="remise-valide-du">Valide du</Label>
+              <Label htmlFor="remise-valide-du">
+                {edition ? 'À partir du' : 'Valide du'}
+              </Label>
               <Input
                 id="remise-valide-du"
                 type="date"
                 value={fValideDu}
-                aria-label="Valide du"
+                min={edition ? dateEffetMin(edition) : undefined}
+                aria-label={edition ? 'À partir du' : 'Valide du'}
                 onChange={(e) => setFValideDu(e.target.value)}
                 required
               />
+              {edition && (
+                <p className="mt-1 text-xs text-savr-neutral-500">
+                  La remise actuelle s&apos;arrête la veille de cette date ;
+                  elle reste dans l&apos;historique.
+                </p>
+              )}
             </div>
             <div>
               <Label htmlFor="remise-commentaire">Commentaire</Label>

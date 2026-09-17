@@ -228,7 +228,7 @@
       "artefact": "packages/plateforme/src/lib/facturation/tarif-ag.ts",
       "test": "M1.7 FACT-03 : AG hors pack avec remise négociée 10 % → PU réduit à 531 €",
       "statut": "implemented",
-      "libelle": "PU AG hors pack = tarif unitaire (590) − remises AG (tarifs_negocie activite=ag, cumul multiplicatif)"
+      "libelle": "PU AG hors pack = tarif unitaire (590) − remise AG la plus élevée (tarifs_negocie activite=ag, pas de cumul — arbitrage Val 2026-09-17)"
     },
     {
       "id": "BL-P1-FACT-04",

@@ -146,6 +146,7 @@ export async function PATCH(
     nomEvenement: evt.nom_evenement,
     pax: evt.pax,
     organisationId: evt.organisation_id,
+    lieuId: evt.lieu_id,
     collectes: collectes.map((c) => ({
       type: c.type,
       date_collecte: c.date_collecte,

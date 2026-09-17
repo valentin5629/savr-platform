@@ -50,7 +50,7 @@ export async function POST(
   // Vérification propriété et éditabilité — même cloisonnement que le GET.
   const evtQuery = supabase
     .from('evenements')
-    .select('id, organisation_id, nom_evenement, pax')
+    .select('id, organisation_id, lieu_id, nom_evenement, pax')
     .eq('id', evenementId);
 
   const { data: evt } = await (
@@ -127,6 +127,7 @@ export async function POST(
     nomEvenement: evt.nom_evenement,
     pax: evt.pax,
     organisationId: evt.organisation_id,
+    lieuId: evt.lieu_id,
     collectes: [{ type: String(type), date_collecte: String(date_collecte) }],
   }).catch(() => undefined); // non-bloquant
 

@@ -12,6 +12,14 @@
 //     l'event au lieu d'être pris pour un doublon ;
 //   • les inserts `integrations_logs` restent best-effort (trace technique : leur
 //     perte ne fausse aucun état métier).
+//
+// Mission courante (arbitrage Val 2026-09-17) : `everest_missions.collecte_id`
+// n'est pas unique et une réattribution vers un autre transporteur n'annule pas
+// la course A Toutes! en V1. Un event ne touche donc la collecte que si sa
+// mission est la mission courante (cf. `lireCollecte`) ; sinon la mission est
+// mise à jour, la collecte non, et un vélo encore actif est alerté (risque de
+// double passage, M14 EC11). Chaque UPDATE `collectes` porte sa garde dans le
+// WHERE : 0 ligne modifiée = un event concurrent est passé avant → no-op.
 
 import { timingSafeEqual } from 'node:crypto';
 
@@ -232,8 +240,8 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
     // Conflit unique : doublon SEULEMENT si le premier passage a abouti. Une
     // ligne restée `traite=false` = état métier non écrit au premier passage →
     // on la reprend. Deux livraisons simultanées du même event peuvent alors se
-    // chevaucher : elles écrivent les mêmes valeurs (les transitions sont décidées
-    // sur l'état relu, pas gardées dans l'UPDATE — même résultat final).
+    // chevaucher : les transitions `collectes` sont gardées dans le WHERE, la
+    // seconde modifie 0 ligne et n'alerte pas une seconde fois.
     const { data: existant, error: existantErr } = await supabase
       .from('integrations_inbox')
       .select('id, traite')
@@ -312,7 +320,8 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
           payload_latest_update: payload,
           derniere_sync_at: new Date().toISOString(),
         })
-        .eq('id', m.id);
+        .eq('id', m.id)
+        .eq('everest_mission_id', missionId);
       if (error) {
         await echecEtatMetier(supabase, error, {
           evenement: 'mission_terminale_sync',
@@ -366,7 +375,10 @@ async function handleEventType(
 ): Promise<void> {
   const now = new Date().toISOString();
 
-  // Écriture de la mission : un refus (CHECK, blip PostgREST) lève.
+  // Écriture de la mission : un refus (CHECK, blip PostgREST) lève. Gardée par
+  // la référence de l'event : une réattribution A Toutes! → A Toutes! réécrit
+  // la même ligne (unique par tournée) avec la NOUVELLE mission, qu'un event de
+  // l'ancienne lu juste avant ne doit pas écraser (0 ligne = no-op).
   const majMission = async (
     updates: Record<string, unknown>,
     evenement: string,
@@ -374,7 +386,8 @@ async function handleEventType(
     const { error } = await supabase
       .from('everest_missions')
       .update(updates)
-      .eq('id', mission.id);
+      .eq('id', mission.id)
+      .eq('everest_mission_id', missionId);
     if (error) {
       await echecEtatMetier(supabase, error, {
         evenement,
@@ -406,37 +419,38 @@ async function handleEventType(
 
       await majMission(updates, 'mission_dispatched');
 
-      // Passer statut_tms → 'acceptee' si pas encore acceptée
-      // (trigger fn_sync_statut_collecte_from_tms dérive collectes.statut)
-      const { data: collecte, error: collecteErr } = await supabase
-        .from('collectes')
-        .select('statut_tms')
-        .eq('id', mission.collecte_id)
-        .maybeSingle();
-      if (collecteErr) {
-        await echecEtatMetier(supabase, collecteErr, {
-          evenement: 'collecte_lecture',
-          collecteId: mission.collecte_id,
+      const lue = await lireCollecte(supabase, mission, missionId);
+      if (!lue) break;
+      if (!lue.courante) {
+        await signalerMissionHorsAttribution(
+          supabase,
+          mission,
           missionId,
-          quoi: 'lecture du statut transporteur de la collecte',
-        });
+          eventType,
+          'un coursier est assigné',
+        );
+        break;
       }
 
-      const statut_tms_actuel = (collecte as { statut_tms: string } | null)
-        ?.statut_tms;
-      if (statut_tms_actuel === 'attribuee_en_attente_acceptation') {
-        const { error } = await supabase
-          .from('collectes')
-          .update({ statut_tms: 'acceptee' })
-          .eq('id', mission.collecte_id);
-        if (error) {
-          await echecEtatMetier(supabase, error, {
+      // Passer statut_tms → 'acceptee' si pas encore acceptée
+      // (trigger fn_sync_statut_collecte_from_tms dérive collectes.statut)
+      if (lue.etat.statut_tms === 'attribuee_en_attente_acceptation') {
+        await ecritureCollecteGardee(
+          supabase,
+          supabase
+            .from('collectes')
+            .update({ statut_tms: 'acceptee' })
+            .eq('id', mission.collecte_id)
+            .eq('statut_tms', 'attribuee_en_attente_acceptation')
+            .eq('prestataire_logistique_id', lue.prestataire)
+            .select('id'),
+          {
             evenement: 'collecte_acceptee',
             collecteId: mission.collecte_id,
             missionId,
             quoi: 'acceptation de la course (statut transporteur « acceptee »)',
-          });
-        }
+          },
+        );
       }
       break;
     }
@@ -450,6 +464,16 @@ async function handleEventType(
         },
         'mission_pickedup',
       );
+      const lue = await lireCollecte(supabase, mission, missionId);
+      if (lue && !lue.courante) {
+        await signalerMissionHorsAttribution(
+          supabase,
+          mission,
+          missionId,
+          eventType,
+          'le coursier a enlevé la marchandise',
+        );
+      }
       break;
     }
 
@@ -509,6 +533,7 @@ async function handleEventType(
           supabase,
           mission,
           missionId,
+          eventType,
           detail,
           now,
         );
@@ -544,6 +569,7 @@ async function handleEventType(
           supabase,
           mission,
           missionId,
+          eventType,
           detail,
           now,
         );
@@ -571,7 +597,13 @@ async function handleEventType(
       });
       // BL-P1-API-04 (c) : échec AVANT acceptation = rejet prestataire (webhook
       // async, §08 §3 l.276) → statut_tms=rejetee_par_prestataire + retour file.
-      await rejeterSiPreAcceptation(supabase, mission, missionId, 'échouée');
+      await rejeterSiPreAcceptation(
+        supabase,
+        mission,
+        missionId,
+        eventType,
+        'échouée',
+      );
       // Mission terminale écrite EN DERNIER (rejeu possible, cf. mission_finished).
       await majMission(
         {
@@ -628,6 +660,7 @@ async function handleEventType(
           supabase,
           mission,
           missionId,
+          eventType,
           'annulée par le prestataire',
         );
       }
@@ -670,28 +703,155 @@ async function handleEventType(
 
 // ─── Helpers transitions collecte (BL-P1-API-04 c+d) ────────────────────────────
 
-async function fetchCollecteEtat(
+type EtatCollecte = {
+  type: string;
+  statut: string;
+  statut_tms: string;
+  prestataire_logistique_id: string | null;
+};
+
+type CollecteLue =
+  | { etat: EtatCollecte; courante: false }
+  | { etat: EtatCollecte; courante: true; prestataire: string };
+
+/**
+ * État de la collecte de la mission, et « la mission de l'event est-elle la
+ * mission courante de la collecte ? » (arbitrage Val 2026-09-17) :
+ *   • la collecte est attribuée à un transporteur A Toutes!
+ *     (`collectes.prestataire_logistique_id` → `transporteurs.type_tms`) ;
+ *   • la tournée de la mission est liée à la collecte (`collecte_tournees`) ;
+ *   • cette tournée porte la référence de CETTE mission
+ *     (`tournees.external_ref_commande`, Interface logistique_provider V1).
+ * Une lecture en échec lève : conclure « non courante » tairait un vrai refus,
+ * conclure « courante » rejetterait une autre attribution.
+ */
+async function lireCollecte(
   supabase: SupabaseAdmin,
-  collecteId: string,
+  mission: { tournee_id: string; collecte_id: string },
   missionId: string,
-): Promise<{ type: string; statut: string; statut_tms: string } | null> {
+): Promise<CollecteLue | null> {
+  const echecLecture = (error: ErreurDb, quoi: string): Promise<never> =>
+    echecEtatMetier(supabase, error, {
+      evenement: 'collecte_lecture',
+      collecteId: mission.collecte_id,
+      missionId,
+      quoi,
+    });
+
   const { data, error } = await supabase
     .from('collectes')
-    .select('type, statut, statut_tms')
-    .eq('id', collecteId)
+    .select('type, statut, statut_tms, prestataire_logistique_id')
+    .eq('id', mission.collecte_id)
     .maybeSingle();
+  if (error) await echecLecture(error, 'lecture du statut de la collecte');
+  const etat = data as EtatCollecte | null;
+  if (!etat) return null;
+
+  const prestataire = etat.prestataire_logistique_id;
+  if (!prestataire) return { etat, courante: false };
+
+  const { data: transporteur, error: transporteurErr } = await supabase
+    .from('transporteurs')
+    .select('type_tms')
+    .eq('prestataire_logistique_id', prestataire)
+    .maybeSingle();
+  if (transporteurErr)
+    await echecLecture(transporteurErr, 'lecture du transporteur attribué');
+  if ((transporteur as { type_tms: string } | null)?.type_tms !== 'a_toutes') {
+    return { etat, courante: false };
+  }
+
+  const { data: lien, error: lienErr } = await supabase
+    .from('collecte_tournees')
+    .select('tournees!inner(external_ref_commande)')
+    .eq('collecte_id', mission.collecte_id)
+    .eq('tournee_id', mission.tournee_id)
+    .maybeSingle();
+  if (lienErr)
+    await echecLecture(lienErr, 'lecture de la tournée de la collecte');
+  // FK sortante `collecte_tournees.tournee_id` → embed OBJET, pas tableau.
+  const tournee = (
+    lien as { tournees: { external_ref_commande: string | null } } | null
+  )?.tournees;
+
+  // Tournée liée mais sans référence : l'adapter enregistre la mission AVANT
+  // de committer sa référence, et un commit en échec n'est rejoué par le worker
+  // qu'au palier suivant (5 min à 24 h). Ni courante ni ancienne : on ne décide
+  // pas → 500, inbox non traitée, l'event sera retraité au rejeu.
+  if (tournee && tournee.external_ref_commande === null) {
+    await echecEtatMetier(
+      supabase,
+      { message: 'référence de mission absente de la tournée' },
+      {
+        evenement: 'reference_mission_non_enregistree',
+        collecteId: mission.collecte_id,
+        missionId,
+        quoi: 'la référence de la course n’est pas encore enregistrée sur sa tournée',
+      },
+    );
+  }
+
+  return tournee?.external_ref_commande === missionId
+    ? { etat, courante: true, prestataire }
+    : { etat, courante: false };
+}
+
+/**
+ * UPDATE `collectes` dont la garde est dans le WHERE (statut attendu +
+ * transporteur relu). Renvoie `false` sur 0 ligne modifiée : un event
+ * concurrent, ou une réattribution, est passé entre la lecture et l'écriture
+ * → no-op, sans alerte de transition.
+ */
+async function ecritureCollecteGardee(
+  supabase: SupabaseAdmin,
+  requete: PromiseLike<{ data: unknown[] | null; error: ErreurDb | null }>,
+  echec: Parameters<typeof echecEtatMetier>[2],
+): Promise<boolean> {
+  const { data, error } = await requete;
+  if (error) await echecEtatMetier(supabase, error, echec);
+  return (data ?? []).length > 0;
+}
+
+/**
+ * Event d'une mission qui n'est plus la mission courante de sa collecte : la
+ * collecte n'est pas touchée. Trace technique best-effort ; si l'event annonce
+ * un vélo actif, alerte Ops in-app (risque de double passage, M14 EC11) — son
+ * échec lève (500, inbox non traitée) car elle est ici le seul signal.
+ */
+async function signalerMissionHorsAttribution(
+  supabase: SupabaseAdmin,
+  mission: { collecte_id: string },
+  missionId: string,
+  eventType: string,
+  veloActif?: string,
+): Promise<void> {
+  await supabase.from('integrations_logs').insert({
+    integration: 'everest',
+    direction: 'entrant',
+    methode: 'POST',
+    endpoint: '/api/webhooks/everest',
+    erreur: `mission_hors_attribution: mission_id=${missionId} event_type=${eventType} collecte=${mission.collecte_id}`,
+    correlation_id: missionId,
+  });
+  if (!veloActif) return;
+
+  const { error } = await supabase.rpc('f_upsert_alerte_admin', {
+    p_code: 'everest_mission_hors_attribution',
+    p_titre: 'Course A Toutes! active sur une collecte réattribuée',
+    p_message:
+      `A Toutes! signale que ${veloActif} sur la course ${missionId}, qui n'est plus la course attribuée ` +
+      `à la collecte ${mission.collecte_id}. Risque de double passage : contacter A Toutes! pour annuler cette course.`,
+    p_entity_type: 'collectes',
+    p_entity_id: mission.collecte_id,
+  });
   if (error) {
     await echecEtatMetier(supabase, error, {
-      evenement: 'collecte_lecture',
-      collecteId,
+      evenement: 'alerte_mission_hors_attribution',
+      collecteId: mission.collecte_id,
       missionId,
-      quoi: 'lecture du statut de la collecte',
+      quoi: 'alerte « course active sur une collecte réattribuée »',
     });
   }
-  return (
-    (data as { type: string; statut: string; statut_tms: string } | null) ??
-    null
-  );
 }
 
 // (d) Course sans marchandise → realisee_sans_collecte. AG uniquement (§05 : la ZD
@@ -702,19 +862,25 @@ async function fetchCollecteEtat(
 // normal V1 (§08 §1 l.103-107). Jamais de régression d'un statut terminal.
 async function transitionRealiseeSansCollecte(
   supabase: SupabaseAdmin,
-  mission: { id: string; collecte_id: string },
+  mission: { id: string; tournee_id: string; collecte_id: string },
   missionId: string,
+  eventType: string,
   detail: Awaited<ReturnType<typeof fetchEverestMissionDetails>>,
   now: string,
 ): Promise<void> {
-  const etat = await fetchCollecteEtat(
-    supabase,
-    mission.collecte_id,
-    missionId,
-  );
-  if (!etat) return;
+  const lue = await lireCollecte(supabase, mission, missionId);
+  if (!lue) return;
+  if (!lue.courante) {
+    await signalerMissionHorsAttribution(
+      supabase,
+      mission,
+      missionId,
+      eventType,
+    );
+    return;
+  }
 
-  if (etat.type !== 'anti_gaspi') {
+  if (lue.etat.type !== 'anti_gaspi') {
     // realisee_sans_collecte n'existe pas en ZD → on trace, on ne transitionne pas.
     // Best-effort : trace technique.
     await supabase.from('integrations_logs').insert({
@@ -728,25 +894,31 @@ async function transitionRealiseeSansCollecte(
     return;
   }
 
-  if (STATUTS_TERMINAUX_COLLECTE.has(etat.statut)) return;
+  if (STATUTS_TERMINAUX_COLLECTE.has(lue.etat.statut)) return;
 
-  const { error } = await supabase
-    .from('collectes')
-    .update({
-      statut: 'realisee_sans_collecte',
-      realisee_at: now,
-      aucun_repas_motif: detail.status,
-      aucun_repas_photo_url: detail.preuve_url ?? null,
-    })
-    .eq('id', mission.collecte_id);
-  if (error) {
-    await echecEtatMetier(supabase, error, {
+  const modifiee = await ecritureCollecteGardee(
+    supabase,
+    supabase
+      .from('collectes')
+      .update({
+        statut: 'realisee_sans_collecte',
+        realisee_at: now,
+        aucun_repas_motif: detail.status,
+        aucun_repas_photo_url: detail.preuve_url ?? null,
+      })
+      .eq('id', mission.collecte_id)
+      .eq('type', 'anti_gaspi')
+      .not('statut', 'in', `(${[...STATUTS_TERMINAUX_COLLECTE].join(',')})`)
+      .eq('prestataire_logistique_id', lue.prestataire)
+      .select('id'),
+    {
       evenement: 'collecte_realisee_sans_collecte',
       collecteId: mission.collecte_id,
       missionId,
       quoi: 'passage de la collecte en « réalisée sans collecte »',
-    });
-  }
+    },
+  );
+  if (!modifiee) return;
 
   await alerteApresTransition(supabase, {
     p_code: 'collecte_aucun_repas',
@@ -765,30 +937,41 @@ async function transitionRealiseeSansCollecte(
 // pas un rejet → on n'y touche pas.
 async function rejeterSiPreAcceptation(
   supabase: SupabaseAdmin,
-  mission: { id: string; collecte_id: string },
+  mission: { id: string; tournee_id: string; collecte_id: string },
   missionId: string,
+  eventType: string,
   motifCourt: string,
 ): Promise<void> {
-  const etat = await fetchCollecteEtat(
-    supabase,
-    mission.collecte_id,
-    missionId,
-  );
-  if (!etat) return;
-  if (etat.statut_tms !== 'attribuee_en_attente_acceptation') return;
+  const lue = await lireCollecte(supabase, mission, missionId);
+  if (!lue) return;
+  if (!lue.courante) {
+    await signalerMissionHorsAttribution(
+      supabase,
+      mission,
+      missionId,
+      eventType,
+    );
+    return;
+  }
+  if (lue.etat.statut_tms !== 'attribuee_en_attente_acceptation') return;
 
-  const { error } = await supabase
-    .from('collectes')
-    .update({ statut_tms: 'rejetee_par_prestataire' })
-    .eq('id', mission.collecte_id);
-  if (error) {
-    await echecEtatMetier(supabase, error, {
+  const modifiee = await ecritureCollecteGardee(
+    supabase,
+    supabase
+      .from('collectes')
+      .update({ statut_tms: 'rejetee_par_prestataire' })
+      .eq('id', mission.collecte_id)
+      .eq('statut_tms', 'attribuee_en_attente_acceptation')
+      .eq('prestataire_logistique_id', lue.prestataire)
+      .select('id'),
+    {
       evenement: 'collecte_rejetee',
       collecteId: mission.collecte_id,
       missionId,
       quoi: `rejet de la course ${motifCourt} avant acceptation (statut transporteur « rejetee_par_prestataire »)`,
-    });
-  }
+    },
+  );
+  if (!modifiee) return;
 
   await alerteApresTransition(supabase, {
     p_code: 'collecte_rejetee_prestataire',

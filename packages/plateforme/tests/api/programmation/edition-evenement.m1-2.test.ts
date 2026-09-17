@@ -165,6 +165,31 @@ describe('M1.2 / édition événement — 4 rôles programmateurs', () => {
   }
 });
 
+// ── §09 manager_update_dans_fenetre_edition_ok (révisé 2026-09-16) ──────────
+// Depuis le REVOKE table-level sur `evenements` (20260915190000), l'UPDATE direct
+// PostgREST lève 42501 : le succès ne passe plus QUE par la route. Moitié DB
+// (fenêtre vue par le manager, fn_modifier_evenement sous service_role, direct
+// refusé) : SECU__rls_09_ecriture_directe_revoke.test.sql B1-B5.
+describe('§09 / manager_update_dans_fenetre_edition_ok', () => {
+  it('manager_update_dans_fenetre_edition_ok — la route réussit et n’écrit JAMAIS par le client de session', async () => {
+    setupAuth('traiteur_manager', 'org-1', 'user-1');
+    queueEventOk({ organisation_id: 'org-1' }, true);
+
+    const res = await patchEvent({ pax: 300 });
+
+    expect(res.status).toBe(200);
+    // La fenêtre est lue sous le JWT du manager…
+    expect(rls.__calls.rpc?.map(([fn]) => fn)).toEqual(['f_collecte_editable']);
+    // … mais aucune écriture ne part par la session : elle lèverait 42501.
+    expect(rls.__calls.update).toBeUndefined();
+    expect(rls.__calls.insert).toBeUndefined();
+    // L'écriture passe par la RPC service_role.
+    expect(admin.__calls.rpc?.map(([fn]) => fn)).toContain(
+      'fn_modifier_evenement',
+    );
+  });
+});
+
 describe('M1.2 / édition événement — gardes', () => {
   it('M1.2 — édition événement champ verrouillé lieu_id → 422', async () => {
     setupAuth('traiteur_manager');

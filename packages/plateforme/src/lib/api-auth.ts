@@ -22,12 +22,17 @@ export interface UserAuthContext {
   userId: string;
   role: AnyRole;
   organisationId: string;
+  // Admin réel d'une session impersonée (claim posé par le hook JWT, §09 §7).
+  // À reporter dans `audit_log.impersonator_id` par les routes qui journalisent
+  // sous service_role : le trigger d'audit, qui lit `auth.jwt()`, n'y voit rien.
+  impersonatorId?: string;
 }
 
 export interface VerifiedClaims {
   userId: string;
   role: string | undefined;
   organisationId: string | undefined;
+  impersonatorId?: string;
 }
 
 function parseJwtClaims(token: string): Record<string, unknown> {
@@ -78,6 +83,7 @@ export async function getVerifiedClaims(
           userId: claims['sub'] as string,
           role: str(claims['user_role']),
           organisationId: str(claims['organisation_id']),
+          impersonatorId: str(claims['impersonator_id']),
         };
       }
     } catch {
@@ -97,6 +103,7 @@ export async function getVerifiedClaims(
     userId: user.id,
     role: str(claims['user_role']),
     organisationId: str(claims['organisation_id']),
+    impersonatorId: str(claims['impersonator_id']),
   };
 }
 
@@ -208,6 +215,7 @@ export async function requireUser(
       userId: claims.userId,
       role: role as AnyRole,
       organisationId,
+      impersonatorId: claims.impersonatorId,
     },
   };
 }

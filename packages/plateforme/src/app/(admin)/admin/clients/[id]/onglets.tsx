@@ -36,6 +36,7 @@ import { AlertBar } from '@/components/ui/alert-bar';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 
@@ -877,7 +878,8 @@ export function OngletRemises({
   // ligne active + créer la suivante côté serveur (§06.06, jamais rétroactif).
   const [edition, setEdition] = React.useState<Remise | null>(null);
   const [fActivite, setFActivite] = React.useState('zd');
-  const [fLieuId, setFLieuId] = React.useState('');
+  // Lieux cochés (vide = tous les lieux du gestionnaire). Une remise par lieu.
+  const [fLieuIds, setFLieuIds] = React.useState<string[]>([]);
   const [fPct, setFPct] = React.useState('');
   const [fValideDu, setFValideDu] = React.useState('');
   const [fCommentaires, setFCommentaires] = React.useState('');
@@ -894,7 +896,7 @@ export function OngletRemises({
     setModal(true);
     setEdition(null);
     setFActivite('zd');
-    setFLieuId('');
+    setFLieuIds([]);
     setFPct('');
     setFValideDu('');
     setFCommentaires('');
@@ -905,7 +907,7 @@ export function OngletRemises({
     setModal(true);
     setEdition(r);
     setFActivite(r.activite);
-    setFLieuId(r.lieu_id ?? '');
+    setFLieuIds(r.lieu_id ? [r.lieu_id] : []);
     setFPct(String(Math.round(r.remise_pct * 10000) / 100));
     setFValideDu(dateEffetMin(r));
     setFCommentaires(r.commentaires ?? '');
@@ -946,7 +948,7 @@ export function OngletRemises({
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 ...(edition.scope === 'gestionnaire'
-                  ? { lieu_id: fLieuId || null }
+                  ? { lieu_ids: fLieuIds }
                   : {}),
                 remise_pct: pct / 100,
                 valide_du: fValideDu,
@@ -962,7 +964,7 @@ export function OngletRemises({
                 ? {
                     scope: 'gestionnaire',
                     gestionnaire_organisation_id: organisationId,
-                    lieu_id: fLieuId || null,
+                    lieu_ids: fLieuIds,
                   }
                 : { scope: 'organisation', organisation_id: organisationId }),
               activite: fActivite,
@@ -1175,27 +1177,47 @@ export function OngletRemises({
               </Select>
             </div>
             {afficherLieu && (
-              <div>
-                <Label htmlFor="remise-lieu">Lieux concernés</Label>
-                <Select
-                  id="remise-lieu"
-                  aria-label="Lieux concernés"
-                  value={fLieuId}
-                  onChange={(e) => setFLieuId(e.target.value)}
-                >
-                  <option value="">Tous les lieux du gestionnaire</option>
+              <fieldset>
+                <legend className="text-sm font-medium text-savr-neutral-700">
+                  Lieux concernés
+                </legend>
+                <div className="mt-2 max-h-60 space-y-2 overflow-y-auto rounded-savr-md border border-savr-neutral-200 p-3">
+                  <label className="flex min-h-11 items-center gap-3 text-sm font-medium">
+                    <Checkbox
+                      checked={fLieuIds.length === 0}
+                      onCheckedChange={(v) => {
+                        if (v === true) setFLieuIds([]);
+                      }}
+                    />
+                    Tous les lieux du gestionnaire
+                  </label>
                   {lieuxGestionnaire.map((l) => (
-                    <option key={l.id} value={l.id}>
+                    <label
+                      key={l.id}
+                      className="flex min-h-11 items-center gap-3 text-sm"
+                    >
+                      <Checkbox
+                        checked={fLieuIds.includes(l.id)}
+                        onCheckedChange={(v) =>
+                          setFLieuIds((prev) =>
+                            v === true
+                              ? [...prev, l.id]
+                              : prev.filter((id) => id !== l.id),
+                          )
+                        }
+                      />
                       {l.nom}
-                    </option>
+                    </label>
                   ))}
-                </Select>
+                </div>
                 <p className="mt-1 text-xs text-savr-neutral-500">
                   S&apos;applique à toutes les collectes réalisées sur ces
                   lieux, quel que soit le traiteur. Si le traiteur a sa propre
                   remise, seule la plus élevée des deux s&apos;applique.
+                  {fLieuIds.length > 1 &&
+                    ` Une remise sera enregistrée par lieu (${fLieuIds.length}).`}
                 </p>
-              </div>
+              </fieldset>
             )}
             <div>
               <Label htmlFor="remise-pct">Remise (%)</Label>

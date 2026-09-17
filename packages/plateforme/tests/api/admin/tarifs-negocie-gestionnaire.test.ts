@@ -19,15 +19,22 @@ function builder(table: string) {
       rows = rows.filter((r) => r[col] === val);
       return b;
     },
+    in: (col: string, vals: unknown[]) => {
+      rows = rows.filter((r) => vals.includes(r[col]));
+      return b;
+    },
     maybeSingle: () => Promise.resolve({ data: rows[0] ?? null, error: null }),
-    insert: (row: Row) => {
-      inserts.push({ table, row });
+    then: (onF: (v: unknown) => unknown) =>
+      Promise.resolve({ data: rows, error: null }).then(onF),
+    insert: (payload: Row | Row[]) => {
+      const lignes = (Array.isArray(payload) ? payload : [payload]).map(
+        (row, i) => ({ id: `${table}-new-${i}`, ...row }),
+      );
+      for (const row of lignes) inserts.push({ table, row });
       const ib: Record<string, unknown> = {
         select: () => ib,
-        single: () =>
-          Promise.resolve({ data: { id: 'rem-new', ...row }, error: null }),
         then: (onF: (v: unknown) => unknown) =>
-          Promise.resolve({ data: null, error: null }).then(onF),
+          Promise.resolve({ data: lignes, error: null }).then(onF),
       };
       return ib;
     },
@@ -70,6 +77,10 @@ function post(body: unknown): NextRequest {
   });
 }
 
+const LIEU_PV = '22222222-2222-4222-8222-222222222222';
+const LIEU_PN = '44444444-4444-4444-8444-444444444444';
+const LIEU_AUTRE = '33333333-3333-4333-8333-333333333333';
+
 const BASE = {
   scope: 'gestionnaire',
   gestionnaire_organisation_id: 'org-viparis',
@@ -89,7 +100,8 @@ describe('POST tarifs-negocie — scope gestionnaire', () => {
         { id: 'org-kaspia', type: 'traiteur' },
       ],
       organisations_lieux: [
-        { id: 'ol-1', organisation_id: 'org-viparis', lieu_id: 'lieu-pv' },
+        { id: 'ol-1', organisation_id: 'org-viparis', lieu_id: LIEU_PV },
+        { id: 'ol-2', organisation_id: 'org-viparis', lieu_id: LIEU_PN },
       ],
     };
   });
@@ -109,16 +121,49 @@ describe('POST tarifs-negocie — scope gestionnaire', () => {
 
   it('201 : lieu précis rattaché au gestionnaire → lieu_id inséré', async () => {
     const { POST } = await import('@/app/api/v1/admin/tarifs-negocie/route.js');
-    const res = await POST(post({ ...BASE, lieu_id: 'lieu-pv' }));
+    const res = await POST(post({ ...BASE, lieu_id: LIEU_PV }));
     expect(res.status).toBe(201);
     expect(inserts.find((i) => i.table === 'tarifs_negocie')?.row.lieu_id).toBe(
-      'lieu-pv',
+      LIEU_PV,
     );
+  });
+
+  it('201 : plusieurs lieux cochés → une remise par lieu, en un seul envoi', async () => {
+    const { POST } = await import('@/app/api/v1/admin/tarifs-negocie/route.js');
+    const res = await POST(post({ ...BASE, lieu_ids: [LIEU_PV, LIEU_PN] }));
+    expect(res.status).toBe(201);
+    const lignes = inserts.filter((i) => i.table === 'tarifs_negocie');
+    expect(lignes.map((l) => l.row.lieu_id).sort()).toEqual(
+      [LIEU_PV, LIEU_PN].sort(),
+    );
+    for (const l of lignes)
+      expect(l.row).toMatchObject({
+        scope: 'gestionnaire',
+        gestionnaire_organisation_id: 'org-viparis',
+        remise_pct: 0.1,
+      });
+    expect(inserts.filter((i) => i.table === 'audit_log')).toHaveLength(2);
+  });
+
+  it('201 : liste de lieux vide → une seule remise « tous les lieux » (lieu_id null)', async () => {
+    const { POST } = await import('@/app/api/v1/admin/tarifs-negocie/route.js');
+    const res = await POST(post({ ...BASE, lieu_ids: [] }));
+    expect(res.status).toBe(201);
+    const lignes = inserts.filter((i) => i.table === 'tarifs_negocie');
+    expect(lignes).toHaveLength(1);
+    expect(lignes[0]?.row.lieu_id).toBeNull();
+  });
+
+  it("422 : un des lieux cochés n'est pas rattaché → aucune remise insérée", async () => {
+    const { POST } = await import('@/app/api/v1/admin/tarifs-negocie/route.js');
+    const res = await POST(post({ ...BASE, lieu_ids: [LIEU_PV, LIEU_AUTRE] }));
+    expect(res.status).toBe(422);
+    expect(inserts.some((i) => i.table === 'tarifs_negocie')).toBe(false);
   });
 
   it("422 : lieu non rattaché au gestionnaire → rien n'est inséré", async () => {
     const { POST } = await import('@/app/api/v1/admin/tarifs-negocie/route.js');
-    const res = await POST(post({ ...BASE, lieu_id: 'lieu-autre' }));
+    const res = await POST(post({ ...BASE, lieu_id: LIEU_AUTRE }));
     expect(res.status).toBe(422);
     expect(inserts.some((i) => i.table === 'tarifs_negocie')).toBe(false);
   });
@@ -138,7 +183,7 @@ describe('POST tarifs-negocie — scope gestionnaire', () => {
       post({
         scope: 'organisation',
         organisation_id: 'org-kaspia',
-        lieu_id: 'lieu-pv',
+        lieu_id: LIEU_PV,
         activite: 'zd',
         remise_pct: 0.1,
         valide_du: '2026-09-17',

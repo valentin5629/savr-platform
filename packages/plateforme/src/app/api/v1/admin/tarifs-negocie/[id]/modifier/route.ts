@@ -4,13 +4,17 @@ import { requireAdmin } from '@/lib/api-auth.js';
 import { serverError, writeError } from '@/lib/api-helpers.js';
 import { decalerJour, jourParis } from '@savr/shared/src/temps/index.js';
 import { logger } from '@savr/shared/src/logger/index.js';
+import {
+  lireLieuxDuCorps,
+  verifierLieuxGestionnaire,
+} from '@/lib/admin/remise-lieux.js';
 
 // Modification d'une remise négociée — §06.06 « Remises négociées » : « fermeture
 // de la ligne active + création nouvelle ligne (jamais de modification
 // rétroactive) ». L'ancienne ligne est close la veille de la date d'effet de la
 // nouvelle (pas de jour où les deux s'appliquent) ; la date d'effet ne peut pas
-// être passée. Portée (scope, porteur) et activité sont conservées ; seul le lieu
-// d'une remise gestionnaire peut changer.
+// être passée. Portée (scope, porteur) et activité sont conservées ; seuls les
+// lieux d'une remise gestionnaire peuvent changer (une nouvelle ligne par lieu).
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -110,35 +114,31 @@ export async function POST(
     );
   }
 
-  // Lieu : absent du corps = inchangé ; null = tous les lieux du gestionnaire.
-  let lieuId = old.lieu_id;
-  if ('lieu_id' in body) {
-    const l = body.lieu_id;
-    if (l !== null && (typeof l !== 'string' || !UUID_RE.test(l))) {
-      return NextResponse.json({ error: 'lieu_id invalide' }, { status: 422 });
-    }
-    if (l && old.scope !== 'gestionnaire') {
+  // Lieux (lieu_ids, ou lieu_id historique) : absents du corps = inchangés ;
+  // liste vide = tous les lieux du gestionnaire. Une nouvelle ligne par lieu.
+  const corpsLieux = lireLieuxDuCorps(body);
+  if (!corpsLieux.ok) {
+    return NextResponse.json({ error: corpsLieux.error }, { status: 422 });
+  }
+  let lieux: Array<string | null> = [old.lieu_id];
+  if (corpsLieux.fourni) {
+    if (corpsLieux.ids.length > 0 && old.scope !== 'gestionnaire') {
       return NextResponse.json(
-        { error: 'lieu_id réservé au scope gestionnaire' },
+        { error: 'Les lieux sont réservés au scope gestionnaire' },
         { status: 422 },
       );
     }
-    if (l) {
-      const { data: lien, error: lErr } = await supabase
-        .from('organisations_lieux')
-        .select('id')
-        .eq('organisation_id', old.gestionnaire_organisation_id as string)
-        .eq('lieu_id', l)
-        .maybeSingle();
-      if (lErr) return serverError(lErr, 'admin.tarifs_negocie.modifier');
-      if (!lien) {
-        return NextResponse.json(
-          { error: "Ce lieu n'est pas rattaché à ce gestionnaire" },
-          { status: 422 },
-        );
-      }
+    if (old.scope === 'gestionnaire') {
+      const v = await verifierLieuxGestionnaire(
+        supabase,
+        old.gestionnaire_organisation_id as string,
+        corpsLieux.ids,
+      );
+      if (!v.ok && v.status === 500)
+        return serverError(v.cause, 'admin.tarifs_negocie.modifier');
+      if (!v.ok) return NextResponse.json({ error: v.error }, { status: 422 });
+      lieux = v.lieux;
     }
-    lieuId = (l as string | null) || null;
   }
 
   // 1. Fermeture gardée (encore ouverte) : deux modifications concurrentes ne
@@ -159,12 +159,12 @@ export async function POST(
     );
   }
 
-  // 2. Nouvelle ligne ; en cas d'échec, la fermeture est annulée.
+  // 2. Nouvelles lignes (une par lieu, un seul INSERT) ; en cas d'échec, la
+  //    fermeture est annulée.
   const nouvelle = {
     scope: old.scope,
     organisation_id: old.organisation_id,
     gestionnaire_organisation_id: old.gestionnaire_organisation_id,
-    lieu_id: lieuId,
     activite: old.activite,
     remise_pct,
     valide_du,
@@ -173,10 +173,9 @@ export async function POST(
   };
   const { data, error: insErr } = await supabase
     .from('tarifs_negocie')
-    .insert(nouvelle)
-    .select('*')
-    .single();
-  if (insErr || !data) {
+    .insert(lieux.map((lieu_id) => ({ ...nouvelle, lieu_id })))
+    .select('*');
+  if (insErr || !data?.length) {
     const { error: rbErr } = await supabase
       .from('tarifs_negocie')
       .update({ valide_jusqu_au: null })
@@ -193,25 +192,28 @@ export async function POST(
     }
     return writeError(insErr, 'admin.tarifs_negocie.modifier');
   }
+  const creees = data as Array<{ id: string; lieu_id: string | null }>;
 
   try {
-    await supabase.from('audit_log').insert({
-      table_name: 'tarifs_negocie',
-      record_id: (data as { id: string }).id,
-      action: 'modification_remise',
-      user_id: auth.ctx.userId,
-      old_values: {
-        id: old.id,
-        remise_pct: old.remise_pct,
-        valide_du: old.valide_du,
-        lieu_id: old.lieu_id,
-        valide_jusqu_au: fin,
-      },
-      new_values: nouvelle,
-    });
+    await supabase.from('audit_log').insert(
+      creees.map((r) => ({
+        table_name: 'tarifs_negocie',
+        record_id: r.id,
+        action: 'modification_remise',
+        user_id: auth.ctx.userId,
+        old_values: {
+          id: old.id,
+          remise_pct: old.remise_pct,
+          valide_du: old.valide_du,
+          lieu_id: old.lieu_id,
+          valide_jusqu_au: fin,
+        },
+        new_values: { ...nouvelle, lieu_id: r.lieu_id },
+      })),
+    );
   } catch {
     /* audit failure non-bloquante */
   }
 
-  return NextResponse.json(data, { status: 201 });
+  return NextResponse.json({ data: creees }, { status: 201 });
 }

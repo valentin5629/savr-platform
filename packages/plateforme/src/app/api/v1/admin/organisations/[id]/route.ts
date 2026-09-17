@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { writeError } from '@/lib/api-helpers.js';
+import {
+  MESSAGE_SIRET_INVALIDE,
+  normaliserSiretOrganisation,
+} from '@/lib/siret-organisation.js';
 
 export async function GET(
   req: NextRequest,
@@ -106,6 +110,19 @@ export async function PATCH(
   const updatePayload: Record<string, unknown> = {};
   for (const field of EDITABLE_FIELDS) {
     if (field in body) updatePayload[field] = body[field];
+  }
+
+  // SIRET : format seul (14 chiffres, blancs retirés, vide ⇒ null), aucun appel
+  // INSEE sur organisations.siret (§06.06).
+  if ('siret' in updatePayload) {
+    const n = normaliserSiretOrganisation(updatePayload.siret);
+    if (!n.valide) {
+      return NextResponse.json(
+        { error: MESSAGE_SIRET_INVALIDE, champs_invalides: ['siret'] },
+        { status: 422 },
+      );
+    }
+    updatePayload.siret = n.siret;
   }
 
   if (auth.ctx.role === 'admin_savr') {

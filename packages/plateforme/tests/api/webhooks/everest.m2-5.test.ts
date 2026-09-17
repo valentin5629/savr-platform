@@ -33,6 +33,7 @@ let lastMissionId = '';
 let mockTransporteurRow: unknown = { type_tms: 'a_toutes' };
 let mockRefTournee: string | null | undefined;
 let mockLienAbsent = false;
+let mockLienSurcharge: Record<string, unknown> = {};
 
 // Lignes « en base » sur lesquelles les UPDATE évaluent LEURS filtres : une garde
 // absente du WHERE modifie la ligne. Initialisées à la première lecture/écriture
@@ -95,6 +96,7 @@ beforeEach(() => {
   mockTransporteurRow = { type_tms: 'a_toutes' };
   mockRefTournee = undefined;
   mockLienAbsent = false;
+  mockLienSurcharge = {};
   collecteLive = null;
   missionLive = null;
   apresLectureCollecte = null;
@@ -193,18 +195,37 @@ const makeQuery = (table: string) => {
     }
     if (table === 'transporteurs')
       return { data: mockTransporteurRow, error: null };
-    if (table === 'collecte_tournees')
+    if (table === 'collecte_tournees') {
+      // Le lien « en base » appartient à la collecte et à la tournée de la
+      // mission (sauf surcharge) ; les filtres eq de la lecture sont évalués.
+      const mission = mockMissionRow as {
+        collecte_id?: string;
+        tournee_id?: string;
+      } | null;
+      const lien: Record<string, unknown> = {
+        collecte_id: mission?.collecte_id,
+        tournee_id: mission?.tournee_id,
+        ...mockLienSurcharge,
+      };
+      const eqCalls = (q['eq'] as ReturnType<typeof vi.fn>).mock.calls as Array<
+        [string, unknown]
+      >;
+      const matche = eqCalls.every(([col, val]) => lien[col] === val);
       return {
-        data: mockLienAbsent
-          ? null
-          : {
-              tournees: {
-                external_ref_commande:
-                  mockRefTournee === undefined ? lastMissionId : mockRefTournee,
+        data:
+          mockLienAbsent || !matche
+            ? null
+            : {
+                tournees: {
+                  external_ref_commande:
+                    mockRefTournee === undefined
+                      ? lastMissionId
+                      : mockRefTournee,
+                },
               },
-            },
         error: null,
       };
+    }
     if (table === 'audit_log') return { data: mockAuditRow, error: null };
     return { data: null, error: null };
   });
@@ -1463,6 +1484,46 @@ describe('M2.5 / webhook Everest — event d’une mission qui n’est plus la m
   });
 
   it.each([
+    ['d’une autre collecte', { collecte_id: 'col-autre' }],
+    ['d’une autre tournée', { tournee_id: 'tour-autre' }],
+  ])(
+    'mission_failed : seul lien trouvé = celui %s → collecte NON rejetée',
+    async (_libelle, surcharge) => {
+      mockLienSurcharge = surcharge;
+
+      await POST(
+        makeWebhookRequest({
+          mission_id: 'EVR-OLD-10',
+          event_type: 'mission_failed',
+          occurred_at: '2026-07-20T22:30:00Z',
+        }),
+      );
+
+      expect(updatedRows['collectes'] ?? []).toEqual([]);
+      expect(traceHorsAttribution('EVR-OLD-10')).toBe(true);
+    },
+  );
+
+  it('tournée liée SANS référence (commit adapter pas encore passé) → 500, inbox NON traitée, aucune décision', async () => {
+    mockRefTournee = null;
+
+    const resp = await POST(
+      makeWebhookRequest({
+        mission_id: 'EVR-SANS-REF',
+        event_type: 'mission_dispatched',
+        occurred_at: '2026-07-20T22:05:00Z',
+      }),
+    );
+
+    expect(resp.status).toBe(500);
+    expect(inboxMarqueeTraitee()).toBe(false);
+    expect(updatedRows['collectes'] ?? []).toEqual([]);
+    expect(alertePosee('everest_mission_hors_attribution')).toBe(false);
+    expect(traceHorsAttribution('EVR-SANS-REF')).toBe(false);
+    expect(alerteNonEnregistre('col-reattr')).toBeDefined();
+  });
+
+  it.each([
     ['transporteurs', 'lecture du transporteur attribué'],
     ['collecte_tournees', 'lecture de la tournée de la collecte'],
   ])(
@@ -1669,6 +1730,64 @@ describe('M2.5 / webhook Everest — gardes dans le WHERE (écritures concurrent
 
     expect(collecteAppliquee()).toEqual([]);
     expect(collecteLive?.['statut']).toBe('en_cours');
+  });
+
+  it('course sans marchandise : type changé entre la lecture et l’UPDATE → 0 ligne (AG only)', async () => {
+    mockCollecteRow = {
+      type: 'anti_gaspi',
+      statut: 'en_cours',
+      statut_tms: 'acceptee',
+    };
+    apresLectureCollecte = (live) => {
+      live['type'] = 'zero_dechet';
+    };
+    mockState.details.set('EVR-CONC-TYPE', {
+      mission_id: 'EVR-CONC-TYPE',
+      status: 'Pas de commande',
+      cout_ht: null,
+      preuve_url: null,
+      coursier_nom: null,
+      coursier_telephone: null,
+      vehicule_type: null,
+    });
+
+    await POST(
+      makeWebhookRequest({
+        mission_id: 'EVR-CONC-TYPE',
+        event_type: 'mission_finished',
+        occurred_at: '2026-07-20T23:30:00Z',
+      }),
+    );
+
+    expect(collecteAppliquee()).toEqual([]);
+    expect(collecteLive?.['statut']).toBe('en_cours');
+    expect(alertePosee('collecte_aucun_repas')).toBe(false);
+  });
+
+  it('mission terminale réécrite par un re-dispatch pendant l’event → la synchronisation de l’ancienne n’écrase pas la nouvelle', async () => {
+    mockMissionRow = {
+      id: 'em-conc',
+      tournee_id: 'tour-conc',
+      collecte_id: 'col-conc',
+      statut_everest: 'failed',
+    };
+    apresLectureMission = (live) => {
+      live['everest_mission_id'] = 'EVR-NOUVELLE';
+      live['statut_everest'] = 'created';
+      live['payload_latest_update'] = { nouvelle: true };
+    };
+
+    const resp = await POST(
+      makeWebhookRequest({
+        mission_id: 'EVR-CONC-TERM',
+        event_type: 'mission_late',
+        occurred_at: '2026-07-20T23:00:00Z',
+      }),
+    );
+
+    expect(resp.status).toBe(200);
+    expect(appliedRows['everest_missions'] ?? []).toEqual([]);
+    expect(missionLive?.['payload_latest_update']).toEqual({ nouvelle: true });
   });
 
   it('mission réécrite par une réattribution A Toutes! → A Toutes! pendant l’event → l’ancienne n’écrase pas la nouvelle', async () => {

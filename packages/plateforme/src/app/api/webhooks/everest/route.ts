@@ -770,11 +770,28 @@ async function lireCollecte(
   if (lienErr)
     await echecLecture(lienErr, 'lecture de la tournée de la collecte');
   // FK sortante `collecte_tournees.tournee_id` → embed OBJET, pas tableau.
-  const reference = (
+  const tournee = (
     lien as { tournees: { external_ref_commande: string | null } } | null
-  )?.tournees.external_ref_commande;
+  )?.tournees;
 
-  return reference === missionId
+  // Tournée liée mais sans référence : l'adapter enregistre la mission AVANT
+  // de committer sa référence, et un commit en échec n'est rejoué par le worker
+  // qu'au palier suivant (5 min à 24 h). Ni courante ni ancienne : on ne décide
+  // pas → 500, inbox non traitée, l'event sera retraité au rejeu.
+  if (tournee && tournee.external_ref_commande === null) {
+    await echecEtatMetier(
+      supabase,
+      { message: 'référence de mission absente de la tournée' },
+      {
+        evenement: 'reference_mission_non_enregistree',
+        collecteId: mission.collecte_id,
+        missionId,
+        quoi: 'la référence de la course n’est pas encore enregistrée sur sa tournée',
+      },
+    );
+  }
+
+  return tournee?.external_ref_commande === missionId
     ? { etat, courante: true, prestataire }
     : { etat, courante: false };
 }

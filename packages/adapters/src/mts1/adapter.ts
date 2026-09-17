@@ -37,7 +37,10 @@ import {
   prestatairesDuType,
   retenirTourneesDuProvider,
 } from '../provider-tournees.js';
-import { FILTRE_STATUTS_COLLECTE_TERMINAUX } from '../statuts-collecte.js';
+import {
+  FILTRE_STATUTS_COLLECTE_TERMINAUX,
+  STATUTS_COLLECTE_EN_EXECUTION,
+} from '../statuts-collecte.js';
 import type { CreateOrderPayload, CreateTourPayload } from './client.js';
 import { Mts1Client } from './client.js';
 import type { Mts1Tour } from './mock.js';
@@ -605,7 +608,11 @@ export class AdapterMts1 implements LogistiqueProvider {
       const { collecteId, tourneeId, tmsReference, collecteStatut } =
         tourneeInfo;
 
-      // 3. Mise à jour statut_tms
+      // 3. Mise à jour statut_tms — seulement sur une collecte en cours
+      // d'exécution. Garde dans le WHERE (le statut lu plus haut peut avoir
+      // changé) : un ordre CANCELED/KO remonté après une annulation Savr ne
+      // réécrit pas le statut_tms d'une collecte annulée ou en demande
+      // d'annulation (arbitrage Val 2026-09-17).
       const nouveauStatutTms = MTS1_STATUS_TO_TMS[order.status] ?? null;
       if (nouveauStatutTms) {
         await this.supabase
@@ -614,7 +621,8 @@ export class AdapterMts1 implements LogistiqueProvider {
             statut_tms: nouveauStatutTms,
             statut_tms_at: new Date().toISOString(),
           })
-          .eq('id', collecteId);
+          .eq('id', collecteId)
+          .in('statut', [...STATUTS_COLLECTE_EN_EXECUTION]);
       }
 
       // IN_PROGRESSION → passage direct collectes.statut → 'en_cours'

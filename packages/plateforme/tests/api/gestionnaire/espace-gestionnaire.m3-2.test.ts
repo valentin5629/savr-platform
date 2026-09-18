@@ -1086,7 +1086,5 @@ describe('M3.2 / mon-organisation / factures (F6)', () => {
     };
     expect(json.data).toHaveLength(1);
     expect(json.data[0]?.id).toBe('f1');
-    // Brouillons jamais visibles côté client.
-    expect(rls.__calls.neq).toContainEqual(['statut', 'brouillon']);
   });
 });

@@ -586,8 +586,6 @@ describe('M3.2 / P2 détail traiteur', () => {
         id: 'tr1',
         nom: 'Kaspia',
         logo_url: null,
-        ville: 'Paris',
-        description_activite: null,
       },
       error: null,
     }); // orga maybeSingle

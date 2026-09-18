@@ -619,8 +619,6 @@ describe('M3.2 / traiteurs', () => {
         id: 'org-kaspia',
         nom: 'Kaspia',
         logo_url: null,
-        ville: 'Paris',
-        description_activite: null,
       },
       error: null,
     }); // orga (maybeSingle — before collectes in the route)
@@ -634,10 +632,41 @@ describe('M3.2 / traiteurs', () => {
     const json = (await res.json()) as {
       data: Record<string, unknown>;
     };
+    expect(res.status).toBe(200);
     expect(json.data.nom).toBe('Kaspia');
     expect(json.data).not.toHaveProperty('email');
     expect(json.data).not.toHaveProperty('siret');
     expect(json.data).not.toHaveProperty('telephone');
+    // Oracle sur la requête, pas sur la fixture : la fixture ci-dessus est posée
+    // à la main, seule la liste du select prouve ce qui est lu en base.
+    // Colonnes réelles de plateforme.organisations uniquement (une colonne
+    // inexistante = 42703 → 500 en runtime) ; jamais notes_internes ni tarifs.
+    const fromCalls = rls.__calls.from ?? [];
+    const idx = fromCalls.findIndex((a) => a[0] === 'organisations');
+    expect(idx).toBeGreaterThanOrEqual(0);
+    const selectArg = String(rls.__calls.select?.[idx]?.[0] ?? '');
+    const colonnes = selectArg.split(',').map((c) => c.trim());
+    expect(colonnes).toEqual(['id', 'nom', 'logo_url']);
+  });
+
+  it('M3.2/traiteur_fiche_erreur_collectes_500 — une erreur DB ne se déguise pas en stats à zéro', async () => {
+    setupAuth('gestionnaire_lieux');
+    rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null }); // orgLieux
+    rls.push({
+      data: { id: 'org-kaspia', nom: 'Kaspia', logo_url: null },
+      error: null,
+    }); // orga
+    rls.push({
+      data: null,
+      error: { code: '42703', message: 'column does not exist' },
+    }); // collectes
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/traiteurs/[id]/route.js');
+    const res = await GET(
+      makeReq('GET', '/api/v1/gestionnaire/traiteurs/org-kaspia'),
+      { params: Promise.resolve({ id: 'org-kaspia' }) },
+    );
+    expect(res.status).toBe(500);
   });
 
   it('M3.2/traiteurs_repas_objet — repas 12 mois : embed to-one (OBJET) compté, pas 0', async () => {
@@ -683,8 +712,6 @@ describe('M3.2 / traiteurs', () => {
         id: 'org-kaspia',
         nom: 'Kaspia',
         logo_url: null,
-        ville: 'Paris',
-        description_activite: null,
       },
       error: null,
     }); // orga (maybeSingle)

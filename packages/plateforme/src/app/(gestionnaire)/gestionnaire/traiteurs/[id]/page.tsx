@@ -12,8 +12,6 @@ interface TraiteurDetail {
   id: string;
   nom: string;
   logo_url: string | null;
-  ville: string | null;
-  description_activite: string | null;
   stats_12m: {
     nb_collectes_zd: number;
     nb_collectes_ag: number;
@@ -80,22 +78,11 @@ export default function TraiteurDetailPage({
               className="h-10 w-10 rounded-full object-cover"
             />
           )}
-          <div>
-            <h1 className="text-2xl font-bold text-savr-primary-800">
-              {traiteur.nom}
-            </h1>
-            {traiteur.ville && (
-              <p className="text-sm text-savr-neutral-500">{traiteur.ville}</p>
-            )}
-          </div>
+          <h1 className="text-2xl font-bold text-savr-primary-800">
+            {traiteur.nom}
+          </h1>
         </div>
       </div>
-
-      {traiteur.description_activite && (
-        <p className="text-sm text-savr-neutral-700">
-          {traiteur.description_activite}
-        </p>
-      )}
 
       <Card>
         <CardHeader>

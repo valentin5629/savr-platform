@@ -13,7 +13,6 @@ interface Attribution {
   associations: {
     nom: string;
     ville: string | null;
-    distance_km: number | null;
   } | null;
 }
 interface Collecte {
@@ -31,8 +30,8 @@ interface Collecte {
   attributions_antgaspi: Attribution[];
   bordereaux_savr: {
     id: string;
-    numero_bordereau: string;
-    pdf_url: string | null;
+    numero: string | null;
+    statut: string;
   }[];
   rapports_rse: { id: string; pdf_url: string | null }[];
   attestations_don: {
@@ -87,6 +86,17 @@ export default function EvenementDetailPage({
       })
       .finally(() => setLoading(false));
   }, [id]);
+
+  // Bordereau ZD : URL pré-signée R2 servie par la route registre (gestionnaire
+  // autorisé, RLS bordereaux_savr = frontière) — même geste que le registre.
+  async function telechargerBordereau(bordereauId: string) {
+    const res = await fetch(
+      `/api/v1/registre/bordereaux/${encodeURIComponent(bordereauId)}/download`,
+    );
+    if (!res.ok) return;
+    const j = (await res.json()) as { url?: string };
+    if (j.url) window.open(j.url, '_blank');
+  }
 
   if (loading)
     return <p className="text-sm text-savr-neutral-500">Chargement…</p>;
@@ -206,16 +216,15 @@ export default function EvenementDetailPage({
               {/* Documents */}
               <div className="flex flex-wrap gap-2">
                 {c.bordereaux_savr.map((b) =>
-                  b.pdf_url ? (
-                    <a
+                  b.statut === 'emis' || b.statut === 'corrige' ? (
+                    <button
                       key={b.id}
-                      href={b.pdf_url}
-                      target="_blank"
-                      rel="noreferrer"
+                      type="button"
+                      onClick={() => void telechargerBordereau(b.id)}
                       className="text-xs text-savr-primary-700 underline"
                     >
-                      Bordereau {b.numero_bordereau}
-                    </a>
+                      Bordereau {b.numero ?? ''}
+                    </button>
                   ) : null,
                 )}
                 {c.rapports_rse.map((r) =>

@@ -7,6 +7,7 @@ import { type SupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { jourParis } from '@savr/shared/src/temps/index.js';
 
 import { createSupabaseServerClient } from '@/lib/api-auth.js';
+import { storageKeysDesFichiers } from '@/lib/pdf/fichier-storage-key.js';
 import { getObjectBytes } from '@/lib/pdf/r2-client.js';
 import { requireRegistreUser } from '@/lib/registre/guard.js';
 import {
@@ -24,7 +25,7 @@ const ZIP_MAX = 50;
 
 interface BordereauPdf {
   numero: string | null;
-  fichiers: { url?: string } | { url?: string }[] | null;
+  pdf_fichier_id: string | null;
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     // Bordereaux disponibles (emis/corrige) de ces collectes (RLS-scopé).
     const { data, error } = await supabase
       .from('bordereaux_savr')
-      .select('numero, fichiers:pdf_fichier_id(url)')
+      .select('numero, pdf_fichier_id')
       .in('collecte_id', collecteIds)
       .in('statut', ['emis', 'corrige']);
     if (error) throw erreurInterne(error, 'registre.export_zip');
@@ -69,11 +70,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       );
     }
 
+    // pdf_fichier_id → shared.fichiers (bucket/key) : pas d'embed cross-schema.
+    const storageKeys = await storageKeysDesFichiers(
+      supabase,
+      bordereaux.map((b) => b.pdf_fichier_id),
+    );
     const entries: ZipEntry[] = [];
     for (const b of bordereaux) {
-      const f = Array.isArray(b.fichiers) ? b.fichiers[0] : b.fichiers;
-      if (!f?.url) continue;
-      const bytes = await getObjectBytes(f.url);
+      const storageKey = storageKeys.get(b.pdf_fichier_id ?? '');
+      if (!storageKey) continue;
+      const bytes = await getObjectBytes(storageKey);
       entries.push({ name: `${b.numero ?? 'bordereau'}.pdf`, data: bytes });
     }
 

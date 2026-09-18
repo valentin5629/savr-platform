@@ -11,7 +11,9 @@ const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
 // GET /api/v1/gestionnaire/traiteurs/[id]
 // Fiche traiteur non-commerciale : nom, logo, stats 12 mois sur les lieux de l'organisation.
-// Champs exclus : email, téléphone, SIRET (§06.05).
+// Champs exclus : email, téléphone, SIRET, adresse, notes internes, tarifs (§06.05).
+// La « ville » de §06.05 n'a pas de colonne dans organisations → non affichée
+// (décision Val 2026-09-18).
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -24,9 +26,10 @@ export async function GET(
   const supabase = createSupabaseServerClient();
 
   // Périmètre lieux de l'organisation
-  const { data: orgLieux } = await supabase
+  const { data: orgLieux, error: lieuxErr } = await supabase
     .from('organisations_lieux')
     .select('lieu_id');
+  if (lieuxErr) return serverError(lieuxErr, 'gestionnaire.traiteurs.get');
   const lieuIds = (orgLieux ?? []).map((r) => r.lieu_id as string);
   if (lieuIds.length === 0)
     return NextResponse.json({ error: 'Traiteur non trouvé' }, { status: 404 });
@@ -34,7 +37,7 @@ export async function GET(
   // Infos non-commerciales du traiteur
   const { data: orga, error: orgaErr } = await supabase
     .from('organisations')
-    .select('id, nom, logo_url, ville, description_activite')
+    .select('id, nom, logo_url')
     .eq('id', id)
     .eq('type', 'traiteur')
     .maybeSingle();
@@ -45,7 +48,7 @@ export async function GET(
   since12m.setMonth(since12m.getMonth() - 12);
   const sinceStr = jourParis(since12m);
 
-  const { data: collectes } = await supabase
+  const { data: collectes, error: collectesErr } = await supabase
     .from('collectes')
     .select(
       `id, type, statut, date_collecte, taux_recyclage,
@@ -59,6 +62,8 @@ export async function GET(
     .in('evenements.lieu_id', lieuIds)
     .gte('date_collecte', sinceStr)
     .order('date_collecte', { ascending: false });
+  if (collectesErr)
+    return serverError(collectesErr, 'gestionnaire.traiteurs.get');
 
   let tonnage = 0,
     tauxNum = 0,
@@ -125,8 +130,6 @@ export async function GET(
       id: orga.id,
       nom: orga.nom,
       logo_url: orga.logo_url ?? null,
-      ville: orga.ville ?? null,
-      description_activite: orga.description_activite ?? null,
       stats_12m: {
         nb_collectes_zd: nbZd,
         nb_collectes_ag: nbAg,

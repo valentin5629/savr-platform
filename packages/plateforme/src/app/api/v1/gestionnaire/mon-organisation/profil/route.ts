@@ -4,7 +4,7 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
-import { serverError } from '@/lib/api-helpers.js';
+import { serverError, writeError } from '@/lib/api-helpers.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
@@ -15,13 +15,14 @@ const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 // lire les traiteurs intervenus sur ses lieux (org_gestionnaire_traiteur_select),
 // une lecture non filtrée renverrait plusieurs lignes.
 // Colonnes = colonnes RÉELLES de plateforme.organisations.
-// Champs éditables : logo_url, telephone.
-// Champs protégés (Admin only) : raison_sociale, siret, adresse.
+// Champs éditables (§06.05 §6 Bloc Organisation) : adresse, logo_url.
+// Nom en lecture seule (modification via support) ; raison_sociale et siret
+// réservés à l'Admin.
 
 const PROFIL_COLUMNS =
   'id, nom, raison_sociale, siret, adresse, email_principal, telephone, logo_url';
 
-const EDITABLE_FIELDS = new Set(['logo_url', 'telephone']);
+const EDITABLE_FIELDS = new Set(['adresse', 'logo_url']);
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(req, ROLES);
@@ -78,7 +79,7 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
     .maybeSingle();
 
   if (error)
-    return serverError(error, 'gestionnaire.mon_organisation.profil.update');
+    return writeError(error, 'gestionnaire.mon_organisation.profil.update');
   if (!data)
     return NextResponse.json(
       { error: 'Organisation non trouvée' },

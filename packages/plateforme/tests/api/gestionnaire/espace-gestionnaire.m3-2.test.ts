@@ -867,7 +867,7 @@ describe('M3.2 / mon-organisation / profil', () => {
   it('M3.2/profil_patch_champ_protege_ignore — siret rejeté silencieusement', async () => {
     setupAuth('gestionnaire_lieux', 'org-viparis');
     rls.push({
-      data: { id: 'org-viparis', nom: 'Viparis', telephone: '0140680000' },
+      data: { id: 'org-viparis', nom: 'Viparis', adresse: '1 rue Neuve' },
       error: null,
     });
     const { PATCH } =
@@ -875,18 +875,43 @@ describe('M3.2 / mon-organisation / profil', () => {
     const res = await PATCH(
       makeReq('PATCH', '/api/v1/gestionnaire/mon-organisation/profil', {
         siret: '99900000000011',
-        telephone: '0140680000',
+        nom: 'Autre nom',
+        adresse: '1 rue Neuve',
       }),
     );
     expect(res.status).toBe(200);
-    // Vérifier que le update ne contenait pas siret
+    // §06.05 §6 Bloc Organisation : adresse modifiable, nom en lecture seule,
+    // siret réservé Admin.
     const updateCalls = rls.__calls.update ?? [];
     expect(updateCalls.length).toBeGreaterThan(0);
     const updateArg = updateCalls[0]?.[0] as Record<string, unknown>;
-    expect(updateArg).not.toHaveProperty('siret');
-    expect(updateArg).toHaveProperty('telephone', '0140680000');
+    expect(updateArg).toEqual({ adresse: '1 rue Neuve' });
     // UPDATE borné à SA propre orga (jamais un UPDATE sans WHERE).
     expect(rls.__calls.eq).toContainEqual(['id', 'org-viparis']);
+  });
+
+  it('M3.2/profil_get_404_organisation_absente', async () => {
+    setupAuth('gestionnaire_lieux', 'org-viparis');
+    rls.push({ data: null, error: null });
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/mon-organisation/profil/route.js');
+    const res = await GET(
+      makeReq('GET', '/api/v1/gestionnaire/mon-organisation/profil'),
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it('M3.2/profil_patch_404_organisation_absente', async () => {
+    setupAuth('gestionnaire_lieux', 'org-viparis');
+    rls.push({ data: null, error: null });
+    const { PATCH } =
+      await import('@/app/api/v1/gestionnaire/mon-organisation/profil/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/gestionnaire/mon-organisation/profil', {
+        logo_url: 'https://exemple.fr/logo.png',
+      }),
+    );
+    expect(res.status).toBe(404);
   });
 
   it('M3.2/profil_patch_aucun_champ_editable_400 — rejet si aucun champ autorisé', async () => {
@@ -1086,5 +1111,17 @@ describe('M3.2 / mon-organisation / factures (F6)', () => {
     };
     expect(json.data).toHaveLength(1);
     expect(json.data[0]?.id).toBe('f1');
+    // Colonnes réelles de plateforme.factures (ex-pdf_url / avoir_facture_id
+    // inexistants → 500 → onglet vide).
+    const select = String(rls.__calls.select?.[0]?.[0]);
+    for (const col of [
+      'pdf_url_savr',
+      'pdf_url_pennylane',
+      'facture_origine_id',
+    ])
+      expect(select).toContain(col);
+    expect(select).not.toMatch(/\bpdf_url\b|avoir_facture_id/);
+    // Brouillons jamais visibles côté client (§06.04 l.100/l.913).
+    expect(rls.__calls.neq).toContainEqual(['statut', 'brouillon']);
   });
 });

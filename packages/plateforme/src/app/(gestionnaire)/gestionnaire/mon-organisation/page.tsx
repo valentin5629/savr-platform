@@ -61,20 +61,34 @@ export default function MonOrganisationPage() {
   const [inviteMsg, setInviteMsg] = useState('');
 
   useEffect(() => {
+    // Ignore la réponse d'un onglet quitté entre-temps (sinon son erreur ou
+    // sa fin de chargement s'appliquerait à l'onglet courant).
+    let actif = true;
     const base = '/api/v1/gestionnaire/mon-organisation';
-    const charger =
+    const charger: Promise<() => void> =
       tab === 'profil'
-        ? fetchData<OrgProfil>(`${base}/profil`).then(setProfil)
+        ? fetchData<OrgProfil>(`${base}/profil`).then((d) => () => setProfil(d))
         : tab === 'membres'
-          ? fetchData<UserRow[]>(`${base}/users`).then(setUsers)
-          : fetchData<FactureRow[]>(`${base}/factures`).then(setFactures);
+          ? fetchData<UserRow[]>(`${base}/users`).then((d) => () => setUsers(d))
+          : fetchData<FactureRow[]>(`${base}/factures`).then(
+              (d) => () => setFactures(d),
+            );
     setLoading(true);
     setErreur('');
     charger
-      .catch((e: unknown) =>
-        setErreur(e instanceof Error ? e.message : ERREUR_CHARGEMENT),
-      )
-      .finally(() => setLoading(false));
+      .then((appliquer) => {
+        if (actif) appliquer();
+      })
+      .catch((e: unknown) => {
+        if (actif)
+          setErreur(e instanceof Error ? e.message : ERREUR_CHARGEMENT);
+      })
+      .finally(() => {
+        if (actif) setLoading(false);
+      });
+    return () => {
+      actif = false;
+    };
   }, [tab]);
 
   async function handleInvite(e: React.FormEvent) {

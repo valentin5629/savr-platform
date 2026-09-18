@@ -51,7 +51,9 @@ function setupAuth(role: string) {
   });
 }
 
-async function appel(collecteId = 'col-1') {
+const COL = '11111111-2222-4333-8444-555555555555';
+
+async function appel(collecteId = COL) {
   const { GET } =
     await import('@/app/api/v1/admin/attributions-ag/[collecteId]/associations/route.js');
   return GET(
@@ -73,7 +75,7 @@ describe('M2.3 / GET attributions-ag/[collecteId]/associations', () => {
     setupAuth('admin_savr');
     collecteResult = {
       data: {
-        id: 'col-1',
+        id: COL,
         evenements: { lieux: { latitude: 48.8566, longitude: 2.3522 } },
       },
       error: null,
@@ -125,7 +127,7 @@ describe('M2.3 / GET attributions-ag/[collecteId]/associations', () => {
     expect(calls).toContainEqual({
       table: 'collectes',
       method: 'eq',
-      args: ['id', 'col-1'],
+      args: ['id', COL],
     });
     expect(calls).toContainEqual({
       table: 'collectes',
@@ -141,13 +143,29 @@ describe('M2.3 / GET attributions-ag/[collecteId]/associations', () => {
 
   it('404 si la collecte AG est introuvable', async () => {
     setupAuth('admin_savr');
-    const res = await appel('inconnue');
+    const res = await appel();
     expect(res.status).toBe(404);
   });
 
-  it('403 pour un rôle client', async () => {
+  it('404 sans requête base si l’identifiant n’est pas un UUID', async () => {
+    setupAuth('admin_savr');
+    const res = await appel('pas-un-uuid');
+    expect(res.status).toBe(404);
+    expect(calls).toEqual([]);
+  });
+
+  it('403 pour un rôle client, sans aucune requête base', async () => {
     setupAuth('traiteur_manager');
     const res = await appel();
     expect(res.status).toBe(403);
+    expect(calls).toEqual([]);
+  });
+
+  it('401 sans session', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+    mockGetSession.mockResolvedValue({ data: { session: null }, error: null });
+    const res = await appel();
+    expect(res.status).toBe(401);
+    expect(calls).toEqual([]);
   });
 });

@@ -10,6 +10,9 @@ import {
 // GET /api/v1/admin/attributions-ag/[collecteId]/associations
 // Toutes les associations actives, triées par distance croissante au lieu de la
 // collecte AG (liste déroulante de l'écran d'attribution, décision Val 2026-09-17).
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 async function getHandler(
   req: NextRequest,
   { params }: { params: Promise<{ collecteId: string }> },
@@ -18,6 +21,13 @@ async function getHandler(
   if (auth.error) return auth.error;
 
   const { collecteId } = await params;
+  // Identifiant non-UUID : 404 direct (sinon Postgres 22P02 → 500 générique).
+  if (!UUID_RE.test(collecteId)) {
+    return NextResponse.json(
+      { error: 'Collecte AG introuvable' },
+      { status: 404 },
+    );
+  }
   const supabase = createAdminSupabaseClient();
 
   // collecte → événement → lieu : FK sortantes = embeds to-one (OBJETS).

@@ -823,15 +823,18 @@ describe('M3.2 / pack AG', () => {
 
 // ── Mon organisation / profil ────────────────────────────────────────────────
 describe('M3.2 / mon-organisation / profil', () => {
-  it('M3.2/profil_get_retourne_organisation — nom et statut siret', async () => {
-    setupAuth('gestionnaire_lieux');
+  it('M3.2/profil_get_retourne_organisation — sa propre organisation, colonnes réelles', async () => {
+    setupAuth('gestionnaire_lieux', 'org-viparis');
     rls.push({
       data: {
         id: 'org-viparis',
         nom: 'Viparis',
-        nom_affichage: 'Viparis SAS',
-        siret_verification: 'verifie',
-        actif: true,
+        raison_sociale: 'Viparis SAS',
+        siret: '12345678900011',
+        adresse: '2 place de la Porte Maillot, 75017 Paris',
+        email_principal: null,
+        telephone: null,
+        logo_url: null,
       },
       error: null,
     });
@@ -842,29 +845,48 @@ describe('M3.2 / mon-organisation / profil', () => {
     );
     const json = (await res.json()) as { data: { nom: string } };
     expect(json.data.nom).toBe('Viparis');
+    // Filtre explicite sur SA propre orga : la RLS expose aussi les traiteurs
+    // intervenus sur ses lieux (org_gestionnaire_traiteur_select).
+    expect(rls.__calls.eq).toContainEqual(['id', 'org-viparis']);
+    // Colonnes réelles de plateforme.organisations uniquement.
+    const cols = String(rls.__calls.select?.[0]?.[0])
+      .split(',')
+      .map((c) => c.trim());
+    expect(cols).toEqual([
+      'id',
+      'nom',
+      'raison_sociale',
+      'siret',
+      'adresse',
+      'email_principal',
+      'telephone',
+      'logo_url',
+    ]);
   });
 
-  it('M3.2/profil_patch_champ_protege_ignore — siren rejeté silencieusement', async () => {
-    setupAuth('gestionnaire_lieux');
+  it('M3.2/profil_patch_champ_protege_ignore — siret rejeté silencieusement', async () => {
+    setupAuth('gestionnaire_lieux', 'org-viparis');
     rls.push({
-      data: { id: 'org-viparis', nom: 'Viparis', nom_affichage: 'Viparis' },
+      data: { id: 'org-viparis', nom: 'Viparis', telephone: '0140680000' },
       error: null,
     });
     const { PATCH } =
       await import('@/app/api/v1/gestionnaire/mon-organisation/profil/route.js');
     const res = await PATCH(
       makeReq('PATCH', '/api/v1/gestionnaire/mon-organisation/profil', {
-        siren: '123456789',
-        nom_affichage: 'Viparis Pro',
+        siret: '99900000000011',
+        telephone: '0140680000',
       }),
     );
     expect(res.status).toBe(200);
-    // Vérifier que le update ne contenait pas siren
+    // Vérifier que le update ne contenait pas siret
     const updateCalls = rls.__calls.update ?? [];
     expect(updateCalls.length).toBeGreaterThan(0);
     const updateArg = updateCalls[0]?.[0] as Record<string, unknown>;
-    expect(updateArg).not.toHaveProperty('siren');
-    expect(updateArg).toHaveProperty('nom_affichage', 'Viparis Pro');
+    expect(updateArg).not.toHaveProperty('siret');
+    expect(updateArg).toHaveProperty('telephone', '0140680000');
+    // UPDATE borné à SA propre orga (jamais un UPDATE sans WHERE).
+    expect(rls.__calls.eq).toContainEqual(['id', 'org-viparis']);
   });
 
   it('M3.2/profil_patch_aucun_champ_editable_400 — rejet si aucun champ autorisé', async () => {
@@ -1047,7 +1069,8 @@ describe('M3.2 / mon-organisation / factures (F6)', () => {
           statut: 'emise',
           montant_ttc: 1200,
           date_emission: '2026-06-01',
-          pdf_url: null,
+          pdf_url_savr: null,
+          pdf_url_pennylane: null,
         },
       ],
       error: null,
@@ -1063,5 +1086,7 @@ describe('M3.2 / mon-organisation / factures (F6)', () => {
     };
     expect(json.data).toHaveLength(1);
     expect(json.data[0]?.id).toBe('f1');
+    // Brouillons jamais visibles côté client.
+    expect(rls.__calls.neq).toContainEqual(['statut', 'brouillon']);
   });
 });

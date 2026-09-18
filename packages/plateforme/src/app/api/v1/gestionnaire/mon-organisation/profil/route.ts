@@ -10,33 +10,29 @@ const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
 // GET /api/v1/gestionnaire/mon-organisation/profil
 // PATCH /api/v1/gestionnaire/mon-organisation/profil
-// Profil de la propre organisation (champs non-sensibles).
-// Champs éditables : nom_affichage, description_activite, logo_url,
-//                    telephone_standard, site_web.
-// Champs protégés (Admin only) : siren, siret, tva_intra, statut_verification_*.
+// Profil de SA propre organisation (§06.05 nav 8 → réutilise §06.04 §6).
+// Filtre explicite `id = organisationId` : la RLS laisse aussi le gestionnaire
+// lire les traiteurs intervenus sur ses lieux (org_gestionnaire_traiteur_select),
+// une lecture non filtrée renverrait plusieurs lignes.
+// Colonnes = colonnes RÉELLES de plateforme.organisations.
+// Champs éditables : logo_url, telephone.
+// Champs protégés (Admin only) : raison_sociale, siret, adresse.
 
-const EDITABLE_FIELDS = new Set([
-  'nom_affichage',
-  'description_activite',
-  'logo_url',
-  'telephone_standard',
-  'site_web',
-]);
+const PROFIL_COLUMNS =
+  'id, nom, raison_sociale, siret, adresse, email_principal, telephone, logo_url';
+
+const EDITABLE_FIELDS = new Set(['logo_url', 'telephone']);
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(req, ROLES);
   if (auth.error) return auth.error;
-  void auth;
 
   const supabase = createSupabaseServerClient();
 
   const { data, error } = await supabase
     .from('organisations')
-    .select(
-      `id, nom, nom_affichage, type, logo_url, description_activite,
-       site_web, telephone_standard, ville, code_postal,
-       domaine_email, siret_verification, actif`,
-    )
+    .select(PROFIL_COLUMNS)
+    .eq('id', auth.ctx.organisationId)
     .maybeSingle();
 
   if (error)
@@ -53,7 +49,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 export async function PATCH(req: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(req, ROLES);
   if (auth.error) return auth.error;
-  void auth;
 
   const supabase = createSupabaseServerClient();
 
@@ -78,14 +73,17 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
   const { data, error } = await supabase
     .from('organisations')
     .update(patch)
-    .select(
-      `id, nom, nom_affichage, type, logo_url, description_activite,
-       site_web, telephone_standard, ville, code_postal, actif`,
-    )
+    .eq('id', auth.ctx.organisationId)
+    .select(PROFIL_COLUMNS)
     .maybeSingle();
 
   if (error)
     return serverError(error, 'gestionnaire.mon_organisation.profil.update');
+  if (!data)
+    return NextResponse.json(
+      { error: 'Organisation non trouvée' },
+      { status: 404 },
+    );
 
   return NextResponse.json({ data });
 }

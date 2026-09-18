@@ -10,14 +10,12 @@ type OrgTab = 'profil' | 'membres' | 'factures';
 interface OrgProfil {
   id: string;
   nom: string;
-  nom_affichage: string | null;
+  raison_sociale: string | null;
+  siret: string | null;
+  adresse: string | null;
+  email_principal: string | null;
+  telephone: string | null;
   logo_url: string | null;
-  description_activite: string | null;
-  site_web: string | null;
-  telephone_standard: string | null;
-  ville: string | null;
-  code_postal: string | null;
-  siret_verification: string | null;
 }
 interface UserRow {
   id: string;
@@ -33,7 +31,18 @@ interface FactureRow {
   statut: string;
   date_emission: string | null;
   montant_ttc: number | null;
-  pdf_url: string | null;
+  pdf_url_savr: string | null;
+  pdf_url_pennylane: string | null;
+}
+
+const ERREUR_CHARGEMENT =
+  'Impossible de charger ces informations. Veuillez réessayer.';
+
+async function fetchData<T>(url: string): Promise<T> {
+  const res = await fetch(url);
+  const j = (await res.json().catch(() => ({}))) as { data?: T };
+  if (!res.ok || j.data === undefined) throw new Error(ERREUR_CHARGEMENT);
+  return j.data;
 }
 
 export default function MonOrganisationPage() {
@@ -42,6 +51,7 @@ export default function MonOrganisationPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [factures, setFactures] = useState<FactureRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [erreur, setErreur] = useState('');
 
   // Invitation form
   const [email, setEmail] = useState('');
@@ -51,25 +61,20 @@ export default function MonOrganisationPage() {
   const [inviteMsg, setInviteMsg] = useState('');
 
   useEffect(() => {
-    if (tab === 'profil') {
-      setLoading(true);
-      fetch('/api/v1/gestionnaire/mon-organisation/profil')
-        .then((r) => r.json())
-        .then((j) => setProfil(j.data as OrgProfil))
-        .finally(() => setLoading(false));
-    } else if (tab === 'membres') {
-      setLoading(true);
-      fetch('/api/v1/gestionnaire/mon-organisation/users')
-        .then((r) => r.json())
-        .then((j) => setUsers((j.data ?? []) as UserRow[]))
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(true);
-      fetch('/api/v1/gestionnaire/mon-organisation/factures')
-        .then((r) => r.json())
-        .then((j) => setFactures((j.data ?? []) as FactureRow[]))
-        .finally(() => setLoading(false));
-    }
+    const base = '/api/v1/gestionnaire/mon-organisation';
+    const charger =
+      tab === 'profil'
+        ? fetchData<OrgProfil>(`${base}/profil`).then(setProfil)
+        : tab === 'membres'
+          ? fetchData<UserRow[]>(`${base}/users`).then(setUsers)
+          : fetchData<FactureRow[]>(`${base}/factures`).then(setFactures);
+    setLoading(true);
+    setErreur('');
+    charger
+      .catch((e: unknown) =>
+        setErreur(e instanceof Error ? e.message : ERREUR_CHARGEMENT),
+      )
+      .finally(() => setLoading(false));
   }, [tab]);
 
   async function handleInvite(e: React.FormEvent) {
@@ -142,68 +147,40 @@ export default function MonOrganisationPage() {
 
       {loading && <p className="text-sm text-savr-neutral-500">Chargement…</p>}
 
+      {!loading && erreur && (
+        <p role="alert" className="text-sm text-savr-error">
+          {erreur}
+        </p>
+      )}
+
       {/* Onglet Profil */}
-      {!loading && tab === 'profil' && profil && (
+      {!loading && !erreur && tab === 'profil' && profil && (
         <Card>
           <CardHeader>
             <CardTitle>Informations</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
-            <div>
-              <div className="text-savr-neutral-500">Nom</div>
-              <div>{profil.nom_affichage ?? profil.nom}</div>
-            </div>
-            {profil.ville && (
-              <div>
-                <div className="text-savr-neutral-500">Ville</div>
-                <div>
-                  {profil.code_postal} {profil.ville}
-                </div>
+            {(
+              [
+                ['Nom', profil.nom],
+                ['Raison sociale', profil.raison_sociale],
+                ['SIRET', profil.siret],
+                ['Adresse', profil.adresse],
+                ['Email', profil.email_principal],
+                ['Téléphone', profil.telephone],
+              ] as const
+            ).map(([libelle, valeur]) => (
+              <div key={libelle}>
+                <div className="text-savr-neutral-500">{libelle}</div>
+                <div>{valeur ?? '—'}</div>
               </div>
-            )}
-            {profil.site_web && (
-              <div>
-                <div className="text-savr-neutral-500">Site web</div>
-                <a
-                  href={profil.site_web}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-savr-primary-700 underline"
-                >
-                  {profil.site_web}
-                </a>
-              </div>
-            )}
-            {profil.telephone_standard && (
-              <div>
-                <div className="text-savr-neutral-500">Téléphone</div>
-                <div>{profil.telephone_standard}</div>
-              </div>
-            )}
-            {profil.description_activite && (
-              <div className="col-span-2">
-                <div className="text-savr-neutral-500">Description</div>
-                <div>{profil.description_activite}</div>
-              </div>
-            )}
-            <div>
-              <div className="text-savr-neutral-500">Vérification SIRET</div>
-              <Badge
-                variant={
-                  profil.siret_verification === 'verifie'
-                    ? 'success'
-                    : 'neutral'
-                }
-              >
-                {profil.siret_verification ?? 'non vérifié'}
-              </Badge>
-            </div>
+            ))}
           </CardContent>
         </Card>
       )}
 
       {/* Onglet Membres */}
-      {!loading && tab === 'membres' && (
+      {!loading && !erreur && tab === 'membres' && (
         <div className="space-y-4">
           <Card>
             <CardHeader>
@@ -303,7 +280,7 @@ export default function MonOrganisationPage() {
       )}
 
       {/* Onglet Factures */}
-      {!loading && tab === 'factures' && (
+      {!loading && !erreur && tab === 'factures' && (
         <Card>
           <CardHeader>
             <CardTitle>Factures</CardTitle>
@@ -334,9 +311,11 @@ export default function MonOrganisationPage() {
                         <Badge variant="neutral">{f.statut}</Badge>
                       </td>
                       <td className="py-1">
-                        {f.pdf_url ? (
+                        {(f.pdf_url_savr ?? f.pdf_url_pennylane) ? (
                           <a
-                            href={f.pdf_url}
+                            href={
+                              f.pdf_url_savr ?? f.pdf_url_pennylane ?? undefined
+                            }
                             target="_blank"
                             rel="noreferrer"
                             className="text-savr-primary-700 underline text-xs"

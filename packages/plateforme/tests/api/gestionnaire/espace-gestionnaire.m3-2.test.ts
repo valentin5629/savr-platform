@@ -649,6 +649,26 @@ describe('M3.2 / traiteurs', () => {
     expect(colonnes).toEqual(['id', 'nom', 'logo_url']);
   });
 
+  it('M3.2/traiteur_fiche_erreur_collectes_500 — une erreur DB ne se déguise pas en stats à zéro', async () => {
+    setupAuth('gestionnaire_lieux');
+    rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null }); // orgLieux
+    rls.push({
+      data: { id: 'org-kaspia', nom: 'Kaspia', logo_url: null },
+      error: null,
+    }); // orga
+    rls.push({
+      data: null,
+      error: { code: '42703', message: 'column does not exist' },
+    }); // collectes
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/traiteurs/[id]/route.js');
+    const res = await GET(
+      makeReq('GET', '/api/v1/gestionnaire/traiteurs/org-kaspia'),
+      { params: Promise.resolve({ id: 'org-kaspia' }) },
+    );
+    expect(res.status).toBe(500);
+  });
+
   it('M3.2/traiteurs_repas_objet — repas 12 mois : embed to-one (OBJET) compté, pas 0', async () => {
     // Régression : attributions_antgaspi en OBJET (to-one) → `: []` jetait la
     // valeur → repas_donnes_12m = 0 silencieusement.

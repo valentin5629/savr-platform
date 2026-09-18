@@ -26,9 +26,10 @@ export async function GET(
   const supabase = createSupabaseServerClient();
 
   // Périmètre lieux de l'organisation
-  const { data: orgLieux } = await supabase
+  const { data: orgLieux, error: lieuxErr } = await supabase
     .from('organisations_lieux')
     .select('lieu_id');
+  if (lieuxErr) return serverError(lieuxErr, 'gestionnaire.traiteurs.get');
   const lieuIds = (orgLieux ?? []).map((r) => r.lieu_id as string);
   if (lieuIds.length === 0)
     return NextResponse.json({ error: 'Traiteur non trouvé' }, { status: 404 });
@@ -47,7 +48,7 @@ export async function GET(
   since12m.setMonth(since12m.getMonth() - 12);
   const sinceStr = jourParis(since12m);
 
-  const { data: collectes } = await supabase
+  const { data: collectes, error: collectesErr } = await supabase
     .from('collectes')
     .select(
       `id, type, statut, date_collecte, taux_recyclage,
@@ -61,6 +62,8 @@ export async function GET(
     .in('evenements.lieu_id', lieuIds)
     .gte('date_collecte', sinceStr)
     .order('date_collecte', { ascending: false });
+  if (collectesErr)
+    return serverError(collectesErr, 'gestionnaire.traiteurs.get');
 
   let tonnage = 0,
     tauxNum = 0,

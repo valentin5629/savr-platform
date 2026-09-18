@@ -60,7 +60,7 @@ END $$;
 
 -- Fixture ---------------------------------------------------------------------
 -- G  = gestionnaire_lieux (rattaché au lieu L)
--- T  = traiteur intervenu sur L (événement daté) → visible de G par la policy
+-- T  = traiteur intervenu sur L (événement daté) → visible de G par v_traiteurs_gestionnaire
 -- A  = agence ; S = fiche shadow créée par A
 SELECT test_as_superuser();
 
@@ -129,9 +129,11 @@ SELECT throws_ok(
   $$ SELECT mode_facturation_zd FROM plateforme.organisations WHERE id = '5e1e0002-0000-0000-0000-0000000000b1' $$,
   '42501', NULL, '4. gestionnaire : mode_facturation_zd d''un traiteur intervenu illisible');
 
--- 5. Contrôle positif : la LIGNE reste visible (policy M3.2 intacte, embeds nom/logo)
+-- 5. Contrôle positif : le traiteur intervenu reste visible (nom lisible). Depuis
+--    20260918140000 la table ne rend plus les traiteurs tiers au gestionnaire : la
+--    fiche passe par la vue restreinte v_traiteurs_gestionnaire (id/nom/logo_url).
 SELECT is(
-  (SELECT nom FROM plateforme.organisations WHERE id = '5e1e0002-0000-0000-0000-0000000000b1'),
+  (SELECT nom FROM plateforme.v_traiteurs_gestionnaire WHERE id = '5e1e0002-0000-0000-0000-0000000000b1'),
   'SECU Trait',
   '5. gestionnaire : le traiteur intervenu reste visible (nom lisible) — le refus 1-4 porte sur la colonne');
 

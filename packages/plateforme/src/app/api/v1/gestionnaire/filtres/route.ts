@@ -50,7 +50,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .select(
       `id,
        evenements!inner(lieu_id, traiteur_operationnel_organisation_id,
-         organisations!traiteur_operationnel_organisation_id(id, nom))`,
+         organisations:v_traiteurs_gestionnaire!traiteur_operationnel_organisation_id(id, nom))`,
     )
     .in('evenements.lieu_id', lieuIds)
     .gte('date_collecte', since24mStr);

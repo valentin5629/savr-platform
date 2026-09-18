@@ -4734,6 +4734,24 @@ export type Database = {
           },
         ]
       }
+      v_traiteurs_gestionnaire: {
+        Row: {
+          id: string | null
+          logo_url: string | null
+          nom: string | null
+        }
+        Insert: {
+          id?: string | null
+          logo_url?: string | null
+          nom?: string | null
+        }
+        Update: {
+          id?: string | null
+          logo_url?: string | null
+          nom?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       _f_assert_outbox_dead: {

@@ -31,7 +31,7 @@ export async function GET(
        logo_client_organisateur_url, organisation_id,
        lieux!lieu_id(id, nom, adresse_acces, ville, code_postal, latitude, longitude,
          type_vehicule_max, acces_office, stationnement),
-       organisations!traiteur_operationnel_organisation_id(id, nom, logo_url),
+       organisations:v_traiteurs_gestionnaire!traiteur_operationnel_organisation_id(id, nom, logo_url),
        types_evenements!type_evenement_id(id, libelle),
        collectes(
          id, type, statut, date_collecte, heure_collecte, taux_recyclage, realisee_at,

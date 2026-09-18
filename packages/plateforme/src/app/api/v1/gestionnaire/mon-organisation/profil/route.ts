@@ -25,8 +25,17 @@ const PROFIL_COLUMNS =
 const EDITABLE_FIELDS = new Set(['adresse', 'logo_url']);
 
 const ADRESSE_MAX = 500;
-// Format des clés rendues par POST /gestionnaire/mon-organisation/logo.
-const LOGO_KEY = /^[a-z0-9][a-z0-9.-]*\/logos\/[0-9a-f-]{36}\.(png|jpg)$/;
+// Format des clés rendues par POST /gestionnaire/mon-organisation/logo
+// (le bucket est vérifié à part : celui de l'environnement).
+const LOGO_KEY = /^logos\/[0-9a-f-]{36}\.(png|jpg)$/;
+
+function estCleLogo(v: unknown): boolean {
+  if (typeof v !== 'string') return false;
+  const bucket = process.env['R2_BUCKET_NAME'] || 'savr-dev';
+  return (
+    v.startsWith(`${bucket}/`) && LOGO_KEY.test(v.slice(bucket.length + 1))
+  );
+}
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(req, ROLES);
@@ -86,13 +95,10 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
       );
     patch.adresse = adresse === '' ? null : adresse;
   }
-  // logo_url = uniquement une clé produite par POST /logo. Une valeur libre
-  // ferait télécharger n'importe quel objet R2 dans la synthèse PDF
-  // (logoKeyToDataUri) ou pointerait vers une URL externe.
-  if (
-    'logo_url' in patch &&
-    !(typeof patch.logo_url === 'string' && LOGO_KEY.test(patch.logo_url))
-  )
+  // logo_url = uniquement une clé produite par POST /logo (défense en
+  // profondeur sur ce chemin : une valeur libre ferait télécharger un autre
+  // objet R2 dans la synthèse PDF via logoKeyToDataUri).
+  if ('logo_url' in patch && !estCleLogo(patch.logo_url))
     return NextResponse.json({ error: 'Logo invalide' }, { status: 422 });
 
   const { data, error } = await supabase

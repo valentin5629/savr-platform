@@ -150,6 +150,39 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
     expect(screen.getByText('Remplacer le logo')).toBeTruthy();
   });
 
+  it('M3.2/mon_organisation_logo_envoye_non_enregistre', async () => {
+    const CLE = 'savr-dev/logos/0b8e6f5c-2f1a-4c47-9d3e-6a1f2b3c4d5e.png';
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init?: RequestInit) =>
+        Promise.resolve(
+          url.endsWith('/logo') && init?.method === 'POST'
+            ? reponse(201, { logo_url: CLE })
+            : init?.method === 'PATCH'
+              ? reponse(422, { error: 'Enregistrement impossible' })
+              : reponse(200, { data: PROFIL }),
+        ),
+      ),
+    );
+    render(<MonOrganisationPage />);
+    const input = await screen.findByLabelText(
+      'Ajouter un logo',
+      {},
+      ATTENTE_UI,
+    );
+    fireEvent.change(input, {
+      target: {
+        files: [
+          new File([new Uint8Array([1])], 'l.png', { type: 'image/png' }),
+        ],
+      },
+    });
+    expect(
+      (await screen.findByRole('alert', {}, ATTENTE_UI)).textContent,
+    ).toMatch(/Logo envoyé mais non enregistré/);
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
   it('M3.2/mon_organisation_logo_refuse_sans_patch', async () => {
     const fetchMock = vi.fn((url: string, init?: RequestInit) =>
       Promise.resolve(

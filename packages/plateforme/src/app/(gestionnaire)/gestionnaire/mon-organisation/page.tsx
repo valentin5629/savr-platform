@@ -133,7 +133,10 @@ function InformationsCard({
               id="org-adresse"
               value={adresse}
               maxLength={500}
-              onChange={(e) => setAdresse(e.target.value)}
+              onChange={(e) => {
+                setAdresse(e.target.value);
+                setSucces('');
+              }}
               error={!!erreur}
             />
           </FormField>
@@ -166,6 +169,8 @@ function LogoCard({
   const [uploading, setUploading] = useState(false);
   const [erreur, setErreur] = useState('');
   const [succes, setSucces] = useState('');
+  // Clé dont l'aperçu n'a pas pu être chargé (fichier absent côté R2).
+  const [apercuKo, setApercuKo] = useState<string | null>(null);
 
   async function upload(e: React.ChangeEvent<HTMLInputElement>) {
     const input = e.target;
@@ -184,7 +189,9 @@ function LogoCard({
       };
       if (!up.ok || !j.logo_url)
         throw new Error(j.error ?? 'Échec de l’envoi du logo.');
-      const p = await patchProfil({ logo_url: j.logo_url });
+      const p = await patchProfil({ logo_url: j.logo_url }).catch(() => {
+        throw new Error('Logo envoyé mais non enregistré. Veuillez réessayer.');
+      });
       setSucces('Logo mis à jour.');
       onSaved(p);
     } catch (err) {
@@ -202,11 +209,12 @@ function LogoCard({
         <CardTitle>Logo</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {profil.logo_url ? (
+        {profil.logo_url && apercuKo !== profil.logo_url ? (
           <img
             // La clé change à chaque upload : force le rechargement du proxy.
             src={`${LOGO_URL}?v=${encodeURIComponent(profil.logo_url)}`}
             alt="Logo de l'organisation"
+            onError={() => setApercuKo(profil.logo_url)}
             className="h-16 w-auto rounded-savr-md border border-savr-neutral-200 object-contain"
           />
         ) : (

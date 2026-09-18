@@ -982,6 +982,10 @@ describe('M3.2 / mon-organisation / profil — édition (§06.05 §6)', () => {
   });
 
   it.each([
+    [
+      'autre bucket',
+      'autre-bucket/logos/0b8e6f5c-2f1a-4c47-9d3e-6a1f2b3c4d5e.png',
+    ],
     ['URL externe', 'https://exemple.fr/logo.png'],
     [
       'objet R2 hors logos/',

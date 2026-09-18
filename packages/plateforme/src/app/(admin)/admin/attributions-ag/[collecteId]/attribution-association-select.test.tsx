@@ -67,9 +67,17 @@ const ASSOCIATIONS = [
   },
 ];
 
-function installFetch(algo: typeof ALGO = ALGO) {
+function installFetch(
+  algo: typeof ALGO = ALGO,
+  associationsKo: () => boolean = () => false,
+) {
   const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input.toString();
+    if (url.includes('/col-1/associations') && associationsKo())
+      return Promise.resolve({
+        ok: false,
+        json: () => Promise.resolve({ error: 'x' }),
+      } as Response);
     const body = url.includes('/recommandation')
       ? { data: algo }
       : url.includes('/col-1/associations')
@@ -219,6 +227,58 @@ describe('M2.3 / Attribution AG — liste déroulante association', () => {
           ),
         ATTENTE_UI,
       );
+    },
+    ATTENTE_CAS_MS,
+  );
+  it(
+    'échec du chargement des associations : suggestion toujours sélectionnée, message + Réessayer',
+    async () => {
+      let ko = true;
+      installFetch(ALGO, () => ko);
+      render(<AttributionDetailPage />);
+
+      expect(
+        await screen.findByText(
+          'Impossible de charger la liste des associations.',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeTruthy();
+      const select = screen.getByLabelText('Association') as HTMLSelectElement;
+      // Option de secours = suggestion de l'algo ; 2041-GE inconnu → non affirmé.
+      expect(select.value).toBe('asso-top');
+      expect(select.options[1]!.textContent).toBe(
+        'Asso Top · 1,2 km · cap. 300 (suggérée)',
+      );
+
+      ko = false;
+      fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
+      await waitFor(() => expect(select.options.length).toBe(4), ATTENTE_UI);
+      expect(
+        screen.queryByText('Impossible de charger la liste des associations.'),
+      ).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'après succès, le bouton Valider est désactivé (pas de second envoi)',
+    async () => {
+      installFetch();
+      render(<AttributionDetailPage />);
+      await selectAssociation();
+      const valider = screen.getByRole('button', {
+        name: "Valider l'attribution",
+      }) as HTMLButtonElement;
+      fireEvent.click(valider);
+      await screen.findByText(/Attribution validée/, undefined, ATTENTE_UI);
+      expect(
+        (
+          screen.getByRole('button', {
+            name: "Valider l'attribution",
+          }) as HTMLButtonElement
+        ).disabled,
+      ).toBe(true);
     },
     ATTENTE_CAS_MS,
   );

@@ -15,7 +15,7 @@ const calls: { table: string; method: string; args: unknown[] }[] = [];
 
 function chainFor(table: string) {
   const chain: Record<string, unknown> = {};
-  for (const m of ['select', 'eq']) {
+  for (const m of ['select', 'eq', 'limit']) {
     chain[m] = vi.fn((...args: unknown[]) => {
       calls.push({ table, method: m, args });
       return chain;

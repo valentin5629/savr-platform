@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -51,7 +51,8 @@ interface AssoRef {
   nom: string;
   ville: string | null;
   capacite_max_beneficiaires: number | null;
-  habilitee_attestation_fiscale: boolean;
+  // null = inconnu (option de secours construite depuis la suggestion de l'algo).
+  habilitee_attestation_fiscale: boolean | null;
   distance_km: number | null;
 }
 
@@ -125,6 +126,14 @@ export default function AttributionDetailPage() {
   // Liste déroulante transporteur (BL-P1-ALGO-04) : tous les transporteurs actifs.
   const [transporteurs, setTransporteurs] = useState<TranspRef[]>([]);
   const [transpErreur, setTranspErreur] = useState(false);
+  // Redirection différée après succès : annulée si l'Admin quitte l'écran avant.
+  const redirectionRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (redirectionRef.current) clearTimeout(redirectionRef.current);
+    },
+    [],
+  );
 
   const loadAlgo = useCallback(async () => {
     setLoading(true);
@@ -227,7 +236,7 @@ export default function AttributionDetailPage() {
         nom: s.nom,
         ville: null,
         capacite_max_beneficiaires: s.capacite_max_beneficiaires,
-        habilitee_attestation_fiscale: false,
+        habilitee_attestation_fiscale: null,
         distance_km: s.distance_km,
       })),
   ];
@@ -276,7 +285,7 @@ export default function AttributionDetailPage() {
       setSuccessMsg("Attribution validée. Les emails sont en cours d'envoi.");
       // La file d'attribution vit dans Collectes (chip « AG en attente attribution »,
       // §06.09 §1) : il n'existe pas de page /admin/attributions-ag.
-      setTimeout(
+      redirectionRef.current = setTimeout(
         () => router.push('/admin/collectes?chip=ag_attente_attribution'),
         2000,
       );
@@ -380,7 +389,7 @@ export default function AttributionDetailPage() {
                     {idx === 0 && <Badge variant="success">Top 1</Badge>}
                     <p className="mt-1 text-xs text-savr-neutral-500">
                       <MapPin className="mr-0.5 inline h-3 w-3" />
-                      {asso.distance_km} km
+                      {asso.distance_km.toLocaleString('fr-FR')} km
                     </p>
                     <p className="text-xs text-savr-neutral-500">
                       Cap. {asso.capacite_max_beneficiaires} bénéficiaires
@@ -558,7 +567,12 @@ export default function AttributionDetailPage() {
             <Button
               className="w-full"
               disabled={
-                !selectedAsso || !selectedTransp || submitting || !motifOk
+                !selectedAsso ||
+                !selectedTransp ||
+                submitting ||
+                !motifOk ||
+                // Déjà validée : pas de second POST pendant la redirection.
+                !!successMsg
               }
               onClick={handleValider}
             >

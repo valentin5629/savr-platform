@@ -58,7 +58,10 @@ async function getHandler(
     .select(
       'id, nom, ville, region, capacite_max_beneficiaires, habilitee_attestation_fiscale, latitude, longitude',
     )
-    .eq('actif', true);
+    .eq('actif', true)
+    // Borne explicite (référentiel de quelques dizaines/centaines de lignes) :
+    // au-delà, PostgREST tronquerait en silence à max_rows (1000).
+    .limit(2000);
   if (assoErr)
     return serverError(assoErr, 'admin.attributions_ag.associations.list');
 

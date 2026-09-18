@@ -96,6 +96,12 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
 vi.mock('@savr/shared/src/email/index.js', () => ({
   sendEmail: (...a: unknown[]) => mockSendEmail(...a),
 }));
+const mockUploadObject = vi.fn();
+const mockGetObject = vi.fn();
+vi.mock('@savr/shared/src/r2/upload.js', () => ({
+  uploadObject: (...a: unknown[]) => mockUploadObject(...a),
+  getObject: (...a: unknown[]) => mockGetObject(...a),
+}));
 vi.mock('next/headers', () => ({
   cookies: () => ({ getAll: () => [], set: () => {} }),
 }));
@@ -935,7 +941,7 @@ describe('M3.2 / mon-organisation / profil', () => {
       await import('@/app/api/v1/gestionnaire/mon-organisation/profil/route.js');
     const res = await PATCH(
       makeReq('PATCH', '/api/v1/gestionnaire/mon-organisation/profil', {
-        logo_url: 'https://exemple.fr/logo.png',
+        logo_url: LOGO_KEY,
       }),
     );
     expect(res.status).toBe(404);
@@ -952,6 +958,163 @@ describe('M3.2 / mon-organisation / profil', () => {
       }),
     );
     expect(res.status).toBe(400);
+  });
+});
+
+const LOGO_KEY = 'savr-dev/logos/0b8e6f5c-2f1a-4c47-9d3e-6a1f2b3c4d5e.png';
+
+describe('M3.2 / mon-organisation / profil — édition (§06.05 §6)', () => {
+  async function patch(body: unknown) {
+    const { PATCH } =
+      await import('@/app/api/v1/gestionnaire/mon-organisation/profil/route.js');
+    return PATCH(
+      makeReq('PATCH', '/api/v1/gestionnaire/mon-organisation/profil', body),
+    );
+  }
+
+  it('M3.2/profil_patch_logo_cle_upload_acceptee', async () => {
+    setupAuth('gestionnaire_lieux', 'org-viparis');
+    rls.push({ data: { id: 'org-viparis', logo_url: LOGO_KEY }, error: null });
+    const res = await patch({ logo_url: LOGO_KEY });
+    expect(res.status).toBe(200);
+    expect(rls.__calls.update?.[0]?.[0]).toEqual({ logo_url: LOGO_KEY });
+    expect(rls.__calls.eq).toContainEqual(['id', 'org-viparis']);
+  });
+
+  it.each([
+    ['URL externe', 'https://exemple.fr/logo.png'],
+    [
+      'objet R2 hors logos/',
+      'savr-dev/bordereaux/0b8e6f5c-2f1a-4c47-9d3e-6a1f2b3c4d5e.png',
+    ],
+    ['traversée', 'savr-dev/logos/../bordereaux/x.png'],
+    ['null', null],
+  ])('M3.2/profil_patch_logo_invalide_422 — %s', async (_cas, logo_url) => {
+    setupAuth('gestionnaire_lieux');
+    const res = await patch({ logo_url });
+    expect(res.status).toBe(422);
+    expect(rls.__calls.update).toBeUndefined();
+  });
+
+  it('M3.2/profil_patch_adresse_trim_et_vide_null', async () => {
+    setupAuth('gestionnaire_lieux');
+    rls.push({ data: { id: 'org-viparis' }, error: null });
+    await patch({ adresse: '  3 rue Neuve  ' });
+    expect(rls.__calls.update?.[0]?.[0]).toEqual({ adresse: '3 rue Neuve' });
+
+    rls = makeChain();
+    rls.push({ data: { id: 'org-viparis' }, error: null });
+    await patch({ adresse: '   ' });
+    expect(rls.__calls.update?.[0]?.[0]).toEqual({ adresse: null });
+  });
+
+  it.each([
+    ['non textuelle', 42],
+    ['trop longue', 'x'.repeat(501)],
+  ])('M3.2/profil_patch_adresse_invalide_422 — %s', async (_cas, adresse) => {
+    setupAuth('gestionnaire_lieux');
+    const res = await patch({ adresse });
+    expect(res.status).toBe(422);
+    expect(rls.__calls.update).toBeUndefined();
+  });
+});
+
+describe('M3.2 / mon-organisation / logo', () => {
+  function uploadReq(file: File): NextRequest {
+    const form = new FormData();
+    form.append('file', file);
+    return new NextRequest(
+      'http://localhost/api/v1/gestionnaire/mon-organisation/logo',
+      { method: 'POST', body: form },
+    );
+  }
+  const png = () =>
+    new File([new Uint8Array([1, 2, 3])], 'logo.png', { type: 'image/png' });
+
+  it('M3.2/logo_upload_201 — clé logos/<uuid>.png', async () => {
+    setupAuth('gestionnaire_lieux');
+    mockUploadObject.mockImplementation((bucket: string, key: string) =>
+      Promise.resolve(`${bucket}/${key}`),
+    );
+    const { POST } =
+      await import('@/app/api/v1/gestionnaire/mon-organisation/logo/route.js');
+    const res = await POST(uploadReq(png()));
+    expect(res.status).toBe(201);
+    const { logo_url } = (await res.json()) as { logo_url: string };
+    // La clé rendue doit passer la validation du PATCH /profil.
+    expect(logo_url).toMatch(/^[a-z0-9.-]+\/logos\/[0-9a-f-]{36}\.png$/);
+  });
+
+  it('M3.2/logo_upload_format_refuse_422', async () => {
+    setupAuth('gestionnaire_lieux');
+    const { POST } =
+      await import('@/app/api/v1/gestionnaire/mon-organisation/logo/route.js');
+    const res = await POST(
+      uploadReq(new File(['x'], 'logo.gif', { type: 'image/gif' })),
+    );
+    expect(res.status).toBe(422);
+    expect(mockUploadObject).not.toHaveBeenCalled();
+  });
+
+  it('M3.2/logo_upload_trop_lourd_422', async () => {
+    setupAuth('gestionnaire_lieux');
+    const { POST } =
+      await import('@/app/api/v1/gestionnaire/mon-organisation/logo/route.js');
+    const gros = new File([new Uint8Array(2 * 1024 * 1024 + 1)], 'l.png', {
+      type: 'image/png',
+    });
+    const res = await POST(uploadReq(gros));
+    expect(res.status).toBe(422);
+    expect(mockUploadObject).not.toHaveBeenCalled();
+  });
+
+  it('M3.2/logo_upload_role_traiteur_403', async () => {
+    setupAuth('traiteur_manager');
+    const { POST } =
+      await import('@/app/api/v1/gestionnaire/mon-organisation/logo/route.js');
+    const res = await POST(uploadReq(png()));
+    expect(res.status).toBe(403);
+    expect(mockUploadObject).not.toHaveBeenCalled();
+  });
+
+  it('M3.2/logo_get_sert_le_logo_de_sa_propre_organisation', async () => {
+    setupAuth('gestionnaire_lieux', 'org-viparis');
+    rls.push({ data: { logo_url: LOGO_KEY }, error: null });
+    mockGetObject.mockResolvedValue({
+      body: new Uint8Array([1, 2, 3]),
+      contentType: 'image/png',
+    });
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/mon-organisation/logo/route.js');
+    // Un paramètre key fourni par le client est ignoré.
+    const res = await GET(
+      makeReq(
+        'GET',
+        '/api/v1/gestionnaire/mon-organisation/logo?key=savr-dev/logos/autre.png',
+      ),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('image/png');
+    expect(rls.__calls.eq).toContainEqual(['id', 'org-viparis']);
+    expect(mockGetObject).toHaveBeenCalledWith(
+      'savr-dev',
+      LOGO_KEY.slice('savr-dev/'.length),
+    );
+  });
+
+  it.each([
+    ['aucun logo', null],
+    ['valeur hors logos/', 'savr-dev/bordereaux/x.pdf'],
+  ])('M3.2/logo_get_404 — %s', async (_cas, logo_url) => {
+    setupAuth('gestionnaire_lieux');
+    rls.push({ data: { logo_url }, error: null });
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/mon-organisation/logo/route.js');
+    const res = await GET(
+      makeReq('GET', '/api/v1/gestionnaire/mon-organisation/logo'),
+    );
+    expect(res.status).toBe(404);
+    expect(mockGetObject).not.toHaveBeenCalled();
   });
 });
 

@@ -4,6 +4,10 @@ import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { FormError } from '@/components/ui/form-error';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
+import { Upload } from 'lucide-react';
 
 type OrgTab = 'profil' | 'membres' | 'factures';
 
@@ -43,6 +47,202 @@ async function fetchData<T>(url: string): Promise<T> {
   const j = (await res.json().catch(() => ({}))) as { data?: T };
   if (!res.ok || j.data === undefined) throw new Error();
   return j.data;
+}
+
+const ERREUR_ENREGISTREMENT = 'Enregistrement impossible. Veuillez réessayer.';
+
+const PROFIL_URL = '/api/v1/gestionnaire/mon-organisation/profil';
+const LOGO_URL = '/api/v1/gestionnaire/mon-organisation/logo';
+
+async function patchProfil(
+  patch: Partial<Pick<OrgProfil, 'adresse' | 'logo_url'>>,
+): Promise<OrgProfil> {
+  const res = await fetch(PROFIL_URL, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+  const j = (await res.json().catch(() => ({}))) as {
+    data?: OrgProfil;
+    error?: string;
+  };
+  if (!res.ok || !j.data) throw new Error(j.error ?? ERREUR_ENREGISTREMENT);
+  return j.data;
+}
+
+// §06.05 §6 Bloc Organisation : nom en lecture seule (modification via
+// support), adresse modifiable. Raison sociale, SIRET, email et téléphone sont
+// affichés en lecture seule (réservés à l'Admin).
+function InformationsCard({
+  profil,
+  onSaved,
+}: {
+  profil: OrgProfil;
+  onSaved: (p: OrgProfil) => void;
+}) {
+  const [adresse, setAdresse] = useState(profil.adresse ?? '');
+  const [saving, setSaving] = useState(false);
+  const [erreur, setErreur] = useState('');
+  const [succes, setSucces] = useState('');
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setErreur('');
+    setSucces('');
+    try {
+      const p = await patchProfil({ adresse });
+      setAdresse(p.adresse ?? '');
+      setSucces('Adresse enregistrée.');
+      onSaved(p);
+    } catch (err) {
+      setErreur((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const lectureSeule = [
+    ['Nom', profil.nom, 'Modification via le support Savr'],
+    ['Raison sociale', profil.raison_sociale, null],
+    ['SIRET', profil.siret, null],
+    ['Email', profil.email_principal, null],
+    ['Téléphone', profil.telephone, null],
+  ] as const;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Informations</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <dl className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
+          {lectureSeule.map(([libelle, valeur, aide]) => (
+            <div key={libelle}>
+              <dt className="font-semibold text-savr-neutral-700">{libelle}</dt>
+              <dd className="text-savr-neutral-900">{valeur ?? '—'}</dd>
+              {aide && (
+                <dd className="text-xs text-savr-neutral-500">{aide}</dd>
+              )}
+            </div>
+          ))}
+        </dl>
+        <form onSubmit={save} className="space-y-3 md:max-w-xl">
+          <FormField label="Adresse" htmlFor="org-adresse" error={erreur}>
+            <Input
+              id="org-adresse"
+              value={adresse}
+              maxLength={500}
+              onChange={(e) => setAdresse(e.target.value)}
+              error={!!erreur}
+            />
+          </FormField>
+          {succes && (
+            <p role="status" className="text-sm text-savr-success-strong">
+              {succes}
+            </p>
+          )}
+          <Button
+            type="submit"
+            disabled={saving || adresse === (profil.adresse ?? '')}
+          >
+            {saving ? 'Enregistrement…' : 'Enregistrer'}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+// §06.05 §6 Bloc Organisation : logo (upload / remplacement). Upload R2 puis
+// écriture de la clé dans organisations.logo_url (même flux que le traiteur).
+function LogoCard({
+  profil,
+  onSaved,
+}: {
+  profil: OrgProfil;
+  onSaved: (p: OrgProfil) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [erreur, setErreur] = useState('');
+  const [succes, setSucces] = useState('');
+
+  async function upload(e: React.ChangeEvent<HTMLInputElement>) {
+    const input = e.target;
+    const file = input.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setErreur('');
+    setSucces('');
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const up = await fetch(LOGO_URL, { method: 'POST', body: form });
+      const j = (await up.json().catch(() => ({}))) as {
+        logo_url?: string;
+        error?: string;
+      };
+      if (!up.ok || !j.logo_url)
+        throw new Error(j.error ?? 'Échec de l’envoi du logo.');
+      const p = await patchProfil({ logo_url: j.logo_url });
+      setSucces('Logo mis à jour.');
+      onSaved(p);
+    } catch (err) {
+      setErreur((err as Error).message);
+    } finally {
+      setUploading(false);
+      // Permet de re-sélectionner le même fichier après un échec.
+      input.value = '';
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Logo</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {profil.logo_url ? (
+          <img
+            // La clé change à chaque upload : force le rechargement du proxy.
+            src={`${LOGO_URL}?v=${encodeURIComponent(profil.logo_url)}`}
+            alt="Logo de l'organisation"
+            className="h-16 w-auto rounded-savr-md border border-savr-neutral-200 object-contain"
+          />
+        ) : (
+          <p className="text-sm text-savr-neutral-500">Aucun logo.</p>
+        )}
+        <div className="space-y-1">
+          <input
+            id="org-logo"
+            type="file"
+            accept="image/png,image/jpeg"
+            className="peer sr-only"
+            onChange={(e) => void upload(e)}
+            disabled={uploading}
+          />
+          <label
+            htmlFor="org-logo"
+            className="inline-flex h-11 cursor-pointer items-center gap-2 rounded-savr-md border border-savr-neutral-300 bg-savr-white px-4 text-sm font-medium text-savr-neutral-900 hover:bg-savr-neutral-100 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-savr-primary-500 sm:h-10"
+          >
+            <Upload className="h-4 w-4" aria-hidden="true" />
+            {uploading
+              ? 'Envoi…'
+              : profil.logo_url
+                ? 'Remplacer le logo'
+                : 'Ajouter un logo'}
+          </label>
+          <p className="text-xs text-savr-neutral-500">JPG ou PNG, 2 Mo max.</p>
+          <FormError>{erreur}</FormError>
+          {succes && (
+            <p role="status" className="text-sm text-savr-success-strong">
+              {succes}
+            </p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function MonOrganisationPage() {
@@ -169,28 +369,10 @@ export default function MonOrganisationPage() {
 
       {/* Onglet Profil */}
       {!loading && !erreur && tab === 'profil' && profil && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Informations</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
-            {(
-              [
-                ['Nom', profil.nom],
-                ['Raison sociale', profil.raison_sociale],
-                ['SIRET', profil.siret],
-                ['Adresse', profil.adresse],
-                ['Email', profil.email_principal],
-                ['Téléphone', profil.telephone],
-              ] as const
-            ).map(([libelle, valeur]) => (
-              <div key={libelle}>
-                <div className="text-savr-neutral-500">{libelle}</div>
-                <div>{valeur ?? '—'}</div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+        <div className="space-y-4">
+          <InformationsCard profil={profil} onSaved={setProfil} />
+          <LogoCard profil={profil} onSaved={setProfil} />
+        </div>
       )}
 
       {/* Onglet Membres */}

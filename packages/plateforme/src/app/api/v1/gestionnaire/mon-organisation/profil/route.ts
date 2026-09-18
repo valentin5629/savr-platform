@@ -24,6 +24,10 @@ const PROFIL_COLUMNS =
 
 const EDITABLE_FIELDS = new Set(['adresse', 'logo_url']);
 
+const ADRESSE_MAX = 500;
+// Format des clés rendues par POST /gestionnaire/mon-organisation/logo.
+const LOGO_KEY = /^[a-z0-9][a-z0-9.-]*\/logos\/[0-9a-f-]{36}\.(png|jpg)$/;
+
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(req, ROLES);
   if (auth.error) return auth.error;
@@ -70,6 +74,26 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
       { error: 'Aucun champ éditable fourni' },
       { status: 400 },
     );
+
+  if ('adresse' in patch) {
+    if (typeof patch.adresse !== 'string')
+      return NextResponse.json({ error: 'Adresse invalide' }, { status: 422 });
+    const adresse = patch.adresse.trim();
+    if (adresse.length > ADRESSE_MAX)
+      return NextResponse.json(
+        { error: `Adresse trop longue (${ADRESSE_MAX} caractères maximum)` },
+        { status: 422 },
+      );
+    patch.adresse = adresse === '' ? null : adresse;
+  }
+  // logo_url = uniquement une clé produite par POST /logo. Une valeur libre
+  // ferait télécharger n'importe quel objet R2 dans la synthèse PDF
+  // (logoKeyToDataUri) ou pointerait vers une URL externe.
+  if (
+    'logo_url' in patch &&
+    !(typeof patch.logo_url === 'string' && LOGO_KEY.test(patch.logo_url))
+  )
+    return NextResponse.json({ error: 'Logo invalide' }, { status: 422 });
 
   const { data, error } = await supabase
     .from('organisations')

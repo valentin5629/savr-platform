@@ -23,7 +23,12 @@ export async function GET(
   const { id } = await params;
   const supabase = createSupabaseServerClient();
 
-  // Événement + collectes + documents
+  // Événement + collectes + documents. Colonnes alignées sur §04 (G7) :
+  // - associations : pas de distance_km (donnée non stockée ; restitution de la
+  //   distance au gestionnaire en divergence _Divergences/M3.2_20260918_detail-evenement-distance-association.md) ;
+  // - bordereaux_savr : `numero` (pas numero_bordereau), PDF via pdf_fichier_id →
+  //   téléchargement par /api/v1/registre/bordereaux/:id/download ;
+  // - rapports_rse : pas de colonne statut.
   const { data: evt, error } = await supabase
     .from('evenements')
     .select(
@@ -38,10 +43,10 @@ export async function GET(
          collecte_flux(poids_reel_kg, flux_dechets!flux_id(code, nom)),
          attributions_antgaspi(
            id, volume_repas_realise,
-           associations!association_id(nom, ville, distance_km)
+           associations!association_id(nom, ville)
          ),
-         bordereaux_savr(id, numero_bordereau, statut, pdf_url),
-         rapports_rse(id, statut, pdf_url),
+         bordereaux_savr(id, numero, statut),
+         rapports_rse(id, pdf_url),
          attestations_don(id, statut, pdf_url,
            associations!association_id(nom))
        )`,
@@ -73,9 +78,12 @@ export async function GET(
       // affiche bien le bloc association/repas via `.length`/`.map`.
       const a = (c as { attributions_antgaspi?: unknown })
         .attributions_antgaspi;
+      // Idem bordereaux_savr (collecte_id UNIQUE → to-one, OBJET PostgREST).
+      const b = (c as { bordereaux_savr?: unknown }).bordereaux_savr;
       return {
         ...c,
         attributions_antgaspi: Array.isArray(a) ? a : a ? [a] : [],
+        bordereaux_savr: Array.isArray(b) ? b : b ? [b] : [],
         statut_affiche: mapStatut(c.statut as string),
       };
     },

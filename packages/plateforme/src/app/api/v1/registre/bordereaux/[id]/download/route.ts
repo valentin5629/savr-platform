@@ -4,7 +4,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
+import { type SupabaseClient } from '@savr/shared/src/supabase-client.js';
+
 import { createSupabaseServerClient } from '@/lib/api-auth.js';
+import { storageKeysDesFichiers } from '@/lib/pdf/fichier-storage-key.js';
 import { getPresignedUrl } from '@/lib/pdf/r2-client.js';
 import { requireRegistreUser } from '@/lib/registre/guard.js';
 
@@ -19,11 +22,13 @@ export async function GET(
   if (auth.error) return auth.error;
 
   const { id } = await params;
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabaseServerClient() as unknown as SupabaseClient;
 
   const { data, error } = await supabase
     .from('bordereaux_savr')
-    .select('id, statut, fichiers:pdf_fichier_id(url)')
+    // pdf_fichier_id → shared.fichiers (bucket/key), résolu hors embed
+    // (cross-schema, pas de colonne `url`).
+    .select('id, statut, pdf_fichier_id')
     .eq('id', id)
     .maybeSingle();
 
@@ -41,10 +46,9 @@ export async function GET(
     );
   }
 
-  const fichier = data.fichiers as { url?: string } | { url?: string }[] | null;
-  const storageKey = Array.isArray(fichier)
-    ? (fichier[0]?.url ?? null)
-    : (fichier?.url ?? null);
+  const storageKey = (
+    await storageKeysDesFichiers(supabase, [data.pdf_fichier_id])
+  ).get(data.pdf_fichier_id ?? '');
   if (!storageKey) {
     return NextResponse.json({ error: 'Fichier PDF absent' }, { status: 404 });
   }

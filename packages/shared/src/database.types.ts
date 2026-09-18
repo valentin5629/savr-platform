@@ -4914,6 +4914,10 @@ export type Database = {
           taux_moyen_pondere: number
         }[]
       }
+      f_tarif_refacture_pax_zd: {
+        Args: { p_organisation_id: string }
+        Returns: number
+      }
       f_traiteur_intervenu_lieux_gestionnaire: {
         Args: { p_traiteur_id: string }
         Returns: boolean

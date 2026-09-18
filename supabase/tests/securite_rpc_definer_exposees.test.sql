@@ -198,6 +198,7 @@ SELECT is_empty(
       'f_completer_siret_shadow',
       'f_dechets_labo_estimes',
       'f_mes_acces_compte',
+      'f_tarif_refacture_pax_zd',   -- rend le tarif au seul traiteur propriétaire + staff (v_kpi_traiteur security_invoker)
       'health_ping'
     )
   $$,

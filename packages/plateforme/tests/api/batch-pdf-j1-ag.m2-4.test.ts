@@ -111,7 +111,7 @@ describe('M2.4 / BatchPdfJ1Ag / Happy path', () => {
       { data: { id: 'att-new' }, error: null }, // insert attestations_don
       { data: null, error: null }, // insert jobs_pdf
       { data: null, error: null }, // insert rapports_rse
-      { data: { contact_principal_email: 'chef@kaspia.fr' }, error: null }, // select contact email
+      { data: { email_principal: 'chef@kaspia.fr' }, error: null }, // select email organisation programmatrice
     ]);
 
     const result = await runBatchPdfJ1Ag(sb as never);
@@ -247,7 +247,7 @@ describe('M2.4 / BatchPdfJ1Ag / Mention fiscale conditionnelle', () => {
       { data: { id: 'att-new-2' }, error: null },
       { data: null, error: null },
       { data: null, error: null },
-      { data: { contact_principal_email: null }, error: null },
+      { data: { email_principal: null }, error: null },
     ]);
 
     const result = await runBatchPdfJ1Ag(sb as never);
@@ -301,7 +301,7 @@ describe('M2.4 / BatchPdfJ1Ag / Snapshot résistant perte habilitation', () => {
       { data: { id: 'att-new-3' }, error: null },
       { data: null, error: null },
       { data: null, error: null },
-      { data: { contact_principal_email: null }, error: null },
+      { data: { email_principal: null }, error: null },
     ]);
 
     await runBatchPdfJ1Ag(sb as never);
@@ -380,7 +380,7 @@ describe('M2.4 / BatchPdfJ1Ag / Embargo H+24', () => {
       { data: { id: 'att-emb' }, error: null },
       { data: null, error: null },
       { data: null, error: null },
-      { data: { contact_principal_email: null }, error: null },
+      { data: { email_principal: null }, error: null },
     ]);
 
     await runBatchPdfJ1Ag(sb as never);
@@ -421,7 +421,7 @@ describe('M2.4 / BatchPdfJ1Ag / rapports_rse AG', () => {
       { data: { id: 'att-rse' }, error: null },
       { data: null, error: null }, // jobs_pdf
       { data: null, error: null }, // rapports_rse
-      { data: { contact_principal_email: null }, error: null },
+      { data: { email_principal: null }, error: null },
     ]);
 
     await runBatchPdfJ1Ag(sb as never);
@@ -494,7 +494,7 @@ describe('M2.4 / BatchPdfJ1Ag / instantané association_numero_rup', () => {
       { data: { id: 'att-new' }, error: null }, // insert attestations_don
       { data: null, error: null }, // insert jobs_pdf
       { data: null, error: null }, // insert rapports_rse
-      { data: { contact_principal_email: 'chef@kaspia.fr' }, error: null },
+      { data: { email_principal: 'chef@kaspia.fr' }, error: null },
     ]);
 
     const result = await runBatchPdfJ1Ag(sb as never);
@@ -531,5 +531,59 @@ describe('M2.4 / BatchPdfJ1Ag / instantané association_numero_rup', () => {
     });
     expect(attInsert.association_numero_rup).toBeNull();
     expect(jobPayload.association_numero_rup).toBeNull();
+  });
+});
+
+// Scénario §06.02 envoi_attestation_don_disponible_batch_ag (divergence M2.4,
+// tranché Val 2026-09-14) : destinataire = organisations.email_principal de
+// l'organisation programmatrice ; evenements.contact_principal_email n'existe
+// pas en V1 (G7 column-db) → jamais lu.
+describe('M2.4 / BatchPdfJ1Ag / Email attestation_don_disponible', () => {
+  it('envoie au email_principal de l’organisation programmatrice (jamais evenements.contact_principal_email)', async () => {
+    const { sendEmail } = await import('@savr/shared/src/email/index.js');
+    const sb = makeSupabase([
+      { data: [makeCollecteAg()], error: null }, // select collectes AG
+      { data: [], error: null }, // attestations_don existantes
+      {
+        data: [
+          {
+            id: 'entite-1',
+            organisation_id: 'org-1',
+            raison_sociale: 'Kaspia SAS',
+            siret: '12345678900001',
+          },
+        ],
+        error: null,
+      }, // entites_facturation
+      { data: 'ATT-DON-2026-00077', error: null }, // rpc numéro
+      { data: { id: 'att-new' }, error: null }, // insert attestations_don
+      { data: null, error: null }, // insert audit_log
+      { data: null, error: null }, // insert jobs_pdf
+      { data: null, error: null }, // insert rapports_rse
+      { data: { email_principal: 'compta@kaspia.fr' }, error: null },
+    ]);
+
+    const result = await runBatchPdfJ1Ag(sb as never);
+    expect(result.errors).toHaveLength(0);
+
+    const tables = (sb.from as ReturnType<typeof vi.fn>).mock.calls.map(
+      (c) => c[0] as string,
+    );
+    expect(tables.at(-1)).toBe('organisations');
+    const selects = (sb._chain.select as ReturnType<typeof vi.fn>).mock.calls
+      .map((c) => String(c[0]))
+      .join('\n');
+    expect(selects).not.toContain('contact_principal_email');
+    expect(
+      (sb._chain.select as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0],
+    ).toBe('email_principal');
+    expect(sb._chain.eq).toHaveBeenCalledWith('id', 'org-1');
+
+    expect(sendEmail).toHaveBeenCalledWith(
+      'attestation_don_disponible',
+      'compta@kaspia.fr',
+      expect.objectContaining({ numero_attestation: 'ATT-DON-2026-00077' }),
+      { entityType: 'collectes', entityId: 'col-ag-1' },
+    );
   });
 });

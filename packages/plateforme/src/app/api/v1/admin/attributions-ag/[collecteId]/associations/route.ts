@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { logger } from '@savr/shared/src/logger/index.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { withApiTrace, serverError } from '@/lib/api-helpers.js';
 import {
@@ -58,12 +59,19 @@ async function getHandler(
     .select(
       'id, nom, ville, region, capacite_max_beneficiaires, habilitee_attestation_fiscale, latitude, longitude',
     )
-    .eq('actif', true)
-    // Borne explicite (référentiel de quelques dizaines/centaines de lignes) :
-    // au-delà, PostgREST tronquerait en silence à max_rows (1000).
-    .limit(2000);
+    .eq('actif', true);
   if (assoErr)
     return serverError(assoErr, 'admin.attributions_ag.associations.list');
+
+  // PostgREST plafonne toute réponse à max_rows (1000, supabase/config.toml) et
+  // tronque au-delà sans erreur : la liste ne serait alors plus complète ni triée
+  // sur l'ensemble. Référentiel de quelques dizaines/centaines de lignes en V1 —
+  // on signale le plafond atteint plutôt que de paginer.
+  if ((assos ?? []).length >= 1000) {
+    logger.warn('attributions_ag.associations.plafond_max_rows_atteint', {
+      nb: (assos ?? []).length,
+    });
+  }
 
   return NextResponse.json({
     data: trierAssociationsParDistance(

@@ -5,6 +5,7 @@ import {
   type ClientRole,
 } from '@/lib/api-auth.js';
 import { serverError, writeError } from '@/lib/api-helpers.js';
+import { estCleLogo } from '@/lib/logo-upload.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
@@ -25,17 +26,6 @@ const PROFIL_COLUMNS =
 const EDITABLE_FIELDS = new Set(['adresse', 'logo_url']);
 
 const ADRESSE_MAX = 500;
-// Format des clés rendues par POST /gestionnaire/mon-organisation/logo
-// (le bucket est vérifié à part : celui de l'environnement).
-const LOGO_KEY = /^logos\/[0-9a-f-]{36}\.(png|jpg)$/;
-
-function estCleLogo(v: unknown): boolean {
-  if (typeof v !== 'string') return false;
-  const bucket = process.env['R2_BUCKET_NAME'] || 'savr-dev';
-  return (
-    v.startsWith(`${bucket}/`) && LOGO_KEY.test(v.slice(bucket.length + 1))
-  );
-}
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(req, ROLES);

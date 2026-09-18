@@ -86,8 +86,12 @@ VALUES ('7a1eef01-0000-0000-0000-0000000000c2'::uuid, '7a1e0002-0000-0000-0000-0
 INSERT INTO plateforme.lieux (id, nom, adresse_acces, code_postal, ville, type_vehicule_max)
 VALUES ('7a1e1001-0000-0000-0000-0000000000c2'::uuid, 'VTG Lieu', '3 rue Lieu', '75003', 'Paris', 'camionnette');
 
+-- L'agence est AUSSI rattachée à L : rien en base n'interdit une organisation non
+-- gestionnaire dans organisations_lieux. Sans ce rattachement, le cas 14 serait vide
+-- par construction et ne prouverait pas la garde de rôle de la vue.
 INSERT INTO plateforme.organisations_lieux (organisation_id, lieu_id)
-VALUES ('7a1e0001-0000-0000-0000-0000000000c2'::uuid, '7a1e1001-0000-0000-0000-0000000000c2'::uuid);
+VALUES ('7a1e0001-0000-0000-0000-0000000000c2'::uuid, '7a1e1001-0000-0000-0000-0000000000c2'::uuid),
+       ('7a1e0003-0000-0000-0000-0000000000c2'::uuid, '7a1e1001-0000-0000-0000-0000000000c2'::uuid);
 
 INSERT INTO plateforme.types_evenements (id, code, libelle, ordre_affichage, actif)
 VALUES ('7a1e7e01-0000-0000-0000-0000000000c2'::uuid, 'VTG_TRAIT_GEST', 'VTG traiteurs gestionnaire', 1, true);
@@ -209,7 +213,7 @@ SELECT is_empty($$ SELECT id FROM plateforme.v_traiteurs_gestionnaire $$,
 
 SELECT test_set_jwt_prod('agence', '7a1e0003-0000-0000-0000-0000000000c2'::uuid);
 SELECT is_empty($$ SELECT id FROM plateforme.v_traiteurs_gestionnaire $$,
-  '14. agence : vue vide');
+  '14. agence rattachée au lieu L : vue vide (garde de rôle gestionnaire_lieux)');
 
 SELECT test_set_jwt_prod('client_organisateur', '7a1e0007-0000-0000-0000-0000000000c2'::uuid);
 SELECT is_empty($$ SELECT id FROM plateforme.v_traiteurs_gestionnaire $$,

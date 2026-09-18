@@ -13,7 +13,7 @@
 -- de sa propre organisation (§06.05 §6 : nom en lecture seule, adresse + logo seuls).
 --
 -- NON-VACUITÉ (mesurée sur base rejouée SANS la migration) : les assertions de
--- fermeture (1-4, 13, 16, 21-25) tombent en `not ok` — les SELECT et UPDATE passent
+-- fermeture (1-4, 13, 16, 21-25b) tombent en `not ok` — les SELECT et UPDATE passent
 -- (constat pré-migration : le gestionnaire renomme son orga, change raison sociale,
 -- SIRET et email). Les assertions de maintien (5, 9-10, 14-15, 18, 26-31) sont les
 -- contrôles positifs :
@@ -24,7 +24,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(32);
+SELECT plan(33);
 
 -- Helpers ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION test_set_jwt_prod(
@@ -246,8 +246,12 @@ SELECT throws_ok(
   $$ UPDATE plateforme.organisations SET adresse = '9 rue Neuve', nom = 'Renommé' WHERE id = '5e1e0001-0000-0000-0000-0000000000b1' $$,
   '42501', NULL, '25. gestionnaire : un champ autorisé ne blanchit pas un champ interdit dans le même UPDATE');
 
+SELECT throws_ok(
+  $$ UPDATE plateforme.organisations SET updated_at = '2000-01-01' WHERE id = '5e1e0001-0000-0000-0000-0000000000b1' $$,
+  '42501', NULL, '25b. gestionnaire : updated_at non forgeable (hors liste blanche)');
+
 SELECT lives_ok(
-  $$ UPDATE plateforme.organisations SET adresse = '9 rue Neuve', logo_url = 'https://cdn.test/logo.png', updated_at = now()
+  $$ UPDATE plateforme.organisations SET adresse = '9 rue Neuve', logo_url = 'https://cdn.test/logo.png'
       WHERE id = '5e1e0001-0000-0000-0000-0000000000b1' $$,
   '26. gestionnaire : adresse + logo_url modifiables (contrôle positif)');
 SELECT is(

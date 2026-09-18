@@ -209,6 +209,8 @@ CREATE OR REPLACE VIEW plateforme.v_kpi_traiteur
      LEFT JOIN factures_zd fzd ON fzd.organisation_id = a.organisation_id AND fzd.mois = a.mois;
 
 -- ─── 4. UPDATE gestionnaire_lieux : liste blanche adresse / logo_url ─────────
+-- updated_at n'est PAS dans la liste : aucun trigger ne le pose et la route
+-- gestionnaire ne l'écrit pas ; l'y laisser permettait de forger l'horodatage.
 CREATE OR REPLACE FUNCTION plateforme.fn_block_org_gestionnaire_cols_update()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -216,9 +218,9 @@ SET search_path = plateforme, pg_catalog
 AS $$
 BEGIN
   IF plateforme.f_app_role() = 'gestionnaire_lieux'
-     AND (to_jsonb(NEW) - ARRAY['adresse', 'logo_url', 'updated_at'])
+     AND (to_jsonb(NEW) - ARRAY['adresse', 'logo_url'])
          IS DISTINCT FROM
-         (to_jsonb(OLD) - ARRAY['adresse', 'logo_url', 'updated_at'])
+         (to_jsonb(OLD) - ARRAY['adresse', 'logo_url'])
   THEN
     RAISE EXCEPTION 'gestionnaire_lieux : seules l''adresse et le logo de l''organisation sont modifiables (§06.05 §6)'
       USING ERRCODE = '42501';

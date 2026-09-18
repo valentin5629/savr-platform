@@ -41,7 +41,7 @@ const ERREUR_CHARGEMENT =
 async function fetchData<T>(url: string): Promise<T> {
   const res = await fetch(url);
   const j = (await res.json().catch(() => ({}))) as { data?: T };
-  if (!res.ok || j.data === undefined) throw new Error(ERREUR_CHARGEMENT);
+  if (!res.ok || j.data === undefined) throw new Error();
   return j.data;
 }
 
@@ -65,23 +65,23 @@ export default function MonOrganisationPage() {
     // sa fin de chargement s'appliquerait à l'onglet courant).
     let actif = true;
     const base = '/api/v1/gestionnaire/mon-organisation';
-    const charger: Promise<() => void> =
-      tab === 'profil'
-        ? fetchData<OrgProfil>(`${base}/profil`).then((d) => () => setProfil(d))
-        : tab === 'membres'
-          ? fetchData<UserRow[]>(`${base}/users`).then((d) => () => setUsers(d))
-          : fetchData<FactureRow[]>(`${base}/factures`).then(
-              (d) => () => setFactures(d),
-            );
+    const charger = async () => {
+      if (tab === 'profil') {
+        const d = await fetchData<OrgProfil>(`${base}/profil`);
+        if (actif) setProfil(d);
+      } else if (tab === 'membres') {
+        const d = await fetchData<UserRow[]>(`${base}/users`);
+        if (actif) setUsers(d);
+      } else {
+        const d = await fetchData<FactureRow[]>(`${base}/factures`);
+        if (actif) setFactures(d);
+      }
+    };
     setLoading(true);
     setErreur('');
-    charger
-      .then((appliquer) => {
-        if (actif) appliquer();
-      })
-      .catch((e: unknown) => {
-        if (actif)
-          setErreur(e instanceof Error ? e.message : ERREUR_CHARGEMENT);
+    charger()
+      .catch(() => {
+        if (actif) setErreur(ERREUR_CHARGEMENT);
       })
       .finally(() => {
         if (actif) setLoading(false);
@@ -314,34 +314,39 @@ export default function MonOrganisationPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {factures.map((f) => (
-                    <tr key={f.id} className="border-t border-savr-neutral-100">
-                      <td className="py-1">{f.numero_facture ?? '—'}</td>
-                      <td className="py-1">{f.date_emission ?? '—'}</td>
-                      <td className="py-1">
-                        {f.montant_ttc != null ? `${f.montant_ttc} €` : '—'}
-                      </td>
-                      <td className="py-1">
-                        <Badge variant="neutral">{f.statut}</Badge>
-                      </td>
-                      <td className="py-1">
-                        {(f.pdf_url_pennylane ?? f.pdf_url_savr) ? (
-                          <a
-                            href={
-                              f.pdf_url_pennylane ?? f.pdf_url_savr ?? undefined
-                            }
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-savr-primary-700 underline text-xs"
-                          >
-                            Télécharger
-                          </a>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  {factures.map((f) => {
+                    // §06.04 §6 fiche facture : Pennylane si dispo, sinon Savr.
+                    const pdf = f.pdf_url_pennylane ?? f.pdf_url_savr;
+                    return (
+                      <tr
+                        key={f.id}
+                        className="border-t border-savr-neutral-100"
+                      >
+                        <td className="py-1">{f.numero_facture ?? '—'}</td>
+                        <td className="py-1">{f.date_emission ?? '—'}</td>
+                        <td className="py-1">
+                          {f.montant_ttc != null ? `${f.montant_ttc} €` : '—'}
+                        </td>
+                        <td className="py-1">
+                          <Badge variant="neutral">{f.statut}</Badge>
+                        </td>
+                        <td className="py-1">
+                          {pdf ? (
+                            <a
+                              href={pdf}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-savr-primary-700 underline text-xs"
+                            >
+                              Télécharger
+                            </a>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}

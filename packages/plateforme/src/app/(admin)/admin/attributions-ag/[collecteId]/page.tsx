@@ -10,7 +10,6 @@ import {
   MapPin,
   Users,
   Truck,
-  Search,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -50,9 +49,10 @@ interface AlgoResult {
 interface AssoRef {
   id: string;
   nom: string;
-  ville: string;
+  ville: string | null;
   capacite_max_beneficiaires: number | null;
   habilitee_attestation_fiscale: boolean;
+  distance_km: number | null;
 }
 
 interface TranspRef {
@@ -118,11 +118,10 @@ export default function AttributionDetailPage() {
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Recherche libre association (BL-P1-ALGO-03)
-  const [assoQuery, setAssoQuery] = useState('');
-  const [assoCapMin, setAssoCapMin] = useState('');
-  const [assoHabilitee, setAssoHabilitee] = useState(false);
-  const [assoResults, setAssoResults] = useState<AssoRef[]>([]);
+  // Liste déroulante association (BL-P1-ALGO-03) : toutes les associations
+  // actives, triées par distance croissante au lieu de la collecte.
+  const [associations, setAssociations] = useState<AssoRef[]>([]);
+  const [assoErreur, setAssoErreur] = useState(false);
   // Liste déroulante transporteur (BL-P1-ALGO-04) : tous les transporteurs actifs.
   const [transporteurs, setTransporteurs] = useState<TranspRef[]>([]);
   const [transpErreur, setTranspErreur] = useState(false);
@@ -198,16 +197,50 @@ export default function AttributionDetailPage() {
     !isOverride ||
     (motif !== '' && (motif !== 'autre' || motifLibre.length >= 10));
 
-  const searchAssos = async () => {
-    const p = new URLSearchParams({ actif: 'true' });
-    if (assoQuery) p.set('q', assoQuery);
-    if (assoCapMin) p.set('capacite_min', assoCapMin);
-    if (assoHabilitee) p.set('habilitee', 'true');
-    const res = await fetch(`/api/v1/admin/associations?${p.toString()}`);
-    if (res.ok) {
+  const chargerAssociations = useCallback(async () => {
+    setAssoErreur(false);
+    try {
+      const res = await fetch(
+        `/api/v1/admin/attributions-ag/${encodeURIComponent(collecteId)}/associations`,
+      );
+      if (!res.ok) throw new Error('chargement associations');
       const json = (await res.json()) as { data: AssoRef[] };
-      setAssoResults(json.data);
+      setAssociations(json.data);
+    } catch {
+      setAssoErreur(true);
     }
+  }, [collecteId]);
+
+  useEffect(() => {
+    void chargerAssociations();
+  }, [chargerAssociations]);
+
+  const suggestions = algo?.associations ?? [];
+  // Options = associations actives triées par distance + suggestions absentes de
+  // la liste chargée (échec / en cours) : le <select> montre toujours la sélection.
+  const optionsAsso: AssoRef[] = [
+    ...associations,
+    ...suggestions
+      .filter((s) => !associations.some((a) => a.id === s.id))
+      .map((s) => ({
+        id: s.id,
+        nom: s.nom,
+        ville: null,
+        capacite_max_beneficiaires: s.capacite_max_beneficiaires,
+        habilitee_attestation_fiscale: false,
+        distance_km: s.distance_km,
+      })),
+  ];
+
+  const choisirAssociation = (id: string) => {
+    const a = optionsAsso.find((x) => x.id === id);
+    setSelectedAsso(a ? id : null);
+    setSelectedAssoNom(a?.nom ?? null);
+    // Suggestion de l'algo (ou aucun choix) = 'reco' ; hors suggestions = 'libre'
+    // (audit attribution_manuelle_aucune_reco si l'algo n'en proposait aucune).
+    setAssoSource(
+      !a || suggestions.some((x) => x.id === id) ? 'reco' : 'libre',
+    );
   };
 
   const handleValider = async () => {
@@ -241,7 +274,12 @@ export default function AttributionDetailPage() {
         throw new Error(json.error ?? 'Erreur validation');
       }
       setSuccessMsg("Attribution validée. Les emails sont en cours d'envoi.");
-      setTimeout(() => router.push('/admin/attributions-ag'), 2000);
+      // La file d'attribution vit dans Collectes (chip « AG en attente attribution »,
+      // §06.09 §1) : il n'existe pas de page /admin/attributions-ag.
+      setTimeout(
+        () => router.push('/admin/collectes?chip=ag_attente_attribution'),
+        2000,
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur inconnue');
     } finally {
@@ -352,74 +390,51 @@ export default function AttributionDetailPage() {
               </Card>
             ))}
 
-            {/* BL-P1-ALGO-03 — Recherche libre association (aucune reco ou choix alternatif) */}
+            {/* BL-P1-ALGO-03 — Aucune suggestion : choix manuel dans la liste déroulante */}
             {algo.no_asso && (
               <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
                 Aucune association disponible pour ce créneau. Traitement manuel
                 requis.
               </div>
             )}
-            <details className="rounded-md border border-savr-neutral-200 p-3">
-              <summary className="cursor-pointer text-sm font-medium text-savr-neutral-700">
-                <Search className="mr-1 inline h-3.5 w-3.5" />
-                Choisir une autre association (recherche libre)
-              </summary>
-              <div className="mt-3 space-y-2">
-                <div className="flex flex-wrap gap-2">
-                  <input
-                    className="flex-1 rounded border border-savr-neutral-200 px-2 py-1 text-sm"
-                    placeholder="Ville ou nom…"
-                    value={assoQuery}
-                    onChange={(e) => setAssoQuery(e.target.value)}
-                  />
-                  <input
-                    className="w-28 rounded border border-savr-neutral-200 px-2 py-1 text-sm"
-                    placeholder="Capacité min"
-                    type="number"
-                    value={assoCapMin}
-                    onChange={(e) => setAssoCapMin(e.target.value)}
-                  />
-                  <label className="flex items-center gap-1 text-xs text-savr-neutral-600">
-                    <input
-                      type="checkbox"
-                      checked={assoHabilitee}
-                      onChange={(e) => setAssoHabilitee(e.target.checked)}
-                    />
-                    Habilitée 2041-GE
-                  </label>
-                  <Button size="sm" variant="secondary" onClick={searchAssos}>
-                    Rechercher
+            <div>
+              <Label htmlFor="association-select">Association</Label>
+              <Select
+                id="association-select"
+                value={selectedAsso ?? ''}
+                onChange={(e) => choisirAssociation(e.target.value)}
+              >
+                <option value="">Choisir une association…</option>
+                {optionsAsso.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.nom}
+                    {a.ville ? ` · ${a.ville}` : ''}
+                    {a.distance_km != null
+                      ? ` · ${a.distance_km.toLocaleString('fr-FR')} km`
+                      : ' · distance inconnue'}
+                    {a.capacite_max_beneficiaires != null
+                      ? ` · cap. ${a.capacite_max_beneficiaires}`
+                      : ''}
+                    {a.habilitee_attestation_fiscale ? ' · 2041-GE' : ''}
+                    {suggestions.some((x) => x.id === a.id)
+                      ? ' (suggérée)'
+                      : ''}
+                  </option>
+                ))}
+              </Select>
+              {assoErreur && (
+                <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  <span>Impossible de charger la liste des associations.</span>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => void chargerAssociations()}
+                  >
+                    Réessayer
                   </Button>
                 </div>
-                {assoResults.map((a) => (
-                  <button
-                    key={a.id}
-                    className={`flex w-full items-center justify-between rounded border px-2 py-1 text-left text-sm ${
-                      selectedAsso === a.id
-                        ? 'border-savr-primary-500 bg-savr-primary-50'
-                        : 'border-savr-neutral-200'
-                    }`}
-                    onClick={() => {
-                      setSelectedAsso(a.id);
-                      setSelectedAssoNom(a.nom);
-                      setAssoSource('libre');
-                    }}
-                  >
-                    <span>
-                      {a.nom}{' '}
-                      <span className="text-xs text-savr-neutral-500">
-                        · {a.ville}
-                      </span>
-                    </span>
-                    {a.habilitee_attestation_fiscale && (
-                      <Badge variant="neutral" dot={false}>
-                        2041-GE
-                      </Badge>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </details>
+              )}
+            </div>
           </div>
 
           {/* Colonne droite : transporteur + validation */}

@@ -274,11 +274,11 @@
     },
     {
       "id": "BL-P1-ALGO-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:77-80",
-      "artefact": "supabase/migrations/20260630120000_plateforme_r11_algo_ag.sql (rpc_log_attribution_aucune_reco) ; packages/plateforme/src/app/api/v1/admin/associations/route.ts (filtres capacite_min + habilitee 2041-GE) ; packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/valider/route.ts + src/lib/attribution-ag/validation.ts (logAttributionAucuneReco) ; [collecteId]/page.tsx (panel recherche libre asso)",
-      "test": "R11-T5/T6 (supabase/tests/r11_algo_ag.test.sql) audit attribution_manuelle_aucune_reco ; M2.3 / R11 ALGO-03 recherche libre association + audit aucune-reco (algo-attribution-ag-r11.m2-3.test.ts)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:55-72",
+      "artefact": "supabase/migrations/20260630120000_plateforme_r11_algo_ag.sql (rpc_log_attribution_aucune_reco) ; packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/associations/route.ts + src/lib/attribution-ag/associations-par-distance.ts (associations actives triées par distance au lieu) ; [collecteId]/page.tsx (liste déroulante association — décision Val 2026-09-17 remplaçant la recherche libre, divergence M2.3_20260918_attribution-ag-liste-associations.md) ; packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/valider/route.ts + src/lib/attribution-ag/validation.ts (logAttributionAucuneReco)",
+      "test": "R11-T5/T6 (supabase/tests/r11_algo_ag.test.sql) audit attribution_manuelle_aucune_reco ; M2.3 / associations par distance au lieu de la collecte (associations-par-distance.test.ts) ; M2.3 / GET attributions-ag/[collecteId]/associations (attribution-ag-associations.m2-3.test.ts) ; M2.3 / Attribution AG — liste déroulante association (attribution-association-select.test.tsx) — ordre des distances, override avec motif, aucune_reco, retour à la file Collectes. Rendu liste = preuve-visuelle (GO-VISUAL)",
       "statut": "implemented",
-      "libelle": "Recherche libre association (ville/capacité/2041-GE) + audit attribution_manuelle_aucune_reco"
+      "libelle": "Choix de l'association par liste déroulante (toutes les associations actives triées par distance au lieu) + audit attribution_manuelle_aucune_reco"
     },
     {
       "id": "BL-P1-ALGO-04",

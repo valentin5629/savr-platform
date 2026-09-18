@@ -11,7 +11,9 @@ const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
 // GET /api/v1/gestionnaire/traiteurs/[id]
 // Fiche traiteur non-commerciale : nom, logo, stats 12 mois sur les lieux de l'organisation.
-// Champs exclus : email, téléphone, SIRET (§06.05).
+// Champs exclus : email, téléphone, SIRET, adresse, notes internes, tarifs (§06.05).
+// La « ville » de §06.05 n'a pas de colonne dans organisations → non affichée
+// (décision Val 2026-09-18).
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -34,7 +36,7 @@ export async function GET(
   // Infos non-commerciales du traiteur
   const { data: orga, error: orgaErr } = await supabase
     .from('organisations')
-    .select('id, nom, logo_url, ville, description_activite')
+    .select('id, nom, logo_url')
     .eq('id', id)
     .eq('type', 'traiteur')
     .maybeSingle();
@@ -125,8 +127,6 @@ export async function GET(
       id: orga.id,
       nom: orga.nom,
       logo_url: orga.logo_url ?? null,
-      ville: orga.ville ?? null,
-      description_activite: orga.description_activite ?? null,
       stats_12m: {
         nb_collectes_zd: nbZd,
         nb_collectes_ag: nbAg,

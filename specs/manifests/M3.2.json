@@ -47,7 +47,8 @@
     "packages/plateforme/src/components/dashboards/EvenementsFilterBar.tsx",
     "packages/plateforme/src/components/dashboards/taille-options.ts",
     "packages/plateforme/tests/api/gestionnaire/espace-gestionnaire-p2.m3-2.test.ts",
-    "packages/plateforme/tests/ui/espace-gestionnaire-p2.m3-2.test.tsx"
+    "packages/plateforme/tests/ui/espace-gestionnaire-p2.m3-2.test.tsx",
+    "packages/plateforme/tests/ui/mon-organisation-gestionnaire.m3-2.test.tsx"
   ],
   "scenarios": [
     "M3.2/auth_guard_non_gestionnaire_401",
@@ -104,7 +105,13 @@
     "M3.2/P2_traiteur_detail_historique",
     "M3.2/blocs_gestionnaire_perimetre_et_top_traiteurs",
     "M3.2/blocs_gestionnaire_zd_prochaines_colonne_traiteur",
-    "M3.2/blocs_gestionnaire_ag_associations"
+    "M3.2/blocs_gestionnaire_ag_associations",
+    "M3.2/profil_get_404_organisation_absente",
+    "M3.2/profil_patch_404_organisation_absente",
+    "M3.2/mon_organisation_profil_affiche",
+    "M3.2/mon_organisation_erreur_affichee",
+    "M3.2/mon_organisation_factures_lignes_pdf_pennylane_prioritaire",
+    "M3.2/mon_organisation_erreur_onglet_quitte_ignoree"
   ],
   "deliverables": [
     {
@@ -434,6 +441,14 @@
       "test": "M3.2/dash_bloc2_bloc4_zd_montes + M3.2/blocs_gestionnaire_zd_prochaines_colonne_traiteur + M3.2/P2_dashboard_carte_kpi_non_cliquable",
       "statut": "implemented",
       "libelle": "Refonte visuelle « Cockpit » du dashboard gestionnaire (R24, déclinaison du pilote traiteur, décision Val GO-VISUAL 2026-07-10) : composants Cockpit (KpiCockpitCard NON cliquables, EvolutionZdChart/AgChart à tooltip de survol + format compact, BenchmarkBulletGauges 5 dimensions, TonnagesDonut, TopRankList avec colonnes §06.05 en ligne secondaire) importés en direct. Spécificités gestionnaire préservées : 5 filtres (dont Traiteurs), Bloc 7 top traiteurs, Bloc 5 colonne Traiteur, pack AG lecture seule. DS §10 par défaut. Pas de héros CO₂ (endpoint gestionnaire agrégé, sans co2_*)."
+    },
+    {
+      "id": "M3.2-mon-organisation-page",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/mon-organisation/page.tsx",
+      "test": "M3.2/mon_organisation_profil_affiche + M3.2/mon_organisation_erreur_affichee + M3.2/mon_organisation_factures_lignes_pdf_pennylane_prioritaire + M3.2/mon_organisation_erreur_onglet_quitte_ignoree",
+      "statut": "implemented",
+      "libelle": "Page Mon organisation (§06.05 nav 8) : profil, factures, état d'erreur"
     }
   ],
   "cdc_source_hash": {

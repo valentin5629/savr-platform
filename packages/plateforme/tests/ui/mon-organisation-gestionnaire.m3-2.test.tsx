@@ -46,6 +46,38 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
     expect(screen.getByText('12345678900011')).toBeTruthy();
   });
 
+  it('M3.2/mon_organisation_factures_lignes_pdf_pennylane_prioritaire', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        Promise.resolve(
+          url.endsWith('/factures')
+            ? reponse(200, {
+                data: [
+                  {
+                    id: 'f1',
+                    numero_facture: 'VIP-001',
+                    statut: 'emise',
+                    date_emission: '2026-06-01',
+                    montant_ttc: 1200,
+                    pdf_url_savr: 'https://savr.test/f1.pdf',
+                    pdf_url_pennylane: 'https://pennylane.test/f1.pdf',
+                  },
+                ],
+              })
+            : reponse(200, { data: PROFIL }),
+        ),
+      ),
+    );
+    render(<MonOrganisationPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Factures' }));
+    expect(await screen.findByText('VIP-001', {}, ATTENTE_UI)).toBeTruthy();
+    // §06.04 §6 fiche facture : pdf_url_pennylane si dispo, sinon pdf_url_savr.
+    expect(
+      screen.getByRole('link', { name: 'Télécharger' }).getAttribute('href'),
+    ).toBe('https://pennylane.test/f1.pdf');
+  });
+
   it('M3.2/mon_organisation_erreur_affichee', async () => {
     vi.stubGlobal(
       'fetch',

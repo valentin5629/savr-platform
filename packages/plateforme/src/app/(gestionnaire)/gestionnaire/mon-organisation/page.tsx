@@ -325,10 +325,10 @@ export default function MonOrganisationPage() {
                         <Badge variant="neutral">{f.statut}</Badge>
                       </td>
                       <td className="py-1">
-                        {(f.pdf_url_savr ?? f.pdf_url_pennylane) ? (
+                        {(f.pdf_url_pennylane ?? f.pdf_url_savr) ? (
                           <a
                             href={
-                              f.pdf_url_savr ?? f.pdf_url_pennylane ?? undefined
+                              f.pdf_url_pennylane ?? f.pdf_url_savr ?? undefined
                             }
                             target="_blank"
                             rel="noreferrer"

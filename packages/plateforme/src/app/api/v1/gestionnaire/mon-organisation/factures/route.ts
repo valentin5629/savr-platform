@@ -10,9 +10,9 @@ const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
 // GET /api/v1/gestionnaire/mon-organisation/factures
 // Factures de la propre organisation (F6 — miroir shared.fichiers, self-only).
-// Pas d'accès aux factures d'autres organisations. Brouillons exclus : la vue
-// client ne lit que les factures émises/payées (§06.04 l.100 et l.913, idem
-// route traiteur/factures).
+// Pas d'accès aux factures d'autres organisations. Brouillons exclus
+// (arbitrage Val 2026-09-18, idem route traiteur/factures) — §06.04 l.708 dit
+// « toutes les factures », cf. _Divergences M3.2_20260918.
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(req, ROLES);
   if (auth.error) return auth.error;

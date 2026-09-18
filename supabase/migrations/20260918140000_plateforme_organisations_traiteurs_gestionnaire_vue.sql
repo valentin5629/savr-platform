@@ -36,10 +36,11 @@
 -- (§06.11, voulu : complétion SIRET) ; client_organisateur / traiteur_* = leur
 -- seule ligne ; admin_savr / ops_savr = staff.
 --
--- Effet de bord assumé : evt_gestionnaire_insert (WITH CHECK lisant organisations
--- sous RLS) ne voit plus aucun traiteur → un INSERT evenements par PostgREST direct
--- d'un gestionnaire est refusé. L'application programme en service_role
--- (/api/v1/programmation/evenements) : aucun parcours applicatif touché.
+-- evt_gestionnaire_insert (WITH CHECK lisant organisations sous RLS) ne voit plus
+-- aucun traiteur. Sans effet : authenticated n'a déjà plus aucun privilège INSERT
+-- sur evenements depuis 20260915190000 (vérifié : has_table_privilege = false, 0
+-- grant colonne) ; la programmation passe en service_role
+-- (/api/v1/programmation/evenements). Aucun parcours applicatif touché.
 --
 -- NON DESTRUCTIF (aucune donnée, aucune colonne). FERME un accès net (§12-2bis) :
 -- la vue est un nouvel objet GRANT SELECT TO authenticated, mais elle n'expose

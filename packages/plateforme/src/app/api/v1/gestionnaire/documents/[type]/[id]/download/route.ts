@@ -1,10 +1,12 @@
-// GET /api/v1/organisateur/documents/:type/:id/download
-// Retourne une URL pré-signée R2 (15 min) pour un document du client organisateur.
-// type ∈ rapport | bordereau | attestation.
-// Sécurité : client user-scopé → la RLS (rr_select / bord_client_orga_select /
-// att_client_orga_select) est la frontière ; une ligne d'un autre organisateur → 404.
-// Embargo H+24 (R-PDF2) appliqué côté serveur sur les rapports RSE (disponible_a),
-// jamais contournable.
+// GET /api/v1/gestionnaire/documents/:type/:id/download
+// Retourne une URL pré-signée R2 (15 min) pour un document d'une collecte tenue
+// sur un lieu du gestionnaire (§06.05 Bloc documents).
+// type ∈ rapport | attestation — le bordereau ZD passe par
+// /api/v1/registre/bordereaux/:id/download (gestionnaire déjà autorisé).
+// Sécurité : client user-scopé → la RLS (rr_select via f_collecte_visible /
+// att_gestionnaire_select) est la frontière ; une ligne hors périmètre → 404.
+// Embargo H+24 (R-PDF2) appliqué côté serveur, jamais contournable : rapports RSE
+// (disponible_a) et attestations de don (eligible_at) → 425 + disponible_a.
 
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -13,24 +15,22 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
-import { storageKeysDesFichiers } from '@/lib/pdf/fichier-storage-key.js';
 import { getPresignedUrl } from '@/lib/pdf/r2-client.js';
-import { type SupabaseClient } from '@savr/shared/src/supabase-client.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const ORGANISATEUR_ROLES: ClientRole[] = ['client_organisateur'];
+const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ type: string; id: string }> },
 ): Promise<NextResponse> {
-  const auth = await requireUser(req, ORGANISATEUR_ROLES);
+  const auth = await requireUser(req, ROLES);
   if (auth.error) return auth.error;
 
   const { type, id } = await params;
-  const supabase = createSupabaseServerClient() as unknown as SupabaseClient;
+  const supabase = createSupabaseServerClient();
 
   let storageKey: string | null = null;
 
@@ -62,7 +62,7 @@ export async function GET(
   } else if (type === 'attestation') {
     const { data, error } = await supabase
       .from('attestations_don')
-      .select('id, genere_at, pdf_url')
+      .select('id, eligible_at, genere_at, pdf_url')
       .eq('id', id)
       .maybeSingle();
     if (error || !data)
@@ -70,33 +70,27 @@ export async function GET(
         { error: 'Attestation introuvable' },
         { status: 404 },
       );
+
+    // Même embargo H+24 que le rapport (eligible_at = realisee_at + 24h, posé
+    // par le batch J+1) — cf. route admin attestations.
+    const eligibleA = data.eligible_at
+      ? new Date(data.eligible_at as string)
+      : null;
+    if (eligibleA && Date.now() < eligibleA.getTime()) {
+      return NextResponse.json(
+        {
+          error: 'Attestation sous embargo H+24',
+          disponible_a: data.eligible_at,
+        },
+        { status: 425 },
+      );
+    }
     if (!data.genere_at)
       return NextResponse.json(
         { error: 'PDF non encore généré' },
         { status: 202 },
       );
     storageKey = data.pdf_url as string | null;
-  } else if (type === 'bordereau') {
-    const { data, error } = await supabase
-      .from('bordereaux_savr')
-      .select('id, genere_at, pdf_fichier_id')
-      .eq('id', id)
-      .maybeSingle();
-    if (error || !data)
-      return NextResponse.json(
-        { error: 'Bordereau introuvable' },
-        { status: 404 },
-      );
-    if (!data.genere_at)
-      return NextResponse.json(
-        { error: 'PDF non encore généré' },
-        { status: 202 },
-      );
-    // pdf_fichier_id → shared.fichiers (bucket/key) : pas d'embed cross-schema.
-    storageKey =
-      (await storageKeysDesFichiers(supabase, [data.pdf_fichier_id])).get(
-        data.pdf_fichier_id ?? '',
-      ) ?? null;
   } else {
     return NextResponse.json(
       { error: 'Type de document inconnu' },

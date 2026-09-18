@@ -25,7 +25,7 @@ export async function GET(
 
   const { data: rapport, error } = await supabase
     .from('rapports_rse')
-    .select('id, disponible_a, genere_at, pdf_url, fichiers:pdf_url(url)')
+    .select('id, disponible_a, genere_at, pdf_url')
     .eq('id', id)
     .single();
 

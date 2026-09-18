@@ -6,6 +6,7 @@ import { use } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { formatDateHeureParis } from '@savr/shared/src/temps/index.js';
 
 interface Attribution {
   id: string;
@@ -13,7 +14,6 @@ interface Attribution {
   associations: {
     nom: string;
     ville: string | null;
-    distance_km: number | null;
   } | null;
 }
 interface Collecte {
@@ -31,8 +31,8 @@ interface Collecte {
   attributions_antgaspi: Attribution[];
   bordereaux_savr: {
     id: string;
-    numero_bordereau: string;
-    pdf_url: string | null;
+    numero: string | null;
+    statut: string;
   }[];
   rapports_rse: { id: string; pdf_url: string | null }[];
   attestations_don: {
@@ -72,6 +72,7 @@ export default function EvenementDetailPage({
   const [evt, setEvt] = useState<EvenementDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [docMessage, setDocMessage] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/v1/gestionnaire/evenements/${encodeURIComponent(id)}`)
@@ -87,6 +88,45 @@ export default function EvenementDetailPage({
       })
       .finally(() => setLoading(false));
   }, [id]);
+
+  // Bordereau ZD : URL pré-signée R2 servie par la route registre (gestionnaire
+  // autorisé, RLS bordereaux_savr = frontière) — même geste que le registre.
+  async function telechargerBordereau(bordereauId: string) {
+    const res = await fetch(
+      `/api/v1/registre/bordereaux/${encodeURIComponent(bordereauId)}/download`,
+    );
+    if (!res.ok) return;
+    const j = (await res.json()) as { url?: string };
+    if (j.url) window.open(j.url, '_blank');
+  }
+
+  // Rapport de recyclage / attestation de don : pdf_url = clé R2 (bucket/key),
+  // pas une URL → URL pré-signée via la route gestionnaire (RLS = frontière,
+  // embargo H+24 appliqué côté serveur → 425).
+  async function telechargerDocument(
+    type: 'rapport' | 'attestation',
+    docId: string,
+  ) {
+    setDocMessage(null);
+    const res = await fetch(
+      `/api/v1/gestionnaire/documents/${encodeURIComponent(type)}/${encodeURIComponent(docId)}/download`,
+    );
+    if (res.status === 425) {
+      const j = (await res.json()) as { disponible_a?: string };
+      setDocMessage(
+        j.disponible_a
+          ? `Document disponible à partir du ${formatDateHeureParis(j.disponible_a)}.`
+          : 'Document pas encore disponible.',
+      );
+      return;
+    }
+    if (!res.ok) {
+      setDocMessage('Document indisponible pour le moment.');
+      return;
+    }
+    const j = (await res.json()) as { url?: string };
+    if (j.url) window.open(j.url, '_blank');
+  }
 
   if (loading)
     return <p className="text-sm text-savr-neutral-500">Chargement…</p>;
@@ -140,6 +180,12 @@ export default function EvenementDetailPage({
           </div>
         </CardContent>
       </Card>
+
+      {docMessage && (
+        <p role="status" className="text-sm text-savr-neutral-600">
+          {docMessage}
+        </p>
+      )}
 
       {/* Collectes */}
       {evt.collectes.length === 0 ? (
@@ -206,42 +252,41 @@ export default function EvenementDetailPage({
               {/* Documents */}
               <div className="flex flex-wrap gap-2">
                 {c.bordereaux_savr.map((b) =>
-                  b.pdf_url ? (
-                    <a
+                  b.statut === 'emis' || b.statut === 'corrige' ? (
+                    <button
                       key={b.id}
-                      href={b.pdf_url}
-                      target="_blank"
-                      rel="noreferrer"
+                      type="button"
+                      onClick={() => void telechargerBordereau(b.id)}
                       className="text-xs text-savr-primary-700 underline"
                     >
-                      Bordereau {b.numero_bordereau}
-                    </a>
+                      Bordereau {b.numero ?? ''}
+                    </button>
                   ) : null,
                 )}
                 {c.rapports_rse.map((r) =>
                   r.pdf_url ? (
-                    <a
+                    <button
                       key={r.id}
-                      href={r.pdf_url}
-                      target="_blank"
-                      rel="noreferrer"
+                      type="button"
+                      onClick={() => void telechargerDocument('rapport', r.id)}
                       className="text-xs text-savr-primary-700 underline"
                     >
                       Rapport RSE
-                    </a>
+                    </button>
                   ) : null,
                 )}
                 {c.attestations_don.map((a) =>
                   a.pdf_url ? (
-                    <a
+                    <button
                       key={a.id}
-                      href={a.pdf_url}
-                      target="_blank"
-                      rel="noreferrer"
+                      type="button"
+                      onClick={() =>
+                        void telechargerDocument('attestation', a.id)
+                      }
                       className="text-xs text-savr-primary-700 underline"
                     >
                       Attestation don
-                    </a>
+                    </button>
                   ) : null,
                 )}
               </div>

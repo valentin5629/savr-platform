@@ -922,6 +922,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "coefficients_perte_labo_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "v_traiteurs_gestionnaire"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "coefficients_perte_labo_saisi_par_fkey"
             columns: ["saisi_par"]
             isOneToOne: false
@@ -1282,6 +1289,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "config_auto_accept_ag_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "v_traiteurs_gestionnaire"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "config_auto_accept_ag_transporteur_id_fkey"
             columns: ["transporteur_id"]
             isOneToOne: false
@@ -1356,6 +1370,13 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "v_referentiel_traiteurs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contacts_traiteurs_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "v_traiteurs_gestionnaire"
             referencedColumns: ["id"]
           },
         ]
@@ -1641,6 +1662,13 @@ export type Database = {
             referencedRelation: "v_referentiel_traiteurs"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "entites_facturation_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "v_traiteurs_gestionnaire"
+            referencedColumns: ["id"]
+          },
         ]
       }
       evenements: {
@@ -1729,6 +1757,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "evenements_client_organisateur_organisation_id_fkey"
+            columns: ["client_organisateur_organisation_id"]
+            isOneToOne: false
+            referencedRelation: "v_traiteurs_gestionnaire"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "evenements_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
@@ -1771,6 +1806,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "evenements_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "v_traiteurs_gestionnaire"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "evenements_traiteur_operationnel_organisation_id_fkey"
             columns: ["traiteur_operationnel_organisation_id"]
             isOneToOne: false
@@ -1782,6 +1824,13 @@ export type Database = {
             columns: ["traiteur_operationnel_organisation_id"]
             isOneToOne: false
             referencedRelation: "v_referentiel_traiteurs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evenements_traiteur_operationnel_organisation_id_fkey"
+            columns: ["traiteur_operationnel_organisation_id"]
+            isOneToOne: false
+            referencedRelation: "v_traiteurs_gestionnaire"
             referencedColumns: ["id"]
           },
           {
@@ -1956,6 +2005,13 @@ export type Database = {
             referencedRelation: "v_referentiel_traiteurs"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "exports_registre_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "v_traiteurs_gestionnaire"
+            referencedColumns: ["id"]
+          },
         ]
       }
       factures: {
@@ -2108,6 +2164,13 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "v_referentiel_traiteurs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "factures_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "v_traiteurs_gestionnaire"
             referencedColumns: ["id"]
           },
           {
@@ -2748,6 +2811,13 @@ export type Database = {
             referencedRelation: "v_referentiel_traiteurs"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "organisations_cree_par_organisation_id_fkey"
+            columns: ["cree_par_organisation_id"]
+            isOneToOne: false
+            referencedRelation: "v_traiteurs_gestionnaire"
+            referencedColumns: ["id"]
+          },
         ]
       }
       organisations_domaines_email: {
@@ -2785,6 +2855,13 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "v_referentiel_traiteurs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organisations_domaines_email_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "v_traiteurs_gestionnaire"
             referencedColumns: ["id"]
           },
         ]
@@ -2845,6 +2922,13 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "v_referentiel_traiteurs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organisations_lieux_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "v_traiteurs_gestionnaire"
             referencedColumns: ["id"]
           },
         ]
@@ -3001,6 +3085,13 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "v_referentiel_traiteurs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "packs_antgaspi_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "v_traiteurs_gestionnaire"
             referencedColumns: ["id"]
           },
         ]
@@ -3734,6 +3825,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tarifs_negocie_gestionnaire_organisation_id_fkey"
+            columns: ["gestionnaire_organisation_id"]
+            isOneToOne: false
+            referencedRelation: "v_traiteurs_gestionnaire"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "tarifs_negocie_lieu_id_fkey"
             columns: ["lieu_id"]
             isOneToOne: false
@@ -3759,6 +3857,13 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "v_referentiel_traiteurs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tarifs_negocie_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "v_traiteurs_gestionnaire"
             referencedColumns: ["id"]
           },
         ]
@@ -4085,6 +4190,13 @@ export type Database = {
             referencedRelation: "v_referentiel_traiteurs"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "users_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "v_traiteurs_gestionnaire"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
@@ -4334,6 +4446,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "factures_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "v_traiteurs_gestionnaire"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "factures_pack_antgaspi_id_fkey"
             columns: ["pack_antgaspi_id"]
             isOneToOne: false
@@ -4380,6 +4499,13 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "v_referentiel_traiteurs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evenements_client_organisateur_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "v_traiteurs_gestionnaire"
             referencedColumns: ["id"]
           },
         ]
@@ -4442,6 +4568,13 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "v_referentiel_traiteurs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evenements_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "v_traiteurs_gestionnaire"
             referencedColumns: ["id"]
           },
         ]
@@ -4591,6 +4724,13 @@ export type Database = {
             referencedRelation: "v_referentiel_traiteurs"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "factures_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "v_traiteurs_gestionnaire"
+            referencedColumns: ["id"]
+          },
         ]
       }
       v_ops_integrations: {
@@ -4712,6 +4852,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "evenements_organisation_id_fkey"
+            columns: ["programmateur_organisation_id"]
+            isOneToOne: false
+            referencedRelation: "v_traiteurs_gestionnaire"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "evenements_traiteur_operationnel_organisation_id_fkey"
             columns: ["traiteur_operationnel_organisation_id"]
             isOneToOne: false
@@ -4723,6 +4870,13 @@ export type Database = {
             columns: ["traiteur_operationnel_organisation_id"]
             isOneToOne: false
             referencedRelation: "v_referentiel_traiteurs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evenements_traiteur_operationnel_organisation_id_fkey"
+            columns: ["traiteur_operationnel_organisation_id"]
+            isOneToOne: false
+            referencedRelation: "v_traiteurs_gestionnaire"
             referencedColumns: ["id"]
           },
           {

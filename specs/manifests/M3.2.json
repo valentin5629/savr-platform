@@ -48,7 +48,8 @@
     "packages/plateforme/src/components/dashboards/taille-options.ts",
     "packages/plateforme/tests/api/gestionnaire/espace-gestionnaire-p2.m3-2.test.ts",
     "packages/plateforme/tests/ui/espace-gestionnaire-p2.m3-2.test.tsx",
-    "packages/plateforme/tests/ui/mon-organisation-gestionnaire.m3-2.test.tsx"
+    "packages/plateforme/tests/ui/mon-organisation-gestionnaire.m3-2.test.tsx",
+    "packages/plateforme/src/app/api/v1/gestionnaire/documents/[type]/[id]/download/route.ts"
   ],
   "scenarios": [
     "M3.2/auth_guard_non_gestionnaire_401",
@@ -111,7 +112,15 @@
     "M3.2/mon_organisation_profil_affiche",
     "M3.2/mon_organisation_erreur_affichee",
     "M3.2/mon_organisation_factures_lignes_pdf_pennylane_prioritaire",
-    "M3.2/mon_organisation_erreur_onglet_quitte_ignoree"
+    "M3.2/mon_organisation_erreur_onglet_quitte_ignoree",
+    "M3.2/document_download_rapport_ok",
+    "M3.2/document_download_attestation_ok",
+    "M3.2/document_embargo_h24_refuse",
+    "M3.2/document_hors_perimetre_404",
+    "M3.2/document_non_genere_202",
+    "M3.2/document_type_inconnu_400",
+    "M3.2/document_role_non_gestionnaire_403",
+    "M3.2/document_embargo_h24_attestation_refuse"
   ],
   "deliverables": [
     {
@@ -449,6 +458,14 @@
       "test": "M3.2/mon_organisation_profil_affiche + M3.2/mon_organisation_erreur_affichee + M3.2/mon_organisation_factures_lignes_pdf_pennylane_prioritaire + M3.2/mon_organisation_erreur_onglet_quitte_ignoree",
       "statut": "implemented",
       "libelle": "Page Mon organisation (§06.05 nav 8) : profil, factures, état d'erreur"
+    },
+    {
+      "id": "M3.2-documents-download",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/documents/[type]/[id]/download/route.ts + packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/[id]/page.tsx",
+      "test": "M3.2/document_download_rapport_ok + M3.2/document_download_attestation_ok + M3.2/document_embargo_h24_refuse + M3.2/document_hors_perimetre_404 + M3.2/document_non_genere_202 + M3.2/document_type_inconnu_400 + M3.2/document_role_non_gestionnaire_403 + M3.2/document_embargo_h24_attestation_refuse",
+      "statut": "implemented",
+      "libelle": "Bloc documents du détail événement (§06.05) : téléchargement du rapport de recyclage et de l'attestation de don par URL pré-signée R2 (route gestionnaire user-scopée, RLS = frontière, embargo H+24 R-PDF2 côté serveur → 425 : rapports_rse.disponible_a et attestations_don.eligible_at) ; le bordereau ZD passe par la route registre."
     }
   ],
   "cdc_source_hash": {

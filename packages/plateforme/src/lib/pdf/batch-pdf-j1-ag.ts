@@ -314,16 +314,20 @@ export async function runBatchPdfJ1Ag(
         filtres_benchmark: {},
       });
 
-      // 10. Email attestation_disponible (non bloquant)
-      const { data: contactData } = await supabase
-        .from('evenements')
-        .select('contact_principal_email')
-        .eq('id', collecte.evenement_id)
+      // 10. Email attestation_don_disponible (non bloquant). Destinataire =
+      // email_principal de l'organisation programmatrice (§06.02, tranché Val
+      // 2026-09-14, symétrie rapport_disponible). evenements n'a PAS de
+      // contact_principal_email en V1 : l'ancienne lecture renvoyait toujours
+      // vide → aucune attestation n'était jamais envoyée.
+      const { data: orgaData } = await supabase
+        .from('organisations')
+        .select('email_principal')
+        .eq('id', ev.organisation_id)
         .single();
 
       const contactEmail = (
-        contactData as { contact_principal_email: string | null } | null
-      )?.contact_principal_email;
+        orgaData as { email_principal: string | null } | null
+      )?.email_principal;
       if (contactEmail) {
         const { sendEmail } = await import('@savr/shared/src/email/index.js');
         void sendEmail(

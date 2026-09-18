@@ -23,6 +23,7 @@
     "packages/plateforme/sentry.client.config.ts",
     "packages/plateforme/sentry.server.config.ts",
     "packages/**/node_modules",
-    "packages/shared/src/supabase-client.typed.ts"
+    "packages/shared/src/supabase-client.typed.ts",
+    "packages/shared/src/supabase-ssr.typed.ts"
   ]
 }

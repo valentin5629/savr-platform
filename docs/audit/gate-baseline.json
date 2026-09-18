@@ -3,7 +3,7 @@
   "spec-deliverables": 4,
   "manifest-completeness": 4,
   "cdc-drift": 0,
-  "column-db": 0,
+  "column-db": 10,
   "test-mocks": 0,
   "orphan-components": 0,
   "renamed-type-refs": 0,

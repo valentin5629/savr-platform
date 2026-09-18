@@ -6,6 +6,7 @@ import { use } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { formatDateHeureParis } from '@savr/shared/src/temps/index.js';
 
 interface Attribution {
   id: string;
@@ -71,6 +72,7 @@ export default function EvenementDetailPage({
   const [evt, setEvt] = useState<EvenementDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [docMessage, setDocMessage] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/v1/gestionnaire/evenements/${encodeURIComponent(id)}`)
@@ -94,6 +96,34 @@ export default function EvenementDetailPage({
       `/api/v1/registre/bordereaux/${encodeURIComponent(bordereauId)}/download`,
     );
     if (!res.ok) return;
+    const j = (await res.json()) as { url?: string };
+    if (j.url) window.open(j.url, '_blank');
+  }
+
+  // Rapport de recyclage / attestation de don : pdf_url = clé R2 (bucket/key),
+  // pas une URL → URL pré-signée via la route gestionnaire (RLS = frontière,
+  // embargo H+24 du rapport appliqué côté serveur → 425).
+  async function telechargerDocument(
+    type: 'rapport' | 'attestation',
+    docId: string,
+  ) {
+    setDocMessage(null);
+    const res = await fetch(
+      `/api/v1/gestionnaire/documents/${encodeURIComponent(type)}/${encodeURIComponent(docId)}/download`,
+    );
+    if (res.status === 425) {
+      const j = (await res.json()) as { disponible_a?: string };
+      setDocMessage(
+        j.disponible_a
+          ? `Rapport disponible à partir du ${formatDateHeureParis(j.disponible_a)}.`
+          : 'Rapport pas encore disponible.',
+      );
+      return;
+    }
+    if (!res.ok) {
+      setDocMessage('Document indisponible pour le moment.');
+      return;
+    }
     const j = (await res.json()) as { url?: string };
     if (j.url) window.open(j.url, '_blank');
   }
@@ -150,6 +180,12 @@ export default function EvenementDetailPage({
           </div>
         </CardContent>
       </Card>
+
+      {docMessage && (
+        <p role="status" className="text-sm text-savr-neutral-600">
+          {docMessage}
+        </p>
+      )}
 
       {/* Collectes */}
       {evt.collectes.length === 0 ? (
@@ -229,28 +265,28 @@ export default function EvenementDetailPage({
                 )}
                 {c.rapports_rse.map((r) =>
                   r.pdf_url ? (
-                    <a
+                    <button
                       key={r.id}
-                      href={r.pdf_url}
-                      target="_blank"
-                      rel="noreferrer"
+                      type="button"
+                      onClick={() => void telechargerDocument('rapport', r.id)}
                       className="text-xs text-savr-primary-700 underline"
                     >
                       Rapport RSE
-                    </a>
+                    </button>
                   ) : null,
                 )}
                 {c.attestations_don.map((a) =>
                   a.pdf_url ? (
-                    <a
+                    <button
                       key={a.id}
-                      href={a.pdf_url}
-                      target="_blank"
-                      rel="noreferrer"
+                      type="button"
+                      onClick={() =>
+                        void telechargerDocument('attestation', a.id)
+                      }
                       className="text-xs text-savr-primary-700 underline"
                     >
                       Attestation don
-                    </a>
+                    </button>
                   ) : null,
                 )}
               </div>

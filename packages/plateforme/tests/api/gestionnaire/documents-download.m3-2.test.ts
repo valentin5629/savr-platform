@@ -141,6 +141,7 @@ describe('M3.2 / documents download', () => {
     rls.push({
       data: {
         id: 'a1',
+        eligible_at: '2020-01-02T00:00:00Z',
         genere_at: '2020-01-02T00:00:00Z',
         pdf_url: 'attestations/a1.pdf',
       },
@@ -149,7 +150,9 @@ describe('M3.2 / documents download', () => {
     const res = await callDownload('attestation', 'a1');
     expect(res.status).toBe(200);
     expect(rls.__calls.from).toEqual([['attestations_don']]);
-    expect(rls.__calls.select).toEqual([['id, genere_at, pdf_url']]);
+    expect(rls.__calls.select).toEqual([
+      ['id, eligible_at, genere_at, pdf_url'],
+    ]);
     expect(mockPresign).toHaveBeenCalledWith('attestations/a1.pdf', 900);
   });
 
@@ -165,6 +168,25 @@ describe('M3.2 / documents download', () => {
       error: null,
     });
     const res = await callDownload('rapport', 'r1');
+    expect(res.status).toBe(425);
+    expect(((await res.json()) as { disponible_a?: string }).disponible_a).toBe(
+      '2999-01-01T00:00:00Z',
+    );
+    expect(mockPresign).not.toHaveBeenCalled();
+  });
+
+  it('M3.2/document_embargo_h24_attestation_refuse — 425 si eligible_at dans le futur', async () => {
+    setupAuth('gestionnaire_lieux', 'org-g');
+    rls.push({
+      data: {
+        id: 'a1',
+        eligible_at: '2999-01-01T00:00:00Z',
+        genere_at: '2020-01-02T00:00:00Z',
+        pdf_url: 'attestations/a1.pdf',
+      },
+      error: null,
+    });
+    const res = await callDownload('attestation', 'a1');
     expect(res.status).toBe(425);
     expect(((await res.json()) as { disponible_a?: string }).disponible_a).toBe(
       '2999-01-01T00:00:00Z',

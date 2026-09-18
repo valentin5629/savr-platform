@@ -102,7 +102,7 @@ export default function EvenementDetailPage({
 
   // Rapport de recyclage / attestation de don : pdf_url = clé R2 (bucket/key),
   // pas une URL → URL pré-signée via la route gestionnaire (RLS = frontière,
-  // embargo H+24 du rapport appliqué côté serveur → 425).
+  // embargo H+24 appliqué côté serveur → 425).
   async function telechargerDocument(
     type: 'rapport' | 'attestation',
     docId: string,
@@ -115,8 +115,8 @@ export default function EvenementDetailPage({
       const j = (await res.json()) as { disponible_a?: string };
       setDocMessage(
         j.disponible_a
-          ? `Rapport disponible à partir du ${formatDateHeureParis(j.disponible_a)}.`
-          : 'Rapport pas encore disponible.',
+          ? `Document disponible à partir du ${formatDateHeureParis(j.disponible_a)}.`
+          : 'Document pas encore disponible.',
       );
       return;
     }

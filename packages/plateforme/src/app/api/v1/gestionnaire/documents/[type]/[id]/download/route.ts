@@ -5,8 +5,8 @@
 // /api/v1/registre/bordereaux/:id/download (gestionnaire déjà autorisé).
 // Sécurité : client user-scopé → la RLS (rr_select via f_collecte_visible /
 // att_gestionnaire_select) est la frontière ; une ligne hors périmètre → 404.
-// Embargo H+24 (R-PDF2) appliqué côté serveur sur les rapports RSE (disponible_a),
-// jamais contournable.
+// Embargo H+24 (R-PDF2) appliqué côté serveur, jamais contournable : rapports RSE
+// (disponible_a) et attestations de don (eligible_at) → 425 + disponible_a.
 
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -62,7 +62,7 @@ export async function GET(
   } else if (type === 'attestation') {
     const { data, error } = await supabase
       .from('attestations_don')
-      .select('id, genere_at, pdf_url')
+      .select('id, eligible_at, genere_at, pdf_url')
       .eq('id', id)
       .maybeSingle();
     if (error || !data)
@@ -70,6 +70,21 @@ export async function GET(
         { error: 'Attestation introuvable' },
         { status: 404 },
       );
+
+    // Même embargo H+24 que le rapport (eligible_at = realisee_at + 24h, posé
+    // par le batch J+1) — cf. route admin attestations.
+    const eligibleA = data.eligible_at
+      ? new Date(data.eligible_at as string)
+      : null;
+    if (eligibleA && Date.now() < eligibleA.getTime()) {
+      return NextResponse.json(
+        {
+          error: 'Attestation sous embargo H+24',
+          disponible_a: data.eligible_at,
+        },
+        { status: 425 },
+      );
+    }
     if (!data.genere_at)
       return NextResponse.json(
         { error: 'PDF non encore généré' },

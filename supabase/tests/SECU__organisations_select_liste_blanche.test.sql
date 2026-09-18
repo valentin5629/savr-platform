@@ -24,7 +24,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(33);
+SELECT plan(34);
 
 -- Helpers ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION test_set_jwt_prod(
@@ -193,6 +193,10 @@ SELECT is(
      FROM plateforme.organisations WHERE id = '5e1e0002-0000-0000-0000-0000000000b1'),
   '5e1e9211-0000-0000-0000-0000000000b1|mensuelle|2.75',
   '15. service_role : grille / mode de facturation / tarif lisibles (tarif-zd, batch brouillons)');
+SELECT is(
+  plateforme.f_tarif_refacture_pax_zd('5e1e0002-0000-0000-0000-0000000000b1'::uuid),
+  NULL::numeric,
+  '15b. service_role sans claims : f_tarif_refacture_pax_zd = NULL (comportement figé — un job staff lit la colonne, cf. COMMENT)');
 
 -- =============================================================================
 -- 16-18 — agence → fiche shadow qu'elle a créée

@@ -90,7 +90,7 @@ REVOKE ALL ON FUNCTION plateforme.f_tarif_refacture_pax_zd(uuid) FROM PUBLIC, an
 GRANT EXECUTE ON FUNCTION plateforme.f_tarif_refacture_pax_zd(uuid) TO authenticated, service_role;
 
 COMMENT ON FUNCTION plateforme.f_tarif_refacture_pax_zd(uuid) IS
-  'Tarif refacturé €/pax ZD d''une organisation, rendu au seul traiteur propriétaire (manager/commercial) et au staff ; NULL sinon. Seul chemin de lecture authenticated depuis 20260918100000 (colonne retirée du GRANT SELECT). Utilisée par v_kpi_traiteur (security_invoker) et le tooltip du KPI Marge.';
+  'Tarif refacturé €/pax ZD d''une organisation, rendu au seul traiteur propriétaire (manager/commercial) et au staff (admin_savr/ops_savr) identifiés par le claim JWT user_role ; NULL sinon. ⚠ service_role SANS claims (createAdminSupabaseClient) obtient NULL : un job staff doit lire la colonne directement (privilège service_role intact), pas cette fonction ni v_kpi_traiteur.marge_zd_ht. Seul chemin de lecture authenticated depuis 20260918100000 (colonne retirée du GRANT SELECT). Utilisée par v_kpi_traiteur (security_invoker) et le tooltip du KPI Marge.';
 
 COMMENT ON COLUMN plateforme.organisations.tarif_refacture_pax_zd IS
   'Tarif refacturé €/pax ZD (KPI Marge dashboard traiteur). Défaut 1.50. Écriture Admin Savr only (M3.1). Lecture authenticated uniquement via f_tarif_refacture_pax_zd() (20260918100000 : colonne hors GRANT SELECT).';
@@ -230,6 +230,7 @@ END $$;
 
 REVOKE ALL ON FUNCTION plateforme.fn_block_org_gestionnaire_cols_update() FROM PUBLIC, anon, authenticated;
 
+DROP TRIGGER IF EXISTS trg_block_org_gestionnaire_cols_update ON plateforme.organisations;
 CREATE TRIGGER trg_block_org_gestionnaire_cols_update
   BEFORE UPDATE ON plateforme.organisations
   FOR EACH ROW EXECUTE FUNCTION plateforme.fn_block_org_gestionnaire_cols_update();

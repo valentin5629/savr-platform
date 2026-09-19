@@ -1,3 +1,4 @@
+import { parseCleLogo } from '../logo-key.js';
 import { getObjectBytes } from './r2-client.js';
 
 // Inline d'un logo (clé R2 « bucket/logos/<id>.ext ») en data URI base64 pour le
@@ -9,6 +10,10 @@ import { getObjectBytes } from './r2-client.js';
 // data URI avant `generatePdf`. Best-effort : `null` si clé absente/illisible →
 // le template retombe sur l'en-tête « Savr » (jamais bloquant, comme le fallback
 // logo standard §12 §1.2).
+//
+// La clé vient de la base, écrite par un client (PostgREST compris) : seule une
+// clé du bucket applicatif sous `logos/` est lue (lib/logo-key.ts), sinon le PDF
+// servirait à exfiltrer n'importe quel objet R2 (revue sécurité 2026-09-18).
 
 const MIME_BY_EXT: Record<string, string> = {
   png: 'image/png',
@@ -29,11 +34,12 @@ const MAX_LOGO_BYTES = 1_000_000;
 export async function logoKeyToDataUri(
   storageKey: string | null | undefined,
 ): Promise<string | null> {
-  if (!storageKey || !storageKey.trim()) return null;
+  const cle = parseCleLogo(storageKey);
+  if (!cle) return null;
   try {
-    const bytes = await getObjectBytes(storageKey);
+    const bytes = await getObjectBytes(`${cle.bucket}/${cle.key}`);
     if (bytes.byteLength > MAX_LOGO_BYTES) return null;
-    const ext = storageKey.split('.').pop()?.toLowerCase() ?? '';
+    const ext = cle.key.split('.').pop() ?? '';
     const mime = MIME_BY_EXT[ext] ?? 'image/png';
     return `data:${mime};base64,${bytes.toString('base64')}`;
   } catch {

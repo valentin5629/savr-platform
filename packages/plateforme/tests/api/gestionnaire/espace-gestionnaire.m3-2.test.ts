@@ -639,10 +639,12 @@ describe('M3.2 / traiteurs', () => {
     expect(json.data).not.toHaveProperty('telephone');
     // Oracle sur la requête, pas sur la fixture : la fixture ci-dessus est posée
     // à la main, seule la liste du select prouve ce qui est lu en base.
-    // Colonnes réelles de plateforme.organisations uniquement (une colonne
-    // inexistante = 42703 → 500 en runtime) ; jamais notes_internes ni tarifs.
+    // Source = vue restreinte v_traiteurs_gestionnaire (20260918140000 : la table
+    // organisations n'ouvre plus les traiteurs tiers au gestionnaire), jamais la
+    // table ; colonnes réelles de la vue (une colonne inexistante = 42703 → 500).
     const fromCalls = rls.__calls.from ?? [];
-    const idx = fromCalls.findIndex((a) => a[0] === 'organisations');
+    expect(fromCalls.some((a) => a[0] === 'organisations')).toBe(false);
+    const idx = fromCalls.findIndex((a) => a[0] === 'v_traiteurs_gestionnaire');
     expect(idx).toBeGreaterThanOrEqual(0);
     const selectArg = String(rls.__calls.select?.[idx]?.[0] ?? '');
     const colonnes = selectArg.split(',').map((c) => c.trim());
@@ -872,8 +874,8 @@ describe('M3.2 / mon-organisation / profil', () => {
     );
     const json = (await res.json()) as { data: { nom: string } };
     expect(json.data.nom).toBe('Viparis');
-    // Filtre explicite sur SA propre orga : la RLS expose aussi les traiteurs
-    // intervenus sur ses lieux (org_gestionnaire_traiteur_select).
+    // Filtre explicite sur SA propre orga (défense en profondeur : la RLS ne rend
+    // plus que sa ligne depuis 20260918140000, traiteurs tiers via la vue).
     expect(rls.__calls.eq).toContainEqual(['id', 'org-viparis']);
     // Colonnes réelles de plateforme.organisations uniquement.
     const cols = String(rls.__calls.select?.[0]?.[0])

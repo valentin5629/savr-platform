@@ -477,27 +477,27 @@ SELECT throws_ok(
 );
 
 -- ════════════════════════════════════════════════════════════════════════════
--- T36–T37 : org_gestionnaire_traiteur_select (Catégorie 4)
+-- T36–T37 : traiteurs tiers via v_traiteurs_gestionnaire (Catégorie 4)
+-- (ex-policy org_gestionnaire_traiteur_select, remplacée par la vue restreinte
+--  id/nom/logo_url en 20260918140000 — même prédicat de lignes)
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- T36 : Viparis voit Kaspia (E1 confirmé sur son lieu b01)
 -- JWT Viparis déjà actif (positionné ligne 185)
 SELECT is(
-  (SELECT COUNT(*)::int FROM plateforme.organisations
-   WHERE id = 'cc000000-0000-0000-0000-00000000000c'::uuid
-   AND type = 'traiteur'),
+  (SELECT COUNT(*)::int FROM plateforme.v_traiteurs_gestionnaire
+   WHERE id = 'cc000000-0000-0000-0000-00000000000c'::uuid),
   1,
-  'T36 : org_gestionnaire_traiteur_select — Kaspia visible Viparis (E1 confirmé sur lieu b01)'
+  'T36 : v_traiteurs_gestionnaire — Kaspia visible Viparis (E1 confirmé sur lieu b01)'
 );
 
 -- T37 : Viparis ne voit PAS Traiteur Externe (aucun événement sur ses lieux)
 -- JWT Viparis toujours actif (pas de switch nécessaire)
 SELECT is(
-  (SELECT COUNT(*)::int FROM plateforme.organisations
-   WHERE id = 'cc000000-0000-0000-0000-00000000000d'::uuid
-   AND type = 'traiteur'),
+  (SELECT COUNT(*)::int FROM plateforme.v_traiteurs_gestionnaire
+   WHERE id = 'cc000000-0000-0000-0000-00000000000d'::uuid),
   0,
-  'T37 : org_gestionnaire_traiteur_select — Traiteur Externe invisible (aucun événement confirmé sur lieux Viparis)'
+  'T37 : v_traiteurs_gestionnaire — Traiteur Externe invisible (aucun événement confirmé sur lieux Viparis)'
 );
 
 -- ════════════════════════════════════════════════════════════════════════════

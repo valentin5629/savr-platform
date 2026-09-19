@@ -65,7 +65,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
        lieu_id,
        lieux!lieu_id(id, nom, ville),
        traiteur_operationnel_organisation_id,
-       organisations!traiteur_operationnel_organisation_id(id, nom),
+       organisations:v_traiteurs_gestionnaire!traiteur_operationnel_organisation_id(id, nom),
        type_evenement_id,
        types_evenements!type_evenement_id(id, libelle),
        collectes(id, type, statut, date_collecte,

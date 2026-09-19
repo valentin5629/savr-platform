@@ -255,12 +255,12 @@ SELECT throws_ok(
   '42501', NULL, '25b. gestionnaire : updated_at non forgeable (hors liste blanche)');
 
 SELECT lives_ok(
-  $$ UPDATE plateforme.organisations SET adresse = '9 rue Neuve', logo_url = 'https://cdn.test/logo.png'
+  $$ UPDATE plateforme.organisations SET adresse = '9 rue Neuve', logo_url = 'savr-dev/logos/0f8b2c1e-3d4a-4b5c-9d6e-7f8091a2b3c4.png'
       WHERE id = '5e1e0001-0000-0000-0000-0000000000b1' $$,
   '26. gestionnaire : adresse + logo_url modifiables (contrôle positif)');
 SELECT is(
   (SELECT adresse || '|' || logo_url FROM plateforme.organisations WHERE id = '5e1e0001-0000-0000-0000-0000000000b1'),
-  '9 rue Neuve|https://cdn.test/logo.png',
+  '9 rue Neuve|savr-dev/logos/0f8b2c1e-3d4a-4b5c-9d6e-7f8091a2b3c4.png',
   '27. gestionnaire : l''UPDATE adresse/logo a bien été appliqué');
 
 -- 28. Policy : l'UPDATE d'une autre orga (traiteur visible en SELECT) ne touche aucune ligne

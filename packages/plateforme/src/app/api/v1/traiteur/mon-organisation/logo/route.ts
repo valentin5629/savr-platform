@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { uploadObject, getObject } from '@savr/shared/src/r2/upload.js';
+import { parseCleLogo } from '@/lib/logo-key.js';
 import { requireUser, type ClientRole } from '@/lib/api-auth.js';
 
 // CDC §06.04 §6 (l.663) — Logo de l'organisation (upload, affiché dans les
@@ -21,22 +22,20 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (auth.error) return auth.error;
 
   const storageKey = new URL(req.url).searchParams.get('key') ?? '';
-  const slash = storageKey.indexOf('/');
-  if (slash < 1)
-    return NextResponse.json({ error: 'Clé invalide' }, { status: 422 });
-  const bucket = storageKey.slice(0, slash);
-  const key = storageKey.slice(slash + 1);
-  // Garde anti-traversée : on ne sert que des logos.
-  if (!key.startsWith('logos/'))
+  // Bucket applicatif + logos/<uuid>.(png|jpg) seulement (lib/logo-key.ts) : le
+  // paramètre vient du client, jamais un autre objet R2 ni un autre bucket.
+  const cle = parseCleLogo(storageKey);
+  if (!cle)
     return NextResponse.json({ error: 'Clé non autorisée' }, { status: 403 });
 
   try {
-    const { body, contentType } = await getObject(bucket, key);
+    const { body, contentType } = await getObject(cle.bucket, cle.key);
     return new NextResponse(Buffer.from(body), {
       status: 200,
       headers: {
         'Content-Type': contentType,
         'Cache-Control': 'private, max-age=300',
+        'X-Content-Type-Options': 'nosniff',
       },
     });
   } catch {

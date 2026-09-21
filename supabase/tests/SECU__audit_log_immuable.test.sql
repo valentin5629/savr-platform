@@ -63,11 +63,17 @@
 -- dans le même lot : 10/10. Ce fichier est la preuve de fermeture exigée par
 -- CLAUDE.md §12 (2bis) pour une migration qui referme un accès.
 --
--- T11-T13 (ajoutés le 2026-09-21) ferment le dernier chemin d'effacement, le
+-- T11-T13 (ajoutés le 2026-09-21) ferment le troisième chemin d'effacement, le
 -- vidage de table, que le trigger UPDATE/DELETE n'intercepte pas — voir le
--- commentaire qui les précède. Mesuré avec la seule migration ci-dessus :
+-- commentaire qui les précède, qui dit aussi ce qui reste ouvert et pourquoi ce
+-- n'est délibérément pas testé ici. Mesuré avec la seule migration ci-dessus :
 -- 10 verts, 3 ROUGES, « caught: no exception » — le vidage aboutissait.
 -- APRÈS `20260921210000_plateforme_audit_log_garde_vidage.sql` : 13/13.
+--
+-- T14-T15 gardent le seul usage légitime du vidage : le reset du seed de dev,
+-- qui désactive la garde et la remet. Ils sont la contrepartie de la fermeture
+-- — sans eux, la prochaine migration de cette famille recasserait
+-- `pnpm seed:minimal` sans que rien ne le signale.
 --
 -- NON-VACUITÉ — chaque test discrimine, vérifié par quatre contre-épreuves
 -- jouées en transaction rollbackée le 2026-09-21, chacune en retirant un seul
@@ -91,7 +97,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(13);
+SELECT plan(15);
 
 -- Helpers. `test_as_superuser()` est celui des 43 autres fichiers du dossier.
 -- `test_as_role()` est propre à ce fichier : le helper commun `test_set_jwt()`
@@ -324,6 +330,62 @@ SELECT throws_ok(
   $$SELECT test_sonde_vidage_audit('audit_log_2035')$$,
   '42501', NULL,
   'T13 vidage refusé sur une partition créée APRÈS la garde (les triggers d''instruction ne sont jamais clonés)'
+);
+
+-- =====================================================================
+-- T14-T15 : le seed de dev doit pouvoir vider `audit_log`, et la garde
+-- doit mordre de nouveau juste après.
+--
+-- POURQUOI CES DEUX TESTS EXISTENT
+-- ---------------------------------
+-- `resetBusinessData()` (`packages/shared/src/seed/reset.ts`) ouvre
+-- `pnpm seed:minimal` / `seed:demo` par un vidage en masse des tables
+-- métier, `audit_log` comprise — la garde le refusait donc en `42501`,
+-- à la toute première instruction du seed. Retirer la table de sa liste
+-- ne suffit pas : ses deux FK vers `users` la ramènent par le CASCADE.
+-- Le reset désactive donc la garde, vide, puis la réactive, le tout dans
+-- une transaction et derrière `assertDev()`.
+--
+-- On rejoue ici cette séquence EN BASE. `seed-reset-audit-log.test.ts`
+-- prouve, lui, que `reset.ts` émet bien cette séquence-là ; il ne touche
+-- pas la base et ne verrait donc pas une migration future qui rendrait
+-- la désactivation inopérante. C'est ce que T14 attrape.
+--
+-- T15 est l'oracle qui empêche T14 d'être complaisant : un reset qui
+-- désactiverait la garde sans la remettre ferait passer T14 tout seul,
+-- en laissant l'audit trail ouvert pour de bon.
+-- =====================================================================
+
+SELECT test_as_superuser();
+
+CREATE OR REPLACE FUNCTION test_garde_vidage_audit(p_action text)
+RETURNS void LANGUAGE plpgsql AS $$
+DECLARE r record;
+BEGIN
+  FOR r IN
+    SELECT tg.tgrelid::regclass AS tbl
+      FROM pg_trigger tg
+     WHERE tg.tgname = 'trg_audit_log_vidage_interdit' AND NOT tg.tgisinternal
+  LOOP
+    EXECUTE format(
+      'ALTER TABLE %s %s TRIGGER trg_audit_log_vidage_interdit', r.tbl, p_action
+    );
+  END LOOP;
+END $$;
+
+SELECT lives_ok(
+  $$SELECT test_garde_vidage_audit('DISABLE');
+    TRUNCATE plateforme.audit_log RESTART IDENTITY CASCADE;
+    SELECT test_garde_vidage_audit('ENABLE')$$,
+  'T14 le reset du seed peut vider audit_log en désactivant puis réactivant la garde'
+);
+
+SELECT test_as_role('service_role');
+
+SELECT throws_ok(
+  $$SELECT test_sonde_vidage_audit('audit_log_2026')$$,
+  '42501', NULL,
+  'T15 la garde est de nouveau active après le reset (elle n''est pas restée désactivée)'
 );
 
 SELECT test_as_superuser();

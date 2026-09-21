@@ -62,7 +62,7 @@ VALUES
   ('7a1e0008-0000-0000-0000-0000000000c2'::uuid, 'VTG Gest2', 'VTG Gest2 SA', 'gestionnaire_lieux', true, false,
    '77710000000008', 'gest2@vtg.test', NULL, NULL, NULL, NULL),
   ('7a1e0002-0000-0000-0000-0000000000c2'::uuid, 'VTG Trait', 'VTG Trait SAS', 'traiteur', true, false,
-   '77710000000002', 'trait@vtg.test', '0100000012', '2 rue Trait', 'https://cdn.test/vtg-trait.png', NULL),
+   '77710000000002', 'trait@vtg.test', '0100000012', '2 rue Trait', 'savr-dev/logos/0f8b2c1e-3d4a-4b5c-9d6e-7f8091a2b3c4.png', NULL),
   ('7a1e0005-0000-0000-0000-0000000000c2'::uuid, 'VTG Brouillon', 'VTG Brouillon SAS', 'traiteur', true, false,
    '77710000000005', 'brouillon@vtg.test', NULL, NULL, NULL, NULL),
   ('7a1e0006-0000-0000-0000-0000000000c2'::uuid, 'VTG Ailleurs', 'VTG Ailleurs SAS', 'traiteur', true, false,
@@ -136,7 +136,7 @@ SELECT is(
 SELECT results_eq(
   $$ SELECT id, nom, logo_url FROM plateforme.v_traiteurs_gestionnaire $$,
   $$ VALUES ('7a1e0002-0000-0000-0000-0000000000c2'::uuid, 'VTG Trait'::text,
-             'https://cdn.test/vtg-trait.png'::text) $$,
+             'savr-dev/logos/0f8b2c1e-3d4a-4b5c-9d6e-7f8091a2b3c4.png'::text) $$,
   '3. gestionnaire : la vue rend le seul traiteur intervenu, avec nom et logo');
 
 -- 4. X n'a qu'un brouillon sur L → invisible (exclusion F3 conservée)

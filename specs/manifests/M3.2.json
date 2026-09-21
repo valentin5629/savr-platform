@@ -49,6 +49,8 @@
     "packages/plateforme/tests/api/gestionnaire/espace-gestionnaire-p2.m3-2.test.ts",
     "packages/plateforme/tests/ui/espace-gestionnaire-p2.m3-2.test.tsx",
     "packages/plateforme/tests/ui/mon-organisation-gestionnaire.m3-2.test.tsx",
+    "packages/plateforme/src/app/api/v1/gestionnaire/mon-organisation/logo/route.ts",
+    "packages/plateforme/src/lib/logo-upload.ts",
     "packages/plateforme/src/app/api/v1/gestionnaire/documents/[type]/[id]/download/route.ts"
   ],
   "scenarios": [
@@ -458,6 +460,14 @@
       "test": "M3.2/mon_organisation_profil_affiche + M3.2/mon_organisation_erreur_affichee + M3.2/mon_organisation_factures_lignes_pdf_pennylane_prioritaire + M3.2/mon_organisation_erreur_onglet_quitte_ignoree",
       "statut": "implemented",
       "libelle": "Page Mon organisation (§06.05 nav 8) : profil, factures, état d'erreur"
+    },
+    {
+      "id": "M3.2-bloc-organisation-edition",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:455",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/mon-organisation/page.tsx + packages/plateforme/src/app/api/v1/gestionnaire/mon-organisation/logo/route.ts + packages/plateforme/src/app/api/v1/gestionnaire/mon-organisation/profil/route.ts + packages/plateforme/src/lib/logo-upload.ts",
+      "test": "M3.2/mon_organisation_champs_lecture_seule + M3.2/mon_organisation_adresse_enregistree + M3.2/mon_organisation_adresse_erreur_serveur_affichee + M3.2/mon_organisation_logo_upload_puis_enregistre + M3.2/mon_organisation_logo_refuse_sans_patch + M3.2/mon_organisation_logo_envoye_non_enregistre + M3.2/profil_patch_logo_cle_upload_acceptee + M3.2/profil_patch_logo_invalide_422 + M3.2/profil_patch_adresse_trim_et_vide_null + M3.2/profil_patch_adresse_invalide_422 + M3.2/logo_upload_201 + M3.2/logo_upload_format_refuse_422 + M3.2/logo_upload_trop_lourd_422 + M3.2/logo_upload_role_traiteur_403 + M3.2/logo_get_sert_le_logo_de_sa_propre_organisation + M3.2/logo_get_404",
+      "statut": "implemented",
+      "libelle": "Bloc Organisation §06.05 §6 : nom en lecture seule (via support), adresse modifiable, logo en upload / remplacement (R2, JPG/PNG ≤ 2 Mo). Raison sociale, SIRET, email et téléphone en lecture seule. PATCH /profil n'accepte comme logo_url qu'une clé validée par lib/logo-key.ts ; le proxy GET /logo ne sert que le logo de sa propre organisation."
     },
     {
       "id": "M3.2-documents-download",

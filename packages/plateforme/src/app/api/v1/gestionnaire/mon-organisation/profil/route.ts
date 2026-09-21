@@ -5,6 +5,7 @@ import {
   type ClientRole,
 } from '@/lib/api-auth.js';
 import { serverError, writeError } from '@/lib/api-helpers.js';
+import { parseCleLogo } from '@/lib/logo-key.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
@@ -24,6 +25,8 @@ const PROFIL_COLUMNS =
   'id, nom, raison_sociale, siret, adresse, email_principal, telephone, logo_url';
 
 const EDITABLE_FIELDS = new Set(['adresse', 'logo_url']);
+
+const ADRESSE_MAX = 500;
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(req, ROLES);
@@ -71,6 +74,22 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
       { error: 'Aucun champ éditable fourni' },
       { status: 400 },
     );
+
+  if ('adresse' in patch) {
+    if (typeof patch.adresse !== 'string')
+      return NextResponse.json({ error: 'Adresse invalide' }, { status: 422 });
+    const adresse = patch.adresse.trim();
+    if (adresse.length > ADRESSE_MAX)
+      return NextResponse.json(
+        { error: `Adresse trop longue (${ADRESSE_MAX} caractères maximum)` },
+        { status: 422 },
+      );
+    patch.adresse = adresse === '' ? null : adresse;
+  }
+  // logo_url = uniquement une clé produite par POST /logo (lib/logo-key.ts,
+  // même garde que les lecteurs R2 et que le trigger trg_garde_format_logo).
+  if ('logo_url' in patch && !parseCleLogo(patch.logo_url as string | null))
+    return NextResponse.json({ error: 'Logo invalide' }, { status: 422 });
 
   const { data, error } = await supabase
     .from('organisations')

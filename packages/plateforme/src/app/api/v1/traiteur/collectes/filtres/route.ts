@@ -19,9 +19,22 @@ const TRAITEUR_ROLES: ClientRole[] = [
  * « Info incomplète » n'ont pas besoin d'options (valeurs fermées).
  *
  * Périmètre : les options sont DÉRIVÉES des collectes que l'appelant voit déjà
- * (requête RLS-scopée sous son identité, `createSupabaseServerClient`) — une option
- * ne peut donc jamais désigner une donnée qu'il ne pourrait pas lister. Manager et
- * commercial voient le même périmètre en lecture (révision CDC 2026-05-29).
+ * (requête RLS-scopée sous son identité, `createSupabaseServerClient`). Une option
+ * ne peut donc désigner qu'une entité RATTACHÉE À UNE COLLECTE QU'IL LISTE — mais
+ * attention, ce n'est PAS la même chose que « une donnée qu'il pourrait lire lui-même » :
+ * le NOM d'une organisation tierce ne lui est pas lisible (cf. plus bas), il est
+ * résolu ici en service_role et borné à ces seuls ids. Manager et commercial voient
+ * le même périmètre en lecture (révision CDC 2026-05-29).
+ *
+ * ⚠ Le garde-fou RÉEL de cette route est l'embed `evenements!inner` : c'est lui qui
+ * ramène le périmètre de `col_select` (large : événement possédé OU opéré OU client
+ * organisateur OU lieu rattaché) à celui de `evt_manager_select` / `evt_commercial_select`
+ * (organisation possédante OU traiteur opérationnel). Si ces policies étaient un jour
+ * élargies, cette route exfiltrerait automatiquement les noms correspondants SANS
+ * qu'une ligne de son code ne change. Toute évolution de `evt_*_select` doit donc
+ * repasser ici. La borne du service_role vit dans le code (une RLS ne peut pas la
+ * prouver, le service_role la contournant par définition) : le test
+ * `R25a/options_sans_tiers_aucun_appel_service_role` est son seul filet — le garder.
  *
  * « Client organisateur » est keyé sur `evenements.nom_client_organisateur` (et NON
  * sur `client_organisateur_organisation_id`) : ce dernier est un RATTACHEMENT
@@ -46,13 +59,21 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   // Périmètre visible de l'appelant (RLS `col_select`) — aucune borne de date : les
   // options doivent couvrir l'onglet Historique autant que Programmées.
-  const { data, error } = await supabase.from('collectes').select(
-    `id,
+  // `max_rows = 1000` (supabase/config.toml) tronque SILENCIEUSEMENT au-delà du
+  // millier. Sans `order`, le sous-ensemble retenu serait non déterministe et les
+  // options varieraient d'un appel à l'autre ; l'ordre fige le sous-ensemble.
+  // Volumes V1 (~150 collectes/mois toutes orgas) très en deçà, mais la migration
+  // Bubble injecte ~1 675 collectes historiques : un gros traiteur peut s'en approcher.
+  const { data, error } = await supabase
+    .from('collectes')
+    .select(
+      `id,
        evenements!inner(
          organisation_id, nom_client_organisateur,
          lieux!lieu_id(id, nom)
        )`,
-  );
+    )
+    .order('id');
   if (error) return serverError(error, 'traiteur.collectes.filtres.list');
 
   interface Lieu {
@@ -67,6 +88,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const one = <T>(v: T | T[] | null): T | null =>
     !v ? null : Array.isArray(v) ? (v[0] ?? null) : v;
 
+  // ⚠ Limite connue (arbitrage Val requis, cf. _Divergences M3.1_20260921_filtre_lieu_
+  // collectes_tierces) : `lieux_clients_select` n'a pas de branche « je suis le
+  // traiteur opérationnel » → sur une collecte programmée par un tiers, l'embed
+  // `lieux!lieu_id` rend null et le lieu n'apparaît pas dans les options. La collecte
+  // reste listée ; seul le filtrage par CE lieu est indisponible. Corriger exigerait
+  // d'élargir une policy → interdit sans Val (CLAUDE.md §12-2bis).
   const lieux = new Map<string, string>();
   const clients = new Set<string>();
   const progIds = new Set<string>();

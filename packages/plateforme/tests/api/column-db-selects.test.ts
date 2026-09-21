@@ -236,7 +236,12 @@ describe('G7 / gestionnaire', () => {
     });
     expect(res.status).toBe(200);
     const s = norm(selects()[0]!);
-    expect(s).toContain('associations!association_id(nom, ville)');
+    // + latitude/longitude depuis la restitution de la distance au gestionnaire
+    // (§06.05 §3, arbitrage Val 2026-09-21) : colonnes réelles de
+    // plateforme.associations, lues pour le calcul et retirées de la réponse.
+    expect(s).toContain(
+      'associations!association_id(nom, ville, latitude, longitude)',
+    );
     expect(s).toContain('bordereaux_savr(id, numero, statut)');
     expect(s).toContain('rapports_rse(id, pdf_url)');
     for (const fantome of [

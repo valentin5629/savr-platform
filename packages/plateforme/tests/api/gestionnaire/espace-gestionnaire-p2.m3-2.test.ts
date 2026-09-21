@@ -314,6 +314,170 @@ describe('M3.2 / P2 liste événements colonnes', () => {
     expect(attrs[0]!.volume_repas_realise).toBe(88);
   });
 
+  // §06.05 §3 « Bloc collectes rattachées > Pour AG » — la distance association ↔
+  // lieu de l'événement est RESTITUÉE au gestionnaire (arbitrage Val 2026-09-21,
+  // option b de _Divergences/M3.2_20260918_detail-evenement-distance-association).
+  // Rien n'est stocké : la route calcule à la volée avec distanceKm, la fonction
+  // de l'algo d'attribution AG (fn_calculer_algo_attribution_ag).
+  it('M3.2/detail_evenement_ag_distance_association — haversine association↔lieu, arrondie au km entier, coordonnées jamais exposées', async () => {
+    setupAuth();
+    // Sonde du SELECT : sans `latitude, longitude` dans l'embed associations,
+    // PostgREST ne renverrait pas les coordonnées et la distance serait null en
+    // prod — le mock, lui, ne s'en apercevrait pas.
+    const selects: string[] = [];
+    (rls as unknown as Record<string, unknown>).select = (sql: string) => {
+      selects.push(sql);
+      return rls;
+    };
+    rls.push({
+      data: {
+        id: 'e1',
+        nom_evenement: 'Gala',
+        date_evenement: '2026-06-01',
+        pax: 300,
+        organisation_id: 'org-1',
+        // Paris Expo Porte de Versailles
+        lieux: {
+          id: 'lieu-1',
+          nom: 'Paris Expo',
+          latitude: 48.8322,
+          longitude: 2.2875,
+        },
+        organisations: { id: 'tr1', nom: 'Kaspia', logo_url: null },
+        types_evenements: { id: 'ty1', libelle: 'Gala' },
+        collectes: [
+          {
+            id: 'c-ag',
+            type: 'anti_gaspi',
+            statut: 'cloturee',
+            date_collecte: '2026-06-01',
+            collecte_flux: [],
+            attributions_antgaspi: [
+              {
+                id: 'a1',
+                volume_repas_realise: 88,
+                // Versailles — 12,6053 km du lieu (haversine, R = 6371 km).
+                associations: {
+                  nom: 'Les Restos',
+                  ville: 'Versailles',
+                  latitude: 48.8049,
+                  longitude: 2.1204,
+                },
+              },
+              {
+                id: 'a2',
+                volume_repas_realise: 12,
+                associations: {
+                  nom: 'Asso non géocodée',
+                  ville: 'Paris',
+                  latitude: null,
+                  longitude: null,
+                },
+              },
+            ],
+          },
+        ],
+      },
+      error: null,
+    }); // evenement (maybeSingle)
+    rls.push({ data: 0, error: null }); // f_dechets_labo_estimes rpc
+
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/evenements/[id]/route.js');
+    const res = await GET(makeReq('/api/v1/gestionnaire/evenements/e1'), {
+      params: Promise.resolve({ id: 'e1' }),
+    });
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      data: {
+        collectes: Array<{
+          attributions_antgaspi: Array<{
+            distance_km: number | null;
+            associations: Record<string, unknown> | null;
+          }>;
+        }>;
+      };
+    };
+    const attrs = json.data.collectes[0]!.attributions_antgaspi;
+
+    // Les coordonnées doivent être DEMANDÉES à PostgREST…
+    const sql = selects.join(' ');
+    expect(sql).toContain(
+      'associations!association_id(nom, ville, latitude, longitude)',
+    );
+    // …et aucune colonne `associations.distance_km` n'existe (G7, #359).
+    expect(sql).not.toContain('distance_km');
+
+    // 12,6053 km → 13 : arrondi à l'entier LE PLUS PROCHE (ni 12 tronqué, ni 12.61).
+    expect(attrs[0]!.distance_km).toBe(13);
+    // Coordonnées manquantes → « — » côté UI : null, jamais 0.
+    expect(attrs[1]!.distance_km).toBeNull();
+    // …mais ne doivent PAS ressortir : le gestionnaire ne reçoit que nom + ville.
+    expect(attrs[0]!.associations).toEqual({
+      nom: 'Les Restos',
+      ville: 'Versailles',
+    });
+  });
+
+  it('M3.2/detail_evenement_ag_distance_lieu_non_geocode — lieu sans GPS : distance null même si l’association est géocodée', async () => {
+    setupAuth();
+    rls.push({
+      data: {
+        id: 'e1',
+        nom_evenement: 'Gala',
+        date_evenement: '2026-06-01',
+        pax: 300,
+        organisation_id: 'org-1',
+        lieux: {
+          id: 'lieu-1',
+          nom: 'Lieu sans GPS',
+          latitude: null,
+          longitude: null,
+        },
+        organisations: { id: 'tr1', nom: 'Kaspia', logo_url: null },
+        types_evenements: { id: 'ty1', libelle: 'Gala' },
+        collectes: [
+          {
+            id: 'c-ag',
+            type: 'anti_gaspi',
+            statut: 'cloturee',
+            date_collecte: '2026-06-01',
+            collecte_flux: [],
+            attributions_antgaspi: {
+              id: 'a1',
+              volume_repas_realise: 88,
+              associations: {
+                nom: 'Les Restos',
+                ville: 'Versailles',
+                latitude: 48.8049,
+                longitude: 2.1204,
+              },
+            },
+          },
+        ],
+      },
+      error: null,
+    }); // evenement (maybeSingle)
+    rls.push({ data: 0, error: null }); // f_dechets_labo_estimes rpc
+
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/evenements/[id]/route.js');
+    const res = await GET(makeReq('/api/v1/gestionnaire/evenements/e1'), {
+      params: Promise.resolve({ id: 'e1' }),
+    });
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      data: {
+        collectes: Array<{
+          attributions_antgaspi: Array<{ distance_km: number | null }>;
+        }>;
+      };
+    };
+    expect(
+      json.data.collectes[0]!.attributions_antgaspi[0]!.distance_km,
+    ).toBeNull();
+  });
+
   it('M3.2/P2_evenements_filtre_taille — bracket pax honoré', async () => {
     setupAuth();
     rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null }); // organisations_lieux

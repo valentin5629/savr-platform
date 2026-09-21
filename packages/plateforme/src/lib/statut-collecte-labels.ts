@@ -74,3 +74,28 @@ export function statutCollecteDisplay(
     map[statut as StatutCollecteDb] ?? { label: statut, variant: 'neutral' }
   );
 }
+
+/**
+ * Groupes de statuts pour le filtre « Statut » des listes CLIENT (§06.04 §3).
+ *
+ * En vue client plusieurs statuts DB partagent un libellé (« Créée » =
+ * brouillon + programmee + rejetee_par_prestataire ; « En cours » = en_cours +
+ * realisee ; « Annulée » = annulation_demandee + annulee). Le filtre doit donc
+ * proposer les LIBELLÉS affichés — l'utilisateur ne voit jamais « Programmée » —
+ * et chaque libellé retenu se traduit par l'ensemble des statuts DB qu'il couvre.
+ *
+ * Les groupes sont dérivés du mapping canonique CLIENT (source unique) et bornés
+ * aux statuts réellement présents dans l'onglet courant, dans leur ordre d'entrée.
+ */
+export function groupesStatutClient(
+  statutsDisponibles: readonly string[],
+): { label: string; statuts: string[] }[] {
+  const groupes: { label: string; statuts: string[] }[] = [];
+  for (const statut of statutsDisponibles) {
+    const { label } = statutCollecteDisplay(statut, 'client');
+    const existant = groupes.find((g) => g.label === label);
+    if (existant) existant.statuts.push(statut);
+    else groupes.push({ label, statuts: [statut] });
+  }
+  return groupes;
+}

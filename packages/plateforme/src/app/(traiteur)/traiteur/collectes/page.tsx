@@ -17,6 +17,13 @@ import {
 } from '@/components/collecte/collecte-card-traiteur';
 import { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
 import {
+  CollecteFiltresBar,
+  FILTRES_COLLECTE_VIDES,
+  memeFiltresCollecte,
+  type CollecteFiltres,
+  type CollecteFiltresOptions,
+} from '@/components/collecte/collecte-filtres-bar';
+import {
   readCollecteFiltreLabel,
   periodeCourte,
 } from '@/lib/dashboards/collecte-filtre-label';
@@ -120,6 +127,16 @@ function CollectesContent() {
   const [filtreLabel, setFiltreLabel] = useState<string | null>(null);
   const [rows, setRows] = useState<CollecteRow[]>([]);
   const [loading, setLoading] = useState(true);
+  // Filtres §06.04 §3 (BL-P2-14). État local : la persistance query-string est
+  // descopée V1.1 (backlog l.401) ; seuls onglet/type restent dans l'URL.
+  const [filtres, setFiltres] = useState<CollecteFiltres>(
+    FILTRES_COLLECTE_VIDES,
+  );
+  const [options, setOptions] = useState<CollecteFiltresOptions>({
+    lieux: [],
+    clients: [],
+    programmateurs: [],
+  });
 
   const [role, setRole] = useState('');
   const [userId, setUserId] = useState('');
@@ -141,23 +158,64 @@ function CollectesContent() {
     });
   }, []);
 
+  // Options des filtres (lieux / clients / programmateurs) — dérivées du périmètre
+  // visible de l'appelant, chargées une fois.
+  useEffect(() => {
+    fetch('/api/v1/traiteur/collectes/filtres')
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.data) setOptions(j.data as CollecteFiltresOptions);
+      })
+      .catch(() => {
+        /* options indisponibles : la barre reste utilisable (listes vides). */
+      });
+  }, []);
+
+  // Graine des filtres depuis le drill-down dashboard (statut/période/lieu portés
+  // par l'URL) → la barre REFLÈTE le périmètre miroir au lieu de le contredire.
+  // Ne s'applique QUE si l'URL porte effectivement une graine : sans cette garde,
+  // toute réécriture d'URL (changement d'onglet/type) écraserait les filtres que
+  // l'utilisateur vient de poser à la main. L'état n'est remplacé que s'il change
+  // réellement (sinon re-render → re-fetch inutile à chaque montage).
+  useEffect(() => {
+    if (!statutOverride && !fromFiltre && !toFiltre && !lieuFiltre) return;
+    setFiltres((f) => {
+      const graine: CollecteFiltres = {
+        ...f,
+        statuts: statutOverride ? statutOverride.split(',') : f.statuts,
+        from: fromFiltre ?? f.from,
+        to: toFiltre ?? f.to,
+        lieuId: lieuFiltre ?? f.lieuId,
+      };
+      return memeFiltresCollecte(f, graine) ? f : graine;
+    });
+  }, [statutOverride, fromFiltre, toFiltre, lieuFiltre]);
+
   const charger = useCallback(() => {
     setLoading(true);
-    // Statut override du drill-down (ex. `cloturee`) sinon défaut de l'onglet.
-    const statuts = statutOverride
-      ? statutOverride.split(',')
-      : onglet === 'programmees'
-        ? STATUTS_PROGRAMMEES
-        : STATUTS_HISTORIQUE;
+    // Les statuts sélectionnés sont TOUJOURS bornés à l'onglet courant : l'onglet
+    // est une partition par état, un filtre ne doit jamais le déborder.
+    const statutsOnglet =
+      onglet === 'programmees' ? STATUTS_PROGRAMMEES : STATUTS_HISTORIQUE;
+    const statuts =
+      filtres.statuts.length > 0
+        ? filtres.statuts.filter((s) => statutsOnglet.includes(s))
+        : statutsOnglet;
     const qs = new URLSearchParams({
       type: typeFiltre,
       statut: statuts.join(','),
     });
-    if (lieuFiltre) qs.set('lieu_id', lieuFiltre);
+    if (filtres.lieuId) qs.set('lieu_id', filtres.lieuId);
+    if (filtres.client) qs.set('client', filtres.client);
+    if (filtres.infoIncomplete)
+      qs.set('info_incomplete', filtres.infoIncomplete);
+    if (filtres.programmeePar.length > 0)
+      qs.set('programmee_par', filtres.programmeePar.join(','));
+    if (filtres.from) qs.set('from', filtres.from);
+    if (filtres.to) qs.set('to', filtres.to);
+    // Drill-down depuis les Top listes du dashboard (pas des filtres d'UI).
     if (commercialFiltre) qs.set('commercial_id', commercialFiltre);
     if (associationFiltre) qs.set('association_id', associationFiltre);
-    if (fromFiltre) qs.set('from', fromFiltre);
-    if (toFiltre) qs.set('to', toFiltre);
     if (perimetreFiltre) qs.set('perimetre', perimetreFiltre);
     fetch(`/api/v1/traiteur/collectes?${qs}`)
       .then((r) => r.json())
@@ -166,12 +224,9 @@ function CollectesContent() {
   }, [
     typeFiltre,
     onglet,
-    lieuFiltre,
+    filtres,
     commercialFiltre,
     associationFiltre,
-    statutOverride,
-    fromFiltre,
-    toFiltre,
     perimetreFiltre,
   ]);
 
@@ -200,6 +255,9 @@ function CollectesContent() {
     ['association', 'statut', 'from', 'to', 'perimetre'].forEach((k) =>
       usp.delete(k),
     );
+    // Miroir lâché côté état aussi ; les filtres type-agnostiques (lieu, client,
+    // info incomplète, programmée par) sont conservés.
+    setFiltres((f) => ({ ...f, statuts: [], from: '', to: '' }));
     router.replace(`/traiteur/collectes?${usp}`);
   }
   function changeOnglet(o: Onglet) {
@@ -210,6 +268,9 @@ function CollectesContent() {
     const usp = new URLSearchParams(Array.from(params.entries()));
     usp.set('onglet', o);
     usp.delete('statut');
+    // L'onglet partitionne les statuts : une sélection faite dans l'autre onglet
+    // n'a plus de sens ici (et donnerait une intersection vide).
+    setFiltres((f) => ({ ...f, statuts: [] }));
     router.replace(`/traiteur/collectes?${usp}`);
   }
   function clearFiltre() {
@@ -223,6 +284,7 @@ function CollectesContent() {
       'to',
       'perimetre',
     ].forEach((k) => usp.delete(k));
+    setFiltres(FILTRES_COLLECTE_VIDES);
     router.replace(`/traiteur/collectes?${usp}`);
   }
 
@@ -409,6 +471,18 @@ function CollectesContent() {
           onClear={clearFiltre}
         />
       )}
+
+      {/* Filtres §06.04 §3 — Statut / Période / Lieu / Client / Info incomplète
+          / Programmée par. Le compteur de résultats est porté par la barre. */}
+      <CollecteFiltresBar
+        statutsOnglet={
+          onglet === 'programmees' ? STATUTS_PROGRAMMEES : STATUTS_HISTORIQUE
+        }
+        options={options}
+        value={filtres}
+        onChange={setFiltres}
+        resultats={rows.length}
+      />
 
       {loading ? (
         <p className="text-sm text-savr-neutral-500">Chargement…</p>

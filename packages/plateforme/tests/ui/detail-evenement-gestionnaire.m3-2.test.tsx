@@ -329,14 +329,15 @@ describe('M3.2 / détail événement — consultation en lecture seule', () => {
       // Cas-limite §06.05 §3 : « Client Organisateur SI renseigné » (sinon la
       // cellule disparaît) — le cas nominal ne peut pas le mesurer.
       //
-      // ⚠ Le `dechets_labo_kg: null` ci-dessous N'EST PAS le cas « le traiteur
-      // n'a pas communiqué de coefficient » : `f_dechets_labo_estimes` enveloppe
-      // son résultat dans COALESCE(…, 0) et ne renvoie JAMAIS null, donc ce
-      // cas-là s'affiche « 0.0 kg » et le « — » du CDC l.330 est INATTEIGNABLE.
-      // Ce qu'on mesure ici, c'est l'échec d'appel RPC (les deux routes
-      // propagent `data` telle quelle) : sur erreur, l'écran doit afficher « — »
-      // et surtout jamais « 0.0 kg », qui affirmerait une estimation à zéro.
-      // Divergence tracée : _Divergences/M3.2_20260921_dechets-labo-coalesce-zero.md
+      // Le `dechets_labo_kg: null` ci-dessous EST désormais le cas CDC l.330
+      // « le traiteur n'a pas communiqué de coefficient » : la migration
+      // 20260921190000 retire le COALESCE(…, 0) de `f_dechets_labo_estimes`,
+      // qui remonte donc NULL (mesuré sous rôle authenticated —
+      // supabase/tests/dechets_labo_null_sans_coefficient.test.sql, cas 2). Les
+      // deux routes propagent `data` telle quelle, ce null arrive tel quel ici.
+      // Le même rendu couvre l'échec d'appel RPC. Dans les deux cas, jamais
+      // « 0.0 kg » : ce 0-là est réservé au coefficient DÉCLARÉ à zéro
+      // (§05 R_dechets_labo_estimes), qui reste une information du traiteur.
       const charge = evenementComplet();
       charge.data.nom_client_organisateur = null as unknown as string;
       charge.data.dechets_labo_kg = null as unknown as number;
@@ -351,6 +352,30 @@ describe('M3.2 / détail événement — consultation en lecture seule', () => {
       expect(normalise(labo.textContent)).toBe('Est. labo : —');
       expect(normalise(labo.textContent)).not.toContain('kg');
       expect(normalise(labo.textContent)).not.toContain('0');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/detail_evenement_coefficient_declare_zero — coefficient déclaré à 0 : « 0.0 kg », jamais « — »',
+    async () => {
+      // Revers du cas précédent, et raison d'être du lot : §05
+      // R_dechets_labo_estimes distingue « coefficient = 0 (traiteur déclarant
+      // zéro perte) → 0 kg affiché tel quel » de « pas de coefficient → NULL →
+      // — ». Sans cette sonde, remplacer le test `!= null` de la page par une
+      // condition de véracité (`dechets_labo_kg ? … : '—'`) rendrait « — » sur
+      // un zéro DÉCLARÉ — une information du traiteur effacée — et les deux
+      // autres tests resteraient verts.
+      const charge = evenementComplet();
+      charge.data.dechets_labo_kg = 0;
+      stubFetch(charge);
+
+      render(<EvenementDetailPage params={params('e1')} />);
+      await screen.findByText('Salon Auto', undefined, ATTENTE_UI);
+
+      const labo = screen.getByText(/Est\. labo/);
+      expect(normalise(labo.textContent)).toBe('Est. labo : 0.0 kg');
+      expect(normalise(labo.textContent)).not.toContain('—');
     },
     ATTENTE_CAS_MS,
   );

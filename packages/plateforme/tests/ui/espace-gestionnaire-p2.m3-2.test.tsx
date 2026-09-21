@@ -89,6 +89,44 @@ const fetchMock = vi.fn((input: RequestInfo | URL) => {
           repas_donnes: 40,
           programmee_par_moi: true,
         },
+        // Les deux lignes suivantes portent les cas que le CDC §06.05 §2 l.309
+        // distingue et que le COALESCE(…, 0) de f_dechets_labo_estimes rendait
+        // indistinguables jusqu'à 20260921190000 : coefficient NON COMMUNIQUÉ
+        // (null → « — ») contre coefficient DÉCLARÉ À ZÉRO (0 → « 0 kg »).
+        {
+          id: 'e2',
+          nom_evenement: 'Cocktail',
+          date_evenement: '2026-06-02',
+          pax: 200,
+          taille_bracket: 'XS',
+          lieu_nom: 'Palais',
+          lieu_ville: 'Paris',
+          traiteur_nom: 'Sans coefficient',
+          statut_consolide: 'En cours',
+          nb_collectes_zd: 1,
+          nb_collectes_ag: 0,
+          tonnage_zd_kg: 0,
+          dechets_labo_kg: null,
+          repas_donnes: 0,
+          programmee_par_moi: false,
+        },
+        {
+          id: 'e3',
+          nom_evenement: 'Séminaire',
+          date_evenement: '2026-06-03',
+          pax: 100,
+          taille_bracket: 'XS',
+          lieu_nom: 'Palais',
+          lieu_ville: 'Paris',
+          traiteur_nom: 'Zéro déclaré',
+          statut_consolide: 'En cours',
+          nb_collectes_zd: 1,
+          nb_collectes_ag: 0,
+          tonnage_zd_kg: 150,
+          dechets_labo_kg: 0,
+          repas_donnes: 0,
+          programmee_par_moi: false,
+        },
       ],
     });
   if (url.includes('/gestionnaire/lieux'))
@@ -290,6 +328,34 @@ describe('M3.2 / P2 listes colonnes', () => {
       // Valeurs rendues (data prête côté route).
       expect(screen.getByText('300 kg')).toBeInTheDocument();
       expect(screen.getByText('40')).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/P2_evenements_dechets_labo_non_communique — colonne « Déchets labo est. » : « — » si non communiqué, « 0 kg » si déclaré à zéro',
+    async () => {
+      // §06.05 §2 l.309 « — si coefficient non communiqué ». Cas INATTEIGNABLE
+      // jusqu'à 20260921190000 : f_dechets_labo_estimes enveloppait son
+      // résultat dans COALESCE(…, 0), donc la colonne affichait « 0 kg » —
+      // l'affirmation d'une estimation nulle — là où la bonne réponse est
+      // « inconnu ».
+      // Les deux lignes sont mesurées ENSEMBLE, sur le même rendu : c'est leur
+      // DIFFÉRENCE qui est l'oracle. Un assert « — » seul passerait aussi si la
+      // page rendait « — » pour tout, y compris pour le zéro déclaré.
+      render(<GestionnaireEvenementsPage />);
+      await screen.findByText('Déchets labo est.', undefined, ATTENTE_UI);
+
+      const cellule = (nomEvenement: string) => {
+        const ligne = screen.getByText(nomEvenement).closest('tr')!;
+        // 8e colonne du tableau (cf. l'ordre des <th> de la page).
+        return ligne.querySelectorAll('td')[7]!.textContent?.trim();
+      };
+
+      expect(cellule('Cocktail')).toBe('—');
+      expect(cellule('Cocktail')).not.toContain('0');
+      expect(cellule('Séminaire')).toBe('0 kg');
+      expect(cellule('Gala')).toBe('12 kg');
     },
     ATTENTE_CAS_MS,
   );

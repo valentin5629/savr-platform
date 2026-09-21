@@ -178,7 +178,9 @@ describe('M3.1 / fiche collecte traiteur — entête (§06.04)', () => {
         {},
         ATTENTE_UI,
       );
-      expect(badge.textContent).toContain('Agence Caromy');
+      // Forme exacte du CDC : « Programmée par {nom} ({type}) ». Le nom seul
+      // passerait un `toContain` trop faible — le type doit être DANS le badge.
+      expect(badge.textContent).toBe('Programmée par Agence Caromy (agence)');
 
       fireEvent.click(badge);
       const modale = await screen.findByText(
@@ -248,6 +250,18 @@ describe('M3.1 / fiche collecte traiteur — Bloc 3 ZD (§06.04)', () => {
       expect(bloc.textContent).toContain('Déchet résiduel');
       // Encart de filtres du repère imbriqué DANS la carte des jauges.
       expect(bloc.textContent).toContain('Réinitialiser');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.1/fiche_ui_bloc3_visible_zd_realisee — statut realisee aussi (§06.04 l.443)',
+    async () => {
+      stubFetch(collecte({ statut: 'realisee' }));
+      render(<FicheCollectePage params={params('c1')} />);
+
+      const bloc = await screen.findByTestId('bloc-3-zd-fiche', {}, ATTENTE_UI);
+      expect(bloc.textContent).toContain('Biodéchets');
     },
     ATTENTE_CAS_MS,
   );

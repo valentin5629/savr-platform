@@ -417,18 +417,23 @@ export default function FicheCollectePage({
             </Info>
           )}
           {/* Badge « Programmée par » (§06.04, ajout 2026-05-07) : l'événement a
-              été programmé par un tiers, le traiteur est l'opérationnel sur place. */}
+              été programmé par un tiers, le traiteur est l'opérationnel sur place.
+              Libellé porté PAR le badge — « Programmée par {nom} ({type}) », forme
+              exacte du CDC et du scénario lecture_collecte_programmee_par_tiers —
+              donc hors grille label/valeur, qui le dédoublerait. */}
           {c.programmee_par && (
-            <Info label="Programmée par">
+            <div className="sm:col-span-2 lg:col-span-4">
               <button
                 type="button"
                 data-testid="badge-programmee-par"
                 onClick={() => setProgOpen(true)}
                 className="rounded-savr-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-savr-accent-600 focus-visible:ring-offset-2"
               >
-                <Badge variant="action">{c.programmee_par.nom}</Badge>
+                <Badge variant="action">
+                  Programmée par {c.programmee_par.nom} ({progTypeLabel})
+                </Badge>
               </button>
-            </Info>
+            </div>
           )}
         </CardContent>
       </Card>

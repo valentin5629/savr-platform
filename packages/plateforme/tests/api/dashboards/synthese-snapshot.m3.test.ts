@@ -320,7 +320,7 @@ describe('M3.2 / synthèse gestionnaire — lieux du parc + programmées + secti
       },
       collectes: { data: [ZD_COLLECTE], error: null },
       v_referentiel_traiteurs: {
-        data: [{ id: 'org-1', nom: 'Traiteur SA', raison_sociale: null }],
+        data: [{ id: 'org-1', nom: 'Traiteur SA' }],
         error: null,
       },
     });

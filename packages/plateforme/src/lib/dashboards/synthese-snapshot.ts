@@ -534,13 +534,10 @@ async function ventilationTraiteurs(
   const noms = new Map<string, string>();
   const { data } = await supabase
     .from('v_referentiel_traiteurs')
-    .select('id, nom, raison_sociale')
+    .select('id, nom')
     .in('id', [...groups.keys()]);
-  for (const t of data ?? [])
-    noms.set(
-      t.id as string,
-      ((t.nom as string) || (t.raison_sociale as string)) ?? '',
-    );
+  // Libellé unique porté par la vue (20260922080000).
+  for (const t of data ?? []) noms.set(t.id as string, (t.nom as string) ?? '');
   const list: SyntheseTraiteurLigne[] = [...groups.entries()].map(
     ([id, g]) => ({
       traiteur_nom: noms.get(id) || 'Traiteur hors référentiel',

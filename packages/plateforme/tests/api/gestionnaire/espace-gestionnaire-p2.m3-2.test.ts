@@ -664,7 +664,7 @@ describe('M3.2 / P2 export CSV filtres', () => {
     }); // evenements
     // resolveTraiteurNoms → v_referentiel_traiteurs (pas d'AG → resolveRepas ne requête pas)
     rls.push({
-      data: [{ id: 'tr1', nom: 'Kaspia', raison_sociale: 'Kaspia SAS' }],
+      data: [{ id: 'tr1', nom: 'Kaspia' }],
       error: null,
     });
 

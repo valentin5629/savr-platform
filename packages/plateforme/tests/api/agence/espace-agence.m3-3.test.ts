@@ -224,7 +224,8 @@ describe('M3.3 / collectes', () => {
       error: null,
     });
     rls.push({
-      data: { id: 'org-kaspia', nom: 'Kaspia', raison_sociale: 'Kaspia SARL' },
+      // v_referentiel_traiteurs rend UN libellé (20260922080000), pas 2 colonnes.
+      data: { id: 'org-kaspia', nom: 'Kaspia' },
       error: null,
     });
     const { GET } = await import('@/app/api/v1/agence/collectes/[id]/route.js');
@@ -234,7 +235,7 @@ describe('M3.3 / collectes', () => {
     const json = (await res.json()) as {
       data: { traiteur_operationnel: { nom: string; est_shadow: boolean } };
     };
-    expect(json.data.traiteur_operationnel.nom).toBe('Kaspia SARL');
+    expect(json.data.traiteur_operationnel.nom).toBe('Kaspia');
     expect(json.data.traiteur_operationnel.est_shadow).toBe(false);
   });
 

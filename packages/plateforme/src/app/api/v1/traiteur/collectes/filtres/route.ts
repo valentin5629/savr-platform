@@ -33,8 +33,10 @@ const TRAITEUR_ROLES: ClientRole[] = [
  * élargies, cette route exfiltrerait automatiquement les noms correspondants SANS
  * qu'une ligne de son code ne change. Toute évolution de `evt_*_select` doit donc
  * repasser ici. La borne du service_role vit dans le code (une RLS ne peut pas la
- * prouver, le service_role la contournant par définition) : le test
- * `R25a/options_sans_tiers_aucun_appel_service_role` est son seul filet — le garder.
+ * prouver, le service_role la contournant par définition). Elle a DEUX filets, et
+ * ils couvrent deux choses différentes — garder les deux :
+ * `R25a/options_service_role_borne_aux_ids_du_perimetre` (la borne `.in()` elle-même)
+ * et `R25a/options_sans_tiers_aucun_appel_service_role` (la 1re lecture reste sous RLS).
  *
  * « Client organisateur » est keyé sur `evenements.nom_client_organisateur` (et NON
  * sur `client_organisateur_organisation_id`) : ce dernier est un RATTACHEMENT
@@ -61,9 +63,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // options doivent couvrir l'onglet Historique autant que Programmées.
   // `max_rows = 1000` (supabase/config.toml) tronque SILENCIEUSEMENT au-delà du
   // millier. Sans `order`, le sous-ensemble retenu serait non déterministe et les
-  // options varieraient d'un appel à l'autre ; l'ordre fige le sous-ensemble.
-  // Volumes V1 (~150 collectes/mois toutes orgas) très en deçà, mais la migration
-  // Bubble injecte ~1 675 collectes historiques : un gros traiteur peut s'en approcher.
+  // options varieraient d'un appel à l'autre. On ordonne par date DÉCROISSANTE (et
+  // non par `id`, un uuid aléatoire) : la troncature garde alors les collectes les
+  // plus RÉCENTES, dont les lieux et clients sont les plus susceptibles d'être ceux
+  // que l'utilisateur cherche à filtrer. Volumes V1 (~150 collectes/mois toutes
+  // orgas) très en deçà, mais la migration Bubble injecte ~1 675 collectes
+  // historiques : un gros traiteur peut s'en approcher.
   const { data, error } = await supabase
     .from('collectes')
     .select(
@@ -73,7 +78,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
          lieux!lieu_id(id, nom)
        )`,
     )
-    .order('id');
+    .order('date_collecte', { ascending: false });
   if (error) return serverError(error, 'traiteur.collectes.filtres.list');
 
   interface Lieu {

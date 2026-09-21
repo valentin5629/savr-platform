@@ -100,10 +100,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // dans le filtre. Auparavant la collecte restait listée mais son lieu était invisible
   // (ligne « Lieu » à « — »), seulement quand le traiteur n'avait aucun AUTRE lien vers
   // ce lieu (ni lieu rattaché, ni événement qu'il a lui-même programmé là-bas).
-  // La 4e branche est bornée aux rôles traiteur ET au périmètre de `evt_*_select` (la
-  // RLS s'applique dans le sous-SELECT de la policy) : elle n'ouvre rien que le traiteur
-  // ne lise déjà sur `evenements`. Étendue prouvée par
-  // supabase/tests/lieux_traiteur_operationnel.test.sql.
+  // La 4e branche est bornée par son propre prédicat (`traiteur_operationnel_organisation_id
+  // = mon organisation`) et par un test de rôle explicite — et NON par le périmètre de
+  // `evt_*_select` : si ces policies s'élargissaient, la branche ne suivrait pas. Étendue
+  // prouvée par supabase/tests/lieux_traiteur_operationnel.test.sql.
   const lieux = new Map<string, string>();
   const clients = new Set<string>();
   const progIds = new Set<string>();

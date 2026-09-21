@@ -51,13 +51,23 @@
 --     être désigné traiteur opérationnel). La garde rend l'étendue lisible dans
 --     la policy elle-même.
 --
--- ÉTENDUE RÉELLE (mesurée, pas supposée) : la RLS de la table interne S'APPLIQUE
---   dans le sous-SELECT d'une policy. Le sous-SELECT sur `evenements` est donc
---   lui-même filtré par `evt_manager_select` / `evt_commercial_select`
---   (= `organisation_id = self` OR `traiteur_operationnel = self`). Intersecté
---   avec le prédicat ci-dessous, cela donne EXACTEMENT « les lieux des
---   événements que j'opère ». Cette branche ne peut pas ouvrir au-delà de ce que
---   le traiteur lit déjà sur `evenements`.
+-- ÉTENDUE RÉELLE (mesurée, pas supposée) : c'est le PRÉDICAT ci-dessous qui borne,
+--   à lui seul — « les lieux des événements que j'opère », rien d'autre. Deux
+--   précisions vérifiées en revue, qui comptent pour l'avenir :
+--   (a) la RLS de la table interne s'applique bien dans le sous-SELECT d'une
+--       policy, mais ici elle ne change RIEN : `evt_manager_select` /
+--       `evt_commercial_select` valent `organisation_id = self OR
+--       traiteur_operationnel = self`, et leur intersection avec le prédicat
+--       ci-dessous redonne le prédicat. Ne pas s'appuyer sur cette RLS imbriquée
+--       comme si elle resserrait quoi que ce soit — elle ne porte rien ici.
+--   (b) corollaire rassurant : si `evt_*_select` s'élargissait un jour, cette
+--       branche ne s'élargirait PAS avec — elle reste ancrée sur
+--       `traiteur_operationnel_organisation_id`.
+--   Écriture de ce champ : `authenticated` n'a aucun droit d'écriture sur
+--   `plateforme.evenements` (vérifié : ni table ni colonne) ; la seule voie est
+--   une route serveur, où il est forcé à l'organisation appelante pour un rôle
+--   traiteur et verrouillé en édition. Un traiteur ne peut donc pas se désigner
+--   opérateur sur l'événement d'un tiers pour s'ouvrir un lieu.
 --
 -- Backward-compatible : aucune branche retirée, aucun accès restreint.
 -- =============================================================================

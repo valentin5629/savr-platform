@@ -35,7 +35,9 @@
     "packages/plateforme/src/app/api/v1/traiteur/equipe/transfert/route.ts",
     "packages/plateforme/tests/api/traiteur/mon-organisation.m3-1.test.ts",
     "packages/plateforme/src/components/dashboards/charts/cockpit/Co2HeroCardAg.tsx",
-    "packages/plateforme/src/components/dashboards/charts/cockpit/Co2MethodePanelAg.tsx"
+    "packages/plateforme/src/components/dashboards/charts/cockpit/Co2MethodePanelAg.tsx",
+    "supabase/migrations/20260921140000_plateforme_lieux_select_traiteur_operationnel.sql",
+    "supabase/tests/lieux_traiteur_operationnel.test.sql"
   ],
   "scenarios": [
     "M3.1/marge_badge_attente_facturation_partielle",
@@ -490,6 +492,14 @@
       "test": "R25a/options_service_role_borne_aux_ids_du_perimetre",
       "statut": "implemented",
       "libelle": "Options des filtres (lieux / clients organisateurs / organisations programmatrices), DÉRIVÉES du périmètre RLS de l'appelant — une option ne peut jamais désigner une donnée qu'il ne pourrait pas lister. « Client organisateur » keyé sur evenements.nom_client_organisateur (obligatoire à la confirmation) et NON sur client_organisateur_organisation_id (rattachement réservé Admin, NULL côté traiteur). « Programmée par » : les policies org_manager_select/org_commercial_select bornent le traiteur à SA propre organisation → noms des organisations tierces résolus en service_role STRICTEMENT bornés aux ids sortis de la requête RLS-scopée. AUCUNE policy élargie (CLAUDE.md §12)."
+    },
+    {
+      "id": "M3.1-lieux-select-traiteur-operationnel",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:257",
+      "artefact": "supabase/migrations/20260921140000_plateforme_lieux_select_traiteur_operationnel.sql",
+      "test": "supabase/tests/lieux_traiteur_operationnel.test.sql",
+      "statut": "implemented",
+      "libelle": "4e branche SELECT de lieux_clients_select — « je suis le traiteur opérationnel » (§09 tableau lieux, l.192-193 « visibilité traiteur opérationnel »). Sans elle, un traiteur qui OPÈRE une collecte programmée par une agence ou un gestionnaire de lieux lit l'événement (evt_manager_select / evt_commercial_select portent déjà traiteur_operationnel_organisation_id) mais PAS son lieu : ligne « Lieu » à « — » sur la liste et la fiche Collectes (§06.04), et lieu absent des options du filtre Lieu. Arbitrages Val 2026-09-21 : PAS de garde date_evenement IS NOT NULL sur cette branche (le traiteur opérationnel est une partie désignée, pas un tiers qui observe par le lieu — et date_evenement redevient NULL quand toutes les collectes sont annulées) ; garde de rôle EXPLICITE f_app_role() IN (traiteur_manager, traiteur_commercial), alignée sur les policies voisines de evenements. Élargissement d'accès CLAUDE.md §12-2bis : le pgTAP prouve l'étendue EXACTE sous authenticated + claims simulés (ce qui s'ouvre ET ce qui reste fermé), y compris que la garde de date de la branche 3 « client organisateur » a survécu à la réécriture de la policy."
     },
     {
       "id": "M3.1-liste-tri-date-decroissante",

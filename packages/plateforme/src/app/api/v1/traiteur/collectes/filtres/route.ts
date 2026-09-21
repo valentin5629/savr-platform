@@ -93,12 +93,17 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const one = <T>(v: T | T[] | null): T | null =>
     !v ? null : Array.isArray(v) ? (v[0] ?? null) : v;
 
-  // ⚠ Limite connue (arbitrage Val requis, cf. _Divergences M3.1_20260921_filtre_lieu_
-  // collectes_tierces) : `lieux_clients_select` n'a pas de branche « je suis le
-  // traiteur opérationnel » → sur une collecte programmée par un tiers, l'embed
-  // `lieux!lieu_id` rend null et le lieu n'apparaît pas dans les options. La collecte
-  // reste listée ; seul le filtrage par CE lieu est indisponible. Corriger exigerait
-  // d'élargir une policy → interdit sans Val (CLAUDE.md §12-2bis).
+  // Limite LEVÉE le 2026-09-21 (migration 20260921140000_plateforme_lieux_select_
+  // traiteur_operationnel, arbitrage Val) : `lieux_clients_select` porte désormais une
+  // 4e branche « je suis le traiteur opérationnel ». Sur une collecte programmée par un
+  // tiers, l'embed `lieux!lieu_id` rend le lieu au lieu de null — l'option apparaît donc
+  // dans le filtre. Auparavant la collecte restait listée mais son lieu était invisible
+  // (ligne « Lieu » à « — »), seulement quand le traiteur n'avait aucun AUTRE lien vers
+  // ce lieu (ni lieu rattaché, ni événement qu'il a lui-même programmé là-bas).
+  // La 4e branche est bornée par son propre prédicat (`traiteur_operationnel_organisation_id
+  // = mon organisation`) et par un test de rôle explicite — et NON par le périmètre de
+  // `evt_*_select` : si ces policies s'élargissaient, la branche ne suivrait pas. Étendue
+  // prouvée par supabase/tests/lieux_traiteur_operationnel.test.sql.
   const lieux = new Map<string, string>();
   const clients = new Set<string>();
   const progIds = new Set<string>();

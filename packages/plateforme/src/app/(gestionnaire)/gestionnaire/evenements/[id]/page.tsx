@@ -52,12 +52,18 @@ interface EvenementDetail {
   pax: number | null;
   taille_bracket: string;
   dechets_labo_kg: number | null;
+  // §06.05 §3 en-tête : « Client Organisateur si renseigné par le traiteur ».
+  nom_client_organisateur: string | null;
   lieux: {
     nom: string;
     adresse_acces: string | null;
     ville: string | null;
   } | null;
-  organisations: { nom: string; logo_url: string | null } | null;
+  // `organisations` = embed sur v_traiteurs_gestionnaire (id, nom, logo_url) :
+  // `id` sert à construire l'URL du proxy logo, jamais la clé R2 elle-même.
+  organisations: { id: string; nom: string; logo_url: string | null } | null;
+  // §06.05 §3 en-tête : « type d'événement ». Embed types_evenements!type_evenement_id.
+  types_evenements: { libelle: string } | null;
   collectes: Collecte[];
 }
 
@@ -77,8 +83,10 @@ export default function EvenementDetailPage({
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [docMessage, setDocMessage] = useState<string | null>(null);
+  const [logoKo, setLogoKo] = useState(false);
 
   useEffect(() => {
+    setLogoKo(false);
     fetch(`/api/v1/gestionnaire/evenements/${encodeURIComponent(id)}`)
       .then((r) => {
         if (r.status === 404) {
@@ -141,7 +149,14 @@ export default function EvenementDetailPage({
   if (!evt) return null;
 
   const lieu = one(evt.lieux as Parameters<typeof one>[0]);
-  const traiteur = one(evt.organisations as Parameters<typeof one>[0]);
+  const traiteur = one(evt.organisations as Parameters<typeof one>[0]) as {
+    id?: string;
+    nom?: string;
+    logo_url?: string | null;
+  } | null;
+  const typeEvenement = one(
+    evt.types_evenements as Parameters<typeof one>[0],
+  ) as { libelle?: string } | null;
 
   return (
     <div className="space-y-6">
@@ -171,16 +186,59 @@ export default function EvenementDetailPage({
           </div>
           <div>
             <div className="text-xs text-savr-neutral-500">Traiteur</div>
-            <div>{(traiteur as { nom?: string } | null)?.nom ?? '—'}</div>
+            {/* §06.05 §3 : « nom + logo, pas d'email / téléphone / SIRET ».
+                logo_url porte une CLÉ R2 : seul le proxy la résout, dans le
+                périmètre de v_traiteurs_gestionnaire (#367). */}
+            <div className="flex items-center gap-2">
+              {traiteur?.logo_url && traiteur.id && !logoKo && (
+                <img
+                  src={`/api/v1/gestionnaire/traiteurs/${encodeURIComponent(traiteur.id)}/logo`}
+                  alt=""
+                  onError={() => setLogoKo(true)}
+                  className="h-8 w-8 rounded-full object-cover"
+                />
+              )}
+              <span>{traiteur?.nom ?? '—'}</span>
+            </div>
           </div>
+          <div>
+            <div className="text-xs text-savr-neutral-500">
+              Type d'événement
+            </div>
+            <div>{typeEvenement?.libelle ?? '—'}</div>
+          </div>
+          {/* « Client Organisateur si renseigné par le traiteur » : la cellule
+              n'apparaît pas quand le champ est vide (§06.05 §3). */}
+          {evt.nom_client_organisateur && (
+            <div>
+              <div className="text-xs text-savr-neutral-500">
+                Client organisateur
+              </div>
+              <div>{evt.nom_client_organisateur}</div>
+            </div>
+          )}
           <div>
             <div className="text-xs text-savr-neutral-500">Pax</div>
             <div>{evt.pax ?? '—'}</div>
-            {evt.dechets_labo_kg != null && (
-              <div className="text-xs text-savr-neutral-400">
-                Est. labo : {evt.dechets_labo_kg.toFixed(1)} kg
-              </div>
-            )}
+            {/* §06.05 §3 : estimation amont, toujours affichée. Le coefficient
+                brut n'est jamais exposé (la route ne renvoie que les kg, via
+                f_dechets_labo_estimes).
+                ⚠ Le « — » ci-dessous ne couvre PAS le cas « le traiteur n'a pas
+                communiqué de coefficient » exigé par le CDC l.330 : la fonction
+                enveloppe son résultat dans COALESCE(…, 0) et ne renvoie JAMAIS
+                null, donc ce cas s'affiche « 0.0 kg ». Le null n'arrive qu'en
+                échec d'appel RPC, où « — » reste le bon rendu (ne jamais
+                afficher « 0.0 kg » sur une erreur). Divergence tracée :
+                _Divergences/M3.2_20260921_dechets-labo-coalesce-zero.md. */}
+            <div
+              className="text-xs text-savr-neutral-400"
+              title="Estimation amont, distincte des déchets collectés sur l'événement ci-dessous."
+            >
+              Est. labo :{' '}
+              {evt.dechets_labo_kg != null
+                ? `${evt.dechets_labo_kg.toFixed(1)} kg`
+                : '—'}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -204,6 +262,10 @@ export default function EvenementDetailPage({
                 {c.type === 'zero_dechet'
                   ? 'Collecte Zéro Déchet'
                   : 'Collecte Anti-Gaspi'}
+                <span className="text-sm font-normal text-savr-neutral-500">
+                  {c.date_collecte ?? '—'}
+                  {c.heure_collecte ? ` · ${c.heure_collecte.slice(0, 5)}` : ''}
+                </span>
                 <Badge variant="neutral">{c.statut_affiche}</Badge>
               </CardTitle>
             </CardHeader>

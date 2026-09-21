@@ -502,15 +502,32 @@
       "libelle": "4e branche SELECT de lieux_clients_select — « je suis le traiteur opérationnel » (§09 tableau lieux, l.192-193 « visibilité traiteur opérationnel »). Sans elle, un traiteur qui OPÈRE une collecte programmée par une agence ou un gestionnaire de lieux lit l'événement (evt_manager_select / evt_commercial_select portent déjà traiteur_operationnel_organisation_id) mais PAS son lieu : ligne « Lieu » à « — » sur la liste et la fiche Collectes (§06.04), et lieu absent des options du filtre Lieu. Arbitrages Val 2026-09-21 : PAS de garde date_evenement IS NOT NULL sur cette branche (le traiteur opérationnel est une partie désignée, pas un tiers qui observe par le lieu — et date_evenement redevient NULL quand toutes les collectes sont annulées) ; garde de rôle EXPLICITE f_app_role() IN (traiteur_manager, traiteur_commercial), alignée sur les policies voisines de evenements. Élargissement d'accès CLAUDE.md §12-2bis : le pgTAP prouve l'étendue EXACTE sous authenticated + claims simulés (ce qui s'ouvre ET ce qui reste fermé), y compris que la garde de date de la branche 3 « client organisateur » a survécu à la réécriture de la policy."
     },
     {
+      "id": "M3.1-lieux-autocomplete-programmation-rls",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:88",
+      "artefact": "packages/plateforme/src/app/api/v1/programmation/lieux/route.ts + supabase/tests/lieux_clients_select_cliquet.test.sql",
+      "test": "M1.2 / Lieux — alignement sur la RLS (7 scénarios Vitest) + supabase/tests/lieux_clients_select_cliquet.test.sql",
+      "statut": "implemented",
+      "libelle": "Autocomplétion Lieux du formulaire (GET /api/v1/programmation/lieux) alignée sur la policy lieux_clients_select (§06.01 l.88 « Liste filtrée selon RLS »). La route lisait en service_role et re-transcrivait 2 des 4 branches : la 4e branche « traiteur opérationnel » livrée par M3.1-lieux-select-traiteur-operationnel n'atteignait donc PAS l'autocomplétion (un traiteur qui OPÈRE une collecte ne retrouvait pas le lieu dans le formulaire, alors que la fiche le lui montrait). Chemin CLIENT désormais lu sous `authenticated` via v_lieux_clients : la RLS filtre et elle seule, toute branche future suit automatiquement, plus aucune transcription. Chemin ADMIN SUPPORT (?organisation_id=, §06.01 l.15) conservé en service_role — la RLS ne peut pas le servir (pour un admin lieux_clients_select ne s'applique pas, lieux_admin rendrait TOUS les lieux au lieu du périmètre de l'org cible) — avec la branche 4 ajoutée et la garde de rôle approximée par organisations.type (approximation assumée : aucun CHECK ni trigger ne lie users.role à organisations.type ; effet borné à une sur/sous-proposition, jamais une fuite, l'admin lisant déjà tous les lieux). Branche 3 « client organisateur » volontairement NON transcrite : tout lieu qu'elle atteint est déjà couvert par les branches 1, 2 ou 4 (équivalence des ensembles RLS ⇄ transcription mesurée sur les 4 rôles, 0 écart dans les deux sens) ; ⚠ le motif n'est PAS « son sous-SELECT est vide » — les policies de evenements sont PERMISSIVE donc OR'ées, il rend des lignes pour gestionnaire_lieux et traiteur_manager. Anti-divergence : cliquet pgTAP sur le prédicat de la policy (marqueurs des 4 branches + compte de branches + empreinte md5), qui casse dès que la policy change pour forcer la revue du chemin admin. AUCUNE policy élargie, aucune migration (CLAUDE.md §12)."
+    },
+    {
       "id": "M3.1-liste-tri-date-decroissante",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:324",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx",
       "test": "M3.1/tri_liste_collectes_date_decroissante_deux_onglets",
       "statut": "implemented",
       "libelle": "Tri par défaut de la liste Collectes (§06.04 §3 « Vue cartes » l.324 + « Tri par défaut » l.383) : date DÉCROISSANTE, les plus récentes en premier, SANS exception d'onglet — au niveau des groupes-semaines COMME à l'intérieur d'une semaine. Ferme l'écart code/CDC relevé le 2026-09-21 (le code triait les semaines en croissant sur l'onglet Programmées, et les cartes intra-semaine toujours en croissant dans les deux onglets) : arbitrage Val 2026-09-21, option B — le CDC était juste, c'est le code qui s'aligne, cf. _Divergences/_traités/2026-09/M3.1_20260921_tri_liste_collectes.md. Le tri est local au useMemo de la page : la liste Admin (§06.06) garde son propre groupBySemaine(asc|desc) avec remontée des urgences AG §06.09, hors périmètre de cet arbitrage."
+    },
+    {
+      "id": "M3.1-lieux-autocomplete-preuve-comportement",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:254-259",
+      "artefact": "supabase/tests/programmation_lieux_autocompletion.test.sql",
+      "test": "lieux_autocompletion_comportement_sous_rls — le traiteur opérationnel se voit proposer le lieu, le concurrent non",
+      "statut": "implemented",
+      "libelle": "Autocomplétion Lieux — preuve de COMPORTEMENT sous `authenticated` de la requête réelle (vue v_lieux_clients + projection de la route + actif=true) : le traiteur opérationnel se voit proposer le lieu d'un événement programmé par un tiers, le concurrent non, avec non-vacuité sur chaque négatif. Complète, sans les doublonner, l'étendue de la policy (lieux_traiteur_operationnel.test.sql, #371) et le cliquet sur le texte du prédicat (lieux_clients_select_cliquet.test.sql, #374), qui ne tourne sous authenticated à aucun assert. Couvre aussi le masquage colonne et l'innocuité, par rôle, de l'omission de la branche 3 dans la transcription admin support."
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "3ad80c53b470d86a7ad5bd76b501ff02ac62ccf5615ed9ca760b5f1f18f3a77a"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "3ad80c53b470d86a7ad5bd76b501ff02ac62ccf5615ed9ca760b5f1f18f3a77a",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "9d470d64935d18297dbc5f31313889274c6cde4ac931015da04d1b0dd8284de2"
   }
 }

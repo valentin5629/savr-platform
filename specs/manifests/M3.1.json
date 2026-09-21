@@ -90,8 +90,7 @@
     "M3.1/blocs_traiteur_ag_associations_et_top7",
     "M3.1/blocs_traiteur_kpi_cartes_non_cliquables",
     "M3.1/dash_cockpit_co2_ag_carte_modale",
-    "M3.1/tri_liste_collectes_date_decroissante_deux_onglets",
-    "lieux_autocompletion_comportement_sous_rls — le traiteur opérationnel se voit proposer le lieu, le concurrent non"
+    "M3.1/tri_liste_collectes_date_decroissante_deux_onglets"
   ],
   "deliverables": [
     {

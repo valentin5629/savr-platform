@@ -18,7 +18,7 @@ import { writeError } from '@/lib/api-helpers.js';
 //   contradiction CDC → Q3 de la divergence M3.1_20260921_users-role-auto-changement.
 // RLS usr_manager_update (own-org). Le trigger anti-escalade interdit toute
 // promotion vers un rôle staff (volets 1-2, 20260903120000) et tout changement
-// de SON PROPRE rôle (volet 3, 20260921160000) ; l'allowlist ci-dessous
+// de SON PROPRE rôle (volet 3, 20260921170000) ; l'allowlist ci-dessous
 // restreint en plus aux deux rôles traiteur (jamais gestionnaire/agence/organisateur).
 // ⚠ L'allowlist est applicative SEULE : elle n'est pas rejouée en base. Mesuré
 //   le 2026-09-21 : en PostgREST direct, un manager pose n'importe quel rôle non
@@ -64,7 +64,7 @@ export async function PATCH(
     // ci-dessous. CDC §06.04 §6 : « Modifier le rôle d'UN COLLABORATEUR » ; le
     // manager n'est pas son propre collaborateur. La garde qui COMPTE est en
     // base (volet 3 de `trg_users_block_role_escalation`, migration
-    // 20260921160000) — un appel PostgREST direct ne passe pas par cette route.
+    // 20260921170000) — un appel PostgREST direct ne passe pas par cette route.
     // Ce 403 n'est là que pour rendre le refus lisible depuis l'UI.
     if (id === auth.ctx.userId)
       return NextResponse.json(

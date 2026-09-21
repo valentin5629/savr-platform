@@ -721,7 +721,7 @@ function EquipeTab({ userId }: { userId: string }) {
                       {/* Sa PROPRE ligne : rôle en lecture seule. Le CDC §06.04
                           §6 ne prévoit que « modifier le rôle d'un COLLABORATEUR »,
                           et la base refuse désormais tout auto-changement (volet 3
-                          du trigger anti-escalade, 20260921160000). Sans ce
+                          du trigger anti-escalade, 20260921170000). Sans ce
                           grisage, le <select> resterait cliquable pour un refus
                           silencieux. */}
                       <select

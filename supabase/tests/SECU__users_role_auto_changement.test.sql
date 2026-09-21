@@ -1,6 +1,6 @@
 -- =============================================================================
 -- Tests pgTAP — P0 sécurité : AUTO-CHANGEMENT DE RÔLE sur `plateforme.users`
--- Migration testée : 20260921160000_plateforme_users_role_auto_changement.sql
+-- Migration testée : 20260921170000_plateforme_users_role_auto_changement.sql
 --                    (volet 3 de `fn_users_block_role_escalation`)
 -- =============================================================================
 -- Faille MESURÉE le 2026-09-21 sous le rôle Postgres RÉEL `authenticated` (chaque

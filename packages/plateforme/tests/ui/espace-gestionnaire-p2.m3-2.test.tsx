@@ -114,7 +114,8 @@ const fetchMock = vi.fn((input: RequestInfo | URL) => {
         {
           id: 'tr1',
           nom: 'Kaspia',
-          logo_url: null,
+          // Clé R2 comme en base depuis 20260919100000 (et non une URL).
+          logo_url: 'savr-dev/logos/0b8e6f5c-2f1a-4c47-9d3e-6a1f2b3c4d5e.png',
           nb_collectes_12m: 3,
           tonnage_12m_kg: 900,
           taux_recyclage_moyen: 72.4,
@@ -283,5 +284,20 @@ describe('M3.2 / P2 listes colonnes', () => {
       await screen.findByText("Lieux d'intervention", undefined, ATTENTE_UI),
     ).toBeInTheDocument();
     expect(screen.getByText('Palais des Congrès')).toBeInTheDocument();
+  });
+
+  // `organisations.logo_url` porte une CLÉ R2 (20260919100000) : la poser dans
+  // src n'affiche rien. La vignette doit passer par le proxy scopé.
+  it('M3.2/P2_traiteurs_logo_par_proxy — src = proxy, jamais la clé R2', async () => {
+    render(<GestionnaireTraiteursPage />);
+    const img = (await screen.findByText('Kaspia', undefined, ATTENTE_UI))
+      .closest('div')!
+      .querySelector('img')!;
+    expect(img).toBeTruthy();
+    expect(img.getAttribute('src')).toBe(
+      '/api/v1/gestionnaire/traiteurs/tr1/logo',
+    );
+    // Sonde du bug corrigé : la clé de stockage ne doit jamais atterrir dans src.
+    expect(img.getAttribute('src')).not.toContain('savr-dev/logos/');
   });
 });

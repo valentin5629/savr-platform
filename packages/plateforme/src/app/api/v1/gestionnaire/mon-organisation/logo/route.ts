@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getObject } from '@savr/shared/src/r2/upload.js';
 import {
   requireUser,
   createSupabaseServerClient,
@@ -7,6 +6,7 @@ import {
 } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { parseCleLogo } from '@/lib/logo-key.js';
+import { servirLogo } from '@/lib/logo-proxy.js';
 import { uploadLogo } from '@/lib/logo-upload.js';
 
 // CDC §06.05 §6 Bloc Organisation — Logo (upload / remplacement).
@@ -37,19 +37,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const cle = parseCleLogo(data?.logo_url as string | null | undefined);
   if (!cle) return NextResponse.json({ error: 'Aucun logo' }, { status: 404 });
 
-  try {
-    const { body, contentType } = await getObject(cle.bucket, cle.key);
-    return new NextResponse(Buffer.from(body), {
-      status: 200,
-      headers: {
-        'Content-Type': contentType,
-        'Cache-Control': 'private, max-age=300',
-        'X-Content-Type-Options': 'nosniff',
-      },
-    });
-  } catch {
-    return NextResponse.json({ error: 'Logo introuvable' }, { status: 404 });
-  }
+  return servirLogo(cle);
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {

@@ -18,6 +18,9 @@ export default function GestionnaireTraiteursPage() {
   const router = useRouter();
   const [rows, setRows] = useState<TraiteurRow[]>([]);
   const [loading, setLoading] = useState(true);
+  // Logos dont le proxy n'a rien rendu (clé héritée hors format, objet absent) :
+  // on retombe sur le nom seul plutôt que sur une vignette cassée.
+  const [logosKo, setLogosKo] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetch('/api/v1/gestionnaire/traiteurs')
@@ -59,10 +62,15 @@ export default function GestionnaireTraiteursPage() {
                 >
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-2">
-                      {t.logo_url && (
+                      {t.logo_url && !logosKo.has(t.id) && (
                         <img
-                          src={t.logo_url}
+                          // logo_url porte une CLÉ R2, pas une URL : seul le proxy
+                          // la résout, dans le périmètre v_traiteurs_gestionnaire.
+                          src={`/api/v1/gestionnaire/traiteurs/${encodeURIComponent(t.id)}/logo`}
                           alt=""
+                          onError={() =>
+                            setLogosKo((s) => new Set(s).add(t.id))
+                          }
                           className="h-6 w-6 rounded-full object-cover"
                         />
                       )}

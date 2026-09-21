@@ -38,8 +38,10 @@ export default function TraiteurDetailPage({
   const [traiteur, setTraiteur] = useState<TraiteurDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [logoKo, setLogoKo] = useState(false);
 
   useEffect(() => {
+    setLogoKo(false);
     fetch(`/api/v1/gestionnaire/traiteurs/${encodeURIComponent(id)}`)
       .then((r) => {
         if (r.status === 404) {
@@ -71,10 +73,13 @@ export default function TraiteurDetailPage({
           ←
         </Button>
         <div className="flex items-center gap-3">
-          {traiteur.logo_url && (
+          {traiteur.logo_url && !logoKo && (
             <img
-              src={traiteur.logo_url}
+              // logo_url porte une CLÉ R2, pas une URL : seul le proxy la résout,
+              // dans le périmètre v_traiteurs_gestionnaire.
+              src={`/api/v1/gestionnaire/traiteurs/${encodeURIComponent(id)}/logo`}
               alt=""
+              onError={() => setLogoKo(true)}
               className="h-10 w-10 rounded-full object-cover"
             />
           )}

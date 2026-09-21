@@ -48,7 +48,7 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe('M3.2 / logos d’organisation — proxy d’affichage', () => {
+describe('M3.2 / logo d’un traiteur tiers — proxy d’affichage', () => {
   it('M3.2/logo_fiche_traiteur_gestionnaire_par_proxy — src = proxy scopé, jamais la clé R2', async () => {
     vi.stubGlobal(
       'fetch',
@@ -83,8 +83,10 @@ describe('M3.2 / logos d’organisation — proxy d’affichage', () => {
     );
     expect(img.getAttribute('src')).not.toContain(CLE);
   });
+});
 
-  it('M3.2/logo_fiche_client_admin_par_proxy — src = proxy staff, jamais la clé R2', async () => {
+describe('M1.1a / logo de la fiche organisation — proxy d’affichage', () => {
+  it('M1.1a/logo_fiche_client_admin_par_proxy — src = proxy staff, jamais la clé R2', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(() =>

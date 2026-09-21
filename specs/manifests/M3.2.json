@@ -130,8 +130,7 @@
     "M3.2/traiteur_logo_404",
     "M3.2/traiteur_logo_role_403",
     "M3.2/P2_traiteurs_logo_par_proxy",
-    "M3.2/logo_fiche_traiteur_gestionnaire_par_proxy",
-    "M3.2/logo_fiche_client_admin_par_proxy"
+    "M3.2/logo_fiche_traiteur_gestionnaire_par_proxy"
   ],
   "deliverables": [
     {
@@ -490,9 +489,9 @@
       "id": "M3.2-traiteur-logo-proxy",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:434",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/traiteurs/[id]/logo/route.ts",
-      "test": "M3.2/traiteur_logo_200 + M3.2/traiteur_logo_hors_perimetre_404 + M3.2/traiteur_logo_404 + M3.2/traiteur_logo_role_403 + M3.2/P2_traiteurs_logo_par_proxy + M3.2/logo_fiche_traiteur_gestionnaire_par_proxy + M3.2/logo_fiche_client_admin_par_proxy",
+      "test": "M3.2/traiteur_logo_200 + M3.2/traiteur_logo_hors_perimetre_404 + M3.2/traiteur_logo_404 + M3.2/traiteur_logo_role_403 + M3.2/P2_traiteurs_logo_par_proxy + M3.2/logo_fiche_traiteur_gestionnaire_par_proxy",
       "statut": "implemented",
-      "libelle": "§5 « Nom + logo » (liste) et « Logo, nom, ville » (fiche) : logo_url portant une CLÉ R2 depuis 20260919100000, l'affichage passe par un proxy serveur qui résout la clé depuis la vue v_traiteurs_gestionnaire (jamais reçue du client) ; fiche client admin servie par le proxy staff existant"
+      "libelle": "§5 « Nom + logo » (liste) et « Logo, nom, ville » (fiche) : logo_url portant une CLÉ R2 depuis 20260919100000, l'affichage passe par un proxy serveur qui résout la clé depuis la vue v_traiteurs_gestionnaire (jamais reçue du client)"
     }
   ],
   "cdc_source_hash": {

@@ -500,7 +500,7 @@
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:335",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/evenements/[id]/route.ts + packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/[id]/page.tsx",
       "test": "M3.2/detail_evenement_ag_distance_association + M3.2/detail_evenement_ag_distance_lieu_non_geocode + M3.2/detail_evenement_ag_distance_affichee_km + M3.2/detail_evenement_ag_distance_absente_tiret",
-      "statut": "implemented",
+      "statut": "partial",
       "libelle": "§3 Détail événement > « Pour AG » : distance association ↔ lieu de l'événement restituée au gestionnaire (arbitrage Val 2026-09-21, option b). Orthodromie haversine calculée à la volée par distanceKm (lib/attribution-ag/associations-par-distance.ts, même formule que fn_calculer_algo_attribution_ag), arrondie à l'entier et affichée « 12 km » ; aucune colonne stockée, « — » si l'association ou le lieu n'est pas géocodé. Les coordonnées de l'association ne sortent pas de la route (liste blanche nom + ville) — hygiène de réponse, pas une barrière : asso_read ouvre déjà ces colonnes à tout rôle authentifié. ⚠ Portée réelle mesurée : le sous-bloc AG n'apparaît que sur les événements de l'organisation du gestionnaire — aa_select (décision C-1, §09 + pgTAP T18 rls_0_4_smoke) refuse attributions_antgaspi sur l'événement d'un traiteur tiers, même sur son propre lieu. Contradiction §06.05 §3 × C-1 tracée dans _Divergences/M3.2_20260921_detail-evenement-bloc-ag-invisible-gestionnaire.md."
     }
   ],

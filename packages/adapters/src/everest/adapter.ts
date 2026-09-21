@@ -158,8 +158,14 @@ export class AdapterEverest implements LogistiqueProvider {
     // Lire branche_attribution depuis attributions_antgaspi
     const serviceId = await this.resolveServiceId(collecte.id);
 
-    // Créer ou récupérer la tournée (upsert par reference_interne)
-    const tournee = await this.upsertTournee(collecte, rang, serviceId);
+    // Créer ou récupérer la tournée. Le rang déjà lié à une tournée A Toutes!
+    // est repris tel quel : c'est le cas d'une mission refusée puis réattribuée,
+    // dont fn_dispatcher_collecte a réinitialisé la tournée en place (arbitrage
+    // Val 2026-09-17). Sa reference_interne porte alors la tentative (`-r{n}`) :
+    // la chercher par `EVR-{collecte}-{rang}` créerait une seconde tournée, et
+    // son rattachement au rang déjà pris échouerait.
+    const tournee =
+      tourneeExistante ?? (await this.upsertTournee(collecte, rang, serviceId));
 
     // POST /missions/create
     let missionId: string | null = null;

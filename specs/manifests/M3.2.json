@@ -354,7 +354,7 @@
     },
     {
       "id": "BL-P1-GEST-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2103",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2120",
       "artefact": "supabase/migrations/20260705130000_plateforme_r19b_gest04_benchmark_7params.sql",
       "test": "supabase/tests/r19b_gest04_benchmark_ponderee.test.sql — GEST04-1..14 (signature 7 params, grain flux×type×taille, colonnes CDC, moyenne pondérée, k-anonymat, garde traiteur, listes parc)",
       "statut": "implemented",
@@ -514,7 +514,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "ece0b3d6879ff4c76a12b52418a4c6195eec7855d8552ff2a34f4ea5f95514d6",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "6368503948f40cfb00471f9538792a13a188b74874d9ea363a972eb64202ebdf",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "bd984a0b5c0403f705cf86f94da5da638c225b391236ca8fab2f0d1fc9d8ae11"
   }
 }

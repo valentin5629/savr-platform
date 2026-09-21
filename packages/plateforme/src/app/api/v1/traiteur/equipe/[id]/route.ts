@@ -6,16 +6,30 @@ import {
 } from '@/lib/api-auth.js';
 import { writeError } from '@/lib/api-helpers.js';
 
-// CDC §06.04 §6 « Équipe » (l.669-670) — MANAGER only :
+// CDC §06.04 §6 « Équipe » (l.683-686) — MANAGER only :
 //   - Modifier le rôle d'un collaborateur (traiteur_commercial ↔ traiteur_manager) ;
 //   - Suspendre un compte (soft-delete `actif=false`).
+// ⚠ NON TRACÉ : §07 Observabilité/06 catalogue `user_role_modifie` et
+//   `user_desactive` sur `users` sans restriction staff, mais cette route
+//   n'écrit AUCUNE ligne `audit_log` — le geste légitime d'un manager n'est donc
+//   pas tracé (idem `gestionnaire/mon-organisation/users/[id]`). Non câblé ici
+//   parce que §07/06 l.81 rend le `motif` OBLIGATOIRE (≥ 10 car.) pour ces deux
+//   actions, alors que §06.04 §6 ne prévoit aucun champ « motif » côté équipe :
+//   contradiction CDC → Q3 de la divergence M3.1_20260921_users-role-auto-changement.
 // RLS usr_manager_update (own-org). Le trigger anti-escalade interdit toute
 // promotion vers un rôle staff (volets 1-2, 20260903120000) et tout changement
 // de SON PROPRE rôle (volet 3, 20260921160000) ; l'allowlist ci-dessous
 // restreint en plus aux deux rôles traiteur (jamais gestionnaire/agence/organisateur).
-// ⚠ L'allowlist est applicative SEULE : elle n'est pas rejouée en base (un
-//   manager peut poser un autre rôle non staff sur un collègue en PostgREST
-//   direct — écart d'intégrité mesuré le 2026-09-21, arbitrage Val en attente).
+// ⚠ L'allowlist est applicative SEULE : elle n'est pas rejouée en base. Mesuré
+//   le 2026-09-21 : en PostgREST direct, un manager pose n'importe quel rôle non
+//   staff sur un collègue — et il peut CRÉER une seconde identité manager dans
+//   son org (`usr_manager_insert` ne contraint ni `id` ni `role`) puis s'en
+//   servir pour changer SON PROPRE rôle en deux temps. La garde « sur soi »
+//   ci-dessous ferme donc complètement le P0 pour traiteur_commercial / agence /
+//   client_organisateur (la RLS leur refuse l'INSERT) mais n'est qu'un
+//   ralentisseur pour manager / gestionnaire. Fermeture = allowlist dans le
+//   WITH CHECK des policies INSERT — lot distinct, arbitrage Val
+//   (divergence M3.1_20260921_users-role-auto-changement).
 
 const MANAGER_ROLE: ClientRole[] = ['traiteur_manager'];
 const ROLES_ASSIGNABLES = new Set(['traiteur_commercial', 'traiteur_manager']);

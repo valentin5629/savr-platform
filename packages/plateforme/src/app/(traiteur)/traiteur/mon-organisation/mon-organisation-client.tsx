@@ -725,7 +725,7 @@ function EquipeTab({ userId }: { userId: string }) {
                           grisage, le <select> resterait cliquable pour un refus
                           silencieux. */}
                       <select
-                        className="rounded border border-savr-neutral-300 px-2 py-1 text-xs disabled:cursor-not-allowed disabled:bg-savr-neutral-100 disabled:text-savr-neutral-500"
+                        className="rounded border border-savr-neutral-300 px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50"
                         value={u.role}
                         disabled={u.id === userId}
                         title={

@@ -30,11 +30,28 @@
 --   NON-RÉGRESSION (9-15) volet 1 intact ; la gestion d'équipe du manager (CDC
 --                    §06.04 §6 « Modifier le rôle d'un collaborateur ») passe
 --                    toujours ; suspension d'un collègue, no-op, édition de
---                    profil, exemption `admin_savr` et exemption service_role.
+--                    profil, exemption `admin_savr` et exemption service_role ;
+--   PREUVE (16-19)   les colonnes de preuve (`cgu_accepte_le`, `cgu_version`,
+--                    `created_at`) sont immuables sous `authenticated` — pour
+--                    TOUTE ligne et pour TOUT appelant, `admin_savr` compris
+--                    (le cas 19 tient ce placement) ;
+--   UPSERT (20)      `INSERT … ON CONFLICT DO UPDATE` ne contourne pas la garde ;
+--   MUTANT (21)      la moitié `cgu_accepte_le` de la garde de preuve est tenue
+--                    (sans ce cas, la retirer laissait les 20 autres verts).
+--
+-- ⚠ CE QUE CE FICHIER NE PROUVE PAS : que `users.role` soit intégralement
+-- verrouillé. Mesuré le 2026-09-21, AVEC cette migration : un `traiteur_manager`
+-- (ou un `gestionnaire_lieux`) crée une seconde identité `traiteur_manager` dans
+-- son org (`usr_manager_insert` ne contraint ni `id` ni `role`) et s'en sert pour
+-- changer son propre rôle en deux temps. Le scope « sur soi » ferme donc le P0
+-- signalé (`traiteur_commercial`, `agence`, `client_organisateur` — mesuré :
+-- leur INSERT est refusé par la RLS) mais n'est qu'un ralentisseur pour les deux
+-- rôles qui écrivent leurs collègues. Fermeture = allowlist dans le `WITH CHECK`
+-- des policies INSERT : lot distinct, arbitrage Val (divergence M3.1_20260921).
 -- =============================================================================
 
 BEGIN;
-SELECT plan(15);
+SELECT plan(21);
 
 CREATE OR REPLACE FUNCTION test_set_jwt(
   p_role text,
@@ -70,23 +87,33 @@ INSERT INTO plateforme.organisations (id, nom, type, actif, est_shadow, siret, e
 VALUES ('0e5ca1ad-9021-0000-0000-0000000000a1'::uuid, 'Org auto-role', 'traiteur',
         true, false, '77711960000001', 'autorole@test.invalid');
 
-INSERT INTO plateforme.users (id, organisation_id, email, prenom, nom, role, actif)
+-- ⚠ `cgu_accepte_le` / `cgu_version` sont renseignées À DESSEIN, mais PAS pour la
+-- raison qu'on croit. MESURÉ (fixture remise à NULL, migration appliquée) :
+--   not ok 16 · ok 17 · ok 18 · ok 19
+-- Le cas 16 ÉCHOUE BRUYAMMENT — il ne devient pas vacuous : il écrit NULL sur NULL,
+-- la garde `IS DISTINCT FROM` ne s'arme pas, et le `throws_ok` rougit. Les cas 17
+-- et 19 restent verts LÉGITIMEMENT (ils écrivent 'v0.0' par-dessus NULL, ce qui est
+-- bien un changement : la garde s'arme pour de bon).
+-- La vraie raison de l'enrichissement : sans lui, le cas 16 teste un no-op au lieu
+-- de modéliser l'attaque réelle — effacer une preuve de consentement QUI EXISTE.
+INSERT INTO plateforme.users (id, organisation_id, email, prenom, nom, role, actif,
+                              cgu_accepte_le, cgu_version)
 VALUES
   ('0e5ca1ad-9021-0000-0000-000000000001'::uuid, '0e5ca1ad-9021-0000-0000-0000000000a1'::uuid,
-   'com@autorole.invalid',  'C', 'OM', 'traiteur_commercial', true),
+   'com@autorole.invalid',  'C', 'OM', 'traiteur_commercial', true, now(), 'v1.0'),
   ('0e5ca1ad-9021-0000-0000-000000000002'::uuid, '0e5ca1ad-9021-0000-0000-0000000000a1'::uuid,
-   'mgr@autorole.invalid',  'M', 'GR', 'traiteur_manager',    true),
+   'mgr@autorole.invalid',  'M', 'GR', 'traiteur_manager',    true, now(), 'v1.0'),
   ('0e5ca1ad-9021-0000-0000-000000000003'::uuid, '0e5ca1ad-9021-0000-0000-0000000000a1'::uuid,
-   'gest@autorole.invalid', 'G', 'ES', 'gestionnaire_lieux',  true),
+   'gest@autorole.invalid', 'G', 'ES', 'gestionnaire_lieux',  true, now(), 'v1.0'),
   ('0e5ca1ad-9021-0000-0000-000000000004'::uuid, '0e5ca1ad-9021-0000-0000-0000000000a1'::uuid,
-   'agc@autorole.invalid',  'A', 'GC', 'agence',              true),
+   'agc@autorole.invalid',  'A', 'GC', 'agence',              true, now(), 'v1.0'),
   ('0e5ca1ad-9021-0000-0000-000000000005'::uuid, '0e5ca1ad-9021-0000-0000-0000000000a1'::uuid,
-   'clo@autorole.invalid',  'C', 'LO', 'client_organisateur', true),
+   'clo@autorole.invalid',  'C', 'LO', 'client_organisateur', true, now(), 'v1.0'),
   ('0e5ca1ad-9021-0000-0000-000000000006'::uuid, '0e5ca1ad-9021-0000-0000-0000000000a1'::uuid,
-   'adm@autorole.invalid',  'A', 'DM', 'admin_savr',          true),
+   'adm@autorole.invalid',  'A', 'DM', 'admin_savr',          true, now(), 'v1.0'),
   -- collègue dédié aux contrôles positifs 10-11 (jamais muté par les cas 1-9)
   ('0e5ca1ad-9021-0000-0000-000000000007'::uuid, '0e5ca1ad-9021-0000-0000-0000000000a1'::uuid,
-   'col@autorole.invalid',  'C', 'OL', 'traiteur_commercial', true);
+   'col@autorole.invalid',  'C', 'OL', 'traiteur_commercial', true, now(), 'v1.0');
 
 -- =====================================================================
 -- 1-4 — LA FAILLE : un traiteur_commercial s'auto-attribue n'importe quel
@@ -249,6 +276,90 @@ SELECT lives_ok(
   $$ UPDATE plateforme.users SET role = 'traiteur_manager'
      WHERE id = '0e5ca1ad-9021-0000-0000-000000000001'::uuid $$,
   'service_role/postgres PEUT toujours écrire users.role (routes admin, invitation)'
+);
+
+-- =====================================================================
+-- 16-19 — GARDES D'INTÉGRITÉ DE PREUVE (bloc placé AU-DESSUS de l'exemption
+--         `admin_savr`). Ouverture mesurée le 2026-09-21 sous `authenticated` :
+--         `UPDATE users SET cgu_accepte_le=NULL, cgu_version=NULL WHERE id=auth.uid()`
+--         et `UPDATE users SET created_at='2000-01-01' …` passaient tous deux.
+--         Les CGU sont la preuve opposable du consentement (Art. 11/22) :
+--         pouvoir l'effacer, c'est pouvoir le répudier.
+-- =====================================================================
+SELECT test_set_jwt('traiteur_commercial', '0e5ca1ad-9021-0000-0000-0000000000a1'::uuid,
+                    '0e5ca1ad-9021-0000-0000-000000000001'::uuid);
+SELECT throws_ok(
+  $$ UPDATE plateforme.users SET cgu_accepte_le = NULL, cgu_version = NULL
+     WHERE id = auth.uid() $$,
+  '42501',
+  'Modification de la preuve d''acceptation des CGU refusée sous authenticated',
+  'un user NE PEUT PAS effacer la preuve de son acceptation des CGU (répudiation du consentement)'
+);
+
+SELECT test_set_jwt('traiteur_manager', '0e5ca1ad-9021-0000-0000-0000000000a1'::uuid,
+                    '0e5ca1ad-9021-0000-0000-000000000002'::uuid);
+SELECT throws_ok(
+  $$ UPDATE plateforme.users SET cgu_version = 'v0.0'
+     WHERE id = '0e5ca1ad-9021-0000-0000-000000000001'::uuid $$,
+  '42501',
+  'Modification de la preuve d''acceptation des CGU refusée sous authenticated',
+  'un manager NE PEUT PAS réécrire la version de CGU acceptée par un collègue'
+);
+
+SELECT throws_ok(
+  $$ UPDATE plateforme.users SET created_at = '2000-01-01T00:00:00Z' WHERE id = auth.uid() $$,
+  '42501',
+  'Changement de created_at refusé sous authenticated (intégrité d''audit)',
+  'un user NE PEUT PAS antidater son created_at (intégrité d''audit)'
+);
+
+-- 19 — LE cas qui TIENT le placement : la garde de preuve vaut AUSSI pour
+--      `admin_savr`, parce qu'elle est AU-DESSUS de son exemption. Redescendre
+--      le bloc sous le `RETURN NEW` fait rougir ce cas, et lui seul (sonde
+--      mesurée le 2026-09-21).
+SELECT test_set_jwt('admin_savr', '0e5ca1ad-9021-0000-0000-0000000000a1'::uuid,
+                    '0e5ca1ad-9021-0000-0000-000000000006'::uuid);
+SELECT throws_ok(
+  $$ UPDATE plateforme.users SET cgu_version = 'v0.0' WHERE id = auth.uid() $$,
+  '42501',
+  'Modification de la preuve d''acceptation des CGU refusée sous authenticated',
+  'même un admin_savr NE PEUT PAS réécrire une preuve d''acceptation des CGU (placement)'
+);
+
+-- =====================================================================
+-- 20 — Chemin UPSERT : PostgREST expose `Prefer: resolution=merge-duplicates`,
+--      qui émet `INSERT … ON CONFLICT DO UPDATE`. Le BEFORE UPDATE s'arme bien
+--      (mesuré), mais rien ne le figeait — ce cas ferme l'angle mort.
+-- =====================================================================
+SELECT test_set_jwt('traiteur_manager', '0e5ca1ad-9021-0000-0000-0000000000a1'::uuid,
+                    '0e5ca1ad-9021-0000-0000-000000000002'::uuid);
+SELECT throws_ok(
+  $$ INSERT INTO plateforme.users (id, organisation_id, email, prenom, nom, role, actif)
+     VALUES ('0e5ca1ad-9021-0000-0000-000000000002'::uuid,
+             '0e5ca1ad-9021-0000-0000-0000000000a1'::uuid,
+             'mgr@autorole.invalid', 'M', 'GR', 'traiteur_commercial', true)
+     ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role $$,
+  '42501',
+  'Changement de son propre rôle refusé (le claim user_role en dérive : escalade de privilège)',
+  'l''UPSERT (Prefer: resolution=merge-duplicates) ne contourne pas la garde'
+);
+
+-- =====================================================================
+-- 21 — MUTANT SURVIVANT relevé par reviewer-rls-securite, et re-mesuré :
+--      en retirant la sous-condition `NEW.cgu_accepte_le IS DISTINCT FROM
+--      OLD.cgu_accepte_le` de la garde, les 20 cas précédents restaient VERTS.
+--      Le cas 16 écrit les DEUX colonnes : la branche `OR cgu_version` suffit à
+--      l'armer, donc rien n'épinglait l'horodatage. Ce cas-ci écrit
+--      `cgu_accepte_le` SEUL — sous le mutant, il passe (`UPDATE 1`, preuve
+--      effacée, `cgu_version` intacte). Les deux moitiés sont désormais tenues.
+-- =====================================================================
+SELECT test_set_jwt('traiteur_commercial', '0e5ca1ad-9021-0000-0000-0000000000a1'::uuid,
+                    '0e5ca1ad-9021-0000-0000-000000000001'::uuid);
+SELECT throws_ok(
+  $$ UPDATE plateforme.users SET cgu_accepte_le = NULL WHERE id = auth.uid() $$,
+  '42501',
+  'Modification de la preuve d''acceptation des CGU refusée sous authenticated',
+  'un user NE PEUT PAS effacer le SEUL horodatage d''acceptation des CGU (moitié non tenue)'
 );
 
 SELECT * FROM finish();

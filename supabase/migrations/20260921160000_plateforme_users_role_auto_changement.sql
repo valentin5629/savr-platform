@@ -1,5 +1,9 @@
--- P0 SÉCURITÉ — escalade de privilège INTRA-ORGANISATION sur `plateforme.users` :
--- VOLET 3 — AUTO-CHANGEMENT DE RÔLE (un user change SON PROPRE `role`).
+-- P0 SÉCURITÉ — `plateforme.users`, deux blocs :
+--   • VOLET 3 — AUTO-CHANGEMENT DE RÔLE (un user change SON PROPRE `role`) :
+--     escalade de privilège INTRA-ORGANISATION, l'objet principal de ce lot ;
+--   • GARDES D'INTÉGRITÉ DE PREUVE (`cgu_accepte_le`, `cgu_version`,
+--     `created_at`) : réécrivables par leur propriétaire, donc consentement
+--     répudiable. Bloc placé AU-DESSUS de l'exemption `admin_savr`.
 --
 -- Suite directe de 20260903120000 (volets 1 et 2) : ce correctif avait fermé la
 -- promotion vers un rôle STAFF (`admin_savr` / `ops_savr`) et épinglé les colonnes
@@ -78,17 +82,51 @@
 --   d'une auto-rétrogradation (qui devrait alors passer par service_role, jamais
 --   par un `role` réouvert sous `authenticated`).
 --
--- CE QUE CETTE MIGRATION NE FERME PAS (mesuré, hors périmètre, signalé) :
--- l'allowlist {traiteur_commercial, traiteur_manager} de la route n'est PAS
--- rejouée en base. Mesuré en isolation : un `traiteur_manager` peut poser
--- `gestionnaire_lieux` ou `client_organisateur` sur un COLLÈGUE de son org en
--- PostgREST direct (UPDATE 1), et un `gestionnaire_lieux` peut poser
--- `traiteur_manager` sur un collègue. L'appelant n'y gagne AUCUN droit (ce n'est
--- pas une escalade, c'est un écart d'intégrité vs §06.04) et fermer réclame une
--- matrice appelant→cibles que le CDC ne pose que pour le cas traiteur : lot
--- distinct, décision Val. Mesuré aussi : `traiteur_commercial`, `agence` et
--- `client_organisateur` ne peuvent PAS écrire un collègue (UPDATE 0, RLS) — leur
--- seul vecteur était bien « sur soi », donc fermé ici.
+-- ⚠⚠ CE QUE CETTE MIGRATION NE FERME PAS — NE PAS LIRE CE FICHIER COMME
+-- « `users.role` EST DÉSORMAIS VERROUILLÉ ».
+--
+-- (a) L'allowlist {traiteur_commercial, traiteur_manager} de la route n'est PAS
+--     rejouée en base : un `traiteur_manager` pose `gestionnaire_lieux` ou
+--     `client_organisateur` sur un COLLÈGUE en PostgREST direct (UPDATE 1), un
+--     `gestionnaire_lieux` pose `traiteur_manager`.
+--
+-- (b) Et surtout — le scope « sur soi » se contourne EN DEUX TEMPS, MONO-ACTEUR
+--     (pas de la collusion). Mesuré le 2026-09-21 AVEC cette migration appliquée :
+--       ÉTAPE 0  jwt(manager M) : UPDATE users SET role=… WHERE id=auth.uid()
+--                -> REFUSÉ 42501 (le volet 3 mord)
+--       ÉTAPE 1  jwt(manager M) : INSERT users (id=F2, role='traiteur_manager', même org)
+--                -> PASSE (1 ligne) — `usr_manager_insert` ne contraint ni `id`
+--                   ni `role`, et `plateforme.users` n'a aucune FK vers `auth.users`
+--       ÉTAPE 2  jwt(F2)        : UPDATE users SET role=… WHERE id=M
+--                -> PASSE (1 ligne), rôle final de M = la cible visée
+--       CONTRE-ÉPREUVE jwt(traiteur_commercial) : même INSERT
+--                -> REFUSÉ 42501 « new row violates row-level security policy »
+--     Pas réservé à PostgREST brut : `POST /traiteur/equipe/invitation` provisionne
+--     un vrai compte Auth sur une adresse CHOISIE PAR L'INVITANT, que
+--     `PATCH /equipe/[id]` promeut ensuite `traiteur_manager` (c'est dans l'allowlist).
+--
+-- ⇒ PORTÉE RÉELLE du volet 3 : il FERME complètement le P0 signalé — les trois
+--   rôles qui n'écrivent que leur propre ligne (`traiteur_commercial`, `agence`,
+--   `client_organisateur` : la contre-épreuve montre que la RLS leur refuse
+--   l'INSERT, donc aucune seconde identité à leur disposition) — mais il n'est
+--   qu'un RALENTISSEUR pour `traiteur_manager` et `gestionnaire_lieux`.
+--   Fermeture la moins chère (pas le trigger) : porter l'allowlist applicative
+--   dans le `WITH CHECK` des policies INSERT `usr_manager_insert` /
+--   `usr_gestionnaire_insert`. Lot distinct, arbitrage Val — Q2 de la divergence
+--   `M3.1_20260921_users-role-auto-changement`.
+--   Corollaire, plus large que ce seul chaînage : `plateforme.users` ne porte
+--   AUCUN trigger d'audit (vérifié : `pg_trigger` ne renvoie que
+--   `trg_users_block_role_escalation`), ET la route `traiteur/equipe/[id]`
+--   n'écrit aucune ligne `audit_log` — pas plus que son jumeau
+--   `gestionnaire/mon-organisation/users/[id]`. Ce n'est donc pas seulement le
+--   chemin d'attaque qui est indétectable a posteriori : le geste LÉGITIME d'un
+--   manager qui change le rôle ou suspend un collaborateur ne l'est pas non plus,
+--   alors que §07 Observabilité/06 catalogue `user_role_modifie` et
+--   `user_desactive` sur `users` sans restriction staff (la route
+--   `admin/users/[id]`, elle, les écrit bien). Non câblé dans ce lot : §07/06
+--   l.81 rend le `motif` OBLIGATOIRE (≥ 10 car.) pour ces deux actions, quand
+--   §06.04 §6 ne prévoit aucun champ « motif » côté équipe → contradiction CDC,
+--   Q3 de la divergence M3.1_20260921_users-role-auto-changement.
 -- ---------------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION plateforme.fn_users_block_role_escalation()
@@ -102,6 +140,51 @@ BEGIN
   -- service_role (routes admin) et postgres (seed/migration) sont exemptés.
   IF current_user <> 'authenticated' THEN
     RETURN NEW;
+  END IF;
+
+  -- ---------------------------------------------------------------------------
+  -- GARDES D'INTÉGRITÉ DE PREUVE — placées VOLONTAIREMENT AU-DESSUS de
+  -- l'exemption `admin_savr` ci-dessous. Ce ne sont pas des gardes de PRIVILÈGE
+  -- (« qui a le droit de faire quoi ») mais d'INTÉGRITÉ (« personne n'a titre à
+  -- réécrire une preuve ») : le cas d'usage que 20260903120000 cite lui-même en
+  -- exemple pour ce placement. Elles valent donc pour TOUTE ligne et pour TOUT
+  -- appelant `authenticated`, admin compris.
+  --
+  -- Coût opérationnel nul, mesuré le 2026-09-21 :
+  -- `grep -rln createSupabaseServerClient packages/plateforme/src/app/api/v1/admin/`
+  -- = 0 fichier sur 78 routes → tout le back-office tourne en service_role et
+  -- sort donc encore plus haut, au `current_user <> 'authenticated'`.
+  --
+  -- MESURE de l'ouverture (sous `authenticated`, avant ce correctif) :
+  --   UPDATE users SET cgu_accepte_le=NULL, cgu_version=NULL WHERE id=auth.uid(); -- PASSAIT
+  --   UPDATE users SET created_at='2000-01-01'               WHERE id=auth.uid(); -- PASSAIT
+  IF TG_OP = 'UPDATE' THEN
+    -- `cgu_accepte_le` / `cgu_version` = preuve opposable de l'acceptation des
+    -- CGU. Un utilisateur pouvait effacer la preuve de SON PROPRE consentement,
+    -- donc le répudier. Écrivain unique recensé : `api/auth/signup/route.ts`
+    -- l.291-292, en `createAdminSupabaseClient` (service_role → exempté).
+    -- `api/me/export-rgpd` ne fait que les LIRE.
+    IF NEW.cgu_accepte_le IS DISTINCT FROM OLD.cgu_accepte_le
+       OR NEW.cgu_version IS DISTINCT FROM OLD.cgu_version THEN
+      RAISE EXCEPTION
+        'Modification de la preuve d''acceptation des CGU refusée sous authenticated'
+        USING ERRCODE = '42501';
+    END IF;
+
+    -- `created_at` : aucun écrivain applicatif ni seed (DEFAULT now()), et
+    -- l'antidater fausse l'ancienneté d'un compte dans l'audit.
+    IF NEW.created_at IS DISTINCT FROM OLD.created_at THEN
+      RAISE EXCEPTION
+        'Changement de created_at refusé sous authenticated (intégrité d''audit)'
+        USING ERRCODE = '42501';
+    END IF;
+
+    -- NON fermée à dessein : `derniere_connexion`, réécrivable elle aussi
+    -- (mesuré). Elle n'a AUCUN écrivain dans le repo — le suivi des connexions
+    -- n'est pas implémenté — et son implémentation naturelle (la session met à
+    -- jour sa propre ligne) tomberait sous `authenticated` : la garde y
+    -- planterait un piège à 42501 pour un gain nul (falsifier sa propre date de
+    -- dernière connexion n'ouvre aucun droit).
   END IF;
 
   -- admin_savr n'est bridé par aucun des volets (contrôle positif R10b).
@@ -124,8 +207,23 @@ BEGIN
 
   -- VOLET 2 — escalade de TENANT : colonnes structurantes immuables.
   IF TG_OP = 'UPDATE' THEN
-    -- `id` = clé de jointure avec auth.uid() ET cible de 21 FK (audit_log,
-    -- evenements.created_by, attributions_antgaspi.valide_par, shared.fichiers…).
+    -- `id` = clé de jointure avec auth.uid() ET cible de 19 FK déclarées, sur 17
+    -- tables (audit_log ×2, evenements.created_by, attributions_antgaspi.valide_par,
+    -- shared.fichiers…). ⚠ 20260903120000 écrit « 21 FK » : chiffre FAUX, y compris
+    -- dans le message rendu à l'utilisateur. Re-mesuré le 2026-09-21 — aucun
+    -- comptage ne donne 21 : `count(*) WHERE contype='f' AND confrelid=
+    -- 'plateforme.users'::regclass` = 31 (les 6 partitions d'audit_log × 2
+    -- contraintes y sont comptées), `… AND NOT relispartition` = 19,
+    -- `count(DISTINCT conname)` = 19. L'arithmétique boucle : 31 = 19 + 12
+    -- (6 partitions d'audit_log × 2 contraintes). Un 4e comptage, par grep du
+    -- motif « REFERENCES » suivi de « plateforme.users( » sur
+    -- `supabase/migrations/`, donne lui aussi 19.
+    -- ⚠ Ce motif est écrit ici EN TOUTES LETTRES et non sous sa forme littérale,
+    --   volontairement : sous forme littérale, la présente ligne se matcherait
+    --   elle-même et le grep rendrait 20 — un lecteur qui le rejoue croirait le
+    --   commentaire faux. Ne pas « corriger » en réécrivant le motif littéral.
+    --   Les trois comptages `pg_constraint` ci-dessus sont, eux, autoportants. La migration mergée n'est pas touchée (immuable) ;
+    -- seule la formulation reprise ici est corrigée.
     -- Trou RÉEL avant ce correctif, mesuré en isolation sous `authenticated` :
     -- `UPDATE users SET id = <autre> WHERE id = auth.uid()` par un traiteur_manager
     -- -> `UPDATE 1`. `usr_self_update` bloquerait seul (son WITH CHECK `id =
@@ -135,7 +233,7 @@ BEGIN
     -- Vaut pour son propre id comme pour celui d'un collègue.
     IF NEW.id IS DISTINCT FROM OLD.id THEN
       RAISE EXCEPTION
-        'Changement d''id refusé (clé de jointure auth.uid() et cible de 21 FK)'
+        'Changement d''id refusé (clé de jointure auth.uid() et cible de 19 FK)'
         USING ERRCODE = '42501';
     END IF;
 

@@ -25,7 +25,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 import EvenementDetailPage from '@/app/(gestionnaire)/gestionnaire/evenements/[id]/page.js';
-import { ATTENTE_UI } from '@/test-utils/attente-ui';
+import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 const params = (id: string) =>
   Object.assign(Promise.resolve({ id }), {
@@ -82,47 +82,59 @@ beforeEach(() => {
 });
 
 describe('M3.2 / détail événement — distance de l’association', () => {
-  it('M3.2/detail_evenement_ag_distance_affichee_km — « 12 km » à côté de la ville de l’association', async () => {
-    stubFetch(
-      detail([
-        {
-          id: 'a1',
-          volume_repas_realise: 88,
-          distance_km: 12,
-          associations: { nom: 'Les Restos', ville: 'Versailles' },
-        },
-      ]),
-    );
+  it(
+    'M3.2/detail_evenement_ag_distance_affichee_km — « 12 km » à côté de la ville de l’association',
+    async () => {
+      stubFetch(
+        detail([
+          {
+            id: 'a1',
+            volume_repas_realise: 88,
+            distance_km: 12,
+            associations: { nom: 'Les Restos', ville: 'Versailles' },
+          },
+        ]),
+      );
 
-    render(<EvenementDetailPage params={params('e1')} />);
-    await screen.findByText('Les Restos', { exact: false }, ATTENTE_UI);
+      render(<EvenementDetailPage params={params('e1')} />);
+      await screen.findByText('Les Restos', { exact: false }, ATTENTE_UI);
 
-    const ligne = screen.getByText('Les Restos', { exact: false });
-    expect(ligne.textContent).toContain('Versailles');
-    expect(ligne.textContent).toContain('12 km');
-    expect(ligne.textContent).toContain('88 repas');
-  });
+      const ligne = screen.getByText('Les Restos', { exact: false });
+      expect(ligne.textContent).toContain('Versailles');
+      expect(ligne.textContent).toContain('12 km');
+      expect(ligne.textContent).toContain('88 repas');
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('M3.2/detail_evenement_ag_distance_absente_tiret — distance null : « — », jamais 0 km', async () => {
-    stubFetch(
-      detail([
-        {
-          id: 'a1',
-          volume_repas_realise: 88,
-          distance_km: null,
-          associations: { nom: 'Asso non géocodée', ville: 'Paris' },
-        },
-      ]),
-    );
+  it(
+    'M3.2/detail_evenement_ag_distance_absente_tiret — distance null : « — », jamais 0 km',
+    async () => {
+      stubFetch(
+        detail([
+          {
+            id: 'a1',
+            volume_repas_realise: 88,
+            distance_km: null,
+            associations: { nom: 'Asso non géocodée', ville: 'Paris' },
+          },
+        ]),
+      );
 
-    render(<EvenementDetailPage params={params('e1')} />);
-    await screen.findByText('Asso non géocodée', { exact: false }, ATTENTE_UI);
+      render(<EvenementDetailPage params={params('e1')} />);
+      await screen.findByText(
+        'Asso non géocodée',
+        { exact: false },
+        ATTENTE_UI,
+      );
 
-    const ligne = screen.getByText('Asso non géocodée', { exact: false });
-    expect(ligne.textContent).toContain('—');
-    expect(ligne.textContent).not.toContain('0 km');
-    expect(ligne.textContent).not.toContain('km');
-  });
+      const ligne = screen.getByText('Asso non géocodée', { exact: false });
+      expect(ligne.textContent).toContain('—');
+      expect(ligne.textContent).not.toContain('0 km');
+      expect(ligne.textContent).not.toContain('km');
+    },
+    ATTENTE_CAS_MS,
+  );
 });
 
 /**
@@ -234,102 +246,112 @@ const normalise = (t: string | null | undefined) =>
   (t ?? '').replace(/\s+/g, ' ').trim();
 
 describe('M3.2 / détail événement — consultation en lecture seule', () => {
-  it('M3.2/detail_evenement_consultation_lecture_seule — en-tête, sous-blocs ZD et AG, documents, aucune action', async () => {
-    stubFetch(evenementComplet());
+  it(
+    'M3.2/detail_evenement_consultation_lecture_seule — en-tête, sous-blocs ZD et AG, documents, aucune action',
+    async () => {
+      stubFetch(evenementComplet());
 
-    render(<EvenementDetailPage params={params('e1')} />);
-    await screen.findByText('Salon Auto', undefined, ATTENTE_UI);
+      render(<EvenementDetailPage params={params('e1')} />);
+      await screen.findByText('Salon Auto', undefined, ATTENTE_UI);
 
-    const page = normalise(document.body.textContent);
+      const page = normalise(document.body.textContent);
 
-    // ── En-tête : nom, date, lieu, pax, type, taille bracket, traiteur ──
-    expect(screen.getByRole('heading', { name: 'Salon Auto' })).toBeVisible();
-    expect(page).toContain('2026-06-01');
-    expect(page).toContain('Paris Expo');
-    expect(page).toContain('300');
-    expect(page).toContain('Salon professionnel');
-    expect(screen.getByText('S')).toBeVisible(); // badge taille bracket
-    expect(page).toContain('Kaspia');
-    expect(page).toContain('Agence WPM');
+      // ── En-tête : nom, date, lieu, pax, type, taille bracket, traiteur ──
+      expect(screen.getByRole('heading', { name: 'Salon Auto' })).toBeVisible();
+      expect(page).toContain('2026-06-01');
+      expect(page).toContain('Paris Expo');
+      expect(page).toContain('300');
+      expect(page).toContain('Salon professionnel');
+      expect(screen.getByText('S')).toBeVisible(); // badge taille bracket
+      expect(page).toContain('Kaspia');
+      expect(page).toContain('Agence WPM');
 
-    // Déchets labo estimés : affichés avec leur tooltip explicatif (§06.05 §3).
-    // Le coefficient brut du traiteur (0.15) ne doit jamais apparaître.
-    const labo = screen.getByText(/Est\. labo/);
-    expect(normalise(labo.textContent)).toBe('Est. labo : 45.0 kg');
-    expect(labo.getAttribute('title')).toContain('Estimation amont');
+      // Déchets labo estimés : affichés avec leur tooltip explicatif (§06.05 §3).
+      // Le coefficient brut du traiteur (0.15) ne doit jamais apparaître.
+      const labo = screen.getByText(/Est\. labo/);
+      expect(normalise(labo.textContent)).toBe('Est. labo : 45.0 kg');
+      expect(labo.getAttribute('title')).toContain('Estimation amont');
 
-    // Logo traiteur : servi par le proxy scopé, jamais la clé R2 (#367).
-    const logos = document.querySelectorAll('img');
-    expect(logos).toHaveLength(1);
-    expect(logos[0]!.getAttribute('src')).toBe(
-      '/api/v1/gestionnaire/traiteurs/tr1/logo',
-    );
-    expect(logos[0]!.getAttribute('src')).not.toContain('savr-dev/logos');
+      // Logo traiteur : servi par le proxy scopé, jamais la clé R2 (#367).
+      const logos = document.querySelectorAll('img');
+      expect(logos).toHaveLength(1);
+      expect(logos[0]!.getAttribute('src')).toBe(
+        '/api/v1/gestionnaire/traiteurs/tr1/logo',
+      );
+      expect(logos[0]!.getAttribute('src')).not.toContain('savr-dev/logos');
 
-    // …mais ni email, ni téléphone, ni SIRET (§06.05 §3).
-    expect(page).not.toContain('contact@kaspia.example');
-    expect(page).not.toContain('0102030405');
-    expect(page).not.toContain('81234567800019');
+      // …mais ni email, ni téléphone, ni SIRET (§06.05 §3).
+      expect(page).not.toContain('contact@kaspia.example');
+      expect(page).not.toContain('0102030405');
+      expect(page).not.toContain('81234567800019');
 
-    // ── Sous-blocs : type, date + heure de début, statut affiché ──
-    expect(page).toMatch(
-      /Collecte Zéro Déchet\s*2026-06-01 · 18:00\s*Réalisée/,
-    );
-    expect(page).toMatch(/Collecte Anti-Gaspi\s*2026-06-01 · 20:00\s*Réalisée/);
+      // ── Sous-blocs : type, date + heure de début, statut affiché ──
+      expect(page).toMatch(
+        /Collecte Zéro Déchet\s*2026-06-01 · 18:00\s*Réalisée/,
+      );
+      expect(page).toMatch(
+        /Collecte Anti-Gaspi\s*2026-06-01 · 20:00\s*Réalisée/,
+      );
 
-    // ── Sous-bloc ZD : les 5 flux avec leurs kg + le taux de recyclage ──
-    for (const [nom, kg] of FLUX_ZD) {
-      expect(page).toContain(`${nom} : ${kg} kg`);
-    }
-    expect(page).toContain('Taux de recyclage');
-    expect(page).toContain('72.5 %');
+      // ── Sous-bloc ZD : les 5 flux avec leurs kg + le taux de recyclage ──
+      for (const [nom, kg] of FLUX_ZD) {
+        expect(page).toContain(`${nom} : ${kg} kg`);
+      }
+      expect(page).toContain('Taux de recyclage');
+      expect(page).toContain('72.5 %');
 
-    // ── Sous-bloc AG : repas donnés + association avec ville ET distance ──
-    expect(page).toContain('Les Restos · Versailles · 12 km — 200 repas');
+      // ── Sous-bloc AG : repas donnés + association avec ville ET distance ──
+      expect(page).toContain('Les Restos · Versailles · 12 km — 200 repas');
 
-    // ── Bloc documents : bordereau ZD, rapport de recyclage, attestation ──
-    expect(
-      screen.getByRole('button', { name: /Bordereau BS-2026-0042/ }),
-    ).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Rapport RSE' })).toBeVisible();
-    expect(
-      screen.getByRole('button', { name: 'Attestation don' }),
-    ).toBeVisible();
+      // ── Bloc documents : bordereau ZD, rapport de recyclage, attestation ──
+      expect(
+        screen.getByRole('button', { name: /Bordereau BS-2026-0042/ }),
+      ).toBeVisible();
+      expect(screen.getByRole('button', { name: 'Rapport RSE' })).toBeVisible();
+      expect(
+        screen.getByRole('button', { name: 'Attestation don' }),
+      ).toBeVisible();
 
-    // ── Consultation pure : aucune action de modification ──
-    const actions = [
-      ...document.querySelectorAll('button'),
-      ...document.querySelectorAll('a'),
-    ].map((el) => normalise(el.textContent));
-    const interdit = /modifi|dupliqu|annul|supprim|édit|nouvelle collecte/i;
-    expect(actions.filter((t) => interdit.test(t))).toEqual([]);
-  });
+      // ── Consultation pure : aucune action de modification ──
+      const actions = [
+        ...document.querySelectorAll('button'),
+        ...document.querySelectorAll('a'),
+      ].map((el) => normalise(el.textContent));
+      const interdit = /modifi|dupliqu|annul|supprim|édit|nouvelle collecte/i;
+      expect(actions.filter((t) => interdit.test(t))).toEqual([]);
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('M3.2/detail_evenement_consultation_lecture_seule — client organisateur non renseigné : cellule absente ; estimation labo indisponible : « — », jamais « 0.0 kg »', async () => {
-    // Cas-limite §06.05 §3 : « Client Organisateur SI renseigné » (sinon la
-    // cellule disparaît) — le cas nominal ne peut pas le mesurer.
-    //
-    // ⚠ Le `dechets_labo_kg: null` ci-dessous N'EST PAS le cas « le traiteur
-    // n'a pas communiqué de coefficient » : `f_dechets_labo_estimes` enveloppe
-    // son résultat dans COALESCE(…, 0) et ne renvoie JAMAIS null, donc ce
-    // cas-là s'affiche « 0.0 kg » et le « — » du CDC l.330 est INATTEIGNABLE.
-    // Ce qu'on mesure ici, c'est l'échec d'appel RPC (les deux routes
-    // propagent `data` telle quelle) : sur erreur, l'écran doit afficher « — »
-    // et surtout jamais « 0.0 kg », qui affirmerait une estimation à zéro.
-    // Divergence tracée : _Divergences/M3.2_20260921_dechets-labo-coalesce-zero.md
-    const charge = evenementComplet();
-    charge.data.nom_client_organisateur = null as unknown as string;
-    charge.data.dechets_labo_kg = null as unknown as number;
-    stubFetch(charge);
+  it(
+    'M3.2/detail_evenement_consultation_lecture_seule — client organisateur non renseigné : cellule absente ; estimation labo indisponible : « — », jamais « 0.0 kg »',
+    async () => {
+      // Cas-limite §06.05 §3 : « Client Organisateur SI renseigné » (sinon la
+      // cellule disparaît) — le cas nominal ne peut pas le mesurer.
+      //
+      // ⚠ Le `dechets_labo_kg: null` ci-dessous N'EST PAS le cas « le traiteur
+      // n'a pas communiqué de coefficient » : `f_dechets_labo_estimes` enveloppe
+      // son résultat dans COALESCE(…, 0) et ne renvoie JAMAIS null, donc ce
+      // cas-là s'affiche « 0.0 kg » et le « — » du CDC l.330 est INATTEIGNABLE.
+      // Ce qu'on mesure ici, c'est l'échec d'appel RPC (les deux routes
+      // propagent `data` telle quelle) : sur erreur, l'écran doit afficher « — »
+      // et surtout jamais « 0.0 kg », qui affirmerait une estimation à zéro.
+      // Divergence tracée : _Divergences/M3.2_20260921_dechets-labo-coalesce-zero.md
+      const charge = evenementComplet();
+      charge.data.nom_client_organisateur = null as unknown as string;
+      charge.data.dechets_labo_kg = null as unknown as number;
+      stubFetch(charge);
 
-    render(<EvenementDetailPage params={params('e1')} />);
-    await screen.findByText('Salon Auto', undefined, ATTENTE_UI);
+      render(<EvenementDetailPage params={params('e1')} />);
+      await screen.findByText('Salon Auto', undefined, ATTENTE_UI);
 
-    expect(screen.queryByText('Client organisateur')).toBeNull();
+      expect(screen.queryByText('Client organisateur')).toBeNull();
 
-    const labo = screen.getByText(/Est\. labo/);
-    expect(normalise(labo.textContent)).toBe('Est. labo : —');
-    expect(normalise(labo.textContent)).not.toContain('kg');
-    expect(normalise(labo.textContent)).not.toContain('0');
-  });
+      const labo = screen.getByText(/Est\. labo/);
+      expect(normalise(labo.textContent)).toBe('Est. labo : —');
+      expect(normalise(labo.textContent)).not.toContain('kg');
+      expect(normalise(labo.textContent)).not.toContain('0');
+    },
+    ATTENTE_CAS_MS,
+  );
 });

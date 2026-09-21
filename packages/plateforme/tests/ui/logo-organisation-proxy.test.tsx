@@ -27,7 +27,7 @@ vi.mock('@/lib/use-user-role', () => ({ useUserRole: () => 'admin_savr' }));
 
 import TraiteurDetailPage from '@/app/(gestionnaire)/gestionnaire/traiteurs/[id]/page.js';
 import ClientFichePage from '@/app/(admin)/admin/clients/[id]/page.js';
-import { ATTENTE_UI } from '@/test-utils/attente-ui';
+import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 const CLE = 'savr-dev/logos/59358d91-38f5-4c73-8726-099deece78c5.jpg';
 
@@ -53,81 +53,89 @@ beforeEach(() => {
 });
 
 describe('M3.2 / logo d’un traiteur tiers — proxy d’affichage', () => {
-  it('M3.2/logo_fiche_traiteur_gestionnaire_par_proxy — src = proxy scopé, jamais la clé R2', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() =>
-        reponse({
-          data: {
-            id: 'tr1',
-            nom: 'Kaspia',
-            logo_url: CLE,
-            stats_12m: {
-              nb_collectes_zd: 2,
-              nb_collectes_ag: 1,
-              tonnage_zd_kg: 900,
-              taux_recyclage_moyen: 72.4,
-              repas_donnes: 120,
+  it(
+    'M3.2/logo_fiche_traiteur_gestionnaire_par_proxy — src = proxy scopé, jamais la clé R2',
+    async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() =>
+          reponse({
+            data: {
+              id: 'tr1',
+              nom: 'Kaspia',
+              logo_url: CLE,
+              stats_12m: {
+                nb_collectes_zd: 2,
+                nb_collectes_ag: 1,
+                tonnage_zd_kg: 900,
+                taux_recyclage_moyen: 72.4,
+                repas_donnes: 120,
+              },
+              historique_collectes: [],
             },
-            historique_collectes: [],
-          },
-        }),
-      ),
-    );
+          }),
+        ),
+      );
 
-    render(<TraiteurDetailPage params={params('tr1')} />);
-    await screen.findByText('Kaspia', undefined, ATTENTE_UI);
+      render(<TraiteurDetailPage params={params('tr1')} />);
+      await screen.findByText('Kaspia', undefined, ATTENTE_UI);
 
-    // La page ne rend qu'une image : l'asserter rend l'échec explicite si une
-    // autre <img> vient un jour s'intercaler avant le logo.
-    const imgs = document.querySelectorAll('img');
-    expect(imgs).toHaveLength(1);
-    const img = imgs[0]!;
-    // Le périmètre est porté par la route (vue v_traiteurs_gestionnaire) :
-    // la page ne transmet JAMAIS la clé de stockage.
-    expect(img.getAttribute('src')).toBe(
-      '/api/v1/gestionnaire/traiteurs/tr1/logo',
-    );
-    expect(img.getAttribute('src')).not.toContain(CLE);
-  });
+      // La page ne rend qu'une image : l'asserter rend l'échec explicite si une
+      // autre <img> vient un jour s'intercaler avant le logo.
+      const imgs = document.querySelectorAll('img');
+      expect(imgs).toHaveLength(1);
+      const img = imgs[0]!;
+      // Le périmètre est porté par la route (vue v_traiteurs_gestionnaire) :
+      // la page ne transmet JAMAIS la clé de stockage.
+      expect(img.getAttribute('src')).toBe(
+        '/api/v1/gestionnaire/traiteurs/tr1/logo',
+      );
+      expect(img.getAttribute('src')).not.toContain(CLE);
+    },
+    ATTENTE_CAS_MS,
+  );
 });
 
 describe('M1.1a / logo de la fiche organisation — proxy d’affichage', () => {
-  it('M1.1a/logo_fiche_client_admin_par_proxy — src = proxy staff, jamais la clé R2', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() =>
-        reponse({
-          id: 'org-viparis',
-          raison_sociale: 'Viparis SAS',
-          type: 'gestionnaire_lieux',
-          siret: null,
-          email_principal: null,
-          telephone: null,
-          actif: true,
-          logo_url: CLE,
-          tarif_refacture_pax_zd: null,
-          grille_tarifaire_zd_id: null,
-          entites_facturation: [],
-          organisations_domaines_email: [],
-          users: [],
-          packs_antgaspi: [],
-          tarifs_negocie: [],
-        }),
-      ),
-    );
+  it(
+    'M1.1a/logo_fiche_client_admin_par_proxy — src = proxy staff, jamais la clé R2',
+    async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() =>
+          reponse({
+            id: 'org-viparis',
+            raison_sociale: 'Viparis SAS',
+            type: 'gestionnaire_lieux',
+            siret: null,
+            email_principal: null,
+            telephone: null,
+            actif: true,
+            logo_url: CLE,
+            tarif_refacture_pax_zd: null,
+            grille_tarifaire_zd_id: null,
+            entites_facturation: [],
+            organisations_domaines_email: [],
+            users: [],
+            packs_antgaspi: [],
+            tarifs_negocie: [],
+          }),
+        ),
+      );
 
-    render(<ClientFichePage params={params('org-viparis')} />);
-    await screen.findByText('Viparis SAS', undefined, ATTENTE_UI);
+      render(<ClientFichePage params={params('org-viparis')} />);
+      await screen.findByText('Viparis SAS', undefined, ATTENTE_UI);
 
-    // La page ne rend qu'une image : l'asserter rend l'échec explicite si une
-    // autre <img> vient un jour s'intercaler avant le logo.
-    const imgs = document.querySelectorAll('img');
-    expect(imgs).toHaveLength(1);
-    const img = imgs[0]!;
-    expect(img.getAttribute('src')).toBe(
-      `/api/v1/admin/uploads/logo?key=${encodeURIComponent(CLE)}`,
-    );
-    expect(img.getAttribute('src')).not.toBe(CLE);
-  });
+      // La page ne rend qu'une image : l'asserter rend l'échec explicite si une
+      // autre <img> vient un jour s'intercaler avant le logo.
+      const imgs = document.querySelectorAll('img');
+      expect(imgs).toHaveLength(1);
+      const img = imgs[0]!;
+      expect(img.getAttribute('src')).toBe(
+        `/api/v1/admin/uploads/logo?key=${encodeURIComponent(CLE)}`,
+      );
+      expect(img.getAttribute('src')).not.toBe(CLE);
+    },
+    ATTENTE_CAS_MS,
+  );
 });

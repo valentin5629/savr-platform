@@ -32,7 +32,7 @@ import GestionnaireDashboardPage from '@/app/(gestionnaire)/gestionnaire/page.js
 import GestionnaireEvenementsPage from '@/app/(gestionnaire)/gestionnaire/evenements/page.js';
 import GestionnaireLieuxPage from '@/app/(gestionnaire)/gestionnaire/lieux/page.js';
 import GestionnaireTraiteursPage from '@/app/(gestionnaire)/gestionnaire/traiteurs/page.js';
-import { ATTENTE_UI } from '@/test-utils/attente-ui';
+import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 const KPIS_ZD = {
   nb_collectes: 5,
@@ -182,122 +182,158 @@ describe('M3.2 / P2 nav gestionnaire', () => {
 
 // ── BL-P2-12 barre globale dashboard ──────────────────────────────────────────
 describe('M3.2 / P2 dashboard filtres globaux', () => {
-  it('M3.2/P2_dashboard_barre_5_filtres — Lieux/Traiteurs/Type/Taille montés', async () => {
-    render(<GestionnaireDashboardPage />);
-    expect(
-      await screen.findByTestId(
-        'dashboard-filter-lieux',
+  it(
+    'M3.2/P2_dashboard_barre_5_filtres — Lieux/Traiteurs/Type/Taille montés',
+    async () => {
+      render(<GestionnaireDashboardPage />);
+      expect(
+        await screen.findByTestId(
+          'dashboard-filter-lieux',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId('dashboard-filter-traiteurs'),
+      ).toBeInTheDocument();
+      expect(screen.getByTestId('dashboard-filter-type')).toBeInTheDocument();
+      expect(screen.getByTestId('dashboard-filter-taille')).toBeInTheDocument();
+      expect(
+        screen.getByTestId('dashboard-filter-reinitialiser'),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/P2_dashboard_compteur_collectes — « X collectes correspondent »',
+    async () => {
+      render(<GestionnaireDashboardPage />);
+      const count = await screen.findByTestId(
+        'dashboard-collectes-count',
         undefined,
         ATTENTE_UI,
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByTestId('dashboard-filter-traiteurs'),
-    ).toBeInTheDocument();
-    expect(screen.getByTestId('dashboard-filter-type')).toBeInTheDocument();
-    expect(screen.getByTestId('dashboard-filter-taille')).toBeInTheDocument();
-    expect(
-      screen.getByTestId('dashboard-filter-reinitialiser'),
-    ).toBeInTheDocument();
-  });
-
-  it('M3.2/P2_dashboard_compteur_collectes — « X collectes correspondent »', async () => {
-    render(<GestionnaireDashboardPage />);
-    const count = await screen.findByTestId(
-      'dashboard-collectes-count',
-      undefined,
-      ATTENTE_UI,
-    );
-    expect(count).toHaveTextContent(/5 collectes correspondent/i);
-  });
-
-  it('M3.2/P2_dashboard_carte_kpi_non_cliquable — cartes KPI non cliquables (Val 2026-07-10)', async () => {
-    render(<GestionnaireDashboardPage />);
-    const carte = await screen.findByText(
-      'Nombre de collectes',
-      undefined,
-      ATTENTE_UI,
-    );
-    routerPush.mockClear();
-    fireEvent.click(carte);
-    // R24 Cockpit — décision Val GO-VISUAL 2026-07-10 : les cartes KPI ne sont
-    // plus cliquables (aucune navigation, aucun lien vers Événements).
-    expect(routerPush).not.toHaveBeenCalled();
-    const liens = screen
-      .queryAllByRole('link')
-      .filter((a) =>
-        a.getAttribute('href')?.includes('/gestionnaire/evenements'),
       );
-    expect(liens).toHaveLength(0);
-  });
+      expect(count).toHaveTextContent(/5 collectes correspondent/i);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/P2_dashboard_carte_kpi_non_cliquable — cartes KPI non cliquables (Val 2026-07-10)',
+    async () => {
+      render(<GestionnaireDashboardPage />);
+      const carte = await screen.findByText(
+        'Nombre de collectes',
+        undefined,
+        ATTENTE_UI,
+      );
+      routerPush.mockClear();
+      fireEvent.click(carte);
+      // R24 Cockpit — décision Val GO-VISUAL 2026-07-10 : les cartes KPI ne sont
+      // plus cliquables (aucune navigation, aucun lien vers Événements).
+      expect(routerPush).not.toHaveBeenCalled();
+      const liens = screen
+        .queryAllByRole('link')
+        .filter((a) =>
+          a.getAttribute('href')?.includes('/gestionnaire/evenements'),
+        );
+      expect(liens).toHaveLength(0);
+    },
+    ATTENTE_CAS_MS,
+  );
 });
 
 // ── BL-P2-12 héritage encart ──────────────────────────────────────────────────
 describe('M3.2 / P2 encart héritage', () => {
-  it('M3.2/P2_encart_herite_type_taille — init émet Type/Taille des filtres globaux (l.160)', async () => {
-    const onChange = vi.fn();
-    render(
-      <BenchmarkFilterBar
-        onChange={onChange}
-        initialTypeEvenementIds={['ty1']}
-        initialTailleCodes={['M']}
-      />,
-    );
-    await waitFor(() => expect(onChange).toHaveBeenCalled(), ATTENTE_UI);
-    expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type_evenement_ids: ['ty1'],
-        taille_evenement_codes: ['M'],
-      }),
-    );
-  });
+  it(
+    'M3.2/P2_encart_herite_type_taille — init émet Type/Taille des filtres globaux (l.160)',
+    async () => {
+      const onChange = vi.fn();
+      render(
+        <BenchmarkFilterBar
+          onChange={onChange}
+          initialTypeEvenementIds={['ty1']}
+          initialTailleCodes={['M']}
+        />,
+      );
+      await waitFor(() => expect(onChange).toHaveBeenCalled(), ATTENTE_UI);
+      expect(onChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type_evenement_ids: ['ty1'],
+          taille_evenement_codes: ['M'],
+        }),
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
 });
 
 // ── BL-P2-12 listes ───────────────────────────────────────────────────────────
 describe('M3.2 / P2 listes colonnes', () => {
-  it('M3.2/P2_evenements_colonnes_rendues — Tonnage/Déchets labo/Repas + barre de filtres', async () => {
-    render(<GestionnaireEvenementsPage />);
-    expect(
-      await screen.findByTestId('evenements-filter-bar', undefined, ATTENTE_UI),
-    ).toBeInTheDocument();
-    expect(
-      await screen.findByText('Tonnage total', undefined, ATTENTE_UI),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Déchets labo est.')).toBeInTheDocument();
-    expect(screen.getByText('Repas donnés')).toBeInTheDocument();
-    // Valeurs rendues (data prête côté route).
-    expect(screen.getByText('300 kg')).toBeInTheDocument();
-    expect(screen.getByText('40')).toBeInTheDocument();
-  });
+  it(
+    'M3.2/P2_evenements_colonnes_rendues — Tonnage/Déchets labo/Repas + barre de filtres',
+    async () => {
+      render(<GestionnaireEvenementsPage />);
+      expect(
+        await screen.findByTestId(
+          'evenements-filter-bar',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(
+        await screen.findByText('Tonnage total', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(screen.getByText('Déchets labo est.')).toBeInTheDocument();
+      expect(screen.getByText('Repas donnés')).toBeInTheDocument();
+      // Valeurs rendues (data prête côté route).
+      expect(screen.getByText('300 kg')).toBeInTheDocument();
+      expect(screen.getByText('40')).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('M3.2/P2_lieux_colonne_capacite — Capacité rendue', async () => {
-    render(<GestionnaireLieuxPage />);
-    expect(
-      await screen.findByText('Capacité', undefined, ATTENTE_UI),
-    ).toBeInTheDocument();
-    expect(screen.getByText('3500 pers.')).toBeInTheDocument();
-  });
+  it(
+    'M3.2/P2_lieux_colonne_capacite — Capacité rendue',
+    async () => {
+      render(<GestionnaireLieuxPage />);
+      expect(
+        await screen.findByText('Capacité', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(screen.getByText('3500 pers.')).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it("M3.2/P2_traiteurs_colonne_lieux — Lieux d'intervention rendus", async () => {
-    render(<GestionnaireTraiteursPage />);
-    expect(
-      await screen.findByText("Lieux d'intervention", undefined, ATTENTE_UI),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Palais des Congrès')).toBeInTheDocument();
-  });
+  it(
+    "M3.2/P2_traiteurs_colonne_lieux — Lieux d'intervention rendus",
+    async () => {
+      render(<GestionnaireTraiteursPage />);
+      expect(
+        await screen.findByText("Lieux d'intervention", undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(screen.getByText('Palais des Congrès')).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
 
   // `organisations.logo_url` porte une CLÉ R2 (20260919100000) : la poser dans
   // src n'affiche rien. La vignette doit passer par le proxy scopé.
-  it('M3.2/P2_traiteurs_logo_par_proxy — src = proxy, jamais la clé R2', async () => {
-    render(<GestionnaireTraiteursPage />);
-    const img = (await screen.findByText('Kaspia', undefined, ATTENTE_UI))
-      .closest('div')!
-      .querySelector('img')!;
-    expect(img).toBeTruthy();
-    expect(img.getAttribute('src')).toBe(
-      '/api/v1/gestionnaire/traiteurs/tr1/logo',
-    );
-    // Sonde du bug corrigé : la clé de stockage ne doit jamais atterrir dans src.
-    expect(img.getAttribute('src')).not.toContain('savr-dev/logos/');
-  });
+  it(
+    'M3.2/P2_traiteurs_logo_par_proxy — src = proxy, jamais la clé R2',
+    async () => {
+      render(<GestionnaireTraiteursPage />);
+      const img = (await screen.findByText('Kaspia', undefined, ATTENTE_UI))
+        .closest('div')!
+        .querySelector('img')!;
+      expect(img).toBeTruthy();
+      expect(img.getAttribute('src')).toBe(
+        '/api/v1/gestionnaire/traiteurs/tr1/logo',
+      );
+      // Sonde du bug corrigé : la clé de stockage ne doit jamais atterrir dans src.
+      expect(img.getAttribute('src')).not.toContain('savr-dev/logos/');
+    },
+    ATTENTE_CAS_MS,
+  );
 });

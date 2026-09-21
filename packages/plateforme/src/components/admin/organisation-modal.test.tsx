@@ -25,7 +25,7 @@ import {
 
 import { OrganisationModal } from '@/components/admin/organisation-modal';
 import * as siretOrganisation from '@/lib/siret-organisation';
-import { ATTENTE_UI } from '@/test-utils/attente-ui';
+import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 function renderModal(
   props: Partial<React.ComponentProps<typeof OrganisationModal>> = {},
@@ -101,149 +101,180 @@ describe('M1.1b — Modale Nouvelle organisation (§06.06)', () => {
     ]);
   });
 
-  it('bloque la soumission tant que nom, raison sociale, type et email manquent', async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal('fetch', fetchMock);
-    renderModal();
+  it(
+    'bloque la soumission tant que nom, raison sociale, type et email manquent',
+    async () => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+      renderModal();
 
-    submit();
+      submit();
 
-    expect(
-      await screen.findByText('Nom obligatoire', undefined, ATTENTE_UI),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Raison sociale obligatoire')).toBeInTheDocument();
-    expect(screen.getByText('Type obligatoire')).toBeInTheDocument();
-    expect(screen.getByText('Email principal obligatoire')).toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
+      expect(
+        await screen.findByText('Nom obligatoire', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText('Raison sociale obligatoire'),
+      ).toBeInTheDocument();
+      expect(screen.getByText('Type obligatoire')).toBeInTheDocument();
+      expect(
+        screen.getByText('Email principal obligatoire'),
+      ).toBeInTheDocument();
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('refuse un SIRET renseigné qui ne fait pas 14 chiffres', async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal('fetch', fetchMock);
-    renderModal();
+  it(
+    'refuse un SIRET renseigné qui ne fait pas 14 chiffres',
+    async () => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+      renderModal();
 
-    fillRequired();
-    fireEvent.change(screen.getByLabelText(/^SIRET/), {
-      target: { value: '1234' },
-    });
-    submit();
+      fillRequired();
+      fireEvent.change(screen.getByLabelText(/^SIRET/), {
+        target: { value: '1234' },
+      });
+      submit();
 
-    expect(
-      await screen.findByText('SIRET : 14 chiffres', undefined, ATTENTE_UI),
-    ).toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
+      expect(
+        await screen.findByText('SIRET : 14 chiffres', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('délègue le contrôle SIRET au helper serveur : son verdict fait foi', async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal('fetch', fetchMock);
-    // 14 chiffres, valide pour une regex locale — refusé ici par le helper.
-    vi.mocked(
-      siretOrganisation.normaliserSiretOrganisation,
-    ).mockReturnValueOnce({
-      valide: false,
-    });
-    renderModal();
+  it(
+    'délègue le contrôle SIRET au helper serveur : son verdict fait foi',
+    async () => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+      // 14 chiffres, valide pour une regex locale — refusé ici par le helper.
+      vi.mocked(
+        siretOrganisation.normaliserSiretOrganisation,
+      ).mockReturnValueOnce({
+        valide: false,
+      });
+      renderModal();
 
-    fillRequired();
-    fireEvent.change(screen.getByLabelText(/^SIRET/), {
-      target: { value: '43219876500012' },
-    });
-    submit();
+      fillRequired();
+      fireEvent.change(screen.getByLabelText(/^SIRET/), {
+        target: { value: '43219876500012' },
+      });
+      submit();
 
-    expect(
-      await screen.findByText('SIRET : 14 chiffres', undefined, ATTENTE_UI),
-    ).toBeInTheDocument();
-    expect(siretOrganisation.normaliserSiretOrganisation).toHaveBeenCalledWith(
-      '43219876500012',
-    );
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
+      expect(
+        await screen.findByText('SIRET : 14 chiffres', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(
+        siretOrganisation.normaliserSiretOrganisation,
+      ).toHaveBeenCalledWith('43219876500012');
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('POST les champs saisis (trimés), omet les optionnels vides, puis notifie et ferme', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ id: 'org-new' }),
-    });
-    vi.stubGlobal('fetch', fetchMock);
-    const { onClose, onCreated } = renderModal();
+  it(
+    'POST les champs saisis (trimés), omet les optionnels vides, puis notifie et ferme',
+    async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ id: 'org-new' }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      const { onClose, onCreated } = renderModal();
 
-    fillRequired();
-    fireEvent.change(screen.getByLabelText(/^SIRET/), {
-      target: { value: '432 198 765 00012' },
-    });
-    submit();
+      fillRequired();
+      fireEvent.change(screen.getByLabelText(/^SIRET/), {
+        target: { value: '432 198 765 00012' },
+      });
+      submit();
 
-    await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1), ATTENTE_UI);
-    expect(onClose).toHaveBeenCalled();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe('/api/v1/admin/organisations');
-    expect(init.method).toBe('POST');
-    // Ensemble EXACT : téléphone et adresse vides ne partent pas.
-    expect(JSON.parse(init.body as string)).toEqual({
-      nom: 'Fleur de Mets',
-      raison_sociale: 'Fleur de Mets SAS',
-      type: 'traiteur',
-      siret: '43219876500012',
-      email_principal: 'contact@fleurdemets.fr',
-    });
-  });
+      await waitFor(
+        () => expect(onCreated).toHaveBeenCalledTimes(1),
+        ATTENTE_UI,
+      );
+      expect(onClose).toHaveBeenCalled();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe('/api/v1/admin/organisations');
+      expect(init.method).toBe('POST');
+      // Ensemble EXACT : téléphone et adresse vides ne partent pas.
+      expect(JSON.parse(init.body as string)).toEqual({
+        nom: 'Fleur de Mets',
+        raison_sociale: 'Fleur de Mets SAS',
+        type: 'traiteur',
+        siret: '43219876500012',
+        email_principal: 'contact@fleurdemets.fr',
+      });
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('n’envoie jamais de colonne hors allowlist, même tous champs remplis', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ id: 'org-new' }),
-    });
-    vi.stubGlobal('fetch', fetchMock);
-    const { onCreated } = renderModal();
+  it(
+    'n’envoie jamais de colonne hors allowlist, même tous champs remplis',
+    async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ id: 'org-new' }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      const { onCreated } = renderModal();
 
-    fillRequired();
-    fireEvent.change(screen.getByLabelText(/^SIRET/), {
-      target: { value: '43219876500012' },
-    });
-    fireEvent.change(screen.getByLabelText(/^Téléphone/), {
-      target: { value: '0102030405' },
-    });
-    fireEvent.change(screen.getByLabelText(/^Adresse/), {
-      target: { value: '1 rue de Paris' },
-    });
-    submit();
+      fillRequired();
+      fireEvent.change(screen.getByLabelText(/^SIRET/), {
+        target: { value: '43219876500012' },
+      });
+      fireEvent.change(screen.getByLabelText(/^Téléphone/), {
+        target: { value: '0102030405' },
+      });
+      fireEvent.change(screen.getByLabelText(/^Adresse/), {
+        target: { value: '1 rue de Paris' },
+      });
+      submit();
 
-    await waitFor(() => expect(onCreated).toHaveBeenCalled(), ATTENTE_UI);
-    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(Object.keys(JSON.parse(init.body as string)).sort()).toEqual(
-      [
-        'adresse',
-        'email_principal',
-        'nom',
-        'raison_sociale',
-        'siret',
-        'telephone',
-        'type',
-      ].sort(),
-    );
-  });
+      await waitFor(() => expect(onCreated).toHaveBeenCalled(), ATTENTE_UI);
+      const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(Object.keys(JSON.parse(init.body as string)).sort()).toEqual(
+        [
+          'adresse',
+          'email_principal',
+          'nom',
+          'raison_sociale',
+          'siret',
+          'telephone',
+          'type',
+        ].sort(),
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('affiche l’erreur serveur et reste ouverte si la création échoue', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: false,
-        json: async () => ({ error: 'type invalide' }),
-      }),
-    );
-    const { onClose, onCreated } = renderModal();
+  it(
+    'affiche l’erreur serveur et reste ouverte si la création échoue',
+    async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: false,
+          json: async () => ({ error: 'type invalide' }),
+        }),
+      );
+      const { onClose, onCreated } = renderModal();
 
-    fillRequired();
-    submit();
+      fillRequired();
+      submit();
 
-    expect(
-      await screen.findByText('type invalide', undefined, ATTENTE_UI),
-    ).toBeInTheDocument();
-    expect(onCreated).not.toHaveBeenCalled();
-    expect(onClose).not.toHaveBeenCalled();
-  });
+      expect(
+        await screen.findByText('type invalide', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(onCreated).not.toHaveBeenCalled();
+      expect(onClose).not.toHaveBeenCalled();
+    },
+    ATTENTE_CAS_MS,
+  );
 
   it.each([
     ['fetch rejeté (réseau)', () => Promise.reject(new Error('offline'))],
@@ -257,79 +288,98 @@ describe('M1.1b — Modale Nouvelle organisation (§06.06)', () => {
           },
         }),
     ],
-  ])('message neutre et modale ouverte si %s', async (_cas, reponse) => {
-    vi.stubGlobal('fetch', vi.fn(reponse));
-    const { onClose, onCreated } = renderModal();
+  ])(
+    'message neutre et modale ouverte si %s',
+    async (_cas, reponse) => {
+      vi.stubGlobal('fetch', vi.fn(reponse));
+      const { onClose, onCreated } = renderModal();
 
-    fillRequired();
-    submit();
+      fillRequired();
+      submit();
 
-    expect(
-      await screen.findByText(
-        'Erreur lors de la création',
-        undefined,
+      expect(
+        await screen.findByText(
+          'Erreur lors de la création',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(onCreated).not.toHaveBeenCalled();
+      expect(onClose).not.toHaveBeenCalled();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'création réussie même si le corps de succès est illisible',
+    async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: async () => {
+            throw new SyntaxError('pas du JSON');
+          },
+        }),
+      );
+      const { onClose, onCreated } = renderModal();
+
+      fillRequired();
+      submit();
+
+      await waitFor(
+        () => expect(onCreated).toHaveBeenCalledTimes(1),
         ATTENTE_UI,
-      ),
-    ).toBeInTheDocument();
-    expect(onCreated).not.toHaveBeenCalled();
-    expect(onClose).not.toHaveBeenCalled();
-  });
+      );
+      expect(onClose).toHaveBeenCalledTimes(1);
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('création réussie même si le corps de succès est illisible', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => {
-          throw new SyntaxError('pas du JSON');
-        },
-      }),
-    );
-    const { onClose, onCreated } = renderModal();
+  it(
+    'pendant l’envoi, Échap ne ferme pas la modale',
+    async () => {
+      let resoudre: (v: unknown) => void = () => {};
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() => new Promise((r) => (resoudre = r))),
+      );
+      const { onClose } = renderModal();
 
-    fillRequired();
-    submit();
+      fillRequired();
+      submit();
+      expect(
+        await screen.findByRole('button', { name: 'Création…' }, ATTENTE_UI),
+      ).toBeDisabled();
 
-    await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1), ATTENTE_UI);
-    expect(onClose).toHaveBeenCalledTimes(1);
-  });
+      fireEvent.keyDown(document, { key: 'Escape' });
+      fireEvent.click(screen.getByRole('button', { name: 'Fermer' }));
+      expect(onClose).not.toHaveBeenCalled();
 
-  it('pendant l’envoi, Échap ne ferme pas la modale', async () => {
-    let resoudre: (v: unknown) => void = () => {};
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() => new Promise((r) => (resoudre = r))),
-    );
-    const { onClose } = renderModal();
+      resoudre({ ok: true, json: async () => ({}) });
+      await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1), ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
 
-    fillRequired();
-    submit();
-    expect(
-      await screen.findByRole('button', { name: 'Création…' }, ATTENTE_UI),
-    ).toBeDisabled();
-
-    fireEvent.keyDown(document, { key: 'Escape' });
-    fireEvent.click(screen.getByRole('button', { name: 'Fermer' }));
-    expect(onClose).not.toHaveBeenCalled();
-
-    resoudre({ ok: true, json: async () => ({}) });
-    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1), ATTENTE_UI);
-  });
-
-  it('à la réouverture, le formulaire est vierge', async () => {
-    const props = { onClose: vi.fn(), onCreated: vi.fn() };
-    const { rerender } = render(<OrganisationModal open {...props} />);
-    fireEvent.change(screen.getByLabelText(/^Nom/), {
-      target: { value: 'Brouillon' },
-    });
-    rerender(<OrganisationModal open={false} {...props} />);
-    rerender(<OrganisationModal open {...props} />);
-    expect(
-      (await screen.findByLabelText(
-        /^Nom/,
-        undefined,
-        ATTENTE_UI,
-      )) as HTMLInputElement,
-    ).toHaveValue('');
-  });
+  it(
+    'à la réouverture, le formulaire est vierge',
+    async () => {
+      const props = { onClose: vi.fn(), onCreated: vi.fn() };
+      const { rerender } = render(<OrganisationModal open {...props} />);
+      fireEvent.change(screen.getByLabelText(/^Nom/), {
+        target: { value: 'Brouillon' },
+      });
+      rerender(<OrganisationModal open={false} {...props} />);
+      rerender(<OrganisationModal open {...props} />);
+      expect(
+        (await screen.findByLabelText(
+          /^Nom/,
+          undefined,
+          ATTENTE_UI,
+        )) as HTMLInputElement,
+      ).toHaveValue('');
+    },
+    ATTENTE_CAS_MS,
+  );
 });

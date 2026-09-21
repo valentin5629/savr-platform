@@ -13,7 +13,7 @@ vi.mock('@/lib/use-user-role', () => ({
 }));
 
 import TarifsPacksAGPage from './page';
-import { ATTENTE_UI } from '@/test-utils/attente-ui';
+import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 const historyRow = {
   id: 'v-1',
@@ -48,19 +48,24 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe('M0.6 — Tarifs AG historique', () => {
-  it('M0.6/tarifs-ag/history — ouvre la modale et rend les versions + « Modifié par »', async () => {
-    render(<TarifsPacksAGPage />);
-    await waitFor(
-      () => expect(screen.getAllByText('Historique').length).toBeGreaterThan(0),
-      ATTENTE_UI,
-    );
-    fireEvent.click(screen.getAllByText('Historique')[0]!);
-    await waitFor(
-      () => expect(screen.getByText('Louis Martin')).toBeDefined(),
-      ATTENTE_UI,
-    );
-    // en-têtes de la modale historique
-    expect(screen.getByText('Modifié par')).toBeDefined();
-    expect(screen.getByText('Date modif')).toBeDefined();
-  });
+  it(
+    'M0.6/tarifs-ag/history — ouvre la modale et rend les versions + « Modifié par »',
+    async () => {
+      render(<TarifsPacksAGPage />);
+      await waitFor(
+        () =>
+          expect(screen.getAllByText('Historique').length).toBeGreaterThan(0),
+        ATTENTE_UI,
+      );
+      fireEvent.click(screen.getAllByText('Historique')[0]!);
+      await waitFor(
+        () => expect(screen.getByText('Louis Martin')).toBeDefined(),
+        ATTENTE_UI,
+      );
+      // en-têtes de la modale historique
+      expect(screen.getByText('Modifié par')).toBeDefined();
+      expect(screen.getByText('Date modif')).toBeDefined();
+    },
+    ATTENTE_CAS_MS,
+  );
 });

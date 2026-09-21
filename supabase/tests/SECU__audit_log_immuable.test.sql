@@ -68,7 +68,7 @@
 -- commentaire qui les précède, qui dit aussi ce qui reste ouvert et pourquoi ce
 -- n'est délibérément pas testé ici. Mesuré avec la seule migration ci-dessus :
 -- 10 verts, 3 ROUGES, « caught: no exception » — le vidage aboutissait.
--- APRÈS `20260921210000_plateforme_audit_log_garde_vidage.sql` : 13/13.
+-- APRÈS `20260921230000_plateforme_audit_log_garde_vidage.sql` : 13/13.
 --
 -- T14-T15 gardent le seul usage légitime du vidage : le reset du seed de dev,
 -- qui désactive la garde et la remet. Ils sont la contrepartie de la fermeture

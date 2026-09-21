@@ -21,7 +21,7 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
 }));
 
 import NouveauProgrammationPage from './page';
-import { ATTENTE_UI } from '@/test-utils/attente-ui';
+import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 function makeToken(claims: Record<string, unknown>): string {
   const b64url = (o: unknown) =>
@@ -74,56 +74,66 @@ afterEach(() => {
 });
 
 describe('M1.2 — programmation formulaire : mode admin support', () => {
-  it("admin_savr voit le sélecteur d'organisation cible + les traiteurs", async () => {
-    mockGetSession.mockResolvedValue({
-      data: {
-        session: { access_token: makeToken({ user_role: 'admin_savr' }) },
-      },
-    });
-    installFetch();
+  it(
+    "admin_savr voit le sélecteur d'organisation cible + les traiteurs",
+    async () => {
+      mockGetSession.mockResolvedValue({
+        data: {
+          session: { access_token: makeToken({ user_role: 'admin_savr' }) },
+        },
+      });
+      installFetch();
 
-    render(<NouveauProgrammationPage />);
+      render(<NouveauProgrammationPage />);
 
-    // Le libellé du sélecteur est spécifique à l'admin (programmation de support).
-    expect(
+      // Le libellé du sélecteur est spécifique à l'admin (programmation de support).
+      expect(
+        await screen.findByText(
+          'Traiteur (pour le compte de)',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/la collecte sera créée au nom de ce traiteur/i),
+      ).toBeInTheDocument();
+      // Le traiteur chargé apparaît comme option sélectionnable.
+      await waitFor(
+        () =>
+          expect(
+            screen.getByRole('option', { name: 'Kaspia' }),
+          ).toBeInTheDocument(),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'un traiteur (rôle non-programmateur-tiers) ne voit PAS le sélecteur',
+    async () => {
+      mockGetSession.mockResolvedValue({
+        data: {
+          session: {
+            access_token: makeToken({ user_role: 'traiteur_manager' }),
+          },
+        },
+      });
+      installFetch();
+
+      render(<NouveauProgrammationPage />);
+
+      // Attendre que le rôle soit lu (le type d'événement est chargé dans tous les cas).
       await screen.findByText(
-        'Traiteur (pour le compte de)',
+        "Informations sur l'événement",
         undefined,
         ATTENTE_UI,
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/la collecte sera créée au nom de ce traiteur/i),
-    ).toBeInTheDocument();
-    // Le traiteur chargé apparaît comme option sélectionnable.
-    await waitFor(
-      () =>
-        expect(
-          screen.getByRole('option', { name: 'Kaspia' }),
-        ).toBeInTheDocument(),
-      ATTENTE_UI,
-    );
-  });
-
-  it('un traiteur (rôle non-programmateur-tiers) ne voit PAS le sélecteur', async () => {
-    mockGetSession.mockResolvedValue({
-      data: {
-        session: { access_token: makeToken({ user_role: 'traiteur_manager' }) },
-      },
-    });
-    installFetch();
-
-    render(<NouveauProgrammationPage />);
-
-    // Attendre que le rôle soit lu (le type d'événement est chargé dans tous les cas).
-    await screen.findByText(
-      "Informations sur l'événement",
-      undefined,
-      ATTENTE_UI,
-    );
-    expect(
-      screen.queryByText('Traiteur (pour le compte de)'),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByText('Traiteur opérant')).not.toBeInTheDocument();
-  });
+      );
+      expect(
+        screen.queryByText('Traiteur (pour le compte de)'),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByText('Traiteur opérant')).not.toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
 });

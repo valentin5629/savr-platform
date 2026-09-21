@@ -20,7 +20,7 @@ vi.mock('next/navigation', () => ({
 import AgenceDashboardPage from '@/app/(agence)/agence/page.js';
 import ClientOrganisateurDashboardPage from '@/app/(client-organisateur)/organisateur/page.js';
 import { DashboardClientView } from '@/app/(admin)/admin/dashboard-client/DashboardClientView.js';
-import { ATTENTE_UI } from '@/test-utils/attente-ui';
+import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 function jsonResponse(obj: unknown): Promise<Response> {
   return Promise.resolve({
@@ -108,80 +108,94 @@ function agenceFetch() {
 }
 
 describe('M3.3 / agence — déclinaison Cockpit', () => {
-  it('M3.3/cockpit_declinaison_kpi_toprank_benchmark — KpiCockpitCard + TopRankList + BenchmarkBulletGauges, plus d’ancien BenchmarkGauge', async () => {
-    vi.stubGlobal('fetch', agenceFetch());
-    render(<AgenceDashboardPage />);
+  it(
+    'M3.3/cockpit_declinaison_kpi_toprank_benchmark — KpiCockpitCard + TopRankList + BenchmarkBulletGauges, plus d’ancien BenchmarkGauge',
+    async () => {
+      vi.stubGlobal('fetch', agenceFetch());
+      render(<AgenceDashboardPage />);
 
-    // KPI Cockpit (rangée KpiCockpitCard).
-    expect(
-      await screen.findByText('Nombre de collectes', undefined, ATTENTE_UI),
-    ).toBeInTheDocument();
-    // Benchmark Cockpit (BenchmarkBulletGauges — titre propre à la lib figée).
-    expect(screen.getByText(/Intensité par flux/)).toBeInTheDocument();
-    // Top listes Cockpit (TopRankList).
-    expect(screen.getByText('Top 5 lieux')).toBeInTheDocument();
-    expect(screen.getByText('Lieu A')).toBeInTheDocument();
-    // L'ancien encart BenchmarkGauge (« Performance vs benchmark parc ») a disparu.
-    expect(screen.queryByText(/Performance vs benchmark parc/)).toBeNull();
-  });
+      // KPI Cockpit (rangée KpiCockpitCard).
+      expect(
+        await screen.findByText('Nombre de collectes', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      // Benchmark Cockpit (BenchmarkBulletGauges — titre propre à la lib figée).
+      expect(screen.getByText(/Intensité par flux/)).toBeInTheDocument();
+      // Top listes Cockpit (TopRankList).
+      expect(screen.getByText('Top 5 lieux')).toBeInTheDocument();
+      expect(screen.getByText('Lieu A')).toBeInTheDocument();
+      // L'ancien encart BenchmarkGauge (« Performance vs benchmark parc ») a disparu.
+      expect(screen.queryByText(/Performance vs benchmark parc/)).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('M3.3/cockpit_drilldown_top_lieux_url — clic ligne Top lieux → router.push liste Collectes filtrée', async () => {
-    vi.stubGlobal('fetch', agenceFetch());
-    render(<AgenceDashboardPage />);
-    await screen.findByText('Lieu A', undefined, ATTENTE_UI);
+  it(
+    'M3.3/cockpit_drilldown_top_lieux_url — clic ligne Top lieux → router.push liste Collectes filtrée',
+    async () => {
+      vi.stubGlobal('fetch', agenceFetch());
+      render(<AgenceDashboardPage />);
+      await screen.findByText('Lieu A', undefined, ATTENTE_UI);
 
-    const rows = screen.getAllByRole('button', { name: /Voir les collectes/ });
-    expect(rows.length).toBeGreaterThan(0);
-    fireEvent.click(rows[0]!);
+      const rows = screen.getAllByRole('button', {
+        name: /Voir les collectes/,
+      });
+      expect(rows.length).toBeGreaterThan(0);
+      fireEvent.click(rows[0]!);
 
-    expect(pushMock).toHaveBeenCalledTimes(1);
-    const url = String(pushMock.mock.calls[0]![0]);
-    expect(url).toContain('/agence/collectes?lieu=A');
-    expect(url).toContain('type=zero_dechet');
-    expect(url).toContain('statut=cloturee');
-  });
+      expect(pushMock).toHaveBeenCalledTimes(1);
+      const url = String(pushMock.mock.calls[0]![0]);
+      expect(url).toContain('/agence/collectes?lieu=A');
+      expect(url).toContain('type=zero_dechet');
+      expect(url).toContain('statut=cloturee');
+    },
+    ATTENTE_CAS_MS,
+  );
 });
 
 // ── Client organisateur (M3.4) ───────────────────────────────────────────────
 describe('M3.4 / organisateur — déclinaison Cockpit', () => {
-  it('M3.4/cockpit_declinaison_kpi_cards — page RSE montée en KpiCockpitCard (bandeau YTD + onglet ZD + détail ABC)', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn((input: RequestInfo | URL) => {
-        const url = String(input);
-        if (url.includes('/dashboards/kpi-client-organisateur'))
-          return jsonResponse({
-            data: [
-              {
-                mois: '2026-06-01',
-                type_collecte: 'zero_dechet',
-                nb_collectes: 2,
-                nb_evenements: 2,
-                tonnage_kg: 400,
-                taux_recyclage_pondere: 75,
-                nb_repas_donnes: 0,
-                co2_induit_kg: 10,
-                co2_evite_kg: 1200,
-                co2_net_kg: 1190,
-                energie_primaire_evitee_kwh: 500,
-              },
-            ],
-          });
-        return jsonResponse({});
-      }),
-    );
-    render(<ClientOrganisateurDashboardPage />);
+  it(
+    'M3.4/cockpit_declinaison_kpi_cards — page RSE montée en KpiCockpitCard (bandeau YTD + onglet ZD + détail ABC)',
+    async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((input: RequestInfo | URL) => {
+          const url = String(input);
+          if (url.includes('/dashboards/kpi-client-organisateur'))
+            return jsonResponse({
+              data: [
+                {
+                  mois: '2026-06-01',
+                  type_collecte: 'zero_dechet',
+                  nb_collectes: 2,
+                  nb_evenements: 2,
+                  tonnage_kg: 400,
+                  taux_recyclage_pondere: 75,
+                  nb_repas_donnes: 0,
+                  co2_induit_kg: 10,
+                  co2_evite_kg: 1200,
+                  co2_net_kg: 1190,
+                  energie_primaire_evitee_kwh: 500,
+                },
+              ],
+            });
+          return jsonResponse({});
+        }),
+      );
+      render(<ClientOrganisateurDashboardPage />);
 
-    // En-tête + bandeau YTD (cartes Cockpit).
-    expect(screen.getByText('Mon impact RSE')).toBeInTheDocument();
-    expect(screen.getByText('Événements collectés')).toBeInTheDocument();
-    // Onglet ZD : cadrans Cockpit (dont CO₂ évité en headline, §11 §7).
-    expect(
-      await screen.findByText('Événements ZD', undefined, ATTENTE_UI),
-    ).toBeInTheDocument();
-    expect(screen.getByText('CO₂ évité')).toBeInTheDocument();
-    expect(screen.getByText('Taux de recyclage')).toBeInTheDocument();
-  });
+      // En-tête + bandeau YTD (cartes Cockpit).
+      expect(screen.getByText('Mon impact RSE')).toBeInTheDocument();
+      expect(screen.getByText('Événements collectés')).toBeInTheDocument();
+      // Onglet ZD : cadrans Cockpit (dont CO₂ évité en headline, §11 §7).
+      expect(
+        await screen.findByText('Événements ZD', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(screen.getByText('CO₂ évité')).toBeInTheDocument();
+      expect(screen.getByText('Taux de recyclage')).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
 });
 
 // ── Dashboard Client Admin (M3.6) ────────────────────────────────────────────
@@ -300,99 +314,117 @@ function adminFetch() {
 }
 
 describe('M3.6 / dashboard-client — déclinaison Cockpit', () => {
-  it('M3.6/cockpit_declinaison_kpi_cards — dashboard Cockpit COMPLET (KPI + évolution + jauges Cockpit + Top listes), lecture seule', async () => {
-    vi.stubGlobal('fetch', adminFetch());
-    render(<DashboardClientView />);
+  it(
+    'M3.6/cockpit_declinaison_kpi_cards — dashboard Cockpit COMPLET (KPI + évolution + jauges Cockpit + Top listes), lecture seule',
+    async () => {
+      vi.stubGlobal('fetch', adminFetch());
+      render(<DashboardClientView />);
 
-    // KPI Cockpit read-only (valeur/unité séparées : « 72,5 » + « % »).
-    expect(
-      await screen.findByText('Nombre de collectes', undefined, ATTENTE_UI),
-    ).toBeInTheDocument();
-    expect(screen.getByText('72,5')).toBeInTheDocument();
-    // 5e carte KPI « CO₂ évité » cliquable → modale « Impact carbone ».
-    expect(screen.getByText('CO₂ évité')).toBeInTheDocument();
-    expect(screen.queryByText("Détail de l'impact carbone")).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: /CO₂ évité/ }));
-    expect(
-      await screen.findByText(
-        "Détail de l'impact carbone",
-        undefined,
-        ATTENTE_UI,
-      ),
-    ).toBeInTheDocument();
-    // Graphes Cockpit : jauges bullet (« Intensité par flux »), Top listes.
-    expect(screen.getByText(/Intensité par flux/)).toBeInTheDocument();
-    expect(screen.getByText('Top 5 lieux')).toBeInTheDocument();
-    expect(screen.getByText('Top 5 traiteurs')).toBeInTheDocument();
-    expect(screen.getByText('Lieu A')).toBeInTheDocument();
-    // L'ancien encart BenchmarkGauge (« Performance vs benchmark parc ») a disparu.
-    expect(screen.queryByText(/Performance vs benchmark parc/)).toBeNull();
-    // Lecture seule DONNÉES + badge présent (pas d'écriture).
-    expect(screen.getByTestId('lecture-seule-badge')).toBeInTheDocument();
-  });
+      // KPI Cockpit read-only (valeur/unité séparées : « 72,5 » + « % »).
+      expect(
+        await screen.findByText('Nombre de collectes', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(screen.getByText('72,5')).toBeInTheDocument();
+      // 5e carte KPI « CO₂ évité » cliquable → modale « Impact carbone ».
+      expect(screen.getByText('CO₂ évité')).toBeInTheDocument();
+      expect(screen.queryByText("Détail de l'impact carbone")).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: /CO₂ évité/ }));
+      expect(
+        await screen.findByText(
+          "Détail de l'impact carbone",
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      // Graphes Cockpit : jauges bullet (« Intensité par flux »), Top listes.
+      expect(screen.getByText(/Intensité par flux/)).toBeInTheDocument();
+      expect(screen.getByText('Top 5 lieux')).toBeInTheDocument();
+      expect(screen.getByText('Top 5 traiteurs')).toBeInTheDocument();
+      expect(screen.getByText('Lieu A')).toBeInTheDocument();
+      // L'ancien encart BenchmarkGauge (« Performance vs benchmark parc ») a disparu.
+      expect(screen.queryByText(/Performance vs benchmark parc/)).toBeNull();
+      // Lecture seule DONNÉES + badge présent (pas d'écriture).
+      expect(screen.getByTestId('lecture-seule-badge')).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('M3.6/cockpit_declinaison_drilldown — Top lieux/traiteurs cliquables → /admin/collectes filtrée (miroir)', async () => {
-    vi.stubGlobal('fetch', adminFetch());
-    render(<DashboardClientView />);
-    await screen.findByText('Lieu A', undefined, ATTENTE_UI);
+  it(
+    'M3.6/cockpit_declinaison_drilldown — Top lieux/traiteurs cliquables → /admin/collectes filtrée (miroir)',
+    async () => {
+      vi.stubGlobal('fetch', adminFetch());
+      render(<DashboardClientView />);
+      await screen.findByText('Lieu A', undefined, ATTENTE_UI);
 
-    const rows = screen.getAllByRole('button', { name: /Voir les collectes/ });
-    expect(rows.length).toBeGreaterThan(0);
-    fireEvent.click(rows[0]!);
+      const rows = screen.getAllByRole('button', {
+        name: /Voir les collectes/,
+      });
+      expect(rows.length).toBeGreaterThan(0);
+      fireEvent.click(rows[0]!);
 
-    expect(pushMock).toHaveBeenCalledTimes(1);
-    const url = String(pushMock.mock.calls[0]![0]);
-    expect(url).toContain('/admin/collectes?lieu=A');
-    expect(url).toContain('type=zero_dechet');
-    expect(url).toContain('statut=cloturee');
-  });
+      expect(pushMock).toHaveBeenCalledTimes(1);
+      const url = String(pushMock.mock.calls[0]![0]);
+      expect(url).toContain('/admin/collectes?lieu=A');
+      expect(url).toContain('type=zero_dechet');
+      expect(url).toContain('statut=cloturee');
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('M3.6/cockpit_declinaison_drilldown_perimetre — le drill propage le périmètre org sélectionné (miroir exact)', async () => {
-    // Périmètre actif (org sélectionnée) restauré depuis localStorage.
-    const org = '33333333-3333-3333-3333-333333333333';
-    localStorage.setItem(
-      'savr.dashboard-client.organisations',
-      JSON.stringify([org]),
-    );
-    vi.stubGlobal('fetch', adminFetch());
-    render(<DashboardClientView />);
-    await screen.findByText('Lieu A', undefined, ATTENTE_UI);
+  it(
+    'M3.6/cockpit_declinaison_drilldown_perimetre — le drill propage le périmètre org sélectionné (miroir exact)',
+    async () => {
+      // Périmètre actif (org sélectionnée) restauré depuis localStorage.
+      const org = '33333333-3333-3333-3333-333333333333';
+      localStorage.setItem(
+        'savr.dashboard-client.organisations',
+        JSON.stringify([org]),
+      );
+      vi.stubGlobal('fetch', adminFetch());
+      render(<DashboardClientView />);
+      await screen.findByText('Lieu A', undefined, ATTENTE_UI);
 
-    fireEvent.click(
-      screen.getAllByRole('button', { name: /Voir les collectes/ })[0]!,
-    );
-    // Le chiffre du Top 5 est borné au périmètre → le drill DOIT le propager,
-    // sinon la liste renverrait un sur-ensemble (tous programmateurs confondus).
-    const url = String(pushMock.mock.calls[0]![0]);
-    expect(url).toContain(`perimetre=${org}`);
-  });
+      fireEvent.click(
+        screen.getAllByRole('button', { name: /Voir les collectes/ })[0]!,
+      );
+      // Le chiffre du Top 5 est borné au périmètre → le drill DOIT le propager,
+      // sinon la liste renverrait un sur-ensemble (tous programmateurs confondus).
+      const url = String(pushMock.mock.calls[0]![0]);
+      expect(url).toContain(`perimetre=${org}`);
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('M3.6/cockpit_declinaison_onglet_ag — onglet Anti-Gaspi : Top associations bénéficiaires', async () => {
-    vi.stubGlobal('fetch', adminFetch());
-    render(<DashboardClientView />);
-    await screen.findByText('Nombre de collectes', undefined, ATTENTE_UI);
+  it(
+    'M3.6/cockpit_declinaison_onglet_ag — onglet Anti-Gaspi : Top associations bénéficiaires',
+    async () => {
+      vi.stubGlobal('fetch', adminFetch());
+      render(<DashboardClientView />);
+      await screen.findByText('Nombre de collectes', undefined, ATTENTE_UI);
 
-    fireEvent.click(
-      await screen.findByRole('tab', { name: /anti-gaspi/i }, ATTENTE_UI),
-    );
+      fireEvent.click(
+        await screen.findByRole('tab', { name: /anti-gaspi/i }, ATTENTE_UI),
+      );
 
-    expect(
-      await screen.findByText(
-        'Top associations bénéficiaires',
-        undefined,
-        ATTENTE_UI,
-      ),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Les Restos du Cœur')).toBeInTheDocument();
+      expect(
+        await screen.findByText(
+          'Top associations bénéficiaires',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.getByText('Les Restos du Cœur')).toBeInTheDocument();
 
-    // Carte CO₂ AG cliquable → modale « Impact carbone » variante AG.
-    fireEvent.click(screen.getByRole('button', { name: /CO₂ évité/ }));
-    expect(
-      await screen.findByText(
-        "Détail de l'impact carbone",
-        undefined,
-        ATTENTE_UI,
-      ),
-    ).toBeInTheDocument();
-  });
+      // Carte CO₂ AG cliquable → modale « Impact carbone » variante AG.
+      fireEvent.click(screen.getByRole('button', { name: /CO₂ évité/ }));
+      expect(
+        await screen.findByText(
+          "Détail de l'impact carbone",
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
 });

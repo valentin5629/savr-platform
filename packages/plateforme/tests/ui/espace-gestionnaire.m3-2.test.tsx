@@ -46,7 +46,7 @@ vi.mock('@savr/shared/src/supabase-client.js', () => {
 import GestionnaireDashboardPage from '@/app/(gestionnaire)/gestionnaire/page.js';
 import NouveauProgrammationPage from '@/app/(programmation)/programmer/nouveau/page.js';
 import { BenchmarkFilterBar } from '@/components/dashboards/BenchmarkFilterBar.js';
-import { ATTENTE_UI } from '@/test-utils/attente-ui';
+import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 const KPIS_ZD = {
   nb_collectes: 5,
@@ -144,33 +144,41 @@ beforeEach(() => {
 });
 
 describe('M3.2 / R19b espace gestionnaire (UI)', () => {
-  it("M3.2/GEST01_bouton_programmer_present — point d'entrée programmation sur le dashboard", async () => {
-    render(<GestionnaireDashboardPage />);
+  it(
+    "M3.2/GEST01_bouton_programmer_present — point d'entrée programmation sur le dashboard",
+    async () => {
+      render(<GestionnaireDashboardPage />);
 
-    // Le parcours métier principal du gestionnaire : bouton « Programmer un événement »
-    // pointant vers le formulaire partagé.
-    const lien = await screen.findByRole(
-      'link',
-      {
-        name: /Programmer un événement/i,
-      },
-      ATTENTE_UI,
-    );
-    expect(lien).toHaveAttribute('href', '/programmer/nouveau');
-  });
+      // Le parcours métier principal du gestionnaire : bouton « Programmer un événement »
+      // pointant vers le formulaire partagé.
+      const lien = await screen.findByRole(
+        'link',
+        {
+          name: /Programmer un événement/i,
+        },
+        ATTENTE_UI,
+      );
+      expect(lien).toHaveAttribute('href', '/programmer/nouveau');
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it("M3.2/GEST03_kpi_affiches_cle_kpis — dashboard lit data.kpis (plus d'EmptyState systématique)", async () => {
-    render(<GestionnaireDashboardPage />);
+  it(
+    "M3.2/GEST03_kpi_affiches_cle_kpis — dashboard lit data.kpis (plus d'EmptyState systématique)",
+    async () => {
+      render(<GestionnaireDashboardPage />);
 
-    // Avant le fix (lecture de data.kpi singulier), kpi=null → EmptyState.
-    // Après (data.kpis), les 4 cartes ZD s'affichent.
-    expect(
-      await screen.findByText('Nombre de collectes', undefined, ATTENTE_UI),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Taux de recyclage')).toBeInTheDocument();
-    // La valeur agrégée (nb_collectes = 5) est rendue, pas l'état vide.
-    expect(screen.getByText('5')).toBeInTheDocument();
-  });
+      // Avant le fix (lecture de data.kpi singulier), kpi=null → EmptyState.
+      // Après (data.kpis), les 4 cartes ZD s'affichent.
+      expect(
+        await screen.findByText('Nombre de collectes', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(screen.getByText('Taux de recyclage')).toBeInTheDocument();
+      // La valeur agrégée (nb_collectes = 5) est rendue, pas l'état vide.
+      expect(screen.getByText('5')).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
 
   // R24c : l'ex-scénario M3.2/GEST04_benchmark_gauge_moyenne_ponderee (rendu du
   // composant BenchmarkGauge en isolation) est retiré — BenchmarkGauge est
@@ -179,66 +187,82 @@ describe('M3.2 / R19b espace gestionnaire (UI)', () => {
   // La moyenne pondérée parc (grain flux × type × taille, k-anonymat) reste
   // couverte par le pgTAP r19b_gest04_benchmark_ponderee.test.sql (GEST04-1..14).
 
-  it("M3.2/GEST04_encart_filtres_present — l'utilisateur peut choisir les paramètres du benchmark", async () => {
-    render(<GestionnaireDashboardPage />);
+  it(
+    "M3.2/GEST04_encart_filtres_present — l'utilisateur peut choisir les paramètres du benchmark",
+    async () => {
+      render(<GestionnaireDashboardPage />);
 
-    // L'encart des filtres du repère parc (§06.05 Bloc 3) est monté (imbriqué
-    // dans la carte des jauges depuis R24b) avec ses 5 critères.
-    expect(
-      await screen.findByTestId('benchmark-filter-bar', undefined, ATTENTE_UI),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Filtres du repère parc')).toBeInTheDocument();
-    expect(screen.getByTestId('benchmark-reinitialiser')).toBeInTheDocument();
-    expect(screen.getByTestId('benchmark-filter-type')).toBeInTheDocument();
-    expect(screen.getByTestId('benchmark-filter-taille')).toBeInTheDocument();
-    expect(screen.getByTestId('benchmark-filter-lieux')).toBeInTheDocument();
-    expect(screen.getByTestId('benchmark-preset-24m')).toBeInTheDocument();
-    // Le filtre traiteurs n'apparaît qu'après chargement des listes parc (liste non
-    // vide côté gestionnaire) → attente asynchrone.
-    expect(
-      await screen.findByTestId(
-        'benchmark-filter-traiteurs',
-        undefined,
-        ATTENTE_UI,
-      ),
-    ).toBeInTheDocument();
-  });
-
-  it('M3.2/GEST04_encart_choix_taille — sélectionner une taille émet le filtre', async () => {
-    const onChange = vi.fn();
-    render(<BenchmarkFilterBar onChange={onChange} />);
-    // Émission initiale (défaut 12 mois, tout « Tous »).
-    await waitFor(() => expect(onChange).toHaveBeenCalled(), ATTENTE_UI);
-
-    // L'utilisateur ouvre le filtre Taille et coche « M ».
-    fireEvent.click(
-      screen.getByTestId('benchmark-filter-taille').querySelector('button')!,
-    );
-    fireEvent.click(screen.getByTestId('benchmark-filter-taille-opt-M'));
-
-    await waitFor(
-      () =>
-        expect(onChange).toHaveBeenLastCalledWith(
-          expect.objectContaining({ taille_evenement_codes: ['M'] }),
+      // L'encart des filtres du repère parc (§06.05 Bloc 3) est monté (imbriqué
+      // dans la carte des jauges depuis R24b) avec ses 5 critères.
+      expect(
+        await screen.findByTestId(
+          'benchmark-filter-bar',
+          undefined,
+          ATTENTE_UI,
         ),
-      ATTENTE_UI,
-    );
-  });
+      ).toBeInTheDocument();
+      expect(screen.getByText('Filtres du repère parc')).toBeInTheDocument();
+      expect(screen.getByTestId('benchmark-reinitialiser')).toBeInTheDocument();
+      expect(screen.getByTestId('benchmark-filter-type')).toBeInTheDocument();
+      expect(screen.getByTestId('benchmark-filter-taille')).toBeInTheDocument();
+      expect(screen.getByTestId('benchmark-filter-lieux')).toBeInTheDocument();
+      expect(screen.getByTestId('benchmark-preset-24m')).toBeInTheDocument();
+      // Le filtre traiteurs n'apparaît qu'après chargement des listes parc (liste non
+      // vide côté gestionnaire) → attente asynchrone.
+      expect(
+        await screen.findByTestId(
+          'benchmark-filter-traiteurs',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('M3.2/GEST02_form_cas_gestionnaire — sélecteur traiteur + blocage AG sans pack', async () => {
-    render(<NouveauProgrammationPage />);
+  it(
+    'M3.2/GEST04_encart_choix_taille — sélectionner une taille émet le filtre',
+    async () => {
+      const onChange = vi.fn();
+      render(<BenchmarkFilterBar onChange={onChange} />);
+      // Émission initiale (défaut 12 mois, tout « Tous »).
+      await waitFor(() => expect(onChange).toHaveBeenCalled(), ATTENTE_UI);
 
-    // Cas Gestionnaire : le sélecteur « Traiteur opérant » est monté (needsTraiteurSelector).
-    expect(
-      await screen.findByText(/Traiteur opérant/i, undefined, ATTENTE_UI),
-    ).toBeInTheDocument();
+      // L'utilisateur ouvre le filtre Taille et coche « M ».
+      fireEvent.click(
+        screen.getByTestId('benchmark-filter-taille').querySelector('button')!,
+      );
+      fireEvent.click(screen.getByTestId('benchmark-filter-taille-opt-M'));
 
-    // Cocher Anti-Gaspi sans pack actif → soumission AG bloquée (alerte).
-    fireEvent.click(screen.getByRole('checkbox', { name: /Anti-Gaspi/i }));
-    await waitFor(
-      () =>
-        expect(screen.getByText(/Aucun pack AG actif/i)).toBeInTheDocument(),
-      ATTENTE_UI,
-    );
-  });
+      await waitFor(
+        () =>
+          expect(onChange).toHaveBeenLastCalledWith(
+            expect.objectContaining({ taille_evenement_codes: ['M'] }),
+          ),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/GEST02_form_cas_gestionnaire — sélecteur traiteur + blocage AG sans pack',
+    async () => {
+      render(<NouveauProgrammationPage />);
+
+      // Cas Gestionnaire : le sélecteur « Traiteur opérant » est monté (needsTraiteurSelector).
+      expect(
+        await screen.findByText(/Traiteur opérant/i, undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+
+      // Cocher Anti-Gaspi sans pack actif → soumission AG bloquée (alerte).
+      fireEvent.click(screen.getByRole('checkbox', { name: /Anti-Gaspi/i }));
+      await waitFor(
+        () =>
+          expect(screen.getByText(/Aucun pack AG actif/i)).toBeInTheDocument(),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
 });

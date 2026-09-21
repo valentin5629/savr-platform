@@ -189,6 +189,24 @@ export default tseslint.config(
           message:
             "waitFor au timeout par défaut (1 000 ms) : flake sous charge. Passer ATTENTE_UI en 2e argument, depuis '@/test-utils/attente-ui'.",
         },
+        {
+          selector:
+            "CallExpression[callee.name=/^(it|test)$/][arguments.length<3]:has(CallExpression[callee.property.name=/^find(All)?By[A-Z]/], CallExpression[callee.name=/^find(All)?By[A-Z]/], CallExpression[callee.name='waitFor'])",
+          message:
+            "Cas de test contenant une attente, sans budget de cas : le plafond `testTimeout` (5 000 ms) tronque l'attente ATTENTE_UI (4 000 ms) dès que le travail synchrone déborde, et le cas meurt en « Test timed out » sous charge. Passer ATTENTE_CAS_MS en 3e argument de it()/test(), depuis '@/test-utils/attente-ui'.",
+        },
+        {
+          selector:
+            "CallExpression[callee.object.name=/^(it|test)$/][arguments.length<3]:has(CallExpression[callee.property.name=/^find(All)?By[A-Z]/], CallExpression[callee.name=/^find(All)?By[A-Z]/], CallExpression[callee.name='waitFor'])",
+          message:
+            "Cas de test contenant une attente, sans budget de cas : le plafond `testTimeout` (5 000 ms) tronque l'attente ATTENTE_UI (4 000 ms) dès que le travail synchrone déborde, et le cas meurt en « Test timed out » sous charge. Passer ATTENTE_CAS_MS en 3e argument de it()/test(), depuis '@/test-utils/attente-ui'.",
+        },
+        {
+          selector:
+            "CallExpression[callee.callee.object.name=/^(it|test)$/][arguments.length<3]:has(CallExpression[callee.property.name=/^find(All)?By[A-Z]/], CallExpression[callee.name=/^find(All)?By[A-Z]/], CallExpression[callee.name='waitFor'])",
+          message:
+            "Cas de test contenant une attente, sans budget de cas : le plafond `testTimeout` (5 000 ms) tronque l'attente ATTENTE_UI (4 000 ms) dès que le travail synchrone déborde, et le cas meurt en « Test timed out » sous charge. Passer ATTENTE_CAS_MS en 3e argument de it()/test(), depuis '@/test-utils/attente-ui'.",
+        },
       ],
     },
   },

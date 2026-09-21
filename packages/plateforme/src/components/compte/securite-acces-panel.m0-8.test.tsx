@@ -7,7 +7,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 
 import { SecuriteAccesPanel } from './securite-acces-panel';
-import { ATTENTE_UI } from '@/test-utils/attente-ui';
+import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 function stubFetch(data: unknown) {
   vi.stubGlobal(
@@ -19,34 +19,45 @@ function stubFetch(data: unknown) {
 describe('M0.8-61 — Sécurité du compte : historique self des accès admin (BL-P3-13)', () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it('liste les accès admin (date + libellé générique, sans identité admin)', async () => {
-    stubFetch([
-      { accede_le: '2026-07-01T10:00:00Z', type_acces: 'acces_administrateur' },
-    ]);
-    render(<SecuriteAccesPanel />);
+  it(
+    'liste les accès admin (date + libellé générique, sans identité admin)',
+    async () => {
+      stubFetch([
+        {
+          accede_le: '2026-07-01T10:00:00Z',
+          type_acces: 'acces_administrateur',
+        },
+      ]);
+      render(<SecuriteAccesPanel />);
 
-    await waitFor(
-      () => expect(screen.getByTestId('acces-liste')).toBeInTheDocument(),
-      ATTENTE_UI,
-    );
-    expect(screen.getByText('Sécurité du compte')).toBeInTheDocument();
-    expect(screen.getAllByText('Accès administrateur').length).toBeGreaterThan(
-      0,
-    );
-    // Ne fuit aucune identité admin (le composant n'affiche jamais d'email/nom).
-    expect(screen.queryByText(/@/)).not.toBeInTheDocument();
-  });
+      await waitFor(
+        () => expect(screen.getByTestId('acces-liste')).toBeInTheDocument(),
+        ATTENTE_UI,
+      );
+      expect(screen.getByText('Sécurité du compte')).toBeInTheDocument();
+      expect(
+        screen.getAllByText('Accès administrateur').length,
+      ).toBeGreaterThan(0);
+      // Ne fuit aucune identité admin (le composant n'affiche jamais d'email/nom).
+      expect(screen.queryByText(/@/)).not.toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('empty-state quand aucun accès administrateur', async () => {
-    stubFetch([]);
-    render(<SecuriteAccesPanel />);
+  it(
+    'empty-state quand aucun accès administrateur',
+    async () => {
+      stubFetch([]);
+      render(<SecuriteAccesPanel />);
 
-    await waitFor(
-      () => expect(screen.getByTestId('acces-vide')).toBeInTheDocument(),
-      ATTENTE_UI,
-    );
-    expect(
-      screen.getByText('Aucun accès administrateur enregistré.'),
-    ).toBeInTheDocument();
-  });
+      await waitFor(
+        () => expect(screen.getByTestId('acces-vide')).toBeInTheDocument(),
+        ATTENTE_UI,
+      );
+      expect(
+        screen.getByText('Aucun accès administrateur enregistré.'),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
 });

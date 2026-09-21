@@ -20,7 +20,9 @@
     "lieux_client_lit_sous_rls — la lecture passe par la vue liste blanche, jamais par le service_role",
     "lieux_client_aucun_scope_reimplemente — une seule requête, aucune borne d’ids calculée en TS",
     "lieux_client_param_org_cross_ignore — un rôle client ne s’élargit pas via ?organisation_id",
-    "lieux_admin_support_miroir_branche_4 — le périmètre simulé inclut les événements OPÉRÉS par la cible"
+    "lieux_admin_support_miroir_branche_4 — le périmètre simulé inclut les événements OPÉRÉS par la cible",
+    "lieux_client_recherche_ilike — le terme de recherche reste appliqué sur la vue",
+    "lieux_admin_support_sans_org_cible — 200 [] plutôt que tous les lieux"
   ],
   "deliverables": [
     {
@@ -238,6 +240,22 @@
       "test": "traiteur_manager opérationnel : le lieu de l'événement programmé par un tiers EST proposé",
       "statut": "implemented",
       "libelle": "Autocomplétion Lieux — étendue prouvée sous `authenticated` sur la requête EXACTE de la route (vue liste blanche + actif=true) : le traiteur opérationnel voit le lieu, le concurrent non (non-vacuité contrôlée), le masquage colonne tient, et l'innocuité de l'omission de la branche 3 dans le miroir admin est pinée par rôle."
+    },
+    {
+      "id": "M1.2-lieux-autocompletion-recherche",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:88",
+      "artefact": "packages/plateforme/src/app/api/v1/programmation/lieux/route.ts",
+      "test": "lieux_client_recherche_ilike — le terme de recherche reste appliqué sur la vue",
+      "statut": "implemented",
+      "libelle": "Autocomplétion Lieux — recherche « nom + adresse » (§06.01 l.88), appliquée sur la vue liste blanche en plus du filtre actif=true. Le terme est neutralisé par sanitizeOrTerm avant d'entrer dans le .or() (garde d'injection C2)."
+    },
+    {
+      "id": "M1.2-lieux-autocompletion-admin-sans-cible",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:323",
+      "artefact": "packages/plateforme/src/app/api/v1/programmation/lieux/route.ts",
+      "test": "lieux_admin_support_sans_org_cible — 200 [] plutôt que tous les lieux",
+      "statut": "implemented",
+      "libelle": "Autocomplétion Lieux, admin support sans organisation cible → 200 [] : l'organisation n'est JAMAIS déduite du JWT de l'appelant en mode support (§06.01 l.323), et surtout jamais remplacée par « tous les lieux »."
     }
   ],
   "cdc_source_hash": {

@@ -19,7 +19,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(13);
+SELECT plan(15);
 
 CREATE OR REPLACE FUNCTION pgl_jwt(p_role text, p_org uuid) RETURNS void
 LANGUAGE plpgsql AS $$
@@ -95,13 +95,24 @@ INSERT INTO plateforme.organisations (id, nom, type, siret, actif, est_shadow) V
 INSERT INTO plateforme.lieux (id, nom, adresse_acces, code_postal, ville, type_vehicule_max, actif) VALUES
   ('c1ea0003-0000-0000-0000-000000000004'::uuid, 'DD Lieu co agence',   '4 r', '75004', 'Paris', 'fourgon', true),
   ('c1ea0003-0000-0000-0000-000000000005'::uuid, 'EE Lieu co gl1',      '5 r', '75005', 'Paris', 'fourgon', true),
-  ('c1ea0003-0000-0000-0000-000000000006'::uuid, 'FF Lieu co gl2',      '6 r', '75006', 'Paris', 'fourgon', true);
+  ('c1ea0003-0000-0000-0000-000000000006'::uuid, 'FF Lieu co gl2',      '6 r', '75006', 'Paris', 'fourgon', true),
+  ('c1ea0003-0000-0000-0000-000000000007'::uuid, 'GG Lieu rattache ag2','7 r', '75007', 'Paris', 'fourgon', true),
+  ('c1ea0003-0000-0000-0000-000000000008'::uuid, 'HH Lieu rattache gl2','8 r', '75008', 'Paris', 'fourgon', true);
 
--- GL1 est rattaché au lieu de SON événement (branche 1) ; GL2 ne l'est à rien.
-INSERT INTO plateforme.organisations_lieux (organisation_id, lieu_id)
-VALUES ('c1ea0001-0000-0000-0000-000000000005'::uuid, 'c1ea0003-0000-0000-0000-000000000005'::uuid);
+-- GL1 est rattaché au lieu de SON événement (branche 1). GL2 ne l'est PAS au sien.
+-- AG2 et GL2 reçoivent chacun un lieu rattaché SANS rapport avec leur événement b3 :
+-- sans lui, les asserts 11 et 12 seraient des négatifs sur un ensemble VIDE et
+-- passeraient aussi bien si c'était le LECTEUR qui cassait (claim JWT malformé, vue
+-- illisible) — même idiome de non-vacuité que le couple 4/5.
+INSERT INTO plateforme.organisations_lieux (organisation_id, lieu_id) VALUES
+  ('c1ea0001-0000-0000-0000-000000000005'::uuid, 'c1ea0003-0000-0000-0000-000000000005'::uuid),
+  ('c1ea0001-0000-0000-0000-000000000004'::uuid, 'c1ea0003-0000-0000-0000-000000000007'::uuid),
+  ('c1ea0001-0000-0000-0000-000000000006'::uuid, 'c1ea0003-0000-0000-0000-000000000008'::uuid);
 
--- Trois événements DATÉS appartenant à l'agence AG, opérés par le concurrent T2,
+-- Trois événements DATÉS appartenant à l'agence AG, opérés par le concurrent T2
+-- (choix assumé : cela élargit l'ensemble de T2 via la branche 4, sans rien changer
+-- aux asserts 4/5 qui portent sur `AA` — opéré par T1 — et sur `BB`. Un futur assert
+-- qui pinerait l'ensemble EXACT de T2 devrait en tenir compte),
 -- dont AG2 / GL1 / GL2 sont SEULEMENT client organisateur. La garde de date de la
 -- branche 3 est donc satisfaite : ce qui coupe, c'est la RLS imbriquée sur `evenements`.
 INSERT INTO plateforme.evenements (
@@ -234,6 +245,11 @@ SELECT ok(
   'branche 3 / agence : INATTEIGNABLE — client organisateur seul ne rend pas le lieu'
 );
 
+SELECT ok(
+  'GG Lieu rattache ag2' = ANY (pgl_autocompletion()),
+  'NON-VACUITÉ : AG2 voit bien son lieu RATTACHÉ (l''assert précédent n''est pas un 0 de lecteur)'
+);
+
 -- Régime B — gestionnaire NON rattaché : même résultat, le second disjoint de
 -- `evt_gestionnaire_select` exigeant `lieu_id IN (mes organisations_lieux)`.
 SELECT pgl_jwt('gestionnaire_lieux', 'c1ea0001-0000-0000-0000-000000000006'::uuid);
@@ -242,18 +258,28 @@ SELECT ok(
   'branche 3 / gestionnaire sans rattachement : rien de plus (le disjoint exige le rattachement)'
 );
 
+SELECT ok(
+  'HH Lieu rattache gl2' = ANY (pgl_autocompletion()),
+  'NON-VACUITÉ : GL2 voit bien son lieu RATTACHÉ (l''assert précédent n''est pas un 0 de lecteur)'
+);
+
 -- Régime C — gestionnaire RATTACHÉ : là, le sous-SELECT de la branche 3 est NON
 -- VIDE. Mais l'invariant dont dépend le miroir admin est que la branche 3 n'ajoute
 -- RIEN à ce que les branches 1+2 donnent déjà. C'est cette ÉGALITÉ qu'on pine —
 -- pas « le gestionnaire ne voit pas le lieu », qui serait faux.
 SELECT pgl_superuser();
+-- `LIMIT 20` répliqué à l'identique : sans lui, une fixture de plus de 20 lieux
+-- casserait l'égalité pour une raison étrangère à l'invariant testé.
 SELECT set_config('pgl.miroir_b1_b2', (
-  SELECT coalesce(string_agg(nom, ',' ORDER BY nom), '') FROM plateforme.lieux
-   WHERE actif = true
-     AND (id IN (SELECT lieu_id FROM plateforme.organisations_lieux
-                  WHERE organisation_id = 'c1ea0001-0000-0000-0000-000000000005'::uuid)
-       OR id IN (SELECT lieu_id FROM plateforme.evenements
-                  WHERE organisation_id = 'c1ea0001-0000-0000-0000-000000000005'::uuid))
+  SELECT coalesce(string_agg(nom, ',' ORDER BY nom), '') FROM (
+    SELECT nom FROM plateforme.lieux
+     WHERE actif = true
+       AND (id IN (SELECT lieu_id FROM plateforme.organisations_lieux
+                    WHERE organisation_id = 'c1ea0001-0000-0000-0000-000000000005'::uuid)
+         OR id IN (SELECT lieu_id FROM plateforme.evenements
+                    WHERE organisation_id = 'c1ea0001-0000-0000-0000-000000000005'::uuid))
+     ORDER BY nom
+     LIMIT 20) s
 ), true);
 
 SELECT pgl_jwt('gestionnaire_lieux', 'c1ea0001-0000-0000-0000-000000000005'::uuid);

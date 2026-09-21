@@ -1,6 +1,13 @@
 /**
  * M1.2 — Tests Vitest API : Formulaire programmation collecte
  * Scénarios P1 : création ZD/AG, validations bloquantes, pack AG, facturation.
+ *
+ * Le périmètre de l'autocomplétion Lieux n'est plus couvert ici : le scénario
+ * `lieux_traiteur_scope_vide` était vert par construction (la chaîne mockée n'est pas
+ * thenable → `data`/`error` undefined → toujours 200 []). Il est remplacé par deux
+ * oracles réels : tests/api/programmation/lieux-scope.test.ts (la route délègue à la
+ * policy) et supabase/tests/programmation_lieux_autocompletion.test.sql (l'étendue,
+ * sous `authenticated`).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
@@ -48,6 +55,10 @@ const mockGetSession = vi.fn();
 vi.mock('@supabase/ssr', () => ({
   createServerClient: () => ({
     auth: { getUser: mockGetUser, getSession: mockGetSession },
+    // Lecture sous RLS (GET /programmation/lieux depuis la bascule de périmètre) :
+    // le client anon a désormais besoin de `.from`. Le périmètre lui-même est posé
+    // par la policy, pas par la route — il est prouvé ailleurs (cf. en-tête).
+    from: (...a: unknown[]) => mockSupabaseChain.from(...a),
   }),
 }));
 vi.mock('next/headers', () => ({
@@ -690,21 +701,5 @@ describe('M1.2 / Sécurité isolation cross-org', () => {
       }),
     );
     expect(res.status).toBe(201);
-  });
-});
-
-describe('M1.2 / Lieux scope org', () => {
-  beforeEach(resetChain);
-
-  it('lieux_traiteur_scope_vide — 200 [] si aucun lieu ni événement pour cette org', async () => {
-    setupAuth('traiteur_commercial', 'org-new');
-    // organisations_lieux → [] (chaîne retourne undefined, traité comme vide)
-    // evenements → [] idem
-
-    const { GET } = await import('@/app/api/v1/programmation/lieux/route.js');
-    const res = await GET(makeReq('GET', '/api/v1/programmation/lieux'));
-    expect(res.status).toBe(200);
-    const json = (await res.json()) as unknown[];
-    expect(json).toEqual([]);
   });
 });

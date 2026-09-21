@@ -143,7 +143,7 @@
     },
     {
       "id": "M0.4-ecriture-directe-lieux-revoke",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:64",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:66",
       "artefact": "supabase/migrations/20260921210000_plateforme_lieux_ecriture_client_fermee.sql (REVOKE INSERT, UPDATE, DELETE sur plateforme.lieux pour authenticated + anon)",
       "test": "SECU__lieux_ecriture_client_fermee.test.sql (A1-A8 privilèges + cliquet colonne-level ; B1-B4 : admin_savr INSERT/UPDATE/DELETE et ops_savr UPDATE → 42501 « permission denied for table lieux », les 4 écritures qui aboutissaient avant ; B5 rôle client ; B6-B7 non-régression lecture ; C1-C3 service_role écrit toujours ; C4-C5 motif : aucun trigger d'audit, l'écriture directe ne laisse aucune ligne d'audit_log ; C6-C7 l'E5 lieu.champ_critique_modifie reste émis)",
       "statut": "implemented",

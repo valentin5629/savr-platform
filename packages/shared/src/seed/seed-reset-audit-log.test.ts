@@ -17,15 +17,41 @@
  *      qui s'en charge, pas un `ENABLE` de rattrapage, lequel ne serait de
  *      toute façon jamais atteint.
  *
- * L'oracle porte sur le SQL RÉELLEMENT émis : le test importe les mêmes
- * fonctions (`sqlGardeAuditLog`, `sqlVidageTablesMetier`) que le code de
- * production, plutôt que d'en recopier le texte — une copie divergerait en
- * silence le jour où `reset.ts` changerait.
+ * L'ORACLE EST UNE ÉGALITÉ, PAS UNE RECHERCHE DE FRAGMENTS
+ * ---------------------------------------------------------
+ * Première version de ce fichier : `expect(requetes).toContain(...)` sur trois
+ * sous-chaînes. Une revue adversariale a montré que ça ne prouvait rien
+ * d'utile — en ajoutant `AND false` à la seule branche `ENABLE` de la boucle,
+ * on obtenait une garde DÉFINITIVEMENT désactivée en base, ces 5 tests verts,
+ * le pgTAP vert et `seed:check` vert. Les fragments cherchés étaient toujours
+ * là ; c'est ce qui les entourait qui avait changé.
+ *
+ * L'oracle compare donc le SQL émis aux chaînes attendues à l'ÉGALITÉ (espaces
+ * normalisés). Le texte attendu vient des fonctions exportées par le module —
+ * pas d'une copie qui divergerait en silence — et les tests vérifient en plus
+ * la FORME de ces fonctions, là où une copie ne dirait rien.
+ *
+ * CE QUI RESTE NON COUVERT ICI, ET POURQUOI C'EST ACCEPTABLE
+ * -----------------------------------------------------------
+ * Neutraliser la boucle pour les DEUX actions à la fois (`AND false` sans
+ * distinction) passe encore ces 7 tests — l'égalité compare au SQL du module,
+ * muté des deux côtés, et la symétrie ENABLE/DISABLE est préservée. Mesuré,
+ * assumé : dans ce cas la garde n'est jamais désactivée, le vidage échoue en
+ * `42501`, le ROLLBACK s'ensuit et la base reste PROTÉGÉE. Le seed casse
+ * bruyamment, au premier lancement, chez le premier qui l'exécute.
+ * C'est l'inverse exact de la mutation dangereuse (réactivation seule
+ * neutralisée), qui laissait la base ouverte en silence : celle-là est
+ * attrapée, par le test de symétrie ici et par l'assertion de sortie en base.
+ * On couvre donc le silencieux, pas le bruyant.
  *
  * Ce fichier ne touche PAS la base : il prouve la forme de la séquence, pas son
- * effet. La preuve d'effet est `supabase/tests/SECU__audit_log_immuable.test.sql`
- * T14, qui rejoue la séquence en base et vérifie que la table se vide et que la
- * garde mord de nouveau ensuite. Les deux sont nécessaires.
+ * effet. Deux compléments indispensables :
+ *   • `supabase/tests/SECU__audit_log_immuable.test.sql` T14/T15 — la séquence
+ *     vide bien la table en base, et la garde mord de nouveau après ;
+ *   • `sqlAssertionGardeActive()`, exécutée avant le COMMIT par `reset.ts` :
+ *     c'est elle, et non ces tests, qui rend structurellement impossible de
+ *     committer une base dont la garde serait restée désactivée. T16 prouve
+ *     qu'elle lève réellement.
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -34,8 +60,12 @@ import {
   resetBusinessData,
   sqlGardeAuditLog,
   sqlVidageTablesMetier,
+  sqlAssertionGardeActive,
   GARDE_AUDIT_LOG,
 } from './reset.js';
+
+/** Espaces normalisés : l'oracle porte sur le SQL, pas sur son indentation. */
+const sql = (s: string) => s.replace(/\s+/g, ' ').trim();
 
 /** Client `pg` minimal qui enregistre les requêtes, dans l'ordre. */
 function clientEspion(options: { echoueSurVidage?: boolean } = {}) {
@@ -97,14 +127,48 @@ describe('resetBusinessData — garde d’immuabilité de audit_log', () => {
     expect(requetes).not.toContain('ROLLBACK');
   });
 
-  it('émet exactement le SQL du module, pas une copie', async () => {
+  it('émet EXACTEMENT la séquence attendue — égalité, pas fragments', async () => {
     const { client, requetes } = clientEspion();
 
     await resetBusinessData(client);
 
-    expect(requetes).toContain(sqlGardeAuditLog('DISABLE'));
-    expect(requetes).toContain(sqlVidageTablesMetier());
-    expect(requetes).toContain(sqlGardeAuditLog('ENABLE'));
+    // Égalité sur la séquence entière : une clause ajoutée dans l'une des
+    // requêtes (le `AND false` de la revue) change la chaîne et rougit ici,
+    // là où un `toContain` de sous-chaînes ne voyait rien.
+    expect(requetes.map(sql)).toEqual([
+      'BEGIN',
+      sql(sqlGardeAuditLog('DISABLE')),
+      sql(sqlVidageTablesMetier()),
+      sql(sqlGardeAuditLog('ENABLE')),
+      sql(sqlAssertionGardeActive()),
+      'COMMIT',
+    ]);
+  });
+
+  it('les deux actions ne diffèrent QUE par le verbe ENABLE/DISABLE', () => {
+    // Le vecteur de la revue : neutraliser une seule des deux branches, par
+    // exemple en n'ajoutant `AND false` qu'à `ENABLE`. Les deux SQL doivent
+    // donc être identiques au verbe près — toute asymétrie est suspecte.
+    const desactive = sql(sqlGardeAuditLog('DISABLE'));
+    const reactive = sql(sqlGardeAuditLog('ENABLE'));
+
+    expect(desactive.replace(/DISABLE/g, '<VERBE>')).toBe(
+      reactive.replace(/ENABLE/g, '<VERBE>'),
+    );
+    expect(desactive).not.toBe(reactive);
+  });
+
+  it('l’assertion de sortie interroge tgenabled et lève — c’est elle le rempart', () => {
+    // Ce n'est pas ce fichier qui protège la base, c'est cette requête-là :
+    // exécutée avant le COMMIT, elle annule la transaction si une garde est
+    // restée désactivée. T16 du pgTAP prouve qu'elle lève pour de vrai.
+    const assertion = sql(sqlAssertionGardeActive());
+
+    expect(assertion).toContain(
+      'tg.tgenabled <> ' + String.fromCharCode(39) + 'O',
+    );
+    expect(assertion).toContain(`tg.tgname = '${GARDE_AUDIT_LOG}'`);
+    expect(assertion).toContain('RAISE EXCEPTION');
   });
 
   it('vide bien audit_log — la table doit être dans le lot, pas contournée', () => {
@@ -121,6 +185,9 @@ describe('resetBusinessData — garde d’immuabilité de audit_log', () => {
 
     expect(requetes).toContain('ROLLBACK');
     expect(requetes).not.toContain('COMMIT');
+    // L'assertion de sortie non plus n'est pas atteinte : c'est le ROLLBACK
+    // qui protège ici, pas elle.
+    expect(requetes.map(sql)).not.toContain(sql(sqlAssertionGardeActive()));
     // La réactivation n'est PAS atteinte : c'est le ROLLBACK qui annule la
     // désactivation. Si un jour on la déplaçait dans un `finally`, elle
     // s'exécuterait hors transaction et ce test le signalerait.

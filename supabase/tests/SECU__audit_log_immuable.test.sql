@@ -75,6 +75,17 @@
 -- — sans eux, la prochaine migration de cette famille recasserait
 -- `pnpm seed:minimal` sans que rien ne le signale.
 --
+-- T16a-T16b couvrent le garde-fou que la revue adversariale a rendu nécessaire.
+-- Elle a montré que T14/T15 + le test unitaire laissaient passer une mutation
+-- d'un seul token — neutraliser la seule branche `ENABLE` de `reset.ts` donnait
+-- une garde DÉFINITIVEMENT désactivée, tout vert. Le trou est structurel : le
+-- test unitaire ne touche pas la base, et T14/T15 rejouent une copie du SQL.
+-- La réponse n'est donc pas un test de plus mais un mécanisme —
+-- `sqlAssertionGardeActive()`, exécutée par `reset.ts` avant son COMMIT, qui
+-- lève si une garde est restée désactivée et annule la transaction. T16a
+-- vérifie qu'elle se tait quand tout va bien (sinon un `RAISE` inconditionnel
+-- passerait), T16b qu'elle lève quand une garde manque.
+--
 -- NON-VACUITÉ — chaque test discrimine, vérifié par quatre contre-épreuves
 -- jouées en transaction rollbackée le 2026-09-21, chacune en retirant un seul
 -- mécanisme d'une migration par ailleurs complète :
@@ -97,7 +108,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(15);
+SELECT plan(17);
 
 -- Helpers. `test_as_superuser()` est celui des 43 autres fichiers du dossier.
 -- `test_as_role()` est propre à ce fichier : le helper commun `test_set_jwt()`
@@ -346,14 +357,19 @@ SELECT throws_ok(
 -- Le reset désactive donc la garde, vide, puis la réactive, le tout dans
 -- une transaction et derrière `assertDev()`.
 --
--- On rejoue ici cette séquence EN BASE. `seed-reset-audit-log.test.ts`
--- prouve, lui, que `reset.ts` émet bien cette séquence-là ; il ne touche
--- pas la base et ne verrait donc pas une migration future qui rendrait
--- la désactivation inopérante. C'est ce que T14 attrape.
+-- On rejoue ici cette séquence EN BASE — une COPIE de celle du module,
+-- pas la séquence du module : le pgTAP ne peut pas importer du
+-- TypeScript. T14 vérifie donc que la séquence est jouable et qu'elle
+-- vide bien la table ; il ne peut pas garantir que `reset.ts` émet
+-- encore celle-là. C'est dit ici parce qu'une revue adversariale a
+-- montré le contraire de ce que cette phrase affirmait avant : en
+-- neutralisant la seule branche `ENABLE` du module, on obtenait une
+-- garde définitivement désactivée avec T14/T15 verts.
 --
--- T15 est l'oracle qui empêche T14 d'être complaisant : un reset qui
--- désactiverait la garde sans la remettre ferait passer T14 tout seul,
--- en laissant l'audit trail ouvert pour de bon.
+-- T15 est l'oracle qui empêche T14 d'être complaisant sur ce qu'il
+-- couvre vraiment : un reset qui désactiverait sans remettre ferait
+-- passer T14 tout seul. Et c'est T16a/T16b, plus bas, qui couvrent le
+-- mécanisme qui protège réellement la base — l'assertion de sortie.
 -- =====================================================================
 
 SELECT test_as_superuser();
@@ -388,6 +404,71 @@ SELECT throws_ok(
   'T15 la garde est de nouveau active après le reset (elle n''est pas restée désactivée)'
 );
 
+-- =====================================================================
+-- T16 : le rempart de `reset.ts` lève-t-il vraiment ?
+--
+-- CE QUE CE TEST PROUVE, ET CE QU'IL NE PROUVE PAS
+-- -------------------------------------------------
+-- Une revue adversariale a montré que T14/T15 et le test unitaire, à eux
+-- deux, laissaient passer une mutation d'un seul token : en neutralisant
+-- la seule branche `ENABLE` de la boucle de `reset.ts`, on obtenait une
+-- garde DÉFINITIVEMENT désactivée en base, tout vert. Le trou est
+-- structurel — le test unitaire ne touche pas la base, et T14/T15
+-- rejouent une COPIE du SQL, sans lien exécutable avec le module TS.
+--
+-- La réponse n'est pas un test de plus mais un mécanisme :
+-- `sqlAssertionGardeActive()`, que `reset.ts` exécute avant son COMMIT.
+-- Elle relit `pg_trigger` et lève si une garde est restée désactivée —
+-- le seed échoue bruyamment et la transaction est annulée, au lieu de
+-- committer une base ouverte.
+--
+-- T16 prouve que cette assertion lève bel et bien. Le chaînage complet
+-- est : le test unitaire vérifie que le module émet une assertion de
+-- cette FORME (`tgenabled <> 'O'`, `RAISE EXCEPTION`), T16 vérifie
+-- qu'une assertion de cette forme MORD. Ce n'est pas une preuve
+-- d'exécution bout en bout — il faudrait une base dans le job Vitest,
+-- que la CI n'a pas — et c'est dit ici plutôt que sous-entendu.
+-- =====================================================================
+
+SELECT test_as_superuser();
+
+-- Le corps est repris de `sqlAssertionGardeActive()` : le pgTAP ne peut pas
+-- importer du TypeScript. C'est une COPIE, et elle est signalée comme telle —
+-- c'est le test unitaire qui vérifie que le module émet bien cette forme-là.
+CREATE OR REPLACE FUNCTION test_assertion_garde_active()
+RETURNS void LANGUAGE plpgsql AS $$
+DECLARE n int;
+BEGIN
+  SELECT count(*) INTO n
+    FROM pg_trigger tg
+   WHERE tg.tgname = 'trg_audit_log_vidage_interdit'
+     AND NOT tg.tgisinternal
+     AND tg.tgenabled <> 'O';
+  IF n > 0 THEN
+    RAISE EXCEPTION
+      'reset seed : la garde % est restée désactivée sur % table(s) — transaction annulée',
+      'trg_audit_log_vidage_interdit', n;
+  END IF;
+END $$;
+
+SELECT test_as_superuser();
+
+-- Contrôle préalable : gardes actives → l'assertion doit se taire. Sans lui,
+-- un `RAISE EXCEPTION` inconditionnel passerait T16 sans rien prouver.
+SELECT lives_ok(
+  $$SELECT test_assertion_garde_active()$$,
+  'T16a l''assertion de sortie se tait quand toutes les gardes sont actives'
+);
+
+SELECT test_garde_vidage_audit('DISABLE');
+
+SELECT throws_ok(
+  $$SELECT test_assertion_garde_active()$$,
+  'P0001', NULL,
+  'T16b l''assertion de sortie lève quand une garde est restée désactivée'
+);
+
+SELECT test_garde_vidage_audit('ENABLE');
 SELECT test_as_superuser();
 
 SELECT * FROM finish();

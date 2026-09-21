@@ -37,13 +37,32 @@
  * code insensible à l'ajout d'une partition annuelle, et no-op tant que la
  * migration n'est pas appliquée.
  *
- * Couverture, en deux morceaux dont aucun ne suffit seul :
- *   • `seed-reset-audit-log.test.ts` — prouve que c'est bien cette séquence qui
- *     est émise, et que la réactivation n'est pas sautée quand le vidage échoue ;
- *   • `supabase/tests/SECU__audit_log_immuable.test.sql` T14 — prouve en base
- *     que la séquence vide réellement la table ET que la garde mord de nouveau
- *     après. Le test unitaire ne touche pas la base ; le pgTAP ne verrait pas
- *     une réécriture de ce fichier.
+ * CE QUI EMPÊCHE LA GARDE DE RESTER OUVERTE, ET POURQUOI CE N'EST PAS UN TEST
+ * -----------------------------------------------------------------------------
+ * Une revue adversariale a montré que les tests seuls ne suffisaient pas : en
+ * neutralisant la seule branche `ENABLE` de la boucle ci-dessous, on obtenait
+ * une garde DÉFINITIVEMENT désactivée en base, avec les tests unitaires verts,
+ * le pgTAP vert et `seed:check` vert. Le trou est structurel : le test unitaire
+ * ne touche pas la base, et le pgTAP rejoue une copie du SQL — les deux couches
+ * peuvent diverger du module en silence.
+ *
+ * D'où `sqlAssertionGardeActive()`, exécutée AVANT le COMMIT : elle relit
+ * `pg_trigger` et lève si une seule garde est restée désactivée. Ce n'est pas
+ * une vérification redondante avec la réactivation, c'est ce qui rend son échec
+ * BRUYANT au lieu de silencieux — le seed s'arrête et la transaction est
+ * annulée, donc la base reste protégée quoi qu'il arrive au code au-dessus.
+ * C'est le principe du harnais : une consigne critique doit être portée par un
+ * mécanisme, pas par la vigilance d'un test.
+ *
+ * Couverture, en trois morceaux :
+ *   • `seed-reset-audit-log.test.ts` — compare le SQL émis aux chaînes
+ *     attendues À L'ÉGALITÉ (pas par fragments : c'est ce qui laissait passer
+ *     la mutation ci-dessus) et vérifie l'ordre des ordres ;
+ *   • `supabase/tests/SECU__audit_log_immuable.test.sql` T14/T15 — prouve en
+ *     base que la séquence vide la table et que la garde mord de nouveau ;
+ *   • T16 du même fichier — prouve que l'assertion lève bel et bien quand une
+ *     garde est restée désactivée. Sans lui, l'assertion pourrait être vide de
+ *     sens sans que rien ne le dise.
  */
 
 import type pg from 'pg';
@@ -112,6 +131,29 @@ export function sqlGardeAuditLog(action: 'ENABLE' | 'DISABLE'): string {
   `;
 }
 
+/**
+ * Garde-fou de sortie : lève si une seule des gardes est restée désactivée.
+ * Exécutée dans la même transaction que le vidage, donc son échec annule tout.
+ */
+export function sqlAssertionGardeActive(): string {
+  return `
+    DO $$
+    DECLARE n int;
+    BEGIN
+      SELECT count(*) INTO n
+        FROM pg_trigger tg
+       WHERE tg.tgname = '${GARDE_AUDIT_LOG}'
+         AND NOT tg.tgisinternal
+         AND tg.tgenabled <> 'O';
+      IF n > 0 THEN
+        RAISE EXCEPTION
+          'reset seed : la garde % est restée désactivée sur % table(s) — transaction annulée',
+          '${GARDE_AUDIT_LOG}', n;
+      END IF;
+    END $$;
+  `;
+}
+
 /** Le vidage lui-même. Exporté pour la même raison. */
 export function sqlVidageTablesMetier(): string {
   return `TRUNCATE ${BUSINESS_TABLES.join(', ')} RESTART IDENTITY CASCADE`;
@@ -123,6 +165,9 @@ export async function resetBusinessData(client: pg.Client): Promise<void> {
     await client.query(sqlGardeAuditLog('DISABLE'));
     await client.query(sqlVidageTablesMetier());
     await client.query(sqlGardeAuditLog('ENABLE'));
+    // Dernier rempart : si la réactivation n'a rien fait, on échoue ici plutôt
+    // que de committer une base dont l'audit trail est resté ouvert.
+    await client.query(sqlAssertionGardeActive());
     await client.query('COMMIT');
   } catch (err) {
     // Annule aussi la désactivation : la garde ne peut pas rester ouverte.

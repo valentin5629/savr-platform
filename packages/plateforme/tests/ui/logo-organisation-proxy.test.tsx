@@ -39,7 +39,6 @@ function reponse(obj: unknown): Promise<Response> {
   } as Response);
 }
 
-// `params` est consommé par le `use` mocké : un objet nu suffit.
 // Promesse DÉJÀ marquée résolue au sens de React 19 : `use()` la lit
 // synchroniquement, sans suspendre. Aucun module de React n'est remplacé —
 // un mock de `use` casserait silencieusement tout `use(Context)` des enfants.
@@ -79,8 +78,11 @@ describe('M3.2 / logo d’un traiteur tiers — proxy d’affichage', () => {
     render(<TraiteurDetailPage params={params('tr1')} />);
     await screen.findByText('Kaspia', undefined, ATTENTE_UI);
 
-    const img = document.querySelector('img')!;
-    expect(img).toBeTruthy();
+    // La page ne rend qu'une image : l'asserter rend l'échec explicite si une
+    // autre <img> vient un jour s'intercaler avant le logo.
+    const imgs = document.querySelectorAll('img');
+    expect(imgs).toHaveLength(1);
+    const img = imgs[0]!;
     // Le périmètre est porté par la route (vue v_traiteurs_gestionnaire) :
     // la page ne transmet JAMAIS la clé de stockage.
     expect(img.getAttribute('src')).toBe(
@@ -118,8 +120,11 @@ describe('M1.1a / logo de la fiche organisation — proxy d’affichage', () => 
     render(<ClientFichePage params={params('org-viparis')} />);
     await screen.findByText('Viparis SAS', undefined, ATTENTE_UI);
 
-    const img = document.querySelector('img')!;
-    expect(img).toBeTruthy();
+    // La page ne rend qu'une image : l'asserter rend l'échec explicite si une
+    // autre <img> vient un jour s'intercaler avant le logo.
+    const imgs = document.querySelectorAll('img');
+    expect(imgs).toHaveLength(1);
+    const img = imgs[0]!;
     expect(img.getAttribute('src')).toBe(
       `/api/v1/admin/uploads/logo?key=${encodeURIComponent(CLE)}`,
     );

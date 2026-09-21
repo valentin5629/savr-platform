@@ -519,7 +519,7 @@
     },
     {
       "id": "M3.1-lieux-autocomplete-preuve-comportement",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:254-259",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:256-261",
       "artefact": "supabase/tests/programmation_lieux_autocompletion.test.sql",
       "test": "lieux_autocompletion_comportement_sous_rls — le traiteur opérationnel se voit proposer le lieu, le concurrent non",
       "statut": "implemented",

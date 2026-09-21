@@ -23,6 +23,23 @@
 -- qu'en 20260616130000) ; search_path conservé (durcissement sécurité).
 -- ---------------------------------------------------------------------------
 
+-- ROLLBACK — retour à l'ancienne signature (as-built 20260705130000). Le corps
+-- étant inchangé, il suffit de recréer la fonction avec les anciens noms de
+-- sortie et de rejouer les mêmes grants :
+--   DROP FUNCTION IF EXISTS plateforme.f_benchmark_single_collecte(uuid);
+--   CREATE FUNCTION plateforme.f_benchmark_single_collecte(p_collecte_id uuid)
+--     RETURNS TABLE(flux_code text, bracket text, valeur_kg_pax numeric,
+--                   median_kg_pax numeric, nb_collectes integer)
+--     -- … corps identique, puis :
+--   REVOKE EXECUTE ON FUNCTION plateforme.f_benchmark_single_collecte(uuid) FROM PUBLIC;
+--   GRANT  EXECUTE ON FUNCTION plateforme.f_benchmark_single_collecte(uuid)
+--     TO authenticated, service_role;
+-- ⚠ Revenir sur CETTE migration seule, sans revenir aussi sur le code applicatif
+-- de la même PR, est un mode de panne SILENCIEUX : la route lirait `ratio_user`
+-- sur une ligne qui ne porte plus que `valeur_kg_pax`, obtiendrait undefined, et
+-- JSON.stringify retirerait la clé de la réponse au lieu de lever. Revenir sur
+-- les deux ensemble, ou sur aucun.
+
 BEGIN;
 
 DROP FUNCTION IF EXISTS plateforme.f_benchmark_single_collecte(uuid);

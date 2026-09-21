@@ -12,7 +12,7 @@
  * sens de React — même geste que detail-evenement-gestionnaire.m3-2.test.tsx.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn(), refresh: vi.fn() }),
@@ -238,14 +238,17 @@ describe('M3.1 / fiche collecte traiteur — Bloc 3 ZD (§06.04)', () => {
     ATTENTE_CAS_MS,
   );
 
-  it(
-    'M3.1/fiche_ui_bloc3_visible_zd_cloturee — jauges + encart de filtres du repère',
-    async () => {
-      stubFetch(collecte({ statut: 'cloturee', taux_recyclage: 78.4 }));
+  // Les DEUX statuts terminaux de §06.04 l.443, chacun à son tour : une
+  // régression qui les séparerait ne passerait pas inaperçue.
+  it.each(['cloturee', 'realisee'])(
+    'M3.1/fiche_ui_bloc3_visible_zd_terminee — jauges + encart de filtres (%s)',
+    async (statut) => {
+      stubFetch(collecte({ statut }));
       render(<FicheCollectePage params={params('c1')} />);
 
       const bloc = await screen.findByTestId('bloc-3-zd-fiche', {}, ATTENTE_UI);
-      // Les 5 flux ZD sont tous représentés (§06.04 « 1 jauge par flux ZD »).
+      // Les 5 flux ZD sont tous représentés (§06.04 « 1 jauge par flux ZD »),
+      // même quand la collecte n'a qu'un flux pesé.
       expect(bloc.textContent).toContain('Biodéchets');
       expect(bloc.textContent).toContain('Déchet résiduel');
       // Encart de filtres du repère imbriqué DANS la carte des jauges.
@@ -255,13 +258,29 @@ describe('M3.1 / fiche collecte traiteur — Bloc 3 ZD (§06.04)', () => {
   );
 
   it(
-    'M3.1/fiche_ui_bloc3_visible_zd_realisee — statut realisee aussi (§06.04 l.443)',
+    'M3.1/fiche_ui_bloc3_filtres_initialises_sur_la_collecte — la requête porte le segment (type × taille)',
     async () => {
-      stubFetch(collecte({ statut: 'realisee' }));
+      // Sonde de la CHAÎNE : l'encart émet ses défauts au montage, la page en
+      // fait une requête. Sans cela le bloc s'afficherait vide en production
+      // alors que les libellés de flux, eux, seraient bien rendus.
+      stubFetch(collecte({ statut: 'cloturee' }));
       render(<FicheCollectePage params={params('c1')} />);
+      await screen.findByTestId('bloc-3-zd-fiche', {}, ATTENTE_UI);
 
-      const bloc = await screen.findByTestId('bloc-3-zd-fiche', {}, ATTENTE_UI);
-      expect(bloc.textContent).toContain('Biodéchets');
+      const urlsAppelees = (): string[] =>
+        (
+          globalThis.fetch as unknown as { mock: { calls: unknown[][] } }
+        ).mock.calls.map((c) => String(c[0]));
+      const requete = await waitFor(() => {
+        const u = urlsAppelees().find((u) => u.includes('/benchmark?'));
+        if (!u) throw new Error('aucune requête benchmark émise');
+        return u;
+      }, ATTENTE_UI);
+      // §06.04 « Initialisation » : type d'événement ET taille de CETTE collecte.
+      expect(requete).toContain('type_evenement_ids=t1');
+      expect(requete).toContain('taille_evenement_codes=S');
+      // …et la période par défaut (12 mois glissants) est bornée.
+      expect(requete).toContain('periode_debut=');
     },
     ATTENTE_CAS_MS,
   );

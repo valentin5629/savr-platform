@@ -17,6 +17,7 @@ import {
 } from '@/components/dashboards';
 import { BenchmarkBulletGauges } from '@/components/dashboards/charts/cockpit/BenchmarkBulletGauges';
 import { refCourteCollecte } from '@/lib/collecte-ref';
+import { formatDateParis } from '@savr/shared/src/temps/index.js';
 
 // Tooltip méthode UE (§06.04 l.422) — texte figé, affiché sur le libellé « Taux de
 // recyclage » de la fiche (BL-P3-03).
@@ -29,8 +30,6 @@ const TOOLTIP_TAUX_UE =
 const TYPE_ORGA_LABEL: Record<string, string> = {
   agence: 'agence',
   gestionnaire_lieux: 'gestionnaire de lieux',
-  traiteur: 'traiteur',
-  client_organisateur: 'client organisateur',
 };
 
 interface Lieu {
@@ -112,21 +111,11 @@ interface Collecte {
 interface BenchmarkFlux {
   ratio_user: number | null;
   benchmark_kg_pax: number | null;
-  nb_collectes_segment: number | null;
 }
 
 function one<T>(v: T | T[] | null): T | null {
   if (!v) return null;
   return Array.isArray(v) ? (v[0] ?? null) : v;
-}
-
-// Date du titre composite (§06.04 « Titre de la fiche ») — format FR comme
-// partout ailleurs dans l'app ; l'ISO brut de la DB ne s'affiche jamais.
-function dateFr(iso: string | null): string | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' });
 }
 
 const STATUTS_EDITABLES = ['programmee', 'validee'];
@@ -211,26 +200,22 @@ export default function FicheCollectePage({
     c?.type === 'zero_dechet' && STATUTS_BENCHMARK.includes(c.statut);
 
   useEffect(() => {
-    if (!benchmarkVisible) return;
+    if (!benchmarkVisible || !benchFilters) return;
     const qs = new URLSearchParams();
-    if (benchFilters) {
-      if (benchFilters.periode_debut)
-        qs.set('periode_debut', benchFilters.periode_debut);
-      if (benchFilters.periode_fin)
-        qs.set('periode_fin', benchFilters.periode_fin);
-      if (benchFilters.type_evenement_ids.length)
-        qs.set('type_evenement_ids', benchFilters.type_evenement_ids.join(','));
-      if (benchFilters.taille_evenement_codes.length)
-        qs.set(
-          'taille_evenement_codes',
-          benchFilters.taille_evenement_codes.join(','),
-        );
-      if (benchFilters.lieu_ids.length)
-        qs.set('lieu_ids', benchFilters.lieu_ids.join(','));
-    }
-    const url =
-      `/api/v1/traiteur/collectes/${encodeURIComponent(id)}/benchmark` +
-      (qs.size ? `?${qs.toString()}` : '');
+    if (benchFilters.periode_debut)
+      qs.set('periode_debut', benchFilters.periode_debut);
+    if (benchFilters.periode_fin)
+      qs.set('periode_fin', benchFilters.periode_fin);
+    if (benchFilters.type_evenement_ids.length)
+      qs.set('type_evenement_ids', benchFilters.type_evenement_ids.join(','));
+    if (benchFilters.taille_evenement_codes.length)
+      qs.set(
+        'taille_evenement_codes',
+        benchFilters.taille_evenement_codes.join(','),
+      );
+    if (benchFilters.lieu_ids.length)
+      qs.set('lieu_ids', benchFilters.lieu_ids.join(','));
+    const url = `/api/v1/traiteur/collectes/${encodeURIComponent(id)}/benchmark?${qs.toString()}`;
     let annule = false;
     fetch(url)
       .then((r) => (r.ok ? r.json() : null))
@@ -244,11 +229,6 @@ export default function FicheCollectePage({
       annule = true;
     };
   }, [id, benchmarkVisible, benchFilters]);
-
-  const handleBenchFilters = useCallback(
-    (f: BenchmarkFilters) => setBenchFilters(f),
-    [],
-  );
 
   async function confirmerAnnulation() {
     setAnnulEnCours(true);
@@ -332,7 +312,7 @@ export default function FicheCollectePage({
   const typeEvt = one(evt?.type_evenement ?? null);
   const pax = evt?.pax != null ? `${evt.pax} pax` : '— pax';
   const titre = [
-    dateFr(c.date_collecte),
+    formatDateParis(c.date_collecte),
     lieu?.nom,
     evt?.nom_client_organisateur,
     pax,
@@ -599,7 +579,7 @@ export default function FicheCollectePage({
             filtersSlot={
               <BenchmarkFilterBar
                 embedded
-                onChange={handleBenchFilters}
+                onChange={setBenchFilters}
                 initialTypeEvenementIds={
                   evt?.type_evenement_id ? [evt.type_evenement_id] : []
                 }

@@ -105,9 +105,9 @@
     "M3.1/fiche_ui_programmee_par_absent",
     "M3.1/fiche_ui_erreur_reessayer",
     "M3.1/fiche_ui_bloc3_masque_avant_realisation",
-    "M3.1/fiche_ui_bloc3_visible_zd_cloturee",
     "M3.1/fiche_ui_bloc3_masque_en_ag",
-    "M3.1/fiche_ui_bloc3_visible_zd_realisee"
+    "M3.1/fiche_ui_bloc3_visible_zd_terminee",
+    "M3.1/fiche_ui_bloc3_filtres_initialises_sur_la_collecte"
   ],
   "deliverables": [
     {

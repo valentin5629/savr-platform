@@ -195,13 +195,22 @@ describe('M3.1 / fiche collecte — bloc d’entête (§06.04)', () => {
 describe('M3.1 / fiche collecte — Bloc 3 ZD jauges (§06.04)', () => {
   it('M3.1/fiche_bloc3_ratio_et_repere — ratio collecte + moyenne parc par flux', async () => {
     rls.rpcResults.f_benchmark_single_collecte = {
+      data: [{ flux_code: 'biodechet', ratio_user: 0.42 }],
+      error: null,
+    };
+    // Deux segments type × taille pour le même flux : le repère servi doit être
+    // leur moyenne pondérée par l'effectif, pas la première ligne venue.
+    rls.rpcResults.f_benchmark_kg_pax_zd = {
       data: [
         {
           flux_code: 'biodechet',
-          taille_evenement: 'M',
-          ratio_user: 0.42,
-          benchmark_kg_pax: 0.35,
-          nb_collectes_segment: 12,
+          kg_par_pax_moyen: 0.3,
+          nb_collectes_segment: 5,
+        },
+        {
+          flux_code: 'biodechet',
+          kg_par_pax_moyen: 0.4,
+          nb_collectes_segment: 15,
         },
       ],
       error: null,
@@ -213,43 +222,23 @@ describe('M3.1 / fiche collecte — Bloc 3 ZD jauges (§06.04)', () => {
     expect(res.status).toBe(200);
     const { data } = (await res.json()) as {
       data: {
-        taille_evenement: string;
-        flux: Record<
-          string,
-          {
-            ratio_user: number;
-            benchmark_kg_pax: number;
-            nb_collectes_segment: number;
-          }
-        >;
+        flux: Record<string, { ratio_user: number; benchmark_kg_pax: number }>;
       };
     };
-    expect(data.taille_evenement).toBe('M');
     const bio = data.flux.biodechet!;
     expect(bio.ratio_user).toBe(0.42);
-    expect(bio.benchmark_kg_pax).toBe(0.35);
-    expect(bio.nb_collectes_segment).toBe(12);
-    // Sans filtre d'URL, le repère vient du grain collecte : aucun second appel.
-    expect(rls.rpcCalls.map((c) => c.name)).toEqual([
-      'f_benchmark_single_collecte',
-    ]);
+    // (0,3×5 + 0,4×15) / 20 = 0,375
+    expect(bio.benchmark_kg_pax).toBeCloseTo(0.375, 6);
   });
 
   it('M3.1/fiche_bloc3_k_anonymat — segment < 5 collectes ⇒ repère parc masqué, ratio conservé', async () => {
-    // k-anonymat appliqué dans f_benchmark_kg_pax_zd : pas de ligne parc ⇒ le
-    // LEFT JOIN rend benchmark NULL. Le ratio du demandeur, lui, reste servi.
+    // k-anonymat appliqué DANS f_benchmark_kg_pax_zd (HAVING ≥ 5) : un segment
+    // trop petit ne rend aucune ligne — le flux est donc absent de l'agrégat.
     rls.rpcResults.f_benchmark_single_collecte = {
-      data: [
-        {
-          flux_code: 'verre',
-          taille_evenement: 'XS',
-          ratio_user: 0.1,
-          benchmark_kg_pax: null,
-          nb_collectes_segment: 0,
-        },
-      ],
+      data: [{ flux_code: 'verre', ratio_user: 0.1 }],
       error: null,
     };
+    rls.rpcResults.f_benchmark_kg_pax_zd = { data: [], error: null };
 
     const { GET } =
       await import('@/app/api/v1/traiteur/collectes/[id]/benchmark/route.js');
@@ -282,21 +271,15 @@ describe('M3.1 / fiche collecte — Bloc 3 ZD jauges (§06.04)', () => {
 
   it('M3.1/fiche_bloc3_traiteur_ids_rejete — filtre concurrentiel interdit au traiteur (§04)', async () => {
     rls.rpcResults.f_benchmark_single_collecte = {
-      data: [
-        {
-          flux_code: 'carton',
-          taille_evenement: 'M',
-          ratio_user: 0.2,
-          benchmark_kg_pax: 0.2,
-          nb_collectes_segment: 9,
-        },
-      ],
+      data: [{ flux_code: 'carton', ratio_user: 0.2 }],
       error: null,
     };
 
     const { GET } =
       await import('@/app/api/v1/traiteur/collectes/[id]/benchmark/route.js');
-    const res = await GET(makeReq('?lieu_ids=l1&traiteur_ids=org-2'), {
+    // traiteur_ids SEUL, sans aucun autre filtre : la garde doit s'armer quand
+    // même (un chemin conditionnel l'aurait laissée dormir ici).
+    const res = await GET(makeReq('?traiteur_ids=org-2'), {
       params: Promise.resolve({ id: 'c1' }),
     });
     expect(res.status).toBe(403);

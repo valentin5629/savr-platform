@@ -252,7 +252,7 @@
     },
     {
       "id": "BL-P1-RM-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:447",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:373",
       "artefact": "packages/adapters/src/mts1/adapter.ts (updateCollecte — création des rangs manquants 1..N via dispatchCollecte)",
       "test": "M1.5a / RM-03 augmentation N→N+k — crée les rangs manquants via dispatchCollecte",
       "statut": "implemented",

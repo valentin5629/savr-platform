@@ -74,7 +74,7 @@
     },
     {
       "id": "BL-P2-11",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:110",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:92",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/app/(agence)/agence/page.tsx",
       "test": "M3.1/blocs_traiteur_kpi_cartes_cliquables",
       "statut": "implemented",
@@ -82,7 +82,7 @@
     },
     {
       "id": "BL-P2-43",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:312",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:92",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx",
       "test": "M3.1/blocs_traiteur_kpi_cartes_cliquables",
       "statut": "implemented",

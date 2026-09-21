@@ -23,9 +23,13 @@
  *      – non  → on RETROUVE ce texte dans le fichier courant (ancre 3 lignes non
  *        vides, dégradée à 2 puis 1, hit unique exigé) et on propose la ligne.
  *
- * Zéro faux positif : on ne signale que si le texte d'époque est retrouvé ailleurs
- * de façon NON AMBIGUË. Un passage réécrit sur place ne bouge pas de ligne, donc
- * ne remonte pas.
+ * Rien n'est signalé si le texte d'époque n'est pas retrouvé ailleurs de façon NON
+ * AMBIGUË (hit unique), et un passage réécrit sur place ne bouge pas de ligne donc
+ * ne remonte pas. Cela ne vaut toutefois QUE si le sha d'ancre est le bon : c'est
+ * pourquoi la ligne `ref_cdc` est repérée par l'`id` du livrable et jamais par la
+ * VALEUR de `ref_cdc` (53 valeurs sont partagées par plusieurs livrables — les
+ * apparier par valeur ferait hériter le sha du premier, donc un instantané CDC
+ * étranger, et c'est la seule façon connue de fabriquer un faux positif ici).
  *
  * Deux limites assumées, à connaître avant de s'y fier :
  *   – un manifeste REFORMATÉ en masse fait sauter le blame sur ses lignes : l'ancre
@@ -176,6 +180,29 @@ function resoudre(
 // ---------------------------------------------------------------------------
 // Collecte des refs lignées
 // ---------------------------------------------------------------------------
+/**
+ * Map `id de livrable` → numéro de la ligne JSON portant SON `ref_cdc`.
+ * Un seul passage séquentiel : on retient le dernier `"id"` rencontré et on le
+ * lie au `"ref_cdc"` qui suit (l'ordre des clés est celui du schéma). Les ids
+ * sont uniques par manifeste, donc l'association est bijective.
+ */
+function lignesRefCdcParId(lignesJson: string[]): Map<string, number> {
+  const map = new Map<string, number>();
+  let idCourant: string | null = null;
+  for (let i = 0; i < lignesJson.length; i++) {
+    const mId = /^\s*"id":\s*"([^"]+)"/.exec(lignesJson[i]);
+    if (mId) {
+      idCourant = mId[1];
+      continue;
+    }
+    if (idCourant && /^\s*"ref_cdc":/.test(lignesJson[i])) {
+      map.set(idCourant, i + 1); // 1-indexé, comme le blame
+      idCourant = null;
+    }
+  }
+  return map;
+}
+
 function collecterRefs(): { refs: Ref[]; sansHistorique: number } {
   const refs: Ref[] = [];
   let sansHistorique = 0;
@@ -191,15 +218,19 @@ function collecterRefs(): { refs: Ref[]; sansHistorique: number } {
       deliverables?: { id: string; ref_cdc?: string; libelle?: string }[];
     };
 
+    // Ligne JSON du `ref_cdc` de CHAQUE livrable, repérée par son `id` (unique
+    // dans un manifeste). Chercher la ligne par la VALEUR de `ref_cdc` serait
+    // faux : 53 valeurs sont aujourd'hui partagées par plusieurs livrables (et
+    // l'une peut être préfixe d'une autre, « …:36 » dans « …:36 + autre.md:254 »)
+    // → tous auraient hérité du sha de la PREMIÈRE occurrence, donc d'un
+    // instantané CDC étranger, seule source possible de faux positif ici.
+    const ligneRefParId = lignesRefCdcParId(lignesJson);
+
     for (const d of manifeste.deliverables ?? []) {
       // `ref_cdc` tolère plusieurs sources jointes par « + » (grain grossier).
       const parties = String(d.ref_cdc ?? '').split(/\s*\+\s*(?=specs\/cdc\/)/);
-      const aiguille = JSON.stringify(d.ref_cdc ?? '').slice(1, -1);
-      const idxJson =
-        lignesJson.findIndex(
-          (l) => l.includes('"ref_cdc"') && l.includes(aiguille),
-        ) + 1;
-      const sha = idxJson > 0 ? (blame[idxJson] ?? null) : null;
+      const idxJson = ligneRefParId.get(d.id);
+      const sha = idxJson ? (blame[idxJson] ?? null) : null;
 
       for (const partie of parties) {
         const m = /^(specs\/cdc\/.*?\.md):(\d+)(?:-(\d+))?\s*$/.exec(

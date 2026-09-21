@@ -41,7 +41,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       `id, type, statut, date_collecte, taux_recyclage,
        evenements!inner(lieu_id, traiteur_operationnel_organisation_id,
          lieux!lieu_id(id, nom),
-         organisations!traiteur_operationnel_organisation_id(id, nom, logo_url)),
+         organisations:v_traiteurs_gestionnaire!traiteur_operationnel_organisation_id(id, nom, logo_url)),
        collecte_flux(poids_reel_kg),
        attributions_antgaspi(volume_repas_realise)`,
     )

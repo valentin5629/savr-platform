@@ -4,7 +4,7 @@
 -- =============================================================================
 -- Source : §08 §3 V1 / §3bis.6 (refus transporteur → retour file Ops-driven) +
 -- arbitrage Val 2026-09-17 (« réinitialiser en place »).
--- Migration : 20260917160000_plateforme_reattribution_reinit_tournees_refusees.sql
+-- Migration : 20260921220000_plateforme_reattribution_reinit_tournees_refusees.sql
 --
 -- Oracle = l'event émis. Avant correctif (mesuré, transaction annulée), les cas
 -- A et B émettaient `collecte.modifiee` : no-op côté vélo, modification d'une

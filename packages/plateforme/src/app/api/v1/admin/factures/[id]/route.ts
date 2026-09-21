@@ -21,7 +21,7 @@ export async function GET(
     .from('factures')
     .select(
       `*,
-       organisations!organisation_id(raison_sociale, siret, type_organisation),
+       organisations!organisation_id(raison_sociale, siret, type),
        entites_facturation(
          raison_sociale, siret, tva_intracom, adresse_facturation,
          code_postal, ville, pays, conditions_paiement_jours,
@@ -33,7 +33,7 @@ export async function GET(
          collectes(
            id, type, statut,
            evenements(id, reference_affaire, date_evenement,
-             lieux!lieu_id(nom_usuel)
+             lieux!lieu_id(nom)
            )
          )
        )`,

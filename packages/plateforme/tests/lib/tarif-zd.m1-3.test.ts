@@ -1,7 +1,7 @@
 /**
  * M1.3 — Tests calculer_tarif_zd()
  * Couvre les 20 scénarios du manifest M1.3.json :
- * 5 paliers × 2 bornes + remise simple + remise cumulative + org NULL
+ * 5 paliers × 2 bornes + remise simple + remises multiples (max) + org NULL
  * + org sans grille + 3 erreurs PAX_INVALIDE + 1 erreur GRILLE_INTROUVABLE
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -237,7 +237,7 @@ describe('M1.3/tarif-zd', () => {
     expect(result.remise_pct_cumulee).toBeCloseTo(0.1);
   });
 
-  it('M1.3/tarif-zd — remise cumulative : Π(1 - remise_pct)', async () => {
+  it("M1.3/tarif-zd — remises multiples : seule la plus élevée s'applique", async () => {
     const supabase = buildMockSupabase({
       orgGrilleId: GRILLE_ID,
       grilleActive: true,
@@ -245,10 +245,10 @@ describe('M1.3/tarif-zd', () => {
       remises: [{ remise_pct: 0.1 }, { remise_pct: 0.05 }], // 10% + 5%
     });
     const result = await calculer_tarif_zd(300, ORG_ID, DATE, supabase);
-    // Multiplicatif : 600 × 0.9 × 0.95 = 513€
+    // Pas de cumul (arbitrage Val 2026-09-17) : max(10 %, 5 %) → 600 × 0.9 = 540€
     expect(result.montant_brut_ht).toBe(600);
-    expect(result.montant_ht).toBe(513);
-    expect(result.remise_pct_cumulee).toBeCloseTo(0.145); // 1 - 0.9×0.95 = 1 - 0.855
+    expect(result.montant_ht).toBe(540);
+    expect(result.remise_pct_cumulee).toBeCloseTo(0.1);
   });
 
   // ── Organisation NULL / sans grille ─────────────────────────────────────────

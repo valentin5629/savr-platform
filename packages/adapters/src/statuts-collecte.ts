@@ -22,3 +22,16 @@ export const STATUTS_COLLECTE_TERMINAUX = [
 
 /** Liste au format PostgREST, pour `.not('statut', 'in', …)`. */
 export const FILTRE_STATUTS_COLLECTE_TERMINAUX = `(${STATUTS_COLLECTE_TERMINAUX.join(',')})`;
+
+/**
+ * États d'une collecte en cours d'exécution chez le transporteur : les seuls où
+ * un statut remonté au polling peut encore s'écrire sur la collecte. Une collecte
+ * annulée, en demande d'annulation (arbitrage Val 2026-09-17) ou dans un état
+ * terminal n'est pas requalifiée par un ordre qui arrive après coup. Même liste
+ * que la garde SQL de `fn_agreger_terminal_collecte`.
+ */
+export const STATUTS_COLLECTE_EN_EXECUTION = [
+  'programmee',
+  'validee',
+  'en_cours',
+] as const satisfies readonly CollecteStatut[];

@@ -332,7 +332,7 @@ Clic sur une ligne → vue consolidée en lecture seule (consultation pure, aucu
 **Bloc collectes rattachées** : 1 sous-bloc par collecte (ZD et/ou AG), affichant :
 - Type (ZD / AG), date + heure début, **statut affiché côté client** — mapping canonique : voir [[04 - Espace client traiteur#Mapping d'affichage du statut collecte côté client (canonique — décision Val 2026-06-30, divergence UX-STATUTS)]]. Points clés : `programmee` → **Créée** (jamais « Programmée »), `validee` → Validée, `en_cours`/`realisee` → En cours, `cloturee` → **Réalisée**, `realisee_sans_collecte` → Sans excédents, `annulee`/`annulation_demandee` → Annulée. *(Supersède le mapping F2 2026-06-07 `programmee`/`validee` → Programmée · `realisee`/`cloturee` → Réalisée — décision Val 2026-06-30. UX-only, enum `collectes.statut` inchangé. Le « Statut consolidé » événement ci-dessus reste distinct.)*
 - **Pour ZD** : détail des pesées par flux (kg par flux pour les 5 flux ZD : `biodechet`, `emballage`, `carton`, `verre`, `dechet_residuel`), **taux de recyclage** de la collecte *(lecture directe `collectes.taux_recyclage`, formule à captation par filière)*
-- **Pour AG** : repas donnés, association(s) bénéficiaire(s) avec ville et distance, attribution(s)
+- **Pour AG** : repas donnés, association(s) bénéficiaire(s) avec ville et **distance**, attribution(s). *(Arbitrage Val 2026-09-21 — la distance EST restituée au gestionnaire sur le détail événement, par exception à la correction 2026-07-07 §2 qui reste valable pour la **liste** Associations.)* **Spécification du calcul** : distance orthodromique (haversine, **même formule que l'algo d'attribution AG**) entre les coordonnées GPS de l'association et celles du **lieu de l'événement** ; arrondie à l'entier le plus proche, affichée en km (« 12 km »). **Aucune colonne stockée** — calcul à la volée à chaque lecture (fonction partagée `lib/attribution-ag/associations-par-distance.ts`). Coordonnées manquantes côté association **ou** côté lieu → affichage « — » (jamais 0, jamais d'estimation).
 
 **Bloc documents** : tous les justificatifs disponibles à l'échelle de l'événement et des collectes :
 - Bordereau ZD (par collecte ZD)
@@ -441,7 +441,7 @@ Tous les traiteurs ayant réalisé au moins une collecte sur les lieux de l'orga
 ### Détail traiteur
 
 Fiche traiteur (vue non commerciale) :
-- Logo, nom, ville (pas d'email / téléphone / SIRET)
+- Logo, nom (pas de ville — aucune colonne dédiée dans `organisations` ; pas d'adresse / email / téléphone / SIRET / notes internes)
 - Statistiques 12 mois sur les lieux de l'organisation uniquement
 - Historique des collectes réalisées sur les lieux de l'organisation
 - Pas d'accès aux tarifs, pas d'accès aux marges

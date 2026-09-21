@@ -12,7 +12,7 @@ import {
   type PrestataireOption,
   type TransporteurRecord,
 } from '@/components/admin/transporteur-modal';
-import { ATTENTE_UI } from '@/test-utils/attente-ui';
+import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 const EDIT_FIXTURE_ID = 'transp-42';
 
@@ -115,259 +115,287 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
     ).toBeInTheDocument();
   });
 
-  it('bloque la soumission si type_tms=mts1 sans code', async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal('fetch', fetchMock);
-    render(
-      <TransporteurModal
-        open
-        transporteur={null}
-        onClose={vi.fn()}
-        onSaved={vi.fn()}
-      />,
-    );
+  it(
+    'bloque la soumission si type_tms=mts1 sans code',
+    async () => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <TransporteurModal
+          open
+          transporteur={null}
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+        />,
+      );
 
-    fillCommonFields();
-    fireEvent.change(screen.getByLabelText(/Type de TMS/), {
-      target: { value: 'mts1' },
-    });
-    fireEvent.click(
-      screen.getByRole('button', { name: /Créer le transporteur/ }),
-    );
+      fillCommonFields();
+      fireEvent.change(screen.getByLabelText(/Type de TMS/), {
+        target: { value: 'mts1' },
+      });
+      fireEvent.click(
+        screen.getByRole('button', { name: /Créer le transporteur/ }),
+      );
 
-    expect(
-      await screen.findByText(
-        /Code transporteur MTS-1 obligatoire/,
-        undefined,
+      expect(
+        await screen.findByText(
+          /Code transporteur MTS-1 obligatoire/,
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'création (type_tms=autre) → POST + onSaved/onClose',
+    async () => {
+      const onSaved = vi.fn();
+      const onClose = vi.fn();
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ id: 'transp-1' }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <TransporteurModal
+          open
+          transporteur={null}
+          onClose={onClose}
+          onSaved={onSaved}
+        />,
+      );
+
+      fillCommonFields();
+      fireEvent.change(screen.getByLabelText(/Type de TMS/), {
+        target: { value: 'autre' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Anti-Gaspi (AG)' }));
+      fireEvent.click(
+        screen.getByRole('button', { name: /Créer le transporteur/ }),
+      );
+
+      await waitFor(
+        () =>
+          expect(fetchMock).toHaveBeenCalledWith(
+            '/api/v1/admin/transporteurs',
+            expect.objectContaining({ method: 'POST' }),
+          ),
         ATTENTE_UI,
-      ),
-    ).toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
+      );
+      const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(options.body as string) as {
+        types_vehicules: string[];
+        types_collecte: string[] | null;
+        type_tms: string;
+        code_transporteur_mts1: string | null;
+      };
+      expect(body.types_vehicules).toEqual(['camionnette']);
+      expect(body.types_collecte).toEqual(['anti_gaspi']);
+      expect(body.type_tms).toBe('autre');
+      expect(body.code_transporteur_mts1).toBeNull();
 
-  it('création (type_tms=autre) → POST + onSaved/onClose', async () => {
-    const onSaved = vi.fn();
-    const onClose = vi.fn();
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ id: 'transp-1' }),
-    });
-    vi.stubGlobal('fetch', fetchMock);
-    render(
-      <TransporteurModal
-        open
-        transporteur={null}
-        onClose={onClose}
-        onSaved={onSaved}
-      />,
-    );
+      await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
+      expect(onClose).toHaveBeenCalled();
+    },
+    ATTENTE_CAS_MS,
+  );
 
-    fillCommonFields();
-    fireEvent.change(screen.getByLabelText(/Type de TMS/), {
-      target: { value: 'autre' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Anti-Gaspi (AG)' }));
-    fireEvent.click(
-      screen.getByRole('button', { name: /Créer le transporteur/ }),
-    );
+  it(
+    'édition → PATCH /transporteurs/{id} avec les champs modifiés',
+    async () => {
+      const onSaved = vi.fn();
+      const onClose = vi.fn();
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ id: EDIT_FIXTURE.id }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <TransporteurModal
+          open
+          transporteur={EDIT_FIXTURE}
+          onClose={onClose}
+          onSaved={onSaved}
+        />,
+      );
 
-    await waitFor(
-      () =>
-        expect(fetchMock).toHaveBeenCalledWith(
-          '/api/v1/admin/transporteurs',
-          expect.objectContaining({ method: 'POST' }),
-        ),
-      ATTENTE_UI,
-    );
-    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
-    const body = JSON.parse(options.body as string) as {
-      types_vehicules: string[];
-      types_collecte: string[] | null;
-      type_tms: string;
-      code_transporteur_mts1: string | null;
-    };
-    expect(body.types_vehicules).toEqual(['camionnette']);
-    expect(body.types_collecte).toEqual(['anti_gaspi']);
-    expect(body.type_tms).toBe('autre');
-    expect(body.code_transporteur_mts1).toBeNull();
+      // Champ prérempli puis modifié.
+      fireEvent.change(screen.getByLabelText(/Nom du transporteur/), {
+        target: { value: 'Strike Logistique 2' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: /Enregistrer/ }));
 
-    await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
-    expect(onClose).toHaveBeenCalled();
-  });
+      await waitFor(
+        () =>
+          expect(fetchMock).toHaveBeenCalledWith(
+            `/api/v1/admin/transporteurs/${EDIT_FIXTURE.id}`,
+            expect.objectContaining({ method: 'PATCH' }),
+          ),
+        ATTENTE_UI,
+      );
+      const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(options.body as string) as { nom: string };
+      expect(body.nom).toBe('Strike Logistique 2');
+      await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('édition → PATCH /transporteurs/{id} avec les champs modifiés', async () => {
-    const onSaved = vi.fn();
-    const onClose = vi.fn();
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ id: EDIT_FIXTURE.id }),
-    });
-    vi.stubGlobal('fetch', fetchMock);
-    render(
-      <TransporteurModal
-        open
-        transporteur={EDIT_FIXTURE}
-        onClose={onClose}
-        onSaved={onSaved}
-      />,
-    );
+  it(
+    'Désactiver → PATCH { actif:false } + onSaved/onClose',
+    async () => {
+      const onSaved = vi.fn();
+      const onClose = vi.fn();
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({}),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <TransporteurModal
+          open
+          transporteur={EDIT_FIXTURE}
+          onClose={onClose}
+          onSaved={onSaved}
+        />,
+      );
 
-    // Champ prérempli puis modifié.
-    fireEvent.change(screen.getByLabelText(/Nom du transporteur/), {
-      target: { value: 'Strike Logistique 2' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /Enregistrer/ }));
+      fireEvent.click(screen.getByRole('button', { name: /Désactiver/ }));
 
-    await waitFor(
-      () =>
-        expect(fetchMock).toHaveBeenCalledWith(
-          `/api/v1/admin/transporteurs/${EDIT_FIXTURE.id}`,
-          expect.objectContaining({ method: 'PATCH' }),
-        ),
-      ATTENTE_UI,
-    );
-    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
-    const body = JSON.parse(options.body as string) as { nom: string };
-    expect(body.nom).toBe('Strike Logistique 2');
-    await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
-  });
-
-  it('Désactiver → PATCH { actif:false } + onSaved/onClose', async () => {
-    const onSaved = vi.fn();
-    const onClose = vi.fn();
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({}),
-    });
-    vi.stubGlobal('fetch', fetchMock);
-    render(
-      <TransporteurModal
-        open
-        transporteur={EDIT_FIXTURE}
-        onClose={onClose}
-        onSaved={onSaved}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: /Désactiver/ }));
-
-    await waitFor(
-      () =>
-        expect(fetchMock).toHaveBeenCalledWith(
-          `/api/v1/admin/transporteurs/${EDIT_FIXTURE.id}`,
-          expect.objectContaining({ method: 'PATCH' }),
-        ),
-      ATTENTE_UI,
-    );
-    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
-    const body = JSON.parse(options.body as string) as { actif: boolean };
-    expect(body.actif).toBe(false);
-    await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
-    expect(onClose).toHaveBeenCalled();
-  });
+      await waitFor(
+        () =>
+          expect(fetchMock).toHaveBeenCalledWith(
+            `/api/v1/admin/transporteurs/${EDIT_FIXTURE.id}`,
+            expect.objectContaining({ method: 'PATCH' }),
+          ),
+        ATTENTE_UI,
+      );
+      const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(options.body as string) as { actif: boolean };
+      expect(body.actif).toBe(false);
+      await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
+      expect(onClose).toHaveBeenCalled();
+    },
+    ATTENTE_CAS_MS,
+  );
 
   // ── Lien prestataire logistique ─────────────────────────────────────────────
   // Sans ce lien, un transporteur routé vers un adapter écarte toutes ses
   // tournées : 100 % de ses événements finissent en file d'erreur.
 
-  it('bloque la soumission si type_tms=a_toutes sans prestataire logistique', async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal('fetch', fetchMock);
-    render(
-      <TransporteurModal
-        open
-        transporteur={null}
-        onClose={vi.fn()}
-        onSaved={vi.fn()}
-        prestataires={PRESTATAIRES}
-      />,
-    );
+  it(
+    'bloque la soumission si type_tms=a_toutes sans prestataire logistique',
+    async () => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <TransporteurModal
+          open
+          transporteur={null}
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+          prestataires={PRESTATAIRES}
+        />,
+      );
 
-    fillCommonFields();
-    fireEvent.change(screen.getByLabelText(/Type de TMS/), {
-      target: { value: 'a_toutes' },
-    });
-    fireEvent.click(
-      screen.getByRole('button', { name: /Créer le transporteur/ }),
-    );
+      fillCommonFields();
+      fireEvent.change(screen.getByLabelText(/Type de TMS/), {
+        target: { value: 'a_toutes' },
+      });
+      fireEvent.click(
+        screen.getByRole('button', { name: /Créer le transporteur/ }),
+      );
 
-    expect(
-      await screen.findByText(
-        /Prestataire logistique obligatoire/,
-        undefined,
-        ATTENTE_UI,
-      ),
-    ).toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
+      expect(
+        await screen.findByText(
+          /Prestataire logistique obligatoire/,
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('création a_toutes → POST porte le prestataire logistique choisi', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ id: 'transp-1' }),
-    });
-    vi.stubGlobal('fetch', fetchMock);
-    render(
-      <TransporteurModal
-        open
-        transporteur={null}
-        onClose={vi.fn()}
-        onSaved={vi.fn()}
-        prestataires={PRESTATAIRES}
-      />,
-    );
+  it(
+    'création a_toutes → POST porte le prestataire logistique choisi',
+    async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ id: 'transp-1' }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <TransporteurModal
+          open
+          transporteur={null}
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+          prestataires={PRESTATAIRES}
+        />,
+      );
 
-    fillCommonFields();
-    fireEvent.change(screen.getByLabelText(/Type de TMS/), {
-      target: { value: 'a_toutes' },
-    });
-    fireEvent.change(screen.getByLabelText(/Prestataire logistique/), {
-      target: { value: PRESTATAIRES[0]!.id },
-    });
-    fireEvent.click(
-      screen.getByRole('button', { name: /Créer le transporteur/ }),
-    );
+      fillCommonFields();
+      fireEvent.change(screen.getByLabelText(/Type de TMS/), {
+        target: { value: 'a_toutes' },
+      });
+      fireEvent.change(screen.getByLabelText(/Prestataire logistique/), {
+        target: { value: PRESTATAIRES[0]!.id },
+      });
+      fireEvent.click(
+        screen.getByRole('button', { name: /Créer le transporteur/ }),
+      );
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled(), ATTENTE_UI);
-    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
-    const body = JSON.parse(options.body as string) as {
-      prestataire_logistique_id: string | null;
-    };
-    expect(body.prestataire_logistique_id).toBe(PRESTATAIRES[0]!.id);
-  });
+      await waitFor(() => expect(fetchMock).toHaveBeenCalled(), ATTENTE_UI);
+      const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(options.body as string) as {
+        prestataire_logistique_id: string | null;
+      };
+      expect(body.prestataire_logistique_id).toBe(PRESTATAIRES[0]!.id);
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('type manuel sans prestataire → POST avec prestataire_logistique_id null (jamais chaîne vide)', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ id: 'transp-1' }),
-    });
-    vi.stubGlobal('fetch', fetchMock);
-    render(
-      <TransporteurModal
-        open
-        transporteur={null}
-        onClose={vi.fn()}
-        onSaved={vi.fn()}
-        prestataires={PRESTATAIRES}
-      />,
-    );
+  it(
+    'type manuel sans prestataire → POST avec prestataire_logistique_id null (jamais chaîne vide)',
+    async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ id: 'transp-1' }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <TransporteurModal
+          open
+          transporteur={null}
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+          prestataires={PRESTATAIRES}
+        />,
+      );
 
-    fillCommonFields();
-    fireEvent.change(screen.getByLabelText(/Type de TMS/), {
-      target: { value: 'par_mail' },
-    });
-    fireEvent.click(
-      screen.getByRole('button', { name: /Créer le transporteur/ }),
-    );
+      fillCommonFields();
+      fireEvent.change(screen.getByLabelText(/Type de TMS/), {
+        target: { value: 'par_mail' },
+      });
+      fireEvent.click(
+        screen.getByRole('button', { name: /Créer le transporteur/ }),
+      );
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled(), ATTENTE_UI);
-    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
-    const body = JSON.parse(options.body as string) as {
-      prestataire_logistique_id: string | null;
-    };
-    // '' serait refusé par la route (UUID invalide) : l'écran doit envoyer null.
-    expect(body.prestataire_logistique_id).toBeNull();
-  });
+      await waitFor(() => expect(fetchMock).toHaveBeenCalled(), ATTENTE_UI);
+      const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(options.body as string) as {
+        prestataire_logistique_id: string | null;
+      };
+      // '' serait refusé par la route (UUID invalide) : l'écran doit envoyer null.
+      expect(body.prestataire_logistique_id).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
 
   it('création : grise les prestataires déjà rattachés à un transporteur', () => {
     render(
@@ -427,37 +455,44 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
     ).toBeGreaterThanOrEqual(2);
   });
 
-  it("édition : le PATCH n'envoie ni type_tms ni prestataire_logistique_id, même sans lien posé", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ id: EDIT_FIXTURE.id }),
-    });
-    vi.stubGlobal('fetch', fetchMock);
-    render(
-      <TransporteurModal
-        open
-        // a_toutes SANS lien : un transporteur antérieur au contrôle doit rester
-        // éditable (l'obligation ne vaut qu'à la création).
-        transporteur={{ ...EDIT_FIXTURE, type_tms: 'a_toutes' }}
-        onClose={vi.fn()}
-        onSaved={vi.fn()}
-        prestataires={PRESTATAIRES}
-      />,
-    );
+  it(
+    "édition : le PATCH n'envoie ni type_tms ni prestataire_logistique_id, même sans lien posé",
+    async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ id: EDIT_FIXTURE.id }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <TransporteurModal
+          open
+          // a_toutes SANS lien : un transporteur antérieur au contrôle doit rester
+          // éditable (l'obligation ne vaut qu'à la création).
+          transporteur={{ ...EDIT_FIXTURE, type_tms: 'a_toutes' }}
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+          prestataires={PRESTATAIRES}
+        />,
+      );
 
-    fireEvent.change(screen.getByLabelText(/Nom du transporteur/), {
-      target: { value: 'Renommé' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /Enregistrer/ }));
+      fireEvent.change(screen.getByLabelText(/Nom du transporteur/), {
+        target: { value: 'Renommé' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: /Enregistrer/ }));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled(), ATTENTE_UI);
-    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
-    const body = JSON.parse(options.body as string) as Record<string, unknown>;
-    expect(options.method).toBe('PATCH');
-    expect(body.nom).toBe('Renommé');
-    expect(body).not.toHaveProperty('type_tms');
-    expect(body).not.toHaveProperty('prestataire_logistique_id');
-  });
+      await waitFor(() => expect(fetchMock).toHaveBeenCalled(), ATTENTE_UI);
+      const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(options.body as string) as Record<
+        string,
+        unknown
+      >;
+      expect(options.method).toBe('PATCH');
+      expect(body.nom).toBe('Renommé');
+      expect(body).not.toHaveProperty('type_tms');
+      expect(body).not.toHaveProperty('prestataire_logistique_id');
+    },
+    ATTENTE_CAS_MS,
+  );
 
   it("liste des prestataires non chargée : l'édition affiche quand même le lien posé, jamais « Aucun »", () => {
     render(

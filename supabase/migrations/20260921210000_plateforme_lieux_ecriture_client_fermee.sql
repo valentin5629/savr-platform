@@ -1,0 +1,158 @@
+-- =============================================================================
+-- Fermer l'écriture PostgREST directe de `plateforme.lieux`.
+--
+-- Source : audit du reliquat de GRANT laissé par le blanket 0.4a sur `lieux`
+-- (2026-09-21). Suite de #318 (`20260915160000`, `collectes`) et #328
+-- (`20260915190000`, `evenements`), qui ont fermé leurs tables sans toucher
+-- `lieux`. CLAUDE.md §12 pt 2bis — migration de FERMETURE (resserrement).
+--
+-- LE DÉFAUT
+-- ---------
+-- `GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA plateforme TO
+-- authenticated` (0.4a) est table-level. Sur `lieux`, seul le SELECT a été repris
+-- depuis : `20260617170000` l'a retiré au niveau table puis ré-accordé sur une
+-- liste blanche de 23 colonnes (masquage des 5 champs admin-only). INSERT, UPDATE
+-- et DELETE, eux, n'ont jamais été revus.
+--
+-- État mesuré sur la base locale à jour, 2026-09-21 (`relacl` de la table) :
+--   postgres=arwdDxtm/postgres
+--   authenticated=awd/postgres      ← a = INSERT, w = UPDATE, d = DELETE
+--   service_role=arwd/postgres
+-- `anon` n'a jamais rien reçu (0.4a ne lui accorde aucune table).
+--
+-- ⚠ CE GRANT N'EST PAS INERTE — c'est le point, et c'est l'inverse de la lecture
+-- initiale du constat. Il a d'abord été rapporté comme dormant, au motif qu'aucune
+-- policy `FOR INSERT` n'existe sur la table. C'est vrai à la lettre et faux en
+-- pratique : `lieux_admin` est déclarée `FOR ALL` (`pg_policy.polcmd = '*'`), ce qui
+-- en PostgreSQL couvre SELECT, INSERT, UPDATE **et** DELETE. Elle est permissive,
+-- porte sur PUBLIC, et son USING/WITH CHECK se réduit à
+-- `f_app_role() = 'admin_savr'`. `lieux_ops_write` fait de même en UPDATE pour
+-- `ops_savr`. Le privilège table-level rencontre donc bien une policy ouvrante.
+--
+-- Vérifié par écriture réelle sous rôle `authenticated` (transaction rollbackée,
+-- claims JWT posés comme PostgREST les pose — clé anon publique + JWT du staff) :
+--   user_role=admin_savr : INSERT INTO plateforme.lieux …  →  INSERT 0 1
+--   user_role=admin_savr : UPDATE plateforme.lieux …       →  UPDATE 1
+--   user_role=admin_savr : DELETE FROM plateforme.lieux …  →  DELETE 1
+--   user_role=ops_savr   : UPDATE plateforme.lieux …       →  UPDATE 1
+-- Ce n'est donc pas un privilège dormant à ranger : c'est un chemin d'écriture
+-- directe réellement atteignable, ouvert à tout porteur d'un JWT staff muni de la
+-- clé anon — laquelle est publique par construction.
+--
+-- CE QUE CE CHEMIN CONTOURNE (mesuré, même transaction)
+-- ----------------------------------------------------
+-- 1. L'`audit_log`. Il est écrit par les ROUTES (`POST/PATCH /api/v1/admin/lieux`,
+--    `.../normaliser`), jamais par un trigger de base : `lieux` ne porte qu'un seul
+--    trigger, `trg_lieu_champ_critique_e5`. Compté après un UPDATE direct sur un
+--    champ critique : `audit_log_2026` = 0 ligne. Une modification d'adresse de
+--    lieu ne laisse aucune trace d'auteur — or §09 (l.917) range explicitement les
+--    écritures sur `plateforme.lieux` dans le journal `plateforme.audit_log`, et le
+--    §13 OBS-2 retient l'audit trail sur les écritures sensibles.
+-- 2. Les invariants posés par la route autour de l'écriture : rattachement
+--    `organisations_lieux` au gestionnaire (1 gestionnaire par lieu, décision Val
+--    2026-07-02), normalisation d'adresse et géocodage, matrice de rôles §09.
+--    Un INSERT direct produit un lieu orphelin, sans gestionnaire ni coordonnées.
+--
+-- ⚠ CE QUE CE CHEMIN NE CONTOURNE PAS — à ne pas sur-vendre. Contrairement à
+-- `evenements` (#328, dont l'UPDATE direct n'émettait AUCUN E2), l'outbox de `lieux`
+-- résiste : `trg_lieu_champ_critique_e5` est `SECURITY DEFINER` et se déclenche sur
+-- l'UPDATE direct comme sur celui de la route. Mesuré : `outbox_events` = 1 ligne
+-- `lieu.champ_critique_modifie` après UPDATE direct. Le motif de cette fermeture est
+-- la traçabilité et les invariants de route, PAS une perte d'event.
+--
+-- Ce n'est pas non plus une fuite cross-organisation : les deux policies concernées
+-- sont staff-only, le cloisonnement client tient. C'est un défaut de TRAÇABILITÉ et
+-- d'INTÉGRITÉ, dans la même famille que #318 et #328.
+--
+-- LA FERMETURE
+-- ------------
+-- Recensement exhaustif préalable des 12 occurrences de `.from('lieux')` du repo
+-- (grep sur tout l'arbre hors node_modules/specs, extensions ts/tsx/js/mjs/cjs) :
+--   • 10 sont dans des routes API sous `createAdminSupabaseClient` (service_role,
+--     non concerné par un REVOKE sur `authenticated`) : `admin/lieux` (2),
+--     `admin/lieux/[id]` (3), `admin/lieux/[id]/normaliser` (2),
+--     `programmation/lieux` (2), `programmation/evenements` (1) ;
+--   • la 11e est dans un module `lib`, pas une route :
+--     `packages/plateforme/src/lib/notifications/traiteur-operationnel.ts` — un
+--     SELECT, sur un client typé `ReturnType<typeof createAdminSupabaseClient>`,
+--     donc service_role lui aussi ;
+--   • la 12e, `fetchLieu` de `packages/adapters/src/outbox-worker.ts`, est un
+--     SELECT, et son client est injecté par `withCronObservability`, qui construit
+--     un `createAdminSupabaseClient` — service_role lui aussi.
+-- (Le décompte « 11 routes » d'une première rédaction confondait ce module `lib`
+-- avec une route ; sans effet sur la conclusion, corrigé en revue.)
+-- Aucune écriture sous clé anon. Les lectures client passent par `v_lieux_clients`
+-- (`createSupabaseServerClient`, donc `authenticated`) : elles ne dépendent que du
+-- SELECT, hors périmètre ici. La liste blanche de colonnes ré-accordées est donc
+-- VIDE : aucun écran ne casse.
+--
+-- ⚠ Un REVOKE sur une seule colonne serait INOPÉRANT tant que le privilège
+-- table-level subsiste (il couvre toutes les colonnes et prime). On retire le
+-- privilège table-level, et on ne re-GRANT rien.
+--
+-- `anon` est cité explicitement bien qu'il ne détienne rien : le REVOKE est alors
+-- sans effet, mais il inscrit l'intention dans le catalogue et couvre le cas d'un
+-- futur blanket grant qui l'inclurait.
+--
+-- PAS d'effet de bord du type #328. Là-bas, retirer UPDATE sur `evenements` avait
+-- cassé le DELETE client de `collectes`, parce que `fn_set_date_evenement`
+-- (trigger, NON `SECURITY DEFINER`) écrivait `evenements` avec les droits de
+-- l'appelant. La même vérification a été refaite ici, sur TOUT le catalogue (sans
+-- restriction de schéma) : **trois** fonctions ont un corps qui écrit `lieux`, et
+-- aucune n'ouvre de chemin indirect sous `authenticated`.
+--
+--   1. `plateforme.fn_controle_acces_cascade` (trigger `trg_controle_acces_cascade`
+--      sur `collectes`) — `SECURITY DEFINER`. Elle s'exécute avec les droits de son
+--      propriétaire, que ce REVOKE ne touche pas.
+--   2. `tests.outbox_fixture_lieu` et 3. `tests.outbox_fixture_collecte` — helpers
+--      pgTAP, NON definer. `authenticated` détient bien l'EXECUTE, mais pas l'USAGE
+--      sur le schéma `tests` (mesuré : `has_schema_privilege('authenticated',
+--      'tests', 'USAGE')` = false, idem `anon` et `service_role`) : le nom n'est pas
+--      résoluble depuis le client, elles sont inatteignables. Elles sont invoquées
+--      sous superuser par `outbox_par_mutation.test.sql` (garde-fou G4, bloquant en
+--      CI), qui ne pose aucun rôle — confirmé par le différentiel de la suite, où ce
+--      fichier ne bouge pas.
+--
+-- ⚠ Ce recensement a d'abord été écrit « la seule fonction du catalogue est
+-- fn_controle_acces_cascade ». C'était FAUX : le grep d'origine restreignait
+-- `pg_namespace.nspname` à ('plateforme','shared','public') et manquait donc le
+-- schéma `tests` — c'est-à-dire précisément la classe de fonctions, non-definer,
+-- que ce paragraphe prétend écarter. Corrigé en revue sécurité. Ne pas ré-introduire
+-- la restriction de schéma dans cette vérification.
+--
+-- Les vues ne rouvrent rien : `v_lieux_clients` est bien auto-updatable
+-- (`pg_relation_is_updatable` = 28 = UPDATE|INSERT|DELETE), mais `authenticated`
+-- n'y détient que SELECT — écrire à travers elle est déjà refusé, et le reste.
+--
+-- CONFORMITÉ CDC. Le §09 pose, pour le masquage colonne-level de `lieux`, que
+-- « Staff lit/écrit via `service_role`, non impacté » : c'est exactement l'état que
+-- cette migration rend vrai par construction plutôt que par convention. Le scénario
+-- §09 l.63 `lieux_plateforme_full_write_preserved` (« `admin_savr` UPDATE toutes
+-- colonnes → OK ») n'est, selon notre lecture, PAS contredit au sens où il est
+-- écrit — mais la démonstration relève d'un chaînage, pas d'un constat littéral, et
+-- c'est pourquoi la divergence déposée est de type `ambigu` (validation Val requise
+-- avant patch du Vault), et non `clair`.
+--   ÉTABLI : le scénario vit dans le bloc « Tests pgTAP bloquants CI — nouveaux
+--   (révision 2026-04-28 + 2026-05-08) », sous l'addendum cross-schema ; il fait
+--   paire avec `lieux_tms_write_only_2_logistic_cols` (l.62), qui porte sur
+--   `admin_tms`, rôle absent de toute la V1 ; et
+--   `specs/tests/app/09-rls-app-transverse-scenarios.md` (catégorie 6) diffère à la
+--   V2 les pgTAP cross-schema de cet addendum.
+--   INFÉRÉ : cette liste nomme TROIS autres scénarios puis « … » —
+--   `lieux_plateforme_full_write_preserved` n'y figure pas par son nom (vérifié :
+--   0 occurrence dans le fichier). Son inclusion se déduit du lot et du pairing.
+-- Sur le fond, la paire oppose le périmètre de COLONNES d'`admin_tms` (2 colonnes
+-- logistiques) à celui d'`admin_savr` (toutes) — pas le canal d'écriture.
+-- `admin_savr` conserve l'écriture de toutes les colonnes, par les routes. La
+-- divergence demande au lot V2 de relire ce scénario au niveau `service_role`,
+-- comme le §09 l.970 l'a déjà acté pour `collectes` et `evenements`.
+--
+-- Les policies `lieux_admin` et `lieux_ops_write` sont CONSERVÉES (même arbitrage
+-- qu'en #318 et #328) : la fermeture se fait au niveau privilège, pas RLS. Elles
+-- redeviendraient actives si un besoin JWT-scopé réapparaissait.
+-- =============================================================================
+
+REVOKE INSERT, UPDATE, DELETE ON plateforme.lieux FROM authenticated, anon;
+
+COMMENT ON TABLE plateforme.lieux IS
+  'Lieu d''événement. Écriture FERMÉE à `authenticated` depuis 2026-09-21 : INSERT, UPDATE et DELETE retirés du GRANT table-level 0.4a, sans re-GRANT — toute écriture passe par les routes API (service_role), seules à tracer l''audit_log (aucun trigger d''audit sur cette table) et à poser les invariants de rattachement organisations_lieux, de normalisation d''adresse et de géocodage. Les policies lieux_admin (FOR ALL) et lieux_ops_write sont conservées mais INERTES pour PostgREST direct tant que le privilège n''est pas ré-accordé — avant ce REVOKE elles étaient bien ATTEIGNABLES (INSERT/UPDATE/DELETE admis sous JWT admin_savr, UPDATE sous ops_savr). Le SELECT table-level avait déjà été retiré par 20260617170000 au profit d''un GRANT sur une liste blanche de 23 colonnes ; il n''est pas touché ici. L''outbox E5 (trg_lieu_champ_critique_e5, SECURITY DEFINER) n''a jamais dépendu de ce privilège.';

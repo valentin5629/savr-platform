@@ -91,19 +91,19 @@ VALUES
 -- T1 : manager lit tarif_refacture (nécessaire au KPI Marge)
 SELECT test_set_jwt('traiteur_manager', 'bb000000-0000-0000-0000-00000000000a'::uuid,
                     'bb000000-0000-0000-0000-000000000a01'::uuid);
-SELECT lives_ok(
-  $$ SELECT tarif_refacture_pax_zd FROM plateforme.organisations
-     WHERE id = 'bb000000-0000-0000-0000-00000000000a'::uuid $$,
-  'T1 : manager lit tarif_refacture_pax_zd de son orga'
+SELECT isnt(
+  plateforme.f_tarif_refacture_pax_zd('bb000000-0000-0000-0000-00000000000a'::uuid),
+  NULL::numeric,
+  'T1 : manager lit tarif_refacture_pax_zd de son orga (via f_tarif_refacture_pax_zd — colonne hors GRANT SELECT depuis 20260918100000)'
 );
 
 -- T2 : commercial lit tarif_refacture
 SELECT test_set_jwt('traiteur_commercial', 'bb000000-0000-0000-0000-00000000000a'::uuid,
                     'bb000000-0000-0000-0000-000000000a02'::uuid);
-SELECT lives_ok(
-  $$ SELECT tarif_refacture_pax_zd FROM plateforme.organisations
-     WHERE id = 'bb000000-0000-0000-0000-00000000000a'::uuid $$,
-  'T2 : commercial lit tarif_refacture_pax_zd'
+SELECT isnt(
+  plateforme.f_tarif_refacture_pax_zd('bb000000-0000-0000-0000-00000000000a'::uuid),
+  NULL::numeric,
+  'T2 : commercial lit tarif_refacture_pax_zd (via f_tarif_refacture_pax_zd — colonne hors GRANT SELECT depuis 20260918100000)'
 );
 
 -- T3 : manager UPDATE tarif_refacture → permission denied colonne (42501)

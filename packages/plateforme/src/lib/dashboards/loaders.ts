@@ -314,15 +314,16 @@ export async function loadKpiTraiteur(
 
   // tarif_refacture_pax_zd (BL-P3-02) — tooltip formule du KPI Marge. Lecture
   // traiteur autorisée (§04 l.928). Non exposé à l'agence (pas de carte Marge).
+  // La colonne est hors GRANT SELECT authenticated (20260918100000) : lecture par
+  // la fonction gardée, qui ne rend la valeur qu'au traiteur propriétaire.
   let tarif_refacture_pax_zd: number | null = null;
   if (!isAgence) {
-    const { data: org } = await supabase
-      .from('organisations')
-      .select('tarif_refacture_pax_zd')
-      .eq('id', ctx.organisationId)
-      .maybeSingle();
-    tarif_refacture_pax_zd =
-      (org?.tarif_refacture_pax_zd as number | null) ?? null;
+    const { data: tarif, error: tarifError } = await supabase.rpc(
+      'f_tarif_refacture_pax_zd',
+      { p_organisation_id: ctx.organisationId },
+    );
+    if (tarifError) throw loaderDbError(tarifError, 'dashboards.kpi_traiteur');
+    tarif_refacture_pax_zd = (tarif as number | null) ?? null;
   }
 
   // Découpe la fenêtre unique en courante / précédente (réplique .gte/.lte SQL).

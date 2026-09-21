@@ -306,7 +306,7 @@
     },
     {
       "id": "M0.8-switch",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:357",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:356",
       "artefact": null,
       "test": "M0.8-27 — Switch expose role=switch et l’état checked",
       "statut": "à-vérifier",
@@ -314,7 +314,7 @@
     },
     {
       "id": "M0.8-checkbox",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:357",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:356",
       "artefact": null,
       "test": "M0.8-28 — Checkbox expose role=checkbox et l’état checked",
       "statut": "à-vérifier",
@@ -346,7 +346,7 @@
     },
     {
       "id": "M0.8-date-picker",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:356",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:355",
       "artefact": null,
       "test": "M0.8-32 — DatePicker rend un champ date + un créneau heure optionnel",
       "statut": "à-vérifier",
@@ -386,7 +386,7 @@
     },
     {
       "id": "M0.8-form-error",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:358",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:357",
       "artefact": null,
       "test": "M0.8-37 — FormError rend le message en role=alert et rien si vide",
       "statut": "implemented",
@@ -394,7 +394,7 @@
     },
     {
       "id": "M0.8-etat-succes-champs",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:272",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:353",
       "artefact": null,
       "test": "M0.8-38 — Input applique l’état succès (bordure success) et 44px mobile",
       "statut": "à-vérifier",
@@ -402,7 +402,7 @@
     },
     {
       "id": "M0.8-cible-tactile-44",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:424",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:426",
       "artefact": null,
       "test": "M0.8-39 — Button md applique la cible tactile 44px mobile (h-11 sm:h-10)",
       "statut": "implemented",
@@ -426,7 +426,7 @@
     },
     {
       "id": "M0.8-responsive-kpi",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:425",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:427",
       "artefact": null,
       "test": "M0.8-42 — StatCardGrid applique la grille responsive KPI 1/2/3-4 (§8)",
       "statut": "à-vérifier",
@@ -450,7 +450,7 @@
     },
     {
       "id": "BL-P3-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:73",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:72",
       "artefact": "packages/plateforme/src/components/dashboards/DashboardFilterBar.tsx",
       "test": "M0.8-45 — DashboardFilterBar expose presets + Réinitialiser hors mode parc (BL-P3-02)",
       "statut": "implemented",
@@ -458,7 +458,7 @@
     },
     {
       "id": "BL-P3-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:381",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:397",
       "artefact": "packages/plateforme/src/lib/collecte-ref.ts, packages/plateforme/src/app/(traiteur)/traiteur/collectes/[id]/page.tsx",
       "test": "M0.8-43 — refCourteCollecte préfère tms_reference sinon UUID court (BL-P3-03)",
       "statut": "implemented",
@@ -466,7 +466,7 @@
     },
     {
       "id": "BL-P3-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:614",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:630",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/[id]/page.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -474,7 +474,7 @@
     },
     {
       "id": "BL-P3-07",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:101",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:102",
       "artefact": "packages/plateforme/src/app/(admin)/admin/dashboard/page.tsx, packages/plateforme/src/app/(admin)/admin/{transporteurs,associations,lieux,factures}/page.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -482,7 +482,7 @@
     },
     {
       "id": "BL-P3-08",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:711",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:727",
       "artefact": "packages/plateforme/src/components/compte/preferences-langue.tsx, packages/plateforme/src/app/(gestionnaire)/gestionnaire/parametres/page.tsx",
       "test": "M0.8-44 — PreferencesLangueCard affiche la langue française figée (BL-P3-08)",
       "statut": "implemented",
@@ -498,7 +498,7 @@
     },
     {
       "id": "BL-P3-06",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:903",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:868",
       "artefact": null,
       "test": null,
       "statut": "descoped",
@@ -523,7 +523,7 @@
     },
     {
       "id": "BL-P3-11",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:257",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:259",
       "artefact": "supabase/config.toml ([auth.email.template.recovery]) ; supabase/templates/recovery.html ; supabase/migrations/20260710120000_plateforme_r23c_reset_password_slug.sql ; packages/shared/src/seed/constants.ts",
       "test": "M0.8-59 — reset_password : recovery template GoTrue brandé + slug catalogue (BL-P3-11)",
       "statut": "implemented",
@@ -531,7 +531,7 @@
     },
     {
       "id": "BL-P3-12",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:210",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:209",
       "artefact": "packages/plateforme/src/components/collectes/plaque-tms-picto.tsx ; packages/plateforme/src/lib/statut-tms-labels.ts (plaqueTmsComplete) ; packages/plateforme/src/app/(admin)/admin/collectes/[id]/page.tsx ; packages/plateforme/src/app/api/v1/admin/collectes/[id]/route.ts",
       "test": "M0.8-60 — Picto plaque TMS : vert ssi toutes les tournées ont leur plaque (BL-P3-12)",
       "statut": "implemented",
@@ -547,7 +547,7 @@
     },
     {
       "id": "BL-P3-14",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:575",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:577",
       "artefact": "supabase/tests/M2_4__co2_params_rpc.test.sql (boundary 99.96/105) ; packages/plateforme/src/app/api/v1/admin/parametres/mix-emballages/co2-tolerance.m0-8.test.ts (verrou source 4 couches)",
       "test": "M0.8-62 — CO2 mix : tolérance somme 100 % = 0,05 alignée (BL-P3-14) ; pgTAP M2_4 boundary 99,96 accepté / 105 rejeté (22023)",
       "statut": "implemented",
@@ -555,12 +555,12 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "a3b25d8200b577f66006388a15efca739c2ea6278a3ea958889f1c34a583c947",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "90e9f62e94f2cfc441443ae9f7bd18776212d35b4b8b5a6a25dcfd4bf95b1ec5",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "d797c7ba3acdddf1427970109ccc74d34ce7ee65155d1dbb22b9c6c18d09f5dd",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md": "55a8a9d4ff48aecb225abd315a8727a152a1c4efd38d18e7940f866898de99dc",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "aa522fd3b0d3573a2e40d81e6a306201e944f0d2889c281cd77ae96f40fb23d3",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "5fec9c8046a66b4d58095a2f2cd2fdf6ee7f86d350539e1e4494e9b7864e9aa6",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "48c15c34575289ce1bcdebac244502fa2e9612ca06c37fae5cec36beec088892",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "3ad80c53b470d86a7ad5bd76b501ff02ac62ccf5615ed9ca760b5f1f18f3a77a",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "2fd0f8b9bafb3b3d1c4b0142a61ad8290de04ffbd347c5dbc0c016babd6beb1b",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "2f21b1766943fa13ad3bf198970c6458767e1589e798a9b98bbe4b9ae72d145f",
     "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "244d0bd3d9c3388722ed4dd3fb0505c178e8919c5b2a2e29edd5e8c48eded5c1",
     "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "41cc7ea0cf5e68d671ad0ff900ee17e0843e006998cd977ebc2c43c2b3d6938a",
     "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "395550f99b433f9779bea4e570fb6c3acd28ffbae4bdf3c6cb0a653f96b7a124",

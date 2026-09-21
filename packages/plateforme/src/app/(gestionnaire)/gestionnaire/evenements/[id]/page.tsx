@@ -6,14 +6,18 @@ import { use } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { formatDateHeureParis } from '@savr/shared/src/temps/index.js';
 
 interface Attribution {
   id: string;
   volume_repas_realise: number | null;
+  // Distance association ↔ lieu de l'événement, calculée à la volée par la
+  // route (haversine, §06.05 §3 « Pour AG »). null = association ou lieu non
+  // géocodé → « — », jamais 0.
+  distance_km: number | null;
   associations: {
     nom: string;
     ville: string | null;
-    distance_km: number | null;
   } | null;
 }
 interface Collecte {
@@ -31,8 +35,8 @@ interface Collecte {
   attributions_antgaspi: Attribution[];
   bordereaux_savr: {
     id: string;
-    numero_bordereau: string;
-    pdf_url: string | null;
+    numero: string | null;
+    statut: string;
   }[];
   rapports_rse: { id: string; pdf_url: string | null }[];
   attestations_don: {
@@ -48,12 +52,18 @@ interface EvenementDetail {
   pax: number | null;
   taille_bracket: string;
   dechets_labo_kg: number | null;
+  // §06.05 §3 en-tête : « Client Organisateur si renseigné par le traiteur ».
+  nom_client_organisateur: string | null;
   lieux: {
     nom: string;
     adresse_acces: string | null;
     ville: string | null;
   } | null;
-  organisations: { nom: string; logo_url: string | null } | null;
+  // `organisations` = embed sur v_traiteurs_gestionnaire (id, nom, logo_url) :
+  // `id` sert à construire l'URL du proxy logo, jamais la clé R2 elle-même.
+  organisations: { id: string; nom: string; logo_url: string | null } | null;
+  // §06.05 §3 en-tête : « type d'événement ». Embed types_evenements!type_evenement_id.
+  types_evenements: { libelle: string } | null;
   collectes: Collecte[];
 }
 
@@ -72,8 +82,11 @@ export default function EvenementDetailPage({
   const [evt, setEvt] = useState<EvenementDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [docMessage, setDocMessage] = useState<string | null>(null);
+  const [logoKo, setLogoKo] = useState(false);
 
   useEffect(() => {
+    setLogoKo(false);
     fetch(`/api/v1/gestionnaire/evenements/${encodeURIComponent(id)}`)
       .then((r) => {
         if (r.status === 404) {
@@ -88,6 +101,45 @@ export default function EvenementDetailPage({
       .finally(() => setLoading(false));
   }, [id]);
 
+  // Bordereau ZD : URL pré-signée R2 servie par la route registre (gestionnaire
+  // autorisé, RLS bordereaux_savr = frontière) — même geste que le registre.
+  async function telechargerBordereau(bordereauId: string) {
+    const res = await fetch(
+      `/api/v1/registre/bordereaux/${encodeURIComponent(bordereauId)}/download`,
+    );
+    if (!res.ok) return;
+    const j = (await res.json()) as { url?: string };
+    if (j.url) window.open(j.url, '_blank');
+  }
+
+  // Rapport de recyclage / attestation de don : pdf_url = clé R2 (bucket/key),
+  // pas une URL → URL pré-signée via la route gestionnaire (RLS = frontière,
+  // embargo H+24 appliqué côté serveur → 425).
+  async function telechargerDocument(
+    type: 'rapport' | 'attestation',
+    docId: string,
+  ) {
+    setDocMessage(null);
+    const res = await fetch(
+      `/api/v1/gestionnaire/documents/${encodeURIComponent(type)}/${encodeURIComponent(docId)}/download`,
+    );
+    if (res.status === 425) {
+      const j = (await res.json()) as { disponible_a?: string };
+      setDocMessage(
+        j.disponible_a
+          ? `Document disponible à partir du ${formatDateHeureParis(j.disponible_a)}.`
+          : 'Document pas encore disponible.',
+      );
+      return;
+    }
+    if (!res.ok) {
+      setDocMessage('Document indisponible pour le moment.');
+      return;
+    }
+    const j = (await res.json()) as { url?: string };
+    if (j.url) window.open(j.url, '_blank');
+  }
+
   if (loading)
     return <p className="text-sm text-savr-neutral-500">Chargement…</p>;
   if (notFound)
@@ -97,7 +149,14 @@ export default function EvenementDetailPage({
   if (!evt) return null;
 
   const lieu = one(evt.lieux as Parameters<typeof one>[0]);
-  const traiteur = one(evt.organisations as Parameters<typeof one>[0]);
+  const traiteur = one(evt.organisations as Parameters<typeof one>[0]) as {
+    id?: string;
+    nom?: string;
+    logo_url?: string | null;
+  } | null;
+  const typeEvenement = one(
+    evt.types_evenements as Parameters<typeof one>[0],
+  ) as { libelle?: string } | null;
 
   return (
     <div className="space-y-6">
@@ -127,19 +186,70 @@ export default function EvenementDetailPage({
           </div>
           <div>
             <div className="text-xs text-savr-neutral-500">Traiteur</div>
-            <div>{(traiteur as { nom?: string } | null)?.nom ?? '—'}</div>
+            {/* §06.05 §3 : « nom + logo, pas d'email / téléphone / SIRET ».
+                logo_url porte une CLÉ R2 : seul le proxy la résout, dans le
+                périmètre de v_traiteurs_gestionnaire (#367). */}
+            <div className="flex items-center gap-2">
+              {traiteur?.logo_url && traiteur.id && !logoKo && (
+                <img
+                  src={`/api/v1/gestionnaire/traiteurs/${encodeURIComponent(traiteur.id)}/logo`}
+                  alt=""
+                  onError={() => setLogoKo(true)}
+                  className="h-8 w-8 rounded-full object-cover"
+                />
+              )}
+              <span>{traiteur?.nom ?? '—'}</span>
+            </div>
           </div>
+          <div>
+            <div className="text-xs text-savr-neutral-500">
+              Type d'événement
+            </div>
+            <div>{typeEvenement?.libelle ?? '—'}</div>
+          </div>
+          {/* « Client Organisateur si renseigné par le traiteur » : la cellule
+              n'apparaît pas quand le champ est vide (§06.05 §3). */}
+          {evt.nom_client_organisateur && (
+            <div>
+              <div className="text-xs text-savr-neutral-500">
+                Client organisateur
+              </div>
+              <div>{evt.nom_client_organisateur}</div>
+            </div>
+          )}
           <div>
             <div className="text-xs text-savr-neutral-500">Pax</div>
             <div>{evt.pax ?? '—'}</div>
-            {evt.dechets_labo_kg != null && (
-              <div className="text-xs text-savr-neutral-400">
-                Est. labo : {evt.dechets_labo_kg.toFixed(1)} kg
-              </div>
-            )}
+            {/* §06.05 §3 : estimation amont, toujours affichée. Le coefficient
+                brut n'est jamais exposé (la route ne renvoie que les kg, via
+                f_dechets_labo_estimes).
+                Le « — » couvre les DEUX cas où il n'y a pas d'estimation : le
+                traiteur n'a pas communiqué de coefficient (CDC l.330, devenu
+                atteignable par 20260921190000 — la fonction remonte NULL au
+                lieu de 0) et l'échec d'appel RPC. Ne jamais afficher « 0.0 kg »
+                dans ces cas : un coefficient DÉCLARÉ à 0 rend bien « 0.0 kg »
+                (§05 R_dechets_labo_estimes), et c'est ce que le 0 doit
+                signifier — à l'exception tracée et hors lot de `pax = 0`, qui
+                rend 0 alors que §05 veut NULL
+                (_Divergences/M3.2_20260921_dechets-labo-pax-zero.md). */}
+            <div
+              className="text-xs text-savr-neutral-400"
+              title="Estimation amont, distincte des déchets collectés sur l'événement ci-dessous."
+            >
+              Est. labo :{' '}
+              {evt.dechets_labo_kg != null
+                ? `${evt.dechets_labo_kg.toFixed(1)} kg`
+                : '—'}
+            </div>
           </div>
         </CardContent>
       </Card>
+
+      {docMessage && (
+        <p role="status" className="text-sm text-savr-neutral-600">
+          {docMessage}
+        </p>
+      )}
 
       {/* Collectes */}
       {evt.collectes.length === 0 ? (
@@ -154,6 +264,10 @@ export default function EvenementDetailPage({
                 {c.type === 'zero_dechet'
                   ? 'Collecte Zéro Déchet'
                   : 'Collecte Anti-Gaspi'}
+                <span className="text-sm font-normal text-savr-neutral-500">
+                  {c.date_collecte ?? '—'}
+                  {c.heure_collecte ? ` · ${c.heure_collecte.slice(0, 5)}` : ''}
+                </span>
                 <Badge variant="neutral">{c.statut_affiche}</Badge>
               </CardTitle>
             </CardHeader>
@@ -196,8 +310,16 @@ export default function EvenementDetailPage({
                     </div>
                     {c.attributions_antgaspi.map((a) => (
                       <div key={a.id} className="text-sm">
-                        {a.associations?.nom ?? '—'} —{' '}
-                        {a.volume_repas_realise ?? 0} repas
+                        {a.associations?.nom ?? '—'}
+                        <span className="text-savr-neutral-500">
+                          {a.associations?.ville
+                            ? ` · ${a.associations.ville}`
+                            : ''}
+                          {' · '}
+                          {/* §06.05 §3 : distance en km, « — » si non calculable */}
+                          {a.distance_km != null ? `${a.distance_km} km` : '—'}
+                        </span>{' '}
+                        — {a.volume_repas_realise ?? 0} repas
                       </div>
                     ))}
                   </div>
@@ -206,42 +328,41 @@ export default function EvenementDetailPage({
               {/* Documents */}
               <div className="flex flex-wrap gap-2">
                 {c.bordereaux_savr.map((b) =>
-                  b.pdf_url ? (
-                    <a
+                  b.statut === 'emis' || b.statut === 'corrige' ? (
+                    <button
                       key={b.id}
-                      href={b.pdf_url}
-                      target="_blank"
-                      rel="noreferrer"
+                      type="button"
+                      onClick={() => void telechargerBordereau(b.id)}
                       className="text-xs text-savr-primary-700 underline"
                     >
-                      Bordereau {b.numero_bordereau}
-                    </a>
+                      Bordereau {b.numero ?? ''}
+                    </button>
                   ) : null,
                 )}
                 {c.rapports_rse.map((r) =>
                   r.pdf_url ? (
-                    <a
+                    <button
                       key={r.id}
-                      href={r.pdf_url}
-                      target="_blank"
-                      rel="noreferrer"
+                      type="button"
+                      onClick={() => void telechargerDocument('rapport', r.id)}
                       className="text-xs text-savr-primary-700 underline"
                     >
                       Rapport RSE
-                    </a>
+                    </button>
                   ) : null,
                 )}
                 {c.attestations_don.map((a) =>
                   a.pdf_url ? (
-                    <a
+                    <button
                       key={a.id}
-                      href={a.pdf_url}
-                      target="_blank"
-                      rel="noreferrer"
+                      type="button"
+                      onClick={() =>
+                        void telechargerDocument('attestation', a.id)
+                      }
                       className="text-xs text-savr-primary-700 underline"
                     >
                       Attestation don
-                    </a>
+                    </button>
                   ) : null,
                 )}
               </div>

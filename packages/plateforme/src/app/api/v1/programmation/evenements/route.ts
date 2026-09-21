@@ -448,6 +448,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       nomEvenement: evt.nom_evenement,
       pax: body.pax,
       organisationId: effectiveOrgId,
+      lieuId: body.lieu_id,
       collectes: body.collectes,
     }).catch(() => undefined); // non-bloquant
 

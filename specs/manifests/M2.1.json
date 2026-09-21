@@ -106,7 +106,7 @@
     },
     {
       "id": "BL-P1-FACT-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1728",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1768",
       "artefact": "supabase/migrations/20260625000003_plateforme_reseed_tarifs_packs_ag.sql",
       "test": "supabase/tests/r8_reseed_tarifs_packs_ag.test.sql (pgTAP : 4 credits 1/10/30/60 + 4 PU 590/500/460/390)",
       "statut": "implemented",
@@ -114,7 +114,7 @@
     },
     {
       "id": "BL-P1-FACT-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1764",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1804",
       "artefact": "packages/plateforme/src/lib/facturation/tarif-ag.ts",
       "test": "M1.7 FACT-02 : collecte Pack 30 par_collecte → PU = prix unitaire du pack (460 €, pas 590)",
       "statut": "implemented",
@@ -122,6 +122,6 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "4a6e04326681ed507c4e1fc801ccdee8e53f69ba3fa48eb235710a83a40341b2"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "ece0b3d6879ff4c76a12b52418a4c6195eec7855d8552ff2a34f4ea5f95514d6"
   }
 }

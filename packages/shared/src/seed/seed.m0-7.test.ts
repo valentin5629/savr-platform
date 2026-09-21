@@ -9,7 +9,12 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { seedUuid } from './uuid.js';
-import { fakePhone, seedEmail, DEV_PROJECT_REF } from './constants.js';
+import {
+  fakePhone,
+  seedEmail,
+  DEV_PROJECT_REF,
+  horairesAssociationSeed,
+} from './constants.js';
 import { assertDev, upsert, jsonb, type Row } from './db.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -212,5 +217,51 @@ describe('seed_minimal — un transporteur, un prestataire', () => {
     // et rouvrirait la fuite entre providers. Le seed doit pouvoir s'appliquer.
     const slugs = appelsTransp().map((args) => args[args.length - 1]);
     expect(new Set(slugs).size).toBe(slugs.length);
+  });
+});
+
+describe('horairesAssociationSeed — format éditeur Admin', () => {
+  it('M0.7-13 — 7 jours lundi→dimanche au format { jour, ouvert, creneaux HH:mm }', () => {
+    for (const profil of ['24h', 'jour_semaine', 'soir_nuit'] as const) {
+      const h = horairesAssociationSeed(profil);
+      expect(h.map((j) => j.jour)).toEqual([
+        'lundi',
+        'mardi',
+        'mercredi',
+        'jeudi',
+        'vendredi',
+        'samedi',
+        'dimanche',
+      ]);
+      for (const j of h)
+        for (const c of j.creneaux) {
+          expect(c.debut).toMatch(/^([01][0-9]|2[0-3]):[0-5][0-9]$/);
+          expect(c.fin).toMatch(/^([01][0-9]|2[0-3]):[0-5][0-9]$/);
+        }
+    }
+  });
+
+  it('M0.7-14 — profils : 24h/24 tous les jours, jours ouvrés fermés le week-end, soir/nuit passe minuit', () => {
+    expect(
+      horairesAssociationSeed('24h').every(
+        (j) =>
+          j.ouvert &&
+          j.creneaux[0]!.debut === '00:00' &&
+          j.creneaux[0]!.fin === '00:00',
+      ),
+    ).toBe(true);
+    const ouvre = horairesAssociationSeed('jour_semaine');
+    expect(ouvre.filter((j) => j.ouvert).map((j) => j.jour)).toEqual([
+      'lundi',
+      'mardi',
+      'mercredi',
+      'jeudi',
+      'vendredi',
+    ]);
+    expect(
+      horairesAssociationSeed('soir_nuit').every(
+        (j) => j.ouvert && j.creneaux[0]!.fin <= j.creneaux[0]!.debut,
+      ),
+    ).toBe(true);
   });
 });

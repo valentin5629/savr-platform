@@ -17,6 +17,7 @@ export interface RecapProgrammationParams {
   nomEvenement: string | null;
   pax: number;
   organisationId: string | null;
+  lieuId: string | null;
   collectes: RecapCollecteInput[];
 }
 
@@ -60,6 +61,7 @@ export async function envoyerRecapProgrammation(
         params.organisationId,
         new Date(collecteZd.date_collecte),
         supabase,
+        params.lieuId,
       );
       tarifLigne = `Tarif Zéro Déchet applicable : ${tarif.montant_ht.toFixed(2)} € HT.`;
     } catch {

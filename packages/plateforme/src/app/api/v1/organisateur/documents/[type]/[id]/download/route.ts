@@ -13,7 +13,9 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
+import { storageKeysDesFichiers } from '@/lib/pdf/fichier-storage-key.js';
 import { getPresignedUrl } from '@/lib/pdf/r2-client.js';
+import { type SupabaseClient } from '@savr/shared/src/supabase-client.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -28,7 +30,7 @@ export async function GET(
   if (auth.error) return auth.error;
 
   const { type, id } = await params;
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabaseServerClient() as unknown as SupabaseClient;
 
   let storageKey: string | null = null;
 
@@ -77,7 +79,7 @@ export async function GET(
   } else if (type === 'bordereau') {
     const { data, error } = await supabase
       .from('bordereaux_savr')
-      .select('id, genere_at, fichiers:pdf_fichier_id(url)')
+      .select('id, genere_at, pdf_fichier_id')
       .eq('id', id)
       .maybeSingle();
     if (error || !data)
@@ -90,13 +92,11 @@ export async function GET(
         { error: 'PDF non encore généré' },
         { status: 202 },
       );
-    const fichier = data.fichiers as
-      | { url?: string }
-      | { url?: string }[]
-      | null;
-    storageKey = Array.isArray(fichier)
-      ? (fichier[0]?.url ?? null)
-      : (fichier?.url ?? null);
+    // pdf_fichier_id → shared.fichiers (bucket/key) : pas d'embed cross-schema.
+    storageKey =
+      (await storageKeysDesFichiers(supabase, [data.pdf_fichier_id])).get(
+        data.pdf_fichier_id ?? '',
+      ) ?? null;
   } else {
     return NextResponse.json(
       { error: 'Type de document inconnu' },

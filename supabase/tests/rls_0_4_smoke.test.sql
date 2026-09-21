@@ -619,6 +619,12 @@ SELECT throws_ok(
 
 -- T53 : lieux_cross_org_row_denied
 -- lieux_clients_select : traiteur org A ne voit PAS un lieu non rattaché à ses événements.
+-- Toujours vrai après l'ajout de la 4e branche « traiteur opérationnel »
+-- (20260921140000_plateforme_lieux_select_traiteur_operationnel) : l'événement
+-- porteur de ce lieu est opéré par l'org B, pas par A — cet assert ne dépend donc
+-- PAS du nombre de branches, il borne le cloisonnement inter-organisations.
+-- L'étendue exacte des 4 branches (ce qui s'ouvre ET ce qui reste fermé) est
+-- prouvée par supabase/tests/lieux_traiteur_operationnel.test.sql.
 -- (Restriction colonne commentaire_lieu/siren/etc. → vue SECURITY DEFINER V1.1 TODO.)
 SELECT test_set_jwt('traiteur_manager', '11111111-0000-0000-0000-000000000001'::uuid);
 SELECT results_eq(

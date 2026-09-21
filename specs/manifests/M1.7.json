@@ -228,7 +228,7 @@
       "artefact": "packages/plateforme/src/lib/facturation/tarif-ag.ts",
       "test": "M1.7 FACT-03 : AG hors pack avec remise négociée 10 % → PU réduit à 531 €",
       "statut": "implemented",
-      "libelle": "PU AG hors pack = tarif unitaire (590) − remises AG (tarifs_negocie activite=ag, cumul multiplicatif)"
+      "libelle": "PU AG hors pack = tarif unitaire (590) − remise AG la plus élevée (tarifs_negocie activite=ag, pas de cumul — arbitrage Val 2026-09-17)"
     },
     {
       "id": "BL-P1-FACT-04",
@@ -280,7 +280,7 @@
     },
     {
       "id": "M1.7-factures-vue-client-non-vide",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:299",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:311",
       "artefact": "supabase/migrations/20260617180000_plateforme_fix_role_claim.sql (f_fichier_visible factures scope) + vue v_factures_client",
       "test": "supabase/tests/m1_7_facturation.test.sql (test_factures_vue_client_non_vide_manager)",
       "statut": "implemented",
@@ -304,9 +304,9 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "a3b25d8200b577f66006388a15efca739c2ea6278a3ea958889f1c34a583c947",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "90e9f62e94f2cfc441443ae9f7bd18776212d35b4b8b5a6a25dcfd4bf95b1ec5",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md": "0a7683e03696b9654989e0a777bded2190ceb599c102c1d4c001a5c6db4cf1ab",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "d83ee5ce7201ac91f1c188bf2f50e83b63ee4b2827fa1a41a58ad8942a148b9b",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "48c15c34575289ce1bcdebac244502fa2e9612ca06c37fae5cec36beec088892"
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "f37c49f3824f0c17eb6c45052d6cd0740c73f2140a05b850f8418ae8c1703ee4",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "2f21b1766943fa13ad3bf198970c6458767e1589e798a9b98bbe4b9ae72d145f"
   }
 }

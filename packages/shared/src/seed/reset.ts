@@ -54,15 +54,26 @@
  * C'est le principe du harnais : une consigne critique doit être portée par un
  * mécanisme, pas par la vigilance d'un test.
  *
+ * Ce choix a été validé par un cas que personne n'avait prévu. Restreindre la
+ * boucle aux triggers actuellement actifs — `AND tg.tgenabled = 'O'`, un ajout
+ * qu'on écrit de bonne foi — rend le `ENABLE` no-op, puisque après le `DISABLE`
+ * plus aucun ne l'est. Le SQL reste parfaitement symétrique au verbe près, donc
+ * aucun test ne le voit. Mesuré : l'assertion l'arrête quand même, `COMMIT`
+ * refusé, gardes intactes. Un test n'aurait attrapé que les mutations
+ * auxquelles on avait pensé.
+ *
  * Couverture, en trois morceaux :
  *   • `seed-reset-audit-log.test.ts` — compare le SQL émis aux chaînes
  *     attendues À L'ÉGALITÉ (pas par fragments : c'est ce qui laissait passer
  *     la mutation ci-dessus) et vérifie l'ordre des ordres ;
  *   • `supabase/tests/SECU__audit_log_immuable.test.sql` T14/T15 — prouve en
  *     base que la séquence vide la table et que la garde mord de nouveau ;
- *   • T16 du même fichier — prouve que l'assertion lève bel et bien quand une
- *     garde est restée désactivée. Sans lui, l'assertion pourrait être vide de
- *     sens sans que rien ne le dise.
+ *   • T16a/T16b du même fichier — prouvent que l'assertion se tait quand tout
+ *     va bien et lève quand une garde manque. Attention à ce qu'ils ne
+ *     prouvent PAS : ils exercent une copie SQL, pas cette fonction. Épingler
+ *     le CONTENU de l'assertion est le travail de l'égalité littérale du test
+ *     unitaire — sans elle, mesuré, on pouvait la vider de sens sans faire
+ *     rougir quoi que ce soit.
  */
 
 import type pg from 'pg';

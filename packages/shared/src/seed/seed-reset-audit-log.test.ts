@@ -42,7 +42,14 @@
  * C'est l'inverse exact de la mutation dangereuse (réactivation seule
  * neutralisée), qui laissait la base ouverte en silence : celle-là est
  * attrapée, par le test de symétrie ici et par l'assertion de sortie en base.
- * On couvre donc le silencieux, pas le bruyant.
+ *
+ * La formule « on couvre le silencieux, pas le bruyant » serait trop flatteuse :
+ * une revue adversariale a exhibé une mutation silencieuse NON couverte — deux
+ * `AND false`, un dans la boucle et un dans l'assertion, laissant la base
+ * ouverte avec sept tests verts. C'est ce qui a motivé l'égalité littérale sur
+ * l'assertion plus bas. Ce qu'on peut dire honnêtement : le rempart est
+ * désormais épinglé au caractère près, donc le neutraliser demande de modifier
+ * une chaîne que ce fichier fige — et ça, ça rougit.
  *
  * Ce fichier ne touche PAS la base : il prouve la forme de la séquence, pas son
  * effet. Deux compléments indispensables :
@@ -158,17 +165,24 @@ describe('resetBusinessData — garde d’immuabilité de audit_log', () => {
     expect(desactive).not.toBe(reactive);
   });
 
-  it('l’assertion de sortie interroge tgenabled et lève — c’est elle le rempart', () => {
-    // Ce n'est pas ce fichier qui protège la base, c'est cette requête-là :
-    // exécutée avant le COMMIT, elle annule la transaction si une garde est
-    // restée désactivée. T16 du pgTAP prouve qu'elle lève pour de vrai.
-    const assertion = sql(sqlAssertionGardeActive());
+  it('l’assertion de sortie est épinglée au caractère près — c’est elle le rempart', () => {
+    // Le SQL attendu est écrit EN DUR ici, pas dérivé du module : c'est la
+    // seule façon d'épingler son contenu. Une comparaison à
+    // `sqlAssertionGardeActive()` serait auto-référentielle — une mutation
+    // changerait les deux côtés et passerait, ce qu'une revue adversariale a
+    // mesuré : deux `AND false` bien placés (un dans la boucle, un dans
+    // l'assertion) laissaient la base ouverte avec tous les tests verts.
+    //
+    // Ce test rougit donc au moindre changement de l'assertion — seuil,
+    // sens de la comparaison, clause, message. C'est voulu : toute
+    // modification du rempart doit être regardée par un humain. Si tu
+    // arrives ici après avoir changé `sqlAssertionGardeActive()`
+    // légitimement, vérifie d'abord que T16a/T16b passent toujours, puis
+    // recopie la nouvelle chaîne.
+    const ATTENDU =
+      "DO $$ DECLARE n int; BEGIN SELECT count(*) INTO n FROM pg_trigger tg WHERE tg.tgname = 'trg_audit_log_vidage_interdit' AND NOT tg.tgisinternal AND tg.tgenabled <> 'O'; IF n > 0 THEN RAISE EXCEPTION 'reset seed : la garde % est restée désactivée sur % table(s) — transaction annulée', 'trg_audit_log_vidage_interdit', n; END IF; END $$;";
 
-    expect(assertion).toContain(
-      'tg.tgenabled <> ' + String.fromCharCode(39) + 'O',
-    );
-    expect(assertion).toContain(`tg.tgname = '${GARDE_AUDIT_LOG}'`);
-    expect(assertion).toContain('RAISE EXCEPTION');
+    expect(sql(sqlAssertionGardeActive())).toBe(ATTENDU);
   });
 
   it('vide bien audit_log — la table doit être dans le lot, pas contournée', () => {

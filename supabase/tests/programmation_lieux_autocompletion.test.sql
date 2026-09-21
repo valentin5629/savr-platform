@@ -20,6 +20,19 @@
 --     opérationnel se voit effectivement PROPOSER le lieu d'un événement
 --     programmé par un tiers, et qu'un concurrent non.
 --
+-- ⚠ SA PROPRIÉTÉ LA PLUS DIFFICILE À RETROUVER, et la raison de ne pas le supprimer :
+--   il est le SEUL des trois à rougir si la liste blanche de colonnes de
+--   `v_lieux_clients` se désaligne des GRANT colonne de `plateforme.lieux`. La vue
+--   étant SECURITY INVOKER, Postgres vérifie les privilèges sur TOUT le SELECT
+--   sous-jacent : une colonne de la vue non granted fait tomber la vue ENTIÈRE, pas
+--   seulement cette colonne — donc tout l'écran. Ce n'est pas théorique, c'est
+--   arrivé (P0 réparé par `20260706100000`, `capacite_maximum` ajoutée à la vue sans
+--   l'être au GRANT). Sonde rejouée en revue : en retirant ce GRANT, ce fichier tombe
+--   en `ERROR: permission denied for table lieux` (plan annoncé, 0 test joué, exit 3),
+--   tandis que `lieux_traiteur_operationnel.test.sql` reste 19/19 vert et
+--   `lieux_clients_select_cliquet.test.sql` 6/6 vert. Les deux sont aveugles à cette
+--   panne parce qu'aucun ne lit la VUE.
+--
 -- Il ne dispense pas des oracles Vitest de `formulaire.m1-2.test.ts`, qui
 -- prouvent la DÉLÉGATION (la route lit bien `v_lieux_clients` sous RLS et ne
 -- transcrit plus le prédicat) : si la route cessait d'émettre cette requête, ce

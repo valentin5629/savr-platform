@@ -18,7 +18,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 import AlertesPage from '@/app/(admin)/admin/alertes/page.js';
-import { ATTENTE_UI } from '@/test-utils/attente-ui';
+import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 const OUVERTE = {
   id: 'a1',
@@ -63,51 +63,65 @@ afterEach(() => {
 });
 
 describe('AlertesPage', () => {
-  it('affiche les alertes ouvertes avec sévérité', async () => {
-    render(<AlertesPage />);
-    // DataTable rend une vue table + une vue cartes (responsive) → getAllBy*.
-    expect(
-      (
-        await screen.findAllByText(
-          'Pack Anti-Gaspi épuisé',
-          undefined,
-          ATTENTE_UI,
-        )
-      ).length,
-    ).toBeGreaterThan(0);
-    // pack_ag_epuise → sévérité critique
-    expect(screen.getAllByText('Critique').length).toBeGreaterThan(0);
-    // filtre par défaut = ouverte
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/v1/admin/alertes?statut=ouverte',
-    );
-  });
+  it(
+    'affiche les alertes ouvertes avec sévérité',
+    async () => {
+      render(<AlertesPage />);
+      // DataTable rend une vue table + une vue cartes (responsive) → getAllBy*.
+      expect(
+        (
+          await screen.findAllByText(
+            'Pack Anti-Gaspi épuisé',
+            undefined,
+            ATTENTE_UI,
+          )
+        ).length,
+      ).toBeGreaterThan(0);
+      // pack_ag_epuise → sévérité critique
+      expect(screen.getAllByText('Critique').length).toBeGreaterThan(0);
+      // filtre par défaut = ouverte
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/admin/alertes?statut=ouverte',
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('résoudre → PATCH action=resoudre + retrait optimiste', async () => {
-    render(<AlertesPage />);
-    const btns = await screen.findAllByRole(
-      'button',
-      { name: 'Résoudre' },
-      ATTENTE_UI,
-    );
-    fireEvent.click(btns[0]!);
+  it(
+    'résoudre → PATCH action=resoudre + retrait optimiste',
+    async () => {
+      render(<AlertesPage />);
+      const btns = await screen.findAllByRole(
+        'button',
+        { name: 'Résoudre' },
+        ATTENTE_UI,
+      );
+      fireEvent.click(btns[0]!);
 
-    await waitFor(() => expect(patchCalls).toHaveLength(1), ATTENTE_UI);
-    expect(patchCalls[0]?.url).toBe('/api/v1/admin/alertes/a1');
-    expect(patchCalls[0]?.body).toEqual({ action: 'resoudre' });
-    // la ligne disparaît de la vue « Ouvertes »
-    await waitFor(
-      () =>
-        expect(screen.queryAllByText('Pack Anti-Gaspi épuisé')).toHaveLength(0),
-      ATTENTE_UI,
-    );
-  });
+      await waitFor(() => expect(patchCalls).toHaveLength(1), ATTENTE_UI);
+      expect(patchCalls[0]?.url).toBe('/api/v1/admin/alertes/a1');
+      expect(patchCalls[0]?.body).toEqual({ action: 'resoudre' });
+      // la ligne disparaît de la vue « Ouvertes »
+      await waitFor(
+        () =>
+          expect(screen.queryAllByText('Pack Anti-Gaspi épuisé')).toHaveLength(
+            0,
+          ),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('aucune alerte → état vide', async () => {
-    listData = [];
-    render(<AlertesPage />);
-    expect(
-      await screen.findByText('Aucune alerte', undefined, ATTENTE_UI),
-    ).toBeTruthy();
-  });
+  it(
+    'aucune alerte → état vide',
+    async () => {
+      listData = [];
+      render(<AlertesPage />);
+      expect(
+        await screen.findByText('Aucune alerte', undefined, ATTENTE_UI),
+      ).toBeTruthy();
+    },
+    ATTENTE_CAS_MS,
+  );
 });

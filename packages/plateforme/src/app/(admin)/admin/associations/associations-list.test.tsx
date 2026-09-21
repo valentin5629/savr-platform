@@ -14,7 +14,7 @@ import {
 } from '@testing-library/react';
 
 import AssociationsPage from './page';
-import { ATTENTE_UI } from '@/test-utils/attente-ui';
+import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 const rows = [
   {
@@ -46,85 +46,103 @@ describe('M1.1 — Liste associations Admin (colonnes revue E2E)', () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
-  it('affiche les 4 colonnes cibles et retire les anciennes', async () => {
-    render(<AssociationsPage />);
-    // En-têtes de colonnes = uniquement dans le <table> (la vue mobile n'a pas
-    // de columnheader) → assertions non ambiguës.
-    await waitFor(
-      () =>
+  it(
+    'affiche les 4 colonnes cibles et retire les anciennes',
+    async () => {
+      render(<AssociationsPage />);
+      // En-têtes de colonnes = uniquement dans le <table> (la vue mobile n'a pas
+      // de columnheader) → assertions non ambiguës.
+      await waitFor(
+        () =>
+          expect(
+            screen.getByRole('columnheader', { name: 'Nom' }),
+          ).toBeInTheDocument(),
+        ATTENTE_UI,
+      );
+      for (const h of ['Nom', 'Adresse', 'Capacité max', 'Collectes (30 j)']) {
         expect(
-          screen.getByRole('columnheader', { name: 'Nom' }),
-        ).toBeInTheDocument(),
-      ATTENTE_UI,
-    );
-    for (const h of ['Nom', 'Adresse', 'Capacité max', 'Collectes (30 j)']) {
-      expect(screen.getByRole('columnheader', { name: h })).toBeInTheDocument();
-    }
-    for (const h of ['Ville', 'Contact', 'Habilitation 2041-GE', 'Statut']) {
+          screen.getByRole('columnheader', { name: h }),
+        ).toBeInTheDocument();
+      }
+      for (const h of ['Ville', 'Contact', 'Habilitation 2041-GE', 'Statut']) {
+        expect(
+          screen.queryByRole('columnheader', { name: h }),
+        ).not.toBeInTheDocument();
+      }
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'rend les valeurs adresse, capacité et compteur 30 j',
+    async () => {
+      render(<AssociationsPage />);
+      // DataTable rend un tableau desktop ET des cartes mobiles → on scope au
+      // <table role="grid"> pour éviter les doublons de texte.
+      await waitFor(
+        () => expect(screen.getByRole('grid')).toBeInTheDocument(),
+        ATTENTE_UI,
+      );
+      const table = within(screen.getByRole('grid'));
+      expect(table.getByText('Association Alpha (fictif)')).toBeInTheDocument();
+      expect(table.getByText('12 Rue Alpha')).toBeInTheDocument();
+      expect(table.getByText('150')).toBeInTheDocument();
+      expect(table.getByText('3')).toBeInTheDocument();
+      // Capacité nulle → « — » (Bravo), compteur 0 affiché tel quel.
+      expect(table.getByText('8 Rue Bravo')).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'bouton « Nouvelle association » → modale de création',
+    async () => {
+      render(<AssociationsPage />);
+      await waitFor(
+        () => expect(screen.getByRole('grid')).toBeInTheDocument(),
+        ATTENTE_UI,
+      );
+
+      // Pas de modale au chargement.
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+      fireEvent.click(
+        screen.getByRole('button', { name: /Nouvelle association/ }),
+      );
+
+      const dialog = screen.getByRole('dialog');
       expect(
-        screen.queryByRole('columnheader', { name: h }),
-      ).not.toBeInTheDocument();
-    }
-  });
+        within(dialog).getByText('Nouvelle association'),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('rend les valeurs adresse, capacité et compteur 30 j', async () => {
-    render(<AssociationsPage />);
-    // DataTable rend un tableau desktop ET des cartes mobiles → on scope au
-    // <table role="grid"> pour éviter les doublons de texte.
-    await waitFor(
-      () => expect(screen.getByRole('grid')).toBeInTheDocument(),
-      ATTENTE_UI,
-    );
-    const table = within(screen.getByRole('grid'));
-    expect(table.getByText('Association Alpha (fictif)')).toBeInTheDocument();
-    expect(table.getByText('12 Rue Alpha')).toBeInTheDocument();
-    expect(table.getByText('150')).toBeInTheDocument();
-    expect(table.getByText('3')).toBeInTheDocument();
-    // Capacité nulle → « — » (Bravo), compteur 0 affiché tel quel.
-    expect(table.getByText('8 Rue Bravo')).toBeInTheDocument();
-  });
+  it(
+    'crayon d’une ligne → modale d’édition préremplie',
+    async () => {
+      render(<AssociationsPage />);
+      await waitFor(
+        () => expect(screen.getByRole('grid')).toBeInTheDocument(),
+        ATTENTE_UI,
+      );
 
-  it('bouton « Nouvelle association » → modale de création', async () => {
-    render(<AssociationsPage />);
-    await waitFor(
-      () => expect(screen.getByRole('grid')).toBeInTheDocument(),
-      ATTENTE_UI,
-    );
+      // DataTable rend un tableau desktop ET des cartes mobiles → le crayon existe
+      // en double. On scope au <table role="grid"> pour cibler l'action desktop.
+      const grid = within(screen.getByRole('grid'));
+      fireEvent.click(
+        grid.getByRole('button', {
+          name: 'Modifier Association Alpha (fictif)',
+        }),
+      );
 
-    // Pas de modale au chargement.
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-
-    fireEvent.click(
-      screen.getByRole('button', { name: /Nouvelle association/ }),
-    );
-
-    const dialog = screen.getByRole('dialog');
-    expect(
-      within(dialog).getByText('Nouvelle association'),
-    ).toBeInTheDocument();
-  });
-
-  it('crayon d’une ligne → modale d’édition préremplie', async () => {
-    render(<AssociationsPage />);
-    await waitFor(
-      () => expect(screen.getByRole('grid')).toBeInTheDocument(),
-      ATTENTE_UI,
-    );
-
-    // DataTable rend un tableau desktop ET des cartes mobiles → le crayon existe
-    // en double. On scope au <table role="grid"> pour cibler l'action desktop.
-    const grid = within(screen.getByRole('grid'));
-    fireEvent.click(
-      grid.getByRole('button', {
-        name: 'Modifier Association Alpha (fictif)',
-      }),
-    );
-
-    const dialog = screen.getByRole('dialog');
-    expect(
-      within(dialog).getByText(
-        'Fiche association — Association Alpha (fictif)',
-      ),
-    ).toBeInTheDocument();
-  });
+      const dialog = screen.getByRole('dialog');
+      expect(
+        within(dialog).getByText(
+          'Fiche association — Association Alpha (fictif)',
+        ),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
 });

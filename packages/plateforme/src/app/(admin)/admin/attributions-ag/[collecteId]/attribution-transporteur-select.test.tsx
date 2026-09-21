@@ -14,7 +14,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 import AttributionDetailPage from './page';
-import { ATTENTE_UI } from '@/test-utils/attente-ui';
+import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 const ALGO = {
   associations: [
@@ -74,162 +74,182 @@ afterEach(() => {
 });
 
 describe('M2.3 / Attribution AG — liste déroulante transporteur', () => {
-  it('liste tous les transporteurs actifs, recommandé pré-sélectionné, sans motif', async () => {
-    const fetchMock = installFetch();
-    render(<AttributionDetailPage />);
+  it(
+    'liste tous les transporteurs actifs, recommandé pré-sélectionné, sans motif',
+    async () => {
+      const fetchMock = installFetch();
+      render(<AttributionDetailPage />);
 
-    const select = (await screen.findByLabelText(
-      'Transporteur',
-      undefined,
-      ATTENTE_UI,
-    )) as HTMLSelectElement;
-    await waitFor(() => expect(select.options.length).toBe(3), ATTENTE_UI);
-    expect(
-      fetchMock.mock.calls.some(([u]) =>
-        String(u).includes('/api/v1/admin/transporteurs?actif=true'),
-      ),
-    ).toBe(true);
-    expect(select.value).toBe('tr-reco');
-    expect(
-      screen.getByRole('option', {
-        name: 'Transport Reco · Paris (recommandé)',
-      }),
-    ).toBeTruthy();
-    expect(screen.queryByText(/motif obligatoire/)).toBeNull();
-    expect(
-      (
-        screen.getByRole('button', {
-          name: "Valider l'attribution",
-        }) as HTMLButtonElement
-      ).disabled,
-    ).toBe(false);
-  });
-
-  it('choisir un autre transporteur exige un motif puis envoie ce transporteur', async () => {
-    const fetchMock = installFetch();
-    render(<AttributionDetailPage />);
-
-    const select = (await screen.findByLabelText(
-      'Transporteur',
-      undefined,
-      ATTENTE_UI,
-    )) as HTMLSelectElement;
-    await waitFor(() => expect(select.options.length).toBe(3), ATTENTE_UI);
-
-    fireEvent.change(select, { target: { value: 'tr-autre' } });
-
-    const valider = screen.getByRole('button', {
-      name: "Valider l'attribution",
-    }) as HTMLButtonElement;
-    expect(screen.getByText(/motif obligatoire/)).toBeTruthy();
-    expect(valider.disabled).toBe(true);
-
-    fireEvent.change(screen.getByDisplayValue('Choisir un motif…'), {
-      target: { value: 'transporteur_top1_indispo' },
-    });
-    expect(valider.disabled).toBe(false);
-    fireEvent.click(valider);
-
-    await waitFor(() => {
-      const post = fetchMock.mock.calls.find(([u]) =>
-        String(u).includes('/valider'),
-      );
-      expect(post).toBeTruthy();
-      const sent = JSON.parse(String(post![1]!.body)) as Record<
-        string,
-        unknown
-      >;
-      expect(sent.transporteur_id).toBe('tr-autre');
-      expect(sent.mode_validation).toBe('manuel_override');
-      expect(sent.motif_override).toBe('transporteur_top1_indispo');
-    }, ATTENTE_UI);
-  });
-  it('aucun prestataire recommandé : liste vide au départ, choix dans la liste + motif obligatoire', async () => {
-    installFetch({
-      algo: {
-        ...ALGO,
-        transporteur: null,
-        transporteurs: [],
-        branche: 'aucun_prestataire',
-        no_prestataire: true,
-      } as unknown as typeof ALGO,
-    });
-    render(<AttributionDetailPage />);
-
-    const select = (await screen.findByLabelText(
-      'Transporteur',
-      undefined,
-      ATTENTE_UI,
-    )) as HTMLSelectElement;
-    await waitFor(() => expect(select.options.length).toBe(3), ATTENTE_UI);
-    expect(select.value).toBe('');
-    const valider = screen.getByRole('button', {
-      name: "Valider l'attribution",
-    }) as HTMLButtonElement;
-    expect(valider.disabled).toBe(true);
-
-    fireEvent.change(select, { target: { value: 'tr-autre' } });
-    expect(screen.getByText(/motif obligatoire/)).toBeTruthy();
-    expect(valider.disabled).toBe(true);
-  });
-
-  it('province : choisir le 2e du top 3 dans la liste = override avec motif', async () => {
-    installFetch({
-      algo: {
-        ...ALGO,
-        is_idf: false,
-        branche: 'ag_province_proximite',
-        transporteurs: [
-          { id: 'tr-reco', nom: 'Transport Reco', type_tms: 'x' },
-          { id: 'tr-autre', nom: 'Transport Autre', type_tms: 'x' },
-        ],
-      },
-    });
-    render(<AttributionDetailPage />);
-
-    const select = (await screen.findByLabelText(
-      'Transporteur',
-      undefined,
-      ATTENTE_UI,
-    )) as HTMLSelectElement;
-    await waitFor(() => expect(select.options.length).toBe(3), ATTENTE_UI);
-    expect(screen.queryByText(/motif obligatoire/)).toBeNull();
-
-    fireEvent.change(select, { target: { value: 'tr-autre' } });
-    expect(screen.getByText(/motif obligatoire/)).toBeTruthy();
-
-    // Retour au choix vide : pas de transporteur, bouton désactivé.
-    fireEvent.change(select, { target: { value: '' } });
-    expect(select.value).toBe('');
-    expect(
-      (
-        screen.getByRole('button', {
-          name: "Valider l'attribution",
-        }) as HTMLButtonElement
-      ).disabled,
-    ).toBe(true);
-  });
-
-  it('échec du chargement des transporteurs : message + Réessayer, recommandé toujours affiché', async () => {
-    let ko = true;
-    installFetch({ transporteursKo: () => ko });
-    render(<AttributionDetailPage />);
-
-    expect(
-      await screen.findByText(
-        'Impossible de charger la liste des transporteurs.',
+      const select = (await screen.findByLabelText(
+        'Transporteur',
         undefined,
         ATTENTE_UI,
-      ),
-    ).toBeTruthy();
-    const select = screen.getByLabelText('Transporteur') as HTMLSelectElement;
-    await waitFor(() => expect(select.value).toBe('tr-reco'), ATTENTE_UI);
+      )) as HTMLSelectElement;
+      await waitFor(() => expect(select.options.length).toBe(3), ATTENTE_UI);
+      expect(
+        fetchMock.mock.calls.some(([u]) =>
+          String(u).includes('/api/v1/admin/transporteurs?actif=true'),
+        ),
+      ).toBe(true);
+      expect(select.value).toBe('tr-reco');
+      expect(
+        screen.getByRole('option', {
+          name: 'Transport Reco · Paris (recommandé)',
+        }),
+      ).toBeTruthy();
+      expect(screen.queryByText(/motif obligatoire/)).toBeNull();
+      expect(
+        (
+          screen.getByRole('button', {
+            name: "Valider l'attribution",
+          }) as HTMLButtonElement
+        ).disabled,
+      ).toBe(false);
+    },
+    ATTENTE_CAS_MS,
+  );
 
-    ko = false;
-    fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
-    await waitFor(() => expect(select.options.length).toBe(3), ATTENTE_UI);
-    expect(
-      screen.queryByText('Impossible de charger la liste des transporteurs.'),
-    ).toBeNull();
-  });
+  it(
+    'choisir un autre transporteur exige un motif puis envoie ce transporteur',
+    async () => {
+      const fetchMock = installFetch();
+      render(<AttributionDetailPage />);
+
+      const select = (await screen.findByLabelText(
+        'Transporteur',
+        undefined,
+        ATTENTE_UI,
+      )) as HTMLSelectElement;
+      await waitFor(() => expect(select.options.length).toBe(3), ATTENTE_UI);
+
+      fireEvent.change(select, { target: { value: 'tr-autre' } });
+
+      const valider = screen.getByRole('button', {
+        name: "Valider l'attribution",
+      }) as HTMLButtonElement;
+      expect(screen.getByText(/motif obligatoire/)).toBeTruthy();
+      expect(valider.disabled).toBe(true);
+
+      fireEvent.change(screen.getByDisplayValue('Choisir un motif…'), {
+        target: { value: 'transporteur_top1_indispo' },
+      });
+      expect(valider.disabled).toBe(false);
+      fireEvent.click(valider);
+
+      await waitFor(() => {
+        const post = fetchMock.mock.calls.find(([u]) =>
+          String(u).includes('/valider'),
+        );
+        expect(post).toBeTruthy();
+        const sent = JSON.parse(String(post![1]!.body)) as Record<
+          string,
+          unknown
+        >;
+        expect(sent.transporteur_id).toBe('tr-autre');
+        expect(sent.mode_validation).toBe('manuel_override');
+        expect(sent.motif_override).toBe('transporteur_top1_indispo');
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+  it(
+    'aucun prestataire recommandé : liste vide au départ, choix dans la liste + motif obligatoire',
+    async () => {
+      installFetch({
+        algo: {
+          ...ALGO,
+          transporteur: null,
+          transporteurs: [],
+          branche: 'aucun_prestataire',
+          no_prestataire: true,
+        } as unknown as typeof ALGO,
+      });
+      render(<AttributionDetailPage />);
+
+      const select = (await screen.findByLabelText(
+        'Transporteur',
+        undefined,
+        ATTENTE_UI,
+      )) as HTMLSelectElement;
+      await waitFor(() => expect(select.options.length).toBe(3), ATTENTE_UI);
+      expect(select.value).toBe('');
+      const valider = screen.getByRole('button', {
+        name: "Valider l'attribution",
+      }) as HTMLButtonElement;
+      expect(valider.disabled).toBe(true);
+
+      fireEvent.change(select, { target: { value: 'tr-autre' } });
+      expect(screen.getByText(/motif obligatoire/)).toBeTruthy();
+      expect(valider.disabled).toBe(true);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'province : choisir le 2e du top 3 dans la liste = override avec motif',
+    async () => {
+      installFetch({
+        algo: {
+          ...ALGO,
+          is_idf: false,
+          branche: 'ag_province_proximite',
+          transporteurs: [
+            { id: 'tr-reco', nom: 'Transport Reco', type_tms: 'x' },
+            { id: 'tr-autre', nom: 'Transport Autre', type_tms: 'x' },
+          ],
+        },
+      });
+      render(<AttributionDetailPage />);
+
+      const select = (await screen.findByLabelText(
+        'Transporteur',
+        undefined,
+        ATTENTE_UI,
+      )) as HTMLSelectElement;
+      await waitFor(() => expect(select.options.length).toBe(3), ATTENTE_UI);
+      expect(screen.queryByText(/motif obligatoire/)).toBeNull();
+
+      fireEvent.change(select, { target: { value: 'tr-autre' } });
+      expect(screen.getByText(/motif obligatoire/)).toBeTruthy();
+
+      // Retour au choix vide : pas de transporteur, bouton désactivé.
+      fireEvent.change(select, { target: { value: '' } });
+      expect(select.value).toBe('');
+      expect(
+        (
+          screen.getByRole('button', {
+            name: "Valider l'attribution",
+          }) as HTMLButtonElement
+        ).disabled,
+      ).toBe(true);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'échec du chargement des transporteurs : message + Réessayer, recommandé toujours affiché',
+    async () => {
+      let ko = true;
+      installFetch({ transporteursKo: () => ko });
+      render(<AttributionDetailPage />);
+
+      expect(
+        await screen.findByText(
+          'Impossible de charger la liste des transporteurs.',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeTruthy();
+      const select = screen.getByLabelText('Transporteur') as HTMLSelectElement;
+      await waitFor(() => expect(select.value).toBe('tr-reco'), ATTENTE_UI);
+
+      ko = false;
+      fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
+      await waitFor(() => expect(select.options.length).toBe(3), ATTENTE_UI);
+      expect(
+        screen.queryByText('Impossible de charger la liste des transporteurs.'),
+      ).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
 });

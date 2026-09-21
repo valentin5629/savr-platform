@@ -9,7 +9,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 
 import { ClientInviteUserModal, rolesForOrgType } from './invite-user-modal';
-import { ATTENTE_UI } from '@/test-utils/attente-ui';
+import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 interface FetchCall {
   url: string;
@@ -57,44 +57,48 @@ describe('M0.6 — fiche organisation : ajouter un utilisateur', () => {
     expect(rolesForOrgType('agence')).not.toContain('ops_savr');
   });
 
-  it('POST /api/v1/admin/users avec organisation_id imposé (jamais choisi) + rôle', async () => {
-    mockFetch(true);
-    const onCreated = vi.fn();
-    render(
-      <ClientInviteUserModal
-        organisationId="org-agence"
-        orgType="agence"
-        onClose={() => {}}
-        onCreated={onCreated}
-      />,
-    );
+  it(
+    'POST /api/v1/admin/users avec organisation_id imposé (jamais choisi) + rôle',
+    async () => {
+      mockFetch(true);
+      const onCreated = vi.fn();
+      render(
+        <ClientInviteUserModal
+          organisationId="org-agence"
+          orgType="agence"
+          onClose={() => {}}
+          onCreated={onCreated}
+        />,
+      );
 
-    // Aucun sélecteur d'organisation : l'org est imposée par la fiche.
-    expect(screen.queryByLabelText('Organisation')).not.toBeInTheDocument();
+      // Aucun sélecteur d'organisation : l'org est imposée par la fiche.
+      expect(screen.queryByLabelText('Organisation')).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText(/Prénom/), {
-      target: { value: 'Adèle' },
-    });
-    fireEvent.change(screen.getByLabelText(/^Nom/), {
-      target: { value: 'Arep' },
-    });
-    fireEvent.change(screen.getByLabelText(/Email/), {
-      target: { value: 'adele@arep.test' },
-    });
-    fireEvent.click(screen.getByText('Inviter'));
+      fireEvent.change(screen.getByLabelText(/Prénom/), {
+        target: { value: 'Adèle' },
+      });
+      fireEvent.change(screen.getByLabelText(/^Nom/), {
+        target: { value: 'Arep' },
+      });
+      fireEvent.change(screen.getByLabelText(/Email/), {
+        target: { value: 'adele@arep.test' },
+      });
+      fireEvent.click(screen.getByText('Inviter'));
 
-    await waitFor(() => expect(onCreated).toHaveBeenCalled(), ATTENTE_UI);
-    const post = calls.find(
-      (c) => c.method === 'POST' && c.url === '/api/v1/admin/users',
-    );
-    expect(post?.body).toMatchObject({
-      prenom: 'Adèle',
-      nom: 'Arep',
-      email: 'adele@arep.test',
-      role: 'agence', // rôle par défaut = 1er rôle du type d'org
-      organisation_id: 'org-agence',
-    });
-  });
+      await waitFor(() => expect(onCreated).toHaveBeenCalled(), ATTENTE_UI);
+      const post = calls.find(
+        (c) => c.method === 'POST' && c.url === '/api/v1/admin/users',
+      );
+      expect(post?.body).toMatchObject({
+        prenom: 'Adèle',
+        nom: 'Arep',
+        email: 'adele@arep.test',
+        role: 'agence', // rôle par défaut = 1er rôle du type d'org
+        organisation_id: 'org-agence',
+      });
+    },
+    ATTENTE_CAS_MS,
+  );
 
   it('type traiteur : deux rôles proposés, manager par défaut', async () => {
     mockFetch(true);
@@ -112,30 +116,37 @@ describe('M0.6 — fiche organisation : ajouter un utilisateur', () => {
     expect(select.value).toBe('traiteur_manager');
   });
 
-  it('erreur serveur affichée, onCreated non appelé', async () => {
-    mockFetch(false, { error: 'Email déjà utilisé' });
-    const onCreated = vi.fn();
-    render(
-      <ClientInviteUserModal
-        organisationId="org-agence"
-        orgType="agence"
-        onClose={() => {}}
-        onCreated={onCreated}
-      />,
-    );
-    fireEvent.change(screen.getByLabelText(/Prénom/), {
-      target: { value: 'X' },
-    });
-    fireEvent.change(screen.getByLabelText(/^Nom/), { target: { value: 'Y' } });
-    fireEvent.change(screen.getByLabelText(/Email/), {
-      target: { value: 'x@y.test' },
-    });
-    fireEvent.click(screen.getByText('Inviter'));
+  it(
+    'erreur serveur affichée, onCreated non appelé',
+    async () => {
+      mockFetch(false, { error: 'Email déjà utilisé' });
+      const onCreated = vi.fn();
+      render(
+        <ClientInviteUserModal
+          organisationId="org-agence"
+          orgType="agence"
+          onClose={() => {}}
+          onCreated={onCreated}
+        />,
+      );
+      fireEvent.change(screen.getByLabelText(/Prénom/), {
+        target: { value: 'X' },
+      });
+      fireEvent.change(screen.getByLabelText(/^Nom/), {
+        target: { value: 'Y' },
+      });
+      fireEvent.change(screen.getByLabelText(/Email/), {
+        target: { value: 'x@y.test' },
+      });
+      fireEvent.click(screen.getByText('Inviter'));
 
-    await waitFor(
-      () => expect(screen.getByText('Email déjà utilisé')).toBeInTheDocument(),
-      ATTENTE_UI,
-    );
-    expect(onCreated).not.toHaveBeenCalled();
-  });
+      await waitFor(
+        () =>
+          expect(screen.getByText('Email déjà utilisé')).toBeInTheDocument(),
+        ATTENTE_UI,
+      );
+      expect(onCreated).not.toHaveBeenCalled();
+    },
+    ATTENTE_CAS_MS,
+  );
 });

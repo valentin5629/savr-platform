@@ -71,7 +71,7 @@
     },
     {
       "id": "BL-P1-ONB-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:125",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:127",
       "artefact": "packages/plateforme/src/app/api/v1/admin/users/route.ts (slug 'bienvenue_invitation' inexistant → 'invitation_utilisateur' seedé + variables requises prenom + organisation_nom + lien_invitation, fetch organisations.nom)",
       "test": "packages/plateforme/tests/api/admin/users.m1-1a.test.ts « M0.4 — email invitation admin (BL-P1-ONB-04) » (sendEmail('invitation_utilisateur', …) appelé avec les variables requises)",
       "statut": "implemented",
@@ -79,7 +79,7 @@
     },
     {
       "id": "BL-P1-ONB-05",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:910",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:928",
       "artefact": "packages/plateforme/src/lib/onboarding-guards.ts (requireCompletedOrganisation : gate programmation SIRET vérifié ; requireValidatedOrganisation : gate push Pennylane) + câblage des 3 sites inline dédupliqués : programmation/evenements/route.ts, programmation/evenements/[id]/confirmer/route.ts, lib/facturation/validation-admin.ts",
       "test": "packages/plateforme/tests/lib/onboarding-guards.m0-4.test.ts « M0.4 — requireCompletedOrganisation / requireValidatedOrganisation (BL-P1-ONB-05) »",
       "statut": "implemented",
@@ -87,7 +87,7 @@
     },
     {
       "id": "BL-P1-AUTH-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:928",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:946",
       "artefact": "packages/plateforme/src/app/auth/impersonate-callback/route.ts + supabase/migrations/20260701120000_plateforme_r14_impersonation_claim.sql + packages/plateforme/src/app/api/auth/exit-impersonation/route.ts + packages/plateforme/src/components/ui/impersonation-banner-mount.tsx (monté layout racine) + packages/plateforme/src/app/api/v1/admin/users/[id]/impersoner/route.ts",
       "test": "packages/plateforme/tests/api/auth/impersonate.test.ts « M0.4 — impersonate callback / exit impersonation » + supabase/tests/r14_impersonation_claim.test.sql (hook injecte impersonator_id, fenêtre 1h) + packages/plateforme/src/components/ui/impersonation-banner-mount.test.tsx « M0.6 — bandeau impersonation » + supabase/tests/audit_trail.m0-10.test.sql (T14/T15 : action en session impersonée → audit_log.impersonator_id=admin ET user_id=user impersoné, chaîne bout-en-bout §09 §7 l.904)",
       "statut": "implemented",
@@ -95,7 +95,7 @@
     },
     {
       "id": "BL-P1-AUTH-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:235",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:237",
       "artefact": "supabase/migrations/20260701120100_plateforme_r14_attestation_no_delete.sql (att_admin scindé SELECT/INSERT/UPDATE, pas de DELETE)",
       "test": "supabase/tests/rls_attestations_don_m2_4.test.sql (delete_attestation_deny : DELETE admin_savr filtré, attestation conservée)",
       "statut": "implemented",
@@ -103,7 +103,7 @@
     },
     {
       "id": "BL-P1-AUTH-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:145",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:147",
       "artefact": "packages/plateforme/src/app/api/v1/admin/users/[id]/route.ts (ops peut suspendre/réassigner rôle non-admin ; seule promotion admin_savr réservée admin)",
       "test": "packages/plateforme/tests/api/admin/users.m1-1a.test.ts « M0.4 — gating ops users (BL-P1-AUTH-03) » (ops réassigne non-admin→200, ops promeut admin→403, ops touche admin→403, admin promeut→200)",
       "statut": "implemented",
@@ -111,7 +111,7 @@
     },
     {
       "id": "BL-P1-AUTH-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:164",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:166",
       "artefact": "supabase/tests/m1_7_facturation.test.sql + supabase/tests/r14_tournee_siblings.test.sql",
       "test": "supabase/tests/m1_7_facturation.test.sql (test_factures_vue_client_non_vide_manager) + supabase/tests/r14_tournee_siblings.test.sql (tournee_siblings_not_exposed)",
       "statut": "implemented",
@@ -135,7 +135,7 @@
     },
     {
       "id": "M0.4-ecriture-directe-collectes-evenements-revoke",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:970",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:988",
       "artefact": "supabase/migrations/20260915160000_plateforme_collectes_ecriture_client_fermee.sql (REVOKE INSERT, UPDATE sur collectes) ; supabase/migrations/20260915190000_plateforme_evenements_ecriture_client_fermee.sql (REVOKE INSERT, UPDATE, DELETE sur evenements) ; packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts (écriture par fn_modifier_evenement sous service_role)",
       "test": "SECU__rls_09_ecriture_directe_revoke.test.sql (A1-A5 : 5 rôles clients × INSERT/UPDATE/DELETE evenements + INSERT/UPDATE collectes → 42501 « permission denied for table » ; A6 SELECT filtré ; A7 service_role écrit ; A8 policies conservées ; B1-B5 manager_update_dans_fenetre_edition_ok moitié DB) + edition-evenement.m1-2.test.ts « manager_update_dans_fenetre_edition_ok — la route réussit et n’écrit JAMAIS par le client de session »",
       "statut": "partial",
@@ -143,7 +143,7 @@
     },
     {
       "id": "M0.4-ecriture-evenements-predicats-par-route",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:188-191",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:190-193",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts (PATCH : périmètre org / created_by commercial → 403, f_collecte_editable → 422, écriture fn_modifier_evenement service_role, audit_log user_id + impersonator_id) ; packages/plateforme/src/app/api/v1/programmation/evenements/route.ts (POST gestionnaire_lieux : lieu du parc → 403, traiteur opérant obligatoire actif/traiteur/non shadow → 422/403) ; packages/plateforme/src/app/api/v1/admin/evenements/[id]/route.ts (forçage staff sans garde de fenêtre) ; packages/plateforme/src/lib/api-auth.ts (claim impersonator_id exposé au contexte)",
       "test": "supabase/tests/SECU__rls_09_ecriture_par_route_predicats.test.sql (C0 RPC d'écriture non exécutable par la session ; C1-C9 prédicats sur vrais statuts sous authenticated + lookups/écriture service_role + audit_log impersonator_id) + edition-evenement.m1-2.test.ts « traiteur_operationnel_ne_peut_pas_modifier_programmation_tierce — 403, rien n’est écrit », « manager_update_hors_fenetre_denied — 422, rien n’est écrit », « agence_update_hors_fenetre_denied — 422, rien n’est écrit », « admin_update_hors_fenetre_reste_possible — la route back-office écrit sans garde de fenêtre », « commercial_update_sa_collecte_dans_fenetre — 200, écriture par la RPC service_role », « gestionnaire_insert_evenement_lieu_hors_perimetre_refuse — 403, aucun INSERT », « gestionnaire_insert_evenement_traiteur_shadow_refuse — 403, aucun INSERT », « commercial_update_collecte_d_un_collegue_refuse — 403 malgré la même organisation, rien n’est écrit », « impersonation_journalisee — audit_log porte user_id = identité assumée ET impersonator_id = admin »",
       "statut": "implemented",
@@ -151,7 +151,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "2f21b1766943fa13ad3bf198970c6458767e1589e798a9b98bbe4b9ae72d145f",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "57dd0b37f039f00098970a6d36da3f4ff4b40dd1950b825cae2972a39a03c876",
     "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "0fcf6f081583aee93f4ba4ff80d564feeb96d4037cee8c2e92747d210fe848a8",
     "specs/cdc/01 - Cahier des charges App/CGU Savr V1 - Draft.md": "5b7c620dd02c4ccdddd71e448c2c5362787bb5d5c6aca040433b96e626041b4a"
   }

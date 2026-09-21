@@ -157,11 +157,39 @@ Scénario : v_factures_client_non_vide_manager (test_factures_vue_client_non_vid
   Alors ≥ 1 ligne retournée et aucune erreur RLS
   Et une facture d'organisation B est absente (org-scoping actif via fac_client_select)
 
-Scénario : lieu_visible_par_double_chemin
+Scénario : lieu_visible_par_chemin_rls (ex-`lieu_visible_par_double_chemin` — renommé 2026-09-21, la policy compte 4 chemins et non 2)
   Étant donné un lieu L3 sans lien organisations_lieux avec Kaspia mais référencé par un événement Kaspia
   Quand `manager_kaspia` exécute SELECT sur `lieux`
-  Alors L3 est visible (chemin evenements) ; un lieu L4 sans aucun des 2 chemins est invisible
+  Alors L3 est visible (chemin 2 : événement programmé par son organisation)
+  Et un lieu L4 sans AUCUN des 4 chemins de `lieux_clients_select` est invisible
+  Et les 4 chemins sont : (1) rattachement `organisations_lieux` ; (2) événement programmé par l'organisation ; (3) événement dont elle est client organisateur **ET daté** (`date_evenement IS NOT NULL`) ; (4) événement dont elle est traiteur opérationnel, **borné par le rôle** `f_app_role() IN ('traiteur_manager','traiteur_commercial')`
+  Et un lieu rattaché UNIQUEMENT par le chemin 3 sur un événement NON daté reste invisible (garde de date, décision F3 §09 l.191)
   # Priorité : P2-important
+```
+
+---
+
+```gherkin
+# Source : §09 Table lieux (4e branche « traiteur opérationnel », arbitrage Val 2026-09-21)
+# Couche : db
+# Priorité : P0-bloquant
+
+Scénario : lieu_visible_traiteur_operationnel
+  Étant donné un événement programmé par l'agence WPM, dans un lieu où Kaspia n'a jamais
+    programmé et qui n'est rattaché à aucune de ses organisations, avec Kaspia comme
+    traiteur opérationnel
+  Quand le manager Kaspia ouvre la liste et la fiche Collectes
+  Alors la ligne « Lieu » affiche le lieu (et non « — »)
+  Et le lieu est proposé dans les options du filtre Lieu
+  Et le commercial Kaspia voit la même chose (les deux rôles traiteur)
+  Et le lieu reste visible même si l'événement n'a pas de date_evenement
+    (pas de garde de date sur cette branche — arbitrage Val Q1)
+  Et un manager du traiteur concurrent Kardamome ne voit PAS ce lieu
+  Et un utilisateur de rôle client_organisateur dont l'organisation est pourtant
+    traiteur opérationnel de l'événement ne voit PAS ce lieu
+    (la branche est bornée par un test de rôle — arbitrage Val Q2)
+  Et la garde `date_evenement IS NOT NULL` de la branche « client organisateur »
+    reste en vigueur (non supprimée par la réécriture de la policy)
 ```
 
 ---

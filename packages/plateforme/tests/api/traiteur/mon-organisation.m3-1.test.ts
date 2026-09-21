@@ -93,9 +93,10 @@ vi.mock('@savr/shared/src/email/index.js', () => ({
   sendEmail: (...a: unknown[]) => mockSendEmail(...a),
 }));
 const mockUploadObject = vi.fn();
+const mockGetObject = vi.fn();
 vi.mock('@savr/shared/src/r2/upload.js', () => ({
   uploadObject: (...a: unknown[]) => mockUploadObject(...a),
-  getObject: vi.fn(),
+  getObject: (...a: unknown[]) => mockGetObject(...a),
 }));
 vi.mock('next/headers', () => ({
   cookies: () => ({ getAll: () => [], set: () => {} }),
@@ -545,6 +546,49 @@ describe('M3.1 / mon-organisation logo', () => {
     expect(res.status).toBe(403);
     expect(mockUploadObject).not.toHaveBeenCalled();
   });
+
+  // Proxy d'affichage : `key` vient du client. Revue sécurité 2026-09-18 — borné
+  // au bucket applicatif + logos/<uuid>.(png|jpg), servi avec nosniff.
+  const LOGO = 'savr-dev/logos/0f8b2c1e-3d4a-4b5c-9d6e-7f8091a2b3c4.png';
+  async function getProxy(key: string) {
+    vi.stubEnv('R2_BUCKET_NAME', 'savr-dev');
+    setupAuth('traiteur_commercial');
+    const { GET } =
+      await import('@/app/api/v1/traiteur/mon-organisation/logo/route.js');
+    return GET(
+      makeReq(
+        'GET',
+        `/api/v1/traiteur/mon-organisation/logo?key=${encodeURIComponent(key)}`,
+      ),
+    );
+  }
+
+  it('M3.1/trait_monorga_logo_proxy — sert un logo du bucket applicatif avec nosniff', async () => {
+    mockGetObject.mockResolvedValue({
+      body: new Uint8Array([1, 2]),
+      contentType: 'image/png',
+    });
+    const res = await getProxy(LOGO);
+    expect(res.status).toBe(200);
+    expect(mockGetObject).toHaveBeenCalledWith(
+      'savr-dev',
+      'logos/0f8b2c1e-3d4a-4b5c-9d6e-7f8091a2b3c4.png',
+    );
+    expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+  });
+
+  it.each([
+    'savr-dev/bordereaux/b1.pdf',
+    'autre-bucket/logos/0f8b2c1e-3d4a-4b5c-9d6e-7f8091a2b3c4.png',
+    'savr-dev/logos/../bordereaux/b1.pdf',
+  ])(
+    'M3.1/trait_monorga_logo_proxy_hors_logos — %s refusé (403), aucune lecture R2',
+    async (key) => {
+      const res = await getProxy(key);
+      expect(res.status).toBe(403);
+      expect(mockGetObject).not.toHaveBeenCalled();
+    },
+  );
 });
 
 // ── Facturation : filtres (statut / type / période) ─────────────────────────

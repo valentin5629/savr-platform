@@ -6,6 +6,7 @@ import {
   type ClientRole,
 } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
+import { parseCleLogo } from '@/lib/logo-key.js';
 import { uploadLogo } from '@/lib/logo-upload.js';
 
 // CDC §06.05 §6 Bloc Organisation — Logo (upload / remplacement).
@@ -31,23 +32,19 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (error)
     return serverError(error, 'gestionnaire.mon_organisation.logo.read');
 
-  const storageKey = (data?.logo_url as string | null | undefined) ?? '';
-  const slash = storageKey.indexOf('/');
-  const key = slash > 0 ? storageKey.slice(slash + 1) : '';
-  // On ne sert que des logos (valeur héritée hors format → 404).
-  if (!key.startsWith('logos/'))
-    return NextResponse.json({ error: 'Aucun logo' }, { status: 404 });
+  // Bucket applicatif + logos/<uuid>.(png|jpg) seulement (lib/logo-key.ts) :
+  // une valeur héritée hors format ne fait télécharger aucun autre objet R2.
+  const cle = parseCleLogo(data?.logo_url as string | null | undefined);
+  if (!cle) return NextResponse.json({ error: 'Aucun logo' }, { status: 404 });
 
   try {
-    const { body, contentType } = await getObject(
-      storageKey.slice(0, slash),
-      key,
-    );
+    const { body, contentType } = await getObject(cle.bucket, cle.key);
     return new NextResponse(Buffer.from(body), {
       status: 200,
       headers: {
         'Content-Type': contentType,
         'Cache-Control': 'private, max-age=300',
+        'X-Content-Type-Options': 'nosniff',
       },
     });
   } catch {

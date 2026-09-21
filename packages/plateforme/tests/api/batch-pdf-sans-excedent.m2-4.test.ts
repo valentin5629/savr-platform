@@ -134,7 +134,11 @@ function happyResponses(
   ];
 }
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  // Clés de logo bornées au bucket applicatif (lib/logo-key.ts).
+  vi.stubEnv('R2_BUCKET_NAME', 'savr-dev');
+});
 
 // ── Tests ──────────────────────────────────────────────────────────────────
 
@@ -257,11 +261,11 @@ describe('M2.4 / batch sans-excédent — cascade logo §1.2 (BL-P2-19 cohérenc
         organisations: {
           raison_sociale: 'Agence Événement',
           type: 'agence',
-          logo_url: 'https://cdn/agence-logo.png',
+          logo_url: 'savr-dev/logos/a9e1c2d3-4b5c-4d6e-8f70-81a2b3c4d5e6.png',
         },
         traiteur_operationnel: {
           raison_sociale: 'Traiteur Op',
-          logo_url: 'https://cdn/traiteur-logo.png',
+          logo_url: 'savr-dev/logos/b8f2d3e4-5c6d-4e7f-9a81-92b3c4d5e6f7.png',
         },
         client_organisateur: null,
         lieux: {
@@ -277,7 +281,9 @@ describe('M2.4 / batch sans-excédent — cascade logo §1.2 (BL-P2-19 cohérenc
     const payload = jobInsert(sb)!.payload as Record<string, unknown>;
     // Agence prime sur le traiteur opérationnel (§1.2 l.86-90) ; le logo est inliné
     // en data URI (BL-P3-05) — la clé agence est celle téléchargée.
-    expect(getObjectBytes).toHaveBeenCalledWith('https://cdn/agence-logo.png');
+    expect(getObjectBytes).toHaveBeenCalledWith(
+      'savr-dev/logos/a9e1c2d3-4b5c-4d6e-8f70-81a2b3c4d5e6.png',
+    );
     expect(payload.logo_url as string).toMatch(/^data:image\/png;base64,/);
   });
 });

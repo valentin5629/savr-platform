@@ -5,7 +5,7 @@ import {
   type ClientRole,
 } from '@/lib/api-auth.js';
 import { serverError, writeError } from '@/lib/api-helpers.js';
-import { estCleLogo } from '@/lib/logo-upload.js';
+import { parseCleLogo } from '@/lib/logo-key.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
@@ -85,10 +85,9 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
       );
     patch.adresse = adresse === '' ? null : adresse;
   }
-  // logo_url = uniquement une clé produite par POST /logo (défense en
-  // profondeur sur ce chemin : une valeur libre ferait télécharger un autre
-  // objet R2 dans la synthèse PDF via logoKeyToDataUri).
-  if ('logo_url' in patch && !estCleLogo(patch.logo_url))
+  // logo_url = uniquement une clé produite par POST /logo (lib/logo-key.ts,
+  // même garde que les lecteurs R2 et que le trigger trg_garde_format_logo).
+  if ('logo_url' in patch && !parseCleLogo(patch.logo_url as string | null))
     return NextResponse.json({ error: 'Logo invalide' }, { status: 422 });
 
   const { data, error } = await supabase

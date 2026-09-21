@@ -50,7 +50,8 @@
     "packages/plateforme/tests/ui/espace-gestionnaire-p2.m3-2.test.tsx",
     "packages/plateforme/tests/ui/mon-organisation-gestionnaire.m3-2.test.tsx",
     "packages/plateforme/src/app/api/v1/gestionnaire/mon-organisation/logo/route.ts",
-    "packages/plateforme/src/lib/logo-upload.ts"
+    "packages/plateforme/src/lib/logo-upload.ts",
+    "packages/plateforme/src/app/api/v1/gestionnaire/documents/[type]/[id]/download/route.ts"
   ],
   "scenarios": [
     "M3.2/auth_guard_non_gestionnaire_401",
@@ -113,7 +114,15 @@
     "M3.2/mon_organisation_profil_affiche",
     "M3.2/mon_organisation_erreur_affichee",
     "M3.2/mon_organisation_factures_lignes_pdf_pennylane_prioritaire",
-    "M3.2/mon_organisation_erreur_onglet_quitte_ignoree"
+    "M3.2/mon_organisation_erreur_onglet_quitte_ignoree",
+    "M3.2/document_download_rapport_ok",
+    "M3.2/document_download_attestation_ok",
+    "M3.2/document_embargo_h24_refuse",
+    "M3.2/document_hors_perimetre_404",
+    "M3.2/document_non_genere_202",
+    "M3.2/document_type_inconnu_400",
+    "M3.2/document_role_non_gestionnaire_403",
+    "M3.2/document_embargo_h24_attestation_refuse"
   ],
   "deliverables": [
     {
@@ -458,7 +467,15 @@
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/mon-organisation/page.tsx + packages/plateforme/src/app/api/v1/gestionnaire/mon-organisation/logo/route.ts + packages/plateforme/src/app/api/v1/gestionnaire/mon-organisation/profil/route.ts + packages/plateforme/src/lib/logo-upload.ts",
       "test": "M3.2/mon_organisation_champs_lecture_seule + M3.2/mon_organisation_adresse_enregistree + M3.2/mon_organisation_adresse_erreur_serveur_affichee + M3.2/mon_organisation_logo_upload_puis_enregistre + M3.2/mon_organisation_logo_refuse_sans_patch + M3.2/mon_organisation_logo_envoye_non_enregistre + M3.2/profil_patch_logo_cle_upload_acceptee + M3.2/profil_patch_logo_invalide_422 + M3.2/profil_patch_adresse_trim_et_vide_null + M3.2/profil_patch_adresse_invalide_422 + M3.2/logo_upload_201 + M3.2/logo_upload_format_refuse_422 + M3.2/logo_upload_trop_lourd_422 + M3.2/logo_upload_role_traiteur_403 + M3.2/logo_get_sert_le_logo_de_sa_propre_organisation + M3.2/logo_get_404",
       "statut": "implemented",
-      "libelle": "Bloc Organisation §06.05 §6 : nom en lecture seule (via support), adresse modifiable, logo en upload / remplacement (R2, JPG/PNG ≤ 2 Mo). Raison sociale, SIRET, email et téléphone en lecture seule. PATCH /profil n'accepte comme logo_url qu'une clé <R2_BUCKET_NAME>/logos/<uuid>.(png|jpg) ; le proxy GET /logo ne sert que le logo de sa propre organisation."
+      "libelle": "Bloc Organisation §06.05 §6 : nom en lecture seule (via support), adresse modifiable, logo en upload / remplacement (R2, JPG/PNG ≤ 2 Mo). Raison sociale, SIRET, email et téléphone en lecture seule. PATCH /profil n'accepte comme logo_url qu'une clé validée par lib/logo-key.ts ; le proxy GET /logo ne sert que le logo de sa propre organisation."
+    },
+    {
+      "id": "M3.2-documents-download",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md",
+      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/documents/[type]/[id]/download/route.ts + packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/[id]/page.tsx",
+      "test": "M3.2/document_download_rapport_ok + M3.2/document_download_attestation_ok + M3.2/document_embargo_h24_refuse + M3.2/document_hors_perimetre_404 + M3.2/document_non_genere_202 + M3.2/document_type_inconnu_400 + M3.2/document_role_non_gestionnaire_403 + M3.2/document_embargo_h24_attestation_refuse",
+      "statut": "implemented",
+      "libelle": "Bloc documents du détail événement (§06.05) : téléchargement du rapport de recyclage et de l'attestation de don par URL pré-signée R2 (route gestionnaire user-scopée, RLS = frontière, embargo H+24 R-PDF2 côté serveur → 425 : rapports_rse.disponible_a et attestations_don.eligible_at) ; le bordereau ZD passe par la route registre."
     }
   ],
   "cdc_source_hash": {

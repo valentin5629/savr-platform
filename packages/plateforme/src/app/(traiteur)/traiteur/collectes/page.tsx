@@ -395,20 +395,22 @@ function CollectesContent() {
       if (!map.has(k)) map.set(k, []);
       map.get(k)!.push(item);
     }
+    // Tri par défaut §06.04 §3 : date DÉCROISSANTE (les plus récentes en
+    // premier), sans exception d'onglet — au niveau des semaines COMME à
+    // l'intérieur d'une semaine. Le tri conditionnel par onglet qui existait ici
+    // contredisait le CDC ; arbitrage Val 2026-09-21 (option B : c'est le code
+    // qui s'aligne), cf. _Divergences/_traités/2026-09/
+    // M3.1_20260921_tri_liste_collectes.md.
     return [...map.entries()]
-      .sort((a, b) =>
-        onglet === 'historique'
-          ? b[0].localeCompare(a[0])
-          : a[0].localeCompare(b[0]),
-      )
+      .sort((a, b) => b[0].localeCompare(a[0]))
       .map(([lundi, items]) => ({
         lundi,
         libelle: libelleSemaine(lundi),
         items: items.sort((a, b) =>
-          a.data.date_collecte.localeCompare(b.data.date_collecte),
+          b.data.date_collecte.localeCompare(a.data.date_collecte),
         ),
       }));
-  }, [rows, onglet]);
+  }, [rows]);
 
   const estDemande = annulTarget?.statut === 'validee';
 

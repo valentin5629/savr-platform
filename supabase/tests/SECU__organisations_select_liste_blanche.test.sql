@@ -130,7 +130,7 @@ SELECT throws_ok(
   '42501', NULL, '4. gestionnaire : mode_facturation_zd d''un traiteur intervenu illisible');
 
 -- 5. Contrôle positif : le traiteur intervenu reste visible (nom lisible). Depuis
---    20260918140000 la table ne rend plus les traiteurs tiers au gestionnaire : la
+--    20260921090000 la table ne rend plus les traiteurs tiers au gestionnaire : la
 --    fiche passe par la vue restreinte v_traiteurs_gestionnaire (id/nom/logo_url).
 SELECT is(
   (SELECT nom FROM plateforme.v_traiteurs_gestionnaire WHERE id = '5e1e0002-0000-0000-0000-0000000000b1'),

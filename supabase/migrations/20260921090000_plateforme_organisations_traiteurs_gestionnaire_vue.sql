@@ -78,4 +78,4 @@ REVOKE ALL ON plateforme.v_traiteurs_gestionnaire FROM PUBLIC, anon, authenticat
 GRANT SELECT ON plateforme.v_traiteurs_gestionnaire TO authenticated;
 
 COMMENT ON VIEW plateforme.v_traiteurs_gestionnaire IS
-  'Fiche traiteur vue par un gestionnaire_lieux (§06.05 : nom + logo, pas d''email / téléphone / SIRET) : traiteurs intervenus sur ses lieux (événement daté). Seul chemin de lecture des traiteurs tiers pour ce rôle depuis 20260918140000 (policy org_gestionnaire_traiteur_select supprimée). Toute colonne ajoutée ici élargit l''accès : revue sécurité + pgTAP SECU__organisations_traiteurs_gestionnaire_vue.';
+  'Fiche traiteur vue par un gestionnaire_lieux (§06.05 : nom + logo, pas d''email / téléphone / SIRET) : traiteurs intervenus sur ses lieux (événement daté). Seul chemin de lecture des traiteurs tiers pour ce rôle depuis 20260921090000 (policy org_gestionnaire_traiteur_select supprimée). Toute colonne ajoutée ici élargit l''accès : revue sécurité + pgTAP SECU__organisations_traiteurs_gestionnaire_vue.';

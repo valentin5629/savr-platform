@@ -1,6 +1,6 @@
 -- =============================================================================
 -- Tests pgTAP — gestionnaire_lieux : fiches traiteurs tiers par vue restreinte
--- Migration : 20260918140000_plateforme_organisations_traiteurs_gestionnaire_vue.sql
+-- Migration : 20260921090000_plateforme_organisations_traiteurs_gestionnaire_vue.sql
 -- =============================================================================
 -- Fuite fermée (constat 2026-09-18, base locale) : via la policy
 -- org_gestionnaire_traiteur_select, un gestionnaire_lieux lisait par PostgREST direct

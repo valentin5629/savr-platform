@@ -479,7 +479,7 @@ SELECT throws_ok(
 -- ════════════════════════════════════════════════════════════════════════════
 -- T36–T37 : traiteurs tiers via v_traiteurs_gestionnaire (Catégorie 4)
 -- (ex-policy org_gestionnaire_traiteur_select, remplacée par la vue restreinte
---  id/nom/logo_url en 20260918140000 — même prédicat de lignes)
+--  id/nom/logo_url en 20260921090000 — même prédicat de lignes)
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- T36 : Viparis voit Kaspia (E1 confirmé sur son lieu b01)

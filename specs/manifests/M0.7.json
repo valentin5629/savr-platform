@@ -129,7 +129,7 @@
     },
     {
       "id": "BL-P2-22",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:525",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:529",
       "artefact": "supabase/migrations/20260708150000_plateforme_r22f_seed_templates_tiers_conditionnels.sql ; packages/shared/src/email/index.ts (interpolateur {{#if}}) ; packages/plateforme/src/lib/notifications/traiteur-operationnel.ts (émission tpl 20/21/22, câblée routes programmation/modification/annulation)",
       "test": "M0.7/bl-p2-22-emission-programmation — template 20",
       "statut": "implemented",

@@ -17,7 +17,7 @@
   "deliverables": [
     {
       "id": "BL-P0-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:154",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:152",
       "artefact": "apps/pdf-renderer/src/templates/attestation-don.ts",
       "test": "association habilitée → mention fiscale article 238 bis CGI présente",
       "statut": "implemented",
@@ -25,7 +25,7 @@
     },
     {
       "id": "BL-P0-06",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:23",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:21",
       "artefact": "packages/plateforme/src/app/api/v1/admin/parametres/facteurs-co2/route.ts",
       "test": "M2.4 / facteurs-co2 / PUT → rpc_maj_facteurs_co2 avec colonnes réelles",
       "statut": "implemented",
@@ -33,7 +33,7 @@
     },
     {
       "id": "M2.4-co2-facteur-ag",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:599",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:605",
       "artefact": "packages/plateforme/src/app/api/v1/admin/parametres/facteurs-co2-ag/route.ts",
       "test": "M2.4 / facteurs-co2-ag / PUT → rpc_maj_facteur_co2_ag (facteur_co2_evite_par_repas_kg)",
       "statut": "implemented",
@@ -41,7 +41,7 @@
     },
     {
       "id": "M2.4-co2-mix-emballages",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:571",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:575",
       "artefact": "packages/plateforme/src/app/api/v1/admin/parametres/mix-emballages/route.ts",
       "test": "M2.4 / mix-emballages / PUT → rpc_maj_mix_emballages (part_pct)",
       "statut": "implemented",
@@ -49,7 +49,7 @@
     },
     {
       "id": "M2.4-co2-divers",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:577",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:581",
       "artefact": "packages/plateforme/src/app/(admin)/admin/parametres/co2/page.tsx",
       "test": "M2.4 / co2-divers / PUT → rpc_maj_co2_divers (key-value cle/valeur)",
       "statut": "implemented",
@@ -57,7 +57,7 @@
     },
     {
       "id": "M2.4-taux-recyclage",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:577",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:581",
       "artefact": "packages/plateforme/src/app/api/v1/admin/parametres/taux-recyclage/[filiere_id]/route.ts",
       "test": "M2_4__co2_params_rpc.test.sql :: taux_recyclage : 1 ligne d'historique tracée",
       "statut": "implemented",
@@ -65,7 +65,7 @@
     },
     {
       "id": "M2.4-co2-audit-rpc",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:577",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:581",
       "artefact": "supabase/migrations/20260624150000_plateforme_r3_co2_audit_rpc.sql",
       "test": "M2_4__co2_params_rpc.test.sql :: facteurs_co2 : 1 ligne d'historique tracée (auteur + commentaire)",
       "statut": "implemented",
@@ -105,7 +105,7 @@
     },
     {
       "id": "BL-P1-RM-10",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:183",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:192",
       "artefact": "packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/poids/route.ts (motif ≥10 sur correction + audit poids_repas_saisi_ops motivé) ; régén attestation via trg_regenerer_attestation (existant)",
       "test": "M2.4/RM-10 — correction sans motif → 422 ; correction avec motif ≥10 → 200 + audit poids_repas_saisi_ops motivé ; 1re saisie sans motif → 200 ; régén attestation (correction volume → corrigee + version+1) : supabase/tests/rls_attestations_don_m2_4.test.sql (Section R9 T7/T8/T9)",
       "statut": "implemented",

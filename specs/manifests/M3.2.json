@@ -330,7 +330,7 @@
     },
     {
       "id": "BL-P1-GEST-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:89",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:91",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx",
       "test": "M3.2/GEST01_bouton_programmer_present",
       "statut": "implemented",
@@ -346,7 +346,7 @@
     },
     {
       "id": "BL-P1-GEST-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:112",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:114",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx",
       "test": "M3.2/GEST03_kpi_affiches_cle_kpis",
       "statut": "implemented",
@@ -354,7 +354,7 @@
     },
     {
       "id": "BL-P1-GEST-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2098",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2103",
       "artefact": "supabase/migrations/20260705130000_plateforme_r19b_gest04_benchmark_7params.sql",
       "test": "supabase/tests/r19b_gest04_benchmark_ponderee.test.sql — GEST04-1..14 (signature 7 params, grain flux×type×taille, colonnes CDC, moyenne pondérée, k-anonymat, garde traiteur, listes parc)",
       "statut": "implemented",
@@ -362,7 +362,7 @@
     },
     {
       "id": "BL-P1-GEST-04-ENCART",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:148",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:150",
       "artefact": "packages/plateforme/src/components/dashboards/BenchmarkFilterBar.tsx",
       "test": "M3.2/GEST04_encart_filtres_present + M3.2/GEST04_encart_choix_taille + M3.2/GEST04_filtres_gestionnaire_listes_parc + M3.2/GEST04_route_forward_7_params",
       "statut": "implemented",
@@ -370,7 +370,7 @@
     },
     {
       "id": "BL-P1-GEST-04-JAUGE",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:166",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:168",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/dashboard/route.ts",
       "test": "M3.2/GEST04_dashboard_kg_pax_par_flux",
       "statut": "implemented",
@@ -378,7 +378,7 @@
     },
     {
       "id": "BL-P2-12",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:99",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:101",
       "artefact": "packages/plateforme/src/components/dashboards/DashboardFilterBar.tsx",
       "test": "M3.2/P2_dashboard_barre_5_filtres + M3.2/P2_dashboard_compteur_collectes + M3.2/P2_dashboard_carte_kpi_non_cliquable + M3.2/P2_dashboard_filtre_taille + M3.2/P2_filtres_options_parc + M3.2/P2_filtres_vide_si_aucun_perimetre + M3.2/P2_evenements_colonnes_rendues + M3.2/P2_evenements_colonnes_et_champs_plats + M3.2/P2_evenements_filtre_taille + M3.2/P2_export_csv_respecte_filtre_taille + M3.2/P2_lieux_colonne_capacite + M3.2/P2_lieu_detail_capacite_photos_collectes + M3.2/P2_traiteurs_colonne_lieux + M3.2/P2_traiteurs_lieux_intervention_noms + M3.2/P2_traiteur_detail_historique + M3.2/P2_encart_herite_type_taille + supabase/tests/r19b_p2_v_lieux_clients_capacite.test.sql (GRANT colonne capacite_maximum — régression P0 vue SECURITY INVOKER)",
       "statut": "implemented",
@@ -386,7 +386,7 @@
     },
     {
       "id": "BL-P2-13",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:71",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:73",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/layout.tsx",
       "test": "M3.2/P2_nav_pack_masque_si_absent + M3.2/P2_nav_pack_affiche_si_present",
       "statut": "implemented",
@@ -402,7 +402,7 @@
     },
     {
       "id": "M3.2-bloc2-ag",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:224",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:226",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/EvolutionAgChart.tsx",
       "test": "M3.2/dash_bloc4_zd_only — pas de donut sur l’onglet AG",
       "statut": "implemented",
@@ -434,7 +434,7 @@
     },
     {
       "id": "M3.2-bloc7-top-traiteurs",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:204",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:205",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/TopRankList.tsx (R24 Cockpit ; ex-TopActeursBloc supprime, plus aucun consommateur)",
       "test": "M3.2/blocs_gestionnaire_perimetre_et_top_traiteurs",
       "statut": "implemented",
@@ -442,7 +442,7 @@
     },
     {
       "id": "M3.2-bloc3ag-associations",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:233",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:235",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/TopRankList.tsx (R24 Cockpit ; ex-TopAssociationsBloc.tsx supprimé en R24c)",
       "test": "M3.2/blocs_gestionnaire_ag_associations",
       "statut": "implemented",
@@ -450,7 +450,7 @@
     },
     {
       "id": "M3.2-bloc8-export-pdf",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:209",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:211",
       "artefact": "packages/plateforme/src/components/dashboards/ExportSyntheseBloc.tsx + packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx",
       "test": "M3.2 / synthèse gestionnaire — lieux du parc + programmées + section traiteurs",
       "statut": "implemented",

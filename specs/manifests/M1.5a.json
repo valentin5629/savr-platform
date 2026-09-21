@@ -187,7 +187,7 @@
     },
     {
       "id": "M1.5a-e5-exclut-terminaux",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:255",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:257",
       "artefact": "packages/adapters/src/statuts-collecte.ts",
       "test": "E5 updateLieu : aucune collecte terminale (realisee, realisee_sans_collecte, cloturee, annulee, rejetee_par_prestataire) ne reçoit de PUT d'adresse ; une collecte en_cours du même lieu si — mock appliquant réellement le not-in PostgREST [adapter.e5-statuts-terminaux.test.ts]",
       "statut": "implemented",
@@ -195,7 +195,7 @@
     },
     {
       "id": "BL-P1-OUTBOX-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:473",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:542",
       "artefact": "supabase/migrations/20260629100000_plateforme_r9_outbox_concurrence.sql",
       "test": "OUTBOX-01 skip/requeue/resolve : dead → débloqué + audit_log + gardes admin/motif/dead [outbox_concurrence_r9.test.sql]",
       "statut": "implemented",
@@ -211,7 +211,7 @@
     },
     {
       "id": "BL-P1-OUTBOX-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:473",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:542",
       "artefact": "packages/adapters/src/outbox-worker.ts",
       "test": "R9 worker reaper + alerte anticipée J-1 + DLQ critique (vrai runOutboxWorker, SANS mock du worker — G5) [outbox-worker.r9.test.ts] + OUTBOX-03 reaper [outbox_concurrence_r9.test.sql]",
       "statut": "implemented",
@@ -235,7 +235,7 @@
     },
     {
       "id": "BL-P1-API-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:353",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:364",
       "artefact": "packages/adapters/src/mts1/adapter.ts",
       "test": "M1.5a / dispatch AG — deliveryPlace.placeId = id_point_collecte_mts1 de l'association [adapter.m1-5a.test.ts]",
       "statut": "implemented",
@@ -252,7 +252,7 @@
     },
     {
       "id": "BL-P1-RM-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:407",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:447",
       "artefact": "packages/adapters/src/mts1/adapter.ts (updateCollecte — création des rangs manquants 1..N via dispatchCollecte)",
       "test": "M1.5a / RM-03 augmentation N→N+k — crée les rangs manquants via dispatchCollecte",
       "statut": "implemented",

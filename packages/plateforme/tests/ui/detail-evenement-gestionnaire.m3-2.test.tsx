@@ -305,11 +305,18 @@ describe('M3.2 / détail événement — consultation en lecture seule', () => {
     expect(actions.filter((t) => interdit.test(t))).toEqual([]);
   });
 
-  it('M3.2/detail_evenement_consultation_lecture_seule — client organisateur non renseigné : cellule absente, et déchets labo à « — »', async () => {
-    // Deux cas-limites du §06.05 §3 que le cas nominal ne peut pas mesurer :
-    // « Client Organisateur SI renseigné » (sinon rien) et « — si le traiteur
-    // n'a pas communiqué de coefficient » (et non la ligne qui disparaît, ce
-    // qui rendrait les deux situations indistinguables à l'écran).
+  it('M3.2/detail_evenement_consultation_lecture_seule — client organisateur non renseigné : cellule absente ; estimation labo indisponible : « — », jamais « 0.0 kg »', async () => {
+    // Cas-limite §06.05 §3 : « Client Organisateur SI renseigné » (sinon la
+    // cellule disparaît) — le cas nominal ne peut pas le mesurer.
+    //
+    // ⚠ Le `dechets_labo_kg: null` ci-dessous N'EST PAS le cas « le traiteur
+    // n'a pas communiqué de coefficient » : `f_dechets_labo_estimes` enveloppe
+    // son résultat dans COALESCE(…, 0) et ne renvoie JAMAIS null, donc ce
+    // cas-là s'affiche « 0.0 kg » et le « — » du CDC l.330 est INATTEIGNABLE.
+    // Ce qu'on mesure ici, c'est l'échec d'appel RPC (les deux routes
+    // propagent `data` telle quelle) : sur erreur, l'écran doit afficher « — »
+    // et surtout jamais « 0.0 kg », qui affirmerait une estimation à zéro.
+    // Divergence tracée : _Divergences/M3.2_20260921_dechets-labo-coalesce-zero.md
     const charge = evenementComplet();
     charge.data.nom_client_organisateur = null as unknown as string;
     charge.data.dechets_labo_kg = null as unknown as number;
@@ -323,5 +330,6 @@ describe('M3.2 / détail événement — consultation en lecture seule', () => {
     const labo = screen.getByText(/Est\. labo/);
     expect(normalise(labo.textContent)).toBe('Est. labo : —');
     expect(normalise(labo.textContent)).not.toContain('kg');
+    expect(normalise(labo.textContent)).not.toContain('0');
   });
 });

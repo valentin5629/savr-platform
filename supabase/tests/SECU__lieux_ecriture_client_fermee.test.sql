@@ -1,9 +1,15 @@
 -- =============================================================================
 -- SÉCURITÉ — écriture PostgREST directe de `plateforme.lieux` fermée.
 --
--- Migration prouvée : 20260921160000_plateforme_lieux_ecriture_client_fermee.
+-- Migration prouvée : 20260921210000_plateforme_lieux_ecriture_client_fermee.
 -- Suite de #318 (`20260915160000`, `collectes`) et #328 (`20260915190000`,
 -- `evenements`). CLAUDE.md §12 pt 2bis.
+--
+-- ⚠ HORODATAGE : renuméroté depuis `20260921160000`. Trois migrations ont atterri
+-- sur `main` PENDANT la revue de ce lot (`…170000`, `…190000`, `…200000`) ;
+-- une migration au timestamp ANTÉRIEUR est SAUTÉE EN SILENCE par
+-- `supabase db push` dès que les suivantes sont appliquées. Même correction
+-- qu'en #328, pour la même raison.
 --
 -- ⚠ CE QUI REND CE FICHIER DIFFÉRENT DE SES DEUX PRÉDÉCESSEURS. Sur `collectes` et
 -- `evenements`, les policies ouvrantes étaient CLIENT (evt_manager_update,

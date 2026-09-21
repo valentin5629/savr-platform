@@ -5,6 +5,9 @@
 --            06 - Audit trail.md` §1 (« append-only et immuable (aucun
 --            UPDATE/DELETE) ») + §5 pt 4 (« Test pgTAP : vérifier l'immuabilité
 --            (UPDATE/DELETE refusés tous rôles) »).
+--            T11-T13 couvrent le vidage de table : le §5 pt 4 ne le nomme pas,
+--            mais le §1 exige l'immuabilité, et vider la table efface les lignes
+--            aussi sûrement qu'un DELETE.
 --
 -- CE QUE CE FICHIER MESURE, ET POURQUOI IL NE SE LIMITE PAS AU PARENT
 -- -------------------------------------------------------------------
@@ -60,18 +63,32 @@
 -- dans le même lot : 10/10. Ce fichier est la preuve de fermeture exigée par
 -- CLAUDE.md §12 (2bis) pour une migration qui referme un accès.
 --
--- NON-VACUITÉ — chaque test discrimine, vérifié par deux contre-épreuves jouées
--- en transaction rollbackée le 2026-09-21 :
+-- T11-T13 (ajoutés le 2026-09-21) ferment le dernier chemin d'effacement, le
+-- vidage de table, que le trigger UPDATE/DELETE n'intercepte pas — voir le
+-- commentaire qui les précède. Mesuré avec la seule migration ci-dessus :
+-- 10 verts, 3 ROUGES, « caught: no exception » — le vidage aboutissait.
+-- APRÈS `20260921210000_plateforme_audit_log_garde_vidage.sql` : 13/13.
+--
+-- NON-VACUITÉ — chaque test discrimine, vérifié par quatre contre-épreuves
+-- jouées en transaction rollbackée le 2026-09-21, chacune en retirant un seul
+-- mécanisme d'une migration par ailleurs complète :
 --   • REVOKE UPDATE,DELETE seul (parent + 6 partitions, sans trigger) → T10 rouge.
 --     `ALTER DEFAULT PRIVILEGES` re-accorde `arwd` à la partition de l'an prochain.
 --   • Trigger seul (sans REVOKE) → T7/T8 rouges. Sous `authenticated` la RLS
 --     ramène déjà la requête à 0 ligne, donc le trigger BEFORE ROW ne se
 --     déclenche jamais : `UPDATE 0` silencieux, qui n'est pas un refus.
---   ⇒ les deux mécanismes sont nécessaires ; ni l'un ni l'autre ne suffit.
+--   • Garde de vidage sans la boucle sur les partitions existantes (posée sur le
+--     seul parent) → T11 rouge, T12/T13 verts : un trigger d'instruction n'est
+--     pas cloné, la partition 2026 reste videable. T12 reste vert parce que la
+--     garde du parent, elle, intercepte bien le vidage du parent.
+--   • Garde de vidage sans la pose dans `f_ensure_partition_annee` → T13 rouge,
+--     T11/T12 verts : la protection s'arrête à la dernière partition pré-créée
+--     et expire au prochain 1er janvier.
+--   ⇒ les quatre mécanismes sont nécessaires ; aucun ne suffit seul.
 -- =============================================================================
 
 BEGIN;
-SELECT plan(10);
+SELECT plan(13);
 
 -- Helpers. `test_as_superuser()` est celui des 43 autres fichiers du dossier.
 -- `test_as_role()` est propre à ce fichier : le helper commun `test_set_jwt()`
@@ -207,6 +224,84 @@ SELECT throws_ok(
      WHERE action = 'secu_immuabilite_a171_futur'$$,
   '42501', NULL,
   'T10 UPDATE refusé sur une partition créée APRÈS la garde (couvre les partitions annuelles à venir)'
+);
+
+-- =====================================================================
+-- T11-T13 : le vidage de table, dernier chemin d'effacement d'une ligne
+-- d'audit. `BEFORE UPDATE OR DELETE FOR EACH ROW` (T1-T10) n'intercepte
+-- PAS un `TRUNCATE` : ce n'est ni un UPDATE ni un DELETE, et c'est un
+-- ordre au niveau de l'instruction, sans ligne à passer au trigger.
+--
+-- POURQUOI LE CHEMIN DIRECT N'EST PAS TESTÉ ICI
+-- ---------------------------------------------
+-- Hors fonction `SECURITY DEFINER`, `service_role` n'a pas le privilège :
+-- mesuré le 2026-09-21 en local, `savr-dev` ET `savr-prod`,
+-- `has_table_privilege('service_role', …, 'TRUNCATE')` = false sur le
+-- parent, sur les 6 partitions ET sur une partition créée à la volée —
+-- ce verbe n'a jamais été concédé, ni par le blanket grant 0.4a ni par
+-- l'`ALTER DEFAULT PRIVILEGES` du schéma. Un test de ce chemin serait
+-- vert avant comme après le correctif : vacuously true, donc exclu,
+-- pour la même raison qu'`anon` plus haut.
+--
+-- LE CHEMIN QUI RESTAIT OUVERT, ET QUI EST TESTÉ
+-- -----------------------------------------------
+-- Dans une fonction `SECURITY DEFINER`, l'ACL vérifiée est celle du
+-- PROPRIÉTAIRE, pas celle de l'appelant. Une fonction appartenant à
+-- `postgres` qui vide `audit_log_2026`, appelée sous `service_role`,
+-- réussissait donc malgré l'ACL et malgré le trigger de T1-T10
+-- (reproduit le 2026-09-21 : « current_user=postgres », vidage abouti).
+-- C'est le vecteur réaliste : pas un accès administrateur délibéré, mais
+-- une RPC applicative ordinaire — le schéma en compte 17 qui touchent
+-- déjà `audit_log` — à laquelle on ajouterait un jour un vidage.
+-- La sonde ci-dessous reproduit exactement cette forme.
+--
+-- LE PIÈGE QUE T13 VERROUILLE
+-- ----------------------------
+-- Un trigger `BEFORE TRUNCATE` est nécessairement `FOR EACH STATEMENT`
+-- (PostgreSQL interdit `FOR EACH ROW`), et — contrairement au trigger
+-- ligne à ligne de T1-T10 — les triggers d'instruction ne sont clonés
+-- sur AUCUNE partition : ni les existantes, ni celles attachées ensuite.
+-- Mesuré le 2026-09-21 : posé sur le seul parent, il laisse la sonde
+-- réussir sur `audit_log_2026` comme sur une partition neuve. La garde
+-- doit donc être posée partition par partition, et par
+-- `f_ensure_partition_annee` sur chaque partition annuelle qu'elle crée
+-- — sans quoi la protection expirerait au prochain 1er janvier, le piège
+-- même que le REVOKE avait déjà rencontré au point (3) de l'en-tête.
+-- =====================================================================
+
+SELECT test_as_superuser();
+
+-- La sonde : même forme que le vecteur décrit ci-dessus — propriétaire
+-- `postgres`, `SECURITY DEFINER`, appelée sous `service_role`. `%I` pour
+-- que la cible soit un identifiant et non une chaîne concaténée.
+CREATE OR REPLACE FUNCTION test_sonde_vidage_audit(p_cible text)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  EXECUTE format('TRUNCATE plateforme.%I', p_cible);
+END $$;
+
+SELECT test_as_role('service_role');
+
+SELECT throws_ok(
+  $$SELECT test_sonde_vidage_audit('audit_log_2026')$$,
+  '42501', NULL,
+  'T11 vidage de audit_log_2026 refusé, même depuis une fonction SECURITY DEFINER appelée par service_role'
+);
+
+SELECT throws_ok(
+  $$SELECT test_sonde_vidage_audit('audit_log')$$,
+  '42501', NULL,
+  'T12 vidage de audit_log (parent, qui cascade sur toutes les partitions) refusé dans les mêmes conditions'
+);
+
+-- La partition 2035 a été créée en T10 par `f_ensure_partition_annee`,
+-- APRÈS la garde. Si la fonction ne pose pas le trigger sur ce qu'elle
+-- crée, ce test est le seul à rougir — et l'immuabilité s'arrête à la
+-- dernière partition pré-créée.
+SELECT throws_ok(
+  $$SELECT test_sonde_vidage_audit('audit_log_2035')$$,
+  '42501', NULL,
+  'T13 vidage refusé sur une partition créée APRÈS la garde (les triggers d''instruction ne sont jamais clonés)'
 );
 
 SELECT test_as_superuser();

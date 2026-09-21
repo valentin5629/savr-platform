@@ -90,7 +90,23 @@
     "M3.1/blocs_traiteur_ag_associations_et_top7",
     "M3.1/blocs_traiteur_kpi_cartes_non_cliquables",
     "M3.1/dash_cockpit_co2_ag_carte_modale",
-    "M3.1/tri_liste_collectes_date_decroissante_deux_onglets"
+    "M3.1/tri_liste_collectes_date_decroissante_deux_onglets",
+    "M3.1/fiche_entete_type_et_taille_bracket",
+    "M3.1/fiche_entete_taille_null_sans_pax",
+    "M3.1/fiche_entete_programmee_par_tiers",
+    "M3.1/fiche_entete_programmee_par_absente",
+    "M3.1/fiche_bloc3_ratio_et_repere",
+    "M3.1/fiche_bloc3_k_anonymat",
+    "M3.1/fiche_bloc3_collecte_hors_perimetre_404",
+    "M3.1/fiche_bloc3_traiteur_ids_rejete",
+    "M3.1/fiche_ui_entete_type_et_taille",
+    "M3.1/fiche_ui_titre_date_fr",
+    "M3.1/fiche_ui_programmee_par_modale",
+    "M3.1/fiche_ui_programmee_par_absent",
+    "M3.1/fiche_ui_erreur_reessayer",
+    "M3.1/fiche_ui_bloc3_masque_avant_realisation",
+    "M3.1/fiche_ui_bloc3_visible_zd_cloturee",
+    "M3.1/fiche_ui_bloc3_masque_en_ag"
   ],
   "deliverables": [
     {
@@ -524,10 +540,52 @@
       "test": "lieux_autocompletion_comportement_sous_rls — le traiteur opérationnel se voit proposer le lieu, le concurrent non",
       "statut": "implemented",
       "libelle": "Autocomplétion Lieux — preuve de COMPORTEMENT sous `authenticated` de la requête réelle (vue v_lieux_clients + projection de la route + actif=true) : le traiteur opérationnel se voit proposer le lieu d'un événement programmé par un tiers, le concurrent non, avec non-vacuité sur chaque négatif. Complète, sans les doublonner, l'étendue de la policy (lieux_traiteur_operationnel.test.sql, #371) et le cliquet sur le texte du prédicat (lieux_clients_select_cliquet.test.sql, #374), qui ne tourne sous authenticated à aucun assert. Couvre aussi le masquage colonne et l'innocuité, par rôle, de l'omission de la branche 3 dans la transcription admin support."
+    },
+    {
+      "id": "M3.1-fiche-entete-type-taille",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:399-409",
+      "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts",
+      "test": "M3.1/fiche_entete_type_et_taille_bracket",
+      "statut": "implemented",
+      "libelle": "Bloc d'entête §06.04 — « Type d'événement + taille (XS/S/M/L/XL bracket calculé sur pax) », jamais rendu jusqu'ici : libellé embarqué depuis types_evenements et bracket dérivé côté serveur avec le helper canonique tailleBracket (mêmes bornes que §04 taille_evenement_bracket, pas de 8e copie de la règle). Pax absent (informations_completes=false) ⇒ pas de bracket inventé."
+    },
+    {
+      "id": "M3.1-fiche-entete-programmee-par",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:406-407",
+      "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts",
+      "test": "M3.1/fiche_entete_programmee_par_tiers",
+      "statut": "implemented",
+      "libelle": "Badge « Programmée par » de la fiche (ajout 2026-05-07) + modale d'information (nom, type, email de contact de l'organisation programmatrice), absents de la fiche alors que la liste les portait déjà. Affiché UNIQUEMENT si evenements.organisation_id ≠ traiteur_operationnel_organisation_id ; sinon aucune lecture service-role de `organisations` n'est faite (surface bornée, prouvé par M3.1/fiche_entete_programmee_par_absente)."
+    },
+    {
+      "id": "M3.1-fiche-bloc3-zd-benchmark",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:443-468",
+      "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/benchmark/route.ts",
+      "test": "M3.1/fiche_bloc3_ratio_et_repere",
+      "statut": "implemented",
+      "libelle": "Bloc 3 ZD de la FICHE collecte (grain single_collecte) — jamais câblé jusqu'ici (§04 l.2175 : fonction livrée mais « 0 consommateur front »). Jauges kg/pax des 5 flux ZD de CETTE collecte × repère parc, encart de filtres du repère imbriqué dans la carte et initialisé sur le segment de la collecte (type × taille), k-anonymat ≥5 côté serveur ⇒ repère masqué, garde traiteur_ids[] interdite au traiteur. Réutilise BenchmarkBulletGauges + BenchmarkFilterBar + loadBenchmark des dashboards (aucun composant de graphe nouveau)."
+    },
+    {
+      "id": "M3.1-fiche-benchmark-colonnes-canoniques",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2151-2176",
+      "artefact": "supabase/migrations/20260922100000_plateforme_benchmark_single_collecte_colonnes_canoniques.sql",
+      "test": "M3.1/fiche_bloc3_ratio_et_repere",
+      "statut": "implemented",
+      "libelle": "Normalisation exigée par le CDC « au câblage front §06.04 » des colonnes de sortie de f_benchmark_single_collecte sur la forme canonique (taille_evenement / ratio_user / benchmark_kg_pax / nb_collectes_segment). L'ancien nom median_kg_pax était trompeur : la valeur servie est la moyenne pondérée parc depuis la refonte 2026-05-30. Corps inchangé ; DROP+CREATE car PostgreSQL ne renomme pas les colonnes OUT par CREATE OR REPLACE ; search_path et grants rejoués à l'identique."
+    },
+    {
+      "id": "M3.1-fiche-etats-systeme-ds",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:391-410",
+      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/[id]/page.tsx",
+      "test": "M3.1/fiche_ui_erreur_reessayer",
+      "statut": "implemented",
+      "libelle": "États système §10 §7 de la fiche : Loading = skeleton à la forme du contenu (et non un « Chargement… » nu), Error = message + bouton « Réessayer ». Un 500 affichait jusqu'ici « Collecte introuvable », message faux qui envoyait le traiteur chercher une collecte supprimée. Entête au pattern label/valeur, bandeau « Informations incomplètes » porté par le composant AlertBar du DS, date du titre en format FR."
     }
   ],
   "cdc_source_hash": {
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "3ad80c53b470d86a7ad5bd76b501ff02ac62ccf5615ed9ca760b5f1f18f3a77a",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "9d470d64935d18297dbc5f31313889274c6cde4ac931015da04d1b0dd8284de2"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "9d470d64935d18297dbc5f31313889274c6cde4ac931015da04d1b0dd8284de2",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "6368503948f40cfb00471f9538792a13a188b74874d9ea363a972eb64202ebdf",
+    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "244d0bd3d9c3388722ed4dd3fb0505c178e8919c5b2a2e29edd5e8c48eded5c1"
   }
 }

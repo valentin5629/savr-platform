@@ -42,9 +42,29 @@ R0b ajoute, **à côté de `scenarios[]` (conservé)**, un tableau **`deliverabl
 |---|---|---|
 | **G2** grain livrable | `pnpm check:manifest-grain` · job `manifest-grain` | Chaque manifeste valide vs `_schema.json` ; rejette le grain scénario-seul. |
 | **G1** couverture CDC | `pnpm check:spec-deliverables` · job `spec-deliverables` | Diff `cdc-deliverables.index.json` ↔ union des `deliverables[]`. Un livrable CDC non transcrit (et non descopé) = signalé. |
+| **G12** ancrage `ref_cdc` | `pnpm check:manifest-ref-anchor` · job `manifest-ref-anchor` | Chaque `ref_cdc` **lignée** pointe-t-elle toujours le passage visé à sa pose ? Enforcement par le méta-cliquet (baseline 0). |
 | (rappel) couverture test | `pnpm check:coverage` | `scenarios[]` → test (par titre exact). **Inchangé** : G1/G2 ajoutent une couche, ne le remplacent pas. |
 
 Les deux gates sont `continue-on-error: true` (mode rapport) : résumé `$GITHUB_STEP_SUMMARY` + compteur de burn-down, **exit 0**. **Flip bloquant (T1)** par périmètre/module, derrière le lot de fix correspondant (cliquet) — cf. `30. Review Code/Backlog final priorisé/Lot 0 …`.
+
+## ⚠ Les numéros de ligne des `ref_cdc` pourrissent aux syncs
+
+`specs/manifests/` est **authored**, `specs/cdc/**` est **dérivé** : chaque sync depuis le Vault peut insérer des lignes en amont d'un passage et **décaler tout le fichier**. Les `ref_cdc: <fichier>.md:<ligne>` figés dans les manifestes pointent alors un passage **sans rapport**, en silence — le chaînon CDC↔code perd sa fonction (le relecteur qui remonte à la source lit autre chose).
+
+Ce n'est pas théorique : au relevé du 2026-09-21, **162 des 287 refs lignées (57 %)** avaient décroché, avec des deltas de +1 à +121. `check:manifest-grain` ne valide que la **structure** de `ref_cdc`, `check:cdc-drift` compare un hash de **fichier entier** — ni l'un ni l'autre ne regarde le numéro de ligne.
+
+**Après chaque sync de `specs/`, recaler :**
+
+```bash
+pnpm check:manifest-ref-anchor --fix
+```
+
+Le recalage est déterministe (pas d'heuristique lexicale) : il retrouve, via `git blame` du manifeste puis la version d'époque du CDC, le texte qui était à la ligne visée, et le localise dans le fichier courant. Il ne touche une ref que si ce texte est retrouvé **sans ambiguïté**.
+
+Deux limites, à connaître :
+
+- un manifeste **reformaté en masse** fait sauter le blame sur ses lignes → le gate devient aveugle sur ces refs (faux **négatif**, jamais faux positif) ;
+- une ref **fausse dès la pose** (erreur de saisie) n'est pas détectable ainsi — le texte d'époque est bien à sa place, il n'a simplement jamais décrit le livrable. Cette justesse-là se relit à la main.
 
 ## Couverture R0b (P0-modules-first)
 

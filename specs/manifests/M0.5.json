@@ -188,7 +188,7 @@
     },
     {
       "id": "BL-P1-API-05",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:546",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:609",
       "artefact": "packages/shared/src/email/index.ts",
       "test": "variable requise absente → aucun envoi, aucune ligne emails_envoyes, trace MISSING_VARIABLE",
       "statut": "implemented",
@@ -196,7 +196,7 @@
     },
     {
       "id": "M0.5-resend-template-not-found-skip",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:548",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:611",
       "artefact": "packages/shared/src/email/index.ts",
       "test": "slug inexistant → aucun envoi, throw + trace TEMPLATE_NOT_FOUND (CDC l.548)",
       "statut": "implemented",

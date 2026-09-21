@@ -280,7 +280,7 @@
     },
     {
       "id": "M1.7-factures-vue-client-non-vide",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:299",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:311",
       "artefact": "supabase/migrations/20260617180000_plateforme_fix_role_claim.sql (f_fichier_visible factures scope) + vue v_factures_client",
       "test": "supabase/tests/m1_7_facturation.test.sql (test_factures_vue_client_non_vide_manager)",
       "statut": "implemented",

@@ -183,6 +183,14 @@ function EvenementsContent() {
                       ? `${e.tonnage_zd_kg.toFixed(0)} kg`
                       : '—'}
                   </td>
+                  {/* §06.05 §2 l.309 : « — si coefficient non communiqué ».
+                      Atteignable depuis 20260921190000 — f_dechets_labo_estimes
+                      remonte NULL au lieu de 0 quand le traiteur n'a pas
+                      communiqué de coefficient (et sur événement hors
+                      périmètre). Un « 0 kg » affiché correspond donc à un
+                      coefficient DÉCLARÉ à zéro — à une exception près, tracée
+                      et hors lot : `pax = 0` rend aussi 0 alors que §05 veut
+                      NULL (_Divergences/M3.2_20260921_dechets-labo-pax-zero.md). */}
                   <td className="whitespace-nowrap px-3 py-2">
                     {e.dechets_labo_kg != null
                       ? `${e.dechets_labo_kg.toFixed(0)} kg`

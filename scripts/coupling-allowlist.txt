@@ -255,3 +255,8 @@ supabase/tests/everest_acceptation_manuelle_plans.test.sql
 # enum type_tms + libellés de branches/commentaires existants ; aucun appel HTTP
 # transporteur. 'customerOrders' banni.
 supabase/migrations/20260917170000_plateforme_algo_ag_horaires_format_editeur.sql
+# Réattribution vers le même type de transporteur (2026-09-17, arbitrage Val
+# « réinitialiser en place ») : 'mts1' = valeur de l'enum type_tms dans les
+# INSERT fixtures pgTAP. Écritures DB uniquement, aucun appel HTTP transporteur.
+# 'customerOrders' banni.
+supabase/tests/reattribution_meme_type_tms.test.sql

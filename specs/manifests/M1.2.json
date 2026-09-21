@@ -16,7 +16,11 @@
     "M1.2 — édition collecte gestionnaire champ verrouillé lieu_id → 422",
     "M1.2 — édition collecte gestionnaire cloisonnement cross-org → 403",
     "M1.2 — édition collecte gestionnaire hors fenêtre (en_cours) → 422",
-    "M1.2 — édition collecte gestionnaire réacceptation prestataire (date + statut_tms=acceptee)"
+    "M1.2 — édition collecte gestionnaire réacceptation prestataire (date + statut_tms=acceptee)",
+    "lieux_client_lit_sous_rls — la lecture passe par la vue liste blanche, jamais par le service_role",
+    "lieux_client_aucun_scope_reimplemente — une seule requête, aucune borne d’ids calculée en TS",
+    "lieux_client_param_org_cross_ignore — un rôle client ne s’élargit pas via ?organisation_id",
+    "lieux_admin_support_miroir_branche_4 — le périmètre simulé inclut les événements OPÉRÉS par la cible"
   ],
   "deliverables": [
     {
@@ -202,6 +206,38 @@
       "test": null,
       "statut": "à-vérifier",
       "libelle": "Écran de confirmation dédié : bandeau succès + récapitulatif des collectes créées + rappel email récap + les 3 actions (« Ajouter une collecte à cet événement », « Programmer un autre événement », « Accueil ») — preuve visuelle GO-VISUAL"
+    },
+    {
+      "id": "M1.2-lieux-autocompletion-perimetre-rls",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:88",
+      "artefact": "packages/plateforme/src/app/api/v1/programmation/lieux/route.ts",
+      "test": "lieux_client_lit_sous_rls — la lecture passe par la vue liste blanche, jamais par le service_role",
+      "statut": "implemented",
+      "libelle": "Autocomplétion Lieux — « Liste filtrée selon RLS » (§06.01 l.88) : le chemin rôle client lit sous RLS via v_lieux_clients, le périmètre n'est plus exprimé que par la policy lieux_clients_select. Un traiteur opérationnel se voit donc proposer le lieu d'un événement programmé pour lui par un tiers (branche 4, migration 20260921140000)."
+    },
+    {
+      "id": "M1.2-lieux-autocompletion-scope-non-duplique",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:88",
+      "artefact": "packages/plateforme/src/app/api/v1/programmation/lieux/route.ts",
+      "test": "lieux_client_aucun_scope_reimplemente — une seule requête, aucune borne d’ids calculée en TS",
+      "statut": "implemented",
+      "libelle": "Autocomplétion Lieux — la route ne recopie plus le prédicat de la policy (aucune lecture organisations_lieux/evenements, aucun .in('id', …) sur le chemin client). C'est cette duplication qui avait divergé en silence."
+    },
+    {
+      "id": "M1.2-lieux-autocompletion-admin-support-miroir",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:323",
+      "artefact": "packages/plateforme/src/app/api/v1/programmation/lieux/route.ts",
+      "test": "lieux_admin_support_miroir_branche_4 — le périmètre simulé inclut les événements OPÉRÉS par la cible",
+      "statut": "implemented",
+      "libelle": "Autocomplétion Lieux, admin support — organisation cible déclarée en query (jamais déduite du JWT), sans cible → 0 résultat. Le service_role y reste structurellement nécessaire (simuler le périmètre d'un tiers est impossible sous RLS) ; le miroir porte les branches 1, 2 et 4 de lieux_clients_select."
+    },
+    {
+      "id": "M1.2-lieux-autocompletion-etendue-rls",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:254-259",
+      "artefact": "supabase/tests/programmation_lieux_autocompletion.test.sql",
+      "test": "traiteur_manager opérationnel : le lieu de l'événement programmé par un tiers EST proposé",
+      "statut": "implemented",
+      "libelle": "Autocomplétion Lieux — étendue prouvée sous `authenticated` sur la requête EXACTE de la route (vue liste blanche + actif=true) : le traiteur opérationnel voit le lieu, le concurrent non (non-vacuité contrôlée), le masquage colonne tient, et l'innocuité de l'omission de la branche 3 dans le miroir admin est pinée par rôle."
     }
   ],
   "cdc_source_hash": {

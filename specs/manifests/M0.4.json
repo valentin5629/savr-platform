@@ -31,7 +31,7 @@
   "deliverables": [
     {
       "id": "BL-P0-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/CGU Savr V1 - Draft.md:203",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/CGU Savr V1 - Draft.md:202",
       "artefact": "supabase/migrations/20260625000001_plateforme_r6_cgu_persistance.sql + packages/plateforme/src/app/api/auth/signup/route.ts (INSERT users : cgu_accepte_le + cgu_version) + packages/plateforme/src/lib/cgu.ts (CGU_VERSION_COURANTE)",
       "test": "packages/plateforme/tests/api/auth/signup.test.ts « M0.4 — persistance acceptation CGU (BL-P0-04…) » + supabase/tests/signup_users_cgu_colonnes_guard.test.sql",
       "statut": "implemented",
@@ -39,7 +39,7 @@
     },
     {
       "id": "BL-P0-09",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:101",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:99",
       "artefact": "supabase/migrations/20260625000002_plateforme_r7_rgpd_effacement.sql (deleted_at + table demandes_suppression + fn_anonymize_user SECURITY DEFINER + RLS lectures users deleted_at IS NULL) + packages/plateforme/src/app/api/me/demande-suppression/route.ts (POST self) + packages/plateforme/src/app/api/v1/admin/demandes-suppression/[id]/route.ts (PATCH valider→fn_anonymize_user / refuser) + composant RgpdComptePanel (bouton câblé) ; remplace le bouton inerte (traiteur+agence/mon-profil)",
       "test": "supabase/tests/r7_rgpd_effacement.test.sql « fn_anonymize_user anonymise PII + préserve factures/bordereaux + rejet non-admin + user soft-deleted invisible » + packages/plateforme/tests/api/me/rgpd.test.ts « M0.4 — RGPD … POST demande-suppression crée une demande en_attente sans anonymisation immédiate » + packages/plateforme/tests/api/admin/demandes-suppression.test.ts « M0.4 — RGPD admin validation suppression (valider→fn_anonymize_user / refuser / 409 / 404) »",
       "statut": "implemented",
@@ -47,7 +47,7 @@
     },
     {
       "id": "BL-P1-ONB-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:73",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:71",
       "artefact": "packages/plateforme/src/app/api/auth/signup/route.ts (champ siret requis sur chemin création + verifySiret synchrone : echec→422, down→en_attente+enqueue, verifie→verifie ; plus de siret:'') + packages/shared/src/api/siret.ts (isValidSiretFormat 14 chiffres) + packages/plateforme/src/lib/password.ts (validatePasswordStrength : 10c + maj + chiffre + spécial, §09 l.84-85) + packages/plateforme/src/app/api/auth/update-password/route.ts (même helper appliqué au reset/changement — A1 signup+reset) + supabase/config.toml (minimum_password_length 10)",
       "test": "packages/plateforme/tests/api/auth/signup.test.ts « M0.4 — SIRET au signup + vérif synchrone (BL-P1-ONB-01) » (SIRET valide→201/verifie ; format→422 ; echec→422 ; down→201 en_attente + enqueue ; mot de passe faible→422) + packages/plateforme/tests/api/auth/update-password.m0-4.test.ts « M0.4 — update-password : politique mot de passe au reset (A1) »",
       "statut": "implemented",
@@ -55,7 +55,7 @@
     },
     {
       "id": "BL-P1-ONB-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:73",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:71",
       "artefact": "supabase/migrations/20260630130000_plateforme_r13_onboarding_siret.sql (table file_revalidation_siret + RLS staff-read + index) + packages/shared/src/siret/revalidation.ts (enqueueSiretRevalidation + runSiretRevalidationWorker : paliers 15min/1h/24h, verifie/echec→resolu, 3 down→epuise + alerte Admin f_upsert_alerte_admin + email org siret_verification_echec) + packages/plateforme/src/app/api/cron/revalidation-siret/route.ts + packages/plateforme/vercel.json (cron */15)",
       "test": "packages/shared/src/siret/revalidation.m0-4.test.ts « M0.4 — revalidation SIRET : enqueue / escalade et sortie (BL-P1-ONB-02) » + supabase/tests/r13_onboarding_siret.test.sql (RLS file_revalidation_siret) + packages/plateforme/tests/api/cron/cron-auth.test.ts (fail-closed revalidation-siret)",
       "statut": "implemented",
@@ -63,7 +63,7 @@
     },
     {
       "id": "BL-P1-ONB-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:69",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:67",
       "artefact": "supabase/migrations/20260630130000_plateforme_r13_onboarding_siret.sql (index UNIQUE partiel uniq_entites_facturation_siret WHERE siret <> '') + packages/plateforme/src/app/api/auth/signup/route.ts (pré-check doublon SIRET→409 + mapping violation 23505→409 + collision domaine à l'insert→409, remplace le catch{} silencieux)",
       "test": "packages/plateforme/tests/api/auth/signup.test.ts « M0.4 — détection doublons SIRET / domaine (BL-P1-ONB-03) » (doublon SIRET pré-check→409 ; race 23505→409 ; doublon domaine→409) + supabase/tests/r13_onboarding_siret.test.sql (UNIQUE partiel SIRET)",
       "statut": "implemented",
@@ -71,7 +71,7 @@
     },
     {
       "id": "BL-P1-ONB-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:124",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:125",
       "artefact": "packages/plateforme/src/app/api/v1/admin/users/route.ts (slug 'bienvenue_invitation' inexistant → 'invitation_utilisateur' seedé + variables requises prenom + organisation_nom + lien_invitation, fetch organisations.nom)",
       "test": "packages/plateforme/tests/api/admin/users.m1-1a.test.ts « M0.4 — email invitation admin (BL-P1-ONB-04) » (sendEmail('invitation_utilisateur', …) appelé avec les variables requises)",
       "statut": "implemented",
@@ -79,7 +79,7 @@
     },
     {
       "id": "BL-P1-ONB-05",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:880",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:910",
       "artefact": "packages/plateforme/src/lib/onboarding-guards.ts (requireCompletedOrganisation : gate programmation SIRET vérifié ; requireValidatedOrganisation : gate push Pennylane) + câblage des 3 sites inline dédupliqués : programmation/evenements/route.ts, programmation/evenements/[id]/confirmer/route.ts, lib/facturation/validation-admin.ts",
       "test": "packages/plateforme/tests/lib/onboarding-guards.m0-4.test.ts « M0.4 — requireCompletedOrganisation / requireValidatedOrganisation (BL-P1-ONB-05) »",
       "statut": "implemented",
@@ -87,7 +87,7 @@
     },
     {
       "id": "BL-P1-AUTH-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:898",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:928",
       "artefact": "packages/plateforme/src/app/auth/impersonate-callback/route.ts + supabase/migrations/20260701120000_plateforme_r14_impersonation_claim.sql + packages/plateforme/src/app/api/auth/exit-impersonation/route.ts + packages/plateforme/src/components/ui/impersonation-banner-mount.tsx (monté layout racine) + packages/plateforme/src/app/api/v1/admin/users/[id]/impersoner/route.ts",
       "test": "packages/plateforme/tests/api/auth/impersonate.test.ts « M0.4 — impersonate callback / exit impersonation » + supabase/tests/r14_impersonation_claim.test.sql (hook injecte impersonator_id, fenêtre 1h) + packages/plateforme/src/components/ui/impersonation-banner-mount.test.tsx « M0.6 — bandeau impersonation » + supabase/tests/audit_trail.m0-10.test.sql (T14/T15 : action en session impersonée → audit_log.impersonator_id=admin ET user_id=user impersoné, chaîne bout-en-bout §09 §7 l.904)",
       "statut": "implemented",
@@ -95,7 +95,7 @@
     },
     {
       "id": "BL-P1-AUTH-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:909",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:235",
       "artefact": "supabase/migrations/20260701120100_plateforme_r14_attestation_no_delete.sql (att_admin scindé SELECT/INSERT/UPDATE, pas de DELETE)",
       "test": "supabase/tests/rls_attestations_don_m2_4.test.sql (delete_attestation_deny : DELETE admin_savr filtré, attestation conservée)",
       "statut": "implemented",
@@ -103,7 +103,7 @@
     },
     {
       "id": "BL-P1-AUTH-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:144",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:145",
       "artefact": "packages/plateforme/src/app/api/v1/admin/users/[id]/route.ts (ops peut suspendre/réassigner rôle non-admin ; seule promotion admin_savr réservée admin)",
       "test": "packages/plateforme/tests/api/admin/users.m1-1a.test.ts « M0.4 — gating ops users (BL-P1-AUTH-03) » (ops réassigne non-admin→200, ops promeut admin→403, ops touche admin→403, admin promeut→200)",
       "statut": "implemented",
@@ -111,7 +111,7 @@
     },
     {
       "id": "BL-P1-AUTH-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:163",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:164",
       "artefact": "supabase/tests/m1_7_facturation.test.sql + supabase/tests/r14_tournee_siblings.test.sql",
       "test": "supabase/tests/m1_7_facturation.test.sql (test_factures_vue_client_non_vide_manager) + supabase/tests/r14_tournee_siblings.test.sql (tournee_siblings_not_exposed)",
       "statut": "implemented",
@@ -119,7 +119,7 @@
     },
     {
       "id": "BL-P1-OBS-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:105",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:103",
       "artefact": "packages/plateforme/src/app/api/me/export-rgpd/route.ts (GET self, RLS, téléchargement JSON Art.15/20) + composant RgpdComptePanel (bouton Exporter)",
       "test": "packages/plateforme/tests/api/me/rgpd.test.ts « M0.4 — RGPD … GET export-rgpd renvoie les PII de l'utilisateur (self) »",
       "statut": "implemented",
@@ -127,7 +127,7 @@
     },
     {
       "id": "BL-P2-27",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:106",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:104",
       "artefact": "packages/plateforme/src/app/api/me/profil/route.ts (GET + PATCH self, allowlist {prenom,nom} Art.16) + composant RgpdComptePanel (formulaire édition, transverse tous rôles) ; câblé traiteur+agence/mon-profil",
       "test": "packages/plateforme/tests/api/me/rgpd.test.ts « M0.4 — RGPD … PATCH profil rectifie prenom/nom et rejette les champs hors allowlist »",
       "statut": "implemented",
@@ -135,7 +135,7 @@
     },
     {
       "id": "M0.4-ecriture-directe-collectes-evenements-revoke",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:968",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:970",
       "artefact": "supabase/migrations/20260915160000_plateforme_collectes_ecriture_client_fermee.sql (REVOKE INSERT, UPDATE sur collectes) ; supabase/migrations/20260915190000_plateforme_evenements_ecriture_client_fermee.sql (REVOKE INSERT, UPDATE, DELETE sur evenements) ; packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts (écriture par fn_modifier_evenement sous service_role)",
       "test": "SECU__rls_09_ecriture_directe_revoke.test.sql (A1-A5 : 5 rôles clients × INSERT/UPDATE/DELETE evenements + INSERT/UPDATE collectes → 42501 « permission denied for table » ; A6 SELECT filtré ; A7 service_role écrit ; A8 policies conservées ; B1-B5 manager_update_dans_fenetre_edition_ok moitié DB) + edition-evenement.m1-2.test.ts « manager_update_dans_fenetre_edition_ok — la route réussit et n’écrit JAMAIS par le client de session »",
       "statut": "partial",

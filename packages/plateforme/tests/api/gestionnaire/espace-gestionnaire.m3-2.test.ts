@@ -1124,6 +1124,87 @@ describe('M3.2 / mon-organisation / logo', () => {
   });
 });
 
+// ── Logo d'un traiteur tiers (§06.05 §5 : nom + logo) ────────────────────────
+// `organisations.logo_url` porte une CLÉ R2 (20260919100000) : la clé doit être
+// résolue par la route DEPUIS v_traiteurs_gestionnaire, jamais reçue du client.
+describe('M3.2 / traiteurs / logo (proxy scopé)', () => {
+  const TRAITEUR_ID = 'tr-kaspia';
+  const logoReq = (qs = '') =>
+    makeReq('GET', `/api/v1/gestionnaire/traiteurs/${TRAITEUR_ID}/logo${qs}`);
+  const importGet = async () =>
+    (await import('@/app/api/v1/gestionnaire/traiteurs/[id]/logo/route.js'))
+      .GET;
+  const params = Promise.resolve({ id: TRAITEUR_ID });
+
+  it('M3.2/traiteur_logo_200 — clé résolue depuis la vue restreinte, pas du client', async () => {
+    setupAuth('gestionnaire_lieux', 'org-viparis');
+    rls.push({ data: { logo_url: LOGO_KEY }, error: null });
+    mockGetObject.mockResolvedValue({
+      body: new Uint8Array([1, 2, 3]),
+      contentType: 'image/png',
+    });
+    const GET = await importGet();
+    // Une clé hostile passée en paramètre ne doit changer NI la table lue,
+    // NI l'objet R2 servi.
+    const res = await GET(
+      logoReq('?key=savr-dev/bordereaux/autre-org/b1.pdf'),
+      { params },
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('image/png');
+    // Oracle de requête : la VUE restreinte, jamais la table organisations.
+    expect(rls.__calls.from).toEqual([['v_traiteurs_gestionnaire']]);
+    expect(rls.__calls.select).toEqual([['logo_url']]);
+    expect(rls.__calls.eq).toEqual([['id', TRAITEUR_ID]]);
+    // Oracle de consommation : l'objet servi est celui de la BASE (capture par
+    // valeur : getObject reçoit deux chaînes).
+    expect(mockGetObject).toHaveBeenCalledWith(
+      'savr-dev',
+      LOGO_KEY.slice('savr-dev/'.length),
+    );
+    expect(mockGetObject).toHaveBeenCalledTimes(1);
+  });
+
+  it('M3.2/traiteur_logo_hors_perimetre_404 — la vue ne rend aucune ligne', async () => {
+    setupAuth('gestionnaire_lieux', 'org-viparis');
+    rls.push({ data: null, error: null });
+    const GET = await importGet();
+    const res = await GET(logoReq(), { params });
+    expect(res.status).toBe(404);
+    expect(mockGetObject).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['aucun logo', null],
+    ['valeur héritée hors logos/', 'savr-dev/bordereaux/x.pdf'],
+    [
+      'autre bucket',
+      'autre-bucket/logos/0b8e6f5c-2f1a-4c47-9d3e-6a1f2b3c4d5e.png',
+    ],
+  ])('M3.2/traiteur_logo_404 — %s', async (_cas, logo_url) => {
+    setupAuth('gestionnaire_lieux', 'org-viparis');
+    rls.push({ data: { logo_url }, error: null });
+    const GET = await importGet();
+    const res = await GET(logoReq(), { params });
+    expect(res.status).toBe(404);
+    expect(mockGetObject).not.toHaveBeenCalled();
+  });
+
+  it.each([['traiteur_manager'], ['agence'], ['client_organisateur']])(
+    'M3.2/traiteur_logo_role_403 — %s',
+    async (role) => {
+      setupAuth(role);
+      const GET = await importGet();
+      const res = await GET(logoReq(), { params });
+      expect(res.status).toBe(403);
+      // Aucune lecture, aucun téléchargement sous un rôle non autorisé.
+      expect(rls.__calls.from).toBeUndefined();
+      expect(mockGetObject).not.toHaveBeenCalled();
+    },
+  );
+});
+
 // ── Mon organisation / users — F5 ────────────────────────────────────────────
 describe('M3.2 / mon-organisation / users (F5)', () => {
   it('M3.2/F5_invitation_utilisateur_201_email_envoye — flux complet', async () => {

@@ -9,7 +9,7 @@
  *    liste Événements colonnes (Tonnage/Déchets labo/Repas) + barre de filtres ;
  *    liste Lieux colonne Capacité ; liste Traiteurs colonne Lieux d'intervention.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, onTestFinished } from 'vitest';
 import {
   render,
   screen,
@@ -283,5 +283,46 @@ describe('M3.2 / P2 listes colonnes', () => {
       await screen.findByText("Lieux d'intervention", undefined, ATTENTE_UI),
     ).toBeInTheDocument();
     expect(screen.getByText('Palais des Congrès')).toBeInTheDocument();
+  });
+
+  // `organisations.logo_url` porte une CLÉ R2 (20260919100000) : la poser dans
+  // src n'affiche rien. La vignette doit passer par le proxy scopé.
+  it('M3.2/P2_traiteurs_logo_par_proxy — src = proxy, jamais la clé R2', async () => {
+    const CLE = 'savr-dev/logos/0b8e6f5c-2f1a-4c47-9d3e-6a1f2b3c4d5e.png';
+    // beforeEach ne fait que mockClear : restaurer l'implémentation partagée.
+    const implDefaut = fetchMock.getMockImplementation()!;
+    onTestFinished(() => {
+      fetchMock.mockImplementation(implDefaut);
+    });
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/gestionnaire/traiteurs'))
+        return jsonResponse({
+          data: [
+            {
+              id: 'tr1',
+              nom: 'Kaspia',
+              logo_url: CLE,
+              nb_collectes_12m: 3,
+              tonnage_12m_kg: 900,
+              taux_recyclage_moyen: 72.4,
+              repas_donnes_12m: 120,
+              lieux_intervention: [{ id: 'l1', nom: 'Palais des Congrès' }],
+            },
+          ],
+        });
+      return jsonResponse({});
+    });
+
+    render(<GestionnaireTraiteursPage />);
+    const img = (await screen.findByText('Kaspia', undefined, ATTENTE_UI))
+      .closest('div')!
+      .querySelector('img')!;
+    expect(img).toBeTruthy();
+    expect(img.getAttribute('src')).toBe(
+      '/api/v1/gestionnaire/traiteurs/tr1/logo',
+    );
+    // Sonde du bug corrigé : la clé de stockage ne doit jamais atterrir dans src.
+    expect(img.getAttribute('src')).not.toContain(CLE);
   });
 });

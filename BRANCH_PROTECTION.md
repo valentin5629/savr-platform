@@ -3,8 +3,16 @@
 Rend l'enforcement indépendant de l'agent (re-vérif serveur, pas contournable en local).
 
 ## Règles sur `main`
-- [ ] Require a pull request before merging — **push direct interdit**
-- [ ] Require approvals : **1** minimum
+
+> **État relevé le 2026-09-22** par `gh api repos/valentin5629/savr-platform/branches/main/protection`.
+> Les `[x]` ci-dessous sont **constatés actifs**, pas souhaités. Déjà actifs et longtemps restés cochés
+> à tort en `[ ]` : `strict`, `required_pull_request_reviews`, `enforce_admins`, `allow_force_pushes=false`.
+> Restent inactifs : `required_approving_review_count` vaut **0** (donc « Require approvals : 1 » n'est pas
+> tenu), « Require conversation resolution », et surtout les status checks requis (voir plus bas).
+> ⚠ Ne pas cocher une case sans l'avoir relevée : une case fausse fait croire un trou fermé.
+
+- [x] Require a pull request before merging — **push direct interdit** (actif : `required_pull_request_reviews` présent)
+- [ ] Require approvals : **1** minimum — ⚠ `required_approving_review_count` = **0** au 2026-09-22 : NON tenu
 - [ ] Require status checks to pass : `lint-typecheck-test`, `anti-coupling`, `pgtap-rls-outbox`, `security`, `migrations`, `migration-timestamp`
       (ajouter `e2e`, `bundle-budget` quand stables)
       - `anti-coupling` = garde-fou 3 TMS-Ready (0 réf directe MTS-1/Everest hors `packages/adapters/`)
@@ -32,8 +40,8 @@ Rend l'enforcement indépendant de l'agent (re-vérif serveur, pas contournable 
       l'UI GitHub, ni `gh pr merge --auto` (qui merge plus tard, côté serveur), ni un `gh pr merge` tapé dans un
       terminal ordinaire. **Rendre le job requis est le seul filet qui couvre ces chemins.**
 - [ ] Require conversation resolution before merging
-- [ ] Do not allow bypassing the above settings (inclure les admins)
-- [ ] Block force pushes
+- [x] Do not allow bypassing the above settings (inclure les admins) — actif (`enforce_admins: true`)
+- [x] Block force pushes — actif (`allow_force_pushes: false`)
 
 ## Privilèges agent (Claude Code)
 

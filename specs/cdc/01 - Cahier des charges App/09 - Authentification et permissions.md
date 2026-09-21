@@ -1,5 +1,7 @@
 # 09 - Authentification et permissions
 
+**Statut** : Draft V1 — mise à jour architecturale 2026-04-23 (atelier tech avec frère)
+**Dernière mise à jour** : 2026-06-11 (**Audit RLS V1 post-35 patchs (skill `cdc-audit-rls`), arbitrages Val** — §3quater ajouté : A-1 `audit_log` (policy SQL + append-only strict, y compris admin) · A-2 `entites_facturation` (lecture org-scoped clients, écriture staff — l'ex-classement « financière interne admin-only » rendait le sélecteur d'entité §06.01 mort) · A-3 `sequences_facturation` + `jobs_pdf` consolidées · A-4 `organisations`/`lieux` chemin `client_organisateur`. Corrections §3 : B-1 `packs_antgaspi` écriture **staff** (matrice étendue fait foi, conflit tranché Val) · B-3a `bordereaux_savr`/`attestations_don` SELECT `client_organisateur` ajouté (alignement `f_fichier_visible`) · B-4 résidu `prestataires_logistiques` retiré des référentiels ouverts · B-5 `tournees` SQL explicite · C-1 `aa_select` restreint staff+programmateur+traiteur opérationnel (client_organisateur et gestionnaire exclus, tranché Val) · B-2 garde brouillons tiers ajoutée à `f_collecte_visible` (chemin lieu). Bloc D : +12 pgTAP. / Antérieure : 2026-06-07 (test-scenarios §09 RLS transverse lot ⑪ — F1 policy UPDATE `collecte_flux` admin+ops (pesées) · F2 règle staff canonique + helper `f_is_staff()` · F3 `f_collecte_editable` étendue UPDATE manager+agence · F4 `users` SELECT org-wide traiteur_commercial · pgTAP Bloc D complété / Antérieure même jour : test-scenarios §06.05 lot ⑤ — F5 matrice `users` gestionnaire_lieux org-wide · F6 `factures` + `shared.fichiers` SELECT self gestionnaire · F3 prédicat `evenements` brouillons tiers exclus · F4 `f_collecte_editable` sur UPDATE gestionnaire · 5 tests pgTAP ajoutés Bloc D)
 
 ---
 
@@ -254,9 +256,14 @@ Même logique que `bordereaux_savr` (y compris la ligne `client_organisateur`, B
 | Rôle       | SELECT                                                                                                                                                                                                      | INSERT | UPDATE | DELETE |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------ | ------ |
 | admin_savr | ALL                                                                                                                                                                                                         | ALL    | ALL    | ALL    |
-| autres     | `id IN (SELECT lieu_id FROM organisations_lieux WHERE organisation_id = auth.jwt()->>'organisation_id')` OR `id IN (SELECT lieu_id FROM evenements WHERE organisation_id = auth.jwt()->>'organisation_id')` OR `id IN (SELECT lieu_id FROM evenements WHERE client_organisateur_organisation_id = auth.jwt()->>'organisation_id')` OR `id IN (SELECT lieu_id FROM evenements WHERE traiteur_operationnel_organisation_id = auth.jwt()->>'organisation_id')` | —      | —      | —      |
+| autres     | `id IN (SELECT lieu_id FROM organisations_lieux WHERE organisation_id = auth.jwt()->>'organisation_id')` OR `id IN (SELECT lieu_id FROM evenements WHERE organisation_id = auth.jwt()->>'organisation_id')` OR `id IN (SELECT lieu_id FROM evenements WHERE client_organisateur_organisation_id = auth.jwt()->>'organisation_id' AND date_evenement IS NOT NULL)` OR `(f_app_role() IN ('traiteur_manager','traiteur_commercial') AND id IN (SELECT lieu_id FROM evenements WHERE traiteur_operationnel_organisation_id = auth.jwt()->>'organisation_id'))` | —      | —      | —      |
 
 > **4e branche « traiteur opérationnel » — arbitrage Val 2026-09-21 (élargissement d'accès, CLAUDE.md §12-2bis)** : un traiteur qui **opère** une collecte programmée par une agence ou un gestionnaire de lieux doit voir la fiche du lieu où il envoie ses équipes. Sans cette branche, la ligne « Lieu » s'affiche « — » sur ces collectes (échec silencieux) et le filtre Lieu de la liste Collectes ne les propose pas. La branche n'ouvre **que** les lieux portant un événement dont `traiteur_operationnel_organisation_id = current_user.organisation_id` — rien d'autre. **Conditions non négociables** : (1) test pgTAP obligatoire prouvant l'étendue exacte (le traiteur voit le lieu d'une collecte qu'il opère, et NE voit PAS un lieu où il n'intervient pas, y compris celui d'un concurrent) ; (2) GO `reviewer-rls-securite` sur le SHA de la migration ; (3) Val ré-annonce le GO au moment de la migration **prod**.
+
+> **Asymétrie assumée avec la branche « client organisateur » (arbitrage Val 2026-09-21, Q1/Q2).**
+> La branche « traiteur opérationnel » ne porte **pas** `AND date_evenement IS NOT NULL`, contrairement à la branche « client organisateur ». Ce n'est pas un oubli : (1) le traiteur opérationnel est une **partie désignée** sur l'événement, pas un tiers qui observe par le lieu — `evt_manager_select` / `evt_commercial_select` lui donnent déjà la ligne `evenements` sans garde de date, poser la garde sur `lieux` seulement masquerait le LIEU d'un événement qu'il lit par ailleurs ; (2) `date_evenement` étant dérivé de `MIN(date_collecte) WHERE statut != 'annulee'` (trigger `fn_set_date_evenement`), la garde masquerait le lieu dès que **toutes les collectes de l'événement sont annulées**, ce qui reproduirait exactement le défaut corrigé. La branche est en revanche **bornée par un test de rôle explicite** `f_app_role() IN ('traiteur_manager','traiteur_commercial')` : sans lui, elle contournerait la garde de date de la branche « client organisateur » pour une organisation cumulant les deux rôles sur un événement non daté (aucun CHECK DB ne l'interdit). **Statut** : migration `20260921140000_plateforme_lieux_select_traiteur_operationnel.sql` mergée sur `main` (PR #371, squash `f1659fc`), preuve d'étendue `supabase/tests/lieux_traiteur_operationnel.test.sql` (19 asserts, 3 sondes de mutation). ⚠ Migration **prod** non appliquée — condition (3) ci-dessus toujours en attente.
+>
+> ⚠ **Surface non couverte** : la route `/api/v1/programmation/lieux` lit en `service_role` et ré-implémente à la main les 3 anciennes branches — l'autocomplétion Lieux du formulaire de programmation ne propose donc pas au traiteur opérationnel un lieu connu par ce seul titre. Écart restrictif (aucune fuite), à traiter à part.
 
 ### Tables référentiel (`associations`, `transporteurs`, `flux_dechets`, `types_evenements`)
 
@@ -616,6 +623,15 @@ CREATE POLICY aa_select ON plateforme.attributions_antgaspi FOR SELECT
                    OR e.traiteur_operationnel_organisation_id = auth.jwt()->>'organisation_id')));
 -- INSERT/UPDATE : admin_savr (override AG + saisie poids) + ops_savr (saisie poids_repas_kg V1) + SERVICE_ROLE (algo).
 -- Pas d'écriture cliente. (F1 test-scenarios §06.09 2026-06-07 — ops_savr saisit manuellement le poids depuis photos pesées)
+-- ⚠ M3.2 / option (b) arbitrée Val 2026-09-21 — `aa_select` n'est JAMAIS élargie (T18
+-- `attributions_ag_gestionnaire_denied` reste vert, C-1 reste vraie au niveau de la TABLE).
+-- Le besoin « le gestionnaire voit repas donnés / association / ville / distance sur les
+-- collectes AG de SES lieux, y compris quand l'événement est programmé par un traiteur tiers »
+-- passe par la VUE dédiée `v_attributions_gestionnaire` (SECURITY DEFINER, liste blanche de
+-- colonnes, bornage explicite par `organisations_lieux`) — cf. §04 Data Model. Modèle repris de
+-- `v_traiteurs_gestionnaire` (#363). Portée à câbler : 6 points d'appel mesurés le 2026-09-21
+-- (détail événement, liste Événements, dashboard KPI repas donnés, Mon pack AG, liste Traiteurs,
+-- fiche Traiteur) — chiffrage d'un seul lot, pas écran par écran.
 CREATE POLICY aa_write_admin ON plateforme.attributions_antgaspi FOR ALL
   USING (auth.jwt()->>'role' = 'admin_savr') WITH CHECK (auth.jwt()->>'role' = 'admin_savr');
 -- ops_savr : UPDATE limité aux colonnes poids/volume uniquement (colonne-level via vue ou applicatif)
@@ -871,6 +887,8 @@ org_self_read_client_orga_ok        organisations          client_organisateur  
 prestataires_client_roles_denied    shared.prestataires    traiteur_manager      SELECT  FAIL (B-4 — SELECT admin/ops seul)
 attributions_ag_client_orga_denied  attributions_antgaspi  client_organisateur   SELECT  FAIL (C-1 — collecte de SON événement, deny quand même)
 attributions_ag_gestionnaire_denied attributions_antgaspi  gestionnaire_lieux    SELECT  FAIL (C-1 — collecte sur SON lieu, deny quand même)
+v_attributions_gest_own_lieu_ok     v_attributions_gestionnaire gestionnaire_lieux SELECT  OK   (M3.2 option b 2026-09-21 — accès AG par la VUE, pas par la table ; C-1 inchangée)
+v_attributions_gest_autre_lieu_denied v_attributions_gestionnaire gestionnaire_lieux SELECT FAIL (lieu hors organisations_lieux)
 bordereaux_client_orga_own_event_ok bordereaux_savr        client_organisateur   SELECT  OK   (B-3a)
 attestations_client_orga_cross_org_denied attestations_don client_organisateur   SELECT  FAIL (événement d'un autre client)
 packs_ag_write_ops_ok               packs_antgaspi         ops_savr              INSERT  OK   (B-1 tranché Val — matrice étendue fait foi)

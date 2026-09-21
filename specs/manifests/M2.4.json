@@ -113,7 +113,7 @@
     },
     {
       "id": "M2.4-numero-rup-instantane",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1377",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1380",
       "artefact": "packages/plateforme/src/lib/pdf/batch-pdf-j1-ag.ts",
       "test": "association AVEC n° RUP : instantané figé + mention transmise au Cerfa",
       "statut": "implemented",
@@ -121,7 +121,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "ece0b3d6879ff4c76a12b52418a4c6195eec7855d8552ff2a34f4ea5f95514d6",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "6368503948f40cfb00471f9538792a13a188b74874d9ea363a972eb64202ebdf",
     "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "90e9f62e94f2cfc441443ae9f7bd18776212d35b4b8b5a6a25dcfd4bf95b1ec5",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "2fd0f8b9bafb3b3d1c4b0142a61ad8290de04ffbd347c5dbc0c016babd6beb1b",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "e0589fee37bdcd0a04c2fb45b831f50e9df370556787198e339103674f4fd00d",

@@ -247,7 +247,7 @@
       "artefact": "packages/plateforme/src/app/api/v1/programmation/lieux/route.ts",
       "test": "lieux_client_recherche_ilike — le terme de recherche reste appliqué sur la vue",
       "statut": "implemented",
-      "libelle": "Autocomplétion Lieux — recherche « nom + adresse » (§06.01 l.88), appliquée sur la vue liste blanche en plus du filtre actif=true. Le terme est neutralisé par sanitizeOrTerm avant d'entrer dans le .or() (garde d'injection C2)."
+      "libelle": "Autocomplétion Lieux — recherche sur nom + adresse_acces + VILLE, soit trois champs là où le CDC §06.01 l.88 n'en mentionne que deux (« Recherche sur nom + adresse ») : élargissement PRÉ-EXISTANT à ce lot, de sens positif, non spécifié — décrit ici tel qu'il est plutôt que paraphrasé depuis le CDC. Le terme est neutralisé par sanitizeOrTerm avant d'entrer dans le .or() (garde d'injection C2), et le filtre s'applique sur la vue liste blanche. La limite 20 et le tri `nom` sont de même une convention transverse (identique sur contacts/traiteurs), non normée par le CDC."
     },
     {
       "id": "M1.2-lieux-autocompletion-admin-sans-cible",

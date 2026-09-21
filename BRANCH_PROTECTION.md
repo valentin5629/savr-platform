@@ -10,7 +10,17 @@ Rend l'enforcement indépendant de l'agent (re-vérif serveur, pas contournable 
       - `anti-coupling` = garde-fou 3 TMS-Ready (0 réf directe MTS-1/Everest hors `packages/adapters/`)
       - `pgtap-rls-outbox` = RLS (rôle `authenticated`) **+** garde-fou 4 TMS-Ready (outbox par mutation)
       - `migration-timestamp` = anti-collision de préfixe `YYYYMMDDHHMMSS`, **y compris avec une branche en vol non mergée** — le hook pré-commit ne compare qu'au dossier de sa propre branche et ne peut pas voir ce cas
-- [ ] Require branches to be up to date before merging
+- [ ] Require branches to be up to date before merging — **le seul filet côté GitHub pour l'ordre des migrations.**
+      Sans lui, une PR peut merger avec une CI verte jouée sur un `main` périmé. Vécu le 2026-09-21 (PR #373) :
+      8 commits ont atterri sur `main` pendant une seule revue, dont 3 migrations POSTÉRIEURES à celle du lot.
+      Conséquence si la PR passe en l'état : `supabase db push` refuse (exit 1, « Found local migration files to be
+      inserted before the last migration on remote database ») et le seul remède du CLI, `--include-all`, applique
+      AUSSI les migrations en attente des autres lots — le 2026-09-21, fermer `lieux` en prod a exigé d'en appliquer
+      8, dont 7 d'autres lots, deux en attente depuis 4 jours.
+      Ce réglage force la mise à jour de la branche, donc la RE-exécution de `migration-timestamp` sur la vraie cible.
+      Côté Claude Code, le hook `.claude/hooks/gate-merge.sh` couvre déjà le cas (contrôle (C) de
+      `check-migration-timestamp.sh --merge`) — mais il ne voit PAS les merges faits depuis l'interface GitHub.
+      **Cette case est donc la moitié manquante du mécanisme, pas un confort.**
 - [ ] Require conversation resolution before merging
 - [ ] Do not allow bypassing the above settings (inclure les admins)
 - [ ] Block force pushes

@@ -3,10 +3,16 @@
 #
 # Supabase dérive la `version` (PK de supabase_migrations.schema_migrations) du
 # préfixe 14 chiffres du nom de fichier. Deux migrations qui partagent ce préfixe
-# ne peuvent pas coexister : selon le chemin, soit `supabase db reset` meurt sur
-# un duplicate key (CI rouge), soit — bien pire — `db push` voit la version déjà
-# présente et SAUTE la seconde migration EN SILENCE (jamais appliquée, ni en dev
-# ni en prod).
+# ne peuvent pas coexister : `supabase db reset` meurt sur un duplicate key (CI
+# rouge), et `db push` échoue de même — `duplicate key value violates unique
+# constraint "schema_migrations_pkey"`, exit 1, migration non appliquée.
+#
+# ⚠ CORRIGÉ LE 2026-09-22 — cette ligne annonçait que `db push` « SAUTE la
+# seconde migration EN SILENCE ». C'est FAUX, reproduit sur base jetable : le
+# CLI refuse bruyamment dans les DEUX cas (préfixe dupliqué ET migration mal
+# ordonnée), sort en 1, et nomme le fichier. Ne pas ré-écrire « en silence » :
+# le dommage réel est le BLOCAGE de tous les déploiements, et le recours à
+# `--include-all` qui embarque les lots des autres (cf. (C) plus bas).
 #
 # DEUX contrôles, de portées différentes :
 #
@@ -16,17 +22,61 @@
 #       la branche.
 #
 #   (B) INTER-BRANCHES — aucun autre ref distant ne doit porter le même préfixe
-#       sous un autre nom de fichier. SEUL contrôle complet : c'est le seul qui
-#       voie une branche EN VOL, ni mergée ni sur `main` (5e occurrence de la
-#       famille, PR #322 : la collision était avec `fix/filtre-provider-find-
-#       tournees`, et (A) ne pouvait structurellement pas la voir — il compare au
-#       max du dossier de sa propre branche).
+#       sous un autre nom de fichier. C'est le seul qui voie une branche EN VOL,
+#       ni mergée ni sur `main` (5e occurrence de la famille, PR #322 : la
+#       collision était avec `fix/filtre-provider-find-tournees`, et (A) ne
+#       pouvait structurellement pas la voir — il compare au max du dossier de sa
+#       propre branche).
+#
+#   (C) CONTRE LA CIBLE, AU MERGE — mes migrations doivent encore devancer le max
+#       d'`origin/main` AU MOMENT DE MERGER. (A) et (B) se jouent au commit et en
+#       CI ; entre ce moment et le merge, `main` avance. Une PR ouverte avec le
+#       timestamp le plus haut du jour peut être doublée par trois autres avant
+#       d'être mergée — vécu le 2026-09-21 sur la PR #373, 8 commits sur `main`
+#       pendant une seule revue. (A) ne le voit pas : il compare au dossier de la
+#       branche, qui ignore ce qui est arrivé sur la cible depuis.
+#
+# ⚠ CE QUI ARRIVE VRAIMENT SI (C) MANQUE — mesuré le 2026-09-22, pas supposé.
+# Le commentaire d'origine de ce fichier annonçait que `db push` « SAUTE la
+# migration EN SILENCE ». C'est FAUX, et il ne faut pas le ré-écrire : reproduit
+# sur base jetable, `supabase db push` REFUSE de pousser, sort en 1, et nomme le
+# fichier en clair :
+#     Found local migration files to be inserted before the last migration
+#     on remote database.
+#     Rerun the command with --include-all flag to apply these migrations:
+#     supabase/migrations/20260201000000_b.sql
+# Le préfixe dupliqué échoue tout aussi bruyamment (`duplicate key value violates
+# unique constraint "schema_migrations_pkey"`, exit 1, migration non appliquée).
+#
+# Le dommage réel n'est donc PAS le silence, c'est le BLOCAGE et son remède :
+#   • plus aucun déploiement ne passe tant que le désordre n'est pas résolu —
+#     pour tout le monde, pas seulement pour l'auteur ;
+#   • le seul remède du CLI est `--include-all`, qui applique TOUTES les
+#     migrations manquantes, donc embarque les lots des autres. Vécu le
+#     2026-09-21 : fermer `lieux` en prod a exigé d'appliquer 8 migrations dont
+#     7 d'autres lots, deux en attente depuis 4 jours.
+# (C) garde le déploiement sur un `db push` simple, lot par lot.
+#
+# ⚠ POURQUOI (C) N'EST PAS UN CONTRÔLE DE CI — ne pas l'y ajouter.
+# Le workflow tourne `on: pull_request` avec `actions/checkout@v4` SANS `ref:`,
+# donc sur le COMMIT DE MERGE (`refs/pull/N/merge`) : le dossier contient déjà les
+# migrations de la cible, et (A) attrape le désordre tout seul. (C) n'y ajouterait
+# rien. Le vrai trou n'est pas « la CI ne regarde pas », c'est « la CI ne regarde
+# PLUS » : elle ne se rejoue pas entre son dernier run et le merge. D'où deux
+# filets, et deux seulement :
+#   • `.claude/hooks/gate-merge.sh` → joue (C) À L'INSTANT du merge (côté Claude
+#     Code / terminal) ;
+#   • le réglage GitHub « Require branches to be up to date before merging »
+#     → force la mise à jour, donc la RE-exécution de la CI (couvre aussi les
+#     merges faits depuis l'interface, que le hook ne voit pas). Cf.
+#     BRANCH_PROTECTION.md, où la case attend d'être cochée.
 #
 # Usage :
 #   check-migration-timestamp.sh              # pré-commit : migrations STAGÉES (A + B)
 #   check-migration-timestamp.sh --branch     # CI / pré-push : migrations de HEAD absentes d'origin/main (A + B)
+#   check-migration-timestamp.sh --merge      # pré-merge : (A + B + C), cible re-fetchée
 #   check-migration-timestamp.sh --no-remote  # (A) seul — sans réseau
-#   check-migration-timestamp.sh --self-test  # prouve que (A) ET (B) rougissent vraiment (non-vacuité)
+#   check-migration-timestamp.sh --self-test  # prouve que (A), (B) ET (C) rougissent vraiment (non-vacuité)
 set -euo pipefail
 
 MIG_DIR="supabase/migrations"
@@ -34,10 +84,12 @@ BASE_REF="${MIGRATION_BASE_REF:-origin/main}"
 MODE="staged"
 WITH_REMOTE=true
 SELF_TEST=false
+MERGE_CHECK=false
 
 for arg in "$@"; do
   case "$arg" in
     --branch)    MODE="branch" ;;
+    --merge)     MODE="branch"; MERGE_CHECK=true ;;
     --no-remote) WITH_REMOTE=false ;;
     --self-test) SELF_TEST=true ;;
     *) echo "Argument inconnu : $arg" >&2; exit 64 ;;
@@ -55,15 +107,18 @@ rappels_apres_collision() {
     ⚠  Renommer ne suffit PAS si le numéro a déjà été appliqué quelque part.
        Si l'ancien préfixe a été écrit dans un schema_migrations (dev OU prod),
        il reste BRÛLÉ : au merge de l'autre lot, `db push` verra la version déjà
-       présente et sautera SA migration en silence. Correctif complet =
+       présente et REFUSERA la sienne — duplicate key sur schema_migrations_pkey,
+       exit 1, plus aucun déploiement ne passe. Correctif complet =
        DELETE de l'ancienne version + INSERT de la nouvelle, dans chaque base
        où l'ancienne a été appliquée. En PROD, cette écriture sort du système de
        migrations : STOP, demander à Val (CLAUDE.md §12).
 
     ⚠  Qui bouge ? Celui qui a déjà écrit le numéro dans un schema_migrations
        (c'est lui qui a armé l'ambiguïté), et à défaut celui dont la PR n'est
-       pas encore ouverte. Ne pas laisser « le second au merge » trancher :
-       à ce moment-là l'échec est silencieux, pas bloquant.
+       pas encore ouverte. Ne pas laisser « le second au merge » trancher : à ce
+       moment-là plus aucun contrôle ne regarde, et l'échec se paie au
+       déploiement suivant — sur le dos de tout le monde, pas du seul auteur.
+       C'est ce que ferme le contrôle (C).
 
     ⚠  Viser un timestamp POSTÉRIEUR au max de la cible, pas simplement « libre » :
        s'insérer dans un trou change l'ordre d'application sur base vierge.
@@ -231,6 +286,74 @@ controle_inter_branches() {
       echo "    Ce cas est INVISIBLE au contrôle local et au merge d'essai avec ${BASE_REF} :" >&2
       echo "    la branche concurrente n'est ni sur ${BASE_REF}, ni sur la mienne." >&2
       rappels_apres_collision
+      fail=true
+    fi
+  done <<EOF
+$mes
+EOF
+
+  [ "$fail" = true ] && return 1
+  return 0
+}
+
+# ---------------------------------------------------------------------------
+# (C) CONTRE LA CIBLE, AU MERGE — le contrôle que (A) ne peut pas faire.
+#
+# (A) compare au max du DOSSIER DE MA BRANCHE. Tant que je n'ai pas mergé la
+# cible, ce dossier ignore les migrations arrivées sur `main` depuis. Ici on
+# compare au max de la CIBLE elle-même, re-fetchée à l'instant : c'est le seul
+# moment où la question « ma migration passera-t-elle encore en `db push` simple »
+# a une réponse vraie.
+#
+# (C) ne traite QUE l'ORDRE : ma migration est antérieure au max de la cible →
+# `db push` sort en 1 et exige `--include-all`.
+#
+# ⚠ Le DOUBLON contre la cible (mon préfixe déjà pris sur `main` sous un autre
+# nom) n'est PAS traité ici : (B) le couvre déjà, parce que `refs_candidats`
+# n'exclut jamais `$BASE_REF` lui-même — `origin/main` est un ref candidat comme
+# les autres. Une première version de (C) le re-testait ; la sonde de mutation
+# l'a démasqué (neutraliser (C) laissait le cas au vert, attrapé par (B)). Code
+# mort retiré : un contrôle qui ne peut pas rougir donne une fausse assurance.
+# Le cas 12 de l'auto-test verrouille cette répartition.
+# ---------------------------------------------------------------------------
+controle_vs_cible() {
+  local mes="$1" fail=false
+  local cible_noms cible_prefixes max_cible ts mien
+
+  cible_noms=$(git ls-tree -r --name-only "$BASE_REF" -- "$MIG_DIR" 2>/dev/null | sed 's#.*/##' || true)
+  if [ -z "$cible_noms" ]; then
+    echo "" >&2
+    echo "⚠️  ${BASE_REF} illisible (pas de fetch ?) — contrôle (C) NON JOUÉ." >&2
+    echo "    C'est le seul contrôle qui voie ce qui a été mergé pendant la revue." >&2
+    return 0
+  fi
+
+  cible_prefixes=$(printf '%s\n' "$cible_noms" | grep -oE '^[0-9]{14}' | sort -u)
+  max_cible=$(printf '%s\n' "$cible_prefixes" | sort | tail -1)
+
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    ts=$(prefixe "$f")
+    mien=$(basename "$f")
+
+    # ORDRE : comparaison lexicographique = numérique (14 chiffres, même longueur).
+    # Un préfixe ÉGAL au max est refusé ici comme un préfixe inférieur : c'est le
+    # doublon, dont (B) donnera le détail (quel ref, quel fichier).
+    if ! [[ "$ts" > "$max_cible" ]]; then
+      echo "" >&2
+      echo "❌  (C) Migration $ts <= max de ${BASE_REF} ($max_cible)." >&2
+      echo "      $mien" >&2
+      echo "" >&2
+      echo "    ${BASE_REF} a avancé depuis l'ouverture de cette branche. Merger en" >&2
+      echo "    l'état rendrait tout \`supabase db push\` suivant impossible :" >&2
+      echo "      Found local migration files to be inserted before the last" >&2
+      echo "      migration on remote database.  (exit 1)" >&2
+      echo "    Le seul remède du CLI est \`--include-all\`, qui applique AUSSI les" >&2
+      echo "    migrations en attente des autres lots. C'est ce couplage qu'on évite." >&2
+      echo "" >&2
+      echo "    Remède : merger ${BASE_REF} dans la branche, puis \`git mv\` la" >&2
+      echo "    migration vers un préfixe > $max_cible (et recaler les références" >&2
+      echo "    au timestamp : tests, manifestes, divergences)." >&2
       fail=true
     fi
   done <<EOF
@@ -424,6 +547,102 @@ self_test() (
     echec=true
   fi
 
+  # ── Cas 10-12 — le contrôle (C), celui du MOMENT DU MERGE ────────────────
+  # Scénario reconstitué à l'identique : ma branche part de la cible, puis la
+  # CIBLE AVANCE (un autre lot merge une migration plus récente) pendant que je
+  # suis en revue. Au commit et en CI, (A) et (B) étaient verts — à juste titre.
+  # C'est seulement au merge que ma migration devient mal ordonnée.
+  # ⚠ Repartir d'un état PROPRE. Le cas 9 laisse un fichier INDEXÉ non commité
+  # (20260101160000_plateforme_mon_lot.sql) ; `git checkout -B` ne l'emporte pas.
+  # Sans ce nettoyage, les cas 10 et 12 sortaient bien en 2 — mais par le contrôle
+  # (B), sur la collision résiduelle du cas 9, et (C) n'était jamais exercé :
+  # ils passaient pour la mauvaise raison. Détecté par sonde de mutation
+  # (`controle_vs_cible` neutralisé → l'auto-test restait vert). Ne pas retirer.
+  git checkout --quiet -B cas10 "$BASE_REF" >/dev/null 2>&1
+  git reset --quiet --hard "$BASE_REF" >/dev/null 2>&1
+  git clean --quiet -fd -- "$MIG_DIR" >/dev/null 2>&1
+  echo "-- mienne" > "$MIG_DIR/20260101150000_plateforme_mon_lot_c.sql"
+  git add -A
+  git -c core.hooksPath=/dev/null commit --quiet --no-verify -m "ma migration, la plus haute du jour" >/dev/null 2>&1
+
+  # La cible avance APRÈS moi, avec un timestamp SUPÉRIEUR au mien.
+  # On mémorise l'ANCIENNE cible : les cas 10 et 12 doivent partir de là, comme
+  # une vraie branche ouverte avant que l'autre lot ne merge. Partir de la
+  # NOUVELLE cible mettrait la migration de l'autre lot dans mon dossier, et le
+  # contrôle (A) attraperait le doublon avant (C) — le cas passerait pour la
+  # mauvaise raison (c'est ce qui arrivait au cas 12).
+  local vieille_cible
+  vieille_cible=$(git rev-parse "$BASE_REF" 2>/dev/null || echo "")
+  git checkout --quiet -B avance-cible "$BASE_REF" >/dev/null 2>&1
+  echo "-- autre lot" > "$MIG_DIR/20260101170000_plateforme_autre_lot.sql"
+  git add -A
+  git -c core.hooksPath=/dev/null commit --quiet --no-verify -m "autre lot, mergé pendant ma revue" >/dev/null 2>&1
+  git push --quiet origin avance-cible:main >/dev/null 2>&1
+  git fetch --quiet origin >/dev/null 2>&1
+  git checkout --quiet cas10 >/dev/null 2>&1
+
+  # Garde anti-fixture-vacante : si la cible n'a pas réellement avancé, les trois
+  # cas qui suivent passeraient au vert quoi que fasse le script.
+  if ! git ls-tree -r --name-only "$BASE_REF" -- "$MIG_DIR" 2>/dev/null | grep -q '20260101170000'; then
+    echo "🔴 AUTO-TEST : cas 10 VACANT — la cible n'a pas avancé, (C) n'est pas exercé." >&2
+    echec=true
+  fi
+
+  # Cas 10 — ROUGE attendu : (C) voit que la cible m'a dépassé.
+  rc=0; bash "$script_abs" --merge >/dev/null 2>&1 || rc=$?
+  if [ "$rc" -ne 2 ]; then
+    echo "🔴 AUTO-TEST : (C) n'a PAS vu la cible avancer (exit $rc, attendu 2)." >&2
+    echo "   C'est le trou de la 6e occurrence : merge accepté, déploiements bloqués ensuite." >&2
+    echec=true
+  fi
+
+  # Cas 10bis — VERT attendu en mode --branch : c'est LA démonstration du trou.
+  # (A) compare au max du DOSSIER DE MA BRANCHE, qui ignore la migration arrivée
+  # sur la cible. Si ce cas rougissait, (C) serait redondant et la prémisse fausse.
+  rc=0; bash "$script_abs" --branch --no-remote >/dev/null 2>&1 || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    echo "🔴 AUTO-TEST : --branch rougit déjà sur le cas (C) (exit $rc, attendu 0)." >&2
+    echo "   Prémisse cassée : le cas ne démontre plus le trou que (C) est censé fermer." >&2
+    echec=true
+  fi
+
+  # Cas 11 — VERT attendu : migration POSTÉRIEURE au max de la cible. Sans ce cas,
+  # un (C) qui refuserait tout ferait passer le cas 10 au vert.
+  git checkout --quiet -B cas11 "$BASE_REF" >/dev/null 2>&1
+  git reset --quiet --hard "$BASE_REF" >/dev/null 2>&1
+  git clean --quiet -fd -- "$MIG_DIR" >/dev/null 2>&1
+  echo "-- mienne, bien ordonnée" > "$MIG_DIR/20260101180000_plateforme_mon_lot_ok.sql"
+  git add -A
+  git -c core.hooksPath=/dev/null commit --quiet --no-verify -m "migration posterieure au max de la cible" >/dev/null 2>&1
+  rc=0; bash "$script_abs" --merge >/dev/null 2>&1 || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    echo "🔴 AUTO-TEST : faux positif de (C) sur une migration bien ordonnée (exit $rc, attendu 0)." >&2
+    echec=true
+  fi
+
+  # Cas 12 — ROUGE attendu, mais par (B), PAS par (C) : mon préfixe est déjà pris
+  # sur la cible sous un autre nom. Ce cas verrouille la RÉPARTITION du travail —
+  # il s'assure que personne ne ré-ajoute à (C) un contrôle de doublon qui ne
+  # pourrait jamais rougir. L'assertion porte donc sur `--branch` (sans (C)).
+  git checkout --quiet -B cas12 "$vieille_cible" >/dev/null 2>&1
+  git reset --quiet --hard "$vieille_cible" >/dev/null 2>&1
+  git clean --quiet -fd -- "$MIG_DIR" >/dev/null 2>&1
+  # Garde anti-fixture-vacante : mon dossier ne doit PAS contenir la migration de
+  # l'autre lot, sinon (A) attrape le doublon et (C) n'est pas exercé.
+  if ls "$MIG_DIR"/20260101170000_*.sql >/dev/null 2>&1; then
+    echo "🔴 AUTO-TEST : cas 12 VACANT — la migration de l'autre lot est dans mon dossier, (A) masquera (C)." >&2
+    echec=true
+  fi
+  echo "-- mienne, meme prefixe qu'un lot deja merge" > "$MIG_DIR/20260101170000_plateforme_mon_homonyme.sql"
+  git add -A
+  git -c core.hooksPath=/dev/null commit --quiet --no-verify -m "prefixe deja pris sur la cible" >/dev/null 2>&1
+  rc=0; bash "$script_abs" --branch >/dev/null 2>&1 || rc=$?
+  if [ "$rc" -ne 2 ]; then
+    echo "🔴 AUTO-TEST : (B) n'attrape plus un préfixe déjà pris sur la cible (exit $rc, attendu 2)." >&2
+    echo "   Si (B) cesse de couvrir ce cas, (C) doit le reprendre — il ne le fait PAS." >&2
+    echec=true
+  fi
+
   # Cas 8 — un clone impossible ne doit RIEN muter dans le dépôt APPELANT.
   # Sauté dans le sous-test qu'il lance lui-même : sans ce garde-fou, un script
   # dont les gardes ont sauté relance le cas 8 en boucle au lieu de rougir.
@@ -468,7 +687,7 @@ self_test() (
   fi
 
   [ "$echec" = true ] && return 1
-  echo "✅ check-migration-timestamp : auto-test OK (collision en vol, doublon local, renommage staged + branch, ref « # », dépôt appelant intact)."
+  echo "✅ check-migration-timestamp : auto-test OK (collision en vol, doublon local, renommage staged + branch, ref « # », cible qui avance au merge (C), dépôt appelant intact)."
   return 0
 )
 
@@ -480,11 +699,26 @@ fi
 
 [ -d "$MIG_DIR" ] || exit 0
 
+# En mode --merge, la fraîcheur de la cible EST le sujet : la re-fetcher avant de
+# lire quoi que ce soit. Sans ça le contrôle (C) jugerait sur une cible périmée —
+# exactement l'angle mort qu'il ferme. Un fetch impossible ne bloque pas le merge
+# (fail-safe, cohérent avec le reste du fichier) mais le dit fort : (C) est alors
+# non joué, et c'est le seul contrôle qui voie ce qui a été mergé pendant la revue.
+if [ "$MERGE_CHECK" = true ] && [ "$WITH_REMOTE" = true ] && [ -z "${MIGRATION_SCAN_REFS:-}" ]; then
+  if ! git fetch --quiet --prune origin '+refs/heads/*:refs/remotes/origin/*' 2>/dev/null; then
+    echo "" >&2
+    echo "⚠️  git fetch impossible (hors ligne ?) — contrôle (C) joué sur une cible PÉRIMÉE." >&2
+  fi
+fi
+
 MES=$(mes_migrations)
 [ -z "$MES" ] && exit 0
 
 RC=0
 controle_local "$MES"          || RC=2
 controle_inter_branches "$MES" || RC=2
+if [ "$MERGE_CHECK" = true ]; then
+  controle_vs_cible "$MES"     || RC=2
+fi
 [ "$RC" -ne 0 ] && echo "" >&2
 exit "$RC"

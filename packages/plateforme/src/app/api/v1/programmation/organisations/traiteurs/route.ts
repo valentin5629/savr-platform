@@ -23,7 +23,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const supabase = createAdminSupabaseClient();
   const { searchParams } = new URL(req.url);
-  const q = sanitizeOrTerm(searchParams.get('q') ?? ''); // C2 : neutralise l'injection .or
+  const q_ = sanitizeOrTerm(searchParams.get('q') ?? ''); // C2 : neutralise l'injection .or
 
   // ⚠ plateforme.organisations n'a NI colonne `nom_commercial` NI `ville` (le nom
   // commercial est stocké dans `nom` ; le SIRET vit sur entites_facturation). L'ancien
@@ -31,32 +31,54 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // (bug latent colonne-DB PROG-02). On ne lit que des colonnes réelles.
   //
   // Cette route tourne en service_role : la RLS ne la borne PAS, le périmètre est
-  // décidé ici. Le SIRET n'est rendu QU'AU staff (§06.05 : d'un traiteur tiers, un
-  // gestionnaire ne voit rien au-delà du nom ; la liste déroulante §06.01 n'affiche
-  // que `nom || raison_sociale`, le SIRET n'y était pas montré). Il reste lisible et
-  // cherchable par admin_savr / ops_savr, en programmation de support.
-  const colonnes = auth.ctx.isAdmin
-    ? 'id, nom, raison_sociale, siret'
-    : 'id, nom, raison_sociale';
-  let query = supabase
+  // décidé ici. Le SIRET et la raison sociale ne sont rendus QU'AU staff (§06.05 :
+  // d'un traiteur tiers, un rôle client ne voit rien au-delà du nom). La liste
+  // déroulante §06.01 affichait `nom || raison_sociale` : ce repli est calculé ici,
+  // comme le fait v_referentiel_traiteurs (20260922080000), et la raison sociale ne
+  // sort plus de la route.
+  //
+  // Deux requêtes à liste de colonnes LITTÉRALE plutôt qu'un select construit : un
+  // select dynamique est invisible au gate colonne-DB (G7) et casse le typage.
+  if (auth.ctx.isAdmin) {
+    let q = supabase
+      .from('organisations')
+      .select('id, nom, raison_sociale, siret')
+      .eq('type', 'traiteur')
+      .eq('est_shadow', false)
+      .eq('actif', true)
+      .order('raison_sociale')
+      .limit(20);
+    if (q_) {
+      q = q.or(
+        `raison_sociale.ilike.%${q_}%,nom.ilike.%${q_}%,siret.ilike.%${q_}%`,
+      );
+    }
+    const { data, error } = await q;
+    if (error)
+      return serverError(error, 'programmation.organisations.traiteurs.list');
+    return NextResponse.json(data ?? []);
+  }
+
+  let q = supabase
     .from('organisations')
-    .select(colonnes)
+    .select('id, nom, raison_sociale')
     .eq('type', 'traiteur')
     .eq('est_shadow', false)
     .eq('actif', true)
     .order('raison_sociale')
     .limit(20);
-
-  if (q) {
-    const motifs = [`raison_sociale.ilike.%${q}%`, `nom.ilike.%${q}%`];
+  if (q_) {
     // Chercher par SIRET le confirmerait sans l'afficher : staff seul.
-    if (auth.ctx.isAdmin) motifs.push(`siret.ilike.%${q}%`);
-    query = query.or(motifs.join(','));
+    q = q.or(`raison_sociale.ilike.%${q_}%,nom.ilike.%${q_}%`);
   }
-
-  const { data, error } = await query;
+  const { data, error } = await q;
   if (error)
     return serverError(error, 'programmation.organisations.traiteurs.list');
 
-  return NextResponse.json(data ?? []);
+  return NextResponse.json(
+    (data ?? []).map((t) => ({
+      id: t.id,
+      nom: (t.nom ?? '').trim() || (t.raison_sociale ?? ''),
+    })),
+  );
 }

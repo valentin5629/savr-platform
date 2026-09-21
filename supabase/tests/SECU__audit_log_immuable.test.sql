@@ -56,7 +56,7 @@
 --   → 8 ROUGES / 10 : T1-T4, T7-T10. Seuls T5 et T6 passaient (REVOKE 0.4c).
 --   T9 était rouge parce que le DELETE de T2 avait réellement effacé la ligne
 --   (`have: 0`) : la conséquence, pas seulement l'absence de refus.
--- APRÈS la migration `20260921180000_plateforme_audit_log_immuable.sql`, livrée
+-- APRÈS la migration `20260921200000_plateforme_audit_log_immuable.sql`, livrée
 -- dans le même lot : 10/10. Ce fichier est la preuve de fermeture exigée par
 -- CLAUDE.md §12 (2bis) pour une migration qui referme un accès.
 --

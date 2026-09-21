@@ -25,6 +25,21 @@
 --       → T10 verrouille ce point : la garde doit survivre à une partition
 --         créée APRÈS elle, sinon l'immuabilité expire au prochain 1er janvier.
 --
+-- LES DEUX RÔLES QUI NE SONT PAS TESTÉS ICI, ET POURQUOI
+-- ----------------------------------------------------
+-- `anon` : mesuré le 2026-09-21, `has_table_privilege('anon', 'plateforme.
+--   audit_log', …)` = false sur les quatre verbes, SELECT compris — le GRANT
+--   de schéma 0.4a ne vise que `authenticated`. Un test `anon` serait vert
+--   avant comme après n'importe quel correctif : vacuously true, donc exclu.
+-- `postgres` (propriétaire) : écart RÉEL, laissé ouvert à dessein. Il porte
+--   BYPASSRLS comme `service_role`, et en plus un REVOKE lui est inopérant
+--   (mesuré : `REVOKE UPDATE … FROM postgres` laisse `has_table_privilege` à
+--   true — le propriétaire garde ses droits). Seul un trigger le contraindrait,
+--   et un DBA peut toujours `DISABLE TRIGGER` d'abord. Savoir si « tous rôles »
+--   au §5 pt 4 couvre le propriétaire ou seulement les rôles applicatifs est
+--   une question de spec, pas d'implémentation : elle est posée à Val avec
+--   l'arbitrage durcir/amender, et ce fichier ne la préjuge pas.
+--
 -- ORACLE — pourquoi ce fichier n'est pas complaisant
 -- --------------------------------------------------
 -- T9 ne se contente pas d'un refus : il relit la ligne et exige que `motif` soit
@@ -53,7 +68,9 @@
 BEGIN;
 SELECT plan(10);
 
--- Helpers (identiques aux autres fichiers de test)
+-- Helpers. `test_as_superuser()` est celui des 44 autres fichiers du dossier.
+-- `test_as_role()` est propre à ce fichier : le helper commun `test_set_jwt()`
+-- force `role='authenticated'`, ce qui ne permet pas de basculer vers `service_role`.
 CREATE OR REPLACE FUNCTION test_as_role(p_role text)
 RETURNS void LANGUAGE plpgsql AS $$
 BEGIN

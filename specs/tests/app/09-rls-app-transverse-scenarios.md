@@ -15,8 +15,8 @@
 >
 > **4 décisions Val 2026-06-07 (lot ⑪)** intégrées : F1 `cf_update_staff` (pesées admin+ops), F2 règle staff canonique `f_is_staff()`, F3 `f_collecte_editable` sur UPDATE manager+agence, F4 `users` SELECT org-wide commercial.
 >
-> **⚠ NORMATIF — écriture directe client fermée (révision 2026-09-16, divergences REVOKE `collectes` + `evenements`)** : l'INSERT/UPDATE/DELETE **direct via PostgREST** est **révoqué au niveau table** pour tous les rôles clients (`traiteur_manager`, `traiteur_commercial`, `gestionnaire_lieux`, `agence`, `client_organisateur`) sur **`collectes`** (migration `20260915160000`) **et sur `evenements`** (migration `20260915190000`, PR #328) — les deux appliquées dev + prod. Les policies d'écriture (`col_insert`, `col_update_client`, `col_update_commercial`, policies `evenements`) **subsistent mais sont inertes** : l'erreur est **`42501` levée AVANT l'évaluation RLS**, pas « 0 ligne affectée ». Toute écriture légitime passe par les **routes API sous `service_role`**.
-> **Conséquence de lecture des scénarios ci-dessous** : un scénario d'écriture sur `collectes` / `evenements` rédigé « 0 ligne est affectée » ou « l'INSERT échoue » reste **valide dans son intention** (le périmètre RLS testé est le bon) mais, exécuté en direct sous `authenticated`, il **lève 42501**. Ces scénarios doivent être implémentés **via la route API** (couche `api`) pour tester le prédicat métier, et le REVOKE lui-même est couvert par le scénario dédié `ecriture_directe_collectes_evenements_revoke_42501` (catégorie 5). Les scénarios de **SELECT** sont inchangés.
+> **⚠ NORMATIF — écriture directe client fermée (révision 2026-09-16, divergences REVOKE `collectes` + `evenements`)** : l'**INSERT/UPDATE** direct via PostgREST est **révoqué au niveau table** pour tous les rôles clients (`traiteur_manager`, `traiteur_commercial`, `gestionnaire_lieux`, `agence`, `client_organisateur`) sur **`collectes`** (migration `20260915160000`) — le **DELETE reste accordé** sur `collectes`, filtré par la policy `col_delete_brouillon` (arbitrage Val 2026-09-21 : hors périmètre = 0 ligne affectée, sans erreur) — et l'**INSERT/UPDATE/DELETE** est révoqué sur **`evenements`** (migration `20260915190000`, PR #328) — les deux appliquées dev + prod. Les policies d'écriture (`col_insert`, `col_update_client`, `col_update_commercial`, policies `evenements`) **subsistent mais sont inertes** : l'erreur est **`42501` levée AVANT l'évaluation RLS**, pas « 0 ligne affectée ». Toute écriture légitime passe par les **routes API sous `service_role`**.
+> **Conséquence de lecture des scénarios ci-dessous** : un scénario d'écriture sur `collectes` / `evenements` rédigé « 0 ligne est affectée » ou « l'INSERT échoue » reste **valide dans son intention** (le périmètre RLS testé est le bon) mais, exécuté en direct sous `authenticated`, il **lève 42501**. Ces scénarios doivent être implémentés **via la route API** (couche `api`) pour tester le prédicat métier, et le REVOKE lui-même est couvert par le scénario dédié `ecriture_directe_collectes_evenements_revoke_42501` (catégorie 6). Les scénarios de **SELECT** sont inchangés.
 
 ---
 
@@ -29,9 +29,9 @@
 | 3. Cas d'erreur métier | 11 | écritures refusées par rôle (matrice étendue ops, périmètres INSERT) |
 | 4. Isolation données (RLS) | 14 | cross-org deny par rôle, tables filles, fichiers polymorphes, PII |
 | 5. Idempotence et états | 14 | append-only, immuabilité, SERVICE_ROLE only, soft delete users/fichiers, RGPD demandes_suppression |
-| 6. Cross-app | 4 | réduite/justifiée — schéma `tms.*` inexistant V1 ; SERVICE_ROLE + claim `app_domain` |
+| 6. Cross-app | 5 | réduite/justifiée — schéma `tms.*` inexistant V1 ; SERVICE_ROLE + claim `app_domain` |
 | 7. Migration | 5 | mapping rôles, claims post-migration, échantillonnage cross-org, anonymisation, idempotence policies |
-| **TOTAL** | **67** | |
+| **TOTAL** | **68** | |
 
 **Fixtures de référence** : org A = Kaspia (traiteur), org B = Kardamome (traiteur), org C = Viparis (gestionnaire de lieux, 2 lieux liés via `organisations_lieux`), org D = agence événementielle, org E = client organisateur. Users : `manager_kaspia`, `commercial1_kaspia`, `commercial2_kaspia`, `manager_kardamome`, `gest_viparis`, `agence_d`, `client_e`, `ops1` (ops_savr), `val` (admin_savr).
 
@@ -398,7 +398,7 @@ Scénario : demande_suppression_statut_non_falsifiable_client
 Scénario : ecriture_directe_collectes_evenements_revoke_42501 (ajout 2026-09-16 — divergences REVOKE `collectes` + `evenements`)
   # Couche : db | Priorité : P1-critique
   Étant donné les rôles clients `manager_kaspia`, `commercial1_kaspia`, `gest_viparis`, `agence_d`, `client_e` sous `authenticated`
-  Quand chacun tente un INSERT, un UPDATE puis un DELETE **direct via PostgREST** sur `collectes`
+  Quand chacun tente un INSERT puis un UPDATE **direct via PostgREST** sur `collectes` (le DELETE reste accordé, filtré par `col_delete_brouillon` — arbitrage Val 2026-09-21)
   Alors chaque tentative lève `42501` (REVOKE table-level `20260915160000`), jamais « 0 ligne affectée »
   Quand chacun tente un INSERT, un UPDATE puis un DELETE **direct via PostgREST** sur `evenements`
   Alors chaque tentative lève `42501` (REVOKE table-level `20260915190000`, PR #328)

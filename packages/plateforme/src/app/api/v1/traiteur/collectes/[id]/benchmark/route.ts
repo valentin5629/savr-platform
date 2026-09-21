@@ -103,9 +103,14 @@ export async function GET(
         kg_par_pax_moyen: number | null;
         nb_collectes_segment: number | null;
       }>;
-      // Agrégat par flux : le loader peut renvoyer plusieurs segments
-      // (type × taille) quand le filtre est large — moyenne pondérée par
-      // l'effectif, cohérente avec la définition parc de f_benchmark_kg_pax_zd.
+      // Agrégat par flux : le loader rend une ligne par segment (type × taille),
+      // donc plusieurs lignes dès que le filtre couvre plusieurs types ou tailles.
+      // On les combine en pondérant par l'effectif du segment. APPROXIMATION
+      // assumée : la définition parc pondère au TONNAGE (Σpoids / Σpax) et le
+      // poids exact serait Σpax, que f_benchmark_kg_pax_zd n'expose pas. L'écart
+      // ne joue qu'entre segments de kg/pax très différents ; le corriger
+      // exigerait d'élargir la sortie de la fonction, partagée avec les
+      // dashboards — hors périmètre de cette PR.
       const parFlux = new Map<string, { somme: number; nb: number }>();
       for (const p of parc) {
         if (p.kg_par_pax_moyen == null) continue;

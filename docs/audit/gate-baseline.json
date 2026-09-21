@@ -1,5 +1,6 @@
 {
   "manifest-grain": 0,
+  "manifest-ref-anchor": 0,
   "spec-deliverables": 4,
   "manifest-completeness": 4,
   "cdc-drift": 0,

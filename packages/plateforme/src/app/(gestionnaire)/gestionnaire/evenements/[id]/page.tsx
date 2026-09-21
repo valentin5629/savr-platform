@@ -11,6 +11,10 @@ import { formatDateHeureParis } from '@savr/shared/src/temps/index.js';
 interface Attribution {
   id: string;
   volume_repas_realise: number | null;
+  // Distance association ↔ lieu de l'événement, calculée à la volée par la
+  // route (haversine, §06.05 §3 « Pour AG »). null = association ou lieu non
+  // géocodé → « — », jamais 0.
+  distance_km: number | null;
   associations: {
     nom: string;
     ville: string | null;
@@ -242,8 +246,16 @@ export default function EvenementDetailPage({
                     </div>
                     {c.attributions_antgaspi.map((a) => (
                       <div key={a.id} className="text-sm">
-                        {a.associations?.nom ?? '—'} —{' '}
-                        {a.volume_repas_realise ?? 0} repas
+                        {a.associations?.nom ?? '—'}
+                        <span className="text-savr-neutral-500">
+                          {a.associations?.ville
+                            ? ` · ${a.associations.ville}`
+                            : ''}
+                          {' · '}
+                          {/* §06.05 §3 : distance en km, « — » si non calculable */}
+                          {a.distance_km != null ? `${a.distance_km} km` : '—'}
+                        </span>{' '}
+                        — {a.volume_repas_realise ?? 0} repas
                       </div>
                     ))}
                   </div>

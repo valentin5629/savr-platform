@@ -858,13 +858,11 @@ async function traiteurNamesMap(
   if (ids.length === 0) return new Map();
   const { data } = await supabase
     .from('v_referentiel_traiteurs')
-    .select('id, nom, raison_sociale')
+    .select('id, nom')
     .in('id', ids);
+  // Libellé unique porté par la vue (20260922080000).
   return new Map(
-    (data ?? []).map((t) => [
-      t.id as string,
-      ((t.nom as string) || (t.raison_sociale as string)) ?? '',
-    ]),
+    (data ?? []).map((t) => [t.id as string, (t.nom as string) ?? '']),
   );
 }
 

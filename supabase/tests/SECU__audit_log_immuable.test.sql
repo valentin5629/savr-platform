@@ -31,14 +31,16 @@
 --   audit_log', …)` = false sur les quatre verbes, SELECT compris — le GRANT
 --   de schéma 0.4a ne vise que `authenticated`. Un test `anon` serait vert
 --   avant comme après n'importe quel correctif : vacuously true, donc exclu.
--- `postgres` (propriétaire) : écart RÉEL, laissé ouvert à dessein. Il porte
---   BYPASSRLS comme `service_role`, et en plus un REVOKE lui est inopérant
---   (mesuré : `REVOKE UPDATE … FROM postgres` laisse `has_table_privilege` à
---   true — le propriétaire garde ses droits). Seul un trigger le contraindrait,
---   et un DBA peut toujours `DISABLE TRIGGER` d'abord. Savoir si « tous rôles »
---   au §5 pt 4 couvre le propriétaire ou seulement les rôles applicatifs est
---   une question de spec, pas d'implémentation : elle est posée à Val avec
---   l'arbitrage durcir/amender, et ce fichier ne la préjuge pas.
+-- `postgres` (propriétaire) : hors de la garantie, par arbitrage Val du
+--   2026-09-21 — « tous rôles » au §5 pt 4 se lit « rôles applicatifs ». Motif
+--   mesuré : un REVOKE lui est structurellement inopérant (ses privilèges
+--   restent à true après REVOKE, sur le parent comme sur une partition) et il
+--   peut désactiver un trigger. On protège contre le bug et l'accident, pas
+--   contre un accès administrateur délibéré. Divergence `ambigu` ouverte pour
+--   que le §07/06 dise « rôles applicatifs » au lieu de « tous rôles ».
+--   NB : la migration n'exempte personne pour autant — `current_user` vaut
+--   `postgres` dans toute fonction `SECURITY DEFINER`, donc exempter le
+--   propriétaire rouvrirait le chemin à n'importe quelle RPC de l'application.
 --
 -- ORACLE — pourquoi ce fichier n'est pas complaisant
 -- --------------------------------------------------
@@ -49,11 +51,14 @@
 -- précisément parce que la RLS ramène déjà `authenticated` à `UPDATE 0` : un
 -- test « rien n'a bougé » passerait aujourd'hui sans rien prouver.
 --
--- ÉTAT À LA CRÉATION (2026-09-21, avant correctif), mesuré en le jouant :
+-- ÉTAT AVANT LE CORRECTIF (2026-09-21), mesuré en jouant ce fichier :
 -- 0 trigger sur `audit_log`, `service_role=arwd` sur le parent et les 6 partitions.
---   → 8 ROUGES / 10 : T1-T4, T7-T10. Seuls T5 et T6 passent (REVOKE 0.4c).
---   T9 est rouge parce que le DELETE de T2 a réellement effacé la ligne
+--   → 8 ROUGES / 10 : T1-T4, T7-T10. Seuls T5 et T6 passaient (REVOKE 0.4c).
+--   T9 était rouge parce que le DELETE de T2 avait réellement effacé la ligne
 --   (`have: 0`) : la conséquence, pas seulement l'absence de refus.
+-- APRÈS la migration `20260921170000_plateforme_audit_log_immuable.sql`, livrée
+-- dans le même lot : 10/10. Ce fichier est la preuve de fermeture exigée par
+-- CLAUDE.md §12 (2bis) pour une migration qui referme un accès.
 --
 -- NON-VACUITÉ — chaque test discrimine, vérifié par deux contre-épreuves jouées
 -- en transaction rollbackée le 2026-09-21 :
@@ -68,7 +73,7 @@
 BEGIN;
 SELECT plan(10);
 
--- Helpers. `test_as_superuser()` est celui des 44 autres fichiers du dossier.
+-- Helpers. `test_as_superuser()` est celui des 43 autres fichiers du dossier.
 -- `test_as_role()` est propre à ce fichier : le helper commun `test_set_jwt()`
 -- force `role='authenticated'`, ce qui ne permet pas de basculer vers `service_role`.
 CREATE OR REPLACE FUNCTION test_as_role(p_role text)

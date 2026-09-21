@@ -3,16 +3,27 @@
 #
 # Supabase dérive la `version` (PK de supabase_migrations.schema_migrations) du
 # préfixe 14 chiffres du nom de fichier. Deux migrations qui partagent ce préfixe
-# ne peuvent pas coexister : `supabase db reset` meurt sur un duplicate key (CI
-# rouge), et `db push` échoue de même — `duplicate key value violates unique
-# constraint "schema_migrations_pkey"`, exit 1, migration non appliquée.
+# ne peuvent pas coexister. Le comportement dépend de ce qui est DÉJÀ appliqué —
+# trois scénarios, tous reproduits sur base jetable le 2026-09-22 (CLI v2.105.0).
+# Ne pas les confondre : deux sont bruyants, le troisième ne l'est pas.
 #
-# ⚠ CORRIGÉ LE 2026-09-22 — cette ligne annonçait que `db push` « SAUTE la
-# seconde migration EN SILENCE ». C'est FAUX, reproduit sur base jetable : le
-# CLI refuse bruyamment dans les DEUX cas (préfixe dupliqué ET migration mal
-# ordonnée), sort en 1, et nomme le fichier. Ne pas ré-écrire « en silence » :
-# le dommage réel est le BLOCAGE de tous les déploiements, et le recours à
-# `--include-all` qui embarque les lots des autres (cf. (C) plus bas).
+#   1. Préfixe dupliqué, AUCUNE des deux versions appliquée → `supabase db reset`
+#      et `db push` échouent tous deux : `duplicate key value violates unique
+#      constraint "schema_migrations_pkey"`, exit 1. BRUYANT.
+#   2. Migration mal ORDONNÉE (version absente, inférieure au max appliqué) →
+#      `db push` refuse, exit 1, et NOMME le fichier : « Found local migration
+#      files to be inserted before the last migration on remote database. Rerun
+#      the command with --include-all flag … ». BRUYANT.
+#   3. Version DÉJÀ dans `schema_migrations`, portée par un AUTRE nom de fichier
+#      → le CLI matche par VERSION, pas par nom : le fichier n'est même pas
+#      listé, `db push` sort en 0 avec « Finished », et son SQL ne tourne
+#      JAMAIS. SILENCIEUX, intégralement. C'est le cas du préfixe « brûlé »
+#      décrit plus bas dans `rappels_apres_collision`.
+#
+# ⚠ Une correction du 2026-09-22 avait affirmé que rien n'est jamais silencieux,
+# sur la foi des seuls scénarios 1 et 2. Le scénario 3 la dément, et c'est
+# précisément celui qu'un opérateur rencontre APRÈS une collision. Vérifier les
+# trois avant de ré-écrire ce paragraphe dans un sens ou dans l'autre.
 #
 # DEUX contrôles, de portées différentes :
 #
@@ -107,8 +118,10 @@ rappels_apres_collision() {
     ⚠  Renommer ne suffit PAS si le numéro a déjà été appliqué quelque part.
        Si l'ancien préfixe a été écrit dans un schema_migrations (dev OU prod),
        il reste BRÛLÉ : au merge de l'autre lot, `db push` verra la version déjà
-       présente et REFUSERA la sienne — duplicate key sur schema_migrations_pkey,
-       exit 1, plus aucun déploiement ne passe. Correctif complet =
+       présente et SAUTERA SA MIGRATION EN SILENCE : le fichier n'est pas listé,
+       `db push` sort en 0, et son SQL ne tourne jamais (scénario 3 de l'en-tête,
+       mesuré). C'est le cas le plus dangereux des trois, et c'est celui-ci.
+       Correctif complet =
        DELETE de l'ancienne version + INSERT de la nouvelle, dans chaque base
        où l'ancienne a été appliquée. En PROD, cette écriture sort du système de
        migrations : STOP, demander à Val (CLAUDE.md §12).

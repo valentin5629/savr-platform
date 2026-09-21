@@ -1,5 +1,5 @@
 -- =============================================================================
--- SÉCURITÉ — `plateforme.audit_log` : fermer le dernier chemin d'effacement
+-- SÉCURITÉ — `plateforme.audit_log` : fermer l'effacement par vidage de table
 -- =============================================================================
 -- CDC : `01 - Cahier des charges App/07 - Observabilité/06 - Audit trail.md`
 --       §1 (« append-only et immuable ») et §5 pt 4.
@@ -31,13 +31,33 @@
 --
 -- Ce n'est pas le scénario de l'administrateur délibéré (hors garantie), mais
 -- celui de la RPC applicative ordinaire : le schéma en compte déjà 17 qui
--- touchent `audit_log`, toutes `SECURITY DEFINER` pour la plupart. Aucune ne
--- vide quoi que ce soit aujourd'hui — scan du catalogue le 2026-09-21 sur
--- `plateforme`, `shared` et `public` : aucune fonction ne contient de vidage de
--- table, de `session_replication_role` ni de `DISABLE TRIGGER`, hors le helper
--- de test `public._table_privs` (non-DEFINER). Le vecteur exige donc d'en
--- AJOUTER une — c'est-à-dire une migration, qui passe en revue. D'où une
--- priorité basse, mais c'était le dernier trou connu de l'immuabilité.
+-- touchent `audit_log`, `SECURITY DEFINER` pour la plupart. Aucune ne vide quoi
+-- que ce soit aujourd'hui — scan du catalogue le 2026-09-21 sur `plateforme`,
+-- `shared` et `public` : aucune fonction ne contient de vidage de table, de
+-- `session_replication_role` ni de `DISABLE TRIGGER`, hors le helper de test
+-- `public._table_privs` (non-DEFINER). Le vecteur exige donc d'en AJOUTER une
+-- — c'est-à-dire une migration, qui passe en revue. D'où une priorité basse.
+--
+-- CE QUE CETTE MIGRATION NE FERME PAS (mesuré, revue adversariale 2026-09-21)
+-- ---------------------------------------------------------------------------
+-- Elle ferme le vidage de table, pas tous les effacements. Trois chemins
+-- restent ouverts à une fonction `SECURITY DEFINER` appartenant à `postgres`,
+-- et sont tracés dans `_Divergences/OBS_20260921_audit-log-immuabilite-
+-- vidage-table.md` plutôt que corrigés ici :
+--   • `DROP TABLE plateforme.audit_log_2026` — efface autant de lignes qu'un
+--     vidage, et aucun trigger ne peut l'intercepter (PostgreSQL n'offre pas de
+--     trigger DDL par table ; il faudrait un event trigger, autre mécanisme,
+--     autre lot). À noter : `f_purge_logs` EST déjà une fonction `SECURITY
+--     DEFINER` qui fait `DROP TABLE` de partitions — cantonnée à
+--     `integrations_logs`, mais le patron existe dans le schéma.
+--   • une partition créée hors `f_ensure_partition_annee` (`CREATE TABLE …
+--     PARTITION OF`, ou `CREATE TABLE` + `ATTACH PARTITION`) naît sans garde
+--     d'instruction : son vidage direct aboutit. Le vidage du parent, lui,
+--     reste refusé par la garde du parent.
+--   • `ALTER TABLE … DISABLE TRIGGER` ou `SET session_replication_role =
+--     'replica'` avant le vidage — désactivation explicite, du ressort du
+--     propriétaire, donc hors garantie par l'arbitrage ci-dessus.
+-- Aucun de ces trois n'est atteignable sans ajouter du code qui passe en revue.
 --
 -- POURQUOI UNE BOUCLE ET UNE MODIFICATION DE `f_ensure_partition_annee`
 -- ---------------------------------------------------------------------
@@ -51,11 +71,24 @@
 -- Posé sur le seul parent, il laissait donc la sonde réussir sur
 -- `audit_log_2026` comme sur une partition neuve. Il faut les deux volets :
 --
---   • la boucle ci-dessous, pour les partitions d'aujourd'hui ;
---   • `f_ensure_partition_annee`, pour chaque partition annuelle à venir —
---     sans quoi la protection expirerait au prochain 1er janvier, exactement le
---     piège que la migration précédente avait évité pour UPDATE/DELETE en
---     s'appuyant sur le clonage automatique, impossible à réutiliser ici.
+--   • la boucle ci-dessous, pour les 6 partitions d'aujourd'hui (2026→2031) ;
+--   • `f_ensure_partition_annee`, pour les partitions annuelles à venir.
+--
+-- Sur ce second volet, la mesure impose d'être précis — et plus modeste que le
+-- « sinon la protection expire au prochain 1er janvier » qu'on serait tenté
+-- d'écrire par symétrie avec la migration précédente. Les faits, vérifiés le
+-- 2026-09-21 : les partitions 2027→2031 ont été pré-provisionnées one-shot par
+-- la migration `20260710000000` et reçoivent donc la garde par la boucle ;
+-- `f_purge_logs` (le cron) n'appelle `f_ensure_partition_annee` que pour
+-- `integrations_logs`, jamais pour `audit_log` ; et aucun autre appelant
+-- n'existe dans le code. L'échéance réelle est donc **2032**, et il faudra de
+-- toute façon un geste délibéré pour créer cette partition — `audit_log` n'a
+-- pas de partition `DEFAULT`, les INSERT échoueront tant qu'elle n'existe pas.
+-- Ce volet est donc de la défense en profondeur : il garantit que, le jour où
+-- quelqu'un provisionnera 2032 par la seule porte prévue pour ça, la partition
+-- naîtra gardée — là où le clonage automatique, sur lequel la migration
+-- précédente pouvait s'appuyer pour UPDATE/DELETE, ne joue pas ici. T13 le
+-- verrouille.
 --
 -- Le trigger est aussi posé sur le parent : un vidage du parent cascade sur les
 -- partitions et serait déjà intercepté par la garde de l'une d'elles, mais
@@ -63,15 +96,27 @@
 -- hors de `f_ensure_partition_annee`. `TRUNCATE ONLY` sur le parent, lui, est
 -- refusé par PostgreSQL même (« cannot truncate only a partitioned table »).
 --
--- CE QUE CETTE MIGRATION NE CASSE PAS (recensé avant écriture)
--- ------------------------------------------------------------
--- Rien ne vide `audit_log` : ni le code applicatif, ni une fonction en base
--- (scan `pg_proc` ci-dessus). `f_purge_logs` ne retire que des partitions
--- `integrations_logs` entièrement hors fenêtre — `audit_log` n'est jamais purgée
--- (rétention légale 5 ans, §07/06 §4). `integrations_logs`, partitionnée par la
--- même migration, n'a pas d'exigence d'immuabilité au CDC : la garde ajoutée à
+-- CE QUE CETTE MIGRATION CASSE, ET CE QU'ELLE NE CASSE PAS
+-- ---------------------------------------------------------
+-- Aucune fonction en base ne vide `audit_log` (scan `pg_proc` ci-dessus).
+-- `f_purge_logs` ne retire que des partitions `integrations_logs` entièrement
+-- hors fenêtre — `audit_log` n'est jamais purgée (rétention légale 5 ans,
+-- §07/06 §4). `integrations_logs`, partitionnée par la même migration, n'a pas
+-- d'exigence d'immuabilité au CDC : la garde ajoutée à
 -- `f_ensure_partition_annee` est explicitement restreinte à `audit_log`, pour
 -- ne pas bloquer cette purge.
+--
+-- EN REVANCHE, le code applicatif, lui, vide bien `audit_log` — en dev
+-- uniquement : `resetBusinessData()` (`packages/shared/src/seed/reset.ts`)
+-- ouvre `pnpm seed:minimal` / `seed:demo` par un vidage en masse des tables
+-- métier, `audit_log` comprise. Sans adaptation, ce seed échoue désormais sur
+-- `42501` à sa toute première instruction. Retirer la table de sa liste ne
+-- suffit pas : ses deux FK vers `plateforme.users` la ramènent par le CASCADE.
+-- Le correctif retenu — désactivation explicite de cette garde, puis
+-- réactivation, dans une transaction, derrière le garde-fou `assertDev()` — est
+-- porté par le même lot ; voir l'en-tête de `reset.ts` pour le raisonnement et
+-- T14 de `SECU__audit_log_immuable.test.sql` pour la preuve en base.
+-- Aucun impact en production, où le seed est interdit.
 -- Non destructive : aucune donnée touchée, aucun objet retiré, aucun privilège
 -- élargi. Le seul verbe SQL de suppression qui apparaît ci-dessous est
 -- `DROP TRIGGER IF EXISTS` sur le trigger que cette migration pose elle-même,
@@ -117,13 +162,17 @@ END;
 $$;
 
 -- 3. Les partitions à venir. `f_ensure_partition_annee` (migration
---    20260710000000) est appelée par le cron de purge pour `integrations_logs`
---    ET `audit_log`. On lui ajoute la pose de la garde, restreinte à
---    `audit_log`. Corps repris à l'identique pour le reste ; seul le bloc final
---    est nouveau. `DROP`/`CREATE` plutôt que `CREATE IF NOT EXISTS` (qui
---    n'existe pas pour un trigger) : la fonction reste idempotente, y compris
---    quand `CREATE TABLE IF NOT EXISTS` ne crée rien parce que la partition est
---    déjà là.
+--    20260710000000) sert les DEUX tables partitionnées, mais pas par le même
+--    chemin : le cron `f_purge_logs` ne l'appelle que pour `integrations_logs`
+--    (année courante et suivante), tandis que les partitions `audit_log` ont
+--    été créées one-shot à la migration (2027→2031). C'est donc la seule porte
+--    d'entrée prévue pour une future partition `audit_log`, d'où la pose de la
+--    garde ici — restreinte à `audit_log`, pour ne pas gêner la purge
+--    d'`integrations_logs`. Corps repris à l'identique pour le reste ; seul le
+--    bloc final est nouveau. `DROP`/`CREATE` plutôt que `CREATE IF NOT EXISTS`
+--    (qui n'existe pas pour un trigger) : la fonction reste idempotente, y
+--    compris quand `CREATE TABLE IF NOT EXISTS` ne crée rien parce que la
+--    partition est déjà là.
 CREATE OR REPLACE FUNCTION plateforme.f_ensure_partition_annee(p_parent text, p_annee integer)
 RETURNS void
 LANGUAGE plpgsql

@@ -83,7 +83,10 @@
 --     garde du parent, elle, intercepte bien le vidage du parent.
 --   • Garde de vidage sans la pose dans `f_ensure_partition_annee` → T13 rouge,
 --     T11/T12 verts : la protection s'arrête à la dernière partition pré-créée
---     et expire au prochain 1er janvier.
+--     (2031). Échéance réelle 2032, pas « le prochain 1er janvier » : les
+--     partitions 2027→2031 sont pré-provisionnées et couvertes par la boucle,
+--     et le cron `f_purge_logs` ne crée de partition que pour
+--     `integrations_logs` — jamais pour `audit_log`.
 --   ⇒ les quatre mécanismes sont nécessaires ; aucun ne suffit seul.
 -- =============================================================================
 
@@ -227,10 +230,25 @@ SELECT throws_ok(
 );
 
 -- =====================================================================
--- T11-T13 : le vidage de table, dernier chemin d'effacement d'une ligne
--- d'audit. `BEFORE UPDATE OR DELETE FOR EACH ROW` (T1-T10) n'intercepte
--- PAS un `TRUNCATE` : ce n'est ni un UPDATE ni un DELETE, et c'est un
--- ordre au niveau de l'instruction, sans ligne à passer au trigger.
+-- T11-T13 : le vidage de table, troisième chemin d'effacement d'une
+-- ligne d'audit. `BEFORE UPDATE OR DELETE FOR EACH ROW` (T1-T10)
+-- n'intercepte PAS un `TRUNCATE` : ce n'est ni un UPDATE ni un DELETE,
+-- et c'est un ordre au niveau de l'instruction, sans ligne à passer au
+-- trigger.
+--
+-- CE QUI N'EST PAS COUVERT, ET N'EST DONC PAS TESTÉ
+-- --------------------------------------------------
+-- Fermer le vidage ne rend pas `audit_log` ineffaçable. Trois chemins
+-- restent ouverts à une fonction `SECURITY DEFINER` appartenant à
+-- `postgres` (mesurés en revue adversariale le 2026-09-21, tracés dans
+-- `_Divergences/OBS_20260921_audit-log-immuabilite-vidage-table.md`) :
+-- `DROP TABLE` d'une partition — qu'aucun trigger de table ne peut
+-- intercepter ; une partition créée hors `f_ensure_partition_annee`, qui
+-- naît sans garde d'instruction ; et la désactivation explicite du
+-- trigger (`DISABLE TRIGGER`, `session_replication_role`), du ressort du
+-- propriétaire et donc hors garantie. Aucun n'est atteignable sans
+-- ajouter du code qui passe en revue. Les tester ici reviendrait à
+-- figer des trous connus en « comportement attendu ».
 --
 -- POURQUOI LE CHEMIN DIRECT N'EST PAS TESTÉ ICI
 -- ---------------------------------------------
@@ -264,9 +282,13 @@ SELECT throws_ok(
 -- Mesuré le 2026-09-21 : posé sur le seul parent, il laisse la sonde
 -- réussir sur `audit_log_2026` comme sur une partition neuve. La garde
 -- doit donc être posée partition par partition, et par
--- `f_ensure_partition_annee` sur chaque partition annuelle qu'elle crée
--- — sans quoi la protection expirerait au prochain 1er janvier, le piège
--- même que le REVOKE avait déjà rencontré au point (3) de l'en-tête.
+-- `f_ensure_partition_annee` sur chaque partition annuelle qu'elle crée.
+-- L'échéance n'est PAS « le prochain 1er janvier », contrairement au
+-- piège que le REVOKE a rencontré au point (3) de l'en-tête : les
+-- partitions 2027→2031 sont déjà provisionnées et couvertes, et le cron
+-- ne crée de partition que pour `integrations_logs`. C'est 2032, au
+-- premier appel délibéré de la fonction — et T13 garantit que cet
+-- appel-là produira une partition gardée.
 -- =====================================================================
 
 SELECT test_as_superuser();

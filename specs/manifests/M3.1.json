@@ -476,7 +476,7 @@
     },
     {
       "id": "M3.1-liste-filtres",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:366-374",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:372-383",
       "artefact": "packages/plateforme/src/components/collecte/collecte-filtres-bar.tsx",
       "test": "R25a/statut_selectionne_rend_tous_les_statuts_db_du_groupe",
       "statut": "implemented",
@@ -484,7 +484,7 @@
     },
     {
       "id": "M3.1-liste-filtres-options",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:366-374",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:372-383",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/filtres/route.ts",
       "test": "R25a/options_service_role_borne_aux_ids_du_perimetre",
       "statut": "implemented",

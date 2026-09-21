@@ -89,7 +89,8 @@
     "M3.1/blocs_traiteur_zd_montes_et_benchmark_reel",
     "M3.1/blocs_traiteur_ag_associations_et_top7",
     "M3.1/blocs_traiteur_kpi_cartes_non_cliquables",
-    "M3.1/dash_cockpit_co2_ag_carte_modale"
+    "M3.1/dash_cockpit_co2_ag_carte_modale",
+    "M3.1/tri_liste_collectes_date_decroissante_deux_onglets"
   ],
   "deliverables": [
     {
@@ -499,6 +500,14 @@
       "test": "supabase/tests/lieux_traiteur_operationnel.test.sql",
       "statut": "implemented",
       "libelle": "4e branche SELECT de lieux_clients_select — « je suis le traiteur opérationnel » (§09 tableau lieux, l.192-193 « visibilité traiteur opérationnel »). Sans elle, un traiteur qui OPÈRE une collecte programmée par une agence ou un gestionnaire de lieux lit l'événement (evt_manager_select / evt_commercial_select portent déjà traiteur_operationnel_organisation_id) mais PAS son lieu : ligne « Lieu » à « — » sur la liste et la fiche Collectes (§06.04), et lieu absent des options du filtre Lieu. Arbitrages Val 2026-09-21 : PAS de garde date_evenement IS NOT NULL sur cette branche (le traiteur opérationnel est une partie désignée, pas un tiers qui observe par le lieu — et date_evenement redevient NULL quand toutes les collectes sont annulées) ; garde de rôle EXPLICITE f_app_role() IN (traiteur_manager, traiteur_commercial), alignée sur les policies voisines de evenements. Élargissement d'accès CLAUDE.md §12-2bis : le pgTAP prouve l'étendue EXACTE sous authenticated + claims simulés (ce qui s'ouvre ET ce qui reste fermé), y compris que la garde de date de la branche 3 « client organisateur » a survécu à la réécriture de la policy."
+    },
+    {
+      "id": "M3.1-liste-tri-date-decroissante",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:324",
+      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx",
+      "test": "M3.1/tri_liste_collectes_date_decroissante_deux_onglets",
+      "statut": "implemented",
+      "libelle": "Tri par défaut de la liste Collectes (§06.04 §3 « Vue cartes » l.324 + « Tri par défaut » l.383) : date DÉCROISSANTE, les plus récentes en premier, SANS exception d'onglet — au niveau des groupes-semaines COMME à l'intérieur d'une semaine. Ferme l'écart code/CDC relevé le 2026-09-21 (le code triait les semaines en croissant sur l'onglet Programmées, et les cartes intra-semaine toujours en croissant dans les deux onglets) : arbitrage Val 2026-09-21, option B — le CDC était juste, c'est le code qui s'aligne, cf. _Divergences/_traités/2026-09/M3.1_20260921_tri_liste_collectes.md. Le tri est local au useMemo de la page : la liste Admin (§06.06) garde son propre groupBySemaine(asc|desc) avec remontée des urgences AG §06.09, hors périmètre de cet arbitrage."
     }
   ],
   "cdc_source_hash": {

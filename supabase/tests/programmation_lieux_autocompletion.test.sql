@@ -161,7 +161,7 @@ SELECT throws_ok(
   $$ SELECT * FROM plateforme.lieux LIMIT 0 $$,
   '42501',
   NULL,
-  'SELECT * sur plateforme.lieux : refusé à `authenticated` (pas de SELECT table-level)'
+  'SELECT * sur plateforme.lieux : refusé à `authenticated` — le GRANT est colonne-level, pas table-level (SELECT nom, lui, passe)'
 );
 
 SELECT * FROM finish();

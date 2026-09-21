@@ -76,13 +76,28 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   //   b2 — lieu d'un événement que l'organisation a programmé ;
   //   b4 — lieu d'un événement que l'organisation OPÈRE (20260921140000).
   // La branche 3 (client organisateur, événement daté) est volontairement absente :
-  // elle est INATTEIGNABLE pour les rôles de cette route. Mesuré : le sous-SELECT
-  // d'une policy subit la RLS de la table interne, et aucune policy `evt_*_select`
-  // ne donne à un traiteur / une agence / un gestionnaire un événement où il n'est
-  // QUE client organisateur — seul `evt_client_orga_select` le fait, or
-  // `client_organisateur` n'est pas un rôle programmateur.
+  // elle ne rend AUCUN lieu de plus aux rôles de cette route — mais pour deux raisons
+  // distinctes, mesurées, le sous-SELECT d'une policy subissant la RLS de `evenements` :
+  //   • agence / traiteur_manager / traiteur_commercial → sous-SELECT VIDE. Leurs
+  //     `evt_*_select` exigent `organisation_id = self`, ou `traiteur_operationnel =
+  //     self` pour les traiteurs ; jamais le seul rattachement client organisateur.
+  //     Branche INATTEIGNABLE.
+  //   • gestionnaire_lieux → sous-SELECT NON VIDE. `evt_gestionnaire_select` porte un
+  //     second disjoint `date_evenement IS NOT NULL AND lieu_id IN (mes
+  //     organisations_lieux)`, qui lui donne bien un événement dont il n'est que client
+  //     organisateur. Mais ce disjoint EXIGE le rattachement, donc la branche 1 lui a
+  //     déjà rendu le lieu. Branche REDONDANTE, pas inatteignable.
+  // Ce qui est à re-mesurer si `evt_gestionnaire_select` ou la branche 1 bougent, c'est
+  // cette redondance — pas « la branche 3 est morte », qui serait faux.
+  //
   // Ce miroir borne un confort d'UI, pas un accès : l'admin lit déjà tous les lieux
-  // (`lieux_admin`). Son enjeu est que l'admin voie la MÊME liste que sa cible.
+  // (`lieux_admin`). Son enjeu est qu'il voie la même liste que sa cible — à une
+  // sur-approximation assumée près : la policy garde la branche 4 sur le RÔLE de
+  // l'appelant, ce miroir ne le peut pas (une organisation cible peut porter des users
+  // de rôles différents) et aucun CHECK ne contraint
+  // `traiteur_operationnel_organisation_id` à une organisation de type traiteur
+  // (mesuré : simple FK vers `organisations`). Une cible non-traiteur verrait donc un
+  // lieu de plus que ses propres users — sans impact d'accès, et dans le sens sûr.
   const [{ data: orgLieux }, { data: evtProgrammes }, { data: evtOperes }] =
     await Promise.all([
       supabase

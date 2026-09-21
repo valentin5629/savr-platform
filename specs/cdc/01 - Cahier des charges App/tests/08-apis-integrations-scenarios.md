@@ -21,11 +21,11 @@
 | 2 — Cas limites métier | 12 | realisee_sans_collecte (dont Everest course vide V1, M2.5 R10a), multi-camions, out-of-order, 256KB, PATCH champs interdits, Pennylane 4xx, retry épuisé |
 | 3 — Cas d'erreur | 11 | HMAC invalide, X-API-Version absent, collecte inconnue, validation 422/409, svix invalide, Everest mission_failed avant acceptation |
 | 4 — Isolation RLS | 8 | ops_savr lecture/écriture, manager_traiteur, SERVICE_ROLE, admin_savr |
-| 5 — Idempotence/états | 9 | dédup event_id, Idempotency-Key, orderNumber MTS-1, svix-id Resend, snapshot CO₂ figé |
+| 5 — Idempotence/états | 10 | dédup event_id, Idempotency-Key, orderNumber MTS-1, svix-id Resend, snapshot CO₂ figé, tous tours KO sur collecte annulée/annulation_demandee = no-op |
 | 6 — Cross-app | 4 | chaîne E1→S1→S5 complète, chaîne Pennylane create→finalize→send_email→poll |
 | 7 — Migration | 4 | réconciliation customerOrderId, idempotence script MTS-1, rollback |
 | 8 — Onboarding SIRET (§15 §2.6, ajout 2026-07-01) | 7 | revalidation INSEE (enqueue, 3 paliers, verifie/echec/epuise), anti-doublon, siret vide non bloquant |
-| **TOTAL** | **69** | |
+| **TOTAL** | **70** | |
 
 ---
 
@@ -600,6 +600,20 @@ Scénario : mts1_polling_tous_tours_ko_collecte_rejetee_par_prestataire
     Et une alerte Admin in-app « réattribution requise » est créée (code collecte_rejetee_par_prestataire)
     Et aucune mutation automatique de l'attribution (pas de reset statut→programmee, pas de DELETE attributions_antgaspi) — retour file Ops-driven
     Et aucun bordereau ni PDF n'est généré
+```
+
+```gherkin
+# Source : §05 R_statut_collecte_multi_tournees + arbitrage Val 2026-09-17
+# Couche : db + adapter
+# Priorité : P1-critique
+
+Scénario : mts1_polling_tous_tours_ko_collecte_annulee_ou_demande_inchangee
+  Étant donné une collecte en statut annulee (ou annulation_demandee) dont toutes les tournées sont remontées CANCELED/KO
+  Quand l'adapter MTS-1 traite l'ordre au polling et lance l'agrégation terminale
+  Alors collectes.statut et collectes.statut_tms sont inchangés
+  Et aucune alerte Admin « collecte_rejetee_par_prestataire » n'est posée
+  Et la demande d'annulation est conservée : l'Admin la tranche (un refus ramène la collecte en validee)
+  Et l'écriture n'a lieu que si statut ∈ (programmee, validee, en_cours) — liste positive, symétrique de la branche realisee
 ```
 
 ---

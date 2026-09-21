@@ -705,7 +705,7 @@ Tableau lecture seule :
 
 **Filtres** : statut, type (ZD/AG/Pack/Avoir), période.
 
-Toutes les factures de l'organisation sont visibles (factures par collecte, factures groupées, achats de pack, avoirs).
+Toutes les factures de l'organisation sont visibles (factures par collecte, factures groupées, achats de pack, avoirs), **à l'exception des brouillons** (encore éditables par Savr, non numérotés) — arbitrage Val 2026-09-18. S'applique aussi à l'espace gestionnaire de lieux (§06.05 nav 8, réutilisation du composant).
 
 **Fiche facture (vue détail)** :
 - Lignes détaillées (collectes facturées)

@@ -1616,7 +1616,7 @@ Le webhook public `/api/webhooks/everest` :
 - T_M14.2 : Chauffeur A Toutes! ne peut pas SELECT `everest_missions` (rôle `chauffeur` exclu de la policy).
 - T_M14.3 : Ops Savr peut UPDATE `manual_acceptance_*` (route `manual_accept` autorisée).
 - T_M14.4 : Trigger `trg_m14_cascade_cancel` ne s'enclenche pas si **aucune mission Everest active n'existe** dans `tms.everest_missions` pour la collecte ou sa tournée parente (no-op). Revue sobriété §04 2026-04-30 A6 — colonnes miroir `everest_mission_id` supprimées V1, lookup direct sur `everest_missions`.
-- T_M14.5 : CHECK constraint `((statut_everest = 'created_manually') = (manual_acceptance_at IS NOT NULL ...))` rejette mutation incohérente.
+- T_M14.5 : CHECK constraint `(statut_everest <> 'created_manually' OR (manual_acceptance_at IS NOT NULL ...))` rejette un `created_manually` sans ses 3 champs de traçabilité ; une mission sortie de `created_manually` conserve ces champs (implication, révisé 2026-09-16).
 
 ### 19. `alertes_catalogue`, `alertes`, `alertes_evenements_log` (propagation M11 2026-04-24)
 

@@ -846,7 +846,7 @@ Grille tarifaire publique des packs Anti-Gaspi. Sert de référentiel au formula
 - Tableau : activité (ZD/AG) + scope (organisation/gestionnaire) + bénéficiaire + lieu (si précis) + **remise %** + période de validité + commentaires
 - Filtres : par activité, par scope, par organisation, actifs uniquement. **Dans le contexte de la fiche organisation, seul « Actives uniquement » est implémenté** (activité/scope/organisation sont contextuels — une seule org affichée).
 - Création : formulaire modal. **Depuis la fiche organisation, le scope `organisation` est imposé** (org de la fiche, non saisie) → flux réduit à : choix activité → lieu optionnel → **remise % (0–100)** + dates + commentaires. Le choix de scope + la sélection d'un gestionnaire (`gestionnaire_organisation_id`) relèvent de l'écran de gestion des remises dédié (à spécifier). *(précision 2026-07-03)*
-- Cumul : plusieurs remises éligibles à une même collecte se cumulent **multiplicativement** sur la base (grille ZD / tarif unitaire AG) — cf. [[05 - Règles métier#Tarifs et remises — résolution du prix]]
+- Non-cumul : si plusieurs remises sont éligibles à une même collecte (remise du traiteur, remise du gestionnaire du lieu…), seule **la plus élevée** s'applique sur la base (grille ZD / tarif unitaire AG) — arbitrage Val 2026-09-17 — cf. [[05 - Règles métier#Tarifs et remises — résolution du prix]]
 - Modification → fermeture de la ligne active + création nouvelle ligne (jamais de modification rétroactive)
 - Suppression impossible si la ligne a déjà été utilisée dans une `factures_collectes` (données figées via `tarif_detail`)
 

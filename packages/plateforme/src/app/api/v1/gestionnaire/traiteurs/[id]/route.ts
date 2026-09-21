@@ -34,12 +34,12 @@ export async function GET(
   if (lieuIds.length === 0)
     return NextResponse.json({ error: 'Traiteur non trouvé' }, { status: 404 });
 
-  // Infos non-commerciales du traiteur
+  // Infos non-commerciales du traiteur — vue restreinte id/nom/logo_url : la table
+  // organisations n'ouvre plus les traiteurs tiers au gestionnaire (20260921090000).
   const { data: orga, error: orgaErr } = await supabase
-    .from('organisations')
+    .from('v_traiteurs_gestionnaire')
     .select('id, nom, logo_url')
     .eq('id', id)
-    .eq('type', 'traiteur')
     .maybeSingle();
 
   if (orgaErr) return serverError(orgaErr, 'gestionnaire.traiteurs.get');

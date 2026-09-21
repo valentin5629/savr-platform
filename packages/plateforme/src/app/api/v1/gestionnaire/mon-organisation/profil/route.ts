@@ -12,9 +12,10 @@ const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 // GET /api/v1/gestionnaire/mon-organisation/profil
 // PATCH /api/v1/gestionnaire/mon-organisation/profil
 // Profil de SA propre organisation (§06.05 nav 8 → réutilise §06.04 §6).
-// Filtre explicite `id = organisationId` : la RLS laisse aussi le gestionnaire
-// lire les traiteurs intervenus sur ses lieux (org_gestionnaire_traiteur_select),
-// une lecture non filtrée renverrait plusieurs lignes.
+// Filtre explicite `id = organisationId` (défense en profondeur) : depuis
+// 20260921090000 la RLS ne rend au gestionnaire que sa propre ligne (les traiteurs
+// tiers passent par la vue v_traiteurs_gestionnaire), mais le filtre reste la
+// garantie d'une ligne unique si une policy s'élargit.
 // Colonnes = colonnes RÉELLES de plateforme.organisations.
 // Champs éditables (§06.05 §6 Bloc Organisation) : adresse, logo_url.
 // Nom en lecture seule (modification via support) ; raison_sociale et siret

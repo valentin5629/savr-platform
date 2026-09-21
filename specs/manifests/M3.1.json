@@ -256,7 +256,7 @@
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx",
       "test": "M3.1/card_traiteur_champs",
       "statut": "partial",
-      "libelle": "Refonte liste collectes traiteur (décision Val 2026-07-05, divergence M3.1_20260705_liste_collectes) : onglets Programmées/Historique + sélecteur ZD/AG + cartes simplifiées (Date/Heure/Lieu/Pax/Statut) + actions Modifier/Annuler/Dupliquer, grisage commercial. Volet AGENCE (M3.3) à venir."
+      "libelle": "Refonte liste collectes traiteur (décision Val 2026-07-05, divergence M3.1_20260705_liste_collectes) : onglets Programmées/Historique + sélecteur ZD/AG + cartes simplifiées (Date/Heure/Lieu/Pax/Statut) + actions Modifier/Annuler/Dupliquer, grisage commercial. Volet FILTRES livré en R25a (cf. M3.1-liste-filtres). Volet AGENCE (M3.3) à venir → statut `partial` conservé."
     },
     {
       "id": "M3.1-liste-carte-simplifiee",
@@ -473,6 +473,22 @@
       "test": "M3.1/dash_cockpit_variation_n1 + M3.1/dash_cockpit_sparkline_triee_min_2_points + M3.1/dash_cockpit_fenetre_n1_equivalente",
       "statut": "implemented",
       "libelle": "Cartes KPI Cockpit : sparkline dérivée des lignes mensuelles déjà renvoyées (≥ 2 points) + variation N-1 = période précédente équivalente (endpoint kpi-traiteur ?compare=n1 → 2e requête décalée de même durée, additive et non bloquante). kg/pax sans variation (sens « plus bas = mieux » ambigu). Dérivations pures testées (cockpit-derive)."
+    },
+    {
+      "id": "M3.1-liste-filtres",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:366-374",
+      "artefact": "packages/plateforme/src/components/collecte/collecte-filtres-bar.tsx",
+      "test": "R25a/statut_selectionne_rend_tous_les_statuts_db_du_groupe",
+      "statut": "implemented",
+      "libelle": "Filtres de la liste Collectes traiteur (§06.04 §3 « Filtres disponibles », BL-P2-14 volet filtres, jamais livré jusqu'ici) : Statut (multi) · Période · Lieu · Client Organisateur · « Info incomplète » oui/non · « Programmée par » (multi) + Réinitialiser + compteur de résultats. Le filtre Statut propose les LIBELLÉS de la vue client (mapping canonique 2026-06-30 via groupesStatutClient) — l'utilisateur ne voit jamais « Programmée » — et un libellé couvre tous les statuts DB qu'il regroupe. Sélection TOUJOURS bornée à l'onglet (partition par état). État local : persistance query-string descopée V1.1 (backlog l.401) ; le drill-down dashboard (statut/période/lieu) sert de graine et reste reflété par la barre."
+    },
+    {
+      "id": "M3.1-liste-filtres-options",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:366-374",
+      "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/filtres/route.ts",
+      "test": "R25a/options_service_role_borne_aux_ids_du_perimetre",
+      "statut": "implemented",
+      "libelle": "Options des filtres (lieux / clients organisateurs / organisations programmatrices), DÉRIVÉES du périmètre RLS de l'appelant — une option ne peut jamais désigner une donnée qu'il ne pourrait pas lister. « Client organisateur » keyé sur evenements.nom_client_organisateur (obligatoire à la confirmation) et NON sur client_organisateur_organisation_id (rattachement réservé Admin, NULL côté traiteur). « Programmée par » : les policies org_manager_select/org_commercial_select bornent le traiteur à SA propre organisation → noms des organisations tierces résolus en service_role STRICTEMENT bornés aux ids sortis de la requête RLS-scopée. AUCUNE policy élargie (CLAUDE.md §12)."
     }
   ],
   "cdc_source_hash": {

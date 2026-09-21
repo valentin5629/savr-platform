@@ -41,6 +41,7 @@ export default function TraiteurDetailPage({
   const [logoKo, setLogoKo] = useState(false);
 
   useEffect(() => {
+    setLogoKo(false);
     fetch(`/api/v1/gestionnaire/traiteurs/${encodeURIComponent(id)}`)
       .then((r) => {
         if (r.status === 404) {

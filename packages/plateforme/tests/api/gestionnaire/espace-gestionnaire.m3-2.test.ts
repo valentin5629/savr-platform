@@ -1157,6 +1157,8 @@ describe('M3.2 / traiteurs / logo (proxy scopé)', () => {
     expect(rls.__calls.from).toEqual([['v_traiteurs_gestionnaire']]);
     expect(rls.__calls.select).toEqual([['logo_url']]);
     expect(rls.__calls.eq).toEqual([['id', TRAITEUR_ID]]);
+    // Jamais le client service-role : il contournerait le périmètre de la vue.
+    expect(adminClient.__calls.from).toBeUndefined();
     // Oracle de consommation : l'objet servi est celui de la BASE (capture par
     // valeur : getObject reçoit deux chaînes).
     expect(mockGetObject).toHaveBeenCalledWith(

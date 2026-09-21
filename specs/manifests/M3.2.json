@@ -51,7 +51,9 @@
     "packages/plateforme/tests/ui/mon-organisation-gestionnaire.m3-2.test.tsx",
     "packages/plateforme/src/app/api/v1/gestionnaire/mon-organisation/logo/route.ts",
     "packages/plateforme/src/lib/logo-upload.ts",
-    "packages/plateforme/src/app/api/v1/gestionnaire/documents/[type]/[id]/download/route.ts"
+    "packages/plateforme/src/app/api/v1/gestionnaire/documents/[type]/[id]/download/route.ts",
+    "packages/plateforme/src/app/api/v1/gestionnaire/traiteurs/[id]/logo/route.ts",
+    "packages/plateforme/tests/ui/logo-organisation-proxy.test.tsx"
   ],
   "scenarios": [
     "M3.2/auth_guard_non_gestionnaire_401",
@@ -122,7 +124,14 @@
     "M3.2/document_non_genere_202",
     "M3.2/document_type_inconnu_400",
     "M3.2/document_role_non_gestionnaire_403",
-    "M3.2/document_embargo_h24_attestation_refuse"
+    "M3.2/document_embargo_h24_attestation_refuse",
+    "M3.2/traiteur_logo_200",
+    "M3.2/traiteur_logo_hors_perimetre_404",
+    "M3.2/traiteur_logo_404",
+    "M3.2/traiteur_logo_role_403",
+    "M3.2/P2_traiteurs_logo_par_proxy",
+    "M3.2/logo_fiche_traiteur_gestionnaire_par_proxy",
+    "M3.2/logo_fiche_client_admin_par_proxy"
   ],
   "deliverables": [
     {
@@ -476,6 +485,14 @@
       "test": "M3.2/document_download_rapport_ok + M3.2/document_download_attestation_ok + M3.2/document_embargo_h24_refuse + M3.2/document_hors_perimetre_404 + M3.2/document_non_genere_202 + M3.2/document_type_inconnu_400 + M3.2/document_role_non_gestionnaire_403 + M3.2/document_embargo_h24_attestation_refuse",
       "statut": "implemented",
       "libelle": "Bloc documents du détail événement (§06.05) : téléchargement du rapport de recyclage et de l'attestation de don par URL pré-signée R2 (route gestionnaire user-scopée, RLS = frontière, embargo H+24 R-PDF2 côté serveur → 425 : rapports_rse.disponible_a et attestations_don.eligible_at) ; le bordereau ZD passe par la route registre."
+    },
+    {
+      "id": "M3.2-traiteur-logo-proxy",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:434",
+      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/traiteurs/[id]/logo/route.ts",
+      "test": "M3.2/traiteur_logo_200 + M3.2/traiteur_logo_hors_perimetre_404 + M3.2/traiteur_logo_404 + M3.2/traiteur_logo_role_403 + M3.2/P2_traiteurs_logo_par_proxy + M3.2/logo_fiche_traiteur_gestionnaire_par_proxy + M3.2/logo_fiche_client_admin_par_proxy",
+      "statut": "implemented",
+      "libelle": "§5 « Nom + logo » (liste) et « Logo, nom, ville » (fiche) : logo_url portant une CLÉ R2 depuis 20260919100000, l'affichage passe par un proxy serveur qui résout la clé depuis la vue v_traiteurs_gestionnaire (jamais reçue du client) ; fiche client admin servie par le proxy staff existant"
     }
   ],
   "cdc_source_hash": {

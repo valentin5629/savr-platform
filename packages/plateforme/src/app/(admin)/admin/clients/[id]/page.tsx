@@ -206,6 +206,7 @@ export default function ClientFichePage({
     // Durcir : vérifier res.ok AVANT de désérialiser. Sinon une réponse d'erreur
     // (404/400 → `{ error }`) était castée en OrgDetail → `org.entites_facturation`
     // undefined → `.length`/`.map` → exception client-side = écran blanc.
+    setLogoKo(false);
     fetch(`/api/v1/admin/organisations/${encodeURIComponent(id)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {

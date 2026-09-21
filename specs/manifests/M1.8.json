@@ -85,7 +85,7 @@
     },
     {
       "id": "M1.8-05",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1486",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1552",
       "artefact": "supabase/migrations/20260624130000_plateforme_r1_collecte_flux_derive.sql",
       "test": "supabase/tests/m1_8_collecte_flux_derive.test.sql (S1 : 3 tours → SUM par flux ; idempotence)",
       "statut": "implemented",
@@ -93,7 +93,7 @@
     },
     {
       "id": "BL-P0-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1486",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1552",
       "artefact": "supabase/migrations/20260624130000_plateforme_r1_collecte_flux_derive.sql, packages/plateforme/src/app/api/v1/admin/collectes/[id]/flux/route.ts",
       "test": "supabase/tests/m1_8_collecte_flux_derive.test.sql ; M1.1b/flux/manuel — 200 : UPSERT poids_reel_kg + audit_log avec motif",
       "statut": "implemented",

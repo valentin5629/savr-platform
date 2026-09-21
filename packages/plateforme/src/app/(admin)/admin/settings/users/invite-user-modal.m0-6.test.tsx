@@ -8,7 +8,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 
 import { InviteUserModal } from './invite-user-modal';
-import { ATTENTE_UI } from '@/test-utils/attente-ui';
+import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 interface FetchCall {
   url: string;
@@ -63,44 +63,48 @@ async function pickOrg() {
 }
 
 describe('M0.6 — modale invitation', () => {
-  it('POST /api/v1/admin/users avec le payload provisioning', async () => {
-    const onCreated = vi.fn();
-    render(
-      <InviteUserModal
-        canInviteAdmin={true}
-        onClose={() => {}}
-        onCreated={onCreated}
-      />,
-    );
+  it(
+    'POST /api/v1/admin/users avec le payload provisioning',
+    async () => {
+      const onCreated = vi.fn();
+      render(
+        <InviteUserModal
+          canInviteAdmin={true}
+          onClose={() => {}}
+          onCreated={onCreated}
+        />,
+      );
 
-    fireEvent.change(screen.getByLabelText('Prénom'), {
-      target: { value: 'Alice' },
-    });
-    fireEvent.change(screen.getByLabelText('Nom'), {
-      target: { value: 'Martin' },
-    });
-    fireEvent.change(screen.getByLabelText('Email'), {
-      target: { value: 'alice@kaspia.fr' },
-    });
-    fireEvent.change(screen.getByLabelText('Rôle'), {
-      target: { value: 'traiteur_manager' },
-    });
-    await pickOrg();
+      fireEvent.change(screen.getByLabelText('Prénom'), {
+        target: { value: 'Alice' },
+      });
+      fireEvent.change(screen.getByLabelText('Nom'), {
+        target: { value: 'Martin' },
+      });
+      fireEvent.change(screen.getByLabelText('Email'), {
+        target: { value: 'alice@kaspia.fr' },
+      });
+      fireEvent.change(screen.getByLabelText('Rôle'), {
+        target: { value: 'traiteur_manager' },
+      });
+      await pickOrg();
 
-    fireEvent.click(screen.getByText('Inviter'));
+      fireEvent.click(screen.getByText('Inviter'));
 
-    await waitFor(() => expect(onCreated).toHaveBeenCalled(), ATTENTE_UI);
-    const post = calls.find(
-      (c) => c.method === 'POST' && c.url === '/api/v1/admin/users',
-    );
-    expect(post?.body).toMatchObject({
-      prenom: 'Alice',
-      nom: 'Martin',
-      email: 'alice@kaspia.fr',
-      role: 'traiteur_manager',
-      organisation_id: 'org-9',
-    });
-  });
+      await waitFor(() => expect(onCreated).toHaveBeenCalled(), ATTENTE_UI);
+      const post = calls.find(
+        (c) => c.method === 'POST' && c.url === '/api/v1/admin/users',
+      );
+      expect(post?.body).toMatchObject({
+        prenom: 'Alice',
+        nom: 'Martin',
+        email: 'alice@kaspia.fr',
+        role: 'traiteur_manager',
+        organisation_id: 'org-9',
+      });
+    },
+    ATTENTE_CAS_MS,
+  );
 
   it('admin : l’option Admin Savr est proposée', () => {
     render(
@@ -132,45 +136,52 @@ describe('M0.6 — modale invitation', () => {
     ).toBeInTheDocument();
   });
 
-  it('erreur serveur affichée, onCreated non appelé', async () => {
-    global.fetch = vi.fn((url: string) => {
-      if (url.startsWith('/api/v1/admin/organisations')) {
+  it(
+    'erreur serveur affichée, onCreated non appelé',
+    async () => {
+      global.fetch = vi.fn((url: string) => {
+        if (url.startsWith('/api/v1/admin/organisations')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              data: [{ id: 'org-9', raison_sociale: 'Kaspia SAS' }],
+              limit: 50,
+            }),
+          }) as unknown as Promise<Response>;
+        }
         return Promise.resolve({
-          ok: true,
-          json: async () => ({
-            data: [{ id: 'org-9', raison_sociale: 'Kaspia SAS' }],
-            limit: 50,
-          }),
+          ok: false,
+          json: async () => ({ error: 'Email déjà utilisé' }),
         }) as unknown as Promise<Response>;
-      }
-      return Promise.resolve({
-        ok: false,
-        json: async () => ({ error: 'Email déjà utilisé' }),
-      }) as unknown as Promise<Response>;
-    }) as unknown as typeof fetch;
+      }) as unknown as typeof fetch;
 
-    const onCreated = vi.fn();
-    render(
-      <InviteUserModal
-        canInviteAdmin={true}
-        onClose={() => {}}
-        onCreated={onCreated}
-      />,
-    );
-    fireEvent.change(screen.getByLabelText('Prénom'), {
-      target: { value: 'Bob' },
-    });
-    fireEvent.change(screen.getByLabelText('Nom'), { target: { value: 'X' } });
-    fireEvent.change(screen.getByLabelText('Email'), {
-      target: { value: 'bob@x.fr' },
-    });
-    await pickOrg();
-    fireEvent.click(screen.getByText('Inviter'));
+      const onCreated = vi.fn();
+      render(
+        <InviteUserModal
+          canInviteAdmin={true}
+          onClose={() => {}}
+          onCreated={onCreated}
+        />,
+      );
+      fireEvent.change(screen.getByLabelText('Prénom'), {
+        target: { value: 'Bob' },
+      });
+      fireEvent.change(screen.getByLabelText('Nom'), {
+        target: { value: 'X' },
+      });
+      fireEvent.change(screen.getByLabelText('Email'), {
+        target: { value: 'bob@x.fr' },
+      });
+      await pickOrg();
+      fireEvent.click(screen.getByText('Inviter'));
 
-    await waitFor(
-      () => expect(screen.getByText('Email déjà utilisé')).toBeInTheDocument(),
-      ATTENTE_UI,
-    );
-    expect(onCreated).not.toHaveBeenCalled();
-  });
+      await waitFor(
+        () =>
+          expect(screen.getByText('Email déjà utilisé')).toBeInTheDocument(),
+        ATTENTE_UI,
+      );
+      expect(onCreated).not.toHaveBeenCalled();
+    },
+    ATTENTE_CAS_MS,
+  );
 });

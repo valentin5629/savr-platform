@@ -12,7 +12,7 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
 }));
 
 import { useUserRole } from './use-user-role';
-import { ATTENTE_UI } from '@/test-utils/attente-ui';
+import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 function makeToken(claims: Record<string, unknown>): string {
   const b64url = (o: unknown) =>
@@ -25,29 +25,49 @@ beforeEach(() => {
 });
 
 describe('M0.6 — useUserRole', () => {
-  it('lit le claim user_role (admin_savr)', async () => {
-    mockGetSession.mockResolvedValue({
-      data: {
-        session: { access_token: makeToken({ user_role: 'admin_savr' }) },
-      },
-    });
-    const { result } = renderHook(() => useUserRole());
-    await waitFor(() => expect(result.current).toBe('admin_savr'), ATTENTE_UI);
-  });
+  it(
+    'lit le claim user_role (admin_savr)',
+    async () => {
+      mockGetSession.mockResolvedValue({
+        data: {
+          session: { access_token: makeToken({ user_role: 'admin_savr' }) },
+        },
+      });
+      const { result } = renderHook(() => useUserRole());
+      await waitFor(
+        () => expect(result.current).toBe('admin_savr'),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('lit le claim user_role (ops_savr)', async () => {
-    mockGetSession.mockResolvedValue({
-      data: { session: { access_token: makeToken({ user_role: 'ops_savr' }) } },
-    });
-    const { result } = renderHook(() => useUserRole());
-    await waitFor(() => expect(result.current).toBe('ops_savr'), ATTENTE_UI);
-  });
+  it(
+    'lit le claim user_role (ops_savr)',
+    async () => {
+      mockGetSession.mockResolvedValue({
+        data: {
+          session: { access_token: makeToken({ user_role: 'ops_savr' }) },
+        },
+      });
+      const { result } = renderHook(() => useUserRole());
+      await waitFor(() => expect(result.current).toBe('ops_savr'), ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('undefined sans session', async () => {
-    mockGetSession.mockResolvedValue({ data: { session: null } });
-    const { result } = renderHook(() => useUserRole());
-    // Laisse l'effet se résoudre puis vérifie l'absence de rôle.
-    await waitFor(() => expect(mockGetSession).toHaveBeenCalled(), ATTENTE_UI);
-    expect(result.current).toBeUndefined();
-  });
+  it(
+    'undefined sans session',
+    async () => {
+      mockGetSession.mockResolvedValue({ data: { session: null } });
+      const { result } = renderHook(() => useUserRole());
+      // Laisse l'effet se résoudre puis vérifie l'absence de rôle.
+      await waitFor(
+        () => expect(mockGetSession).toHaveBeenCalled(),
+        ATTENTE_UI,
+      );
+      expect(result.current).toBeUndefined();
+    },
+    ATTENTE_CAS_MS,
+  );
 });

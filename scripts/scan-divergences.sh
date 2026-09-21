@@ -6,6 +6,21 @@
 # Exit 0 = aucune divergence non traitée
 # Exit 1 = divergences claires uniquement → Cowork requis, non bloquant immédiatement
 # Exit 2 = divergences ambiguës → bloquant, décision Val requise
+#
+# ── Fichiers TRAITÉS mais volontairement CONSERVÉS à la racine ───────────────
+# `cdc-patch-divergences` archive normalement dans _traités/. Certaines
+# divergences portent une garde explicite « NE PAS archiver avant le merge de X »
+# (ex. M3.2 bloc AG gestionnaire : arbitrage Val rendu, CDC patché, mais la vue
+# v_attributions_gestionnaire reste à livrer). Sans le test ci-dessous, ces
+# fichiers étaient comptés comme « décision en attente » : gate-brief.sh bloquait
+# alors TOUTE édition de packages/ — pour tous les lots, indéfiniment — alors
+# qu'aucune décision n'était en attente. Ils sont désormais AFFICHÉS (la garde
+# reste visible, l'implémentation ne doit pas être oubliée) mais NON BLOQUANTS.
+#
+# Marqueur retenu : la section « ## Statut traitement » + un champ « **Statut** »,
+# écrits par le run cdc-patch-divergences. Sûr dans les deux sens : TEMPLATE.md ne
+# contient pas cette section, donc une divergence fraîchement écrite par Claude
+# Code bloque toujours.
 set -euo pipefail
 
 VAULT_DIV="${HOME}/Desktop/Obsidian Savr/_Divergences"
@@ -25,12 +40,21 @@ fi
 # Collecter les fichiers non traités (hors _traités/, TEMPLATE.md)
 FILES_CLAIR=()
 FILES_AMBIGU=()
+FILES_CONSERVES=()
 
 while IFS= read -r -d '' f; do
   base=$(basename "$f")
   [[ "$base" == "TEMPLATE.md" ]] && continue
-  # Vérifier si déjà traité
+  # Vérifier si déjà traité (archivé)
   [[ -f "${TRAITES}/${base}" ]] && continue
+
+  # Traité par cdc-patch-divergences mais conservé à la racine par une garde
+  # explicite → informatif, jamais bloquant (cf. en-tête).
+  statut_ligne=$(awk '/^## Statut traitement/{f=1; next} f && /^[[:space:]]*-[[:space:]]*\*\*Statut\*\*/{sub(/^[[:space:]]*-[[:space:]]*/,""); print; exit}' "$f" 2>/dev/null || true)
+  if [[ -n "$statut_ligne" ]]; then
+    FILES_CONSERVES+=("  • ${base} : ${statut_ligne}")
+    continue
+  fi
 
   # Lire le type
   type_val=$(grep -m1 '^clair$\|^ambigu$' "$f" 2>/dev/null || echo "inconnu")
@@ -61,6 +85,14 @@ fi
 
 # Afficher le résumé
 TOTAL=$(( ${#FILES_CLAIR[@]} + ${#FILES_AMBIGU[@]} ))
+
+if [[ ${#FILES_CONSERVES[@]} -gt 0 ]]; then
+  echo ""
+  echo "🔵 TRAITÉES — conservées volontairement (${#FILES_CONSERVES[@]}) : décision rendue,"
+  echo "   CDC patché, implémentation encore à livrer. Non bloquant."
+  for e in "${FILES_CONSERVES[@]}"; do echo "$e"; done
+  echo ""
+fi
 
 if [[ $TOTAL -eq 0 ]]; then
   echo "✅  Aucune divergence non traitée — prochain module débloqué."

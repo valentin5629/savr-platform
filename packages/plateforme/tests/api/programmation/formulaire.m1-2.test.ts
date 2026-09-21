@@ -38,6 +38,43 @@ vi.mock('@savr/shared/src/email/index.js', () => ({
   sendEmail: vi.fn().mockResolvedValue(undefined),
 }));
 
+// Chaîne de requête « authenticated » — DISTINCTE de mockSupabaseChain
+// (service_role). Les tenir séparées est ce qui permet de prouver SOUS QUELLE
+// IDENTITÉ une route lit : la RLS ne s'applique que sur celle-ci.
+const MAILLONS_AUTH = [
+  'from',
+  'select',
+  'eq',
+  'in',
+  'not',
+  'or',
+  'order',
+  'limit',
+] as const;
+type MaillonAuth = (typeof MAILLONS_AUTH)[number];
+type AuthChainMock = Record<MaillonAuth, ReturnType<typeof vi.fn>> & {
+  then: (res: (v: unknown) => void, rej: (e: unknown) => void) => Promise<void>;
+};
+
+let resultatAuth: unknown = { data: [], error: null };
+function setResultatAuth(r: unknown) {
+  resultatAuth = r;
+}
+
+const mockAuthChain = {
+  from: vi.fn(() => mockAuthChain),
+  select: vi.fn(() => mockAuthChain),
+  eq: vi.fn(() => mockAuthChain),
+  in: vi.fn(() => mockAuthChain),
+  not: vi.fn(() => mockAuthChain),
+  or: vi.fn(() => mockAuthChain),
+  order: vi.fn(() => mockAuthChain),
+  limit: vi.fn(() => mockAuthChain),
+  // Thenable : `await query` résout quel que soit le dernier maillon appelé.
+  then: (res: (v: unknown) => void, rej: (e: unknown) => void) =>
+    Promise.resolve(resultatAuth).then(res, rej),
+} as AuthChainMock;
+
 function makeJwt(claims: Record<string, unknown>): string {
   return `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
 }
@@ -48,6 +85,7 @@ const mockGetSession = vi.fn();
 vi.mock('@supabase/ssr', () => ({
   createServerClient: () => ({
     auth: { getUser: mockGetUser, getSession: mockGetSession },
+    from: (...args: unknown[]) => mockAuthChain.from(...args),
   }),
 }));
 vi.mock('next/headers', () => ({
@@ -92,6 +130,10 @@ function resetChain() {
   mockSupabaseChain.order.mockReturnThis();
   mockSupabaseChain.limit.mockReturnThis();
   mockSupabaseChain.is.mockReturnThis();
+  resultatAuth = { data: [], error: null };
+  for (const k of MAILLONS_AUTH) {
+    mockAuthChain[k].mockImplementation(() => mockAuthChain);
+  }
 }
 
 function makeReq(method: string, url: string, body?: unknown): NextRequest {
@@ -693,18 +735,215 @@ describe('M1.2 / Sécurité isolation cross-org', () => {
   });
 });
 
-describe('M1.2 / Lieux scope org', () => {
+type ChaineMock = {
+  select: () => ChaineMock;
+  eq: (col?: string, val?: unknown) => ChaineMock;
+  in: (col: string, vals: string[]) => ChaineMock;
+  not: () => ChaineMock;
+  or: () => ChaineMock;
+  order: () => ChaineMock;
+  limit: () => ChaineMock;
+  maybeSingle: () => Promise<{ data: unknown; error: null }>;
+  then: (res: (v: unknown) => void, rej: (e: unknown) => void) => Promise<void>;
+};
+
+// Ids réellement transmis au `.in('id', …)` de la requête finale `lieux` du
+// chemin admin : c'est l'ensemble « lieux proposés à l'autocomplétion ».
+let idsProposes: string[] = [];
+
+/**
+ * Route les tables du chemin ADMIN (service_role). Les deux lectures de
+ * `evenements` sont distinguées par la COLONNE filtrée, ce qui vérifie au
+ * passage que la branche 4 interroge bien
+ * `traiteur_operationnel_organisation_id`.
+ */
+function setupTablesAdmin(opts: {
+  typeOrg?: string | null;
+  rattaches?: string[];
+  programmes?: string[];
+  operes?: string[];
+}) {
+  idsProposes = [];
+  const ok = (data: unknown) => ({ data, error: null });
+  const lignes = (ids: string[] = []) => ids.map((lieu_id) => ({ lieu_id }));
+
+  const simple = (data: unknown, capture = false): ChaineMock => {
+    const c: ChaineMock = {
+      select: () => c,
+      eq: () => c,
+      in: (_col, vals) => {
+        if (capture) idsProposes = vals;
+        return c;
+      },
+      not: () => c,
+      or: () => c,
+      order: () => c,
+      limit: () => c,
+      maybeSingle: () => Promise.resolve(ok(data)),
+      then: (res, rej) => Promise.resolve(ok(data)).then(res, rej),
+    };
+    return c;
+  };
+
+  // Une chaîne NEUVE par lecture de `evenements` : les deux requêtes sont
+  // construites avant d'être résolues (Promise.all), donc une chaîne partagée
+  // verrait sa colonne écrasée par la seconde et les deux résoudraient pareil.
+  const chaineEvt = (): ChaineMock => {
+    let colonne = '';
+    const evt: ChaineMock = {
+      select: () => evt,
+      eq: (col) => {
+        colonne = col ?? '';
+        return evt;
+      },
+      in: () => evt,
+      not: () => evt,
+      or: () => evt,
+      order: () => evt,
+      limit: () => evt,
+      maybeSingle: () => Promise.resolve(ok(null)),
+      then: (res, rej) =>
+        Promise.resolve(
+          ok(
+            lignes(
+              colonne === 'traiteur_operationnel_organisation_id'
+                ? opts.operes
+                : opts.programmes,
+            ),
+          ),
+        ).then(res, rej),
+    };
+    return evt;
+  };
+
+  mockSupabaseChain.from.mockImplementation((table: string) => {
+    if (table === 'organisations')
+      return simple(opts.typeOrg ? { type: opts.typeOrg } : null);
+    if (table === 'organisations_lieux') return simple(lignes(opts.rattaches));
+    if (table === 'evenements') return chaineEvt();
+    if (table === 'lieux') return simple([], true);
+    throw new Error(`table inattendue dans le chemin admin : ${table}`);
+  });
+}
+
+async function getLieux(url = '/api/v1/programmation/lieux') {
+  const { GET } = await import('@/app/api/v1/programmation/lieux/route.js');
+  return GET(makeReq('GET', url));
+}
+
+/**
+ * Alignement de l'autocomplétion Lieux sur la policy `lieux_clients_select`.
+ *
+ * Avant ce lot, la route lisait en service_role et re-transcrivait 2 des 4
+ * branches de la policy : la branche « traiteur opérationnel » (§09, migration
+ * 20260921140000) n'atteignait donc jamais l'autocomplétion.
+ */
+describe('M1.2 / Lieux — alignement sur la RLS', () => {
   beforeEach(resetChain);
 
-  it('lieux_traiteur_scope_vide — 200 [] si aucun lieu ni événement pour cette org', async () => {
-    setupAuth('traiteur_commercial', 'org-new');
-    // organisations_lieux → [] (chaîne retourne undefined, traité comme vide)
-    // evenements → [] idem
+  // ── Rôles clients : la policy filtre, la route ne transcrit rien ──────────
 
-    const { GET } = await import('@/app/api/v1/programmation/lieux/route.js');
-    const res = await GET(makeReq('GET', '/api/v1/programmation/lieux'));
+  it('lieux_client_lu_sous_authenticated — lecture RLS, jamais en service_role', async () => {
+    setupAuth('traiteur_manager', 'org-traiteur-1');
+    setResultatAuth({
+      data: [{ id: 'lieu-opere-1', nom: 'Lieu opéré par un tiers' }],
+      error: null,
+    });
+
+    const res = await getLieux();
     expect(res.status).toBe(200);
-    const json = (await res.json()) as unknown[];
-    expect(json).toEqual([]);
+    expect(await res.json()).toEqual([
+      { id: 'lieu-opere-1', nom: 'Lieu opéré par un tiers' },
+    ]);
+
+    // Lu sous `authenticated`, via la vue en liste blanche de colonnes.
+    expect(mockAuthChain.from).toHaveBeenCalledWith('v_lieux_clients');
+    // Et JAMAIS via le client service_role : c'est ce qui garantit que la
+    // policy — donc ses 4 branches — décide seule.
+    expect(mockSupabaseChain.from).not.toHaveBeenCalled();
+  });
+
+  it('lieux_client_aucune_transcription_du_predicat — ni organisations_lieux ni evenements', async () => {
+    setupAuth('traiteur_commercial', 'org-traiteur-1');
+    setResultatAuth({ data: [{ id: 'lieu-1' }], error: null });
+
+    await getLieux();
+
+    const tablesLues = mockAuthChain.from.mock.calls.map((c) => c[0]);
+    expect(tablesLues).not.toContain('organisations_lieux');
+    expect(tablesLues).not.toContain('evenements');
+    expect(tablesLues).toEqual(['v_lieux_clients']);
+  });
+
+  it('lieux_traiteur_scope_vide — 200 [] si la RLS ne rend aucun lieu', async () => {
+    setupAuth('traiteur_commercial', 'org-new');
+    setResultatAuth({ data: [], error: null });
+
+    const res = await getLieux();
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([]);
+  });
+
+  it('lieux_client_recherche — le terme q est appliqué à la requête RLS', async () => {
+    setupAuth('gestionnaire_lieux', 'org-gl-1');
+    setResultatAuth({ data: [], error: null });
+
+    await getLieux('/api/v1/programmation/lieux?q=Pavillon');
+
+    expect(mockAuthChain.or).toHaveBeenCalledWith(
+      expect.stringContaining('Pavillon'),
+    );
+  });
+
+  // ── Admin support : service_role, filtre transcrit, aligné sur la policy ──
+
+  it('lieux_admin_sans_org_cible — 200 [] (pas de fuite cross-organisation)', async () => {
+    setupAuth('admin_savr', 'org-savr');
+    setupTablesAdmin({ typeOrg: 'traiteur', rattaches: ['lieu-a'] });
+
+    const res = await getLieux();
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([]);
+    // Aucune lecture : l'absence d'org cible court-circuite avant toute requête.
+    expect(mockSupabaseChain.from).not.toHaveBeenCalled();
+  });
+
+  it('lieux_admin_branche_traiteur_operationnel — le lieu opéré est proposé', async () => {
+    setupAuth('admin_savr', 'org-savr');
+    setupTablesAdmin({
+      typeOrg: 'traiteur',
+      rattaches: ['lieu-rattache'],
+      programmes: ['lieu-programme'],
+      operes: ['lieu-opere'],
+    });
+
+    const res = await getLieux(
+      '/api/v1/programmation/lieux?organisation_id=org-traiteur-1',
+    );
+    expect(res.status).toBe(200);
+    expect([...idsProposes].sort()).toEqual([
+      'lieu-opere',
+      'lieu-programme',
+      'lieu-rattache',
+    ]);
+  });
+
+  it('lieux_admin_org_non_traiteur — la branche 4 reste gardée par le rôle', async () => {
+    setupAuth('admin_savr', 'org-savr');
+    setupTablesAdmin({
+      typeOrg: 'agence',
+      rattaches: ['lieu-rattache'],
+      operes: ['lieu-opere'],
+    });
+
+    const res = await getLieux(
+      '/api/v1/programmation/lieux?organisation_id=org-agence-1',
+    );
+    expect(res.status).toBe(200);
+    // Non-vacuité : la donnée « opérée » EXISTE dans la fixture et a bien été
+    // lue — c'est la garde de rôle de la policy (transposée en type d'org) qui
+    // l'écarte, pas une fixture vide.
+    expect(idsProposes).toContain('lieu-rattache');
+    expect(idsProposes).not.toContain('lieu-opere');
   });
 });

@@ -8,7 +8,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { LieuManuelForm } from './lieu-manuel-form';
-import { ATTENTE_UI } from '@/test-utils/attente-ui';
+import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 describe('M0.6 — quick-add lieu manuel (BL-P1-BOA-03)', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -23,41 +23,48 @@ describe('M0.6 — quick-add lieu manuel (BL-P1-BOA-03)', () => {
     expect(screen.queryByLabelText(/Contact sur place/)).toBeNull();
   });
 
-  it('M0.6 — envoie les champs optionnels renseignés, omet ceux laissés vides', async () => {
-    const onSave = vi.fn();
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ id: 'l-1', nom: 'X', adresse_acces: 'Y' }),
-    });
-    vi.stubGlobal('fetch', fetchMock);
+  it(
+    'M0.6 — envoie les champs optionnels renseignés, omet ceux laissés vides',
+    async () => {
+      const onSave = vi.fn();
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ id: 'l-1', nom: 'X', adresse_acces: 'Y' }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
 
-    render(<LieuManuelForm onSave={onSave} onCancel={vi.fn()} />);
+      render(<LieuManuelForm onSave={onSave} onCancel={vi.fn()} />);
 
-    fireEvent.change(screen.getByLabelText(/Nom du lieu/), {
-      target: { value: 'Château de Saint-Cloud' },
-    });
-    fireEvent.change(screen.getByLabelText(/Adresse d'accès livraison/), {
-      target: { value: '1 avenue de Paris' },
-    });
-    fireEvent.change(screen.getByLabelText(/Code postal/), {
-      target: { value: '92210' },
-    });
-    fireEvent.change(screen.getByLabelText(/Ville/), {
-      target: { value: 'Saint-Cloud' },
-    });
-    fireEvent.change(screen.getByLabelText(/Type de véhicule max/), {
-      target: { value: 'fourgon' },
-    });
-    // stationnement et acces_office laissés vides
+      fireEvent.change(screen.getByLabelText(/Nom du lieu/), {
+        target: { value: 'Château de Saint-Cloud' },
+      });
+      fireEvent.change(screen.getByLabelText(/Adresse d'accès livraison/), {
+        target: { value: '1 avenue de Paris' },
+      });
+      fireEvent.change(screen.getByLabelText(/Code postal/), {
+        target: { value: '92210' },
+      });
+      fireEvent.change(screen.getByLabelText(/Ville/), {
+        target: { value: 'Saint-Cloud' },
+      });
+      fireEvent.change(screen.getByLabelText(/Type de véhicule max/), {
+        target: { value: 'fourgon' },
+      });
+      // stationnement et acces_office laissés vides
 
-    fireEvent.click(screen.getByRole('button', { name: /Ajouter ce lieu/ }));
+      fireEvent.click(screen.getByRole('button', { name: /Ajouter ce lieu/ }));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled(), ATTENTE_UI);
-    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
-    const body = JSON.parse(options.body as string) as Record<string, unknown>;
-    expect(body.type_vehicule_max).toBe('fourgon');
-    expect(body.stationnement).toBeUndefined();
-    expect(body.acces_office).toBeUndefined();
-    await waitFor(() => expect(onSave).toHaveBeenCalled(), ATTENTE_UI);
-  });
+      await waitFor(() => expect(fetchMock).toHaveBeenCalled(), ATTENTE_UI);
+      const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(options.body as string) as Record<
+        string,
+        unknown
+      >;
+      expect(body.type_vehicule_max).toBe('fourgon');
+      expect(body.stationnement).toBeUndefined();
+      expect(body.acces_office).toBeUndefined();
+      await waitFor(() => expect(onSave).toHaveBeenCalled(), ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
 });

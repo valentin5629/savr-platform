@@ -23,6 +23,7 @@
     "db:types:local": "supabase gen types typescript --local --schema plateforme --schema shared --schema public > packages/shared/src/database.types.ts",
     "check:column-db": "tsx scripts/check-column-db.ts",
     "check:manifest-grain": "tsx scripts/check-manifest-grain.ts",
+    "check:manifest-ref-anchor": "tsx scripts/check-manifest-ref-anchor.ts",
     "check:spec-deliverables": "tsx scripts/check-spec-deliverables.ts",
     "check:schema-vs-cible": "tsx scripts/check-schema-vs-cible.ts",
     "check:manifest-completeness": "tsx scripts/check-manifest-completeness.ts",

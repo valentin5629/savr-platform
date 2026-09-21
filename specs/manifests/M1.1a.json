@@ -190,7 +190,7 @@
     },
     {
       "id": "M1.1a-25",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:599",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:665",
       "artefact": "packages/plateforme/src/app/api/v1/admin/organisations/[id]/route.ts",
       "test": "M1.1a/orgas/grille-tarifaire-admin-only",
       "statut": "implemented",
@@ -342,7 +342,7 @@
     },
     {
       "id": "M1.1a-orgas-creation-champs-obligatoires",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:626",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:633",
       "artefact": "packages/plateforme/src/app/api/v1/admin/organisations/route.ts",
       "test": "M1.1a/orgas/creation — 422 + champs_invalides",
       "statut": "implemented",

@@ -17,7 +17,7 @@ import {
   AssociationModal,
   type AssociationRecord,
 } from '@/components/admin/association-modal';
-import { ATTENTE_UI } from '@/test-utils/attente-ui';
+import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 const DESCRIPTION_OK =
   'Distribue des repas chauds aux personnes en situation de précarité à Paris.';
@@ -96,258 +96,290 @@ describe('M1.1 — Modale association (revue E2E)', () => {
     ).toBeInTheDocument();
   });
 
-  it('bloque la soumission si description < 30 caractères', async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal('fetch', fetchMock);
-    render(
-      <AssociationModal
-        open
-        association={null}
-        onClose={vi.fn()}
-        onSaved={vi.fn()}
-      />,
-    );
+  it(
+    'bloque la soumission si description < 30 caractères',
+    async () => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <AssociationModal
+          open
+          association={null}
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+        />,
+      );
 
-    fillRequiredFields();
-    fireEvent.change(
-      screen.getByLabelText(/Description pour le rapport d'impact/),
-      { target: { value: 'Trop court' } },
-    );
-    fireEvent.click(
-      screen.getByRole('button', { name: /Créer l.association/ }),
-    );
+      fillRequiredFields();
+      fireEvent.change(
+        screen.getByLabelText(/Description pour le rapport d'impact/),
+        { target: { value: 'Trop court' } },
+      );
+      fireEvent.click(
+        screen.getByRole('button', { name: /Créer l.association/ }),
+      );
 
-    expect(
-      await screen.findByText(/30 caractères minimum/, undefined, ATTENTE_UI),
-    ).toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
+      expect(
+        await screen.findByText(/30 caractères minimum/, undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('bloque la soumission si SIREN ≠ 9 chiffres', async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal('fetch', fetchMock);
-    render(
-      <AssociationModal
-        open
-        association={null}
-        onClose={vi.fn()}
-        onSaved={vi.fn()}
-      />,
-    );
+  it(
+    'bloque la soumission si SIREN ≠ 9 chiffres',
+    async () => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <AssociationModal
+          open
+          association={null}
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+        />,
+      );
 
-    fillRequiredFields();
-    // SIREN est optionnel mais, s'il est renseigné, doit faire 9 chiffres.
-    fireEvent.change(screen.getByLabelText(/^SIREN/), {
-      target: { value: '123' },
-    });
-    fireEvent.click(
-      screen.getByRole('button', { name: /Créer l.association/ }),
-    );
+      fillRequiredFields();
+      // SIREN est optionnel mais, s'il est renseigné, doit faire 9 chiffres.
+      fireEvent.change(screen.getByLabelText(/^SIREN/), {
+        target: { value: '123' },
+      });
+      fireEvent.click(
+        screen.getByRole('button', { name: /Créer l.association/ }),
+      );
 
-    expect(
-      await screen.findByText(/SIREN : 9 chiffres/, undefined, ATTENTE_UI),
-    ).toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
+      expect(
+        await screen.findByText(/SIREN : 9 chiffres/, undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('création → POST /associations + onSaved/onClose', async () => {
-    const onSaved = vi.fn();
-    const onClose = vi.fn();
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ id: 'asso-1' }),
-    });
-    vi.stubGlobal('fetch', fetchMock);
-    render(
-      <AssociationModal
-        open
-        association={null}
-        onClose={onClose}
-        onSaved={onSaved}
-      />,
-    );
+  it(
+    'création → POST /associations + onSaved/onClose',
+    async () => {
+      const onSaved = vi.fn();
+      const onClose = vi.fn();
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ id: 'asso-1' }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <AssociationModal
+          open
+          association={null}
+          onClose={onClose}
+          onSaved={onSaved}
+        />,
+      );
 
-    fillRequiredFields();
-    fireEvent.click(
-      screen.getByRole('button', { name: /Créer l.association/ }),
-    );
+      fillRequiredFields();
+      fireEvent.click(
+        screen.getByRole('button', { name: /Créer l.association/ }),
+      );
 
-    await waitFor(
-      () =>
-        expect(fetchMock).toHaveBeenCalledWith(
-          '/api/v1/admin/associations',
-          expect.objectContaining({ method: 'POST' }),
-        ),
-      ATTENTE_UI,
-    );
-    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
-    const body = JSON.parse(options.body as string) as {
-      region: string;
-      capacite_max_beneficiaires: number | null;
-    };
-    expect(body.region).toBe('idf');
-    expect(body.capacite_max_beneficiaires).toBe(150);
+      await waitFor(
+        () =>
+          expect(fetchMock).toHaveBeenCalledWith(
+            '/api/v1/admin/associations',
+            expect.objectContaining({ method: 'POST' }),
+          ),
+        ATTENTE_UI,
+      );
+      const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(options.body as string) as {
+        region: string;
+        capacite_max_beneficiaires: number | null;
+      };
+      expect(body.region).toBe('idf');
+      expect(body.capacite_max_beneficiaires).toBe(150);
 
-    await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
-    expect(onClose).toHaveBeenCalled();
-  });
+      await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
+      expect(onClose).toHaveBeenCalled();
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('édition → PATCH /associations/{id} avec les champs modifiés', async () => {
-    const onSaved = vi.fn();
-    const onClose = vi.fn();
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ id: EDIT_FIXTURE.id }),
-    });
-    vi.stubGlobal('fetch', fetchMock);
-    render(
-      <AssociationModal
-        open
-        association={EDIT_FIXTURE}
-        onClose={onClose}
-        onSaved={onSaved}
-      />,
-    );
+  it(
+    'édition → PATCH /associations/{id} avec les champs modifiés',
+    async () => {
+      const onSaved = vi.fn();
+      const onClose = vi.fn();
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ id: EDIT_FIXTURE.id }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <AssociationModal
+          open
+          association={EDIT_FIXTURE}
+          onClose={onClose}
+          onSaved={onSaved}
+        />,
+      );
 
-    // Champ prérempli puis modifié.
-    fireEvent.change(screen.getByLabelText(/Nom de l'association/), {
-      target: { value: 'Association Alpha 2' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /Enregistrer/ }));
+      // Champ prérempli puis modifié.
+      fireEvent.change(screen.getByLabelText(/Nom de l'association/), {
+        target: { value: 'Association Alpha 2' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: /Enregistrer/ }));
 
-    await waitFor(
-      () =>
-        expect(fetchMock).toHaveBeenCalledWith(
-          `/api/v1/admin/associations/${EDIT_FIXTURE.id}`,
-          expect.objectContaining({ method: 'PATCH' }),
-        ),
-      ATTENTE_UI,
-    );
-    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
-    const body = JSON.parse(options.body as string) as { nom: string };
-    expect(body.nom).toBe('Association Alpha 2');
-    await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
-  });
+      await waitFor(
+        () =>
+          expect(fetchMock).toHaveBeenCalledWith(
+            `/api/v1/admin/associations/${EDIT_FIXTURE.id}`,
+            expect.objectContaining({ method: 'PATCH' }),
+          ),
+        ATTENTE_UI,
+      );
+      const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(options.body as string) as { nom: string };
+      expect(body.nom).toBe('Association Alpha 2');
+      await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('Désactiver → PATCH { actif:false } + onSaved/onClose', async () => {
-    const onSaved = vi.fn();
-    const onClose = vi.fn();
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({}),
-    });
-    vi.stubGlobal('fetch', fetchMock);
-    render(
-      <AssociationModal
-        open
-        association={EDIT_FIXTURE}
-        onClose={onClose}
-        onSaved={onSaved}
-      />,
-    );
+  it(
+    'Désactiver → PATCH { actif:false } + onSaved/onClose',
+    async () => {
+      const onSaved = vi.fn();
+      const onClose = vi.fn();
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({}),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <AssociationModal
+          open
+          association={EDIT_FIXTURE}
+          onClose={onClose}
+          onSaved={onSaved}
+        />,
+      );
 
-    fireEvent.click(screen.getByRole('button', { name: /Désactiver/ }));
+      fireEvent.click(screen.getByRole('button', { name: /Désactiver/ }));
 
-    await waitFor(
-      () =>
-        expect(fetchMock).toHaveBeenCalledWith(
-          `/api/v1/admin/associations/${EDIT_FIXTURE.id}`,
-          expect.objectContaining({ method: 'PATCH' }),
-        ),
-      ATTENTE_UI,
-    );
-    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
-    const body = JSON.parse(options.body as string) as { actif: boolean };
-    expect(body.actif).toBe(false);
-    await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
-    expect(onClose).toHaveBeenCalled();
-  });
+      await waitFor(
+        () =>
+          expect(fetchMock).toHaveBeenCalledWith(
+            `/api/v1/admin/associations/${EDIT_FIXTURE.id}`,
+            expect.objectContaining({ method: 'PATCH' }),
+          ),
+        ATTENTE_UI,
+      );
+      const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(options.body as string) as { actif: boolean };
+      expect(body.actif).toBe(false);
+      await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
+      expect(onClose).toHaveBeenCalled();
+    },
+    ATTENTE_CAS_MS,
+  );
 
   // §04 associations.numero_rup + §06.06 §5 « N° RUP » (arbitrage Val 2026-09-14) :
   // saisie dans la modale, facultative, source de l'instantané du Cerfa 2041-GE.
-  it('création → N° RUP saisi part dans le POST', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ id: 'asso-1' }),
-    });
-    vi.stubGlobal('fetch', fetchMock);
-    render(
-      <AssociationModal
-        open
-        association={null}
-        onClose={vi.fn()}
-        onSaved={vi.fn()}
-      />,
-    );
+  it(
+    'création → N° RUP saisi part dans le POST',
+    async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ id: 'asso-1' }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <AssociationModal
+          open
+          association={null}
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+        />,
+      );
 
-    fillRequiredFields();
-    fireEvent.change(screen.getByLabelText(/N° RUP/), {
-      target: { value: ' W751234567 ' },
-    });
-    fireEvent.click(
-      screen.getByRole('button', { name: /Créer l.association/ }),
-    );
+      fillRequiredFields();
+      fireEvent.change(screen.getByLabelText(/N° RUP/), {
+        target: { value: ' W751234567 ' },
+      });
+      fireEvent.click(
+        screen.getByRole('button', { name: /Créer l.association/ }),
+      );
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled(), ATTENTE_UI);
-    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
-    const body = JSON.parse(options.body as string) as {
-      numero_rup: string | null;
-    };
-    expect(body.numero_rup).toBe('W751234567');
-  });
+      await waitFor(() => expect(fetchMock).toHaveBeenCalled(), ATTENTE_UI);
+      const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(options.body as string) as {
+        numero_rup: string | null;
+      };
+      expect(body.numero_rup).toBe('W751234567');
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('création sans N° RUP → null dans le POST (champ facultatif)', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ id: 'asso-1' }),
-    });
-    vi.stubGlobal('fetch', fetchMock);
-    render(
-      <AssociationModal
-        open
-        association={null}
-        onClose={vi.fn()}
-        onSaved={vi.fn()}
-      />,
-    );
+  it(
+    'création sans N° RUP → null dans le POST (champ facultatif)',
+    async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ id: 'asso-1' }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <AssociationModal
+          open
+          association={null}
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+        />,
+      );
 
-    fillRequiredFields();
-    fireEvent.click(
-      screen.getByRole('button', { name: /Créer l.association/ }),
-    );
+      fillRequiredFields();
+      fireEvent.click(
+        screen.getByRole('button', { name: /Créer l.association/ }),
+      );
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled(), ATTENTE_UI);
-    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
-    const body = JSON.parse(options.body as string) as {
-      numero_rup: string | null;
-    };
-    expect(body.numero_rup).toBeNull();
-  });
+      await waitFor(() => expect(fetchMock).toHaveBeenCalled(), ATTENTE_UI);
+      const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(options.body as string) as {
+        numero_rup: string | null;
+      };
+      expect(body.numero_rup).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('édition → N° RUP prérempli depuis la fiche et renvoyé au PATCH', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ id: EDIT_FIXTURE.id }),
-    });
-    vi.stubGlobal('fetch', fetchMock);
-    render(
-      <AssociationModal
-        open
-        association={EDIT_FIXTURE}
-        onClose={vi.fn()}
-        onSaved={vi.fn()}
-      />,
-    );
+  it(
+    'édition → N° RUP prérempli depuis la fiche et renvoyé au PATCH',
+    async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ id: EDIT_FIXTURE.id }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <AssociationModal
+          open
+          association={EDIT_FIXTURE}
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+        />,
+      );
 
-    const champ = screen.getByLabelText(/N° RUP/) as HTMLInputElement;
-    expect(champ.value).toBe('W751234567');
+      const champ = screen.getByLabelText(/N° RUP/) as HTMLInputElement;
+      expect(champ.value).toBe('W751234567');
 
-    fireEvent.change(champ, { target: { value: 'W920000001' } });
-    fireEvent.click(screen.getByRole('button', { name: /Enregistrer/ }));
+      fireEvent.change(champ, { target: { value: 'W920000001' } });
+      fireEvent.click(screen.getByRole('button', { name: /Enregistrer/ }));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled(), ATTENTE_UI);
-    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
-    const body = JSON.parse(options.body as string) as { numero_rup: string };
-    expect(body.numero_rup).toBe('W920000001');
-  });
+      await waitFor(() => expect(fetchMock).toHaveBeenCalled(), ATTENTE_UI);
+      const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(options.body as string) as { numero_rup: string };
+      expect(body.numero_rup).toBe('W920000001');
+    },
+    ATTENTE_CAS_MS,
+  );
 });

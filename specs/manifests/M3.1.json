@@ -87,7 +87,8 @@
     "M3.1/blocs_traiteur_zd_montes_et_benchmark_reel",
     "M3.1/blocs_traiteur_ag_associations_et_top7",
     "M3.1/blocs_traiteur_kpi_cartes_non_cliquables",
-    "M3.1/dash_cockpit_co2_ag_carte_modale"
+    "M3.1/dash_cockpit_co2_ag_carte_modale",
+    "M3.1/tri_liste_collectes_date_decroissante_deux_onglets"
   ],
   "deliverables": [
     {
@@ -489,6 +490,14 @@
       "test": "R25a/options_service_role_borne_aux_ids_du_perimetre",
       "statut": "implemented",
       "libelle": "Options des filtres (lieux / clients organisateurs / organisations programmatrices), DÉRIVÉES du périmètre RLS de l'appelant — une option ne peut jamais désigner une donnée qu'il ne pourrait pas lister. « Client organisateur » keyé sur evenements.nom_client_organisateur (obligatoire à la confirmation) et NON sur client_organisateur_organisation_id (rattachement réservé Admin, NULL côté traiteur). « Programmée par » : les policies org_manager_select/org_commercial_select bornent le traiteur à SA propre organisation → noms des organisations tierces résolus en service_role STRICTEMENT bornés aux ids sortis de la requête RLS-scopée. AUCUNE policy élargie (CLAUDE.md §12)."
+    },
+    {
+      "id": "M3.1-liste-tri-date-decroissante",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:324",
+      "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx",
+      "test": "M3.1/tri_liste_collectes_date_decroissante_deux_onglets",
+      "statut": "implemented",
+      "libelle": "Tri par défaut de la liste Collectes (§06.04 §3 « Vue cartes » l.324 + « Tri par défaut » l.383) : date DÉCROISSANTE, les plus récentes en premier, SANS exception d'onglet — au niveau des groupes-semaines COMME à l'intérieur d'une semaine. Ferme l'écart code/CDC relevé le 2026-09-21 (le code triait les semaines en croissant sur l'onglet Programmées, et les cartes intra-semaine toujours en croissant dans les deux onglets) : arbitrage Val 2026-09-21, option B — le CDC était juste, c'est le code qui s'aligne, cf. _Divergences/_traités/2026-09/M3.1_20260921_tri_liste_collectes.md. Le tri est local au useMemo de la page : la liste Admin (§06.06) garde son propre groupBySemaine(asc|desc) avec remontée des urgences AG §06.09, hors périmètre de cet arbitrage."
     }
   ],
   "cdc_source_hash": {

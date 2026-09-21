@@ -142,9 +142,12 @@ interface AssociationEmbed extends Coordonnees {
 // pas de 2e formule, pas de colonne stockée. Arrondi à l'entier le plus proche
 // (« 12 km » côté UI) ; null si l'association OU le lieu n'est pas géocodé
 // (« — » côté UI, jamais 0, jamais d'estimation).
-// Les coordonnées de l'association ne sortent pas de la route : la réponse est
-// construite en liste blanche (nom + ville), le gestionnaire n'obtient donc rien
-// de plus qu'avant hormis la distance.
+// La réponse est construite en LISTE BLANCHE (nom + ville + distance) : les
+// coordonnées lues pour le calcul ne ressortent pas. C'est de l'hygiène de
+// réponse, PAS une barrière — la policy `asso_read` (20260611180000) autorise
+// déjà tout rôle authentifié à lire `associations.latitude/longitude` en direct.
+// Ne jamais s'appuyer là-dessus comme sur un cloisonnement : la garde réelle est
+// la RLS, et cette route n'en change rien.
 function attributionAvecDistance(att: unknown, coordsLieu: Coordonnees) {
   const asso = unEmbed<AssociationEmbed>(
     (att as { associations?: unknown }).associations,

@@ -248,9 +248,15 @@ describe('M3.2 / détail événement — consultation en lecture seule', () => {
     expect(page).toContain('Paris Expo');
     expect(page).toContain('300');
     expect(page).toContain('Salon professionnel');
-    expect(page).toContain('S');
+    expect(screen.getByText('S')).toBeVisible(); // badge taille bracket
     expect(page).toContain('Kaspia');
     expect(page).toContain('Agence WPM');
+
+    // Déchets labo estimés : affichés avec leur tooltip explicatif (§06.05 §3).
+    // Le coefficient brut du traiteur (0.15) ne doit jamais apparaître.
+    const labo = screen.getByText(/Est\. labo/);
+    expect(normalise(labo.textContent)).toBe('Est. labo : 45.0 kg');
+    expect(labo.getAttribute('title')).toContain('Estimation amont');
 
     // Logo traiteur : servi par le proxy scopé, jamais la clé R2 (#367).
     const logos = document.querySelectorAll('img');
@@ -264,6 +270,12 @@ describe('M3.2 / détail événement — consultation en lecture seule', () => {
     expect(page).not.toContain('contact@kaspia.example');
     expect(page).not.toContain('0102030405');
     expect(page).not.toContain('81234567800019');
+
+    // ── Sous-blocs : type, date + heure de début, statut affiché ──
+    expect(page).toMatch(
+      /Collecte Zéro Déchet\s*2026-06-01 · 18:00\s*Réalisée/,
+    );
+    expect(page).toMatch(/Collecte Anti-Gaspi\s*2026-06-01 · 20:00\s*Réalisée/);
 
     // ── Sous-bloc ZD : les 5 flux avec leurs kg + le taux de recyclage ──
     for (const [nom, kg] of FLUX_ZD) {
@@ -291,5 +303,25 @@ describe('M3.2 / détail événement — consultation en lecture seule', () => {
     ].map((el) => normalise(el.textContent));
     const interdit = /modifi|dupliqu|annul|supprim|édit|nouvelle collecte/i;
     expect(actions.filter((t) => interdit.test(t))).toEqual([]);
+  });
+
+  it('M3.2/detail_evenement_consultation_lecture_seule — client organisateur non renseigné : cellule absente, et déchets labo à « — »', async () => {
+    // Deux cas-limites du §06.05 §3 que le cas nominal ne peut pas mesurer :
+    // « Client Organisateur SI renseigné » (sinon rien) et « — si le traiteur
+    // n'a pas communiqué de coefficient » (et non la ligne qui disparaît, ce
+    // qui rendrait les deux situations indistinguables à l'écran).
+    const charge = evenementComplet();
+    charge.data.nom_client_organisateur = null as unknown as string;
+    charge.data.dechets_labo_kg = null as unknown as number;
+    stubFetch(charge);
+
+    render(<EvenementDetailPage params={params('e1')} />);
+    await screen.findByText('Salon Auto', undefined, ATTENTE_UI);
+
+    expect(screen.queryByText('Client organisateur')).toBeNull();
+
+    const labo = screen.getByText(/Est\. labo/);
+    expect(normalise(labo.textContent)).toBe('Est. labo : —');
+    expect(normalise(labo.textContent)).not.toContain('kg');
   });
 });

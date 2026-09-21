@@ -220,11 +220,19 @@ export default function EvenementDetailPage({
           <div>
             <div className="text-xs text-savr-neutral-500">Pax</div>
             <div>{evt.pax ?? '—'}</div>
-            {evt.dechets_labo_kg != null && (
-              <div className="text-xs text-savr-neutral-400">
-                Est. labo : {evt.dechets_labo_kg.toFixed(1)} kg
-              </div>
-            )}
+            {/* §06.05 §3 : estimation amont, TOUJOURS affichée — « — » quand
+                le traiteur n'a pas communiqué de coefficient pour l'année
+                applicable. Le coefficient brut n'est jamais exposé (la route
+                ne renvoie que les kg, via f_dechets_labo_estimes). */}
+            <div
+              className="text-xs text-savr-neutral-400"
+              title="Estimation amont, distincte des déchets collectés sur l'événement ci-dessous."
+            >
+              Est. labo :{' '}
+              {evt.dechets_labo_kg != null
+                ? `${evt.dechets_labo_kg.toFixed(1)} kg`
+                : '—'}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -248,6 +256,10 @@ export default function EvenementDetailPage({
                 {c.type === 'zero_dechet'
                   ? 'Collecte Zéro Déchet'
                   : 'Collecte Anti-Gaspi'}
+                <span className="text-sm font-normal text-savr-neutral-500">
+                  {c.date_collecte ?? '—'}
+                  {c.heure_collecte ? ` · ${c.heure_collecte.slice(0, 5)}` : ''}
+                </span>
                 <Badge variant="neutral">{c.statut_affiche}</Badge>
               </CardTitle>
             </CardHeader>

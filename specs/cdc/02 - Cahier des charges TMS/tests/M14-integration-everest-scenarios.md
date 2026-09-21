@@ -510,7 +510,7 @@ Scénario : dedup_webhook_event_id
 Scénario : check_created_manually_rejette_incoherence
   Quand on UPDATE `statut_everest = 'created_manually'` SANS poser `manual_acceptance_at/by_user_id/contact`
   Alors la mutation est rejetée par le CHECK constraint
-    Et inversement : poser `manual_acceptance_*` avec un autre statut est rejeté (égalité stricte du CHECK)
+    Et une mission qui quitte `created_manually` (cancelled, assigned, in_progress, completed) conserve ses `manual_acceptance_*` sans erreur (implication, révisé 2026-09-16)
 ```
 
 ```gherkin

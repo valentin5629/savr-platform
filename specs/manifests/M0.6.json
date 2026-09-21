@@ -1162,10 +1162,10 @@
     {
       "id": "BL-P1-API-01",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:386",
-      "artefact": "supabase/migrations/20260629120000_plateforme_r10b_rls_ops_column_level.sql + supabase/migrations/20260903120000_plateforme_anti_escalade_role_staff.sql",
+      "artefact": "supabase/migrations/20260629120000_plateforme_r10b_rls_ops_column_level.sql + supabase/migrations/20260903120000_plateforme_anti_escalade_role_staff.sql + supabase/migrations/20260921160000_plateforme_users_role_auto_changement.sql (volet 3, pgTAP supabase/tests/SECU__users_role_auto_changement.test.sql)",
       "test": "P0 — traiteur_manager NE PEUT PAS s'auto-promouvoir ops_savr (la faille corrigée)",
       "statut": "implemented",
-      "libelle": "RLS ops column-level : anti-escalade users.role→TOUT rôle staff (admin_savr ET ops_savr, étendu 20260903120000) + colonnes structurantes de users immuables sous authenticated (id, organisation_id, email, deleted_at, actif-sur-soi — anti-pivot cross-tenant) + colonnes/actions admin-only (factures montant + annulation, associations habilitation/désactivation, organisations tarif_refacture_pax_zd)"
+      "libelle": "RLS ops column-level : anti-escalade users.role→TOUT rôle staff (admin_savr ET ops_savr, étendu 20260903120000) + interdiction de changer SON PROPRE rôle vers n'importe quelle cible, y compris non staff (volet 3, 20260921160000 — escalade intra-organisation mesurée le 2026-09-21 ; le rôle d'un COLLABORATEUR reste modifiable par le manager, CDC §06.04 §6) + colonnes structurantes de users immuables sous authenticated (id, organisation_id, email, deleted_at, actif-sur-soi — anti-pivot cross-tenant) + colonnes/actions admin-only (factures montant + annulation, associations habilitation/désactivation, organisations tarif_refacture_pax_zd)"
     },
     {
       "id": "M0.6-impersonation-banner-mount",

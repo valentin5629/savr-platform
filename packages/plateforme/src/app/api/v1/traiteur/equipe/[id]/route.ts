@@ -9,9 +9,13 @@ import { writeError } from '@/lib/api-helpers.js';
 // CDC §06.04 §6 « Équipe » (l.669-670) — MANAGER only :
 //   - Modifier le rôle d'un collaborateur (traiteur_commercial ↔ traiteur_manager) ;
 //   - Suspendre un compte (soft-delete `actif=false`).
-// RLS usr_manager_update (own-org). Le trigger anti-escalade R10b interdit toute
-// promotion vers admin_savr ; l'allowlist ci-dessous restreint en plus aux deux
-// rôles traiteur (jamais gestionnaire/agence/organisateur).
+// RLS usr_manager_update (own-org). Le trigger anti-escalade interdit toute
+// promotion vers un rôle staff (volets 1-2, 20260903120000) et tout changement
+// de SON PROPRE rôle (volet 3, 20260921160000) ; l'allowlist ci-dessous
+// restreint en plus aux deux rôles traiteur (jamais gestionnaire/agence/organisateur).
+// ⚠ L'allowlist est applicative SEULE : elle n'est pas rejouée en base (un
+//   manager peut poser un autre rôle non staff sur un collègue en PostgREST
+//   direct — écart d'intégrité mesuré le 2026-09-21, arbitrage Val en attente).
 
 const MANAGER_ROLE: ClientRole[] = ['traiteur_manager'];
 const ROLES_ASSIGNABLES = new Set(['traiteur_commercial', 'traiteur_manager']);
@@ -41,6 +45,17 @@ export async function PATCH(
             'Rôle invalide (seuls traiteur_commercial et traiteur_manager sont assignables)',
         },
         { status: 422 },
+      );
+    // Anti-auto-changement de rôle — symétrique de l'anti-auto-suspension
+    // ci-dessous. CDC §06.04 §6 : « Modifier le rôle d'UN COLLABORATEUR » ; le
+    // manager n'est pas son propre collaborateur. La garde qui COMPTE est en
+    // base (volet 3 de `trg_users_block_role_escalation`, migration
+    // 20260921160000) — un appel PostgREST direct ne passe pas par cette route.
+    // Ce 403 n'est là que pour rendre le refus lisible depuis l'UI.
+    if (id === auth.ctx.userId)
+      return NextResponse.json(
+        { error: 'Impossible de modifier votre propre rôle' },
+        { status: 403 },
       );
     patch.role = body.role;
   }

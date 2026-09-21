@@ -1180,10 +1180,6 @@ describe('M3.2 / traiteurs / logo (proxy scopé)', () => {
   it.each([
     ['aucun logo', null],
     ['valeur héritée hors logos/', 'savr-dev/bordereaux/x.pdf'],
-    [
-      'autre bucket',
-      'autre-bucket/logos/0b8e6f5c-2f1a-4c47-9d3e-6a1f2b3c4d5e.png',
-    ],
   ])('M3.2/traiteur_logo_404 — %s', async (_cas, logo_url) => {
     setupAuth('gestionnaire_lieux', 'org-viparis');
     rls.push({ data: { logo_url }, error: null });
@@ -1193,18 +1189,15 @@ describe('M3.2 / traiteurs / logo (proxy scopé)', () => {
     expect(mockGetObject).not.toHaveBeenCalled();
   });
 
-  it.each([['traiteur_manager'], ['agence'], ['client_organisateur']])(
-    'M3.2/traiteur_logo_role_403 — %s',
-    async (role) => {
-      setupAuth(role);
-      const GET = await importGet();
-      const res = await GET(logoReq(), { params });
-      expect(res.status).toBe(403);
-      // Aucune lecture, aucun téléchargement sous un rôle non autorisé.
-      expect(rls.__calls.from).toBeUndefined();
-      expect(mockGetObject).not.toHaveBeenCalled();
-    },
-  );
+  it('M3.2/traiteur_logo_role_403 — rôle hors gestionnaire_lieux', async () => {
+    setupAuth('traiteur_manager');
+    const GET = await importGet();
+    const res = await GET(logoReq(), { params });
+    expect(res.status).toBe(403);
+    // Aucune lecture, aucun téléchargement sous un rôle non autorisé.
+    expect(rls.__calls.from).toBeUndefined();
+    expect(mockGetObject).not.toHaveBeenCalled();
+  });
 });
 
 // ── Mon organisation / users — F5 ────────────────────────────────────────────

@@ -10,16 +10,14 @@
  *
  * `use(params)` ne se résout jamais sous Suspense dans cet environnement de test
  * (jsdom + React 19 + RTL 16 : un composant minimal `use(Promise.resolve(x))` reste
- * suspendu jusqu'au timeout) — d'où le mock ciblé de `use`, qui rend `params`
- * tel quel. Rien d'autre de React n'est remplacé.
+ * suspendu jusqu'au timeout). On passe donc une promesse DÉJÀ marquée résolue au
+ * sens de React (`status`/`value`), que `use()` lit synchroniquement : aucun module
+ * de React n'est remplacé — un mock de `use` casserait silencieusement tout
+ * `use(Context)` des composants enfants (DS, Radix).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
-vi.mock('react', async (orig) => {
-  const react = await orig<typeof import('react')>();
-  return { ...react, use: (v: unknown) => v };
-});
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn(), refresh: vi.fn() }),
   useSearchParams: () => new URLSearchParams(),
@@ -42,7 +40,14 @@ function reponse(obj: unknown): Promise<Response> {
 }
 
 // `params` est consommé par le `use` mocké : un objet nu suffit.
-const params = (id: string) => ({ id }) as unknown as Promise<{ id: string }>;
+// Promesse DÉJÀ marquée résolue au sens de React 19 : `use()` la lit
+// synchroniquement, sans suspendre. Aucun module de React n'est remplacé —
+// un mock de `use` casserait silencieusement tout `use(Context)` des enfants.
+const params = (id: string) =>
+  Object.assign(Promise.resolve({ id }), {
+    status: 'fulfilled',
+    value: { id },
+  });
 
 beforeEach(() => {
   vi.clearAllMocks();

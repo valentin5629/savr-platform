@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getObject } from '@savr/shared/src/r2/upload.js';
 import { parseCleLogo } from '@/lib/logo-key.js';
+import { servirLogo } from '@/lib/logo-proxy.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { uploadLogo } from '@/lib/logo-upload.js';
 
@@ -28,19 +28,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Clé non autorisée' }, { status: 403 });
   }
 
-  try {
-    const { body, contentType } = await getObject(cle.bucket, cle.key);
-    return new NextResponse(Buffer.from(body), {
-      status: 200,
-      headers: {
-        'Content-Type': contentType,
-        'Cache-Control': 'private, max-age=300',
-        'X-Content-Type-Options': 'nosniff',
-      },
-    });
-  } catch {
-    return NextResponse.json({ error: 'Logo introuvable' }, { status: 404 });
-  }
+  return servirLogo(cle);
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {

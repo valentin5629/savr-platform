@@ -77,10 +77,15 @@ BEGIN
 END;
 $$;
 
--- `CREATE FUNCTION` accorde EXECUTE à PUBLIC par défaut. Sans portée pratique
--- pour une fonction `RETURNS trigger` (non appelable directement), mais on ne
--- laisse pas une fonction du schéma ouverte par omission.
-REVOKE EXECUTE ON FUNCTION plateforme.fn_audit_log_immuable() FROM PUBLIC, anon, authenticated;
+-- `CREATE FUNCTION` accorde EXECUTE à PUBLIC par défaut, et l'ALTER DEFAULT
+-- PRIVILEGES du schéma (20260617160000) l'accorde en plus à `service_role`.
+-- Les deux sont retirés. Sans portée pratique — une fonction `RETURNS trigger`
+-- n'est pas appelable directement (`0A000`), et le privilège EXECUTE est
+-- vérifié à la création du trigger, pas à son déclenchement, donc le retirer ne
+-- désarme pas la garde — mais on ne laisse pas une fonction du schéma ouverte
+-- par omission.
+REVOKE EXECUTE ON FUNCTION plateforme.fn_audit_log_immuable()
+  FROM PUBLIC, anon, authenticated, service_role;
 
 -- 2. Le trigger. Posé sur la table partitionnée parent : PostgreSQL le clone
 --    sur les 6 partitions existantes ET sur toute partition attachée plus tard

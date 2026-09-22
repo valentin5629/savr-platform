@@ -9,6 +9,7 @@ import {
 import { instantParis } from '@savr/shared/src/temps/index.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
+import { tailleBracket } from '@/lib/dashboard-kpi.js';
 
 const TRAITEUR_ROLES: ClientRole[] = [
   'traiteur_manager',
@@ -104,6 +105,7 @@ export async function GET(
          nom_evenement, pax, type_evenement_id, reference_affaire, notes_internes,
          nom_client_organisateur, contact_principal_nom, contact_principal_telephone,
          contact_secours_nom, contact_secours_telephone,
+         type_evenement:types_evenements!type_evenement_id(libelle),
          lieu:lieux!lieu_id(id, nom, adresse_acces, code_postal, ville)
        )`,
     )
@@ -247,9 +249,52 @@ export async function GET(
     .map((r) => (Array.isArray(r.facture) ? r.facture[0] : r.facture))
     .filter((f): f is FactureInfo => Boolean(f));
 
+  // Entête §06.04 « Type d'événement + taille (XS/S/M/L/XL bracket calculé sur pax) ».
+  // Bracket dérivé côté serveur avec le helper canonique (même règle que §04
+  // taille_evenement_bracket) ; pax absent (informations_completes=false) ⇒ null.
+  const evtData = (
+    Array.isArray(data.evenement) ? data.evenement[0] : data.evenement
+  ) as {
+    pax: number | null;
+    organisation_id: string;
+    traiteur_operationnel_organisation_id: string | null;
+  } | null;
+  const taille_bracket =
+    evtData?.pax != null ? tailleBracket(evtData.pax) : null;
+
+  // Badge « Programmée par » (§06.04 entête, ajout 2026-05-07) — affiché seulement
+  // quand l'événement a été programmé par un TIERS (agence / gestionnaire de lieux)
+  // et que le traiteur courant est l'opérationnel sur place. Lecture service-role
+  // bornée à CETTE organisation et à 3 colonnes (nom, type, email de contact), car
+  // le traiteur n'a pas de SELECT RLS sur une organisation qui n'est pas la sienne.
+  let programmee_par: {
+    nom: string;
+    type: string;
+    email: string | null;
+  } | null = null;
+  if (
+    evtData &&
+    evtData.traiteur_operationnel_organisation_id != null &&
+    evtData.organisation_id !== evtData.traiteur_operationnel_organisation_id
+  ) {
+    const { data: orgProg } = await admin
+      .from('organisations')
+      .select('nom, type, email_principal')
+      .eq('id', evtData.organisation_id)
+      .maybeSingle();
+    if (orgProg)
+      programmee_par = {
+        nom: orgProg.nom,
+        type: orgProg.type,
+        email: orgProg.email_principal,
+      };
+  }
+
   return NextResponse.json({
     data: {
       ...data,
+      taille_bracket,
+      programmee_par,
       tournees,
       rapport_rse_disponible,
       rapport_rse_regenere,

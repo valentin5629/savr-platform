@@ -13,6 +13,7 @@ import { PageHero } from '@/components/ui/page-hero';
 import { Pagination } from '@/components/ui/pagination';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
+import { COLLECTES_PAGE_SIZE as PAGE_SIZE } from '@/lib/collectes-gestionnaire';
 import {
   readCollecteFiltreLabel,
   periodeCourte,
@@ -26,10 +27,6 @@ interface CollecteRow {
   evenement_nom: string | null;
   lieu_nom: string | null;
 }
-
-// Doit rester égal à PAGE_SIZE de la route (api/v1/gestionnaire/collectes) :
-// l'écran ne devine pas la taille des pages, il la lit dans le même contrat.
-const PAGE_SIZE = 50;
 
 const Vide = () => <span className="text-savr-neutral-400">—</span>;
 

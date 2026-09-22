@@ -75,7 +75,8 @@ vi.mock('next/headers', () => ({
   cookies: () => ({ getAll: () => [], set: () => {} }),
 }));
 
-import { GET, PAGE_SIZE } from '@/app/api/v1/gestionnaire/collectes/route.js';
+import { GET } from '@/app/api/v1/gestionnaire/collectes/route.js';
+import { COLLECTES_PAGE_SIZE as PAGE_SIZE } from '@/lib/collectes-gestionnaire.js';
 
 function makeJwt(claims: Record<string, unknown>): string {
   return `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;

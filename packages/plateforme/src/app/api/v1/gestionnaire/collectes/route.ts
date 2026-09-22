@@ -5,6 +5,7 @@ import {
   type ClientRole,
 } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
+import { COLLECTES_PAGE_SIZE as PAGE_SIZE } from '@/lib/collectes-gestionnaire.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
@@ -26,8 +27,6 @@ const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 // ZD/AG non figé »), ce qui fait mordre le plafond d'autant plus vite. Le total
 // exact renvoyé ici est ce qui rend la troncature VISIBLE : au-delà d'une page,
 // lui seul dit combien de collectes existent dans le périmètre demandé.
-export const PAGE_SIZE = 50;
-
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(req, ROLES);
   if (auth.error) return auth.error;

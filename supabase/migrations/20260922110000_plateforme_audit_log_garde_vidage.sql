@@ -121,6 +121,13 @@
 -- élargi. Le seul verbe SQL de suppression qui apparaît ci-dessous est
 -- `DROP TRIGGER IF EXISTS` sur le trigger que cette migration pose elle-même,
 -- pour la rendre rejouable.
+--
+-- REVIEWED-DESTRUCTIVE: aucun effacement. La garde CI se declenche sur le mot
+--   TRUNCATE, que la syntaxe du trigger impose (BEFORE TRUNCATE ... FOR EACH
+--   STATEMENT) : cette migration POSE une interdiction de vidage, elle n en
+--   execute aucun. Son seul verbe de suppression est DROP TRIGGER IF EXISTS,
+--   sur le trigger qu elle cree elle-meme, pour la rendre rejouable. Aucune
+--   donnee touchee, aucune table ni colonne retiree. Revue : Val, 2026-09-22.
 -- =============================================================================
 
 -- 1. La garde. On réutilise `fn_audit_log_immuable()` de la migration

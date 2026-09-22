@@ -436,17 +436,49 @@ describe('M2.4 / renderer — rapport « Événement sans excédent » §1.3-bis
 });
 
 describe('M1.6 / rapport recyclage §1.2 — benchmark + contenu (R21a)', () => {
-  it('BL-P1-RPT-01 : 5 jauges benchmark — point rouge parc si segment ≥5, sinon « Données insuffisantes »', () => {
+  it('BL-P1-RPT-01 : 5 jauges benchmark — point rouge parc si segment publié, sinon « Données insuffisantes »', () => {
     const html = renderByType('rapport-recyclage-zd', rapportData());
     expect(html).toContain('Benchmark kg/convive par flux');
-    // Point rouge parc (segment ≥5) : valeur du parc affichée.
+    // Segment publié : valeur du parc affichée.
     expect(html).toContain('0,10 kg/convive');
     expect(html).toContain('42 collectes');
-    // Segment < 5 (Cartons, nb=3) → pas de point rouge, mention explicite.
+    // Segment masqué (Cartons, benchmark null) → pas de point rouge, mention.
     expect(html).toContain('Données insuffisantes pour benchmark');
-    // Légende des filtres appliqués (§1.2 l.69) + garde k-anonymat.
+    // Légende des filtres appliqués (§1.2 l.69) + mention d'anonymat.
     expect(html).toContain("type d'événement : Gala");
-    expect(html).toContain('K-anonymat ≥ 5');
+    expect(html).toContain('Segments non comparables masqués (anonymat)');
+  });
+
+  // Durcissement du k-anonymat, 2026-09-22 (migration 20260922210000) : un segment
+  // est aussi masqué à partir de 5 collectes s'il porte moins de 3 acteurs
+  // distincts. `f_rapport_benchmark_zd` rend alors benchmark_kg_pax = null tout en
+  // laissant un effectif ≥ 5 visible sur d'autres flux. Le gabarit ne doit ni
+  // dessiner de point rouge, ni annoncer une cause (« moins de 5 collectes ») qui
+  // serait fausse ici — la dire renseignerait sur la structure du segment.
+  it('BL-P1-RPT-01 (k-anonymat acteurs) : segment masqué malgré ≥5 collectes ⇒ aucune cause annoncée', () => {
+    const html = renderByType(
+      'rapport-recyclage-zd',
+      rapportData({
+        benchmark_flux: [
+          {
+            flux_nom: 'Biodéchets',
+            collecte_kg_pax: 0.12,
+            // Masqué par le seuil ACTEURS : l'effectif, lui, est largement ≥ 5.
+            benchmark_kg_pax: null,
+            nb_collectes_segment: 20,
+          },
+        ],
+      }),
+    );
+    expect(html).toContain(
+      'Données insuffisantes pour benchmark (échantillon parc non comparable)',
+    );
+    // Aucune cause chiffrée : le lecteur ne doit pas pouvoir en déduire l'effectif.
+    expect(html).not.toContain('moins de 5 collectes');
+    expect(html).not.toContain('K-anonymat ≥ 5');
+    // Ni point rouge, ni effectif du segment masqué (20 collectes) affiché.
+    expect(html).not.toContain('gauge-marker" style=');
+    expect(html).not.toContain('20 collectes');
   });
 
   it('BL-P2-18 (1) : équivalences pédagogiques du CO₂ évité (km voiture, repas bœuf, foyers)', () => {

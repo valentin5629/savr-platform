@@ -3,7 +3,7 @@
  *
  * Ce que ce fichier verrouille, et pourquoi il ne suffit pas seul
  * ----------------------------------------------------------------
- * Depuis les migrations 20260921200000 / 20260922110000, `plateforme.audit_log`
+ * Depuis les migrations 20260921200000 / 20260922200000, `plateforme.audit_log`
  * refuse UPDATE, DELETE et vidage de table. Or le reset du seed vide les tables
  * métier, `audit_log` comprise — il échouait donc en `42501`, à la toute
  * première instruction de `pnpm seed:minimal` / `seed:demo`.

@@ -20,6 +20,9 @@ type Result = { data: unknown; error: unknown; count?: number | null };
 function makeChain() {
   const calls: Record<string, unknown[][]> = {};
   let result: Result = { data: [], error: null, count: 0 };
+  // File optionnelle : la route rejoue la requête quand PostgREST refuse la
+  // fenêtre demandée, donc une sonde doit pouvoir servir deux résultats.
+  const suite: Result[] = [];
   const record = (name: string, args: unknown[]) => {
     (calls[name] ??= []).push(args);
   };
@@ -27,6 +30,10 @@ function makeChain() {
     __calls: calls,
     __set(r: Result) {
       result = r;
+      return chain;
+    },
+    __suite(...rs: Result[]) {
+      suite.push(...rs);
       return chain;
     },
   };
@@ -45,10 +52,12 @@ function makeChain() {
       return chain;
     };
   }
-  chain.then = (resolve: (r: Result) => unknown) => resolve(result);
+  chain.then = (resolve: (r: Result) => unknown) =>
+    resolve(suite.length > 0 ? suite.shift()! : result);
   return chain as Record<string, unknown> & {
     __calls: Record<string, unknown[][]>;
     __set(r: Result): unknown;
+    __suite(...rs: Result[]): unknown;
   };
 }
 
@@ -197,5 +206,46 @@ describe('M3.2 / liste Collectes gestionnaire — pagination serveur', () => {
     const eq = (rls.__calls.eq ?? []).map((a) => `${a[0]}=${a[1]}`);
     expect(eq).toContain('evenements.lieu_id=L1');
     expect(eq).toContain('statut=cloturee');
+  });
+  it('M3.2/collectes_route_page_au_dela_de_la_derniere_nest_pas_une_panne', async () => {
+    // PostgREST refuse en 416 `PGRST103` une fenêtre qui dépasse le nombre de
+    // lignes. Cas réel : un lien partagé `?page=4`, un favori, ou une liste qui
+    // a rétréci entre deux chargements.
+    rls.__suite(
+      { data: null, error: { code: 'PGRST103' }, count: null },
+      { data: lignes(1), error: null, count: 120 },
+    );
+    const res = await appel('?page=4');
+    const json = (await res.json()) as {
+      data: unknown[];
+      total: number;
+      page: number;
+    };
+
+    // 200 et page vide, JAMAIS 500 : l'écran afficherait « Le chargement des
+    // collectes a échoué » sur un parc parfaitement sain.
+    expect(res.status).toBe(200);
+    expect(json.data).toEqual([]);
+    // Le total reste exact pour que l'écran sache combien de pages existent et
+    // puisse ramener l'utilisateur sur une page valide.
+    expect(json.total).toBe(120);
+    expect(json.page).toBe(4);
+  });
+
+  it('M3.2/collectes_route_echec_reel_reste_une_erreur', async () => {
+    // Garde-fou du rattrapage ci-dessus : une VRAIE panne ne doit pas être
+    // blanchie en page vide.
+    //
+    // La 2e réponse de la file RÉUSSIT volontairement : si le code rattrapait
+    // toute erreur au lieu du seul `PGRST103`, il rejouerait la requête, ce
+    // rejeu passerait, et la panne sortirait en 200. C'est cette confusion que
+    // la sonde doit voir. Une file qui rejouerait la MÊME erreur rendrait 500
+    // dans les deux cas — le test serait vert par construction.
+    rls.__suite(
+      { data: null, error: { code: '42P01' }, count: null },
+      { data: lignes(1), error: null, count: 120 },
+    );
+    const res = await appel('?page=2');
+    expect(res.status).toBe(500);
   });
 });

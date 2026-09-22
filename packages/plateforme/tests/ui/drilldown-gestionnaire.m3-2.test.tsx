@@ -1,6 +1,6 @@
 /**
  * M3.2 — Drill-down « Top listes → liste Collectes » du dashboard GESTIONNAIRE
- * (§06.05 Blocs 6/7 ZD + AG : l.209, l.209, l.261, l.267).
+ * (§06.05 Blocs 6/7 ZD + AG : l.209, l.215, l.267, l.273).
  *
  * Défaut d'origine (53bec7c, 2026-07-14, « miroir exact ») : le lien de drill-down
  * du gestionnaire était construit avec la règle du §06.04 **TRAITEUR** — type de

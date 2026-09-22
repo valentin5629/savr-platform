@@ -496,6 +496,54 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
   );
 
   it(
+    'M3.2/collectes_chip_affiche_les_filtres_devenement — un filtre appliqué est un filtre visible',
+    async () => {
+      urlParams.current =
+        'lieu=L1&from=2026-01-01&to=2026-06-30&type_evenement_ids[]=ty-gala&type_evenement_ids[]=ty-cocktail&taille_evenements[]=M';
+      fetchEspion({ data: PAGE, total: 50 });
+      render(<CollectesPage />);
+      await screen.findByRole('grid', {}, ATTENTE_UI);
+
+      // Type/Taille viennent des filtres globaux du dashboard et n'ont AUCUN
+      // contrôle sur cet écran : sans mention dans le chip, la liste est
+      // restreinte par des critères que rien n'affiche, et le gestionnaire
+      // cherche des collectes qu'il voit au dashboard et que la liste écarte.
+      const chip = screen.getByTestId('filtre-actif');
+      expect(chip.textContent).toMatch(/2 types d.événement/);
+      expect(chip.textContent).toMatch(/1 taille d.événement/);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/collectes_changement_type_taille_revient_page_1 — la page appartient au périmètre qui l’a produite',
+    async () => {
+      urlParams.current = 'lieu=L1';
+      const urls = fetchEspion({ data: PAGE, total: 120 });
+      const { rerender } = render(<CollectesPage />);
+      await screen.findByTestId('collectes-total', {}, ATTENTE_UI);
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Page 2' }));
+      });
+      expect(urls[urls.length - 1]).toContain('page=2');
+
+      // Le périmètre change (Type d'événement ajouté) : rester en page 2
+      // demanderait la 2e page d'un filtre qui n'en a peut-être qu'une, et
+      // l'écran afficherait une liste vide sur un parc qui ne l'est pas.
+      urlParams.current = 'lieu=L1&type_evenement_ids[]=ty-gala';
+      await act(async () => {
+        rerender(<CollectesPage />);
+      });
+
+      const derniere = urls[urls.length - 1]!;
+      expect(derniere).toContain('type_evenement_ids');
+      expect(derniere).not.toContain('page=');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'M3.2/collectes_retirer_le_filtre_retire_aussi_type_et_taille — pas de filtre invisible résiduel',
     async () => {
       urlParams.current =

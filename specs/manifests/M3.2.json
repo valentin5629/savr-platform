@@ -142,7 +142,20 @@
     "M3.2/collectes_liste_vide_empty_state",
     "M3.2/collectes_etat_chargement_skeleton",
     "M3.2/collectes_ligne_ouvre_la_fiche",
-    "M3.2/collectes_erreur_perimee_ninvalide_pas_la_reponse_fraiche"
+    "M3.2/collectes_erreur_perimee_ninvalide_pas_la_reponse_fraiche",
+    "M3.2/drilldown_gestionnaire_tous_statuts_type_non_fige",
+    "M3.2/drilldown_gestionnaire_propage_periode_type_et_taille",
+    "M3.2/drilldown_gestionnaire_libelle_memorise_en_sessionstorage",
+    "M3.2/collectes_relaie_type_et_taille_devenement",
+    "M3.2/collectes_retirer_le_filtre_retire_aussi_type_et_taille",
+    "M3.2/collectes_route_filtre_type_evenement",
+    "M3.2/collectes_route_filtre_taille_evenement",
+    "M3.2/collectes_route_taille_xs_inclut_pax_null",
+    "M3.2/collectes_route_taille_brackets_non_contigus",
+    "M3.2/collectes_route_taille_inconnue_ne_desarme_pas_le_filtre",
+    "M3.2/collectes_route_sans_filtres_evenement",
+    "M3.2/collectes_route_type_et_taille_se_cumulent",
+    "M3.2/collectes_route_drilldown_gestionnaire_sans_statut_ni_type"
   ],
   "deliverables": [
     {
@@ -536,6 +549,22 @@
       "test": "M3.2/collectes_route_pagine_et_renvoie_le_total_exact + M3.2/collectes_route_fenetre_la_page_demandee + M3.2/collectes_route_ne_tronque_plus_a_100 + M3.2/collectes_route_ordre_departage_stable_entre_pages + M3.2/collectes_route_page_hors_bornes_retombe_sur_1 + M3.2/collectes_route_pagination_compatible_avec_le_drilldown + M3.2/collectes_route_page_au_dela_de_la_derniere_nest_pas_une_panne + M3.2/collectes_route_echec_reel_reste_une_erreur + M3.2/collectes_route_recompte_hors_bornes_porte_les_memes_filtres",
       "statut": "implemented",
       "libelle": "Pagination serveur de la liste Collectes gestionnaire (count: 'exact' + range, 50/page, pattern §06.06 admin/lieux). Remplace le `.limit(100)` qui tronquait la liste sans le dire, alors que le §06.05 l.203 veut cette liste LARGE (« tous statuts, type ZD/AG non figé »). Décision Val 2026-09-22 — le §06.05 ne spécifie pas la taille de cette liste (divergence M3.2 2026-09-22, type ambigu). Une page demandée au-delà de la dernière (lien partagé, liste rétrécie) rend une page vide avec le total exact, jamais un 500."
+    },
+    {
+      "id": "M3.2-drilldown-top-listes",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:209",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx (drillUrl, monté sur les 4 blocs Top listes ZD+AG)",
+      "test": "M3.2/drilldown_gestionnaire_tous_statuts_type_non_fige + M3.2/drilldown_gestionnaire_propage_periode_type_et_taille + M3.2/drilldown_gestionnaire_libelle_memorise_en_sessionstorage + M3.2/collectes_route_drilldown_gestionnaire_sans_statut_ni_type",
+      "statut": "implemented",
+      "libelle": "Drill-down « Top listes → liste Collectes » du GESTIONNAIRE (Blocs 6/7 ZD+AG, l.209/215/267/273) : liste plate, **tous statuts, type ZD/AG NON figé**, filtres du dashboard propagés (période + Type/Taille d'événement), chip « Filtre actif » dont le libellé transite par sessionStorage. ⚠ C'est l'INVERSE du §06.04 traiteur (« miroir 5/5 » : type + statut `cloturee` figés, l.193/201/233/278) — les deux espaces divergent EXPRÈS. Le code appliquait la règle traiteur au gestionnaire depuis 53bec7c (2026-07-14) et AUCUN test ne couvrait ce chemin (`grep drillScope tests/` = 0) : le gestionnaire ne voyait que les collectes clôturées du type de l'onglet actif, et les deux filtres d'événement étaient perdus au clic."
+    },
+    {
+      "id": "M3.2-collectes-filtres-type-taille",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:115",
+      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/collectes/route.ts + packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx",
+      "test": "M3.2/collectes_route_filtre_type_evenement + M3.2/collectes_route_filtre_taille_evenement + M3.2/collectes_route_taille_xs_inclut_pax_null + M3.2/collectes_route_taille_brackets_non_contigus + M3.2/collectes_route_taille_inconnue_ne_desarme_pas_le_filtre + M3.2/collectes_route_sans_filtres_evenement + M3.2/collectes_route_type_et_taille_se_cumulent + M3.2/collectes_relaie_type_et_taille_devenement + M3.2/collectes_retirer_le_filtre_retire_aussi_type_et_taille",
+      "statut": "implemented",
+      "libelle": "Filtres « Type d'événement » et « Taille d'événement » acceptés de bout en bout par la liste Collectes gestionnaire (`type_evenement_ids[]`, `taille_evenements[]`), mêmes noms de paramètres que `gestionnaire/evenements`. La TAILLE est un bracket calculé sur `evenements.pax` (XS [0-249] … XL [1000+], l.115) traduit en prédicats `.or(…, { referencedTable: 'evenements' })` — **en SQL et non en post-traitement JS** : la route est paginée, un filtrage après `.range()` filtrerait une page au lieu de l'ensemble et laisserait `total` non filtré. `pax` NULL compte XS, comme `tailleBracket(pax ?? 0)` de la liste Événements, sans quoi le même filtre donnerait deux périmètres selon l'écran. Un code de bracket inconnu renvoie une liste vide plutôt que le parc complet. L'écran relaie les deux paramètres, les intègre à la signature de pagination et les retire au « Retirer le filtre »."
     }
   ],
   "cdc_source_hash": {

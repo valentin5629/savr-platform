@@ -15,7 +15,7 @@
  * Les sondes `pagination_*` (décision Val 2026-09-22) couvrent la troncature
  * silencieuse : la route coupait à 100 lignes et ne renvoyait aucun total, donc
  * un parc de plus de 100 collectes affichait une liste d'apparence complète qui
- * ne l'était pas. Le §06.05 l.203 veut cette liste LARGE (« tous statuts, type
+ * ne l'était pas. Le §06.05 l.209 veut cette liste LARGE (« tous statuts, type
  * ZD/AG non figé »), donc le plafond mordait d'autant plus vite. Ces sondes
  * mesurent ce que l'écran DEMANDE au serveur, pas seulement ce qu'il affiche :
  * c'est la demande qui portait le défaut.
@@ -29,13 +29,17 @@ import {
   act,
 } from '@testing-library/react';
 
-const { push, urlParams } = vi.hoisted(() => ({
+const { push, replace, urlParams } = vi.hoisted(() => ({
   push: vi.fn(),
+  // `clearFiltre` passe par router.REPLACE (on ne veut pas empiler le retrait du
+  // filtre dans l'historique). Sans capture stable de `replace`, toute sonde qui
+  // le mesure lit une liste d'appels vide et passe quoi qu'il arrive.
+  replace: vi.fn(),
   urlParams: { current: '' },
 }));
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push, replace: vi.fn(), refresh: vi.fn() }),
+  useRouter: () => ({ push, replace, refresh: vi.fn() }),
   useSearchParams: () => new URLSearchParams(urlParams.current),
   usePathname: () => '/gestionnaire/collectes',
 }));
@@ -79,6 +83,7 @@ function reponse(status: number, body: unknown): Response {
 afterEach(() => {
   cleanup();
   push.mockClear();
+  replace.mockClear();
   urlParams.current = '';
   vi.unstubAllGlobals();
 });
@@ -456,6 +461,62 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       // L'écran conclut : état vide, pas un squelette qui ne finit jamais.
       expect(screen.queryByTestId('collectes-skeleton')).toBeNull();
       expect(screen.getByText('Aucune collecte')).toBeTruthy();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // ── Filtres d'événement propagés par le drill-down (§06.05 l.209) ──────────
+  // Ce maillon manquait : le dashboard peut bien poser `type_evenement_ids[]` et
+  // `taille_evenements[]` dans l'URL, et la route peut bien les accepter — si
+  // l'écran ne les RELAIE pas, la chaîne est coupée au milieu et la liste ignore
+  // en silence des filtres que l'utilisateur voit appliqués au dashboard.
+  it(
+    'M3.2/collectes_relaie_type_et_taille_devenement — les filtres du drill-down partent vers la route',
+    async () => {
+      urlParams.current =
+        'lieu=L1&from=2026-01-01&to=2026-06-30&type_evenement_ids[]=ty-gala&type_evenement_ids[]=ty-cocktail&taille_evenements[]=M&taille_evenements[]=XL';
+      const urls = fetchEspion({ data: PAGE, total: 50 });
+      render(<CollectesPage />);
+      await screen.findByRole('grid', {}, ATTENTE_UI);
+
+      const demande = new URLSearchParams(
+        urls[urls.length - 1]!.split('?')[1] ?? '',
+      );
+      expect(demande.get('lieu_id')).toBe('L1');
+      expect(demande.getAll('type_evenement_ids[]')).toEqual([
+        'ty-gala',
+        'ty-cocktail',
+      ]);
+      expect(demande.getAll('taille_evenements[]')).toEqual(['M', 'XL']);
+      // Et toujours pas de statut/type figés côté gestionnaire.
+      expect(demande.get('statut')).toBeNull();
+      expect(demande.get('type')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/collectes_retirer_le_filtre_retire_aussi_type_et_taille — pas de filtre invisible résiduel',
+    async () => {
+      urlParams.current =
+        'lieu=L1&type_evenement_ids[]=ty-gala&taille_evenements[]=M';
+      fetchEspion({ data: PAGE, total: 50 });
+      render(<CollectesPage />);
+      await screen.findByRole('grid', {}, ATTENTE_UI);
+
+      fireEvent.click(
+        screen.getByRole('button', { name: /Retirer le filtre/i }),
+      );
+
+      // Sans ce nettoyage, la liste resterait restreinte à « Gala / M » alors que
+      // le chip a disparu : un filtre actif que plus rien n'affiche ni ne retire.
+      // Assertion d'abord : sans elle, un `calls` vide rendrait les `not.toContain`
+      // ci-dessous vrais par construction — la sonde serait muette.
+      expect(replace).toHaveBeenCalledTimes(1);
+      const apres = String(replace.mock.calls.at(-1)![0]);
+      expect(apres).not.toContain('type_evenement_ids');
+      expect(apres).not.toContain('taille_evenements');
+      expect(apres).not.toContain('lieu=');
     },
     ATTENTE_CAS_MS,
   );

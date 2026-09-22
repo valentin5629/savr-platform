@@ -232,24 +232,42 @@ export default function GestionnaireDashboardPage() {
       ? 'Top 5 commerciaux'
       : 'Top 5 traiteurs';
 
-  // Drill-down Top listes → liste Collectes du gestionnaire filtrée. Miroir EXACT
-  // du chiffre du dashboard : type courant + période (from/to) + statut `cloturee`
-  // seul (base du calcul Top listes). Libellé via sessionStorage (pas d'ID → nom
-  // en query string).
-  const drillScope = `type=${tab}&statut=cloturee${
-    filters ? `&from=${filters.from}&to=${filters.to}` : ''
-  }`;
+  // Drill-down Top listes → liste Collectes du gestionnaire. §06.05 l.209 : liste
+  // PLATE, « tous statuts, type ZD/AG non figé ; filtres du dashboard propagés
+  // (période + Type/Taille d'événement) ». Libellé via sessionStorage (pas d'ID →
+  // nom en query string).
+  //
+  // ⚠ C'est l'INVERSE de la règle §06.04 TRAITEUR (« miroir 5/5 » : type + statut
+  // `cloturee` figés, l.193/201/233/278). Les deux espaces divergent EXPRÈS — le
+  // traiteur veut retrouver le chiffre exact de sa Top liste, le gestionnaire veut
+  // ouvrir large sur son parc. Ne pas « harmoniser » en remettant type/statut ici :
+  // c'est précisément la règle traiteur qui avait été appliquée par erreur au
+  // gestionnaire (53bec7c, 2026-07-14), contre le texte du §06.05.
+  const drillUrl = (cle: 'lieu' | 'traiteur', id: string): string => {
+    const qs = new URLSearchParams({ [cle]: id });
+    if (filters) {
+      qs.set('from', filters.from);
+      qs.set('to', filters.to);
+      (filters.type_evenement_ids ?? []).forEach((v) =>
+        qs.append('type_evenement_ids[]', v),
+      );
+      (filters.taille_evenement_codes ?? []).forEach((v) =>
+        qs.append('taille_evenements[]', v),
+      );
+    }
+    return `/gestionnaire/collectes?${qs}`;
+  };
   const goToLieu = (i: number) => {
     const l = blocs?.topLieux?.[i];
     if (!l) return;
     setCollecteFiltreLabel({ kind: 'lieu', id: l.lieu_id, label: l.lieu_nom });
-    router.push(`/gestionnaire/collectes?lieu=${l.lieu_id}&${drillScope}`);
+    router.push(drillUrl('lieu', l.lieu_id));
   };
   const goToActeur = (i: number) => {
     const a = blocs?.topActeurs?.[i];
     if (!a) return;
     setCollecteFiltreLabel({ kind: 'traiteur', id: a.id, label: a.label });
-    router.push(`/gestionnaire/collectes?traiteur=${a.id}&${drillScope}`);
+    router.push(drillUrl('traiteur', a.id));
   };
 
   const gaugeItems = benchmarkItems(

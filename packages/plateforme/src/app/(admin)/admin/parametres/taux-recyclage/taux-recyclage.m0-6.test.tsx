@@ -12,7 +12,7 @@ vi.mock('@/lib/use-user-role', () => ({
 }));
 
 import TauxRecyclagePage from './page';
-import { ATTENTE_UI } from '@/test-utils/attente-ui';
+import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 interface FetchCall {
   url: string;
@@ -74,64 +74,80 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe('M0.6 — Taux recyclage page', () => {
-  it('M0.6/taux-recyclage/page — rend les filières avec le bouton Historique', async () => {
-    render(<TauxRecyclagePage />);
-    await waitFor(
-      () => expect(screen.getByText('Biodéchets')).toBeDefined(),
-      ATTENTE_UI,
-    );
-    expect(screen.getByText('Historique')).toBeDefined();
-  });
+  it(
+    'M0.6/taux-recyclage/page — rend les filières avec le bouton Historique',
+    async () => {
+      render(<TauxRecyclagePage />);
+      await waitFor(
+        () => expect(screen.getByText('Biodéchets')).toBeDefined(),
+        ATTENTE_UI,
+      );
+      expect(screen.getByText('Historique')).toBeDefined();
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('M0.6/taux-recyclage/page — ouvre la modale Historique et rend « Modifié par »', async () => {
-    render(<TauxRecyclagePage />);
-    await waitFor(
-      () => expect(screen.getByText('Biodéchets')).toBeDefined(),
-      ATTENTE_UI,
-    );
-    fireEvent.click(screen.getByText('Historique'));
-    await waitFor(
-      () => expect(screen.getByText('Valentin Le Blan')).toBeDefined(),
-      ATTENTE_UI,
-    );
-    expect(screen.getByText('Mise à jour barème')).toBeDefined();
-  });
+  it(
+    'M0.6/taux-recyclage/page — ouvre la modale Historique et rend « Modifié par »',
+    async () => {
+      render(<TauxRecyclagePage />);
+      await waitFor(
+        () => expect(screen.getByText('Biodéchets')).toBeDefined(),
+        ATTENTE_UI,
+      );
+      fireEvent.click(screen.getByText('Historique'));
+      await waitFor(
+        () => expect(screen.getByText('Valentin Le Blan')).toBeDefined(),
+        ATTENTE_UI,
+      );
+      expect(screen.getByText('Mise à jour barème')).toBeDefined();
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('M0.6/taux-recyclage/page — le PUT envoie un en-tête Idempotency-Key', async () => {
-    render(<TauxRecyclagePage />);
-    await waitFor(
-      () => expect(screen.getByText('Biodéchets')).toBeDefined(),
-      ATTENTE_UI,
-    );
-    fireEvent.click(screen.getByText('Modifier'));
-    await waitFor(
-      () => expect(screen.getByText(/Modifier —/)).toBeDefined(),
-      ATTENTE_UI,
-    );
-    const textarea = screen.getByPlaceholderText('Motif de la modification…');
-    fireEvent.change(textarea, { target: { value: 'Correction ADEME' } });
-    fireEvent.click(screen.getByText('Enregistrer'));
-    await waitFor(() => {
+  it(
+    'M0.6/taux-recyclage/page — le PUT envoie un en-tête Idempotency-Key',
+    async () => {
+      render(<TauxRecyclagePage />);
+      await waitFor(
+        () => expect(screen.getByText('Biodéchets')).toBeDefined(),
+        ATTENTE_UI,
+      );
+      fireEvent.click(screen.getByText('Modifier'));
+      await waitFor(
+        () => expect(screen.getByText(/Modifier —/)).toBeDefined(),
+        ATTENTE_UI,
+      );
+      const textarea = screen.getByPlaceholderText('Motif de la modification…');
+      fireEvent.change(textarea, { target: { value: 'Correction ADEME' } });
+      fireEvent.click(screen.getByText('Enregistrer'));
+      await waitFor(() => {
+        const put = calls.find((c) => c.method === 'PUT');
+        expect(put).toBeDefined();
+      }, ATTENTE_UI);
       const put = calls.find((c) => c.method === 'PUT');
-      expect(put).toBeDefined();
-    }, ATTENTE_UI);
-    const put = calls.find((c) => c.method === 'PUT');
-    const headers = (put?.headers ?? {}) as Record<string, string>;
-    const keys = Object.keys(headers).map((k) => k.toLowerCase());
-    expect(keys).toContain('idempotency-key');
-    expect(headers['idempotency-key']).toBeTruthy();
-  });
+      const headers = (put?.headers ?? {}) as Record<string, string>;
+      const keys = Object.keys(headers).map((k) => k.toLowerCase());
+      expect(keys).toContain('idempotency-key');
+      expect(headers['idempotency-key']).toBeTruthy();
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('M0.6/taux-recyclage/page — bandeau lecture seule + Modifier masqué si ops_savr', async () => {
-    roleRef.current = 'ops_savr';
-    render(<TauxRecyclagePage />);
-    await waitFor(
-      () => expect(screen.getByText('Biodéchets')).toBeDefined(),
-      ATTENTE_UI,
-    );
-    expect(
-      screen.getByText('Lecture seule — édition réservée admin.'),
-    ).toBeDefined();
-    expect(screen.queryByText('Modifier')).toBeNull();
-  });
+  it(
+    'M0.6/taux-recyclage/page — bandeau lecture seule + Modifier masqué si ops_savr',
+    async () => {
+      roleRef.current = 'ops_savr';
+      render(<TauxRecyclagePage />);
+      await waitFor(
+        () => expect(screen.getByText('Biodéchets')).toBeDefined(),
+        ATTENTE_UI,
+      );
+      expect(
+        screen.getByText('Lecture seule — édition réservée admin.'),
+      ).toBeDefined();
+      expect(screen.queryByText('Modifier')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
 });

@@ -76,10 +76,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (traiteurIds.length > 0) {
     const { data: traiteurs } = await supabase
       .from('v_referentiel_traiteurs')
-      .select('id, nom, raison_sociale')
+      .select('id, nom')
       .in('id', traiteurIds);
     for (const t of (traiteurs ?? []) as Record<string, unknown>[]) {
-      traiteurNoms.set(t.id as string, (t.raison_sociale ?? t.nom) as string);
+      // Libellé unique porté par la vue (20260922080000).
+      traiteurNoms.set(t.id as string, t.nom as string);
     }
   }
 

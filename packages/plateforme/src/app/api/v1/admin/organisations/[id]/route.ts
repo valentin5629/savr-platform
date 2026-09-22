@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { writeError } from '@/lib/api-helpers.js';
+import {
+  MESSAGE_SIRET_INVALIDE,
+  normaliserSiretOrganisation,
+} from '@/lib/siret-organisation.js';
 
 export async function GET(
   req: NextRequest,
@@ -20,6 +24,8 @@ export async function GET(
   //    (`organisation_id` + `gestionnaire_organisation_id`) → HTTP 300 PGRST201.
   //    Désambiguïsé sur `!organisation_id` (les remises propres à l'orga).
   //  - `tarifs_negocie.type_remise` : colonne INEXISTANTE, réelle = `activite`.
+  // Fiche gestionnaire de lieux : remises qu'il porte sur ses lieux
+  // (`!gestionnaire_organisation_id`, alias remises_gestionnaire) + ses lieux.
   // Vérifié : HTTP 200 (1 entité, 2 users, 1 pack, 1 remise pour Kaspia).
   const { data: org, error } = await supabase
     .from('organisations')
@@ -32,7 +38,9 @@ export async function GET(
       organisations_domaines_email(domaine),
       users(id, prenom, nom, email, role, actif, derniere_connexion),
       packs_antgaspi(id, type_pack, credits_initiaux, credits_consommes, statut, mode_facturation, commentaires, created_at),
-      tarifs_negocie!organisation_id(id, activite, remise_pct, valide_du, valide_jusqu_au, scope, commentaires)
+      tarifs_negocie!organisation_id(id, activite, remise_pct, valide_du, valide_jusqu_au, scope, commentaires),
+      remises_gestionnaire:tarifs_negocie!gestionnaire_organisation_id(id, activite, remise_pct, valide_du, valide_jusqu_au, scope, commentaires, lieu_id, lieux(nom)),
+      organisations_lieux(lieux(id, nom))
     `,
     )
     .eq('id', id)
@@ -106,6 +114,19 @@ export async function PATCH(
   const updatePayload: Record<string, unknown> = {};
   for (const field of EDITABLE_FIELDS) {
     if (field in body) updatePayload[field] = body[field];
+  }
+
+  // SIRET : format seul (14 chiffres, blancs retirés, vide ⇒ null), aucun appel
+  // INSEE sur organisations.siret (§06.06).
+  if ('siret' in updatePayload) {
+    const n = normaliserSiretOrganisation(updatePayload.siret);
+    if (!n.valide) {
+      return NextResponse.json(
+        { error: MESSAGE_SIRET_INVALIDE, champs_invalides: ['siret'] },
+        { status: 422 },
+      );
+    }
+    updatePayload.siret = n.siret;
   }
 
   if (auth.ctx.role === 'admin_savr') {

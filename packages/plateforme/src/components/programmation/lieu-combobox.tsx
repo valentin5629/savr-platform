@@ -93,7 +93,7 @@ export function LieuCombobox({
             <Search className="h-4 w-4 text-savr-neutral-400 shrink-0 mr-2" />
             <input
               autoFocus
-              className="flex-1 py-2 text-sm outline-none placeholder:text-savr-neutral-400"
+              className="flex-1 py-2 text-sm placeholder:text-savr-neutral-400"
               placeholder="Nom, adresse, ville…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}

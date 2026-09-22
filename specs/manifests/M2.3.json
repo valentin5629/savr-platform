@@ -250,7 +250,7 @@
     },
     {
       "id": "BL-P0-08",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:110-115",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:103-108",
       "artefact": "supabase/migrations/20260625000000_plateforme_r5_dispatch_ag_bridge.sql (transporteurs.prestataire_logistique_id + rpc_valider_attribution_ag : pose prestataire + émet collecte.creee avec consumer dérivé du type_tms) ; packages/adapters/src/outbox-worker.ts (route via getLogistiqueProvider par type_tms) ; packages/shared/src/seed/demo.ts (pont transp→prest)",
       "test": "T21b/T21c/T21d/T21e/T21f (supabase/tests/m2_3_algo_attribution_ag.test.sql) — a_toutes→adapter_everest, mts1→adapter_mts1, autre→provider_manual + prestataire posé + statut_tms non_envoye ; M2.3 / worker outbox — routing dispatch AG par type_tms (packages/adapters/src/outbox-worker.m2-3.test.ts)",
       "statut": "implemented",
@@ -258,7 +258,7 @@
     },
     {
       "id": "BL-P1-ALGO-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:63-83",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:65-85",
       "artefact": "supabase/migrations/20260630120000_plateforme_r11_algo_ag.sql (fn_calculer_algo_attribution_ag : province LIMIT 1 → top 3 agrégés dans la clé `transporteurs`, tri distance ASC + nb_collectes ASC ; `transporteur`=top1 conservé ; + filtres §05 R2 ajoutés : `'ag' = ANY(p.type_prestation)` + compat véhicule `types_vehicules::type_vehicule <= lieux.type_vehicule_max`) ; packages/plateforme/src/app/(admin)/admin/attributions-ag/[collecteId]/page.tsx (liste province top 3 sélectionnable)",
       "test": "R11-T1/T2/T3/T4 + T4b (ZD-only exclu, type_prestation) + T4c (véhicule incompatible exclu) + T4d/T4e (types_vehicules hors-enum → pas d'exception + exclu) (supabase/tests/r11_algo_ag.test.sql) — 3 transporteurs province éligibles + top1 le plus proche + rétro-compat `transporteur` + branche ag_province_proximite. UI liste = preuve-visuelle (GO-VISUAL)",
       "statut": "implemented",
@@ -266,7 +266,7 @@
     },
     {
       "id": "BL-P1-ALGO-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:36-39",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:29-30",
       "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (estUrgente : AG à attribuer + statut_tms non_envoye + date_collecte < now()+48h → badge URGENT + fond rose + tri urgent-first) ; packages/plateforme/src/components/ui/data-table.tsx (prop rowClassName) ; logique <48h aussi dans api/v1/admin/attributions-ag/pending/route.ts (flag criticite, testé)",
       "test": "M2.3 / R11 ALGO-02 file criticité (packages/plateforme/tests/api/admin/algo-attribution-ag-r11.m2-3.test.ts) — criticite true <48h / false sinon (même logique que estUrgente). Badge URGENT + fond rose sur Collectes = preuve-visuelle (GO-VISUAL)",
       "statut": "implemented",
@@ -274,23 +274,31 @@
     },
     {
       "id": "BL-P1-ALGO-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:77-80",
-      "artefact": "supabase/migrations/20260630120000_plateforme_r11_algo_ag.sql (rpc_log_attribution_aucune_reco) ; packages/plateforme/src/app/api/v1/admin/associations/route.ts (filtres capacite_min + habilitee 2041-GE) ; packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/valider/route.ts + src/lib/attribution-ag/validation.ts (logAttributionAucuneReco) ; [collecteId]/page.tsx (panel recherche libre asso)",
-      "test": "R11-T5/T6 (supabase/tests/r11_algo_ag.test.sql) audit attribution_manuelle_aucune_reco ; M2.3 / R11 ALGO-03 recherche libre association + audit aucune-reco (algo-attribution-ag-r11.m2-3.test.ts)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:55-72",
+      "artefact": "supabase/migrations/20260630120000_plateforme_r11_algo_ag.sql (rpc_log_attribution_aucune_reco) ; packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/associations/route.ts + src/lib/attribution-ag/associations-par-distance.ts (associations actives triées par distance au lieu) ; [collecteId]/page.tsx (liste déroulante association — décision Val 2026-09-17 remplaçant la recherche libre, divergence M2.3_20260918_attribution-ag-liste-associations.md) ; packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/valider/route.ts + src/lib/attribution-ag/validation.ts (logAttributionAucuneReco)",
+      "test": "R11-T5/T6 (supabase/tests/r11_algo_ag.test.sql) audit attribution_manuelle_aucune_reco ; M2.3 / associations par distance au lieu de la collecte (associations-par-distance.test.ts) ; M2.3 / GET attributions-ag/[collecteId]/associations (attribution-ag-associations.m2-3.test.ts) ; M2.3 / Attribution AG — liste déroulante association (attribution-association-select.test.tsx) — ordre des distances, override avec motif, aucune_reco, retour à la file Collectes. Rendu liste = preuve-visuelle (GO-VISUAL)",
       "statut": "implemented",
-      "libelle": "Recherche libre association (ville/capacité/2041-GE) + audit attribution_manuelle_aucune_reco"
+      "libelle": "Choix de l'association par liste déroulante (toutes les associations actives triées par distance au lieu) + audit attribution_manuelle_aucune_reco"
     },
     {
       "id": "BL-P1-ALGO-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:86-92",
-      "artefact": "packages/plateforme/src/app/(admin)/admin/attributions-ag/[collecteId]/page.tsx (panel recherche libre transporteur ouvert quand no_prestataire + motifs preset CDC §3 alignés) ; packages/plateforme/src/app/api/v1/admin/transporteurs/route.ts (filtre q réutilisé)",
-      "test": "M2.3 / R11 ALGO-04 recherche libre transporteur (algo-attribution-ag-r11.m2-3.test.ts) — filtre transporteurs par nom. Panel + motif obligatoire = preuve-visuelle (GO-VISUAL)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:79-85",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/attributions-ag/[collecteId]/page.tsx (liste déroulante de tous les transporteurs actifs, recommandé pré-sélectionné — décision Val 2026-09-17 remplaçant la recherche libre, divergence M2.3_20260917_attribution-ag-liste-transporteurs.md ; motif obligatoire si ≠ reco) ; packages/plateforme/src/app/api/v1/admin/transporteurs/route.ts (filtre actif)",
+      "test": "M2.3 / Attribution AG — liste déroulante transporteur (attribution-transporteur-select.test.tsx) — liste tous les transporteurs actifs, reco pré-sélectionné sans motif ; autre transporteur → motif obligatoire puis POST transporteur choisi. Rendu liste déroulante = preuve-visuelle (GO-VISUAL)",
       "statut": "implemented",
-      "libelle": "Recherche libre transporteur (impasse aucun_prestataire) + motif obligatoire"
+      "libelle": "Choix du transporteur par liste déroulante (tous les transporteurs actifs) + motif obligatoire si ≠ recommandation"
+    },
+    {
+      "id": "M2.3-horaires-association",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:52",
+      "artefact": "supabase/migrations/20260917170000_plateforme_algo_ag_horaires_format_editeur.sql (fn_association_ouverte : lit le format de l'éditeur Admin jour/ouvert/creneaux, appelée par fn_calculer_algo_attribution_ag)",
+      "test": "H1-H14 (supabase/tests/algo_ag_horaires_format_editeur.test.sql) — case Ouvert, créneaux multiples, passage minuit, 24h/24, fin exclusive, entrée mal formée sans exception, association saisie à l'écran proposée par l'algo",
+      "statut": "implemented",
+      "libelle": "Filtre association « horaires compatibles » lisant le format saisi par l'écran Admin"
     },
     {
       "id": "BL-P1-ALGO-05",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:110-115",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:103-108",
       "artefact": "packages/plateforme/vercel.json (cron /api/cron/process-attributions-ag */5). Les 3 actions async : email association + email transporteur (process-attributions-ag/route.ts → job.ts) + envoi ordre/dispatch (event collecte.creee → outbox-worker → adapter, câblé R5)",
       "test": "M2.3 / R11 ALGO-05 cron registration (algo-attribution-ag-r11.m2-3.test.ts) — vercel.json déclare le cron ; emails couverts par M2.3 job + dispatch par BL-P0-08 (R5)",
       "statut": "implemented",
@@ -298,7 +306,7 @@
     },
     {
       "id": "BL-P1-ALGO-06",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:196-224",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:198-226",
       "artefact": "supabase/migrations/20260630120000_plateforme_r11_algo_ag.sql (rpc_evaluer_auto_accept_ag : algo → match config_auto_accept_ag → rpc_valider_attribution_ag mode auto_accept valide_par NULL, sinon SINON) ; packages/plateforme/src/lib/attribution-ag/auto-accept.ts ; packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/auto-accept/route.ts (admin only)",
       "test": "R11-T7/T8/T9 (supabase/tests/r11_algo_ag.test.sql) déclenche=true / mode auto_accept valide_par NULL / SINON=false ; M2.3 / R11 ALGO-06 auto-accept (algo-attribution-ag-r11.m2-3.test.ts) endpoint + 403 ops",
       "statut": "implemented",
@@ -314,7 +322,7 @@
     },
     {
       "id": "BL-P1-ALGO-07",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:115-122",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:117-124",
       "artefact": "packages/adapters/src/everest/adapter.ts (dispatch → statut_tms attribuee_en_attente_acceptation ; rejet permanent 4xx → rejetee_par_prestataire) ; packages/plateforme/src/app/api/webhooks/everest/route.ts (acceptee sur mission_dispatched)",
       "test": "Everest 422 (rejet permanent) → statut_tms = rejetee_par_prestataire + Everest 5xx (transient) → PAS de rejet (packages/adapters/src/everest/adapter.m2-5.test.ts) ; mission_dispatched → statut_tms=acceptee (webhooks/everest.m2-5.test.ts)",
       "statut": "implemented",
@@ -346,8 +354,8 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "4a6e04326681ed507c4e1fc801ccdee8e53f69ba3fa48eb235710a83a40341b2",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "a3b25d8200b577f66006388a15efca739c2ea6278a3ea958889f1c34a583c947",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "ff1838700294a362cb14a3f7d8a479e378f97aef7a3d28c7f72e822312e21554"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "c927d09d6672253fcf053917110cf86976745481087cb63dd371068f7b0afca8",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "50ede6802057c9a22cc12c804bd12d02ecc2338eb1d871b694c08d8d493249ad",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "979c0bf861398357d004372a65bc9a9292049823796206fc9730142d08cdae51"
   }
 }

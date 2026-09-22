@@ -11,7 +11,7 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
 }));
 
 import { ImpersonationLauncher } from '@/components/ui/impersonation-launcher';
-import { ATTENTE_UI } from '@/test-utils/attente-ui';
+import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 function makeToken(claims: Record<string, unknown>): string {
   const b64url = (o: unknown) =>
@@ -48,94 +48,112 @@ describe('M0.6 — lanceur impersonation admin (BL-P1-BOA-09)', () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.restoreAllMocks());
 
-  it('M0.6 — masqué pour un rôle non-admin (ops_savr)', async () => {
-    mockGetSession.mockResolvedValue(sessionWithRole('ops_savr'));
-    const fetchMock = vi.fn();
-    vi.stubGlobal('fetch', fetchMock);
+  it(
+    'M0.6 — masqué pour un rôle non-admin (ops_savr)',
+    async () => {
+      mockGetSession.mockResolvedValue(sessionWithRole('ops_savr'));
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
 
-    const { container } = render(<ImpersonationLauncher />);
-    await waitFor(() => expect(mockGetSession).toHaveBeenCalled(), ATTENTE_UI);
-    expect(container.querySelector('select')).toBeNull();
-    // ops ne déclenche même pas le fetch de la liste
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
+      const { container } = render(<ImpersonationLauncher />);
+      await waitFor(
+        () => expect(mockGetSession).toHaveBeenCalled(),
+        ATTENTE_UI,
+      );
+      expect(container.querySelector('select')).toBeNull();
+      // ops ne déclenche même pas le fetch de la liste
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('M0.6 — admin_savr : liste les utilisateurs (hors soi-même) + bouton', async () => {
-    mockGetSession.mockResolvedValue(sessionWithRole('admin_savr'));
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue({ ok: true, json: async () => ({ data: USERS }) });
-    vi.stubGlobal('fetch', fetchMock);
+  it(
+    'M0.6 — admin_savr : liste les utilisateurs (hors soi-même) + bouton',
+    async () => {
+      mockGetSession.mockResolvedValue(sessionWithRole('admin_savr'));
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValue({ ok: true, json: async () => ({ data: USERS }) });
+      vi.stubGlobal('fetch', fetchMock);
 
-    render(<ImpersonationLauncher />);
-    await waitFor(
-      () =>
-        expect(
-          screen.getByRole('button', { name: /Impersoner/i }),
-        ).toBeInTheDocument(),
-      ATTENTE_UI,
-    );
-    expect(fetchMock).toHaveBeenCalledWith('/api/v1/admin/users?actif=true');
-    // la cible non-admin apparaît, l'admin lui-même est exclu
-    expect(
-      screen.getByRole('option', { name: /manager\.demo@savr-test\.local/ }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('option', { name: /admin@savr-test\.local/ }),
-    ).toBeNull();
-  });
+      render(<ImpersonationLauncher />);
+      await waitFor(
+        () =>
+          expect(
+            screen.getByRole('button', { name: /Impersoner/i }),
+          ).toBeInTheDocument(),
+        ATTENTE_UI,
+      );
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/admin/users?actif=true');
+      // la cible non-admin apparaît, l'admin lui-même est exclu
+      expect(
+        screen.getByRole('option', { name: /manager\.demo@savr-test\.local/ }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('option', { name: /admin@savr-test\.local/ }),
+      ).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('M0.6 — sélection + Impersoner → POST impersoner puis navigation vers le lien', async () => {
-    mockGetSession.mockResolvedValue(sessionWithRole('admin_savr'));
-    const fetchMock = vi.fn((url: string) => {
-      if (url.includes('/impersoner')) {
+  it(
+    'M0.6 — sélection + Impersoner → POST impersoner puis navigation vers le lien',
+    async () => {
+      mockGetSession.mockResolvedValue(sessionWithRole('admin_savr'));
+      const fetchMock = vi.fn((url: string) => {
+        if (url.includes('/impersoner')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              lien_impersonation:
+                '/auth/impersonate-callback?token_hash=x&type=magiclink&impersonator=admin-self',
+            }),
+          });
+        }
         return Promise.resolve({
           ok: true,
-          json: async () => ({
-            lien_impersonation:
-              '/auth/impersonate-callback?token_hash=x&type=magiclink&impersonator=admin-self',
-          }),
+          json: async () => ({ data: USERS }),
         });
-      }
-      return Promise.resolve({ ok: true, json: async () => ({ data: USERS }) });
-    });
-    vi.stubGlobal('fetch', fetchMock);
-    const hrefSetter = vi.fn();
-    Object.defineProperty(window, 'location', {
-      configurable: true,
-      value: {
-        set href(v: string) {
-          hrefSetter(v);
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      const hrefSetter = vi.fn();
+      Object.defineProperty(window, 'location', {
+        configurable: true,
+        value: {
+          set href(v: string) {
+            hrefSetter(v);
+          },
+          get href() {
+            return '';
+          },
         },
-        get href() {
-          return '';
-        },
-      },
-    });
+      });
 
-    render(<ImpersonationLauncher />);
-    const select = (await screen.findByLabelText(
-      'Utilisateur à impersonner',
-      undefined,
-      ATTENTE_UI,
-    )) as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: 'u-1' } });
-    fireEvent.click(screen.getByRole('button', { name: /Impersoner/i }));
+      render(<ImpersonationLauncher />);
+      const select = (await screen.findByLabelText(
+        'Utilisateur à impersonner',
+        undefined,
+        ATTENTE_UI,
+      )) as HTMLSelectElement;
+      fireEvent.change(select, { target: { value: 'u-1' } });
+      fireEvent.click(screen.getByRole('button', { name: /Impersoner/i }));
 
-    await waitFor(
-      () =>
-        expect(fetchMock).toHaveBeenCalledWith(
-          '/api/v1/admin/users/u-1/impersoner',
-          expect.objectContaining({ method: 'POST' }),
-        ),
-      ATTENTE_UI,
-    );
-    await waitFor(
-      () =>
-        expect(hrefSetter).toHaveBeenCalledWith(
-          expect.stringContaining('/auth/impersonate-callback'),
-        ),
-      ATTENTE_UI,
-    );
-  });
+      await waitFor(
+        () =>
+          expect(fetchMock).toHaveBeenCalledWith(
+            '/api/v1/admin/users/u-1/impersoner',
+            expect.objectContaining({ method: 'POST' }),
+          ),
+        ATTENTE_UI,
+      );
+      await waitFor(
+        () =>
+          expect(hrefSetter).toHaveBeenCalledWith(
+            expect.stringContaining('/auth/impersonate-callback'),
+          ),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
 });

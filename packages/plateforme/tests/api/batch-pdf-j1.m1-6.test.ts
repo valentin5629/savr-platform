@@ -114,7 +114,11 @@ function makeSupabase(responses: Array<Record<string, unknown>>) {
   };
 }
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  // Clés de logo bornées au bucket applicatif (lib/logo-key.ts).
+  vi.stubEnv('R2_BUCKET_NAME', 'savr-dev');
+});
 
 // ── Tests ──────────────────────────────────────────────────────────────────
 
@@ -341,13 +345,13 @@ describe('M1.6 / BatchPdfJ1 / Logo cascade §1.2 (BL-P2-19)', () => {
           adresse: '1 rue',
           email_principal: 'a@agence.fr',
           type: 'agence',
-          logo_url: 'https://cdn/agence-logo.png',
+          logo_url: 'savr-dev/logos/a9e1c2d3-4b5c-4d6e-8f70-81a2b3c4d5e6.png',
         },
         traiteur_operationnel: {
           raison_sociale: 'Traiteur Op',
           siret: '22222222200002',
           adresse: '2 rue',
-          logo_url: 'https://cdn/traiteur-logo.png',
+          logo_url: 'savr-dev/logos/b8f2d3e4-5c6d-4e7f-9a81-92b3c4d5e6f7.png',
         },
         client_organisateur: null,
         lieux: {
@@ -396,7 +400,9 @@ describe('M1.6 / BatchPdfJ1 / Logo cascade §1.2 (BL-P2-19)', () => {
     // BL-P3-05 : le logo agence (gagnant de la cascade) est inliné en data URI
     // (le renderer n'affiche pas une clé R2 brute) — la clé agence est bien celle
     // téléchargée (prime sur le traiteur).
-    expect(getObjectBytes).toHaveBeenCalledWith('https://cdn/agence-logo.png');
+    expect(getObjectBytes).toHaveBeenCalledWith(
+      'savr-dev/logos/a9e1c2d3-4b5c-4d6e-8f70-81a2b3c4d5e6.png',
+    );
     expect((rapJob!.payload as { logo_url?: string }).logo_url).toMatch(
       /^data:image\/png;base64,/,
     );

@@ -1,5 +1,7 @@
 # 09 - Flux algo attribution AG (Admin)
 
+**Statut** : Validé V1
+**Dernière mise à jour** : 2026-04-21
 **Lié à** : [[05 - Règles métier]] §2 — Algorithme d'attribution Anti-Gaspi · [[04 - Data Model]] tables `attributions_antgaspi`, `associations`, `transporteurs`, `parametres_algo`
 
 ---
@@ -52,7 +54,7 @@ Tri unique par **distance Haversine croissante** entre `lieux.latitude/longitude
 
 - Si une association est exclue par horaire : affichée en grisé avec mention "Exclue — horaires incompatibles"
 - Bouton **"Sélectionner"** sur chaque ligne pour choisir une alternative au top 1
-- Bouton **"Choisir une autre association"** : ouvre une recherche manuelle dans le référentiel `associations` (hors top 3) avec filtres : ville, capacité min, habilitation 2041-GE
+- Liste déroulante **« Association »** : toutes les associations actives, triées par distance croissante au lieu de la collecte (distance inconnue en fin de liste, puis ordre alphabétique), avec ville, distance, capacité, 2041-GE et marque « (suggérée) » ; la suggestion top 1 est pré-sélectionnée. La liste inclut les associations **non éligibles** (hors région, capacité insuffisante, fermées au créneau) — l'Admin arbitre. *(décision Val 2026-09-17, confirmée 2026-09-18 ; remplace la recherche libre et ses filtres ville / capacité min / 2041-GE)*
 
 **Bloc recommandation algorithme — Transporteurs**
 
@@ -67,20 +69,20 @@ La sélection du transporteur AG suit **deux logiques distinctes selon la régio
 
 **Cas aucune association éligible**
 - Le tableau top 3 affiche : "Aucune association disponible pour ce créneau. Traitement manuel requis."
-- L'Admin doit sélectionner manuellement via la recherche libre
+- L'Admin doit sélectionner manuellement dans la liste déroulante des associations
 - Log `audit_log` : `action = "attribution_manuelle_aucune_reco"` avec `user_id` Admin
 
 ### 2.3. Règles d'attribution transporteur AG — Île-de-France (workflow Admin)
 
 > **Source de vérité de la règle métier** : [[05 - Règles métier#Règles d'attribution transporteur Île-de-France|§05 R2 — Règles d'attribution transporteur Île-de-France]]. Cette sous-section décrit le **workflow d'écran Admin** correspondant. En cas de divergence, §05 prime.
 
-**Affichage Admin Savr** : pour une attribution AG IDF, l'écran affiche un bandeau au-dessus du bloc transporteur indiquant la branche calculée (ex : "Branche AG vélo express — A Toutes! vélo, délai 1h12 avant collecte") + le transporteur résultant. Pas de top 3 transporteurs (la branche détermine un transporteur unique, pas un classement). Override via bouton "Choisir un autre transporteur" → ouvre la recherche libre dans `transporteurs` + motif obligatoire (cf. §3 Override).
+**Affichage Admin Savr** : pour une attribution AG IDF, l'écran affiche un bandeau au-dessus du bloc transporteur indiquant la branche calculée (ex : "Branche AG vélo express — A Toutes! vélo, délai 1h12 avant collecte") + le transporteur résultant. Pas de top 3 transporteurs (la branche détermine un transporteur unique, pas un classement). Override via la liste déroulante « Transporteur » (tous les transporteurs actifs, le recommandé pré-sélectionné) + motif obligatoire si le choix ≠ recommandation (cf. §3 Override). *(décision Val 2026-09-17, remplace la recherche libre)*
 
 **Cas modification `nb_pax` post-attribution (refonte sobriété A2 2026-05-09)** : aucun workflow dédié V1. Si un Admin modifie `nb_pax` après validation et que la branche calculée diffère, la collecte n'est **pas re-routée automatiquement** ni notifiée par template dédié. Si l'Admin souhaite changer de transporteur, il rouvre l'écran d'attribution et applique un override standard (motif libre `autre`). Justification : edge case rare en pratique, l'audit cohérence + la file d'attente standard suffisent.
 
 **Cas `ag_everest_camion_express`** (branche 9, ajout 2026-06-15 DIV-8, tranché Val) : rescue grand volume urgent IDF. Se déclenche quand la branche initiale aurait retourné `aucun_prestataire` **ET** `nb_pax ≥ seuil_pax_velo (600)` **ET** `a_toutes_indisponible = false` **ET** `delai_minutes < seuil_h2_minutes (90)`. Dans ce cas, A Toutes! est sollicitée via le service Everest **77 (camion express)** au lieu de laisser la collecte en traitement manuel. L'écran affiche le bandeau "Branche AG Everest camion express — A Toutes!, délai urgent". L'Admin peut overrider avec motif.
 
-**Cas `aucun_prestataire`** : la branche n'a pas trouvé de transporteur valide (Marathon exclu sans backup possible **et** conditions `ag_everest_camion_express` non remplies). L'écran affiche "Aucun prestataire éligible — traitement manuel". L'Admin doit sélectionner un transporteur via la recherche libre + motif obligatoire.
+**Cas `aucun_prestataire`** : la branche n'a pas trouvé de transporteur valide (Marathon exclu sans backup possible **et** conditions `ag_everest_camion_express` non remplies). L'écran affiche "Aucun prestataire éligible — traitement manuel". L'Admin doit sélectionner un transporteur dans la liste déroulante des transporteurs actifs + motif obligatoire.
 
 > **Go-live — branche backup camion morte (décision consciente Val 2026-06-10, challenge logistique)** : tant que la gate Everest est active (adapter Everest = V1.1, hors go-live), `parametres_algo.a_toutes_indisponible = true` est **seedé au go-live**. Conséquences : les branches vélo basculent `ag_velo_fallback_marathon` (Marathon/MTS-1, nominal prévu) **et la branche backup `ag_marathon_volume_backup_camion` (service Everest 91) est inopérante** → si Marathon est exclu sur un gros volume, la collecte tombe **directement en `aucun_prestataire`** = traitement manuel Ops ci-dessus. Cas rare, assumé. Réactivation automatique du backup à la livraison de l'adapter Everest V1.1 (repasser le flag à `false`). **Ne pas coder de fallback Strike camion** à la place (non validé opérationnellement).
 

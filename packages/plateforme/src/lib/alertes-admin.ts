@@ -35,6 +35,10 @@ const SEVERITE_PAR_CODE: Record<string, AlerteSeverite> = {
   // ou un vélo peut encore rouler dessus. Ni les regex de repli ni le défaut ne
   // l'auraient teintée — elle se serait affichée en « Info » (gris).
   tournee_autre_provider: 'attention',
+  // Une course A Toutes! qui n'est plus celle de la collecte annonce un vélo
+  // actif : risque de double passage (M14 EC11, warning). Même angle mort que
+  // ci-dessus : aucun mot-clé de repli ne la teinte.
+  everest_mission_hors_attribution: 'attention',
   // Informatives — trace d'un événement à connaître.
   shadow_traiteur_cree: 'info',
   shadow_siret_complete: 'info',

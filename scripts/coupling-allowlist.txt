@@ -232,3 +232,28 @@ supabase/tests/SECU__transporteur_cols_immuables.test.sql
 # de fixtures. Écritures DB uniquement, aucun appel HTTP transporteur. 'customerOrders' banni.
 supabase/migrations/20260916160000_plateforme_everest_acceptation_manuelle_reference.sql
 supabase/tests/everest_acceptation_manuelle_reference.test.sql
+# CHECK `chk_everest_created_manually` passé en implication (2026-09-16, divergence M2.5)
+# + son pgTAP de cycle de vie : 'everest' = nom de la table `everest_missions`, de la
+# contrainte et de la colonne `everest_mission_id`, et mot « webhook Everest » dans les
+# commentaires. Une contrainte CHECK et des UPDATE de statut en SQL : aucune logique
+# adapter, aucun appel HTTP transporteur. 'customerOrders' banni.
+supabase/migrations/20260916170000_plateforme_everest_created_manually_implication.sql
+supabase/tests/everest_created_manually_cycle_de_vie.test.sql
+# Acceptation manuelle A Toutes! : refus depuis rejetee_par_prestataire (2026-09-16,
+# plan acceptation_manuelle_everest_statut_depart) + pgTAP des plans du scénario :
+# 'everest' = nom de la RPC `fn_accepter_mission_everest_manuelle`, de la table
+# `everest_missions` et de la colonne `everest_mission_id`. Écritures DB uniquement,
+# aucun appel HTTP transporteur. 'customerOrders' banni.
+supabase/migrations/20260916180000_plateforme_everest_acceptation_manuelle_refus_rejetee.sql
+supabase/tests/everest_acceptation_manuelle_plans.test.sql
+# Algo attribution AG — lecture des horaires au format de l'éditeur Admin (revue écran
+# 2026-09-17) : CREATE OR REPLACE de fn_calculer_algo_attribution_ag, corps r11
+# (20260630120000) recopié VERBATIM hors calcul horaires_ok. 'mts1'/'Everest' = valeur
+# enum type_tms + libellés de branches/commentaires existants ; aucun appel HTTP
+# transporteur. 'customerOrders' banni.
+supabase/migrations/20260917170000_plateforme_algo_ag_horaires_format_editeur.sql
+# Réattribution vers le même type de transporteur (2026-09-17, arbitrage Val
+# « réinitialiser en place ») : 'mts1' = valeur de l'enum type_tms dans les
+# INSERT fixtures pgTAP. Écritures DB uniquement, aucun appel HTTP transporteur.
+# 'customerOrders' banni.
+supabase/tests/reattribution_meme_type_tms.test.sql

@@ -25,7 +25,7 @@ import {
 // ── Faux client Supabase : chaînage .select/.eq/.gte/... thenable + .rpc ─────────
 interface FakeConfig {
   tables?: Record<string, unknown[]>;
-  rpc?: Record<string, unknown[]>;
+  rpc?: Record<string, unknown>;
 }
 function makeSupabase(config: FakeConfig): DbClient {
   const rows = (t: string) => config.tables?.[t] ?? [];
@@ -199,8 +199,8 @@ describe('loaders — I/O (faux Supabase)', () => {
           { mois: '2026-05-01', type_collecte: 'zero_dechet', marge_zd_ht: 20 },
           { mois: '2025-09-01', type_collecte: 'zero_dechet', marge_zd_ht: 5 },
         ],
-        organisations: [{ tarif_refacture_pax_zd: 12 }],
       },
+      rpc: { f_tarif_refacture_pax_zd: 12 },
     });
     const res = await loadKpiTraiteur(supabase, CTX_TRAITEUR, {
       from: '2026-01-01',
@@ -305,9 +305,9 @@ describe('loaders — I/O (faux Supabase)', () => {
         v_kpi_traiteur: [
           { mois: '2026-03-01', type_collecte: 'zero_dechet', marge_zd_ht: 10 },
         ],
-        organisations: [{ tarif_refacture_pax_zd: 12 }],
         collectes: [], // évolution/blocs vides — I/O uniquement, transforms testés à part
       },
+      rpc: { f_tarif_refacture_pax_zd: 12 },
     });
     const res = await loadTraiteurDashboard(supabase, CTX_TRAITEUR, {
       from: '2026-01-01',

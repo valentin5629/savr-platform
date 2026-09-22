@@ -136,6 +136,27 @@ describe('M3.1 / cockpit-derive', () => {
     });
   });
 
+  it('benchmark_agregation_segments_ponderee_ecran_et_pdf', () => {
+    // Scénario P1 §06.04 + §12 §1.2 (divergence M3.1 2026-09-22, option (a)) : les
+    // segments (0,30 ; n=5) et (0,40 ; n=15) doivent rendre 0,375 — la moyenne
+    // PONDÉRÉE — et jamais 0,350, la moyenne simple. Mêmes chiffres, même oracle
+    // que le chemin PDF : supabase/tests/benchmark_agregation_segments_ponderee.test.sql.
+    const parc = aggregateBenchmarkPerFlux([
+      {
+        flux_code: 'biodechet',
+        kg_par_pax_moyen: 0.3,
+        nb_collectes_segment: 5,
+      },
+      {
+        flux_code: 'biodechet',
+        kg_par_pax_moyen: 0.4,
+        nb_collectes_segment: 15,
+      },
+    ]);
+    expect(parc.biodechet).toBeCloseTo(0.375, 6);
+    expect(parc.biodechet).not.toBeCloseTo(0.35, 6);
+  });
+
   it('M3.1/dash_cockpit_fenetre_n1_equivalente', () => {
     // Janvier 2026 (span 30 j) → décembre 2025 accolé.
     expect(previousWindow('2026-01-01', '2026-01-31')).toEqual({

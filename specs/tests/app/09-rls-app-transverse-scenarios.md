@@ -14,6 +14,9 @@
 > **Périmètre** : ce lot consolide la suite pgTAP **transverse** (couverture critique V1, sobriété 2026-06-03 B2). Les scénarios RLS spécifiques à un module (cat. 4 des lots ①–⑩) restent dans leurs fichiers — pas de doublon ici : ce fichier porte les tests **multi-tables, helpers, prédicats canoniques et chemins d'accès croisés**. Couverture 100 % des policies = V1.1.
 >
 > **4 décisions Val 2026-06-07 (lot ⑪)** intégrées : F1 `cf_update_staff` (pesées admin+ops), F2 règle staff canonique `f_is_staff()`, F3 `f_collecte_editable` sur UPDATE manager+agence, F4 `users` SELECT org-wide commercial.
+>
+> **⚠ NORMATIF — écriture directe client fermée (révision 2026-09-16, divergences REVOKE `collectes` + `evenements`)** : l'**INSERT/UPDATE** direct via PostgREST est **révoqué au niveau table** pour tous les rôles clients (`traiteur_manager`, `traiteur_commercial`, `gestionnaire_lieux`, `agence`, `client_organisateur`) sur **`collectes`** (migration `20260915160000`) — le **DELETE reste accordé** sur `collectes`, filtré par la policy `col_delete_brouillon` (arbitrage Val 2026-09-21 : hors périmètre = 0 ligne affectée, sans erreur) — et l'**INSERT/UPDATE/DELETE** est révoqué sur **`evenements`** (migration `20260915190000`, PR #328) — les deux appliquées dev + prod. Les policies d'écriture (`col_insert`, `col_update_client`, `col_update_commercial`, policies `evenements`) **subsistent mais sont inertes** : l'erreur est **`42501` levée AVANT l'évaluation RLS**, pas « 0 ligne affectée ». Toute écriture légitime passe par les **routes API sous `service_role`**.
+> **Conséquence de lecture des scénarios ci-dessous** : un scénario d'écriture sur `collectes` / `evenements` rédigé « 0 ligne est affectée » ou « l'INSERT échoue » reste **valide dans son intention** (le périmètre RLS testé est le bon) mais, exécuté en direct sous `authenticated`, il **lève 42501**. Ces scénarios doivent être implémentés **via la route API** (couche `api`) pour tester le prédicat métier, et le REVOKE lui-même est couvert par le scénario dédié `ecriture_directe_collectes_evenements_revoke_42501` (catégorie 6). Les scénarios de **SELECT** sont inchangés.
 
 ---
 
@@ -26,9 +29,9 @@
 | 3. Cas d'erreur métier | 11 | écritures refusées par rôle (matrice étendue ops, périmètres INSERT) |
 | 4. Isolation données (RLS) | 14 | cross-org deny par rôle, tables filles, fichiers polymorphes, PII |
 | 5. Idempotence et états | 14 | append-only, immuabilité, SERVICE_ROLE only, soft delete users/fichiers, RGPD demandes_suppression |
-| 6. Cross-app | 4 | réduite/justifiée — schéma `tms.*` inexistant V1 ; SERVICE_ROLE + claim `app_domain` |
+| 6. Cross-app | 5 | réduite/justifiée — schéma `tms.*` inexistant V1 ; SERVICE_ROLE + claim `app_domain` |
 | 7. Migration | 5 | mapping rôles, claims post-migration, échantillonnage cross-org, anonymisation, idempotence policies |
-| **TOTAL** | **67** | |
+| **TOTAL** | **68** | |
 
 **Fixtures de référence** : org A = Kaspia (traiteur), org B = Kardamome (traiteur), org C = Viparis (gestionnaire de lieux, 2 lieux liés via `organisations_lieux`), org D = agence événementielle, org E = client organisateur. Users : `manager_kaspia`, `commercial1_kaspia`, `commercial2_kaspia`, `manager_kardamome`, `gest_viparis`, `agence_d`, `client_e`, `ops1` (ops_savr), `val` (admin_savr).
 
@@ -106,10 +109,12 @@ Scénario : gestionnaire_brouillon_tiers_exclu (evenements_brouillon_tiers_denie
   Alors le brouillon n'apparaît pas (anti-fuite d'intention commerciale — décision F3 lot ⑤)
   Et son propre brouillon (organisation_id = Viparis, date NULL) reste visible
 
-Scénario : manager_update_dans_fenetre_edition_ok (F3 lot ⑪)
+Scénario : manager_update_dans_fenetre_edition_ok (F3 lot ⑪ — révisé 2026-09-16, REVOKE evenements)
   Étant donné un événement Kaspia dont une collecte est au statut `programmee`
-  Quand `manager_kaspia` exécute UPDATE sur cet événement
+  Quand `manager_kaspia` appelle la route API de modification d'événement (sous `service_role`)
   Alors la mise à jour réussit (f_collecte_editable = TRUE)
+  Quand `manager_kaspia` exécute le même UPDATE en direct via PostgREST
+  Alors l'erreur `42501` est levée avant RLS (REVOKE table-level `20260915190000`) — l'écriture directe n'est plus un chemin valide
 
 Scénario : manager_update_hors_fenetre_denied (evenements_update_manager_fenetre_denied — F3 lot ⑪)
   Étant donné un événement Kaspia dont toutes les collectes sont `realisee` ou `cloturee`
@@ -152,11 +157,39 @@ Scénario : v_factures_client_non_vide_manager (test_factures_vue_client_non_vid
   Alors ≥ 1 ligne retournée et aucune erreur RLS
   Et une facture d'organisation B est absente (org-scoping actif via fac_client_select)
 
-Scénario : lieu_visible_par_double_chemin
+Scénario : lieu_visible_par_chemin_rls (ex-`lieu_visible_par_double_chemin` — renommé 2026-09-21, la policy compte 4 chemins et non 2)
   Étant donné un lieu L3 sans lien organisations_lieux avec Kaspia mais référencé par un événement Kaspia
   Quand `manager_kaspia` exécute SELECT sur `lieux`
-  Alors L3 est visible (chemin evenements) ; un lieu L4 sans aucun des 2 chemins est invisible
+  Alors L3 est visible (chemin 2 : événement programmé par son organisation)
+  Et un lieu L4 sans AUCUN des 4 chemins de `lieux_clients_select` est invisible
+  Et les 4 chemins sont : (1) rattachement `organisations_lieux` ; (2) événement programmé par l'organisation ; (3) événement dont elle est client organisateur **ET daté** (`date_evenement IS NOT NULL`) ; (4) événement dont elle est traiteur opérationnel, **borné par le rôle** `f_app_role() IN ('traiteur_manager','traiteur_commercial')`
+  Et un lieu rattaché UNIQUEMENT par le chemin 3 sur un événement NON daté reste invisible (garde de date, décision F3 §09 l.191)
   # Priorité : P2-important
+```
+
+---
+
+```gherkin
+# Source : §09 Table lieux (4e branche « traiteur opérationnel », arbitrage Val 2026-09-21)
+# Couche : db
+# Priorité : P0-bloquant
+
+Scénario : lieu_visible_traiteur_operationnel
+  Étant donné un événement programmé par l'agence WPM, dans un lieu où Kaspia n'a jamais
+    programmé et qui n'est rattaché à aucune de ses organisations, avec Kaspia comme
+    traiteur opérationnel
+  Quand le manager Kaspia ouvre la liste et la fiche Collectes
+  Alors la ligne « Lieu » affiche le lieu (et non « — »)
+  Et le lieu est proposé dans les options du filtre Lieu
+  Et le commercial Kaspia voit la même chose (les deux rôles traiteur)
+  Et le lieu reste visible même si l'événement n'a pas de date_evenement
+    (pas de garde de date sur cette branche — arbitrage Val Q1)
+  Et un manager du traiteur concurrent Kardamome ne voit PAS ce lieu
+  Et un utilisateur de rôle client_organisateur dont l'organisation est pourtant
+    traiteur opérationnel de l'événement ne voit PAS ce lieu
+    (la branche est bornée par un test de rôle — arbitrage Val Q2)
+  Et la garde `date_evenement IS NOT NULL` de la branche « client organisateur »
+    reste en vigueur (non supprimée par la réécriture de la policy)
 ```
 
 ---
@@ -312,8 +345,11 @@ Scénario : fichiers_facture_gestionnaire_scinde (fichiers_facture_gestionnaire_
 
 Scénario : audit_log_append_only_meme_pour_admin
   Étant donné une entrée audit_log existante
-  Quand `val` (admin_savr) exécute UPDATE puis DELETE sur cette entrée
-  Alors les deux opérations affectent 0 ligne (immuable — aucune policy UPDATE/DELETE)
+  Quand `val` (admin_savr) exécute UPDATE, puis DELETE, puis TRUNCATE sur cette entrée — sous `authenticated`, puis en visant directement la partition annuelle
+  Alors UPDATE et DELETE échouent (`trg_audit_log_immuable` + REVOKE, migration `20260921200000`)
+  Et le vidage de table échoue également — ⚠ garantie portée par `trg_audit_log_vidage_interdit` (`20260922110000`, **PR #383 non mergée au 2026-09-22**) : tant qu'elle n'est pas sur `main`, ce volet du scénario décrit une cible, pas un acquis
+  Et le refus vaut aussi depuis une fonction `SECURITY DEFINER` (l'ACL vérifiée est celle du propriétaire, pas celle de l'appelant) — ⚠ ce cas n'est PAS facultatif : les 3 rôles applicatifs n'ayant pas le privilège de vidage, c'est la SEULE assertion qui mesure réellement la présence du trigger
+  Et la garantie porte sur les rôles applicatifs (`service_role`, `authenticated`, `anon`) — `postgres`, propriétaire de la base, est hors garantie
 
 Scénario : audit_log_insert_api_refuse
   Quand `val` (admin_savr) exécute INSERT direct sur `audit_log` sous `authenticated`
@@ -389,6 +425,17 @@ Scénario : demande_suppression_statut_non_falsifiable_client
 ```gherkin
 # Source : §09 addendum app_domain + A2/A3 + §3 collecte_tournees
 # Couche : db | Priorité : P1-critique sauf mention
+
+Scénario : ecriture_directe_collectes_evenements_revoke_42501 (ajout 2026-09-16 — divergences REVOKE `collectes` + `evenements`)
+  # Couche : db | Priorité : P1-critique
+  Étant donné les rôles clients `manager_kaspia`, `commercial1_kaspia`, `gest_viparis`, `agence_d`, `client_e` sous `authenticated`
+  Quand chacun tente un INSERT puis un UPDATE **direct via PostgREST** sur `collectes` (le DELETE reste accordé, filtré par `col_delete_brouillon` — arbitrage Val 2026-09-21)
+  Alors chaque tentative lève `42501` (REVOKE table-level `20260915160000`), jamais « 0 ligne affectée »
+  Quand chacun tente un INSERT, un UPDATE puis un DELETE **direct via PostgREST** sur `evenements`
+  Alors chaque tentative lève `42501` (REVOKE table-level `20260915190000`, PR #328)
+  Et le SELECT sur les deux tables reste autorisé et filtré par RLS pour chaque rôle (non-régression de la lecture)
+  Et `service_role` écrit sur les deux tables sans entrave (les routes API restent le seul chemin d'écriture)
+  Et les policies d'écriture `col_insert` / `col_update_client` / `col_update_commercial` et celles d'`evenements` existent toujours en base (inertes, non supprimées)
 
 Scénario : service_role_bypasse_rls_ecritures_systeme
   Quand le SERVICE_ROLE (adapter MTS-1 / webhook tournee-upsert) exécute INSERT sur `collecte_tournees`, `outbox_events`, `integrations_inbox`, `emails_envoyes`

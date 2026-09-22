@@ -93,9 +93,10 @@ vi.mock('@savr/shared/src/email/index.js', () => ({
   sendEmail: (...a: unknown[]) => mockSendEmail(...a),
 }));
 const mockUploadObject = vi.fn();
+const mockGetObject = vi.fn();
 vi.mock('@savr/shared/src/r2/upload.js', () => ({
   uploadObject: (...a: unknown[]) => mockUploadObject(...a),
-  getObject: vi.fn(),
+  getObject: (...a: unknown[]) => mockGetObject(...a),
 }));
 vi.mock('next/headers', () => ({
   cookies: () => ({ getAll: () => [], set: () => {} }),
@@ -439,6 +440,44 @@ describe('M3.1 / mon-organisation équipe', () => {
     expect(res.status).toBe(422);
   });
 
+  it('SECU/trait_monorga_equipe_role_self — auto-changement de rôle interdit (403)', async () => {
+    // P0 mesuré le 2026-09-21 : sous `authenticated`, un user pouvait se
+    // ré-attribuer n'importe quel rôle non staff (`UPDATE 1`), et le hook JWT
+    // relit `users.role` → droits gagnés au refresh du token. La garde qui FERME
+    // est en base (volet 3 de `trg_users_block_role_escalation`, pgTAP
+    // SECU__users_role_auto_changement) ; ce test-ci verrouille le refus
+    // LISIBLE côté route, pour que l'UI ne montre pas un 500 générique.
+    // Oracle : 403 ET aucun UPDATE émis (une route qui déléguerait le refus à la
+    // base renverrait 403 sans jamais toucher `users` — on vérifie les deux).
+    setupAuth('traiteur_manager', 'org-1', 'user-1');
+    const { PATCH } =
+      await import('@/app/api/v1/traiteur/equipe/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/traiteur/equipe/user-1', {
+        role: 'traiteur_commercial',
+      }),
+      { params: Promise.resolve({ id: 'user-1' }) },
+    );
+    expect(res.status).toBe(403);
+    expect(rls.__calls.update).toBeUndefined();
+  });
+
+  it("SECU/trait_monorga_equipe_role_autrui — changer le rôle d'un COLLÈGUE reste permis", async () => {
+    // Contrôle anti-sur-blocage jumeau du cas pgTAP n°10 : la garde ne doit
+    // mordre que sur soi (CDC §06.04 §6 « modifier le rôle d'un collaborateur »).
+    setupAuth('traiteur_manager', 'org-1', 'user-1');
+    rls.push({ data: { id: 'u2', role: 'traiteur_manager' }, error: null });
+    const { PATCH } =
+      await import('@/app/api/v1/traiteur/equipe/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/traiteur/equipe/u2', {
+        role: 'traiteur_manager',
+      }),
+      { params: Promise.resolve({ id: 'u2' }) },
+    );
+    expect(res.status).toBe(200);
+  });
+
   it('M3.1/trait_monorga_equipe_suspend_self — auto-suspension interdite (403)', async () => {
     setupAuth('traiteur_manager', 'org-1', 'user-1');
     const { PATCH } =
@@ -545,6 +584,49 @@ describe('M3.1 / mon-organisation logo', () => {
     expect(res.status).toBe(403);
     expect(mockUploadObject).not.toHaveBeenCalled();
   });
+
+  // Proxy d'affichage : `key` vient du client. Revue sécurité 2026-09-18 — borné
+  // au bucket applicatif + logos/<uuid>.(png|jpg), servi avec nosniff.
+  const LOGO = 'savr-dev/logos/0f8b2c1e-3d4a-4b5c-9d6e-7f8091a2b3c4.png';
+  async function getProxy(key: string) {
+    vi.stubEnv('R2_BUCKET_NAME', 'savr-dev');
+    setupAuth('traiteur_commercial');
+    const { GET } =
+      await import('@/app/api/v1/traiteur/mon-organisation/logo/route.js');
+    return GET(
+      makeReq(
+        'GET',
+        `/api/v1/traiteur/mon-organisation/logo?key=${encodeURIComponent(key)}`,
+      ),
+    );
+  }
+
+  it('M3.1/trait_monorga_logo_proxy — sert un logo du bucket applicatif avec nosniff', async () => {
+    mockGetObject.mockResolvedValue({
+      body: new Uint8Array([1, 2]),
+      contentType: 'image/png',
+    });
+    const res = await getProxy(LOGO);
+    expect(res.status).toBe(200);
+    expect(mockGetObject).toHaveBeenCalledWith(
+      'savr-dev',
+      'logos/0f8b2c1e-3d4a-4b5c-9d6e-7f8091a2b3c4.png',
+    );
+    expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+  });
+
+  it.each([
+    'savr-dev/bordereaux/b1.pdf',
+    'autre-bucket/logos/0f8b2c1e-3d4a-4b5c-9d6e-7f8091a2b3c4.png',
+    'savr-dev/logos/../bordereaux/b1.pdf',
+  ])(
+    'M3.1/trait_monorga_logo_proxy_hors_logos — %s refusé (403), aucune lecture R2',
+    async (key) => {
+      const res = await getProxy(key);
+      expect(res.status).toBe(403);
+      expect(mockGetObject).not.toHaveBeenCalled();
+    },
+  );
 });
 
 // ── Facturation : filtres (statut / type / période) ─────────────────────────

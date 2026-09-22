@@ -25,7 +25,8 @@
     "packages/plateforme/tests/api/admin/organisations.m1-1a.test.ts",
     "packages/plateforme/tests/api/admin/users.m1-1a.test.ts",
     "packages/plateforme/tests/api/admin/packs.m1-1a.test.ts",
-    "packages/plateforme/tests/api/admin/tarifs.m1-1a.test.ts"
+    "packages/plateforme/tests/api/admin/tarifs.m1-1a.test.ts",
+    "packages/plateforme/tests/ui/logo-organisation-proxy.test.tsx"
   ],
   "fichiers_modifies": [
     "packages/plateforme/src/lib/nav-config.ts"
@@ -131,6 +132,11 @@
     {
       "id": "M1.1a/tarifs/negocie-creation",
       "description": "POST /api/v1/admin/tarifs-negocie crée une remise % + audit_log"
+    },
+    {
+      "id": "M1.1a/logo_fiche_client_admin_par_proxy",
+      "title": "M1.1a/logo_fiche_client_admin_par_proxy",
+      "description": "En-tête de fiche organisation : le logo s'affiche via le proxy staff /api/v1/admin/uploads/logo (logo_url = clé R2, jamais posée en src)"
     }
   ],
   "deliverables": [
@@ -184,7 +190,7 @@
     },
     {
       "id": "M1.1a-25",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:599",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:668",
       "artefact": "packages/plateforme/src/app/api/v1/admin/organisations/[id]/route.ts",
       "test": "M1.1a/orgas/grille-tarifaire-admin-only",
       "statut": "implemented",
@@ -333,9 +339,25 @@
       "test": "M1.1a/tarifs/negocie-creation",
       "statut": "implemented",
       "libelle": "POST /api/v1/admin/tarifs-negocie crée une remise % + audit_log"
+    },
+    {
+      "id": "M1.1a-orgas-creation-champs-obligatoires",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:636",
+      "artefact": "packages/plateforme/src/app/api/v1/admin/organisations/route.ts",
+      "test": "M1.1a/orgas/creation — 422 + champs_invalides",
+      "statut": "implemented",
+      "libelle": "POST /api/v1/admin/organisations impose côté serveur nom, raison_sociale, type et email_principal (absent ou blanc → 422 + champs_invalides, aucun INSERT) ; plus de repli nom = raison_sociale"
+    },
+    {
+      "id": "M1.1a-logo-fiche-proxy",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:663",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/clients/[id]/page.tsx",
+      "test": "M1.1a/logo_fiche_client_admin_par_proxy",
+      "statut": "implemented",
+      "libelle": "§8 « Logo organisation — upload + preview », affiché en en-tête de fiche : logo_url portant une CLÉ R2 depuis 20260919100000, l'en-tête l'affiche via le proxy staff /api/v1/admin/uploads/logo et non en URL directe"
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "870a839c0f23b1323adfa0e12c8858f50181c5f77a03dca271fded8295b98ca3"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "1935353d3942e1ec2ebccbce6940fd99a75ee55d7d9db95692529594b4a0124d"
   }
 }

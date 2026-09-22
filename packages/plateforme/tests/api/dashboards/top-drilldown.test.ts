@@ -40,6 +40,10 @@ function makeChain(result: Result) {
     },
     order: () => chain,
     limit: () => chain,
+    // La liste Collectes gestionnaire fenêtre par `range` depuis la pagination
+    // serveur (décision Val 2026-09-22) ; `limit` reste utilisé par la route
+    // traiteur testée dans ce même fichier.
+    range: () => chain,
     then: (resolve: (r: Result) => unknown) => resolve(result),
   };
   return chain as typeof chain & {

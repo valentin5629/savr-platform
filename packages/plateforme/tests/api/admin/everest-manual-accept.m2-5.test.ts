@@ -227,6 +227,9 @@ describe('M2.5 — acceptation manuelle : refus de la RPC traduits sans fuite', 
   it.each([
     'Une mission a déjà été créée chez Everest pour cette collecte : aucune acceptation manuelle nécessaire.',
     'Cette référence de mission est déjà enregistrée sur une autre collecte. Vérifiez la saisie.',
+    // Départ `rejetee_par_prestataire` (migration 20260916180000, pgTAP
+    // everest_acceptation_manuelle_plans R3).
+    'A Toutes! a refusé cette collecte : une acceptation manuelle ne peut pas remplacer ce refus. Réattribuez la collecte.',
   ])('P0003 « %s » → 409, libellé transmis tel quel', async (libelle) => {
     rpcResult = { data: null, error: { code: 'P0003', message: libelle } };
     const r = await post(SAISIE);

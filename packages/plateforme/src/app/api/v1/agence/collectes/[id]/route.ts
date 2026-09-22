@@ -39,13 +39,15 @@ async function resolveTraiteurOperationnel(
 
   const { data: ref } = await supabase
     .from('v_referentiel_traiteurs')
-    .select('id, nom, raison_sociale')
+    .select('id, nom')
     .eq('id', orgId)
     .maybeSingle();
   if (ref)
     return {
       id: ref.id as string,
-      nom: (ref.raison_sociale ?? ref.nom) as string | null,
+      // Libellé unique porté par la vue (20260922080000) : nom commercial, ou
+      // raison sociale à défaut. Plus de repli ici.
+      nom: ref.nom as string | null,
       est_shadow: false,
       siret: null,
     };

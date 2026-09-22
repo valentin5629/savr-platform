@@ -24,7 +24,8 @@ function makeStubClient() {
   }
   chain.then = (resolve: (r: unknown) => unknown) => resolve(result);
   chain.rpc = () => Promise.resolve(result);
-  // BL-P3-02 : kpi-traiteur lit organisations.tarif_refacture_pax_zd (maybeSingle).
+  // Lectures mono-ligne (maybeSingle). Le tarif du KPI Marge passe, lui, par rpc()
+  // (f_tarif_refacture_pax_zd, 20260918100000).
   chain.maybeSingle = () =>
     Promise.resolve({ data: { tarif_refacture_pax_zd: 1.5 }, error: null });
   return {

@@ -674,7 +674,7 @@ export default function CollectesPage() {
             placeholder="Traiteur, lieu, ville…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-transparent text-sm text-savr-neutral-800 outline-none"
+            className="w-full bg-transparent text-sm text-savr-neutral-800"
           />
         </label>
         <Button

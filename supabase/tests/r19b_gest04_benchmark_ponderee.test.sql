@@ -4,9 +4,15 @@
 --   - signature 7 paramètres (flux, type évt, taille, période, lieux, traiteurs) ;
 --   - MOYENNE PONDÉRÉE PAR TONNAGE = SUM(poids)/SUM(pax) (≠ moyenne simple des ratios,
 --     ≠ médiane de l'ancienne implémentation) ;
---   - k-anonymat ≥5 (segment < 5 collectes non retourné) ;
+--   - k-anonymat ≥5 collectes (segment plus petit non retourné) ;
 --   - garde compétitive : rôle traiteur + p_traiteur_ids ⇒ RAISE.
 -- Fixtures 100 % isolées (BEGIN…ROLLBACK) : aucune interférence avec m3_2.
+--
+-- ⚠ Les 5 collectes sont réparties sur TROIS organisations (durcissement du
+-- k-anonymat, 2026-09-22 : un segment n'est publié qu'à partir de 3 acteurs
+-- distincts, programmateurs ET opérationnels). Les pax et les poids par collecte
+-- sont inchangés — la moyenne pondérée attendue reste 5300/3300. La garde
+-- « acteurs » elle-même est prouvée par benchmark_k_anonymat_acteurs.test.sql.
 -- ---------------------------------------------------------------------------
 
 BEGIN;
@@ -26,17 +32,27 @@ END $$;
 -- ── Fixtures (superuser) ────────────────────────────────────────────────────
 SET LOCAL role = 'postgres';
 
-INSERT INTO plateforme.organisations (id, nom, raison_sociale, type, siret, actif, tarif_refacture_pax_zd)
-VALUES ('dd000000-0000-0000-0000-0000000000a1'::uuid, 'Bench Traiteur', 'Bench SARL', 'traiteur', '99999999900001', true, 0);
+INSERT INTO plateforme.organisations (id, nom, raison_sociale, type, siret, actif, tarif_refacture_pax_zd) VALUES
+  ('dd000000-0000-0000-0000-0000000000a1'::uuid, 'Bench Traiteur 1', 'Bench 1 SARL', 'traiteur', '99999999900001', true, 0),
+  ('dd000000-0000-0000-0000-0000000000a2'::uuid, 'Bench Traiteur 2', 'Bench 2 SARL', 'traiteur', '99999999900002', true, 0),
+  ('dd000000-0000-0000-0000-0000000000a3'::uuid, 'Bench Traiteur 3', 'Bench 3 SARL', 'traiteur', '99999999900003', true, 0);
 
-INSERT INTO plateforme.users (id, organisation_id, email, prenom, nom, role, actif)
-VALUES ('dd000000-0000-0000-0000-0000000000b1'::uuid, 'dd000000-0000-0000-0000-0000000000a1'::uuid,
-        'chef@bench.test', 'Chef', 'B', 'traiteur_manager', true);
+INSERT INTO plateforme.users (id, organisation_id, email, prenom, nom, role, actif) VALUES
+  ('dd000000-0000-0000-0000-0000000000b1'::uuid, 'dd000000-0000-0000-0000-0000000000a1'::uuid,
+   'chef1@bench.test', 'Chef', 'B1', 'traiteur_manager', true),
+  ('dd000000-0000-0000-0000-0000000000b2'::uuid, 'dd000000-0000-0000-0000-0000000000a2'::uuid,
+   'chef2@bench.test', 'Chef', 'B2', 'traiteur_manager', true),
+  ('dd000000-0000-0000-0000-0000000000b3'::uuid, 'dd000000-0000-0000-0000-0000000000a3'::uuid,
+   'chef3@bench.test', 'Chef', 'B3', 'traiteur_manager', true);
 
 INSERT INTO plateforme.entites_facturation
-  (id, organisation_id, raison_sociale, siret, adresse_facturation, code_postal, ville)
-VALUES ('dd000000-0000-0000-0000-0000000000f1'::uuid, 'dd000000-0000-0000-0000-0000000000a1'::uuid,
-        'Bench SARL', '99999999900001', '1 rue Bench', '75001', 'Paris');
+  (id, organisation_id, raison_sociale, siret, adresse_facturation, code_postal, ville) VALUES
+  ('dd000000-0000-0000-0000-0000000000f1'::uuid, 'dd000000-0000-0000-0000-0000000000a1'::uuid,
+   'Bench 1 SARL', '99999999900001', '1 rue Bench', '75001', 'Paris'),
+  ('dd000000-0000-0000-0000-0000000000f2'::uuid, 'dd000000-0000-0000-0000-0000000000a2'::uuid,
+   'Bench 2 SARL', '99999999900002', '2 rue Bench', '75001', 'Paris'),
+  ('dd000000-0000-0000-0000-0000000000f3'::uuid, 'dd000000-0000-0000-0000-0000000000a3'::uuid,
+   'Bench 3 SARL', '99999999900003', '3 rue Bench', '75001', 'Paris');
 
 INSERT INTO plateforme.types_evenements (id, code, libelle, ordre_affichage, actif)
 VALUES ('dd000000-0000-0000-0000-0000000000d1'::uuid, 'BENCH_R19B', 'Bench R19b', 1, true);
@@ -45,7 +61,9 @@ INSERT INTO plateforme.lieux (id, nom, adresse_acces, code_postal, ville, type_v
 VALUES ('dd000000-0000-0000-0000-0000000000f0'::uuid, 'Bench Lieu', '2 av Bench', '75002', 'Paris', 'camionnette');
 
 -- 5 événements bracket M (pax ∈ [500,749]) avec pax VARIÉ (pour distinguer
--- moyenne pondérée d'une moyenne simple des ratios).
+-- moyenne pondérée d'une moyenne simple des ratios), répartis sur les 3
+-- organisations (a1, a2, a3, a1, a2) : le segment porte donc 3 acteurs distincts
+-- et franchit le k-anonymat durci. Les pax et poids par collecte sont inchangés.
 INSERT INTO plateforme.evenements (
   id, organisation_id, traiteur_operationnel_organisation_id, entite_facturation_id,
   created_by, lieu_id, type_evenement_id, nom_evenement, date_evenement, pax,
@@ -55,21 +73,21 @@ INSERT INTO plateforme.evenements (
    'dd000000-0000-0000-0000-0000000000a1'::uuid, 'dd000000-0000-0000-0000-0000000000f1'::uuid,
    'dd000000-0000-0000-0000-0000000000b1'::uuid, 'dd000000-0000-0000-0000-0000000000f0'::uuid,
    'dd000000-0000-0000-0000-0000000000d1'::uuid, 'Evt1', '2026-05-01', 500, 'C', '0600000001'),
-  ('dd000000-0000-0000-0000-0000000000e2'::uuid, 'dd000000-0000-0000-0000-0000000000a1'::uuid,
-   'dd000000-0000-0000-0000-0000000000a1'::uuid, 'dd000000-0000-0000-0000-0000000000f1'::uuid,
-   'dd000000-0000-0000-0000-0000000000b1'::uuid, 'dd000000-0000-0000-0000-0000000000f0'::uuid,
+  ('dd000000-0000-0000-0000-0000000000e2'::uuid, 'dd000000-0000-0000-0000-0000000000a2'::uuid,
+   'dd000000-0000-0000-0000-0000000000a2'::uuid, 'dd000000-0000-0000-0000-0000000000f2'::uuid,
+   'dd000000-0000-0000-0000-0000000000b2'::uuid, 'dd000000-0000-0000-0000-0000000000f0'::uuid,
    'dd000000-0000-0000-0000-0000000000d1'::uuid, 'Evt2', '2026-05-02', 700, 'C', '0600000002'),
-  ('dd000000-0000-0000-0000-0000000000e3'::uuid, 'dd000000-0000-0000-0000-0000000000a1'::uuid,
-   'dd000000-0000-0000-0000-0000000000a1'::uuid, 'dd000000-0000-0000-0000-0000000000f1'::uuid,
-   'dd000000-0000-0000-0000-0000000000b1'::uuid, 'dd000000-0000-0000-0000-0000000000f0'::uuid,
+  ('dd000000-0000-0000-0000-0000000000e3'::uuid, 'dd000000-0000-0000-0000-0000000000a3'::uuid,
+   'dd000000-0000-0000-0000-0000000000a3'::uuid, 'dd000000-0000-0000-0000-0000000000f3'::uuid,
+   'dd000000-0000-0000-0000-0000000000b3'::uuid, 'dd000000-0000-0000-0000-0000000000f0'::uuid,
    'dd000000-0000-0000-0000-0000000000d1'::uuid, 'Evt3', '2026-05-03', 700, 'C', '0600000003'),
   ('dd000000-0000-0000-0000-0000000000e4'::uuid, 'dd000000-0000-0000-0000-0000000000a1'::uuid,
    'dd000000-0000-0000-0000-0000000000a1'::uuid, 'dd000000-0000-0000-0000-0000000000f1'::uuid,
    'dd000000-0000-0000-0000-0000000000b1'::uuid, 'dd000000-0000-0000-0000-0000000000f0'::uuid,
    'dd000000-0000-0000-0000-0000000000d1'::uuid, 'Evt4', '2026-05-04', 700, 'C', '0600000004'),
-  ('dd000000-0000-0000-0000-0000000000e5'::uuid, 'dd000000-0000-0000-0000-0000000000a1'::uuid,
-   'dd000000-0000-0000-0000-0000000000a1'::uuid, 'dd000000-0000-0000-0000-0000000000f1'::uuid,
-   'dd000000-0000-0000-0000-0000000000b1'::uuid, 'dd000000-0000-0000-0000-0000000000f0'::uuid,
+  ('dd000000-0000-0000-0000-0000000000e5'::uuid, 'dd000000-0000-0000-0000-0000000000a2'::uuid,
+   'dd000000-0000-0000-0000-0000000000a2'::uuid, 'dd000000-0000-0000-0000-0000000000f2'::uuid,
+   'dd000000-0000-0000-0000-0000000000b2'::uuid, 'dd000000-0000-0000-0000-0000000000f0'::uuid,
    'dd000000-0000-0000-0000-0000000000d1'::uuid, 'Evt5', '2026-05-05', 700, 'C', '0600000005');
 
 -- 5 collectes cloturees ZD (1 par événement).
@@ -96,7 +114,9 @@ FROM (VALUES
   ('dd000000-0000-0000-0000-0000000000c5'::uuid, 700::decimal)
 ) AS c(id, poids);
 
--- emballage sur 3 collectes seulement (< 5) → doit être MASQUÉ par le k-anonymat.
+-- emballage sur 3 collectes seulement (< 5) → MASQUÉ par le seuil COLLECTES.
+-- Ces 3 collectes portent 3 organisations distinctes (c1→a1, c2→a2, c3→a3) : le
+-- seuil « acteurs » est donc satisfait et GEST04-5 ne mesure bien que le seuil ≥5.
 INSERT INTO plateforme.collecte_flux (collecte_id, flux_id, poids_reel_kg)
 SELECT c.id, (SELECT id FROM plateforme.flux_dechets WHERE code = 'emballage'), 100::decimal
 FROM (VALUES
@@ -188,12 +208,14 @@ SELECT is(
   'GEST04-9 : grain CDC — type_evenement_id exposé sur le segment'
 );
 
--- 10. Colonne d'audit nb_organisations_distinctes (§04) : 1 organisation dans la fixture.
+-- 10. nb_organisations_distinctes (§04) : 3 organisations dans la fixture. Depuis
+--     le durcissement 2026-09-22 cette colonne n'est plus un simple audit — c'est
+--     la garde qui autorise la publication du segment (seuil ≥ 3).
 SELECT is(
   (SELECT nb_organisations_distinctes FROM plateforme.f_benchmark_kg_pax_zd(p_taille_evenement_codes => ARRAY['M'])
     WHERE flux_code = 'biodechet'),
-  1,
-  'GEST04-10 : nb_organisations_distinctes exposé (= 1 org dans la fixture)'
+  3,
+  'GEST04-10 : nb_organisations_distinctes exposé (= 3 orgs dans la fixture)'
 );
 
 -- ── Encart « Filtres benchmark » : fonctions de liste parc (SECURITY DEFINER) ──

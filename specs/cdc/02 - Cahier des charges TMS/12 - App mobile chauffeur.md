@@ -1,5 +1,6 @@
 # 12 — App mobile chauffeur
 
+**Statut** : V1 rédigée 2026-04-27. **MAJ Bloc 3 2026-06-04** : D6 refondue (écran d'information géoloc à l'inscription, base légale intérêt légitime).
 **Périmètre** : section transverse — vue d'ensemble PWA chauffeur + arbitrages techniques structurants non tranchés dans M05. **Ne re-spécifie pas** les écrans, workflows, alertes, paramètres détaillés (voir [[06 - Fonctionnalités détaillées TMS/M05 - App mobile chauffeur|M05]] = source de vérité fonctionnelle).
 **Persona ciblé** : Chauffeur Strike / Marathon / futurs prestataires.
 **Référence transverse** : [[07 - Architecture technique TMS]] (stack), [[09 - Authentification et permissions TMS]] (auth + RLS), [[14 - Scalabilité TMS]] (perf), [[15 - Sécurité et conformité TMS]] (RGPD géoloc).

@@ -14,8 +14,14 @@ const TRAITEUR_ROLES: ClientRole[] = [
 // GET /api/v1/traiteur/collectes — liste des collectes de l'orga (§06.04 §3).
 // La RLS (col_select) garantit le cloisonnement : toutes les collectes de l'orga
 // (lecture alignée manager pour le commercial — révision 2026-05-29) + collectes
-// où le traiteur est opérationnel. Filtres : type (onglet ZD/AG), statut, période,
-// lieu, client organisateur, programmée par. Tri date décroissante.
+// où le traiteur est opérationnel. Tri date décroissante.
+//
+// Filtres §06.04 §3 « Filtres disponibles » (BL-P2-14, volet filtres) :
+//   type (sélecteur ZD/AG) · statut (multi) · période (from/to) · lieu_id ·
+//   client (nom du client organisateur) · info_incomplete (oui|non) ·
+//   programmee_par (multi, organisations programmatrices).
+// S'y ajoutent les paramètres de DRILL-DOWN depuis les Top listes du dashboard
+// (commercial_id, association_id, perimetre), qui ne sont pas des filtres d'UI.
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(req, TRAITEUR_ROLES);
   if (auth.error) return auth.error;
@@ -34,6 +40,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // POSSÉDÉS par l'org (evenements.organisation_id) — comme le calcul des Top
   // listes — au lieu du périmètre RLS plus large (org + opéré pour tiers).
   const perimetre = searchParams.get('perimetre');
+  // Filtre « Client Organisateur » : keyé sur le NOM (evenements.nom_client_organisateur),
+  // obligatoire à la confirmation d'une programmation, et non sur
+  // client_organisateur_organisation_id qui est un rattachement réservé Admin
+  // (NULL sur les événements programmés par un traiteur) — cf. route /filtres.
+  const client = searchParams.get('client');
+  // « Info incomplète » oui/non → collectes.informations_completes (booléen inverse).
+  const infoIncomplete = searchParams.get('info_incomplete');
+  // « Programmée par » (multi) : organisations ayant programmé l'événement.
+  const programmeePar = searchParams.get('programmee_par');
   // Drill-down « Top associations bénéficiaires » (AG) → collectes attribuées à
   // cette association (attributions_antgaspi.association_id, collecte_id UNIQUE).
   const associationId = searchParams.get('association_id');
@@ -76,6 +91,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     query = query.eq('evenements.organisation_id', auth.ctx.organisationId);
   if (associationId)
     query = query.eq('attributions_antgaspi.association_id', associationId);
+  if (client) query = query.eq('evenements.nom_client_organisateur', client);
+  if (infoIncomplete === 'oui' || infoIncomplete === 'non')
+    query = query.eq('informations_completes', infoIncomplete === 'non');
+  if (programmeePar) {
+    const ids = programmeePar.split(',').filter(Boolean);
+    if (ids.length > 0) query = query.in('evenements.organisation_id', ids);
+  }
 
   const { data, error } = await query;
   if (error) return serverError(error, 'traiteur.collectes.list');

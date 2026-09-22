@@ -415,7 +415,7 @@ describe('M3.2 / blocs gestionnaire — traiteurs + périmètre parc', () => {
     queues['v_referentiel_traiteurs'] = [
       {
         data: [
-          { id: 't1', nom: 'Traiteur Un', raison_sociale: 'TU SAS' },
+          { id: 't1', nom: 'Traiteur Un' },
           { id: 't2', nom: 'Traiteur Deux', raison_sociale: 'TD SAS' },
         ],
         error: null,

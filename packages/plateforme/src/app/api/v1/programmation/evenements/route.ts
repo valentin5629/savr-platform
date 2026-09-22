@@ -247,6 +247,38 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   }
 
+  // Gap C : gestionnaire_lieux — le traiteur opérant est obligatoire et choisi dans
+  // le référentiel : traiteur actif, NON shadow (§06.01 l.294 « pas d'option hors
+  // référentiel », miroir du WITH CHECK de evt_gestionnaire_insert). La policy est
+  // inerte depuis le REVOKE INSERT sur `evenements` (20260915190000) : cette garde
+  // est le seul rempart. Sans elle, un traiteur shadow passait, et un body sans
+  // traiteur retombait sur l'organisation du gestionnaire elle-même.
+  if (auth.ctx.role === 'gestionnaire_lieux') {
+    if (!body.traiteur_operationnel_organisation_id) {
+      return NextResponse.json(
+        { error: 'traiteur_operationnel_organisation_id requis pour ce rôle' },
+        { status: 422 },
+      );
+    }
+    const { data: traiteurReference } = await supabase
+      .from('organisations')
+      .select('id')
+      .eq('id', traiteurOperationnelId)
+      .eq('actif', true)
+      .eq('type', 'traiteur')
+      .eq('est_shadow', false)
+      .maybeSingle();
+    if (!traiteurReference) {
+      return NextResponse.json(
+        {
+          error:
+            'Traiteur opérationnel non autorisé : choisissez un traiteur du référentiel',
+        },
+        { status: 403 },
+      );
+    }
+  }
+
   // Gap B : agence — le traiteur opérationnel doit être soit un shadow de cette agence,
   // soit un traiteur réel actif référencé sur la plateforme (non-shadow, type=traiteur)
   if (auth.ctx.role === 'agence' && traiteurOperationnelId !== effectiveOrgId) {
@@ -416,6 +448,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       nomEvenement: evt.nom_evenement,
       pax: body.pax,
       organisationId: effectiveOrgId,
+      lieuId: body.lieu_id,
       collectes: body.collectes,
     }).catch(() => undefined); // non-bloquant
 

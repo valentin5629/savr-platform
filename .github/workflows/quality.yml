@@ -74,6 +74,12 @@ jobs:
         run: git fetch --quiet --prune origin '+refs/heads/*:refs/remotes/origin/*'
       - name: Auto-test du detecteur (non-vacuite)
         run: bash scripts/check-migration-timestamp.sh --self-test
+      # Le hook de merge n'est joue que par Claude Code, jamais en CI : sans cet
+      # auto-test, un resserrement de son motif le rendrait muet sans que personne
+      # ne le sache. C'est arrive une fois (il ne voyait plus `if gh pr merge …;
+      # then`, la forme imposee par le projet). Pur test de chaines, instantane.
+      - name: Auto-test du hook de merge (matrice des formes de commande)
+        run: bash .claude/hooks/gate-merge.sh --self-test
       - name: Collision de timestamp, y compris avec une branche non mergee
         run: bash scripts/check-migration-timestamp.sh --branch
 
@@ -430,6 +436,29 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: G2 — rapport grain livrable
         run: pnpm check:manifest-grain
+
+  # G12 — Ancrage des `ref_cdc` LIGNÉS des manifestes. `specs/manifests/` est
+  # authored, `specs/cdc/**` est DÉRIVÉ (re-sync depuis le Vault) : un sync qui
+  # insère des lignes en amont décale le fichier et les refs figées pointent un
+  # passage sans rapport, en silence. Ni manifest-grain (structure seule) ni
+  # cdc-drift (hash de fichier entier) ne regardent le numéro de ligne. Reconstruit
+  # l'ancre par `git blame` du manifeste → version d'époque du CDC → recherche du
+  # texte ancré aujourd'hui. Pur Node (tsx), sans DB.
+  # ⚠ `fetch-depth: 0` OBLIGATOIRE : sans historique, le blame est vide et le gate
+  # devient aveugle (il le signale dans son résumé).
+  # Enforcement via le méta-cliquet gate-ratchet (baseline 0 : parc recalé).
+  manifest-ref-anchor:
+    runs-on: ubuntu-latest
+    continue-on-error: true # MODE RAPPORT — le cliquet gate-ratchet enforce (baseline 0)
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 } # blame → ancre : l'historique complet est requis
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: G12 — rapport ancrage des ref_cdc
+        run: pnpm check:manifest-ref-anchor
 
   # check:renamed-type-refs — anti-récidive cluster C3 / #259. Rejoue les
   # `ALTER TYPE … RENAME` de toutes les migrations et flagge toute référence

@@ -13,7 +13,7 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
 }));
 
 import { ImpersonationBannerMount } from '@/components/ui/impersonation-banner-mount';
-import { ATTENTE_UI } from '@/test-utils/attente-ui';
+import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 // Forge un access_token JWT (base64url, non paddé) avec les claims donnés.
 function makeToken(claims: Record<string, unknown>): string {
@@ -26,89 +26,107 @@ describe('M0.6 — bandeau impersonation (BL-P1-AUTH-01)', () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.restoreAllMocks());
 
-  it('M0.6 — affiche le bandeau quand le claim impersonator_id est présent', async () => {
-    mockGetSession.mockResolvedValue({
-      data: {
-        session: {
-          access_token: makeToken({
-            impersonator_id: 'admin-1',
-            email: 'cible@traiteur.fr',
-            exp: Math.floor(Date.now() / 1000) + 3600,
-          }),
+  it(
+    'M0.6 — affiche le bandeau quand le claim impersonator_id est présent',
+    async () => {
+      mockGetSession.mockResolvedValue({
+        data: {
+          session: {
+            access_token: makeToken({
+              impersonator_id: 'admin-1',
+              email: 'cible@traiteur.fr',
+              exp: Math.floor(Date.now() / 1000) + 3600,
+            }),
+          },
         },
-      },
-    });
+      });
 
-    render(<ImpersonationBannerMount />);
-    await waitFor(
-      () => expect(screen.getByText(/cible@traiteur\.fr/)).toBeInTheDocument(),
-      ATTENTE_UI,
-    );
-    expect(
-      screen.getByRole('button', { name: /Quitter l'impersonation/i }),
-    ).toBeInTheDocument();
-  });
+      render(<ImpersonationBannerMount />);
+      await waitFor(
+        () =>
+          expect(screen.getByText(/cible@traiteur\.fr/)).toBeInTheDocument(),
+        ATTENTE_UI,
+      );
+      expect(
+        screen.getByRole('button', { name: /Quitter l'impersonation/i }),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('M0.6 — n’affiche rien pour une session normale (pas de claim)', async () => {
-    mockGetSession.mockResolvedValue({
-      data: {
-        session: { access_token: makeToken({ user_role: 'traiteur_manager' }) },
-      },
-    });
-
-    const { container } = render(<ImpersonationBannerMount />);
-    // Laisse l'effet async se résoudre.
-    await waitFor(() => expect(mockGetSession).toHaveBeenCalled(), ATTENTE_UI);
-    expect(container.querySelector('[role="alert"]')).toBeNull();
-  });
-
-  it('M0.6 — onExit POST /api/auth/exit-impersonation', async () => {
-    mockGetSession.mockResolvedValue({
-      data: {
-        session: {
-          access_token: makeToken({
-            impersonator_id: 'admin-1',
-            email: 'cible@traiteur.fr',
-            exp: Math.floor(Date.now() / 1000) + 3600,
-          }),
+  it(
+    'M0.6 — n’affiche rien pour une session normale (pas de claim)',
+    async () => {
+      mockGetSession.mockResolvedValue({
+        data: {
+          session: {
+            access_token: makeToken({ user_role: 'traiteur_manager' }),
+          },
         },
-      },
-    });
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue({ ok: true, json: async () => ({}) });
-    vi.stubGlobal('fetch', fetchMock);
-    // window.location.href assignable sous jsdom.
-    const hrefSetter = vi.fn();
-    Object.defineProperty(window, 'location', {
-      configurable: true,
-      value: {
-        set href(v: string) {
-          hrefSetter(v);
-        },
-        get href() {
-          return '';
-        },
-      },
-    });
+      });
 
-    render(<ImpersonationBannerMount />);
-    const btn = await screen.findByRole(
-      'button',
-      {
-        name: /Quitter l'impersonation/i,
-      },
-      ATTENTE_UI,
-    );
-    fireEvent.click(btn);
+      const { container } = render(<ImpersonationBannerMount />);
+      // Laisse l'effet async se résoudre.
+      await waitFor(
+        () => expect(mockGetSession).toHaveBeenCalled(),
+        ATTENTE_UI,
+      );
+      expect(container.querySelector('[role="alert"]')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
 
-    await waitFor(
-      () =>
-        expect(fetchMock).toHaveBeenCalledWith(
-          '/api/auth/exit-impersonation',
-          expect.objectContaining({ method: 'POST' }),
-        ),
-      ATTENTE_UI,
-    );
-  });
+  it(
+    'M0.6 — onExit POST /api/auth/exit-impersonation',
+    async () => {
+      mockGetSession.mockResolvedValue({
+        data: {
+          session: {
+            access_token: makeToken({
+              impersonator_id: 'admin-1',
+              email: 'cible@traiteur.fr',
+              exp: Math.floor(Date.now() / 1000) + 3600,
+            }),
+          },
+        },
+      });
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValue({ ok: true, json: async () => ({}) });
+      vi.stubGlobal('fetch', fetchMock);
+      // window.location.href assignable sous jsdom.
+      const hrefSetter = vi.fn();
+      Object.defineProperty(window, 'location', {
+        configurable: true,
+        value: {
+          set href(v: string) {
+            hrefSetter(v);
+          },
+          get href() {
+            return '';
+          },
+        },
+      });
+
+      render(<ImpersonationBannerMount />);
+      const btn = await screen.findByRole(
+        'button',
+        {
+          name: /Quitter l'impersonation/i,
+        },
+        ATTENTE_UI,
+      );
+      fireEvent.click(btn);
+
+      await waitFor(
+        () =>
+          expect(fetchMock).toHaveBeenCalledWith(
+            '/api/auth/exit-impersonation',
+            expect.objectContaining({ method: 'POST' }),
+          ),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
 });

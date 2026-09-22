@@ -4,39 +4,40 @@ import {
   createSupabaseServerClient,
   type ClientRole,
 } from '@/lib/api-auth.js';
-import { serverError } from '@/lib/api-helpers.js';
+import { serverError, writeError } from '@/lib/api-helpers.js';
+import { parseCleLogo } from '@/lib/logo-key.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
 // GET /api/v1/gestionnaire/mon-organisation/profil
 // PATCH /api/v1/gestionnaire/mon-organisation/profil
-// Profil de la propre organisation (champs non-sensibles).
-// Champs éditables : nom_affichage, description_activite, logo_url,
-//                    telephone_standard, site_web.
-// Champs protégés (Admin only) : siren, siret, tva_intra, statut_verification_*.
+// Profil de SA propre organisation (§06.05 nav 8 → réutilise §06.04 §6).
+// Filtre explicite `id = organisationId` (défense en profondeur) : depuis
+// 20260921090000 la RLS ne rend au gestionnaire que sa propre ligne (les traiteurs
+// tiers passent par la vue v_traiteurs_gestionnaire), mais le filtre reste la
+// garantie d'une ligne unique si une policy s'élargit.
+// Colonnes = colonnes RÉELLES de plateforme.organisations.
+// Champs éditables (§06.05 §6 Bloc Organisation) : adresse, logo_url.
+// Nom en lecture seule (modification via support) ; raison_sociale et siret
+// réservés à l'Admin.
 
-const EDITABLE_FIELDS = new Set([
-  'nom_affichage',
-  'description_activite',
-  'logo_url',
-  'telephone_standard',
-  'site_web',
-]);
+const PROFIL_COLUMNS =
+  'id, nom, raison_sociale, siret, adresse, email_principal, telephone, logo_url';
+
+const EDITABLE_FIELDS = new Set(['adresse', 'logo_url']);
+
+const ADRESSE_MAX = 500;
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(req, ROLES);
   if (auth.error) return auth.error;
-  void auth;
 
   const supabase = createSupabaseServerClient();
 
   const { data, error } = await supabase
     .from('organisations')
-    .select(
-      `id, nom, nom_affichage, type, logo_url, description_activite,
-       site_web, telephone_standard, ville, code_postal,
-       domaine_email, siret_verification, actif`,
-    )
+    .select(PROFIL_COLUMNS)
+    .eq('id', auth.ctx.organisationId)
     .maybeSingle();
 
   if (error)
@@ -53,7 +54,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 export async function PATCH(req: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(req, ROLES);
   if (auth.error) return auth.error;
-  void auth;
 
   const supabase = createSupabaseServerClient();
 
@@ -75,17 +75,36 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
       { status: 400 },
     );
 
+  if ('adresse' in patch) {
+    if (typeof patch.adresse !== 'string')
+      return NextResponse.json({ error: 'Adresse invalide' }, { status: 422 });
+    const adresse = patch.adresse.trim();
+    if (adresse.length > ADRESSE_MAX)
+      return NextResponse.json(
+        { error: `Adresse trop longue (${ADRESSE_MAX} caractères maximum)` },
+        { status: 422 },
+      );
+    patch.adresse = adresse === '' ? null : adresse;
+  }
+  // logo_url = uniquement une clé produite par POST /logo (lib/logo-key.ts,
+  // même garde que les lecteurs R2 et que le trigger trg_garde_format_logo).
+  if ('logo_url' in patch && !parseCleLogo(patch.logo_url as string | null))
+    return NextResponse.json({ error: 'Logo invalide' }, { status: 422 });
+
   const { data, error } = await supabase
     .from('organisations')
     .update(patch)
-    .select(
-      `id, nom, nom_affichage, type, logo_url, description_activite,
-       site_web, telephone_standard, ville, code_postal, actif`,
-    )
+    .eq('id', auth.ctx.organisationId)
+    .select(PROFIL_COLUMNS)
     .maybeSingle();
 
   if (error)
-    return serverError(error, 'gestionnaire.mon_organisation.profil.update');
+    return writeError(error, 'gestionnaire.mon_organisation.profil.update');
+  if (!data)
+    return NextResponse.json(
+      { error: 'Organisation non trouvée' },
+      { status: 404 },
+    );
 
   return NextResponse.json({ data });
 }

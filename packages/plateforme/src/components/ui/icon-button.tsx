@@ -20,7 +20,7 @@ const iconButtonVariants = cva(
           'bg-savr-primary-700 text-savr-white hover:bg-savr-primary-800 focus-visible:outline-savr-primary-500',
         // Destructif (supprimer)
         destructive:
-          'bg-transparent text-savr-neutral-500 hover:bg-savr-error-subtle hover:text-savr-error-strong focus-visible:outline-savr-error',
+          'bg-transparent text-savr-neutral-500 hover:bg-savr-error-subtle hover:text-savr-error-strong',
       },
       size: {
         // 44px mobile → 40px desktop (cible tactile §8/§10)

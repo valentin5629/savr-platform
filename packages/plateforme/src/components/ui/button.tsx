@@ -19,10 +19,10 @@ const buttonVariants = cva(
           'bg-savr-white border border-savr-neutral-300 text-savr-neutral-900 hover:bg-savr-neutral-100 active:bg-savr-neutral-200 focus-visible:outline-savr-primary-500',
         // Accent : orange réservé CTA secondaires (levier #3) — texte primary-950 (contraste)
         accent:
-          'bg-savr-accent-500 text-savr-primary-950 hover:bg-savr-accent-600 hover:-translate-y-px active:bg-savr-accent-600 focus-visible:outline-savr-accent-600',
+          'bg-savr-accent-500 text-savr-primary-950 hover:bg-savr-accent-600 hover:-translate-y-px active:bg-savr-accent-600',
         // Destructif
         destructive:
-          'bg-savr-error text-savr-white hover:bg-savr-error-strong active:bg-savr-error-strong focus-visible:outline-savr-error',
+          'bg-savr-error text-savr-white hover:bg-savr-error-strong active:bg-savr-error-strong',
         // Ghost : transparent, texte primary-700
         ghost:
           'bg-transparent text-savr-primary-700 hover:bg-savr-primary-50 active:bg-savr-primary-100 focus-visible:outline-savr-primary-500',

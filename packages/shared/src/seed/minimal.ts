@@ -18,7 +18,12 @@
 import type pg from 'pg';
 import { seedUuid } from './uuid.js';
 import { upsert, lookupMap, jsonb, type Row } from './db.js';
-import { SEED_REF_DATE, fakePhone, seedEmail } from './constants.js';
+import {
+  SEED_REF_DATE,
+  fakePhone,
+  seedEmail,
+  horairesAssociationSeed,
+} from './constants.js';
 import { jourParis } from '../temps/index.js';
 
 const U = seedUuid;
@@ -350,6 +355,9 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
         contact_telephone: fakePhone(21),
         habilitee_attestation_fiscale: true,
         actif: true,
+        // Ouverte 24h/24 : proposée par l'algo AG pour toute collecte, nuit comprise.
+        capacite_max_beneficiaires: 300,
+        horaires_ouverture: jsonb(horairesAssociationSeed('24h')),
         description_rapport_impact:
           'Association Alpha — redistribution alimentaire aux personnes précaires en Île-de-France.',
       },
@@ -364,6 +372,9 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
         contact_telephone: fakePhone(22),
         habilitee_attestation_fiscale: false,
         actif: true,
+        // Jours ouvrés 08:00-20:00 : exclue des collectes de nuit et du week-end.
+        capacite_max_beneficiaires: 150,
+        horaires_ouverture: jsonb(horairesAssociationSeed('jour_semaine')),
         description_rapport_impact:
           'Association Bravo — collecte et redistribution pour les familles du Val-de-Marne.',
       },

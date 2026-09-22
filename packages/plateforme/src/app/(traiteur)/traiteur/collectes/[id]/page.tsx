@@ -1,13 +1,23 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { use, useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { AlertBar } from '@/components/ui/alert-bar';
+import { Badge } from '@/components/ui/badge';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Modal } from '@/components/ui/modal';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip } from '@/components/ui/tooltip';
 import { EditerCollecteForm } from '@/components/collecte/editer-collecte-form';
+import {
+  BenchmarkFilterBar,
+  FLUX_ZD,
+  type BenchmarkFilters,
+} from '@/components/dashboards';
+import { BenchmarkBulletGauges } from '@/components/dashboards/charts/cockpit/BenchmarkBulletGauges';
 import { refCourteCollecte } from '@/lib/collecte-ref';
+import { formatDateParis } from '@savr/shared/src/temps/index.js';
 
 // Tooltip méthode UE (§06.04 l.422) — texte figé, affiché sur le libellé « Taux de
 // recyclage » de la fiche (BL-P3-03).
@@ -16,11 +26,20 @@ const TOOLTIP_TAUX_UE =
   'effectifs par filière (verre, carton, biodéchets, emballages). L’OMR (déchet ' +
   'résiduel) entre uniquement au dénominateur. Voir Méthodologie.';
 
+// Libellés des organisations programmatrices tierces (§06.04 badge « Programmée par »).
+const TYPE_ORGA_LABEL: Record<string, string> = {
+  agence: 'agence',
+  gestionnaire_lieux: 'gestionnaire de lieux',
+};
+
 interface Lieu {
   nom: string;
   adresse_acces: string | null;
   code_postal: string | null;
   ville: string | null;
+}
+interface TypeEvenement {
+  libelle: string | null;
 }
 interface Evenement {
   id: string;
@@ -34,6 +53,7 @@ interface Evenement {
   contact_principal_telephone: string | null;
   contact_secours_nom: string | null;
   contact_secours_telephone: string | null;
+  type_evenement: TypeEvenement | TypeEvenement[] | null;
   lieu: Lieu | Lieu[] | null;
 }
 interface TourneeInfo {
@@ -58,6 +78,11 @@ interface FactureInfo {
   pdf_url_savr: string | null;
   pdf_url_pennylane: string | null;
 }
+interface ProgrammeePar {
+  nom: string;
+  type: string;
+  email: string | null;
+}
 interface Collecte {
   id: string;
   type: string;
@@ -73,12 +98,19 @@ interface Collecte {
   taux_recyclage: number | null;
   realisee_at: string | null;
   aucun_repas_motif: string | null;
+  taille_bracket: string | null;
+  programmee_par: ProgrammeePar | null;
   tournees: TourneeInfo[] | null;
   rapport_rse_disponible: boolean | null;
   rapport_rse_regenere: boolean | null;
   can_regenerate: boolean | null;
   factures: FactureInfo[] | null;
   evenement: Evenement | Evenement[] | null;
+}
+
+interface BenchmarkFlux {
+  ratio_user: number | null;
+  benchmark_kg_pax: number | null;
 }
 
 function one<T>(v: T | T[] | null): T | null {
@@ -88,6 +120,24 @@ function one<T>(v: T | T[] | null): T | null {
 
 const STATUTS_EDITABLES = ['programmee', 'validee'];
 const STATUTS_ANNULABLES = ['brouillon', 'programmee', 'validee'];
+// Bloc 3 ZD jauges — collectes ZD terminées (§06.04 l.428).
+const STATUTS_BENCHMARK = ['realisee', 'cloturee'];
+
+/** Cellule label/valeur du bloc d'entête (§06.04 « Bloc d'entête »). */
+function Info({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <div className="text-xs text-savr-neutral-500">{label}</div>
+      <div className="text-savr-neutral-900">{children}</div>
+    </div>
+  );
+}
 
 export default function FicheCollectePage({
   params,
@@ -97,6 +147,7 @@ export default function FicheCollectePage({
   const { id } = use(params);
   const [c, setC] = useState<Collecte | null>(null);
   const [loading, setLoading] = useState(true);
+  const [erreur, setErreur] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
 
   // Annulation (BL-P1-TRAIT-03) — modale + champ motif (plus de POST à motif vide).
@@ -105,17 +156,69 @@ export default function FicheCollectePage({
   const [annulEnCours, setAnnulEnCours] = useState(false);
   const [annulErreur, setAnnulErreur] = useState<string | null>(null);
   const [regenEnCours, setRegenEnCours] = useState(false);
+  const [progOpen, setProgOpen] = useState(false);
 
-  function reload() {
+  // Bloc 3 ZD — repère parc par flux. Premier rendu sans filtre (segment de la
+  // collecte) ; l'encart émet ensuite ses défauts (12 mois glissants) et le
+  // repère est recalculé — les jauges, elles, ne bougent pas.
+  const [bench, setBench] = useState<Record<string, BenchmarkFlux> | null>(
+    null,
+  );
+  const [benchFilters, setBenchFilters] = useState<BenchmarkFilters | null>(
+    null,
+  );
+
+  // Navigation fiche → fiche : le segment App Router est le même, donc le
+  // composant n'est PAS remonté et une réponse lente de la fiche quittée
+  // écraserait la nouvelle. On compare l'id capturé par la requête à l'id
+  // actuellement rendu — `idRendu` est réaffecté à chaque rendu, jamais dans un
+  // effet (un drapeau armé au démontage retomberait à false au montage de
+  // l'effet suivant, et ne protégerait donc que le démontage). Ce motif couvre
+  // aussi les `reload()` manuels, déclenchés hors de tout effet après une
+  // annulation ou une régénération.
+  const idRendu = useRef(id);
+  idRendu.current = id;
+
+  const reload = useCallback(() => {
+    setErreur(null);
+    const perime = (): boolean => idRendu.current !== id;
     fetch(`/api/v1/traiteur/collectes/${encodeURIComponent(id)}`)
-      .then((r) => r.json())
-      .then((j) => setC(j.data ?? null))
-      .finally(() => setLoading(false));
-  }
+      .then(async (r) => {
+        // 404 = collecte supprimée ou sortie du périmètre : ce n'est pas une
+        // panne, et « Réessayer » n'y changerait rien. La page rend son état
+        // « introuvable », distinct de l'état Error (§10 §7).
+        if (r.status === 404) return null;
+        if (!r.ok) throw new Error(String(r.status));
+        return r.json();
+      })
+      .then((j) => {
+        if (perime()) return;
+        setC(j?.data ?? null);
+      })
+      .catch(() => {
+        if (!perime()) setErreur('Le chargement de la collecte a échoué.');
+      })
+      .finally(() => {
+        if (!perime()) setLoading(false);
+      });
+  }, [id]);
 
   useEffect(() => {
+    // Réinitialiser AVANT de recharger : sans cela, le temps d'un aller-retour,
+    // `loading` vaut false et `c` porte encore la collecte quittée — l'écran
+    // rend donc la fiche précédente pendant que l'URL, et les actions, portent
+    // déjà sur la nouvelle. `reload` ne change d'identité qu'avec `id`, donc
+    // cela ne se déclenche qu'à la navigation, jamais sur un reload() manuel
+    // (pas de clignotement du squelette après une annulation).
+    setC(null);
+    setLoading(true);
+    // `bench` porte le ratio kg/pax de LA collecte, pas du parc : sans purge,
+    // le bloc 3 de la nouvelle fiche afficherait un aller-retour durant les
+    // jauges de la précédente. `key={id}` remonte l'encart de filtres, pas cet
+    // état, qui vit ici.
+    setBench(null);
     reload();
-  }, [id]);
+  }, [reload]);
 
   // Ouverture directe en mode édition depuis l'action « Modifier » de la liste
   // (/traiteur/collectes/[id]?edit=1). Lu via window.location pour éviter la
@@ -128,6 +231,44 @@ export default function FicheCollectePage({
       setEditing(true);
     }
   }, []);
+
+  const benchmarkVisible =
+    c?.type === 'zero_dechet' && STATUTS_BENCHMARK.includes(c.statut);
+
+  useEffect(() => {
+    if (!benchmarkVisible || !benchFilters) return;
+    const qs = new URLSearchParams();
+    if (benchFilters.periode_debut)
+      qs.set('periode_debut', benchFilters.periode_debut);
+    if (benchFilters.periode_fin)
+      qs.set('periode_fin', benchFilters.periode_fin);
+    if (benchFilters.type_evenement_ids.length)
+      qs.set('type_evenement_ids', benchFilters.type_evenement_ids.join(','));
+    if (benchFilters.taille_evenement_codes.length)
+      qs.set(
+        'taille_evenement_codes',
+        benchFilters.taille_evenement_codes.join(','),
+      );
+    if (benchFilters.lieu_ids.length)
+      qs.set('lieu_ids', benchFilters.lieu_ids.join(','));
+    const url = `/api/v1/traiteur/collectes/${encodeURIComponent(id)}/benchmark?${qs.toString()}`;
+    let annule = false;
+    fetch(url)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (annule) return;
+        // Échec du recalcul ⇒ on RETIRE le repère au lieu de laisser celui des
+        // filtres précédents : un chiffre périmé sans signal est pire que pas
+        // de chiffre sur un écran dont la fonction est la comparaison.
+        setBench(j?.data?.flux ?? null);
+      })
+      .catch(() => {
+        if (!annule) setBench(null);
+      });
+    return () => {
+      annule = true;
+    };
+  }, [id, benchmarkVisible, benchFilters]);
 
   async function confirmerAnnulation() {
     setAnnulEnCours(true);
@@ -176,13 +317,46 @@ export default function FicheCollectePage({
     }
   }
 
-  if (loading) return <p className="p-4 text-sm">Chargement…</p>;
+  // États système §10 §7 : Loading = skeleton à la forme du contenu, Error =
+  // message + « Réessayer » (jamais un « introuvable » trompeur sur un 500).
+  if (loading)
+    return (
+      <div className="space-y-6" data-testid="fiche-skeleton">
+        <div className="space-y-2">
+          <Skeleton className="h-7 w-2/3" />
+          <Skeleton className="h-3 w-28" />
+        </div>
+        <Skeleton className="h-36 w-full" />
+        <Skeleton className="h-10 w-64" />
+      </div>
+    );
+  if (erreur)
+    return (
+      <div className="space-y-4" data-testid="fiche-erreur">
+        <AlertBar variant="err">{erreur}</AlertBar>
+        <Button
+          variant="secondary"
+          onClick={() => {
+            setLoading(true);
+            reload();
+          }}
+        >
+          Réessayer
+        </Button>
+      </div>
+    );
   if (!c) return <p className="p-4 text-sm">Collecte introuvable.</p>;
 
   const evt = one(c.evenement);
   const lieu = one(evt?.lieu ?? null);
+  const typeEvt = one(evt?.type_evenement ?? null);
   const pax = evt?.pax != null ? `${evt.pax} pax` : '— pax';
-  const titre = [c.date_collecte, lieu?.nom, evt?.nom_client_organisateur, pax]
+  const titre = [
+    formatDateParis(c.date_collecte),
+    lieu?.nom,
+    evt?.nom_client_organisateur,
+    pax,
+  ]
     .filter(Boolean)
     .join(' - ');
 
@@ -200,13 +374,22 @@ export default function FicheCollectePage({
   );
 
   const estDemande = c.statut === 'validee';
+  const progTypeLabel = c.programmee_par
+    ? (TYPE_ORGA_LABEL[c.programmee_par.type] ?? c.programmee_par.type)
+    : null;
+
+  const gaugeItems = FLUX_ZD.map((f) => ({
+    label: f.label,
+    value: bench?.[f.code]?.ratio_user ?? null,
+    benchmark: bench?.[f.code]?.benchmark_kg_pax ?? null,
+  }));
 
   return (
     <div className="space-y-6">
       {!c.informations_completes && (
-        <div className="rounded-savr-md bg-savr-warning-subtle px-4 py-2 text-sm text-savr-warning-strong">
+        <AlertBar variant="warn" data-testid="bandeau-infos-incompletes">
           Informations incomplètes — merci de compléter avant la collecte.
-        </div>
+        </AlertBar>
       )}
 
       <div>
@@ -216,34 +399,62 @@ export default function FicheCollectePage({
         </p>
       </div>
 
-      {/* Entête infos pilotantes */}
+      {/* Bloc d'entête — infos pilotantes (§06.04 « Bloc d'entête ») */}
       <Card>
-        <CardContent className="grid grid-cols-1 gap-2 pt-6 text-sm md:grid-cols-2">
-          <div>
-            <span className="text-savr-neutral-500">Adresse : </span>
+        <CardContent className="grid grid-cols-1 gap-4 pt-6 text-sm sm:grid-cols-2 lg:grid-cols-4">
+          <Info label="Adresse">
             {[lieu?.adresse_acces, lieu?.code_postal, lieu?.ville]
               .filter(Boolean)
               .join(' ') || '—'}
-          </div>
-          <div>
-            <span className="text-savr-neutral-500">Heure : </span>
+          </Info>
+          <Info label="Heure de collecte">
             {c.heure_collecte?.slice(0, 5) ?? '—'}
-          </div>
-          <div>
-            <span className="text-savr-neutral-500">Contact principal : </span>
+          </Info>
+          <Info label="Type d’événement">
+            <span className="flex flex-wrap items-center gap-2">
+              {typeEvt?.libelle ?? '—'}
+              {c.taille_bracket && (
+                <Badge
+                  variant="neutral"
+                  dot={false}
+                  title={`Taille de l’événement (calculée sur le nombre de convives) : ${c.taille_bracket}`}
+                >
+                  {c.taille_bracket}
+                </Badge>
+              )}
+            </span>
+          </Info>
+          <Info label="Statut">
+            <CollecteStatutBadge statut={c.statut} />
+          </Info>
+          <Info label="Contact principal">
             {evt?.contact_principal_nom ?? '—'}{' '}
             {evt?.contact_principal_telephone ?? ''}
-          </div>
+          </Info>
           {evt?.contact_secours_nom && (
-            <div>
-              <span className="text-savr-neutral-500">Contact secours : </span>
+            <Info label="Contact secours">
               {evt.contact_secours_nom} {evt.contact_secours_telephone ?? ''}
+            </Info>
+          )}
+          {/* Badge « Programmée par » (§06.04, ajout 2026-05-07) : l'événement a
+              été programmé par un tiers, le traiteur est l'opérationnel sur place.
+              Libellé porté PAR le badge — « Programmée par {nom} ({type}) », forme
+              exacte du CDC et du scénario lecture_collecte_programmee_par_tiers —
+              donc hors grille label/valeur, qui le dédoublerait. */}
+          {c.programmee_par && (
+            <div className="sm:col-span-2 lg:col-span-4">
+              <button
+                type="button"
+                data-testid="badge-programmee-par"
+                onClick={() => setProgOpen(true)}
+                className="rounded-savr-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-savr-accent-600 focus-visible:ring-offset-2"
+              >
+                <Badge variant="action">
+                  Programmée par {c.programmee_par.nom} ({progTypeLabel})
+                </Badge>
+              </button>
             </div>
           )}
-          <div>
-            <span className="text-savr-neutral-500">Statut : </span>
-            <CollecteStatutBadge statut={c.statut} />
-          </div>
         </CardContent>
       </Card>
 
@@ -328,7 +539,7 @@ export default function FicheCollectePage({
             {c.rapport_rse_regenere && (
               <span
                 data-testid="rapport-regenere"
-                className="inline-flex items-center gap-1 text-xs text-amber-700"
+                className="inline-flex items-center gap-1 text-xs text-savr-warning-strong"
                 title="Ce rapport a été mis à jour après sa première génération."
               >
                 ⟳ Rapport mis à jour
@@ -398,6 +609,27 @@ export default function FicheCollectePage({
         </Card>
       )}
 
+      {/* Bloc 3 ZD — jauges kg/pax de CETTE collecte × repère parc (§06.04).
+          Filtres du repère imbriqués dans la carte (même assemblage que les
+          dashboards) ; k-anonymat ≥5 appliqué côté serveur → repère masqué. */}
+      {benchmarkVisible && (
+        <div data-testid="bloc-3-zd-fiche" key={id}>
+          <BenchmarkBulletGauges
+            items={gaugeItems}
+            filtersSlot={
+              <BenchmarkFilterBar
+                embedded
+                onChange={setBenchFilters}
+                initialTypeEvenementIds={
+                  evt?.type_evenement_id ? [evt.type_evenement_id] : []
+                }
+                initialTailleCodes={c.taille_bracket ? [c.taille_bracket] : []}
+              />
+            }
+          />
+        </div>
+      )}
+
       {/* Bloc Contrôle d'accès (BL-P1-TRAIT-03) — plaque + nom chauffeur (tournées) */}
       {controleAccesVisible && (
         <Card data-testid="bloc-controle-acces">
@@ -465,6 +697,38 @@ export default function FicheCollectePage({
           </CardContent>
         </Card>
       )}
+
+      {/* Modale info « Programmée par » (§06.04) — informative, sans action :
+          le droit de retrait passe par les boutons Éditer / Annuler existants. */}
+      <Modal
+        open={progOpen}
+        title="Collecte programmée par un tiers"
+        onClose={() => setProgOpen(false)}
+      >
+        <div className="space-y-4 text-sm">
+          <p>
+            Cette collecte a été programmée par{' '}
+            <strong>{c.programmee_par?.nom}</strong>, {progTypeLabel}. Vous êtes
+            le traiteur opérationnel sur place.
+          </p>
+          {c.programmee_par?.email && (
+            <p className="text-savr-neutral-500">
+              Pour toute question :{' '}
+              <a
+                className="text-savr-primary-700 underline"
+                href={`mailto:${c.programmee_par.email}`}
+              >
+                {c.programmee_par.email}
+              </a>
+            </p>
+          )}
+          <div className="flex justify-end border-t border-savr-neutral-100 pt-4">
+            <Button variant="secondary" onClick={() => setProgOpen(false)}>
+              Fermer
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Modale d'annulation / demande d'annulation (BL-P1-TRAIT-03) */}
       <Modal

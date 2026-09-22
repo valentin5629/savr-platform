@@ -107,7 +107,7 @@
     },
     {
       "id": "M3.6-cockpit-declinaison",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:129",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:132",
       "artefact": "packages/plateforme/src/app/(admin)/admin/dashboard-client/DashboardClientView.tsx",
       "test": "M3.6/cockpit_declinaison_kpi_cards + M3.6/cockpit_declinaison_onglet_ag + M3.6/dashboard_client_toutes_organisations_lecture_seule",
       "statut": "implemented",
@@ -115,7 +115,7 @@
     },
     {
       "id": "M3.6-cockpit-endpoint",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:129",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:132",
       "artefact": "packages/plateforme/src/lib/dashboards/admin-dashboard-client.ts + packages/plateforme/src/app/api/v1/admin/dashboard-client/route.ts + packages/plateforme/src/lib/dashboards/loaders.ts (buildEvolutionSeries exporté)",
       "test": "M3.6/kpi_zd_4_indicateurs_pondere + M3.6/kpi_ag_repas_donnes + M3.6/kpi_toutes_organisations_sans_filtre_org + M3.6/kpi_organisations_selectionnees_filtre_in + M3.6/kpi_filtre_periode_date_collecte",
       "statut": "implemented",
@@ -123,7 +123,7 @@
     },
     {
       "id": "M3.6-scope-operateur",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:118",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:121",
       "artefact": "packages/plateforme/src/lib/dashboards/admin-dashboard-client.ts (applyScope .or)",
       "test": "M3.6/kpi_organisations_selectionnees_filtre_in + M3.6/kpi_toutes_organisations_sans_filtre_org",
       "statut": "implemented",
@@ -131,7 +131,7 @@
     },
     {
       "id": "M3.6-drilldown",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:129",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:132",
       "artefact": "packages/plateforme/src/app/(admin)/admin/dashboard-client/DashboardClientView.tsx + packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (URL-aware) + packages/plateforme/src/app/api/v1/admin/collectes/route.ts (param traiteur_operationnel_id)",
       "test": "M3.6/cockpit_declinaison_drilldown + M0.6 — filtres avancés : traiteur/lieu peuplés + filtrage serveur",
       "statut": "implemented",
@@ -139,7 +139,7 @@
     },
     {
       "id": "M3.6-org-selecteur",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:118",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:121",
       "artefact": "packages/plateforme/src/app/(admin)/admin/dashboard-client/OrganisationSelector.tsx",
       "test": "M3.6/org_selecteur_cellules_par_type + M3.6/dashboard_client_toutes_organisations_lecture_seule",
       "statut": "implemented",
@@ -147,7 +147,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "870a839c0f23b1323adfa0e12c8858f50181c5f77a03dca271fded8295b98ca3",
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "41cc7ea0cf5e68d671ad0ff900ee17e0843e006998cd977ebc2c43c2b3d6938a"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "1935353d3942e1ec2ebccbce6940fd99a75ee55d7d9db95692529594b4a0124d",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "c6063eda0e8c3e48ca88adc26d1fbe1ad7c67a92774f5c026ec64f183be92b67"
   }
 }

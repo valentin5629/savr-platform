@@ -146,7 +146,7 @@
       "artefact": "packages/plateforme/src/components/ui/components.m0-8.test.tsx (cliquet transverse)",
       "test": "M0.8-4d — aucune source ne pose de couleur d'anneau divergente (anneau uniforme)",
       "statut": "implemented",
-      "libelle": "Anneau uniforme garanti à l'échelle du repo — aucune source ne pose de `focus-visible:outline-savr-*` ni `focus:outline-savr-*` autre que `primary-500`. M0.8-4b ne rend que Button et IconButton : il n'aurait pas vu le `outline-savr-primary-800` du bandeau d'impersonation, inerte jusqu'à la bascule en `@layer base` puis divergent après (retiré par ce lot)."
+      "libelle": "Anneau uniforme garanti à l'échelle du repo — aucune source ne pose de `focus-visible:outline-savr-*` ni `focus:outline-savr-*` autre que `primary-500`. M0.8-4b ne rend que Button et IconButton : il n'aurait pas vu la nuance `primary-800` posée par le bandeau d'impersonation, inerte jusqu'à la bascule en `@layer base` puis divergent après (retiré par ce lot)."
     },
     {
       "id": "M0.8-05",

@@ -265,26 +265,85 @@ it("M0.8-4c — aucun composant ne neutralise l'anneau de focus sans le remplace
 });
 
 it("M0.8-4d — aucune source ne pose de couleur d'anneau divergente (anneau uniforme)", () => {
-  // M0.8-4b ne rend que Button et IconButton : il n'aurait jamais vu le
-  // `focus-visible:outline-savr-primary-800` du bandeau d'impersonation, resté
-  // inerte tant que la règle globale n'était pas layered. Ce cliquet-ci scanne
+  // M0.8-4b ne rend que Button et IconButton : il n'aurait jamais vu la nuance
+  // `primary-800` que le bandeau d'impersonation posait sur son anneau, restée
+  // inerte tant que la règle globale n'était pas layered. (Le nom complet de la
+  // classe n'est pas écrit ici : le scanner Tailwind lit aussi les commentaires
+  // des tests et regénérerait l'utilitaire, donc du CSS mort.) Ce cliquet scanne
   // TOUTES les sources : depuis l'arbitrage Val 2026-09-22, la seule couleur
   // d'anneau admise est `primary-500` — et l'écrire reste redondant, puisque
   // `globals.css` la pose déjà pour tout élément focusable.
+  //
+  // Les DEUX mécanismes sont couverts, `outline-*` comme `ring-*` (box-shadow) :
+  // se limiter à `outline-` laisserait passer un anneau orange posé en ring, et
+  // laisserait aussi passer la palette Tailwind par défaut — `@theme` AJOUTE nos
+  // jetons sans purger `red-500` & co, donc un extrait copié d'ailleurs compile
+  // sans rien signaler.
+  const DETTE = [
+    {
+      fichier: 'app/(traiteur)/traiteur/collectes/[id]/page.tsx',
+      jeton: 'savr-accent-600',
+      motif: 'anneau orange — écart le plus visible, à reprendre en premier',
+    },
+    {
+      fichier: 'components/collecte/collecte-filtre-actif.tsx',
+      jeton: 'savr-primary-400',
+      motif: 'nuance plus claire que le DS',
+    },
+    {
+      fichier: 'components/dashboards/charts/cockpit/TopRankList.tsx',
+      jeton: 'savr-primary-400',
+      motif:
+        'idem — Cockpit R24, zone figée GO-VISUAL : ne pas toucher sans Val',
+    },
+    {
+      fichier: 'app/(admin)/admin/dashboard-client/OrganisationSelector.tsx',
+      jeton: 'savr-primary-500/30',
+      motif: 'anneau à 1,90:1, rattrapé par un focus:border à 7,07:1',
+    },
+    {
+      fichier: 'components/dashboards/CollecteTypeTabs.tsx',
+      jeton: 'ring',
+      motif:
+        '`ring-ring` n’est généré nulle part (--ring vit dans :root, pas en --color-ring dans @theme) → currentcolor',
+    },
+    {
+      fichier: 'components/dashboards/DashboardFilterBar.tsx',
+      jeton: 'ring',
+      motif: 'idem CollecteTypeTabs',
+    },
+  ];
+  // Jetons qui ne désignent pas une couleur (épaisseur, offset, neutralisation).
+  const NON_COULEUR =
+    /^(?:\d+|none|hidden|inset|offset-\d+|offset-current|offset-transparent)$/;
+
   const divergentes: string[] = [];
+  const detteServie = new Set<string>();
   for (const { relatif, contenu } of sourcesDeLApp()) {
     sansCommentaires(contenu)
       .split('\n')
       .forEach((ligne, i) => {
-        for (const [, couleur] of ligne.matchAll(
-          /\b(?:focus|focus-visible):outline-(savr-[a-z0-9-]+)/g,
+        for (const [, jeton] of ligne.matchAll(
+          /\b(?:[a-z0-9-]+:)*(?:focus|focus-visible|focus-within):(?:outline|ring)-([a-z0-9/-]+)/g,
         )) {
-          if (couleur !== 'savr-primary-500')
-            divergentes.push(`${relatif}:${i + 1} → ${couleur}`);
+          if (!jeton || NON_COULEUR.test(jeton)) continue;
+          if (jeton === 'savr-primary-500') continue;
+          const connue = DETTE.find(
+            (d) => d.fichier === relatif && d.jeton === jeton,
+          );
+          if (connue) {
+            detteServie.add(connue.fichier + connue.jeton);
+            continue;
+          }
+          divergentes.push(`${relatif}:${i + 1} → ${jeton}`);
         }
       });
   }
+  // Liste FERMÉE : la dette connue ne peut que se réduire, jamais s'étendre.
   expect(divergentes).toEqual([]);
+  expect(DETTE.filter((d) => !detteServie.has(d.fichier + d.jeton))).toEqual(
+    [],
+  );
 });
 
 it('M0.8-5 — Card au repos a bordure neutral-200 et ombre none', () => {

@@ -525,9 +525,17 @@
       "id": "M3.2-liste-collectes",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:81",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx",
-      "test": "M3.2/collectes_liste_rendue_au_design_system + M3.2/collectes_erreur_chargement_message_et_reessayer + M3.2/collectes_liste_vide_empty_state + M3.2/collectes_etat_chargement_skeleton + M3.2/collectes_ligne_ouvre_la_fiche + M3.2/collectes_erreur_perimee_ninvalide_pas_la_reponse_fraiche",
+      "test": "M3.2/collectes_liste_rendue_au_design_system + M3.2/collectes_erreur_chargement_message_et_reessayer + M3.2/collectes_liste_vide_empty_state + M3.2/collectes_etat_chargement_skeleton + M3.2/collectes_ligne_ouvre_la_fiche + M3.2/collectes_erreur_perimee_ninvalide_pas_la_reponse_fraiche + M3.2/collectes_pagination_total_affiche_au_dela_dune_page + M3.2/collectes_pagination_demande_la_page_suivante_au_serveur + M3.2/collectes_pagination_absente_sous_le_seuil + M3.2/collectes_changement_de_filtre_revient_page_1 + M3.2/collectes_page_devenue_hors_bornes_revient_sur_la_derniere_valide + M3.2/collectes_derniere_page_vide_ne_bloque_pas_lecran",
       "statut": "à-vérifier",
-      "libelle": "Liste Collectes gestionnaire (§06.05 nav 4 l.70, section réintégrée l.81 ; liste plate, chip « Filtre actif » du drill-down l.203) — habillage DS §10 : PageHero, DataTable (cards < 640px), EmptyState, et les 3 états système §7 rendus distincts (Error ≠ Empty). OUVERT : route plafonnée à 100 lignes, sans pagination ni notice de troncature."
+      "libelle": "Liste Collectes gestionnaire (§06.05 nav 4 l.70, section réintégrée l.81 ; liste plate, chip « Filtre actif » du drill-down l.203) — habillage DS §10 : PageHero, DataTable (cards < 640px), EmptyState, et les 3 états système §7 rendus distincts (Error ≠ Empty). Pagination DS au-delà d'une page, avec le total exact affiché (décision Val 2026-09-22) ; la page courante est ancrée au périmètre des filtres, donc un drill-down repart en page 1. Une page devenue hors bornes (liste rétrécie pendant la consultation) ramène sur la dernière page valide, au lieu d'afficher l'état vide sans pagination pour en sortir."
+    },
+    {
+      "id": "M3.2-collectes-pagination-serveur",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:81",
+      "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/collectes/route.ts",
+      "test": "M3.2/collectes_route_pagine_et_renvoie_le_total_exact + M3.2/collectes_route_fenetre_la_page_demandee + M3.2/collectes_route_ne_tronque_plus_a_100 + M3.2/collectes_route_ordre_departage_stable_entre_pages + M3.2/collectes_route_page_hors_bornes_retombe_sur_1 + M3.2/collectes_route_pagination_compatible_avec_le_drilldown + M3.2/collectes_route_page_au_dela_de_la_derniere_nest_pas_une_panne + M3.2/collectes_route_echec_reel_reste_une_erreur + M3.2/collectes_route_recompte_hors_bornes_porte_les_memes_filtres",
+      "statut": "implemented",
+      "libelle": "Pagination serveur de la liste Collectes gestionnaire (count: 'exact' + range, 50/page, pattern §06.06 admin/lieux). Remplace le `.limit(100)` qui tronquait la liste sans le dire, alors que le §06.05 l.203 veut cette liste LARGE (« tous statuts, type ZD/AG non figé »). Décision Val 2026-09-22 — le §06.05 ne spécifie pas la taille de cette liste (divergence M3.2 2026-09-22, type ambigu). Une page demandée au-delà de la dernière (lien partagé, liste rétrécie) rend une page vide avec le total exact, jamais un 500."
     }
   ],
   "cdc_source_hash": {

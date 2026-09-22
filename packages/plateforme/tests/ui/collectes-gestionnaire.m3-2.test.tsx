@@ -11,6 +11,14 @@
  * sur ce lot : l'échec d'une requête PÉRIMÉE épinglait l'écran sur l'erreur alors
  * que la requête fraîche avait réussi (la branche `erreur` l'emporte sur le
  * contenu). Elle couvre du même coup la course de réponses préexistante.
+ *
+ * Les sondes `pagination_*` (décision Val 2026-09-22) couvrent la troncature
+ * silencieuse : la route coupait à 100 lignes et ne renvoyait aucun total, donc
+ * un parc de plus de 100 collectes affichait une liste d'apparence complète qui
+ * ne l'était pas. Le §06.05 l.203 veut cette liste LARGE (« tous statuts, type
+ * ZD/AG non figé »), donc le plafond mordait d'autant plus vite. Ces sondes
+ * mesurent ce que l'écran DEMANDE au serveur, pas seulement ce qu'il affiche :
+ * c'est la demande qui portait le défaut.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
@@ -267,6 +275,187 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       ).toBeTruthy();
       // Liste vide ≠ panne : pas de message d'erreur.
       expect(screen.queryByTestId('collectes-erreur')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+  // ── Pagination serveur (décision Val 2026-09-22) ─────────────────────────
+  // 120 collectes, 50 par page : le serveur renvoie la 1re page ET le total.
+  const PAGE = Array.from({ length: 50 }, (_, i) => ({
+    id: `p${i}`,
+    type: 'zero_dechet',
+    statut: 'cloturee',
+    date_collecte: '2026-11-30',
+    evenement_nom: `Événement ${i}`,
+    lieu_nom: 'Paris Expo Porte de Versailles',
+  }));
+
+  /** Mock fetch qui ENREGISTRE les URL demandées (copie, pas de référence). */
+  function fetchEspion(body: unknown) {
+    const urls: string[] = [];
+    const f = vi.fn((url: string) => {
+      urls.push(String(url));
+      return Promise.resolve(reponse(200, body));
+    });
+    vi.stubGlobal('fetch', f);
+    return urls;
+  }
+
+  it(
+    'M3.2/collectes_pagination_total_affiche_au_dela_dune_page',
+    async () => {
+      fetchEspion({ data: PAGE, total: 120 });
+      render(<CollectesPage />);
+
+      // Le total EXACT est affiché : au-delà d'une page, lui seul dit combien de
+      // collectes existent dans le périmètre demandé.
+      expect(
+        await screen.findByTestId('collectes-total', {}, ATTENTE_UI),
+      ).toHaveProperty('textContent', '120 collectes');
+
+      // 120 / 50 = 3 pages.
+      const nav = screen.getByRole('navigation', { name: 'Pagination' });
+      expect(nav).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Page 3' })).toBeTruthy();
+
+      // Le défaut d'origine : 50 lignes affichées sur 120 sans que RIEN ne le
+      // dise. Le total doit être strictement supérieur au nombre de lignes.
+      expect(PAGE.length).toBeLessThan(120);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/collectes_pagination_demande_la_page_suivante_au_serveur',
+    async () => {
+      const urls = fetchEspion({ data: PAGE, total: 120 });
+      render(<CollectesPage />);
+      await screen.findByTestId('collectes-total', {}, ATTENTE_UI);
+
+      // 1er appel : pas de `page` (page 1 implicite).
+      expect(urls[0]).not.toContain('page=');
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Page 2' }));
+      });
+
+      // La page suivante est demandée AU SERVEUR : sans cet aller-retour, la
+      // pagination ne ferait que redécouper les 50 lignes déjà reçues.
+      expect(urls.length).toBeGreaterThan(1);
+      expect(urls[urls.length - 1]).toContain('page=2');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/collectes_pagination_absente_sous_le_seuil',
+    async () => {
+      fetchEspion({ data: LIGNES, total: LIGNES.length });
+      render(<CollectesPage />);
+      await screen.findByRole('grid', {}, ATTENTE_UI);
+
+      // Une seule page : ni compteur ni nav, sinon l'écran s'encombre d'une
+      // pagination qui ne mène nulle part.
+      expect(screen.queryByTestId('collectes-total')).toBeNull();
+      expect(
+        screen.queryByRole('navigation', { name: 'Pagination' }),
+      ).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M3.2/collectes_changement_de_filtre_revient_page_1',
+    async () => {
+      const urls = fetchEspion({ data: PAGE, total: 120 });
+      const { rerender } = render(<CollectesPage />);
+      await screen.findByTestId('collectes-total', {}, ATTENTE_UI);
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Page 2' }));
+      });
+      expect(urls[urls.length - 1]).toContain('page=2');
+
+      // Drill-down depuis une Top liste ALORS QU'ON EST EN PAGE 2. La page
+      // courante appartient au périmètre précédent : la conserver demanderait
+      // la page 2 d'un filtre qui n'a peut-être qu'une page, et l'écran
+      // afficherait une liste vide sur un parc qui ne l'est pas.
+      urlParams.current = 'lieu=L1';
+      await act(async () => {
+        rerender(<CollectesPage />);
+      });
+
+      const derniere = urls[urls.length - 1]!;
+      expect(derniere).toContain('lieu_id=L1');
+      expect(derniere).not.toContain('page=');
+    },
+    ATTENTE_CAS_MS,
+  );
+  it(
+    'M3.2/collectes_page_devenue_hors_bornes_revient_sur_la_derniere_valide',
+    async () => {
+      // 120 collectes (3 pages) au premier chargement.
+      const urls = fetchEspion({ data: PAGE, total: 120 });
+      render(<CollectesPage />);
+      await screen.findByTestId('collectes-total', {}, ATTENTE_UI);
+
+      // L'utilisateur va en page 3. Entre-temps la liste a rétréci à 60 (2
+      // pages) : des collectes annulées ailleurs, un parc réduit. Le serveur
+      // répond une page vide AVEC le vrai total — puis, sur la page 2 qu'il
+      // redemande, les 10 lignes qu'elle contient réellement. Servir du vide
+      // aux deux appels ferait rougir cette sonde pour la mauvaise raison.
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((url: string) => {
+          const u = String(url);
+          urls.push(u);
+          return Promise.resolve(
+            u.includes('page=2')
+              ? reponse(200, { data: PAGE.slice(0, 10), total: 60 })
+              : reponse(200, { data: [], total: 60 }),
+          );
+        }),
+      );
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Page 3' }));
+      });
+
+      // L'écran redemande la DERNIÈRE page valide (60 / 50 → 2), au lieu de
+      // rester sur une page vide.
+      expect(urls[urls.length - 1]).toContain('page=2');
+
+      // Et surtout : il n'affiche JAMAIS « Aucune collecte », qui est le message
+      // d'un parc réellement vide — et qui serait ici un cul-de-sac, le bloc de
+      // pagination vivant dans la branche non-vide du rendu.
+      expect(screen.queryByText('Aucune collecte')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+  it(
+    'M3.2/collectes_derniere_page_vide_ne_bloque_pas_lecran',
+    async () => {
+      // Garde-fou de la comparaison STRICTE du rattrapage ci-dessus.
+      //
+      // Ici la page demandée EST la dernière valide (60 / 50 → 2) et revient
+      // pourtant vide : réponse serveur incohérente, mais l'écran doit s'en
+      // sortir. Avec un `>=` au lieu d'un `>`, il se redirigerait vers la page
+      // où il se trouve déjà : aucun nouvel appel ne partirait, le drapeau de
+      // redirection retiendrait l'état de chargement, et l'écran resterait en
+      // squelette pour toujours.
+      fetchEspion({ data: PAGE, total: 120 });
+      render(<CollectesPage />);
+      await screen.findByTestId('collectes-total', {}, ATTENTE_UI);
+
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() => Promise.resolve(reponse(200, { data: [], total: 60 }))),
+      );
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Page 2' }));
+      });
+
+      // L'écran conclut : état vide, pas un squelette qui ne finit jamais.
+      expect(screen.queryByTestId('collectes-skeleton')).toBeNull();
+      expect(screen.getByText('Aucune collecte')).toBeTruthy();
     },
     ATTENTE_CAS_MS,
   );

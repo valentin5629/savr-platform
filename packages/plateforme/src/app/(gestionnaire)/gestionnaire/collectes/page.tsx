@@ -10,8 +10,10 @@ import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHero } from '@/components/ui/page-hero';
+import { Pagination } from '@/components/ui/pagination';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
+import { COLLECTES_PAGE_SIZE as PAGE_SIZE } from '@/lib/collectes-gestionnaire';
 import {
   readCollecteFiltreLabel,
   periodeCourte,
@@ -41,9 +43,13 @@ const SqueletteListe = () => (
 function GestionnaireCollectesContent() {
   const router = useRouter();
   const params = useSearchParams();
-  // Drill-down depuis les Top listes du dashboard (lieu / traiteur). Miroir exact :
-  // le drill-down porte aussi type + période (from/to) + statut `cloturee` pour que
-  // le nombre de lignes = le chiffre du Top liste.
+  // Drill-down depuis les Top listes du dashboard (lieu / traiteur). Le dashboard
+  // gestionnaire porte aujourd'hui type + période (from/to) + statut `cloturee`
+  // dans l'URL — c'est la règle du §06.04 TRAITEUR (« miroir 5/5 »), pas celle du
+  // §06.05, qui demande l'inverse pour le gestionnaire : « tous statuts, type
+  // ZD/AG non figé » (l.203). Écart PRÉ-EXISTANT, côté dashboard (`drillScope`
+  // dans (gestionnaire)/gestionnaire/page.tsx), hors périmètre de ce lot : cet
+  // écran se contente d'appliquer les filtres qu'on lui passe.
   const lieuFiltre = params.get('lieu');
   const traiteurFiltre = params.get('traiteur');
   const typeFiltre = params.get('type');
@@ -52,8 +58,26 @@ function GestionnaireCollectesContent() {
   const toFiltre = params.get('to');
   const [filtreLabel, setFiltreLabel] = useState<string | null>(null);
   const [rows, setRows] = useState<CollecteRow[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
+
+  // La page courante n'a de sens QUE pour le périmètre qui l'a produite : rester
+  // en page 3 après avoir appliqué un filtre qui ne ramène qu'une page afficherait
+  // une liste vide sur un parc non vide. On mémorise donc la page AVEC la
+  // signature des filtres, et on retombe sur 1 dès que la signature change — au
+  // même rendu, donc sans second appel réseau.
+  const filtresKey = [
+    lieuFiltre,
+    traiteurFiltre,
+    typeFiltre,
+    statutFiltre,
+    fromFiltre,
+    toFiltre,
+  ].join('|');
+  const [pagination, setPagination] = useState({ key: filtresKey, page: 1 });
+  const page = pagination.key === filtresKey ? pagination.page : 1;
+  const allerPage = (p: number) => setPagination({ key: filtresKey, page: p });
 
   // Chaque appel prend un numéro ; seule la réponse du dernier appel a le droit
   // d'écrire dans l'état. Sans cette garde, un filtre retiré pendant qu'une
@@ -65,6 +89,9 @@ function GestionnaireCollectesContent() {
   const charger = useCallback(() => {
     const gen = ++generation.current;
     const perime = () => generation.current !== gen;
+    // Voir plus bas : une page devenue hors bornes relance un chargement, et
+    // l'écran ne doit pas repasser par l'état « chargé » entre les deux.
+    let redirige = false;
     setLoading(true);
     setErreur(null);
     const qs = new URLSearchParams();
@@ -74,6 +101,7 @@ function GestionnaireCollectesContent() {
     if (statutFiltre) qs.set('statut', statutFiltre);
     if (fromFiltre) qs.set('from', fromFiltre);
     if (toFiltre) qs.set('to', toFiltre);
+    if (page > 1) qs.set('page', String(page));
     const suffix = qs.toString() ? `?${qs}` : '';
     fetch(`/api/v1/gestionnaire/collectes${suffix}`)
       .then((r) => {
@@ -85,13 +113,42 @@ function GestionnaireCollectesContent() {
         return r.json();
       })
       .then((j) => {
-        if (!perime()) setRows((j.data ?? []) as CollecteRow[]);
+        if (perime()) return;
+        const data = (j.data ?? []) as CollecteRow[];
+        // `total` absent (contrat plus ancien) : on n'invente pas un total plus
+        // grand que ce qu'on a reçu, sinon la pagination proposerait des pages
+        // vides.
+        const recu = typeof j.total === 'number' ? j.total : data.length;
+
+        // Page devenue hors bornes — la liste a rétréci pendant qu'on la
+        // consultait (une collecte annulée ailleurs, un parc réduit). Le serveur
+        // répond alors une page vide AVEC le vrai total.
+        //
+        // Sans ce rattrapage, l'écran afficherait « Aucune collecte sur vos
+        // lieux pour ce périmètre. » — mot pour mot ce qu'il affiche pour un
+        // parc réellement vide — et SANS pagination pour en sortir, puisque le
+        // bloc de pagination vit dans la branche non-vide du rendu. L'utilisateur
+        // serait dans un cul-de-sac, à devoir recharger l'écran à la main.
+        //
+        // `page > dernierePage` est une comparaison STRICTE : on ne redescend
+        // que vers une page plus petite, donc jamais de boucle.
+        const dernierePage = Math.max(1, Math.ceil(recu / PAGE_SIZE));
+        if (data.length === 0 && recu > 0 && page > dernierePage) {
+          redirige = true;
+          allerPage(dernierePage);
+          return;
+        }
+
+        setRows(data);
+        setTotal(recu);
       })
       .catch(() => {
         if (!perime()) setErreur('Le chargement des collectes a échoué.');
       })
       .finally(() => {
-        if (!perime()) setLoading(false);
+        // Pendant une redirection, l'écran reste en chargement : le baisser ici
+        // ferait clignoter l'état vide avant l'arrivée de la bonne page.
+        if (!perime() && !redirige) setLoading(false);
       });
   }, [
     lieuFiltre,
@@ -100,6 +157,7 @@ function GestionnaireCollectesContent() {
     statutFiltre,
     fromFiltre,
     toFiltre,
+    page,
   ]);
 
   useEffect(() => {
@@ -193,12 +251,26 @@ function GestionnaireCollectesContent() {
       description="Aucune collecte sur vos lieux pour ce périmètre."
     />
   ) : (
-    <DataTable
-      columns={colonnes}
-      data={rows}
-      keyExtractor={(c) => c.id}
-      onRowClick={(c) => router.push(`/gestionnaire/collectes/${c.id}`)}
-    />
+    <>
+      <DataTable
+        columns={colonnes}
+        data={rows}
+        keyExtractor={(c) => c.id}
+        onRowClick={(c) => router.push(`/gestionnaire/collectes/${c.id}`)}
+      />
+      {total > PAGE_SIZE && (
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-3 text-sm">
+          <span className="text-savr-neutral-500" data-testid="collectes-total">
+            {total} collectes
+          </span>
+          <Pagination
+            page={page}
+            pageCount={Math.ceil(total / PAGE_SIZE)}
+            onPageChange={allerPage}
+          />
+        </div>
+      )}
+    </>
   );
 
   return (

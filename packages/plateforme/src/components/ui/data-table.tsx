@@ -67,11 +67,16 @@ function DataTable<T>({
    * boutons internes ne coupent la propagation que du CLIC, alors que le
    * keydown qu'ils émettent remonte, lui, jusqu'à la ligne.
    *
-   * Le focus ring DS (levier #4 — anneau `primary-500` offset 2px) n'a pas à
-   * être ajouté en classe : `globals.css` le pose sur `*:focus-visible` hors
-   * `@layer`, donc il l'emporte sur tout utilitaire `focus-visible:outline-*`
-   * (mesuré dans le navigateur). Rendre la ligne focusable suffit à l'obtenir —
-   * la seule chose à ne jamais faire ici est de neutraliser l'outline.
+   * Le focus ring DS (levier #4 — anneau `primary-500`) n'est pas posé en
+   * classe de couleur : `globals.css` l'applique à `*:focus-visible` dans
+   * `@layer base` et aucun composant ne pose plus de couleur divergente (test
+   * M0.8-4d), donc rendre la ligne focusable suffit. Seul l'OFFSET est surchargé, en desktop :
+   * la `<tr>` remplit le conteneur `overflow-x-auto`, qui rogne les bords
+   * gauche/droit d'un anneau à offset positif — il se lit alors comme deux
+   * traits horizontaux. L'offset négatif le dessine à l'intérieur de la ligne,
+   * donc entièrement visible. La card mobile n'est pas dans un conteneur
+   * scrollable : elle garde l'offset positif du DS.
+   * Ne jamais neutraliser l'outline ici (`outline-none` / `outline-0`).
    */
   const handleRowKeyDown =
     (row: T) => (event: React.KeyboardEvent<HTMLElement>) => {
@@ -152,7 +157,10 @@ function DataTable<T>({
                 tabIndex={onRowClick ? 0 : undefined}
                 className={cn(
                   'border-b border-savr-neutral-100 hover:bg-savr-neutral-50 transition-colors',
-                  onRowClick && 'cursor-pointer',
+                  // Anneau tracé à l'intérieur de la ligne : le conteneur
+                  // `overflow-x-auto` rognerait un offset positif.
+                  onRowClick &&
+                    'cursor-pointer focus-visible:-outline-offset-2',
                   rowClassName?.(row),
                 )}
               >

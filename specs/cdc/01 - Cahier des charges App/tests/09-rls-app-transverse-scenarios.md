@@ -2,7 +2,6 @@
 
 **Source CDC** : §09 (matrice §3 + matrice étendue ops_savr + §3ter audit RLS V1 + Bloc D) + §04 (RLS inline `sequences_facturation`, `audit_log`, `config_auto_accept_ag`, tables history) + §05 (`f_collecte_editable`) + §06.06 (matrice écrans) + §11 (Bloc 7)
 **Généré le** : 2026-06-07
-**Statut** : À implémenter par Claude Code
 
 > **Instructions Claude Code** : ces scénarios sont la source de vérité pour les tests RLS transverses de la Plateforme.
 > Pour chaque scénario :
@@ -345,8 +344,10 @@ Scénario : fichiers_facture_gestionnaire_scinde (fichiers_facture_gestionnaire_
 
 Scénario : audit_log_append_only_meme_pour_admin
   Étant donné une entrée audit_log existante
-  Quand `val` (admin_savr) exécute UPDATE puis DELETE sur cette entrée
-  Alors les deux opérations affectent 0 ligne (immuable — aucune policy UPDATE/DELETE)
+  Quand `val` (admin_savr) exécute UPDATE, puis DELETE, puis TRUNCATE sur cette entrée — sous `authenticated`, puis en visant directement la partition annuelle
+  Alors les trois opérations échouent (immuable : `trg_audit_log_immuable` + `trg_audit_log_vidage_interdit` + REVOKE, migrations `20260921200000` et `20260921230000`)
+  Et le refus vaut aussi depuis une fonction `SECURITY DEFINER` (l'ACL vérifiée est celle du propriétaire, pas celle de l'appelant)
+  Et la garantie porte sur les rôles applicatifs (`service_role`, `authenticated`, `anon`) — `postgres`, propriétaire de la base, est hors garantie
 
 Scénario : audit_log_insert_api_refuse
   Quand `val` (admin_savr) exécute INSERT direct sur `audit_log` sous `authenticated`

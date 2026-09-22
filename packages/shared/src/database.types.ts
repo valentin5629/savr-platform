@@ -4764,17 +4764,14 @@ export type Database = {
         Row: {
           id: string | null
           nom: string | null
-          raison_sociale: string | null
         }
         Insert: {
           id?: string | null
           nom?: string | null
-          raison_sociale?: string | null
         }
         Update: {
           id?: string | null
           nom?: string | null
-          raison_sociale?: string | null
         }
         Relationships: []
       }
@@ -4990,11 +4987,11 @@ export type Database = {
       f_benchmark_single_collecte: {
         Args: { p_collecte_id: string }
         Returns: {
-          bracket: string
+          benchmark_kg_pax: number
           flux_code: string
-          median_kg_pax: number
-          nb_collectes: number
-          valeur_kg_pax: number
+          nb_collectes_segment: number
+          ratio_user: number
+          taille_evenement: string
         }[]
       }
       f_benchmark_traiteurs_parc: {

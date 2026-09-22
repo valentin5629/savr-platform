@@ -19,11 +19,15 @@ function makeClient() {
   const rpcResults: Record<string, Result> = {};
   const calls: string[] = [];
   const rpcCalls: Array<{ name: string; args: unknown }> = [];
+  const eqCalls: Array<{ table: string; args: unknown[] }> = [];
   function chain(table: string): Record<string, unknown> {
     const res = (): Result => results[table] ?? { data: null, error: null };
     const c: Record<string, unknown> = {
       select: () => c,
-      eq: () => c,
+      eq: (...args: unknown[]) => {
+        eqCalls.push({ table, args });
+        return c;
+      },
       is: () => c,
       in: () => c,
       order: () => c,
@@ -48,6 +52,7 @@ function makeClient() {
     rpcResults,
     calls,
     rpcCalls,
+    eqCalls,
   };
   return api;
 }
@@ -163,6 +168,11 @@ describe('M3.1 / fiche collecte — bloc d’entête (§06.04)', () => {
       type: 'agence',
       email: 'contact@caromy.fr',
     });
+    // C'est bien l'organisation PROGRAMMATRICE qui est lue, pas le traiteur
+    // opérationnel : sans cet assert, lire l'autre colonne passerait aussi.
+    expect(
+      admin.eqCalls.find((e) => e.table === 'organisations')?.args,
+    ).toEqual(['id', 'org-agence']);
   });
 
   it('M3.1/fiche_entete_programmee_par_absente — même organisation ⇒ null ET aucune lecture organisations', async () => {
@@ -218,8 +228,23 @@ describe('M3.1 / fiche collecte — Bloc 3 ZD jauges (§06.04)', () => {
 
     const { GET } =
       await import('@/app/api/v1/traiteur/collectes/[id]/benchmark/route.js');
-    const res = await GET(makeReq(), { params: Promise.resolve({ id: 'c1' }) });
+    const res = await GET(
+      makeReq(
+        '?type_evenement_ids=t1&taille_evenement_codes=S&periode_debut=2025-09-22&periode_fin=2026-09-22',
+      ),
+      { params: Promise.resolve({ id: 'c1' }) },
+    );
     expect(res.status).toBe(200);
+    // Les filtres de l'URL atteignent réellement la RPC parc — sinon le repère
+    // serait calculé sur tout le parc, sans que rien ne le signale.
+    expect(
+      rls.rpcCalls.find((c) => c.name === 'f_benchmark_kg_pax_zd')?.args,
+    ).toMatchObject({
+      p_type_evenement_ids: ['t1'],
+      p_taille_evenement_codes: ['S'],
+      p_periode_debut: '2025-09-22',
+      p_periode_fin: '2026-09-22',
+    });
     const { data } = (await res.json()) as {
       data: {
         flux: Record<string, { ratio_user: number; benchmark_kg_pax: number }>;

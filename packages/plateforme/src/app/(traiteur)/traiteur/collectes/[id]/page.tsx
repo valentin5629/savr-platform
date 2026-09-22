@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useCallback, useEffect, useState } from 'react';
+import { use, useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { Badge } from '@/components/ui/badge';
@@ -168,20 +168,41 @@ export default function FicheCollectePage({
     null,
   );
 
+  // `annuleRef` protège la navigation fiche → fiche : le segment App Router
+  // étant le même, le composant n'est pas remonté et une réponse lente de la
+  // fiche précédente écraserait la nouvelle.
+  const annuleRef = useRef(false);
+
   const reload = useCallback(() => {
     setErreur(null);
     fetch(`/api/v1/traiteur/collectes/${encodeURIComponent(id)}`)
       .then(async (r) => {
+        // 404 = collecte supprimée ou sortie du périmètre : ce n'est pas une
+        // panne, et « Réessayer » n'y changerait rien. La page rend son état
+        // « introuvable », distinct de l'état Error (§10 §7).
+        if (r.status === 404) return null;
         if (!r.ok) throw new Error(String(r.status));
         return r.json();
       })
-      .then((j) => setC(j.data ?? null))
-      .catch(() => setErreur('Le chargement de la collecte a échoué.'))
-      .finally(() => setLoading(false));
+      .then((j) => {
+        if (annuleRef.current) return;
+        setC(j?.data ?? null);
+      })
+      .catch(() => {
+        if (!annuleRef.current)
+          setErreur('Le chargement de la collecte a échoué.');
+      })
+      .finally(() => {
+        if (!annuleRef.current) setLoading(false);
+      });
   }, [id]);
 
   useEffect(() => {
+    annuleRef.current = false;
     reload();
+    return () => {
+      annuleRef.current = true;
+    };
   }, [reload]);
 
   // Ouverture directe en mode édition depuis l'action « Modifier » de la liste
@@ -220,10 +241,14 @@ export default function FicheCollectePage({
     fetch(url)
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
-        if (!annule && j?.data?.flux) setBench(j.data.flux);
+        if (annule) return;
+        // Échec du recalcul ⇒ on RETIRE le repère au lieu de laisser celui des
+        // filtres précédents : un chiffre périmé sans signal est pire que pas
+        // de chiffre sur un écran dont la fonction est la comparaison.
+        setBench(j?.data?.flux ?? null);
       })
       .catch(() => {
-        /* le bloc reste en « données manquantes » — pas d'erreur bloquante */
+        if (!annule) setBench(null);
       });
     return () => {
       annule = true;
@@ -573,7 +598,7 @@ export default function FicheCollectePage({
           Filtres du repère imbriqués dans la carte (même assemblage que les
           dashboards) ; k-anonymat ≥5 appliqué côté serveur → repère masqué. */}
       {benchmarkVisible && (
-        <div data-testid="bloc-3-zd-fiche">
+        <div data-testid="bloc-3-zd-fiche" key={id}>
           <BenchmarkBulletGauges
             items={gaugeItems}
             filtersSlot={

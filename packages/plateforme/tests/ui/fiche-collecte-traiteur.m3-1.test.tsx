@@ -94,14 +94,10 @@ function stubFetch(detail: unknown, opts: { detailKo?: boolean } = {}) {
           status: 200,
           json: () =>
             Promise.resolve({
+              // Forme EXACTE du contrat de la route (cf. son Object.fromEntries).
               data: {
-                taille_evenement: 'S',
                 flux: {
-                  biodechet: {
-                    ratio_user: 0.4,
-                    benchmark_kg_pax: 0.3,
-                    nb_collectes_segment: 11,
-                  },
+                  biodechet: { ratio_user: 0.4, benchmark_kg_pax: 0.3 },
                 },
               },
             }),
@@ -223,6 +219,29 @@ describe('M3.1 / fiche collecte traiteur — états système (§10 §7)', () => 
     },
     ATTENTE_CAS_MS,
   );
+
+  it(
+    'M3.1/fiche_ui_404_introuvable — collecte hors périmètre : « introuvable », pas « Réessayer »',
+    async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() =>
+          Promise.resolve({
+            ok: false,
+            status: 404,
+            json: () => Promise.resolve({ error: 'Collecte introuvable' }),
+          } as Response),
+        ),
+      );
+      render(<FicheCollectePage params={params('c1')} />);
+
+      await screen.findByText('Collecte introuvable.', {}, ATTENTE_UI);
+      // Un « Réessayer » ici renverrait l'utilisateur contre le même 404.
+      expect(screen.queryByRole('button', { name: 'Réessayer' })).toBeNull();
+      expect(screen.queryByTestId('fiche-erreur')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
 });
 
 describe('M3.1 / fiche collecte traiteur — Bloc 3 ZD (§06.04)', () => {
@@ -253,6 +272,14 @@ describe('M3.1 / fiche collecte traiteur — Bloc 3 ZD (§06.04)', () => {
       expect(bloc.textContent).toContain('Déchet résiduel');
       // Encart de filtres du repère imbriqué DANS la carte des jauges.
       expect(bloc.textContent).toContain('Réinitialiser');
+      // …et la VALEUR arrive jusqu'à la jauge : 0,40 kg/pax contre un repère
+      // parc à 0,30, soit +33 %. Le libellé seul est rendu dans les DEUX
+      // branches du composant — sans ce chiffre, un câblage cassé (mauvaise
+      // clé de flux, setBench jamais appelé) passerait inaperçu.
+      await waitFor(() => {
+        expect(bloc.textContent).toContain('0,40');
+      }, ATTENTE_UI);
+      expect(bloc.textContent).toContain('+33 %');
     },
     ATTENTE_CAS_MS,
   );

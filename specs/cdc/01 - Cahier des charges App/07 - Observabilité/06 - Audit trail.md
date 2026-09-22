@@ -8,9 +8,9 @@
 
 ## 1. Rappel structure (source : `04 - Data Model`)
 
-Table `plateforme.audit_log`, **append-only et immuable** (aucun UPDATE/DELETE). Écriture **jamais par l'API directe** : INSERT via triggers DB et code serveur (`SERVICE_ROLE` / `SECURITY DEFINER`). RLS : `SELECT` = `admin_savr` + `ops_savr` ; deny tout autre rôle.
+Table `plateforme.audit_log`, **append-only et immuable** (aucun UPDATE, DELETE ni vidage de table). Garantie portée par les triggers `trg_audit_log_immuable` et `trg_audit_log_vidage_interdit` + REVOKE (migrations `20260921200000` et `20260921230000`) ; opposable aux **rôles applicatifs** (`postgres` hors garantie). Le trigger de vidage est un trigger d'instruction : PostgreSQL ne le clone pas sur les partitions, il est donc posé explicitement sur chacune, et par `f_ensure_partition_annee` sur les partitions annuelles à venir. Écriture **jamais par l'API directe** : INSERT via triggers DB et code serveur (`SERVICE_ROLE` / `SECURITY DEFINER`). RLS : `SELECT` = `admin_savr` + `ops_savr` ; deny tout autre rôle.
 
-Colonnes clés : `user_id`, `impersonator_id`, `role_auteur` (snapshot figé), `action` (snake_case), `table_cible`, `entite_id`, `ancienne_valeur` (jsonb), `nouvelle_valeur` (jsonb), `motif`, `details` (jsonb), `created_at`. Index `(table_cible, entite_id, created_at DESC)`, `(action)`, `(user_id)`.
+Colonnes clés : `user_id`, `impersonator_id`, `role` (snapshot figé du rôle auteur), `action` (snake_case), `table_name`, `record_id`, `old_values` (jsonb), `new_values` (jsonb), `motif`, `details` (jsonb), `created_at`. Index `(table_name, record_id, created_at DESC)`, `(action)`, `(user_id)`.
 
 > Toute évolution de schéma se fait dans `04 - Data Model`, pas ici.
 
@@ -78,6 +78,6 @@ Une action est auditée si elle touche **finances, fiscalité, sécurité ou int
 ## 5. À implémenter (Claude Code)
 
 1. Pour chaque `action` du §2 non encore câblée (financier/fiscal/sécurité), brancher l'INSERT `audit_log` dans le trigger DB ou la fonction serveur correspondante, dans **la même transaction** que la mutation.
-2. `motif` obligatoire (≥ 10 car., validation applicative) pour : `collecte_statut_force`, `pesee_corrigee`, `pack_ajuste_manuel`, `annulation_pack`, `user_role_modifie`, `user_desactive`.
+2. `motif` obligatoire (≥ 10 car., validation applicative) pour : `collecte_statut_force`, `pesee_corrigee`, `pack_ajuste_manuel`, `annulation_pack`, `user_role_modifie`, `user_desactive` — **uniquement sur les routes STAFF** (`admin/users/[id]` et équivalentes). *(Arbitrage Val 2026-09-21, option (a))* : `user_role_modifie` / `user_desactive` émis depuis les routes **client** (`traiteur/equipe/[id]`, `gestionnaire/mon-organisation/users/[id]`) s'écrivent **sans motif** — exiger une justification écrite à chaque changement de rôle alourdirait un geste courant. Ces routes tournant sous `createSupabaseServerClient`, l'INSERT `audit_log` doit passer par le client admin (`authenticated` ne peut pas écrire `audit_log` : `permission denied for sequence audit_log_id_seq`).
 3. Aucun chemin d'écriture `audit_log` via une route API exposée — uniquement `SERVICE_ROLE`/`SECURITY DEFINER`.
-4. Test pgTAP : vérifier l'immuabilité (UPDATE/DELETE refusés tous rôles) et la présence d'une ligne `audit_log` par action du §2.
+4. Test pgTAP : vérifier l'immuabilité — UPDATE, DELETE et vidage de table (TRUNCATE) refusés pour tous les **rôles applicatifs** (`service_role`, `authenticated`, `anon`), y compris en visant une partition annuelle directement, et y compris depuis une fonction `SECURITY DEFINER`, où l'ACL vérifiée est celle du propriétaire et non celle de l'appelant. Le propriétaire de la base (`postgres`) est **hors garantie** : un REVOKE lui est inopérant et il peut désactiver un trigger — la protection vise le bug et l'accident, pas un accès administrateur délibéré. Vérifier aussi la présence d'une ligne `audit_log` par action du §2.

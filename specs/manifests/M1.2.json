@@ -21,7 +21,7 @@
   "deliverables": [
     {
       "id": "M1.2-evt-patch-unifie",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:478",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:488",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts",
       "test": "M1.2 — édition événement par traiteur_manager : 200 + fn_modifier_evenement (E2 par collecte)",
       "statut": "implemented",
@@ -93,7 +93,7 @@
     },
     {
       "id": "M1.2-perimetre-ecriture",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:506",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:516",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts",
       "test": "M1.2 — édition événement commercial non-créateur → 403",
       "statut": "implemented",
@@ -109,7 +109,7 @@
     },
     {
       "id": "M1.2-ui-edition-fiche",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:470",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:480",
       "artefact": "packages/plateforme/src/components/collecte/editer-collecte-form.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -207,9 +207,9 @@
   "cdc_source_hash": {
     "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "90e9f62e94f2cfc441443ae9f7bd18776212d35b4b8b5a6a25dcfd4bf95b1ec5",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "9d470d64935d18297dbc5f31313889274c6cde4ac931015da04d1b0dd8284de2",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "3ad80c53b470d86a7ad5bd76b501ff02ac62ccf5615ed9ca760b5f1f18f3a77a",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "e1462a457a824ae69a18fcc8b3fc9677ba8c0eb7f30fa53462348171801b2a25",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "bd984a0b5c0403f705cf86f94da5da638c225b391236ca8fab2f0d1fc9d8ae11",
     "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "f37c49f3824f0c17eb6c45052d6cd0740c73f2140a05b850f8418ae8c1703ee4",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "57dd0b37f039f00098970a6d36da3f4ff4b40dd1950b825cae2972a39a03c876"
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "9f385002469e79999e0bc67016e4506d14aca60393adfca955e36153edece2a7"
   }
 }

@@ -2,6 +2,7 @@
 
 **Source CDC** : [[11 - Dashboards]] + [[12 - Reporting et exports]] + [[05 - Règles métier]] (R_taux_recyclage, R_co2_calcul, R_co2_ag, R_co2_snapshot_fige, R_marge_zd_traiteur, R_revenus_imputation_organisation) + [[04 - Data Model]] (`rapports_rse`, `bordereaux_savr`, `attestations_don`, `exports_registre`, `documents_generaux_savr`, `f_benchmark_kg_pax_zd`, vues `v_kpi_*`, `v_registre_dechets`) + [[09 - Authentification et permissions]] (A8, A9, A10, matrices bordereaux/attestations)
 **Généré le** : 2026-06-07
+**Statut** : À implémenter par Claude Code
 
 > **Instructions Claude Code** : ces scénarios sont la source de vérité pour les tests des modules §11 Dashboards et §12 Reporting/exports.
 > Pour chaque scénario :
@@ -732,6 +733,22 @@ Scénario : benchmark_pdf_reproductible_via_snapshot
   Quand de nouvelles collectes parc modifient la moyenne benchmark, puis le traiteur re-télécharge le même PDF
   Alors les jauges benchmark du PDF affichent exactement les valeurs d'origine (snapshot)
   Et la légende sous le graphe liste les filtres appliqués (période, lieux, type, taille — jamais traiteurs)
+```
+
+```gherkin
+# Source : §12 §1.2 + §06.04 « Lien avec rapport RSE » — divergence M3.1 2026-09-22, option (a)
+# Couche : db
+# Priorité : P1-critique
+
+Scénario : benchmark_agregation_segments_ponderee_ecran_et_pdf
+  Étant donné deux segments parc sur le même flux : (0,30 kg/pax ; nb_collectes_segment = 5)
+    et (0,40 kg/pax ; nb_collectes_segment = 15), tous deux au-dessus du k-anonymat >= 5
+  Quand le point de comparaison parc est calculé pour l'écran (aggregateBenchmarkPerFlux)
+    et pour le PDF rapport RSE (f_rapport_benchmark_zd)
+  Alors les deux retournent 0,375 kg/pax (moyenne pondérée par nb_collectes_segment)
+  Et aucun des deux ne retourne 0,350 (moyenne simple non pondérée — comportement PDF avant 2026-09-22)
+  Et le cas est atteint sans action utilisateur : type d'événement ou bracket de taille absent
+    -> retombée sur les 5 brackets, donc plusieurs segments
 ```
 
 ```gherkin

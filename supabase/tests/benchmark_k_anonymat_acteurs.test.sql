@@ -1,7 +1,7 @@
 -- pgTAP — k-anonymat du benchmark parc : compter les ACTEURS, pas que les collectes.
 -- ---------------------------------------------------------------------------
 -- Verrouille le durcissement de `plateforme.f_benchmark_kg_pax_zd`
--- (migration 20260922160000, arbitrage Val 2026-09-22, §04 « RLS / k-anonymat ») :
+-- (migration 20260922210000, arbitrage Val 2026-09-22, §04 « RLS / k-anonymat ») :
 -- un segment n'est publié qu'à partir de 5 collectes ET de 3 acteurs distincts,
 -- comptés des DEUX côtés — organisation programmatrice (`evenements.organisation_id`)
 -- et traiteur opérationnel (`evenements.traiteur_operationnel_organisation_id`).

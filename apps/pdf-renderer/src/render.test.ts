@@ -449,7 +449,7 @@ describe('M1.6 / rapport recyclage §1.2 — benchmark + contenu (R21a)', () => 
     expect(html).toContain('Segments non comparables masqués (anonymat)');
   });
 
-  // Durcissement du k-anonymat, 2026-09-22 (migration 20260922160000) : un segment
+  // Durcissement du k-anonymat, 2026-09-22 (migration 20260922210000) : un segment
   // est aussi masqué à partir de 5 collectes s'il porte moins de 3 acteurs
   // distincts. `f_rapport_benchmark_zd` rend alors benchmark_kg_pax = null tout en
   // laissant un effectif ≥ 5 visible sur d'autres flux. Le gabarit ne doit ni

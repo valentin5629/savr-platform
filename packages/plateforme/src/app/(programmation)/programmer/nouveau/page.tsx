@@ -56,9 +56,11 @@ interface TypeEvenement {
 
 interface TraiteurOption {
   id: string;
+  // Libellé unique côté rôles clients (nom commercial, ou raison sociale à défaut) ;
+  // la route ne rend raison_sociale / siret qu'au staff (§06.05).
   nom: string;
-  raison_sociale: string;
-  siret: string | null;
+  raison_sociale?: string;
+  siret?: string | null;
 }
 
 interface PackInfo {

@@ -272,7 +272,8 @@ describe('M4.1 / export_csv_format_fr_et_filtres_actifs', () => {
     // résolution v_referentiel_traiteurs
     rls.push({
       data: [
-        { id: 'tr-1', nom: 'Traiteur Un', raison_sociale: 'Traiteur Un SAS' },
+        // v_referentiel_traiteurs rend UN libellé (20260922080000).
+        { id: 'tr-1', nom: 'Traiteur Un' },
       ],
       error: null,
     });
@@ -301,7 +302,7 @@ describe('M4.1 / export_csv_format_fr_et_filtres_actifs', () => {
     expect(line1).toContain('125,5'); // tonnage virgule décimale
     expect(line1).toContain('82,3'); // taux recyclage virgule décimale
     expect(line1).not.toContain('82.3'); // jamais de point décimal
-    expect(line1).toContain('Traiteur Un SAS'); // nom résolu via vue
+    expect(line1).toContain('Traiteur Un'); // libellé unique résolu via la vue
   });
 
   it('filtres actifs propagés à la requête (type + from/to)', async () => {
@@ -378,7 +379,8 @@ describe('M4.1 / evenements', () => {
       error: null,
     });
     rls.push({
-      data: [{ id: 'tr-1', nom: 'Tr', raison_sociale: 'Tr SAS' }],
+      // v_referentiel_traiteurs rend UN libellé (20260922080000).
+      data: [{ id: 'tr-1', nom: 'Tr' }],
       error: null,
     });
 
@@ -393,7 +395,7 @@ describe('M4.1 / evenements', () => {
     expect(header).toContain('Tonnage ZD (kg)');
     expect(header).toContain('Statut consolidé');
     expect(line1).toContain('50'); // 40 + 10 kg
-    expect(line1).toContain('Tr SAS');
+    expect(line1).toContain(';Tr;'); // libellé unique de la vue
   });
 
   it('route gestionnaire dédiée : périmètre organisations_lieux + CSV', async () => {

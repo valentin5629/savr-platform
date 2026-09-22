@@ -85,7 +85,11 @@
     "M0.8-39 — Button md applique la cible tactile 44px mobile (h-11 sm:h-10)",
     "M0.8-40 — État Disabled : Button désactivé est non-interactif",
     "M0.8-41 — tokens : --text-4xl=38px (§3.2) et tracking titres -0.02em (levier #7)",
-    "M0.8-42 — StatCardGrid applique la grille responsive KPI 1/2/3-4 (§8)"
+    "M0.8-42 — StatCardGrid applique la grille responsive KPI 1/2/3-4 (§8)",
+    "M0.8-63 — DataTable : Entrée et Espace sur une ligne déclenchent onRowClick (desktop + mobile)",
+    "M0.8-64 — DataTable : une ligne cliquable porte le focus ring DS (levier #4)",
+    "M0.8-65 — DataTable : une ligne sans onRowClick n'entre pas dans l'ordre de tabulation",
+    "M0.8-66 — DataTable : Entrée sur un bouton de cellule n'active pas la ligne (pas de double activation)"
   ],
   "deliverables": [
     {
@@ -552,6 +556,22 @@
       "test": "M0.8-62 — CO2 mix : tolérance somme 100 % = 0,05 alignée (BL-P3-14) ; pgTAP M2_4 boundary 99,96 accepté / 105 rejeté (22023)",
       "statut": "implemented",
       "libelle": "BL-P3-14 — Tolérance Σ mix emballages = 0,05 (§05 l.575) : les 4 couches (route, frontend, trigger DB, RPC) déjà alignées à 0,05 (constat backlog « 0.01 » périmé). Verrou de non-régression ajouté (pgTAP boundary + assertion source). 99,96 % passe, 105 % rejeté."
+    },
+    {
+      "id": "M0.8-datatable-ligne-clavier",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:450",
+      "artefact": "packages/plateforme/src/components/ui/data-table.tsx (tabIndex + onKeyDown conditionnés par onRowClick, garde target === currentTarget)",
+      "test": "M0.8-63 — DataTable : Entrée et Espace sur une ligne déclenchent onRowClick (desktop + mobile) ; M0.8-65 — une ligne sans onRowClick n'entre pas dans l'ordre de tabulation ; M0.8-66 — Entrée sur un bouton de cellule n'active pas la ligne",
+      "statut": "implemented",
+      "libelle": "Clavier (§10) — une ligne rendue cliquable par onRowClick est focusable et activable à l'Entrée et à l'Espace dans les DEUX variantes (tableau desktop, card mobile) ; une ligne non cliquable reste hors de l'ordre de tabulation ; pas de double activation depuis un bouton de cellule."
+    },
+    {
+      "id": "M0.8-datatable-focus-ring",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:448",
+      "artefact": "packages/plateforme/src/app/globals.css (*:focus-visible, hors @layer) appliqué à la ligne focusable de packages/plateforme/src/components/ui/data-table.tsx",
+      "test": "M0.8-64 — DataTable : une ligne cliquable porte le focus ring DS (levier #4)",
+      "statut": "à-vérifier",
+      "libelle": "Focus ring (levier #4) — la ligne cliquable porte l'anneau focus-visible primary-500 offset 2px, jamais le focus bleu navigateur. Le test couvre ce qui est automatisable (règle globale présente, ligne focusable, outline non neutralisé) ; le RENDU relève de la preuve visuelle (jsdom ne peint pas) — vérifié au navigateur le 2026-09-22 : #3f5599, 2px, offset 2px sur la ligne focalisée au Tab. Anneau rogné latéralement en desktop (tr dans overflow-x-auto) — cf. _Divergences/M0.8_20260922_focus-ring-uniforme-vs-differencie.md."
     }
   ],
   "cdc_source_hash": {

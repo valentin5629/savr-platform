@@ -52,6 +52,36 @@ function DataTable<T>({
     onSort(key, next);
   };
 
+  /**
+   * Active une ligne au clavier (DS §10 « navigation complète au clavier,
+   * ordre de tabulation logique »). Monté uniquement quand `onRowClick` est
+   * fourni : une ligne non cliquable ne doit pas entrer dans l'ordre de
+   * tabulation.
+   *
+   * Pas de `role="button"` / `role="link"` sur la ligne : les cellules portent
+   * déjà leurs propres contrôles (ex. le bouton « Ouvrir la fiche » de
+   * admin/lieux), et un contrôle imbriqué dans un contrôle est invalide — la
+   * ligne desktop reste la `row` de son `role="grid"`.
+   *
+   * La garde `target === currentTarget` évite la double activation : ces
+   * boutons internes ne coupent la propagation que du CLIC, alors que le
+   * keydown qu'ils émettent remonte, lui, jusqu'à la ligne.
+   *
+   * Le focus ring DS (levier #4 — anneau `primary-500` offset 2px) n'a pas à
+   * être ajouté en classe : `globals.css` le pose sur `*:focus-visible` hors
+   * `@layer`, donc il l'emporte sur tout utilitaire `focus-visible:outline-*`
+   * (mesuré dans le navigateur). Rendre la ligne focusable suffit à l'obtenir —
+   * la seule chose à ne jamais faire ici est de neutraliser l'outline.
+   */
+  const handleRowKeyDown =
+    (row: T) => (event: React.KeyboardEvent<HTMLElement>) => {
+      if (!onRowClick) return;
+      if (event.target !== event.currentTarget) return;
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault(); // Espace : pas de défilement de la page
+      onRowClick(row);
+    };
+
   const SortIcon = ({ colKey }: { colKey: string }) => {
     if (sortKey !== colKey)
       return (
@@ -118,6 +148,8 @@ function DataTable<T>({
               <tr
                 key={keyExtractor(row)}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
+                onKeyDown={onRowClick ? handleRowKeyDown(row) : undefined}
+                tabIndex={onRowClick ? 0 : undefined}
                 className={cn(
                   'border-b border-savr-neutral-100 hover:bg-savr-neutral-50 transition-colors',
                   onRowClick && 'cursor-pointer',
@@ -149,6 +181,8 @@ function DataTable<T>({
           <div
             key={keyExtractor(row)}
             onClick={onRowClick ? () => onRowClick(row) : undefined}
+            onKeyDown={onRowClick ? handleRowKeyDown(row) : undefined}
+            tabIndex={onRowClick ? 0 : undefined}
             className={cn(
               'bg-savr-white border border-savr-neutral-200 rounded-savr-md p-4 space-y-2',
               onRowClick && 'cursor-pointer',

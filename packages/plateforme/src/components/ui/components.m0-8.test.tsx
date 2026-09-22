@@ -283,33 +283,39 @@ it("M0.8-4d — aucune source ne pose de couleur d'anneau divergente (anneau uni
     {
       fichier: 'app/(traiteur)/traiteur/collectes/[id]/page.tsx',
       jeton: 'savr-accent-600',
+      occurrences: 1,
       motif: 'anneau orange — écart le plus visible, à reprendre en premier',
     },
     {
       fichier: 'components/collecte/collecte-filtre-actif.tsx',
       jeton: 'savr-primary-400',
+      occurrences: 1,
       motif: 'nuance plus claire que le DS',
     },
     {
       fichier: 'components/dashboards/charts/cockpit/TopRankList.tsx',
       jeton: 'savr-primary-400',
+      occurrences: 1,
       motif:
         'idem — Cockpit R24, zone figée GO-VISUAL : ne pas toucher sans Val',
     },
     {
       fichier: 'app/(admin)/admin/dashboard-client/OrganisationSelector.tsx',
       jeton: 'savr-primary-500/30',
+      occurrences: 1,
       motif: 'anneau à 1,90:1, rattrapé par un focus:border à 7,07:1',
     },
     {
       fichier: 'components/dashboards/CollecteTypeTabs.tsx',
       jeton: 'ring',
+      occurrences: 2,
       motif:
         '`ring-ring` n’est généré nulle part (--ring vit dans :root, pas en --color-ring dans @theme) → currentcolor',
     },
     {
       fichier: 'components/dashboards/DashboardFilterBar.tsx',
       jeton: 'ring',
+      occurrences: 2,
       motif: 'idem CollecteTypeTabs',
     },
   ];
@@ -318,13 +324,13 @@ it("M0.8-4d — aucune source ne pose de couleur d'anneau divergente (anneau uni
     /^(?:\d+|none|hidden|inset|offset-\d+|offset-current|offset-transparent)$/;
 
   const divergentes: string[] = [];
-  const detteServie = new Set<string>();
+  const detteComptee = new Map<string, number>();
   for (const { relatif, contenu } of sourcesDeLApp()) {
     sansCommentaires(contenu)
       .split('\n')
       .forEach((ligne, i) => {
         for (const [, jeton] of ligne.matchAll(
-          /\b(?:[a-z0-9-]+:)*(?:focus|focus-visible|focus-within):(?:outline|ring)-([a-z0-9/-]+)/g,
+          /\b(?:[a-z0-9-]+:)*(?:focus|focus-visible|focus-within):(?:outline|ring)-([a-z0-9/#[\]-]+)/g,
         )) {
           if (!jeton || NON_COULEUR.test(jeton)) continue;
           if (jeton === 'savr-primary-500') continue;
@@ -332,7 +338,8 @@ it("M0.8-4d — aucune source ne pose de couleur d'anneau divergente (anneau uni
             (d) => d.fichier === relatif && d.jeton === jeton,
           );
           if (connue) {
-            detteServie.add(connue.fichier + connue.jeton);
+            const cle = connue.fichier + connue.jeton;
+            detteComptee.set(cle, (detteComptee.get(cle) ?? 0) + 1);
             continue;
           }
           divergentes.push(`${relatif}:${i + 1} → ${jeton}`);
@@ -340,10 +347,16 @@ it("M0.8-4d — aucune source ne pose de couleur d'anneau divergente (anneau uni
       });
   }
   // Liste FERMÉE : la dette connue ne peut que se réduire, jamais s'étendre.
+  // Le compte attendu est ce qui rend cette phrase VRAIE plutôt qu'espérée :
+  // sans lui, une 2e occurrence du même jeton dans un fichier DÉJÀ listé
+  // passerait au vert, et la dette grossirait en silence.
   expect(divergentes).toEqual([]);
-  expect(DETTE.filter((d) => !detteServie.has(d.fichier + d.jeton))).toEqual(
-    [],
-  );
+  expect(
+    DETTE.map(
+      (d) =>
+        `${d.fichier} ${d.jeton} ×${detteComptee.get(d.fichier + d.jeton) ?? 0}`,
+    ),
+  ).toEqual(DETTE.map((d) => `${d.fichier} ${d.jeton} ×${d.occurrences}`));
 });
 
 it('M0.8-5 — Card au repos a bordure neutral-200 et ombre none', () => {

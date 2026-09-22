@@ -248,4 +248,28 @@ describe('M3.2 / liste Collectes gestionnaire — pagination serveur', () => {
     const res = await appel('?page=2');
     expect(res.status).toBe(500);
   });
+  it('M3.2/collectes_route_recompte_hors_bornes_porte_les_memes_filtres', async () => {
+    rls.__suite(
+      { data: null, error: { code: 'PGRST103' }, count: null },
+      { data: lignes(1), error: null, count: 3 },
+    );
+    await appel('?page=4&lieu_id=L1&statut=cloturee');
+
+    // Le recompte du cas dégradé doit porter EXACTEMENT les mêmes filtres que la
+    // requête fenêtrée. Un recompte nu compterait le parc ENTIER : le total
+    // annoncerait des collectes hors du périmètre du gestionnaire — la fuite de
+    // volumétrie par comptage que la RLS ferme par ailleurs.
+    //
+    // Chaque construction rejoue ses `.eq`, donc chaque filtre doit apparaître
+    // DEUX fois. Sans cette sonde, un recompte inliné sans filtres passait la CI
+    // (trouvé par reviewer-rls-securite) : le code n'était juste que par
+    // construction — un seul site de filtrage — et rien ne le tenait.
+    const eq = (rls.__calls.eq ?? []).map((a) => `${a[0]}=${a[1]}`);
+    expect(eq.filter((f) => f === 'evenements.lieu_id=L1')).toHaveLength(2);
+    expect(eq.filter((f) => f === 'statut=cloturee')).toHaveLength(2);
+
+    // Et le recompte lit bien la première ligne, pas la fenêtre refusée.
+    const ranges = (rls.__calls.range ?? []).map((r) => `${r[0]}..${r[1]}`);
+    expect(ranges).toEqual([`${PAGE_SIZE * 3}..${PAGE_SIZE * 4 - 1}`, '0..0']);
+  });
 });

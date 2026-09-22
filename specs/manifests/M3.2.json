@@ -140,7 +140,9 @@
     "M3.2/collectes_liste_rendue_au_design_system",
     "M3.2/collectes_erreur_chargement_message_et_reessayer",
     "M3.2/collectes_liste_vide_empty_state",
-    "M3.2/collectes_etat_chargement_skeleton"
+    "M3.2/collectes_etat_chargement_skeleton",
+    "M3.2/collectes_ligne_ouvre_la_fiche",
+    "M3.2/collectes_erreur_perimee_ninvalide_pas_la_reponse_fraiche"
   ],
   "deliverables": [
     {
@@ -523,9 +525,9 @@
       "id": "M3.2-liste-collectes",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:81",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx",
-      "test": "M3.2/collectes_liste_rendue_au_design_system + M3.2/collectes_erreur_chargement_message_et_reessayer + M3.2/collectes_liste_vide_empty_state + M3.2/collectes_etat_chargement_skeleton",
+      "test": "M3.2/collectes_liste_rendue_au_design_system + M3.2/collectes_erreur_chargement_message_et_reessayer + M3.2/collectes_liste_vide_empty_state + M3.2/collectes_etat_chargement_skeleton + M3.2/collectes_ligne_ouvre_la_fiche + M3.2/collectes_erreur_perimee_ninvalide_pas_la_reponse_fraiche",
       "statut": "à-vérifier",
-      "libelle": "Liste Collectes gestionnaire (§06.05 nav 4 l.70, section réintégrée l.81 ; liste plate, chip « Filtre actif » du drill-down l.203) — habillage DS §10 : PageHero, DataTable (cards < 640px), EmptyState, et les 3 états système §7 rendus distincts (Error ≠ Empty)."
+      "libelle": "Liste Collectes gestionnaire (§06.05 nav 4 l.70, section réintégrée l.81 ; liste plate, chip « Filtre actif » du drill-down l.203) — habillage DS §10 : PageHero, DataTable (cards < 640px), EmptyState, et les 3 états système §7 rendus distincts (Error ≠ Empty). OUVERT : route plafonnée à 100 lignes, sans pagination ni notice de troncature."
     }
   ],
   "cdc_source_hash": {

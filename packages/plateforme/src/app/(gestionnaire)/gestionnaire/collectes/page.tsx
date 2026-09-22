@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ClipboardList } from 'lucide-react';
 import { AlertBar } from '@/components/ui/alert-bar';
@@ -28,6 +28,16 @@ interface CollecteRow {
 
 const Vide = () => <span className="text-savr-neutral-400">—</span>;
 
+// Un seul squelette pour les deux moments de chargement de l'écran : le fallback
+// du Suspense (résolution de useSearchParams) et l'attente de la réponse.
+const SqueletteListe = () => (
+  <div className="space-y-2" data-testid="collectes-skeleton">
+    {[...Array(5)].map((_, i) => (
+      <Skeleton key={i} className="h-12 w-full" />
+    ))}
+  </div>
+);
+
 function GestionnaireCollectesContent() {
   const router = useRouter();
   const params = useSearchParams();
@@ -45,7 +55,16 @@ function GestionnaireCollectesContent() {
   const [loading, setLoading] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
 
+  // Chaque appel prend un numéro ; seule la réponse du dernier appel a le droit
+  // d'écrire dans l'état. Sans cette garde, un filtre retiré pendant qu'une
+  // requête est en vol laisse l'échec de la requête PÉRIMÉE épingler l'écran sur
+  // « Le chargement des collectes a échoué. » alors que les données fraîches sont
+  // déjà chargées et invisibles (la branche `erreur` l'emporte sur le contenu).
+  const generation = useRef(0);
+
   const charger = useCallback(() => {
+    const gen = ++generation.current;
+    const perime = () => generation.current !== gen;
     setLoading(true);
     setErreur(null);
     const qs = new URLSearchParams();
@@ -65,9 +84,15 @@ function GestionnaireCollectesContent() {
         if (!r.ok) throw new Error(String(r.status));
         return r.json();
       })
-      .then((j) => setRows((j.data ?? []) as CollecteRow[]))
-      .catch(() => setErreur('Le chargement des collectes a échoué.'))
-      .finally(() => setLoading(false));
+      .then((j) => {
+        if (!perime()) setRows((j.data ?? []) as CollecteRow[]);
+      })
+      .catch(() => {
+        if (!perime()) setErreur('Le chargement des collectes a échoué.');
+      })
+      .finally(() => {
+        if (!perime()) setLoading(false);
+      });
   }, [
     lieuFiltre,
     traiteurFiltre,
@@ -160,11 +185,7 @@ function GestionnaireCollectesContent() {
       </Button>
     </div>
   ) : loading ? (
-    <div className="space-y-2" data-testid="collectes-skeleton">
-      {[...Array(5)].map((_, i) => (
-        <Skeleton key={i} className="h-12 w-full" />
-      ))}
-    </div>
+    <SqueletteListe />
   ) : rows.length === 0 ? (
     <EmptyState
       icon={<ClipboardList />}
@@ -203,7 +224,7 @@ function GestionnaireCollectesContent() {
 
 export default function GestionnaireCollectesPage() {
   return (
-    <Suspense fallback={<p className="p-4 text-sm">Chargement…</p>}>
+    <Suspense fallback={<SqueletteListe />}>
       <GestionnaireCollectesContent />
     </Suspense>
   );

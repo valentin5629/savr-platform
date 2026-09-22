@@ -204,6 +204,14 @@ export default function FicheCollectePage({
   }, [id]);
 
   useEffect(() => {
+    // Réinitialiser AVANT de recharger : sans cela, le temps d'un aller-retour,
+    // `loading` vaut false et `c` porte encore la collecte quittée — l'écran
+    // rend donc la fiche précédente pendant que l'URL, et les actions, portent
+    // déjà sur la nouvelle. `reload` ne change d'identité qu'avec `id`, donc
+    // cela ne se déclenche qu'à la navigation, jamais sur un reload() manuel
+    // (pas de clignotement du squelette après une annulation).
+    setC(null);
+    setLoading(true);
     reload();
   }, [reload]);
 

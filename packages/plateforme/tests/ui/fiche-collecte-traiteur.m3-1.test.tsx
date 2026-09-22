@@ -299,6 +299,91 @@ describe('M3.1 / fiche collecte traiteur — navigation fiche → fiche', () => 
     },
     ATTENTE_CAS_MS,
   );
+
+  it(
+    'M3.1/fiche_ui_reload_manuel_perime_ignore — le rechargement post-annulation ne ressuscite pas la fiche quittée',
+    async () => {
+      // Le `reload()` qui suit une annulation part d'un gestionnaire
+      // d'événement, hors de tout effet : c'est la raison pour laquelle la
+      // garde compare les id plutôt que d'armer un drapeau d'effet. Ce chemin
+      // mérite donc sa propre mesure.
+      let resoudreReload: ((v: unknown) => void) | undefined;
+      const reloadLent = new Promise((r) => {
+        resoudreReload = r;
+      });
+      let detailC1Servi = false;
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((url: string, init?: { method?: string }) => {
+          const u = String(url);
+          if (u.includes('/benchmark'))
+            return Promise.resolve({
+              ok: true,
+              status: 200,
+              json: () => Promise.resolve({ data: { flux: {} } }),
+            } as Response);
+          if (init?.method === 'POST')
+            return Promise.resolve({
+              ok: true,
+              status: 200,
+              json: () => Promise.resolve({ data: {} }),
+            } as Response);
+          if (u.includes('c1')) {
+            // 1er GET = chargement initial ; le 2e est le reload post-annulation.
+            if (detailC1Servi)
+              return Promise.resolve({
+                ok: true,
+                status: 200,
+                json: () => reloadLent,
+              } as Response);
+            detailC1Servi = true;
+            return Promise.resolve({
+              ok: true,
+              status: 200,
+              json: () =>
+                Promise.resolve({
+                  data: collecte({ heure_collecte: '22:00:00' }),
+                }),
+            } as Response);
+          }
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () =>
+              Promise.resolve({
+                data: collecte({ id: 'c2', heure_collecte: '08:30:00' }),
+              }),
+          } as Response);
+        }),
+      );
+
+      const { rerender } = render(<FicheCollectePage params={params('c1')} />);
+      await screen.findByText('22:00', {}, ATTENTE_UI);
+
+      // Annulation → POST, puis reload() manuel sur c1.
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Annuler la collecte' }),
+      );
+      fireEvent.click(
+        await screen.findByRole(
+          'button',
+          { name: "Confirmer l'annulation" },
+          ATTENTE_UI,
+        ),
+      );
+
+      // L'utilisateur navigue vers c2 avant que ce reload n'ait répondu.
+      rerender(<FicheCollectePage params={params('c2')} />);
+      await screen.findByText('08:30', {}, ATTENTE_UI);
+
+      resoudreReload?.({ data: collecte({ heure_collecte: '22:00:00' }) });
+      await new Promise((r) => setTimeout(r, 0));
+
+      expect(screen.getByText('08:30')).toBeTruthy();
+      expect(screen.queryByText('22:00')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
 });
 
 describe('M3.1 / fiche collecte traiteur — Bloc 3 ZD (§06.04)', () => {

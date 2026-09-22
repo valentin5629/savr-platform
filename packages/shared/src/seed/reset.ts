@@ -11,7 +11,7 @@
  * POURQUOI LA GARDE D'IMMUABILITÉ EST NEUTRALISÉE LE TEMPS DU RESET
  * ------------------------------------------------------------------
  * `plateforme.audit_log` est append-only (§07/06 Audit trail) : depuis les
- * migrations 20260921200000 et 20260921230000, un trigger refuse UPDATE,
+ * migrations 20260921200000 et 20260922110000, un trigger refuse UPDATE,
  * DELETE et vidage de table. Le reset ci-dessous s'y heurtait donc —
  * `42501 plateforme.audit_log est append-only` — et `pnpm seed:minimal` /
  * `seed:demo` échouait à sa toute première instruction.
@@ -118,7 +118,7 @@ const BUSINESS_TABLES = [
   'shared.prestataires',
 ];
 
-/** Nom du trigger posé par la migration 20260921230000. */
+/** Nom du trigger posé par la migration 20260922110000. */
 export const GARDE_AUDIT_LOG = 'trg_audit_log_vidage_interdit';
 
 /**

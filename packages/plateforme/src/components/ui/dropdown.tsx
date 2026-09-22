@@ -38,7 +38,7 @@ const DropdownItem = React.forwardRef<
   <DropdownPrimitive.Item
     ref={ref}
     className={cn(
-      'relative flex cursor-pointer select-none items-center gap-2 rounded-savr-sm px-2.5 py-2 text-sm outline-none',
+      'relative flex cursor-pointer select-none items-center gap-2 rounded-savr-sm px-2.5 py-2 text-sm',
       'transition-colors data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
       destructive
         ? 'text-savr-error-strong data-[highlighted]:bg-savr-error-subtle'

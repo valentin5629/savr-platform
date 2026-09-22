@@ -180,16 +180,43 @@ it("M0.8-4c — aucun composant ne neutralise l'anneau de focus sans le remplace
   // sans AUCUNE indication de focus. Avant, la règle non-layered masquait ces
   // neutralisations — trois champs de recherche en portaient une, inerte. Le
   // risque est donc devenu réel pour tout le repo, d'où ce cliquet.
-  // Admis : un anneau de remplacement `ring-*` sur le même élément, ou un
-  // panneau Radix (focus programmatique à l'ouverture, pas un contrôle : un
-  // anneau y serait parasite ; l'item de menu signale son focus par
-  // `data-[highlighted]`).
-  const PANNEAUX_RADIX = [
-    'components/ui/modal.tsx',
-    'components/ui/sheet.tsx',
-    'components/ui/toast.tsx',
-    'components/ui/dropdown.tsx',
+  //
+  // Admis : (a) un anneau de remplacement `ring-<n>` sur la MÊME ligne, donc
+  // dans la même chaîne de classes — chercher plus loin créditerait un
+  // `ring-*` DÉCORATIF voisin (ex. le point de notification de sidebar.tsx,
+  // à deux lignes d'un lien de nav) ; (b) les quatre neutralisations Radix
+  // ci-dessous, exemptées par la SIGNATURE de leur ligne et non par fichier :
+  // un `outline-none` ajouté ailleurs dans ces mêmes fichiers reste attrapé.
+  const EXEMPTIONS: { fichier: string; ligne: string; motif: string }[] = [
+    {
+      fichier: 'components/ui/modal.tsx',
+      ligne: 'rounded-savr-lg bg-savr-white shadow-savr-lg outline-none',
+      motif:
+        'conteneur de modale, focus programmatique à l’ouverture (tabIndex={-1}) : pas un contrôle',
+    },
+    {
+      fichier: 'components/ui/sheet.tsx',
+      ligne: 'fixed flex flex-col bg-savr-white shadow-savr-lg outline-none',
+      motif: 'idem modale — panneau latéral',
+    },
+    {
+      fichier: 'components/ui/toast.tsx',
+      ligne: 'flex w-full max-w-sm flex-col gap-2 p-4 outline-none',
+      motif: 'Viewport Radix, conteneur structurel non focusable au Tab',
+    },
+    {
+      fichier: 'components/ui/dropdown.tsx',
+      ligne: 'rounded-savr-sm px-2.5 py-2 text-sm outline-none',
+      motif: 'item de menu : son focus est signalé par data-[highlighted]',
+    },
   ];
+
+  /** Neutralise les commentaires SANS décaler la numérotation des lignes. */
+  const sansCommentaires = (src: string): string =>
+    src
+      .replace(/\/\*[\s\S]*?\*\//g, (bloc) => bloc.replace(/[^\n]/g, ' '))
+      .replace(/\/\/.*$/gm, '');
+
   const RACINE = resolve(__dirname, '../..');
   const fichiers: string[] = [];
   const parcourir = (dir: string): void => {
@@ -204,21 +231,30 @@ it("M0.8-4c — aucun composant ne neutralise l'anneau de focus sans le remplace
   expect(fichiers.length).toBeGreaterThan(100); // le parcours a bien eu lieu
 
   const nus: string[] = [];
+  const exemptionsServies = new Set<string>();
   for (const f of fichiers) {
     const relatif = f.slice(RACINE.length + 1);
-    if (PANNEAUX_RADIX.includes(relatif)) continue;
-    // Les commentaires citent `outline-none` sans le poser : hors scan.
-    const lignes = readFileSync(f, 'utf8')
-      .replace(/\/\*[\s\S]*?\*\//g, '')
+    sansCommentaires(readFileSync(f, 'utf8'))
       .split('\n')
-      .map((l) => l.replace(/\/\/.*$/, ''));
-    lignes.forEach((ligne, i) => {
-      if (!/\boutline-(none|0)\b/.test(ligne)) return;
-      const voisinage = lignes.slice(Math.max(0, i - 2), i + 3).join(' ');
-      if (!/\bring-\d/.test(voisinage)) nus.push(`${relatif}:${i + 1}`);
-    });
+      .forEach((ligne, i) => {
+        if (!/\boutline-(none|0)\b/.test(ligne)) return;
+        if (/\bring-\d/.test(ligne)) return; // anneau de remplacement, même élément
+        const exemption = EXEMPTIONS.find(
+          (e) => e.fichier === relatif && ligne.includes(e.ligne),
+        );
+        if (exemption) {
+          exemptionsServies.add(exemption.fichier + exemption.ligne);
+          return;
+        }
+        nus.push(`${relatif}:${i + 1}`);
+      });
   }
   expect(nus).toEqual([]);
+  // Une exemption qui ne sert plus est une exemption à supprimer : sinon elle
+  // couvrirait un jour une ligne qu'on n'a jamais examinée.
+  expect(
+    EXEMPTIONS.filter((e) => !exemptionsServies.has(e.fichier + e.ligne)),
+  ).toEqual([]);
 });
 
 it('M0.8-5 — Card au repos a bordure neutral-200 et ombre none', () => {

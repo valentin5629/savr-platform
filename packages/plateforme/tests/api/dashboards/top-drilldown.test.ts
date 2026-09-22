@@ -338,10 +338,15 @@ describe('API gestionnaire/collectes — Type / Taille d’événement (§06.05 
 
   it('M3.2/collectes_route_taille_cle_heritee_rejetee — `toString` ne traverse pas la table de prédicats', async () => {
     rls = makeChain({ data: [], error: null });
-    // Avec un objet littéral, `PREDICAT_TAILLE['toString']` rend la fonction
-    // native héritée : truthy, donc admise, puis sérialisée dans le filtre
-    // (« function toString() { [native code] } ») → PostgREST 400 → l'écran
-    // affiche une panne sur une URL qui devrait juste ne rien ramener.
+    // Ce que cette sonde mesure EXACTEMENT : le cumul de deux gardes. Mesuré par
+    // mutation — objet littéral seul (garde `typeof` gardée) : VERTE ; `Map`
+    // gardée et `typeof` remplacé par `Boolean` : VERTE ; les deux défaites :
+    // ROUGE (`rls.__or` reçoit 1 au lieu de 0, la valeur héritée atteint
+    // réellement la chaîne du filtre). Chacune tient donc seule contre une clé
+    // héritée — c'est le cumul qui est épinglé ici, pas l'une des deux.
+    // L'apport PROPRE de la `Map` est ailleurs, et lui n'est couvert par aucune
+    // sonde : une pollution réelle de `Object.prototype` par une dépendance
+    // tierce, qui y poserait une *chaîne*, passerait la garde de type.
     const res = await call(
       'http://localhost/api/v1/gestionnaire/collectes?taille_evenements[]=toString',
     );

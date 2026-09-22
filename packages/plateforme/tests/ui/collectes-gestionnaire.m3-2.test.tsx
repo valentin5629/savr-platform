@@ -390,4 +390,73 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
     },
     ATTENTE_CAS_MS,
   );
+  it(
+    'M3.2/collectes_page_devenue_hors_bornes_revient_sur_la_derniere_valide',
+    async () => {
+      // 120 collectes (3 pages) au premier chargement.
+      const urls = fetchEspion({ data: PAGE, total: 120 });
+      render(<CollectesPage />);
+      await screen.findByTestId('collectes-total', {}, ATTENTE_UI);
+
+      // L'utilisateur va en page 3. Entre-temps la liste a rétréci à 60 (2
+      // pages) : des collectes annulées ailleurs, un parc réduit. Le serveur
+      // répond une page vide AVEC le vrai total — puis, sur la page 2 qu'il
+      // redemande, les 10 lignes qu'elle contient réellement. Servir du vide
+      // aux deux appels ferait rougir cette sonde pour la mauvaise raison.
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((url: string) => {
+          const u = String(url);
+          urls.push(u);
+          return Promise.resolve(
+            u.includes('page=2')
+              ? reponse(200, { data: PAGE.slice(0, 10), total: 60 })
+              : reponse(200, { data: [], total: 60 }),
+          );
+        }),
+      );
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Page 3' }));
+      });
+
+      // L'écran redemande la DERNIÈRE page valide (60 / 50 → 2), au lieu de
+      // rester sur une page vide.
+      expect(urls[urls.length - 1]).toContain('page=2');
+
+      // Et surtout : il n'affiche JAMAIS « Aucune collecte », qui est le message
+      // d'un parc réellement vide — et qui serait ici un cul-de-sac, le bloc de
+      // pagination vivant dans la branche non-vide du rendu.
+      expect(screen.queryByText('Aucune collecte')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+  it(
+    'M3.2/collectes_derniere_page_vide_ne_bloque_pas_lecran',
+    async () => {
+      // Garde-fou de la comparaison STRICTE du rattrapage ci-dessus.
+      //
+      // Ici la page demandée EST la dernière valide (60 / 50 → 2) et revient
+      // pourtant vide : réponse serveur incohérente, mais l'écran doit s'en
+      // sortir. Avec un `>=` au lieu d'un `>`, il se redirigerait vers la page
+      // où il se trouve déjà : aucun nouvel appel ne partirait, le drapeau de
+      // redirection retiendrait l'état de chargement, et l'écran resterait en
+      // squelette pour toujours.
+      fetchEspion({ data: PAGE, total: 120 });
+      render(<CollectesPage />);
+      await screen.findByTestId('collectes-total', {}, ATTENTE_UI);
+
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() => Promise.resolve(reponse(200, { data: [], total: 60 }))),
+      );
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Page 2' }));
+      });
+
+      // L'écran conclut : état vide, pas un squelette qui ne finit jamais.
+      expect(screen.queryByTestId('collectes-skeleton')).toBeNull();
+      expect(screen.getByText('Aucune collecte')).toBeTruthy();
+    },
+    ATTENTE_CAS_MS,
+  );
 });

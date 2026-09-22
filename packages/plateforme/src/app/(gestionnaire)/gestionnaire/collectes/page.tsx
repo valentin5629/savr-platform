@@ -92,6 +92,9 @@ function GestionnaireCollectesContent() {
   const charger = useCallback(() => {
     const gen = ++generation.current;
     const perime = () => generation.current !== gen;
+    // Voir plus bas : une page devenue hors bornes relance un chargement, et
+    // l'écran ne doit pas repasser par l'état « chargé » entre les deux.
+    let redirige = false;
     setLoading(true);
     setErreur(null);
     const qs = new URLSearchParams();
@@ -115,17 +118,40 @@ function GestionnaireCollectesContent() {
       .then((j) => {
         if (perime()) return;
         const data = (j.data ?? []) as CollecteRow[];
-        setRows(data);
         // `total` absent (contrat plus ancien) : on n'invente pas un total plus
         // grand que ce qu'on a reçu, sinon la pagination proposerait des pages
         // vides.
-        setTotal(typeof j.total === 'number' ? j.total : data.length);
+        const recu = typeof j.total === 'number' ? j.total : data.length;
+
+        // Page devenue hors bornes — la liste a rétréci pendant qu'on la
+        // consultait (une collecte annulée ailleurs, un parc réduit). Le serveur
+        // répond alors une page vide AVEC le vrai total.
+        //
+        // Sans ce rattrapage, l'écran afficherait « Aucune collecte sur vos
+        // lieux pour ce périmètre. » — mot pour mot ce qu'il affiche pour un
+        // parc réellement vide — et SANS pagination pour en sortir, puisque le
+        // bloc de pagination vit dans la branche non-vide du rendu. L'utilisateur
+        // serait dans un cul-de-sac, à devoir recharger l'écran à la main.
+        //
+        // `page > dernierePage` est une comparaison STRICTE : on ne redescend
+        // que vers une page plus petite, donc jamais de boucle.
+        const dernierePage = Math.max(1, Math.ceil(recu / PAGE_SIZE));
+        if (data.length === 0 && recu > 0 && page > dernierePage) {
+          redirige = true;
+          allerPage(dernierePage);
+          return;
+        }
+
+        setRows(data);
+        setTotal(recu);
       })
       .catch(() => {
         if (!perime()) setErreur('Le chargement des collectes a échoué.');
       })
       .finally(() => {
-        if (!perime()) setLoading(false);
+        // Pendant une redirection, l'écran reste en chargement : le baisser ici
+        // ferait clignoter l'état vide avant l'arrivée de la bonne page.
+        if (!perime() && !redirige) setLoading(false);
       });
   }, [
     lieuFiltre,

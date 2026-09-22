@@ -1,9 +1,16 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { ClipboardList } from 'lucide-react';
+import { AlertBar } from '@/components/ui/alert-bar';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
+import { DataTable, type Column } from '@/components/ui/data-table';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHero } from '@/components/ui/page-hero';
+import { Skeleton } from '@/components/ui/skeleton';
 import { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
 import {
   readCollecteFiltreLabel,
@@ -17,8 +24,19 @@ interface CollecteRow {
   date_collecte: string | null;
   evenement_nom: string | null;
   lieu_nom: string | null;
-  statut_consolide: string | null;
 }
+
+const Vide = () => <span className="text-savr-neutral-400">—</span>;
+
+// Un seul squelette pour les deux moments de chargement de l'écran : le fallback
+// du Suspense (résolution de useSearchParams) et l'attente de la réponse.
+const SqueletteListe = () => (
+  <div className="space-y-2" data-testid="collectes-skeleton">
+    {[...Array(5)].map((_, i) => (
+      <Skeleton key={i} className="h-12 w-full" />
+    ))}
+  </div>
+);
 
 function GestionnaireCollectesContent() {
   const router = useRouter();
@@ -35,9 +53,20 @@ function GestionnaireCollectesContent() {
   const [filtreLabel, setFiltreLabel] = useState<string | null>(null);
   const [rows, setRows] = useState<CollecteRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [erreur, setErreur] = useState<string | null>(null);
 
-  useEffect(() => {
+  // Chaque appel prend un numéro ; seule la réponse du dernier appel a le droit
+  // d'écrire dans l'état. Sans cette garde, un filtre retiré pendant qu'une
+  // requête est en vol laisse l'échec de la requête PÉRIMÉE épingler l'écran sur
+  // « Le chargement des collectes a échoué. » alors que les données fraîches sont
+  // déjà chargées et invisibles (la branche `erreur` l'emporte sur le contenu).
+  const generation = useRef(0);
+
+  const charger = useCallback(() => {
+    const gen = ++generation.current;
+    const perime = () => generation.current !== gen;
     setLoading(true);
+    setErreur(null);
     const qs = new URLSearchParams();
     if (lieuFiltre) qs.set('lieu_id', lieuFiltre);
     if (traiteurFiltre) qs.set('traiteur_id', traiteurFiltre);
@@ -47,9 +76,23 @@ function GestionnaireCollectesContent() {
     if (toFiltre) qs.set('to', toFiltre);
     const suffix = qs.toString() ? `?${qs}` : '';
     fetch(`/api/v1/gestionnaire/collectes${suffix}`)
-      .then((r) => r.json())
-      .then((j) => setRows((j.data ?? []) as CollecteRow[]))
-      .finally(() => setLoading(false));
+      .then((r) => {
+        // Sans cette garde, un 500 rendait `data` absent → liste vide → l'écran
+        // affichait « Aucune collecte sur vos lieux » : une panne serveur se
+        // lisait comme un parc sans collecte (§10 §7, état Error distinct de
+        // l'état Empty).
+        if (!r.ok) throw new Error(String(r.status));
+        return r.json();
+      })
+      .then((j) => {
+        if (!perime()) setRows((j.data ?? []) as CollecteRow[]);
+      })
+      .catch(() => {
+        if (!perime()) setErreur('Le chargement des collectes a échoué.');
+      })
+      .finally(() => {
+        if (!perime()) setLoading(false);
+      });
   }, [
     lieuFiltre,
     traiteurFiltre,
@@ -58,6 +101,10 @@ function GestionnaireCollectesContent() {
     fromFiltre,
     toFiltre,
   ]);
+
+  useEffect(() => {
+    charger();
+  }, [charger]);
 
   useEffect(() => {
     if (lieuFiltre) setFiltreLabel(readCollecteFiltreLabel('lieu', lieuFiltre));
@@ -88,9 +135,79 @@ function GestionnaireCollectesContent() {
     return parts.length ? parts.join(' · ') : undefined;
   })();
 
+  const colonnes: Column<CollecteRow>[] = [
+    {
+      key: 'date_collecte',
+      header: 'Date',
+      render: (c) =>
+        c.date_collecte ? (
+          new Date(c.date_collecte).toLocaleDateString('fr-FR', {
+            timeZone: 'Europe/Paris',
+          })
+        ) : (
+          <Vide />
+        ),
+    },
+    {
+      key: 'lieu_nom',
+      header: 'Lieu',
+      render: (c) => c.lieu_nom ?? <Vide />,
+    },
+    {
+      key: 'evenement_nom',
+      header: 'Événement',
+      render: (c) => c.evenement_nom ?? <Vide />,
+    },
+    {
+      key: 'type',
+      header: 'Type',
+      render: (c) => (
+        <Badge variant={c.type === 'zero_dechet' ? 'info' : 'success'}>
+          {c.type === 'zero_dechet' ? 'ZD' : 'AG'}
+        </Badge>
+      ),
+    },
+    {
+      key: 'statut',
+      header: 'Statut',
+      render: (c) => <CollecteStatutBadge statut={c.statut} />,
+    },
+  ];
+
+  // États système §10 §7 — Loading = skeleton à la forme du contenu, Error =
+  // message + « Réessayer », Empty = EmptyState illustré. Les trois sont
+  // distincts : une panne ne doit jamais se lire comme une liste vide.
+  const contenu = erreur ? (
+    <div className="space-y-4" data-testid="collectes-erreur">
+      <AlertBar variant="err">{erreur}</AlertBar>
+      <Button variant="secondary" onClick={charger}>
+        Réessayer
+      </Button>
+    </div>
+  ) : loading ? (
+    <SqueletteListe />
+  ) : rows.length === 0 ? (
+    <EmptyState
+      icon={<ClipboardList />}
+      title="Aucune collecte"
+      description="Aucune collecte sur vos lieux pour ce périmètre."
+    />
+  ) : (
+    <DataTable
+      columns={colonnes}
+      data={rows}
+      keyExtractor={(c) => c.id}
+      onRowClick={(c) => router.push(`/gestionnaire/collectes/${c.id}`)}
+    />
+  );
+
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold text-savr-primary-800">Collectes</h1>
+    <div className="space-y-5">
+      <PageHero
+        icon={<ClipboardList className="h-6 w-6 text-savr-primary-200" />}
+        title="Collectes"
+        subtitle="Collectes sur les lieux de votre organisation · cliquez une ligne pour ouvrir la fiche"
+      />
 
       {chipLabel && (
         <CollecteFiltreActif
@@ -100,65 +217,14 @@ function GestionnaireCollectesContent() {
         />
       )}
 
-      {loading ? (
-        <p className="text-sm text-savr-neutral-500">Chargement…</p>
-      ) : rows.length === 0 ? (
-        <p className="text-sm text-savr-neutral-500">
-          Aucune collecte sur vos lieux.
-        </p>
-      ) : (
-        <div className="overflow-x-auto rounded-savr-md border border-savr-neutral-200">
-          <table className="w-full text-sm">
-            <thead className="bg-savr-neutral-50 text-left text-xs uppercase text-savr-neutral-500">
-              <tr>
-                <th className="px-3 py-2">Date</th>
-                <th className="px-3 py-2">Lieu</th>
-                <th className="px-3 py-2">Événement</th>
-                <th className="px-3 py-2">Type</th>
-                <th className="px-3 py-2">Statut</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((c) => (
-                <tr
-                  key={c.id}
-                  className="cursor-pointer border-t border-savr-neutral-100 hover:bg-savr-neutral-50"
-                  onClick={() => router.push(`/gestionnaire/collectes/${c.id}`)}
-                >
-                  <td className="px-3 py-2">
-                    {c.date_collecte
-                      ? new Date(c.date_collecte).toLocaleDateString('fr-FR', {
-                          timeZone: 'Europe/Paris',
-                        })
-                      : '—'}
-                  </td>
-                  <td className="px-3 py-2">{c.lieu_nom ?? '—'}</td>
-                  <td className="px-3 py-2">{c.evenement_nom ?? '—'}</td>
-                  <td className="px-3 py-2">
-                    <Badge
-                      variant={c.type === 'zero_dechet' ? 'info' : 'success'}
-                    >
-                      {c.type === 'zero_dechet' ? 'ZD' : 'AG'}
-                    </Badge>
-                  </td>
-                  <td className="px-3 py-2">
-                    <CollecteStatutBadge
-                      statut={c.statut_consolide ?? c.statut}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {contenu}
     </div>
   );
 }
 
 export default function GestionnaireCollectesPage() {
   return (
-    <Suspense fallback={<p className="p-4 text-sm">Chargement…</p>}>
+    <Suspense fallback={<SqueletteListe />}>
       <GestionnaireCollectesContent />
     </Suspense>
   );

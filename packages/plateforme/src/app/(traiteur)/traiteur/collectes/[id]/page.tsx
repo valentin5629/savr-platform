@@ -212,6 +212,11 @@ export default function FicheCollectePage({
     // (pas de clignotement du squelette après une annulation).
     setC(null);
     setLoading(true);
+    // `bench` porte le ratio kg/pax de LA collecte, pas du parc : sans purge,
+    // le bloc 3 de la nouvelle fiche afficherait un aller-retour durant les
+    // jauges de la précédente. `key={id}` remonte l'encart de filtres, pas cet
+    // état, qui vit ici.
+    setBench(null);
     reload();
   }, [reload]);
 

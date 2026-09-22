@@ -376,6 +376,21 @@ describe('M3.1 / fiche collecte traiteur — navigation fiche → fiche', () => 
       rerender(<FicheCollectePage params={params('c2')} />);
       await screen.findByText('08:30', {}, ATTENTE_UI);
 
+      // Non-vacuité DANS le test : sans ce compte, un `confirmerAnnulation` qui
+      // n'appellerait plus reload() rendrait le cas vert sans jamais exercer la
+      // garde (personne n'attendrait la promesse résolue ci-dessous).
+      const getsDetailC1 = (
+        globalThis.fetch as unknown as {
+          mock: { calls: [unknown, { method?: string }?][] };
+        }
+      ).mock.calls.filter(
+        ([u, init]) =>
+          String(u).includes('c1') &&
+          !String(u).includes('/benchmark') &&
+          init?.method !== 'POST',
+      );
+      expect(getsDetailC1).toHaveLength(2); // chargement initial + reload post-annulation
+
       resoudreReload?.({ data: collecte({ heure_collecte: '22:00:00' }) });
       await new Promise((r) => setTimeout(r, 0));
 

@@ -10,6 +10,7 @@ import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHero } from '@/components/ui/page-hero';
+import { Pagination } from '@/components/ui/pagination';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CollecteFiltreActif } from '@/components/collecte/collecte-filtre-actif';
 import {
@@ -25,6 +26,10 @@ interface CollecteRow {
   evenement_nom: string | null;
   lieu_nom: string | null;
 }
+
+// Doit rester égal à PAGE_SIZE de la route (api/v1/gestionnaire/collectes) :
+// l'écran ne devine pas la taille des pages, il la lit dans le même contrat.
+const PAGE_SIZE = 50;
 
 const Vide = () => <span className="text-savr-neutral-400">—</span>;
 
@@ -52,8 +57,26 @@ function GestionnaireCollectesContent() {
   const toFiltre = params.get('to');
   const [filtreLabel, setFiltreLabel] = useState<string | null>(null);
   const [rows, setRows] = useState<CollecteRow[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
+
+  // La page courante n'a de sens QUE pour le périmètre qui l'a produite : rester
+  // en page 3 après avoir appliqué un filtre qui ne ramène qu'une page afficherait
+  // une liste vide sur un parc non vide. On mémorise donc la page AVEC la
+  // signature des filtres, et on retombe sur 1 dès que la signature change — au
+  // même rendu, donc sans second appel réseau.
+  const filtresKey = [
+    lieuFiltre,
+    traiteurFiltre,
+    typeFiltre,
+    statutFiltre,
+    fromFiltre,
+    toFiltre,
+  ].join('|');
+  const [pagination, setPagination] = useState({ key: filtresKey, page: 1 });
+  const page = pagination.key === filtresKey ? pagination.page : 1;
+  const allerPage = (p: number) => setPagination({ key: filtresKey, page: p });
 
   // Chaque appel prend un numéro ; seule la réponse du dernier appel a le droit
   // d'écrire dans l'état. Sans cette garde, un filtre retiré pendant qu'une
@@ -74,6 +97,7 @@ function GestionnaireCollectesContent() {
     if (statutFiltre) qs.set('statut', statutFiltre);
     if (fromFiltre) qs.set('from', fromFiltre);
     if (toFiltre) qs.set('to', toFiltre);
+    if (page > 1) qs.set('page', String(page));
     const suffix = qs.toString() ? `?${qs}` : '';
     fetch(`/api/v1/gestionnaire/collectes${suffix}`)
       .then((r) => {
@@ -85,7 +109,13 @@ function GestionnaireCollectesContent() {
         return r.json();
       })
       .then((j) => {
-        if (!perime()) setRows((j.data ?? []) as CollecteRow[]);
+        if (perime()) return;
+        const data = (j.data ?? []) as CollecteRow[];
+        setRows(data);
+        // `total` absent (contrat plus ancien) : on n'invente pas un total plus
+        // grand que ce qu'on a reçu, sinon la pagination proposerait des pages
+        // vides.
+        setTotal(typeof j.total === 'number' ? j.total : data.length);
       })
       .catch(() => {
         if (!perime()) setErreur('Le chargement des collectes a échoué.');
@@ -100,6 +130,7 @@ function GestionnaireCollectesContent() {
     statutFiltre,
     fromFiltre,
     toFiltre,
+    page,
   ]);
 
   useEffect(() => {
@@ -193,12 +224,26 @@ function GestionnaireCollectesContent() {
       description="Aucune collecte sur vos lieux pour ce périmètre."
     />
   ) : (
-    <DataTable
-      columns={colonnes}
-      data={rows}
-      keyExtractor={(c) => c.id}
-      onRowClick={(c) => router.push(`/gestionnaire/collectes/${c.id}`)}
-    />
+    <>
+      <DataTable
+        columns={colonnes}
+        data={rows}
+        keyExtractor={(c) => c.id}
+        onRowClick={(c) => router.push(`/gestionnaire/collectes/${c.id}`)}
+      />
+      {total > PAGE_SIZE && (
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-3 text-sm">
+          <span className="text-savr-neutral-500" data-testid="collectes-total">
+            {total} collectes
+          </span>
+          <Pagination
+            page={page}
+            pageCount={Math.ceil(total / PAGE_SIZE)}
+            onPageChange={allerPage}
+          />
+        </div>
+      )}
+    </>
   );
 
   return (

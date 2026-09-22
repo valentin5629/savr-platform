@@ -16,7 +16,17 @@ const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 // collectes, security_invoker). Bénéfice : les filtres lieu / traiteur (drill-down
 // des Top listes du dashboard) sont applicables ET les noms lieu/événement sont
 // enfin renvoyés (la vue ne les portait pas → colonnes « — »).
-// Paramètres : type, statut, from, to, lieu_id, traiteur_id
+// Paramètres : type, statut, from, to, lieu_id, traiteur_id, page
+//
+// Pagination SERVEUR (`count: 'exact'` + `range`), pattern §06.06 admin/lieux.
+// Décision Val 2026-09-22 : le §06.05 ne spécifiait pas la taille de cette liste
+// et la route coupait à 100 lignes SANS le dire — un parc de plus de 100
+// collectes affichait une liste d'apparence complète qui ne l'était pas. Le
+// total exact renvoyé ici est ce qui rend vérifiable le miroir du drill-down des
+// Top listes du dashboard (§06.05 l.203 : « nombre de lignes = chiffre du Top
+// liste ») : au-delà d'une page, seul `total` porte cette égalité.
+export const PAGE_SIZE = 50;
+
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(req, ROLES);
   if (auth.error) return auth.error;
@@ -29,6 +39,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const to = sp.get('to');
   const lieuId = sp.get('lieu_id');
   const traiteurId = sp.get('traiteur_id');
+  // `page` hors bornes (0, -3, « abc ») retombe sur 1 plutôt que de produire un
+  // range négatif que PostgREST rejetterait en 416.
+  const pageParam = Number.parseInt(sp.get('page') ?? '1', 10);
+  const page = Number.isFinite(pageParam) ? Math.max(1, pageParam) : 1;
+  const offset = (page - 1) * PAGE_SIZE;
 
   let q = supabase
     .from('collectes')
@@ -39,9 +54,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
          nom_evenement, lieu_id, traiteur_operationnel_organisation_id,
          lieux!lieu_id(nom)
        )`,
+      { count: 'exact' },
     )
+    // `date_collecte` seule n'est pas unique (plusieurs collectes le même jour) :
+    // sans départage, deux pages successives peuvent réordonner les ex æquo et
+    // faire disparaître une ligne d'une page à l'autre. `id` fige l'ordre.
     .order('date_collecte', { ascending: false })
-    .limit(100);
+    .order('id', { ascending: false })
+    .range(offset, offset + PAGE_SIZE - 1);
 
   if (type) q = q.eq('type', type);
   if (statut) q = q.eq('statut', statut);
@@ -51,7 +71,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (traiteurId)
     q = q.eq('evenements.traiteur_operationnel_organisation_id', traiteurId);
 
-  const { data, error } = await q;
+  const { data, error, count } = await q;
   if (error) return serverError(error, 'gestionnaire.collectes.list');
 
   // Aplatissement des noms (to-one PostgREST = objet ou tableau selon le cache).
@@ -81,5 +101,5 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     };
   });
 
-  return NextResponse.json({ data: rows });
+  return NextResponse.json({ data: rows, total: count ?? rows.length, page });
 }

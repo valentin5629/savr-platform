@@ -221,7 +221,7 @@
     },
     {
       "id": "BL-P2-18",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:63",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:65",
       "artefact": "apps/pdf-renderer/src/templates/rapport-recyclage-zd.ts (co2Block équivalences + comparaisonBlock + camembert SVG + benchmark légende) ; packages/plateforme/src/lib/pdf/batch-pdf-j1.ts (buildEquivalences) ; supabase/migrations/20260707130000_plateforme_r21a_rapport_benchmark.sql (f_taux_recyclage_moyen_parc) ; item (3) AG = attestation → voir M2.4-p2-18-ag-attestation",
       "test": "M1.6 / rapport recyclage §1.2 : équivalences pédagogiques du CO₂ évité + comparaison vs moyenne Savr anonymisée (≥3 acteurs) + camembert par flux (§1.2 l.68) ; M1.6 / buildEquivalences : convertit les FACTEURS figés en comptes",
       "statut": "implemented",
@@ -229,7 +229,7 @@
     },
     {
       "id": "BL-P2-16",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:30",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:32",
       "artefact": "packages/plateforme/src/lib/pdf/batch-pdf-j1.ts (select+map nb_bacs/equivalent_roll) + apps/pdf-renderer/src/templates/bordereau-zd.ts (bacsRolls)",
       "test": "M1.6 / bordereau ZD §1.1 : colonne « Bacs / Rolls » (bacs si renseigné, sinon rolls) + M1.6 / BatchPdfJ1 / Nominal : le payload bordereau porte l'équivalent bacs",
       "statut": "implemented",
@@ -237,7 +237,7 @@
     },
     {
       "id": "BL-P2-20",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:207",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:209",
       "artefact": "packages/plateforme/src/lib/pdf/regenerate.ts (injection regenere_le) + apps/pdf-renderer/src/templates/{rapport-recyclage-zd,bordereau-zd,attestation-don}.ts (mention pied de page)",
       "test": "M1.6 / rapport recyclage : BL-P2-20 mention pied de page uniquement sur un rapport régénéré + M0.6 — succès rapport RSE (payload figé + regenere_le)",
       "statut": "implemented",
@@ -245,7 +245,7 @@
     },
     {
       "id": "BL-P1-RPT-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:92",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:94",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/documents/[type]/regenerate/route.ts + fiche traiteur (picto « rapport régénéré » + bouton Régénérer manager)",
       "test": "M1.6 / régénération rapport traiteur (RPT-04) : manager + collecte visible → 202 ; cross-org → 403 ; inexistante → 404",
       "statut": "implemented",
@@ -253,7 +253,7 @@
     },
     {
       "id": "BL-P2-21",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:94",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:96",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/rapport-rse/download/route.ts",
       "test": "M3.1/rapport_download_ok — URL pré-signée (embargo levé) + M3.1/rapport_download_embargo — 425",
       "statut": "implemented",
@@ -261,7 +261,7 @@
     },
     {
       "id": "BL-P2-19",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:47",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:49",
       "artefact": "packages/plateforme/src/lib/pdf/logo-cascade.ts (resolveRapportLogo) + packages/plateforme/src/lib/pdf/batch-pdf-j1.ts (SELECT type/logo_url + rapportPayload.logo_url) ; réutilisé par batch-pdf-sans-excedent.ts (cohérence AG)",
       "test": "M1.6 / cascade logo rapport §1.2 (BL-P2-19) ; M1.6 / BatchPdfJ1 / Logo cascade §1.2 (BL-P2-19) : programmateur agence → logo agence dans le payload",
       "statut": "implemented",
@@ -278,6 +278,6 @@
   ],
   "cdc_source_hash": {
     "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "f37c49f3824f0c17eb6c45052d6cd0740c73f2140a05b850f8418ae8c1703ee4",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "395550f99b433f9779bea4e570fb6c3acd28ffbae4bdf3c6cb0a653f96b7a124"
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "9e18f9db0efa3b57d3cc633bdb39b963a9fd25f6929bca67fcba2523914f0dde"
   }
 }

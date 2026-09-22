@@ -69,8 +69,8 @@ function DataTable<T>({
    *
    * Le focus ring DS (levier #4 — anneau `primary-500`) n'est pas posé en
    * classe de couleur : `globals.css` l'applique à `*:focus-visible` dans
-   * `@layer base` et aucun composant ne pose plus de couleur d'anneau, donc
-   * rendre la ligne focusable suffit. Seul l'OFFSET est surchargé, en desktop :
+   * `@layer base` et aucun composant ne pose plus de couleur divergente (test
+   * M0.8-4d), donc rendre la ligne focusable suffit. Seul l'OFFSET est surchargé, en desktop :
    * la `<tr>` remplit le conteneur `overflow-x-auto`, qui rogne les bords
    * gauche/droit d'un anneau à offset positif — il se lit alors comme deux
    * traits horizontaux. L'offset négatif le dessine à l'intérieur de la ligne,

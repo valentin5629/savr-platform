@@ -135,10 +135,18 @@
     {
       "id": "M0.8-04c",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:448",
-      "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx, packages/plateforme/src/components/programmation/lieu-combobox.tsx, packages/plateforme/src/components/programmation/contact-combobox.tsx",
+      "artefact": "packages/plateforme/src/components/ui/components.m0-8.test.tsx (cliquet) ; lignes corrigées : app/(admin)/admin/collectes/page.tsx, components/programmation/lieu-combobox.tsx, components/programmation/contact-combobox.tsx, components/ui/dropdown.tsx",
       "test": "M0.8-4c — aucun composant ne neutralise l'anneau de focus sans le remplacer (§10)",
       "statut": "implemented",
-      "libelle": "Aucune neutralisation d'anneau sans remplacement — un `outline-none` / `outline-0` n'est admis que si un `ring-*` prend le relais sur le même élément, ou sur un panneau Radix (Modal/Sheet/Toast/DropdownItem : focus programmatique, pas un contrôle). Trois champs de recherche en portaient une, restée INERTE tant que la règle globale n'était pas layered ; la bascule en `@layer base` (arbitrage Val 2026-09-22) l'aurait rendue active et les aurait privés de toute indication de focus. Cliquet transverse : le test scanne toutes les sources, pas seulement ces 3 fichiers."
+      "libelle": "Aucune neutralisation d'anneau sans remplacement — un `outline-none` / `outline-0` / `outline-hidden` (nom Tailwind v4) n'est admis que si un `ring-<n>` d'épaisseur non nulle prend le relais SUR LA MÊME LIGNE, ou sur un conteneur Radix exempté par signature de ligne (Modal, Sheet, Toast Viewport : focus programmatique, pas un contrôle). Quatre éléments portaient une neutralisation restée INERTE tant que la règle globale n'était pas layered — 3 champs de recherche et l'item de menu déroulant (dont le `data-[highlighted]` ne contraste qu'à 1,14:1, sous le seuil WCAG 1.4.11 de 3:1) ; la bascule en `@layer base` les aurait privés d'indicateur. Cliquet transverse : scanne toutes les sources."
+    },
+    {
+      "id": "M0.8-04d",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:241-242",
+      "artefact": "packages/plateforme/src/components/ui/components.m0-8.test.tsx (cliquet transverse)",
+      "test": "M0.8-4d — aucune source ne pose de couleur d'anneau divergente (anneau uniforme)",
+      "statut": "implemented",
+      "libelle": "Anneau uniforme garanti à l'échelle du repo — aucune source ne pose de `focus-visible:outline-savr-*` ni `focus:outline-savr-*` autre que `primary-500`. M0.8-4b ne rend que Button et IconButton : il n'aurait pas vu le `outline-savr-primary-800` du bandeau d'impersonation, inerte jusqu'à la bascule en `@layer base` puis divergent après (retiré par ce lot)."
     },
     {
       "id": "M0.8-05",

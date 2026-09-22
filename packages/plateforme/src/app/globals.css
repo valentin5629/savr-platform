@@ -156,8 +156,10 @@ h3 {
    du repo — couleur ET offset —, d'où l'anneau rogné latéralement sur les
    lignes de DataTable (le conteneur `overflow-x-auto` coupe un offset positif).
    L'anneau reste uniforme parce qu'aucun composant ne pose plus de couleur
-   d'anneau (Button/IconButton nettoyés) ; seul `outline-offset` se surcharge
-   au cas par cas. Arbitrage Val 2026-09-22 — divergence M0.8_20260922. */
+   DIVERGENTE : les `focus-visible:outline-savr-primary-500` résiduels sont
+   redondants avec cette règle, et le test M0.8-4d refuse toute autre couleur.
+   Seul `outline-offset` se surcharge au cas par cas.
+   Arbitrage Val 2026-09-22 — divergence M0.8_20260922. */
 @layer base {
   *:focus-visible {
     outline: 2px solid var(--color-savr-primary-500);

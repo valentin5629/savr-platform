@@ -174,6 +174,33 @@ it("M0.8-4b — l'anneau de focus est uniforme : aucune variante ne pose sa prop
 
 // ── Card ────────────────────────────────────────────────────────────────────
 
+/** Tous les fichiers source de l'app (hors tests), chemins relatifs à `src/`. */
+function sourcesDeLApp(): { relatif: string; contenu: string }[] {
+  const RACINE = resolve(__dirname, '../..');
+  const trouves: { relatif: string; contenu: string }[] = [];
+  const parcourir = (dir: string): void => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const chemin = join(dir, e.name);
+      if (e.isDirectory()) parcourir(chemin);
+      else if (/\.tsx?$/.test(e.name) && !/\.test\.tsx?$/.test(e.name))
+        trouves.push({
+          relatif: chemin.slice(RACINE.length + 1),
+          contenu: readFileSync(chemin, 'utf8'),
+        });
+    }
+  };
+  parcourir(RACINE);
+  expect(trouves.length).toBeGreaterThan(100); // le parcours a bien eu lieu
+  return trouves;
+}
+
+/** Neutralise les commentaires SANS décaler la numérotation des lignes. */
+function sansCommentaires(src: string): string {
+  return src
+    .replace(/\/\*[\s\S]*?\*\//g, (bloc) => bloc.replace(/[^\n]/g, ' '))
+    .replace(/\/\/.*$/gm, '');
+}
+
 it("M0.8-4c — aucun composant ne neutralise l'anneau de focus sans le remplacer (§10)", () => {
   // Depuis que `*:focus-visible` est LAYERED (arbitrage Val 2026-09-22), un
   // `outline-none` nu l'emporte réellement sur elle : l'élément se retrouve
@@ -181,12 +208,16 @@ it("M0.8-4c — aucun composant ne neutralise l'anneau de focus sans le remplace
   // neutralisations — trois champs de recherche en portaient une, inerte. Le
   // risque est donc devenu réel pour tout le repo, d'où ce cliquet.
   //
-  // Admis : (a) un anneau de remplacement `ring-<n>` sur la MÊME ligne, donc
-  // dans la même chaîne de classes — chercher plus loin créditerait un
-  // `ring-*` DÉCORATIF voisin (ex. le point de notification de sidebar.tsx,
-  // à deux lignes d'un lien de nav) ; (b) les quatre neutralisations Radix
-  // ci-dessous, exemptées par la SIGNATURE de leur ligne et non par fichier :
-  // un `outline-none` ajouté ailleurs dans ces mêmes fichiers reste attrapé.
+  // Admis : (a) un anneau de remplacement d'épaisseur NON NULLE sur la MÊME
+  // ligne, donc dans la même chaîne de classes — chercher plus loin
+  // créditerait un `ring-*` DÉCORATIF voisin (ex. le point de notification de
+  // sidebar.tsx, à deux lignes d'un lien de nav), et `ring-0` ne remplace
+  // rien ; (b) les neutralisations Radix ci-dessous, exemptées par la
+  // SIGNATURE de leur ligne et non par fichier : un `outline-none` ajouté
+  // ailleurs dans ces mêmes fichiers reste attrapé.
+  // `outline-hidden` est surveillé au même titre : c'est le nom Tailwind v4
+  // de l'ancien `outline-none`, donc l'orthographe qu'un dev écrit en suivant
+  // la doc courante.
   const EXEMPTIONS: { fichier: string; ligne: string; motif: string }[] = [
     {
       fichier: 'components/ui/modal.tsx',
@@ -202,43 +233,19 @@ it("M0.8-4c — aucun composant ne neutralise l'anneau de focus sans le remplace
     {
       fichier: 'components/ui/toast.tsx',
       ligne: 'flex w-full max-w-sm flex-col gap-2 p-4 outline-none',
-      motif: 'Viewport Radix, conteneur structurel non focusable au Tab',
-    },
-    {
-      fichier: 'components/ui/dropdown.tsx',
-      ligne: 'rounded-savr-sm px-2.5 py-2 text-sm outline-none',
-      motif: 'item de menu : son focus est signalé par data-[highlighted]',
+      motif:
+        'Viewport Radix : conteneur structurel, le focus va ensuite sur le toast lui-même',
     },
   ];
 
-  /** Neutralise les commentaires SANS décaler la numérotation des lignes. */
-  const sansCommentaires = (src: string): string =>
-    src
-      .replace(/\/\*[\s\S]*?\*\//g, (bloc) => bloc.replace(/[^\n]/g, ' '))
-      .replace(/\/\/.*$/gm, '');
-
-  const RACINE = resolve(__dirname, '../..');
-  const fichiers: string[] = [];
-  const parcourir = (dir: string): void => {
-    for (const e of readdirSync(dir, { withFileTypes: true })) {
-      const chemin = join(dir, e.name);
-      if (e.isDirectory()) parcourir(chemin);
-      else if (/\.tsx?$/.test(e.name) && !/\.test\.tsx?$/.test(e.name))
-        fichiers.push(chemin);
-    }
-  };
-  parcourir(RACINE);
-  expect(fichiers.length).toBeGreaterThan(100); // le parcours a bien eu lieu
-
   const nus: string[] = [];
   const exemptionsServies = new Set<string>();
-  for (const f of fichiers) {
-    const relatif = f.slice(RACINE.length + 1);
-    sansCommentaires(readFileSync(f, 'utf8'))
+  for (const { relatif, contenu } of sourcesDeLApp()) {
+    sansCommentaires(contenu)
       .split('\n')
       .forEach((ligne, i) => {
-        if (!/\boutline-(none|0)\b/.test(ligne)) return;
-        if (/\bring-\d/.test(ligne)) return; // anneau de remplacement, même élément
+        if (!/\boutline-(none|0|hidden)\b/.test(ligne)) return;
+        if (/\bring-[1-9]\d*\b/.test(ligne)) return; // remplacement sur le même élément
         const exemption = EXEMPTIONS.find(
           (e) => e.fichier === relatif && ligne.includes(e.ligne),
         );
@@ -255,6 +262,29 @@ it("M0.8-4c — aucun composant ne neutralise l'anneau de focus sans le remplace
   expect(
     EXEMPTIONS.filter((e) => !exemptionsServies.has(e.fichier + e.ligne)),
   ).toEqual([]);
+});
+
+it("M0.8-4d — aucune source ne pose de couleur d'anneau divergente (anneau uniforme)", () => {
+  // M0.8-4b ne rend que Button et IconButton : il n'aurait jamais vu le
+  // `focus-visible:outline-savr-primary-800` du bandeau d'impersonation, resté
+  // inerte tant que la règle globale n'était pas layered. Ce cliquet-ci scanne
+  // TOUTES les sources : depuis l'arbitrage Val 2026-09-22, la seule couleur
+  // d'anneau admise est `primary-500` — et l'écrire reste redondant, puisque
+  // `globals.css` la pose déjà pour tout élément focusable.
+  const divergentes: string[] = [];
+  for (const { relatif, contenu } of sourcesDeLApp()) {
+    sansCommentaires(contenu)
+      .split('\n')
+      .forEach((ligne, i) => {
+        for (const [, couleur] of ligne.matchAll(
+          /\b(?:focus|focus-visible):outline-(savr-[a-z0-9-]+)/g,
+        )) {
+          if (couleur !== 'savr-primary-500')
+            divergentes.push(`${relatif}:${i + 1} → ${couleur}`);
+        }
+      });
+  }
+  expect(divergentes).toEqual([]);
 });
 
 it('M0.8-5 — Card au repos a bordure neutral-200 et ombre none', () => {

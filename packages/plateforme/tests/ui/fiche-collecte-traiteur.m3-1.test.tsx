@@ -244,6 +244,63 @@ describe('M3.1 / fiche collecte traiteur — états système (§10 §7)', () => 
   );
 });
 
+describe('M3.1 / fiche collecte traiteur — navigation fiche → fiche', () => {
+  it(
+    'M3.1/fiche_ui_reponse_lente_ignoree — la fiche quittée n’écrase pas la nouvelle',
+    async () => {
+      // Le segment App Router est le même d'une fiche à l'autre : le composant
+      // n'est PAS remonté. Une réponse lente de la collecte quittée doit être
+      // ignorée — sinon l'écran montre A pendant que les actions (annulation,
+      // régénération) portent sur l'id B de l'URL.
+      let resoudreLente: ((v: unknown) => void) | undefined;
+      const lente = new Promise((r) => {
+        resoudreLente = r;
+      });
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((url: string) => {
+          const u = String(url);
+          if (u.includes('/benchmark'))
+            return Promise.resolve({
+              ok: true,
+              status: 200,
+              json: () => Promise.resolve({ data: { flux: {} } }),
+            } as Response);
+          if (u.includes('c1'))
+            return Promise.resolve({
+              ok: true,
+              status: 200,
+              json: () => lente,
+            } as Response);
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () =>
+              Promise.resolve({
+                data: collecte({ id: 'c2', heure_collecte: '08:30:00' }),
+              }),
+          } as Response);
+        }),
+      );
+
+      const { rerender } = render(<FicheCollectePage params={params('c1')} />);
+      // On navigue vers c2 AVANT que c1 n'ait répondu.
+      rerender(<FicheCollectePage params={params('c2')} />);
+      await screen.findByText('08:30', {}, ATTENTE_UI);
+
+      // c1 répond enfin, avec une heure différente : elle ne doit rien écraser.
+      resoudreLente?.({
+        data: collecte({ id: 'c1', heure_collecte: '22:00:00' }),
+      });
+      await new Promise((r) => setTimeout(r, 0));
+
+      expect(screen.getByText('08:30')).toBeTruthy();
+      expect(screen.queryByText('22:00')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+});
+
 describe('M3.1 / fiche collecte traiteur — Bloc 3 ZD (§06.04)', () => {
   it(
     'M3.1/fiche_ui_bloc3_masque_avant_realisation — ZD programmée : pas de jauges',

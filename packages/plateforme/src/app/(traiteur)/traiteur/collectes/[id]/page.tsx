@@ -168,13 +168,20 @@ export default function FicheCollectePage({
     null,
   );
 
-  // `annuleRef` protège la navigation fiche → fiche : le segment App Router
-  // étant le même, le composant n'est pas remonté et une réponse lente de la
-  // fiche précédente écraserait la nouvelle.
-  const annuleRef = useRef(false);
+  // Navigation fiche → fiche : le segment App Router est le même, donc le
+  // composant n'est PAS remonté et une réponse lente de la fiche quittée
+  // écraserait la nouvelle. On compare l'id capturé par la requête à l'id
+  // actuellement rendu — `idRendu` est réaffecté à chaque rendu, jamais dans un
+  // effet (un drapeau armé au démontage retomberait à false au montage de
+  // l'effet suivant, et ne protégerait donc que le démontage). Ce motif couvre
+  // aussi les `reload()` manuels, déclenchés hors de tout effet après une
+  // annulation ou une régénération.
+  const idRendu = useRef(id);
+  idRendu.current = id;
 
   const reload = useCallback(() => {
     setErreur(null);
+    const perime = (): boolean => idRendu.current !== id;
     fetch(`/api/v1/traiteur/collectes/${encodeURIComponent(id)}`)
       .then(async (r) => {
         // 404 = collecte supprimée ou sortie du périmètre : ce n'est pas une
@@ -185,24 +192,19 @@ export default function FicheCollectePage({
         return r.json();
       })
       .then((j) => {
-        if (annuleRef.current) return;
+        if (perime()) return;
         setC(j?.data ?? null);
       })
       .catch(() => {
-        if (!annuleRef.current)
-          setErreur('Le chargement de la collecte a échoué.');
+        if (!perime()) setErreur('Le chargement de la collecte a échoué.');
       })
       .finally(() => {
-        if (!annuleRef.current) setLoading(false);
+        if (!perime()) setLoading(false);
       });
   }, [id]);
 
   useEffect(() => {
-    annuleRef.current = false;
     reload();
-    return () => {
-      annuleRef.current = true;
-    };
   }, [reload]);
 
   // Ouverture directe en mode édition depuis l'action « Modifier » de la liste

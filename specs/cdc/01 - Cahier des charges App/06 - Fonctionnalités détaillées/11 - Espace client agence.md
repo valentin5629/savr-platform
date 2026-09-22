@@ -35,7 +35,7 @@ Le rôle `agence` est un **rôle unique** (pas de split manager/commercial) : un
 | 7 | **Pas de KPI « Marge générée »** | Le dashboard agence affiche **4 cartes ZD** (Nb collectes ZD · Tonnage · Taux de recyclage · kg/pax), sans la carte Marge du §06.04 (5 cartes). La formule `tarif_refacture_pax_zd × pax − coût Savr` est propre au business model traiteur ; marge agence arbitrée V2. Décision 2026-05-07 maintenue. |
 | 8 | **Pas de Top 5 commerciaux ni de gestion utilisateurs** *(décision F1 test-scenarios lot ⑨ 2026-06-07)* | Le Bloc 7 « Top 5 commerciaux » et le bloc « Mon organisation > Utilisateurs » du §06.04 ne sont **pas répliqués** côté agence en V1. Invitation/désactivation des users agence = Admin Savr uniquement (cohérent §09 : création `agence` par Admin only). RLS `users` : `agence` = self only (pas d'exposition org-wide). Réévalué avec le rôle `agence_commercial` V1.5 (QO #2). |
 
-Tout le reste — structure des onglets ZD/AG, filtres globaux, blocs 2 à 8 par onglet, benchmark (4 dimensions §06.04, k-anonymat ≥5), bouton « Programmer un événement » (formulaire unique §06.01), bouton « Exporter une synthèse PDF » (Bloc 8 par onglet), pack AG fondu dans l'onglet AG, section « Mon organisation », section « Mon profil » — est **identique au §06.04** et n'est pas redécrit ici.
+Tout le reste — structure des onglets ZD/AG, filtres globaux, blocs 2 à 8 par onglet, benchmark (4 dimensions §06.04, k-anonymat ≥ 5 collectes **et ≥ 3 acteurs distincts**), bouton « Programmer un événement » (formulaire unique §06.01), bouton « Exporter une synthèse PDF » (Bloc 8 par onglet), pack AG fondu dans l'onglet AG, section « Mon organisation », section « Mon profil » — est **identique au §06.04** et n'est pas redécrit ici.
 
 ---
 

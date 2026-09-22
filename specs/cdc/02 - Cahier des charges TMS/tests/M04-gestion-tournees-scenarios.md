@@ -2,6 +2,7 @@
 
 **Source CDC** : §06/M04 (W1→W10, E1→E5, EC1→C12) + §05 R2 (coût), R2.7 / R2.7bis (annulation), R2.8 (figement), R5.5 (stock ZD), R6.1 / R6.2 (cycles de vie) + §04 table `tournees` + `collecte_tournees` + trigger `fn_m07_calc_cost` + §08 S3 + §09 RLS tournées
 **Généré le** : 2026-06-05
+**Statut** : À implémenter par Claude Code
 
 > **Instructions Claude Code** : ces scénarios sont la source de vérité pour les tests du module M04.
 > Pour chaque scénario :

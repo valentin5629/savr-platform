@@ -1,5 +1,7 @@
 # 06.01 - Formulaire de programmation de collecte
 
+**Statut** : Draft V1 (refonte formulaire unique événement-centré 2026-05-21)
+**Dernière mise à jour** : 2026-05-29 (revue de sobriété — A1/A2/B1/C1-C5)
 
 ---
 

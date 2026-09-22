@@ -346,8 +346,9 @@ Scénario : fichiers_facture_gestionnaire_scinde (fichiers_facture_gestionnaire_
 Scénario : audit_log_append_only_meme_pour_admin
   Étant donné une entrée audit_log existante
   Quand `val` (admin_savr) exécute UPDATE, puis DELETE, puis TRUNCATE sur cette entrée — sous `authenticated`, puis en visant directement la partition annuelle
-  Alors les trois opérations échouent (immuable : `trg_audit_log_immuable` + `trg_audit_log_vidage_interdit` + REVOKE, migrations `20260921200000` et `20260921230000`)
-  Et le refus vaut aussi depuis une fonction `SECURITY DEFINER` (l'ACL vérifiée est celle du propriétaire, pas celle de l'appelant)
+  Alors UPDATE et DELETE échouent (`trg_audit_log_immuable` + REVOKE, migration `20260921200000`)
+  Et le vidage de table échoue également — ⚠ garantie portée par `trg_audit_log_vidage_interdit` (`20260922110000`, **PR #383 non mergée au 2026-09-22**) : tant qu'elle n'est pas sur `main`, ce volet du scénario décrit une cible, pas un acquis
+  Et le refus vaut aussi depuis une fonction `SECURITY DEFINER` (l'ACL vérifiée est celle du propriétaire, pas celle de l'appelant) — ⚠ ce cas n'est PAS facultatif : les 3 rôles applicatifs n'ayant pas le privilège de vidage, c'est la SEULE assertion qui mesure réellement la présence du trigger
   Et la garantie porte sur les rôles applicatifs (`service_role`, `authenticated`, `anon`) — `postgres`, propriétaire de la base, est hors garantie
 
 Scénario : audit_log_insert_api_refuse

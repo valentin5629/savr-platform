@@ -162,7 +162,7 @@ Encart compact "Filtres benchmark" affichant **4 critères** (et non 5 comme cô
 - **Jauge traiteur** : ratio `kg du flux / pax cumulés` sur les **filtres globaux**
 - **Borne max axe** : valeur max observée du parc Savr × 1,2 (échelle figée par flux)
 - **Point rouge benchmark** : moyenne parc Savr selon **filtres benchmark dédiés** (4 dimensions)
-- **K-anonymat ≥5 collectes** appliqué côté serveur. Si <5 → point rouge masqué + tooltip "Données insuffisantes pour benchmark".
+- **K-anonymat appliqué côté serveur — ≥ 5 collectes ET ≥ 3 acteurs distincts** (organisations programmatrices et traiteurs opérationnels, minimum des deux compteurs ; durci 2026-09-22). Si l'un des deux seuils n'est pas atteint → point rouge masqué + tooltip "Données insuffisantes pour benchmark" — le libellé ne cite jamais la cause du masquage, qui renseignerait sur la structure du segment.
 
 **Légende couleur** (ratio jauge traiteur / point benchmark, calculés chacun sur leur propre périmètre) :
 - Vert : ratio ≤ benchmark (performance ≥ moyenne du segment)
@@ -452,7 +452,7 @@ Structure (1 jauge par flux ZD = 5 jauges) :
 - **Valeur traiteur** : ratio `kg du flux sur cette collecte / pax de cet événement` (grain `single collecte`)
 - **Borne max axe** : valeur max parc Savr × 1,2 (échelle figée par flux, identique §05/§02 dashboard)
 - **Point rouge benchmark** : moyenne parc Savr selon **filtres benchmark dédiés** (4 dimensions, voir §2 Bloc 3 ZD pour la liste)
-- **K-anonymat ≥5 collectes parc** appliqué côté serveur. Si <5 → point rouge masqué + tooltip "Données insuffisantes pour benchmark"
+- **K-anonymat parc appliqué côté serveur — ≥ 5 collectes ET ≥ 3 acteurs distincts** (durci 2026-09-22, cf. §04 « RLS / k-anonymat »). Si l'un des deux seuils n'est pas atteint → point rouge masqué + tooltip "Données insuffisantes pour benchmark" (libellé neutre : il ne cite pas la cause)
 - **Légende couleur** identique §2 Bloc 3 ZD (vert ≤ benchmark, orange 100-130%, rouge >130%, gris masqué)
 
 **Filtres benchmark modifiables (encart compact au-dessus du bloc)**

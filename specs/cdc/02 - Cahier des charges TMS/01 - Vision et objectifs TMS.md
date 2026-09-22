@@ -1,5 +1,7 @@
 # 01 - Vision et objectifs TMS
 
+**Statut** : V1 rédigée — §1 à §7 complets, décisions tracées, questions ouvertes listées
+**Dernière mise à jour** : 2026-04-21
 
 ---
 

@@ -119,10 +119,18 @@
     {
       "id": "M0.8-04",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
-      "artefact": null,
+      "artefact": "packages/plateforme/src/components/ui/button.tsx (variantes) + packages/plateforme/src/app/globals.css (*:focus-visible dans @layer base)",
       "test": "M0.8-4 — Button focus-visible affiche un anneau primary-500 offset 2px (levier #4)",
-      "statut": "implemented",
-      "libelle": "M0.8-4 — Button focus-visible affiche un anneau primary-500 offset 2px (levier #4)"
+      "statut": "à-vérifier",
+      "libelle": "M0.8-4 — Button focus-visible affiche un anneau primary-500 offset 2px (levier #4). La couleur vient de la règle globale `*:focus-visible`, DANS `@layer base` depuis l'arbitrage Val 2026-09-22 : hors layer elle écrasait tout utilitaire Tailwind. Le test couvre l'automatisable (classes posées + règle layered) ; le RENDU relève de la preuve visuelle — mesuré au navigateur le 2026-09-22 : solid 2px rgb(63,85,153) offset 2px sur les variantes primary, accent et destructive."
+    },
+    {
+      "id": "M0.8-04b",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:241-242",
+      "artefact": "packages/plateforme/src/components/ui/button.tsx + packages/plateforme/src/components/ui/icon-button.tsx",
+      "test": "M0.8-4b — l'anneau de focus est uniforme : aucune variante ne pose sa propre couleur",
+      "statut": "à-vérifier",
+      "libelle": "Anneau de focus UNIFORME primary-500 (arbitrage Val 2026-09-22, divergence M0.8_20260922) — §5.1 s'aligne sur le levier #4 : aucune variante de Button ni d'IconButton ne pose de couleur d'anneau propre (les classes accent-600 / error, inertes, sont retirées). Le test prouve l'ABSENCE de couleur concurrente ; le rendu est mesuré au navigateur (accent et destructive → rgb(63,85,153))."
     },
     {
       "id": "M0.8-05",
@@ -568,10 +576,10 @@
     {
       "id": "M0.8-datatable-focus-ring",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:448",
-      "artefact": "packages/plateforme/src/app/globals.css (*:focus-visible, hors @layer) appliqué à la ligne focusable de packages/plateforme/src/components/ui/data-table.tsx",
+      "artefact": "packages/plateforme/src/app/globals.css (*:focus-visible dans @layer base) appliqué à la ligne focusable de packages/plateforme/src/components/ui/data-table.tsx (focus-visible:-outline-offset-2 sur la <tr> desktop)",
       "test": "M0.8-64 — DataTable : une ligne cliquable porte le focus ring DS (levier #4)",
       "statut": "à-vérifier",
-      "libelle": "Focus ring (levier #4) — la ligne cliquable porte l'anneau focus-visible primary-500 offset 2px, jamais le focus bleu navigateur. Le test couvre ce qui est automatisable (règle globale présente, ligne focusable, outline non neutralisé) ; le RENDU relève de la preuve visuelle (jsdom ne peint pas) — vérifié au navigateur le 2026-09-22 : #3f5599, 2px, offset 2px sur la ligne focalisée au Tab. Anneau rogné latéralement en desktop (tr dans overflow-x-auto) — cf. _Divergences/M0.8_20260922_focus-ring-uniforme-vs-differencie.md."
+      "libelle": "Focus ring (levier #4) — la ligne cliquable porte l'anneau focus-visible primary-500, jamais le focus bleu navigateur. Le test couvre l'automatisable (règle globale présente ET layered, ligne focusable, outline non neutralisé, offset surchargé côté desktop seulement) ; le RENDU relève de la preuve visuelle (jsdom ne peint pas) — mesuré au navigateur le 2026-09-22 : #3f5599, 2px, offset -2px en desktop (anneau tracé à l'intérieur de la <tr>, donc plus rogné par le conteneur overflow-x-auto) et +2px sur la card mobile. Rognage corrigé par l'arbitrage Val 2026-09-22 (_Divergences/M0.8_20260922_focus-ring-uniforme-vs-differencie.md)."
     }
   ],
   "cdc_source_hash": {

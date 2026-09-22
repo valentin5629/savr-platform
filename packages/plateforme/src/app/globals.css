@@ -149,10 +149,20 @@ h3 {
   line-height: 1.15;
 }
 
-/* ─── Focus ring signature (levier #4 — anneau primary-500, tout élément) ── */
-*:focus-visible {
-  outline: 2px solid var(--color-savr-primary-500);
-  outline-offset: 2px;
+/* ─── Focus ring signature (levier #4 — anneau primary-500, tout élément) ──
+   Posée dans `@layer base`, et surtout PAS hors layer : une règle non-layered
+   l'emporte sur TOUT utilitaire Tailwind (`@layer utilities`) quelle que soit
+   la spécificité. Hors layer, elle rendait inertes les `focus-visible:outline-*`
+   du repo — couleur ET offset —, d'où l'anneau rogné latéralement sur les
+   lignes de DataTable (le conteneur `overflow-x-auto` coupe un offset positif).
+   L'anneau reste uniforme parce qu'aucun composant ne pose plus de couleur
+   d'anneau (Button/IconButton nettoyés) ; seul `outline-offset` se surcharge
+   au cas par cas. Arbitrage Val 2026-09-22 — divergence M0.8_20260922. */
+@layer base {
+  *:focus-visible {
+    outline: 2px solid var(--color-savr-primary-500);
+    outline-offset: 2px;
+  }
 }
 
 /* ─── Reduced motion ─────────────────────────────────────────────────────── */

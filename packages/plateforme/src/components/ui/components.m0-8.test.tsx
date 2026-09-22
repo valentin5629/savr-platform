@@ -94,11 +94,82 @@ it('M0.8-3 — Button accent applique fond accent-500 et texte primary-950', () 
   expect(btn.className).toContain('text-savr-primary-950');
 });
 
+/**
+ * Vrai si la règle `*:focus-visible` de globals.css est bien IMBRIQUÉE dans un
+ * `@layer base { … }`. Ce n'est pas un détail de style : hors layer, une règle
+ * l'emporte sur tous les utilitaires Tailwind (`@layer utilities`) quelle que
+ * soit la spécificité, ce qui rendait inertes les `focus-visible:outline-*` du
+ * repo — couleur ET offset (arbitrage Val 2026-09-22, divergence M0.8_20260922).
+ * On compte les accolades ouvertes avant l'occurrence plutôt que de faire
+ * confiance à une regex de présence, qui resterait verte si le `@layer` était
+ * retiré.
+ */
+function regleFocusDansLayerBase(source: string): boolean {
+  const sansCommentaires = source.replace(/\/\*[\s\S]*?\*\//g, '');
+  const i = sansCommentaires.indexOf('*:focus-visible');
+  if (i === -1) return false;
+  const entetesOuverts: string[] = [];
+  let debutBloc = 0;
+  for (let k = 0; k < i; k++) {
+    if (sansCommentaires[k] === '{') {
+      entetesOuverts.push(sansCommentaires.slice(debutBloc, k));
+      debutBloc = k + 1;
+    } else if (sansCommentaires[k] === '}') {
+      entetesOuverts.pop();
+      debutBloc = k + 1;
+    }
+  }
+  return entetesOuverts.some((e) => /@layer\s+base\s*$/.test(e.trim()));
+}
+
 it('M0.8-4 — Button focus-visible affiche un anneau primary-500 offset 2px (levier #4)', () => {
   const { container } = render(<Button variant="primary">Focus</Button>);
   const btn = container.querySelector('button')!;
   expect(btn.className).toContain('focus-visible:outline-savr-primary-500');
   expect(btn.className).toContain('focus-visible:outline-offset-2');
+  // La couleur ne vient pas QUE de la classe : elle n'est appliquée que parce
+  // que la règle globale est layered (sinon elle écraserait tout utilitaire).
+  expect(regleFocusDansLayerBase(css)).toBe(true);
+});
+
+it("M0.8-4b — l'anneau de focus est uniforme : aucune variante ne pose sa propre couleur", () => {
+  // Arbitrage Val 2026-09-22 : levier #4 fait foi, §5.1 s'aligne dessus — plus
+  // d'anneau `accent-600` / `error` par variante. Le test porte sur l'ABSENCE
+  // d'une couleur concurrente, donc il échouerait si on les réintroduisait.
+  const variantesBouton = [
+    'primary',
+    'secondary',
+    'accent',
+    'destructive',
+    'ghost',
+    'link',
+  ] as const;
+  for (const variant of variantesBouton) {
+    const { container, unmount } = render(
+      <Button variant={variant}>Action</Button>,
+    );
+    const couleurs =
+      container
+        .querySelector('button')!
+        .className.match(/focus-visible:outline-savr-[a-z0-9-]+/g) ?? [];
+    expect(
+      couleurs.filter((c) => c !== 'focus-visible:outline-savr-primary-500'),
+    ).toEqual([]);
+    unmount();
+  }
+  for (const variant of ['ghost', 'primary', 'destructive'] as const) {
+    const { container, unmount } = render(
+      <IconButton aria-label="Action" variant={variant} />,
+    );
+    const couleurs =
+      container
+        .querySelector('button')!
+        .className.match(/focus-visible:outline-savr-[a-z0-9-]+/g) ?? [];
+    expect(
+      couleurs.filter((c) => c !== 'focus-visible:outline-savr-primary-500'),
+    ).toEqual([]);
+    unmount();
+  }
 });
 
 // ── Card ────────────────────────────────────────────────────────────────────
@@ -639,14 +710,16 @@ it('M0.8-63 — DataTable : Entrée et Espace sur une ligne déclenchent onRowCl
 });
 
 it('M0.8-64 — DataTable : une ligne cliquable porte le focus ring DS (levier #4)', () => {
-  // Le ring n'est pas porté par une classe utilitaire : globals.css le pose sur
-  // `*:focus-visible` HORS @layer, ce qui l'emporte sur tout `focus-visible:outline-*`
-  // (mesuré dans le navigateur). L'oracle est donc en deux temps : la règle globale
-  // existe (anneau primary-500 offset, levier #4) ET la ligne est focusable sans
+  // La couleur du ring n'est pas portée par une classe utilitaire : globals.css
+  // la pose sur `*:focus-visible`, et aucun composant ne pose plus de couleur
+  // d'anneau (arbitrage Val 2026-09-22). L'oracle tient en trois temps : la
+  // règle globale existe, elle est LAYERED (sinon elle rendrait tout utilitaire
+  // inerte, y compris l'offset ci-dessous), et la ligne est focusable sans
   // neutraliser son outline.
   expect(css).toMatch(
     /\*:focus-visible\s*\{[^}]*outline:\s*2px\s+solid\s+var\(--color-savr-primary-500\)[^}]*outline-offset:\s*2px/,
   );
+  expect(regleFocusDansLayerBase(css)).toBe(true);
   const { container } = render(
     <DataTable
       columns={COLONNES_TEST}
@@ -661,6 +734,12 @@ it('M0.8-64 — DataTable : une ligne cliquable porte le focus ring DS (levier #
     expect(ligne.className).not.toMatch(/outline-none|outline-0/); // ring jamais neutralisé
     expect(ligne.className).toContain('cursor-pointer');
   }
+  // Desktop seulement : la <tr> remplit le conteneur `overflow-x-auto`, qui
+  // rogne les bords latéraux d'un anneau à offset positif. L'offset négatif le
+  // dessine à l'intérieur de la ligne. La card mobile n'est pas dans un
+  // conteneur scrollable et garde l'offset positif du DS.
+  expect(desktop.className).toContain('focus-visible:-outline-offset-2');
+  expect(mobile.className).not.toContain('outline-offset');
 });
 
 it("M0.8-65 — DataTable : une ligne sans onRowClick n'entre pas dans l'ordre de tabulation", () => {

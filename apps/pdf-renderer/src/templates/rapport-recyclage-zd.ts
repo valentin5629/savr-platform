@@ -13,7 +13,12 @@ export const TEMPLATE_VERSION = 'rapport-recyclage-zd@2';
 export interface BenchmarkFluxGauge {
   flux_nom: string;
   collecte_kg_pax: number | null;
-  /** Point rouge = moyenne pondérée parc. null si segment < 5 collectes (k-anonymat). */
+  /**
+   * Point rouge = moyenne pondérée parc. `null` quand le k-anonymat a masqué le
+   * segment côté SQL — moins de 5 collectes OU moins de 3 acteurs distincts
+   * (durcissement 2026-09-22). La cause n'est pas exposée ici : la dire
+   * renseignerait le lecteur sur la structure du segment.
+   */
   benchmark_kg_pax?: number | null;
   nb_collectes_segment: number;
 }
@@ -204,7 +209,11 @@ export function renderRapportRecyclageZd(data: RapportRecyclageZdData): string {
       .map((g) => {
         const val = g.collecte_kg_pax ?? 0;
         const bench = g.benchmark_kg_pax ?? null;
-        const suffisant = bench != null && g.nb_collectes_segment >= 5;
+        // `bench` est null exactement quand f_benchmark_kg_pax_zd a masqué le
+        // segment : ne PAS rejouer le seuil ici. Le k-anonymat a deux critères
+        // depuis le 2026-09-22 (collectes ET acteurs) et une copie locale de la
+        // règle divergerait en silence à la prochaine évolution.
+        const suffisant = bench != null;
         // Échelle de la jauge : max(valeur, point rouge) avec marge de 25 %.
         const echelle = Math.max(val, bench ?? 0, 0.001) * 1.25;
         const pctVal = Math.min(100, (val / echelle) * 100);
@@ -225,13 +234,13 @@ export function renderRapportRecyclageZd(data: RapportRecyclageZdData): string {
           <div class="gauge-foot">${
             suffisant
               ? `Parc Savr : <strong>${fmt(bench!)} kg/convive</strong> · ${g.nb_collectes_segment} collectes`
-              : 'Données insuffisantes pour benchmark (moins de 5 collectes comparables)'
+              : 'Données insuffisantes pour benchmark (échantillon parc non comparable)'
           }</div>
         </div>`;
       })
       .join('');
     const legende = data.benchmark_legende
-      ? `<p class="mention-benchmark">Benchmark parc Savr calculé sur : ${esc(data.benchmark_legende)}. K-anonymat ≥ 5.</p>`
+      ? `<p class="mention-benchmark">Benchmark parc Savr calculé sur : ${esc(data.benchmark_legende)}. Segments non comparables masqués (anonymat).</p>`
       : '';
     return `
       <div class="section benchmark-section">

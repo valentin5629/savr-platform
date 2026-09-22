@@ -14,6 +14,13 @@
 --
 -- Fixtures 100 % isolées (BEGIN…ROLLBACK) : identifiants et SIRET distincts de
 -- r19b_gest04_benchmark_ponderee.test.sql, qui bâtit un parc voisin.
+--
+-- ⚠ Les collectes tournent sur TROIS organisations (rang modulo 3), si bien que
+-- CHAQUE segment porte 3 acteurs distincts et franchit le k-anonymat durci du
+-- 2026-09-22 (≥ 3 organisations programmatrices ET ≥ 3 traiteurs opérationnels).
+-- Les effectifs par segment (5 / 15 / 3 / 5) et les poids sont inchangés : les
+-- moyennes pondérées attendues ne bougent pas, et le segment C reste masqué par
+-- le seul seuil de 5 collectes.
 -- ---------------------------------------------------------------------------
 
 BEGIN;
@@ -21,17 +28,27 @@ SELECT plan(10);
 
 SET LOCAL role = 'postgres';
 
-INSERT INTO plateforme.organisations (id, nom, raison_sociale, type, siret, actif, tarif_refacture_pax_zd)
-VALUES ('bb000000-0000-0000-0000-0000000000a1'::uuid, 'Pondere Traiteur', 'Pondere SARL', 'traiteur', '88888888800001', true, 0);
+INSERT INTO plateforme.organisations (id, nom, raison_sociale, type, siret, actif, tarif_refacture_pax_zd) VALUES
+  ('bb000000-0000-0000-0000-0000000000a1'::uuid, 'Pondere Traiteur 1', 'Pondere 1 SARL', 'traiteur', '88888888800001', true, 0),
+  ('bb000000-0000-0000-0000-0000000000a2'::uuid, 'Pondere Traiteur 2', 'Pondere 2 SARL', 'traiteur', '88888888800002', true, 0),
+  ('bb000000-0000-0000-0000-0000000000a3'::uuid, 'Pondere Traiteur 3', 'Pondere 3 SARL', 'traiteur', '88888888800003', true, 0);
 
-INSERT INTO plateforme.users (id, organisation_id, email, prenom, nom, role, actif)
-VALUES ('bb000000-0000-0000-0000-0000000000b1'::uuid, 'bb000000-0000-0000-0000-0000000000a1'::uuid,
-        'chef@pondere.test', 'Chef', 'P', 'traiteur_manager', true);
+INSERT INTO plateforme.users (id, organisation_id, email, prenom, nom, role, actif) VALUES
+  ('bb000000-0000-0000-0000-0000000000b1'::uuid, 'bb000000-0000-0000-0000-0000000000a1'::uuid,
+   'chef1@pondere.test', 'Chef', 'P1', 'traiteur_manager', true),
+  ('bb000000-0000-0000-0000-0000000000b2'::uuid, 'bb000000-0000-0000-0000-0000000000a2'::uuid,
+   'chef2@pondere.test', 'Chef', 'P2', 'traiteur_manager', true),
+  ('bb000000-0000-0000-0000-0000000000b3'::uuid, 'bb000000-0000-0000-0000-0000000000a3'::uuid,
+   'chef3@pondere.test', 'Chef', 'P3', 'traiteur_manager', true);
 
 INSERT INTO plateforme.entites_facturation
-  (id, organisation_id, raison_sociale, siret, adresse_facturation, code_postal, ville)
-VALUES ('bb000000-0000-0000-0000-0000000000f1'::uuid, 'bb000000-0000-0000-0000-0000000000a1'::uuid,
-        'Pondere SARL', '88888888800001', '1 rue Pondere', '75001', 'Paris');
+  (id, organisation_id, raison_sociale, siret, adresse_facturation, code_postal, ville) VALUES
+  ('bb000000-0000-0000-0000-0000000000f1'::uuid, 'bb000000-0000-0000-0000-0000000000a1'::uuid,
+   'Pondere 1 SARL', '88888888800001', '1 rue Pondere', '75001', 'Paris'),
+  ('bb000000-0000-0000-0000-0000000000f2'::uuid, 'bb000000-0000-0000-0000-0000000000a2'::uuid,
+   'Pondere 2 SARL', '88888888800002', '2 rue Pondere', '75001', 'Paris'),
+  ('bb000000-0000-0000-0000-0000000000f3'::uuid, 'bb000000-0000-0000-0000-0000000000a3'::uuid,
+   'Pondere 3 SARL', '88888888800003', '3 rue Pondere', '75001', 'Paris');
 
 INSERT INTO plateforme.lieux (id, nom, adresse_acces, code_postal, ville, type_vehicule_max)
 VALUES ('bb000000-0000-0000-0000-0000000000f0'::uuid, 'Pondere Lieu', '2 av Pondere', '75002', 'Paris', 'camionnette');
@@ -57,10 +74,12 @@ INSERT INTO plateforme.evenements (
 )
 SELECT
   s.evt_id,
-  'bb000000-0000-0000-0000-0000000000a1'::uuid,
-  'bb000000-0000-0000-0000-0000000000a1'::uuid,
-  'bb000000-0000-0000-0000-0000000000f1'::uuid,
-  'bb000000-0000-0000-0000-0000000000b1'::uuid,
+  -- Rotation sur les 3 organisations : chaque segment (5 / 15 / 3 / 5 collectes
+  -- consécutives) ramasse ainsi 3 acteurs distincts, programmateur ET opérationnel.
+  s.org_id,
+  s.org_id,
+  s.entite_id,
+  s.user_id,
   'bb000000-0000-0000-0000-0000000000f0'::uuid,
   s.type_id,
   'Evt ' || s.rang,
@@ -71,6 +90,9 @@ SELECT
 FROM (
   SELECT ('bb000000-0000-0000-0000-00000000e' || lpad(g::text, 3, '0'))::uuid AS evt_id,
          g AS rang,
+         ('bb000000-0000-0000-0000-0000000000a' || (g % 3 + 1)::text)::uuid AS org_id,
+         ('bb000000-0000-0000-0000-0000000000f' || (g % 3 + 1)::text)::uuid AS entite_id,
+         ('bb000000-0000-0000-0000-0000000000b' || (g % 3 + 1)::text)::uuid AS user_id,
          CASE WHEN g <= 5 THEN 'bb000000-0000-0000-0000-0000000000d1'::uuid
               WHEN g <= 20 THEN 'bb000000-0000-0000-0000-0000000000d2'::uuid
               WHEN g <= 23 THEN 'bb000000-0000-0000-0000-0000000000d3'::uuid

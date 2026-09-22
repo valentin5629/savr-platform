@@ -54,7 +54,10 @@
     "packages/plateforme/src/app/api/v1/gestionnaire/documents/[type]/[id]/download/route.ts",
     "packages/plateforme/src/app/api/v1/gestionnaire/traiteurs/[id]/logo/route.ts",
     "packages/plateforme/tests/ui/logo-organisation-proxy.test.tsx",
-    "packages/plateforme/tests/ui/detail-evenement-gestionnaire.m3-2.test.tsx"
+    "packages/plateforme/tests/ui/detail-evenement-gestionnaire.m3-2.test.tsx",
+    "packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx",
+    "packages/plateforme/src/app/api/v1/gestionnaire/collectes/route.ts",
+    "packages/plateforme/tests/ui/collectes-gestionnaire.m3-2.test.tsx"
   ],
   "scenarios": [
     "M3.2/auth_guard_non_gestionnaire_401",
@@ -133,7 +136,13 @@
     "M3.2/P2_traiteurs_logo_par_proxy",
     "M3.2/logo_fiche_traiteur_gestionnaire_par_proxy",
     "M3.2/detail_evenement_ag_distance_association",
-    "M3.2/detail_evenement_consultation_lecture_seule"
+    "M3.2/detail_evenement_consultation_lecture_seule",
+    "M3.2/collectes_liste_rendue_au_design_system",
+    "M3.2/collectes_erreur_chargement_message_et_reessayer",
+    "M3.2/collectes_liste_vide_empty_state",
+    "M3.2/collectes_etat_chargement_skeleton",
+    "M3.2/collectes_ligne_ouvre_la_fiche",
+    "M3.2/collectes_erreur_perimee_ninvalide_pas_la_reponse_fraiche"
   ],
   "deliverables": [
     {
@@ -511,6 +520,14 @@
       "test": "M3.2/detail_evenement_consultation_lecture_seule — en-tête, sous-blocs ZD et AG, documents, aucune action + M3.2/detail_evenement_consultation_lecture_seule — client organisateur non renseigné : cellule absente ; estimation labo indisponible : « — », jamais « 0.0 kg » + M3.2/detail_evenement_coefficient_declare_zero — coefficient déclaré à 0 : « 0.0 kg », jamais « — » + supabase/tests/dechets_labo_null_sans_coefficient.test.sql (cas 1-4 : valeur / sans coefficient → NULL / zéro déclaré → 0 / hors périmètre → NULL, avec leurs contre-épreuves de non-vacuité 5-6)",
       "statut": "implemented",
       "libelle": "§3 Détail événement — consultation pure. En-tête complet (nom, date, lieu, pax, type d'événement, taille bracket, traiteur nom + logo par proxy scopé, client organisateur si renseigné) SANS email/téléphone/SIRET ; sous-bloc ZD (kg des 5 flux + taux de recyclage) ; sous-bloc AG (repas + association avec ville et distance) ; bloc documents (bordereau ZD, rapport de recyclage — libellé UI « Rapport RSE », aligné sur l'espace organisateur et le panneau Admin —, attestation de don) ; aucun bouton de modification, duplication ou annulation. Couvre aussi deux exigences de la même plage que la revue de conformité a trouvées non câblées : tooltip explicatif des déchets labo estimés (l.330) et date + heure de début par collecte (l.333, typées mais jamais rendues). Le « — si le traiteur n'a pas communiqué de coefficient » (l.330) est DÉSORMAIS ATTEIGNABLE : `f_dechets_labo_estimes` enveloppait son résultat dans COALESCE(…, 0) et ne renvoyait jamais null, donc ce cas affichait « 0.0 kg » — l'affirmation d'une estimation nulle. La migration 20260921190000 retire le COALESCE ; le pgTAP dédié mesure les 3 cas sous rôle authenticated (valeur / sans coefficient → NULL / hors périmètre → NULL, indistinguables comme avant : aucun oracle créé) et le 4e que la règle §05 distingue (coefficient DÉCLARÉ à 0 → 0 kg, information du traiteur). Les deux écrans rendaient déjà « — » sur null : aucune ligne de code applicatif n'a changé, seuls les commentaires qui déclaraient le cas inatteignable. Divergence _Divergences/M3.2_20260921_dechets-labo-coalesce-zero.md close par ce lot. TROIS écarts CONNEXES de la même fonction restent ouverts, hors lot : absence de la garde de date F3 (brouillon d'un traiteur tiers) et « année − 1 » du CDC contre ORDER BY annee_reference DESC LIMIT 1 (tous deux tracés dans ce fichier) ; et le 3e cas particulier de §05 R_dechets_labo_estimes, « pax = 0 → NULL », qui rend 0 (atteignable MESURÉE par les deux routes d'édition d'evenements, sans borne basse ni CHECK — tracé dans _Divergences/M3.2_20260921_dechets-labo-pax-zero.md). Aucun des trois n'est aggravé par ce lot. ⚠ Le scénario P1 n'était porté par AUCUN test et absent de scenarios[] : type d'événement, logo traiteur et client organisateur étaient renvoyés par la route mais jamais rendus. ⚠ Le sous-bloc AG n'est PAS couvert par ce livrable et reste `partial` ailleurs : cf. livrable M3.2-detail-evenement-distance-association et _Divergences/M3.2_20260921_detail-evenement-bloc-ag-invisible-gestionnaire.md (arbitrage Val 2026-09-21 = option b, vue v_attributions_gestionnaire, lot distinct sur 6 points d'appel)."
+    },
+    {
+      "id": "M3.2-liste-collectes",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:81",
+      "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx",
+      "test": "M3.2/collectes_liste_rendue_au_design_system + M3.2/collectes_erreur_chargement_message_et_reessayer + M3.2/collectes_liste_vide_empty_state + M3.2/collectes_etat_chargement_skeleton + M3.2/collectes_ligne_ouvre_la_fiche + M3.2/collectes_erreur_perimee_ninvalide_pas_la_reponse_fraiche",
+      "statut": "à-vérifier",
+      "libelle": "Liste Collectes gestionnaire (§06.05 nav 4 l.70, section réintégrée l.81 ; liste plate, chip « Filtre actif » du drill-down l.203) — habillage DS §10 : PageHero, DataTable (cards < 640px), EmptyState, et les 3 états système §7 rendus distincts (Error ≠ Empty). OUVERT : route plafonnée à 100 lignes, sans pagination ni notice de troncature."
     }
   ],
   "cdc_source_hash": {

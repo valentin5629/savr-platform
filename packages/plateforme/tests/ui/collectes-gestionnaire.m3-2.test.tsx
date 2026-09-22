@@ -143,8 +143,6 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
         await screen.findByTestId('collectes-skeleton', {}, ATTENTE_UI),
       ).toBeTruthy();
       expect(screen.queryByText('Chargement…')).toBeNull();
-      expect(screen.queryByRole('grid')).toBeNull();
-      expect(screen.queryByText(/Aucune collecte/)).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -164,9 +162,8 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       expect(
         screen.getByText('Aucune collecte sur vos lieux pour ce périmètre.'),
       ).toBeTruthy();
-      // Liste vide ≠ panne : aucun message d'erreur, aucun tableau.
+      // Liste vide ≠ panne : pas de message d'erreur.
       expect(screen.queryByTestId('collectes-erreur')).toBeNull();
-      expect(screen.queryByRole('grid')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );

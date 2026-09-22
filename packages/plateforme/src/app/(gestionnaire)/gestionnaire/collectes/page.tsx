@@ -24,7 +24,6 @@ interface CollecteRow {
   date_collecte: string | null;
   evenement_nom: string | null;
   lieu_nom: string | null;
-  statut_consolide: string | null;
 }
 
 const Vide = () => <span className="text-savr-neutral-400">—</span>;
@@ -146,9 +145,7 @@ function GestionnaireCollectesContent() {
     {
       key: 'statut',
       header: 'Statut',
-      render: (c) => (
-        <CollecteStatutBadge statut={c.statut_consolide ?? c.statut} />
-      ),
+      render: (c) => <CollecteStatutBadge statut={c.statut} />,
     },
   ];
 

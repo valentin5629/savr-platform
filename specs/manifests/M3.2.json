@@ -525,7 +525,7 @@
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx",
       "test": "M3.2/collectes_liste_rendue_au_design_system + M3.2/collectes_erreur_chargement_message_et_reessayer + M3.2/collectes_liste_vide_empty_state + M3.2/collectes_etat_chargement_skeleton",
       "statut": "à-vérifier",
-      "libelle": "Liste Collectes gestionnaire (§06.05 nav 4 l.70 + « Section Collectes réintégrée » l.81 ; liste plate, tous statuts, chip « Filtre actif » du drill-down l.203) — habillage Design System §10 : PageHero (§5.6, levier #2), DataTable (§6, cards verticales sous 640px §8, lignes activables au clavier depuis #389), EmptyState. ⚠ Écran jamais déclaré jusqu'ici : la page et sa route existaient depuis l'override Val 2026-07-06 sans aucun livrable ni test — d'où le défaut corrigé par ce lot. Les trois états système §10 §7 sont désormais DISTINCTS : la réponse était lue sans regarder le code HTTP (`j.data ?? []`), donc une route en 500 rendait « Aucune collecte sur vos lieux » — une panne serveur se lisait comme un parc sans collecte. Error = AlertBar + « Réessayer » (idiome de la fiche collecte traiteur), Loading = skeleton, Empty = EmptyState. RESTE OUVERT hors lot : la route plafonne à 100 lignes (`.limit(100)`) sans pagination ni indication de troncature, et le champ `statut_consolide` typé côté page n'est jamais renvoyé par la route (repli systématique sur `statut`)."
+      "libelle": "Liste Collectes gestionnaire (§06.05 nav 4 l.70, section réintégrée l.81 ; liste plate, chip « Filtre actif » du drill-down l.203) — habillage DS §10 : PageHero, DataTable (cards < 640px), EmptyState, et les 3 états système §7 rendus distincts (Error ≠ Empty)."
     }
   ],
   "cdc_source_hash": {

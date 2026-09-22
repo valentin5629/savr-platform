@@ -74,6 +74,12 @@ jobs:
         run: git fetch --quiet --prune origin '+refs/heads/*:refs/remotes/origin/*'
       - name: Auto-test du detecteur (non-vacuite)
         run: bash scripts/check-migration-timestamp.sh --self-test
+      # Le hook de merge n'est joue que par Claude Code, jamais en CI : sans cet
+      # auto-test, un resserrement de son motif le rendrait muet sans que personne
+      # ne le sache. C'est arrive une fois (il ne voyait plus `if gh pr merge …;
+      # then`, la forme imposee par le projet). Pur test de chaines, instantane.
+      - name: Auto-test du hook de merge (matrice des formes de commande)
+        run: bash .claude/hooks/gate-merge.sh --self-test
       - name: Collision de timestamp, y compris avec une branche non mergee
         run: bash scripts/check-migration-timestamp.sh --branch
 

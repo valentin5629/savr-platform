@@ -38,7 +38,8 @@
             "type": "command",
             "command": "bash .claude/hooks/pre-commit-gate.sh"
           },
-          { "type": "command", "command": "bash .claude/hooks/gate-pr.sh" }
+          { "type": "command", "command": "bash .claude/hooks/gate-pr.sh" },
+          { "type": "command", "command": "bash .claude/hooks/gate-merge.sh" }
         ]
       }
     ],

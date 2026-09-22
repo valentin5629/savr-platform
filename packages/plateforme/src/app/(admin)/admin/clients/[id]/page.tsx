@@ -85,6 +85,19 @@ interface OrgDetail {
     scope: string;
     commentaires: string | null;
   }[];
+  // Fiche gestionnaire de lieux : remises portées sur ses lieux + ses lieux.
+  remises_gestionnaire?: {
+    id: string;
+    activite: string;
+    remise_pct: number;
+    valide_du: string;
+    valide_jusqu_au: string | null;
+    scope: string;
+    commentaires: string | null;
+    lieu_id: string | null;
+    lieux: { nom: string } | null;
+  }[];
+  organisations_lieux?: { lieux: { id: string; nom: string } | null }[];
 }
 
 // Libellé lisible du type d'organisation (aligné sur la liste Clients).
@@ -167,6 +180,7 @@ export default function ClientFichePage({
   // droit (routes requireAdmin) : ce flag ne fait que masquer/désactiver l'UI.
   const canEditAdminOnly = role === 'admin_savr';
   const [org, setOrg] = useState<OrgDetail | null>(null);
+  const [logoKo, setLogoKo] = useState(false);
   const [loading, setLoading] = useState(true);
   const [onglet, setOnglet] = useState<OngletKey>('informations');
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -192,6 +206,7 @@ export default function ClientFichePage({
     // Durcir : vérifier res.ok AVANT de désérialiser. Sinon une réponse d'erreur
     // (404/400 → `{ error }`) était castée en OrgDetail → `org.entites_facturation`
     // undefined → `.length`/`.map` → exception client-side = écran blanc.
+    setLogoKo(false);
     fetch(`/api/v1/admin/organisations/${encodeURIComponent(id)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
@@ -345,10 +360,13 @@ export default function ClientFichePage({
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
-            {org.logo_url ? (
+            {org.logo_url && !logoKo ? (
               <img
-                src={org.logo_url}
+                // logo_url porte une CLÉ R2, pas une URL : le proxy staff la
+                // résout (clé bornée au bucket applicatif + logos/).
+                src={`/api/v1/admin/uploads/logo?key=${encodeURIComponent(org.logo_url)}`}
                 alt=""
+                onError={() => setLogoKo(true)}
                 className="h-10 w-10 rounded-savr-md border border-savr-white/20 bg-savr-white object-contain"
               />
             ) : (
@@ -673,7 +691,15 @@ export default function ClientFichePage({
         <TabsContent value="remises">
           <OngletRemises
             organisationId={id}
-            remises={org.tarifs_negocie}
+            organisationType={org.type}
+            lieuxGestionnaire={(org.organisations_lieux ?? [])
+              .map((ol) => ol.lieux)
+              .filter((l): l is { id: string; nom: string } => l !== null)
+              .sort((a, b) => a.nom.localeCompare(b.nom, 'fr'))}
+            remises={[
+              ...(org.remises_gestionnaire ?? []),
+              ...org.tarifs_negocie,
+            ]}
             canEdit={canEditAdminOnly}
             onUpdated={() => void refreshOrg()}
           />

@@ -33,7 +33,7 @@
     },
     {
       "id": "M2.4-co2-facteur-ag",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:599",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:607",
       "artefact": "packages/plateforme/src/app/api/v1/admin/parametres/facteurs-co2-ag/route.ts",
       "test": "M2.4 / facteurs-co2-ag / PUT → rpc_maj_facteur_co2_ag (facteur_co2_evite_par_repas_kg)",
       "statut": "implemented",
@@ -41,7 +41,7 @@
     },
     {
       "id": "M2.4-co2-mix-emballages",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:571",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:577",
       "artefact": "packages/plateforme/src/app/api/v1/admin/parametres/mix-emballages/route.ts",
       "test": "M2.4 / mix-emballages / PUT → rpc_maj_mix_emballages (part_pct)",
       "statut": "implemented",
@@ -49,7 +49,7 @@
     },
     {
       "id": "M2.4-co2-divers",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:577",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:583",
       "artefact": "packages/plateforme/src/app/(admin)/admin/parametres/co2/page.tsx",
       "test": "M2.4 / co2-divers / PUT → rpc_maj_co2_divers (key-value cle/valeur)",
       "statut": "implemented",
@@ -57,7 +57,7 @@
     },
     {
       "id": "M2.4-taux-recyclage",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:577",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:583",
       "artefact": "packages/plateforme/src/app/api/v1/admin/parametres/taux-recyclage/[filiere_id]/route.ts",
       "test": "M2_4__co2_params_rpc.test.sql :: taux_recyclage : 1 ligne d'historique tracée",
       "statut": "implemented",
@@ -65,7 +65,7 @@
     },
     {
       "id": "M2.4-co2-audit-rpc",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:577",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:583",
       "artefact": "supabase/migrations/20260624150000_plateforme_r3_co2_audit_rpc.sql",
       "test": "M2_4__co2_params_rpc.test.sql :: facteurs_co2 : 1 ligne d'historique tracée (auteur + commentaire)",
       "statut": "implemented",
@@ -89,7 +89,7 @@
     },
     {
       "id": "M2.4-p2-20-attestation",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:207",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:209",
       "artefact": "apps/pdf-renderer/src/templates/attestation-don.ts (mention de régénération)",
       "test": "M2.4 / attestation de don — mention de régénération : présente uniquement si régénérée",
       "statut": "implemented",
@@ -97,7 +97,7 @@
     },
     {
       "id": "BL-P1-RPT-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:167",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:169",
       "artefact": "apps/pdf-renderer/src/templates/rapport-evenement-sans-excedent.ts + packages/shared/src/pdf/document-types.ts (type rapport-evenement-sans-excedent) + apps/pdf-renderer/src/render.ts + packages/plateforme/src/lib/pdf/batch-pdf-sans-excedent.ts (runBatchSansExcedent) + packages/plateforme/src/app/api/cron/batch-pdf-j1/route.ts + packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/rapport-rse/download/route.ts (branche realisee_sans_collecte) + packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts (rapport_rse_disponible) + packages/plateforme/src/lib/pdf/regenerate.ts (DOC_ENTITY rapport-evenement-sans-excedent + regenere_at/version) + packages/plateforme/src/app/api/v1/admin/collectes/[id]/documents/[type]/regenerate/route.ts (régén Admin)",
       "test": "M2.4 / batch sans-excédent — génération (BL-P1-RPT-02) ; M2.4 / renderer — rapport « Événement sans excédent » §1.3-bis (BL-P1-RPT-02) ; M2.4 / download rapport sans-excédent (BL-P1-RPT-02) ; M2.4 / fiche collecte GET — disponibilité sans-excédent (BL-P1-RPT-02) ; M2.4 / régénération Admin rapport sans-excédent (BL-P1-RPT-02)",
       "statut": "implemented",
@@ -105,7 +105,7 @@
     },
     {
       "id": "BL-P1-RM-10",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:183",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:194",
       "artefact": "packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/poids/route.ts (motif ≥10 sur correction + audit poids_repas_saisi_ops motivé) ; régén attestation via trg_regenerer_attestation (existant)",
       "test": "M2.4/RM-10 — correction sans motif → 422 ; correction avec motif ≥10 → 200 + audit poids_repas_saisi_ops motivé ; 1re saisie sans motif → 200 ; régén attestation (correction volume → corrigee + version+1) : supabase/tests/rls_attestations_don_m2_4.test.sql (Section R9 T7/T8/T9)",
       "statut": "implemented",
@@ -113,7 +113,7 @@
     },
     {
       "id": "M2.4-numero-rup-instantane",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1377",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1380",
       "artefact": "packages/plateforme/src/lib/pdf/batch-pdf-j1-ag.ts",
       "test": "association AVEC n° RUP : instantané figé + mention transmise au Cerfa",
       "statut": "implemented",
@@ -121,10 +121,10 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "4a6e04326681ed507c4e1fc801ccdee8e53f69ba3fa48eb235710a83a40341b2",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "a3b25d8200b577f66006388a15efca739c2ea6278a3ea958889f1c34a583c947",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "870a839c0f23b1323adfa0e12c8858f50181c5f77a03dca271fded8295b98ca3",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "ff1838700294a362cb14a3f7d8a479e378f97aef7a3d28c7f72e822312e21554",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "395550f99b433f9779bea4e570fb6c3acd28ffbae4bdf3c6cb0a653f96b7a124"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "c927d09d6672253fcf053917110cf86976745481087cb63dd371068f7b0afca8",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "50ede6802057c9a22cc12c804bd12d02ecc2338eb1d871b694c08d8d493249ad",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "1935353d3942e1ec2ebccbce6940fd99a75ee55d7d9db95692529594b4a0124d",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "979c0bf861398357d004372a65bc9a9292049823796206fc9730142d08cdae51",
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "4790d4354258dff9e702321f31654266b6637744728d23eae69c860ec65a8a94"
   }
 }

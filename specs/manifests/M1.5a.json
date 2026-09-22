@@ -187,7 +187,7 @@
     },
     {
       "id": "M1.5a-e5-exclut-terminaux",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:255",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:259",
       "artefact": "packages/adapters/src/statuts-collecte.ts",
       "test": "E5 updateLieu : aucune collecte terminale (realisee, realisee_sans_collecte, cloturee, annulee, rejetee_par_prestataire) ne reçoit de PUT d'adresse ; une collecte en_cours du même lieu si — mock appliquant réellement le not-in PostgREST [adapter.e5-statuts-terminaux.test.ts]",
       "statut": "implemented",
@@ -195,7 +195,7 @@
     },
     {
       "id": "BL-P1-OUTBOX-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:473",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:544",
       "artefact": "supabase/migrations/20260629100000_plateforme_r9_outbox_concurrence.sql",
       "test": "OUTBOX-01 skip/requeue/resolve : dead → débloqué + audit_log + gardes admin/motif/dead [outbox_concurrence_r9.test.sql]",
       "statut": "implemented",
@@ -211,7 +211,7 @@
     },
     {
       "id": "BL-P1-OUTBOX-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:473",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:544",
       "artefact": "packages/adapters/src/outbox-worker.ts",
       "test": "R9 worker reaper + alerte anticipée J-1 + DLQ critique (vrai runOutboxWorker, SANS mock du worker — G5) [outbox-worker.r9.test.ts] + OUTBOX-03 reaper [outbox_concurrence_r9.test.sql]",
       "statut": "implemented",
@@ -219,7 +219,7 @@
     },
     {
       "id": "M1.5a-alerte-anticipee-lieu",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2426",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2450",
       "artefact": "packages/adapters/src/outbox-worker.ts",
       "test": "alerte anticipée events lieu (E5) : date de référence = plus proche collecte future non terminale du lieu, seuil/canal inchangés, 1 alerte par event, pas de doublon DLQ (vrai runOutboxWorker — G5) [outbox-worker.alerte-anticipee-lieu.test.ts]",
       "statut": "implemented",
@@ -235,7 +235,7 @@
     },
     {
       "id": "BL-P1-API-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:353",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:366",
       "artefact": "packages/adapters/src/mts1/adapter.ts",
       "test": "M1.5a / dispatch AG — deliveryPlace.placeId = id_point_collecte_mts1 de l'association [adapter.m1-5a.test.ts]",
       "statut": "implemented",
@@ -252,7 +252,7 @@
     },
     {
       "id": "BL-P1-RM-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:407",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:375",
       "artefact": "packages/adapters/src/mts1/adapter.ts (updateCollecte — création des rangs manquants 1..N via dispatchCollecte)",
       "test": "M1.5a / RM-03 augmentation N→N+k — crée les rangs manquants via dispatchCollecte",
       "statut": "implemented",
@@ -268,9 +268,9 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "4a6e04326681ed507c4e1fc801ccdee8e53f69ba3fa48eb235710a83a40341b2",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "a3b25d8200b577f66006388a15efca739c2ea6278a3ea958889f1c34a583c947",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "d83ee5ce7201ac91f1c188bf2f50e83b63ee4b2827fa1a41a58ad8942a148b9b",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "c927d09d6672253fcf053917110cf86976745481087cb63dd371068f7b0afca8",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "50ede6802057c9a22cc12c804bd12d02ecc2338eb1d871b694c08d8d493249ad",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "825d4a48df706ee518e0035690d46a4c32a91c37253f5c439ac44930ec81d334",
     "specs/cdc/01 - Cahier des charges App/Interface logistique_provider V1.md": "4f01f41edc935ce46ee8eae438e27608d2ae5e0da9fd5534fe767aa78429c7b0"
   }
 }

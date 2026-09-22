@@ -136,7 +136,7 @@ describe('M1.7 / FACT-03 — tarif AG hors pack', () => {
     expect(r.remise_pct_cumulee).toBe(0.1);
   });
 
-  it('M1.7 FACT-03 : remises AG cumulées multiplicativement (10 % puis 5 % → 504,45 €)', async () => {
+  it('M1.7 FACT-03 : remises AG multiples non cumulées, seule la plus élevée (10 % et 5 % → 531 €)', async () => {
     const r = await calculer_tarif_ag(
       fakeSb({
         pack: null,
@@ -147,6 +147,6 @@ describe('M1.7 / FACT-03 — tarif AG hors pack', () => {
     );
     expect(r.skip).toBe(false);
     if (r.skip) return;
-    expect(r.montant_ht).toBe(504.45);
+    expect(r.montant_ht).toBe(531);
   });
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -10,12 +10,13 @@ import {
   MapPin,
   Users,
   Truck,
-  Search,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Label } from '@/components/ui/label';
+import { Select } from '@/components/ui/select';
 
 interface AssociationSuggestion {
   id: string;
@@ -48,9 +49,11 @@ interface AlgoResult {
 interface AssoRef {
   id: string;
   nom: string;
-  ville: string;
+  ville: string | null;
   capacite_max_beneficiaires: number | null;
-  habilitee_attestation_fiscale: boolean;
+  // null = inconnu (option de secours construite depuis la suggestion de l'algo).
+  habilitee_attestation_fiscale: boolean | null;
+  distance_km: number | null;
 }
 
 interface TranspRef {
@@ -116,14 +119,21 @@ export default function AttributionDetailPage() {
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Recherche libre association (BL-P1-ALGO-03)
-  const [assoQuery, setAssoQuery] = useState('');
-  const [assoCapMin, setAssoCapMin] = useState('');
-  const [assoHabilitee, setAssoHabilitee] = useState(false);
-  const [assoResults, setAssoResults] = useState<AssoRef[]>([]);
-  // Recherche libre transporteur (BL-P1-ALGO-04)
-  const [transpQuery, setTranspQuery] = useState('');
-  const [transpResults, setTranspResults] = useState<TranspRef[]>([]);
+  // Liste déroulante association (BL-P1-ALGO-03) : toutes les associations
+  // actives, triées par distance croissante au lieu de la collecte.
+  const [associations, setAssociations] = useState<AssoRef[]>([]);
+  const [assoErreur, setAssoErreur] = useState(false);
+  // Liste déroulante transporteur (BL-P1-ALGO-04) : tous les transporteurs actifs.
+  const [transporteurs, setTransporteurs] = useState<TranspRef[]>([]);
+  const [transpErreur, setTranspErreur] = useState(false);
+  // Redirection différée après succès : annulée si l'Admin quitte l'écran avant.
+  const redirectionRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (redirectionRef.current) clearTimeout(redirectionRef.current);
+    },
+    [],
+  );
 
   const loadAlgo = useCallback(async () => {
     setLoading(true);
@@ -160,6 +170,24 @@ export default function AttributionDetailPage() {
     void loadAlgo();
   }, [loadAlgo]);
 
+  // Erreur dédiée (pas `error`, remis à null par loadAlgo) : la liste est le seul
+  // moyen de choisir un transporteur quand l'algo n'en recommande aucun.
+  const chargerTransporteurs = useCallback(async () => {
+    setTranspErreur(false);
+    try {
+      const res = await fetch('/api/v1/admin/transporteurs?actif=true');
+      if (!res.ok) throw new Error('chargement transporteurs');
+      const json = (await res.json()) as { data: TranspRef[] };
+      setTransporteurs(json.data);
+    } catch {
+      setTranspErreur(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    void chargerTransporteurs();
+  }, [chargerTransporteurs]);
+
   // Override = choix asso hors top 1 OU transporteur hors recommandation OU
   // recherche libre transporteur (impasse aucun_prestataire). Motif alors obligatoire.
   const assoIsTop1 =
@@ -178,26 +206,50 @@ export default function AttributionDetailPage() {
     !isOverride ||
     (motif !== '' && (motif !== 'autre' || motifLibre.length >= 10));
 
-  const searchAssos = async () => {
-    const p = new URLSearchParams({ actif: 'true' });
-    if (assoQuery) p.set('q', assoQuery);
-    if (assoCapMin) p.set('capacite_min', assoCapMin);
-    if (assoHabilitee) p.set('habilitee', 'true');
-    const res = await fetch(`/api/v1/admin/associations?${p.toString()}`);
-    if (res.ok) {
+  const chargerAssociations = useCallback(async () => {
+    setAssoErreur(false);
+    try {
+      const res = await fetch(
+        `/api/v1/admin/attributions-ag/${encodeURIComponent(collecteId)}/associations`,
+      );
+      if (!res.ok) throw new Error('chargement associations');
       const json = (await res.json()) as { data: AssoRef[] };
-      setAssoResults(json.data);
+      setAssociations(json.data);
+    } catch {
+      setAssoErreur(true);
     }
-  };
+  }, [collecteId]);
 
-  const searchTransps = async () => {
-    const p = new URLSearchParams({ actif: 'true' });
-    if (transpQuery) p.set('q', transpQuery);
-    const res = await fetch(`/api/v1/admin/transporteurs?${p.toString()}`);
-    if (res.ok) {
-      const json = (await res.json()) as { data: TranspRef[] };
-      setTranspResults(json.data);
-    }
+  useEffect(() => {
+    void chargerAssociations();
+  }, [chargerAssociations]);
+
+  const suggestions = algo?.associations ?? [];
+  // Options = associations actives triées par distance + suggestions absentes de
+  // la liste chargée (échec / en cours) : le <select> montre toujours la sélection.
+  const optionsAsso: AssoRef[] = [
+    ...associations,
+    ...suggestions
+      .filter((s) => !associations.some((a) => a.id === s.id))
+      .map((s) => ({
+        id: s.id,
+        nom: s.nom,
+        ville: null,
+        capacite_max_beneficiaires: s.capacite_max_beneficiaires,
+        habilitee_attestation_fiscale: null,
+        distance_km: s.distance_km,
+      })),
+  ];
+
+  const choisirAssociation = (id: string) => {
+    const a = optionsAsso.find((x) => x.id === id);
+    setSelectedAsso(a ? id : null);
+    setSelectedAssoNom(a?.nom ?? null);
+    // Suggestion de l'algo (ou aucun choix) = 'reco' ; hors suggestions = 'libre'
+    // (audit attribution_manuelle_aucune_reco si l'algo n'en proposait aucune).
+    setAssoSource(
+      !a || suggestions.some((x) => x.id === id) ? 'reco' : 'libre',
+    );
   };
 
   const handleValider = async () => {
@@ -231,7 +283,12 @@ export default function AttributionDetailPage() {
         throw new Error(json.error ?? 'Erreur validation');
       }
       setSuccessMsg("Attribution validée. Les emails sont en cours d'envoi.");
-      setTimeout(() => router.push('/admin/attributions-ag'), 2000);
+      // La file d'attribution vit dans Collectes (chip « AG en attente attribution »,
+      // §06.09 §1) : il n'existe pas de page /admin/attributions-ag.
+      redirectionRef.current = setTimeout(
+        () => router.push('/admin/collectes?chip=ag_attente_attribution'),
+        2000,
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur inconnue');
     } finally {
@@ -242,6 +299,26 @@ export default function AttributionDetailPage() {
   // Liste transporteurs à présenter : top 3 (province) ou unique (IDF).
   const transpList = algo?.transporteurs ?? [];
   const showTranspList = transpList.length > 1; // province → choix multiple
+
+  // Options = transporteurs actifs + recommandés absents de la liste chargée
+  // (chargement en échec / en cours, au-delà de la 1re page) : le <select> affiche
+  // toujours le transporteur réellement sélectionné.
+  const optionsTransp: TranspRef[] = [
+    ...transporteurs,
+    ...transpList
+      .filter((r) => !transporteurs.some((t) => t.id === r.id))
+      .map((r) => ({ id: r.id, nom: r.nom, type_tms: r.type_tms, ville: '' })),
+  ];
+
+  const choisirTransporteur = (id: string) => {
+    const t = optionsTransp.find((x) => x.id === id);
+    setSelectedTransp(t ? id : null);
+    setSelectedTranspNom(t?.nom ?? null);
+    // Recommandé (ou aucun choix) = pas de motif ; tout autre transporteur = override.
+    setTranspSource(
+      !t || transpList.some((x) => x.id === id) ? 'reco' : 'libre',
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -312,7 +389,7 @@ export default function AttributionDetailPage() {
                     {idx === 0 && <Badge variant="success">Top 1</Badge>}
                     <p className="mt-1 text-xs text-savr-neutral-500">
                       <MapPin className="mr-0.5 inline h-3 w-3" />
-                      {asso.distance_km} km
+                      {asso.distance_km.toLocaleString('fr-FR')} km
                     </p>
                     <p className="text-xs text-savr-neutral-500">
                       Cap. {asso.capacite_max_beneficiaires} bénéficiaires
@@ -322,74 +399,51 @@ export default function AttributionDetailPage() {
               </Card>
             ))}
 
-            {/* BL-P1-ALGO-03 — Recherche libre association (aucune reco ou choix alternatif) */}
+            {/* BL-P1-ALGO-03 — Aucune suggestion : choix manuel dans la liste déroulante */}
             {algo.no_asso && (
               <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
                 Aucune association disponible pour ce créneau. Traitement manuel
                 requis.
               </div>
             )}
-            <details className="rounded-md border border-savr-neutral-200 p-3">
-              <summary className="cursor-pointer text-sm font-medium text-savr-neutral-700">
-                <Search className="mr-1 inline h-3.5 w-3.5" />
-                Choisir une autre association (recherche libre)
-              </summary>
-              <div className="mt-3 space-y-2">
-                <div className="flex flex-wrap gap-2">
-                  <input
-                    className="flex-1 rounded border border-savr-neutral-200 px-2 py-1 text-sm"
-                    placeholder="Ville ou nom…"
-                    value={assoQuery}
-                    onChange={(e) => setAssoQuery(e.target.value)}
-                  />
-                  <input
-                    className="w-28 rounded border border-savr-neutral-200 px-2 py-1 text-sm"
-                    placeholder="Capacité min"
-                    type="number"
-                    value={assoCapMin}
-                    onChange={(e) => setAssoCapMin(e.target.value)}
-                  />
-                  <label className="flex items-center gap-1 text-xs text-savr-neutral-600">
-                    <input
-                      type="checkbox"
-                      checked={assoHabilitee}
-                      onChange={(e) => setAssoHabilitee(e.target.checked)}
-                    />
-                    Habilitée 2041-GE
-                  </label>
-                  <Button size="sm" variant="secondary" onClick={searchAssos}>
-                    Rechercher
+            <div>
+              <Label htmlFor="association-select">Association</Label>
+              <Select
+                id="association-select"
+                value={selectedAsso ?? ''}
+                onChange={(e) => choisirAssociation(e.target.value)}
+              >
+                <option value="">Choisir une association…</option>
+                {optionsAsso.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.nom}
+                    {a.ville ? ` · ${a.ville}` : ''}
+                    {a.distance_km != null
+                      ? ` · ${a.distance_km.toLocaleString('fr-FR')} km`
+                      : ' · distance inconnue'}
+                    {a.capacite_max_beneficiaires != null
+                      ? ` · cap. ${a.capacite_max_beneficiaires}`
+                      : ''}
+                    {a.habilitee_attestation_fiscale ? ' · 2041-GE' : ''}
+                    {suggestions.some((x) => x.id === a.id)
+                      ? ' (suggérée)'
+                      : ''}
+                  </option>
+                ))}
+              </Select>
+              {assoErreur && (
+                <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  <span>Impossible de charger la liste des associations.</span>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => void chargerAssociations()}
+                  >
+                    Réessayer
                   </Button>
                 </div>
-                {assoResults.map((a) => (
-                  <button
-                    key={a.id}
-                    className={`flex w-full items-center justify-between rounded border px-2 py-1 text-left text-sm ${
-                      selectedAsso === a.id
-                        ? 'border-savr-primary-500 bg-savr-primary-50'
-                        : 'border-savr-neutral-200'
-                    }`}
-                    onClick={() => {
-                      setSelectedAsso(a.id);
-                      setSelectedAssoNom(a.nom);
-                      setAssoSource('libre');
-                    }}
-                  >
-                    <span>
-                      {a.nom}{' '}
-                      <span className="text-xs text-savr-neutral-500">
-                        · {a.ville}
-                      </span>
-                    </span>
-                    {a.habilitee_attestation_fiscale && (
-                      <Badge variant="neutral" dot={false}>
-                        2041-GE
-                      </Badge>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </details>
+              )}
+            </div>
           </div>
 
           {/* Colonne droite : transporteur + validation */}
@@ -403,7 +457,7 @@ export default function AttributionDetailPage() {
             {algo.no_prestataire && (
               <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
                 Aucun prestataire éligible — traitement manuel. Sélectionnez un
-                transporteur via la recherche libre ci-dessous.
+                transporteur dans la liste ci-dessous.
               </div>
             )}
 
@@ -436,54 +490,38 @@ export default function AttributionDetailPage() {
               </Card>
             ))}
 
-            {/* BL-P1-ALGO-04 — Recherche libre transporteur (impasse aucun_prestataire ou override) */}
-            <details
-              className="rounded-md border border-savr-neutral-200 p-3"
-              open={algo.no_prestataire}
-            >
-              <summary className="cursor-pointer text-sm font-medium text-savr-neutral-700">
-                <Search className="mr-1 inline h-3.5 w-3.5" />
-                Choisir un autre transporteur (recherche libre)
-              </summary>
-              <div className="mt-3 space-y-2">
-                <div className="flex gap-2">
-                  <input
-                    className="flex-1 rounded border border-savr-neutral-200 px-2 py-1 text-sm"
-                    placeholder="Nom du transporteur…"
-                    value={transpQuery}
-                    onChange={(e) => setTranspQuery(e.target.value)}
-                  />
-                  <Button size="sm" variant="secondary" onClick={searchTransps}>
-                    Rechercher
+            {/* BL-P1-ALGO-04 — Choix du transporteur parmi tous les transporteurs actifs */}
+            <div>
+              <Label htmlFor="transporteur-select">Transporteur</Label>
+              <Select
+                id="transporteur-select"
+                value={selectedTransp ?? ''}
+                onChange={(e) => choisirTransporteur(e.target.value)}
+              >
+                <option value="">Choisir un transporteur…</option>
+                {optionsTransp.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.nom}
+                    {t.ville ? ` · ${t.ville}` : ''}
+                    {transpList.some((x) => x.id === t.id)
+                      ? ' (recommandé)'
+                      : ''}
+                  </option>
+                ))}
+              </Select>
+              {transpErreur && (
+                <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  <span>Impossible de charger la liste des transporteurs.</span>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => void chargerTransporteurs()}
+                  >
+                    Réessayer
                   </Button>
                 </div>
-                {transpResults.map((t) => (
-                  <button
-                    key={t.id}
-                    className={`flex w-full items-center justify-between rounded border px-2 py-1 text-left text-sm ${
-                      selectedTransp === t.id
-                        ? 'border-savr-primary-500 bg-savr-primary-50'
-                        : 'border-savr-neutral-200'
-                    }`}
-                    onClick={() => {
-                      setSelectedTransp(t.id);
-                      setSelectedTranspNom(t.nom);
-                      setTranspSource('libre');
-                    }}
-                  >
-                    <span>
-                      {t.nom}{' '}
-                      <span className="text-xs text-savr-neutral-500">
-                        · {t.ville}
-                      </span>
-                    </span>
-                    <Badge variant="neutral" dot={false}>
-                      {t.type_tms}
-                    </Badge>
-                  </button>
-                ))}
-              </div>
-            </details>
+              )}
+            </div>
 
             {/* Récapitulatif sélection */}
             <div className="rounded-md border border-savr-neutral-200 bg-savr-neutral-50 p-3 text-xs text-savr-neutral-600">
@@ -529,7 +567,12 @@ export default function AttributionDetailPage() {
             <Button
               className="w-full"
               disabled={
-                !selectedAsso || !selectedTransp || submitting || !motifOk
+                !selectedAsso ||
+                !selectedTransp ||
+                submitting ||
+                !motifOk ||
+                // Déjà validée : pas de second POST pendant la redirection.
+                !!successMsg
               }
               onClick={handleValider}
             >

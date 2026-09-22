@@ -182,7 +182,8 @@ describe('M3.4 / collectes', () => {
     });
     rls.push({
       data: [
-        { id: 'tr-1', nom: 'Traiteur T', raison_sociale: 'Traiteur T SAS' },
+        // v_referentiel_traiteurs rend UN libellé (20260922080000).
+        { id: 'tr-1', nom: 'Traiteur T' },
       ],
       error: null,
     });
@@ -195,7 +196,7 @@ describe('M3.4 / collectes', () => {
     const json = (await res.json()) as {
       data: Array<{ traiteur_nom: string | null; repas_donnes: number | null }>;
     };
-    expect(json.data[0]?.traiteur_nom).toBe('Traiteur T SAS');
+    expect(json.data[0]?.traiteur_nom).toBe('Traiteur T');
     expect(json.data[0]?.repas_donnes).toBe(80);
     const rpcArgs = rls.__calls.rpc ?? [];
     expect(rpcArgs.some((a) => a[0] === 'f_volume_repas_realise')).toBe(true);

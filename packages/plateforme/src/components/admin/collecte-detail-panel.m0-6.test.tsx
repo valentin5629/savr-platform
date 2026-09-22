@@ -19,7 +19,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 import { CollecteDetailPanel } from './collecte-detail-panel';
-import { ATTENTE_UI } from '@/test-utils/attente-ui';
+import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 const collecteAg = {
   id: 'c1',
@@ -151,147 +151,180 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.restoreAllMocks());
 
-  it('M0.6 — Bloc 0 affiche la reco algo (prestataire + association) + pré-sélectionne le top-1', async () => {
-    mockFetch();
-    render(<CollecteDetailPanel collecteId="c1" />);
+  it(
+    'M0.6 — Bloc 0 affiche la reco algo (prestataire + association) + pré-sélectionne le top-1',
+    async () => {
+      mockFetch();
+      render(<CollecteDetailPanel collecteId="c1" />);
 
-    // Recommandation algo affichée (§06.09) : prestataire top-1 + association.
-    // findAllByText : l'association apparaît en Bloc 0 (reco) ET Bloc 5 (top-3) — BOA-07.
-    expect(
-      (await screen.findAllByText('Les Restos du Cœur', undefined, ATTENTE_UI))
-        .length,
-    ).toBeGreaterThan(0);
-    expect(screen.getByText('Recommandation algo')).toBeInTheDocument();
-    expect(screen.getByText('Strike (mts1)')).toBeInTheDocument();
-    // Collecte non attribuée
-    expect(screen.getByText('Aucun prestataire attribué')).toBeInTheDocument();
+      // Recommandation algo affichée (§06.09) : prestataire top-1 + association.
+      // findAllByText : l'association apparaît en Bloc 0 (reco) ET Bloc 5 (top-3) — BOA-07.
+      expect(
+        (
+          await screen.findAllByText(
+            'Les Restos du Cœur',
+            undefined,
+            ATTENTE_UI,
+          )
+        ).length,
+      ).toBeGreaterThan(0);
+      expect(screen.getByText('Recommandation algo')).toBeInTheDocument();
+      expect(screen.getByText('Strike (mts1)')).toBeInTheDocument();
+      // Collecte non attribuée
+      expect(
+        screen.getByText('Aucun prestataire attribué'),
+      ).toBeInTheDocument();
 
-    // Pré-sélection du top-1 recommandé → bouton « Envoyer à MTS-1 », et AUCUN
-    // motif override requis (on valide la reco).
-    expect(
+      // Pré-sélection du top-1 recommandé → bouton « Envoyer à MTS-1 », et AUCUN
+      // motif override requis (on valide la reco).
+      expect(
+        await screen.findByRole(
+          'button',
+          { name: /Envoyer à MTS-1/ },
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByLabelText(/Motif override/)).not.toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — choix ≠ top-1 algo → bouton A Toutes! + motif override obligatoire (≥ 5)',
+    async () => {
+      mockFetch();
+      render(<CollecteDetailPanel collecteId="c1" />);
+      // Attendre la pré-sélection du top-1 (bouton MTS-1)
       await screen.findByRole(
         'button',
         { name: /Envoyer à MTS-1/ },
         ATTENTE_UI,
-      ),
-    ).toBeInTheDocument();
-    expect(screen.queryByLabelText(/Motif override/)).not.toBeInTheDocument();
-  });
-
-  it('M0.6 — choix ≠ top-1 algo → bouton A Toutes! + motif override obligatoire (≥ 5)', async () => {
-    mockFetch();
-    render(<CollecteDetailPanel collecteId="c1" />);
-    // Attendre la pré-sélection du top-1 (bouton MTS-1)
-    await screen.findByRole('button', { name: /Envoyer à MTS-1/ }, ATTENTE_UI);
-
-    // Choisir A Toutes! (≠ top-1 Strike) → override → motif obligatoire
-    fireEvent.change(screen.getByLabelText('Prestataire à attribuer'), {
-      target: { value: 't-atoutes' },
-    });
-
-    const bouton = screen.getByRole('button', { name: /Envoyer à A Toutes!/ });
-    const motif = screen.getByLabelText(/Motif override/);
-    expect(motif).toBeInTheDocument();
-    expect(bouton).toBeDisabled();
-    fireEvent.change(motif, { target: { value: 'Zone vélo cargo IDF' } });
-    expect(bouton).not.toBeDisabled();
-
-    // Re-sélection du top-1 recommandé → plus de motif requis (validation reco)
-    fireEvent.change(screen.getByLabelText('Prestataire à attribuer'), {
-      target: { value: 't-mts1' },
-    });
-    expect(screen.queryByLabelText(/Motif override/)).not.toBeInTheDocument();
-  });
-
-  it('M0.6 — modale forçage statut : PATCH exige un motif ≥ 10 caractères', async () => {
-    const fetchMock = mockFetch();
-    render(<CollecteDetailPanel collecteId="c1" />);
-    await screen.findByText('Prestataire actuel', undefined, ATTENTE_UI);
-
-    // Ouvre la modale (déclencheur d'en-tête)
-    fireEvent.click(screen.getByRole('button', { name: /Forcer le statut/ }));
-
-    const dialog = screen
-      .getByText('Forcer le statut de la collecte')
-      .closest('div') as HTMLElement;
-    const confirmer = within(dialog).getByRole('button', {
-      name: /Confirmer le forçage/,
-    });
-    // Motif vide → soumission désactivée
-    expect(confirmer).toBeDisabled();
-
-    fireEvent.change(within(dialog).getByLabelText('Nouveau statut'), {
-      target: { value: 'validee' },
-    });
-    fireEvent.change(within(dialog).getByLabelText(/Motif \(obligatoire/), {
-      target: { value: 'Validation manuelle après échange traiteur' },
-    });
-    expect(confirmer).not.toBeDisabled();
-
-    fireEvent.click(confirmer);
-
-    await waitFor(() => {
-      const patch = fetchMock.mock.calls.find(
-        (c) =>
-          c[0] === '/api/v1/admin/collectes/c1' &&
-          (c[1] as { method?: string } | undefined)?.method === 'PATCH',
       );
-      expect(patch).toBeTruthy();
-      const body = JSON.parse((patch![1] as { body: string }).body) as {
-        statut: string;
-        motif: string;
-      };
-      expect(body.statut).toBe('validee');
-      expect(body.motif.length).toBeGreaterThanOrEqual(10);
-    }, ATTENTE_UI);
-  });
+
+      // Choisir A Toutes! (≠ top-1 Strike) → override → motif obligatoire
+      fireEvent.change(screen.getByLabelText('Prestataire à attribuer'), {
+        target: { value: 't-atoutes' },
+      });
+
+      const bouton = screen.getByRole('button', {
+        name: /Envoyer à A Toutes!/,
+      });
+      const motif = screen.getByLabelText(/Motif override/);
+      expect(motif).toBeInTheDocument();
+      expect(bouton).toBeDisabled();
+      fireEvent.change(motif, { target: { value: 'Zone vélo cargo IDF' } });
+      expect(bouton).not.toBeDisabled();
+
+      // Re-sélection du top-1 recommandé → plus de motif requis (validation reco)
+      fireEvent.change(screen.getByLabelText('Prestataire à attribuer'), {
+        target: { value: 't-mts1' },
+      });
+      expect(screen.queryByLabelText(/Motif override/)).not.toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — modale forçage statut : PATCH exige un motif ≥ 10 caractères',
+    async () => {
+      const fetchMock = mockFetch();
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await screen.findByText('Prestataire actuel', undefined, ATTENTE_UI);
+
+      // Ouvre la modale (déclencheur d'en-tête)
+      fireEvent.click(screen.getByRole('button', { name: /Forcer le statut/ }));
+
+      const dialog = screen
+        .getByText('Forcer le statut de la collecte')
+        .closest('div') as HTMLElement;
+      const confirmer = within(dialog).getByRole('button', {
+        name: /Confirmer le forçage/,
+      });
+      // Motif vide → soumission désactivée
+      expect(confirmer).toBeDisabled();
+
+      fireEvent.change(within(dialog).getByLabelText('Nouveau statut'), {
+        target: { value: 'validee' },
+      });
+      fireEvent.change(within(dialog).getByLabelText(/Motif \(obligatoire/), {
+        target: { value: 'Validation manuelle après échange traiteur' },
+      });
+      expect(confirmer).not.toBeDisabled();
+
+      fireEvent.click(confirmer);
+
+      await waitFor(() => {
+        const patch = fetchMock.mock.calls.find(
+          (c) =>
+            c[0] === '/api/v1/admin/collectes/c1' &&
+            (c[1] as { method?: string } | undefined)?.method === 'PATCH',
+        );
+        expect(patch).toBeTruthy();
+        const body = JSON.parse((patch![1] as { body: string }).body) as {
+          statut: string;
+          motif: string;
+        };
+        expect(body.statut).toBe('validee');
+        expect(body.motif.length).toBeGreaterThanOrEqual(10);
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
 
   // Régression BL-P0 : le GET fiche référençait des colonnes DB inexistantes
   // (types_evenements.nom, tournees.statut_tms, factures_collectes.statut) → 400
   // → crash blanc. Ce test rend la fiche avec les shapes DB corrigées.
-  it('M0.6 — rend type d’événement (libelle), tournée (statut) et facture (factures.statut)', async () => {
-    mockFetch();
-    render(<CollecteDetailPanel collecteId="c1" />);
-    await screen.findByText('Prestataire actuel', undefined, ATTENTE_UI);
+  it(
+    'M0.6 — rend type d’événement (libelle), tournée (statut) et facture (factures.statut)',
+    async () => {
+      mockFetch();
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await screen.findByText('Prestataire actuel', undefined, ATTENTE_UI);
 
-    // types_evenements.libelle (Bloc 1)
-    expect(screen.getByText('Cocktail apéritif')).toBeInTheDocument();
-    // tournees.statut (Bloc 0 — liste multi-camions)
-    expect(screen.getByText('planifiee')).toBeInTheDocument();
-    // factures_collectes → factures.statut (Bloc 6)
-    expect(screen.getByText('emise')).toBeInTheDocument();
-  });
+      // types_evenements.libelle (Bloc 1)
+      expect(screen.getByText('Cocktail apéritif')).toBeInTheDocument();
+      // tournees.statut (Bloc 0 — liste multi-camions)
+      expect(screen.getByText('planifiee')).toBeInTheDocument();
+      // factures_collectes → factures.statut (Bloc 6)
+      expect(screen.getByText('emise')).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('M0.6 — modale N camions : PATCH nb_camions_demande (RM-02)', async () => {
-    const fetchMock = mockFetch();
-    render(<CollecteDetailPanel collecteId="c1" />);
-    await screen.findByText('Prestataire actuel', undefined, ATTENTE_UI);
+  it(
+    'M0.6 — modale N camions : PATCH nb_camions_demande (RM-02)',
+    async () => {
+      const fetchMock = mockFetch();
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await screen.findByText('Prestataire actuel', undefined, ATTENTE_UI);
 
-    // Bouton « Modifier » à côté de Nb camions (statut programmee = éditable).
-    fireEvent.click(screen.getByRole('button', { name: 'Modifier' }));
-    const dialog = screen
-      .getByText('Modifier le nombre de camions')
-      .closest('div') as HTMLElement;
-    fireEvent.change(within(dialog).getByLabelText('Nombre de camions'), {
-      target: { value: '3' },
-    });
-    fireEvent.click(
-      within(dialog).getByRole('button', { name: 'Enregistrer' }),
-    );
-
-    await waitFor(() => {
-      const patch = fetchMock.mock.calls.find(
-        (c) =>
-          c[0] === '/api/v1/admin/collectes/c1' &&
-          (c[1] as { method?: string } | undefined)?.method === 'PATCH',
+      // Bouton « Modifier » à côté de Nb camions (statut programmee = éditable).
+      fireEvent.click(screen.getByRole('button', { name: 'Modifier' }));
+      const dialog = screen
+        .getByText('Modifier le nombre de camions')
+        .closest('div') as HTMLElement;
+      fireEvent.change(within(dialog).getByLabelText('Nombre de camions'), {
+        target: { value: '3' },
+      });
+      fireEvent.click(
+        within(dialog).getByRole('button', { name: 'Enregistrer' }),
       );
-      expect(patch).toBeTruthy();
-      const body = JSON.parse((patch![1] as { body: string }).body) as {
-        nb_camions_demande: number;
-      };
-      expect(body.nb_camions_demande).toBe(3);
-    }, ATTENTE_UI);
-  });
+
+      await waitFor(() => {
+        const patch = fetchMock.mock.calls.find(
+          (c) =>
+            c[0] === '/api/v1/admin/collectes/c1' &&
+            (c[1] as { method?: string } | undefined)?.method === 'PATCH',
+        );
+        expect(patch).toBeTruthy();
+        const body = JSON.parse((patch![1] as { body: string }).body) as {
+          nb_camions_demande: number;
+        };
+        expect(body.nb_camions_demande).toBe(3);
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
 });
 
 // ============================================================================
@@ -464,185 +497,227 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.restoreAllMocks());
 
-  it('M0.6 — Bloc 3 Documents : rapport RSE + attestation AG affichés ; le bouton Régénérer appelle l’endpoint de régénération', async () => {
-    const fetchMock = installMock({});
-    render(<CollecteDetailPanel collecteId="c1" />);
+  it(
+    'M0.6 — Bloc 3 Documents : rapport RSE + attestation AG affichés ; le bouton Régénérer appelle l’endpoint de régénération',
+    async () => {
+      const fetchMock = installMock({});
+      render(<CollecteDetailPanel collecteId="c1" />);
 
-    // Bloc Documents rendu + rapport + attestation (AG).
-    expect(
-      await screen.findByText('Documents', undefined, ATTENTE_UI),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Rapport RSE')).toBeInTheDocument();
-    expect(screen.getByText('Attestation de don')).toBeInTheDocument();
-    expect(screen.getByText('ATT-DON-2026-00001')).toBeInTheDocument();
+      // Bloc Documents rendu + rapport + attestation (AG).
+      expect(
+        await screen.findByText('Documents', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(screen.getByText('Rapport RSE')).toBeInTheDocument();
+      expect(screen.getByText('Attestation de don')).toBeInTheDocument();
+      expect(screen.getByText('ATT-DON-2026-00001')).toBeInTheDocument();
 
-    // Régénérer le rapport → POST /documents/rapport-recyclage-zd/regenerate.
-    const regenBtns = screen.getAllByRole('button', { name: /Régénérer/ });
-    fireEvent.click(regenBtns[0]!);
-    await waitFor(() => {
-      const call = fetchMock.mock.calls.find(
-        (c) =>
-          typeof c[0] === 'string' &&
-          (c[0] as string).includes(
-            '/documents/rapport-recyclage-zd/regenerate',
-          ) &&
-          (c[1] as { method?: string } | undefined)?.method === 'POST',
-      );
-      expect(call).toBeTruthy();
-    }, ATTENTE_UI);
-  });
+      // Régénérer le rapport → POST /documents/rapport-recyclage-zd/regenerate.
+      const regenBtns = screen.getAllByRole('button', { name: /Régénérer/ });
+      fireEvent.click(regenBtns[0]!);
+      await waitFor(() => {
+        const call = fetchMock.mock.calls.find(
+          (c) =>
+            typeof c[0] === 'string' &&
+            (c[0] as string).includes(
+              '/documents/rapport-recyclage-zd/regenerate',
+            ) &&
+            (c[1] as { method?: string } | undefined)?.method === 'POST',
+        );
+        expect(call).toBeTruthy();
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('M0.6 — Bloc 3 : picto « régénéré » affiché quand version ≠ initiale', async () => {
-    installMock({});
-    render(<CollecteDetailPanel collecteId="c1" />);
-    // rapport.version = 2 + regenere_at → picto ⟳ avec title « Rapport régénéré ».
-    expect(
-      await screen.findByTitle(/Rapport régénéré/, undefined, ATTENTE_UI),
-    ).toBeInTheDocument();
-  });
+  it(
+    'M0.6 — Bloc 3 : picto « régénéré » affiché quand version ≠ initiale',
+    async () => {
+      installMock({});
+      render(<CollecteDetailPanel collecteId="c1" />);
+      // rapport.version = 2 + regenere_at → picto ⟳ avec title « Rapport régénéré ».
+      expect(
+        await screen.findByTitle(/Rapport régénéré/, undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
 
   // (Bloc « Pack AG » retiré de la fiche — décision Val ; ex-tests Bloc 4 supprimés.)
 
-  it('M0.6 — Bloc 5 Attribution AG : association + transporteur retenus + lien vers l’écran complet (plus de stub « algo V2 »)', async () => {
-    installMock({});
-    render(<CollecteDetailPanel collecteId="c1" />);
+  it(
+    'M0.6 — Bloc 5 Attribution AG : association + transporteur retenus + lien vers l’écran complet (plus de stub « algo V2 »)',
+    async () => {
+      installMock({});
+      render(<CollecteDetailPanel collecteId="c1" />);
 
-    expect(
-      await screen.findByText('Attribution AG', undefined, ATTENTE_UI),
-    ).toBeInTheDocument();
-    // Association + transporteur retenus (embed attributions_antgaspi).
-    expect(screen.getAllByText('Les Restos du Cœur').length).toBeGreaterThan(0);
-    expect(screen.getByText('A Toutes!')).toBeInTheDocument();
-    // Lien vers l'écran d'attribution complète (§06.09).
-    const lien = screen.getByRole('link', { name: /attribution compl/i });
-    expect(lien).toHaveAttribute('href', '/admin/attributions-ag/c1');
-    // Le stub V2 a disparu.
-    expect(
-      screen.queryByText(/algo V2.*Non disponible en V1/),
-    ).not.toBeInTheDocument();
-  });
-
-  it('M0.6 — Bloc 7 Timeline : les entrées d’audit sont rendues (action + transition de statut)', async () => {
-    installMock({});
-    render(<CollecteDetailPanel collecteId="c1" />);
-    expect(
-      await screen.findByText('Historique & audit', undefined, ATTENTE_UI),
-    ).toBeInTheDocument();
-    expect(screen.getByText('collecte_statut_force')).toBeInTheDocument();
-    // Transition old → new statut.
-    expect(screen.getByText(/validee → realisee/)).toBeInTheDocument();
-    expect(
-      screen.getByText(/Confirmation réalisation terrain/),
-    ).toBeInTheDocument();
-  });
-
-  it('M0.6 — Bloc 3 : « Importer des photos » envoie un POST multipart /photos', async () => {
-    const fetchMock = installMock({});
-    const { container } = render(<CollecteDetailPanel collecteId="c1" />);
-    await screen.findByText('Documents', undefined, ATTENTE_UI);
-
-    const input = container.querySelector(
-      'input[type="file"]',
-    ) as HTMLInputElement;
-    const file = new File(['x'], 'photo.png', { type: 'image/png' });
-    fireEvent.change(input, { target: { files: [file] } });
-
-    await waitFor(() => {
-      const call = fetchMock.mock.calls.find(
-        (c) =>
-          typeof c[0] === 'string' &&
-          (c[0] as string).endsWith('/photos') &&
-          (c[1] as { method?: string } | undefined)?.method === 'POST',
+      expect(
+        await screen.findByText('Attribution AG', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      // Association + transporteur retenus (embed attributions_antgaspi).
+      expect(screen.getAllByText('Les Restos du Cœur').length).toBeGreaterThan(
+        0,
       );
-      expect(call).toBeTruthy();
-      expect((call![1] as { body?: unknown }).body instanceof FormData).toBe(
-        true,
-      );
-    }, ATTENTE_UI);
-  });
+      expect(screen.getByText('A Toutes!')).toBeInTheDocument();
+      // Lien vers l'écran d'attribution complète (§06.09).
+      const lien = screen.getByRole('link', { name: /attribution compl/i });
+      expect(lien).toHaveAttribute('href', '/admin/attributions-ag/c1');
+      // Le stub V2 a disparu.
+      expect(
+        screen.queryByText(/algo V2.*Non disponible en V1/),
+      ).not.toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('M0.6 — Bloc 3 : bordereau ZD affiché pour une collecte ZD (numéro + statut) ; pas d’attestation AG', async () => {
-    installMock({ collecte: baseZd, documents: documentsZd });
-    render(<CollecteDetailPanel collecteId="c1" />);
-    expect(
-      await screen.findByText('Bordereau ZD', undefined, ATTENTE_UI),
-    ).toBeInTheDocument();
-    expect(screen.getByText('BSAV-2026-00001')).toBeInTheDocument();
-    expect(screen.getByText(/Statut : emis/)).toBeInTheDocument();
-    // Une collecte ZD n'a pas d'attestation de don (bloc AG masqué).
-    expect(screen.queryByText('Attestation de don')).not.toBeInTheDocument();
-    // Ni de Bloc 4/5 AG.
-    expect(screen.queryByText('Pack AG')).not.toBeInTheDocument();
-    expect(screen.queryByText('Attribution AG')).not.toBeInTheDocument();
-  });
+  it(
+    'M0.6 — Bloc 7 Timeline : les entrées d’audit sont rendues (action + transition de statut)',
+    async () => {
+      installMock({});
+      render(<CollecteDetailPanel collecteId="c1" />);
+      expect(
+        await screen.findByText('Historique & audit', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(screen.getByText('collecte_statut_force')).toBeInTheDocument();
+      // Transition old → new statut.
+      expect(screen.getByText(/validee → realisee/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Confirmation réalisation terrain/),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('M0.6 — Bloc 3 : la galerie affiche les photos importées (shared.fichiers, URL R2)', async () => {
-    installMock({
-      documents: {
-        ...documentsAg,
-        photos: [
-          {
-            id: 'ph1',
-            content_type: 'image/png',
-            created_at: '2026-05-11T00:00:00Z',
-            url: 'https://r2/signed-photo',
-          },
-        ],
-      },
-    });
-    const { container } = render(<CollecteDetailPanel collecteId="c1" />);
-    await screen.findByText('Documents', undefined, ATTENTE_UI);
-    expect(screen.getByText('Photos (1)')).toBeInTheDocument();
-    const img = container.querySelector(
-      'img[alt="Photo collecte"]',
-    ) as HTMLImageElement | null;
-    expect(img).toBeTruthy();
-    expect(img!.getAttribute('src')).toBe('https://r2/signed-photo');
-  });
+  it(
+    'M0.6 — Bloc 3 : « Importer des photos » envoie un POST multipart /photos',
+    async () => {
+      const fetchMock = installMock({});
+      const { container } = render(<CollecteDetailPanel collecteId="c1" />);
+      await screen.findByText('Documents', undefined, ATTENTE_UI);
 
-  it('M0.6 — Bloc 5 : top 3 affiche les scores détaillés (distance + capacité, §06.06 l.253)', async () => {
-    // Collecte AG NON terminale → l'algo (reco) est appelé → top 3 + scores rendus.
-    installMock({ collecte: { ...baseAg, statut: 'programmee' } });
-    render(<CollecteDetailPanel collecteId="c1" />);
-    expect(
-      await screen.findByText(/3\.2 km/, undefined, ATTENTE_UI),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/capacité 200/)).toBeInTheDocument();
-  });
+      const input = container.querySelector(
+        'input[type="file"]',
+      ) as HTMLInputElement;
+      const file = new File(['x'], 'photo.png', { type: 'image/png' });
+      fireEvent.change(input, { target: { files: [file] } });
 
-  it('M0.6 — Événement & Lieu réduit (Client/Type/Adresse/Contrôle accès), Logistique retiré (retour Val)', async () => {
-    installMock({ collecte: baseAg });
-    render(<CollecteDetailPanel collecteId="c1" />);
-    expect(
-      await screen.findByText('Événement & Lieu', undefined, ATTENTE_UI),
-    ).toBeInTheDocument();
-    // Client = client_organisateur résolu (priorité sur nom_client_organisateur).
-    expect(screen.getByText('Client')).toBeInTheDocument();
-    expect(screen.getByText('Org Cliente SA')).toBeInTheDocument();
-    expect(screen.queryByText('Client Fallback')).not.toBeInTheDocument();
-    // Type + Adresse conservés ; Contrôle accès déplacé ici depuis l'ex-Logistique.
-    expect(screen.getByText('Cocktail apéritif')).toBeInTheDocument();
-    expect(screen.getByText('1 rue X')).toBeInTheDocument();
-    expect(screen.getByText('Contrôle accès')).toBeInTheDocument();
-    // Bloc Logistique + champs Traiteur/Volume retirés (décision Val).
-    expect(screen.queryByText('Logistique')).not.toBeInTheDocument();
-    expect(screen.queryByText('Traiteur')).not.toBeInTheDocument();
-    expect(screen.queryByText('Volume estimé')).not.toBeInTheDocument();
-  });
+      await waitFor(() => {
+        const call = fetchMock.mock.calls.find(
+          (c) =>
+            typeof c[0] === 'string' &&
+            (c[0] as string).endsWith('/photos') &&
+            (c[1] as { method?: string } | undefined)?.method === 'POST',
+        );
+        expect(call).toBeTruthy();
+        expect((call![1] as { body?: unknown }).body instanceof FormData).toBe(
+          true,
+        );
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('M0.6 — onLoaded remonte type + titre-résumé (cadre coloré + en-tête figé « jusqu’à N pax »)', async () => {
-    const onLoaded = vi.fn();
-    installMock({ collecte: baseAg });
-    render(<CollecteDetailPanel collecteId="c1" onLoaded={onLoaded} />);
-    await waitFor(() => expect(onLoaded).toHaveBeenCalled(), ATTENTE_UI);
-    const arg = onLoaded.mock.calls.at(-1)?.[0] as {
-      type: string;
-      title: string;
-    };
-    expect(arg.type).toBe('anti_gaspi');
-    expect(arg.title).toContain('Collecte Anti-Gaspi');
-    expect(arg.title).toContain("jusqu'à 80 pax");
-  });
+  it(
+    'M0.6 — Bloc 3 : bordereau ZD affiché pour une collecte ZD (numéro + statut) ; pas d’attestation AG',
+    async () => {
+      installMock({ collecte: baseZd, documents: documentsZd });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      expect(
+        await screen.findByText('Bordereau ZD', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(screen.getByText('BSAV-2026-00001')).toBeInTheDocument();
+      expect(screen.getByText(/Statut : emis/)).toBeInTheDocument();
+      // Une collecte ZD n'a pas d'attestation de don (bloc AG masqué).
+      expect(screen.queryByText('Attestation de don')).not.toBeInTheDocument();
+      // Ni de Bloc 4/5 AG.
+      expect(screen.queryByText('Pack AG')).not.toBeInTheDocument();
+      expect(screen.queryByText('Attribution AG')).not.toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — Bloc 3 : la galerie affiche les photos importées (shared.fichiers, URL R2)',
+    async () => {
+      installMock({
+        documents: {
+          ...documentsAg,
+          photos: [
+            {
+              id: 'ph1',
+              content_type: 'image/png',
+              created_at: '2026-05-11T00:00:00Z',
+              url: 'https://r2/signed-photo',
+            },
+          ],
+        },
+      });
+      const { container } = render(<CollecteDetailPanel collecteId="c1" />);
+      await screen.findByText('Documents', undefined, ATTENTE_UI);
+      expect(screen.getByText('Photos (1)')).toBeInTheDocument();
+      const img = container.querySelector(
+        'img[alt="Photo collecte"]',
+      ) as HTMLImageElement | null;
+      expect(img).toBeTruthy();
+      expect(img!.getAttribute('src')).toBe('https://r2/signed-photo');
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — Bloc 5 : top 3 affiche les scores détaillés (distance + capacité, §06.06 l.253)',
+    async () => {
+      // Collecte AG NON terminale → l'algo (reco) est appelé → top 3 + scores rendus.
+      installMock({ collecte: { ...baseAg, statut: 'programmee' } });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      expect(
+        await screen.findByText(/3\.2 km/, undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(screen.getByText(/capacité 200/)).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — Événement & Lieu réduit (Client/Type/Adresse/Contrôle accès), Logistique retiré (retour Val)',
+    async () => {
+      installMock({ collecte: baseAg });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      expect(
+        await screen.findByText('Événement & Lieu', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      // Client = client_organisateur résolu (priorité sur nom_client_organisateur).
+      expect(screen.getByText('Client')).toBeInTheDocument();
+      expect(screen.getByText('Org Cliente SA')).toBeInTheDocument();
+      expect(screen.queryByText('Client Fallback')).not.toBeInTheDocument();
+      // Type + Adresse conservés ; Contrôle accès déplacé ici depuis l'ex-Logistique.
+      expect(screen.getByText('Cocktail apéritif')).toBeInTheDocument();
+      expect(screen.getByText('1 rue X')).toBeInTheDocument();
+      expect(screen.getByText('Contrôle accès')).toBeInTheDocument();
+      // Bloc Logistique + champs Traiteur/Volume retirés (décision Val).
+      expect(screen.queryByText('Logistique')).not.toBeInTheDocument();
+      expect(screen.queryByText('Traiteur')).not.toBeInTheDocument();
+      expect(screen.queryByText('Volume estimé')).not.toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — onLoaded remonte type + titre-résumé (cadre coloré + en-tête figé « jusqu’à N pax »)',
+    async () => {
+      const onLoaded = vi.fn();
+      installMock({ collecte: baseAg });
+      render(<CollecteDetailPanel collecteId="c1" onLoaded={onLoaded} />);
+      await waitFor(() => expect(onLoaded).toHaveBeenCalled(), ATTENTE_UI);
+      const arg = onLoaded.mock.calls.at(-1)?.[0] as {
+        type: string;
+        title: string;
+      };
+      expect(arg.type).toBe('anti_gaspi');
+      expect(arg.title).toContain('Collecte Anti-Gaspi');
+      expect(arg.title).toContain("jusqu'à 80 pax");
+    },
+    ATTENTE_CAS_MS,
+  );
 });
 
 // ============================================================================
@@ -689,95 +764,105 @@ describe('§06.06 Bloc 0 — acceptation manuelle Everest', () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.restoreAllMocks());
 
-  it('collecte A Toutes! non transmise : la modale exige référence ET contact, puis POST la saisie', async () => {
-    const fetchMock = mockFetchAcceptation(collecteAToutes);
-    render(<CollecteDetailPanel collecteId="c1" />);
+  it(
+    'collecte A Toutes! non transmise : la modale exige référence ET contact, puis POST la saisie',
+    async () => {
+      const fetchMock = mockFetchAcceptation(collecteAToutes);
+      render(<CollecteDetailPanel collecteId="c1" />);
 
-    fireEvent.click(
-      await screen.findByRole(
-        'button',
-        { name: 'Acceptation manuelle' },
-        ATTENTE_UI,
-      ),
-    );
-    const dialog = screen.getByRole('dialog');
-    const enregistrer = within(dialog).getByRole('button', {
-      name: "Enregistrer l'acceptation",
-    });
-    const reference = within(dialog).getByLabelText(
-      /Référence de mission communiquée par A Toutes!/,
-    );
-    const contact = within(dialog).getByLabelText(
-      /Contact joint chez A Toutes!/,
-    );
-
-    // Contact seul : la référence manque → bouton désactivé.
-    fireEvent.change(contact, { target: { value: 'Mathieu' } });
-    expect(enregistrer).toBeDisabled();
-    // Référence avec une espace (dictée) : refusée côté client aussi.
-    fireEvent.change(reference, { target: { value: 'EVR 001' } });
-    expect(enregistrer).toBeDisabled();
-
-    fireEvent.change(reference, { target: { value: 'EVR-TEL-001' } });
-    expect(enregistrer).toBeEnabled();
-    fireEvent.click(enregistrer);
-
-    await waitFor(() => {
-      const post = fetchMock.mock.calls.find(
-        (c) => c[0] === '/api/v1/admin/everest/missions/manual-accept',
+      fireEvent.click(
+        await screen.findByRole(
+          'button',
+          { name: 'Acceptation manuelle' },
+          ATTENTE_UI,
+        ),
       );
-      expect(post).toBeTruthy();
-      expect(JSON.parse((post![1] as { body: string }).body)).toEqual({
-        collecte_id: 'c1',
-        reference_mission: 'EVR-TEL-001',
-        contact_joint: 'Mathieu',
-        heure_appel: '',
-        commentaire: '',
+      const dialog = screen.getByRole('dialog');
+      const enregistrer = within(dialog).getByRole('button', {
+        name: "Enregistrer l'acceptation",
       });
-    }, ATTENTE_UI);
-    await waitFor(
-      () => expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
-      ATTENTE_UI,
-    );
-  });
+      const reference = within(dialog).getByLabelText(
+        /Référence de mission communiquée par A Toutes!/,
+      );
+      const contact = within(dialog).getByLabelText(
+        /Contact joint chez A Toutes!/,
+      );
 
-  it('refus serveur (référence déjà enregistrée) : message affiché, modale conservée', async () => {
-    mockFetchAcceptation(collecteAToutes, {
-      ok: false,
-      body: {
-        error:
-          'Cette référence de mission est déjà enregistrée sur une autre collecte. Vérifiez la saisie.',
-      },
-    });
-    render(<CollecteDetailPanel collecteId="c1" />);
+      // Contact seul : la référence manque → bouton désactivé.
+      fireEvent.change(contact, { target: { value: 'Mathieu' } });
+      expect(enregistrer).toBeDisabled();
+      // Référence avec une espace (dictée) : refusée côté client aussi.
+      fireEvent.change(reference, { target: { value: 'EVR 001' } });
+      expect(enregistrer).toBeDisabled();
 
-    fireEvent.click(
-      await screen.findByRole(
-        'button',
-        { name: 'Acceptation manuelle' },
+      fireEvent.change(reference, { target: { value: 'EVR-TEL-001' } });
+      expect(enregistrer).toBeEnabled();
+      fireEvent.click(enregistrer);
+
+      await waitFor(() => {
+        const post = fetchMock.mock.calls.find(
+          (c) => c[0] === '/api/v1/admin/everest/missions/manual-accept',
+        );
+        expect(post).toBeTruthy();
+        expect(JSON.parse((post![1] as { body: string }).body)).toEqual({
+          collecte_id: 'c1',
+          reference_mission: 'EVR-TEL-001',
+          contact_joint: 'Mathieu',
+          heure_appel: '',
+          commentaire: '',
+        });
+      }, ATTENTE_UI);
+      await waitFor(
+        () => expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
         ATTENTE_UI,
-      ),
-    );
-    const dialog = screen.getByRole('dialog');
-    fireEvent.change(
-      within(dialog).getByLabelText(/Référence de mission communiquée/),
-      { target: { value: 'EVR-TEL-001' } },
-    );
-    fireEvent.change(within(dialog).getByLabelText(/Contact joint/), {
-      target: { value: 'Mathieu' },
-    });
-    fireEvent.click(
-      within(dialog).getByRole('button', { name: "Enregistrer l'acceptation" }),
-    );
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
 
-    expect(
-      await within(dialog).findByText(
-        /déjà enregistrée sur une autre collecte/,
-        undefined,
-        ATTENTE_UI,
-      ),
-    ).toBeInTheDocument();
-  });
+  it(
+    'refus serveur (référence déjà enregistrée) : message affiché, modale conservée',
+    async () => {
+      mockFetchAcceptation(collecteAToutes, {
+        ok: false,
+        body: {
+          error:
+            'Cette référence de mission est déjà enregistrée sur une autre collecte. Vérifiez la saisie.',
+        },
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+
+      fireEvent.click(
+        await screen.findByRole(
+          'button',
+          { name: 'Acceptation manuelle' },
+          ATTENTE_UI,
+        ),
+      );
+      const dialog = screen.getByRole('dialog');
+      fireEvent.change(
+        within(dialog).getByLabelText(/Référence de mission communiquée/),
+        { target: { value: 'EVR-TEL-001' } },
+      );
+      fireEvent.change(within(dialog).getByLabelText(/Contact joint/), {
+        target: { value: 'Mathieu' },
+      });
+      fireEvent.click(
+        within(dialog).getByRole('button', {
+          name: "Enregistrer l'acceptation",
+        }),
+      );
+
+      expect(
+        await within(dialog).findByText(
+          /déjà enregistrée sur une autre collecte/,
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
 
   it.each([
     [
@@ -789,13 +874,17 @@ describe('§06.06 Bloc 0 — acceptation manuelle Everest', () => {
       { ...collecteAToutes, prestataire_logistique_id: 'presta-mts1' },
     ],
     ['collecte terminale', { ...collecteAToutes, statut: 'annulee' }],
-  ])('bouton absent : %s', async (_cas, collecte) => {
-    mockFetchAcceptation(collecte);
-    render(<CollecteDetailPanel collecteId="c1" />);
-    await screen.findByText('Prestataire actuel', undefined, ATTENTE_UI);
+  ])(
+    'bouton absent : %s',
+    async (_cas, collecte) => {
+      mockFetchAcceptation(collecte);
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await screen.findByText('Prestataire actuel', undefined, ATTENTE_UI);
 
-    expect(
-      screen.queryByRole('button', { name: 'Acceptation manuelle' }),
-    ).not.toBeInTheDocument();
-  });
+      expect(
+        screen.queryByRole('button', { name: 'Acceptation manuelle' }),
+      ).not.toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
 });

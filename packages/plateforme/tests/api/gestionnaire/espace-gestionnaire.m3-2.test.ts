@@ -96,6 +96,12 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
 vi.mock('@savr/shared/src/email/index.js', () => ({
   sendEmail: (...a: unknown[]) => mockSendEmail(...a),
 }));
+const mockUploadObject = vi.fn();
+const mockGetObject = vi.fn();
+vi.mock('@savr/shared/src/r2/upload.js', () => ({
+  uploadObject: (...a: unknown[]) => mockUploadObject(...a),
+  getObject: (...a: unknown[]) => mockGetObject(...a),
+}));
 vi.mock('next/headers', () => ({
   cookies: () => ({ getAll: () => [], set: () => {} }),
 }));
@@ -619,8 +625,6 @@ describe('M3.2 / traiteurs', () => {
         id: 'org-kaspia',
         nom: 'Kaspia',
         logo_url: null,
-        ville: 'Paris',
-        description_activite: null,
       },
       error: null,
     }); // orga (maybeSingle — before collectes in the route)
@@ -634,10 +638,43 @@ describe('M3.2 / traiteurs', () => {
     const json = (await res.json()) as {
       data: Record<string, unknown>;
     };
+    expect(res.status).toBe(200);
     expect(json.data.nom).toBe('Kaspia');
     expect(json.data).not.toHaveProperty('email');
     expect(json.data).not.toHaveProperty('siret');
     expect(json.data).not.toHaveProperty('telephone');
+    // Oracle sur la requête, pas sur la fixture : la fixture ci-dessus est posée
+    // à la main, seule la liste du select prouve ce qui est lu en base.
+    // Source = vue restreinte v_traiteurs_gestionnaire (20260921090000 : la table
+    // organisations n'ouvre plus les traiteurs tiers au gestionnaire), jamais la
+    // table ; colonnes réelles de la vue (une colonne inexistante = 42703 → 500).
+    const fromCalls = rls.__calls.from ?? [];
+    expect(fromCalls.some((a) => a[0] === 'organisations')).toBe(false);
+    const idx = fromCalls.findIndex((a) => a[0] === 'v_traiteurs_gestionnaire');
+    expect(idx).toBeGreaterThanOrEqual(0);
+    const selectArg = String(rls.__calls.select?.[idx]?.[0] ?? '');
+    const colonnes = selectArg.split(',').map((c) => c.trim());
+    expect(colonnes).toEqual(['id', 'nom', 'logo_url']);
+  });
+
+  it('M3.2/traiteur_fiche_erreur_collectes_500 — une erreur DB ne se déguise pas en stats à zéro', async () => {
+    setupAuth('gestionnaire_lieux');
+    rls.push({ data: [{ lieu_id: 'lieu-1' }], error: null }); // orgLieux
+    rls.push({
+      data: { id: 'org-kaspia', nom: 'Kaspia', logo_url: null },
+      error: null,
+    }); // orga
+    rls.push({
+      data: null,
+      error: { code: '42703', message: 'column does not exist' },
+    }); // collectes
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/traiteurs/[id]/route.js');
+    const res = await GET(
+      makeReq('GET', '/api/v1/gestionnaire/traiteurs/org-kaspia'),
+      { params: Promise.resolve({ id: 'org-kaspia' }) },
+    );
+    expect(res.status).toBe(500);
   });
 
   it('M3.2/traiteurs_repas_objet — repas 12 mois : embed to-one (OBJET) compté, pas 0', async () => {
@@ -683,8 +720,6 @@ describe('M3.2 / traiteurs', () => {
         id: 'org-kaspia',
         nom: 'Kaspia',
         logo_url: null,
-        ville: 'Paris',
-        description_activite: null,
       },
       error: null,
     }); // orga (maybeSingle)
@@ -823,15 +858,18 @@ describe('M3.2 / pack AG', () => {
 
 // ── Mon organisation / profil ────────────────────────────────────────────────
 describe('M3.2 / mon-organisation / profil', () => {
-  it('M3.2/profil_get_retourne_organisation — nom et statut siret', async () => {
-    setupAuth('gestionnaire_lieux');
+  it('M3.2/profil_get_retourne_organisation — sa propre organisation, colonnes réelles', async () => {
+    setupAuth('gestionnaire_lieux', 'org-viparis');
     rls.push({
       data: {
         id: 'org-viparis',
         nom: 'Viparis',
-        nom_affichage: 'Viparis SAS',
-        siret_verification: 'verifie',
-        actif: true,
+        raison_sociale: 'Viparis SAS',
+        siret: '12345678900011',
+        adresse: '2 place de la Porte Maillot, 75017 Paris',
+        email_principal: null,
+        telephone: null,
+        logo_url: null,
       },
       error: null,
     });
@@ -842,29 +880,73 @@ describe('M3.2 / mon-organisation / profil', () => {
     );
     const json = (await res.json()) as { data: { nom: string } };
     expect(json.data.nom).toBe('Viparis');
+    // Filtre explicite sur SA propre orga (défense en profondeur : la RLS ne rend
+    // plus que sa ligne depuis 20260921090000, traiteurs tiers via la vue).
+    expect(rls.__calls.eq).toContainEqual(['id', 'org-viparis']);
+    // Colonnes réelles de plateforme.organisations uniquement.
+    const cols = String(rls.__calls.select?.[0]?.[0])
+      .split(',')
+      .map((c) => c.trim());
+    expect(cols).toEqual([
+      'id',
+      'nom',
+      'raison_sociale',
+      'siret',
+      'adresse',
+      'email_principal',
+      'telephone',
+      'logo_url',
+    ]);
   });
 
-  it('M3.2/profil_patch_champ_protege_ignore — siren rejeté silencieusement', async () => {
-    setupAuth('gestionnaire_lieux');
+  it('M3.2/profil_patch_champ_protege_ignore — siret rejeté silencieusement', async () => {
+    setupAuth('gestionnaire_lieux', 'org-viparis');
     rls.push({
-      data: { id: 'org-viparis', nom: 'Viparis', nom_affichage: 'Viparis' },
+      data: { id: 'org-viparis', nom: 'Viparis', adresse: '1 rue Neuve' },
       error: null,
     });
     const { PATCH } =
       await import('@/app/api/v1/gestionnaire/mon-organisation/profil/route.js');
     const res = await PATCH(
       makeReq('PATCH', '/api/v1/gestionnaire/mon-organisation/profil', {
-        siren: '123456789',
-        nom_affichage: 'Viparis Pro',
+        siret: '99900000000011',
+        nom: 'Autre nom',
+        adresse: '1 rue Neuve',
       }),
     );
     expect(res.status).toBe(200);
-    // Vérifier que le update ne contenait pas siren
+    // §06.05 §6 Bloc Organisation : adresse modifiable, nom en lecture seule,
+    // siret réservé Admin.
     const updateCalls = rls.__calls.update ?? [];
     expect(updateCalls.length).toBeGreaterThan(0);
     const updateArg = updateCalls[0]?.[0] as Record<string, unknown>;
-    expect(updateArg).not.toHaveProperty('siren');
-    expect(updateArg).toHaveProperty('nom_affichage', 'Viparis Pro');
+    expect(updateArg).toEqual({ adresse: '1 rue Neuve' });
+    // UPDATE borné à SA propre orga (jamais un UPDATE sans WHERE).
+    expect(rls.__calls.eq).toContainEqual(['id', 'org-viparis']);
+  });
+
+  it('M3.2/profil_get_404_organisation_absente', async () => {
+    setupAuth('gestionnaire_lieux', 'org-viparis');
+    rls.push({ data: null, error: null });
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/mon-organisation/profil/route.js');
+    const res = await GET(
+      makeReq('GET', '/api/v1/gestionnaire/mon-organisation/profil'),
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it('M3.2/profil_patch_404_organisation_absente', async () => {
+    setupAuth('gestionnaire_lieux', 'org-viparis');
+    rls.push({ data: null, error: null });
+    const { PATCH } =
+      await import('@/app/api/v1/gestionnaire/mon-organisation/profil/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/gestionnaire/mon-organisation/profil', {
+        logo_url: LOGO_KEY,
+      }),
+    );
+    expect(res.status).toBe(404);
   });
 
   it('M3.2/profil_patch_aucun_champ_editable_400 — rejet si aucun champ autorisé', async () => {
@@ -878,6 +960,243 @@ describe('M3.2 / mon-organisation / profil', () => {
       }),
     );
     expect(res.status).toBe(400);
+  });
+});
+
+const LOGO_KEY = 'savr-dev/logos/0b8e6f5c-2f1a-4c47-9d3e-6a1f2b3c4d5e.png';
+
+describe('M3.2 / mon-organisation / profil — édition (§06.05 §6)', () => {
+  async function patch(body: unknown) {
+    const { PATCH } =
+      await import('@/app/api/v1/gestionnaire/mon-organisation/profil/route.js');
+    return PATCH(
+      makeReq('PATCH', '/api/v1/gestionnaire/mon-organisation/profil', body),
+    );
+  }
+
+  it('M3.2/profil_patch_logo_cle_upload_acceptee', async () => {
+    setupAuth('gestionnaire_lieux', 'org-viparis');
+    rls.push({ data: { id: 'org-viparis', logo_url: LOGO_KEY }, error: null });
+    const res = await patch({ logo_url: LOGO_KEY });
+    expect(res.status).toBe(200);
+    expect(rls.__calls.update?.[0]?.[0]).toEqual({ logo_url: LOGO_KEY });
+    expect(rls.__calls.eq).toContainEqual(['id', 'org-viparis']);
+  });
+
+  it.each([
+    [
+      'autre bucket',
+      'autre-bucket/logos/0b8e6f5c-2f1a-4c47-9d3e-6a1f2b3c4d5e.png',
+    ],
+    ['URL externe', 'https://exemple.fr/logo.png'],
+    [
+      'objet R2 hors logos/',
+      'savr-dev/bordereaux/0b8e6f5c-2f1a-4c47-9d3e-6a1f2b3c4d5e.png',
+    ],
+    ['traversée', 'savr-dev/logos/../bordereaux/x.png'],
+    ['null', null],
+  ])('M3.2/profil_patch_logo_invalide_422 — %s', async (_cas, logo_url) => {
+    setupAuth('gestionnaire_lieux');
+    const res = await patch({ logo_url });
+    expect(res.status).toBe(422);
+    expect(rls.__calls.update).toBeUndefined();
+  });
+
+  it('M3.2/profil_patch_adresse_trim_et_vide_null', async () => {
+    setupAuth('gestionnaire_lieux');
+    rls.push({ data: { id: 'org-viparis' }, error: null });
+    await patch({ adresse: '  3 rue Neuve  ' });
+    expect(rls.__calls.update?.[0]?.[0]).toEqual({ adresse: '3 rue Neuve' });
+
+    rls = makeChain();
+    rls.push({ data: { id: 'org-viparis' }, error: null });
+    await patch({ adresse: '   ' });
+    expect(rls.__calls.update?.[0]?.[0]).toEqual({ adresse: null });
+  });
+
+  it.each([
+    ['non textuelle', 42],
+    ['trop longue', 'x'.repeat(501)],
+  ])('M3.2/profil_patch_adresse_invalide_422 — %s', async (_cas, adresse) => {
+    setupAuth('gestionnaire_lieux');
+    const res = await patch({ adresse });
+    expect(res.status).toBe(422);
+    expect(rls.__calls.update).toBeUndefined();
+  });
+});
+
+describe('M3.2 / mon-organisation / logo', () => {
+  function uploadReq(file: File): NextRequest {
+    const form = new FormData();
+    form.append('file', file);
+    return new NextRequest(
+      'http://localhost/api/v1/gestionnaire/mon-organisation/logo',
+      { method: 'POST', body: form },
+    );
+  }
+  const png = () =>
+    new File([new Uint8Array([1, 2, 3])], 'logo.png', { type: 'image/png' });
+
+  it('M3.2/logo_upload_201 — clé logos/<uuid>.png', async () => {
+    setupAuth('gestionnaire_lieux');
+    mockUploadObject.mockImplementation((bucket: string, key: string) =>
+      Promise.resolve(`${bucket}/${key}`),
+    );
+    const { POST } =
+      await import('@/app/api/v1/gestionnaire/mon-organisation/logo/route.js');
+    const res = await POST(uploadReq(png()));
+    expect(res.status).toBe(201);
+    const { logo_url } = (await res.json()) as { logo_url: string };
+    // La clé rendue doit passer la validation du PATCH /profil.
+    expect(logo_url).toMatch(/^[a-z0-9.-]+\/logos\/[0-9a-f-]{36}\.png$/);
+  });
+
+  it('M3.2/logo_upload_format_refuse_422', async () => {
+    setupAuth('gestionnaire_lieux');
+    const { POST } =
+      await import('@/app/api/v1/gestionnaire/mon-organisation/logo/route.js');
+    const res = await POST(
+      uploadReq(new File(['x'], 'logo.gif', { type: 'image/gif' })),
+    );
+    expect(res.status).toBe(422);
+    expect(mockUploadObject).not.toHaveBeenCalled();
+  });
+
+  it('M3.2/logo_upload_trop_lourd_422', async () => {
+    setupAuth('gestionnaire_lieux');
+    const { POST } =
+      await import('@/app/api/v1/gestionnaire/mon-organisation/logo/route.js');
+    const gros = new File([new Uint8Array(2 * 1024 * 1024 + 1)], 'l.png', {
+      type: 'image/png',
+    });
+    const res = await POST(uploadReq(gros));
+    expect(res.status).toBe(422);
+    expect(mockUploadObject).not.toHaveBeenCalled();
+  });
+
+  it('M3.2/logo_upload_role_traiteur_403', async () => {
+    setupAuth('traiteur_manager');
+    const { POST } =
+      await import('@/app/api/v1/gestionnaire/mon-organisation/logo/route.js');
+    const res = await POST(uploadReq(png()));
+    expect(res.status).toBe(403);
+    expect(mockUploadObject).not.toHaveBeenCalled();
+  });
+
+  it('M3.2/logo_get_sert_le_logo_de_sa_propre_organisation', async () => {
+    setupAuth('gestionnaire_lieux', 'org-viparis');
+    rls.push({ data: { logo_url: LOGO_KEY }, error: null });
+    mockGetObject.mockResolvedValue({
+      body: new Uint8Array([1, 2, 3]),
+      contentType: 'image/png',
+    });
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/mon-organisation/logo/route.js');
+    // Un paramètre key fourni par le client est ignoré.
+    const res = await GET(
+      makeReq(
+        'GET',
+        '/api/v1/gestionnaire/mon-organisation/logo?key=savr-dev/logos/autre.png',
+      ),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('image/png');
+    expect(rls.__calls.eq).toContainEqual(['id', 'org-viparis']);
+    expect(mockGetObject).toHaveBeenCalledWith(
+      'savr-dev',
+      LOGO_KEY.slice('savr-dev/'.length),
+    );
+  });
+
+  it.each([
+    ['aucun logo', null],
+    ['valeur hors logos/', 'savr-dev/bordereaux/x.pdf'],
+  ])('M3.2/logo_get_404 — %s', async (_cas, logo_url) => {
+    setupAuth('gestionnaire_lieux');
+    rls.push({ data: { logo_url }, error: null });
+    const { GET } =
+      await import('@/app/api/v1/gestionnaire/mon-organisation/logo/route.js');
+    const res = await GET(
+      makeReq('GET', '/api/v1/gestionnaire/mon-organisation/logo'),
+    );
+    expect(res.status).toBe(404);
+    expect(mockGetObject).not.toHaveBeenCalled();
+  });
+});
+
+// ── Logo d'un traiteur tiers (§06.05 §5 : nom + logo) ────────────────────────
+// `organisations.logo_url` porte une CLÉ R2 (20260919100000) : la clé doit être
+// résolue par la route DEPUIS v_traiteurs_gestionnaire, jamais reçue du client.
+describe('M3.2 / traiteurs / logo (proxy scopé)', () => {
+  const TRAITEUR_ID = 'tr-kaspia';
+  const logoReq = (qs = '') =>
+    makeReq('GET', `/api/v1/gestionnaire/traiteurs/${TRAITEUR_ID}/logo${qs}`);
+  const importGet = async () =>
+    (await import('@/app/api/v1/gestionnaire/traiteurs/[id]/logo/route.js'))
+      .GET;
+  const params = Promise.resolve({ id: TRAITEUR_ID });
+
+  it('M3.2/traiteur_logo_200 — clé résolue depuis la vue restreinte, pas du client', async () => {
+    setupAuth('gestionnaire_lieux', 'org-viparis');
+    rls.push({ data: { logo_url: LOGO_KEY }, error: null });
+    mockGetObject.mockResolvedValue({
+      body: new Uint8Array([1, 2, 3]),
+      contentType: 'image/png',
+    });
+    const GET = await importGet();
+    // Une clé hostile passée en paramètre ne doit changer NI la table lue,
+    // NI l'objet R2 servi.
+    const res = await GET(
+      logoReq('?key=savr-dev/bordereaux/autre-org/b1.pdf'),
+      { params },
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('image/png');
+    // Oracle de requête : la VUE restreinte, jamais la table organisations.
+    expect(rls.__calls.from).toEqual([['v_traiteurs_gestionnaire']]);
+    expect(rls.__calls.select).toEqual([['logo_url']]);
+    expect(rls.__calls.eq).toEqual([['id', TRAITEUR_ID]]);
+    // Jamais le client service-role : il contournerait le périmètre de la vue.
+    expect(adminClient.__calls.from).toBeUndefined();
+    // Oracle de consommation : l'objet servi est celui de la BASE (capture par
+    // valeur : getObject reçoit deux chaînes).
+    expect(mockGetObject).toHaveBeenCalledWith(
+      'savr-dev',
+      LOGO_KEY.slice('savr-dev/'.length),
+    );
+    expect(mockGetObject).toHaveBeenCalledTimes(1);
+  });
+
+  it('M3.2/traiteur_logo_hors_perimetre_404 — la vue ne rend aucune ligne', async () => {
+    setupAuth('gestionnaire_lieux', 'org-viparis');
+    rls.push({ data: null, error: null });
+    const GET = await importGet();
+    const res = await GET(logoReq(), { params });
+    expect(res.status).toBe(404);
+    expect(mockGetObject).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['aucun logo', null],
+    ['valeur héritée hors logos/', 'savr-dev/bordereaux/x.pdf'],
+  ])('M3.2/traiteur_logo_404 — %s', async (_cas, logo_url) => {
+    setupAuth('gestionnaire_lieux', 'org-viparis');
+    rls.push({ data: { logo_url }, error: null });
+    const GET = await importGet();
+    const res = await GET(logoReq(), { params });
+    expect(res.status).toBe(404);
+    expect(mockGetObject).not.toHaveBeenCalled();
+  });
+
+  it('M3.2/traiteur_logo_role_403 — rôle hors gestionnaire_lieux', async () => {
+    setupAuth('traiteur_manager');
+    const GET = await importGet();
+    const res = await GET(logoReq(), { params });
+    expect(res.status).toBe(403);
+    // Aucune lecture, aucun téléchargement sous un rôle non autorisé.
+    expect(rls.__calls.from).toBeUndefined();
+    expect(mockGetObject).not.toHaveBeenCalled();
   });
 });
 
@@ -1047,7 +1366,8 @@ describe('M3.2 / mon-organisation / factures (F6)', () => {
           statut: 'emise',
           montant_ttc: 1200,
           date_emission: '2026-06-01',
-          pdf_url: null,
+          pdf_url_savr: null,
+          pdf_url_pennylane: null,
         },
       ],
       error: null,
@@ -1063,5 +1383,17 @@ describe('M3.2 / mon-organisation / factures (F6)', () => {
     };
     expect(json.data).toHaveLength(1);
     expect(json.data[0]?.id).toBe('f1');
+    // Colonnes réelles de plateforme.factures (ex-pdf_url / avoir_facture_id
+    // inexistants → 500 → onglet vide).
+    const select = String(rls.__calls.select?.[0]?.[0]);
+    for (const col of [
+      'pdf_url_savr',
+      'pdf_url_pennylane',
+      'facture_origine_id',
+    ])
+      expect(select).toContain(col);
+    expect(select).not.toMatch(/\bpdf_url\b|avoir_facture_id/);
+    // Brouillons jamais visibles côté client (§06.04 l.100/l.913).
+    expect(rls.__calls.neq).toContainEqual(['statut', 'brouillon']);
   });
 });

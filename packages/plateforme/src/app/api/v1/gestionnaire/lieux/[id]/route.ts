@@ -48,7 +48,7 @@ export async function GET(
     .select(
       `id, type, statut, date_collecte, taux_recyclage,
        evenements!inner(lieu_id, traiteur_operationnel_organisation_id,
-         organisations!traiteur_operationnel_organisation_id(id, nom)),
+         organisations:v_traiteurs_gestionnaire!traiteur_operationnel_organisation_id(id, nom)),
        collecte_flux(poids_reel_kg)`,
     )
     .eq('statut', 'cloturee')

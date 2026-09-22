@@ -8,7 +8,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 
 import { LieuModal } from '@/components/admin/lieu-modal';
-import { ATTENTE_UI } from '@/test-utils/attente-ui';
+import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 const DETAIL = {
   nom: 'Château de Saint-Cloud',
@@ -112,226 +112,259 @@ describe('M1.1b — modale lieu (BL-P1-BOA-03)', () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.restoreAllMocks());
 
-  it('création (lieuId=null) → POST /lieux + onSaved/onClose', async () => {
-    const onSaved = vi.fn();
-    const onClose = vi.fn();
-    const fetchMock = routeFetch();
-    vi.stubGlobal('fetch', fetchMock);
-    render(
-      <LieuModal open lieuId={null} onClose={onClose} onSaved={onSaved} />,
-    );
+  it(
+    'création (lieuId=null) → POST /lieux + onSaved/onClose',
+    async () => {
+      const onSaved = vi.fn();
+      const onClose = vi.fn();
+      const fetchMock = routeFetch();
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <LieuModal open lieuId={null} onClose={onClose} onSaved={onSaved} />,
+      );
 
-    fillRequired();
-    fireEvent.click(screen.getByRole('button', { name: /Créer le lieu/ }));
+      fillRequired();
+      fireEvent.click(screen.getByRole('button', { name: /Créer le lieu/ }));
 
-    await waitFor(
-      () =>
-        expect(fetchMock).toHaveBeenCalledWith(
-          '/api/v1/admin/lieux',
-          expect.objectContaining({ method: 'POST' }),
-        ),
-      ATTENTE_UI,
-    );
-    const call = postCall(fetchMock);
-    const body = JSON.parse((call![1] as RequestInit).body as string) as {
-      nom: string;
-      type_vehicule_max: string;
-    };
-    expect(body.nom).toBe('Château de Saint-Cloud');
-    expect(body.type_vehicule_max).toBe('fourgon');
+      await waitFor(
+        () =>
+          expect(fetchMock).toHaveBeenCalledWith(
+            '/api/v1/admin/lieux',
+            expect.objectContaining({ method: 'POST' }),
+          ),
+        ATTENTE_UI,
+      );
+      const call = postCall(fetchMock);
+      const body = JSON.parse((call![1] as RequestInit).body as string) as {
+        nom: string;
+        type_vehicule_max: string;
+      };
+      expect(body.nom).toBe('Château de Saint-Cloud');
+      expect(body.type_vehicule_max).toBe('fourgon');
 
-    await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
-    expect(onClose).toHaveBeenCalled();
-  });
+      await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
+      expect(onClose).toHaveBeenCalled();
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('édition → hydrate via GET puis PATCH /lieux/{id} avec le champ modifié', async () => {
-    const onSaved = vi.fn();
-    const fetchMock = routeFetch();
-    vi.stubGlobal('fetch', fetchMock);
-    render(
-      <LieuModal open lieuId="lieu-42" onClose={vi.fn()} onSaved={onSaved} />,
-    );
+  it(
+    'édition → hydrate via GET puis PATCH /lieux/{id} avec le champ modifié',
+    async () => {
+      const onSaved = vi.fn();
+      const fetchMock = routeFetch();
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <LieuModal open lieuId="lieu-42" onClose={vi.fn()} onSaved={onSaved} />,
+      );
 
-    // Le formulaire n'apparaît qu'après hydratation (GET détail), nom prérempli.
-    const nom = await screen.findByLabelText(
-      /Nom du lieu/,
-      undefined,
-      ATTENTE_UI,
-    );
-    await waitFor(
-      () =>
-        expect((nom as HTMLInputElement).value).toBe('Château de Saint-Cloud'),
-      ATTENTE_UI,
-    );
+      // Le formulaire n'apparaît qu'après hydratation (GET détail), nom prérempli.
+      const nom = await screen.findByLabelText(
+        /Nom du lieu/,
+        undefined,
+        ATTENTE_UI,
+      );
+      await waitFor(
+        () =>
+          expect((nom as HTMLInputElement).value).toBe(
+            'Château de Saint-Cloud',
+          ),
+        ATTENTE_UI,
+      );
 
-    fireEvent.change(nom, { target: { value: 'Château rénové' } });
-    fireEvent.click(screen.getByRole('button', { name: /Enregistrer/ }));
+      fireEvent.change(nom, { target: { value: 'Château rénové' } });
+      fireEvent.click(screen.getByRole('button', { name: /Enregistrer/ }));
 
-    await waitFor(
-      () =>
-        expect(fetchMock).toHaveBeenCalledWith(
-          '/api/v1/admin/lieux/lieu-42',
-          expect.objectContaining({ method: 'PATCH' }),
-        ),
-      ATTENTE_UI,
-    );
-    const call = fetchMock.mock.calls.find(
-      ([u, o]) =>
-        u === '/api/v1/admin/lieux/lieu-42' &&
-        (o as RequestInit)?.method === 'PATCH',
-    );
-    const body = JSON.parse((call![1] as RequestInit).body as string) as {
-      nom: string;
-    };
-    expect(body.nom).toBe('Château rénové');
-    await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
-  });
+      await waitFor(
+        () =>
+          expect(fetchMock).toHaveBeenCalledWith(
+            '/api/v1/admin/lieux/lieu-42',
+            expect.objectContaining({ method: 'PATCH' }),
+          ),
+        ATTENTE_UI,
+      );
+      const call = fetchMock.mock.calls.find(
+        ([u, o]) =>
+          u === '/api/v1/admin/lieux/lieu-42' &&
+          (o as RequestInit)?.method === 'PATCH',
+      );
+      const body = JSON.parse((call![1] as RequestInit).body as string) as {
+        nom: string;
+      };
+      expect(body.nom).toBe('Château rénové');
+      await waitFor(() => expect(onSaved).toHaveBeenCalled(), ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('SIREN invalide bloque la soumission (pas de POST /lieux)', async () => {
-    const fetchMock = routeFetch();
-    vi.stubGlobal('fetch', fetchMock);
-    render(
-      <LieuModal open lieuId={null} onClose={vi.fn()} onSaved={vi.fn()} />,
-    );
+  it(
+    'SIREN invalide bloque la soumission (pas de POST /lieux)',
+    async () => {
+      const fetchMock = routeFetch();
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <LieuModal open lieuId={null} onClose={vi.fn()} onSaved={vi.fn()} />,
+      );
 
-    fillRequired();
-    fireEvent.change(screen.getByLabelText(/^SIREN/), {
-      target: { value: 'abc' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /Créer le lieu/ }));
+      fillRequired();
+      fireEvent.change(screen.getByLabelText(/^SIREN/), {
+        target: { value: 'abc' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: /Créer le lieu/ }));
 
-    expect(
-      await screen.findByText(/SIREN : 9 chiffres/, undefined, ATTENTE_UI),
-    ).toBeInTheDocument();
-    expect(postCall(fetchMock)).toBeUndefined();
-  });
+      expect(
+        await screen.findByText(/SIREN : 9 chiffres/, undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(postCall(fetchMock)).toBeUndefined();
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('rendu création — tous les champs de la modale sont présents', async () => {
-    const fetchMock = routeFetch();
-    vi.stubGlobal('fetch', fetchMock);
-    render(
-      <LieuModal open lieuId={null} onClose={vi.fn()} onSaved={vi.fn()} />,
-    );
+  it(
+    'rendu création — tous les champs de la modale sont présents',
+    async () => {
+      const fetchMock = routeFetch();
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <LieuModal open lieuId={null} onClose={vi.fn()} onSaved={vi.fn()} />,
+      );
 
-    for (const champ of CHAMPS) {
-      expect(screen.getByLabelText(champ)).toBeInTheDocument();
-    }
+      for (const champ of CHAMPS) {
+        expect(screen.getByLabelText(champ)).toBeInTheDocument();
+      }
 
-    // Laisse le fetch organisations se résoudre (évite un act() warning tardif).
-    await waitFor(
-      () =>
-        expect(fetchMock).toHaveBeenCalledWith(
-          expect.stringContaining('/api/v1/admin/organisations'),
-        ),
-      ATTENTE_UI,
-    );
-  });
+      // Laisse le fetch organisations se résoudre (évite un act() warning tardif).
+      await waitFor(
+        () =>
+          expect(fetchMock).toHaveBeenCalledWith(
+            expect.stringContaining('/api/v1/admin/organisations'),
+          ),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('gestionnaire de lieux — sélecteur peuplé depuis GET /organisations', async () => {
-    const fetchMock = routeFetch([
-      { id: 'org-1', raison_sociale: 'Traiteur Gestionnaire SARL' },
-    ]);
-    vi.stubGlobal('fetch', fetchMock);
-    render(
-      <LieuModal open lieuId={null} onClose={vi.fn()} onSaved={vi.fn()} />,
-    );
+  it(
+    'gestionnaire de lieux — sélecteur peuplé depuis GET /organisations',
+    async () => {
+      const fetchMock = routeFetch([
+        { id: 'org-1', raison_sociale: 'Traiteur Gestionnaire SARL' },
+      ]);
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <LieuModal open lieuId={null} onClose={vi.fn()} onSaved={vi.fn()} />,
+      );
 
-    const option = await screen.findByRole(
-      'option',
-      {
-        name: 'Traiteur Gestionnaire SARL',
-      },
-      ATTENTE_UI,
-    );
-    expect(option).toHaveValue('org-1');
-    expect(screen.getByLabelText(/Gestionnaire de lieux/)).toBeInTheDocument();
-  });
+      const option = await screen.findByRole(
+        'option',
+        {
+          name: 'Traiteur Gestionnaire SARL',
+        },
+        ATTENTE_UI,
+      );
+      expect(option).toHaveValue('org-1');
+      expect(
+        screen.getByLabelText(/Gestionnaire de lieux/),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('champ obligatoire vide (Nom) bloque la soumission (pas de POST /lieux)', async () => {
-    const fetchMock = routeFetch();
-    vi.stubGlobal('fetch', fetchMock);
-    render(
-      <LieuModal open lieuId={null} onClose={vi.fn()} onSaved={vi.fn()} />,
-    );
+  it(
+    'champ obligatoire vide (Nom) bloque la soumission (pas de POST /lieux)',
+    async () => {
+      const fetchMock = routeFetch();
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <LieuModal open lieuId={null} onClose={vi.fn()} onSaved={vi.fn()} />,
+      );
 
-    // Tout est valide sauf le Nom laissé vide.
-    fillRequired();
-    fireEvent.change(screen.getByLabelText(/Nom du lieu/), {
-      target: { value: '' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /Créer le lieu/ }));
+      // Tout est valide sauf le Nom laissé vide.
+      fillRequired();
+      fireEvent.change(screen.getByLabelText(/Nom du lieu/), {
+        target: { value: '' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: /Créer le lieu/ }));
 
-    expect(
-      await screen.findByText(/Nom obligatoire/, undefined, ATTENTE_UI),
-    ).toBeInTheDocument();
-    expect(postCall(fetchMock)).toBeUndefined();
-  });
+      expect(
+        await screen.findByText(/Nom obligatoire/, undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(postCall(fetchMock)).toBeUndefined();
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('édition — hydrate les 7 champs réintégrés puis les renvoie au PATCH', async () => {
-    const fetchMock = routeFetch();
-    vi.stubGlobal('fetch', fetchMock);
-    render(
-      <LieuModal open lieuId="lieu-77" onClose={vi.fn()} onSaved={vi.fn()} />,
-    );
+  it(
+    'édition — hydrate les 7 champs réintégrés puis les renvoie au PATCH',
+    async () => {
+      const fetchMock = routeFetch();
+      vi.stubGlobal('fetch', fetchMock);
+      render(
+        <LieuModal open lieuId="lieu-77" onClose={vi.fn()} onSaved={vi.fn()} />,
+      );
 
-    // Round-trip GET → hydratation : chaque champ réintégré prend la valeur du détail.
-    const region = (await screen.findByLabelText(
-      /Région/,
-      undefined,
-      ATTENTE_UI,
-    )) as HTMLSelectElement;
-    expect(region.value).toBe('idf');
-    expect(
-      (screen.getByLabelText(/Volume max/) as HTMLInputElement).value,
-    ).toBe('12');
-    expect(
-      (screen.getByLabelText(/Contraintes horaires/) as HTMLInputElement).value,
-    ).toBe('18h-22h');
-    expect(
-      (screen.getByLabelText(/Carnet d'accès terrain/) as HTMLTextAreaElement)
-        .value,
-    ).toBe('Badge accueil, interphone porte B');
-    // flux_autorises: string[] rendu en saisie séparée par des virgules.
-    expect(
-      (screen.getByLabelText(/Flux autorisés/) as HTMLInputElement).value,
-    ).toBe('zero_dechet, anti_gaspi');
-    expect(
-      (screen.getByLabelText(/Notes internes/) as HTMLTextAreaElement).value,
-    ).toBe('Migré Bubble #4210');
-    // Photos en lecture seule (liste de liens R2).
-    expect(screen.getByRole('link', { name: 'Photo 1' })).toBeInTheDocument();
+      // Round-trip GET → hydratation : chaque champ réintégré prend la valeur du détail.
+      const region = (await screen.findByLabelText(
+        /Région/,
+        undefined,
+        ATTENTE_UI,
+      )) as HTMLSelectElement;
+      expect(region.value).toBe('idf');
+      expect(
+        (screen.getByLabelText(/Volume max/) as HTMLInputElement).value,
+      ).toBe('12');
+      expect(
+        (screen.getByLabelText(/Contraintes horaires/) as HTMLInputElement)
+          .value,
+      ).toBe('18h-22h');
+      expect(
+        (screen.getByLabelText(/Carnet d'accès terrain/) as HTMLTextAreaElement)
+          .value,
+      ).toBe('Badge accueil, interphone porte B');
+      // flux_autorises: string[] rendu en saisie séparée par des virgules.
+      expect(
+        (screen.getByLabelText(/Flux autorisés/) as HTMLInputElement).value,
+      ).toBe('zero_dechet, anti_gaspi');
+      expect(
+        (screen.getByLabelText(/Notes internes/) as HTMLTextAreaElement).value,
+      ).toBe('Migré Bubble #4210');
+      // Photos en lecture seule (liste de liens R2).
+      expect(screen.getByRole('link', { name: 'Photo 1' })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /Enregistrer/ }));
+      fireEvent.click(screen.getByRole('button', { name: /Enregistrer/ }));
 
-    await waitFor(
-      () =>
-        expect(fetchMock).toHaveBeenCalledWith(
-          '/api/v1/admin/lieux/lieu-77',
-          expect.objectContaining({ method: 'PATCH' }),
-        ),
-      ATTENTE_UI,
-    );
-    const call = fetchMock.mock.calls.find(
-      ([u, o]) =>
-        u === '/api/v1/admin/lieux/lieu-77' &&
-        (o as RequestInit)?.method === 'PATCH',
-    );
-    const body = JSON.parse((call![1] as RequestInit).body as string) as {
-      region: string | null;
-      volume_max_bacs: number | null;
-      contraintes_horaires: string | null;
-      acces_details: string | null;
-      flux_autorises: string[] | null;
-      commentaires_internes: string | null;
-      photos_urls?: unknown;
-    };
-    expect(body.region).toBe('idf');
-    expect(body.volume_max_bacs).toBe(12);
-    expect(body.contraintes_horaires).toBe('18h-22h');
-    expect(body.acces_details).toBe('Badge accueil, interphone porte B');
-    expect(body.flux_autorises).toEqual(['zero_dechet', 'anti_gaspi']);
-    expect(body.commentaires_internes).toBe('Migré Bubble #4210');
-    // Les photos ne sont jamais renvoyées (jamais écrasées).
-    expect(body.photos_urls).toBeUndefined();
-  });
+      await waitFor(
+        () =>
+          expect(fetchMock).toHaveBeenCalledWith(
+            '/api/v1/admin/lieux/lieu-77',
+            expect.objectContaining({ method: 'PATCH' }),
+          ),
+        ATTENTE_UI,
+      );
+      const call = fetchMock.mock.calls.find(
+        ([u, o]) =>
+          u === '/api/v1/admin/lieux/lieu-77' &&
+          (o as RequestInit)?.method === 'PATCH',
+      );
+      const body = JSON.parse((call![1] as RequestInit).body as string) as {
+        region: string | null;
+        volume_max_bacs: number | null;
+        contraintes_horaires: string | null;
+        acces_details: string | null;
+        flux_autorises: string[] | null;
+        commentaires_internes: string | null;
+        photos_urls?: unknown;
+      };
+      expect(body.region).toBe('idf');
+      expect(body.volume_max_bacs).toBe(12);
+      expect(body.contraintes_horaires).toBe('18h-22h');
+      expect(body.acces_details).toBe('Badge accueil, interphone porte B');
+      expect(body.flux_autorises).toEqual(['zero_dechet', 'anti_gaspi']);
+      expect(body.commentaires_internes).toBe('Migré Bubble #4210');
+      // Les photos ne sont jamais renvoyées (jamais écrasées).
+      expect(body.photos_urls).toBeUndefined();
+    },
+    ATTENTE_CAS_MS,
+  );
 });

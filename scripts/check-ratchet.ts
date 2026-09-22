@@ -35,6 +35,9 @@ const BASELINE = 'docs/audit/gate-baseline.json';
 // committé pour column-db). Les gates DB (G6/G9/integration) ratchetteront à part.
 const GATES: { key: string; cmd: string[] }[] = [
   { key: 'manifest-grain', cmd: ['check:manifest-grain'] },
+  // G12 — ancrage des ref_cdc lignés : un sync de specs/ décale les lignes du
+  // CDC et les refs figées des manifestes pointent alors un passage sans rapport.
+  { key: 'manifest-ref-anchor', cmd: ['check:manifest-ref-anchor'] },
   { key: 'spec-deliverables', cmd: ['check:spec-deliverables'] },
   { key: 'manifest-completeness', cmd: ['check:manifest-completeness'] },
   { key: 'cdc-drift', cmd: ['check:cdc-drift'] },

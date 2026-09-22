@@ -21,7 +21,7 @@
 | Catégorie | Nb scénarios | Couverture |
 |-----------|-------------|------------|
 | 1. Happy path | 10 | Dashboard Admin actions/revenus/coûts, CA économique AG (patch M3.5), batch J+1, attestation AG, synthèse à la demande, CSV, rapport sans excédent |
-| 2. Cas limites | 13 | Bornes embargo H+24, k-anonymat =5/4, seuils g/pax min/max, taux NULL/0, marge NULL/négative, ≥2 lieux, kg→t |
+| 2. Cas limites | 13 | Bornes embargo H+24, k-anonymat =5/4 + seuil 3 acteurs, seuils g/pax min/max, taux NULL/0, marge NULL/négative, ≥2 lieux, kg→t |
 | 3. Cas d'erreur | 9 | Embargo applicatif, périodes invalides, garde traiteur_ids, régénérations interdites, format export |
 | 4. Isolation RLS | 11 | rapports_rse (4 chemins org), bordereaux, attestations, exports_registre, documents_generaux, matrice CSV |
 | 5. Idempotence / états | 10 | Versions régénération, snapshots figés (caps, co2, benchmark), batch re-run, synthèse sans stockage |
@@ -294,11 +294,24 @@ Scénario : taux_recyclage_zero_si_omr_seul
 # Priorité : P1-critique
 
 Scénario : benchmark_k_anonymat_borne_cinq
-  Étant donné un segment benchmark avec exactement 5 collectes parc et un autre avec 4
+  Étant donné un segment benchmark avec exactement 5 collectes parc et un autre avec 4, tous deux répartis sur >= 3 acteurs distincts
   Quand `f_benchmark_kg_pax_zd` est appelée sur chaque segment
   Alors le segment à 5 collectes retourne un ratio_benchmark
-  Et le segment à 4 collectes est exclu de la réponse (WHERE nb_collectes_segment >= 5 côté serveur)
+  Et le segment à 4 collectes est exclu de la réponse (HAVING nb_collectes_segment >= 5 côté serveur)
   Et le front affiche la jauge sans point rouge + "Données insuffisantes pour benchmark"
+```
+
+```gherkin
+# Source : §04 f_benchmark_kg_pax_zd (k-anonymat acteurs, durci 2026-09-22)
+# Couche : db
+# Priorité : P1-critique
+
+Scénario : benchmark_k_anonymat_acteurs_insuffisants
+  Étant donné un segment benchmark de 5 collectes appartenant toutes au MEME acteur
+  Quand `f_benchmark_kg_pax_zd` est appelée sur ce segment
+  Alors le segment est exclu de la réponse (< 3 acteurs distincts — minimum entre organisations programmatrices et traiteurs opérationnels)
+  Et le même segment réparti sur 3 acteurs est publié
+  Et la même garde s'applique au PDF rapport RSE via `f_rapport_benchmark_zd` — le gabarit PDF ne rejoue pas le seuil lui-même
 ```
 
 ```gherkin
@@ -733,6 +746,22 @@ Scénario : benchmark_pdf_reproductible_via_snapshot
   Quand de nouvelles collectes parc modifient la moyenne benchmark, puis le traiteur re-télécharge le même PDF
   Alors les jauges benchmark du PDF affichent exactement les valeurs d'origine (snapshot)
   Et la légende sous le graphe liste les filtres appliqués (période, lieux, type, taille — jamais traiteurs)
+```
+
+```gherkin
+# Source : §12 §1.2 + §06.04 « Lien avec rapport RSE » — divergence M3.1 2026-09-22, option (a)
+# Couche : db
+# Priorité : P1-critique
+
+Scénario : benchmark_agregation_segments_ponderee_ecran_et_pdf
+  Étant donné deux segments parc sur le même flux : (0,30 kg/pax ; nb_collectes_segment = 5)
+    et (0,40 kg/pax ; nb_collectes_segment = 15), tous deux au-dessus du k-anonymat (>= 5 collectes et >= 3 acteurs distincts)
+  Quand le point de comparaison parc est calculé pour l'écran (aggregateBenchmarkPerFlux)
+    et pour le PDF rapport RSE (f_rapport_benchmark_zd)
+  Alors les deux retournent 0,375 kg/pax (moyenne pondérée par nb_collectes_segment)
+  Et aucun des deux ne retourne 0,350 (moyenne simple non pondérée — comportement PDF avant 2026-09-22)
+  Et le cas est atteint sans action utilisateur : type d'événement ou bracket de taille absent
+    -> retombée sur les 5 brackets, donc plusieurs segments
 ```
 
 ```gherkin

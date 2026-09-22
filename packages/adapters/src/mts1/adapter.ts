@@ -37,7 +37,10 @@ import {
   prestatairesDuType,
   retenirTourneesDuProvider,
 } from '../provider-tournees.js';
-import { FILTRE_STATUTS_COLLECTE_TERMINAUX } from '../statuts-collecte.js';
+import {
+  FILTRE_STATUTS_COLLECTE_TERMINAUX,
+  STATUTS_COLLECTE_EN_EXECUTION,
+} from '../statuts-collecte.js';
 import type { CreateOrderPayload, CreateTourPayload } from './client.js';
 import { Mts1Client } from './client.js';
 import type { Mts1Tour } from './mock.js';
@@ -58,6 +61,9 @@ interface CollecteLieuOverridesRow {
 // `transporteurs.type_tms`. Cf. provider-tournees.ts.
 interface TourneeRow {
   id: string;
+  // Porte la tentative de commande (`-r{n}`) posée par fn_dispatcher_collecte à
+  // la réattribution d'un rang refusé — cf. orderNumber.
+  reference_interne: string;
   external_ref_commande: string | null;
   tms_reference: string | null;
   statut: string;
@@ -152,37 +158,49 @@ export class AdapterMts1 implements LogistiqueProvider {
       return 'adapter_mts1';
     }
 
+    // Clé de la commande de CE rang, tentative comprise. Lue sur la tournée
+    // trouvée (jamais réécrite par l'adapter) : stable sur toute la reprise.
+    const orderNumber = this.orderNumber(collecte, rang, tournee);
+
     // ── Étape 1 : POST /v3/customerOrders ──────────────────────────────────────
     let customerOrderId = tournee?.external_ref_commande ?? null;
     if (!customerOrderId) {
       // Réconciliation avant re-POST si claim expiré lors d'une tentative précédente
       if (opts?.requiresReconciliation) {
-        customerOrderId = await this.reconcileOrder(collecte, rang);
+        customerOrderId = await this.reconcileOrder(collecte, orderNumber);
       }
       if (!customerOrderId) {
         const created = await this.client.postOrder(
-          this.buildOrderPayload(collecte, rang),
+          this.buildOrderPayload(collecte, orderNumber),
         );
         customerOrderId = created.id;
         // Commit immédiat — MTS-1 présumé NON idempotent (CLAUDE.md §2)
-        tournee = await this.upsertTournee(collecte, rang, customerOrderId);
+        tournee = await this.upsertTournee(
+          collecte,
+          rang,
+          customerOrderId,
+          tournee,
+        );
       } else {
         // Ordre trouvé via réconciliation, écrire le curseur sans re-POSTer
-        tournee = await this.upsertTournee(collecte, rang, customerOrderId);
+        tournee = await this.upsertTournee(
+          collecte,
+          rang,
+          customerOrderId,
+          tournee,
+        );
       }
     }
 
     // ── Étape 2 : POST /v3/tours ────────────────────────────────────────────────
     let tourId = tournee?.tms_reference ?? null;
     if (!tourId) {
-      const tourPayload = this.buildTourPayload(collecte, rang);
+      const tourPayload = this.buildTourPayload(collecte, orderNumber);
       const created = await this.client.createTour(tourPayload);
       tourId = created.tourId;
       // Commit immédiat
       await this.updateTourneeRef(tournee!.id, tourId);
     }
-
-    const orderNumber = this.orderNumber(collecte, rang);
 
     // ── Étape 2bis : rattacher la commande à la tournée ─────────────────────────
     // INCONDITIONNEL (comme dispatch/validate ci-dessous) : rejoué à chaque passage
@@ -273,22 +291,28 @@ export class AdapterMts1 implements LogistiqueProvider {
       // entre-temps) ne doit pas être ré-adressé (le PUT n'est de toute façon
       // sûr/idempotent que sur un ordre vivant).
       if (opts?.requiresReconciliation) {
-        const stillExists = await this.reconcileOrder(collecte, t.rang);
+        const stillExists = await this.reconcileOrder(
+          collecte,
+          this.orderNumber(collecte, t.rang, t),
+        );
         if (!stillExists) continue;
       }
       await this.client.updateOrder(
         t.external_ref_commande!,
         updatePayload,
-        this.orderNumber(collecte, t.rang),
+        this.orderNumber(collecte, t.rang, t),
       );
     }
 
-    // BL-P1-RM-03 — augmentation N→N+k : créer les rangs manquants (1..N sans tournée)
-    // via dispatchCollecte (idempotent, clé d'idempotence reference-{rang}). Une
-    // grosse collecte dont Ops augmente N est ainsi entièrement servie.
-    const rangsPresents = new Set(tournees.map((t) => t.rang));
+    // BL-P1-RM-03 — augmentation N→N+k : créer les rangs manquants (1..N sans
+    // commande) via dispatchCollecte (idempotent, clé d'idempotence
+    // reference-{rang}). Une grosse collecte dont Ops augmente N est ainsi
+    // entièrement servie. « Sans commande » et non « sans tournée » : un rang
+    // refusé puis réattribué garde sa tournée, réinitialisée par
+    // fn_dispatcher_collecte (arbitrage Val 2026-09-17) — il doit repartir.
+    const rangsCommandes = new Set(avecRef.map((t) => t.rang));
     for (let rang = 1; rang <= n; rang++) {
-      if (!rangsPresents.has(rang)) {
+      if (!rangsCommandes.has(rang)) {
         await this.dispatchCollecte(collecte, rang, {
           requiresReconciliation: opts?.requiresReconciliation,
         });
@@ -308,7 +332,7 @@ export class AdapterMts1 implements LogistiqueProvider {
       try {
         await this.client.deleteOrder(
           t.external_ref_commande,
-          this.orderNumber(collecte, t.rang),
+          this.orderNumber(collecte, t.rang, t),
         );
       } catch (err) {
         // 404 = commande déjà supprimée côté MTS-1 → DELETE idempotent, on continue
@@ -354,13 +378,16 @@ export class AdapterMts1 implements LogistiqueProvider {
       // absent = annulation déjà effective → court-circuit (succès idempotent),
       // jamais de faux « fenêtre fermée ».
       if (opts?.requiresReconciliation) {
-        const stillExists = await this.reconcileOrder(collecte, t.rang);
+        const stillExists = await this.reconcileOrder(
+          collecte,
+          this.orderNumber(collecte, t.rang, t),
+        );
         if (!stillExists) continue;
       }
       try {
         await this.client.deleteOrder(
           t.external_ref_commande!,
-          this.orderNumber(collecte, t.rang),
+          this.orderNumber(collecte, t.rang, t),
         );
       } catch (err) {
         if (
@@ -605,7 +632,11 @@ export class AdapterMts1 implements LogistiqueProvider {
       const { collecteId, tourneeId, tmsReference, collecteStatut } =
         tourneeInfo;
 
-      // 3. Mise à jour statut_tms
+      // 3. Mise à jour statut_tms — seulement sur une collecte en cours
+      // d'exécution. Garde dans le WHERE (le statut lu plus haut peut avoir
+      // changé) : un ordre CANCELED/KO remonté après une annulation Savr ne
+      // réécrit pas le statut_tms d'une collecte annulée ou en demande
+      // d'annulation (arbitrage Val 2026-09-17).
       const nouveauStatutTms = MTS1_STATUS_TO_TMS[order.status] ?? null;
       if (nouveauStatutTms) {
         await this.supabase
@@ -614,7 +645,8 @@ export class AdapterMts1 implements LogistiqueProvider {
             statut_tms: nouveauStatutTms,
             statut_tms_at: new Date().toISOString(),
           })
-          .eq('id', collecteId);
+          .eq('id', collecteId)
+          .in('statut', [...STATUTS_COLLECTE_EN_EXECUTION]);
       }
 
       // IN_PROGRESSION → passage direct collectes.statut → 'en_cours'
@@ -1109,7 +1141,7 @@ export class AdapterMts1 implements LogistiqueProvider {
     const { data, error } = await this.supabase
       .from('collecte_tournees')
       .select(
-        'rang, tournees!inner(id, external_ref_commande, tms_reference, statut, prestataire_logistique_id)',
+        'rang, tournees!inner(id, reference_interne, external_ref_commande, tms_reference, statut, prestataire_logistique_id)',
       )
       .eq('collecte_id', collecteId);
 
@@ -1142,7 +1174,35 @@ export class AdapterMts1 implements LogistiqueProvider {
     collecte: Collecte,
     rang: number,
     customerOrderId: string,
+    existante: TourneeRow | null,
   ): Promise<TourneeRow> {
+    // Rang déjà lié à une tournée de ce provider (réattribution d'un rang
+    // refusé, réinitialisé en place par fn_dispatcher_collecte) : on committe
+    // la commande SUR cette tournée. L'upsert par `TMS-{collecte}-{rang}` ne la
+    // retrouverait pas (sa reference_interne porte la tentative) et créerait une
+    // seconde tournée, détachant la première.
+    if (existante) {
+      const { data: maj, error: errMaj } = await this.supabase
+        .from('tournees')
+        .update({
+          external_ref_commande: customerOrderId,
+          prestataire_logistique_id:
+            this.transporteur.prestataire_logistique_id,
+        })
+        .eq('id', existante.id)
+        .select(
+          'id, reference_interne, external_ref_commande, tms_reference, statut',
+        )
+        .single();
+
+      if (errMaj || !maj) {
+        throw new LogistiquePermanentError(
+          `Impossible de committer la commande ${customerOrderId} sur la tournée rang ${rang} : ${String(errMaj)}`,
+        );
+      }
+      return { ...existante, ...maj, rang } as TourneeRow;
+    }
+
     const referenceInterne = `TMS-${collecte.id}-${rang}`;
 
     const { data: tournee, error } = await this.supabase
@@ -1159,7 +1219,9 @@ export class AdapterMts1 implements LogistiqueProvider {
         },
         { onConflict: 'reference_interne' },
       )
-      .select('id, external_ref_commande, tms_reference, statut')
+      .select(
+        'id, reference_interne, external_ref_commande, tms_reference, statut',
+      )
       .single();
 
     if (error || !tournee) {
@@ -1220,7 +1282,7 @@ export class AdapterMts1 implements LogistiqueProvider {
 
   private async reconcileOrder(
     collecte: Collecte,
-    rang: number,
+    orderNumber: string,
   ): Promise<string | null> {
     // Bornes à MINUIT PARIS. `date_collecte` est une date-seule : la convertir
     // en Date puis décaler avec `setDate` ancrait les bornes sur minuit UTC
@@ -1245,15 +1307,24 @@ export class AdapterMts1 implements LogistiqueProvider {
       maxDate.toISOString(),
     );
 
-    const expected = this.orderNumber(collecte, rang);
-    const found = orders.find((o) => o.externalReference === expected);
+    const found = orders.find((o) => o.externalReference === orderNumber);
     return found?.id ?? null;
   }
 
   // ─── Builders payload MTS-1 ──────────────────────────────────────────────────
 
-  private orderNumber(collecte: Collecte, rang: number): string {
-    return `${collecte.id}-${rang}`;
+  // Clé fonctionnelle de la commande : `{collecte}-{rang}` (§08 §3bis), suffixée
+  // de la tentative `-r{n}` quand le rang a été refusé puis réattribué
+  // (fn_dispatcher_collecte suffixe alors `tournees.reference_interne` —
+  // arbitrage Val 2026-09-17). Sans suffixe, la nouvelle commande porterait la
+  // clé de la commande annulée, et la réconciliation retrouverait cette dernière.
+  private orderNumber(
+    collecte: Collecte,
+    rang: number,
+    tournee?: Pick<TourneeRow, 'reference_interne'> | null,
+  ): string {
+    const tentative = tournee?.reference_interne?.match(/-r\d+$/)?.[0] ?? '';
+    return `${collecte.id}-${rang}${tentative}`;
   }
 
   // Contacts propagés au TMS : principal (toujours) + téléphone du secours (dès
@@ -1312,7 +1383,7 @@ export class AdapterMts1 implements LogistiqueProvider {
 
   private buildOrderPayload(
     collecte: Collecte,
-    rang: number,
+    orderNumber: string,
   ): CreateOrderPayload {
     const isZd = collecte.type === 'zero_dechet';
 
@@ -1357,7 +1428,7 @@ export class AdapterMts1 implements LogistiqueProvider {
         ];
 
     return {
-      orderNumber: this.orderNumber(collecte, rang),
+      orderNumber,
       orderDate: collecte.date_collecte,
       timezone: 'Europe/Paris',
       serviceTime: 60,
@@ -1381,7 +1452,7 @@ export class AdapterMts1 implements LogistiqueProvider {
 
   private buildTourPayload(
     collecte: Collecte,
-    rang: number,
+    orderNumber: string,
   ): CreateTourPayload {
     // `TourInput` ne prend que { tourDate, tourNumber?, customerOrders?, comments? }.
     // Les `stuffs` et le `deliveryPlace` (relevé as-built Bubble) sont IGNORÉS par
@@ -1389,7 +1460,7 @@ export class AdapterMts1 implements LogistiqueProvider {
     // la COMMANDE (buildOrderPayload : `stuffs[].relatedAddress`), elle-même rattachée
     // à la tournée via PUT /v3/tours/addCustomerOrder.
     return {
-      orderNumber: this.orderNumber(collecte, rang),
+      orderNumber,
       // `tourDate` (yyyy-MM-dd) OBLIGATOIRE sur POST /v3/tours.
       tourDate: collecte.date_collecte,
     };

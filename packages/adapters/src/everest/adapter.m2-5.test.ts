@@ -2,7 +2,7 @@
 // Vérifie : dispatchCollecte, cancelCollecte, idempotence, erreurs typées.
 // Aucun appel réseau réel (handlers injectés via setupEverestMock).
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   setSlackSink,
@@ -89,6 +89,14 @@ interface SupabaseMockOpts {
   findMissionError?: boolean;
   /** L'écriture de `everest_missions` échoue (chemin de succès). */
   upsertMissionError?: boolean;
+  /** L'UPDATE de `everest_missions` (annulation) est refusé avec ce code SQLSTATE. */
+  updateMissionErrorCode?: string;
+  /** L'INSERT de la trace `audit_log` (annulation) est refusé. */
+  insertAuditError?: boolean;
+  /** L'UPDATE de `collectes` portant ce champ est refusé. */
+  updateCollecteError?: 'statut_tms' | 'tms_reference';
+  /** `collectes.statut` en base, contre lequel un filtre `.eq('statut', …)` est évalué. */
+  statutCollecte?: string;
 }
 
 function makeMockSupabase(opts: SupabaseMockOpts = {}) {
@@ -101,10 +109,16 @@ function makeMockSupabase(opts: SupabaseMockOpts = {}) {
     updateRefError = false,
     findMissionError = false,
     upsertMissionError = false,
+    updateMissionErrorCode,
+    insertAuditError = false,
+    updateCollecteError,
+    statutCollecte = 'programmee',
   } = opts;
 
   const insertedRows: Record<string, unknown[]> = {};
   const updatedRows: Record<string, unknown[]> = {};
+  // UPDATE `collectes` dont les filtres matchent la ligne en base.
+  const appliedRows: Record<string, unknown[]> = {};
   const upsertedRows: Record<string, unknown[]> = {};
 
   // Chaque from() retourne un proxy qui adapte maybeSingle/single par table
@@ -126,6 +140,16 @@ function makeMockSupabase(opts: SupabaseMockOpts = {}) {
       insertedRows[table]!.push(data);
       // Le lien de rang est INSERT-et-await (pas de .select()) : son résultat
       // est lu directement, comme le fait l'adapter.
+      if (table === 'audit_log') {
+        return Promise.resolve(
+          insertAuditError
+            ? {
+                data: null,
+                error: { code: '08006', message: 'connexion interrompue' },
+              }
+            : { data: null, error: null },
+        );
+      }
       if (table === 'collecte_tournees') {
         return Promise.resolve(
           insertLienError
@@ -159,28 +183,68 @@ function makeMockSupabase(opts: SupabaseMockOpts = {}) {
     q['update'] = vi.fn((data: unknown) => {
       if (!updatedRows[table]) updatedRows[table] = [];
       updatedRows[table]!.push(data);
+      const champs = data as Record<string, unknown>;
       const refusee =
         updateRefError &&
         table === 'tournees' &&
-        (data as Record<string, unknown>)['external_ref_commande'] !==
-          undefined;
-      // `.update().eq()` est awaité : la chaîne doit être thenable.
-      return {
-        eq: vi.fn(() =>
-          Promise.resolve(
-            refusee
-              ? {
-                  data: null,
-                  error: {
-                    code: '23505',
-                    message:
-                      'duplicate key value violates unique constraint "uniq_tournee_par_external_ref"',
-                  },
-                }
-              : { data: null, error: null },
-          ),
-        ),
+        champs['external_ref_commande'] !== undefined;
+      let erreur: { code: string; message: string } | null = refusee
+        ? {
+            code: '23505',
+            message:
+              'duplicate key value violates unique constraint "uniq_tournee_par_external_ref"',
+          }
+        : null;
+      if (table === 'everest_missions' && updateMissionErrorCode) {
+        erreur = {
+          code: updateMissionErrorCode,
+          message:
+            updateMissionErrorCode === '23514'
+              ? 'new row for relation "everest_missions" violates check constraint "chk_everest_created_manually"'
+              : 'connexion interrompue',
+        };
+      }
+      if (
+        table === 'collectes' &&
+        updateCollecteError &&
+        champs[updateCollecteError] !== undefined
+      ) {
+        erreur = { code: '08006', message: 'connexion interrompue' };
+      }
+      // `.update().eq()…` est awaité : la chaîne (eq / select) doit être
+      // thenable. Sur `collectes`, un filtre `statut` est évalué contre
+      // `statutCollecte` : 0 ligne qui matche → `data: []`, rien d'appliqué.
+      const filtres: Record<string, unknown> = {};
+      let avecSelect = false;
+      const chaine: Record<string, unknown> = {
+        eq: vi.fn((col: string, val: unknown) => {
+          filtres[col] = val;
+          return chaine;
+        }),
+        select: vi.fn(() => {
+          avecSelect = true;
+          return chaine;
+        }),
+        then: (
+          resolve: (v: unknown) => unknown,
+          reject?: (e: unknown) => unknown,
+        ) => {
+          const matche =
+            table !== 'collectes' ||
+            filtres['statut'] === undefined ||
+            filtres['statut'] === statutCollecte;
+          if (!erreur && matche) {
+            if (!appliedRows[table]) appliedRows[table] = [];
+            appliedRows[table]!.push(data);
+          }
+          const lignes = matche ? [{ id: filtres['id'] }] : [];
+          return Promise.resolve({
+            data: erreur ? null : avecSelect ? lignes : null,
+            error: erreur,
+          }).then(resolve, reject);
+        },
       };
+      return chaine;
     });
     q['upsert'] = vi.fn((data: unknown) => {
       if (!upsertedRows[table]) upsertedRows[table] = [];
@@ -300,6 +364,7 @@ function makeMockSupabase(opts: SupabaseMockOpts = {}) {
     rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
     _inserted: insertedRows,
     _updated: updatedRows,
+    _applied: appliedRows,
     _upserted: upsertedRows,
     _tables: tables,
   };
@@ -307,6 +372,7 @@ function makeMockSupabase(opts: SupabaseMockOpts = {}) {
   return supabase as unknown as import('@supabase/supabase-js').SupabaseClient & {
     _inserted: Record<string, unknown[]>;
     _updated: Record<string, unknown[]>;
+    _applied: Record<string, unknown[]>;
     _upserted: Record<string, unknown[]>;
     _tables: Record<string, unknown>;
   };
@@ -474,7 +540,7 @@ describe('M2.5 / AdapterEverest — dispatchCollecte', () => {
     );
   });
 
-  it('Everest 422 (rejet permanent) → statut_tms = rejetee_par_prestataire (BL-P1-ALGO-07)', async () => {
+  it('Everest 422 (rejet permanent) → statut_tms ET statut = rejetee_par_prestataire + alerte (BL-P1-ALGO-07, §08 §3)', async () => {
     setupEverestMock({ createFails: true, createFailsStatus: 422 });
     const supabase = makeMockSupabase({
       brancheAttribution: 'ag_velo_programme',
@@ -485,14 +551,34 @@ describe('M2.5 / AdapterEverest — dispatchCollecte', () => {
       LogistiquePermanentError,
     );
 
-    const collecteUpdates = supabase._updated['collectes'] ?? [];
-    expect(
-      collecteUpdates.some(
-        (u) =>
-          (u as { statut_tms?: string }).statut_tms ===
-          'rejetee_par_prestataire',
-      ),
-    ).toBe(true);
+    expect(supabase._applied['collectes']).toEqual([
+      {
+        statut_tms: 'rejetee_par_prestataire',
+        statut: 'rejetee_par_prestataire',
+      },
+    ]);
+    expect(alertesOps(supabase)).toEqual([
+      expect.objectContaining({
+        p_code: 'collecte_rejetee_prestataire',
+        p_entity_id: COLLECTE_AG.id,
+      }),
+    ]);
+  });
+
+  it('Everest 422 sur une collecte qui n’est plus programmee (annulée entre-temps) → rien écrit, pas d’alerte', async () => {
+    setupEverestMock({ createFails: true, createFailsStatus: 422 });
+    const supabase = makeMockSupabase({
+      brancheAttribution: 'ag_velo_programme',
+      statutCollecte: 'annulee',
+    });
+    const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
+
+    await expect(adapter.dispatchCollecte(COLLECTE_AG, 1)).rejects.toThrow(
+      LogistiquePermanentError,
+    );
+
+    expect(supabase._applied['collectes']).toBeUndefined();
+    expect(alertesOps(supabase)).toEqual([]);
   });
 
   it('Everest 5xx (transient) → PAS de rejet statut_tms (le worker retente)', async () => {
@@ -884,6 +970,180 @@ describe('M2.5 / AdapterEverest — mission acceptée manuellement AVEC référe
 });
 
 // ─── Tests sync + updateLieu ──────────────────────────────────────────────────
+
+// ─── Écritures locales refusées APRÈS un échange avec A Toutes! ──────────────
+//
+// Scénario 06.06 `mission_created_manually_reprend_le_cycle_de_vie` : « une erreur
+// de l'UPDATE everest_missions dans cancelCollecte n'est PLUS avalée : elle
+// remonte et alerte ». Alerte = Ops in-app (`f_upsert_alerte_admin`), jamais
+// Slack (CLAUDE.md §13). Les fixtures reprennent l'état que laisse
+// `fn_accepter_mission_everest_manuelle` : c'est là que le 23514 a été vécu.
+
+function alertesOps(
+  supabase: ReturnType<typeof makeMockSupabase>,
+): Array<Record<string, unknown>> {
+  const rpc = supabase.rpc as unknown as ReturnType<typeof vi.fn>;
+  return rpc.mock.calls
+    .filter(([fn]) => fn === 'f_upsert_alerte_admin')
+    .map(([, args]) => args as Record<string, unknown>);
+}
+
+describe('M2.5 / AdapterEverest — écritures locales refusées après A Toutes!', () => {
+  const MISSION_MANUELLE = {
+    tourneeExistante: {
+      id: 'tournee-manuelle-002',
+      external_ref_commande: 'EVR-TEL-002',
+      statut: 'planifiee',
+      prestataire_logistique_id: PRESTA_EVEREST,
+    },
+    missionExistante: {
+      id: 'em-manuelle-002',
+      statut_everest: 'created_manually',
+      everest_mission_id: 'EVR-TEL-002',
+    },
+  };
+
+  const slack: SlackPayload[] = [];
+  beforeEach(() => {
+    slack.length = 0;
+    setSlackSink(async (p) => {
+      slack.push(p);
+    });
+  });
+  afterEach(() => {
+    _setEverestHandlers(null);
+    setSlackSink(async () => {});
+  });
+
+  it('annulation : UPDATE everest_missions refusé en 23514 → lève Permanent + alerte Ops in-app, jamais Slack', async () => {
+    const { cancelledIds } = setupEverestMock();
+    const supabase = makeMockSupabase({
+      ...MISSION_MANUELLE,
+      updateMissionErrorCode: '23514',
+    });
+
+    const annulation = new AdapterEverest(
+      TRANSPORTEUR_EVEREST,
+      supabase,
+    ).cancelCollecte(COLLECTE_AG);
+    await expect(annulation).rejects.toBeInstanceOf(LogistiquePermanentError);
+    await expect(annulation).rejects.toThrow(/chk_everest_created_manually/);
+
+    // L'annulation est bien partie chez A Toutes! : c'est son enregistrement
+    // local qui a échoué — exactement l'état qui passait inaperçu.
+    expect([...cancelledIds]).toEqual(['EVR-TEL-002']);
+    const alertes = alertesOps(supabase);
+    expect(alertes[0]).toMatchObject({
+      p_code: 'everest_annulation_non_enregistree',
+      p_entity_type: 'collectes',
+      p_entity_id: COLLECTE_AG.id,
+    });
+    expect(String(alertes[0]!['p_message'])).toContain('EVR-TEL-002');
+    expect(slack).toEqual([]);
+  });
+
+  it('annulation : UPDATE everest_missions en échec réseau → lève Transient (le worker rejoue) + alerte', async () => {
+    setupEverestMock();
+    const supabase = makeMockSupabase({
+      ...MISSION_MANUELLE,
+      updateMissionErrorCode: '08006',
+    });
+
+    await expect(
+      new AdapterEverest(TRANSPORTEUR_EVEREST, supabase).cancelCollecte(
+        COLLECTE_AG,
+      ),
+    ).rejects.toBeInstanceOf(LogistiqueTransientError);
+    expect(alertesOps(supabase).map((a) => a['p_code'])).toEqual([
+      'everest_annulation_non_enregistree',
+    ]);
+  });
+
+  it('annulation : trace audit_log refusée → lève + alerte (sinon le webhook lit une annulation externe)', async () => {
+    setupEverestMock();
+    const supabase = makeMockSupabase({
+      ...MISSION_MANUELLE,
+      insertAuditError: true,
+    });
+
+    await expect(
+      new AdapterEverest(TRANSPORTEUR_EVEREST, supabase).cancelCollecte(
+        COLLECTE_AG,
+      ),
+    ).rejects.toBeInstanceOf(LogistiqueTransientError);
+    // Le statut local, lui, a bien été écrit avant la trace.
+    expect(supabase._updated['everest_missions']).toEqual([
+      expect.objectContaining({ statut_everest: 'cancelled' }),
+    ]);
+    expect(alertesOps(supabase).map((a) => a['p_code'])).toEqual([
+      'everest_trace_annulation_non_enregistree',
+    ]);
+  });
+
+  it('contre-épreuve : annulation nominale → aucune alerte Ops', async () => {
+    setupEverestMock();
+    const supabase = makeMockSupabase(MISSION_MANUELLE);
+
+    await expect(
+      new AdapterEverest(TRANSPORTEUR_EVEREST, supabase).cancelCollecte(
+        COLLECTE_AG,
+      ),
+    ).resolves.toBe('adapter_everest');
+    expect(supabase._updated['everest_missions']).toEqual([
+      expect.objectContaining({ statut_everest: 'cancelled' }),
+    ]);
+    expect(alertesOps(supabase)).toEqual([]);
+  });
+
+  it('dispatch : statut_tms non écrit après création de la mission → lève + alerte', async () => {
+    const { missions } = setupEverestMock();
+    const supabase = makeMockSupabase({ updateCollecteError: 'statut_tms' });
+
+    await expect(
+      new AdapterEverest(TRANSPORTEUR_EVEREST, supabase).dispatchCollecte(
+        COLLECTE_AG,
+        1,
+      ),
+    ).rejects.toBeInstanceOf(LogistiqueTransientError);
+    expect(missions.size).toBe(1);
+    expect(alertesOps(supabase)).toEqual([
+      expect.objectContaining({
+        p_code: 'everest_dispatch_non_enregistre',
+        p_entity_id: COLLECTE_AG.id,
+      }),
+    ]);
+  });
+
+  it('dispatch : tms_reference non écrite sur la collecte → lève + alerte', async () => {
+    setupEverestMock();
+    const supabase = makeMockSupabase({ updateCollecteError: 'tms_reference' });
+
+    await expect(
+      new AdapterEverest(TRANSPORTEUR_EVEREST, supabase).dispatchCollecte(
+        COLLECTE_AG,
+        1,
+      ),
+    ).rejects.toBeInstanceOf(LogistiqueTransientError);
+    expect(alertesOps(supabase).map((a) => a['p_code'])).toContain(
+      'everest_dispatch_non_enregistre',
+    );
+  });
+
+  it('dispatch refusé par A Toutes! + statut rejetee non écrit → le refus du transporteur reste l’erreur levée', async () => {
+    setupEverestMock({ createFails: true, createFailsStatus: 422 });
+    const supabase = makeMockSupabase({ updateCollecteError: 'statut_tms' });
+
+    await expect(
+      new AdapterEverest(TRANSPORTEUR_EVEREST, supabase).dispatchCollecte(
+        COLLECTE_AG,
+        1,
+      ),
+    ).rejects.toThrow(/Everest createMission 422/);
+    expect(alertesOps(supabase).map((a) => a['p_code'])).toEqual([
+      'everest_dispatch_non_enregistre',
+    ]);
+  });
+});
 
 describe('M2.5 / AdapterEverest — sync + updateLieu', () => {
   afterEach(() => _setEverestHandlers(null));

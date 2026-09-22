@@ -263,6 +263,52 @@ describe('M1.2 / PROG-02 traiteur shadow', () => {
     expect(selectArg).not.toContain('ville');
     expect(selectArg).toContain('raison_sociale');
   });
+
+  // Fuite fermée (revue sécurité #363, 2026-09-22) : la route tourne en
+  // service_role, donc la RLS ne la borne pas — le SIRET de TOUS les traiteurs du
+  // référentiel partait au gestionnaire et à l'agence, alors que §06.05 ne leur
+  // laisse rien au-delà du nom (la liste déroulante §06.01 n'affiche que
+  // `nom || raison_sociale`). Oracle sur la REQUÊTE : la liste du select et les
+  // motifs de recherche prouvent ce qui est lu en base, pas la fixture.
+  for (const role of ['gestionnaire_lieux', 'agence'] as const) {
+    it(`M1.2 — GET traiteurs : ${role} ne reçoit pas le SIRET (§06.05)`, async () => {
+      setupAuth(role, 'org-client-1');
+      const { GET } =
+        await import('@/app/api/v1/programmation/organisations/traiteurs/route.js');
+      const res = await GET(
+        makeReq(
+          'GET',
+          '/api/v1/programmation/organisations/traiteurs?q=dupond',
+        ),
+      );
+      expect(res.status).toBe(200);
+      const selectArg = String(
+        mockSupabaseChain.select.mock.calls[0]?.[0] ?? '',
+      );
+      expect(selectArg).not.toContain('siret');
+      expect(selectArg).toContain('nom');
+      // Chercher par SIRET le confirmerait sans l'afficher.
+      const orArg = String(mockSupabaseChain.or.mock.calls[0]?.[0] ?? '');
+      expect(orArg).not.toContain('siret');
+      expect(orArg).toContain('nom.ilike');
+    });
+  }
+
+  it('M1.2 — GET traiteurs : le staff garde le SIRET (support)', async () => {
+    setupAuth('admin_savr', 'org-savr');
+    const { GET } =
+      await import('@/app/api/v1/programmation/organisations/traiteurs/route.js');
+    const res = await GET(
+      makeReq('GET', '/api/v1/programmation/organisations/traiteurs?q=12345'),
+    );
+    expect(res.status).toBe(200);
+    expect(String(mockSupabaseChain.select.mock.calls[0]?.[0] ?? '')).toContain(
+      'siret',
+    );
+    expect(String(mockSupabaseChain.or.mock.calls[0]?.[0] ?? '')).toContain(
+      'siret.ilike',
+    );
+  });
 });
 
 // ── PROG-04 : récap email programmeur + tarif ─────────────────────────────────

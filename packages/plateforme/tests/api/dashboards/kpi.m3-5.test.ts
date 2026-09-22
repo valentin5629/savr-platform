@@ -41,8 +41,9 @@ const mockClientChain = {
   lte: vi.fn().mockReturnThis(),
   in: vi.fn().mockReturnThis(),
   order: vi.fn().mockResolvedValue({ data: [], error: null }),
-  // BL-P3-02 : la route kpi-traiteur lit organisations.tarif_refacture_pax_zd
-  // (traiteur only) pour le tooltip Marge → requête terminée par maybeSingle().
+  // BL-P3-02 : le tarif du tooltip Marge passe par la RPC f_tarif_refacture_pax_zd
+  // (colonne hors GRANT SELECT depuis 20260918100000) ; maybeSingle() reste
+  // disponible pour les autres lectures mono-ligne de la chaîne.
   maybeSingle: vi
     .fn()
     .mockResolvedValue({ data: { tarif_refacture_pax_zd: 1.5 }, error: null }),

@@ -10,7 +10,9 @@ const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 
 // GET /api/v1/gestionnaire/mon-organisation/factures
 // Factures de la propre organisation (F6 — miroir shared.fichiers, self-only).
-// Pas d'accès aux factures d'autres organisations.
+// Pas d'accès aux factures d'autres organisations. Brouillons exclus
+// (arbitrage Val 2026-09-18, idem route traiteur/factures) — §06.04 l.708 dit
+// « toutes les factures », cf. _Divergences M3.2_20260918.
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(req, ROLES);
   if (auth.error) return auth.error;
@@ -26,14 +28,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .select(
       `id, numero_facture, statut, date_emission, date_echeance,
        montant_ht, montant_tva, montant_ttc, devise,
-       pdf_url, avoir_facture_id,
+       pdf_url_savr, pdf_url_pennylane, facture_origine_id,
        factures_collectes(
          collectes!collecte_id(id, date_collecte, type,
            evenements!inner(nom_evenement, date_evenement,
              lieux!lieu_id(nom)))
        )`,
     )
-    .order('date_emission', { ascending: false });
+    .neq('statut', 'brouillon')
+    .order('date_emission', { ascending: false, nullsFirst: false });
 
   if (statut) q = q.eq('statut', statut);
   if (from) q = q.gte('date_emission', from);

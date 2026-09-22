@@ -34,6 +34,8 @@ describe('severiteParCode — catalogue explicite', () => {
       'reduction_camions_bloquee',
       'collecte_partiellement_servie',
       'collecte_aucun_repas',
+      'tournee_autre_provider',
+      'everest_mission_hors_attribution',
     ]) {
       expect(severiteParCode(c)).toBe('attention');
     }

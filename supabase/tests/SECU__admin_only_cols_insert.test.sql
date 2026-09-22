@@ -260,7 +260,10 @@ SELECT lives_ok(
   'agence PEUT créer une fiche traiteur shadow avec TOUTE la liste blanche, SIRET compris (§06.11 différence #4)'
 );
 
--- 14. La ligne créée par l'agence porte bien le tarif par défaut.
+-- 14. La ligne créée par l'agence porte bien le tarif par défaut. Lu en superuser :
+--     depuis 20260918100000 la colonne est hors GRANT SELECT authenticated (l'agence
+--     ne lit plus le tarif de ses fiches shadow) ; l'oracle porte sur la valeur stockée.
+SELECT test_as_superuser();
 SELECT is(
   (SELECT tarif_refacture_pax_zd FROM plateforme.organisations WHERE nom = 'SECU Shadow OK'),
   1.50::numeric(10,2),
@@ -279,6 +282,9 @@ SELECT is(
   ARRAY['true', $$'par_collecte'::plateforme.mode_facturation_zd_enum$$, '1.50'],
   'les 3 défauts codés en dur dans la garde INSERT sont toujours ceux du schéma'
 );
+-- (14-15 en superuser : information_schema.columns masque les colonnes que le rôle
+--  courant ne peut pas lire — tarif et mode de facturation depuis 20260918100000.)
+SELECT test_set_jwt_prod('agence', '5ec00001-0000-0000-0000-0000000000a1'::uuid);
 
 -- =============================================================================
 -- 16-17 — cliquet colonne → RÉGIME d'écriture (et pas seulement « colonne connue »)

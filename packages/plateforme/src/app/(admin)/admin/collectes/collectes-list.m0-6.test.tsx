@@ -24,7 +24,7 @@ vi.mock('next/navigation', () => ({
 
 import CollectesPage from './page';
 import { jourParis } from '@savr/shared/src/temps/index.js';
-import { ATTENTE_UI } from '@/test-utils/attente-ui';
+import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 // ZD clôturée (terminale → vue Historique) : poids + taux + rapport, facturée.
 const collecteZd = {
@@ -192,598 +192,697 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
-  it('M0.6 — cartes : traiteur, lieu, client organisateur, transporteur rendus', async () => {
-    mockCollectesFetch();
-    render(<CollectesPage />);
+  it(
+    'M0.6 — cartes : traiteur, lieu, client organisateur, transporteur rendus',
+    async () => {
+      mockCollectesFetch();
+      render(<CollectesPage />);
 
-    // Traiteur (ligne 1) + lieu
-    expect(
-      (await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI))
-        .length,
-    ).toBeGreaterThan(0);
-    expect(screen.getAllByText('Salle Wagram').length).toBeGreaterThan(0);
-    // Client organisateur (ligne 2) : raison sociale liée (ZD) OU texte libre (AG)
-    expect(screen.getAllByText('Mairie de Paris').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Fondation X').length).toBeGreaterThan(0);
-    // Transporteur (ligne 2)
-    expect(screen.getAllByText('Marathon').length).toBeGreaterThan(0);
-  });
-
-  it('M0.6 — segment Historique repasse la requête sur les statuts terminaux', async () => {
-    const fetchMock = mockCollectesFetch();
-    render(<CollectesPage />);
-    await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
-
-    fireEvent.click(screen.getByRole('tab', { name: 'Historique' }));
-
-    await waitFor(() => {
-      const urls = fetchMock.mock.calls.map((c) => String(c[0]));
+      // Traiteur (ligne 1) + lieu
       expect(
-        urls.some(
-          (u) =>
-            u.startsWith('/api/v1/admin/collectes?') &&
-            u.includes('statuts=') &&
-            u.includes('cloturee'),
-        ),
-      ).toBe(true);
-    }, ATTENTE_UI);
-  });
+        (await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI))
+          .length,
+      ).toBeGreaterThan(0);
+      expect(screen.getAllByText('Salle Wagram').length).toBeGreaterThan(0);
+      // Client organisateur (ligne 2) : raison sociale liée (ZD) OU texte libre (AG)
+      expect(screen.getAllByText('Mairie de Paris').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Fondation X').length).toBeGreaterThan(0);
+      // Transporteur (ligne 2)
+      expect(screen.getAllByText('Marathon').length).toBeGreaterThan(0);
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('M0.6 — tuiles KPI « à dispatcher » AG/ZD affichent leur compteur', async () => {
-    mockCollectesFetch();
-    render(<CollectesPage />);
+  it(
+    'M0.6 — segment Historique repasse la requête sur les statuts terminaux',
+    async () => {
+      const fetchMock = mockCollectesFetch();
+      render(<CollectesPage />);
+      await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
 
-    // Tuiles KPI = boutons cliquables, déjà présents au 1er rendu (compteur à
-    // 0 avant résolution async de /chip-counts) → attendre la mise à jour du
-    // texte, pas juste l'existence du bouton (sinon race avec setChipCounts,
-    // flaky en CI).
-    const agTile = await screen.findByRole(
-      'button',
-      {
-        name: /AG à dispatcher/,
-      },
-      ATTENTE_UI,
-    );
-    const zdTile = screen.getByRole('button', { name: /ZD à dispatcher/ });
-    await waitFor(() => expect(agTile).toHaveTextContent('2'), ATTENTE_UI);
-    await waitFor(() => expect(zdTile).toHaveTextContent('3'), ATTENTE_UI);
-  });
+      fireEvent.click(screen.getByRole('tab', { name: 'Historique' }));
 
-  it('M0.6 — cartes KPI « à venir » AG/ZD affichent leur volume (indicateurs)', async () => {
-    mockCollectesFetch();
-    render(<CollectesPage />);
-
-    // Indicateurs statiques (pas des boutons) → requête par texte, compteur lu
-    // sur le conteneur (count + libellé + sous-libellé sont frères).
-    const agVenir = await screen.findByText(
-      'AG à venir',
-      undefined,
-      ATTENTE_UI,
-    );
-    const zdVenir = screen.getByText('ZD à venir');
-    await waitFor(
-      () => expect(agVenir.parentElement).toHaveTextContent('9'),
-      ATTENTE_UI,
-    );
-    await waitFor(
-      () => expect(zdVenir.parentElement).toHaveTextContent('7'),
-      ATTENTE_UI,
-    );
-  });
-
-  it('M0.6 — carte « Infos accès à envoyer » : compteur + filtre controle_acces=true', async () => {
-    const fetchMock = mockCollectesFetch();
-    render(<CollectesPage />);
-
-    const tile = await screen.findByRole(
-      'button',
-      {
-        name: /Infos accès à envoyer/,
-      },
-      ATTENTE_UI,
-    );
-    await waitFor(() => expect(tile).toHaveTextContent('4'), ATTENTE_UI);
-
-    fireEvent.click(tile);
-    await waitFor(() => {
-      const urls = fetchMock.mock.calls.map((c) => String(c[0]));
-      expect(urls.some((u) => u.includes('controle_acces=true'))).toBe(true);
-    }, ATTENTE_UI);
-  });
-
-  it('M0.6 — carte « Infos à récupérer » : compteur + filtre info_incomplete=true', async () => {
-    const fetchMock = mockCollectesFetch();
-    render(<CollectesPage />);
-
-    const tile = await screen.findByRole(
-      'button',
-      {
-        name: /Infos à récupérer/,
-      },
-      ATTENTE_UI,
-    );
-    await waitFor(() => expect(tile).toHaveTextContent('6'), ATTENTE_UI);
-
-    fireEvent.click(tile);
-    await waitFor(() => {
-      const urls = fetchMock.mock.calls.map((c) => String(c[0]));
-      expect(urls.some((u) => u.includes('info_incomplete=true'))).toBe(true);
-    }, ATTENTE_UI);
-  });
-
-  it('M0.6 — bouton de filtre par type « Anti-Gaspi » ajoute type=anti_gaspi', async () => {
-    const fetchMock = mockCollectesFetch();
-    render(<CollectesPage />);
-    await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Anti-Gaspi' }));
-    await waitFor(() => {
-      const urls = fetchMock.mock.calls.map((c) => String(c[0]));
-      expect(
-        urls.some(
-          (u) =>
-            u.startsWith('/api/v1/admin/collectes?') &&
-            u.includes('type=anti_gaspi'),
-        ),
-      ).toBe(true);
-    }, ATTENTE_UI);
-  });
-
-  it('M0.6 — chips prédéfinis affichent leur compteur (chip-counts)', async () => {
-    mockCollectesFetch();
-    render(<CollectesPage />);
-    // « En attente prestataire » = chip conservé dans la rangée par défaut
-    // (« Non transmises ZD/AG » et « ZD/AG 48h » masqués — décision Val 2026-07-15).
-    const chip = await screen.findByRole(
-      'button',
-      {
-        name: /En attente prestataire/,
-      },
-      ATTENTE_UI,
-    );
-    await waitFor(() => expect(chip).toHaveTextContent('1'), ATTENTE_UI);
-  });
-
-  it('M0.6 — chips masqués (Non transmises ZD/AG, ZD/AG 48h, AG en attente attribution) retirés de la rangée par défaut', async () => {
-    mockCollectesFetch();
-    render(<CollectesPage />);
-    await screen.findByRole(
-      'button',
-      { name: /En attente prestataire/ },
-      ATTENTE_UI,
-    );
-    expect(
-      screen.queryByRole('button', { name: /Non transmises ZD/ }),
-    ).toBeNull();
-    expect(
-      screen.queryByRole('button', { name: /Non transmises AG/ }),
-    ).toBeNull();
-    expect(screen.queryByRole('button', { name: /ZD 48/ })).toBeNull();
-    expect(screen.queryByRole('button', { name: /AG 48/ })).toBeNull();
-    expect(
-      screen.queryByRole('button', { name: /AG en attente attribution/ }),
-    ).toBeNull();
-  });
-
-  it('M0.6 — drill-down Dashboard Admin ?chip=non_transmises_zd → chip actif + liste filtrée', async () => {
-    navState.search = new URLSearchParams('chip=non_transmises_zd');
-    const fetchMock = mockCollectesFetch();
-    render(<CollectesPage />);
-    // Chip pré-sélectionné à l'arrivée (miroir exact du compteur dashboard).
-    const chip = await screen.findByRole(
-      'button',
-      {
-        name: /Non transmises ZD/,
-      },
-      ATTENTE_UI,
-    );
-    expect(chip).toHaveAttribute('aria-pressed', 'true');
-    // La requête liste porte le MÊME chip → prédicat serveur partagé.
-    await waitFor(
-      () =>
+      await waitFor(() => {
+        const urls = fetchMock.mock.calls.map((c) => String(c[0]));
         expect(
-          fetchMock.mock.calls.some(
-            ([u]) =>
-              typeof u === 'string' &&
+          urls.some(
+            (u) =>
               u.startsWith('/api/v1/admin/collectes?') &&
-              u.includes('chip=non_transmises_zd'),
+              u.includes('statuts=') &&
+              u.includes('cloturee'),
           ),
-        ).toBe(true),
-      ATTENTE_UI,
-    );
-  });
+        ).toBe(true);
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('M0.6 — drill-down Dashboard Admin ?chip=collectes_48h_non_validees → chip actif + liste filtrée', async () => {
-    navState.search = new URLSearchParams('chip=collectes_48h_non_validees');
-    const fetchMock = mockCollectesFetch();
-    render(<CollectesPage />);
-    // Carte fusionnée « Collecte <48h non validée » (revue E2E 2026-07-15) : chip
-    // masqué mais pré-sélectionné à l'arrivée (miroir exact du compteur dashboard).
-    const chip = await screen.findByRole(
-      'button',
-      {
-        name: /Collecte <48 h non validée/,
-      },
-      ATTENTE_UI,
-    );
-    expect(chip).toHaveAttribute('aria-pressed', 'true');
-    await waitFor(
-      () =>
-        expect(
-          fetchMock.mock.calls.some(
-            ([u]) =>
-              typeof u === 'string' &&
-              u.startsWith('/api/v1/admin/collectes?') &&
-              u.includes('chip=collectes_48h_non_validees'),
-          ),
-        ).toBe(true),
-      ATTENTE_UI,
-    );
-  });
+  it(
+    'M0.6 — tuiles KPI « à dispatcher » AG/ZD affichent leur compteur',
+    async () => {
+      mockCollectesFetch();
+      render(<CollectesPage />);
 
-  it('M0.6 — indicateurs Historique : poids/taux ZD + repas AG + rapport consulté', async () => {
-    mockCollectesFetch();
-    render(<CollectesPage />);
-    await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
-
-    // ZD clôturée : poids total (10 + 2,5 = 12,5 kg) + taux + rapport consulté
-    expect(screen.getAllByText(/12,5 kg/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/78/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Rapport consulté/).length).toBeGreaterThan(0);
-    // AG réalisée : nombre de repas donnés
-    expect(screen.getAllByText(/250 repas/).length).toBeGreaterThan(0);
-  });
-
-  it('M0.6 — carte AG à attribuer : badge Info incomplète + bouton Attribuer', async () => {
-    mockCollectesFetch();
-    render(<CollectesPage />);
-    await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
-
-    // agEnAttente : programmée, sans attribution, info incomplète
-    expect(screen.getAllByText('Info incomplète').length).toBeGreaterThan(0);
-    const attribuer = screen.getAllByRole('link', { name: /Attribuer/ });
-    expect(attribuer.length).toBeGreaterThan(0);
-    expect(attribuer[0]).toHaveAttribute(
-      'href',
-      '/admin/attributions-ag/ag-attente',
-    );
-  });
-
-  it('M0.6 — cartes ZD à dispatcher (non transmises, programmée OU validée) : bouton Dispatcher → drawer', async () => {
-    // « À dispatcher » = ZD non transmise au TMS (statut_tms non_envoye) et
-    // encore ouverte (programmée OU validée transporteur) — miroir du chip
-    // « Non transmises ZD ». Le bouton ouvre la fiche dans le panneau latéral
-    // (drawer, ?collecte=<id>) — Bloc 0 envoi MTS-1.
-    const zdProgrammee = {
-      ...collecteZd,
-      id: 'zd-disp',
-      statut: 'programmee',
-      statut_tms: 'non_envoye',
-      collecte_flux: [],
-      rapports_rse: [],
-      factures_collectes: [],
-    };
-    const zdValidee = {
-      ...zdProgrammee,
-      id: 'zd-disp-validee',
-      statut: 'validee',
-    };
-    // ZD déjà transmise (acceptée presta) → PAS de bouton (anti-vacuité).
-    const zdTransmise = {
-      ...zdProgrammee,
-      id: 'zd-envoyee',
-      statut: 'validee',
-      statut_tms: 'acceptee',
-    };
-    // AG programmée + non transmise (même forme statut/statut_tms qu'une ZD à
-    // dispatcher) → PAS de « Dispatcher » (garde de type) mais « Attribuer ».
-    const agNonTransmise = ag({ id: 'ag-x' });
-    const fetchMock = vi.fn((url: string) => {
-      if (typeof url === 'string' && url.includes('/collectes/chip-counts')) {
-        return Promise.resolve({ ok: true, json: async () => ({}) });
-      }
-      if (
-        typeof url === 'string' &&
-        url.startsWith('/api/v1/admin/collectes')
-      ) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({
-            data: [zdProgrammee, zdValidee, zdTransmise, agNonTransmise],
-            total: 4,
-          }),
-        });
-      }
-      return Promise.resolve({ ok: true, json: async () => ({ data: [] }) });
-    });
-    vi.stubGlobal('fetch', fetchMock);
-    render(<CollectesPage />);
-
-    await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
-    // Exactement 2 boutons (programmée + validée non transmises), pas sur la
-    // transmise ni sur l'AG. Le bouton ouvre le drawer en place (?collecte=<id>)
-    // → c'est un <button> (plus un lien). `/Dispatcher/` (D majuscule) ne matche
-    // pas les tuiles KPI « ZD/AG à dispatcher » (d minuscule).
-    const dispatcher = screen.getAllByRole('button', { name: /Dispatcher/ });
-    expect(dispatcher).toHaveLength(2);
-    // Anti-vacuité : l'AG non transmise porte « Attribuer », jamais « Dispatcher »
-    // (les deux affordances sont mutuellement exclusives par type).
-    const attribuer = screen.getAllByRole('link', { name: /Attribuer/ });
-    expect(attribuer).toHaveLength(1);
-    expect(attribuer[0]).toHaveAttribute('href', '/admin/attributions-ag/ag-x');
-  });
-
-  it('M0.6 — clic « Dispatcher » ouvre le drawer et charge la fiche de CETTE collecte', async () => {
-    const zdDisp = {
-      ...collecteZd,
-      id: 'zd-open',
-      statut: 'programmee',
-      statut_tms: 'non_envoye',
-      collecte_flux: [],
-      rapports_rse: [],
-      factures_collectes: [],
-    };
-    // Fiche détail renvoyée à l'ouverture du panneau (shape CollecteDetail).
-    const detail = {
-      id: 'zd-open',
-      type: 'zero_dechet',
-      statut: 'programmee',
-      statut_tms: 'non_envoye',
-      statut_tms_at: null,
-      dirty_tms: false,
-      date_collecte: '2026-04-23',
-      heure_collecte: '08:30:00',
-      nb_camions_demande: 1,
-      tms_reference: null,
-      volume_estime_repas: null,
-      controle_acces_requis: false,
-      infos_acces_email_envoye_at: null,
-      notes_internes: null,
-      informations_supplementaires: null,
-      motif_override_prestataire: null,
-      annulee_cote_savr: false,
-      pack_antgaspi_id: null,
-      packs_antgaspi: null,
-      attributions_antgaspi: null,
-      prestataire_logistique_id: null,
-      evenements: {
-        nom_evenement: 'Gala',
-        pax: 120,
-        organisations: { raison_sociale: 'Traiteur Alpha' },
-        lieux: { nom: 'Salle Wagram', ville: 'Paris', adresse_acces: '1 av.' },
-        types_evenements: { libelle: 'Gala' },
-      },
-      collecte_flux: [],
-      collecte_tournees: [],
-      factures_collectes: [],
-    };
-    const fetchMock = vi.fn((url: string) => {
-      if (url.includes('/chip-counts'))
-        return Promise.resolve({ ok: true, json: async () => ({}) });
-      if (url.startsWith('/api/v1/admin/transporteurs'))
-        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) });
-      if (url.includes('/recommandation'))
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({ data: null }),
-        });
-      if (url.endsWith('/documents'))
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({
-            rapport: null,
-            bordereau: null,
-            attestation: null,
-            photos: [],
-          }),
-        });
-      if (url.endsWith('/audit'))
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({ data: [], recredit_at: null }),
-        });
-      if (url === '/api/v1/admin/collectes/zd-open')
-        return Promise.resolve({ ok: true, json: async () => detail });
-      if (url.startsWith('/api/v1/admin/collectes'))
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({ data: [zdDisp], total: 1 }),
-        });
-      return Promise.resolve({ ok: true, json: async () => ({ data: [] }) });
-    });
-    vi.stubGlobal('fetch', fetchMock);
-    render(<CollectesPage />);
-    await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
-
-    // Drawer fermé au départ.
-    expect(screen.queryByText('Prestataire & Dispatch')).toBeNull();
-
-    // Clic « Dispatcher » → ouvre le panneau latéral…
-    fireEvent.click(screen.getByRole('button', { name: /Dispatcher/ }));
-    expect(
-      await screen.findByText('Prestataire & Dispatch', undefined, ATTENTE_UI),
-    ).toBeInTheDocument();
-
-    // …et charge la fiche de CETTE collecte (appariement id↔bouton — remplace
-    // l'ex-assertion href supprimée avec le passage lien → bouton drawer).
-    await waitFor(
-      () =>
-        expect(
-          fetchMock.mock.calls.some(
-            (c) => String(c[0]) === '/api/v1/admin/collectes/zd-open',
-          ),
-        ).toBe(true),
-      ATTENTE_UI,
-    );
-
-    // Fermeture via la croix du Sheet → le panneau disparaît.
-    fireEvent.click(screen.getByRole('button', { name: 'Fermer' }));
-    await waitFor(
-      () => expect(screen.queryByText('Prestataire & Dispatch')).toBeNull(),
-      ATTENTE_UI,
-    );
-  });
-
-  it('M0.6 — recherche client filtre les cartes de la page chargée', async () => {
-    mockCollectesFetch();
-    render(<CollectesPage />);
-    await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
-
-    fireEvent.change(screen.getByLabelText('Rechercher'), {
-      target: { value: 'Wagram' },
-    });
-
-    // Ne reste que la carte du lieu « Salle Wagram » (Traiteur Alpha) ;
-    // « Traiteur Beta » (AG, lieu Pavillon) disparaît.
-    await waitFor(
-      () => expect(screen.queryByText('Traiteur Beta')).not.toBeInTheDocument(),
-      ATTENTE_UI,
-    );
-    expect(screen.getAllByText('Salle Wagram').length).toBeGreaterThan(0);
-  });
-
-  it('M0.6 — filtres avancés : traiteur/lieu peuplés + filtrage serveur', async () => {
-    const fetchMock = mockCollectesFetch();
-    render(<CollectesPage />);
-    await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
-
-    // Panneau replié par défaut → ouvrir
-    fireEvent.click(screen.getByRole('button', { name: /Filtres avancés/ }));
-
-    const traiteurSelect = (await screen.findByLabelText(
-      'Filtrer par traiteur',
-      undefined,
-      ATTENTE_UI,
-    )) as HTMLSelectElement;
-    const lieuSelect = screen.getByLabelText(
-      'Filtrer par lieu',
-    ) as HTMLSelectElement;
-    expect(traiteurSelect.tagName).toBe('SELECT');
-
-    await waitFor(
-      () =>
-        expect(
-          screen.getByRole('option', { name: 'Traiteur Alpha' }),
-        ).toBeInTheDocument(),
-      ATTENTE_UI,
-    );
-    expect(
-      screen.getByRole('option', { name: 'Salle Wagram — Paris' }),
-    ).toBeInTheDocument();
-
-    fireEvent.change(traiteurSelect, { target: { value: 'org-1' } });
-    await waitFor(
-      () =>
-        expect(
-          fetchMock.mock.calls.some(
-            (c) =>
-              typeof c[0] === 'string' &&
-              c[0].startsWith('/api/v1/admin/collectes') &&
-              // R24c : le filtre « Traiteur » = traiteur OPÉRATIONNEL (décision Val).
-              c[0].includes('traiteur_operationnel_id=org-1'),
-          ),
-        ).toBe(true),
-      ATTENTE_UI,
-    );
-
-    fireEvent.change(lieuSelect, { target: { value: 'lieu-1' } });
-    await waitFor(
-      () =>
-        expect(
-          fetchMock.mock.calls.some(
-            (c) =>
-              typeof c[0] === 'string' &&
-              c[0].startsWith('/api/v1/admin/collectes') &&
-              c[0].includes('lieu_id=lieu-1'),
-          ),
-        ).toBe(true),
-      ATTENTE_UI,
-    );
-  });
-
-  it('M0.6 — filtre statut (multi-sélection) ajoute le paramètre statuts à la requête', async () => {
-    const fetchMock = mockCollectesFetch();
-    render(<CollectesPage />);
-    await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
-
-    fireEvent.click(screen.getByRole('button', { name: /Filtres avancés/ }));
-    // Statut multi-sélection scopée à l'onglet Programmées (chip = bouton,
-    // distinct de la même étiquette utilisée comme badge sur une carte).
-    fireEvent.click(screen.getByRole('button', { name: 'Validée' }));
-
-    await waitFor(() => {
-      const urls = fetchMock.mock.calls.map((c) => String(c[0]));
-      expect(
-        urls.some(
-          (u) =>
-            u.startsWith('/api/v1/admin/collectes?') &&
-            u.includes('statuts=validee'),
-        ),
-      ).toBe(true);
-    }, ATTENTE_UI);
-  });
-
-  it('M0.6 — filtre « Info incomplète » ajoute info_incomplete=true', async () => {
-    const fetchMock = mockCollectesFetch();
-    render(<CollectesPage />);
-    await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
-
-    fireEvent.click(screen.getByRole('button', { name: /Filtres avancés/ }));
-    fireEvent.click(screen.getByLabelText('Info incomplète'));
-
-    await waitFor(() => {
-      const urls = fetchMock.mock.calls.map((c) => String(c[0]));
-      expect(urls.some((u) => u.includes('info_incomplete=true'))).toBe(true);
-    }, ATTENTE_UI);
-  });
-
-  it('M0.6 — filtre « Rapport non consulté » ajoute rapport_non_consulte=true', async () => {
-    const fetchMock = mockCollectesFetch();
-    render(<CollectesPage />);
-    await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
-
-    fireEvent.click(screen.getByRole('button', { name: /Filtres avancés/ }));
-    fireEvent.click(screen.getByLabelText('Rapport non consulté'));
-
-    await waitFor(() => {
-      const urls = fetchMock.mock.calls.map((c) => String(c[0]));
-      expect(urls.some((u) => u.includes('rapport_non_consulte=true'))).toBe(
-        true,
+      // Tuiles KPI = boutons cliquables, déjà présents au 1er rendu (compteur à
+      // 0 avant résolution async de /chip-counts) → attendre la mise à jour du
+      // texte, pas juste l'existence du bouton (sinon race avec setChipCounts,
+      // flaky en CI).
+      const agTile = await screen.findByRole(
+        'button',
+        {
+          name: /AG à dispatcher/,
+        },
+        ATTENTE_UI,
       );
-    }, ATTENTE_UI);
-  });
+      const zdTile = screen.getByRole('button', { name: /ZD à dispatcher/ });
+      await waitFor(() => expect(agTile).toHaveTextContent('2'), ATTENTE_UI);
+      await waitFor(() => expect(zdTile).toHaveTextContent('3'), ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('M0.6 — carte urgente (AG à attribuer < 48h) : badge Urgent affiché, pas sur la lointaine', async () => {
-    const urgente = ag({
-      id: 'ag-urgente',
-      date_collecte: jourParis(new Date(Date.now() + 2 * 60 * 60 * 1000)),
-      heure_collecte: '10:00:00',
-    });
-    // AG à attribuer, mais loin (> 48h) : pas urgente.
-    const lointaine = ag({
-      id: 'ag-lointaine',
-      date_collecte: '2027-01-15',
-      heure_collecte: '10:00:00',
-    });
-    const fetchMock = vi.fn((url: string) => {
-      if (typeof url === 'string' && url.includes('/collectes/chip-counts')) {
-        return Promise.resolve({ ok: true, json: async () => ({}) });
-      }
-      if (
-        typeof url === 'string' &&
-        url.startsWith('/api/v1/admin/collectes')
-      ) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({ data: [lointaine, urgente], total: 2 }),
-        });
-      }
-      return Promise.resolve({ ok: true, json: async () => ({ data: [] }) });
-    });
-    vi.stubGlobal('fetch', fetchMock);
-    render(<CollectesPage />);
+  it(
+    'M0.6 — cartes KPI « à venir » AG/ZD affichent leur volume (indicateurs)',
+    async () => {
+      mockCollectesFetch();
+      render(<CollectesPage />);
 
-    await screen.findAllByText('Traiteur Beta', undefined, ATTENTE_UI);
-    expect(screen.getAllByText('Urgent')).toHaveLength(1);
-  });
+      // Indicateurs statiques (pas des boutons) → requête par texte, compteur lu
+      // sur le conteneur (count + libellé + sous-libellé sont frères).
+      const agVenir = await screen.findByText(
+        'AG à venir',
+        undefined,
+        ATTENTE_UI,
+      );
+      const zdVenir = screen.getByText('ZD à venir');
+      await waitFor(
+        () => expect(agVenir.parentElement).toHaveTextContent('9'),
+        ATTENTE_UI,
+      );
+      await waitFor(
+        () => expect(zdVenir.parentElement).toHaveTextContent('7'),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — carte « Infos accès à envoyer » : compteur + filtre controle_acces=true',
+    async () => {
+      const fetchMock = mockCollectesFetch();
+      render(<CollectesPage />);
+
+      const tile = await screen.findByRole(
+        'button',
+        {
+          name: /Infos accès à envoyer/,
+        },
+        ATTENTE_UI,
+      );
+      await waitFor(() => expect(tile).toHaveTextContent('4'), ATTENTE_UI);
+
+      fireEvent.click(tile);
+      await waitFor(() => {
+        const urls = fetchMock.mock.calls.map((c) => String(c[0]));
+        expect(urls.some((u) => u.includes('controle_acces=true'))).toBe(true);
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — carte « Infos à récupérer » : compteur + filtre info_incomplete=true',
+    async () => {
+      const fetchMock = mockCollectesFetch();
+      render(<CollectesPage />);
+
+      const tile = await screen.findByRole(
+        'button',
+        {
+          name: /Infos à récupérer/,
+        },
+        ATTENTE_UI,
+      );
+      await waitFor(() => expect(tile).toHaveTextContent('6'), ATTENTE_UI);
+
+      fireEvent.click(tile);
+      await waitFor(() => {
+        const urls = fetchMock.mock.calls.map((c) => String(c[0]));
+        expect(urls.some((u) => u.includes('info_incomplete=true'))).toBe(true);
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — bouton de filtre par type « Anti-Gaspi » ajoute type=anti_gaspi',
+    async () => {
+      const fetchMock = mockCollectesFetch();
+      render(<CollectesPage />);
+      await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Anti-Gaspi' }));
+      await waitFor(() => {
+        const urls = fetchMock.mock.calls.map((c) => String(c[0]));
+        expect(
+          urls.some(
+            (u) =>
+              u.startsWith('/api/v1/admin/collectes?') &&
+              u.includes('type=anti_gaspi'),
+          ),
+        ).toBe(true);
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — chips prédéfinis affichent leur compteur (chip-counts)',
+    async () => {
+      mockCollectesFetch();
+      render(<CollectesPage />);
+      // « En attente prestataire » = chip conservé dans la rangée par défaut
+      // (« Non transmises ZD/AG » et « ZD/AG 48h » masqués — décision Val 2026-07-15).
+      const chip = await screen.findByRole(
+        'button',
+        {
+          name: /En attente prestataire/,
+        },
+        ATTENTE_UI,
+      );
+      await waitFor(() => expect(chip).toHaveTextContent('1'), ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — chips masqués (Non transmises ZD/AG, ZD/AG 48h, AG en attente attribution) retirés de la rangée par défaut',
+    async () => {
+      mockCollectesFetch();
+      render(<CollectesPage />);
+      await screen.findByRole(
+        'button',
+        { name: /En attente prestataire/ },
+        ATTENTE_UI,
+      );
+      expect(
+        screen.queryByRole('button', { name: /Non transmises ZD/ }),
+      ).toBeNull();
+      expect(
+        screen.queryByRole('button', { name: /Non transmises AG/ }),
+      ).toBeNull();
+      expect(screen.queryByRole('button', { name: /ZD 48/ })).toBeNull();
+      expect(screen.queryByRole('button', { name: /AG 48/ })).toBeNull();
+      expect(
+        screen.queryByRole('button', { name: /AG en attente attribution/ }),
+      ).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — drill-down Dashboard Admin ?chip=non_transmises_zd → chip actif + liste filtrée',
+    async () => {
+      navState.search = new URLSearchParams('chip=non_transmises_zd');
+      const fetchMock = mockCollectesFetch();
+      render(<CollectesPage />);
+      // Chip pré-sélectionné à l'arrivée (miroir exact du compteur dashboard).
+      const chip = await screen.findByRole(
+        'button',
+        {
+          name: /Non transmises ZD/,
+        },
+        ATTENTE_UI,
+      );
+      expect(chip).toHaveAttribute('aria-pressed', 'true');
+      // La requête liste porte le MÊME chip → prédicat serveur partagé.
+      await waitFor(
+        () =>
+          expect(
+            fetchMock.mock.calls.some(
+              ([u]) =>
+                typeof u === 'string' &&
+                u.startsWith('/api/v1/admin/collectes?') &&
+                u.includes('chip=non_transmises_zd'),
+            ),
+          ).toBe(true),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — drill-down Dashboard Admin ?chip=collectes_48h_non_validees → chip actif + liste filtrée',
+    async () => {
+      navState.search = new URLSearchParams('chip=collectes_48h_non_validees');
+      const fetchMock = mockCollectesFetch();
+      render(<CollectesPage />);
+      // Carte fusionnée « Collecte <48h non validée » (revue E2E 2026-07-15) : chip
+      // masqué mais pré-sélectionné à l'arrivée (miroir exact du compteur dashboard).
+      const chip = await screen.findByRole(
+        'button',
+        {
+          name: /Collecte <48 h non validée/,
+        },
+        ATTENTE_UI,
+      );
+      expect(chip).toHaveAttribute('aria-pressed', 'true');
+      await waitFor(
+        () =>
+          expect(
+            fetchMock.mock.calls.some(
+              ([u]) =>
+                typeof u === 'string' &&
+                u.startsWith('/api/v1/admin/collectes?') &&
+                u.includes('chip=collectes_48h_non_validees'),
+            ),
+          ).toBe(true),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — indicateurs Historique : poids/taux ZD + repas AG + rapport consulté',
+    async () => {
+      mockCollectesFetch();
+      render(<CollectesPage />);
+      await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
+
+      // ZD clôturée : poids total (10 + 2,5 = 12,5 kg) + taux + rapport consulté
+      expect(screen.getAllByText(/12,5 kg/).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/78/).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Rapport consulté/).length).toBeGreaterThan(0);
+      // AG réalisée : nombre de repas donnés
+      expect(screen.getAllByText(/250 repas/).length).toBeGreaterThan(0);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — carte AG à attribuer : badge Info incomplète + bouton Attribuer',
+    async () => {
+      mockCollectesFetch();
+      render(<CollectesPage />);
+      await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
+
+      // agEnAttente : programmée, sans attribution, info incomplète
+      expect(screen.getAllByText('Info incomplète').length).toBeGreaterThan(0);
+      const attribuer = screen.getAllByRole('link', { name: /Attribuer/ });
+      expect(attribuer.length).toBeGreaterThan(0);
+      expect(attribuer[0]).toHaveAttribute(
+        'href',
+        '/admin/attributions-ag/ag-attente',
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — cartes ZD à dispatcher (non transmises, programmée OU validée) : bouton Dispatcher → drawer',
+    async () => {
+      // « À dispatcher » = ZD non transmise au TMS (statut_tms non_envoye) et
+      // encore ouverte (programmée OU validée transporteur) — miroir du chip
+      // « Non transmises ZD ». Le bouton ouvre la fiche dans le panneau latéral
+      // (drawer, ?collecte=<id>) — Bloc 0 envoi MTS-1.
+      const zdProgrammee = {
+        ...collecteZd,
+        id: 'zd-disp',
+        statut: 'programmee',
+        statut_tms: 'non_envoye',
+        collecte_flux: [],
+        rapports_rse: [],
+        factures_collectes: [],
+      };
+      const zdValidee = {
+        ...zdProgrammee,
+        id: 'zd-disp-validee',
+        statut: 'validee',
+      };
+      // ZD déjà transmise (acceptée presta) → PAS de bouton (anti-vacuité).
+      const zdTransmise = {
+        ...zdProgrammee,
+        id: 'zd-envoyee',
+        statut: 'validee',
+        statut_tms: 'acceptee',
+      };
+      // AG programmée + non transmise (même forme statut/statut_tms qu'une ZD à
+      // dispatcher) → PAS de « Dispatcher » (garde de type) mais « Attribuer ».
+      const agNonTransmise = ag({ id: 'ag-x' });
+      const fetchMock = vi.fn((url: string) => {
+        if (typeof url === 'string' && url.includes('/collectes/chip-counts')) {
+          return Promise.resolve({ ok: true, json: async () => ({}) });
+        }
+        if (
+          typeof url === 'string' &&
+          url.startsWith('/api/v1/admin/collectes')
+        ) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              data: [zdProgrammee, zdValidee, zdTransmise, agNonTransmise],
+              total: 4,
+            }),
+          });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) });
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      render(<CollectesPage />);
+
+      await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
+      // Exactement 2 boutons (programmée + validée non transmises), pas sur la
+      // transmise ni sur l'AG. Le bouton ouvre le drawer en place (?collecte=<id>)
+      // → c'est un <button> (plus un lien). `/Dispatcher/` (D majuscule) ne matche
+      // pas les tuiles KPI « ZD/AG à dispatcher » (d minuscule).
+      const dispatcher = screen.getAllByRole('button', { name: /Dispatcher/ });
+      expect(dispatcher).toHaveLength(2);
+      // Anti-vacuité : l'AG non transmise porte « Attribuer », jamais « Dispatcher »
+      // (les deux affordances sont mutuellement exclusives par type).
+      const attribuer = screen.getAllByRole('link', { name: /Attribuer/ });
+      expect(attribuer).toHaveLength(1);
+      expect(attribuer[0]).toHaveAttribute(
+        'href',
+        '/admin/attributions-ag/ag-x',
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — clic « Dispatcher » ouvre le drawer et charge la fiche de CETTE collecte',
+    async () => {
+      const zdDisp = {
+        ...collecteZd,
+        id: 'zd-open',
+        statut: 'programmee',
+        statut_tms: 'non_envoye',
+        collecte_flux: [],
+        rapports_rse: [],
+        factures_collectes: [],
+      };
+      // Fiche détail renvoyée à l'ouverture du panneau (shape CollecteDetail).
+      const detail = {
+        id: 'zd-open',
+        type: 'zero_dechet',
+        statut: 'programmee',
+        statut_tms: 'non_envoye',
+        statut_tms_at: null,
+        dirty_tms: false,
+        date_collecte: '2026-04-23',
+        heure_collecte: '08:30:00',
+        nb_camions_demande: 1,
+        tms_reference: null,
+        volume_estime_repas: null,
+        controle_acces_requis: false,
+        infos_acces_email_envoye_at: null,
+        notes_internes: null,
+        informations_supplementaires: null,
+        motif_override_prestataire: null,
+        annulee_cote_savr: false,
+        pack_antgaspi_id: null,
+        packs_antgaspi: null,
+        attributions_antgaspi: null,
+        prestataire_logistique_id: null,
+        evenements: {
+          nom_evenement: 'Gala',
+          pax: 120,
+          organisations: { raison_sociale: 'Traiteur Alpha' },
+          lieux: {
+            nom: 'Salle Wagram',
+            ville: 'Paris',
+            adresse_acces: '1 av.',
+          },
+          types_evenements: { libelle: 'Gala' },
+        },
+        collecte_flux: [],
+        collecte_tournees: [],
+        factures_collectes: [],
+      };
+      const fetchMock = vi.fn((url: string) => {
+        if (url.includes('/chip-counts'))
+          return Promise.resolve({ ok: true, json: async () => ({}) });
+        if (url.startsWith('/api/v1/admin/transporteurs'))
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ data: [] }),
+          });
+        if (url.includes('/recommandation'))
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ data: null }),
+          });
+        if (url.endsWith('/documents'))
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              rapport: null,
+              bordereau: null,
+              attestation: null,
+              photos: [],
+            }),
+          });
+        if (url.endsWith('/audit'))
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ data: [], recredit_at: null }),
+          });
+        if (url === '/api/v1/admin/collectes/zd-open')
+          return Promise.resolve({ ok: true, json: async () => detail });
+        if (url.startsWith('/api/v1/admin/collectes'))
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ data: [zdDisp], total: 1 }),
+          });
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) });
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      render(<CollectesPage />);
+      await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
+
+      // Drawer fermé au départ.
+      expect(screen.queryByText('Prestataire & Dispatch')).toBeNull();
+
+      // Clic « Dispatcher » → ouvre le panneau latéral…
+      fireEvent.click(screen.getByRole('button', { name: /Dispatcher/ }));
+      expect(
+        await screen.findByText(
+          'Prestataire & Dispatch',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+
+      // …et charge la fiche de CETTE collecte (appariement id↔bouton — remplace
+      // l'ex-assertion href supprimée avec le passage lien → bouton drawer).
+      await waitFor(
+        () =>
+          expect(
+            fetchMock.mock.calls.some(
+              (c) => String(c[0]) === '/api/v1/admin/collectes/zd-open',
+            ),
+          ).toBe(true),
+        ATTENTE_UI,
+      );
+
+      // Fermeture via la croix du Sheet → le panneau disparaît.
+      fireEvent.click(screen.getByRole('button', { name: 'Fermer' }));
+      await waitFor(
+        () => expect(screen.queryByText('Prestataire & Dispatch')).toBeNull(),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — recherche client filtre les cartes de la page chargée',
+    async () => {
+      mockCollectesFetch();
+      render(<CollectesPage />);
+      await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
+
+      fireEvent.change(screen.getByLabelText('Rechercher'), {
+        target: { value: 'Wagram' },
+      });
+
+      // Ne reste que la carte du lieu « Salle Wagram » (Traiteur Alpha) ;
+      // « Traiteur Beta » (AG, lieu Pavillon) disparaît.
+      await waitFor(
+        () =>
+          expect(screen.queryByText('Traiteur Beta')).not.toBeInTheDocument(),
+        ATTENTE_UI,
+      );
+      expect(screen.getAllByText('Salle Wagram').length).toBeGreaterThan(0);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — filtres avancés : traiteur/lieu peuplés + filtrage serveur',
+    async () => {
+      const fetchMock = mockCollectesFetch();
+      render(<CollectesPage />);
+      await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
+
+      // Panneau replié par défaut → ouvrir
+      fireEvent.click(screen.getByRole('button', { name: /Filtres avancés/ }));
+
+      const traiteurSelect = (await screen.findByLabelText(
+        'Filtrer par traiteur',
+        undefined,
+        ATTENTE_UI,
+      )) as HTMLSelectElement;
+      const lieuSelect = screen.getByLabelText(
+        'Filtrer par lieu',
+      ) as HTMLSelectElement;
+      expect(traiteurSelect.tagName).toBe('SELECT');
+
+      await waitFor(
+        () =>
+          expect(
+            screen.getByRole('option', { name: 'Traiteur Alpha' }),
+          ).toBeInTheDocument(),
+        ATTENTE_UI,
+      );
+      expect(
+        screen.getByRole('option', { name: 'Salle Wagram — Paris' }),
+      ).toBeInTheDocument();
+
+      fireEvent.change(traiteurSelect, { target: { value: 'org-1' } });
+      await waitFor(
+        () =>
+          expect(
+            fetchMock.mock.calls.some(
+              (c) =>
+                typeof c[0] === 'string' &&
+                c[0].startsWith('/api/v1/admin/collectes') &&
+                // R24c : le filtre « Traiteur » = traiteur OPÉRATIONNEL (décision Val).
+                c[0].includes('traiteur_operationnel_id=org-1'),
+            ),
+          ).toBe(true),
+        ATTENTE_UI,
+      );
+
+      fireEvent.change(lieuSelect, { target: { value: 'lieu-1' } });
+      await waitFor(
+        () =>
+          expect(
+            fetchMock.mock.calls.some(
+              (c) =>
+                typeof c[0] === 'string' &&
+                c[0].startsWith('/api/v1/admin/collectes') &&
+                c[0].includes('lieu_id=lieu-1'),
+            ),
+          ).toBe(true),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — filtre statut (multi-sélection) ajoute le paramètre statuts à la requête',
+    async () => {
+      const fetchMock = mockCollectesFetch();
+      render(<CollectesPage />);
+      await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
+
+      fireEvent.click(screen.getByRole('button', { name: /Filtres avancés/ }));
+      // Statut multi-sélection scopée à l'onglet Programmées (chip = bouton,
+      // distinct de la même étiquette utilisée comme badge sur une carte).
+      fireEvent.click(screen.getByRole('button', { name: 'Validée' }));
+
+      await waitFor(() => {
+        const urls = fetchMock.mock.calls.map((c) => String(c[0]));
+        expect(
+          urls.some(
+            (u) =>
+              u.startsWith('/api/v1/admin/collectes?') &&
+              u.includes('statuts=validee'),
+          ),
+        ).toBe(true);
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — filtre « Info incomplète » ajoute info_incomplete=true',
+    async () => {
+      const fetchMock = mockCollectesFetch();
+      render(<CollectesPage />);
+      await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
+
+      fireEvent.click(screen.getByRole('button', { name: /Filtres avancés/ }));
+      fireEvent.click(screen.getByLabelText('Info incomplète'));
+
+      await waitFor(() => {
+        const urls = fetchMock.mock.calls.map((c) => String(c[0]));
+        expect(urls.some((u) => u.includes('info_incomplete=true'))).toBe(true);
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — filtre « Rapport non consulté » ajoute rapport_non_consulte=true',
+    async () => {
+      const fetchMock = mockCollectesFetch();
+      render(<CollectesPage />);
+      await screen.findAllByText('Traiteur Alpha', undefined, ATTENTE_UI);
+
+      fireEvent.click(screen.getByRole('button', { name: /Filtres avancés/ }));
+      fireEvent.click(screen.getByLabelText('Rapport non consulté'));
+
+      await waitFor(() => {
+        const urls = fetchMock.mock.calls.map((c) => String(c[0]));
+        expect(urls.some((u) => u.includes('rapport_non_consulte=true'))).toBe(
+          true,
+        );
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — carte urgente (AG à attribuer < 48h) : badge Urgent affiché, pas sur la lointaine',
+    async () => {
+      const urgente = ag({
+        id: 'ag-urgente',
+        date_collecte: jourParis(new Date(Date.now() + 2 * 60 * 60 * 1000)),
+        heure_collecte: '10:00:00',
+      });
+      // AG à attribuer, mais loin (> 48h) : pas urgente.
+      const lointaine = ag({
+        id: 'ag-lointaine',
+        date_collecte: '2027-01-15',
+        heure_collecte: '10:00:00',
+      });
+      const fetchMock = vi.fn((url: string) => {
+        if (typeof url === 'string' && url.includes('/collectes/chip-counts')) {
+          return Promise.resolve({ ok: true, json: async () => ({}) });
+        }
+        if (
+          typeof url === 'string' &&
+          url.startsWith('/api/v1/admin/collectes')
+        ) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ data: [lointaine, urgente], total: 2 }),
+          });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) });
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      render(<CollectesPage />);
+
+      await screen.findAllByText('Traiteur Beta', undefined, ATTENTE_UI);
+      expect(screen.getAllByText('Urgent')).toHaveLength(1);
+    },
+    ATTENTE_CAS_MS,
+  );
 });

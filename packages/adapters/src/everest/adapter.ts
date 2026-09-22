@@ -158,8 +158,14 @@ export class AdapterEverest implements LogistiqueProvider {
     // Lire branche_attribution depuis attributions_antgaspi
     const serviceId = await this.resolveServiceId(collecte.id);
 
-    // Créer ou récupérer la tournée (upsert par reference_interne)
-    const tournee = await this.upsertTournee(collecte, rang, serviceId);
+    // Créer ou récupérer la tournée. Le rang déjà lié à une tournée A Toutes!
+    // est repris tel quel : c'est le cas d'une mission refusée puis réattribuée,
+    // dont fn_dispatcher_collecte a réinitialisé la tournée en place (arbitrage
+    // Val 2026-09-17). Sa reference_interne porte alors la tentative (`-r{n}`) :
+    // la chercher par `EVR-{collecte}-{rang}` créerait une seconde tournée, et
+    // son rattachement au rang déjà pris échouerait.
+    const tournee =
+      tourneeExistante ?? (await this.upsertTournee(collecte, rang, serviceId));
 
     // POST /missions/create
     let missionId: string | null = null;
@@ -204,12 +210,12 @@ export class AdapterEverest implements LogistiqueProvider {
         }).catch(() => undefined);
       }
       // BL-P1-ALGO-07 : rejet SYNCHRONE PERMANENT (4xx = refus prestataire) →
-      // statut_tms = rejetee_par_prestataire (CDC 09 - Flux algo attribution AG
-      // §3 « HTTP error sync »). Le trigger fn_sync ne dérive rien sur ce statut
-      // → la collecte reste programmee (retour file d'attente + monitoring Ops).
+      // collecte rejetee_par_prestataire (§08 §3 « HTTP error synchrone »).
       // Un TRANSIENT (5xx/timeout) ne rejette PAS : le worker retente (paliers).
       if (err instanceof LogistiquePermanentError) {
-        await this.updateStatutTms(collecte.id, 'rejetee_par_prestataire');
+        // Un échec de cette écriture est déjà alerté par rejeterCollecte ; il ne
+        // doit pas remplacer `err`, qui porte le refus du transporteur.
+        await this.rejeterCollecte(collecte.id).catch(() => undefined);
       }
       throw err;
     }
@@ -276,19 +282,33 @@ export class AdapterEverest implements LogistiqueProvider {
         `cancel-${collecte.id}-${t.id}`,
       );
 
-      // UPDATE everest_missions.statut_everest = 'cancelled'
+      // À partir d'ici la course EST annulée chez A Toutes! : une écriture locale
+      // refusée ne se voit plus nulle part si on l'avale. Vécu : sous l'ancien
+      // CHECK en équivalence, l'UPDATE d'une mission `created_manually` échouait
+      // en 23514 et la collecte restait « mission vivante » en base.
       if (mission) {
-        await this.supabase
+        const { error } = await this.supabase
           .from('everest_missions')
           .update({
             statut_everest: 'cancelled',
             derniere_sync_at: new Date().toISOString(),
           })
           .eq('tournee_id', t.id);
+        if (error) {
+          await this.echecEcritureLocale(collecte.id, error, {
+            code: 'everest_annulation_non_enregistree',
+            titre: 'Annulation A Toutes! non enregistrée',
+            message:
+              `La course ${t.external_ref_commande} a été annulée chez A Toutes!, mais son statut n'a pas pu être enregistré ` +
+              `(${error.message}). La mission apparaît encore active côté Savr.`,
+          });
+        }
       }
 
-      // Tracer dans audit_log pour que W2 distingue annulation TMS vs externe
-      await this.supabase.from('audit_log').insert({
+      // Tracer dans audit_log pour que W2 distingue annulation TMS vs externe.
+      // Sans cette trace, le webhook `mission_cancelled` prend l'annulation pour
+      // une annulation EXTERNE (cancelled_externally + rejet de la collecte).
+      const { error: errAudit } = await this.supabase.from('audit_log').insert({
         action: 'CANCEL',
         table_name: 'everest_missions',
         record_id: mission?.id ?? null,
@@ -299,6 +319,15 @@ export class AdapterEverest implements LogistiqueProvider {
           everest_mission_id: t.external_ref_commande,
         },
       });
+      if (errAudit) {
+        await this.echecEcritureLocale(collecte.id, errAudit, {
+          code: 'everest_trace_annulation_non_enregistree',
+          titre: 'Trace d’annulation A Toutes! non enregistrée',
+          message:
+            `La course ${t.external_ref_commande} a été annulée chez A Toutes!, mais la trace de l'annulation Savr n'a pas pu être écrite ` +
+            `(${errAudit.message}). Le webhook d'annulation la lira comme une annulation externe.`,
+        });
+      }
     }
     return 'adapter_everest';
   }
@@ -667,19 +696,118 @@ export class AdapterEverest implements LogistiqueProvider {
     collecteId: string,
     reference: string,
   ): Promise<void> {
-    await this.supabase
+    const { error } = await this.supabase
       .from('collectes')
       .update({ tms_reference: reference })
       .eq('id', collecteId);
+    if (error) {
+      await this.echecEcritureLocale(collecteId, error, {
+        code: 'everest_dispatch_non_enregistre',
+        titre: 'Mission A Toutes! non enregistrée sur la collecte',
+        message:
+          `La mission ${reference} existe chez A Toutes!, mais sa référence n'a pas pu être écrite sur la collecte ` +
+          `(${error.message}). La collecte apparaît encore « non transmise ».`,
+      });
+    }
+  }
+
+  /**
+   * Refus d'A Toutes! : `statut_tms` ET `statut` = rejetee_par_prestataire
+   * (visibilité dashboard, décision Val 2026-06-15 — §08 §3). Le trigger fn_sync
+   * ne dérive rien de ce statut : l'écriture est explicite. Gardée sur
+   * `programmee` (seul statut d'une collecte pas encore acceptée) : une collecte
+   * sortie du dispatch entre-temps (annulée…) n'est pas requalifiée. La
+   * réattribution (fn_dispatcher_collecte) la remet en `programmee`.
+   */
+  private async rejeterCollecte(collecteId: string): Promise<void> {
+    const { data, error } = await this.supabase
+      .from('collectes')
+      .update({
+        statut_tms: 'rejetee_par_prestataire',
+        statut: 'rejetee_par_prestataire',
+      })
+      .eq('id', collecteId)
+      .eq('statut', 'programmee')
+      .select('id');
+    if (error) {
+      await this.echecEcritureLocale(collecteId, error, {
+        code: 'everest_dispatch_non_enregistre',
+        titre: 'Refus A Toutes! non enregistré sur la collecte',
+        message:
+          `A Toutes! a refusé la course, mais le refus n'a pas pu être écrit sur la collecte ` +
+          `(${error.message}). La collecte apparaît encore « programmée » : réattribuez-la.`,
+      });
+    }
+    if (!data?.length) return;
+
+    // Best-effort, comme echecEcritureLocale : l'erreur levée ensuite (event
+    // `dead`) reste le signal de repli.
+    await this.supabase
+      .rpc('f_upsert_alerte_admin', {
+        p_code: 'collecte_rejetee_prestataire',
+        p_titre: 'Course Everest rejetée par le prestataire',
+        p_message: `A Toutes! a refusé la course à sa création — collecte ${collecteId} passée en rejetee_par_prestataire. Réattribution requise (§08 §3).`,
+        p_entity_type: 'collectes',
+        p_entity_id: collecteId,
+      })
+      .then(
+        () => undefined,
+        () => undefined,
+      );
   }
 
   private async updateStatutTms(
     collecteId: string,
     statutTms: string,
   ): Promise<void> {
-    await this.supabase
+    const { error } = await this.supabase
       .from('collectes')
       .update({ statut_tms: statutTms })
       .eq('id', collecteId);
+    if (error) {
+      await this.echecEcritureLocale(collecteId, error, {
+        code: 'everest_dispatch_non_enregistre',
+        titre: 'Statut A Toutes! non enregistré sur la collecte',
+        message:
+          `Le statut « ${statutTms} » renvoyé par A Toutes! n'a pas pu être écrit sur la collecte ` +
+          `(${error.message}). Le statut affiché ne reflète pas la réponse du transporteur.`,
+      });
+    }
+  }
+
+  /**
+   * Écriture locale refusée après un échange avec A Toutes! : alerte Ops in-app
+   * (anomalie fonctionnelle, jamais Slack — CLAUDE.md §13), puis levée.
+   *
+   * L'alerte est posée AVANT de lever : le worker qui rejoue ne répare pas
+   * toujours (une annulation déjà enregistrée sort en idempotence, une mission
+   * déjà vivante aussi) — l'alerte reste alors le seul signal. Dédupliquée par
+   * `f_upsert_alerte_admin` sur (code, collecte, ouverte) ; best-effort, comme
+   * dans provider-tournees.ts : une alerte perdue ne doit pas masquer l'erreur.
+   *
+   * Taxonomie : une violation de contrainte (classe 23) ne se résout pas en
+   * rejouant → Permanent ; le reste (réseau, PostgREST) → Transient.
+   */
+  private async echecEcritureLocale(
+    collecteId: string,
+    error: { code?: string; message: string },
+    alerte: { code: string; titre: string; message: string },
+  ): Promise<never> {
+    await this.supabase
+      .rpc('f_upsert_alerte_admin', {
+        p_code: alerte.code,
+        p_titre: alerte.titre,
+        p_message: alerte.message,
+        p_entity_type: 'collectes',
+        p_entity_id: collecteId,
+      })
+      .then(
+        () => undefined,
+        () => undefined,
+      );
+    const message = `${alerte.titre} (collecte ${collecteId}) — ${error.message}`;
+    throw error.code?.startsWith('23')
+      ? new LogistiquePermanentError(message)
+      : new LogistiqueTransientError(message);
   }
 }

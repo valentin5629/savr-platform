@@ -60,7 +60,13 @@ const inputCls =
   'w-full rounded border border-savr-neutral-300 px-3 py-2 text-sm';
 const labelCls = 'text-xs font-medium text-savr-neutral-500';
 
-export function MonOrganisationClient({ isManager }: { isManager: boolean }) {
+export function MonOrganisationClient({
+  isManager,
+  userId,
+}: {
+  isManager: boolean;
+  userId: string;
+}) {
   const [tab, setTab] = useState<OrgTab>('infos');
 
   const tabCls = (t: OrgTab) =>
@@ -107,7 +113,7 @@ export function MonOrganisationClient({ isManager }: { isManager: boolean }) {
       </div>
 
       {tab === 'infos' && <InfosTab isManager={isManager} />}
-      {tab === 'equipe' && isManager && <EquipeTab />}
+      {tab === 'equipe' && isManager && <EquipeTab userId={userId} />}
       {tab === 'facturation' && <FacturationTab isManager={isManager} />}
       {tab === 'preferences' && <PreferencesTab />}
     </div>
@@ -656,7 +662,7 @@ function DomainesCard({
 
 /* ─────────────────────────────── Équipe (manager) ─────────────────────────── */
 
-function EquipeTab() {
+function EquipeTab({ userId }: { userId: string }) {
   const [users, setUsers] = useState<UserRow[]>([]);
   const reload = useCallback(() => {
     fetch('/api/v1/traiteur/equipe')
@@ -712,9 +718,21 @@ function EquipeTab() {
                     </td>
                     <td className="py-1">{u.email}</td>
                     <td className="py-1">
+                      {/* Sa PROPRE ligne : rôle en lecture seule. Le CDC §06.04
+                          §6 ne prévoit que « modifier le rôle d'un COLLABORATEUR »,
+                          et la base refuse désormais tout auto-changement (volet 3
+                          du trigger anti-escalade, 20260921170000). Sans ce
+                          grisage, le <select> resterait cliquable pour un refus
+                          silencieux. */}
                       <select
-                        className="rounded border border-savr-neutral-300 px-2 py-1 text-xs"
+                        className="rounded border border-savr-neutral-300 px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50"
                         value={u.role}
+                        disabled={u.id === userId}
+                        title={
+                          u.id === userId
+                            ? 'Vous ne pouvez pas modifier votre propre rôle'
+                            : undefined
+                        }
                         onChange={(e) => changeRole(u.id, e.target.value)}
                       >
                         <option value="traiteur_commercial">Commercial</option>

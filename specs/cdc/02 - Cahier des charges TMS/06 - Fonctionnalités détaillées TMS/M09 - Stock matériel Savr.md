@@ -1,5 +1,6 @@
 # M09 — Stock matériel Savr
 
+**Statut** : V1 rédigée 2026-04-25 (option e — frontière documentaire avec M10, pas de refactor data), **propagation revue sobriété §08 Bloc A 2026-05-01 (suppression webhook S8 + R_M09.7, remplacement par vue cross-schema)**
 
 ---
 

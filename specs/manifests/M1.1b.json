@@ -300,7 +300,7 @@
     },
     {
       "id": "M1.1b-24",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:245",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:301",
       "artefact": "packages/plateforme/src/app/api/v1/admin/collectes/[id]/flux/route.ts, packages/plateforme/src/app/(admin)/admin/collectes/[id]/page.tsx",
       "test": "M1.1b/flux/manuel — 200 : UPSERT poids_reel_kg + audit_log avec motif",
       "statut": "implemented",
@@ -308,7 +308,7 @@
     },
     {
       "id": "M1.1b-25",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:305",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:367",
       "artefact": "packages/plateforme/src/app/api/v1/admin/collectes/route.ts",
       "test": "M1.1b/collectes/create — outbox E1 atomique via fn_creer_collecte",
       "statut": "implemented",
@@ -324,7 +324,7 @@
     },
     {
       "id": "M1.1b-numero-rup",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:422",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:460",
       "artefact": "packages/plateforme/src/components/admin/association-modal.tsx",
       "test": "M1.1b/associations/patch — admin persiste numero_rup, vide ⇒ NULL",
       "statut": "implemented",
@@ -353,10 +353,26 @@
       "test": "supabase/tests/SECU__transporteur_cols_immuables.test.sql",
       "statut": "implemented",
       "libelle": "§6 Immuabilité : DELETE refusé dès qu'une tournée référence le transporteur"
+    },
+    {
+      "id": "M1.1b-organisation-siret-format",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:643",
+      "artefact": "packages/plateforme/src/lib/siret-organisation.ts, packages/plateforme/src/app/api/v1/admin/organisations/route.ts, packages/plateforme/src/app/api/v1/admin/organisations/[id]/route.ts",
+      "test": "M1.1b/orgas/siret — POST : espaces retirés avant INSERT (14 chiffres)",
+      "statut": "implemented",
+      "libelle": "SIRET organisation (modale Nouvelle organisation + fiche) : contrôle de format seul côté API — blancs retirés, 14 chiffres, vide ⇒ NULL, 422 champs_invalides [siret] sur POST et PATCH /admin/organisations ; aucun appel INSEE sur organisations.siret (libellé CDC corrigé 2026-09-16, porté par la branche specs/sync-20260916-patch-divergences l.640 ; sur main l.633 garde l'ancien texte « validation INSEE »)"
+    },
+    {
+      "id": "M1.1b-organisation-creation-modale",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:636",
+      "artefact": "packages/plateforme/src/components/admin/organisation-modal.tsx",
+      "test": "M1.1b — Modale Nouvelle organisation (§06.06) + M1.1b — le CTA ouvre la modale",
+      "statut": "implemented",
+      "libelle": "Bouton « Nouvelle organisation » (liste Clients, admin_savr + ops_savr) → modale de création : 7 champs de l'allowlist POST /api/v1/admin/organisations (nom, raison sociale, type, email obligatoires ; SIRET 14 chiffres, téléphone, adresse optionnels), aucun champ admin-only ni système"
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "870a839c0f23b1323adfa0e12c8858f50181c5f77a03dca271fded8295b98ca3",
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "41cc7ea0cf5e68d671ad0ff900ee17e0843e006998cd977ebc2c43c2b3d6938a"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "1935353d3942e1ec2ebccbce6940fd99a75ee55d7d9db95692529594b4a0124d",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "c6063eda0e8c3e48ca88adc26d1fbe1ad7c67a92774f5c026ec64f183be92b67"
   }
 }

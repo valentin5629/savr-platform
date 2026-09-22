@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 
 import { requireStaff } from '@/lib/api-auth.js';
+import { storageKeysDesFichiers } from '@/lib/pdf/fichier-storage-key.js';
 import { getPresignedUrl } from '@/lib/pdf/r2-client.js';
 
 export const runtime = 'nodejs';
@@ -24,7 +25,9 @@ export async function GET(
 
   const { data: bordereau, error } = await supabase
     .from('bordereaux_savr')
-    .select('id, statut, pdf_fichier_id, fichiers:pdf_fichier_id(url)')
+    // pdf_fichier_id → shared.fichiers (bucket/key), résolu hors embed
+    // (cross-schema, pas de colonne `url`).
+    .select('id, statut, pdf_fichier_id')
     .eq('id', id)
     .single();
 
@@ -42,11 +45,13 @@ export async function GET(
     );
   }
 
-  const fichier = bordereau.fichiers as unknown as { url: string } | null;
-  if (!fichier?.url) {
+  const storageKey = (
+    await storageKeysDesFichiers(supabase, [bordereau.pdf_fichier_id])
+  ).get(bordereau.pdf_fichier_id ?? '');
+  if (!storageKey) {
     return NextResponse.json({ error: 'Fichier PDF absent' }, { status: 404 });
   }
 
-  const url = await getPresignedUrl(fichier.url, 900);
+  const url = await getPresignedUrl(storageKey, 900);
   return NextResponse.json({ url, expires_in: 900 });
 }

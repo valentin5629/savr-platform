@@ -143,6 +143,31 @@ describe('M1.1a / Organisations / Authentification', () => {
     const res = await GET(makeReq('GET', '/api/v1/admin/organisations'));
     expect(res.status).toBe(403);
   });
+
+  // La garde de rôle passe AVANT la garde des champs obligatoires : un
+  // non-staff ne voit jamais `champs_invalides` et rien n'est écrit.
+  it('M1.1a/orgas/creation — 401 si non authentifié, sans champs_invalides ni INSERT', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+    mockGetSession.mockResolvedValue({ data: { session: null }, error: null });
+    const { POST } = await import('@/app/api/v1/admin/organisations/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/organisations', { type: 'traiteur' }),
+    );
+    expect(res.status).toBe(401);
+    expect(await res.json()).not.toHaveProperty('champs_invalides');
+    expect(mockSupabaseChain.insert).not.toHaveBeenCalled();
+  });
+
+  it('M1.1a/orgas/creation — 403 si rôle traiteur_manager, sans champs_invalides ni INSERT', async () => {
+    setupAuth('traiteur_manager');
+    const { POST } = await import('@/app/api/v1/admin/organisations/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/organisations', { type: 'traiteur' }),
+    );
+    expect(res.status).toBe(403);
+    expect(await res.json()).not.toHaveProperty('champs_invalides');
+    expect(mockSupabaseChain.insert).not.toHaveBeenCalled();
+  });
 });
 
 describe('M1.1a / Organisations / Liste', () => {
@@ -367,8 +392,10 @@ describe('M1.1a / Organisations / Création', () => {
     const { POST } = await import('@/app/api/v1/admin/organisations/route.js');
     const res = await POST(
       makeReq('POST', '/api/v1/admin/organisations', {
-        raison_sociale: 'Nouvelle Orga',
+        nom: 'Nouvelle Orga',
+        raison_sociale: 'Nouvelle Orga SAS',
         type: 'traiteur',
+        email_principal: 'contact@nouvelle-orga.fr',
         // (a) Champs qu'un client peut légitimement envoyer : ils ne doivent
         // pas atteindre l'INSERT (ils vivent sur `entites_facturation`).
         code_postal: '75002',
@@ -432,11 +459,11 @@ describe('M1.1a / Organisations / Création', () => {
         `colonne requise « ${c} » absente du payload`,
       ).toBeTruthy();
     }
-    expect(payload.nom).toBe('Nouvelle Orga'); // fallback nom = raison_sociale
+    expect(payload.nom).toBe('Nouvelle Orga');
   });
 
-  it('M1.1a/orgas/creation — `nom` explicite du body l’emporte sur la raison sociale', async () => {
-    setupAuth('admin_savr');
+  it('M1.1a/orgas/creation — nom, raison sociale et email écrits trimés, sans repli nom = raison sociale', async () => {
+    setupAuth('ops_savr');
     mockSupabaseChain.single.mockResolvedValueOnce({
       data: { id: 'org-new', actif: true },
       error: null,
@@ -444,9 +471,10 @@ describe('M1.1a / Organisations / Création', () => {
     const { POST } = await import('@/app/api/v1/admin/organisations/route.js');
     const res = await POST(
       makeReq('POST', '/api/v1/admin/organisations', {
-        nom: 'Kaspia',
+        nom: '  Kaspia ',
         raison_sociale: 'KASPIA RECEPTIONS SAS',
         type: 'traiteur',
+        email_principal: ' contact@kaspia.fr ',
       }),
     );
     expect(res.status).toBe(201);
@@ -456,25 +484,63 @@ describe('M1.1a / Organisations / Création', () => {
     >;
     expect(payload.nom).toBe('Kaspia');
     expect(payload.raison_sociale).toBe('KASPIA RECEPTIONS SAS');
+    expect(payload.email_principal).toBe('contact@kaspia.fr');
   });
+
+  // CDC §06.06 bouton « Nouvelle organisation » : nom, raison sociale, type et
+  // email principal obligatoires. La route tourne sous service_role → c'est la
+  // SEULE barrière pour un appel direct (la modale n'est qu'un confort).
+  const BODY_COMPLET = {
+    nom: 'Kaspia',
+    raison_sociale: 'KASPIA RECEPTIONS SAS',
+    type: 'traiteur',
+    email_principal: 'contact@kaspia.fr',
+  };
+  it.each([
+    ['nom', undefined],
+    ['nom', '   '],
+    ['raison_sociale', undefined],
+    ['type', undefined],
+    ['email_principal', undefined],
+    ['email_principal', ''],
+    ['email_principal', 42],
+  ])(
+    'M1.1a/orgas/creation — 422 + champs_invalides=[%s] si absent ou blanc (%j), rien n’est écrit',
+    async (champ, valeur) => {
+      setupAuth('admin_savr');
+      const { POST } =
+        await import('@/app/api/v1/admin/organisations/route.js');
+      const body: Record<string, unknown> = { ...BODY_COMPLET };
+      if (valeur === undefined) delete body[champ];
+      else body[champ] = valeur;
+      const res = await POST(
+        makeReq('POST', '/api/v1/admin/organisations', body),
+      );
+      expect(res.status).toBe(422);
+      const json = (await res.json()) as {
+        error: string;
+        champs_invalides: string[];
+      };
+      expect(json.champs_invalides).toEqual([champ]);
+      // Message métier en français, sans nom de colonne technique.
+      expect(json.error).toMatch(
+        /^Champ\(s\) obligatoire\(s\) manquant\(s\) : /,
+      );
+      expect(json.error).not.toContain('_');
+      expect(mockSupabaseChain.insert).not.toHaveBeenCalled();
+    },
+  );
 
   it('M1.1a/orgas/creation — 422 si type invalide', async () => {
     setupAuth('ops_savr');
     const { POST } = await import('@/app/api/v1/admin/organisations/route.js');
     const res = await POST(
       makeReq('POST', '/api/v1/admin/organisations', {
+        nom: 'Test',
         raison_sociale: 'Test',
         type: 'type_inconnu',
+        email_principal: 'a@b.fr',
       }),
-    );
-    expect(res.status).toBe(422);
-  });
-
-  it('M1.1a/orgas/creation — 422 si raison_sociale manquante', async () => {
-    setupAuth('admin_savr');
-    const { POST } = await import('@/app/api/v1/admin/organisations/route.js');
-    const res = await POST(
-      makeReq('POST', '/api/v1/admin/organisations', { type: 'traiteur' }),
     );
     expect(res.status).toBe(422);
   });

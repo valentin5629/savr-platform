@@ -26,7 +26,7 @@
     },
     {
       "id": "BL-P1-PARITE-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:64",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:65",
       "artefact": "packages/plateforme/src/app/api/v1/dashboards/blocs/route.ts",
       "test": "M3.5/blocs_auth_401_sans_jwt + M3.1/blocs_top_lieux_zd_ordre_tonnage + M3.1/blocs_traiteur_zd_montes_et_benchmark_reel",
       "statut": "implemented",
@@ -34,7 +34,7 @@
     },
     {
       "id": "M3.5-charts-lib",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:83",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:84",
       "artefact": "packages/plateforme/src/components/dashboards/charts/",
       "test": "M3.5/chart_donut_total_centre — total au centre = somme des flux",
       "statut": "implemented",
@@ -42,7 +42,7 @@
     },
     {
       "id": "M3.5-evolution-endpoint",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:116",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:127",
       "artefact": "packages/plateforme/src/app/api/v1/dashboards/evolution/route.ts",
       "test": "M3.5/evolution_zd_barres_5_flux_taux_pondere — sommes par flux + taux pondéré (exclut NULL)",
       "statut": "implemented",
@@ -50,7 +50,7 @@
     },
     {
       "id": "BL-P1-PARITE-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:192",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:205",
       "artefact": "packages/plateforme/src/app/api/v1/dashboards/synthese-pdf/route.ts + packages/plateforme/src/lib/dashboards/synthese-snapshot.ts + packages/plateforme/src/components/dashboards/ExportSyntheseBloc.tsx + apps/pdf-renderer/src/templates/synthese-dashboard.ts",
       "test": "M3.5 / route synthèse PDF — génération synchrone + M3.5 / synthèse PDF — snapshot §12 §1.6 + M3.5 / renderer synthèse §12 §1.6 — template agrégé",
       "statut": "implemented",
@@ -58,7 +58,7 @@
     },
     {
       "id": "BL-P2-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:37",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:38",
       "artefact": "packages/plateforme/src/app/api/v1/admin/dashboard/revenus-organisations/route.ts",
       "test": "M3.5/admin_revenus_6_colonnes — nom · type · nb/CA ZD · nb/CA AG",
       "statut": "implemented",
@@ -66,7 +66,7 @@
     },
     {
       "id": "M3.5-kpi-admin-ca-eco-ag",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:37",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:38",
       "artefact": "supabase/migrations/20260707120000_plateforme_r20a_kpi_admin_ca_economique_ag.sql",
       "test": "supabase/tests/m3_5_v_kpi_admin_ca_eco_ag.test.sql — v_kpi_admin CA AG économique (pack) + non-régression ZD + exclusion facture/avoir pack",
       "statut": "implemented",
@@ -90,7 +90,7 @@
     },
     {
       "id": "M3.5-blocs-endpoint",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:77",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:76",
       "artefact": "packages/plateforme/src/app/api/v1/dashboards/blocs/route.ts",
       "test": "M3.5/blocs_role_hors_perimetre_403 + M3.1/blocs_prochaines_fenetre_statuts",
       "statut": "implemented",
@@ -98,7 +98,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "aa522fd3b0d3573a2e40d81e6a306201e944f0d2889c281cd77ae96f40fb23d3",
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "41cc7ea0cf5e68d671ad0ff900ee17e0843e006998cd977ebc2c43c2b3d6938a"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "57492b2b790ffb2c50ca09b24203f654f3c7a3b6f08cc2baee3005040985190e",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "c6063eda0e8c3e48ca88adc26d1fbe1ad7c67a92774f5c026ec64f183be92b67"
   }
 }

@@ -19,7 +19,7 @@ vi.mock('next/navigation', () => ({
 
 import LoginPage from '@/app/login/page.js';
 import { safeNextPath } from '@/lib/safe-next-path.js';
-import { ATTENTE_UI } from '@/test-utils/attente-ui';
+import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 async function seConnecter(next: string | null): Promise<void> {
   params = new URLSearchParams(next === null ? '' : { next });
@@ -63,42 +63,62 @@ afterEach(() => {
 });
 
 describe('login — `next` externe refusé (open redirect)', () => {
-  it.each(EXTERNES)('%s → push("/")', async (_cas, next) => {
-    await seConnecter(next);
-    expect(push).toHaveBeenCalledWith('/');
-  });
+  it.each(EXTERNES)(
+    '%s → push("/")',
+    async (_cas, next) => {
+      await seConnecter(next);
+      expect(push).toHaveBeenCalledWith('/');
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('`next` absent → push("/") (espace du rôle)', async () => {
-    await seConnecter(null);
-    expect(push).toHaveBeenCalledWith('/');
-  });
+  it(
+    '`next` absent → push("/") (espace du rôle)',
+    async () => {
+      await seConnecter(null);
+      expect(push).toHaveBeenCalledWith('/');
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('chemin interne → push tel quel', async () => {
-    await seConnecter('/admin/collectes');
-    expect(push).toHaveBeenCalledWith('/admin/collectes');
-  });
+  it(
+    'chemin interne → push tel quel',
+    async () => {
+      await seConnecter('/admin/collectes');
+      expect(push).toHaveBeenCalledWith('/admin/collectes');
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('chemin interne avec query → conservée', async () => {
-    await seConnecter('/admin/collectes?onglet=ag');
-    expect(push).toHaveBeenCalledWith('/admin/collectes?onglet=ag');
-  });
+  it(
+    'chemin interne avec query → conservée',
+    async () => {
+      await seConnecter('/admin/collectes?onglet=ag');
+      expect(push).toHaveBeenCalledWith('/admin/collectes?onglet=ag');
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('identifiants refusés → aucune redirection', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(
-        async () =>
-          new Response(JSON.stringify({ error: 'Identifiants incorrects' }), {
-            status: 401,
-          }),
-      ),
-    );
-    params = new URLSearchParams({ next: '/admin/collectes' });
-    const { container, findByText } = render(<LoginPage />);
-    fireEvent.submit(container.querySelector('form')!);
-    await findByText('Identifiants incorrects', undefined, ATTENTE_UI);
-    expect(push).not.toHaveBeenCalled();
-  });
+  it(
+    'identifiants refusés → aucune redirection',
+    async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(
+          async () =>
+            new Response(JSON.stringify({ error: 'Identifiants incorrects' }), {
+              status: 401,
+            }),
+        ),
+      );
+      params = new URLSearchParams({ next: '/admin/collectes' });
+      const { container, findByText } = render(<LoginPage />);
+      fireEvent.submit(container.querySelector('form')!);
+      await findByText('Identifiants incorrects', undefined, ATTENTE_UI);
+      expect(push).not.toHaveBeenCalled();
+    },
+    ATTENTE_CAS_MS,
+  );
 });
 
 describe('safeNextPath', () => {

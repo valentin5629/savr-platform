@@ -1,5 +1,7 @@
 # 04 - Espace client traiteur
 
+**Statut** : Validé V1
+**Dernière mise à jour** : 2026-06-07 (**Test scenarios §06.04 (skill `cdc-test-scenarios`, lot ④)** — 54 scénarios générés (`tests/06.04-espace-traiteur-scenarios.md`). **5 specs floues TRANCHÉES Val + propagées** : F1 annulation `brouillon`/`programmee` = **directe sans validation Admin** (§05 fait foi, flux §Annulation scindé A/B) ; F2 badge pack bas + bouton renouvellement = **seuil relatif ≤ 10 % des crédits initiaux** (aligné email admin, ex < 10 crédits absolu) ; F3 badge « X collectes en attente de facturation » = **dès X ≥ 1** incl. facturation partielle ; F4 mention « SLA d'acceptation » retirée du bloc Contrôle d'accès (aucune source App) ; F5 **DELETE physique limité à `brouillon`** + toute annulation sur collecte poussée TMS → **E3 systématique** tous acteurs (prestataire informé côté TMS). Propagé : §05 (§Annulation + R_marge_zd_traiteur), §09 (restriction DELETE `collectes`). Précédente mise à jour 2026-06-03 (**Revue sobriété §06.04 (skill `cdc-review-sobriete`)** — 2 items appliqués. (1) **Annulation de la revue §12 B2** sur arbitrage Val : la colonne `rapports_rse.filtres_benchmark` est **rétablie** (snapshot des filtres benchmark persisté → PDF reproductible), complétée par une **légende sous le graphe benchmark du PDF** précisant les filtres appliqués. Le calcul à la volée est abandonné. Propagé : §04 Data Model, §12 Reporting, §06.11 Espace agence, §00 Index. (2) **Sobriété B2 Contrôle d'accès** : état "Modification en cours" fusionné dans "Communiqué" (toujours la dernière valeur plaque/nom), 3→2 états. Cross-CDC 0 (benchmark + affichage = Plateforme-only). B1 (retrait filtres benchmark fiche collecte) **refusé Val**. Précédente mise à jour 2026-05-10 — Dashboard : refonte alignement §06.05 — blocs communs (Prochaines collectes, Top 5 lieux, Top 5 commerciaux) rattachés à chaque onglet ZD/AG (numérotation suffixée). Bouton "Exporter une synthèse PDF" du bandeau actions rapides **retiré**, remplacé par **Bloc 8 ZD / Bloc 8 AG** par onglet (pré-rempli filtres globaux + type de collecte selon onglet actif). Pattern strictement aligné §06.05 et §06.11. Précédente mise à jour 2026-05-07 — Dashboard ZD : KPI **Marge générée** ajouté (Bloc 1 → 5 cartes ZD) — formule `tarif_refacture_pax_zd × pax cumulés − coût total Savr facturé`. Liste collectes : suppression vue "Toutes les collectes", remplacement par **2 onglets ZD/AG**. Bouton "Programmer une collecte" devient **contextuel** par onglet. Cf. [[04 - Data Model]] addendum 2026-05-07 + [[05 - Règles métier#R_marge_zd_traiteur]].)
 **Lié à** : [[02 - Personas et cas d'usage]] (profils `traiteur_manager`, `traiteur_commercial`) · [[09 - Authentification et permissions]] · [[11 - Dashboards]] · [[01 - Formulaire de programmation de collecte]] · [[05 - Espace client gestionnaire de lieux]] (structure dashboard héritée)
 
 ---
@@ -160,7 +162,7 @@ Encart compact "Filtres benchmark" affichant **4 critères** (et non 5 comme cô
 - **Jauge traiteur** : ratio `kg du flux / pax cumulés` sur les **filtres globaux**
 - **Borne max axe** : valeur max observée du parc Savr × 1,2 (échelle figée par flux)
 - **Point rouge benchmark** : moyenne parc Savr selon **filtres benchmark dédiés** (4 dimensions)
-- **K-anonymat ≥5 collectes** appliqué côté serveur. Si <5 → point rouge masqué + tooltip "Données insuffisantes pour benchmark".
+- **K-anonymat appliqué côté serveur — ≥ 5 collectes ET ≥ 3 acteurs distincts** (organisations programmatrices et traiteurs opérationnels, minimum des deux compteurs ; durci 2026-09-22). Si l'un des deux seuils n'est pas atteint → point rouge masqué + tooltip "Données insuffisantes pour benchmark" — le libellé ne cite jamais la cause du masquage, qui renseignerait sur la structure du segment.
 
 **Légende couleur** (ratio jauge traiteur / point benchmark, calculés chacun sur leur propre périmètre) :
 - Vert : ratio ≤ benchmark (performance ≥ moyenne du segment)
@@ -400,8 +402,10 @@ Composition : `<Date collecte> - <Nom du lieu> - <Nom du client organisateur> - 
 
 Infos pilotantes affichées en bloc compact :
 - Adresse complète du lieu (`lieux.adresse` + complément si fourni)
-- Contact principal collecte (`evenements.contact_principal_nom` + téléphone + email)
-- Contact secours collecte (`evenements.contact_secours_nom` + téléphone + email, affiché uniquement si renseigné)
+- Contact principal collecte (`evenements.contact_principal_nom` + téléphone)
+- Contact secours collecte (`evenements.contact_secours_nom` + téléphone, affiché uniquement si renseigné)
+
+> **Email de contact terrain : hors périmètre V1** (correction 2026-09-22). La colonne `evenements.contact_principal_email` a été supprimée à la refonte 2026-04-28 (§04 Data Model, audit cohérence inter-CDC A2) et reportée V1.1 — le téléphone seul suffit le jour J. Si V1.1 la réintroduit : le formulaire de programmation (§06.01) devra la saisir et le payload E1 vers le transporteur la transmettre.
 - Type d'événement + taille (XS/S/M/L/XL bracket calculé sur pax)
 - Heure de collecte
 - Statut (badge)
@@ -448,7 +452,7 @@ Structure (1 jauge par flux ZD = 5 jauges) :
 - **Valeur traiteur** : ratio `kg du flux sur cette collecte / pax de cet événement` (grain `single collecte`)
 - **Borne max axe** : valeur max parc Savr × 1,2 (échelle figée par flux, identique §05/§02 dashboard)
 - **Point rouge benchmark** : moyenne parc Savr selon **filtres benchmark dédiés** (4 dimensions, voir §2 Bloc 3 ZD pour la liste)
-- **K-anonymat ≥5 collectes parc** appliqué côté serveur. Si <5 → point rouge masqué + tooltip "Données insuffisantes pour benchmark"
+- **K-anonymat parc appliqué côté serveur — ≥ 5 collectes ET ≥ 3 acteurs distincts** (durci 2026-09-22, cf. §04 « RLS / k-anonymat »). Si l'un des deux seuils n'est pas atteint → point rouge masqué + tooltip "Données insuffisantes pour benchmark" (libellé neutre : il ne cite pas la cause)
 - **Légende couleur** identique §2 Bloc 3 ZD (vert ≤ benchmark, orange 100-130%, rouge >130%, gris masqué)
 
 **Filtres benchmark modifiables (encart compact au-dessus du bloc)**
@@ -464,6 +468,12 @@ Mêmes 4 critères qu'au dashboard (Période / Lieux / Type événement / Taille
 Bouton "Réinitialiser" pour revenir aux valeurs par défaut.
 
 **Lien avec rapport RSE** : ce graphique avec les filtres sélectionnés est **intégré au PDF rapport RSE** que le traiteur télécharge / envoie au client. **Snapshot persisté (`rapports_rse.filtres_benchmark` jsonb — rétabli 2026-06-03, annulation revue §12 B2 sur arbitrage Val)** : les filtres benchmark choisis à la génération sont figés sur le rapport ; le re-téléchargement du même PDF redonne exactement les mêmes valeurs de référence (PDF reproductible). **Légende sous le graphe (ajout 2026-06-03)** : le PDF affiche, en dessous du graphe benchmark, une légende précisant les filtres effectivement appliqués au point de comparaison parc (période / lieux / type d'événement / taille) — le lecteur sait sur quel segment le benchmark a été calculé, y compris quand le traiteur a personnalisé les filtres. Le filtre `traiteur_ids[]` reste rejeté côté serveur (motif concurrentiel). Le taux de recyclage affiché reste figé (`collectes.taux_recyclage`). Cf. [[12 - Reporting et exports]] §1.2.
+
+> **Règle d'agrégation des segments parc (tranchée 2026-09-22 — divergence M3.1 « benchmark écran vs PDF », option (a))** : le point de comparaison parc est la **moyenne des segments pondérée par `nb_collectes_segment`**. Cette règle est **partagée par l'écran et par le PDF** — c'est la condition du « même graphe » exigé ci-dessus, et un **seul et même helper** doit servir les deux chemins.
+> - **Écran** : règle déjà en place (`aggregateBenchmarkPerFlux`), commune aux 4 écrans à jauges (traiteur, gestionnaire, agence, dashboard-client admin) et à la fiche collecte — inchangée.
+> - **PDF** : `f_rapport_benchmark_zd` calculait `AVG(kg_par_pax_moyen)`, **moyenne simple non pondérée** → **à aligner** sur la pondération par `nb_collectes_segment`. Écart mesuré : segments `(0,30 ; n=5)` et `(0,40 ; n=15)` → écran **0,375** vs PDF **0,350**. Le cas multi-segments ne demande aucune action de l'utilisateur : il survient dès que le type d'événement ou le bracket de taille est absent (retombée sur les 5 brackets) et à chaque élargissement de filtre.
+> - **Option (b) écartée** (pondération au tonnage `SUM(poids)/SUM(pax)` de la lettre du §04) : elle supposerait d'exposer `SUM(pax)` en sortie de `f_benchmark_kg_pax_zd`, fonction partagée par tous les dashboards — coût et surface de revue hors de proportion avec l'écart constaté. Option (c) (assumer deux chiffres différents) écartée : le PDF part au client final.
+> - **Effet sur les rapports existants** : le changement modifie la valeur des rapports **régénérés**, pas celle des PDF déjà rendus (`rapports_rse.filtres_benchmark` fige les filtres, pas le résultat).
 
 **Source de données** : fonction `f_benchmark_kg_pax_zd` étendue (refonte 2026-05-05) — signature accepte un grain `single_collecte` (paramètre `p_collecte_id` uuid) en plus du grain agrégé existant. Cf. [[04 - Data Model]].
 
@@ -681,7 +691,7 @@ Ces règles sont rappelées dans la modal avant confirmation, avec une mention e
 - Liste des utilisateurs avec : nom, email, rôle, dernière connexion
 - Actions manager :
   - **Inviter un collaborateur** : prénom + nom + email (rôle imposé `traiteur_commercial`)
-  - Modifier le rôle d'un collaborateur
+  - Modifier le rôle d'un collaborateur (jamais le sien : un manager ne peut pas changer son propre rôle — même logique que l'auto-suspension interdite. Une rétrogradation de manager passe par l'Admin Savr. Garde DB `trg_users_block_role_escalation` volet 3, migration `20260921170000`.)
   - Suspendre un compte (soft delete)
   - Transférer les collectes d'un commercial vers un autre (en cas de départ)
 
@@ -705,7 +715,7 @@ Tableau lecture seule :
 
 **Filtres** : statut, type (ZD/AG/Pack/Avoir), période.
 
-Toutes les factures de l'organisation sont visibles (factures par collecte, factures groupées, achats de pack, avoirs).
+Toutes les factures de l'organisation sont visibles (factures par collecte, factures groupées, achats de pack, avoirs), **à l'exception des brouillons** (encore éditables par Savr, non numérotés) — arbitrage Val 2026-09-18. S'applique aussi à l'espace gestionnaire de lieux (§06.05 nav 8, réutilisation du composant).
 
 **Fiche facture (vue détail)** :
 - Lignes détaillées (collectes facturées)

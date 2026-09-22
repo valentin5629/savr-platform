@@ -38,6 +38,7 @@ function makeChain() {
     'or',
     'range',
     'schema',
+    'is',
   ]) {
     chain[m] = (...args: unknown[]) => {
       record(m, args);
@@ -258,10 +259,19 @@ describe('M4.2 / export_zip_bordereaux_periode', () => {
       error: null,
     });
   }
+  // Forme réelle : bordereaux_savr.pdf_fichier_id → shared.fichiers (bucket/key).
+  // Pas de colonne `url` ni d'embed cross-schema (G7 column-db).
   function bords(n: number) {
     return Array.from({ length: n }, (_, i) => ({
       numero: `BSAV-2026-${String(i).padStart(5, '0')}`,
-      fichiers: { url: `bordereaux/b${i}.pdf` },
+      pdf_fichier_id: `f${i}`,
+    }));
+  }
+  function fichiers(n: number) {
+    return Array.from({ length: n }, (_, i) => ({
+      id: `f${i}`,
+      bucket: 'bordereaux',
+      key: `b${i}.pdf`,
     }));
   }
 
@@ -269,10 +279,20 @@ describe('M4.2 / export_zip_bordereaux_periode', () => {
     setupAuth('traiteur_manager', 'org-a');
     pushRows();
     rls.push({ data: bords(50), error: null });
+    rls.push({ data: fichiers(50), error: null }); // shared.fichiers
     rls.push({ error: null }); // trace
     const res = await callZip('?from=2026-04-01&to=2026-05-31');
     expect(res.status).toBe(200);
     expect(res.headers.get('Content-Type')).toBe('application/zip');
+    // Colonnes sélectionnées (G7) : jamais `fichiers:pdf_fichier_id(url)`.
+    const selects = (rls.__calls.select ?? []).map((c) => c[0]);
+    expect(selects).toContain('numero, pdf_fichier_id');
+    expect(selects).toContain('id, bucket, key');
+    expect(selects.join('|')).not.toContain('url');
+    expect(rls.__calls.schema).toEqual([['shared']]);
+    const { getObjectBytes } = await import('@/lib/pdf/r2-client.js');
+    expect(getObjectBytes).toHaveBeenCalledTimes(50);
+    expect(getObjectBytes).toHaveBeenCalledWith('bordereaux/b0.pdf');
     const insertArgs = (rls.__calls.insert ?? [])[0]?.[0] as
       | Record<string, unknown>
       | undefined;
@@ -306,18 +326,38 @@ describe('M4.2 / telechargement_pdf_bordereau_depuis_liste', () => {
   it('200 + URL pré-signée', async () => {
     setupAuth('traiteur_manager', 'org-a');
     rls.push({
-      data: {
-        id: 'b1',
-        statut: 'emis',
-        fichiers: { url: 'bordereaux/b1.pdf' },
-      },
+      data: { id: 'b1', statut: 'emis', pdf_fichier_id: 'f1' },
       error: null,
     });
+    rls.push({
+      data: [{ id: 'f1', bucket: 'bordereaux', key: 'b1.pdf' }],
+      error: null,
+    }); // shared.fichiers
     const res = await callDownload('b1');
     expect(res.status).toBe(200);
     const body = (await res.json()) as { url: string; expires_in: number };
     expect(body.url).toBe('https://r2.example/signed-url');
     expect(body.expires_in).toBe(900);
+    // Colonnes sélectionnées (G7) + clé R2 reconstruite depuis bucket/key.
+    expect((rls.__calls.select ?? []).map((c) => c[0])).toEqual([
+      'id, statut, pdf_fichier_id',
+      'id, bucket, key',
+    ]);
+    expect(rls.__calls.schema).toEqual([['shared']]);
+    expect(rls.__calls.from).toEqual([['bordereaux_savr'], ['fichiers']]);
+    const { getPresignedUrl } = await import('@/lib/pdf/r2-client.js');
+    expect(getPresignedUrl).toHaveBeenCalledWith('bordereaux/b1.pdf', 900);
+  });
+
+  it('fichier PDF absent de shared.fichiers (hors périmètre / supprimé) — 404', async () => {
+    setupAuth('traiteur_manager', 'org-a');
+    rls.push({
+      data: { id: 'b1', statut: 'emis', pdf_fichier_id: 'f1' },
+      error: null,
+    });
+    rls.push({ data: [], error: null }); // fichiers_select filtre la ligne
+    const res = await callDownload('b1');
+    expect(res.status).toBe(404);
   });
 
   it('M4.2/url_directe_bordereau_hors_perimetre_deny — 404 (RLS → null)', async () => {

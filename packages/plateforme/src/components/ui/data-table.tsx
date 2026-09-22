@@ -52,6 +52,41 @@ function DataTable<T>({
     onSort(key, next);
   };
 
+  /**
+   * Active une ligne au clavier (DS §10 « navigation complète au clavier,
+   * ordre de tabulation logique »). Monté uniquement quand `onRowClick` est
+   * fourni : une ligne non cliquable ne doit pas entrer dans l'ordre de
+   * tabulation.
+   *
+   * Pas de `role="button"` / `role="link"` sur la ligne : les cellules portent
+   * déjà leurs propres contrôles (ex. le bouton « Ouvrir la fiche » de
+   * admin/lieux), et un contrôle imbriqué dans un contrôle est invalide — la
+   * ligne desktop reste la `row` de son `role="grid"`.
+   *
+   * La garde `target === currentTarget` évite la double activation : ces
+   * boutons internes ne coupent la propagation que du CLIC, alors que le
+   * keydown qu'ils émettent remonte, lui, jusqu'à la ligne.
+   *
+   * Le focus ring DS (levier #4 — anneau `primary-500`) n'est pas posé en
+   * classe de couleur : `globals.css` l'applique à `*:focus-visible` dans
+   * `@layer base` et aucun composant ne pose plus de couleur divergente (test
+   * M0.8-4d), donc rendre la ligne focusable suffit. Seul l'OFFSET est surchargé, en desktop :
+   * la `<tr>` remplit le conteneur `overflow-x-auto`, qui rogne les bords
+   * gauche/droit d'un anneau à offset positif — il se lit alors comme deux
+   * traits horizontaux. L'offset négatif le dessine à l'intérieur de la ligne,
+   * donc entièrement visible. La card mobile n'est pas dans un conteneur
+   * scrollable : elle garde l'offset positif du DS.
+   * Ne jamais neutraliser l'outline ici (`outline-none` / `outline-0`).
+   */
+  const handleRowKeyDown =
+    (row: T) => (event: React.KeyboardEvent<HTMLElement>) => {
+      if (!onRowClick) return;
+      if (event.target !== event.currentTarget) return;
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault(); // Espace : pas de défilement de la page
+      onRowClick(row);
+    };
+
   const SortIcon = ({ colKey }: { colKey: string }) => {
     if (sortKey !== colKey)
       return (
@@ -118,9 +153,14 @@ function DataTable<T>({
               <tr
                 key={keyExtractor(row)}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
+                onKeyDown={onRowClick ? handleRowKeyDown(row) : undefined}
+                tabIndex={onRowClick ? 0 : undefined}
                 className={cn(
                   'border-b border-savr-neutral-100 hover:bg-savr-neutral-50 transition-colors',
-                  onRowClick && 'cursor-pointer',
+                  // Anneau tracé à l'intérieur de la ligne : le conteneur
+                  // `overflow-x-auto` rognerait un offset positif.
+                  onRowClick &&
+                    'cursor-pointer focus-visible:-outline-offset-2',
                   rowClassName?.(row),
                 )}
               >
@@ -149,6 +189,8 @@ function DataTable<T>({
           <div
             key={keyExtractor(row)}
             onClick={onRowClick ? () => onRowClick(row) : undefined}
+            onKeyDown={onRowClick ? handleRowKeyDown(row) : undefined}
+            tabIndex={onRowClick ? 0 : undefined}
             className={cn(
               'bg-savr-white border border-savr-neutral-200 rounded-savr-md p-4 space-y-2',
               onRowClick && 'cursor-pointer',

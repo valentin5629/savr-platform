@@ -2,8 +2,8 @@
  * M0.8 — Tests composants UI de base
  * Chaque test porte l'ID de scénario exact du manifest M0.8.json.
  */
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readFileSync, readdirSync } from 'node:fs';
+import { resolve, join } from 'node:path';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
@@ -94,14 +94,270 @@ it('M0.8-3 — Button accent applique fond accent-500 et texte primary-950', () 
   expect(btn.className).toContain('text-savr-primary-950');
 });
 
+/**
+ * Vrai si la règle `*:focus-visible` de globals.css est bien IMBRIQUÉE dans un
+ * `@layer base { … }`. Ce n'est pas un détail de style : hors layer, une règle
+ * l'emporte sur tous les utilitaires Tailwind (`@layer utilities`) quelle que
+ * soit la spécificité, ce qui rendait inertes les `focus-visible:outline-*` du
+ * repo — couleur ET offset (arbitrage Val 2026-09-22, divergence M0.8_20260922).
+ * On compte les accolades ouvertes avant l'occurrence plutôt que de faire
+ * confiance à une regex de présence, qui resterait verte si le `@layer` était
+ * retiré.
+ */
+function regleFocusDansLayerBase(source: string): boolean {
+  const sansCommentaires = source.replace(/\/\*[\s\S]*?\*\//g, '');
+  const i = sansCommentaires.indexOf('*:focus-visible');
+  if (i === -1) return false;
+  const entetesOuverts: string[] = [];
+  let debutBloc = 0;
+  for (let k = 0; k < i; k++) {
+    if (sansCommentaires[k] === '{') {
+      entetesOuverts.push(sansCommentaires.slice(debutBloc, k));
+      debutBloc = k + 1;
+    } else if (sansCommentaires[k] === '}') {
+      entetesOuverts.pop();
+      debutBloc = k + 1;
+    }
+  }
+  return entetesOuverts.some((e) => /@layer\s+base\s*$/.test(e.trim()));
+}
+
 it('M0.8-4 — Button focus-visible affiche un anneau primary-500 offset 2px (levier #4)', () => {
   const { container } = render(<Button variant="primary">Focus</Button>);
   const btn = container.querySelector('button')!;
   expect(btn.className).toContain('focus-visible:outline-savr-primary-500');
   expect(btn.className).toContain('focus-visible:outline-offset-2');
+  // La couleur ne vient pas QUE de la classe : elle n'est appliquée que parce
+  // que la règle globale est layered (sinon elle écraserait tout utilitaire).
+  expect(regleFocusDansLayerBase(css)).toBe(true);
+});
+
+it("M0.8-4b — l'anneau de focus est uniforme : aucune variante ne pose sa propre couleur", () => {
+  // Arbitrage Val 2026-09-22 : levier #4 fait foi, §5.1 s'aligne dessus — plus
+  // d'anneau `accent-600` / `error` par variante. Le test porte sur l'ABSENCE
+  // d'une couleur concurrente, donc il échouerait si on les réintroduisait.
+  const variantesBouton = [
+    'primary',
+    'secondary',
+    'accent',
+    'destructive',
+    'ghost',
+    'link',
+  ] as const;
+  for (const variant of variantesBouton) {
+    const { container, unmount } = render(
+      <Button variant={variant}>Action</Button>,
+    );
+    const couleurs =
+      container
+        .querySelector('button')!
+        .className.match(/focus-visible:outline-savr-[a-z0-9-]+/g) ?? [];
+    expect(
+      couleurs.filter((c) => c !== 'focus-visible:outline-savr-primary-500'),
+    ).toEqual([]);
+    unmount();
+  }
+  for (const variant of ['ghost', 'primary', 'destructive'] as const) {
+    const { container, unmount } = render(
+      <IconButton aria-label="Action" variant={variant} />,
+    );
+    const couleurs =
+      container
+        .querySelector('button')!
+        .className.match(/focus-visible:outline-savr-[a-z0-9-]+/g) ?? [];
+    expect(
+      couleurs.filter((c) => c !== 'focus-visible:outline-savr-primary-500'),
+    ).toEqual([]);
+    unmount();
+  }
 });
 
 // ── Card ────────────────────────────────────────────────────────────────────
+
+/** Tous les fichiers source de l'app (hors tests), chemins relatifs à `src/`. */
+function sourcesDeLApp(): { relatif: string; contenu: string }[] {
+  const RACINE = resolve(__dirname, '../..');
+  const trouves: { relatif: string; contenu: string }[] = [];
+  const parcourir = (dir: string): void => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const chemin = join(dir, e.name);
+      if (e.isDirectory()) parcourir(chemin);
+      else if (/\.tsx?$/.test(e.name) && !/\.test\.tsx?$/.test(e.name))
+        trouves.push({
+          relatif: chemin.slice(RACINE.length + 1),
+          contenu: readFileSync(chemin, 'utf8'),
+        });
+    }
+  };
+  parcourir(RACINE);
+  expect(trouves.length).toBeGreaterThan(100); // le parcours a bien eu lieu
+  return trouves;
+}
+
+/** Neutralise les commentaires SANS décaler la numérotation des lignes. */
+function sansCommentaires(src: string): string {
+  return src
+    .replace(/\/\*[\s\S]*?\*\//g, (bloc) => bloc.replace(/[^\n]/g, ' '))
+    .replace(/\/\/.*$/gm, '');
+}
+
+it("M0.8-4c — aucun composant ne neutralise l'anneau de focus sans le remplacer (§10)", () => {
+  // Depuis que `*:focus-visible` est LAYERED (arbitrage Val 2026-09-22), un
+  // `outline-none` nu l'emporte réellement sur elle : l'élément se retrouve
+  // sans AUCUNE indication de focus. Avant, la règle non-layered masquait ces
+  // neutralisations — trois champs de recherche en portaient une, inerte. Le
+  // risque est donc devenu réel pour tout le repo, d'où ce cliquet.
+  //
+  // Admis : (a) un anneau de remplacement d'épaisseur NON NULLE sur la MÊME
+  // ligne, donc dans la même chaîne de classes — chercher plus loin
+  // créditerait un `ring-*` DÉCORATIF voisin (ex. le point de notification de
+  // sidebar.tsx, à deux lignes d'un lien de nav), et `ring-0` ne remplace
+  // rien ; (b) les neutralisations Radix ci-dessous, exemptées par la
+  // SIGNATURE de leur ligne et non par fichier : un `outline-none` ajouté
+  // ailleurs dans ces mêmes fichiers reste attrapé.
+  // `outline-hidden` est surveillé au même titre : c'est le nom Tailwind v4
+  // de l'ancien `outline-none`, donc l'orthographe qu'un dev écrit en suivant
+  // la doc courante.
+  const EXEMPTIONS: { fichier: string; ligne: string; motif: string }[] = [
+    {
+      fichier: 'components/ui/modal.tsx',
+      ligne: 'rounded-savr-lg bg-savr-white shadow-savr-lg outline-none',
+      motif:
+        'conteneur de modale, focus programmatique à l’ouverture (tabIndex={-1}) : pas un contrôle',
+    },
+    {
+      fichier: 'components/ui/sheet.tsx',
+      ligne: 'fixed flex flex-col bg-savr-white shadow-savr-lg outline-none',
+      motif: 'idem modale — panneau latéral',
+    },
+    {
+      fichier: 'components/ui/toast.tsx',
+      ligne: 'flex w-full max-w-sm flex-col gap-2 p-4 outline-none',
+      motif:
+        'Viewport Radix : conteneur structurel, le focus va ensuite sur le toast lui-même',
+    },
+  ];
+
+  const nus: string[] = [];
+  const exemptionsServies = new Set<string>();
+  for (const { relatif, contenu } of sourcesDeLApp()) {
+    sansCommentaires(contenu)
+      .split('\n')
+      .forEach((ligne, i) => {
+        if (!/\boutline-(none|0|hidden)\b/.test(ligne)) return;
+        if (/\bring-[1-9]\d*\b/.test(ligne)) return; // remplacement sur le même élément
+        const exemption = EXEMPTIONS.find(
+          (e) => e.fichier === relatif && ligne.includes(e.ligne),
+        );
+        if (exemption) {
+          exemptionsServies.add(exemption.fichier + exemption.ligne);
+          return;
+        }
+        nus.push(`${relatif}:${i + 1}`);
+      });
+  }
+  expect(nus).toEqual([]);
+  // Une exemption qui ne sert plus est une exemption à supprimer : sinon elle
+  // couvrirait un jour une ligne qu'on n'a jamais examinée.
+  expect(
+    EXEMPTIONS.filter((e) => !exemptionsServies.has(e.fichier + e.ligne)),
+  ).toEqual([]);
+});
+
+it("M0.8-4d — aucune source ne pose de couleur d'anneau divergente (anneau uniforme)", () => {
+  // M0.8-4b ne rend que Button et IconButton : il n'aurait jamais vu la nuance
+  // `primary-800` que le bandeau d'impersonation posait sur son anneau, restée
+  // inerte tant que la règle globale n'était pas layered. (Le nom complet de la
+  // classe n'est pas écrit ici : le scanner Tailwind lit aussi les commentaires
+  // des tests et regénérerait l'utilitaire, donc du CSS mort.) Ce cliquet scanne
+  // TOUTES les sources : depuis l'arbitrage Val 2026-09-22, la seule couleur
+  // d'anneau admise est `primary-500` — et l'écrire reste redondant, puisque
+  // `globals.css` la pose déjà pour tout élément focusable.
+  //
+  // Les DEUX mécanismes sont couverts, `outline-*` comme `ring-*` (box-shadow) :
+  // se limiter à `outline-` laisserait passer un anneau orange posé en ring, et
+  // laisserait aussi passer la palette Tailwind par défaut — `@theme` AJOUTE nos
+  // jetons sans purger `red-500` & co, donc un extrait copié d'ailleurs compile
+  // sans rien signaler.
+  const DETTE = [
+    {
+      fichier: 'app/(traiteur)/traiteur/collectes/[id]/page.tsx',
+      jeton: 'savr-accent-600',
+      occurrences: 1,
+      motif: 'anneau orange — écart le plus visible, à reprendre en premier',
+    },
+    {
+      fichier: 'components/collecte/collecte-filtre-actif.tsx',
+      jeton: 'savr-primary-400',
+      occurrences: 1,
+      motif: 'nuance plus claire que le DS',
+    },
+    {
+      fichier: 'components/dashboards/charts/cockpit/TopRankList.tsx',
+      jeton: 'savr-primary-400',
+      occurrences: 1,
+      motif:
+        'idem — Cockpit R24, zone figée GO-VISUAL : ne pas toucher sans Val',
+    },
+    {
+      fichier: 'app/(admin)/admin/dashboard-client/OrganisationSelector.tsx',
+      jeton: 'savr-primary-500/30',
+      occurrences: 1,
+      motif: 'anneau à 1,90:1, rattrapé par un focus:border à 7,07:1',
+    },
+    {
+      fichier: 'components/dashboards/CollecteTypeTabs.tsx',
+      jeton: 'ring',
+      occurrences: 2,
+      motif:
+        '`ring-ring` n’est généré nulle part (--ring vit dans :root, pas en --color-ring dans @theme) → currentcolor',
+    },
+    {
+      fichier: 'components/dashboards/DashboardFilterBar.tsx',
+      jeton: 'ring',
+      occurrences: 2,
+      motif: 'idem CollecteTypeTabs',
+    },
+  ];
+  // Jetons qui ne désignent pas une couleur (épaisseur, offset, neutralisation).
+  const NON_COULEUR =
+    /^(?:\d+|none|hidden|inset|offset-\d+|offset-current|offset-transparent)$/;
+
+  const divergentes: string[] = [];
+  const detteComptee = new Map<string, number>();
+  for (const { relatif, contenu } of sourcesDeLApp()) {
+    sansCommentaires(contenu)
+      .split('\n')
+      .forEach((ligne, i) => {
+        for (const [, jeton] of ligne.matchAll(
+          /\b(?:[a-z0-9-]+:)*(?:focus|focus-visible|focus-within):(?:outline|ring)-([a-z0-9/#[\]-]+)/g,
+        )) {
+          if (!jeton || NON_COULEUR.test(jeton)) continue;
+          if (jeton === 'savr-primary-500') continue;
+          const connue = DETTE.find(
+            (d) => d.fichier === relatif && d.jeton === jeton,
+          );
+          if (connue) {
+            const cle = connue.fichier + connue.jeton;
+            detteComptee.set(cle, (detteComptee.get(cle) ?? 0) + 1);
+            continue;
+          }
+          divergentes.push(`${relatif}:${i + 1} → ${jeton}`);
+        }
+      });
+  }
+  // Liste FERMÉE : la dette connue ne peut que se réduire, jamais s'étendre.
+  // Le compte attendu est ce qui rend cette phrase VRAIE plutôt qu'espérée :
+  // sans lui, une 2e occurrence du même jeton dans un fichier DÉJÀ listé
+  // passerait au vert, et la dette grossirait en silence.
+  expect(divergentes).toEqual([]);
+  expect(
+    DETTE.map(
+      (d) =>
+        `${d.fichier} ${d.jeton} ×${detteComptee.get(d.fichier + d.jeton) ?? 0}`,
+    ),
+  ).toEqual(DETTE.map((d) => `${d.fichier} ${d.jeton} ×${d.occurrences}`));
+});
 
 it('M0.8-5 — Card au repos a bordure neutral-200 et ombre none', () => {
   const { container } = render(<Card>Contenu</Card>);
@@ -585,4 +841,143 @@ it('M0.8-42 — StatCardGrid applique la grille responsive KPI 1/2/3-4 (§8)', (
   expect(grid.className).toContain('grid-cols-1');
   expect(grid.className).toContain('sm:grid-cols-2');
   expect(grid.className).toContain('lg:grid-cols-4');
+});
+
+// ── DataTable : ligne cliquable au clavier (§10 Accessibilité, levier #4) ────
+// `onRowClick` n'était posé qu'en `onClick` : les lignes des listes (admin/lieux,
+// admin/clients, admin/transporteurs, …) ne s'ouvraient qu'à la souris.
+
+type LigneTest = { id: string; nom: string };
+const LIGNES_TEST: LigneTest[] = [
+  { id: '1', nom: 'Lieu A' },
+  { id: '2', nom: 'Lieu B' },
+];
+const COLONNES_TEST = [{ key: 'nom' as const, header: 'Nom' }];
+
+/** Les deux variantes sont rendues simultanément en jsdom (pas de media query). */
+function lignesRendues(container: HTMLElement) {
+  return {
+    desktop: container.querySelector('tbody tr') as HTMLElement,
+    mobile: container.querySelector('div.sm\\:hidden > div') as HTMLElement,
+  };
+}
+
+it('M0.8-63 — DataTable : Entrée et Espace sur une ligne déclenchent onRowClick (desktop + mobile)', () => {
+  const onRowClick = vi.fn();
+  const { container } = render(
+    <DataTable
+      columns={COLONNES_TEST}
+      data={LIGNES_TEST}
+      keyExtractor={(r) => r.id}
+      onRowClick={onRowClick}
+    />,
+  );
+  const { desktop, mobile } = lignesRendues(container);
+
+  // Focusable : la ligne entre dans l'ordre de tabulation.
+  expect(desktop.tabIndex).toBe(0);
+  expect(mobile.tabIndex).toBe(0);
+
+  fireEvent.keyDown(desktop, { key: 'Enter' });
+  fireEvent.keyDown(desktop, { key: ' ' });
+  fireEvent.keyDown(mobile, { key: 'Enter' });
+  fireEvent.keyDown(mobile, { key: ' ' });
+
+  expect(onRowClick).toHaveBeenCalledTimes(4);
+  // La bonne ligne est passée au callback (et pas une autre).
+  for (const appel of onRowClick.mock.calls) {
+    expect(appel[0].id).toBe('1');
+  }
+
+  // Une touche quelconque ne déclenche rien.
+  fireEvent.keyDown(desktop, { key: 'a' });
+  expect(onRowClick).toHaveBeenCalledTimes(4);
+});
+
+it('M0.8-64 — DataTable : une ligne cliquable porte le focus ring DS (levier #4)', () => {
+  // La couleur du ring n'est pas portée par une classe utilitaire : globals.css
+  // la pose sur `*:focus-visible`, et aucun composant ne pose plus de couleur
+  // d'anneau (arbitrage Val 2026-09-22). L'oracle tient en trois temps : la
+  // règle globale existe, elle est LAYERED (sinon elle rendrait tout utilitaire
+  // inerte, y compris l'offset ci-dessous), et la ligne est focusable sans
+  // neutraliser son outline.
+  expect(css).toMatch(
+    /\*:focus-visible\s*\{[^}]*outline:\s*2px\s+solid\s+var\(--color-savr-primary-500\)[^}]*outline-offset:\s*2px/,
+  );
+  expect(regleFocusDansLayerBase(css)).toBe(true);
+  const { container } = render(
+    <DataTable
+      columns={COLONNES_TEST}
+      data={LIGNES_TEST}
+      keyExtractor={(r) => r.id}
+      onRowClick={() => {}}
+    />,
+  );
+  const { desktop, mobile } = lignesRendues(container);
+  for (const ligne of [desktop, mobile]) {
+    expect(ligne.tabIndex).toBe(0); // focusable → la règle globale s'applique
+    expect(ligne.className).not.toMatch(/outline-none|outline-0/); // ring jamais neutralisé
+    expect(ligne.className).toContain('cursor-pointer');
+  }
+  // Desktop seulement : la <tr> remplit le conteneur `overflow-x-auto`, qui
+  // rogne les bords latéraux d'un anneau à offset positif. L'offset négatif le
+  // dessine à l'intérieur de la ligne. La card mobile n'est pas dans un
+  // conteneur scrollable et garde l'offset positif du DS.
+  expect(desktop.className).toContain('focus-visible:-outline-offset-2');
+  expect(mobile.className).not.toContain('outline-offset');
+});
+
+it("M0.8-65 — DataTable : une ligne sans onRowClick n'entre pas dans l'ordre de tabulation", () => {
+  const { container } = render(
+    <DataTable
+      columns={COLONNES_TEST}
+      data={LIGNES_TEST}
+      keyExtractor={(r) => r.id}
+    />,
+  );
+  const { desktop, mobile } = lignesRendues(container);
+  for (const ligne of [desktop, mobile]) {
+    expect(ligne.hasAttribute('tabindex')).toBe(false);
+    expect(ligne.tabIndex).toBe(-1); // non atteignable par Tab
+    expect(ligne.className).not.toContain('cursor-pointer');
+  }
+});
+
+it("M0.8-66 — DataTable : Entrée sur un bouton de cellule n'active pas la ligne (pas de double activation)", () => {
+  const onRowClick = vi.fn();
+  const onBouton = vi.fn();
+  // Reproduit la colonne chevron d'admin/lieux : un bouton DANS la cellule, qui
+  // ne coupe la propagation que du clic.
+  const colonnes = [
+    {
+      key: 'nom' as const,
+      header: 'Nom',
+      render: (row: LigneTest) => (
+        <button
+          type="button"
+          aria-label={`Ouvrir la fiche ${row.nom}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onBouton();
+          }}
+        >
+          Ouvrir
+        </button>
+      ),
+    },
+  ];
+  render(
+    <DataTable
+      columns={colonnes}
+      data={LIGNES_TEST}
+      keyExtractor={(r) => r.id}
+      onRowClick={onRowClick}
+    />,
+  );
+  const bouton = screen.getAllByRole('button', {
+    name: 'Ouvrir la fiche Lieu A',
+  })[0]!;
+  fireEvent.keyDown(bouton, { key: 'Enter', bubbles: true });
+  fireEvent.keyDown(bouton, { key: ' ', bubbles: true });
+  expect(onRowClick).not.toHaveBeenCalled();
 });

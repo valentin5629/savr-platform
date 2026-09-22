@@ -5,7 +5,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(58);
+SELECT plan(60);
 
 -- ---------------------------------------------------------------------------
 -- HELPERS de simulation JWT (pgTAP context)
@@ -272,12 +272,88 @@ SELECT throws_ok(
   '42501', NULL, 'T16 packs_ag_write_client_denied'
 );
 
+-- ---------------------------------------------------------------------------
+-- FIXTURE T17/T18 — matérialise EXACTEMENT les deux cas que C-1 refuse.
+-- ---------------------------------------------------------------------------
+-- Sans elle, `plateforme.attributions_antgaspi` est VIDE sur une base fraîchement
+-- migrée — mesuré le 2026-09-21 sur base jetable, c.-à-d. sur ce que la CI reconstruit
+-- avant `supabase test db`. Les `count(*) = 0` de T17 et T18 étaient donc verts par
+-- construction, et la garantie « aa_select n'est JAMAIS élargie » que le §04 (vue
+-- v_attributions_gestionnaire) fait porter à T18 était vacante.
+--
+-- L'événement 0e0e0001 cumule les deux rattachements visés par C-1 :
+--   (a) client_organisateur_organisation_id = 5555… → le cas refusé à T17 ;
+--   (b) lieu_id = aaaa0001, rattaché au gestionnaire 4444… via organisations_lieux
+--       → le cas refusé à T18.
+-- Une seule attribution AG suffit donc aux deux dénis, et c'est la MÊME ligne que
+-- T17a et T18a prouvent présente et lisible par un rôle qui y a droit.
+SELECT test_as_superuser();
+
+-- Association + transporteur : FK NOT NULL de attributions_antgaspi. Le transporteur
+-- n'est là QUE pour satisfaire la FK : aucun test ici ne dépend du dispatch, d'où
+-- type_tms = 'autre' (provider_manual). Garder cette valeur : un test de cloisonnement
+-- RLS n'a aucune raison de nommer un TMS réel. ⚠ Le garde-fou 3
+-- (scripts/check-coupling.sh) n'est PAS un filet complet ici : son motif ne reconnaît
+-- qu'une PARTIE des valeurs de l'enum type_tms (mesuré 2026-09-21 — il bloque bien ce
+-- fichier sur la valeur du TMS historique, mais laisse passer celle du prestataire vélo).
+-- Ne pas compter sur lui pour rattraper une régression sur cette ligne.
+INSERT INTO plateforme.associations (id, nom, adresse, region, ville, contact_email, description_rapport_impact)
+VALUES ('a5500002-0000-0000-0000-000000000001'::uuid, 'Asso Test C1', '1 rue du don', 'idf', 'Paris', 'asso-c1@test.com', 'Association de test pour les tests pgTAP RLS.')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, ville, types_vehicules, type_tms, contact_nom, contact_email, contact_telephone)
+VALUES ('7a000002-0000-0000-0000-000000000001'::uuid, 'Transporteur Test C1', '123456789', '1 rue du froid', '75001', 'Paris', ARRAY['fourgon'], 'autre', 'Contact', 'transp-c1@test.com', '0601010101')
+ON CONFLICT (id) DO NOTHING;
+
+-- Collecte AG portée par l'événement 0e0e0001 : une attribution AG ne porte que sur
+-- une collecte anti_gaspi (rpc_valider_attribution_ag, ERRCODE P0042). La collecte ZD
+-- existante cccc0001 ne peut donc pas servir de support.
+INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte)
+VALUES ('cccc0003-0000-0000-0000-000000000001'::uuid,
+        '0e0e0001-0000-0000-0000-000000000001'::uuid,
+        'anti_gaspi', 'programmee', 'non_envoye', current_date + 10, '10:00');
+
+INSERT INTO plateforme.attributions_antgaspi (id, collecte_id, association_id, transporteur_id, branche_attribution, mode_validation)
+VALUES ('add00002-0000-0000-0000-000000000001'::uuid,
+        'cccc0003-0000-0000-0000-000000000001'::uuid,
+        'a5500002-0000-0000-0000-000000000001'::uuid,
+        '7a000002-0000-0000-0000-000000000001'::uuid,
+        'IDF', 'manuel_top1');
+
+-- T17a : NON-VACUITÉ de T17 — la ligne existe et porte bien le rattachement (a).
+-- Lue par admin_savr, à qui aa_select l'ouvre (f_is_staff). Si T17a rougit, T17 ne
+-- prouve plus rien : c'est le garde-fou qui interdit à T17 de redevenir vacant.
+SELECT test_set_jwt('admin_savr', NULL);
+SELECT results_eq(
+  $$SELECT count(*)::int FROM plateforme.attributions_antgaspi a
+      JOIN plateforme.collectes c  ON c.id = a.collecte_id
+      JOIN plateforme.evenements e ON e.id = c.evenement_id
+     WHERE e.client_organisateur_organisation_id = '55555555-0000-0000-0000-000000000001'$$,
+  $$VALUES (1)$$,
+  'T17a non_vacuite_T17_attribution_event_client_orga_lisible_admin'
+);
+
 -- T17 : attributions_ag_client_orga_denied — client_organisateur ne voit PAS attributions (C-1)
 SELECT test_set_jwt('client_organisateur', '55555555-0000-0000-0000-000000000001'::uuid);
 SELECT results_eq(
   $$SELECT count(*)::int FROM plateforme.attributions_antgaspi$$,
   $$VALUES (0)$$,
   'T17 attributions_ag_client_orga_denied'
+);
+
+-- T18a : NON-VACUITÉ de T18 — la MÊME ligne porte le rattachement (b), par le lieu.
+-- Lue par admin_savr (aa_select via f_is_staff ; organisations_lieux via org_lieux_admin).
+-- Si T18a rougit, T18 ne prouve plus rien — or le §04 en fait la garantie PORTEUSE de
+-- C-1 pour la vue v_attributions_gestionnaire.
+SELECT test_set_jwt('admin_savr', NULL);
+SELECT results_eq(
+  $$SELECT count(*)::int FROM plateforme.attributions_antgaspi a
+      JOIN plateforme.collectes c            ON c.id = a.collecte_id
+      JOIN plateforme.evenements e           ON e.id = c.evenement_id
+      JOIN plateforme.organisations_lieux ol ON ol.lieu_id = e.lieu_id
+     WHERE ol.organisation_id = '44444444-0000-0000-0000-000000000001'$$,
+  $$VALUES (1)$$,
+  'T18a non_vacuite_T18_attribution_lieu_gestionnaire_lisible_admin'
 );
 
 -- T18 : attributions_ag_gestionnaire_denied — gestionnaire ne voit PAS attributions (C-1)
@@ -619,6 +695,12 @@ SELECT throws_ok(
 
 -- T53 : lieux_cross_org_row_denied
 -- lieux_clients_select : traiteur org A ne voit PAS un lieu non rattaché à ses événements.
+-- Toujours vrai après l'ajout de la 4e branche « traiteur opérationnel »
+-- (20260921140000_plateforme_lieux_select_traiteur_operationnel) : l'événement
+-- porteur de ce lieu est opéré par l'org B, pas par A — cet assert ne dépend donc
+-- PAS du nombre de branches, il borne le cloisonnement inter-organisations.
+-- L'étendue exacte des 4 branches (ce qui s'ouvre ET ce qui reste fermé) est
+-- prouvée par supabase/tests/lieux_traiteur_operationnel.test.sql.
 -- (Restriction colonne commentaire_lieu/siren/etc. → vue SECURITY DEFINER V1.1 TODO.)
 SELECT test_set_jwt('traiteur_manager', '11111111-0000-0000-0000-000000000001'::uuid);
 SELECT results_eq(

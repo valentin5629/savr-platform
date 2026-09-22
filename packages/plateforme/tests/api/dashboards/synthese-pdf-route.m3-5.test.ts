@@ -60,12 +60,17 @@ async function callPost(req: NextRequest) {
 }
 
 beforeEach(() => {
+  // Clés de logo bornées au bucket applicatif (lib/logo-key.ts).
+  vi.stubEnv('R2_BUCKET_NAME', 'savr-dev');
   vi.clearAllMocks();
   authResult = {
     ctx: { userId: 'u1', role: 'traiteur_manager', organisationId: 'org-1' },
   };
   orgMaybeSingle.mockResolvedValue({
-    data: { nom: 'Traiteur SA', logo_url: 'logos-savr/logos/org1.png' },
+    data: {
+      nom: 'Traiteur SA',
+      logo_url: 'savr-dev/logos/c7a3e4f5-6d7e-4f80-8b92-a3c4d5e6f708.png',
+    },
     error: null,
   });
   buildSyntheseSnapshot.mockResolvedValue(SNAPSHOT);
@@ -87,7 +92,9 @@ describe('M3.5 / route synthèse PDF — génération synchrone', () => {
 
     // Contrat renderer : type_document 'synthese-dashboard' + snapshot en payload,
     // enrichi du logo de l'org inliné en data URI (BL-P3-05, §1.6 l.283).
-    expect(getObjectBytes).toHaveBeenCalledWith('logos-savr/logos/org1.png');
+    expect(getObjectBytes).toHaveBeenCalledWith(
+      'savr-dev/logos/c7a3e4f5-6d7e-4f80-8b92-a3c4d5e6f708.png',
+    );
     expect(generatePdf).toHaveBeenCalledWith('synthese-dashboard', {
       ...SNAPSHOT,
       logo_data_uri: `data:image/png;base64,${Buffer.from([1, 2, 3]).toString('base64')}`,
@@ -112,6 +119,27 @@ describe('M3.5 / route synthèse PDF — génération synchrone', () => {
       expect.objectContaining({ types: ['zero_dechet'] }),
       expect.anything(),
     );
+  });
+
+  it('logo_url forgé vers un autre objet R2 → jamais lu ni inliné, en-tête Savr (revue sécurité 2026-09-18)', async () => {
+    // logo_url est modifiable par le client via PostgREST : pointé sur le bordereau
+    // d'une autre organisation, il ne doit pas finir en data URI dans CE PDF.
+    orgMaybeSingle.mockResolvedValue({
+      data: {
+        nom: 'Traiteur SA',
+        logo_url: 'savr-dev/bordereaux/autre-org/b1.pdf',
+      },
+      error: null,
+    });
+    const res = await callPost(
+      post({ from: '2026-01-01', to: '2026-06-30', types: ['zero_dechet'] }),
+    );
+    expect(res.status).toBe(200);
+    expect(getObjectBytes).not.toHaveBeenCalled();
+    expect(generatePdf).toHaveBeenCalledWith('synthese-dashboard', {
+      ...SNAPSHOT,
+      logo_data_uri: null,
+    });
   });
 
   it('rôle non autorisé → 403, aucun rendu', async () => {

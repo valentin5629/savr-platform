@@ -12,5 +12,10 @@ export default async function MonOrganisationPage() {
   const session = await requirePageSession(TRAITEUR_ROLES);
   const isManager = session.role === 'traiteur_manager';
 
-  return <MonOrganisationClient isManager={isManager} />;
+  // `userId` vient de la SESSION serveur (jamais du client) : il sert à griser
+  // le sélecteur de rôle de sa propre ligne dans Équipe — un manager ne change
+  // pas son propre rôle (volet 3 du trigger anti-escalade, 20260921170000).
+  return (
+    <MonOrganisationClient isManager={isManager} userId={session.userId} />
+  );
 }

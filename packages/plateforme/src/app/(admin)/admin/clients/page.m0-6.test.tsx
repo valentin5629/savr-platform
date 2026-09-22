@@ -10,7 +10,13 @@
  * assertions en getAllBy*.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import {
+  render,
+  screen,
+  waitFor,
+  fireEvent,
+  within,
+} from '@testing-library/react';
 
 // Impersonation : dépend d'une session Supabase navigateur → hors périmètre.
 vi.mock('@/components/ui/impersonation-launcher', () => ({
@@ -29,7 +35,7 @@ vi.mock('next/link', () => ({
 }));
 
 import ClientsPage from './page';
-import { ATTENTE_UI } from '@/test-utils/attente-ui';
+import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 const orgs = [
   {
@@ -81,58 +87,152 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe('M0.6 — liste clients : colonne Pack actif + retrait SIREN', () => {
-  it('affiche le bandeau « Clients » et le CTA « Créer une organisation »', async () => {
-    render(<ClientsPage />);
-    await waitFor(
-      () =>
-        expect(screen.getAllByText('Fleur de Mets').length).toBeGreaterThan(0),
-      ATTENTE_UI,
-    );
-    expect(
-      screen.getByRole('heading', { name: 'Clients' }),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Créer une organisation')).toBeInTheDocument();
-  });
+  it(
+    'affiche le bandeau « Clients » et le CTA « Nouvelle organisation »',
+    async () => {
+      render(<ClientsPage />);
+      await waitFor(
+        () =>
+          expect(screen.getAllByText('Fleur de Mets').length).toBeGreaterThan(
+            0,
+          ),
+        ATTENTE_UI,
+      );
+      expect(
+        screen.getByRole('heading', { name: 'Clients' }),
+      ).toBeInTheDocument();
+      // Bouton (pas un lien vers /admin/clients/nouveau, route inexistante).
+      expect(
+        screen.getByRole('button', { name: /Nouvelle organisation/ }),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
 
-  it('rend un avatar à initiales (première + dernière parole) devant le nom', async () => {
-    render(<ClientsPage />);
-    await waitFor(
-      () =>
-        expect(screen.getAllByText('Fleur de Mets').length).toBeGreaterThan(0),
-      ATTENTE_UI,
-    );
-    expect(screen.getAllByText('FM').length).toBeGreaterThan(0); // Fleur … Mets
-    expect(screen.getAllByText('KR').length).toBeGreaterThan(0); // Kaspia Réceptions
-    expect(screen.getAllByText('VL').length).toBeGreaterThan(0); // Viparis Lieux
-  });
+  it(
+    'M1.1b — le CTA ouvre la modale ; une création réussie recharge la liste',
+    async () => {
+      render(<ClientsPage />);
+      await waitFor(
+        () =>
+          expect(screen.getAllByText('Fleur de Mets').length).toBeGreaterThan(
+            0,
+          ),
+        ATTENTE_UI,
+      );
+      const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>;
+      const listCalls = () =>
+        fetchMock.mock.calls.filter(
+          ([u, init]) =>
+            String(u).startsWith('/api/v1/admin/organisations?') &&
+            !(init as RequestInit | undefined)?.method,
+        ).length;
+      const avant = listCalls();
 
-  it('colonne Pack actif : badge rouge si < 5 restants, vert sinon, « — » si aucun', async () => {
-    render(<ClientsPage />);
-    await waitFor(
-      () =>
-        expect(screen.getAllByText('Fleur de Mets').length).toBeGreaterThan(0),
-      ATTENTE_UI,
-    );
-    // 3 restants → rouge (error)
-    const faible = screen.getAllByText(/Pack 30 · 3 restants/);
-    expect(faible.length).toBeGreaterThan(0);
-    expect(faible[0]!.className).toMatch(/savr-error/);
-    // 6 restants → vert (success)
-    const sain = screen.getAllByText(/Pack 10 · 6 restants/);
-    expect(sain.length).toBeGreaterThan(0);
-    expect(sain[0]!.className).toMatch(/savr-success/);
-    // Aucun pack actif → « — »
-    expect(screen.getAllByText('—').length).toBeGreaterThan(0);
-  });
+      fireEvent.click(
+        screen.getByRole('button', { name: /Nouvelle organisation/ }),
+      );
+      const dialog = screen.getByRole('dialog');
+      expect(
+        within(dialog).getByText('Nouvelle organisation'),
+      ).toBeInTheDocument();
 
-  it('n’affiche plus la colonne SIREN (ni en-tête, ni numéros)', async () => {
-    render(<ClientsPage />);
-    await waitFor(
-      () =>
-        expect(screen.getAllByText('Fleur de Mets').length).toBeGreaterThan(0),
-      ATTENTE_UI,
-    );
-    expect(screen.queryByText(/SIREN/i)).not.toBeInTheDocument();
-    expect(screen.queryByText('43219876500012')).not.toBeInTheDocument();
-  });
+      fetchMock.mockImplementationOnce(() =>
+        Promise.resolve({ ok: true, json: async () => ({ id: 'org-new' }) }),
+      );
+      fireEvent.change(within(dialog).getByLabelText(/^Nom/), {
+        target: { value: 'Nouvel Org' },
+      });
+      fireEvent.change(within(dialog).getByLabelText(/^Raison sociale/), {
+        target: { value: 'Nouvel Org SAS' },
+      });
+      fireEvent.change(within(dialog).getByLabelText(/^Type/), {
+        target: { value: 'agence' },
+      });
+      fireEvent.change(within(dialog).getByLabelText(/^Email principal/), {
+        target: { value: 'a@b.fr' },
+      });
+      fireEvent.click(
+        within(dialog).getByRole('button', { name: /Créer l.organisation/ }),
+      );
+
+      await waitFor(
+        () => expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+        ATTENTE_UI,
+      );
+      expect(
+        fetchMock.mock.calls.some(
+          ([u, init]) =>
+            u === '/api/v1/admin/organisations' &&
+            (init as RequestInit | undefined)?.method === 'POST',
+        ),
+      ).toBe(true);
+      await waitFor(
+        () => expect(listCalls()).toBeGreaterThan(avant),
+        ATTENTE_UI,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'rend un avatar à initiales (première + dernière parole) devant le nom',
+    async () => {
+      render(<ClientsPage />);
+      await waitFor(
+        () =>
+          expect(screen.getAllByText('Fleur de Mets').length).toBeGreaterThan(
+            0,
+          ),
+        ATTENTE_UI,
+      );
+      expect(screen.getAllByText('FM').length).toBeGreaterThan(0); // Fleur … Mets
+      expect(screen.getAllByText('KR').length).toBeGreaterThan(0); // Kaspia Réceptions
+      expect(screen.getAllByText('VL').length).toBeGreaterThan(0); // Viparis Lieux
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'colonne Pack actif : badge rouge si < 5 restants, vert sinon, « — » si aucun',
+    async () => {
+      render(<ClientsPage />);
+      await waitFor(
+        () =>
+          expect(screen.getAllByText('Fleur de Mets').length).toBeGreaterThan(
+            0,
+          ),
+        ATTENTE_UI,
+      );
+      // 3 restants → rouge (error)
+      const faible = screen.getAllByText(/Pack 30 · 3 restants/);
+      expect(faible.length).toBeGreaterThan(0);
+      expect(faible[0]!.className).toMatch(/savr-error/);
+      // 6 restants → vert (success)
+      const sain = screen.getAllByText(/Pack 10 · 6 restants/);
+      expect(sain.length).toBeGreaterThan(0);
+      expect(sain[0]!.className).toMatch(/savr-success/);
+      // Aucun pack actif → « — »
+      expect(screen.getAllByText('—').length).toBeGreaterThan(0);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'n’affiche plus la colonne SIREN (ni en-tête, ni numéros)',
+    async () => {
+      render(<ClientsPage />);
+      await waitFor(
+        () =>
+          expect(screen.getAllByText('Fleur de Mets').length).toBeGreaterThan(
+            0,
+          ),
+        ATTENTE_UI,
+      );
+      expect(screen.queryByText(/SIREN/i)).not.toBeInTheDocument();
+      expect(screen.queryByText('43219876500012')).not.toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
 });

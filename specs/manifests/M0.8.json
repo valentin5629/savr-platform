@@ -570,8 +570,8 @@
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:448",
       "artefact": "packages/plateforme/src/app/globals.css (*:focus-visible, hors @layer) appliqué à la ligne focusable de packages/plateforme/src/components/ui/data-table.tsx",
       "test": "M0.8-64 — DataTable : une ligne cliquable porte le focus ring DS (levier #4)",
-      "statut": "implemented",
-      "libelle": "Focus ring (levier #4) — la ligne cliquable porte l'anneau focus-visible primary-500 offset 2px, jamais le focus bleu navigateur."
+      "statut": "à-vérifier",
+      "libelle": "Focus ring (levier #4) — la ligne cliquable porte l'anneau focus-visible primary-500 offset 2px, jamais le focus bleu navigateur. Le test couvre ce qui est automatisable (règle globale présente, ligne focusable, outline non neutralisé) ; le RENDU relève de la preuve visuelle (jsdom ne peint pas) — vérifié au navigateur le 2026-09-22 : #3f5599, 2px, offset 2px sur la ligne focalisée au Tab. Anneau rogné latéralement en desktop (tr dans overflow-x-auto) — cf. _Divergences/M0.8_20260922_focus-ring-uniforme-vs-differencie.md."
     }
   ],
   "cdc_source_hash": {

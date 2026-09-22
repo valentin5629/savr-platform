@@ -969,7 +969,7 @@
     },
     {
       "id": "BL-P1-BOA-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:430-468",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:432-470",
       "artefact": "packages/plateforme/src/components/admin/association-form.tsx (monté sur nouvelle/[id]/modifier) ; géocodage serveur ; R17b (décisions Val 2026-07-02) : logo (LogoUpload + POST /api/v1/admin/uploads/logo → R2), instructions_acces, siren (non oblig., admin-only), date_expiration_habilitation — colonnes ajoutées migration 20260702020100 + DDL cible ; ADMIN_FIELDS re-inclut siren + date (trigger trg_ops_immutable_cols étendu)",
       "test": "packages/plateforme/src/components/admin/association-form.test.tsx « M0.6 — formulaire association (BL-P1-BOA-01) » (6 scénarios : champs R17b logo/instructions/SIREN/date présents, SIREN 9 chiffres, validation description ≥30, POST, PATCH) + packages/plateforme/tests/api/admin/associations.m1-1b.test.ts",
       "statut": "à-vérifier",
@@ -977,7 +977,7 @@
     },
     {
       "id": "BL-P1-BOA-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:502-518",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:504-520",
       "artefact": "packages/plateforme/src/components/admin/transporteur-form.tsx (monté sur nouveau/[id]/modifier) ; géocodage serveur ; R17b (Val 2026-07-02) : types_collecte text[] (AG/ZD multi), description_process_collecte, type_tms += par_mail/par_telephone (migration 20260702020000/020100 + DDL cible) ; routing par_mail/par_telephone→provider_manual (packages/adapters/src/index.ts + dispatch SQL 20260702020200)",
       "test": "packages/plateforme/src/components/admin/transporteur-form.test.tsx « M0.6 — formulaire transporteur (BL-P1-BOA-02) » (5 scénarios : code_transporteur_mts1 conditionnel, validation mts1, POST, options par_mail/par_telephone, types_collecte+description POST) + packages/adapters/src/outbox-worker.m2-3.test.ts (par_mail/par_telephone→ProviderManual) + packages/plateforme/tests/api/admin/transporteurs.m1-1b.test.ts",
       "statut": "à-vérifier",
@@ -985,7 +985,7 @@
     },
     {
       "id": "BL-P1-BOA-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:502-601 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:90-102",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:504-603 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:92-104",
       "artefact": "packages/plateforme/src/components/admin/lieu-form.tsx (monté sur nouveau/[id]/modifier, 8 champs prog. + 4 admin/ops + sélecteur Gestionnaire mono → organisations_lieux) ; extension LieuManuelForm (composant packages/plateforme/src/components/programmation/lieu-manuel-form.tsx) ; email admin_demande_ajout_lieu (migration 20260702010000) ; liste lieux réordonnée Nom/Adresse/Contrôle accès/Statut (page.tsx) ; routes lieux POST/PATCH/GET écrivent/exposent organisations_lieux (single, Val 2026-07-02)",
       "test": "packages/plateforme/src/components/admin/lieu-form.test.tsx « M0.6 — formulaire lieu CRUD Admin (BL-P1-BOA-03) » (4 scénarios dont sélecteur Gestionnaire) + packages/plateforme/src/components/programmation/lieu-manuel-form.test.tsx (2 scénarios quick-add) + packages/plateforme/tests/api/admin/lieux.m1-1b.test.ts",
       "statut": "à-vérifier",
@@ -1001,7 +1001,7 @@
     },
     {
       "id": "BL-P1-BOA-05",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:147-202",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:149-204",
       "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (colonnes Client organisateur + Contrôle accès, colonne Indicateurs : rapport RSE dispo/consulté/régénéré, poids total ZD, taux recyclage, repas AG, badge Info incomplète, statut attribution AG En attente/Validée/Auto-accept via mode_validation ; filtres traiteur/lieu autocomplete, statut multi, plage de dates, Info incomplète, Rapport non consulté) + packages/plateforme/src/components/ui/autocomplete.tsx (nouveau) + packages/plateforme/src/app/api/v1/admin/collectes/route.ts (GET enrichi : jointures client_organisateur/collecte_flux/rapports_rse/attributions.mode_validation + filtres organisation_id/lieu_id/statuts/info_incomplete/rapport_non_consulte ; prédicat chip « Non transmises TMS » corrigé → statut=programmee ET tms_reference IS NULL)",
       "test": "packages/plateforme/src/app/(admin)/admin/collectes/collectes-list.m0-6.test.tsx « M0.6 — liste collectes Admin (BL-P1-BOA-05) » (7 scénarios : colonnes client-orga/contrôle-accès, indicateurs rapport dispo/consulté/régénéré + poids/taux ZD, statut attribution En attente/Validée/Auto-accept + repas AG, filtres statut multi/info_incomplete/rapport_non_consulte, autocomplete traiteur/lieu) + packages/plateforme/tests/api/admin/collectes-liste.m0-6.test.ts « M0.6 — API GET collectes filtres (BL-P1-BOA-05) » (5 scénarios : prédicat chip non_transmises corrigé, in(statut), info_incomplete, organisation/lieu, rapport_non_consulte) + non-régression collectes.m1-1b.test.ts",
       "statut": "à-vérifier",
@@ -1009,7 +1009,7 @@
     },
     {
       "id": "BL-P1-BOA-06",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:231-292",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:233-294",
       "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/[id]/page.tsx (Bloc 0 : prestataire actuel résolu via pont transporteurs.prestataire_logistique_id, statut_tms + statut_tms_at, sélecteur transporteurs actifs (AG), champ motif override conditionnel, bouton d'envoi forké par type_tms — Envoyer à MTS-1 / A Toutes! / Dispatcher manuel) ; handleDispatch POST /dispatch { prestataire_logistique_id, motif_override_prestataire }. FIX BL-P0 crash fiche : le GET packages/plateforme/src/app/api/v1/admin/collectes/[id]/route.ts référençait 3 colonnes DB inexistantes (types_evenements.nom→libelle, tournees.statut_tms→statut, factures_collectes.statut→factures!facture_id(statut)) → HTTP 400 → écran blanc (collecte.type.toUpperCase() sur undefined). Corrigé + durcissement du fetch (vérif res.ok avant désérialisation).",
       "test": "packages/plateforme/src/app/(admin)/admin/collectes/[id]/collecte-detail.m0-6.test.tsx « M0.6 — fiche collecte Bloc 0 dispatch + RM-08 » (reco algo affichée prestataire+asso + pré-sélection top-1 sans motif ; choix ≠ top-1 → motif override obligatoire ≥5 ; forçage statut motif≥10 ; rend type d'événement libelle + tournée statut + facture statut) + packages/plateforme/tests/api/admin/collectes.m1-1b.test.ts « M0.6/dispatch AG — motif override vs top-1 algo » (422 si ≠ top-1 sans motif ; 200 si accepte le top-1 sans motif) — GET fiche + RPC algo re-vérifiés HTTP 200 contre savr-dev",
       "statut": "à-vérifier",
@@ -1017,7 +1017,7 @@
     },
     {
       "id": "BL-P1-RM-08",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:341 + specs/cdc/01 - Cahier des charges App/07 - Observabilité/06 - Audit trail.md",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:343 + specs/cdc/01 - Cahier des charges App/07 - Observabilité/06 - Audit trail.md",
       "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/[id]/page.tsx (bouton « Forcer le statut » d'en-tête + modale : Select 9 statuts + Textarea motif ≥ 10 → PATCH /admin/collectes/[id] { statut, motif }). L'API (route.ts : forceStatut = 'statut' in updates, garde motif.length < 10, audit collecte_statut_force) était déjà en place — volet UI uniquement (drift, non recodé).",
       "test": "packages/plateforme/src/app/(admin)/admin/collectes/[id]/collecte-detail.m0-6.test.tsx « M0.6 — modale forçage statut : PATCH exige un motif ≥ 10 caractères » (soumission désactivée motif court, PATCH { statut, motif } émis) + non-régression packages/plateforme/tests/api/admin/collectes-machine-etats.r16.test.ts",
       "statut": "à-vérifier",
@@ -1025,7 +1025,7 @@
     },
     {
       "id": "BL-P1-BOA-07",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:300",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:302",
       "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/[id]/page.tsx (Bloc 3 Documents + Bloc 4 Pack AG + Bloc 5 Attribution AG réelle remplaçant le stub « algo V2 » + Bloc 7 Historique/Timeline) ; endpoints packages/plateforme/src/app/api/v1/admin/collectes/[id]/documents/route.ts (GET), /photos/route.ts (POST import), /audit/route.ts (GET timeline + recredit_at), /documents/[type]/regenerate/route.ts (POST) ; packages/plateforme/src/app/api/v1/admin/attestations/[id]/download/route.ts (nouvelle route download attestation admin) ; packages/plateforme/src/lib/pdf/regenerate.ts (helper ré-enqueue jobs_pdf) ; main GET /[id]/route.ts enrichi (packs_antgaspi.statut + embed attributions_antgaspi asso/transporteur pour Bloc 5)",
       "test": "packages/plateforme/src/app/(admin)/admin/collectes/[id]/collecte-detail.m0-6.test.tsx « M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA-07) » (10 scénarios : Bloc 3 rapport/attestation/régénérer/picto/bordereau-ZD/galerie-photos/import, Bloc 4 pack/recrédit, Bloc 5 asso-transporteur-lien + scores, Bloc 7 timeline) + packages/plateforme/tests/api/admin/collectes-documents.m0-6.test.ts « M0.6 — régénération PDF collecte » (5) + packages/plateforme/tests/api/admin/attestations-download.m0-6.test.ts « M0.6 — download attestation AG » (4 : embargo/200/202/404) — routes reproduites HTTP 200 contre savr-dev (embeds pack/attribution + shared.fichiers + filtre JSON recredit + reads régén)",
       "statut": "implemented",
@@ -1033,7 +1033,7 @@
     },
     {
       "id": "M0.6-col-bloc3-documents",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:300",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:302",
       "artefact": "Bloc 3 Documents (page.tsx) : liste Rapport RSE (statut disponible/consulté + picto ⟳ si version≠initiale l.170) / Bordereau ZD (ZD) / Attestation de don (AG) avec Télécharger (routes /admin/rapports-rse|bordereaux|attestations/[id]/download) + Régénérer ; galerie photos (shared.fichiers via GET /documents, URL R2 pré-signée) + bouton « Importer des photos » (POST /photos multipart → R2 + shared.fichiers entity_type='plateforme.collectes'). Nouvelle route packages/plateforme/src/app/api/v1/admin/attestations/[id]/download/route.ts (embargo eligible_at, pdf_url=storageKey).",
       "test": "packages/plateforme/src/app/(admin)/admin/collectes/[id]/collecte-detail.m0-6.test.tsx « M0.6 — Bloc 3 Documents : rapport RSE + attestation AG affichés ; le bouton Régénérer appelle l’endpoint » + « M0.6 — Bloc 3 : picto « régénéré » affiché quand version ≠ initiale » + « M0.6 — Bloc 3 : bordereau ZD affiché pour une collecte ZD (numéro + statut) ; pas d’attestation AG » + « M0.6 — Bloc 3 : la galerie affiche les photos importées (shared.fichiers, URL R2) » + « M0.6 — Bloc 3 : « Importer des photos » envoie un POST multipart /photos » + packages/plateforme/tests/api/admin/attestations-download.m0-6.test.ts « M0.6 — download attestation AG (BL-P1-BOA-07) » (embargo H+24 → 425, 200 URL R2, 202, 404)",
       "statut": "implemented",
@@ -1041,7 +1041,7 @@
     },
     {
       "id": "M0.6-col-doc-regenerate-endpoint",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:343",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:345",
       "artefact": "packages/plateforme/src/app/api/v1/admin/collectes/[id]/documents/[type]/regenerate/route.ts (POST, requireStaff, [type] ∈ PDF_DOCUMENT_TYPES → 422 sinon, 409 si document jamais généré / aucun rendu antérieur, 202 sinon) + packages/plateforme/src/lib/pdf/regenerate.ts (ré-enqueue jobs_pdf statut pending copie du dernier payload figé de l'entité + audit_log action document_regenere ; rapport RSE : regenere_at + regenere_par_user_id + version+1)",
       "test": "packages/plateforme/tests/api/admin/collectes-documents.m0-6.test.ts « M0.6 — régénération PDF collecte (BL-P1-BOA-07) » (5 scénarios : UNKNOWN_TYPE, NO_DOCUMENT, NO_PRIOR_JOB, succès rapport insert jobs_pdf payload copié + audit_log + bump regenere_at/version, succès attestation sans bump)",
       "statut": "implemented",
@@ -1049,7 +1049,7 @@
     },
     {
       "id": "M0.6-col-bloc4-pack",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:301",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:303",
       "artefact": "Bloc 4 Pack AG (page.tsx, si type=AG) : pack rattaché (type_pack), crédits restants, statut (packs_antgaspi.statut via main GET) + badge « Crédit recrédité automatiquement le {date} » si collecte annulee après réalisation (date = GET /audit recredit_at, lookup audit action pack_recredite_annulation_collecte car le trigger détache le pack).",
       "test": "packages/plateforme/src/app/(admin)/admin/collectes/[id]/collecte-detail.m0-6.test.tsx « M0.6 — Bloc 4 Pack AG : pack rattaché + crédits restants + statut » + « M0.6 — Bloc 4 : badge « Crédit recrédité » si collecte annulee après réalisation »",
       "statut": "implemented",
@@ -1057,7 +1057,7 @@
     },
     {
       "id": "M0.6-col-bloc5-attribution",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:303",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:305",
       "artefact": "Bloc 5 Attribution AG (page.tsx, si type=AG) — REMPLACE le stub « Attribution automatique (algo V2) — Non disponible en V1 » : association retenue + transporteur retenu (embed attributions_antgaspi), validation (mode_validation + valide_at), volume estimé/réalisé, top-3 associations recommandées + SCORES détaillés (distance_km + capacite_max_beneficiaires depuis calculerAlgoAttributionAg, §06.06 l.253) + lien « Ouvrir l'attribution complète » → /admin/attributions-ag/[collecteId]. Statuts emails asso/transporteur (l.254-255) + bouton Re-jouer l'algo (l.257) DÉLÉGUÉS à l'écran §06.09 (architecture BOA-06 mergée) — divergence tracée _Divergences/M0.6-BOA07-BLOC5_20260703.md (type ambigu, à confirmer Val).",
       "test": "packages/plateforme/src/app/(admin)/admin/collectes/[id]/collecte-detail.m0-6.test.tsx « M0.6 — Bloc 5 Attribution AG : association + transporteur retenus + lien vers l’écran complet (plus de stub « algo V2 ») » + « M0.6 — Bloc 5 : top 3 affiche les scores détaillés (distance + capacité, §06.06 l.253) »",
       "statut": "implemented",
@@ -1065,7 +1065,7 @@
     },
     {
       "id": "M0.6-col-bloc7-timeline",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:328",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:330",
       "artefact": "Bloc 7 Historique + Audit (page.tsx) alimenté par packages/plateforme/src/app/api/v1/admin/collectes/[id]/audit/route.ts (audit_log table_name='collectes' AND record_id=collecteId, tri created_at DESC) : timeline action + transition de statut (old→new) + auteur (rôle) + horodatage + motif + marqueur impersonation.",
       "test": "packages/plateforme/src/app/(admin)/admin/collectes/[id]/collecte-detail.m0-6.test.tsx « M0.6 — Bloc 7 Timeline : les entrées d’audit sont rendues (action + transition de statut) »",
       "statut": "implemented",
@@ -1073,7 +1073,7 @@
     },
     {
       "id": "BL-P1-BOA-08",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:624",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:627",
       "artefact": "packages/plateforme/src/app/(admin)/admin/clients/[id]/onglets.tsx (onglets Collectes/Factures/Grille ZD/Tarif refacturé/Coefficient perte labo) monté dans packages/plateforme/src/app/(admin)/admin/clients/[id]/page.tsx (remplace l'EmptyState « À venir »). Bandeau lecture seule ops (OpsReadOnlyBanner) + actions admin-only (édition tarif, sélecteur grille, ajout/édition coefficient) gatées par le claim user_role (packages/plateforme/src/lib/use-user-role.ts). Fix route packages/plateforme/src/app/api/v1/admin/grilles-tarifaires-zd/route.ts (colonnes réelles).",
       "test": "packages/plateforme/src/app/(admin)/admin/clients/[id]/onglets.m0-6.test.tsx « M0.6 — onglet Collectes/Factures/Grille tarifaire ZD/Tarif refacturé/Coefficient de perte labo » (rendu des données + bandeau read-only ops + PATCH/POST admin-only) ; packages/plateforme/src/lib/use-user-role.m0-6.test.tsx (décodage claim user_role)",
       "statut": "à-vérifier",
@@ -1081,7 +1081,7 @@
     },
     {
       "id": "BL-P1-BOA-09",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:771",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:774",
       "artefact": "packages/plateforme/src/app/(admin)/admin/settings/users/invite-user-modal.tsx (modale prénom/nom/email/rôle/organisation → POST /api/v1/admin/users, option admin_savr gatée) montée dans packages/plateforme/src/app/(admin)/admin/settings/users/page.tsx (remplace l'alert placeholder). Volet impersonation déjà livré (M0.6-impersonation-launcher-ui).",
       "test": "packages/plateforme/src/app/(admin)/admin/settings/users/invite-user-modal.m0-6.test.tsx « M0.6 — modale invitation » (POST users provisioning + gating option admin_savr + erreur serveur)",
       "statut": "à-vérifier",
@@ -1105,7 +1105,7 @@
     },
     {
       "id": "BL-P2-31",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:860",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:862",
       "artefact": "packages/plateforme/src/lib/idempotency.ts",
       "test": "packages/plateforme/tests/api/admin/idempotency-params.m0-6.test.ts",
       "statut": "implemented",
@@ -1113,7 +1113,7 @@
     },
     {
       "id": "M0.6-co2-typed-errors-residuels",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:921",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:923",
       "artefact": "packages/plateforme/src/app/api/v1/admin/parametres/co2-divers/route.ts",
       "test": null,
       "statut": "partial",
@@ -1121,7 +1121,7 @@
     },
     {
       "id": "M0.6-idempotency-store",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:794",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:796",
       "artefact": "packages/plateforme/src/lib/idempotency.ts",
       "test": "packages/plateforme/tests/api/admin/idempotency-params.m0-6.test.ts",
       "statut": "implemented",
@@ -1129,7 +1129,7 @@
     },
     {
       "id": "BL-P2-32",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:925",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:927",
       "artefact": "packages/plateforme/src/app/api/v1/admin/organisations/[id]/coefficients-perte-labo/route.ts",
       "test": "packages/plateforme/tests/api/admin/coefficients-perte-labo.m0-6.test.ts",
       "statut": "implemented",
@@ -1169,7 +1169,7 @@
     },
     {
       "id": "M0.6-impersonation-banner-mount",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:44",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:46",
       "artefact": "packages/plateforme/src/components/ui/impersonation-banner-mount.tsx (monté layout racine) + supabase/migrations/20260701120000_plateforme_r14_impersonation_claim.sql (hook injecte impersonator_id)",
       "test": "packages/plateforme/src/components/ui/impersonation-banner-mount.test.tsx « M0.6 — bandeau impersonation » + supabase/tests/r14_impersonation_claim.test.sql",
       "statut": "implemented",
@@ -1201,7 +1201,7 @@
     },
     {
       "id": "BL-P2-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:837",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:840",
       "artefact": "packages/plateforme/src/app/api/v1/admin/grilles-tarifaires-zd/route.ts",
       "test": "packages/plateforme/tests/api/admin/grilles-tarifaires-zd.m0-6.test.ts",
       "statut": "implemented",
@@ -1209,7 +1209,7 @@
     },
     {
       "id": "BL-P2-05",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:845",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:848",
       "artefact": "packages/plateforme/src/app/api/v1/admin/tarifs-negocie/route.ts",
       "test": "packages/plateforme/src/app/(admin)/admin/clients/[id]/onglets.m0-6.test.tsx",
       "statut": "implemented",
@@ -1217,7 +1217,7 @@
     },
     {
       "id": "BL-P2-06",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:865",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:868",
       "artefact": "packages/plateforme/src/app/(admin)/admin/parametres/taux-recyclage/page.tsx",
       "test": "packages/plateforme/src/app/(admin)/admin/parametres/taux-recyclage/taux-recyclage.m0-6.test.tsx",
       "statut": "implemented",
@@ -1225,7 +1225,7 @@
     },
     {
       "id": "BL-P2-07",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:804",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:807",
       "artefact": "packages/plateforme/src/app/(admin)/admin/parametres/tarifs-ag/page.tsx",
       "test": "packages/plateforme/src/app/(admin)/admin/parametres/tarifs-ag/tarifs-ag-history.m0-6.test.tsx",
       "statut": "partial",
@@ -1233,7 +1233,7 @@
     },
     {
       "id": "M0.6-grille-mode-col",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:837",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:840",
       "artefact": "supabase/migrations/20260704170000_plateforme_r18_grilles_zd_mode.sql",
       "test": "supabase/tests/R18__grilles_zd_mode_rpc.test.sql",
       "statut": "implemented",
@@ -1241,7 +1241,7 @@
     },
     {
       "id": "M0.6-grille-rpc-post",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:843",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:846",
       "artefact": "packages/plateforme/src/app/api/v1/admin/grilles-tarifaires-zd/route.ts",
       "test": "packages/plateforme/tests/api/admin/grilles-tarifaires-zd.m0-6.test.ts",
       "statut": "implemented",
@@ -1249,7 +1249,7 @@
     },
     {
       "id": "M0.6-grille-catalogue",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:838",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:841",
       "artefact": "packages/plateforme/src/app/(admin)/admin/parametres/grilles-zd/page.tsx",
       "test": "packages/plateforme/src/app/(admin)/admin/parametres/grilles-zd/grilles-zd.m0-6.test.tsx",
       "statut": "implemented",
@@ -1257,7 +1257,7 @@
     },
     {
       "id": "M0.6-taux-history-modal",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:896",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:899",
       "artefact": "packages/plateforme/src/app/(admin)/admin/parametres/taux-recyclage/page.tsx",
       "test": "packages/plateforme/src/app/(admin)/admin/parametres/taux-recyclage/taux-recyclage.m0-6.test.tsx",
       "statut": "implemented",
@@ -1265,7 +1265,7 @@
     },
     {
       "id": "M0.6-taux-idempotency",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:883",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:886",
       "artefact": "packages/plateforme/src/app/(admin)/admin/parametres/taux-recyclage/page.tsx",
       "test": "packages/plateforme/src/app/(admin)/admin/parametres/taux-recyclage/taux-recyclage.m0-6.test.tsx",
       "statut": "implemented",
@@ -1273,7 +1273,7 @@
     },
     {
       "id": "M0.6-parametres-nav-hub",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:789",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:792",
       "artefact": "packages/plateforme/src/app/(admin)/admin/parametres/page.tsx",
       "test": "packages/plateforme/src/app/(admin)/admin/parametres/parametres-hub.m0-6.test.tsx",
       "statut": "implemented",
@@ -1281,7 +1281,7 @@
     },
     {
       "id": "M0.6-tarifs-ag-history",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:826",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:829",
       "artefact": "packages/plateforme/src/app/api/v1/admin/tarifs-packs-ag/history/route.ts",
       "test": "packages/plateforme/tests/api/admin/tarifs-packs-ag-history.m0-6.test.ts",
       "statut": "implemented",
@@ -1289,7 +1289,7 @@
     },
     {
       "id": "M0.6-templates-viewer",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:920",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:923",
       "artefact": "packages/plateforme/src/app/(admin)/admin/parametres/templates/page.tsx",
       "test": "packages/plateforme/src/app/(admin)/admin/parametres/templates/templates.m0-6.test.tsx",
       "statut": "implemented",
@@ -1297,7 +1297,7 @@
     },
     {
       "id": "M0.6-ops-readonly-banner",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:26",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:28",
       "artefact": "packages/plateforme/src/components/ui/ops-read-only-banner.tsx",
       "test": "packages/plateforme/src/app/(admin)/admin/parametres/grilles-zd/grilles-zd.m0-6.test.tsx",
       "statut": "implemented",
@@ -1305,9 +1305,9 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "2fd0f8b9bafb3b3d1c4b0142a61ad8290de04ffbd347c5dbc0c016babd6beb1b",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "f37c49f3824f0c17eb6c45052d6cd0740c73f2140a05b850f8418ae8c1703ee4",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "1935353d3942e1ec2ebccbce6940fd99a75ee55d7d9db95692529594b4a0124d",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "825d4a48df706ee518e0035690d46a4c32a91c37253f5c439ac44930ec81d334",
     "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "9f385002469e79999e0bc67016e4506d14aca60393adfca955e36153edece2a7",
-    "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "0fcf6f081583aee93f4ba4ff80d564feeb96d4037cee8c2e92747d210fe848a8"
+    "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "de55ad9dd1ab220cc2e0f7945b7cc1e4b6eccfb6db0bac80734b34213ea0f88a"
   }
 }

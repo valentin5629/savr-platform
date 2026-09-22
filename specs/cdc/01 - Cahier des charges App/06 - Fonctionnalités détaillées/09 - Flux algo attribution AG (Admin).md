@@ -1,5 +1,7 @@
 # 09 - Flux algo attribution AG (Admin)
 
+**Statut** : Validé V1
+**Dernière mise à jour** : 2026-04-21
 **Lié à** : [[05 - Règles métier]] §2 — Algorithme d'attribution Anti-Gaspi · [[04 - Data Model]] tables `attributions_antgaspi`, `associations`, `transporteurs`, `parametres_algo`
 
 ---

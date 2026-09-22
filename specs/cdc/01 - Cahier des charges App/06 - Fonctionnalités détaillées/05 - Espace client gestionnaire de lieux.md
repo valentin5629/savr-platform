@@ -1,5 +1,7 @@
 # 05 - Espace client gestionnaire de lieux
 
+**Statut** : Validé V1 (session test-scenarios 2026-06-07 — 6 floues tranchées Val : F1 toggle notif collecte supprimé · F2 statut consolidé défini · F3 brouillons tiers exclus · F4 fenêtre `f_collecte_editable` sur UPDATE gestionnaire · F5 policies users org-wide · F6 factures SELECT self — cf. `tests/06.05-espace-gestionnaire-lieux-scenarios.md`)
+**Dernière mise à jour** : 2026-07-06 (patchs divergences M3.2 — nav 9 sections avec entrées Collectes + Registre distinctes L67/72-73/83 ; champ « type » retiré de la fiche lieu L372, colonne inexistante V1 + cible — cf. `_Divergences/_traités/2026-07/M3.2_*.md`)
 **Lié à** : [[02 - Personas et cas d'usage]] · [[04 - Data Model]] tables `organisations`, `organisations_lieux`, `lieux`, `types_evenements`, `flux_dechets`, `coefficients_perte_labo` · [[05 - Règles métier#R_dechets_labo_estimes]] · [[06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte]] · [[06 - Fonctionnalités détaillées/04 - Espace client traiteur]] · [[11 - Dashboards]] · [[12 - Reporting et exports]] §1.6
 
 ---
@@ -79,6 +81,10 @@ Barre latérale gauche, **9 sections** *(Val 2026-07-06, divergence M3.2 R19b-P2
 **Bouton primaire dashboard "Programmer un événement"** *(refonte 2026-05-21 — formulaire unique événement-centré, ex 2 sous-boutons ZD/AG)* : ouvre le formulaire unique §06.01 (choix ☐ZD ☐AG en étape 1) avec les contraintes Cas Gestionnaire (combobox lieu filtrée à `organisations_lieux`, combobox traiteur opérationnel restreinte au référentiel sans option shadow). Si la case Anti-Gaspi est cochée sans pack actif, la soumission AG est bloquée (alerte "Contactez Savr pour négocier un pack AG") — la collecte ZD reste programmable.
 
 **Section Collectes réintégrée (Val 2026-07-06 — divergence M3.2, override de la décision 2026-05-03)** : le gestionnaire dispose d'une entrée nav Collectes dédiée (`/gestionnaire/collectes`). Le détail d'une collecte (pesées par flux, repas, bordereau, rapport recyclage, attestation don) reste **également** accessible depuis le détail événement parent.
+
+> **Pagination** : liste paginée côté serveur, **50 collectes par page** (aligné §06.06 Back-office Admin). Au-delà d'une page, l'écran affiche le **nombre total de collectes du périmètre filtré** et le composant Pagination du Design System (§10 §6). Le total affiché est celui de la base, pas celui de la page : c'est lui qui rend la troncature visible, la liste étant volontairement large (« tous statuts, type ZD/AG non figé », cf. drill-down des Top listes). Un changement de filtre (dont un drill-down) **réinitialise la pagination à la page 1**. Tri départagé (`date_collecte` puis `id`) : `date_collecte` n'est pas unique, sans départage deux pages successives peuvent réordonner les ex æquo et faire disparaître une ligne. *(décision Val 2026-09-22 — la section réintégrée le 2026-07-06 ne spécifiait pas la taille de la liste ; la route coupait à 100 lignes sans le signaler.)*
+
+> **Page demandée au-delà de la dernière** (lien partagé, ou liste qui a rétréci pendant la consultation) : la route répond **200 avec une page vide ET le total exact**, jamais une erreur — l'écran afficherait sinon « Le chargement des collectes a échoué » sur un parc sain. L'écran, lui, **ramène l'utilisateur sur la dernière page valide** plutôt que de montrer l'état vide : le bloc de pagination ne s'affiche que lorsque la liste est non vide, donc l'état vide serait un cul-de-sac, avec le message d'un parc réellement vide. *(confirmé Val 2026-09-22.)*
 
 **Différenciation visuelle événements programmés par le gestionnaire vs par le traiteur** : dans la liste Événements, badge "Programmée par moi" (vert) si `evenements.organisation_id = current_org`, sinon badge "Programmée par {{traiteur}}" (gris). Permet au gestionnaire d'identifier rapidement ses propres programmations.
 
@@ -169,9 +175,9 @@ Encart compact "Filtres benchmark" affichant les **5 mêmes critères** que la b
 - **Borne max axe** : valeur max observée du parc Savr × 1,2 (échelle figée par flux pour permettre la comparaison visuelle)
 - **Point rouge** : **benchmark parc Savr** = moyenne `kg flux / pax` calculée sur l'ensemble du parc Savr selon les **filtres benchmark dédiés** (les 5 critères ci-dessus)
 
-**Règle k-anonymat** : si l'échantillon benchmark filtré contient strictement moins de **5 collectes**, le point rouge est **masqué** et un tooltip affiche "Données insuffisantes pour benchmark (échantillon < 5 collectes comparables — affinez ou élargissez les filtres benchmark)". La jauge gestionnaire reste affichée.
+**Règle k-anonymat (durcie 2026-09-22)** : si l'échantillon benchmark filtré contient strictement moins de **5 collectes**, **ou moins de 3 acteurs distincts** (organisations programmatrices et traiteurs opérationnels, minimum des deux compteurs), le point rouge est **masqué** et un tooltip affiche "Données insuffisantes pour benchmark (échantillon non comparable — affinez ou élargissez les filtres benchmark)". Le libellé ne cite plus « < 5 collectes » : il ne doit pas révéler laquelle des deux conditions a masqué le segment. La jauge gestionnaire reste affichée.
 
-**Source benchmark** : agrégat exposé via la fonction PostgreSQL `f_benchmark_kg_pax_zd` (cf. [[04 - Data Model]] §Fonction SQL `f_benchmark_kg_pax_zd`). Paramètres acceptés : `flux_id`, `type_evenement_ids[]`, `taille_evenement_codes[]`, `periode_debut`, `periode_fin`, `lieu_ids[]`, `traiteur_ids[]`. Aucun chiffre brut d'autre gestionnaire n'est exposé — uniquement la moyenne. K-anonymat ≥5 appliqué côté serveur.
+**Source benchmark** : agrégat exposé via la fonction PostgreSQL `f_benchmark_kg_pax_zd` (cf. [[04 - Data Model]] §Fonction SQL `f_benchmark_kg_pax_zd`). Paramètres acceptés : `flux_id`, `type_evenement_ids[]`, `taille_evenement_codes[]`, `periode_debut`, `periode_fin`, `lieu_ids[]`, `traiteur_ids[]`. Aucun chiffre brut d'autre gestionnaire n'est exposé — uniquement la moyenne. K-anonymat appliqué côté serveur : ≥ 5 collectes **et ≥ 3 acteurs distincts**.
 
 **Légende couleur** (basée sur le ratio jauge gestionnaire / point benchmark, **chacun calculé sur son propre périmètre de filtres**) :
 - Vert : ratio gestionnaire ≤ benchmark (performance ≥ moyenne du segment de référence sélectionné)
@@ -527,7 +533,7 @@ Un `user` avec `role = 'gestionnaire_lieux'` accède :
 - `lieux` WHERE `id` IN (ses lieux)
 - `traiteurs` (vue restreinte) WHERE `organisation_id` IN (traiteurs intervenus sur ses lieux)
 - `coefficients_perte_labo` *(ajout 2026-05-22)* : **aucun accès direct** pour le rôle `gestionnaire_lieux`. L'estimation `pax × coefficient` est calculée côté serveur via une fonction SECURITY DEFINER ; seule la valeur kg est retournée au gestionnaire (le coefficient brut du traiteur n'est jamais exposé). Lecture/écriture directe réservée à `admin_savr` (cf. [[09 - Authentification et permissions]]).
-- `f_benchmark_kg_pax_zd` : EXECUTE autorisé pour le rôle `gestionnaire_lieux` (fonction `SECURITY DEFINER`). Filtres acceptés en paramètres : `flux_id`, `type_evenement_id`, `taille_evenement`, `periode_debut`, `periode_fin`, `lieu_ids[]`, `traiteur_ids[]` (les 5 dimensions de la barre filtre benchmark dédiée du Bloc 3 ZD). Aucun filtre obligatoire — tous facultatifs. **K-anonymat strict** : la fonction applique côté serveur `nb_collectes_segment >= 5` ; un segment avec moins de 5 collectes n'apparaît pas dans la réponse SQL. Les colonnes brutes individuelles ne sont jamais exposées — uniquement les agrégats.
+- `f_benchmark_kg_pax_zd` : EXECUTE autorisé pour le rôle `gestionnaire_lieux` (fonction `SECURITY DEFINER`). Filtres acceptés en paramètres : `flux_id`, `type_evenement_id`, `taille_evenement`, `periode_debut`, `periode_fin`, `lieu_ids[]`, `traiteur_ids[]` (les 5 dimensions de la barre filtre benchmark dédiée du Bloc 3 ZD). Aucun filtre obligatoire — tous facultatifs. **K-anonymat strict (durci 2026-09-22)** : la fonction applique côté serveur `nb_collectes_segment >= 5` **et ≥ 3 acteurs distincts** (minimum entre organisations programmatrices et traiteurs opérationnels) ; un segment qui ne franchit pas les deux seuils n'apparaît pas dans la réponse SQL. Les colonnes brutes individuelles ne sont jamais exposées — uniquement les agrégats.
 
 ### Vue SQL dédiée
 
@@ -547,7 +553,7 @@ Fonction agrégée dédiée au Bloc 3 ZD (jauges) avec **filtres benchmark dédi
 - `taille_evenement` (enum bracket : `XS`, `S`, `M`, `L`, `XL`)
 - `kg_par_pax_moyen` (decimal)
 - `nb_collectes_segment` (integer — compteur k-anonymat)
-- `nb_organisations_distinctes` (integer — audit)
+- `nb_organisations_distinctes` (integer — **garde** : un segment n'est publié qu'à ≥ 3 organisations distinctes, cf. « Filtre RLS »)
 
 **Paramètres de filtrage dynamique** (passés depuis le front via la barre filtre benchmark dédiée) :
 - `flux_id` : filtré (1 jauge par flux)
@@ -611,7 +617,7 @@ Implémentation : fonction PostgreSQL `taille_evenement_bracket(pax integer) RET
   - 5 filtres globaux : période, lieux, traiteurs, type d'événement, taille d'événement.
   - Suppression définitive 7 flux historiques (`dib`, `dangereux`, `huiles`, `papier`, `deee`, `gravats`, `terre`). Renommage `dib` → `dechet_residuel`. Réduction enum `flux_dechets` à **5 valeurs canoniques** : `biodechet`, `emballage`, `carton`, `verre`, `dechet_residuel`. Justification Val : "on n'est pas concerné" — Savr ne collecte aucun de ces flux supprimés.
   - Bloc 2 ZD : graphique barres empilées en kg (vs. CO2 abandonné), 5 segments par flux.
-  - Bloc 3 ZD : jauges kg/pax × benchmark parc filtré par type+taille événement, k-anonymat ≥5 collectes (point rouge masqué sinon).
+  - Bloc 3 ZD : jauges kg/pax × benchmark parc filtré par type+taille événement, k-anonymat ≥ 5 collectes **et ≥ 3 acteurs distincts** (point rouge masqué sinon).
   - Bloc AG : pas de jauge (un seul flux AG, pas de pertinence visuelle), KPI + courbe uniquement.
   - Suppression colonnes maquette source : "nb collectes par mois", "taux remplissage moyen", "déclassement".
 - **Refonte 2026-05-03 (Val)** — 2 changements structurels :

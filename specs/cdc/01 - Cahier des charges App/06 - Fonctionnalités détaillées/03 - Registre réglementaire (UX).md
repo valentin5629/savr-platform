@@ -1,5 +1,7 @@
 # 06.03 - Registre réglementaire (UX)
 
+**Statut** : Validé V1 — ZD uniquement (2026-05-04)
+**Dernière mise à jour** : 2026-06-07 (session test-scenarios lot ③ — 4 floues tranchées Val : F1 `exports_registre.format` enum `csv|zip|pdf` (§04), F2 **périmètre registre = `cloturee` seul + ZD only** (vue `v_registre_dechets` §04), F3 flag `collectes.historique_partiel` (§04+§13), F4 colonne Traiteur = **traiteur opérationnel**. Correction stale `poids_reel` → `poids_reel_kg`.) Précédent : 2026-06-03 (revue sobriété : A1 export PDF registre → V1.1, B1 tri mono-colonne, C1 table RLS → renvoi source unique, C2 méthodologie unifiée §12)
 **Périmètre V1** : collectes ZD uniquement. Tout le volet AG (associations, attestations 2041-GE, habilitation) est reporté V2 — voir section [[#Reporté V2]] en bas de page.
 
 ---

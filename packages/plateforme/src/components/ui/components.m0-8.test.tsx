@@ -2,8 +2,8 @@
  * M0.8 — Tests composants UI de base
  * Chaque test porte l'ID de scénario exact du manifest M0.8.json.
  */
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readFileSync, readdirSync } from 'node:fs';
+import { resolve, join } from 'node:path';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
@@ -173,6 +173,53 @@ it("M0.8-4b — l'anneau de focus est uniforme : aucune variante ne pose sa prop
 });
 
 // ── Card ────────────────────────────────────────────────────────────────────
+
+it("M0.8-4c — aucun composant ne neutralise l'anneau de focus sans le remplacer (§10)", () => {
+  // Depuis que `*:focus-visible` est LAYERED (arbitrage Val 2026-09-22), un
+  // `outline-none` nu l'emporte réellement sur elle : l'élément se retrouve
+  // sans AUCUNE indication de focus. Avant, la règle non-layered masquait ces
+  // neutralisations — trois champs de recherche en portaient une, inerte. Le
+  // risque est donc devenu réel pour tout le repo, d'où ce cliquet.
+  // Admis : un anneau de remplacement `ring-*` sur le même élément, ou un
+  // panneau Radix (focus programmatique à l'ouverture, pas un contrôle : un
+  // anneau y serait parasite ; l'item de menu signale son focus par
+  // `data-[highlighted]`).
+  const PANNEAUX_RADIX = [
+    'components/ui/modal.tsx',
+    'components/ui/sheet.tsx',
+    'components/ui/toast.tsx',
+    'components/ui/dropdown.tsx',
+  ];
+  const RACINE = resolve(__dirname, '../..');
+  const fichiers: string[] = [];
+  const parcourir = (dir: string): void => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const chemin = join(dir, e.name);
+      if (e.isDirectory()) parcourir(chemin);
+      else if (/\.tsx?$/.test(e.name) && !/\.test\.tsx?$/.test(e.name))
+        fichiers.push(chemin);
+    }
+  };
+  parcourir(RACINE);
+  expect(fichiers.length).toBeGreaterThan(100); // le parcours a bien eu lieu
+
+  const nus: string[] = [];
+  for (const f of fichiers) {
+    const relatif = f.slice(RACINE.length + 1);
+    if (PANNEAUX_RADIX.includes(relatif)) continue;
+    // Les commentaires citent `outline-none` sans le poser : hors scan.
+    const lignes = readFileSync(f, 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .split('\n')
+      .map((l) => l.replace(/\/\/.*$/, ''));
+    lignes.forEach((ligne, i) => {
+      if (!/\boutline-(none|0)\b/.test(ligne)) return;
+      const voisinage = lignes.slice(Math.max(0, i - 2), i + 3).join(' ');
+      if (!/\bring-\d/.test(voisinage)) nus.push(`${relatif}:${i + 1}`);
+    });
+  }
+  expect(nus).toEqual([]);
+});
 
 it('M0.8-5 — Card au repos a bordure neutral-200 et ombre none', () => {
   const { container } = render(<Card>Contenu</Card>);

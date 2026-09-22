@@ -133,6 +133,14 @@
       "libelle": "Anneau de focus UNIFORME primary-500 (arbitrage Val 2026-09-22, divergence M0.8_20260922) — §5.1 s'aligne sur le levier #4 : aucune variante de Button ni d'IconButton ne pose de couleur d'anneau propre (les classes accent-600 / error, inertes, sont retirées). Le test prouve l'ABSENCE de couleur concurrente ; le rendu est mesuré au navigateur (accent et destructive → rgb(63,85,153))."
     },
     {
+      "id": "M0.8-04c",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:448",
+      "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx, packages/plateforme/src/components/programmation/lieu-combobox.tsx, packages/plateforme/src/components/programmation/contact-combobox.tsx",
+      "test": "M0.8-4c — aucun composant ne neutralise l'anneau de focus sans le remplacer (§10)",
+      "statut": "implemented",
+      "libelle": "Aucune neutralisation d'anneau sans remplacement — un `outline-none` / `outline-0` n'est admis que si un `ring-*` prend le relais sur le même élément, ou sur un panneau Radix (Modal/Sheet/Toast/DropdownItem : focus programmatique, pas un contrôle). Trois champs de recherche en portaient une, restée INERTE tant que la règle globale n'était pas layered ; la bascule en `@layer base` (arbitrage Val 2026-09-22) l'aurait rendue active et les aurait privés de toute indication de focus. Cliquet transverse : le test scanne toutes les sources, pas seulement ces 3 fichiers."
+    },
+    {
       "id": "M0.8-05",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
       "artefact": null,

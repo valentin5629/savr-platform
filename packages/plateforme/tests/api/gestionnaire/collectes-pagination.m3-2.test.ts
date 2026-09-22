@@ -4,9 +4,9 @@
  * Défaut d'origine (revue d'écran E2E 2026-09-22) : la route terminait sur
  * `.limit(100)` et renvoyait `{ data }` sans total. Un parc de plus de 100
  * collectes recevait donc une liste d'apparence complète qui ne l'était pas,
- * sans rien à l'écran pour le signaler — et le nombre de lignes cessait de
- * correspondre au chiffre du Top liste du dashboard dont cet écran est la cible
- * de drill-down (§06.05 l.203 : miroir exact).
+ * sans rien à l'écran pour le signaler. Le §06.05 l.203 veut cette liste LARGE
+ * (« tous statuts, type ZD/AG non figé »), donc le plafond mordait d'autant
+ * plus vite.
  *
  * Décision Val 2026-09-22 : pagination serveur réelle (`count: 'exact'` +
  * `range`), pattern §06.06 admin/lieux. Ces sondes mesurent la REQUÊTE envoyée
@@ -134,7 +134,7 @@ describe('M3.2 / liste Collectes gestionnaire — pagination serveur', () => {
     };
 
     // Le total renvoyé est celui de la BASE, pas celui de la page : c'est la
-    // seule valeur qui rend la troncature visible et le miroir vérifiable.
+    // seule valeur qui rend la troncature visible.
     expect(json.total).toBe(120);
     expect(json.data.length).toBe(PAGE_SIZE);
     expect(json.page).toBe(1);
@@ -191,8 +191,8 @@ describe('M3.2 / liste Collectes gestionnaire — pagination serveur', () => {
     const res = await appel('?lieu_id=L1&statut=cloturee&page=1');
     const json = (await res.json()) as { total: number };
 
-    // Le drill-down filtre : le total doit être celui du PÉRIMÈTRE FILTRÉ,
-    // sinon le compteur affiché contredirait le chiffre du Top liste.
+    // Le drill-down filtre : le total doit être celui du PÉRIMÈTRE FILTRÉ, sinon
+    // le compteur annoncerait des collectes que la liste ne contient pas.
     expect(json.total).toBe(3);
     const eq = (rls.__calls.eq ?? []).map((a) => `${a[0]}=${a[1]}`);
     expect(eq).toContain('evenements.lieu_id=L1');

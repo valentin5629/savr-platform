@@ -19,12 +19,13 @@ const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 // Paramètres : type, statut, from, to, lieu_id, traiteur_id, page
 //
 // Pagination SERVEUR (`count: 'exact'` + `range`), pattern §06.06 admin/lieux.
-// Décision Val 2026-09-22 : le §06.05 ne spécifiait pas la taille de cette liste
+// Décision Val 2026-09-22 : le §06.05 ne spécifie pas la taille de cette liste,
 // et la route coupait à 100 lignes SANS le dire — un parc de plus de 100
-// collectes affichait une liste d'apparence complète qui ne l'était pas. Le
-// total exact renvoyé ici est ce qui rend vérifiable le miroir du drill-down des
-// Top listes du dashboard (§06.05 l.203 : « nombre de lignes = chiffre du Top
-// liste ») : au-delà d'une page, seul `total` porte cette égalité.
+// collectes affichait une liste d'apparence complète qui ne l'était pas.
+// Le §06.05 l.203 veut au contraire cette liste LARGE (« tous statuts, type
+// ZD/AG non figé »), ce qui fait mordre le plafond d'autant plus vite. Le total
+// exact renvoyé ici est ce qui rend la troncature VISIBLE : au-delà d'une page,
+// lui seul dit combien de collectes existent dans le périmètre demandé.
 export const PAGE_SIZE = 50;
 
 export async function GET(req: NextRequest): Promise<NextResponse> {

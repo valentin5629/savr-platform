@@ -15,10 +15,10 @@
  * Les sondes `pagination_*` (décision Val 2026-09-22) couvrent la troncature
  * silencieuse : la route coupait à 100 lignes et ne renvoyait aucun total, donc
  * un parc de plus de 100 collectes affichait une liste d'apparence complète qui
- * ne l'était pas — et le nombre de lignes ne correspondait plus au chiffre du
- * Top liste du dashboard dont cet écran est la cible de drill-down (§06.05
- * l.203). Ces sondes mesurent ce que l'écran DEMANDE au serveur, pas seulement
- * ce qu'il affiche : c'est la demande qui portait le défaut.
+ * ne l'était pas. Le §06.05 l.203 veut cette liste LARGE (« tous statuts, type
+ * ZD/AG non figé »), donc le plafond mordait d'autant plus vite. Ces sondes
+ * mesurent ce que l'écran DEMANDE au serveur, pas seulement ce qu'il affiche :
+ * c'est la demande qui portait le défaut.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
@@ -306,8 +306,8 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
       fetchEspion({ data: PAGE, total: 120 });
       render(<CollectesPage />);
 
-      // Le total EXACT est affiché : c'est lui qui porte l'égalité avec le
-      // chiffre du Top liste quand la liste dépasse une page (§06.05 l.203).
+      // Le total EXACT est affiché : au-delà d'une page, lui seul dit combien de
+      // collectes existent dans le périmètre demandé.
       expect(
         await screen.findByTestId('collectes-total', {}, ATTENTE_UI),
       ).toHaveProperty('textContent', '120 collectes');

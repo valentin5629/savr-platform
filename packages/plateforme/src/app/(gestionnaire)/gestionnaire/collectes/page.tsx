@@ -46,9 +46,13 @@ const SqueletteListe = () => (
 function GestionnaireCollectesContent() {
   const router = useRouter();
   const params = useSearchParams();
-  // Drill-down depuis les Top listes du dashboard (lieu / traiteur). Miroir exact :
-  // le drill-down porte aussi type + période (from/to) + statut `cloturee` pour que
-  // le nombre de lignes = le chiffre du Top liste.
+  // Drill-down depuis les Top listes du dashboard (lieu / traiteur). Le dashboard
+  // gestionnaire porte aujourd'hui type + période (from/to) + statut `cloturee`
+  // dans l'URL — c'est la règle du §06.04 TRAITEUR (« miroir 5/5 »), pas celle du
+  // §06.05, qui demande l'inverse pour le gestionnaire : « tous statuts, type
+  // ZD/AG non figé » (l.203). Écart PRÉ-EXISTANT, côté dashboard (`drillScope`
+  // dans (gestionnaire)/gestionnaire/page.tsx), hors périmètre de ce lot : cet
+  // écran se contente d'appliquer les filtres qu'on lui passe.
   const lieuFiltre = params.get('lieu');
   const traiteurFiltre = params.get('traiteur');
   const typeFiltre = params.get('type');

@@ -535,7 +535,7 @@
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/collectes/route.ts",
       "test": "M3.2/collectes_route_pagine_et_renvoie_le_total_exact + M3.2/collectes_route_fenetre_la_page_demandee + M3.2/collectes_route_ne_tronque_plus_a_100 + M3.2/collectes_route_ordre_departage_stable_entre_pages + M3.2/collectes_route_page_hors_bornes_retombe_sur_1 + M3.2/collectes_route_pagination_compatible_avec_le_drilldown",
       "statut": "implemented",
-      "libelle": "Pagination serveur de la liste Collectes gestionnaire (count: 'exact' + range, 50/page, pattern §06.06 admin/lieux). Remplace le `.limit(100)` qui tronquait la liste sans le dire et cassait le miroir du drill-down des Top listes (§06.05 l.203). Décision Val 2026-09-22 — le §06.05 ne spécifiait pas la taille de cette liste (divergence M3.2 2026-09-22, type ambigu)."
+      "libelle": "Pagination serveur de la liste Collectes gestionnaire (count: 'exact' + range, 50/page, pattern §06.06 admin/lieux). Remplace le `.limit(100)` qui tronquait la liste sans le dire, alors que le §06.05 l.203 veut cette liste LARGE (« tous statuts, type ZD/AG non figé »). Décision Val 2026-09-22 — le §06.05 ne spécifie pas la taille de cette liste (divergence M3.2 2026-09-22, type ambigu)."
     }
   ],
   "cdc_source_hash": {

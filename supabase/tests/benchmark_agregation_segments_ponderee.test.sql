@@ -17,7 +17,7 @@
 -- ---------------------------------------------------------------------------
 
 BEGIN;
-SELECT plan(8);
+SELECT plan(10);
 
 SET LOCAL role = 'postgres';
 
@@ -41,11 +41,15 @@ VALUES ('bb000000-0000-0000-0000-0000000000f0'::uuid, 'Pondere Lieu', '2 av Pond
 INSERT INTO plateforme.types_evenements (id, code, libelle, ordre_affichage, actif) VALUES
   ('bb000000-0000-0000-0000-0000000000d1'::uuid, 'PONDERE_A', 'Pondere A', 1, true),
   ('bb000000-0000-0000-0000-0000000000d2'::uuid, 'PONDERE_B', 'Pondere B', 2, true),
-  ('bb000000-0000-0000-0000-0000000000d3'::uuid, 'PONDERE_C', 'Pondere C', 3, true);
+  ('bb000000-0000-0000-0000-0000000000d3'::uuid, 'PONDERE_C', 'Pondere C', 3, true),
+  ('bb000000-0000-0000-0000-0000000000d4'::uuid, 'PONDERE_D', 'Pondere D', 4, true);
 
 -- ── Parc : segment A (5 collectes, 30 kg / 100 pax ⇒ 150/500 = 0,30)
 --          segment B (15 collectes, 40 kg / 100 pax ⇒ 600/1500 = 0,40)
 --          segment C (3 collectes  ⇒ sous le k-anonymat, jamais retourné)
+--          segment D (5 collectes à pax = 0 ⇒ SUM(pax) = 0 ⇒ kg_par_pax_moyen NULL,
+--                     alors que le segment passe le k-anonymat : le seul cas où un
+--                     segment compte au dénominateur sans rien apporter au numérateur)
 INSERT INTO plateforme.evenements (
   id, organisation_id, traiteur_operationnel_organisation_id, entite_facturation_id,
   created_by, lieu_id, type_evenement_id, nom_evenement, date_evenement, pax,
@@ -61,7 +65,7 @@ SELECT
   s.type_id,
   'Evt ' || s.rang,
   DATE '2026-05-01' + s.rang,
-  100,
+  CASE WHEN s.rang <= 23 THEN 100 ELSE 0 END,
   'Contact',
   '0600000000'
 FROM (
@@ -69,8 +73,9 @@ FROM (
          g AS rang,
          CASE WHEN g <= 5 THEN 'bb000000-0000-0000-0000-0000000000d1'::uuid
               WHEN g <= 20 THEN 'bb000000-0000-0000-0000-0000000000d2'::uuid
-              ELSE 'bb000000-0000-0000-0000-0000000000d3'::uuid END AS type_id
-  FROM generate_series(1, 23) g
+              WHEN g <= 23 THEN 'bb000000-0000-0000-0000-0000000000d3'::uuid
+              ELSE 'bb000000-0000-0000-0000-0000000000d4'::uuid END AS type_id
+  FROM generate_series(1, 28) g
 ) s;
 
 INSERT INTO plateforme.collectes
@@ -80,14 +85,14 @@ SELECT
   ('bb000000-0000-0000-0000-00000000e' || lpad(g::text, 3, '0'))::uuid,
   'zero_dechet', 'cloturee', 'non_envoye',
   DATE '2026-05-01' + g, '20:00', false, false
-FROM generate_series(1, 23) g;
+FROM generate_series(1, 28) g;
 
 INSERT INTO plateforme.collecte_flux (collecte_id, flux_id, poids_reel_kg)
 SELECT
   ('bb000000-0000-0000-0000-00000000c' || lpad(g::text, 3, '0'))::uuid,
   (SELECT id FROM plateforme.flux_dechets WHERE code = 'biodechet'),
-  (CASE WHEN g <= 5 THEN 30 WHEN g <= 20 THEN 40 ELSE 99 END)::decimal
-FROM generate_series(1, 23) g;
+  (CASE WHEN g <= 5 THEN 30 WHEN g <= 20 THEN 40 WHEN g <= 23 THEN 99 ELSE 50 END)::decimal
+FROM generate_series(1, 28) g;
 
 -- ── Collecte CIBLE du rapport : statut 'realisee' (batch J+1, avant clôture H+24)
 --    ⇒ hors parc (f_benchmark_kg_pax_zd ne lit que les 'cloturee'), les segments
@@ -212,6 +217,35 @@ SELECT is(
     WHERE flux_code = 'biodechet'),
   round(0.25, 6),
   'BENCH-PDF-8 : collecte_kg_pax (25/100) inchangé — seule l''agrégation parc bouge'
+);
+
+-- 9. Segment dont `kg_par_pax_moyen` est NULL (Σpax = 0) : il compte au dénominateur
+--    mais n'apporte rien au numérateur — `SUM` ignore le terme NULL. Même résultat que la
+--    règle écran, où `num(null)` vaut 0 : (0,30×5 + ⌀×5) / (5+5) = 0,15.
+--    Sans cette équivalence, le point parc du PDF s'écarterait de celui de l'écran dès
+--    qu'un segment du parc a un pax total nul (`evenements.pax` est NOT NULL mais n'a
+--    AUCUN CHECK > 0 : le cas est atteignable en base).
+SELECT is(
+  (SELECT round(benchmark_kg_pax, 6) FROM plateforme.f_rapport_benchmark_zd(
+     p_collecte_id        => 'bb000000-0000-0000-0000-0000000000c9'::uuid,
+     p_type_evenement_ids => ARRAY['bb000000-0000-0000-0000-0000000000d1'::uuid,
+                                   'bb000000-0000-0000-0000-0000000000d4'::uuid])
+    WHERE flux_code = 'biodechet'),
+  round(0.15, 6),
+  'BENCH-PDF-9 : segment à kg/pax NULL ⇒ compté au dénominateur, ignoré au numérateur (0,15)'
+);
+
+-- 10. Le même cas ne doit PAS faire disparaître le point parc : un segment NULL ne
+--     propage pas son NULL à l'agrégat (le PDF afficherait « Données insuffisantes »
+--     alors que 5 collectes du parc sont exploitables).
+SELECT is(
+  (SELECT nb_collectes_segment FROM plateforme.f_rapport_benchmark_zd(
+     p_collecte_id        => 'bb000000-0000-0000-0000-0000000000c9'::uuid,
+     p_type_evenement_ids => ARRAY['bb000000-0000-0000-0000-0000000000d1'::uuid,
+                                   'bb000000-0000-0000-0000-0000000000d4'::uuid])
+    WHERE flux_code = 'biodechet'),
+  10,
+  'BENCH-PDF-10 : le segment à kg/pax NULL entre bien dans le compte (5 + 5)'
 );
 
 SELECT * FROM finish();

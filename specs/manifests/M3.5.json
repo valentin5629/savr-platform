@@ -42,7 +42,7 @@
     },
     {
       "id": "M3.5-evolution-endpoint",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:125",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:127",
       "artefact": "packages/plateforme/src/app/api/v1/dashboards/evolution/route.ts",
       "test": "M3.5/evolution_zd_barres_5_flux_taux_pondere — sommes par flux + taux pondéré (exclut NULL)",
       "statut": "implemented",
@@ -50,7 +50,7 @@
     },
     {
       "id": "BL-P1-PARITE-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:203",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:205",
       "artefact": "packages/plateforme/src/app/api/v1/dashboards/synthese-pdf/route.ts + packages/plateforme/src/lib/dashboards/synthese-snapshot.ts + packages/plateforme/src/components/dashboards/ExportSyntheseBloc.tsx + apps/pdf-renderer/src/templates/synthese-dashboard.ts",
       "test": "M3.5 / route synthèse PDF — génération synchrone + M3.5 / synthèse PDF — snapshot §12 §1.6 + M3.5 / renderer synthèse §12 §1.6 — template agrégé",
       "statut": "implemented",
@@ -98,7 +98,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "3ad80c53b470d86a7ad5bd76b501ff02ac62ccf5615ed9ca760b5f1f18f3a77a",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "e1462a457a824ae69a18fcc8b3fc9677ba8c0eb7f30fa53462348171801b2a25",
     "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "41cc7ea0cf5e68d671ad0ff900ee17e0843e006998cd977ebc2c43c2b3d6938a"
   }
 }

@@ -85,7 +85,11 @@
     "M0.8-39 — Button md applique la cible tactile 44px mobile (h-11 sm:h-10)",
     "M0.8-40 — État Disabled : Button désactivé est non-interactif",
     "M0.8-41 — tokens : --text-4xl=38px (§3.2) et tracking titres -0.02em (levier #7)",
-    "M0.8-42 — StatCardGrid applique la grille responsive KPI 1/2/3-4 (§8)"
+    "M0.8-42 — StatCardGrid applique la grille responsive KPI 1/2/3-4 (§8)",
+    "M0.8-63 — DataTable : Entrée et Espace sur une ligne déclenchent onRowClick (desktop + mobile)",
+    "M0.8-64 — DataTable : une ligne cliquable porte le focus ring DS (levier #4)",
+    "M0.8-65 — DataTable : une ligne sans onRowClick n'entre pas dans l'ordre de tabulation",
+    "M0.8-66 — DataTable : Entrée sur un bouton de cellule n'active pas la ligne (pas de double activation)"
   ],
   "deliverables": [
     {
@@ -458,7 +462,7 @@
     },
     {
       "id": "BL-P3-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:397",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:399",
       "artefact": "packages/plateforme/src/lib/collecte-ref.ts, packages/plateforme/src/app/(traiteur)/traiteur/collectes/[id]/page.tsx",
       "test": "M0.8-43 — refCourteCollecte préfère tms_reference sinon UUID court (BL-P3-03)",
       "statut": "implemented",
@@ -466,7 +470,7 @@
     },
     {
       "id": "BL-P3-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:630",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:640",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/[id]/page.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -482,7 +486,7 @@
     },
     {
       "id": "BL-P3-08",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:727",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:737",
       "artefact": "packages/plateforme/src/components/compte/preferences-langue.tsx, packages/plateforme/src/app/(gestionnaire)/gestionnaire/parametres/page.tsx",
       "test": "M0.8-44 — PreferencesLangueCard affiche la langue française figée (BL-P3-08)",
       "statut": "implemented",
@@ -490,7 +494,7 @@
     },
     {
       "id": "BL-P3-05",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:283",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:285",
       "artefact": "packages/plateforme/src/lib/pdf/logo-inline.ts, packages/plateforme/src/app/api/v1/dashboards/synthese-pdf/route.ts, apps/pdf-renderer/src/templates/synthese-dashboard.ts, packages/plateforme/src/lib/pdf/batch-pdf-j1.ts, packages/plateforme/src/lib/pdf/batch-pdf-sans-excedent.ts",
       "test": "M0.8-49 — logoKeyToDataUri inline un logo R2 en data URI (BL-P3-05)",
       "statut": "implemented",
@@ -498,7 +502,7 @@
     },
     {
       "id": "BL-P3-06",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:868",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:878",
       "artefact": null,
       "test": null,
       "statut": "descoped",
@@ -552,18 +556,34 @@
       "test": "M0.8-62 — CO2 mix : tolérance somme 100 % = 0,05 alignée (BL-P3-14) ; pgTAP M2_4 boundary 99,96 accepté / 105 rejeté (22023)",
       "statut": "implemented",
       "libelle": "BL-P3-14 — Tolérance Σ mix emballages = 0,05 (§05 l.575) : les 4 couches (route, frontend, trigger DB, RPC) déjà alignées à 0,05 (constat backlog « 0.01 » périmé). Verrou de non-régression ajouté (pgTAP boundary + assertion source). 99,96 % passe, 105 % rejeté."
+    },
+    {
+      "id": "M0.8-datatable-ligne-clavier",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:450",
+      "artefact": "packages/plateforme/src/components/ui/data-table.tsx (tabIndex + onKeyDown conditionnés par onRowClick, garde target === currentTarget)",
+      "test": "M0.8-63 — DataTable : Entrée et Espace sur une ligne déclenchent onRowClick (desktop + mobile) ; M0.8-65 — une ligne sans onRowClick n'entre pas dans l'ordre de tabulation ; M0.8-66 — Entrée sur un bouton de cellule n'active pas la ligne",
+      "statut": "implemented",
+      "libelle": "Clavier (§10) — une ligne rendue cliquable par onRowClick est focusable et activable à l'Entrée et à l'Espace dans les DEUX variantes (tableau desktop, card mobile) ; une ligne non cliquable reste hors de l'ordre de tabulation ; pas de double activation depuis un bouton de cellule."
+    },
+    {
+      "id": "M0.8-datatable-focus-ring",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:448",
+      "artefact": "packages/plateforme/src/app/globals.css (*:focus-visible, hors @layer) appliqué à la ligne focusable de packages/plateforme/src/components/ui/data-table.tsx",
+      "test": "M0.8-64 — DataTable : une ligne cliquable porte le focus ring DS (levier #4)",
+      "statut": "à-vérifier",
+      "libelle": "Focus ring (levier #4) — la ligne cliquable porte l'anneau focus-visible primary-500 offset 2px, jamais le focus bleu navigateur. Le test couvre ce qui est automatisable (règle globale présente, ligne focusable, outline non neutralisé) ; le RENDU relève de la preuve visuelle (jsdom ne peint pas) — vérifié au navigateur le 2026-09-22 : #3f5599, 2px, offset 2px sur la ligne focalisée au Tab. Anneau rogné latéralement en desktop (tr dans overflow-x-auto) — cf. _Divergences/M0.8_20260922_focus-ring-uniforme-vs-differencie.md."
     }
   ],
   "cdc_source_hash": {
     "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "90e9f62e94f2cfc441443ae9f7bd18776212d35b4b8b5a6a25dcfd4bf95b1ec5",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "d797c7ba3acdddf1427970109ccc74d34ce7ee65155d1dbb22b9c6c18d09f5dd",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md": "55a8a9d4ff48aecb225abd315a8727a152a1c4efd38d18e7940f866898de99dc",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "3ad80c53b470d86a7ad5bd76b501ff02ac62ccf5615ed9ca760b5f1f18f3a77a",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "e1462a457a824ae69a18fcc8b3fc9677ba8c0eb7f30fa53462348171801b2a25",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "2fd0f8b9bafb3b3d1c4b0142a61ad8290de04ffbd347c5dbc0c016babd6beb1b",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "57dd0b37f039f00098970a6d36da3f4ff4b40dd1950b825cae2972a39a03c876",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "9f385002469e79999e0bc67016e4506d14aca60393adfca955e36153edece2a7",
     "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "244d0bd3d9c3388722ed4dd3fb0505c178e8919c5b2a2e29edd5e8c48eded5c1",
     "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "41cc7ea0cf5e68d671ad0ff900ee17e0843e006998cd977ebc2c43c2b3d6938a",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "395550f99b433f9779bea4e570fb6c3acd28ffbae4bdf3c6cb0a653f96b7a124",
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "9e18f9db0efa3b57d3cc633bdb39b963a9fd25f6929bca67fcba2523914f0dde",
     "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "0fcf6f081583aee93f4ba4ff80d564feeb96d4037cee8c2e92747d210fe848a8"
   }
 }

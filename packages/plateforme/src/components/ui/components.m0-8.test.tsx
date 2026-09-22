@@ -586,3 +586,134 @@ it('M0.8-42 — StatCardGrid applique la grille responsive KPI 1/2/3-4 (§8)', (
   expect(grid.className).toContain('sm:grid-cols-2');
   expect(grid.className).toContain('lg:grid-cols-4');
 });
+
+// ── DataTable : ligne cliquable au clavier (§10 Accessibilité, levier #4) ────
+// `onRowClick` n'était posé qu'en `onClick` : les lignes des listes (admin/lieux,
+// admin/clients, admin/transporteurs, …) ne s'ouvraient qu'à la souris.
+
+type LigneTest = { id: string; nom: string };
+const LIGNES_TEST: LigneTest[] = [
+  { id: '1', nom: 'Lieu A' },
+  { id: '2', nom: 'Lieu B' },
+];
+const COLONNES_TEST = [{ key: 'nom' as const, header: 'Nom' }];
+
+/** Les deux variantes sont rendues simultanément en jsdom (pas de media query). */
+function lignesRendues(container: HTMLElement) {
+  return {
+    desktop: container.querySelector('tbody tr') as HTMLElement,
+    mobile: container.querySelector('div.sm\\:hidden > div') as HTMLElement,
+  };
+}
+
+it('M0.8-63 — DataTable : Entrée et Espace sur une ligne déclenchent onRowClick (desktop + mobile)', () => {
+  const onRowClick = vi.fn();
+  const { container } = render(
+    <DataTable
+      columns={COLONNES_TEST}
+      data={LIGNES_TEST}
+      keyExtractor={(r) => r.id}
+      onRowClick={onRowClick}
+    />,
+  );
+  const { desktop, mobile } = lignesRendues(container);
+
+  // Focusable : la ligne entre dans l'ordre de tabulation.
+  expect(desktop.tabIndex).toBe(0);
+  expect(mobile.tabIndex).toBe(0);
+
+  fireEvent.keyDown(desktop, { key: 'Enter' });
+  fireEvent.keyDown(desktop, { key: ' ' });
+  fireEvent.keyDown(mobile, { key: 'Enter' });
+  fireEvent.keyDown(mobile, { key: ' ' });
+
+  expect(onRowClick).toHaveBeenCalledTimes(4);
+  // La bonne ligne est passée au callback (et pas une autre).
+  for (const appel of onRowClick.mock.calls) {
+    expect(appel[0].id).toBe('1');
+  }
+
+  // Une touche quelconque ne déclenche rien.
+  fireEvent.keyDown(desktop, { key: 'a' });
+  expect(onRowClick).toHaveBeenCalledTimes(4);
+});
+
+it('M0.8-64 — DataTable : une ligne cliquable porte le focus ring DS (levier #4)', () => {
+  // Le ring n'est pas porté par une classe utilitaire : globals.css le pose sur
+  // `*:focus-visible` HORS @layer, ce qui l'emporte sur tout `focus-visible:outline-*`
+  // (mesuré dans le navigateur). L'oracle est donc en deux temps : la règle globale
+  // existe (anneau primary-500 offset, levier #4) ET la ligne est focusable sans
+  // neutraliser son outline.
+  expect(css).toMatch(
+    /\*:focus-visible\s*\{[^}]*outline:\s*2px\s+solid\s+var\(--color-savr-primary-500\)[^}]*outline-offset:\s*2px/,
+  );
+  const { container } = render(
+    <DataTable
+      columns={COLONNES_TEST}
+      data={LIGNES_TEST}
+      keyExtractor={(r) => r.id}
+      onRowClick={() => {}}
+    />,
+  );
+  const { desktop, mobile } = lignesRendues(container);
+  for (const ligne of [desktop, mobile]) {
+    expect(ligne.tabIndex).toBe(0); // focusable → la règle globale s'applique
+    expect(ligne.className).not.toMatch(/outline-none|outline-0/); // ring jamais neutralisé
+    expect(ligne.className).toContain('cursor-pointer');
+  }
+});
+
+it("M0.8-65 — DataTable : une ligne sans onRowClick n'entre pas dans l'ordre de tabulation", () => {
+  const { container } = render(
+    <DataTable
+      columns={COLONNES_TEST}
+      data={LIGNES_TEST}
+      keyExtractor={(r) => r.id}
+    />,
+  );
+  const { desktop, mobile } = lignesRendues(container);
+  for (const ligne of [desktop, mobile]) {
+    expect(ligne.hasAttribute('tabindex')).toBe(false);
+    expect(ligne.tabIndex).toBe(-1); // non atteignable par Tab
+    expect(ligne.className).not.toContain('cursor-pointer');
+  }
+});
+
+it("M0.8-66 — DataTable : Entrée sur un bouton de cellule n'active pas la ligne (pas de double activation)", () => {
+  const onRowClick = vi.fn();
+  const onBouton = vi.fn();
+  // Reproduit la colonne chevron d'admin/lieux : un bouton DANS la cellule, qui
+  // ne coupe la propagation que du clic.
+  const colonnes = [
+    {
+      key: 'nom' as const,
+      header: 'Nom',
+      render: (row: LigneTest) => (
+        <button
+          type="button"
+          aria-label={`Ouvrir la fiche ${row.nom}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onBouton();
+          }}
+        >
+          Ouvrir
+        </button>
+      ),
+    },
+  ];
+  render(
+    <DataTable
+      columns={colonnes}
+      data={LIGNES_TEST}
+      keyExtractor={(r) => r.id}
+      onRowClick={onRowClick}
+    />,
+  );
+  const bouton = screen.getAllByRole('button', {
+    name: 'Ouvrir la fiche Lieu A',
+  })[0]!;
+  fireEvent.keyDown(bouton, { key: 'Enter', bubbles: true });
+  fireEvent.keyDown(bouton, { key: ' ', bubbles: true });
+  expect(onRowClick).not.toHaveBeenCalled();
+});

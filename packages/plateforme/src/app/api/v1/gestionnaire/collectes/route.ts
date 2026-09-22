@@ -13,13 +13,20 @@ const ROLES: ClientRole[] = ['gestionnaire_lieux'];
 // sur `evenements.pax`. Table de CONSTANTES : la valeur reçue du client sert de
 // clé, elle n'est jamais interpolée dans la chaîne `.or()`.
 //
-// ⚠ `Map` et NON objet littéral. Avec un objet, `PREDICAT_TAILLE[code]` remonte
-// la chaîne de prototypes : `?taille_evenements[]=toString` rendait la fonction
-// native `Object.prototype.toString` — truthy, donc admise par la garde — et
-// `join(',')` la sérialisait dans le filtre (« function toString() { [native
-// code] } »). PostgREST répondait 400, donc l'écran affichait une panne, et le
-// court-circuit ci-dessous était contourné. Un `Map` n'a pas de clés héritées :
-// `constructor`, `__proto__`, `valueOf`, `toString` sont tous rejetés.
+// Les clés héritées (`toString`, `constructor`, `__proto__`, `valueOf`…) sont
+// fermées par DEUX gardes indépendantes — il faut défaire les deux pour rouvrir
+// quoi que ce soit, et c'est mesuré : annuler la seule `Map` laisse la sonde
+// `collectes_route_taille_cle_heritee_rejetee` au VERT.
+//   • `Map` plutôt qu'objet littéral : pas de chaîne de prototypes, donc
+//     `?taille_evenements[]=toString` rend `undefined` là où `OBJ['toString']`
+//     rendrait la fonction native. Son apport PROPRE est ailleurs : elle protège
+//     d'une pollution réelle de `Object.prototype` par une dépendance tierce, qui
+//     pourrait y poser une *chaîne* — le seul cas où la garde de type céderait.
+//   • `typeof pred === 'string'` (plus bas) : rejette tout ce qui n'est pas une
+//     chaîne. Mesuré sur un objet littéral : les 12 clés héritées rendent des
+//     `function`/`object`, aucune n'est une chaîne — donc toutes écartées.
+// Un code non reconnu tombe alors dans le court-circuit « aucune taille
+// reconnue » et rend une liste vide, sans jamais atteindre PostgREST.
 //
 // ⚠ `pax` NULL compte **XS**, parce que la liste Événements du même espace calcule
 // `tailleBracket(pax ?? 0)`. Sans `pax.is.null` ici, le même filtre donnerait deux

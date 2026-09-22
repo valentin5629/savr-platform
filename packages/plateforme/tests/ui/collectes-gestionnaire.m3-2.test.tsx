@@ -519,7 +519,11 @@ describe('M3.2 / liste Collectes gestionnaire', () => {
     'M3.2/collectes_changement_type_taille_revient_page_1 — la page appartient au périmètre qui l’a produite',
     async () => {
       urlParams.current = 'lieu=L1';
-      const urls = fetchEspion({ data: PAGE, total: 120 });
+      // 3 lignes suffisent : c'est `total` qui fait apparaître la pagination, pas
+      // la taille du tableau. Rendre les 50 lignes de PAGE deux fois (avant et
+      // après le rerender) alourdit le cas sans rien prouver de plus — et ce
+      // fichier est déjà le plus lent de la suite.
+      const urls = fetchEspion({ data: PAGE.slice(0, 3), total: 120 });
       const { rerender } = render(<CollectesPage />);
       await screen.findByTestId('collectes-total', {}, ATTENTE_UI);
 

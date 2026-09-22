@@ -154,13 +154,11 @@ export async function resolveTraiteurNoms(
   if (uniques.length === 0) return out;
   const { data } = await supabase
     .from('v_referentiel_traiteurs')
-    .select('id, nom, raison_sociale')
+    .select('id, nom')
     .in('id', uniques);
   for (const t of (data ?? []) as Record<string, unknown>[]) {
-    out.set(
-      t.id as string,
-      (t.raison_sociale as string | null) ?? (t.nom as string),
-    );
+    // Libellé unique porté par la vue (20260922080000).
+    out.set(t.id as string, t.nom as string);
   }
   return out;
 }

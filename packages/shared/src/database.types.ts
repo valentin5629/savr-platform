@@ -4764,17 +4764,14 @@ export type Database = {
         Row: {
           id: string | null
           nom: string | null
-          raison_sociale: string | null
         }
         Insert: {
           id?: string | null
           nom?: string | null
-          raison_sociale?: string | null
         }
         Update: {
           id?: string | null
           nom?: string | null
-          raison_sociale?: string | null
         }
         Relationships: []
       }

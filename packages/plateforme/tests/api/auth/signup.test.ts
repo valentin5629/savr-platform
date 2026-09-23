@@ -283,14 +283,37 @@ describe('M0.4 — SIRET au signup + vérif synchrone (BL-P1-ONB-01)', () => {
     expect(insertCalls.some((c) => c.table === 'organisations')).toBe(false);
   });
 
-  it('SIRET absent sur un chemin de création → 422', async () => {
+  // Décision Val 2026-09-23 (_Divergences/M0.4_20260923) : le SIRET n'est
+  // demandé à PERSONNE à l'inscription — il relève de l'étape 2 du CDC
+  // « complétion avant première collecte ». L'entité est donc créée sans SIRET,
+  // en_attente, et aucune facture ne peut partir tant qu'il n'est pas vérifié.
+  // Ce test remplace l'ancien « SIRET absent → 422 » (BL-P1-ONB-01).
+  it("SIRET absent → 201 : l'orga est créée, entité sans SIRET en_attente, INSEE jamais appelé", async () => {
     const { POST } = await import('@/app/api/auth/signup/route.js');
     const { siret, ...sansSiret } = VALID_BODY;
     void siret;
     const res = await POST(makeReq(sansSiret));
 
-    expect(res.status).toBe(422);
-    expect(insertCalls.some((c) => c.table === 'organisations')).toBe(false);
+    expect(res.status).toBe(201);
+    expect(vi.mocked(verifySiret)).not.toHaveBeenCalled();
+    const entite = insertCalls.find((c) => c.table === 'entites_facturation');
+    expect(entite).toBeDefined();
+    expect(entite!.payload.siret).toBe('');
+    expect(entite!.payload.siret_verification).toBe('en_attente');
+    expect(entite!.payload.siret_verifie_le).toBeNull();
+    // Pas de revalidation planifiée : il n'y a aucun SIRET à revalider.
+    expect(vi.mocked(enqueueSiretRevalidation)).not.toHaveBeenCalled();
+  });
+
+  it('SIRET fourni quand même → tout le contrôle ONB-01 continue de jouer', async () => {
+    const { POST } = await import('@/app/api/auth/signup/route.js');
+    const res = await POST(makeReq(VALID_BODY));
+
+    expect(res.status).toBe(201);
+    expect(vi.mocked(verifySiret)).toHaveBeenCalledWith('12345678901234');
+    const entite = insertCalls.find((c) => c.table === 'entites_facturation');
+    expect(entite!.payload.siret).toBe('12345678901234');
+    expect(entite!.payload.siret_verification).toBe('verifie');
   });
 
   it("INSEE répond 'echec' (SIRET inexistant/inactif) → 422 bloquant, aucune orga créée", async () => {
@@ -366,5 +389,43 @@ describe('M0.4 — détection doublons SIRET / domaine (BL-P1-ONB-03)', () => {
 
     expect(res.status).toBe(409);
     expect(deleteCalls.some((c) => c.table === 'organisations')).toBe(true);
+  });
+});
+
+// Formats des champs d'identité (CDC §05 §8, tableau de l'étape 1). L'écran les
+// refuse déjà, mais la route est publique : un `curl` la contourne.
+describe('M0.4 — formats des champs d’identité au signup (CDC §05 §8)', () => {
+  const cas: Array<[string, Record<string, unknown>]> = [
+    ['email sans domaine', { email: 'jean@localhost' }],
+    ['email sans arobase', { email: 'jean.traiteur.fr' }],
+    ['prénom à 1 caractère', { prenom: 'J' }],
+    ['nom à 1 caractère', { nom: 'D' }],
+    ['téléphone trop court', { telephone: '01020304' }],
+    ['téléphone non français', { telephone: '+4915112345678' }],
+  ];
+
+  for (const [libelle, patch] of cas) {
+    it(`422 sur ${libelle} — aucun compte ni organisation créé`, async () => {
+      const { POST } = await import('@/app/api/auth/signup/route.js');
+      const res = await POST(makeReq({ ...VALID_BODY, ...patch }));
+
+      expect(res.status).toBe(422);
+      expect(mockCreateUser).not.toHaveBeenCalled();
+      expect(insertCalls.some((c) => c.table === 'organisations')).toBe(false);
+    });
+  }
+
+  it('accepte les écritures usuelles d’un numéro français', async () => {
+    const formes = ['01 23 45 67 89', '01.23.45.67.89', '+33 1 23 45 67 89'];
+    for (const telephone of formes) {
+      _resetSignupRateLimit();
+      mockCreateUser.mockResolvedValue({
+        data: { user: { id: 'user-1' } },
+        error: null,
+      });
+      const { POST } = await import('@/app/api/auth/signup/route.js');
+      const res = await POST(makeReq({ ...VALID_BODY, telephone }));
+      expect(res.status, telephone).toBe(201);
+    }
   });
 });

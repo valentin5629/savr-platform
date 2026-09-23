@@ -1,12 +1,28 @@
 'use client';
 
 import { Suspense, useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { safeNextPath } from '@/lib/safe-next-path';
+import { AlertBar } from '@/components/ui/alert-bar';
+
+// Motifs posés par `api/auth/verify-email` quand le lien d'activation n'aboutit
+// pas. Ils arrivaient déjà en `?error=` mais n'étaient affichés nulle part :
+// l'utilisateur voyait un écran de connexion muet (revue go-live 2026-09-23).
+const MESSAGES_ERREUR: Record<string, string> = {
+  lien_invalide:
+    "Ce lien de vérification est incomplet ou a déjà servi. Écrivez-nous à hello@gosavr.io si vous n'arrivez pas à activer votre compte.",
+  verification_echouee:
+    "Ce lien de vérification a expiré ou a déjà été utilisé. Écrivez-nous à hello@gosavr.io pour recevoir un nouveau lien d'activation.",
+};
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  // `?error=` : motif d'un lien d'activation qui n'a pas abouti. Lu dans une
+  // table fermée — un motif inconnu (URL forgée) n'affiche rien plutôt que
+  // d'imprimer le paramètre tel quel.
+  const messageLien = MESSAGES_ERREUR[searchParams.get('error') ?? ''];
   // Pas de `next` (login direct) → `/` qui redirige vers l'espace du rôle
   // (page.tsx / HOME_BY_ROLE). Surtout pas `/admin/dashboard` en dur, sinon
   // tous les rôles atterrissent sur le back-office Admin. Validé : un `next`
@@ -44,6 +60,11 @@ function LoginForm() {
       <h1 className="text-xl font-semibold text-savr-neutral-900 mb-6">
         Connexion Savr
       </h1>
+      {messageLien && (
+        <AlertBar variant="warn" className="mb-4 font-normal">
+          {messageLien}
+        </AlertBar>
+      )}
       <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
         <div className="space-y-1">
           <label className="text-sm font-medium text-savr-neutral-700">
@@ -78,6 +99,14 @@ function LoginForm() {
           {loading ? 'Connexion…' : 'Se connecter'}
         </button>
       </form>
+      <div className="mt-6 text-sm">
+        <Link
+          href="/reset-password"
+          className="font-semibold text-savr-primary-700 underline-offset-4 hover:underline"
+        >
+          Mot de passe oublié ?
+        </Link>
+      </div>
     </div>
   );
 }

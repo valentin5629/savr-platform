@@ -35,8 +35,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   );
 
   // Rate-limit natif Supabase Auth (3 demandes/heure/email — §09 §1)
+  //
+  // `redirectTo` vise la ROUTE d'échange, pas la page : `@supabase/ssr` impose le
+  // flux PKCE, donc GoTrue redirige avec un `?code=` à échanger contre une session
+  // avant que le formulaire ne serve à quoi que ce soit. La route pose les cookies
+  // de session puis envoie sur `/reset-password/confirm`
+  // (cf. `api/auth/reset-password/confirm/route.ts`).
   await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/reset-password/confirm`,
+    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/api/auth/reset-password/confirm`,
   });
 
   // Toujours 200 — ne pas révéler si l'email existe (sécurité)

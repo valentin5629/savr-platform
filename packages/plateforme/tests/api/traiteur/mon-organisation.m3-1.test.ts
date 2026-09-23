@@ -352,7 +352,7 @@ describe('M3.1 / mon-organisation entités facturation', () => {
 describe('M3.1 / mon-organisation domaines email', () => {
   it('M3.1/trait_monorga_domaines_create — manager ajoute un domaine', async () => {
     setupAuth('traiteur_manager');
-    rls.push({ data: { id: 'd1', domaine: 'kaspia.fr' }, error: null });
+    admin.push({ data: { id: 'd1', domaine: 'kaspia.fr' }, error: null });
     const { POST } =
       await import('@/app/api/v1/traiteur/mon-organisation/domaines-email/route.js');
     const res = await POST(
@@ -365,7 +365,7 @@ describe('M3.1 / mon-organisation domaines email', () => {
 
   it('M3.1/trait_monorga_domaines_dup — domaine global déjà pris → 409', async () => {
     setupAuth('traiteur_manager');
-    rls.push({ data: null, error: { code: '23505' } });
+    admin.push({ data: null, error: { code: '23505' } });
     const { POST } =
       await import('@/app/api/v1/traiteur/mon-organisation/domaines-email/route.js');
     const res = await POST(
@@ -390,7 +390,7 @@ describe('M3.1 / mon-organisation domaines email', () => {
 
   it('M3.1/trait_monorga_domaines_delete — manager supprime un domaine', async () => {
     setupAuth('traiteur_manager');
-    rls.push({ data: { id: 'd1' }, error: null }); // delete...select...maybeSingle
+    admin.push({ data: { id: 'd1' }, error: null }); // delete...select...maybeSingle
     const { DELETE } =
       await import('@/app/api/v1/traiteur/mon-organisation/domaines-email/[id]/route.js');
     const res = await DELETE(
@@ -398,11 +398,17 @@ describe('M3.1 / mon-organisation domaines email', () => {
       { params: Promise.resolve({ id: 'd1' }) },
     );
     expect(res.status).toBe(200);
+    // L'écriture passe sous service_role depuis 20260923180000 : la RLS
+    // `ode_manager_write` ne filtre plus. Le périmètre own-org doit donc être
+    // posé PAR LA ROUTE — sans ce `.eq`, un id deviné suffirait à supprimer le
+    // domaine d'une autre organisation.
+    const filtres = (admin.__calls.eq ?? []) as unknown[][];
+    expect(filtres).toContainEqual(['organisation_id', 'org-1']);
   });
 
   it('M3.1/trait_monorga_domaines_delete_hors_org — domaine hors org → 404', async () => {
     setupAuth('traiteur_manager');
-    rls.push({ data: null, error: null }); // rien supprimé (RLS filtre)
+    admin.push({ data: null, error: null }); // rien supprimé (RLS filtre)
     const { DELETE } =
       await import('@/app/api/v1/traiteur/mon-organisation/domaines-email/[id]/route.js');
     const res = await DELETE(

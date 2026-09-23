@@ -447,6 +447,27 @@ describe('M0.4 — formats des champs d’identité au signup (CDC §05 §8)', (
 // capturer les inscriptions suivantes de ce domaine, dans une organisation dont
 // l'attaquant est manager.
 describe('M0.4 — rattachement par domaine : seules les revendications PROUVÉES comptent', () => {
+  // Piège vécu : `isValidEmailFormat` valide sur une copie trimée, donc une
+  // adresse collée avec une espace passe. Sans `trim()` avant la découpe du
+  // domaine, le signup enregistrerait « traiteur-test.fr » AVEC l'espace, que le
+  // domaine calculé par verify-email ne matcherait jamais : la marque ne serait
+  // jamais posée et le domaine resterait inerte pour toujours, en silence.
+  it('une adresse saisie avec une espace donne le MÊME domaine (trim)', async () => {
+    const { POST } = await import('@/app/api/auth/signup/route.js');
+    const res = await POST(
+      makeReq({ ...VALID_BODY, email: '  jean@traiteur-test.fr  ' }),
+    );
+
+    expect(res.status).toBe(201);
+    const domaine = insertCalls.find(
+      (c) => c.table === 'organisations_domaines_email',
+    );
+    expect(domaine).toBeDefined();
+    expect(domaine!.payload.domaine).toBe('traiteur-test.fr');
+    // …et la marque de preuve n'est PAS posée à la revendication.
+    expect(domaine!.payload.verifie_at).toBeUndefined();
+  });
+
   it('la recherche de domaine filtre sur verifie_at IS NOT NULL', async () => {
     const { POST } = await import('@/app/api/auth/signup/route.js');
     await POST(makeReq(VALID_BODY));

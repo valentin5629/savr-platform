@@ -135,7 +135,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: pwd.error }, { status: 422 });
   }
 
-  const domain = email.split('@')[1]?.toLowerCase() ?? '';
+  // `trim()` AVANT la découpe : `isValidEmailFormat` valide sur une copie trimée,
+  // donc une adresse collée avec une espace finale passe la validation. Sans ce
+  // trim, `domain` vaudrait « exemple.fr » avec l'espace, ne matcherait jamais le
+  // domaine calculé par `api/auth/verify-email` — et la marque `verifie_at` ne
+  // serait jamais posée, en silence, rendant le domaine inerte pour toujours.
+  const domain = email.trim().split('@')[1]?.toLowerCase() ?? '';
   if (!domain) {
     return NextResponse.json({ error: 'Email invalide' }, { status: 422 });
   }
@@ -285,7 +290,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
       if (creation.code === 'domaine_doublon') {
         return NextResponse.json(
-          { error: 'Ce domaine email est déjà rattaché à une organisation.' },
+          {
+            error:
+              'Ce domaine email est déjà rattaché à une organisation. Si un ' +
+              'collègue vient de créer le compte de votre entreprise, demandez-lui ' +
+              "d'activer le sien via le lien reçu par email, puis réessayez. " +
+              'Sinon, écrivez-nous à hello@gosavr.io.',
+          },
           { status: 409 },
         );
       }

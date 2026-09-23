@@ -34,6 +34,27 @@ function Segments({ bloc }: { bloc: BlocCgu }) {
   );
 }
 
+// Les items de liste consécutifs sont regroupés dans UN seul <ul> : une suite de
+// listes à un élément est lue comme autant de listes séparées par un lecteur
+// d'écran, ce qui hache l'énumération (§10 §10 accessibilité).
+type Groupe = { type: 'liste' | 'bloc'; blocs: BlocCgu[] };
+
+function grouper(blocs: BlocCgu[]): Groupe[] {
+  const groupes: Groupe[] = [];
+  for (const bloc of blocs) {
+    const dernier = groupes[groupes.length - 1];
+    if (bloc.type === 'li' && dernier?.type === 'liste') {
+      dernier.blocs.push(bloc);
+    } else {
+      groupes.push({
+        type: bloc.type === 'li' ? 'liste' : 'bloc',
+        blocs: [bloc],
+      });
+    }
+  }
+  return groupes;
+}
+
 export default function CguPage() {
   return (
     <div className="min-h-screen bg-savr-neutral-50 px-4 py-10">
@@ -53,7 +74,19 @@ export default function CguPage() {
                 {section.titre}
               </h2>
               <div className="mt-3 space-y-3 text-sm leading-relaxed text-savr-neutral-700">
-                {section.blocs.map((bloc, i) => {
+                {grouper(section.blocs).map((groupe, i) => {
+                  if (groupe.type === 'liste') {
+                    return (
+                      <ul key={i} className="list-disc space-y-1 pl-5">
+                        {groupe.blocs.map((bloc, j) => (
+                          <li key={j}>
+                            <Segments bloc={bloc} />
+                          </li>
+                        ))}
+                      </ul>
+                    );
+                  }
+                  const bloc = groupe.blocs[0]!;
                   if (bloc.type === 'h3') {
                     return (
                       <h3
@@ -62,15 +95,6 @@ export default function CguPage() {
                       >
                         <Segments bloc={bloc} />
                       </h3>
-                    );
-                  }
-                  if (bloc.type === 'li') {
-                    return (
-                      <ul key={i} className="list-disc pl-5">
-                        <li>
-                          <Segments bloc={bloc} />
-                        </li>
-                      </ul>
                     );
                   }
                   return (

@@ -32,7 +32,8 @@
     "ne demande aucun SIRET (décision Val 2026-09-23 : étape 2 du CDC)",
     "SIRET absent → 201 : l'orga est créée, entité sans SIRET en_attente, INSEE jamais appelé",
     "rend les 27 articles, le préambule et les annexes",
-    "ne publie PAS la section « Notes pour révision juridique »"
+    "ne publie PAS la section « Notes pour révision juridique »",
+    "la page de connexion propose un lien « Créer un compte » vers /signup"
   ],
   "deliverables": [
     {
@@ -57,7 +58,7 @@
       "artefact": "packages/plateforme/src/app/api/auth/signup/route.ts (champ siret FACULTATIF depuis l'arbitrage Val 2026-09-23 — _Divergences/M0.4_20260923_signup-siret-facultatif ; quand il est fourni : format 14 chiffres + pré-check doublon + verifySiret synchrone : echec→422, down→en_attente+enqueue, verifie→verifie ; absent : siret='' + en_attente, la programmation restant bloquée par requireCompletedOrganisation) + packages/shared/src/api/siret.ts (isValidSiretFormat 14 chiffres) + packages/plateforme/src/lib/password.ts (validatePasswordStrength : 10c + maj + chiffre + spécial, §09 l.84-85) + packages/plateforme/src/app/api/auth/update-password/route.ts (même helper appliqué au reset/changement — A1 signup+reset) + supabase/config.toml (minimum_password_length 10)",
       "test": "packages/plateforme/tests/api/auth/signup.test.ts « M0.4 — SIRET au signup + vérif synchrone (BL-P1-ONB-01) » (SIRET valide→201/verifie ; format→422 ; echec→422 ; down→201 en_attente + enqueue ; mot de passe faible→422) + packages/plateforme/tests/api/auth/update-password.m0-4.test.ts « M0.4 — update-password : politique mot de passe au reset (A1) »",
       "statut": "implemented",
-      "libelle": "SIRET collecté au signup + vérif INSEE synchrone bloquante sur echec seul (down jamais bloquant) + politique mot de passe"
+      "libelle": "SIRET facultatif au signup (arbitrage Val 2026-09-23) ; quand il est fourni : vérif INSEE synchrone bloquante sur echec seul (down jamais bloquant) + politique mot de passe"
     },
     {
       "id": "BL-P1-ONB-02",
@@ -226,6 +227,23 @@
       "test": "M0.4 — /signup : les refus du serveur sont rendus lisibles",
       "statut": "implemented",
       "libelle": "Refus de la route (422 champ invalide, 409 doublon, 429 rate-limit) rendus à l'écran"
+    },
+    {
+      "id": "M0.4-signup-lien-depuis-login",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:935",
+      "artefact": "packages/plateforme/src/app/login/page.tsx (lien « Créer un compte » vers /signup)",
+      "test": "M0.4 — /signup : l'écran est atteignable depuis la connexion > la page de connexion propose un lien « Créer un compte » vers /signup",
+      "statut": "implemented",
+      "libelle": "Point d'entrée de l'inscription libre-service depuis l'écran de connexion"
+    },
+    {
+      "id": "M0.4-signup-autocompletion-raison-sociale",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:951",
+      "artefact": null,
+      "test": null,
+      "statut": "descoped",
+      "ref_divergence": "_Divergences/M0.4_20260923_signup-autocompletion-raison-sociale.md",
+      "libelle": "Auto-complétion de raison_sociale quand le domaine email est déjà connu — non livrée : exigerait un endpoint public révélant quels domaines sont clients de Savr (arbitrage Val en attente)"
     }
   ],
   "cdc_source_hash": {

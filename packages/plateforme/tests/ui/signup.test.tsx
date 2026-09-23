@@ -22,6 +22,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 import SignupPage from '@/app/signup/page.js';
+import LoginPage from '@/app/login/page.js';
 
 const fetchMock = vi.fn();
 
@@ -370,4 +371,15 @@ describe('M0.4 — /signup : les refus du serveur sont rendus lisibles', () => {
     },
     ATTENTE_CAS_MS,
   );
+});
+
+describe("M0.4 — /signup : l'écran est atteignable depuis la connexion", () => {
+  // Sans ce lien, /signup n'existe que pour qui connaît l'URL — c'est
+  // exactement la situation qui a laissé la route sans aucun appelant.
+  it('la page de connexion propose un lien « Créer un compte » vers /signup', () => {
+    const { container } = render(<LoginPage />);
+    const lien = container.querySelector('a[href="/signup"]');
+    expect(lien).not.toBeNull();
+    expect(lien!.textContent).toContain('Créer un compte');
+  });
 });

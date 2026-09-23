@@ -1,7 +1,5 @@
 # 06.02 - Templates emails V1
 
-**Statut** : Draft V1 (proposition Claude, à valider Val)
-**Dernière mise à jour** : 2026-06-07 (**Session test-scenarios §06.02 — 4 specs floues tranchées Val** : **F1** `email_templates` + `emails_envoyes` intégrées §04 + policies §09 (write SERVICE_ROLE seul, SELECT admin_savr) · **F2** 3 templates ajoutés (20 `collecte_programmee_tiers`, 21 `collecte_modifiee_tiers` — couvre aussi l'annulation par tiers via `type_changement`, 22 `admin_collecte_annulee`) pour solder l'écart matrice §05 §9 ↔ templates ; total 16 → **19 actifs** · **F3** cycle échecs spécifié §08 §4 (statut `echec`, 3 retries 1min/10min/1h, signature svix, event inconnu = 200 + log, variable manquante = refus + log) · **F4** alerte pack bas déclenchée **au franchissement seul** (transition > 10 % → ≤ 10 %, recrédit ré-arme). Scénarios : `tests/06.02-templates-emails-scenarios.md`.)
 *(historique 2026-06-03 ci-dessous)* (**Revue de sobriété §06.02 (skill `cdc-review-sobriete`) — 6 items appliqués zéro dette** : **A1** UI Admin d'édition des templates + colonne `version` reportées V1.1 (templates en seed DB V1, éditables via SQL/migration sans redéploiement) · **A2** template 2 `completion_profil_requise` retiré V1 (gate déjà in-app, modal §05 §888) · **A3** template 8 `admin_orga_a_valider` retiré V1 (alerte purement informative, onboarding 100% auto sans gating → liste back-office) · **B1** templates 9 `admin_pack_ag_bas` + 14bis `admin_pack_epuise` fusionnés en `admin_pack_ag_etat` (variable `niveau` `bas`/`epuise`) · **C1** compteur corrigé (13 → **16 templates actifs**, dérive jamais recomptée depuis 2026-05-04) · **D1** colonne `email_templates.destinataire_type` supprimée (enum descriptif, adresse résolue au déclenchement, aucun comportement applicatif distinct). **C2 écarté** (faux positif : template 13 `admin_demande_ajout_lieu` cohérent avec le workflow « Normaliser un lieu » toujours actif §06.06). **3 fichiers App édités** : §06.02 + §05 (matrice notifications) + §03 + §00 Index. Cross-CDC : 0 divergence (templates internes Plateforme).)
 
 ---
@@ -48,7 +46,6 @@ L'équipe Savr
 ## 2. Email rappel completion profil entreprise **Retiré V1 (revue de sobriété 2026-06-03, A2)**
 
 **Slug** : `completion_profil_requise`
-**Statut** : retiré V1
 **Motif** : le blocage de la programmation sans organisation complétée est déjà géré **in-app** (modal « Complétez votre profil entreprise » qui liste les champs manquants et redirige vers le formulaire de complétion — cf. [[../05 - Règles métier]] §9 UX). L'email doublait une information déjà affichée à l'instant T → confort. Décision Val 2026-06-03 : in-app uniquement, pas d'email V1.
 
 ---
@@ -197,7 +194,6 @@ L'équipe Savr
 ## 8. Email alerte Admin — Nouvelle organisation à valider **Retiré V1 (revue de sobriété 2026-06-03, A3)**
 
 **Slug** : `admin_orga_a_valider`
-**Statut** : retiré V1
 **Motif** : alerte purement informative (l'email lui-même précisait « l'organisation est déjà active, cette alerte sert à vérifier a posteriori »). L'onboarding est 100% automatisé sans validation amont (§05 §851) → aucun gating, aucune action requise à l'instant T. Le push email génère du bruit à volume. La vérification de cohérence a posteriori se fait via le **filtre « nouvelles organisations » du back-office** (orgs déjà listées, revue à la cadence Admin). Décision Val 2026-06-03.
 
 ---
@@ -360,7 +356,6 @@ Un traiteur a soumis une demande de renouvellement de pack Anti-Gaspi.
 ## 15. Email relance facture en retard **Retiré V1 (revue de sobriété 2026-05-08)**
 
 **Slug** : `facture_relance`
-**Statut** : retiré V1
 **Motif** : les relances de factures en retard sont gérées **directement dans Pennylane** (décision 2026-04-28). Aucun flux relance V1 côté plateforme Savr — donc pas de template email Savr associé. Voir [[06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin)]] §8.
 
 ---

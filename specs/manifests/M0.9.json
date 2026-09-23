@@ -265,7 +265,7 @@
     },
     {
       "id": "BL-P2-33",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:698",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:696",
       "artefact": "Rate-limit tiers + logs INSEE/VIES + rétention (décision Val Q1 « Logs + défensif », R22g). VOLET 1 — journal integrations_logs des appels INSEE (packages/shared/src/api/siret.ts) et VIES (tva.ts) via logIntegration() best-effort (packages/shared/src/api/integrations-log.ts) : integration/direction/methode/endpoint/statut_http/duree_ms/correlation_id(=SIRET|TVA)/erreur, AUCUN en-tête/secret (table réelle sans request_headers, §04 l.2323), jamais bloquant (§04/§15). Complète les logs déjà en place (Pennylane/Resend/adapters logistiques). VOLET 2 — rotation + rétention (migration 20260710000000) : f_ensure_partition_annee + f_purge_logs = job « purge_logs » (§07/02) : partitions integrations_logs année courante+suivante, purge > 2 ans (§04 l.2312/§08 l.639), purge integrations_inbox > 7 j (§04 l.2351), audit_log 2027-2031 pré-provisionné mais JAMAIS purgé (§07/02 l.55) ; cron quotidien /api/cron/purge-logs (04:00) ; REVOKE PUBLIC + GRANT service_role. VOLET 3 — défensif 429 (§08 l.655, Pennylane 120/min, Resend 10/s) : throttle sortant PARTAGÉ in-memory NON distribué (packages/shared/src/rate-limit/outbound-throttle.ts, espacement + honorer Retry-After) câblé chemin réel Pennylane (pennylaneRequest) + Resend (dispatchToResend) ; 429 rendu RETRYABLE — MTS-1 httpError 429→Transient (retry paliers, plus DLQ direct), Pennylane is429 exclu du terminal echec_4xx (validation-admin/avoirs), INSEE 429→'down' (revalidation-siret). HORS scope (Val Q1/Q3) : limiteur ENTRANT nouveau, quota distribué (V1.1), Railway, succès Resend, throttle Everest.",
       "test": "M0.9 — logs tiers INSEE/VIES (BL-P2-33) ; M0.9 — throttle sortant défensif (BL-P2-33) ; M0.9 — MTS-1 429 transitoire (BL-P2-33) ; M0.9 — Pennylane 429 retryable (BL-P2-33) ; supabase/tests/purge_logs_retention.m0-9.test.sql",
       "statut": "implemented",
@@ -276,7 +276,7 @@
     "specs/cdc/01 - Cahier des charges App/07 - Observabilité/01 - Logs business.md": "bda4490df59ea574a7cd48a66dc6136f1864543cd18a624f6a43493da0b42287",
     "specs/cdc/01 - Cahier des charges App/07 - Observabilité/02 - Logs techniques.md": "3dece20b7d1f1f553c618abfc5b36096d967bf6ba2f8e68d982a8e83cc7ed054",
     "specs/cdc/01 - Cahier des charges App/07 - Observabilité/03 - Alertes.md": "46efeb1cb1cde816097bb167ac970e1fa888c76ea0a155e7815f8323d0e3019f",
-    "specs/cdc/01 - Cahier des charges App/07 - Observabilité/06 - Audit trail.md": "d9114e105e3a55b0ba2797b9cf74cbe6e9efe1f8f31976c7be742e8bbc992f41",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "825d4a48df706ee518e0035690d46a4c32a91c37253f5c439ac44930ec81d334"
+    "specs/cdc/01 - Cahier des charges App/07 - Observabilité/06 - Audit trail.md": "75722022c07fb5c447bf30ea4c6d7870d1f1472e78fa24d8bec8b82e6dc49344",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "f37c49f3824f0c17eb6c45052d6cd0740c73f2140a05b850f8418ae8c1703ee4"
   }
 }

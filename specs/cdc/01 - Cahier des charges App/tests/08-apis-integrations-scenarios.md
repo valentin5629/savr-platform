@@ -2,7 +2,6 @@
 
 **Source CDC** : §08 APIs et intégrations + §05 Règles métier (retry, idempotence) + §09 RLS (integrations_logs, emails_envoyes, parametres_*)
 **Généré le** : 2026-06-07
-**Statut** : À implémenter par Claude Code
 
 > **Instructions Claude Code** : ces scénarios sont la source de vérité pour les tests du module §08.
 > Pour chaque scénario :

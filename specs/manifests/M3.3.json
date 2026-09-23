@@ -189,7 +189,7 @@
     },
     {
       "id": "BL-P1-AGENCE-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:38 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:256",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:38 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:254",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/pack-ag/renouvellement/route.ts + packages/plateforme/src/app/(agence)/agence/page.tsx",
       "test": "M3.3/AGENCE01_renouvellement_role_agence_201 + M3.3/AGENCE01_renouvellement_role_non_autorise_403 + M3.3/AGENCE01_bouton_renouvellement_onglet_ag + M3.3/AGENCE01_bouton_renouvellement_poste_endpoint",
       "statut": "implemented",
@@ -261,7 +261,7 @@
     },
     {
       "id": "M3.3-bloc7-retire",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:30",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:28",
       "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx",
       "test": "M3.3/blocs_agence_top_acteurs_null + M3.3/blocs_agence_zd_sans_bloc7",
       "statut": "implemented",
@@ -277,7 +277,7 @@
     },
     {
       "id": "M3.3-cockpit-declinaison",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:19",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md:17",
       "artefact": "packages/plateforme/src/app/(agence)/agence/page.tsx + packages/plateforme/src/components/dashboards/charts/cockpit/",
       "test": "M3.3/cockpit_declinaison_kpi_toprank_benchmark",
       "statut": "implemented",
@@ -293,6 +293,6 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md": "4d70888241bc0a989b41f00f526380f499123316c23ee8cec28f9bf726d7e249"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md": "08aa9e2c9489903e796413a9e144dc5880a428c047e8e6240c22c1a5acbab3b1"
   }
 }

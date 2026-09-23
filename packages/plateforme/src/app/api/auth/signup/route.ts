@@ -168,10 +168,23 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   let attachRole: string | null = null;
 
   if (!isPublicDomain) {
+    // GARDE, pas un detail de requete. Cette table decide a quelle organisation
+    // un nouvel inscrit est rattache, et POST /api/v1/traiteur/mon-organisation/
+    // domaines-email laisse n'importe quel traiteur_manager y revendiquer un
+    // domaine quelconque sans aucune preuve de controle. Sans cette garde, il
+    // suffisait de creer un compte avec une adresse jetable, de revendiquer
+    // « grandtraiteur.fr », et d'attendre : le premier salarie de ce domaine a
+    // s'inscrire etait rattache, en silence, a l'organisation du revendiquant,
+    // qui en est manager et lit donc tout ce que ce salarie y cree.
+    // `verifie_at` n'est pose que par api/auth/verify-email, au clic sur le lien
+    // d'activation — donc par quelqu'un qui possede reellement une adresse a ce
+    // domaine. Une revendication non prouvee reste visible dans « Mon
+    // organisation » mais ne rattache plus personne.
     const { data: domainRow } = await supabase
       .from('organisations_domaines_email')
       .select('organisation_id, organisations(type)')
       .eq('domaine', domain)
+      .not('verifie_at', 'is', null)
       .maybeSingle();
 
     if (domainRow?.organisation_id) {

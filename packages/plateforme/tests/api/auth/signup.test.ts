@@ -21,6 +21,7 @@ let lastTable = '';
 let insertCalls: Array<{ table: string; payload: Record<string, unknown> }> =
   [];
 let deleteCalls: Array<{ table: string }> = [];
+let notCalls: Array<{ table: string; args: unknown[] }> = [];
 const maybeSingleQueue: Record<string, Resp[]> = {};
 const insertResult: Record<string, Resp> = {};
 
@@ -53,6 +54,13 @@ function makeInsertResult(table: string): Record<string, unknown> {
 const chain: Record<string, unknown> = {
   select: () => chain,
   eq: () => chain,
+  // `.not()` enregistre le filtre : c'est ce qui permet d'épingler la garde
+  // `verifie_at IS NOT NULL` du rattachement par domaine (sans elle, une
+  // revendication de domaine non prouvée rattacherait les inscrits suivants).
+  not: (...args: unknown[]) => {
+    notCalls.push({ table: lastTable, args });
+    return chain;
+  },
   insert: vi.fn((payload: Record<string, unknown>) => {
     insertCalls.push({ table: lastTable, payload });
     return makeInsertResult(lastTable);
@@ -134,6 +142,7 @@ beforeEach(() => {
   lastTable = '';
   insertCalls = [];
   deleteCalls = [];
+  notCalls = [];
   for (const k of Object.keys(maybeSingleQueue)) delete maybeSingleQueue[k];
   for (const k of Object.keys(insertResult)) delete insertResult[k];
   mockCreateUser.mockResolvedValue({
@@ -427,5 +436,65 @@ describe('M0.4 — formats des champs d’identité au signup (CDC §05 §8)', (
       const res = await POST(makeReq({ ...VALID_BODY, telephone }));
       expect(res.status, telephone).toBe(201);
     }
+  });
+});
+
+// Chaîne de capture inter-organisation fermée par ce lot (revue sécurité) :
+// `POST /api/v1/traiteur/mon-organisation/domaines-email` laisse n'importe quel
+// traiteur_manager revendiquer un domaine quelconque SANS preuve de contrôle, et
+// `verifie_at` n'était écrit nulle part. Le signup rattachait sur cette ligne :
+// revendiquer « grandtraiteur.fr » depuis un compte jetable suffisait donc à
+// capturer les inscriptions suivantes de ce domaine, dans une organisation dont
+// l'attaquant est manager.
+describe('M0.4 — rattachement par domaine : seules les revendications PROUVÉES comptent', () => {
+  it('la recherche de domaine filtre sur verifie_at IS NOT NULL', async () => {
+    const { POST } = await import('@/app/api/auth/signup/route.js');
+    await POST(makeReq(VALID_BODY));
+
+    const filtre = notCalls.find(
+      (c) => c.table === 'organisations_domaines_email',
+    );
+    expect(
+      filtre,
+      'aucun filtre posé sur organisations_domaines_email',
+    ).toBeDefined();
+    expect(filtre!.args).toEqual(['verifie_at', 'is', null]);
+  });
+
+  it('un domaine revendiqué mais NON vérifié ne rattache personne → nouvelle orga', async () => {
+    // Le filtre `.not(verifie_at is null)` fait que la requête ne rend RIEN pour
+    // une revendication non prouvée : la route prend donc le chemin « création ».
+    maybeSingleQueue['organisations_domaines_email'] = [
+      { data: null, error: null },
+    ];
+    const { POST } = await import('@/app/api/auth/signup/route.js');
+    const res = await POST(makeReq(VALID_BODY));
+
+    expect(res.status).toBe(201);
+    // Une organisation est créée : l'inscrit n'a PAS rejoint celle du revendiquant.
+    expect(insertCalls.some((c) => c.table === 'organisations')).toBe(true);
+    const body = (await res.json()) as { organisation_id?: string };
+    expect(body.organisation_id).toBe('org-1');
+  });
+
+  it('un domaine VÉRIFIÉ rattache toujours, sans créer d’organisation', async () => {
+    maybeSingleQueue['organisations_domaines_email'] = [
+      {
+        data: {
+          organisation_id: 'org-existante',
+          organisations: { type: 'traiteur' },
+        },
+        error: null,
+      },
+    ];
+    const { POST } = await import('@/app/api/auth/signup/route.js');
+    const res = await POST(makeReq(VALID_BODY));
+
+    expect(res.status).toBe(201);
+    expect(insertCalls.some((c) => c.table === 'organisations')).toBe(false);
+    const user = insertCalls.find((c) => c.table === 'users');
+    expect(user!.payload.organisation_id).toBe('org-existante');
+    // Rôle par défaut du CDC §05 §8 pour une orga traiteur rejointe.
+    expect(user!.payload.role).toBe('traiteur_commercial');
   });
 });

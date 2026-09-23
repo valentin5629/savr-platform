@@ -33,7 +33,9 @@
     "SIRET absent → 201 : l'orga est créée, entité sans SIRET en_attente, INSEE jamais appelé",
     "rend les 27 articles, le préambule et les annexes",
     "ne publie PAS la section « Notes pour révision juridique »",
-    "la page de connexion propose un lien « Créer un compte » vers /signup"
+    "la page de connexion propose un lien « Créer un compte » vers /signup",
+    "la recherche de domaine filtre sur verifie_at IS NOT NULL",
+    "pose verifie_at sur le domaine de l’utilisateur, dans SON organisation seulement"
   ],
   "deliverables": [
     {
@@ -244,6 +246,22 @@
       "statut": "descoped",
       "ref_divergence": "_Divergences/M0.4_20260923_signup-autocompletion-raison-sociale.md",
       "libelle": "Auto-complétion de raison_sociale quand le domaine email est déjà connu — non livrée : exigerait un endpoint public révélant quels domaines sont clients de Savr (arbitrage Val en attente)"
+    },
+    {
+      "id": "M0.4-rattachement-domaine-verifie-seulement",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:956-962",
+      "artefact": "packages/plateforme/src/app/api/auth/signup/route.ts (lecture organisations_domaines_email filtrée sur verifie_at IS NOT NULL)",
+      "test": "M0.4 — rattachement par domaine : seules les revendications PROUVÉES comptent",
+      "statut": "implemented",
+      "libelle": "Le rattachement automatique par domaine email n'opère que sur un domaine dont le contrôle a été prouvé"
+    },
+    {
+      "id": "M0.4-verify-email-pose-verifie-at",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:89-91",
+      "artefact": "packages/plateforme/src/app/api/auth/verify-email/route.ts (pose verifie_at sur le domaine de l'adresse activée, borné à l'organisation de l'utilisateur)",
+      "test": "M0.4 — verify-email : le clic prouve le domaine",
+      "statut": "implemented",
+      "libelle": "Le clic sur le lien d'activation marque le domaine email comme prouvé pour cette organisation"
     }
   ],
   "cdc_source_hash": {

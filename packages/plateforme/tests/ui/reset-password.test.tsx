@@ -201,4 +201,27 @@ describe('/login — porte d’entrée du parcours', () => {
     },
     ATTENTE_CAS_MS,
   );
+
+  // Un motif inventé (« zz », une balise) ne sonde RIEN : il n'est clé de rien.
+  // Les seules valeurs dangereuses sont celles qu'un objet littéral rend sans
+  // qu'on les ait posées — `__proto__` rend un objet (React refuse de le rendre
+  // et la page de connexion plante), `toString` rend une fonction. C'est par là
+  // qu'un lien forgé cassait l'écran ; le test doit donc viser ces clés-là.
+  it.each([
+    '__proto__',
+    'toString',
+    'constructor',
+    'valueOf',
+    'hasOwnProperty',
+  ])(
+    'un motif hérité d’Object.prototype (%s) ne casse pas la page et n’imprime rien',
+    async (cle) => {
+      params = new URLSearchParams({ error: cle });
+      const { container, findByText } = render(<LoginPage />);
+      await findByText('Connexion Savr', undefined, ATTENTE_UI);
+      expect(container.querySelector('form')).not.toBeNull();
+      expect(container.textContent).not.toMatch(/function|\[object/i);
+    },
+    ATTENTE_CAS_MS,
+  );
 });

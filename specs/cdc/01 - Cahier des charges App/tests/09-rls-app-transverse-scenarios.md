@@ -2,7 +2,6 @@
 
 **Source CDC** : §09 (matrice §3 + matrice étendue ops_savr + §3ter audit RLS V1 + Bloc D) + §04 (RLS inline `sequences_facturation`, `audit_log`, `config_auto_accept_ag`, tables history) + §05 (`f_collecte_editable`) + §06.06 (matrice écrans) + §11 (Bloc 7)
 **Généré le** : 2026-06-07
-**Statut** : À implémenter par Claude Code
 
 > **Instructions Claude Code** : ces scénarios sont la source de vérité pour les tests RLS transverses de la Plateforme.
 > Pour chaque scénario :
@@ -333,6 +332,28 @@ Scénario : fichiers_facture_gestionnaire_scinde (fichiers_facture_gestionnaire_
   Étant donné un PDF de facture Viparis et un PDF de facture Kaspia pour une collecte tenue sur le lieu L1 de Viparis
   Quand `gest_viparis` exécute SELECT sur `shared.fichiers` (entity_type='plateforme.factures')
   Alors SA facture est visible et la facture Kaspia ne l'est pas (visibilité lieu ≠ visibilité facture)
+
+Scénario : benchmark_listes_filtres_garde_role
+  # Source : §04 « Fonctions d'alimentation des filtres benchmark » + §09 3quinquies (1)(2) — migration 20260923090000 (PR #395)
+  # Priorité : P1-critique
+  Étant donné un parc contenant au moins un lieu et un traiteur éligibles au filtre benchmark
+  Quand `kaspia_manager` (traiteur_manager) exécute `plateforme.f_benchmark_traiteurs_parc()` sous `authenticated`
+  Alors l'appel lève `Role non autorise pour la liste traiteurs benchmark` — la liste nominative des traiteurs du parc est une donnée concurrentielle, elle ne sort jamais vers un rôle traiteur
+  Quand `gest_viparis` (gestionnaire_lieux) exécute la même fonction
+  Alors la liste retournée est NON VIDE (contrôle positif de non-vacuité : sans lui, un refus global rendrait le scénario vert à tort)
+  Quand un jeton SANS claim `user_role` (compte présent dans `auth.users`, absent de `plateforme.users`) exécute `f_benchmark_traiteurs_parc()`, puis `f_benchmark_lieux_parc()`
+  Alors les deux lèvent `Role applicatif absent (acces refuse)` — et non le message de liste blanche
+  # ⚠ La garde « rôle absent » doit être distincte et première : `NULL NOT IN (…)` vaut NULL et n'entre dans aucun IF, une liste blanche seule est silencieusement fail-open
+
+Scénario : rpc_security_definer_pas_oracle_existence
+  # Source : §09 3quinquies (2) — interdiction d'oracle d'existence ; §04 f_benchmark_single_collecte
+  # Priorité : P2-important
+  Étant donné une collecte C1 appartenant à l'organisation Kaspia
+  Quand `gest_viparis` exécute `plateforme.f_benchmark_single_collecte(C1)`, puis `f_benchmark_single_collecte(<uuid inexistant>)`
+  Alors les deux appels lèvent EXACTEMENT le même message `Collecte not accessible` — le message ne permet pas de distinguer « n'existe pas » de « appartient à une autre organisation »
+  Quand un jeton SANS claim `user_role` exécute `f_benchmark_single_collecte(C1)`
+  Alors l'appel lève `Role applicatif absent (acces refuse)` — message distinct, sans quoi la garde de rôle n'est pas testable indépendamment
+  # ⚠ La fonction est SECURITY DEFINER : la RLS de l'appelant ne s'y applique pas, le contrôle d'organisation est explicite dans le corps
 ```
 
 ---
@@ -347,7 +368,7 @@ Scénario : audit_log_append_only_meme_pour_admin
   Étant donné une entrée audit_log existante
   Quand `val` (admin_savr) exécute UPDATE, puis DELETE, puis TRUNCATE sur cette entrée — sous `authenticated`, puis en visant directement la partition annuelle
   Alors UPDATE et DELETE échouent (`trg_audit_log_immuable` + REVOKE, migration `20260921200000`)
-  Et le vidage de table échoue également — ⚠ garantie portée par `trg_audit_log_vidage_interdit` (`20260922110000`, **PR #383 non mergée au 2026-09-22**) : tant qu'elle n'est pas sur `main`, ce volet du scénario décrit une cible, pas un acquis
+  Et le vidage de table échoue également (`trg_audit_log_vidage_interdit`, migration `20260922200000` — PR #383 mergée le 2026-09-22 ; posé sur le parent, sur chaque partition existante et par `f_ensure_partition_annee` sur les partitions à venir)
   Et le refus vaut aussi depuis une fonction `SECURITY DEFINER` (l'ACL vérifiée est celle du propriétaire, pas celle de l'appelant) — ⚠ ce cas n'est PAS facultatif : les 3 rôles applicatifs n'ayant pas le privilège de vidage, c'est la SEULE assertion qui mesure réellement la présence du trigger
   Et la garantie porte sur les rôles applicatifs (`service_role`, `authenticated`, `anon`) — `postgres`, propriétaire de la base, est hors garantie
 
@@ -374,7 +395,8 @@ Scénario : sequences_facturation_service_role_only
 
 Scénario : factures_delete_refuse_tous_roles
   Quand `val` (admin_savr) puis `manager_kaspia` exécutent DELETE sur une facture émise
-  Alors 0 ligne affectée pour les deux (pas de policy DELETE — correction = avoir uniquement)
+  Alors les deux DELETE sont rejetés en 42501 « permission denied for table factures » (REVOKE DELETE table-level, migration 20260923150000 — correction = avoir uniquement)
+  # ⚠ Le motif « pas de policy DELETE » était faux : fac_admin est FOR ALL (polcmd='*'), le DELETE d'admin_savr aboutissait réellement avant ce REVOKE
 
 Scénario : fichiers_soft_deleted_invisibles
   Étant donné une ligne `shared.fichiers` avec deleted_at NOT NULL appartenant à Kaspia

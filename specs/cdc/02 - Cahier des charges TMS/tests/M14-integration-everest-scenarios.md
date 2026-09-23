@@ -2,7 +2,6 @@
 
 **Source CDC** : §06/M14 (W1-W4, W6, W8, R_M14.1-R_M14.7, EC1-EC12) + §04 (`everest_missions`, `trg_m14_cascade_cancel`, params `m14_*`) + §08 (S1) + §09 (§18/§18bis, T_M14.1-5)
 **Généré le** : 2026-06-07
-**Statut** : À implémenter par Claude Code — **5 specs floues TRANCHÉES Val 2026-06-07 et propagées (cf. section dédiée)**
 
 > **Instructions Claude Code** : ces scénarios sont la source de vérité pour les tests du module M14.
 > Pour chaque scénario :

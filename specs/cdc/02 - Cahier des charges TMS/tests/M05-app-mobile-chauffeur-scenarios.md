@@ -2,7 +2,6 @@
 
 **Source CDC** : §06/M05 (E1→E10, W1→W12) + §05 R_M05.1→R_M05.19 + R6.1/R6.2 (cycle de vie) + §04 tables `pesees`, `types_contenants`, `auth_sessions_tms`, `incidents`, `chauffeurs_geolocalisation` + §08 S3/S5/S9 + §09 RLS chauffeur
 **Généré le** : 2026-06-06
-**Statut** : À implémenter par Claude Code
 
 > **Instructions Claude Code** : ces scénarios sont la source de vérité pour les tests du module M05.
 > Pour chaque scénario :

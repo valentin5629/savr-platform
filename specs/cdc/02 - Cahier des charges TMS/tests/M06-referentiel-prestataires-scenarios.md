@@ -2,7 +2,6 @@
 
 **Source CDC** : §06 TMS/M06 + §05 TMS (R2.1, R6.4) + §04 TMS (`shared.prestataires`, `tms.vehicules`, `tms.chauffeurs`, `tms.types_vehicules`, `tms.grilles_tarifaires_prestataires`, `formules_catalogue`, `users_tms`) + §09 TMS (policies RLS + `fn_create_prestataire_province`)
 **Généré le** : 2026-06-06 — **4 floues TRANCHÉES Val 2026-06-07 + propagées (M06+§05+§09), scénarios amendés**
-**Statut** : À implémenter par Claude Code
 
 > **Instructions Claude Code** : ces scénarios sont la source de vérité pour les tests du module M06.
 > Pour chaque scénario :

@@ -1,7 +1,5 @@
 # 10 - Design System
 
-**Statut** : Validé V1 — refonte 2026-06-08 (structure inspirée du UAE Design System / AEGOV DLS v3, palette Savr conservée)
-**Dernière mise à jour** : 2026-06-08
 **Inspiration visuelle de référence** : [UAE Design System (designsystem.gov.ae)](https://designsystem.gov.ae/) — système institutionnel, accessible, dense mais aéré. On en reprend la **rigueur** (échelles tonales complètes, focus states forts, sobriété des ombres, pleins blocs de couleur primaire), pas l'identité (couleurs Savr conservées).
 
 ---

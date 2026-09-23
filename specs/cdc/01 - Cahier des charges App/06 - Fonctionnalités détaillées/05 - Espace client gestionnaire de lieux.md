@@ -1,7 +1,5 @@
 # 05 - Espace client gestionnaire de lieux
 
-**Statut** : Validé V1 (session test-scenarios 2026-06-07 — 6 floues tranchées Val : F1 toggle notif collecte supprimé · F2 statut consolidé défini · F3 brouillons tiers exclus · F4 fenêtre `f_collecte_editable` sur UPDATE gestionnaire · F5 policies users org-wide · F6 factures SELECT self — cf. `tests/06.05-espace-gestionnaire-lieux-scenarios.md`)
-**Dernière mise à jour** : 2026-07-06 (patchs divergences M3.2 — nav 9 sections avec entrées Collectes + Registre distinctes L67/72-73/83 ; champ « type » retiré de la fiche lieu L372, colonne inexistante V1 + cible — cf. `_Divergences/_traités/2026-07/M3.2_*.md`)
 **Lié à** : [[02 - Personas et cas d'usage]] · [[04 - Data Model]] tables `organisations`, `organisations_lieux`, `lieux`, `types_evenements`, `flux_dechets`, `coefficients_perte_labo` · [[05 - Règles métier#R_dechets_labo_estimes]] · [[06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte]] · [[06 - Fonctionnalités détaillées/04 - Espace client traiteur]] · [[11 - Dashboards]] · [[12 - Reporting et exports]] §1.6
 
 ---
@@ -565,7 +563,7 @@ Fonction agrégée dédiée au Bloc 3 ZD (jauges) avec **filtres benchmark dédi
 
 **Calcul** : pour chaque tuple `(flux, type_evenement, taille)` correspondant aux paramètres, moyenne pondérée `SUM(collecte_flux.poids_reel_kg) / SUM(evenements.pax)` sur le sous-ensemble du parc Savr filtré.
 
-**Filtre RLS** : `nb_collectes_segment >= 5` appliqué dans le `WHERE` final de la fonction → un segment avec moins de 5 collectes n'apparaît tout simplement pas dans la réponse SQL, ce qui garantit que la moyenne ne devient jamais identifiante. Plus le gestionnaire restreint les filtres benchmark, plus le risque de masquage augmente — c'est le compromis assumé de l'option D (cf. Décisions prises).
+**Filtre RLS** : deux seuils cumulatifs dans le `HAVING` final de la fonction — `nb_collectes_segment >= 5` **ET** ≥ 3 acteurs distincts (minimum entre organisations programmatrices et traiteurs opérationnels ; durci 2026-09-22, migration `20260922210000`). Un segment qui ne franchit pas les deux n'apparaît pas dans la réponse SQL. ⚠ Le seuil de collectes **seul** ne garantissait pas la non-identifiabilité : 5 collectes d'un acteur unique le franchissaient et la moyenne publiée décrivait alors cet acteur. Plus le gestionnaire restreint les filtres benchmark, plus le risque de masquage augmente — c'est le compromis assumé de l'option D (cf. Décisions prises).
 
 **Risque "comparaison à soi-même"** : si le gestionnaire applique le filtre `lieu_ids[]` ou `traiteur_ids[]` sur ses propres lieux/traiteurs, la moyenne benchmark devient mécaniquement identique (ou très proche) du ratio gestionnaire → ratio = 1.0 → couleur orange permanente. Avertissement UX affiché côté front (tooltip dans la barre filtre benchmark).
 

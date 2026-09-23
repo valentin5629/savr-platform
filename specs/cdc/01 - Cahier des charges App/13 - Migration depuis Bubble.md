@@ -1,7 +1,5 @@
 # 13 - Migration depuis Bubble
 
-**Statut** : Cadrage — le plan d'exécution détaillé vit dans `04 - Migration/` du Vault ([[../04 - Migration/01 - Inventaire source Bubble|01 - Inventaire source Bubble]], Phase 10 `cdc-migration-data` 2026-06-07)
-**Dernière mise à jour** : 2026-06-07 (amendements post-Phase 10 : factures = Pennylane, bordereaux/attestations = archive cold, volumes réels, source référentiel lieux)
 
 ---
 

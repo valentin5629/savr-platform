@@ -2,7 +2,6 @@
 
 **Source CDC** : §06/M10 (V3 sobre 2026-04-30) + §05 R5.1-R5.8 v3 + §04 Niveau 4 (`stocks_bacs_entrepot`, `passages_veolia`, `recomptages_stocks_entrepot_log`) + §09 RLS section 13
 **Généré le** : 2026-06-07
-**Statut** : À implémenter par Claude Code
 
 > **Instructions Claude Code** : ces scénarios sont la source de vérité pour les tests du module M10.
 > Pour chaque scénario :

@@ -127,7 +127,7 @@
     },
     {
       "id": "M3.4-cockpit-declinaison",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:153",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:151",
       "artefact": "packages/plateforme/src/app/(client-organisateur)/organisateur/page.tsx",
       "test": "M3.4/cockpit_declinaison_kpi_cards",
       "statut": "implemented",
@@ -135,7 +135,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "c6063eda0e8c3e48ca88adc26d1fbe1ad7c67a92774f5c026ec64f183be92b67",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "4790d4354258dff9e702321f31654266b6637744728d23eae69c860ec65a8a94"
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "c66e43f4f48ed652a16557e0817f7e70092fb0e1ba78f87f0592f06624f5a327",
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "2d2dbe205f8a79466e65ed5673bb9f4abdbcfecadb8b4b34f91cac953f283928"
   }
 }

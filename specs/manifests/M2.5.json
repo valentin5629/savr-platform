@@ -51,7 +51,7 @@
     },
     {
       "id": "BL-P1-API-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:275",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:273",
       "artefact": "packages/adapters/src/everest/adapter.ts, packages/plateforme/src/app/api/webhooks/everest/route.ts, supabase/migrations/20260629110000_plateforme_r10a_everest_service_77.sql",
       "test": "service 77 (ag_everest_camion_express) [adapter.m2-5.test.ts] + course-vide→realisee_sans_collecte (AG) + rejet→rejetee_par_prestataire [everest.m2-5.test.ts] + ALTER CHECK 71/74/77/91 [r10a_everest_service_77.test.sql]",
       "statut": "implemented",
@@ -59,7 +59,7 @@
     },
     {
       "id": "M2.5-acceptation-manuelle-reference",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:251-271",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:249-269",
       "artefact": "supabase/migrations/20260916160000_plateforme_everest_acceptation_manuelle_reference.sql (fn_accepter_mission_everest_manuelle : tournees.external_ref_commande + collectes.tms_reference + everest_missions created_manually, atomique) ; packages/plateforme/src/app/api/v1/admin/everest/missions/manual-accept/route.ts + packages/plateforme/src/lib/acceptation-manuelle-mission.ts (référence obligatoire, bornée) ; packages/plateforme/src/components/admin/collecte-detail-panel.tsx (modale « Acceptation manuelle »)",
       "test": "everest_acceptation_manuelle_reference.test.sql (A1 422 sans référence, A2 référence posée, A3 sort des non transmises, A4 renvoi = E2, A7 uniq_tournee_par_external_ref atomique, A9 annulation = E3, A11 tournée Everest visée) + adapter.m2-5.test.ts « mission acceptée manuellement AVEC référence » (cancelCollecte annule chez A Toutes!, E1 no-op) + everest-manual-accept.m2-5.test.ts + collecte-detail-panel.m0-6.test.tsx §06.06 Bloc 0",
       "statut": "implemented",
@@ -67,7 +67,7 @@
     },
     {
       "id": "M2.5-created-manually-cycle-de-vie",
-      "ref_cdc": "specs/cdc/02 - Cahier des charges TMS/04 - Data Model TMS.md:408",
+      "ref_cdc": "specs/cdc/02 - Cahier des charges TMS/04 - Data Model TMS.md:407",
       "artefact": "supabase/migrations/20260916170000_plateforme_everest_created_manually_implication.sql (chk_everest_created_manually en implication) ; packages/adapters/src/everest/adapter.ts (echecEcritureLocale : écriture locale refusée après A Toutes! → alerte Ops in-app f_upsert_alerte_admin + levée)",
       "test": "everest_created_manually_cycle_de_vie.test.sql (B2-B9 cancelled/assigned/in_progress/completed avec manual_* conservés, B10-B14 23514 si un seul champ) + m2_5_everest_missions_rls.test.sql T10-T12 (T_M14.5 sous admin_savr) + adapter.m2-5.test.ts « écritures locales refusées après A Toutes! » (UPDATE everest_missions en 23514 → Permanent + alerte, jamais Slack)",
       "statut": "implemented",
@@ -75,7 +75,7 @@
     },
     {
       "id": "M2.5-acceptation-manuelle-plans",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:261-267",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:259-265",
       "artefact": "supabase/migrations/20260916180000_plateforme_everest_acceptation_manuelle_refus_rejetee.sql (refus P0003 depuis rejetee_par_prestataire)",
       "test": "everest_acceptation_manuelle_plans.test.sql (statut_depart : a_attribuer / attribuee_en_attente_acceptation → acceptee, rejetee_par_prestataire → refus ; refus_409 : realisee / cloturee / annulee, aucune écriture) + everest_acceptation_manuelle_reference.test.sql (non_envoye A2c, non a_toutes A8b, mission API A8, autre référence A5c, référence d'une autre tournée A7) + everest-manual-accept.m2-5.test.ts (P0003 → 409, formats 422)",
       "statut": "implemented",
@@ -83,8 +83,8 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "1935353d3942e1ec2ebccbce6940fd99a75ee55d7d9db95692529594b4a0124d",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "825d4a48df706ee518e0035690d46a4c32a91c37253f5c439ac44930ec81d334",
-    "specs/cdc/02 - Cahier des charges TMS/04 - Data Model TMS.md": "028f6fffba163cfd2cf3c486945d65d32746d040694e6ea4a2607134f52f3c24"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "2fd0f8b9bafb3b3d1c4b0142a61ad8290de04ffbd347c5dbc0c016babd6beb1b",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "f37c49f3824f0c17eb6c45052d6cd0740c73f2140a05b850f8418ae8c1703ee4",
+    "specs/cdc/02 - Cahier des charges TMS/04 - Data Model TMS.md": "f27893604204edd42c80f59795ff3e93e81eecf9557ccd9904f3dbac6c071cde"
   }
 }

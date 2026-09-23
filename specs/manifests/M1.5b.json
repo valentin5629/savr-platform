@@ -102,7 +102,7 @@
     },
     {
       "id": "BL-P1-OUTBOX-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:486",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:484",
       "artefact": "packages/adapters/src/mts1/adapter.ts",
       "test": "claim entrant atomique : conflit concurrent → skip (upsert ignoreDuplicates) ; erreur ≠23505 propagée [adapter.m1-5b.test.ts]",
       "statut": "implemented",
@@ -110,7 +110,7 @@
     },
     {
       "id": "BL-P1-API-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:320",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:318",
       "artefact": "packages/adapters/src/mts1/client.ts, packages/adapters/src/mts1/adapter.ts",
       "test": "M1.5b-carrier / dispatch.{vehicle,transporter}ShareableCode → tournees.plaque_immatriculation + chauffeur_nom [adapter.m1-5b.test.ts]",
       "statut": "implemented",
@@ -118,7 +118,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "50ede6802057c9a22cc12c804bd12d02ecc2338eb1d871b694c08d8d493249ad",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "825d4a48df706ee518e0035690d46a4c32a91c37253f5c439ac44930ec81d334"
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "90e9f62e94f2cfc441443ae9f7bd18776212d35b4b8b5a6a25dcfd4bf95b1ec5",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "f37c49f3824f0c17eb6c45052d6cd0740c73f2140a05b850f8418ae8c1703ee4"
   }
 }

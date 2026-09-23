@@ -1,7 +1,5 @@
 # 07 - Architecture technique TMS
 
-**Statut** : V1 rédigé 2026-04-23 (suite atelier tech avec frère 2026-04-23)
-**Dernière mise à jour** : 2026-04-27 (propagation §12 App mobile chauffeur V1 2026-04-27 — D1 PWA `tms.gosavr.io/m/*` mono-domaine, D3 Service Worker Serwist, D4 offline-first complet V1 (M05 source de vérité, ex-§7.7.3 V1.1 obsolète), D5 émetteur Web Push = Edge Function Supabase `tms.push_send` (§7.6.1 obsolète, alignement M13 / §11 / §12), §14 sous-domaines mention `/m/*`). Mise à jour antérieure 2026-04-25 (revue de sobriété Bloc 1 — Slack dégagé V1 (A6), flood protection dégagée V1 (A8). Propagation M13 antérieure — section 13 Secrets enrichie : 4 secrets supplémentaires gérés par M13 E5 via Vault, ajout colonne "Géré par" + cron expiration ; nouvelle section 17 Edge Functions M13)
 
 **Rôle du document** : décrit l'architecture technique du Savr TMS. Pendant TMS de [[../01 - Cahier des charges App/07 - Architecture technique]]. Les deux documents doivent rester alignés — l'infrastructure est mutualisée à 80%.
 

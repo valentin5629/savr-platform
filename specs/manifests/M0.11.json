@@ -612,7 +612,7 @@
     },
     {
       "id": "BL-P1-API-09",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:616",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:614",
       "artefact": "packages/plateforme/src/app/api/webhooks/resend/route.ts",
       "test": "signature valide + email.delivered → 200 et statut emails_envoyes = delivered",
       "statut": "implemented",
@@ -620,6 +620,6 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "825d4a48df706ee518e0035690d46a4c32a91c37253f5c439ac44930ec81d334"
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "f37c49f3824f0c17eb6c45052d6cd0740c73f2140a05b850f8418ae8c1703ee4"
   }
 }

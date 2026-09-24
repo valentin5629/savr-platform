@@ -26,7 +26,16 @@
     "gestionnaire_insert_evenement_lieu_hors_perimetre_refuse — 403, aucun INSERT",
     "gestionnaire_insert_evenement_traiteur_shadow_refuse — 403, aucun INSERT",
     "commercial_update_collecte_d_un_collegue_refuse — 403 malgré la même organisation, rien n’est écrit",
-    "impersonation_journalisee — audit_log porte user_id = identité assumée ET impersonator_id = admin"
+    "impersonation_journalisee — audit_log porte user_id = identité assumée ET impersonator_id = admin",
+    "envoie à la route les 7 champs du CDC, avec le type de profil choisi",
+    "CGU non cochées → création refusée, la route n’est jamais appelée",
+    "ne demande aucun SIRET (décision Val 2026-09-23 : étape 2 du CDC)",
+    "SIRET absent → 201 : l'orga est créée, entité sans SIRET en_attente, INSEE jamais appelé",
+    "rend les 27 articles, le préambule et les annexes",
+    "ne publie PAS la section « Notes pour révision juridique »",
+    "la page de connexion propose un lien « Créer un compte » vers /signup",
+    "la recherche de domaine filtre sur verifie_at IS NOT NULL",
+    "pose verifie_at sur le domaine de l’utilisateur, dans SON organisation seulement"
   ],
   "deliverables": [
     {
@@ -48,10 +57,10 @@
     {
       "id": "BL-P1-ONB-01",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:71",
-      "artefact": "packages/plateforme/src/app/api/auth/signup/route.ts (champ siret requis sur chemin création + verifySiret synchrone : echec→422, down→en_attente+enqueue, verifie→verifie ; plus de siret:'') + packages/shared/src/api/siret.ts (isValidSiretFormat 14 chiffres) + packages/plateforme/src/lib/password.ts (validatePasswordStrength : 10c + maj + chiffre + spécial, §09 l.84-85) + packages/plateforme/src/app/api/auth/update-password/route.ts (même helper appliqué au reset/changement — A1 signup+reset) + supabase/config.toml (minimum_password_length 10)",
+      "artefact": "packages/plateforme/src/app/api/auth/signup/route.ts (champ siret FACULTATIF depuis l'arbitrage Val 2026-09-23 — _Divergences/M0.4_20260923_signup-siret-facultatif ; quand il est fourni : format 14 chiffres + pré-check doublon + verifySiret synchrone : echec→422, down→en_attente+enqueue, verifie→verifie ; absent : siret='' + en_attente, la programmation restant bloquée par requireCompletedOrganisation) + packages/shared/src/api/siret.ts (isValidSiretFormat 14 chiffres) + packages/plateforme/src/lib/password.ts (validatePasswordStrength : 10c + maj + chiffre + spécial, §09 l.84-85) + packages/plateforme/src/app/api/auth/update-password/route.ts (même helper appliqué au reset/changement — A1 signup+reset) + supabase/config.toml (minimum_password_length 10)",
       "test": "packages/plateforme/tests/api/auth/signup.test.ts « M0.4 — SIRET au signup + vérif synchrone (BL-P1-ONB-01) » (SIRET valide→201/verifie ; format→422 ; echec→422 ; down→201 en_attente + enqueue ; mot de passe faible→422) + packages/plateforme/tests/api/auth/update-password.m0-4.test.ts « M0.4 — update-password : politique mot de passe au reset (A1) »",
       "statut": "implemented",
-      "libelle": "SIRET collecté au signup + vérif INSEE synchrone bloquante sur echec seul (down jamais bloquant) + politique mot de passe"
+      "libelle": "SIRET facultatif au signup (arbitrage Val 2026-09-23) ; quand il est fourni : vérif INSEE synchrone bloquante sur echec seul (down jamais bloquant) + politique mot de passe"
     },
     {
       "id": "BL-P1-ONB-02",
@@ -164,10 +173,101 @@
       "test": "SECU__factures_ecriture_client_fermee.test.sql (27 assertions. A1-A2 privilèges retirés, A3 assertion POSITIVE : UPDATE conservé, A4 cliquet colonne-level INSERT, A5 non-régression des 26 colonnes SELECT, A6 service_role intact, A7 compte TOTAL des policies (détecte aussi un ajout), A8 fac_admin bien FOR ALL, A9 anon ; B1-B3 : admin_savr INSERT hors séquence / INSERT sans numéro / DELETE → 42501 « permission denied for table factures », les 3 écritures qui aboutissaient avant ; B4-B5 ops_savr et traiteur_manager : le no-op silencieux devient refus franc ; B6 non-régression de l'UPDATE ops_savr ; B7a/B7b épinglent le résiduel assumé (admin_savr renumérote encore en direct ; B7b est un oracle d'effet) ; B8-B10 non-régression lecture (table 26 colonnes, v_factures_client, marge_logistique masquée) ; C1-C4 service_role écrit toujours et f_attribuer_numero_facture fonctionne ; C5-C6 motif : aucun trigger d'audit, l'écriture directe ne laisse aucune ligne d'audit_log ; C7 frontière du motif : numero_facture reste UNIQUE). Contre-épreuve : 8 rouges exactement (A1 A2 A4 + B1-B5). Recalage dans la même PR : rls_0_4_smoke.test.sql T57.",
       "statut": "implemented",
       "libelle": "Fermeture de la CRÉATION et de la SUPPRESSION PostgREST directes de plateforme.factures (2026-09-23), suite de #318 (collectes), #328 (evenements), #306/#360 (organisations) et #373 (lieux). Périmètre volontairement plus étroit que le reste de la série : l'UPDATE est CONSERVÉ (arbitrage Val 2026-09-22), le §09 l.415 (matrice étendue ops_savr, source de vérité unique des écritures ops) accordant à ops_savr « Valider + envoyer Pennylane » — capacité précise, bornée par l.417 « Éditer ligne / montant : Non » et l.418 « Annuler / Générer avoir : Non ». Frontière tenue par DEUX mécanismes : les 2 triggers R10b pour « montant » et « Annuler », l'absence de policy d'écriture ops pour « Éditer ligne » (factures_collectes) et « Générer avoir » (INSERT factures). Sa fermeture fera l'objet d'un lot dédié. Résiduel ASSUMÉ et épinglé par les cas B7a/B7b : les 2 triggers R10b portés par factures ne gardent QUE ops_savr (leurs fonctions sortent si f_app_role() <> 'ops_savr'), donc sous JWT admin_savr l'UPDATE direct reste non borné et non tracé — mesuré, la renumérotation d'une facture emise, le passage de numero_facture à NULL et la modification de montant_ht aboutissent tous sans ligne d'audit_log. Le GRANT 0.4a n'était pas inerte : fac_admin est FOR ALL (polcmd='*'), donc couvre INSERT et DELETE ; mesuré sous authenticated + JWT admin_savr, l'INSERT d'une facture statut='emise' au numéro posé à la main (hors f_attribuer_numero_facture, donc hors séquence gapless fiscale) et le DELETE aboutissaient, sans laisser aucune ligne d'audit_log (aucun trigger d'audit sur la table, la trace est route-only). Pour ops_savr et les rôles clients, la fermeture convertit un no-op silencieux en refus franc. Rend vrai par construction le « admin_savr DELETE : — (pas de suppression, uniquement avoirs) » du §09 l.213. Les 4 policies sont conservées ; fac_ops_update reste pleinement active. Divergences type clair déposées : recanalisation de la matrice factures vers service_role (modèle de la note §09 l.204 posée par #318), trace de l'arbitrage Val sur l'UPDATE, prescription §09 l.220 de lire par v_factures_client alors que les 5 chemins applicatifs lisent la table en direct, et 2 oracles Gherkin « 0 ligne affectée » devenus « 42501 permission denied ». (_Divergences/SECU-RLS_20260922_factures-ecriture-client-fermee.md)"
+    },
+    {
+      "id": "M0.4-signup-ecran-inscription",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:941-954",
+      "artefact": "packages/plateforme/src/app/signup/page.tsx (3 étapes : profil → identité/entreprise → mot de passe + CGU ; écran « vérifiez votre boîte mail ») + packages/plateforme/src/app/login/page.tsx (lien « Créer un compte »)",
+      "test": "M0.4 — /signup : parcours complet (CDC §05 §8 étape 1) > envoie à la route les 7 champs du CDC, avec le type de profil choisi",
+      "statut": "implemented",
+      "libelle": "Écran d'inscription self-service — les 7 champs de l'étape 1 envoyés à POST /api/auth/signup"
+    },
+    {
+      "id": "M0.4-signup-stepper-trois-etapes",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:424",
+      "artefact": "packages/plateforme/src/app/signup/page.tsx (stepper 3 étapes — §10 §8 : > 6 champs → stepper ; primitives Button/Input/FormField/FormError/Checkbox)",
+      "test": "M0.4 — /signup : chaque champ et son refus (CDC §05 §8) > aucun profil choisi → refus, on reste à l’étape 1",
+      "statut": "implemented",
+      "libelle": "Formulaire d'inscription en stepper (7 champs > 6) au Design System"
+    },
+    {
+      "id": "M0.4-signup-formats-champs-identite",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:945-951",
+      "artefact": "packages/plateforme/src/lib/identite-signup.ts (isValidEmailFormat / isValidNomOuPrenom / isValidTelephoneFr, NOM_MIN_LENGTH) + packages/plateforme/src/app/api/auth/signup/route.ts (422 avant toute création) + packages/plateforme/src/app/signup/page.tsx (mêmes règles, avant le réseau)",
+      "test": "M0.4 — formats des champs d’identité au signup (CDC §05 §8)",
+      "statut": "implemented",
+      "libelle": "Contraintes de format de l'étape 1 : email valide, prénom/nom ≥ 2 caractères, téléphone FR"
+    },
+    {
+      "id": "M0.4-signup-mot-de-passe-avant-reseau",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:82-85",
+      "artefact": "packages/plateforme/src/app/signup/page.tsx (validatePasswordStrength + confirmation appliqués avant fetch — une tentative refusée localement ne consomme pas le quota de 5/IP/heure)",
+      "test": "M0.4 — /signup : mot de passe et CGU refusés AVANT le réseau",
+      "statut": "implemented",
+      "libelle": "Politique de mot de passe appliquée à l'écran, avant tout appel à la route"
+    },
+    {
+      "id": "M0.4-signup-cgu-bloquante-et-lisible",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/CGU Savr V1 - Draft.md:286-290",
+      "artefact": "packages/plateforme/src/app/signup/page.tsx (case CGU bloquante + lien vers /cgu) ; l'horodatage est déjà couvert par BL-P0-04",
+      "test": "M0.4 — /signup : mot de passe et CGU refusés AVANT le réseau > CGU non cochées → création refusée, la route n’est jamais appelée",
+      "statut": "implemented",
+      "libelle": "Acceptation des CGU obligatoire à l'inscription, avec accès au texte accepté"
+    },
+    {
+      "id": "M0.4-cgu-texte-publie",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/CGU Savr V1 - Draft.md:200-204",
+      "artefact": "packages/plateforme/src/app/cgu/page.tsx + packages/plateforme/src/content/cgu-v1.ts (27 articles + préambule + annexes, dérivés du CDC ; section « Notes pour révision juridique » non publiée) + packages/plateforme/src/middleware.ts (/cgu public)",
+      "test": "M0.4 — /cgu : le texte publié est celui du CDC",
+      "statut": "implemented",
+      "libelle": "Publication du texte des CGU accepté à la création du compte (preuve opposable Art. 11/22)"
+    },
+    {
+      "id": "M0.4-signup-erreurs-serveur-lisibles",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:68",
+      "artefact": "packages/plateforme/src/app/signup/page.tsx (422 / 409 rendus tels que la route les formule ; 429 traduit avec le délai d'attente)",
+      "test": "M0.4 — /signup : les refus du serveur sont rendus lisibles",
+      "statut": "implemented",
+      "libelle": "Refus de la route (422 champ invalide, 409 doublon, 429 rate-limit) rendus à l'écran"
+    },
+    {
+      "id": "M0.4-signup-lien-depuis-login",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:935",
+      "artefact": "packages/plateforme/src/app/login/page.tsx (lien « Créer un compte » vers /signup)",
+      "test": "M0.4 — /signup : l'écran est atteignable depuis la connexion > la page de connexion propose un lien « Créer un compte » vers /signup",
+      "statut": "implemented",
+      "libelle": "Point d'entrée de l'inscription libre-service depuis l'écran de connexion"
+    },
+    {
+      "id": "M0.4-signup-autocompletion-raison-sociale",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:951",
+      "artefact": null,
+      "test": null,
+      "statut": "descoped",
+      "ref_divergence": "_Divergences/M0.4_20260923_signup-autocompletion-raison-sociale.md",
+      "libelle": "Auto-complétion de raison_sociale quand le domaine email est déjà connu — non livrée : exigerait un endpoint public révélant quels domaines sont clients de Savr (arbitrage Val en attente)"
+    },
+    {
+      "id": "M0.4-rattachement-domaine-verifie-seulement",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:956-962",
+      "artefact": "packages/plateforme/src/app/api/auth/signup/route.ts (lecture organisations_domaines_email filtrée sur verifie_at IS NOT NULL)",
+      "test": "M0.4 — rattachement par domaine : seules les revendications PROUVÉES comptent",
+      "statut": "implemented",
+      "libelle": "Le rattachement automatique par domaine email n'opère que sur un domaine dont le contrôle a été prouvé"
+    },
+    {
+      "id": "M0.4-verify-email-pose-verifie-at",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:89-91",
+      "artefact": "packages/plateforme/src/app/api/auth/verify-email/route.ts (pose verifie_at sur le domaine de l'adresse activée, borné à l'organisation de l'utilisateur)",
+      "test": "M0.4 — verify-email : le clic prouve le domaine",
+      "statut": "implemented",
+      "libelle": "Le clic sur le lien d'activation marque le domaine email comme prouvé pour cette organisation"
     }
   ],
   "cdc_source_hash": {
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "90e9f62e94f2cfc441443ae9f7bd18776212d35b4b8b5a6a25dcfd4bf95b1ec5",
     "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "c4f2b7f8d94217f928c9356a96894e0617aeb4ab48cff3d75461fd18ebebb204",
+    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "b29ff10fc7a2dae23a2ab7f2a6d1b4aa0a7ca10ea1717818810e1ec04aa3e443",
     "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "0fcf6f081583aee93f4ba4ff80d564feeb96d4037cee8c2e92747d210fe848a8",
     "specs/cdc/01 - Cahier des charges App/CGU Savr V1 - Draft.md": "5b7c620dd02c4ccdddd71e448c2c5362787bb5d5c6aca040433b96e626041b4a"
   }

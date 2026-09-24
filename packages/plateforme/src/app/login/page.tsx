@@ -110,12 +110,19 @@ function LoginForm() {
           {loading ? 'Connexion…' : 'Se connecter'}
         </button>
       </form>
-      <div className="mt-6 text-sm">
+      <div className="mt-6 space-y-2 text-sm">
         <Link
           href="/reset-password"
-          className="font-semibold text-savr-primary-700 underline-offset-4 hover:underline"
+          className="block font-semibold text-savr-primary-700 underline-offset-4 hover:underline"
         >
           Mot de passe oublié ?
+        </Link>
+        {/* Sans ce lien, /signup n'était atteignable qu'en tapant l'URL. */}
+        <Link
+          href="/signup"
+          className="block font-semibold text-savr-primary-700 underline-offset-4 hover:underline"
+        >
+          Créer un compte
         </Link>
       </div>
     </div>

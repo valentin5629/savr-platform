@@ -5,6 +5,7 @@ import {
   type ClientRole,
 } from '@/lib/api-auth.js';
 import { writeError, serverError } from '@/lib/api-helpers.js';
+import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 
 // CDC §06.04 §6 (l.662) — Domaines email autorisés (onboarding auto des
 // collaborateurs) : ajout/suppression par le MANAGER. Lecture own-org : manager
@@ -51,9 +52,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { status: 422 },
     );
 
-  const supabase = createSupabaseServerClient();
-  // INSERT via RLS (ode_manager_write, own-org). La contrainte UNIQUE(domaine)
-  // est GLOBALE : un domaine déjà rattaché (même à une autre org) → 409.
+  // Écriture sous service_role : depuis 20260923180000, `authenticated` n'a plus
+  // INSERT/UPDATE/DELETE sur cette table. Le motif est que `verifie_at` y décide
+  // du rattachement automatique des futurs inscrits — laisser le client écrire la
+  // table, c'était le laisser se décerner lui-même la preuve de contrôle d'un
+  // domaine qu'il ne possède pas.
+  // Le périmètre reste porté par la route : rôle vérifié par `requireUser`
+  // ci-dessus, et `organisation_id` pris du CONTEXTE, jamais du corps de requête.
+  // `verifie_at` n'est délibérément PAS écrit ici : une revendication n'est pas
+  // une preuve. Seul api/auth/verify-email la pose.
+  const supabase = createAdminSupabaseClient();
+  // La contrainte UNIQUE(domaine) est GLOBALE : un domaine déjà rattaché (même à
+  // une autre org) → 409.
   const { data, error } = await supabase
     .from('organisations_domaines_email')
     .insert({ organisation_id: auth.ctx.organisationId, domaine })

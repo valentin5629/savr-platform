@@ -9,6 +9,11 @@ import {
   extractClientIp,
 } from '@/lib/signup-rate-limit.js';
 import { validatePasswordStrength } from '@/lib/password.js';
+import {
+  isValidEmailFormat,
+  isValidNomOuPrenom,
+  isValidTelephoneFr,
+} from '@/lib/identite-signup.js';
 import { CGU_VERSION_COURANTE } from '@/lib/cgu.js';
 import { writeError, authAccountError } from '@/lib/api-helpers.js';
 
@@ -106,13 +111,36 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // Formats des champs d'identité (CDC §05 §8, tableau de l'étape 1). La route
+  // est publique : ces règles ne peuvent pas vivre seulement dans l'écran.
+  if (!isValidEmailFormat(email)) {
+    return NextResponse.json({ error: 'Email invalide' }, { status: 422 });
+  }
+  if (!isValidNomOuPrenom(prenom) || !isValidNomOuPrenom(nom)) {
+    return NextResponse.json(
+      { error: 'Prénom et nom : 2 caractères minimum.' },
+      { status: 422 },
+    );
+  }
+  if (!isValidTelephoneFr(telephone)) {
+    return NextResponse.json(
+      { error: 'Numéro de téléphone français invalide.' },
+      { status: 422 },
+    );
+  }
+
   // Politique de mot de passe (CDC §09 l.84-85) : 10c min + maj + chiffre + spécial.
   const pwd = validatePasswordStrength(mot_de_passe);
   if (!pwd.ok) {
     return NextResponse.json({ error: pwd.error }, { status: 422 });
   }
 
-  const domain = email.split('@')[1]?.toLowerCase() ?? '';
+  // `trim()` AVANT la découpe : `isValidEmailFormat` valide sur une copie trimée,
+  // donc une adresse collée avec une espace finale passe la validation. Sans ce
+  // trim, `domain` vaudrait « exemple.fr » avec l'espace, ne matcherait jamais le
+  // domaine calculé par `api/auth/verify-email` — et la marque `verifie_at` ne
+  // serait jamais posée, en silence, rendant le domaine inerte pour toujours.
+  const domain = email.trim().split('@')[1]?.toLowerCase() ?? '';
   if (!domain) {
     return NextResponse.json({ error: 'Email invalide' }, { status: 422 });
   }
@@ -145,10 +173,23 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   let attachRole: string | null = null;
 
   if (!isPublicDomain) {
+    // GARDE, pas un detail de requete. Cette table decide a quelle organisation
+    // un nouvel inscrit est rattache, et POST /api/v1/traiteur/mon-organisation/
+    // domaines-email laisse n'importe quel traiteur_manager y revendiquer un
+    // domaine quelconque sans aucune preuve de controle. Sans cette garde, il
+    // suffisait de creer un compte avec une adresse jetable, de revendiquer
+    // « grandtraiteur.fr », et d'attendre : le premier salarie de ce domaine a
+    // s'inscrire etait rattache, en silence, a l'organisation du revendiquant,
+    // qui en est manager et lit donc tout ce que ce salarie y cree.
+    // `verifie_at` n'est pose que par api/auth/verify-email, au clic sur le lien
+    // d'activation — donc par quelqu'un qui possede reellement une adresse a ce
+    // domaine. Une revendication non prouvee reste visible dans « Mon
+    // organisation » mais ne rattache plus personne.
     const { data: domainRow } = await supabase
       .from('organisations_domaines_email')
       .select('organisation_id, organisations(type)')
       .eq('domaine', domain)
+      .not('verifie_at', 'is', null)
       .maybeSingle();
 
     if (domainRow?.organisation_id) {
@@ -174,45 +215,57 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     organisationId = attachOrganisationId!;
     userRole = attachRole!;
   } else {
-    // Chemins B/C — création : SIRET requis + vérifié de façon synchrone.
-    if (!siret || siret.trim() === '') {
-      return NextResponse.json({ error: 'SIRET obligatoire' }, { status: 422 });
-    }
-    const siretNettoye = siret.trim();
-    if (!isValidSiretFormat(siretNettoye)) {
-      return NextResponse.json(
-        { error: 'SIRET invalide (14 chiffres attendus)' },
-        { status: 422 },
-      );
-    }
+    // Chemins B/C — création d'organisation.
+    //
+    // SIRET FACULTATIF (décision Val 2026-09-23, cf. _Divergences/M0.4_20260923) :
+    // le CDC §05 §8 ne le demande PAS à l'étape 1 — il relève de l'étape 2
+    // « complétion avant première collecte ». L'inscription ne le réclame donc à
+    // personne ; l'Admin Savr le récupère ensuite si besoin. Rien ne s'ouvre pour
+    // autant : sans SIRET vérifié, `requireCompletedOrganisation` bloque la
+    // programmation et aucune facture ne peut être émise (gating
+    // `siret_verification = 'verifie'`, CDC §05 §8 étape 3).
+    //
+    // SIRET FOURNI quand même → tout le contrôle ONB-01/ONB-03 s'applique :
+    // format, doublon, vérification INSEE synchrone.
+    const siretNettoye = (siret ?? '').trim();
+    let siretVerification: 'verifie' | 'en_attente' = 'en_attente';
+    let siretResult: Awaited<ReturnType<typeof verifySiret>> | null = null;
 
-    // Détection de doublon SIRET (§15 §2.6 l.69) — pré-check avant l'appel INSEE.
-    // L'index UNIQUE partiel uniq_entites_facturation_siret est le filet anti-race.
-    const { data: doublon } = await supabase
-      .from('entites_facturation')
-      .select('id')
-      .eq('siret', siretNettoye)
-      .maybeSingle();
-    if (doublon) {
-      return NextResponse.json(
-        { error: 'Ce SIRET est déjà rattaché à une organisation.' },
-        { status: 409 },
-      );
-    }
+    if (siretNettoye !== '') {
+      if (!isValidSiretFormat(siretNettoye)) {
+        return NextResponse.json(
+          { error: 'SIRET invalide (14 chiffres attendus)' },
+          { status: 422 },
+        );
+      }
 
-    // Vérification SIRET synchrone (ONB-01) :
-    //   'echec' (INSEE répond : SIRET inexistant/inactif) → 422 bloquant de saisie ;
-    //   'down'  (INSEE injoignable) → en_attente + revalidation async (jamais bloquant) ;
-    //   'verifie' → verifie.
-    const siretResult = await verifySiret(siretNettoye);
-    if (siretResult === 'echec') {
-      return NextResponse.json(
-        { error: 'SIRET inexistant ou entreprise inactive (INSEE).' },
-        { status: 422 },
-      );
+      // Détection de doublon SIRET (§15 §2.6 l.69) — pré-check avant l'appel INSEE.
+      // L'index UNIQUE partiel uniq_entites_facturation_siret est le filet anti-race.
+      const { data: doublon } = await supabase
+        .from('entites_facturation')
+        .select('id')
+        .eq('siret', siretNettoye)
+        .maybeSingle();
+      if (doublon) {
+        return NextResponse.json(
+          { error: 'Ce SIRET est déjà rattaché à une organisation.' },
+          { status: 409 },
+        );
+      }
+
+      // Vérification SIRET synchrone (ONB-01) :
+      //   'echec' (INSEE répond : SIRET inexistant/inactif) → 422 bloquant de saisie ;
+      //   'down'  (INSEE injoignable) → en_attente + revalidation async (jamais bloquant) ;
+      //   'verifie' → verifie.
+      siretResult = await verifySiret(siretNettoye);
+      if (siretResult === 'echec') {
+        return NextResponse.json(
+          { error: 'SIRET inexistant ou entreprise inactive (INSEE).' },
+          { status: 422 },
+        );
+      }
+      siretVerification = siretResult === 'verifie' ? 'verifie' : 'en_attente';
     }
-    const siretVerification =
-      siretResult === 'verifie' ? 'verifie' : 'en_attente';
 
     // domain à enregistrer : seul le chemin B (domaine pro inconnu) le rattache ;
     // le chemin C (domaine public) crée une orga isolée sans rattachement.
@@ -237,7 +290,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
       if (creation.code === 'domaine_doublon') {
         return NextResponse.json(
-          { error: 'Ce domaine email est déjà rattaché à une organisation.' },
+          {
+            error:
+              'Ce domaine email est déjà rattaché à une organisation. Si un ' +
+              'collègue vient de créer le compte de votre entreprise, demandez-lui ' +
+              "d'activer le sien via le lien reçu par email, puis réessayez. " +
+              'Sinon, écrivez-nous à hello@gosavr.io.',
+          },
           { status: 409 },
         );
       }

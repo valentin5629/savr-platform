@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { urlApplication } from '@/lib/url-application.js';
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   let body: Record<string, unknown>;
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // de session puis envoie sur `/reset-password/confirm`
   // (cf. `api/auth/reset-password/confirm/route.ts`).
   await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/api/auth/reset-password/confirm`,
+    redirectTo: urlApplication(req, '/api/auth/reset-password/confirm'),
   });
 
   // Toujours 200 — ne pas révéler si l'email existe (sécurité)

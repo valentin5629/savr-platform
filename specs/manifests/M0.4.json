@@ -35,7 +35,9 @@
     "ne publie PAS la section « Notes pour révision juridique »",
     "la page de connexion propose un lien « Créer un compte » vers /signup",
     "la recherche de domaine filtre sur verifie_at IS NOT NULL",
-    "pose verifie_at sur le domaine de l’utilisateur, dans SON organisation seulement"
+    "pose verifie_at sur le domaine de l’utilisateur, dans SON organisation seulement",
+    "SANS NEXT_PUBLIC_APP_URL, le redirectTo reste absolu",
+    "lien expiré ou déjà utilisé (#error_code=otp_expired) → message + sortie"
   ],
   "deliverables": [
     {
@@ -262,6 +264,22 @@
       "test": "M0.4 — verify-email : le clic prouve le domaine",
       "statut": "implemented",
       "libelle": "Le clic sur le lien d'activation marque le domaine email comme prouvé pour cette organisation"
+    },
+    {
+      "id": "M0.4-liens-email-absolus",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:93-96",
+      "artefact": "packages/plateforme/src/lib/url-application.ts (urlApplication / urlApplicationSansRequete) + les 8 sites qui construisaient `${NEXT_PUBLIC_APP_URL ?? ''}/chemin` : api/auth/reset-password, api/auth/signup, api/v1/admin/users, api/v1/admin/users/[id]/impersoner, api/v1/traiteur/equipe/invitation, api/v1/gestionnaire/mon-organisation/users, api/v1/programmation/lieux, lib/notifications/traiteur-operationnel",
+      "test": "M0.4 — les liens envoyés par email sont toujours absolus",
+      "statut": "implemented",
+      "libelle": "Les liens d'email et les redirectTo sont absolus même sans NEXT_PUBLIC_APP_URL (un lien relatif est rejeté par la liste blanche Supabase, qui retombe en silence sur le Site URL)"
+    },
+    {
+      "id": "M0.4-login-motif-fragment",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:93-96",
+      "artefact": "packages/plateforme/src/app/login/page.tsx (useMotifFragment : lecture de window.location.hash, motifs otp_expired / access_denied ajoutés à la Map)",
+      "test": "M0.4 — /login : les motifs arrivés en fragment sont affichés",
+      "statut": "implemented",
+      "libelle": "L'écran de connexion explique les liens d'email refusés par Supabase, dont le motif arrive dans le fragment et n'atteint jamais le serveur"
     }
   ],
   "cdc_source_hash": {

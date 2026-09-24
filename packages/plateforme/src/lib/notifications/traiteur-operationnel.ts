@@ -1,6 +1,7 @@
 import type { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { sendEmail } from '@savr/shared/src/email/index.js';
 import { instantParis } from '@savr/shared/src/temps/index.js';
+import { logger } from '@savr/shared/src/logger/index.js';
 
 type AdminSupabase = ReturnType<typeof createAdminSupabaseClient>;
 
@@ -19,8 +20,26 @@ type AdminSupabase = ReturnType<typeof createAdminSupabaseClient>;
 
 const TRAITEUR_TEAM_ROLES = ['traiteur_manager', 'traiteur_commercial'];
 
+// Ces notifications n'ont pas de requete sous la main : `NEXT_PUBLIC_APP_URL`
+// est donc la seule source possible du domaine (cf. lib/url-application.ts pour
+// la panne qui a motive de ne plus jamais produire un lien relatif en silence).
+//
+// On TRACE, on ne LEVE PAS. Ces notifications sont best-effort et leurs
+// appelants les lancent en `void notifier...(...)` : une exception y deviendrait
+// un rejet de promesse non gere, et ferait porter a une programmation de
+// collecte le prix d'une variable d'environnement absente. Le lien relatif qui
+// subsiste alors est inutilisable, mais l'email - date, lieu, flux - reste
+// utile, et l'erreur est visible dans les logs.
 function appUrl(path: string): string {
-  return `${process.env['NEXT_PUBLIC_APP_URL'] ?? ''}${path}`;
+  const canonique = process.env['NEXT_PUBLIC_APP_URL']?.trim();
+  if (!canonique) {
+    logger.error('notifications.lien_non_absolu', {
+      path,
+      motif: 'NEXT_PUBLIC_APP_URL absente',
+    });
+    return path;
+  }
+  return new URL(path, canonique).toString();
 }
 
 function libelleType(type: string | null | undefined): string {

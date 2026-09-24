@@ -290,3 +290,48 @@ describe('M0.7/bl-p2-22-annulation-tardive — estAnnulationTardive (pure)', () 
     expect(estAnnulationTardive('', heure, Date.now())).toBe(false);
   });
 });
+
+// Régression du 2026-09-24 : le correctif « plus jamais de lien relatif » avait
+// d'abord fait LEVER ces notifications quand `NEXT_PUBLIC_APP_URL` manque. Or
+// leurs appelants les lancent en `void notifier…(…)` : l'exception serait
+// devenue un rejet de promesse non géré, et une programmation de collecte serait
+// tombée à cause d'une variable d'environnement absente. On trace, on ne lève pas.
+describe('M0.7 — une variable d’environnement absente ne fait pas tomber une notification', () => {
+  const ENV = process.env['NEXT_PUBLIC_APP_URL'];
+  afterEach(() => {
+    if (ENV === undefined) delete process.env['NEXT_PUBLIC_APP_URL'];
+    else process.env['NEXT_PUBLIC_APP_URL'] = ENV;
+  });
+
+  it("sans NEXT_PUBLIC_APP_URL, l'email part quand même — c'est le LIEN qui est dégradé, pas l'envoi", async () => {
+    delete process.env['NEXT_PUBLIC_APP_URL'];
+
+    await expect(
+      notifierTraiteurOperationnel(makeSupabase(BASE), {
+        collecteId: 'col-1',
+        acteurOrgId: 'org-agence',
+        changement: { kind: 'programmation', programmeurUserId: null },
+      }),
+    ).resolves.not.toThrow();
+
+    expect(emails).toHaveLength(2);
+  });
+
+  it('avec la variable, le lien de l’email est absolu', async () => {
+    process.env['NEXT_PUBLIC_APP_URL'] = 'https://app.gosavr.io';
+
+    await notifierTraiteurOperationnel(makeSupabase(BASE), {
+      collecteId: 'col-1',
+      acteurOrgId: 'org-agence',
+      changement: { kind: 'programmation', programmeurUserId: null },
+    });
+
+    const variables = emails[0]?.variables ?? {};
+    const lien = Object.values(variables).find((v) =>
+      v.includes('/traiteur/collectes/col-1'),
+    );
+    expect(lien, `variables: ${Object.keys(variables).join(', ')}`).toBe(
+      'https://app.gosavr.io/traiteur/collectes/col-1',
+    );
+  });
+});

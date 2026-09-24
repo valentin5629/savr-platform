@@ -268,7 +268,7 @@
     {
       "id": "M0.4-liens-email-absolus",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:93-96",
-      "artefact": "packages/plateforme/src/lib/url-application.ts (urlApplication / urlApplicationSansRequete) + les 8 sites qui construisaient `${NEXT_PUBLIC_APP_URL ?? ''}/chemin` : api/auth/reset-password, api/auth/signup, api/v1/admin/users, api/v1/admin/users/[id]/impersoner, api/v1/traiteur/equipe/invitation, api/v1/gestionnaire/mon-organisation/users, api/v1/programmation/lieux, lib/notifications/traiteur-operationnel",
+      "artefact": "packages/plateforme/src/lib/url-application.ts (urlApplication) + lib/notifications/traiteur-operationnel.ts (appUrl local : trace, ne lève pas — les notifications sont best-effort) + les 8 sites qui construisaient `${NEXT_PUBLIC_APP_URL ?? ''}/chemin` : api/auth/reset-password, api/auth/signup, api/v1/admin/users, api/v1/admin/users/[id]/impersoner, api/v1/traiteur/equipe/invitation, api/v1/gestionnaire/mon-organisation/users, api/v1/programmation/lieux, lib/notifications/traiteur-operationnel",
       "test": "M0.4 — les liens envoyés par email sont toujours absolus",
       "statut": "implemented",
       "libelle": "Les liens d'email et les redirectTo sont absolus même sans NEXT_PUBLIC_APP_URL (un lien relatif est rejeté par la liste blanche Supabase, qui retombe en silence sur le Site URL)"

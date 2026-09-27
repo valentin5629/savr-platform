@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { safeNextPath } from '@/lib/safe-next-path';
@@ -25,7 +25,42 @@ const MESSAGES_ERREUR = new Map<string, string>([
     'verification_echouee',
     "Ce lien de vérification a expiré ou a déjà été utilisé. Écrivez-nous à hello@gosavr.io pour recevoir un nouveau lien d'activation.",
   ],
+  // ── Motifs renvoyés par Supabase dans le FRAGMENT (#error_code=…) ──────────
+  // Un fragment n'est JAMAIS transmis au serveur : ni le middleware ni une route
+  // ne peuvent le voir. Quand Supabase refuse un lien d'email, il redirige vers
+  // le Site URL du projet — donc ici, via le middleware — en plaçant le motif
+  // là. Sans la lecture ci-dessous, l'utilisateur tombait sur un formulaire de
+  // connexion parfaitement muet (panne mesurée en dev le 2026-09-24 : le seul
+  // indice était `#error_code=otp_expired` dans la barre d'adresse).
+  [
+    'otp_expired',
+    "Ce lien a expiré ou a déjà servi — il ne fonctionne qu'une fois. Demandez-en un nouveau ci-dessous.",
+  ],
+  [
+    'access_denied',
+    "Ce lien n'a pas pu être vérifié. Demandez-en un nouveau ci-dessous.",
+  ],
 ]);
+
+/**
+ * Motif d'erreur placé par Supabase dans le fragment de l'URL.
+ *
+ * `window.location.hash` n'existe pas au rendu serveur : on lit après montage,
+ * d'où l'état plutôt qu'un calcul direct. `URLSearchParams` accepte la forme
+ * `a=1&b=2` une fois le `#` retiré.
+ */
+function useMotifFragment(): string | undefined {
+  const [motif, setMotif] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    const hash = window.location.hash.replace(/^#/, '');
+    if (hash === '') return;
+    const params = new URLSearchParams(hash);
+    // `error_code` est le plus précis ; `error` est le repli générique.
+    const code = params.get('error_code') ?? params.get('error') ?? '';
+    setMotif(MESSAGES_ERREUR.get(code));
+  }, []);
+  return motif;
+}
 
 function LoginForm() {
   const router = useRouter();
@@ -33,7 +68,9 @@ function LoginForm() {
   // `?error=` : motif d'un lien d'activation qui n'a pas abouti. Lu dans une
   // table fermée — un motif inconnu (URL forgée) n'affiche rien plutôt que
   // d'imprimer le paramètre tel quel.
-  const messageLien = MESSAGES_ERREUR.get(searchParams.get('error') ?? '');
+  const messageQuery = MESSAGES_ERREUR.get(searchParams.get('error') ?? '');
+  const messageFragment = useMotifFragment();
+  const messageLien = messageQuery ?? messageFragment;
   // Pas de `next` (login direct) → `/` qui redirige vers l'espace du rôle
   // (page.tsx / HOME_BY_ROLE). Surtout pas `/admin/dashboard` en dur, sinon
   // tous les rôles atterrissent sur le back-office Admin. Validé : un `next`

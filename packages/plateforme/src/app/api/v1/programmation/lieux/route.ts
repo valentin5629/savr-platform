@@ -7,6 +7,7 @@ import {
 } from '@/lib/api-auth.js';
 import { sanitizeOrTerm, serverError } from '@/lib/api-helpers.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
+import { urlApplication } from '@/lib/url-application.js';
 
 // Colonnes proposées par l'autocomplétion — sous-ensemble de la liste blanche
 // `v_lieux_clients` (les champs admin-only restent hors de portée côté client).
@@ -241,7 +242,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       : '',
     organisation_nom: (org as { nom?: string } | null)?.nom ?? '',
     date_collecte: '',
-    lien_lieu: `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/admin/lieux/${lieu.id}`,
+    lien_lieu: urlApplication(req, `/admin/lieux/${lieu.id}`),
   }).catch(() => null);
 
   return NextResponse.json(data, { status: 201 });

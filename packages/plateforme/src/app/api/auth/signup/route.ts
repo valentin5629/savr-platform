@@ -16,6 +16,7 @@ import {
 } from '@/lib/identite-signup.js';
 import { CGU_VERSION_COURANTE } from '@/lib/cgu.js';
 import { writeError, authAccountError } from '@/lib/api-helpers.js';
+import { urlApplication } from '@/lib/url-application.js';
 
 const TYPE_PROFIL = ['traiteur', 'agence', 'gestionnaire_lieux'] as const;
 type TypeProfil = (typeof TYPE_PROFIL)[number];
@@ -364,12 +365,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     email,
     password: mot_de_passe,
     options: {
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/api/auth/verify-email`,
+      redirectTo: urlApplication(req, '/api/auth/verify-email'),
     },
   });
   const hashedToken = linkData?.properties?.hashed_token;
   if (hashedToken) {
-    const verifyUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/api/auth/verify-email?token_hash=${hashedToken}&type=signup`;
+    const verifyUrl = urlApplication(
+      req,
+      `/api/auth/verify-email?token_hash=${hashedToken}&type=signup`,
+    );
     void sendEmail('verification_email', email, {
       prenom: prenom ?? '',
       lien_verification: verifyUrl,

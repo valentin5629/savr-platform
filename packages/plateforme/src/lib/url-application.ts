@@ -74,7 +74,14 @@ export function urlApplication(req: NextRequest, chemin: string): string {
       // la même erreur en panne plus dure. On trace et on prend l'origine réelle.
       logger.error('url_application.variable_mal_formee', {
         valeur: canonique,
-        chemin,
+        // ⚠ JAMAIS la query. Deux des appelants y mettent un secret vivant :
+        // `token_hash` (signup) et `token_hash` + `jeton` d'impersonation, ce
+        // dernier ouvrant une session sous l'identité d'un autre utilisateur.
+        // La sanitisation du logger travaille par CLÉ (`SENSITIVE_KEYS`) et ne
+        // regarde pas la valeur : sous la clé « chemin », un jeton noyé dans
+        // l'URL sortirait en clair dans les journaux. Le chemin nu suffit
+        // largement à diagnostiquer une variable mal saisie.
+        chemin: chemin.split('?')[0],
       });
     }
   }

@@ -16,6 +16,7 @@
  * lien relatif.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { logger } from '@savr/shared/src/logger/index.js';
 import { NextRequest } from 'next/server';
 
 const mockResetPasswordForEmail = vi.fn();
@@ -143,6 +144,30 @@ describe('M0.4 — les liens envoyés par email sont toujours absolus', () => {
     expect(options.redirectTo).toBe(
       'https://dev.app.gosavr.io/api/auth/reset-password/confirm',
     );
+  });
+
+  it('le log de secours ne recopie JAMAIS la query (elle porte token_hash / jeton)', async () => {
+    // Le filet ci-dessus trace pour qu'une variable mal saisie soit visible. Mais
+    // deux appelants passent un secret vivant dans la query — `token_hash` du
+    // signup, et `token_hash` + `jeton` de l'impersonation, qui ouvre une session
+    // sous l'identité d'un autre. Le logger masque par CLÉ, pas par contenu : un
+    // jeton noyé dans la valeur de « chemin » sortirait en clair.
+    process.env.NEXT_PUBLIC_APP_URL = 'app.gosavr.io';
+    const capture = vi.spyOn(logger, 'error').mockImplementation(() => {});
+    const { urlApplication } = await import('@/lib/url-application.js');
+
+    const url = urlApplication(
+      reqSur('https://dev.app.gosavr.io', {}),
+      '/api/auth/verify-email?token_hash=pkce_secret_vivant&type=signup',
+    );
+
+    expect(url).toContain('token_hash=pkce_secret_vivant'); // le LIEN en a besoin
+    expect(capture).toHaveBeenCalledTimes(1);
+    const journalise = JSON.stringify(capture.mock.calls[0]);
+    expect(journalise).not.toContain('pkce_secret_vivant');
+    expect(journalise).not.toContain('token_hash');
+    expect(journalise).toContain('/api/auth/verify-email');
+    capture.mockRestore();
   });
 
   it('en local, le port est conservé', async () => {

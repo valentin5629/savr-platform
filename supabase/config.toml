@@ -49,8 +49,19 @@ file_size_limit = "50MiB"
 enabled = true
 site_url = "http://127.0.0.1:3000"
 additional_redirect_urls = [
-  "http://localhost:3000",
-  "https://dev.app.gosavr.io",
+  # ⚠ GoTrue exige une correspondance EXACTE pour ces entrées (mesuré 2026-09-27
+  # sur les trois instances) : seul le `site_url` tolère un sous-chemin. Sans le
+  # joker `/**`, « http://localhost:3001 » est accepté mais
+  # « http://localhost:3001/api/auth/reset-password/confirm » est REJETÉ, et
+  # GoTrue retombe en silence sur le site_url — c'est exactement la panne que ce
+  # lot corrige.
+  # ⚠ Le port du serveur de dev est 3001 (packages/plateforme/package.json), pas
+  # 3000 : sans les deux entrées ci-dessous, le parcours « mot de passe oublié »
+  # reste cassé en local et en E2E.
+  "http://localhost:3000/**",
+  "http://localhost:3001/**",
+  "http://127.0.0.1:3001/**",
+  "https://dev.app.gosavr.io/**",
 ]
 # JWT (access token) expire après 1 heure — CDC §09 l.87/931 (« Session JWT 1h »).
 jwt_expiry = 3600

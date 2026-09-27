@@ -21,22 +21,39 @@
 // lien silencieusement faux, au lieu d'une erreur. On ne produit plus jamais
 // d'URL relative ici.
 //
-// L'ORIGINE DE LA REQUÊTE COMME SOURCE
-// ------------------------------------
-// Une route API connaît le domaine par lequel on l'appelle. C'est plus fiable
-// qu'une variable d'environnement à tenir à jour dans trois environnements, et
-// c'est correct par construction en local comme en préproduction.
+// L'ORIGINE DE LA REQUÊTE COMME REPLI
+// -----------------------------------
+// `NEXT_PUBLIC_APP_URL` est la source PRIORITAIRE : c'est elle qui fixe le
+// domaine canonique, et elle seule est correcte quand l'app est atteinte par un
+// alias de déploiement alors que les emails doivent pointer vers le domaine
+// officiel. Le repli sur l'origine de la requête sert à ne JAMAIS produire de
+// lien relatif, pas à remplacer la configuration.
 //
-// `NEXT_PUBLIC_APP_URL` reste PRIORITAIRE quand elle est définie : elle permet de
-// forcer le domaine canonique (utile si l'app est atteinte par un alias de
-// déploiement alors que les emails doivent pointer vers le domaine officiel).
+// ⚠ Le repli ne dispense pas de configurer. Mesuré le 2026-09-27 sur les trois
+// instances GoTrue : seul le `site_url` tolère un sous-chemin ; toute entrée
+// d'`additional_redirect_urls` doit correspondre EXACTEMENT, sauf joker `/**`.
+// Une origine dérivée qui n'est pas le `site_url` du projet — l'alias
+// `*.vercel.app` d'un déploiement preview, par exemple — est donc REJETÉE par
+// Supabase, qui retombe en silence sur le `site_url`. Sur un environnement de
+// preview, `NEXT_PUBLIC_APP_URL` reste nécessaire.
 //
-// Sur l'origine dérivée : Vercel ne sert que les domaines attachés au projet —
-// une requête portant un `Host` arbitraire n'atteint pas le déploiement. Et pour
-// les `redirectTo`, Supabase revalide de toute façon l'URL contre sa liste
-// blanche. Le repli est donc borné des deux côtés.
+// CE QUI BORNE L'ORIGINE DÉRIVÉE, exactement
+// ------------------------------------------
+// Elle vient de l'en-tête `Host`, que le client écrit. Ce qui empêche un
+// `Host: evil.com` d'aboutir est une propriété de L'HÉBERGEUR, mesurée le
+// 2026-09-27 : Vercel route sur le `Host` et refuse tout domaine non attaché au
+// projet (`404` + `x-vercel-error: DEPLOYMENT_NOT_FOUND`) — la requête n'atteint
+// jamais la fonction. `X-Forwarded-Host` n'est pas un contournement : Next 15
+// construit l'origine depuis `req.headers.host`, pas depuis cet en-tête.
+//
+// Ne pas écrire que le repli est « borné des deux côtés ». Pour les `redirectTo`
+// passés à Supabase, oui : sa liste blanche revalide. Mais le lien de
+// vérification du signup (`api/auth/signup`) est construit ici puis envoyé par
+// Resend, SANS repasser par Supabase : celui-là n'a que la borne de l'hébergeur.
+// Un lien porteur de jeton ajouté hors Vercel n'aurait plus aucune borne.
 
 import type { NextRequest } from 'next/server';
+import { logger } from '@savr/shared/src/logger/index.js';
 
 /**
  * URL absolue d'un chemin de l'application, pour un email ou un `redirectTo`.
@@ -46,6 +63,20 @@ import type { NextRequest } from 'next/server';
  */
 export function urlApplication(req: NextRequest, chemin: string): string {
   const canonique = process.env.NEXT_PUBLIC_APP_URL?.trim();
-  const base = canonique && canonique !== '' ? canonique : req.nextUrl.origin;
-  return new URL(chemin, base).toString();
+  if (canonique) {
+    try {
+      return new URL(chemin, canonique).toString();
+    } catch {
+      // `new URL(chemin, 'app.gosavr.io')` LÈVE : une base sans schéma n'est pas
+      // une URL. Sans ce filet, une variable mal saisie ferait un 500 sur les
+      // sept routes — dont « mot de passe oublié ». Or tout ce fichier existe
+      // parce que cette variable était mal configurée : on ne va pas transformer
+      // la même erreur en panne plus dure. On trace et on prend l'origine réelle.
+      logger.error('url_application.variable_mal_formee', {
+        valeur: canonique,
+        chemin,
+      });
+    }
+  }
+  return new URL(chemin, req.nextUrl.origin).toString();
 }

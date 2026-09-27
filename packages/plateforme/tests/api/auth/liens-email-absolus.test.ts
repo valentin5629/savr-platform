@@ -125,6 +125,26 @@ describe('M0.4 — les liens envoyés par email sont toujours absolus', () => {
     );
   });
 
+  it('une variable MAL FORMÉE (sans schéma) ne fait pas tomber la route', async () => {
+    // `new URL('/x', 'app.gosavr.io')` lève : une base sans schéma n'est pas une
+    // URL. Sans filet, une variable mal saisie ferait un 500 sur « mot de passe
+    // oublié » — une panne plus dure que celle que ce lot corrige.
+    process.env.NEXT_PUBLIC_APP_URL = 'app.gosavr.io';
+    const { POST } = await import('@/app/api/auth/reset-password/route.js');
+    const res = await POST(
+      reqSur('https://dev.app.gosavr.io', { email: 'marie@traiteur.fr' }),
+    );
+
+    expect(res.status).toBe(200);
+    const [, options] = mockResetPasswordForEmail.mock.calls[0] as [
+      string,
+      { redirectTo: string },
+    ];
+    expect(options.redirectTo).toBe(
+      'https://dev.app.gosavr.io/api/auth/reset-password/confirm',
+    );
+  });
+
   it('en local, le port est conservé', async () => {
     delete process.env.NEXT_PUBLIC_APP_URL;
     const { POST } = await import('@/app/api/auth/reset-password/route.js');

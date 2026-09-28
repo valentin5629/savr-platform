@@ -74,9 +74,9 @@ export function CollecteStatutFrise({ statut }: { statut: string }) {
                 className={cn(
                   'relative z-10 flex h-6 w-6 items-center justify-center rounded-full border-2',
                   faite &&
-                    'border-savr-primary-600 bg-savr-primary-600 text-white',
-                  active && 'border-savr-primary-600 bg-white',
-                  !faite && !active && 'border-savr-neutral-300 bg-white',
+                    'border-savr-primary-600 bg-savr-primary-600 text-savr-white',
+                  active && 'border-savr-primary-600 bg-savr-white',
+                  !faite && !active && 'border-savr-neutral-300 bg-savr-white',
                 )}
               >
                 {faite && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
@@ -93,6 +93,8 @@ export function CollecteStatutFrise({ statut }: { statut: string }) {
                 )}
               >
                 {label}
+                {/* État lisible au lecteur d'écran (la coche est décorative). */}
+                {faite && <span className="sr-only"> (terminée)</span>}
               </span>
             </li>
           );

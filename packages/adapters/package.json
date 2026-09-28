@@ -7,7 +7,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./src/index.js": "./src/index.ts",
-    "./src/outbox-worker.js": "./src/outbox-worker.ts"
+    "./src/outbox-worker.js": "./src/outbox-worker.ts",
+    "./src/lieu-overrides.js": "./src/lieu-overrides.ts"
   },
   "scripts": {
     "build": "echo 'adapters: build no-op (paquet TS-only consommé via main)'",

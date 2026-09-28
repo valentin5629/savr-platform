@@ -37,6 +37,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { CollecteStatutFrise } from './collecte-statut-frise';
 import {
+  applyLieuOverrides,
+  lieuChampSurcharge,
+  CHAMPS_LIEU_SURCHARGEABLES,
+} from '@savr/adapters/src/lieu-overrides.js';
+import {
   statutCollecteDisplay,
   type StatutCollecteDb,
 } from '@/lib/statut-collecte-labels';
@@ -155,7 +160,7 @@ interface CollecteDetail {
   prestataire_logistique_id: string | null;
   // Surcharge per-collecte du lieu (§04 `collectes.lieu_overrides`) : prime sur
   // la référence `lieux` pour cette collecte seulement.
-  lieu_overrides?: Partial<LieuDetail> | null;
+  lieu_overrides?: Record<string, unknown> | null;
   evenements: {
     nom_evenement: string | null;
     pax: number;
@@ -389,15 +394,38 @@ function libelleTypeTms(typeTms: string): string {
   return 'Dispatch manuel';
 }
 
+// Groupe de cartes radio (motif APG radiogroup) : les flèches déplacent le
+// focus ET la sélection d'une carte à l'autre, en boucle.
+function naviguerRadios(e: React.KeyboardEvent<HTMLElement>): void {
+  const delta =
+    e.key === 'ArrowDown' || e.key === 'ArrowRight'
+      ? 1
+      : e.key === 'ArrowUp' || e.key === 'ArrowLeft'
+        ? -1
+        : 0;
+  if (delta === 0) return;
+  const radios = Array.from(
+    e.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]'),
+  );
+  const courant = radios.indexOf(document.activeElement as HTMLElement);
+  if (courant === -1) return;
+  e.preventDefault();
+  const suivant = radios[(courant + delta + radios.length) % radios.length];
+  suivant?.focus();
+  suivant?.click();
+}
+
 // Carte cochable (choix d'un prestataire) — radio accessible, cible ≥ 44 px.
 function CarteChoix({
   coche,
+  focusable,
   onSelect,
   titre,
   detail,
   badges,
 }: {
   coche: boolean;
+  focusable: boolean;
   onSelect: () => void;
   titre: string;
   detail: string;
@@ -408,12 +436,13 @@ function CarteChoix({
       type="button"
       role="radio"
       aria-checked={coche}
+      tabIndex={focusable ? 0 : -1}
       onClick={onSelect}
       className={cn(
         'flex min-h-11 items-start gap-3 rounded-savr-md border p-3 text-left text-sm transition-colors',
         coche
           ? 'border-savr-primary-600 bg-savr-primary-50'
-          : 'border-savr-neutral-200 bg-white hover:border-savr-neutral-300',
+          : 'border-savr-neutral-200 bg-savr-white hover:border-savr-neutral-300',
       )}
     >
       <span
@@ -1016,6 +1045,9 @@ export function CollecteDetailPanel({
   const transporteursOrdonnes = [...transporteurs].sort(
     (a, b) => rangCarte(a) - rangCarte(b),
   );
+  const aucuneCarteCochee = !transporteursOrdonnes.some(
+    (t) => (selectedTransporteurId || currentTransporteur?.id) === t.id,
+  );
 
   const dateCollecteLongue = new Date(
     collecte.date_collecte,
@@ -1027,10 +1059,13 @@ export function CollecteDetailPanel({
     timeZone: 'Europe/Paris',
   });
   const heureCollecte = collecte.heure_collecte?.slice(0, 5) ?? '';
-  // Lieu effectif de CETTE collecte : référence + surcharge `lieu_overrides`.
-  const overrides = collecte.lieu_overrides ?? {};
-  const lieuSurcharge = Object.keys(overrides).length > 0;
-  const lieu: LieuDetail = { ...collecte.evenements.lieux, ...overrides };
+  // Lieu effectif de CETTE collecte = EXACTEMENT ce que reçoit le transporteur :
+  // même fusion que l'adapter (allowlist, garde de type, null ignoré).
+  const overrides = collecte.lieu_overrides ?? null;
+  const lieuSurcharge = CHAMPS_LIEU_SURCHARGEABLES.some((c) =>
+    lieuChampSurcharge(overrides, c),
+  );
+  const lieu = applyLieuOverrides(collecte.evenements.lieux, overrides);
 
   return (
     <div className="space-y-4">
@@ -1122,7 +1157,7 @@ export function CollecteDetailPanel({
 
         <Tabs defaultValue="informations" className="min-w-0">
           {/* Barre d'onglets fixe au défilement du corps de la modale. */}
-          <TabsList className="sticky top-0 z-10 w-full overflow-x-auto bg-white">
+          <TabsList className="sticky top-0 z-10 w-full overflow-x-auto bg-savr-white">
             <TabsTrigger value="informations" className="px-3 sm:px-4">
               Informations
             </TabsTrigger>
@@ -1599,9 +1634,10 @@ export function CollecteDetailPanel({
                     <div
                       role="radiogroup"
                       aria-labelledby="dispatch-transporteur-label"
+                      onKeyDown={naviguerRadios}
                       className="grid gap-2 sm:grid-cols-2"
                     >
-                      {transporteursOrdonnes.map((t) => {
+                      {transporteursOrdonnes.map((t, i) => {
                         const estActuel = t.id === currentTransporteur?.id;
                         const coche =
                           (selectedTransporteurId ||
@@ -1610,6 +1646,8 @@ export function CollecteDetailPanel({
                           <CarteChoix
                             key={t.id}
                             coche={coche}
+                            // Un seul arrêt de tabulation : la carte cochée, sinon la 1re.
+                            focusable={coche || (aucuneCarteCochee && i === 0)}
                             // Re-choisir le prestataire actuel = le conserver ('').
                             onSelect={() =>
                               setSelectedTransporteurId(estActuel ? '' : t.id)
@@ -1803,7 +1841,7 @@ export function CollecteDetailPanel({
                               'flex items-center gap-3 rounded-savr-md border p-3 text-sm',
                               i === 0
                                 ? 'border-savr-primary-600 bg-savr-primary-50'
-                                : 'border-savr-neutral-200 bg-white',
+                                : 'border-savr-neutral-200 bg-savr-white',
                             )}
                           >
                             <div className="min-w-0 flex-1">
@@ -1821,7 +1859,7 @@ export function CollecteDetailPanel({
                                 </p>
                               )}
                             </div>
-                            <Button asChild size="sm" variant="secondary">
+                            <Button asChild size="md" variant="secondary">
                               <Link
                                 href={`/admin/attributions-ag/${collecte.id}?association=${encodeURIComponent(a.id)}`}
                               >

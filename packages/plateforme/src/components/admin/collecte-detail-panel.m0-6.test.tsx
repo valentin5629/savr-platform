@@ -860,6 +860,63 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   );
 
   it(
+    'Lieu effectif = ce que reçoit le transporteur : une surcharge null ou mal typée est ignorée (pas de badge)',
+    async () => {
+      installMock({
+        collecte: {
+          ...baseAg,
+          // null = surcharge effacée ; objet = ligne ancienne non conforme.
+          lieu_overrides: { acces_details: null, ville: { x: 1 } },
+          evenements: {
+            ...baseAg.evenements,
+            lieux: {
+              nom: 'Pavillon',
+              ville: 'Paris',
+              adresse_acces: '1 rue X',
+              code_postal: '75017',
+              acces_details: 'Code 1234',
+            },
+          },
+        },
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      const infos = await screen.findByRole('tabpanel', undefined, ATTENTE_UI);
+      expect(
+        await within(infos).findByText('Code 1234', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      expect(within(infos).getByText('75017 Paris')).toBeInTheDocument();
+      expect(
+        within(infos).queryByText('Modifié pour cette collecte'),
+      ).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'Cartes prestataire : un seul arrêt de tabulation, les flèches déplacent la sélection',
+    async () => {
+      mockFetch();
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      const strike = await screen.findByRole(
+        'radio',
+        { name: /Strike/ },
+        ATTENTE_UI,
+      );
+      const aToutes = screen.getByRole('radio', { name: /A Toutes!/ });
+      // Strike (recommandé, coché) = seul focalisable au clavier.
+      expect(strike).toHaveAttribute('tabindex', '0');
+      expect(aToutes).toHaveAttribute('tabindex', '-1');
+
+      strike.focus();
+      fireEvent.keyDown(strike, { key: 'ArrowDown' });
+      expect(aToutes).toHaveAttribute('aria-checked', 'true');
+      expect(document.activeElement).toBe(aToutes);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'Colonne résumé visible quel que soit l’onglet (traiteur, lieu, association)',
     async () => {
       installMock({});

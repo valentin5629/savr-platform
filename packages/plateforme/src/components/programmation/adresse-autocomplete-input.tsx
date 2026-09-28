@@ -3,10 +3,11 @@
 import * as React from 'react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import {
-  MIN_CARACTERES_SUGGESTION,
-  type SuggestionAdresse,
-} from '@/lib/adresse-suggestions';
+// Import de TYPE seulement : le module (appel IGN) reste hors du bundle navigateur.
+import type { SuggestionAdresse } from '@/lib/adresse-suggestions';
+
+// Même seuil que le relais (la BAN refuse moins de 3 caractères) : évite un aller-retour inutile.
+const MIN_CARACTERES_SUGGESTION = 3;
 
 // Suggestions via le relais serveur (jamais d'appel direct navigateur → IGN).
 // Fail-open : toute erreur (401, réseau, JSON inattendu) → aucune suggestion.

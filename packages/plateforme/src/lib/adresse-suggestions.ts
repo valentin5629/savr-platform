@@ -3,8 +3,7 @@
 // servie par la Géoplateforme IGN (data.geopf.fr/geocodage — successeur officiel
 // d'api-adresse.data.gouv.fr, qui y redirige). FR, sans clé. Appelée CÔTÉ SERVEUR
 // uniquement, via la route /api/v1/programmation/adresses : l'IGN ne voit jamais l'IP
-// de l'utilisateur (arbitrage Val 2026-09-28). Le navigateur n'importe d'ici que le
-// type et la constante.
+// de l'utilisateur (arbitrage Val 2026-09-28). Le navigateur n'importe d'ici que le type.
 //
 // Fail-open : erreur réseau, timeout ou réponse inattendue → [] (le champ reste une
 // saisie libre, jamais bloquant).
@@ -24,7 +23,7 @@ export interface SuggestionAdresse {
 const PRIORITE_PARIS = 'lat=48.8566&lon=2.3522';
 
 // L'API refuse les requêtes de moins de 3 caractères.
-export const MIN_CARACTERES_SUGGESTION = 3;
+const MIN_CARACTERES_SUGGESTION = 3;
 
 interface FeatureBan {
   properties?: {

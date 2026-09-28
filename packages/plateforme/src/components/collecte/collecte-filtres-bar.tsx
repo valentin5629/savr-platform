@@ -1,8 +1,10 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import { Select } from '@/components/ui/select';
-import { MultiSelectFilter } from '@/components/dashboards/MultiSelectFilter';
+import type * as React from 'react';
+import { Combobox } from '@/components/ui/combobox';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { FilterBar } from '@/components/ui/filter-bar';
+import { FormField } from '@/components/ui/form-field';
 import { groupesStatutClient } from '@/lib/statut-collecte-labels';
 
 /** Organisation ayant programmé l'événement (§06.04 filtre « Programmée par »). */
@@ -75,6 +77,52 @@ export function filtresCollecteActifs(f: CollecteFiltres): boolean {
   );
 }
 
+/**
+ * Filtres ⇄ query-string de la page. Clés partagées avec le drill-down des
+ * dashboards (`statut`, `from`, `to`, `lieu`) : arriver depuis une Top liste
+ * pré-remplit donc la barre, et un filtre posé survit au rechargement.
+ */
+const CLES_URL = {
+  statuts: 'statut',
+  from: 'from',
+  to: 'to',
+  lieuId: 'lieu',
+  client: 'client',
+  infoIncomplete: 'info',
+  programmeePar: 'par',
+} as const;
+
+export function lireFiltresCollecte(params: URLSearchParams): CollecteFiltres {
+  const liste = (k: string) => (params.get(k) ?? '').split(',').filter(Boolean);
+  const info = params.get(CLES_URL.infoIncomplete);
+  return {
+    statuts: liste(CLES_URL.statuts),
+    from: params.get(CLES_URL.from) ?? '',
+    to: params.get(CLES_URL.to) ?? '',
+    lieuId: params.get(CLES_URL.lieuId) ?? '',
+    client: params.get(CLES_URL.client) ?? '',
+    infoIncomplete: info === 'oui' || info === 'non' ? info : '',
+    programmeePar: liste(CLES_URL.programmeePar),
+  };
+}
+
+/** Réécrit les clés de filtre de `params` (les autres clés sont conservées). */
+export function ecrireFiltresCollecte(
+  params: URLSearchParams,
+  f: CollecteFiltres,
+): URLSearchParams {
+  const usp = new URLSearchParams(params);
+  const poser = (k: string, v: string) => (v ? usp.set(k, v) : usp.delete(k));
+  poser(CLES_URL.statuts, f.statuts.join(','));
+  poser(CLES_URL.from, f.from);
+  poser(CLES_URL.to, f.to);
+  poser(CLES_URL.lieuId, f.lieuId);
+  poser(CLES_URL.client, f.client);
+  poser(CLES_URL.infoIncomplete, f.infoIncomplete);
+  poser(CLES_URL.programmeePar, f.programmeePar.join(','));
+  return usp;
+}
+
 // Libellé CDC « Agence : X » / « Gestionnaire : X » ; l'organisation de l'appelant
 // est déjà nommée « Mon organisation » par la route d'options (type null).
 const PREFIXE_TYPE: Record<string, string> = {
@@ -97,20 +145,26 @@ interface Props {
   onChange: (f: CollecteFiltres) => void;
   /** Nombre de collectes affichées après filtrage (compteur sous la barre). */
   resultats: number;
+  /** En-tête de la barre : onglets de vue (gauche) et filtre de type (droite). */
+  tabs?: React.ReactNode;
+  toggle?: React.ReactNode;
 }
 
 /**
  * Barre de filtres de la liste Collectes traiteur — §06.04 §3 « Filtres
  * disponibles » (BL-P2-14, volet filtres) : Statut (multi) · Période · Lieu ·
  * Client Organisateur · « Info incomplète » oui/non · « Programmée par » (multi).
- * Le filtre Type est porté par le sélecteur ZD/AG (retiré du bloc 2026-05-07).
+ * Le filtre Type est porté par le sélecteur ZD/AG de l'en-tête.
+ *
+ * Mise en page = pattern DS `FilterBar` : un FormField + un Combobox (ou le
+ * DateRangePicker de la période) par filtre, grille de 3 colonnes.
  *
  * Le filtre Statut propose les LIBELLÉS de la vue client (mapping canonique
  * 2026-06-30) : l'utilisateur ne voit jamais « Programmée », et un libellé
  * sélectionné couvre tous les statuts DB qu'il regroupe.
  *
- * État porté par le parent (pas de persistance query-string — descopée V1.1,
- * backlog l.401) ; composant purement présentationnel, aucune écriture.
+ * État porté par le parent (synchronisé dans l'URL par la page, cf.
+ * `lireFiltresCollecte`) ; composant purement présentationnel, aucune écriture.
  */
 export function CollecteFiltresBar({
   statutsOnglet,
@@ -118,6 +172,8 @@ export function CollecteFiltresBar({
   value,
   onChange,
   resultats,
+  tabs,
+  toggle,
 }: Props): React.JSX.Element {
   const groupes = groupesStatutClient(statutsOnglet);
   const statutsSet = new Set(value.statuts);
@@ -132,134 +188,112 @@ export function CollecteFiltresBar({
   ): void => onChange({ ...value, [k]: v });
 
   return (
-    <div data-testid="collecte-filtres-bar" className="space-y-2">
-      <div className="flex flex-wrap items-end gap-3 rounded-savr-lg border border-savr-neutral-200 bg-savr-white p-3">
-        <div className="w-44">
-          <MultiSelectFilter
-            label="Statut"
-            testid="filtre-statut"
-            options={groupes.map((g) => ({ id: g.label, nom: g.label }))}
-            selected={groupesSelectionnes}
-            onChange={(labels) =>
-              set(
-                'statuts',
-                groupes
-                  .filter((g) => labels.includes(g.label))
-                  .flatMap((g) => g.statuts),
-              )
-            }
+    <FilterBar
+      data-testid="collecte-filtres-bar"
+      tabs={tabs}
+      toggle={toggle}
+      actif={filtresCollecteActifs(value)}
+      onReset={() => onChange(FILTRES_COLLECTE_VIDES)}
+      count={
+        <span data-testid="collectes-resultats-count">
+          {resultats} collecte{resultats > 1 ? 's' : ''} correspond
+          {resultats > 1 ? 'ent' : ''} à votre sélection
+        </span>
+      }
+    >
+      <FormField label="Statut" htmlFor="filtre-statut">
+        <Combobox
+          multiple
+          id="filtre-statut"
+          data-testid="filtre-statut"
+          icon={null}
+          placeholder="Tous"
+          options={groupes.map((g) => ({ value: g.label, label: g.label }))}
+          value={groupesSelectionnes}
+          onChange={(labels) =>
+            set(
+              'statuts',
+              groupes
+                .filter((g) => labels.includes(g.label))
+                .flatMap((g) => g.statuts),
+            )
+          }
+        />
+      </FormField>
+
+      <FormField label="Période" htmlFor="filtre-periode">
+        <DateRangePicker
+          id="filtre-periode"
+          data-testid="filtre-periode"
+          value={{ from: value.from, to: value.to }}
+          onChange={(p) => onChange({ ...value, from: p.from, to: p.to })}
+        />
+      </FormField>
+
+      <FormField label="Lieu" htmlFor="filtre-lieu">
+        <Combobox
+          id="filtre-lieu"
+          data-testid="filtre-lieu"
+          placeholder="Tous les lieux"
+          searchPlaceholder="Rechercher un lieu…"
+          options={[
+            { value: '', label: 'Tous les lieux' },
+            ...options.lieux.map((l) => ({ value: l.id, label: l.nom })),
+          ]}
+          value={value.lieuId}
+          onChange={(v) => set('lieuId', v)}
+        />
+      </FormField>
+
+      <FormField label="Client organisateur" htmlFor="filtre-client">
+        <Combobox
+          id="filtre-client"
+          data-testid="filtre-client"
+          icon={null}
+          placeholder="Tous les clients"
+          searchPlaceholder="Rechercher un client…"
+          options={[
+            { value: '', label: 'Tous les clients' },
+            ...options.clients.map((c) => ({ value: c, label: c })),
+          ]}
+          value={value.client}
+          onChange={(v) => set('client', v)}
+        />
+      </FormField>
+
+      <FormField label="Info incomplète" htmlFor="filtre-info-incomplete">
+        <Combobox
+          id="filtre-info-incomplete"
+          data-testid="filtre-info-incomplete"
+          icon={null}
+          placeholder="Toutes"
+          options={[
+            { value: '', label: 'Toutes' },
+            { value: 'oui', label: 'Oui' },
+            { value: 'non', label: 'Non' },
+          ]}
+          value={value.infoIncomplete}
+          onChange={(v) => set('infoIncomplete', v as '' | 'oui' | 'non')}
+        />
+      </FormField>
+
+      {options.programmateurs.length > 1 && (
+        <FormField label="Programmée par" htmlFor="filtre-programmee-par">
+          <Combobox
+            multiple
+            id="filtre-programmee-par"
+            data-testid="filtre-programmee-par"
+            icon={null}
+            placeholder="Tous"
+            options={options.programmateurs.map((p) => ({
+              value: p.id,
+              label: libelleProgrammateur(p),
+            }))}
+            value={value.programmeePar}
+            onChange={(ids) => set('programmeePar', ids)}
           />
-        </div>
-
-        <label className="flex items-center gap-1.5 text-sm">
-          <span className="text-savr-neutral-600">Du</span>
-          <input
-            type="date"
-            aria-label="Période — du"
-            value={value.from}
-            max={value.to || undefined}
-            onChange={(e) => set('from', e.target.value)}
-            className="rounded-savr-md border border-savr-neutral-300 px-2 py-1 text-sm"
-          />
-        </label>
-        <label className="flex items-center gap-1.5 text-sm">
-          <span className="text-savr-neutral-600">au</span>
-          <input
-            type="date"
-            aria-label="Période — au"
-            value={value.to}
-            min={value.from || undefined}
-            onChange={(e) => set('to', e.target.value)}
-            className="rounded-savr-md border border-savr-neutral-300 px-2 py-1 text-sm"
-          />
-        </label>
-
-        <div className="w-48">
-          <span className="mb-1.5 block text-xs font-semibold text-savr-neutral-600">
-            Lieu
-          </span>
-          <Select
-            aria-label="Lieu"
-            value={value.lieuId}
-            onChange={(e) => set('lieuId', e.target.value)}
-          >
-            <option value="">Tous les lieux</option>
-            {options.lieux.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.nom}
-              </option>
-            ))}
-          </Select>
-        </div>
-
-        <div className="w-48">
-          <span className="mb-1.5 block text-xs font-semibold text-savr-neutral-600">
-            Client organisateur
-          </span>
-          <Select
-            aria-label="Client organisateur"
-            value={value.client}
-            onChange={(e) => set('client', e.target.value)}
-          >
-            <option value="">Tous les clients</option>
-            {options.clients.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </Select>
-        </div>
-
-        <div className="w-40">
-          <span className="mb-1.5 block text-xs font-semibold text-savr-neutral-600">
-            Info incomplète
-          </span>
-          <Select
-            aria-label="Info incomplète"
-            value={value.infoIncomplete}
-            onChange={(e) =>
-              set('infoIncomplete', e.target.value as '' | 'oui' | 'non')
-            }
-          >
-            <option value="">Toutes</option>
-            <option value="oui">Oui</option>
-            <option value="non">Non</option>
-          </Select>
-        </div>
-
-        {options.programmateurs.length > 1 && (
-          <div className="w-52">
-            <MultiSelectFilter
-              label="Programmée par"
-              testid="filtre-programmee-par"
-              options={options.programmateurs.map((p) => ({
-                id: p.id,
-                nom: libelleProgrammateur(p),
-              }))}
-              selected={value.programmeePar}
-              onChange={(ids) => set('programmeePar', ids)}
-            />
-          </div>
-        )}
-
-        {filtresCollecteActifs(value) && (
-          <Button
-            variant="ghost"
-            onClick={() => onChange(FILTRES_COLLECTE_VIDES)}
-            data-testid="filtres-reinitialiser"
-          >
-            Réinitialiser
-          </Button>
-        )}
-      </div>
-
-      <p
-        data-testid="collectes-resultats-count"
-        className="text-sm text-savr-neutral-500"
-      >
-        {resultats} collecte{resultats > 1 ? 's' : ''} correspond
-        {resultats > 1 ? 'ent' : ''} à votre sélection
-      </p>
-    </div>
+        </FormField>
+      )}
+    </FilterBar>
   );
 }

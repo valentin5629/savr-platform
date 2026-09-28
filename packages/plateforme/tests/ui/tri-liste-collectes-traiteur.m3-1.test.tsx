@@ -156,7 +156,8 @@ describe('M3.1 — liste Collectes traiteur : tri par défaut (§06.04 §3)', ()
       const { container } = render(<TraiteurCollectesPage />);
 
       // ── Onglet Historique ────────────────────────────────────────────────
-      fireEvent.click(screen.getByRole('tab', { name: 'Historique' }));
+      // Onglets Radix : activation au mousedown (pas au click).
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Historique' }));
       await waitFor(
         () => expect(ordreDesCartes(container)).toHaveLength(JOURS.length),
         ATTENTE_UI,
@@ -173,7 +174,7 @@ describe('M3.1 — liste Collectes traiteur : tri par défaut (§06.04 §3)', ()
       expect(ordreDesCartes(container)).toEqual(ATTENDU_DECROISSANT);
 
       // ── Onglet Programmées — MÊME tri, aucune exception d'onglet ─────────
-      fireEvent.click(screen.getByRole('tab', { name: 'Programmées' }));
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Programmées' }));
       await waitFor(
         () => expect(ordreDesCartes(container)).toEqual(ATTENDU_DECROISSANT),
         ATTENTE_UI,

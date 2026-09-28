@@ -728,8 +728,12 @@ it('M0.8-32 — DatePicker rend un champ date + un créneau heure optionnel', ()
       aria-label="Date de collecte"
     />,
   );
-  const date = container.querySelector('input[type="date"]')!;
-  expect(date).toHaveValue('2026-07-10');
+  // DS « Mise en page des formulaires » règle 3 : aucun input date natif.
+  expect(container.querySelector('input[type="date"]')).toBeNull();
+  const date = screen.getByRole('button', { name: 'Date de collecte' });
+  expect(date).toHaveTextContent('10 juillet 2026');
+  expect(date.className).toContain('h-11');
+  expect(date.className).toContain('sm:h-10');
   const time = container.querySelector('input[type="time"]')!;
   expect(time).toHaveValue('14:30');
 });

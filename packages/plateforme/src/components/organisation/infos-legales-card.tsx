@@ -98,6 +98,8 @@ export function InfosLegalesCard({
       };
       if (!res.ok || !j.data) throw new Error(j.error ?? ERREUR_ENREGISTREMENT);
       setSucces('Informations enregistrées.');
+      // Valeurs nettoyées par le serveur (espaces retirés), même si inchangées.
+      setValeurs(valeursDe(j.data));
       onSaved(j.data);
     } catch (err) {
       setErreur((err as Error).message || ERREUR_ENREGISTREMENT);

@@ -17,6 +17,9 @@ import {
   MapPin,
   Scale,
   HeartHandshake,
+  CalendarDays,
+  DoorOpen,
+  Users,
   type LucideIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -30,10 +33,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { Modal } from '@/components/ui/modal';
 import { Timeline, TimelineItem } from '@/components/ui/timeline';
-import {
-  StatusCollecte,
-  type StatutCollecte,
-} from '@/components/ui/status-collecte';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
+import { CollecteStatutFrise } from './collecte-statut-frise';
 import {
   statutCollecteDisplay,
   type StatutCollecteDb,
@@ -102,6 +104,20 @@ function libelleDispatch(
   return 'Dispatcher (manuel)';
 }
 
+// Lieu tel que servi par GET /admin/collectes/[id] (`lieux!lieu_id(*)`) — seuls
+// les champs affichés dans l'onglet Informations sont typés.
+interface LieuDetail {
+  nom: string;
+  ville: string;
+  adresse_acces: string;
+  code_postal?: string | null;
+  acces_details?: string | null;
+  acces_office?: string | null;
+  stationnement?: string | null;
+  type_vehicule_max?: string | null;
+  contraintes_horaires?: string | null;
+}
+
 interface CollecteDetail {
   id: string;
   type: 'zero_dechet' | 'anti_gaspi';
@@ -137,13 +153,20 @@ interface CollecteDetail {
     transporteurs: { nom: string } | null;
   } | null;
   prestataire_logistique_id: string | null;
+  // Surcharge per-collecte du lieu (§04 `collectes.lieu_overrides`) : prime sur
+  // la référence `lieux` pour cette collecte seulement.
+  lieu_overrides?: Partial<LieuDetail> | null;
   evenements: {
     nom_evenement: string | null;
     pax: number;
     nom_client_organisateur: string | null;
+    contact_principal_nom?: string | null;
+    contact_principal_telephone?: string | null;
+    contact_secours_nom?: string | null;
+    contact_secours_telephone?: string | null;
     organisations: { raison_sociale: string };
     client_organisateur: { raison_sociale: string } | null;
-    lieux: { nom: string; ville: string; adresse_acces: string };
+    lieux: LieuDetail;
     types_evenements: { libelle: string } | null;
   };
   collecte_flux: {
@@ -262,6 +285,156 @@ function BlocHeader({
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
     </div>
+  );
+}
+
+// Colonne résumé (gauche) — libellé discret + valeur.
+function ResumeItem({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-xs text-savr-neutral-500">{label}</dt>
+      <dd className="font-medium text-savr-neutral-900">{children}</dd>
+    </div>
+  );
+}
+
+// Champ d'un bloc de l'onglet Informations.
+function InfoItem({
+  label,
+  pleineLargeur = false,
+  children,
+}: {
+  label: string;
+  pleineLargeur?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={pleineLargeur ? 'sm:col-span-2' : undefined}>
+      <dt className="text-savr-neutral-500">{label}</dt>
+      <dd className="font-medium">{children}</dd>
+    </div>
+  );
+}
+
+// Enums `lieux` (§04) en libellés lisibles — mêmes libellés et pastilles que le
+// référentiel Admin des lieux.
+const DIFFICULTE_LABEL: Record<string, string> = {
+  facile: 'Facile',
+  difficile: 'Difficile',
+  tres_difficile: 'Très difficile',
+};
+const DIFFICULTE_VARIANT: Record<string, 'success' | 'warning' | 'error'> = {
+  facile: 'success',
+  difficile: 'warning',
+  tres_difficile: 'error',
+};
+const VEHICULE_LABEL: Record<string, string> = {
+  velo_cargo: 'Vélo cargo',
+  camionnette: 'Camionnette',
+  fourgon: 'Fourgon',
+  vul: 'VUL',
+  poids_lourd: 'Poids lourd',
+};
+
+function DifficulteBadge({ valeur }: { valeur?: string | null }) {
+  if (!valeur) return <>—</>;
+  return (
+    <Badge
+      variant={DIFFICULTE_VARIANT[valeur] ?? 'neutral'}
+      className="text-xs"
+    >
+      {DIFFICULTE_LABEL[valeur] ?? valeur}
+    </Badge>
+  );
+}
+
+// Contact nom + téléphone cliquable (appel direct depuis mobile).
+function ContactLigne({
+  nom,
+  telephone,
+}: {
+  nom?: string | null;
+  telephone?: string | null;
+}) {
+  if (!nom && !telephone) {
+    return <span className="text-savr-neutral-400">Non renseigné</span>;
+  }
+  return (
+    <>
+      {nom ?? '—'}
+      {telephone && (
+        <a
+          href={`tel:${telephone.replace(/\s/g, '')}`}
+          className="block text-savr-primary-600 hover:underline"
+        >
+          {telephone}
+        </a>
+      )}
+    </>
+  );
+}
+
+// Mode d'envoi du transporteur (`type_tms`) en clair sur la carte de choix.
+function libelleTypeTms(typeTms: string): string {
+  if (typeTms === 'mts1') return 'Envoi MTS-1';
+  if (typeTms === 'a_toutes') return 'A Toutes! · vélo cargo';
+  if (typeTms === 'par_mail') return 'Dispatch par email';
+  if (typeTms === 'par_telephone') return 'Dispatch par téléphone';
+  return 'Dispatch manuel';
+}
+
+// Carte cochable (choix d'un prestataire) — radio accessible, cible ≥ 44 px.
+function CarteChoix({
+  coche,
+  onSelect,
+  titre,
+  detail,
+  badges,
+}: {
+  coche: boolean;
+  onSelect: () => void;
+  titre: string;
+  detail: string;
+  badges?: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={coche}
+      onClick={onSelect}
+      className={cn(
+        'flex min-h-11 items-start gap-3 rounded-savr-md border p-3 text-left text-sm transition-colors',
+        coche
+          ? 'border-savr-primary-600 bg-savr-primary-50'
+          : 'border-savr-neutral-200 bg-white hover:border-savr-neutral-300',
+      )}
+    >
+      <span
+        aria-hidden
+        className={cn(
+          'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2',
+          coche ? 'border-savr-primary-600' : 'border-savr-neutral-300',
+        )}
+      >
+        {coche && (
+          <span className="h-1.5 w-1.5 rounded-full bg-savr-primary-600" />
+        )}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex flex-wrap items-center gap-1.5 font-semibold text-savr-neutral-900">
+          {titre}
+          {badges}
+        </span>
+        <span className="block text-xs text-savr-neutral-500">{detail}</span>
+      </span>
+    </button>
   );
 }
 
@@ -797,9 +970,15 @@ export function CollecteDetailPanel({
 
   // Bloc 0 — résolution prestataire (pont R5 : transporteurs.prestataire_logistique_id
   // → collectes.prestataire_logistique_id) + fork type_tms.
-  const currentTransporteur = transporteurs.find(
-    (t) => t.prestataire_logistique_id === collecte.prestataire_logistique_id,
-  );
+  // Garde null : un transporteur sans pont R5 (prestataire_logistique_id NULL)
+  // ne doit pas « matcher » une collecte non attribuée (NULL === NULL).
+  const currentTransporteur =
+    collecte.prestataire_logistique_id == null
+      ? undefined
+      : transporteurs.find(
+          (t) =>
+            t.prestataire_logistique_id === collecte.prestataire_logistique_id,
+        );
   const selectedTransporteur = transporteurs.find(
     (t) => t.id === selectedTransporteurId,
   );
@@ -827,1065 +1006,1312 @@ export function CollecteDetailPanel({
     /\s/.test(referenceSaisie) ||
     acceptationSaisie.contact_joint.trim() === '';
 
+  // Cartes prestataire : recommandé d'abord, puis l'actuel, puis le reste.
+  const rangCarte = (t: Transporteur): number =>
+    t.id === recommendedTransporteurId
+      ? 0
+      : t.id === currentTransporteur?.id
+        ? 1
+        : 2;
+  const transporteursOrdonnes = [...transporteurs].sort(
+    (a, b) => rangCarte(a) - rangCarte(b),
+  );
+
+  const dateCollecteLongue = new Date(
+    collecte.date_collecte,
+  ).toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'Europe/Paris',
+  });
+  const heureCollecte = collecte.heure_collecte?.slice(0, 5) ?? '';
+  // Lieu effectif de CETTE collecte : référence + surcharge `lieu_overrides`.
+  const overrides = collecte.lieu_overrides ?? {};
+  const lieuSurcharge = Object.keys(overrides).length > 0;
+  const lieu: LieuDetail = { ...collecte.evenements.lieux, ...overrides };
+
   return (
     <div className="space-y-4">
-      {/* Barre d'action — statut + « dirty TMS » + forçage. Le titre/méta (type ·
-          date · traiteur · lieu · jusqu'à N pax) vit dans l'en-tête figé de la modale. */}
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <StatusCollecte statut={collecte.statut as StatutCollecte} />
-        {collecte.dirty_tms && (
-          <Badge variant="warning" className="flex items-center gap-1 text-xs">
-            <AlertTriangle className="h-3 w-3" />
-            Modifiée — renvoi requis
-          </Badge>
-        )}
-        {/* RM-08 — forçage manuel du statut (motif obligatoire) */}
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => {
-            setForceStatutValue(collecte.statut);
-            setForceStatutMotif('');
-            setForceStatutError(null);
-            setForceStatutModal(true);
-          }}
-        >
-          <Settings2 className="h-4 w-4" />
-          Forcer le statut
-        </Button>
+      {/* En-tête : frise d'avancement (décision Val C2, remplace le badge seul) +
+          « dirty TMS » + forçage. Le titre-résumé vit dans l'en-tête figé de la modale. */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="min-w-0 flex-1">
+          <CollecteStatutFrise statut={collecte.statut} />
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+          {collecte.dirty_tms && (
+            <Badge
+              variant="warning"
+              className="flex items-center gap-1 text-xs"
+            >
+              <AlertTriangle className="h-3 w-3" />
+              Modifiée — renvoi requis
+            </Badge>
+          )}
+          {/* RM-08 — forçage manuel du statut (motif obligatoire) */}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setForceStatutValue(collecte.statut);
+              setForceStatutMotif('');
+              setForceStatutError(null);
+              setForceStatutModal(true);
+            }}
+          >
+            <Settings2 className="h-4 w-4" />
+            Forcer le statut
+          </Button>
+        </div>
       </div>
 
-      {/* Haut : Prestataire & Dispatch + Attribution AG côte à côte (AG only) ;
-          en ZD, Prestataire & Dispatch seul en pleine largeur (pas d'attribution AG). */}
-      <div
-        className={
-          collecte.type === 'anti_gaspi'
-            ? 'grid items-start gap-4 md:grid-cols-2'
-            : undefined
-        }
-      >
-        <Card className="p-5 space-y-4">
-          <BlocHeader icon={Truck} title="Prestataire & Dispatch" />
-          {dispatchError && <AlertBar variant="err">{dispatchError}</AlertBar>}
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-            <div>
-              <dt className="text-savr-neutral-500">Prestataire actuel</dt>
-              <dd className="font-medium flex items-center gap-2">
-                {currentTransporteur?.nom ?? (
+      {/* Colonne résumé fixe à gauche + 4 onglets à droite (décision Val C1) :
+          le « de quoi on parle » reste visible quel que soit l'onglet ouvert.
+          Masquée sous md : le titre de la modale porte déjà ce résumé. */}
+      {/* Hauteur minimale : la modale ne « saute » pas d'un onglet à l'autre. */}
+      <div className="grid items-start gap-4 md:min-h-[60vh] md:grid-cols-[13rem_minmax(0,1fr)]">
+        <aside
+          aria-label="Résumé de la collecte"
+          className="hidden rounded-savr-lg border border-savr-neutral-100 bg-savr-neutral-50 p-4 md:sticky md:top-0 md:block"
+        >
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm md:grid-cols-1">
+            <ResumeItem label="Date et heure">
+              {dateCollecteLongue}
+              {heureCollecte && (
+                <span className="block text-savr-neutral-600">
+                  {heureCollecte}
+                </span>
+              )}
+            </ResumeItem>
+            <ResumeItem label="Traiteur">
+              {collecte.evenements.organisations.raison_sociale}
+            </ResumeItem>
+            <ResumeItem label="Pax">
+              jusqu&apos;à {collecte.evenements.pax}
+            </ResumeItem>
+            <ResumeItem label="Lieu">
+              {lieu.nom}
+              <span className="block text-savr-neutral-600">{lieu.ville}</span>
+            </ResumeItem>
+            <ResumeItem label="Prestataire">
+              {currentTransporteur?.nom ?? (
+                <span className="text-savr-neutral-400">Non attribué</span>
+              )}
+            </ResumeItem>
+            <ResumeItem label="Statut TMS">
+              <Badge
+                variant={statutTmsDisplay(collecte.statut_tms).variant}
+                className="text-xs"
+              >
+                {statutTmsDisplay(collecte.statut_tms).label}
+              </Badge>
+            </ResumeItem>
+            {collecte.type === 'anti_gaspi' && (
+              <ResumeItem label="Association">
+                {collecte.attributions_antgaspi?.associations?.nom ?? (
                   <span className="text-savr-neutral-400">
-                    Aucun prestataire attribué
+                    En attente d&apos;attribution
                   </span>
                 )}
-                {currentTransporteur && (
-                  <Badge variant="neutral" className="text-[10px]">
-                    {currentTransporteur.type_tms}
-                  </Badge>
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-savr-neutral-500">Statut TMS</dt>
-              <dd className="font-medium">
-                <Badge
-                  variant={statutTmsDisplay(collecte.statut_tms).variant}
-                  className="text-xs"
-                >
-                  {statutTmsDisplay(collecte.statut_tms).label}
-                </Badge>
-                {collecte.statut_tms_at && (
-                  <span className="ml-1 text-xs text-savr-neutral-400">
-                    (
-                    {new Date(collecte.statut_tms_at).toLocaleString('fr-FR', {
-                      timeZone: 'Europe/Paris',
-                    })}
-                    )
-                  </span>
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-savr-neutral-500">Référence TMS</dt>
-              <dd className="font-mono font-medium">
-                {collecte.tms_reference ?? '—'}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-savr-neutral-500">Nb camions</dt>
-              <dd className="flex items-center gap-2 font-medium">
-                {collecte.nb_camions_demande}
-                {nbCamionsEditable && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setNbCamionsValue(String(collecte.nb_camions_demande));
-                      setNbCamionsError(null);
-                      setNbCamionsModal(true);
-                    }}
-                  >
-                    Modifier
-                  </Button>
-                )}
-              </dd>
-            </div>
-            {collecte.motif_override_prestataire && (
-              <div className="col-span-2">
-                <dt className="text-savr-neutral-500">Motif override</dt>
-                <dd className="font-medium">
-                  {collecte.motif_override_prestataire}
-                </dd>
-              </div>
+              </ResumeItem>
             )}
           </dl>
+        </aside>
 
-          {/* Sélecteur prestataire (AG) — override manuel §06.06 §3. Pas de
-            sélecteur ZD V1 (prestataire fixe par lieu/zone : réémission seule). */}
-          {collecte.type === 'anti_gaspi' && !isTerminal && (
-            <div className="space-y-3 border-t border-savr-neutral-100 pt-4">
-              {/* Recommandation algo (§06.09) — prestataire + association top-1. */}
-              <div className="rounded-savr-md border border-savr-primary-100 bg-savr-primary-50 p-3 text-sm">
-                <p className="font-medium text-savr-primary-800">
-                  Recommandation algo
+        <Tabs defaultValue="informations" className="min-w-0">
+          {/* Barre d'onglets fixe au défilement du corps de la modale. */}
+          <TabsList className="sticky top-0 z-10 w-full overflow-x-auto bg-white">
+            <TabsTrigger value="informations" className="px-3 sm:px-4">
+              Informations
+            </TabsTrigger>
+            <TabsTrigger value="logistique" className="px-3 sm:px-4">
+              Logistique
+            </TabsTrigger>
+            <TabsTrigger value="documents" className="px-3 sm:px-4">
+              Documents
+            </TabsTrigger>
+            <TabsTrigger value="historique" className="px-3 sm:px-4">
+              Historique
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="informations" className="space-y-4">
+            <Card className="p-5 space-y-4">
+              <BlocHeader icon={CalendarDays} title="Événement" />
+              <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+                <InfoItem label="Date et heure de collecte">
+                  {dateCollecteLongue}
+                  {heureCollecte ? ` · ${heureCollecte}` : ''}
+                </InfoItem>
+                <InfoItem label="Traiteur">
+                  {collecte.evenements.organisations.raison_sociale}
+                </InfoItem>
+                <InfoItem label="Nombre de pax">
+                  jusqu&apos;à {collecte.evenements.pax}
+                </InfoItem>
+                {/* Client final = client organisateur, distinct du traiteur. */}
+                <InfoItem label="Client final">
+                  {collecte.evenements.client_organisateur?.raison_sociale ??
+                    collecte.evenements.nom_client_organisateur ??
+                    '—'}
+                </InfoItem>
+                <InfoItem label="Type d'événement">
+                  {collecte.evenements.types_evenements?.libelle ?? '—'}
+                </InfoItem>
+                {collecte.evenements.nom_evenement && (
+                  <InfoItem label="Nom de l'événement">
+                    {collecte.evenements.nom_evenement}
+                  </InfoItem>
+                )}
+                {collecte.type === 'anti_gaspi' && (
+                  <InfoItem label="Volume repas estimé">
+                    {collecte.volume_estime_repas ?? '—'}
+                  </InfoItem>
+                )}
+              </dl>
+            </Card>
+
+            {/* Lieu effectif = référence `lieux` + surcharge de cette collecte
+                (`lieu_overrides`, §04 : le lieu officiel n'est jamais modifié). */}
+            <Card className="p-5 space-y-4">
+              <BlocHeader
+                icon={MapPin}
+                title="Lieu"
+                action={
+                  lieuSurcharge ? (
+                    <Badge variant="info" className="text-xs">
+                      Modifié pour cette collecte
+                    </Badge>
+                  ) : undefined
+                }
+              />
+              <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+                <InfoItem label="Nom">{lieu.nom}</InfoItem>
+                <InfoItem label="Adresse">
+                  {lieu.adresse_acces}
+                  <span className="block text-savr-neutral-600">
+                    {[lieu.code_postal, lieu.ville].filter(Boolean).join(' ')}
+                  </span>
+                </InfoItem>
+                <InfoItem label="Accès office">
+                  <DifficulteBadge valeur={lieu.acces_office} />
+                </InfoItem>
+                <InfoItem label="Stationnement">
+                  <DifficulteBadge valeur={lieu.stationnement} />
+                </InfoItem>
+                <InfoItem label="Véhicule max">
+                  {lieu.type_vehicule_max
+                    ? (VEHICULE_LABEL[lieu.type_vehicule_max] ??
+                      lieu.type_vehicule_max)
+                    : '—'}
+                </InfoItem>
+                <InfoItem label="Contrôle d'accès">
+                  {collecte.controle_acces_requis ? 'Oui' : 'Non'}
+                </InfoItem>
+                {lieu.contraintes_horaires && (
+                  <InfoItem label="Contraintes horaires" pleineLargeur>
+                    {lieu.contraintes_horaires}
+                  </InfoItem>
+                )}
+              </dl>
+            </Card>
+
+            <Card className="p-5 space-y-4">
+              <BlocHeader icon={DoorOpen} title="Instructions d'accès" />
+              <dl className="space-y-3 text-sm">
+                <InfoItem label="Accès au lieu (badge, code, interphone, gardien…)">
+                  {lieu.acces_details ? (
+                    <span className="whitespace-pre-line">
+                      {lieu.acces_details}
+                    </span>
+                  ) : (
+                    <span className="text-savr-neutral-400">
+                      Aucune instruction renseignée
+                    </span>
+                  )}
+                </InfoItem>
+                {collecte.informations_supplementaires && (
+                  <InfoItem label="Informations supplémentaires">
+                    <span className="whitespace-pre-line">
+                      {collecte.informations_supplementaires}
+                    </span>
+                  </InfoItem>
+                )}
+                {collecte.notes_internes && (
+                  <InfoItem label="Notes internes Savr">
+                    <span className="whitespace-pre-line">
+                      {collecte.notes_internes}
+                    </span>
+                  </InfoItem>
+                )}
+              </dl>
+            </Card>
+
+            <Card className="p-5 space-y-4">
+              <BlocHeader icon={Users} title="Contacts" />
+              <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+                <InfoItem label="Contact principal">
+                  <ContactLigne
+                    nom={collecte.evenements.contact_principal_nom}
+                    telephone={collecte.evenements.contact_principal_telephone}
+                  />
+                </InfoItem>
+                <InfoItem label="Contact de secours">
+                  <ContactLigne
+                    nom={collecte.evenements.contact_secours_nom}
+                    telephone={collecte.evenements.contact_secours_telephone}
+                  />
+                </InfoItem>
+              </dl>
+            </Card>
+
+            {/* Informations chauffeur demandées — saisie par tournée si le lieu
+                exige un contrôle d'accès. */}
+            {collecte.controle_acces_requis ? (
+              <Card className="p-5 space-y-4">
+                <BlocHeader
+                  icon={KeyRound}
+                  title="Informations chauffeur"
+                  action={
+                    !editInfosAcces && collecte.collecte_tournees.length > 0 ? (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={openEditInfosAcces}
+                      >
+                        Éditer les infos
+                      </Button>
+                    ) : undefined
+                  }
+                />
+                <p className="text-sm text-savr-neutral-500">
+                  Ce lieu exige un contrôle d’accès. Renseignez le nom et le
+                  téléphone du chauffeur (et l’accompagnant s’il y en a un) pour
+                  chaque camion : un email récapitulatif est envoyé au
+                  programmateur dès que toutes les tournées sont complètes.
                 </p>
-                <dl className="mt-1 grid grid-cols-1 gap-1 sm:grid-cols-2">
+
+                {collecte.infos_acces_email_envoye_at ? (
+                  <div className="flex items-center gap-2 text-sm font-medium text-savr-success-600">
+                    <Send className="h-4 w-4 shrink-0" />
+                    Email envoyé au programmateur le{' '}
+                    {new Date(
+                      collecte.infos_acces_email_envoye_at,
+                    ).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' })}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-sm text-savr-neutral-600">
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-savr-warning-strong" />
+                    En attente : infos à compléter avant envoi de l’email.
+                  </div>
+                )}
+
+                {infosAccesFeedback && (
+                  <AlertBar variant="info">{infosAccesFeedback}</AlertBar>
+                )}
+                {infosAccesError && (
+                  <AlertBar variant="err">{infosAccesError}</AlertBar>
+                )}
+
+                {collecte.collecte_tournees.length === 0 ? (
+                  <p className="text-sm text-savr-neutral-500">
+                    Aucune tournée dispatchée pour le moment — les infos
+                    pourront être saisies une fois le prestataire attribué.
+                  </p>
+                ) : !editInfosAcces ? (
+                  <div className="space-y-2">
+                    {collecte.collecte_tournees.map((ct) => (
+                      <div
+                        key={ct.tournees.id}
+                        className="rounded-savr-md border border-savr-neutral-100 bg-savr-neutral-50 px-3 py-2.5 text-sm"
+                      >
+                        <p className="mb-1.5 font-medium">Camion {ct.rang}</p>
+                        <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-savr-neutral-700">
+                          <div>
+                            <dt className="text-xs text-savr-neutral-500">
+                              Plaque
+                            </dt>
+                            <dd>{ct.tournees.plaque_immatriculation ?? '—'}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-xs text-savr-neutral-500">
+                              Chauffeur
+                            </dt>
+                            <dd>{ct.tournees.chauffeur_nom ?? '—'}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-xs text-savr-neutral-500">
+                              Téléphone
+                            </dt>
+                            <dd>{ct.tournees.chauffeur_telephone ?? '—'}</dd>
+                          </div>
+                          {(ct.tournees.accompagnant_nom ||
+                            ct.tournees.accompagnant_telephone) && (
+                            <>
+                              <div>
+                                <dt className="text-xs text-savr-neutral-500">
+                                  Accompagnant
+                                </dt>
+                                <dd>{ct.tournees.accompagnant_nom ?? '—'}</dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs text-savr-neutral-500">
+                                  Tél. accompagnant
+                                </dt>
+                                <dd>
+                                  {ct.tournees.accompagnant_telephone ?? '—'}
+                                </dd>
+                              </div>
+                            </>
+                          )}
+                        </dl>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <form
+                    onSubmit={(e) => void handleSaveInfosAcces(e)}
+                    className="space-y-3"
+                  >
+                    {collecte.collecte_tournees.map((ct) => {
+                      const v = infosAccesInput[ct.tournees.id] ?? {
+                        plaque_immatriculation: '',
+                        chauffeur_nom: '',
+                        chauffeur_telephone: '',
+                        accompagnant_nom: '',
+                        accompagnant_telephone: '',
+                      };
+                      const setField = (
+                        field: keyof typeof v,
+                        val: string,
+                      ): void =>
+                        setInfosAccesInput((prev) => ({
+                          ...prev,
+                          [ct.tournees.id]: {
+                            ...v,
+                            ...prev[ct.tournees.id],
+                            [field]: val,
+                          },
+                        }));
+                      return (
+                        <div
+                          key={ct.tournees.id}
+                          className="space-y-2.5 rounded-savr-md border border-savr-neutral-100 bg-savr-neutral-50 px-3 py-3"
+                        >
+                          <p className="text-sm font-medium">
+                            Camion {ct.rang}
+                          </p>
+                          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                            <label className="space-y-1 text-xs text-savr-neutral-500">
+                              <span>Plaque d’immatriculation</span>
+                              <Input
+                                value={v.plaque_immatriculation}
+                                onChange={(e) =>
+                                  setField(
+                                    'plaque_immatriculation',
+                                    e.target.value,
+                                  )
+                                }
+                              />
+                            </label>
+                            <label className="space-y-1 text-xs text-savr-neutral-500">
+                              <span>Nom du chauffeur</span>
+                              <Input
+                                value={v.chauffeur_nom}
+                                onChange={(e) =>
+                                  setField('chauffeur_nom', e.target.value)
+                                }
+                              />
+                            </label>
+                            <label className="space-y-1 text-xs text-savr-neutral-500">
+                              <span>Téléphone du chauffeur</span>
+                              <Input
+                                type="tel"
+                                value={v.chauffeur_telephone}
+                                onChange={(e) =>
+                                  setField(
+                                    'chauffeur_telephone',
+                                    e.target.value,
+                                  )
+                                }
+                              />
+                            </label>
+                            <label className="space-y-1 text-xs text-savr-neutral-500">
+                              <span>Nom de l’accompagnant (facultatif)</span>
+                              <Input
+                                value={v.accompagnant_nom}
+                                onChange={(e) =>
+                                  setField('accompagnant_nom', e.target.value)
+                                }
+                              />
+                            </label>
+                            <label className="space-y-1 text-xs text-savr-neutral-500">
+                              <span>
+                                Téléphone de l’accompagnant (facultatif)
+                              </span>
+                              <Input
+                                type="tel"
+                                value={v.accompagnant_telephone}
+                                onChange={(e) =>
+                                  setField(
+                                    'accompagnant_telephone',
+                                    e.target.value,
+                                  )
+                                }
+                              />
+                            </label>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div className="flex gap-2">
+                      <Button
+                        type="submit"
+                        size="sm"
+                        disabled={infosAccesSaving}
+                      >
+                        {infosAccesSaving ? 'Enregistrement…' : 'Enregistrer'}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => setEditInfosAcces(false)}
+                      >
+                        Annuler
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </Card>
+            ) : (
+              <Card className="p-5 space-y-4">
+                <BlocHeader icon={KeyRound} title="Informations chauffeur" />
+                <p className="text-sm text-savr-neutral-500">
+                  Ce lieu n&apos;exige pas de contrôle d&apos;accès : aucune
+                  information chauffeur n&apos;est demandée.
+                </p>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="logistique" className="space-y-4">
+            <Card className="p-5 space-y-4">
+              <BlocHeader icon={Truck} title="Prestataire & Dispatch" />
+              {dispatchError && (
+                <AlertBar variant="err">{dispatchError}</AlertBar>
+              )}
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                <div>
+                  <dt className="text-savr-neutral-500">Prestataire actuel</dt>
+                  <dd className="font-medium flex items-center gap-2">
+                    {currentTransporteur?.nom ?? (
+                      <span className="text-savr-neutral-400">
+                        Aucun prestataire attribué
+                      </span>
+                    )}
+                    {currentTransporteur && (
+                      <Badge variant="neutral" className="text-[10px]">
+                        {currentTransporteur.type_tms}
+                      </Badge>
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-savr-neutral-500">Statut TMS</dt>
+                  <dd className="font-medium">
+                    <Badge
+                      variant={statutTmsDisplay(collecte.statut_tms).variant}
+                      className="text-xs"
+                    >
+                      {statutTmsDisplay(collecte.statut_tms).label}
+                    </Badge>
+                    {collecte.statut_tms_at && (
+                      <span className="ml-1 text-xs text-savr-neutral-400">
+                        (
+                        {new Date(collecte.statut_tms_at).toLocaleString(
+                          'fr-FR',
+                          {
+                            timeZone: 'Europe/Paris',
+                          },
+                        )}
+                        )
+                      </span>
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-savr-neutral-500">Référence TMS</dt>
+                  <dd className="font-mono font-medium">
+                    {collecte.tms_reference ?? '—'}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-savr-neutral-500">Nb camions</dt>
+                  <dd className="flex items-center gap-2 font-medium">
+                    {collecte.nb_camions_demande}
+                    {nbCamionsEditable && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setNbCamionsValue(
+                            String(collecte.nb_camions_demande),
+                          );
+                          setNbCamionsError(null);
+                          setNbCamionsModal(true);
+                        }}
+                      >
+                        Modifier
+                      </Button>
+                    )}
+                  </dd>
+                </div>
+                {collecte.motif_override_prestataire && (
+                  <div className="col-span-2">
+                    <dt className="text-savr-neutral-500">Motif override</dt>
+                    <dd className="font-medium">
+                      {collecte.motif_override_prestataire}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+
+              {/* Choix du prestataire (AG) — override manuel §06.06 §3, en cartes
+            cochables (décision Val C3) : la reco algo est présélectionnée et
+            marquée « Recommandé ». Pas de choix en ZD V1 (réémission seule). */}
+              {collecte.type === 'anti_gaspi' && !isTerminal && (
+                <div className="space-y-3 border-t border-savr-neutral-100 pt-4">
+                  <p
+                    id="dispatch-transporteur-label"
+                    className="text-sm font-semibold text-savr-neutral-800"
+                  >
+                    Prestataire à attribuer
+                  </p>
+                  {transporteursOrdonnes.length === 0 ? (
+                    <p className="text-sm text-savr-neutral-500">
+                      Aucun transporteur actif dans le référentiel.
+                    </p>
+                  ) : (
+                    <div
+                      role="radiogroup"
+                      aria-labelledby="dispatch-transporteur-label"
+                      className="grid gap-2 sm:grid-cols-2"
+                    >
+                      {transporteursOrdonnes.map((t) => {
+                        const estActuel = t.id === currentTransporteur?.id;
+                        const coche =
+                          (selectedTransporteurId ||
+                            currentTransporteur?.id) === t.id;
+                        return (
+                          <CarteChoix
+                            key={t.id}
+                            coche={coche}
+                            // Re-choisir le prestataire actuel = le conserver ('').
+                            onSelect={() =>
+                              setSelectedTransporteurId(estActuel ? '' : t.id)
+                            }
+                            titre={t.nom}
+                            detail={libelleTypeTms(t.type_tms)}
+                            badges={
+                              <>
+                                {t.id === recommendedTransporteurId && (
+                                  <Badge variant="primary" className="text-xs">
+                                    Recommandé
+                                  </Badge>
+                                )}
+                                {estActuel && (
+                                  <Badge variant="neutral" className="text-xs">
+                                    Actuel
+                                  </Badge>
+                                )}
+                              </>
+                            }
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+                  {overrideActif && (
+                    <div>
+                      <label
+                        htmlFor="dispatch-motif"
+                        className="block text-sm font-medium text-savr-neutral-700 mb-1"
+                      >
+                        Motif override (obligatoire ≥ 5 car. — prestataire ≠
+                        reco algo)
+                      </label>
+                      <Textarea
+                        id="dispatch-motif"
+                        rows={2}
+                        value={motifOverride}
+                        onChange={(e) => setMotifOverride(e.target.value)}
+                        placeholder="Raison du choix d'un prestataire différent de la recommandation…"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Bouton d'envoi TMS forké par type_tms (+ acceptation manuelle
+              A Toutes! quand Everest est indisponible, §06.06 §3 Bloc 0) */}
+              <div className="flex flex-wrap justify-end gap-2">
+                {acceptationManuellePossible && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setAcceptationSaisie({
+                        reference_mission: '',
+                        contact_joint: '',
+                        heure_appel: '',
+                        commentaire: '',
+                      });
+                      setAcceptationError(null);
+                      setAcceptationModal(true);
+                    }}
+                  >
+                    <PhoneCall className="h-4 w-4 mr-2" />
+                    Acceptation manuelle
+                  </Button>
+                )}
+                <Button
+                  disabled={isTerminal || dispatching || overrideMotifManquant}
+                  onClick={() => void handleDispatch()}
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  {dispatching
+                    ? 'Envoi…'
+                    : libelleDispatch(forkTypeTms, !!collecte.tms_reference)}
+                </Button>
+              </div>
+
+              {/* Tournées (multi-camions) */}
+              {collecte.collecte_tournees.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <p className="text-sm font-medium text-savr-neutral-700">
+                      Tournées
+                    </p>
+                    <PlaqueTmsPicto tournees={collecte.collecte_tournees} />
+                  </div>
+                  <div className="space-y-1">
+                    {collecte.collecte_tournees.map((ct) => (
+                      <div
+                        key={ct.rang}
+                        className="flex items-center gap-4 text-sm bg-savr-neutral-50 rounded px-3 py-2"
+                      >
+                        <span className="font-medium">Camion {ct.rang}</span>
+                        <Badge variant="neutral" className="text-xs">
+                          {ct.tournees.statut}
+                        </Badge>
+                        <span className="font-mono text-xs text-savr-neutral-500">
+                          {ct.tournees.external_ref_commande ?? '—'}
+                        </span>
+                        <span className="font-mono text-xs text-savr-neutral-600">
+                          {ct.tournees.plaque_immatriculation ?? 'plaque —'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </Card>
+            {/* Attribution AG (AG only) — remontée tout en haut, à droite de
+            « Prestataire & Dispatch » (décision Val). */}
+            {collecte.type === 'anti_gaspi' && (
+              <Card className="p-5 space-y-4">
+                <BlocHeader icon={HeartHandshake} title="Attribution AG" />
+                <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
                   <div>
                     <dt className="text-savr-neutral-500">
-                      Prestataire recommandé
+                      Association retenue
                     </dt>
                     <dd className="font-medium">
-                      {reco?.transporteur ? (
-                        `${reco.transporteur.nom} (${reco.transporteur.type_tms})`
-                      ) : (
+                      {collecte.attributions_antgaspi?.associations?.nom ?? (
                         <span className="text-savr-neutral-400">
-                          Aucune recommandation
+                          Aucune (en attente d’attribution)
                         </span>
                       )}
                     </dd>
                   </div>
                   <div>
                     <dt className="text-savr-neutral-500">
-                      Association recommandée
+                      Transporteur retenu
                     </dt>
                     <dd className="font-medium">
-                      {reco?.associations?.[0]?.nom ?? (
-                        <span className="text-savr-neutral-400">Aucune</span>
+                      {collecte.attributions_antgaspi?.transporteurs?.nom ?? (
+                        <span className="text-savr-neutral-400">—</span>
                       )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-savr-neutral-500">Validation</dt>
+                    <dd className="font-medium">
+                      {collecte.attributions_antgaspi?.valide_at ? (
+                        <>
+                          {collecte.attributions_antgaspi.mode_validation} —{' '}
+                          {new Date(
+                            collecte.attributions_antgaspi.valide_at,
+                          ).toLocaleDateString('fr-FR', {
+                            timeZone: 'Europe/Paris',
+                          })}
+                        </>
+                      ) : (
+                        <Badge variant="warning" className="text-xs">
+                          En attente de validation
+                        </Badge>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-savr-neutral-500">
+                      Volume repas (estimé / réalisé)
+                    </dt>
+                    <dd className="font-medium">
+                      {collecte.volume_estime_repas ?? '—'} /{' '}
+                      {collecte.attributions_antgaspi?.volume_repas_realise ??
+                        '—'}
                     </dd>
                   </div>
                 </dl>
-                <p className="mt-2 text-xs text-savr-neutral-500">
-                  Attribution complète (validation, emails, top 3 associations)
-                  :{' '}
-                  <Link
-                    href={`/admin/attributions-ag/${collecte.id}`}
-                    className="text-savr-primary-600 hover:underline"
-                  >
-                    écran d&apos;attribution AG →
-                  </Link>
-                </p>
-              </div>
-
-              <FormField
-                label="Prestataire à attribuer"
-                htmlFor="dispatch-transporteur"
-              >
-                <Combobox
-                  id="dispatch-transporteur"
-                  icon={null}
-                  placeholder={
-                    currentTransporteur
-                      ? `Conserver — ${currentTransporteur.nom}`
-                      : '— Choisir un transporteur —'
-                  }
-                  value={selectedTransporteurId}
-                  onChange={setSelectedTransporteurId}
-                  options={[
-                    {
-                      value: '',
-                      label: currentTransporteur
-                        ? `Conserver — ${currentTransporteur.nom}`
-                        : '— Choisir un transporteur —',
-                    },
-                    ...transporteurs.map((t) => ({
-                      value: t.id,
-                      label: `${t.nom} (${t.type_tms})${
-                        t.id === recommendedTransporteurId
-                          ? ' — recommandé'
-                          : ''
-                      }`,
-                    })),
-                  ]}
-                />
-              </FormField>
-              {overrideActif && (
-                <div>
-                  <label
-                    htmlFor="dispatch-motif"
-                    className="block text-sm font-medium text-savr-neutral-700 mb-1"
-                  >
-                    Motif override (obligatoire ≥ 5 car. — prestataire ≠ reco
-                    algo)
-                  </label>
-                  <Textarea
-                    id="dispatch-motif"
-                    rows={2}
-                    value={motifOverride}
-                    onChange={(e) => setMotifOverride(e.target.value)}
-                    placeholder="Raison du choix d'un prestataire différent de la recommandation…"
-                  />
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Bouton d'envoi TMS forké par type_tms (+ acceptation manuelle
-              A Toutes! quand Everest est indisponible, §06.06 §3 Bloc 0) */}
-          <div className="flex flex-wrap justify-end gap-2">
-            {acceptationManuellePossible && (
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setAcceptationSaisie({
-                    reference_mission: '',
-                    contact_joint: '',
-                    heure_appel: '',
-                    commentaire: '',
-                  });
-                  setAcceptationError(null);
-                  setAcceptationModal(true);
-                }}
-              >
-                <PhoneCall className="h-4 w-4 mr-2" />
-                Acceptation manuelle
-              </Button>
-            )}
-            <Button
-              disabled={isTerminal || dispatching || overrideMotifManquant}
-              onClick={() => void handleDispatch()}
-            >
-              <Send className="h-4 w-4 mr-2" />
-              {dispatching
-                ? 'Envoi…'
-                : libelleDispatch(forkTypeTms, !!collecte.tms_reference)}
-            </Button>
-          </div>
-
-          {/* Tournées (multi-camions) */}
-          {collecte.collecte_tournees.length > 0 && (
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <p className="text-sm font-medium text-savr-neutral-700">
-                  Tournées
-                </p>
-                <PlaqueTmsPicto tournees={collecte.collecte_tournees} />
-              </div>
-              <div className="space-y-1">
-                {collecte.collecte_tournees.map((ct) => (
-                  <div
-                    key={ct.rang}
-                    className="flex items-center gap-4 text-sm bg-savr-neutral-50 rounded px-3 py-2"
-                  >
-                    <span className="font-medium">Camion {ct.rang}</span>
-                    <Badge variant="neutral" className="text-xs">
-                      {ct.tournees.statut}
-                    </Badge>
-                    <span className="font-mono text-xs text-savr-neutral-500">
-                      {ct.tournees.external_ref_commande ?? '—'}
-                    </span>
-                    <span className="font-mono text-xs text-savr-neutral-600">
-                      {ct.tournees.plaque_immatriculation ?? 'plaque —'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </Card>
-
-        {/* Attribution AG (AG only) — remontée tout en haut, à droite de
-            « Prestataire & Dispatch » (décision Val). */}
-        {collecte.type === 'anti_gaspi' && (
-          <Card className="p-5 space-y-4">
-            <BlocHeader icon={HeartHandshake} title="Attribution AG" />
-            <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-              <div>
-                <dt className="text-savr-neutral-500">Association retenue</dt>
-                <dd className="font-medium">
-                  {collecte.attributions_antgaspi?.associations?.nom ?? (
-                    <span className="text-savr-neutral-400">
-                      Aucune (en attente d’attribution)
-                    </span>
-                  )}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-savr-neutral-500">Transporteur retenu</dt>
-                <dd className="font-medium">
-                  {collecte.attributions_antgaspi?.transporteurs?.nom ?? (
-                    <span className="text-savr-neutral-400">—</span>
-                  )}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-savr-neutral-500">Validation</dt>
-                <dd className="font-medium">
-                  {collecte.attributions_antgaspi?.valide_at ? (
-                    <>
-                      {collecte.attributions_antgaspi.mode_validation} —{' '}
-                      {new Date(
-                        collecte.attributions_antgaspi.valide_at,
-                      ).toLocaleDateString('fr-FR', {
-                        timeZone: 'Europe/Paris',
-                      })}
-                    </>
-                  ) : (
-                    <Badge variant="warning" className="text-xs">
-                      En attente de validation
-                    </Badge>
-                  )}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-savr-neutral-500">
-                  Volume repas (estimé / réalisé)
-                </dt>
-                <dd className="font-medium">
-                  {collecte.volume_estime_repas ?? '—'} /{' '}
-                  {collecte.attributions_antgaspi?.volume_repas_realise ?? '—'}
-                </dd>
-              </div>
-            </dl>
-            {reco?.associations && reco.associations.length > 0 && (
-              <div className="rounded-savr-md border border-savr-neutral-100 bg-savr-neutral-50 p-3">
-                <p className="text-xs font-medium text-savr-neutral-600 mb-1">
-                  Top 3 associations recommandées + scores (algo §06.09)
-                </p>
-                <ol className="list-decimal list-inside text-sm text-savr-neutral-700">
-                  {reco.associations.slice(0, 3).map((a) => (
-                    <li key={a.id}>
-                      {a.nom}
-                      {(a.distance_km != null ||
-                        a.capacite_max_beneficiaires != null) && (
-                        <span className="text-savr-neutral-500">
-                          {' — '}
-                          {a.distance_km != null ? `${a.distance_km} km` : ''}
-                          {a.distance_km != null &&
+                {/* Associations recommandées (algo §06.09) en cartes, la n°1 marquée
+                « Recommandé ». « Choisir » ouvre l'écran d'attribution avec
+                l'association présélectionnée : validation, motif et emails
+                restent sur cet écran unique (§06.06 Bloc 5, décision Val). */}
+                {reco?.associations && reco.associations.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-savr-neutral-800">
+                      Associations recommandées
+                    </p>
+                    <ul className="space-y-2">
+                      {reco.associations.slice(0, 3).map((a, i) => {
+                        const raison = [
+                          a.distance_km != null ? `${a.distance_km} km` : null,
                           a.capacite_max_beneficiaires != null
-                            ? ' · '
-                            : ''}
-                          {a.capacite_max_beneficiaires != null
                             ? `capacité ${a.capacite_max_beneficiaires}`
-                            : ''}
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            )}
-            <Link
-              href={`/admin/attributions-ag/${collecte.id}`}
-              className="inline-flex items-center text-sm font-medium text-savr-primary-600 hover:underline"
-            >
-              Ouvrir l’attribution complète (top 3, validation, emails, re-jouer
-              l’algo) →
-            </Link>
-          </Card>
-        )}
-      </div>
-
-      {/* Infos accès / chauffeur — visible si le lieu exige un contrôle d'accès */}
-      {collecte.controle_acces_requis && (
-        <Card className="p-5 space-y-4">
-          <BlocHeader
-            icon={KeyRound}
-            title="Infos accès / chauffeur"
-            action={
-              !editInfosAcces && collecte.collecte_tournees.length > 0 ? (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={openEditInfosAcces}
-                >
-                  Éditer les infos
-                </Button>
-              ) : undefined
-            }
-          />
-          <p className="text-sm text-savr-neutral-500">
-            Ce lieu exige un contrôle d’accès. Renseignez le nom et le téléphone
-            du chauffeur (et l’accompagnant s’il y en a un) pour chaque camion :
-            un email récapitulatif est envoyé au programmateur dès que toutes
-            les tournées sont complètes.
-          </p>
-
-          {collecte.infos_acces_email_envoye_at ? (
-            <div className="flex items-center gap-2 text-sm font-medium text-savr-success-600">
-              <Send className="h-4 w-4 shrink-0" />
-              Email envoyé au programmateur le{' '}
-              {new Date(
-                collecte.infos_acces_email_envoye_at,
-              ).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' })}
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-sm text-savr-neutral-600">
-              <AlertTriangle className="h-4 w-4 shrink-0 text-savr-warning-strong" />
-              En attente : infos à compléter avant envoi de l’email.
-            </div>
-          )}
-
-          {infosAccesFeedback && (
-            <AlertBar variant="info">{infosAccesFeedback}</AlertBar>
-          )}
-          {infosAccesError && (
-            <AlertBar variant="err">{infosAccesError}</AlertBar>
-          )}
-
-          {collecte.collecte_tournees.length === 0 ? (
-            <p className="text-sm text-savr-neutral-500">
-              Aucune tournée dispatchée pour le moment — les infos pourront être
-              saisies une fois le prestataire attribué.
-            </p>
-          ) : !editInfosAcces ? (
-            <div className="space-y-2">
-              {collecte.collecte_tournees.map((ct) => (
-                <div
-                  key={ct.tournees.id}
-                  className="rounded-savr-md border border-savr-neutral-100 bg-savr-neutral-50 px-3 py-2.5 text-sm"
-                >
-                  <p className="mb-1.5 font-medium">Camion {ct.rang}</p>
-                  <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-savr-neutral-700">
-                    <div>
-                      <dt className="text-xs text-savr-neutral-500">Plaque</dt>
-                      <dd>{ct.tournees.plaque_immatriculation ?? '—'}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs text-savr-neutral-500">
-                        Chauffeur
-                      </dt>
-                      <dd>{ct.tournees.chauffeur_nom ?? '—'}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs text-savr-neutral-500">
-                        Téléphone
-                      </dt>
-                      <dd>{ct.tournees.chauffeur_telephone ?? '—'}</dd>
-                    </div>
-                    {(ct.tournees.accompagnant_nom ||
-                      ct.tournees.accompagnant_telephone) && (
-                      <>
-                        <div>
-                          <dt className="text-xs text-savr-neutral-500">
-                            Accompagnant
-                          </dt>
-                          <dd>{ct.tournees.accompagnant_nom ?? '—'}</dd>
-                        </div>
-                        <div>
-                          <dt className="text-xs text-savr-neutral-500">
-                            Tél. accompagnant
-                          </dt>
-                          <dd>{ct.tournees.accompagnant_telephone ?? '—'}</dd>
-                        </div>
-                      </>
-                    )}
-                  </dl>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <form
-              onSubmit={(e) => void handleSaveInfosAcces(e)}
-              className="space-y-3"
-            >
-              {collecte.collecte_tournees.map((ct) => {
-                const v = infosAccesInput[ct.tournees.id] ?? {
-                  plaque_immatriculation: '',
-                  chauffeur_nom: '',
-                  chauffeur_telephone: '',
-                  accompagnant_nom: '',
-                  accompagnant_telephone: '',
-                };
-                const setField = (field: keyof typeof v, val: string): void =>
-                  setInfosAccesInput((prev) => ({
-                    ...prev,
-                    [ct.tournees.id]: {
-                      ...v,
-                      ...prev[ct.tournees.id],
-                      [field]: val,
-                    },
-                  }));
-                return (
-                  <div
-                    key={ct.tournees.id}
-                    className="space-y-2.5 rounded-savr-md border border-savr-neutral-100 bg-savr-neutral-50 px-3 py-3"
-                  >
-                    <p className="text-sm font-medium">Camion {ct.rang}</p>
-                    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                      <label className="space-y-1 text-xs text-savr-neutral-500">
-                        <span>Plaque d’immatriculation</span>
-                        <Input
-                          value={v.plaque_immatriculation}
-                          onChange={(e) =>
-                            setField('plaque_immatriculation', e.target.value)
-                          }
-                        />
-                      </label>
-                      <label className="space-y-1 text-xs text-savr-neutral-500">
-                        <span>Nom du chauffeur</span>
-                        <Input
-                          value={v.chauffeur_nom}
-                          onChange={(e) =>
-                            setField('chauffeur_nom', e.target.value)
-                          }
-                        />
-                      </label>
-                      <label className="space-y-1 text-xs text-savr-neutral-500">
-                        <span>Téléphone du chauffeur</span>
-                        <Input
-                          type="tel"
-                          value={v.chauffeur_telephone}
-                          onChange={(e) =>
-                            setField('chauffeur_telephone', e.target.value)
-                          }
-                        />
-                      </label>
-                      <label className="space-y-1 text-xs text-savr-neutral-500">
-                        <span>Nom de l’accompagnant (facultatif)</span>
-                        <Input
-                          value={v.accompagnant_nom}
-                          onChange={(e) =>
-                            setField('accompagnant_nom', e.target.value)
-                          }
-                        />
-                      </label>
-                      <label className="space-y-1 text-xs text-savr-neutral-500">
-                        <span>Téléphone de l’accompagnant (facultatif)</span>
-                        <Input
-                          type="tel"
-                          value={v.accompagnant_telephone}
-                          onChange={(e) =>
-                            setField('accompagnant_telephone', e.target.value)
-                          }
-                        />
-                      </label>
-                    </div>
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ');
+                        return (
+                          <li
+                            key={a.id}
+                            className={cn(
+                              'flex items-center gap-3 rounded-savr-md border p-3 text-sm',
+                              i === 0
+                                ? 'border-savr-primary-600 bg-savr-primary-50'
+                                : 'border-savr-neutral-200 bg-white',
+                            )}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="flex flex-wrap items-center gap-1.5 font-semibold text-savr-neutral-900">
+                                {a.nom}
+                                {i === 0 && (
+                                  <Badge variant="primary" className="text-xs">
+                                    Recommandé
+                                  </Badge>
+                                )}
+                              </p>
+                              {raison && (
+                                <p className="text-xs text-savr-neutral-500">
+                                  {raison}
+                                </p>
+                              )}
+                            </div>
+                            <Button asChild size="sm" variant="secondary">
+                              <Link
+                                href={`/admin/attributions-ag/${collecte.id}?association=${encodeURIComponent(a.id)}`}
+                              >
+                                Choisir
+                              </Link>
+                            </Button>
+                          </li>
+                        );
+                      })}
+                    </ul>
                   </div>
-                );
-              })}
-              <div className="flex gap-2">
-                <Button type="submit" size="sm" disabled={infosAccesSaving}>
-                  {infosAccesSaving ? 'Enregistrement…' : 'Enregistrer'}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => setEditInfosAcces(false)}
-                >
-                  Annuler
-                </Button>
-              </div>
-            </form>
-          )}
-        </Card>
-      )}
-
-      {/* Événement & Lieu — Client, Type, Adresse, Contrôle accès (date/heure/pax
-          sont dans l'en-tête figé de la modale ; bloc Logistique retiré — Val). */}
-      <Card className="p-5 space-y-4">
-        <BlocHeader icon={MapPin} title="Événement & Lieu" />
-        <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-          <div>
-            <dt className="text-savr-neutral-500">Client</dt>
-            <dd className="font-medium">
-              {collecte.evenements.client_organisateur?.raison_sociale ??
-                collecte.evenements.nom_client_organisateur ??
-                '—'}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-savr-neutral-500">Type</dt>
-            <dd className="font-medium">
-              {collecte.evenements.types_evenements?.libelle ?? '—'}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-savr-neutral-500">Adresse</dt>
-            <dd className="font-medium">
-              {collecte.evenements.lieux.adresse_acces}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-savr-neutral-500">Contrôle accès</dt>
-            <dd className="font-medium">
-              {collecte.controle_acces_requis ? 'Oui' : 'Non'}
-            </dd>
-          </div>
-        </dl>
-      </Card>
-
-      {/* Pesées ZD (ZD only) + Documents sur la même ligne : grille 2 colonnes en
-          ZD. En AG (pas de Pesées ZD) le wrapper est neutre → Documents pleine largeur. */}
-      <div
-        className={
-          collecte.type === 'zero_dechet'
-            ? 'grid items-start gap-4 md:grid-cols-2'
-            : undefined
-        }
-      >
-        {/* Pesées ZD (dérivées des pesées MTS-1 ou saisie manuelle Admin) */}
-        {collecte.type === 'zero_dechet' && (
-          <Card className="p-5 space-y-4">
-            <BlocHeader
-              icon={Scale}
-              title="Pesées ZD"
-              action={
-                !editPesees && (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    disabled={collecte.statut === 'cloturee'}
-                    onClick={openEditPesees}
-                  >
-                    {collecte.statut === 'cloturee'
-                      ? 'Clôturée — édition via avoir'
-                      : 'Éditer les pesées'}
-                  </Button>
-                )
-              }
-            />
-
-            {!editPesees ? (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-savr-neutral-200">
-                    <th className="text-left py-2 text-savr-neutral-500 font-medium">
-                      Flux
-                    </th>
-                    <th className="text-right py-2 text-savr-neutral-500 font-medium">
-                      Poids (kg)
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ZD_FLUX.map((flux) => {
-                    const ligne = collecte.collecte_flux.find(
-                      (f) => f.flux_dechets?.code === flux.code,
-                    );
-                    const poids = ligne?.poids_reel_kg ?? null;
-                    return (
-                      <tr
-                        key={flux.code}
-                        className="border-b border-savr-neutral-100"
-                      >
-                        <td className="py-2 font-medium">{flux.nom}</td>
-                        <td className="py-2 text-right">
-                          {poids !== null ? (
-                            <span className="font-medium">{poids} kg</span>
-                          ) : (
-                            <span className="text-savr-neutral-400">
-                              En attente
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            ) : (
-              <form
-                onSubmit={(e) => void handleSavePesees(e)}
-                className="space-y-3"
-              >
-                <table className="w-full text-sm">
-                  <tbody>
-                    {ZD_FLUX.map((flux) => (
-                      <tr
-                        key={flux.code}
-                        className="border-b border-savr-neutral-100"
-                      >
-                        <td className="py-2 font-medium">{flux.nom}</td>
-                        <td className="py-2 text-right">
-                          <Input
-                            type="number"
-                            min={0}
-                            step="0.01"
-                            value={peseesInput[flux.code] ?? ''}
-                            onChange={(e) =>
-                              setPeseesInput((prev) => ({
-                                ...prev,
-                                [flux.code]: e.target.value,
-                              }))
-                            }
-                            aria-label={`Poids ${flux.nom} (kg)`}
-                            className="ml-auto w-28 text-right"
-                            placeholder="kg"
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-savr-neutral-700">
-                    Motif (obligatoire, ≥ 10 caractères)
-                  </label>
-                  <Textarea
-                    value={peseesMotif}
-                    onChange={(e) => setPeseesMotif(e.target.value)}
-                    rows={2}
-                    minLength={10}
-                    required
-                  />
-                </div>
-                {peseesError && (
-                  <AlertBar variant="err">{peseesError}</AlertBar>
                 )}
-                <div className="flex justify-end gap-2">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => setEditPesees(false)}
-                    disabled={peseesSaving}
-                  >
-                    Annuler
-                  </Button>
-                  <Button type="submit" disabled={peseesSaving}>
-                    {peseesSaving ? 'Enregistrement…' : 'Enregistrer'}
-                  </Button>
-                </div>
-              </form>
+                <Link
+                  href={`/admin/attributions-ag/${collecte.id}`}
+                  className="inline-flex items-center text-sm font-medium text-savr-primary-600 hover:underline"
+                >
+                  Ouvrir l’attribution complète (top 3, validation, emails,
+                  re-jouer l’algo) →
+                </Link>
+              </Card>
             )}
-          </Card>
-        )}
+            {/* Pesées ZD (dérivées des pesées MTS-1 ou saisie manuelle Admin) */}
+            {collecte.type === 'zero_dechet' && (
+              <Card className="p-5 space-y-4">
+                <BlocHeader
+                  icon={Scale}
+                  title="Pesées ZD"
+                  action={
+                    !editPesees && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={collecte.statut === 'cloturee'}
+                        onClick={openEditPesees}
+                      >
+                        {collecte.statut === 'cloturee'
+                          ? 'Clôturée — édition via avoir'
+                          : 'Éditer les pesées'}
+                      </Button>
+                    )
+                  }
+                />
 
-        {/* Bloc 3 (CDC) — Documents : rapport RSE / bordereau ZD / attestation AG + photos */}
-        <Card className="p-5 space-y-4">
-          <BlocHeader icon={FileText} title="Documents" />
-          {docError && <AlertBar variant="err">{docError}</AlertBar>}
+                {!editPesees ? (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-savr-neutral-200">
+                        <th className="text-left py-2 text-savr-neutral-500 font-medium">
+                          Flux
+                        </th>
+                        <th className="text-right py-2 text-savr-neutral-500 font-medium">
+                          Poids (kg)
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ZD_FLUX.map((flux) => {
+                        const ligne = collecte.collecte_flux.find(
+                          (f) => f.flux_dechets?.code === flux.code,
+                        );
+                        const poids = ligne?.poids_reel_kg ?? null;
+                        return (
+                          <tr
+                            key={flux.code}
+                            className="border-b border-savr-neutral-100"
+                          >
+                            <td className="py-2 font-medium">{flux.nom}</td>
+                            <td className="py-2 text-right">
+                              {poids !== null ? (
+                                <span className="font-medium">{poids} kg</span>
+                              ) : (
+                                <span className="text-savr-neutral-400">
+                                  En attente
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                ) : (
+                  <form
+                    onSubmit={(e) => void handleSavePesees(e)}
+                    className="space-y-3"
+                  >
+                    <table className="w-full text-sm">
+                      <tbody>
+                        {ZD_FLUX.map((flux) => (
+                          <tr
+                            key={flux.code}
+                            className="border-b border-savr-neutral-100"
+                          >
+                            <td className="py-2 font-medium">{flux.nom}</td>
+                            <td className="py-2 text-right">
+                              <Input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={peseesInput[flux.code] ?? ''}
+                                onChange={(e) =>
+                                  setPeseesInput((prev) => ({
+                                    ...prev,
+                                    [flux.code]: e.target.value,
+                                  }))
+                                }
+                                aria-label={`Poids ${flux.nom} (kg)`}
+                                className="ml-auto w-28 text-right"
+                                placeholder="kg"
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-savr-neutral-700">
+                        Motif (obligatoire, ≥ 10 caractères)
+                      </label>
+                      <Textarea
+                        value={peseesMotif}
+                        onChange={(e) => setPeseesMotif(e.target.value)}
+                        rows={2}
+                        minLength={10}
+                        required
+                      />
+                    </div>
+                    {peseesError && (
+                      <AlertBar variant="err">{peseesError}</AlertBar>
+                    )}
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => setEditPesees(false)}
+                        disabled={peseesSaving}
+                      >
+                        Annuler
+                      </Button>
+                      <Button type="submit" disabled={peseesSaving}>
+                        {peseesSaving ? 'Enregistrement…' : 'Enregistrer'}
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </Card>
+            )}
+          </TabsContent>
 
-          <div className="divide-y divide-savr-neutral-100">
-            {/* Rapport RSE (ZD + AG) */}
-            <div className="flex items-center gap-3 py-3">
-              <div className="flex-1">
-                <p className="text-sm font-medium flex items-center gap-2">
-                  Rapport RSE
-                  {documents?.rapport &&
-                    (documents.rapport.version > 1 ||
-                      documents.rapport.regenere_at) && (
-                      <span
-                        title={`Rapport régénéré${
-                          documents.rapport.regenere_at
-                            ? ` — mis à jour le ${new Date(
-                                documents.rapport.regenere_at,
+          <TabsContent value="documents">
+            {/* Bloc 3 (CDC) — Documents : rapport RSE / bordereau ZD / attestation AG + photos */}
+            <Card className="p-5 space-y-4">
+              <BlocHeader icon={FileText} title="Documents" />
+              {docError && <AlertBar variant="err">{docError}</AlertBar>}
+
+              <div className="divide-y divide-savr-neutral-100">
+                {/* Rapport RSE (ZD + AG) */}
+                <div className="flex items-center gap-3 py-3">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium flex items-center gap-2">
+                      Rapport RSE
+                      {documents?.rapport &&
+                        (documents.rapport.version > 1 ||
+                          documents.rapport.regenere_at) && (
+                          <span
+                            title={`Rapport régénéré${
+                              documents.rapport.regenere_at
+                                ? ` — mis à jour le ${new Date(
+                                    documents.rapport.regenere_at,
+                                  ).toLocaleDateString('fr-FR', {
+                                    timeZone: 'Europe/Paris',
+                                  })}`
+                                : ''
+                            }`}
+                            className="inline-flex items-center text-savr-primary-600"
+                          >
+                            <RotateCw className="h-3.5 w-3.5" />
+                          </span>
+                        )}
+                    </p>
+                    <p className="text-xs text-savr-neutral-500">
+                      {!documents?.rapport
+                        ? 'Non encore généré'
+                        : !documents.rapport.genere_at
+                          ? 'En attente de génération'
+                          : documents.rapport.consulte_par_user_at
+                            ? `Consulté le ${new Date(
+                                documents.rapport.consulte_par_user_at,
                               ).toLocaleDateString('fr-FR', {
                                 timeZone: 'Europe/Paris',
                               })}`
+                            : 'Disponible'}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={!documents?.rapport?.genere_at}
+                    onClick={() =>
+                      documents?.rapport &&
+                      void handleDownload(
+                        `/api/v1/admin/rapports-rse/${encodeURIComponent(documents.rapport.id)}/download`,
+                      )
+                    }
+                  >
+                    <Download className="h-4 w-4 mr-1" />
+                    Télécharger
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={
+                      !documents?.rapport ||
+                      regenerating === 'rapport-recyclage-zd'
+                    }
+                    onClick={() =>
+                      void handleRegenerate('rapport-recyclage-zd')
+                    }
+                  >
+                    <RotateCw
+                      className={`h-4 w-4 mr-1 ${
+                        regenerating === 'rapport-recyclage-zd'
+                          ? 'animate-spin'
+                          : ''
+                      }`}
+                    />
+                    Régénérer
+                  </Button>
+                </div>
+
+                {/* Bordereau ZD (ZD only) */}
+                {collecte.type === 'zero_dechet' && (
+                  <div className="flex items-center gap-3 py-3">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">
+                        Bordereau ZD
+                        {documents?.bordereau?.numero && (
+                          <span className="ml-2 font-mono text-xs text-savr-neutral-500">
+                            {documents.bordereau.numero}
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-xs text-savr-neutral-500">
+                        {documents?.bordereau
+                          ? `Statut : ${documents.bordereau.statut}`
+                          : 'Non encore généré'}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={!documents?.bordereau?.genere_at}
+                      onClick={() =>
+                        documents?.bordereau &&
+                        void handleDownload(
+                          `/api/v1/admin/bordereaux/${encodeURIComponent(documents.bordereau.id)}/download`,
+                        )
+                      }
+                    >
+                      <Download className="h-4 w-4 mr-1" />
+                      Télécharger
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={
+                        !documents?.bordereau || regenerating === 'bordereau-zd'
+                      }
+                      onClick={() => void handleRegenerate('bordereau-zd')}
+                    >
+                      <RotateCw
+                        className={`h-4 w-4 mr-1 ${
+                          regenerating === 'bordereau-zd' ? 'animate-spin' : ''
+                        }`}
+                      />
+                      Régénérer
+                    </Button>
+                  </div>
+                )}
+
+                {/* Attestation de don (AG only) */}
+                {collecte.type === 'anti_gaspi' && (
+                  <div className="flex items-center gap-3 py-3">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">
+                        Attestation de don
+                        {documents?.attestation?.numero && (
+                          <span className="ml-2 font-mono text-xs text-savr-neutral-500">
+                            {documents.attestation.numero}
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-xs text-savr-neutral-500">
+                        {documents?.attestation
+                          ? `Statut : ${documents.attestation.statut}`
+                          : 'Non encore générée'}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={!documents?.attestation?.genere_at}
+                      onClick={() =>
+                        documents?.attestation &&
+                        void handleDownload(
+                          `/api/v1/admin/attestations/${encodeURIComponent(documents.attestation.id)}/download`,
+                        )
+                      }
+                    >
+                      <Download className="h-4 w-4 mr-1" />
+                      Télécharger
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={
+                        !documents?.attestation ||
+                        regenerating === 'attestation-don'
+                      }
+                      onClick={() => void handleRegenerate('attestation-don')}
+                    >
+                      <RotateCw
+                        className={`h-4 w-4 mr-1 ${
+                          regenerating === 'attestation-don'
+                            ? 'animate-spin'
                             : ''
                         }`}
-                        className="inline-flex items-center text-savr-primary-600"
-                      >
-                        <RotateCw className="h-3.5 w-3.5" />
-                      </span>
-                    )}
-                </p>
-                <p className="text-xs text-savr-neutral-500">
-                  {!documents?.rapport
-                    ? 'Non encore généré'
-                    : !documents.rapport.genere_at
-                      ? 'En attente de génération'
-                      : documents.rapport.consulte_par_user_at
-                        ? `Consulté le ${new Date(
-                            documents.rapport.consulte_par_user_at,
-                          ).toLocaleDateString('fr-FR', {
-                            timeZone: 'Europe/Paris',
-                          })}`
-                        : 'Disponible'}
-                </p>
-              </div>
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={!documents?.rapport?.genere_at}
-                onClick={() =>
-                  documents?.rapport &&
-                  void handleDownload(
-                    `/api/v1/admin/rapports-rse/${encodeURIComponent(documents.rapport.id)}/download`,
-                  )
-                }
-              >
-                <Download className="h-4 w-4 mr-1" />
-                Télécharger
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={
-                  !documents?.rapport || regenerating === 'rapport-recyclage-zd'
-                }
-                onClick={() => void handleRegenerate('rapport-recyclage-zd')}
-              >
-                <RotateCw
-                  className={`h-4 w-4 mr-1 ${
-                    regenerating === 'rapport-recyclage-zd'
-                      ? 'animate-spin'
-                      : ''
-                  }`}
-                />
-                Régénérer
-              </Button>
-            </div>
-
-            {/* Bordereau ZD (ZD only) */}
-            {collecte.type === 'zero_dechet' && (
-              <div className="flex items-center gap-3 py-3">
-                <div className="flex-1">
-                  <p className="text-sm font-medium">
-                    Bordereau ZD
-                    {documents?.bordereau?.numero && (
-                      <span className="ml-2 font-mono text-xs text-savr-neutral-500">
-                        {documents.bordereau.numero}
-                      </span>
-                    )}
-                  </p>
-                  <p className="text-xs text-savr-neutral-500">
-                    {documents?.bordereau
-                      ? `Statut : ${documents.bordereau.statut}`
-                      : 'Non encore généré'}
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={!documents?.bordereau?.genere_at}
-                  onClick={() =>
-                    documents?.bordereau &&
-                    void handleDownload(
-                      `/api/v1/admin/bordereaux/${encodeURIComponent(documents.bordereau.id)}/download`,
-                    )
-                  }
-                >
-                  <Download className="h-4 w-4 mr-1" />
-                  Télécharger
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={
-                    !documents?.bordereau || regenerating === 'bordereau-zd'
-                  }
-                  onClick={() => void handleRegenerate('bordereau-zd')}
-                >
-                  <RotateCw
-                    className={`h-4 w-4 mr-1 ${
-                      regenerating === 'bordereau-zd' ? 'animate-spin' : ''
-                    }`}
-                  />
-                  Régénérer
-                </Button>
-              </div>
-            )}
-
-            {/* Attestation de don (AG only) */}
-            {collecte.type === 'anti_gaspi' && (
-              <div className="flex items-center gap-3 py-3">
-                <div className="flex-1">
-                  <p className="text-sm font-medium">
-                    Attestation de don
-                    {documents?.attestation?.numero && (
-                      <span className="ml-2 font-mono text-xs text-savr-neutral-500">
-                        {documents.attestation.numero}
-                      </span>
-                    )}
-                  </p>
-                  <p className="text-xs text-savr-neutral-500">
-                    {documents?.attestation
-                      ? `Statut : ${documents.attestation.statut}`
-                      : 'Non encore générée'}
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={!documents?.attestation?.genere_at}
-                  onClick={() =>
-                    documents?.attestation &&
-                    void handleDownload(
-                      `/api/v1/admin/attestations/${encodeURIComponent(documents.attestation.id)}/download`,
-                    )
-                  }
-                >
-                  <Download className="h-4 w-4 mr-1" />
-                  Télécharger
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={
-                    !documents?.attestation ||
-                    regenerating === 'attestation-don'
-                  }
-                  onClick={() => void handleRegenerate('attestation-don')}
-                >
-                  <RotateCw
-                    className={`h-4 w-4 mr-1 ${
-                      regenerating === 'attestation-don' ? 'animate-spin' : ''
-                    }`}
-                  />
-                  Régénérer
-                </Button>
-              </div>
-            )}
-          </div>
-
-          {/* Facture (ex-bloc Facturation, désormais intégré aux Documents) */}
-          <div className="border-t border-savr-neutral-100 pt-4 space-y-3">
-            <p className="text-sm font-medium text-savr-neutral-700">Facture</p>
-            {collecte.factures_collectes.length === 0 ? (
-              <p className="text-sm text-savr-neutral-500">
-                Aucune facture générée.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {collecte.factures_collectes.map((f) => (
-                  <div
-                    key={f.id}
-                    className="flex items-center justify-between text-sm bg-savr-neutral-50 rounded px-3 py-2"
-                  >
-                    <span className="font-mono text-xs text-savr-neutral-500">
-                      {f.id.slice(0, 8)}…
-                    </span>
-                    <Badge variant="neutral">{f.factures?.statut ?? '—'}</Badge>
-                    <span className="font-medium">{f.montant_ht} € HT</span>
+                      />
+                      Régénérer
+                    </Button>
                   </div>
-                ))}
+                )}
               </div>
-            )}
-            <div className="flex flex-wrap gap-2">
-              <Button variant="secondary" size="sm" disabled>
-                Valider & envoyer Pennylane
-                <Badge variant="neutral" className="ml-2 text-xs">
-                  M1.7
-                </Badge>
-              </Button>
-              {collecte.statut === 'realisee' &&
-                collecte.type === 'anti_gaspi' &&
-                !collecte.annulee_cote_savr && (
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => {
-                      setAnnulerCreditMotif('');
-                      setAnnulerCreditError(null);
-                      setAnnulerCreditModal(true);
-                    }}
-                  >
-                    Annuler le crédit AG
+
+              {/* Facture (ex-bloc Facturation, désormais intégré aux Documents) */}
+              <div className="border-t border-savr-neutral-100 pt-4 space-y-3">
+                <p className="text-sm font-medium text-savr-neutral-700">
+                  Facture
+                </p>
+                {collecte.factures_collectes.length === 0 ? (
+                  <p className="text-sm text-savr-neutral-500">
+                    Aucune facture générée.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {collecte.factures_collectes.map((f) => (
+                      <div
+                        key={f.id}
+                        className="flex items-center justify-between text-sm bg-savr-neutral-50 rounded px-3 py-2"
+                      >
+                        <span className="font-mono text-xs text-savr-neutral-500">
+                          {f.id.slice(0, 8)}…
+                        </span>
+                        <Badge variant="neutral">
+                          {f.factures?.statut ?? '—'}
+                        </Badge>
+                        <span className="font-medium">{f.montant_ht} € HT</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="secondary" size="sm" disabled>
+                    Valider & envoyer Pennylane
+                    <Badge variant="neutral" className="ml-2 text-xs">
+                      M1.7
+                    </Badge>
                   </Button>
-                )}
-              {collecte.annulee_cote_savr && (
-                <Badge variant="error" className="self-center">
-                  Crédit annulé côté Savr
-                </Badge>
-              )}
-            </div>
-          </div>
+                  {collecte.statut === 'realisee' &&
+                    collecte.type === 'anti_gaspi' &&
+                    !collecte.annulee_cote_savr && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => {
+                          setAnnulerCreditMotif('');
+                          setAnnulerCreditError(null);
+                          setAnnulerCreditModal(true);
+                        }}
+                      >
+                        Annuler le crédit AG
+                      </Button>
+                    )}
+                  {collecte.annulee_cote_savr && (
+                    <Badge variant="error" className="self-center">
+                      Crédit annulé côté Savr
+                    </Badge>
+                  )}
+                </div>
+              </div>
 
-          {/* Galerie photos + import */}
-          <div className="border-t border-savr-neutral-100 pt-4">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-medium text-savr-neutral-700">
-                Photos ({documents?.photos?.length ?? 0})
-              </p>
-              <label className="inline-flex items-center gap-1 text-sm text-savr-primary-600 cursor-pointer hover:underline">
-                <Upload className="h-4 w-4" />
-                {photoUploading ? 'Import…' : 'Importer des photos'}
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  className="hidden"
-                  disabled={photoUploading}
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) void handleImportPhoto(f);
-                    e.target.value = '';
-                  }}
-                />
-              </label>
-            </div>
-            {documents?.photos && documents.photos.length > 0 ? (
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                {documents.photos.map((p) =>
-                  p.url ? (
-                    <img
-                      key={p.id}
-                      src={p.url}
-                      alt="Photo collecte"
-                      className="h-24 w-full object-cover rounded-savr-md border border-savr-neutral-200"
+              {/* Galerie photos + import */}
+              <div className="border-t border-savr-neutral-100 pt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm font-medium text-savr-neutral-700">
+                    Photos ({documents?.photos?.length ?? 0})
+                  </p>
+                  <label className="inline-flex items-center gap-1 text-sm text-savr-primary-600 cursor-pointer hover:underline">
+                    <Upload className="h-4 w-4" />
+                    {photoUploading ? 'Import…' : 'Importer des photos'}
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      className="hidden"
+                      disabled={photoUploading}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) void handleImportPhoto(f);
+                        e.target.value = '';
+                      }}
                     />
-                  ) : (
-                    <div
-                      key={p.id}
-                      className="h-24 w-full flex items-center justify-center rounded-savr-md border border-savr-neutral-200 bg-savr-neutral-50 text-xs text-savr-neutral-400"
-                    >
-                      Photo
-                    </div>
-                  ),
+                  </label>
+                </div>
+                {documents?.photos && documents.photos.length > 0 ? (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                    {documents.photos.map((p) =>
+                      p.url ? (
+                        <img
+                          key={p.id}
+                          src={p.url}
+                          alt="Photo collecte"
+                          className="h-24 w-full object-cover rounded-savr-md border border-savr-neutral-200"
+                        />
+                      ) : (
+                        <div
+                          key={p.id}
+                          className="h-24 w-full flex items-center justify-center rounded-savr-md border border-savr-neutral-200 bg-savr-neutral-50 text-xs text-savr-neutral-400"
+                        >
+                          Photo
+                        </div>
+                      ),
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-savr-neutral-400">
+                    Aucune photo importée.
+                  </p>
                 )}
               </div>
-            ) : (
-              <p className="text-sm text-savr-neutral-400">
-                Aucune photo importée.
-              </p>
-            )}
-          </div>
-        </Card>
-      </div>
+            </Card>
+          </TabsContent>
 
-      {/* Bloc 7 (CDC) — Historique + Audit log (Admin-only) */}
-      <Card className="p-5 space-y-4">
-        <BlocHeader icon={History} title="Historique & audit" />
-        {audit.length === 0 ? (
-          <p className="text-sm text-savr-neutral-500">
-            Aucune action enregistrée sur cette collecte.
-          </p>
-        ) : (
-          <Timeline>
-            {audit.map((e) => {
-              const oldStatut = (e.old_values as { statut?: string } | null)
-                ?.statut;
-              const newStatut = (e.new_values as { statut?: string } | null)
-                ?.statut;
-              return (
-                <TimelineItem key={e.id}>
-                  <p className="text-sm font-medium text-savr-neutral-800">
-                    {e.action}
-                    {oldStatut && newStatut && (
-                      <span className="ml-2 font-normal text-savr-neutral-500">
-                        {oldStatut} → {newStatut}
-                      </span>
-                    )}
-                  </p>
-                  <p className="text-xs text-savr-neutral-500">
-                    {new Date(e.created_at).toLocaleString('fr-FR', {
-                      timeZone: 'Europe/Paris',
-                    })}
-                    {e.role ? ` · ${e.role}` : ''}
-                    {e.impersonator_id ? ' · (impersonation)' : ''}
-                  </p>
-                  {e.motif && (
-                    <p className="mt-1 text-xs italic text-savr-neutral-600">
-                      « {e.motif} »
-                    </p>
-                  )}
-                </TimelineItem>
-              );
-            })}
-          </Timeline>
-        )}
-      </Card>
+          <TabsContent value="historique">
+            {/* Bloc 7 (CDC) — Historique + Audit log (Admin-only) */}
+            <Card className="p-5 space-y-4">
+              <BlocHeader icon={History} title="Historique & audit" />
+              {audit.length === 0 ? (
+                <p className="text-sm text-savr-neutral-500">
+                  Aucune action enregistrée sur cette collecte.
+                </p>
+              ) : (
+                <Timeline>
+                  {audit.map((e) => {
+                    const oldStatut = (
+                      e.old_values as { statut?: string } | null
+                    )?.statut;
+                    const newStatut = (
+                      e.new_values as { statut?: string } | null
+                    )?.statut;
+                    return (
+                      <TimelineItem key={e.id}>
+                        <p className="text-sm font-medium text-savr-neutral-800">
+                          {e.action}
+                          {oldStatut && newStatut && (
+                            <span className="ml-2 font-normal text-savr-neutral-500">
+                              {oldStatut} → {newStatut}
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-xs text-savr-neutral-500">
+                          {new Date(e.created_at).toLocaleString('fr-FR', {
+                            timeZone: 'Europe/Paris',
+                          })}
+                          {e.role ? ` · ${e.role}` : ''}
+                          {e.impersonator_id ? ' · (impersonation)' : ''}
+                        </p>
+                        {e.motif && (
+                          <p className="mt-1 text-xs italic text-savr-neutral-600">
+                            « {e.motif} »
+                          </p>
+                        )}
+                      </TimelineItem>
+                    );
+                  })}
+                </Timeline>
+              )}
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
 
       {/* Modale — Annuler le crédit AG */}
       <Modal

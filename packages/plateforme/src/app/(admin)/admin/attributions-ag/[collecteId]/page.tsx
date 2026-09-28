@@ -149,10 +149,18 @@ export default function AttributionDetailPage() {
       }
       const json = (await res.json()) as { data: AlgoResult };
       setAlgo(json.data);
-      // Pré-sélectionner top 1 (asso + transporteur recommandés)
-      if (json.data.associations.length > 0) {
-        setSelectedAsso(json.data.associations[0]?.id ?? null);
-        setSelectedAssoNom(json.data.associations[0]?.nom ?? null);
+      // Pré-sélectionner top 1 (asso + transporteur recommandés) — ou l'association
+      // choisie depuis la fiche collecte (`?association=<id>`, carte « Choisir »),
+      // si elle fait bien partie des recommandations de l'algo.
+      const assoDemandee = new URLSearchParams(window.location.search).get(
+        'association',
+      );
+      const assoInitiale =
+        json.data.associations.find((a) => a.id === assoDemandee) ??
+        json.data.associations[0];
+      if (assoInitiale) {
+        setSelectedAsso(assoInitiale.id);
+        setSelectedAssoNom(assoInitiale.nom);
         setAssoSource('reco');
       }
       if (json.data.transporteur) {

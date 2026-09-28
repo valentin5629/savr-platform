@@ -89,7 +89,7 @@ describe('M0.6 — CollecteDetailModal pop-up + garde Escape (BL-P1-BOA-06)', ()
   it('M0.6 — collecteId null → panneau non rendu', () => {
     mockFetch();
     render(<CollecteDetailModal collecteId={null} onClose={vi.fn()} />);
-    expect(screen.queryByText('Prestataire & Dispatch')).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Informations' })).toBeNull();
   });
 
   it(
@@ -98,7 +98,7 @@ describe('M0.6 — CollecteDetailModal pop-up + garde Escape (BL-P1-BOA-06)', ()
       mockFetch();
       const onClose = vi.fn();
       render(<CollecteDetailModal collecteId="c1" onClose={onClose} />);
-      await screen.findByText('Prestataire & Dispatch', undefined, ATTENTE_UI);
+      await screen.findByRole('tab', { name: 'Informations' }, ATTENTE_UI);
 
       fireEvent.keyDown(document, { key: 'Escape' });
       expect(onClose).toHaveBeenCalledTimes(1);
@@ -135,7 +135,9 @@ describe('M0.6 — CollecteDetailModal pop-up + garde Escape (BL-P1-BOA-06)', ()
       // Escape : la sous-modale gère sa propre fermeture, le panneau reste ouvert.
       fireEvent.keyDown(document, { key: 'Escape' });
       expect(onClose).not.toHaveBeenCalled();
-      expect(screen.getByText('Prestataire & Dispatch')).toBeInTheDocument();
+      expect(
+        screen.getByRole('tab', { name: 'Informations' }),
+      ).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );

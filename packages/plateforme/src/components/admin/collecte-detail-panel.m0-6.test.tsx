@@ -21,6 +21,15 @@ vi.mock('next/navigation', () => ({
 import { CollecteDetailPanel } from './collecte-detail-panel';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
+// Fiche en 4 onglets (Informations / Logistique / Documents / Historique) : seul
+// l'onglet actif est monté. Radix active un onglet au mousedown (bouton gauche).
+async function ouvrirOnglet(nom: string): Promise<void> {
+  fireEvent.mouseDown(
+    await screen.findByRole('tab', { name: nom }, ATTENTE_UI),
+    { button: 0 },
+  );
+}
+
 const collecteAg = {
   id: 'c1',
   type: 'anti_gaspi',
@@ -156,9 +165,9 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
     async () => {
       mockFetch();
       render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
 
-      // Recommandation algo affichée (§06.09) : prestataire top-1 + association.
-      // findAllByText : l'association apparaît en Bloc 0 (reco) ET Bloc 5 (top-3) — BOA-07.
+      // Recommandation algo (§06.09) : association top-1 en carte « Recommandé ».
       expect(
         (
           await screen.findAllByText(
@@ -168,8 +177,18 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
           )
         ).length,
       ).toBeGreaterThan(0);
-      expect(screen.getByText('Recommandation algo')).toBeInTheDocument();
-      expect(screen.getByText('Strike (mts1)')).toBeInTheDocument();
+      // Prestataire top-1 = carte cochée et marquée « Recommandé » (décision Val C3).
+      const carteStrike = await screen.findByRole(
+        'radio',
+        { name: /Strike/ },
+        ATTENTE_UI,
+      );
+      expect(carteStrike).toHaveAttribute('aria-checked', 'true');
+      expect(within(carteStrike).getByText('Recommandé')).toBeInTheDocument();
+      expect(screen.getByRole('radio', { name: /A Toutes!/ })).toHaveAttribute(
+        'aria-checked',
+        'false',
+      );
       // Collecte non attribuée
       expect(
         screen.getByText('Aucun prestataire attribué'),
@@ -194,6 +213,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
     async () => {
       mockFetch();
       render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
       // Attendre la pré-sélection du top-1 (bouton MTS-1)
       await screen.findByRole(
         'button',
@@ -201,12 +221,8 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         ATTENTE_UI,
       );
 
-      // Choisir A Toutes! (≠ top-1 Strike) → override → motif obligatoire
-      // Combobox (DS règle 3) : ouvrir le déclencheur puis choisir l'option.
-      fireEvent.click(
-        screen.getByRole('combobox', { name: 'Prestataire à attribuer' }),
-      );
-      fireEvent.click(screen.getByRole('option', { name: /^A Toutes!/ }));
+      // Choisir A Toutes! (≠ top-1 Strike) → override → motif obligatoire.
+      fireEvent.click(screen.getByRole('radio', { name: /A Toutes!/ }));
 
       const bouton = screen.getByRole('button', {
         name: /Envoyer à A Toutes!/,
@@ -218,11 +234,58 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       expect(bouton).not.toBeDisabled();
 
       // Re-sélection du top-1 recommandé → plus de motif requis (validation reco)
-      fireEvent.click(
-        screen.getByRole('combobox', { name: 'Prestataire à attribuer' }),
-      );
-      fireEvent.click(screen.getByRole('option', { name: /^Strike/ }));
+      fireEvent.click(screen.getByRole('radio', { name: /Strike/ }));
       expect(screen.queryByLabelText(/Motif override/)).not.toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'collecte non attribuée : un transporteur sans pont prestataire (NULL) n’est pas pris pour l’« actuel »',
+    async () => {
+      // Régression E2E 2026-09-29 : NULL === NULL faisait afficher « Presta sans
+      // code » comme prestataire actuel d'une collecte jamais attribuée.
+      const fetchMock = mockFetch() as unknown as ReturnType<typeof vi.fn>;
+      const base = fetchMock.getMockImplementation()!;
+      fetchMock.mockImplementation(
+        (url: string, opts?: { method?: string; body?: string }) => {
+          if (url.startsWith('/api/v1/admin/transporteurs')) {
+            return Promise.resolve({
+              ok: true,
+              json: async () => ({
+                data: [
+                  ...transporteurs,
+                  {
+                    id: 't-sans-pont',
+                    nom: 'Presta sans code',
+                    type_tms: 'mts1',
+                    prestataire_logistique_id: null,
+                    actif: true,
+                  },
+                ],
+              }),
+            });
+          }
+          return base(url, opts);
+        },
+      );
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      expect(
+        await screen.findByText(
+          'Aucun prestataire attribué',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(
+        await screen.findByRole(
+          'radio',
+          { name: /Presta sans code/ },
+          ATTENTE_UI,
+        ),
+      ).toHaveAttribute('aria-checked', 'false');
+      expect(screen.queryByText('Actuel')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -232,10 +295,15 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
     async () => {
       const fetchMock = mockFetch();
       render(<CollecteDetailPanel collecteId="c1" />);
-      await screen.findByText('Prestataire actuel', undefined, ATTENTE_UI);
 
-      // Ouvre la modale (déclencheur d'en-tête)
-      fireEvent.click(screen.getByRole('button', { name: /Forcer le statut/ }));
+      // Ouvre la modale (déclencheur d'en-tête, visible quel que soit l'onglet)
+      fireEvent.click(
+        await screen.findByRole(
+          'button',
+          { name: /Forcer le statut/ },
+          ATTENTE_UI,
+        ),
+      );
 
       const dialog = screen
         .getByText('Forcer le statut de la collecte')
@@ -288,14 +356,21 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
     async () => {
       mockFetch();
       render(<CollecteDetailPanel collecteId="c1" />);
-      await screen.findByText('Prestataire actuel', undefined, ATTENTE_UI);
 
-      // types_evenements.libelle (Bloc 1)
-      expect(screen.getByText('Cocktail apéritif')).toBeInTheDocument();
-      // tournees.statut (Bloc 0 — liste multi-camions)
-      expect(screen.getByText('planifiee')).toBeInTheDocument();
-      // factures_collectes → factures.statut (Bloc 6)
-      expect(screen.getByText('emise')).toBeInTheDocument();
+      // types_evenements.libelle (onglet Informations, ouvert par défaut)
+      expect(
+        await screen.findByText('Cocktail apéritif', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      // tournees.statut (onglet Logistique — liste multi-camions)
+      await ouvrirOnglet('Logistique');
+      expect(
+        await screen.findByText('planifiee', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
+      // factures_collectes → factures.statut (onglet Documents)
+      await ouvrirOnglet('Documents');
+      expect(
+        await screen.findByText('emise', undefined, ATTENTE_UI),
+      ).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );
@@ -305,6 +380,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
     async () => {
       const fetchMock = mockFetch();
       render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
       await screen.findByText('Prestataire actuel', undefined, ATTENTE_UI);
 
       // Bouton « Modifier » à côté de Nb camions (statut programmee = éditable).
@@ -511,12 +587,12 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     async () => {
       const fetchMock = installMock({});
       render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
 
       // Bloc Documents rendu + rapport + attestation (AG).
       expect(
-        await screen.findByText('Documents', undefined, ATTENTE_UI),
+        await screen.findByText('Rapport RSE', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
-      expect(screen.getByText('Rapport RSE')).toBeInTheDocument();
       expect(screen.getByText('Attestation de don')).toBeInTheDocument();
       expect(screen.getByText('ATT-DON-2026-00001')).toBeInTheDocument();
 
@@ -543,6 +619,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     async () => {
       installMock({});
       render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
       // rapport.version = 2 + regenere_at → picto ⟳ avec title « Rapport régénéré ».
       expect(
         await screen.findByTitle(/Rapport régénéré/, undefined, ATTENTE_UI),
@@ -558,6 +635,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     async () => {
       installMock({});
       render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
 
       expect(
         await screen.findByText('Attribution AG', undefined, ATTENTE_UI),
@@ -583,6 +661,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     async () => {
       installMock({});
       render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Historique');
       expect(
         await screen.findByText('Historique & audit', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
@@ -601,7 +680,8 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     async () => {
       const fetchMock = installMock({});
       const { container } = render(<CollecteDetailPanel collecteId="c1" />);
-      await screen.findByText('Documents', undefined, ATTENTE_UI);
+      await ouvrirOnglet('Documents');
+      await screen.findByText('Rapport RSE', undefined, ATTENTE_UI);
 
       const input = container.querySelector(
         'input[type="file"]',
@@ -630,6 +710,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     async () => {
       installMock({ collecte: baseZd, documents: documentsZd });
       render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
       expect(
         await screen.findByText('Bordereau ZD', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
@@ -661,7 +742,8 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
         },
       });
       const { container } = render(<CollecteDetailPanel collecteId="c1" />);
-      await screen.findByText('Documents', undefined, ATTENTE_UI);
+      await ouvrirOnglet('Documents');
+      await screen.findByText('Rapport RSE', undefined, ATTENTE_UI);
       expect(screen.getByText('Photos (1)')).toBeInTheDocument();
       const img = container.querySelector(
         'img[alt="Photo collecte"]',
@@ -678,34 +760,121 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       // Collecte AG NON terminale → l'algo (reco) est appelé → top 3 + scores rendus.
       installMock({ collecte: { ...baseAg, statut: 'programmee' } });
       render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
       expect(
         await screen.findByText(/3\.2 km/, undefined, ATTENTE_UI),
       ).toBeInTheDocument();
       expect(screen.getByText(/capacité 200/)).toBeInTheDocument();
+      // Choix en 2 temps (décision Val) : « Choisir » ouvre l'écran d'attribution
+      // avec l'association présélectionnée ; la n°1 porte le badge « Recommandé ».
+      const choisir = screen.getAllByRole('link', { name: 'Choisir' });
+      expect(choisir).toHaveLength(3);
+      expect(choisir[0]).toHaveAttribute(
+        'href',
+        '/admin/attributions-ag/c1?association=a1',
+      );
+      expect(choisir[1]).toHaveAttribute(
+        'href',
+        '/admin/attributions-ag/c1?association=a2',
+      );
+      expect(screen.getAllByText('Recommandé').length).toBeGreaterThan(0);
     },
     ATTENTE_CAS_MS,
   );
 
   it(
-    'M0.6 — Événement & Lieu réduit (Client/Type/Adresse/Contrôle accès), Logistique retiré (retour Val)',
+    'Onglet Informations : date/heure, traiteur, pax, client final, lieu effectif, instructions d’accès et contacts',
     async () => {
-      installMock({ collecte: baseAg });
+      installMock({
+        collecte: {
+          ...baseAg,
+          controle_acces_requis: false,
+          informations_supplementaires: 'Sonner deux fois',
+          notes_internes: 'Client exigeant',
+          // Surcharge per-collecte : prime sur la référence `lieux`.
+          lieu_overrides: { acces_details: 'Badge au PC sécurité' },
+          evenements: {
+            ...baseAg.evenements,
+            contact_principal_nom: 'Alice Martin',
+            contact_principal_telephone: '06 11 22 33 44',
+            contact_secours_nom: null,
+            contact_secours_telephone: null,
+            lieux: {
+              nom: 'Pavillon',
+              ville: 'Paris',
+              adresse_acces: '1 rue X',
+              code_postal: '75017',
+              acces_details: 'Code 1234',
+              acces_office: 'difficile',
+              stationnement: 'facile',
+              type_vehicule_max: 'fourgon',
+              contraintes_horaires: 'Pas avant 22h',
+            },
+          },
+        },
+      });
       render(<CollecteDetailPanel collecteId="c1" />);
+
+      // Onglet ouvert par défaut.
       expect(
-        await screen.findByText('Événement & Lieu', undefined, ATTENTE_UI),
+        await screen.findByRole(
+          'tab',
+          { name: 'Informations', selected: true },
+          ATTENTE_UI,
+        ),
       ).toBeInTheDocument();
-      // Client = client_organisateur résolu (priorité sur nom_client_organisateur).
-      expect(screen.getByText('Client')).toBeInTheDocument();
-      expect(screen.getByText('Org Cliente SA')).toBeInTheDocument();
-      expect(screen.queryByText('Client Fallback')).not.toBeInTheDocument();
-      // Type + Adresse conservés ; Contrôle accès déplacé ici depuis l'ex-Logistique.
-      expect(screen.getByText('Cocktail apéritif')).toBeInTheDocument();
-      expect(screen.getByText('1 rue X')).toBeInTheDocument();
-      expect(screen.getByText('Contrôle accès')).toBeInTheDocument();
-      // Bloc Logistique + champs Traiteur/Volume retirés (décision Val).
-      expect(screen.queryByText('Logistique')).not.toBeInTheDocument();
-      expect(screen.queryByText('Traiteur')).not.toBeInTheDocument();
-      expect(screen.queryByText('Volume estimé')).not.toBeInTheDocument();
+      const infos = screen.getByRole('tabpanel');
+      // Événement : traiteur, pax, client final (client organisateur résolu).
+      expect(within(infos).getByText('Traiteur Beta')).toBeInTheDocument();
+      expect(within(infos).getByText(/jusqu.à 80/)).toBeInTheDocument();
+      expect(within(infos).getByText('Org Cliente SA')).toBeInTheDocument();
+      expect(within(infos).queryByText('Client Fallback')).toBeNull();
+      expect(within(infos).getByText(/19:00/)).toBeInTheDocument();
+      // Lieu : détails + badge de surcharge.
+      expect(within(infos).getByText('75017 Paris')).toBeInTheDocument();
+      expect(within(infos).getByText('Difficile')).toBeInTheDocument();
+      expect(within(infos).getByText('Fourgon')).toBeInTheDocument();
+      expect(within(infos).getByText('Pas avant 22h')).toBeInTheDocument();
+      expect(
+        within(infos).getByText('Modifié pour cette collecte'),
+      ).toBeInTheDocument();
+      // Instructions d'accès = valeur surchargée, pas la référence.
+      expect(
+        within(infos).getByText('Badge au PC sécurité'),
+      ).toBeInTheDocument();
+      expect(within(infos).queryByText('Code 1234')).toBeNull();
+      expect(within(infos).getByText('Sonner deux fois')).toBeInTheDocument();
+      expect(within(infos).getByText('Client exigeant')).toBeInTheDocument();
+      // Contacts : principal appelable, secours absent.
+      expect(within(infos).getByText('Alice Martin')).toBeInTheDocument();
+      expect(
+        within(infos).getByRole('link', { name: '06 11 22 33 44' }),
+      ).toHaveAttribute('href', 'tel:0611223344');
+      expect(within(infos).getByText('Non renseigné')).toBeInTheDocument();
+      // Sans contrôle d'accès : aucune info chauffeur demandée.
+      expect(
+        within(infos).getByText(/aucune information chauffeur/),
+      ).toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'Colonne résumé visible quel que soit l’onglet (traiteur, lieu, association)',
+    async () => {
+      installMock({});
+      render(<CollecteDetailPanel collecteId="c1" />);
+      const resume = await screen.findByRole(
+        'complementary',
+        { name: 'Résumé de la collecte' },
+        ATTENTE_UI,
+      );
+      await ouvrirOnglet('Historique');
+      expect(within(resume).getByText('Traiteur Beta')).toBeInTheDocument();
+      expect(within(resume).getByText('Pavillon')).toBeInTheDocument();
+      expect(
+        within(resume).getByText('Les Restos du Cœur'),
+      ).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );
@@ -778,6 +947,7 @@ describe('§06.06 Bloc 0 — acceptation manuelle Everest', () => {
     async () => {
       const fetchMock = mockFetchAcceptation(collecteAToutes);
       render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
 
       fireEvent.click(
         await screen.findByRole(
@@ -840,6 +1010,7 @@ describe('§06.06 Bloc 0 — acceptation manuelle Everest', () => {
         },
       });
       render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
 
       fireEvent.click(
         await screen.findByRole(
@@ -888,6 +1059,7 @@ describe('§06.06 Bloc 0 — acceptation manuelle Everest', () => {
     async (_cas, collecte) => {
       mockFetchAcceptation(collecte);
       render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
       await screen.findByText('Prestataire actuel', undefined, ATTENTE_UI);
 
       expect(

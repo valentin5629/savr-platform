@@ -23,7 +23,7 @@ import { KpiCockpitCard } from '@/components/dashboards/charts/cockpit/KpiCockpi
 import { EvolutionZdChart } from '@/components/dashboards/charts/cockpit/EvolutionZdChart';
 import { EvolutionAgChart } from '@/components/dashboards/charts/cockpit/EvolutionAgChart';
 import { TonnagesDonut } from '@/components/dashboards/charts/cockpit/TonnagesDonut';
-import { BenchmarkBulletGauges } from '@/components/dashboards/charts/cockpit/BenchmarkBulletGauges';
+import { BenchmarkRadar } from '@/components/dashboards/charts/cockpit/BenchmarkRadar';
 import { TopRankList } from '@/components/dashboards/charts/cockpit/TopRankList';
 import { PackAgRing } from '@/components/dashboards/charts/cockpit/PackAgRing';
 import {
@@ -73,7 +73,7 @@ interface KpiRow {
  * traiteur/gestionnaire, en réutilisant la lib Cockpit figée : KPIs
  * `KpiCockpitCard`, Top listes `TopRankList` (drill-down lieux préservé),
  * évolution `EvolutionZd/AgChart`, donut `TonnagesDonut`, benchmark
- * `BenchmarkBulletGauges`. Divergences forcées §06.11 conservées : 4 cartes ZD
+ * `BenchmarkRadar`. Divergences forcées §06.11 conservées : 4 cartes ZD
  * (pas de Marge, diff #7) et pas de Bloc 7 « Top 5 commerciaux » (diff #8).
  */
 export default function AgenceDashboardPage() {
@@ -304,11 +304,11 @@ export default function AgenceDashboardPage() {
             <EvolutionZdChart series={zdSeries} granularite={granularite} />
           </div>
 
-          {/* Bloc 3 ZD — Filtres du repère + jauges kg/pax en UN seul bloc
-              (retour Val R24b : filtres imbriqués dans la carte des jauges).
+          {/* Bloc 3 ZD — Filtres du repère + radar kg/pax en UN seul bloc
+              (retour Val R24b : filtres imbriqués dans la carte du benchmark).
               Benchmark 4 dimensions §06.04 — Traiteurs masqué (endpoint /filtres
               renvoie liste vide, traiteur_ids[] rejeté serveur). */}
-          <BenchmarkBulletGauges
+          <BenchmarkRadar
             items={gaugeItems}
             filtersSlot={
               <BenchmarkFilterBar

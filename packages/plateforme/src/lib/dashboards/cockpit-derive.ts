@@ -1,7 +1,7 @@
 import { jourParis } from '@savr/shared/src/temps/index.js';
 /**
  * Dérivations pures du dashboard « Cockpit » (R24) — agrégats KPI, séries
- * sparkline, variation N-1, totaux/équivalences CO₂, items de jauges benchmark.
+ * sparkline, variation N-1, totaux/équivalences CO₂, items du radar benchmark.
  *
  * Séparé de la page (client) pour être TESTABLE sans jsdom et RÉUTILISABLE par la
  * déclinaison Cockpit des 5 autres dashboards. Aucune donnée n'est inventée : les
@@ -187,7 +187,7 @@ export interface BenchmarkRow {
 /**
  * Agrège les segments du benchmark parc en UNE valeur par flux (moyenne pondérée
  * par le nombre de collectes). Un flux sans segment (k-anonymat < 5 masqué par la
- * RPC) est absent de la map → la jauge affiche l'état « n < 5 ».
+ * RPC) est absent de la map → l'axe du radar affiche l'état « Données manquantes ».
  */
 export function aggregateBenchmarkPerFlux(
   rows: BenchmarkRow[],
@@ -213,7 +213,7 @@ export interface GaugeItem {
 }
 
 /**
- * Construit les items des jauges bullet (Bloc 3 ZD) : `value` = mon kg/pax du flux,
+ * Construit les items du radar benchmark (Bloc 3 ZD) : `value` = mon kg/pax du flux,
  * `benchmark` = moyenne parc. `null` des deux côtés → état insuffisant côté composant.
  */
 export function benchmarkItems(

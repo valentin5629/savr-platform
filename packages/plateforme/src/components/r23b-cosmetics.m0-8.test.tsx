@@ -117,4 +117,4 @@ describe('M0.8-48 — margeTooltipZd restitue tarif × pax − coût = marge (BL
 // Note R24c : les ex-scénarios M0.8-46 (KpiCard tooltip) et M0.8-47
 // (BenchmarkLegend) ont été retirés — leurs composants `KpiCard` et
 // `BenchmarkLegend` sont supprimés (déclinaison Cockpit des dashboards clients,
-// remplacés par `KpiCockpitCard` + la légende intégrée de `BenchmarkBulletGauges`).
+// remplacés par `KpiCockpitCard` + la légende intégrée de `BenchmarkRadar`).

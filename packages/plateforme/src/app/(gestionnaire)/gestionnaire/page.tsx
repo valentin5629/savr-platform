@@ -23,7 +23,7 @@ import { KpiCockpitCard } from '@/components/dashboards/charts/cockpit/KpiCockpi
 import { EvolutionZdChart } from '@/components/dashboards/charts/cockpit/EvolutionZdChart';
 import { EvolutionAgChart } from '@/components/dashboards/charts/cockpit/EvolutionAgChart';
 import { TonnagesDonut } from '@/components/dashboards/charts/cockpit/TonnagesDonut';
-import { BenchmarkBulletGauges } from '@/components/dashboards/charts/cockpit/BenchmarkBulletGauges';
+import { BenchmarkRadar } from '@/components/dashboards/charts/cockpit/BenchmarkRadar';
 import { TopRankList } from '@/components/dashboards/charts/cockpit/TopRankList';
 import {
   fmtInt,
@@ -343,9 +343,9 @@ export default function GestionnaireDashboardPage() {
             <EvolutionZdChart series={zdSeries} granularite={granularite} />
           </div>
 
-          {/* Bloc 3 ZD — Filtres du repère + jauges kg/pax en UN seul bloc
-              (retour Val R24b : filtres imbriqués dans la carte des jauges). */}
-          <BenchmarkBulletGauges
+          {/* Bloc 3 ZD — Filtres du repère + radar kg/pax en UN seul bloc
+              (retour Val R24b : filtres imbriqués dans la carte du benchmark). */}
+          <BenchmarkRadar
             items={gaugeItems}
             filtersSlot={
               <BenchmarkFilterBar

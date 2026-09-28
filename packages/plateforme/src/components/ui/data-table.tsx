@@ -73,6 +73,9 @@ function DataTable<T>({
         // Colonne sans titre (actions) : jamais masquable, elle n'aurait pas de
         // libellé dans le menu « Colonnes ».
         enableHiding: col.header !== '',
+        // Colonne d'actions (sans titre) : fixée au bord droit quand le tableau
+        // déborde, comme la liste Collectes — l'action reste atteignable.
+        meta: col.header === '' ? { stickyRight: true } : undefined,
         cell: ({ row }) =>
           col.render
             ? col.render(row.original)

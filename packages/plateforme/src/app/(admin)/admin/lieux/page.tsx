@@ -157,7 +157,10 @@ export default function LieuxPage() {
       sortable: true,
       header: 'Nom',
       render: (row) => (
-        <div className="flex items-center gap-2">
+        // Largeur minimale : sans elle, 9 colonnes se partagent la largeur et
+        // un nom comme « Adresse libre — Lyon » passait sur 3 lignes (retour
+        // Val 2026-09-28).
+        <div className="flex min-w-[220px] items-center gap-2">
           <button
             type="button"
             onClick={(e) => {

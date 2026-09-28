@@ -196,7 +196,7 @@ describe('/login — porte d’entrée du parcours', () => {
     async () => {
       params = new URLSearchParams({ error: '<img src=x onerror=alert(1)>' });
       const { container, findByText } = render(<LoginPage />);
-      await findByText('Connexion Savr', undefined, ATTENTE_UI);
+      await findByText('Connexion à votre compte', undefined, ATTENTE_UI);
       expect(container.textContent).not.toMatch(/onerror|img src/);
     },
     ATTENTE_CAS_MS,
@@ -218,7 +218,7 @@ describe('/login — porte d’entrée du parcours', () => {
     async (cle) => {
       params = new URLSearchParams({ error: cle });
       const { container, findByText } = render(<LoginPage />);
-      await findByText('Connexion Savr', undefined, ATTENTE_UI);
+      await findByText('Connexion à votre compte', undefined, ATTENTE_UI);
       expect(container.querySelector('form')).not.toBeNull();
       expect(container.textContent).not.toMatch(/function|\[object/i);
     },

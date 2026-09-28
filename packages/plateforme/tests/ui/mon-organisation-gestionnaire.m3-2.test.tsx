@@ -45,28 +45,36 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
       );
       render(<MonOrganisationPage />);
       expect(
-        await screen.findByText('Viparis SAS', {}, ATTENTE_UI),
+        await screen.findByDisplayValue('Viparis SAS', {}, ATTENTE_UI),
       ).toBeTruthy();
-      expect(screen.getByText('12345678900011')).toBeTruthy();
+      expect(screen.getByDisplayValue('12345678900011')).toBeTruthy();
     },
     ATTENTE_CAS_MS,
   );
 
   it(
-    'M3.2/mon_organisation_champs_lecture_seule',
+    'M3.2/mon_organisation_champs_editables_et_lecture_seule',
     async () => {
       vi.stubGlobal(
         'fetch',
         vi.fn(() => Promise.resolve(reponse(200, { data: PROFIL }))),
       );
       render(<MonOrganisationPage />);
-      await screen.findByText('Viparis SAS', {}, ATTENTE_UI);
-      // §06.05 §6 : seule l'adresse est un champ de saisie (+ l'upload logo).
+      await screen.findByDisplayValue('Viparis SAS', {}, ATTENTE_UI);
+      // Raison sociale, SIRET, adresse modifiables (décision Val 2026-09-28) ;
+      // nom, email, téléphone en lecture seule (+ l'upload logo à part).
       const champs = screen.getAllByRole('textbox');
-      expect(champs).toHaveLength(1);
-      expect(champs[0]?.id).toBe('org-adresse');
+      expect(champs.map((c) => c.id)).toEqual([
+        'org-raison-sociale',
+        'org-siret',
+        'org-adresse',
+      ]);
       expect(screen.getByText('Viparis')).toBeTruthy();
-      expect(screen.getByText('Modification via le support Savr')).toBeTruthy();
+      expect(
+        screen.getByText(
+          'Nom, email et téléphone : modification via le support Savr.',
+        ),
+      ).toBeTruthy();
     },
     ATTENTE_CAS_MS,
   );
@@ -95,7 +103,7 @@ describe('M3.2 / page Mon organisation gestionnaire', () => {
       fireEvent.click(bouton);
       expect(
         (await screen.findByRole('status', {}, ATTENTE_UI)).textContent,
-      ).toBe('Adresse enregistrée.');
+      ).toBe('Informations enregistrées.');
       const patch = fetchMock.mock.calls.find(([, i]) => i?.method === 'PATCH');
       expect(patch?.[0]).toBe('/api/v1/gestionnaire/mon-organisation/profil');
       expect(JSON.parse(String(patch?.[1]?.body))).toEqual({

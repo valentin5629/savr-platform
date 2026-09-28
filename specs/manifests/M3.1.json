@@ -57,7 +57,8 @@
     "M3.1/factures_commercial_lecture_seule",
     "M3.1/benchmark_filtre_traiteur_ids_rejete_cote_serveur",
     "M3.1/trait_monorga_profil_patch_audit",
-    "M3.1/trait_monorga_profil_commercial_readonly",
+    "M3.1/trait_monorga_profil_commercial_infos_legales",
+    "M3.1/trait_monorga_profil_commercial_logo_refuse",
     "M3.1/trait_monorga_entites_create",
     "M3.1/trait_monorga_entites_siret_echec",
     "M3.1/trait_monorga_entites_doublon",
@@ -311,7 +312,7 @@
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/mon-organisation/profil/route.ts",
       "test": "M3.1/trait_monorga_profil_patch_audit",
       "statut": "implemented",
-      "libelle": "Informations légales (raison sociale / SIREN=organisations.siret / adresse) éditables par le manager ; toute modification loguée dans audit_log (action organisation_infos_legales_update, service_role)."
+      "libelle": "Informations légales (raison sociale / SIREN=organisations.siret / adresse) éditables par le manager (et le commercial depuis 2026-09-28) ; toute modification loguée dans audit_log (action organisation_infos_legales_update, service_role)."
     },
     {
       "id": "M3.1-trait-monorga-entites-facturation-crud",
@@ -373,9 +374,9 @@
       "id": "M3.1-trait-monorga-commercial-readonly",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:675-676",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/mon-organisation/profil/route.ts",
-      "test": "M3.1/trait_monorga_profil_commercial_readonly",
+      "test": "M3.1/trait_monorga_profil_commercial_infos_legales + M3.1/trait_monorga_profil_commercial_logo_refuse",
       "statut": "implemented",
-      "libelle": "Commercial = lecture seule (Infos/Logo/Facturation) et sous-section Équipe masquée : gating serveur réel (403 sur toute route d'écriture pour traiteur_commercial, pas seulement masquage UI)."
+      "libelle": "Commercial : informations légales (raison sociale / SIRET / adresse) éditables et auditées (décision Val 2026-09-28, divergence M3.1_20260928_edition-infos-organisation-tous-roles) ; Logo / Entités / Domaines / Facturation en lecture seule et sous-section Équipe masquée : gating serveur réel (logo filtré de la route profil, 403 sur les autres routes d'écriture pour traiteur_commercial)."
     },
     {
       "id": "M3.1-trait-monorga-rls-entites-domaines",

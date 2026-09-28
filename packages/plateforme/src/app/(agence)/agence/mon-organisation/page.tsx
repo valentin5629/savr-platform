@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { requirePageSession } from '@/lib/page-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { FacturesAgenceTable } from './factures-table';
 import { InfosLegalesOrganisation } from '@/components/organisation/infos-legales-card';
 
 const AGENCE_ROLES = ['agence'] as const;
@@ -57,34 +57,7 @@ export default async function MonOrganisationAgencePage() {
           <CardTitle>Facturation</CardTitle>
         </CardHeader>
         <CardContent>
-          {factures.length === 0 ? (
-            <p className="text-sm text-savr-neutral-500">Aucune facture.</p>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="text-left text-xs uppercase text-savr-neutral-500">
-                <tr>
-                  <th className="py-1">Numéro</th>
-                  <th className="py-1">Émission</th>
-                  <th className="py-1">Échéance</th>
-                  <th className="py-1">Montant TTC</th>
-                  <th className="py-1">Statut</th>
-                </tr>
-              </thead>
-              <tbody>
-                {factures.map((f) => (
-                  <tr key={f.id} className="border-t border-savr-neutral-100">
-                    <td className="py-1">{f.numero_facture ?? '—'}</td>
-                    <td className="py-1">{f.date_emission ?? '—'}</td>
-                    <td className="py-1">{f.date_echeance ?? '—'}</td>
-                    <td className="py-1">{f.montant_ttc ?? '—'} €</td>
-                    <td className="py-1">
-                      <Badge variant="neutral">{f.statut}</Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+          <FacturesAgenceTable factures={factures} />
         </CardContent>
       </Card>
     </div>

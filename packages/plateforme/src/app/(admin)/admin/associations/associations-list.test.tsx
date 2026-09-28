@@ -80,10 +80,10 @@ describe('M1.1 — Liste associations Admin (colonnes revue E2E)', () => {
       // DataTable rend un tableau desktop ET des cartes mobiles → on scope au
       // <table role="grid"> pour éviter les doublons de texte.
       await waitFor(
-        () => expect(screen.getByRole('grid')).toBeInTheDocument(),
+        () => expect(screen.getByRole('table')).toBeInTheDocument(),
         ATTENTE_UI,
       );
-      const table = within(screen.getByRole('grid'));
+      const table = within(screen.getByRole('table'));
       expect(table.getByText('Association Alpha (fictif)')).toBeInTheDocument();
       expect(table.getByText('12 Rue Alpha')).toBeInTheDocument();
       expect(table.getByText('150')).toBeInTheDocument();
@@ -99,7 +99,7 @@ describe('M1.1 — Liste associations Admin (colonnes revue E2E)', () => {
     async () => {
       render(<AssociationsPage />);
       await waitFor(
-        () => expect(screen.getByRole('grid')).toBeInTheDocument(),
+        () => expect(screen.getByRole('table')).toBeInTheDocument(),
         ATTENTE_UI,
       );
 
@@ -123,13 +123,13 @@ describe('M1.1 — Liste associations Admin (colonnes revue E2E)', () => {
     async () => {
       render(<AssociationsPage />);
       await waitFor(
-        () => expect(screen.getByRole('grid')).toBeInTheDocument(),
+        () => expect(screen.getByRole('table')).toBeInTheDocument(),
         ATTENTE_UI,
       );
 
       // DataTable rend un tableau desktop ET des cartes mobiles → le crayon existe
       // en double. On scope au <table role="grid"> pour cibler l'action desktop.
-      const grid = within(screen.getByRole('grid'));
+      const grid = within(screen.getByRole('table'));
       fireEvent.click(
         grid.getByRole('button', {
           name: 'Modifier Association Alpha (fictif)',

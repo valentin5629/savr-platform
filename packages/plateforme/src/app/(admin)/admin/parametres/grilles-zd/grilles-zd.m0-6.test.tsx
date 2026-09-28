@@ -4,7 +4,13 @@
  * création via POST (corps { nom, mode, paliers }), bandeau ops read-only.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import {
+  render,
+  screen,
+  waitFor,
+  fireEvent,
+  within,
+} from '@testing-library/react';
 
 const roleRef = vi.hoisted(() => ({ current: 'admin_savr' }));
 vi.mock('@/lib/use-user-role', () => ({
@@ -63,12 +69,19 @@ describe('M0.6 — Grilles ZD catalogue', () => {
     async () => {
       render(<GrillesZdPage />);
       await waitFor(
-        () => expect(screen.getByText('Grille standard V1')).toBeDefined(),
+        () =>
+          expect(
+            within(screen.getByRole('table')).getByText('Grille standard V1'),
+          ).toBeDefined(),
         ATTENTE_UI,
       );
-      expect(screen.getByText('Paliers (montant fixe)')).toBeDefined();
-      expect(screen.getByText('4')).toBeDefined();
-      expect(screen.getByText('Par défaut')).toBeDefined();
+      expect(
+        within(screen.getByRole('table')).getByText('Paliers (montant fixe)'),
+      ).toBeDefined();
+      expect(within(screen.getByRole('table')).getByText('4')).toBeDefined();
+      expect(
+        within(screen.getByRole('table')).getByText('Par défaut'),
+      ).toBeDefined();
     },
     ATTENTE_CAS_MS,
   );
@@ -78,7 +91,10 @@ describe('M0.6 — Grilles ZD catalogue', () => {
     async () => {
       render(<GrillesZdPage />);
       await waitFor(
-        () => expect(screen.getByText('Grille standard V1')).toBeDefined(),
+        () =>
+          expect(
+            within(screen.getByRole('table')).getByText('Grille standard V1'),
+          ).toBeDefined(),
         ATTENTE_UI,
       );
       fireEvent.click(screen.getByText('Créer une grille'));
@@ -124,7 +140,10 @@ describe('M0.6 — Grilles ZD catalogue', () => {
       roleRef.current = 'ops_savr';
       render(<GrillesZdPage />);
       await waitFor(
-        () => expect(screen.getByText('Grille standard V1')).toBeDefined(),
+        () =>
+          expect(
+            within(screen.getByRole('table')).getByText('Grille standard V1'),
+          ).toBeDefined(),
         ATTENTE_UI,
       );
       expect(

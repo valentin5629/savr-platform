@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import * as DropdownPrimitive from '@radix-ui/react-dropdown-menu';
+import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // Dropdown — menu contextuel (§10 §6 « Dropdown » : menu kebab). Bâti sur Radix
@@ -78,7 +79,34 @@ const DropdownSeparator = React.forwardRef<
 ));
 DropdownSeparator.displayName = 'DropdownSeparator';
 
+// Item à case à cocher (ex. menu « Colonnes » de DataGrid). L'appelant annule
+// `onSelect` pour garder le menu ouvert entre deux bascules.
+const DropdownCheckboxItem = React.forwardRef<
+  React.ElementRef<typeof DropdownPrimitive.CheckboxItem>,
+  React.ComponentPropsWithoutRef<typeof DropdownPrimitive.CheckboxItem>
+>(({ className, children, ...props }, ref) => (
+  <DropdownPrimitive.CheckboxItem
+    ref={ref}
+    className={cn(
+      'relative flex cursor-pointer select-none items-center gap-2 rounded-savr-sm py-2 pl-8 pr-2.5 text-sm text-savr-neutral-700',
+      'transition-colors data-[highlighted]:bg-savr-neutral-100 data-[highlighted]:text-savr-neutral-900',
+      'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+      className,
+    )}
+    {...props}
+  >
+    <span className="absolute left-2.5 flex h-4 w-4 items-center justify-center">
+      <DropdownPrimitive.ItemIndicator>
+        <Check className="h-4 w-4 text-savr-primary-700" aria-hidden="true" />
+      </DropdownPrimitive.ItemIndicator>
+    </span>
+    {children}
+  </DropdownPrimitive.CheckboxItem>
+));
+DropdownCheckboxItem.displayName = 'DropdownCheckboxItem';
+
 export {
+  DropdownCheckboxItem,
   Dropdown,
   DropdownTrigger,
   DropdownGroup,

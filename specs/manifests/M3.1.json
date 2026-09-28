@@ -285,7 +285,7 @@
     {
       "id": "M3.1-liste-carte-simplifiee",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:308-369",
-      "artefact": "packages/plateforme/src/components/collecte/collecte-card-traiteur.tsx",
+      "artefact": "packages/plateforme/src/components/collecte/collectes-traiteur-table.tsx",
       "test": "M3.1/card_traiteur_gating_readonly",
       "statut": "implemented",
       "libelle": "Carte simplifiée liste traiteur : Date/Heure/Lieu/Pax/Statut + gating actions (Modifier/Annuler par statut+canWrite ; Dupliquer toujours actif)"

@@ -2,7 +2,13 @@ import { redirect } from 'next/navigation';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import {
+  StatusBadge,
+  TableauBatchs,
+  TableauIntegrations,
+  type OpsBatch,
+  type OpsIntegration,
+} from './tableaux-sante';
 
 const ALLOWED_ROLES = ['admin_savr', 'ops_savr'];
 
@@ -18,19 +24,6 @@ interface OpsJobsPdf {
   nb_failed: number;
   max_tentatives: number | null;
   plus_ancien_at: string | null;
-}
-
-interface OpsIntegration {
-  service: string;
-  dernier_appel_at: string | null;
-  nb_echecs_24h: number;
-}
-
-interface OpsBatch {
-  job_name: string;
-  dernier_run_at: string | null;
-  statut: string | null;
-  nb_traite: number | null;
 }
 
 interface OpsFactureBloquee {
@@ -83,14 +76,6 @@ async function fetchOpsData() {
     batchs: (batchs.data ?? []) as OpsBatch[],
     facturesBloquees: (facturesBloquees.data ?? []) as OpsFactureBloquee[],
   };
-}
-
-function StatusBadge({ ok, label }: { ok: boolean; label?: string }) {
-  return (
-    <Badge variant={ok ? 'success' : 'error'}>
-      {label ?? (ok ? 'OK' : 'KO')}
-    </Badge>
-  );
 }
 
 export default async function SanteSystemePage() {
@@ -260,40 +245,7 @@ export default async function SanteSystemePage() {
           <CardTitle className="text-base">Intégrations externes</CardTitle>
         </CardHeader>
         <CardContent>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-savr-neutral-500">
-                <th className="pb-2 font-medium">Service</th>
-                <th className="pb-2 font-medium">Dernier appel</th>
-                <th className="pb-2 font-medium">Échecs 24h</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-savr-neutral-100">
-              {data.integrations.map((i) => (
-                <tr key={i.service}>
-                  <td className="py-1.5 font-medium uppercase">{i.service}</td>
-                  <td className="py-1.5 text-savr-neutral-500">
-                    {i.dernier_appel_at
-                      ? new Date(i.dernier_appel_at).toLocaleString('fr-FR', {
-                          timeZone: 'Europe/Paris',
-                        })
-                      : '—'}
-                  </td>
-                  <td className="py-1.5">
-                    <span
-                      className={
-                        i.nb_echecs_24h > 0
-                          ? 'text-savr-error font-medium'
-                          : 'text-savr-neutral-500'
-                      }
-                    >
-                      {i.nb_echecs_24h}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <TableauIntegrations integrations={data.integrations} />
         </CardContent>
       </Card>
 
@@ -303,45 +255,7 @@ export default async function SanteSystemePage() {
           <CardTitle className="text-base">Batchs cron</CardTitle>
         </CardHeader>
         <CardContent>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-savr-neutral-500">
-                <th className="pb-2 font-medium">Job</th>
-                <th className="pb-2 font-medium">Dernier run</th>
-                <th className="pb-2 font-medium">Statut</th>
-                <th className="pb-2 font-medium">Traités</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-savr-neutral-100">
-              {data.batchs.map((b) => (
-                <tr key={b.job_name}>
-                  <td className="py-1.5 font-mono text-xs">{b.job_name}</td>
-                  <td className="py-1.5 text-savr-neutral-500">
-                    {b.dernier_run_at
-                      ? new Date(b.dernier_run_at).toLocaleString('fr-FR', {
-                          timeZone: 'Europe/Paris',
-                        })
-                      : '—'}
-                  </td>
-                  <td className="py-1.5">
-                    {b.statut ? (
-                      <StatusBadge
-                        ok={b.statut === 'completed'}
-                        label={b.statut}
-                      />
-                    ) : (
-                      <span className="text-savr-neutral-400 text-xs">
-                        jamais exécuté
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-1.5 text-savr-neutral-500">
-                    {b.nb_traite ?? '—'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <TableauBatchs batchs={data.batchs} />
         </CardContent>
       </Card>
     </div>

@@ -1245,6 +1245,19 @@ describe('M3.2 / mon-organisation / users (F5)', () => {
       lien_invitation?: string;
     };
     expect(emailVars.lien_invitation).toBeTruthy();
+    // `redirectTo` doit viser la route d'échange PKCE (`/api/auth/reset-password
+    // /confirm`) — `/auth/new-password` n'existe pas (404), régression mesurée
+    // 2026-09-28.
+    expect(mockGenerateLink).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'recovery',
+        options: expect.objectContaining({
+          redirectTo: expect.stringContaining(
+            '/api/auth/reset-password/confirm',
+          ),
+        }),
+      }),
+    );
   });
 
   it('M3.2/F5_invitation_rollback_auth_si_insert_echoue — deleteUser + 422 (pas de user orphelin)', async () => {

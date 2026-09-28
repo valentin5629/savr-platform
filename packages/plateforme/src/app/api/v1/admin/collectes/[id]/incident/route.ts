@@ -4,6 +4,7 @@ import { sendEmail } from '@savr/shared/src/email/index.js';
 import { notifierAdminAnnulation } from '@/lib/notifications/traiteur-operationnel.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { readJsonBody, serverError, withApiTrace } from '@/lib/api-helpers.js';
+import { urlApplication } from '@/lib/url-application.js';
 
 // POST /api/v1/admin/collectes/[id]/incident — §05 §4bis « Gestion des incidents »
 // Flux incident (collecte manquée / refus / pesée) : passe la collecte à `annulee`
@@ -131,7 +132,7 @@ async function postHandler(
     type_incident: 'collecte_manquee',
     imputable_a: imputable,
     description: motif,
-    lien_collecte: `https://app.gosavr.io/admin/collectes/${id}`,
+    lien_collecte: urlApplication(req, `/admin/collectes/${id}`),
   });
 
   // Notification automatique au client (§05 §4bis l.347) : le programmeur de la

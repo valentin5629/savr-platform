@@ -87,3 +87,35 @@ export function urlApplication(req: NextRequest, chemin: string): string {
   }
   return new URL(chemin, req.nextUrl.origin).toString();
 }
+
+/**
+ * Variante sans requête, pour les contextes sans `NextRequest` sous la main
+ * (cron, triggers DB relayés en best-effort — ex. `notify-pack-etat.ts`,
+ * notifications traiteur). Sans requête, il n'y a pas d'origine de repli :
+ * `NEXT_PUBLIC_APP_URL` est alors la SEULE source possible du domaine.
+ *
+ * On TRACE, on ne LÈVE PAS : ces envois sont best-effort (souvent lancés en
+ * `void notifier...(...)`), une exception ici ferait perdre tout le reste du
+ * contenu de l'email pour une variable d'environnement mal configurée. Le
+ * lien résultant (`chemin` nu, relatif) est inutilisable, mais le reste de
+ * l'email — date, lieu, flux — reste utile, et l'erreur est visible dans les
+ * logs pour être corrigée côté configuration.
+ */
+export function urlCanonique(chemin: string): string {
+  const canonique = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (!canonique) {
+    logger.error('url_application.variable_absente_hors_requete', {
+      chemin: chemin.split('?')[0],
+    });
+    return chemin;
+  }
+  try {
+    return new URL(chemin, canonique).toString();
+  } catch {
+    logger.error('url_application.variable_mal_formee_hors_requete', {
+      valeur: canonique,
+      chemin: chemin.split('?')[0],
+    });
+    return chemin;
+  }
+}

@@ -29,6 +29,7 @@ import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
 import { Textarea } from '@/components/ui/textarea';
+import { DataGrid, type ColumnDef } from '@/components/ui/data-grid';
 import { useUserRole } from '@/lib/use-user-role';
 import {
   OngletCollectes,
@@ -143,6 +144,102 @@ const TYPES_PACK = [
   { value: 'pack_60', label: '60 collectes' },
   { value: 'personnalise', label: 'Personnalisé' },
 ] as const;
+
+type UserRow = OrgDetail['users'][number];
+type PackRow = OrgDetail['packs_antgaspi'][number];
+
+// Utilisateurs et packs sont embarqués dans la fiche organisation (route
+// détail sans pagination) : listes complètes → tri navigateur.
+const COLONNES_USERS: ColumnDef<UserRow, unknown>[] = [
+  {
+    id: 'nom',
+    header: 'Nom',
+    accessorFn: (u) => `${u.prenom} ${u.nom}`,
+    meta: { className: 'font-medium' },
+    cell: ({ row: { original: u } }) => (
+      <>
+        {u.prenom} {u.nom}
+      </>
+    ),
+  },
+  {
+    id: 'email',
+    header: 'Email',
+    accessorFn: (u) => u.email,
+    meta: { className: 'text-savr-neutral-500' },
+    cell: ({ row: { original: u } }) => u.email,
+  },
+  {
+    id: 'role',
+    header: 'Rôle',
+    accessorFn: (u) => u.role,
+    cell: ({ row: { original: u } }) => (
+      <Badge variant="neutral" className="text-xs">
+        {u.role}
+      </Badge>
+    ),
+  },
+  {
+    id: 'statut',
+    header: 'Statut',
+    accessorFn: (u) => (u.actif ? 'Actif' : 'Suspendu'),
+    cell: ({ row: { original: u } }) =>
+      u.actif ? (
+        <Badge variant="success" className="text-xs">
+          Actif
+        </Badge>
+      ) : (
+        <Badge variant="neutral" className="text-xs">
+          Suspendu
+        </Badge>
+      ),
+  },
+];
+
+const COLONNES_PACKS: ColumnDef<PackRow, unknown>[] = [
+  {
+    id: 'type',
+    header: 'Type',
+    accessorFn: (p) => p.type_pack,
+    meta: { className: 'font-medium' },
+    cell: ({ row: { original: p } }) => p.type_pack,
+  },
+  {
+    id: 'credits_initiaux',
+    header: 'Crédits initiaux',
+    accessorFn: (p) => p.credits_initiaux,
+    cell: ({ row: { original: p } }) => p.credits_initiaux,
+  },
+  {
+    id: 'credits_consommes',
+    header: 'Consommés',
+    accessorFn: (p) => p.credits_consommes,
+    cell: ({ row: { original: p } }) => p.credits_consommes,
+  },
+  {
+    id: 'statut',
+    header: 'Statut',
+    accessorFn: (p) => p.statut,
+    cell: ({ row: { original: p } }) => (
+      <Badge
+        variant={STATUT_PACK_BADGE[p.statut] ?? 'neutral'}
+        className="text-xs"
+      >
+        {p.statut}
+      </Badge>
+    ),
+  },
+  {
+    id: 'date_achat',
+    header: 'Date achat',
+    accessorFn: (p) => p.created_at,
+    meta: { className: 'text-savr-neutral-500' },
+    cell: ({ row: { original: p } }) =>
+      new Date(p.created_at).toLocaleDateString('fr-FR', {
+        timeZone: 'Europe/Paris',
+      }),
+  },
+];
 
 // BlocHeader — gabarit Design System partagé avec les fiches association (#255)
 // et collecte (#226/#257) : pastille primary + titre extrabold tracking serré
@@ -510,42 +607,11 @@ export default function ClientFichePage({
                 description="Invitez le premier utilisateur."
               />
             ) : (
-              <table className="w-full text-sm">
-                <thead className="text-left text-savr-neutral-500">
-                  <tr>
-                    <th className="pb-2">Nom</th>
-                    <th className="pb-2">Email</th>
-                    <th className="pb-2">Rôle</th>
-                    <th className="pb-2">Statut</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {org.users.map((u) => (
-                    <tr key={u.id} className="border-t border-savr-neutral-100">
-                      <td className="py-2 font-medium">
-                        {u.prenom} {u.nom}
-                      </td>
-                      <td className="py-2 text-savr-neutral-500">{u.email}</td>
-                      <td className="py-2">
-                        <Badge variant="neutral" className="text-xs">
-                          {u.role}
-                        </Badge>
-                      </td>
-                      <td className="py-2">
-                        {u.actif ? (
-                          <Badge variant="success" className="text-xs">
-                            Actif
-                          </Badge>
-                        ) : (
-                          <Badge variant="neutral" className="text-xs">
-                            Suspendu
-                          </Badge>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <DataGrid
+                columns={COLONNES_USERS}
+                data={org.users}
+                getRowId={(u) => u.id}
+              />
             )}
           </Card>
         </TabsContent>
@@ -647,39 +713,12 @@ export default function ClientFichePage({
           {org.packs_antgaspi.length > 0 && (
             <Card className="p-6">
               <h3 className="mb-4 font-medium">Historique des packs</h3>
-              <table className="w-full text-sm">
-                <thead className="text-left text-savr-neutral-500">
-                  <tr>
-                    <th className="pb-2">Type</th>
-                    <th className="pb-2">Crédits initiaux</th>
-                    <th className="pb-2">Consommés</th>
-                    <th className="pb-2">Statut</th>
-                    <th className="pb-2">Date achat</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {org.packs_antgaspi.map((p) => (
-                    <tr key={p.id} className="border-t border-savr-neutral-100">
-                      <td className="py-2 font-medium">{p.type_pack}</td>
-                      <td className="py-2">{p.credits_initiaux}</td>
-                      <td className="py-2">{p.credits_consommes}</td>
-                      <td className="py-2">
-                        <Badge
-                          variant={STATUT_PACK_BADGE[p.statut] ?? 'neutral'}
-                          className="text-xs"
-                        >
-                          {p.statut}
-                        </Badge>
-                      </td>
-                      <td className="py-2 text-savr-neutral-500">
-                        {new Date(p.created_at).toLocaleDateString('fr-FR', {
-                          timeZone: 'Europe/Paris',
-                        })}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <DataGrid
+                columns={COLONNES_PACKS}
+                data={org.packs_antgaspi}
+                getRowId={(p) => p.id}
+                initialSorting={[{ id: 'date_achat', desc: true }]}
+              />
             </Card>
           )}
 

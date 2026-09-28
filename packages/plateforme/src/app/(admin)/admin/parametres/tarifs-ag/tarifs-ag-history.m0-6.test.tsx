@@ -5,7 +5,13 @@
  * versionnée (pas de table _history — garde-fou 1).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import {
+  render,
+  screen,
+  waitFor,
+  fireEvent,
+  within,
+} from '@testing-library/react';
 
 const roleRef = vi.hoisted(() => ({ current: 'admin_savr' }));
 vi.mock('@/lib/use-user-role', () => ({
@@ -59,12 +65,19 @@ describe('M0.6 — Tarifs AG historique', () => {
       );
       fireEvent.click(screen.getAllByText('Historique')[0]!);
       await waitFor(
-        () => expect(screen.getByText('Louis Martin')).toBeDefined(),
+        () =>
+          expect(
+            within(screen.getByRole('table')).getByText('Louis Martin'),
+          ).toBeDefined(),
         ATTENTE_UI,
       );
       // en-têtes de la modale historique
-      expect(screen.getByText('Modifié par')).toBeDefined();
-      expect(screen.getByText('Date modif')).toBeDefined();
+      expect(
+        within(screen.getByRole('table')).getByText('Modifié par'),
+      ).toBeDefined();
+      expect(
+        within(screen.getByRole('table')).getByText('Date modif'),
+      ).toBeDefined();
     },
     ATTENTE_CAS_MS,
   );

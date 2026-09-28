@@ -1,9 +1,18 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Download, Truck } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { CollecteStatutBadge } from '@/components/ui/collecte-statut-badge';
+import {
+  CelluleVide,
+  DataGrid,
+  type ColumnDef,
+} from '@/components/ui/data-grid';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHero } from '@/components/ui/page-hero';
+import { libelleDateHeure } from '@/lib/format-date-collecte';
 import {
   CollecteTypeTabs,
   type CollecteType,
@@ -35,6 +44,90 @@ interface CollecteRow {
 function one<T>(v: T | T[] | null): T | null {
   if (!v) return null;
   return Array.isArray(v) ? (v[0] ?? null) : v;
+}
+
+// Colonnes de la Data Table (tri côté client : la route n'est pas paginée).
+// La colonne résultat dépend de l'onglet : taux de recyclage ZD, repas AG.
+function colonnes(isZd: boolean): ColumnDef<CollecteRow, unknown>[] {
+  return [
+    {
+      id: 'date',
+      header: 'Date',
+      enableHiding: false,
+      accessorFn: (c) => `${c.date_collecte} ${c.heure_collecte ?? ''}`,
+      cell: ({ row: { original: c } }) => (
+        <span className="whitespace-nowrap font-semibold tabular-nums">
+          {libelleDateHeure(c.date_collecte, c.heure_collecte)}
+        </span>
+      ),
+    },
+    {
+      id: 'evenement',
+      header: 'Événement',
+      accessorFn: (c) => one(c.evenements)?.nom_evenement ?? '',
+      cell: ({ row: { original: c } }) =>
+        one(c.evenements)?.nom_evenement ?? <CelluleVide />,
+    },
+    {
+      id: 'lieu',
+      header: 'Lieu',
+      accessorFn: (c) => one(one(c.evenements)?.lieux ?? null)?.nom ?? '',
+      cell: ({ row: { original: c } }) => {
+        const lieu = one(one(c.evenements)?.lieux ?? null);
+        if (!lieu) return <CelluleVide />;
+        return (
+          <div className="min-w-0">
+            <div className="font-medium">{lieu.nom}</div>
+            <div className="text-xs text-savr-neutral-500">
+              {[lieu.code_postal, lieu.ville].filter(Boolean).join(' ')}
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      id: 'traiteur',
+      header: 'Traiteur',
+      accessorFn: (c) => c.traiteur_nom ?? '',
+      cell: ({ row: { original: c } }) => c.traiteur_nom ?? <CelluleVide />,
+    },
+    {
+      id: 'pax',
+      header: 'Pax',
+      accessorFn: (c) => one(c.evenements)?.pax ?? -1,
+      meta: { className: 'text-right tabular-nums' },
+      cell: ({ row: { original: c } }) =>
+        one(c.evenements)?.pax ?? <CelluleVide />,
+    },
+    isZd
+      ? {
+          id: 'recyclage',
+          header: 'Recyclage',
+          accessorFn: (c) => c.taux_recyclage ?? -1,
+          meta: { className: 'text-right tabular-nums' },
+          cell: ({ row: { original: c } }) =>
+            c.taux_recyclage != null ? (
+              `${c.taux_recyclage.toFixed(1)} %`
+            ) : (
+              <CelluleVide />
+            ),
+        }
+      : {
+          id: 'repas',
+          header: 'Repas',
+          accessorFn: (c) => c.repas_donnes ?? -1,
+          meta: { className: 'text-right tabular-nums' },
+          cell: ({ row: { original: c } }) => c.repas_donnes ?? <CelluleVide />,
+        },
+    {
+      id: 'statut',
+      header: 'Statut',
+      accessorFn: (c) => c.statut,
+      cell: ({ row: { original: c } }) => (
+        <CollecteStatutBadge statut={c.statut} />
+      ),
+    },
+  ];
 }
 
 // §11 §7 — Liste des événements/collectes du client organisateur, lecture seule.
@@ -69,6 +162,7 @@ function CollectesContent() {
   }
 
   const isZd = tab === 'zero_dechet';
+  const cols = useMemo(() => colonnes(isZd), [isZd]);
 
   function exportCsv() {
     const qs = new URLSearchParams({ type: tab });
@@ -80,78 +174,37 @@ function CollectesContent() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-savr-primary-800">
-          Mes collectes
-        </h1>
-        <Button variant="ghost" onClick={exportCsv}>
-          Exporter CSV
-        </Button>
-      </div>
+    <div className="space-y-5">
+      <PageHero
+        icon={<Truck className="h-6 w-6 text-savr-primary-200" />}
+        title="Mes collectes"
+        subtitle="Collectes de vos événements, en lecture seule"
+        actions={
+          <Button variant="secondary" onClick={exportCsv}>
+            <Download className="h-4 w-4" />
+            Exporter CSV
+          </Button>
+        }
+      />
 
       <CollecteTypeTabs value={tab} onChange={changeTab} />
 
-      {loading ? (
-        <p className="text-sm text-savr-neutral-500">Chargement…</p>
-      ) : rows.length === 0 ? (
-        <p className="text-sm text-savr-neutral-500">
-          Aucune collecte sur la période sélectionnée.
-        </p>
-      ) : (
-        <div className="overflow-x-auto rounded-savr-md border border-savr-neutral-200">
-          <table className="w-full text-sm">
-            <thead className="bg-savr-neutral-50 text-left text-xs uppercase text-savr-neutral-500">
-              <tr>
-                <th className="px-3 py-2">Date</th>
-                <th className="px-3 py-2">Événement</th>
-                <th className="px-3 py-2">Lieu</th>
-                <th className="px-3 py-2">Traiteur</th>
-                <th className="px-3 py-2">Pax</th>
-                <th className="px-3 py-2">{isZd ? 'Recyclage' : 'Repas'}</th>
-                <th className="px-3 py-2">Statut</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((c) => {
-                const evt = one(c.evenements);
-                const lieu = one(evt?.lieux ?? null);
-                return (
-                  <tr key={c.id} className="border-t border-savr-neutral-100">
-                    <td className="px-3 py-2 whitespace-nowrap">
-                      {c.date_collecte}
-                      {c.heure_collecte
-                        ? ` ${c.heure_collecte.slice(0, 5)}`
-                        : ''}
-                    </td>
-                    <td className="px-3 py-2">{evt?.nom_evenement ?? '—'}</td>
-                    <td className="px-3 py-2">
-                      <div className="font-medium">{lieu?.nom ?? '—'}</div>
-                      <div className="text-xs text-savr-neutral-500">
-                        {[lieu?.code_postal, lieu?.ville]
-                          .filter(Boolean)
-                          .join(' ')}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2">{c.traiteur_nom ?? '—'}</td>
-                    <td className="px-3 py-2">{evt?.pax ?? '—'}</td>
-                    <td className="px-3 py-2">
-                      {isZd
-                        ? c.taux_recyclage != null
-                          ? `${c.taux_recyclage.toFixed(1)} %`
-                          : '—'
-                        : (c.repas_donnes ?? '—')}
-                    </td>
-                    <td className="px-3 py-2">
-                      <CollecteStatutBadge statut={c.statut} />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <DataGrid
+        key={tab}
+        data-testid="collectes-table"
+        columns={cols}
+        data={rows}
+        getRowId={(c) => c.id}
+        loading={loading}
+        initialSorting={[{ id: 'date', desc: true }]}
+        empty={
+          <EmptyState
+            icon={<Truck className="h-8 w-8" />}
+            title="Aucune collecte"
+            description="Aucune collecte sur la période sélectionnée."
+          />
+        }
+      />
     </div>
   );
 }

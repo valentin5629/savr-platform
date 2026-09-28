@@ -26,6 +26,7 @@ type Association = AssociationRecord & {
 const columns: Column<Association>[] = [
   {
     key: 'nom',
+    sortable: true,
     header: 'Nom',
     render: (row) => (
       <span className="font-medium text-savr-neutral-900">{row.nom}</span>
@@ -45,6 +46,7 @@ const columns: Column<Association>[] = [
   },
   {
     key: 'capacite_max_beneficiaires',
+    sortable: true,
     header: 'Capacité max',
     render: (row) =>
       row.capacite_max_beneficiaires ?? (
@@ -69,6 +71,12 @@ export default function AssociationsPage() {
   const [q, setQ] = useState('');
   const [actif, setActif] = useState('true');
   const [page, setPage] = useState(1);
+  // Tri serveur de la Data Table (liste paginée) : envoyé à l'API, retour
+  // en page 1 à chaque changement (cf. lib/tri-liste).
+  const [tri, setTri] = useState<{ cle: string; ordre: 'asc' | 'desc' }>({
+    cle: 'nom',
+    ordre: 'asc',
+  });
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Association | null>(null);
@@ -76,6 +84,8 @@ export default function AssociationsPage() {
   const fetchAssociations = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams({ page: String(page), actif });
+    params.set('tri', tri.cle);
+    params.set('ordre', tri.ordre);
     if (q) params.set('q', q);
     const res = await fetch(`/api/v1/admin/associations?${params}`);
     if (res.ok) {
@@ -87,7 +97,7 @@ export default function AssociationsPage() {
       setTotal(json.total);
     }
     setLoading(false);
-  }, [page, actif, q]);
+  }, [page, actif, q, tri]);
 
   useEffect(() => {
     void fetchAssociations();
@@ -194,6 +204,12 @@ export default function AssociationsPage() {
             columns={columnsWithActions}
             data={associations}
             keyExtractor={(row) => row.id}
+            onSort={(cle, ordre) => {
+              setTri({ cle, ordre });
+              setPage(1);
+            }}
+            sortKey={tri.cle}
+            sortDirection={tri.ordre}
             onRowClick={openEdit}
           />
           {total > 50 && (

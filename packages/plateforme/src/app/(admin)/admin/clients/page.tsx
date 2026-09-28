@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Pagination } from '@/components/ui/pagination';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ImpersonationLauncher } from '@/components/ui/impersonation-launcher';
 import { PageHero } from '@/components/ui/page-hero';
@@ -58,6 +59,7 @@ function initiales(nom: string): string {
 const columns: Column<Organisation>[] = [
   {
     key: 'raison_sociale',
+    sortable: true,
     header: 'Nom',
     render: (row) => (
       <a
@@ -76,6 +78,7 @@ const columns: Column<Organisation>[] = [
   },
   {
     key: 'type',
+    sortable: true,
     header: 'Type',
     render: (row) => (
       <Badge variant="neutral">
@@ -108,6 +111,7 @@ const columns: Column<Organisation>[] = [
   },
   {
     key: 'actif',
+    sortable: true,
     header: 'Statut',
     render: (row) =>
       row.actif ? (
@@ -126,12 +130,32 @@ export default function ClientsPage() {
   const [typeFilter, setTypeFilter] = useState('');
   const [actifFilter, setActifFilter] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
+  // Liste paginée côté serveur (50 par page) : recherche, tri et page sont
+  // envoyés à l'API. Avant, seule la 1re page était chargée et la recherche
+  // filtrait ces 50 lignes → les organisations suivantes étaient invisibles.
+  const [page, setPage] = useState(1);
+  const [tri, setTri] = useState<{ cle: string; ordre: 'asc' | 'desc' }>({
+    cle: 'raison_sociale',
+    ordre: 'asc',
+  });
+  // Recherche envoyée après une courte pause de frappe (pas un appel par touche).
+  const [q, setQ] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setQ(search.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [search]);
 
   const fetchOrgs = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams();
+    const params = new URLSearchParams({ page: String(page) });
     if (typeFilter) params.set('type', typeFilter);
     if (actifFilter) params.set('actif', actifFilter);
+    if (q) params.set('q', q);
+    params.set('tri', tri.cle);
+    params.set('ordre', tri.ordre);
 
     const res = await fetch(`/api/v1/admin/organisations?${params.toString()}`);
     if (res.ok) {
@@ -143,17 +167,11 @@ export default function ClientsPage() {
       setTotal(json.total);
     }
     setLoading(false);
-  }, [typeFilter, actifFilter]);
+  }, [typeFilter, actifFilter, q, tri, page]);
 
   useEffect(() => {
     void fetchOrgs();
   }, [fetchOrgs]);
-
-  const filtered = search
-    ? orgs.filter((o) =>
-        o.raison_sociale.toLowerCase().includes(search.toLowerCase()),
-      )
-    : orgs;
 
   return (
     <div className="space-y-6">
@@ -206,7 +224,10 @@ export default function ClientsPage() {
               })),
             ]}
             value={typeFilter}
-            onChange={setTypeFilter}
+            onChange={(v) => {
+              setTypeFilter(v);
+              setPage(1);
+            }}
           />
         </FormField>
         <FormField label="Statut" htmlFor="clients-statut">
@@ -220,7 +241,10 @@ export default function ClientsPage() {
               { value: 'false', label: 'Inactifs' },
             ]}
             value={actifFilter}
-            onChange={setActifFilter}
+            onChange={(v) => {
+              setActifFilter(v);
+              setPage(1);
+            }}
           />
         </FormField>
       </FilterBar>
@@ -231,7 +255,7 @@ export default function ClientsPage() {
             <Skeleton key={i} className="h-12 w-full" />
           ))}
         </div>
-      ) : filtered.length === 0 ? (
+      ) : orgs.length === 0 ? (
         <EmptyState
           icon={<Building2 />}
           title="Aucune organisation"
@@ -242,11 +266,27 @@ export default function ClientsPage() {
           }
         />
       ) : (
-        <DataTable
-          columns={columns}
-          data={filtered}
-          keyExtractor={(row) => row.id}
-        />
+        <>
+          <DataTable
+            columns={columns}
+            data={orgs}
+            keyExtractor={(row) => row.id}
+            onSort={(cle, ordre) => {
+              setTri({ cle, ordre });
+              setPage(1);
+            }}
+            sortKey={tri.cle}
+            sortDirection={tri.ordre}
+          />
+          {total > 50 && (
+            <Pagination
+              page={page}
+              pageCount={Math.ceil(total / 50)}
+              onPageChange={setPage}
+              className="justify-end"
+            />
+          )}
+        </>
       )}
 
       <OrganisationModal

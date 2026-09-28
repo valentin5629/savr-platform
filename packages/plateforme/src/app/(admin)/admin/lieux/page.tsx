@@ -15,6 +15,7 @@ import { Pagination } from '@/components/ui/pagination';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { LieuModal } from '@/components/admin/lieu-modal';
+import { CelluleVide } from '@/components/ui/data-grid';
 
 interface Lieu {
   id: string;
@@ -51,10 +52,8 @@ const VEHICULE_LABEL: Record<string, string> = {
   poids_lourd: 'Poids lourd',
 };
 
-const Vide = () => <span className="text-savr-neutral-400">—</span>;
-
 function DifficulteCell({ value }: { value: string | null }) {
-  if (!value) return <Vide />;
+  if (!value) return <CelluleVide />;
   return (
     <Badge variant={DIFFICULTE_VARIANT[value] ?? 'neutral'} dot={false}>
       {DIFFICULTE_LABEL[value] ?? value}
@@ -72,6 +71,12 @@ export default function LieuxPage() {
   const [actif, setActif] = useState('true');
   const [tab, setTab] = useState<'referentiel' | 'modifs'>('referentiel');
   const [page, setPage] = useState(1);
+  // Tri serveur de la Data Table (liste paginée) : envoyé à l'API, retour
+  // en page 1 à chaque changement (cf. lib/tri-liste).
+  const [tri, setTri] = useState<{ cle: string; ordre: 'asc' | 'desc' }>({
+    cle: 'nom',
+    ordre: 'asc',
+  });
   const [normalisingId, setNormalisingId] = useState<string | null>(null);
 
   // Modale création/édition — point unique (remplace les pages nouveau/[id]).
@@ -90,6 +95,8 @@ export default function LieuxPage() {
   const fetchLieux = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams({ page: String(page) });
+    params.set('tri', tri.cle);
+    params.set('ordre', tri.ordre);
     if (tab === 'modifs') {
       params.set('worklist', 'modifs');
     } else {
@@ -104,7 +111,7 @@ export default function LieuxPage() {
       if (tab === 'referentiel') setNbReferentiel(json.total);
     }
     setLoading(false);
-  }, [page, actif, q, tab]);
+  }, [page, actif, q, tab, tri]);
 
   useEffect(() => {
     void fetchLieux();
@@ -147,9 +154,13 @@ export default function LieuxPage() {
   const columns: Column<Lieu>[] = [
     {
       key: 'nom',
+      sortable: true,
       header: 'Nom',
       render: (row) => (
-        <div className="flex items-center gap-2">
+        // Largeur minimale : sans elle, 9 colonnes se partagent la largeur et
+        // un nom comme « Adresse libre — Lyon » passait sur 3 lignes (retour
+        // Val 2026-09-28).
+        <div className="flex min-w-[220px] items-center gap-2">
           <button
             type="button"
             onClick={(e) => {
@@ -170,26 +181,30 @@ export default function LieuxPage() {
     },
     {
       key: 'ville',
+      sortable: true,
       header: 'Ville',
-      render: (row) => row.ville || <Vide />,
+      render: (row) => row.ville || <CelluleVide />,
     },
     {
       key: 'gestionnaire_nom',
       header: 'Gestionnaire',
-      render: (row) => row.gestionnaire_nom ?? <Vide />,
+      render: (row) => row.gestionnaire_nom ?? <CelluleVide />,
     },
     {
       key: 'acces_office',
+      sortable: true,
       header: 'Accès office',
       render: (row) => <DifficulteCell value={row.acces_office} />,
     },
     {
       key: 'stationnement',
+      sortable: true,
       header: 'Stationnement',
       render: (row) => <DifficulteCell value={row.stationnement} />,
     },
     {
       key: 'type_vehicule_max',
+      sortable: true,
       header: 'Véhicule max',
       render: (row) =>
         row.type_vehicule_max ? (
@@ -197,27 +212,34 @@ export default function LieuxPage() {
             {VEHICULE_LABEL[row.type_vehicule_max] ?? row.type_vehicule_max}
           </Badge>
         ) : (
-          <Vide />
+          <CelluleVide />
         ),
     },
     {
       key: 'capacite_maximum',
+      sortable: true,
       header: 'Capacité max',
       render: (row) =>
-        row.capacite_maximum != null ? String(row.capacite_maximum) : <Vide />,
+        row.capacite_maximum != null ? (
+          String(row.capacite_maximum)
+        ) : (
+          <CelluleVide />
+        ),
     },
     {
       key: 'controle_acces_requis_default',
+      sortable: true,
       header: 'Contrôle accès',
       render: (row) =>
         row.controle_acces_requis_default ? (
           <Badge variant="warning">Requis</Badge>
         ) : (
-          <Vide />
+          <CelluleVide />
         ),
     },
     {
       key: 'actif',
+      sortable: true,
       header: 'Statut',
       render: (row) =>
         row.actif ? (
@@ -287,6 +309,12 @@ export default function LieuxPage() {
         columns={columns}
         data={lieux}
         keyExtractor={(row) => row.id}
+        onSort={(cle, ordre) => {
+          setTri({ cle, ordre });
+          setPage(1);
+        }}
+        sortKey={tri.cle}
+        sortDirection={tri.ordre}
         onRowClick={(row) => openEdit(row.id)}
       />
       {total > 50 && (

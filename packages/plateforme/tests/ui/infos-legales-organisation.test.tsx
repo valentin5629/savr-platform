@@ -11,6 +11,7 @@ import {
 } from '@/components/organisation/infos-legales-card.js';
 import { RgpdComptePanel } from '@/components/compte/rgpd-compte-panel.js';
 import { NAV_CONFIG } from '@/lib/nav-config.js';
+import { messageDeRole } from '@/test-utils/message-role';
 import { ATTENTE_UI, ATTENTE_CAS_MS } from '@/test-utils/attente-ui';
 
 const URL_PROFIL = '/api/v1/agence/mon-organisation/profil';
@@ -76,7 +77,8 @@ describe('Informations légales — carte partagée', () => {
       fireEvent.change(champ, { target: { value: '12345678900011' } });
       fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
       expect(
-        (await screen.findByRole('status', {}, ATTENTE_UI)).textContent,
+        (await messageDeRole('status', 'Informations enregistrées.'))
+          .textContent,
       ).toBe('Informations enregistrées.');
       const patch = fetchMock.mock.calls.find(([, i]) => i?.method === 'PATCH');
       expect(patch?.[0]).toBe(URL_PROFIL);
@@ -107,7 +109,8 @@ describe('Informations légales — carte partagée', () => {
       fireEvent.change(champ, { target: { value: '1 rue Neuve' } });
       fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
       expect(
-        (await screen.findByRole('alert', {}, ATTENTE_UI)).textContent,
+        (await messageDeRole('alert', /Adresse : 500 caractères maximum/))
+          .textContent,
       ).toMatch(/Adresse : 500 caractères maximum/);
     },
     ATTENTE_CAS_MS,
@@ -122,7 +125,7 @@ describe('Informations légales — carte partagée', () => {
       );
       render(<InfosLegalesOrganisation urlProfil={URL_PROFIL} />);
       expect(
-        (await screen.findByRole('alert', {}, ATTENTE_UI)).textContent,
+        (await messageDeRole('alert', /Impossible de charger/)).textContent,
       ).toMatch(/Impossible de charger/);
       expect(screen.queryByRole('textbox')).toBeNull();
     },
@@ -164,7 +167,8 @@ describe('Informations personnelles — chargement en échec', () => {
       );
       render(<RgpdComptePanel />);
       expect(
-        (await screen.findByRole('alert', {}, ATTENTE_UI)).textContent,
+        (await messageDeRole('alert', /Impossible de charger vos informations/))
+          .textContent,
       ).toMatch(/Impossible de charger vos informations/);
       expect(
         (screen.getByLabelText('Téléphone') as HTMLInputElement).disabled,

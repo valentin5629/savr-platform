@@ -211,7 +211,12 @@ export default function SignupPage() {
 
   return (
     <AuthPage>
+      {/* `key` : un formulaire NEUF par étape. Avec un seul <form> réutilisé,
+          React recyclait le bouton « Retour » cliqué en bouton submit avant que
+          le navigateur ne traite le clic → l'étape 1 se re-soumettait et
+          renvoyait à l'étape 2 (revue 2026-09-28). */}
       <AuthCard
+        key={etape}
         titre="Créer un compte Savr"
         description={
           <>

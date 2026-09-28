@@ -110,9 +110,8 @@ function LoginForm() {
 
   return (
     <AuthCard
-      titre="Connexion à votre compte"
-      description="Saisissez votre email pour vous connecter à Savr."
-      action={
+      titre="Connexion à Savr"
+      sousCarte={
         // Sans ce lien, /signup n'était atteignable qu'en tapant l'URL.
         <Link href="/signup" className={authLienClass}>
           Créer un compte
@@ -142,17 +141,7 @@ function LoginForm() {
         />
       </FormField>
       <div className="space-y-1">
-        <div className="mb-1.5 flex items-center justify-between gap-4">
-          <Label htmlFor="login-mot-de-passe" className="mb-0">
-            Mot de passe
-          </Label>
-          <Link
-            href="/reset-password"
-            className="-my-3 inline-flex items-center py-3 text-sm text-savr-neutral-700 underline-offset-4 hover:text-savr-primary-700 hover:underline"
-          >
-            Mot de passe oublié ?
-          </Link>
-        </div>
+        <Label htmlFor="login-mot-de-passe">Mot de passe</Label>
         <Input
           id="login-mot-de-passe"
           type="password"
@@ -161,6 +150,11 @@ function LoginForm() {
           value={motDePasse}
           onChange={(e) => setMotDePasse(e.target.value)}
         />
+        <div className="flex justify-end pt-1">
+          <Link href="/reset-password" className={authLienClass}>
+            Mot de passe oublié ?
+          </Link>
+        </div>
       </div>
       {erreur && <p className="text-sm text-savr-error">{erreur}</p>}
     </AuthCard>

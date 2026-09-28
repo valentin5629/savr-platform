@@ -59,7 +59,7 @@ function DemandeResetForm() {
     return (
       <AuthCard
         titre="Vérifiez votre boîte mail"
-        pied={
+        sousCarte={
           <Link href="/login" className={authLienClass}>
             Retour à la connexion
           </Link>
@@ -82,9 +82,9 @@ function DemandeResetForm() {
     <AuthCard
       titre="Mot de passe oublié"
       description="Indiquez votre adresse email : nous vous envoyons un lien pour choisir un nouveau mot de passe."
-      action={
+      sousCarte={
         <Link href="/login" className={authLienClass}>
-          Se connecter
+          Retour à la connexion
         </Link>
       }
       onSubmit={(e) => void handleSubmit(e)}

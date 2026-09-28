@@ -174,8 +174,7 @@ export default function SignupPage() {
       <AuthPage>
         <AuthCard
           titre="Vérifiez votre boîte mail"
-          className="max-w-md"
-          pied={
+          sousCarte={
             <Link href="/login" className={authLienClass}>
               Aller à la connexion
             </Link>
@@ -225,8 +224,8 @@ export default function SignupPage() {
             {etape === 3 && ' — mot de passe'}
           </>
         }
-        className={etape === 1 ? 'max-w-lg' : 'max-w-md'}
-        action={
+        className={etape === 1 ? 'max-w-lg' : undefined}
+        sousCarte={
           <Link href="/login" className={authLienClass}>
             J&apos;ai déjà un compte
           </Link>

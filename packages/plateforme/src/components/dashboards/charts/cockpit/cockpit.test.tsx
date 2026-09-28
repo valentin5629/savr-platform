@@ -401,12 +401,55 @@ it('BenchmarkRadar — survol d’un axe affiche Vous/Parc/Écart', () => {
     />,
   );
   expect(screen.queryByTestId('benchmark-radar-tooltip')).toBeNull();
-  fireEvent.mouseEnter(getByTestId('benchmark-radar-axe-0'));
+  // jsdom : rect nul → coordonnées en unités viewBox (centre 230,145).
+  fireEvent.mouseMove(getByTestId('benchmark-radar'), {
+    clientX: 230,
+    clientY: 60,
+  });
   const tip = screen.getByTestId('benchmark-radar-tooltip');
   expect(tip.textContent).toContain('Vous');
   expect(tip.textContent).toContain('Parc');
   expect(tip.textContent).toContain('Écart');
   expect(tip.textContent).toContain('−10 %');
+  fireEvent.mouseLeave(getByTestId('benchmark-radar'));
+  expect(screen.queryByTestId('benchmark-radar-tooltip')).toBeNull();
+});
+
+it('BenchmarkRadar — survol n’importe où sur le radar : l’axe le plus proche du curseur est retenu', () => {
+  const items = ['A', 'B', 'C', 'D', 'E'].map((label, k) => ({
+    label,
+    value: 0.1 + k / 100,
+    benchmark: 0.1,
+  }));
+  const { getByTestId } = render(<BenchmarkRadar items={items} />);
+  const svg = getByTestId('benchmark-radar');
+  // Bas-gauche du centre (angle ≈ 126°) → axe D (index 3, en bas à gauche).
+  fireEvent.mouseMove(svg, { clientX: 230 - 40, clientY: 145 + 55 });
+  expect(screen.getByTestId('benchmark-radar-tooltip').textContent).toMatch(
+    /^D/,
+  );
+  // Droite du centre (angle ≈ 0°) → axe B (index 1, à droite).
+  fireEvent.mouseMove(svg, { clientX: 230 + 80, clientY: 145 - 20 });
+  expect(screen.getByTestId('benchmark-radar-tooltip').textContent).toMatch(
+    /^B/,
+  );
+  // Le repère parc de l'axe survolé est matérialisé.
+  expect(screen.getByTestId('benchmark-radar-point-parc')).toBeInTheDocument();
+});
+
+it('BenchmarkRadar — survol d’une ligne de liste : axe mis en évidence, sans infobulle en double', () => {
+  render(
+    <BenchmarkRadar
+      items={[
+        { label: 'A', value: 0.1, benchmark: 0.1 },
+        { label: 'B', value: 0.1, benchmark: 0.1 },
+        { label: 'C', value: 0.1, benchmark: 0.1 },
+      ]}
+    />,
+  );
+  fireEvent.mouseEnter(screen.getAllByTestId('benchmark-radar-ligne')[1]!);
+  expect(screen.queryByTestId('benchmark-radar-tooltip')).toBeNull();
+  expect(screen.getByTestId('benchmark-radar-point-parc')).toBeInTheDocument();
 });
 
 it('BenchmarkRadar — indice parc = 100 : chaque flux a sa valeur, son repère et son écart ; flux manquant = n/d sans point', () => {

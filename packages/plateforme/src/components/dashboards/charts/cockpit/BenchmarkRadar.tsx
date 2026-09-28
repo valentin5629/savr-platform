@@ -9,6 +9,7 @@ import {
   NAVY,
   GRID,
   GRID_BASELINE,
+  INK,
   TEXT_MUTED,
   TEXT_FAINT,
   TEXT_XFAINT,
@@ -151,39 +152,64 @@ function LegendDot({
   );
 }
 
+function Serie({
+  color,
+  label,
+  valeur,
+}: {
+  color: string;
+  label: string;
+  valeur: string;
+}): React.ReactElement {
+  return (
+    <div className="flex items-center justify-between gap-6">
+      <span className="flex items-center gap-1.5 text-savr-neutral-600">
+        <span
+          aria-hidden
+          className="inline-block rounded-savr-full"
+          style={{ width: 10, height: 3, background: color }}
+        />
+        {label}
+      </span>
+      <span className="font-bold text-savr-neutral-900">{valeur}</span>
+    </div>
+  );
+}
+
 function Tooltip({ axe }: { axe: Axe }): React.ReactElement {
   const { item, ratio } = axe;
   return (
     <div
       data-testid="benchmark-radar-tooltip"
-      className="pointer-events-none whitespace-nowrap rounded-savr-md border border-savr-neutral-200 bg-savr-white px-3 py-2 shadow-savr-md"
+      className="min-w-[170px] whitespace-nowrap rounded-savr-md border border-savr-neutral-200 bg-savr-white px-3 py-2 shadow-savr-md"
     >
-      <div className="mb-1 text-[12px] font-bold text-savr-neutral-900">
+      <div className="mb-1.5 text-[12px] font-bold text-savr-neutral-900">
         {item.label}
       </div>
-      <div className="flex flex-col gap-0.5 text-[11px] tabular-nums">
-        <div className="flex justify-between gap-4">
-          <span className="text-savr-neutral-600">Vous</span>
-          <span className="font-bold">
-            {fini(item.value) ? `${fmtDec(item.value, 2)} kg/pax` : '—'}
-          </span>
-        </div>
-        {fini(item.benchmark) ? (
-          <div className="flex justify-between gap-4">
-            <span className="text-savr-neutral-600">Parc</span>
-            <span className="font-bold">
-              {fmtDec(item.benchmark, 2)} kg/pax
-            </span>
-          </div>
-        ) : (
-          <div className="text-savr-neutral-500">Parc : données manquantes</div>
-        )}
+      <div className="flex flex-col gap-1 text-[11px] tabular-nums">
+        <Serie
+          color={VOUS}
+          label="Vous"
+          valeur={fini(item.value) ? `${fmtDec(item.value, 2)} kg/pax` : '—'}
+        />
+        <Serie
+          color={PARC}
+          label="Parc"
+          valeur={
+            fini(item.benchmark)
+              ? `${fmtDec(item.benchmark, 2)} kg/pax`
+              : 'données manquantes'
+          }
+        />
         {ratio != null && (
-          <div className="flex justify-between gap-4 border-t border-savr-neutral-100 pt-0.5">
+          <div className="mt-0.5 flex items-center justify-between gap-6 border-t border-savr-neutral-100 pt-1">
             <span className="text-savr-neutral-600">Écart</span>
             <span
-              className="font-bold"
-              style={{ color: statutDe(ratio).badge }}
+              className="rounded-savr-md px-1.5 py-0.5 font-semibold"
+              style={{
+                color: statutDe(ratio).badge,
+                background: statutDe(ratio).bg,
+              }}
             >
               {ecartTxt(ratio)} · {statutDe(ratio).label}
             </span>
@@ -254,7 +280,15 @@ export function BenchmarkRadar({
   items,
   filtersSlot,
 }: BenchmarkRadarProps): React.ReactElement {
+  // Survol : axe actif + position du curseur (px, relative au conteneur) quand
+  // le survol vient du GRAPHE ; survol depuis la LISTE = axe seul (la ligne de
+  // liste porte déjà les valeurs, pas d'infobulle en double).
   const [hover, setHover] = React.useState<number | null>(null);
+  const [curseur, setCurseur] = React.useState<{
+    x: number;
+    y: number;
+    w: number;
+  } | null>(null);
   const n = items.length;
   const axes: Axe[] = items.map((item, i) => {
     const parcOk = fini(item.benchmark) && item.benchmark > 0;
@@ -282,10 +316,31 @@ export function BenchmarkRadar({
   );
 
   const focus = hover != null ? axes[hover] : undefined;
-  const focusLabel = focus ? point(focus.angle, LABEL_R) : null;
-  // Axes du bas : infobulle AU-DESSUS du libellé (sinon elle déborde sous le
-  // radar et recouvre la liste en affichage une colonne).
-  const tooltipDessus = focus != null && Math.sin(focus.angle) > 0.2;
+
+  // Survol n'importe où sur le radar → axe le plus proche de l'angle du curseur
+  // (comportement du Radar Chart shadcn/recharts), infobulle qui suit le curseur.
+  function onMove(e: React.MouseEvent<SVGSVGElement>): void {
+    if (n === 0) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const w = rect.width || VB_W; // jsdom : rect nul → coordonnées viewBox
+    const h = rect.height || VB_H;
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+    const dx = (px / w) * VB_W - CX;
+    const dy = (py / h) * VB_H - CY;
+    const pas = (2 * Math.PI) / n;
+    const i =
+      ((Math.round((Math.atan2(dy, dx) + Math.PI / 2) / pas) % n) + n) % n;
+    setHover(i);
+    setCurseur({ x: px, y: py, w });
+  }
+  function onLeave(): void {
+    setHover(null);
+    setCurseur(null);
+  }
+  // Infobulle poussée VERS L'EXTÉRIEUR (côté opposé au centre) : elle ne masque
+  // pas les lignes du radar que l'on est en train de lire.
+  const bulleAGauche = curseur != null && curseur.x < curseur.w / 2;
 
   return (
     <ChartCard
@@ -311,6 +366,9 @@ export function BenchmarkRadar({
             role="img"
             aria-label="Radar de l'intensité kg/pax par flux, indice parc = 100"
             data-testid="benchmark-radar"
+            onMouseMove={onMove}
+            onMouseLeave={onLeave}
+            style={{ cursor: 'crosshair' }}
           >
             {/* Grille polygonale (sans rayons — variante « lines only »). */}
             {anneaux.map((v) => (
@@ -324,6 +382,8 @@ export function BenchmarkRadar({
                 strokeWidth={1}
               />
             ))}
+            {/* Surface de capture du survol (le SVG seul ne capte que le tracé). */}
+            <rect x={0} y={0} width={VB_W} height={VB_H} fill="transparent" />
             {/* Axe survolé mis en évidence. */}
             {focus && (
               <line
@@ -331,8 +391,9 @@ export function BenchmarkRadar({
                 y1={CY}
                 x2={point(focus.angle, R)[0]}
                 y2={point(focus.angle, R)[1]}
-                stroke={GRID_BASELINE}
+                stroke={TEXT_XFAINT}
                 strokeWidth={1}
+                strokeDasharray="3 3"
               />
             )}
             <path
@@ -351,14 +412,28 @@ export function BenchmarkRadar({
               strokeLinejoin="round"
               strokeLinecap="round"
             />
+            {/* Repère parc de l'axe survolé (point visible seulement au survol). */}
+            {focus && hover != null && ptsParc[hover] && (
+              <circle
+                data-testid="benchmark-radar-point-parc"
+                cx={ptsParc[hover]![0]}
+                cy={ptsParc[hover]![1]}
+                r={4}
+                fill={PARC}
+                stroke="#FFFFFF"
+                strokeWidth={1.5}
+              />
+            )}
             {ptsVous.map((p, i) =>
               p ? (
                 <circle
                   key={i}
                   cx={p[0]}
                   cy={p[1]}
-                  r={hover === i ? 4.5 : 3}
+                  r={hover === i ? 5 : 3}
                   fill={VOUS}
+                  stroke={hover === i ? '#FFFFFF' : 'none'}
+                  strokeWidth={1.5}
                 />
               ) : null,
             )}
@@ -372,19 +447,7 @@ export function BenchmarkRadar({
                 <g
                   key={`${a.item.label}-${i}`}
                   data-testid={`benchmark-radar-axe-${i}`}
-                  onMouseEnter={() => setHover(i)}
-                  onMouseLeave={() => setHover(null)}
-                  style={{ cursor: 'default' }}
                 >
-                  {/* Zone de survol : secteur de l'axe (du centre au libellé). */}
-                  <line
-                    x1={CX}
-                    y1={CY}
-                    x2={lx}
-                    y2={ly}
-                    stroke="transparent"
-                    strokeWidth={28}
-                  />
                   <text
                     x={lx}
                     y={ly}
@@ -393,7 +456,11 @@ export function BenchmarkRadar({
                     style={{
                       fontSize: 13,
                       fontWeight: 700,
-                      fill: manquant ? TEXT_XFAINT : TEXT_MUTED,
+                      fill: manquant
+                        ? TEXT_XFAINT
+                        : hover === i
+                          ? INK
+                          : TEXT_MUTED,
                     }}
                   >
                     {a.item.label}
@@ -416,16 +483,16 @@ export function BenchmarkRadar({
               100
             </text>
           </svg>
-          {focus && focusLabel && (
+          {focus && curseur && (
             <div
               className={
-                tooltipDessus
-                  ? 'absolute z-20 -translate-x-1/2 -translate-y-full'
-                  : 'absolute z-20 -translate-x-1/2'
+                bulleAGauche
+                  ? 'pointer-events-none absolute z-20 -translate-x-full -translate-y-1/2'
+                  : 'pointer-events-none absolute z-20 -translate-y-1/2'
               }
               style={{
-                left: `${(focusLabel[0] / VB_W) * 100}%`,
-                top: `${((focusLabel[1] + (tooltipDessus ? -12 : 12)) / VB_H) * 100}%`,
+                left: curseur.x + (bulleAGauche ? -14 : 14),
+                top: curseur.y,
               }}
             >
               <Tooltip axe={focus} />
@@ -439,7 +506,10 @@ export function BenchmarkRadar({
                 key={`${a.item.label}-${i}`}
                 axe={a}
                 active={hover === i}
-                onHover={(on) => setHover(on ? i : null)}
+                onHover={(on) => {
+                  setCurseur(null);
+                  setHover(on ? i : null);
+                }}
               />
             ))}
           </ul>

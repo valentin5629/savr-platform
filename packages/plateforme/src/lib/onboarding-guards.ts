@@ -15,10 +15,6 @@ import { serverError } from '@/lib/api-helpers.js';
 const MESSAGE_ERREUR =
   'Erreur lors de la résolution de l’entité de facturation.';
 
-function isUniqueViolation(err: { code?: string } | null): boolean {
-  return err?.code === '23505';
-}
-
 async function lireEntiteActive(
   supabase: SupabaseClient,
   organisationId: string,
@@ -98,7 +94,7 @@ export async function requireCompletedOrganisation(
   if (creee) {
     return { ok: true, entiteFacturationId: (creee as { id: string }).id };
   }
-  if (isUniqueViolation(error)) {
+  if (error?.code === '23505') {
     const gagnante = await lireEntiteActive(supabase, organisationId);
     if (gagnante.id) return { ok: true, entiteFacturationId: gagnante.id };
   }

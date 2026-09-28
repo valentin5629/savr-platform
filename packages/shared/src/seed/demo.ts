@@ -786,16 +786,22 @@ export async function seedDemo(client: pg.Client): Promise<void> {
     .filter((r) => r.type === 'zero_dechet' && estExecutee(r))
     .forEach((r, i) => {
       const base = r.pax * 0.3;
+      const p = repartitionFlux(i);
       // Les 5 flux ZD présents sur chaque collecte (Bloc 2 barres empilées + Bloc 4 donut
       // utilisent les 5 flux : biodechet/emballage/carton/verre/dechet_residuel).
       fluxRows.push(
-        cflux(`cf_${r.slug}_bio`, r.slug, F('biodechet'), round1(base * 0.4)),
+        cflux(`cf_${r.slug}_bio`, r.slug, F('biodechet'), round1(base * p.bio)),
       );
       fluxRows.push(
-        cflux(`cf_${r.slug}_carton`, r.slug, F('carton'), round1(base * 0.25)),
+        cflux(
+          `cf_${r.slug}_carton`,
+          r.slug,
+          F('carton'),
+          round1(base * p.carton),
+        ),
       );
       fluxRows.push(
-        cflux(`cf_${r.slug}_emb`, r.slug, F('emballage'), round1(base * 0.15)),
+        cflux(`cf_${r.slug}_emb`, r.slug, F('emballage'), round1(base * p.emb)),
       );
       // verre : normal, ou alerte MIN (1 collecte / 40)
       fluxRows.push(
@@ -803,7 +809,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
           `cf_${r.slug}_verre`,
           r.slug,
           F('verre'),
-          i % 40 === 0 ? 1.5 : round1(base * 0.12),
+          i % 40 === 0 ? 1.5 : round1(base * p.verre),
         ),
       );
       // dechet_residuel : normal, ou alerte MAX (1 collecte / 40)
@@ -812,7 +818,7 @@ export async function seedDemo(client: pg.Client): Promise<void> {
           `cf_${r.slug}_residuel`,
           r.slug,
           F('dechet_residuel'),
-          i % 40 === 20 ? 5300 : round1(base * 0.08),
+          i % 40 === 20 ? 5300 : round1(base * p.residuel),
         ),
       );
     });
@@ -1421,6 +1427,38 @@ function siret(n: number): string {
 }
 function round1(n: number): number {
   return Math.round(n * 10) / 10;
+}
+/**
+ * Parts du poids d'une collecte ZD par flux (somme = 1), variées d'une collecte
+ * à l'autre. Avec des parts fixes, le taux de recyclage (Σ poids × captation /
+ * poids total) serait identique sur toutes les collectes quelle que soit leur
+ * taille → courbe « Taux de recyclage » plate sur les dashboards.
+ * Suite déterministe (parties fractionnaires d'irrationnels) : même seed à
+ * chaque rejeu. Résiduel ~3-30 % du poids.
+ */
+function repartitionFlux(i: number): {
+  bio: number;
+  carton: number;
+  emb: number;
+  verre: number;
+  residuel: number;
+} {
+  const u = (irr: number) => ((i + 1) * irr) % 1;
+  const brut = {
+    bio: 0.25 + 0.3 * u(0.6180339887),
+    carton: 0.15 + 0.15 * u(0.4142135624),
+    emb: 0.08 + 0.12 * u(0.7320508076),
+    verre: 0.05 + 0.12 * u(0.2360679775),
+    residuel: 0.03 + 0.27 * u(0.6457513111),
+  };
+  const total = brut.bio + brut.carton + brut.emb + brut.verre + brut.residuel;
+  return {
+    bio: brut.bio / total,
+    carton: brut.carton / total,
+    emb: brut.emb / total,
+    verre: brut.verre / total,
+    residuel: brut.residuel / total,
+  };
 }
 function org(slug: string, nom: string, type: string, raison: string): Row {
   return {
